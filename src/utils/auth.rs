@@ -1,15 +1,17 @@
 use super::base64;
 use super::mime;
-use crypto::sha1::Sha1;
 use crypto::hmac::Hmac;
 use crypto::mac::Mac;
+use crypto::sha1::Sha1;
 use http::Method;
-use std::fmt;
 use std::boxed::Box;
 use std::error::Error;
+use std::fmt;
 use std::result::Result;
 use std::string::String;
 use std::string::ToString;
+use std::time;
+use url::Url;
 
 pub struct Auth {
     access_key: String,
@@ -17,7 +19,10 @@ pub struct Auth {
 }
 
 impl Auth {
-    pub fn new<AccessKey: ToString, SecretKey: Into<Vec<u8>>>(access_key: AccessKey, secret_key: SecretKey) -> Auth {
+    pub fn new<AccessKey: ToString, SecretKey: Into<Vec<u8>>>(
+        access_key: AccessKey,
+        secret_key: SecretKey,
+    ) -> Auth {
         Auth {
             access_key: access_key.to_string(),
             secret_key: secret_key.into(),
@@ -60,7 +65,7 @@ impl Auth {
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
     ) -> Result<String, Box<Error>> {
-        let u = url::Url::parse(url_string.as_ref())?;
+        let u = Url::parse(url_string.as_ref())?;
         let mut data_to_sign = String::with_capacity(1024);
         data_to_sign.push_str(u.path());
         if let Some(query) = u.query() {
@@ -83,7 +88,7 @@ impl Auth {
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
     ) -> Result<String, Box<Error>> {
-        let u = url::Url::parse(url_string.as_ref())?;
+        let u = Url::parse(url_string.as_ref())?;
         let mut data_to_sign = String::with_capacity(1024);
         data_to_sign.push_str(method.as_str());
         data_to_sign.push(' ');
@@ -155,6 +160,50 @@ impl Auth {
         )?;
         Ok(original_authorization == expected_authorization)
     }
+
+    pub(crate) fn sign_download_url_with_deadline(
+        &self,
+        url: Url,
+        deadline: time::SystemTime,
+        only_path: bool,
+    ) -> Result<String, time::SystemTimeError> {
+        let mut signed_url = {
+            let mut s = String::with_capacity(2048);
+            s.push_str(url.as_str());
+            s
+        };
+        let mut to_sign = {
+            let mut s = String::with_capacity(2048);
+            if only_path {
+                s.push_str(url.path());
+                if let Some(query) = url.query() {
+                    s.push('?');
+                    s.push_str(query);
+                }
+            } else {
+                s.push_str(url.as_str());
+            }
+            s
+        };
+
+        if to_sign.contains('?') {
+            to_sign.push_str("&e=");
+            signed_url.push_str("&e=");
+        } else {
+            to_sign.push_str("?e=");
+            signed_url.push_str("?e=");
+        }
+
+        let deadline = deadline
+            .duration_since(time::UNIX_EPOCH)?
+            .as_secs()
+            .to_string();
+        to_sign.push_str(&deadline);
+        signed_url.push_str(&deadline);
+        signed_url.push_str("&token=");
+        signed_url.push_str(&self.sign(to_sign.as_bytes()));
+        Ok(signed_url)
+    }
 }
 
 impl Clone for Auth {
@@ -168,7 +217,10 @@ impl Clone for Auth {
 
 impl fmt::Debug for Auth {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_fmt(format_args!("Auth {{ access_key: {:?}, secret_key: CENSORED }}", &self.access_key))
+        f.write_fmt(format_args!(
+            "Auth {{ access_key: {:?}, secret_key: CENSORED }}",
+            &self.access_key
+        ))
     }
 }
 
@@ -414,6 +466,25 @@ mod tests {
                 .body(form_body)
                 .unwrap()
         ));
+    }
+
+    #[test]
+    fn test_sign_download_url_with_deadline() {
+        let auth = get_auth();
+        assert_eq!(
+            auth.sign_download_url_with_deadline(
+                Url::parse("http://www.qiniu.com/?go=1").unwrap(),
+                time::SystemTime::UNIX_EPOCH + time::Duration::from_secs(1_234_567_890 + 3600),
+                false).unwrap(),
+            "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq:KjQtlGAkEOhSwtFjJfYtYa2-reE=",
+        );
+        assert_eq!(
+            auth.sign_download_url_with_deadline(
+                Url::parse("http://www.qiniu.com/?go=1").unwrap(),
+                time::SystemTime::UNIX_EPOCH + time::Duration::from_secs(1_234_567_890 + 3600),
+                true).unwrap(),
+            "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq:86uQeCB9GsFFvL2wA0mgBcOMsmk=",
+        );
     }
 
     fn get_auth() -> Auth {
