@@ -5,12 +5,14 @@ use crypto::mac::Mac;
 use crypto::sha1::Sha1;
 use http::Method;
 use std::boxed::Box;
+use std::convert::TryFrom;
 use std::error::Error;
 use std::fmt;
 use std::result::Result;
 use std::string::String;
 use std::string::ToString;
 use std::time;
+use std::u32;
 use url::Url;
 
 pub struct Auth {
@@ -194,15 +196,24 @@ impl Auth {
             signed_url.push_str("?e=");
         }
 
-        let deadline = deadline
-            .duration_since(time::UNIX_EPOCH)?
-            .as_secs()
+        let deadline = u32::try_from(deadline.duration_since(time::UNIX_EPOCH)?.as_secs())
+            .unwrap_or(std::u32::MAX)
             .to_string();
         to_sign.push_str(&deadline);
         signed_url.push_str(&deadline);
         signed_url.push_str("&token=");
         signed_url.push_str(&self.sign(to_sign.as_bytes()));
         Ok(signed_url)
+    }
+
+    pub(crate) fn sign_download_url_with_lifetime(
+        &self,
+        url: Url,
+        lifetime: time::Duration,
+        only_path: bool,
+    ) -> Result<String, time::SystemTimeError> {
+        let deadline = time::SystemTime::now() + lifetime;
+        self.sign_download_url_with_deadline(url, deadline, only_path)
     }
 }
 
@@ -226,7 +237,10 @@ impl fmt::Debug for Auth {
 
 #[cfg(test)]
 mod tests {
+    use super::super::http_utils;
     use super::*;
+    use http::Method;
+    use http::StatusCode;
 
     #[test]
     fn test_sign() {
@@ -353,7 +367,7 @@ mod tests {
         let auth = get_auth();
         assert_eq!(
             auth.sign_request_v2(
-                http::Method::GET,
+                Method::GET,
                 "http://upload.qiniup.com/",
                 Some("application/json"),
                 Some(b"{\"name\":\"test\"}")
@@ -363,7 +377,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                http::Method::GET,
+                Method::GET,
                 "http://upload.qiniup.com/",
                 None::<&str>,
                 Some(b"{\"name\":\"test\"}")
@@ -373,7 +387,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                http::Method::POST,
+                Method::POST,
                 "http://upload.qiniup.com/",
                 Some("application/json"),
                 Some(b"{\"name\":\"test\"}")
@@ -383,7 +397,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                http::Method::GET,
+                Method::GET,
                 "http://upload.qiniup.com/",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
@@ -393,7 +407,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                http::Method::GET,
+                Method::GET,
                 "http://upload.qiniup.com/?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
@@ -403,7 +417,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                http::Method::GET,
+                Method::GET,
                 "http://upload.qiniup.com/find/sdk?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
@@ -487,7 +501,34 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_sign_download_url_with_lifetime() {
+        let auth = get_real_auth();
+        let keys = ["4k", "1m", "4m", "8m", "16m", "64m", "1g"];
+        for key in keys.iter() {
+            let url = auth
+                .sign_download_url_with_lifetime(
+                    Url::parse(&format!(
+                        "http://z1-bucket.kodo-test.qiniu-solutions.com/{}",
+                        key
+                    ))
+                    .unwrap(),
+                    time::Duration::from_secs(30),
+                    false,
+                )
+                .unwrap();
+            assert_eq!(http_utils::head(&url).unwrap().status(), StatusCode::OK);
+        }
+    }
+
     fn get_auth() -> Auth {
         Auth::new("abcdefghklmnopq", "1234567890")
+    }
+
+    fn get_real_auth() -> Auth {
+        use super::super::variables;
+
+        let vars = variables::load_variables();
+        Auth::new(vars.access_key(), vars.secret_key().as_bytes())
     }
 }

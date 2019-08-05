@@ -15,3 +15,8 @@ rust-crypto = "0.2.36"
 base64 = "0.10.1"
 http = "0.1.18"
 url = "2.0.0"
+
+[dev-dependencies]
+reqwest = "0.9.19"
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.8"
