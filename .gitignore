@@ -1,5 +1,5 @@
 /target
-/variables.yml
+variables.yml
 **/*.rs.bk
 Cargo.lock
 rls*.log
