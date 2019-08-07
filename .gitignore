@@ -5,3 +5,4 @@ Cargo.lock
 rls*.log
 /qiniu-c/build
 /qiniu-c/libqiniu_ng.h
+/qiniu-c/libqiniu_ng.hpp
