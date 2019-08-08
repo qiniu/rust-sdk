@@ -2,14 +2,16 @@
 CC=gcc
 TARGET=build/test.out
 UNITY_HOME=$(PWD)/test/unity/src
-SRC_FILES=$(UNITY_HOME)/unity.c $(wildcard test/test_*.c)
+SRC_FILES=$(UNITY_HOME)/unity.c $(wildcard test/*.c)
 INC_DIRS=-I$(PWD) -I$(UNITY_HOME)
 STATIC_LIBRARY=$(PWD)/../target/debug/libqiniu_ng.a
 DYNAMIC_LIBRARY=$(PWD)/../target/debug
 SYMBOLS=-DTEST
 
 all: clean test
-test:
+build:
+	cargo build
+test: build
 	mkdir -p build
 	$(CC) -Wall -Wextra $(INC_DIRS) $(SYMBOLS) $(SRC_FILES) $(STATIC_LIBRARY) -o $(TARGET) -lm -lpthread -ldl
 	./$(TARGET)

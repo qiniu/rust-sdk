@@ -10,57 +10,24 @@ use std::iter;
 use std::option::Option;
 use std::path::Path;
 
-const BLOCK_SIZE: usize = 1 << 22;
+pub const BLOCK_SIZE: usize = 1 << 22;
+pub const ETAG_SIZE: usize = 28;
 
-pub struct Reader<'io, IO>
-where
-    IO: Read,
-{
-    io: &'io mut IO,
-    etag: Option<String>,
-    have_read: usize,
+pub struct Etag {
     buffer: Vec<u8>,
     sha1s: Vec<Vec<u8>>,
 }
 
-pub fn new_reader<'io, IO: Read + 'io>(io: &'io mut IO) -> Reader<IO> {
-    Reader {
-        io: io,
-        etag: None,
-        have_read: 0,
+pub fn new() -> Etag {
+    Etag {
         buffer: Vec::new(),
         sha1s: Vec::new(),
     }
 }
 
-impl<'io, IO> Read for Reader<'io, IO>
-where
-    IO: Read + 'io,
-{
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let result = self.io.read(buf);
-
-        if let Ok(have_read) = result {
-            if buf.len() > 0 {
-                if have_read > 0 {
-                    self.have_read += have_read;
-                    self.update_buffer(buf.get(..have_read).unwrap());
-                } else {
-                    self.calculate_etag();
-                }
-            }
-        }
-
-        result
-    }
-}
-
-impl<'io, IO> Reader<'io, IO>
-where
-    IO: Read + 'io,
-{
-    fn update_buffer(&mut self, bytes: &[u8]) {
-        self.buffer.extend_from_slice(bytes);
+impl Digest for Etag {
+    fn input(&mut self, input: &[u8]) {
+        self.buffer.extend_from_slice(input);
         let mut iter = self.buffer.chunks_exact(BLOCK_SIZE);
         for block in iter.by_ref() {
             self.sha1s.push(Self::sha1(block));
@@ -72,14 +39,29 @@ where
         };
     }
 
-    fn calculate_etag(&mut self) {
+    fn result(&mut self, mut out: &mut [u8]) {
         if !self.buffer.is_empty() {
             self.sha1s.push(Self::sha1(&self.buffer));
         }
         self.buffer.clear();
-        self.etag = Some(self.encode_sha1s());
+        self.encode_sha1s(&mut out);
     }
 
+    fn reset(&mut self) {
+        self.buffer.clear();
+        self.sha1s.clear();
+    }
+
+    fn output_bits(&self) -> usize {
+        ETAG_SIZE * 8
+    }
+
+    fn block_size(&self) -> usize {
+        self.sha1s.len()
+    }
+}
+
+impl Etag {
     fn sha1(bytes: &[u8]) -> Vec<u8> {
         let mut sha1 = Sha1::new();
         sha1.input(bytes);
@@ -90,14 +72,14 @@ where
         result
     }
 
-    fn encode_sha1s(&mut self) -> String {
+    fn encode_sha1s(&mut self, mut result: &mut [u8]) {
         match self.sha1s.len() {
-            0 => "Fto5o-5ea0sNMlW_75VgGJCv2AcJ".to_owned(),
+            0 => result.copy_from_slice(b"Fto5o-5ea0sNMlW_75VgGJCv2AcJ"),
             1 => {
                 let mut buf = Vec::with_capacity(32);
                 buf.push(0x16u8);
                 buf.extend_from_slice(self.sha1s.first().unwrap());
-                base64::urlsafe(&buf)
+                base64::urlsafe_slice(&buf, &mut result);
             }
             _ => {
                 let mut buf = Vec::with_capacity(1024);
@@ -108,12 +90,60 @@ where
                 buf.clear();
                 buf.push(0x96u8);
                 buf.extend_from_slice(&sha1);
-                base64::urlsafe(&buf)
+                base64::urlsafe_slice(&buf, &mut result);
             }
         }
     }
+}
 
-    pub fn etag(&self) -> &Option<String> {
+pub struct Reader<'io, IO>
+where
+    IO: Read,
+{
+    io: &'io mut IO,
+    etag: Option<String>,
+    have_read: usize,
+    digest: Etag,
+}
+
+pub fn new_reader<'io, IO: Read + 'io>(io: &'io mut IO) -> Reader<IO> {
+    Reader {
+        io: io,
+        etag: None,
+        have_read: 0,
+        digest: new(),
+    }
+}
+
+impl<'io, IO> Read for Reader<'io, IO>
+where
+    IO: Read + 'io,
+{
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let result = self.io.read(buf);
+        if let Ok(have_read) = result {
+            if buf.len() > 0 {
+                if have_read > 0 {
+                    self.have_read += have_read;
+                    self.digest.input(buf.get(..have_read).unwrap())
+                } else {
+                    let mut etag = iter::repeat(0)
+                        .take(self.digest.output_bytes())
+                        .collect::<Vec<u8>>();
+                    self.digest.result(&mut etag);
+                    self.etag = Some(String::from_utf8(etag).unwrap());
+                }
+            }
+        }
+        result
+    }
+}
+
+impl<'io, IO> Reader<'io, IO>
+where
+    IO: Read + 'io,
+{
+    fn etag(&self) -> &Option<String> {
         &self.etag
     }
 }
@@ -122,6 +152,16 @@ pub fn from<IO: Read>(mut io: &mut IO) -> Result<String> {
     let mut reader = new_reader(&mut io);
     copy(&mut reader, &mut sink())?;
     Ok(reader.etag().clone().unwrap())
+}
+
+pub fn from_bytes<S: AsRef<[u8]>>(buf: S) -> String {
+    let mut etag_digest = new();
+    etag_digest.input(buf.as_ref());
+    let mut etag = iter::repeat(0)
+        .take(etag_digest.output_bytes())
+        .collect::<Vec<u8>>();
+    etag_digest.result(&mut etag);
+    String::from_utf8(etag).unwrap()
 }
 
 pub fn from_file<P: AsRef<Path>>(path: P) -> Result<String> {

@@ -13,6 +13,7 @@ crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 qiniu = { path = "../qiniu-rust" }
+rust-crypto = "0.2.36"
 libc = "0.2.60"
 cfg-if = "0.1"
 
