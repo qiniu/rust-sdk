@@ -3,6 +3,7 @@ use super::mime;
 use crypto::hmac::Hmac;
 use crypto::mac::Mac;
 use crypto::sha1::Sha1;
+use getset::Getters;
 use http::Method;
 use std::boxed::Box;
 use std::convert::TryFrom;
@@ -15,7 +16,9 @@ use std::time;
 use std::u32;
 use url::Url;
 
+#[derive(Getters)]
 pub struct Auth {
+    #[get = "pub"]
     access_key: String,
     secret_key: Vec<u8>,
 }

@@ -1,25 +1,15 @@
+use getset::Getters;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Getters, Clone)]
+#[get = "pub"]
 pub(crate) struct Variables {
     access_key: String,
     secret_key: String,
     z2_encrypt_key: String,
-}
-
-impl Variables {
-    pub fn access_key(&self) -> &String {
-        &self.access_key
-    }
-    pub fn secret_key(&self) -> &String {
-        &self.secret_key
-    }
-    pub fn z2_encrypt_key(&self) -> &String {
-        &self.z2_encrypt_key
-    }
 }
 
 #[derive(Serialize, Deserialize)]
