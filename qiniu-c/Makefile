@@ -1,14 +1,14 @@
-.PHONY: all test clean
+.PHONY: all build test clean
 CC=gcc
 TARGET=build/test.out
-UNITY_HOME=$(PWD)/test/unity/src
+UNITY_HOME=$(CURDIR)/test/unity/src
 SRC_FILES=$(UNITY_HOME)/unity.c $(wildcard test/*.c)
-INC_DIRS=-I$(PWD) -I$(UNITY_HOME)
-STATIC_LIBRARY=$(PWD)/../target/debug/libqiniu_ng.a
-DYNAMIC_LIBRARY=$(PWD)/../target/debug
+INC_DIRS=-I$(CURDIR) -I$(UNITY_HOME)
+STATIC_LIBRARY=$(CURDIR)/../target/debug/libqiniu_ng.a
+DYNAMIC_LIBRARY=$(CURDIR)/../target/debug
 SYMBOLS=-DTEST
 
-all: clean test
+all: build
 build:
 	cargo build
 test: build
@@ -20,3 +20,4 @@ test: build
 	LD_LIBRARY_PATH=$(DYNAMIC_LIBRARY) ./$(TARGET)
 clean:
 	rm -rf build
+	cargo clean

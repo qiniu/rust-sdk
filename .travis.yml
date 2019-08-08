@@ -3,12 +3,9 @@ rust:
   - 1.36.0
 cache: cargo
 script:
-  - cargo build --verbose --all
+  - make
   - |
     if [ "$TRAVIS_PULL_REQUEST" = "false" ]
     then
-      cargo test --verbose --all
+      make test
     fi
-  - |
-    cd qiniu-c
-    make
