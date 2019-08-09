@@ -1,19 +1,16 @@
-use super::base64;
-use super::mime;
-use crypto::hmac::Hmac;
-use crypto::mac::Mac;
-use crypto::sha1::Sha1;
+use super::{base64, mime};
+use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
 use getset::Getters;
 use http::Method;
-use std::boxed::Box;
-use std::convert::TryFrom;
-use std::error::Error;
-use std::fmt;
-use std::result::Result;
-use std::string::String;
-use std::string::ToString;
-use std::time;
-use std::u32;
+use std::{
+    boxed::Box,
+    convert::TryFrom,
+    error::Error,
+    fmt,
+    result::Result,
+    string::{String, ToString},
+    time, u32,
+};
 use url::Url;
 
 #[derive(Getters)]
@@ -55,7 +52,7 @@ impl Auth {
 
     pub(crate) fn authorization_v2_for_request<URL: AsRef<str>, ContentType: AsRef<str>>(
         &self,
-        method: Method,
+        method: &Method,
         url_string: URL,
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
@@ -88,7 +85,7 @@ impl Auth {
 
     pub(crate) fn sign_request_v2<URL: AsRef<str>, ContentType: AsRef<str>>(
         &self,
-        method: Method,
+        method: &Method,
         url_string: URL,
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
@@ -131,11 +128,11 @@ impl Auth {
         base64::urlsafe(hmac.result().code())
     }
 
-    fn will_push_body_v1<ContentType: AsRef<str>>(content_type: ContentType) -> bool {
+    pub(crate) fn will_push_body_v1<ContentType: AsRef<str>>(content_type: ContentType) -> bool {
         mime::FORM_MIME.eq_ignore_ascii_case(content_type.as_ref())
     }
 
-    fn will_push_body_v2<ContentType: AsRef<str>>(content_type: ContentType) -> bool {
+    pub(crate) fn will_push_body_v2<ContentType: AsRef<str>>(content_type: ContentType) -> bool {
         mime::FORM_MIME.eq_ignore_ascii_case(content_type.as_ref())
             || mime::JSON_MIME.eq_ignore_ascii_case(content_type.as_ref())
     }
@@ -370,7 +367,7 @@ mod tests {
         let auth = get_auth();
         assert_eq!(
             auth.sign_request_v2(
-                Method::GET,
+                &Method::GET,
                 "http://upload.qiniup.com/",
                 Some("application/json"),
                 Some(b"{\"name\":\"test\"}")
@@ -380,7 +377,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                Method::GET,
+                &Method::GET,
                 "http://upload.qiniup.com/",
                 None::<&str>,
                 Some(b"{\"name\":\"test\"}")
@@ -390,7 +387,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                Method::POST,
+                &Method::POST,
                 "http://upload.qiniup.com/",
                 Some("application/json"),
                 Some(b"{\"name\":\"test\"}")
@@ -400,7 +397,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                Method::GET,
+                &Method::GET,
                 "http://upload.qiniup.com/",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
@@ -410,7 +407,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                Method::GET,
+                &Method::GET,
                 "http://upload.qiniup.com/?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
@@ -420,7 +417,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                Method::GET,
+                &Method::GET,
                 "http://upload.qiniup.com/find/sdk?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")

@@ -1,14 +1,12 @@
 use derive_builder::Builder;
+use getset::{Getters, MutGetters, Setters};
 use http::{Request, Response};
-use std::{
-    boxed::Box,
-    error::Error,
-    io::{Read, Write},
-    result::Result,
-    time::Duration,
-};
+use std::{boxed::Box, error::Error, io::Read, result::Result, time::Duration};
 
-#[derive(Builder)]
+#[derive(Builder, Getters, Setters, MutGetters)]
+#[get = "pub"]
+#[set = "pub"]
+#[get_mut = "pub"]
 #[builder(pattern = "owned")]
 pub struct Config {
     #[builder(default)]
@@ -26,7 +24,7 @@ pub struct Config {
     #[builder(default)]
     http_request_retry_delay: Duration,
 
-    http_request_call: Box<Fn(Request<Box<Write>>) -> Result<Response<Box<Read>>, Box<Error>>>,
+    http_request_call: Box<Fn(Request<Box<Read>>) -> Result<Response<Box<Read>>, Box<Error>>>,
 }
 
 impl Default for Config {
@@ -63,7 +61,7 @@ mod tests {
 
     #[test]
     fn test_config_with_set_http_request_call() {
-        let mut config: Config = ConfigBuilder::default()
+        let config: Config = ConfigBuilder::default()
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
             .http_request_call(Box::new(|_| {
@@ -75,10 +73,10 @@ mod tests {
             .build()
             .unwrap();
 
-        let mut http_response = (config.http_request_call)(
+        let mut http_response = (config.http_request_call())(
             Request::builder()
                 .uri("http://fake.qiniu.com")
-                .body(Box::new(io::sink()) as Box<Write>)
+                .body(Box::new(io::empty()) as Box<Read>)
                 .unwrap(),
         )
         .unwrap();
@@ -95,5 +93,27 @@ mod tests {
             String::from_utf8(http_body).unwrap().as_str(),
             "It's HTTP Body"
         );
+    }
+
+    #[test]
+    fn test_config_with_getters_setters() {
+        let mut config: Config = ConfigBuilder::default()
+            .http_request_retries(5)
+            .http_request_retry_delay(Duration::from_secs(1))
+            .http_request_call(Box::new(|_| {
+                Ok(Response::builder()
+                    .status(StatusCode::OK)
+                    .body(Box::new(StringReader::new("It's HTTP Body")) as Box<Read>)
+                    .unwrap())
+            }))
+            .build()
+            .unwrap();
+        assert_eq!(config.http_request_retries(), &5);
+        assert_eq!(config.http_request_retry_delay(), &Duration::from_secs(1));
+
+        *config.http_request_retries_mut() = 10;
+        config.set_http_request_retry_delay(Duration::from_secs(2));
+        assert_eq!(config.http_request_retries(), &10);
+        assert_eq!(config.http_request_retry_delay(), &Duration::from_secs(2));
     }
 }
