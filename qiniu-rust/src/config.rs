@@ -1,7 +1,8 @@
+use super::http::PanickedHTTPCaller;
 use derive_builder::Builder;
 use getset::{Getters, MutGetters, Setters};
-use http::{Request, Response};
-use std::{boxed::Box, error::Error, io::Read, result::Result, time::Duration};
+use qiniu_http::HTTPCaller;
+use std::{boxed::Box, default::Default, time::Duration};
 
 #[derive(Builder, Getters, Setters, MutGetters)]
 #[get = "pub"]
@@ -24,7 +25,7 @@ pub struct Config {
     #[builder(default)]
     http_request_retry_delay: Duration,
 
-    http_request_call: Box<Fn(Request<Box<Read>>) -> Result<Response<Box<Read>>, Box<Error>>>,
+    http_request_call: Box<HTTPCaller>,
 }
 
 impl Default for Config {
@@ -35,9 +36,21 @@ impl Default for Config {
             upload_threshold: 1 << 22,
             http_request_retries: 3,
             http_request_retry_delay: Duration::from_millis(500),
-            http_request_call: Box::new(|_| {
-                panic!("Must define config.http_request_call");
-            }),
+            http_request_call: Self::default_http_request_call(),
+        }
+    }
+}
+
+impl Config {
+    fn default_http_request_call() -> Box<HTTPCaller> {
+        #[cfg(any(feature = "use-reqwest"))]
+        {
+            use qiniu_with_reqwest::ReqwestClient;
+            Box::new(ReqwestClient::default())
+        }
+        #[cfg(not(feature = "use-reqwest"))]
+        {
+            Box::new(PanickedHTTPCaller("Must define config.http_request_call"))
         }
     }
 }
@@ -45,8 +58,8 @@ impl Default for Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use http::StatusCode;
-    use std::{io, iter};
+    use http::{Request, Response, StatusCode};
+    use std::{error::Error, io::Read, iter};
     use stringreader::StringReader;
 
     #[test]
@@ -59,27 +72,35 @@ mod tests {
             .unwrap();
     }
 
+    struct FakeHTTPRequester;
+
+    impl HTTPCaller for FakeHTTPRequester {
+        fn call(&self, _: Request<Vec<u8>>) -> Result<Response<Box<Read>>, Box<Error>> {
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .body(Box::new(StringReader::new("It's HTTP Body")) as Box<Read>)
+                .unwrap())
+        }
+    }
+
     #[test]
     fn test_config_with_set_http_request_call() {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
-            .http_request_call(Box::new(|_| {
-                Ok(Response::builder()
-                    .status(StatusCode::OK)
-                    .body(Box::new(StringReader::new("It's HTTP Body")) as Box<Read>)
-                    .unwrap())
-            }))
+            .http_request_call(Box::new(FakeHTTPRequester))
             .build()
             .unwrap();
 
-        let mut http_response = (config.http_request_call())(
-            Request::builder()
-                .uri("http://fake.qiniu.com")
-                .body(Box::new(io::empty()) as Box<Read>)
-                .unwrap(),
-        )
-        .unwrap();
+        let mut http_response = config
+            .http_request_call()
+            .call(
+                Request::builder()
+                    .uri("http://fake.qiniu.com")
+                    .body(Vec::new())
+                    .unwrap(),
+            )
+            .unwrap();
 
         let mut http_body = iter::repeat(0)
             .take("It's HTTP Body".len())
@@ -100,12 +121,7 @@ mod tests {
         let mut config: Config = ConfigBuilder::default()
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
-            .http_request_call(Box::new(|_| {
-                Ok(Response::builder()
-                    .status(StatusCode::OK)
-                    .body(Box::new(StringReader::new("It's HTTP Body")) as Box<Read>)
-                    .unwrap())
-            }))
+            .http_request_call(Box::new(FakeHTTPRequester))
             .build()
             .unwrap();
         assert_eq!(config.http_request_retries(), &5);

@@ -1,9 +1,8 @@
 use super::super::utils::auth::Auth;
 use http::{header, Request};
-use std::io::{Cursor, Read};
 
 pub trait Token {
-    fn sign(req: &mut Request<Box<Read>>, auth: &Auth);
+    fn sign(&self, req: &mut Request<Vec<u8>>, auth: &Auth);
 }
 
 pub fn qbox() -> impl Token {
@@ -35,21 +34,18 @@ struct QiniuTokenGenerator;
 struct NoneTokenGenerator;
 
 impl Token for QBoxTokenGenerator {
-    fn sign(req: &mut Request<Box<Read>>, auth: &Auth) {
+    fn sign(&self, req: &mut Request<Vec<u8>>, auth: &Auth) {
         let url = req.uri().to_string();
         let content_type = req
             .headers_mut()
             .get(header::CONTENT_TYPE)
             .map(|v| v.to_str().map(|s| s.to_owned()).ok())
             .unwrap_or(None);
-        let (mut body, mut body_buf) = (None::<&[u8]>, Vec::new());
+        let mut body = None::<&[u8]>;
 
         if let Some(content_type) = content_type.as_ref() {
             if Auth::will_push_body_v1(content_type) {
-                if req.body_mut().read_to_end(&mut body_buf).is_ok() {
-                    body = Some(body_buf.as_slice());
-                    *req.body_mut() = Box::new(Cursor::new(body_buf.to_owned()));
-                }
+                body = Some(req.body().as_slice());
             }
         }
         if let Ok(authorization) = auth.authorization_v1_for_request(&url, content_type, body) {
@@ -62,21 +58,18 @@ impl Token for QBoxTokenGenerator {
 }
 
 impl Token for QiniuTokenGenerator {
-    fn sign(req: &mut Request<Box<Read>>, auth: &Auth) {
+    fn sign(&self, req: &mut Request<Vec<u8>>, auth: &Auth) {
         let url = req.uri().to_string();
         let content_type = req
             .headers_mut()
             .get(header::CONTENT_TYPE)
             .map(|v| v.to_str().map(|s| s.to_owned()).ok())
             .unwrap_or(None);
-        let (mut body, mut body_buf) = (None::<&[u8]>, Vec::new());
+        let mut body = None::<&[u8]>;
 
         if let Some(content_type) = content_type.as_ref() {
             if Auth::will_push_body_v2(content_type) {
-                if req.body_mut().read_to_end(&mut body_buf).is_ok() {
-                    body = Some(body_buf.as_slice());
-                    *req.body_mut() = Box::new(Cursor::new(body_buf.to_owned()));
-                }
+                body = Some(req.body().as_slice());
             }
         }
         if let Ok(authorization) =
@@ -91,5 +84,5 @@ impl Token for QiniuTokenGenerator {
 }
 
 impl Token for NoneTokenGenerator {
-    fn sign(_req: &mut Request<Box<Read>>, _auth: &Auth) {}
+    fn sign(&self, _req: &mut Request<Vec<u8>>, _auth: &Auth) {}
 }

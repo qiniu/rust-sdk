@@ -3,4 +3,6 @@
 members = [
     "qiniu-rust",
     "qiniu-c",
+    "qiniu-rust-http",
+    "qiniu-rust-with-reqwest",
 ]

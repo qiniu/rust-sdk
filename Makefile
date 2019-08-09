@@ -1,4 +1,4 @@
-SUBDIRS := qiniu-rust qiniu-c
+SUBDIRS := qiniu-rust qiniu-c qiniu-rust-http qiniu-rust-with-reqwest
 
 all: $(SUBDIRS)
 $(SUBDIRS):
