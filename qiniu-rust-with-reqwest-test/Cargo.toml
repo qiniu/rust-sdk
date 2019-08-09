@@ -1,0 +1,13 @@
+[package]
+name = "qiniu-with-reqwest-test"
+version = "0.1.0"
+authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
+edition = "2018"
+license = "Apache-2.0"
+homepage = "https://www.qiniu.com"
+description = "Test reqwest with qiniu"
+keywords = ["qiniu", "storage", "testing"]
+
+[dev-dependencies]
+qiniu = { version = "0.1.0", path = "../qiniu-rust", features = ["use-reqwest"] }
+http = "0.1.18"

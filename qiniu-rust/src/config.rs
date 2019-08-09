@@ -8,23 +8,13 @@ use std::{boxed::Box, default::Default, time::Duration};
 #[get = "pub"]
 #[set = "pub"]
 #[get_mut = "pub"]
-#[builder(pattern = "owned")]
+#[builder(pattern = "owned", default)]
 pub struct Config {
-    #[builder(default)]
     use_https: bool,
-
-    #[builder(default)]
     batch_max_operation_size: usize,
-
-    #[builder(default)]
     upload_threshold: usize,
-
-    #[builder(default)]
     http_request_retries: usize,
-
-    #[builder(default)]
     http_request_retry_delay: Duration,
-
     http_request_call: Box<HTTPCaller>,
 }
 
@@ -62,18 +52,7 @@ mod tests {
     use std::{error::Error, io::Read, iter};
     use stringreader::StringReader;
 
-    #[test]
-    #[should_panic]
-    fn test_config_without_set_http_request_call() {
-        ConfigBuilder::default()
-            .use_https(true)
-            .batch_max_operation_size(10000)
-            .build()
-            .unwrap();
-    }
-
     struct FakeHTTPRequester;
-
     impl HTTPCaller for FakeHTTPRequester {
         fn call(&self, _: Request<Vec<u8>>) -> Result<Response<Box<Read>>, Box<Error>> {
             Ok(Response::builder()
