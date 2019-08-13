@@ -1,4 +1,3 @@
-use super::http::PanickedHTTPCaller;
 use derive_builder::Builder;
 use getset::{Getters, MutGetters, Setters};
 use qiniu_http::HTTPCaller;
@@ -40,6 +39,7 @@ impl Config {
         }
         #[cfg(not(feature = "use-reqwest"))]
         {
+            use super::http::PanickedHTTPCaller;
             Box::new(PanickedHTTPCaller("Must define config.http_request_call"))
         }
     }
@@ -48,17 +48,17 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use http::{Request, Response, StatusCode};
-    use std::{error::Error, io::Read, iter};
+    use qiniu_http::{Request, RequestBuilder, Response, ResponseBuilder, Result};
+    use std::{io::Read, iter};
     use stringreader::StringReader;
 
     struct FakeHTTPRequester;
     impl HTTPCaller for FakeHTTPRequester {
-        fn call(&self, _: Request<Vec<u8>>) -> Result<Response<Box<Read>>, Box<Error>> {
-            Ok(Response::builder()
-                .status(StatusCode::OK)
+        fn call(&self, _: Request) -> Result<Response> {
+            Ok(ResponseBuilder::default()
+                .status_code(612u16)
                 .body(Box::new(StringReader::new("It's HTTP Body")) as Box<Read>)
-                .unwrap())
+                .build())
         }
     }
 
@@ -71,22 +71,23 @@ mod tests {
             .build()
             .unwrap();
 
-        let mut http_response = config
+        let http_response = config
             .http_request_call()
             .call(
-                Request::builder()
-                    .uri("http://fake.qiniu.com")
+                RequestBuilder::default()
+                    .url("http://fake.qiniu.com")
                     .body(Vec::new())
-                    .unwrap(),
+                    .build(),
             )
             .unwrap();
 
         let mut http_body = iter::repeat(0)
             .take("It's HTTP Body".len())
             .collect::<Vec<u8>>();
-        assert_eq!(http_response.status(), StatusCode::OK);
+        assert_eq!(http_response.status_code(), &612u16);
         http_response
-            .body_mut()
+            .into_body()
+            .unwrap()
             .read(http_body.as_mut_slice())
             .unwrap();
         assert_eq!(

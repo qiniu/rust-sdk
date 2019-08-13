@@ -8,4 +8,5 @@ homepage = "https://www.qiniu.com"
 description = "Provide http call trait for qiniu"
 
 [dependencies]
-http = "0.1.18"
+getset = "0.0.7"
+derive_builder = "0.7.2"

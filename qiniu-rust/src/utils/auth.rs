@@ -1,7 +1,7 @@
 use super::{base64, mime};
 use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
 use getset::Getters;
-use http::Method;
+use qiniu_http::{Method, Request};
 use std::{
     boxed::Box,
     convert::TryFrom,
@@ -137,30 +137,22 @@ impl Auth {
             || mime::JSON_MIME.eq_ignore_ascii_case(content_type.as_ref())
     }
 
-    pub fn is_valid_request(&self, req: &http::Request<&[u8]>) -> bool {
+    pub fn is_valid_request(&self, req: &Request) -> bool {
         self.is_valid_request_with_err(req).unwrap_or(false)
     }
 
-    fn is_valid_request_with_err(&self, req: &http::Request<&[u8]>) -> Result<bool, Box<Error>> {
-        let original_authorization = req.headers().get(http::header::AUTHORIZATION);
-        if original_authorization.is_none() {
-            return Ok(false);
+    fn is_valid_request_with_err(&self, req: &Request) -> Result<bool, Box<Error>> {
+        if let Some(original_authorization) = req.headers().get("Authorization") {
+            let content_type = req.headers().get("Content-Type");
+            let expected_authorization = &self.authorization_v1_for_request(
+                req.url(),
+                content_type,
+                req.body().as_ref().map(|v| v.as_slice()),
+            )?;
+            Ok(original_authorization == expected_authorization)
+        } else {
+            Ok(false)
         }
-        let original_authorization = original_authorization.unwrap().to_str()?;
-        let content_type = req
-            .headers()
-            .get(http::header::CONTENT_TYPE)
-            .map(|value| value.to_str());
-        let content_type = match content_type {
-            Some(result) => Some(result?),
-            None => None,
-        };
-        let expected_authorization = self.authorization_v1_for_request(
-            &req.uri().to_string(),
-            content_type,
-            Some(req.body()),
-        )?;
-        Ok(original_authorization == expected_authorization)
     }
 
     pub(crate) fn sign_download_url_with_deadline(
@@ -239,8 +231,7 @@ impl fmt::Debug for Auth {
 mod tests {
     use super::super::http_utils;
     use super::*;
-    use http::Method;
-    use http::StatusCode;
+    use qiniu_http::RequestBuilder;
 
     #[test]
     fn test_sign() {
@@ -434,8 +425,8 @@ mod tests {
         let json_body: &[u8] = b"{\"name\":\"test\"}";
         let form_body: &[u8] = b"name=test&language=go";
         assert!(auth.is_valid_request(
-            &http::Request::builder()
-                .uri("http://upload.qiniup.com/")
+            &RequestBuilder::default()
+                .url("http://upload.qiniup.com/")
                 .header(
                     "Authorization",
                     auth.authorization_v1_for_request(
@@ -446,11 +437,11 @@ mod tests {
                     .unwrap()
                 )
                 .body(json_body)
-                .unwrap()
+                .build()
         ));
         assert!(auth.is_valid_request(
-            &http::Request::builder()
-                .uri("http://upload.qiniup.com/")
+            &RequestBuilder::default()
+                .url("http://upload.qiniup.com/")
                 .header(
                     "Authorization",
                     auth.authorization_v1_for_request(
@@ -462,11 +453,11 @@ mod tests {
                 )
                 .header("Content-Type", "application/json")
                 .body(json_body)
-                .unwrap()
+                .build()
         ));
         assert!(auth.is_valid_request(
-            &http::Request::builder()
-                .uri("http://upload.qiniup.com/find/sdk?v=2")
+            &RequestBuilder::default()
+                .url("http://upload.qiniup.com/find/sdk?v=2")
                 .header(
                     "Authorization",
                     auth.authorization_v1_for_request(
@@ -478,7 +469,7 @@ mod tests {
                 )
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .body(form_body)
-                .unwrap()
+                .build()
         ));
     }
 
@@ -517,7 +508,7 @@ mod tests {
                     false,
                 )
                 .unwrap();
-            assert_eq!(http_utils::head(&url).unwrap().status(), StatusCode::OK);
+            assert_eq!(http_utils::head(&url).unwrap().status(), 200);
         }
     }
 

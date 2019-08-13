@@ -4,6 +4,6 @@ all: build
 build:
 	cargo build
 test:
-	cargo test
+	cargo test -- --nocapture
 clean:
 	cargo clean

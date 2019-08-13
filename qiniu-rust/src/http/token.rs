@@ -1,88 +1,59 @@
 use super::super::utils::auth::Auth;
-use http::{header, Request};
+use qiniu_http::Request;
 
-pub trait Token {
-    fn sign(&self, req: &mut Request<Vec<u8>>, auth: &Auth);
+pub enum Token {
+    QBox,
+    Qiniu,
+    V1,
+    V2,
+    None,
+    Null,
 }
 
-pub fn qbox() -> impl Token {
-    QBoxTokenGenerator
-}
+impl Token {
+    fn sign(&self, req: &mut Request, auth: &Auth) {
+        match self {
+            &Token::None | &Token::Null => {
+                return;
+            }
+            _ => {}
+        }
 
-pub fn v1() -> impl Token {
-    QBoxTokenGenerator
-}
-
-pub fn qiniu() -> impl Token {
-    QiniuTokenGenerator
-}
-
-pub fn v2() -> impl Token {
-    QiniuTokenGenerator
-}
-
-pub fn null() -> impl Token {
-    NoneTokenGenerator
-}
-
-pub fn none() -> impl Token {
-    NoneTokenGenerator
-}
-
-struct QBoxTokenGenerator;
-struct QiniuTokenGenerator;
-struct NoneTokenGenerator;
-
-impl Token for QBoxTokenGenerator {
-    fn sign(&self, req: &mut Request<Vec<u8>>, auth: &Auth) {
-        let url = req.uri().to_string();
-        let content_type = req
-            .headers_mut()
-            .get(header::CONTENT_TYPE)
-            .map(|v| v.to_str().map(|s| s.to_owned()).ok())
-            .unwrap_or(None);
+        let url = req.url();
+        let method = req.method();
+        let content_type = req.headers().get("Content-Type").map(|v| v.to_owned());
         let mut body = None::<&[u8]>;
 
-        if let Some(content_type) = content_type.as_ref() {
-            if Auth::will_push_body_v1(content_type) {
-                body = Some(req.body().as_slice());
+        match self {
+            &Token::QBox | &Token::V1 => {
+                if let Some(content_type) = content_type.as_ref() {
+                    if Auth::will_push_body_v1(content_type) {
+                        body = req.body().as_ref().map(|b| b.as_slice())
+                    }
+                }
+                if let Ok(authorization) =
+                    auth.authorization_v1_for_request(&url, content_type, body)
+                {
+                    req.headers_mut()
+                        .insert("Authorization".to_string(), authorization);
+                }
             }
-        }
-        if let Ok(authorization) = auth.authorization_v1_for_request(&url, content_type, body) {
-            if let Ok(authorization_header_value) = header::HeaderValue::from_str(&authorization) {
-                req.headers_mut()
-                    .insert(header::AUTHORIZATION, authorization_header_value);
+            &Token::Qiniu | &Token::V2 => {
+                if let Some(content_type) = content_type.as_ref() {
+                    if Auth::will_push_body_v2(content_type) {
+                        body = req.body().as_ref().map(|b| b.as_slice())
+                    }
+                }
+                if let Ok(authorization) =
+                    auth.authorization_v2_for_request(method, &url, content_type, body)
+                {
+                    req.headers_mut()
+                        .insert("Authorization".to_string(), authorization);
+                }
+            }
+            &Token::None | &Token::Null => {
+                return;
             }
         }
     }
-}
-
-impl Token for QiniuTokenGenerator {
-    fn sign(&self, req: &mut Request<Vec<u8>>, auth: &Auth) {
-        let url = req.uri().to_string();
-        let content_type = req
-            .headers_mut()
-            .get(header::CONTENT_TYPE)
-            .map(|v| v.to_str().map(|s| s.to_owned()).ok())
-            .unwrap_or(None);
-        let mut body = None::<&[u8]>;
-
-        if let Some(content_type) = content_type.as_ref() {
-            if Auth::will_push_body_v2(content_type) {
-                body = Some(req.body().as_slice());
-            }
-        }
-        if let Ok(authorization) =
-            auth.authorization_v2_for_request(req.method(), &url, content_type, body)
-        {
-            if let Ok(authorization_header_value) = header::HeaderValue::from_str(&authorization) {
-                req.headers_mut()
-                    .insert(header::AUTHORIZATION, authorization_header_value);
-            }
-        }
-    }
-}
-
-impl Token for NoneTokenGenerator {
-    fn sign(&self, _req: &mut Request<Vec<u8>>, _auth: &Auth) {}
 }
