@@ -90,7 +90,7 @@ impl Builder {
         self.build()
     }
 
-    pub fn json<T: Serialize>(mut self, body: &T) -> result::Result<Request, Box<Error>> {
+    pub fn json_body<T: Serialize>(mut self, body: &T) -> result::Result<Request, Box<Error>> {
         if self.error.is_none() {
             match serde_json::to_vec(body) {
                 Ok(serialized_body) => {
@@ -104,7 +104,7 @@ impl Builder {
         self.build()
     }
 
-    pub fn form<T: Serialize>(mut self, body: &T) -> result::Result<Request, Box<Error>> {
+    pub fn form_body<T: Serialize>(mut self, body: &T) -> result::Result<Request, Box<Error>> {
         if self.error.is_none() {
             match serde_urlencoded::to_string(body) {
                 Ok(serialized_body) => {

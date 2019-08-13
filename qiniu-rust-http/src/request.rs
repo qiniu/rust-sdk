@@ -2,25 +2,34 @@ use super::{header::Headers, method::Method};
 use getset::{Getters, MutGetters, Setters};
 
 pub type URL = String;
-pub type Body = Vec<u8>;
+pub type Body = [u8];
 
-#[derive(Debug, Getters, Setters, MutGetters, Clone)]
-#[get = "pub"]
-#[set = "pub"]
-#[get_mut = "pub"]
-pub struct Request {
+#[derive(Debug, Getters, MutGetters, Setters, Clone)]
+pub struct Request<'b> {
+    #[get = "pub"]
+    #[set = "pub"]
+    #[get_mut = "pub"]
     url: URL,
+
+    #[get = "pub"]
+    #[set = "pub"]
+    #[get_mut = "pub"]
     method: Method,
+
+    #[get = "pub"]
+    #[set = "pub"]
+    #[get_mut = "pub"]
     headers: Headers,
-    body: Option<Body>,
+
+    body: Option<&'b Body>,
 }
 
-impl Request {
+impl<'b> Request<'b> {
     pub fn new<U: Into<URL>>(
         method: Method,
         url: U,
         headers: Headers,
-        body: Option<Body>,
+        body: Option<&'b Body>,
     ) -> Request {
         Request {
             url: url.into(),
@@ -30,27 +39,27 @@ impl Request {
         }
     }
 
-    pub fn into_parts(self) -> (URL, Method, Headers, Option<Body>) {
+    pub fn into_parts(self) -> (URL, Method, Headers, Option<&'b Body>) {
         (self.url, self.method, self.headers, self.body)
     }
 
-    pub fn into_body(self) -> Option<Body> {
+    pub fn body(&self) -> Option<&'b Body> {
         self.body
     }
 }
 
-pub struct RequestBuilder {
-    request: Request,
+pub struct RequestBuilder<'r> {
+    request: Request<'r>,
 }
 
-impl RequestBuilder {
-    pub fn default() -> RequestBuilder {
+impl<'r> RequestBuilder<'r> {
+    pub fn default() -> RequestBuilder<'r> {
         RequestBuilder {
             request: Default::default(),
         }
     }
 
-    pub fn url<U: Into<URL>>(mut self, url: U) -> RequestBuilder {
+    pub fn url<U: Into<URL>>(mut self, url: U) -> RequestBuilder<'r> {
         self.request.url = url.into();
         self
     }
@@ -59,29 +68,29 @@ impl RequestBuilder {
         mut self,
         header_name: HeaderNameT,
         header_value: HeaderValueT,
-    ) -> RequestBuilder {
+    ) -> RequestBuilder<'r> {
         self.request
             .headers
             .insert(header_name.into(), header_value.into());
         self
     }
 
-    pub fn headers(mut self, headers: Headers) -> RequestBuilder {
+    pub fn headers(mut self, headers: Headers) -> RequestBuilder<'r> {
         self.request.headers = headers;
         self
     }
 
-    pub fn body<B: Into<Vec<u8>>>(mut self, body: B) -> RequestBuilder {
-        self.request.body = Some(body.into());
+    pub fn body(mut self, body: &'r [u8]) -> RequestBuilder<'r> {
+        self.request.body = Some(body);
         self
     }
 
-    pub fn build(self) -> Request {
+    pub fn build(self) -> Request<'r> {
         self.request
     }
 }
 
-impl Default for Request {
+impl Default for Request<'_> {
     fn default() -> Self {
         Self::new(Method::GET, "http://localhost", Headers::new(), None)
     }

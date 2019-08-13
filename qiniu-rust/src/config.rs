@@ -76,7 +76,6 @@ mod tests {
             .call(
                 RequestBuilder::default()
                     .url("http://fake.qiniu.com")
-                    .body(Vec::new())
                     .build(),
             )
             .unwrap();

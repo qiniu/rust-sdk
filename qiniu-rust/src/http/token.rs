@@ -28,7 +28,7 @@ impl Token {
             &Token::QBox | &Token::V1 => {
                 if let Some(content_type) = content_type.as_ref() {
                     if Auth::will_push_body_v1(content_type) {
-                        body = req.body().as_ref().map(|b| b.as_slice())
+                        body = req.body()
                     }
                 }
                 if let Ok(authorization) =
@@ -41,7 +41,7 @@ impl Token {
             &Token::Qiniu | &Token::V2 => {
                 if let Some(content_type) = content_type.as_ref() {
                     if Auth::will_push_body_v2(content_type) {
-                        body = req.body().as_ref().map(|b| b.as_slice())
+                        body = req.body()
                     }
                 }
                 if let Ok(authorization) =

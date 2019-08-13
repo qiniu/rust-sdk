@@ -20,7 +20,7 @@ impl Default for ReqwestClient {
 }
 
 impl HTTPCaller for ReqwestClient {
-    fn call(&self, request: Request) -> Result<Response> {
+    fn call<'r>(&self, request: Request<'r>) -> Result<Response> {
         let mut request_builder = self.inner.request(
             http::Method::from_str(request.method().as_str()).unwrap(),
             request.url(),
@@ -30,18 +30,19 @@ impl HTTPCaller for ReqwestClient {
         }
         let (url, method, _, body) = request.into_parts();
         if let Some(body) = body {
-            request_builder = request_builder.body(body);
+            request_builder = request_builder.body(Vec::from(body));
         }
         match request_builder.build() {
             Ok(reqwest_request) => match self.inner.execute(reqwest_request) {
-                Ok(response) => {
+                Ok(reqwest_response) => {
                     let mut response_builder =
-                        ResponseBuilder::default().status_code(response.status().as_u16());
-                    for (header_name, header_value) in response.headers().iter() {
+                        ResponseBuilder::default().status_code(reqwest_response.status().as_u16());
+                    for (header_name, header_value) in reqwest_response.headers().iter() {
                         response_builder = response_builder
                             .header(header_name.as_str(), header_value.to_str().unwrap());
                     }
-                    response_builder = response_builder.body(Box::new(response) as Box<Read>);
+                    response_builder =
+                        response_builder.body(Box::new(reqwest_response) as Box<Read>);
                     Ok(response_builder.build())
                 }
                 Err(err) => {

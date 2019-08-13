@@ -144,11 +144,8 @@ impl Auth {
     fn is_valid_request_with_err(&self, req: &Request) -> Result<bool, Box<Error>> {
         if let Some(original_authorization) = req.headers().get("Authorization") {
             let content_type = req.headers().get("Content-Type");
-            let expected_authorization = &self.authorization_v1_for_request(
-                req.url(),
-                content_type,
-                req.body().as_ref().map(|v| v.as_slice()),
-            )?;
+            let expected_authorization =
+                &self.authorization_v1_for_request(req.url(), content_type, req.body())?;
             Ok(original_authorization == expected_authorization)
         } else {
             Ok(false)

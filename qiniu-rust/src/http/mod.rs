@@ -8,4 +8,4 @@ pub(crate) mod client;
 mod http_caller;
 pub(crate) mod request;
 pub(crate) mod token;
-pub(crate) use http_caller::PanickedHTTPCaller;
+pub use http_caller::PanickedHTTPCaller;
