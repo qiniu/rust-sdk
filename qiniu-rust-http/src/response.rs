@@ -23,10 +23,7 @@ impl Response {
         }
     }
 
-    pub fn header<HeaderNameT: AsRef<str>>(
-        &self,
-        header_name: HeaderNameT,
-    ) -> Option<&HeaderValue> {
+    pub fn header<HeaderNameT: AsRef<str>>(&self, header_name: HeaderNameT) -> Option<&HeaderValue> {
         self.headers.get(header_name.as_ref())
     }
 
@@ -60,9 +57,7 @@ impl ResponseBuilder {
         header_name: HeaderNameT,
         header_value: HeaderValueT,
     ) -> ResponseBuilder {
-        self.response
-            .headers
-            .insert(header_name.into(), header_value.into());
+        self.response.headers.insert(header_name.into(), header_value.into());
         self
     }
 

@@ -84,26 +84,17 @@ mod tests {
 
         let http_response = config
             .http_request_call()
-            .call(
-                &RequestBuilder::default()
-                    .url("http://fake.qiniu.com")
-                    .build(),
-            )
+            .call(&RequestBuilder::default().url("http://fake.qiniu.com").build())
             .unwrap();
 
-        let mut http_body = iter::repeat(0)
-            .take("It's HTTP Body".len())
-            .collect::<Vec<u8>>();
+        let mut http_body = iter::repeat(0).take("It's HTTP Body".len()).collect::<Vec<u8>>();
         assert_eq!(http_response.status_code(), &612u16);
         http_response
             .into_body()
             .unwrap()
             .read(http_body.as_mut_slice())
             .unwrap();
-        assert_eq!(
-            String::from_utf8(http_body).unwrap().as_str(),
-            "It's HTTP Body"
-        );
+        assert_eq!(String::from_utf8(http_body).unwrap().as_str(), "It's HTTP Body");
     }
 
     #[test]

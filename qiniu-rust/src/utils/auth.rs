@@ -2,9 +2,7 @@ use super::{base64, mime};
 use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
 use getset::Getters;
 use qiniu_http::{Method, Request};
-use std::{
-    boxed::Box, convert::TryFrom, error::Error, fmt, result::Result, string::String, time, u32,
-};
+use std::{boxed::Box, convert::TryFrom, error::Error, fmt, result::Result, string::String, time, u32};
 use url::Url;
 
 #[derive(Getters)]
@@ -138,8 +136,7 @@ impl Auth {
     fn is_valid_request_with_err(&self, req: &Request) -> Result<bool, Box<Error>> {
         if let Some(original_authorization) = req.headers().get("Authorization") {
             let content_type = req.headers().get("Content-Type");
-            let expected_authorization =
-                &self.authorization_v1_for_request(req.url(), content_type, req.body())?;
+            let expected_authorization = &self.authorization_v1_for_request(req.url(), content_type, req.body())?;
             Ok(original_authorization == expected_authorization)
         } else {
             Ok(false)
@@ -298,12 +295,8 @@ mod tests {
     fn test_sign_request_v1() {
         let auth = get_auth();
         assert_eq!(
-            auth.sign_request_v1(
-                "http://upload.qiniup.com/",
-                None::<&str>,
-                Some(b"{\"name\":\"test\"}")
-            )
-            .unwrap(),
+            auth.sign_request_v1("http://upload.qiniup.com/", None::<&str>, Some(b"{\"name\":\"test\"}"))
+                .unwrap(),
             auth.sign(b"/\n")
         );
         assert_eq!(
@@ -420,12 +413,8 @@ mod tests {
                 .url("http://upload.qiniup.com/")
                 .header(
                     "Authorization",
-                    auth.authorization_v1_for_request(
-                        "http://upload.qiniup.com/",
-                        None::<&str>,
-                        None
-                    )
-                    .unwrap()
+                    auth.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)
+                        .unwrap()
                 )
                 .body(json_body)
                 .build()
@@ -435,12 +424,8 @@ mod tests {
                 .url("http://upload.qiniup.com/")
                 .header(
                     "Authorization",
-                    auth.authorization_v1_for_request(
-                        "http://upload.qiniup.com/",
-                        None::<&str>,
-                        None
-                    )
-                    .unwrap()
+                    auth.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)
+                        .unwrap()
                 )
                 .header("Content-Type", "application/json")
                 .body(json_body)
@@ -471,14 +456,18 @@ mod tests {
             auth.sign_download_url_with_deadline(
                 Url::parse("http://www.qiniu.com/?go=1").unwrap(),
                 time::SystemTime::UNIX_EPOCH + time::Duration::from_secs(1_234_567_890 + 3600),
-                false).unwrap(),
+                false
+            )
+            .unwrap(),
             "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq:KjQtlGAkEOhSwtFjJfYtYa2-reE=",
         );
         assert_eq!(
             auth.sign_download_url_with_deadline(
                 Url::parse("http://www.qiniu.com/?go=1").unwrap(),
                 time::SystemTime::UNIX_EPOCH + time::Duration::from_secs(1_234_567_890 + 3600),
-                true).unwrap(),
+                true
+            )
+            .unwrap(),
             "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq:86uQeCB9GsFFvL2wA0mgBcOMsmk=",
         );
     }
@@ -490,11 +479,7 @@ mod tests {
         for key in keys.iter() {
             let url = auth
                 .sign_download_url_with_lifetime(
-                    Url::parse(&format!(
-                        "http://z1-bucket.kodo-test.qiniu-solutions.com/{}",
-                        key
-                    ))
-                    .unwrap(),
+                    Url::parse(&format!("http://z1-bucket.kodo-test.qiniu-solutions.com/{}", key)).unwrap(),
                     time::Duration::from_secs(30),
                     false,
                 )

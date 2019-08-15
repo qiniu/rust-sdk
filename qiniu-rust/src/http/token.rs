@@ -32,11 +32,8 @@ impl Token {
                         body = req.body()
                     }
                 }
-                if let Ok(authorization) =
-                    auth.authorization_v1_for_request(&url, content_type, body)
-                {
-                    req.headers_mut()
-                        .insert("Authorization".to_string(), authorization);
+                if let Ok(authorization) = auth.authorization_v1_for_request(&url, content_type, body) {
+                    req.headers_mut().insert("Authorization".to_string(), authorization);
                 }
             }
             &Token::Qiniu | &Token::V2 => {
@@ -45,11 +42,8 @@ impl Token {
                         body = req.body()
                     }
                 }
-                if let Ok(authorization) =
-                    auth.authorization_v2_for_request(method, &url, content_type, body)
-                {
-                    req.headers_mut()
-                        .insert("Authorization".to_string(), authorization);
+                if let Ok(authorization) = auth.authorization_v2_for_request(method, &url, content_type, body) {
+                    req.headers_mut().insert("Authorization".to_string(), authorization);
                 }
             }
             &Token::None | &Token::Null => {

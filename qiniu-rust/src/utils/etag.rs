@@ -65,9 +65,7 @@ impl Etag {
     fn sha1(bytes: &[u8]) -> Vec<u8> {
         let mut sha1 = Sha1::new();
         sha1.input(bytes);
-        let mut result = iter::repeat(0)
-            .take(sha1.output_bytes())
-            .collect::<Vec<u8>>();
+        let mut result = iter::repeat(0).take(sha1.output_bytes()).collect::<Vec<u8>>();
         sha1.result(&mut result);
         result
     }
@@ -127,9 +125,7 @@ where
                     self.have_read += have_read;
                     self.digest.input(buf.get(..have_read).unwrap())
                 } else {
-                    let mut etag = iter::repeat(0)
-                        .take(self.digest.output_bytes())
-                        .collect::<Vec<u8>>();
+                    let mut etag = iter::repeat(0).take(self.digest.output_bytes()).collect::<Vec<u8>>();
                     self.digest.result(&mut etag);
                     self.etag = Some(String::from_utf8(etag).unwrap());
                 }
@@ -157,9 +153,7 @@ pub fn from<IO: Read>(mut io: &mut IO) -> Result<String> {
 pub fn from_bytes<S: AsRef<[u8]>>(buf: S) -> String {
     let mut etag_digest = new();
     etag_digest.input(buf.as_ref());
-    let mut etag = iter::repeat(0)
-        .take(etag_digest.output_bytes())
-        .collect::<Vec<u8>>();
+    let mut etag = iter::repeat(0).take(etag_digest.output_bytes()).collect::<Vec<u8>>();
     etag_digest.result(&mut etag);
     String::from_utf8(etag).unwrap()
 }
@@ -175,10 +169,7 @@ mod tests {
 
     #[test]
     fn test_etag_from_data() {
-        assert_eq!(
-            from(&mut std::io::empty()).unwrap(),
-            "Fto5o-5ea0sNMlW_75VgGJCv2AcJ",
-        );
+        assert_eq!(from(&mut std::io::empty()).unwrap(), "Fto5o-5ea0sNMlW_75VgGJCv2AcJ",);
         assert_eq!(
             from(&mut stringreader::StringReader::new("etag")).unwrap(),
             "FpLiADEaVoALPkdb8tJEJyRTXoe_"

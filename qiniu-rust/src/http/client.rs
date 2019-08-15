@@ -71,12 +71,7 @@ impl Client {
         self.request_builder(Method::HEAD, path, hosts)
     }
 
-    fn request_builder<Hosts, Host, Path>(
-        &self,
-        method: Method,
-        path: Path,
-        hosts: Hosts,
-    ) -> request::Builder
+    fn request_builder<Hosts, Host, Path>(&self, method: Method, path: Path, hosts: Hosts) -> request::Builder
     where
         Path: Into<String>,
         Host: Into<String>,

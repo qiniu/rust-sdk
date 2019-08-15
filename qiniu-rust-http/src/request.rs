@@ -22,12 +22,7 @@ pub struct Request<'b> {
 }
 
 impl<'b> Request<'b> {
-    pub fn new<U: Into<URL>>(
-        method: Method,
-        url: U,
-        headers: Headers,
-        body: Option<&'b Body>,
-    ) -> Request {
+    pub fn new<U: Into<URL>>(method: Method, url: U, headers: Headers, body: Option<&'b Body>) -> Request {
         Request {
             url: url.into(),
             method: method,
@@ -67,9 +62,7 @@ impl<'r> RequestBuilder<'r> {
         header_name: HeaderNameT,
         header_value: HeaderValueT,
     ) -> RequestBuilder<'r> {
-        self.request
-            .headers
-            .insert(header_name.into(), header_value.into());
+        self.request.headers.insert(header_name.into(), header_value.into());
         self
     }
 

@@ -12,12 +12,7 @@ mod tests {
         let config: Config = Default::default();
         let resp = config
             .http_request_call()
-            .call(&Request::new(
-                Method::GET,
-                "http://up.qiniup.com",
-                Headers::new(),
-                None,
-            ))
+            .call(&Request::new(Method::GET, "http://up.qiniup.com", Headers::new(), None))
             .unwrap();
         assert_eq!(resp.status_code(), &StatusCode::METHOD_NOT_ALLOWED.as_u16());
         assert_eq!(

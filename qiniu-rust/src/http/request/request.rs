@@ -17,8 +17,7 @@ impl Request {
                     return Ok(response);
                 }
                 Err(err) => match err.kind() {
-                    qiniu_http::ErrorKind::RetryableError
-                    | qiniu_http::ErrorKind::HostUnretryableError => {
+                    qiniu_http::ErrorKind::RetryableError | qiniu_http::ErrorKind::HostUnretryableError => {
                         prev_err = Some(err);
                         // TODO: call callback function for retryable error
                         continue;

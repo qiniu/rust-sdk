@@ -52,11 +52,7 @@ impl Builder {
         }
     }
 
-    pub fn header<K: Into<HeaderName>, V: Into<HeaderValue>>(
-        mut self,
-        key: K,
-        value: V,
-    ) -> Builder {
+    pub fn header<K: Into<HeaderName>, V: Into<HeaderValue>>(mut self, key: K, value: V) -> Builder {
         self.parts.headers.insert(key.into(), value.into());
         self
     }

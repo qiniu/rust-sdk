@@ -27,8 +27,7 @@ pub(crate) fn load_variables() -> Variables {
     };
 
     if let Ok(file) = File::open("variables.yml") {
-        let deserialized_variables: OptionalVariables =
-            serde_yaml::from_reader(BufReader::new(file)).unwrap();
+        let deserialized_variables: OptionalVariables = serde_yaml::from_reader(BufReader::new(file)).unwrap();
         if variables.access_key.is_none() && deserialized_variables.access_key.is_some() {
             variables.access_key = deserialized_variables.access_key;
         }
@@ -42,8 +41,6 @@ pub(crate) fn load_variables() -> Variables {
     Variables {
         access_key: variables.access_key.expect("access_key must be set"),
         secret_key: variables.secret_key.expect("secret_key must be set"),
-        z2_encrypt_key: variables
-            .z2_encrypt_key
-            .expect("z2_encrypt_key must be set"),
+        z2_encrypt_key: variables.z2_encrypt_key.expect("z2_encrypt_key must be set"),
     }
 }

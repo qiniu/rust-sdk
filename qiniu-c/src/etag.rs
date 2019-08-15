@@ -28,8 +28,7 @@ pub extern "C" fn qiniu_ng_etag_from_buffer(
     buffer_len: size_t,
     result_ptr: *mut c_char,
 ) -> qiniu_ng_result {
-    let etag_string =
-        etag::from_bytes(unsafe { slice::from_raw_parts(buffer as *const u8, buffer_len) });
+    let etag_string = etag::from_bytes(unsafe { slice::from_raw_parts(buffer as *const u8, buffer_len) });
     write_string_to_ptr(etag_string, result_ptr);
     QINIU_NG_RESULT_OK
 }
