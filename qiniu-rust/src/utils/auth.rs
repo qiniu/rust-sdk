@@ -3,13 +3,7 @@ use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
 use getset::Getters;
 use qiniu_http::{Method, Request};
 use std::{
-    boxed::Box,
-    convert::TryFrom,
-    error::Error,
-    fmt,
-    result::Result,
-    string::{String, ToString},
-    time, u32,
+    boxed::Box, convert::TryFrom, error::Error, fmt, result::Result, string::String, time, u32,
 };
 use url::Url;
 
@@ -21,12 +15,12 @@ pub struct Auth {
 }
 
 impl Auth {
-    pub fn new<AccessKey: ToString, SecretKey: Into<Vec<u8>>>(
+    pub fn new<AccessKey: Into<String>, SecretKey: Into<Vec<u8>>>(
         access_key: AccessKey,
         secret_key: SecretKey,
     ) -> Auth {
         Auth {
-            access_key: access_key.to_string(),
+            access_key: access_key.into(),
             secret_key: secret_key.into(),
         }
     }

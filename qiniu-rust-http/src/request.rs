@@ -1,23 +1,20 @@
 use super::{header::Headers, method::Method};
-use getset::{Getters, MutGetters, Setters};
+use getset::{Getters, MutGetters};
 
 pub type URL = String;
 pub type Body = [u8];
 
-#[derive(Debug, Getters, MutGetters, Setters, Clone)]
+#[derive(Debug, Getters, MutGetters, Clone)]
 pub struct Request<'b> {
     #[get = "pub"]
-    #[set = "pub"]
     #[get_mut = "pub"]
     url: URL,
 
     #[get = "pub"]
-    #[set = "pub"]
     #[get_mut = "pub"]
     method: Method,
 
     #[get = "pub"]
-    #[set = "pub"]
     #[get_mut = "pub"]
     headers: Headers,
 
@@ -39,10 +36,6 @@ impl<'b> Request<'b> {
         }
     }
 
-    pub fn into_parts(self) -> (URL, Method, Headers, Option<&'b Body>) {
-        (self.url, self.method, self.headers, self.body)
-    }
-
     pub fn body(&self) -> Option<&'b Body> {
         self.body
     }
@@ -57,6 +50,11 @@ impl<'r> RequestBuilder<'r> {
         RequestBuilder {
             request: Default::default(),
         }
+    }
+
+    pub fn method<M: Into<Method>>(mut self, method: M) -> RequestBuilder<'r> {
+        self.request.method = method.into();
+        self
     }
 
     pub fn url<U: Into<URL>>(mut self, url: U) -> RequestBuilder<'r> {

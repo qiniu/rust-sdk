@@ -1,6 +1,7 @@
 use super::super::utils::auth::Auth;
 use qiniu_http::Request;
 
+#[derive(Debug, Copy, Clone)]
 pub enum Token {
     QBox,
     Qiniu,
@@ -11,7 +12,7 @@ pub enum Token {
 }
 
 impl Token {
-    fn sign(&self, req: &mut Request, auth: &Auth) {
+    pub fn sign(&self, req: &mut Request, auth: &Auth) {
         match self {
             &Token::None | &Token::Null => {
                 return;

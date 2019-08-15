@@ -1,38 +1,31 @@
-use super::super::config::Config;
-use super::super::utils::auth::Auth;
-use super::token::Token;
+use super::{
+    super::{
+        super::{config::Config, utils::auth::Auth},
+        token::Token,
+    },
+    Parts, Request,
+};
+use error_chain::error_chain;
 use qiniu_http::{HeaderName, HeaderValue, Headers, Method};
 use serde::Serialize;
-use std::{boxed::Box, error::Error, result, string::ToString, sync::Arc};
+use std::{result, sync::Arc};
 
-struct Parts {
-    method: Method,
-    hosts: Vec<String>,
-    path: String,
-    headers: Headers,
-    body: Vec<u8>,
-    auth: Arc<Auth>,
-    config: Arc<Config>,
-    token: Token,
-}
-
-pub struct Request {
-    parts: Parts,
+error_chain! {
+    foreign_links {
+        JSONError(serde_json::error::Error);
+        FormError(serde_urlencoded::ser::Error);
+    }
 }
 
 pub struct Builder {
     parts: Parts,
-    error: Option<Box<Error>>,
+    error: Option<Error>,
 }
 
-impl Request {
-    // fn send(mut self) -> Result<Request> {
-    // let mut http_request_builder = http::Request::builder()::method(self.method);
-    // }
-}
+pub type BuildResult = result::Result<Request, Error>;
 
 impl Builder {
-    pub(super) fn new<Hosts, Host, Path>(
+    pub fn new<Hosts, Host, Path>(
         auth: Arc<Auth>,
         config: Arc<Config>,
         method: Method,
@@ -40,21 +33,17 @@ impl Builder {
         hosts: Hosts,
     ) -> Builder
     where
-        Path: ToString,
-        Host: ToString,
-        Hosts: AsRef<[Host]>,
+        Path: Into<String>,
+        Host: Into<String>,
+        Hosts: Into<Vec<Host>>,
     {
         Builder {
             parts: Parts {
                 auth: auth,
                 config: config,
                 method: method,
-                hosts: hosts
-                    .as_ref()
-                    .into_iter()
-                    .map(|host| host.to_string())
-                    .collect(),
-                path: path.to_string(),
+                hosts: hosts.into().into_iter().map(|host| host.into()).collect(),
+                path: path.into(),
                 headers: Headers::new(),
                 body: Vec::<u8>::new(),
                 token: Token::None,
@@ -79,46 +68,46 @@ impl Builder {
         self
     }
 
-    pub fn no_body(self) -> result::Result<Request, Box<Error>> {
+    pub fn no_body(self) -> BuildResult {
         self.build()
     }
 
-    pub fn raw_body<T: Into<Vec<u8>>>(mut self, body: T) -> result::Result<Request, Box<Error>> {
+    pub fn raw_body<T: Into<Vec<u8>>>(mut self, body: T) -> BuildResult {
         if self.error.is_none() {
             self.parts.body = body.into();
         }
         self.build()
     }
 
-    pub fn json_body<T: Serialize>(mut self, body: &T) -> result::Result<Request, Box<Error>> {
+    pub fn json_body<T: Serialize>(mut self, body: &T) -> BuildResult {
         if self.error.is_none() {
             match serde_json::to_vec(body) {
                 Ok(serialized_body) => {
                     self.parts.body = serialized_body;
                 }
                 Err(e) => {
-                    self.error = Some(Box::new(e));
+                    self.error = Some(e.into());
                 }
             }
         }
         self.build()
     }
 
-    pub fn form_body<T: Serialize>(mut self, body: &T) -> result::Result<Request, Box<Error>> {
+    pub fn form_body<T: Serialize>(mut self, body: &T) -> BuildResult {
         if self.error.is_none() {
             match serde_urlencoded::to_string(body) {
                 Ok(serialized_body) => {
                     self.parts.body = serialized_body.into_bytes();
                 }
                 Err(e) => {
-                    self.error = Some(Box::new(e));
+                    self.error = Some(e.into());
                 }
             }
         }
         self.build()
     }
 
-    fn build(self) -> result::Result<Request, Box<Error>> {
+    fn build(self) -> BuildResult {
         match self.error {
             Some(err) => Err(err),
             None => Ok(Request { parts: self.parts }),

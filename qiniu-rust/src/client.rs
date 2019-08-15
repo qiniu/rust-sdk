@@ -9,7 +9,7 @@ pub struct Client {
     http_client: http::client::Client,
 }
 
-fn new<AccessKey: ToString, SecretKey: Into<Vec<u8>>>(
+fn new<AccessKey: Into<String>, SecretKey: Into<Vec<u8>>>(
     access_key: AccessKey,
     secret_key: SecretKey,
     config: Config,

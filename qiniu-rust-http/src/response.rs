@@ -1,13 +1,12 @@
 use super::header::{HeaderValue, Headers};
-use getset::{Getters, MutGetters, Setters};
+use getset::{Getters, MutGetters};
 use std::{default::Default, fmt, io::Read};
 
 pub type StatusCode = u16;
 pub type Body = Box<Read>;
 
-#[derive(Getters, Setters, MutGetters)]
+#[derive(Getters, MutGetters)]
 #[get = "pub"]
-#[set = "pub"]
 #[get_mut = "pub"]
 pub struct Response {
     status_code: StatusCode,

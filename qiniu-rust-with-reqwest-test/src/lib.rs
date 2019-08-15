@@ -12,7 +12,7 @@ mod tests {
         let config: Config = Default::default();
         let resp = config
             .http_request_call()
-            .call(Request::new(
+            .call(&Request::new(
                 Method::GET,
                 "http://up.qiniup.com",
                 Headers::new(),

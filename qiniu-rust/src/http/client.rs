@@ -19,54 +19,54 @@ impl Client {
 
     pub fn get<Hosts, Host, Path>(&self, path: Path, hosts: Hosts) -> request::Builder
     where
-        Path: ToString,
-        Host: ToString,
-        Hosts: AsRef<[Host]>,
+        Path: Into<String>,
+        Host: Into<String>,
+        Hosts: Into<Vec<Host>>,
     {
         self.request_builder(Method::GET, path, hosts)
     }
 
     pub fn post<Hosts, Host, Path>(&self, path: Path, hosts: Hosts) -> request::Builder
     where
-        Path: ToString,
-        Host: ToString,
-        Hosts: AsRef<[Host]>,
+        Path: Into<String>,
+        Host: Into<String>,
+        Hosts: Into<Vec<Host>>,
     {
         self.request_builder(Method::POST, path, hosts)
     }
 
     pub fn put<Hosts, Host, Path>(&self, path: Path, hosts: Hosts) -> request::Builder
     where
-        Path: ToString,
-        Host: ToString,
-        Hosts: AsRef<[Host]>,
+        Path: Into<String>,
+        Host: Into<String>,
+        Hosts: Into<Vec<Host>>,
     {
         self.request_builder(Method::PUT, path, hosts)
     }
 
     pub fn delete<Hosts, Host, Path>(&self, path: Path, hosts: Hosts) -> request::Builder
     where
-        Path: ToString,
-        Host: ToString,
-        Hosts: AsRef<[Host]>,
+        Path: Into<String>,
+        Host: Into<String>,
+        Hosts: Into<Vec<Host>>,
     {
         self.request_builder(Method::DELETE, path, hosts)
     }
 
     pub fn patch<Hosts, Host, Path>(&self, path: Path, hosts: Hosts) -> request::Builder
     where
-        Path: ToString,
-        Host: ToString,
-        Hosts: AsRef<[Host]>,
+        Path: Into<String>,
+        Host: Into<String>,
+        Hosts: Into<Vec<Host>>,
     {
         self.request_builder(Method::PATCH, path, hosts)
     }
 
     pub fn head<Hosts, Host, Path>(&self, path: Path, hosts: Hosts) -> request::Builder
     where
-        Path: ToString,
-        Host: ToString,
-        Hosts: AsRef<[Host]>,
+        Path: Into<String>,
+        Host: Into<String>,
+        Hosts: Into<Vec<Host>>,
     {
         self.request_builder(Method::HEAD, path, hosts)
     }
@@ -78,9 +78,9 @@ impl Client {
         hosts: Hosts,
     ) -> request::Builder
     where
-        Path: ToString,
-        Host: ToString,
-        Hosts: AsRef<[Host]>,
+        Path: Into<String>,
+        Host: Into<String>,
+        Hosts: Into<Vec<Host>>,
     {
         request::Builder::new(self.auth.clone(), self.config.clone(), method, path, hosts)
     }

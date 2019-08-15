@@ -1,7 +1,7 @@
 use derive_builder::Builder;
 use getset::{Getters, MutGetters, Setters};
 use qiniu_http::HTTPCaller;
-use std::{boxed::Box, default::Default, time::Duration};
+use std::{boxed::Box, default::Default, fmt, time::Duration};
 
 #[derive(Builder, Getters, Setters, MutGetters)]
 #[get = "pub"]
@@ -45,19 +45,30 @@ impl Config {
     }
 }
 
+impl fmt::Debug for Config {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Config")
+            .field("use_https", &self.use_https)
+            .field("batch_max_operation_size", &self.batch_max_operation_size)
+            .field("upload_threshold", &self.upload_threshold)
+            .field("http_request_retries", &self.http_request_retries)
+            .field("http_request_retry_delay", &self.http_request_retry_delay)
+            .finish()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use qiniu_http::{Request, RequestBuilder, Response, ResponseBuilder, Result};
     use std::{io::Read, iter};
-    use stringreader::StringReader;
 
     struct FakeHTTPRequester;
     impl HTTPCaller for FakeHTTPRequester {
-        fn call(&self, _: Request) -> Result<Response> {
+        fn call(&self, _: &Request) -> Result<Response> {
             Ok(ResponseBuilder::default()
                 .status_code(612u16)
-                .body(Box::new(StringReader::new("It's HTTP Body")) as Box<Read>)
+                .body(Box::new(stringreader::StringReader::new("It's HTTP Body")) as Box<Read>)
                 .build())
         }
     }
@@ -74,7 +85,7 @@ mod tests {
         let http_response = config
             .http_request_call()
             .call(
-                RequestBuilder::default()
+                &RequestBuilder::default()
                     .url("http://fake.qiniu.com")
                     .build(),
             )

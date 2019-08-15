@@ -20,7 +20,7 @@ impl Default for ReqwestClient {
 }
 
 impl HTTPCaller for ReqwestClient {
-    fn call<'r>(&self, request: Request<'r>) -> Result<Response> {
+    fn call<'r>(&self, request: &Request<'r>) -> Result<Response> {
         let mut request_builder = self.inner.request(
             http::Method::from_str(request.method().as_str()).unwrap(),
             request.url(),
@@ -28,8 +28,7 @@ impl HTTPCaller for ReqwestClient {
         for (header_name, header_value) in request.headers().iter() {
             request_builder = request_builder.header(header_name, header_value);
         }
-        let (url, method, _, body) = request.into_parts();
-        if let Some(body) = body {
+        if let Some(body) = request.body() {
             request_builder = request_builder.body(Vec::from(body));
         }
         match request_builder.build() {
@@ -46,31 +45,63 @@ impl HTTPCaller for ReqwestClient {
                     Ok(response_builder.build())
                 }
                 Err(err) => {
+                    let (method, url) = (request.method().to_owned(), request.url().to_owned());
                     if let Some(err_ref) = err.get_ref() {
                         if err_ref.downcast_ref::<::http::Error>().is_some() {
-                            return Err(Error::new_unretryable_error_from_parts(err, method, url));
+                            return Err(Error::new_unretryable_error_from_parts(
+                                err,
+                                Some(method),
+                                Some(url),
+                            ));
                         } else if let Some(hyper_err) = err_ref.downcast_ref::<::hyper::Error>() {
                             if hyper_err.is_parse() {
                                 return Err(Error::new_unretryable_error_from_parts(
-                                    err, method, url,
+                                    err,
+                                    Some(method),
+                                    Some(url),
                                 ));
                             } else {
                                 return Err(Error::new_retryable_error_from_parts(
-                                    err, method, url,
+                                    err,
+                                    Some(method),
+                                    Some(url),
                                 ));
                             }
                         } else if err_ref.downcast_ref::<::std::io::Error>().is_some() {
-                            return Err(Error::new_retryable_error_from_parts(err, method, url));
+                            return Err(Error::new_retryable_error_from_parts(
+                                err,
+                                Some(method),
+                                Some(url),
+                            ));
                         } else if err_ref.downcast_ref::<SerdeFormErr>().is_some() {
-                            return Err(Error::new_retryable_error_from_parts(err, method, url));
+                            return Err(Error::new_retryable_error_from_parts(
+                                err,
+                                Some(method),
+                                Some(url),
+                            ));
                         } else if err_ref.downcast_ref::<SerdeJSONErr>().is_some() {
-                            return Err(Error::new_retryable_error_from_parts(err, method, url));
+                            return Err(Error::new_retryable_error_from_parts(
+                                err,
+                                Some(method),
+                                Some(url),
+                            ));
                         }
                     }
-                    Err(Error::new_unretryable_error_from_parts(err, method, url))
+                    Err(Error::new_unretryable_error_from_parts(
+                        err,
+                        Some(method),
+                        Some(url),
+                    ))
                 }
             },
-            Err(err) => Err(Error::new_unretryable_error_from_parts(err, method, url)),
+            Err(err) => {
+                let (method, url) = (request.method().to_owned(), request.url().to_owned());
+                Err(Error::new_unretryable_error_from_parts(
+                    err,
+                    Some(method),
+                    Some(url),
+                ))
+            }
         }
     }
 }
@@ -85,7 +116,7 @@ mod tests {
     fn test_call() {
         let client = ReqwestClient::new(reqwest::Client::new());
         let resp = client
-            .call(Request::new(
+            .call(&Request::new(
                 Method::GET,
                 "http://up.qiniup.com",
                 Headers::new(),
