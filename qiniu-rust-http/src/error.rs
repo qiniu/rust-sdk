@@ -14,6 +14,7 @@ pub type Result<T> = result::Result<T, Error>;
 #[get = "pub"]
 pub struct Error {
     kind: ErrorKind,
+    is_retry_safe: bool,
     cause: Box<error::Error>,
     method: Option<Method>,
     request_id: Option<RequestID>,
@@ -24,12 +25,14 @@ impl Error {
     pub fn new<E: error::Error + 'static>(
         kind: ErrorKind,
         cause: E,
+        is_retry_safe: bool,
         request: &Request,
         response: Option<&Response>,
     ) -> Error {
         Error {
             kind: kind,
             cause: Box::new(cause),
+            is_retry_safe: is_retry_safe,
             method: Some(request.method().to_owned()),
             request_id: Self::extract_req_id_from_response(response),
             url: Some(request.url().to_owned()),
@@ -38,26 +41,29 @@ impl Error {
 
     pub fn new_retryable_error<E: error::Error + 'static>(
         cause: E,
+        is_retry_safe: bool,
         request: &Request,
         response: Option<&Response>,
     ) -> Error {
-        Self::new(ErrorKind::RetryableError, cause, request, response)
+        Self::new(ErrorKind::RetryableError, cause, is_retry_safe, request, response)
     }
 
     pub fn new_zone_unretryable_error<E: error::Error + 'static>(
         cause: E,
+        is_retry_safe: bool,
         request: &Request,
         response: Option<&Response>,
     ) -> Error {
-        Self::new(ErrorKind::ZoneUnretryableError, cause, request, response)
+        Self::new(ErrorKind::ZoneUnretryableError, cause, is_retry_safe, request, response)
     }
 
     pub fn new_host_unretryable_error<E: error::Error + 'static>(
         cause: E,
+        is_retry_safe: bool,
         request: &Request,
         response: Option<&Response>,
     ) -> Error {
-        Self::new(ErrorKind::HostUnretryableError, cause, request, response)
+        Self::new(ErrorKind::HostUnretryableError, cause, is_retry_safe, request, response)
     }
 
     pub fn new_unretryable_error<E: error::Error + 'static>(
@@ -65,18 +71,20 @@ impl Error {
         request: &Request,
         response: Option<&Response>,
     ) -> Error {
-        Self::new(ErrorKind::UnretryableError, cause, request, response)
+        Self::new(ErrorKind::UnretryableError, cause, false, request, response)
     }
 
     pub fn new_from_parts<E: error::Error + 'static>(
         kind: ErrorKind,
         cause: E,
+        is_retry_safe: bool,
         method: Option<Method>,
         url: Option<URL>,
     ) -> Error {
         Error {
             kind: kind,
             cause: Box::new(cause),
+            is_retry_safe: is_retry_safe,
             method: method,
             request_id: None,
             url: url,
@@ -85,12 +93,14 @@ impl Error {
 
     pub fn new_retryable_error_from_parts<E: error::Error + 'static>(
         cause: E,
+        is_retry_safe: bool,
         method: Option<Method>,
         url: Option<URL>,
     ) -> Error {
         Error {
             kind: ErrorKind::RetryableError,
             cause: Box::new(cause),
+            is_retry_safe: is_retry_safe,
             method: method,
             request_id: None,
             url: url,
@@ -99,12 +109,14 @@ impl Error {
 
     pub fn new_zone_unretryable_error_from_parts<E: error::Error + 'static>(
         cause: E,
+        is_retry_safe: bool,
         method: Option<Method>,
         url: Option<URL>,
     ) -> Error {
         Error {
             kind: ErrorKind::ZoneUnretryableError,
             cause: Box::new(cause),
+            is_retry_safe: is_retry_safe,
             method: method,
             request_id: None,
             url: url,
@@ -113,12 +125,14 @@ impl Error {
 
     pub fn new_host_unretryable_error_from_parts<E: error::Error + 'static>(
         cause: E,
+        is_retry_safe: bool,
         method: Option<Method>,
         url: Option<URL>,
     ) -> Error {
         Error {
             kind: ErrorKind::HostUnretryableError,
             cause: Box::new(cause),
+            is_retry_safe: is_retry_safe,
             method: method,
             request_id: None,
             url: url,
@@ -133,6 +147,7 @@ impl Error {
         Error {
             kind: ErrorKind::UnretryableError,
             cause: Box::new(cause),
+            is_retry_safe: false,
             method: method,
             request_id: None,
             url: url,
@@ -150,8 +165,10 @@ impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Error")
             .field("kind", &self.kind)
+            .field("cause", &self.cause)
             .field("method", &self.method)
             .field("url", &self.url)
+            .field("is_retry_safe", &self.is_retry_safe)
             .finish()
     }
 }

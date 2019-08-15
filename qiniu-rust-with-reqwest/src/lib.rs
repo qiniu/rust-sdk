@@ -1,7 +1,10 @@
 use qiniu_http::{Error, HTTPCaller, Request, Response, ResponseBuilder, Result};
-use serde_json::Error as SerdeJSONErr;
-use serde_urlencoded::ser::Error as SerdeFormErr;
-use std::{boxed::Box, default::Default, io::Read, str::FromStr};
+use std::{
+    boxed::Box,
+    default::Default,
+    io::{self, Read},
+    str::FromStr,
+};
 
 pub struct ReqwestClient {
     inner: reqwest::Client,
@@ -44,25 +47,27 @@ impl HTTPCaller for ReqwestClient {
                     Ok(response_builder.build())
                 }
                 Err(err) => {
-                    let (method, url) = (request.method().to_owned(), request.url().to_owned());
+                    let (method, url) = (Some(request.method().to_owned()), Some(request.url().to_owned()));
                     if let Some(err_ref) = err.get_ref() {
                         if err_ref.downcast_ref::<::http::Error>().is_some() {
-                            return Err(Error::new_unretryable_error_from_parts(err, Some(method), Some(url)));
+                            return Err(Error::new_unretryable_error_from_parts(err, method, url));
                         } else if let Some(hyper_err) = err_ref.downcast_ref::<::hyper::Error>() {
-                            if hyper_err.is_parse() {
-                                return Err(Error::new_unretryable_error_from_parts(err, Some(method), Some(url)));
+                            if hyper_err.is_parse() || hyper_err.is_user() || hyper_err.is_canceled() {
+                                return Err(Error::new_unretryable_error_from_parts(err, method, url));
+                            } else if hyper_err.is_connect() {
+                                return Err(Error::new_retryable_error_from_parts(err, true, method, url));
                             } else {
-                                return Err(Error::new_retryable_error_from_parts(err, Some(method), Some(url)));
+                                return Err(Error::new_retryable_error_from_parts(err, false, method, url));
                             }
-                        } else if err_ref.downcast_ref::<::std::io::Error>().is_some() {
-                            return Err(Error::new_retryable_error_from_parts(err, Some(method), Some(url)));
-                        } else if err_ref.downcast_ref::<SerdeFormErr>().is_some() {
-                            return Err(Error::new_retryable_error_from_parts(err, Some(method), Some(url)));
-                        } else if err_ref.downcast_ref::<SerdeJSONErr>().is_some() {
-                            return Err(Error::new_retryable_error_from_parts(err, Some(method), Some(url)));
+                        } else if let Some(io_err) = err_ref.downcast_ref::<io::Error>() {
+                            let retry_safe = match io_err.kind() {
+                                io::ErrorKind::ConnectionRefused | io::ErrorKind::NotConnected => true,
+                                _ => false,
+                            };
+                            return Err(Error::new_retryable_error_from_parts(err, retry_safe, method, url));
                         }
                     }
-                    Err(Error::new_unretryable_error_from_parts(err, Some(method), Some(url)))
+                    Err(Error::new_unretryable_error_from_parts(err, method, url))
                 }
             },
             Err(err) => {
