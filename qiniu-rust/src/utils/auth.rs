@@ -37,7 +37,7 @@ impl Auth {
         url_string: URL,
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
-    ) -> Result<String, Box<Error>> {
+    ) -> Result<String, Box<dyn Error>> {
         let authorization_token = self.sign_request_v1(url_string, content_type, body)?;
         Ok("QBox ".to_owned() + &authorization_token)
     }
@@ -48,7 +48,7 @@ impl Auth {
         url_string: URL,
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
-    ) -> Result<String, Box<Error>> {
+    ) -> Result<String, Box<dyn Error>> {
         let authorization_token = self.sign_request_v2(method, url_string, content_type, body)?;
         Ok("Qiniu ".to_owned() + &authorization_token)
     }
@@ -58,7 +58,7 @@ impl Auth {
         url_string: URL,
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
-    ) -> Result<String, Box<Error>> {
+    ) -> Result<String, Box<dyn Error>> {
         let u = Url::parse(url_string.as_ref())?;
         let mut data_to_sign = String::with_capacity(1024);
         data_to_sign.push_str(u.path());
@@ -81,7 +81,7 @@ impl Auth {
         url_string: URL,
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
-    ) -> Result<String, Box<Error>> {
+    ) -> Result<String, Box<dyn Error>> {
         let u = Url::parse(url_string.as_ref())?;
         let mut data_to_sign = String::with_capacity(1024);
         data_to_sign.push_str(method.as_str());
@@ -133,7 +133,7 @@ impl Auth {
         self.is_valid_request_with_err(req).unwrap_or(false)
     }
 
-    fn is_valid_request_with_err(&self, req: &Request) -> Result<bool, Box<Error>> {
+    fn is_valid_request_with_err(&self, req: &Request) -> Result<bool, Box<dyn Error>> {
         if let Some(original_authorization) = req.headers().get("Authorization") {
             let content_type = req.headers().get("Content-Type");
             let expected_authorization = &self.authorization_v1_for_request(req.url(), content_type, req.body())?;

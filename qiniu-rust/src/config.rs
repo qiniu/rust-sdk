@@ -14,7 +14,7 @@ pub struct Config {
     upload_threshold: usize,
     http_request_retries: usize,
     http_request_retry_delay: Duration,
-    http_request_call: Box<HTTPCaller>,
+    http_request_call: Box<dyn HTTPCaller>,
 }
 
 impl Default for Config {
@@ -31,13 +31,12 @@ impl Default for Config {
 }
 
 impl Config {
-    fn default_http_request_call() -> Box<HTTPCaller> {
-        #[cfg(any(feature = "use-reqwest"))]
+    fn default_http_request_call() -> Box<dyn HTTPCaller> {
+        #[cfg(any(feature = "use-libcurl"))]
         {
-            use qiniu_with_reqwest::ReqwestClient;
-            Box::new(ReqwestClient::default())
+            Box::new(qiniu_with_libcurl::CurlClient::new())
         }
-        #[cfg(not(feature = "use-reqwest"))]
+        #[cfg(not(feature = "use-libcurl"))]
         {
             use super::http::PanickedHTTPCaller;
             Box::new(PanickedHTTPCaller("Must define config.http_request_call"))

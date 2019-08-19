@@ -15,7 +15,7 @@ pub type Result<T> = result::Result<T, Error>;
 pub struct Error {
     kind: ErrorKind,
     is_retry_safe: bool,
-    cause: Box<error::Error>,
+    cause: Box<dyn error::Error>,
     method: Option<Method>,
     request_id: Option<RequestID>,
     url: Option<URL>,

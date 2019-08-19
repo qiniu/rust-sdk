@@ -6,8 +6,8 @@ pub mod response;
 pub use error::{Error, ErrorKind, Result};
 pub use header::{HeaderName, HeaderValue, Headers};
 pub use method::Method;
-pub use request::{Request, RequestBuilder};
-pub use response::{Response, ResponseBuilder};
+pub use request::{Request, RequestBuilder, URL};
+pub use response::{Response, ResponseBuilder, StatusCode};
 
 pub trait HTTPCaller {
     fn call(&self, request: &Request) -> Result<Response>;

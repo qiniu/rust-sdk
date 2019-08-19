@@ -4,6 +4,6 @@ members = [
     "qiniu-rust",
     "qiniu-c",
     "qiniu-rust-http",
-    "qiniu-rust-with-reqwest",
-    "qiniu-rust-with-reqwest-test",
+    "qiniu-rust-with-libcurl",
+    "qiniu-rust-http-test",
 ]

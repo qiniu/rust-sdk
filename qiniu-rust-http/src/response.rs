@@ -3,7 +3,7 @@ use getset::{Getters, MutGetters};
 use std::{default::Default, fmt, io::Read};
 
 pub type StatusCode = u16;
-pub type Body = Box<Read>;
+pub type Body = Box<dyn Read>;
 
 #[derive(Getters, MutGetters)]
 #[get = "pub"]

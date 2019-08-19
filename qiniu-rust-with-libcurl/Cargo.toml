@@ -1,19 +1,13 @@
 [package]
-name = "qiniu-with-reqwest"
+name = "qiniu-with-libcurl"
 version = "0.1.0"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"
 license = "Apache-2.0"
 homepage = "https://www.qiniu.com"
-description = "Provide reqwest for qiniu"
+description = "Provide libcurl for qiniu"
 
 [dependencies]
 qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }
-http = "0.1.18"
-reqwest = "0.9.19"
-hyper = "0.12.22"
-serde_json = "1.0"
-serde_urlencoded = "0.5"
-
-# [patch.crates-io]
-# http = { version = "0.1.18", git = "https://github.com/bachue/qiniu-http-rs.git" }
+curl = "0.4.22"
+rustc_version_runtime = "0.1.5"

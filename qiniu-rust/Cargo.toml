@@ -21,7 +21,7 @@ serde_json = "1.0.40"
 serde_urlencoded = "0.6.1"
 error-chain = "0.12.1"
 
-qiniu-with-reqwest = { version = "0.1.0", path = "../qiniu-rust-with-reqwest", optional = true }
+qiniu-with-libcurl = { version = "0.1.0", path = "../qiniu-rust-with-libcurl", optional = true }
 qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }
 
 [dev-dependencies]
@@ -32,4 +32,4 @@ tempfile = "3.1.0"
 
 [features]
 default = []
-use-reqwest = ["qiniu-with-reqwest"]
+use-libcurl = ["qiniu-with-libcurl"]
