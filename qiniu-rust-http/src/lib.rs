@@ -11,4 +11,9 @@ pub use response::{Response, ResponseBuilder, StatusCode};
 
 pub trait HTTPCaller {
     fn call(&self, request: &Request) -> Result<Response>;
+    fn on_retry_request(&self, _request: &Request, _error: &Error, _retried: usize, _retries: usize) {}
+    fn on_host_failed(&self, _failed_host: &str, _error: &Error) {}
+    fn on_request_built(&self, _request: &mut Request) {}
+    fn on_response(&self, _request: &Request, _response: &Response) {}
+    fn on_error(&self, _err: &Error) {}
 }

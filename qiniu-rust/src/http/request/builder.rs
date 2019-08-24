@@ -68,8 +68,11 @@ impl Builder {
         self.build()
     }
 
-    pub fn raw_body<T: Into<Vec<u8>>>(mut self, body: T) -> BuildResult {
+    pub fn raw_body<T: Into<Vec<u8>>, S: Into<String>>(mut self, content_type: S, body: T) -> BuildResult {
         if self.error.is_none() {
+            self.parts
+                .headers
+                .insert("Content-Type".to_string(), content_type.into());
             self.parts.body = body.into();
         }
         self.build()
@@ -79,6 +82,9 @@ impl Builder {
         if self.error.is_none() {
             match serde_json::to_vec(body) {
                 Ok(serialized_body) => {
+                    self.parts
+                        .headers
+                        .insert("Content-Type".to_string(), "application/json".to_string());
                     self.parts.body = serialized_body;
                 }
                 Err(e) => {
@@ -93,6 +99,10 @@ impl Builder {
         if self.error.is_none() {
             match serde_urlencoded::to_string(body) {
                 Ok(serialized_body) => {
+                    self.parts.headers.insert(
+                        "Content-Type".to_string(),
+                        "application/x-www-form-urlencoded".to_string(),
+                    );
                     self.parts.body = serialized_body.into_bytes();
                 }
                 Err(e) => {

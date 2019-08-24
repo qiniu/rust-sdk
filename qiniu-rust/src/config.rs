@@ -67,7 +67,7 @@ mod tests {
         fn call(&self, _: &Request) -> Result<Response> {
             Ok(ResponseBuilder::default()
                 .status_code(612u16)
-                .body(Box::new(stringreader::StringReader::new("It's HTTP Body")) as Box<Read>)
+                .body(Box::new(stringreader::StringReader::new("It's HTTP Body")) as Box<dyn Read>)
                 .build())
         }
     }
