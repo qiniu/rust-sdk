@@ -5,6 +5,7 @@ pub use qiniu_http::{
     response::{Response, ResponseBuilder},
 };
 pub(crate) mod client;
+pub mod error;
 mod http_caller;
 pub(crate) mod request;
 pub(crate) mod token;

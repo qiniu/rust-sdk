@@ -6,11 +6,15 @@ pub type StatusCode = u16;
 pub type Body = Box<dyn Read>;
 
 #[derive(Getters, MutGetters)]
-#[get = "pub"]
-#[get_mut = "pub"]
 pub struct Response {
     status_code: StatusCode,
+
+    #[get = "pub"]
+    #[get_mut = "pub"]
     headers: Headers,
+
+    #[get = "pub"]
+    #[get_mut = "pub"]
     body: Option<Body>,
 }
 
@@ -21,6 +25,10 @@ impl Response {
             headers: headers,
             body: body,
         }
+    }
+
+    pub fn status_code(&self) -> StatusCode {
+        self.status_code
     }
 
     pub fn header<HeaderNameT: AsRef<str>>(&self, header_name: HeaderNameT) -> Option<&HeaderValue> {
@@ -85,7 +93,7 @@ impl Default for Response {
 impl fmt::Debug for Response {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Response")
-            .field("status_code", self.status_code())
+            .field("status_code", &self.status_code())
             .field("headers", self.headers())
             .finish()
     }

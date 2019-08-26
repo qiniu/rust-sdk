@@ -87,7 +87,7 @@ mod tests {
             .unwrap();
 
         let mut http_body = iter::repeat(0).take("It's HTTP Body".len()).collect::<Vec<u8>>();
-        assert_eq!(http_response.status_code(), &612u16);
+        assert_eq!(http_response.status_code(), 612);
         http_response
             .into_body()
             .unwrap()
