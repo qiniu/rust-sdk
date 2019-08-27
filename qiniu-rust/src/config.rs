@@ -10,6 +10,7 @@ use std::{boxed::Box, default::Default, fmt, time::Duration};
 #[builder(pattern = "owned", default)]
 pub struct Config {
     use_https: bool,
+    upload_token_lifetime: Duration,
     batch_max_operation_size: usize,
     upload_threshold: usize,
     http_request_retries: usize,
@@ -21,6 +22,7 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             use_https: false,
+            upload_token_lifetime: Duration::from_secs(60 * 60),
             batch_max_operation_size: 1000,
             upload_threshold: 1 << 22,
             http_request_retries: 3,
@@ -48,6 +50,7 @@ impl fmt::Debug for Config {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Config")
             .field("use_https", &self.use_https)
+            .field("upload_token_lifetime", &self.upload_token_lifetime)
             .field("batch_max_operation_size", &self.batch_max_operation_size)
             .field("upload_threshold", &self.upload_threshold)
             .field("http_request_retries", &self.http_request_retries)

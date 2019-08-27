@@ -1,5 +1,7 @@
-use super::result::{make_qiniu_ng_result_from_io_error, qiniu_ng_result, QINIU_NG_RESULT_OK};
-use super::utils::{make_path_buf, write_string_to_ptr};
+use super::{
+    result::{make_qiniu_ng_result_from_io_error, qiniu_ng_result, QINIU_NG_RESULT_OK},
+    utils::{make_path_buf, write_string_to_ptr},
+};
 use crypto::digest::Digest;
 use libc::{c_char, c_void, size_t};
 use qiniu::utils::etag;

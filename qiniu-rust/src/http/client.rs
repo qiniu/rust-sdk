@@ -1,6 +1,5 @@
-use super::super::config::Config;
-use super::super::utils::auth::Auth;
 use super::request;
+use crate::{config::Config, utils::auth::Auth};
 use qiniu_http::Method;
 use std::sync::Arc;
 

@@ -118,6 +118,7 @@ where
     IO: Read + 'io,
 {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        // TODO: Think about async read
         let result = self.io.read(buf);
         if let Ok(have_read) = result {
             if buf.len() > 0 {

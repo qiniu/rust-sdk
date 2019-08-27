@@ -79,6 +79,7 @@ impl Request {
                             .on_retry_request(&request, &err, retried, retries);
                         prev_err = Some(err);
                         if self.parts.config.http_request_retry_delay().as_nanos() > 0 {
+                            // TODO: Think about async sleep
                             thread::sleep(*self.parts.config.http_request_retry_delay());
                         }
                         continue;

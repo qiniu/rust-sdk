@@ -1,4 +1,5 @@
 use super::{base64, mime};
+use crate::storage::UploadPolicy;
 use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
 use getset::Getters;
 use qiniu_http::{Method, Request};
@@ -24,12 +25,12 @@ impl Auth {
     }
 
     pub(crate) fn sign(&self, data: &[u8]) -> String {
-        format!("{}:{}", self.access_key, self.base64ed_hmac_digest(data))
+        self.access_key.to_owned() + ":" + &self.base64ed_hmac_digest(data)
     }
 
     pub(crate) fn sign_with_data(&self, data: &[u8]) -> String {
         let encoded_data = base64::urlsafe(data);
-        format!("{}:{}", self.sign(encoded_data.as_bytes()), encoded_data)
+        self.sign(encoded_data.as_bytes()) + ":" + &encoded_data
     }
 
     pub(crate) fn authorization_v1_for_request<URL: AsRef<str>, ContentType: AsRef<str>>(
@@ -143,6 +144,10 @@ impl Auth {
         }
     }
 
+    pub fn sign_upload_policy(&self, upload_policy: &UploadPolicy) -> String {
+        self.sign_with_data(upload_policy.as_json().as_bytes())
+    }
+
     pub(crate) fn sign_download_url_with_deadline(
         &self,
         url: Url,
@@ -217,8 +222,7 @@ impl fmt::Debug for Auth {
 
 #[cfg(test)]
 mod tests {
-    use super::super::http_utils;
-    use super::*;
+    use super::{super::http_utils, *};
     use qiniu_http::RequestBuilder;
 
     #[test]

@@ -1,7 +1,4 @@
-use super::super::{
-    super::{config::Config, utils::auth::Auth},
-    token::Token,
-};
+use crate::{config::Config, http::token::Token, utils::auth::Auth};
 use qiniu_http::{Headers, Method};
 use std::sync::Arc;
 

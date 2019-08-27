@@ -155,9 +155,7 @@ impl Error {
     }
 
     fn extract_req_id_from_response(response: Option<&Response>) -> Option<RequestID> {
-        response
-            .map(|resp| resp.headers().get("X-Reqid").map(|v| v.to_owned()))
-            .unwrap_or(None)
+        response.and_then(|resp| resp.headers().get("X-Reqid").map(|v| v.to_owned()))
     }
 }
 

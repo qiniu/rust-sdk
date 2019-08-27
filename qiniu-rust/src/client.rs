@@ -1,6 +1,4 @@
-use super::config::Config;
-use super::http;
-use super::utils::auth::Auth;
+use super::{config::Config, http, utils::auth::Auth};
 use std::{clone, fmt, sync::Arc};
 
 pub struct Client {

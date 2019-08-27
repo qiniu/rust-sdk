@@ -7,6 +7,7 @@ pub type Body = Box<dyn Read>;
 
 #[derive(Getters, MutGetters)]
 pub struct Response {
+    #[get_mut = "pub"]
     status_code: StatusCode,
 
     #[get = "pub"]

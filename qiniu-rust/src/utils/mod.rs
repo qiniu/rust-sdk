@@ -1,6 +1,6 @@
 pub mod auth;
 mod base64;
-mod bool;
+pub(crate) mod bool;
 pub mod etag;
 #[cfg(test)]
 mod http_utils;
