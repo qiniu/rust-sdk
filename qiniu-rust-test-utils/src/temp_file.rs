@@ -4,7 +4,7 @@ use tempfile::NamedTempFile;
 
 const FAKE_DATA: [u8; 4096] = make_fake_data();
 
-pub(crate) fn create_temp_file(size: usize) -> Result<NamedTempFile> {
+pub fn create_temp_file(size: usize) -> Result<NamedTempFile> {
     let mut temp = NamedTempFile::new()?;
     let mut rest = size;
 

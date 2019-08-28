@@ -165,8 +165,8 @@ pub fn from_file<P: AsRef<Path>>(path: P) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::temp_file;
     use super::*;
+    use qiniu_test_utils::temp_file;
 
     #[test]
     fn test_etag_from_data() {

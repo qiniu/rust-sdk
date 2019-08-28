@@ -213,7 +213,7 @@ impl fmt::Debug for Auth {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::http_utils, *};
+    use super::*;
     use qiniu_http::RequestBuilder;
 
     #[test]
@@ -467,30 +467,7 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_sign_download_url_with_lifetime() {
-        let auth = get_real_auth();
-        let keys = ["4k", "1m", "4m", "8m", "16m", "64m", "1g"];
-        for key in keys.iter() {
-            let url = auth
-                .sign_download_url_with_lifetime(
-                    Url::parse(&format!("http://z1-bucket.kodo-test.qiniu-solutions.com/{}", key)).unwrap(),
-                    time::Duration::from_secs(30),
-                    false,
-                )
-                .unwrap();
-            assert_eq!(http_utils::head(&url).unwrap().status(), 200);
-        }
-    }
-
     fn get_auth() -> Auth {
         Auth::new("abcdefghklmnopq", "1234567890")
-    }
-
-    fn get_real_auth() -> Auth {
-        use super::super::variables;
-
-        let vars = variables::load_variables();
-        Auth::new(vars.access_key(), vars.secret_key().as_bytes())
     }
 }
