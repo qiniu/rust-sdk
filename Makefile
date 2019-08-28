@@ -1,4 +1,4 @@
-SUBDIRS := qiniu-rust qiniu-c qiniu-rust-http qiniu-rust-with-libcurl qiniu-rust-http-test
+SUBDIRS := qiniu-rust qiniu-c qiniu-rust-http qiniu-rust-with-libcurl qiniu-rust-test
 
 all: $(SUBDIRS)
 $(SUBDIRS):

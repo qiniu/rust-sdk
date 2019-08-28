@@ -5,5 +5,5 @@ members = [
     "qiniu-c",
     "qiniu-rust-http",
     "qiniu-rust-with-libcurl",
-    "qiniu-rust-http-test",
+    "qiniu-rust-test",
 ]
