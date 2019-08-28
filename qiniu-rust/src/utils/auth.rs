@@ -6,7 +6,7 @@ use qiniu_http::{Method, Request};
 use std::{boxed::Box, convert::TryFrom, error::Error, fmt, result::Result, string::String, time, u32};
 use url::Url;
 
-#[derive(Getters)]
+#[derive(Getters, Clone, Eq, PartialEq)]
 pub struct Auth {
     #[get = "pub"]
     access_key: String,
@@ -199,15 +199,6 @@ impl Auth {
     ) -> Result<String, time::SystemTimeError> {
         let deadline = time::SystemTime::now() + lifetime;
         self.sign_download_url_with_deadline(url, deadline, only_path)
-    }
-}
-
-impl Clone for Auth {
-    fn clone(&self) -> Auth {
-        Auth {
-            access_key: self.access_key.clone(),
-            secret_key: self.secret_key.clone(),
-        }
     }
 }
 

@@ -193,6 +193,10 @@ impl UploadPolicy {
     pub fn from_json<S: AsRef<str>>(json: S) -> serde_json::Result<UploadPolicy> {
         serde_json::from_str(json.as_ref())
     }
+
+    pub fn from_json_slice<S: AsRef<[u8]>>(json: S) -> serde_json::Result<UploadPolicy> {
+        serde_json::from_slice(json.as_ref())
+    }
 }
 
 impl Default for UploadPolicy {

@@ -4,6 +4,7 @@ use std::env;
 use std::fs::File;
 use std::io::BufReader;
 
+// TODO: MOVE THIS MOD TO qiniu-rust-http-test-utils
 #[derive(Debug, Getters, Clone)]
 #[get = "pub"]
 pub(crate) struct Variables {

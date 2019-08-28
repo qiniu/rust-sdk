@@ -1,5 +1,5 @@
 pub mod auth;
-mod base64;
+pub(crate) mod base64;
 pub(crate) mod bool;
 pub mod etag;
 #[cfg(test)]
