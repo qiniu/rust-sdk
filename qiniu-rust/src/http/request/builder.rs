@@ -2,13 +2,14 @@ use super::{
     super::{
         super::{config::Config, utils::auth::Auth},
         token::Token,
+        DomainsManager,
     },
     Parts, Request,
 };
 use error_chain::error_chain;
 use qiniu_http::{HeaderName, HeaderValue, Headers, Method};
 use serde::Serialize;
-use std::{result, sync::Arc};
+use std::{result, sync::Arc, time::Duration};
 
 error_chain! {
     foreign_links {
@@ -19,6 +20,8 @@ error_chain! {
 
 pub struct Builder {
     parts: Parts,
+    domains_manager: DomainsManager,
+    host_freeze_duration: Duration,
     error: Option<Error>,
 }
 
@@ -40,7 +43,7 @@ impl Builder {
         Builder {
             parts: Parts {
                 auth: auth,
-                config: config,
+                config: config.clone(),
                 method: method,
                 hosts: hosts.into().into_iter().map(|host| host.into()).collect(),
                 path: path.into(),
@@ -48,6 +51,8 @@ impl Builder {
                 body: Vec::<u8>::new(),
                 token: Token::None,
             },
+            domains_manager: config.domains_manager().clone(),
+            host_freeze_duration: *config.host_freeze_duration(),
             error: None,
         }
     }
@@ -116,7 +121,11 @@ impl Builder {
     fn build(self) -> BuildResult {
         match self.error {
             Some(err) => Err(err),
-            None => Ok(Request { parts: self.parts }),
+            None => Ok(Request {
+                parts: self.parts,
+                domains_manager: self.domains_manager,
+                host_freeze_duration: self.host_freeze_duration,
+            }),
         }
     }
 }

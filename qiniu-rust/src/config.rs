@@ -1,3 +1,4 @@
+use super::http::DomainsManager;
 use derive_builder::Builder;
 use getset::{Getters, MutGetters, Setters};
 use qiniu_http::HTTPCaller;
@@ -16,6 +17,8 @@ pub struct Config {
     http_request_retries: usize,
     http_request_retry_delay: Duration,
     http_request_call: Box<dyn HTTPCaller>,
+    domains_manager: DomainsManager,
+    host_freeze_duration: Duration,
 }
 
 impl Default for Config {
@@ -28,6 +31,8 @@ impl Default for Config {
             http_request_retries: 3,
             http_request_retry_delay: Duration::from_millis(500),
             http_request_call: Self::default_http_request_call(),
+            domains_manager: DomainsManager::new(),
+            host_freeze_duration: Duration::from_secs(60 * 10),
         }
     }
 }
@@ -55,6 +60,7 @@ impl fmt::Debug for Config {
             .field("upload_threshold", &self.upload_threshold)
             .field("http_request_retries", &self.http_request_retries)
             .field("http_request_retry_delay", &self.http_request_retry_delay)
+            .field("host_freeze_duration", &self.host_freeze_duration)
             .finish()
     }
 }

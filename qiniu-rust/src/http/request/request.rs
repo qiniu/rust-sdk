@@ -1,16 +1,21 @@
 use super::{
-    super::error::{Error as QiniuError, ErrorKind as QiniuErrorKind},
+    super::{
+        error::{Error as QiniuError, ErrorKind as QiniuErrorKind},
+        DomainsManager,
+    },
     Parts,
 };
 use qiniu_http::{
     Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Request as HTTPRequest, RequestBuilder,
     Response as HTTPResponse, Result as HTTPResult, StatusCode,
 };
-use std::thread;
+use std::{fmt, thread, time::Duration};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Request {
     pub(super) parts: Parts,
+    pub(super) domains_manager: DomainsManager,
+    pub(super) host_freeze_duration: Duration,
 }
 
 impl Request {
@@ -23,6 +28,7 @@ impl Request {
                 }
                 Err(err) => match err.kind() {
                     HTTPErrorKind::RetryableError | HTTPErrorKind::HostUnretryableError if self.is_idempotent(&err) => {
+                        self.domains_manager.freeze(host, self.host_freeze_duration).unwrap();
                         self.parts.config.http_request_call().on_host_failed(host, &err);
                         prev_err = Some(err);
                         continue;
@@ -286,6 +292,15 @@ impl Request {
                 response,
             ),
         }
+    }
+}
+
+impl fmt::Debug for Request {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Request")
+            .field("parts", &self.parts)
+            .field("host_freeze_duration", &self.host_freeze_duration)
+            .finish()
     }
 }
 
