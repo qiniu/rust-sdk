@@ -1,3 +1,5 @@
+#![recursion_limit = "128"]
+
 use error_chain::error_chain;
 use qiniu_http::StatusCode;
 
