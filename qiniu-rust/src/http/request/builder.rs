@@ -43,21 +43,44 @@ impl<'a> Builder<'a> {
                 method: method,
                 hosts: hosts,
                 path: path,
-                query: HashMap::new(),
-                headers: Headers::new(),
+                query: None,
+                headers: None,
                 body: None,
                 token: Token::None,
+                read_body: false,
             },
         }
     }
 
     pub fn header<K: Into<HeaderName>, V: Into<HeaderValue>>(mut self, key: K, value: V) -> Builder<'a> {
-        self.parts.headers.insert(key.into(), value.into());
+        match self.parts.headers {
+            Some(ref mut headers) => {
+                headers.insert(key.into(), value.into());
+            }
+            None => {
+                self.parts.headers = Some({
+                    let mut h = Headers::with_capacity(4);
+                    h.insert(key.into(), value.into());
+                    h
+                });
+            }
+        }
         self
     }
 
     pub fn query<K: Into<String>, V: Into<String>>(mut self, key: K, value: V) -> Builder<'a> {
-        self.parts.query.insert(key.into(), value.into());
+        match self.parts.query {
+            Some(ref mut query) => {
+                query.insert(key.into(), value.into());
+            }
+            None => {
+                self.parts.query = Some({
+                    let mut q = HashMap::with_capacity(4);
+                    q.insert(key.into(), value.into());
+                    q
+                });
+            }
+        }
         self
     }
 
@@ -66,33 +89,32 @@ impl<'a> Builder<'a> {
         self
     }
 
+    pub fn accept_json(mut self) -> Builder<'a> {
+        self = self.header("Accept", "application/json");
+        self.parts.read_body = true;
+        self
+    }
+
     pub fn no_body(self) -> Request<'a> {
         self.build()
     }
 
     pub fn raw_body<T: Into<Vec<u8>>, S: Into<String>>(mut self, content_type: S, body: T) -> Request<'a> {
-        self.parts
-            .headers
-            .insert("Content-Type".to_string(), content_type.into());
+        self = self.header("Content-Type", content_type);
         self.parts.body = Some(body.into());
         self.build()
     }
 
     pub fn json_body<T: Serialize>(mut self, body: &T) -> BuildResult<'a> {
         let serialized_body = serde_json::to_vec(body)?;
-        self.parts
-            .headers
-            .insert("Content-Type".to_string(), "application/json".to_string());
+        self = self.header("Content-Type", "application/json");
         self.parts.body = Some(serialized_body);
         Ok(self.build())
     }
 
     pub fn form_body<T: Serialize>(mut self, body: &T) -> BuildResult<'a> {
         let serialized_body = serde_urlencoded::to_string(body)?;
-        self.parts.headers.insert(
-            "Content-Type".to_string(),
-            "application/x-www-form-urlencoded".to_string(),
-        );
+        self = self.header("Content-Type", "application/x-www-form-urlencoded");
         self.parts.body = Some(serialized_body.into_bytes());
         Ok(self.build())
     }

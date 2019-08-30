@@ -110,7 +110,7 @@ impl CurlClient {
             )),
             request,
         )?;
-        Self::handle_if_err(easy.show_header(true), request)?;
+        Self::handle_if_err(easy.show_header(false), request)?;
         Ok(())
     }
 

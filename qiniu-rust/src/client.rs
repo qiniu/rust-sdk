@@ -4,7 +4,7 @@ use std::{clone, fmt, sync::Arc};
 pub struct Client {
     auth: Arc<Auth>,
     config: Arc<Config>,
-    http_client: http::client::Client, // TODO: 考虑移除
+    http_client: http::Client, // TODO: 考虑移除
 }
 
 fn new<AccessKey: Into<String>, SecretKey: Into<Vec<u8>>>(
@@ -17,7 +17,7 @@ fn new<AccessKey: Into<String>, SecretKey: Into<Vec<u8>>>(
     Client {
         auth: auth_rc.clone(),
         config: config_rc.clone(),
-        http_client: http::client::Client::new(auth_rc.clone(), config_rc.clone()),
+        http_client: http::Client::new(auth_rc.clone(), config_rc.clone()),
     }
 }
 
@@ -26,7 +26,7 @@ impl clone::Clone for Client {
         Client {
             auth: self.auth.clone(),
             config: self.config.clone(),
-            http_client: http::client::Client::new(self.auth.clone(), self.config.clone()),
+            http_client: http::Client::new(self.auth.clone(), self.config.clone()),
         }
     }
 }

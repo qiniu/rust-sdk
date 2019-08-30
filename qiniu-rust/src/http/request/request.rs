@@ -1,6 +1,7 @@
 use super::{
     super::{
         error::{Error as QiniuError, ErrorKind as QiniuErrorKind},
+        response::Response,
         DomainsManager,
     },
     Parts,
@@ -9,7 +10,12 @@ use qiniu_http::{
     Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Request as HTTPRequest, RequestBuilder,
     Response as HTTPResponse, Result as HTTPResult, StatusCode,
 };
-use std::{fmt, thread, time::Duration};
+use std::{
+    fmt,
+    io::{self, Cursor},
+    thread,
+    time::Duration,
+};
 use url::Url;
 
 #[derive(Clone)]
@@ -20,12 +26,12 @@ pub struct Request<'a> {
 }
 
 impl<'a> Request<'a> {
-    pub fn send(&self) -> HTTPResult<HTTPResponse> {
+    pub fn send(&self) -> HTTPResult<Response> {
         let mut prev_err: Option<HTTPError> = None;
         for host in self.parts.hosts {
             match self.try_host(host) {
-                Ok(response) => {
-                    return Ok(response);
+                Ok(resp) => {
+                    return Ok(Response(resp));
                 }
                 Err(err) => match err.kind() {
                     HTTPErrorKind::RetryableError | HTTPErrorKind::HostUnretryableError if self.is_idempotent(&err) => {
@@ -56,24 +62,25 @@ impl<'a> Request<'a> {
     }
 
     fn try_host(&self, host: &str) -> HTTPResult<HTTPResponse> {
-        let url = host.to_string() + self.parts.path;
-        let url = Url::parse_with_params(url.as_str(), &self.parts.query).map_err(|err| {
-            HTTPError::new_unretryable_error_from_parts(
-                err,
-                Some(self.parts.method),
-                Some(host.to_owned() + &self.parts.path),
-            )
-        })?;
+        let mut url = host.to_string() + self.parts.path;
+        if let Some(ref query) = self.parts.query {
+            url = Url::parse_with_params(url.as_str(), query)
+                .map_err(|err| {
+                    HTTPError::new_unretryable_error_from_parts(
+                        err,
+                        Some(self.parts.method),
+                        Some(host.to_owned() + &self.parts.path),
+                    )
+                })?
+                .into_string();
+        }
         let mut request = {
-            let mut builder = RequestBuilder::default()
-                .method(self.parts.method)
-                .url(url.into_string())
-                .headers(self.parts.headers.to_owned());
-            match &self.parts.body {
-                Some(body) => {
-                    builder = builder.body(body.as_slice());
-                }
-                _ => {}
+            let mut builder = RequestBuilder::default().method(self.parts.method).url(url);
+            if let Some(headers) = &self.parts.headers {
+                builder = builder.headers(headers.to_owned());
+            }
+            if let Some(body) = &self.parts.body {
+                builder = builder.body(body.as_slice());
             }
             builder.build()
         };
@@ -88,6 +95,7 @@ impl<'a> Request<'a> {
                 .http_request_call()
                 .call(&request)
                 .and_then(|response| Self::check_response(response, &request))
+                .and_then(|response| self.fulfill_body_if_needed(response, &request))
             {
                 Ok(response) => {
                     self.parts.config.http_request_call().on_response(&request, &response);
@@ -128,22 +136,10 @@ impl<'a> Request<'a> {
             return Ok(response);
         }
         let mut error_message: Option<String> = None;
-        if let Some(body_reader) = response.body_mut() {
-            let mut body = String::new();
-            if let Err(err) = body_reader.read_to_string(&mut body) {
-                return Err(HTTPError::new_retryable_error(err, false, request, Some(&response)));
-            } else {
-                match serde_json::from_str::<error::ErrorResponse>(&body) {
-                    Ok(response) => {
-                        if response.error.is_some() {
-                            error_message = response.error;
-                        }
-                    }
-                    Err(err) => {
-                        return Err(HTTPError::new_retryable_error(err, false, request, Some(&response)));
-                    }
-                }
-            }
+        if let Some(body) = Self::read_body_to_string(&mut response, request)? {
+            error_message = serde_json::from_str::<error::ErrorResponse>(&body)
+                .map_err(|err| HTTPError::new_retryable_error(err, false, request, Some(&response)))?
+                .error;
         }
         Err(Self::response_error(
             response.status_code(),
@@ -151,6 +147,49 @@ impl<'a> Request<'a> {
             request,
             Some(&response),
         ))
+    }
+
+    fn fulfill_body_if_needed(&self, response: HTTPResponse, request: &HTTPRequest) -> HTTPResult<HTTPResponse> {
+        if self.parts.read_body {
+            Self::fulfill_body(response, request)
+        } else {
+            Ok(response)
+        }
+    }
+
+    fn fulfill_body(mut response: HTTPResponse, request: &HTTPRequest) -> HTTPResult<HTTPResponse> {
+        if let Some(body) = Self::read_body_to_string(&mut response, request)? {
+            *response.body_mut() = Some(Box::new(Cursor::new(body)));
+        }
+        Ok(response)
+    }
+
+    fn read_body_to_string(response: &mut HTTPResponse, request: &HTTPRequest) -> HTTPResult<Option<String>> {
+        let mut content_length = None::<usize>;
+        if let Some(content_length_str) = response.header("Content-Length") {
+            content_length = Some(content_length_str.parse().map_err(|err| {
+                return HTTPError::new_unretryable_error(err, request, Some(response));
+            })?);
+        }
+        if let Some(body_reader) = response.body_mut() {
+            let mut buf = String::new();
+            let body_len = body_reader
+                .read_to_string(&mut buf)
+                .map_err(|err| HTTPError::new_retryable_error(err, false, request, Some(response)))?;
+            if let Some(content_length) = content_length {
+                if content_length != body_len {
+                    return Err(HTTPError::new_retryable_error(
+                        io::Error::from(io::ErrorKind::UnexpectedEof),
+                        false,
+                        request,
+                        Some(response),
+                    ));
+                }
+            }
+            Ok(Some(buf))
+        } else {
+            Ok(None)
+        }
     }
 
     fn response_error(
