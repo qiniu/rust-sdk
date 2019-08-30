@@ -4,6 +4,8 @@ use getset::{Getters, MutGetters, Setters};
 use qiniu_http::HTTPCaller;
 use std::{boxed::Box, default::Default, fmt, time::Duration};
 
+// TODO: 尽可能内嵌 Arc
+
 #[derive(Builder, Getters, Setters, MutGetters)]
 #[get = "pub"]
 #[set = "pub"]

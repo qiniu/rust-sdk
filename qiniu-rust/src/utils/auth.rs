@@ -6,6 +6,8 @@ use qiniu_http::{Method, Request};
 use std::{boxed::Box, convert::TryFrom, error::Error, fmt, result::Result, string::String, time, u32};
 use url::Url;
 
+// TODO: 尽可能内嵌 Arc
+
 #[derive(Getters, Clone, Eq, PartialEq)]
 pub struct Auth {
     #[get = "pub"]

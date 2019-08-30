@@ -4,7 +4,7 @@ use std::{clone, fmt, sync::Arc};
 pub struct Client {
     auth: Arc<Auth>,
     config: Arc<Config>,
-    http_client: http::client::Client,
+    http_client: http::client::Client, // TODO: 考虑移除
 }
 
 fn new<AccessKey: Into<String>, SecretKey: Into<Vec<u8>>>(

@@ -10,6 +10,7 @@ use qiniu_http::{
     Response as HTTPResponse, Result as HTTPResult, StatusCode,
 };
 use std::{fmt, thread, time::Duration};
+use url::Url;
 
 #[derive(Clone)]
 pub struct Request {
@@ -53,11 +54,16 @@ impl Request {
     }
 
     fn try_host(&self, host: &String) -> HTTPResult<HTTPResponse> {
-        let mut url = host.to_owned();
-        url.push_str(&self.parts.path);
+        let url = Url::parse_with_params(&(host.to_owned() + &self.parts.path), &self.parts.query).map_err(|err| {
+            HTTPError::new_unretryable_error_from_parts(
+                err,
+                Some(self.parts.method),
+                Some(host.to_owned() + &self.parts.path),
+            )
+        })?;
         let mut request = RequestBuilder::default()
             .method(self.parts.method)
-            .url(&url)
+            .url(url.into_string())
             .headers(self.parts.headers.to_owned())
             .body(&self.parts.body)
             .build();
@@ -417,7 +423,6 @@ mod tests {
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
-        .unwrap()
         .send()
         .is_err());
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2 * (RETRIES + 1));
@@ -463,7 +468,6 @@ mod tests {
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
-        .unwrap()
         .send()
         .is_err());
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2 * (RETRIES + 1));
@@ -509,7 +513,6 @@ mod tests {
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
-        .unwrap()
         .send()
         .is_err());
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
@@ -552,7 +555,6 @@ mod tests {
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
-        .unwrap()
         .send()
         .is_err());
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2);
@@ -595,7 +597,6 @@ mod tests {
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
-        .unwrap()
         .send()
         .is_err());
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
@@ -638,7 +639,6 @@ mod tests {
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
-        .unwrap()
         .send()
         .is_err());
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
@@ -726,7 +726,6 @@ mod tests {
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
-        .unwrap()
         .send()
         .is_err());
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2 * (RETRIES + 1));
@@ -772,7 +771,6 @@ mod tests {
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
-        .unwrap()
         .send()
         .is_err());
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2 * (RETRIES + 1));
@@ -818,7 +816,6 @@ mod tests {
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
-        .unwrap()
         .send()
         .is_err());
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
@@ -861,7 +858,6 @@ mod tests {
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
-        .unwrap()
         .send()
         .is_err());
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2);
@@ -904,7 +900,6 @@ mod tests {
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
-        .unwrap()
         .send()
         .is_err());
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
