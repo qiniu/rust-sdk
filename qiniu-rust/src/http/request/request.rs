@@ -13,23 +13,25 @@ use std::{fmt, thread, time::Duration};
 use url::Url;
 
 #[derive(Clone)]
-pub struct Request {
-    pub(super) parts: Parts,
+pub struct Request<'a> {
+    pub(super) parts: Parts<'a>,
     pub(super) domains_manager: DomainsManager,
     pub(super) host_freeze_duration: Duration,
 }
 
-impl Request {
+impl<'a> Request<'a> {
     pub fn send(&self) -> HTTPResult<HTTPResponse> {
         let mut prev_err: Option<HTTPError> = None;
-        for host in self.parts.hosts.iter() {
+        for host in self.parts.hosts {
             match self.try_host(host) {
                 Ok(response) => {
                     return Ok(response);
                 }
                 Err(err) => match err.kind() {
                     HTTPErrorKind::RetryableError | HTTPErrorKind::HostUnretryableError if self.is_idempotent(&err) => {
-                        self.domains_manager.freeze(host, self.host_freeze_duration).unwrap();
+                        self.domains_manager
+                            .freeze(host.to_string(), self.host_freeze_duration)
+                            .unwrap();
                         self.parts.config.http_request_call().on_host_failed(host, &err);
                         prev_err = Some(err);
                         continue;
@@ -53,20 +55,28 @@ impl Request {
         Err(err)
     }
 
-    fn try_host(&self, host: &String) -> HTTPResult<HTTPResponse> {
-        let url = Url::parse_with_params(&(host.to_owned() + &self.parts.path), &self.parts.query).map_err(|err| {
+    fn try_host(&self, host: &str) -> HTTPResult<HTTPResponse> {
+        let url = host.to_string() + self.parts.path;
+        let url = Url::parse_with_params(url.as_str(), &self.parts.query).map_err(|err| {
             HTTPError::new_unretryable_error_from_parts(
                 err,
                 Some(self.parts.method),
                 Some(host.to_owned() + &self.parts.path),
             )
         })?;
-        let mut request = RequestBuilder::default()
-            .method(self.parts.method)
-            .url(url.into_string())
-            .headers(self.parts.headers.to_owned())
-            .body(&self.parts.body)
-            .build();
+        let mut request = {
+            let mut builder = RequestBuilder::default()
+                .method(self.parts.method)
+                .url(url.into_string())
+                .headers(self.parts.headers.to_owned());
+            match &self.parts.body {
+                Some(body) => {
+                    builder = builder.body(body.as_slice());
+                }
+                _ => {}
+            }
+            builder.build()
+        };
         self.parts.token.sign(&mut request, &self.parts.auth);
         self.parts.config.http_request_call().on_request_built(&mut request);
         let mut prev_err: Option<HTTPError> = None;
@@ -301,7 +311,7 @@ impl Request {
     }
 }
 
-impl fmt::Debug for Request {
+impl fmt::Debug for Request<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Request")
             .field("parts", &self.parts)
@@ -419,7 +429,7 @@ mod tests {
             Arc::new(config),
             Method::GET,
             "/test_call",
-            vec!["http://host1:1111", "http://host2:2222"],
+            &["http://host1:1111", "http://host2:2222"],
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -464,7 +474,7 @@ mod tests {
             Arc::new(config),
             Method::POST,
             "/test_call",
-            vec!["http://host1:1111", "http://host2:2222"],
+            &["http://host1:1111", "http://host2:2222"],
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -509,7 +519,7 @@ mod tests {
             Arc::new(config),
             Method::POST,
             "/test_call",
-            vec!["http://host1:1111", "http://host2:2222"],
+            &["http://host1:1111", "http://host2:2222"],
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -551,7 +561,7 @@ mod tests {
             Arc::new(config),
             Method::GET,
             "/test_call",
-            vec!["http://host1:1111", "http://host2:2222"],
+            &["http://host1:1111", "http://host2:2222"],
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -593,7 +603,7 @@ mod tests {
             Arc::new(config),
             Method::GET,
             "/test_call",
-            vec!["http://host1:1111", "http://host2:2222"],
+            &["http://host1:1111", "http://host2:2222"],
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -635,7 +645,7 @@ mod tests {
             Arc::new(config),
             Method::GET,
             "/test_call",
-            vec!["http://host1:1111", "http://host2:2222"],
+            &["http://host1:1111", "http://host2:2222"],
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -722,7 +732,7 @@ mod tests {
             Arc::new(config),
             Method::GET,
             "/test_call",
-            vec!["http://host1:1111", "http://host2:2222"],
+            &["http://host1:1111", "http://host2:2222"],
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -767,7 +777,7 @@ mod tests {
             Arc::new(config),
             Method::POST,
             "/test_call",
-            vec!["http://host1:1111", "http://host2:2222"],
+            &["http://host1:1111", "http://host2:2222"],
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -812,7 +822,7 @@ mod tests {
             Arc::new(config),
             Method::POST,
             "/test_call",
-            vec!["http://host1:1111", "http://host2:2222"],
+            &["http://host1:1111", "http://host2:2222"],
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -854,7 +864,7 @@ mod tests {
             Arc::new(config),
             Method::GET,
             "/test_call",
-            vec!["http://host1:1111", "http://host2:2222"],
+            &["http://host1:1111", "http://host2:2222"],
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -896,7 +906,7 @@ mod tests {
             Arc::new(config),
             Method::GET,
             "/test_call",
-            vec!["http://host1:1111", "http://host2:2222"],
+            &["http://host1:1111", "http://host2:2222"],
         )
         .token(Token::V1)
         .raw_body("application/json", b"{\"test\":123}".as_ref())

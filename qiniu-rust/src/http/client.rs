@@ -16,66 +16,31 @@ impl Client {
         }
     }
 
-    pub fn get<Hosts, Host, Path>(&self, path: Path, hosts: Hosts) -> request::Builder
-    where
-        Path: Into<String>,
-        Host: Into<String>,
-        Hosts: Into<Vec<Host>>,
-    {
+    pub fn get<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
         self.request_builder(Method::GET, path, hosts)
     }
 
-    pub fn post<Hosts, Host, Path>(&self, path: Path, hosts: Hosts) -> request::Builder
-    where
-        Path: Into<String>,
-        Host: Into<String>,
-        Hosts: Into<Vec<Host>>,
-    {
+    pub fn post<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
         self.request_builder(Method::POST, path, hosts)
     }
 
-    pub fn put<Hosts, Host, Path>(&self, path: Path, hosts: Hosts) -> request::Builder
-    where
-        Path: Into<String>,
-        Host: Into<String>,
-        Hosts: Into<Vec<Host>>,
-    {
+    pub fn put<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
         self.request_builder(Method::PUT, path, hosts)
     }
 
-    pub fn delete<Hosts, Host, Path>(&self, path: Path, hosts: Hosts) -> request::Builder
-    where
-        Path: Into<String>,
-        Host: Into<String>,
-        Hosts: Into<Vec<Host>>,
-    {
+    pub fn delete<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
         self.request_builder(Method::DELETE, path, hosts)
     }
 
-    pub fn patch<Hosts, Host, Path>(&self, path: Path, hosts: Hosts) -> request::Builder
-    where
-        Path: Into<String>,
-        Host: Into<String>,
-        Hosts: Into<Vec<Host>>,
-    {
+    pub fn patch<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
         self.request_builder(Method::PATCH, path, hosts)
     }
 
-    pub fn head<Hosts, Host, Path>(&self, path: Path, hosts: Hosts) -> request::Builder
-    where
-        Path: Into<String>,
-        Host: Into<String>,
-        Hosts: Into<Vec<Host>>,
-    {
+    pub fn head<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
         self.request_builder(Method::HEAD, path, hosts)
     }
 
-    fn request_builder<Hosts, Host, Path>(&self, method: Method, path: Path, hosts: Hosts) -> request::Builder
-    where
-        Path: Into<String>,
-        Host: Into<String>,
-        Hosts: Into<Vec<Host>>,
-    {
+    fn request_builder<'a>(&self, method: Method, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
         request::Builder::new(self.auth.clone(), self.config.clone(), method, path, hosts)
     }
 }
