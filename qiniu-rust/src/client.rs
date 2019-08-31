@@ -1,9 +1,9 @@
 use super::{config::Config, http, utils::auth::Auth};
-use std::{clone, fmt, sync::Arc};
+use std::{clone, fmt};
 
 pub struct Client {
     auth: Auth,
-    config: Arc<Config>,
+    config: Config,
     http_client: http::Client, // TODO: 考虑移除
 }
 
@@ -13,11 +13,10 @@ fn new<AccessKey: Into<String>, SecretKey: Into<Vec<u8>>>(
     config: Config,
 ) -> Client {
     let auth = Auth::new(access_key, secret_key);
-    let config_rc = Arc::new(config);
     Client {
         auth: auth.clone(),
-        config: config_rc.clone(),
-        http_client: http::Client::new(auth, config_rc.clone()),
+        config: config.clone(),
+        http_client: http::Client::new(auth, config.clone()),
     }
 }
 

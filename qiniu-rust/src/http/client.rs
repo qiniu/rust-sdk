@@ -1,15 +1,14 @@
 use super::request;
 use crate::{config::Config, utils::auth::Auth};
 use qiniu_http::Method;
-use std::sync::Arc;
 
 pub struct Client {
     auth: Auth,
-    config: Arc<Config>,
+    config: Config,
 }
 
 impl Client {
-    pub fn new(auth: Auth, config: Arc<Config>) -> Client {
+    pub fn new(auth: Auth, config: Config) -> Client {
         Client {
             auth: auth,
             config: config,

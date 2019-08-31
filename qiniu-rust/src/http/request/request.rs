@@ -465,7 +465,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            Arc::new(config),
+            config,
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -510,7 +510,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            Arc::new(config),
+            config,
             Method::POST,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -555,7 +555,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            Arc::new(config),
+            config,
             Method::POST,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -597,7 +597,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            Arc::new(config),
+            config,
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -639,7 +639,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            Arc::new(config),
+            config,
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -681,7 +681,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            Arc::new(config),
+            config,
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -768,7 +768,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            Arc::new(config),
+            config,
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -813,7 +813,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            Arc::new(config),
+            config,
             Method::POST,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -858,7 +858,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            Arc::new(config),
+            config,
             Method::POST,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -900,7 +900,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            Arc::new(config),
+            config,
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -942,7 +942,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            Arc::new(config),
+            config,
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],

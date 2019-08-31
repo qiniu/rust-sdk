@@ -1,6 +1,6 @@
 use crate::{config::Config, http::token::Token, utils::auth::Auth};
 use qiniu_http::{Headers, Method};
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct Parts<'a> {
@@ -11,7 +11,7 @@ pub struct Parts<'a> {
     pub(super) headers: Option<Headers>,
     pub(super) body: Option<Vec<u8>>,
     pub(super) auth: Auth,
-    pub(super) config: Arc<Config>,
+    pub(super) config: Config,
     pub(super) token: Token,
     pub(super) read_body: bool,
 }

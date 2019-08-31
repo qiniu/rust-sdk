@@ -9,7 +9,7 @@ use super::{
 use error_chain::error_chain;
 use qiniu_http::{HeaderName, HeaderValue, Headers, Method};
 use serde::Serialize;
-use std::{collections::HashMap, result, sync::Arc, time::Duration};
+use std::{collections::HashMap, result, time::Duration};
 
 error_chain! {
     foreign_links {
@@ -27,7 +27,7 @@ pub struct Builder<'a> {
 pub type BuildResult<'a> = result::Result<Request<'a>, Error>;
 
 impl<'a> Builder<'a> {
-    pub fn new(auth: Auth, config: Arc<Config>, method: Method, path: &'a str, hosts: &'a [&'a str]) -> Builder<'a> {
+    pub fn new(auth: Auth, config: Config, method: Method, path: &'a str, hosts: &'a [&'a str]) -> Builder<'a> {
         Builder {
             domains_manager: config.domains_manager().clone(),
             host_freeze_duration: config.host_freeze_duration(),

@@ -2,12 +2,11 @@
 mod tests {
     use qiniu::{http::error::ErrorKind as QiniuErrorKind, http::Client, utils::auth::Auth};
     use qiniu_test_utils::env;
-    use std::error::Error;
-    use std::{default::Default, sync::Arc};
+    use std::{default::Default, error::Error};
 
     #[test]
     fn test_call() {
-        let err = Client::new(get_auth(), Arc::new(Default::default()))
+        let err = Client::new(get_auth(), Default::default())
             .get("", &["http://up.qiniup.com"])
             .no_body()
             .send()

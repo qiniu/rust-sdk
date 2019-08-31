@@ -1,16 +1,18 @@
 use super::http::DomainsManager;
 use derive_builder::Builder;
-use getset::{CopyGetters, Getters, MutGetters, Setters};
+use getset::{CopyGetters, Getters};
 use qiniu_http::HTTPCaller;
-use std::{boxed::Box, default::Default, fmt, time::Duration};
+use std::{boxed::Box, default::Default, fmt, ops::Deref, result, sync::Arc, time::Duration};
 
-// TODO: 尽可能内嵌 Arc
-
-#[derive(Builder, Getters, CopyGetters, Setters, MutGetters)]
-#[set = "pub"]
-#[get_mut = "pub"]
-#[builder(pattern = "owned", default)]
-pub struct Config {
+#[derive(Builder, Getters, CopyGetters)]
+#[builder(
+    name = "ConfigBuilder",
+    pattern = "owned",
+    default,
+    public,
+    build_fn(name = "inner_build", private)
+)]
+pub struct ConfigInner {
     #[get_copy = "pub"]
     use_https: bool,
 
@@ -39,9 +41,9 @@ pub struct Config {
     host_freeze_duration: Duration,
 }
 
-impl Default for Config {
+impl Default for ConfigInner {
     fn default() -> Self {
-        Config {
+        ConfigInner {
             use_https: false,
             upload_token_lifetime: Duration::from_secs(60 * 60),
             batch_max_operation_size: 1000,
@@ -55,7 +57,7 @@ impl Default for Config {
     }
 }
 
-impl Config {
+impl ConfigInner {
     fn default_http_request_call() -> Box<dyn HTTPCaller> {
         #[cfg(any(feature = "use-libcurl"))]
         {
@@ -69,7 +71,7 @@ impl Config {
     }
 }
 
-impl fmt::Debug for Config {
+impl fmt::Debug for ConfigInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Config")
             .field("use_https", &self.use_https)
@@ -80,6 +82,30 @@ impl fmt::Debug for Config {
             .field("http_request_retry_delay", &self.http_request_retry_delay)
             .field("host_freeze_duration", &self.host_freeze_duration)
             .finish()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Config(Arc<ConfigInner>);
+
+impl ConfigBuilder {
+    pub fn build(self) -> result::Result<Config, String> {
+        self.inner_build().map(|config| Config(Arc::new(config)))
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config(Arc::new(Default::default()))
+    }
+}
+
+impl Deref for Config {
+    type Target = ConfigInner;
+
+    #[inline]
+    fn deref(&self) -> &ConfigInner {
+        self.0.deref()
     }
 }
 
@@ -102,7 +128,7 @@ mod tests {
 
     #[test]
     fn test_config_with_set_http_request_call() {
-        let config: Config = ConfigBuilder::default()
+        let config = ConfigBuilder::default()
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
             .http_request_call(Box::new(FakeHTTPRequester))
@@ -125,8 +151,8 @@ mod tests {
     }
 
     #[test]
-    fn test_config_with_getters_setters() {
-        let mut config: Config = ConfigBuilder::default()
+    fn test_config_with_getters() {
+        let config = ConfigBuilder::default()
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
             .http_request_call(Box::new(FakeHTTPRequester))
@@ -134,10 +160,5 @@ mod tests {
             .unwrap();
         assert_eq!(config.http_request_retries(), 5);
         assert_eq!(config.http_request_retry_delay(), Duration::from_secs(1));
-
-        *config.http_request_retries_mut() = 10;
-        config.set_http_request_retry_delay(Duration::from_secs(2));
-        assert_eq!(config.http_request_retries(), 10);
-        assert_eq!(config.http_request_retry_delay(), Duration::from_secs(2));
     }
 }
