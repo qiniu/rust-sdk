@@ -1,25 +1,45 @@
 use crate::{config::Config, http::request, utils::auth::Auth};
 use derive_builder::Builder;
-use getset::Getters;
+use getset::{CopyGetters, Getters};
 use lazy_static::lazy_static;
 use maplit::hashmap;
 use qiniu_http::Result as HTTPResult;
 use std::{collections::HashMap, sync::Arc};
 
-#[derive(Getters, Builder)]
-#[get = "pub"]
+#[derive(Getters, CopyGetters, Builder)]
 #[builder(pattern = "owned", setter(into, strip_option))]
 pub struct Region {
+    #[get_copy = "pub"]
     region_id: Option<&'static str>,
+
+    #[get = "pub"]
     up_http_urls: Vec<String>,
+
+    #[get = "pub"]
     up_https_urls: Vec<String>,
+
+    #[get = "pub"]
     io_http_urls: Vec<String>,
+
+    #[get = "pub"]
     io_https_urls: Vec<String>,
+
+    #[get = "pub"]
     rs_http_url: String,
+
+    #[get = "pub"]
     rs_https_url: String,
+
+    #[get = "pub"]
     rsf_http_url: String,
+
+    #[get = "pub"]
     rsf_https_url: String,
+
+    #[get = "pub"]
     api_http_url: String,
+
+    #[get = "pub"]
     api_https_url: String,
 }
 

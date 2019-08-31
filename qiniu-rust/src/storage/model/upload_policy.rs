@@ -245,7 +245,7 @@ impl UploadPolicyBuilder {
                 ..Default::default()
             },
         };
-        builder.token_lifetime(*config.upload_token_lifetime())
+        builder.token_lifetime(config.upload_token_lifetime())
     }
 
     pub fn new_policy_for_file<B: Into<String>, K: AsRef<str>>(
@@ -259,7 +259,7 @@ impl UploadPolicyBuilder {
                 ..Default::default()
             },
         };
-        builder.token_lifetime(*config.upload_token_lifetime())
+        builder.token_lifetime(config.upload_token_lifetime())
     }
 
     pub fn new_policy_for_file_name_with_prefix<B: Into<String>, K: AsRef<str>>(
@@ -274,7 +274,7 @@ impl UploadPolicyBuilder {
                 ..Default::default()
             },
         };
-        builder.token_lifetime(*config.upload_token_lifetime())
+        builder.token_lifetime(config.upload_token_lifetime())
     }
 
     pub fn token_lifetime(mut self, lifetime: Duration) -> UploadPolicyBuilder {

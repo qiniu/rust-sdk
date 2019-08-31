@@ -3,21 +3,31 @@ use super::{
     request::{self, Request},
     response::Response,
 };
-use getset::Getters;
+use getset::{CopyGetters, Getters};
 use std::{borrow::Borrow, boxed::Box, error, fmt, result};
 
 pub type URL = request::URL;
 pub type RequestID = String;
 pub type Result<T> = result::Result<T, Error>;
 
-#[derive(Getters)]
-#[get = "pub"]
+#[derive(Getters, CopyGetters)]
 pub struct Error {
+    #[get_copy = "pub"]
     kind: ErrorKind,
+
+    #[get_copy = "pub"]
     is_retry_safe: bool,
+
+    #[get = "pub"]
     cause: Box<dyn error::Error>,
+
+    #[get_copy = "pub"]
     method: Option<Method>,
+
+    #[get = "pub"]
     request_id: Option<RequestID>,
+
+    #[get = "pub"]
     url: Option<URL>,
 }
 

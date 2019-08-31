@@ -1,12 +1,13 @@
 use super::header::{HeaderValue, Headers};
-use getset::{Getters, MutGetters};
+use getset::{CopyGetters, Getters, MutGetters};
 use std::{default::Default, fmt, io::Read};
 
 pub type StatusCode = u16;
 pub type Body = Box<dyn Read>;
 
-#[derive(Getters, MutGetters)]
+#[derive(Getters, CopyGetters, MutGetters)]
 pub struct Response {
+    #[get_copy = "pub"]
     #[get_mut = "pub"]
     status_code: StatusCode,
 
@@ -26,10 +27,6 @@ impl Response {
             headers: headers,
             body: body,
         }
-    }
-
-    pub fn status_code(&self) -> StatusCode {
-        self.status_code
     }
 
     pub fn header<HeaderNameT: AsRef<str>>(&self, header_name: HeaderNameT) -> Option<&HeaderValue> {

@@ -1,25 +1,41 @@
 use super::http::DomainsManager;
 use derive_builder::Builder;
-use getset::{Getters, MutGetters, Setters};
+use getset::{CopyGetters, Getters, MutGetters, Setters};
 use qiniu_http::HTTPCaller;
 use std::{boxed::Box, default::Default, fmt, time::Duration};
 
 // TODO: 尽可能内嵌 Arc
 
-#[derive(Builder, Getters, Setters, MutGetters)]
-#[get = "pub"]
+#[derive(Builder, Getters, CopyGetters, Setters, MutGetters)]
 #[set = "pub"]
 #[get_mut = "pub"]
 #[builder(pattern = "owned", default)]
 pub struct Config {
+    #[get_copy = "pub"]
     use_https: bool,
+
+    #[get_copy = "pub"]
     upload_token_lifetime: Duration,
+
+    #[get_copy = "pub"]
     batch_max_operation_size: usize,
+
+    #[get_copy = "pub"]
     upload_threshold: usize,
+
+    #[get_copy = "pub"]
     http_request_retries: usize,
+
+    #[get_copy = "pub"]
     http_request_retry_delay: Duration,
+
+    #[get = "pub"]
     http_request_call: Box<dyn HTTPCaller>,
+
+    #[get = "pub"]
     domains_manager: DomainsManager,
+
+    #[get_copy = "pub"]
     host_freeze_duration: Duration,
 }
 
@@ -115,12 +131,12 @@ mod tests {
             .http_request_call(Box::new(FakeHTTPRequester))
             .build()
             .unwrap();
-        assert_eq!(config.http_request_retries(), &5);
-        assert_eq!(config.http_request_retry_delay(), &Duration::from_secs(1));
+        assert_eq!(config.http_request_retries(), 5);
+        assert_eq!(config.http_request_retry_delay(), Duration::from_secs(1));
 
         *config.http_request_retries_mut() = 10;
         config.set_http_request_retry_delay(Duration::from_secs(2));
-        assert_eq!(config.http_request_retries(), &10);
-        assert_eq!(config.http_request_retry_delay(), &Duration::from_secs(2));
+        assert_eq!(config.http_request_retries(), 10);
+        assert_eq!(config.http_request_retry_delay(), Duration::from_secs(2));
     }
 }

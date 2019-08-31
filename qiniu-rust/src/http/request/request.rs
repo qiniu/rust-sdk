@@ -87,7 +87,7 @@ impl<'a> Request<'a> {
         self.parts.token.sign(&mut request, &self.parts.auth);
         self.parts.config.http_request_call().on_request_built(&mut request);
         let mut prev_err: Option<HTTPError> = None;
-        let retries = *self.parts.config.http_request_retries();
+        let retries = self.parts.config.http_request_retries();
         for retried in 0..=retries {
             match self
                 .parts
@@ -110,7 +110,7 @@ impl<'a> Request<'a> {
                         prev_err = Some(err);
                         if self.parts.config.http_request_retry_delay().as_nanos() > 0 {
                             // TODO: Think about async sleep
-                            thread::sleep(*self.parts.config.http_request_retry_delay());
+                            thread::sleep(self.parts.config.http_request_retry_delay());
                         }
                         continue;
                     }
@@ -126,7 +126,7 @@ impl<'a> Request<'a> {
     fn is_idempotent(&self, err: &HTTPError) -> bool {
         match self.parts.method {
             Method::GET | Method::PUT | Method::HEAD | Method::PATCH | Method::DELETE => true,
-            _ => *err.is_retry_safe(),
+            _ => err.is_retry_safe(),
         }
     }
 

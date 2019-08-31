@@ -56,7 +56,7 @@ impl Auth {
 
     pub(crate) fn authorization_v2_for_request<URL: AsRef<str>, ContentType: AsRef<str>>(
         &self,
-        method: &Method,
+        method: Method,
         url_string: URL,
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
@@ -89,7 +89,7 @@ impl Auth {
 
     pub(crate) fn sign_request_v2<URL: AsRef<str>, ContentType: AsRef<str>>(
         &self,
-        method: &Method,
+        method: Method,
         url_string: URL,
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
@@ -354,7 +354,7 @@ mod tests {
         let auth = get_auth();
         assert_eq!(
             auth.sign_request_v2(
-                &Method::GET,
+                Method::GET,
                 "http://upload.qiniup.com/",
                 Some("application/json"),
                 Some(b"{\"name\":\"test\"}")
@@ -364,7 +364,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                &Method::GET,
+                Method::GET,
                 "http://upload.qiniup.com/",
                 None::<&str>,
                 Some(b"{\"name\":\"test\"}")
@@ -374,7 +374,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                &Method::POST,
+                Method::POST,
                 "http://upload.qiniup.com/",
                 Some("application/json"),
                 Some(b"{\"name\":\"test\"}")
@@ -384,7 +384,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                &Method::GET,
+                Method::GET,
                 "http://upload.qiniup.com/",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
@@ -394,7 +394,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                &Method::GET,
+                Method::GET,
                 "http://upload.qiniup.com/?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
@@ -404,7 +404,7 @@ mod tests {
         );
         assert_eq!(
             auth.sign_request_v2(
-                &Method::GET,
+                Method::GET,
                 "http://upload.qiniup.com/find/sdk?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")

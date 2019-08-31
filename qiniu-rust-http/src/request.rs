@@ -1,16 +1,16 @@
 use super::{header::Headers, method::Method};
-use getset::{Getters, MutGetters};
+use getset::{CopyGetters, Getters, MutGetters};
 
 pub type URL = String;
 pub type Body = [u8];
 
-#[derive(Debug, Getters, MutGetters, Clone)]
+#[derive(Debug, Getters, CopyGetters, MutGetters, Clone)]
 pub struct Request<'b> {
     #[get = "pub"]
     #[get_mut = "pub"]
     url: URL,
 
-    #[get = "pub"]
+    #[get_copy = "pub"]
     #[get_mut = "pub"]
     method: Method,
 
@@ -18,6 +18,7 @@ pub struct Request<'b> {
     #[get_mut = "pub"]
     headers: Headers,
 
+    #[get_copy = "pub"]
     body: Option<&'b Body>,
 }
 
@@ -29,10 +30,6 @@ impl<'b> Request<'b> {
             headers: headers,
             body: body,
         }
-    }
-
-    pub fn body(&self) -> Option<&'b Body> {
-        self.body
     }
 }
 
