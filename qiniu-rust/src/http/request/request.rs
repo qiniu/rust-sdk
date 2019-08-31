@@ -464,7 +464,7 @@ mod tests {
             .build()
             .unwrap();
         assert!(Builder::new(
-            Arc::new(get_auth()),
+            get_auth(),
             Arc::new(config),
             Method::GET,
             "/test_call",
@@ -509,7 +509,7 @@ mod tests {
             .build()
             .unwrap();
         assert!(Builder::new(
-            Arc::new(get_auth()),
+            get_auth(),
             Arc::new(config),
             Method::POST,
             "/test_call",
@@ -554,7 +554,7 @@ mod tests {
             .build()
             .unwrap();
         assert!(Builder::new(
-            Arc::new(get_auth()),
+            get_auth(),
             Arc::new(config),
             Method::POST,
             "/test_call",
@@ -596,7 +596,7 @@ mod tests {
             .build()
             .unwrap();
         assert!(Builder::new(
-            Arc::new(get_auth()),
+            get_auth(),
             Arc::new(config),
             Method::GET,
             "/test_call",
@@ -638,7 +638,7 @@ mod tests {
             .build()
             .unwrap();
         assert!(Builder::new(
-            Arc::new(get_auth()),
+            get_auth(),
             Arc::new(config),
             Method::GET,
             "/test_call",
@@ -680,7 +680,7 @@ mod tests {
             .build()
             .unwrap();
         assert!(Builder::new(
-            Arc::new(get_auth()),
+            get_auth(),
             Arc::new(config),
             Method::GET,
             "/test_call",
@@ -767,7 +767,7 @@ mod tests {
             .build()
             .unwrap();
         assert!(Builder::new(
-            Arc::new(get_auth()),
+            get_auth(),
             Arc::new(config),
             Method::GET,
             "/test_call",
@@ -812,7 +812,7 @@ mod tests {
             .build()
             .unwrap();
         assert!(Builder::new(
-            Arc::new(get_auth()),
+            get_auth(),
             Arc::new(config),
             Method::POST,
             "/test_call",
@@ -857,7 +857,7 @@ mod tests {
             .build()
             .unwrap();
         assert!(Builder::new(
-            Arc::new(get_auth()),
+            get_auth(),
             Arc::new(config),
             Method::POST,
             "/test_call",
@@ -899,7 +899,7 @@ mod tests {
             .build()
             .unwrap();
         assert!(Builder::new(
-            Arc::new(get_auth()),
+            get_auth(),
             Arc::new(config),
             Method::GET,
             "/test_call",
@@ -941,7 +941,7 @@ mod tests {
             .build()
             .unwrap();
         assert!(Builder::new(
-            Arc::new(get_auth()),
+            get_auth(),
             Arc::new(config),
             Method::GET,
             "/test_call",

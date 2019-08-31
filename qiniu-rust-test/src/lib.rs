@@ -7,7 +7,7 @@ mod tests {
 
     #[test]
     fn test_call() {
-        let err = Client::new(Arc::new(get_auth()), Arc::new(Default::default()))
+        let err = Client::new(get_auth(), Arc::new(Default::default()))
             .get("", &["http://up.qiniup.com"])
             .no_body()
             .send()

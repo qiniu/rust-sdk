@@ -10,7 +10,7 @@ pub struct Parts<'a> {
     pub(super) query: Option<HashMap<String, String>>,
     pub(super) headers: Option<Headers>,
     pub(super) body: Option<Vec<u8>>,
-    pub(super) auth: Arc<Auth>,
+    pub(super) auth: Auth,
     pub(super) config: Arc<Config>,
     pub(super) token: Token,
     pub(super) read_body: bool,

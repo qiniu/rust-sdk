@@ -1,33 +1,42 @@
 use super::{base64, mime};
 use crate::storage::UploadPolicy;
 use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
-use getset::Getters;
 use qiniu_http::{Method, Request};
-use std::{boxed::Box, convert::TryFrom, error::Error, fmt, result::Result, string::String, time, u32};
+use std::{
+    boxed::Box, cmp::PartialEq, convert::TryFrom, error::Error, fmt, result::Result, string::String, sync::Arc, time,
+};
 use url::Url;
 
-// TODO: 尽可能内嵌 Arc
-
-#[derive(Getters, Clone, Eq, PartialEq)]
-pub struct Auth {
-    #[get = "pub"]
+#[derive(Clone, Eq, PartialEq)]
+struct AuthInner {
     access_key: String,
     secret_key: Vec<u8>,
 }
+
+#[derive(Clone, Eq)]
+pub struct Auth(Arc<AuthInner>);
 
 impl Auth {
     pub fn new<AccessKey: Into<String>, SecretKey: Into<Vec<u8>>>(
         access_key: AccessKey,
         secret_key: SecretKey,
     ) -> Auth {
-        Auth {
+        Auth(Arc::new(AuthInner {
             access_key: access_key.into(),
             secret_key: secret_key.into(),
-        }
+        }))
+    }
+
+    pub fn access_key(&self) -> &String {
+        &self.0.access_key
+    }
+
+    fn secret_key(&self) -> &Vec<u8> {
+        &self.0.secret_key
     }
 
     pub(crate) fn sign(&self, data: &[u8]) -> String {
-        self.access_key.to_owned() + ":" + &self.base64ed_hmac_digest(data)
+        self.access_key().to_owned() + ":" + &self.base64ed_hmac_digest(data)
     }
 
     pub(crate) fn sign_with_data(&self, data: &[u8]) -> String {
@@ -118,7 +127,7 @@ impl Auth {
     }
 
     fn base64ed_hmac_digest(&self, data: &[u8]) -> String {
-        let mut hmac = Hmac::new(Sha1::new(), &self.secret_key);
+        let mut hmac = Hmac::new(Sha1::new(), self.secret_key());
         hmac.input(data);
         base64::urlsafe(hmac.result().code())
     }
@@ -208,8 +217,14 @@ impl fmt::Debug for Auth {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
             "Auth {{ access_key: {:?}, secret_key: CENSORED }}",
-            &self.access_key
+            &self.access_key()
         ))
+    }
+}
+
+impl PartialEq for Auth {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq(&other.0)
     }
 }
 

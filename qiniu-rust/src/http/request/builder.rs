@@ -27,13 +27,7 @@ pub struct Builder<'a> {
 pub type BuildResult<'a> = result::Result<Request<'a>, Error>;
 
 impl<'a> Builder<'a> {
-    pub fn new(
-        auth: Arc<Auth>,
-        config: Arc<Config>,
-        method: Method,
-        path: &'a str,
-        hosts: &'a [&'a str],
-    ) -> Builder<'a> {
+    pub fn new(auth: Auth, config: Arc<Config>, method: Method, path: &'a str, hosts: &'a [&'a str]) -> Builder<'a> {
         Builder {
             domains_manager: config.domains_manager().clone(),
             host_freeze_duration: *config.host_freeze_duration(),

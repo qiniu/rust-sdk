@@ -1,12 +1,12 @@
 use super::UploadPolicy;
 use crate::utils::{auth::Auth, base64};
 use error_chain::error_chain;
-use std::{convert::From, fmt, sync::Arc};
+use std::{convert::From, fmt};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum UploadToken {
     Token(String),
-    Policy(UploadPolicy, Arc<Auth>),
+    Policy(UploadPolicy, Auth),
 }
 
 impl UploadToken {
@@ -14,7 +14,7 @@ impl UploadToken {
         UploadToken::Token(t.into())
     }
 
-    pub fn from_policy(policy: UploadPolicy, auth: Arc<Auth>) -> UploadToken {
+    pub fn from_policy(policy: UploadPolicy, auth: Auth) -> UploadToken {
         UploadToken::Policy(policy, auth)
     }
 
@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn test_build_upload_token_from_upload_policy() {
         let policy = UploadPolicyBuilder::new_policy_for_file("test_bucket", "test:file", &Config::default()).build();
-        let token = UploadToken::from_policy(policy, Arc::new(get_auth())).token();
+        let token = UploadToken::from_policy(policy, get_auth()).token();
         assert!(token.starts_with(get_auth().access_key()));
         let token = UploadToken::from_token(token);
         let policy = token.to_owned().policy().unwrap();

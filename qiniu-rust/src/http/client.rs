@@ -4,12 +4,12 @@ use qiniu_http::Method;
 use std::sync::Arc;
 
 pub struct Client {
-    auth: Arc<Auth>,
+    auth: Auth,
     config: Arc<Config>,
 }
 
 impl Client {
-    pub fn new(auth: Arc<Auth>, config: Arc<Config>) -> Client {
+    pub fn new(auth: Auth, config: Arc<Config>) -> Client {
         Client {
             auth: auth,
             config: config,
