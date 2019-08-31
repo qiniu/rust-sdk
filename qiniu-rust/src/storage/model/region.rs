@@ -8,7 +8,7 @@ use std::{collections::HashMap, sync::Arc};
 
 #[derive(Getters, Builder)]
 #[get = "pub"]
-#[builder(pattern = "owned")]
+#[builder(pattern = "owned", setter(into, strip_option))]
 pub struct Region {
     region_id: Option<&'static str>,
     up_http_urls: Vec<String>,
@@ -139,7 +139,7 @@ impl Region {
 
 lazy_static! {
     static ref HUA_DONG: Region = RegionBuilder::default()
-        .region_id(Some("z0"))
+        .region_id("z0")
         .up_http_urls(vec![
             "http://upload.qiniup.com".into(),
             "http://up.qiniup.com".into(),
@@ -154,16 +154,16 @@ lazy_static! {
         ])
         .io_http_urls(vec!["http://iovip.qbox.me".into()])
         .io_https_urls(vec!["https://iovip.qbox.me".into()])
-        .rs_http_url("http://rs.qiniu.com".into())
-        .rs_https_url("https://rs.qbox.me".into())
-        .rsf_http_url("http://rsf.qiniu.com".into())
-        .rsf_https_url("https://rsf.qbox.me".into())
-        .api_http_url("http://api.qiniu.com".into())
-        .api_https_url("https://api.qiniu.com".into())
+        .rs_http_url("http://rs.qiniu.com")
+        .rs_https_url("https://rs.qbox.me")
+        .rsf_http_url("http://rsf.qiniu.com")
+        .rsf_https_url("https://rsf.qbox.me")
+        .api_http_url("http://api.qiniu.com")
+        .api_https_url("https://api.qiniu.com")
         .build()
         .unwrap();
     static ref HUA_BEI: Region = RegionBuilder::default()
-        .region_id(Some("z1"))
+        .region_id("z1")
         .up_http_urls(vec![
             "http://upload-z1.qiniup.com".into(),
             "http://up-z1.qiniup.com".into(),
@@ -178,16 +178,16 @@ lazy_static! {
         ])
         .io_http_urls(vec!["http://iovip-z1.qbox.me".into()])
         .io_https_urls(vec!["https://iovip-z1.qbox.me".into()])
-        .rs_http_url("http://rs-z1.qiniu.com".into())
-        .rs_https_url("https://rs-z1.qbox.me".into())
-        .rsf_http_url("http://rsf-z1.qiniu.com".into())
-        .rsf_https_url("https://rsf-z1.qbox.me".into())
-        .api_http_url("http://api-z1.qiniu.com".into())
-        .api_https_url("https://api-z1.qiniu.com".into())
+        .rs_http_url("http://rs-z1.qiniu.com")
+        .rs_https_url("https://rs-z1.qbox.me")
+        .rsf_http_url("http://rsf-z1.qiniu.com")
+        .rsf_https_url("https://rsf-z1.qbox.me")
+        .api_http_url("http://api-z1.qiniu.com")
+        .api_https_url("https://api-z1.qiniu.com")
         .build()
         .unwrap();
     static ref HUA_NAN: Region = RegionBuilder::default()
-        .region_id(Some("z2"))
+        .region_id("z2")
         .up_http_urls(vec![
             "http://upload-z2.qiniup.com".into(),
             "http://up-z2.qiniup.com".into(),
@@ -202,16 +202,16 @@ lazy_static! {
         ])
         .io_http_urls(vec!["http://iovip-z2.qbox.me".into()])
         .io_https_urls(vec!["https://iovip-z2.qbox.me".into()])
-        .rs_http_url("http://rs-z2.qiniu.com".into())
-        .rs_https_url("https://rs-z2.qbox.me".into())
-        .rsf_http_url("http://rsf-z2.qiniu.com".into())
-        .rsf_https_url("https://rsf-z2.qbox.me".into())
-        .api_http_url("http://api-z2.qiniu.com".into())
-        .api_https_url("https://api-z2.qiniu.com".into())
+        .rs_http_url("http://rs-z2.qiniu.com")
+        .rs_https_url("https://rs-z2.qbox.me")
+        .rsf_http_url("http://rsf-z2.qiniu.com")
+        .rsf_https_url("https://rsf-z2.qbox.me")
+        .api_http_url("http://api-z2.qiniu.com")
+        .api_https_url("https://api-z2.qiniu.com")
         .build()
         .unwrap();
     static ref NORTH_AMERICA: Region = RegionBuilder::default()
-        .region_id(Some("na0"))
+        .region_id("na0")
         .up_http_urls(vec![
             "http://upload-na0.qiniup.com".into(),
             "http://up-na0.qiniup.com".into(),
@@ -226,16 +226,16 @@ lazy_static! {
         ])
         .io_http_urls(vec!["http://iovip-na0.qbox.me".into()])
         .io_https_urls(vec!["https://iovip-na0.qbox.me".into()])
-        .rs_http_url("http://rs-na0.qiniu.com".into())
-        .rs_https_url("https://rs-na0.qbox.me".into())
-        .rsf_http_url("http://rsf-na0.qiniu.com".into())
-        .rsf_https_url("https://rsf-na0.qbox.me".into())
-        .api_http_url("http://api-na0.qiniu.com".into())
-        .api_https_url("https://api-na0.qiniu.com".into())
+        .rs_http_url("http://rs-na0.qiniu.com")
+        .rs_https_url("https://rs-na0.qbox.me")
+        .rsf_http_url("http://rsf-na0.qiniu.com")
+        .rsf_https_url("https://rsf-na0.qbox.me")
+        .api_http_url("http://api-na0.qiniu.com")
+        .api_https_url("https://api-na0.qiniu.com")
         .build()
         .unwrap();
     static ref SINGAPORE: Region = RegionBuilder::default()
-        .region_id(Some("as0"))
+        .region_id("as0")
         .up_http_urls(vec![
             "http://upload-as0.qiniup.com".into(),
             "http://up-as0.qiniup.com".into(),
@@ -250,12 +250,12 @@ lazy_static! {
         ])
         .io_http_urls(vec!["http://iovip-as0.qbox.me".into()])
         .io_https_urls(vec!["https://iovip-as0.qbox.me".into()])
-        .rs_http_url("http://rs-as0.qiniu.com".into())
-        .rs_https_url("https://rs-as0.qbox.me".into())
-        .rsf_http_url("http://rsf-as0.qiniu.com".into())
-        .rsf_https_url("https://rsf-as0.qbox.me".into())
-        .api_http_url("http://api-as0.qiniu.com".into())
-        .api_https_url("https://api-as0.qiniu.com".into())
+        .rs_http_url("http://rs-as0.qiniu.com")
+        .rs_https_url("https://rs-as0.qbox.me")
+        .rsf_http_url("http://rsf-as0.qiniu.com")
+        .rsf_https_url("https://rsf-as0.qbox.me")
+        .api_http_url("http://api-as0.qiniu.com")
+        .api_https_url("https://api-as0.qiniu.com")
         .build()
         .unwrap();
     static ref INFER_DOMAINS_MAP: HashMap<&'static str, &'static Region> = {
