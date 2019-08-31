@@ -47,7 +47,7 @@ impl CurlClient {
             response_body.set_position(0);
             builder = builder.body(response_body);
         }
-        Ok(builder.build())
+        Ok(builder.build().unwrap())
     }
 
     fn set_context<'r>(mut context: &mut Context<'r>, request: &Request<'r>) {

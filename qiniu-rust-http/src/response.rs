@@ -1,11 +1,13 @@
 use super::header::{HeaderValue, Headers};
+use derive_builder::Builder;
 use getset::{CopyGetters, Getters, MutGetters};
 use std::{default::Default, fmt, io::Read};
 
 pub type StatusCode = u16;
 pub type Body = Box<dyn Read>;
 
-#[derive(Getters, CopyGetters, MutGetters)]
+#[derive(Getters, CopyGetters, MutGetters, Builder)]
+#[builder(pattern = "owned", setter(into, strip_option), default)]
 pub struct Response {
     #[get_copy = "pub"]
     #[get_mut = "pub"]
@@ -17,6 +19,7 @@ pub struct Response {
 
     #[get = "pub"]
     #[get_mut = "pub"]
+    #[builder(private, setter(name = "boxed_body"))]
     body: Option<Body>,
 }
 
@@ -42,43 +45,27 @@ impl Response {
     }
 }
 
-pub struct ResponseBuilder {
-    response: Response,
-}
-
 impl ResponseBuilder {
-    pub fn default() -> ResponseBuilder {
-        ResponseBuilder {
-            response: Default::default(),
-        }
-    }
-
-    pub fn status_code<S: Into<StatusCode>>(mut self, status_code: S) -> ResponseBuilder {
-        self.response.status_code = status_code.into();
-        self
-    }
-
     pub fn header<HeaderNameT: Into<String>, HeaderValueT: Into<String>>(
         mut self,
         header_name: HeaderNameT,
         header_value: HeaderValueT,
-    ) -> ResponseBuilder {
-        self.response.headers.insert(header_name.into(), header_value.into());
+    ) -> Self {
+        match self.headers {
+            Some(ref mut headers) => {
+                headers.insert(header_name.into(), header_value.into());
+            }
+            None => {
+                let mut headers = Headers::new();
+                headers.insert(header_name.into(), header_value.into());
+                self = self.headers(headers);
+            }
+        }
         self
     }
 
-    pub fn headers(mut self, headers: Headers) -> ResponseBuilder {
-        self.response.headers = headers;
-        self
-    }
-
-    pub fn body<B: Read + 'static>(mut self, body: B) -> ResponseBuilder {
-        self.response.body = Some(Box::new(body));
-        self
-    }
-
-    pub fn build(self) -> Response {
-        self.response
+    pub fn body<B: Read + 'static>(self, body: B) -> Self {
+        self.boxed_body(Box::new(body) as Body)
     }
 }
 
