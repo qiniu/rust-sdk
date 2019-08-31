@@ -23,6 +23,7 @@ serde_urlencoded = "0.6.1"
 error-chain = "0.12.1"
 lazy_static = "1.4.0"
 maplit = "1.0.2"
+delegate = "0.2.0"
 
 qiniu-with-libcurl = { version = "0.1.0", path = "../qiniu-rust-with-libcurl", optional = true }
 qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }
