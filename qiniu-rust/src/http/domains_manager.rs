@@ -17,7 +17,7 @@ impl DomainsManager {
         }
     }
 
-    pub(crate) fn is_frozen<D: Into<String>>(&self, domain: D) -> Result<bool> {
+    pub fn is_frozen<D: Into<String>>(&self, domain: D) -> Result<bool> {
         let domain = Self::normalize_domain(domain)?;
         match self.map.get(&domain) {
             Some(unfreeze_time) => {

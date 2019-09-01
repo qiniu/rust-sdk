@@ -28,7 +28,12 @@ pub struct Request<'a> {
 impl<'a> Request<'a> {
     pub fn send(&self) -> HTTPResult<Response> {
         let mut prev_err: Option<HTTPError> = None;
-        for host in self.parts.hosts {
+        for &host in self.parts.hosts {
+            if self.domains_manager.is_frozen(host).map_err(|err| {
+                HTTPError::new_host_unretryable_error_from_parts(err, true, Some(self.parts.method.to_owned()), None)
+            })? {
+                continue;
+            }
             match self.try_host(host) {
                 Ok(resp) => {
                     return Ok(Response(resp));
@@ -394,7 +399,7 @@ mod tests {
         *,
     };
     use qiniu_http::{Error, ErrorKind, HTTPCaller, Headers as HTTPHeaders};
-    use std::{boxed::Box, cell::Cell, io, sync::Arc, time::Duration};
+    use std::{boxed::Box, cell::Cell, io, mem, sync::Arc, time::Duration};
 
     struct HTTPRequestCounter {
         call_counter: Arc<Cell<usize>>,
@@ -465,7 +470,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            config,
+            config.clone(),
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -474,6 +479,9 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
+        assert!(config.domains_manager().is_frozen("host1").unwrap());
+        assert!(config.domains_manager().is_frozen("host2").unwrap());
+        mem::drop(config);
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2 * (RETRIES + 1));
         assert_eq!(
             Arc::try_unwrap(on_retry_request_counter).unwrap().get(),
@@ -510,7 +518,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            config,
+            config.clone(),
             Method::POST,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -519,6 +527,9 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
+        assert!(config.domains_manager().is_frozen("host1").unwrap());
+        assert!(config.domains_manager().is_frozen("host2").unwrap());
+        mem::drop(config);
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2 * (RETRIES + 1));
         assert_eq!(
             Arc::try_unwrap(on_retry_request_counter).unwrap().get(),
@@ -555,7 +566,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            config,
+            config.clone(),
             Method::POST,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -564,6 +575,9 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
+        assert!(!config.domains_manager().is_frozen("host1").unwrap());
+        assert!(!config.domains_manager().is_frozen("host2").unwrap());
+        mem::drop(config);
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
         assert_eq!(Arc::try_unwrap(on_retry_request_counter).unwrap().get(), 0);
         assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 0);
@@ -597,7 +611,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            config,
+            config.clone(),
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -606,6 +620,9 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
+        assert!(config.domains_manager().is_frozen("host1").unwrap());
+        assert!(config.domains_manager().is_frozen("host2").unwrap());
+        mem::drop(config);
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2);
         assert_eq!(Arc::try_unwrap(on_retry_request_counter).unwrap().get(), 0);
         assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 2);
@@ -639,7 +656,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            config,
+            config.clone(),
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -648,6 +665,9 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
+        assert!(!config.domains_manager().is_frozen("host1").unwrap());
+        assert!(!config.domains_manager().is_frozen("host2").unwrap());
+        mem::drop(config);
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
         assert_eq!(Arc::try_unwrap(on_retry_request_counter).unwrap().get(), 0);
         assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 0);
@@ -681,7 +701,7 @@ mod tests {
             .unwrap();
         assert!(Builder::new(
             get_auth(),
-            config,
+            config.clone(),
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
@@ -690,6 +710,9 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
+        assert!(!config.domains_manager().is_frozen("host1").unwrap());
+        assert!(!config.domains_manager().is_frozen("host2").unwrap());
+        mem::drop(config);
         assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
         assert_eq!(Arc::try_unwrap(on_retry_request_counter).unwrap().get(), 0);
         assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 0);
