@@ -3,13 +3,15 @@ use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
 use lazy_static::lazy_static;
 use maplit::hashmap;
-use qiniu_http::Result as HTTPResult;
-use std::{collections::HashMap, sync::Arc};
+use qiniu_http::{Error as HTTPError, Result as HTTPResult};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Getters, CopyGetters, Builder)]
 #[builder(pattern = "owned", setter(into, strip_option))]
 pub struct Region {
     #[get_copy = "pub"]
+    #[builder(default = "None")]
     region_id: Option<&'static str>,
 
     #[get = "pub"]
@@ -24,23 +26,23 @@ pub struct Region {
     #[get = "pub"]
     io_https_urls: Vec<String>,
 
-    #[get = "pub"]
-    rs_http_url: String,
+    #[get_copy = "pub"]
+    rs_http_url: &'static str,
 
-    #[get = "pub"]
-    rs_https_url: String,
+    #[get_copy = "pub"]
+    rs_https_url: &'static str,
 
-    #[get = "pub"]
-    rsf_http_url: String,
+    #[get_copy = "pub"]
+    rsf_http_url: &'static str,
 
-    #[get = "pub"]
-    rsf_https_url: String,
+    #[get_copy = "pub"]
+    rsf_https_url: &'static str,
 
-    #[get = "pub"]
-    api_http_url: String,
+    #[get_copy = "pub"]
+    api_http_url: &'static str,
 
-    #[get = "pub"]
-    api_https_url: String,
+    #[get_copy = "pub"]
+    api_https_url: &'static str,
 }
 
 impl Region {
@@ -60,27 +62,27 @@ impl Region {
         }
     }
 
-    pub fn rs_url(&self, https: bool) -> String {
+    pub fn rs_url(&self, https: bool) -> &'static str {
         if https {
-            self.rs_https_url.to_owned()
+            self.rs_https_url
         } else {
-            self.rs_http_url.to_owned()
+            self.rs_http_url
         }
     }
 
-    pub fn rsf_url(&self, https: bool) -> String {
+    pub fn rsf_url(&self, https: bool) -> &'static str {
         if https {
-            self.rsf_https_url.to_owned()
+            self.rsf_https_url
         } else {
-            self.rsf_http_url.to_owned()
+            self.rsf_http_url
         }
     }
 
-    pub fn api_url(&self, https: bool) -> String {
+    pub fn api_url(&self, https: bool) -> &'static str {
         if https {
-            self.api_https_url.to_owned()
+            self.api_https_url
         } else {
-            self.api_http_url.to_owned()
+            self.api_http_url
         }
     }
 
@@ -154,6 +156,88 @@ impl Region {
 
     pub fn singapore() -> &'static Region {
         &SINGAPORE
+    }
+
+    pub fn query<B: Into<String>>(bucket: B, auth: Auth, config: Config) -> HTTPResult<Region> {
+        let (access_key, uc_url) = (auth.access_key().to_owned(), Self::uc_url(config.use_https()));
+        let result: RegionQueryResult =
+            request::Builder::new(auth, config, qiniu_http::Method::GET, "/v2/query", &[uc_url])
+                .query("ak", access_key)
+                .query("bucket", bucket)
+                .accept_json()
+                .no_body()
+                .send()?
+                .parse_json()
+                .unwrap()
+                .map_err(|err| {
+                    HTTPError::new_retryable_error_from_parts(
+                        err,
+                        false,
+                        Some(qiniu_http::Method::GET),
+                        Some(uc_url.to_owned() + "/v2/query"),
+                    )
+                })?;
+
+        let infer_region = result
+            .io
+            .src
+            .main
+            .first()
+            .and_then(|domain| INFER_DOMAINS_MAP.get(domain.as_str()).map(|region| *region))
+            .unwrap_or_else(|| Region::hua_dong());
+        Ok(RegionBuilder::default()
+            .up_http_urls(
+                [&result.up.acc, &result.up.src]
+                    .into_iter()
+                    .map(|domains| {
+                        [Some(&domains.main), domains.backup.as_ref()]
+                            .into_iter()
+                            .filter_map(|&domains| domains)
+                            .flatten()
+                            .map(|domain| "http://".to_owned() + domain)
+                            .collect::<Vec<_>>()
+                    })
+                    .flatten()
+                    .collect::<Vec<_>>(),
+            )
+            .up_https_urls(
+                [&result.up.acc, &result.up.src, &result.up.old_acc, &result.up.old_src]
+                    .into_iter()
+                    .map(|domains| {
+                        [Some(&domains.main), domains.backup.as_ref()]
+                            .into_iter()
+                            .filter_map(|&domains| domains)
+                            .flatten()
+                            .map(|domain| "https://".to_owned() + domain)
+                            .collect::<Vec<_>>()
+                    })
+                    .flatten()
+                    .collect::<Vec<_>>(),
+            )
+            .io_http_urls(
+                [Some(&result.io.src.main), result.io.src.backup.as_ref()]
+                    .into_iter()
+                    .filter_map(|&domains| domains)
+                    .flatten()
+                    .map(|domain| "http://".to_owned() + domain)
+                    .collect::<Vec<_>>(),
+            )
+            .io_https_urls(
+                [Some(&result.io.src.main), result.io.src.backup.as_ref()]
+                    .into_iter()
+                    .filter_map(|&domains| domains)
+                    .flatten()
+                    .map(|domain| "https://".to_owned() + domain)
+                    .collect::<Vec<_>>(),
+            )
+            .rs_http_url(infer_region.rs_http_url())
+            .rs_https_url(infer_region.rs_https_url())
+            .rsf_http_url(infer_region.rsf_http_url())
+            .rsf_https_url(infer_region.rsf_https_url())
+            .api_http_url(infer_region.api_http_url())
+            .api_https_url(infer_region.api_https_url())
+            .build()
+            .unwrap())
     }
 }
 
@@ -287,4 +371,186 @@ lazy_static! {
             "iovip-as0.qbox.me" => Region::singapore(),
         }
     };
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct RegionQueryResult {
+    io: RegionQueryResultForIO,
+    up: RegionQueryResultForUP,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct RegionQueryResultForIO {
+    src: RegionQueryResultDomains,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct RegionQueryResultForUP {
+    src: RegionQueryResultDomains,
+    acc: RegionQueryResultDomains,
+    old_src: RegionQueryResultDomains,
+    old_acc: RegionQueryResultDomains,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct RegionQueryResultDomains {
+    main: Vec<String>,
+    backup: Option<Vec<String>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::ConfigBuilder;
+    use qiniu_http::Headers;
+    use qiniu_test_utils::http_call_mock::JSONCallMock;
+
+    #[test]
+    fn test_query_region_by_expected_domain() {
+        let config = ConfigBuilder::default()
+            .http_request_call(Box::new(JSONCallMock {
+                status_code: 200,
+                response_headers: Headers::new(),
+                response_body: RegionQueryResult {
+                    io: RegionQueryResultForIO {
+                        src: RegionQueryResultDomains {
+                            main: vec!["iovip.qbox.me".into()],
+                            backup: None,
+                        },
+                    },
+                    up: RegionQueryResultForUP {
+                        src: RegionQueryResultDomains {
+                            main: vec!["up.qiniup.com".into()],
+                            backup: Some(vec!["up-jjh.qiniup.com".into(), "up-xs.qiniup.com".into()]),
+                        },
+                        acc: RegionQueryResultDomains {
+                            main: vec!["upload.qiniup.com".into()],
+                            backup: Some(vec!["upload-jjh.qiniup.com".into(), "upload-xs.qiniup.com".into()]),
+                        },
+                        old_src: RegionQueryResultDomains {
+                            main: vec!["up.qbox.me".into()],
+                            backup: None,
+                        },
+                        old_acc: RegionQueryResultDomains {
+                            main: vec!["upload.qbox.me".into()],
+                            backup: None,
+                        },
+                    },
+                },
+            }))
+            .build()
+            .unwrap();
+        let region = Region::query("z0-bucket", get_auth(), config).unwrap();
+        assert_eq!(region.region_id(), None);
+        assert_eq!(
+            region.up_http_urls(),
+            &[
+                "http://upload.qiniup.com".to_string(),
+                "http://upload-jjh.qiniup.com".to_string(),
+                "http://upload-xs.qiniup.com".to_string(),
+                "http://up.qiniup.com".to_string(),
+                "http://up-jjh.qiniup.com".to_string(),
+                "http://up-xs.qiniup.com".to_string(),
+            ],
+        );
+        assert_eq!(
+            region.up_https_urls(),
+            &[
+                "https://upload.qiniup.com".to_string(),
+                "https://upload-jjh.qiniup.com".to_string(),
+                "https://upload-xs.qiniup.com".to_string(),
+                "https://up.qiniup.com".to_string(),
+                "https://up-jjh.qiniup.com".to_string(),
+                "https://up-xs.qiniup.com".to_string(),
+                "https://upload.qbox.me".to_string(),
+                "https://up.qbox.me".to_string(),
+            ],
+        );
+        assert_eq!(region.io_http_urls(), &["http://iovip.qbox.me".to_string()]);
+        assert_eq!(region.io_https_urls(), &["https://iovip.qbox.me".to_string()]);
+        assert_eq!(region.rs_http_url(), "http://rs.qiniu.com");
+        assert_eq!(region.rs_https_url(), "https://rs.qbox.me");
+        assert_eq!(region.rsf_http_url(), "http://rsf.qiniu.com");
+        assert_eq!(region.rsf_https_url(), "https://rsf.qbox.me");
+        assert_eq!(region.api_http_url(), "http://api.qiniu.com");
+        assert_eq!(region.api_https_url(), "https://api.qiniu.com");
+    }
+
+    #[test]
+    fn test_query_region_by_unexpected_domain() {
+        let config = ConfigBuilder::default()
+            .http_request_call(Box::new(JSONCallMock {
+                status_code: 200,
+                response_headers: Headers::new(),
+                response_body: RegionQueryResult {
+                    io: RegionQueryResultForIO {
+                        src: RegionQueryResultDomains {
+                            main: vec!["iovip-z5.qbox.me".into()],
+                            backup: None,
+                        },
+                    },
+                    up: RegionQueryResultForUP {
+                        src: RegionQueryResultDomains {
+                            main: vec!["up-z5.qiniup.com".into()],
+                            backup: Some(vec!["up-jjh-z5.qiniup.com".into(), "up-xs-z5.qiniup.com".into()]),
+                        },
+                        acc: RegionQueryResultDomains {
+                            main: vec!["upload-z5.qiniup.com".into()],
+                            backup: Some(vec![
+                                "upload-jjh-z5.qiniup.com".into(),
+                                "upload-xs-z5.qiniup.com".into(),
+                            ]),
+                        },
+                        old_src: RegionQueryResultDomains {
+                            main: vec!["up-z5.qbox.me".into()],
+                            backup: None,
+                        },
+                        old_acc: RegionQueryResultDomains {
+                            main: vec!["upload-z5.qbox.me".into()],
+                            backup: None,
+                        },
+                    },
+                },
+            }))
+            .build()
+            .unwrap();
+        let region = Region::query("z5-bucket", get_auth(), config).unwrap();
+        assert_eq!(region.region_id(), None);
+        assert_eq!(
+            region.up_http_urls(),
+            &[
+                "http://upload-z5.qiniup.com".to_string(),
+                "http://upload-jjh-z5.qiniup.com".to_string(),
+                "http://upload-xs-z5.qiniup.com".to_string(),
+                "http://up-z5.qiniup.com".to_string(),
+                "http://up-jjh-z5.qiniup.com".to_string(),
+                "http://up-xs-z5.qiniup.com".to_string(),
+            ],
+        );
+        assert_eq!(
+            region.up_https_urls(),
+            &[
+                "https://upload-z5.qiniup.com".to_string(),
+                "https://upload-jjh-z5.qiniup.com".to_string(),
+                "https://upload-xs-z5.qiniup.com".to_string(),
+                "https://up-z5.qiniup.com".to_string(),
+                "https://up-jjh-z5.qiniup.com".to_string(),
+                "https://up-xs-z5.qiniup.com".to_string(),
+                "https://upload-z5.qbox.me".to_string(),
+                "https://up-z5.qbox.me".to_string(),
+            ],
+        );
+        assert_eq!(region.io_http_urls(), &["http://iovip-z5.qbox.me".to_string()]);
+        assert_eq!(region.io_https_urls(), &["https://iovip-z5.qbox.me".to_string()]);
+        assert_eq!(region.rs_http_url(), "http://rs.qiniu.com");
+        assert_eq!(region.rs_https_url(), "https://rs.qbox.me");
+        assert_eq!(region.rsf_http_url(), "http://rsf.qiniu.com");
+        assert_eq!(region.rsf_https_url(), "https://rsf.qbox.me");
+        assert_eq!(region.api_http_url(), "http://api.qiniu.com");
+        assert_eq!(region.api_https_url(), "https://api.qiniu.com");
+    }
+
+    fn get_auth() -> Auth {
+        Auth::new("abcdefghklmnopq", "1234567890")
+    }
 }
