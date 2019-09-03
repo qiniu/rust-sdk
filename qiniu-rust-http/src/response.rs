@@ -43,6 +43,10 @@ impl Response {
     pub fn into_body(self) -> Option<Body> {
         self.body
     }
+
+    pub fn take_body(&mut self) -> Option<Body> {
+        self.body.take()
+    }
 }
 
 impl ResponseBuilder {

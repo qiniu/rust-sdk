@@ -3,7 +3,7 @@ use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
 use lazy_static::lazy_static;
 use maplit::hashmap;
-use qiniu_http::{Error as HTTPError, Result as HTTPResult};
+use qiniu_http::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -158,7 +158,7 @@ impl Region {
         &SINGAPORE
     }
 
-    pub fn query<B: Into<String>>(bucket: B, auth: Auth, config: Config) -> HTTPResult<Region> {
+    pub fn query<B: Into<String>>(bucket: B, auth: Auth, config: Config) -> Result<Region> {
         let (access_key, uc_url) = (auth.access_key().to_owned(), Self::uc_url(config.use_https()));
         let result: RegionQueryResult =
             request::Builder::new(auth, config, qiniu_http::Method::GET, "/v2/query", &[uc_url])
@@ -168,15 +168,7 @@ impl Region {
                 .no_body()
                 .send()?
                 .parse_json()
-                .unwrap()
-                .map_err(|err| {
-                    HTTPError::new_retryable_error_from_parts(
-                        err,
-                        false,
-                        Some(qiniu_http::Method::GET),
-                        Some(uc_url.to_owned() + "/v2/query"),
-                    )
-                })?;
+                .unwrap()?;
 
         let infer_region = result
             .io

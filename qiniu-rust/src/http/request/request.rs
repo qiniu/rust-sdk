@@ -36,7 +36,12 @@ impl<'a> Request<'a> {
             }
             match self.try_host(host) {
                 Ok(resp) => {
-                    return Ok(Response(resp));
+                    return Ok(Response {
+                        inner: resp,
+                        method: self.parts.method,
+                        host: host,
+                        path: self.parts.path,
+                    });
                 }
                 Err(err) => match err.kind() {
                     HTTPErrorKind::RetryableError | HTTPErrorKind::HostUnretryableError if self.is_idempotent(&err) => {
