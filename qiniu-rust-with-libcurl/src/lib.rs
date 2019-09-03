@@ -1,26 +1,48 @@
-use curl::easy::{Easy2, Handler, List, ReadError, SeekResult, WriteError};
+use curl::{
+    easy::{Easy2, Handler, List, ReadError, SeekResult, WriteError},
+    Version,
+};
+use derive_builder::Builder;
 use qiniu_http::{Error, HTTPCaller, Headers, Method, Request, Response, ResponseBuilder, Result, StatusCode};
 use std::{
     convert::TryInto,
+    default::Default,
+    env,
+    fs::File,
     io::{Cursor, Read, Seek, SeekFrom, Write},
+    path::{Path, PathBuf},
     result,
     sync::Once,
 };
 
 static INITIALIZER: Once = Once::new();
 
-pub struct CurlClient {}
+#[derive(Debug, Builder)]
+#[builder(pattern = "owned", setter(into, strip_option), default)]
+pub struct CurlClient {
+    buffer_size: usize,
+    temp_dir: PathBuf,
+}
 
-impl CurlClient {
-    pub fn new() -> CurlClient {
+impl Default for CurlClient {
+    fn default() -> Self {
         INITIALIZER.call_once(|| curl::init());
-        CurlClient {}
+        CurlClient {
+            buffer_size: 1 << 22,
+            temp_dir: env::temp_dir(),
+        }
     }
 }
 
 impl HTTPCaller for CurlClient {
     fn call(&self, request: &Request) -> Result<Response> {
-        let mut ctx = Context::new();
+        let mut ctx = Context {
+            request_body: None,
+            response_body: None,
+            response_headers: Headers::new(),
+            buffer_size: self.buffer_size,
+            temp_dir: self.temp_dir.as_path(),
+        };
         Self::set_context(&mut ctx, request);
         let response_code = Self::perform(&mut ctx, request)?;
         Self::build_response(ctx, response_code)
@@ -43,9 +65,15 @@ impl CurlClient {
         let mut builder = ResponseBuilder::default()
             .status_code(status_code)
             .headers(context.response_headers);
-        if let Some(mut response_body) = context.response_body {
-            response_body.set_position(0);
-            builder = builder.body(response_body);
+        if let Some(response_body) = context.response_body {
+            match response_body {
+                ResponseBody::Memory(memory) => {
+                    builder = builder.body(Cursor::new(memory));
+                }
+                ResponseBody::File(file) => {
+                    builder = builder.body(file);
+                }
+            }
         }
         Ok(builder.build().unwrap())
     }
@@ -60,7 +88,7 @@ impl CurlClient {
         match request.method() {
             Method::HEAD => (),
             _ => {
-                context.response_body = Some(Cursor::new(Vec::new()));
+                context.response_body = Some(ResponseBody::Memory(Vec::with_capacity(context.buffer_size)));
             }
         }
     }
@@ -104,9 +132,10 @@ impl CurlClient {
         Self::handle_if_err(easy.max_redirections(3), request)?;
         Self::handle_if_err(
             easy.useragent(&format!(
-                "QiniuRust/{}/{}",
+                "QiniuRust-libcurl/qiniu-{}/rust-{}/libcurl-{}",
                 env!("CARGO_PKG_VERSION"),
-                rustc_version_runtime::version()
+                rustc_version_runtime::version(),
+                Version::get().version(),
             )),
             request,
         )?;
@@ -210,24 +239,34 @@ impl CurlClient {
 
 struct Context<'r> {
     request_body: Option<Cursor<&'r [u8]>>,
-    response_body: Option<Cursor<Vec<u8>>>,
+    response_body: Option<ResponseBody>,
     response_headers: Headers,
+    buffer_size: usize,
+    temp_dir: &'r Path,
 }
 
-impl<'r> Context<'r> {
-    fn new() -> Self {
-        Context {
-            request_body: None,
-            response_body: None,
-            response_headers: Headers::new(),
-        }
-    }
+enum ResponseBody {
+    Memory(Vec<u8>),
+    File(File),
 }
 
 impl<'r> Handler for &mut Context<'r> {
     fn write(&mut self, data: &[u8]) -> result::Result<usize, WriteError> {
-        if let Some(ref mut response_body) = self.response_body {
-            response_body.write_all(data).unwrap();
+        match self.response_body {
+            Some(ResponseBody::Memory(ref mut memory)) => {
+                if memory.len() + data.len() > self.buffer_size {
+                    let mut tmpfile = tempfile::tempfile_in(&self.temp_dir).map_err(|_| WriteError::Pause)?;
+                    tmpfile.write_all(memory).map_err(|_| WriteError::Pause)?;
+                    tmpfile.write_all(data).map_err(|_| WriteError::Pause)?;
+                    self.response_body = Some(ResponseBody::File(tmpfile));
+                } else {
+                    memory.extend_from_slice(data);
+                }
+            }
+            Some(ResponseBody::File(ref mut file)) => {
+                file.write_all(data).map_err(|_| WriteError::Pause)?;
+            }
+            _ => {}
         }
         Ok(data.len())
     }

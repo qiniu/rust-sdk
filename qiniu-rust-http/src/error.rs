@@ -4,7 +4,7 @@ use super::{
     response::Response,
 };
 use getset::{CopyGetters, Getters};
-use std::{borrow::Borrow, boxed::Box, error, fmt, result};
+use std::{boxed::Box, error, fmt, marker::Send, result};
 
 pub type URL = request::URL;
 pub type RequestID = String;
@@ -18,8 +18,7 @@ pub struct Error {
     #[get_copy = "pub"]
     is_retry_safe: bool,
 
-    #[get = "pub"]
-    cause: Box<dyn error::Error>,
+    cause: Box<dyn error::Error + Send>,
 
     #[get_copy = "pub"]
     method: Option<Method>,
@@ -32,7 +31,7 @@ pub struct Error {
 }
 
 impl Error {
-    pub fn new<E: error::Error + 'static>(
+    pub fn new<E: error::Error + 'static + Send>(
         kind: ErrorKind,
         cause: E,
         is_retry_safe: bool,
@@ -49,7 +48,7 @@ impl Error {
         }
     }
 
-    pub fn new_retryable_error<E: error::Error + 'static>(
+    pub fn new_retryable_error<E: error::Error + 'static + Send>(
         cause: E,
         is_retry_safe: bool,
         request: &Request,
@@ -58,7 +57,7 @@ impl Error {
         Self::new(ErrorKind::RetryableError, cause, is_retry_safe, request, response)
     }
 
-    pub fn new_zone_unretryable_error<E: error::Error + 'static>(
+    pub fn new_zone_unretryable_error<E: error::Error + 'static + Send>(
         cause: E,
         is_retry_safe: bool,
         request: &Request,
@@ -67,7 +66,7 @@ impl Error {
         Self::new(ErrorKind::ZoneUnretryableError, cause, is_retry_safe, request, response)
     }
 
-    pub fn new_host_unretryable_error<E: error::Error + 'static>(
+    pub fn new_host_unretryable_error<E: error::Error + 'static + Send>(
         cause: E,
         is_retry_safe: bool,
         request: &Request,
@@ -76,7 +75,7 @@ impl Error {
         Self::new(ErrorKind::HostUnretryableError, cause, is_retry_safe, request, response)
     }
 
-    pub fn new_unretryable_error<E: error::Error + 'static>(
+    pub fn new_unretryable_error<E: error::Error + 'static + Send>(
         cause: E,
         request: &Request,
         response: Option<&Response>,
@@ -84,7 +83,7 @@ impl Error {
         Self::new(ErrorKind::UnretryableError, cause, false, request, response)
     }
 
-    pub fn new_from_parts<E: error::Error + 'static>(
+    pub fn new_from_parts<E: error::Error + 'static + Send>(
         kind: ErrorKind,
         cause: E,
         is_retry_safe: bool,
@@ -101,7 +100,7 @@ impl Error {
         }
     }
 
-    pub fn new_retryable_error_from_parts<E: error::Error + 'static>(
+    pub fn new_retryable_error_from_parts<E: error::Error + 'static + Send>(
         cause: E,
         is_retry_safe: bool,
         method: Option<Method>,
@@ -117,7 +116,7 @@ impl Error {
         }
     }
 
-    pub fn new_zone_unretryable_error_from_parts<E: error::Error + 'static>(
+    pub fn new_zone_unretryable_error_from_parts<E: error::Error + 'static + Send>(
         cause: E,
         is_retry_safe: bool,
         method: Option<Method>,
@@ -133,7 +132,7 @@ impl Error {
         }
     }
 
-    pub fn new_host_unretryable_error_from_parts<E: error::Error + 'static>(
+    pub fn new_host_unretryable_error_from_parts<E: error::Error + 'static + Send>(
         cause: E,
         is_retry_safe: bool,
         method: Option<Method>,
@@ -149,7 +148,7 @@ impl Error {
         }
     }
 
-    pub fn new_unretryable_error_from_parts<E: error::Error + 'static>(
+    pub fn new_unretryable_error_from_parts<E: error::Error + 'static + Send>(
         cause: E,
         method: Option<Method>,
         url: Option<URL>,
@@ -201,11 +200,11 @@ impl error::Error for Error {
 
     #[allow(deprecated)]
     fn cause(&self) -> Option<&dyn error::Error> {
-        Some(self.cause.borrow())
+        Some(self.cause.as_ref())
     }
 
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        Some(self.cause.borrow())
+        Some(self.cause.as_ref())
     }
 }
 

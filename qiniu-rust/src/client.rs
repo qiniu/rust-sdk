@@ -1,4 +1,4 @@
-use super::{config::Config, storage::BucketManager, utils::auth::Auth};
+use super::{config::Config, storage::bucket_manager::BucketManager, utils::auth::Auth};
 use getset::Getters;
 
 #[derive(Getters)]

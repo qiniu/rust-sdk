@@ -61,7 +61,7 @@ impl ConfigInner {
     fn default_http_request_call() -> Box<dyn HTTPCaller> {
         #[cfg(any(feature = "use-libcurl"))]
         {
-            Box::new(qiniu_with_libcurl::CurlClient::new())
+            Box::new(qiniu_with_libcurl::CurlClientBuilder::default().build().unwrap())
         }
         #[cfg(not(feature = "use-libcurl"))]
         {

@@ -4,7 +4,7 @@ use qiniu_http::{
     Result as HTTPResult, StatusCode,
 };
 use serde::de::DeserializeOwned;
-use std::fmt;
+use std::{fmt, io};
 
 pub struct Response<'a> {
     pub(super) inner: HTTPResponse,
@@ -32,16 +32,20 @@ impl<'a> Response<'a> {
         self.inner.headers().get(header_name.as_ref())
     }
 
-    pub fn parse_json<T: DeserializeOwned>(mut self) -> Option<HTTPResult<T>> {
-        self.take_body().map(|r| {
-            serde_json::from_reader(r).map_err(|err| {
-                HTTPError::new_unretryable_error_from_parts(
-                    err,
-                    Some(self.method),
-                    Some(self.host.to_owned() + self.path),
-                )
-            })
+    pub fn parse_json<T: DeserializeOwned>(&mut self) -> HTTPResult<T> {
+        let body = self.take_body().unwrap();
+        serde_json::from_reader(body).map_err(|err| {
+            HTTPError::new_unretryable_error_from_parts(err, Some(self.method), Some(self.host.to_owned() + self.path))
         })
+    }
+
+    pub fn ignore_body(&mut self) {
+        match self.take_body().as_mut() {
+            Some(r) => {
+                io::copy(r, &mut io::sink()).unwrap();
+            }
+            None => {}
+        }
     }
 }
 

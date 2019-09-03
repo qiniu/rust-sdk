@@ -1,6 +1,15 @@
-use super::Region;
-use crate::{config::Config, http, utils::auth::Auth};
-use qiniu_http::Result;
+use super::{Region, RegionId};
+use crate::{
+    config::Config,
+    http::{
+        self,
+        error::{Error as QiniuError, ErrorKind as QiniuErrorKind},
+    },
+    utils::{auth::Auth, base64},
+};
+use error_chain::error_chain;
+use qiniu_http::{Error as HTTPError, Result as HTTPResult};
+use std::error::Error as StdError;
 
 pub struct BucketManager {
     http_client: http::Client,
@@ -20,7 +29,7 @@ impl BucketManager {
         self
     }
 
-    pub fn bucket_names(&self) -> Result<Vec<String>> {
+    pub fn bucket_names(&self) -> HTTPResult<Vec<String>> {
         Ok(self
             .http_client
             .get("/buckets", &[self.rs_url])
@@ -28,7 +37,62 @@ impl BucketManager {
             .accept_json()
             .no_body()
             .send()?
-            .parse_json()
-            .unwrap()?)
+            .parse_json()?)
+    }
+
+    pub fn create_bucket<B: AsRef<str>>(&self, bucket: B, region_id: RegionId) -> HTTPResult<()> {
+        Ok(self
+            .http_client
+            .post(
+                &("/mkbucketv2/".to_owned()
+                    + &base64::urlsafe(bucket.as_ref().as_bytes())
+                    + "/region/"
+                    + region_id.as_str()),
+                &[self.rs_url],
+            )
+            .token(http::Token::V1)
+            .no_body()
+            .send()?
+            .ignore_body())
+    }
+
+    pub fn drop_bucket<B: AsRef<str>>(&self, bucket: B) -> Result<()> {
+        match self
+            .http_client
+            .post(&("/drop/".to_owned() + bucket.as_ref()), &[self.rs_url])
+            .token(http::Token::V1)
+            .no_body()
+            .send()
+        {
+            Ok(ref mut response) => Ok(response.ignore_body()),
+            Err(err) => {
+                if let Some(source) = err.source() {
+                    if let Some(err) = source.downcast_ref::<QiniuError>() {
+                        match err.kind() {
+                            QiniuErrorKind::ForbiddenError(_, message) => {
+                                if message.contains("drop non empty bucket is not allowed") {
+                                    return Err(ErrorKind::CannotDropNonEmptyBucket.into());
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Err(err.into())
+            }
+        }
+    }
+}
+
+error_chain! {
+    foreign_links {
+        HTTPError(HTTPError);
+    }
+
+    errors {
+        CannotDropNonEmptyBucket {
+            description("Drop non empty bucket is not allowed")
+            display("Drop non empty bucket is not allowed")
+        }
     }
 }

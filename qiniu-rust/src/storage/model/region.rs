@@ -7,6 +7,37 @@ use qiniu_http::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum RegionId {
+    Z0,
+    Z1,
+    Z2,
+    AS0,
+    NA0,
+}
+
+impl RegionId {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RegionId::Z0 => "z0",
+            RegionId::Z1 => "z1",
+            RegionId::Z2 => "z2",
+            RegionId::AS0 => "as0",
+            RegionId::NA0 => "na0",
+        }
+    }
+
+    pub fn as_region(&self) -> &'static Region {
+        match self {
+            RegionId::Z0 => Region::z0(),
+            RegionId::Z1 => Region::z1(),
+            RegionId::Z2 => Region::z2(),
+            RegionId::AS0 => Region::as0(),
+            RegionId::NA0 => Region::na0(),
+        }
+    }
+}
+
 #[derive(Getters, CopyGetters, Builder)]
 #[builder(pattern = "owned", setter(into, strip_option))]
 pub struct Region {
@@ -167,8 +198,7 @@ impl Region {
                 .accept_json()
                 .no_body()
                 .send()?
-                .parse_json()
-                .unwrap()?;
+                .parse_json()?;
 
         let infer_region = result
             .io

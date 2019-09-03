@@ -10,4 +10,6 @@ description = "Provide libcurl for qiniu"
 [dependencies]
 qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }
 curl = "0.4.22"
+tempfile = "3.1.0"
 rustc_version_runtime = "0.1.5"
+derive_builder = "0.7.2"
