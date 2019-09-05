@@ -131,8 +131,6 @@ mod tests {
                 );
             }
         }
-        for thread in threads {
-            thread.join().unwrap();
-        }
+        threads.into_iter().for_each(|thread| thread.join().unwrap());
     }
 }

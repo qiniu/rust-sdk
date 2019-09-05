@@ -1,3 +1,4 @@
+pub mod bucket;
 pub mod bucket_manager;
 mod model;
 pub mod upload_token;

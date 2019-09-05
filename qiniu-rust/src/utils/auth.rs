@@ -9,6 +9,7 @@ use url::Url;
 
 #[derive(Clone, Eq, PartialEq)]
 struct AuthInner {
+    // TODO: Think about Cow<'static, str>
     access_key: String,
     secret_key: Vec<u8>,
 }

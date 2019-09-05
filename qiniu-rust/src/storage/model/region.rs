@@ -1,4 +1,4 @@
-use crate::{config::Config, http::request, utils::auth::Auth};
+use crate::{config::Config, http, utils::auth::Auth};
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
 use lazy_static::lazy_static;
@@ -38,12 +38,12 @@ impl RegionId {
     }
 }
 
-#[derive(Getters, CopyGetters, Builder)]
+#[derive(Getters, CopyGetters, Builder, Clone, Debug)]
 #[builder(pattern = "owned", setter(into, strip_option))]
 pub struct Region {
     #[get_copy = "pub"]
     #[builder(default = "None")]
-    region_id: Option<&'static str>,
+    region_id: Option<RegionId>,
 
     #[get = "pub"]
     up_http_urls: Vec<String>,
@@ -191,14 +191,14 @@ impl Region {
 
     pub fn query<B: Into<String>>(bucket: B, auth: Auth, config: Config) -> Result<Region> {
         let (access_key, uc_url) = (auth.access_key().to_owned(), Self::uc_url(config.use_https()));
-        let result: RegionQueryResult =
-            request::Builder::new(auth, config, qiniu_http::Method::GET, "/v2/query", &[uc_url])
-                .query("ak", access_key)
-                .query("bucket", bucket)
-                .accept_json()
-                .no_body()
-                .send()?
-                .parse_json()?;
+        let result: RegionQueryResult = http::Client::new(auth, config)
+            .get("/v2/query", &[uc_url])
+            .query("ak", access_key)
+            .query("bucket", bucket)
+            .accept_json()
+            .no_body()
+            .send()?
+            .parse_json()?;
 
         let infer_region = result
             .io
@@ -265,7 +265,7 @@ impl Region {
 
 lazy_static! {
     static ref HUA_DONG: Region = RegionBuilder::default()
-        .region_id("z0")
+        .region_id(RegionId::Z0)
         .up_http_urls(vec![
             "http://upload.qiniup.com".into(),
             "http://up.qiniup.com".into(),
@@ -289,7 +289,7 @@ lazy_static! {
         .build()
         .unwrap();
     static ref HUA_BEI: Region = RegionBuilder::default()
-        .region_id("z1")
+        .region_id(RegionId::Z1)
         .up_http_urls(vec![
             "http://upload-z1.qiniup.com".into(),
             "http://up-z1.qiniup.com".into(),
@@ -313,7 +313,7 @@ lazy_static! {
         .build()
         .unwrap();
     static ref HUA_NAN: Region = RegionBuilder::default()
-        .region_id("z2")
+        .region_id(RegionId::Z2)
         .up_http_urls(vec![
             "http://upload-z2.qiniup.com".into(),
             "http://up-z2.qiniup.com".into(),
@@ -337,7 +337,7 @@ lazy_static! {
         .build()
         .unwrap();
     static ref NORTH_AMERICA: Region = RegionBuilder::default()
-        .region_id("na0")
+        .region_id(RegionId::NA0)
         .up_http_urls(vec![
             "http://upload-na0.qiniup.com".into(),
             "http://up-na0.qiniup.com".into(),
@@ -361,7 +361,7 @@ lazy_static! {
         .build()
         .unwrap();
     static ref SINGAPORE: Region = RegionBuilder::default()
-        .region_id("as0")
+        .region_id(RegionId::AS0)
         .up_http_urls(vec![
             "http://upload-as0.qiniup.com".into(),
             "http://up-as0.qiniup.com".into(),
@@ -430,10 +430,10 @@ mod tests {
     #[test]
     fn test_query_region_by_expected_domain() {
         let config = ConfigBuilder::default()
-            .http_request_call(Box::new(JSONCallMock {
-                status_code: 200,
-                response_headers: Headers::new(),
-                response_body: RegionQueryResult {
+            .http_request_call(Box::new(JSONCallMock::new(
+                200,
+                Headers::new(),
+                RegionQueryResult {
                     io: RegionQueryResultForIO {
                         src: RegionQueryResultDomains {
                             main: vec!["iovip.qbox.me".into()],
@@ -459,7 +459,7 @@ mod tests {
                         },
                     },
                 },
-            }))
+            )))
             .build()
             .unwrap();
         let region = Region::query("z0-bucket", get_auth(), config).unwrap();
@@ -501,10 +501,10 @@ mod tests {
     #[test]
     fn test_query_region_by_unexpected_domain() {
         let config = ConfigBuilder::default()
-            .http_request_call(Box::new(JSONCallMock {
-                status_code: 200,
-                response_headers: Headers::new(),
-                response_body: RegionQueryResult {
+            .http_request_call(Box::new(JSONCallMock::new(
+                200,
+                Headers::new(),
+                RegionQueryResult {
                     io: RegionQueryResultForIO {
                         src: RegionQueryResultDomains {
                             main: vec!["iovip-z5.qbox.me".into()],
@@ -533,7 +533,7 @@ mod tests {
                         },
                     },
                 },
-            }))
+            )))
             .build()
             .unwrap();
         let region = Region::query("z5-bucket", get_auth(), config).unwrap();

@@ -403,16 +403,11 @@ mod tests {
         },
         *,
     };
-    use qiniu_http::{Error, ErrorKind, HTTPCaller, Headers as HTTPHeaders};
-    use std::{boxed::Box, cell::Cell, io, mem, sync::Arc, time::Duration};
+    use qiniu_http::{Error, ErrorKind, HTTPCaller};
+    use qiniu_test_utils::http_call_mock::{CounterCallMock, ErrorResponseMock};
+    use std::{io, time::Duration};
 
     struct HTTPRequestCounter {
-        call_counter: Arc<Cell<usize>>,
-        on_retry_request_counter: Arc<Cell<usize>>,
-        on_host_failed_counter: Arc<Cell<usize>>,
-        on_request_built_counter: Arc<Cell<usize>>,
-        on_response_counter: Arc<Cell<usize>>,
-        on_error_counter: Arc<Cell<usize>>,
         is_retry_safe: bool,
         error_kind: ErrorKind,
     }
@@ -420,7 +415,6 @@ mod tests {
     impl HTTPCaller for HTTPRequestCounter {
         fn call(&self, request: &HTTPRequest) -> HTTPResult<HTTPResponse> {
             assert!(request.headers().contains_key("Authorization"));
-            self.call_counter.set(self.call_counter.get() + 1);
             Err(Error::new_from_parts(
                 self.error_kind.clone(),
                 io::Error::new(io::ErrorKind::Other, "Test Error"),
@@ -429,48 +423,20 @@ mod tests {
                 None,
             ))
         }
-        fn on_retry_request(&self, _request: &HTTPRequest, _error: &Error, _retried: usize, _retries: usize) {
-            self.on_retry_request_counter
-                .set(self.on_retry_request_counter.get() + 1);
-        }
-        fn on_host_failed(&self, _failed_host: &str, _error: &HTTPError) {
-            self.on_host_failed_counter.set(self.on_host_failed_counter.get() + 1);
-        }
-        fn on_request_built(&self, _request: &mut HTTPRequest) {
-            self.on_request_built_counter
-                .set(self.on_request_built_counter.get() + 1);
-        }
-        fn on_response(&self, _request: &HTTPRequest, _response: &HTTPResponse) {
-            self.on_response_counter.set(self.on_response_counter.get() + 1);
-        }
-        fn on_error(&self, _err: &HTTPError) {
-            self.on_error_counter.set(self.on_error_counter.get() + 1);
-        }
     }
 
     const RETRIES: usize = 5;
 
     #[test]
     fn test_retryable_error_case_1() {
-        let call_counter = Arc::new(Cell::new(0));
-        let on_retry_request_counter = Arc::new(Cell::new(0));
-        let on_host_failed_counter = Arc::new(Cell::new(0));
-        let on_request_built_counter = Arc::new(Cell::new(0));
-        let on_response_counter = Arc::new(Cell::new(0));
-        let on_error_counter = Arc::new(Cell::new(0));
+        let mock = CounterCallMock::new(HTTPRequestCounter {
+            error_kind: ErrorKind::RetryableError,
+            is_retry_safe: true,
+        });
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(Box::new(HTTPRequestCounter {
-                call_counter: call_counter.clone(),
-                on_retry_request_counter: on_retry_request_counter.clone(),
-                on_host_failed_counter: on_host_failed_counter.clone(),
-                on_request_built_counter: on_request_built_counter.clone(),
-                on_response_counter: on_response_counter.clone(),
-                on_error_counter: on_error_counter.clone(),
-                error_kind: ErrorKind::RetryableError,
-                is_retry_safe: true,
-            }))
+            .http_request_call(mock.as_boxed())
             .build()
             .unwrap();
         assert!(Builder::new(
@@ -486,39 +452,25 @@ mod tests {
         .is_err());
         assert!(config.domains_manager().is_frozen("host1").unwrap());
         assert!(config.domains_manager().is_frozen("host2").unwrap());
-        mem::drop(config);
-        assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2 * (RETRIES + 1));
-        assert_eq!(
-            Arc::try_unwrap(on_retry_request_counter).unwrap().get(),
-            2 * (RETRIES + 1)
-        );
-        assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_request_built_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_response_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_error_counter).unwrap().get(), 1);
+
+        assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
+        assert_eq!(mock.on_retry_request_called(), 2 * (RETRIES + 1));
+        assert_eq!(mock.on_host_failed_called(), 2);
+        assert_eq!(mock.on_request_built_called(), 2);
+        assert_eq!(mock.on_response_called(), 0);
+        assert_eq!(mock.on_error_called(), 1);
     }
 
     #[test]
     fn test_retryable_error_case_2() {
-        let call_counter = Arc::new(Cell::new(0));
-        let on_retry_request_counter = Arc::new(Cell::new(0));
-        let on_host_failed_counter = Arc::new(Cell::new(0));
-        let on_request_built_counter = Arc::new(Cell::new(0));
-        let on_response_counter = Arc::new(Cell::new(0));
-        let on_error_counter = Arc::new(Cell::new(0));
+        let mock = CounterCallMock::new(HTTPRequestCounter {
+            error_kind: ErrorKind::RetryableError,
+            is_retry_safe: true,
+        });
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(Box::new(HTTPRequestCounter {
-                call_counter: call_counter.clone(),
-                on_retry_request_counter: on_retry_request_counter.clone(),
-                on_host_failed_counter: on_host_failed_counter.clone(),
-                on_request_built_counter: on_request_built_counter.clone(),
-                on_response_counter: on_response_counter.clone(),
-                on_error_counter: on_error_counter.clone(),
-                error_kind: ErrorKind::RetryableError,
-                is_retry_safe: true,
-            }))
+            .http_request_call(mock.as_boxed())
             .build()
             .unwrap();
         assert!(Builder::new(
@@ -534,39 +486,25 @@ mod tests {
         .is_err());
         assert!(config.domains_manager().is_frozen("host1").unwrap());
         assert!(config.domains_manager().is_frozen("host2").unwrap());
-        mem::drop(config);
-        assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2 * (RETRIES + 1));
-        assert_eq!(
-            Arc::try_unwrap(on_retry_request_counter).unwrap().get(),
-            2 * (RETRIES + 1)
-        );
-        assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_request_built_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_response_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_error_counter).unwrap().get(), 1);
+
+        assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
+        assert_eq!(mock.on_retry_request_called(), 2 * (RETRIES + 1));
+        assert_eq!(mock.on_host_failed_called(), 2);
+        assert_eq!(mock.on_request_built_called(), 2);
+        assert_eq!(mock.on_response_called(), 0);
+        assert_eq!(mock.on_error_called(), 1);
     }
 
     #[test]
     fn test_retryable_error_case_3() {
-        let call_counter = Arc::new(Cell::new(0));
-        let on_retry_request_counter = Arc::new(Cell::new(0));
-        let on_host_failed_counter = Arc::new(Cell::new(0));
-        let on_request_built_counter = Arc::new(Cell::new(0));
-        let on_response_counter = Arc::new(Cell::new(0));
-        let on_error_counter = Arc::new(Cell::new(0));
+        let mock = CounterCallMock::new(HTTPRequestCounter {
+            error_kind: ErrorKind::RetryableError,
+            is_retry_safe: false,
+        });
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(Box::new(HTTPRequestCounter {
-                call_counter: call_counter.clone(),
-                on_retry_request_counter: on_retry_request_counter.clone(),
-                on_host_failed_counter: on_host_failed_counter.clone(),
-                on_request_built_counter: on_request_built_counter.clone(),
-                on_response_counter: on_response_counter.clone(),
-                on_error_counter: on_error_counter.clone(),
-                error_kind: ErrorKind::RetryableError,
-                is_retry_safe: false,
-            }))
+            .http_request_call(mock.as_boxed())
             .build()
             .unwrap();
         assert!(Builder::new(
@@ -582,36 +520,25 @@ mod tests {
         .is_err());
         assert!(!config.domains_manager().is_frozen("host1").unwrap());
         assert!(!config.domains_manager().is_frozen("host2").unwrap());
-        mem::drop(config);
-        assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
-        assert_eq!(Arc::try_unwrap(on_retry_request_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_request_built_counter).unwrap().get(), 1);
-        assert_eq!(Arc::try_unwrap(on_response_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_error_counter).unwrap().get(), 1);
+
+        assert_eq!(mock.call_called(), 1);
+        assert_eq!(mock.on_retry_request_called(), 0);
+        assert_eq!(mock.on_host_failed_called(), 0);
+        assert_eq!(mock.on_request_built_called(), 1);
+        assert_eq!(mock.on_response_called(), 0);
+        assert_eq!(mock.on_error_called(), 1);
     }
 
     #[test]
     fn test_host_unretryable_error() {
-        let call_counter = Arc::new(Cell::new(0));
-        let on_retry_request_counter = Arc::new(Cell::new(0));
-        let on_host_failed_counter = Arc::new(Cell::new(0));
-        let on_request_built_counter = Arc::new(Cell::new(0));
-        let on_response_counter = Arc::new(Cell::new(0));
-        let on_error_counter = Arc::new(Cell::new(0));
+        let mock = CounterCallMock::new(HTTPRequestCounter {
+            error_kind: ErrorKind::HostUnretryableError,
+            is_retry_safe: true,
+        });
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(Box::new(HTTPRequestCounter {
-                call_counter: call_counter.clone(),
-                on_retry_request_counter: on_retry_request_counter.clone(),
-                on_host_failed_counter: on_host_failed_counter.clone(),
-                on_request_built_counter: on_request_built_counter.clone(),
-                on_response_counter: on_response_counter.clone(),
-                on_error_counter: on_error_counter.clone(),
-                error_kind: ErrorKind::HostUnretryableError,
-                is_retry_safe: true,
-            }))
+            .http_request_call(mock.as_boxed())
             .build()
             .unwrap();
         assert!(Builder::new(
@@ -627,36 +554,25 @@ mod tests {
         .is_err());
         assert!(config.domains_manager().is_frozen("host1").unwrap());
         assert!(config.domains_manager().is_frozen("host2").unwrap());
-        mem::drop(config);
-        assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_retry_request_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_request_built_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_response_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_error_counter).unwrap().get(), 1);
+
+        assert_eq!(mock.call_called(), 2);
+        assert_eq!(mock.on_retry_request_called(), 0);
+        assert_eq!(mock.on_host_failed_called(), 2);
+        assert_eq!(mock.on_request_built_called(), 2);
+        assert_eq!(mock.on_response_called(), 0);
+        assert_eq!(mock.on_error_called(), 1);
     }
 
     #[test]
     fn test_zone_unretryable_error() {
-        let call_counter = Arc::new(Cell::new(0));
-        let on_retry_request_counter = Arc::new(Cell::new(0));
-        let on_host_failed_counter = Arc::new(Cell::new(0));
-        let on_request_built_counter = Arc::new(Cell::new(0));
-        let on_response_counter = Arc::new(Cell::new(0));
-        let on_error_counter = Arc::new(Cell::new(0));
+        let mock = CounterCallMock::new(HTTPRequestCounter {
+            error_kind: ErrorKind::ZoneUnretryableError,
+            is_retry_safe: false,
+        });
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(Box::new(HTTPRequestCounter {
-                call_counter: call_counter.clone(),
-                on_retry_request_counter: on_retry_request_counter.clone(),
-                on_host_failed_counter: on_host_failed_counter.clone(),
-                on_request_built_counter: on_request_built_counter.clone(),
-                on_response_counter: on_response_counter.clone(),
-                on_error_counter: on_error_counter.clone(),
-                error_kind: ErrorKind::ZoneUnretryableError,
-                is_retry_safe: false,
-            }))
+            .http_request_call(mock.as_boxed())
             .build()
             .unwrap();
         assert!(Builder::new(
@@ -672,36 +588,25 @@ mod tests {
         .is_err());
         assert!(!config.domains_manager().is_frozen("host1").unwrap());
         assert!(!config.domains_manager().is_frozen("host2").unwrap());
-        mem::drop(config);
-        assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
-        assert_eq!(Arc::try_unwrap(on_retry_request_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_request_built_counter).unwrap().get(), 1);
-        assert_eq!(Arc::try_unwrap(on_response_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_error_counter).unwrap().get(), 1);
+
+        assert_eq!(mock.call_called(), 1);
+        assert_eq!(mock.on_retry_request_called(), 0);
+        assert_eq!(mock.on_host_failed_called(), 0);
+        assert_eq!(mock.on_request_built_called(), 1);
+        assert_eq!(mock.on_response_called(), 0);
+        assert_eq!(mock.on_error_called(), 1);
     }
 
     #[test]
     fn test_unretryable_error() {
-        let call_counter = Arc::new(Cell::new(0));
-        let on_retry_request_counter = Arc::new(Cell::new(0));
-        let on_host_failed_counter = Arc::new(Cell::new(0));
-        let on_request_built_counter = Arc::new(Cell::new(0));
-        let on_response_counter = Arc::new(Cell::new(0));
-        let on_error_counter = Arc::new(Cell::new(0));
+        let mock = CounterCallMock::new(HTTPRequestCounter {
+            error_kind: ErrorKind::UnretryableError,
+            is_retry_safe: false,
+        });
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(Box::new(HTTPRequestCounter {
-                call_counter: call_counter.clone(),
-                on_retry_request_counter: on_retry_request_counter.clone(),
-                on_host_failed_counter: on_host_failed_counter.clone(),
-                on_request_built_counter: on_request_built_counter.clone(),
-                on_response_counter: on_response_counter.clone(),
-                on_error_counter: on_error_counter.clone(),
-                error_kind: ErrorKind::UnretryableError,
-                is_retry_safe: false,
-            }))
+            .http_request_call(mock.as_boxed())
             .build()
             .unwrap();
         assert!(Builder::new(
@@ -717,81 +622,22 @@ mod tests {
         .is_err());
         assert!(!config.domains_manager().is_frozen("host1").unwrap());
         assert!(!config.domains_manager().is_frozen("host2").unwrap());
-        mem::drop(config);
-        assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
-        assert_eq!(Arc::try_unwrap(on_retry_request_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_request_built_counter).unwrap().get(), 1);
-        assert_eq!(Arc::try_unwrap(on_response_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_error_counter).unwrap().get(), 1);
-    }
 
-    struct HTTPRequestWithStatusCodeCounter {
-        call_counter: Arc<Cell<usize>>,
-        on_retry_request_counter: Arc<Cell<usize>>,
-        on_host_failed_counter: Arc<Cell<usize>>,
-        on_request_built_counter: Arc<Cell<usize>>,
-        on_response_counter: Arc<Cell<usize>>,
-        on_error_counter: Arc<Cell<usize>>,
-        status_code: StatusCode,
-        error_message: String,
-    }
-
-    impl HTTPCaller for HTTPRequestWithStatusCodeCounter {
-        fn call(&self, request: &HTTPRequest) -> HTTPResult<HTTPResponse> {
-            assert!(request.headers().contains_key("Authorization"));
-            self.call_counter.set(self.call_counter.get() + 1);
-
-            let body = serde_json::to_string(&error::ErrorResponse {
-                error: Some(self.error_message.to_owned()),
-            })
-            .unwrap();
-            Ok(HTTPResponse::new(
-                self.status_code,
-                HTTPHeaders::new(),
-                Some(Box::new(io::Cursor::new(body))),
-            ))
-        }
-        fn on_retry_request(&self, _request: &HTTPRequest, _error: &Error, _retried: usize, _retries: usize) {
-            self.on_retry_request_counter
-                .set(self.on_retry_request_counter.get() + 1);
-        }
-        fn on_host_failed(&self, _failed_host: &str, _error: &HTTPError) {
-            self.on_host_failed_counter.set(self.on_host_failed_counter.get() + 1);
-        }
-        fn on_request_built(&self, _request: &mut HTTPRequest) {
-            self.on_request_built_counter
-                .set(self.on_request_built_counter.get() + 1);
-        }
-        fn on_response(&self, _request: &HTTPRequest, _response: &HTTPResponse) {
-            self.on_response_counter.set(self.on_response_counter.get() + 1);
-        }
-        fn on_error(&self, _err: &HTTPError) {
-            self.on_error_counter.set(self.on_error_counter.get() + 1);
-        }
+        assert_eq!(mock.call_called(), 1);
+        assert_eq!(mock.on_retry_request_called(), 0);
+        assert_eq!(mock.on_host_failed_called(), 0);
+        assert_eq!(mock.on_request_built_called(), 1);
+        assert_eq!(mock.on_response_called(), 0);
+        assert_eq!(mock.on_error_called(), 1);
     }
 
     #[test]
     fn test_status_code_571_with_get() {
-        let call_counter = Arc::new(Cell::new(0));
-        let on_retry_request_counter = Arc::new(Cell::new(0));
-        let on_host_failed_counter = Arc::new(Cell::new(0));
-        let on_request_built_counter = Arc::new(Cell::new(0));
-        let on_response_counter = Arc::new(Cell::new(0));
-        let on_error_counter = Arc::new(Cell::new(0));
+        let mock = CounterCallMock::new(ErrorResponseMock::new(571, "Test Error"));
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(Box::new(HTTPRequestWithStatusCodeCounter {
-                call_counter: call_counter.clone(),
-                on_retry_request_counter: on_retry_request_counter.clone(),
-                on_host_failed_counter: on_host_failed_counter.clone(),
-                on_request_built_counter: on_request_built_counter.clone(),
-                on_response_counter: on_response_counter.clone(),
-                on_error_counter: on_error_counter.clone(),
-                status_code: 571,
-                error_message: "Test Error".to_string(),
-            }))
+            .http_request_call(mock.as_boxed())
             .build()
             .unwrap();
         assert!(Builder::new(
@@ -805,38 +651,22 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2 * (RETRIES + 1));
-        assert_eq!(
-            Arc::try_unwrap(on_retry_request_counter).unwrap().get(),
-            2 * (RETRIES + 1)
-        );
-        assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_request_built_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_response_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_error_counter).unwrap().get(), 1);
+
+        assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
+        assert_eq!(mock.on_retry_request_called(), 2 * (RETRIES + 1));
+        assert_eq!(mock.on_host_failed_called(), 2);
+        assert_eq!(mock.on_request_built_called(), 2);
+        assert_eq!(mock.on_response_called(), 0);
+        assert_eq!(mock.on_error_called(), 1);
     }
 
     #[test]
     fn test_status_code_571_with_post() {
-        let call_counter = Arc::new(Cell::new(0));
-        let on_retry_request_counter = Arc::new(Cell::new(0));
-        let on_host_failed_counter = Arc::new(Cell::new(0));
-        let on_request_built_counter = Arc::new(Cell::new(0));
-        let on_response_counter = Arc::new(Cell::new(0));
-        let on_error_counter = Arc::new(Cell::new(0));
+        let mock = CounterCallMock::new(ErrorResponseMock::new(571, "Test Error"));
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(Box::new(HTTPRequestWithStatusCodeCounter {
-                call_counter: call_counter.clone(),
-                on_retry_request_counter: on_retry_request_counter.clone(),
-                on_host_failed_counter: on_host_failed_counter.clone(),
-                on_request_built_counter: on_request_built_counter.clone(),
-                on_response_counter: on_response_counter.clone(),
-                on_error_counter: on_error_counter.clone(),
-                status_code: 571,
-                error_message: "Test Error".to_string(),
-            }))
+            .http_request_call(mock.as_boxed())
             .build()
             .unwrap();
         assert!(Builder::new(
@@ -850,38 +680,21 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2 * (RETRIES + 1));
-        assert_eq!(
-            Arc::try_unwrap(on_retry_request_counter).unwrap().get(),
-            2 * (RETRIES + 1)
-        );
-        assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_request_built_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_response_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_error_counter).unwrap().get(), 1);
+        assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
+        assert_eq!(mock.on_retry_request_called(), 2 * (RETRIES + 1));
+        assert_eq!(mock.on_host_failed_called(), 2);
+        assert_eq!(mock.on_request_built_called(), 2);
+        assert_eq!(mock.on_response_called(), 0);
+        assert_eq!(mock.on_error_called(), 1);
     }
 
     #[test]
     fn test_status_code_504() {
-        let call_counter = Arc::new(Cell::new(0));
-        let on_retry_request_counter = Arc::new(Cell::new(0));
-        let on_host_failed_counter = Arc::new(Cell::new(0));
-        let on_request_built_counter = Arc::new(Cell::new(0));
-        let on_response_counter = Arc::new(Cell::new(0));
-        let on_error_counter = Arc::new(Cell::new(0));
+        let mock = CounterCallMock::new(ErrorResponseMock::new(504, "Test Error"));
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(Box::new(HTTPRequestWithStatusCodeCounter {
-                call_counter: call_counter.clone(),
-                on_retry_request_counter: on_retry_request_counter.clone(),
-                on_host_failed_counter: on_host_failed_counter.clone(),
-                on_request_built_counter: on_request_built_counter.clone(),
-                on_response_counter: on_response_counter.clone(),
-                on_error_counter: on_error_counter.clone(),
-                status_code: 504,
-                error_message: "Test Error".to_string(),
-            }))
+            .http_request_call(mock.as_boxed())
             .build()
             .unwrap();
         assert!(Builder::new(
@@ -895,35 +708,21 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
-        assert_eq!(Arc::try_unwrap(on_retry_request_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_request_built_counter).unwrap().get(), 1);
-        assert_eq!(Arc::try_unwrap(on_response_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_error_counter).unwrap().get(), 1);
+        assert_eq!(mock.call_called(), 1);
+        assert_eq!(mock.on_retry_request_called(), 0);
+        assert_eq!(mock.on_host_failed_called(), 0);
+        assert_eq!(mock.on_request_built_called(), 1);
+        assert_eq!(mock.on_response_called(), 0);
+        assert_eq!(mock.on_error_called(), 1);
     }
 
     #[test]
     fn test_status_code_503() {
-        let call_counter = Arc::new(Cell::new(0));
-        let on_retry_request_counter = Arc::new(Cell::new(0));
-        let on_host_failed_counter = Arc::new(Cell::new(0));
-        let on_request_built_counter = Arc::new(Cell::new(0));
-        let on_response_counter = Arc::new(Cell::new(0));
-        let on_error_counter = Arc::new(Cell::new(0));
+        let mock = CounterCallMock::new(ErrorResponseMock::new(503, "Test Error"));
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(Box::new(HTTPRequestWithStatusCodeCounter {
-                call_counter: call_counter.clone(),
-                on_retry_request_counter: on_retry_request_counter.clone(),
-                on_host_failed_counter: on_host_failed_counter.clone(),
-                on_request_built_counter: on_request_built_counter.clone(),
-                on_response_counter: on_response_counter.clone(),
-                on_error_counter: on_error_counter.clone(),
-                status_code: 503,
-                error_message: "Test Error".to_string(),
-            }))
+            .http_request_call(mock.as_boxed())
             .build()
             .unwrap();
         assert!(Builder::new(
@@ -937,35 +736,21 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_retry_request_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_request_built_counter).unwrap().get(), 2);
-        assert_eq!(Arc::try_unwrap(on_response_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_error_counter).unwrap().get(), 1);
+        assert_eq!(mock.call_called(), 2);
+        assert_eq!(mock.on_retry_request_called(), 0);
+        assert_eq!(mock.on_host_failed_called(), 2);
+        assert_eq!(mock.on_request_built_called(), 2);
+        assert_eq!(mock.on_response_called(), 0);
+        assert_eq!(mock.on_error_called(), 1);
     }
 
     #[test]
     fn test_status_code_631() {
-        let call_counter = Arc::new(Cell::new(0));
-        let on_retry_request_counter = Arc::new(Cell::new(0));
-        let on_host_failed_counter = Arc::new(Cell::new(0));
-        let on_request_built_counter = Arc::new(Cell::new(0));
-        let on_response_counter = Arc::new(Cell::new(0));
-        let on_error_counter = Arc::new(Cell::new(0));
+        let mock = CounterCallMock::new(ErrorResponseMock::new(631, "Test Error"));
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(Box::new(HTTPRequestWithStatusCodeCounter {
-                call_counter: call_counter.clone(),
-                on_retry_request_counter: on_retry_request_counter.clone(),
-                on_host_failed_counter: on_host_failed_counter.clone(),
-                on_request_built_counter: on_request_built_counter.clone(),
-                on_response_counter: on_response_counter.clone(),
-                on_error_counter: on_error_counter.clone(),
-                status_code: 631,
-                error_message: "Test Error".to_string(),
-            }))
+            .http_request_call(mock.as_boxed())
             .build()
             .unwrap();
         assert!(Builder::new(
@@ -979,12 +764,12 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert_eq!(Arc::try_unwrap(call_counter).unwrap().get(), 1);
-        assert_eq!(Arc::try_unwrap(on_retry_request_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_host_failed_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_request_built_counter).unwrap().get(), 1);
-        assert_eq!(Arc::try_unwrap(on_response_counter).unwrap().get(), 0);
-        assert_eq!(Arc::try_unwrap(on_error_counter).unwrap().get(), 1);
+        assert_eq!(mock.call_called(), 1);
+        assert_eq!(mock.on_retry_request_called(), 0);
+        assert_eq!(mock.on_host_failed_called(), 0);
+        assert_eq!(mock.on_request_built_called(), 1);
+        assert_eq!(mock.on_response_called(), 0);
+        assert_eq!(mock.on_error_called(), 1);
     }
 
     fn get_auth() -> Auth {

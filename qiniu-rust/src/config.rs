@@ -2,7 +2,16 @@ use super::http::DomainsManager;
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
 use qiniu_http::HTTPCaller;
-use std::{boxed::Box, default::Default, fmt, ops::Deref, result, sync::Arc, time::Duration};
+use std::{
+    boxed::Box,
+    default::Default,
+    fmt,
+    marker::{Send, Sync},
+    ops::Deref,
+    result,
+    sync::Arc,
+    time::Duration,
+};
 
 #[derive(Builder, Getters, CopyGetters)]
 #[builder(
@@ -32,7 +41,7 @@ pub struct ConfigInner {
     http_request_retry_delay: Duration,
 
     #[get = "pub"]
-    http_request_call: Box<dyn HTTPCaller>,
+    http_request_call: Box<dyn HTTPCaller + Send + Sync>,
 
     #[get = "pub"]
     domains_manager: DomainsManager,
@@ -58,7 +67,7 @@ impl Default for ConfigInner {
 }
 
 impl ConfigInner {
-    fn default_http_request_call() -> Box<dyn HTTPCaller> {
+    fn default_http_request_call() -> Box<dyn HTTPCaller + Sync + Send> {
         #[cfg(any(feature = "use-libcurl"))]
         {
             Box::new(qiniu_with_libcurl::CurlClientBuilder::default().build().unwrap())

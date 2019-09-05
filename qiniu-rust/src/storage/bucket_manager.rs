@@ -1,4 +1,4 @@
-use super::{Region, RegionId};
+use super::{bucket::BucketBuilder, Region, RegionId};
 use crate::{
     config::Config,
     http::{
@@ -9,10 +9,12 @@ use crate::{
 };
 use error_chain::error_chain;
 use qiniu_http::{Error as HTTPError, Result as HTTPResult};
-use std::error::Error as StdError;
+use std::{borrow::Cow, error::Error as StdError};
 
 pub struct BucketManager {
     http_client: http::Client,
+    auth: Auth,
+    config: Config,
     rs_url: &'static str,
 }
 
@@ -20,6 +22,8 @@ impl BucketManager {
     pub(crate) fn new(auth: Auth, config: Config) -> BucketManager {
         BucketManager {
             rs_url: Region::hua_dong().rs_url(config.use_https()),
+            auth: auth.clone(),
+            config: config.clone(),
             http_client: http::Client::new(auth, config),
         }
     }
@@ -81,6 +85,10 @@ impl BucketManager {
                 Err(err.into())
             }
         }
+    }
+
+    pub fn bucket<B: Into<Cow<'static, str>>>(&self, bucket: B) -> BucketBuilder {
+        BucketBuilder::new(bucket, self.auth.clone(), self.config.clone())
     }
 }
 
