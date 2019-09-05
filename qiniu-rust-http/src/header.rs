@@ -1,5 +1,5 @@
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
-pub type HeaderName = String;
-pub type HeaderValue = String;
+pub type HeaderName = Cow<'static, str>;
+pub type HeaderValue = Cow<'static, str>;
 pub type Headers = HashMap<HeaderName, HeaderValue>;

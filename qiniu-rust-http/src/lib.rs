@@ -1,13 +1,13 @@
-pub mod error;
-pub mod header;
-pub mod method;
-pub mod request;
-pub mod response;
+mod error;
+mod header;
+mod method;
+mod request;
+mod response;
 pub use error::{Error, ErrorKind, Result};
 pub use header::{HeaderName, HeaderValue, Headers};
 pub use method::Method;
-pub use request::{Request, RequestBuilder, URL};
-pub use response::{Response, ResponseBuilder, StatusCode};
+pub use request::{Body as RequestBody, Request, RequestBuilder, URL};
+pub use response::{Body as ResponseBody, Response, ResponseBuilder, StatusCode};
 
 pub trait HTTPCaller {
     fn call(&self, request: &Request) -> Result<Response>;

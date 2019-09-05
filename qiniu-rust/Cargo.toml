@@ -30,7 +30,6 @@ qiniu-with-libcurl = { version = "0.1.0", path = "../qiniu-rust-with-libcurl", o
 qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }
 
 [dev-dependencies]
-stringreader = "0.1.1"
 qiniu-test-utils = { version = "0.1.0", path = "../qiniu-rust-test-utils" }
 
 [features]

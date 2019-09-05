@@ -1,6 +1,6 @@
 use delegate::delegate;
 use qiniu_http::{
-    response::Body as HTTPResponseBody, Error as HTTPError, HeaderValue, Headers, Method, Response as HTTPResponse,
+    Error as HTTPError, HeaderValue, Headers, Method, Response as HTTPResponse, ResponseBody as HTTPResponseBody,
     Result as HTTPResult, StatusCode,
 };
 use serde::de::DeserializeOwned;

@@ -1,9 +1,9 @@
-use qiniu_http::{Error, HTTPCaller, Headers, Request, Response, Result, StatusCode};
+use qiniu_http::{Error, HTTPCaller, Headers, Request, Response, ResponseBuilder, Result, StatusCode};
 use serde::Serialize;
 use std::{
     borrow::Cow,
     boxed::Box,
-    io::{Cursor, Read},
+    io::Cursor,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -37,10 +37,14 @@ where
     T: Serialize,
 {
     fn call(&self, _request: &Request) -> Result<Response> {
-        let mut response_headers = self.response_headers.to_owned();
-        response_headers.insert("Content-Type".into(), "application/json".into());
-        let body: Box<dyn Read> = Box::new(Cursor::new(serde_json::to_string(&self.response_body).unwrap()));
-        Ok(Response::new(self.status_code, response_headers, Some(body)))
+        let mut headers = self.response_headers.to_owned();
+        headers.insert("Content-Type".into(), "application/json".into());
+        Ok(ResponseBuilder::default()
+            .status_code(self.status_code)
+            .headers(headers)
+            .stream(Cursor::new(serde_json::to_string(&self.response_body).unwrap()))
+            .build()
+            .unwrap())
     }
 }
 
@@ -166,7 +170,7 @@ impl<'e> ErrorResponseMock<'e> {
 
 impl<'e> HTTPCaller for ErrorResponseMock<'e> {
     fn call(&self, _request: &Request) -> Result<Response> {
-        let mut headers = Headers::new();
+        let mut headers = Headers::with_capacity(1);
         headers.insert("Content-Type".into(), "application/json".into());
 
         let body = serde_json::to_string(&ErrorResponse {
@@ -174,10 +178,11 @@ impl<'e> HTTPCaller for ErrorResponseMock<'e> {
         })
         .unwrap();
 
-        Ok(Response::new(
-            self.status_code,
-            headers,
-            Some(Box::new(Cursor::new(body))),
-        ))
+        Ok(ResponseBuilder::default()
+            .status_code(self.status_code)
+            .headers(headers)
+            .stream(Cursor::new(body))
+            .build()
+            .unwrap())
     }
 }

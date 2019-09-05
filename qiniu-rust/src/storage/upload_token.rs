@@ -1,24 +1,24 @@
 use super::UploadPolicy;
 use crate::utils::{auth::Auth, base64};
 use error_chain::error_chain;
-use std::{convert::From, fmt};
+use std::{borrow::Cow, convert::From, fmt};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum UploadToken {
-    Token(String),
-    Policy(UploadPolicy, Auth),
+pub enum UploadToken<'p> {
+    Token(Cow<'p, str>),
+    Policy(UploadPolicy<'p>, Auth),
 }
 
-impl UploadToken {
-    pub fn from_token<T: Into<String>>(t: T) -> UploadToken {
+impl<'p> UploadToken<'p> {
+    pub fn from_token<T: Into<Cow<'p, str>>>(t: T) -> UploadToken<'p> {
         UploadToken::Token(t.into())
     }
 
-    pub fn from_policy(policy: UploadPolicy, auth: Auth) -> UploadToken {
+    pub fn from_policy(policy: UploadPolicy<'p>, auth: Auth) -> UploadToken<'p> {
         UploadToken::Policy(policy, auth)
     }
 
-    pub fn policy(self) -> Result<UploadPolicy> {
+    pub fn policy(self) -> Result<UploadPolicy<'p>> {
         match self {
             UploadToken::Token(token) => {
                 let encoded_policy = token
@@ -27,21 +27,22 @@ impl UploadToken {
                     .ok_or_else(|| ErrorKind::InvalidUploadTokenFormat)?;
                 let decoded_policy =
                     base64::decode(encoded_policy.as_bytes()).map_err(|err| ErrorKind::Base64DecodeError(err))?;
-                Ok(UploadPolicy::from_json_slice(&decoded_policy).map_err(|err| ErrorKind::JSONDecodeError(err))?)
+                Ok(UploadPolicy::from_json_slice_owned(&decoded_policy)
+                    .map_err(|err| ErrorKind::JSONDecodeError(err))?)
             }
             UploadToken::Policy(policy, _) => Ok(policy),
         }
     }
 
-    pub fn token(self) -> String {
+    pub fn token(self) -> Cow<'p, str> {
         match self {
             UploadToken::Token(token) => token,
-            UploadToken::Policy(policy, auth) => auth.sign_upload_policy(&policy),
+            UploadToken::Policy(policy, auth) => Cow::Owned(auth.sign_upload_policy(&policy)),
         }
     }
 }
 
-impl fmt::Display for UploadToken {
+impl fmt::Display for UploadToken<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             UploadToken::Token(ref token) => fmt::Display::fmt(token, f),
@@ -50,21 +51,21 @@ impl fmt::Display for UploadToken {
     }
 }
 
-impl From<String> for UploadToken {
+impl From<String> for UploadToken<'_> {
     fn from(s: String) -> Self {
         Self::from_token(s)
     }
 }
 
-impl From<&str> for UploadToken {
-    fn from(s: &str) -> Self {
+impl<'p> From<&'p str> for UploadToken<'p> {
+    fn from(s: &'p str) -> Self {
         Self::from_token(s)
     }
 }
 
-impl From<UploadToken> for String {
-    fn from(upload_token: UploadToken) -> Self {
-        upload_token.token()
+impl<'p> From<UploadToken<'p>> for String {
+    fn from(upload_token: UploadToken<'p>) -> Self {
+        upload_token.token().to_string()
     }
 }
 

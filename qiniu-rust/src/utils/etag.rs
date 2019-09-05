@@ -1,14 +1,12 @@
 use super::base64;
-use crypto::digest::Digest;
-use crypto::sha1::Sha1;
-use std::fs::OpenOptions;
-use std::io::copy;
-use std::io::sink;
-use std::io::Read;
-use std::io::Result;
-use std::iter;
-use std::option::Option;
-use std::path::Path;
+use crypto::{digest::Digest, sha1::Sha1};
+use std::{
+    fs::OpenOptions,
+    io::{copy, sink, Read, Result},
+    iter,
+    option::Option,
+    path::Path,
+};
 
 pub const BLOCK_SIZE: usize = 1 << 22;
 pub const ETAG_SIZE: usize = 28;
@@ -167,14 +165,12 @@ pub fn from_file<P: AsRef<Path>>(path: P) -> Result<String> {
 mod tests {
     use super::*;
     use qiniu_test_utils::temp_file;
+    use std::io::{empty, Cursor};
 
     #[test]
     fn test_etag_from_data() {
-        assert_eq!(from(&mut std::io::empty()).unwrap(), "Fto5o-5ea0sNMlW_75VgGJCv2AcJ",);
-        assert_eq!(
-            from(&mut stringreader::StringReader::new("etag")).unwrap(),
-            "FpLiADEaVoALPkdb8tJEJyRTXoe_"
-        );
+        assert_eq!(from(&mut empty()).unwrap(), "Fto5o-5ea0sNMlW_75VgGJCv2AcJ",);
+        assert_eq!(from(&mut Cursor::new("etag")).unwrap(), "FpLiADEaVoALPkdb8tJEJyRTXoe_");
     }
 
     #[test]

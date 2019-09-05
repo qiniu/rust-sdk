@@ -1,6 +1,7 @@
 use crate::{config::Config, utils::bool as bool_utils};
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     convert::TryInto,
     default::Default,
     ops::{Bound, RangeBounds},
@@ -10,9 +11,9 @@ use std::{
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct UploadPolicy {
+pub struct UploadPolicy<'p> {
     #[serde(skip_serializing_if = "Option::is_none")]
-    scope: Option<String>,
+    scope: Option<Cow<'p, str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     deadline: Option<u32>,
 
@@ -23,31 +24,31 @@ pub struct UploadPolicy {
     insert_only: Option<u8>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    end_user: Option<String>,
+    end_user: Option<Cow<'p, str>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    return_url: Option<String>,
+    return_url: Option<Cow<'p, str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    return_body: Option<String>,
+    return_body: Option<Cow<'p, str>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    callback_url: Option<String>,
+    callback_url: Option<Cow<'p, str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    callback_host: Option<String>,
+    callback_host: Option<Cow<'p, str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    callback_body: Option<String>,
+    callback_body: Option<Cow<'p, str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    callback_body_type: Option<String>,
+    callback_body_type: Option<Cow<'p, str>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    persistent_ops: Option<String>,
+    persistent_ops: Option<Cow<'p, str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    persistent_notify_url: Option<String>,
+    persistent_notify_url: Option<Cow<'p, str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    persistent_pipeline: Option<String>,
+    persistent_pipeline: Option<Cow<'p, str>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    save_key: Option<String>,
+    save_key: Option<Cow<'p, str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     force_save_key: Option<bool>,
 
@@ -59,7 +60,7 @@ pub struct UploadPolicy {
     #[serde(skip_serializing_if = "Option::is_none")]
     detect_mime: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    mime_limit: Option<String>,
+    mime_limit: Option<Cow<'p, str>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     file_type: Option<u8>,
@@ -68,7 +69,7 @@ pub struct UploadPolicy {
     delete_after_days: Option<usize>,
 }
 
-impl UploadPolicy {
+impl<'p> UploadPolicy<'p> {
     pub fn bucket(&self) -> Option<&str> {
         self.scope.as_ref().and_then(|s| s.splitn(2, ':').nth(0))
     }
@@ -178,11 +179,11 @@ impl UploadPolicy {
         self.file_lifetime().map(|t| SystemTime::now() + t)
     }
 
-    fn to_optional_str(s: &Option<String>) -> Option<&str> {
-        s.as_ref().map(|s| s.as_str())
+    fn to_optional_str<'a>(s: &'a Option<Cow<'p, str>>) -> Option<&'a str> {
+        s.as_ref().map(|s| s.as_ref())
     }
 
-    fn to_optional_splited_str(s: &Option<String>, pat: char) -> Option<Split<char>> {
+    fn to_optional_splited_str<'a>(s: &'a Option<Cow<'p, str>>, pat: char) -> Option<Split<'a, char>> {
         s.as_ref().map(|x| x.split(pat))
     }
 
@@ -190,16 +191,24 @@ impl UploadPolicy {
         serde_json::to_string(&self).unwrap()
     }
 
-    pub fn from_json<S: AsRef<str>>(json: S) -> serde_json::Result<UploadPolicy> {
+    pub fn from_json(json: &'p str) -> serde_json::Result<UploadPolicy<'p>> {
+        serde_json::from_str(json)
+    }
+
+    pub fn from_json_owned<J: AsRef<str>>(json: J) -> serde_json::Result<UploadPolicy<'static>> {
         serde_json::from_str(json.as_ref())
     }
 
-    pub fn from_json_slice<S: AsRef<[u8]>>(json: S) -> serde_json::Result<UploadPolicy> {
+    pub fn from_json_slice(json: &'p [u8]) -> serde_json::Result<UploadPolicy<'p>> {
+        serde_json::from_slice(json)
+    }
+
+    pub fn from_json_slice_owned<J: AsRef<[u8]>>(json: J) -> serde_json::Result<UploadPolicy<'static>> {
         serde_json::from_slice(json.as_ref())
     }
 }
 
-impl Default for UploadPolicy {
+impl Default for UploadPolicy<'_> {
     fn default() -> Self {
         UploadPolicy {
             scope: None,
@@ -229,16 +238,16 @@ impl Default for UploadPolicy {
 }
 
 #[derive(Debug)]
-pub struct UploadPolicyBuilder {
-    inner: UploadPolicy,
+pub struct UploadPolicyBuilder<'p> {
+    inner: UploadPolicy<'p>,
 }
 
-impl UploadPolicyBuilder {
-    pub fn from(policy: UploadPolicy) -> UploadPolicyBuilder {
+impl<'p> UploadPolicyBuilder<'p> {
+    pub fn from(policy: UploadPolicy<'p>) -> UploadPolicyBuilder<'p> {
         UploadPolicyBuilder { inner: policy }
     }
 
-    pub fn new_policy_for_bucket<B: Into<String>>(bucket: B, config: &Config) -> UploadPolicyBuilder {
+    pub fn new_policy_for_bucket<B: Into<Cow<'p, str>>>(bucket: B, config: &Config) -> UploadPolicyBuilder<'p> {
         let builder = UploadPolicyBuilder {
             inner: UploadPolicy {
                 scope: Some(bucket.into()),
@@ -252,10 +261,10 @@ impl UploadPolicyBuilder {
         bucket: B,
         key: K,
         config: &Config,
-    ) -> UploadPolicyBuilder {
+    ) -> UploadPolicyBuilder<'p> {
         let builder = UploadPolicyBuilder {
             inner: UploadPolicy {
-                scope: Some(bucket.into() + ":" + key.as_ref()),
+                scope: Some((bucket.into() + ":" + key.as_ref()).into()),
                 ..Default::default()
             },
         };
@@ -266,10 +275,10 @@ impl UploadPolicyBuilder {
         bucket: B,
         prefix: K,
         config: &Config,
-    ) -> UploadPolicyBuilder {
+    ) -> UploadPolicyBuilder<'p> {
         let builder = UploadPolicyBuilder {
             inner: UploadPolicy {
-                scope: Some(bucket.into() + ":" + prefix.as_ref()),
+                scope: Some((bucket.into() + ":" + prefix.as_ref()).into()),
                 is_prefixal_scope: Some(1),
                 ..Default::default()
             },
@@ -277,7 +286,7 @@ impl UploadPolicyBuilder {
         builder.token_lifetime(config.upload_token_lifetime())
     }
 
-    pub fn token_lifetime(mut self, lifetime: Duration) -> UploadPolicyBuilder {
+    pub fn token_lifetime(mut self, lifetime: Duration) -> UploadPolicyBuilder<'p> {
         self.inner.deadline = Some(
             SystemTime::now()
                 .checked_add(lifetime)
@@ -288,7 +297,7 @@ impl UploadPolicyBuilder {
         self
     }
 
-    pub fn token_deadline(mut self, deadline: SystemTime) -> UploadPolicyBuilder {
+    pub fn token_deadline(mut self, deadline: SystemTime) -> UploadPolicyBuilder<'p> {
         self.inner.deadline = Some(
             deadline
                 .duration_since(SystemTime::UNIX_EPOCH)
@@ -299,80 +308,88 @@ impl UploadPolicyBuilder {
         self
     }
 
-    pub fn insert_only(mut self) -> UploadPolicyBuilder {
+    pub fn insert_only(mut self) -> UploadPolicyBuilder<'p> {
         self.inner.insert_only = Some(bool_utils::bool_to_int(true));
         self
     }
 
-    pub fn overwritable(mut self) -> UploadPolicyBuilder {
+    pub fn overwritable(mut self) -> UploadPolicyBuilder<'p> {
         self.inner.insert_only = Some(bool_utils::bool_to_int(false));
         self
     }
 
-    pub fn auto_detect_mime(mut self) -> UploadPolicyBuilder {
+    pub fn auto_detect_mime(mut self) -> UploadPolicyBuilder<'p> {
         self.inner.detect_mime = Some(bool_utils::bool_to_int(true));
         self
     }
 
-    pub fn normal_storage(mut self) -> UploadPolicyBuilder {
+    pub fn normal_storage(mut self) -> UploadPolicyBuilder<'p> {
         self.inner.file_type = Some(bool_utils::bool_to_int(false));
         self
     }
 
-    pub fn infrequent_storage(mut self) -> UploadPolicyBuilder {
+    pub fn infrequent_storage(mut self) -> UploadPolicyBuilder<'p> {
         self.inner.file_type = Some(bool_utils::bool_to_int(true));
         self
     }
 
-    pub fn return_url<U: Into<String>>(mut self, url: U) -> UploadPolicyBuilder {
+    pub fn return_url<U: Into<Cow<'p, str>>>(mut self, url: U) -> UploadPolicyBuilder<'p> {
         self.inner.return_url = Some(url.into());
         self
     }
 
-    pub fn return_body<B: Into<String>>(mut self, body: B) -> UploadPolicyBuilder {
+    pub fn return_body<B: Into<Cow<'p, str>>>(mut self, body: B) -> UploadPolicyBuilder<'p> {
         self.inner.return_body = Some(body.into());
         self
     }
 
-    pub fn callback_urls<US: AsRef<[U]>, U: AsRef<str>, H: Into<String>>(
+    pub fn callback_urls<US: AsRef<[U]>, U: AsRef<str>, H: Into<Cow<'p, str>>>(
         mut self,
         urls: US,
         host: Option<H>,
-    ) -> UploadPolicyBuilder {
+    ) -> UploadPolicyBuilder<'p> {
         self.inner.callback_url = Some(
             urls.as_ref()
                 .iter()
                 .map(|u| u.as_ref())
-                .collect::<Vec<&str>>()
-                .join(";"),
+                .collect::<Vec<_>>()
+                .join(";")
+                .into(),
         );
         self.inner.callback_host = host.map(|h| h.into());
         self
     }
 
-    pub fn callback_body<B: Into<String>, BT: Into<String>>(
+    pub fn callback_body<B: Into<Cow<'p, str>>, BT: Into<Cow<'p, str>>>(
         mut self,
         body: B,
         body_type: Option<BT>,
-    ) -> UploadPolicyBuilder {
+    ) -> UploadPolicyBuilder<'p> {
         self.inner.callback_body = Some(body.into());
         self.inner.callback_body_type = body_type.map(|bt| bt.into());
         self
     }
 
-    pub fn persistent_ops<Ops: AsRef<[Op]>, Op: AsRef<str>, U: Into<String>, P: Into<String>>(
+    pub fn persistent_ops<Ops: AsRef<[Op]>, Op: AsRef<str>, U: Into<Cow<'p, str>>, P: Into<Cow<'p, str>>>(
         mut self,
         ops: Ops,
         notify_url: Option<U>,
         pipeline: Option<P>,
-    ) -> UploadPolicyBuilder {
-        self.inner.persistent_ops = Some(ops.as_ref().iter().map(|u| u.as_ref()).collect::<Vec<&str>>().join(";"));
+    ) -> UploadPolicyBuilder<'p> {
+        self.inner.persistent_ops = Some(
+            ops.as_ref()
+                .iter()
+                .map(|u| u.as_ref())
+                .collect::<Vec<_>>()
+                .join(";")
+                .into(),
+        );
         self.inner.persistent_notify_url = notify_url.map(|u| u.into());
         self.inner.persistent_pipeline = pipeline.map(|p| p.into());
         self
     }
 
-    pub fn save_as<K: Into<String>>(mut self, key: K, force: bool) -> UploadPolicyBuilder {
+    pub fn save_as<K: Into<Cow<'p, str>>>(mut self, key: K, force: bool) -> UploadPolicyBuilder<'p> {
         self.inner.save_key = Some(key.into());
         if force {
             self.inner.force_save_key = Some(true);
@@ -380,7 +397,7 @@ impl UploadPolicyBuilder {
         self
     }
 
-    pub fn file_size<R: RangeBounds<usize>>(mut self, size: R) -> UploadPolicyBuilder {
+    pub fn file_size<R: RangeBounds<usize>>(mut self, size: R) -> UploadPolicyBuilder<'p> {
         self.inner.fsize_min = match size.start_bound() {
             Bound::Included(&s) => Some(s),
             Bound::Excluded(&s) => Some(s + 1),
@@ -394,19 +411,20 @@ impl UploadPolicyBuilder {
         self
     }
 
-    pub fn mime<Ts: AsRef<[T]>, T: AsRef<str>>(mut self, content_types: Ts) -> UploadPolicyBuilder {
+    pub fn mime<Ts: AsRef<[T]>, T: AsRef<str>>(mut self, content_types: Ts) -> UploadPolicyBuilder<'p> {
         self.inner.mime_limit = Some(
             content_types
                 .as_ref()
                 .iter()
                 .map(|u| u.as_ref())
-                .collect::<Vec<&str>>()
-                .join(";"),
+                .collect::<Vec<_>>()
+                .join(";")
+                .into(),
         );
         self
     }
 
-    pub fn file_lifetime(mut self, lifetime: Duration) -> UploadPolicyBuilder {
+    pub fn file_lifetime(mut self, lifetime: Duration) -> UploadPolicyBuilder<'p> {
         let lifetime_secs = lifetime.as_secs();
         let secs_one_day = 60 * 60 * 24;
 
@@ -421,7 +439,7 @@ impl UploadPolicyBuilder {
         self
     }
 
-    pub fn file_deadline(self, deadline: SystemTime) -> UploadPolicyBuilder {
+    pub fn file_deadline(self, deadline: SystemTime) -> UploadPolicyBuilder<'p> {
         self.file_lifetime(
             deadline
                 .duration_since(SystemTime::now())
@@ -429,7 +447,7 @@ impl UploadPolicyBuilder {
         )
     }
 
-    pub fn build(self) -> UploadPolicy {
+    pub fn build(self) -> UploadPolicy<'p> {
         self.inner
     }
 }

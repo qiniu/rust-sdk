@@ -1,14 +1,14 @@
-use super::{header::Headers, method::Method};
+use super::{HeaderName, HeaderValue, Headers, Method};
 use getset::{CopyGetters, Getters, MutGetters};
+use std::borrow::Cow;
 
-pub type URL = String;
+pub type URL<'b> = Cow<'b, str>;
 pub type Body = [u8];
 
 #[derive(Debug, Getters, CopyGetters, MutGetters, Clone)]
 pub struct Request<'b> {
-    #[get = "pub"]
     #[get_mut = "pub"]
-    url: URL,
+    url: URL<'b>,
 
     #[get_copy = "pub"]
     #[get_mut = "pub"]
@@ -23,13 +23,17 @@ pub struct Request<'b> {
 }
 
 impl<'b> Request<'b> {
-    pub fn new<U: Into<URL>>(method: Method, url: U, headers: Headers, body: Option<&'b Body>) -> Request {
+    pub fn new<U: Into<URL<'b>>>(method: Method, url: U, headers: Headers, body: Option<&'b Body>) -> Request {
         Request {
             url: url.into(),
             method: method,
             headers: headers,
             body: body,
         }
+    }
+
+    pub fn url(&self) -> &str {
+        self.url.as_ref()
     }
 }
 
@@ -49,12 +53,12 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    pub fn url<U: Into<URL>>(mut self, url: U) -> RequestBuilder<'r> {
+    pub fn url<U: Into<URL<'r>>>(mut self, url: U) -> RequestBuilder<'r> {
         self.request.url = url.into();
         self
     }
 
-    pub fn header<HeaderNameT: Into<String>, HeaderValueT: Into<String>>(
+    pub fn header<HeaderNameT: Into<HeaderName>, HeaderValueT: Into<HeaderValue>>(
         mut self,
         header_name: HeaderNameT,
         header_value: HeaderValueT,

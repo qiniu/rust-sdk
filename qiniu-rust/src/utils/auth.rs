@@ -3,22 +3,22 @@ use crate::storage::UploadPolicy;
 use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
 use qiniu_http::{Method, Request};
 use std::{
-    boxed::Box, cmp::PartialEq, convert::TryFrom, error::Error, fmt, result::Result, string::String, sync::Arc, time,
+    borrow::Cow, boxed::Box, cmp::PartialEq, convert::TryFrom, error::Error, fmt, result::Result, string::String,
+    sync::Arc, time,
 };
 use url::Url;
 
 #[derive(Clone, Eq, PartialEq)]
 struct AuthInner {
-    // TODO: Think about Cow<'static, str>
-    access_key: String,
-    secret_key: Vec<u8>,
+    access_key: Cow<'static, str>,
+    secret_key: Cow<'static, str>,
 }
 
 #[derive(Clone, Eq)]
 pub struct Auth(Arc<AuthInner>);
 
 impl Auth {
-    pub fn new<AccessKey: Into<String>, SecretKey: Into<Vec<u8>>>(
+    pub fn new<AccessKey: Into<Cow<'static, str>>, SecretKey: Into<Cow<'static, str>>>(
         access_key: AccessKey,
         secret_key: SecretKey,
     ) -> Auth {
@@ -28,12 +28,12 @@ impl Auth {
         }))
     }
 
-    pub fn access_key(&self) -> &String {
-        &self.0.access_key
+    pub fn access_key(&self) -> &str {
+        self.0.access_key.as_ref()
     }
 
-    fn secret_key(&self) -> &Vec<u8> {
-        &self.0.secret_key
+    fn secret_key(&self) -> &str {
+        self.0.secret_key.as_ref()
     }
 
     pub(crate) fn sign(&self, data: &[u8]) -> String {
@@ -128,7 +128,7 @@ impl Auth {
     }
 
     fn base64ed_hmac_digest(&self, data: &[u8]) -> String {
-        let mut hmac = Hmac::new(Sha1::new(), self.secret_key());
+        let mut hmac = Hmac::new(Sha1::new(), self.secret_key().as_bytes());
         hmac.input(data);
         base64::urlsafe(hmac.result().code())
     }

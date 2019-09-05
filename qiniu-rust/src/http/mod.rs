@@ -1,9 +1,6 @@
-pub use qiniu_http::{
-    header::{HeaderName, HeaderValue, Headers},
-    method::Method,
-};
+pub use qiniu_http::{HeaderName, HeaderValue, Headers, Method};
 mod client;
-pub use client::Client; // TODO: 设置回 pub(crate)
+pub(crate) use client::Client;
 mod domains_manager;
 pub use domains_manager::DomainsManager;
 pub mod error;

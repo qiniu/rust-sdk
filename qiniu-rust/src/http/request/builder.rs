@@ -93,7 +93,7 @@ impl<'a> Builder<'a> {
         self.build()
     }
 
-    pub fn raw_body<T: Into<Vec<u8>>, S: Into<String>>(mut self, content_type: S, body: T) -> Request<'a> {
+    pub fn raw_body<T: Into<Vec<u8>>, S: Into<HeaderValue>>(mut self, content_type: S, body: T) -> Request<'a> {
         self = self.header("Content-Type", content_type);
         self.parts.body = Some(body.into());
         self.build()

@@ -4,8 +4,8 @@ use getset::{CopyGetters, Getters};
 use lazy_static::lazy_static;
 use maplit::hashmap;
 use qiniu_http::Result;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use serde::Deserialize;
+use std::{borrow::Cow, collections::HashMap};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum RegionId {
@@ -46,16 +46,16 @@ pub struct Region {
     region_id: Option<RegionId>,
 
     #[get = "pub"]
-    up_http_urls: Vec<String>,
+    up_http_urls: Vec<Cow<'static, str>>,
 
     #[get = "pub"]
-    up_https_urls: Vec<String>,
+    up_https_urls: Vec<Cow<'static, str>>,
 
     #[get = "pub"]
-    io_http_urls: Vec<String>,
+    io_http_urls: Vec<Cow<'static, str>>,
 
     #[get = "pub"]
-    io_https_urls: Vec<String>,
+    io_https_urls: Vec<Cow<'static, str>>,
 
     #[get_copy = "pub"]
     rs_http_url: &'static str,
@@ -77,19 +77,19 @@ pub struct Region {
 }
 
 impl Region {
-    pub fn up_urls(&self, https: bool) -> Vec<String> {
+    pub fn up_urls(&self, https: bool) -> Vec<&str> {
         if https {
-            self.up_https_urls.to_owned()
+            self.up_https_urls.iter().map(|url| url.as_ref()).collect()
         } else {
-            self.up_http_urls.to_owned()
+            self.up_http_urls.iter().map(|url| url.as_ref()).collect()
         }
     }
 
-    pub fn io_urls(&self, https: bool) -> Vec<String> {
+    pub fn io_urls(&self, https: bool) -> Vec<&str> {
         if https {
-            self.io_https_urls.to_owned()
+            self.io_https_urls.iter().map(|url| url.as_ref()).collect()
         } else {
-            self.io_http_urls.to_owned()
+            self.io_http_urls.iter().map(|url| url.as_ref()).collect()
         }
     }
 
@@ -205,7 +205,7 @@ impl Region {
             .src
             .main
             .first()
-            .and_then(|domain| INFER_DOMAINS_MAP.get(domain.as_str()).map(|region| *region))
+            .and_then(|domain| INFER_DOMAINS_MAP.get(domain.as_str()).map(|&region| region))
             .unwrap_or_else(|| Region::hua_dong());
         Ok(RegionBuilder::default()
             .up_http_urls(
@@ -216,7 +216,7 @@ impl Region {
                             .into_iter()
                             .filter_map(|&domains| domains)
                             .flatten()
-                            .map(|domain| "http://".to_owned() + domain)
+                            .map(|domain| Cow::Owned("http://".to_owned() + domain))
                             .collect::<Vec<_>>()
                     })
                     .flatten()
@@ -230,7 +230,7 @@ impl Region {
                             .into_iter()
                             .filter_map(|&domains| domains)
                             .flatten()
-                            .map(|domain| "https://".to_owned() + domain)
+                            .map(|domain| Cow::Owned("https://".to_owned() + domain))
                             .collect::<Vec<_>>()
                     })
                     .flatten()
@@ -241,7 +241,7 @@ impl Region {
                     .into_iter()
                     .filter_map(|&domains| domains)
                     .flatten()
-                    .map(|domain| "http://".to_owned() + domain)
+                    .map(|domain| Cow::Owned("http://".to_owned() + domain))
                     .collect::<Vec<_>>(),
             )
             .io_https_urls(
@@ -249,7 +249,7 @@ impl Region {
                     .into_iter()
                     .filter_map(|&domains| domains)
                     .flatten()
-                    .map(|domain| "https://".to_owned() + domain)
+                    .map(|domain| Cow::Owned("https://".to_owned() + domain))
                     .collect::<Vec<_>>(),
             )
             .rs_http_url(infer_region.rs_http_url())
@@ -395,18 +395,18 @@ lazy_static! {
     };
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 struct RegionQueryResult {
     io: RegionQueryResultForIO,
     up: RegionQueryResultForUP,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 struct RegionQueryResultForIO {
     src: RegionQueryResultDomains,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 struct RegionQueryResultForUP {
     src: RegionQueryResultDomains,
     acc: RegionQueryResultDomains,
@@ -414,7 +414,7 @@ struct RegionQueryResultForUP {
     old_acc: RegionQueryResultDomains,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 struct RegionQueryResultDomains {
     main: Vec<String>,
     backup: Option<Vec<String>>,
@@ -426,6 +426,7 @@ mod tests {
     use crate::config::ConfigBuilder;
     use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::JSONCallMock;
+    use serde_json::json;
 
     #[test]
     fn test_query_region_by_expected_domain() {
@@ -433,32 +434,15 @@ mod tests {
             .http_request_call(Box::new(JSONCallMock::new(
                 200,
                 Headers::new(),
-                RegionQueryResult {
-                    io: RegionQueryResultForIO {
-                        src: RegionQueryResultDomains {
-                            main: vec!["iovip.qbox.me".into()],
-                            backup: None,
-                        },
-                    },
-                    up: RegionQueryResultForUP {
-                        src: RegionQueryResultDomains {
-                            main: vec!["up.qiniup.com".into()],
-                            backup: Some(vec!["up-jjh.qiniup.com".into(), "up-xs.qiniup.com".into()]),
-                        },
-                        acc: RegionQueryResultDomains {
-                            main: vec!["upload.qiniup.com".into()],
-                            backup: Some(vec!["upload-jjh.qiniup.com".into(), "upload-xs.qiniup.com".into()]),
-                        },
-                        old_src: RegionQueryResultDomains {
-                            main: vec!["up.qbox.me".into()],
-                            backup: None,
-                        },
-                        old_acc: RegionQueryResultDomains {
-                            main: vec!["upload.qbox.me".into()],
-                            backup: None,
-                        },
-                    },
-                },
+                json!({
+                    "io": { "src": { "main": [ "iovip.qbox.me" ] } },
+                    "up": {
+                        "acc": { "backup": [ "upload-jjh.qiniup.com", "upload-xs.qiniup.com" ], "main": [ "upload.qiniup.com" ] },
+                        "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload.qbox.me" ] },
+                        "old_src": { "info": "compatible to non-SNI device", "main": [ "up.qbox.me" ] },
+                        "src": { "backup": [ "up-jjh.qiniup.com", "up-xs.qiniup.com" ], "main": [ "up.qiniup.com" ] }
+                    }
+                }),
             )))
             .build()
             .unwrap();
@@ -504,35 +488,15 @@ mod tests {
             .http_request_call(Box::new(JSONCallMock::new(
                 200,
                 Headers::new(),
-                RegionQueryResult {
-                    io: RegionQueryResultForIO {
-                        src: RegionQueryResultDomains {
-                            main: vec!["iovip-z5.qbox.me".into()],
-                            backup: None,
-                        },
-                    },
-                    up: RegionQueryResultForUP {
-                        src: RegionQueryResultDomains {
-                            main: vec!["up-z5.qiniup.com".into()],
-                            backup: Some(vec!["up-jjh-z5.qiniup.com".into(), "up-xs-z5.qiniup.com".into()]),
-                        },
-                        acc: RegionQueryResultDomains {
-                            main: vec!["upload-z5.qiniup.com".into()],
-                            backup: Some(vec![
-                                "upload-jjh-z5.qiniup.com".into(),
-                                "upload-xs-z5.qiniup.com".into(),
-                            ]),
-                        },
-                        old_src: RegionQueryResultDomains {
-                            main: vec!["up-z5.qbox.me".into()],
-                            backup: None,
-                        },
-                        old_acc: RegionQueryResultDomains {
-                            main: vec!["upload-z5.qbox.me".into()],
-                            backup: None,
-                        },
-                    },
-                },
+                json!({
+                    "io": { "src": { "main": [ "iovip-z5.qbox.me" ] } },
+                    "up": {
+                        "acc": { "backup": [ "upload-jjh-z5.qiniup.com", "upload-xs-z5.qiniup.com" ], "main": [ "upload-z5.qiniup.com" ] },
+                        "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload-z5.qbox.me" ] },
+                        "old_src": { "info": "compatible to non-SNI device", "main": [ "up-z5.qbox.me" ] },
+                        "src": { "backup": [ "up-jjh-z5.qiniup.com", "up-xs-z5.qiniup.com" ], "main": [ "up-z5.qiniup.com" ] }
+                    }
+                }),
             )))
             .build()
             .unwrap();

@@ -5,6 +5,7 @@ use curl::{
 use derive_builder::Builder;
 use qiniu_http::{Error, HTTPCaller, Headers, Method, Request, Response, ResponseBuilder, Result, StatusCode};
 use std::{
+    borrow::Cow,
     convert::TryInto,
     default::Default,
     env,
@@ -68,10 +69,10 @@ impl CurlClient {
         if let Some(response_body) = context.response_body {
             match response_body {
                 ResponseBody::Memory(memory) => {
-                    builder = builder.body(Cursor::new(memory));
+                    builder = builder.stream(Cursor::new(memory));
                 }
                 ResponseBody::File(file) => {
-                    builder = builder.body(file);
+                    builder = builder.stream(file);
                 }
             }
         }
@@ -105,13 +106,13 @@ impl CurlClient {
     }
 
     fn set_url<T>(easy: &mut Easy2<T>, request: &Request) -> Result<()> {
-        Self::handle_if_err(easy.url(request.url().as_str()), request)
+        Self::handle_if_err(easy.url(request.url()), request)
     }
 
     fn set_headers<T>(easy: &mut Easy2<T>, request: &Request) -> Result<()> {
         let mut header_list = List::new();
         for (header_name, header_value) in request.headers().iter() {
-            let h = header_name.to_owned() + ": " + header_value;
+            let h = header_name.as_ref().to_string() + ": " + header_value;
             Self::handle_if_err(header_list.append(&h), request)?;
         }
         Self::handle_if_err(easy.http_headers(header_list), request)
@@ -307,8 +308,10 @@ impl<'r> Handler for &mut Context<'r> {
         let header_value = iter.next();
         match (header_name, header_value) {
             (Some(header_name), Some(header_value)) => {
-                self.response_headers
-                    .insert(header_name.to_string(), header_value.to_string());
+                self.response_headers.insert(
+                    Cow::Owned(header_name.to_string()),
+                    Cow::Owned(header_value.to_string()),
+                );
             }
             _ => {}
         }

@@ -1,4 +1,4 @@
-use super::header::{HeaderValue, Headers};
+use super::{HeaderName, HeaderValue, Headers};
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters, MutGetters};
 use std::{default::Default, fmt, io::Read};
@@ -19,12 +19,12 @@ pub struct Response {
 
     #[get = "pub"]
     #[get_mut = "pub"]
-    #[builder(private, setter(name = "boxed_body"))]
+    #[builder(private)]
     body: Option<Body>,
 }
 
 impl Response {
-    pub fn new(status_code: StatusCode, headers: Headers, body: Option<Body>) -> Response {
+    fn new(status_code: StatusCode, headers: Headers, body: Option<Body>) -> Response {
         Response {
             status_code: status_code,
             headers: headers,
@@ -50,7 +50,7 @@ impl Response {
 }
 
 impl ResponseBuilder {
-    pub fn header<HeaderNameT: Into<String>, HeaderValueT: Into<String>>(
+    pub fn header<HeaderNameT: Into<HeaderName>, HeaderValueT: Into<HeaderValue>>(
         mut self,
         header_name: HeaderNameT,
         header_value: HeaderValueT,
@@ -68,8 +68,8 @@ impl ResponseBuilder {
         self
     }
 
-    pub fn body<B: Read + 'static>(self, body: B) -> Self {
-        self.boxed_body(Box::new(body) as Body)
+    pub fn stream<B: Read + 'static>(self, body: B) -> Self {
+        self.body(Box::new(body) as Body)
     }
 }
 

@@ -122,14 +122,17 @@ impl Deref for Config {
 mod tests {
     use super::*;
     use qiniu_http::{Request, RequestBuilder, Response, ResponseBuilder, Result};
-    use std::{io::Read, iter};
+    use std::{
+        io::{Cursor, Read},
+        iter,
+    };
 
     struct FakeHTTPRequester;
     impl HTTPCaller for FakeHTTPRequester {
         fn call(&self, _: &Request) -> Result<Response> {
             Ok(ResponseBuilder::default()
                 .status_code(612u16)
-                .body(Box::new(stringreader::StringReader::new("It's HTTP Body")) as Box<dyn Read>)
+                .stream(Cursor::new(Vec::from("It's HTTP Body".as_bytes())))
                 .build()
                 .unwrap())
         }

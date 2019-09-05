@@ -1,5 +1,6 @@
 use super::{config::Config, storage::bucket_manager::BucketManager, utils::auth::Auth};
 use getset::Getters;
+use std::borrow::Cow;
 
 #[derive(Getters)]
 pub struct Client {
@@ -8,7 +9,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new<AccessKey: Into<String>, SecretKey: Into<Vec<u8>>>(
+    pub fn new<AccessKey: Into<Cow<'static, str>>, SecretKey: Into<Cow<'static, str>>>(
         access_key: AccessKey,
         secret_key: SecretKey,
         config: Config,
