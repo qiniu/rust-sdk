@@ -189,77 +189,17 @@ impl Region {
         &SINGAPORE
     }
 
-    pub fn query<B: Into<String>>(bucket: B, auth: Auth, config: Config) -> Result<Region> {
+    pub fn query<B: Into<String>>(bucket: B, auth: Auth, config: Config) -> Result<Vec<Region>> {
         let (access_key, uc_url) = (auth.access_key().to_owned(), Self::uc_url(config.use_https()));
-        let result: RegionQueryResult = http::Client::new(auth, config)
-            .get("/v2/query", &[uc_url])
+        let result: RegionQueryResults = http::Client::new(auth, config)
+            .get("/v3/query", &[uc_url])
             .query("ak", access_key)
             .query("bucket", bucket)
             .accept_json()
             .no_body()
             .send()?
             .parse_json()?;
-
-        let infer_region = result
-            .io
-            .src
-            .main
-            .first()
-            .and_then(|domain| INFER_DOMAINS_MAP.get(domain.as_str()).map(|&region| region))
-            .unwrap_or_else(|| Region::hua_dong());
-        Ok(RegionBuilder::default()
-            .up_http_urls(
-                [&result.up.acc, &result.up.src]
-                    .into_iter()
-                    .map(|domains| {
-                        [Some(&domains.main), domains.backup.as_ref()]
-                            .into_iter()
-                            .filter_map(|&domains| domains)
-                            .flatten()
-                            .map(|domain| Cow::Owned("http://".to_owned() + domain))
-                            .collect::<Vec<_>>()
-                    })
-                    .flatten()
-                    .collect::<Vec<_>>(),
-            )
-            .up_https_urls(
-                [&result.up.acc, &result.up.src, &result.up.old_acc, &result.up.old_src]
-                    .into_iter()
-                    .map(|domains| {
-                        [Some(&domains.main), domains.backup.as_ref()]
-                            .into_iter()
-                            .filter_map(|&domains| domains)
-                            .flatten()
-                            .map(|domain| Cow::Owned("https://".to_owned() + domain))
-                            .collect::<Vec<_>>()
-                    })
-                    .flatten()
-                    .collect::<Vec<_>>(),
-            )
-            .io_http_urls(
-                [Some(&result.io.src.main), result.io.src.backup.as_ref()]
-                    .into_iter()
-                    .filter_map(|&domains| domains)
-                    .flatten()
-                    .map(|domain| Cow::Owned("http://".to_owned() + domain))
-                    .collect::<Vec<_>>(),
-            )
-            .io_https_urls(
-                [Some(&result.io.src.main), result.io.src.backup.as_ref()]
-                    .into_iter()
-                    .filter_map(|&domains| domains)
-                    .flatten()
-                    .map(|domain| Cow::Owned("https://".to_owned() + domain))
-                    .collect::<Vec<_>>(),
-            )
-            .rs_http_url(infer_region.rs_http_url())
-            .rs_https_url(infer_region.rs_https_url())
-            .rsf_http_url(infer_region.rsf_http_url())
-            .rsf_https_url(infer_region.rsf_https_url())
-            .api_http_url(infer_region.api_http_url())
-            .api_https_url(infer_region.api_https_url())
-            .build()
-            .unwrap())
+        Ok(result.into_regions())
     }
 }
 
@@ -396,6 +336,11 @@ lazy_static! {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+struct RegionQueryResults {
+    hosts: Vec<RegionQueryResult>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 struct RegionQueryResult {
     io: RegionQueryResultForIO,
     up: RegionQueryResultForUP,
@@ -420,6 +365,80 @@ struct RegionQueryResultDomains {
     backup: Option<Vec<String>>,
 }
 
+impl RegionQueryResults {
+    fn into_regions(self) -> Vec<Region> {
+        self.hosts
+            .into_iter()
+            .map(|host_result| host_result.into_region())
+            .collect::<Vec<_>>()
+    }
+}
+
+impl RegionQueryResult {
+    fn into_region(self) -> Region {
+        let infer_region = self
+            .io
+            .src
+            .main
+            .first()
+            .and_then(|domain| INFER_DOMAINS_MAP.get(domain.as_str()).map(|&region| region))
+            .unwrap_or_else(|| Region::hua_dong());
+        RegionBuilder::default()
+            .up_http_urls(
+                [&self.up.acc, &self.up.src]
+                    .into_iter()
+                    .map(|domains| {
+                        [Some(&domains.main), domains.backup.as_ref()]
+                            .into_iter()
+                            .filter_map(|&domains| domains)
+                            .flatten()
+                            .map(|domain| Cow::Owned("http://".to_owned() + domain))
+                            .collect::<Vec<_>>()
+                    })
+                    .flatten()
+                    .collect::<Vec<_>>(),
+            )
+            .up_https_urls(
+                [&self.up.acc, &self.up.src, &self.up.old_acc, &self.up.old_src]
+                    .into_iter()
+                    .map(|domains| {
+                        [Some(&domains.main), domains.backup.as_ref()]
+                            .into_iter()
+                            .filter_map(|&domains| domains)
+                            .flatten()
+                            .map(|domain| Cow::Owned("https://".to_owned() + domain))
+                            .collect::<Vec<_>>()
+                    })
+                    .flatten()
+                    .collect::<Vec<_>>(),
+            )
+            .io_http_urls(
+                [Some(&self.io.src.main), self.io.src.backup.as_ref()]
+                    .into_iter()
+                    .filter_map(|&domains| domains)
+                    .flatten()
+                    .map(|domain| Cow::Owned("http://".to_owned() + domain))
+                    .collect::<Vec<_>>(),
+            )
+            .io_https_urls(
+                [Some(&self.io.src.main), self.io.src.backup.as_ref()]
+                    .into_iter()
+                    .filter_map(|&domains| domains)
+                    .flatten()
+                    .map(|domain| Cow::Owned("https://".to_owned() + domain))
+                    .collect::<Vec<_>>(),
+            )
+            .rs_http_url(infer_region.rs_http_url())
+            .rs_https_url(infer_region.rs_https_url())
+            .rsf_http_url(infer_region.rsf_http_url())
+            .rsf_https_url(infer_region.rsf_https_url())
+            .api_http_url(infer_region.api_http_url())
+            .api_https_url(infer_region.api_https_url())
+            .build()
+            .unwrap()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -435,18 +454,22 @@ mod tests {
                 200,
                 Headers::new(),
                 json!({
-                    "io": { "src": { "main": [ "iovip.qbox.me" ] } },
-                    "up": {
-                        "acc": { "backup": [ "upload-jjh.qiniup.com", "upload-xs.qiniup.com" ], "main": [ "upload.qiniup.com" ] },
-                        "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload.qbox.me" ] },
-                        "old_src": { "info": "compatible to non-SNI device", "main": [ "up.qbox.me" ] },
-                        "src": { "backup": [ "up-jjh.qiniup.com", "up-xs.qiniup.com" ], "main": [ "up.qiniup.com" ] }
-                    }
+                    "hosts":[{
+                        "io": { "src": { "main": [ "iovip.qbox.me" ] } },
+                        "up": {
+                            "acc": { "backup": [ "upload-jjh.qiniup.com", "upload-xs.qiniup.com" ], "main": [ "upload.qiniup.com" ] },
+                            "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload.qbox.me" ] },
+                            "old_src": { "info": "compatible to non-SNI device", "main": [ "up.qbox.me" ] },
+                            "src": { "backup": [ "up-jjh.qiniup.com", "up-xs.qiniup.com" ], "main": [ "up.qiniup.com" ] }
+                        }
+                    }]
                 }),
             )))
             .build()
             .unwrap();
-        let region = Region::query("z0-bucket", get_auth(), config).unwrap();
+        let regions = Region::query("z0-bucket", get_auth(), config).unwrap();
+        assert_eq!(regions.len(), 1);
+        let region = regions.first().unwrap();
         assert_eq!(region.region_id(), None);
         assert_eq!(
             region.up_http_urls(),
@@ -489,18 +512,22 @@ mod tests {
                 200,
                 Headers::new(),
                 json!({
-                    "io": { "src": { "main": [ "iovip-z5.qbox.me" ] } },
-                    "up": {
-                        "acc": { "backup": [ "upload-jjh-z5.qiniup.com", "upload-xs-z5.qiniup.com" ], "main": [ "upload-z5.qiniup.com" ] },
-                        "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload-z5.qbox.me" ] },
-                        "old_src": { "info": "compatible to non-SNI device", "main": [ "up-z5.qbox.me" ] },
-                        "src": { "backup": [ "up-jjh-z5.qiniup.com", "up-xs-z5.qiniup.com" ], "main": [ "up-z5.qiniup.com" ] }
-                    }
+                    "hosts": [{
+                        "io": { "src": { "main": [ "iovip-z5.qbox.me" ] } },
+                        "up": {
+                            "acc": { "backup": [ "upload-jjh-z5.qiniup.com", "upload-xs-z5.qiniup.com" ], "main": [ "upload-z5.qiniup.com" ] },
+                            "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload-z5.qbox.me" ] },
+                            "old_src": { "info": "compatible to non-SNI device", "main": [ "up-z5.qbox.me" ] },
+                            "src": { "backup": [ "up-jjh-z5.qiniup.com", "up-xs-z5.qiniup.com" ], "main": [ "up-z5.qiniup.com" ] }
+                        }
+                    }]
                 }),
             )))
             .build()
             .unwrap();
-        let region = Region::query("z5-bucket", get_auth(), config).unwrap();
+        let regions = Region::query("z5-bucket", get_auth(), config).unwrap();
+        assert_eq!(regions.len(), 1);
+        let region = regions.first().unwrap();
         assert_eq!(region.region_id(), None);
         assert_eq!(
             region.up_http_urls(),

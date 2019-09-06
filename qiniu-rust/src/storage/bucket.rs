@@ -2,14 +2,14 @@ use super::Region;
 use crate::{config::Config, http, utils::auth::Auth};
 use once_cell::sync::OnceCell;
 use qiniu_http::Result;
-use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, slice::Iter};
+use std::{borrow::Cow, iter::Iterator};
 
 pub struct Bucket<'r> {
     name: Cow<'r, str>,
     auth: Auth,
     config: Config,
     region: OnceCell<Cow<'r, Region>>,
+    regions: OnceCell<Vec<Region>>,
     domains: OnceCell<Vec<Cow<'r, str>>>,
     http_client: http::Client,
     use_https: bool,
@@ -20,9 +20,15 @@ pub struct BucketBuilder<'r> {
     auth: Auth,
     config: Config,
     region: Option<Cow<'r, Region>>,
+    regions: Option<Vec<Region>>,
     domains: Option<Vec<Cow<'r, str>>>,
     http_client: http::Client,
     use_https: bool,
+}
+
+pub struct BucketRegionIter<'a, 'r: 'a> {
+    bucket: &'a Bucket<'r>,
+    itered: usize,
 }
 
 impl<'r> BucketBuilder<'r> {
@@ -34,6 +40,7 @@ impl<'r> BucketBuilder<'r> {
             auth: auth,
             config: config,
             region: None,
+            regions: None,
             domains: None,
         }
     }
@@ -44,11 +51,11 @@ impl<'r> BucketBuilder<'r> {
     }
 
     pub fn auto_detect_region(mut self) -> Result<BucketBuilder<'r>> {
-        self.region = Some(Cow::Owned(Region::query(
-            self.name.as_ref(),
-            self.auth.clone(),
-            self.config.clone(),
-        )?));
+        let mut regions = Region::query(self.name.as_ref(), self.auth.clone(), self.config.clone())?;
+        self.region = Some(Cow::Owned(regions.swap_remove(0)));
+        if !regions.is_empty() {
+            self.regions = Some(regions);
+        }
         Ok(self)
     }
 
@@ -85,6 +92,10 @@ impl<'r> BucketBuilder<'r> {
                 .region
                 .map(|r| OnceCell::from(r))
                 .unwrap_or_else(|| OnceCell::new()),
+            regions: self
+                .regions
+                .map(|r| OnceCell::from(r))
+                .unwrap_or_else(|| OnceCell::new()),
             domains: self
                 .domains
                 .map(|d| OnceCell::from(d))
@@ -105,13 +116,20 @@ impl<'r> Bucket<'r> {
     pub fn region(&self) -> Result<&Region> {
         self.region
             .get_or_try_init(|| {
-                Ok(Cow::Owned(Region::query(
-                    self.name(),
-                    self.auth.clone(),
-                    self.config.clone(),
-                )?))
+                let mut regions = Region::query(self.name(), self.auth.clone(), self.config.clone())?;
+                let first_region = Cow::Owned(regions.swap_remove(0));
+                self.regions.get_or_init(|| regions);
+                Ok(first_region)
             })
             .map(|region| region.as_ref())
+    }
+
+    pub fn regions<'a>(&'a self) -> Result<BucketRegionIter<'a, 'r>> {
+        self.region()?;
+        Ok(BucketRegionIter {
+            bucket: self,
+            itered: 0,
+        })
     }
 
     pub fn domains(&self) -> Result<Vec<&str>> {
@@ -150,6 +168,24 @@ mod domain {
     }
 }
 
+impl<'a, 'r: 'a> Iterator for BucketRegionIter<'a, 'r> {
+    type Item = &'a Region;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.itered == 0 {
+            return self.bucket.region.get().map(|region| {
+                self.itered += 1;
+                region.as_ref()
+            });
+        } else {
+            return self.bucket.regions.get().and_then(|regions| {
+                self.itered += 1;
+                regions.get(self.itered - 2)
+            });
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{super::RegionId, *};
@@ -169,6 +205,9 @@ mod tests {
             .region(Region::hua_bei())
             .build();
         assert_eq!(bucket.region().unwrap().region_id(), Some(RegionId::Z1));
+        let regions = bucket.regions().unwrap().collect::<Vec<_>>();
+        assert_eq!(regions.len(), 1);
+        assert_eq!(regions.first().unwrap().region_id(), Some(RegionId::Z1));
     }
 
     #[test]
@@ -177,13 +216,23 @@ mod tests {
             200,
             Headers::new(),
             json!({
-                "io": { "src": { "main": [ "iovip.qbox.me" ] } },
-                "up": {
-                    "acc": { "backup": [ "upload-jjh.qiniup.com", "upload-xs.qiniup.com" ], "main": [ "upload.qiniup.com" ] },
-                    "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload.qbox.me" ] },
-                    "old_src": { "info": "compatible to non-SNI device", "main": [ "up.qbox.me" ] },
-                    "src": { "backup": [ "up-jjh.qiniup.com", "up-xs.qiniup.com" ], "main": [ "up.qiniup.com" ] }
-                }
+                "hosts": [{
+                    "io": { "src": { "main": [ "iovip.qbox.me" ] } },
+                    "up": {
+                        "acc": { "backup": [ "upload-jjh.qiniup.com", "upload-xs.qiniup.com" ], "main": [ "upload.qiniup.com" ] },
+                        "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload.qbox.me" ] },
+                        "old_src": { "info": "compatible to non-SNI device", "main": [ "up.qbox.me" ] },
+                        "src": { "backup": [ "up-jjh.qiniup.com", "up-xs.qiniup.com" ], "main": [ "up.qiniup.com" ] }
+                    }
+                },{
+                    "io": { "src": { "main": [ "iovip-z1.qbox.me" ] } },
+                    "up": {
+                        "acc": { "backup": [ "upload-jjh-z1.qiniup.com", "upload-xs-z1.qiniup.com" ], "main": [ "upload-z1.qiniup.com" ] },
+                        "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload-z1.qbox.me" ] },
+                        "old_src": { "info": "compatible to non-SNI device", "main": [ "up-z1.qbox.me" ] },
+                        "src": { "backup": [ "up-jjh-z1.qiniup.com", "up-xs-z1.qiniup.com" ], "main": [ "up-z1.qiniup.com" ] }
+                    }
+                }]
             }),
         ));
         let config: Config = ConfigBuilder::default()
@@ -210,6 +259,25 @@ mod tests {
             .unwrap()
             .up_urls(true)
             .contains(&"https://upload.qbox.me".into()));
+
+        let regions = bucket.regions().unwrap().collect::<Vec<_>>();
+        assert_eq!(regions.len(), 2);
+        assert!(regions
+            .get(1)
+            .unwrap()
+            .up_urls(true)
+            .contains(&"https://up-xs-z1.qiniup.com".into()));
+        assert!(regions
+            .get(1)
+            .unwrap()
+            .up_urls(true)
+            .contains(&"https://up-jjh-z1.qiniup.com".into()));
+        assert!(regions
+            .get(1)
+            .unwrap()
+            .up_urls(true)
+            .contains(&"https://upload-z1.qbox.me".into()));
+
         assert_eq!(mock.call_called(), 1);
     }
 
@@ -219,13 +287,23 @@ mod tests {
             200,
             Headers::new(),
             json!({
-                "io": { "src": { "main": [ "iovip.qbox.me" ] } },
-                "up": {
-                    "acc": { "backup": [ "upload-jjh.qiniup.com", "upload-xs.qiniup.com" ], "main": [ "upload.qiniup.com" ] },
-                    "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload.qbox.me" ] },
-                    "old_src": { "info": "compatible to non-SNI device", "main": [ "up.qbox.me" ] },
-                    "src": { "backup": [ "up-jjh.qiniup.com", "up-xs.qiniup.com" ], "main": [ "up.qiniup.com" ] }
-                }
+                "hosts": [{
+                    "io": { "src": { "main": [ "iovip.qbox.me" ] } },
+                    "up": {
+                        "acc": { "backup": [ "upload-jjh.qiniup.com", "upload-xs.qiniup.com" ], "main": [ "upload.qiniup.com" ] },
+                        "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload.qbox.me" ] },
+                        "old_src": { "info": "compatible to non-SNI device", "main": [ "up.qbox.me" ] },
+                        "src": { "backup": [ "up-jjh.qiniup.com", "up-xs.qiniup.com" ], "main": [ "up.qiniup.com" ] }
+                    }
+                },{
+                    "io": { "src": { "main": [ "iovip-z2.qbox.me" ] } },
+                    "up": {
+                        "acc": { "backup": [ "upload-jjh-z2.qiniup.com", "upload-xs-z2.qiniup.com" ], "main": [ "upload-z2.qiniup.com" ] },
+                        "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload-z2.qbox.me" ] },
+                        "old_src": { "info": "compatible to non-SNI device", "main": [ "up-z2.qbox.me" ] },
+                        "src": { "backup": [ "up-jjh-z2.qiniup.com", "up-xs-z2.qiniup.com" ], "main": [ "up-z2.qiniup.com" ] }
+                    }
+                }]
             }),
         ));
         let config: Config = ConfigBuilder::default()
@@ -235,7 +313,7 @@ mod tests {
         let bucket = Arc::new(BucketBuilder::new("test-bucket", get_auth(), config).build());
         assert_eq!(mock.call_called(), 0);
 
-        let mut threads = Vec::with_capacity(3);
+        let mut threads = Vec::with_capacity(4);
         let b = bucket.clone();
         threads.push(thread::spawn(move || {
             assert!(b
@@ -261,6 +339,27 @@ mod tests {
                 .unwrap()
                 .up_urls(true)
                 .contains(&"https://upload.qbox.me".into()));
+        }));
+
+        let b = bucket.clone();
+        threads.push(thread::spawn(move || {
+            let regions = b.regions().unwrap().collect::<Vec<_>>();
+            assert_eq!(regions.len(), 2);
+            assert!(regions
+                .get(1)
+                .unwrap()
+                .up_urls(true)
+                .contains(&"https://up-xs-z2.qiniup.com".into()));
+            assert!(regions
+                .get(1)
+                .unwrap()
+                .up_urls(true)
+                .contains(&"https://up-jjh-z2.qiniup.com".into()));
+            assert!(regions
+                .get(1)
+                .unwrap()
+                .up_urls(true)
+                .contains(&"https://upload-z2.qbox.me".into()));
         }));
 
         threads.into_iter().for_each(|thread| thread.join().unwrap());
