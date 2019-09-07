@@ -257,7 +257,7 @@ impl<'p> UploadPolicyBuilder<'p> {
         builder.token_lifetime(config.upload_token_lifetime())
     }
 
-    pub fn new_policy_for_file<B: Into<String>, K: AsRef<str>>(
+    pub fn new_policy_for_object<B: Into<String>, K: AsRef<str>>(
         bucket: B,
         key: K,
         config: &Config,
@@ -271,7 +271,7 @@ impl<'p> UploadPolicyBuilder<'p> {
         builder.token_lifetime(config.upload_token_lifetime())
     }
 
-    pub fn new_policy_for_file_name_with_prefix<B: Into<String>, K: AsRef<str>>(
+    pub fn new_policy_for_object_name_with_prefix<B: Into<String>, K: AsRef<str>>(
         bucket: B,
         prefix: K,
         config: &Config,
@@ -456,9 +456,10 @@ impl<'p> UploadPolicyBuilder<'p> {
 mod tests {
     use super::*;
     use serde_json::{json, Value};
+    use std::{boxed::Box, error::Error, result::Result};
 
     #[test]
-    fn test_build_upload_policy_for_bucket() {
+    fn test_build_upload_policy_for_bucket() -> Result<(), Box<dyn Error>> {
         let one_hour = Duration::from_secs(60 * 60);
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default()).build();
         let now = SystemTime::now();
@@ -466,61 +467,55 @@ mod tests {
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), None);
         assert!(
-            one_hour_later.duration_since(SystemTime::UNIX_EPOCH).unwrap()
-                - policy
-                    .deadline()
-                    .unwrap()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
+            one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
+                - policy.deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
                 < Duration::from_secs(5)
         );
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v.as_object().unwrap().len(), 2);
         assert_eq!(v["scope"], "test_bucket");
         assert!(
-            one_hour_later.duration_since(SystemTime::UNIX_EPOCH).unwrap()
+            one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
                 - Duration::from_secs(v["deadline"].as_u64().unwrap())
                 < Duration::from_secs(5)
         );
         assert_eq!(v["isPrefixalScope"], json!(null));
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_for_file() {
+    fn test_build_upload_policy_for_file() -> Result<(), Box<dyn Error>> {
         let one_hour = Duration::from_secs(60 * 60);
-        let policy = UploadPolicyBuilder::new_policy_for_file("test_bucket", "test:file", &Config::default()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", &Config::default()).build();
         let now = SystemTime::now();
         let one_hour_later = now + one_hour;
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), Some("test:file"));
         assert!(!policy.prefixal());
         assert!(
-            one_hour_later.duration_since(SystemTime::UNIX_EPOCH).unwrap()
-                - policy
-                    .deadline()
-                    .unwrap()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
+            one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
+                - policy.deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
                 < Duration::from_secs(5)
         );
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v.as_object().unwrap().len(), 2);
         assert_eq!(v["scope"], "test_bucket:test:file");
         assert!(
-            one_hour_later.duration_since(SystemTime::UNIX_EPOCH).unwrap()
+            one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
                 - Duration::from_secs(v["deadline"].as_u64().unwrap())
                 < Duration::from_secs(5)
         );
         assert_eq!(v["isPrefixalScope"], json!(null));
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_for_file_name_with_prefix() {
+    fn test_build_upload_policy_for_file_name_with_prefix() -> Result<(), Box<dyn Error>> {
         let one_hour = Duration::from_secs(60 * 60);
         let policy =
-            UploadPolicyBuilder::new_policy_for_file_name_with_prefix("test_bucket", "test:file", &Config::default())
+            UploadPolicyBuilder::new_policy_for_object_name_with_prefix("test_bucket", "test:file", &Config::default())
                 .build();
         let now = SystemTime::now();
         let one_hour_later = now + one_hour;
@@ -528,51 +523,45 @@ mod tests {
         assert_eq!(policy.key(), Some("test:file"));
         assert!(policy.prefixal());
         assert!(
-            one_hour_later.duration_since(SystemTime::UNIX_EPOCH).unwrap()
-                - policy
-                    .deadline()
-                    .unwrap()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
+            one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
+                - policy.deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
                 < Duration::from_secs(5)
         );
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v.as_object().unwrap().len(), 3);
         assert_eq!(v["scope"], "test_bucket:test:file");
         assert!(
-            one_hour_later.duration_since(SystemTime::UNIX_EPOCH).unwrap()
+            one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
                 - Duration::from_secs(v["deadline"].as_u64().unwrap())
                 < Duration::from_secs(5)
         );
         assert_eq!(v["isPrefixalScope"], json!(1));
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_deadline() {
+    fn test_build_upload_policy_with_deadline() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .token_deadline(SystemTime::now())
             .build();
         assert!(
-            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap()
-                - policy
-                    .deadline()
-                    .unwrap()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
+            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?
+                - policy.deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
                 < Duration::from_secs(5)
         );
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert!(
-            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap()
+            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?
                 - Duration::from_secs(v["deadline"].as_u64().unwrap())
                 < Duration::from_secs(5)
         );
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_lifetime() {
+    fn test_build_upload_policy_with_lifetime() -> Result<(), Box<dyn Error>> {
         let one_day = Duration::from_secs(60 * 60 * 24);
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .token_lifetime(one_day)
@@ -580,119 +569,118 @@ mod tests {
         let now = SystemTime::now();
         let tomorrow = now + one_day;
         assert!(
-            tomorrow.duration_since(SystemTime::UNIX_EPOCH).unwrap()
-                - policy
-                    .deadline()
-                    .unwrap()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
+            tomorrow.duration_since(SystemTime::UNIX_EPOCH)?
+                - policy.deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
                 < Duration::from_secs(5)
         );
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert!(
-            tomorrow.duration_since(SystemTime::UNIX_EPOCH).unwrap()
-                - Duration::from_secs(v["deadline"].as_u64().unwrap())
+            tomorrow.duration_since(SystemTime::UNIX_EPOCH)? - Duration::from_secs(v["deadline"].as_u64().unwrap())
                 < Duration::from_secs(5)
         );
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_lifetime_overflow() {
+    fn test_build_upload_policy_with_lifetime_overflow() -> Result<(), Box<dyn Error>> {
         let future = Duration::from_secs(u64::max_value());
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .token_lifetime(future)
             .build();
         assert!(
-            policy
-                .deadline()
-                .unwrap()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
+            policy.deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
                 > SystemTime::now()
                     .checked_add(Duration::from_secs(50 * 365 * 24 * 60 * 60))
                     .unwrap()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
+                    .duration_since(SystemTime::UNIX_EPOCH)?
         );
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_insert_only() {
+    fn test_build_upload_policy_with_insert_only() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .insert_only()
             .build();
         assert_eq!(policy.insert_only(), true);
         assert_eq!(policy.overwritable(), false);
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["insertOnly"], 1);
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_overwritable() {
+    fn test_build_upload_policy_with_overwritable() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .overwritable()
             .build();
         assert_eq!(policy.insert_only(), false);
         assert_eq!(policy.overwritable(), true);
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["insertOnly"], 0);
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_auto_detect_mime() {
+    fn test_build_upload_policy_with_auto_detect_mime() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .auto_detect_mime()
             .build();
         assert_eq!(policy.auto_detect_mime(), true);
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["detectMime"], 1);
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_normal_storage() {
+    fn test_build_upload_policy_with_normal_storage() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .normal_storage()
             .build();
         assert_eq!(policy.normal_storage(), true);
         assert_eq!(policy.infrequent_storage(), false);
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["fileType"], 0);
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_infrequent_storage() {
+    fn test_build_upload_policy_with_infrequent_storage() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .infrequent_storage()
             .build();
         assert_eq!(policy.normal_storage(), false);
         assert_eq!(policy.infrequent_storage(), true);
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["fileType"], 1);
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_return_url() {
+    fn test_build_upload_policy_with_return_url() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .return_url("http://www.qiniu.io/test")
             .build();
         assert_eq!(policy.return_url(), Some("http://www.qiniu.io/test"));
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["returnUrl"], "http://www.qiniu.io/test");
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_return_body() {
+    fn test_build_upload_policy_with_return_body() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .return_body("datadatadata")
             .build();
         assert_eq!(policy.return_body(), Some("datadatadata"));
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["returnBody"], "datadatadata");
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_callback_urls() {
+    fn test_build_upload_policy_with_callback_urls() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .callback_urls(
                 &["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"],
@@ -704,37 +692,40 @@ mod tests {
             Some(vec!["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"])
         );
         assert_eq!(policy.callback_host(), Some("www.qiniu.com"));
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["callbackUrl"], "https://1.1.1.1;https://2.2.2.2;https://3.3.3.3");
         assert_eq!(v["callbackHost"], "www.qiniu.com");
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_callback_body() {
+    fn test_build_upload_policy_with_callback_body() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .callback_body("a=b&c=d", None::<String>)
             .build();
         assert_eq!(policy.callback_body(), Some("a=b&c=d"));
         assert_eq!(policy.callback_body_type(), None);
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["callbackBody"], "a=b&c=d");
         assert_eq!(v["callbackBodyType"], json!(null));
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_callback_body_with_body_type() {
+    fn test_build_upload_policy_with_callback_body_with_body_type() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .callback_body("a=b&c=d", Some("application/x-www-form-urlencoded"))
             .build();
         assert_eq!(policy.callback_body(), Some("a=b&c=d"));
         assert_eq!(policy.callback_body_type(), Some("application/x-www-form-urlencoded"));
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["callbackBody"], "a=b&c=d");
         assert_eq!(v["callbackBodyType"], "application/x-www-form-urlencoded");
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_persistent_ops() {
+    fn test_build_upload_policy_with_persistent_ops() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .persistent_ops(&["avthumb/mp4", "avthumb/m3u8"], None::<String>, None::<String>)
             .build();
@@ -744,14 +735,15 @@ mod tests {
         );
         assert_eq!(policy.persistent_notify_url(), None);
         assert_eq!(policy.persistent_pipeline(), None);
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["persistentOps"], "avthumb/mp4;avthumb/m3u8");
         assert_eq!(v["persistentNotifyUrl"], json!(null));
         assert_eq!(v["persistentPipeline"], json!(null));
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_persistent_ops_with_notify_url() {
+    fn test_build_upload_policy_with_persistent_ops_with_notify_url() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .persistent_ops(
                 &["avthumb/mp4", "avthumb/m3u8"],
@@ -765,14 +757,15 @@ mod tests {
         );
         assert_eq!(policy.persistent_notify_url(), Some("http://www.qiniu.com/pfop"));
         assert_eq!(policy.persistent_pipeline(), None);
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["persistentOps"], "avthumb/mp4;avthumb/m3u8");
         assert_eq!(v["persistentNotifyUrl"], "http://www.qiniu.com/pfop");
         assert_eq!(v["persistentPipeline"], json!(null));
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_persistent_ops_with_pipeline() {
+    fn test_build_upload_policy_with_persistent_ops_with_pipeline() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .persistent_ops(&["avthumb/mp4", "avthumb/m3u8"], None::<String>, Some("pipeline"))
             .build();
@@ -782,82 +775,89 @@ mod tests {
         );
         assert_eq!(policy.persistent_notify_url(), None);
         assert_eq!(policy.persistent_pipeline(), Some("pipeline"));
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["persistentOps"], "avthumb/mp4;avthumb/m3u8");
         assert_eq!(v["persistentNotifyUrl"], json!(null));
         assert_eq!(v["persistentPipeline"], "pipeline");
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_save_key() {
+    fn test_build_upload_policy_with_save_key() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .save_as("target_file", false)
             .build();
         assert_eq!(policy.save_key(), Some("target_file"));
         assert_eq!(policy.force_save_key(), false);
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["saveKey"], "target_file");
         assert_eq!(v["forceSaveKey"], json!(null));
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_save_key_by_force() {
+    fn test_build_upload_policy_with_save_key_by_force() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .save_as("target_file", true)
             .build();
         assert_eq!(policy.save_key(), Some("target_file"));
         assert_eq!(policy.force_save_key(), true);
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["saveKey"], "target_file");
         assert_eq!(v["forceSaveKey"], true);
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_file_size_exclusive_limit() {
+    fn test_build_upload_policy_with_file_size_exclusive_limit() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .file_size(15..20)
             .build();
         assert_eq!(policy.file_size(), (Some(15), Some(19)));
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["fsizeMin"], 15);
         assert_eq!(v["fsizeLimit"], 19);
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_file_size_inclusive_limit() {
+    fn test_build_upload_policy_with_file_size_inclusive_limit() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .file_size(15..=20)
             .build();
         assert_eq!(policy.file_size(), (Some(15), Some(20)));
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["fsizeMin"], 15);
         assert_eq!(v["fsizeLimit"], 20);
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_file_size_max_limit() {
+    fn test_build_upload_policy_with_file_size_max_limit() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .file_size(..20)
             .build();
         assert_eq!(policy.file_size(), (None, Some(19)));
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["fsizeMin"], json!(null));
         assert_eq!(v["fsizeLimit"], 19);
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_file_size_min_limit() {
+    fn test_build_upload_policy_with_file_size_min_limit() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .file_size(15..)
             .build();
         assert_eq!(policy.file_size(), (Some(15), None));
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["fsizeMin"], 15);
         assert_eq!(v["fsizeLimit"], json!(null));
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_mime() {
+    fn test_build_upload_policy_with_mime() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .mime(&["image/jpeg", "image/png"])
             .build();
@@ -865,24 +865,26 @@ mod tests {
             policy.mime().map(|ops| ops.collect::<Vec<&str>>()),
             Some(vec!["image/jpeg", "image/png"])
         );
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["mimeLimit"], "image/jpeg;image/png");
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_file_lifetime() {
+    fn test_build_upload_policy_with_file_lifetime() -> Result<(), Box<dyn Error>> {
         let one_hundred_days = Duration::from_secs(100 * 24 * 60 * 60);
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .file_lifetime(one_hundred_days)
             .build();
         assert_eq!(policy.file_lifetime(), Some(one_hundred_days));
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["deleteAfterDays"], 100);
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_short_file_lifetime() {
+    fn test_build_upload_policy_with_short_file_lifetime() -> Result<(), Box<dyn Error>> {
         let one_hundred_secs = Duration::from_secs(100);
         let one_day = Duration::from_secs(24 * 60 * 60);
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
@@ -890,25 +892,23 @@ mod tests {
             .build();
         assert_eq!(policy.file_lifetime(), Some(one_day));
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str()).unwrap();
+        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["deleteAfterDays"], 1);
+        Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_file_deadline() {
+    fn test_build_upload_policy_with_file_deadline() -> Result<(), Box<dyn Error>> {
         let one_hundred_days = Duration::from_secs(100 * 24 * 60 * 60);
         let after_one_hundred_days = SystemTime::now() + one_hundred_days;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .file_lifetime(one_hundred_days)
             .build();
         assert!(
-            policy
-                .file_deadline()
-                .unwrap()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                - after_one_hundred_days.duration_since(SystemTime::UNIX_EPOCH).unwrap()
+            policy.file_deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
+                - after_one_hundred_days.duration_since(SystemTime::UNIX_EPOCH)?
                 < Duration::from_secs(5)
         );
+        Ok(())
     }
 }

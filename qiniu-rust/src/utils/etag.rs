@@ -165,35 +165,42 @@ pub fn from_file<P: AsRef<Path>>(path: P) -> Result<String> {
 mod tests {
     use super::*;
     use qiniu_test_utils::temp_file;
-    use std::io::{empty, Cursor};
+    use std::{
+        boxed::Box,
+        error::Error,
+        io::{empty, Cursor},
+        result::Result,
+    };
 
     #[test]
-    fn test_etag_from_data() {
-        assert_eq!(from(&mut empty()).unwrap(), "Fto5o-5ea0sNMlW_75VgGJCv2AcJ",);
-        assert_eq!(from(&mut Cursor::new("etag")).unwrap(), "FpLiADEaVoALPkdb8tJEJyRTXoe_");
+    fn test_etag_from_data() -> Result<(), Box<dyn Error>> {
+        assert_eq!(from(&mut empty())?, "Fto5o-5ea0sNMlW_75VgGJCv2AcJ",);
+        assert_eq!(from(&mut Cursor::new("etag"))?, "FpLiADEaVoALPkdb8tJEJyRTXoe_");
+        Ok(())
     }
 
     #[test]
-    fn test_etag_from_file() {
+    fn test_etag_from_file() -> Result<(), Box<dyn Error>> {
         assert_eq!(
-            from_file(temp_file::create_temp_file(1 << 20).unwrap()).unwrap(),
+            from_file(temp_file::create_temp_file(1 << 20)?)?,
             "Foyl8onxBLWeRLL5oItRJphv6i4b",
         );
         assert_eq!(
-            from_file(temp_file::create_temp_file(4 * (1 << 20)).unwrap()).unwrap(),
+            from_file(temp_file::create_temp_file(4 * (1 << 20))?)?,
             "FicHOveBNs5Kn9d74M3b9tI4D-8r",
         );
         assert_eq!(
-            from_file(temp_file::create_temp_file(5 * (1 << 20)).unwrap()).unwrap(),
+            from_file(temp_file::create_temp_file(5 * (1 << 20))?)?,
             "lg-Eb5KFCuZn-cUfj_oS2PPOU9xy",
         );
         assert_eq!(
-            from_file(temp_file::create_temp_file(8 * (1 << 20)).unwrap()).unwrap(),
+            from_file(temp_file::create_temp_file(8 * (1 << 20))?)?,
             "lkSKZOMToDp-EqLDVuT1pyjQssl-",
         );
         assert_eq!(
-            from_file(temp_file::create_temp_file(9 * (1 << 20)).unwrap()).unwrap(),
+            from_file(temp_file::create_temp_file(9 * (1 << 20))?)?,
             "ljgVjMtyMsOgIySv79U8Qz4TrUO4",
         );
+        Ok(())
     }
 }

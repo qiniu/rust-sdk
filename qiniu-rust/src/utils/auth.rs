@@ -233,83 +233,69 @@ impl PartialEq for Auth {
 mod tests {
     use super::*;
     use qiniu_http::RequestBuilder;
+    use std::{boxed::Box, error::Error, result::Result, thread};
 
     #[test]
-    fn test_sign() {
+    fn test_sign() -> Result<(), Box<dyn Error>> {
         let auth = get_auth();
         let mut threads = Vec::new();
         {
-            let auth_cloned = auth.clone();
-            threads.push(std::thread::spawn(move || {
-                assert_eq!(
-                    auth_cloned.sign(b"hello"),
-                    "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0="
-                );
-                assert_eq!(
-                    auth_cloned.sign(b"world"),
-                    "abcdefghklmnopq:VjgXt0P_nCxHuaTfiFz-UjDJ1AQ="
-                );
+            let auth = auth.clone();
+            threads.push(thread::spawn(move || {
+                assert_eq!(auth.sign(b"hello"), "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0=");
+                assert_eq!(auth.sign(b"world"), "abcdefghklmnopq:VjgXt0P_nCxHuaTfiFz-UjDJ1AQ=");
             }));
         }
         {
-            let auth_cloned = auth.clone();
-            threads.push(std::thread::spawn(move || {
-                assert_eq!(
-                    auth_cloned.sign(b"-test"),
-                    "abcdefghklmnopq:vYKRLUoXRlNHfpMEQeewG0zylaw="
-                );
-                assert_eq!(
-                    auth_cloned.sign(b"ba#a-"),
-                    "abcdefghklmnopq:2d_Yr6H1GdTKg3RvMtpHOhi047M="
-                );
+            let auth = auth.clone();
+            threads.push(thread::spawn(move || {
+                assert_eq!(auth.sign(b"-test"), "abcdefghklmnopq:vYKRLUoXRlNHfpMEQeewG0zylaw=");
+                assert_eq!(auth.sign(b"ba#a-"), "abcdefghklmnopq:2d_Yr6H1GdTKg3RvMtpHOhi047M=");
             }));
         }
-        for thread in threads.into_iter() {
-            thread.join().unwrap();
-        }
+        threads.into_iter().for_each(|thread| thread.join().unwrap());
+        Ok(())
     }
 
     #[test]
-    fn test_sign_data() {
+    fn test_sign_data() -> Result<(), Box<dyn Error>> {
         let auth = get_auth();
         let mut threads = Vec::new();
         {
-            let auth_cloned = auth.clone();
-            threads.push(std::thread::spawn(move || {
+            let auth = auth.clone();
+            threads.push(thread::spawn(move || {
                 assert_eq!(
-                    auth_cloned.sign_with_data(b"hello"),
+                    auth.sign_with_data(b"hello"),
                     "abcdefghklmnopq:BZYt5uVRy1RVt5ZTXbaIt2ROVMA=:aGVsbG8="
                 );
                 assert_eq!(
-                    auth_cloned.sign_with_data(b"world"),
+                    auth.sign_with_data(b"world"),
                     "abcdefghklmnopq:Wpe04qzPphiSZb1u6I0nFn6KpZg=:d29ybGQ="
                 );
             }));
         }
         {
-            let auth_cloned = auth.clone();
-            threads.push(std::thread::spawn(move || {
+            let auth = auth.clone();
+            threads.push(thread::spawn(move || {
                 assert_eq!(
-                    auth_cloned.sign_with_data(b"-test"),
+                    auth.sign_with_data(b"-test"),
                     "abcdefghklmnopq:HlxenSSP_6BbaYNzx1fyeyw8v1Y=:LXRlc3Q="
                 );
                 assert_eq!(
-                    auth_cloned.sign_with_data(b"ba#a-"),
+                    auth.sign_with_data(b"ba#a-"),
                     "abcdefghklmnopq:kwzeJrFziPDMO4jv3DKVLDyqud0=:YmEjYS0="
                 );
             }));
         }
-        for thread in threads.into_iter() {
-            thread.join().unwrap();
-        }
+        threads.into_iter().for_each(|thread| thread.join().unwrap());
+        Ok(())
     }
 
     #[test]
-    fn test_sign_request_v1() {
+    fn test_sign_request_v1() -> Result<(), Box<dyn Error>> {
         let auth = get_auth();
         assert_eq!(
-            auth.sign_request_v1("http://upload.qiniup.com/", None::<&str>, Some(b"{\"name\":\"test\"}"))
-                .unwrap(),
+            auth.sign_request_v1("http://upload.qiniup.com/", None::<&str>, Some(b"{\"name\":\"test\"}"))?,
             auth.sign(b"/\n")
         );
         assert_eq!(
@@ -317,8 +303,7 @@ mod tests {
                 "http://upload.qiniup.com/",
                 Some("application/json"),
                 Some(b"{\"name\":\"test\"}")
-            )
-            .unwrap(),
+            )?,
             auth.sign(b"/\n")
         );
         assert_eq!(
@@ -326,8 +311,7 @@ mod tests {
                 "http://upload.qiniup.com/",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
-            )
-            .unwrap(),
+            )?,
             auth.sign(b"/\nname=test&language=go")
         );
         assert_eq!(
@@ -335,8 +319,7 @@ mod tests {
                 "http://upload.qiniup.com/?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
-            )
-            .unwrap(),
+            )?,
             auth.sign(b"/?v=2\nname=test&language=go")
         );
         assert_eq!(
@@ -344,14 +327,14 @@ mod tests {
                 "http://upload.qiniup.com/find/sdk?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
-            )
-            .unwrap(),
+            )?,
             auth.sign(b"/find/sdk?v=2\nname=test&language=go")
         );
+        Ok(())
     }
 
     #[test]
-    fn test_sign_request_v2() {
+    fn test_sign_request_v2() -> Result<(), Box<dyn Error>> {
         let auth = get_auth();
         assert_eq!(
             auth.sign_request_v2(
@@ -359,8 +342,7 @@ mod tests {
                 "http://upload.qiniup.com/",
                 Some("application/json"),
                 Some(b"{\"name\":\"test\"}")
-            )
-            .unwrap(),
+            )?,
             auth.sign(b"GET /\nHost: upload.qiniup.com\nContent-Type: application/json\n\n{\"name\":\"test\"}")
         );
         assert_eq!(
@@ -369,8 +351,7 @@ mod tests {
                 "http://upload.qiniup.com/",
                 None::<&str>,
                 Some(b"{\"name\":\"test\"}")
-            )
-            .unwrap(),
+            )?,
             auth.sign(b"GET /\nHost: upload.qiniup.com\n\n")
         );
         assert_eq!(
@@ -379,8 +360,7 @@ mod tests {
                 "http://upload.qiniup.com/",
                 Some("application/json"),
                 Some(b"{\"name\":\"test\"}")
-            )
-            .unwrap(),
+            )?,
             auth.sign(b"POST /\nHost: upload.qiniup.com\nContent-Type: application/json\n\n{\"name\":\"test\"}")
         );
         assert_eq!(
@@ -389,8 +369,7 @@ mod tests {
                 "http://upload.qiniup.com/",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
-            )
-            .unwrap(),
+            )?,
             auth.sign(b"GET /\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
         );
         assert_eq!(
@@ -399,8 +378,7 @@ mod tests {
                 "http://upload.qiniup.com/?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
-            )
-            .unwrap(),
+            )?,
             auth.sign(b"GET /?v=2\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
         );
         assert_eq!(
@@ -409,14 +387,14 @@ mod tests {
                 "http://upload.qiniup.com/find/sdk?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
-            )
-            .unwrap(),
+            )?,
             auth.sign(b"GET /find/sdk?v=2\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
         );
+        Ok(())
     }
 
     #[test]
-    fn test_is_valid_request() {
+    fn test_is_valid_request() -> Result<(), Box<dyn Error>> {
         let auth = get_auth();
 
         let json_body: &[u8] = b"{\"name\":\"test\"}";
@@ -426,8 +404,7 @@ mod tests {
                 .url("http://upload.qiniup.com/")
                 .header(
                     "Authorization",
-                    auth.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)
-                        .unwrap()
+                    auth.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)?
                 )
                 .body(json_body)
                 .build()
@@ -437,8 +414,7 @@ mod tests {
                 .url("http://upload.qiniup.com/")
                 .header(
                     "Authorization",
-                    auth.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)
-                        .unwrap()
+                    auth.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)?
                 )
                 .header("Content-Type", "application/json")
                 .body(json_body)
@@ -453,36 +429,35 @@ mod tests {
                         "http://upload.qiniup.com/find/sdk?v=2",
                         Some("application/x-www-form-urlencoded"),
                         Some(b"name=test&language=go")
-                    )
-                    .unwrap()
+                    )?
                 )
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .body(form_body)
                 .build()
         ));
+        Ok(())
     }
 
     #[test]
-    fn test_sign_download_url_with_deadline() {
+    fn test_sign_download_url_with_deadline() -> Result<(), Box<dyn Error>> {
         let auth = get_auth();
         assert_eq!(
             auth.sign_download_url_with_deadline(
-                Url::parse("http://www.qiniu.com/?go=1").unwrap(),
+                Url::parse("http://www.qiniu.com/?go=1")?,
                 time::SystemTime::UNIX_EPOCH + time::Duration::from_secs(1_234_567_890 + 3600),
                 false
-            )
-            .unwrap(),
+            )?,
             "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq:KjQtlGAkEOhSwtFjJfYtYa2-reE=",
         );
         assert_eq!(
             auth.sign_download_url_with_deadline(
-                Url::parse("http://www.qiniu.com/?go=1").unwrap(),
+                Url::parse("http://www.qiniu.com/?go=1")?,
                 time::SystemTime::UNIX_EPOCH + time::Duration::from_secs(1_234_567_890 + 3600),
                 true
-            )
-            .unwrap(),
+            )?,
             "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq:86uQeCB9GsFFvL2wA0mgBcOMsmk=",
         );
+        Ok(())
     }
 
     fn get_auth() -> Auth {

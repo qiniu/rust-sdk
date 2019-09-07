@@ -12,7 +12,7 @@ pub enum Token {
 }
 
 impl Token {
-    pub fn sign(&self, req: &mut Request, auth: &Auth) {
+    pub(crate) fn sign(&self, req: &mut Request, auth: &Auth) {
         match self {
             &Token::None | &Token::Null => {
                 return;

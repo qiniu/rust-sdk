@@ -11,11 +11,12 @@ keywords = ["qiniu", "storage"]
 [dependencies]
 rust-crypto = "0.2.36"
 base64 = "0.10.1"
+crc = "1.8.1"
 chashmap = "2.2.2"
 num = "0.2.0"
 url = "2.0.0"
 bytesize = "1.0.0"
-getset = { version = "0.0.8", git = "https://github.com/bachue/getset.git" }
+getset = { branch = "master", git = "https://github.com/Hoverbear/getset.git" }
 derive_builder = "0.7.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.40"
@@ -25,6 +26,9 @@ lazy_static = "1.4.0"
 maplit = "1.0.2"
 delegate = "0.2.0"
 once_cell = "1.0.2"
+multipart = { git = "https://github.com/bachue/multipart.git", version = "0.16.1", features = ["client"], default-features = false }
+mime = "0.3.14"
+mime_guess = "2.0.1"
 
 qiniu-with-libcurl = { version = "0.1.0", path = "../qiniu-rust-with-libcurl", optional = true }
 qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }

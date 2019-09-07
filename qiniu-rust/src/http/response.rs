@@ -1,55 +1,81 @@
 use delegate::delegate;
+use getset::{CopyGetters, Getters};
 use qiniu_http::{
     Error as HTTPError, HeaderValue, Headers, Method, Response as HTTPResponse, ResponseBody as HTTPResponseBody,
     Result as HTTPResult, StatusCode,
 };
 use serde::de::DeserializeOwned;
-use std::{fmt, io};
+use std::{error::Error as StdError, fmt, io, marker::Send};
 
-pub struct Response<'a> {
+#[derive(CopyGetters, Getters)]
+pub(crate) struct Response<'a> {
+    #[get = "pub(crate)"]
     pub(super) inner: HTTPResponse,
+    #[get_copy = "pub(crate)"]
     pub(super) method: Method,
+    #[get_copy = "pub(crate)"]
     pub(super) host: &'a str,
+    #[get_copy = "pub(crate)"]
     pub(super) path: &'a str,
 }
 
 impl<'a> Response<'a> {
     delegate! {
         target self.inner {
-            pub fn status_code(&self) -> StatusCode;
-            pub fn headers(&self) -> &Headers;
-            pub fn into_parts(self) -> (StatusCode, Headers, Option<HTTPResponseBody>);
-            pub fn into_body(self) -> Option<HTTPResponseBody>;
-            pub fn take_body(&mut self) -> Option<HTTPResponseBody>;
+            pub(crate) fn status_code(&self) -> StatusCode;
+            pub(crate) fn headers(&self) -> &Headers;
+            pub(crate) fn into_parts(self) -> (StatusCode, Headers, Option<HTTPResponseBody>);
+            pub(crate) fn into_body(self) -> Option<HTTPResponseBody>;
+            pub(crate) fn take_body(&mut self) -> Option<HTTPResponseBody>;
+            pub(crate) fn copy_body(&mut self) -> io::Result<Option<HTTPResponseBody>>;
         }
     }
 
-    pub fn body(&self) -> Option<&HTTPResponseBody> {
+    pub(crate) fn body(&self) -> Option<&HTTPResponseBody> {
         self.inner.body().as_ref()
     }
 
-    pub fn header<HeaderNameT: AsRef<str>>(&self, header_name: HeaderNameT) -> Option<&HeaderValue> {
+    pub(crate) fn header<HeaderNameT: AsRef<str>>(&self, header_name: HeaderNameT) -> Option<&HeaderValue> {
         self.inner.headers().get(header_name.as_ref())
     }
 
-    pub fn parse_json<T: DeserializeOwned>(&mut self) -> HTTPResult<T> {
+    pub(crate) fn parse_json<T: DeserializeOwned>(&mut self) -> HTTPResult<T> {
         let body = self.take_body().unwrap();
-        serde_json::from_reader(body).map_err(|err| {
-            HTTPError::new_unretryable_error_from_parts(
-                err,
-                Some(self.method),
-                Some((self.host.to_owned() + self.path).into()),
-            )
-        })
+        serde_json::from_reader(body).map_err(|err| self.transform_to_unretryable_err(err))
     }
 
-    pub fn ignore_body(&mut self) {
+    pub(crate) fn parse_json_clone<T: DeserializeOwned>(&mut self) -> HTTPResult<T> {
+        let body = self
+            .copy_body()
+            .map_err(|err| self.transform_to_retryable_err(err, false))?
+            .unwrap();
+        serde_json::from_reader(body).map_err(|err| self.transform_to_unretryable_err(err))
+    }
+
+    pub(crate) fn ignore_body(&mut self) {
         match self.take_body().as_mut() {
             Some(r) => {
                 io::copy(r, &mut io::sink()).unwrap();
             }
             None => {}
         }
+    }
+
+    fn transform_to_unretryable_err<E: StdError + Send + 'static>(&self, err: E) -> HTTPError {
+        HTTPError::new_unretryable_error_from_parts(
+            err,
+            Some(self.method),
+            Some((self.host.to_owned() + self.path).into()),
+        )
+    }
+
+    fn transform_to_retryable_err<E: StdError + Send + 'static>(&self, err: E, is_retry_safe: bool) -> HTTPError {
+        HTTPError::new_retryable_error_from_parts(
+            err,
+            is_retry_safe,
+            Some(self.method),
+            Some((self.host.to_owned() + self.path).into()),
+        )
     }
 }
 

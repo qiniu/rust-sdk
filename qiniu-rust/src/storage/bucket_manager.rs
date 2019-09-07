@@ -1,4 +1,4 @@
-use super::{bucket::BucketBuilder, Region, RegionId};
+use super::{bucket::BucketBuilder, uploader::Uploader, Region, RegionId};
 use crate::{
     config::Config,
     http::{
@@ -89,6 +89,10 @@ impl BucketManager {
 
     pub fn bucket<B: Into<Cow<'static, str>>>(&self, bucket: B) -> BucketBuilder {
         BucketBuilder::new(bucket, self.auth.clone(), self.config.clone())
+    }
+
+    pub fn uploader(&self) -> Uploader {
+        Uploader::new(self.auth.clone(), self.config.clone())
     }
 }
 

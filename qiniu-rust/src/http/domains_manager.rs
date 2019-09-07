@@ -79,59 +79,60 @@ error_chain! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::thread;
+    use std::{boxed::Box, error::Error, result::Result, thread};
 
     #[test]
-    fn test_domains_manager_in_multiple_threads() {
+    fn test_domains_manager_in_multiple_threads() -> Result<(), Box<dyn Error>> {
         let domains_manager = DomainsManager::new();
-        assert!(!domains_manager.is_frozen("up.qiniup.com").unwrap());
+        assert!(!domains_manager.is_frozen("up.qiniup.com")?);
 
         let mut threads: Vec<thread::JoinHandle<()>> = Vec::with_capacity(10);
         {
-            let dm = domains_manager.clone();
-            threads.push(
-                thread::Builder::new()
-                    .name("thread0".into())
-                    .spawn(move || {
-                        assert!(!dm.is_frozen("up.qiniup.com").unwrap());
+            {
+                let domains_manager = domains_manager.clone();
+                threads.push(thread::Builder::new().name("thread0".into()).spawn(move || {
+                    assert!(!domains_manager.is_frozen("up.qiniup.com").unwrap());
 
-                        dm.freeze("up.qiniup.com", Duration::from_secs(5)).unwrap();
-                        assert!(dm.is_frozen("up.qiniup.com").unwrap());
+                    domains_manager.freeze("up.qiniup.com", Duration::from_secs(5)).unwrap();
+                    assert!(domains_manager.is_frozen("up.qiniup.com").unwrap());
 
-                        thread::sleep(Duration::from_secs(1));
+                    thread::sleep(Duration::from_secs(1));
 
-                        dm.freeze("upload.qiniup.com", Duration::from_secs(5)).unwrap();
-                        assert!(dm.is_frozen("upload.qiniup.com").unwrap());
-                    })
-                    .unwrap(),
-            );
+                    domains_manager
+                        .freeze("upload.qiniup.com", Duration::from_secs(5))
+                        .unwrap();
+                    assert!(domains_manager.is_frozen("upload.qiniup.com").unwrap());
+                })?);
+            }
             for thread_id in 1..=9 {
-                let dm = domains_manager.clone();
+                let domains_manager = domains_manager.clone();
                 threads.push(
                     thread::Builder::new()
                         .name(format!("thread{}", thread_id))
                         .spawn(move || {
-                            assert!(!dm.is_frozen("upload.qiniup.com").unwrap());
+                            assert!(!domains_manager.is_frozen("upload.qiniup.com").unwrap());
                             thread::sleep(Duration::from_secs(1));
-                            assert!(dm.is_frozen("http://up.qiniup.com").unwrap());
+                            assert!(domains_manager.is_frozen("http://up.qiniup.com").unwrap());
                             thread::sleep(Duration::from_secs(1));
-                            assert!(dm.is_frozen("https://up.qiniup.com").unwrap());
-                            assert!(dm.is_frozen("https://upload.qiniup.com/abc").unwrap());
+                            assert!(domains_manager.is_frozen("https://up.qiniup.com").unwrap());
+                            assert!(domains_manager.is_frozen("https://upload.qiniup.com/abc").unwrap());
                             thread::sleep(Duration::from_secs(1));
-                            assert!(dm.is_frozen("up.qiniup.com/").unwrap());
-                            assert!(dm.is_frozen("http://upload.qiniup.com").unwrap());
+                            assert!(domains_manager.is_frozen("up.qiniup.com/").unwrap());
+                            assert!(domains_manager.is_frozen("http://upload.qiniup.com").unwrap());
                             thread::sleep(Duration::from_millis(2500));
-                            assert!(!dm.is_frozen("up.qiniup.com/def/fgh.xzy").unwrap());
-                            assert!(!dm.is_frozen("https://up.qiniup.com/").unwrap());
+                            assert!(!domains_manager.is_frozen("up.qiniup.com/def/fgh.xzy").unwrap());
+                            assert!(!domains_manager.is_frozen("https://up.qiniup.com/").unwrap());
                             thread::sleep(Duration::from_secs(1));
-                            assert!(!dm.is_frozen("https://up.qiniup.com/").unwrap());
+                            assert!(!domains_manager.is_frozen("https://up.qiniup.com/").unwrap());
                             thread::sleep(Duration::from_secs(1));
-                            assert!(!dm.is_frozen("https://upload.qiniup.com/def/fgh.xzy").unwrap());
-                        })
-                        .unwrap(),
+                            assert!(!domains_manager
+                                .is_frozen("https://upload.qiniup.com/def/fgh.xzy")
+                                .unwrap());
+                        })?,
                 );
             }
         }
         threads.into_iter().for_each(|thread| thread.join().unwrap());
+        Ok(())
     }
 }

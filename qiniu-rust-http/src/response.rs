@@ -1,7 +1,12 @@
 use super::{HeaderName, HeaderValue, Headers};
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters, MutGetters};
-use std::{default::Default, fmt, io::Read};
+use std::{
+    boxed::Box,
+    default::Default,
+    fmt,
+    io::{Cursor, Read, Result as IOResult},
+};
 
 pub type StatusCode = u16;
 pub type Body = Box<dyn Read>;
@@ -46,6 +51,19 @@ impl Response {
 
     pub fn take_body(&mut self) -> Option<Body> {
         self.body.take()
+    }
+
+    pub fn copy_body(&mut self) -> IOResult<Option<Body>> {
+        self.body.take().map_or_else(
+            || Ok(None),
+            |mut body| {
+                let mut body_buf = Vec::new();
+                body.read_to_end(&mut body_buf)?;
+                let body_clone = body_buf.clone();
+                self.body = Some(Box::new(Cursor::new(body_clone)));
+                Ok(Some(Box::new(Cursor::new(body_buf)) as Body))
+            },
+        )
     }
 }
 

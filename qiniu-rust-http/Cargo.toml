@@ -8,5 +8,5 @@ homepage = "https://www.qiniu.com"
 description = "Provide http call trait for qiniu"
 
 [dependencies]
-getset = { version = "0.0.8", git = "https://github.com/bachue/getset.git" }
+getset = { branch = "master", git = "https://github.com/Hoverbear/getset.git" }
 derive_builder = "0.7.2"

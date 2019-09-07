@@ -4,7 +4,7 @@ use super::{
         response::Response,
         DomainsManager,
     },
-    Parts,
+    Parts, {Error as RequestError, ErrorKind as RequestErrorKind, ErrorResponse as RequestErrorResponse},
 };
 use qiniu_http::{
     Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Request as HTTPRequest, RequestBuilder,
@@ -18,15 +18,14 @@ use std::{
 };
 use url::Url;
 
-#[derive(Clone)]
-pub struct Request<'a> {
+pub(crate) struct Request<'a> {
     pub(super) parts: Parts<'a>,
     pub(super) domains_manager: DomainsManager,
     pub(super) host_freeze_duration: Duration,
 }
 
 impl<'a> Request<'a> {
-    pub fn send(&self) -> HTTPResult<Response> {
+    pub(crate) fn send(&self) -> HTTPResult<Response> {
         let mut prev_err: Option<HTTPError> = None;
         for &host in self.parts.hosts {
             if self.domains_manager.is_frozen(host).map_err(|err| {
@@ -36,12 +35,7 @@ impl<'a> Request<'a> {
             }
             match self.try_host(host) {
                 Ok(resp) => {
-                    return Ok(Response {
-                        inner: resp,
-                        method: self.parts.method,
-                        host: host,
-                        path: self.parts.path,
-                    });
+                    return Ok(resp);
                 }
                 Err(err) => match err.kind() {
                     HTTPErrorKind::RetryableError | HTTPErrorKind::HostUnretryableError if self.is_idempotent(&err) => {
@@ -61,7 +55,7 @@ impl<'a> Request<'a> {
         }
         let err = prev_err.unwrap_or_else(|| {
             HTTPError::new_host_unretryable_error_from_parts(
-                error::Error::from(error::ErrorKind::NoHostAvailable),
+                RequestError::from(RequestErrorKind::NoHostAvailable),
                 true,
                 Some(self.parts.method.to_owned()),
                 None,
@@ -71,7 +65,7 @@ impl<'a> Request<'a> {
         Err(err)
     }
 
-    fn try_host(&self, host: &str) -> HTTPResult<HTTPResponse> {
+    fn try_host(&self, host: &'a str) -> HTTPResult<Response<'a>> {
         let mut url = host.to_string() + self.parts.path;
         if let Some(ref query) = self.parts.query {
             url = Url::parse_with_params(url.as_str(), query)
@@ -106,9 +100,20 @@ impl<'a> Request<'a> {
                 .call(&request)
                 .and_then(|response| Self::check_response(response, &request))
                 .and_then(|response| self.fulfill_body_if_needed(response, &request))
-            {
-                Ok(response) => {
-                    self.parts.config.http_request_call().on_response(&request, &response);
+                .map(|response| Response {
+                    inner: response,
+                    method: self.parts.method,
+                    host: host,
+                    path: self.parts.path,
+                }) {
+                Ok(mut response) => {
+                    if let Some(callback) = self.parts.response_callback {
+                        callback.on_response_callback(&mut response, &request)?;
+                    }
+                    self.parts
+                        .config
+                        .http_request_call()
+                        .on_response(&request, &response.inner);
                     return Ok(response);
                 }
                 Err(err) => match err.kind() {
@@ -136,7 +141,7 @@ impl<'a> Request<'a> {
     fn is_idempotent(&self, err: &HTTPError) -> bool {
         match self.parts.method {
             Method::GET | Method::PUT | Method::HEAD | Method::PATCH | Method::DELETE => true,
-            _ => err.is_retry_safe(),
+            _ => self.parts.idempotent || err.is_retry_safe(),
         }
     }
 
@@ -147,7 +152,7 @@ impl<'a> Request<'a> {
         }
         let mut error_message: Option<Box<str>> = None;
         if let Some(body) = Self::read_body_to_string(&mut response, request)? {
-            error_message = serde_json::from_str::<error::ErrorResponse>(&body)
+            error_message = serde_json::from_str::<RequestErrorResponse>(&body)
                 .map_err(|err| HTTPError::new_retryable_error(err, false, request, Some(&response)))?
                 .error
                 .map(|e| e.into())
@@ -235,8 +240,9 @@ impl<'a> Request<'a> {
                 request,
                 response,
             ),
-            406 => HTTPError::new_unretryable_error(
+            406 => HTTPError::new_retryable_error(
                 QiniuError::from(QiniuErrorKind::NotAcceptableError(status_code, error_message)),
+                false,
                 request,
                 response,
             ),
@@ -370,25 +376,6 @@ impl fmt::Debug for Request<'_> {
     }
 }
 
-mod error {
-    use error_chain::error_chain;
-    use serde::{Deserialize, Serialize};
-
-    error_chain! {
-        errors {
-            NoHostAvailable {
-                description("no host is available"),
-                display("no host is available"),
-            }
-        }
-    }
-
-    #[derive(Serialize, Deserialize, Debug)]
-    pub(crate) struct ErrorResponse {
-        pub(crate) error: Option<String>,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{
@@ -406,7 +393,7 @@ mod tests {
     };
     use qiniu_http::{Error, ErrorKind, HTTPCaller};
     use qiniu_test_utils::http_call_mock::{CounterCallMock, ErrorResponseMock};
-    use std::{io, time::Duration};
+    use std::{boxed::Box, error::Error as StdError, io, result::Result as StdResult, time::Duration};
 
     struct HTTPRequestCounter {
         is_retry_safe: bool,
@@ -429,7 +416,7 @@ mod tests {
     const RETRIES: usize = 5;
 
     #[test]
-    fn test_retryable_error_case_1() {
+    fn test_retryable_error_case_1() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(HTTPRequestCounter {
             error_kind: ErrorKind::RetryableError,
             is_retry_safe: true,
@@ -438,8 +425,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+            .build()?;
         assert!(Builder::new(
             get_auth(),
             config.clone(),
@@ -451,8 +437,8 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert!(config.domains_manager().is_frozen("host1").unwrap());
-        assert!(config.domains_manager().is_frozen("host2").unwrap());
+        assert!(config.domains_manager().is_frozen("host1")?);
+        assert!(config.domains_manager().is_frozen("host2")?);
 
         assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
         assert_eq!(mock.on_retry_request_called(), 2 * (RETRIES + 1));
@@ -460,10 +446,11 @@ mod tests {
         assert_eq!(mock.on_request_built_called(), 2);
         assert_eq!(mock.on_response_called(), 0);
         assert_eq!(mock.on_error_called(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_retryable_error_case_2() {
+    fn test_retryable_error_case_2() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(HTTPRequestCounter {
             error_kind: ErrorKind::RetryableError,
             is_retry_safe: true,
@@ -472,8 +459,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+            .build()?;
         assert!(Builder::new(
             get_auth(),
             config.clone(),
@@ -485,8 +471,8 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert!(config.domains_manager().is_frozen("host1").unwrap());
-        assert!(config.domains_manager().is_frozen("host2").unwrap());
+        assert!(config.domains_manager().is_frozen("host1")?);
+        assert!(config.domains_manager().is_frozen("host2")?);
 
         assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
         assert_eq!(mock.on_retry_request_called(), 2 * (RETRIES + 1));
@@ -494,10 +480,11 @@ mod tests {
         assert_eq!(mock.on_request_built_called(), 2);
         assert_eq!(mock.on_response_called(), 0);
         assert_eq!(mock.on_error_called(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_retryable_error_case_3() {
+    fn test_retryable_error_case_3() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(HTTPRequestCounter {
             error_kind: ErrorKind::RetryableError,
             is_retry_safe: false,
@@ -506,8 +493,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+            .build()?;
         assert!(Builder::new(
             get_auth(),
             config.clone(),
@@ -519,8 +505,8 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert!(!config.domains_manager().is_frozen("host1").unwrap());
-        assert!(!config.domains_manager().is_frozen("host2").unwrap());
+        assert!(!config.domains_manager().is_frozen("host1")?);
+        assert!(!config.domains_manager().is_frozen("host2")?);
 
         assert_eq!(mock.call_called(), 1);
         assert_eq!(mock.on_retry_request_called(), 0);
@@ -528,10 +514,11 @@ mod tests {
         assert_eq!(mock.on_request_built_called(), 1);
         assert_eq!(mock.on_response_called(), 0);
         assert_eq!(mock.on_error_called(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_host_unretryable_error() {
+    fn test_host_unretryable_error() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(HTTPRequestCounter {
             error_kind: ErrorKind::HostUnretryableError,
             is_retry_safe: true,
@@ -540,8 +527,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+            .build()?;
         assert!(Builder::new(
             get_auth(),
             config.clone(),
@@ -553,8 +539,8 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert!(config.domains_manager().is_frozen("host1").unwrap());
-        assert!(config.domains_manager().is_frozen("host2").unwrap());
+        assert!(config.domains_manager().is_frozen("host1")?);
+        assert!(config.domains_manager().is_frozen("host2")?);
 
         assert_eq!(mock.call_called(), 2);
         assert_eq!(mock.on_retry_request_called(), 0);
@@ -562,10 +548,11 @@ mod tests {
         assert_eq!(mock.on_request_built_called(), 2);
         assert_eq!(mock.on_response_called(), 0);
         assert_eq!(mock.on_error_called(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_zone_unretryable_error() {
+    fn test_zone_unretryable_error() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(HTTPRequestCounter {
             error_kind: ErrorKind::ZoneUnretryableError,
             is_retry_safe: false,
@@ -574,8 +561,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+            .build()?;
         assert!(Builder::new(
             get_auth(),
             config.clone(),
@@ -587,8 +573,8 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert!(!config.domains_manager().is_frozen("host1").unwrap());
-        assert!(!config.domains_manager().is_frozen("host2").unwrap());
+        assert!(!config.domains_manager().is_frozen("host1")?);
+        assert!(!config.domains_manager().is_frozen("host2")?);
 
         assert_eq!(mock.call_called(), 1);
         assert_eq!(mock.on_retry_request_called(), 0);
@@ -596,10 +582,11 @@ mod tests {
         assert_eq!(mock.on_request_built_called(), 1);
         assert_eq!(mock.on_response_called(), 0);
         assert_eq!(mock.on_error_called(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_unretryable_error() {
+    fn test_unretryable_error() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(HTTPRequestCounter {
             error_kind: ErrorKind::UnretryableError,
             is_retry_safe: false,
@@ -608,8 +595,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+            .build()?;
         assert!(Builder::new(
             get_auth(),
             config.clone(),
@@ -621,8 +607,8 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert!(!config.domains_manager().is_frozen("host1").unwrap());
-        assert!(!config.domains_manager().is_frozen("host2").unwrap());
+        assert!(!config.domains_manager().is_frozen("host1")?);
+        assert!(!config.domains_manager().is_frozen("host2")?);
 
         assert_eq!(mock.call_called(), 1);
         assert_eq!(mock.on_retry_request_called(), 0);
@@ -630,17 +616,17 @@ mod tests {
         assert_eq!(mock.on_request_built_called(), 1);
         assert_eq!(mock.on_response_called(), 0);
         assert_eq!(mock.on_error_called(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_status_code_571_with_get() {
+    fn test_status_code_571_with_get() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(ErrorResponseMock::new(571, "Test Error"));
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+            .build()?;
         assert!(Builder::new(
             get_auth(),
             config,
@@ -659,17 +645,17 @@ mod tests {
         assert_eq!(mock.on_request_built_called(), 2);
         assert_eq!(mock.on_response_called(), 0);
         assert_eq!(mock.on_error_called(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_status_code_571_with_post() {
+    fn test_status_code_571_with_post() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(ErrorResponseMock::new(571, "Test Error"));
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+            .build()?;
         assert!(Builder::new(
             get_auth(),
             config,
@@ -687,17 +673,17 @@ mod tests {
         assert_eq!(mock.on_request_built_called(), 2);
         assert_eq!(mock.on_response_called(), 0);
         assert_eq!(mock.on_error_called(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_status_code_504() {
+    fn test_status_code_504() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(ErrorResponseMock::new(504, "Test Error"));
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+            .build()?;
         assert!(Builder::new(
             get_auth(),
             config,
@@ -715,17 +701,17 @@ mod tests {
         assert_eq!(mock.on_request_built_called(), 1);
         assert_eq!(mock.on_response_called(), 0);
         assert_eq!(mock.on_error_called(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_status_code_503() {
+    fn test_status_code_503() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(ErrorResponseMock::new(503, "Test Error"));
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+            .build()?;
         assert!(Builder::new(
             get_auth(),
             config,
@@ -743,17 +729,17 @@ mod tests {
         assert_eq!(mock.on_request_built_called(), 2);
         assert_eq!(mock.on_response_called(), 0);
         assert_eq!(mock.on_error_called(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_status_code_631() {
+    fn test_status_code_631() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(ErrorResponseMock::new(631, "Test Error"));
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+            .build()?;
         assert!(Builder::new(
             get_auth(),
             config,
@@ -771,6 +757,7 @@ mod tests {
         assert_eq!(mock.on_request_built_called(), 1);
         assert_eq!(mock.on_response_called(), 0);
         assert_eq!(mock.on_error_called(), 1);
+        Ok(())
     }
 
     fn get_auth() -> Auth {

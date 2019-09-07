@@ -17,9 +17,10 @@ pub(crate) fn bool_to_int<T: Zero + One>(yes: bool) -> T {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{boxed::Box, error::Error, result::Result};
 
     #[test]
-    fn test_from_int_to_bool() {
+    fn test_from_int_to_bool() -> Result<(), Box<dyn Error>> {
         assert!(int_to_bool(1i8));
         assert!(int_to_bool(1i16));
         assert!(int_to_bool(1i32));
@@ -36,10 +37,11 @@ mod tests {
         assert!(!int_to_bool(0u16));
         assert!(!int_to_bool(0u32));
         assert!(!int_to_bool(0u64));
+        Ok(())
     }
 
     #[test]
-    fn test_from_bool_to_int() {
+    fn test_from_bool_to_int() -> Result<(), Box<dyn Error>> {
         let a: i8 = bool_to_int(true);
         assert_eq!(a, 1i8);
         let a: i16 = bool_to_int(true);
@@ -72,5 +74,6 @@ mod tests {
         assert_eq!(a, 0u32);
         let a: u64 = bool_to_int(false);
         assert_eq!(a, 0u64);
+        Ok(())
     }
 }

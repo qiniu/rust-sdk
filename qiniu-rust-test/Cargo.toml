@@ -12,6 +12,7 @@ keywords = ["qiniu", "storage", "testing"]
 chrono = "0.4.8"
 qiniu = { version = "0.1.0", path = "../qiniu-rust" }
 qiniu-test-utils = { version = "0.1.0", path = "../qiniu-rust-test-utils" }
+mime = "0.3.14"
 
 [features]
 default = []

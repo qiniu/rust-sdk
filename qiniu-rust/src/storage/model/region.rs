@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use maplit::hashmap;
 use qiniu_http::Result;
 use serde::Deserialize;
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, boxed::Box, collections::HashMap};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum RegionId {
@@ -200,6 +200,26 @@ impl Region {
             .send()?
             .parse_json()?;
         Ok(result.into_regions())
+    }
+
+    pub(in super::super) fn query_uc_urls<B: Into<String>>(
+        bucket: B,
+        auth: Auth,
+        config: Config,
+    ) -> Result<Box<[Box<[Box<str>]>]>> {
+        let use_https = config.use_https();
+        Ok(Self::query(bucket, auth, config)?
+            .into_iter()
+            .map(|region| {
+                region
+                    .up_urls(use_https)
+                    .into_iter()
+                    .map(|url| url.into())
+                    .collect::<Vec<Box<str>>>()
+                    .into()
+            })
+            .collect::<Vec<Box<[Box<str>]>>>()
+            .into())
     }
 }
 
@@ -446,9 +466,10 @@ mod tests {
     use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::JSONCallMock;
     use serde_json::json;
+    use std::{boxed::Box, error::Error, result::Result};
 
     #[test]
-    fn test_query_region_by_expected_domain() {
+    fn test_query_region_by_expected_domain() -> Result<(), Box<dyn Error>> {
         let config = ConfigBuilder::default()
             .http_request_call(Box::new(JSONCallMock::new(
                 200,
@@ -466,8 +487,8 @@ mod tests {
                 }),
             )))
             .build()
-            .unwrap();
-        let regions = Region::query("z0-bucket", get_auth(), config).unwrap();
+            ?;
+        let regions = Region::query("z0-bucket", get_auth(), config)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();
         assert_eq!(region.region_id(), None);
@@ -503,10 +524,11 @@ mod tests {
         assert_eq!(region.rsf_https_url(), "https://rsf.qbox.me");
         assert_eq!(region.api_http_url(), "http://api.qiniu.com");
         assert_eq!(region.api_https_url(), "https://api.qiniu.com");
+        Ok(())
     }
 
     #[test]
-    fn test_query_region_by_unexpected_domain() {
+    fn test_query_region_by_unexpected_domain() -> Result<(), Box<dyn Error>> {
         let config = ConfigBuilder::default()
             .http_request_call(Box::new(JSONCallMock::new(
                 200,
@@ -523,9 +545,8 @@ mod tests {
                     }]
                 }),
             )))
-            .build()
-            .unwrap();
-        let regions = Region::query("z5-bucket", get_auth(), config).unwrap();
+            .build()?;
+        let regions = Region::query("z5-bucket", get_auth(), config)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();
         assert_eq!(region.region_id(), None);
@@ -561,6 +582,7 @@ mod tests {
         assert_eq!(region.rsf_https_url(), "https://rsf.qbox.me");
         assert_eq!(region.api_http_url(), "http://api.qiniu.com");
         assert_eq!(region.api_https_url(), "https://api.qiniu.com");
+        Ok(())
     }
 
     fn get_auth() -> Auth {

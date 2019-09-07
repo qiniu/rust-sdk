@@ -4,12 +4,12 @@ use super::{
         token::Token,
         DomainsManager,
     },
-    Parts, Request,
+    Parts, Request, ResponseCallback,
 };
 use error_chain::error_chain;
 use qiniu_http::{HeaderName, HeaderValue, Headers, Method};
 use serde::Serialize;
-use std::{collections::HashMap, result, time::Duration};
+use std::{collections::HashMap, result::Result as StdResult, time::Duration};
 
 error_chain! {
     foreign_links {
@@ -18,16 +18,14 @@ error_chain! {
     }
 }
 
-pub struct Builder<'a> {
+pub(crate) struct Builder<'a> {
     parts: Parts<'a>,
     domains_manager: DomainsManager,
     host_freeze_duration: Duration,
 }
 
-pub type BuildResult<'a> = result::Result<Request<'a>, Error>;
-
 impl<'a> Builder<'a> {
-    pub fn new(auth: Auth, config: Config, method: Method, path: &'a str, hosts: &'a [&'a str]) -> Builder<'a> {
+    pub(crate) fn new(auth: Auth, config: Config, method: Method, path: &'a str, hosts: &'a [&'a str]) -> Builder<'a> {
         Builder {
             domains_manager: config.domains_manager().clone(),
             host_freeze_duration: config.host_freeze_duration(),
@@ -42,11 +40,13 @@ impl<'a> Builder<'a> {
                 body: None,
                 token: Token::None,
                 read_body: false,
+                idempotent: false,
+                response_callback: None,
             },
         }
     }
 
-    pub fn header<K: Into<HeaderName>, V: Into<HeaderValue>>(mut self, key: K, value: V) -> Builder<'a> {
+    pub(crate) fn header<K: Into<HeaderName>, V: Into<HeaderValue>>(mut self, key: K, value: V) -> Builder<'a> {
         match self.parts.headers {
             Some(ref mut headers) => {
                 headers.insert(key.into(), value.into());
@@ -62,7 +62,7 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub fn query<K: Into<String>, V: Into<String>>(mut self, key: K, value: V) -> Builder<'a> {
+    pub(crate) fn query<K: Into<String>, V: Into<String>>(mut self, key: K, value: V) -> Builder<'a> {
         match self.parts.query {
             Some(ref mut query) => {
                 query.insert(key.into(), value.into());
@@ -78,35 +78,45 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub fn token(mut self, token: Token) -> Builder<'a> {
+    pub(crate) fn token(mut self, token: Token) -> Builder<'a> {
         self.parts.token = token;
         self
     }
 
-    pub fn accept_json(mut self) -> Builder<'a> {
+    pub(crate) fn idempotent(mut self) -> Builder<'a> {
+        self.parts.idempotent = true;
+        self
+    }
+
+    pub(crate) fn response_callback(mut self, callback: &'a dyn ResponseCallback) -> Builder<'a> {
+        self.parts.response_callback = Some(callback);
+        self
+    }
+
+    pub(crate) fn accept_json(mut self) -> Builder<'a> {
         self = self.header("Accept", "application/json");
         self.parts.read_body = true;
         self
     }
 
-    pub fn no_body(self) -> Request<'a> {
+    pub(crate) fn no_body(self) -> Request<'a> {
         self.build()
     }
 
-    pub fn raw_body<T: Into<Vec<u8>>, S: Into<HeaderValue>>(mut self, content_type: S, body: T) -> Request<'a> {
+    pub(crate) fn raw_body<T: Into<Vec<u8>>, S: Into<HeaderValue>>(mut self, content_type: S, body: T) -> Request<'a> {
         self = self.header("Content-Type", content_type);
         self.parts.body = Some(body.into());
         self.build()
     }
 
-    pub fn json_body<T: Serialize>(mut self, body: &T) -> BuildResult<'a> {
+    pub(crate) fn json_body<T: Serialize>(mut self, body: &T) -> StdResult<Request<'a>, Error> {
         let serialized_body = serde_json::to_vec(body)?;
         self = self.header("Content-Type", "application/json");
         self.parts.body = Some(serialized_body);
         Ok(self.build())
     }
 
-    pub fn form_body<T: Serialize>(mut self, body: &T) -> BuildResult<'a> {
+    pub(crate) fn form_body<T: Serialize>(mut self, body: &T) -> StdResult<Request<'a>, Error> {
         let serialized_body = serde_urlencoded::to_string(body)?;
         self = self.header("Content-Type", "application/x-www-form-urlencoded");
         self.parts.body = Some(serialized_body.into_bytes());

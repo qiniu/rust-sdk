@@ -32,7 +32,7 @@ pub struct ConfigInner {
     batch_max_operation_size: usize,
 
     #[get_copy = "pub"]
-    upload_threshold: usize,
+    upload_threshold: u64,
 
     #[get_copy = "pub"]
     http_request_retries: usize,
@@ -122,7 +122,11 @@ impl Deref for Config {
 mod tests {
     use super::*;
     use qiniu_http::{Request, RequestBuilder, Response, ResponseBuilder, Result};
-    use std::io::{Cursor, Read};
+    use std::{
+        error::Error,
+        io::{Cursor, Read},
+        result::Result as StdResult,
+    };
 
     struct FakeHTTPRequester;
     impl HTTPCaller for FakeHTTPRequester {
@@ -136,38 +140,33 @@ mod tests {
     }
 
     #[test]
-    fn test_config_with_set_http_request_call() {
+    fn test_config_with_set_http_request_call() -> StdResult<(), Box<dyn Error>> {
         let config = ConfigBuilder::default()
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
             .http_request_call(Box::new(FakeHTTPRequester))
-            .build()
-            .unwrap();
+            .build()?;
 
         let http_response = config
             .http_request_call()
-            .call(&RequestBuilder::default().url("http://fake.qiniu.com").build())
-            .unwrap();
+            .call(&RequestBuilder::default().url("http://fake.qiniu.com").build())?;
 
         let mut http_body = String::new();
         assert_eq!(http_response.status_code(), 612);
-        http_response
-            .into_body()
-            .unwrap()
-            .read_to_string(&mut http_body)
-            .unwrap();
+        http_response.into_body().unwrap().read_to_string(&mut http_body)?;
         assert_eq!(http_body, "It's HTTP Body");
+        Ok(())
     }
 
     #[test]
-    fn test_config_with_getters() {
+    fn test_config_with_getters() -> StdResult<(), Box<dyn Error>> {
         let config = ConfigBuilder::default()
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
             .http_request_call(Box::new(FakeHTTPRequester))
-            .build()
-            .unwrap();
+            .build()?;
         assert_eq!(config.http_request_retries(), 5);
         assert_eq!(config.http_request_retry_delay(), Duration::from_secs(1));
+        Ok(())
     }
 }

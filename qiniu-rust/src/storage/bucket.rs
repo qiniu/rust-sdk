@@ -1,4 +1,7 @@
-use super::Region;
+use super::{
+    uploader::{BucketUploader, Uploader},
+    Region,
+};
 use crate::{config::Config, http, utils::auth::Auth};
 use once_cell::sync::OnceCell;
 use qiniu_http::Result;
@@ -12,7 +15,6 @@ pub struct Bucket<'r> {
     regions: OnceCell<Vec<Region>>,
     domains: OnceCell<Vec<Cow<'r, str>>>,
     http_client: http::Client,
-    use_https: bool,
 }
 
 pub struct BucketBuilder<'r> {
@@ -23,7 +25,6 @@ pub struct BucketBuilder<'r> {
     regions: Option<Vec<Region>>,
     domains: Option<Vec<Cow<'r, str>>>,
     http_client: http::Client,
-    use_https: bool,
 }
 
 pub struct BucketRegionIter<'a, 'r: 'a> {
@@ -35,7 +36,6 @@ impl<'r> BucketBuilder<'r> {
     pub(crate) fn new<B: Into<Cow<'r, str>>>(name: B, auth: Auth, config: Config) -> BucketBuilder<'r> {
         BucketBuilder {
             name: name.into(),
-            use_https: config.use_https(),
             http_client: http::Client::new(auth.clone(), config.clone()),
             auth: auth,
             config: config,
@@ -85,7 +85,6 @@ impl<'r> BucketBuilder<'r> {
         Bucket {
             name: self.name,
             auth: self.auth,
-            use_https: self.use_https,
             http_client: self.http_client,
             config: self.config,
             region: self
@@ -104,7 +103,7 @@ impl<'r> BucketBuilder<'r> {
     }
 
     fn uc_url(&self) -> &'static str {
-        Region::uc_url(self.use_https)
+        Region::uc_url(self.config.use_https())
     }
 }
 
@@ -142,14 +141,18 @@ impl<'r> Bucket<'r> {
         Ok(domains.iter().map(|domain| domain.as_ref()).collect())
     }
 
+    pub fn uploader(&self) -> Result<BucketUploader> {
+        Uploader::new(self.auth.clone(), self.config.clone()).for_bucket(self)
+    }
+
     fn rs_url(&self) -> &'static str {
         self.region()
             .unwrap_or_else(|_| Region::hua_dong())
-            .rs_url(self.use_https)
+            .rs_url(self.config.use_https())
     }
 
     fn uc_url(&self) -> &'static str {
-        Region::uc_url(self.use_https)
+        Region::uc_url(self.config.use_https())
     }
 }
 
@@ -193,25 +196,25 @@ mod tests {
     use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};
     use serde_json::json;
-    use std::{boxed::Box, sync::Arc, thread};
+    use std::{boxed::Box, error::Error, result::Result, sync::Arc, thread};
 
     #[test]
-    fn test_storage_bucket_set_region() {
+    fn test_storage_bucket_set_region() -> Result<(), Box<dyn Error>> {
         let config: Config = ConfigBuilder::default()
             .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
-            .build()
-            .unwrap();
+            .build()?;
         let bucket = BucketBuilder::new("test-bucket", get_auth(), config)
             .region(Region::hua_bei())
             .build();
-        assert_eq!(bucket.region().unwrap().region_id(), Some(RegionId::Z1));
-        let regions = bucket.regions().unwrap().collect::<Vec<_>>();
+        assert_eq!(bucket.region()?.region_id(), Some(RegionId::Z1));
+        let regions = bucket.regions()?.collect::<Vec<_>>();
         assert_eq!(regions.len(), 1);
         assert_eq!(regions.first().unwrap().region_id(), Some(RegionId::Z1));
+        Ok(())
     }
 
     #[test]
-    fn test_storage_bucket_prequery_region() {
+    fn test_storage_bucket_prequery_region() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(
             200,
             Headers::new(),
@@ -235,32 +238,25 @@ mod tests {
                 }]
             }),
         ));
-        let config: Config = ConfigBuilder::default()
-            .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+        let config: Config = ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?;
         let bucket = BucketBuilder::new("test-bucket", get_auth(), config)
-            .auto_detect_region()
-            .unwrap()
+            .auto_detect_region()?
             .build();
         assert_eq!(mock.call_called(), 1);
         assert!(bucket
-            .region()
-            .unwrap()
+            .region()?
             .up_urls(true)
             .contains(&"https://up-xs.qiniup.com".into()));
         assert!(bucket
-            .region()
-            .unwrap()
+            .region()?
             .up_urls(true)
             .contains(&"https://up-jjh.qiniup.com".into()));
         assert!(bucket
-            .region()
-            .unwrap()
+            .region()?
             .up_urls(true)
             .contains(&"https://upload.qbox.me".into()));
 
-        let regions = bucket.regions().unwrap().collect::<Vec<_>>();
+        let regions = bucket.regions()?.collect::<Vec<_>>();
         assert_eq!(regions.len(), 2);
         assert!(regions
             .get(1)
@@ -279,10 +275,12 @@ mod tests {
             .contains(&"https://upload-z1.qbox.me".into()));
 
         assert_eq!(mock.call_called(), 1);
+
+        Ok(())
     }
 
     #[test]
-    fn test_storage_bucket_query_region() {
+    fn test_storage_bucket_query_region() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(
             200,
             Headers::new(),
@@ -306,120 +304,126 @@ mod tests {
                 }]
             }),
         ));
-        let config: Config = ConfigBuilder::default()
-            .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+        let config: Config = ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?;
         let bucket = Arc::new(BucketBuilder::new("test-bucket", get_auth(), config).build());
         assert_eq!(mock.call_called(), 0);
 
         let mut threads = Vec::with_capacity(4);
-        let b = bucket.clone();
-        threads.push(thread::spawn(move || {
-            assert!(b
-                .region()
-                .unwrap()
-                .up_urls(true)
-                .contains(&"https://up-xs.qiniup.com".into()));
-        }));
+        {
+            let bucket = bucket.clone();
+            threads.push(thread::spawn(move || {
+                assert!(bucket
+                    .region()
+                    .unwrap()
+                    .up_urls(true)
+                    .contains(&"https://up-xs.qiniup.com".into()));
+            }));
+        }
 
-        let b = bucket.clone();
-        threads.push(thread::spawn(move || {
-            assert!(b
-                .region()
-                .unwrap()
-                .up_urls(true)
-                .contains(&"https://up-jjh.qiniup.com".into()));
-        }));
+        {
+            let bucket = bucket.clone();
+            threads.push(thread::spawn(move || {
+                assert!(bucket
+                    .region()
+                    .unwrap()
+                    .up_urls(true)
+                    .contains(&"https://up-jjh.qiniup.com".into()));
+            }));
+        }
 
-        let b = bucket.clone();
-        threads.push(thread::spawn(move || {
-            assert!(b
-                .region()
-                .unwrap()
-                .up_urls(true)
-                .contains(&"https://upload.qbox.me".into()));
-        }));
+        {
+            let bucket = bucket.clone();
+            threads.push(thread::spawn(move || {
+                assert!(bucket
+                    .region()
+                    .unwrap()
+                    .up_urls(true)
+                    .contains(&"https://upload.qbox.me".into()));
+            }));
+        }
 
-        let b = bucket.clone();
-        threads.push(thread::spawn(move || {
-            let regions = b.regions().unwrap().collect::<Vec<_>>();
-            assert_eq!(regions.len(), 2);
-            assert!(regions
-                .get(1)
-                .unwrap()
-                .up_urls(true)
-                .contains(&"https://up-xs-z2.qiniup.com".into()));
-            assert!(regions
-                .get(1)
-                .unwrap()
-                .up_urls(true)
-                .contains(&"https://up-jjh-z2.qiniup.com".into()));
-            assert!(regions
-                .get(1)
-                .unwrap()
-                .up_urls(true)
-                .contains(&"https://upload-z2.qbox.me".into()));
-        }));
+        {
+            let bucket = bucket.clone();
+            threads.push(thread::spawn(move || {
+                let regions = bucket.regions().unwrap().collect::<Vec<_>>();
+                assert_eq!(regions.len(), 2);
+                assert!(regions
+                    .get(1)
+                    .unwrap()
+                    .up_urls(true)
+                    .contains(&"https://up-xs-z2.qiniup.com".into()));
+                assert!(regions
+                    .get(1)
+                    .unwrap()
+                    .up_urls(true)
+                    .contains(&"https://up-jjh-z2.qiniup.com".into()));
+                assert!(regions
+                    .get(1)
+                    .unwrap()
+                    .up_urls(true)
+                    .contains(&"https://upload-z2.qbox.me".into()));
+            }));
+        }
 
         threads.into_iter().for_each(|thread| thread.join().unwrap());
         assert_eq!(mock.call_called(), 1);
+
+        Ok(())
     }
 
     #[test]
-    fn test_storage_bucket_set_domain() {
+    fn test_storage_bucket_set_domain() -> Result<(), Box<dyn Error>> {
         let config: Config = ConfigBuilder::default()
             .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
-            .build()
-            .unwrap();
+            .build()?;
         let bucket = BucketBuilder::new("test-bucket", get_auth(), config)
             .domain("abc.com")
             .domain("def.com")
             .build();
-        assert_eq!(bucket.domains().unwrap().len(), 2);
-        assert_eq!(bucket.domains().unwrap().first(), Some(&"abc.com"));
+        assert_eq!(bucket.domains()?.len(), 2);
+        assert_eq!(bucket.domains()?.first(), Some(&"abc.com"));
+        Ok(())
     }
 
     #[test]
-    fn test_storage_bucket_prequery_domain() {
+    fn test_storage_bucket_prequery_domain() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
-        let config: Config = ConfigBuilder::default()
-            .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+        let config: Config = ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?;
         let bucket = BucketBuilder::new("test-bucket", get_auth(), config)
-            .auto_detect_domains()
-            .unwrap()
+            .auto_detect_domains()?
             .build();
         assert_eq!(mock.call_called(), 1);
-        assert!(bucket.domains().unwrap().contains(&"abc.com"));
-        assert!(bucket.domains().unwrap().contains(&"def.com"));
+        assert!(bucket.domains()?.contains(&"abc.com"));
+        assert!(bucket.domains()?.contains(&"def.com"));
         assert_eq!(mock.call_called(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_storage_bucket_query_domain() {
+    fn test_storage_bucket_query_domain() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
-        let config: Config = ConfigBuilder::default()
-            .http_request_call(mock.as_boxed())
-            .build()
-            .unwrap();
+        let config: Config = ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?;
         let bucket = Arc::new(BucketBuilder::new("test-bucket", get_auth(), config).build());
         assert_eq!(mock.call_called(), 0);
 
         let mut threads = Vec::with_capacity(3);
-        let b = bucket.clone();
-        threads.push(thread::spawn(move || {
-            assert!(b.domains().unwrap().contains(&"abc.com"));
-        }));
+        {
+            let bucket = bucket.clone();
+            threads.push(thread::spawn(move || {
+                assert!(bucket.domains().unwrap().contains(&"abc.com"));
+            }));
+        }
 
-        let b = bucket.clone();
-        threads.push(thread::spawn(move || {
-            assert!(b.domains().unwrap().contains(&"def.com"));
-        }));
+        {
+            let bucket = bucket.clone();
+            threads.push(thread::spawn(move || {
+                assert!(bucket.domains().unwrap().contains(&"def.com"));
+            }));
+        }
 
         threads.into_iter().for_each(|thread| thread.join().unwrap());
         assert_eq!(mock.call_called(), 1);
+        Ok(())
     }
 
     fn get_auth() -> Auth {
