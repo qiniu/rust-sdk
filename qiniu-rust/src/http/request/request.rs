@@ -79,7 +79,7 @@ impl<'a> Request<'a> {
                     HTTPError::new_unretryable_error_from_parts(
                         err,
                         Some(self.parts.method),
-                        Some(host.to_owned() + &self.parts.path),
+                        Some((host.to_owned() + &self.parts.path).into()),
                     )
                 })?
                 .into_string();
@@ -145,15 +145,16 @@ impl<'a> Request<'a> {
         if (200..300).contains(&status_code) {
             return Ok(response);
         }
-        let mut error_message: Option<String> = None;
+        let mut error_message: Option<Box<str>> = None;
         if let Some(body) = Self::read_body_to_string(&mut response, request)? {
             error_message = serde_json::from_str::<error::ErrorResponse>(&body)
                 .map_err(|err| HTTPError::new_retryable_error(err, false, request, Some(&response)))?
-                .error;
+                .error
+                .map(|e| e.into())
         }
         Err(Self::response_error(
             response.status_code(),
-            error_message.unwrap_or_else(|| "(None)".to_string()),
+            error_message.unwrap_or_else(|| "(None)".into()),
             request,
             Some(&response),
         ))
@@ -204,7 +205,7 @@ impl<'a> Request<'a> {
 
     fn response_error(
         status_code: StatusCode,
-        error_message: String,
+        error_message: Box<str>,
         request: &HTTPRequest,
         response: Option<&HTTPResponse>,
     ) -> HTTPError {

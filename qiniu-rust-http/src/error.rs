@@ -2,8 +2,8 @@ use super::{method::Method, request::Request, response::Response};
 use getset::{CopyGetters, Getters};
 use std::{boxed::Box, error, fmt, marker::Send, result};
 
-pub type URL = String;
-pub type RequestID = String;
+pub type URL = Box<str>;
+pub type RequestID = Box<str>;
 pub type Result<T> = result::Result<T, Error>;
 
 #[derive(Getters, CopyGetters)]
@@ -40,7 +40,7 @@ impl Error {
             is_retry_safe: is_retry_safe,
             method: Some(request.method().to_owned()),
             request_id: Self::extract_req_id_from_response(response),
-            url: Some(request.url().to_string()),
+            url: Some(request.url().into()),
         }
     }
 
@@ -160,7 +160,7 @@ impl Error {
     }
 
     fn extract_req_id_from_response(response: Option<&Response>) -> Option<RequestID> {
-        response.and_then(|resp| resp.headers().get("X-Reqid".into()).map(|v| v.as_ref().to_string()))
+        response.and_then(|resp| resp.headers().get("X-Reqid".into()).map(|v| v.as_ref().into()))
     }
 }
 
@@ -183,7 +183,7 @@ impl fmt::Display for Error {
             "{:?}: {} {}: ",
             self.kind,
             self.method.as_ref().map(|m| m.as_str()).unwrap_or("None"),
-            self.url.as_ref().map(|u| u.as_str()).unwrap_or("None"),
+            self.url.as_ref().map(|u| &u as &str).unwrap_or("None"),
         )?;
         self.cause.fmt(f)
     }

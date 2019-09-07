@@ -1,5 +1,6 @@
 use error_chain::error_chain;
 use std::{
+    boxed::Box,
     mem,
     sync::Arc,
     time::{Duration, Instant},
@@ -7,7 +8,7 @@ use std::{
 
 #[derive(Clone)]
 pub struct DomainsManager {
-    map: Arc<chashmap::CHashMap<String, Instant>>,
+    map: Arc<chashmap::CHashMap<Box<str>, Instant>>,
 }
 
 impl DomainsManager {
@@ -17,7 +18,7 @@ impl DomainsManager {
         }
     }
 
-    pub fn is_frozen<D: Into<String>>(&self, domain: D) -> Result<bool> {
+    pub fn is_frozen<D: AsRef<str>>(&self, domain: D) -> Result<bool> {
         let domain = Self::normalize_domain(domain)?;
         match self.map.get(&domain) {
             Some(unfreeze_time) => {
@@ -32,7 +33,7 @@ impl DomainsManager {
         }
     }
 
-    pub fn freeze<D: Into<String>>(&self, domain: D, frozen_seconds: Duration) -> Result<()> {
+    pub fn freeze<D: AsRef<str>>(&self, domain: D, frozen_seconds: Duration) -> Result<()> {
         self.map
             .insert(Self::normalize_domain(domain)?, Instant::now() + frozen_seconds);
         Ok(())
@@ -42,25 +43,25 @@ impl DomainsManager {
         self.map.clear();
     }
 
-    fn normalize_domain<D: Into<String>>(domain: D) -> Result<String> {
-        let domain = domain.into();
+    fn normalize_domain<D: AsRef<str>>(domain: D) -> Result<Box<str>> {
+        let domain = domain.as_ref();
         match url::Url::parse(&domain) {
             Ok(url) => url
                 .host_str()
-                .map(|h| h.to_string())
-                .ok_or_else(|| ErrorKind::InvalidDomain(domain).into()),
+                .map(|h| h.into())
+                .ok_or_else(|| ErrorKind::InvalidDomain(domain.into()).into()),
             Err(err) => match err {
                 url::ParseError::RelativeUrlWithoutBase => {
                     let domain_with_scheme = "http://".to_owned() + &domain;
                     match url::Url::parse(&domain_with_scheme) {
                         Ok(url) => url
                             .host_str()
-                            .map(|h| h.to_string())
-                            .ok_or_else(|| ErrorKind::InvalidDomain(domain).into()),
-                        Err(_) => Err(ErrorKind::InvalidDomain(domain).into()),
+                            .map(|h| h.into())
+                            .ok_or_else(|| ErrorKind::InvalidDomain(domain.into()).into()),
+                        Err(_) => Err(ErrorKind::InvalidDomain(domain.into()).into()),
                     }
                 }
-                _ => Err(ErrorKind::InvalidDomain(domain).into()),
+                _ => Err(ErrorKind::InvalidDomain(domain.into()).into()),
             },
         }
     }
@@ -68,7 +69,7 @@ impl DomainsManager {
 
 error_chain! {
     errors {
-        InvalidDomain(d: String) {
+        InvalidDomain(d: Box<str>) {
             description("Invalid domain")
             display("Invalid domain: {}", d)
         }

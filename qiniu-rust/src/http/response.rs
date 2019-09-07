@@ -35,7 +35,11 @@ impl<'a> Response<'a> {
     pub fn parse_json<T: DeserializeOwned>(&mut self) -> HTTPResult<T> {
         let body = self.take_body().unwrap();
         serde_json::from_reader(body).map_err(|err| {
-            HTTPError::new_unretryable_error_from_parts(err, Some(self.method), Some(self.host.to_owned() + self.path))
+            HTTPError::new_unretryable_error_from_parts(
+                err,
+                Some(self.method),
+                Some((self.host.to_owned() + self.path).into()),
+            )
         })
     }
 

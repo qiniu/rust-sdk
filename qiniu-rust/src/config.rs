@@ -122,10 +122,7 @@ impl Deref for Config {
 mod tests {
     use super::*;
     use qiniu_http::{Request, RequestBuilder, Response, ResponseBuilder, Result};
-    use std::{
-        io::{Cursor, Read},
-        iter,
-    };
+    use std::io::{Cursor, Read};
 
     struct FakeHTTPRequester;
     impl HTTPCaller for FakeHTTPRequester {
@@ -152,14 +149,14 @@ mod tests {
             .call(&RequestBuilder::default().url("http://fake.qiniu.com").build())
             .unwrap();
 
-        let mut http_body = iter::repeat(0).take("It's HTTP Body".len()).collect::<Vec<u8>>();
+        let mut http_body = String::new();
         assert_eq!(http_response.status_code(), 612);
         http_response
             .into_body()
             .unwrap()
-            .read(http_body.as_mut_slice())
+            .read_to_string(&mut http_body)
             .unwrap();
-        assert_eq!(String::from_utf8(http_body).unwrap().as_str(), "It's HTTP Body");
+        assert_eq!(http_body, "It's HTTP Body");
     }
 
     #[test]
