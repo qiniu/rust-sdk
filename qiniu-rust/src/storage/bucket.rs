@@ -200,12 +200,15 @@ mod tests {
 
     #[test]
     fn test_storage_bucket_set_region() -> Result<(), Box<dyn Error>> {
-        let config: Config = ConfigBuilder::default()
-            .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
-            .build()?;
-        let bucket = BucketBuilder::new("test-bucket", get_auth(), config)
-            .region(Region::hua_bei())
-            .build();
+        let bucket = BucketBuilder::new(
+            "test-bucket",
+            get_auth(),
+            ConfigBuilder::default()
+                .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
+                .build()?,
+        )
+        .region(Region::hua_bei())
+        .build();
         assert_eq!(bucket.region()?.region_id(), Some(RegionId::Z1));
         let regions = bucket.regions()?.collect::<Vec<_>>();
         assert_eq!(regions.len(), 1);
@@ -238,10 +241,13 @@ mod tests {
                 }]
             }),
         ));
-        let config: Config = ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?;
-        let bucket = BucketBuilder::new("test-bucket", get_auth(), config)
-            .auto_detect_region()?
-            .build();
+        let bucket = BucketBuilder::new(
+            "test-bucket",
+            get_auth(),
+            ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
+        )
+        .auto_detect_region()?
+        .build();
         assert_eq!(mock.call_called(), 1);
         assert!(bucket
             .region()?
@@ -304,8 +310,14 @@ mod tests {
                 }]
             }),
         ));
-        let config: Config = ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?;
-        let bucket = Arc::new(BucketBuilder::new("test-bucket", get_auth(), config).build());
+        let bucket = Arc::new(
+            BucketBuilder::new(
+                "test-bucket",
+                get_auth(),
+                ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
+            )
+            .build(),
+        );
         assert_eq!(mock.call_called(), 0);
 
         let mut threads = Vec::with_capacity(4);
@@ -373,13 +385,16 @@ mod tests {
 
     #[test]
     fn test_storage_bucket_set_domain() -> Result<(), Box<dyn Error>> {
-        let config: Config = ConfigBuilder::default()
-            .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
-            .build()?;
-        let bucket = BucketBuilder::new("test-bucket", get_auth(), config)
-            .domain("abc.com")
-            .domain("def.com")
-            .build();
+        let bucket = BucketBuilder::new(
+            "test-bucket",
+            get_auth(),
+            ConfigBuilder::default()
+                .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
+                .build()?,
+        )
+        .domain("abc.com")
+        .domain("def.com")
+        .build();
         assert_eq!(bucket.domains()?.len(), 2);
         assert_eq!(bucket.domains()?.first(), Some(&"abc.com"));
         Ok(())
@@ -388,10 +403,13 @@ mod tests {
     #[test]
     fn test_storage_bucket_prequery_domain() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
-        let config: Config = ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?;
-        let bucket = BucketBuilder::new("test-bucket", get_auth(), config)
-            .auto_detect_domains()?
-            .build();
+        let bucket = BucketBuilder::new(
+            "test-bucket",
+            get_auth(),
+            ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
+        )
+        .auto_detect_domains()?
+        .build();
         assert_eq!(mock.call_called(), 1);
         assert!(bucket.domains()?.contains(&"abc.com"));
         assert!(bucket.domains()?.contains(&"def.com"));
@@ -402,8 +420,14 @@ mod tests {
     #[test]
     fn test_storage_bucket_query_domain() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
-        let config: Config = ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?;
-        let bucket = Arc::new(BucketBuilder::new("test-bucket", get_auth(), config).build());
+        let bucket = Arc::new(
+            BucketBuilder::new(
+                "test-bucket",
+                get_auth(),
+                ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
+            )
+            .build(),
+        );
         assert_eq!(mock.call_called(), 0);
 
         let mut threads = Vec::with_capacity(3);

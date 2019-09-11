@@ -29,6 +29,7 @@ pub(super) struct FormUploader<'u> {
     content_type: String,
     upload_policy: UploadPolicy<'u>,
     body: Vec<u8>,
+    multi_zones_retry: bool,
 }
 
 impl<'u> FormUploaderBuilder<'u> {
@@ -90,7 +91,25 @@ impl<'u> FormUploaderBuilder<'u> {
         if let Some(crc32) = crc32 {
             self.multipart.add_text("crc32", crc32.to_string());
         }
+        self.upload_multipart(true)
+    }
 
+    pub(super) fn stream<'n: 'u, R: Read + 'u, N: Into<Cow<'n, str>>>(
+        mut self,
+        stream: R,
+        file_name: Option<N>,
+        mime: Option<Mime>,
+    ) -> IOResult<FormUploader<'u>> {
+        self.multipart.add_stream(
+            "file",
+            stream,
+            Some(file_name.map(|name| name.into()).unwrap_or_else(|| "streamName".into())),
+            mime,
+        );
+        self.upload_multipart(false)
+    }
+
+    fn upload_multipart(mut self, multi_zones_retry: bool) -> IOResult<FormUploader<'u>> {
         let mut fields = self.multipart.prepare().map_err(|err| err.error)?;
         let mut body = Vec::with_capacity(
             self.bucket_uploader
@@ -105,17 +124,9 @@ impl<'u> FormUploaderBuilder<'u> {
             upload_policy: self.upload_policy,
             content_type: "multipart/form-data; boundary=".to_owned() + fields.boundary(),
             body: body,
+            multi_zones_retry: multi_zones_retry,
         })
     }
-
-    // TODO:
-    // pub(super) fn with_stream<R: Read, N: Into<Cow<'u, str>>>(
-    //     mut self,
-    //     stream: R,
-    //     file_name: Option<N>,
-    //     mime: Option<Mime>,
-    // ) -> IOResult<FormUploader<'u>> {
-    // }
 
     fn calc_crc32(file: &mut File) -> IOResult<u32> {
         const BUF_SIZE: usize = 1 << 22;
@@ -164,8 +175,12 @@ impl<'u> FormUploader<'u> {
                     HTTPErrorKind::RetryableError
                     | HTTPErrorKind::HostUnretryableError
                     | HTTPErrorKind::ZoneUnretryableError => {
-                        prev_err = Some(err);
-                        continue;
+                        if self.multi_zones_retry {
+                            prev_err = Some(err);
+                            continue;
+                        } else {
+                            return Err(err);
+                        }
                     }
                     _ => {
                         return Err(err);
@@ -182,5 +197,156 @@ impl<'u> FormUploader<'u> {
                 None,
             )
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{super::super::UploadPolicyBuilder, *};
+    use crate::{config::ConfigBuilder, utils::auth::Auth};
+    use qiniu_http::Headers;
+    use qiniu_test_utils::{
+        http_call_mock::{CounterCallMock, ErrorResponseMock, JSONCallMock},
+        temp_file::create_temp_file,
+    };
+    use serde_json::json;
+    use std::{boxed::Box, error::Error, result::Result};
+
+    #[test]
+    fn test_storage_uploader_form_uploader_upload_file() -> Result<(), Box<dyn Error>> {
+        let temp_path = create_temp_file(1 << 10)?.into_temp_path();
+        let mock = CounterCallMock::new(JSONCallMock::new(
+            200,
+            Headers::new(),
+            json!({"key": "abc", "hash": "def"}),
+        ));
+        let config = ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?;
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        let result = BucketUploader::new(
+            "test-upload",
+            vec![
+                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
+                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+            ],
+            get_auth(),
+            config,
+        )
+        .upload_token(UploadToken::from_policy(policy, get_auth()))
+        .key("test:file")
+        .upload_file(&temp_path, Some("file"), None)?;
+        assert_eq!(result.key(), Some("abc"));
+        assert_eq!(result.hash(), Some("def"));
+        assert_eq!(mock.call_called(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_uploader_form_uploader_upload_file_with_500_error() -> Result<(), Box<dyn Error>> {
+        let temp_path = create_temp_file(1 << 10)?.into_temp_path();
+        let mock = CounterCallMock::new(ErrorResponseMock::new(500, "test error"));
+        let config = ConfigBuilder::default()
+            .http_request_retries(3)
+            .http_request_call(mock.as_boxed())
+            .build()?;
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        BucketUploader::new(
+            "test-upload",
+            vec![
+                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
+                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+            ],
+            get_auth(),
+            config,
+        )
+        .upload_token(UploadToken::from_policy(policy, get_auth()))
+        .key("test:file")
+        .upload_file(&temp_path, Some("file"), None)
+        .unwrap_err();
+        assert_eq!(mock.call_called(), 16);
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_uploader_form_uploader_upload_file_with_503_error() -> Result<(), Box<dyn Error>> {
+        let temp_path = create_temp_file(1 << 10)?.into_temp_path();
+        let mock = CounterCallMock::new(ErrorResponseMock::new(503, "test error"));
+        let config = ConfigBuilder::default()
+            .http_request_retries(3)
+            .http_request_call(mock.as_boxed())
+            .build()?;
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        BucketUploader::new(
+            "test-upload",
+            vec![
+                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
+                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+            ],
+            get_auth(),
+            config,
+        )
+        .upload_token(UploadToken::from_policy(policy, get_auth()))
+        .key("test:file")
+        .upload_file(&temp_path, Some("file"), None)
+        .unwrap_err();
+        assert_eq!(mock.call_called(), 4);
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_uploader_form_uploader_upload_stream_with_500_error() -> Result<(), Box<dyn Error>> {
+        let file = create_temp_file(1 << 10)?.into_file();
+        let mock = CounterCallMock::new(ErrorResponseMock::new(500, "test error"));
+        let config = ConfigBuilder::default()
+            .http_request_retries(3)
+            .http_request_call(mock.as_boxed())
+            .build()?;
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        BucketUploader::new(
+            "test-upload",
+            vec![
+                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
+                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+            ],
+            get_auth(),
+            config,
+        )
+        .upload_token(UploadToken::from_policy(policy, get_auth()))
+        .key("test:file")
+        .never_be_resumeable()
+        .upload_stream(&file, Some("file"), None)
+        .unwrap_err();
+        assert_eq!(mock.call_called(), 8);
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_uploader_form_uploader_upload_stream_with_503_error() -> Result<(), Box<dyn Error>> {
+        let file = create_temp_file(1 << 10)?.into_file();
+        let mock = CounterCallMock::new(ErrorResponseMock::new(503, "test error"));
+        let config = ConfigBuilder::default()
+            .http_request_retries(3)
+            .http_request_call(mock.as_boxed())
+            .build()?;
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        BucketUploader::new(
+            "test-upload",
+            vec![
+                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
+                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+            ],
+            get_auth(),
+            config,
+        )
+        .upload_token(UploadToken::from_policy(policy, get_auth()))
+        .key("test:file")
+        .never_be_resumeable()
+        .upload_stream(&file, Some("file"), None)
+        .unwrap_err();
+        assert_eq!(mock.call_called(), 2);
+        Ok(())
+    }
+
+    fn get_auth() -> Auth {
+        Auth::new("abcdefghklmnopq", "1234567890")
     }
 }

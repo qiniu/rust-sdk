@@ -6,7 +6,12 @@ use crate::{config::Config, http::Client, utils::auth::Auth};
 use error_chain::error_chain;
 use getset::Getters;
 use mime::Mime;
-use std::{borrow::Cow, collections::HashMap, io, path::Path};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    io::{self, Read},
+    path::Path,
+};
 
 #[derive(Getters)]
 pub struct BucketUploader<'b> {
@@ -52,6 +57,12 @@ impl Clone for BucketUploader<'_> {
             config: self.config.clone(),
             client: Client::new(self.auth.clone(), self.config.clone()),
         }
+    }
+}
+
+impl<'b> BucketUploader<'b> {
+    pub fn upload_token<T: Into<upload_token::UploadToken<'b>>>(&'b self, upload_token: T) -> FileUploaderBuilder<'b> {
+        FileUploaderBuilder::new(Cow::Borrowed(self), upload_token)
     }
 }
 
@@ -153,17 +164,31 @@ impl<'b> FileUploaderBuilder<'b> {
         match self.resumeable_policy {
             ResumeablePolicy::Threshold(threshold) => {
                 if file_path.as_ref().metadata()?.len() >= threshold {
-                    self.chunked_upload(file_path, file_name, mime)
+                    self.upload_file_by_chunks(file_path, file_name, mime)
                 } else {
-                    self.form_upload(file_path, file_name, mime)
+                    self.upload_file_by_form(file_path, file_name, mime)
                 }
             }
-            ResumeablePolicy::Always => self.chunked_upload(file_path, file_name, mime),
-            ResumeablePolicy::Never => self.form_upload(file_path, file_name, mime),
+            ResumeablePolicy::Always => self.upload_file_by_chunks(file_path, file_name, mime),
+            ResumeablePolicy::Never => self.upload_file_by_form(file_path, file_name, mime),
         }
     }
 
-    fn form_upload<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
+    pub fn upload_stream<'n, R: Read, N: Into<Cow<'n, str>>>(
+        self,
+        stream: R,
+        file_name: Option<N>,
+        mime: Option<Mime>,
+    ) -> Result<UploadResult> {
+        match self.resumeable_policy {
+            ResumeablePolicy::Threshold(_) | ResumeablePolicy::Always => {
+                self.upload_stream_by_chunks(stream, file_name, mime)
+            }
+            ResumeablePolicy::Never => self.upload_stream_by_form(stream, file_name, mime),
+        }
+    }
+
+    fn upload_file_by_form<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
         self,
         file_path: P,
         file_name: Option<N>,
@@ -188,9 +213,41 @@ impl<'b> FileUploaderBuilder<'b> {
             .send()?)
     }
 
-    fn chunked_upload<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
+    fn upload_file_by_chunks<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
         self,
         _file_path: P,
+        _file_name: Option<N>,
+        _mime: Option<Mime>,
+    ) -> Result<UploadResult> {
+        panic!("NOT IMPLETEMENT");
+    }
+
+    fn upload_stream_by_form<'n, R: Read, N: Into<Cow<'n, str>>>(
+        self,
+        stream: R,
+        file_name: Option<N>,
+        mime: Option<Mime>,
+    ) -> Result<UploadResult> {
+        let mut uploader = form_uploader::FormUploaderBuilder::new(&self.bucket_uploader, self.upload_token)?;
+        if let Some(key) = self.key {
+            uploader = uploader.key(key);
+        }
+        if let Some(vars) = self.vars {
+            for (k, v) in vars.into_iter() {
+                uploader = uploader.var(k, v);
+            }
+        }
+        if let Some(metadata) = self.metadata {
+            for (k, v) in metadata.into_iter() {
+                uploader = uploader.metadata(k, v);
+            }
+        }
+        Ok(uploader.stream(stream, file_name, mime)?.send()?)
+    }
+
+    fn upload_stream_by_chunks<'n, R: Read, N: Into<Cow<'n, str>>>(
+        self,
+        _stream: R,
         _file_name: Option<N>,
         _mime: Option<Mime>,
     ) -> Result<UploadResult> {

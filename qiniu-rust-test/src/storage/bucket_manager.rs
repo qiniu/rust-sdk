@@ -6,7 +6,7 @@ mod tests {
     use std::{boxed::Box, default::Default, error::Error, result::Result};
 
     #[test]
-    fn test_list_buckets() -> Result<(), Box<dyn Error>> {
+    fn test_storage_bucket_manager_list_buckets() -> Result<(), Box<dyn Error>> {
         let bucket_names = get_client().bucket_manager().bucket_names()?;
         assert!(bucket_names.contains(&"z0-bucket".into()));
         assert!(bucket_names.contains(&"z1-bucket".into()));
@@ -17,7 +17,7 @@ mod tests {
     }
 
     #[test]
-    fn test_new_bucket_and_drop() -> Result<(), Box<dyn Error>> {
+    fn test_storage_bucket_manager_new_bucket_and_drop() -> Result<(), Box<dyn Error>> {
         let client = get_client();
         let bucket_manager = client.bucket_manager();
         let bucket_name: String = format!("test-bucket-{}", Utc::now().timestamp_nanos());
