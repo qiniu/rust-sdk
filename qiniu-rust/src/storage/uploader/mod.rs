@@ -1,6 +1,7 @@
 mod bucket_uploader;
 mod callback;
 mod form_uploader;
+mod resumeable_uploader;
 mod upload_result;
 mod uploader;
 

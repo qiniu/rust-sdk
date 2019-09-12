@@ -15,7 +15,7 @@ where
     T: Serialize,
 {
     status_code: StatusCode,
-    response_headers: Headers,
+    response_headers: Headers<'static>,
     response_body: T,
 }
 
@@ -23,7 +23,7 @@ impl<T> JSONCallMock<T>
 where
     T: Serialize,
 {
-    pub fn new(status_code: StatusCode, headers: Headers, response_body: T) -> JSONCallMock<T> {
+    pub fn new(status_code: StatusCode, headers: Headers<'static>, response_body: T) -> JSONCallMock<T> {
         JSONCallMock {
             status_code: status_code,
             response_headers: headers,

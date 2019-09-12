@@ -24,7 +24,7 @@ impl<'a> Response<'a> {
         target self.inner {
             pub(crate) fn status_code(&self) -> StatusCode;
             pub(crate) fn headers(&self) -> &Headers;
-            pub(crate) fn into_parts(self) -> (StatusCode, Headers, Option<HTTPResponseBody>);
+            pub(crate) fn into_parts(self) -> (StatusCode, Headers<'a>, Option<HTTPResponseBody>);
             pub(crate) fn into_body(self) -> Option<HTTPResponseBody>;
             pub(crate) fn take_body(&mut self) -> Option<HTTPResponseBody>;
             pub(crate) fn copy_body(&mut self) -> io::Result<Option<HTTPResponseBody>>;

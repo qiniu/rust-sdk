@@ -35,6 +35,9 @@ pub struct ConfigInner {
     upload_threshold: u64,
 
     #[get_copy = "pub"]
+    upload_chunk_size: usize,
+
+    #[get_copy = "pub"]
     http_request_retries: usize,
 
     #[get_copy = "pub"]
@@ -57,6 +60,7 @@ impl Default for ConfigInner {
             upload_token_lifetime: Duration::from_secs(60 * 60),
             batch_max_operation_size: 1000,
             upload_threshold: 1 << 22,
+            upload_chunk_size: 1 << 22,
             http_request_retries: 3,
             http_request_retry_delay: Duration::from_millis(500),
             http_request_call: Self::default_http_request_call(),
@@ -87,6 +91,7 @@ impl fmt::Debug for ConfigInner {
             .field("upload_token_lifetime", &self.upload_token_lifetime)
             .field("batch_max_operation_size", &self.batch_max_operation_size)
             .field("upload_threshold", &self.upload_threshold)
+            .field("upload_chunk_size", &self.upload_chunk_size)
             .field("http_request_retries", &self.http_request_retries)
             .field("http_request_retry_delay", &self.http_request_retry_delay)
             .field("host_freeze_duration", &self.host_freeze_duration)

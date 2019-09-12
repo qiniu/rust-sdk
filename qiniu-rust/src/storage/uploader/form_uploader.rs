@@ -1,21 +1,21 @@
 use super::{
     super::{
+        upload_policy::UploadPolicy,
         upload_token::{Result as UploadTokenParseResult, UploadToken},
-        UploadPolicy,
     },
     BucketUploader, UploadResponseCallback, UploadResult,
 };
-use crate::http::request::{Error as QiniuError, ErrorKind as QiniuErrorKind};
-use crc::crc32::Hasher32;
+use crate::{
+    http::request::{Error as QiniuError, ErrorKind as QiniuErrorKind},
+    utils::crc32,
+};
 use mime::Mime;
 use multipart::client::lazy::Multipart;
 use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Result as HTTPResult};
 use std::{
     borrow::Cow,
     convert::TryInto,
-    fs::File,
-    io::{ErrorKind::Interrupted, Read, Result as IOResult, Seek, SeekFrom},
-    path::Path,
+    io::{Read, Result as IOResult, Seek, SeekFrom},
 };
 
 pub(super) struct FormUploaderBuilder<'u> {
@@ -29,7 +29,6 @@ pub(super) struct FormUploader<'u> {
     content_type: String,
     upload_policy: UploadPolicy<'u>,
     body: Vec<u8>,
-    multi_zones_retry: bool,
 }
 
 impl<'u> FormUploaderBuilder<'u> {
@@ -66,50 +65,40 @@ impl<'u> FormUploaderBuilder<'u> {
         self
     }
 
-    pub(super) fn file_path<'n: 'u, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
+    pub(super) fn seekable_stream<'n: 'u, R: Read + Seek + 'u, N: Into<Cow<'n, str>>>(
         mut self,
-        file_path: P,
-        file_name: Option<N>,
+        mut stream: R,
+        file_name: N,
         mime: Option<Mime>,
-        crc32_check_enabled: bool,
+        checksum_enabled: bool,
     ) -> IOResult<FormUploader<'u>> {
-        let mut file = File::open(file_path.as_ref())?;
         let mut crc32: Option<u32> = None;
-        if crc32_check_enabled {
-            crc32 = Some(Self::calc_crc32(&mut file)?);
-            file.seek(SeekFrom::Start(0))?;
+        if checksum_enabled {
+            crc32 = Some(crc32::from(&mut stream)?);
+            stream.seek(SeekFrom::Start(0))?;
         }
-        let file_name: Cow<str> = file_name.map(|name| name.into()).unwrap_or_else(|| {
-            file_path
-                .as_ref()
-                .file_name()
-                .and_then(|name| name.to_str().map(|name| name.to_owned().into()))
-                .unwrap_or_else(|| "fileName".into())
-        });
-        let mime = mime.or_else(|| mime_guess::from_path(file_path.as_ref()).first());
-        self.multipart.add_stream("file", file, Some(file_name), mime);
+        self.multipart.add_stream("file", stream, Some(file_name.into()), mime);
         if let Some(crc32) = crc32 {
             self.multipart.add_text("crc32", crc32.to_string());
         }
-        self.upload_multipart(true)
+        self.upload_multipart()
     }
 
     pub(super) fn stream<'n: 'u, R: Read + 'u, N: Into<Cow<'n, str>>>(
         mut self,
         stream: R,
-        file_name: Option<N>,
         mime: Option<Mime>,
+        file_name: N,
+        crc32: Option<u32>,
     ) -> IOResult<FormUploader<'u>> {
-        self.multipart.add_stream(
-            "file",
-            stream,
-            Some(file_name.map(|name| name.into()).unwrap_or_else(|| "streamName".into())),
-            mime,
-        );
-        self.upload_multipart(false)
+        self.multipart.add_stream("file", stream, Some(file_name.into()), mime);
+        if let Some(crc32) = crc32 {
+            self.multipart.add_text("crc32", crc32.to_string());
+        }
+        self.upload_multipart()
     }
 
-    fn upload_multipart(mut self, multi_zones_retry: bool) -> IOResult<FormUploader<'u>> {
+    fn upload_multipart(mut self) -> IOResult<FormUploader<'u>> {
         let mut fields = self.multipart.prepare().map_err(|err| err.error)?;
         let mut body = Vec::with_capacity(
             self.bucket_uploader
@@ -124,31 +113,7 @@ impl<'u> FormUploaderBuilder<'u> {
             upload_policy: self.upload_policy,
             content_type: "multipart/form-data; boundary=".to_owned() + fields.boundary(),
             body: body,
-            multi_zones_retry: multi_zones_retry,
         })
-    }
-
-    fn calc_crc32(file: &mut File) -> IOResult<u32> {
-        const BUF_SIZE: usize = 1 << 22;
-        let mut digest = crc::crc32::Digest::new(crc::crc32::IEEE);
-        let mut buf = vec![0; BUF_SIZE];
-        loop {
-            let have_read = match file.read(&mut buf) {
-                Ok(have_read) => have_read,
-                Err(err) => {
-                    if err.kind() == Interrupted {
-                        continue;
-                    } else {
-                        return Err(err);
-                    }
-                }
-            };
-            if have_read == 0 {
-                break;
-            }
-            digest.write(&buf[..have_read]);
-        }
-        Ok(digest.sum32())
     }
 }
 
@@ -157,30 +122,15 @@ impl<'u> FormUploader<'u> {
         let mut iter = self.bucket_uploader.up_urls_list().iter();
         let mut prev_err: Option<HTTPError> = None;
         while let Some(up_urls) = iter.next() {
-            match self
-                .bucket_uploader
-                .client()
-                .post("/", &up_urls.iter().map(|url| url.as_ref()).collect::<Vec<&str>>())
-                .idempotent()
-                .response_callback(&UploadResponseCallback(&self.upload_policy))
-                .accept_json()
-                .raw_body(self.content_type.to_owned(), self.body.as_slice())
-                .send()
-            {
-                Ok(mut response) => {
-                    let value: serde_json::Value = response.parse_json()?;
+            match self.send_form_request(&up_urls.iter().map(|url| url.as_ref()).collect::<Vec<&str>>()) {
+                Ok(value) => {
                     return Ok(value.into());
                 }
                 Err(err) => match err.kind() {
                     HTTPErrorKind::RetryableError
                     | HTTPErrorKind::HostUnretryableError
                     | HTTPErrorKind::ZoneUnretryableError => {
-                        if self.multi_zones_retry {
-                            prev_err = Some(err);
-                            continue;
-                        } else {
-                            return Err(err);
-                        }
+                        prev_err = Some(err);
                     }
                     _ => {
                         return Err(err);
@@ -198,11 +148,23 @@ impl<'u> FormUploader<'u> {
             )
         }))
     }
+
+    fn send_form_request(&self, up_urls: &[&str]) -> HTTPResult<serde_json::Value> {
+        self.bucket_uploader
+            .client()
+            .post("/", up_urls)
+            .idempotent()
+            .response_callback(&UploadResponseCallback(&self.upload_policy))
+            .accept_json()
+            .raw_body(self.content_type.to_owned(), self.body.as_slice())
+            .send()
+            .and_then(|mut response| response.parse_json())
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{super::super::UploadPolicyBuilder, *};
+    use super::{super::super::upload_policy::UploadPolicyBuilder, *};
     use crate::{config::ConfigBuilder, utils::auth::Auth};
     use qiniu_http::Headers;
     use qiniu_test_utils::{
@@ -315,7 +277,7 @@ mod tests {
         .never_be_resumeable()
         .upload_stream(&file, Some("file"), None)
         .unwrap_err();
-        assert_eq!(mock.call_called(), 8);
+        assert_eq!(mock.call_called(), 16);
         Ok(())
     }
 
@@ -342,7 +304,7 @@ mod tests {
         .never_be_resumeable()
         .upload_stream(&file, Some("file"), None)
         .unwrap_err();
-        assert_eq!(mock.call_called(), 2);
+        assert_eq!(mock.call_called(), 4);
         Ok(())
     }
 

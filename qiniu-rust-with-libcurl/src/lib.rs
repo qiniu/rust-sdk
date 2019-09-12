@@ -241,7 +241,7 @@ impl CurlClient {
 struct Context<'r> {
     request_body: Option<Cursor<&'r [u8]>>,
     response_body: Option<ResponseBody>,
-    response_headers: Headers,
+    response_headers: Headers<'static>,
     buffer_size: usize,
     temp_dir: &'r Path,
 }
@@ -273,7 +273,7 @@ impl<'r> Handler for &mut Context<'r> {
     }
 
     fn read(&mut self, data: &mut [u8]) -> result::Result<usize, ReadError> {
-        if let Some(ref mut request_body) = self.request_body {
+        if let Some(request_body) = &mut self.request_body {
             match request_body.read(data) {
                 Ok(have_read) => Ok(have_read),
                 Err(_) => Err(ReadError::Abort),
@@ -284,7 +284,7 @@ impl<'r> Handler for &mut Context<'r> {
     }
 
     fn seek(&mut self, whence: SeekFrom) -> SeekResult {
-        if let Some(ref mut request_body) = self.request_body {
+        if let Some(request_body) = &mut self.request_body {
             match request_body.seek(whence) {
                 Ok(_) => SeekResult::Ok,
                 Err(_) => SeekResult::Fail,

@@ -1,4 +1,8 @@
-use super::{bucket::BucketBuilder, uploader::Uploader, Region, RegionId};
+use super::{
+    bucket::BucketBuilder,
+    region::{Region, RegionId},
+    uploader::Uploader,
+};
 use crate::{
     config::Config,
     http::{

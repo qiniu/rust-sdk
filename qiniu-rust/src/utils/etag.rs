@@ -1,9 +1,8 @@
 use super::base64;
 use crypto::{digest::Digest, sha1::Sha1};
 use std::{
-    fs::OpenOptions,
+    fs::File,
     io::{copy, sink, Read, Result},
-    iter,
     option::Option,
     path::Path,
 };
@@ -63,7 +62,7 @@ impl Etag {
     fn sha1(bytes: &[u8]) -> Vec<u8> {
         let mut sha1 = Sha1::new();
         sha1.input(bytes);
-        let mut result = iter::repeat(0).take(sha1.output_bytes()).collect::<Vec<u8>>();
+        let mut result = vec![0; sha1.output_bytes()];
         sha1.result(&mut result);
         result
     }
@@ -92,17 +91,17 @@ impl Etag {
     }
 }
 
-pub struct Reader<'io, IO>
+pub struct Reader<IO>
 where
     IO: Read,
 {
-    io: &'io mut IO,
+    io: IO,
     etag: Option<String>,
     have_read: usize,
     digest: Etag,
 }
 
-pub fn new_reader<'io, IO: Read + 'io>(io: &'io mut IO) -> Reader<IO> {
+pub fn new_reader<IO: Read>(io: IO) -> Reader<IO> {
     Reader {
         io: io,
         etag: None,
@@ -111,9 +110,9 @@ pub fn new_reader<'io, IO: Read + 'io>(io: &'io mut IO) -> Reader<IO> {
     }
 }
 
-impl<'io, IO> Read for Reader<'io, IO>
+impl<IO> Read for Reader<IO>
 where
-    IO: Read + 'io,
+    IO: Read,
 {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         // TODO: Think about async read
@@ -124,7 +123,7 @@ where
                     self.have_read += have_read;
                     self.digest.input(buf.get(..have_read).unwrap())
                 } else {
-                    let mut etag = iter::repeat(0).take(self.digest.output_bytes()).collect::<Vec<u8>>();
+                    let mut etag = vec![0; self.digest.output_bytes()];
                     self.digest.result(&mut etag);
                     self.etag = Some(String::from_utf8(etag).unwrap());
                 }
@@ -134,31 +133,35 @@ where
     }
 }
 
-impl<'io, IO> Reader<'io, IO>
+impl<IO> Reader<IO>
 where
-    IO: Read + 'io,
+    IO: Read,
 {
-    fn etag(&self) -> &Option<String> {
-        &self.etag
+    pub fn etag(&self) -> Option<&str> {
+        self.etag.as_ref().map(|s| s.as_str())
+    }
+
+    pub fn into_etag(self) -> Option<String> {
+        self.etag
     }
 }
 
-pub fn from<IO: Read>(mut io: &mut IO) -> Result<String> {
-    let mut reader = new_reader(&mut io);
+pub fn from<IO: Read>(io: IO) -> Result<String> {
+    let mut reader = new_reader(io);
     copy(&mut reader, &mut sink())?;
-    Ok(reader.etag().clone().unwrap())
+    Ok(reader.into_etag().unwrap())
 }
 
 pub fn from_bytes<S: AsRef<[u8]>>(buf: S) -> String {
     let mut etag_digest = new();
     etag_digest.input(buf.as_ref());
-    let mut etag = iter::repeat(0).take(etag_digest.output_bytes()).collect::<Vec<u8>>();
+    let mut etag = vec![0; etag_digest.output_bytes()];
     etag_digest.result(&mut etag);
     String::from_utf8(etag).unwrap()
 }
 
 pub fn from_file<P: AsRef<Path>>(path: P) -> Result<String> {
-    from(&mut OpenOptions::new().read(true).open(path)?)
+    from(File::open(path)?)
 }
 
 #[cfg(test)]

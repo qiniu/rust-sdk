@@ -1,4 +1,4 @@
-use super::super::UploadPolicy;
+use super::super::upload_policy::UploadPolicy;
 use crate::http::{request::ResponseCallback, response::Response};
 use qiniu_http::{Error as HTTPError, Request as HTTPRequest, Result as HTTPResult};
 use std::borrow::Cow;

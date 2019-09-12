@@ -1,5 +1,5 @@
 use super::{base64, mime};
-use crate::storage::UploadPolicy;
+use crate::storage::upload_policy::UploadPolicy;
 use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
 use qiniu_http::{Method, Request};
 use std::{

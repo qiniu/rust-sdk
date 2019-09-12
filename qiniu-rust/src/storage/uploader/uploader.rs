@@ -1,5 +1,5 @@
 use super::{
-    super::{bucket::Bucket, upload_token::UploadToken, Region, UploadPolicy},
+    super::{bucket::Bucket, region::Region, upload_policy::UploadPolicy, upload_token::UploadToken},
     BucketUploader, FileUploaderBuilder,
 };
 use crate::{config::Config, utils::auth::Auth};

@@ -16,14 +16,14 @@ pub struct Request<'b> {
 
     #[get = "pub"]
     #[get_mut = "pub"]
-    headers: Headers,
+    headers: Headers<'b>,
 
     #[get_copy = "pub"]
     body: Option<&'b Body>,
 }
 
 impl<'b> Request<'b> {
-    pub fn new<U: Into<URL<'b>>>(method: Method, url: U, headers: Headers, body: Option<&'b Body>) -> Request {
+    pub fn new<U: Into<URL<'b>>>(method: Method, url: U, headers: Headers<'b>, body: Option<&'b Body>) -> Request<'b> {
         Request {
             url: url.into(),
             method: method,
@@ -58,7 +58,7 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    pub fn header<HeaderNameT: Into<HeaderName>, HeaderValueT: Into<HeaderValue>>(
+    pub fn header<HeaderNameT: Into<HeaderName<'r>>, HeaderValueT: Into<HeaderValue<'r>>>(
         mut self,
         header_name: HeaderNameT,
         header_value: HeaderValueT,
@@ -67,7 +67,7 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    pub fn headers(mut self, headers: Headers) -> RequestBuilder<'r> {
+    pub fn headers(mut self, headers: Headers<'r>) -> RequestBuilder<'r> {
         self.request.headers = headers;
         self
     }

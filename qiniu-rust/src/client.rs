@@ -19,4 +19,8 @@ impl Client {
             bucket_manager: BucketManager::new(auth, config),
         }
     }
+
+    pub fn storage(&self) -> &BucketManager {
+        self.bucket_manager()
+    }
 }

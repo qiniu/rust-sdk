@@ -46,9 +46,9 @@ impl<'a> Builder<'a> {
         }
     }
 
-    pub(crate) fn header<K: Into<HeaderName>, V: Into<HeaderValue>>(mut self, key: K, value: V) -> Builder<'a> {
-        match self.parts.headers {
-            Some(ref mut headers) => {
+    pub(crate) fn header<K: Into<HeaderName<'a>>, V: Into<HeaderValue<'a>>>(mut self, key: K, value: V) -> Builder<'a> {
+        match &mut self.parts.headers {
+            Some(headers) => {
                 headers.insert(key.into(), value.into());
             }
             None => {
@@ -103,7 +103,11 @@ impl<'a> Builder<'a> {
         self.build()
     }
 
-    pub(crate) fn raw_body<T: Into<Vec<u8>>, S: Into<HeaderValue>>(mut self, content_type: S, body: T) -> Request<'a> {
+    pub(crate) fn raw_body<T: Into<Vec<u8>>, S: Into<HeaderValue<'a>>>(
+        mut self,
+        content_type: S,
+        body: T,
+    ) -> Request<'a> {
         self = self.header("Content-Type", content_type);
         self.parts.body = Some(body.into());
         self.build()

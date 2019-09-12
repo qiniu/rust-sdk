@@ -1,6 +1,6 @@
 use super::{
+    region::Region,
     uploader::{BucketUploader, Uploader},
-    Region,
 };
 use crate::{config::Config, http, utils::auth::Auth};
 use once_cell::sync::OnceCell;
@@ -60,8 +60,8 @@ impl<'r> BucketBuilder<'r> {
     }
 
     pub fn domain(mut self, domain: &'r str) -> BucketBuilder<'r> {
-        match self.domains {
-            Some(ref mut domains) => {
+        match &mut self.domains {
+            Some(domains) => {
                 domains.push(Cow::from(domain));
             }
             None => {
@@ -191,7 +191,7 @@ impl<'a, 'r: 'a> Iterator for BucketRegionIter<'a, 'r> {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::RegionId, *};
+    use super::{super::region::RegionId, *};
     use crate::config::ConfigBuilder;
     use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};

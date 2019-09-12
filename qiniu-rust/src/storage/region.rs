@@ -157,6 +157,10 @@ impl Region {
         &HUA_DONG
     }
 
+    pub fn east_china() -> &'static Region {
+        &HUA_DONG
+    }
+
     pub fn z1() -> &'static Region {
         &HUA_BEI
     }
@@ -165,11 +169,19 @@ impl Region {
         &HUA_BEI
     }
 
+    pub fn north_china() -> &'static Region {
+        &HUA_DONG
+    }
+
     pub fn z2() -> &'static Region {
         &HUA_NAN
     }
 
     pub fn hua_nan() -> &'static Region {
+        &HUA_NAN
+    }
+
+    pub fn south_china() -> &'static Region {
         &HUA_NAN
     }
 

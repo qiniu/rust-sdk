@@ -67,7 +67,7 @@ impl<'a> Request<'a> {
 
     fn try_host(&self, host: &'a str) -> HTTPResult<Response<'a>> {
         let mut url = host.to_string() + self.parts.path;
-        if let Some(ref query) = self.parts.query {
+        if let Some(query) = &self.parts.query {
             url = Url::parse_with_params(url.as_str(), query)
                 .map_err(|err| {
                     HTTPError::new_unretryable_error_from_parts(

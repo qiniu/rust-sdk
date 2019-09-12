@@ -20,7 +20,7 @@ pub struct Response {
 
     #[get = "pub"]
     #[get_mut = "pub"]
-    headers: Headers,
+    headers: Headers<'static>,
 
     #[get = "pub"]
     #[get_mut = "pub"]
@@ -29,7 +29,7 @@ pub struct Response {
 }
 
 impl Response {
-    fn new(status_code: StatusCode, headers: Headers, body: Option<Body>) -> Response {
+    fn new(status_code: StatusCode, headers: Headers<'static>, body: Option<Body>) -> Response {
         Response {
             status_code: status_code,
             headers: headers,
@@ -41,7 +41,7 @@ impl Response {
         self.headers.get(header_name.as_ref())
     }
 
-    pub fn into_parts(self) -> (StatusCode, Headers, Option<Body>) {
+    pub fn into_parts(self) -> (StatusCode, Headers<'static>, Option<Body>) {
         (self.status_code, self.headers, self.body)
     }
 
@@ -68,13 +68,13 @@ impl Response {
 }
 
 impl ResponseBuilder {
-    pub fn header<HeaderNameT: Into<HeaderName>, HeaderValueT: Into<HeaderValue>>(
+    pub fn header<HeaderNameT: Into<HeaderName<'static>>, HeaderValueT: Into<HeaderValue<'static>>>(
         mut self,
         header_name: HeaderNameT,
         header_value: HeaderValueT,
     ) -> Self {
-        match self.headers {
-            Some(ref mut headers) => {
+        match &mut self.headers {
+            Some(headers) => {
                 headers.insert(header_name.into(), header_value.into());
             }
             None => {

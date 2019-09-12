@@ -1,4 +1,4 @@
-use super::UploadPolicy;
+use super::upload_policy::UploadPolicy;
 use crate::utils::{auth::Auth, base64};
 use error_chain::error_chain;
 use std::{borrow::Cow, convert::From, fmt};
@@ -95,7 +95,7 @@ error_chain! {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::UploadPolicyBuilder, *};
+    use super::{super::upload_policy::UploadPolicyBuilder, *};
     use crate::config::Config;
     use std::{boxed::Box, error::Error, result::Result};
 

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use chrono::offset::Utc;
-    use qiniu::{storage::RegionId, Client};
+    use qiniu::{storage::region::RegionId, Client};
     use qiniu_test_utils::env;
     use std::{boxed::Box, default::Default, error::Error, result::Result};
 

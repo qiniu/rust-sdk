@@ -8,7 +8,7 @@ pub(crate) struct Parts<'a> {
     pub(super) hosts: &'a [&'a str],
     pub(super) path: &'a str,
     pub(super) query: Option<HashMap<String, String>>,
-    pub(super) headers: Option<Headers>,
+    pub(super) headers: Option<Headers<'a>>,
     pub(super) body: Option<Vec<u8>>,
     pub(super) auth: Auth,
     pub(super) config: Config,

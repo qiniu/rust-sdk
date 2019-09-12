@@ -1,5 +1,5 @@
 use super::{
-    form_uploader,
+    form_uploader, resumeable_uploader,
     {super::upload_token, UploadResult},
 };
 use crate::{config::Config, http::Client, utils::auth::Auth};
@@ -9,6 +9,7 @@ use mime::Mime;
 use std::{
     borrow::Cow,
     collections::HashMap,
+    fs::File,
     io::{self, Read},
     path::Path,
 };
@@ -209,17 +210,41 @@ impl<'b> FileUploaderBuilder<'b> {
             }
         }
         Ok(uploader
-            .file_path(file_path, file_name, mime, self.checksum_enabled)?
+            .seekable_stream(
+                File::open(file_path.as_ref())?,
+                Self::guess_filename(file_path.as_ref(), file_name),
+                Self::guess_mime_from_file_path(mime, file_path.as_ref()),
+                self.checksum_enabled,
+            )?
             .send()?)
     }
 
     fn upload_file_by_chunks<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
         self,
-        _file_path: P,
-        _file_name: Option<N>,
-        _mime: Option<Mime>,
+        file_path: P,
+        file_name: Option<N>,
+        mime: Option<Mime>,
     ) -> Result<UploadResult> {
-        panic!("NOT IMPLETEMENT");
+        let mut uploader =
+            resumeable_uploader::ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)?;
+        if let Some(key) = self.key {
+            uploader = uploader.key(key);
+        }
+        if let Some(vars) = self.vars {
+            uploader = uploader.vars(vars);
+        }
+        if let Some(metadata) = self.metadata {
+            uploader = uploader.metadata(metadata);
+        }
+        Ok(uploader
+            .seekable_stream(
+                File::open(file_path.as_ref())?,
+                Self::guess_filename(file_path.as_ref(), file_name),
+                file_path.as_ref().metadata()?.len(),
+                Self::guess_mime_from_file_path(mime, file_path.as_ref()),
+                self.checksum_enabled,
+            )?
+            .send()?)
     }
 
     fn upload_stream_by_form<'n, R: Read, N: Into<Cow<'n, str>>>(
@@ -242,16 +267,64 @@ impl<'b> FileUploaderBuilder<'b> {
                 uploader = uploader.metadata(k, v);
             }
         }
-        Ok(uploader.stream(stream, file_name, mime)?.send()?)
+        let file_name = file_name.map(|name| name.into());
+        Ok(uploader
+            .stream(
+                stream,
+                Self::guess_mime_from_file_name(mime, file_name.as_ref().map(|name| name.as_ref())),
+                file_name.unwrap_or_else(|| "streamName".into()),
+                None,
+            )?
+            .send()?)
     }
 
     fn upload_stream_by_chunks<'n, R: Read, N: Into<Cow<'n, str>>>(
         self,
-        _stream: R,
-        _file_name: Option<N>,
-        _mime: Option<Mime>,
+        stream: R,
+        file_name: Option<N>,
+        mime: Option<Mime>,
     ) -> Result<UploadResult> {
-        panic!("NOT IMPLETEMENT");
+        let mut uploader =
+            resumeable_uploader::ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)?;
+        if let Some(key) = self.key {
+            uploader = uploader.key(key);
+        }
+        if let Some(vars) = self.vars {
+            uploader = uploader.vars(vars);
+        }
+        if let Some(metadata) = self.metadata {
+            uploader = uploader.metadata(metadata);
+        }
+        let file_name = file_name.map(|name| name.into());
+        Ok(uploader
+            .stream(
+                stream,
+                Self::guess_mime_from_file_name(mime, file_name.as_ref().map(|name| name.as_ref())),
+                file_name.unwrap_or_else(|| "streamName".into()),
+                true,
+            )?
+            .send()?)
+    }
+
+    fn guess_filename<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(file_path: P, file_name: Option<N>) -> Cow<'n, str> {
+        file_name
+            .map(|name| name.into())
+            .or_else(|| {
+                file_path
+                    .as_ref()
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .map(|name| name.to_owned().into())
+            })
+            .unwrap_or_else(|| "fileName".into())
+    }
+
+    fn guess_mime_from_file_path<P: AsRef<Path>>(mime: Option<Mime>, file_path: P) -> Option<Mime> {
+        mime.or_else(|| mime_guess::from_path(file_path).first())
+    }
+
+    fn guess_mime_from_file_name(mime: Option<Mime>, file_name: Option<&str>) -> Option<Mime> {
+        mime.or_else(|| file_name.and_then(|file_name| mime_guess::from_path(file_name).first()))
     }
 }
 
