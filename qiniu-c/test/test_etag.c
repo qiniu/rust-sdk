@@ -6,7 +6,7 @@
 
 void test_qiniu_ng_etag_from_file_path(void) {
     char etag[ETAG_SIZE + 1];
-    memset(&etag, ETAG_SIZE + 1, sizeof(char));
+    memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
 
     const char *path = "/tmp/1024k";
     write_str_to_file(path, "Hello world\n");
@@ -16,7 +16,7 @@ void test_qiniu_ng_etag_from_file_path(void) {
 
 void test_qiniu_ng_etag_from_buffer(void) {
     char etag[ETAG_SIZE + 1];
-    memset(&etag, ETAG_SIZE + 1, sizeof(char));
+    memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
 
     const char *buf = "Hello world\n";
     TEST_ASSERT_TRUE(qiniu_ng_etag_from_buffer(buf, strlen(buf), (char *) &etag).ok);
@@ -33,7 +33,7 @@ void test_qiniu_ng_etag_from_unexisted_file_path(void) {
 
 void test_qiniu_ng_etag_from_large_buffer(void) {
     char etag[ETAG_SIZE + 1];
-    memset(&etag, ETAG_SIZE + 1, sizeof(char));
+    memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
 
     const char *buf = "Hello world\n";
 
