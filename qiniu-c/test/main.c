@@ -16,6 +16,7 @@ int main(void) {
     RUN_TEST(test_qiniu_ng_etag_from_buffer);
     RUN_TEST(test_qiniu_ng_etag_from_large_buffer);
     RUN_TEST(test_qiniu_ng_etag_from_unexisted_file_path);
+    RUN_TEST(test_qiniu_ng_config);
     return UNITY_END();
 }
 

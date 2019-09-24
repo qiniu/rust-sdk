@@ -6,7 +6,7 @@ SRC_FILES=$(UNITY_HOME)/unity.c $(wildcard test/*.c)
 INC_DIRS=-I$(CURDIR) -I$(UNITY_HOME)
 STATIC_LIBRARY=$(CURDIR)/../target/debug/libqiniu_ng.a
 DYNAMIC_LIBRARY=$(CURDIR)/../target/debug
-LDFLAGS=-lm -lpthread -ldl
+LDFLAGS=-lm -lpthread -ldl -lcurl
 SYMBOLS=-DTEST
 
 ifeq ($(OS),Windows_NT)
