@@ -35,36 +35,39 @@ pub extern "C" fn qiniu_ng_etag_from_buffer(
     QINIU_NG_RESULT_OK
 }
 
+#[repr(C)]
+pub struct qiniu_ng_etag_t(pub(crate) *mut c_void);
+
 #[no_mangle]
-pub extern "C" fn qiniu_ng_etag_new() -> *mut c_void {
+pub extern "C" fn qiniu_ng_etag_new() -> qiniu_ng_etag_t {
     let etag = Box::new(etag::new());
-    Box::into_raw(etag) as usize as *mut c_void
+    qiniu_ng_etag_t(Box::into_raw(etag) as usize as *mut c_void)
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_etag_update(etag_ptr: *mut c_void, data: *mut c_void, data_len: size_t) {
-    let mut boxed_etag = unsafe { Box::from_raw(etag_ptr as usize as *mut etag::Etag) };
+pub extern "C" fn qiniu_ng_etag_update(etag: qiniu_ng_etag_t, data: *mut c_void, data_len: size_t) {
+    let mut boxed_etag = unsafe { Box::from_raw(etag.0 as usize as *mut etag::Etag) };
     boxed_etag.input(unsafe { slice::from_raw_parts(data as *const u8, data_len) });
     Box::into_raw(boxed_etag);
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_etag_result(etag_ptr: *mut c_void, result_ptr: *mut c_char) {
-    let mut boxed_etag = unsafe { Box::from_raw(etag_ptr as usize as *mut etag::Etag) };
+pub extern "C" fn qiniu_ng_etag_result(etag: qiniu_ng_etag_t, result_ptr: *mut c_char) {
+    let mut boxed_etag = unsafe { Box::from_raw(etag.0 as usize as *mut etag::Etag) };
     boxed_etag.result(unsafe { slice::from_raw_parts_mut(result_ptr as *mut u8, ETAG_SIZE) });
     Box::into_raw(boxed_etag);
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_etag_reset(etag_ptr: *mut c_void) {
-    let mut boxed_etag = unsafe { Box::from_raw(etag_ptr as usize as *mut etag::Etag) };
+pub extern "C" fn qiniu_ng_etag_reset(etag: qiniu_ng_etag_t) {
+    let mut boxed_etag = unsafe { Box::from_raw(etag.0 as usize as *mut etag::Etag) };
     boxed_etag.reset();
     Box::into_raw(boxed_etag);
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_etag_free(etag_ptr: *mut c_void) {
+pub extern "C" fn qiniu_ng_etag_free(etag: qiniu_ng_etag_t) {
     unsafe {
-        Box::from_raw(etag_ptr as usize as *mut etag::Etag);
+        Box::from_raw(etag.0 as usize as *mut etag::Etag);
     }
 }

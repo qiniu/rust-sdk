@@ -37,7 +37,7 @@ void test_qiniu_ng_etag_from_large_buffer(void) {
 
     const char *buf = "Hello world\n";
 
-    void *qiniu_ng_etag = qiniu_ng_etag_new();
+    qiniu_ng_etag_t qiniu_ng_etag = qiniu_ng_etag_new();
     qiniu_ng_etag_update(qiniu_ng_etag, (void *) buf, strlen(buf));
     qiniu_ng_etag_update(qiniu_ng_etag, (void *) buf, strlen(buf));
     qiniu_ng_etag_update(qiniu_ng_etag, (void *) buf, strlen(buf));
