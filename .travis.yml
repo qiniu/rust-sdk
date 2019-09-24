@@ -1,7 +1,10 @@
 language: rust
+dist: bionic
 rust:
   - 1.36.0
 cache: cargo
+before_script:
+  - sudo apt install -yq libcurl4
 script:
   - make
   - |
