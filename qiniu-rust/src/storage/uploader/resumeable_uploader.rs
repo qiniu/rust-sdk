@@ -5,13 +5,10 @@ use super::{
     },
     BucketUploader, UploadResponseCallback, UploadResult,
 };
-use crate::{
-    http::request::{Error as QiniuError, ErrorKind as QiniuErrorKind},
-    utils::{base64, seek_adapter},
-};
+use crate::utils::{base64, seek_adapter};
 use crypto::{digest::Digest, md5::Md5};
 use mime::Mime;
-use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Result as HTTPResult};
+use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Result as HTTPResult, RetryKind};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
@@ -179,14 +176,12 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
                 Ok(response) => {
                     return Ok(response);
                 }
-                Err(err) => match err.kind() {
-                    HTTPErrorKind::RetryableError
-                    | HTTPErrorKind::HostUnretryableError
-                    | HTTPErrorKind::ZoneUnretryableError => {
+                Err(err) => match err.retry_kind() {
+                    RetryKind::RetryableError | RetryKind::HostUnretryableError | RetryKind::ZoneUnretryableError => {
                         if self.multi_zones_retry {
-                            self.io
-                                .seek(SeekFrom::Start(0))
-                                .map_err(|err| HTTPError::new_unretryable_error_from_parts(err, None, None))?;
+                            self.io.seek(SeekFrom::Start(0)).map_err(|err| {
+                                HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None)
+                            })?;
                             prev_err = Some(err);
                             continue;
                         } else {
@@ -202,7 +197,7 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
 
         Err(prev_err.unwrap_or_else(|| {
             HTTPError::new_host_unretryable_error_from_parts(
-                QiniuError::from(QiniuErrorKind::NoHostAvailable),
+                HTTPErrorKind::NoHostAvailable,
                 true,
                 Some(Method::POST),
                 None,
@@ -229,7 +224,7 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
             part_number += 1;
             let chunk_size = self
                 .read_chunk(&mut body_buf)
-                .map_err(|err| HTTPError::new_unretryable_error_from_parts(err, None, None))?;
+                .map_err(|err| HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None))?;
             if chunk_size == 0 {
                 break;
             }

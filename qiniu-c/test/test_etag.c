@@ -10,7 +10,7 @@ void test_qiniu_ng_etag_from_file_path(void) {
 
     const char *path = "/tmp/1024k";
     write_str_to_file(path, "Hello world\n");
-    TEST_ASSERT_TRUE(qiniu_ng_etag_from_file_path(path, strlen(path), (char *) &etag).ok);
+    TEST_ASSERT_TRUE(qiniu_ng_etag_from_file_path(path, strlen(path), (char *) &etag, NULL));
     TEST_ASSERT_EQUAL_INT(strcmp((const char *) &etag, "FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d"), 0);
 }
 
@@ -19,16 +19,27 @@ void test_qiniu_ng_etag_from_buffer(void) {
     memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
 
     const char *buf = "Hello world\n";
-    TEST_ASSERT_TRUE(qiniu_ng_etag_from_buffer(buf, strlen(buf), (char *) &etag).ok);
+    qiniu_ng_etag_from_buffer(buf, strlen(buf), (char *) &etag);
     TEST_ASSERT_EQUAL_INT(strcmp((const char *) &etag, "FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d"), 0);
 }
 
 void test_qiniu_ng_etag_from_unexisted_file_path(void) {
     const char *path = "/not_existed";
-    qiniu_ng_result result = qiniu_ng_etag_from_file_path(path, strlen(path), NULL);
-    TEST_ASSERT_FALSE(result.ok);
-    TEST_ASSERT_EQUAL_INT(result.error_code, ENOENT);
-    TEST_ASSERT_EQUAL_INT(strcmp(result.description, "No such file or directory"), 0);
+    qiniu_ng_err err;
+    int error_code;
+    const char *error_description;
+    TEST_ASSERT_FALSE(qiniu_ng_etag_from_file_path(path, strlen(path), NULL, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_err_os_error_extract(&err, &error_code, &error_description));
+    TEST_ASSERT_EQUAL_INT(error_code, ENOENT);
+    TEST_ASSERT_EQUAL_INT(strcmp(error_description, "No such file or directory"), 0);
+
+    TEST_ASSERT_TRUE(qiniu_ng_err_os_error_extract(&err, &error_code, NULL));
+    TEST_ASSERT_EQUAL_INT(error_code, ENOENT);
+
+    TEST_ASSERT_TRUE(qiniu_ng_err_os_error_extract(&err, NULL, &error_description));
+    TEST_ASSERT_EQUAL_INT(strcmp(error_description, "No such file or directory"), 0);
+
+    TEST_ASSERT_TRUE(qiniu_ng_err_os_error_extract(&err, NULL, NULL));
 }
 
 void test_qiniu_ng_etag_from_large_buffer(void) {

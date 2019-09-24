@@ -1,5 +1,6 @@
-pub mod client;
-pub mod config;
-pub mod etag;
+mod bucket_manager;
+mod client;
+mod config;
+mod etag;
 mod result;
 mod utils;

@@ -3,7 +3,6 @@ mod client;
 pub(crate) use client::Client;
 mod domains_manager;
 pub use domains_manager::DomainsManager;
-pub mod error;
 mod http_caller;
 pub(crate) mod request;
 pub(crate) mod response;

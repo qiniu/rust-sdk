@@ -5,15 +5,12 @@ use super::{
 };
 use crate::{
     config::Config,
-    http::{
-        self,
-        error::{Error as QiniuError, ErrorKind as QiniuErrorKind},
-    },
+    http,
     utils::{auth::Auth, base64},
 };
 use error_chain::error_chain;
-use qiniu_http::{Error as HTTPError, Result as HTTPResult};
-use std::{borrow::Cow, error::Error as StdError};
+use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult};
+use std::borrow::Cow;
 
 pub struct BucketManager {
     http_client: http::Client,
@@ -74,17 +71,13 @@ impl BucketManager {
         {
             Ok(ref mut response) => Ok(response.ignore_body()),
             Err(err) => {
-                if let Some(source) = err.source() {
-                    if let Some(err) = source.downcast_ref::<QiniuError>() {
-                        match err.kind() {
-                            QiniuErrorKind::ForbiddenError(_, message) => {
-                                if message.contains("drop non empty bucket is not allowed") {
-                                    return Err(ErrorKind::CannotDropNonEmptyBucket.into());
-                                }
-                            }
-                            _ => {}
+                match err.error_kind() {
+                    HTTPErrorKind::ResponseStatusCodeError(403, message) => {
+                        if message.contains("drop non empty bucket is not allowed") {
+                            return Err(ErrorKind::CannotDropNonEmptyBucket.into());
                         }
                     }
+                    _ => {}
                 }
                 Err(err.into())
             }

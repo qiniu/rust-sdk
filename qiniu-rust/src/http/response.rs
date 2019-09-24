@@ -1,11 +1,11 @@
 use delegate::delegate;
 use getset::{CopyGetters, Getters};
 use qiniu_http::{
-    Error as HTTPError, HeaderValue, Headers, Method, Response as HTTPResponse, ResponseBody as HTTPResponseBody,
-    Result as HTTPResult, StatusCode,
+    Error as HTTPError, ErrorKind as HTTPErrorKind, HeaderValue, Headers, Method, Response as HTTPResponse,
+    ResponseBody as HTTPResponseBody, Result as HTTPResult, StatusCode,
 };
 use serde::de::DeserializeOwned;
-use std::{error::Error as StdError, fmt, io, marker::Send};
+use std::{fmt, io};
 
 #[derive(CopyGetters, Getters)]
 pub(crate) struct Response<'a> {
@@ -41,15 +41,34 @@ impl<'a> Response<'a> {
 
     pub(crate) fn parse_json<T: DeserializeOwned>(&mut self) -> HTTPResult<T> {
         let body = self.take_body().unwrap();
-        serde_json::from_reader(body).map_err(|err| self.transform_to_unretryable_err(err))
+        serde_json::from_reader(body).map_err(|err| {
+            HTTPError::new_unretryable_error_from_parts(
+                HTTPErrorKind::JSONError(err),
+                Some(self.method),
+                Some((self.host.to_owned() + self.path).into()),
+            )
+        })
     }
 
     pub(crate) fn parse_json_clone<T: DeserializeOwned>(&mut self) -> HTTPResult<T> {
         let body = self
             .copy_body()
-            .map_err(|err| self.transform_to_retryable_err(err, false))?
+            .map_err(|err| {
+                HTTPError::new_retryable_error_from_parts(
+                    HTTPErrorKind::IOError(err),
+                    false,
+                    Some(self.method),
+                    Some((self.host.to_owned() + self.path).into()),
+                )
+            })?
             .unwrap();
-        serde_json::from_reader(body).map_err(|err| self.transform_to_unretryable_err(err))
+        serde_json::from_reader(body).map_err(|err| {
+            HTTPError::new_unretryable_error_from_parts(
+                HTTPErrorKind::JSONError(err),
+                Some(self.method),
+                Some((self.host.to_owned() + self.path).into()),
+            )
+        })
     }
 
     pub(crate) fn ignore_body(&mut self) {
@@ -59,23 +78,6 @@ impl<'a> Response<'a> {
             }
             None => {}
         }
-    }
-
-    fn transform_to_unretryable_err<E: StdError + Send + 'static>(&self, err: E) -> HTTPError {
-        HTTPError::new_unretryable_error_from_parts(
-            err,
-            Some(self.method),
-            Some((self.host.to_owned() + self.path).into()),
-        )
-    }
-
-    fn transform_to_retryable_err<E: StdError + Send + 'static>(&self, err: E, is_retry_safe: bool) -> HTTPError {
-        HTTPError::new_retryable_error_from_parts(
-            err,
-            is_retry_safe,
-            Some(self.method),
-            Some((self.host.to_owned() + self.path).into()),
-        )
     }
 }
 

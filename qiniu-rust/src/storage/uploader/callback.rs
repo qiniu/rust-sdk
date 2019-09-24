@@ -1,6 +1,6 @@
 use super::super::upload_policy::UploadPolicy;
 use crate::http::{request::ResponseCallback, response::Response};
-use qiniu_http::{Error as HTTPError, Request as HTTPRequest, Result as HTTPResult};
+use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Request as HTTPRequest, Result as HTTPResult};
 use std::borrow::Cow;
 
 pub(super) struct UploadResponseCallback<'u>(pub(super) &'u UploadPolicy<'u>);
@@ -12,7 +12,7 @@ impl<'a> ResponseCallback for UploadResponseCallback<'_> {
             || self.is_not_qiniu(response) && !self.uptoken_has_url()
         {
             Err(HTTPError::new_retryable_error_from_parts(
-                error::Error::from(error::ErrorKind::RetryError),
+                HTTPErrorKind::JustDoRetry,
                 true,
                 Some(response.method()),
                 Some((response.host().to_owned() + response.path()).into()),

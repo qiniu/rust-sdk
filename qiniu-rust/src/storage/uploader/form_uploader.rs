@@ -5,13 +5,10 @@ use super::{
     },
     BucketUploader, UploadResponseCallback, UploadResult,
 };
-use crate::{
-    http::request::{Error as QiniuError, ErrorKind as QiniuErrorKind},
-    utils::crc32,
-};
+use crate::utils::crc32;
 use mime::Mime;
 use multipart::client::lazy::Multipart;
-use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Result as HTTPResult};
+use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Result as HTTPResult, RetryKind};
 use std::{
     borrow::Cow,
     convert::TryInto,
@@ -126,10 +123,8 @@ impl<'u> FormUploader<'u> {
                 Ok(value) => {
                     return Ok(value.into());
                 }
-                Err(err) => match err.kind() {
-                    HTTPErrorKind::RetryableError
-                    | HTTPErrorKind::HostUnretryableError
-                    | HTTPErrorKind::ZoneUnretryableError => {
+                Err(err) => match err.retry_kind() {
+                    RetryKind::RetryableError | RetryKind::HostUnretryableError | RetryKind::ZoneUnretryableError => {
                         prev_err = Some(err);
                     }
                     _ => {
@@ -141,7 +136,7 @@ impl<'u> FormUploader<'u> {
 
         Err(prev_err.unwrap_or_else(|| {
             HTTPError::new_host_unretryable_error_from_parts(
-                QiniuError::from(QiniuErrorKind::NoHostAvailable),
+                HTTPErrorKind::NoHostAvailable,
                 true,
                 Some(Method::POST),
                 None,

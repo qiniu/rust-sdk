@@ -3,7 +3,7 @@ mod header;
 mod method;
 mod request;
 mod response;
-pub use error::{Error, ErrorKind, Result};
+pub use error::{Error, ErrorKind, Result, RetryKind};
 pub use header::{HeaderName, HeaderValue, Headers};
 pub use method::Method;
 pub use request::{Body as RequestBody, Request, RequestBuilder, URL};

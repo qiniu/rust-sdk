@@ -1,14 +1,10 @@
 use super::{
-    super::{
-        error::{Error as QiniuError, ErrorKind as QiniuErrorKind},
-        response::Response,
-        DomainsManager,
-    },
-    Parts, {Error as RequestError, ErrorKind as RequestErrorKind, ErrorResponse as RequestErrorResponse},
+    super::{response::Response, DomainsManager},
+    ErrorResponse as RequestErrorResponse, Parts,
 };
 use qiniu_http::{
     Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Request as HTTPRequest, RequestBuilder,
-    Response as HTTPResponse, Result as HTTPResult, StatusCode,
+    Response as HTTPResponse, Result as HTTPResult, RetryKind as HTTPRetryKind, StatusCode,
 };
 use std::{
     fmt,
@@ -29,7 +25,12 @@ impl<'a> Request<'a> {
         let mut prev_err: Option<HTTPError> = None;
         for &host in self.parts.hosts {
             if self.domains_manager.is_frozen(host).map_err(|err| {
-                HTTPError::new_host_unretryable_error_from_parts(err, true, Some(self.parts.method.to_owned()), None)
+                HTTPError::new_host_unretryable_error_from_parts(
+                    HTTPErrorKind::UnknownError(Box::new(err)),
+                    true,
+                    Some(self.parts.method.to_owned()),
+                    None,
+                )
             })? {
                 continue;
             }
@@ -37,8 +38,8 @@ impl<'a> Request<'a> {
                 Ok(resp) => {
                     return Ok(resp);
                 }
-                Err(err) => match err.kind() {
-                    HTTPErrorKind::RetryableError | HTTPErrorKind::HostUnretryableError if self.is_idempotent(&err) => {
+                Err(err) => match err.retry_kind() {
+                    HTTPRetryKind::RetryableError | HTTPRetryKind::HostUnretryableError if self.is_idempotent(&err) => {
                         self.domains_manager
                             .freeze(host.to_string(), self.host_freeze_duration)
                             .unwrap();
@@ -55,7 +56,7 @@ impl<'a> Request<'a> {
         }
         let err = prev_err.unwrap_or_else(|| {
             HTTPError::new_host_unretryable_error_from_parts(
-                RequestError::from(RequestErrorKind::NoHostAvailable),
+                HTTPErrorKind::NoHostAvailable,
                 true,
                 Some(self.parts.method.to_owned()),
                 None,
@@ -71,7 +72,7 @@ impl<'a> Request<'a> {
             url = Url::parse_with_params(url.as_str(), query)
                 .map_err(|err| {
                     HTTPError::new_unretryable_error_from_parts(
-                        err,
+                        HTTPErrorKind::UnknownError(Box::new(err)),
                         Some(self.parts.method),
                         Some((host.to_owned() + &self.parts.path).into()),
                     )
@@ -116,8 +117,8 @@ impl<'a> Request<'a> {
                         .on_response(&request, &response.inner);
                     return Ok(response);
                 }
-                Err(err) => match err.kind() {
-                    HTTPErrorKind::RetryableError if self.is_idempotent(&err) => {
+                Err(err) => match err.retry_kind() {
+                    HTTPRetryKind::RetryableError if self.is_idempotent(&err) => {
                         self.parts
                             .config
                             .http_request_call()
@@ -153,7 +154,9 @@ impl<'a> Request<'a> {
         let mut error_message: Option<Box<str>> = None;
         if let Some(body) = Self::read_body_to_string(&mut response, request)? {
             error_message = serde_json::from_str::<RequestErrorResponse>(&body)
-                .map_err(|err| HTTPError::new_retryable_error(err, false, request, Some(&response)))?
+                .map_err(|err| {
+                    HTTPError::new_retryable_error(HTTPErrorKind::JSONError(err), false, request, Some(&response))
+                })?
                 .error
                 .map(|e| e.into())
         }
@@ -184,18 +187,22 @@ impl<'a> Request<'a> {
         let mut content_length = None::<usize>;
         if let Some(content_length_str) = response.header("Content-Length") {
             content_length = Some(content_length_str.parse().map_err(|err| {
-                return HTTPError::new_unretryable_error(err, request, Some(response));
+                return HTTPError::new_unretryable_error(
+                    HTTPErrorKind::UnknownError(Box::new(err)),
+                    request,
+                    Some(response),
+                );
             })?);
         }
         if let Some(body_reader) = response.body_mut() {
             let mut buf = String::new();
-            let body_len = body_reader
-                .read_to_string(&mut buf)
-                .map_err(|err| HTTPError::new_retryable_error(err, false, request, Some(response)))?;
+            let body_len = body_reader.read_to_string(&mut buf).map_err(|err| {
+                HTTPError::new_retryable_error(HTTPErrorKind::IOError(err), false, request, Some(response))
+            })?;
             if let Some(content_length) = content_length {
                 if content_length != body_len {
                     return Err(HTTPError::new_retryable_error(
-                        io::Error::from(io::ErrorKind::UnexpectedEof),
+                        HTTPErrorKind::IOError(io::Error::from(io::ErrorKind::UnexpectedEof)),
                         false,
                         request,
                         Some(response),
@@ -215,150 +222,21 @@ impl<'a> Request<'a> {
         response: Option<&HTTPResponse>,
     ) -> HTTPError {
         match status_code {
-            400 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::BadRequestError(status_code, error_message)),
-                request,
-                response,
-            ),
-            401 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::UnauthorizedError(status_code, error_message)),
-                request,
-                response,
-            ),
-            403 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::ForbiddenError(status_code, error_message)),
-                request,
-                response,
-            ),
-            404 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::URLNotFoundError(status_code, error_message)),
-                request,
-                response,
-            ),
-            405 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::MethodNotAllowedError(status_code, error_message)),
-                request,
-                response,
-            ),
-            406 => HTTPError::new_retryable_error(
-                QiniuError::from(QiniuErrorKind::NotAcceptableError(status_code, error_message)),
-                false,
-                request,
-                response,
-            ),
-            409 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::ConflictError(status_code, error_message)),
-                request,
-                response,
-            ),
-            419 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::UserDisabledError(status_code, error_message)),
-                request,
-                response,
-            ),
-            501 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::NotImplementedError(status_code, error_message)),
-                request,
-                response,
-            ),
-            502 => HTTPError::new_host_unretryable_error(
-                QiniuError::from(QiniuErrorKind::BadGatewayError(status_code, error_message)),
+            400..=499 | 501 | 573 | 608 | 612 | 614 | 615 | 616 | 619 | 630 | 631 | 640 | 701 => {
+                HTTPError::new_unretryable_error(
+                    HTTPErrorKind::ResponseStatusCodeError(status_code, error_message),
+                    request,
+                    response,
+                )
+            }
+            502 | 503 | 571 => HTTPError::new_host_unretryable_error(
+                HTTPErrorKind::ResponseStatusCodeError(status_code, error_message),
                 true,
-                request,
-                response,
-            ),
-            503 => HTTPError::new_host_unretryable_error(
-                QiniuError::from(QiniuErrorKind::ServiceUnavailableError(status_code, error_message)),
-                true,
-                request,
-                response,
-            ),
-            504 => HTTPError::new_retryable_error(
-                QiniuError::from(QiniuErrorKind::GatewayTimeoutError(status_code, error_message)),
-                false,
-                request,
-                response,
-            ),
-            571 => HTTPError::new_retryable_error(
-                QiniuError::from(QiniuErrorKind::BusyError(status_code, error_message)),
-                true,
-                request,
-                response,
-            ),
-            573 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::OutOfLimitError(status_code, error_message)),
-                request,
-                response,
-            ),
-            579 => HTTPError::new_retryable_error(
-                QiniuError::from(QiniuErrorKind::CallbackError(status_code, error_message)),
-                false,
-                request,
-                response,
-            ),
-            599 => HTTPError::new_retryable_error(
-                QiniuError::from(QiniuErrorKind::InternalServerError(status_code, error_message)),
-                false,
-                request,
-                response,
-            ),
-            608 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::FileModifiedError(status_code, error_message)),
-                request,
-                response,
-            ),
-            612 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::ResourceNotFoundError(status_code, error_message)),
-                request,
-                response,
-            ),
-            614 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::ResourceExistsError(status_code, error_message)),
-                request,
-                response,
-            ),
-            615 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::RoomIsInactiveError(status_code, error_message)),
-                request,
-                response,
-            ),
-            616 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::HubNotMatchError(status_code, error_message)),
-                request,
-                response,
-            ),
-            619 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::NoDataError(status_code, error_message)),
-                request,
-                response,
-            ),
-            630 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::TooManyBucketsError(status_code, error_message)),
-                request,
-                response,
-            ),
-            631 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::BucketNotFoundError(status_code, error_message)),
-                request,
-                response,
-            ),
-            640 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::InvalidMarkerError(status_code, error_message)),
-                request,
-                response,
-            ),
-            701 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::InvalidContextError(status_code, error_message)),
-                request,
-                response,
-            ),
-            400..=499 => HTTPError::new_unretryable_error(
-                QiniuError::from(QiniuErrorKind::UnknownClientError(status_code, error_message)),
                 request,
                 response,
             ),
             _ => HTTPError::new_retryable_error(
-                QiniuError::from(QiniuErrorKind::UnknownServerError(status_code, error_message)),
+                HTTPErrorKind::ResponseStatusCodeError(status_code, error_message),
                 false,
                 request,
                 response,
@@ -391,21 +269,21 @@ mod tests {
         },
         *,
     };
-    use qiniu_http::{Error, ErrorKind, HTTPCaller};
+    use qiniu_http::HTTPCaller;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, ErrorResponseMock};
     use std::{boxed::Box, error::Error as StdError, io, result::Result as StdResult, time::Duration};
 
     struct HTTPRequestCounter {
         is_retry_safe: bool,
-        error_kind: ErrorKind,
+        retry_kind: HTTPRetryKind,
     }
 
     impl HTTPCaller for HTTPRequestCounter {
         fn call(&self, request: &HTTPRequest) -> HTTPResult<HTTPResponse> {
             assert!(request.headers().contains_key("Authorization"));
-            Err(Error::new_from_parts(
-                self.error_kind.clone(),
-                io::Error::new(io::ErrorKind::Other, "Test Error"),
+            Err(HTTPError::new_from_parts(
+                self.retry_kind,
+                HTTPErrorKind::IOError(io::Error::new(io::ErrorKind::Other, "Test Error")),
                 self.is_retry_safe,
                 None,
                 None,
@@ -418,7 +296,7 @@ mod tests {
     #[test]
     fn test_retryable_error_case_1() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(HTTPRequestCounter {
-            error_kind: ErrorKind::RetryableError,
+            retry_kind: HTTPRetryKind::RetryableError,
             is_retry_safe: true,
         });
         let config: Config = ConfigBuilder::default()
@@ -452,7 +330,7 @@ mod tests {
     #[test]
     fn test_retryable_error_case_2() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(HTTPRequestCounter {
-            error_kind: ErrorKind::RetryableError,
+            retry_kind: HTTPRetryKind::RetryableError,
             is_retry_safe: true,
         });
         let config: Config = ConfigBuilder::default()
@@ -486,7 +364,7 @@ mod tests {
     #[test]
     fn test_retryable_error_case_3() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(HTTPRequestCounter {
-            error_kind: ErrorKind::RetryableError,
+            retry_kind: HTTPRetryKind::RetryableError,
             is_retry_safe: false,
         });
         let config: Config = ConfigBuilder::default()
@@ -520,7 +398,7 @@ mod tests {
     #[test]
     fn test_host_unretryable_error() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(HTTPRequestCounter {
-            error_kind: ErrorKind::HostUnretryableError,
+            retry_kind: HTTPRetryKind::HostUnretryableError,
             is_retry_safe: true,
         });
         let config: Config = ConfigBuilder::default()
@@ -554,7 +432,7 @@ mod tests {
     #[test]
     fn test_zone_unretryable_error() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(HTTPRequestCounter {
-            error_kind: ErrorKind::ZoneUnretryableError,
+            retry_kind: HTTPRetryKind::ZoneUnretryableError,
             is_retry_safe: false,
         });
         let config: Config = ConfigBuilder::default()
@@ -588,7 +466,7 @@ mod tests {
     #[test]
     fn test_unretryable_error() -> StdResult<(), Box<dyn StdError>> {
         let mock = CounterCallMock::new(HTTPRequestCounter {
-            error_kind: ErrorKind::UnretryableError,
+            retry_kind: HTTPRetryKind::UnretryableError,
             is_retry_safe: false,
         });
         let config: Config = ConfigBuilder::default()
@@ -639,8 +517,8 @@ mod tests {
         .send()
         .is_err());
 
-        assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
-        assert_eq!(mock.on_retry_request_called(), 2 * (RETRIES + 1));
+        assert_eq!(mock.call_called(), 2);
+        assert_eq!(mock.on_retry_request_called(), 0);
         assert_eq!(mock.on_host_failed_called(), 2);
         assert_eq!(mock.on_request_built_called(), 2);
         assert_eq!(mock.on_response_called(), 0);
@@ -667,8 +545,8 @@ mod tests {
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
-        assert_eq!(mock.on_retry_request_called(), 2 * (RETRIES + 1));
+        assert_eq!(mock.call_called(), 2);
+        assert_eq!(mock.on_retry_request_called(), 0);
         assert_eq!(mock.on_host_failed_called(), 2);
         assert_eq!(mock.on_request_built_called(), 2);
         assert_eq!(mock.on_response_called(), 0);

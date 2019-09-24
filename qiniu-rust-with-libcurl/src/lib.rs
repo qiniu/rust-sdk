@@ -3,7 +3,9 @@ use curl::{
     Version,
 };
 use derive_builder::Builder;
-use qiniu_http::{Error, HTTPCaller, Headers, Method, Request, Response, ResponseBuilder, Result, StatusCode};
+use qiniu_http::{
+    Error, ErrorKind, HTTPCaller, Headers, Method, Request, Response, ResponseBuilder, Result, StatusCode,
+};
 use std::{
     borrow::Cow,
     convert::TryInto,
@@ -148,90 +150,55 @@ impl CurlClient {
         match result {
             Ok(result) => Ok(result),
             Err(err) => {
-                if err.is_unsupported_protocol() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_failed_init() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_url_malformed() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_couldnt_resolve_proxy() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_couldnt_resolve_host() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_couldnt_connect() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_partial_file() {
-                    Err(Error::new_retryable_error(err, false, request, None))
-                } else if err.is_read_error() {
-                    Err(Error::new_retryable_error(err, false, request, None))
-                } else if err.is_write_error() {
-                    Err(Error::new_retryable_error(err, true, request, None))
-                } else if err.is_out_of_memory() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_operation_timedout() {
-                    Err(Error::new_host_unretryable_error(err, false, request, None))
-                } else if err.is_range_error() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_http_post_error() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_ssl_connect_error() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_bad_download_resume() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_function_not_found() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_aborted_by_callback() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_bad_function_argument() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_interface_failed() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_too_many_redirects() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_unknown_option() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_peer_failed_verification() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_got_nothing() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_ssl_engine_notfound() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_ssl_engine_setfailed() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_send_error() {
-                    Err(Error::new_retryable_error(err, true, request, None))
-                } else if err.is_recv_error() {
-                    Err(Error::new_retryable_error(err, false, request, None))
-                } else if err.is_ssl_certproblem() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_ssl_cipher() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_ssl_cacert() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_bad_content_encoding() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_filesize_exceeded() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_use_ssl_failed() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_send_fail_rewind() {
-                    Err(Error::new_unretryable_error(err, request, None))
-                } else if err.is_ssl_engine_initfailed() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_ssl_cacert_badfile() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_ssl_crl_badfile() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_ssl_shutdown_failed() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_again() {
-                    Err(Error::new_retryable_error(err, true, request, None))
-                } else if err.is_ssl_issuer_error() {
-                    Err(Error::new_host_unretryable_error(err, true, request, None))
-                } else if err.is_chunk_failed() {
-                    Err(Error::new_retryable_error(err, true, request, None))
+                if err.is_partial_file() || err.is_read_error() || err.is_recv_error() {
+                    Err(Error::new_retryable_error(
+                        ErrorKind::HTTPCallerError(Box::new(err)),
+                        false,
+                        request,
+                        None,
+                    ))
+                } else if err.is_write_error()
+                    || err.is_operation_timedout()
+                    || err.is_send_error()
+                    || err.is_again()
+                    || err.is_chunk_failed()
+                {
+                    Err(Error::new_retryable_error(
+                        ErrorKind::HTTPCallerError(Box::new(err)),
+                        true,
+                        request,
+                        None,
+                    ))
+                } else if err.is_couldnt_resolve_proxy()
+                    || err.is_couldnt_resolve_host()
+                    || err.is_couldnt_connect()
+                    || err.is_ssl_connect_error()
+                    || err.is_too_many_redirects()
+                    || err.is_peer_failed_verification()
+                    || err.is_got_nothing()
+                    || err.is_ssl_engine_notfound()
+                    || err.is_ssl_certproblem()
+                    || err.is_ssl_cipher()
+                    || err.is_ssl_cacert()
+                    || err.is_use_ssl_failed()
+                    || err.is_ssl_engine_initfailed()
+                    || err.is_ssl_cacert_badfile()
+                    || err.is_ssl_crl_badfile()
+                    || err.is_ssl_shutdown_failed()
+                    || err.is_ssl_issuer_error()
+                {
+                    Err(Error::new_host_unretryable_error(
+                        ErrorKind::HTTPCallerError(Box::new(err)),
+                        true,
+                        request,
+                        None,
+                    ))
                 } else {
-                    Err(Error::new_unretryable_error(err, request, None))
+                    Err(Error::new_unretryable_error(
+                        ErrorKind::HTTPCallerError(Box::new(err)),
+                        request,
+                        None,
+                    ))
                 }
             }
         }
