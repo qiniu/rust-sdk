@@ -31,10 +31,10 @@ unsafe fn make_config(config: *const qiniu_ng_config) -> Config {
         .upload_token_lifetime(Duration::from_secs((*config).upload_token_lifetime))
         .batch_max_operation_size((*config).batch_max_operation_size)
         .upload_threshold((*config).upload_threshold)
-        .upload_chunk_size((*config).upload_chunk_size)
+        .upload_block_size((*config).upload_block_size)
         .http_request_retries((*config).http_request_retries)
         .http_request_retry_delay(Duration::from_secs((*config).http_request_retry_delay))
-        .host_freeze_duration(Duration::from_secs((*config).host_freeze_duration))
+        .domain_freeze_duration(Duration::from_secs((*config).domain_freeze_duration))
         .build()
         .unwrap()
 }

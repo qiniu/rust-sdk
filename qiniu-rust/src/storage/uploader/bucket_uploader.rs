@@ -165,12 +165,12 @@ impl<'b> FileUploaderBuilder<'b> {
         match self.resumeable_policy {
             ResumeablePolicy::Threshold(threshold) => {
                 if file_path.as_ref().metadata()?.len() >= threshold {
-                    self.upload_file_by_chunks(file_path, file_name, mime)
+                    self.upload_file_by_blocks(file_path, file_name, mime)
                 } else {
                     self.upload_file_by_form(file_path, file_name, mime)
                 }
             }
-            ResumeablePolicy::Always => self.upload_file_by_chunks(file_path, file_name, mime),
+            ResumeablePolicy::Always => self.upload_file_by_blocks(file_path, file_name, mime),
             ResumeablePolicy::Never => self.upload_file_by_form(file_path, file_name, mime),
         }
     }
@@ -183,7 +183,7 @@ impl<'b> FileUploaderBuilder<'b> {
     ) -> Result<UploadResult> {
         match self.resumeable_policy {
             ResumeablePolicy::Threshold(_) | ResumeablePolicy::Always => {
-                self.upload_stream_by_chunks(stream, file_name, mime)
+                self.upload_stream_by_blocks(stream, file_name, mime)
             }
             ResumeablePolicy::Never => self.upload_stream_by_form(stream, file_name, mime),
         }
@@ -219,7 +219,7 @@ impl<'b> FileUploaderBuilder<'b> {
             .send()?)
     }
 
-    fn upload_file_by_chunks<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
+    fn upload_file_by_blocks<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
         self,
         file_path: P,
         file_name: Option<N>,
@@ -278,7 +278,7 @@ impl<'b> FileUploaderBuilder<'b> {
             .send()?)
     }
 
-    fn upload_stream_by_chunks<'n, R: Read, N: Into<Cow<'n, str>>>(
+    fn upload_stream_by_blocks<'n, R: Read, N: Into<Cow<'n, str>>>(
         self,
         stream: R,
         file_name: Option<N>,

@@ -35,7 +35,7 @@ pub struct ConfigInner {
     upload_threshold: u64,
 
     #[get_copy = "pub"]
-    upload_chunk_size: usize,
+    upload_block_size: usize,
 
     #[get_copy = "pub"]
     http_request_retries: usize,
@@ -50,7 +50,7 @@ pub struct ConfigInner {
     domains_manager: DomainsManager,
 
     #[get_copy = "pub"]
-    host_freeze_duration: Duration,
+    domain_freeze_duration: Duration,
 }
 
 impl Default for ConfigInner {
@@ -60,12 +60,12 @@ impl Default for ConfigInner {
             upload_token_lifetime: Duration::from_secs(60 * 60),
             batch_max_operation_size: 1000,
             upload_threshold: 1 << 22,
-            upload_chunk_size: 1 << 22,
+            upload_block_size: 1 << 22,
             http_request_retries: 3,
             http_request_retry_delay: Duration::from_millis(500),
             http_request_call: Self::default_http_request_call(),
             domains_manager: DomainsManager::new(),
-            host_freeze_duration: Duration::from_secs(60 * 10),
+            domain_freeze_duration: Duration::from_secs(60 * 10),
         }
     }
 }
@@ -91,10 +91,10 @@ impl fmt::Debug for ConfigInner {
             .field("upload_token_lifetime", &self.upload_token_lifetime)
             .field("batch_max_operation_size", &self.batch_max_operation_size)
             .field("upload_threshold", &self.upload_threshold)
-            .field("upload_chunk_size", &self.upload_chunk_size)
+            .field("upload_block_size", &self.upload_block_size)
             .field("http_request_retries", &self.http_request_retries)
             .field("http_request_retry_delay", &self.http_request_retry_delay)
-            .field("host_freeze_duration", &self.host_freeze_duration)
+            .field("domain_freeze_duration", &self.domain_freeze_duration)
             .finish()
     }
 }

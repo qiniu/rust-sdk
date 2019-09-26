@@ -2,10 +2,7 @@ use super::{base64, mime};
 use crate::storage::upload_policy::UploadPolicy;
 use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
 use qiniu_http::{Method, Request};
-use std::{
-    borrow::Cow, boxed::Box, cmp::PartialEq, convert::TryFrom, error::Error, fmt, result::Result, string::String,
-    sync::Arc, time,
-};
+use std::{borrow::Cow, cmp::PartialEq, convert::TryFrom, fmt, result::Result, string::String, sync::Arc, time};
 use url::Url;
 
 #[derive(Clone, Eq, PartialEq)]
@@ -50,7 +47,7 @@ impl Auth {
         url_string: URL,
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String, url::ParseError> {
         let authorization_token = self.sign_request_v1(url_string, content_type, body)?;
         Ok("QBox ".to_owned() + &authorization_token)
     }
@@ -61,7 +58,7 @@ impl Auth {
         url_string: URL,
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String, url::ParseError> {
         let authorization_token = self.sign_request_v2(method, url_string, content_type, body)?;
         Ok("Qiniu ".to_owned() + &authorization_token)
     }
@@ -71,21 +68,21 @@ impl Auth {
         url_string: URL,
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String, url::ParseError> {
         let u = Url::parse(url_string.as_ref())?;
-        let mut data_to_sign = String::with_capacity(1024);
-        data_to_sign.push_str(u.path());
+        let mut data_to_sign = Vec::with_capacity(1024);
+        data_to_sign.extend_from_slice(u.path().as_bytes());
         if let Some(query) = u.query() {
-            data_to_sign.push('?');
-            data_to_sign.push_str(query);
+            data_to_sign.extend_from_slice(b"?");
+            data_to_sign.extend_from_slice(query.as_bytes());
         }
-        data_to_sign.push('\n');
+        data_to_sign.extend_from_slice(b"\n");
         if let (Some(content_type), Some(body)) = (content_type, body) {
             if Self::will_push_body_v1(content_type) {
-                data_to_sign.push_str(std::str::from_utf8(body)?);
+                data_to_sign.extend_from_slice(body);
             }
         }
-        Ok(self.sign(data_to_sign.as_bytes()))
+        Ok(self.sign(&data_to_sign))
     }
 
     pub(crate) fn sign_request_v2<URL: AsRef<str>, ContentType: AsRef<str>>(
@@ -94,37 +91,37 @@ impl Auth {
         url_string: URL,
         content_type: Option<ContentType>,
         body: Option<&[u8]>,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String, url::ParseError> {
         let u = Url::parse(url_string.as_ref())?;
-        let mut data_to_sign = String::with_capacity(1024);
-        data_to_sign.push_str(method.as_str());
-        data_to_sign.push(' ');
-        data_to_sign.push_str(u.path());
+        let mut data_to_sign = Vec::with_capacity(1024);
+        data_to_sign.extend_from_slice(method.as_bytes());
+        data_to_sign.extend_from_slice(b" ");
+        data_to_sign.extend_from_slice(u.path().as_bytes());
         if let Some(query) = u.query() {
-            data_to_sign.push('?');
-            data_to_sign.push_str(query);
+            data_to_sign.extend_from_slice(b"?");
+            data_to_sign.extend_from_slice(query.as_bytes());
         }
-        data_to_sign.push_str("\nHost: ");
-        data_to_sign.push_str(u.host_str().expect("Host must be existed in URL"));
+        data_to_sign.extend_from_slice(b"\nHost: ");
+        data_to_sign.extend_from_slice(u.host_str().expect("Host must be existed in URL").as_bytes());
         if let Some(port) = u.port() {
-            data_to_sign.push(':');
-            data_to_sign.push_str(&port.to_string());
+            data_to_sign.extend_from_slice(b":");
+            data_to_sign.extend_from_slice(port.to_string().as_bytes());
         }
-        data_to_sign.push('\n');
+        data_to_sign.extend_from_slice(b"\n");
 
         if let Some(content_type) = content_type {
-            data_to_sign.push_str("Content-Type: ");
-            data_to_sign.push_str(content_type.as_ref());
-            data_to_sign.push_str("\n\n");
+            data_to_sign.extend_from_slice(b"Content-Type: ");
+            data_to_sign.extend_from_slice(content_type.as_ref().as_bytes());
+            data_to_sign.extend_from_slice(b"\n\n");
             if let Some(body) = body {
                 if Self::will_push_body_v2(content_type) {
-                    data_to_sign.push_str(std::str::from_utf8(body)?);
+                    data_to_sign.extend_from_slice(body);
                 }
             }
         } else {
-            data_to_sign.push('\n');
+            data_to_sign.extend_from_slice(b"\n");
         }
-        Ok(self.sign(data_to_sign.as_bytes()))
+        Ok(self.sign(&data_to_sign))
     }
 
     fn base64ed_hmac_digest(&self, data: &[u8]) -> String {
@@ -146,11 +143,10 @@ impl Auth {
         self.is_valid_request_with_err(req).unwrap_or(false)
     }
 
-    fn is_valid_request_with_err(&self, req: &Request) -> Result<bool, Box<dyn Error>> {
+    fn is_valid_request_with_err(&self, req: &Request) -> Result<bool, url::ParseError> {
         if let Some(original_authorization) = req.headers().get("Authorization") {
-            let content_type = req.headers().get("Content-Type");
-            let expected_authorization = &self.authorization_v1_for_request(req.url(), content_type, req.body())?;
-            Ok(original_authorization == expected_authorization)
+            Ok(original_authorization
+                == &self.authorization_v1_for_request(req.url(), req.headers().get("Content-Type"), req.body())?)
         } else {
             Ok(false)
         }

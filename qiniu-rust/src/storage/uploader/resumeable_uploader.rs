@@ -53,8 +53,6 @@ pub(super) struct ResumeableUploaderBuilder<'u> {
     upload_policy: UploadPolicy<'u>,
     upload_token: Box<str>,
     key: Option<Cow<'u, str>>,
-    fname: Option<Cow<'u, str>>,
-    mime_type: Option<Mime>,
     metadata: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
     custom_vars: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
 }
@@ -67,7 +65,7 @@ pub(super) struct ResumeableUploader<'u, R: Read + Seek + 'u> {
     completed_parts: CompletedParts<'u>,
     checksum_enabled: bool,
     multi_zones_retry: bool,
-    chunk_size: usize,
+    block_size: usize,
     io: R,
 }
 
@@ -82,8 +80,6 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             upload_policy: upload_token.clone().policy()?,
             upload_token: upload_token.token().as_ref().into(),
             key: None,
-            fname: None,
-            mime_type: None,
             metadata: None,
             custom_vars: None,
         })
@@ -116,7 +112,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
         mime_type: Option<Mime>,
         checksum_enabled: bool,
     ) -> IOResult<ResumeableUploader<'u, R>> {
-        let chunk_size = self.bucket_uploader.config().upload_chunk_size();
+        let block_size = self.bucket_uploader.config().upload_block_size();
         Ok(ResumeableUploader {
             bucket_uploader: self.bucket_uploader,
             upload_policy: self.upload_policy,
@@ -125,10 +121,10 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             io: stream,
             checksum_enabled: checksum_enabled,
             multi_zones_retry: true,
-            chunk_size: self.bucket_uploader.config().upload_chunk_size(),
+            block_size: self.bucket_uploader.config().upload_block_size(),
             completed_parts: CompletedParts {
                 parts: Vec::with_capacity(
-                    ((file_size + chunk_size as u64 - 1) / (chunk_size as u64))
+                    ((file_size + block_size as u64 - 1) / (block_size as u64))
                         .try_into()
                         .unwrap_or_else(|_| usize::max_value()),
                 ),
@@ -155,7 +151,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             io: seek_adapter::SeekAdapter(stream),
             checksum_enabled: checksum_enabled,
             multi_zones_retry: false,
-            chunk_size: self.bucket_uploader.config().upload_chunk_size(),
+            block_size: self.bucket_uploader.config().upload_block_size(),
             completed_parts: CompletedParts {
                 parts: Vec::new(),
                 fname: file_name.into(),
@@ -213,7 +209,7 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
             + "/uploads";
         let authorization = "UpToken ".to_owned() + self.upload_token.as_ref();
         let upload_id = self.init_parts(&base_path, up_urls, &authorization)?;
-        let mut body_buf = vec![0; self.chunk_size];
+        let mut body_buf = vec![0; self.block_size];
         let mut part_number = 0;
         let mut md5_digest = None;
         if self.checksum_enabled {
@@ -222,10 +218,10 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
 
         loop {
             part_number += 1;
-            let chunk_size = self
-                .read_chunk(&mut body_buf)
+            let block_size = self
+                .read_block(&mut body_buf)
                 .map_err(|err| HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None))?;
-            if chunk_size == 0 {
+            if block_size == 0 {
                 break;
             }
             let etag = self.upload_part(
@@ -234,9 +230,9 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
                 &authorization,
                 &upload_id,
                 part_number,
-                &body_buf[..chunk_size],
+                &body_buf[..block_size],
                 if let Some(md5_digest) = md5_digest.as_mut() {
-                    md5_digest.input(&body_buf[..chunk_size]);
+                    md5_digest.input(&body_buf[..block_size]);
                     let md5 = Some(md5_digest.result_str());
                     md5_digest.reset();
                     md5
@@ -252,7 +248,7 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
         self.complete_parts(&base_path, up_urls, &authorization, &upload_id)
     }
 
-    fn read_chunk(&mut self, buf: &mut Vec<u8>) -> IOResult<usize> {
+    fn read_block(&mut self, buf: &mut Vec<u8>) -> IOResult<usize> {
         let mut have_read = 0;
         loop {
             match self.io.read(&mut buf[have_read..]) {
@@ -302,7 +298,7 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
         authorization: &str,
         upload_id: &str,
         part_number: usize,
-        chunk: &[u8],
+        part: &[u8],
         md5: Option<String>,
     ) -> HTTPResult<Box<str>> {
         let path = base_path.to_owned() + "/" + upload_id + "/" + &part_number.to_string();
@@ -318,7 +314,7 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
             .idempotent()
             .response_callback(&UploadResponseCallback(&self.upload_policy))
             .accept_json()
-            .raw_body("application/octet-stream", chunk.as_ref())
+            .raw_body("application/octet-stream", part.as_ref())
             .send()?
             .parse_json()?;
         Ok(result.etag)

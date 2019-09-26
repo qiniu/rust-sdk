@@ -17,7 +17,7 @@ use url::Url;
 pub(crate) struct Request<'a> {
     pub(super) parts: Parts<'a>,
     pub(super) domains_manager: DomainsManager,
-    pub(super) host_freeze_duration: Duration,
+    pub(super) domain_freeze_duration: Duration,
 }
 
 impl<'a> Request<'a> {
@@ -41,7 +41,7 @@ impl<'a> Request<'a> {
                 Err(err) => match err.retry_kind() {
                     HTTPRetryKind::RetryableError | HTTPRetryKind::HostUnretryableError if self.is_idempotent(&err) => {
                         self.domains_manager
-                            .freeze(host.to_string(), self.host_freeze_duration)
+                            .freeze(host.to_string(), self.domain_freeze_duration)
                             .unwrap();
                         self.parts.config.http_request_call().on_host_failed(host, &err);
                         prev_err = Some(err);
@@ -249,7 +249,7 @@ impl fmt::Debug for Request<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Request")
             .field("parts", &self.parts)
-            .field("host_freeze_duration", &self.host_freeze_duration)
+            .field("domain_freeze_duration", &self.domain_freeze_duration)
             .finish()
     }
 }

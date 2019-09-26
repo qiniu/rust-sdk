@@ -21,14 +21,14 @@ error_chain! {
 pub(crate) struct Builder<'a> {
     parts: Parts<'a>,
     domains_manager: DomainsManager,
-    host_freeze_duration: Duration,
+    domain_freeze_duration: Duration,
 }
 
 impl<'a> Builder<'a> {
     pub(crate) fn new(auth: Auth, config: Config, method: Method, path: &'a str, hosts: &'a [&'a str]) -> Builder<'a> {
         Builder {
             domains_manager: config.domains_manager().clone(),
-            host_freeze_duration: config.host_freeze_duration(),
+            domain_freeze_duration: config.domain_freeze_duration(),
             parts: Parts {
                 auth: auth,
                 config: config,
@@ -131,7 +131,7 @@ impl<'a> Builder<'a> {
         Request {
             parts: self.parts,
             domains_manager: self.domains_manager,
-            host_freeze_duration: self.host_freeze_duration,
+            domain_freeze_duration: self.domain_freeze_duration,
         }
     }
 }

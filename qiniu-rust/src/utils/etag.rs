@@ -39,8 +39,8 @@ impl Digest for Etag {
     fn result(&mut self, mut out: &mut [u8]) {
         if !self.buffer.is_empty() {
             self.sha1s.push(Self::sha1(&self.buffer));
+            self.buffer.clear();
         }
-        self.buffer.clear();
         self.encode_sha1s(&mut out);
     }
 
