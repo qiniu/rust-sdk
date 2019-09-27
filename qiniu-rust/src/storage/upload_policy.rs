@@ -271,7 +271,7 @@ impl<'p> UploadPolicyBuilder<'p> {
         builder.token_lifetime(config.upload_token_lifetime())
     }
 
-    pub fn new_policy_for_object_name_with_prefix<B: Into<String>, K: AsRef<str>>(
+    pub fn new_policy_for_objects_with_prefix<B: Into<String>, K: AsRef<str>>(
         bucket: B,
         prefix: K,
         config: &Config,
@@ -515,7 +515,7 @@ mod tests {
     fn test_build_upload_policy_for_file_name_with_prefix() -> Result<(), Box<dyn Error>> {
         let one_hour = Duration::from_secs(60 * 60);
         let policy =
-            UploadPolicyBuilder::new_policy_for_object_name_with_prefix("test_bucket", "test:file", &Config::default())
+            UploadPolicyBuilder::new_policy_for_objects_with_prefix("test_bucket", "test:file", &Config::default())
                 .build();
         let now = SystemTime::now();
         let one_hour_later = now + one_hour;
