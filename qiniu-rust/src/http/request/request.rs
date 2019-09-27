@@ -39,7 +39,7 @@ impl<'a> Request<'a> {
                     return Ok(resp);
                 }
                 Err(err) => match err.retry_kind() {
-                    HTTPRetryKind::RetryableError | HTTPRetryKind::HostUnretryableError if self.is_idempotent(&err) => {
+                    HTTPRetryKind::RetryableError | HTTPRetryKind::HostUnretryableError if self.is_retry_safe(&err) => {
                         self.domains_manager
                             .freeze(host.to_string(), self.domain_freeze_duration)
                             .unwrap();
@@ -118,7 +118,7 @@ impl<'a> Request<'a> {
                     return Ok(response);
                 }
                 Err(err) => match err.retry_kind() {
-                    HTTPRetryKind::RetryableError if self.is_idempotent(&err) => {
+                    HTTPRetryKind::RetryableError if self.is_retry_safe(&err) => {
                         self.parts
                             .config
                             .http_request_call()
@@ -139,7 +139,7 @@ impl<'a> Request<'a> {
         Err(prev_err.unwrap())
     }
 
-    fn is_idempotent(&self, err: &HTTPError) -> bool {
+    fn is_retry_safe(&self, err: &HTTPError) -> bool {
         match self.parts.method {
             Method::GET | Method::PUT | Method::HEAD | Method::PATCH | Method::DELETE => true,
             _ => self.parts.idempotent || err.is_retry_safe(),
@@ -222,6 +222,12 @@ impl<'a> Request<'a> {
         response: Option<&HTTPResponse>,
     ) -> HTTPError {
         match status_code {
+            400 if error_message.contains("incorrect region") => HTTPError::new_zone_unretryable_error(
+                HTTPErrorKind::ResponseStatusCodeError(status_code, error_message),
+                false,
+                request,
+                response,
+            ),
             400..=499 | 501 | 573 | 608 | 612 | 614 | 615 | 616 | 619 | 630 | 631 | 640 | 701 => {
                 HTTPError::new_unretryable_error(
                     HTTPErrorKind::ResponseStatusCodeError(status_code, error_message),

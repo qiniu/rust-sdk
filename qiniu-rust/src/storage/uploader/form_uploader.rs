@@ -303,6 +303,33 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_storage_uploader_form_uploader_upload_stream_with_400_incorrect_zone_error() -> Result<(), Box<dyn Error>> {
+        let file = create_temp_file(1 << 10)?.into_file();
+        let mock = CounterCallMock::new(ErrorResponseMock::new(400, "incorrect region, please use z3h1.com"));
+        let config = ConfigBuilder::default()
+            .http_request_retries(3)
+            .http_request_call(mock.as_boxed())
+            .build()?;
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        BucketUploader::new(
+            "test-upload",
+            vec![
+                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
+                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+            ],
+            get_credential(),
+            config,
+        )
+        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .key("test:file")
+        .never_be_resumeable()
+        .upload_stream(&file, Some("file"), None)
+        .unwrap_err();
+        assert_eq!(mock.call_called(), 2);
+        Ok(())
+    }
+
     fn get_credential() -> Credential {
         Credential::new("abcdefghklmnopq", "1234567890")
     }

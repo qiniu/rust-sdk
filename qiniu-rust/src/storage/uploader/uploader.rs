@@ -1,5 +1,10 @@
 use super::{
-    super::{bucket::Bucket, region::Region, upload_policy::UploadPolicy, upload_token::UploadToken},
+    super::{
+        bucket::{Bucket, BucketBuilder},
+        region::Region,
+        upload_policy::UploadPolicy,
+        upload_token::UploadToken,
+    },
     BucketUploader, FileUploaderBuilder,
 };
 use crate::{config::Config, credential::Credential};
@@ -18,41 +23,47 @@ impl Uploader {
         }
     }
 
-    pub fn for_bucket<'b>(&self, bucket: &Bucket) -> qiniu_http::Result<BucketUploader<'b>> {
-        Ok(BucketUploader::new(
+    pub fn for_bucket<'b>(&self, bucket: &Bucket) -> BucketUploader<'b> {
+        BucketUploader::new(
             bucket.name().to_owned(),
             bucket
-                .regions()?
-                .map(|region| {
-                    region
-                        .up_urls(self.config.use_https())
-                        .into_iter()
-                        .map(|url| url.into())
-                        .collect::<Vec<Box<str>>>()
-                        .into()
+                .regions()
+                .map(|iter| {
+                    iter.map(|region| {
+                        region
+                            .up_urls(self.config.use_https())
+                            .into_iter()
+                            .map(|url| url.into())
+                            .collect::<Box<[Box<str>]>>()
+                    })
+                    .collect::<Box<[Box<[Box<str>]>]>>()
                 })
-                .collect::<Vec<Box<[Box<str>]>>>(),
+                .unwrap_or_else(|_| {
+                    Region::all()
+                        .iter()
+                        .map(|region| {
+                            region
+                                .up_urls(self.config.use_https())
+                                .into_iter()
+                                .map(|url| url.into())
+                                .collect::<Box<[Box<str>]>>()
+                        })
+                        .collect::<Box<[Box<[Box<str>]>]>>()
+                }),
             self.credential.clone(),
             self.config.clone(),
-        ))
+        )
     }
 
-    pub fn for_bucket_name<'b, B: Into<Cow<'b, str>>>(&self, bucket_name: B) -> qiniu_http::Result<BucketUploader<'b>> {
-        let bucket_name: Cow<'b, str> = bucket_name.into();
-        let uc_urls = Region::query_uc_urls(bucket_name.as_ref(), &self.credential, self.config.clone())?;
-        Ok(BucketUploader::new(
-            bucket_name,
-            uc_urls,
-            self.credential.clone(),
-            self.config.clone(),
-        ))
+    pub fn for_bucket_name<'b, B: Into<Cow<'b, str>>>(&self, bucket_name: B) -> BucketUploader<'b> {
+        self.for_bucket(&BucketBuilder::new(bucket_name, self.credential.clone(), self.config.clone()).build())
     }
 
     pub fn for_upload_token<'u>(&self, upload_token: UploadToken<'u>) -> error::Result<FileUploaderBuilder<'u>> {
         let policy = upload_token.clone().policy()?;
         if let Some(bucket_name) = policy.bucket() {
             Ok(FileUploaderBuilder::new(
-                Cow::Owned(self.for_bucket_name(bucket_name.to_owned())?),
+                Cow::Owned(self.for_bucket_name(bucket_name.to_owned())),
                 upload_token,
             ))
         } else {

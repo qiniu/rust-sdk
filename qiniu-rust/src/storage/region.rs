@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use maplit::hashmap;
 use qiniu_http::Result;
 use serde::Deserialize;
-use std::{borrow::Cow, boxed::Box, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum RegionId {
@@ -201,6 +201,10 @@ impl Region {
         &SINGAPORE
     }
 
+    pub fn all() -> &'static [&'static Region] {
+        &ALL_REGIONS[..]
+    }
+
     pub fn query<B: Into<String>>(bucket: B, credential: &Credential, config: Config) -> Result<Vec<Region>> {
         let (access_key, uc_url) = (credential.access_key().to_owned(), Self::uc_url(config.use_https()));
         let result: RegionQueryResults = http::Client::new(config)
@@ -212,26 +216,6 @@ impl Region {
             .send()?
             .parse_json()?;
         Ok(result.into_regions())
-    }
-
-    pub(in super::super) fn query_uc_urls<B: Into<String>>(
-        bucket: B,
-        credential: &Credential,
-        config: Config,
-    ) -> Result<Box<[Box<[Box<str>]>]>> {
-        let use_https = config.use_https();
-        Ok(Self::query(bucket, &credential, config)?
-            .into_iter()
-            .map(|region| {
-                region
-                    .up_urls(use_https)
-                    .into_iter()
-                    .map(|url| url.into())
-                    .collect::<Vec<Box<str>>>()
-                    .into()
-            })
-            .collect::<Vec<Box<[Box<str>]>>>()
-            .into())
     }
 }
 
@@ -356,6 +340,13 @@ lazy_static! {
         .api_https_url("https://api-as0.qiniu.com")
         .build()
         .unwrap();
+    static ref ALL_REGIONS: [&'static Region; 5] = [
+        Region::hua_dong(),
+        Region::hua_bei(),
+        Region::hua_nan(),
+        Region::north_america(),
+        Region::singapore(),
+    ];
     static ref INFER_DOMAINS_MAP: HashMap<&'static str, &'static Region> = {
         hashmap! {
             "iovip.qbox.me" => Region::hua_dong(),

@@ -148,7 +148,7 @@ impl<'r> Bucket<'r> {
         Ok(domains.iter().map(|domain| domain.as_ref()).collect())
     }
 
-    pub fn uploader(&self) -> Result<BucketUploader> {
+    pub fn uploader(&self) -> BucketUploader {
         Uploader::new(self.credential.clone(), self.config.clone()).for_bucket(self)
     }
 
