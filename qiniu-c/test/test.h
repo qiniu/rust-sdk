@@ -8,4 +8,4 @@ void test_qiniu_ng_etag_from_buffer(void);
 void test_qiniu_ng_etag_from_unexisted_file_path(void);
 void test_qiniu_ng_etag_from_large_buffer(void);
 void test_qiniu_ng_config(void);
-void test_qiniu_ng_bucket_names(void);
+void test_qiniu_ng_storage_bucket_names(void);

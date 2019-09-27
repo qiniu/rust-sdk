@@ -1,16 +1,16 @@
 use super::request;
-use crate::{config::Config, utils::auth::Auth};
+use crate::{config::Config, credential::Credential};
 use qiniu_http::Method;
 
 pub(crate) struct Client {
-    auth: Auth,
+    credential: Credential,
     config: Config,
 }
 
 impl Client {
-    pub(crate) fn new(auth: Auth, config: Config) -> Client {
+    pub(crate) fn new(credential: Credential, config: Config) -> Client {
         Client {
-            auth: auth,
+            credential: credential,
             config: config,
         }
     }
@@ -40,6 +40,6 @@ impl Client {
     }
 
     fn request_builder<'a>(&self, method: Method, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
-        request::Builder::new(self.auth.clone(), self.config.clone(), method, path, hosts)
+        request::Builder::new(self.credential.clone(), self.config.clone(), method, path, hosts)
     }
 }

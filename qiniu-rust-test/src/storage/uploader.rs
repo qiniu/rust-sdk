@@ -20,7 +20,7 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
         let result = get_client()
-            .bucket_manager()
+            .storage()
             .uploader()
             .for_upload_policy(policy)?
             .key(&key)
@@ -41,7 +41,7 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
         let result = get_client()
-            .bucket_manager()
+            .storage()
             .uploader()
             .for_upload_policy(policy)?
             .always_be_resumeable()
@@ -69,7 +69,7 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fsize\":$(fsize)}")
             .build();
         let result = get_client()
-            .bucket_manager()
+            .storage()
             .uploader()
             .for_upload_policy(policy)?
             .key(&key)
@@ -94,7 +94,7 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let result = get_client()
-            .bucket_manager()
+            .storage()
             .uploader()
             .for_upload_policy(policy)?
             .var("var_key1", "var_value1")
@@ -110,7 +110,7 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let result = get_client()
-            .bucket_manager()
+            .storage()
             .uploader()
             .for_upload_policy(policy)?
             .always_be_resumeable()
@@ -134,7 +134,7 @@ mod tests {
         let etag = etag::from_file(&temp_path)?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &Default::default()).build();
         let result = get_client()
-            .bucket_manager()
+            .storage()
             .uploader()
             .for_upload_policy(policy)?
             .var("var_key1", "var_value1")
@@ -151,7 +151,7 @@ mod tests {
         file.seek(SeekFrom::Start(0))?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &Default::default()).build();
         let result = get_client()
-            .bucket_manager()
+            .storage()
             .uploader()
             .for_upload_policy(policy)?
             .var("var_key1", "var_value1")

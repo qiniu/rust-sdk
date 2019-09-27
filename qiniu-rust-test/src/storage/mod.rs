@@ -1,2 +1,2 @@
-mod bucket_manager;
+mod storage_manager;
 mod uploader;

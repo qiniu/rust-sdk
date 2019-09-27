@@ -3,33 +3,29 @@ use super::{
     region::{Region, RegionId},
     uploader::Uploader,
 };
-use crate::{
-    config::Config,
-    http,
-    utils::{auth::Auth, base64},
-};
+use crate::{config::Config, credential::Credential, http, utils::base64};
 use error_chain::error_chain;
 use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult};
 use std::borrow::Cow;
 
-pub struct BucketManager {
+pub struct StorageManager {
     http_client: http::Client,
-    auth: Auth,
+    credential: Credential,
     config: Config,
     rs_url: &'static str,
 }
 
-impl BucketManager {
-    pub(crate) fn new(auth: Auth, config: Config) -> BucketManager {
-        BucketManager {
+impl StorageManager {
+    pub(crate) fn new(credential: Credential, config: Config) -> StorageManager {
+        StorageManager {
             rs_url: Region::hua_dong().rs_url(config.use_https()),
-            auth: auth.clone(),
+            credential: credential.clone(),
             config: config.clone(),
-            http_client: http::Client::new(auth, config),
+            http_client: http::Client::new(credential, config),
         }
     }
 
-    pub fn rs_url(&mut self, rs_url: &'static str) -> &BucketManager {
+    pub fn rs_url(&mut self, rs_url: &'static str) -> &StorageManager {
         self.rs_url = rs_url;
         self
     }
@@ -85,11 +81,11 @@ impl BucketManager {
     }
 
     pub fn bucket<B: Into<Cow<'static, str>>>(&self, bucket: B) -> BucketBuilder {
-        BucketBuilder::new(bucket, self.auth.clone(), self.config.clone())
+        BucketBuilder::new(bucket, self.credential.clone(), self.config.clone())
     }
 
     pub fn uploader(&self) -> Uploader {
-        Uploader::new(self.auth.clone(), self.config.clone())
+        Uploader::new(self.credential.clone(), self.config.clone())
     }
 }
 

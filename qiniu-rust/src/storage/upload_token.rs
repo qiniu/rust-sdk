@@ -1,12 +1,12 @@
 use super::upload_policy::UploadPolicy;
-use crate::utils::{auth::Auth, base64};
+use crate::{credential::Credential, utils::base64};
 use error_chain::error_chain;
 use std::{borrow::Cow, convert::From, fmt};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum UploadToken<'p> {
     Token(Cow<'p, str>),
-    Policy(UploadPolicy<'p>, Auth),
+    Policy(UploadPolicy<'p>, Credential),
 }
 
 impl<'p> UploadToken<'p> {
@@ -14,8 +14,8 @@ impl<'p> UploadToken<'p> {
         UploadToken::Token(t.into())
     }
 
-    pub fn from_policy(policy: UploadPolicy<'p>, auth: Auth) -> UploadToken<'p> {
-        UploadToken::Policy(policy, auth)
+    pub fn from_policy(policy: UploadPolicy<'p>, credential: Credential) -> UploadToken<'p> {
+        UploadToken::Policy(policy, credential)
     }
 
     pub fn access_key(&self) -> Result<&str> {
@@ -24,7 +24,7 @@ impl<'p> UploadToken<'p> {
                 .find(':')
                 .map(|i| token.split_at(i).0)
                 .ok_or_else(|| ErrorKind::InvalidUploadTokenFormat.into()),
-            UploadToken::Policy(_, auth) => Ok(auth.access_key()),
+            UploadToken::Policy(_, credential) => Ok(credential.access_key()),
         }
     }
 
@@ -44,7 +44,7 @@ impl<'p> UploadToken<'p> {
     pub fn token(self) -> Cow<'p, str> {
         match self {
             UploadToken::Token(token) => token,
-            UploadToken::Policy(policy, auth) => Cow::Owned(auth.sign_upload_policy(&policy)),
+            UploadToken::Policy(policy, credential) => Cow::Owned(credential.sign_upload_policy(&policy)),
         }
     }
 }
@@ -53,7 +53,9 @@ impl fmt::Display for UploadToken<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             UploadToken::Token(ref token) => fmt::Display::fmt(token, f),
-            UploadToken::Policy(ref policy, ref auth) => fmt::Display::fmt(&auth.sign_upload_policy(policy), f),
+            UploadToken::Policy(ref policy, ref credential) => {
+                fmt::Display::fmt(&credential.sign_upload_policy(policy), f)
+            }
         }
     }
 }
@@ -102,8 +104,8 @@ mod tests {
     #[test]
     fn test_build_upload_token_from_upload_policy() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", &Config::default()).build();
-        let token = UploadToken::from_policy(policy, get_auth()).token();
-        assert!(token.starts_with(get_auth().access_key()));
+        let token = UploadToken::from_policy(policy, get_credential()).token();
+        assert!(token.starts_with(get_credential().access_key()));
         let token = UploadToken::from_token(token);
         let policy = token.to_owned().policy()?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
@@ -117,7 +119,7 @@ mod tests {
     fn accept_string(_: String) {}
     fn accept_upload_token(_: &UploadToken) {}
 
-    fn get_auth() -> Auth {
-        Auth::new("abcdefghklmnopq", "1234567890")
+    fn get_credential() -> Credential {
+        Credential::new("abcdefghklmnopq", "1234567890")
     }
 }

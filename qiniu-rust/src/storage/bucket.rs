@@ -2,14 +2,14 @@ use super::{
     region::Region,
     uploader::{BucketUploader, Uploader},
 };
-use crate::{config::Config, http, utils::auth::Auth};
+use crate::{config::Config, credential::Credential, http};
 use once_cell::sync::OnceCell;
 use qiniu_http::Result;
 use std::{borrow::Cow, iter::Iterator};
 
 pub struct Bucket<'r> {
     name: Cow<'r, str>,
-    auth: Auth,
+    credential: Credential,
     config: Config,
     region: OnceCell<Cow<'r, Region>>,
     regions: OnceCell<Vec<Region>>,
@@ -19,7 +19,7 @@ pub struct Bucket<'r> {
 
 pub struct BucketBuilder<'r> {
     name: Cow<'r, str>,
-    auth: Auth,
+    credential: Credential,
     config: Config,
     region: Option<Cow<'r, Region>>,
     regions: Option<Vec<Region>>,
@@ -33,11 +33,11 @@ pub struct BucketRegionIter<'a, 'r: 'a> {
 }
 
 impl<'r> BucketBuilder<'r> {
-    pub(crate) fn new<B: Into<Cow<'r, str>>>(name: B, auth: Auth, config: Config) -> BucketBuilder<'r> {
+    pub(crate) fn new<B: Into<Cow<'r, str>>>(name: B, credential: Credential, config: Config) -> BucketBuilder<'r> {
         BucketBuilder {
             name: name.into(),
-            http_client: http::Client::new(auth.clone(), config.clone()),
-            auth: auth,
+            http_client: http::Client::new(credential.clone(), config.clone()),
+            credential: credential,
             config: config,
             region: None,
             regions: None,
@@ -51,7 +51,7 @@ impl<'r> BucketBuilder<'r> {
     }
 
     pub fn auto_detect_region(mut self) -> Result<BucketBuilder<'r>> {
-        let mut regions = Region::query(self.name.as_ref(), self.auth.clone(), self.config.clone())?;
+        let mut regions = Region::query(self.name.as_ref(), self.credential.clone(), self.config.clone())?;
         self.region = Some(Cow::Owned(regions.swap_remove(0)));
         if !regions.is_empty() {
             self.regions = Some(regions);
@@ -84,7 +84,7 @@ impl<'r> BucketBuilder<'r> {
     pub fn build(self) -> Bucket<'r> {
         Bucket {
             name: self.name,
-            auth: self.auth,
+            credential: self.credential,
             http_client: self.http_client,
             config: self.config,
             region: self
@@ -115,7 +115,7 @@ impl<'r> Bucket<'r> {
     pub fn region(&self) -> Result<&Region> {
         self.region
             .get_or_try_init(|| {
-                let mut regions = Region::query(self.name(), self.auth.clone(), self.config.clone())?;
+                let mut regions = Region::query(self.name(), self.credential.clone(), self.config.clone())?;
                 let first_region = Cow::Owned(regions.swap_remove(0));
                 self.regions.get_or_init(|| regions);
                 Ok(first_region)
@@ -142,7 +142,7 @@ impl<'r> Bucket<'r> {
     }
 
     pub fn uploader(&self) -> Result<BucketUploader> {
-        Uploader::new(self.auth.clone(), self.config.clone()).for_bucket(self)
+        Uploader::new(self.credential.clone(), self.config.clone()).for_bucket(self)
     }
 
     fn rs_url(&self) -> &'static str {
@@ -202,7 +202,7 @@ mod tests {
     fn test_storage_bucket_set_region() -> Result<(), Box<dyn Error>> {
         let bucket = BucketBuilder::new(
             "test-bucket",
-            get_auth(),
+            get_credential(),
             ConfigBuilder::default()
                 .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
                 .build()?,
@@ -243,7 +243,7 @@ mod tests {
         ));
         let bucket = BucketBuilder::new(
             "test-bucket",
-            get_auth(),
+            get_credential(),
             ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
         )
         .auto_detect_region()?
@@ -313,7 +313,7 @@ mod tests {
         let bucket = Arc::new(
             BucketBuilder::new(
                 "test-bucket",
-                get_auth(),
+                get_credential(),
                 ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
             )
             .build(),
@@ -387,7 +387,7 @@ mod tests {
     fn test_storage_bucket_set_domain() -> Result<(), Box<dyn Error>> {
         let bucket = BucketBuilder::new(
             "test-bucket",
-            get_auth(),
+            get_credential(),
             ConfigBuilder::default()
                 .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
                 .build()?,
@@ -405,7 +405,7 @@ mod tests {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
         let bucket = BucketBuilder::new(
             "test-bucket",
-            get_auth(),
+            get_credential(),
             ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
         )
         .auto_detect_domains()?
@@ -423,7 +423,7 @@ mod tests {
         let bucket = Arc::new(
             BucketBuilder::new(
                 "test-bucket",
-                get_auth(),
+                get_credential(),
                 ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
             )
             .build(),
@@ -450,7 +450,7 @@ mod tests {
         Ok(())
     }
 
-    fn get_auth() -> Auth {
-        Auth::new("abcdefghklmnopq", "1234567890")
+    fn get_credential() -> Credential {
+        Credential::new("abcdefghklmnopq", "1234567890")
     }
 }

@@ -1,6 +1,6 @@
 use super::{
     super::{
-        super::{config::Config, utils::auth::Auth},
+        super::{config::Config, credential::Credential},
         token::Token,
         DomainsManager,
     },
@@ -25,12 +25,18 @@ pub(crate) struct Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-    pub(crate) fn new(auth: Auth, config: Config, method: Method, path: &'a str, hosts: &'a [&'a str]) -> Builder<'a> {
+    pub(crate) fn new(
+        credential: Credential,
+        config: Config,
+        method: Method,
+        path: &'a str,
+        hosts: &'a [&'a str],
+    ) -> Builder<'a> {
         Builder {
             domains_manager: config.domains_manager().clone(),
             domain_freeze_duration: config.domain_freeze_duration(),
             parts: Parts {
-                auth: auth,
+                credential: credential,
                 config: config,
                 method: method,
                 hosts: hosts,

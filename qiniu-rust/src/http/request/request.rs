@@ -89,7 +89,7 @@ impl<'a> Request<'a> {
             }
             builder.build()
         };
-        self.parts.token.sign(&mut request, &self.parts.auth);
+        self.parts.token.sign(&mut request, &self.parts.credential);
         self.parts.config.http_request_call().on_request_built(&mut request);
         let mut prev_err: Option<HTTPError> = None;
         let retries = self.parts.config.http_request_retries();
@@ -261,7 +261,7 @@ mod tests {
             super::{
                 super::{
                     config::{Config, ConfigBuilder},
-                    utils::auth::Auth,
+                    credential::Credential,
                 },
                 token::Token,
             },
@@ -305,7 +305,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_auth(),
+            get_credential(),
             config.clone(),
             Method::GET,
             "/test_call",
@@ -339,7 +339,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_auth(),
+            get_credential(),
             config.clone(),
             Method::POST,
             "/test_call",
@@ -373,7 +373,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_auth(),
+            get_credential(),
             config.clone(),
             Method::POST,
             "/test_call",
@@ -407,7 +407,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_auth(),
+            get_credential(),
             config.clone(),
             Method::GET,
             "/test_call",
@@ -441,7 +441,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_auth(),
+            get_credential(),
             config.clone(),
             Method::GET,
             "/test_call",
@@ -475,7 +475,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_auth(),
+            get_credential(),
             config.clone(),
             Method::GET,
             "/test_call",
@@ -506,7 +506,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_auth(),
+            get_credential(),
             config,
             Method::GET,
             "/test_call",
@@ -535,7 +535,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_auth(),
+            get_credential(),
             config,
             Method::POST,
             "/test_call",
@@ -563,7 +563,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_auth(),
+            get_credential(),
             config,
             Method::POST,
             "/test_call",
@@ -591,7 +591,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_auth(),
+            get_credential(),
             config,
             Method::GET,
             "/test_call",
@@ -619,7 +619,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_auth(),
+            get_credential(),
             config,
             Method::GET,
             "/test_call",
@@ -638,7 +638,7 @@ mod tests {
         Ok(())
     }
 
-    fn get_auth() -> Auth {
-        Auth::new("abcdefghklmnopq", "1234567890")
+    fn get_credential() -> Credential {
+        Credential::new("abcdefghklmnopq", "1234567890")
     }
 }

@@ -2,7 +2,7 @@ use super::{
     form_uploader, resumeable_uploader,
     {super::upload_token, UploadResult},
 };
-use crate::{config::Config, http::Client, utils::auth::Auth};
+use crate::{config::Config, credential::Credential, http::Client};
 use error_chain::error_chain;
 use getset::Getters;
 use mime::Mime;
@@ -23,7 +23,7 @@ pub struct BucketUploader<'b> {
     up_urls_list: Box<[Box<[Box<str>]>]>,
 
     #[get = "pub(super)"]
-    auth: Auth,
+    credential: Credential,
 
     #[get = "pub(super)"]
     config: Config,
@@ -36,14 +36,14 @@ impl<'b> BucketUploader<'b> {
     pub(super) fn new<B: Into<Cow<'b, str>>, U: Into<Box<[Box<[Box<str>]>]>>>(
         bucket_name: B,
         up_urls_list: U,
-        auth: Auth,
+        credential: Credential,
         config: Config,
     ) -> BucketUploader<'b> {
         BucketUploader {
             bucket_name: bucket_name.into(),
             up_urls_list: up_urls_list.into(),
-            client: Client::new(auth.clone(), config.clone()),
-            auth: auth,
+            client: Client::new(credential.clone(), config.clone()),
+            credential: credential,
             config: config,
         }
     }
@@ -54,9 +54,9 @@ impl Clone for BucketUploader<'_> {
         BucketUploader {
             bucket_name: self.bucket_name.clone(),
             up_urls_list: self.up_urls_list.clone(),
-            auth: self.auth.clone(),
+            credential: self.credential.clone(),
             config: self.config.clone(),
-            client: Client::new(self.auth.clone(), self.config.clone()),
+            client: Client::new(self.credential.clone(), self.config.clone()),
         }
     }
 }

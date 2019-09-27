@@ -1,11 +1,11 @@
-use super::{config::Config, storage::bucket_manager::BucketManager, utils::auth::Auth};
+use super::{config::Config, credential::Credential, storage::manager::StorageManager};
 use getset::Getters;
 use std::borrow::Cow;
 
 #[derive(Getters)]
 pub struct Client {
     #[get = "pub"]
-    bucket_manager: BucketManager,
+    storage_manager: StorageManager,
 }
 
 impl Client {
@@ -14,13 +14,13 @@ impl Client {
         secret_key: SecretKey,
         config: Config,
     ) -> Client {
-        let auth = Auth::new(access_key, secret_key);
+        let credential = Credential::new(access_key, secret_key);
         Client {
-            bucket_manager: BucketManager::new(auth, config),
+            storage_manager: StorageManager::new(credential, config),
         }
     }
 
-    pub fn storage(&self) -> &BucketManager {
-        self.bucket_manager()
+    pub fn storage(&self) -> &StorageManager {
+        self.storage_manager()
     }
 }

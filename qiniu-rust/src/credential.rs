@@ -1,25 +1,27 @@
-use super::{base64, mime};
-use crate::storage::upload_policy::UploadPolicy;
+use crate::{
+    storage::upload_policy::UploadPolicy,
+    utils::{base64, mime},
+};
 use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
 use qiniu_http::{Method, Request};
 use std::{borrow::Cow, cmp::PartialEq, convert::TryFrom, fmt, result::Result, string::String, sync::Arc, time};
 use url::Url;
 
 #[derive(Clone, Eq, PartialEq)]
-struct AuthInner {
+struct CredentialInner {
     access_key: Cow<'static, str>,
     secret_key: Cow<'static, str>,
 }
 
 #[derive(Clone, Eq)]
-pub struct Auth(Arc<AuthInner>);
+pub struct Credential(Arc<CredentialInner>);
 
-impl Auth {
+impl Credential {
     pub fn new<AccessKey: Into<Cow<'static, str>>, SecretKey: Into<Cow<'static, str>>>(
         access_key: AccessKey,
         secret_key: SecretKey,
-    ) -> Auth {
-        Auth(Arc::new(AuthInner {
+    ) -> Credential {
+        Credential(Arc::new(CredentialInner {
             access_key: access_key.into(),
             secret_key: secret_key.into(),
         }))
@@ -210,16 +212,16 @@ impl Auth {
     }
 }
 
-impl fmt::Debug for Auth {
+impl fmt::Debug for Credential {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
-            "Auth {{ access_key: {:?}, secret_key: CENSORED }}",
+            "Credential {{ access_key: {:?}, secret_key: CENSORED }}",
             &self.access_key()
         ))
     }
 }
 
-impl PartialEq for Auth {
+impl PartialEq for Credential {
     fn eq(&self, other: &Self) -> bool {
         self.0.eq(&other.0)
     }
@@ -233,20 +235,32 @@ mod tests {
 
     #[test]
     fn test_sign() -> Result<(), Box<dyn Error>> {
-        let auth = get_auth();
+        let credential = get_credential();
         let mut threads = Vec::new();
         {
-            let auth = auth.clone();
+            let credential = credential.clone();
             threads.push(thread::spawn(move || {
-                assert_eq!(auth.sign(b"hello"), "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0=");
-                assert_eq!(auth.sign(b"world"), "abcdefghklmnopq:VjgXt0P_nCxHuaTfiFz-UjDJ1AQ=");
+                assert_eq!(
+                    credential.sign(b"hello"),
+                    "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0="
+                );
+                assert_eq!(
+                    credential.sign(b"world"),
+                    "abcdefghklmnopq:VjgXt0P_nCxHuaTfiFz-UjDJ1AQ="
+                );
             }));
         }
         {
-            let auth = auth.clone();
+            let credential = credential.clone();
             threads.push(thread::spawn(move || {
-                assert_eq!(auth.sign(b"-test"), "abcdefghklmnopq:vYKRLUoXRlNHfpMEQeewG0zylaw=");
-                assert_eq!(auth.sign(b"ba#a-"), "abcdefghklmnopq:2d_Yr6H1GdTKg3RvMtpHOhi047M=");
+                assert_eq!(
+                    credential.sign(b"-test"),
+                    "abcdefghklmnopq:vYKRLUoXRlNHfpMEQeewG0zylaw="
+                );
+                assert_eq!(
+                    credential.sign(b"ba#a-"),
+                    "abcdefghklmnopq:2d_Yr6H1GdTKg3RvMtpHOhi047M="
+                );
             }));
         }
         threads.into_iter().for_each(|thread| thread.join().unwrap());
@@ -255,30 +269,30 @@ mod tests {
 
     #[test]
     fn test_sign_data() -> Result<(), Box<dyn Error>> {
-        let auth = get_auth();
+        let credential = get_credential();
         let mut threads = Vec::new();
         {
-            let auth = auth.clone();
+            let credential = credential.clone();
             threads.push(thread::spawn(move || {
                 assert_eq!(
-                    auth.sign_with_data(b"hello"),
+                    credential.sign_with_data(b"hello"),
                     "abcdefghklmnopq:BZYt5uVRy1RVt5ZTXbaIt2ROVMA=:aGVsbG8="
                 );
                 assert_eq!(
-                    auth.sign_with_data(b"world"),
+                    credential.sign_with_data(b"world"),
                     "abcdefghklmnopq:Wpe04qzPphiSZb1u6I0nFn6KpZg=:d29ybGQ="
                 );
             }));
         }
         {
-            let auth = auth.clone();
+            let credential = credential.clone();
             threads.push(thread::spawn(move || {
                 assert_eq!(
-                    auth.sign_with_data(b"-test"),
+                    credential.sign_with_data(b"-test"),
                     "abcdefghklmnopq:HlxenSSP_6BbaYNzx1fyeyw8v1Y=:LXRlc3Q="
                 );
                 assert_eq!(
-                    auth.sign_with_data(b"ba#a-"),
+                    credential.sign_with_data(b"ba#a-"),
                     "abcdefghklmnopq:kwzeJrFziPDMO4jv3DKVLDyqud0=:YmEjYS0="
                 );
             }));
@@ -289,139 +303,139 @@ mod tests {
 
     #[test]
     fn test_sign_request_v1() -> Result<(), Box<dyn Error>> {
-        let auth = get_auth();
+        let credential = get_credential();
         assert_eq!(
-            auth.sign_request_v1("http://upload.qiniup.com/", None::<&str>, Some(b"{\"name\":\"test\"}"))?,
-            auth.sign(b"/\n")
+            credential.sign_request_v1("http://upload.qiniup.com/", None::<&str>, Some(b"{\"name\":\"test\"}"))?,
+            credential.sign(b"/\n")
         );
         assert_eq!(
-            auth.sign_request_v1(
+            credential.sign_request_v1(
                 "http://upload.qiniup.com/",
                 Some("application/json"),
                 Some(b"{\"name\":\"test\"}")
             )?,
-            auth.sign(b"/\n")
+            credential.sign(b"/\n")
         );
         assert_eq!(
-            auth.sign_request_v1(
+            credential.sign_request_v1(
                 "http://upload.qiniup.com/",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
             )?,
-            auth.sign(b"/\nname=test&language=go")
+            credential.sign(b"/\nname=test&language=go")
         );
         assert_eq!(
-            auth.sign_request_v1(
+            credential.sign_request_v1(
                 "http://upload.qiniup.com/?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
             )?,
-            auth.sign(b"/?v=2\nname=test&language=go")
+            credential.sign(b"/?v=2\nname=test&language=go")
         );
         assert_eq!(
-            auth.sign_request_v1(
+            credential.sign_request_v1(
                 "http://upload.qiniup.com/find/sdk?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
             )?,
-            auth.sign(b"/find/sdk?v=2\nname=test&language=go")
+            credential.sign(b"/find/sdk?v=2\nname=test&language=go")
         );
         Ok(())
     }
 
     #[test]
     fn test_sign_request_v2() -> Result<(), Box<dyn Error>> {
-        let auth = get_auth();
+        let credential = get_credential();
         assert_eq!(
-            auth.sign_request_v2(
+            credential.sign_request_v2(
                 Method::GET,
                 "http://upload.qiniup.com/",
                 Some("application/json"),
                 Some(b"{\"name\":\"test\"}")
             )?,
-            auth.sign(b"GET /\nHost: upload.qiniup.com\nContent-Type: application/json\n\n{\"name\":\"test\"}")
+            credential.sign(b"GET /\nHost: upload.qiniup.com\nContent-Type: application/json\n\n{\"name\":\"test\"}")
         );
         assert_eq!(
-            auth.sign_request_v2(
+            credential.sign_request_v2(
                 Method::GET,
                 "http://upload.qiniup.com/",
                 None::<&str>,
                 Some(b"{\"name\":\"test\"}")
             )?,
-            auth.sign(b"GET /\nHost: upload.qiniup.com\n\n")
+            credential.sign(b"GET /\nHost: upload.qiniup.com\n\n")
         );
         assert_eq!(
-            auth.sign_request_v2(
+            credential.sign_request_v2(
                 Method::POST,
                 "http://upload.qiniup.com/",
                 Some("application/json"),
                 Some(b"{\"name\":\"test\"}")
             )?,
-            auth.sign(b"POST /\nHost: upload.qiniup.com\nContent-Type: application/json\n\n{\"name\":\"test\"}")
+            credential.sign(b"POST /\nHost: upload.qiniup.com\nContent-Type: application/json\n\n{\"name\":\"test\"}")
         );
         assert_eq!(
-            auth.sign_request_v2(
+            credential.sign_request_v2(
                 Method::GET,
                 "http://upload.qiniup.com/",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
             )?,
-            auth.sign(b"GET /\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
+            credential.sign(b"GET /\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
         );
         assert_eq!(
-            auth.sign_request_v2(
+            credential.sign_request_v2(
                 Method::GET,
                 "http://upload.qiniup.com/?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
             )?,
-            auth.sign(b"GET /?v=2\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
+            credential.sign(b"GET /?v=2\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
         );
         assert_eq!(
-            auth.sign_request_v2(
+            credential.sign_request_v2(
                 Method::GET,
                 "http://upload.qiniup.com/find/sdk?v=2",
                 Some("application/x-www-form-urlencoded"),
                 Some(b"name=test&language=go")
             )?,
-            auth.sign(b"GET /find/sdk?v=2\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
+            credential.sign(b"GET /find/sdk?v=2\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
         );
         Ok(())
     }
 
     #[test]
     fn test_is_valid_request() -> Result<(), Box<dyn Error>> {
-        let auth = get_auth();
+        let credential = get_credential();
 
         let json_body: &[u8] = b"{\"name\":\"test\"}";
         let form_body: &[u8] = b"name=test&language=go";
-        assert!(auth.is_valid_request(
+        assert!(credential.is_valid_request(
             &RequestBuilder::default()
                 .url("http://upload.qiniup.com/")
                 .header(
                     "Authorization",
-                    auth.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)?
+                    credential.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)?
                 )
                 .body(json_body)
                 .build()
         ));
-        assert!(auth.is_valid_request(
+        assert!(credential.is_valid_request(
             &RequestBuilder::default()
                 .url("http://upload.qiniup.com/")
                 .header(
                     "Authorization",
-                    auth.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)?
+                    credential.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)?
                 )
                 .header("Content-Type", "application/json")
                 .body(json_body)
                 .build()
         ));
-        assert!(auth.is_valid_request(
+        assert!(credential.is_valid_request(
             &RequestBuilder::default()
                 .url("http://upload.qiniup.com/find/sdk?v=2")
                 .header(
                     "Authorization",
-                    auth.authorization_v1_for_request(
+                    credential.authorization_v1_for_request(
                         "http://upload.qiniup.com/find/sdk?v=2",
                         Some("application/x-www-form-urlencoded"),
                         Some(b"name=test&language=go")
@@ -436,9 +450,9 @@ mod tests {
 
     #[test]
     fn test_sign_download_url_with_deadline() -> Result<(), Box<dyn Error>> {
-        let auth = get_auth();
+        let credential = get_credential();
         assert_eq!(
-            auth.sign_download_url_with_deadline(
+            credential.sign_download_url_with_deadline(
                 Url::parse("http://www.qiniu.com/?go=1")?,
                 time::SystemTime::UNIX_EPOCH + time::Duration::from_secs(1_234_567_890 + 3600),
                 false
@@ -446,7 +460,7 @@ mod tests {
             "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq:KjQtlGAkEOhSwtFjJfYtYa2-reE=",
         );
         assert_eq!(
-            auth.sign_download_url_with_deadline(
+            credential.sign_download_url_with_deadline(
                 Url::parse("http://www.qiniu.com/?go=1")?,
                 time::SystemTime::UNIX_EPOCH + time::Duration::from_secs(1_234_567_890 + 3600),
                 true
@@ -456,7 +470,7 @@ mod tests {
         Ok(())
     }
 
-    fn get_auth() -> Auth {
-        Auth::new("abcdefghklmnopq", "1234567890")
+    fn get_credential() -> Credential {
+        Credential::new("abcdefghklmnopq", "1234567890")
     }
 }

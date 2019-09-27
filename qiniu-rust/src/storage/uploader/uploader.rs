@@ -2,18 +2,18 @@ use super::{
     super::{bucket::Bucket, region::Region, upload_policy::UploadPolicy, upload_token::UploadToken},
     BucketUploader, FileUploaderBuilder,
 };
-use crate::{config::Config, utils::auth::Auth};
+use crate::{config::Config, credential::Credential};
 use std::borrow::Cow;
 
 pub struct Uploader {
-    auth: Auth,
+    credential: Credential,
     config: Config,
 }
 
 impl Uploader {
-    pub(crate) fn new(auth: Auth, config: Config) -> Uploader {
+    pub(crate) fn new(credential: Credential, config: Config) -> Uploader {
         Uploader {
-            auth: auth,
+            credential: credential,
             config: config,
         }
     }
@@ -32,18 +32,18 @@ impl Uploader {
                         .into()
                 })
                 .collect::<Vec<Box<[Box<str>]>>>(),
-            self.auth.clone(),
+            self.credential.clone(),
             self.config.clone(),
         ))
     }
 
     pub fn for_bucket_name<'b, B: Into<Cow<'b, str>>>(&self, bucket_name: B) -> qiniu_http::Result<BucketUploader<'b>> {
         let bucket_name: Cow<'b, str> = bucket_name.into();
-        let uc_urls = Region::query_uc_urls(bucket_name.as_ref(), self.auth.clone(), self.config.clone())?;
+        let uc_urls = Region::query_uc_urls(bucket_name.as_ref(), self.credential.clone(), self.config.clone())?;
         Ok(BucketUploader::new(
             bucket_name,
             uc_urls,
-            self.auth.clone(),
+            self.credential.clone(),
             self.config.clone(),
         ))
     }
@@ -61,7 +61,7 @@ impl Uploader {
     }
 
     pub fn for_upload_policy<'u>(&self, upload_policy: UploadPolicy<'u>) -> error::Result<FileUploaderBuilder<'u>> {
-        self.for_upload_token(UploadToken::from_policy(upload_policy, self.auth.clone()))
+        self.for_upload_token(UploadToken::from_policy(upload_policy, self.credential.clone()))
     }
 }
 

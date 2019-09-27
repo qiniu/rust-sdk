@@ -2,7 +2,7 @@
 #include "libqiniu_ng.h"
 #include "test.h"
 
-void test_qiniu_ng_bucket_names(void) {
+void test_qiniu_ng_storage_bucket_names(void) {
     qiniu_ng_config config;
     qiniu_ng_config_init(&config);
 
@@ -11,7 +11,7 @@ void test_qiniu_ng_bucket_names(void) {
 
     qiniu_ng_string_list_t bucket_names;
     qiniu_ng_err err;
-    TEST_ASSERT_TRUE(qiniu_ng_bucket_names(client, &bucket_names, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_storage_bucket_names(client, &bucket_names, &err));
 
     unsigned int names_len = qiniu_ng_string_list_len(bucket_names);
     TEST_ASSERT_TRUE(names_len > 5);

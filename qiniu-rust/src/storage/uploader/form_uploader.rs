@@ -160,7 +160,7 @@ impl<'u> FormUploader<'u> {
 #[cfg(test)]
 mod tests {
     use super::{super::super::upload_policy::UploadPolicyBuilder, *};
-    use crate::{config::ConfigBuilder, utils::auth::Auth};
+    use crate::{config::ConfigBuilder, credential::Credential};
     use qiniu_http::Headers;
     use qiniu_test_utils::{
         http_call_mock::{CounterCallMock, ErrorResponseMock, JSONCallMock},
@@ -185,10 +185,10 @@ mod tests {
                 vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
                 vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
             ],
-            get_auth(),
+            get_credential(),
             config,
         )
-        .upload_token(UploadToken::from_policy(policy, get_auth()))
+        .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .upload_file(&temp_path, Some("file"), None)?;
         assert_eq!(result.key(), Some("abc"));
@@ -212,10 +212,10 @@ mod tests {
                 vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
                 vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
             ],
-            get_auth(),
+            get_credential(),
             config,
         )
-        .upload_token(UploadToken::from_policy(policy, get_auth()))
+        .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .upload_file(&temp_path, Some("file"), None)
         .unwrap_err();
@@ -238,10 +238,10 @@ mod tests {
                 vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
                 vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
             ],
-            get_auth(),
+            get_credential(),
             config,
         )
-        .upload_token(UploadToken::from_policy(policy, get_auth()))
+        .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .upload_file(&temp_path, Some("file"), None)
         .unwrap_err();
@@ -264,10 +264,10 @@ mod tests {
                 vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
                 vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
             ],
-            get_auth(),
+            get_credential(),
             config,
         )
-        .upload_token(UploadToken::from_policy(policy, get_auth()))
+        .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .never_be_resumeable()
         .upload_stream(&file, Some("file"), None)
@@ -291,10 +291,10 @@ mod tests {
                 vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
                 vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
             ],
-            get_auth(),
+            get_credential(),
             config,
         )
-        .upload_token(UploadToken::from_policy(policy, get_auth()))
+        .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .never_be_resumeable()
         .upload_stream(&file, Some("file"), None)
@@ -303,7 +303,7 @@ mod tests {
         Ok(())
     }
 
-    fn get_auth() -> Auth {
-        Auth::new("abcdefghklmnopq", "1234567890")
+    fn get_credential() -> Credential {
+        Credential::new("abcdefghklmnopq", "1234567890")
     }
 }

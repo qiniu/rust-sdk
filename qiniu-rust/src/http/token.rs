@@ -1,4 +1,4 @@
-use super::super::utils::auth::Auth;
+use super::super::credential::Credential;
 use qiniu_http::Request;
 
 #[derive(Debug, Copy, Clone)]
@@ -12,7 +12,7 @@ pub enum Token {
 }
 
 impl Token {
-    pub(crate) fn sign(&self, req: &mut Request, auth: &Auth) {
+    pub(crate) fn sign(&self, req: &mut Request, credential: &Credential) {
         match self {
             &Token::None | &Token::Null => {
                 return;
@@ -28,21 +28,21 @@ impl Token {
         match self {
             &Token::QBox | &Token::V1 => {
                 if let Some(content_type) = content_type.as_ref() {
-                    if Auth::will_push_body_v1(content_type) {
+                    if Credential::will_push_body_v1(content_type) {
                         body = req.body()
                     }
                 }
-                if let Ok(authorization) = auth.authorization_v1_for_request(&url, content_type, body) {
+                if let Ok(authorization) = credential.authorization_v1_for_request(&url, content_type, body) {
                     req.headers_mut().insert("Authorization".into(), authorization.into());
                 }
             }
             &Token::Qiniu | &Token::V2 => {
                 if let Some(content_type) = content_type.as_ref() {
-                    if Auth::will_push_body_v2(content_type) {
+                    if Credential::will_push_body_v2(content_type) {
                         body = req.body()
                     }
                 }
-                if let Ok(authorization) = auth.authorization_v2_for_request(method, &url, content_type, body) {
+                if let Ok(authorization) = credential.authorization_v2_for_request(method, &url, content_type, body) {
                     req.headers_mut().insert("Authorization".into(), authorization.into());
                 }
             }

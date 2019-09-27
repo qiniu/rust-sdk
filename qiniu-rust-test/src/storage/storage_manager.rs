@@ -6,8 +6,8 @@ mod tests {
     use std::{boxed::Box, default::Default, error::Error, result::Result};
 
     #[test]
-    fn test_storage_bucket_manager_list_buckets() -> Result<(), Box<dyn Error>> {
-        let bucket_names = get_client().bucket_manager().bucket_names()?;
+    fn test_storage_list_buckets() -> Result<(), Box<dyn Error>> {
+        let bucket_names = get_client().storage().bucket_names()?;
         assert!(bucket_names.contains(&"z0-bucket".into()));
         assert!(bucket_names.contains(&"z1-bucket".into()));
         assert!(bucket_names.contains(&"z2-bucket".into()));
@@ -17,14 +17,14 @@ mod tests {
     }
 
     #[test]
-    fn test_storage_bucket_manager_new_bucket_and_drop() -> Result<(), Box<dyn Error>> {
+    fn test_storage_new_bucket_and_drop() -> Result<(), Box<dyn Error>> {
         let client = get_client();
-        let bucket_manager = client.bucket_manager();
+        let storage_manager = client.storage();
         let bucket_name: String = format!("test-bucket-{}", Utc::now().timestamp_nanos());
-        bucket_manager.create_bucket(&bucket_name, RegionId::Z2)?;
-        assert!(bucket_manager.bucket_names()?.contains(&bucket_name));
-        bucket_manager.drop_bucket(&bucket_name)?;
-        assert!(!bucket_manager.bucket_names()?.contains(&bucket_name));
+        storage_manager.create_bucket(&bucket_name, RegionId::Z2)?;
+        assert!(storage_manager.bucket_names()?.contains(&bucket_name));
+        storage_manager.drop_bucket(&bucket_name)?;
+        assert!(!storage_manager.bucket_names()?.contains(&bucket_name));
         Ok(())
     }
 
