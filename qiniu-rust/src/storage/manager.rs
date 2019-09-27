@@ -1,7 +1,7 @@
 use super::{
     bucket::BucketBuilder,
     region::{Region, RegionId},
-    uploader::Uploader,
+    uploader::UploadManager,
 };
 use crate::{config::Config, credential::Credential, http, utils::base64};
 use error_chain::error_chain;
@@ -19,7 +19,7 @@ impl StorageManager {
     pub(crate) fn new(credential: Credential, config: Config) -> StorageManager {
         StorageManager {
             rs_url: Region::hua_dong().rs_url(config.use_https()),
-            credential: credential.clone(),
+            credential: credential,
             config: config.clone(),
             http_client: http::Client::new(config),
         }
@@ -84,8 +84,8 @@ impl StorageManager {
         BucketBuilder::new(bucket, self.credential.clone(), self.config.clone())
     }
 
-    pub fn uploader(&self) -> Uploader {
-        Uploader::new(self.credential.clone(), self.config.clone())
+    pub fn uploader(&self) -> UploadManager {
+        UploadManager::new(self.credential.clone(), self.config.clone())
     }
 }
 

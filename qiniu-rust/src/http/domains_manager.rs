@@ -33,6 +33,33 @@ impl DomainsManager {
         }
     }
 
+    pub fn choose<'a, D: AsRef<str> + 'a>(&self, domains: &'a [D]) -> Result<Vec<&'a str>> {
+        assert!(!domains.is_empty());
+        let mut chosen = Vec::<&str>::with_capacity(domains.len());
+        for domain in domains.into_iter() {
+            let domain = domain.as_ref();
+            if !self.is_frozen(domain)? {
+                chosen.push(domain);
+            }
+        }
+        if chosen.is_empty() {
+            let now = Instant::now();
+            chosen.push(
+                domains
+                    .into_iter()
+                    .min_by_key(|domain| {
+                        self.map
+                            .get(&Self::normalize_domain(domain).unwrap())
+                            .map(|time| time.duration_since(now))
+                            .unwrap_or_else(|| Duration::from_secs(0))
+                    })
+                    .unwrap()
+                    .as_ref(),
+            );
+        }
+        Ok(chosen)
+    }
+
     pub fn freeze<D: AsRef<str>>(&self, domain: D, frozen_seconds: Duration) -> Result<()> {
         self.map
             .insert(Self::normalize_domain(domain)?, Instant::now() + frozen_seconds);
@@ -133,6 +160,36 @@ mod tests {
             }
         }
         threads.into_iter().for_each(|thread| thread.join().unwrap());
+        Ok(())
+    }
+
+    #[test]
+    fn test_domains_manager_choose() -> Result<(), Box<dyn Error>> {
+        let domains_manager = DomainsManager::new();
+        domains_manager
+            .freeze("up-z0.qiniup.com", Duration::from_secs(5))
+            .unwrap();
+        domains_manager
+            .freeze("up-z1.qiniup.com", Duration::from_secs(5))
+            .unwrap();
+        domains_manager
+            .freeze("up-z2.qiniup.com", Duration::from_secs(5))
+            .unwrap();
+
+        let chosen = domains_manager.choose(&["up-z0.qiniup.com", "up-z1.qiniup.com", "up-z2.qiniup.com"])?;
+        assert_eq!(chosen.len(), 1);
+        assert!(chosen.contains(&"up-z0.qiniup.com"));
+
+        let chosen = domains_manager.choose(&[
+            "up-z0.qiniup.com",
+            "up-z1.qiniup.com",
+            "up-z2.qiniup.com",
+            "up-z3.qiniup.com",
+            "up-z4.qiniup.com",
+        ])?;
+        assert_eq!(chosen.len(), 2);
+        assert!(chosen.contains(&"up-z3.qiniup.com"));
+        assert!(chosen.contains(&"up-z4.qiniup.com"));
         Ok(())
     }
 }

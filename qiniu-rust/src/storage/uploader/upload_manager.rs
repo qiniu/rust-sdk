@@ -10,14 +10,14 @@ use super::{
 use crate::{config::Config, credential::Credential};
 use std::borrow::Cow;
 
-pub struct Uploader {
+pub struct UploadManager {
     credential: Credential,
     config: Config,
 }
 
-impl Uploader {
-    pub(crate) fn new(credential: Credential, config: Config) -> Uploader {
-        Uploader {
+impl UploadManager {
+    pub(crate) fn new(credential: Credential, config: Config) -> UploadManager {
+        UploadManager {
             credential: credential,
             config: config,
         }

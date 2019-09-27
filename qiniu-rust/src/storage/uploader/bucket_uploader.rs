@@ -1,6 +1,9 @@
 use super::{
     form_uploader, resumeable_uploader,
-    {super::upload_token, UploadResult},
+    {
+        super::{upload_policy, upload_token},
+        UploadResult,
+    },
 };
 use crate::{config::Config, credential::Credential, http::Client};
 use error_chain::error_chain;
@@ -39,13 +42,15 @@ impl<'b> BucketUploader<'b> {
         credential: Credential,
         config: Config,
     ) -> BucketUploader<'b> {
-        BucketUploader {
+        let uploader = BucketUploader {
             bucket_name: bucket_name.into(),
             up_urls_list: up_urls_list.into(),
             client: Client::new(config.clone()),
             credential: credential,
             config: config,
-        }
+        };
+        assert!(!uploader.up_urls_list.is_empty());
+        uploader
     }
 }
 
@@ -65,6 +70,13 @@ impl<'b> BucketUploader<'b> {
     pub fn upload_token<T: Into<upload_token::UploadToken<'b>>>(&'b self, upload_token: T) -> FileUploaderBuilder<'b> {
         FileUploaderBuilder::new(Cow::Borrowed(self), upload_token)
     }
+
+    pub fn upload_policy(&'b self, upload_policy: upload_policy::UploadPolicy<'b>) -> FileUploaderBuilder<'b> {
+        FileUploaderBuilder::new(
+            Cow::Borrowed(self),
+            upload_token::UploadToken::from_policy(upload_policy, self.credential.clone()),
+        )
+    }
 }
 
 pub enum ResumeablePolicy {
@@ -72,6 +84,8 @@ pub enum ResumeablePolicy {
     Never,
     Always,
 }
+
+// TODO: 加强 UploadToken 复用性，使 FileUploaderBuilder 的 upload_token 可以引用 BucketUploader 的属性
 
 pub struct FileUploaderBuilder<'b> {
     bucket_uploader: Cow<'b, BucketUploader<'b>>,
@@ -164,7 +178,7 @@ impl<'b> FileUploaderBuilder<'b> {
     ) -> Result<UploadResult> {
         match self.resumeable_policy {
             ResumeablePolicy::Threshold(threshold) => {
-                if file_path.as_ref().metadata()?.len() >= threshold {
+                if file_path.as_ref().metadata()?.len() > threshold {
                     self.upload_file_by_blocks(file_path, file_name, mime)
                 } else {
                     self.upload_file_by_form(file_path, file_name, mime)
@@ -272,7 +286,7 @@ impl<'b> FileUploaderBuilder<'b> {
             .stream(
                 stream,
                 Self::guess_mime_from_file_name(mime, file_name.as_ref().map(|name| name.as_ref())),
-                file_name.unwrap_or_else(|| "streamName".into()),
+                file_name,
                 None,
             )?
             .send()?)
@@ -300,23 +314,23 @@ impl<'b> FileUploaderBuilder<'b> {
             .stream(
                 stream,
                 Self::guess_mime_from_file_name(mime, file_name.as_ref().map(|name| name.as_ref())),
-                file_name.unwrap_or_else(|| "streamName".into()),
+                file_name,
                 true,
             )?
             .send()?)
     }
 
-    fn guess_filename<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(file_path: P, file_name: Option<N>) -> Cow<'n, str> {
-        file_name
-            .map(|name| name.into())
-            .or_else(|| {
-                file_path
-                    .as_ref()
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .map(|name| name.to_owned().into())
-            })
-            .unwrap_or_else(|| "fileName".into())
+    fn guess_filename<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
+        file_path: P,
+        file_name: Option<N>,
+    ) -> Option<Cow<'n, str>> {
+        file_name.map(|name| name.into()).or_else(|| {
+            file_path
+                .as_ref()
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.to_owned().into())
+        })
     }
 
     fn guess_mime_from_file_path<P: AsRef<Path>>(mime: Option<Mime>, file_path: P) -> Option<Mime> {

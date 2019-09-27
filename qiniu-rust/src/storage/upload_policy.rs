@@ -90,7 +90,7 @@ impl<'p> UploadPolicy<'p> {
         !self.insert_only()
     }
 
-    pub fn auto_detect_mime(&self) -> bool {
+    pub fn mime_detection(&self) -> bool {
         bool_utils::int_to_bool(self.detect_mime.unwrap_or(0))
     }
 
@@ -170,13 +170,13 @@ impl<'p> UploadPolicy<'p> {
         bool_utils::int_to_bool(self.file_type.unwrap_or(0))
     }
 
-    pub fn file_lifetime(&self) -> Option<Duration> {
+    pub fn object_lifetime(&self) -> Option<Duration> {
         self.delete_after_days
             .map(|d| Duration::from_secs((d * 60 * 60 * 24).try_into().unwrap_or_else(|_| u64::max_value())))
     }
 
-    pub fn file_deadline(&self) -> Option<SystemTime> {
-        self.file_lifetime().map(|t| SystemTime::now() + t)
+    pub fn object_deadline(&self) -> Option<SystemTime> {
+        self.object_lifetime().map(|t| SystemTime::now() + t)
     }
 
     fn to_optional_str<'a>(s: &'a Option<Cow<'p, str>>) -> Option<&'a str> {
@@ -314,22 +314,27 @@ impl<'p> UploadPolicyBuilder<'p> {
     }
 
     pub fn overwritable(mut self) -> UploadPolicyBuilder<'p> {
-        self.inner.insert_only = Some(bool_utils::bool_to_int(false));
+        self.inner.insert_only = None;
         self
     }
 
-    pub fn auto_detect_mime(mut self) -> UploadPolicyBuilder<'p> {
+    pub fn enable_mime_detection(mut self) -> UploadPolicyBuilder<'p> {
         self.inner.detect_mime = Some(bool_utils::bool_to_int(true));
         self
     }
 
-    pub fn normal_storage(mut self) -> UploadPolicyBuilder<'p> {
-        self.inner.file_type = Some(bool_utils::bool_to_int(false));
+    pub fn disable_mime_detection(mut self) -> UploadPolicyBuilder<'p> {
+        self.inner.detect_mime = None;
         self
     }
 
     pub fn infrequent_storage(mut self) -> UploadPolicyBuilder<'p> {
         self.inner.file_type = Some(bool_utils::bool_to_int(true));
+        self
+    }
+
+    pub fn normal_storage(mut self) -> UploadPolicyBuilder<'p> {
+        self.inner.file_type = None;
         self
     }
 
@@ -424,7 +429,7 @@ impl<'p> UploadPolicyBuilder<'p> {
         self
     }
 
-    pub fn file_lifetime(mut self, lifetime: Duration) -> UploadPolicyBuilder<'p> {
+    pub fn object_lifetime(mut self, lifetime: Duration) -> UploadPolicyBuilder<'p> {
         let lifetime_secs = lifetime.as_secs();
         let secs_one_day = 60 * 60 * 24;
 
@@ -439,8 +444,8 @@ impl<'p> UploadPolicyBuilder<'p> {
         self
     }
 
-    pub fn file_deadline(self, deadline: SystemTime) -> UploadPolicyBuilder<'p> {
-        self.file_lifetime(
+    pub fn object_deadline(self, deadline: SystemTime) -> UploadPolicyBuilder<'p> {
+        self.object_lifetime(
             deadline
                 .duration_since(SystemTime::now())
                 .unwrap_or_else(|_| Duration::from_secs(0)),
@@ -485,13 +490,14 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_for_file() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_for_object() -> Result<(), Box<dyn Error>> {
         let one_hour = Duration::from_secs(60 * 60);
-        let policy = UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", &Config::default()).build();
+        let policy =
+            UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:object", &Config::default()).build();
         let now = SystemTime::now();
         let one_hour_later = now + one_hour;
         assert_eq!(policy.bucket(), Some("test_bucket"));
-        assert_eq!(policy.key(), Some("test:file"));
+        assert_eq!(policy.key(), Some("test:object"));
         assert!(!policy.prefixal());
         assert!(
             one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
@@ -501,7 +507,7 @@ mod tests {
 
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v.as_object().unwrap().len(), 2);
-        assert_eq!(v["scope"], "test_bucket:test:file");
+        assert_eq!(v["scope"], "test_bucket:test:object");
         assert!(
             one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
                 - Duration::from_secs(v["deadline"].as_u64().unwrap())
@@ -512,15 +518,15 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_for_file_name_with_prefix() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_for_objects_with_prefix() -> Result<(), Box<dyn Error>> {
         let one_hour = Duration::from_secs(60 * 60);
         let policy =
-            UploadPolicyBuilder::new_policy_for_objects_with_prefix("test_bucket", "test:file", &Config::default())
+            UploadPolicyBuilder::new_policy_for_objects_with_prefix("test_bucket", "test:object", &Config::default())
                 .build();
         let now = SystemTime::now();
         let one_hour_later = now + one_hour;
         assert_eq!(policy.bucket(), Some("test_bucket"));
-        assert_eq!(policy.key(), Some("test:file"));
+        assert_eq!(policy.key(), Some("test:object"));
         assert!(policy.prefixal());
         assert!(
             one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
@@ -530,7 +536,7 @@ mod tests {
 
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v.as_object().unwrap().len(), 3);
-        assert_eq!(v["scope"], "test_bucket:test:file");
+        assert_eq!(v["scope"], "test_bucket:test:object");
         assert!(
             one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
                 - Duration::from_secs(v["deadline"].as_u64().unwrap())
@@ -618,16 +624,16 @@ mod tests {
         assert_eq!(policy.insert_only(), false);
         assert_eq!(policy.overwritable(), true);
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["insertOnly"], 0);
+        assert_eq!(v["insertOnly"], json!(null));
         Ok(())
     }
 
     #[test]
-    fn test_build_upload_policy_with_auto_detect_mime() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_mime_detection() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
-            .auto_detect_mime()
+            .enable_mime_detection()
             .build();
-        assert_eq!(policy.auto_detect_mime(), true);
+        assert_eq!(policy.mime_detection(), true);
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["detectMime"], 1);
         Ok(())
@@ -641,7 +647,7 @@ mod tests {
         assert_eq!(policy.normal_storage(), true);
         assert_eq!(policy.infrequent_storage(), false);
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["fileType"], 0);
+        assert_eq!(v["fileType"], json!(null));
         Ok(())
     }
 
@@ -871,12 +877,12 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_file_lifetime() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_object_lifetime() -> Result<(), Box<dyn Error>> {
         let one_hundred_days = Duration::from_secs(100 * 24 * 60 * 60);
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
-            .file_lifetime(one_hundred_days)
+            .object_lifetime(one_hundred_days)
             .build();
-        assert_eq!(policy.file_lifetime(), Some(one_hundred_days));
+        assert_eq!(policy.object_lifetime(), Some(one_hundred_days));
 
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["deleteAfterDays"], 100);
@@ -884,13 +890,13 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_short_file_lifetime() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_short_object_lifetime() -> Result<(), Box<dyn Error>> {
         let one_hundred_secs = Duration::from_secs(100);
         let one_day = Duration::from_secs(24 * 60 * 60);
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
-            .file_lifetime(one_hundred_secs)
+            .object_lifetime(one_hundred_secs)
             .build();
-        assert_eq!(policy.file_lifetime(), Some(one_day));
+        assert_eq!(policy.object_lifetime(), Some(one_day));
 
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["deleteAfterDays"], 1);
@@ -898,14 +904,17 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_file_deadline() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_object_deadline() -> Result<(), Box<dyn Error>> {
         let one_hundred_days = Duration::from_secs(100 * 24 * 60 * 60);
         let after_one_hundred_days = SystemTime::now() + one_hundred_days;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
-            .file_lifetime(one_hundred_days)
+            .object_lifetime(one_hundred_days)
             .build();
         assert!(
-            policy.file_deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
+            policy
+                .object_deadline()
+                .unwrap()
+                .duration_since(SystemTime::UNIX_EPOCH)?
                 - after_one_hundred_days.duration_since(SystemTime::UNIX_EPOCH)?
                 < Duration::from_secs(5)
         );

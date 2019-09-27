@@ -5,6 +5,7 @@ use std::{borrow::Cow, convert::From, fmt};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum UploadToken<'p> {
+    // TODO: Token 缓存 Policy，Policy 缓存 Token
     Token(Cow<'p, str>),
     Policy(UploadPolicy<'p>, Credential),
 }
@@ -28,6 +29,7 @@ impl<'p> UploadToken<'p> {
         }
     }
 
+    // TODO: 改为 引用 self
     pub fn policy(self) -> Result<UploadPolicy<'p>> {
         match self {
             UploadToken::Token(token) => {
@@ -41,6 +43,7 @@ impl<'p> UploadToken<'p> {
         }
     }
 
+    // TODO: 改为 引用 self
     pub fn token(self) -> Cow<'p, str> {
         match self {
             UploadToken::Token(token) => token,

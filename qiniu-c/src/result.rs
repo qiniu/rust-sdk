@@ -12,7 +12,6 @@ pub enum ErrorCode {
     IoError(c_int),
     UnknownError,
     JSONError,
-    NoHostAvailable,
     ResponseStatusCodeError(c_ushort),
     CurlError(CURLcode),
 }
@@ -161,17 +160,6 @@ pub extern "C" fn qiniu_ng_err_is_json_error(err: *const qiniu_ng_err) -> bool {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_err_is_no_host_available_error(err: *const qiniu_ng_err) -> bool {
-    if err.is_null() {
-        return false;
-    }
-    match unsafe { (*err).0 } {
-        ErrorCode::NoHostAvailable => true,
-        _ => false,
-    }
-}
-
-#[no_mangle]
 pub extern "C" fn qiniu_ng_err_response_status_code_error_extract(
     err: *const qiniu_ng_err,
     code: *mut c_ushort,
@@ -224,8 +212,7 @@ pub(crate) fn make_qiniu_ng_err_from_qiniu_http_error(err: &HTTPError) -> qiniu_
             }
         }
         HTTPErrorKind::JSONError(_) => qiniu_ng_err(ErrorCode::JSONError),
-        HTTPErrorKind::JustDoRetry => qiniu_ng_err(ErrorCode::UnknownError),
-        HTTPErrorKind::NoHostAvailable => qiniu_ng_err(ErrorCode::NoHostAvailable),
+        HTTPErrorKind::MaliciousResponse => qiniu_ng_err(ErrorCode::UnknownError),
         HTTPErrorKind::IOError(e) => make_qiniu_ng_err_from_io_error(e),
         HTTPErrorKind::UnknownError(_) => qiniu_ng_err(ErrorCode::UnknownError),
         HTTPErrorKind::ResponseStatusCodeError(status_code, _) => {

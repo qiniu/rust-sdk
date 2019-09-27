@@ -1,6 +1,6 @@
 use super::{
-    region::Region,
-    uploader::{BucketUploader, Uploader},
+    region::{Region, RegionId},
+    uploader::{BucketUploader, UploadManager},
 };
 use crate::{config::Config, credential::Credential, http};
 use once_cell::sync::OnceCell;
@@ -12,7 +12,7 @@ pub struct Bucket<'r> {
     credential: Credential,
     config: Config,
     region: OnceCell<Cow<'r, Region>>,
-    regions: OnceCell<Vec<Region>>,
+    backup_regions: OnceCell<Vec<Region>>,
     domains: OnceCell<Vec<Cow<'r, str>>>,
     http_client: http::Client,
 }
@@ -22,7 +22,7 @@ pub struct BucketBuilder<'r> {
     credential: Credential,
     config: Config,
     region: Option<Cow<'r, Region>>,
-    regions: Option<Vec<Region>>,
+    backup_regions: Option<Vec<Region>>,
     domains: Option<Vec<Cow<'r, str>>>,
     http_client: http::Client,
 }
@@ -40,7 +40,7 @@ impl<'r> BucketBuilder<'r> {
             credential: credential,
             config: config,
             region: None,
-            regions: None,
+            backup_regions: None,
             domains: None,
         }
     }
@@ -50,11 +50,15 @@ impl<'r> BucketBuilder<'r> {
         self
     }
 
+    pub fn region_id(self, region_id: RegionId) -> BucketBuilder<'r> {
+        self.region(region_id.as_region())
+    }
+
     pub fn auto_detect_region(mut self) -> Result<BucketBuilder<'r>> {
         let mut regions = Region::query(self.name.as_ref(), &self.credential, self.config.clone())?;
         self.region = Some(Cow::Owned(regions.swap_remove(0)));
         if !regions.is_empty() {
-            self.regions = Some(regions);
+            self.backup_regions = Some(regions);
         }
         Ok(self)
     }
@@ -96,8 +100,8 @@ impl<'r> BucketBuilder<'r> {
                 .region
                 .map(|r| OnceCell::from(r))
                 .unwrap_or_else(|| OnceCell::new()),
-            regions: self
-                .regions
+            backup_regions: self
+                .backup_regions
                 .map(|r| OnceCell::from(r))
                 .unwrap_or_else(|| OnceCell::new()),
             domains: self
@@ -122,7 +126,7 @@ impl<'r> Bucket<'r> {
             .get_or_try_init(|| {
                 let mut regions = Region::query(self.name(), &self.credential, self.config.clone())?;
                 let first_region = Cow::Owned(regions.swap_remove(0));
-                self.regions.get_or_init(|| regions);
+                self.backup_regions.get_or_init(|| regions);
                 Ok(first_region)
             })
             .map(|region| region.as_ref())
@@ -149,7 +153,7 @@ impl<'r> Bucket<'r> {
     }
 
     pub fn uploader(&self) -> BucketUploader {
-        Uploader::new(self.credential.clone(), self.config.clone()).for_bucket(self)
+        UploadManager::new(self.credential.clone(), self.config.clone()).for_bucket(self)
     }
 
     fn rs_url(&self) -> &'static str {
@@ -193,7 +197,7 @@ impl<'a, 'r: 'a> Iterator for BucketRegionIter<'a, 'r> {
                 region.as_ref()
             });
         } else {
-            return self.bucket.regions.get().and_then(|regions| {
+            return self.bucket.backup_regions.get().and_then(|regions| {
                 self.itered += 1;
                 regions.get(self.itered - 2)
             });
@@ -225,6 +229,24 @@ mod tests {
         let regions = bucket.regions()?.collect::<Vec<_>>();
         assert_eq!(regions.len(), 1);
         assert_eq!(regions.first().unwrap().region_id(), Some(RegionId::Z1));
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_bucket_set_region_id() -> Result<(), Box<dyn Error>> {
+        let bucket = BucketBuilder::new(
+            "test-bucket",
+            get_credential(),
+            ConfigBuilder::default()
+                .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
+                .build()?,
+        )
+        .region_id(RegionId::Z2)
+        .build();
+        assert_eq!(bucket.region()?.region_id(), Some(RegionId::Z2));
+        let regions = bucket.regions()?.collect::<Vec<_>>();
+        assert_eq!(regions.len(), 1);
+        assert_eq!(regions.first().unwrap().region_id(), Some(RegionId::Z2));
         Ok(())
     }
 

@@ -8,7 +8,7 @@ use super::{
 use crate::utils::crc32;
 use mime::Mime;
 use multipart::client::lazy::Multipart;
-use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Result as HTTPResult, RetryKind};
+use qiniu_http::{Error as HTTPError, Result as HTTPResult, RetryKind};
 use std::{
     borrow::Cow,
     convert::TryInto,
@@ -65,7 +65,7 @@ impl<'u> FormUploaderBuilder<'u> {
     pub(super) fn seekable_stream<'n: 'u, R: Read + Seek + 'u, N: Into<Cow<'n, str>>>(
         mut self,
         mut stream: R,
-        file_name: N,
+        file_name: Option<N>,
         mime: Option<Mime>,
         checksum_enabled: bool,
     ) -> IOResult<FormUploader<'u>> {
@@ -74,7 +74,8 @@ impl<'u> FormUploaderBuilder<'u> {
             crc32 = Some(crc32::from(&mut stream)?);
             stream.seek(SeekFrom::Start(0))?;
         }
-        self.multipart.add_stream("file", stream, Some(file_name.into()), mime);
+        self.multipart
+            .add_stream("file", stream, file_name.map(|name| name.into()), mime);
         if let Some(crc32) = crc32 {
             self.multipart.add_text("crc32", crc32.to_string());
         }
@@ -85,10 +86,11 @@ impl<'u> FormUploaderBuilder<'u> {
         mut self,
         stream: R,
         mime: Option<Mime>,
-        file_name: N,
+        file_name: Option<N>,
         crc32: Option<u32>,
     ) -> IOResult<FormUploader<'u>> {
-        self.multipart.add_stream("file", stream, Some(file_name.into()), mime);
+        self.multipart
+            .add_stream("file", stream, file_name.map(|name| name.into()), mime);
         if let Some(crc32) = crc32 {
             self.multipart.add_text("crc32", crc32.to_string());
         }
@@ -134,14 +136,7 @@ impl<'u> FormUploader<'u> {
             }
         }
 
-        Err(prev_err.unwrap_or_else(|| {
-            HTTPError::new_host_unretryable_error_from_parts(
-                HTTPErrorKind::NoHostAvailable,
-                true,
-                Some(Method::POST),
-                None,
-            )
-        }))
+        Err(prev_err.expect("FormUploader::send() should try at lease once, but not"))
     }
 
     fn send_form_request(&self, up_urls: &[&str]) -> HTTPResult<serde_json::Value> {

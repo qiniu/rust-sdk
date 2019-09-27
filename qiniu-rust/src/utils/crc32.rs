@@ -35,7 +35,7 @@ where
         // TODO: Think about async read
         let result = self.io.read(buf);
         if let Ok(have_read) = result {
-            if buf.len() > 0 {
+            if !buf.is_empty() {
                 if have_read > 0 {
                     self.have_read += have_read;
                     self.digest.write(buf.get(..have_read).unwrap())

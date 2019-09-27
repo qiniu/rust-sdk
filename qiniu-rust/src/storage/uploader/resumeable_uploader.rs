@@ -8,7 +8,7 @@ use super::{
 use crate::utils::{base64, seek_adapter};
 use crypto::{digest::Digest, md5::Md5};
 use mime::Mime;
-use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Result as HTTPResult, RetryKind};
+use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult, RetryKind};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
@@ -42,7 +42,7 @@ struct Part {
 #[serde(rename_all = "camelCase")]
 struct CompletedParts<'f> {
     parts: Vec<Part>,
-    fname: Cow<'f, str>,
+    fname: Option<Cow<'f, str>>,
     mime_type: Option<Box<str>>,
     metadata: Option<HashMap<Cow<'f, str>, Cow<'f, str>>>,
     custom_vars: Option<HashMap<Cow<'f, str>, Cow<'f, str>>>,
@@ -107,7 +107,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
     pub(super) fn seekable_stream<'n: 'u, R: Read + Seek + 'u, N: Into<Cow<'n, str>>>(
         self,
         stream: R,
-        file_name: N,
+        file_name: Option<N>,
         file_size: u64,
         mime_type: Option<Mime>,
         checksum_enabled: bool,
@@ -128,7 +128,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
                         .try_into()
                         .unwrap_or_else(|_| usize::max_value()),
                 ),
-                fname: file_name.into(),
+                fname: file_name.map(|name| name.into()),
                 mime_type: mime_type.map(|m| m.as_ref().into()),
                 metadata: self.metadata,
                 custom_vars: self.custom_vars,
@@ -140,7 +140,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
         self,
         stream: R,
         mime_type: Option<Mime>,
-        file_name: N,
+        file_name: Option<N>,
         checksum_enabled: bool,
     ) -> IOResult<ResumeableUploader<'u, seek_adapter::SeekAdapter<R>>> {
         Ok(ResumeableUploader {
@@ -154,7 +154,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             block_size: self.bucket_uploader.config().upload_block_size(),
             completed_parts: CompletedParts {
                 parts: Vec::new(),
-                fname: file_name.into(),
+                fname: file_name.map(|name| name.into()),
                 mime_type: mime_type.map(|m| m.as_ref().into()),
                 metadata: self.metadata,
                 custom_vars: self.custom_vars,
@@ -191,14 +191,7 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
             }
         }
 
-        Err(prev_err.unwrap_or_else(|| {
-            HTTPError::new_host_unretryable_error_from_parts(
-                HTTPErrorKind::NoHostAvailable,
-                true,
-                Some(Method::POST),
-                None,
-            )
-        }))
+        Err(prev_err.expect("ResumeableUploader::send() should try at lease once, but not"))
     }
 
     pub(super) fn send_requests(&mut self, up_urls: &[&str]) -> HTTPResult<UploadResult> {

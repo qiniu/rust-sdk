@@ -22,8 +22,7 @@ pub enum RetryKind {
 pub enum ErrorKind {
     HTTPCallerError(Box<dyn error::Error + Send>),
     JSONError(serde_json::Error),
-    JustDoRetry,
-    NoHostAvailable,
+    MaliciousResponse,
     IOError(io::Error),
     UnknownError(Box<dyn error::Error + Send>),
     ResponseStatusCodeError(StatusCode, Box<str>),
@@ -182,8 +181,7 @@ impl fmt::Display for ErrorKind {
         match self {
             ErrorKind::HTTPCallerError(err) => write!(f, "HTTPCallerError({})", err),
             ErrorKind::JSONError(err) => write!(f, "JSONError({})", err),
-            ErrorKind::JustDoRetry => write!(f, "JustDoRetry"),
-            ErrorKind::NoHostAvailable => write!(f, "NoHostAvailable"),
+            ErrorKind::MaliciousResponse => write!(f, "MaliciousResponse"),
             ErrorKind::IOError(err) => write!(f, "IOError({})", err),
             ErrorKind::UnknownError(err) => write!(f, "UnknownError({})", err),
             ErrorKind::ResponseStatusCodeError(status_code, error_message) => write!(
@@ -215,8 +213,7 @@ impl error::Error for Error {
         match &self.error_kind {
             ErrorKind::HTTPCallerError(err) => err.description(),
             ErrorKind::JSONError(err) => err.description(),
-            ErrorKind::JustDoRetry => "Retry again",
-            ErrorKind::NoHostAvailable => "No host is available",
+            ErrorKind::MaliciousResponse => "Malicious",
             ErrorKind::IOError(err) => err.description(),
             ErrorKind::UnknownError(err) => err.description(),
             ErrorKind::ResponseStatusCodeError(_, error_message) => &error_message,
@@ -230,8 +227,7 @@ impl error::Error for Error {
             ErrorKind::JSONError(err) => Some(err),
             ErrorKind::IOError(err) => Some(err),
             ErrorKind::UnknownError(err) => Some(err.deref()),
-            ErrorKind::JustDoRetry => None,
-            ErrorKind::NoHostAvailable => None,
+            ErrorKind::MaliciousResponse => None,
             ErrorKind::ResponseStatusCodeError(_, _) => None,
         }
     }
@@ -242,8 +238,7 @@ impl error::Error for Error {
             ErrorKind::JSONError(err) => Some(err),
             ErrorKind::IOError(err) => Some(err),
             ErrorKind::UnknownError(err) => Some(err.deref()),
-            ErrorKind::JustDoRetry => None,
-            ErrorKind::NoHostAvailable => None,
+            ErrorKind::MaliciousResponse => None,
             ErrorKind::ResponseStatusCodeError(_, _) => None,
         }
     }

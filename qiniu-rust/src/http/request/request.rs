@@ -23,17 +23,15 @@ pub(crate) struct Request<'a> {
 impl<'a> Request<'a> {
     pub(crate) fn send(&self) -> HTTPResult<Response> {
         let mut prev_err: Option<HTTPError> = None;
-        for &host in self.parts.hosts {
-            if self.domains_manager.is_frozen(host).map_err(|err| {
-                HTTPError::new_host_unretryable_error_from_parts(
-                    HTTPErrorKind::UnknownError(Box::new(err)),
-                    true,
-                    Some(self.parts.method.to_owned()),
-                    None,
-                )
-            })? {
-                continue;
-            }
+        let hosts = self.domains_manager.choose(self.parts.hosts).map_err(|err| {
+            HTTPError::new_host_unretryable_error_from_parts(
+                HTTPErrorKind::UnknownError(Box::new(err)),
+                true,
+                Some(self.parts.method.to_owned()),
+                None,
+            )
+        })?;
+        for host in hosts {
             match self.try_host(host) {
                 Ok(resp) => {
                     return Ok(resp);
@@ -54,14 +52,7 @@ impl<'a> Request<'a> {
                 },
             }
         }
-        let err = prev_err.unwrap_or_else(|| {
-            HTTPError::new_host_unretryable_error_from_parts(
-                HTTPErrorKind::NoHostAvailable,
-                true,
-                Some(self.parts.method.to_owned()),
-                None,
-            )
-        });
+        let err = prev_err.unwrap();
         self.parts.config.http_request_call().on_error(&err);
         Err(err)
     }

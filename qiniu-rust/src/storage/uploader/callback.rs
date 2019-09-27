@@ -12,7 +12,7 @@ impl<'a> ResponseCallback for UploadResponseCallback<'_> {
             || self.is_not_qiniu(response) && !self.uptoken_has_url()
         {
             Err(HTTPError::new_retryable_error_from_parts(
-                HTTPErrorKind::JustDoRetry,
+                HTTPErrorKind::MaliciousResponse,
                 true,
                 Some(response.method()),
                 Some((response.host().to_owned() + response.path()).into()),

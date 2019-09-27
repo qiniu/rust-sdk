@@ -20,8 +20,7 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
         let result = get_client()
-            .storage()
-            .uploader()
+            .upload()
             .for_upload_policy(policy)?
             .key(&key)
             .var("var_key1", "var_value1")
@@ -41,8 +40,7 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
         let result = get_client()
-            .storage()
-            .uploader()
+            .upload()
             .for_upload_policy(policy)?
             .always_be_resumeable()
             .key(&key)
@@ -69,8 +67,7 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fsize\":$(fsize)}")
             .build();
         let result = get_client()
-            .storage()
-            .uploader()
+            .upload()
             .for_upload_policy(policy)?
             .key(&key)
             .var("var_key1", "var_value1")
@@ -94,8 +91,7 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let result = get_client()
-            .storage()
-            .uploader()
+            .upload()
             .for_upload_policy(policy)?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
@@ -110,8 +106,7 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let result = get_client()
-            .storage()
-            .uploader()
+            .upload()
             .for_upload_policy(policy)?
             .always_be_resumeable()
             .var("var_key1", "var_value1")
@@ -132,27 +127,28 @@ mod tests {
         file.seek(SeekFrom::Start(0))?;
 
         let etag = etag::from_file(&temp_path)?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &Default::default()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &Default::default())
+            .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
+            .build();
         let result = get_client()
-            .storage()
-            .uploader()
+            .upload()
             .for_upload_policy(policy)?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumeable()
-            .upload_stream(&file, Some("2m"), None)?;
+            .upload_stream(&file, None::<String>, None)?;
 
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
-        assert_eq!(result.get("var_key1"), None);
+        assert_eq!(result.get("fname"), Some(&json!("")));
+        assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
         assert_eq!(result.get("var_key2"), None);
         // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
 
         file.seek(SeekFrom::Start(0))?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &Default::default()).build();
         let result = get_client()
-            .storage()
-            .uploader()
+            .upload()
             .for_upload_policy(policy)?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
