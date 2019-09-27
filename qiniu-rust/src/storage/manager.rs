@@ -21,7 +21,7 @@ impl StorageManager {
             rs_url: Region::hua_dong().rs_url(config.use_https()),
             credential: credential.clone(),
             config: config.clone(),
-            http_client: http::Client::new(credential, config),
+            http_client: http::Client::new(config),
         }
     }
 
@@ -34,7 +34,7 @@ impl StorageManager {
         Ok(self
             .http_client
             .get("/buckets", &[self.rs_url])
-            .token(http::Token::V1)
+            .token(http::Token::V1(self.credential.clone()))
             .accept_json()
             .no_body()
             .send()?
@@ -51,7 +51,7 @@ impl StorageManager {
                     + region_id.as_str()),
                 &[self.rs_url],
             )
-            .token(http::Token::V1)
+            .token(http::Token::V1(self.credential.clone()))
             .no_body()
             .send()?
             .ignore_body())
@@ -61,7 +61,7 @@ impl StorageManager {
         match self
             .http_client
             .post(&("/drop/".to_owned() + bucket.as_ref()), &[self.rs_url])
-            .token(http::Token::V1)
+            .token(http::Token::V1(self.credential.clone()))
             .no_body()
             .send()
         {

@@ -42,7 +42,7 @@ impl<'b> BucketUploader<'b> {
         BucketUploader {
             bucket_name: bucket_name.into(),
             up_urls_list: up_urls_list.into(),
-            client: Client::new(credential.clone(), config.clone()),
+            client: Client::new(config.clone()),
             credential: credential,
             config: config,
         }
@@ -56,7 +56,7 @@ impl Clone for BucketUploader<'_> {
             up_urls_list: self.up_urls_list.clone(),
             credential: self.credential.clone(),
             config: self.config.clone(),
-            client: Client::new(self.credential.clone(), self.config.clone()),
+            client: Client::new(self.config.clone()),
         }
     }
 }

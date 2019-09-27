@@ -201,9 +201,9 @@ impl Region {
         &SINGAPORE
     }
 
-    pub fn query<B: Into<String>>(bucket: B, credential: Credential, config: Config) -> Result<Vec<Region>> {
+    pub fn query<B: Into<String>>(bucket: B, credential: &Credential, config: Config) -> Result<Vec<Region>> {
         let (access_key, uc_url) = (credential.access_key().to_owned(), Self::uc_url(config.use_https()));
-        let result: RegionQueryResults = http::Client::new(credential, config)
+        let result: RegionQueryResults = http::Client::new(config)
             .get("/v3/query", &[uc_url])
             .query("ak", access_key)
             .query("bucket", bucket)
@@ -216,11 +216,11 @@ impl Region {
 
     pub(in super::super) fn query_uc_urls<B: Into<String>>(
         bucket: B,
-        credential: Credential,
+        credential: &Credential,
         config: Config,
     ) -> Result<Box<[Box<[Box<str>]>]>> {
         let use_https = config.use_https();
-        Ok(Self::query(bucket, credential, config)?
+        Ok(Self::query(bucket, &credential, config)?
             .into_iter()
             .map(|region| {
                 region
@@ -500,7 +500,7 @@ mod tests {
             )))
             .build()
             ?;
-        let regions = Region::query("z0-bucket", get_credential(), config)?;
+        let regions = Region::query("z0-bucket", &get_credential(), config)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();
         assert_eq!(region.region_id(), None);
@@ -558,7 +558,7 @@ mod tests {
                 }),
             )))
             .build()?;
-        let regions = Region::query("z5-bucket", get_credential(), config)?;
+        let regions = Region::query("z5-bucket", &get_credential(), config)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();
         assert_eq!(region.region_id(), None);

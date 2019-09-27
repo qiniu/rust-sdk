@@ -39,7 +39,7 @@ impl Uploader {
 
     pub fn for_bucket_name<'b, B: Into<Cow<'b, str>>>(&self, bucket_name: B) -> qiniu_http::Result<BucketUploader<'b>> {
         let bucket_name: Cow<'b, str> = bucket_name.into();
-        let uc_urls = Region::query_uc_urls(bucket_name.as_ref(), self.credential.clone(), self.config.clone())?;
+        let uc_urls = Region::query_uc_urls(bucket_name.as_ref(), &self.credential, self.config.clone())?;
         Ok(BucketUploader::new(
             bucket_name,
             uc_urls,

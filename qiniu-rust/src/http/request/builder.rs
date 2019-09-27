@@ -1,9 +1,5 @@
 use super::{
-    super::{
-        super::{config::Config, credential::Credential},
-        token::Token,
-        DomainsManager,
-    },
+    super::{super::config::Config, token::Token, DomainsManager},
     Parts, Request, ResponseCallback,
 };
 use error_chain::error_chain;
@@ -25,18 +21,11 @@ pub(crate) struct Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-    pub(crate) fn new(
-        credential: Credential,
-        config: Config,
-        method: Method,
-        path: &'a str,
-        hosts: &'a [&'a str],
-    ) -> Builder<'a> {
+    pub(crate) fn new(config: Config, method: Method, path: &'a str, hosts: &'a [&'a str]) -> Builder<'a> {
         Builder {
             domains_manager: config.domains_manager().clone(),
             domain_freeze_duration: config.domain_freeze_duration(),
             parts: Parts {
-                credential: credential,
                 config: config,
                 method: method,
                 hosts: hosts,

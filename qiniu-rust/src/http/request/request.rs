@@ -89,7 +89,7 @@ impl<'a> Request<'a> {
             }
             builder.build()
         };
-        self.parts.token.sign(&mut request, &self.parts.credential);
+        self.parts.token.sign(&mut request);
         self.parts.config.http_request_call().on_request_built(&mut request);
         let mut prev_err: Option<HTTPError> = None;
         let retries = self.parts.config.http_request_retries();
@@ -305,13 +305,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_credential(),
             config.clone(),
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
         )
-        .token(Token::V1)
+        .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -339,13 +338,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_credential(),
             config.clone(),
             Method::POST,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
         )
-        .token(Token::V1)
+        .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -373,13 +371,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_credential(),
             config.clone(),
             Method::POST,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
         )
-        .token(Token::V1)
+        .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -407,13 +404,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_credential(),
             config.clone(),
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
         )
-        .token(Token::V1)
+        .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -441,13 +437,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_credential(),
             config.clone(),
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
         )
-        .token(Token::V1)
+        .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -475,13 +470,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_credential(),
             config.clone(),
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
         )
-        .token(Token::V1)
+        .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -506,13 +500,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_credential(),
             config,
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
         )
-        .token(Token::V1)
+        .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -535,13 +528,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_credential(),
             config,
             Method::POST,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
         )
-        .token(Token::V1)
+        .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -563,13 +555,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_credential(),
             config,
             Method::POST,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
         )
-        .token(Token::V1)
+        .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -591,13 +582,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_credential(),
             config,
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
         )
-        .token(Token::V1)
+        .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -619,13 +609,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .build()?;
         assert!(Builder::new(
-            get_credential(),
             config,
             Method::GET,
             "/test_call",
             &["http://host1:1111", "http://host2:2222"],
         )
-        .token(Token::V1)
+        .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());

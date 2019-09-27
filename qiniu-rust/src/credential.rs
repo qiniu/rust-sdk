@@ -132,11 +132,11 @@ impl Credential {
         base64::urlsafe(hmac.result().code())
     }
 
-    pub(crate) fn will_push_body_v1<ContentType: AsRef<str>>(content_type: ContentType) -> bool {
+    fn will_push_body_v1<ContentType: AsRef<str>>(content_type: ContentType) -> bool {
         mime::FORM_MIME.eq_ignore_ascii_case(content_type.as_ref())
     }
 
-    pub(crate) fn will_push_body_v2<ContentType: AsRef<str>>(content_type: ContentType) -> bool {
+    fn will_push_body_v2<ContentType: AsRef<str>>(content_type: ContentType) -> bool {
         mime::FORM_MIME.eq_ignore_ascii_case(content_type.as_ref())
             || mime::JSON_MIME.eq_ignore_ascii_case(content_type.as_ref())
     }

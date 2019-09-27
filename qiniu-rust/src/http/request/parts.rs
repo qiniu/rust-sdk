@@ -1,5 +1,5 @@
 use super::super::response::Response;
-use crate::{config::Config, credential::Credential, http::token::Token};
+use crate::{config::Config, http::token::Token};
 use qiniu_http::{Headers, Method, Request as HTTPRequest, Result as HTTPResult};
 use std::{collections::HashMap, fmt};
 
@@ -10,7 +10,6 @@ pub(crate) struct Parts<'a> {
     pub(super) query: Option<HashMap<String, String>>,
     pub(super) headers: Option<Headers<'a>>,
     pub(super) body: Option<Vec<u8>>,
-    pub(super) credential: Credential,
     pub(super) config: Config,
     pub(super) token: Token,
     pub(super) read_body: bool,
@@ -31,7 +30,6 @@ impl fmt::Debug for Parts<'_> {
             .field("query", &self.query)
             .field("headers", &self.headers)
             .field("body", &self.body)
-            .field("credential", &self.credential)
             .field("config", &self.config)
             .field("token", &self.token)
             .field("read_body", &self.read_body)

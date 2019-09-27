@@ -36,7 +36,7 @@ impl<'r> BucketBuilder<'r> {
     pub(crate) fn new<B: Into<Cow<'r, str>>>(name: B, credential: Credential, config: Config) -> BucketBuilder<'r> {
         BucketBuilder {
             name: name.into(),
-            http_client: http::Client::new(credential.clone(), config.clone()),
+            http_client: http::Client::new(config.clone()),
             credential: credential,
             config: config,
             region: None,
@@ -51,7 +51,7 @@ impl<'r> BucketBuilder<'r> {
     }
 
     pub fn auto_detect_region(mut self) -> Result<BucketBuilder<'r>> {
-        let mut regions = Region::query(self.name.as_ref(), self.credential.clone(), self.config.clone())?;
+        let mut regions = Region::query(self.name.as_ref(), &self.credential, self.config.clone())?;
         self.region = Some(Cow::Owned(regions.swap_remove(0)));
         if !regions.is_empty() {
             self.regions = Some(regions);
@@ -73,10 +73,15 @@ impl<'r> BucketBuilder<'r> {
 
     pub fn auto_detect_domains(mut self) -> Result<BucketBuilder<'r>> {
         self.domains = Some(
-            domain::query(&self.http_client, self.uc_url(), self.name.as_ref())?
-                .into_iter()
-                .map(|domain| Cow::Owned(domain))
-                .collect(),
+            domain::query(
+                &self.http_client,
+                self.credential.clone(),
+                self.uc_url(),
+                self.name.as_ref(),
+            )?
+            .into_iter()
+            .map(|domain| Cow::Owned(domain))
+            .collect(),
         );
         Ok(self)
     }
@@ -115,7 +120,7 @@ impl<'r> Bucket<'r> {
     pub fn region(&self) -> Result<&Region> {
         self.region
             .get_or_try_init(|| {
-                let mut regions = Region::query(self.name(), self.credential.clone(), self.config.clone())?;
+                let mut regions = Region::query(self.name(), &self.credential, self.config.clone())?;
                 let first_region = Cow::Owned(regions.swap_remove(0));
                 self.regions.get_or_init(|| regions);
                 Ok(first_region)
@@ -133,10 +138,12 @@ impl<'r> Bucket<'r> {
 
     pub fn domains(&self) -> Result<Vec<&str>> {
         let domains = self.domains.get_or_try_init(|| {
-            Ok(domain::query(&self.http_client, self.uc_url(), self.name())?
-                .into_iter()
-                .map(|domain| Cow::Owned(domain))
-                .collect())
+            Ok(
+                domain::query(&self.http_client, self.credential.clone(), self.uc_url(), self.name())?
+                    .into_iter()
+                    .map(|domain| Cow::Owned(domain))
+                    .collect(),
+            )
         })?;
         Ok(domains.iter().map(|domain| domain.as_ref()).collect())
     }
@@ -157,14 +164,19 @@ impl<'r> Bucket<'r> {
 }
 
 mod domain {
-    use crate::http;
+    use crate::{credential::Credential, http};
     use qiniu_http::Result;
 
-    pub(super) fn query(http_client: &http::Client, uc_url: &str, bucket_name: &str) -> Result<Vec<String>> {
+    pub(super) fn query(
+        http_client: &http::Client,
+        credential: Credential,
+        uc_url: &str,
+        bucket_name: &str,
+    ) -> Result<Vec<String>> {
         Ok(http_client
             .get("/v6/domain/list", &[uc_url])
             .query("tbl", bucket_name)
-            .token(http::Token::V1)
+            .token(http::Token::V1(credential))
             .no_body()
             .send()?
             .parse_json()?)
