@@ -29,24 +29,24 @@ impl<'p> UploadToken<'p> {
         }
     }
 
-    // TODO: 改为 引用 self
-    pub fn policy(self) -> Result<UploadPolicy<'p>> {
+    pub fn policy<'a>(&'a self) -> Result<Cow<'a, UploadPolicy<'p>>> {
         match self {
             UploadToken::Token(token) => {
                 let encoded_policy = token.splitn(3, ':').last().ok_or(ErrorKind::InvalidUploadTokenFormat)?;
                 let decoded_policy =
                     base64::decode(encoded_policy.as_bytes()).map_err(|err| ErrorKind::Base64DecodeError(err))?;
-                Ok(UploadPolicy::from_json_slice_owned(&decoded_policy)
-                    .map_err(|err| ErrorKind::JSONDecodeError(err))?)
+                Ok(Cow::Owned(
+                    UploadPolicy::from_json_slice_owned(&decoded_policy)
+                        .map_err(|err| ErrorKind::JSONDecodeError(err))?,
+                ))
             }
-            UploadToken::Policy(policy, _) => Ok(policy),
+            UploadToken::Policy(policy, _) => Ok(Cow::Borrowed(policy)),
         }
     }
 
-    // TODO: 改为 引用 self
-    pub fn token(self) -> Cow<'p, str> {
+    pub fn token(&'p self) -> Cow<'p, str> {
         match self {
-            UploadToken::Token(token) => token,
+            UploadToken::Token(token) => Cow::Borrowed(token.as_ref()),
             UploadToken::Policy(policy, credential) => Cow::Owned(credential.sign_upload_policy(&policy)),
         }
     }
@@ -107,10 +107,11 @@ mod tests {
     #[test]
     fn test_build_upload_token_from_upload_policy() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", &Config::default()).build();
-        let token = UploadToken::from_policy(policy, get_credential()).token();
+        let token = UploadToken::from_policy(policy, get_credential());
+        let token = token.token();
         assert!(token.starts_with(get_credential().access_key()));
         let token = UploadToken::from_token(token);
-        let policy = token.to_owned().policy()?;
+        let policy = token.policy()?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), Some("test:file"));
         accept_string(token.to_owned().into());

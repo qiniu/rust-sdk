@@ -59,8 +59,12 @@ impl UploadManager {
         self.for_bucket(&BucketBuilder::new(bucket_name, self.credential.clone(), self.config.clone()).build())
     }
 
-    pub fn for_upload_token<'u>(&self, upload_token: UploadToken<'u>) -> error::Result<FileUploaderBuilder<'u>> {
-        let policy = upload_token.clone().policy()?;
+    pub fn for_upload_token<'u, U: Into<UploadToken<'u>>>(
+        &self,
+        upload_token: U,
+    ) -> error::Result<FileUploaderBuilder<'u>> {
+        let upload_token = upload_token.into();
+        let policy = upload_token.policy()?;
         if let Some(bucket_name) = policy.bucket() {
             Ok(FileUploaderBuilder::new(
                 Cow::Owned(self.for_bucket_name(bucket_name.to_owned())),

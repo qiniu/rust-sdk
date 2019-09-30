@@ -50,8 +50,8 @@ struct CompletedParts<'f> {
 
 pub(super) struct ResumeableUploaderBuilder<'u> {
     bucket_uploader: &'u BucketUploader<'u>,
-    upload_policy: UploadPolicy<'u>,
-    upload_token: Box<str>,
+    upload_policy: Cow<'u, UploadPolicy<'u>>,
+    upload_token: Cow<'u, str>,
     key: Option<Cow<'u, str>>,
     metadata: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
     custom_vars: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
@@ -59,8 +59,8 @@ pub(super) struct ResumeableUploaderBuilder<'u> {
 
 pub(super) struct ResumeableUploader<'u, R: Read + Seek + 'u> {
     bucket_uploader: &'u BucketUploader<'u>,
-    upload_policy: UploadPolicy<'u>,
-    upload_token: Box<str>,
+    upload_policy: Cow<'u, UploadPolicy<'u>>,
+    upload_token: Cow<'u, str>,
     key: Option<Cow<'u, str>>,
     completed_parts: CompletedParts<'u>,
     checksum_enabled: bool,
@@ -70,15 +70,14 @@ pub(super) struct ResumeableUploader<'u, R: Read + Seek + 'u> {
 }
 
 impl<'u> ResumeableUploaderBuilder<'u> {
-    pub(super) fn new<T: Into<UploadToken<'u>>>(
+    pub(super) fn new(
         bucket_uploader: &'u BucketUploader<'u>,
-        upload_token: T,
+        upload_token: &'u UploadToken<'u>,
     ) -> UploadTokenParseResult<ResumeableUploaderBuilder<'u>> {
-        let upload_token = upload_token.into();
         Ok(ResumeableUploaderBuilder {
             bucket_uploader: bucket_uploader,
-            upload_policy: upload_token.clone().policy()?,
-            upload_token: upload_token.token().as_ref().into(),
+            upload_token: upload_token.token(),
+            upload_policy: upload_token.policy()?,
             key: None,
             metadata: None,
             custom_vars: None,

@@ -465,7 +465,7 @@ impl RegionQueryResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::ConfigBuilder;
+    use crate::{config::ConfigBuilder, credential::Credential};
     use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::JSONCallMock;
     use serde_json::json;
@@ -491,7 +491,7 @@ mod tests {
             )))
             .build()
             ?;
-        let regions = Region::query("z0-bucket", &get_credential(), config)?;
+        let regions = Region::query("z0-bucket", get_credential().access_key(), config)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();
         assert_eq!(region.region_id(), None);
@@ -549,7 +549,7 @@ mod tests {
                 }),
             )))
             .build()?;
-        let regions = Region::query("z5-bucket", &get_credential(), config)?;
+        let regions = Region::query("z5-bucket", get_credential().access_key(), config)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();
         assert_eq!(region.region_id(), None);

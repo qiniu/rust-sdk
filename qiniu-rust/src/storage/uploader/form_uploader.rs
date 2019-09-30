@@ -18,26 +18,25 @@ use std::{
 pub(super) struct FormUploaderBuilder<'u> {
     bucket_uploader: &'u BucketUploader<'u>,
     multipart: Multipart<'u, 'u>,
-    upload_policy: UploadPolicy<'u>,
+    upload_policy: Cow<'u, UploadPolicy<'u>>,
 }
 
 pub(super) struct FormUploader<'u> {
     bucket_uploader: &'u BucketUploader<'u>,
     content_type: String,
-    upload_policy: UploadPolicy<'u>,
+    upload_policy: Cow<'u, UploadPolicy<'u>>,
     body: Vec<u8>,
 }
 
 impl<'u> FormUploaderBuilder<'u> {
-    pub(super) fn new<T: Into<UploadToken<'u>>>(
+    pub(super) fn new(
         bucket_uploader: &'u BucketUploader<'u>,
-        upload_token: T,
+        upload_token: &'u UploadToken<'u>,
     ) -> UploadTokenParseResult<FormUploaderBuilder<'u>> {
-        let upload_token = upload_token.into();
         let mut uploader = FormUploaderBuilder {
             bucket_uploader: bucket_uploader,
             multipart: Multipart::new(),
-            upload_policy: upload_token.clone().policy()?,
+            upload_policy: upload_token.policy()?,
         };
         uploader.multipart.add_text("token", upload_token.token());
         Ok(uploader)

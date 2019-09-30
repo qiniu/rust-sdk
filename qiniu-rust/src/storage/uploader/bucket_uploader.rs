@@ -209,7 +209,7 @@ impl<'b> FileUploaderBuilder<'b> {
         file_name: Option<N>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
-        let mut uploader = form_uploader::FormUploaderBuilder::new(&self.bucket_uploader, self.upload_token)?;
+        let mut uploader = form_uploader::FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }
@@ -240,7 +240,7 @@ impl<'b> FileUploaderBuilder<'b> {
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
         let mut uploader =
-            resumeable_uploader::ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)?;
+            resumeable_uploader::ResumeableUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }
@@ -267,7 +267,7 @@ impl<'b> FileUploaderBuilder<'b> {
         file_name: Option<N>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
-        let mut uploader = form_uploader::FormUploaderBuilder::new(&self.bucket_uploader, self.upload_token)?;
+        let mut uploader = form_uploader::FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }
@@ -299,7 +299,7 @@ impl<'b> FileUploaderBuilder<'b> {
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
         let mut uploader =
-            resumeable_uploader::ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)?;
+            resumeable_uploader::ResumeableUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }

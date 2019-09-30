@@ -61,7 +61,7 @@ impl Error {
             retry_kind: retry_kind,
             error_kind: error_kind,
             is_retry_safe: is_retry_safe,
-            method: Some(request.method().to_owned()),
+            method: Some(request.method()),
             request_id: Self::extract_req_id_from_response(response),
             url: Some(request.url().into()),
         }
