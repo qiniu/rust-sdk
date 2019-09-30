@@ -14,6 +14,8 @@ pub enum ErrorCode {
     JSONError,
     ResponseStatusCodeError(c_ushort),
     CurlError(CURLcode),
+    /* Particular error */
+    CannotDropNonEmptyBucket,
 }
 
 #[repr(C)]
@@ -194,29 +196,45 @@ pub extern "C" fn qiniu_ng_err_curl_error_extract(err: *const qiniu_ng_err, code
     }
 }
 
-pub(crate) fn make_qiniu_ng_err_from_io_error(err: &io::Error) -> qiniu_ng_err {
-    if let Some(raw_os_error) = err.raw_os_error() {
-        qiniu_ng_err(ErrorCode::OsError(raw_os_error))
-    } else {
-        qiniu_ng_err(ErrorCode::IoError(IoErrorKind::from(err.kind()).to_i32().unwrap()))
+impl From<&io::Error> for qiniu_ng_err {
+    fn from(err: &io::Error) -> Self {
+        if let Some(raw_os_error) = err.raw_os_error() {
+            qiniu_ng_err(ErrorCode::OsError(raw_os_error))
+        } else {
+            qiniu_ng_err(ErrorCode::IoError(IoErrorKind::from(err.kind()).to_i32().unwrap()))
+        }
     }
 }
 
-pub(crate) fn make_qiniu_ng_err_from_qiniu_http_error(err: &HTTPError) -> qiniu_ng_err {
-    match err.error_kind() {
-        HTTPErrorKind::HTTPCallerError(e) => {
-            if let Some(e) = e.downcast_ref::<curl::Error>() {
-                qiniu_ng_err(ErrorCode::CurlError(e.code()))
-            } else {
-                qiniu_ng_err(ErrorCode::UnknownError)
+impl From<&HTTPError> for qiniu_ng_err {
+    fn from(err: &HTTPError) -> Self {
+        match err.error_kind() {
+            HTTPErrorKind::HTTPCallerError(e) => {
+                if let Some(e) = e.downcast_ref::<curl::Error>() {
+                    qiniu_ng_err(ErrorCode::CurlError(e.code()))
+                } else {
+                    qiniu_ng_err(ErrorCode::UnknownError)
+                }
+            }
+            HTTPErrorKind::JSONError(_) => qiniu_ng_err(ErrorCode::JSONError),
+            HTTPErrorKind::MaliciousResponse => qiniu_ng_err(ErrorCode::UnknownError),
+            HTTPErrorKind::IOError(e) => e.into(),
+            HTTPErrorKind::UnknownError(_) => qiniu_ng_err(ErrorCode::UnknownError),
+            HTTPErrorKind::ResponseStatusCodeError(status_code, _) => {
+                qiniu_ng_err(ErrorCode::ResponseStatusCodeError(status_code.to_owned()))
             }
         }
-        HTTPErrorKind::JSONError(_) => qiniu_ng_err(ErrorCode::JSONError),
-        HTTPErrorKind::MaliciousResponse => qiniu_ng_err(ErrorCode::UnknownError),
-        HTTPErrorKind::IOError(e) => make_qiniu_ng_err_from_io_error(e),
-        HTTPErrorKind::UnknownError(_) => qiniu_ng_err(ErrorCode::UnknownError),
-        HTTPErrorKind::ResponseStatusCodeError(status_code, _) => {
-            qiniu_ng_err(ErrorCode::ResponseStatusCodeError(status_code.to_owned()))
+    }
+}
+
+impl From<&qiniu::storage::manager::Error> for qiniu_ng_err {
+    fn from(err: &qiniu::storage::manager::Error) -> Self {
+        match err.kind() {
+            qiniu::storage::manager::ErrorKind::CannotDropNonEmptyBucket => {
+                qiniu_ng_err(ErrorCode::CannotDropNonEmptyBucket)
+            }
+            qiniu::storage::manager::ErrorKind::HTTPError(e) => e.into(),
+            _ => qiniu_ng_err(ErrorCode::UnknownError),
         }
     }
 }

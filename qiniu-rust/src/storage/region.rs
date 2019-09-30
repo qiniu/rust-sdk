@@ -1,4 +1,4 @@
-use crate::{config::Config, credential::Credential, http};
+use crate::{config::Config, http};
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
 use lazy_static::lazy_static;
@@ -205,8 +205,8 @@ impl Region {
         &ALL_REGIONS[..]
     }
 
-    pub fn query<B: Into<String>>(bucket: B, credential: &Credential, config: Config) -> Result<Vec<Region>> {
-        let (access_key, uc_url) = (credential.access_key().to_owned(), Self::uc_url(config.use_https()));
+    pub fn query<B: Into<String>, A: Into<String>>(bucket: B, access_key: A, config: Config) -> Result<Box<[Region]>> {
+        let uc_url = Self::uc_url(config.use_https());
         let result: RegionQueryResults = http::Client::new(config)
             .get("/v3/query", &[uc_url])
             .query("ak", access_key)
@@ -389,11 +389,11 @@ struct RegionQueryResultDomains {
 }
 
 impl RegionQueryResults {
-    fn into_regions(self) -> Vec<Region> {
+    fn into_regions(self) -> Box<[Region]> {
         self.hosts
             .into_iter()
             .map(|host_result| host_result.into_region())
-            .collect::<Vec<_>>()
+            .collect()
     }
 }
 

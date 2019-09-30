@@ -3,7 +3,7 @@
 #include "test.h"
 
 void test_qiniu_ng_config(void) {
-    qiniu_ng_config config;
+    qiniu_ng_config_t config;
     qiniu_ng_config_init(&config);
 
     TEST_ASSERT_FALSE(config.use_https);

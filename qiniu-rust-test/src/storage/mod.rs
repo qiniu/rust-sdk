@@ -1,2 +1,3 @@
-mod storage_manager;
+mod region;
+mod storage;
 mod uploader;

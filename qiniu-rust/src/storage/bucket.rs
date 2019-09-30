@@ -12,8 +12,8 @@ pub struct Bucket<'r> {
     credential: Credential,
     config: Config,
     region: OnceCell<Cow<'r, Region>>,
-    backup_regions: OnceCell<Vec<Region>>,
-    domains: OnceCell<Vec<Cow<'r, str>>>,
+    backup_regions: OnceCell<Box<[Region]>>,
+    domains: OnceCell<Box<[Cow<'r, str>]>>,
     http_client: http::Client,
 }
 
@@ -22,7 +22,7 @@ pub struct BucketBuilder<'r> {
     credential: Credential,
     config: Config,
     region: Option<Cow<'r, Region>>,
-    backup_regions: Option<Vec<Region>>,
+    backup_regions: Option<Box<[Region]>>,
     domains: Option<Vec<Cow<'r, str>>>,
     http_client: http::Client,
 }
@@ -55,10 +55,11 @@ impl<'r> BucketBuilder<'r> {
     }
 
     pub fn auto_detect_region(mut self) -> Result<BucketBuilder<'r>> {
-        let mut regions = Region::query(self.name.as_ref(), &self.credential, self.config.clone())?;
+        let mut regions: Vec<Region> =
+            Region::query(self.name.as_ref(), self.credential.access_key(), self.config.clone())?.into();
         self.region = Some(Cow::Owned(regions.swap_remove(0)));
         if !regions.is_empty() {
-            self.backup_regions = Some(regions);
+            self.backup_regions = Some(regions.into());
         }
         Ok(self)
     }
@@ -98,15 +99,15 @@ impl<'r> BucketBuilder<'r> {
             config: self.config,
             region: self
                 .region
-                .map(|r| OnceCell::from(r))
+                .map(|region| OnceCell::from(region))
                 .unwrap_or_else(|| OnceCell::new()),
             backup_regions: self
                 .backup_regions
-                .map(|r| OnceCell::from(r))
+                .map(|regions| OnceCell::from(regions))
                 .unwrap_or_else(|| OnceCell::new()),
             domains: self
                 .domains
-                .map(|d| OnceCell::from(d))
+                .map(|domains| OnceCell::from(domains.into_boxed_slice()))
                 .unwrap_or_else(|| OnceCell::new()),
         }
     }
@@ -124,9 +125,10 @@ impl<'r> Bucket<'r> {
     pub fn region(&self) -> Result<&Region> {
         self.region
             .get_or_try_init(|| {
-                let mut regions = Region::query(self.name(), &self.credential, self.config.clone())?;
+                let mut regions: Vec<Region> =
+                    Region::query(self.name(), self.credential.access_key(), self.config.clone())?.into();
                 let first_region = Cow::Owned(regions.swap_remove(0));
-                self.backup_regions.get_or_init(|| regions);
+                self.backup_regions.get_or_init(|| regions.into());
                 Ok(first_region)
             })
             .map(|region| region.as_ref())
