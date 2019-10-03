@@ -131,7 +131,7 @@ impl CurlClient {
     fn set_options<T>(easy: &mut Easy2<T>, request: &Request) -> Result<()> {
         Self::handle_if_err(easy.accept_encoding(""), request)?;
         Self::handle_if_err(easy.transfer_encoding(true), request)?;
-        Self::handle_if_err(easy.follow_location(true), request)?;
+        Self::handle_if_err(easy.follow_location(request.follow_redirection()), request)?;
         Self::handle_if_err(easy.max_redirections(3), request)?;
         Self::handle_if_err(
             easy.useragent(&format!(

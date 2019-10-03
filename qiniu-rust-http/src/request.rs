@@ -19,16 +19,28 @@ pub struct Request<'b> {
     headers: Headers<'b>,
 
     #[get_copy = "pub"]
+    #[get_mut = "pub"]
     body: Option<&'b Body>,
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
+    follow_redirection: bool,
 }
 
 impl<'b> Request<'b> {
-    pub fn new<U: Into<URL<'b>>>(method: Method, url: U, headers: Headers<'b>, body: Option<&'b Body>) -> Request<'b> {
+    pub fn new<U: Into<URL<'b>>>(
+        method: Method,
+        url: U,
+        headers: Headers<'b>,
+        body: Option<&'b Body>,
+        follow_redirection: bool,
+    ) -> Request<'b> {
         Request {
             url: url.into(),
             method: method,
             headers: headers,
             body: body,
+            follow_redirection: follow_redirection,
         }
     }
 
@@ -77,6 +89,11 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
+    pub fn follow_redirection(mut self, follow_redirection: bool) -> RequestBuilder<'r> {
+        self.request.follow_redirection = follow_redirection;
+        self
+    }
+
     pub fn build(self) -> Request<'r> {
         self.request
     }
@@ -84,6 +101,6 @@ impl<'r> RequestBuilder<'r> {
 
 impl Default for Request<'_> {
     fn default() -> Self {
-        Self::new(Method::GET, "http://localhost", Headers::new(), None)
+        Self::new(Method::GET, "http://localhost", Headers::new(), None, false)
     }
 }

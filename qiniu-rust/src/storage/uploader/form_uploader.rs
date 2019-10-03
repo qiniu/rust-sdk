@@ -1,8 +1,5 @@
 use super::{
-    super::{
-        upload_policy::UploadPolicy,
-        upload_token::{Result as UploadTokenParseResult, UploadToken},
-    },
+    super::upload_token::{Result as UploadTokenParseResult, UploadToken},
     BucketUploader, UploadResponseCallback, UploadResult,
 };
 use crate::utils::crc32;
@@ -18,13 +15,11 @@ use std::{
 pub(super) struct FormUploaderBuilder<'u> {
     bucket_uploader: &'u BucketUploader<'u>,
     multipart: Multipart<'u, 'u>,
-    upload_policy: Cow<'u, UploadPolicy<'u>>,
 }
 
 pub(super) struct FormUploader<'u> {
     bucket_uploader: &'u BucketUploader<'u>,
     content_type: String,
-    upload_policy: Cow<'u, UploadPolicy<'u>>,
     body: Vec<u8>,
 }
 
@@ -36,7 +31,6 @@ impl<'u> FormUploaderBuilder<'u> {
         let mut uploader = FormUploaderBuilder {
             bucket_uploader: bucket_uploader,
             multipart: Multipart::new(),
-            upload_policy: upload_token.policy()?,
         };
         uploader.multipart.add_text("token", upload_token.token());
         Ok(uploader)
@@ -108,7 +102,6 @@ impl<'u> FormUploaderBuilder<'u> {
         fields.read_to_end(&mut body)?;
         Ok(FormUploader {
             bucket_uploader: self.bucket_uploader,
-            upload_policy: self.upload_policy,
             content_type: "multipart/form-data; boundary=".to_owned() + fields.boundary(),
             body: body,
         })
@@ -143,7 +136,7 @@ impl<'u> FormUploader<'u> {
             .client()
             .post("/", up_urls)
             .idempotent()
-            .response_callback(&UploadResponseCallback(&self.upload_policy))
+            .response_callback(&UploadResponseCallback)
             .accept_json()
             .raw_body(self.content_type.to_owned(), self.body.as_slice())
             .send()

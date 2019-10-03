@@ -7,6 +7,7 @@ use qiniu_http::{
     Response as HTTPResponse, Result as HTTPResult, RetryKind as HTTPRetryKind, StatusCode,
 };
 use std::{
+    borrow::Cow,
     fmt,
     io::{self, Cursor},
     thread,
@@ -71,7 +72,10 @@ impl<'a> Request<'a> {
                 .into_string();
         }
         let mut request = {
-            let mut builder = RequestBuilder::default().method(self.parts.method).url(url);
+            let mut builder = RequestBuilder::default()
+                .method(self.parts.method)
+                .url(url)
+                .follow_redirection(self.parts.follow_redirection);
             if let Some(headers) = &self.parts.headers {
                 builder = builder.headers(headers.to_owned());
             }
@@ -144,12 +148,14 @@ impl<'a> Request<'a> {
         }
         let mut error_message: Option<Box<str>> = None;
         if let Some(body) = Self::read_body_to_string(&mut response, request)? {
-            error_message = serde_json::from_str::<RequestErrorResponse>(&body)
-                .map_err(|err| {
-                    HTTPError::new_retryable_error(HTTPErrorKind::JSONError(err), false, request, Some(&response))
-                })?
-                .error
-                .map(|e| e.into())
+            if response.header("Content-Type") == Some(&Cow::Borrowed("application/json")) {
+                error_message = serde_json::from_str::<RequestErrorResponse>(&body)
+                    .map_err(|err| {
+                        HTTPError::new_retryable_error(HTTPErrorKind::JSONError(err), false, request, Some(&response))
+                    })?
+                    .error
+                    .map(|e| e.into())
+            }
         }
         Err(Self::response_error(
             response.status_code(),
@@ -213,6 +219,7 @@ impl<'a> Request<'a> {
         response: Option<&HTTPResponse>,
     ) -> HTTPError {
         match status_code {
+            300..=399 => HTTPError::new_unretryable_error(HTTPErrorKind::UnexpectedRedirect, request, response),
             400 if error_message.contains("incorrect region") => HTTPError::new_zone_unretryable_error(
                 HTTPErrorKind::ResponseStatusCodeError(status_code, error_message),
                 false,

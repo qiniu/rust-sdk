@@ -1,8 +1,5 @@
 use super::{
-    super::{
-        upload_policy::UploadPolicy,
-        upload_token::{Result as UploadTokenParseResult, UploadToken},
-    },
+    super::upload_token::{Result as UploadTokenParseResult, UploadToken},
     BucketUploader, UploadResponseCallback, UploadResult,
 };
 use crate::utils::{base64, seek_adapter};
@@ -50,7 +47,6 @@ struct CompletedParts<'f> {
 
 pub(super) struct ResumeableUploaderBuilder<'u> {
     bucket_uploader: &'u BucketUploader<'u>,
-    upload_policy: Cow<'u, UploadPolicy<'u>>,
     upload_token: Cow<'u, str>,
     key: Option<Cow<'u, str>>,
     metadata: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
@@ -59,7 +55,6 @@ pub(super) struct ResumeableUploaderBuilder<'u> {
 
 pub(super) struct ResumeableUploader<'u, R: Read + Seek + 'u> {
     bucket_uploader: &'u BucketUploader<'u>,
-    upload_policy: Cow<'u, UploadPolicy<'u>>,
     upload_token: Cow<'u, str>,
     key: Option<Cow<'u, str>>,
     completed_parts: CompletedParts<'u>,
@@ -77,7 +72,6 @@ impl<'u> ResumeableUploaderBuilder<'u> {
         Ok(ResumeableUploaderBuilder {
             bucket_uploader: bucket_uploader,
             upload_token: upload_token.token(),
-            upload_policy: upload_token.policy()?,
             key: None,
             metadata: None,
             custom_vars: None,
@@ -114,7 +108,6 @@ impl<'u> ResumeableUploaderBuilder<'u> {
         let block_size = self.bucket_uploader.config().upload_block_size();
         Ok(ResumeableUploader {
             bucket_uploader: self.bucket_uploader,
-            upload_policy: self.upload_policy,
             upload_token: self.upload_token,
             key: self.key,
             io: stream,
@@ -144,7 +137,6 @@ impl<'u> ResumeableUploaderBuilder<'u> {
     ) -> IOResult<ResumeableUploader<'u, seek_adapter::SeekAdapter<R>>> {
         Ok(ResumeableUploader {
             bucket_uploader: self.bucket_uploader,
-            upload_policy: self.upload_policy,
             upload_token: self.upload_token,
             key: self.key,
             io: seek_adapter::SeekAdapter(stream),
@@ -275,7 +267,7 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
             .post(base_path, up_urls)
             .header("Authorization", authorization)
             .idempotent()
-            .response_callback(&UploadResponseCallback(&self.upload_policy))
+            .response_callback(&UploadResponseCallback)
             .accept_json()
             .no_body()
             .send()?
@@ -304,7 +296,7 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
         }
         let result: UploadPartResult = builder
             .idempotent()
-            .response_callback(&UploadResponseCallback(&self.upload_policy))
+            .response_callback(&UploadResponseCallback)
             .accept_json()
             .raw_body("application/octet-stream", part.as_ref())
             .send()?
@@ -326,7 +318,7 @@ impl<'u, R: Read + Seek> ResumeableUploader<'u, R> {
             .post(&path, up_urls)
             .header("Authorization", authorization)
             .idempotent()
-            .response_callback(&UploadResponseCallback(&self.upload_policy))
+            .response_callback(&UploadResponseCallback)
             .accept_json()
             .json_body(&self.completed_parts)
             .unwrap()

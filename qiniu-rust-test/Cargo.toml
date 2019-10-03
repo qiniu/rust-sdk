@@ -11,6 +11,7 @@ keywords = ["qiniu", "storage", "testing"]
 [dev-dependencies]
 chrono = "0.4.8"
 qiniu = { version = "0.1.0", path = "../qiniu-rust" }
+qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }
 qiniu-test-utils = { version = "0.1.0", path = "../qiniu-rust-test-utils" }
 mime = "0.3.14"
 serde_json = "1.0.40"

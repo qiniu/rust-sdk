@@ -11,6 +11,7 @@ pub enum ErrorCode {
     OsError(c_int),
     IoError(c_int),
     UnknownError,
+    UnexpectedRedirectError,
     JSONError,
     ResponseStatusCodeError(c_ushort),
     CurlError(CURLcode),
@@ -218,6 +219,7 @@ impl From<&HTTPError> for qiniu_ng_err {
             }
             HTTPErrorKind::JSONError(_) => qiniu_ng_err(ErrorCode::JSONError),
             HTTPErrorKind::MaliciousResponse => qiniu_ng_err(ErrorCode::UnknownError),
+            HTTPErrorKind::UnexpectedRedirect => qiniu_ng_err(ErrorCode::UnexpectedRedirectError),
             HTTPErrorKind::IOError(e) => e.into(),
             HTTPErrorKind::UnknownError(_) => qiniu_ng_err(ErrorCode::UnknownError),
             HTTPErrorKind::ResponseStatusCodeError(status_code, _) => {

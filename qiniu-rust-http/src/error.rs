@@ -23,6 +23,7 @@ pub enum ErrorKind {
     HTTPCallerError(Box<dyn error::Error + Send>),
     JSONError(serde_json::Error),
     MaliciousResponse,
+    UnexpectedRedirect,
     IOError(io::Error),
     UnknownError(Box<dyn error::Error + Send>),
     ResponseStatusCodeError(StatusCode, Box<str>),
@@ -182,6 +183,7 @@ impl fmt::Display for ErrorKind {
             ErrorKind::HTTPCallerError(err) => write!(f, "HTTPCallerError({})", err),
             ErrorKind::JSONError(err) => write!(f, "JSONError({})", err),
             ErrorKind::MaliciousResponse => write!(f, "MaliciousResponse"),
+            ErrorKind::UnexpectedRedirect => write!(f, "UnexpectedRedirect"),
             ErrorKind::IOError(err) => write!(f, "IOError({})", err),
             ErrorKind::UnknownError(err) => write!(f, "UnknownError({})", err),
             ErrorKind::ResponseStatusCodeError(status_code, error_message) => write!(
@@ -213,7 +215,8 @@ impl error::Error for Error {
         match &self.error_kind {
             ErrorKind::HTTPCallerError(err) => err.description(),
             ErrorKind::JSONError(err) => err.description(),
-            ErrorKind::MaliciousResponse => "Malicious",
+            ErrorKind::MaliciousResponse => "Malicious response",
+            ErrorKind::UnexpectedRedirect => "Unexpected redirect",
             ErrorKind::IOError(err) => err.description(),
             ErrorKind::UnknownError(err) => err.description(),
             ErrorKind::ResponseStatusCodeError(_, error_message) => &error_message,
@@ -228,6 +231,7 @@ impl error::Error for Error {
             ErrorKind::IOError(err) => Some(err),
             ErrorKind::UnknownError(err) => Some(err.deref()),
             ErrorKind::MaliciousResponse => None,
+            ErrorKind::UnexpectedRedirect => None,
             ErrorKind::ResponseStatusCodeError(_, _) => None,
         }
     }
@@ -239,6 +243,7 @@ impl error::Error for Error {
             ErrorKind::IOError(err) => Some(err),
             ErrorKind::UnknownError(err) => Some(err.deref()),
             ErrorKind::MaliciousResponse => None,
+            ErrorKind::UnexpectedRedirect => None,
             ErrorKind::ResponseStatusCodeError(_, _) => None,
         }
     }

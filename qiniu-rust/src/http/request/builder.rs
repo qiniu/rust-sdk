@@ -36,6 +36,7 @@ impl<'a> Builder<'a> {
                 token: Token::None,
                 read_body: false,
                 idempotent: false,
+                follow_redirection: false,
                 response_callback: None,
             },
         }
@@ -80,6 +81,11 @@ impl<'a> Builder<'a> {
 
     pub(crate) fn idempotent(mut self) -> Builder<'a> {
         self.parts.idempotent = true;
+        self
+    }
+
+    pub(crate) fn follow_redirection(mut self) -> Builder<'a> {
+        self.parts.follow_redirection = true;
         self
     }
 

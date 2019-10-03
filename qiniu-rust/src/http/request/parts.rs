@@ -14,6 +14,7 @@ pub(crate) struct Parts<'a> {
     pub(super) token: Token,
     pub(super) read_body: bool,
     pub(super) idempotent: bool,
+    pub(super) follow_redirection: bool,
     pub(super) response_callback: Option<&'a dyn ResponseCallback>,
 }
 
@@ -34,6 +35,7 @@ impl fmt::Debug for Parts<'_> {
             .field("token", &self.token)
             .field("read_body", &self.read_body)
             .field("idempotent", &self.idempotent)
+            .field("follow_redirection", &self.follow_redirection)
             .finish()
     }
 }

@@ -1,7 +1,12 @@
 #[cfg(test)]
 mod tests {
     use chrono::offset::Utc;
-    use qiniu::{storage::upload_policy::UploadPolicyBuilder, utils::etag, Client};
+    use qiniu::{
+        storage::{upload_policy::UploadPolicyBuilder, uploader::UploadErrorKind},
+        utils::etag,
+        Client,
+    };
+    use qiniu_http::ErrorKind as HTTPErrorKind;
     use qiniu_test_utils::{env, temp_file::create_temp_file};
     use serde_json::json;
     use std::{
@@ -10,6 +15,31 @@ mod tests {
         io::{Seek, SeekFrom},
         result::Result,
     };
+
+    #[test]
+    fn test_storage_uploader_upload_file_with_return_url() -> Result<(), Box<dyn Error>> {
+        let temp_path = create_temp_file(1 << 19)?.into_temp_path();
+        let key = format!("test-512k-{}", Utc::now().timestamp_nanos());
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &Default::default())
+            .return_url("http://www.qiniu.com")
+            .build();
+        let err = get_client()
+            .upload()
+            .for_upload_policy(policy)?
+            .key(&key)
+            .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))
+            .unwrap_err();
+        match err.kind() {
+            UploadErrorKind::QiniuError(e) => match e.error_kind() {
+                HTTPErrorKind::UnexpectedRedirect => {
+                    return Ok(());
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+        panic!("Unexpected error: {:?}", err);
+    }
 
     #[test]
     fn test_storage_uploader_upload_file_with_key() -> Result<(), Box<dyn Error>> {
