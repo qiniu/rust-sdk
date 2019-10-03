@@ -205,12 +205,16 @@ impl Region {
         &ALL_REGIONS[..]
     }
 
-    pub fn query<B: Into<String>, A: Into<String>>(bucket: B, access_key: A, config: Config) -> Result<Box<[Region]>> {
+    pub fn query<'a, B: Into<Cow<'a, str>>, A: Into<Cow<'a, str>>>(
+        bucket: B,
+        access_key: A,
+        config: Config,
+    ) -> Result<Box<[Region]>> {
         let uc_url = Self::uc_url(config.use_https());
         let result: RegionQueryResults = http::Client::new(config)
             .get("/v3/query", &[uc_url])
-            .query("ak", access_key)
-            .query("bucket", bucket)
+            .query("ak", access_key.into())
+            .query("bucket", bucket.into())
             .accept_json()
             .no_body()
             .send()?

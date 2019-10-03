@@ -5,7 +5,7 @@ use super::{
 use error_chain::error_chain;
 use qiniu_http::{HeaderName, HeaderValue, Headers, Method};
 use serde::Serialize;
-use std::{collections::HashMap, result::Result as StdResult, time::Duration};
+use std::{borrow::Cow, collections::HashMap, result::Result as StdResult, time::Duration};
 
 error_chain! {
     foreign_links {
@@ -58,7 +58,7 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub(crate) fn query<K: Into<String>, V: Into<String>>(mut self, key: K, value: V) -> Builder<'a> {
+    pub(crate) fn query<K: Into<Cow<'a, str>>, V: Into<Cow<'a, str>>>(mut self, key: K, value: V) -> Builder<'a> {
         match self.parts.query {
             Some(ref mut query) => {
                 query.insert(key.into(), value.into());
