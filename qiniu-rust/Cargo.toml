@@ -35,6 +35,7 @@ qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }
 
 [dev-dependencies]
 qiniu-test-utils = { version = "0.1.0", path = "../qiniu-rust-test-utils" }
+regex = "1"
 
 [features]
 default = []

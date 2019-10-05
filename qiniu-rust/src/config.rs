@@ -1,4 +1,5 @@
 use super::http::DomainsManager;
+use crypto::{digest::Digest, sha1::Sha1};
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
 use qiniu_http::HTTPCaller;
@@ -8,6 +9,7 @@ use std::{
     fmt,
     marker::{Send, Sync},
     ops::Deref,
+    path::Path,
     result,
     sync::Arc,
     time::Duration,
@@ -51,6 +53,22 @@ pub struct ConfigInner {
 
     #[get_copy = "pub"]
     domain_freeze_duration: Duration,
+
+    #[get_copy = "pub"]
+    upload_block_lifetime: Duration,
+
+    #[get_copy = "pub"]
+    upload_file_recorder_key_generator: fn(path: &Path, key: Option<&str>) -> String,
+}
+
+fn default_upload_file_recorder_key_generator(path: &Path, key: Option<&str>) -> String {
+    let mut sha1 = Sha1::new();
+    if let Some(key) = key {
+        sha1.input(key.as_bytes());
+        sha1.input(b"_._");
+    }
+    sha1.input(path.to_string_lossy().as_ref().as_bytes());
+    sha1.result_str()
 }
 
 impl Default for ConfigInner {
@@ -66,6 +84,8 @@ impl Default for ConfigInner {
             http_request_call: Self::default_http_request_call(),
             domains_manager: DomainsManager::new(),
             domain_freeze_duration: Duration::from_secs(60 * 10),
+            upload_block_lifetime: Duration::from_secs(60 * 60 * 24 * 5),
+            upload_file_recorder_key_generator: default_upload_file_recorder_key_generator,
         }
     }
 }

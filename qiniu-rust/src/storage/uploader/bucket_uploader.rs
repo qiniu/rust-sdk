@@ -1,7 +1,7 @@
 use super::{
-    form_uploader, resumeable_uploader,
+    form_uploader, resumeable_uploader, upload_recorder,
     {
-        super::{upload_policy, upload_token},
+        super::{recorder, upload_policy, upload_token},
         UploadResult,
     },
 };
@@ -18,7 +18,7 @@ use std::{
 };
 
 #[derive(Getters)]
-pub struct BucketUploader<'b> {
+pub struct BucketUploader<'b, REC: recorder::Recorder> {
     #[get = "pub(super)"]
     bucket_name: Cow<'b, str>,
 
@@ -33,28 +33,33 @@ pub struct BucketUploader<'b> {
 
     #[get = "pub(super)"]
     client: Client,
+
+    #[get = "pub(super)"]
+    recorder: upload_recorder::UploadRecorder<REC>,
 }
 
-impl<'b> BucketUploader<'b> {
+impl<'b> BucketUploader<'b, recorder::FileSystemRecorder<'b>> {
     pub(super) fn new<B: Into<Cow<'b, str>>, U: Into<Box<[Box<[Box<str>]>]>>>(
         bucket_name: B,
         up_urls_list: U,
         credential: Credential,
         config: Config,
-    ) -> BucketUploader<'b> {
+    ) -> BucketUploader<'b, recorder::FileSystemRecorder<'b>> {
         let uploader = BucketUploader {
             bucket_name: bucket_name.into(),
             up_urls_list: up_urls_list.into(),
             client: Client::new(config.clone()),
             credential: credential,
+            recorder: upload_recorder::UploadRecorder::new(recorder::FileSystemRecorder::default(), &config),
             config: config,
         };
         assert!(!uploader.up_urls_list.is_empty());
         uploader
     }
+    // TODO: ADD CUSTOMIZED RECORDER METHOD
 }
 
-impl Clone for BucketUploader<'_> {
+impl<REC: recorder::Recorder> Clone for BucketUploader<'_, REC> {
     fn clone(&self) -> Self {
         BucketUploader {
             bucket_name: self.bucket_name.clone(),
@@ -62,16 +67,20 @@ impl Clone for BucketUploader<'_> {
             credential: self.credential.clone(),
             config: self.config.clone(),
             client: Client::new(self.config.clone()),
+            recorder: self.recorder.clone(),
         }
     }
 }
 
-impl<'b> BucketUploader<'b> {
-    pub fn upload_token<T: Into<upload_token::UploadToken<'b>>>(&'b self, upload_token: T) -> FileUploaderBuilder<'b> {
+impl<'b, REC: recorder::Recorder> BucketUploader<'b, REC> {
+    pub fn upload_token<T: Into<upload_token::UploadToken<'b>>>(
+        &'b self,
+        upload_token: T,
+    ) -> FileUploaderBuilder<'b, REC> {
         FileUploaderBuilder::new(Cow::Borrowed(self), upload_token)
     }
 
-    pub fn upload_policy(&'b self, upload_policy: upload_policy::UploadPolicy<'b>) -> FileUploaderBuilder<'b> {
+    pub fn upload_policy(&'b self, upload_policy: upload_policy::UploadPolicy<'b>) -> FileUploaderBuilder<'b, REC> {
         FileUploaderBuilder::new(
             Cow::Borrowed(self),
             upload_token::UploadToken::from_policy(upload_policy, self.credential.clone()),
@@ -87,8 +96,8 @@ pub enum ResumeablePolicy {
 
 // TODO: 加强 UploadToken 复用性，使 FileUploaderBuilder 的 upload_token 可以引用 BucketUploader 的属性
 
-pub struct FileUploaderBuilder<'b> {
-    bucket_uploader: Cow<'b, BucketUploader<'b>>,
+pub struct FileUploaderBuilder<'b, REC: recorder::Recorder> {
+    bucket_uploader: Cow<'b, BucketUploader<'b, REC>>,
     upload_token: upload_token::UploadToken<'b>,
     key: Option<Cow<'b, str>>,
     vars: Option<HashMap<Cow<'b, str>, Cow<'b, str>>>,
@@ -97,11 +106,11 @@ pub struct FileUploaderBuilder<'b> {
     resumeable_policy: ResumeablePolicy,
 }
 
-impl<'b> FileUploaderBuilder<'b> {
-    pub(super) fn new<B: Into<Cow<'b, BucketUploader<'b>>>, T: Into<upload_token::UploadToken<'b>>>(
+impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
+    pub(super) fn new<B: Into<Cow<'b, BucketUploader<'b, REC>>>, T: Into<upload_token::UploadToken<'b>>>(
         bucket_uploader: B,
         upload_token: T,
-    ) -> FileUploaderBuilder<'b> {
+    ) -> FileUploaderBuilder<'b, REC> {
         let bucket_uploader = bucket_uploader.into();
         FileUploaderBuilder {
             upload_token: upload_token.into(),
@@ -114,12 +123,16 @@ impl<'b> FileUploaderBuilder<'b> {
         }
     }
 
-    pub fn key<K: Into<Cow<'b, str>>>(mut self, key: K) -> FileUploaderBuilder<'b> {
+    pub fn key<K: Into<Cow<'b, str>>>(mut self, key: K) -> FileUploaderBuilder<'b, REC> {
         self.key = Some(key.into());
         self
     }
 
-    pub fn var<K: Into<Cow<'b, str>>, V: Into<Cow<'b, str>>>(mut self, key: K, value: V) -> FileUploaderBuilder<'b> {
+    pub fn var<K: Into<Cow<'b, str>>, V: Into<Cow<'b, str>>>(
+        mut self,
+        key: K,
+        value: V,
+    ) -> FileUploaderBuilder<'b, REC> {
         if let Some(vars) = &mut self.vars {
             vars.insert(key.into(), value.into());
         } else {
@@ -134,7 +147,7 @@ impl<'b> FileUploaderBuilder<'b> {
         mut self,
         key: K,
         value: V,
-    ) -> FileUploaderBuilder<'b> {
+    ) -> FileUploaderBuilder<'b, REC> {
         if let Some(metadata) = &mut self.metadata {
             metadata.insert(key.into(), value.into());
         } else {
@@ -145,27 +158,27 @@ impl<'b> FileUploaderBuilder<'b> {
         self
     }
 
-    pub fn disable_checksum(mut self) -> FileUploaderBuilder<'b> {
+    pub fn disable_checksum(mut self) -> FileUploaderBuilder<'b, REC> {
         self.checksum_enabled = false;
         self
     }
 
-    pub fn enable_checksum(mut self) -> FileUploaderBuilder<'b> {
+    pub fn enable_checksum(mut self) -> FileUploaderBuilder<'b, REC> {
         self.checksum_enabled = true;
         self
     }
 
-    pub fn upload_threshold(mut self, threshold: u64) -> FileUploaderBuilder<'b> {
+    pub fn upload_threshold(mut self, threshold: u64) -> FileUploaderBuilder<'b, REC> {
         self.resumeable_policy = ResumeablePolicy::Threshold(threshold);
         self
     }
 
-    pub fn always_be_resumeable(mut self) -> FileUploaderBuilder<'b> {
+    pub fn always_be_resumeable(mut self) -> FileUploaderBuilder<'b, REC> {
         self.resumeable_policy = ResumeablePolicy::Always;
         self
     }
 
-    pub fn never_be_resumeable(mut self) -> FileUploaderBuilder<'b> {
+    pub fn never_be_resumeable(mut self) -> FileUploaderBuilder<'b, REC> {
         self.resumeable_policy = ResumeablePolicy::Never;
         self
     }
@@ -241,8 +254,8 @@ impl<'b> FileUploaderBuilder<'b> {
     ) -> Result<UploadResult> {
         let mut uploader =
             resumeable_uploader::ResumeableUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
-        if let Some(key) = self.key {
-            uploader = uploader.key(key);
+        if let Some(key) = &self.key {
+            uploader = uploader.key(key.to_owned());
         }
         if let Some(vars) = self.vars {
             uploader = uploader.vars(vars);
@@ -250,15 +263,33 @@ impl<'b> FileUploaderBuilder<'b> {
         if let Some(metadata) = self.metadata {
             uploader = uploader.metadata(metadata);
         }
-        Ok(uploader
-            .seekable_stream(
-                File::open(file_path.as_ref())?,
-                Self::guess_filename(file_path.as_ref(), file_name),
-                file_path.as_ref().metadata()?.len(),
-                Self::guess_mime_from_file_path(mime, file_path.as_ref()),
-                self.checksum_enabled,
-            )?
-            .send()?)
+        let mut uploader = uploader.file(
+            File::open(file_path.as_ref())?,
+            file_path.as_ref(),
+            Self::guess_filename(file_path.as_ref(), file_name),
+            file_path.as_ref().metadata()?.len(),
+            Self::guess_mime_from_file_path(mime, file_path.as_ref()),
+            self.checksum_enabled,
+        );
+        Self::prepare_for_resuming(
+            self.key.as_ref().map(|key| key.as_ref()),
+            &self.bucket_uploader.recorder,
+            &mut uploader,
+            file_path.as_ref(),
+        )?;
+        Ok(uploader.send()?)
+    }
+
+    fn prepare_for_resuming(
+        key: Option<&str>,
+        recorder: &upload_recorder::UploadRecorder<REC>,
+        uploader: &mut resumeable_uploader::ResumeableUploader<'_, File, REC>,
+        file_path: &Path,
+    ) -> Result<()> {
+        if let Some((file_record, block_records)) = recorder.load_record(file_path, key)? {
+            uploader.prepare_for_resuming(file_record, block_records, recorder.open_for_appending(file_path, key)?);
+        }
+        Ok(())
     }
 
     fn upload_stream_by_form<'n, R: Read, N: Into<Cow<'n, str>>>(
@@ -316,7 +347,7 @@ impl<'b> FileUploaderBuilder<'b> {
                 Self::guess_mime_from_file_name(mime, file_name.as_ref().map(|name| name.as_ref())),
                 file_name,
                 true,
-            )?
+            )
             .send()?)
     }
 

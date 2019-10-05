@@ -1,5 +1,8 @@
 use super::{
-    super::upload_token::{Result as UploadTokenParseResult, UploadToken},
+    super::{
+        recorder,
+        upload_token::{Result as UploadTokenParseResult, UploadToken},
+    },
     BucketUploader, UploadResponseCallback, UploadResult,
 };
 use crate::utils::crc32;
@@ -12,22 +15,25 @@ use std::{
     io::{Read, Result as IOResult, Seek, SeekFrom},
 };
 
-pub(super) struct FormUploaderBuilder<'u> {
-    bucket_uploader: &'u BucketUploader<'u>,
+pub(super) struct FormUploaderBuilder<'u, REC: recorder::Recorder> {
+    bucket_uploader: &'u BucketUploader<'u, REC>,
     multipart: Multipart<'u, 'u>,
 }
 
-pub(super) struct FormUploader<'u> {
-    bucket_uploader: &'u BucketUploader<'u>,
+pub(super) struct FormUploader<'u, REC: recorder::Recorder> {
+    bucket_uploader: &'u BucketUploader<'u, REC>,
     content_type: String,
     body: Vec<u8>,
 }
 
-impl<'u> FormUploaderBuilder<'u> {
+impl<'u, REC> FormUploaderBuilder<'u, REC>
+where
+    REC: recorder::Recorder,
+{
     pub(super) fn new(
-        bucket_uploader: &'u BucketUploader<'u>,
+        bucket_uploader: &'u BucketUploader<'u, REC>,
         upload_token: &'u UploadToken<'u>,
-    ) -> UploadTokenParseResult<FormUploaderBuilder<'u>> {
+    ) -> UploadTokenParseResult<FormUploaderBuilder<'u, REC>> {
         let mut uploader = FormUploaderBuilder {
             bucket_uploader: bucket_uploader,
             multipart: Multipart::new(),
@@ -36,12 +42,16 @@ impl<'u> FormUploaderBuilder<'u> {
         Ok(uploader)
     }
 
-    pub(super) fn key<K: Into<Cow<'u, str>>>(mut self, key: K) -> FormUploaderBuilder<'u> {
+    pub(super) fn key<K: Into<Cow<'u, str>>>(mut self, key: K) -> FormUploaderBuilder<'u, REC> {
         self.multipart.add_text("key", key);
         self
     }
 
-    pub(super) fn var<K: AsRef<str>, V: Into<Cow<'u, str>>>(mut self, key: K, value: V) -> FormUploaderBuilder<'u> {
+    pub(super) fn var<K: AsRef<str>, V: Into<Cow<'u, str>>>(
+        mut self,
+        key: K,
+        value: V,
+    ) -> FormUploaderBuilder<'u, REC> {
         self.multipart.add_text("x:".to_owned() + key.as_ref(), value);
         self
     }
@@ -50,7 +60,7 @@ impl<'u> FormUploaderBuilder<'u> {
         mut self,
         key: K,
         value: V,
-    ) -> FormUploaderBuilder<'u> {
+    ) -> FormUploaderBuilder<'u, REC> {
         self.multipart.add_text("x-qn-meta-".to_owned() + key.as_ref(), value);
         self
     }
@@ -61,7 +71,7 @@ impl<'u> FormUploaderBuilder<'u> {
         file_name: Option<N>,
         mime: Option<Mime>,
         checksum_enabled: bool,
-    ) -> IOResult<FormUploader<'u>> {
+    ) -> IOResult<FormUploader<'u, REC>> {
         let mut crc32: Option<u32> = None;
         if checksum_enabled {
             crc32 = Some(crc32::from(&mut stream)?);
@@ -81,7 +91,7 @@ impl<'u> FormUploaderBuilder<'u> {
         mime: Option<Mime>,
         file_name: Option<N>,
         crc32: Option<u32>,
-    ) -> IOResult<FormUploader<'u>> {
+    ) -> IOResult<FormUploader<'u, REC>> {
         self.multipart
             .add_stream("file", stream, file_name.map(|name| name.into()), mime);
         if let Some(crc32) = crc32 {
@@ -90,7 +100,7 @@ impl<'u> FormUploaderBuilder<'u> {
         self.upload_multipart()
     }
 
-    fn upload_multipart(mut self) -> IOResult<FormUploader<'u>> {
+    fn upload_multipart(mut self) -> IOResult<FormUploader<'u, REC>> {
         let mut fields = self.multipart.prepare().map_err(|err| err.error)?;
         let mut body = Vec::with_capacity(
             self.bucket_uploader
@@ -108,12 +118,15 @@ impl<'u> FormUploaderBuilder<'u> {
     }
 }
 
-impl<'u> FormUploader<'u> {
+impl<'u, REC> FormUploader<'u, REC>
+where
+    REC: recorder::Recorder,
+{
     pub(super) fn send(&self) -> HTTPResult<UploadResult> {
         let mut iter = self.bucket_uploader.up_urls_list().iter();
         let mut prev_err: Option<HTTPError> = None;
         while let Some(up_urls) = iter.next() {
-            match self.send_form_request(&up_urls.iter().map(|url| url.as_ref()).collect::<Vec<&str>>()) {
+            match self.send_form_request(&up_urls.iter().map(|url| url.as_ref()).collect::<Box<[&str]>>()) {
                 Ok(value) => {
                     return Ok(value.into());
                 }
@@ -167,7 +180,7 @@ mod tests {
         let config = ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploader::new(
-            "test-upload",
+            "test_bucket",
             vec![
                 vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
                 vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
@@ -194,7 +207,7 @@ mod tests {
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
-            "test-upload",
+            "test_bucket",
             vec![
                 vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
                 vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
@@ -220,7 +233,7 @@ mod tests {
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
-            "test-upload",
+            "test_bucket",
             vec![
                 vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
                 vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
@@ -246,7 +259,7 @@ mod tests {
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
-            "test-upload",
+            "test_bucket",
             vec![
                 vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
                 vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
@@ -273,7 +286,7 @@ mod tests {
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
-            "test-upload",
+            "test_bucket",
             vec![
                 vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
                 vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
@@ -300,7 +313,7 @@ mod tests {
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
-            "test-upload",
+            "test_bucket",
             vec![
                 vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
                 vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
