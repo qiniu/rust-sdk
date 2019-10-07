@@ -14,6 +14,7 @@ use serde_json::Value;
 use std::{
     borrow::Cow,
     boxed::Box,
+    cell::Cell,
     collections::HashMap,
     convert::TryInto,
     fs::File,
@@ -57,12 +58,19 @@ struct FromResuming<REC: recorder::Recorder> {
     io_offset: u64,
 }
 
+#[derive(Clone)]
+struct UploadingProgressCallback<'u> {
+    callback: &'u dyn Fn(usize, usize),
+    total_size: usize,
+}
+
 pub(super) struct ResumeableUploaderBuilder<'u, REC: recorder::Recorder> {
     bucket_uploader: &'u BucketUploader<'u, REC>,
     upload_token: Cow<'u, str>,
     key: Option<Cow<'u, str>>,
     metadata: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
     custom_vars: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
+    on_uploading_progress: Option<&'u dyn Fn(usize, usize)>,
 }
 
 pub(super) struct ResumeableUploader<'u, R: Read + Seek + 'u, REC: recorder::Recorder> {
@@ -76,6 +84,7 @@ pub(super) struct ResumeableUploader<'u, R: Read + Seek + 'u, REC: recorder::Rec
     io: R,
     file_path: Option<Cow<'u, Path>>,
     from_resuming: Option<FromResuming<REC>>,
+    uploading_progress_callback: Option<UploadingProgressCallback<'u>>,
 }
 
 impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
@@ -89,6 +98,7 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
             key: None,
             metadata: None,
             custom_vars: None,
+            on_uploading_progress: None,
         })
     }
 
@@ -111,6 +121,14 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
             hashmap.insert(Cow::Owned("x:".to_owned() + &k), v);
         }
         self.custom_vars = Some(hashmap);
+        self
+    }
+
+    pub(super) fn on_uploading_progress(
+        mut self,
+        callback: &'u dyn Fn(usize, usize),
+    ) -> ResumeableUploaderBuilder<'u, REC> {
+        self.on_uploading_progress = Some(callback);
         self
     }
 
@@ -145,6 +163,10 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
                 custom_vars: self.custom_vars,
             },
             from_resuming: None,
+            uploading_progress_callback: self.on_uploading_progress.map(|callback| UploadingProgressCallback {
+                callback: callback,
+                total_size: file_size as usize,
+            }),
         }
     }
 
@@ -172,6 +194,7 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
                 custom_vars: self.custom_vars,
             },
             from_resuming: None,
+            uploading_progress_callback: None,
         }
     }
 }
@@ -251,6 +274,7 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
         self.start_uploading_blocks(
             &upload_id,
             0,
+            0,
             up_urls,
             base_path,
             authorization,
@@ -264,6 +288,7 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
         &mut self,
         upload_id: &str,
         mut part_number: usize,
+        io_offset: usize,
         up_urls: &[&str],
         base_path: &str,
         authorization: &str,
@@ -271,10 +296,15 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
         md5_digest: &mut Option<Md5>,
         mut recorder: Option<upload_recorder::FileUploadRecorder<REC::Medium>>,
     ) -> HTTPResult<UploadResult> {
+        let completed_block_size = &Cell::new(io_offset);
+        let uploading_progress_callback = self.uploading_progress_callback.as_ref().map(|progress| {
+            Box::new(move |block_uploaded, _| {
+                (progress.callback)(completed_block_size.get() + block_uploaded, progress.total_size);
+            }) as Box<dyn Fn(usize, usize)>
+        });
         loop {
             part_number += 1;
-            let block_size = self
-                .read_block(body_buf)
+            let block_size = read_block(&mut self.io, body_buf)
                 .map_err(|err| HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None))?;
             if block_size == 0 {
                 break;
@@ -286,14 +316,13 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
                 upload_id,
                 part_number,
                 &body_buf[..block_size],
-                if let Some(md5_digest) = md5_digest.as_mut() {
+                md5_digest.as_mut().and_then(|md5_digest| {
                     md5_digest.input(&body_buf[..block_size]);
                     let md5 = Some(md5_digest.result_str());
                     md5_digest.reset();
                     md5
-                } else {
-                    None
-                },
+                }),
+                uploading_progress_callback.as_ref().map(|cb| &**cb),
             )?;
             if let Some(recorder) = &mut recorder {
                 recorder
@@ -306,6 +335,7 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
                 etag: etag,
                 part_number: part_number,
             });
+            completed_block_size.set(completed_block_size.get() + block_size);
         }
         self.complete_parts(base_path, up_urls, authorization, upload_id)
             .map(|result| {
@@ -342,30 +372,6 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
         });
     }
 
-    fn read_block(&mut self, buf: &mut Vec<u8>) -> IOResult<usize> {
-        let mut have_read = 0;
-        loop {
-            match self.io.read(&mut buf[have_read..]) {
-                Ok(0) => {
-                    break;
-                }
-                Ok(n) => {
-                    have_read += n;
-                    if have_read == buf.len() {
-                        break;
-                    }
-                }
-                Err(ref err) if err.kind() == IOErrorKind::Interrupted => {
-                    continue;
-                }
-                Err(err) => {
-                    return Err(err);
-                }
-            };
-        }
-        Ok(have_read)
-    }
-
     fn init_parts(&self, base_path: &str, up_urls: &[&str], authorization: &str) -> HTTPResult<Box<str>> {
         let result: InitPartsResult = self
             .bucket_uploader
@@ -390,6 +396,7 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
         part_number: usize,
         part: &[u8],
         md5: Option<String>,
+        on_progress: Option<&dyn Fn(usize, usize)>,
     ) -> HTTPResult<Box<str>> {
         let path = base_path.to_owned() + "/" + upload_id + "/" + &part_number.to_string();
         let mut builder = self
@@ -399,6 +406,9 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
             .header("Authorization", authorization);
         if let Some(md5) = md5 {
             builder = builder.header("Content-MD5", md5);
+        }
+        if let Some(on_progress) = on_progress {
+            builder = builder.on_uploading_progress(on_progress);
         }
         let result: UploadPartResult = builder
             .idempotent()
@@ -447,6 +457,7 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
             self.start_uploading_blocks(
                 &from_resuming.upload_id,
                 self.completed_parts.parts.len(),
+                from_resuming.io_offset.try_into().unwrap(),
                 &from_resuming
                     .up_urls
                     .iter()
@@ -479,6 +490,30 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
 
 fn encode_key(key: Option<&str>) -> Cow<'static, str> {
     key.map_or_else(|| Cow::Borrowed("~"), |key| base64::urlsafe(key.as_bytes()).into())
+}
+
+fn read_block<R: Read>(io: &mut R, buf: &mut Vec<u8>) -> IOResult<usize> {
+    let mut have_read = 0;
+    loop {
+        match io.read(&mut buf[have_read..]) {
+            Ok(0) => {
+                break;
+            }
+            Ok(n) => {
+                have_read += n;
+                if have_read == buf.len() {
+                    break;
+                }
+            }
+            Err(ref err) if err.kind() == IOErrorKind::Interrupted => {
+                continue;
+            }
+            Err(err) => {
+                return Err(err);
+            }
+        };
+    }
+    Ok(have_read)
 }
 
 #[cfg(test)]

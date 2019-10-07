@@ -74,7 +74,7 @@ where
         let mut record = serde_json::to_string(&record).map_err(|err| Error::new(ErrorKind::Other, err))?;
         record.push_str("\n");
         medium.write_all(record.as_bytes())?;
-        medium.flush()?;
+        // TODO: medium.flush()?;
         Ok(FileUploadRecorder { medium: medium })
     }
 
@@ -148,6 +148,7 @@ where
         .map_err(|err| Error::new(ErrorKind::Other, err))?;
         record.push_str("\n");
         self.medium.write_all(record.as_bytes())?;
-        self.medium.flush()
+        // TODO: self.medium.flush();
+        Ok(())
     }
 }

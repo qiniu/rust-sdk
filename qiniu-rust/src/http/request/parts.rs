@@ -16,6 +16,8 @@ pub(crate) struct Parts<'a> {
     pub(super) idempotent: bool,
     pub(super) follow_redirection: bool,
     pub(super) response_callback: Option<&'a dyn ResponseCallback>,
+    pub(super) on_uploading_progress: Option<&'a dyn Fn(usize, usize)>,
+    pub(super) on_downloading_progress: Option<&'a dyn Fn(usize, usize)>,
 }
 
 pub(crate) trait ResponseCallback {
@@ -36,6 +38,30 @@ impl fmt::Debug for Parts<'_> {
             .field("read_body", &self.read_body)
             .field("idempotent", &self.idempotent)
             .field("follow_redirection", &self.follow_redirection)
+            .field(
+                "response_callback",
+                if self.response_callback.is_some() {
+                    &"Installed"
+                } else {
+                    &"Not Installed"
+                },
+            )
+            .field(
+                "on_uploading_progress",
+                if self.on_uploading_progress.is_some() {
+                    &"Installed"
+                } else {
+                    &"Not Installed"
+                },
+            )
+            .field(
+                "on_downloading_progress",
+                if self.on_downloading_progress.is_some() {
+                    &"Installed"
+                } else {
+                    &"Not Installed"
+                },
+            )
             .finish()
     }
 }

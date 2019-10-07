@@ -1,11 +1,11 @@
 use super::{HeaderName, HeaderValue, Headers, Method};
 use getset::{CopyGetters, Getters, MutGetters};
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt, result::Result};
 
 pub type URL<'b> = Cow<'b, str>;
 pub type Body = [u8];
 
-#[derive(Debug, Getters, CopyGetters, MutGetters, Clone)]
+#[derive(Getters, CopyGetters, MutGetters, Clone)]
 pub struct Request<'b> {
     #[get_mut = "pub"]
     url: URL<'b>,
@@ -25,15 +25,25 @@ pub struct Request<'b> {
     #[get_copy = "pub"]
     #[get_mut = "pub"]
     follow_redirection: bool,
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
+    on_uploading_progress: Option<&'b dyn Fn(usize, usize)>,
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
+    on_downloading_progress: Option<&'b dyn Fn(usize, usize)>,
 }
 
 impl<'b> Request<'b> {
-    pub fn new<U: Into<URL<'b>>>(
+    fn new<U: Into<URL<'b>>>(
         method: Method,
         url: U,
         headers: Headers<'b>,
         body: Option<&'b Body>,
         follow_redirection: bool,
+        on_uploading_progress: Option<&'b dyn Fn(usize, usize)>,
+        on_downloading_progress: Option<&'b dyn Fn(usize, usize)>,
     ) -> Request<'b> {
         Request {
             url: url.into(),
@@ -41,6 +51,8 @@ impl<'b> Request<'b> {
             headers: headers,
             body: body,
             follow_redirection: follow_redirection,
+            on_uploading_progress: on_uploading_progress,
+            on_downloading_progress: on_downloading_progress,
         }
     }
 
@@ -94,6 +106,16 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
+    pub fn on_uploading_progress(mut self, callback: &'r dyn Fn(usize, usize)) -> RequestBuilder<'r> {
+        self.request.on_uploading_progress = Some(callback);
+        self
+    }
+
+    pub fn on_downloading_progress(mut self, callback: &'r dyn Fn(usize, usize)) -> RequestBuilder<'r> {
+        self.request.on_downloading_progress = Some(callback);
+        self
+    }
+
     pub fn build(self) -> Request<'r> {
         self.request
     }
@@ -101,6 +123,34 @@ impl<'r> RequestBuilder<'r> {
 
 impl Default for Request<'_> {
     fn default() -> Self {
-        Self::new(Method::GET, "http://localhost", Headers::new(), None, false)
+        Self::new(Method::GET, "http://localhost", Headers::new(), None, false, None, None)
+    }
+}
+
+impl fmt::Debug for Request<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.debug_struct("Request")
+            .field("url", &self.url)
+            .field("method", &self.method)
+            .field("headers", &self.headers)
+            .field("body", &self.body)
+            .field("follow_redirection", &self.follow_redirection)
+            .field(
+                "on_uploading_progress",
+                if self.on_uploading_progress.is_some() {
+                    &"Installed"
+                } else {
+                    &"Not Installed"
+                },
+            )
+            .field(
+                "on_downloading_progress",
+                if self.on_downloading_progress.is_some() {
+                    &"Installed"
+                } else {
+                    &"Not Installed"
+                },
+            )
+            .finish()
     }
 }

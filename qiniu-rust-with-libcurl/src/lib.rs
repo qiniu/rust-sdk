@@ -45,6 +45,9 @@ impl HTTPCaller for CurlClient {
             response_headers: Headers::new(),
             buffer_size: self.buffer_size,
             temp_dir: self.temp_dir.as_path(),
+            progress_status: ProgressStatus::Initialized,
+            upload_progress: request.on_uploading_progress(),
+            download_progress: request.on_downloading_progress(),
         };
         Self::set_context(&mut ctx, request);
         let response_code = Self::perform(&mut ctx, request)?;
@@ -143,6 +146,10 @@ impl CurlClient {
             request,
         )?;
         Self::handle_if_err(easy.show_header(false), request)?;
+        Self::handle_if_err(
+            easy.progress(request.on_uploading_progress().is_some() || request.on_downloading_progress().is_some()),
+            request,
+        )?;
         Ok(())
     }
 
@@ -205,12 +212,22 @@ impl CurlClient {
     }
 }
 
+enum ProgressStatus {
+    Initialized,
+    Uploading(f64),
+    Downloading(f64),
+    Completed,
+}
+
 struct Context<'r> {
     request_body: Option<Cursor<&'r [u8]>>,
     response_body: Option<ResponseBody>,
     response_headers: Headers<'static>,
     buffer_size: usize,
     temp_dir: &'r Path,
+    progress_status: ProgressStatus,
+    upload_progress: Option<&'r dyn Fn(usize, usize)>,
+    download_progress: Option<&'r dyn Fn(usize, usize)>,
 }
 
 enum ResponseBody {
@@ -279,6 +296,53 @@ impl<'r> Handler for &mut Context<'r> {
                     Cow::Owned(header_name.to_string()),
                     Cow::Owned(header_value.to_string()),
                 );
+            }
+            _ => {}
+        }
+        true
+    }
+
+    fn progress(&mut self, dltotal: f64, dlnow: f64, ultotal: f64, ulnow: f64) -> bool {
+        if dltotal == 0f64 && ultotal == 0f64 {
+            return true;
+        }
+        match self.progress_status {
+            ProgressStatus::Initialized => {
+                if ultotal == 0f64 {
+                    if let Some(download_progress) = self.download_progress.as_ref() {
+                        (download_progress)(dlnow as usize, dltotal as usize);
+                    }
+                    if dlnow == dltotal {
+                        self.progress_status = ProgressStatus::Completed;
+                    } else {
+                        self.progress_status = ProgressStatus::Downloading(dlnow);
+                    }
+                } else {
+                    if let Some(upload_progress) = self.upload_progress.as_ref() {
+                        (upload_progress)(ulnow as usize, ultotal as usize);
+                    }
+                    self.progress_status = ProgressStatus::Uploading(ulnow);
+                }
+            }
+            ProgressStatus::Uploading(now) if now < ulnow => {
+                if let Some(upload_progress) = self.upload_progress.as_ref() {
+                    (upload_progress)(ulnow as usize, ultotal as usize);
+                }
+                if ulnow == ultotal {
+                    self.progress_status = ProgressStatus::Downloading(dlnow);
+                } else {
+                    self.progress_status = ProgressStatus::Uploading(ulnow);
+                }
+            }
+            ProgressStatus::Downloading(now) if now < dlnow => {
+                if let Some(download_progress) = self.download_progress.as_ref() {
+                    (download_progress)(dlnow as usize, dltotal as usize);
+                }
+                if dlnow == dltotal {
+                    self.progress_status = ProgressStatus::Completed;
+                } else {
+                    self.progress_status = ProgressStatus::Downloading(dlnow);
+                }
             }
             _ => {}
         }

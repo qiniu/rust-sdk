@@ -104,6 +104,7 @@ pub struct FileUploaderBuilder<'b, REC: recorder::Recorder> {
     metadata: Option<HashMap<Cow<'b, str>, Cow<'b, str>>>,
     checksum_enabled: bool,
     resumeable_policy: ResumeablePolicy,
+    on_uploading_progress: Option<&'b dyn Fn(usize, usize)>,
 }
 
 impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
@@ -120,6 +121,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
             checksum_enabled: true,
             resumeable_policy: ResumeablePolicy::Threshold(bucket_uploader.config.upload_threshold()),
             bucket_uploader: bucket_uploader,
+            on_uploading_progress: None,
         }
     }
 
@@ -183,6 +185,11 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         self
     }
 
+    pub fn on_progress(mut self, callback: &'b dyn Fn(usize, usize)) -> FileUploaderBuilder<'b, REC> {
+        self.on_uploading_progress = Some(callback);
+        self
+    }
+
     pub fn upload_file<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
         self,
         file_path: P,
@@ -236,6 +243,9 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
                 uploader = uploader.metadata(k, v);
             }
         }
+        if let Some(callback) = self.on_uploading_progress {
+            uploader = uploader.on_uploading_progress(callback);
+        }
         Ok(uploader
             .seekable_stream(
                 File::open(file_path.as_ref())?,
@@ -262,6 +272,9 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         }
         if let Some(metadata) = self.metadata {
             uploader = uploader.metadata(metadata);
+        }
+        if let Some(callback) = self.on_uploading_progress {
+            uploader = uploader.on_uploading_progress(callback);
         }
         let mut uploader = uploader.file(
             File::open(file_path.as_ref())?,
@@ -312,6 +325,9 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
                 uploader = uploader.metadata(k, v);
             }
         }
+        if let Some(callback) = self.on_uploading_progress {
+            uploader = uploader.on_uploading_progress(callback);
+        }
         let file_name = file_name.map(|name| name.into());
         Ok(uploader
             .stream(
@@ -339,6 +355,9 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         }
         if let Some(metadata) = self.metadata {
             uploader = uploader.metadata(metadata);
+        }
+        if let Some(callback) = self.on_uploading_progress {
+            uploader = uploader.on_uploading_progress(callback);
         }
         let file_name = file_name.map(|name| name.into());
         Ok(uploader

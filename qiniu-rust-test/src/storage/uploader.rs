@@ -11,6 +11,7 @@ mod tests {
     use serde_json::json;
     use std::{
         boxed::Box,
+        cell::Cell,
         error::Error,
         io::{Seek, SeekFrom},
         result::Result,
@@ -49,6 +50,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &Default::default())
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
+        let last_uploaded = Cell::new(0);
         let result = get_client()
             .upload()
             .for_upload_policy(policy)?
@@ -57,8 +59,14 @@ mod tests {
             .var("var_key2", "var_value2")
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
+            .on_progress(&|uploaded, total| {
+                assert!(total > (1 << 19));
+                assert!(uploaded >= last_uploaded.get());
+                last_uploaded.set(uploaded);
+            })
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))?;
 
+        assert!(last_uploaded.get() > (1 << 19));
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -69,6 +77,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &Default::default())
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
+        let last_uploaded = Cell::new(0);
         let result = get_client()
             .upload()
             .for_upload_policy(policy)?
@@ -78,8 +87,14 @@ mod tests {
             .var("var_key2", "var_value2")
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
+            .on_progress(&|uploaded, total| {
+                assert_eq!(total, 1 << 19);
+                assert!(uploaded >= last_uploaded.get());
+                last_uploaded.set(uploaded);
+            })
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))?;
 
+        assert_eq!(last_uploaded.get(), 1 << 19);
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -96,6 +111,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &Default::default())
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fsize\":$(fsize)}")
             .build();
+        let last_uploaded = Cell::new(0);
         let result = get_client()
             .upload()
             .for_upload_policy(policy)?
@@ -104,8 +120,14 @@ mod tests {
             .var("var_key2", "var_value2")
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
+            .on_progress(&|uploaded, total| {
+                assert_eq!(total, (1 << 28) + (1 << 20));
+                assert!(uploaded >= last_uploaded.get());
+                last_uploaded.set(uploaded);
+            })
             .upload_file(&temp_path, Some("257m"), Some(mime::IMAGE_PNG))?;
 
+        assert_eq!(last_uploaded.get(), (1 << 28) + (1 << 20));
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("fsize"), Some(&json!((1 << 28) + (1 << 20))));
@@ -120,13 +142,20 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &Default::default())
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
+        let last_uploaded = Cell::new(0);
         let result = get_client()
             .upload()
             .for_upload_policy(policy)?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
+            .on_progress(&|uploaded, total| {
+                assert!(total > (1 << 20));
+                assert!(uploaded >= last_uploaded.get());
+                last_uploaded.set(uploaded);
+            })
             .upload_file(&temp_path, Some("1m"), Some(mime::IMAGE_PNG))?;
 
+        assert!(last_uploaded.get() > (1 << 20));
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -135,14 +164,21 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &Default::default())
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
+        let last_uploaded = Cell::new(0);
         let result = get_client()
             .upload()
             .for_upload_policy(policy)?
             .always_be_resumeable()
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
+            .on_progress(&|uploaded, total| {
+                assert_eq!(total, 1 << 20);
+                assert!(uploaded >= last_uploaded.get());
+                last_uploaded.set(uploaded);
+            })
             .upload_file(&temp_path, Some("1m"), Some(mime::IMAGE_PNG))?;
 
+        assert_eq!(last_uploaded.get(), 1 << 20);
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -160,14 +196,21 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &Default::default())
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
+        let last_uploaded = Cell::new(0);
         let result = get_client()
             .upload()
             .for_upload_policy(policy)?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumeable()
+            .on_progress(&|uploaded, total| {
+                assert!(total > (1 << 21));
+                assert!(uploaded >= last_uploaded.get());
+                last_uploaded.set(uploaded);
+            })
             .upload_stream(&file, None::<String>, None)?;
 
+        assert!(last_uploaded.get() > (1 << 21));
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("fname"), Some(&json!("")));

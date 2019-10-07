@@ -76,6 +76,12 @@ impl<'a> Request<'a> {
                 .method(self.parts.method)
                 .url(url)
                 .follow_redirection(self.parts.follow_redirection);
+            if let Some(on_uploading_progress) = self.parts.on_uploading_progress {
+                builder = builder.on_uploading_progress(on_uploading_progress);
+            }
+            if let Some(on_downloading_progress) = self.parts.on_downloading_progress {
+                builder = builder.on_downloading_progress(on_downloading_progress);
+            }
             if let Some(headers) = &self.parts.headers {
                 builder = builder.headers(headers.to_owned());
             }

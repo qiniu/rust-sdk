@@ -38,6 +38,8 @@ impl<'a> Builder<'a> {
                 idempotent: false,
                 follow_redirection: false,
                 response_callback: None,
+                on_uploading_progress: None,
+                on_downloading_progress: None,
             },
         }
     }
@@ -91,6 +93,16 @@ impl<'a> Builder<'a> {
 
     pub(crate) fn response_callback(mut self, callback: &'a dyn ResponseCallback) -> Builder<'a> {
         self.parts.response_callback = Some(callback);
+        self
+    }
+
+    pub(crate) fn on_uploading_progress(mut self, callback: &'a dyn Fn(usize, usize)) -> Builder<'a> {
+        self.parts.on_uploading_progress = Some(callback);
+        self
+    }
+
+    pub(crate) fn on_downloading_progress(mut self, callback: &'a dyn Fn(usize, usize)) -> Builder<'a> {
+        self.parts.on_downloading_progress = Some(callback);
         self
     }
 

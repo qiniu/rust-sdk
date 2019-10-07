@@ -18,12 +18,14 @@ use std::{
 pub(super) struct FormUploaderBuilder<'u, REC: recorder::Recorder> {
     bucket_uploader: &'u BucketUploader<'u, REC>,
     multipart: Multipart<'u, 'u>,
+    on_uploading_progress: Option<&'u dyn Fn(usize, usize)>,
 }
 
 pub(super) struct FormUploader<'u, REC: recorder::Recorder> {
     bucket_uploader: &'u BucketUploader<'u, REC>,
     content_type: String,
     body: Vec<u8>,
+    on_uploading_progress: Option<&'u dyn Fn(usize, usize)>,
 }
 
 impl<'u, REC> FormUploaderBuilder<'u, REC>
@@ -37,6 +39,7 @@ where
         let mut uploader = FormUploaderBuilder {
             bucket_uploader: bucket_uploader,
             multipart: Multipart::new(),
+            on_uploading_progress: None,
         };
         uploader.multipart.add_text("token", upload_token.token());
         Ok(uploader)
@@ -62,6 +65,11 @@ where
         value: V,
     ) -> FormUploaderBuilder<'u, REC> {
         self.multipart.add_text("x-qn-meta-".to_owned() + key.as_ref(), value);
+        self
+    }
+
+    pub(super) fn on_uploading_progress(mut self, callback: &'u dyn Fn(usize, usize)) -> FormUploaderBuilder<'u, REC> {
+        self.on_uploading_progress = Some(callback);
         self
     }
 
@@ -114,6 +122,7 @@ where
             bucket_uploader: self.bucket_uploader,
             content_type: "multipart/form-data; boundary=".to_owned() + fields.boundary(),
             body: body,
+            on_uploading_progress: self.on_uploading_progress,
         })
     }
 }
@@ -145,11 +154,16 @@ where
     }
 
     fn send_form_request(&self, up_urls: &[&str]) -> HTTPResult<serde_json::Value> {
-        self.bucket_uploader
+        let mut request_builder = self
+            .bucket_uploader
             .client()
             .post("/", up_urls)
             .idempotent()
-            .response_callback(&UploadResponseCallback)
+            .response_callback(&UploadResponseCallback);
+        if let Some(on_uploading_progress) = self.on_uploading_progress {
+            request_builder = request_builder.on_uploading_progress(on_uploading_progress)
+        }
+        request_builder
             .accept_json()
             .raw_body(self.content_type.to_owned(), self.body.as_slice())
             .send()
