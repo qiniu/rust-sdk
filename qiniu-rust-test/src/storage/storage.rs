@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests {
     use chrono::offset::Utc;
-    use qiniu::{storage::region::RegionId, Client};
+    use qiniu::{storage::region::RegionId, Client, Config};
     use qiniu_test_utils::env;
     use std::{boxed::Box, default::Default, error::Error, result::Result};
 
     #[test]
     fn test_storage_list_buckets() -> Result<(), Box<dyn Error>> {
-        let bucket_names = get_client().storage().bucket_names()?;
+        let bucket_names = get_client(Config::default()).storage().bucket_names()?;
         assert!(bucket_names.contains(&"z0-bucket".into()));
         assert!(bucket_names.contains(&"z1-bucket".into()));
         assert!(bucket_names.contains(&"z2-bucket".into()));
@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_storage_new_bucket_and_drop() -> Result<(), Box<dyn Error>> {
-        let client = get_client();
+        let client = get_client(Config::default());
         let storage_manager = client.storage();
         let bucket_name: String = format!("test-bucket-{}", Utc::now().timestamp_nanos());
         storage_manager.create_bucket(&bucket_name, RegionId::Z2)?;
@@ -28,8 +28,8 @@ mod tests {
         Ok(())
     }
 
-    fn get_client() -> Client {
+    fn get_client(config: Config) -> Client {
         let e = env::get();
-        Client::new(e.access_key().to_owned(), e.secret_key().to_owned(), Default::default())
+        Client::new(e.access_key().to_owned(), e.secret_key().to_owned(), config)
     }
 }

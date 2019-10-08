@@ -519,7 +519,7 @@ fn read_block<R: Read>(io: &mut R, buf: &mut Vec<u8>) -> IOResult<usize> {
 #[cfg(test)]
 mod tests {
     use super::{super::super::upload_policy::UploadPolicyBuilder, *};
-    use crate::{config::ConfigBuilder, credential::Credential};
+    use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
     use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Headers, Method, ResponseBuilder};
     use qiniu_test_utils::{http_call_mock::CallHandlers, temp_file::create_temp_file};
     use serde_json::json;
@@ -537,7 +537,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
@@ -557,7 +557,7 @@ mod tests {
                     Method::PUT,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/"),
                         )
@@ -581,7 +581,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id"),
                         )
@@ -598,11 +598,17 @@ mod tests {
                     },
                 ),
             ))
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploader::new(
             "test_bucket",
-            vec![vec![Box::from("z1h1.com")].into()],
+            vec![vec![Box::from("http://z1h1.com")].into()],
             get_credential(),
             config,
         )
@@ -626,7 +632,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
@@ -646,7 +652,7 @@ mod tests {
                     Method::PUT,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/"),
                         )
@@ -675,7 +681,7 @@ mod tests {
                     Method::PUT,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h2.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h2.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/3"),
                         )
@@ -698,7 +704,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h2.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h2.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id"),
                         )
@@ -715,11 +721,17 @@ mod tests {
                     },
                 ),
             ))
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploader::new(
             "test_bucket",
-            vec![vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into()],
+            vec![vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into()],
             get_credential(),
             config,
         )
@@ -743,7 +755,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
@@ -761,7 +773,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z2h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z2h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
@@ -781,7 +793,7 @@ mod tests {
                     Method::PUT,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z2h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z2h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/"),
                         )
@@ -805,7 +817,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z2h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z2h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id"),
                         )
@@ -822,13 +834,19 @@ mod tests {
                     },
                 ),
             ))
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploader::new(
             "test_bucket",
             vec![
-                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
-                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+                vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
+                vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ],
             get_credential(),
             config,
@@ -854,7 +872,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
@@ -874,7 +892,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z2h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z2h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
@@ -894,7 +912,7 @@ mod tests {
                     Method::PUT,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id_1/"),
                         )
@@ -923,7 +941,7 @@ mod tests {
                     Method::PUT,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z2h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z2h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id_2/"),
                         )
@@ -947,7 +965,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z2h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z2h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id_2"),
                         )
@@ -964,11 +982,20 @@ mod tests {
                     },
                 ),
             ))
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploader::new(
             "test_bucket",
-            vec![vec![Box::from("z1h1.com")].into(), vec![Box::from("z2h1.com")].into()],
+            vec![
+                vec![Box::from("http://z1h1.com")].into(),
+                vec![Box::from("http://z2h1.com")].into(),
+            ],
             get_credential(),
             config,
         )
@@ -993,7 +1020,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
@@ -1013,7 +1040,7 @@ mod tests {
                     Method::PUT,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/"),
                         )
@@ -1043,7 +1070,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id"),
                         )
@@ -1060,6 +1087,12 @@ mod tests {
                     },
                 ),
             ))
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
@@ -1067,7 +1100,7 @@ mod tests {
         );
         BucketUploader::new(
             "test_bucket",
-            vec![vec![Box::from("z1h1.com")].into()],
+            vec![vec![Box::from("http://z1h1.com")].into()],
             get_credential(),
             config.clone(),
         )
@@ -1077,7 +1110,7 @@ mod tests {
         .unwrap_err();
         let result = BucketUploader::new(
             "test_bucket",
-            vec![vec![Box::from("z1h1.com")].into()],
+            vec![vec![Box::from("http://z1h1.com")].into()],
             get_credential(),
             config,
         )
@@ -1102,7 +1135,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
@@ -1124,7 +1157,7 @@ mod tests {
                     Method::PUT,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id_1/"),
                         )
@@ -1152,7 +1185,7 @@ mod tests {
                     Method::PUT,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id_2/"),
                         )
@@ -1176,7 +1209,7 @@ mod tests {
                     Method::POST,
                     "^".to_owned()
                         + &regex::escape(
-                            &("z1h1.com/buckets/test_bucket/objects/".to_owned()
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
                                 + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id_2"),
                         )
@@ -1193,6 +1226,12 @@ mod tests {
                     },
                 ),
             ))
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
@@ -1200,7 +1239,7 @@ mod tests {
         );
         BucketUploader::new(
             "test_bucket",
-            vec![vec![Box::from("z1h1.com")].into()],
+            vec![vec![Box::from("http://z1h1.com")].into()],
             get_credential(),
             config.clone(),
         )
@@ -1211,7 +1250,7 @@ mod tests {
 
         let result = BucketUploader::new(
             "test_bucket",
-            vec![vec![Box::from("z1h1.com")].into()],
+            vec![vec![Box::from("http://z1h1.com")].into()],
             get_credential(),
             config,
         )

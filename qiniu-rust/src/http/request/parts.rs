@@ -1,7 +1,7 @@
 use super::super::response::Response;
 use crate::{config::Config, http::token::Token};
 use qiniu_http::{Headers, Method, Request as HTTPRequest, Result as HTTPResult};
-use std::{borrow::Cow, collections::HashMap, fmt};
+use std::{borrow::Cow, collections::HashMap, fmt, net::SocketAddr};
 
 pub(crate) struct Parts<'a> {
     pub(super) method: Method,
@@ -15,6 +15,7 @@ pub(crate) struct Parts<'a> {
     pub(super) read_body: bool,
     pub(super) idempotent: bool,
     pub(super) follow_redirection: bool,
+    pub(super) resolved_socket_addrs: &'a [SocketAddr],
     pub(super) response_callback: Option<&'a dyn ResponseCallback>,
     pub(super) on_uploading_progress: Option<&'a dyn Fn(usize, usize)>,
     pub(super) on_downloading_progress: Option<&'a dyn Fn(usize, usize)>,
@@ -38,6 +39,7 @@ impl fmt::Debug for Parts<'_> {
             .field("read_body", &self.read_body)
             .field("idempotent", &self.idempotent)
             .field("follow_redirection", &self.follow_redirection)
+            .field("resolved_socket_addrs", &self.resolved_socket_addrs)
             .field(
                 "response_callback",
                 if self.response_callback.is_some() {

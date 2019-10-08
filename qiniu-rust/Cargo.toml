@@ -29,6 +29,7 @@ once_cell = "1.0.2"
 multipart = { git = "https://github.com/bachue/multipart.git", version = "0.16.1", features = ["client"], default-features = false }
 mime = "0.3.14"
 mime_guess = "2.0.1"
+rand = "0.7.2"
 
 qiniu-with-libcurl = { version = "0.1.0", path = "../qiniu-rust-with-libcurl", optional = true }
 qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }

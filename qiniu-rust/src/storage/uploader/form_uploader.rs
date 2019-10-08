@@ -174,7 +174,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{super::super::upload_policy::UploadPolicyBuilder, *};
-    use crate::{config::ConfigBuilder, credential::Credential};
+    use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
     use qiniu_http::Headers;
     use qiniu_test_utils::{
         http_call_mock::{CounterCallMock, ErrorResponseMock, JSONCallMock},
@@ -191,13 +191,21 @@ mod tests {
             Headers::new(),
             json!({"key": "abc", "hash": "def"}),
         ));
-        let config = ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?;
+        let config = ConfigBuilder::default()
+            .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
+            .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploader::new(
             "test_bucket",
             vec![
-                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
-                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+                vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
+                vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ],
             get_credential(),
             config,
@@ -218,13 +226,19 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
             "test_bucket",
             vec![
-                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
-                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+                vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
+                vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ],
             get_credential(),
             config,
@@ -244,13 +258,19 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
             "test_bucket",
             vec![
-                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
-                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+                vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
+                vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ],
             get_credential(),
             config,
@@ -270,13 +290,19 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
             "test_bucket",
             vec![
-                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
-                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+                vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
+                vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ],
             get_credential(),
             config,
@@ -297,13 +323,19 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
             "test_bucket",
             vec![
-                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
-                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+                vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
+                vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ],
             get_credential(),
             config,
@@ -324,13 +356,19 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
             "test_bucket",
             vec![
-                vec![Box::from("z1h1.com"), Box::from("z1h2.com")].into(),
-                vec![Box::from("z2h1.com"), Box::from("z2h2.com")].into(),
+                vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
+                vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ],
             get_credential(),
             config,

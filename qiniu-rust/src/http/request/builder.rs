@@ -5,7 +5,7 @@ use super::{
 use error_chain::error_chain;
 use qiniu_http::{HeaderName, HeaderValue, Headers, Method};
 use serde::Serialize;
-use std::{borrow::Cow, collections::HashMap, result::Result as StdResult, time::Duration};
+use std::{borrow::Cow, collections::HashMap, net::SocketAddr, result::Result as StdResult};
 
 error_chain! {
     foreign_links {
@@ -17,14 +17,12 @@ error_chain! {
 pub(crate) struct Builder<'a> {
     parts: Parts<'a>,
     domains_manager: DomainsManager,
-    domain_freeze_duration: Duration,
 }
 
 impl<'a> Builder<'a> {
     pub(crate) fn new(config: Config, method: Method, path: &'a str, hosts: &'a [&'a str]) -> Builder<'a> {
         Builder {
             domains_manager: config.domains_manager().clone(),
-            domain_freeze_duration: config.domain_freeze_duration(),
             parts: Parts {
                 config: config,
                 method: method,
@@ -38,6 +36,7 @@ impl<'a> Builder<'a> {
                 idempotent: false,
                 follow_redirection: false,
                 response_callback: None,
+                resolved_socket_addrs: &[],
                 on_uploading_progress: None,
                 on_downloading_progress: None,
             },
@@ -88,6 +87,11 @@ impl<'a> Builder<'a> {
 
     pub(crate) fn follow_redirection(mut self) -> Builder<'a> {
         self.parts.follow_redirection = true;
+        self
+    }
+
+    pub(crate) fn resolved_socket_addrs(mut self, resolved_socket_addrs: &'a [SocketAddr]) -> Builder<'a> {
+        self.parts.resolved_socket_addrs = resolved_socket_addrs;
         self
     }
 
@@ -144,7 +148,6 @@ impl<'a> Builder<'a> {
         Request {
             parts: self.parts,
             domains_manager: self.domains_manager,
-            domain_freeze_duration: self.domain_freeze_duration,
         }
     }
 }

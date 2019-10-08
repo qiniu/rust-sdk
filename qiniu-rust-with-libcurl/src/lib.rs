@@ -3,6 +3,7 @@ use curl::{
     Version,
 };
 use derive_builder::Builder;
+use lazy_static::lazy_static;
 use qiniu_http::{
     Error, ErrorKind, HTTPCaller, Headers, Method, Request, Response, ResponseBuilder, Result, StatusCode,
 };
@@ -17,18 +18,31 @@ use std::{
     result,
     sync::Once,
 };
+use url::Url;
 
 static INITIALIZER: Once = Once::new();
+lazy_static! {
+    static ref IPV6_SUPPORT: bool = Version::get().feature_ipv6();
+    static ref MULTI_IP_ADDRS_SUPPORT: bool = Version::get().version_num() >= 0x073b00;
+    static ref USER_AGENT: Box<str> = format!(
+        "QiniuRust-libcurl/qiniu-{}/rust-{}/libcurl-{}",
+        env!("CARGO_PKG_VERSION"),
+        rustc_version_runtime::version(),
+        Version::get().version(),
+    )
+    .into();
+    static ref TEMP_DIR: PathBuf = env::temp_dir();
+}
 
 #[derive(Debug, Builder)]
 #[builder(pattern = "owned", setter(into, strip_option), default)]
 pub struct CurlClient {
     buffer_size: usize,
 
-    temp_dir: PathBuf,
+    temp_dir: Option<PathBuf>,
 
     #[builder(setter(skip))]
-    user_agent: String,
+    user_agent: Option<String>,
 }
 
 impl Default for CurlClient {
@@ -36,13 +50,8 @@ impl Default for CurlClient {
         INITIALIZER.call_once(|| curl::init());
         CurlClient {
             buffer_size: 1 << 22,
-            temp_dir: env::temp_dir(),
-            user_agent: format!(
-                "QiniuRust-libcurl/qiniu-{}/rust-{}/libcurl-{}",
-                env!("CARGO_PKG_VERSION"),
-                rustc_version_runtime::version(),
-                Version::get().version(),
-            ),
+            temp_dir: None,
+            user_agent: None,
         }
     }
 }
@@ -54,7 +63,11 @@ impl HTTPCaller for CurlClient {
             response_body: None,
             response_headers: None,
             buffer_size: self.buffer_size,
-            temp_dir: self.temp_dir.as_path(),
+            temp_dir: self
+                .temp_dir
+                .as_ref()
+                .map(|dir| dir.as_path())
+                .unwrap_or_else(|| &TEMP_DIR),
             progress_status: ProgressStatus::Initialized,
             upload_progress: request.on_uploading_progress(),
             download_progress: request.on_downloading_progress(),
@@ -63,8 +76,14 @@ impl HTTPCaller for CurlClient {
         self.perform(ctx, request)
     }
 
-    fn append_user_agent(&mut self, user_agent: &str) {
-        self.user_agent.push_str(user_agent);
+    fn append_user_agent(&mut self, append_user_agent: &str) {
+        if let Some(user_agent) = &mut self.user_agent {
+            user_agent.push_str(append_user_agent);
+        } else {
+            let mut user_agent: String = USER_AGENT.to_string();
+            user_agent.push_str(append_user_agent);
+            self.user_agent = Some(user_agent);
+        }
     }
 }
 
@@ -131,6 +150,7 @@ impl CurlClient {
 
     fn set_headers<T>(&self, easy: &mut Easy2<T>, request: &Request) -> Result<()> {
         let mut header_list = List::new();
+        Self::handle_if_err(header_list.append("Expect:"), request)?;
         for (header_name, header_value) in request.headers().iter() {
             let h = header_name.as_ref().to_string() + ": " + header_value;
             Self::handle_if_err(header_list.append(&h), request)?;
@@ -147,11 +167,41 @@ impl CurlClient {
     }
 
     fn set_options<T>(&self, easy: &mut Easy2<T>, request: &Request) -> Result<()> {
+        if !request.resolved_socket_addrs().is_empty() {
+            let url = Url::parse(request.url()).unwrap();
+            let mut addr =
+                url.host_str().unwrap().to_owned() + ":" + &url.port_or_known_default().unwrap().to_string() + ":";
+            for (i, socket_addr) in request.resolved_socket_addrs().iter().enumerate() {
+                if !*IPV6_SUPPORT && socket_addr.is_ipv6() {
+                    continue;
+                }
+                if i > 0 {
+                    addr.push_str(",");
+                }
+                addr.push_str(&socket_addr.to_string());
+                if !*MULTI_IP_ADDRS_SUPPORT {
+                    break;
+                }
+            }
+            if !addr.ends_with(":") {
+                let mut list = List::new();
+                Self::handle_if_err(list.append(&addr), request)?;
+                Self::handle_if_err(easy.resolve(list), request)?;
+            }
+        }
         Self::handle_if_err(easy.accept_encoding(""), request)?;
         Self::handle_if_err(easy.transfer_encoding(true), request)?;
         Self::handle_if_err(easy.follow_location(request.follow_redirection()), request)?;
         Self::handle_if_err(easy.max_redirections(3), request)?;
-        Self::handle_if_err(easy.useragent(&self.user_agent), request)?;
+        Self::handle_if_err(
+            easy.useragent(
+                self.user_agent
+                    .as_ref()
+                    .map(|ua| ua.as_str())
+                    .unwrap_or_else(|| &USER_AGENT),
+            ),
+            request,
+        )?;
         Self::handle_if_err(easy.show_header(false), request)?;
         Self::handle_if_err(
             easy.progress(request.on_uploading_progress().is_some() || request.on_downloading_progress().is_some()),

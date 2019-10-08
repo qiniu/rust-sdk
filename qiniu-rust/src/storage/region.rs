@@ -125,29 +125,29 @@ impl Region {
         }
     }
 
-    pub fn fusion_url(https: bool) -> &'static str {
-        if https {
-            "https://fusion.qiniuapi.com"
-        } else {
-            "http://fusion.qiniuapi.com"
-        }
-    }
+    // pub fn fusion_url(https: bool) -> &'static str {
+    //     if https {
+    //         "https://fusion.qiniuapi.com"
+    //     } else {
+    //         "http://fusion.qiniuapi.com"
+    //     }
+    // }
 
-    pub fn pili_url(https: bool) -> &'static str {
-        if https {
-            "https://pili.qiniuapi.com"
-        } else {
-            "http://pili.qiniuapi.com"
-        }
-    }
+    // pub fn pili_url(https: bool) -> &'static str {
+    //     if https {
+    //         "https://pili.qiniuapi.com"
+    //     } else {
+    //         "http://pili.qiniuapi.com"
+    //     }
+    // }
 
-    pub fn rtc_url(https: bool) -> &'static str {
-        if https {
-            "https://rtc.qiniuapi.com"
-        } else {
-            "http://rtc.qiniuapi.com"
-        }
-    }
+    // pub fn rtc_url(https: bool) -> &'static str {
+    //     if https {
+    //         "https://rtc.qiniuapi.com"
+    //     } else {
+    //         "http://rtc.qiniuapi.com"
+    //     }
+    // }
 
     pub fn z0() -> &'static Region {
         &HUA_DONG

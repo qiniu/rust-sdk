@@ -1,5 +1,5 @@
 use super::{
-    super::{response::Response, DomainsManager},
+    super::{response::Response, Choice, DomainsManager},
     ErrorResponse as RequestErrorResponse, Parts,
 };
 use qiniu_http::{
@@ -11,20 +11,18 @@ use std::{
     fmt,
     io::{self, Cursor},
     thread,
-    time::Duration,
 };
 use url::Url;
 
 pub(crate) struct Request<'a> {
     pub(super) parts: Parts<'a>,
     pub(super) domains_manager: DomainsManager,
-    pub(super) domain_freeze_duration: Duration,
 }
 
 impl<'a> Request<'a> {
     pub(crate) fn send(&self) -> HTTPResult<Response> {
         let mut prev_err: Option<HTTPError> = None;
-        let hosts = self.domains_manager.choose(self.parts.hosts).map_err(|err| {
+        let choices = self.domains_manager.choose(self.parts.hosts).map_err(|err| {
             HTTPError::new_host_unretryable_error_from_parts(
                 HTTPErrorKind::UnknownError(Box::new(err)),
                 true,
@@ -32,17 +30,16 @@ impl<'a> Request<'a> {
                 None,
             )
         })?;
-        for host in hosts {
-            match self.try_host(host) {
+        for choice in choices {
+            let url = choice.url;
+            match self.try_choice(choice) {
                 Ok(resp) => {
                     return Ok(resp);
                 }
                 Err(err) => match err.retry_kind() {
                     HTTPRetryKind::RetryableError | HTTPRetryKind::HostUnretryableError if self.is_retry_safe(&err) => {
-                        self.domains_manager
-                            .freeze(host.to_string(), self.domain_freeze_duration)
-                            .unwrap();
-                        self.parts.config.http_request_call().on_host_failed(host, &err);
+                        self.domains_manager.freeze_url(url).unwrap();
+                        self.parts.config.http_request_call().on_host_failed(url, &err);
                         prev_err = Some(err);
                         continue;
                     }
@@ -58,15 +55,15 @@ impl<'a> Request<'a> {
         Err(err)
     }
 
-    fn try_host(&self, host: &'a str) -> HTTPResult<Response<'a>> {
-        let mut url = host.to_string() + self.parts.path;
+    fn try_choice(&self, choice: Choice<'a>) -> HTTPResult<Response<'a>> {
+        let mut url = choice.url.to_owned() + self.parts.path;
         if let Some(query) = &self.parts.query {
             url = Url::parse_with_params(url.as_str(), query)
                 .map_err(|err| {
                     HTTPError::new_unretryable_error_from_parts(
                         HTTPErrorKind::UnknownError(Box::new(err)),
                         Some(self.parts.method),
-                        Some((host.to_owned() + &self.parts.path).into()),
+                        Some((choice.url.to_owned() + &self.parts.path).into()),
                     )
                 })?
                 .into_string();
@@ -76,6 +73,9 @@ impl<'a> Request<'a> {
                 .method(self.parts.method)
                 .url(url)
                 .follow_redirection(self.parts.follow_redirection);
+            if !choice.socket_addrs.is_empty() {
+                builder = builder.resolved_socket_addrs(&choice.socket_addrs);
+            }
             if let Some(on_uploading_progress) = self.parts.on_uploading_progress {
                 builder = builder.on_uploading_progress(on_uploading_progress);
             }
@@ -105,7 +105,7 @@ impl<'a> Request<'a> {
                 .map(|response| Response {
                     inner: response,
                     method: self.parts.method,
-                    host: host,
+                    host: choice.url,
                     path: self.parts.path,
                 }) {
                 Ok(mut response) => {
@@ -257,10 +257,7 @@ impl<'a> Request<'a> {
 
 impl fmt::Debug for Request<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Request")
-            .field("parts", &self.parts)
-            .field("domain_freeze_duration", &self.domain_freeze_duration)
-            .finish()
+        f.debug_struct("Request").field("parts", &self.parts).finish()
     }
 }
 
@@ -274,6 +271,7 @@ mod tests {
                     credential::Credential,
                 },
                 token::Token,
+                DomainsManagerBuilder,
             },
             Builder,
         },
@@ -313,19 +311,25 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         assert!(Builder::new(
             config.clone(),
             Method::GET,
             "/test_call",
-            &["http://host1:1111", "http://host2:2222"],
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert!(config.domains_manager().is_frozen("host1")?);
-        assert!(config.domains_manager().is_frozen("host2")?);
+        assert!(config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
+        assert!(config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
         assert_eq!(mock.on_retry_request_called(), 2 * (RETRIES + 1));
@@ -346,19 +350,25 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         assert!(Builder::new(
             config.clone(),
             Method::POST,
             "/test_call",
-            &["http://host1:1111", "http://host2:2222"],
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert!(config.domains_manager().is_frozen("host1")?);
-        assert!(config.domains_manager().is_frozen("host2")?);
+        assert!(config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
+        assert!(config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
         assert_eq!(mock.on_retry_request_called(), 2 * (RETRIES + 1));
@@ -379,19 +389,25 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         assert!(Builder::new(
             config.clone(),
             Method::POST,
             "/test_call",
-            &["http://host1:1111", "http://host2:2222"],
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert!(!config.domains_manager().is_frozen("host1")?);
-        assert!(!config.domains_manager().is_frozen("host2")?);
+        assert!(!config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
+        assert!(!config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 1);
         assert_eq!(mock.on_retry_request_called(), 0);
@@ -412,19 +428,25 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         assert!(Builder::new(
             config.clone(),
             Method::GET,
             "/test_call",
-            &["http://host1:1111", "http://host2:2222"],
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert!(config.domains_manager().is_frozen("host1")?);
-        assert!(config.domains_manager().is_frozen("host2")?);
+        assert!(config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
+        assert!(config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 2);
         assert_eq!(mock.on_retry_request_called(), 0);
@@ -445,19 +467,25 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         assert!(Builder::new(
             config.clone(),
             Method::GET,
             "/test_call",
-            &["http://host1:1111", "http://host2:2222"],
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert!(!config.domains_manager().is_frozen("host1")?);
-        assert!(!config.domains_manager().is_frozen("host2")?);
+        assert!(!config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
+        assert!(!config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 1);
         assert_eq!(mock.on_retry_request_called(), 0);
@@ -478,19 +506,25 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         assert!(Builder::new(
             config.clone(),
             Method::GET,
             "/test_call",
-            &["http://host1:1111", "http://host2:2222"],
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
-        assert!(!config.domains_manager().is_frozen("host1")?);
-        assert!(!config.domains_manager().is_frozen("host2")?);
+        assert!(!config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
+        assert!(!config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 1);
         assert_eq!(mock.on_retry_request_called(), 0);
@@ -508,12 +542,18 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         assert!(Builder::new(
             config,
             Method::GET,
             "/test_call",
-            &["http://host1:1111", "http://host2:2222"],
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -536,12 +576,18 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         assert!(Builder::new(
             config,
             Method::POST,
             "/test_call",
-            &["http://host1:1111", "http://host2:2222"],
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -563,12 +609,18 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         assert!(Builder::new(
             config,
             Method::POST,
             "/test_call",
-            &["http://host1:1111", "http://host2:2222"],
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -590,12 +642,18 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         assert!(Builder::new(
             config,
             Method::GET,
             "/test_call",
-            &["http://host1:1111", "http://host2:2222"],
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -617,12 +675,18 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
+            .domains_manager(
+                DomainsManagerBuilder::default()
+                    .disable_url_resolution(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()?;
         assert!(Builder::new(
             config,
             Method::GET,
             "/test_call",
-            &["http://host1:1111", "http://host2:2222"],
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())

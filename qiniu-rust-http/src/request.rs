@@ -1,6 +1,6 @@
 use super::{HeaderName, HeaderValue, Headers, Method};
 use getset::{CopyGetters, Getters, MutGetters};
-use std::{borrow::Cow, fmt, result::Result};
+use std::{borrow::Cow, fmt, net::SocketAddr, result::Result};
 
 pub type URL<'b> = Cow<'b, str>;
 pub type Body = [u8];
@@ -28,6 +28,10 @@ pub struct Request<'b> {
 
     #[get_copy = "pub"]
     #[get_mut = "pub"]
+    resolved_socket_addrs: &'b [SocketAddr],
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
     on_uploading_progress: Option<&'b dyn Fn(usize, usize)>,
 
     #[get_copy = "pub"]
@@ -36,26 +40,6 @@ pub struct Request<'b> {
 }
 
 impl<'b> Request<'b> {
-    fn new<U: Into<URL<'b>>>(
-        method: Method,
-        url: U,
-        headers: Headers<'b>,
-        body: Option<&'b Body>,
-        follow_redirection: bool,
-        on_uploading_progress: Option<&'b dyn Fn(usize, usize)>,
-        on_downloading_progress: Option<&'b dyn Fn(usize, usize)>,
-    ) -> Request<'b> {
-        Request {
-            url: url.into(),
-            method: method,
-            headers: headers,
-            body: body,
-            follow_redirection: follow_redirection,
-            on_uploading_progress: on_uploading_progress,
-            on_downloading_progress: on_downloading_progress,
-        }
-    }
-
     pub fn url(&self) -> &str {
         self.url.as_ref()
     }
@@ -106,6 +90,11 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
+    pub fn resolved_socket_addrs(mut self, socket_addrs: &'r [SocketAddr]) -> RequestBuilder<'r> {
+        self.request.resolved_socket_addrs = socket_addrs;
+        self
+    }
+
     pub fn on_uploading_progress(mut self, callback: &'r dyn Fn(usize, usize)) -> RequestBuilder<'r> {
         self.request.on_uploading_progress = Some(callback);
         self
@@ -123,7 +112,16 @@ impl<'r> RequestBuilder<'r> {
 
 impl Default for Request<'_> {
     fn default() -> Self {
-        Self::new(Method::GET, "http://localhost", Headers::new(), None, false, None, None)
+        Request {
+            url: "http://localhost".into(),
+            method: Method::GET,
+            headers: Headers::new(),
+            body: None,
+            follow_redirection: false,
+            resolved_socket_addrs: &[],
+            on_uploading_progress: None,
+            on_downloading_progress: None,
+        }
     }
 }
 
@@ -135,6 +133,7 @@ impl fmt::Debug for Request<'_> {
             .field("headers", &self.headers)
             .field("body", &self.body)
             .field("follow_redirection", &self.follow_redirection)
+            .field("resolved_socket_addrs", &self.resolved_socket_addrs)
             .field(
                 "on_uploading_progress",
                 if self.on_uploading_progress.is_some() {

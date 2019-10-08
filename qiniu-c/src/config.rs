@@ -9,9 +9,9 @@ pub struct qiniu_ng_config_t {
     pub batch_max_operation_size: size_t,
     pub upload_threshold: c_ulonglong,
     pub upload_block_size: size_t,
+    pub upload_block_lifetime: c_ulonglong,
     pub http_request_retries: size_t,
     pub http_request_retry_delay: c_ulonglong,
-    pub domain_freeze_duration: c_ulonglong,
 }
 
 #[no_mangle]
@@ -23,9 +23,9 @@ pub extern "C" fn qiniu_ng_config_init(config: *mut qiniu_ng_config_t) {
         (*config).batch_max_operation_size = default.batch_max_operation_size();
         (*config).upload_threshold = default.upload_threshold();
         (*config).upload_block_size = default.upload_block_size();
+        (*config).upload_block_lifetime = default.upload_block_lifetime().as_secs();
         (*config).http_request_retries = default.http_request_retries();
         (*config).http_request_retry_delay = default.http_request_retry_delay().as_secs();
-        (*config).domain_freeze_duration = default.domain_freeze_duration().as_secs();
     }
 }
 
@@ -37,9 +37,9 @@ impl From<&qiniu_ng_config_t> for Config {
             .batch_max_operation_size(config.batch_max_operation_size)
             .upload_threshold(config.upload_threshold)
             .upload_block_size(config.upload_block_size)
+            .upload_block_lifetime(Duration::from_secs(config.upload_block_lifetime))
             .http_request_retries(config.http_request_retries)
             .http_request_retry_delay(Duration::from_secs(config.http_request_retry_delay))
-            .domain_freeze_duration(Duration::from_secs(config.domain_freeze_duration))
             .build()
             .unwrap()
     }

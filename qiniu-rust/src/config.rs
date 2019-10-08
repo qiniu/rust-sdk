@@ -52,9 +52,6 @@ pub struct ConfigInner {
     domains_manager: DomainsManager,
 
     #[get_copy = "pub"]
-    domain_freeze_duration: Duration,
-
-    #[get_copy = "pub"]
     upload_block_lifetime: Duration,
 
     #[get_copy = "pub"]
@@ -82,8 +79,7 @@ impl Default for ConfigInner {
             http_request_retries: 3,
             http_request_retry_delay: Duration::from_millis(500),
             http_request_call: Self::default_http_request_call(),
-            domains_manager: DomainsManager::new(),
-            domain_freeze_duration: Duration::from_secs(60 * 10),
+            domains_manager: DomainsManager::default(),
             upload_block_lifetime: Duration::from_secs(60 * 60 * 24 * 5),
             upload_file_recorder_key_generator: default_upload_file_recorder_key_generator,
         }
@@ -112,9 +108,10 @@ impl fmt::Debug for ConfigInner {
             .field("batch_max_operation_size", &self.batch_max_operation_size)
             .field("upload_threshold", &self.upload_threshold)
             .field("upload_block_size", &self.upload_block_size)
+            .field("upload_block_lifetime", &self.upload_block_lifetime)
             .field("http_request_retries", &self.http_request_retries)
             .field("http_request_retry_delay", &self.http_request_retry_delay)
-            .field("domain_freeze_duration", &self.domain_freeze_duration)
+            .field("domains_manager", &self.domains_manager)
             .finish()
     }
 }

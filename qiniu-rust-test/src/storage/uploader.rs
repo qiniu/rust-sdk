@@ -4,7 +4,7 @@ mod tests {
     use qiniu::{
         storage::{upload_policy::UploadPolicyBuilder, uploader::UploadErrorKind},
         utils::etag,
-        Client,
+        Client, Config,
     };
     use qiniu_http::ErrorKind as HTTPErrorKind;
     use qiniu_test_utils::{env, temp_file::create_temp_file};
@@ -19,12 +19,13 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_upload_file_with_return_url() -> Result<(), Box<dyn Error>> {
+        let config = Config::default();
         let temp_path = create_temp_file(1 << 19)?.into_temp_path();
         let key = format!("test-512k-{}", Utc::now().timestamp_nanos());
-        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &Default::default())
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config)
             .return_url("http://www.qiniu.com")
             .build();
-        let err = get_client()
+        let err = get_client(config)
             .upload()
             .for_upload_policy(policy)?
             .key(&key)
@@ -44,14 +45,15 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_upload_file_with_key() -> Result<(), Box<dyn Error>> {
+        let config = Config::default();
         let temp_path = create_temp_file(1 << 19)?.into_temp_path();
         let etag = etag::from_file(&temp_path)?;
         let key = format!("test-512k-{}", Utc::now().timestamp_nanos());
-        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &Default::default())
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
         let last_uploaded = Cell::new(0);
-        let result = get_client()
+        let result = get_client(config.clone())
             .upload()
             .for_upload_policy(policy)?
             .key(&key)
@@ -74,11 +76,11 @@ mod tests {
         // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
 
         let key = format!("test-512k-{}", Utc::now().timestamp_nanos());
-        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &Default::default())
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &Config::default())
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
         let last_uploaded = Cell::new(0);
-        let result = get_client()
+        let result = get_client(config)
             .upload()
             .for_upload_policy(policy)?
             .always_be_resumeable()
@@ -105,14 +107,15 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_upload_large_file_with_key() -> Result<(), Box<dyn Error>> {
+        let config = Config::default();
         let temp_path = create_temp_file((1 << 28) + (1 << 20))?.into_temp_path();
         let etag = etag::from_file(&temp_path)?;
         let key = format!("test-257m-{}", Utc::now().timestamp_nanos());
-        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &Default::default())
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fsize\":$(fsize)}")
             .build();
         let last_uploaded = Cell::new(0);
-        let result = get_client()
+        let result = get_client(config)
             .upload()
             .for_upload_policy(policy)?
             .key(&key)
@@ -137,13 +140,14 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_upload_file_without_key() -> Result<(), Box<dyn Error>> {
+        let config = Config::default();
         let temp_path = create_temp_file(1 << 20)?.into_temp_path();
         let etag = etag::from_file(&temp_path)?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &Default::default())
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let last_uploaded = Cell::new(0);
-        let result = get_client()
+        let result = get_client(config.clone())
             .upload()
             .for_upload_policy(policy)?
             .var("var_key1", "var_value1")
@@ -161,11 +165,11 @@ mod tests {
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
         assert_eq!(result.get("var_key2"), None);
 
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &Default::default())
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let last_uploaded = Cell::new(0);
-        let result = get_client()
+        let result = get_client(config)
             .upload()
             .for_upload_policy(policy)?
             .always_be_resumeable()
@@ -189,15 +193,16 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_upload_stream() -> Result<(), Box<dyn Error>> {
+        let config = Config::default();
         let (mut file, temp_path) = create_temp_file(1 << 21)?.into_parts();
         file.seek(SeekFrom::Start(0))?;
 
         let etag = etag::from_file(&temp_path)?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &Default::default())
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let last_uploaded = Cell::new(0);
-        let result = get_client()
+        let result = get_client(config.clone())
             .upload()
             .for_upload_policy(policy)?
             .var("var_key1", "var_value1")
@@ -219,8 +224,8 @@ mod tests {
         // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
 
         file.seek(SeekFrom::Start(0))?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &Default::default()).build();
-        let result = get_client()
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
+        let result = get_client(config)
             .upload()
             .for_upload_policy(policy)?
             .var("var_key1", "var_value1")
@@ -234,8 +239,8 @@ mod tests {
         Ok(())
     }
 
-    fn get_client() -> Client {
+    fn get_client(config: Config) -> Client {
         let e = env::get();
-        Client::new(e.access_key().to_owned(), e.secret_key().to_owned(), Default::default())
+        Client::new(e.access_key().to_owned(), e.secret_key().to_owned(), config)
     }
 }
