@@ -16,4 +16,5 @@ pub trait HTTPCaller {
     fn on_request_built(&self, _request: &mut Request) {}
     fn on_response(&self, _request: &Request, _response: &Response) {}
     fn on_error(&self, _err: &Error) {}
+    fn append_user_agent(&mut self, _user_agent: &str) {}
 }

@@ -24,7 +24,11 @@ static INITIALIZER: Once = Once::new();
 #[builder(pattern = "owned", setter(into, strip_option), default)]
 pub struct CurlClient {
     buffer_size: usize,
+
     temp_dir: PathBuf,
+
+    #[builder(setter(skip))]
+    user_agent: String,
 }
 
 impl Default for CurlClient {
@@ -33,6 +37,12 @@ impl Default for CurlClient {
         CurlClient {
             buffer_size: 1 << 22,
             temp_dir: env::temp_dir(),
+            user_agent: format!(
+                "QiniuRust-libcurl/qiniu-{}/rust-{}/libcurl-{}",
+                env!("CARGO_PKG_VERSION"),
+                rustc_version_runtime::version(),
+                Version::get().version(),
+            ),
         }
     }
 }
@@ -49,25 +59,29 @@ impl HTTPCaller for CurlClient {
             upload_progress: request.on_uploading_progress(),
             download_progress: request.on_downloading_progress(),
         };
-        Self::set_context(&mut ctx, request);
-        let response_code = Self::perform(&mut ctx, request)?;
-        Self::build_response(ctx, response_code)
+        self.set_context(&mut ctx, request);
+        let response_code = self.perform(&mut ctx, request)?;
+        self.build_response(ctx, response_code)
+    }
+
+    fn append_user_agent(&mut self, user_agent: &str) {
+        self.user_agent.push_str(user_agent);
     }
 }
 
 impl CurlClient {
-    fn perform(context: &mut Context, request: &Request) -> Result<StatusCode> {
+    fn perform(&self, context: &mut Context, request: &Request) -> Result<StatusCode> {
         let mut easy = Easy2::new(context);
-        Self::set_method(&mut easy, request)?;
-        Self::set_url(&mut easy, request)?;
-        Self::set_headers(&mut easy, request)?;
-        Self::set_body(&mut easy, request)?;
-        Self::set_options(&mut easy, request)?;
+        self.set_method(&mut easy, request)?;
+        self.set_url(&mut easy, request)?;
+        self.set_headers(&mut easy, request)?;
+        self.set_body(&mut easy, request)?;
+        self.set_options(&mut easy, request)?;
         Self::handle_if_err(easy.perform(), request)?;
         Ok(Self::handle_if_err(easy.response_code(), request)? as StatusCode)
     }
 
-    fn build_response(context: Context, status_code: StatusCode) -> Result<Response> {
+    fn build_response(&self, context: Context, status_code: StatusCode) -> Result<Response> {
         let mut builder = ResponseBuilder::default()
             .status_code(status_code)
             .headers(context.response_headers);
@@ -84,7 +98,7 @@ impl CurlClient {
         Ok(builder.build().unwrap())
     }
 
-    fn set_context<'r>(mut context: &mut Context<'r>, request: &Request<'r>) {
+    fn set_context<'r>(&self, mut context: &mut Context<'r>, request: &Request<'r>) {
         if let Some(request_body) = request.body() {
             if !request_body.is_empty() {
                 context.request_body = Some(Cursor::new(request_body));
@@ -99,7 +113,7 @@ impl CurlClient {
         }
     }
 
-    fn set_method<T>(easy: &mut Easy2<T>, request: &Request) -> Result<()> {
+    fn set_method<T>(&self, easy: &mut Easy2<T>, request: &Request) -> Result<()> {
         let result = match request.method() {
             Method::GET => easy.get(true),
             Method::HEAD => easy.nobody(true),
@@ -110,11 +124,11 @@ impl CurlClient {
         Self::handle_if_err(result, request)
     }
 
-    fn set_url<T>(easy: &mut Easy2<T>, request: &Request) -> Result<()> {
+    fn set_url<T>(&self, easy: &mut Easy2<T>, request: &Request) -> Result<()> {
         Self::handle_if_err(easy.url(request.url()), request)
     }
 
-    fn set_headers<T>(easy: &mut Easy2<T>, request: &Request) -> Result<()> {
+    fn set_headers<T>(&self, easy: &mut Easy2<T>, request: &Request) -> Result<()> {
         let mut header_list = List::new();
         for (header_name, header_value) in request.headers().iter() {
             let h = header_name.as_ref().to_string() + ": " + header_value;
@@ -123,7 +137,7 @@ impl CurlClient {
         Self::handle_if_err(easy.http_headers(header_list), request)
     }
 
-    fn set_body<T>(easy: &mut Easy2<T>, request: &Request) -> Result<()> {
+    fn set_body<T>(&self, easy: &mut Easy2<T>, request: &Request) -> Result<()> {
         if let Some(body) = request.body() {
             Self::handle_if_err(easy.post_field_size(body.len().try_into().unwrap()), request)
         } else {
@@ -131,20 +145,12 @@ impl CurlClient {
         }
     }
 
-    fn set_options<T>(easy: &mut Easy2<T>, request: &Request) -> Result<()> {
+    fn set_options<T>(&self, easy: &mut Easy2<T>, request: &Request) -> Result<()> {
         Self::handle_if_err(easy.accept_encoding(""), request)?;
         Self::handle_if_err(easy.transfer_encoding(true), request)?;
         Self::handle_if_err(easy.follow_location(request.follow_redirection()), request)?;
         Self::handle_if_err(easy.max_redirections(3), request)?;
-        Self::handle_if_err(
-            easy.useragent(&format!(
-                "QiniuRust-libcurl/qiniu-{}/rust-{}/libcurl-{}",
-                env!("CARGO_PKG_VERSION"),
-                rustc_version_runtime::version(),
-                Version::get().version(),
-            )),
-            request,
-        )?;
+        Self::handle_if_err(easy.useragent(&self.user_agent), request)?;
         Self::handle_if_err(easy.show_header(false), request)?;
         Self::handle_if_err(
             easy.progress(request.on_uploading_progress().is_some() || request.on_downloading_progress().is_some()),
