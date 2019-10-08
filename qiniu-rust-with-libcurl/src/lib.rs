@@ -52,7 +52,7 @@ impl HTTPCaller for CurlClient {
         let mut ctx = Context {
             request_body: None,
             response_body: None,
-            response_headers: Headers::new(),
+            response_headers: None,
             buffer_size: self.buffer_size,
             temp_dir: self.temp_dir.as_path(),
             progress_status: ProgressStatus::Initialized,
@@ -60,8 +60,7 @@ impl HTTPCaller for CurlClient {
             download_progress: request.on_downloading_progress(),
         };
         self.set_context(&mut ctx, request);
-        let response_code = self.perform(&mut ctx, request)?;
-        self.build_response(ctx, response_code)
+        self.perform(ctx, request)
     }
 
     fn append_user_agent(&mut self, user_agent: &str) {
@@ -70,7 +69,7 @@ impl HTTPCaller for CurlClient {
 }
 
 impl CurlClient {
-    fn perform(&self, context: &mut Context, request: &Request) -> Result<StatusCode> {
+    fn perform(&self, context: Context, request: &Request) -> Result<Response> {
         let mut easy = Easy2::new(context);
         self.set_method(&mut easy, request)?;
         self.set_url(&mut easy, request)?;
@@ -78,14 +77,16 @@ impl CurlClient {
         self.set_body(&mut easy, request)?;
         self.set_options(&mut easy, request)?;
         Self::handle_if_err(easy.perform(), request)?;
-        Ok(Self::handle_if_err(easy.response_code(), request)? as StatusCode)
+        let status_code = Self::handle_if_err(easy.response_code(), request)? as StatusCode;
+        self.build_response(easy.get_mut(), status_code)
     }
 
-    fn build_response(&self, context: Context, status_code: StatusCode) -> Result<Response> {
-        let mut builder = ResponseBuilder::default()
-            .status_code(status_code)
-            .headers(context.response_headers);
-        if let Some(response_body) = context.response_body {
+    fn build_response(&self, context: &mut Context, status_code: StatusCode) -> Result<Response> {
+        let mut builder = ResponseBuilder::default().status_code(status_code);
+        if let Some(response_headers) = context.response_headers.take() {
+            builder = builder.headers(response_headers);
+        }
+        if let Some(response_body) = context.response_body.take() {
             match response_body {
                 ResponseBody::Memory(memory) => {
                     builder = builder.stream(Cursor::new(memory));
@@ -228,7 +229,7 @@ enum ProgressStatus {
 struct Context<'r> {
     request_body: Option<Cursor<&'r [u8]>>,
     response_body: Option<ResponseBody>,
-    response_headers: Headers<'static>,
+    response_headers: Option<Headers<'static>>,
     buffer_size: usize,
     temp_dir: &'r Path,
     progress_status: ProgressStatus,
@@ -241,7 +242,7 @@ enum ResponseBody {
     File(File),
 }
 
-impl<'r> Handler for &mut Context<'r> {
+impl<'r> Handler for Context<'r> {
     fn write(&mut self, data: &[u8]) -> result::Result<usize, WriteError> {
         match self.response_body {
             Some(ResponseBody::Memory(ref mut memory)) => {
@@ -298,10 +299,19 @@ impl<'r> Handler for &mut Context<'r> {
         let header_value = iter.next();
         match (header_name, header_value) {
             (Some(header_name), Some(header_value)) => {
-                self.response_headers.insert(
-                    Cow::Owned(header_name.to_string()),
-                    Cow::Owned(header_value.to_string()),
-                );
+                if let Some(response_headers) = &mut self.response_headers {
+                    response_headers.insert(
+                        Cow::Owned(header_name.to_string()),
+                        Cow::Owned(header_value.to_string()),
+                    );
+                } else {
+                    let mut response_headers = Headers::with_capacity(1);
+                    response_headers.insert(
+                        Cow::Owned(header_name.to_string()),
+                        Cow::Owned(header_value.to_string()),
+                    );
+                    self.response_headers = Some(response_headers);
+                }
             }
             _ => {}
         }
