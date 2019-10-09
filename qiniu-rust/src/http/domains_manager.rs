@@ -241,9 +241,17 @@ impl DomainsManager {
     fn async_pre_resolve_urls(&self) {
         let domains_manager = self.clone();
         thread::spawn(move || {
-            println!(domains_manager.0.pre_resolve_urls());
-            for url in domains_manager.0.pre_resolve_urls().into_iter() {
-                domains_manager.resolve(*url).ok();
+            let mut urls: Vec<&str> = domains_manager.0.pre_resolve_urls().to_owned().into();
+            for _ in 0..3 {
+                // TRY 3 times
+                urls = urls
+                    .into_iter()
+                    .map(|url| (url, domains_manager.resolve(url)))
+                    .filter_map(|(url, result)| result.err().map(|_| url))
+                    .collect();
+                if urls.is_empty() {
+                    break;
+                }
             }
         });
     }
