@@ -40,7 +40,7 @@ mod tests {
             },
             _ => {}
         }
-        panic!("Unexpected error: {:?}", err);
+        panic!();
     }
 
     #[test]

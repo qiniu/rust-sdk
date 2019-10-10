@@ -311,12 +311,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         assert!(Builder::new(
             config.clone(),
@@ -350,12 +345,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         assert!(Builder::new(
             config.clone(),
@@ -389,12 +379,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         assert!(Builder::new(
             config.clone(),
@@ -428,12 +413,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         assert!(Builder::new(
             config.clone(),
@@ -467,12 +447,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         assert!(Builder::new(
             config.clone(),
@@ -506,12 +481,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         assert!(Builder::new(
             config.clone(),
@@ -542,12 +512,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         assert!(Builder::new(
             config,
@@ -576,12 +541,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         assert!(Builder::new(
             config,
@@ -609,12 +569,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         assert!(Builder::new(
             config,
@@ -642,12 +597,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         assert!(Builder::new(
             config,
@@ -675,12 +625,7 @@ mod tests {
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         assert!(Builder::new(
             config,

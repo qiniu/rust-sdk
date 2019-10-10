@@ -193,12 +193,7 @@ mod tests {
         ));
         let config = ConfigBuilder::default()
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploader::new(
@@ -226,12 +221,7 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
@@ -258,12 +248,7 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
@@ -290,12 +275,7 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
@@ -323,12 +303,7 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
@@ -356,12 +331,7 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
-            .domains_manager(
-                DomainsManagerBuilder::default()
-                    .disable_url_resolution(true)
-                    .build()
-                    .unwrap(),
-            )
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
