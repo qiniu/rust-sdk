@@ -1,8 +1,8 @@
+use crate::config::Config;
 use delegate::delegate;
 use std::{
     borrow::Cow,
-    env::temp_dir,
-    fs::{self, File, OpenOptions},
+    fs::{create_dir_all, remove_file, File, OpenOptions},
     io::{Read, Result, Write},
     path::{Path, PathBuf},
 };
@@ -30,11 +30,14 @@ impl<'r> FileSystemRecorder<'r> {
             root_directory: root_directory.into(),
         }
     }
-}
 
-impl Default for FileSystemRecorder<'_> {
-    fn default() -> Self {
-        Self::new(temp_dir())
+    pub fn configure_by(config: &Config) -> Result<FileSystemRecorder<'r>> {
+        let mut root_directory = config.records_dir().to_path_buf();
+        root_directory.push("upload_records");
+        create_dir_all(&root_directory)?;
+        Ok(FileSystemRecorder {
+            root_directory: Cow::Owned(root_directory),
+        })
     }
 }
 
@@ -54,12 +57,12 @@ impl Recorder for FileSystemRecorder<'_> {
         if truncate {
             options.write(true).truncate(true);
         } else {
-            options.read(true).write(true).append(true);
+            options.read(true).append(true);
         }
         options.open(self.get_path(id)).map(|file| FileRecorder { file: file })
     }
     fn delete<ID: AsRef<str>>(&self, id: ID) -> Result<()> {
-        fs::remove_file(self.get_path(id))
+        remove_file(self.get_path(id))
     }
 }
 

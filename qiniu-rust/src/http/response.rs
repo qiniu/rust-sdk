@@ -5,7 +5,7 @@ use qiniu_http::{
     ResponseBody as HTTPResponseBody, Result as HTTPResult, StatusCode,
 };
 use serde::de::DeserializeOwned;
-use std::{fmt, io};
+use std::{fmt, io, net::IpAddr};
 
 #[derive(CopyGetters, Getters)]
 pub(crate) struct Response<'a> {
@@ -28,6 +28,8 @@ impl<'a> Response<'a> {
             pub(crate) fn into_body(self) -> Option<HTTPResponseBody>;
             pub(crate) fn take_body(&mut self) -> Option<HTTPResponseBody>;
             pub(crate) fn copy_body(&mut self) -> io::Result<Option<HTTPResponseBody>>;
+            pub(crate) fn server_ip(&self) -> Option<IpAddr>;
+            pub(crate) fn server_port(&self) -> u16;
         }
     }
 
@@ -37,6 +39,10 @@ impl<'a> Response<'a> {
 
     pub(crate) fn header<HeaderNameT: AsRef<str>>(&self, header_name: HeaderNameT) -> Option<&HeaderValue> {
         self.inner.headers().get(header_name.as_ref())
+    }
+
+    pub(crate) fn request_id(&self) -> Option<&str> {
+        self.header("X-Reqid").map(|h| h.as_ref())
     }
 
     pub(crate) fn parse_json<T: DeserializeOwned>(&mut self) -> HTTPResult<T> {

@@ -6,6 +6,7 @@ use qiniu_http::HTTPCaller;
 use std::{
     boxed::Box,
     default::Default,
+    env::temp_dir,
     fmt,
     marker::{Send, Sync},
     ops::Deref,
@@ -40,6 +41,25 @@ pub struct ConfigInner {
     upload_block_size: usize,
 
     #[get_copy = "pub"]
+    upload_block_lifetime: Duration,
+
+    #[get_copy = "pub"]
+    upload_file_recorder_key_generator: fn(path: &Path, key: Option<&str>) -> String,
+
+    #[get_copy = "pub"]
+    uplog_disabled: bool,
+
+    #[get_copy = "pub"]
+    uplog_upload_threshold: u64,
+
+    #[get_copy = "pub"]
+    max_uplog_file_size: u64,
+
+    #[get = "pub"]
+    #[builder(setter(into))]
+    records_dir: Box<Path>,
+
+    #[get_copy = "pub"]
     http_request_retries: usize,
 
     #[get_copy = "pub"]
@@ -50,12 +70,6 @@ pub struct ConfigInner {
 
     #[get = "pub"]
     domains_manager: DomainsManager,
-
-    #[get_copy = "pub"]
-    upload_block_lifetime: Duration,
-
-    #[get_copy = "pub"]
-    upload_file_recorder_key_generator: fn(path: &Path, key: Option<&str>) -> String,
 }
 
 fn default_upload_file_recorder_key_generator(path: &Path, key: Option<&str>) -> String {
@@ -76,12 +90,21 @@ impl Default for ConfigInner {
             batch_max_operation_size: 1000,
             upload_threshold: 1 << 22,
             upload_block_size: 1 << 22,
+            upload_block_lifetime: Duration::from_secs(60 * 60 * 24 * 5),
+            upload_file_recorder_key_generator: default_upload_file_recorder_key_generator,
+            records_dir: {
+                let mut temp_dir = temp_dir();
+                temp_dir.push("qiniu_sdk");
+                temp_dir.push("records");
+                temp_dir.into()
+            },
+            uplog_disabled: false,
+            uplog_upload_threshold: 1 << 12,
+            max_uplog_file_size: 1 << 22,
             http_request_retries: 3,
             http_request_retry_delay: Duration::from_millis(500),
             http_request_call: Self::default_http_request_call(),
             domains_manager: DomainsManager::default(),
-            upload_block_lifetime: Duration::from_secs(60 * 60 * 24 * 5),
-            upload_file_recorder_key_generator: default_upload_file_recorder_key_generator,
         }
     }
 }
@@ -109,6 +132,10 @@ impl fmt::Debug for ConfigInner {
             .field("upload_threshold", &self.upload_threshold)
             .field("upload_block_size", &self.upload_block_size)
             .field("upload_block_lifetime", &self.upload_block_lifetime)
+            .field("records_dir", &self.records_dir)
+            .field("uplog_disabled", &self.uplog_disabled)
+            .field("uplog_upload_threshold", &self.uplog_upload_threshold)
+            .field("max_uplog_file_size", &self.max_uplog_file_size)
             .field("http_request_retries", &self.http_request_retries)
             .field("http_request_retry_delay", &self.http_request_retry_delay)
             .field("domains_manager", &self.domains_manager)

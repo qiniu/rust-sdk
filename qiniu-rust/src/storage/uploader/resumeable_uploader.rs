@@ -3,7 +3,7 @@ use super::{
         recorder,
         upload_token::{Result as UploadTokenParseResult, UploadToken},
     },
-    upload_recorder, BucketUploader, UploadResponseCallback, UploadResult,
+    upload_recorder, upload_response_callback, BucketUploader, UploadResult,
 };
 use crate::utils::{base64, seek_adapter};
 use crypto::{digest::Digest, md5::Md5};
@@ -379,7 +379,7 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
             .post(base_path, up_urls)
             .header("Authorization", authorization)
             .idempotent()
-            .response_callback(&UploadResponseCallback)
+            .on_response(&|response, _| upload_response_callback(response))
             .accept_json()
             .no_body()
             .send()?
@@ -412,7 +412,7 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
         }
         let result: UploadPartResult = builder
             .idempotent()
-            .response_callback(&UploadResponseCallback)
+            .on_response(&|response, _| upload_response_callback(response))
             .accept_json()
             .raw_body("application/octet-stream", part.as_ref())
             .send()?
@@ -434,7 +434,7 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
             .post(&path, up_urls)
             .header("Authorization", authorization)
             .idempotent()
-            .response_callback(&UploadResponseCallback)
+            .on_response(&|response, _| upload_response_callback(response))
             .accept_json()
             .json_body(&self.completed_parts)
             .unwrap()
@@ -606,7 +606,7 @@ mod tests {
             vec![vec![Box::from("http://z1h1.com")].into()],
             get_credential(),
             config,
-        )
+        )?
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
@@ -724,7 +724,7 @@ mod tests {
             vec![vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into()],
             get_credential(),
             config,
-        )
+        )?
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
@@ -835,7 +835,7 @@ mod tests {
             ],
             get_credential(),
             config,
-        )
+        )?
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
@@ -978,7 +978,7 @@ mod tests {
             ],
             get_credential(),
             config,
-        )
+        )?
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
@@ -1078,7 +1078,7 @@ mod tests {
             vec![vec![Box::from("http://z1h1.com")].into()],
             get_credential(),
             config.clone(),
-        )
+        )?
         .upload_token(upload_token.clone())
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)
@@ -1088,7 +1088,7 @@ mod tests {
             vec![vec![Box::from("http://z1h1.com")].into()],
             get_credential(),
             config,
-        )
+        )?
         .upload_token(upload_token)
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
@@ -1212,7 +1212,7 @@ mod tests {
             vec![vec![Box::from("http://z1h1.com")].into()],
             get_credential(),
             config.clone(),
-        )
+        )?
         .upload_token(upload_token.clone())
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)
@@ -1223,7 +1223,7 @@ mod tests {
             vec![vec![Box::from("http://z1h1.com")].into()],
             get_credential(),
             config,
-        )
+        )?
         .upload_token(upload_token)
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;

@@ -1,7 +1,7 @@
 use super::super::response::Response;
 use crate::{config::Config, http::token::Token};
-use qiniu_http::{Headers, Method, Request as HTTPRequest, Result as HTTPResult};
-use std::{borrow::Cow, collections::HashMap, fmt, net::SocketAddr};
+use qiniu_http::{Error, Headers, Method, Result};
+use std::{borrow::Cow, collections::HashMap, fmt, time::Duration};
 
 pub(crate) struct Parts<'a> {
     pub(super) method: Method,
@@ -15,14 +15,12 @@ pub(crate) struct Parts<'a> {
     pub(super) read_body: bool,
     pub(super) idempotent: bool,
     pub(super) follow_redirection: bool,
-    pub(super) resolved_socket_addrs: &'a [SocketAddr],
-    pub(super) response_callback: Option<&'a dyn ResponseCallback>,
     pub(super) on_uploading_progress: Option<&'a dyn Fn(usize, usize)>,
     pub(super) on_downloading_progress: Option<&'a dyn Fn(usize, usize)>,
-}
-
-pub(crate) trait ResponseCallback {
-    fn on_response_callback(&self, response: &mut Response, request: &HTTPRequest) -> HTTPResult<()>;
+    pub(super) on_retry_request: Option<&'a dyn Fn(&str, &Error, usize, usize, Duration)>,
+    pub(super) on_host_failed: Option<&'a dyn Fn(&str, &Error, Duration)>,
+    pub(super) on_response: Option<&'a dyn Fn(&mut Response, Duration) -> Result<()>>,
+    pub(super) on_failed: Option<&'a dyn Fn(&Error, Duration)>,
 }
 
 impl fmt::Debug for Parts<'_> {
@@ -39,15 +37,6 @@ impl fmt::Debug for Parts<'_> {
             .field("read_body", &self.read_body)
             .field("idempotent", &self.idempotent)
             .field("follow_redirection", &self.follow_redirection)
-            .field("resolved_socket_addrs", &self.resolved_socket_addrs)
-            .field(
-                "response_callback",
-                if self.response_callback.is_some() {
-                    &"Installed"
-                } else {
-                    &"Not Installed"
-                },
-            )
             .field(
                 "on_uploading_progress",
                 if self.on_uploading_progress.is_some() {
@@ -59,6 +48,38 @@ impl fmt::Debug for Parts<'_> {
             .field(
                 "on_downloading_progress",
                 if self.on_downloading_progress.is_some() {
+                    &"Installed"
+                } else {
+                    &"Not Installed"
+                },
+            )
+            .field(
+                "on_retry_request",
+                if self.on_retry_request.is_some() {
+                    &"Installed"
+                } else {
+                    &"Not Installed"
+                },
+            )
+            .field(
+                "on_host_failed",
+                if self.on_host_failed.is_some() {
+                    &"Installed"
+                } else {
+                    &"Not Installed"
+                },
+            )
+            .field(
+                "on_response",
+                if self.on_response.is_some() {
+                    &"Installed"
+                } else {
+                    &"Not Installed"
+                },
+            )
+            .field(
+                "on_failed",
+                if self.on_failed.is_some() {
                     &"Installed"
                 } else {
                     &"Not Installed"

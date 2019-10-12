@@ -6,6 +6,7 @@ use std::{
     default::Default,
     fmt,
     io::{Cursor, Read, Result as IOResult},
+    net::IpAddr,
 };
 
 pub type StatusCode = u16;
@@ -26,17 +27,17 @@ pub struct Response {
     #[get_mut = "pub"]
     #[builder(private)]
     body: Option<Body>,
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
+    server_ip: Option<IpAddr>,
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
+    server_port: u16,
 }
 
 impl Response {
-    fn new(status_code: StatusCode, headers: Headers<'static>, body: Option<Body>) -> Response {
-        Response {
-            status_code: status_code,
-            headers: headers,
-            body: body,
-        }
-    }
-
     pub fn header<HeaderNameT: AsRef<str>>(&self, header_name: HeaderNameT) -> Option<&HeaderValue> {
         self.headers.get(header_name.as_ref())
     }
@@ -93,7 +94,13 @@ impl ResponseBuilder {
 
 impl Default for Response {
     fn default() -> Self {
-        Self::new(200, Headers::new(), None)
+        Response {
+            status_code: 200,
+            headers: Headers::new(),
+            body: None,
+            server_ip: None,
+            server_port: 0,
+        }
     }
 }
 
@@ -102,6 +109,8 @@ impl fmt::Debug for Response {
         f.debug_struct("Response")
             .field("status_code", &self.status_code())
             .field("headers", self.headers())
+            .field("server_ip", &self.server_ip())
+            .field("server_port", &self.server_port())
             .finish()
     }
 }

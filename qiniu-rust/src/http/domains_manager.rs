@@ -621,7 +621,7 @@ mod tests {
         ])?;
         assert_eq!(choices.len(), 1);
         assert_eq!(choices.first().unwrap().url, "http://up-z2.qiniup.com");
-        assert!(choices.first().unwrap().socket_addrs.len() > 5);
+        assert!(choices.first().unwrap().socket_addrs.len() > 0);
         Ok(())
     }
 

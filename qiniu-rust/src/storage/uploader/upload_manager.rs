@@ -9,7 +9,7 @@ use super::{
     BucketUploader, FileUploaderBuilder,
 };
 use crate::{config::Config, credential::Credential};
-use std::borrow::Cow;
+use std::{borrow::Cow, io::Result as IOResult};
 
 pub struct UploadManager {
     credential: Credential,
@@ -25,7 +25,7 @@ impl UploadManager {
     }
 
     // TODO: ADD CUSTOMIZED RECORDER METHOD
-    pub fn for_bucket<'b>(&self, bucket: &Bucket) -> BucketUploader<'b, FileSystemRecorder<'b>> {
+    pub fn for_bucket<'b>(&self, bucket: &Bucket) -> IOResult<BucketUploader<'b, FileSystemRecorder<'b>>> {
         BucketUploader::new(
             bucket.name().to_owned(),
             bucket
@@ -60,7 +60,7 @@ impl UploadManager {
     pub fn for_bucket_name<'b, B: Into<Cow<'b, str>>>(
         &self,
         bucket_name: B,
-    ) -> BucketUploader<'b, FileSystemRecorder<'b>> {
+    ) -> IOResult<BucketUploader<'b, FileSystemRecorder<'b>>> {
         self.for_bucket(&BucketBuilder::new(bucket_name, self.credential.clone(), self.config.clone()).build())
     }
 
@@ -72,7 +72,7 @@ impl UploadManager {
         let policy = upload_token.policy()?;
         if let Some(bucket_name) = policy.bucket() {
             Ok(FileUploaderBuilder::new(
-                Cow::Owned(self.for_bucket_name(bucket_name.to_owned())),
+                Cow::Owned(self.for_bucket_name(bucket_name.to_owned())?),
                 upload_token,
             ))
         } else {
@@ -91,6 +91,7 @@ impl UploadManager {
 pub mod error {
     use super::super::super::upload_token;
     use error_chain::error_chain;
+    use std::io::Error as IOError;
 
     error_chain! {
         links {
@@ -99,6 +100,7 @@ pub mod error {
 
         foreign_links {
             QiniuAPIError(qiniu_http::Error);
+            IOError(IOError);
         }
 
         errors {

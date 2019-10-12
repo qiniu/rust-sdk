@@ -5,7 +5,8 @@ use curl::{
 use derive_builder::Builder;
 use lazy_static::lazy_static;
 use qiniu_http::{
-    Error, ErrorKind, HTTPCaller, Headers, Method, Request, Response, ResponseBuilder, Result, StatusCode,
+    Error, HTTPCaller, HTTPCallerError, HTTPCallerErrorKind, Headers, Method, Request, Response, ResponseBuilder,
+    Result, StatusCode,
 };
 use std::{
     borrow::Cow,
@@ -14,6 +15,7 @@ use std::{
     env,
     fs::File,
     io::{Cursor, Read, Seek, SeekFrom, Write},
+    net::IpAddr,
     path::{Path, PathBuf},
     result,
     sync::Once,
@@ -97,10 +99,19 @@ impl CurlClient {
         self.set_options(&mut easy, request)?;
         Self::handle_if_err(easy.perform(), request)?;
         let status_code = Self::handle_if_err(easy.response_code(), request)? as StatusCode;
-        self.build_response(easy.get_mut(), status_code)
+        let server_ip: Option<IpAddr> =
+            Self::handle_if_err(easy.primary_ip().map(|s| s.and_then(|s| s.parse().ok())), request)?;
+        let server_port = Self::handle_if_err(easy.primary_port(), request)?;
+        self.build_response(easy.get_mut(), status_code, server_ip, server_port)
     }
 
-    fn build_response(&self, context: &mut Context, status_code: StatusCode) -> Result<Response> {
+    fn build_response(
+        &self,
+        context: &mut Context,
+        status_code: StatusCode,
+        server_ip: Option<IpAddr>,
+        server_port: u16,
+    ) -> Result<Response> {
         let mut builder = ResponseBuilder::default().status_code(status_code);
         if let Some(response_headers) = context.response_headers.take() {
             builder = builder.headers(response_headers);
@@ -115,6 +126,10 @@ impl CurlClient {
                 }
             }
         }
+        if let Some(server_ip) = server_ip {
+            builder = builder.server_ip(server_ip);
+        }
+        builder = builder.server_port(server_port);
         Ok(builder.build().unwrap())
     }
 
@@ -214,32 +229,64 @@ impl CurlClient {
         match result {
             Ok(result) => Ok(result),
             Err(err) => {
-                if err.is_partial_file() || err.is_read_error() || err.is_recv_error() {
+                if err.is_partial_file() || err.is_read_error() {
                     Err(Error::new_retryable_error(
-                        ErrorKind::HTTPCallerError(Box::new(err)),
+                        HTTPCallerError::new(HTTPCallerErrorKind::UnknownError, err),
                         false,
                         request,
                         None,
                     ))
-                } else if err.is_write_error()
-                    || err.is_operation_timedout()
-                    || err.is_send_error()
-                    || err.is_again()
-                    || err.is_chunk_failed()
-                {
+                } else if err.is_recv_error() {
                     Err(Error::new_retryable_error(
-                        ErrorKind::HTTPCallerError(Box::new(err)),
+                        HTTPCallerError::new(HTTPCallerErrorKind::ResponseError, err),
+                        false,
+                        request,
+                        None,
+                    ))
+                } else if err.is_write_error() || err.is_again() || err.is_chunk_failed() {
+                    Err(Error::new_retryable_error(
+                        HTTPCallerError::new(HTTPCallerErrorKind::UnknownError, err),
                         true,
                         request,
                         None,
                     ))
-                } else if err.is_couldnt_resolve_proxy()
-                    || err.is_couldnt_resolve_host()
-                    || err.is_couldnt_connect()
-                    || err.is_ssl_connect_error()
-                    || err.is_too_many_redirects()
+                } else if err.is_operation_timedout() {
+                    Err(Error::new_retryable_error(
+                        HTTPCallerError::new(HTTPCallerErrorKind::TimeoutError, err),
+                        true,
+                        request,
+                        None,
+                    ))
+                } else if err.is_send_error() {
+                    Err(Error::new_retryable_error(
+                        HTTPCallerError::new(HTTPCallerErrorKind::RequestError, err),
+                        true,
+                        request,
+                        None,
+                    ))
+                } else if err.is_too_many_redirects() || err.is_got_nothing() {
+                    Err(Error::new_host_unretryable_error(
+                        HTTPCallerError::new(HTTPCallerErrorKind::UnknownError, err),
+                        true,
+                        request,
+                        None,
+                    ))
+                } else if err.is_couldnt_resolve_proxy() {
+                    Err(Error::new_host_unretryable_error(
+                        HTTPCallerError::new(HTTPCallerErrorKind::ResolveError, err),
+                        true,
+                        request,
+                        None,
+                    ))
+                } else if err.is_couldnt_connect() {
+                    Err(Error::new_host_unretryable_error(
+                        HTTPCallerError::new(HTTPCallerErrorKind::ConnectionError, err),
+                        true,
+                        request,
+                        None,
+                    ))
+                } else if err.is_ssl_connect_error()
                     || err.is_peer_failed_verification()
-                    || err.is_got_nothing()
                     || err.is_ssl_engine_notfound()
                     || err.is_ssl_certproblem()
                     || err.is_ssl_cipher()
@@ -252,14 +299,14 @@ impl CurlClient {
                     || err.is_ssl_issuer_error()
                 {
                     Err(Error::new_host_unretryable_error(
-                        ErrorKind::HTTPCallerError(Box::new(err)),
+                        HTTPCallerError::new(HTTPCallerErrorKind::SSLError, err),
                         true,
                         request,
                         None,
                     ))
                 } else {
                     Err(Error::new_unretryable_error(
-                        ErrorKind::HTTPCallerError(Box::new(err)),
+                        HTTPCallerError::new(HTTPCallerErrorKind::UnknownError, err),
                         request,
                         None,
                     ))

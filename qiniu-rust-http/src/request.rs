@@ -1,6 +1,6 @@
 use super::{HeaderName, HeaderValue, Headers, Method};
 use getset::{CopyGetters, Getters, MutGetters};
-use std::{borrow::Cow, fmt, net::SocketAddr, result::Result};
+use std::{borrow::Cow, fmt, net::SocketAddr};
 
 pub type URL<'b> = Cow<'b, str>;
 pub type Body = [u8];
@@ -126,7 +126,7 @@ impl Default for Request<'_> {
 }
 
 impl fmt::Debug for Request<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Request")
             .field("url", &self.url)
             .field("method", &self.method)

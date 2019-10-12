@@ -13,7 +13,7 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fs::File,
-    io::{self, Read},
+    io::{Error as IOError, Read, Result as IOResult},
     path::Path,
 };
 
@@ -44,17 +44,20 @@ impl<'b> BucketUploader<'b, recorder::FileSystemRecorder<'b>> {
         up_urls_list: U,
         credential: Credential,
         config: Config,
-    ) -> BucketUploader<'b, recorder::FileSystemRecorder<'b>> {
+    ) -> IOResult<BucketUploader<'b, recorder::FileSystemRecorder<'b>>> {
         let uploader = BucketUploader {
             bucket_name: bucket_name.into(),
             up_urls_list: up_urls_list.into(),
             client: Client::new(config.clone()),
             credential: credential,
-            recorder: upload_recorder::UploadRecorder::new(recorder::FileSystemRecorder::default(), &config),
+            recorder: upload_recorder::UploadRecorder::new(
+                recorder::FileSystemRecorder::configure_by(&config)?,
+                &config,
+            ),
             config: config,
         };
         assert!(!uploader.up_urls_list.is_empty());
-        uploader
+        Ok(uploader)
     }
     // TODO: ADD CUSTOMIZED RECORDER METHOD
 }
@@ -398,7 +401,7 @@ error_chain! {
     }
 
     foreign_links {
-        IOError(io::Error);
+        IOError(IOError);
         QiniuError(qiniu_http::Error);
     }
 }

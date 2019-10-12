@@ -1,4 +1,4 @@
-use qiniu_http::{Error, HTTPCaller, Headers, Method, Request, Response, ResponseBuilder, Result, StatusCode};
+use qiniu_http::{HTTPCaller, Headers, Method, Request, Response, ResponseBuilder, Result, StatusCode};
 use regex::Regex;
 use serde::Serialize;
 use std::{
@@ -56,11 +56,6 @@ where
 {
     caller: T,
     call_counter: AtomicUsize,
-    on_retry_request_counter: AtomicUsize,
-    on_host_failed_counter: AtomicUsize,
-    on_request_built_counter: AtomicUsize,
-    on_response_counter: AtomicUsize,
-    on_error_counter: AtomicUsize,
 }
 
 #[derive(Clone)]
@@ -80,37 +75,12 @@ where
             inner: Arc::new(CounterCallMockInner {
                 caller: caller,
                 call_counter: AtomicUsize::new(0),
-                on_retry_request_counter: AtomicUsize::new(0),
-                on_host_failed_counter: AtomicUsize::new(0),
-                on_request_built_counter: AtomicUsize::new(0),
-                on_response_counter: AtomicUsize::new(0),
-                on_error_counter: AtomicUsize::new(0),
             }),
         }
     }
 
     pub fn call_called(&self) -> usize {
         self.inner.call_counter.load(Ordering::SeqCst)
-    }
-
-    pub fn on_retry_request_called(&self) -> usize {
-        self.inner.on_retry_request_counter.load(Ordering::SeqCst)
-    }
-
-    pub fn on_host_failed_called(&self) -> usize {
-        self.inner.on_host_failed_counter.load(Ordering::SeqCst)
-    }
-
-    pub fn on_request_built_called(&self) -> usize {
-        self.inner.on_request_built_counter.load(Ordering::SeqCst)
-    }
-
-    pub fn on_response_called(&self) -> usize {
-        self.inner.on_response_counter.load(Ordering::SeqCst)
-    }
-
-    pub fn on_error_called(&self) -> usize {
-        self.inner.on_error_counter.load(Ordering::SeqCst)
     }
 
     pub fn as_boxed(&self) -> Box<Self> {
@@ -127,27 +97,6 @@ where
     fn call(&self, request: &Request) -> Result<Response> {
         self.inner.call_counter.fetch_add(1, Ordering::SeqCst);
         self.inner.caller.call(request)
-    }
-
-    fn on_retry_request(&self, request: &Request, error: &Error, retried: usize, retries: usize) {
-        self.inner.on_retry_request_counter.fetch_add(1, Ordering::SeqCst);
-        self.inner.caller.on_retry_request(request, error, retried, retries)
-    }
-    fn on_host_failed(&self, failed_host: &str, error: &Error) {
-        self.inner.on_host_failed_counter.fetch_add(1, Ordering::SeqCst);
-        self.inner.caller.on_host_failed(failed_host, error)
-    }
-    fn on_request_built(&self, request: &mut Request) {
-        self.inner.on_request_built_counter.fetch_add(1, Ordering::SeqCst);
-        self.inner.caller.on_request_built(request)
-    }
-    fn on_response(&self, request: &Request, response: &Response) {
-        self.inner.on_response_counter.fetch_add(1, Ordering::SeqCst);
-        self.inner.caller.on_response(request, response)
-    }
-    fn on_error(&self, err: &Error) {
-        self.inner.on_error_counter.fetch_add(1, Ordering::SeqCst);
-        self.inner.caller.on_error(err)
     }
 }
 

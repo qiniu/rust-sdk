@@ -10,7 +10,8 @@ use std::{
     borrow::Cow,
     fmt,
     io::{self, Cursor},
-    thread,
+    thread::sleep,
+    time::Instant,
 };
 use url::Url;
 
@@ -22,6 +23,7 @@ pub(crate) struct Request<'a> {
 impl<'a> Request<'a> {
     pub(crate) fn send(&self) -> HTTPResult<Response> {
         let mut prev_err: Option<HTTPError> = None;
+        let mut timer = Instant::now();
         let choices = self.domains_manager.choose(self.parts.hosts).map_err(|err| {
             HTTPError::new_host_unretryable_error_from_parts(
                 HTTPErrorKind::UnknownError(Box::new(err)),
@@ -32,6 +34,7 @@ impl<'a> Request<'a> {
         })?;
         for choice in choices {
             let url = choice.url;
+            timer = Instant::now();
             match self.try_choice(choice) {
                 Ok(resp) => {
                     return Ok(resp);
@@ -39,19 +42,25 @@ impl<'a> Request<'a> {
                 Err(err) => match err.retry_kind() {
                     HTTPRetryKind::RetryableError | HTTPRetryKind::HostUnretryableError if self.is_retry_safe(&err) => {
                         self.domains_manager.freeze_url(url).unwrap();
-                        self.parts.config.http_request_call().on_host_failed(url, &err);
+                        if let Some(on_host_failed) = &self.parts.on_host_failed {
+                            (on_host_failed)(url, &err, timer.elapsed());
+                        }
                         prev_err = Some(err);
                         continue;
                     }
                     _ => {
-                        self.parts.config.http_request_call().on_error(&err);
+                        if let Some(on_failed) = &self.parts.on_failed {
+                            (on_failed)(&err, timer.elapsed());
+                        }
                         return Err(err);
                     }
                 },
             }
         }
         let err = prev_err.unwrap();
-        self.parts.config.http_request_call().on_error(&err);
+        if let Some(on_failed) = &self.parts.on_failed {
+            (on_failed)(&err, timer.elapsed());
+        }
         Err(err)
     }
 
@@ -91,10 +100,10 @@ impl<'a> Request<'a> {
             builder.build()
         };
         self.parts.token.sign(&mut request);
-        self.parts.config.http_request_call().on_request_built(&mut request);
         let mut prev_err: Option<HTTPError> = None;
         let retries = self.parts.config.http_request_retries();
         for retried in 0..=retries {
+            let timer = Instant::now();
             match self
                 .parts
                 .config
@@ -109,25 +118,19 @@ impl<'a> Request<'a> {
                     path: self.parts.path,
                 }) {
                 Ok(mut response) => {
-                    if let Some(callback) = self.parts.response_callback {
-                        callback.on_response_callback(&mut response, &request)?;
+                    if let Some(on_response) = &self.parts.on_response {
+                        (on_response)(&mut response, timer.elapsed())?;
                     }
-                    self.parts
-                        .config
-                        .http_request_call()
-                        .on_response(&request, &response.inner);
                     return Ok(response);
                 }
                 Err(err) => match err.retry_kind() {
                     HTTPRetryKind::RetryableError if self.is_retry_safe(&err) => {
-                        self.parts
-                            .config
-                            .http_request_call()
-                            .on_retry_request(&request, &err, retried, retries);
+                        if let Some(on_retry_request) = &self.parts.on_retry_request {
+                            (on_retry_request)(&choice.url, &err, retried, retries, timer.elapsed());
+                        }
                         prev_err = Some(err);
                         if self.parts.config.http_request_retry_delay().as_nanos() > 0 {
-                            // TODO: Think about async sleep
-                            thread::sleep(self.parts.config.http_request_retry_delay());
+                            sleep(self.parts.config.http_request_retry_delay());
                         }
                         continue;
                     }
@@ -279,7 +282,14 @@ mod tests {
     };
     use qiniu_http::HTTPCaller;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, ErrorResponseMock};
-    use std::{boxed::Box, error::Error as StdError, io, result::Result as StdResult, time::Duration};
+    use std::{
+        boxed::Box,
+        error::Error as StdError,
+        io,
+        result::Result as StdResult,
+        sync::atomic::{AtomicUsize, Ordering},
+        time::Duration,
+    };
 
     struct HTTPRequestCounter {
         is_retry_safe: bool,
@@ -313,6 +323,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
+        let (on_retry_request_called, on_host_failed_called, on_response_called, on_error_called) = (
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+        );
         assert!(Builder::new(
             config.clone(),
             Method::GET,
@@ -320,6 +336,19 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
+        .on_retry_request(&|_, _, _, _, _| {
+            on_retry_request_called.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_host_failed(&|_, _, _| {
+            on_host_failed_called.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_response(&|_, _| {
+            on_response_called.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        })
+        .on_failed(&|_, _| {
+            on_error_called.fetch_add(1, Ordering::SeqCst);
+        })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -327,11 +356,10 @@ mod tests {
         assert!(config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
-        assert_eq!(mock.on_retry_request_called(), 2 * (RETRIES + 1));
-        assert_eq!(mock.on_host_failed_called(), 2);
-        assert_eq!(mock.on_request_built_called(), 2);
-        assert_eq!(mock.on_response_called(), 0);
-        assert_eq!(mock.on_error_called(), 1);
+        assert_eq!(on_retry_request_called.load(Ordering::SeqCst), 2 * (RETRIES + 1));
+        assert_eq!(on_host_failed_called.load(Ordering::SeqCst), 2);
+        assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
         Ok(())
     }
 
@@ -347,6 +375,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
+        let (on_retry_request_called, on_host_failed_called, on_response_called, on_error_called) = (
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+        );
         assert!(Builder::new(
             config.clone(),
             Method::POST,
@@ -354,6 +388,19 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
+        .on_retry_request(&|_, _, _, _, _| {
+            on_retry_request_called.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_host_failed(&|_, _, _| {
+            on_host_failed_called.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_response(&|_, _| {
+            on_response_called.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        })
+        .on_failed(&|_, _| {
+            on_error_called.fetch_add(1, Ordering::SeqCst);
+        })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -361,11 +408,10 @@ mod tests {
         assert!(config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
-        assert_eq!(mock.on_retry_request_called(), 2 * (RETRIES + 1));
-        assert_eq!(mock.on_host_failed_called(), 2);
-        assert_eq!(mock.on_request_built_called(), 2);
-        assert_eq!(mock.on_response_called(), 0);
-        assert_eq!(mock.on_error_called(), 1);
+        assert_eq!(on_retry_request_called.load(Ordering::SeqCst), 2 * (RETRIES + 1));
+        assert_eq!(on_host_failed_called.load(Ordering::SeqCst), 2);
+        assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
         Ok(())
     }
 
@@ -381,6 +427,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
+        let (on_retry_request_called, on_host_failed_called, on_response_called, on_error_called) = (
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+        );
         assert!(Builder::new(
             config.clone(),
             Method::POST,
@@ -388,6 +440,19 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
+        .on_retry_request(&|_, _, _, _, _| {
+            on_retry_request_called.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_host_failed(&|_, _, _| {
+            on_host_failed_called.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_response(&|_, _| {
+            on_response_called.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        })
+        .on_failed(&|_, _| {
+            on_error_called.fetch_add(1, Ordering::SeqCst);
+        })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -395,11 +460,10 @@ mod tests {
         assert!(!config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(mock.on_retry_request_called(), 0);
-        assert_eq!(mock.on_host_failed_called(), 0);
-        assert_eq!(mock.on_request_built_called(), 1);
-        assert_eq!(mock.on_response_called(), 0);
-        assert_eq!(mock.on_error_called(), 1);
+        assert_eq!(on_retry_request_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_host_failed_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
         Ok(())
     }
 
@@ -415,6 +479,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
+        let (on_retry_request_called, on_host_failed_called, on_response_called, on_error_called) = (
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+        );
         assert!(Builder::new(
             config.clone(),
             Method::GET,
@@ -422,6 +492,19 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
+        .on_retry_request(&|_, _, _, _, _| {
+            on_retry_request_called.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_host_failed(&|_, _, _| {
+            on_host_failed_called.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_response(&|_, _| {
+            on_response_called.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        })
+        .on_failed(&|_, _| {
+            on_error_called.fetch_add(1, Ordering::SeqCst);
+        })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -429,11 +512,10 @@ mod tests {
         assert!(config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 2);
-        assert_eq!(mock.on_retry_request_called(), 0);
-        assert_eq!(mock.on_host_failed_called(), 2);
-        assert_eq!(mock.on_request_built_called(), 2);
-        assert_eq!(mock.on_response_called(), 0);
-        assert_eq!(mock.on_error_called(), 1);
+        assert_eq!(on_retry_request_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_host_failed_called.load(Ordering::SeqCst), 2);
+        assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
         Ok(())
     }
 
@@ -449,6 +531,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
+        let (on_retry_request_called, on_host_failed_called, on_response_called, on_error_called) = (
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+        );
         assert!(Builder::new(
             config.clone(),
             Method::GET,
@@ -456,6 +544,19 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
+        .on_retry_request(&|_, _, _, _, _| {
+            on_retry_request_called.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_host_failed(&|_, _, _| {
+            on_host_failed_called.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_response(&|_, _| {
+            on_response_called.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        })
+        .on_failed(&|_, _| {
+            on_error_called.fetch_add(1, Ordering::SeqCst);
+        })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -463,11 +564,10 @@ mod tests {
         assert!(!config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(mock.on_retry_request_called(), 0);
-        assert_eq!(mock.on_host_failed_called(), 0);
-        assert_eq!(mock.on_request_built_called(), 1);
-        assert_eq!(mock.on_response_called(), 0);
-        assert_eq!(mock.on_error_called(), 1);
+        assert_eq!(on_retry_request_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_host_failed_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
         Ok(())
     }
 
@@ -483,6 +583,12 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
+        let (on_retry_request_called, on_host_failed_called, on_response_called, on_error_called) = (
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+            AtomicUsize::new(0),
+        );
         assert!(Builder::new(
             config.clone(),
             Method::GET,
@@ -490,6 +596,19 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
+        .on_retry_request(&|_, _, _, _, _| {
+            on_retry_request_called.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_host_failed(&|_, _, _| {
+            on_host_failed_called.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_response(&|_, _| {
+            on_response_called.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        })
+        .on_failed(&|_, _| {
+            on_error_called.fetch_add(1, Ordering::SeqCst);
+        })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -497,11 +616,10 @@ mod tests {
         assert!(!config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(mock.on_retry_request_called(), 0);
-        assert_eq!(mock.on_host_failed_called(), 0);
-        assert_eq!(mock.on_request_built_called(), 1);
-        assert_eq!(mock.on_response_called(), 0);
-        assert_eq!(mock.on_error_called(), 1);
+        assert_eq!(on_retry_request_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_host_failed_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
+        assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
         Ok(())
     }
 
@@ -526,11 +644,6 @@ mod tests {
         .is_err());
 
         assert_eq!(mock.call_called(), 2);
-        assert_eq!(mock.on_retry_request_called(), 0);
-        assert_eq!(mock.on_host_failed_called(), 2);
-        assert_eq!(mock.on_request_built_called(), 2);
-        assert_eq!(mock.on_response_called(), 0);
-        assert_eq!(mock.on_error_called(), 1);
         Ok(())
     }
 
@@ -554,11 +667,6 @@ mod tests {
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 2);
-        assert_eq!(mock.on_retry_request_called(), 0);
-        assert_eq!(mock.on_host_failed_called(), 2);
-        assert_eq!(mock.on_request_built_called(), 2);
-        assert_eq!(mock.on_response_called(), 0);
-        assert_eq!(mock.on_error_called(), 1);
         Ok(())
     }
 
@@ -582,11 +690,6 @@ mod tests {
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(mock.on_retry_request_called(), 0);
-        assert_eq!(mock.on_host_failed_called(), 0);
-        assert_eq!(mock.on_request_built_called(), 1);
-        assert_eq!(mock.on_response_called(), 0);
-        assert_eq!(mock.on_error_called(), 1);
         Ok(())
     }
 
@@ -610,11 +713,6 @@ mod tests {
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 2);
-        assert_eq!(mock.on_retry_request_called(), 0);
-        assert_eq!(mock.on_host_failed_called(), 2);
-        assert_eq!(mock.on_request_built_called(), 2);
-        assert_eq!(mock.on_response_called(), 0);
-        assert_eq!(mock.on_error_called(), 1);
         Ok(())
     }
 
@@ -638,11 +736,6 @@ mod tests {
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(mock.on_retry_request_called(), 0);
-        assert_eq!(mock.on_host_failed_called(), 0);
-        assert_eq!(mock.on_request_built_called(), 1);
-        assert_eq!(mock.on_response_called(), 0);
-        assert_eq!(mock.on_error_called(), 1);
         Ok(())
     }
 

@@ -211,7 +211,7 @@ impl From<&HTTPError> for qiniu_ng_err {
     fn from(err: &HTTPError) -> Self {
         match err.error_kind() {
             HTTPErrorKind::HTTPCallerError(e) => {
-                if let Some(e) = e.downcast_ref::<curl::Error>() {
+                if let Some(e) = e.inner().downcast_ref::<curl::Error>() {
                     qiniu_ng_err(ErrorCode::CurlError(e.code()))
                 } else {
                     qiniu_ng_err(ErrorCode::UnknownError)

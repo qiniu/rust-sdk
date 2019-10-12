@@ -125,6 +125,10 @@ impl Region {
         }
     }
 
+    pub fn uplog_url() -> &'static str {
+        "https://uplog.qbox.me"
+    }
+
     // pub fn fusion_url(https: bool) -> &'static str {
     //     if https {
     //         "https://fusion.qiniuapi.com"

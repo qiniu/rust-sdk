@@ -1,11 +1,12 @@
 use super::{
-    super::{super::config::Config, token::Token, DomainsManager},
-    Parts, Request, ResponseCallback,
+    super::{token::Token, DomainsManager, Response},
+    Parts, Request,
 };
+use crate::config::Config;
 use error_chain::error_chain;
-use qiniu_http::{HeaderName, HeaderValue, Headers, Method};
+use qiniu_http::{Error as HTTPError, HeaderName, HeaderValue, Headers, Method, Result as HTTPResult};
 use serde::Serialize;
-use std::{borrow::Cow, collections::HashMap, net::SocketAddr, result::Result as StdResult};
+use std::{borrow::Cow, collections::HashMap, result::Result as StdResult, time::Duration};
 
 error_chain! {
     foreign_links {
@@ -35,10 +36,12 @@ impl<'a> Builder<'a> {
                 read_body: false,
                 idempotent: false,
                 follow_redirection: false,
-                response_callback: None,
-                resolved_socket_addrs: &[],
                 on_uploading_progress: None,
                 on_downloading_progress: None,
+                on_retry_request: None,
+                on_host_failed: None,
+                on_response: None,
+                on_failed: None,
             },
         }
     }
@@ -90,16 +93,6 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub(crate) fn resolved_socket_addrs(mut self, resolved_socket_addrs: &'a [SocketAddr]) -> Builder<'a> {
-        self.parts.resolved_socket_addrs = resolved_socket_addrs;
-        self
-    }
-
-    pub(crate) fn response_callback(mut self, callback: &'a dyn ResponseCallback) -> Builder<'a> {
-        self.parts.response_callback = Some(callback);
-        self
-    }
-
     pub(crate) fn on_uploading_progress(mut self, callback: &'a dyn Fn(usize, usize)) -> Builder<'a> {
         self.parts.on_uploading_progress = Some(callback);
         self
@@ -107,6 +100,32 @@ impl<'a> Builder<'a> {
 
     pub(crate) fn on_downloading_progress(mut self, callback: &'a dyn Fn(usize, usize)) -> Builder<'a> {
         self.parts.on_downloading_progress = Some(callback);
+        self
+    }
+
+    pub(crate) fn on_retry_request(
+        mut self,
+        callback: &'a dyn Fn(&str, &HTTPError, usize, usize, Duration),
+    ) -> Builder<'a> {
+        self.parts.on_retry_request = Some(callback);
+        self
+    }
+
+    pub(crate) fn on_host_failed(mut self, callback: &'a dyn Fn(&str, &HTTPError, Duration)) -> Builder<'a> {
+        self.parts.on_host_failed = Some(callback);
+        self
+    }
+
+    pub(crate) fn on_response(
+        mut self,
+        callback: &'a dyn Fn(&mut Response, Duration) -> HTTPResult<()>,
+    ) -> Builder<'a> {
+        self.parts.on_response = Some(callback);
+        self
+    }
+
+    pub(crate) fn on_failed(mut self, callback: &'a dyn Fn(&HTTPError, Duration)) -> Builder<'a> {
+        self.parts.on_failed = Some(callback);
         self
     }
 

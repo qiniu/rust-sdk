@@ -20,13 +20,42 @@ pub enum RetryKind {
 
 #[derive(Debug)]
 pub enum ErrorKind {
-    HTTPCallerError(Box<dyn error::Error + Send>),
+    HTTPCallerError(HTTPCallerError),
     JSONError(serde_json::Error),
     MaliciousResponse,
     UnexpectedRedirect,
     IOError(io::Error),
     UnknownError(Box<dyn error::Error + Send>),
     ResponseStatusCodeError(StatusCode, Box<str>),
+}
+
+#[derive(Debug, Getters, CopyGetters)]
+pub struct HTTPCallerError {
+    #[get_copy = "pub"]
+    kind: HTTPCallerErrorKind,
+    #[get = "pub"]
+    inner: Box<dyn error::Error + Send>,
+}
+
+impl HTTPCallerError {
+    pub fn new<E: error::Error + Send + 'static>(kind: HTTPCallerErrorKind, error: E) -> ErrorKind {
+        ErrorKind::HTTPCallerError(HTTPCallerError {
+            kind: kind,
+            inner: Box::new(error),
+        })
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum HTTPCallerErrorKind {
+    ResolveError,
+    ProxyError,
+    SSLError,
+    ConnectionError,
+    RequestError,
+    ResponseError,
+    TimeoutError,
+    UnknownError,
 }
 
 #[derive(Getters, CopyGetters)]
@@ -160,7 +189,7 @@ impl Error {
     }
 
     fn extract_req_id_from_response(response: Option<&Response>) -> Option<RequestID> {
-        response.and_then(|resp| resp.headers().get("X-Reqid".into()).map(|v| v.as_ref().into()))
+        response.and_then(|resp| resp.headers().get("X-Reqid").map(|v| v.as_ref().into()))
     }
 }
 
@@ -180,7 +209,7 @@ impl fmt::Debug for Error {
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ErrorKind::HTTPCallerError(err) => write!(f, "HTTPCallerError({})", err),
+            ErrorKind::HTTPCallerError(err) => write!(f, "HTTPCallerError({})", err.inner),
             ErrorKind::JSONError(err) => write!(f, "JSONError({})", err),
             ErrorKind::MaliciousResponse => write!(f, "MaliciousResponse"),
             ErrorKind::UnexpectedRedirect => write!(f, "UnexpectedRedirect"),
@@ -213,7 +242,7 @@ impl fmt::Display for Error {
 impl error::Error for Error {
     fn description(&self) -> &str {
         match &self.error_kind {
-            ErrorKind::HTTPCallerError(err) => err.description(),
+            ErrorKind::HTTPCallerError(err) => err.inner.description(),
             ErrorKind::JSONError(err) => err.description(),
             ErrorKind::MaliciousResponse => "Malicious response",
             ErrorKind::UnexpectedRedirect => "Unexpected redirect",
@@ -226,7 +255,7 @@ impl error::Error for Error {
     #[allow(deprecated)]
     fn cause(&self) -> Option<&dyn error::Error> {
         match &self.error_kind {
-            ErrorKind::HTTPCallerError(err) => Some(err.deref()),
+            ErrorKind::HTTPCallerError(err) => Some(err.inner.deref()),
             ErrorKind::JSONError(err) => Some(err),
             ErrorKind::IOError(err) => Some(err),
             ErrorKind::UnknownError(err) => Some(err.deref()),
@@ -238,7 +267,7 @@ impl error::Error for Error {
 
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match &self.error_kind {
-            ErrorKind::HTTPCallerError(err) => Some(err.deref()),
+            ErrorKind::HTTPCallerError(err) => Some(err.inner.deref()),
             ErrorKind::JSONError(err) => Some(err),
             ErrorKind::IOError(err) => Some(err),
             ErrorKind::UnknownError(err) => Some(err.deref()),

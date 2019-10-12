@@ -6,7 +6,7 @@ use super::{
 use crate::{config::Config, credential::Credential, http};
 use once_cell::sync::OnceCell;
 use qiniu_http::Result;
-use std::{borrow::Cow, iter::Iterator};
+use std::{borrow::Cow, io::Result as IOResult, iter::Iterator};
 
 pub struct Bucket<'r> {
     name: Cow<'r, str>,
@@ -156,7 +156,7 @@ impl<'r> Bucket<'r> {
     }
 
     // TODO: ADD CUSTOMIZED RECORDER METHOD
-    pub fn uploader(&self) -> BucketUploader<FileSystemRecorder> {
+    pub fn uploader(&self) -> IOResult<BucketUploader<FileSystemRecorder>> {
         UploadManager::new(self.credential.clone(), self.config.clone()).for_bucket(self)
     }
 

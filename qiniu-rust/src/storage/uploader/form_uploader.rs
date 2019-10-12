@@ -3,7 +3,7 @@ use super::{
         recorder,
         upload_token::{Result as UploadTokenParseResult, UploadToken},
     },
-    BucketUploader, UploadResponseCallback, UploadResult,
+    upload_response_callback, BucketUploader, UploadResult,
 };
 use crate::utils::crc32;
 use mime::Mime;
@@ -159,7 +159,7 @@ where
             .client()
             .post("/", up_urls)
             .idempotent()
-            .response_callback(&UploadResponseCallback);
+            .on_response(&|response, _| upload_response_callback(response));
         if let Some(on_uploading_progress) = self.on_uploading_progress {
             request_builder = request_builder.on_uploading_progress(on_uploading_progress)
         }
@@ -204,7 +204,7 @@ mod tests {
             ],
             get_credential(),
             config,
-        )
+        )?
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .upload_file(&temp_path, Some("file"), None)?;
@@ -232,7 +232,7 @@ mod tests {
             ],
             get_credential(),
             config,
-        )
+        )?
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .upload_file(&temp_path, Some("file"), None)
@@ -259,7 +259,7 @@ mod tests {
             ],
             get_credential(),
             config,
-        )
+        )?
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .upload_file(&temp_path, Some("file"), None)
@@ -286,7 +286,7 @@ mod tests {
             ],
             get_credential(),
             config,
-        )
+        )?
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .never_be_resumeable()
@@ -314,7 +314,7 @@ mod tests {
             ],
             get_credential(),
             config,
-        )
+        )?
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .never_be_resumeable()
@@ -342,7 +342,7 @@ mod tests {
             ],
             get_credential(),
             config,
-        )
+        )?
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .never_be_resumeable()

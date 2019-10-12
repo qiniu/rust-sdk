@@ -1,50 +1,30 @@
-use crate::http::{request::ResponseCallback, response::Response};
-use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Request as HTTPRequest, Result as HTTPResult};
+use crate::http::Response;
+use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult};
 use std::borrow::Cow;
 
-pub(super) struct UploadResponseCallback;
-
-impl ResponseCallback for UploadResponseCallback {
-    fn on_response_callback(&self, response: &mut Response, _request: &HTTPRequest) -> HTTPResult<()> {
-        if response.status_code() == 200 && self.is_response_body_contains_error(response)
-            || self.is_not_qiniu(response)
-        {
-            Err(HTTPError::new_retryable_error_from_parts(
-                HTTPErrorKind::MaliciousResponse,
-                true,
-                Some(response.method()),
-                Some((response.host().to_owned() + response.path()).into()),
-            ))
-        } else {
-            Ok(())
-        }
+pub(super) fn upload_response_callback(response: &mut Response) -> HTTPResult<()> {
+    if response.status_code() == 200 && is_response_body_contains_error(response) || is_not_qiniu(response) {
+        Err(HTTPError::new_retryable_error_from_parts(
+            HTTPErrorKind::MaliciousResponse,
+            true,
+            Some(response.method()),
+            Some((response.host().to_owned() + response.path()).into()),
+        ))
+    } else {
+        Ok(())
     }
 }
 
-impl UploadResponseCallback {
-    fn is_response_body_contains_error(&self, response: &mut Response) -> bool {
-        let result: HTTPResult<serde_json::Value> = response.parse_json_clone();
-        match result {
-            Err(_) => false,
-            Ok(value) => value.get("error").is_some(),
-        }
-    }
-
-    fn is_not_qiniu(&self, response: &mut Response) -> bool {
-        response.header("X-ReqId").is_none()
-            && (response.header("Content-Type") != Some(&Cow::Borrowed("application/json"))
-                || (response.parse_json_clone() as HTTPResult<serde_json::Value>).is_err())
+fn is_response_body_contains_error(response: &mut Response) -> bool {
+    let result: HTTPResult<serde_json::Value> = response.parse_json_clone();
+    match result {
+        Err(_) => false,
+        Ok(value) => value.get("error").is_some(),
     }
 }
 
-pub mod error {
-    use error_chain::error_chain;
-    error_chain! {
-        errors {
-            RetryError {
-                description("HTTP call should be retry")
-                display("HTTP call should be retry")
-            }
-        }
-    }
+fn is_not_qiniu(response: &mut Response) -> bool {
+    response.header("X-ReqId").is_none()
+        && (response.header("Content-Type") != Some(&Cow::Borrowed("application/json"))
+            || (response.parse_json_clone() as HTTPResult<serde_json::Value>).is_err())
 }
