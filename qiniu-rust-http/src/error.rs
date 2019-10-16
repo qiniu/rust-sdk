@@ -4,7 +4,7 @@ use super::{
     response::{Response, StatusCode},
 };
 use getset::{CopyGetters, Getters};
-use std::{boxed::Box, error, fmt, io, marker::Send, ops::Deref, result};
+use std::{boxed::Box, error::Error as StdError, fmt, io, marker::Send, ops::Deref, result};
 
 pub type URL = Box<str>;
 pub type RequestID = Box<str>;
@@ -25,7 +25,7 @@ pub enum ErrorKind {
     MaliciousResponse,
     UnexpectedRedirect,
     IOError(io::Error),
-    UnknownError(Box<dyn error::Error + Send>),
+    UnknownError(Box<dyn StdError + Send>),
     ResponseStatusCodeError(StatusCode, Box<str>),
 }
 
@@ -34,11 +34,11 @@ pub struct HTTPCallerError {
     #[get_copy = "pub"]
     kind: HTTPCallerErrorKind,
     #[get = "pub"]
-    inner: Box<dyn error::Error + Send>,
+    inner: Box<dyn StdError + Send>,
 }
 
 impl HTTPCallerError {
-    pub fn new<E: error::Error + Send + 'static>(kind: HTTPCallerErrorKind, error: E) -> ErrorKind {
+    pub fn new<E: StdError + Send + 'static>(kind: HTTPCallerErrorKind, error: E) -> ErrorKind {
         ErrorKind::HTTPCallerError(HTTPCallerError {
             kind: kind,
             inner: Box::new(error),
@@ -239,10 +239,10 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {
+impl StdError for Error {
     fn description(&self) -> &str {
         match &self.error_kind {
-            ErrorKind::HTTPCallerError(err) => err.inner.description(),
+            ErrorKind::HTTPCallerError(err) => err.description(),
             ErrorKind::JSONError(err) => err.description(),
             ErrorKind::MaliciousResponse => "Malicious response",
             ErrorKind::UnexpectedRedirect => "Unexpected redirect",
@@ -253,9 +253,9 @@ impl error::Error for Error {
     }
 
     #[allow(deprecated)]
-    fn cause(&self) -> Option<&dyn error::Error> {
+    fn cause(&self) -> Option<&dyn StdError> {
         match &self.error_kind {
-            ErrorKind::HTTPCallerError(err) => Some(err.inner.deref()),
+            ErrorKind::HTTPCallerError(err) => err.cause(),
             ErrorKind::JSONError(err) => Some(err),
             ErrorKind::IOError(err) => Some(err),
             ErrorKind::UnknownError(err) => Some(err.deref()),
@@ -265,9 +265,9 @@ impl error::Error for Error {
         }
     }
 
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match &self.error_kind {
-            ErrorKind::HTTPCallerError(err) => Some(err.inner.deref()),
+            ErrorKind::HTTPCallerError(err) => err.source(),
             ErrorKind::JSONError(err) => Some(err),
             ErrorKind::IOError(err) => Some(err),
             ErrorKind::UnknownError(err) => Some(err.deref()),
@@ -275,5 +275,26 @@ impl error::Error for Error {
             ErrorKind::UnexpectedRedirect => None,
             ErrorKind::ResponseStatusCodeError(_, _) => None,
         }
+    }
+}
+
+impl fmt::Display for HTTPCallerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl StdError for HTTPCallerError {
+    fn description(&self) -> &str {
+        self.inner.description()
+    }
+
+    #[allow(deprecated)]
+    fn cause(&self) -> Option<&dyn StdError> {
+        Some(self.inner.deref())
+    }
+
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self.inner.deref())
     }
 }

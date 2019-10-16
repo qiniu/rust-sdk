@@ -17,10 +17,8 @@ pub(crate) struct Parts<'a> {
     pub(super) follow_redirection: bool,
     pub(super) on_uploading_progress: Option<&'a dyn Fn(usize, usize)>,
     pub(super) on_downloading_progress: Option<&'a dyn Fn(usize, usize)>,
-    pub(super) on_retry_request: Option<&'a dyn Fn(&str, &Error, usize, usize, Duration)>,
-    pub(super) on_host_failed: Option<&'a dyn Fn(&str, &Error, Duration)>,
     pub(super) on_response: Option<&'a dyn Fn(&mut Response, Duration) -> Result<()>>,
-    pub(super) on_failed: Option<&'a dyn Fn(&Error, Duration)>,
+    pub(super) on_error: Option<&'a dyn Fn(Option<&str>, &Error, Duration)>,
 }
 
 impl fmt::Debug for Parts<'_> {
@@ -54,22 +52,6 @@ impl fmt::Debug for Parts<'_> {
                 },
             )
             .field(
-                "on_retry_request",
-                if self.on_retry_request.is_some() {
-                    &"Installed"
-                } else {
-                    &"Not Installed"
-                },
-            )
-            .field(
-                "on_host_failed",
-                if self.on_host_failed.is_some() {
-                    &"Installed"
-                } else {
-                    &"Not Installed"
-                },
-            )
-            .field(
                 "on_response",
                 if self.on_response.is_some() {
                     &"Installed"
@@ -78,8 +60,8 @@ impl fmt::Debug for Parts<'_> {
                 },
             )
             .field(
-                "on_failed",
-                if self.on_failed.is_some() {
+                "on_error",
+                if self.on_error.is_some() {
                     &"Installed"
                 } else {
                     &"Not Installed"

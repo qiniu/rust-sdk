@@ -42,15 +42,15 @@ impl<'a> Request<'a> {
                 Err(err) => match err.retry_kind() {
                     HTTPRetryKind::RetryableError | HTTPRetryKind::HostUnretryableError if self.is_retry_safe(&err) => {
                         self.domains_manager.freeze_url(url).unwrap();
-                        if let Some(on_host_failed) = &self.parts.on_host_failed {
-                            (on_host_failed)(url, &err, timer.elapsed());
+                        if let Some(on_error) = &self.parts.on_error {
+                            (on_error)(Some(url), &err, timer.elapsed());
                         }
                         prev_err = Some(err);
                         continue;
                     }
                     _ => {
-                        if let Some(on_failed) = &self.parts.on_failed {
-                            (on_failed)(&err, timer.elapsed());
+                        if let Some(on_error) = &self.parts.on_error {
+                            (on_error)(Some(url), &err, timer.elapsed());
                         }
                         return Err(err);
                     }
@@ -58,8 +58,8 @@ impl<'a> Request<'a> {
             }
         }
         let err = prev_err.unwrap();
-        if let Some(on_failed) = &self.parts.on_failed {
-            (on_failed)(&err, timer.elapsed());
+        if let Some(on_error) = &self.parts.on_error {
+            (on_error)(None, &err, timer.elapsed());
         }
         Err(err)
     }
@@ -102,7 +102,7 @@ impl<'a> Request<'a> {
         self.parts.token.sign(&mut request);
         let mut prev_err: Option<HTTPError> = None;
         let retries = self.parts.config.http_request_retries();
-        for retried in 0..=retries {
+        for _ in 0..=retries {
             let timer = Instant::now();
             match self
                 .parts
@@ -125,8 +125,8 @@ impl<'a> Request<'a> {
                 }
                 Err(err) => match err.retry_kind() {
                     HTTPRetryKind::RetryableError if self.is_retry_safe(&err) => {
-                        if let Some(on_retry_request) = &self.parts.on_retry_request {
-                            (on_retry_request)(&choice.url, &err, retried, retries, timer.elapsed());
+                        if let Some(on_error) = &self.parts.on_error {
+                            (on_error)(Some(&choice.url), &err, timer.elapsed());
                         }
                         prev_err = Some(err);
                         if self.parts.config.http_request_retry_delay().as_nanos() > 0 {
@@ -323,12 +323,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let (on_retry_request_called, on_host_failed_called, on_response_called, on_error_called) = (
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-        );
+        let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
         assert!(Builder::new(
             config.clone(),
             Method::GET,
@@ -336,17 +331,11 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
-        .on_retry_request(&|_, _, _, _, _| {
-            on_retry_request_called.fetch_add(1, Ordering::SeqCst);
-        })
-        .on_host_failed(&|_, _, _| {
-            on_host_failed_called.fetch_add(1, Ordering::SeqCst);
-        })
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
         })
-        .on_failed(&|_, _| {
+        .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Ordering::SeqCst);
         })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -356,10 +345,8 @@ mod tests {
         assert!(config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
-        assert_eq!(on_retry_request_called.load(Ordering::SeqCst), 2 * (RETRIES + 1));
-        assert_eq!(on_host_failed_called.load(Ordering::SeqCst), 2);
         assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
+        assert_eq!(on_error_called.load(Ordering::SeqCst), 2 * (RETRIES + 1) + 3);
         Ok(())
     }
 
@@ -375,12 +362,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let (on_retry_request_called, on_host_failed_called, on_response_called, on_error_called) = (
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-        );
+        let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
         assert!(Builder::new(
             config.clone(),
             Method::POST,
@@ -388,17 +370,11 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
-        .on_retry_request(&|_, _, _, _, _| {
-            on_retry_request_called.fetch_add(1, Ordering::SeqCst);
-        })
-        .on_host_failed(&|_, _, _| {
-            on_host_failed_called.fetch_add(1, Ordering::SeqCst);
-        })
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
         })
-        .on_failed(&|_, _| {
+        .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Ordering::SeqCst);
         })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -408,10 +384,8 @@ mod tests {
         assert!(config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
-        assert_eq!(on_retry_request_called.load(Ordering::SeqCst), 2 * (RETRIES + 1));
-        assert_eq!(on_host_failed_called.load(Ordering::SeqCst), 2);
         assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
+        assert_eq!(on_error_called.load(Ordering::SeqCst), 2 * (RETRIES + 1) + 3);
         Ok(())
     }
 
@@ -427,12 +401,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let (on_retry_request_called, on_host_failed_called, on_response_called, on_error_called) = (
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-        );
+        let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
         assert!(Builder::new(
             config.clone(),
             Method::POST,
@@ -440,17 +409,11 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
-        .on_retry_request(&|_, _, _, _, _| {
-            on_retry_request_called.fetch_add(1, Ordering::SeqCst);
-        })
-        .on_host_failed(&|_, _, _| {
-            on_host_failed_called.fetch_add(1, Ordering::SeqCst);
-        })
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
         })
-        .on_failed(&|_, _| {
+        .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Ordering::SeqCst);
         })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -460,8 +423,6 @@ mod tests {
         assert!(!config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(on_retry_request_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_host_failed_called.load(Ordering::SeqCst), 0);
         assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
         assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
         Ok(())
@@ -479,12 +440,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let (on_retry_request_called, on_host_failed_called, on_response_called, on_error_called) = (
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-        );
+        let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
         assert!(Builder::new(
             config.clone(),
             Method::GET,
@@ -492,17 +448,11 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
-        .on_retry_request(&|_, _, _, _, _| {
-            on_retry_request_called.fetch_add(1, Ordering::SeqCst);
-        })
-        .on_host_failed(&|_, _, _| {
-            on_host_failed_called.fetch_add(1, Ordering::SeqCst);
-        })
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
         })
-        .on_failed(&|_, _| {
+        .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Ordering::SeqCst);
         })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -512,10 +462,8 @@ mod tests {
         assert!(config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 2);
-        assert_eq!(on_retry_request_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_host_failed_called.load(Ordering::SeqCst), 2);
         assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
+        assert_eq!(on_error_called.load(Ordering::SeqCst), 3);
         Ok(())
     }
 
@@ -531,12 +479,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let (on_retry_request_called, on_host_failed_called, on_response_called, on_error_called) = (
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-        );
+        let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
         assert!(Builder::new(
             config.clone(),
             Method::GET,
@@ -544,17 +487,11 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
-        .on_retry_request(&|_, _, _, _, _| {
-            on_retry_request_called.fetch_add(1, Ordering::SeqCst);
-        })
-        .on_host_failed(&|_, _, _| {
-            on_host_failed_called.fetch_add(1, Ordering::SeqCst);
-        })
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
         })
-        .on_failed(&|_, _| {
+        .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Ordering::SeqCst);
         })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -564,8 +501,6 @@ mod tests {
         assert!(!config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(on_retry_request_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_host_failed_called.load(Ordering::SeqCst), 0);
         assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
         assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
         Ok(())
@@ -583,12 +518,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let (on_retry_request_called, on_host_failed_called, on_response_called, on_error_called) = (
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-            AtomicUsize::new(0),
-        );
+        let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
         assert!(Builder::new(
             config.clone(),
             Method::GET,
@@ -596,17 +526,11 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(Token::V1(get_credential()))
-        .on_retry_request(&|_, _, _, _, _| {
-            on_retry_request_called.fetch_add(1, Ordering::SeqCst);
-        })
-        .on_host_failed(&|_, _, _| {
-            on_host_failed_called.fetch_add(1, Ordering::SeqCst);
-        })
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
         })
-        .on_failed(&|_, _| {
+        .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Ordering::SeqCst);
         })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
@@ -616,8 +540,6 @@ mod tests {
         assert!(!config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(on_retry_request_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_host_failed_called.load(Ordering::SeqCst), 0);
         assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
         assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
         Ok(())

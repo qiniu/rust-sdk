@@ -38,10 +38,8 @@ impl<'a> Builder<'a> {
                 follow_redirection: false,
                 on_uploading_progress: None,
                 on_downloading_progress: None,
-                on_retry_request: None,
-                on_host_failed: None,
                 on_response: None,
-                on_failed: None,
+                on_error: None,
             },
         }
     }
@@ -103,19 +101,6 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub(crate) fn on_retry_request(
-        mut self,
-        callback: &'a dyn Fn(&str, &HTTPError, usize, usize, Duration),
-    ) -> Builder<'a> {
-        self.parts.on_retry_request = Some(callback);
-        self
-    }
-
-    pub(crate) fn on_host_failed(mut self, callback: &'a dyn Fn(&str, &HTTPError, Duration)) -> Builder<'a> {
-        self.parts.on_host_failed = Some(callback);
-        self
-    }
-
     pub(crate) fn on_response(
         mut self,
         callback: &'a dyn Fn(&mut Response, Duration) -> HTTPResult<()>,
@@ -124,8 +109,8 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub(crate) fn on_failed(mut self, callback: &'a dyn Fn(&HTTPError, Duration)) -> Builder<'a> {
-        self.parts.on_failed = Some(callback);
+    pub(crate) fn on_error(mut self, callback: &'a dyn Fn(Option<&str>, &HTTPError, Duration)) -> Builder<'a> {
+        self.parts.on_error = Some(callback);
         self
     }
 
@@ -153,13 +138,6 @@ impl<'a> Builder<'a> {
         let serialized_body = serde_json::to_vec(body)?;
         self = self.header("Content-Type", "application/json");
         self.parts.body = Some(serialized_body);
-        Ok(self.build())
-    }
-
-    pub(crate) fn form_body<T: Serialize>(mut self, body: &T) -> StdResult<Request<'a>, Error> {
-        let serialized_body = serde_urlencoded::to_string(body)?;
-        self = self.header("Content-Type", "application/x-www-form-urlencoded");
-        self.parts.body = Some(serialized_body.into_bytes());
         Ok(self.build())
     }
 

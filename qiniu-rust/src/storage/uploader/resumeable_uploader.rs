@@ -3,7 +3,8 @@ use super::{
         recorder,
         upload_token::{Result as UploadTokenParseResult, UploadToken},
     },
-    upload_recorder, upload_response_callback, BucketUploader, UploadResult,
+    upload_recorder, upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerBuilder,
+    UploadLoggerRecordBuilder, UploadResult,
 };
 use crate::utils::{base64, seek_adapter};
 use crypto::{digest::Digest, md5::Md5};
@@ -20,6 +21,11 @@ use std::{
     fs::File,
     io::{ErrorKind as IOErrorKind, Read, Result as IOResult, Seek, SeekFrom},
     path::Path,
+    sync::atomic::{
+        AtomicUsize,
+        Ordering::{Acquire, Release, SeqCst},
+    },
+    time::Instant,
 };
 
 #[derive(Deserialize, Debug, Clone)]
@@ -71,6 +77,7 @@ pub(super) struct ResumeableUploaderBuilder<'u, REC: recorder::Recorder> {
     metadata: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
     custom_vars: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
     on_uploading_progress: Option<&'u dyn Fn(usize, usize)>,
+    upload_logger_builder: UploadLoggerBuilder,
 }
 
 pub(super) struct ResumeableUploader<'u, R: Read + Seek + 'u, REC: recorder::Recorder> {
@@ -81,10 +88,13 @@ pub(super) struct ResumeableUploader<'u, R: Read + Seek + 'u, REC: recorder::Rec
     checksum_enabled: bool,
     is_seekable: bool,
     block_size: usize,
+    io_size: Option<usize>,
     io: R,
+    uploaded_size: AtomicUsize,
     file_path: Option<Cow<'u, Path>>,
     from_resuming: Option<FromResuming<REC>>,
     uploading_progress_callback: Option<UploadingProgressCallback<'u>>,
+    upload_logger: Option<UploadLogger>,
 }
 
 impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
@@ -99,7 +109,13 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
             metadata: None,
             custom_vars: None,
             on_uploading_progress: None,
+            upload_logger_builder: UploadLoggerBuilder::default().upload_token(upload_token),
         })
+    }
+
+    pub(super) fn upload_logger_server_url(mut self, url: &'static str) -> ResumeableUploaderBuilder<'u, REC> {
+        self.upload_logger_builder = self.upload_logger_builder.server_url(url);
+        self
     }
 
     pub(super) fn key<K: Into<Cow<'u, str>>>(mut self, key: K) -> ResumeableUploaderBuilder<'u, REC> {
@@ -140,14 +156,16 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
         file_size: u64,
         mime_type: Option<Mime>,
         checksum_enabled: bool,
-    ) -> ResumeableUploader<'u, File, REC> {
+    ) -> IOResult<ResumeableUploader<'u, File, REC>> {
         let block_size = self.bucket_uploader.config().upload_block_size();
-        ResumeableUploader {
+        Ok(ResumeableUploader {
             bucket_uploader: self.bucket_uploader,
             upload_token: self.upload_token,
             key: self.key,
             file_path: Some(file_path.into()),
             io: file,
+            io_size: Some(file_size as usize),
+            uploaded_size: AtomicUsize::new(0),
             checksum_enabled: checksum_enabled,
             is_seekable: true,
             block_size: self.bucket_uploader.config().upload_block_size(),
@@ -167,7 +185,11 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
                 callback: callback,
                 total_size: file_size as usize,
             }),
-        }
+            upload_logger: self
+                .upload_logger_builder
+                .build_by(self.bucket_uploader.config().clone())
+                .map_or(Ok(None), |logger| logger.map(Some))?,
+        })
     }
 
     pub(super) fn stream<'n: 'u, R: Read + 'u, N: Into<Cow<'n, str>>>(
@@ -176,13 +198,15 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
         mime_type: Option<Mime>,
         file_name: Option<N>,
         checksum_enabled: bool,
-    ) -> ResumeableUploader<'u, seek_adapter::SeekAdapter<R>, REC> {
-        ResumeableUploader {
+    ) -> IOResult<ResumeableUploader<'u, seek_adapter::SeekAdapter<R>, REC>> {
+        Ok(ResumeableUploader {
             bucket_uploader: self.bucket_uploader,
             upload_token: self.upload_token,
             key: self.key,
             file_path: None,
             io: seek_adapter::SeekAdapter(stream),
+            io_size: None,
+            uploaded_size: AtomicUsize::new(0),
             checksum_enabled: checksum_enabled,
             is_seekable: false,
             block_size: self.bucket_uploader.config().upload_block_size(),
@@ -195,7 +219,11 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
             },
             from_resuming: None,
             uploading_progress_callback: None,
-        }
+            upload_logger: self
+                .upload_logger_builder
+                .build_by(self.bucket_uploader.config().clone())
+                .map_or(Ok(None), |logger| logger.map(Some))?,
+        })
     }
 }
 
@@ -214,7 +242,7 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
         let mut iter = self.bucket_uploader.up_urls_list().iter();
         let mut prev_err: Option<HTTPError> = None;
         while let Some(up_urls) = iter.next() {
-            match self.try_to_upload(
+            match self.try_to_upload_with_log(
                 &up_urls.iter().map(|url| url.as_ref()).collect::<Box<[&str]>>(),
                 &base_path,
                 &authorization,
@@ -243,6 +271,46 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
         Err(prev_err.expect("ResumeableUploader::send() should try at lease once, but not"))
     }
 
+    fn try_to_upload_with_log(
+        &mut self,
+        up_urls: &[&str],
+        base_path: &str,
+        authorization: &str,
+        body_buf: &mut Vec<u8>,
+        md5_digest: &mut Option<Md5>,
+    ) -> HTTPResult<UploadResult> {
+        let timer = Instant::now();
+        let result = self.try_to_upload(up_urls, base_path, authorization, body_buf, md5_digest);
+        if let Some(upload_logger) = &self.upload_logger {
+            let uploaded_size = self.uploaded_size.load(Acquire);
+            match &result {
+                Ok(_) => {
+                    upload_logger.log(
+                        UploadLoggerRecordBuilder::default()
+                            .duration(timer.elapsed())
+                            .up_type(UpType::Chunkedv2)
+                            .sent(uploaded_size)
+                            .total_size(uploaded_size)
+                            .build()
+                            .unwrap(),
+                    );
+                }
+                Err(err) => {
+                    let mut record_builder = UploadLoggerRecordBuilder::default()
+                        .duration(timer.elapsed())
+                        .up_type(UpType::Chunkedv2)
+                        .sent(uploaded_size)
+                        .http_error(err);
+                    if let Some(total_size) = self.io_size {
+                        record_builder = record_builder.total_size(usize::max(uploaded_size, total_size));
+                    }
+                    upload_logger.log(record_builder.build().unwrap());
+                }
+            }
+        }
+        result
+    }
+
     fn try_to_upload(
         &mut self,
         up_urls: &[&str],
@@ -256,6 +324,7 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
                 .seek(SeekFrom::Start(0))
                 .map_err(|err| HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None))?;
         }
+        self.uploaded_size.store(0, Release);
         let upload_id = self.init_parts(&base_path, up_urls, &authorization)?;
         self.completed_parts.parts.clear();
         let recorder = if let Some(file_path) = self.file_path.as_ref() {
@@ -336,6 +405,7 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
                 part_number: part_number,
             });
             completed_block_size.set(completed_block_size.get() + block_size);
+            self.uploaded_size.fetch_add(block_size, SeqCst);
         }
         self.complete_parts(base_path, up_urls, authorization, upload_id)
             .map(|result| {
@@ -370,6 +440,7 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
             recorder: recorder,
             io_offset: io_offset,
         });
+        self.uploaded_size = AtomicUsize::new(io_offset as usize);
     }
 
     fn init_parts(&self, base_path: &str, up_urls: &[&str], authorization: &str) -> HTTPResult<Box<str>> {
@@ -379,7 +450,36 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
             .post(base_path, up_urls)
             .header("Authorization", authorization)
             .idempotent()
-            .on_response(&|response, _| upload_response_callback(response))
+            .on_response(&|response, duration| {
+                let result = upload_response_callback(response);
+                if result.is_ok() {
+                    if let Some(upload_logger) = &self.upload_logger {
+                        upload_logger.log(
+                            UploadLoggerRecordBuilder::default()
+                                .response(response)
+                                .duration(duration)
+                                .up_type(UpType::InitParts)
+                                .build()
+                                .unwrap(),
+                        );
+                    }
+                }
+                result
+            })
+            .on_error(&|host_url, err, duration| {
+                if let Some(upload_logger) = &self.upload_logger {
+                    upload_logger.log({
+                        let mut builder = UploadLoggerRecordBuilder::default()
+                            .duration(duration)
+                            .up_type(UpType::InitParts)
+                            .http_error(err);
+                        if let Some(host_url) = host_url {
+                            builder = builder.host(host_url);
+                        }
+                        builder.build().unwrap()
+                    });
+                }
+            })
             .accept_json()
             .no_body()
             .send()?
@@ -412,7 +512,39 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
         }
         let result: UploadPartResult = builder
             .idempotent()
-            .on_response(&|response, _| upload_response_callback(response))
+            .on_response(&|response, duration| {
+                let result = upload_response_callback(response);
+                if result.is_ok() {
+                    if let Some(upload_logger) = &self.upload_logger {
+                        upload_logger.log(
+                            UploadLoggerRecordBuilder::default()
+                                .response(response)
+                                .duration(duration)
+                                .up_type(UpType::UploadPart)
+                                .sent(part.len())
+                                .total_size(part.len())
+                                .build()
+                                .unwrap(),
+                        );
+                    }
+                }
+                result
+            })
+            .on_error(&|host_url, err, duration| {
+                if let Some(upload_logger) = &self.upload_logger {
+                    upload_logger.log({
+                        let mut builder = UploadLoggerRecordBuilder::default()
+                            .duration(duration)
+                            .up_type(UpType::UploadPart)
+                            .http_error(err)
+                            .total_size(part.len());
+                        if let Some(host_url) = host_url {
+                            builder = builder.host(host_url);
+                        }
+                        builder.build().unwrap()
+                    });
+                }
+            })
             .accept_json()
             .raw_body("application/octet-stream", part.as_ref())
             .send()?
@@ -434,7 +566,36 @@ impl<'u, R: Read + Seek, REC: recorder::Recorder> ResumeableUploader<'u, R, REC>
             .post(&path, up_urls)
             .header("Authorization", authorization)
             .idempotent()
-            .on_response(&|response, _| upload_response_callback(response))
+            .on_response(&|response, duration| {
+                let result = upload_response_callback(response);
+                if result.is_ok() {
+                    if let Some(upload_logger) = &self.upload_logger {
+                        upload_logger.log(
+                            UploadLoggerRecordBuilder::default()
+                                .response(response)
+                                .duration(duration)
+                                .up_type(UpType::CompleteParts)
+                                .build()
+                                .unwrap(),
+                        );
+                    }
+                }
+                result
+            })
+            .on_error(&|host_url, err, duration| {
+                if let Some(upload_logger) = &self.upload_logger {
+                    upload_logger.log({
+                        let mut builder = UploadLoggerRecordBuilder::default()
+                            .duration(duration)
+                            .up_type(UpType::CompleteParts)
+                            .http_error(err);
+                        if let Some(host_url) = host_url {
+                            builder = builder.host(host_url);
+                        }
+                        builder.build().unwrap()
+                    });
+                }
+            })
             .accept_json()
             .json_body(&self.completed_parts)
             .unwrap()
@@ -599,6 +760,7 @@ mod tests {
                 ),
             ))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploader::new(
@@ -717,6 +879,7 @@ mod tests {
                 ),
             ))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploader::new(
@@ -825,6 +988,7 @@ mod tests {
                 ),
             ))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploader::new(
@@ -968,6 +1132,7 @@ mod tests {
                 ),
             ))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploader::new(
@@ -1068,6 +1233,7 @@ mod tests {
                 ),
             ))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .uplog_disabled(true)
             .build()?;
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
@@ -1202,6 +1368,7 @@ mod tests {
                 ),
             ))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .uplog_disabled(true)
             .build()?;
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),

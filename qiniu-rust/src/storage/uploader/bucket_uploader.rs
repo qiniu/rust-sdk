@@ -286,7 +286,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
             file_path.as_ref().metadata()?.len(),
             Self::guess_mime_from_file_path(mime, file_path.as_ref()),
             self.checksum_enabled,
-        );
+        )?;
         Self::prepare_for_resuming(
             self.key.as_ref().map(|key| key.as_ref()),
             &self.bucket_uploader.recorder,
@@ -369,7 +369,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
                 Self::guess_mime_from_file_name(mime, file_name.as_ref().map(|name| name.as_ref())),
                 file_name,
                 true,
-            )
+            )?
             .send()?)
     }
 

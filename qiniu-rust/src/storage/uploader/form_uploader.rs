@@ -3,12 +3,14 @@ use super::{
         recorder,
         upload_token::{Result as UploadTokenParseResult, UploadToken},
     },
-    upload_response_callback, BucketUploader, UploadResult,
+    upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerBuilder, UploadLoggerRecordBuilder,
+    UploadResult,
 };
 use crate::utils::crc32;
 use mime::Mime;
 use multipart::client::lazy::Multipart;
 use qiniu_http::{Error as HTTPError, Result as HTTPResult, RetryKind};
+use serde_json::Value;
 use std::{
     borrow::Cow,
     convert::TryInto,
@@ -19,6 +21,7 @@ pub(super) struct FormUploaderBuilder<'u, REC: recorder::Recorder> {
     bucket_uploader: &'u BucketUploader<'u, REC>,
     multipart: Multipart<'u, 'u>,
     on_uploading_progress: Option<&'u dyn Fn(usize, usize)>,
+    upload_logger_builder: UploadLoggerBuilder,
 }
 
 pub(super) struct FormUploader<'u, REC: recorder::Recorder> {
@@ -26,6 +29,7 @@ pub(super) struct FormUploader<'u, REC: recorder::Recorder> {
     content_type: String,
     body: Vec<u8>,
     on_uploading_progress: Option<&'u dyn Fn(usize, usize)>,
+    upload_logger: Option<UploadLogger>,
 }
 
 impl<'u, REC> FormUploaderBuilder<'u, REC>
@@ -40,9 +44,15 @@ where
             bucket_uploader: bucket_uploader,
             multipart: Multipart::new(),
             on_uploading_progress: None,
+            upload_logger_builder: UploadLoggerBuilder::default().upload_token(upload_token),
         };
         uploader.multipart.add_text("token", upload_token.token());
         Ok(uploader)
+    }
+
+    pub(super) fn upload_logger_server_url(mut self, url: &'static str) -> FormUploaderBuilder<'u, REC> {
+        self.upload_logger_builder = self.upload_logger_builder.server_url(url);
+        self
     }
 
     pub(super) fn key<K: Into<Cow<'u, str>>>(mut self, key: K) -> FormUploaderBuilder<'u, REC> {
@@ -123,6 +133,10 @@ where
             content_type: "multipart/form-data; boundary=".to_owned() + fields.boundary(),
             body: body,
             on_uploading_progress: self.on_uploading_progress,
+            upload_logger: self
+                .upload_logger_builder
+                .build_by(self.bucket_uploader.config().clone())
+                .map_or(Ok(None), |logger| logger.map(Some))?,
         })
     }
 }
@@ -153,21 +167,50 @@ where
         Err(prev_err.expect("FormUploader::send() should try at lease once, but not"))
     }
 
-    fn send_form_request(&self, up_urls: &[&str]) -> HTTPResult<serde_json::Value> {
-        let mut request_builder = self
-            .bucket_uploader
-            .client()
-            .post("/", up_urls)
-            .idempotent()
-            .on_response(&|response, _| upload_response_callback(response));
+    fn send_form_request(&self, up_urls: &[&str]) -> HTTPResult<UploadResult> {
+        let mut request_builder = self.bucket_uploader.client().post("/", up_urls).idempotent();
         if let Some(on_uploading_progress) = self.on_uploading_progress {
             request_builder = request_builder.on_uploading_progress(on_uploading_progress)
         }
-        request_builder
+        let value: Value = request_builder
+            .on_response(&|response, duration| {
+                let result = upload_response_callback(response);
+                if result.is_ok() {
+                    if let Some(upload_logger) = &self.upload_logger {
+                        upload_logger.log(
+                            UploadLoggerRecordBuilder::default()
+                                .response(response)
+                                .duration(duration)
+                                .up_type(UpType::Form)
+                                .sent(self.body.len())
+                                .total_size(self.body.len())
+                                .build()
+                                .unwrap(),
+                        );
+                    }
+                }
+                result
+            })
+            .on_error(&|host_url, err, duration| {
+                if let Some(upload_logger) = &self.upload_logger {
+                    upload_logger.log({
+                        let mut builder = UploadLoggerRecordBuilder::default()
+                            .duration(duration)
+                            .up_type(UpType::Form)
+                            .http_error(err)
+                            .total_size(self.body.len());
+                        if let Some(host_url) = host_url {
+                            builder = builder.host(host_url);
+                        }
+                        builder.build().unwrap()
+                    });
+                }
+            })
             .accept_json()
             .raw_body(self.content_type.to_owned(), self.body.as_slice())
-            .send()
-            .and_then(|mut response| response.parse_json())
+            .send()?
+            .parse_json()?;
+        Ok(value.into())
     }
 }
 
@@ -194,6 +237,7 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploader::new(
@@ -222,6 +266,7 @@ mod tests {
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
@@ -249,6 +294,7 @@ mod tests {
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
@@ -276,6 +322,7 @@ mod tests {
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
@@ -304,6 +351,7 @@ mod tests {
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
@@ -332,6 +380,7 @@ mod tests {
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         BucketUploader::new(
