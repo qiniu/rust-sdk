@@ -4,14 +4,16 @@ use getset::{CopyGetters, Getters};
 use rand::{rngs::ThreadRng, seq::SliceRandom};
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     boxed::Box,
+    cell::RefCell,
     env,
     fs::{File, OpenOptions},
-    mem,
+    mem::drop,
     net::{SocketAddr, ToSocketAddrs},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    thread,
+    thread::spawn,
     time::{Duration, Instant, SystemTime},
 };
 use url::Url;
@@ -38,6 +40,9 @@ pub struct DomainsManagerValue {
 
     #[get_copy = "pub"]
     persistent_interval: Option<Duration>,
+
+    #[get_copy = "pub"]
+    refresh_interval: Option<Duration>,
 }
 
 impl Default for DomainsManagerValue {
@@ -49,6 +54,7 @@ impl Default for DomainsManagerValue {
             resolutions_cache_lifetime: Duration::from_secs(60 * 60),
             disable_url_resolution: false,
             persistent_interval: Some(Duration::from_secs(30 * 60)),
+            refresh_interval: Some(Duration::from_secs(30 * 60)),
         }
     }
 }
@@ -61,6 +67,7 @@ struct PersistentDomainsManager {
     resolutions_cache_lifetime: Duration,
     disable_url_resolution: bool,
     persistent_interval: Option<Duration>,
+    refresh_interval: Option<Duration>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -101,6 +108,7 @@ impl From<PersistentDomainsManager> for DomainsManagerValue {
             resolutions_cache_lifetime: persistent.resolutions_cache_lifetime,
             disable_url_resolution: persistent.disable_url_resolution,
             persistent_interval: persistent.persistent_interval,
+            refresh_interval: persistent.refresh_interval,
         };
 
         for item in persistent.frozen_urls {
@@ -129,6 +137,7 @@ impl From<DomainsManagerValue> for PersistentDomainsManager {
             resolutions_cache_lifetime: domains_manager.resolutions_cache_lifetime,
             disable_url_resolution: domains_manager.disable_url_resolution,
             persistent_interval: domains_manager.persistent_interval,
+            refresh_interval: domains_manager.refresh_interval,
         };
 
         for (url, frozen_until) in domains_manager.frozen_urls {
@@ -151,7 +160,7 @@ impl From<DomainsManagerValue> for PersistentDomainsManager {
 
 pub struct DomainsManagerBuilder {
     value: DomainsManagerValue,
-    pre_resolve_urls: Vec<&'static str>,
+    pre_resolve_urls: Vec<Cow<'static, str>>,
     persistent_file_path: Option<PathBuf>,
 }
 
@@ -191,8 +200,8 @@ impl DomainsManagerBuilder {
         self
     }
 
-    pub fn pre_resolve_url(mut self, pre_resolve_url: &'static str) -> Self {
-        self.pre_resolve_urls.push(pre_resolve_url);
+    pub fn pre_resolve_url<U: Into<Cow<'static, str>>>(mut self, pre_resolve_url: U) -> Self {
+        self.pre_resolve_urls.push(pre_resolve_url.into());
         self
     }
 
@@ -202,46 +211,56 @@ impl DomainsManagerBuilder {
                 value: self.value,
                 persistent_file_path: self.persistent_file_path,
                 last_persistent_time: Mutex::new(Instant::now()),
+                last_refresh_time: Mutex::new(Instant::now()),
             }),
         };
         if !self.pre_resolve_urls.is_empty() {
-            Self::async_pre_resolve_urls(domains_manager.clone(), self.pre_resolve_urls);
+            domains_manager.async_resolve_urls(self.pre_resolve_urls);
         }
+        domains_manager.async_refresh_resolutions();
         domains_manager
     }
 
-    fn async_pre_resolve_urls(domains_manager: DomainsManager, mut urls: Vec<&'static str>) {
-        thread::spawn(move || {
-            for _ in 0..3 {
-                // TRY 3 times
-                urls = urls
-                    .into_iter()
-                    .map(|url| (url, domains_manager.resolve(url)))
-                    .filter_map(|(url, result)| result.err().map(|_| url))
-                    .collect();
-                if urls.is_empty() {
-                    break;
-                }
-            }
-        });
-    }
-
-    fn default_pre_resolve_urls() -> Vec<&'static str> {
-        let mut urls = Vec::with_capacity(100);
+    fn default_pre_resolve_urls() -> Vec<Cow<'static, str>> {
+        let mut urls = Vec::<Cow<'static, str>>::with_capacity(100);
         Region::all().iter().for_each(|region| {
-            urls.extend_from_slice(&region.up_urls(false));
-            urls.extend_from_slice(&region.up_urls(true));
-            urls.extend_from_slice(&region.io_urls(false));
-            urls.extend_from_slice(&region.io_urls(true));
-            urls.push(region.rs_url(false));
-            urls.push(region.rs_url(true));
-            urls.push(region.rsf_url(false));
-            urls.push(region.rsf_url(true));
-            urls.push(region.api_url(false));
-            urls.push(region.api_url(true));
+            urls.extend_from_slice(
+                &region
+                    .up_urls(false)
+                    .into_iter()
+                    .map(|url| Cow::Borrowed(url))
+                    .collect::<Vec<_>>(),
+            );
+            urls.extend_from_slice(
+                &region
+                    .up_urls(true)
+                    .into_iter()
+                    .map(|url| Cow::Borrowed(url))
+                    .collect::<Vec<_>>(),
+            );
+            urls.extend_from_slice(
+                &region
+                    .io_urls(false)
+                    .into_iter()
+                    .map(|url| Cow::Borrowed(url))
+                    .collect::<Vec<_>>(),
+            );
+            urls.extend_from_slice(
+                &region
+                    .io_urls(true)
+                    .into_iter()
+                    .map(|url| Cow::Borrowed(url))
+                    .collect::<Vec<_>>(),
+            );
+            urls.push(Cow::Borrowed(region.rs_url(false)));
+            urls.push(Cow::Borrowed(region.rs_url(true)));
+            urls.push(Cow::Borrowed(region.rsf_url(false)));
+            urls.push(Cow::Borrowed(region.rsf_url(true)));
+            urls.push(Cow::Borrowed(region.api_url(false)));
+            urls.push(Cow::Borrowed(region.api_url(true)));
         });
-        urls.push(Region::uc_url(false));
-        urls.push(Region::uc_url(true));
+        urls.push(Cow::Borrowed(Region::uc_url(false)));
+        urls.push(Cow::Borrowed(Region::uc_url(true)));
         urls
     }
 
@@ -293,6 +312,7 @@ struct DomainsManagerInner {
     value: DomainsManagerValue,
     persistent_file_path: Option<PathBuf>,
     last_persistent_time: Mutex<Instant>,
+    last_refresh_time: Mutex<Instant>,
 }
 
 #[derive(Debug, Clone)]
@@ -356,6 +376,7 @@ impl DomainsManager {
             );
         }
         self.try_to_persistent_if_needed();
+        self.try_to_async_refresh_resolutions_if_needed();
         Ok(choices)
     }
 
@@ -378,7 +399,7 @@ impl DomainsManager {
         match self.inner.value.frozen_urls.get(&url) {
             Some(unfreeze_time) => {
                 if *unfreeze_time < SystemTime::now() {
-                    mem::drop(unfreeze_time);
+                    drop(unfreeze_time);
                     self.inner.value.frozen_urls.remove(&url);
                     Ok(false)
                 } else {
@@ -414,7 +435,7 @@ impl DomainsManager {
         match self.inner.value.resolutions.get(&url) {
             Some(resolution) => {
                 if resolution.cache_deadline < SystemTime::now() {
-                    mem::drop(resolution);
+                    drop(resolution);
                     self.resolve_and_update_cache(&url)
                 } else {
                     Ok(resolution.socket_addrs.clone())
@@ -475,6 +496,58 @@ impl DomainsManager {
             .map(|host| host.to_owned() + ":" + &parsed_url.port_or_known_default().unwrap().to_string())
             .map(|host_with_port| Ok(host_with_port.into()))
             .unwrap_or_else(|| Err(url_parse_error::ErrorKind::InvalidURL(url.into()).into()))
+    }
+
+    fn async_resolve_urls(&self, urls: Vec<Cow<'static, str>>) {
+        let domains_manager = self.clone();
+        spawn(move || domains_manager.sync_resolve_urls(urls));
+    }
+
+    fn try_to_async_refresh_resolutions_if_needed(&self) {
+        if let Some(refresh_interval) = self.inner.value.refresh_interval {
+            let mut last_refresh_time = self.inner.last_refresh_time.lock().unwrap();
+            if last_refresh_time.elapsed() > refresh_interval {
+                *last_refresh_time = Instant::now();
+                drop(last_refresh_time);
+                self.async_refresh_resolutions();
+            }
+        }
+    }
+
+    fn async_refresh_resolutions(&self) {
+        if self.inner.value.resolutions.is_empty() {
+            return;
+        }
+        let domains_manager = self.clone();
+        spawn(move || {
+            let to_fresh_urls = RefCell::new(Vec::new());
+            domains_manager.inner.value.resolutions.retain(|url, resolution| {
+                if resolution.cache_deadline <= SystemTime::now() {
+                    to_fresh_urls.borrow_mut().push(Cow::Owned(url.to_string()));
+                    false
+                } else {
+                    true
+                }
+            });
+            if !to_fresh_urls.borrow().is_empty() {
+                domains_manager.sync_resolve_urls(to_fresh_urls.into_inner());
+            }
+            *domains_manager.inner.last_refresh_time.lock().unwrap() = Instant::now();
+        });
+    }
+
+    fn sync_resolve_urls(&self, mut urls: Vec<Cow<'static, str>>) {
+        // ALWAYS TRY 3 times
+        for _ in 0..3 {
+            urls = urls
+                .into_iter()
+                .map(|url| (self.resolve(&url), url))
+                .filter_map(|(result, url)| result.err().map(|_| url))
+                .collect();
+            if urls.is_empty() {
+                break;
+            }
+        }
     }
 }
 
@@ -611,7 +684,7 @@ mod tests {
         let choices = domains_manager.choose(&["http://up-z0.qiniup.com", "http://up-z1.qiniup.com"])?;
         assert_eq!(choices.len(), 1);
         assert_eq!(choices.first().unwrap().url, "http://up-z0.qiniup.com");
-        assert!(choices.first().unwrap().socket_addrs.len() > 5);
+        assert!(choices.first().unwrap().socket_addrs.len() > 0);
 
         let choices = domains_manager.choose(&[
             "http://up-z1.qiniup.com",
