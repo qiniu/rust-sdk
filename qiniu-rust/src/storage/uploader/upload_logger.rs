@@ -13,7 +13,7 @@ use std::{
     io::{Read, Result, Seek, SeekFrom, Write},
     net::IpAddr,
     sync::{Arc, RwLock},
-    thread,
+    thread::spawn,
     time::{Duration, SystemTime},
 };
 use tempfile::{Builder as TempfileBuilder, NamedTempFile};
@@ -44,7 +44,7 @@ impl UploadLogger {
 
     fn async_upload_log_file_and_clean(&self) {
         let upload_logger = self.clone();
-        thread::spawn(move || {
+        spawn(move || {
             upload_logger.upload_log_file_and_clean().ok();
         });
     }

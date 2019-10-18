@@ -15,6 +15,7 @@ where
     recorder: R,
     key_generator: fn(path: &Path, key: Option<&str>) -> String,
     upload_block_lifetime: Duration,
+    always_flush_records: bool,
 }
 
 pub(super) struct FileUploadRecorder<M>
@@ -22,6 +23,7 @@ where
     M: RecordMedium,
 {
     medium: M,
+    always_flush_records: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -49,6 +51,7 @@ where
             recorder: recorder,
             key_generator: config.upload_file_recorder_key_generator(),
             upload_block_lifetime: config.upload_block_lifetime(),
+            always_flush_records: config.always_flush_records(),
         }
     }
 
@@ -74,13 +77,19 @@ where
         let mut record = serde_json::to_string(&record).map_err(|err| Error::new(ErrorKind::Other, err))?;
         record.push_str("\n");
         medium.write_all(record.as_bytes())?;
-        // TODO: medium.flush()?;
-        Ok(FileUploadRecorder { medium: medium })
+        if self.always_flush_records {
+            medium.flush()?;
+        }
+        Ok(FileUploadRecorder {
+            medium: medium,
+            always_flush_records: self.always_flush_records,
+        })
     }
 
     pub(super) fn open_for_appending(&self, path: &Path, key: Option<&str>) -> Result<FileUploadRecorder<R::Medium>> {
         Ok(FileUploadRecorder {
             medium: self.recorder.open((self.key_generator)(path, key), false)?,
+            always_flush_records: self.always_flush_records,
         })
     }
 
@@ -148,7 +157,9 @@ where
         .map_err(|err| Error::new(ErrorKind::Other, err))?;
         record.push_str("\n");
         self.medium.write_all(record.as_bytes())?;
-        // TODO: self.medium.flush();
+        if self.always_flush_records {
+            self.medium.flush()?;
+        }
         Ok(())
     }
 }

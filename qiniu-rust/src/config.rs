@@ -47,6 +47,9 @@ pub struct ConfigInner {
     upload_file_recorder_key_generator: fn(path: &Path, key: Option<&str>) -> String,
 
     #[get_copy = "pub"]
+    always_flush_records: bool,
+
+    #[get_copy = "pub"]
     uplog_disabled: bool,
 
     #[get_copy = "pub"]
@@ -98,6 +101,7 @@ impl Default for ConfigInner {
                 temp_dir.push("records");
                 temp_dir.into()
             },
+            always_flush_records: false,
             uplog_disabled: false,
             uplog_upload_threshold: 1 << 12,
             max_uplog_file_size: 1 << 22,
@@ -133,6 +137,7 @@ impl fmt::Debug for ConfigInner {
             .field("upload_block_size", &self.upload_block_size)
             .field("upload_block_lifetime", &self.upload_block_lifetime)
             .field("records_dir", &self.records_dir)
+            .field("always_flush_records", &self.always_flush_records)
             .field("uplog_disabled", &self.uplog_disabled)
             .field("uplog_upload_threshold", &self.uplog_upload_threshold)
             .field("max_uplog_file_size", &self.max_uplog_file_size)
