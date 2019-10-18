@@ -118,8 +118,8 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
         self
     }
 
-    pub(super) fn key<K: Into<Cow<'u, str>>>(mut self, key: K) -> ResumeableUploaderBuilder<'u, REC> {
-        self.key = Some(key.into());
+    pub(super) fn key(mut self, key: Cow<'u, str>) -> ResumeableUploaderBuilder<'u, REC> {
+        self.key = Some(key);
         self
     }
 
@@ -148,11 +148,11 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
         self
     }
 
-    pub(super) fn file<'n: 'u, P: Into<Cow<'n, Path>>, N: Into<Cow<'n, str>>>(
+    pub(super) fn file<'n: 'u>(
         self,
         file: File,
-        file_path: P,
-        file_name: Option<N>,
+        file_path: Cow<'n, Path>,
+        file_name: Option<Cow<'n, str>>,
         file_size: u64,
         mime_type: Option<Mime>,
         checksum_enabled: bool,
@@ -162,7 +162,7 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
             bucket_uploader: self.bucket_uploader,
             upload_token: self.upload_token,
             key: self.key,
-            file_path: Some(file_path.into()),
+            file_path: Some(file_path),
             io: file,
             io_size: Some(file_size as usize),
             uploaded_size: AtomicUsize::new(0),
@@ -175,7 +175,7 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
                         .try_into()
                         .unwrap_or_else(|_| usize::max_value()),
                 ),
-                fname: file_name.map(|name| name.into()),
+                fname: file_name,
                 mime_type: mime_type.map(|m| m.as_ref().into()),
                 metadata: self.metadata,
                 custom_vars: self.custom_vars,
@@ -192,11 +192,11 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
         })
     }
 
-    pub(super) fn stream<'n: 'u, R: Read + 'u, N: Into<Cow<'n, str>>>(
+    pub(super) fn stream<'n: 'u, R: Read + 'u>(
         self,
         stream: R,
         mime_type: Option<Mime>,
-        file_name: Option<N>,
+        file_name: Option<Cow<'n, str>>,
         checksum_enabled: bool,
     ) -> IOResult<ResumeableUploader<'u, seek_adapter::SeekAdapter<R>, REC>> {
         Ok(ResumeableUploader {
@@ -212,7 +212,7 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
             block_size: self.bucket_uploader.config().upload_block_size(),
             completed_parts: CompletedParts {
                 parts: Vec::new(),
-                fname: file_name.map(|name| name.into()),
+                fname: file_name,
                 mime_type: mime_type.map(|m| m.as_ref().into()),
                 metadata: self.metadata,
                 custom_vars: self.custom_vars,

@@ -55,26 +55,18 @@ where
         self
     }
 
-    pub(super) fn key<K: Into<Cow<'u, str>>>(mut self, key: K) -> FormUploaderBuilder<'u, REC> {
+    pub(super) fn key(mut self, key: Cow<'u, str>) -> FormUploaderBuilder<'u, REC> {
         self.multipart.add_text("key", key);
         self
     }
 
-    pub(super) fn var<K: AsRef<str>, V: Into<Cow<'u, str>>>(
-        mut self,
-        key: K,
-        value: V,
-    ) -> FormUploaderBuilder<'u, REC> {
-        self.multipart.add_text("x:".to_owned() + key.as_ref(), value);
+    pub(super) fn var(mut self, key: &str, value: Cow<'u, str>) -> FormUploaderBuilder<'u, REC> {
+        self.multipart.add_text("x:".to_owned() + key, value);
         self
     }
 
-    pub(super) fn metadata<K: AsRef<str>, V: Into<Cow<'u, str>>>(
-        mut self,
-        key: K,
-        value: V,
-    ) -> FormUploaderBuilder<'u, REC> {
-        self.multipart.add_text("x-qn-meta-".to_owned() + key.as_ref(), value);
+    pub(super) fn metadata(mut self, key: &str, value: Cow<'u, str>) -> FormUploaderBuilder<'u, REC> {
+        self.multipart.add_text("x-qn-meta-".to_owned() + key, value);
         self
     }
 
@@ -83,10 +75,10 @@ where
         self
     }
 
-    pub(super) fn seekable_stream<'n: 'u, R: Read + Seek + 'u, N: Into<Cow<'n, str>>>(
+    pub(super) fn seekable_stream<'n: 'u, R: Read + Seek + 'u>(
         mut self,
         mut stream: R,
-        file_name: Option<N>,
+        file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
         checksum_enabled: bool,
     ) -> IOResult<FormUploader<'u, REC>> {
@@ -95,23 +87,21 @@ where
             crc32 = Some(crc32::from(&mut stream)?);
             stream.seek(SeekFrom::Start(0))?;
         }
-        self.multipart
-            .add_stream("file", stream, file_name.map(|name| name.into()), mime);
+        self.multipart.add_stream("file", stream, file_name, mime);
         if let Some(crc32) = crc32 {
             self.multipart.add_text("crc32", crc32.to_string());
         }
         self.upload_multipart()
     }
 
-    pub(super) fn stream<'n: 'u, R: Read + 'u, N: Into<Cow<'n, str>>>(
+    pub(super) fn stream<'n: 'u, R: Read + 'u>(
         mut self,
         stream: R,
         mime: Option<Mime>,
-        file_name: Option<N>,
+        file_name: Option<Cow<'n, str>>,
         crc32: Option<u32>,
     ) -> IOResult<FormUploader<'u, REC>> {
-        self.multipart
-            .add_stream("file", stream, file_name.map(|name| name.into()), mime);
+        self.multipart.add_stream("file", stream, file_name, mime);
         if let Some(crc32) = crc32 {
             self.multipart.add_text("crc32", crc32.to_string());
         }

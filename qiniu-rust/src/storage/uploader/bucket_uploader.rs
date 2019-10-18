@@ -199,9 +199,11 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         file_name: Option<N>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
+        let file_path = file_path.as_ref();
+        let file_name = file_name.map(|file_name| file_name.into());
         match self.resumeable_policy {
             ResumeablePolicy::Threshold(threshold) => {
-                if file_path.as_ref().metadata()?.len() > threshold {
+                if file_path.metadata()?.len() > threshold {
                     self.upload_file_by_blocks(file_path, file_name, mime)
                 } else {
                     self.upload_file_by_form(file_path, file_name, mime)
@@ -218,6 +220,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         file_name: Option<N>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
+        let file_name = file_name.map(|file_name| file_name.into());
         match self.resumeable_policy {
             ResumeablePolicy::Threshold(_) | ResumeablePolicy::Always => {
                 self.upload_stream_by_blocks(stream, file_name, mime)
@@ -226,10 +229,10 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         }
     }
 
-    fn upload_file_by_form<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
+    fn upload_file_by_form<'n>(
         self,
-        file_path: P,
-        file_name: Option<N>,
+        file_path: &Path,
+        file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
         let mut uploader = form_uploader::FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
@@ -238,12 +241,12 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         }
         if let Some(vars) = self.vars {
             for (k, v) in vars.into_iter() {
-                uploader = uploader.var(k, v);
+                uploader = uploader.var(&k, v);
             }
         }
         if let Some(metadata) = self.metadata {
             for (k, v) in metadata.into_iter() {
-                uploader = uploader.metadata(k, v);
+                uploader = uploader.metadata(&k, v);
             }
         }
         if let Some(callback) = self.on_uploading_progress {
@@ -251,18 +254,18 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         }
         Ok(uploader
             .seekable_stream(
-                File::open(file_path.as_ref())?,
-                Self::guess_filename(file_path.as_ref(), file_name),
-                Self::guess_mime_from_file_path(mime, file_path.as_ref()),
+                File::open(file_path)?,
+                Self::guess_filename(file_path, file_name),
+                Self::guess_mime_from_file_path(mime, file_path),
                 self.checksum_enabled,
             )?
             .send()?)
     }
 
-    fn upload_file_by_blocks<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
+    fn upload_file_by_blocks<'n>(
         self,
-        file_path: P,
-        file_name: Option<N>,
+        file_path: &Path,
+        file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
         let mut uploader =
@@ -280,18 +283,18 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
             uploader = uploader.on_uploading_progress(callback);
         }
         let mut uploader = uploader.file(
-            File::open(file_path.as_ref())?,
-            file_path.as_ref(),
-            Self::guess_filename(file_path.as_ref(), file_name),
-            file_path.as_ref().metadata()?.len(),
-            Self::guess_mime_from_file_path(mime, file_path.as_ref()),
+            File::open(file_path)?,
+            file_path.into(),
+            Self::guess_filename(file_path, file_name),
+            file_path.metadata()?.len(),
+            Self::guess_mime_from_file_path(mime, file_path),
             self.checksum_enabled,
         )?;
         Self::prepare_for_resuming(
             self.key.as_ref().map(|key| key.as_ref()),
             &self.bucket_uploader.recorder,
             &mut uploader,
-            file_path.as_ref(),
+            file_path,
         )?;
         Ok(uploader.send()?)
     }
@@ -308,10 +311,10 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         Ok(())
     }
 
-    fn upload_stream_by_form<'n, R: Read, N: Into<Cow<'n, str>>>(
+    fn upload_stream_by_form<'n, R: Read>(
         self,
         stream: R,
-        file_name: Option<N>,
+        file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
         let mut uploader = form_uploader::FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
@@ -320,18 +323,17 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         }
         if let Some(vars) = self.vars {
             for (k, v) in vars.into_iter() {
-                uploader = uploader.var(k, v);
+                uploader = uploader.var(&k, v);
             }
         }
         if let Some(metadata) = self.metadata {
             for (k, v) in metadata.into_iter() {
-                uploader = uploader.metadata(k, v);
+                uploader = uploader.metadata(&k, v);
             }
         }
         if let Some(callback) = self.on_uploading_progress {
             uploader = uploader.on_uploading_progress(callback);
         }
-        let file_name = file_name.map(|name| name.into());
         Ok(uploader
             .stream(
                 stream,
@@ -342,10 +344,10 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
             .send()?)
     }
 
-    fn upload_stream_by_blocks<'n, R: Read, N: Into<Cow<'n, str>>>(
+    fn upload_stream_by_blocks<'n, R: Read>(
         self,
         stream: R,
-        file_name: Option<N>,
+        file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
         let mut uploader =
@@ -362,7 +364,6 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         if let Some(callback) = self.on_uploading_progress {
             uploader = uploader.on_uploading_progress(callback);
         }
-        let file_name = file_name.map(|name| name.into());
         Ok(uploader
             .stream(
                 stream,
@@ -373,20 +374,16 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
             .send()?)
     }
 
-    fn guess_filename<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
-        file_path: P,
-        file_name: Option<N>,
-    ) -> Option<Cow<'n, str>> {
+    fn guess_filename<'n>(file_path: &Path, file_name: Option<Cow<'n, str>>) -> Option<Cow<'n, str>> {
         file_name.map(|name| name.into()).or_else(|| {
             file_path
-                .as_ref()
                 .file_name()
                 .and_then(|name| name.to_str())
                 .map(|name| name.to_owned().into())
         })
     }
 
-    fn guess_mime_from_file_path<P: AsRef<Path>>(mime: Option<Mime>, file_path: P) -> Option<Mime> {
+    fn guess_mime_from_file_path(mime: Option<Mime>, file_path: &Path) -> Option<Mime> {
         mime.or_else(|| mime_guess::from_path(file_path).first())
     }
 
