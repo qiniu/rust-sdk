@@ -1,10 +1,14 @@
-use qiniu_http::{HTTPCaller, Headers, Method, Request, Response, ResponseBuilder, Result, StatusCode};
+use qiniu_http::{
+    Error as HTTPError, HTTPCaller, HTTPCallerError, HTTPCallerErrorKind, Headers, Method, Request, Response,
+    ResponseBuilder, Result, StatusCode,
+};
+use rand::{thread_rng, Rng};
 use regex::Regex;
 use serde::Serialize;
 use std::{
     borrow::Cow,
     boxed::Box,
-    io::Cursor,
+    io::{Cursor, Error as IOError, ErrorKind as IOErrorKind},
     marker::{Send, Sync},
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -12,19 +16,13 @@ use std::{
     },
 };
 
-pub struct JSONCallMock<T>
-where
-    T: Serialize,
-{
+pub struct JSONCallMock<T: Serialize> {
     status_code: StatusCode,
     response_headers: Headers<'static>,
     response_body: T,
 }
 
-impl<T> JSONCallMock<T>
-where
-    T: Serialize,
-{
+impl<T: Serialize> JSONCallMock<T> {
     pub fn new(status_code: StatusCode, headers: Headers<'static>, response_body: T) -> JSONCallMock<T> {
         JSONCallMock {
             status_code: status_code,
@@ -34,10 +32,7 @@ where
     }
 }
 
-impl<T> HTTPCaller for JSONCallMock<T>
-where
-    T: Serialize,
-{
+impl<T: Serialize> HTTPCaller for JSONCallMock<T> {
     fn call(&self, _request: &Request) -> Result<Response> {
         let mut headers = self.response_headers.to_owned();
         headers.insert("Content-Type".into(), "application/json".into());
@@ -50,26 +45,17 @@ where
     }
 }
 
-struct CounterCallMockInner<T>
-where
-    T: HTTPCaller,
-{
+struct CounterCallMockInner<T: HTTPCaller> {
     caller: T,
     call_counter: AtomicUsize,
 }
 
 #[derive(Clone)]
-pub struct CounterCallMock<T>
-where
-    T: HTTPCaller,
-{
+pub struct CounterCallMock<T: HTTPCaller> {
     inner: Arc<CounterCallMockInner<T>>,
 }
 
-impl<T> CounterCallMock<T>
-where
-    T: HTTPCaller,
-{
+impl<T: HTTPCaller> CounterCallMock<T> {
     pub fn new(caller: T) -> CounterCallMock<T> {
         CounterCallMock {
             inner: Arc::new(CounterCallMockInner {
@@ -90,10 +76,7 @@ where
     }
 }
 
-impl<T> HTTPCaller for CounterCallMock<T>
-where
-    T: HTTPCaller,
-{
+impl<T: HTTPCaller> HTTPCaller for CounterCallMock<T> {
     fn call(&self, request: &Request) -> Result<Response> {
         self.inner.call_counter.fetch_add(1, Ordering::SeqCst);
         self.inner.caller.call(request)
@@ -172,6 +155,10 @@ impl CallHandlers {
         });
         self
     }
+
+    pub fn as_boxed(self) -> Box<Self> {
+        Box::new(self)
+    }
 }
 
 impl HTTPCaller for CallHandlers {
@@ -183,5 +170,56 @@ impl HTTPCaller for CallHandlers {
             }
         }
         (self.default)(request)
+    }
+}
+
+pub struct UploadingProgressErrorMock<T: HTTPCaller> {
+    caller: T,
+    packet_size: usize,
+    uploading_failure_probability: f64,
+}
+
+impl<T: HTTPCaller> UploadingProgressErrorMock<T> {
+    pub fn new(caller: T, packet_size: usize, uploading_failure_probability: f64) -> UploadingProgressErrorMock<T> {
+        UploadingProgressErrorMock {
+            caller: caller,
+            packet_size: packet_size,
+            uploading_failure_probability: uploading_failure_probability,
+        }
+    }
+
+    pub fn as_boxed(self) -> Box<Self> {
+        Box::new(self)
+    }
+}
+
+impl<T: HTTPCaller> HTTPCaller for UploadingProgressErrorMock<T> {
+    fn call(&self, request: &Request) -> Result<Response> {
+        let mut rng = thread_rng();
+        let total_size = request.body().map(|body| body.len()).unwrap_or(0) as usize;
+        for i in 1..=total_size {
+            if i % self.packet_size != total_size % self.packet_size {
+                continue;
+            }
+            if rng.gen_range(
+                0u64,
+                ((1.max(total_size / self.packet_size) as f64) / self.uploading_failure_probability) as u64,
+            ) == 0
+            {
+                return Err(HTTPError::new_retryable_error(
+                    HTTPCallerError::new(
+                        HTTPCallerErrorKind::RequestError,
+                        IOError::new(IOErrorKind::TimedOut, "Custom error"),
+                    ),
+                    true,
+                    request,
+                    None,
+                ));
+            }
+            if let Some(on_uploading_progress) = request.on_uploading_progress() {
+                (on_uploading_progress)(i, total_size);
+            }
+        }
+        self.caller.call(request)
     }
 }

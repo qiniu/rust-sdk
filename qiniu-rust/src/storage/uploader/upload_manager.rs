@@ -6,9 +6,9 @@ use super::{
         upload_policy::UploadPolicy,
         upload_token::UploadToken,
     },
-    BucketUploader, FileUploaderBuilder,
+    BucketUploaderBuilder, FileUploaderBuilder,
 };
-use crate::{config::Config, credential::Credential};
+use crate::{config::Config, credential::Credential, utils::ron::Ron};
 use std::{borrow::Cow, io::Result as IOResult};
 
 pub struct UploadManager {
@@ -25,8 +25,8 @@ impl UploadManager {
     }
 
     // TODO: ADD CUSTOMIZED RECORDER METHOD
-    pub fn for_bucket<'b>(&self, bucket: &Bucket) -> IOResult<BucketUploader<'b, FileSystemRecorder<'b>>> {
-        BucketUploader::new(
+    pub fn for_bucket<'b>(&self, bucket: &Bucket) -> IOResult<BucketUploaderBuilder<'b, FileSystemRecorder<'b>>> {
+        BucketUploaderBuilder::new(
             bucket.name().to_owned(),
             bucket
                 .regions()
@@ -60,7 +60,7 @@ impl UploadManager {
     pub fn for_bucket_name<'b, B: Into<Cow<'b, str>>>(
         &self,
         bucket_name: B,
-    ) -> IOResult<BucketUploader<'b, FileSystemRecorder<'b>>> {
+    ) -> IOResult<BucketUploaderBuilder<'b, FileSystemRecorder<'b>>> {
         self.for_bucket(&BucketBuilder::new(bucket_name, self.credential.clone(), self.config.clone()).build())
     }
 
@@ -72,7 +72,7 @@ impl UploadManager {
         let policy = upload_token.policy()?;
         if let Some(bucket_name) = policy.bucket() {
             Ok(FileUploaderBuilder::new(
-                Cow::Owned(self.for_bucket_name(bucket_name.to_owned())?),
+                Ron::Owned(self.for_bucket_name(bucket_name.to_owned())?.build()),
                 upload_token,
             ))
         } else {

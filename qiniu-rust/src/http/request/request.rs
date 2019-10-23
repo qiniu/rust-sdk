@@ -116,11 +116,14 @@ impl<'a> Request<'a> {
                     method: self.parts.method,
                     host: choice.url,
                     path: self.parts.path,
-                }) {
-                Ok(mut response) => {
+                })
+                .and_then(|mut response| {
                     if let Some(on_response) = &self.parts.on_response {
                         (on_response)(&mut response, timer.elapsed())?;
                     }
+                    Ok(response)
+                }) {
+                Ok(response) => {
                     return Ok(response);
                 }
                 Err(err) => match err.retry_kind() {

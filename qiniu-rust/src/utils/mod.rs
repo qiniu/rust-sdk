@@ -3,4 +3,5 @@ pub(crate) mod bool;
 pub(crate) mod crc32;
 pub mod etag;
 pub(crate) mod mime;
+pub(crate) mod ron;
 pub(crate) mod seek_adapter;

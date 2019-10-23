@@ -11,10 +11,13 @@ mod tests {
     use serde_json::json;
     use std::{
         boxed::Box,
-        cell::Cell,
         error::Error,
         io::{Seek, SeekFrom},
         result::Result,
+        sync::atomic::{
+            AtomicUsize,
+            Ordering::{AcqRel, Acquire},
+        },
     };
 
     #[test]
@@ -52,7 +55,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
-        let last_uploaded = Cell::new(0);
+        let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config.clone())
             .upload()
             .for_upload_policy(policy)?
@@ -63,12 +66,11 @@ mod tests {
             .metadata("metadata_key2", "metadata_value2")
             .on_progress(&|uploaded, total| {
                 assert!(total > (1 << 19));
-                assert!(uploaded >= last_uploaded.get());
-                last_uploaded.set(uploaded);
+                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))?;
 
-        assert!(last_uploaded.get() > (1 << 19));
+        assert!(last_uploaded.load(Acquire) > (1 << 19));
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -79,7 +81,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &Config::default())
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
-        let last_uploaded = Cell::new(0);
+        let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config)
             .upload()
             .for_upload_policy(policy)?
@@ -91,12 +93,11 @@ mod tests {
             .metadata("metadata_key2", "metadata_value2")
             .on_progress(&|uploaded, total| {
                 assert_eq!(total, 1 << 19);
-                assert!(uploaded >= last_uploaded.get());
-                last_uploaded.set(uploaded);
+                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))?;
 
-        assert_eq!(last_uploaded.get(), 1 << 19);
+        assert_eq!(last_uploaded.load(Acquire), 1 << 19);
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -114,7 +115,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fsize\":$(fsize)}")
             .build();
-        let last_uploaded = Cell::new(0);
+        let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config)
             .upload()
             .for_upload_policy(policy)?
@@ -125,12 +126,11 @@ mod tests {
             .metadata("metadata_key2", "metadata_value2")
             .on_progress(&|uploaded, total| {
                 assert_eq!(total, (1 << 28) + (1 << 20));
-                assert!(uploaded >= last_uploaded.get());
-                last_uploaded.set(uploaded);
+                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_file(&temp_path, Some("257m"), Some(mime::IMAGE_PNG))?;
 
-        assert_eq!(last_uploaded.get(), (1 << 28) + (1 << 20));
+        assert_eq!(last_uploaded.load(Acquire), (1 << 28) + (1 << 20));
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("fsize"), Some(&json!((1 << 28) + (1 << 20))));
@@ -146,7 +146,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
-        let last_uploaded = Cell::new(0);
+        let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config.clone())
             .upload()
             .for_upload_policy(policy)?
@@ -154,12 +154,11 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
                 assert!(total > (1 << 20));
-                assert!(uploaded >= last_uploaded.get());
-                last_uploaded.set(uploaded);
+                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_file(&temp_path, Some("1m"), Some(mime::IMAGE_PNG))?;
 
-        assert!(last_uploaded.get() > (1 << 20));
+        assert!(last_uploaded.load(Acquire) > (1 << 20));
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -168,7 +167,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
-        let last_uploaded = Cell::new(0);
+        let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config)
             .upload()
             .for_upload_policy(policy)?
@@ -177,12 +176,11 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
                 assert_eq!(total, 1 << 20);
-                assert!(uploaded >= last_uploaded.get());
-                last_uploaded.set(uploaded);
+                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_file(&temp_path, Some("1m"), Some(mime::IMAGE_PNG))?;
 
-        assert_eq!(last_uploaded.get(), 1 << 20);
+        assert_eq!(last_uploaded.load(Acquire), (1 << 20));
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -201,7 +199,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
-        let last_uploaded = Cell::new(0);
+        let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config.clone())
             .upload()
             .for_upload_policy(policy)?
@@ -210,12 +208,11 @@ mod tests {
             .never_be_resumeable()
             .on_progress(&|uploaded, total| {
                 assert!(total > (1 << 21));
-                assert!(uploaded >= last_uploaded.get());
-                last_uploaded.set(uploaded);
+                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_stream(&file, None::<String>, None)?;
 
-        assert!(last_uploaded.get() > (1 << 21));
+        assert!(last_uploaded.load(Acquire) > (1 << 21));
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("fname"), Some(&json!("")));

@@ -2,6 +2,7 @@ use crate::config::Config;
 use delegate::delegate;
 use std::{
     borrow::Cow,
+    env::temp_dir,
     fs::{create_dir_all, remove_file, File, OpenOptions},
     io::{Read, Result, Write},
     path::{Path, PathBuf},
@@ -13,7 +14,7 @@ pub trait Recorder: Clone {
     fn delete<ID: AsRef<str>>(&self, id: ID) -> Result<()>;
 }
 
-pub trait RecordMedium: Read + Write {}
+pub trait RecordMedium: Read + Write + Send {}
 
 #[derive(Clone)]
 pub struct FileSystemRecorder<'r> {
@@ -38,6 +39,14 @@ impl<'r> FileSystemRecorder<'r> {
         Ok(FileSystemRecorder {
             root_directory: Cow::Owned(root_directory),
         })
+    }
+}
+
+impl Default for FileSystemRecorder<'_> {
+    fn default() -> Self {
+        let mut temp_dir = temp_dir();
+        temp_dir.push("upload_records");
+        Self::new(temp_dir)
     }
 }
 

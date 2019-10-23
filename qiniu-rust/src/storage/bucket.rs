@@ -1,7 +1,7 @@
 use super::{
     recorder::FileSystemRecorder,
     region::{Region, RegionId},
-    uploader::{BucketUploader, UploadManager},
+    uploader::{BucketUploaderBuilder, UploadManager},
 };
 use crate::{config::Config, credential::Credential, http};
 use once_cell::sync::OnceCell;
@@ -156,7 +156,7 @@ impl<'r> Bucket<'r> {
     }
 
     // TODO: ADD CUSTOMIZED RECORDER METHOD
-    pub fn uploader(&self) -> IOResult<BucketUploader<FileSystemRecorder>> {
+    pub fn uploader(&self) -> IOResult<BucketUploaderBuilder<FileSystemRecorder>> {
         UploadManager::new(self.credential.clone(), self.config.clone()).for_bucket(self)
     }
 

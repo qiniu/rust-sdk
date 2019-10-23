@@ -206,7 +206,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{super::super::upload_policy::UploadPolicyBuilder, *};
+    use super::{
+        super::{super::upload_policy::UploadPolicyBuilder, BucketUploaderBuilder},
+        *,
+    };
     use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
     use qiniu_http::Headers;
     use qiniu_test_utils::{
@@ -230,7 +233,7 @@ mod tests {
             .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        let result = BucketUploader::new(
+        let result = BucketUploaderBuilder::new(
             "test_bucket",
             vec![
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
@@ -239,6 +242,7 @@ mod tests {
             get_credential(),
             config,
         )?
+        .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .upload_file(&temp_path, Some("file"), None)?;
@@ -259,7 +263,7 @@ mod tests {
             .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        BucketUploader::new(
+        BucketUploaderBuilder::new(
             "test_bucket",
             vec![
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
@@ -268,6 +272,7 @@ mod tests {
             get_credential(),
             config,
         )?
+        .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .upload_file(&temp_path, Some("file"), None)
@@ -287,7 +292,7 @@ mod tests {
             .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        BucketUploader::new(
+        BucketUploaderBuilder::new(
             "test_bucket",
             vec![
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
@@ -296,6 +301,7 @@ mod tests {
             get_credential(),
             config,
         )?
+        .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .upload_file(&temp_path, Some("file"), None)
@@ -315,7 +321,7 @@ mod tests {
             .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        BucketUploader::new(
+        BucketUploaderBuilder::new(
             "test_bucket",
             vec![
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
@@ -324,6 +330,7 @@ mod tests {
             get_credential(),
             config,
         )?
+        .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .never_be_resumeable()
@@ -344,7 +351,7 @@ mod tests {
             .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        BucketUploader::new(
+        BucketUploaderBuilder::new(
             "test_bucket",
             vec![
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
@@ -353,6 +360,7 @@ mod tests {
             get_credential(),
             config,
         )?
+        .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .never_be_resumeable()
@@ -373,7 +381,7 @@ mod tests {
             .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        BucketUploader::new(
+        BucketUploaderBuilder::new(
             "test_bucket",
             vec![
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
@@ -382,6 +390,7 @@ mod tests {
             get_credential(),
             config,
         )?
+        .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .never_be_resumeable()

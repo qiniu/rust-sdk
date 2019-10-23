@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     io::{BufRead, BufReader, Error, ErrorKind, Result, Write},
     path::Path,
+    sync::Mutex,
     time::{Duration, SystemTime},
 };
 
@@ -22,11 +23,11 @@ pub(super) struct FileUploadRecorder<M>
 where
     M: RecordMedium,
 {
-    medium: M,
+    medium: Mutex<M>,
     always_flush_records: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub(super) struct FileRecord {
     file_size: u64,
     modified_timestamp: u64,
@@ -34,12 +35,28 @@ pub(super) struct FileRecord {
     pub(super) up_urls: Box<[Box<str>]>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
+struct SerializableFileRecord<'a> {
+    file_size: u64,
+    modified_timestamp: u64,
+    upload_id: &'a str,
+    up_urls: &'a [&'a str],
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub(super) struct FileBlockRecord {
     pub(super) etag: Box<str>,
     pub(super) part_number: usize,
     created_timestamp: u64,
     pub(super) block_size: u64,
+}
+
+#[derive(Serialize, Debug, Clone)]
+struct SerializableFileBlockRecord<'a> {
+    etag: &'a str,
+    part_number: usize,
+    created_timestamp: u64,
+    block_size: u64,
 }
 
 impl<R> UploadRecorder<R>
@@ -63,15 +80,15 @@ where
         up_urls: &[&str],
     ) -> Result<FileUploadRecorder<R::Medium>> {
         let metadata = path.metadata()?;
-        let record = FileRecord {
+        let record = SerializableFileRecord {
             file_size: metadata.len(),
             modified_timestamp: metadata
                 .modified()?
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .expect("Incorrect last modification time in file metadata")
                 .as_secs(),
-            upload_id: upload_id.into(),
-            up_urls: up_urls.into_iter().map(|&up_url| up_url.into()).collect::<Box<[_]>>(),
+            upload_id: upload_id,
+            up_urls: up_urls,
         };
         let mut medium = self.recorder.open((self.key_generator)(path, key), true)?;
         let mut record = serde_json::to_string(&record).map_err(|err| Error::new(ErrorKind::Other, err))?;
@@ -81,14 +98,14 @@ where
             medium.flush()?;
         }
         Ok(FileUploadRecorder {
-            medium: medium,
+            medium: Mutex::new(medium),
             always_flush_records: self.always_flush_records,
         })
     }
 
     pub(super) fn open_for_appending(&self, path: &Path, key: Option<&str>) -> Result<FileUploadRecorder<R::Medium>> {
         Ok(FileUploadRecorder {
-            medium: self.recorder.open((self.key_generator)(path, key), false)?,
+            medium: Mutex::new(self.recorder.open((self.key_generator)(path, key), false)?),
             always_flush_records: self.always_flush_records,
         })
     }
@@ -144,9 +161,9 @@ impl<M> FileUploadRecorder<M>
 where
     M: RecordMedium,
 {
-    pub(super) fn append_record(&mut self, etag: &str, part_number: usize, block_size: u64) -> Result<()> {
-        let mut record = serde_json::to_string(&FileBlockRecord {
-            etag: etag.into(),
+    pub(super) fn append_record(&self, etag: &str, part_number: usize, block_size: u64) -> Result<()> {
+        let mut record = serde_json::to_string(&SerializableFileBlockRecord {
+            etag: etag,
             part_number: part_number,
             created_timestamp: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
@@ -156,9 +173,10 @@ where
         })
         .map_err(|err| Error::new(ErrorKind::Other, err))?;
         record.push_str("\n");
-        self.medium.write_all(record.as_bytes())?;
+        let mut medium = self.medium.lock().unwrap();
+        medium.write_all(record.as_bytes())?;
         if self.always_flush_records {
-            self.medium.flush()?;
+            medium.flush()?;
         }
         Ok(())
     }
