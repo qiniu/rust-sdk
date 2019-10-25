@@ -4,7 +4,7 @@ mod tests {
     use qiniu::{
         storage::{upload_policy::UploadPolicyBuilder, uploader::UploadErrorKind},
         utils::etag,
-        Client, Config,
+        Client, Config, ConfigBuilder,
     };
     use qiniu_http::ErrorKind as HTTPErrorKind;
     use qiniu_test_utils::{env, temp_file::create_temp_file};
@@ -108,8 +108,9 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_upload_large_file_with_key() -> Result<(), Box<dyn Error>> {
+        const FILE_SIZE: usize = (1 << 28) + (1 << 20);
         let config = Config::default();
-        let temp_path = create_temp_file((1 << 28) + (1 << 20))?.into_temp_path();
+        let temp_path = create_temp_file(FILE_SIZE)?.into_temp_path();
         let etag = etag::from_file(&temp_path)?;
         let key = format!("test-257m-{}", Utc::now().timestamp_nanos());
         let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config)
@@ -125,15 +126,49 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
             .on_progress(&|uploaded, total| {
-                assert_eq!(total, (1 << 28) + (1 << 20));
+                assert_eq!(total, FILE_SIZE);
                 assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_file(&temp_path, Some("257m"), Some(mime::IMAGE_PNG))?;
 
-        assert_eq!(last_uploaded.load(Acquire), (1 << 28) + (1 << 20));
+        assert_eq!(last_uploaded.load(Acquire), FILE_SIZE);
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
-        assert_eq!(result.get("fsize"), Some(&json!((1 << 28) + (1 << 20))));
+        assert_eq!(result.get("fsize"), Some(&json!(FILE_SIZE)));
+        // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_uploader_upload_file_with_only_one_part() -> Result<(), Box<dyn Error>> {
+        const FILE_SIZE: usize = (1 << 22) + (1 << 20) + (1 << 10) + 1;
+        let config = ConfigBuilder::default().upload_block_size(1 << 30).build().unwrap();
+        let temp_path = create_temp_file(FILE_SIZE)?.into_temp_path();
+        let etag = etag::from_file(&temp_path)?;
+        let key = format!("test-5m-{}", Utc::now().timestamp_nanos());
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config)
+            .return_body("{\"hash\":$(etag),\"key\":$(key),\"fsize\":$(fsize)}")
+            .build();
+        let last_uploaded = AtomicUsize::new(0);
+        let result = get_client(config)
+            .upload()
+            .for_upload_policy(policy)?
+            .always_be_resumeable()
+            .key(&key)
+            .var("var_key1", "var_value1")
+            .var("var_key2", "var_value2")
+            .metadata("metadata_key1", "metadata_value1")
+            .metadata("metadata_key2", "metadata_value2")
+            .on_progress(&|uploaded, total| {
+                assert_eq!(total, FILE_SIZE);
+                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+            })
+            .upload_file(&temp_path, Some("5m"), Some(mime::IMAGE_PNG))?;
+
+        assert_eq!(last_uploaded.load(Acquire), FILE_SIZE);
+        assert_eq!(result.key(), Some(key.as_str()));
+        assert_eq!(result.hash(), Some(etag.as_str()));
+        assert_eq!(result.get("fsize"), Some(&json!(FILE_SIZE)));
         // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
         Ok(())
     }
