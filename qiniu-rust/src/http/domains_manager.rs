@@ -1,6 +1,5 @@
 use super::super::storage::region::Region;
 use chashmap::CHashMap;
-use getset::{CopyGetters, Getters};
 use rand::{rngs::ThreadRng, seq::SliceRandom};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -19,42 +18,32 @@ use std::{
 use url::Url;
 
 #[derive(Debug, Clone)]
-struct Resolutions {
+struct CachedResolutions {
     socket_addrs: Box<[SocketAddr]>,
     cache_deadline: SystemTime,
 }
 
-#[derive(Debug, Clone, Getters, CopyGetters)]
-pub struct DomainsManagerValue {
+#[derive(Debug, Clone)]
+struct DomainsManagerInnerData {
     frozen_urls: CHashMap<Box<str>, SystemTime>,
-    resolutions: CHashMap<Box<str>, Resolutions>,
-
-    #[get_copy = "pub"]
-    frozen_urls_duration: Duration,
-
-    #[get_copy = "pub"]
+    resolutions: CHashMap<Box<str>, CachedResolutions>,
+    url_frozen_duration: Duration,
     resolutions_cache_lifetime: Duration,
-
-    #[get_copy = "pub"]
     disable_url_resolution: bool,
-
-    #[get_copy = "pub"]
     persistent_interval: Option<Duration>,
-
-    #[get_copy = "pub"]
-    refresh_interval: Option<Duration>,
+    refresh_resolutions_interval: Option<Duration>,
 }
 
-impl Default for DomainsManagerValue {
+impl Default for DomainsManagerInnerData {
     fn default() -> Self {
-        DomainsManagerValue {
+        DomainsManagerInnerData {
             frozen_urls: CHashMap::new(),
             resolutions: CHashMap::new(),
-            frozen_urls_duration: Duration::from_secs(10 * 60),
+            url_frozen_duration: Duration::from_secs(10 * 60),
             resolutions_cache_lifetime: Duration::from_secs(60 * 60),
             disable_url_resolution: false,
             persistent_interval: Some(Duration::from_secs(30 * 60)),
-            refresh_interval: Some(Duration::from_secs(30 * 60)),
+            refresh_resolutions_interval: Some(Duration::from_secs(30 * 60)),
         }
     }
 }
@@ -63,11 +52,11 @@ impl Default for DomainsManagerValue {
 struct PersistentDomainsManager {
     frozen_urls: Vec<PersistentFrozenURL>,
     resolutions: Vec<PersistentResolutions>,
-    frozen_urls_duration: Duration,
+    url_frozen_duration: Duration,
     resolutions_cache_lifetime: Duration,
     disable_url_resolution: bool,
     persistent_interval: Option<Duration>,
-    refresh_interval: Option<Duration>,
+    refresh_resolutions_interval: Option<Duration>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -83,7 +72,7 @@ struct PersistentResolutions {
     cache_deadline: SystemTime,
 }
 
-impl DomainsManagerValue {
+impl DomainsManagerInnerData {
     fn load_from_file(path: &Path) -> persistent_error::Result<Self> {
         let persistent: PersistentDomainsManager = serde_json::from_reader(File::open(path)?)?;
         Ok(persistent.into())
@@ -99,16 +88,16 @@ impl DomainsManagerValue {
     }
 }
 
-impl From<PersistentDomainsManager> for DomainsManagerValue {
+impl From<PersistentDomainsManager> for DomainsManagerInnerData {
     fn from(persistent: PersistentDomainsManager) -> Self {
-        let domains_manager = DomainsManagerValue {
+        let domains_manager = DomainsManagerInnerData {
             frozen_urls: CHashMap::new(),
             resolutions: CHashMap::new(),
-            frozen_urls_duration: persistent.frozen_urls_duration,
+            url_frozen_duration: persistent.url_frozen_duration,
             resolutions_cache_lifetime: persistent.resolutions_cache_lifetime,
             disable_url_resolution: persistent.disable_url_resolution,
             persistent_interval: persistent.persistent_interval,
-            refresh_interval: persistent.refresh_interval,
+            refresh_resolutions_interval: persistent.refresh_resolutions_interval,
         };
 
         for item in persistent.frozen_urls {
@@ -117,7 +106,7 @@ impl From<PersistentDomainsManager> for DomainsManagerValue {
         for item in persistent.resolutions {
             domains_manager.resolutions.insert(
                 item.base_url,
-                Resolutions {
+                CachedResolutions {
                     socket_addrs: item.socket_addrs,
                     cache_deadline: item.cache_deadline,
                 },
@@ -128,16 +117,16 @@ impl From<PersistentDomainsManager> for DomainsManagerValue {
     }
 }
 
-impl From<DomainsManagerValue> for PersistentDomainsManager {
-    fn from(domains_manager: DomainsManagerValue) -> Self {
+impl From<DomainsManagerInnerData> for PersistentDomainsManager {
+    fn from(domains_manager: DomainsManagerInnerData) -> Self {
         let mut persistent = PersistentDomainsManager {
             frozen_urls: Vec::with_capacity(domains_manager.frozen_urls.len()),
             resolutions: Vec::with_capacity(domains_manager.resolutions.len()),
-            frozen_urls_duration: domains_manager.frozen_urls_duration,
+            url_frozen_duration: domains_manager.url_frozen_duration,
             resolutions_cache_lifetime: domains_manager.resolutions_cache_lifetime,
             disable_url_resolution: domains_manager.disable_url_resolution,
             persistent_interval: domains_manager.persistent_interval,
-            refresh_interval: domains_manager.refresh_interval,
+            refresh_resolutions_interval: domains_manager.refresh_resolutions_interval,
         };
 
         for (base_url, frozen_until) in domains_manager.frozen_urls {
@@ -159,39 +148,39 @@ impl From<DomainsManagerValue> for PersistentDomainsManager {
 }
 
 pub struct DomainsManagerBuilder {
-    value: DomainsManagerValue,
+    inner_data: DomainsManagerInnerData,
     pre_resolve_urls: Vec<Cow<'static, str>>,
     persistent_file_path: Option<PathBuf>,
 }
 
 impl DomainsManagerBuilder {
-    pub fn frozen_urls_duration(mut self, frozen_urls_duration: Duration) -> Self {
-        self.value.frozen_urls_duration = frozen_urls_duration;
+    pub fn url_frozen_duration(mut self, url_frozen_duration: Duration) -> Self {
+        self.inner_data.url_frozen_duration = url_frozen_duration;
         self
     }
 
     pub fn resolutions_cache_lifetime(mut self, resolutions_cache_lifetime: Duration) -> Self {
-        self.value.resolutions_cache_lifetime = resolutions_cache_lifetime;
+        self.inner_data.resolutions_cache_lifetime = resolutions_cache_lifetime;
         self
     }
 
     pub fn disable_url_resolution(mut self) -> Self {
-        self.value.disable_url_resolution = true;
+        self.inner_data.disable_url_resolution = true;
         self
     }
 
     pub fn enable_url_resolution(mut self) -> Self {
-        self.value.disable_url_resolution = false;
+        self.inner_data.disable_url_resolution = false;
         self
     }
 
     pub fn auto_persistent_interval(mut self, persistent_interval: Duration) -> Self {
-        self.value.persistent_interval = Some(persistent_interval);
+        self.inner_data.persistent_interval = Some(persistent_interval);
         self
     }
 
     pub fn disable_auto_persistent(mut self) -> Self {
-        self.value.persistent_interval = None;
+        self.inner_data.persistent_interval = None;
         self
     }
 
@@ -208,7 +197,7 @@ impl DomainsManagerBuilder {
     pub fn build(self) -> DomainsManager {
         let domains_manager = DomainsManager {
             inner: Arc::new(DomainsManagerInner {
-                value: self.value,
+                inner_data: self.inner_data,
                 persistent_file_path: self.persistent_file_path,
                 last_persistent_time: Mutex::new(Instant::now()),
                 last_refresh_time: Mutex::new(Instant::now()),
@@ -217,7 +206,7 @@ impl DomainsManagerBuilder {
         if !self.pre_resolve_urls.is_empty() {
             domains_manager.async_resolve_urls(self.pre_resolve_urls);
         }
-        domains_manager.async_refresh_resolutions();
+        domains_manager.async_refresh_resolutions_without_update_refresh_time();
         domains_manager
     }
 
@@ -268,9 +257,9 @@ impl DomainsManagerBuilder {
         persistent_file_path: P,
     ) -> persistent_error::Result<DomainsManagerBuilder> {
         let persistent_file_path = persistent_file_path.into();
-        let value = DomainsManagerValue::load_from_file(&persistent_file_path)?;
+        let inner_data = DomainsManagerInnerData::load_from_file(&persistent_file_path)?;
         Ok(DomainsManagerBuilder {
-            value: value,
+            inner_data: inner_data,
             persistent_file_path: Some(persistent_file_path),
             pre_resolve_urls: vec![],
         })
@@ -278,7 +267,7 @@ impl DomainsManagerBuilder {
 
     pub fn create_new<P: Into<PathBuf>>(persistent_file_path: Option<P>) -> DomainsManagerBuilder {
         DomainsManagerBuilder {
-            value: Default::default(),
+            inner_data: Default::default(),
             persistent_file_path: persistent_file_path.map(|path| path.into()),
             pre_resolve_urls: Self::default_pre_resolve_urls(),
         }
@@ -293,14 +282,14 @@ impl Default for DomainsManagerBuilder {
             path
         };
 
-        DomainsManagerValue::load_from_file(&persistent_file_path)
-            .map(|value| DomainsManagerBuilder {
-                value: value,
+        DomainsManagerInnerData::load_from_file(&persistent_file_path)
+            .map(|inner_data| DomainsManagerBuilder {
+                inner_data: inner_data,
                 persistent_file_path: Some(persistent_file_path.to_owned()),
                 pre_resolve_urls: vec![],
             })
             .unwrap_or_else(|_| DomainsManagerBuilder {
-                value: Default::default(),
+                inner_data: Default::default(),
                 persistent_file_path: Some(persistent_file_path),
                 pre_resolve_urls: Self::default_pre_resolve_urls(),
             })
@@ -309,7 +298,7 @@ impl Default for DomainsManagerBuilder {
 
 #[derive(Debug)]
 struct DomainsManagerInner {
-    value: DomainsManagerValue,
+    inner_data: DomainsManagerInnerData,
     persistent_file_path: Option<PathBuf>,
     last_persistent_time: Mutex<Instant>,
     last_refresh_time: Mutex<Instant>,
@@ -333,7 +322,7 @@ impl DomainsManager {
     }
 
     fn try_to_persistent_if_needed(&self) {
-        if let Some(persistent_interval) = self.inner.value.persistent_interval {
+        if let Some(persistent_interval) = self.inner.inner_data.persistent_interval {
             let mut last_persistent_time = self.inner.last_persistent_time.lock().unwrap();
             if last_persistent_time.elapsed() > persistent_interval {
                 let _ = self.persistent_without_lock();
@@ -344,7 +333,7 @@ impl DomainsManager {
 
     fn persistent_without_lock(&self) -> Option<persistent_error::Result<()>> {
         if let Some(persistent_file_path) = &self.inner.persistent_file_path {
-            return Some(self.inner.value.save_to_file(persistent_file_path));
+            return Some(self.inner.inner_data.save_to_file(persistent_file_path));
         }
         None
     }
@@ -367,7 +356,7 @@ impl DomainsManager {
                     .filter_map(|base_url| self.make_choice(base_url, &mut rng))
                     .min_by_key(|choice| {
                         self.inner
-                            .value
+                            .inner_data
                             .frozen_urls
                             .get(&Self::host_with_port(choice.base_url).unwrap())
                             .map(|time| time.duration_since(SystemTime::UNIX_EPOCH).unwrap())
@@ -382,26 +371,26 @@ impl DomainsManager {
     }
 
     pub fn freeze_url(&self, url: &str) -> url_parse_error::Result<()> {
-        self.inner.value.frozen_urls.insert(
+        self.inner.inner_data.frozen_urls.insert(
             Self::host_with_port(url)?,
-            SystemTime::now() + self.inner.value.frozen_urls_duration,
+            SystemTime::now() + self.inner.inner_data.url_frozen_duration,
         );
         self.try_to_persistent_if_needed();
         Ok(())
     }
 
     pub fn unfreeze_urls(&self) {
-        self.inner.value.frozen_urls.clear();
+        self.inner.inner_data.frozen_urls.clear();
         self.try_to_persistent_if_needed();
     }
 
     pub fn is_frozen_url(&self, url: &str) -> url_parse_error::Result<bool> {
         let url = Self::host_with_port(url)?;
-        match self.inner.value.frozen_urls.get(&url) {
+        match self.inner.inner_data.frozen_urls.get(&url) {
             Some(unfreeze_time) => {
                 if *unfreeze_time < SystemTime::now() {
                     drop(unfreeze_time);
-                    self.inner.value.frozen_urls.remove(&url);
+                    self.inner.inner_data.frozen_urls.remove(&url);
                     Ok(false)
                 } else {
                     Ok(true)
@@ -412,7 +401,7 @@ impl DomainsManager {
     }
 
     fn make_choice<'a>(&self, base_url: &'a str, rng: &mut ThreadRng) -> Option<Choice<'a>> {
-        if self.inner.value.disable_url_resolution {
+        if self.inner.inner_data.disable_url_resolution {
             return Some(Choice {
                 base_url: base_url,
                 socket_addrs: Vec::new().into(),
@@ -433,7 +422,7 @@ impl DomainsManager {
 
     fn resolve(&self, url: &str) -> resolve_error::Result<Box<[SocketAddr]>> {
         let url = Self::host_with_port(url)?;
-        match self.inner.value.resolutions.get(&url) {
+        match self.inner.inner_data.resolutions.get(&url) {
             Some(resolution) => {
                 if resolution.cache_deadline < SystemTime::now() {
                     drop(resolution);
@@ -449,15 +438,15 @@ impl DomainsManager {
     fn resolve_and_update_cache(&self, url: &str) -> resolve_error::Result<Box<[SocketAddr]>> {
         let mut result: Option<resolve_error::Result<Box<[SocketAddr]>>> = None;
         self.inner
-            .value
+            .inner_data
             .resolutions
-            .alter(url.into(), |resolutions| match resolutions {
-                Some(resolutions) => {
-                    if resolutions.cache_deadline < SystemTime::now() {
-                        match self.make_resolutions(url) {
-                            Ok(resolutions) => {
-                                result = Some(Ok(resolutions.socket_addrs.clone()));
-                                Some(resolutions)
+            .alter(url.into(), |resolution| match resolution {
+                Some(resolution) => {
+                    if resolution.cache_deadline < SystemTime::now() {
+                        match self.make_resolution(url) {
+                            Ok(resolution) => {
+                                result = Some(Ok(resolution.socket_addrs.clone()));
+                                Some(resolution)
                             }
                             Err(err) => {
                                 result = Some(Err(err));
@@ -465,14 +454,14 @@ impl DomainsManager {
                             }
                         }
                     } else {
-                        result = Some(Ok(resolutions.socket_addrs.clone()));
-                        Some(resolutions)
+                        result = Some(Ok(resolution.socket_addrs.clone()));
+                        Some(resolution)
                     }
                 }
-                None => match self.make_resolutions(url) {
-                    Ok(resolutions) => {
-                        result = Some(Ok(resolutions.socket_addrs.clone()));
-                        Some(resolutions)
+                None => match self.make_resolution(url) {
+                    Ok(resolution) => {
+                        result = Some(Ok(resolution.socket_addrs.clone()));
+                        Some(resolution)
                     }
                     Err(err) => {
                         result = Some(Err(err));
@@ -483,10 +472,10 @@ impl DomainsManager {
         result.unwrap()
     }
 
-    fn make_resolutions(&self, url: &str) -> resolve_error::Result<Resolutions> {
-        Ok(Resolutions {
+    fn make_resolution(&self, url: &str) -> resolve_error::Result<CachedResolutions> {
+        Ok(CachedResolutions {
             socket_addrs: url.to_socket_addrs()?.collect::<Box<[_]>>().clone(),
-            cache_deadline: SystemTime::now() + self.inner.value.resolutions_cache_lifetime,
+            cache_deadline: SystemTime::now() + self.inner.inner_data.resolutions_cache_lifetime,
         })
     }
 
@@ -505,36 +494,36 @@ impl DomainsManager {
     }
 
     fn try_to_async_refresh_resolutions_if_needed(&self) {
-        if let Some(refresh_interval) = self.inner.value.refresh_interval {
+        if let Some(refresh_resolutions_interval) = self.inner.inner_data.refresh_resolutions_interval {
             let mut last_refresh_time = self.inner.last_refresh_time.lock().unwrap();
-            if last_refresh_time.elapsed() > refresh_interval {
+            if last_refresh_time.elapsed() > refresh_resolutions_interval {
                 *last_refresh_time = Instant::now();
-                drop(last_refresh_time);
-                self.async_refresh_resolutions();
+                self.async_refresh_resolutions_without_update_refresh_time();
             }
         }
     }
 
-    fn async_refresh_resolutions(&self) {
-        if self.inner.value.resolutions.is_empty() {
+    fn async_refresh_resolutions_without_update_refresh_time(&self) {
+        if self.inner.inner_data.resolutions.is_empty() {
             return;
         }
-        let domains_manager = self.clone();
-        spawn(move || {
-            let to_fresh_urls = RefCell::new(Vec::new());
-            domains_manager.inner.value.resolutions.retain(|url, resolution| {
-                if resolution.cache_deadline <= SystemTime::now() {
-                    to_fresh_urls.borrow_mut().push(Cow::Owned(url.to_string()));
-                    false
-                } else {
-                    true
-                }
-            });
-            if !to_fresh_urls.borrow().is_empty() {
-                domains_manager.sync_resolve_urls(to_fresh_urls.into_inner());
+        let now = SystemTime::now();
+        let to_fresh_urls = RefCell::new(Vec::new());
+        self.inner.inner_data.resolutions.retain(|url, resolution| {
+            if resolution.cache_deadline <= now {
+                to_fresh_urls.borrow_mut().push(Cow::Owned(url.to_string()));
+                false
+            } else {
+                true
             }
-            *domains_manager.inner.last_refresh_time.lock().unwrap() = Instant::now();
         });
+        let to_fresh_urls = to_fresh_urls.into_inner();
+        if !to_fresh_urls.is_empty() {
+            let domains_manager = self.clone();
+            spawn(move || {
+                domains_manager.sync_resolve_urls(to_fresh_urls);
+            });
+        }
     }
 
     fn sync_resolve_urls(&self, mut urls: Vec<Cow<'static, str>>) {
@@ -620,7 +609,7 @@ mod tests {
     #[test]
     fn test_domains_manager_in_multiple_threads() -> Result<(), Box<dyn Error>> {
         let domains_manager = DomainsManagerBuilder::default()
-            .frozen_urls_duration(Duration::from_secs(5))
+            .url_frozen_duration(Duration::from_secs(5))
             .build();
         assert!(!domains_manager.is_frozen_url("http://up.qiniup.com")?);
 
@@ -716,7 +705,7 @@ mod tests {
             Some(Ok(())) => {}
             _ => panic!(),
         }
-        let inner = DomainsManagerValue::load_from_file(temp_path)?;
+        let inner = DomainsManagerInnerData::load_from_file(temp_path)?;
         assert!(inner.frozen_urls.contains_key("up-z0.qiniup.com:80".into()));
         assert!(inner.frozen_urls.contains_key("up-z1.qiniup.com:80".into()));
         assert!(inner.resolutions.contains_key("up-z2.qiniup.com:80".into()));
@@ -737,10 +726,10 @@ mod tests {
             .auto_persistent_interval(Duration::from_secs(1))
             .build();
         domains_manager.freeze_url("http://up-z0.qiniup.com")?;
-        DomainsManagerValue::load_from_file(temp_path).unwrap_err();
+        DomainsManagerInnerData::load_from_file(temp_path).unwrap_err();
         thread::sleep(Duration::from_secs(1));
         domains_manager.freeze_url("http://up-z1.qiniup.com")?;
-        DomainsManagerValue::load_from_file(temp_path)?;
+        DomainsManagerInnerData::load_from_file(temp_path)?;
         Ok(())
     }
 }
