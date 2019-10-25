@@ -198,7 +198,7 @@ impl<'a> UploadLoggerRecordBuilder<'a> {
     pub(crate) fn response(self, response: &'a Response) -> UploadLoggerRecordBuilder<'a> {
         let mut builder = self
             .status_code(response.status_code())
-            .host(Url::parse(response.host()).unwrap().host_str().unwrap().to_owned())
+            .host(Url::parse(response.base_url()).unwrap().host_str().unwrap().to_owned())
             .server_port(response.server_port());
         if let Some(request_id) = response.request_id() {
             builder = builder.request_id(request_id);

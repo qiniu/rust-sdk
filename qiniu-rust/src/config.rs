@@ -93,7 +93,7 @@ impl Default for ConfigInner {
             batch_max_operation_size: 1000,
             upload_threshold: 1 << 22,
             upload_block_size: 1 << 22,
-            upload_block_lifetime: Duration::from_secs(60 * 60 * 24 * 5),
+            upload_block_lifetime: Duration::from_secs(60 * 60 * 24 * 7),
             upload_file_recorder_key_generator: default_upload_file_recorder_key_generator,
             records_dir: {
                 let mut temp_dir = temp_dir();

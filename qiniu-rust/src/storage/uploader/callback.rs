@@ -8,7 +8,7 @@ pub(super) fn upload_response_callback(response: &mut Response) -> HTTPResult<()
             HTTPErrorKind::MaliciousResponse,
             true,
             Some(response.method()),
-            Some((response.host().to_owned() + response.path()).into()),
+            Some((response.base_url().to_owned() + response.path()).into()),
         ))
     } else {
         Ok(())

@@ -79,11 +79,6 @@ struct UploadingProgressCallback<'u> {
     total_size: usize,
 }
 
-enum ThreadPoolOrBuilder<'u> {
-    Pool(Ron<'u, ThreadPool>),
-    Builder(ThreadPoolBuilder),
-}
-
 pub(super) struct ResumeableUploaderBuilder<'u, REC: recorder::Recorder> {
     bucket_uploader: &'u BucketUploader<'u, REC>,
     upload_token: Cow<'u, str>,

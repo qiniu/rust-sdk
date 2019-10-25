@@ -72,13 +72,13 @@ struct PersistentDomainsManager {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PersistentFrozenURL {
-    url: Box<str>,
+    base_url: Box<str>,
     frozen_until: SystemTime,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PersistentResolutions {
-    url: Box<str>,
+    base_url: Box<str>,
     socket_addrs: Box<[SocketAddr]>,
     cache_deadline: SystemTime,
 }
@@ -112,11 +112,11 @@ impl From<PersistentDomainsManager> for DomainsManagerValue {
         };
 
         for item in persistent.frozen_urls {
-            domains_manager.frozen_urls.insert(item.url, item.frozen_until);
+            domains_manager.frozen_urls.insert(item.base_url, item.frozen_until);
         }
         for item in persistent.resolutions {
             domains_manager.resolutions.insert(
-                item.url,
+                item.base_url,
                 Resolutions {
                     socket_addrs: item.socket_addrs,
                     cache_deadline: item.cache_deadline,
@@ -140,15 +140,15 @@ impl From<DomainsManagerValue> for PersistentDomainsManager {
             refresh_interval: domains_manager.refresh_interval,
         };
 
-        for (url, frozen_until) in domains_manager.frozen_urls {
+        for (base_url, frozen_until) in domains_manager.frozen_urls {
             persistent.frozen_urls.push(PersistentFrozenURL {
-                url: url,
+                base_url: base_url,
                 frozen_until: frozen_until,
             });
         }
-        for (url, resolutions) in domains_manager.resolutions {
+        for (base_url, resolutions) in domains_manager.resolutions {
             persistent.resolutions.push(PersistentResolutions {
-                url: url,
+                base_url: base_url,
                 socket_addrs: resolutions.socket_addrs,
                 cache_deadline: resolutions.cache_deadline,
             });
@@ -349,26 +349,27 @@ impl DomainsManager {
         None
     }
 
-    pub fn choose<'a>(&self, urls: &'a [&'a str]) -> resolve_error::Result<Vec<Choice<'a>>> {
+    pub fn choose<'a>(&self, base_urls: &'a [&'a str]) -> resolve_error::Result<Vec<Choice<'a>>> {
         let mut rng = rand::thread_rng();
-        assert!(!urls.is_empty());
-        let mut choices = Vec::<Choice>::with_capacity(urls.len());
-        for url in urls.into_iter() {
-            if !self.is_frozen_url(url)? {
-                if let Some(choice) = self.make_choice(url, &mut rng) {
+        assert!(!base_urls.is_empty());
+        let mut choices = Vec::<Choice>::with_capacity(base_urls.len());
+        for base_url in base_urls.into_iter() {
+            if !self.is_frozen_url(base_url)? {
+                if let Some(choice) = self.make_choice(base_url, &mut rng) {
                     choices.push(choice);
                 }
             }
         }
         if choices.is_empty() {
             choices.push(
-                urls.into_iter()
-                    .filter_map(|url| self.make_choice(url, &mut rng))
+                base_urls
+                    .into_iter()
+                    .filter_map(|base_url| self.make_choice(base_url, &mut rng))
                     .min_by_key(|choice| {
                         self.inner
                             .value
                             .frozen_urls
-                            .get(&Self::host_with_port(choice.url).unwrap())
+                            .get(&Self::host_with_port(choice.base_url).unwrap())
                             .map(|time| time.duration_since(SystemTime::UNIX_EPOCH).unwrap())
                             .unwrap_or_else(|| Duration::from_secs(0))
                     })
@@ -410,14 +411,14 @@ impl DomainsManager {
         }
     }
 
-    fn make_choice<'a>(&self, url: &'a str, rng: &mut ThreadRng) -> Option<Choice<'a>> {
+    fn make_choice<'a>(&self, base_url: &'a str, rng: &mut ThreadRng) -> Option<Choice<'a>> {
         if self.inner.value.disable_url_resolution {
             return Some(Choice {
-                url: url,
+                base_url: base_url,
                 socket_addrs: Vec::new().into(),
             });
         }
-        self.resolve(url)
+        self.resolve(base_url)
             .ok()
             .map(|mut results| {
                 // TODO: Think about IP address speed testing
@@ -425,7 +426,7 @@ impl DomainsManager {
                 results
             })
             .map(|results| Choice {
-                url: url,
+                base_url: base_url,
                 socket_addrs: results,
             })
     }
@@ -559,7 +560,7 @@ impl Default for DomainsManager {
 
 #[derive(Debug, Clone)]
 pub struct Choice<'a> {
-    pub url: &'a str,
+    pub base_url: &'a str,
     pub socket_addrs: Box<[SocketAddr]>,
 }
 
@@ -683,7 +684,7 @@ mod tests {
 
         let choices = domains_manager.choose(&["http://up-z0.qiniup.com", "http://up-z1.qiniup.com"])?;
         assert_eq!(choices.len(), 1);
-        assert_eq!(choices.first().unwrap().url, "http://up-z0.qiniup.com");
+        assert_eq!(choices.first().unwrap().base_url, "http://up-z0.qiniup.com");
         assert!(choices.first().unwrap().socket_addrs.len() > 0);
 
         let choices = domains_manager.choose(&[
@@ -693,7 +694,7 @@ mod tests {
             "http://unexisted-z4.qiniup.com",
         ])?;
         assert_eq!(choices.len(), 1);
-        assert_eq!(choices.first().unwrap().url, "http://up-z2.qiniup.com");
+        assert_eq!(choices.first().unwrap().base_url, "http://up-z2.qiniup.com");
         assert!(choices.first().unwrap().socket_addrs.len() > 0);
         Ok(())
     }

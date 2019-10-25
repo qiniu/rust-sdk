@@ -21,13 +21,13 @@ pub(crate) struct Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-    pub(crate) fn new(config: Config, method: Method, path: &'a str, hosts: &'a [&'a str]) -> Builder<'a> {
+    pub(crate) fn new(config: Config, method: Method, path: &'a str, base_urls: &'a [&'a str]) -> Builder<'a> {
         Builder {
             domains_manager: config.domains_manager().clone(),
             parts: Parts {
                 config: config,
                 method: method,
-                hosts: hosts,
+                base_urls: base_urls,
                 path: path,
                 query: None,
                 headers: None,

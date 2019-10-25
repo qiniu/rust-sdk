@@ -23,8 +23,7 @@ pub(crate) struct Request<'a> {
 impl<'a> Request<'a> {
     pub(crate) fn send(&self) -> HTTPResult<Response> {
         let mut prev_err: Option<HTTPError> = None;
-        let mut timer = Instant::now();
-        let choices = self.domains_manager.choose(self.parts.hosts).map_err(|err| {
+        let choices = self.domains_manager.choose(self.parts.base_urls).map_err(|err| {
             HTTPError::new_host_unretryable_error_from_parts(
                 HTTPErrorKind::UnknownError(Box::new(err)),
                 true,
@@ -33,54 +32,38 @@ impl<'a> Request<'a> {
             )
         })?;
         for choice in choices {
-            let url = choice.url;
-            timer = Instant::now();
+            let base_url = choice.base_url;
+            let timer = Instant::now();
             match self.try_choice(choice) {
                 Ok(resp) => {
                     return Ok(resp);
                 }
                 Err(err) => match err.retry_kind() {
                     HTTPRetryKind::RetryableError | HTTPRetryKind::HostUnretryableError if self.is_retry_safe(&err) => {
-                        self.domains_manager.freeze_url(url).unwrap();
+                        self.domains_manager.freeze_url(base_url).unwrap();
                         if let Some(on_error) = &self.parts.on_error {
-                            (on_error)(Some(url), &err, timer.elapsed());
+                            (on_error)(Some(base_url), &err, timer.elapsed());
                         }
                         prev_err = Some(err);
                         continue;
                     }
                     _ => {
                         if let Some(on_error) = &self.parts.on_error {
-                            (on_error)(Some(url), &err, timer.elapsed());
+                            (on_error)(Some(base_url), &err, timer.elapsed());
                         }
                         return Err(err);
                     }
                 },
             }
         }
-        let err = prev_err.unwrap();
-        if let Some(on_error) = &self.parts.on_error {
-            (on_error)(None, &err, timer.elapsed());
-        }
-        Err(err)
+        Err(prev_err.unwrap())
     }
 
     fn try_choice(&self, choice: Choice<'a>) -> HTTPResult<Response<'a>> {
-        let mut url = choice.url.to_owned() + self.parts.path;
-        if let Some(query) = &self.parts.query {
-            url = Url::parse_with_params(url.as_str(), query)
-                .map_err(|err| {
-                    HTTPError::new_unretryable_error_from_parts(
-                        HTTPErrorKind::UnknownError(Box::new(err)),
-                        Some(self.parts.method),
-                        Some((choice.url.to_owned() + &self.parts.path).into()),
-                    )
-                })?
-                .into_string();
-        }
         let mut request = {
             let mut builder = RequestBuilder::default()
                 .method(self.parts.method)
-                .url(url)
+                .url(self.make_url(choice.base_url)?)
                 .follow_redirection(self.parts.follow_redirection);
             if !choice.socket_addrs.is_empty() {
                 builder = builder.resolved_socket_addrs(&choice.socket_addrs);
@@ -102,6 +85,7 @@ impl<'a> Request<'a> {
         self.parts.token.sign(&mut request);
         let mut prev_err: Option<HTTPError> = None;
         let retries = self.parts.config.http_request_retries();
+        assert!(retries > 0);
         for _ in 0..=retries {
             let timer = Instant::now();
             match self
@@ -114,7 +98,7 @@ impl<'a> Request<'a> {
                 .map(|response| Response {
                     inner: response,
                     method: self.parts.method,
-                    host: choice.url,
+                    base_url: choice.base_url,
                     path: self.parts.path,
                 })
                 .and_then(|mut response| {
@@ -129,7 +113,7 @@ impl<'a> Request<'a> {
                 Err(err) => match err.retry_kind() {
                     HTTPRetryKind::RetryableError if self.is_retry_safe(&err) => {
                         if let Some(on_error) = &self.parts.on_error {
-                            (on_error)(Some(&choice.url), &err, timer.elapsed());
+                            (on_error)(Some(&choice.base_url), &err, timer.elapsed());
                         }
                         prev_err = Some(err);
                         if self.parts.config.http_request_retry_delay().as_nanos() > 0 {
@@ -144,6 +128,22 @@ impl<'a> Request<'a> {
             }
         }
         Err(prev_err.unwrap())
+    }
+
+    fn make_url(&self, base_url: &str) -> HTTPResult<String> {
+        let mut url = base_url.to_owned() + self.parts.path;
+        if let Some(query) = &self.parts.query {
+            url = Url::parse_with_params(url.as_str(), query)
+                .map_err(|err| {
+                    HTTPError::new_unretryable_error_from_parts(
+                        HTTPErrorKind::UnknownError(Box::new(err)),
+                        Some(self.parts.method),
+                        Some(url.into()),
+                    )
+                })?
+                .into_string();
+        }
+        Ok(url)
     }
 
     fn is_retry_safe(&self, err: &HTTPError) -> bool {
@@ -349,7 +349,7 @@ mod tests {
 
         assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
         assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_error_called.load(Ordering::SeqCst), 2 * (RETRIES + 1) + 3);
+        assert_eq!(on_error_called.load(Ordering::SeqCst), 2 * (RETRIES + 1) + 2);
         Ok(())
     }
 
@@ -388,7 +388,7 @@ mod tests {
 
         assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
         assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_error_called.load(Ordering::SeqCst), 2 * (RETRIES + 1) + 3);
+        assert_eq!(on_error_called.load(Ordering::SeqCst), 2 * (RETRIES + 1) + 2);
         Ok(())
     }
 
@@ -466,7 +466,7 @@ mod tests {
 
         assert_eq!(mock.call_called(), 2);
         assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_error_called.load(Ordering::SeqCst), 3);
+        assert_eq!(on_error_called.load(Ordering::SeqCst), 2);
         Ok(())
     }
 

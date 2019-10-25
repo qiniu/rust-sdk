@@ -14,7 +14,7 @@ pub(crate) struct Response<'a> {
     #[get_copy = "pub(crate)"]
     pub(super) method: Method,
     #[get_copy = "pub(crate)"]
-    pub(super) host: &'a str,
+    pub(super) base_url: &'a str,
     #[get_copy = "pub(crate)"]
     pub(super) path: &'a str,
 }
@@ -51,7 +51,7 @@ impl<'a> Response<'a> {
             HTTPError::new_unretryable_error_from_parts(
                 HTTPErrorKind::JSONError(err),
                 Some(self.method),
-                Some((self.host.to_owned() + self.path).into()),
+                Some((self.base_url.to_owned() + self.path).into()),
             )
         })
     }
@@ -64,7 +64,7 @@ impl<'a> Response<'a> {
                     HTTPErrorKind::IOError(err),
                     false,
                     Some(self.method),
-                    Some((self.host.to_owned() + self.path).into()),
+                    Some((self.base_url.to_owned() + self.path).into()),
                 )
             })?
             .unwrap();
@@ -72,7 +72,7 @@ impl<'a> Response<'a> {
             HTTPError::new_unretryable_error_from_parts(
                 HTTPErrorKind::JSONError(err),
                 Some(self.method),
-                Some((self.host.to_owned() + self.path).into()),
+                Some((self.base_url.to_owned() + self.path).into()),
             )
         })
     }
@@ -92,7 +92,7 @@ impl fmt::Debug for Response<'_> {
         f.debug_struct("Response")
             .field("inner", &self.inner)
             .field("method", &self.method)
-            .field("host", &self.host)
+            .field("base_url", &self.base_url)
             .field("path", &self.path)
             .finish()
     }

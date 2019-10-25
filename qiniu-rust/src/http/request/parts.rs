@@ -5,7 +5,7 @@ use std::{borrow::Cow, collections::HashMap, fmt, time::Duration};
 
 pub(crate) struct Parts<'a> {
     pub(super) method: Method,
-    pub(super) hosts: &'a [&'a str],
+    pub(super) base_urls: &'a [&'a str],
     pub(super) path: &'a str,
     pub(super) query: Option<HashMap<Cow<'a, str>, Cow<'a, str>>>,
     pub(super) headers: Option<Headers<'a>>,
@@ -25,7 +25,7 @@ impl fmt::Debug for Parts<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Parts")
             .field("method", &self.method)
-            .field("hosts", &self.hosts)
+            .field("base_urls", &self.base_urls)
             .field("path", &self.path)
             .field("query", &self.query)
             .field("headers", &self.headers)
