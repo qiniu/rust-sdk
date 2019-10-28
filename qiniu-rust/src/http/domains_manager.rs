@@ -1,6 +1,6 @@
 use super::super::storage::region::Region;
 use chashmap::CHashMap;
-use rand::{rngs::ThreadRng, seq::SliceRandom};
+use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -12,7 +12,7 @@ use std::{
     net::{SocketAddr, ToSocketAddrs},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    thread::spawn,
+    thread::{sleep, spawn},
     time::{Duration, Instant, SystemTime},
 };
 use url::Url;
@@ -32,6 +32,8 @@ struct DomainsManagerInnerData {
     disable_url_resolution: bool,
     persistent_interval: Option<Duration>,
     refresh_resolutions_interval: Option<Duration>,
+    url_resolve_retries: usize,
+    url_resolve_retry_delay: Duration,
 }
 
 impl Default for DomainsManagerInnerData {
@@ -44,6 +46,8 @@ impl Default for DomainsManagerInnerData {
             disable_url_resolution: false,
             persistent_interval: Some(Duration::from_secs(30 * 60)),
             refresh_resolutions_interval: Some(Duration::from_secs(30 * 60)),
+            url_resolve_retries: 10,
+            url_resolve_retry_delay: Duration::from_secs(1),
         }
     }
 }
@@ -57,6 +61,8 @@ struct PersistentDomainsManager {
     disable_url_resolution: bool,
     persistent_interval: Option<Duration>,
     refresh_resolutions_interval: Option<Duration>,
+    url_resolve_retries: usize,
+    url_resolve_retry_delay: Duration,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -98,6 +104,8 @@ impl From<PersistentDomainsManager> for DomainsManagerInnerData {
             disable_url_resolution: persistent.disable_url_resolution,
             persistent_interval: persistent.persistent_interval,
             refresh_resolutions_interval: persistent.refresh_resolutions_interval,
+            url_resolve_retries: persistent.url_resolve_retries,
+            url_resolve_retry_delay: persistent.url_resolve_retry_delay,
         };
 
         for item in persistent.frozen_urls {
@@ -127,6 +135,8 @@ impl From<DomainsManagerInnerData> for PersistentDomainsManager {
             disable_url_resolution: domains_manager.disable_url_resolution,
             persistent_interval: domains_manager.persistent_interval,
             refresh_resolutions_interval: domains_manager.refresh_resolutions_interval,
+            url_resolve_retries: domains_manager.url_resolve_retries,
+            url_resolve_retry_delay: domains_manager.url_resolve_retry_delay,
         };
 
         for (base_url, frozen_until) in domains_manager.frozen_urls {
@@ -181,6 +191,16 @@ impl DomainsManagerBuilder {
 
     pub fn disable_auto_persistent(mut self) -> Self {
         self.inner_data.persistent_interval = None;
+        self
+    }
+
+    pub fn url_resolve_retries(mut self, url_resolve_retries: usize) -> Self {
+        self.inner_data.url_resolve_retries = url_resolve_retries;
+        self
+    }
+
+    pub fn url_resolve_retry_delay(mut self, url_resolve_retry_delay: Duration) -> Self {
+        self.inner_data.url_resolve_retry_delay = url_resolve_retry_delay;
         self
     }
 
@@ -527,8 +547,8 @@ impl DomainsManager {
     }
 
     fn sync_resolve_urls(&self, mut urls: Vec<Cow<'static, str>>) {
-        // ALWAYS TRY 3 times
-        for _ in 0..3 {
+        let mut rng = thread_rng();
+        for _ in 0..self.inner.inner_data.url_resolve_retries {
             urls = urls
                 .into_iter()
                 .map(|url| (self.resolve(&url), url))
@@ -536,6 +556,11 @@ impl DomainsManager {
                 .collect();
             if urls.is_empty() {
                 break;
+            } else {
+                let delay_nanos = self.inner.inner_data.url_resolve_retry_delay.as_nanos() as u64;
+                if delay_nanos > 0 {
+                    sleep(Duration::from_nanos(rng.gen_range(delay_nanos / 2, delay_nanos)));
+                }
             }
         }
     }

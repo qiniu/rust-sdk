@@ -6,12 +6,13 @@ use qiniu_http::{
     Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Request as HTTPRequest, RequestBuilder,
     Response as HTTPResponse, Result as HTTPResult, RetryKind as HTTPRetryKind, StatusCode,
 };
+use rand::{thread_rng, Rng};
 use std::{
     borrow::Cow,
     fmt,
     io::{self, Cursor},
     thread::sleep,
-    time::Instant,
+    time::{Duration, Instant},
 };
 use url::Url;
 
@@ -116,8 +117,11 @@ impl<'a> Request<'a> {
                             (on_error)(Some(&choice.base_url), &err, timer.elapsed());
                         }
                         prev_err = Some(err);
-                        if self.parts.config.http_request_retry_delay().as_nanos() > 0 {
-                            sleep(self.parts.config.http_request_retry_delay());
+                        let delay_nanos = self.parts.config.http_request_retry_delay().as_nanos() as u64;
+                        if delay_nanos > 0 {
+                            sleep(Duration::from_nanos(
+                                thread_rng().gen_range(delay_nanos / 2, delay_nanos),
+                            ));
                         }
                         continue;
                     }

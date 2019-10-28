@@ -106,7 +106,7 @@ impl Default for ConfigInner {
             uplog_upload_threshold: 1 << 12,
             max_uplog_file_size: 1 << 22,
             http_request_retries: 3,
-            http_request_retry_delay: Duration::from_millis(500),
+            http_request_retry_delay: Duration::from_secs(1),
             http_request_call: Self::default_http_request_call(),
             domains_manager: DomainsManager::default(),
         }
