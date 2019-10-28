@@ -11,7 +11,7 @@ description = "Provide libcurl for qiniu"
 qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }
 lazy_static = "1.4.0"
 url = "2.1.0"
-curl = "0.4.22"
+curl = { version = "0.4.25", features = ["http2"] }
 tempfile = "3.1.0"
 rustc_version_runtime = "0.1.5"
 derive_builder = "0.8.0"

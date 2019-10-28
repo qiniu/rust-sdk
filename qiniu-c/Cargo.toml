@@ -14,8 +14,8 @@ crate-type = ["staticlib", "cdylib"]
 [dependencies]
 qiniu = { version = "0.1.0", path = "../qiniu-rust", features = ["use-libcurl"] }
 qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }
-curl = "0.4.22"
-curl-sys = "0.4.21"
+curl = { version = "0.4.25", features = ["http2"] }
+curl-sys = "0.4.23"
 rust-crypto = "0.2.36"
 libc = "0.2.60"
 cfg-if = "0.1"
