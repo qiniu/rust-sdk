@@ -65,7 +65,7 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
             .on_progress(&|uploaded, total| {
-                assert!(total > (1 << 19));
+                assert!(total.unwrap() > (1 << 19));
                 assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))?;
@@ -92,7 +92,7 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
             .on_progress(&|uploaded, total| {
-                assert_eq!(total, 1 << 19);
+                assert_eq!(total.unwrap(), 1 << 19);
                 assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))?;
@@ -126,7 +126,7 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
             .on_progress(&|uploaded, total| {
-                assert_eq!(total, FILE_SIZE);
+                assert_eq!(total.unwrap(), FILE_SIZE);
                 assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_file(&temp_path, Some("257m"), Some(mime::IMAGE_PNG))?;
@@ -160,7 +160,7 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
             .on_progress(&|uploaded, total| {
-                assert_eq!(total, FILE_SIZE);
+                assert_eq!(total.unwrap(), FILE_SIZE);
                 assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_file(&temp_path, Some("5m"), Some(mime::IMAGE_PNG))?;
@@ -188,7 +188,7 @@ mod tests {
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
-                assert!(total > (1 << 20));
+                assert!(total.unwrap() > (1 << 20));
                 assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_file(&temp_path, Some("1m"), Some(mime::IMAGE_PNG))?;
@@ -210,12 +210,12 @@ mod tests {
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
-                assert_eq!(total, 1 << 20);
+                assert_eq!(total.unwrap(), 1 << 20);
                 assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_file(&temp_path, Some("1m"), Some(mime::IMAGE_PNG))?;
 
-        assert_eq!(last_uploaded.load(Acquire), (1 << 20));
+        assert_eq!(last_uploaded.load(Acquire), 1 << 20);
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -227,7 +227,7 @@ mod tests {
     #[test]
     fn test_storage_uploader_upload_stream() -> Result<(), Box<dyn Error>> {
         let config = Config::default();
-        let (mut file, temp_path) = create_temp_file(1 << 21)?.into_parts();
+        let (mut file, temp_path) = create_temp_file(1 << 23)?.into_parts();
         file.seek(SeekFrom::Start(0))?;
 
         let etag = etag::from_file(&temp_path)?;
@@ -242,12 +242,12 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumeable()
             .on_progress(&|uploaded, total| {
-                assert!(total > (1 << 21));
+                assert!(total.unwrap() > (1 << 23));
                 assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
             .upload_stream(&file, None::<String>, None)?;
 
-        assert!(last_uploaded.load(Acquire) > (1 << 21));
+        assert!(last_uploaded.load(Acquire) > (1 << 23));
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("fname"), Some(&json!("")));
@@ -256,18 +256,92 @@ mod tests {
         // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
 
         file.seek(SeekFrom::Start(0))?;
+        let last_uploaded = AtomicUsize::new(0);
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
-        let result = get_client(config)
+        let result = get_client(config.clone())
             .upload()
             .for_upload_policy(policy)?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
-            .upload_stream(&file, Some("2m"), None)?;
+            .on_progress(&|uploaded, total| {
+                assert!(total.is_none());
+                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+            })
+            .upload_stream(&file, Some("8m"), None)?;
 
+        assert_eq!(last_uploaded.load(Acquire), 1 << 23);
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), None);
         assert_eq!(result.get("var_key2"), None);
+
+        let (mut file, temp_path) = create_temp_file((1 << 23) + 1)?.into_parts();
+        file.seek(SeekFrom::Start(0))?;
+        let etag = etag::from_file(&temp_path)?;
+        let last_uploaded = AtomicUsize::new(0);
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
+        let result = get_client(config.clone())
+            .upload()
+            .for_upload_policy(policy)?
+            .var("var_key1", "var_value1")
+            .metadata("metadata_key1", "metadata_value1")
+            .on_progress(&|uploaded, total| {
+                assert!(total.is_none());
+                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+            })
+            .upload_stream(&file, Some("8m+1"), None)?;
+
+        assert_eq!(last_uploaded.load(Acquire), (1 << 23) + 1);
+        assert!(result.key().is_some());
+        assert_eq!(result.hash(), Some(etag.as_str()));
+        assert_eq!(result.get("var_key1"), None);
+        assert_eq!(result.get("var_key2"), None);
+
+        let (mut file, temp_path) = create_temp_file(1 << 21)?.into_parts();
+        file.seek(SeekFrom::Start(0))?;
+        let etag = etag::from_file(&temp_path)?;
+        let last_uploaded = AtomicUsize::new(0);
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
+        let result = get_client(config.clone())
+            .upload()
+            .for_upload_policy(policy)?
+            .var("var_key1", "var_value1")
+            .metadata("metadata_key1", "metadata_value1")
+            .never_be_resumeable()
+            .on_progress(&|uploaded, total| {
+                assert!(total.unwrap() > (1 << 21));
+                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+            })
+            .upload_stream(&file, Some("2m"), None)?;
+
+        assert!(last_uploaded.load(Acquire) > (1 << 21));
+        assert!(result.key().is_some());
+        assert_eq!(result.hash(), Some(etag.as_str()));
+        assert_eq!(result.get("var_key1"), None);
+        assert_eq!(result.get("var_key2"), None);
+
+        let (mut file, temp_path) = create_temp_file((1 << 22) - 3)?.into_parts();
+        file.seek(SeekFrom::Start(0))?;
+        let etag = etag::from_file(&temp_path)?;
+        let last_uploaded = AtomicUsize::new(0);
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
+        let result = get_client(config.clone())
+            .upload()
+            .for_upload_policy(policy)?
+            .var("var_key1", "var_value1")
+            .metadata("metadata_key1", "metadata_value1")
+            .on_progress(&|uploaded, total| {
+                assert!(total.is_none());
+                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+            })
+            .upload_stream(&file, Some("2m+3"), None)?;
+
+        assert_eq!(last_uploaded.load(Acquire), ((1 << 22) - 3));
+        assert!(result.key().is_some());
+        assert_eq!(result.hash(), Some(etag.as_str()));
+        assert_eq!(result.get("var_key1"), None);
+        assert_eq!(result.get("var_key2"), None);
+
         Ok(())
     }
 

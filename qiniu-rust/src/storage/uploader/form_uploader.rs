@@ -20,7 +20,7 @@ use std::{
 pub(super) struct FormUploaderBuilder<'u, REC: recorder::Recorder> {
     bucket_uploader: &'u BucketUploader<'u, REC>,
     multipart: Multipart<'u, 'u>,
-    on_uploading_progress: Option<&'u dyn Fn(usize, usize)>,
+    on_uploading_progress: Option<&'u dyn Fn(usize, Option<usize>)>,
     upload_logger_builder: UploadLoggerBuilder,
 }
 
@@ -28,7 +28,7 @@ pub(super) struct FormUploader<'u, REC: recorder::Recorder> {
     bucket_uploader: &'u BucketUploader<'u, REC>,
     content_type: String,
     body: Vec<u8>,
-    on_uploading_progress: Option<&'u dyn Fn(usize, usize)>,
+    on_uploading_progress: Option<&'u dyn Fn(usize, Option<usize>)>,
     upload_logger: Option<UploadLogger>,
 }
 
@@ -70,7 +70,10 @@ where
         self
     }
 
-    pub(super) fn on_uploading_progress(mut self, callback: &'u dyn Fn(usize, usize)) -> FormUploaderBuilder<'u, REC> {
+    pub(super) fn on_uploading_progress(
+        mut self,
+        callback: &'u dyn Fn(usize, Option<usize>),
+    ) -> FormUploaderBuilder<'u, REC> {
         self.on_uploading_progress = Some(callback);
         self
     }
@@ -158,11 +161,16 @@ where
     }
 
     fn send_form_request(&self, up_urls: &[&str]) -> HTTPResult<UploadResult> {
-        let mut request_builder = self.bucket_uploader.client().post("/", up_urls).idempotent();
-        if let Some(on_uploading_progress) = self.on_uploading_progress {
-            request_builder = request_builder.on_uploading_progress(on_uploading_progress)
-        }
-        let value: Value = request_builder
+        let value: Value = self
+            .bucket_uploader
+            .client()
+            .post("/", up_urls)
+            .idempotent()
+            .on_uploading_progress(&|uploaded, total| {
+                if let Some(on_uploading_progress) = &self.on_uploading_progress {
+                    (on_uploading_progress)(uploaded, Some(total));
+                }
+            })
             .on_response(&|response, duration| {
                 let result = upload_response_callback(response);
                 if result.is_ok() {
@@ -181,7 +189,7 @@ where
                 }
                 result
             })
-            .on_error(&|host_url, err, duration| {
+            .on_error(&|base_url, err, duration| {
                 if let Some(upload_logger) = &self.upload_logger {
                     upload_logger.log({
                         let mut builder = UploadLoggerRecordBuilder::default()
@@ -189,8 +197,8 @@ where
                             .up_type(UpType::Form)
                             .http_error(err)
                             .total_size(self.body.len());
-                        if let Some(host_url) = host_url {
-                            builder = builder.host(host_url);
+                        if let Some(base_url) = base_url {
+                            builder = builder.host(base_url);
                         }
                         builder.build().unwrap()
                     });

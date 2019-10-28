@@ -110,7 +110,7 @@ pub struct FileUploaderBuilder<'b, REC: recorder::Recorder> {
     metadata: Option<HashMap<Cow<'b, str>, Cow<'b, str>>>,
     checksum_enabled: bool,
     resumeable_policy: ResumeablePolicy,
-    on_uploading_progress: Option<&'b (dyn Fn(usize, usize) + Send + Sync)>,
+    on_uploading_progress: Option<&'b (dyn Fn(usize, Option<usize>) + Send + Sync)>,
     thread_pool: Option<Ron<'b, ThreadPool>>,
 }
 
@@ -202,7 +202,10 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         self
     }
 
-    pub fn on_progress(mut self, callback: &'b (dyn Fn(usize, usize) + Send + Sync)) -> FileUploaderBuilder<'b, REC> {
+    pub fn on_progress(
+        mut self,
+        callback: &'b (dyn Fn(usize, Option<usize>) + Send + Sync),
+    ) -> FileUploaderBuilder<'b, REC> {
         self.on_uploading_progress = Some(callback);
         self
     }

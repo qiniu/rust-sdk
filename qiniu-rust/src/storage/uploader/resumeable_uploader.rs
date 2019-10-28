@@ -74,9 +74,9 @@ struct FromResuming<REC: recorder::Recorder> {
 }
 
 struct UploadingProgressCallback<'u> {
-    callback: &'u (dyn Fn(usize, usize) + Send + Sync),
+    callback: &'u (dyn Fn(usize, Option<usize>) + Send + Sync),
     completed_size: AtomicUsize,
-    total_size: usize,
+    total_size: Option<usize>,
 }
 
 pub(super) struct ResumeableUploaderBuilder<'u, REC: recorder::Recorder> {
@@ -85,7 +85,7 @@ pub(super) struct ResumeableUploaderBuilder<'u, REC: recorder::Recorder> {
     key: Option<Cow<'u, str>>,
     metadata: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
     custom_vars: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
-    on_uploading_progress: Option<&'u (dyn Fn(usize, usize) + Send + Sync)>,
+    on_uploading_progress: Option<&'u (dyn Fn(usize, Option<usize>) + Send + Sync)>,
     upload_logger_builder: UploadLoggerBuilder,
     thread_pool: Option<Ron<'u, ThreadPool>>,
 }
@@ -162,7 +162,7 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
 
     pub(super) fn on_uploading_progress(
         mut self,
-        callback: &'u (dyn Fn(usize, usize) + Send + Sync),
+        callback: &'u (dyn Fn(usize, Option<usize>) + Send + Sync),
     ) -> ResumeableUploaderBuilder<'u, REC> {
         self.on_uploading_progress = Some(callback);
         self
@@ -205,7 +205,7 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
             uploading_progress_callback: self.on_uploading_progress.map(|callback| UploadingProgressCallback {
                 callback: callback,
                 completed_size: AtomicUsize::new(0),
-                total_size: file_size as usize,
+                total_size: Some(file_size as usize),
             }),
             upload_logger: self
                 .upload_logger_builder
@@ -252,7 +252,11 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
                 custom_vars: self.custom_vars,
             }),
             from_resuming: None,
-            uploading_progress_callback: None,
+            uploading_progress_callback: self.on_uploading_progress.map(|callback| UploadingProgressCallback {
+                callback: callback,
+                completed_size: AtomicUsize::new(0),
+                total_size: None,
+            }),
             upload_logger: self
                 .upload_logger_builder
                 .build_by(bucket_uploader.config().clone())

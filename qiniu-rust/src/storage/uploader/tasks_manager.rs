@@ -43,7 +43,11 @@ impl<'r, R: Read + Send + Sync + 'r> TasksManager<'r, R> {
                     match io.read(&mut buf[have_read..]) {
                         Ok(0) => {
                             *lock = Status::Success;
-                            return Task::Upload(have_read);
+                            if have_read > 0 {
+                                return Task::Upload(have_read);
+                            } else {
+                                return Task::End;
+                            }
                         }
                         Ok(n) => {
                             have_read += n;
