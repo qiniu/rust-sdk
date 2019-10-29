@@ -4,7 +4,7 @@ use super::{
         upload_token::{Result as UploadTokenParseResult, UploadToken},
     },
     tasks_manager::{Result as TasksResult, Task, TasksManager},
-    upload_recorder::{FileBlockRecord, FileRecord, FileUploadRecorder},
+    upload_recorder::{FileUploadRecordMedium, FileUploadRecordMediumBlockItem, FileUploadRecordMediumMetadata},
     upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerBuilder, UploadLoggerRecordBuilder,
     UploadResult,
 };
@@ -69,7 +69,7 @@ struct CompletedParts<'f> {
 struct FromResuming<REC: recorder::Recorder> {
     upload_id: Box<str>,
     up_urls: Box<[Box<str>]>,
-    recorder: FileUploadRecorder<REC::Medium>,
+    recorder: FileUploadRecordMedium<REC::Medium>,
     io_offset: u64,
 }
 
@@ -396,7 +396,7 @@ impl<'u, R: Read + Seek + Send + Sync, REC: recorder::Recorder> ResumeableUpload
         up_urls: &[&str],
         base_path: &str,
         authorization: &str,
-        upload_recorder: Option<FileUploadRecorder<REC::Medium>>,
+        upload_recorder: Option<FileUploadRecordMedium<REC::Medium>>,
     ) -> HTTPResult<UploadResult> {
         let tasks_manager = TasksManager::new(&mut self.io);
         let part_number_counter = AtomicUsize::new(part_number);
@@ -475,7 +475,7 @@ impl<'u, R: Read + Seek + Send + Sync, REC: recorder::Recorder> ResumeableUpload
                 if let Some(file_path) = self.file_path.as_ref() {
                     self.bucket_uploader
                         .recorder()
-                        .drop_record(file_path, self.key.as_ref().map(|key| key.as_ref()))
+                        .drop(file_path, self.key.as_ref().map(|key| key.as_ref()))
                         .ok();
                 }
                 result
@@ -491,13 +491,13 @@ impl<'u, R: Read + Seek + Send + Sync, REC: recorder::Recorder> ResumeableUpload
 
     pub(super) fn prepare_for_resuming(
         &mut self,
-        file_record: FileRecord,
-        block_records: Box<[FileBlockRecord]>,
-        recorder: FileUploadRecorder<REC::Medium>,
+        file_record: FileUploadRecordMediumMetadata,
+        block_records: Box<[FileUploadRecordMediumBlockItem]>,
+        recorder: FileUploadRecordMedium<REC::Medium>,
     ) {
         let mut io_offset = 0;
         {
-            let block_records: Vec<FileBlockRecord> = block_records.into();
+            let block_records: Vec<FileUploadRecordMediumBlockItem> = block_records.into();
             let mut completed_parts = self.completed_parts.lock().unwrap();
             for block_record in block_records {
                 completed_parts.parts.push(Part {
@@ -572,7 +572,7 @@ impl<'u, R: Read + Seek + Send + Sync, REC: recorder::Recorder> ResumeableUpload
         on_progress: OnProgressFn,
         on_error: OnErrorFn,
         upload_logger: Option<&UploadLogger>,
-        upload_recorder: Option<&FileUploadRecorder<REC::Medium>>,
+        upload_recorder: Option<&FileUploadRecordMedium<REC::Medium>>,
     ) -> HTTPResult<Box<str>> {
         let mut builder = http_client
             .put(path, up_urls)
@@ -623,7 +623,7 @@ impl<'u, R: Read + Seek + Send + Sync, REC: recorder::Recorder> ResumeableUpload
             .parse_json()?;
         if let Some(upload_recorder) = upload_recorder {
             upload_recorder
-                .append_record(&result.etag, part_number, block_size.try_into().unwrap())
+                .append(&result.etag, part_number, block_size.try_into().unwrap())
                 .map_err(|err| HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None))?;
         }
         Ok(result.etag)

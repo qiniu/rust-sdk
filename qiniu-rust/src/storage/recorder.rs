@@ -1,5 +1,4 @@
 use crate::config::Config;
-use delegate::delegate;
 use std::{
     borrow::Cow,
     env::temp_dir,
@@ -19,10 +18,6 @@ pub trait RecordMedium: Read + Write + Send {}
 #[derive(Clone)]
 pub struct FileSystemRecorder<'r> {
     root_directory: Cow<'r, Path>,
-}
-
-pub struct FileRecorder {
-    file: File,
 }
 
 impl<'r> FileSystemRecorder<'r> {
@@ -59,8 +54,8 @@ impl FileSystemRecorder<'_> {
 }
 
 impl Recorder for FileSystemRecorder<'_> {
-    type Medium = FileRecorder;
-    fn open<ID: AsRef<str>>(&self, id: ID, truncate: bool) -> Result<FileRecorder> {
+    type Medium = File;
+    fn open<ID: AsRef<str>>(&self, id: ID, truncate: bool) -> Result<Self::Medium> {
         let mut options = OpenOptions::new();
         options.create(true);
         if truncate {
@@ -68,28 +63,11 @@ impl Recorder for FileSystemRecorder<'_> {
         } else {
             options.read(true).append(true);
         }
-        options.open(self.get_path(id)).map(|file| FileRecorder { file: file })
+        options.open(self.get_path(id))
     }
     fn delete<ID: AsRef<str>>(&self, id: ID) -> Result<()> {
         remove_file(self.get_path(id))
     }
 }
 
-impl Read for FileRecorder {
-    delegate! {
-        target self.file {
-            fn read(&mut self, buf: &mut [u8]) -> Result<usize>;
-        }
-    }
-}
-
-impl Write for FileRecorder {
-    delegate! {
-        target self.file {
-            fn write(&mut self, buf: &[u8]) -> Result<usize>;
-            fn flush(&mut self) -> Result<()>;
-        }
-    }
-}
-
-impl RecordMedium for FileRecorder {}
+impl RecordMedium for File {}

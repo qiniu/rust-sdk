@@ -261,7 +261,7 @@ impl<'a> UploadLoggerRecordBuilder<'a> {
 impl Default for UploadLoggerRecord<'_> {
     fn default() -> Self {
         UploadLoggerRecord {
-            status_code: Some(0),
+            status_code: None,
             request_id: Cow::Borrowed(""),
             host: Cow::Borrowed(""),
             up_type: None,

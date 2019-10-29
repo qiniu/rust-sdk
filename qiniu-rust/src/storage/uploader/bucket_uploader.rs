@@ -325,7 +325,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         uploader: &mut resumeable_uploader::ResumeableUploader<'_, File, REC>,
         file_path: &Path,
     ) -> Result<()> {
-        if let Some((file_record, block_records)) = recorder.load_record(file_path, key)? {
+        if let Some((file_record, block_records)) = recorder.load(file_path, key)? {
             uploader.prepare_for_resuming(file_record, block_records, recorder.open_for_appending(file_path, key)?);
         }
         Ok(())
