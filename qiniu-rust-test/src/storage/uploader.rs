@@ -14,10 +14,14 @@ mod tests {
         error::Error,
         io::{Seek, SeekFrom},
         result::Result,
-        sync::atomic::{
-            AtomicUsize,
-            Ordering::{AcqRel, Acquire},
+        sync::{
+            atomic::{
+                AtomicUsize,
+                Ordering::{AcqRel, Acquire},
+            },
+            Mutex,
         },
+        thread::{current, ThreadId},
     };
 
     #[test]
@@ -150,6 +154,7 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fsize\":$(fsize)}")
             .build();
         let last_uploaded = AtomicUsize::new(0);
+        let thread_id: Mutex<Option<ThreadId>> = Mutex::new(None);
         let result = get_client(config)
             .upload()
             .for_upload_policy(policy)?
@@ -160,6 +165,12 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
             .on_progress(&|uploaded, total| {
+                let mut thread_id = thread_id.lock().unwrap();
+                if let Some(thread_id) = *thread_id {
+                    assert_eq!(thread_id, current().id());
+                } else {
+                    *thread_id = Some(current().id());
+                }
                 assert_eq!(total.unwrap(), FILE_SIZE);
                 assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
             })
