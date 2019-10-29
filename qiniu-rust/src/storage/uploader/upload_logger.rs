@@ -4,26 +4,24 @@ use crate::{
     http::{Client, Response},
 };
 use derive_builder::Builder;
-use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCallerErrorKind, Method, Result as HTTPResult};
+use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCallerErrorKind, Result as HTTPResult};
 use std::{
     borrow::Cow,
     error::Error as StdError,
     fmt,
-    fs::File,
-    io::{Read, Result, Seek, SeekFrom, Write},
+    io::{Cursor, Result, Seek, SeekFrom, Write},
     net::IpAddr,
     sync::{Arc, RwLock},
     thread::spawn,
     time::{Duration, SystemTime},
 };
-use tempfile::{Builder as TempfileBuilder, NamedTempFile};
 use url::Url;
 
 struct UploadLoggerInner {
     server_url: &'static str,
     config: Config,
     http_client: Client,
-    log_file: RwLock<NamedTempFile>,
+    log_buffer: RwLock<Cursor<Vec<u8>>>,
     upload_token: Box<str>,
 }
 
@@ -34,74 +32,56 @@ pub(crate) struct UploadLogger {
 
 impl UploadLogger {
     pub(crate) fn log(&self, record: UploadLoggerRecord) {
-        if self.log_file_size() < self.inner.config.max_uplog_file_size() {
-            writeln!(self.inner.log_file.write().unwrap().as_file_mut(), "{}", record).ok();
+        let log_buffer_len = self.log_buffer_len();
+        if log_buffer_len < self.inner.config.max_uplog_size() {
+            let record = format!("{}\n", record);
+            if log_buffer_len + record.len() < self.inner.config.max_uplog_size() {
+                self.inner.log_buffer.write().unwrap().write_all(record.as_bytes()).ok();
+            }
         }
-        if self.log_file_size() >= self.inner.config.uplog_upload_threshold() {
-            self.async_upload_log_file_and_clean();
+        if self.log_buffer_len() >= self.inner.config.uplog_upload_threshold() {
+            self.async_upload_log_buffer_and_clean();
         }
     }
 
-    fn async_upload_log_file_and_clean(&self) {
+    fn async_upload_log_buffer_and_clean(&self) {
         let upload_logger = self.clone();
         spawn(move || {
-            upload_logger.upload_log_file_and_clean().ok();
+            upload_logger.upload_log_buffer_and_clean().ok();
         });
     }
 
-    fn upload_log_file_and_clean(&self) -> HTTPResult<()> {
-        let mut log_file = self.inner.log_file.write().unwrap();
-        self.upload_log_file(log_file.as_file_mut())?;
-        log_file.as_file_mut().seek(SeekFrom::Start(0)).ok();
-        log_file.as_file_mut().set_len(0).ok();
+    fn upload_log_buffer_and_clean(&self) -> HTTPResult<()> {
+        let mut log_buffer = self.inner.log_buffer.write().unwrap();
+        self.upload_log_buffer(&mut log_buffer)?;
+        log_buffer.seek(SeekFrom::Start(0)).ok();
+        log_buffer.get_mut().clear();
         Ok(())
     }
 
-    fn upload_log_file(&self, log_file: &mut File) -> HTTPResult<()> {
-        let request_body = self.read_log_file(log_file).map_err(|err| {
-            HTTPError::new_host_unretryable_error_from_parts(
-                HTTPErrorKind::IOError(err),
-                true,
-                Some(Method::POST),
-                Some((self.inner.server_url.to_owned() + "/log/3").into()),
-            )
-        })?;
-
+    fn upload_log_buffer(&self, log_buffer: &mut Cursor<Vec<u8>>) -> HTTPResult<()> {
+        let request_body = log_buffer.get_ref();
         if !request_body.is_empty() {
             self.inner
                 .http_client
                 .post("/log/3", &[self.inner.server_url])
                 .header("Authorization", "UpToken ".to_owned() + &self.inner.upload_token)
-                .raw_body("text/plain", request_body)
+                .raw_body("text/plain", request_body.as_slice())
                 .send()?
                 .ignore_body();
         }
         Ok(())
     }
 
-    fn read_log_file(&self, log_file: &mut File) -> Result<Vec<u8>> {
-        log_file.seek(SeekFrom::Start(0)).ok();
-        let mut upload_log_file_content = Vec::new();
-        log_file.read_to_end(&mut upload_log_file_content)?;
-        Ok(upload_log_file_content)
-    }
-
-    fn log_file_size(&self) -> u64 {
-        self.inner
-            .log_file
-            .read()
-            .unwrap()
-            .as_file()
-            .metadata()
-            .map(|metadata| metadata.len())
-            .unwrap_or(0)
+    fn log_buffer_len(&self) -> usize {
+        self.inner.log_buffer.read().unwrap().get_ref().len()
     }
 }
 
 impl Drop for UploadLogger {
     fn drop(&mut self) {
-        if self.log_file_size() > 0 {
-            self.upload_log_file_and_clean().ok();
+        if self.log_buffer_len() > 0 {
+            self.upload_log_buffer_and_clean().ok();
         }
     }
 }
@@ -134,15 +114,9 @@ impl UploadLoggerBuilder {
             inner: Arc::new(UploadLoggerInner {
                 server_url: self.server_url,
                 http_client: Client::new(config.clone()),
-                config,
+                log_buffer: RwLock::new(Cursor::new(Vec::with_capacity(config.max_uplog_size()))),
                 upload_token: self.upload_token.expect("upload_token must be set").into(),
-                log_file: RwLock::new(
-                    TempfileBuilder::new()
-                        .prefix("uplog")
-                        .suffix(".log")
-                        .append(true)
-                        .tempfile()?,
-                ),
+                config,
             }),
         })
     }
@@ -343,14 +317,14 @@ mod tests {
                 .server_ip(IpAddr::V4(Ipv4Addr::new(115, 238, 101, 49)))
                 .server_port(80u16)
                 .duration(Duration::from_millis(123))
-                .sent(123123usize)
-                .total_size(123123usize)
+                .sent(123_123usize)
+                .total_size(123_123usize)
                 .build()
                 .unwrap(),
         );
         sleep(Duration::from_millis(500));
         assert_eq!(mock.call_called(), 0);
-        assert!(upload_logger.inner.log_file.read().unwrap().as_file().metadata()?.len() > 0);
+        assert!(upload_logger.log_buffer_len() > 0);
         upload_logger.log(
             UploadLoggerRecordBuilder::default()
                 .status_code(200)
@@ -367,21 +341,18 @@ mod tests {
         );
         sleep(Duration::from_millis(500));
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(
-            upload_logger.inner.log_file.read().unwrap().as_file().metadata()?.len(),
-            0
-        );
+        assert_eq!(upload_logger.log_buffer_len(), 0);
         Ok(())
     }
 
     #[test]
-    fn test_storage_uploader_upload_logger_max_uplog_file_size() -> Result<(), Box<dyn Error>> {
+    fn test_storage_uploader_upload_logger_max_uplog_size() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!({})));
         let config = ConfigBuilder::default()
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .uplog_upload_threshold(100)
-            .max_uplog_file_size(50)
+            .max_uplog_size(100)
             .build()?;
         let upload_logger = UploadLoggerBuilder::default()
             .upload_token(&UploadToken::from_policy(
@@ -399,14 +370,14 @@ mod tests {
                 .server_ip(IpAddr::V4(Ipv4Addr::new(115, 238, 101, 49)))
                 .server_port(80u16)
                 .duration(Duration::from_millis(123))
-                .sent(123123usize)
-                .total_size(123123usize)
+                .sent(123_123usize)
+                .total_size(123_123usize)
                 .build()
                 .unwrap(),
         );
         sleep(Duration::from_millis(500));
         assert_eq!(mock.call_called(), 0);
-        assert!(upload_logger.inner.log_file.read().unwrap().as_file().metadata()?.len() > 0);
+        assert!(upload_logger.log_buffer_len() > 0);
         upload_logger.log(
             UploadLoggerRecordBuilder::default()
                 .status_code(200)
@@ -423,7 +394,7 @@ mod tests {
         );
         sleep(Duration::from_millis(500));
         assert_eq!(mock.call_called(), 0);
-        assert!(upload_logger.inner.log_file.read().unwrap().as_file().metadata()?.len() > 0);
+        assert!(upload_logger.log_buffer_len() > 0);
         Ok(())
     }
 

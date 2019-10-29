@@ -53,10 +53,10 @@ pub struct ConfigInner {
     uplog_disabled: bool,
 
     #[get_copy = "pub"]
-    uplog_upload_threshold: u64,
+    uplog_upload_threshold: usize,
 
     #[get_copy = "pub"]
-    max_uplog_file_size: u64,
+    max_uplog_size: usize,
 
     #[get = "pub"]
     #[builder(setter(into))]
@@ -104,7 +104,7 @@ impl Default for ConfigInner {
             always_flush_records: false,
             uplog_disabled: false,
             uplog_upload_threshold: 1 << 12,
-            max_uplog_file_size: 1 << 22,
+            max_uplog_size: 1 << 22,
             http_request_retries: 3,
             http_request_retry_delay: Duration::from_secs(1),
             http_request_call: Self::default_http_request_call(),
@@ -140,7 +140,7 @@ impl fmt::Debug for ConfigInner {
             .field("always_flush_records", &self.always_flush_records)
             .field("uplog_disabled", &self.uplog_disabled)
             .field("uplog_upload_threshold", &self.uplog_upload_threshold)
-            .field("max_uplog_file_size", &self.max_uplog_file_size)
+            .field("max_uplog_size", &self.max_uplog_size)
             .field("http_request_retries", &self.http_request_retries)
             .field("http_request_retry_delay", &self.http_request_retry_delay)
             .field("domains_manager", &self.domains_manager)
