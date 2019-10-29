@@ -103,7 +103,7 @@ where
 
 pub fn new_reader<IO: Read>(io: IO) -> Reader<IO> {
     Reader {
-        io: io,
+        io,
         etag: None,
         have_read: 0,
         digest: new(),

@@ -78,11 +78,8 @@ impl<'a> Response<'a> {
     }
 
     pub(crate) fn ignore_body(&mut self) {
-        match self.take_body().as_mut() {
-            Some(r) => {
-                io::copy(r, &mut io::sink()).ok(); // Ignore read result
-            }
-            None => {}
+        if let Some(r) = self.take_body().as_mut() {
+            io::copy(r, &mut io::sink()).ok(); // Ignore read result
         }
     }
 }

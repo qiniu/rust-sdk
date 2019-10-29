@@ -33,11 +33,9 @@ impl<'p> UploadToken<'p> {
         match self {
             UploadToken::Token(token) => {
                 let encoded_policy = token.splitn(3, ':').last().ok_or(ErrorKind::InvalidUploadTokenFormat)?;
-                let decoded_policy =
-                    base64::decode(encoded_policy.as_bytes()).map_err(|err| ErrorKind::Base64DecodeError(err))?;
+                let decoded_policy = base64::decode(encoded_policy.as_bytes()).map_err(ErrorKind::Base64DecodeError)?;
                 Ok(Cow::Owned(
-                    UploadPolicy::from_json_slice_owned(&decoded_policy)
-                        .map_err(|err| ErrorKind::JSONDecodeError(err))?,
+                    UploadPolicy::from_json_slice_owned(&decoded_policy).map_err(ErrorKind::JSONDecodeError)?,
                 ))
             }
             UploadToken::Policy(policy, _) => Ok(Cow::Borrowed(policy)),

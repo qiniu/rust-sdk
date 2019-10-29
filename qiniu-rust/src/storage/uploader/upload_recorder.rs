@@ -65,7 +65,7 @@ where
 {
     pub(super) fn new(recorder: R, config: &Config) -> UploadRecorder<R> {
         UploadRecorder {
-            recorder: recorder,
+            recorder,
             key_generator: config.upload_file_recorder_key_generator(),
             upload_block_lifetime: config.upload_block_lifetime(),
             always_flush_records: config.always_flush_records(),
@@ -87,8 +87,8 @@ where
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .expect("Incorrect last modification time in file metadata")
                 .as_secs(),
-            upload_id: upload_id,
-            up_urls: up_urls,
+            upload_id,
+            up_urls,
         };
         let mut medium = self.recorder.open((self.key_generator)(path, key), true)?;
         let mut metadata = serde_json::to_string(&metadata).map_err(|err| Error::new(ErrorKind::Other, err))?;
@@ -169,13 +169,13 @@ where
 {
     pub(super) fn append(&self, etag: &str, part_number: usize, block_size: u64) -> Result<()> {
         let mut item = serde_json::to_string(&SerializableFileUploadRecordMediumBlockItem {
-            etag: etag,
-            part_number: part_number,
+            etag,
+            part_number,
+            block_size,
             created_timestamp: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .expect("Clock may have gone backwards")
                 .as_secs(),
-            block_size: block_size,
         })
         .map_err(|err| Error::new(ErrorKind::Other, err))?;
         item.push_str("\n");

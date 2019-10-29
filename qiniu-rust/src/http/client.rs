@@ -8,7 +8,7 @@ pub(crate) struct Client {
 
 impl Client {
     pub(crate) fn new(config: Config) -> Client {
-        Client { config: config }
+        Client { config }
     }
 
     pub(crate) fn get<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {

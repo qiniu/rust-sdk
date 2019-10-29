@@ -41,7 +41,7 @@ where
         upload_token: &'u UploadToken<'u>,
     ) -> UploadTokenParseResult<FormUploaderBuilder<'u, REC>> {
         let mut uploader = FormUploaderBuilder {
-            bucket_uploader: bucket_uploader,
+            bucket_uploader,
             multipart: Multipart::new(),
             on_uploading_progress: None,
             upload_logger_builder: UploadLoggerBuilder::default().upload_token(upload_token),
@@ -124,7 +124,7 @@ where
         Ok(FormUploader {
             bucket_uploader: self.bucket_uploader,
             content_type: "multipart/form-data; boundary=".to_owned() + fields.boundary(),
-            body: body,
+            body,
             on_uploading_progress: self.on_uploading_progress,
             upload_logger: self
                 .upload_logger_builder
@@ -139,12 +139,11 @@ where
     REC: recorder::Recorder,
 {
     pub(super) fn send(&self) -> HTTPResult<UploadResult> {
-        let mut iter = self.bucket_uploader.up_urls_list().iter();
         let mut prev_err: Option<HTTPError> = None;
-        while let Some(up_urls) = iter.next() {
+        for up_urls in self.bucket_uploader.up_urls_list().iter() {
             match self.send_form_request(&up_urls.iter().map(|url| url.as_ref()).collect::<Box<[&str]>>()) {
                 Ok(value) => {
-                    return Ok(value.into());
+                    return Ok(value);
                 }
                 Err(err) => match err.retry_kind() {
                     RetryKind::RetryableError | RetryKind::HostUnretryableError | RetryKind::ZoneUnretryableError => {

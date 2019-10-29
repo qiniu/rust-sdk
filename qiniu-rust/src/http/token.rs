@@ -1,7 +1,7 @@
 use super::super::credential::Credential;
 use qiniu_http::Request;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Token {
     V1(Credential),
     V2(Credential),
@@ -10,11 +10,8 @@ pub enum Token {
 
 impl Token {
     pub(crate) fn sign(&self, req: &mut Request) {
-        match self {
-            Token::None => {
-                return;
-            }
-            _ => {}
+        if self == &Token::None {
+            return;
         }
 
         let url = req.url();

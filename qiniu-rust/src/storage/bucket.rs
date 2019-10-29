@@ -38,8 +38,8 @@ impl<'r> BucketBuilder<'r> {
         BucketBuilder {
             name: name.into(),
             http_client: http::Client::new(config.clone()),
-            credential: credential,
-            config: config,
+            credential,
+            config,
             region: None,
             backup_regions: None,
             domains: None,
@@ -86,7 +86,7 @@ impl<'r> BucketBuilder<'r> {
                 self.name.as_ref(),
             )?
             .into_iter()
-            .map(|domain| Cow::Owned(domain))
+            .map(Cow::Owned)
             .collect(),
         );
         Ok(self)
@@ -98,18 +98,12 @@ impl<'r> BucketBuilder<'r> {
             credential: self.credential,
             http_client: self.http_client,
             config: self.config,
-            region: self
-                .region
-                .map(|region| OnceCell::from(region))
-                .unwrap_or_else(|| OnceCell::new()),
-            backup_regions: self
-                .backup_regions
-                .map(|regions| OnceCell::from(regions))
-                .unwrap_or_else(|| OnceCell::new()),
+            region: self.region.map(OnceCell::from).unwrap_or_else(OnceCell::new),
+            backup_regions: self.backup_regions.map(OnceCell::from).unwrap_or_else(OnceCell::new),
             domains: self
                 .domains
                 .map(|domains| OnceCell::from(domains.into_boxed_slice()))
-                .unwrap_or_else(|| OnceCell::new()),
+                .unwrap_or_else(OnceCell::new),
         }
     }
 
@@ -148,7 +142,7 @@ impl<'r> Bucket<'r> {
             Ok(
                 domain::query(&self.http_client, self.credential.clone(), self.uc_url(), self.name())?
                     .into_iter()
-                    .map(|domain| Cow::Owned(domain))
+                    .map(Cow::Owned)
                     .collect(),
             )
         })?;
@@ -196,15 +190,15 @@ impl<'a, 'r: 'a> Iterator for BucketRegionIter<'a, 'r> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.itered == 0 {
-            return self.bucket.region.get().map(|region| {
+            self.bucket.region.get().map(|region| {
                 self.itered += 1;
                 region.as_ref()
-            });
+            })
         } else {
-            return self.bucket.backup_regions.get().and_then(|regions| {
+            self.bucket.backup_regions.get().and_then(|regions| {
                 self.itered += 1;
                 regions.get(self.itered - 2)
-            });
+            })
         }
     }
 }

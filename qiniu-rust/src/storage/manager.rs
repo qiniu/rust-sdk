@@ -19,7 +19,7 @@ impl StorageManager {
     pub(crate) fn new(credential: Credential, config: Config) -> StorageManager {
         StorageManager {
             rs_url: Region::hua_dong().rs_url(config.use_https()),
-            credential: credential,
+            credential,
             config: config.clone(),
             http_client: http::Client::new(config),
         }
@@ -42,8 +42,7 @@ impl StorageManager {
     }
 
     pub fn create_bucket<B: AsRef<str>>(&self, bucket: B, region_id: RegionId) -> HTTPResult<()> {
-        Ok(self
-            .http_client
+        self.http_client
             .post(
                 &("/mkbucketv2/".to_owned()
                     + &base64::urlsafe(bucket.as_ref().as_bytes())
@@ -54,7 +53,8 @@ impl StorageManager {
             .token(http::Token::V1(self.credential.clone()))
             .no_body()
             .send()?
-            .ignore_body())
+            .ignore_body();
+        Ok(())
     }
 
     pub fn drop_bucket<B: AsRef<str>>(&self, bucket: B) -> Result<()> {
@@ -65,15 +65,15 @@ impl StorageManager {
             .no_body()
             .send()
         {
-            Ok(ref mut response) => Ok(response.ignore_body()),
+            Ok(ref mut response) => {
+                response.ignore_body();
+                Ok(())
+            }
             Err(err) => {
-                match err.error_kind() {
-                    HTTPErrorKind::ResponseStatusCodeError(403, message) => {
-                        if message.contains("drop non empty bucket is not allowed") {
-                            return Err(ErrorKind::CannotDropNonEmptyBucket.into());
-                        }
+                if let HTTPErrorKind::ResponseStatusCodeError(403, message) = err.error_kind() {
+                    if message.contains("drop non empty bucket is not allowed") {
+                        return Err(ErrorKind::CannotDropNonEmptyBucket.into());
                     }
-                    _ => {}
                 }
                 Err(err.into())
             }

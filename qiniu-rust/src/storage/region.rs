@@ -17,7 +17,7 @@ pub enum RegionId {
 }
 
 impl RegionId {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             RegionId::Z0 => "z0",
             RegionId::Z1 => "z1",
@@ -27,7 +27,7 @@ impl RegionId {
         }
     }
 
-    pub fn as_region(&self) -> &'static Region {
+    pub fn as_region(self) -> &'static Region {
         match self {
             RegionId::Z0 => Region::z0(),
             RegionId::Z1 => Region::z1(),
@@ -412,15 +412,15 @@ impl RegionQueryResult {
             .src
             .main
             .first()
-            .and_then(|domain| INFER_DOMAINS_MAP.get(domain.as_str()).map(|&region| region))
-            .unwrap_or_else(|| Region::hua_dong());
+            .and_then(|domain| INFER_DOMAINS_MAP.get(domain.as_str()).copied())
+            .unwrap_or_else(Region::hua_dong);
         RegionBuilder::default()
             .up_http_urls(
                 [&self.up.acc, &self.up.src]
-                    .into_iter()
+                    .iter()
                     .map(|domains| {
                         [Some(&domains.main), domains.backup.as_ref()]
-                            .into_iter()
+                            .iter()
                             .filter_map(|&domains| domains)
                             .flatten()
                             .map(|domain| Cow::Owned("http://".to_owned() + domain))
@@ -431,10 +431,10 @@ impl RegionQueryResult {
             )
             .up_https_urls(
                 [&self.up.acc, &self.up.src, &self.up.old_acc, &self.up.old_src]
-                    .into_iter()
+                    .iter()
                     .map(|domains| {
                         [Some(&domains.main), domains.backup.as_ref()]
-                            .into_iter()
+                            .iter()
                             .filter_map(|&domains| domains)
                             .flatten()
                             .map(|domain| Cow::Owned("https://".to_owned() + domain))
@@ -445,7 +445,7 @@ impl RegionQueryResult {
             )
             .io_http_urls(
                 [Some(&self.io.src.main), self.io.src.backup.as_ref()]
-                    .into_iter()
+                    .iter()
                     .filter_map(|&domains| domains)
                     .flatten()
                     .map(|domain| Cow::Owned("http://".to_owned() + domain))
@@ -453,7 +453,7 @@ impl RegionQueryResult {
             )
             .io_https_urls(
                 [Some(&self.io.src.main), self.io.src.backup.as_ref()]
-                    .into_iter()
+                    .iter()
                     .filter_map(|&domains| domains)
                     .flatten()
                     .map(|domain| Cow::Owned("https://".to_owned() + domain))

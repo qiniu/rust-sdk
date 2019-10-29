@@ -114,7 +114,7 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
         upload_token: &'u UploadToken<'u>,
     ) -> UploadTokenParseResult<ResumeableUploaderBuilder<'u, REC>> {
         Ok(ResumeableUploaderBuilder {
-            bucket_uploader: bucket_uploader,
+            bucket_uploader,
             upload_token: upload_token.token(),
             key: None,
             metadata: None,
@@ -180,14 +180,14 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
         let bucket_uploader = self.bucket_uploader;
         let block_size = bucket_uploader.config().upload_block_size();
         Ok(ResumeableUploader {
-            bucket_uploader: bucket_uploader,
+            bucket_uploader,
             upload_token: self.upload_token,
             key: self.key,
             file_path: Some(file_path),
             io: file,
             io_size: Some(file_size as usize),
             uploaded_size: AtomicUsize::new(0),
-            checksum_enabled: checksum_enabled,
+            checksum_enabled,
             is_seekable: true,
             block_size: bucket_uploader.config().upload_block_size(),
             completed_parts: Mutex::new(CompletedParts {
@@ -203,7 +203,7 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
             }),
             from_resuming: None,
             uploading_progress_callback: self.on_uploading_progress.map(|callback| UploadingProgressCallback {
-                callback: callback,
+                callback,
                 completed_size: AtomicUsize::new(0),
                 total_size: Some(file_size as usize),
             }),
@@ -234,14 +234,14 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
     ) -> IOResult<ResumeableUploader<'u, seek_adapter::SeekAdapter<R>, REC>> {
         let bucket_uploader = self.bucket_uploader;
         Ok(ResumeableUploader {
-            bucket_uploader: bucket_uploader,
+            bucket_uploader,
             upload_token: self.upload_token,
             key: self.key,
             file_path: None,
             io: seek_adapter::SeekAdapter(stream),
             io_size: None,
             uploaded_size: AtomicUsize::new(0),
-            checksum_enabled: checksum_enabled,
+            checksum_enabled,
             is_seekable: false,
             block_size: bucket_uploader.config().upload_block_size(),
             completed_parts: Mutex::new(CompletedParts {
@@ -253,7 +253,7 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
             }),
             from_resuming: None,
             uploading_progress_callback: self.on_uploading_progress.map(|callback| UploadingProgressCallback {
-                callback: callback,
+                callback,
                 completed_size: AtomicUsize::new(0),
                 total_size: None,
             }),
@@ -283,9 +283,8 @@ impl<'u, R: Read + Seek + Send + Sync, REC: recorder::Recorder> ResumeableUpload
         if let Ok(Some(result)) = self.try_to_resume(&base_path, &authorization) {
             return Ok(result);
         }
-        let mut iter = self.bucket_uploader.up_urls_list().iter();
         let mut prev_err: Option<HTTPError> = None;
-        while let Some(up_urls) = iter.next() {
+        for up_urls in self.bucket_uploader.up_urls_list().iter() {
             match self.try_to_init_and_upload_with_log(
                 &up_urls.iter().map(|url| url.as_ref()).collect::<Box<[&str]>>(),
                 &base_path,
@@ -429,30 +428,27 @@ impl<'u, R: Read + Seek + Send + Sync, REC: recorder::Recorder> ResumeableUpload
                                     block_size,
                                     &mut md5,
                                     |block_uploaded, _| {
-                                        uploading_progress_callback.map(|progress| {
+                                        if let Some(progress) = uploading_progress_callback {
                                             let added_size =
                                                 block_uploaded - last_block_uploaded.replace(block_uploaded);
                                             (progress.callback)(
                                                 progress.completed_size.fetch_add(added_size, AcqRel) + added_size,
                                                 progress.total_size,
                                             );
-                                        });
+                                        }
                                     },
                                     |_, _, _| {
-                                        uploading_progress_callback.map(|progress| {
+                                        if let Some(progress) = uploading_progress_callback {
                                             progress
                                                 .completed_size
                                                 .fetch_sub(last_block_uploaded.replace(0), AcqRel);
-                                        });
+                                        }
                                     },
                                     upload_logger,
                                     upload_recorder.as_ref(),
                                 ) {
                                     Ok(etag) => {
-                                        completed_parts.lock().unwrap().parts.push(Part {
-                                            etag: etag,
-                                            part_number: part_number,
-                                        });
+                                        completed_parts.lock().unwrap().parts.push(Part { etag, part_number });
                                         uploaded_size.fetch_add(block_size, AcqRel);
                                     }
                                     Err(err) => {
@@ -510,8 +506,8 @@ impl<'u, R: Read + Seek + Send + Sync, REC: recorder::Recorder> ResumeableUpload
         self.from_resuming = Some(FromResuming {
             upload_id: file_record.upload_id,
             up_urls: file_record.up_urls,
-            recorder: recorder,
-            io_offset: io_offset,
+            recorder,
+            io_offset,
         });
         self.uploaded_size = AtomicUsize::new(io_offset as usize);
     }
@@ -578,7 +574,7 @@ impl<'u, R: Read + Seek + Send + Sync, REC: recorder::Recorder> ResumeableUpload
             .put(path, up_urls)
             .header("Authorization", authorization)
             .on_uploading_progress(&on_progress);
-        if let Some(md5) = md5_hasher.from_bytes(part) {
+        if let Some(md5) = md5_hasher.hash(part) {
             builder = builder.header("Content-MD5", md5);
         }
         let result: UploadPartResult = builder
@@ -698,7 +694,7 @@ impl<'u, R: Read + Seek + Send + Sync, REC: recorder::Recorder> ResumeableUpload
                 authorization,
                 Some(from_resuming.recorder),
             )
-            .map(|result| Some(result))
+            .map(Some)
         } else {
             Ok(None)
         }
@@ -728,7 +724,7 @@ impl OptionalMd5 {
         OptionalMd5(if checksum_enabled { Some(CryptoMD5::new()) } else { None })
     }
 
-    fn from_bytes(&mut self, buf: &[u8]) -> Option<String> {
+    fn hash(&mut self, buf: &[u8]) -> Option<String> {
         self.0.as_mut().map(|md5_digest| {
             md5_digest.input(buf);
             let md5 = md5_digest.result_str();

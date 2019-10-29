@@ -48,12 +48,12 @@ impl<'b> BucketUploaderBuilder<'b, recorder::FileSystemRecorder<'b>> {
         assert!(!up_urls_list.is_empty());
         Ok(BucketUploaderBuilder {
             inner: BucketUploader {
-                bucket_name: bucket_name,
-                up_urls_list: up_urls_list,
-                credential: credential,
+                bucket_name,
+                up_urls_list,
+                credential,
                 client: Client::new(config.clone()),
                 recorder: UploadRecorder::new(recorder::FileSystemRecorder::configure_by(&config)?, &config),
-                config: config,
+                config,
                 thread_pool: None,
             },
         })
@@ -120,7 +120,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         upload_token: upload_token::UploadToken<'b>,
     ) -> FileUploaderBuilder<'b, REC> {
         FileUploaderBuilder {
-            upload_token: upload_token,
+            upload_token,
             key: None,
             vars: None,
             metadata: None,
@@ -128,7 +128,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
             on_uploading_progress: None,
             thread_pool: None,
             resumeable_policy: ResumeablePolicy::Threshold(bucket_uploader.config.upload_threshold()),
-            bucket_uploader: bucket_uploader,
+            bucket_uploader,
         }
     }
 
@@ -331,10 +331,10 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         Ok(())
     }
 
-    fn upload_stream_by_form<'n, R: Read>(
+    fn upload_stream_by_form<R: Read>(
         self,
         stream: R,
-        file_name: Option<Cow<'n, str>>,
+        file_name: Option<Cow<str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
         let mut uploader = form_uploader::FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
@@ -364,10 +364,10 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
             .send()?)
     }
 
-    fn upload_stream_by_blocks<'n, R: Read + Send + Sync>(
+    fn upload_stream_by_blocks<R: Read + Send + Sync>(
         self,
         stream: R,
-        file_name: Option<Cow<'n, str>>,
+        file_name: Option<Cow<str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
         let mut uploader =
@@ -398,7 +398,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
     }
 
     fn guess_filename<'n>(file_path: &Path, file_name: Option<Cow<'n, str>>) -> Option<Cow<'n, str>> {
-        file_name.map(|name| name.into()).or_else(|| {
+        file_name.or_else(|| {
             file_path
                 .file_name()
                 .and_then(|name| name.to_str())

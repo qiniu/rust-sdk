@@ -1,7 +1,7 @@
 use delegate::delegate;
 use std::io::{Error as IOError, ErrorKind as IOErrorKind, IoSliceMut, Read, Result as IOResult, Seek, SeekFrom};
 
-const NOT_IMPLEMENTED: &'static str = "Not Implemented";
+const NOT_IMPLEMENTED: &str = "Not Implemented";
 
 pub struct SeekAdapter<R: Read>(pub R);
 

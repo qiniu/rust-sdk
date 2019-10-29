@@ -48,7 +48,7 @@ impl From<qiniu_ng_string_list_t> for Box<[CString]> {
 
 pub(crate) fn make_string_list<S: AsRef<str>, A: AsRef<[S]>>(list: A) -> qiniu_ng_string_list_t {
     list.as_ref()
-        .into_iter()
+        .iter()
         .map(|s| CString::new(s.as_ref()).unwrap())
         .collect::<Box<[CString]>>()
         .into()

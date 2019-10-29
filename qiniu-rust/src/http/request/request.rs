@@ -200,11 +200,7 @@ impl<'a> Request<'a> {
         let mut content_length = None::<usize>;
         if let Some(content_length_str) = response.header("Content-Length") {
             content_length = Some(content_length_str.parse().map_err(|err| {
-                return HTTPError::new_unretryable_error(
-                    HTTPErrorKind::UnknownError(Box::new(err)),
-                    request,
-                    Some(response),
-                );
+                HTTPError::new_unretryable_error(HTTPErrorKind::UnknownError(Box::new(err)), request, Some(response))
             })?);
         }
         if let Some(body_reader) = response.body_mut() {

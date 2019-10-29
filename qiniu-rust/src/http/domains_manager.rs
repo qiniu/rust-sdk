@@ -140,14 +140,13 @@ impl From<DomainsManagerInnerData> for PersistentDomainsManager {
         };
 
         for (base_url, frozen_until) in domains_manager.frozen_urls {
-            persistent.frozen_urls.push(PersistentFrozenURL {
-                base_url: base_url,
-                frozen_until: frozen_until,
-            });
+            persistent
+                .frozen_urls
+                .push(PersistentFrozenURL { base_url, frozen_until });
         }
         for (base_url, resolutions) in domains_manager.resolutions {
             persistent.resolutions.push(PersistentResolutions {
-                base_url: base_url,
+                base_url,
                 socket_addrs: resolutions.socket_addrs,
                 cache_deadline: resolutions.cache_deadline,
             });
@@ -279,7 +278,7 @@ impl DomainsManagerBuilder {
         let persistent_file_path = persistent_file_path.into();
         let inner_data = DomainsManagerInnerData::load_from_file(&persistent_file_path)?;
         Ok(DomainsManagerBuilder {
-            inner_data: inner_data,
+            inner_data,
             persistent_file_path: Some(persistent_file_path),
             pre_resolve_urls: vec![],
         })
@@ -304,7 +303,7 @@ impl Default for DomainsManagerBuilder {
 
         DomainsManagerInnerData::load_from_file(&persistent_file_path)
             .map(|inner_data| DomainsManagerBuilder {
-                inner_data: inner_data,
+                inner_data,
                 persistent_file_path: Some(persistent_file_path.to_owned()),
                 pre_resolve_urls: vec![],
             })
@@ -332,11 +331,8 @@ pub struct DomainsManager {
 impl DomainsManager {
     pub fn persistent(&self) -> Option<persistent_error::Result<()>> {
         let result = self.persistent_without_lock();
-        match result {
-            Some(Ok(_)) => {
-                *self.inner.last_persistent_time.lock().unwrap() = Instant::now();
-            }
-            _ => {}
+        if let Some(Ok(_)) = result {
+            *self.inner.last_persistent_time.lock().unwrap() = Instant::now();
         }
         result
     }
@@ -362,7 +358,7 @@ impl DomainsManager {
         let mut rng = rand::thread_rng();
         assert!(!base_urls.is_empty());
         let mut choices = Vec::<Choice>::with_capacity(base_urls.len());
-        for base_url in base_urls.into_iter() {
+        for base_url in base_urls.iter() {
             if !self.is_frozen_url(base_url)? {
                 if let Some(choice) = self.make_choice(base_url, &mut rng) {
                     choices.push(choice);
@@ -372,7 +368,7 @@ impl DomainsManager {
         if choices.is_empty() {
             choices.push(
                 base_urls
-                    .into_iter()
+                    .iter()
                     .filter_map(|base_url| self.make_choice(base_url, &mut rng))
                     .min_by_key(|choice| {
                         self.inner
@@ -423,21 +419,18 @@ impl DomainsManager {
     fn make_choice<'a>(&self, base_url: &'a str, rng: &mut ThreadRng) -> Option<Choice<'a>> {
         if self.inner.inner_data.disable_url_resolution {
             return Some(Choice {
-                base_url: base_url,
+                base_url,
                 socket_addrs: Vec::new().into(),
             });
         }
         self.resolve(base_url)
             .ok()
-            .map(|mut results| {
+            .map(|mut socket_addrs| {
                 // TODO: Think about IP address speed testing
-                results.shuffle(rng);
-                results
+                socket_addrs.shuffle(rng);
+                socket_addrs
             })
-            .map(|results| Choice {
-                base_url: base_url,
-                socket_addrs: results,
-            })
+            .map(|socket_addrs| Choice { base_url, socket_addrs })
     }
 
     fn resolve(&self, url: &str) -> resolve_error::Result<Box<[SocketAddr]>> {

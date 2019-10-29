@@ -107,47 +107,47 @@ impl<'p> UploadPolicy<'p> {
     }
 
     pub fn end_user(&self) -> Option<&str> {
-        Self::to_optional_str(&self.end_user)
+        Self::convert_to_optional_str(&self.end_user)
     }
 
     pub fn return_url(&self) -> Option<&str> {
-        Self::to_optional_str(&self.return_url)
+        Self::convert_to_optional_str(&self.return_url)
     }
 
     pub fn return_body(&self) -> Option<&str> {
-        Self::to_optional_str(&self.return_body)
+        Self::convert_to_optional_str(&self.return_body)
     }
 
     pub fn callback_urls(&self) -> Option<Split<char>> {
-        Self::to_optional_splited_str(&self.callback_url, ';')
+        Self::convert_to_optional_splited_str(&self.callback_url, ';')
     }
 
     pub fn callback_host(&self) -> Option<&str> {
-        Self::to_optional_str(&self.callback_host)
+        Self::convert_to_optional_str(&self.callback_host)
     }
 
     pub fn callback_body(&self) -> Option<&str> {
-        Self::to_optional_str(&self.callback_body)
+        Self::convert_to_optional_str(&self.callback_body)
     }
 
     pub fn callback_body_type(&self) -> Option<&str> {
-        Self::to_optional_str(&self.callback_body_type)
+        Self::convert_to_optional_str(&self.callback_body_type)
     }
 
     pub fn persistent_ops(&self) -> Option<Split<char>> {
-        Self::to_optional_splited_str(&self.persistent_ops, ';')
+        Self::convert_to_optional_splited_str(&self.persistent_ops, ';')
     }
 
     pub fn persistent_notify_url(&self) -> Option<&str> {
-        Self::to_optional_str(&self.persistent_notify_url)
+        Self::convert_to_optional_str(&self.persistent_notify_url)
     }
 
     pub fn persistent_pipeline(&self) -> Option<&str> {
-        Self::to_optional_str(&self.persistent_pipeline)
+        Self::convert_to_optional_str(&self.persistent_pipeline)
     }
 
     pub fn save_key(&self) -> Option<&str> {
-        Self::to_optional_str(&self.save_key)
+        Self::convert_to_optional_str(&self.save_key)
     }
 
     pub fn force_save_key(&self) -> bool {
@@ -159,7 +159,7 @@ impl<'p> UploadPolicy<'p> {
     }
 
     pub fn mime(&self) -> Option<Split<char>> {
-        Self::to_optional_splited_str(&self.mime_limit, ';')
+        Self::convert_to_optional_splited_str(&self.mime_limit, ';')
     }
 
     pub fn normal_storage(&self) -> bool {
@@ -179,11 +179,11 @@ impl<'p> UploadPolicy<'p> {
         self.object_lifetime().map(|t| SystemTime::now() + t)
     }
 
-    fn to_optional_str<'a>(s: &'a Option<Cow<'p, str>>) -> Option<&'a str> {
+    fn convert_to_optional_str<'a>(s: &'a Option<Cow<'p, str>>) -> Option<&'a str> {
         s.as_ref().map(|s| s.as_ref())
     }
 
-    fn to_optional_splited_str<'a>(s: &'a Option<Cow<'p, str>>, pat: char) -> Option<Split<'a, char>> {
+    fn convert_to_optional_splited_str<'a>(s: &'a Option<Cow<'p, str>>, pat: char) -> Option<Split<'a, char>> {
         s.as_ref().map(|x| x.split(pat))
     }
 
@@ -292,7 +292,7 @@ impl<'p> UploadPolicyBuilder<'p> {
                 .checked_add(lifetime)
                 .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
                 .and_then(|t| t.as_secs().try_into().ok())
-                .unwrap_or_else(|| u32::max_value()),
+                .unwrap_or_else(u32::max_value),
         );
         self
     }
@@ -303,7 +303,7 @@ impl<'p> UploadPolicyBuilder<'p> {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .ok()
                 .and_then(|t| t.as_secs().try_into().ok())
-                .unwrap_or_else(|| u32::max_value()),
+                .unwrap_or_else(u32::max_value),
         );
         self
     }
@@ -439,7 +439,7 @@ impl<'p> UploadPolicyBuilder<'p> {
                 .and_then(|s| s.checked_sub(1))
                 .and_then(|s| s.checked_div(secs_one_day))
                 .and_then(|s| s.try_into().ok())
-                .unwrap_or_else(|| usize::max_value()),
+                .unwrap_or_else(usize::max_value),
         );
         self
     }

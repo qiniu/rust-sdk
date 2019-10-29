@@ -67,7 +67,7 @@ impl UploadLogger {
             )
         })?;
 
-        if request_body.len() > 0 {
+        if !request_body.is_empty() {
             self.inner
                 .http_client
                 .post("/log/3", &[self.inner.server_url])
@@ -134,7 +134,7 @@ impl UploadLoggerBuilder {
             inner: Arc::new(UploadLoggerInner {
                 server_url: self.server_url,
                 http_client: Client::new(config.clone()),
-                config: config,
+                config,
                 upload_token: self.upload_token.expect("upload_token must be set").into(),
                 log_file: RwLock::new(
                     TempfileBuilder::new()
@@ -167,7 +167,7 @@ pub(crate) enum UpType {
 }
 
 impl UpType {
-    fn as_str(&self) -> &'static str {
+    fn as_str(self) -> &'static str {
         match self {
             UpType::Form => "form",
             UpType::Chunkedv2 => "chunked_v2",

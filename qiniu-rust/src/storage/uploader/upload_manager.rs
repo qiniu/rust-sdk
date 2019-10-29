@@ -18,10 +18,7 @@ pub struct UploadManager {
 
 impl UploadManager {
     pub(crate) fn new(credential: Credential, config: Config) -> UploadManager {
-        UploadManager {
-            credential: credential,
-            config: config,
-        }
+        UploadManager { credential, config }
     }
 
     // TODO: ADD CUSTOMIZED RECORDER METHOD

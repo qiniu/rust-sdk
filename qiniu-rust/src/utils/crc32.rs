@@ -20,7 +20,7 @@ where
 
 pub fn new_reader<'io, IO: Read + 'io>(io: &'io mut IO) -> Reader<IO> {
     Reader {
-        io: io,
+        io,
         crc32: None,
         have_read: 0,
         digest: Digest::new(IEEE),

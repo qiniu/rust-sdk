@@ -25,10 +25,10 @@ impl<'a> Builder<'a> {
         Builder {
             domains_manager: config.domains_manager().clone(),
             parts: Parts {
-                config: config,
-                method: method,
-                base_urls: base_urls,
-                path: path,
+                config,
+                method,
+                base_urls,
+                path,
                 query: None,
                 headers: None,
                 body: None,
