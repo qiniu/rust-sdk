@@ -27,7 +27,6 @@ impl UploadManager {
         }
     }
 
-    // TODO: ADD CUSTOMIZED RECORDER METHOD
     pub fn for_bucket(&self, bucket: &Bucket) -> IOResult<BucketUploaderBuilder> {
         BucketUploaderBuilder::new(
             bucket.name().into(),

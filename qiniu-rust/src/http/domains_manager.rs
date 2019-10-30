@@ -159,7 +159,8 @@ impl From<DomainsManagerInnerData> for PersistentDomainsManager {
 
 pub struct DomainsManagerBuilder {
     inner_data: DomainsManagerInnerData,
-    pre_resolve_urls: Vec<Cow<'static, str>>,
+    pre_resolution_urls: Vec<Cow<'static, str>>,
+    is_pre_resolution_async: bool,
     persistent_file_path: Option<PathBuf>,
 }
 
@@ -210,7 +211,17 @@ impl DomainsManagerBuilder {
     }
 
     pub fn pre_resolve_url<U: Into<Cow<'static, str>>>(mut self, pre_resolve_url: U) -> Self {
-        self.pre_resolve_urls.push(pre_resolve_url.into());
+        self.pre_resolution_urls.push(pre_resolve_url.into());
+        self
+    }
+
+    pub fn async_pre_resolve(mut self) -> Self {
+        self.is_pre_resolution_async = true;
+        self
+    }
+
+    pub fn sync_pre_resolve(mut self) -> Self {
+        self.is_pre_resolution_async = false;
         self
     }
 
@@ -223,8 +234,12 @@ impl DomainsManagerBuilder {
                 last_refresh_time: Mutex::new(Instant::now()),
             }),
         };
-        if !self.pre_resolve_urls.is_empty() {
-            domains_manager.async_resolve_urls(self.pre_resolve_urls);
+        if !self.pre_resolution_urls.is_empty() {
+            if self.is_pre_resolution_async {
+                domains_manager.async_resolve_urls(self.pre_resolution_urls);
+            } else {
+                domains_manager.sync_resolve_urls(self.pre_resolution_urls);
+            }
         }
         domains_manager.async_refresh_resolutions_without_update_refresh_time();
         domains_manager
@@ -281,7 +296,8 @@ impl DomainsManagerBuilder {
         Ok(DomainsManagerBuilder {
             inner_data,
             persistent_file_path: Some(persistent_file_path),
-            pre_resolve_urls: vec![],
+            pre_resolution_urls: Vec::new(),
+            is_pre_resolution_async: false,
         })
     }
 
@@ -289,7 +305,8 @@ impl DomainsManagerBuilder {
         DomainsManagerBuilder {
             inner_data: Default::default(),
             persistent_file_path: persistent_file_path.map(|path| path.into()),
-            pre_resolve_urls: Self::default_pre_resolve_urls(),
+            pre_resolution_urls: Self::default_pre_resolve_urls(),
+            is_pre_resolution_async: true,
         }
     }
 }
@@ -306,12 +323,14 @@ impl Default for DomainsManagerBuilder {
             .map(|inner_data| DomainsManagerBuilder {
                 inner_data,
                 persistent_file_path: Some(persistent_file_path.to_owned()),
-                pre_resolve_urls: vec![],
+                pre_resolution_urls: Vec::new(),
+                is_pre_resolution_async: false,
             })
             .unwrap_or_else(|_| DomainsManagerBuilder {
                 inner_data: Default::default(),
                 persistent_file_path: Some(persistent_file_path),
-                pre_resolve_urls: Self::default_pre_resolve_urls(),
+                pre_resolution_urls: Self::default_pre_resolve_urls(),
+                is_pre_resolution_async: true,
             })
     }
 }
