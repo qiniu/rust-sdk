@@ -9,7 +9,6 @@ use std::{
     borrow::Cow,
     error::Error as StdError,
     fmt,
-    io::{Cursor, Seek, SeekFrom, Write},
     net::IpAddr,
     sync::{Arc, RwLock},
     thread::spawn,
@@ -20,7 +19,7 @@ use url::Url;
 struct UploadLoggerInner {
     config: Config,
     http_client: Client,
-    log_buffer: RwLock<Cursor<Vec<u8>>>,
+    log_buffer: RwLock<Vec<u8>>,
 }
 
 #[derive(Clone)]
@@ -42,7 +41,7 @@ impl UploadLoggerBuilder {
         Some(UploadLoggerBuilder {
             inner: Arc::new(UploadLoggerInner {
                 http_client: Client::new(config.clone()),
-                log_buffer: RwLock::new(Cursor::new(Vec::with_capacity(config.max_uplog_size()))),
+                log_buffer: RwLock::new(Vec::with_capacity(config.max_uplog_size())),
                 config,
             }),
         })
@@ -66,15 +65,14 @@ impl UploadLogger {
     pub(crate) fn log(&self, record: UploadLoggerRecord) {
         let log_buffer_len = self.log_buffer_len();
         if log_buffer_len < self.shared.inner.config.max_uplog_size() {
-            let record = format!("{}\n", record);
+            let record = record.to_string() + "\n";
             if log_buffer_len + record.len() < self.shared.inner.config.max_uplog_size() {
                 self.shared
                     .inner
                     .log_buffer
                     .write()
                     .unwrap()
-                    .write_all(record.as_bytes())
-                    .ok();
+                    .extend_from_slice(record.as_bytes());
             }
         }
         if self.log_buffer_len() >= self.shared.inner.config.uplog_upload_threshold() {
@@ -91,21 +89,19 @@ impl UploadLogger {
 
     fn upload_log_buffer_and_clean(&self) -> HTTPResult<()> {
         let mut log_buffer = self.shared.inner.log_buffer.write().unwrap();
-        self.upload_log_buffer(&mut log_buffer)?;
-        log_buffer.seek(SeekFrom::Start(0)).ok();
-        log_buffer.get_mut().clear();
+        self.upload_log_buffer(&log_buffer)?;
+        log_buffer.clear();
         Ok(())
     }
 
-    fn upload_log_buffer(&self, log_buffer: &mut Cursor<Vec<u8>>) -> HTTPResult<()> {
-        let request_body = log_buffer.get_ref();
-        if !request_body.is_empty() {
+    fn upload_log_buffer(&self, log_buffer: &[u8]) -> HTTPResult<()> {
+        if !log_buffer.is_empty() {
             self.shared
                 .inner
                 .http_client
                 .post("/log/3", &[self.shared.inner.config.uplog_server_url().as_ref()])
                 .header("Authorization", "UpToken ".to_owned() + &self.upload_token)
-                .raw_body("text/plain", request_body.as_slice())
+                .raw_body("text/plain", log_buffer)
                 .send()?
                 .ignore_body();
         }
@@ -113,7 +109,7 @@ impl UploadLogger {
     }
 
     fn log_buffer_len(&self) -> usize {
-        self.shared.inner.log_buffer.read().unwrap().get_ref().len()
+        self.shared.inner.log_buffer.read().unwrap().len()
     }
 
     #[allow(dead_code)]
