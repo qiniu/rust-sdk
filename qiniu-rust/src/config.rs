@@ -5,6 +5,7 @@ use crate::{
         region::Region,
     },
 };
+use assert_impl::assert_impl;
 use crypto::{digest::Digest, sha1::Sha1};
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
@@ -176,6 +177,13 @@ impl Deref for Config {
     #[inline]
     fn deref(&self) -> &ConfigInner {
         self.0.deref()
+    }
+}
+impl Config {
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

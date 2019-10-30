@@ -5,22 +5,23 @@ use super::{
         upload_policy::UploadPolicy,
         upload_token::UploadToken,
     },
-    BucketUploaderBuilder, FileUploaderBuilder, UploadLogger,
+    BucketUploaderBuilder, FileUploaderBuilder, UploadLoggerBuilder,
 };
 use crate::{config::Config, credential::Credential, utils::ron::Ron};
+use assert_impl::assert_impl;
 use std::{borrow::Cow, io::Result as IOResult};
 
 #[derive(Clone)]
 pub struct UploadManager {
     credential: Credential,
     config: Config,
-    upload_logger: Option<UploadLogger>,
+    upload_logger_builder: Option<UploadLoggerBuilder>,
 }
 
 impl UploadManager {
     pub(crate) fn new(credential: Credential, config: Config) -> UploadManager {
         UploadManager {
-            upload_logger: UploadLogger::new(config.clone()),
+            upload_logger_builder: UploadLoggerBuilder::new(config.clone()),
             credential,
             config,
         }
@@ -56,7 +57,7 @@ impl UploadManager {
                 }),
             self.credential.clone(),
             self.config.clone(),
-            self.upload_logger.as_ref().cloned(),
+            self.upload_logger_builder.as_ref().cloned(),
         )
     }
 
@@ -82,6 +83,12 @@ impl UploadManager {
 
     pub fn for_upload_policy<'u>(&self, upload_policy: UploadPolicy<'u>) -> error::Result<FileUploaderBuilder<'u>> {
         self.for_upload_token(UploadToken::from_policy(upload_policy, self.credential.clone()))
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

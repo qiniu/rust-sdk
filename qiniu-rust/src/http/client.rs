@@ -1,5 +1,6 @@
 use super::request;
 use crate::config::Config;
+use assert_impl::assert_impl;
 use qiniu_http::Method;
 
 #[derive(Clone)]
@@ -38,5 +39,11 @@ impl Client {
 
     fn request_builder<'a>(&self, method: Method, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
         request::Builder::new(self.config.clone(), method, path, hosts)
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }

@@ -3,6 +3,7 @@ use super::{
     credential::Credential,
     storage::{manager::StorageManager, uploader::UploadManager},
 };
+use assert_impl::assert_impl;
 use getset::Getters;
 use std::borrow::Cow;
 
@@ -34,5 +35,11 @@ impl Client {
 
     pub fn upload(&self) -> &UploadManager {
         self.upload_manager()
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }

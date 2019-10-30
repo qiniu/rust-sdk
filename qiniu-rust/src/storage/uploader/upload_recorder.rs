@@ -1,8 +1,9 @@
 use super::super::recorder::{RecordMedium, Recorder};
 use crate::config::Config;
+use assert_impl::assert_impl;
 use serde::{Deserialize, Serialize};
 use std::{
-    io::{BufRead, BufReader, Error, ErrorKind, Result, Write},
+    io::{BufRead, BufReader, Error, ErrorKind, Result},
     path::Path,
     sync::Arc,
     sync::Mutex,
@@ -158,6 +159,12 @@ impl UploadRecorder {
     fn generate_key(&self, path: &Path, key: Option<&str>) -> String {
         (self.key_generator)("upload", path, key)
     }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 impl FileUploadRecordMedium {
@@ -179,5 +186,11 @@ impl FileUploadRecordMedium {
             medium.flush()?;
         }
         Ok(())
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }

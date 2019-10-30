@@ -38,8 +38,8 @@ impl<'u> FormUploaderBuilder<'u> {
             multipart: Multipart::new(),
             on_uploading_progress: None,
             upload_logger: bucket_uploader
-                .upload_logger()
-                .map(|upload_logger| upload_logger.prepare(upload_token.into())),
+                .upload_logger_builder()
+                .map(|builder| builder.upload_token(upload_token.into())),
         };
         uploader.multipart.add_text("token", upload_token);
         Ok(uploader)
@@ -197,12 +197,9 @@ impl<'u> FormUploader<'u> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        super::{
-            super::{upload_policy::UploadPolicyBuilder, upload_token::UploadToken},
-            BucketUploaderBuilder,
-        },
-        *,
+    use super::super::{
+        super::{upload_policy::UploadPolicyBuilder, upload_token::UploadToken},
+        BucketUploaderBuilder,
     };
     use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
     use qiniu_http::Headers;

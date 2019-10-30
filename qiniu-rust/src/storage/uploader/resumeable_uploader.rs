@@ -118,8 +118,8 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             on_uploading_progress: None,
             thread_pool: None,
             upload_logger: bucket_uploader
-                .upload_logger()
-                .map(|upload_logger| upload_logger.prepare(upload_token.into_owned().into())),
+                .upload_logger_builder()
+                .map(|builder| builder.upload_token(upload_token.into_owned().into())),
         })
     }
 

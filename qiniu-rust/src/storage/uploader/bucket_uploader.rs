@@ -6,9 +6,10 @@ use super::{
     form_uploader::FormUploaderBuilder,
     resumeable_uploader::{ResumeableUploader, ResumeableUploaderBuilder},
     upload_recorder::UploadRecorder,
-    UploadLogger, UploadResult,
+    UploadLoggerBuilder, UploadResult,
 };
 use crate::{config::Config, credential::Credential, http::Client, utils::ron::Ron};
+use assert_impl::assert_impl;
 use error_chain::error_chain;
 use getset::Getters;
 use mime::Mime;
@@ -30,7 +31,7 @@ struct BucketUploaderInner {
     credential: Credential,
     config: Config,
     client: Client,
-    upload_logger: Option<UploadLogger>,
+    upload_logger_builder: Option<UploadLoggerBuilder>,
     recorder: UploadRecorder,
     thread_pool: Option<ThreadPool>,
 }
@@ -56,8 +57,8 @@ impl BucketUploader {
     pub(super) fn client(&self) -> &Client {
         self.inner.client()
     }
-    pub(super) fn upload_logger(&self) -> Option<&UploadLogger> {
-        self.inner.upload_logger().as_ref()
+    pub(super) fn upload_logger_builder(&self) -> Option<&UploadLoggerBuilder> {
+        self.inner.upload_logger_builder().as_ref()
     }
     pub(super) fn recorder(&self) -> &UploadRecorder {
         self.inner.recorder()
@@ -77,7 +78,7 @@ impl BucketUploaderBuilder {
         up_urls_list: Box<[Box<[Box<str>]>]>,
         credential: Credential,
         config: Config,
-        upload_logger: Option<UploadLogger>,
+        upload_logger_builder: Option<UploadLoggerBuilder>,
     ) -> IOResult<BucketUploaderBuilder> {
         assert!(!up_urls_list.is_empty());
         Ok(BucketUploaderBuilder {
@@ -88,7 +89,7 @@ impl BucketUploaderBuilder {
                 client: Client::new(config.clone()),
                 recorder: UploadRecorder::new(config.recorder().to_owned(), &config),
                 thread_pool: None,
-                upload_logger,
+                upload_logger_builder,
                 config,
             },
         })
@@ -124,6 +125,12 @@ impl BucketUploader {
                 .token()
                 .into(),
         )
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

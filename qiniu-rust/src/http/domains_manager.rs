@@ -1,4 +1,5 @@
 use super::super::storage::region::Region;
+use assert_impl::assert_impl;
 use chashmap::CHashMap;
 use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -556,6 +557,12 @@ impl DomainsManager {
                 }
             }
         }
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
