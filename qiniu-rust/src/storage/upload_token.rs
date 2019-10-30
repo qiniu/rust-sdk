@@ -52,11 +52,9 @@ impl<'p> UploadToken<'p> {
 
 impl fmt::Display for UploadToken<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            UploadToken::Token(ref token) => fmt::Display::fmt(token, f),
-            UploadToken::Policy(ref policy, ref credential) => {
-                fmt::Display::fmt(&credential.sign_upload_policy(policy), f)
-            }
+        match &self {
+            UploadToken::Token(token) => fmt::Display::fmt(token, f),
+            UploadToken::Policy(policy, credential) => fmt::Display::fmt(&credential.sign_upload_policy(policy), f),
         }
     }
 }

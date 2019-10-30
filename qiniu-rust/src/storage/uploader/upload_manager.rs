@@ -1,7 +1,6 @@
 use super::{
     super::{
         bucket::{Bucket, BucketBuilder},
-        recorder::FileSystemRecorder,
         region::Region,
         upload_policy::UploadPolicy,
         upload_token::UploadToken,
@@ -28,7 +27,7 @@ impl UploadManager {
     }
 
     // TODO: ADD CUSTOMIZED RECORDER METHOD
-    pub fn for_bucket(&self, bucket: &Bucket) -> IOResult<BucketUploaderBuilder<FileSystemRecorder>> {
+    pub fn for_bucket(&self, bucket: &Bucket) -> IOResult<BucketUploaderBuilder> {
         BucketUploaderBuilder::new(
             bucket.name().into(),
             bucket
@@ -57,21 +56,18 @@ impl UploadManager {
                 }),
             self.credential.clone(),
             self.config.clone(),
-            self.upload_logger.as_ref().map(|upload_logger| upload_logger.clone()),
+            self.upload_logger.as_ref().cloned(),
         )
     }
 
-    pub fn for_bucket_name<'b, B: Into<Cow<'b, str>>>(
-        &self,
-        bucket_name: B,
-    ) -> IOResult<BucketUploaderBuilder<FileSystemRecorder>> {
+    pub fn for_bucket_name<'b, B: Into<Cow<'b, str>>>(&self, bucket_name: B) -> IOResult<BucketUploaderBuilder> {
         self.for_bucket(&BucketBuilder::new(bucket_name.into(), self.credential.clone(), self.config.clone()).build())
     }
 
     pub fn for_upload_token<'u, U: Into<UploadToken<'u>>>(
         &self,
         upload_token: U,
-    ) -> error::Result<FileUploaderBuilder<'u, FileSystemRecorder>> {
+    ) -> error::Result<FileUploaderBuilder<'u>> {
         let upload_token = upload_token.into();
         let policy = upload_token.policy()?;
         if let Some(bucket_name) = policy.bucket() {
@@ -84,10 +80,7 @@ impl UploadManager {
         }
     }
 
-    pub fn for_upload_policy<'u>(
-        &self,
-        upload_policy: UploadPolicy<'u>,
-    ) -> error::Result<FileUploaderBuilder<'u, FileSystemRecorder>> {
+    pub fn for_upload_policy<'u>(&self, upload_policy: UploadPolicy<'u>) -> error::Result<FileUploaderBuilder<'u>> {
         self.for_upload_token(UploadToken::from_policy(upload_policy, self.credential.clone()))
     }
 }

@@ -1,5 +1,5 @@
 use super::{
-    super::{recorder::Recorder, upload_token::Result as UploadTokenParseResult},
+    super::upload_token::Result as UploadTokenParseResult,
     tasks_manager::{Result as TasksResult, Task, TasksManager},
     upload_recorder::{FileUploadRecordMedium, FileUploadRecordMediumBlockItem, FileUploadRecordMediumMetadata},
     upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerRecordBuilder, UploadResult,
@@ -62,10 +62,10 @@ struct CompletedParts<'f> {
     custom_vars: Option<HashMap<Cow<'f, str>, Cow<'f, str>>>,
 }
 
-struct FromResuming<REC: Recorder> {
+struct FromResuming {
     upload_id: Box<str>,
     up_urls: Box<[Box<str>]>,
-    recorder: FileUploadRecordMedium<REC::Medium>,
+    recorder: FileUploadRecordMedium,
     io_offset: u64,
 }
 
@@ -75,8 +75,8 @@ struct UploadingProgressCallback<'u> {
     total_size: Option<usize>,
 }
 
-pub(super) struct ResumeableUploaderBuilder<'u, REC: Recorder> {
-    bucket_uploader: &'u BucketUploader<REC>,
+pub(super) struct ResumeableUploaderBuilder<'u> {
+    bucket_uploader: &'u BucketUploader,
     upload_token: Cow<'u, str>,
     key: Option<Cow<'u, str>>,
     metadata: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
@@ -86,8 +86,8 @@ pub(super) struct ResumeableUploaderBuilder<'u, REC: Recorder> {
     upload_logger: Option<UploadLogger>,
 }
 
-pub(super) struct ResumeableUploader<'u, R: Read + Seek + Send + Sync + 'u, REC: Recorder> {
-    bucket_uploader: &'u BucketUploader<REC>,
+pub(super) struct ResumeableUploader<'u, R: Read + Seek + Send + Sync + 'u> {
+    bucket_uploader: &'u BucketUploader,
     upload_token: Cow<'u, str>,
     key: Option<Cow<'u, str>>,
     completed_parts: Mutex<CompletedParts<'u>>,
@@ -98,17 +98,17 @@ pub(super) struct ResumeableUploader<'u, R: Read + Seek + Send + Sync + 'u, REC:
     io: R,
     uploaded_size: AtomicUsize,
     file_path: Option<Cow<'u, Path>>,
-    from_resuming: Option<FromResuming<REC>>,
+    from_resuming: Option<FromResuming>,
     uploading_progress_callback: Option<UploadingProgressCallback<'u>>,
     thread_pool: Ron<'u, ThreadPool>,
     upload_logger: Option<UploadLogger>,
 }
 
-impl<'u, REC: Recorder> ResumeableUploaderBuilder<'u, REC> {
+impl<'u> ResumeableUploaderBuilder<'u> {
     pub(super) fn new(
-        bucket_uploader: &'u BucketUploader<REC>,
+        bucket_uploader: &'u BucketUploader,
         upload_token: Cow<'u, str>,
-    ) -> UploadTokenParseResult<ResumeableUploaderBuilder<'u, REC>> {
+    ) -> UploadTokenParseResult<ResumeableUploaderBuilder<'u>> {
         Ok(ResumeableUploaderBuilder {
             bucket_uploader,
             upload_token: upload_token.clone(),
@@ -126,25 +126,22 @@ impl<'u, REC: Recorder> ResumeableUploaderBuilder<'u, REC> {
     pub(super) fn thread_pool_or_referenced(
         mut self,
         thread_pool: Ron<'u, ThreadPool>,
-    ) -> ResumeableUploaderBuilder<'u, REC> {
+    ) -> ResumeableUploaderBuilder<'u> {
         self.thread_pool = Some(thread_pool);
         self
     }
 
-    pub(super) fn key(mut self, key: Cow<'u, str>) -> ResumeableUploaderBuilder<'u, REC> {
+    pub(super) fn key(mut self, key: Cow<'u, str>) -> ResumeableUploaderBuilder<'u> {
         self.key = Some(key);
         self
     }
 
-    pub(super) fn metadata(
-        mut self,
-        metadata: HashMap<Cow<'u, str>, Cow<'u, str>>,
-    ) -> ResumeableUploaderBuilder<'u, REC> {
+    pub(super) fn metadata(mut self, metadata: HashMap<Cow<'u, str>, Cow<'u, str>>) -> ResumeableUploaderBuilder<'u> {
         self.metadata = Some(metadata);
         self
     }
 
-    pub(super) fn vars(mut self, vars: HashMap<Cow<'u, str>, Cow<'u, str>>) -> ResumeableUploaderBuilder<'u, REC> {
+    pub(super) fn vars(mut self, vars: HashMap<Cow<'u, str>, Cow<'u, str>>) -> ResumeableUploaderBuilder<'u> {
         let mut hashmap = HashMap::new();
         for (k, v) in vars.into_iter() {
             hashmap.insert(Cow::Owned("x:".to_owned() + &k), v);
@@ -156,7 +153,7 @@ impl<'u, REC: Recorder> ResumeableUploaderBuilder<'u, REC> {
     pub(super) fn on_uploading_progress(
         mut self,
         callback: &'u (dyn Fn(usize, Option<usize>) + Send + Sync),
-    ) -> ResumeableUploaderBuilder<'u, REC> {
+    ) -> ResumeableUploaderBuilder<'u> {
         self.on_uploading_progress = Some(callback);
         self
     }
@@ -169,7 +166,7 @@ impl<'u, REC: Recorder> ResumeableUploaderBuilder<'u, REC> {
         file_size: u64,
         mime_type: Option<Mime>,
         checksum_enabled: bool,
-    ) -> IOResult<ResumeableUploader<'u, File, REC>> {
+    ) -> IOResult<ResumeableUploader<'u, File>> {
         let bucket_uploader = self.bucket_uploader;
         let block_size = bucket_uploader.config().upload_block_size();
         Ok(ResumeableUploader {
@@ -221,7 +218,7 @@ impl<'u, REC: Recorder> ResumeableUploaderBuilder<'u, REC> {
         mime_type: Option<Mime>,
         file_name: Option<Cow<'n, str>>,
         checksum_enabled: bool,
-    ) -> IOResult<ResumeableUploader<'u, seek_adapter::SeekAdapter<R>, REC>> {
+    ) -> IOResult<ResumeableUploader<'u, seek_adapter::SeekAdapter<R>>> {
         let bucket_uploader = self.bucket_uploader;
         Ok(ResumeableUploader {
             bucket_uploader,
@@ -263,7 +260,7 @@ impl<'u, REC: Recorder> ResumeableUploaderBuilder<'u, REC> {
     }
 }
 
-impl<'u, R: Read + Seek + Send + Sync, REC: Recorder> ResumeableUploader<'u, R, REC> {
+impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
     pub(super) fn send(&mut self) -> HTTPResult<UploadResult> {
         let base_path = self.make_base_path();
         let authorization = self.make_authorization();
@@ -382,7 +379,7 @@ impl<'u, R: Read + Seek + Send + Sync, REC: Recorder> ResumeableUploader<'u, R, 
         up_urls: &[&str],
         base_path: &str,
         authorization: &str,
-        upload_recorder: Option<FileUploadRecordMedium<REC::Medium>>,
+        upload_recorder: Option<FileUploadRecordMedium>,
     ) -> HTTPResult<UploadResult> {
         let tasks_manager = TasksManager::new(&mut self.io);
         let part_number_counter = AtomicUsize::new(part_number);
@@ -476,7 +473,7 @@ impl<'u, R: Read + Seek + Send + Sync, REC: Recorder> ResumeableUploader<'u, R, 
         &mut self,
         file_record: FileUploadRecordMediumMetadata,
         block_records: Box<[FileUploadRecordMediumBlockItem]>,
-        recorder: FileUploadRecordMedium<REC::Medium>,
+        recorder: FileUploadRecordMedium,
     ) {
         let mut io_offset = 0;
         {
@@ -555,7 +552,7 @@ impl<'u, R: Read + Seek + Send + Sync, REC: Recorder> ResumeableUploader<'u, R, 
         on_progress: OnProgressFn,
         on_error: OnErrorFn,
         upload_logger: Option<&UploadLogger>,
-        upload_recorder: Option<&FileUploadRecordMedium<REC::Medium>>,
+        upload_recorder: Option<&FileUploadRecordMedium>,
     ) -> HTTPResult<Box<str>> {
         let mut builder = http_client
             .put(path, up_urls)

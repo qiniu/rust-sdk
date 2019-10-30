@@ -1,4 +1,10 @@
-use crate::{http::DomainsManager, storage::region::Region};
+use crate::{
+    http::DomainsManager,
+    storage::{
+        recorder::{FileSystemRecorder, Recorder},
+        region::Region,
+    },
+};
 use crypto::{digest::Digest, sha1::Sha1};
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
@@ -6,7 +12,6 @@ use qiniu_http::HTTPCaller;
 use std::{
     boxed::Box,
     default::Default,
-    env::temp_dir,
     fmt,
     marker::{Send, Sync},
     ops::Deref,
@@ -44,7 +49,7 @@ pub struct ConfigInner {
     upload_block_lifetime: Duration,
 
     #[get_copy = "pub"]
-    upload_file_recorder_key_generator: fn(path: &Path, key: Option<&str>) -> String,
+    recorder_key_generator: fn(name: &str, path: &Path, key: Option<&str>) -> String,
 
     #[get_copy = "pub"]
     always_flush_records: bool,
@@ -63,8 +68,7 @@ pub struct ConfigInner {
     max_uplog_size: usize,
 
     #[get = "pub"]
-    #[builder(setter(into))]
-    records_dir: Box<Path>,
+    recorder: Arc<dyn Recorder>,
 
     #[get_copy = "pub"]
     http_request_retries: usize,
@@ -79,12 +83,14 @@ pub struct ConfigInner {
     domains_manager: DomainsManager,
 }
 
-fn default_upload_file_recorder_key_generator(path: &Path, key: Option<&str>) -> String {
+fn default_recorder_key_generator(name: &str, path: &Path, key: Option<&str>) -> String {
     let mut sha1 = Sha1::new();
     if let Some(key) = key {
         sha1.input(key.as_bytes());
         sha1.input(b"_._");
     }
+    sha1.input(name.as_bytes());
+    sha1.input(b"_._");
     sha1.input(path.to_string_lossy().as_ref().as_bytes());
     sha1.result_str()
 }
@@ -98,14 +104,9 @@ impl Default for ConfigInner {
             upload_threshold: 1 << 22,
             upload_block_size: 1 << 22,
             upload_block_lifetime: Duration::from_secs(60 * 60 * 24 * 7),
-            upload_file_recorder_key_generator: default_upload_file_recorder_key_generator,
+            recorder_key_generator: default_recorder_key_generator,
             uplog_server_url: Region::uplog_url(),
-            records_dir: {
-                let mut temp_dir = temp_dir();
-                temp_dir.push("qiniu_sdk");
-                temp_dir.push("records");
-                temp_dir.into()
-            },
+            recorder: FileSystemRecorder::default(),
             always_flush_records: false,
             uplog_disabled: false,
             uplog_upload_threshold: 1 << 12,
@@ -142,7 +143,7 @@ impl fmt::Debug for ConfigInner {
             .field("upload_block_size", &self.upload_block_size)
             .field("upload_block_lifetime", &self.upload_block_lifetime)
             .field("uplog_server_url", &self.uplog_server_url)
-            .field("records_dir", &self.records_dir)
+            .field("recorder", &self.recorder)
             .field("always_flush_records", &self.always_flush_records)
             .field("uplog_disabled", &self.uplog_disabled)
             .field("uplog_upload_threshold", &self.uplog_upload_threshold)

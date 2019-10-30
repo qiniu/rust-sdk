@@ -1,6 +1,6 @@
 use super::{
-    super::{recorder, upload_token::Result as UploadTokenParseResult},
-    upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerRecordBuilder, UploadResult,
+    super::upload_token::Result as UploadTokenParseResult, upload_response_callback, BucketUploader, UpType,
+    UploadLogger, UploadLoggerRecordBuilder, UploadResult,
 };
 use crate::utils::crc32;
 use mime::Mime;
@@ -13,29 +13,26 @@ use std::{
     io::{Read, Result as IOResult, Seek, SeekFrom},
 };
 
-pub(super) struct FormUploaderBuilder<'u, REC: recorder::Recorder> {
-    bucket_uploader: &'u BucketUploader<REC>,
+pub(super) struct FormUploaderBuilder<'u> {
+    bucket_uploader: &'u BucketUploader,
     multipart: Multipart<'u, 'u>,
     on_uploading_progress: Option<&'u dyn Fn(usize, Option<usize>)>,
     upload_logger: Option<UploadLogger>,
 }
 
-pub(super) struct FormUploader<'u, REC: recorder::Recorder> {
-    bucket_uploader: &'u BucketUploader<REC>,
+pub(super) struct FormUploader<'u> {
+    bucket_uploader: &'u BucketUploader,
     content_type: String,
     body: Vec<u8>,
     on_uploading_progress: Option<&'u dyn Fn(usize, Option<usize>)>,
     upload_logger: Option<UploadLogger>,
 }
 
-impl<'u, REC> FormUploaderBuilder<'u, REC>
-where
-    REC: recorder::Recorder,
-{
+impl<'u> FormUploaderBuilder<'u> {
     pub(super) fn new(
-        bucket_uploader: &'u BucketUploader<REC>,
+        bucket_uploader: &'u BucketUploader,
         upload_token: &'u str,
-    ) -> UploadTokenParseResult<FormUploaderBuilder<'u, REC>> {
+    ) -> UploadTokenParseResult<FormUploaderBuilder<'u>> {
         let mut uploader = FormUploaderBuilder {
             bucket_uploader,
             multipart: Multipart::new(),
@@ -48,17 +45,17 @@ where
         Ok(uploader)
     }
 
-    pub(super) fn key(mut self, key: Cow<'u, str>) -> FormUploaderBuilder<'u, REC> {
+    pub(super) fn key(mut self, key: Cow<'u, str>) -> FormUploaderBuilder<'u> {
         self.multipart.add_text("key", key);
         self
     }
 
-    pub(super) fn var(mut self, key: &str, value: Cow<'u, str>) -> FormUploaderBuilder<'u, REC> {
+    pub(super) fn var(mut self, key: &str, value: Cow<'u, str>) -> FormUploaderBuilder<'u> {
         self.multipart.add_text("x:".to_owned() + key, value);
         self
     }
 
-    pub(super) fn metadata(mut self, key: &str, value: Cow<'u, str>) -> FormUploaderBuilder<'u, REC> {
+    pub(super) fn metadata(mut self, key: &str, value: Cow<'u, str>) -> FormUploaderBuilder<'u> {
         self.multipart.add_text("x-qn-meta-".to_owned() + key, value);
         self
     }
@@ -66,7 +63,7 @@ where
     pub(super) fn on_uploading_progress(
         mut self,
         callback: &'u dyn Fn(usize, Option<usize>),
-    ) -> FormUploaderBuilder<'u, REC> {
+    ) -> FormUploaderBuilder<'u> {
         self.on_uploading_progress = Some(callback);
         self
     }
@@ -77,7 +74,7 @@ where
         file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
         checksum_enabled: bool,
-    ) -> IOResult<FormUploader<'u, REC>> {
+    ) -> IOResult<FormUploader<'u>> {
         let mut crc32: Option<u32> = None;
         if checksum_enabled {
             crc32 = Some(crc32::from(&mut stream)?);
@@ -96,7 +93,7 @@ where
         mime: Option<Mime>,
         file_name: Option<Cow<'n, str>>,
         crc32: Option<u32>,
-    ) -> IOResult<FormUploader<'u, REC>> {
+    ) -> IOResult<FormUploader<'u>> {
         self.multipart.add_stream("file", stream, file_name, mime);
         if let Some(crc32) = crc32 {
             self.multipart.add_text("crc32", crc32.to_string());
@@ -104,7 +101,7 @@ where
         self.upload_multipart()
     }
 
-    fn upload_multipart(mut self) -> IOResult<FormUploader<'u, REC>> {
+    fn upload_multipart(mut self) -> IOResult<FormUploader<'u>> {
         let mut fields = self.multipart.prepare().map_err(|err| err.error)?;
         let mut body = Vec::with_capacity(
             self.bucket_uploader
@@ -124,10 +121,7 @@ where
     }
 }
 
-impl<'u, REC> FormUploader<'u, REC>
-where
-    REC: recorder::Recorder,
-{
+impl<'u> FormUploader<'u> {
     pub(super) fn send(&self) -> HTTPResult<UploadResult> {
         let mut prev_err: Option<HTTPError> = None;
         for up_urls in self.bucket_uploader.up_urls_list().iter() {

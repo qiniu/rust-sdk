@@ -1,5 +1,4 @@
 use super::{
-    recorder::FileSystemRecorder,
     region::{Region, RegionId},
     uploader::{BucketUploaderBuilder, UploadManager},
 };
@@ -149,8 +148,7 @@ impl<'r> Bucket<'r> {
         Ok(domains.iter().map(|domain| domain.as_ref()).collect())
     }
 
-    // TODO: ADD CUSTOMIZED RECORDER METHOD
-    pub fn uploader(&self) -> IOResult<BucketUploaderBuilder<FileSystemRecorder>> {
+    pub fn uploader(&self) -> IOResult<BucketUploaderBuilder> {
         UploadManager::new(self.credential.clone(), self.config.clone()).for_bucket(self)
     }
 

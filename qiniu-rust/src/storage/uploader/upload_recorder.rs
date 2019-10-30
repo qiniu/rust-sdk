@@ -4,26 +4,21 @@ use serde::{Deserialize, Serialize};
 use std::{
     io::{BufRead, BufReader, Error, ErrorKind, Result, Write},
     path::Path,
+    sync::Arc,
     sync::Mutex,
     time::{Duration, SystemTime},
 };
 
 #[derive(Clone)]
-pub(super) struct UploadRecorder<R>
-where
-    R: Recorder,
-{
-    recorder: R,
-    key_generator: fn(path: &Path, key: Option<&str>) -> String,
+pub(super) struct UploadRecorder {
+    recorder: Arc<dyn Recorder>,
+    key_generator: fn(name: &str, path: &Path, key: Option<&str>) -> String,
     upload_block_lifetime: Duration,
     always_flush_records: bool,
 }
 
-pub(super) struct FileUploadRecordMedium<M>
-where
-    M: RecordMedium,
-{
-    medium: Mutex<M>,
+pub(super) struct FileUploadRecordMedium {
+    medium: Arc<Mutex<dyn RecordMedium>>,
     always_flush_records: bool,
 }
 
@@ -59,14 +54,11 @@ struct SerializableFileUploadRecordMediumBlockItem<'a> {
     block_size: u64,
 }
 
-impl<R> UploadRecorder<R>
-where
-    R: Recorder,
-{
-    pub(super) fn new(recorder: R, config: &Config) -> UploadRecorder<R> {
+impl UploadRecorder {
+    pub(super) fn new(recorder: Arc<dyn Recorder>, config: &Config) -> UploadRecorder {
         UploadRecorder {
             recorder,
-            key_generator: config.upload_file_recorder_key_generator(),
+            key_generator: config.recorder_key_generator(),
             upload_block_lifetime: config.upload_block_lifetime(),
             always_flush_records: config.always_flush_records(),
         }
@@ -78,7 +70,7 @@ where
         key: Option<&str>,
         upload_id: &str,
         up_urls: &[&str],
-    ) -> Result<FileUploadRecordMedium<R::Medium>> {
+    ) -> Result<FileUploadRecordMedium> {
         let metadata = path.metadata()?;
         let metadata = SerializableFileUploadRecordMediumMetadata {
             file_size: metadata.len(),
@@ -90,32 +82,31 @@ where
             upload_id,
             up_urls,
         };
-        let mut medium = self.recorder.open((self.key_generator)(path, key), true)?;
-        let mut metadata = serde_json::to_string(&metadata).map_err(|err| Error::new(ErrorKind::Other, err))?;
-        metadata.push_str("\n");
-        medium.write_all(metadata.as_bytes())?;
-        if self.always_flush_records {
-            medium.flush()?;
+        let medium = self.recorder.open(&self.generate_key(path, key), true)?;
+        {
+            let mut medium = medium.lock().unwrap();
+            let mut metadata = serde_json::to_string(&metadata).map_err(|err| Error::new(ErrorKind::Other, err))?;
+            metadata.push_str("\n");
+            medium.write_all(metadata.as_bytes())?;
+            if self.always_flush_records {
+                medium.flush()?;
+            }
         }
         Ok(FileUploadRecordMedium {
-            medium: Mutex::new(medium),
+            medium,
             always_flush_records: self.always_flush_records,
         })
     }
 
-    pub(super) fn open_for_appending(
-        &self,
-        path: &Path,
-        key: Option<&str>,
-    ) -> Result<FileUploadRecordMedium<R::Medium>> {
+    pub(super) fn open_for_appending(&self, path: &Path, key: Option<&str>) -> Result<FileUploadRecordMedium> {
         Ok(FileUploadRecordMedium {
-            medium: Mutex::new(self.recorder.open((self.key_generator)(path, key), false)?),
+            medium: self.recorder.open(&self.generate_key(path, key), false)?,
             always_flush_records: self.always_flush_records,
         })
     }
 
     pub(super) fn drop(&self, path: &Path, key: Option<&str>) -> Result<()> {
-        self.recorder.delete((self.key_generator)(path, key))
+        self.recorder.delete(&self.generate_key(path, key))
     }
 
     pub(super) fn load(
@@ -124,7 +115,9 @@ where
         key: Option<&str>,
     ) -> Result<Option<(FileUploadRecordMediumMetadata, Box<[FileUploadRecordMediumBlockItem]>)>> {
         let file_metadata = path.metadata()?;
-        let mut reader = BufReader::new(self.recorder.open((self.key_generator)(path, key), false)?);
+        let medium = self.recorder.open(&self.generate_key(path, key), false)?;
+        let mut lock = medium.lock().unwrap();
+        let mut reader = BufReader::new(&mut *lock);
         let mut line = String::new();
         if reader.read_line(&mut line)? == 0 {
             return Ok(None);
@@ -161,12 +154,13 @@ where
             block_items.push(block_item);
         }
     }
+
+    fn generate_key(&self, path: &Path, key: Option<&str>) -> String {
+        (self.key_generator)("upload", path, key)
+    }
 }
 
-impl<M> FileUploadRecordMedium<M>
-where
-    M: RecordMedium,
-{
+impl FileUploadRecordMedium {
     pub(super) fn append(&self, etag: &str, part_number: usize, block_size: u64) -> Result<()> {
         let mut item = serde_json::to_string(&SerializableFileUploadRecordMediumBlockItem {
             etag,
