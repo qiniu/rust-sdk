@@ -9,6 +9,7 @@ use crate::{
     http::{Client, Token},
     utils::base64,
 };
+use assert_impl::assert_impl;
 use error_chain::error_chain;
 use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult};
 use std::borrow::Cow;
@@ -17,7 +18,6 @@ use std::borrow::Cow;
 pub struct StorageManager {
     http_client: Client,
     credential: Credential,
-    config: Config,
     rs_url: &'static str,
 }
 
@@ -26,7 +26,6 @@ impl StorageManager {
         StorageManager {
             rs_url: Region::hua_dong().rs_url(config.use_https()),
             credential,
-            config: config.clone(),
             http_client: Client::new(config),
         }
     }
@@ -86,12 +85,18 @@ impl StorageManager {
         }
     }
 
-    pub fn bucket<'b, B: Into<Cow<'b, str>>>(&self, bucket: B) -> BucketBuilder<'b> {
-        BucketBuilder::new(bucket.into(), self.credential.clone(), self.config.clone())
+    pub fn uploader(&self) -> UploadManager {
+        UploadManager::new(self.credential.clone(), self.http_client.config().clone())
     }
 
-    pub fn uploader(&self) -> UploadManager {
-        UploadManager::new(self.credential.clone(), self.config.clone())
+    pub fn bucket<'b, B: Into<Cow<'b, str>>>(&self, bucket: B) -> BucketBuilder<'b> {
+        BucketBuilder::new(bucket.into(), self.uploader())
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

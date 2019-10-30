@@ -17,7 +17,6 @@ use std::{
 use url::Url;
 
 struct UploadLoggerInner {
-    config: Config,
     http_client: Client,
     log_buffer: RwLock<Vec<u8>>,
 }
@@ -40,9 +39,8 @@ impl UploadLoggerBuilder {
         }
         Some(UploadLoggerBuilder {
             inner: Arc::new(UploadLoggerInner {
-                http_client: Client::new(config.clone()),
                 log_buffer: RwLock::new(Vec::with_capacity(config.max_uplog_size())),
-                config,
+                http_client: Client::new(config),
             }),
         })
     }
@@ -64,9 +62,9 @@ impl UploadLoggerBuilder {
 impl UploadLogger {
     pub(crate) fn log(&self, record: UploadLoggerRecord) {
         let log_buffer_len = self.log_buffer_len();
-        if log_buffer_len < self.shared.inner.config.max_uplog_size() {
+        if log_buffer_len < self.shared.inner.http_client.config().max_uplog_size() {
             let record = record.to_string() + "\n";
-            if log_buffer_len + record.len() < self.shared.inner.config.max_uplog_size() {
+            if log_buffer_len + record.len() < self.shared.inner.http_client.config().max_uplog_size() {
                 self.shared
                     .inner
                     .log_buffer
@@ -75,7 +73,7 @@ impl UploadLogger {
                     .extend_from_slice(record.as_bytes());
             }
         }
-        if self.log_buffer_len() >= self.shared.inner.config.uplog_upload_threshold() {
+        if self.log_buffer_len() >= self.shared.inner.http_client.config().uplog_upload_threshold() {
             self.async_upload_log_buffer_and_clean();
         }
     }
@@ -99,7 +97,10 @@ impl UploadLogger {
             self.shared
                 .inner
                 .http_client
-                .post("/log/3", &[self.shared.inner.config.uplog_server_url().as_ref()])
+                .post(
+                    "/log/3",
+                    &[self.shared.inner.http_client.config().uplog_server_url().as_ref()],
+                )
                 .header("Authorization", "UpToken ".to_owned() + &self.upload_token)
                 .raw_body("text/plain", log_buffer)
                 .send()?

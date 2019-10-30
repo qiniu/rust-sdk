@@ -168,7 +168,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
         checksum_enabled: bool,
     ) -> IOResult<ResumeableUploader<'u, File>> {
         let bucket_uploader = self.bucket_uploader;
-        let block_size = bucket_uploader.config().upload_block_size();
+        let block_size = bucket_uploader.http_client().config().upload_block_size();
         Ok(ResumeableUploader {
             bucket_uploader,
             upload_token: self.upload_token,
@@ -179,7 +179,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             uploaded_size: AtomicUsize::new(0),
             checksum_enabled,
             is_seekable: true,
-            block_size: bucket_uploader.config().upload_block_size(),
+            block_size: bucket_uploader.http_client().config().upload_block_size(),
             completed_parts: Mutex::new(CompletedParts {
                 parts: Vec::with_capacity(
                     ((file_size + block_size as u64 - 1) / (block_size as u64))
@@ -230,7 +230,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             uploaded_size: AtomicUsize::new(0),
             checksum_enabled,
             is_seekable: false,
-            block_size: bucket_uploader.config().upload_block_size(),
+            block_size: bucket_uploader.http_client().config().upload_block_size(),
             completed_parts: Mutex::new(CompletedParts {
                 parts: Vec::new(),
                 fname: file_name,
@@ -384,7 +384,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         let tasks_manager = TasksManager::new(&mut self.io);
         let part_number_counter = AtomicUsize::new(part_number);
         let thread_pool_size = self.thread_pool.current_num_threads();
-        let http_client = self.bucket_uploader.client();
+        let http_client = self.bucket_uploader.http_client();
         let block_size = self.block_size;
         let completed_parts = &self.completed_parts;
         let uploaded_size = &self.uploaded_size;
@@ -499,7 +499,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
     fn init_parts(&self, base_path: &str, up_urls: &[&str], authorization: &str) -> HTTPResult<Box<str>> {
         let result: InitPartsResult = self
             .bucket_uploader
-            .client()
+            .http_client()
             .post(base_path, up_urls)
             .header("Authorization", authorization)
             .idempotent()
@@ -614,7 +614,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         completed_parts.parts.sort_unstable_by_key(|part| part.part_number);
         let value: Value = self
             .bucket_uploader
-            .client()
+            .http_client()
             .post(path, up_urls)
             .header("Authorization", authorization)
             .idempotent()

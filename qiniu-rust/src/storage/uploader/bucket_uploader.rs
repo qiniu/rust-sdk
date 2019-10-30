@@ -29,8 +29,7 @@ struct BucketUploaderInner {
     bucket_name: Box<str>,
     up_urls_list: Box<[Box<[Box<str>]>]>,
     credential: Credential,
-    config: Config,
-    client: Client,
+    http_client: Client,
     upload_logger_builder: Option<UploadLoggerBuilder>,
     recorder: UploadRecorder,
     thread_pool: Option<ThreadPool>,
@@ -51,11 +50,8 @@ impl BucketUploader {
     pub(super) fn credential(&self) -> &Credential {
         self.inner.credential()
     }
-    pub(super) fn config(&self) -> &Config {
-        self.inner.config()
-    }
-    pub(super) fn client(&self) -> &Client {
-        self.inner.client()
+    pub(super) fn http_client(&self) -> &Client {
+        self.inner.http_client()
     }
     pub(super) fn upload_logger_builder(&self) -> Option<&UploadLoggerBuilder> {
         self.inner.upload_logger_builder().as_ref()
@@ -86,11 +82,10 @@ impl BucketUploaderBuilder {
                 bucket_name,
                 up_urls_list,
                 credential,
-                client: Client::new(config.clone()),
                 recorder: UploadRecorder::new(config.recorder().to_owned(), &config),
+                http_client: Client::new(config),
                 thread_pool: None,
                 upload_logger_builder,
-                config,
             },
         })
     }
@@ -162,7 +157,7 @@ impl<'b> FileUploaderBuilder<'b> {
             checksum_enabled: true,
             on_uploading_progress: None,
             thread_pool: None,
-            resumeable_policy: ResumeablePolicy::Threshold(bucket_uploader.config().upload_threshold()),
+            resumeable_policy: ResumeablePolicy::Threshold(bucket_uploader.http_client().config().upload_threshold()),
             bucket_uploader,
         }
     }

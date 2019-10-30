@@ -105,6 +105,7 @@ impl<'u> FormUploaderBuilder<'u> {
         let mut fields = self.multipart.prepare().map_err(|err| err.error)?;
         let mut body = Vec::with_capacity(
             self.bucket_uploader
+                .http_client()
                 .config()
                 .upload_threshold()
                 .try_into()
@@ -146,7 +147,7 @@ impl<'u> FormUploader<'u> {
     fn send_form_request(&self, up_urls: &[&str]) -> HTTPResult<UploadResult> {
         let value: Value = self
             .bucket_uploader
-            .client()
+            .http_client()
             .post("/", up_urls)
             .idempotent()
             .on_uploading_progress(&|uploaded, total| {

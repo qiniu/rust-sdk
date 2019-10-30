@@ -19,6 +19,18 @@ pub struct UploadManager {
 }
 
 impl UploadManager {
+    pub(in super::super) fn credential(&self) -> &Credential {
+        &self.credential
+    }
+
+    pub(in super::super) fn config(&self) -> &Config {
+        &self.config
+    }
+
+    pub(in super::super) fn upload_logger_builder(&self) -> Option<&UploadLoggerBuilder> {
+        self.upload_logger_builder.as_ref()
+    }
+
     pub(crate) fn new(credential: Credential, config: Config) -> UploadManager {
         UploadManager {
             upload_logger_builder: UploadLoggerBuilder::new(config.clone()),
@@ -61,7 +73,7 @@ impl UploadManager {
     }
 
     pub fn for_bucket_name<'b, B: Into<Cow<'b, str>>>(&self, bucket_name: B) -> IOResult<BucketUploaderBuilder> {
-        self.for_bucket(&BucketBuilder::new(bucket_name.into(), self.credential.clone(), self.config.clone()).build())
+        self.for_bucket(&BucketBuilder::new(bucket_name.into(), self.to_owned()).build())
     }
 
     pub fn for_upload_token<'u, U: Into<UploadToken<'u>>>(

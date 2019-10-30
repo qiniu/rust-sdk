@@ -1,4 +1,5 @@
 use crate::{config::Config, http};
+use assert_impl::assert_impl;
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
 use lazy_static::lazy_static;
@@ -224,6 +225,12 @@ impl Region {
             .send()?
             .parse_json()?;
         Ok(result.into_regions())
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

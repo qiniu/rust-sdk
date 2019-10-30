@@ -2,29 +2,28 @@ use super::{
     region::{Region, RegionId},
     uploader::{BucketUploaderBuilder, UploadManager},
 };
-use crate::{config::Config, credential::Credential, http};
+use crate::http::Client;
+use assert_impl::assert_impl;
 use once_cell::sync::OnceCell;
 use qiniu_http::Result;
 use std::{borrow::Cow, io::Result as IOResult, iter::Iterator};
 
 pub struct Bucket<'r> {
     name: Cow<'r, str>,
-    credential: Credential,
-    config: Config,
+    upload_manager: UploadManager,
     region: OnceCell<Cow<'r, Region>>,
     backup_regions: OnceCell<Box<[Region]>>,
     domains: OnceCell<Box<[Cow<'r, str>]>>,
-    http_client: http::Client,
+    http_client: Client,
 }
 
 pub struct BucketBuilder<'r> {
     name: Cow<'r, str>,
-    credential: Credential,
-    config: Config,
+    upload_manager: UploadManager,
     region: Option<Cow<'r, Region>>,
     backup_regions: Option<Box<[Region]>>,
     domains: Option<Vec<Cow<'r, str>>>,
-    http_client: http::Client,
+    http_client: Client,
 }
 
 pub struct BucketRegionIter<'a, 'r: 'a> {
@@ -33,12 +32,11 @@ pub struct BucketRegionIter<'a, 'r: 'a> {
 }
 
 impl<'r> BucketBuilder<'r> {
-    pub(crate) fn new(name: Cow<'r, str>, credential: Credential, config: Config) -> BucketBuilder<'r> {
+    pub(crate) fn new(name: Cow<'r, str>, upload_manager: UploadManager) -> BucketBuilder<'r> {
         BucketBuilder {
             name,
-            http_client: http::Client::new(config.clone()),
-            credential,
-            config,
+            http_client: Client::new(upload_manager.config().clone()),
+            upload_manager,
             region: None,
             backup_regions: None,
             domains: None,
@@ -55,8 +53,12 @@ impl<'r> BucketBuilder<'r> {
     }
 
     pub fn auto_detect_region(mut self) -> Result<BucketBuilder<'r>> {
-        let mut regions: Vec<Region> =
-            Region::query(self.name.as_ref(), self.credential.access_key(), self.config.clone())?.into();
+        let mut regions: Vec<Region> = Region::query(
+            self.name.as_ref(),
+            self.upload_manager.credential().access_key(),
+            self.upload_manager.config().clone(),
+        )?
+        .into();
         self.region = Some(Cow::Owned(regions.swap_remove(0)));
         if !regions.is_empty() {
             self.backup_regions = Some(regions.into());
@@ -80,7 +82,7 @@ impl<'r> BucketBuilder<'r> {
         self.domains = Some(
             domain::query(
                 &self.http_client,
-                self.credential.clone(),
+                self.upload_manager.credential().clone(),
                 self.uc_url(),
                 self.name.as_ref(),
             )?
@@ -94,9 +96,8 @@ impl<'r> BucketBuilder<'r> {
     pub fn build(self) -> Bucket<'r> {
         Bucket {
             name: self.name,
-            credential: self.credential,
+            upload_manager: self.upload_manager,
             http_client: self.http_client,
-            config: self.config,
             region: self.region.map(OnceCell::from).unwrap_or_else(OnceCell::new),
             backup_regions: self.backup_regions.map(OnceCell::from).unwrap_or_else(OnceCell::new),
             domains: self
@@ -107,7 +108,7 @@ impl<'r> BucketBuilder<'r> {
     }
 
     fn uc_url(&self) -> &'static str {
-        Region::uc_url(self.config.use_https())
+        Region::uc_url(self.upload_manager.config().use_https())
     }
 }
 
@@ -119,8 +120,12 @@ impl<'r> Bucket<'r> {
     pub fn region(&self) -> Result<&Region> {
         self.region
             .get_or_try_init(|| {
-                let mut regions: Vec<Region> =
-                    Region::query(self.name(), self.credential.access_key(), self.config.clone())?.into();
+                let mut regions: Vec<Region> = Region::query(
+                    self.name(),
+                    self.upload_manager.credential().access_key(),
+                    self.upload_manager.config().clone(),
+                )?
+                .into();
                 let first_region = Cow::Owned(regions.swap_remove(0));
                 self.backup_regions.get_or_init(|| regions.into());
                 Ok(first_region)
@@ -138,37 +143,49 @@ impl<'r> Bucket<'r> {
 
     pub fn domains(&self) -> Result<Vec<&str>> {
         let domains = self.domains.get_or_try_init(|| {
-            Ok(
-                domain::query(&self.http_client, self.credential.clone(), self.uc_url(), self.name())?
-                    .into_iter()
-                    .map(Cow::Owned)
-                    .collect(),
-            )
+            Ok(domain::query(
+                &self.http_client,
+                self.upload_manager.credential().to_owned(),
+                self.uc_url(),
+                self.name(),
+            )?
+            .into_iter()
+            .map(Cow::Owned)
+            .collect())
         })?;
         Ok(domains.iter().map(|domain| domain.as_ref()).collect())
     }
 
     pub fn uploader(&self) -> IOResult<BucketUploaderBuilder> {
-        UploadManager::new(self.credential.clone(), self.config.clone()).for_bucket(self)
+        self.upload_manager.for_bucket(self)
     }
 
     fn rs_url(&self) -> &'static str {
         self.region()
             .unwrap_or_else(|_| Region::hua_dong())
-            .rs_url(self.config.use_https())
+            .rs_url(self.upload_manager.config().use_https())
     }
 
     fn uc_url(&self) -> &'static str {
-        Region::uc_url(self.config.use_https())
+        Region::uc_url(self.upload_manager.config().use_https())
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
 mod domain {
-    use crate::{credential::Credential, http};
+    use crate::{
+        credential::Credential,
+        http::{Client, Token},
+    };
     use qiniu_http::Result;
 
     pub(super) fn query(
-        http_client: &http::Client,
+        http_client: &Client,
         credential: Credential,
         uc_url: &str,
         bucket_name: &str,
@@ -176,7 +193,7 @@ mod domain {
         Ok(http_client
             .get("/v6/domain/list", &[uc_url])
             .query("tbl", bucket_name)
-            .token(http::Token::V1(credential))
+            .token(Token::V1(credential))
             .no_body()
             .send()?
             .parse_json()?)
@@ -203,8 +220,11 @@ impl<'a, 'r: 'a> Iterator for BucketRegionIter<'a, 'r> {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::region::RegionId, *};
-    use crate::config::ConfigBuilder;
+    use super::{
+        super::{region::RegionId, uploader::UploadManager},
+        *,
+    };
+    use crate::{config::ConfigBuilder, credential::Credential, http::PanickedHTTPCaller};
     use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};
     use serde_json::json;
@@ -214,10 +234,12 @@ mod tests {
     fn test_storage_bucket_set_region() -> Result<(), Box<dyn Error>> {
         let bucket = BucketBuilder::new(
             Cow::Borrowed("test-bucket"),
-            get_credential(),
-            ConfigBuilder::default()
-                .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
-                .build()?,
+            UploadManager::new(
+                get_credential(),
+                ConfigBuilder::default()
+                    .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
+                    .build()?,
+            ),
         )
         .region(Region::hua_bei())
         .build();
@@ -232,10 +254,12 @@ mod tests {
     fn test_storage_bucket_set_region_id() -> Result<(), Box<dyn Error>> {
         let bucket = BucketBuilder::new(
             Cow::Borrowed("test-bucket"),
-            get_credential(),
-            ConfigBuilder::default()
-                .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
-                .build()?,
+            UploadManager::new(
+                get_credential(),
+                ConfigBuilder::default()
+                    .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
+                    .build()?,
+            ),
         )
         .region_id(RegionId::Z2)
         .build();
@@ -273,8 +297,10 @@ mod tests {
         ));
         let bucket = BucketBuilder::new(
             Cow::Borrowed("test-bucket"),
-            get_credential(),
-            ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
+            UploadManager::new(
+                get_credential(),
+                ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
+            ),
         )
         .auto_detect_region()?
         .build();
@@ -343,8 +369,10 @@ mod tests {
         let bucket = Arc::new(
             BucketBuilder::new(
                 Cow::Borrowed("test-bucket"),
-                get_credential(),
-                ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
+                UploadManager::new(
+                    get_credential(),
+                    ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
+                ),
             )
             .build(),
         );
@@ -417,10 +445,12 @@ mod tests {
     fn test_storage_bucket_set_domain() -> Result<(), Box<dyn Error>> {
         let bucket = BucketBuilder::new(
             Cow::Borrowed("test-bucket"),
-            get_credential(),
-            ConfigBuilder::default()
-                .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
-                .build()?,
+            UploadManager::new(
+                get_credential(),
+                ConfigBuilder::default()
+                    .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
+                    .build()?,
+            ),
         )
         .domain("abc.com")
         .domain("def.com")
@@ -435,8 +465,10 @@ mod tests {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
         let bucket = BucketBuilder::new(
             Cow::Borrowed("test-bucket"),
-            get_credential(),
-            ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
+            UploadManager::new(
+                get_credential(),
+                ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
+            ),
         )
         .auto_detect_domains()?
         .build();
@@ -453,8 +485,10 @@ mod tests {
         let bucket = Arc::new(
             BucketBuilder::new(
                 Cow::Borrowed("test-bucket"),
-                get_credential(),
-                ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
+                UploadManager::new(
+                    get_credential(),
+                    ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
+                ),
             )
             .build(),
         );

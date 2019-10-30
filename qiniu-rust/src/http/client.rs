@@ -1,9 +1,11 @@
 use super::request;
 use crate::config::Config;
 use assert_impl::assert_impl;
+use getset::Getters;
 use qiniu_http::Method;
 
-#[derive(Clone)]
+#[derive(Clone, Getters)]
+#[get = "pub(crate)"]
 pub(crate) struct Client {
     config: Config,
 }
