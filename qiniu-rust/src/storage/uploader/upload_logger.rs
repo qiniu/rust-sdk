@@ -1,4 +1,3 @@
-use super::super::{region::Region, upload_token::UploadToken};
 use crate::{
     config::Config,
     http::{Client, Response},
@@ -9,7 +8,7 @@ use std::{
     borrow::Cow,
     error::Error as StdError,
     fmt,
-    io::{Cursor, Result, Seek, SeekFrom, Write},
+    io::{Cursor, Seek, SeekFrom, Write},
     net::IpAddr,
     sync::{Arc, RwLock},
     thread::spawn,
@@ -18,11 +17,10 @@ use std::{
 use url::Url;
 
 struct UploadLoggerInner {
-    server_url: &'static str,
     config: Config,
     http_client: Client,
     log_buffer: RwLock<Cursor<Vec<u8>>>,
-    upload_token: Box<str>,
+    upload_token: RwLock<Option<Box<str>>>,
 }
 
 #[derive(Clone)]
@@ -31,6 +29,25 @@ pub(crate) struct UploadLogger {
 }
 
 impl UploadLogger {
+    pub(crate) fn new(config: Config) -> Option<UploadLogger> {
+        if config.uplog_disabled() {
+            return None;
+        }
+        Some(UploadLogger {
+            inner: Arc::new(UploadLoggerInner {
+                http_client: Client::new(config.clone()),
+                log_buffer: RwLock::new(Cursor::new(Vec::with_capacity(config.max_uplog_size()))),
+                upload_token: RwLock::new(None),
+                config,
+            }),
+        })
+    }
+
+    pub(crate) fn prepare(&self, upload_token: Box<str>) -> UploadLogger {
+        *self.inner.upload_token.write().unwrap() = Some(upload_token);
+        self.clone()
+    }
+
     pub(crate) fn log(&self, record: UploadLoggerRecord) {
         let log_buffer_len = self.log_buffer_len();
         if log_buffer_len < self.inner.config.max_uplog_size() {
@@ -64,8 +81,18 @@ impl UploadLogger {
         if !request_body.is_empty() {
             self.inner
                 .http_client
-                .post("/log/3", &[self.inner.server_url])
-                .header("Authorization", "UpToken ".to_owned() + &self.inner.upload_token)
+                .post("/log/3", &[self.inner.config.uplog_server_url().as_ref()])
+                .header(
+                    "Authorization",
+                    "UpToken ".to_owned()
+                        + self
+                            .inner
+                            .upload_token
+                            .read()
+                            .unwrap()
+                            .as_ref()
+                            .expect("Unprepared UploadLogger"),
+                )
                 .raw_body("text/plain", request_body.as_slice())
                 .send()?
                 .ignore_body();
@@ -82,51 +109,6 @@ impl Drop for UploadLogger {
     fn drop(&mut self) {
         if self.log_buffer_len() > 0 {
             self.upload_log_buffer_and_clean().ok();
-        }
-    }
-}
-
-pub(crate) struct UploadLoggerBuilder {
-    server_url: &'static str,
-    upload_token: Option<String>,
-}
-
-impl UploadLoggerBuilder {
-    pub(crate) fn server_url(mut self, url: &'static str) -> UploadLoggerBuilder {
-        self.server_url = url;
-        self
-    }
-
-    pub(crate) fn upload_token(mut self, upload_token: &UploadToken) -> UploadLoggerBuilder {
-        self.upload_token = Some(upload_token.token().into_owned());
-        self
-    }
-
-    pub(crate) fn build_by(self, config: Config) -> Option<Result<UploadLogger>> {
-        if config.uplog_disabled() {
-            return None;
-        }
-        Some(self.build(config))
-    }
-
-    fn build(self, config: Config) -> Result<UploadLogger> {
-        Ok(UploadLogger {
-            inner: Arc::new(UploadLoggerInner {
-                server_url: self.server_url,
-                http_client: Client::new(config.clone()),
-                log_buffer: RwLock::new(Cursor::new(Vec::with_capacity(config.max_uplog_size()))),
-                upload_token: self.upload_token.expect("upload_token must be set").into(),
-                config,
-            }),
-        })
-    }
-}
-
-impl Default for UploadLoggerBuilder {
-    fn default() -> Self {
-        UploadLoggerBuilder {
-            server_url: Region::uplog_url(),
-            upload_token: None,
         }
     }
 }
@@ -286,12 +268,15 @@ impl fmt::Display for UploadLoggerRecord<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::super::upload_policy::UploadPolicyBuilder, *};
+    use super::{
+        super::super::{upload_policy::UploadPolicyBuilder, upload_token::UploadToken},
+        *,
+    };
     use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
     use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};
     use serde_json::json;
-    use std::{boxed::Box, error::Error, net::Ipv4Addr, result::Result, thread::sleep};
+    use std::{boxed::Box, error::Error, mem::drop, net::Ipv4Addr, result::Result, thread::sleep};
 
     #[test]
     fn test_storage_uploader_upload_logger_upload_and_clean() -> Result<(), Box<dyn Error>> {
@@ -301,13 +286,14 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .uplog_upload_threshold(100)
             .build()?;
-        let upload_logger = UploadLoggerBuilder::default()
-            .upload_token(&UploadToken::from_policy(
+        let upload_logger = UploadLogger::new(config.clone()).unwrap().prepare(
+            UploadToken::from_policy(
                 UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
                 get_credential(),
-            ))
-            .build_by(config)
-            .unwrap()?;
+            )
+            .token()
+            .into(),
+        );
         upload_logger.log(
             UploadLoggerRecordBuilder::default()
                 .status_code(200)
@@ -354,13 +340,14 @@ mod tests {
             .uplog_upload_threshold(100)
             .max_uplog_size(100)
             .build()?;
-        let upload_logger = UploadLoggerBuilder::default()
-            .upload_token(&UploadToken::from_policy(
+        let upload_logger = UploadLogger::new(config.clone()).unwrap().prepare(
+            UploadToken::from_policy(
                 UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
                 get_credential(),
-            ))
-            .build_by(config)
-            .unwrap()?;
+            )
+            .token()
+            .into(),
+        );
         upload_logger.log(
             UploadLoggerRecordBuilder::default()
                 .status_code(200)
@@ -395,6 +382,10 @@ mod tests {
         sleep(Duration::from_millis(500));
         assert_eq!(mock.call_called(), 0);
         assert!(upload_logger.log_buffer_len() > 0);
+
+        drop(upload_logger);
+        assert_eq!(mock.call_called(), 1);
+
         Ok(())
     }
 

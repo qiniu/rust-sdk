@@ -6,7 +6,7 @@ use super::{
 use getset::Getters;
 use std::borrow::Cow;
 
-#[derive(Getters)]
+#[derive(Getters, Clone)]
 pub struct Client {
     #[get = "pub"]
     storage_manager: StorageManager,

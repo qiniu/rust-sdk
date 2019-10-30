@@ -34,9 +34,9 @@ pub struct BucketRegionIter<'a, 'r: 'a> {
 }
 
 impl<'r> BucketBuilder<'r> {
-    pub(crate) fn new<B: Into<Cow<'r, str>>>(name: B, credential: Credential, config: Config) -> BucketBuilder<'r> {
+    pub(crate) fn new(name: Cow<'r, str>, credential: Credential, config: Config) -> BucketBuilder<'r> {
         BucketBuilder {
-            name: name.into(),
+            name,
             http_client: http::Client::new(config.clone()),
             credential,
             config,
@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn test_storage_bucket_set_region() -> Result<(), Box<dyn Error>> {
         let bucket = BucketBuilder::new(
-            "test-bucket",
+            Cow::Borrowed("test-bucket"),
             get_credential(),
             ConfigBuilder::default()
                 .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
@@ -233,7 +233,7 @@ mod tests {
     #[test]
     fn test_storage_bucket_set_region_id() -> Result<(), Box<dyn Error>> {
         let bucket = BucketBuilder::new(
-            "test-bucket",
+            Cow::Borrowed("test-bucket"),
             get_credential(),
             ConfigBuilder::default()
                 .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
@@ -274,7 +274,7 @@ mod tests {
             }),
         ));
         let bucket = BucketBuilder::new(
-            "test-bucket",
+            Cow::Borrowed("test-bucket"),
             get_credential(),
             ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
         )
@@ -344,7 +344,7 @@ mod tests {
         ));
         let bucket = Arc::new(
             BucketBuilder::new(
-                "test-bucket",
+                Cow::Borrowed("test-bucket"),
                 get_credential(),
                 ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
             )
@@ -418,7 +418,7 @@ mod tests {
     #[test]
     fn test_storage_bucket_set_domain() -> Result<(), Box<dyn Error>> {
         let bucket = BucketBuilder::new(
-            "test-bucket",
+            Cow::Borrowed("test-bucket"),
             get_credential(),
             ConfigBuilder::default()
                 .http_request_call(Box::new(http::PanickedHTTPCaller("Should not call it")))
@@ -436,7 +436,7 @@ mod tests {
     fn test_storage_bucket_prequery_domain() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
         let bucket = BucketBuilder::new(
-            "test-bucket",
+            Cow::Borrowed("test-bucket"),
             get_credential(),
             ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
         )
@@ -454,7 +454,7 @@ mod tests {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
         let bucket = Arc::new(
             BucketBuilder::new(
-                "test-bucket",
+                Cow::Borrowed("test-bucket"),
                 get_credential(),
                 ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?,
             )

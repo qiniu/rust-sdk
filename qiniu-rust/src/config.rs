@@ -1,4 +1,4 @@
-use super::http::DomainsManager;
+use crate::{http::DomainsManager, storage::region::Region};
 use crypto::{digest::Digest, sha1::Sha1};
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
@@ -53,6 +53,10 @@ pub struct ConfigInner {
     uplog_disabled: bool,
 
     #[get_copy = "pub"]
+    #[builder(setter(into))]
+    uplog_server_url: &'static str,
+
+    #[get_copy = "pub"]
     uplog_upload_threshold: usize,
 
     #[get_copy = "pub"]
@@ -95,6 +99,7 @@ impl Default for ConfigInner {
             upload_block_size: 1 << 22,
             upload_block_lifetime: Duration::from_secs(60 * 60 * 24 * 7),
             upload_file_recorder_key_generator: default_upload_file_recorder_key_generator,
+            uplog_server_url: Region::uplog_url(),
             records_dir: {
                 let mut temp_dir = temp_dir();
                 temp_dir.push("qiniu_sdk");
@@ -136,6 +141,7 @@ impl fmt::Debug for ConfigInner {
             .field("upload_threshold", &self.upload_threshold)
             .field("upload_block_size", &self.upload_block_size)
             .field("upload_block_lifetime", &self.upload_block_lifetime)
+            .field("uplog_server_url", &self.uplog_server_url)
             .field("records_dir", &self.records_dir)
             .field("always_flush_records", &self.always_flush_records)
             .field("uplog_disabled", &self.uplog_disabled)

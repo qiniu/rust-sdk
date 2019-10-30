@@ -1,6 +1,5 @@
 use crate::config::Config;
 use std::{
-    borrow::Cow,
     env::temp_dir,
     fs::{create_dir_all, remove_file, File, OpenOptions},
     io::{Read, Result, Write},
@@ -16,28 +15,28 @@ pub trait Recorder: Clone {
 pub trait RecordMedium: Read + Write + Send {}
 
 #[derive(Clone)]
-pub struct FileSystemRecorder<'r> {
-    root_directory: Cow<'r, Path>,
+pub struct FileSystemRecorder {
+    root_directory: Box<Path>,
 }
 
-impl<'r> FileSystemRecorder<'r> {
-    pub fn new<P: Into<Cow<'r, Path>>>(root_directory: P) -> FileSystemRecorder<'r> {
+impl FileSystemRecorder {
+    pub fn new<P: Into<Box<Path>>>(root_directory: P) -> FileSystemRecorder {
         FileSystemRecorder {
             root_directory: root_directory.into(),
         }
     }
 
-    pub fn configure_by(config: &Config) -> Result<FileSystemRecorder<'r>> {
+    pub fn configure_by(config: &Config) -> Result<FileSystemRecorder> {
         let mut root_directory = config.records_dir().to_path_buf();
         root_directory.push("upload_records");
         create_dir_all(&root_directory)?;
         Ok(FileSystemRecorder {
-            root_directory: Cow::Owned(root_directory),
+            root_directory: root_directory.into(),
         })
     }
 }
 
-impl Default for FileSystemRecorder<'_> {
+impl Default for FileSystemRecorder {
     fn default() -> Self {
         let mut temp_dir = temp_dir();
         temp_dir.push("upload_records");
@@ -45,7 +44,7 @@ impl Default for FileSystemRecorder<'_> {
     }
 }
 
-impl FileSystemRecorder<'_> {
+impl FileSystemRecorder {
     fn get_path<ID: AsRef<str>>(&self, id: ID) -> PathBuf {
         let mut path = self.root_directory.as_ref().to_owned();
         path.push(id.as_ref());
@@ -53,7 +52,7 @@ impl FileSystemRecorder<'_> {
     }
 }
 
-impl Recorder for FileSystemRecorder<'_> {
+impl Recorder for FileSystemRecorder {
     type Medium = File;
     fn open<ID: AsRef<str>>(&self, id: ID, truncate: bool) -> Result<Self::Medium> {
         let mut options = OpenOptions::new();

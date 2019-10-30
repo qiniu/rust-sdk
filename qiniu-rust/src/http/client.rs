@@ -2,6 +2,7 @@ use super::request;
 use crate::config::Config;
 use qiniu_http::Method;
 
+#[derive(Clone)]
 pub(crate) struct Client {
     config: Config,
 }

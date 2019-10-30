@@ -42,10 +42,10 @@ impl<'p> UploadToken<'p> {
         }
     }
 
-    pub fn token(&'p self) -> Cow<'p, str> {
+    pub fn token(self) -> String {
         match self {
-            UploadToken::Token(token) => Cow::Borrowed(token.as_ref()),
-            UploadToken::Policy(policy, credential) => Cow::Owned(credential.sign_upload_policy(&policy)),
+            UploadToken::Token(token) => token.into_owned(),
+            UploadToken::Policy(policy, credential) => credential.sign_upload_policy(&policy),
         }
     }
 }
@@ -75,7 +75,7 @@ impl<'p> From<&'p str> for UploadToken<'p> {
 
 impl<'p> From<UploadToken<'p>> for String {
     fn from(upload_token: UploadToken<'p>) -> Self {
-        upload_token.token().to_string()
+        upload_token.token()
     }
 }
 

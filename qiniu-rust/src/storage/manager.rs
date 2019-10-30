@@ -3,13 +3,19 @@ use super::{
     region::{Region, RegionId},
     uploader::UploadManager,
 };
-use crate::{config::Config, credential::Credential, http, utils::base64};
+use crate::{
+    config::Config,
+    credential::Credential,
+    http::{Client, Token},
+    utils::base64,
+};
 use error_chain::error_chain;
 use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult};
 use std::borrow::Cow;
 
+#[derive(Clone)]
 pub struct StorageManager {
-    http_client: http::Client,
+    http_client: Client,
     credential: Credential,
     config: Config,
     rs_url: &'static str,
@@ -21,7 +27,7 @@ impl StorageManager {
             rs_url: Region::hua_dong().rs_url(config.use_https()),
             credential,
             config: config.clone(),
-            http_client: http::Client::new(config),
+            http_client: Client::new(config),
         }
     }
 
@@ -34,7 +40,7 @@ impl StorageManager {
         Ok(self
             .http_client
             .get("/buckets", &[self.rs_url])
-            .token(http::Token::V1(self.credential.clone()))
+            .token(Token::V1(self.credential.clone()))
             .accept_json()
             .no_body()
             .send()?
@@ -50,7 +56,7 @@ impl StorageManager {
                     + region_id.as_str()),
                 &[self.rs_url],
             )
-            .token(http::Token::V1(self.credential.clone()))
+            .token(Token::V1(self.credential.clone()))
             .no_body()
             .send()?
             .ignore_body();
@@ -61,7 +67,7 @@ impl StorageManager {
         match self
             .http_client
             .post(&("/drop/".to_owned() + bucket.as_ref()), &[self.rs_url])
-            .token(http::Token::V1(self.credential.clone()))
+            .token(Token::V1(self.credential.clone()))
             .no_body()
             .send()
         {
@@ -80,8 +86,8 @@ impl StorageManager {
         }
     }
 
-    pub fn bucket<B: Into<Cow<'static, str>>>(&self, bucket: B) -> BucketBuilder {
-        BucketBuilder::new(bucket, self.credential.clone(), self.config.clone())
+    pub fn bucket<'b, B: Into<Cow<'b, str>>>(&self, bucket: B) -> BucketBuilder<'b> {
+        BucketBuilder::new(bucket.into(), self.credential.clone(), self.config.clone())
     }
 
     pub fn uploader(&self) -> UploadManager {

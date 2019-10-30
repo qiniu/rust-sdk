@@ -1,10 +1,13 @@
 use super::{
-    form_uploader, resumeable_uploader,
-    upload_recorder::UploadRecorder,
-    {
-        super::{recorder, upload_policy, upload_token},
-        UploadResult,
+    super::{
+        recorder::{FileSystemRecorder, Recorder},
+        upload_policy::UploadPolicy,
+        upload_token::{Error as UploadTokenError, ErrorKind as UploadTokenErrorKind, UploadToken},
     },
+    form_uploader::FormUploaderBuilder,
+    resumeable_uploader::{ResumeableUploader, ResumeableUploaderBuilder},
+    upload_recorder::UploadRecorder,
+    UploadLogger, UploadResult,
 };
 use crate::{config::Config, credential::Credential, http::Client, utils::ron::Ron};
 use error_chain::error_chain;
@@ -17,52 +20,83 @@ use std::{
     fs::File,
     io::{Error as IOError, Read, Result as IOResult},
     path::Path,
+    sync::Arc,
 };
 
 #[derive(Getters)]
 #[get = "pub(super)"]
-pub struct BucketUploader<'b, REC: recorder::Recorder> {
-    bucket_name: Cow<'b, str>,
+struct BucketUploaderInner<REC: Recorder> {
+    bucket_name: Box<str>,
     up_urls_list: Box<[Box<[Box<str>]>]>,
     credential: Credential,
     config: Config,
     client: Client,
+    upload_logger: Option<UploadLogger>,
     recorder: UploadRecorder<REC>,
     thread_pool: Option<ThreadPool>,
 }
 
-pub struct BucketUploaderBuilder<'b, REC: recorder::Recorder> {
-    inner: BucketUploader<'b, REC>,
+#[derive(Clone)]
+pub struct BucketUploader<REC: Recorder> {
+    inner: Arc<BucketUploaderInner<REC>>,
 }
 
-impl<'b> BucketUploaderBuilder<'b, recorder::FileSystemRecorder<'b>> {
+impl<REC: Recorder> BucketUploader<REC> {
+    pub(super) fn bucket_name(&self) -> &str {
+        self.inner.bucket_name()
+    }
+    pub(super) fn up_urls_list(&self) -> &[Box<[Box<str>]>] {
+        self.inner.up_urls_list()
+    }
+    pub(super) fn credential(&self) -> &Credential {
+        self.inner.credential()
+    }
+    pub(super) fn config(&self) -> &Config {
+        self.inner.config()
+    }
+    pub(super) fn client(&self) -> &Client {
+        self.inner.client()
+    }
+    pub(super) fn upload_logger(&self) -> Option<&UploadLogger> {
+        self.inner.upload_logger().as_ref()
+    }
+    pub(super) fn recorder(&self) -> &UploadRecorder<REC> {
+        self.inner.recorder()
+    }
+    pub(super) fn thread_pool(&self) -> Option<&ThreadPool> {
+        self.inner.thread_pool().as_ref()
+    }
+}
+
+pub struct BucketUploaderBuilder<REC: Recorder> {
+    inner: BucketUploaderInner<REC>,
+}
+
+impl BucketUploaderBuilder<FileSystemRecorder> {
     // TODO: ADD CUSTOMIZED RECORDER METHOD
-    pub(super) fn new<B: Into<Cow<'b, str>>, U: Into<Box<[Box<[Box<str>]>]>>>(
-        bucket_name: B,
-        up_urls_list: U,
+    pub(super) fn new(
+        bucket_name: Box<str>,
+        up_urls_list: Box<[Box<[Box<str>]>]>,
         credential: Credential,
         config: Config,
-    ) -> IOResult<BucketUploaderBuilder<'b, recorder::FileSystemRecorder<'b>>> {
-        let bucket_name = bucket_name.into();
-        let up_urls_list = up_urls_list.into();
+        upload_logger: Option<UploadLogger>,
+    ) -> IOResult<BucketUploaderBuilder<FileSystemRecorder>> {
         assert!(!up_urls_list.is_empty());
         Ok(BucketUploaderBuilder {
-            inner: BucketUploader {
+            inner: BucketUploaderInner {
                 bucket_name,
                 up_urls_list,
                 credential,
                 client: Client::new(config.clone()),
-                recorder: UploadRecorder::new(recorder::FileSystemRecorder::configure_by(&config)?, &config),
-                config,
+                recorder: UploadRecorder::new(FileSystemRecorder::configure_by(&config)?, &config),
                 thread_pool: None,
+                upload_logger,
+                config,
             },
         })
     }
 
-    pub(super) fn thread_pool_size(
-        mut self,
-        num_threads: usize,
-    ) -> BucketUploaderBuilder<'b, recorder::FileSystemRecorder<'b>> {
+    pub fn thread_pool_size(mut self, num_threads: usize) -> BucketUploaderBuilder<FileSystemRecorder> {
         self.inner.thread_pool = Some(
             ThreadPoolBuilder::new()
                 .num_threads(num_threads)
@@ -73,23 +107,24 @@ impl<'b> BucketUploaderBuilder<'b, recorder::FileSystemRecorder<'b>> {
         self
     }
 
-    pub(super) fn build(self) -> BucketUploader<'b, recorder::FileSystemRecorder<'b>> {
-        self.inner
+    pub fn build(self) -> BucketUploader<FileSystemRecorder> {
+        BucketUploader {
+            inner: Arc::new(self.inner),
+        }
     }
 }
 
-impl<'b, REC: recorder::Recorder> BucketUploader<'b, REC> {
-    pub fn upload_token<T: Into<upload_token::UploadToken<'b>>>(
-        &'b self,
-        upload_token: T,
-    ) -> FileUploaderBuilder<'b, REC> {
-        FileUploaderBuilder::new(Ron::Referenced(self), upload_token.into())
+impl<REC: Recorder> BucketUploader<REC> {
+    pub fn upload_token<'b, T: Into<UploadToken<'b>>>(&'b self, upload_token: T) -> FileUploaderBuilder<'b, REC> {
+        FileUploaderBuilder::new(Ron::Referenced(self), upload_token.into().token().into())
     }
 
-    pub fn upload_policy(&'b self, upload_policy: upload_policy::UploadPolicy<'b>) -> FileUploaderBuilder<'b, REC> {
+    pub fn upload_policy<'b>(&'b self, upload_policy: UploadPolicy<'b>) -> FileUploaderBuilder<'b, REC> {
         FileUploaderBuilder::new(
             Ron::Referenced(self),
-            upload_token::UploadToken::from_policy(upload_policy, self.credential.clone()),
+            UploadToken::from_policy(upload_policy, self.credential().clone())
+                .token()
+                .into(),
         )
     }
 }
@@ -100,11 +135,9 @@ pub enum ResumeablePolicy {
     Always,
 }
 
-// TODO: 加强 UploadToken 复用性，使 FileUploaderBuilder 的 upload_token 可以引用 BucketUploader 的属性
-
-pub struct FileUploaderBuilder<'b, REC: recorder::Recorder> {
-    bucket_uploader: Ron<'b, BucketUploader<'b, REC>>,
-    upload_token: upload_token::UploadToken<'b>,
+pub struct FileUploaderBuilder<'b, REC: Recorder> {
+    bucket_uploader: Ron<'b, BucketUploader<REC>>,
+    upload_token: Cow<'b, str>,
     key: Option<Cow<'b, str>>,
     vars: Option<HashMap<Cow<'b, str>, Cow<'b, str>>>,
     metadata: Option<HashMap<Cow<'b, str>, Cow<'b, str>>>,
@@ -114,10 +147,10 @@ pub struct FileUploaderBuilder<'b, REC: recorder::Recorder> {
     thread_pool: Option<Ron<'b, ThreadPool>>,
 }
 
-impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
+impl<'b, REC: Recorder> FileUploaderBuilder<'b, REC> {
     pub(super) fn new(
-        bucket_uploader: Ron<'b, BucketUploader<'b, REC>>,
-        upload_token: upload_token::UploadToken<'b>,
+        bucket_uploader: Ron<'b, BucketUploader<REC>>,
+        upload_token: Cow<'b, str>,
     ) -> FileUploaderBuilder<'b, REC> {
         FileUploaderBuilder {
             upload_token,
@@ -127,7 +160,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
             checksum_enabled: true,
             on_uploading_progress: None,
             thread_pool: None,
-            resumeable_policy: ResumeablePolicy::Threshold(bucket_uploader.config.upload_threshold()),
+            resumeable_policy: ResumeablePolicy::Threshold(bucket_uploader.config().upload_threshold()),
             bucket_uploader,
         }
     }
@@ -252,7 +285,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
-        let mut uploader = form_uploader::FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
+        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }
@@ -285,8 +318,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
-        let mut uploader =
-            resumeable_uploader::ResumeableUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
+        let mut uploader = ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)?;
         if let Some(key) = &self.key {
             uploader = uploader.key(key.to_owned());
         }
@@ -312,7 +344,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         )?;
         Self::prepare_for_resuming(
             self.key.as_ref().map(|key| key.as_ref()),
-            &self.bucket_uploader.recorder,
+            &self.bucket_uploader.recorder(),
             &mut uploader,
             file_path,
         )?;
@@ -322,7 +354,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
     fn prepare_for_resuming(
         key: Option<&str>,
         recorder: &UploadRecorder<REC>,
-        uploader: &mut resumeable_uploader::ResumeableUploader<'_, File, REC>,
+        uploader: &mut ResumeableUploader<'_, File, REC>,
         file_path: &Path,
     ) -> Result<()> {
         if let Some((file_record, block_records)) = recorder.load(file_path, key)? {
@@ -337,7 +369,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         file_name: Option<Cow<str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
-        let mut uploader = form_uploader::FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
+        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }
@@ -370,8 +402,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
         file_name: Option<Cow<str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
-        let mut uploader =
-            resumeable_uploader::ResumeableUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
+        let mut uploader = ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)?;
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }
@@ -417,7 +448,7 @@ impl<'b, REC: recorder::Recorder> FileUploaderBuilder<'b, REC> {
 
 error_chain! {
     links {
-        InvalidUploadToken(upload_token::Error, upload_token::ErrorKind);
+        InvalidUploadToken(UploadTokenError, UploadTokenErrorKind);
     }
 
     foreign_links {

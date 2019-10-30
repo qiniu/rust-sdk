@@ -6,25 +6,31 @@ use super::{
         upload_policy::UploadPolicy,
         upload_token::UploadToken,
     },
-    BucketUploaderBuilder, FileUploaderBuilder,
+    BucketUploaderBuilder, FileUploaderBuilder, UploadLogger,
 };
 use crate::{config::Config, credential::Credential, utils::ron::Ron};
 use std::{borrow::Cow, io::Result as IOResult};
 
+#[derive(Clone)]
 pub struct UploadManager {
     credential: Credential,
     config: Config,
+    upload_logger: Option<UploadLogger>,
 }
 
 impl UploadManager {
     pub(crate) fn new(credential: Credential, config: Config) -> UploadManager {
-        UploadManager { credential, config }
+        UploadManager {
+            upload_logger: UploadLogger::new(config.clone()),
+            credential,
+            config,
+        }
     }
 
     // TODO: ADD CUSTOMIZED RECORDER METHOD
-    pub fn for_bucket<'b>(&self, bucket: &Bucket) -> IOResult<BucketUploaderBuilder<'b, FileSystemRecorder<'b>>> {
+    pub fn for_bucket(&self, bucket: &Bucket) -> IOResult<BucketUploaderBuilder<FileSystemRecorder>> {
         BucketUploaderBuilder::new(
-            bucket.name().to_owned(),
+            bucket.name().into(),
             bucket
                 .regions()
                 .map(|iter| {
@@ -51,26 +57,27 @@ impl UploadManager {
                 }),
             self.credential.clone(),
             self.config.clone(),
+            self.upload_logger.as_ref().map(|upload_logger| upload_logger.clone()),
         )
     }
 
     pub fn for_bucket_name<'b, B: Into<Cow<'b, str>>>(
         &self,
         bucket_name: B,
-    ) -> IOResult<BucketUploaderBuilder<'b, FileSystemRecorder<'b>>> {
-        self.for_bucket(&BucketBuilder::new(bucket_name, self.credential.clone(), self.config.clone()).build())
+    ) -> IOResult<BucketUploaderBuilder<FileSystemRecorder>> {
+        self.for_bucket(&BucketBuilder::new(bucket_name.into(), self.credential.clone(), self.config.clone()).build())
     }
 
     pub fn for_upload_token<'u, U: Into<UploadToken<'u>>>(
         &self,
         upload_token: U,
-    ) -> error::Result<FileUploaderBuilder<'u, FileSystemRecorder<'u>>> {
+    ) -> error::Result<FileUploaderBuilder<'u, FileSystemRecorder>> {
         let upload_token = upload_token.into();
         let policy = upload_token.policy()?;
         if let Some(bucket_name) = policy.bucket() {
             Ok(FileUploaderBuilder::new(
                 Ron::Owned(self.for_bucket_name(bucket_name.to_owned())?.build()),
-                upload_token,
+                upload_token.token().into(),
             ))
         } else {
             Err(error::ErrorKind::BucketIsMissingInUploadToken.into())
@@ -80,7 +87,7 @@ impl UploadManager {
     pub fn for_upload_policy<'u>(
         &self,
         upload_policy: UploadPolicy<'u>,
-    ) -> error::Result<FileUploaderBuilder<'u, FileSystemRecorder<'u>>> {
+    ) -> error::Result<FileUploaderBuilder<'u, FileSystemRecorder>> {
         self.for_upload_token(UploadToken::from_policy(upload_policy, self.credential.clone()))
     }
 }

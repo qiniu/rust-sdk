@@ -1,12 +1,8 @@
 use super::{
-    super::{
-        recorder,
-        upload_token::{Result as UploadTokenParseResult, UploadToken},
-    },
+    super::{recorder::Recorder, upload_token::Result as UploadTokenParseResult},
     tasks_manager::{Result as TasksResult, Task, TasksManager},
     upload_recorder::{FileUploadRecordMedium, FileUploadRecordMediumBlockItem, FileUploadRecordMediumMetadata},
-    upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerBuilder, UploadLoggerRecordBuilder,
-    UploadResult,
+    upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerRecordBuilder, UploadResult,
 };
 use crate::{
     http::Client,
@@ -66,7 +62,7 @@ struct CompletedParts<'f> {
     custom_vars: Option<HashMap<Cow<'f, str>, Cow<'f, str>>>,
 }
 
-struct FromResuming<REC: recorder::Recorder> {
+struct FromResuming<REC: Recorder> {
     upload_id: Box<str>,
     up_urls: Box<[Box<str>]>,
     recorder: FileUploadRecordMedium<REC::Medium>,
@@ -79,19 +75,19 @@ struct UploadingProgressCallback<'u> {
     total_size: Option<usize>,
 }
 
-pub(super) struct ResumeableUploaderBuilder<'u, REC: recorder::Recorder> {
-    bucket_uploader: &'u BucketUploader<'u, REC>,
+pub(super) struct ResumeableUploaderBuilder<'u, REC: Recorder> {
+    bucket_uploader: &'u BucketUploader<REC>,
     upload_token: Cow<'u, str>,
     key: Option<Cow<'u, str>>,
     metadata: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
     custom_vars: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
     on_uploading_progress: Option<&'u (dyn Fn(usize, Option<usize>) + Send + Sync)>,
-    upload_logger_builder: UploadLoggerBuilder,
     thread_pool: Option<Ron<'u, ThreadPool>>,
+    upload_logger: Option<UploadLogger>,
 }
 
-pub(super) struct ResumeableUploader<'u, R: Read + Seek + Send + Sync + 'u, REC: recorder::Recorder> {
-    bucket_uploader: &'u BucketUploader<'u, REC>,
+pub(super) struct ResumeableUploader<'u, R: Read + Seek + Send + Sync + 'u, REC: Recorder> {
+    bucket_uploader: &'u BucketUploader<REC>,
     upload_token: Cow<'u, str>,
     key: Option<Cow<'u, str>>,
     completed_parts: Mutex<CompletedParts<'u>>,
@@ -104,30 +100,27 @@ pub(super) struct ResumeableUploader<'u, R: Read + Seek + Send + Sync + 'u, REC:
     file_path: Option<Cow<'u, Path>>,
     from_resuming: Option<FromResuming<REC>>,
     uploading_progress_callback: Option<UploadingProgressCallback<'u>>,
-    upload_logger: Option<UploadLogger>,
     thread_pool: Ron<'u, ThreadPool>,
+    upload_logger: Option<UploadLogger>,
 }
 
-impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
+impl<'u, REC: Recorder> ResumeableUploaderBuilder<'u, REC> {
     pub(super) fn new(
-        bucket_uploader: &'u BucketUploader<'u, REC>,
-        upload_token: &'u UploadToken<'u>,
+        bucket_uploader: &'u BucketUploader<REC>,
+        upload_token: Cow<'u, str>,
     ) -> UploadTokenParseResult<ResumeableUploaderBuilder<'u, REC>> {
         Ok(ResumeableUploaderBuilder {
             bucket_uploader,
-            upload_token: upload_token.token(),
+            upload_token: upload_token.clone(),
             key: None,
             metadata: None,
             custom_vars: None,
             on_uploading_progress: None,
-            upload_logger_builder: UploadLoggerBuilder::default().upload_token(upload_token),
             thread_pool: None,
+            upload_logger: bucket_uploader
+                .upload_logger()
+                .map(|upload_logger| upload_logger.prepare(upload_token.into_owned().into())),
         })
-    }
-
-    pub(super) fn upload_logger_server_url(mut self, url: &'static str) -> ResumeableUploaderBuilder<'u, REC> {
-        self.upload_logger_builder = self.upload_logger_builder.server_url(url);
-        self
     }
 
     pub(super) fn thread_pool_or_referenced(
@@ -207,13 +200,9 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
                 completed_size: AtomicUsize::new(0),
                 total_size: Some(file_size as usize),
             }),
-            upload_logger: self
-                .upload_logger_builder
-                .build_by(bucket_uploader.config().clone())
-                .map_or(Ok(None), |logger| logger.map(Some))?,
             thread_pool: self
                 .thread_pool
-                .or_else(|| bucket_uploader.thread_pool().as_ref().map(|pool| Ron::Referenced(pool)))
+                .or_else(|| bucket_uploader.thread_pool().map(|pool| Ron::Referenced(pool)))
                 .unwrap_or_else(|| {
                     Ron::Owned(
                         ThreadPoolBuilder::new()
@@ -222,6 +211,7 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
                             .unwrap(),
                     )
                 }),
+            upload_logger: self.upload_logger,
         })
     }
 
@@ -257,13 +247,9 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
                 completed_size: AtomicUsize::new(0),
                 total_size: None,
             }),
-            upload_logger: self
-                .upload_logger_builder
-                .build_by(bucket_uploader.config().clone())
-                .map_or(Ok(None), |logger| logger.map(Some))?,
             thread_pool: self
                 .thread_pool
-                .or_else(|| bucket_uploader.thread_pool().as_ref().map(|pool| Ron::Referenced(pool)))
+                .or_else(|| bucket_uploader.thread_pool().map(|pool| Ron::Referenced(pool)))
                 .unwrap_or_else(|| {
                     Ron::Owned(
                         ThreadPoolBuilder::new()
@@ -272,11 +258,12 @@ impl<'u, REC: recorder::Recorder> ResumeableUploaderBuilder<'u, REC> {
                             .unwrap(),
                     )
                 }),
+            upload_logger: self.upload_logger,
         })
     }
 }
 
-impl<'u, R: Read + Seek + Send + Sync, REC: recorder::Recorder> ResumeableUploader<'u, R, REC> {
+impl<'u, R: Read + Seek + Send + Sync, REC: Recorder> ResumeableUploader<'u, R, REC> {
     pub(super) fn send(&mut self) -> HTTPResult<UploadResult> {
         let base_path = self.make_base_path();
         let authorization = self.make_authorization();
@@ -737,7 +724,10 @@ impl OptionalMd5 {
 #[cfg(test)]
 mod tests {
     use super::{
-        super::{super::upload_policy::UploadPolicyBuilder, BucketUploaderBuilder},
+        super::{
+            super::{upload_policy::UploadPolicyBuilder, upload_token::UploadToken},
+            BucketUploaderBuilder,
+        },
         *,
     };
     use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
@@ -824,14 +814,14 @@ mod tests {
                 .as_boxed(),
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploaderBuilder::new(
-            "test_bucket",
-            vec![vec![Box::from("http://z1h1.com")].into()],
+            "test_bucket".into(),
+            vec![vec![Box::from("http://z1h1.com")].into()].into(),
             get_credential(),
             config,
+            None,
         )?
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
@@ -923,14 +913,14 @@ mod tests {
             )
             .http_request_retries(100)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploaderBuilder::new(
-            "test_bucket",
-            vec![vec![Box::from("http://z1h1.com")].into()],
+            "test_bucket".into(),
+            vec![vec![Box::from("http://z1h1.com")].into()].into(),
             get_credential(),
             config,
+            None,
         )?
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
@@ -1045,14 +1035,14 @@ mod tests {
                 .as_boxed(),
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploaderBuilder::new(
-            "test_bucket",
-            vec![vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into()],
+            "test_bucket".into(),
+            vec![vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into()].into(),
             get_credential(),
             config,
+            None,
         )?
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
@@ -1156,17 +1146,18 @@ mod tests {
                 .as_boxed(),
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploaderBuilder::new(
-            "test_bucket",
+            "test_bucket".into(),
             vec![
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
-            ],
+            ]
+            .into(),
             get_credential(),
             config,
+            None,
         )?
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
@@ -1302,17 +1293,18 @@ mod tests {
                 .as_boxed(),
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .uplog_disabled(true)
             .build()?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploaderBuilder::new(
-            "test_bucket",
+            "test_bucket".into(),
             vec![
                 vec![Box::from("http://z1h1.com")].into(),
                 vec![Box::from("http://z2h1.com")].into(),
-            ],
+            ]
+            .into(),
             get_credential(),
             config,
+            None,
         )?
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
@@ -1405,17 +1397,17 @@ mod tests {
                 .as_boxed(),
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .uplog_disabled(true)
             .build()?;
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
             get_credential(),
         );
         BucketUploaderBuilder::new(
-            "test_bucket",
-            vec![vec![Box::from("http://z1h1.com")].into()],
+            "test_bucket".into(),
+            vec![vec![Box::from("http://z1h1.com")].into()].into(),
             get_credential(),
             config.clone(),
+            None,
         )?
         .build()
         .upload_token(upload_token.clone())
@@ -1423,10 +1415,11 @@ mod tests {
         .upload_file(&temp_path, Some("file"), None)
         .unwrap_err();
         let result = BucketUploaderBuilder::new(
-            "test_bucket",
-            vec![vec![Box::from("http://z1h1.com")].into()],
+            "test_bucket".into(),
+            vec![vec![Box::from("http://z1h1.com")].into()].into(),
             get_credential(),
             config,
+            None,
         )?
         .build()
         .upload_token(upload_token)
@@ -1543,17 +1536,17 @@ mod tests {
                 .as_boxed(),
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .uplog_disabled(true)
             .build()?;
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
             get_credential(),
         );
         BucketUploaderBuilder::new(
-            "test_bucket",
-            vec![vec![Box::from("http://z1h1.com")].into()],
+            "test_bucket".into(),
+            vec![vec![Box::from("http://z1h1.com")].into()].into(),
             get_credential(),
             config.clone(),
+            None,
         )?
         .build()
         .upload_token(upload_token.clone())
@@ -1562,10 +1555,11 @@ mod tests {
         .unwrap_err();
 
         let result = BucketUploaderBuilder::new(
-            "test_bucket",
-            vec![vec![Box::from("http://z1h1.com")].into()],
+            "test_bucket".into(),
+            vec![vec![Box::from("http://z1h1.com")].into()].into(),
             get_credential(),
             config,
+            None,
         )?
         .build()
         .upload_token(upload_token)
