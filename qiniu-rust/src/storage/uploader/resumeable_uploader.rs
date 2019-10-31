@@ -816,7 +816,6 @@ mod tests {
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            get_credential(),
             config,
             None,
         )?
@@ -915,7 +914,6 @@ mod tests {
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            get_credential(),
             config,
             None,
         )?
@@ -1037,7 +1035,6 @@ mod tests {
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into()].into(),
-            get_credential(),
             config,
             None,
         )?
@@ -1152,7 +1149,6 @@ mod tests {
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ]
             .into(),
-            get_credential(),
             config,
             None,
         )?
@@ -1299,7 +1295,6 @@ mod tests {
                 vec![Box::from("http://z2h1.com")].into(),
             ]
             .into(),
-            get_credential(),
             config,
             None,
         )?
@@ -1399,10 +1394,10 @@ mod tests {
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
             get_credential(),
         );
+
         BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            get_credential(),
             config.clone(),
             None,
         )?
@@ -1411,10 +1406,10 @@ mod tests {
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)
         .unwrap_err();
+
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            get_credential(),
             config,
             None,
         )?
@@ -1534,14 +1529,15 @@ mod tests {
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
+
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
             get_credential(),
         );
+
         BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            get_credential(),
             config.clone(),
             None,
         )?
@@ -1554,7 +1550,6 @@ mod tests {
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            get_credential(),
             config,
             None,
         )?
@@ -1562,6 +1557,7 @@ mod tests {
         .upload_token(upload_token)
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
+
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));
         Ok(())

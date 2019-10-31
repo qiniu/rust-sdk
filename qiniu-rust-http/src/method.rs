@@ -1,6 +1,6 @@
 use std::{convert::TryFrom, error::Error, fmt, str::FromStr};
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Method {
     GET,
     HEAD,

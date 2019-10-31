@@ -4,7 +4,7 @@ mod tests {
     use qiniu::{
         storage::{upload_policy::UploadPolicyBuilder, uploader::UploadErrorKind},
         utils::etag,
-        Client, Config, ConfigBuilder,
+        Client, Config, ConfigBuilder, Credential,
     };
     use qiniu_http::ErrorKind as HTTPErrorKind;
     use qiniu_test_utils::{env, temp_file::create_temp_file};
@@ -34,18 +34,18 @@ mod tests {
             .build();
         let err = get_client(config)
             .upload()
-            .for_upload_policy(policy)?
+            .for_upload_policy(policy, get_credential())?
             .key(&key)
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))
             .unwrap_err();
-        match err.kind() {
-            UploadErrorKind::QiniuError(e) => match e.error_kind() {
+
+        if let UploadErrorKind::QiniuError(e) = err.kind() {
+            match e.error_kind() {
                 HTTPErrorKind::UnexpectedRedirect => {
                     return Ok(());
                 }
                 _ => {}
-            },
-            _ => {}
+            }
         }
         panic!();
     }
@@ -62,7 +62,7 @@ mod tests {
         let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy)?
+            .for_upload_policy(policy, get_credential())?
             .key(&key)
             .var("var_key1", "var_value1")
             .var("var_key2", "var_value2")
@@ -88,7 +88,7 @@ mod tests {
         let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy)?
+            .for_upload_policy(policy, get_credential())?
             .always_be_resumeable()
             .key(&key)
             .var("var_key1", "var_value1")
@@ -123,7 +123,7 @@ mod tests {
         let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy)?
+            .for_upload_policy(policy, get_credential())?
             .key(&key)
             .var("var_key1", "var_value1")
             .var("var_key2", "var_value2")
@@ -157,7 +157,7 @@ mod tests {
         let thread_id: Mutex<Option<ThreadId>> = Mutex::new(None);
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy)?
+            .for_upload_policy(policy, get_credential())?
             .always_be_resumeable()
             .key(&key)
             .var("var_key1", "var_value1")
@@ -195,7 +195,7 @@ mod tests {
         let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy)?
+            .for_upload_policy(policy, get_credential())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
@@ -216,7 +216,7 @@ mod tests {
         let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy)?
+            .for_upload_policy(policy, get_credential())?
             .always_be_resumeable()
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
@@ -248,7 +248,7 @@ mod tests {
         let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy)?
+            .for_upload_policy(policy, get_credential())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumeable()
@@ -271,7 +271,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy)?
+            .for_upload_policy(policy, get_credential())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
@@ -293,7 +293,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy)?
+            .for_upload_policy(policy, get_credential())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
@@ -315,7 +315,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy)?
+            .for_upload_policy(policy, get_credential())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumeable()
@@ -338,7 +338,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy)?
+            .for_upload_policy(policy, get_credential())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
@@ -359,5 +359,10 @@ mod tests {
     fn get_client(config: Config) -> Client {
         let e = env::get();
         Client::new(e.access_key().to_owned(), e.secret_key().to_owned(), config)
+    }
+
+    fn get_credential() -> Credential {
+        let e = env::get();
+        Credential::new(e.access_key().to_owned(), e.secret_key().to_owned())
     }
 }

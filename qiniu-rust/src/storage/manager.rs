@@ -86,11 +86,11 @@ impl StorageManager {
     }
 
     pub fn uploader(&self) -> UploadManager {
-        UploadManager::new(self.credential.clone(), self.http_client.config().clone())
+        UploadManager::new(self.http_client.config().to_owned())
     }
 
     pub fn bucket<'b, B: Into<Cow<'b, str>>>(&self, bucket: B) -> BucketBuilder<'b> {
-        BucketBuilder::new(bucket.into(), self.uploader())
+        BucketBuilder::new(bucket.into(), self.credential.to_owned(), self.uploader())
     }
 
     #[allow(dead_code)]

@@ -28,7 +28,6 @@ use std::{
 struct BucketUploaderInner {
     bucket_name: Box<str>,
     up_urls_list: Box<[Box<[Box<str>]>]>,
-    credential: Credential,
     http_client: Client,
     upload_logger_builder: Option<UploadLoggerBuilder>,
     recorder: UploadRecorder,
@@ -46,9 +45,6 @@ impl BucketUploader {
     }
     pub(super) fn up_urls_list(&self) -> &[Box<[Box<str>]>] {
         self.inner.up_urls_list()
-    }
-    pub(super) fn credential(&self) -> &Credential {
-        self.inner.credential()
     }
     pub(super) fn http_client(&self) -> &Client {
         self.inner.http_client()
@@ -72,7 +68,6 @@ impl BucketUploaderBuilder {
     pub(super) fn new(
         bucket_name: Box<str>,
         up_urls_list: Box<[Box<[Box<str>]>]>,
-        credential: Credential,
         config: Config,
         upload_logger_builder: Option<UploadLoggerBuilder>,
     ) -> IOResult<BucketUploaderBuilder> {
@@ -81,7 +76,6 @@ impl BucketUploaderBuilder {
             inner: BucketUploaderInner {
                 bucket_name,
                 up_urls_list,
-                credential,
                 recorder: UploadRecorder::new(config.recorder().to_owned(), &config),
                 http_client: Client::new(config),
                 thread_pool: None,
@@ -113,12 +107,14 @@ impl BucketUploader {
         FileUploaderBuilder::new(Ron::Referenced(self), upload_token.into().token().into())
     }
 
-    pub fn upload_policy<'b>(&'b self, upload_policy: UploadPolicy<'b>) -> FileUploaderBuilder<'b> {
+    pub fn upload_policy<'b>(
+        &'b self,
+        upload_policy: UploadPolicy<'b>,
+        credential: Credential,
+    ) -> FileUploaderBuilder<'b> {
         FileUploaderBuilder::new(
             Ron::Referenced(self),
-            UploadToken::from_policy(upload_policy, self.credential().clone())
-                .token()
-                .into(),
+            UploadToken::from_policy(upload_policy, credential).token().into(),
         )
     }
 

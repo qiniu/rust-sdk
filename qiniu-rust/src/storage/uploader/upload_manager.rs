@@ -1,10 +1,5 @@
 use super::{
-    super::{
-        bucket::{Bucket, BucketBuilder},
-        region::Region,
-        upload_policy::UploadPolicy,
-        upload_token::UploadToken,
-    },
+    super::{bucket::Bucket, region::Region, upload_policy::UploadPolicy, upload_token::UploadToken},
     BucketUploaderBuilder, FileUploaderBuilder, UploadLoggerBuilder,
 };
 use crate::{config::Config, credential::Credential, utils::ron::Ron};
@@ -13,28 +8,18 @@ use std::{borrow::Cow, io::Result as IOResult};
 
 #[derive(Clone)]
 pub struct UploadManager {
-    credential: Credential,
     config: Config,
     upload_logger_builder: Option<UploadLoggerBuilder>,
 }
 
 impl UploadManager {
-    pub(in super::super) fn credential(&self) -> &Credential {
-        &self.credential
-    }
-
     pub(in super::super) fn config(&self) -> &Config {
         &self.config
     }
 
-    pub(in super::super) fn upload_logger_builder(&self) -> Option<&UploadLoggerBuilder> {
-        self.upload_logger_builder.as_ref()
-    }
-
-    pub(crate) fn new(credential: Credential, config: Config) -> UploadManager {
+    pub(crate) fn new(config: Config) -> UploadManager {
         UploadManager {
             upload_logger_builder: UploadLoggerBuilder::new(config.clone()),
-            credential,
             config,
         }
     }
@@ -44,36 +29,55 @@ impl UploadManager {
             bucket.name().into(),
             bucket
                 .regions()
-                .map(|iter| {
-                    iter.map(|region| {
-                        region
-                            .up_urls(self.config.use_https())
-                            .into_iter()
-                            .map(|url| url.into())
-                            .collect::<Box<[Box<str>]>>()
-                    })
-                    .collect::<Box<[Box<[Box<str>]>]>>()
-                })
-                .unwrap_or_else(|_| {
-                    Region::all()
-                        .iter()
-                        .map(|region| {
-                            region
-                                .up_urls(self.config.use_https())
-                                .into_iter()
-                                .map(|url| url.into())
-                                .collect::<Box<[Box<str>]>>()
-                        })
-                        .collect::<Box<[Box<[Box<str>]>]>>()
-                }),
-            self.credential.clone(),
-            self.config.clone(),
+                .map(|iter| Self::extract_up_urls_list_from_regions(iter, self.config.use_https()))
+                .unwrap_or_else(|_| Self::all_possible_up_urls_list(self.config.use_https())),
+            self.config.to_owned(),
             self.upload_logger_builder.as_ref().cloned(),
         )
     }
 
-    pub fn for_bucket_name<'b, B: Into<Cow<'b, str>>>(&self, bucket_name: B) -> IOResult<BucketUploaderBuilder> {
-        self.for_bucket(&BucketBuilder::new(bucket_name.into(), self.to_owned()).build())
+    pub fn for_bucket_name<'b, B: Into<Cow<'b, str>>, AK: AsRef<str>>(
+        &self,
+        bucket_name: B,
+        access_key: AK,
+    ) -> IOResult<BucketUploaderBuilder> {
+        let bucket_name = bucket_name.into();
+        let up_urls_list = Region::query(bucket_name.as_ref(), access_key.as_ref(), self.config.to_owned())
+            .map(|regions| Self::extract_up_urls_list_from_regions(regions.iter(), self.config.use_https()))
+            .unwrap_or_else(|_| Self::all_possible_up_urls_list(self.config.use_https()));
+        BucketUploaderBuilder::new(
+            bucket_name.into_owned().into(),
+            up_urls_list,
+            self.config.to_owned(),
+            self.upload_logger_builder.as_ref().cloned(),
+        )
+    }
+
+    fn extract_up_urls_list_from_regions<'a, IT: Iterator<Item = &'a Region>>(
+        iter: IT,
+        use_https: bool,
+    ) -> Box<[Box<[Box<str>]>]> {
+        iter.map(|region| {
+            region
+                .up_urls(use_https)
+                .into_iter()
+                .map(|url| url.into())
+                .collect::<Box<[Box<str>]>>()
+        })
+        .collect::<_>()
+    }
+
+    fn all_possible_up_urls_list(use_https: bool) -> Box<[Box<[Box<str>]>]> {
+        Region::all()
+            .iter()
+            .map(|region| {
+                region
+                    .up_urls(use_https)
+                    .into_iter()
+                    .map(|url| url.into())
+                    .collect::<Box<[Box<str>]>>()
+            })
+            .collect::<_>()
     }
 
     pub fn for_upload_token<'u, U: Into<UploadToken<'u>>>(
@@ -81,10 +85,11 @@ impl UploadManager {
         upload_token: U,
     ) -> error::Result<FileUploaderBuilder<'u>> {
         let upload_token = upload_token.into();
+        let access_key = upload_token.access_key()?;
         let policy = upload_token.policy()?;
         if let Some(bucket_name) = policy.bucket() {
             Ok(FileUploaderBuilder::new(
-                Ron::Owned(self.for_bucket_name(bucket_name.to_owned())?.build()),
+                Ron::Owned(self.for_bucket_name(bucket_name.to_owned(), access_key)?.build()),
                 upload_token.token().into(),
             ))
         } else {
@@ -92,8 +97,12 @@ impl UploadManager {
         }
     }
 
-    pub fn for_upload_policy<'u>(&self, upload_policy: UploadPolicy<'u>) -> error::Result<FileUploaderBuilder<'u>> {
-        self.for_upload_token(UploadToken::from_policy(upload_policy, self.credential.clone()))
+    pub fn for_upload_policy<'u>(
+        &self,
+        upload_policy: UploadPolicy<'u>,
+        credential: Credential,
+    ) -> error::Result<FileUploaderBuilder<'u>> {
+        self.for_upload_token(UploadToken::from_policy(upload_policy, credential))
     }
 
     #[allow(dead_code)]

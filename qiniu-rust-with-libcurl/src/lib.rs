@@ -25,7 +25,7 @@ use url::Url;
 static INITIALIZER: Once = Once::new();
 lazy_static! {
     static ref IPV6_SUPPORT: bool = Version::get().feature_ipv6();
-    static ref MULTI_IP_ADDRS_SUPPORT: bool = Version::get().version_num() >= 0x073b00;
+    static ref MULTI_IP_ADDRS_SUPPORT: bool = Version::get().version_num() >= 0x07_3b_00;
     static ref USER_AGENT: Box<str> = format!(
         "QiniuRust-libcurl/qiniu-{}/rust-{}/libcurl-{}",
         env!("CARGO_PKG_VERSION"),
@@ -49,7 +49,7 @@ pub struct CurlClient {
 
 impl Default for CurlClient {
     fn default() -> Self {
-        INITIALIZER.call_once(|| curl::init());
+        INITIALIZER.call_once(curl::init);
         CurlClient {
             buffer_size: 1 << 22,
             temp_dir: None,
@@ -198,7 +198,7 @@ impl CurlClient {
                     break;
                 }
             }
-            if !addr.ends_with(":") {
+            if !addr.ends_with(':') {
                 let mut list = List::new();
                 Self::handle_if_err(list.append(&addr), request)?;
                 Self::handle_if_err(easy.resolve(list), request)?;
@@ -318,8 +318,8 @@ impl CurlClient {
 
 enum ProgressStatus {
     Initialized,
-    Uploading(f64),
-    Downloading(f64),
+    Uploading(usize),
+    Downloading(usize),
     Completed,
 }
 
@@ -394,34 +394,36 @@ impl<'r> Handler for Context<'r> {
             .map(|s| s.trim_matches(char::is_whitespace));
         let header_name = iter.next();
         let header_value = iter.next();
-        match (header_name, header_value) {
-            (Some(header_name), Some(header_value)) => {
-                if let Some(response_headers) = &mut self.response_headers {
-                    response_headers.insert(
-                        Cow::Owned(header_name.to_string()),
-                        Cow::Owned(header_value.to_string()),
-                    );
-                } else {
-                    let mut response_headers = Headers::with_capacity(1);
-                    response_headers.insert(
-                        Cow::Owned(header_name.to_string()),
-                        Cow::Owned(header_value.to_string()),
-                    );
-                    self.response_headers = Some(response_headers);
-                }
+        if let (Some(header_name), Some(header_value)) = (header_name, header_value) {
+            if let Some(response_headers) = &mut self.response_headers {
+                response_headers.insert(
+                    Cow::Owned(header_name.to_string()),
+                    Cow::Owned(header_value.to_string()),
+                );
+            } else {
+                let mut response_headers = Headers::with_capacity(1);
+                response_headers.insert(
+                    Cow::Owned(header_name.to_string()),
+                    Cow::Owned(header_value.to_string()),
+                );
+                self.response_headers = Some(response_headers);
             }
-            _ => {}
         }
         true
     }
 
     fn progress(&mut self, dltotal: f64, dlnow: f64, ultotal: f64, ulnow: f64) -> bool {
-        if dltotal == 0f64 && ultotal == 0f64 {
+        let dltotal = dltotal as usize;
+        let dlnow = dlnow as usize;
+        let ultotal = ultotal as usize;
+        let ulnow = ulnow as usize;
+
+        if dltotal == 0 && ultotal == 0 {
             return true;
         }
         match self.progress_status {
             ProgressStatus::Initialized => {
-                if ultotal == 0f64 {
+                if ultotal == 0 {
                     if let Some(download_progress) = self.download_progress.as_ref() {
                         (download_progress)(dlnow as usize, dltotal as usize);
                     }

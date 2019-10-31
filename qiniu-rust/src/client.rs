@@ -24,7 +24,7 @@ impl Client {
     ) -> Client {
         let credential = Credential::new(access_key, secret_key);
         Client {
-            upload_manager: UploadManager::new(credential.clone(), config.clone()),
+            upload_manager: UploadManager::new(config.clone()),
             storage_manager: StorageManager::new(credential, config),
         }
     }

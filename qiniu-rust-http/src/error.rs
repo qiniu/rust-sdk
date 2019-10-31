@@ -10,7 +10,7 @@ pub type URL = Box<str>;
 pub type RequestID = Box<str>;
 pub type Result<T> = result::Result<T, Error>;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RetryKind {
     RetryableError,
     ZoneUnretryableError,
@@ -40,7 +40,7 @@ pub struct HTTPCallerError {
 impl HTTPCallerError {
     pub fn new<E: StdError + Send + 'static>(kind: HTTPCallerErrorKind, error: E) -> ErrorKind {
         ErrorKind::HTTPCallerError(HTTPCallerError {
-            kind: kind,
+            kind,
             inner: Box::new(error),
         })
     }
@@ -88,9 +88,9 @@ impl Error {
         response: Option<&Response>,
     ) -> Error {
         Error {
-            retry_kind: retry_kind,
-            error_kind: error_kind,
-            is_retry_safe: is_retry_safe,
+            retry_kind,
+            error_kind,
+            is_retry_safe,
             method: Some(request.method()),
             request_id: Self::extract_req_id_from_response(response),
             url: Some(request.url().into()),
@@ -148,12 +148,12 @@ impl Error {
         url: Option<URL>,
     ) -> Error {
         Error {
-            retry_kind: retry_kind,
-            error_kind: error_kind,
-            is_retry_safe: is_retry_safe,
-            method: method,
+            retry_kind,
+            error_kind,
+            is_retry_safe,
+            method,
+            url,
             request_id: None,
-            url: url,
         }
     }
 

@@ -231,7 +231,6 @@ mod tests {
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ]
             .into(),
-            get_credential(),
             config,
             None,
         )?
@@ -262,7 +261,6 @@ mod tests {
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ]
             .into(),
-            get_credential(),
             config,
             None,
         )?
@@ -292,7 +290,6 @@ mod tests {
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ]
             .into(),
-            get_credential(),
             config,
             None,
         )?
@@ -322,7 +319,6 @@ mod tests {
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ]
             .into(),
-            get_credential(),
             config,
             None,
         )?
@@ -353,7 +349,6 @@ mod tests {
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ]
             .into(),
-            get_credential(),
             config,
             None,
         )?
@@ -384,7 +379,6 @@ mod tests {
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
             ]
             .into(),
-            get_credential(),
             config,
             None,
         )?

@@ -1,6 +1,7 @@
 use super::super::credential::Credential;
 use qiniu_http::Request;
 
+// TODO: Think about reference credential here
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Token {
     V1(Credential),

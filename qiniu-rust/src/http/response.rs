@@ -33,10 +33,6 @@ impl<'a> Response<'a> {
         }
     }
 
-    pub(crate) fn body(&self) -> Option<&HTTPResponseBody> {
-        self.inner.body().as_ref()
-    }
-
     pub(crate) fn header<HeaderNameT: AsRef<str>>(&self, header_name: HeaderNameT) -> Option<&HeaderValue> {
         self.inner.headers().get(header_name.as_ref())
     }
