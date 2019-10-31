@@ -1,6 +1,6 @@
 use super::{
     super::upload_token::Result as UploadTokenParseResult,
-    tasks_manager::{Result as TasksResult, Task, TasksManager},
+    io_status_manager::{IOStatusManager, Result as IOStatusResult},
     upload_recorder::{FileUploadRecordMedium, FileUploadRecordMediumBlockItem, FileUploadRecordMediumMetadata},
     upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerRecordBuilder, UploadResult,
 };
@@ -302,6 +302,16 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         base_path: &str,
         authorization: &str,
     ) -> HTTPResult<UploadResult> {
+        if self.is_seekable {
+            self.io
+                .seek(SeekFrom::Start(0))
+                .map_err(|err| HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None))?;
+        }
+        self.uploaded_size.store(0, Release);
+        if let Some(uploading_progress_callback) = &self.uploading_progress_callback {
+            uploading_progress_callback.completed_size.store(0, Release);
+        }
+        self.completed_parts.lock().unwrap().parts.clear();
         let timer = Instant::now();
         let result = self.try_to_init_and_upload(up_urls, base_path, authorization);
         if let Some(upload_logger) = &self.upload_logger {
@@ -340,17 +350,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         base_path: &str,
         authorization: &str,
     ) -> HTTPResult<UploadResult> {
-        if self.is_seekable {
-            self.io
-                .seek(SeekFrom::Start(0))
-                .map_err(|err| HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None))?;
-        }
-        self.uploaded_size.store(0, Release);
-        if let Some(uploading_progress_callback) = &self.uploading_progress_callback {
-            uploading_progress_callback.completed_size.store(0, Release);
-        }
         let upload_id = self.init_parts(&base_path, up_urls, &authorization)?;
-        self.completed_parts.lock().unwrap().parts.clear();
         let recorder = if let Some(file_path) = self.file_path.as_ref() {
             self.bucket_uploader
                 .recorder()
@@ -381,7 +381,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         authorization: &str,
         upload_recorder: Option<FileUploadRecordMedium>,
     ) -> HTTPResult<UploadResult> {
-        let tasks_manager = TasksManager::new(&mut self.io);
+        let io_status_manager = IOStatusManager::new(&mut self.io);
         let part_number_counter = AtomicUsize::new(part_number);
         let thread_pool_size = self.thread_pool.current_num_threads();
         let http_client = self.bucket_uploader.http_client();
@@ -398,8 +398,8 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                     let mut body_buf = vec![0; block_size];
                     let mut md5 = OptionalMd5::new(checksum_enabled);
                     loop {
-                        match tasks_manager.get_task(&mut body_buf) {
-                            Task::Upload(buf_size) => {
+                        match io_status_manager.read(&mut body_buf) {
+                            Some(buf_size) => {
                                 let part_number = part_number_counter.fetch_add(1, AcqRel) + 1;
                                 let last_block_uploaded = Cell::new(0);
                                 match Self::upload_part(
@@ -436,12 +436,12 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                                         uploaded_size.fetch_add(block_size, AcqRel);
                                     }
                                     Err(err) => {
-                                        tasks_manager.error(err);
+                                        io_status_manager.error(err);
                                         return;
                                     }
                                 };
                             }
-                            Task::End => {
+                            None => {
                                 return;
                             }
                         }
@@ -450,8 +450,8 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
             }
         });
 
-        match tasks_manager.result() {
-            TasksResult::Success => self.complete_parts(base_path, up_urls, authorization).map(|result| {
+        match io_status_manager.result() {
+            IOStatusResult::Success => self.complete_parts(base_path, up_urls, authorization).map(|result| {
                 if let Some(file_path) = self.file_path.as_ref() {
                     self.bucket_uploader
                         .recorder()
@@ -460,12 +460,12 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                 }
                 result
             }),
-            TasksResult::IOError(err) => Err(HTTPError::new_unretryable_error_from_parts(
+            IOStatusResult::IOError(err) => Err(HTTPError::new_unretryable_error_from_parts(
                 HTTPErrorKind::IOError(err),
                 None,
                 None,
             )),
-            TasksResult::HTTPError(err) => Err(err),
+            IOStatusResult::HTTPError(err) => Err(err),
         }
     }
 
@@ -763,7 +763,7 @@ mod tests {
     use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
     use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Headers, Method, ResponseBuilder};
     use qiniu_test_utils::{
-        http_call_mock::{CallHandlers, UploadingProgressErrorMock},
+        http_call_mock::{fake_req_id, CallHandlers, UploadingProgressErrorMock},
         temp_file::create_temp_file,
     };
     use serde_json::json;
@@ -789,6 +789,7 @@ mod tests {
                     |_, _| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -813,6 +814,7 @@ mod tests {
                         }
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -833,6 +835,7 @@ mod tests {
                     |_, _| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -883,6 +886,7 @@ mod tests {
                         |_, _| {
                             let mut headers = Headers::new();
                             headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                            headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                             Ok(ResponseBuilder::default()
                                 .status_code(200u16)
                                 .headers(headers)
@@ -907,6 +911,7 @@ mod tests {
                             }
                             let mut headers = Headers::new();
                             headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                            headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                             Ok(ResponseBuilder::default()
                                 .status_code(200u16)
                                 .headers(headers)
@@ -927,6 +932,7 @@ mod tests {
                         |_, _| {
                             let mut headers = Headers::new();
                             headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                            headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                             Ok(ResponseBuilder::default()
                                 .status_code(200u16)
                                 .headers(headers)
@@ -979,6 +985,7 @@ mod tests {
                     |_, _| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1008,6 +1015,7 @@ mod tests {
                         }
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1032,6 +1040,7 @@ mod tests {
                         }
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1052,6 +1061,7 @@ mod tests {
                     |_, _| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1118,6 +1128,7 @@ mod tests {
                     |_, _| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1142,6 +1153,7 @@ mod tests {
                         }
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1162,6 +1174,7 @@ mod tests {
                     |_, _| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1215,6 +1228,7 @@ mod tests {
                     |_, _| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1235,6 +1249,7 @@ mod tests {
                     |_, _| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1264,6 +1279,7 @@ mod tests {
                         }
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1288,6 +1304,7 @@ mod tests {
                         }
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1308,6 +1325,7 @@ mod tests {
                     |_, _| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1361,6 +1379,7 @@ mod tests {
                     |_, _| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1391,6 +1410,7 @@ mod tests {
                         }
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1411,6 +1431,7 @@ mod tests {
                     |_, _| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1476,6 +1497,7 @@ mod tests {
                     |_, called| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1506,6 +1528,7 @@ mod tests {
                         }
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1550,6 +1573,7 @@ mod tests {
                     |_, _| {
                         let mut headers = Headers::new();
                         headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)

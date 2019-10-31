@@ -18,23 +18,18 @@ enum Status<'r, R: Read + Send + Sync + 'r> {
     Success,
 }
 
-pub(super) enum Task {
-    Upload(usize),
-    End,
-}
-
-pub(super) struct TasksManager<'r, R: Read + Send + Sync + 'r> {
+pub(super) struct IOStatusManager<'r, R: Read + Send + Sync + 'r> {
     inner: Mutex<Status<'r, R>>,
 }
 
-impl<'r, R: Read + Send + Sync + 'r> TasksManager<'r, R> {
-    pub(super) fn new(io: R) -> TasksManager<'r, R> {
-        TasksManager {
+impl<'r, R: Read + Send + Sync + 'r> IOStatusManager<'r, R> {
+    pub(super) fn new(io: R) -> IOStatusManager<'r, R> {
+        IOStatusManager {
             inner: Mutex::new(Status::Uploading(io, PhantomData)),
         }
     }
 
-    pub(super) fn get_task(&self, buf: &mut [u8]) -> Task {
+    pub(super) fn read(&self, buf: &mut [u8]) -> Option<usize> {
         let mut lock = self.inner.lock().unwrap();
         match &mut *lock {
             Status::Uploading(io, _) => {
@@ -44,15 +39,15 @@ impl<'r, R: Read + Send + Sync + 'r> TasksManager<'r, R> {
                         Ok(0) => {
                             *lock = Status::Success;
                             if have_read > 0 {
-                                return Task::Upload(have_read);
+                                return Some(have_read);
                             } else {
-                                return Task::End;
+                                return None;
                             }
                         }
                         Ok(n) => {
                             have_read += n;
                             if have_read == buf.len() {
-                                return Task::Upload(have_read);
+                                return Some(have_read);
                             }
                         }
                         Err(ref err) if err.kind() == IOErrorKind::Interrupted => {
@@ -60,12 +55,12 @@ impl<'r, R: Read + Send + Sync + 'r> TasksManager<'r, R> {
                         }
                         Err(err) => {
                             *lock = Status::IOError(err);
-                            return Task::End;
+                            return None;
                         }
                     }
                 }
             }
-            _ => Task::End,
+            _ => None,
         }
     }
 

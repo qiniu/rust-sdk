@@ -24,10 +24,8 @@ impl<'a> Response<'a> {
         target self.inner {
             pub(crate) fn status_code(&self) -> StatusCode;
             pub(crate) fn headers(&self) -> &Headers;
-            pub(crate) fn into_parts(self) -> (StatusCode, Headers<'a>, Option<HTTPResponseBody>);
             pub(crate) fn into_body(self) -> Option<HTTPResponseBody>;
             pub(crate) fn take_body(&mut self) -> Option<HTTPResponseBody>;
-            pub(crate) fn copy_body(&mut self) -> io::Result<Option<HTTPResponseBody>>;
             pub(crate) fn server_ip(&self) -> Option<IpAddr>;
             pub(crate) fn server_port(&self) -> u16;
         }
@@ -43,27 +41,6 @@ impl<'a> Response<'a> {
 
     pub(crate) fn parse_json<T: DeserializeOwned>(&mut self) -> HTTPResult<T> {
         let body = self.take_body().unwrap();
-        serde_json::from_reader(body).map_err(|err| {
-            HTTPError::new_unretryable_error_from_parts(
-                HTTPErrorKind::JSONError(err),
-                Some(self.method),
-                Some((self.base_url.to_owned() + self.path).into()),
-            )
-        })
-    }
-
-    pub(crate) fn parse_json_clone<T: DeserializeOwned>(&mut self) -> HTTPResult<T> {
-        let body = self
-            .copy_body()
-            .map_err(|err| {
-                HTTPError::new_retryable_error_from_parts(
-                    HTTPErrorKind::IOError(err),
-                    false,
-                    Some(self.method),
-                    Some((self.base_url.to_owned() + self.path).into()),
-                )
-            })?
-            .unwrap();
         serde_json::from_reader(body).map_err(|err| {
             HTTPError::new_unretryable_error_from_parts(
                 HTTPErrorKind::JSONError(err),

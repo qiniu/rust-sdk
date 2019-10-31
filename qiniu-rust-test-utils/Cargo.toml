@@ -16,5 +16,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.40"
 regex = "1"
 rand = "0.7.2"
+base64 = "0.10.1"
+rand_core = "0.5.1"
 
 qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }

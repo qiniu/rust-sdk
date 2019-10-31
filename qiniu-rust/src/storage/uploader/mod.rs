@@ -1,8 +1,8 @@
 mod bucket_uploader;
 mod callback;
 mod form_uploader;
+mod io_status_manager;
 mod resumeable_uploader;
-mod tasks_manager;
 mod upload_logger;
 mod upload_manager;
 mod upload_recorder;

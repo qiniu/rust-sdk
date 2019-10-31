@@ -3,6 +3,7 @@ use qiniu_http::{
     ResponseBuilder, Result, StatusCode,
 };
 use rand::{thread_rng, Rng};
+use rand_core::RngCore;
 use regex::Regex;
 use serde::Serialize;
 use std::{
@@ -16,6 +17,13 @@ use std::{
     },
 };
 
+pub fn fake_req_id() -> String {
+    let mut rng = thread_rng();
+    let mut buf = vec![0; 12];
+    rng.fill_bytes(&mut buf);
+    base64::encode_config(&buf, base64::URL_SAFE)
+}
+
 pub struct JSONCallMock<T: Serialize> {
     status_code: StatusCode,
     response_headers: Headers<'static>,
@@ -23,11 +31,11 @@ pub struct JSONCallMock<T: Serialize> {
 }
 
 impl<T: Serialize> JSONCallMock<T> {
-    pub fn new(status_code: StatusCode, headers: Headers<'static>, response_body: T) -> JSONCallMock<T> {
+    pub fn new(status_code: StatusCode, response_headers: Headers<'static>, response_body: T) -> JSONCallMock<T> {
         JSONCallMock {
-            status_code: status_code,
-            response_headers: headers,
-            response_body: response_body,
+            status_code,
+            response_headers,
+            response_body,
         }
     }
 }
@@ -36,6 +44,7 @@ impl<T: Serialize> HTTPCaller for JSONCallMock<T> {
     fn call(&self, _request: &Request) -> Result<Response> {
         let mut headers = self.response_headers.to_owned();
         headers.insert("Content-Type".into(), "application/json".into());
+        headers.insert("X-Reqid".into(), fake_req_id().into());
         Ok(ResponseBuilder::default()
             .status_code(self.status_code)
             .headers(headers)
@@ -59,7 +68,7 @@ impl<T: HTTPCaller> CounterCallMock<T> {
     pub fn new(caller: T) -> CounterCallMock<T> {
         CounterCallMock {
             inner: Arc::new(CounterCallMockInner {
-                caller: caller,
+                caller,
                 call_counter: AtomicUsize::new(0),
             }),
         }
@@ -96,7 +105,7 @@ pub struct ErrorResponseMock<'e> {
 impl<'e> ErrorResponseMock<'e> {
     pub fn new<E: Into<Cow<'e, str>>>(status_code: StatusCode, error_message: E) -> ErrorResponseMock<'e> {
         ErrorResponseMock {
-            status_code: status_code,
+            status_code,
             error_message: error_message.into(),
         }
     }
@@ -106,6 +115,7 @@ impl<'e> HTTPCaller for ErrorResponseMock<'e> {
     fn call(&self, _request: &Request) -> Result<Response> {
         let mut headers = Headers::with_capacity(1);
         headers.insert("Content-Type".into(), "application/json".into());
+        headers.insert("X-Reqid".into(), fake_req_id().into());
 
         let body = serde_json::to_string(&ErrorResponse {
             error: self.error_message.clone(),
@@ -148,7 +158,7 @@ impl CallHandlers {
         handler: R,
     ) -> Self {
         self.handlers.push(CallHandler {
-            method: method,
+            method,
             url_regexp: Regex::new(url_regexp.as_ref()).unwrap(),
             handler: Box::new(handler),
             called: AtomicUsize::new(0),
@@ -182,9 +192,9 @@ pub struct UploadingProgressErrorMock<T: HTTPCaller> {
 impl<T: HTTPCaller> UploadingProgressErrorMock<T> {
     pub fn new(caller: T, packet_size: usize, uploading_failure_probability: f64) -> UploadingProgressErrorMock<T> {
         UploadingProgressErrorMock {
-            caller: caller,
-            packet_size: packet_size,
-            uploading_failure_probability: uploading_failure_probability,
+            caller,
+            packet_size,
+            uploading_failure_probability,
         }
     }
 

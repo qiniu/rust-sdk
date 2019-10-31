@@ -1,13 +1,7 @@
 use super::{HeaderName, HeaderValue, Headers};
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters, MutGetters};
-use std::{
-    boxed::Box,
-    default::Default,
-    fmt,
-    io::{Cursor, Read, Result as IOResult},
-    net::IpAddr,
-};
+use std::{boxed::Box, default::Default, fmt, io::Read, net::IpAddr};
 
 pub type StatusCode = u16;
 pub type Body = Box<dyn Read>;
@@ -42,29 +36,12 @@ impl Response {
         self.headers.get(header_name.as_ref())
     }
 
-    pub fn into_parts(self) -> (StatusCode, Headers<'static>, Option<Body>) {
-        (self.status_code, self.headers, self.body)
-    }
-
     pub fn into_body(self) -> Option<Body> {
         self.body
     }
 
     pub fn take_body(&mut self) -> Option<Body> {
         self.body.take()
-    }
-
-    pub fn copy_body(&mut self) -> IOResult<Option<Body>> {
-        self.body.take().map_or_else(
-            || Ok(None),
-            |mut body| {
-                let mut body_buf = Vec::new();
-                body.read_to_end(&mut body_buf)?;
-                let body_clone = body_buf.clone();
-                self.body = Some(Box::new(Cursor::new(body_clone)));
-                Ok(Some(Box::new(Cursor::new(body_buf)) as Body))
-            },
-        )
     }
 }
 
