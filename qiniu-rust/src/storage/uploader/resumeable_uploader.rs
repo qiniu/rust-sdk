@@ -667,6 +667,8 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                     .store(from_resuming.io_offset.try_into().unwrap(), Release);
             }
             let part_number = self.completed_parts.lock().unwrap().parts.len();
+            let init_uploaded_size = from_resuming.io_offset as usize;
+            let timer = Instant::now();
             self.start_uploading_blocks(
                 part_number,
                 &from_resuming
@@ -678,6 +680,37 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                 authorization,
                 Some(from_resuming.recorder),
             )
+            .map(|response| {
+                if let Some(upload_logger) = &self.upload_logger {
+                    let uploaded_size = self.uploaded_size.load(Acquire);
+                    upload_logger.log(
+                        UploadLoggerRecordBuilder::default()
+                            .duration(timer.elapsed())
+                            .up_type(UpType::Chunkedv2)
+                            .sent(uploaded_size - init_uploaded_size)
+                            .total_size(uploaded_size - init_uploaded_size)
+                            .build()
+                            .unwrap(),
+                    )
+                }
+                response
+            })
+            .map_err(|err| {
+                if let Some(upload_logger) = &self.upload_logger {
+                    let uploaded_size = self.uploaded_size.load(Acquire);
+                    let mut record_builder = UploadLoggerRecordBuilder::default()
+                        .duration(timer.elapsed())
+                        .up_type(UpType::Chunkedv2)
+                        .sent(uploaded_size - init_uploaded_size)
+                        .http_error(&err);
+                    if let Some(total_size) = self.io_size {
+                        record_builder =
+                            record_builder.total_size(usize::max(uploaded_size, total_size) - init_uploaded_size);
+                    }
+                    upload_logger.log(record_builder.build().unwrap());
+                }
+                err
+            })
             .map(Some)
         } else {
             Ok(None)
