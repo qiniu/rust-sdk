@@ -100,7 +100,7 @@ impl UploadManager {
     pub fn for_upload_policy<'u>(
         &self,
         upload_policy: UploadPolicy<'u>,
-        credential: Credential,
+        credential: Cow<'u, Credential>,
     ) -> error::Result<FileUploaderBuilder<'u>> {
         self.for_upload_token(UploadToken::from_policy(upload_policy, credential))
     }

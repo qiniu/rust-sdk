@@ -39,7 +39,7 @@ impl StorageManager {
         Ok(self
             .http_client
             .get("/buckets", &[self.rs_url])
-            .token(Token::V1(self.credential.clone()))
+            .token(Token::V1(Cow::Borrowed(&self.credential)))
             .accept_json()
             .no_body()
             .send()?
@@ -55,7 +55,7 @@ impl StorageManager {
                     + region_id.as_str()),
                 &[self.rs_url],
             )
-            .token(Token::V1(self.credential.clone()))
+            .token(Token::V1(Cow::Borrowed(&self.credential)))
             .no_body()
             .send()?
             .ignore_body();
@@ -66,7 +66,7 @@ impl StorageManager {
         match self
             .http_client
             .post(&("/drop/".to_owned() + bucket.as_ref()), &[self.rs_url])
-            .token(Token::V1(self.credential.clone()))
+            .token(Token::V1(Cow::Borrowed(&self.credential)))
             .no_body()
             .send()
         {
@@ -89,8 +89,8 @@ impl StorageManager {
         UploadManager::new(self.http_client.config().to_owned())
     }
 
-    pub fn bucket<'b, B: Into<Cow<'b, str>>>(&self, bucket: B) -> BucketBuilder<'b> {
-        BucketBuilder::new(bucket.into(), self.credential.to_owned(), self.upload_manager())
+    pub fn bucket<'b, B: Into<Cow<'b, str>>>(&'b self, bucket: B) -> BucketBuilder<'b> {
+        BucketBuilder::new(bucket.into(), Cow::Borrowed(&self.credential), self.upload_manager())
     }
 
     #[allow(dead_code)]

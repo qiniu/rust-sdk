@@ -7,7 +7,7 @@ use std::{borrow::Cow, convert::From, fmt};
 pub enum UploadToken<'p> {
     // TODO: Token 缓存 Policy，Policy 缓存 Token
     Token(Cow<'p, str>),
-    Policy(UploadPolicy<'p>, Credential),
+    Policy(UploadPolicy<'p>, Cow<'p, Credential>),
 }
 
 impl<'p> UploadToken<'p> {
@@ -15,7 +15,7 @@ impl<'p> UploadToken<'p> {
         UploadToken::Token(t.into())
     }
 
-    pub fn from_policy(policy: UploadPolicy<'p>, credential: Credential) -> UploadToken<'p> {
+    pub fn from_policy(policy: UploadPolicy<'p>, credential: Cow<'p, Credential>) -> UploadToken<'p> {
         UploadToken::Policy(policy, credential)
     }
 
@@ -98,13 +98,12 @@ error_chain! {
 mod tests {
     use super::{super::upload_policy::UploadPolicyBuilder, *};
     use crate::config::Config;
-    use std::{boxed::Box, error::Error, result::Result};
+    use std::{borrow::Cow, boxed::Box, error::Error, result::Result};
 
     #[test]
     fn test_build_upload_token_from_upload_policy() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", &Config::default()).build();
-        let token = UploadToken::from_policy(policy, get_credential());
-        let token = token.token();
+        let token = UploadToken::from_policy(policy, Cow::Owned(get_credential())).token();
         assert!(token.starts_with(get_credential().access_key()));
         let token = UploadToken::from_token(token);
         let policy = token.policy()?;

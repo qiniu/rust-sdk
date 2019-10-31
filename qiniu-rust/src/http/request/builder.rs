@@ -76,7 +76,7 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub(crate) fn token(mut self, token: Token) -> Builder<'a> {
+    pub(crate) fn token(mut self, token: Token<'a>) -> Builder<'a> {
         self.parts.token = token;
         self
     }

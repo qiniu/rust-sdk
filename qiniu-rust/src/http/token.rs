@@ -1,15 +1,16 @@
 use super::super::credential::Credential;
 use qiniu_http::Request;
+use std::borrow::Cow;
 
 // TODO: Think about reference credential here
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Token {
-    V1(Credential),
-    V2(Credential),
+pub enum Token<'t> {
+    V1(Cow<'t, Credential>),
+    V2(Cow<'t, Credential>),
     None,
 }
 
-impl Token {
+impl<'t> Token<'t> {
     pub(crate) fn sign(&self, req: &mut Request) {
         if self == &Token::None {
             return;

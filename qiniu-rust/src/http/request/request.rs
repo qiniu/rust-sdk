@@ -333,7 +333,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(get_credential()))
+        .token(Token::V1(Cow::Borrowed(&get_credential())))
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -372,7 +372,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(get_credential()))
+        .token(Token::V1(Cow::Borrowed(&get_credential())))
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -411,7 +411,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(get_credential()))
+        .token(Token::V1(Cow::Borrowed(&get_credential())))
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -450,7 +450,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(get_credential()))
+        .token(Token::V1(Cow::Borrowed(&get_credential())))
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -489,7 +489,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(get_credential()))
+        .token(Token::V1(Cow::Borrowed(&get_credential())))
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -528,7 +528,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(get_credential()))
+        .token(Token::V1(Cow::Borrowed(&get_credential())))
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -563,7 +563,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(get_credential()))
+        .token(Token::V1(Cow::Borrowed(&get_credential())))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -587,7 +587,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(get_credential()))
+        .token(Token::V1(Cow::Borrowed(&get_credential())))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -610,7 +610,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(get_credential()))
+        .token(Token::V1(Cow::Borrowed(&get_credential())))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -633,7 +633,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(get_credential()))
+        .token(Token::V1(Cow::Borrowed(&get_credential())))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -656,7 +656,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(get_credential()))
+        .token(Token::V1(Cow::Borrowed(&get_credential())))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());

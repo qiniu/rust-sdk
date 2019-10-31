@@ -291,7 +291,7 @@ mod tests {
     use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};
     use serde_json::json;
-    use std::{boxed::Box, error::Error, mem::drop, net::Ipv4Addr, result::Result, thread::sleep};
+    use std::{borrow::Cow, boxed::Box, error::Error, mem::drop, net::Ipv4Addr, result::Result, thread::sleep};
 
     #[test]
     fn test_storage_uploader_upload_logger_upload_and_clean() -> Result<(), Box<dyn Error>> {
@@ -304,7 +304,7 @@ mod tests {
         let upload_logger = UploadLoggerBuilder::new(config.clone()).unwrap().upload_token(
             UploadToken::from_policy(
                 UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
-                get_credential(),
+                Cow::Borrowed(&get_credential()),
             )
             .token()
             .into(),
@@ -358,7 +358,7 @@ mod tests {
         let upload_logger = UploadLoggerBuilder::new(config.clone()).unwrap().upload_token(
             UploadToken::from_policy(
                 UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
-                get_credential(),
+                Cow::Borrowed(&get_credential()),
             )
             .token()
             .into(),

@@ -856,7 +856,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -957,7 +957,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1082,7 +1082,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1199,7 +1199,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1350,7 +1350,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1446,7 +1446,7 @@ mod tests {
             .build()?;
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
-            get_credential(),
+            Cow::Owned(get_credential()),
         );
 
         BucketUploaderBuilder::new(
@@ -1589,7 +1589,7 @@ mod tests {
 
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
-            get_credential(),
+            Cow::Owned(get_credential()),
         );
 
         BucketUploaderBuilder::new(

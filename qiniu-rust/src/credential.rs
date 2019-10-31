@@ -114,6 +114,7 @@ impl Credential {
         if let Some(content_type) = content_type {
             data_to_sign.extend_from_slice(b"Content-Type: ");
             data_to_sign.extend_from_slice(content_type.as_ref().as_bytes());
+            // TODO: 考虑 X-Qiniu- 开头的 Header，将其排序后纳入签名数据
             data_to_sign.extend_from_slice(b"\n\n");
             if let Some(body) = body {
                 if Self::will_push_body_v2(content_type) {
@@ -121,6 +122,7 @@ impl Credential {
                 }
             }
         } else {
+            // TODO: 考虑 X-Qiniu- 开头的 Header，将其排序后纳入签名数据
             data_to_sign.extend_from_slice(b"\n");
         }
         Ok(self.sign(&data_to_sign))

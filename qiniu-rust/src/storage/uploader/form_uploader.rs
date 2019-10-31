@@ -209,7 +209,7 @@ mod tests {
         temp_file::create_temp_file,
     };
     use serde_json::json;
-    use std::{boxed::Box, error::Error, result::Result};
+    use std::{borrow::Cow, boxed::Box, error::Error, result::Result};
 
     #[test]
     fn test_storage_uploader_form_uploader_upload_file() -> Result<(), Box<dyn Error>> {
@@ -235,7 +235,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
         .key("test:file")
         .upload_file(&temp_path, Some("file"), None)?;
         assert_eq!(result.key(), Some("abc"));
@@ -265,7 +265,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
         .key("test:file")
         .upload_file(&temp_path, Some("file"), None)
         .unwrap_err();
@@ -294,7 +294,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
         .key("test:file")
         .upload_file(&temp_path, Some("file"), None)
         .unwrap_err();
@@ -323,7 +323,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
         .key("test:file")
         .never_be_resumeable()
         .upload_stream(&file, Some("file"), None)
@@ -353,7 +353,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
         .key("test:file")
         .never_be_resumeable()
         .upload_stream(&file, Some("file"), None)
@@ -383,7 +383,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
         .key("test:file")
         .never_be_resumeable()
         .upload_stream(&file, Some("file"), None)

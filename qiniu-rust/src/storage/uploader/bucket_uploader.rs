@@ -110,7 +110,7 @@ impl BucketUploader {
     pub fn upload_policy<'b>(
         &'b self,
         upload_policy: UploadPolicy<'b>,
-        credential: Credential,
+        credential: Cow<'b, Credential>,
     ) -> FileUploaderBuilder<'b> {
         FileUploaderBuilder::new(
             Ron::Referenced(self),
