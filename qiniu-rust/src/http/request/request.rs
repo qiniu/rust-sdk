@@ -8,7 +8,6 @@ use qiniu_http::{
 };
 use rand::{thread_rng, Rng};
 use std::{
-    borrow::Cow,
     fmt,
     io::{self, Cursor},
     thread::sleep,
@@ -164,7 +163,7 @@ impl<'a> Request<'a> {
         }
         let mut error_message: Option<Box<str>> = None;
         if let Some(body) = Self::read_body_to_string(&mut response, request)? {
-            if response.header("Content-Type") == Some(&Cow::Borrowed("application/json")) {
+            if response.header("Content-Type") == Some(&"application/json".into()) {
                 error_message = serde_json::from_str::<RequestErrorResponse>(&body)
                     .map_err(|err| {
                         HTTPError::new_retryable_error(HTTPErrorKind::JSONError(err), false, request, Some(&response))
@@ -301,7 +300,7 @@ mod tests {
 
     impl HTTPCaller for HTTPRequestCounter {
         fn call(&self, request: &HTTPRequest) -> HTTPResult<HTTPResponse> {
-            assert!(request.headers().contains_key("Authorization"));
+            assert!(request.headers().contains_key(&"authorization".into()));
             Err(HTTPError::new_from_parts(
                 self.retry_kind,
                 HTTPErrorKind::IOError(io::Error::new(io::ErrorKind::Other, "Test Error")),
@@ -333,7 +332,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(Cow::Borrowed(&get_credential())))
+        .token(Token::V1(get_credential().into()))
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -372,7 +371,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(Cow::Borrowed(&get_credential())))
+        .token(Token::V1(get_credential().into()))
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -411,7 +410,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(Cow::Borrowed(&get_credential())))
+        .token(Token::V1(get_credential().into()))
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -450,7 +449,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(Cow::Borrowed(&get_credential())))
+        .token(Token::V1(get_credential().into()))
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -489,7 +488,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(Cow::Borrowed(&get_credential())))
+        .token(Token::V1(get_credential().into()))
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -528,7 +527,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(Cow::Borrowed(&get_credential())))
+        .token(Token::V1(get_credential().into()))
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Ordering::SeqCst);
             Ok(())
@@ -563,7 +562,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(Cow::Borrowed(&get_credential())))
+        .token(Token::V1(get_credential().into()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -587,7 +586,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(Cow::Borrowed(&get_credential())))
+        .token(Token::V1(get_credential().into()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -610,7 +609,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(Cow::Borrowed(&get_credential())))
+        .token(Token::V1(get_credential().into()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -633,7 +632,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(Cow::Borrowed(&get_credential())))
+        .token(Token::V1(get_credential().into()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -656,7 +655,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V1(Cow::Borrowed(&get_credential())))
+        .token(Token::V1(get_credential().into()))
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());

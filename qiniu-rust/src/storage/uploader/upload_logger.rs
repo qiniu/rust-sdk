@@ -191,39 +191,33 @@ impl<'a> UploadLoggerRecordBuilder<'a> {
                 const PROXY_ERROR: i32 = -1006;
                 const SSL_ERROR: i32 = -1007;
                 match err.kind() {
-                    HTTPCallerErrorKind::ResolveError => self
-                        .status_code(UNKNOWN_HOST)
-                        .error_message(Cow::Borrowed(err.description())),
-                    HTTPCallerErrorKind::ProxyError => self
-                        .status_code(PROXY_ERROR)
-                        .error_message(Cow::Borrowed(err.description())),
-                    HTTPCallerErrorKind::SSLError => self
-                        .status_code(SSL_ERROR)
-                        .error_message(Cow::Borrowed(err.description())),
+                    HTTPCallerErrorKind::ResolveError => {
+                        self.status_code(UNKNOWN_HOST).error_message(err.description())
+                    }
+                    HTTPCallerErrorKind::ProxyError => self.status_code(PROXY_ERROR).error_message(err.description()),
+                    HTTPCallerErrorKind::SSLError => self.status_code(SSL_ERROR).error_message(err.description()),
                     HTTPCallerErrorKind::ConnectionError => self
                         .status_code(CANNOT_CONNECT_TO_HOST)
-                        .error_message(Cow::Borrowed(err.description())),
+                        .error_message(err.description()),
                     HTTPCallerErrorKind::RequestError => self
                         .status_code(NETWORK_CONNECTION_LOST)
-                        .error_message(Cow::Borrowed(err.description())),
+                        .error_message(err.description()),
                     HTTPCallerErrorKind::ResponseError => self
                         .status_code(NETWORK_CONNECTION_LOST)
-                        .error_message(Cow::Borrowed(err.description())),
-                    HTTPCallerErrorKind::TimeoutError => self
-                        .status_code(TIMED_OUT)
-                        .error_message(Cow::Borrowed(err.description())),
-                    HTTPCallerErrorKind::UnknownError => self
-                        .status_code(NETWORK_ERROR)
-                        .error_message(Cow::Borrowed(err.description())),
+                        .error_message(err.description()),
+                    HTTPCallerErrorKind::TimeoutError => self.status_code(TIMED_OUT).error_message(err.description()),
+                    HTTPCallerErrorKind::UnknownError => {
+                        self.status_code(NETWORK_ERROR).error_message(err.description())
+                    }
                 }
             }
-            HTTPErrorKind::JSONError(err) => self.error_message(Cow::Borrowed(err.description())),
-            HTTPErrorKind::MaliciousResponse => self.error_message(Cow::Borrowed(err.description())),
-            HTTPErrorKind::UnexpectedRedirect => self.error_message(Cow::Borrowed(err.description())),
-            HTTPErrorKind::IOError(err) => self.error_message(Cow::Borrowed(err.description())),
-            HTTPErrorKind::UnknownError(err) => self.error_message(Cow::Borrowed(err.description())),
+            HTTPErrorKind::JSONError(err) => self.error_message(err.description()),
+            HTTPErrorKind::MaliciousResponse => self.error_message(err.description()),
+            HTTPErrorKind::UnexpectedRedirect => self.error_message(err.description()),
+            HTTPErrorKind::IOError(err) => self.error_message(err.description()),
+            HTTPErrorKind::UnknownError(err) => self.error_message(err.description()),
             HTTPErrorKind::ResponseStatusCodeError(status_code, error_message) => {
-                self.status_code(*status_code).error_message(error_message.to_string())
+                self.status_code(*status_code).error_message(error_message.as_ref())
             }
         }
     }
@@ -233,14 +227,14 @@ impl Default for UploadLoggerRecord<'_> {
     fn default() -> Self {
         UploadLoggerRecord {
             status_code: None,
-            request_id: Cow::Borrowed(""),
-            host: Cow::Borrowed(""),
+            request_id: "".into(),
+            host: "".into(),
             up_type: None,
             server_ip: None,
             server_port: 0,
             duration: None,
             sent: 0,
-            error_message: Cow::Borrowed(""),
+            error_message: "".into(),
             total_size: 0,
             timestamp: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
@@ -291,7 +285,7 @@ mod tests {
     use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};
     use serde_json::json;
-    use std::{borrow::Cow, boxed::Box, error::Error, mem::drop, net::Ipv4Addr, result::Result, thread::sleep};
+    use std::{boxed::Box, error::Error, mem::drop, net::Ipv4Addr, result::Result, thread::sleep};
 
     #[test]
     fn test_storage_uploader_upload_logger_upload_and_clean() -> Result<(), Box<dyn Error>> {
@@ -304,7 +298,7 @@ mod tests {
         let upload_logger = UploadLoggerBuilder::new(config.clone()).unwrap().upload_token(
             UploadToken::from_policy(
                 UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
-                Cow::Borrowed(&get_credential()),
+                get_credential(),
             )
             .token()
             .into(),
@@ -358,7 +352,7 @@ mod tests {
         let upload_logger = UploadLoggerBuilder::new(config.clone()).unwrap().upload_token(
             UploadToken::from_policy(
                 UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
-                Cow::Borrowed(&get_credential()),
+                get_credential(),
             )
             .token()
             .into(),

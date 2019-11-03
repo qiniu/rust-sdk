@@ -731,7 +731,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
 }
 
 fn encode_key(key: Option<&str>) -> Cow<'static, str> {
-    key.map_or_else(|| Cow::Borrowed("~"), |key| base64::urlsafe(key.as_bytes()).into())
+    key.map_or_else(|| "~".into(), |key| base64::urlsafe(key.as_bytes()).into())
 }
 
 struct OptionalMd5(Option<CryptoMD5>);
@@ -788,8 +788,8 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -813,8 +813,8 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -834,8 +834,8 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -856,7 +856,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
+        .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -885,8 +885,8 @@ mod tests {
                             + "$",
                         |_, _| {
                             let mut headers = Headers::new();
-                            headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                            headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                            headers.insert("Content-Type".into(), "application/json".into());
+                            headers.insert("X-Reqid".into(), fake_req_id().into());
                             Ok(ResponseBuilder::default()
                                 .status_code(200u16)
                                 .headers(headers)
@@ -910,8 +910,8 @@ mod tests {
                                 panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                             }
                             let mut headers = Headers::new();
-                            headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                            headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                            headers.insert("Content-Type".into(), "application/json".into());
+                            headers.insert("X-Reqid".into(), fake_req_id().into());
                             Ok(ResponseBuilder::default()
                                 .status_code(200u16)
                                 .headers(headers)
@@ -931,8 +931,8 @@ mod tests {
                             + "$",
                         |_, _| {
                             let mut headers = Headers::new();
-                            headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                            headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                            headers.insert("Content-Type".into(), "application/json".into());
+                            headers.insert("X-Reqid".into(), fake_req_id().into());
                             Ok(ResponseBuilder::default()
                                 .status_code(200u16)
                                 .headers(headers)
@@ -957,7 +957,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
+        .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -984,8 +984,8 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1014,8 +1014,8 @@ mod tests {
                             ));
                         }
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1039,8 +1039,8 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1060,8 +1060,8 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1082,7 +1082,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
+        .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1127,8 +1127,8 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1152,8 +1152,8 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1173,8 +1173,8 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1199,7 +1199,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
+        .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1227,8 +1227,8 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1248,8 +1248,8 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1278,8 +1278,8 @@ mod tests {
                             ));
                         }
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1303,8 +1303,8 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1324,8 +1324,8 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1350,7 +1350,7 @@ mod tests {
             None,
         )?
         .build()
-        .upload_token(UploadToken::from_policy(policy, Cow::Borrowed(&get_credential())))
+        .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, Some("file"), None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1378,8 +1378,8 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1409,8 +1409,8 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1430,8 +1430,8 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1446,7 +1446,7 @@ mod tests {
             .build()?;
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
-            Cow::Owned(get_credential()),
+            get_credential(),
         );
 
         BucketUploaderBuilder::new(
@@ -1496,8 +1496,8 @@ mod tests {
                         + "$",
                     |_, called| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1527,8 +1527,8 @@ mod tests {
                             ));
                         }
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1552,7 +1552,8 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1572,8 +1573,8 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert(Cow::Borrowed("Content-Type"), Cow::Borrowed("application/json"));
-                        headers.insert(Cow::Borrowed("X-Reqid"), Cow::Owned(fake_req_id()));
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1589,7 +1590,7 @@ mod tests {
 
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
-            Cow::Owned(get_credential()),
+            get_credential(),
         );
 
         BucketUploaderBuilder::new(

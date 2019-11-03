@@ -32,8 +32,8 @@ pub struct Response {
 }
 
 impl Response {
-    pub fn header<HeaderNameT: AsRef<str>>(&self, header_name: HeaderNameT) -> Option<&HeaderValue> {
-        self.headers.get(header_name.as_ref())
+    pub fn header<HeaderNameT: Into<HeaderName<'static>>>(&self, header_name: HeaderNameT) -> Option<&HeaderValue> {
+        self.headers.get(&header_name.into())
     }
 
     pub fn into_body(self) -> Option<Body> {

@@ -189,7 +189,7 @@ impl Error {
     }
 
     fn extract_req_id_from_response(response: Option<&Response>) -> Option<RequestID> {
-        response.and_then(|resp| resp.headers().get("X-Reqid").map(|v| v.as_ref().into()))
+        response.and_then(|resp| resp.headers().get(&"X-Reqid".into()).map(|v| v.as_ref().into()))
     }
 }
 

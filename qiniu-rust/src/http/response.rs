@@ -1,7 +1,7 @@
 use delegate::delegate;
 use getset::{CopyGetters, Getters};
 use qiniu_http::{
-    Error as HTTPError, ErrorKind as HTTPErrorKind, HeaderValue, Headers, Method, Response as HTTPResponse,
+    Error as HTTPError, ErrorKind as HTTPErrorKind, HeaderName, HeaderValue, Headers, Method, Response as HTTPResponse,
     ResponseBody as HTTPResponseBody, Result as HTTPResult, StatusCode,
 };
 use serde::de::DeserializeOwned;
@@ -31,8 +31,11 @@ impl<'a> Response<'a> {
         }
     }
 
-    pub(crate) fn header<HeaderNameT: AsRef<str>>(&self, header_name: HeaderNameT) -> Option<&HeaderValue> {
-        self.inner.headers().get(header_name.as_ref())
+    pub(crate) fn header<HeaderNameT: Into<HeaderName<'static>>>(
+        &self,
+        header_name: HeaderNameT,
+    ) -> Option<&HeaderValue> {
+        self.inner.headers().get(&header_name.into())
     }
 
     pub(crate) fn request_id(&self) -> Option<&str> {

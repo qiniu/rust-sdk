@@ -183,7 +183,7 @@ mod domain {
         http::{Client, Token},
     };
     use qiniu_http::Result;
-    use std::borrow::Cow;
+    use std::borrow::Borrow;
 
     pub(super) fn query(
         http_client: &Client,
@@ -194,7 +194,7 @@ mod domain {
         Ok(http_client
             .get("/v6/domain/list", &[uc_url])
             .query("tbl", bucket_name)
-            .token(Token::V1(Cow::Borrowed(credential)))
+            .token(Token::V1(credential.borrow().into()))
             .no_body()
             .send()?
             .parse_json()?)
@@ -234,8 +234,8 @@ mod tests {
     #[test]
     fn test_storage_bucket_set_region() -> Result<(), Box<dyn Error>> {
         let bucket = BucketBuilder::new(
-            Cow::Borrowed("test-bucket"),
-            Cow::Owned(get_credential()),
+            "test-bucket".into(),
+            get_credential().into(),
             UploadManager::new(
                 ConfigBuilder::default()
                     .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
@@ -254,8 +254,8 @@ mod tests {
     #[test]
     fn test_storage_bucket_set_region_id() -> Result<(), Box<dyn Error>> {
         let bucket = BucketBuilder::new(
-            Cow::Borrowed("test-bucket"),
-            Cow::Owned(get_credential()),
+            "test-bucket".into(),
+            get_credential().into(),
             UploadManager::new(
                 ConfigBuilder::default()
                     .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
@@ -297,8 +297,8 @@ mod tests {
             }),
         ));
         let bucket = BucketBuilder::new(
-            Cow::Borrowed("test-bucket"),
-            Cow::Owned(get_credential()),
+            "test-bucket".into(),
+            get_credential().into(),
             UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?),
         )
         .auto_detect_region()?
@@ -367,8 +367,8 @@ mod tests {
         ));
         let bucket = Arc::new(
             BucketBuilder::new(
-                Cow::Borrowed("test-bucket"),
-                Cow::Owned(get_credential()),
+                "test-bucket".into(),
+                get_credential().into(),
                 UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?),
             )
             .build(),
@@ -441,8 +441,8 @@ mod tests {
     #[test]
     fn test_storage_bucket_set_domain() -> Result<(), Box<dyn Error>> {
         let bucket = BucketBuilder::new(
-            Cow::Borrowed("test-bucket"),
-            Cow::Owned(get_credential()),
+            "test-bucket".into(),
+            get_credential().into(),
             UploadManager::new(
                 ConfigBuilder::default()
                     .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
@@ -461,8 +461,8 @@ mod tests {
     fn test_storage_bucket_prequery_domain() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
         let bucket = BucketBuilder::new(
-            Cow::Borrowed("test-bucket"),
-            Cow::Owned(get_credential()),
+            "test-bucket".into(),
+            get_credential().into(),
             UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?),
         )
         .auto_detect_domains()?
@@ -479,8 +479,8 @@ mod tests {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
         let bucket = Arc::new(
             BucketBuilder::new(
-                Cow::Borrowed("test-bucket"),
-                Cow::Owned(get_credential()),
+                "test-bucket".into(),
+                get_credential().into(),
                 UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?),
             )
             .build(),

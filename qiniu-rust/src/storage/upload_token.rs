@@ -11,12 +11,12 @@ pub enum UploadToken<'p> {
 }
 
 impl<'p> UploadToken<'p> {
-    pub fn from_token<T: Into<Cow<'p, str>>>(t: T) -> UploadToken<'p> {
+    pub fn from_token(t: impl Into<Cow<'p, str>>) -> UploadToken<'p> {
         UploadToken::Token(t.into())
     }
 
-    pub fn from_policy(policy: UploadPolicy<'p>, credential: Cow<'p, Credential>) -> UploadToken<'p> {
-        UploadToken::Policy(policy, credential)
+    pub fn from_policy(policy: UploadPolicy<'p>, credential: impl Into<Cow<'p, Credential>>) -> UploadToken<'p> {
+        UploadToken::Policy(policy, credential.into())
     }
 
     pub fn access_key(&self) -> Result<&str> {

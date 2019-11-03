@@ -35,7 +35,7 @@ mod tests {
             .build();
         let err = get_client(config)
             .upload()
-            .for_upload_policy(policy, Cow::Borrowed(&get_credential()))?
+            .for_upload_policy(policy, get_credential().into())?
             .key(&key)
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))
             .unwrap_err();
@@ -63,7 +63,7 @@ mod tests {
         let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, Cow::Borrowed(&get_credential()))?
+            .for_upload_policy(policy, get_credential().into())?
             .key(&key)
             .var("var_key1", "var_value1")
             .var("var_key2", "var_value2")
@@ -89,7 +89,7 @@ mod tests {
         let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy, Cow::Borrowed(&get_credential()))?
+            .for_upload_policy(policy, get_credential().into())?
             .always_be_resumeable()
             .key(&key)
             .var("var_key1", "var_value1")
@@ -124,7 +124,7 @@ mod tests {
         let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy, Cow::Borrowed(&get_credential()))?
+            .for_upload_policy(policy, get_credential().into())?
             .key(&key)
             .var("var_key1", "var_value1")
             .var("var_key2", "var_value2")
@@ -158,7 +158,7 @@ mod tests {
         let thread_id: Mutex<Option<ThreadId>> = Mutex::new(None);
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy, Cow::Borrowed(&get_credential()))?
+            .for_upload_policy(policy, get_credential().into())?
             .always_be_resumeable()
             .key(&key)
             .var("var_key1", "var_value1")
@@ -196,7 +196,7 @@ mod tests {
         let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, Cow::Borrowed(&get_credential()))?
+            .for_upload_policy(policy, get_credential().into())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
@@ -217,7 +217,7 @@ mod tests {
         let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy, Cow::Borrowed(&get_credential()))?
+            .for_upload_policy(policy, get_credential().into())?
             .always_be_resumeable()
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
@@ -249,7 +249,7 @@ mod tests {
         let last_uploaded = AtomicUsize::new(0);
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, Cow::Borrowed(&get_credential()))?
+            .for_upload_policy(policy, get_credential().into())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumeable()
@@ -272,7 +272,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, Cow::Borrowed(&get_credential()))?
+            .for_upload_policy(policy, get_credential().into())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
@@ -294,7 +294,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, Cow::Borrowed(&get_credential()))?
+            .for_upload_policy(policy, get_credential().into())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
@@ -316,7 +316,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, Cow::Borrowed(&get_credential()))?
+            .for_upload_policy(policy, get_credential().into())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumeable()
@@ -339,7 +339,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, Cow::Borrowed(&get_credential()))?
+            .for_upload_policy(policy, get_credential().into())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {

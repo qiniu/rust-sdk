@@ -12,7 +12,7 @@ use crate::{
 use assert_impl::assert_impl;
 use error_chain::error_chain;
 use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult};
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 
 #[derive(Clone)]
 pub struct StorageManager {
@@ -39,7 +39,7 @@ impl StorageManager {
         Ok(self
             .http_client
             .get("/buckets", &[self.rs_url])
-            .token(Token::V1(Cow::Borrowed(&self.credential)))
+            .token(Token::V1(self.credential.borrow().into()))
             .accept_json()
             .no_body()
             .send()?
@@ -55,7 +55,7 @@ impl StorageManager {
                     + region_id.as_str()),
                 &[self.rs_url],
             )
-            .token(Token::V1(Cow::Borrowed(&self.credential)))
+            .token(Token::V1(self.credential.borrow().into()))
             .no_body()
             .send()?
             .ignore_body();
@@ -66,7 +66,7 @@ impl StorageManager {
         match self
             .http_client
             .post(&("/drop/".to_owned() + bucket.as_ref()), &[self.rs_url])
-            .token(Token::V1(Cow::Borrowed(&self.credential)))
+            .token(Token::V1(self.credential.borrow().into()))
             .no_body()
             .send()
         {
@@ -90,7 +90,7 @@ impl StorageManager {
     }
 
     pub fn bucket<'b, B: Into<Cow<'b, str>>>(&'b self, bucket: B) -> BucketBuilder<'b> {
-        BucketBuilder::new(bucket.into(), Cow::Borrowed(&self.credential), self.upload_manager())
+        BucketBuilder::new(bucket.into(), self.credential.borrow().into(), self.upload_manager())
     }
 
     #[allow(dead_code)]

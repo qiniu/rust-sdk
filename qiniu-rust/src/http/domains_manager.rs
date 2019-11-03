@@ -276,15 +276,15 @@ impl DomainsManagerBuilder {
                     .map(|url| Cow::Borrowed(url))
                     .collect::<Vec<_>>(),
             );
-            urls.push(Cow::Borrowed(region.rs_url(false)));
-            urls.push(Cow::Borrowed(region.rs_url(true)));
-            urls.push(Cow::Borrowed(region.rsf_url(false)));
-            urls.push(Cow::Borrowed(region.rsf_url(true)));
-            urls.push(Cow::Borrowed(region.api_url(false)));
-            urls.push(Cow::Borrowed(region.api_url(true)));
+            urls.push(region.rs_url(false).into());
+            urls.push(region.rs_url(true).into());
+            urls.push(region.rsf_url(false).into());
+            urls.push(region.rsf_url(true).into());
+            urls.push(region.api_url(false).into());
+            urls.push(region.api_url(true).into());
         });
-        urls.push(Cow::Borrowed(Region::uc_url(false)));
-        urls.push(Cow::Borrowed(Region::uc_url(true)));
+        urls.push(Region::uc_url(false).into());
+        urls.push(Region::uc_url(true).into());
         urls
     }
 

@@ -15,5 +15,5 @@ pub(super) fn upload_response_callback(response: &mut Response) -> HTTPResult<()
 }
 
 fn with_reqid(response: &mut Response) -> bool {
-    response.header("X-ReqId").is_none()
+    response.header("X-ReqId").is_some()
 }

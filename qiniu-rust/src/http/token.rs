@@ -18,7 +18,7 @@ impl<'t> Token<'t> {
 
         let url = req.url();
         let method = req.method();
-        let content_type = req.headers().get("Content-Type").map(|v| v.to_owned());
+        let content_type = req.headers().get(&"Content-Type".into()).map(|v| v.to_owned());
 
         match self {
             Token::V1(credential) => {

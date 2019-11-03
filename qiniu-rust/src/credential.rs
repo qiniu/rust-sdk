@@ -148,9 +148,13 @@ impl Credential {
     }
 
     fn is_valid_request_with_err(&self, req: &Request) -> Result<bool, url::ParseError> {
-        if let Some(original_authorization) = req.headers().get("Authorization") {
+        if let Some(original_authorization) = req.headers().get(&"Authorization".into()) {
             Ok(original_authorization
-                == &self.authorization_v1_for_request(req.url(), req.headers().get("Content-Type"), req.body())?)
+                == &self.authorization_v1_for_request(
+                    req.url(),
+                    req.headers().get(&"Content-Type".into()),
+                    req.body(),
+                )?)
         } else {
             Ok(false)
         }
@@ -226,6 +230,18 @@ impl fmt::Debug for Credential {
 impl PartialEq for Credential {
     fn eq(&self, other: &Self) -> bool {
         self.0.eq(&other.0)
+    }
+}
+
+impl From<Credential> for Cow<'_, Credential> {
+    fn from(credential: Credential) -> Self {
+        Cow::Owned(credential)
+    }
+}
+
+impl<'a> From<&'a Credential> for Cow<'a, Credential> {
+    fn from(credential: &'a Credential) -> Self {
+        Cow::Borrowed(credential)
     }
 }
 

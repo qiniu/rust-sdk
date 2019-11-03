@@ -396,16 +396,10 @@ impl<'r> Handler for Context<'r> {
         let header_value = iter.next();
         if let (Some(header_name), Some(header_value)) = (header_name, header_value) {
             if let Some(response_headers) = &mut self.response_headers {
-                response_headers.insert(
-                    Cow::Owned(header_name.to_string()),
-                    Cow::Owned(header_value.to_string()),
-                );
+                response_headers.insert(header_name.to_string().into(), header_value.to_string().into());
             } else {
                 let mut response_headers = Headers::with_capacity(1);
-                response_headers.insert(
-                    Cow::Owned(header_name.to_string()),
-                    Cow::Owned(header_value.to_string()),
-                );
+                response_headers.insert(header_name.to_string().into(), header_value.to_string().into());
                 self.response_headers = Some(response_headers);
             }
         }
