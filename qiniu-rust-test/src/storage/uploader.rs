@@ -10,7 +10,6 @@ mod tests {
     use qiniu_test_utils::{env, temp_file::create_temp_file};
     use serde_json::json;
     use std::{
-        borrow::Cow,
         boxed::Box,
         error::Error,
         io::{Seek, SeekFrom},

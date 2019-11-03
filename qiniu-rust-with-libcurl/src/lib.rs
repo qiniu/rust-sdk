@@ -4,17 +4,18 @@ use curl::{
 };
 use derive_builder::Builder;
 use lazy_static::lazy_static;
+use object_pool::Pool;
 use qiniu_http::{
     Error, HTTPCaller, HTTPCallerError, HTTPCallerErrorKind, Headers, Method, Request, Response, ResponseBuilder,
     Result, StatusCode,
 };
 use std::{
-    borrow::Cow,
     convert::TryInto,
     default::Default,
     env,
     fs::File,
     io::{Cursor, Read, Seek, SeekFrom, Write},
+    mem::{size_of, transmute, transmute_copy},
     net::IpAddr,
     path::{Path, PathBuf},
     result,
@@ -34,6 +35,7 @@ lazy_static! {
     )
     .into();
     static ref TEMP_DIR: PathBuf = env::temp_dir();
+    static ref CURL_POOL: Pool<'static, Easy2ContextRef> = Pool::new(16, Easy2ContextRef::default);
 }
 
 #[derive(Debug, Builder)]
@@ -60,22 +62,13 @@ impl Default for CurlClient {
 
 impl HTTPCaller for CurlClient {
     fn call(&self, request: &Request) -> Result<Response> {
-        let mut ctx = Context {
-            request_body: None,
-            response_body: None,
-            response_headers: None,
-            buffer_size: self.buffer_size,
-            temp_dir: self
-                .temp_dir
-                .as_ref()
-                .map(|dir| dir.as_path())
-                .unwrap_or_else(|| &TEMP_DIR),
-            progress_status: ProgressStatus::Initialized,
-            upload_progress: request.on_uploading_progress(),
-            download_progress: request.on_downloading_progress(),
-        };
-        self.set_context(&mut ctx, request);
-        self.perform(ctx, request)
+        let r: &mut Easy2ContextRef = &mut *CURL_POOL.pull();
+        let mut easy: Box<Easy2<Context>> = r.into();
+        self.reset_context(&mut easy);
+        self.set_context(easy.get_mut(), request);
+        let result = self.perform(&mut easy, request);
+        let _: Easy2ContextRef = easy.into();
+        result
     }
 
     fn append_user_agent(&mut self, append_user_agent: &str) {
@@ -90,13 +83,12 @@ impl HTTPCaller for CurlClient {
 }
 
 impl CurlClient {
-    fn perform(&self, context: Context, request: &Request) -> Result<Response> {
-        let mut easy = Easy2::new(context);
-        self.set_method(&mut easy, request)?;
-        self.set_url(&mut easy, request)?;
-        self.set_headers(&mut easy, request)?;
-        self.set_body(&mut easy, request)?;
-        self.set_options(&mut easy, request)?;
+    fn perform(&self, easy: &mut Easy2<Context>, request: &Request) -> Result<Response> {
+        self.set_method(easy, request)?;
+        self.set_url(easy, request)?;
+        self.set_headers(easy, request)?;
+        self.set_body(easy, request)?;
+        self.set_options(easy, request)?;
         Self::handle_if_err(easy.perform(), request)?;
         let status_code = Self::handle_if_err(easy.response_code(), request)? as StatusCode;
         let server_ip: Option<IpAddr> =
@@ -133,7 +125,22 @@ impl CurlClient {
         Ok(builder.build().unwrap())
     }
 
+    fn reset_context<'r>(&'r self, easy: &mut Easy2<Context<'r>>) {
+        easy.reset();
+        let context = easy.get_mut();
+        context.reset();
+        context.buffer_size = self.buffer_size;
+        context.temp_dir = self
+            .temp_dir
+            .as_ref()
+            .map(|dir| dir.as_path())
+            .unwrap_or_else(|| &TEMP_DIR);
+    }
+
     fn set_context<'r>(&self, mut context: &mut Context<'r>, request: &Request<'r>) {
+        context.upload_progress = request.on_uploading_progress();
+        context.download_progress = request.on_downloading_progress();
+
         if let Some(request_body) = request.body() {
             if !request_body.is_empty() {
                 context.request_body = Some(Cursor::new(request_body));
@@ -456,5 +463,74 @@ impl<'r> Handler for Context<'r> {
             _ => {}
         }
         true
+    }
+}
+
+impl<'r> Context<'r> {
+    fn reset(&mut self) {
+        self.request_body = None;
+        self.response_body = None;
+        self.response_headers = None;
+        self.buffer_size = 1 << 22;
+        self.temp_dir = &TEMP_DIR;
+        self.progress_status = ProgressStatus::Initialized;
+        self.upload_progress = None;
+        self.download_progress = None;
+    }
+}
+
+impl<'r> Default for Context<'r> {
+    fn default() -> Self {
+        Context {
+            request_body: None,
+            response_body: None,
+            response_headers: None,
+            buffer_size: 1 << 22,
+            temp_dir: &TEMP_DIR,
+            progress_status: ProgressStatus::Initialized,
+            upload_progress: None,
+            download_progress: None,
+        }
+    }
+}
+
+struct Easy2ContextRef([u8; size_of::<*mut Easy2<Context<'static>>>()]);
+
+impl Default for Easy2ContextRef {
+    fn default() -> Self {
+        Box::new(Easy2::new(Context::default())).into()
+    }
+}
+
+impl<'r> From<Easy2ContextRef> for Box<Easy2<Context<'r>>> {
+    fn from(r: Easy2ContextRef) -> Self {
+        unsafe {
+            let ptr: *mut Easy2<Context<'r>> = transmute(r);
+            Box::from_raw(ptr)
+        }
+    }
+}
+
+impl<'r> From<&'r Easy2ContextRef> for Box<Easy2<Context<'r>>> {
+    fn from(r: &'r Easy2ContextRef) -> Self {
+        unsafe {
+            let ptr: *mut Easy2<Context<'r>> = transmute_copy(r);
+            Box::from_raw(ptr)
+        }
+    }
+}
+
+impl<'r> From<&'r mut Easy2ContextRef> for Box<Easy2<Context<'r>>> {
+    fn from(r: &'r mut Easy2ContextRef) -> Self {
+        unsafe {
+            let ptr: *mut Easy2<Context<'r>> = transmute_copy(r);
+            Box::from_raw(ptr)
+        }
+    }
+}
+
+impl<'r> From<Box<Easy2<Context<'r>>>> for Easy2ContextRef {
+    fn from(context: Box<Easy2<Context<'r>>>) -> Self {
+        unsafe { transmute(Box::into_raw(context)) }
     }
 }
