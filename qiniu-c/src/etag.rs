@@ -18,7 +18,7 @@ pub extern "C" fn qiniu_ng_etag_from_file_path(
 ) -> bool {
     match etag::from_file(make_path_buf(unsafe { transmute(path) }, path_len)) {
         Ok(etag_string) => {
-            write_string_to_ptr(etag_string, result_ptr);
+            write_string_to_ptr(&etag_string, result_ptr);
             true
         }
         Err(err) => {
@@ -33,7 +33,7 @@ pub extern "C" fn qiniu_ng_etag_from_file_path(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_from_buffer(buffer: *const c_char, buffer_len: size_t, result: *mut c_char) {
     write_string_to_ptr(
-        unsafe { etag::from_bytes(slice::from_raw_parts(transmute(buffer), buffer_len)) },
+        unsafe { &etag::from_bytes(slice::from_raw_parts(transmute(buffer), buffer_len)) },
         result,
     );
 }

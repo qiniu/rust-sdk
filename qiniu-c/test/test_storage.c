@@ -21,9 +21,10 @@ void test_qiniu_ng_storage_bucket_names(void) {
         TEST_ASSERT_TRUE(qiniu_ng_string_list_get(bucket_names, i, &bucket_name));
     }
     qiniu_ng_string_list_free(bucket_names);
+    qiniu_ng_client_free(client);
 }
 
-void test_qiniu_ng_storage_bucket_test(void) {
+void test_qiniu_ng_storage_bucket_create_and_drop(void) {
     qiniu_ng_config_t config;
     qiniu_ng_config_init(&config);
 
@@ -53,4 +54,5 @@ void test_qiniu_ng_storage_bucket_test(void) {
     TEST_ASSERT_TRUE(found_new_bucket);
 
     TEST_ASSERT_TRUE(qiniu_ng_storage_drop_bucket(client, new_bucket_name, &err));
+    qiniu_ng_client_free(client);
 }

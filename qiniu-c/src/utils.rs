@@ -1,6 +1,7 @@
 use cfg_if::cfg_if;
 use libc::{c_char, c_void, size_t};
 use std::{boxed::Box, ffi::CString, mem::transmute, path::PathBuf, slice};
+use tap::TapOps;
 
 #[repr(C)]
 pub struct qiniu_ng_string_t(*mut c_char);
@@ -17,8 +18,8 @@ impl From<qiniu_ng_string_t> for CString {
     }
 }
 
-pub(crate) fn make_string<S: AsRef<str>>(s: S) -> qiniu_ng_string_t {
-    CString::new(s.as_ref()).unwrap().into()
+pub(crate) fn make_string(s: &str) -> qiniu_ng_string_t {
+    CString::new(s).unwrap().into()
 }
 
 #[no_mangle]
@@ -46,9 +47,8 @@ impl From<qiniu_ng_string_list_t> for Box<[CString]> {
     }
 }
 
-pub(crate) fn make_string_list<S: AsRef<str>, A: AsRef<[S]>>(list: A) -> qiniu_ng_string_list_t {
-    list.as_ref()
-        .iter()
+pub(crate) fn make_string_list(list: &[impl AsRef<str>]) -> qiniu_ng_string_list_t {
+    list.iter()
         .map(|s| CString::new(s.as_ref()).unwrap())
         .collect::<Box<[CString]>>()
         .into()
@@ -57,9 +57,9 @@ pub(crate) fn make_string_list<S: AsRef<str>, A: AsRef<[S]>>(list: A) -> qiniu_n
 #[no_mangle]
 pub extern "C" fn qiniu_ng_string_list_len(strlist: qiniu_ng_string_list_t) -> size_t {
     let strlist: Box<[CString]> = strlist.into();
-    let len = strlist.len();
-    let _: qiniu_ng_string_list_t = strlist.into();
-    len
+    strlist.len().tap(|_| {
+        let _: qiniu_ng_string_list_t = strlist.into();
+    })
 }
 
 #[no_mangle]
@@ -85,10 +85,9 @@ pub extern "C" fn qiniu_ng_string_list_free(strlist: qiniu_ng_string_list_t) {
     let _: Box<[CString]> = strlist.into();
 }
 
-pub(crate) fn write_string_to_ptr<S: AsRef<str>>(src: S, dst: *mut c_char) {
-    let src_bytes = src.as_ref();
+pub(crate) fn write_string_to_ptr(src: &str, dst: *mut c_char) {
     unsafe {
-        dst.copy_from_nonoverlapping(transmute(src_bytes.as_ptr()), src_bytes.len());
+        dst.copy_from_nonoverlapping(transmute(src.as_ptr()), src.len());
     }
 }
 

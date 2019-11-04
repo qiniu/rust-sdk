@@ -46,7 +46,7 @@ impl StorageManager {
             .parse_json()?)
     }
 
-    pub fn create_bucket<B: AsRef<str>>(&self, bucket: B, region_id: RegionId) -> HTTPResult<()> {
+    pub fn create_bucket(&self, bucket: impl AsRef<str>, region_id: RegionId) -> HTTPResult<()> {
         self.http_client
             .post(
                 &("/mkbucketv2/".to_owned()
@@ -62,7 +62,7 @@ impl StorageManager {
         Ok(())
     }
 
-    pub fn drop_bucket<B: AsRef<str>>(&self, bucket: B) -> Result<()> {
+    pub fn drop_bucket(&self, bucket: impl AsRef<str>) -> Result<()> {
         match self
             .http_client
             .post(&("/drop/".to_owned() + bucket.as_ref()), &[self.rs_url])
@@ -89,7 +89,7 @@ impl StorageManager {
         UploadManager::new(self.http_client.config().to_owned())
     }
 
-    pub fn bucket<'b, B: Into<Cow<'b, str>>>(&'b self, bucket: B) -> BucketBuilder<'b> {
+    pub fn bucket<'b>(&'b self, bucket: impl Into<Cow<'b, str>>) -> BucketBuilder<'b> {
         BucketBuilder::new(bucket.into(), self.credential.borrow().into(), self.upload_manager())
     }
 

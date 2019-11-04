@@ -17,7 +17,7 @@ impl UploadManager {
         &self.config
     }
 
-    pub(crate) fn new(config: Config) -> UploadManager {
+    pub fn new(config: Config) -> UploadManager {
         UploadManager {
             upload_logger_builder: UploadLoggerBuilder::new(config.clone()),
             config,
