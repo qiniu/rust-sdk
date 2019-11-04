@@ -4,9 +4,9 @@ use crate::{
     result::qiniu_ng_err,
     utils::{make_string_list, qiniu_ng_string_list_t},
 };
-use libc::c_char;
-use qiniu::Client;
-use std::ffi::CStr;
+use libc::{c_char, c_void};
+use qiniu::{storage::bucket::Bucket, Client};
+use std::{ffi::CStr, mem::transmute};
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_storage_bucket_names(
@@ -73,5 +73,20 @@ pub extern "C" fn qiniu_ng_storage_drop_bucket(
             }
             false
         }
+    }
+}
+
+#[repr(C)]
+pub struct qiniu_ng_bucket_t(*mut c_void);
+
+impl<'r> From<qiniu_ng_bucket_t> for Box<Bucket<'r>> {
+    fn from(bucket: qiniu_ng_bucket_t) -> Self {
+        unsafe { Box::from_raw(transmute::<_, *mut Bucket>(bucket)) }
+    }
+}
+
+impl<'r> From<Box<Bucket<'r>>> for qiniu_ng_bucket_t {
+    fn from(bucket: Box<Bucket>) -> Self {
+        unsafe { transmute(Box::into_raw(bucket)) }
     }
 }

@@ -10,6 +10,10 @@ pub struct qiniu_ng_config_t {
     pub upload_threshold: c_ulonglong,
     pub upload_block_size: size_t,
     pub upload_block_lifetime: c_ulonglong,
+    pub always_flush_records: bool,
+    pub uplog_disabled: bool,
+    pub uplog_upload_threshold: usize,
+    pub max_uplog_size: usize,
     pub http_request_retries: size_t,
     pub http_request_retry_delay: c_ulonglong,
 }
@@ -24,6 +28,10 @@ pub extern "C" fn qiniu_ng_config_init(config: *mut qiniu_ng_config_t) {
         (*config).upload_threshold = default.upload_threshold();
         (*config).upload_block_size = default.upload_block_size();
         (*config).upload_block_lifetime = default.upload_block_lifetime().as_secs();
+        (*config).always_flush_records = default.always_flush_records();
+        (*config).uplog_disabled = default.uplog_disabled();
+        (*config).uplog_upload_threshold = default.uplog_upload_threshold();
+        (*config).max_uplog_size = default.max_uplog_size();
         (*config).http_request_retries = default.http_request_retries();
         (*config).http_request_retry_delay = default.http_request_retry_delay().as_secs();
     }
@@ -38,6 +46,10 @@ impl From<&qiniu_ng_config_t> for Config {
             .upload_threshold(config.upload_threshold)
             .upload_block_size(config.upload_block_size)
             .upload_block_lifetime(Duration::from_secs(config.upload_block_lifetime))
+            .always_flush_records(config.always_flush_records)
+            .uplog_disabled(config.uplog_disabled)
+            .uplog_upload_threshold(config.uplog_upload_threshold)
+            .max_uplog_size(config.max_uplog_size)
             .http_request_retries(config.http_request_retries)
             .http_request_retry_delay(Duration::from_secs(config.http_request_retry_delay))
             .build()

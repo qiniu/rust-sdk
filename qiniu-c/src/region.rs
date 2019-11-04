@@ -4,8 +4,8 @@ use super::{
     utils::{make_string, make_string_list, qiniu_ng_string_list_t, qiniu_ng_string_t},
 };
 use libc::{c_char, c_void, size_t};
-use qiniu::storage::region;
-use std::{ffi::CStr, mem};
+use qiniu::storage::region::{Region, RegionId};
+use std::{ffi::CStr, mem::transmute};
 
 #[repr(C)]
 pub enum region_id_t {
@@ -28,26 +28,26 @@ impl region_id_t {
     }
 }
 
-impl From<region::RegionId> for region_id_t {
-    fn from(region_id: region::RegionId) -> Self {
+impl From<RegionId> for region_id_t {
+    fn from(region_id: RegionId) -> Self {
         match region_id {
-            region::RegionId::Z0 => region_id_t::Z0,
-            region::RegionId::Z1 => region_id_t::Z1,
-            region::RegionId::Z2 => region_id_t::Z2,
-            region::RegionId::AS0 => region_id_t::AS0,
-            region::RegionId::NA0 => region_id_t::NA0,
+            RegionId::Z0 => region_id_t::Z0,
+            RegionId::Z1 => region_id_t::Z1,
+            RegionId::Z2 => region_id_t::Z2,
+            RegionId::AS0 => region_id_t::AS0,
+            RegionId::NA0 => region_id_t::NA0,
         }
     }
 }
 
-impl From<region_id_t> for region::RegionId {
+impl From<region_id_t> for RegionId {
     fn from(region_id: region_id_t) -> Self {
         match region_id {
-            region_id_t::Z0 => region::RegionId::Z0,
-            region_id_t::Z1 => region::RegionId::Z1,
-            region_id_t::Z2 => region::RegionId::Z2,
-            region_id_t::AS0 => region::RegionId::AS0,
-            region_id_t::NA0 => region::RegionId::NA0,
+            region_id_t::Z0 => RegionId::Z0,
+            region_id_t::Z1 => RegionId::Z1,
+            region_id_t::Z2 => RegionId::Z2,
+            region_id_t::AS0 => RegionId::AS0,
+            region_id_t::NA0 => RegionId::NA0,
         }
     }
 }
@@ -66,21 +66,21 @@ pub extern "C" fn qiniu_ng_region_id_to_name(region_id: region_id_t) -> *const c
 #[repr(C)]
 pub struct qiniu_ng_region_t(*mut c_void);
 
-impl From<qiniu_ng_region_t> for Box<region::Region> {
+impl From<qiniu_ng_region_t> for Box<Region> {
     fn from(region: qiniu_ng_region_t) -> Self {
-        unsafe { Box::from_raw(mem::transmute::<_, *mut region::Region>(region)) }
+        unsafe { Box::from_raw(transmute::<_, *mut Region>(region)) }
     }
 }
 
-impl From<Box<region::Region>> for qiniu_ng_region_t {
-    fn from(region: Box<region::Region>) -> Self {
-        unsafe { mem::transmute(Box::into_raw(region)) }
+impl From<Box<Region>> for qiniu_ng_region_t {
+    fn from(region: Box<Region>) -> Self {
+        unsafe { transmute(Box::into_raw(region)) }
     }
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_up_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_list_t {
-    let region: Box<region::Region> = region.into();
+    let region: Box<Region> = region.into();
     let up_urls = make_string_list(region.up_urls(use_https));
     let _: qiniu_ng_region_t = region.into();
     up_urls
@@ -88,7 +88,7 @@ pub extern "C" fn qiniu_ng_region_get_up_urls(region: qiniu_ng_region_t, use_htt
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_io_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_list_t {
-    let region: Box<region::Region> = region.into();
+    let region: Box<Region> = region.into();
     let up_urls = make_string_list(region.io_urls(use_https));
     let _: qiniu_ng_region_t = region.into();
     up_urls
@@ -96,7 +96,7 @@ pub extern "C" fn qiniu_ng_region_get_io_urls(region: qiniu_ng_region_t, use_htt
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_rs_url(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_t {
-    let region: Box<region::Region> = region.into();
+    let region: Box<Region> = region.into();
     let rs_url = make_string(region.rs_url(use_https));
     let _: qiniu_ng_region_t = region.into();
     rs_url
@@ -104,7 +104,7 @@ pub extern "C" fn qiniu_ng_region_get_rs_url(region: qiniu_ng_region_t, use_http
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_rsf_url(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_t {
-    let region: Box<region::Region> = region.into();
+    let region: Box<Region> = region.into();
     let rsf_url = make_string(region.rsf_url(use_https));
     let _: qiniu_ng_region_t = region.into();
     rsf_url
@@ -112,7 +112,7 @@ pub extern "C" fn qiniu_ng_region_get_rsf_url(region: qiniu_ng_region_t, use_htt
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_api_url(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_t {
-    let region: Box<region::Region> = region.into();
+    let region: Box<Region> = region.into();
     let api_url = make_string(region.api_url(use_https));
     let _: qiniu_ng_region_t = region.into();
     api_url
@@ -126,7 +126,7 @@ pub extern "C" fn qiniu_ng_region_query(
     regions: *mut qiniu_ng_regions_t,
     error: *mut qiniu_ng_err,
 ) -> bool {
-    match region::Region::query(
+    match Region::query(
         unsafe { CStr::from_ptr(bucket_name).to_string_lossy() },
         unsafe { CStr::from_ptr(access_key).to_string_lossy() },
         unsafe { config.as_ref() }.unwrap().into(),
@@ -148,27 +148,27 @@ pub extern "C" fn qiniu_ng_region_query(
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_free(region: qiniu_ng_region_t) {
-    let _: Box<region::Region> = region.into();
+    let _: Box<Region> = region.into();
 }
 
 #[repr(C)]
 pub struct qiniu_ng_regions_t(*mut c_void, *mut c_void);
 
-impl From<qiniu_ng_regions_t> for Box<[region::Region]> {
+impl From<qiniu_ng_regions_t> for Box<[Region]> {
     fn from(regions: qiniu_ng_regions_t) -> Self {
-        unsafe { Box::from_raw(mem::transmute::<_, *mut [region::Region]>(regions)) }
+        unsafe { Box::from_raw(transmute::<_, *mut [Region]>(regions)) }
     }
 }
 
-impl From<Box<[region::Region]>> for qiniu_ng_regions_t {
-    fn from(regions: Box<[region::Region]>) -> Self {
-        unsafe { mem::transmute(Box::into_raw(regions)) }
+impl From<Box<[Region]>> for qiniu_ng_regions_t {
+    fn from(regions: Box<[Region]>) -> Self {
+        unsafe { transmute(Box::into_raw(regions)) }
     }
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_regions_len(regions: qiniu_ng_regions_t) -> size_t {
-    let regions: Box<[region::Region]> = regions.into();
+    let regions: Box<[Region]> = regions.into();
     let len = regions.len();
     let _: qiniu_ng_regions_t = regions.into();
     len
@@ -180,7 +180,7 @@ pub extern "C" fn qiniu_ng_regions_get(
     index: size_t,
     region: *mut qiniu_ng_region_t,
 ) -> bool {
-    let regions: Box<[region::Region]> = regions.into();
+    let regions: Box<[Region]> = regions.into();
     let mut got = false;
     if let Some(r) = regions.get(index) {
         if !region.is_null() {
@@ -194,5 +194,5 @@ pub extern "C" fn qiniu_ng_regions_get(
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_regions_free(regions: qiniu_ng_regions_t) {
-    let _: Box<[region::Region]> = regions.into();
+    let _: Box<[Region]> = regions.into();
 }

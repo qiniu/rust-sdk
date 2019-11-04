@@ -1,20 +1,20 @@
 use crate::config::qiniu_ng_config_t;
 use libc::{c_char, c_void};
 use qiniu::Client;
-use std::{ffi::CStr, mem};
+use std::{ffi::CStr, mem::transmute};
 
 #[repr(C)]
 pub struct qiniu_ng_client_t(*mut c_void);
 
 impl From<qiniu_ng_client_t> for Box<Client> {
     fn from(client: qiniu_ng_client_t) -> Self {
-        unsafe { Box::from_raw(mem::transmute::<_, *mut Client>(client)) }
+        unsafe { Box::from_raw(transmute::<_, *mut Client>(client)) }
     }
 }
 
 impl From<Box<Client>> for qiniu_ng_client_t {
     fn from(client: Box<Client>) -> Self {
-        unsafe { mem::transmute(Box::into_raw(client)) }
+        unsafe { transmute(Box::into_raw(client)) }
     }
 }
 

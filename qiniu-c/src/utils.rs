@@ -1,19 +1,19 @@
 use cfg_if::cfg_if;
 use libc::{c_char, c_void, size_t};
-use std::{boxed::Box, ffi::CString, mem, path::PathBuf, slice};
+use std::{boxed::Box, ffi::CString, mem::transmute, path::PathBuf, slice};
 
 #[repr(C)]
 pub struct qiniu_ng_string_t(*mut c_char);
 
 impl From<CString> for qiniu_ng_string_t {
     fn from(s: CString) -> Self {
-        unsafe { mem::transmute(s.into_raw()) }
+        unsafe { transmute(s.into_raw()) }
     }
 }
 
 impl From<qiniu_ng_string_t> for CString {
     fn from(s: qiniu_ng_string_t) -> Self {
-        unsafe { CString::from_raw(mem::transmute(s)) }
+        unsafe { CString::from_raw(transmute(s)) }
     }
 }
 
@@ -36,13 +36,13 @@ pub struct qiniu_ng_string_list_t(*mut c_void, *mut c_void);
 
 impl From<Box<[CString]>> for qiniu_ng_string_list_t {
     fn from(strlist: Box<[CString]>) -> Self {
-        unsafe { mem::transmute(Box::into_raw(strlist)) }
+        unsafe { transmute(Box::into_raw(strlist)) }
     }
 }
 
 impl From<qiniu_ng_string_list_t> for Box<[CString]> {
     fn from(strlist: qiniu_ng_string_list_t) -> Self {
-        unsafe { Box::from_raw(mem::transmute(strlist)) }
+        unsafe { Box::from_raw(transmute(strlist)) }
     }
 }
 
@@ -88,7 +88,7 @@ pub extern "C" fn qiniu_ng_string_list_free(strlist: qiniu_ng_string_list_t) {
 pub(crate) fn write_string_to_ptr<S: AsRef<str>>(src: S, dst: *mut c_char) {
     let src_bytes = src.as_ref();
     unsafe {
-        dst.copy_from_nonoverlapping(mem::transmute(src_bytes.as_ptr()), src_bytes.len());
+        dst.copy_from_nonoverlapping(transmute(src_bytes.as_ptr()), src_bytes.len());
     }
 }
 
