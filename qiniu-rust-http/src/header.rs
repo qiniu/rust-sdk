@@ -65,6 +65,12 @@ impl fmt::Debug for HeaderName<'_> {
     }
 }
 
+impl fmt::Display for HeaderName<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.as_ref().fmt(f)
+    }
+}
+
 pub type HeaderValue<'v> = Cow<'v, str>;
 pub type Headers<'h> = HashMap<HeaderName<'h>, HeaderValue<'h>>;
 

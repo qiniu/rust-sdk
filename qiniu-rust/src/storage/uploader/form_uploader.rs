@@ -209,7 +209,7 @@ mod tests {
         temp_file::create_temp_file,
     };
     use serde_json::json;
-    use std::{borrow::Cow, boxed::Box, error::Error, result::Result};
+    use std::{boxed::Box, error::Error, result::Result};
 
     #[test]
     fn test_storage_uploader_form_uploader_upload_file() -> Result<(), Box<dyn Error>> {

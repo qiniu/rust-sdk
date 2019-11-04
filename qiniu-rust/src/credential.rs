@@ -3,7 +3,7 @@ use crate::{
     utils::{base64, mime},
 };
 use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
-use qiniu_http::{Method, Request};
+use qiniu_http::{Headers, Method, Request};
 use std::{borrow::Cow, cmp::PartialEq, convert::TryFrom, fmt, result::Result, string::String, sync::Arc, time};
 use url::Url;
 
@@ -17,10 +17,7 @@ struct CredentialInner {
 pub struct Credential(Arc<CredentialInner>);
 
 impl Credential {
-    pub fn new<AccessKey: Into<Cow<'static, str>>, SecretKey: Into<Cow<'static, str>>>(
-        access_key: AccessKey,
-        secret_key: SecretKey,
-    ) -> Credential {
+    pub fn new(access_key: impl Into<Cow<'static, str>>, secret_key: impl Into<Cow<'static, str>>) -> Credential {
         Credential(Arc::new(CredentialInner {
             access_key: access_key.into(),
             secret_key: secret_key.into(),
@@ -44,31 +41,31 @@ impl Credential {
         self.sign(encoded_data.as_bytes()) + ":" + &encoded_data
     }
 
-    pub(crate) fn authorization_v1_for_request<URL: AsRef<str>, ContentType: AsRef<str>>(
+    pub(crate) fn authorization_v1_for_request(
         &self,
-        url_string: URL,
-        content_type: Option<ContentType>,
+        url_string: impl AsRef<str>,
+        content_type: Option<impl AsRef<str>>,
         body: Option<&[u8]>,
     ) -> Result<String, url::ParseError> {
         let authorization_token = self.sign_request_v1(url_string, content_type, body)?;
         Ok("QBox ".to_owned() + &authorization_token)
     }
 
-    pub(crate) fn authorization_v2_for_request<URL: AsRef<str>, ContentType: AsRef<str>>(
+    pub(crate) fn authorization_v2_for_request(
         &self,
         method: Method,
-        url_string: URL,
-        content_type: Option<ContentType>,
+        url_string: impl AsRef<str>,
+        headers: &Headers,
         body: Option<&[u8]>,
     ) -> Result<String, url::ParseError> {
-        let authorization_token = self.sign_request_v2(method, url_string, content_type, body)?;
+        let authorization_token = self.sign_request_v2(method, url_string, headers, body)?;
         Ok("Qiniu ".to_owned() + &authorization_token)
     }
 
-    pub(crate) fn sign_request_v1<URL: AsRef<str>, ContentType: AsRef<str>>(
+    pub(crate) fn sign_request_v1(
         &self,
-        url_string: URL,
-        content_type: Option<ContentType>,
+        url_string: impl AsRef<str>,
+        content_type: Option<impl AsRef<str>>,
         body: Option<&[u8]>,
     ) -> Result<String, url::ParseError> {
         let u = Url::parse(url_string.as_ref())?;
@@ -87,11 +84,11 @@ impl Credential {
         Ok(self.sign(&data_to_sign))
     }
 
-    pub(crate) fn sign_request_v2<URL: AsRef<str>, ContentType: AsRef<str>>(
+    pub(crate) fn sign_request_v2(
         &self,
         method: Method,
-        url_string: URL,
-        content_type: Option<ContentType>,
+        url_string: impl AsRef<str>,
+        headers: &Headers,
         body: Option<&[u8]>,
     ) -> Result<String, url::ParseError> {
         let u = Url::parse(url_string.as_ref())?;
@@ -111,21 +108,38 @@ impl Credential {
         }
         data_to_sign.extend_from_slice(b"\n");
 
-        if let Some(content_type) = content_type {
+        if let Some(content_type) = headers.get(&"Content-Type".into()) {
             data_to_sign.extend_from_slice(b"Content-Type: ");
             data_to_sign.extend_from_slice(content_type.as_ref().as_bytes());
-            // TODO: 考虑 X-Qiniu- 开头的 Header，将其排序后纳入签名数据
-            data_to_sign.extend_from_slice(b"\n\n");
+            data_to_sign.extend_from_slice(b"\n");
+            sign_data_for_x_qiniu_headers(&mut data_to_sign, headers);
+            data_to_sign.extend_from_slice(b"\n");
             if let Some(body) = body {
                 if Self::will_push_body_v2(content_type) {
                     data_to_sign.extend_from_slice(body);
                 }
             }
         } else {
-            // TODO: 考虑 X-Qiniu- 开头的 Header，将其排序后纳入签名数据
+            sign_data_for_x_qiniu_headers(&mut data_to_sign, &headers);
             data_to_sign.extend_from_slice(b"\n");
         }
-        Ok(self.sign(&data_to_sign))
+        return Ok(self.sign(&data_to_sign));
+
+        fn sign_data_for_x_qiniu_headers(data_to_sign: &mut Vec<u8>, headers: &Headers) {
+            let mut x_qiniu_headers = headers
+                .iter()
+                .filter(|(key, _)| key.starts_with("X-Qiniu-"))
+                .map(|(key, value)| key.to_string() + ": " + value)
+                .collect::<Vec<_>>();
+            if x_qiniu_headers.is_empty() {
+                return;
+            }
+            x_qiniu_headers.sort_unstable();
+            for header_line in x_qiniu_headers {
+                data_to_sign.extend_from_slice(header_line.as_bytes());
+                data_to_sign.extend_from_slice(b"\n");
+            }
+        }
     }
 
     fn base64ed_hmac_digest(&self, data: &[u8]) -> String {
@@ -364,11 +378,22 @@ mod tests {
     #[test]
     fn test_sign_request_v2() -> Result<(), Box<dyn Error>> {
         let credential = get_credential();
+        let empty_headers = Headers::new();
+        let json_headers = {
+            let mut headers = Headers::new();
+            headers.insert("Content-Type".into(), "application/json".into());
+            headers
+        };
+        let form_headers = {
+            let mut headers = Headers::new();
+            headers.insert("Content-Type".into(), "application/x-www-form-urlencoded".into());
+            headers
+        };
         assert_eq!(
             credential.sign_request_v2(
                 Method::GET,
                 "http://upload.qiniup.com/",
-                Some("application/json"),
+                &json_headers,
                 Some(b"{\"name\":\"test\"}")
             )?,
             credential.sign(b"GET /\nHost: upload.qiniup.com\nContent-Type: application/json\n\n{\"name\":\"test\"}")
@@ -377,7 +402,7 @@ mod tests {
             credential.sign_request_v2(
                 Method::GET,
                 "http://upload.qiniup.com/",
-                None::<&str>,
+                &empty_headers,
                 Some(b"{\"name\":\"test\"}")
             )?,
             credential.sign(b"GET /\nHost: upload.qiniup.com\n\n")
@@ -386,7 +411,7 @@ mod tests {
             credential.sign_request_v2(
                 Method::POST,
                 "http://upload.qiniup.com/",
-                Some("application/json"),
+                &json_headers,
                 Some(b"{\"name\":\"test\"}")
             )?,
             credential.sign(b"POST /\nHost: upload.qiniup.com\nContent-Type: application/json\n\n{\"name\":\"test\"}")
@@ -395,7 +420,7 @@ mod tests {
             credential.sign_request_v2(
                 Method::GET,
                 "http://upload.qiniup.com/",
-                Some("application/x-www-form-urlencoded"),
+                &form_headers,
                 Some(b"name=test&language=go")
             )?,
             credential.sign(b"GET /\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
@@ -404,7 +429,7 @@ mod tests {
             credential.sign_request_v2(
                 Method::GET,
                 "http://upload.qiniup.com/?v=2",
-                Some("application/x-www-form-urlencoded"),
+                &form_headers,
                 Some(b"name=test&language=go")
             )?,
             credential.sign(b"GET /?v=2\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
@@ -413,7 +438,7 @@ mod tests {
             credential.sign_request_v2(
                 Method::GET,
                 "http://upload.qiniup.com/find/sdk?v=2",
-                Some("application/x-www-form-urlencoded"),
+                &form_headers,
                 Some(b"name=test&language=go")
             )?,
             credential.sign(b"GET /find/sdk?v=2\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
