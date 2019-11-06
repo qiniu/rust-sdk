@@ -6,6 +6,7 @@ use qiniu_http::{
 };
 use serde::de::DeserializeOwned;
 use std::{fmt, io, net::IpAddr};
+use tap::TapOptionOps;
 
 #[derive(CopyGetters, Getters)]
 pub(crate) struct Response<'a> {
@@ -54,9 +55,9 @@ impl<'a> Response<'a> {
     }
 
     pub(crate) fn ignore_body(&mut self) {
-        if let Some(r) = self.take_body().as_mut() {
-            io::copy(r, &mut io::sink()).ok(); // Ignore read result
-        }
+        self.take_body().as_mut().tap_some(|r| {
+            let _ = io::copy(r, &mut io::sink()); // Ignore read result
+        });
     }
 }
 

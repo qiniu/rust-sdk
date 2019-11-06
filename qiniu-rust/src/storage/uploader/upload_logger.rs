@@ -81,7 +81,7 @@ impl UploadLogger {
     fn async_upload_log_buffer_and_clean(&self) {
         let upload_logger = self.clone();
         spawn(move || {
-            upload_logger.upload_log_buffer_and_clean().ok();
+            let _ = upload_logger.upload_log_buffer_and_clean();
         });
     }
 
@@ -123,7 +123,7 @@ impl UploadLogger {
 impl Drop for UploadLogger {
     fn drop(&mut self) {
         if self.log_buffer_len() > 0 {
-            self.upload_log_buffer_and_clean().ok();
+            let _ = self.upload_log_buffer_and_clean();
         }
     }
 }

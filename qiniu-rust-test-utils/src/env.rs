@@ -13,7 +13,7 @@ pub struct Env {
 
 pub fn get() -> Env {
     INIT.call_once(|| {
-        dotenv::dotenv().ok();
+        let _ = dotenv::dotenv();
     });
     Env {
         access_key: env::var("access_key").expect("access_key must be set"),

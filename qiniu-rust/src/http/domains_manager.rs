@@ -368,10 +368,10 @@ impl DomainsManager {
     }
 
     fn persistent_without_lock(&self) -> Option<persistent_error::Result<()>> {
-        if let Some(persistent_file_path) = &self.inner.persistent_file_path {
-            return Some(self.inner.inner_data.save_to_file(persistent_file_path));
-        }
-        None
+        self.inner
+            .persistent_file_path
+            .as_ref()
+            .map(|persistent_file_path| self.inner.inner_data.save_to_file(persistent_file_path))
     }
 
     pub fn choose<'a>(&self, base_urls: &'a [&'a str]) -> resolve_error::Result<Vec<Choice<'a>>> {

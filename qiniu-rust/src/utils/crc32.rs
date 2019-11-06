@@ -5,6 +5,7 @@ use std::{
     io::{copy, sink, Read, Result},
     path::Path,
 };
+use tap::TapResultOps;
 
 #[derive(CopyGetters)]
 pub struct Reader<'io, IO>
@@ -32,9 +33,7 @@ where
     IO: Read + 'io,
 {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        // TODO: Think about async read
-        let result = self.io.read(buf);
-        if let Ok(have_read) = result {
+        self.io.read(buf).tap_ok(|&mut have_read| {
             if !buf.is_empty() {
                 if have_read > 0 {
                     self.have_read += have_read;
@@ -43,8 +42,7 @@ where
                     self.crc32 = Some(self.digest.sum32());
                 }
             }
-        }
-        result
+        })
     }
 }
 

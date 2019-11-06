@@ -200,24 +200,21 @@ pub extern "C" fn qiniu_ng_err_curl_error_extract(err: *const qiniu_ng_err, code
 
 impl From<&io::Error> for qiniu_ng_err {
     fn from(err: &io::Error) -> Self {
-        if let Some(raw_os_error) = err.raw_os_error() {
-            qiniu_ng_err(ErrorCode::OsError(raw_os_error))
-        } else {
-            qiniu_ng_err(ErrorCode::IoError(IoErrorKind::from(err.kind()).to_i32().unwrap()))
-        }
+        qiniu_ng_err(err.raw_os_error().map_or_else(
+            || ErrorCode::IoError(IoErrorKind::from(err.kind()).to_i32().unwrap()),
+            ErrorCode::OsError,
+        ))
     }
 }
 
 impl From<&HTTPError> for qiniu_ng_err {
     fn from(err: &HTTPError) -> Self {
         match err.error_kind() {
-            HTTPErrorKind::HTTPCallerError(e) => {
-                if let Some(e) = e.inner().downcast_ref::<curl::Error>() {
-                    qiniu_ng_err(ErrorCode::CurlError(e.code()))
-                } else {
-                    qiniu_ng_err(ErrorCode::UnknownError)
-                }
-            }
+            HTTPErrorKind::HTTPCallerError(e) => qiniu_ng_err(
+                e.inner()
+                    .downcast_ref::<curl::Error>()
+                    .map_or(ErrorCode::UnknownError, |e| ErrorCode::CurlError(e.code())),
+            ),
             HTTPErrorKind::JSONError(_) => qiniu_ng_err(ErrorCode::JSONError),
             HTTPErrorKind::MaliciousResponse => qiniu_ng_err(ErrorCode::UnknownError),
             HTTPErrorKind::UnexpectedRedirect => qiniu_ng_err(ErrorCode::UnexpectedRedirectError),

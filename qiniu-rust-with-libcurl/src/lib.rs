@@ -181,11 +181,10 @@ impl CurlClient {
     }
 
     fn set_body<T>(&self, easy: &mut Easy2<T>, request: &Request) -> Result<()> {
-        if let Some(body) = request.body() {
-            Self::handle_if_err(easy.post_field_size(body.len().try_into().unwrap()), request)
-        } else {
-            Ok(())
-        }
+        request
+            .body()
+            .map(|body| Self::handle_if_err(easy.post_field_size(body.len().try_into().unwrap()), request))
+            .unwrap_or(Ok(()))
     }
 
     fn set_options<T>(&self, easy: &mut Easy2<T>, request: &Request) -> Result<()> {
@@ -368,14 +367,9 @@ impl<'r> Handler for Context<'r> {
     }
 
     fn read(&mut self, data: &mut [u8]) -> result::Result<usize, ReadError> {
-        if let Some(request_body) = &mut self.request_body {
-            match request_body.read(data) {
-                Ok(have_read) => Ok(have_read),
-                Err(_) => Err(ReadError::Abort),
-            }
-        } else {
-            Ok(0)
-        }
+        self.request_body.as_mut().map_or(Ok(0), |request_body| {
+            request_body.read(data).map_err(|_| ReadError::Abort)
+        })
     }
 
     fn seek(&mut self, whence: SeekFrom) -> SeekResult {

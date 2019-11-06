@@ -32,6 +32,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
+use tap::{TapOptionOps, TapResultOps};
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -351,7 +352,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         authorization: &str,
     ) -> HTTPResult<UploadResult> {
         let upload_id = self.init_parts(&base_path, up_urls, &authorization)?;
-        let recorder = if let Some(file_path) = self.file_path.as_ref() {
+        let recorder = self.file_path.as_ref().and_then(|file_path| {
             self.bucket_uploader
                 .recorder()
                 .open_and_write_metadata(
@@ -361,9 +362,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                     up_urls,
                 )
                 .ok()
-        } else {
-            None
-        };
+        });
         self.start_uploading_blocks(
             0,
             up_urls,
@@ -451,14 +450,13 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         });
 
         match io_status_manager.result() {
-            IOStatusResult::Success => self.complete_parts(base_path, up_urls, authorization).map(|result| {
-                if let Some(file_path) = self.file_path.as_ref() {
-                    self.bucket_uploader
+            IOStatusResult::Success => self.complete_parts(base_path, up_urls, authorization).tap_ok(|_| {
+                self.file_path.as_ref().tap_some(|file_path| {
+                    let _ = self
+                        .bucket_uploader
                         .recorder()
-                        .drop(file_path, self.key.as_ref().map(|key| key.as_ref()))
-                        .ok();
-                }
-                result
+                        .drop(file_path, self.key.as_ref().map(|key| key.as_ref()));
+                })
             }),
             IOStatusResult::IOError(err) => Err(HTTPError::new_unretryable_error_from_parts(
                 HTTPErrorKind::IOError(err),

@@ -6,6 +6,7 @@ use std::{
     option::Option,
     path::Path,
 };
+use tap::TapResultOps;
 
 pub const BLOCK_SIZE: usize = 1 << 22;
 pub const ETAG_SIZE: usize = 28;
@@ -115,9 +116,7 @@ where
     IO: Read,
 {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        // TODO: Think about async read
-        let result = self.io.read(buf);
-        if let Ok(have_read) = result {
+        self.io.read(buf).tap_ok(|&mut have_read| {
             if !buf.is_empty() {
                 if have_read > 0 {
                     self.have_read += have_read;
@@ -128,8 +127,7 @@ where
                     self.etag = Some(String::from_utf8(etag).unwrap());
                 }
             }
-        }
-        result
+        })
     }
 }
 
