@@ -5,7 +5,7 @@ use crate::{
     utils::{make_string, make_string_list, qiniu_ng_string_list_t, qiniu_ng_string_t},
 };
 use libc::{c_char, c_void};
-use qiniu::{
+use qiniu_ng::{
     storage::{bucket::Bucket, region::Region},
     Client,
 };

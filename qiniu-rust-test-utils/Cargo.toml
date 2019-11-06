@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-test-utils"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"
 license = "Apache-2.0"
@@ -19,4 +19,4 @@ rand = "0.7.2"
 base64 = "0.10.1"
 rand_core = "0.5.1"
 
-qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }
+qiniu-http = { version = "0.0.1", path = "../qiniu-rust-http" }

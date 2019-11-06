@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests {
     use chrono::offset::Utc;
-    use qiniu::{
+    use qiniu_http::ErrorKind as HTTPErrorKind;
+    use qiniu_ng::{
         storage::{upload_policy::UploadPolicyBuilder, uploader::UploadErrorKind},
         utils::etag,
         Client, Config, ConfigBuilder, Credential,
     };
-    use qiniu_http::ErrorKind as HTTPErrorKind;
     use qiniu_test_utils::{env, temp_file::create_temp_file};
     use serde_json::json;
     use std::{

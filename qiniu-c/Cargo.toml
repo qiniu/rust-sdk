@@ -1,6 +1,6 @@
 [package]
-name = "qiniu-ng"
-version = "0.1.0"
+name = "qiniu-ng-c"
+version = "0.0.1"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"
 license = "Apache-2.0"
@@ -12,8 +12,8 @@ build = "build.rs"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
-qiniu = { version = "0.1.0", path = "../qiniu-rust", features = ["use-libcurl"] }
-qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }
+qiniu-ng = { version = "0.0.1", path = "../qiniu-rust", features = ["use-libcurl"] }
+qiniu-http = { version = "0.0.1", path = "../qiniu-rust-http" }
 curl = { version = "0.4.25", features = ["http2"] }
 curl-sys = "0.4.23"
 rust-crypto = "0.2.36"

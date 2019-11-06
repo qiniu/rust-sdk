@@ -4,7 +4,7 @@ use super::{
 };
 use crypto::digest::Digest;
 use libc::{c_char, c_void, size_t};
-use qiniu::utils::etag;
+use qiniu_ng::utils::etag;
 use std::{mem::transmute, slice};
 
 pub const ETAG_SIZE: usize = 28;

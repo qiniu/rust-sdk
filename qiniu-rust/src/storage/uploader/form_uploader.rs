@@ -4,8 +4,8 @@ use super::{
 };
 use crate::utils::crc32;
 use mime::Mime;
-use multipart::client::lazy::Multipart;
 use qiniu_http::{Error as HTTPError, Result as HTTPResult, RetryKind};
+use qiniu_multipart::client::lazy::Multipart;
 use serde_json::Value;
 use std::{
     borrow::Cow,

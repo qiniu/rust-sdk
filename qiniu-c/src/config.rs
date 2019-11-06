@@ -1,5 +1,5 @@
 use libc::{c_ulonglong, size_t};
-use qiniu::config::{Config, ConfigBuilder, ConfigInner};
+use qiniu_ng::config::{Config, ConfigBuilder, ConfigInner};
 use std::time::Duration;
 
 #[repr(C)]

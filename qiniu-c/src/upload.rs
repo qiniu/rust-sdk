@@ -1,6 +1,6 @@
 use crate::config::qiniu_ng_config_t;
 use libc::c_void;
-use qiniu::storage::uploader::UploadManager;
+use qiniu_ng::storage::uploader::UploadManager;
 use std::mem::transmute;
 
 #[repr(C)]

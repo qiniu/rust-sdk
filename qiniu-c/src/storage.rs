@@ -5,7 +5,7 @@ use crate::{
     utils::{make_string_list, qiniu_ng_string_list_t},
 };
 use libc::c_char;
-use qiniu::Client;
+use qiniu_ng::Client;
 use std::ffi::CStr;
 
 #[no_mangle]

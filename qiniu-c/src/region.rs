@@ -4,7 +4,7 @@ use crate::{
     utils::{make_string, make_string_list, qiniu_ng_string_list_t, qiniu_ng_string_t},
 };
 use libc::{c_char, c_void, size_t};
-use qiniu::storage::region::{Region, RegionId};
+use qiniu_ng::storage::region::{Region, RegionId};
 use std::{ffi::CStr, mem::transmute};
 use tap::TapOps;
 

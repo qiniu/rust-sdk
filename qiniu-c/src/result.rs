@@ -3,6 +3,7 @@ use libc::{c_char, c_int, c_ushort, strerror};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind};
+use qiniu_ng::storage::manager::{Error as StorageError, ErrorKind as StorageErrorKind};
 use std::{ffi::CStr, io};
 
 #[repr(C)]
@@ -229,13 +230,11 @@ impl From<&HTTPError> for qiniu_ng_err {
     }
 }
 
-impl From<&qiniu::storage::manager::Error> for qiniu_ng_err {
-    fn from(err: &qiniu::storage::manager::Error) -> Self {
+impl From<&StorageError> for qiniu_ng_err {
+    fn from(err: &StorageError) -> Self {
         match err.kind() {
-            qiniu::storage::manager::ErrorKind::CannotDropNonEmptyBucket => {
-                qiniu_ng_err(ErrorCode::CannotDropNonEmptyBucket)
-            }
-            qiniu::storage::manager::ErrorKind::HTTPError(e) => e.into(),
+            StorageErrorKind::CannotDropNonEmptyBucket => qiniu_ng_err(ErrorCode::CannotDropNonEmptyBucket),
+            StorageErrorKind::HTTPError(e) => e.into(),
             _ => qiniu_ng_err(ErrorCode::UnknownError),
         }
     }

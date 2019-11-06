@@ -1,6 +1,6 @@
 [package]
-name = "qiniu"
-version = "0.1.0"
+name = "qiniu-ng"
+version = "0.0.1"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"
 license = "Apache-2.0"
@@ -26,7 +26,7 @@ lazy_static = "1.4.0"
 maplit = "1.0.2"
 delegate = "0.3.0"
 once_cell = "1.2"
-multipart = { git = "https://github.com/bachue/multipart.git", version = "0.16.1", features = ["client"], default-features = false }
+qiniu-multipart = { version = "0.16.2", features = ["client"] }
 mime = "0.3.14"
 mime_guess = "2.0.1"
 rand = "0.7.2"
@@ -34,11 +34,11 @@ tempfile = "3.1.0"
 rayon = "1.2.0"
 assert-impl = "0.1.3"
 
-qiniu-with-libcurl = { version = "0.1.0", path = "../qiniu-rust-with-libcurl", optional = true }
-qiniu-http = { version = "0.1.0", path = "../qiniu-rust-http" }
+qiniu-with-libcurl = { version = "0.0.1", path = "../qiniu-rust-with-libcurl", optional = true }
+qiniu-http = { version = "0.0.1", path = "../qiniu-rust-http" }
 
 [dev-dependencies]
-qiniu-test-utils = { version = "0.1.0", path = "../qiniu-rust-test-utils" }
+qiniu-test-utils = { version = "0.0.1", path = "../qiniu-rust-test-utils" }
 regex = "1"
 
 [features]

@@ -1,6 +1,6 @@
 use crate::{config::qiniu_ng_config_t, upload::qiniu_ng_upload_manager_t};
 use libc::{c_char, c_void};
-use qiniu::Client;
+use qiniu_ng::Client;
 use std::{ffi::CStr, mem::transmute};
 use tap::TapOps;
 
