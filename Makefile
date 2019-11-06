@@ -18,5 +18,10 @@ test:
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir test; \
 	done
+publish:
+	set -e; \
+	for dir in qiniu-rust-http qiniu-rust-with-libcurl qiniu-rust-test-utils qiniu-rust; do \
+		(cd $$dir && cargo publish); \
+	done
 
 .PHONY: all build clean test $(SUBDIRS)
