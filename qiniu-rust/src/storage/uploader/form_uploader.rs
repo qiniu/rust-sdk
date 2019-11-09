@@ -1,7 +1,4 @@
-use super::{
-    super::upload_token::Result as UploadTokenParseResult, upload_response_callback, BucketUploader, UpType,
-    UploadLogger, UploadLoggerRecordBuilder, UploadResult,
-};
+use super::{upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerRecordBuilder, UploadResult};
 use crate::utils::crc32;
 use mime::Mime;
 use qiniu_http::{Error as HTTPError, Result as HTTPResult, RetryKind};
@@ -29,10 +26,7 @@ pub(super) struct FormUploader<'u> {
 }
 
 impl<'u> FormUploaderBuilder<'u> {
-    pub(super) fn new(
-        bucket_uploader: &'u BucketUploader,
-        upload_token: &'u str,
-    ) -> UploadTokenParseResult<FormUploaderBuilder<'u>> {
+    pub(super) fn new(bucket_uploader: &'u BucketUploader, upload_token: &'u str) -> FormUploaderBuilder<'u> {
         let mut uploader = FormUploaderBuilder {
             bucket_uploader,
             multipart: Multipart::new(),
@@ -42,7 +36,7 @@ impl<'u> FormUploaderBuilder<'u> {
                 .map(|builder| builder.upload_token(upload_token.into())),
         };
         uploader.multipart.add_text("token", upload_token);
-        Ok(uploader)
+        uploader
     }
 
     pub(super) fn key(mut self, key: Cow<'u, str>) -> FormUploaderBuilder<'u> {
@@ -223,7 +217,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
         let result = BucketUploaderBuilder::new(
             "test-bucket".into(),
             vec![
@@ -233,7 +227,7 @@ mod tests {
             .into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
@@ -253,7 +247,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
             vec![
@@ -263,7 +257,7 @@ mod tests {
             .into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
@@ -282,7 +276,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
             vec![
@@ -292,7 +286,7 @@ mod tests {
             .into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
@@ -311,7 +305,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
             vec![
@@ -321,7 +315,7 @@ mod tests {
             .into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
@@ -341,7 +335,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
             vec![
@@ -351,7 +345,7 @@ mod tests {
             .into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
@@ -371,7 +365,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
             vec![
@@ -381,7 +375,7 @@ mod tests {
             .into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")

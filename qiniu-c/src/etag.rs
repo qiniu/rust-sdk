@@ -1,7 +1,4 @@
-use super::{
-    result::qiniu_ng_err,
-    utils::{make_path_buf, write_string_to_ptr},
-};
+use super::{result::qiniu_ng_err, utils::make_path_buf};
 use crypto::digest::Digest;
 use libc::{c_char, c_void, size_t};
 use qiniu_ng::utils::etag;
@@ -16,7 +13,7 @@ pub extern "C" fn qiniu_ng_etag_from_file_path(
     result_ptr: *mut c_char,
     error: *mut qiniu_ng_err,
 ) -> bool {
-    match etag::from_file(make_path_buf(unsafe { transmute(path) }, path_len)) {
+    match etag::from_file(make_path_buf(path, path_len)) {
         Ok(etag_string) => {
             write_string_to_ptr(&etag_string, result_ptr);
             true
@@ -33,7 +30,7 @@ pub extern "C" fn qiniu_ng_etag_from_file_path(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_from_buffer(buffer: *const c_char, buffer_len: size_t, result: *mut c_char) {
     write_string_to_ptr(
-        unsafe { &etag::from_bytes(slice::from_raw_parts(transmute(buffer), buffer_len)) },
+        unsafe { &etag::from_bytes(slice::from_raw_parts(buffer.cast(), buffer_len)) },
         result,
     );
 }
@@ -59,16 +56,16 @@ pub extern "C" fn qiniu_ng_etag_new() -> qiniu_ng_etag_t {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_etag_update(etag: qiniu_ng_etag_t, data: *mut c_void, data_len: size_t) {
+pub extern "C" fn qiniu_ng_etag_update(etag: qiniu_ng_etag_t, data: *mut c_char, data_len: size_t) {
     let mut etag: Box<etag::Etag> = etag.into();
-    etag.input(unsafe { slice::from_raw_parts(transmute(data), data_len) });
+    etag.input(unsafe { slice::from_raw_parts(data.cast(), data_len) });
     let _: qiniu_ng_etag_t = etag.into();
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_result(etag: qiniu_ng_etag_t, result_ptr: *mut c_char) {
     let mut etag: Box<etag::Etag> = etag.into();
-    etag.result(unsafe { slice::from_raw_parts_mut(transmute(result_ptr), ETAG_SIZE) });
+    etag.result(unsafe { slice::from_raw_parts_mut(result_ptr.cast(), ETAG_SIZE) });
     let _: qiniu_ng_etag_t = etag.into();
 }
 
@@ -82,4 +79,10 @@ pub extern "C" fn qiniu_ng_etag_reset(etag: qiniu_ng_etag_t) {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_free(etag: qiniu_ng_etag_t) {
     let _: Box<etag::Etag> = etag.into();
+}
+
+fn write_string_to_ptr(src: &str, dst: *mut c_char) {
+    unsafe {
+        dst.copy_from_nonoverlapping(src.as_ptr().cast(), src.len());
+    }
 }

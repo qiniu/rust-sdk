@@ -21,6 +21,7 @@ libc = "0.2.60"
 cfg-if = "0.1"
 num-traits = "0.2"
 num-derive = "0.2"
+once_cell = "1.2.0"
 tap = "0.4.0"
 
 [build-dependencies]

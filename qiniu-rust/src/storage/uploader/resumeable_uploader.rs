@@ -1,5 +1,4 @@
 use super::{
-    super::upload_token::Result as UploadTokenParseResult,
     io_status_manager::{IOStatusManager, Result as IOStatusResult},
     upload_recorder::{FileUploadRecordMedium, FileUploadRecordMediumBlockItem, FileUploadRecordMediumMetadata},
     upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerRecordBuilder, UploadResult,
@@ -109,8 +108,8 @@ impl<'u> ResumeableUploaderBuilder<'u> {
     pub(super) fn new(
         bucket_uploader: &'u BucketUploader,
         upload_token: Cow<'u, str>,
-    ) -> UploadTokenParseResult<ResumeableUploaderBuilder<'u>> {
-        Ok(ResumeableUploaderBuilder {
+    ) -> ResumeableUploaderBuilder<'u> {
+        ResumeableUploaderBuilder {
             bucket_uploader,
             upload_token: upload_token.clone(),
             key: None,
@@ -121,7 +120,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             upload_logger: bucket_uploader
                 .upload_logger_builder()
                 .map(|builder| builder.upload_token(upload_token.into_owned().into())),
-        })
+        }
     }
 
     pub(super) fn thread_pool_or_referenced(
@@ -846,13 +845,13 @@ mod tests {
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
@@ -947,13 +946,13 @@ mod tests {
             .http_request_retries(100)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
@@ -1072,13 +1071,13 @@ mod tests {
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into()].into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
@@ -1185,7 +1184,7 @@ mod tests {
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![
@@ -1195,7 +1194,7 @@ mod tests {
             .into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
@@ -1336,7 +1335,7 @@ mod tests {
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![
@@ -1346,7 +1345,7 @@ mod tests {
             .into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
@@ -1443,7 +1442,7 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build()?;
         let upload_token = UploadToken::from_policy(
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
+            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build(),
             get_credential(),
         );
 
@@ -1452,7 +1451,7 @@ mod tests {
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config.clone(),
             None,
-        )?
+        )
         .build()
         .upload_token(upload_token.clone())
         .key("test-key")
@@ -1464,7 +1463,7 @@ mod tests {
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(upload_token)
         .key("test-key")
@@ -1587,7 +1586,7 @@ mod tests {
             .build()?;
 
         let upload_token = UploadToken::from_policy(
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
+            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build(),
             get_credential(),
         );
 
@@ -1596,7 +1595,7 @@ mod tests {
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config.clone(),
             None,
-        )?
+        )
         .build()
         .upload_token(upload_token.clone())
         .key("test-key")
@@ -1608,7 +1607,7 @@ mod tests {
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config,
             None,
-        )?
+        )
         .build()
         .upload_token(upload_token)
         .key("test-key")

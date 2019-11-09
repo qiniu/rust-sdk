@@ -7,7 +7,6 @@ use crate::{
     config::Config,
     credential::Credential,
     http::{Client, Token},
-    utils::base64,
 };
 use assert_impl::assert_impl;
 use error_chain::error_chain;
@@ -49,10 +48,7 @@ impl StorageManager {
     pub fn create_bucket(&self, bucket: impl AsRef<str>, region_id: RegionId) -> HTTPResult<()> {
         self.http_client
             .post(
-                &("/mkbucketv2/".to_owned()
-                    + &base64::urlsafe(bucket.as_ref().as_bytes())
-                    + "/region/"
-                    + region_id.as_str()),
+                &("/mkbucketv3/".to_owned() + bucket.as_ref() + "/region/" + region_id.as_str()),
                 &[self.rs_url],
             )
             .token(Token::V1(self.credential.borrow().into()))

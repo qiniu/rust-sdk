@@ -2,11 +2,11 @@ use crate::{
     client::qiniu_ng_client_t,
     region::qiniu_ng_region_id_t,
     result::qiniu_ng_err,
-    utils::{make_string_list, qiniu_ng_string_list_t},
+    utils::{convert_c_char_to_string, make_string_list, qiniu_ng_string_list_t},
 };
 use libc::c_char;
 use qiniu_ng::Client;
-use std::ffi::CStr;
+use tap::TapOps;
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_storage_bucket_names(
@@ -15,9 +15,9 @@ pub extern "C" fn qiniu_ng_storage_bucket_names(
     error: *mut qiniu_ng_err,
 ) -> bool {
     let client: Box<Client> = client.into();
-    let names_result = client.storage().bucket_names();
-    let _: qiniu_ng_client_t = client.into();
-    match names_result {
+    match client.storage().bucket_names().tap(|_| {
+        let _: qiniu_ng_client_t = client.into();
+    }) {
         Ok(bucket_names) => {
             if !names.is_null() {
                 unsafe { *names = make_string_list(&bucket_names) };
@@ -41,10 +41,10 @@ pub extern "C" fn qiniu_ng_storage_create_bucket(
     error: *mut qiniu_ng_err,
 ) -> bool {
     let client: Box<Client> = client.into();
-    let bucket_name = unsafe { CStr::from_ptr(bucket_name).to_string_lossy() };
-    let result = client.storage().create_bucket(bucket_name, region_id.into());
-    let _: qiniu_ng_client_t = client.into();
-    match result {
+    let bucket_name = convert_c_char_to_string(bucket_name.cast());
+    match client.storage().create_bucket(bucket_name, region_id.into()).tap(|_| {
+        let _: qiniu_ng_client_t = client.into();
+    }) {
         Ok(_) => true,
         Err(err) => {
             if !error.is_null() {
@@ -62,10 +62,10 @@ pub extern "C" fn qiniu_ng_storage_drop_bucket(
     error: *mut qiniu_ng_err,
 ) -> bool {
     let client: Box<Client> = client.into();
-    let bucket_name = unsafe { CStr::from_ptr(bucket_name).to_string_lossy() };
-    let result = client.storage().drop_bucket(bucket_name);
-    let _: qiniu_ng_client_t = client.into();
-    match result {
+    let bucket_name = convert_c_char_to_string(bucket_name.cast());
+    match client.storage().drop_bucket(bucket_name).tap(|_| {
+        let _: qiniu_ng_client_t = client.into();
+    }) {
         Ok(_) => true,
         Err(err) => {
             if !error.is_null() {

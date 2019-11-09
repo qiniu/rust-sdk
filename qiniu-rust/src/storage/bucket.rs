@@ -6,7 +6,7 @@ use crate::{credential::Credential, http::Client};
 use assert_impl::assert_impl;
 use once_cell::sync::OnceCell;
 use qiniu_http::Result;
-use std::{borrow::Cow, io::Result as IOResult, iter::Iterator};
+use std::{borrow::Cow, iter::Iterator};
 
 pub struct Bucket<'r> {
     name: Cow<'r, str>,
@@ -156,7 +156,7 @@ impl<'r> Bucket<'r> {
         Ok(domains.iter().map(|domain| domain.as_ref()).collect())
     }
 
-    pub fn uploader(&self) -> IOResult<BucketUploaderBuilder> {
+    pub fn uploader(&self) -> BucketUploaderBuilder {
         self.upload_manager.for_bucket(self)
     }
 

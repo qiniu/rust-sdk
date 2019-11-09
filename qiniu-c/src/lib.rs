@@ -6,4 +6,5 @@ mod region;
 mod result;
 mod storage;
 mod upload;
+mod upload_token;
 mod utils;

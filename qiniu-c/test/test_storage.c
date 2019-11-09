@@ -31,8 +31,9 @@ void test_qiniu_ng_storage_bucket_create_and_drop(void) {
     env_load("..", false);
     qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), &config);
 
-    const char *new_bucket_name = "test-qiniu-c";
-    qiniu_ng_storage_drop_bucket(client, new_bucket_name, NULL); // TRY TO DROP THE BUCKET FIRST
+    const char buf[40];
+    sprintf((char *) buf, "test-qiniu-c-%lu", (unsigned long) time(NULL));
+    const char *new_bucket_name = (const char *) buf;
 
     qiniu_ng_err err;
     TEST_ASSERT_TRUE(qiniu_ng_storage_create_bucket(client, new_bucket_name, Z1, &err));

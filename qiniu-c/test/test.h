@@ -14,3 +14,4 @@ void test_qiniu_ng_storage_bucket_create_and_drop(void);
 void test_qiniu_ng_bucket_name(void);
 void test_qiniu_ng_bucket_region(void);
 void test_qiniu_ng_bucket_regions(void);
+void test_qiniu_ng_make_upload_token(void);

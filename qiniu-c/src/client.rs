@@ -1,7 +1,7 @@
-use crate::{config::qiniu_ng_config_t, upload::qiniu_ng_upload_manager_t};
+use crate::{config::qiniu_ng_config_t, upload::qiniu_ng_upload_manager_t, utils::convert_c_char_to_string};
 use libc::{c_char, c_void};
 use qiniu_ng::Client;
-use std::{ffi::CStr, mem::transmute};
+use std::mem::transmute;
 use tap::TapOps;
 
 #[repr(C)]
@@ -26,8 +26,8 @@ pub extern "C" fn qiniu_ng_client_new(
     config: *const qiniu_ng_config_t,
 ) -> qiniu_ng_client_t {
     Box::new(Client::new(
-        unsafe { CStr::from_ptr(access_key).to_string_lossy() },
-        unsafe { CStr::from_ptr(secret_key).to_string_lossy() },
+        convert_c_char_to_string(access_key),
+        convert_c_char_to_string(secret_key),
         unsafe { config.as_ref() }.unwrap().into(),
     ))
     .into()

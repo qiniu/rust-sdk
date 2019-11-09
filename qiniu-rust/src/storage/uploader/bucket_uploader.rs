@@ -1,8 +1,5 @@
 use super::{
-    super::{
-        upload_policy::UploadPolicy,
-        upload_token::{Error as UploadTokenError, ErrorKind as UploadTokenErrorKind, UploadToken},
-    },
+    super::{upload_policy::UploadPolicy, upload_token::UploadToken},
     form_uploader::FormUploaderBuilder,
     resumeable_uploader::{ResumeableUploader, ResumeableUploaderBuilder},
     upload_recorder::UploadRecorder,
@@ -18,14 +15,14 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fs::File,
-    io::{Error as IOError, Read, Result as IOResult},
+    io::{Error as IOError, Read},
     path::Path,
     sync::Arc,
 };
 
 #[derive(Getters)]
 #[get = "pub(super)"]
-struct BucketUploaderInner {
+pub struct BucketUploaderInner {
     bucket_name: Box<str>,
     up_urls_list: Box<[Box<[Box<str>]>]>,
     http_client: Client,
@@ -70,9 +67,9 @@ impl BucketUploaderBuilder {
         up_urls_list: Box<[Box<[Box<str>]>]>,
         config: Config,
         upload_logger_builder: Option<UploadLoggerBuilder>,
-    ) -> IOResult<BucketUploaderBuilder> {
+    ) -> BucketUploaderBuilder {
         assert!(!up_urls_list.is_empty());
-        Ok(BucketUploaderBuilder {
+        BucketUploaderBuilder {
             inner: BucketUploaderInner {
                 bucket_name,
                 up_urls_list,
@@ -81,7 +78,7 @@ impl BucketUploaderBuilder {
                 thread_pool: None,
                 upload_logger_builder,
             },
-        })
+        }
     }
 
     pub fn thread_pool_size(mut self, num_threads: usize) -> BucketUploaderBuilder {
@@ -103,7 +100,7 @@ impl BucketUploaderBuilder {
 }
 
 impl BucketUploader {
-    pub fn upload_token<'b, T: Into<UploadToken<'b>>>(&'b self, upload_token: T) -> FileUploaderBuilder<'b> {
+    pub fn upload_token<'b>(&'b self, upload_token: impl Into<UploadToken<'b>>) -> FileUploaderBuilder<'b> {
         FileUploaderBuilder::new(Ron::Referenced(self), upload_token.into().token().into())
     }
 
@@ -116,6 +113,16 @@ impl BucketUploader {
             Ron::Referenced(self),
             UploadToken::from_policy(upload_policy, credential).token().into(),
         )
+    }
+
+    pub unsafe fn from_raw(ptr: *const BucketUploaderInner) -> BucketUploader {
+        BucketUploader {
+            inner: Arc::from_raw(ptr),
+        }
+    }
+
+    pub fn into_raw(self) -> *const BucketUploaderInner {
+        Arc::into_raw(self.inner)
     }
 
     #[allow(dead_code)]
@@ -168,12 +175,12 @@ impl<'b> FileUploaderBuilder<'b> {
         self
     }
 
-    pub fn key<K: Into<Cow<'b, str>>>(mut self, key: K) -> FileUploaderBuilder<'b> {
+    pub fn key(mut self, key: impl Into<Cow<'b, str>>) -> FileUploaderBuilder<'b> {
         self.key = Some(key.into());
         self
     }
 
-    pub fn var<K: Into<Cow<'b, str>>, V: Into<Cow<'b, str>>>(mut self, key: K, value: V) -> FileUploaderBuilder<'b> {
+    pub fn var(mut self, key: impl Into<Cow<'b, str>>, value: impl Into<Cow<'b, str>>) -> FileUploaderBuilder<'b> {
         if let Some(vars) = &mut self.vars {
             vars.insert(key.into(), value.into());
         } else {
@@ -184,11 +191,7 @@ impl<'b> FileUploaderBuilder<'b> {
         self
     }
 
-    pub fn metadata<K: Into<Cow<'b, str>>, V: Into<Cow<'b, str>>>(
-        mut self,
-        key: K,
-        value: V,
-    ) -> FileUploaderBuilder<'b> {
+    pub fn metadata(mut self, key: impl Into<Cow<'b, str>>, value: impl Into<Cow<'b, str>>) -> FileUploaderBuilder<'b> {
         if let Some(metadata) = &mut self.metadata {
             metadata.insert(key.into(), value.into());
         } else {
@@ -232,10 +235,10 @@ impl<'b> FileUploaderBuilder<'b> {
         self
     }
 
-    pub fn upload_file<'n, P: AsRef<Path>, N: Into<Cow<'n, str>>>(
+    pub fn upload_file<'n>(
         self,
-        file_path: P,
-        file_name: Option<N>,
+        file_path: impl AsRef<Path>,
+        file_name: Option<impl Into<Cow<'n, str>>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
         let file_path = file_path.as_ref();
@@ -253,10 +256,10 @@ impl<'b> FileUploaderBuilder<'b> {
         }
     }
 
-    pub fn upload_stream<'n, R: Read + Send + Sync, N: Into<Cow<'n, str>>>(
+    pub fn upload_stream<'n>(
         self,
-        stream: R,
-        file_name: Option<N>,
+        stream: impl Read + Send + Sync,
+        file_name: Option<impl Into<Cow<'n, str>>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
         let file_name = file_name.map(|file_name| file_name.into());
@@ -274,7 +277,7 @@ impl<'b> FileUploaderBuilder<'b> {
         file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
-        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
+        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token);
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }
@@ -307,7 +310,7 @@ impl<'b> FileUploaderBuilder<'b> {
         file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
-        let mut uploader = ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)?;
+        let mut uploader = ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token);
         if let Some(key) = &self.key {
             uploader = uploader.key(key.to_owned());
         }
@@ -358,7 +361,7 @@ impl<'b> FileUploaderBuilder<'b> {
         file_name: Option<Cow<str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
-        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token)?;
+        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token);
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }
@@ -391,7 +394,7 @@ impl<'b> FileUploaderBuilder<'b> {
         file_name: Option<Cow<str>>,
         mime: Option<Mime>,
     ) -> Result<UploadResult> {
-        let mut uploader = ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)?;
+        let mut uploader = ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token);
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }
@@ -436,10 +439,6 @@ impl<'b> FileUploaderBuilder<'b> {
 }
 
 error_chain! {
-    links {
-        InvalidUploadToken(UploadTokenError, UploadTokenErrorKind);
-    }
-
     foreign_links {
         IOError(IOError);
         QiniuError(qiniu_http::Error);

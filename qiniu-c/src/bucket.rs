@@ -2,14 +2,14 @@ use crate::{
     client::qiniu_ng_client_t,
     region::{qiniu_ng_region_t, qiniu_ng_regions_t},
     result::qiniu_ng_err,
-    utils::{make_string, make_string_list, qiniu_ng_string_list_t, qiniu_ng_string_t},
+    utils::{convert_c_char_to_string, make_string, make_string_list, qiniu_ng_string_list_t, qiniu_ng_string_t},
 };
 use libc::{c_char, c_void};
 use qiniu_ng::{
     storage::{bucket::Bucket, region::Region},
     Client,
 };
-use std::{ffi::CStr, mem::transmute};
+use std::mem::transmute;
 use tap::TapOps;
 
 #[repr(C)]
@@ -30,10 +30,11 @@ impl<'r> From<Box<Bucket<'r>>> for qiniu_ng_bucket_t {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket(client: qiniu_ng_client_t, bucket_name: *const c_char) -> qiniu_ng_bucket_t {
     let client: Box<Client> = client.into();
-    let bucket_name = unsafe { CStr::from_ptr(bucket_name).to_string_lossy() };
+    let bucket_name = convert_c_char_to_string(bucket_name);
     let bucket: qiniu_ng_bucket_t = Box::new(client.storage().bucket(bucket_name).build()).into();
-    let _: qiniu_ng_client_t = client.into();
-    bucket
+    bucket.tap(|_| {
+        let _: qiniu_ng_client_t = client.into();
+    })
 }
 
 #[no_mangle]
@@ -56,9 +57,9 @@ pub extern "C" fn qiniu_ng_bucket_region(
     error: *mut qiniu_ng_err,
 ) -> bool {
     let bucket: Box<Bucket> = bucket.into();
-    let region_query_result = bucket.region().map(|region| Box::new(region.to_owned()));
-    let _: qiniu_ng_bucket_t = bucket.into();
-    match region_query_result {
+    match bucket.region().map(|region| Box::new(region.to_owned())).tap(|_| {
+        let _: qiniu_ng_bucket_t = bucket.into();
+    }) {
         Ok(r) => {
             if !region.is_null() {
                 unsafe { *region = r.into() };
@@ -81,11 +82,12 @@ pub extern "C" fn qiniu_ng_bucket_regions(
     error: *mut qiniu_ng_err,
 ) -> bool {
     let bucket: Box<Bucket> = bucket.into();
-    let regions_query_result = bucket
+    match bucket
         .regions()
-        .map(|iter| iter.map(|r| r.to_owned()).collect::<Box<[Region]>>());
-    let _: qiniu_ng_bucket_t = bucket.into();
-    match regions_query_result {
+        .map(|iter| iter.map(|r| r.to_owned()).collect::<Box<[Region]>>())
+        .tap(|_| {
+            let _: qiniu_ng_bucket_t = bucket.into();
+        }) {
         Ok(r) => {
             if !regions.is_null() {
                 unsafe { *regions = r.into() };
@@ -108,9 +110,9 @@ pub extern "C" fn qiniu_ng_bucket_domains(
     error: *mut qiniu_ng_err,
 ) -> bool {
     let bucket: Box<Bucket> = bucket.into();
-    let domains_query_result = bucket.domains().map(|domains| make_string_list(&domains));
-    let _: qiniu_ng_bucket_t = bucket.into();
-    match domains_query_result {
+    match bucket.domains().map(|domains| make_string_list(&domains)).tap(|_| {
+        let _: qiniu_ng_bucket_t = bucket.into();
+    }) {
         Ok(ds) => {
             if !domains.is_null() {
                 unsafe { *domains = ds };

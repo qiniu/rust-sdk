@@ -297,7 +297,7 @@ mod tests {
             .build()?;
         let upload_logger = UploadLoggerBuilder::new(config.clone()).unwrap().upload_token(
             UploadToken::from_policy(
-                UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
+                UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build(),
                 get_credential(),
             )
             .token()
@@ -351,7 +351,7 @@ mod tests {
             .build()?;
         let upload_logger = UploadLoggerBuilder::new(config.clone()).unwrap().upload_token(
             UploadToken::from_policy(
-                UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
+                UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build(),
                 get_credential(),
             )
             .token()

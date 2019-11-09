@@ -23,6 +23,7 @@ int main(void) {
     RUN_TEST(test_qiniu_ng_bucket_name);
     RUN_TEST(test_qiniu_ng_bucket_region);
     RUN_TEST(test_qiniu_ng_bucket_regions);
+    RUN_TEST(test_qiniu_ng_make_upload_token);
     return UNITY_END();
 }
 

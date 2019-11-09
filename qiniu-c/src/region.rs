@@ -1,7 +1,7 @@
 use crate::{
     config::qiniu_ng_config_t,
     result::qiniu_ng_err,
-    utils::{make_string, make_string_list, qiniu_ng_string_list_t, qiniu_ng_string_t},
+    utils::{convert_c_char_to_string, make_string, make_string_list, qiniu_ng_string_list_t, qiniu_ng_string_t},
 };
 use libc::{c_char, c_void, size_t};
 use qiniu_ng::storage::region::{Region, RegionId};
@@ -85,9 +85,9 @@ pub extern "C" fn qiniu_ng_region_get_region_id(
     region_id: *mut qiniu_ng_region_id_t,
 ) -> bool {
     let region: Box<Region> = region.into();
-    let rid = region.region_id();
-    let _: qiniu_ng_region_t = region.into();
-    match rid {
+    match region.region_id().tap(|_| {
+        let _: qiniu_ng_region_t = region.into();
+    }) {
         Some(rid) => {
             if !region_id.is_null() {
                 unsafe { *region_id = rid.into() };
@@ -147,8 +147,8 @@ pub extern "C" fn qiniu_ng_region_query(
     error: *mut qiniu_ng_err,
 ) -> bool {
     match Region::query(
-        unsafe { CStr::from_ptr(bucket_name).to_string_lossy() },
-        unsafe { CStr::from_ptr(access_key).to_string_lossy() },
+        convert_c_char_to_string(bucket_name),
+        convert_c_char_to_string(access_key),
         unsafe { config.as_ref() }.unwrap().into(),
     ) {
         Ok(r) => {

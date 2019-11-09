@@ -1,6 +1,13 @@
 use cfg_if::cfg_if;
 use libc::{c_char, c_void, size_t};
-use std::{boxed::Box, ffi::CString, mem::transmute, path::PathBuf, slice};
+use std::{
+    borrow::Cow,
+    boxed::Box,
+    ffi::{CStr, CString},
+    mem::transmute,
+    path::PathBuf,
+    slice,
+};
 use tap::TapOps;
 
 #[repr(C)]
@@ -85,30 +92,46 @@ pub extern "C" fn qiniu_ng_string_list_free(strlist: qiniu_ng_string_list_t) {
     let _: Box<[CString]> = strlist.into();
 }
 
-pub(crate) fn write_string_to_ptr(src: &str, dst: *mut c_char) {
-    unsafe {
-        dst.copy_from_nonoverlapping(transmute(src.as_ptr()), src.len());
-    }
-}
-
 cfg_if! {
     if #[cfg(unix)] {
         use std::ffi::OsStr;
         use std::os::unix::ffi::OsStrExt;
-
-        pub fn make_path_buf(path: *const u8, path_len: size_t) -> PathBuf {
-            let buf = unsafe { slice::from_raw_parts(path, path_len) };
+        pub(crate) fn make_path_buf(path: *const c_char, path_len: size_t) -> PathBuf {
+            let buf = unsafe { slice::from_raw_parts(path.cast(), path_len) };
             PathBuf::from(OsStr::from_bytes(buf))
         }
     } else if #[cfg(windows)] {
         use std::ffi::OsStr;
         use std::os::windows::ffi::OsStrExt;
-
-        pub fn make_path_buf(path: *const u8, path_len: size_t) -> PathBuf {
-            let buf = unsafe { slice::from_raw_parts(path, path_len) };
+        pub(crate) fn make_path_buf(path: *const c_char, path_len: size_t) -> PathBuf {
+            let buf = unsafe { slice::from_raw_parts(path.cast(), path_len) };
             PathBuf::from(OsStr::from_wide(buf))
         }
     } else {
         panic!("Unsupported platform");
     }
+}
+
+pub(crate) fn convert_c_char_pointer_to_boxed_cstr(p: *const c_char) -> Option<Box<CStr>> {
+    if p.is_null() {
+        None
+    } else {
+        Some(unsafe { CStr::from_ptr(p) }.into())
+    }
+}
+
+pub(crate) fn convert_c_char_to_string<'a>(p: *const c_char) -> Cow<'a, str> {
+    unsafe { CStr::from_ptr(p) }.to_string_lossy()
+}
+
+pub(crate) fn convert_str_to_boxed_cstr(s: &str) -> Box<CStr> {
+    let mut v = vec![0u8; s.len() + 1];
+    v[..s.len()].copy_from_slice(s.as_bytes());
+    unsafe { CString::from_vec_unchecked(v) }.into()
+}
+
+pub(crate) fn convert_string_to_boxed_cstr(s: String) -> Box<CStr> {
+    let mut b = s.into_bytes();
+    b.push(0);
+    unsafe { CString::from_vec_unchecked(b) }.into()
 }
