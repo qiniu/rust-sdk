@@ -40,11 +40,8 @@ mod tests {
             .unwrap_err();
 
         if let UploadError::QiniuError(e) = err {
-            match e.error_kind() {
-                HTTPErrorKind::UnexpectedRedirect => {
-                    return Ok(());
-                }
-                _ => {}
+            if let HTTPErrorKind::UnexpectedRedirect = e.error_kind() {
+                return Ok(());
             }
         }
         panic!();
