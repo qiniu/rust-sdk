@@ -3,11 +3,10 @@ use super::{
     form_uploader::FormUploaderBuilder,
     resumeable_uploader::{ResumeableUploader, ResumeableUploaderBuilder},
     upload_recorder::UploadRecorder,
-    UploadLoggerBuilder, UploadResult,
+    UploadLoggerBuilder, UploadResponse,
 };
 use crate::{config::Config, credential::Credential, http::Client, utils::ron::Ron};
 use assert_impl::assert_impl;
-use error_chain::error_chain;
 use getset::Getters;
 use mime::Mime;
 use rayon::{ThreadPool, ThreadPoolBuilder};
@@ -15,10 +14,11 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fs::File,
-    io::{Error as IOError, Read},
+    io::{Error as IOError, Read, Result as IOResult},
     path::Path,
     sync::Arc,
 };
+use thiserror::Error;
 
 #[derive(Getters)]
 #[get = "pub(super)"]
@@ -240,7 +240,7 @@ impl<'b> FileUploaderBuilder<'b> {
         file_path: impl AsRef<Path>,
         file_name: Option<impl Into<Cow<'n, str>>>,
         mime: Option<Mime>,
-    ) -> Result<UploadResult> {
+    ) -> UploadResult {
         let file_path = file_path.as_ref();
         let file_name = file_name.map(|file_name| file_name.into());
         match self.resumeable_policy {
@@ -261,7 +261,7 @@ impl<'b> FileUploaderBuilder<'b> {
         stream: impl Read + Send + Sync,
         file_name: Option<impl Into<Cow<'n, str>>>,
         mime: Option<Mime>,
-    ) -> Result<UploadResult> {
+    ) -> UploadResult {
         let file_name = file_name.map(|file_name| file_name.into());
         match self.resumeable_policy {
             ResumeablePolicy::Threshold(_) | ResumeablePolicy::Always => {
@@ -276,7 +276,7 @@ impl<'b> FileUploaderBuilder<'b> {
         file_path: &Path,
         file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
-    ) -> Result<UploadResult> {
+    ) -> UploadResult {
         let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token);
         if let Some(key) = self.key {
             uploader = uploader.key(key);
@@ -309,7 +309,7 @@ impl<'b> FileUploaderBuilder<'b> {
         file_path: &Path,
         file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
-    ) -> Result<UploadResult> {
+    ) -> UploadResult {
         let mut uploader = ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token);
         if let Some(key) = &self.key {
             uploader = uploader.key(key.to_owned());
@@ -348,7 +348,7 @@ impl<'b> FileUploaderBuilder<'b> {
         recorder: &UploadRecorder,
         uploader: &mut ResumeableUploader<'_, File>,
         file_path: &Path,
-    ) -> Result<()> {
+    ) -> IOResult<()> {
         if let Some((file_record, block_records)) = recorder.load(file_path, key)? {
             uploader.prepare_for_resuming(file_record, block_records, recorder.open_for_appending(file_path, key)?);
         }
@@ -360,7 +360,7 @@ impl<'b> FileUploaderBuilder<'b> {
         stream: R,
         file_name: Option<Cow<str>>,
         mime: Option<Mime>,
-    ) -> Result<UploadResult> {
+    ) -> UploadResult {
         let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token);
         if let Some(key) = self.key {
             uploader = uploader.key(key);
@@ -393,7 +393,7 @@ impl<'b> FileUploaderBuilder<'b> {
         stream: R,
         file_name: Option<Cow<str>>,
         mime: Option<Mime>,
-    ) -> Result<UploadResult> {
+    ) -> UploadResult {
         let mut uploader = ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token);
         if let Some(key) = self.key {
             uploader = uploader.key(key);
@@ -438,9 +438,11 @@ impl<'b> FileUploaderBuilder<'b> {
     }
 }
 
-error_chain! {
-    foreign_links {
-        IOError(IOError);
-        QiniuError(qiniu_http::Error);
-    }
+#[derive(Error, Debug)]
+pub enum UploadError {
+    #[error("Failed to do local io operation during uploading: {0}")]
+    IOError(#[from] IOError),
+    #[error("Qiniu API call error: {0}")]
+    QiniuError(#[from] qiniu_http::Error),
 }
+pub type UploadResult = Result<UploadResponse, UploadError>;

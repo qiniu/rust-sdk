@@ -9,9 +9,12 @@ use crate::{
     http::{Client, Token},
 };
 use assert_impl::assert_impl;
-use error_chain::error_chain;
 use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult};
-use std::borrow::{Borrow, Cow};
+use std::{
+    borrow::{Borrow, Cow},
+    result::Result,
+};
+use thiserror::Error;
 
 #[derive(Clone)]
 pub struct StorageManager {
@@ -58,7 +61,7 @@ impl StorageManager {
         Ok(())
     }
 
-    pub fn drop_bucket(&self, bucket: impl AsRef<str>) -> Result<()> {
+    pub fn drop_bucket(&self, bucket: impl AsRef<str>) -> DropBucketResult<()> {
         match self
             .http_client
             .post(&("/drop/".to_owned() + bucket.as_ref()), &[self.rs_url])
@@ -73,7 +76,7 @@ impl StorageManager {
             Err(err) => {
                 if let HTTPErrorKind::ResponseStatusCodeError(403, message) = err.error_kind() {
                     if message.contains("drop non empty bucket is not allowed") {
-                        return Err(ErrorKind::CannotDropNonEmptyBucket.into());
+                        return Err(DropBucketError::CannotDropNonEmptyBucket);
                     }
                 }
                 Err(err.into())
@@ -96,15 +99,12 @@ impl StorageManager {
     }
 }
 
-error_chain! {
-    foreign_links {
-        HTTPError(HTTPError);
-    }
-
-    errors {
-        CannotDropNonEmptyBucket {
-            description("Drop non empty bucket is not allowed")
-            display("Drop non empty bucket is not allowed")
-        }
-    }
+#[derive(Error, Debug)]
+pub enum DropBucketError {
+    #[error("Qiniu API call error: {0}")]
+    HTTPError(#[from] HTTPError),
+    #[error("Drop non empty bucket is not allowed")]
+    CannotDropNonEmptyBucket,
 }
+
+pub type DropBucketResult<T> = Result<T, DropBucketError>;

@@ -1,7 +1,7 @@
 use super::upload_policy::UploadPolicy;
 use crate::{credential::Credential, utils::base64};
-use error_chain::error_chain;
-use std::{borrow::Cow, convert::From, fmt};
+use std::{borrow::Cow, convert::From, fmt, result::Result};
+use thiserror::Error;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum UploadToken<'p> {
@@ -19,23 +19,28 @@ impl<'p> UploadToken<'p> {
         UploadToken::Policy(policy, credential.into())
     }
 
-    pub fn access_key(&self) -> Result<&str> {
+    pub fn access_key(&self) -> UploadTokenParseResult<&str> {
         match self {
             UploadToken::Token(token) => token
                 .find(':')
                 .map(|i| token.split_at(i).0)
-                .ok_or_else(|| ErrorKind::InvalidUploadTokenFormat.into()),
+                .ok_or_else(|| UploadTokenParseError::InvalidUploadTokenFormat),
             UploadToken::Policy(_, credential) => Ok(credential.access_key()),
         }
     }
 
-    pub fn policy<'a>(&'a self) -> Result<Cow<'a, UploadPolicy<'p>>> {
+    pub fn policy<'a>(&'a self) -> UploadTokenParseResult<Cow<'a, UploadPolicy<'p>>> {
         match self {
             UploadToken::Token(token) => {
-                let encoded_policy = token.splitn(3, ':').last().ok_or(ErrorKind::InvalidUploadTokenFormat)?;
-                let decoded_policy = base64::decode(encoded_policy.as_bytes()).map_err(ErrorKind::Base64DecodeError)?;
+                let encoded_policy = token
+                    .splitn(3, ':')
+                    .last()
+                    .ok_or(UploadTokenParseError::InvalidUploadTokenFormat)?;
+                let decoded_policy =
+                    base64::decode(encoded_policy.as_bytes()).map_err(UploadTokenParseError::Base64DecodeError)?;
                 Ok(Cow::Owned(
-                    UploadPolicy::from_json_slice_owned(&decoded_policy).map_err(ErrorKind::JSONDecodeError)?,
+                    UploadPolicy::from_json_slice_owned(&decoded_policy)
+                        .map_err(UploadTokenParseError::JSONDecodeError)?,
                 ))
             }
             UploadToken::Policy(policy, _) => Ok(Cow::Borrowed(policy)),
@@ -77,22 +82,17 @@ impl<'p> From<UploadToken<'p>> for String {
     }
 }
 
-error_chain! {
-    errors {
-        InvalidUploadTokenFormat {
-            description("Invalid upload token format")
-            display("Invalid upload token format")
-        }
-        Base64DecodeError(err: base64::DecodeError) {
-            description("Base64 decode error")
-            display("Base64 decode error: {}", err)
-        }
-        JSONDecodeError(err: serde_json::Error) {
-            description("JSON decode error")
-            display("JSON decode error: {}", err)
-        }
-    }
+#[derive(Error, Debug)]
+pub enum UploadTokenParseError {
+    #[error("Invalid upload token format")]
+    InvalidUploadTokenFormat,
+    #[error("Base64 decode error: {0}")]
+    Base64DecodeError(#[from] base64::DecodeError),
+    #[error("JSON decode error: {0}")]
+    JSONDecodeError(#[from] serde_json::Error),
 }
+
+pub type UploadTokenParseResult<T> = Result<T, UploadTokenParseError>;
 
 #[cfg(test)]
 mod tests {

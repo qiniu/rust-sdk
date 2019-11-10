@@ -1,4 +1,6 @@
-use super::{upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerRecordBuilder, UploadResult};
+use super::{
+    upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerRecordBuilder, UploadResponse,
+};
 use crate::utils::crc32;
 use mime::Mime;
 use qiniu_http::{Error as HTTPError, Result as HTTPResult, RetryKind};
@@ -117,7 +119,7 @@ impl<'u> FormUploaderBuilder<'u> {
 }
 
 impl<'u> FormUploader<'u> {
-    pub(super) fn send(&self) -> HTTPResult<UploadResult> {
+    pub(super) fn send(&self) -> HTTPResult<UploadResponse> {
         let mut prev_err: Option<HTTPError> = None;
         for up_urls in self.bucket_uploader.up_urls_list().iter() {
             match self.send_form_request(&up_urls.iter().map(|url| url.as_ref()).collect::<Box<[&str]>>()) {
@@ -138,7 +140,7 @@ impl<'u> FormUploader<'u> {
         Err(prev_err.expect("FormUploader::send() should try at lease once, but not"))
     }
 
-    fn send_form_request(&self, up_urls: &[&str]) -> HTTPResult<UploadResult> {
+    fn send_form_request(&self, up_urls: &[&str]) -> HTTPResult<UploadResponse> {
         let value: Value = self
             .bucket_uploader
             .http_client()

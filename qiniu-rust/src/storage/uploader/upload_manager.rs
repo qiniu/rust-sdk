@@ -1,10 +1,16 @@
 use super::{
-    super::{bucket::Bucket, region::Region, upload_policy::UploadPolicy, upload_token::UploadToken},
+    super::{
+        bucket::Bucket,
+        region::Region,
+        upload_policy::UploadPolicy,
+        upload_token::{UploadToken, UploadTokenParseError},
+    },
     BucketUploaderBuilder, FileUploaderBuilder, UploadLoggerBuilder,
 };
 use crate::{config::Config, credential::Credential, utils::ron::Ron};
 use assert_impl::assert_impl;
-use std::borrow::Cow;
+use std::{borrow::Cow, io::Error as IOError, result::Result};
+use thiserror::Error;
 
 #[derive(Clone)]
 pub struct UploadManager {
@@ -83,7 +89,7 @@ impl UploadManager {
     pub fn for_upload_token<'u>(
         &self,
         upload_token: impl Into<UploadToken<'u>>,
-    ) -> error::Result<FileUploaderBuilder<'u>> {
+    ) -> CreateUploaderResult<FileUploaderBuilder<'u>> {
         let upload_token = upload_token.into();
         let access_key = upload_token.access_key()?;
         let policy = upload_token.policy()?;
@@ -93,7 +99,7 @@ impl UploadManager {
                 upload_token.token().into(),
             ))
         } else {
-            Err(error::ErrorKind::BucketIsMissingInUploadToken.into())
+            Err(CreateUploaderError::BucketIsMissingInUploadToken)
         }
     }
 
@@ -101,7 +107,7 @@ impl UploadManager {
         &self,
         upload_policy: UploadPolicy<'u>,
         credential: Cow<'u, Credential>,
-    ) -> error::Result<FileUploaderBuilder<'u>> {
+    ) -> CreateUploaderResult<FileUploaderBuilder<'u>> {
         self.for_upload_token(UploadToken::from_policy(upload_policy, credential))
     }
 
@@ -112,26 +118,16 @@ impl UploadManager {
     }
 }
 
-pub mod error {
-    use super::super::super::upload_token;
-    use error_chain::error_chain;
-    use std::io::Error as IOError;
-
-    error_chain! {
-        links {
-            UploadTokenParseError(upload_token::Error, upload_token::ErrorKind);
-        }
-
-        foreign_links {
-            QiniuAPIError(qiniu_http::Error);
-            IOError(IOError);
-        }
-
-        errors {
-            BucketIsMissingInUploadToken {
-                description("bucket is missing in upload token")
-                display("bucket is missing in upload token")
-            }
-        }
-    }
+#[derive(Error, Debug)]
+pub enum CreateUploaderError {
+    #[error("Failed to parse upload token: {0}")]
+    UploadTokenParseError(#[from] UploadTokenParseError),
+    #[error("Qiniu API call error: {0}")]
+    QiniuAPIError(#[from] qiniu_http::Error),
+    #[error("Failed to do local io operation during uploading: {0}")]
+    IOError(#[from] IOError),
+    #[error("Bucket is missing in upload token")]
+    BucketIsMissingInUploadToken,
 }
+
+pub type CreateUploaderResult<T> = Result<T, CreateUploaderError>;

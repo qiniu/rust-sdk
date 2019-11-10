@@ -1,7 +1,7 @@
 use super::{
     io_status_manager::{IOStatusManager, Result as IOStatusResult},
     upload_recorder::{FileUploadRecordMedium, FileUploadRecordMediumBlockItem, FileUploadRecordMediumMetadata},
-    upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerRecordBuilder, UploadResult,
+    upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerRecordBuilder, UploadResponse,
 };
 use crate::{
     http::Client,
@@ -261,7 +261,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
 }
 
 impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
-    pub(super) fn send(&mut self) -> HTTPResult<UploadResult> {
+    pub(super) fn send(&mut self) -> HTTPResult<UploadResponse> {
         let base_path = self.make_base_path();
         let authorization = self.make_authorization();
         if let Ok(Some(result)) = self.try_to_resume(&base_path, &authorization) {
@@ -301,7 +301,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         up_urls: &[&str],
         base_path: &str,
         authorization: &str,
-    ) -> HTTPResult<UploadResult> {
+    ) -> HTTPResult<UploadResponse> {
         if self.is_seekable {
             self.io
                 .seek(SeekFrom::Start(0))
@@ -349,7 +349,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         up_urls: &[&str],
         base_path: &str,
         authorization: &str,
-    ) -> HTTPResult<UploadResult> {
+    ) -> HTTPResult<UploadResponse> {
         let upload_id = self.init_parts(&base_path, up_urls, &authorization)?;
         let recorder = self.file_path.as_ref().and_then(|file_path| {
             self.bucket_uploader
@@ -378,7 +378,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         base_path: &str,
         authorization: &str,
         upload_recorder: Option<FileUploadRecordMedium>,
-    ) -> HTTPResult<UploadResult> {
+    ) -> HTTPResult<UploadResponse> {
         let io_status_manager = IOStatusManager::new(&mut self.io);
         let part_number_counter = AtomicUsize::new(part_number);
         let thread_pool_size = self.thread_pool.current_num_threads();
@@ -606,7 +606,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         Ok(result.etag)
     }
 
-    fn complete_parts(&self, path: &str, up_urls: &[&str], authorization: &str) -> HTTPResult<UploadResult> {
+    fn complete_parts(&self, path: &str, up_urls: &[&str], authorization: &str) -> HTTPResult<UploadResponse> {
         let mut completed_parts = self.completed_parts.lock().unwrap();
         completed_parts.parts.sort_unstable_by_key(|part| part.part_number);
         let value: Value = self
@@ -653,7 +653,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         Ok(value.into())
     }
 
-    fn try_to_resume(&mut self, base_path: &str, authorization: &str) -> HTTPResult<Option<UploadResult>> {
+    fn try_to_resume(&mut self, base_path: &str, authorization: &str) -> HTTPResult<Option<UploadResponse>> {
         if let Some(from_resuming) = self.from_resuming.take() {
             self.io
                 .seek(SeekFrom::Start(from_resuming.io_offset))

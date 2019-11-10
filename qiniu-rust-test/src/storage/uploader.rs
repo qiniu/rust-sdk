@@ -3,7 +3,7 @@ mod tests {
     use chrono::offset::Utc;
     use qiniu_http::ErrorKind as HTTPErrorKind;
     use qiniu_ng::{
-        storage::{upload_policy::UploadPolicyBuilder, uploader::UploadErrorKind},
+        storage::{upload_policy::UploadPolicyBuilder, uploader::UploadError},
         utils::etag,
         Client, Config, ConfigBuilder, Credential,
     };
@@ -39,7 +39,7 @@ mod tests {
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))
             .unwrap_err();
 
-        if let UploadErrorKind::QiniuError(e) = err.kind() {
+        if let UploadError::QiniuError(e) = err {
             match e.error_kind() {
                 HTTPErrorKind::UnexpectedRedirect => {
                     return Ok(());
@@ -82,7 +82,7 @@ mod tests {
         // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
 
         let key = format!("test-512k-{}", Utc::now().timestamp_nanos());
-        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &Config::default())
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, Config::default().upload_block_lifetime())
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
         let last_uploaded = AtomicUsize::new(0);

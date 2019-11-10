@@ -3,10 +3,7 @@ use libc::{c_char, c_int, c_ushort, strerror};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind};
-use qiniu_ng::storage::{
-    manager::{Error as StorageError, ErrorKind as StorageErrorKind},
-    upload_token::{Error as UploadTokenError, ErrorKind as UploadTokenErrorKind},
-};
+use qiniu_ng::storage::{manager::DropBucketError, upload_token::UploadTokenParseError};
 use std::{ffi::CStr, io};
 
 #[repr(C)]
@@ -15,7 +12,6 @@ pub enum QiniuNgInvalidUploadTokenCode {
     InvalidUploadTokenFormat = 1,
     Base64DecodeError,
     JSONDecodeError,
-    UnknownError,
 }
 
 #[repr(C)]
@@ -272,25 +268,23 @@ impl From<&HTTPError> for qiniu_ng_err {
     }
 }
 
-impl From<&StorageError> for qiniu_ng_err {
-    fn from(err: &StorageError) -> Self {
-        match err.kind() {
-            StorageErrorKind::CannotDropNonEmptyBucket => {
+impl From<&DropBucketError> for qiniu_ng_err {
+    fn from(err: &DropBucketError) -> Self {
+        match err {
+            DropBucketError::CannotDropNonEmptyBucket => {
                 qiniu_ng_err(qiniu_ng_err_code::QiniuNgCannotDropNonEmptyBucket)
             }
-            StorageErrorKind::HTTPError(e) => e.into(),
-            _ => qiniu_ng_err(qiniu_ng_err_code::QiniuNgUnknownError),
+            DropBucketError::HTTPError(e) => e.into(),
         }
     }
 }
 
-impl From<&UploadTokenError> for qiniu_ng_err {
-    fn from(err: &UploadTokenError) -> Self {
-        qiniu_ng_err(qiniu_ng_err_code::QiniuNgInvalidUploadToken(match err.kind() {
-            UploadTokenErrorKind::InvalidUploadTokenFormat => QiniuNgInvalidUploadTokenCode::InvalidUploadTokenFormat,
-            UploadTokenErrorKind::Base64DecodeError(_) => QiniuNgInvalidUploadTokenCode::Base64DecodeError,
-            UploadTokenErrorKind::JSONDecodeError(_) => QiniuNgInvalidUploadTokenCode::JSONDecodeError,
-            _ => QiniuNgInvalidUploadTokenCode::UnknownError,
+impl From<&UploadTokenParseError> for qiniu_ng_err {
+    fn from(err: &UploadTokenParseError) -> Self {
+        qiniu_ng_err(qiniu_ng_err_code::QiniuNgInvalidUploadToken(match err {
+            UploadTokenParseError::InvalidUploadTokenFormat => QiniuNgInvalidUploadTokenCode::InvalidUploadTokenFormat,
+            UploadTokenParseError::Base64DecodeError(_) => QiniuNgInvalidUploadTokenCode::Base64DecodeError,
+            UploadTokenParseError::JSONDecodeError(_) => QiniuNgInvalidUploadTokenCode::JSONDecodeError,
         }))
     }
 }

@@ -10,7 +10,7 @@ use once_cell::sync::OnceCell;
 use qiniu_ng::{
     storage::{
         upload_policy::{UploadPolicy as QiniuUploadPolicy, UploadPolicyBuilder as QiniuUploadPolicyBuilder},
-        upload_token::{Result as QiniuUploadTokenResult, UploadToken as QiniuUploadToken},
+        upload_token::{UploadToken as QiniuUploadToken, UploadTokenParseResult as QiniuUploadTokenParseResult},
     },
     Credential,
 };
@@ -381,8 +381,8 @@ impl UploadToken {
         })
     }
 
-    fn get_upload_policy(&self) -> QiniuUploadTokenResult<&UploadPolicy> {
-        let upload_policy_with_params: QiniuUploadTokenResult<&UploadPolicyWithParams> =
+    fn get_upload_policy(&self) -> QiniuUploadTokenParseResult<&UploadPolicy> {
+        let upload_policy_with_params: QiniuUploadTokenParseResult<&UploadPolicyWithParams> =
             self.upload_policy_with_params.get_or_try_init(|| {
                 let policy: UploadPolicy =
                     QiniuUploadToken::from_token(self.upload_token.get().unwrap().to_string_lossy())

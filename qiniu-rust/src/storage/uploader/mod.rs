@@ -6,12 +6,10 @@ mod resumeable_uploader;
 mod upload_logger;
 mod upload_manager;
 mod upload_recorder;
-mod upload_result;
+mod upload_response;
 
-pub use bucket_uploader::{
-    BucketUploader, BucketUploaderBuilder, Error as UploadError, ErrorKind as UploadErrorKind, FileUploaderBuilder,
-};
+pub use bucket_uploader::{BucketUploader, BucketUploaderBuilder, FileUploaderBuilder, UploadError, UploadResult};
 use callback::upload_response_callback;
 use upload_logger::{UpType, UploadLogger, UploadLoggerBuilder, UploadLoggerRecordBuilder};
-pub use upload_manager::{error, UploadManager};
-pub use upload_result::UploadResult;
+pub use upload_manager::{CreateUploaderError, CreateUploaderResult, UploadManager};
+pub use upload_response::UploadResponse;

@@ -9,6 +9,7 @@ use std::{
     cell::RefCell,
     env,
     fs::{File, OpenOptions},
+    io::Error as IOError,
     mem::drop,
     net::{SocketAddr, ToSocketAddrs},
     path::{Path, PathBuf},
@@ -16,6 +17,7 @@ use std::{
     thread::{sleep, spawn},
     time::{Duration, Instant, SystemTime},
 };
+use thiserror::Error;
 use url::Url;
 
 #[derive(Debug, Clone)]
@@ -80,12 +82,12 @@ struct PersistentResolutions {
 }
 
 impl DomainsManagerInnerData {
-    fn load_from_file(path: &Path) -> persistent_error::Result<Self> {
+    fn load_from_file(path: &Path) -> PersistentResult<Self> {
         let persistent: PersistentDomainsManager = serde_json::from_reader(File::open(path)?)?;
         Ok(persistent.into())
     }
 
-    fn save_to_file(&self, path: &Path) -> persistent_error::Result<()> {
+    fn save_to_file(&self, path: &Path) -> PersistentResult<()> {
         let persistent: PersistentDomainsManager = self.to_owned().into();
         serde_json::to_writer(
             OpenOptions::new().write(true).truncate(true).create(true).open(path)?,
@@ -288,9 +290,7 @@ impl DomainsManagerBuilder {
         urls
     }
 
-    pub fn load_from_file<P: Into<PathBuf>>(
-        persistent_file_path: P,
-    ) -> persistent_error::Result<DomainsManagerBuilder> {
+    pub fn load_from_file<P: Into<PathBuf>>(persistent_file_path: P) -> PersistentResult<DomainsManagerBuilder> {
         let persistent_file_path = persistent_file_path.into();
         let inner_data = DomainsManagerInnerData::load_from_file(&persistent_file_path)?;
         Ok(DomainsManagerBuilder {
@@ -349,7 +349,7 @@ pub struct DomainsManager {
 }
 
 impl DomainsManager {
-    pub fn persistent(&self) -> Option<persistent_error::Result<()>> {
+    pub fn persistent(&self) -> Option<PersistentResult<()>> {
         let result = self.persistent_without_lock();
         if let Some(Ok(_)) = result {
             *self.inner.last_persistent_time.lock().unwrap() = Instant::now();
@@ -367,14 +367,14 @@ impl DomainsManager {
         }
     }
 
-    fn persistent_without_lock(&self) -> Option<persistent_error::Result<()>> {
+    fn persistent_without_lock(&self) -> Option<PersistentResult<()>> {
         self.inner
             .persistent_file_path
             .as_ref()
             .map(|persistent_file_path| self.inner.inner_data.save_to_file(persistent_file_path))
     }
 
-    pub fn choose<'a>(&self, base_urls: &'a [&'a str]) -> resolve_error::Result<Vec<Choice<'a>>> {
+    pub fn choose<'a>(&self, base_urls: &'a [&'a str]) -> ResolveResult<Vec<Choice<'a>>> {
         let mut rng = rand::thread_rng();
         assert!(!base_urls.is_empty());
         let mut choices = Vec::<Choice>::with_capacity(base_urls.len());
@@ -406,7 +406,7 @@ impl DomainsManager {
         Ok(choices)
     }
 
-    pub fn freeze_url(&self, url: &str) -> url_parse_error::Result<()> {
+    pub fn freeze_url(&self, url: &str) -> URLParseResult<()> {
         self.inner.inner_data.frozen_urls.insert(
             Self::host_with_port(url)?,
             SystemTime::now() + self.inner.inner_data.url_frozen_duration,
@@ -420,7 +420,7 @@ impl DomainsManager {
         self.try_to_persistent_if_needed();
     }
 
-    pub fn is_frozen_url(&self, url: &str) -> url_parse_error::Result<bool> {
+    pub fn is_frozen_url(&self, url: &str) -> URLParseResult<bool> {
         let url = Self::host_with_port(url)?;
         match self.inner.inner_data.frozen_urls.get(&url) {
             Some(unfreeze_time) => {
@@ -453,7 +453,7 @@ impl DomainsManager {
             .map(|socket_addrs| Choice { base_url, socket_addrs })
     }
 
-    fn resolve(&self, url: &str) -> resolve_error::Result<Box<[SocketAddr]>> {
+    fn resolve(&self, url: &str) -> ResolveResult<Box<[SocketAddr]>> {
         let url = Self::host_with_port(url)?;
         match self.inner.inner_data.resolutions.get(&url) {
             Some(resolution) => {
@@ -468,8 +468,8 @@ impl DomainsManager {
         }
     }
 
-    fn resolve_and_update_cache(&self, url: &str) -> resolve_error::Result<Box<[SocketAddr]>> {
-        let mut result: Option<resolve_error::Result<Box<[SocketAddr]>>> = None;
+    fn resolve_and_update_cache(&self, url: &str) -> ResolveResult<Box<[SocketAddr]>> {
+        let mut result: Option<ResolveResult<Box<[SocketAddr]>>> = None;
         self.inner
             .inner_data
             .resolutions
@@ -505,20 +505,20 @@ impl DomainsManager {
         result.unwrap()
     }
 
-    fn make_resolution(&self, url: &str) -> resolve_error::Result<CachedResolutions> {
+    fn make_resolution(&self, url: &str) -> ResolveResult<CachedResolutions> {
         Ok(CachedResolutions {
             socket_addrs: url.to_socket_addrs()?.collect::<Box<[_]>>().clone(),
             cache_deadline: SystemTime::now() + self.inner.inner_data.resolutions_cache_lifetime,
         })
     }
 
-    fn host_with_port(url: &str) -> url_parse_error::Result<Box<str>> {
+    fn host_with_port(url: &str) -> URLParseResult<Box<str>> {
         let parsed_url = Url::parse(&url)?;
-        parsed_url
-            .host_str()
-            .map(|host| host.to_owned() + ":" + &parsed_url.port_or_known_default().unwrap().to_string())
-            .map(|host_with_port| Ok(host_with_port.into()))
-            .unwrap_or_else(|| Err(url_parse_error::ErrorKind::InvalidURL(url.into()).into()))
+
+        match (parsed_url.host_str(), parsed_url.port_or_known_default()) {
+            (Some(host), Some(port)) => Ok((host.to_owned() + ":" + &port.to_string()).into()),
+            _ => Err(URLParseError::InvalidURL { url: url.into() }),
+        }
     }
 
     fn async_resolve_urls(&self, urls: Vec<Cow<'static, str>>) {
@@ -597,52 +597,35 @@ pub struct Choice<'a> {
     pub socket_addrs: Box<[SocketAddr]>,
 }
 
-pub mod url_parse_error {
-    use error_chain::error_chain;
-    use url::ParseError as URLParseError;
-
-    error_chain! {
-        errors {
-            InvalidURL(url: String) {
-                description("Invalid url")
-                display("Invalid url: {}", url)
-            }
-        }
-
-        foreign_links {
-            URLParseError(URLParseError);
-        }
-    }
+#[derive(Error, Debug)]
+pub enum URLParseError {
+    #[error("Invalid url: {url}")]
+    InvalidURL { url: String },
+    #[error("URL parse error: {0}")]
+    URLParseError(#[from] url::ParseError),
 }
 
-pub mod resolve_error {
-    use super::url_parse_error;
-    use error_chain::error_chain;
-    use std::io::Error as IOError;
+pub type URLParseResult<T> = Result<T, URLParseError>;
 
-    error_chain! {
-        links {
-            URLParseError(url_parse_error::Error, url_parse_error::ErrorKind);
-        }
-
-        foreign_links {
-            ResolveError(IOError);
-        }
-    }
+#[derive(Error, Debug)]
+pub enum ResolveError {
+    #[error("URL Parse error: {0}")]
+    URLParseError(#[from] URLParseError),
+    #[error("Resolve URL error: {0}")]
+    ResolveError(#[from] IOError),
 }
 
-pub mod persistent_error {
-    use error_chain::error_chain;
-    use serde_json::Error as JSONError;
-    use std::io::Error as IOError;
+pub type ResolveResult<T> = Result<T, ResolveError>;
 
-    error_chain! {
-        foreign_links {
-            IOError(IOError);
-            JSONError(JSONError);
-        }
-    }
+#[derive(Error, Debug)]
+pub enum PersistentError {
+    #[error("JSON encode error: {0}")]
+    JSONError(#[from] serde_json::Error),
+    #[error("IO error: {0}")]
+    IOError(#[from] IOError),
 }
+
+pub type PersistentResult<T> = Result<T, PersistentError>;
 
 #[cfg(test)]
 mod tests {

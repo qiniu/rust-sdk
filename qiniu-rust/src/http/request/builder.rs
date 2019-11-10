@@ -3,17 +3,9 @@ use super::{
     Parts, Request,
 };
 use crate::config::Config;
-use error_chain::error_chain;
 use qiniu_http::{Error as HTTPError, HeaderName, HeaderValue, Headers, Method, Result as HTTPResult};
 use serde::Serialize;
-use std::{borrow::Cow, collections::HashMap, result::Result as StdResult, time::Duration};
-
-error_chain! {
-    foreign_links {
-        JSONError(serde_json::error::Error);
-        FormError(serde_urlencoded::ser::Error);
-    }
-}
+use std::{borrow::Cow, collections::HashMap, time::Duration};
 
 pub(crate) struct Builder<'a> {
     parts: Parts<'a>,
@@ -134,7 +126,7 @@ impl<'a> Builder<'a> {
         self.build()
     }
 
-    pub(crate) fn json_body<T: Serialize>(mut self, body: &T) -> StdResult<Request<'a>, Error> {
+    pub(crate) fn json_body<T: Serialize>(mut self, body: &T) -> serde_json::Result<Request<'a>> {
         let serialized_body = serde_json::to_vec(body)?;
         self = self.header("Content-Type", "application/json");
         self.parts.body = Some(serialized_body);

@@ -3,9 +3,9 @@ use serde_json::Value;
 use std::{default::Default, fmt};
 
 #[derive(Debug, Clone)]
-pub struct UploadResult(pub(super) Value);
+pub struct UploadResponse(pub(super) Value);
 
-impl UploadResult {
+impl UploadResponse {
     pub fn key(&self) -> Option<&str> {
         self.get("key").and_then(|k| k.as_str())
     }
@@ -42,20 +42,20 @@ impl UploadResult {
     }
 }
 
-impl fmt::Display for UploadResult {
+impl fmt::Display for UploadResponse {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl Default for UploadResult {
+impl Default for UploadResponse {
     fn default() -> Self {
-        UploadResult(Default::default())
+        UploadResponse(Default::default())
     }
 }
 
-impl From<Value> for UploadResult {
+impl From<Value> for UploadResponse {
     fn from(v: Value) -> Self {
-        UploadResult(v)
+        UploadResponse(v)
     }
 }
