@@ -1,6 +1,7 @@
 use crate::{
     config::Config,
     http::{Client, Response},
+    utils::global_thread_pool,
 };
 use assert_impl::assert_impl;
 use derive_builder::Builder;
@@ -11,7 +12,6 @@ use std::{
     fmt,
     net::IpAddr,
     sync::{Arc, RwLock},
-    thread::spawn,
     time::{Duration, SystemTime},
 };
 use url::Url;
@@ -80,7 +80,7 @@ impl UploadLogger {
 
     fn async_upload_log_buffer_and_clean(&self) {
         let upload_logger = self.clone();
-        spawn(move || {
+        global_thread_pool.spawn(move || {
             let _ = upload_logger.upload_log_buffer_and_clean();
         });
     }
@@ -317,7 +317,7 @@ mod tests {
                 .build()
                 .unwrap(),
         );
-        sleep(Duration::from_millis(500));
+        sleep(Duration::from_secs(5));
         assert_eq!(mock.call_called(), 0);
         assert!(upload_logger.log_buffer_len() > 0);
         upload_logger.log(
@@ -334,7 +334,7 @@ mod tests {
                 .build()
                 .unwrap(),
         );
-        sleep(Duration::from_millis(500));
+        sleep(Duration::from_secs(5));
         assert_eq!(mock.call_called(), 1);
         assert_eq!(upload_logger.log_buffer_len(), 0);
         Ok(())
@@ -371,7 +371,7 @@ mod tests {
                 .build()
                 .unwrap(),
         );
-        sleep(Duration::from_millis(500));
+        sleep(Duration::from_secs(5));
         assert_eq!(mock.call_called(), 0);
         assert!(upload_logger.log_buffer_len() > 0);
         upload_logger.log(
@@ -388,7 +388,7 @@ mod tests {
                 .build()
                 .unwrap(),
         );
-        sleep(Duration::from_millis(500));
+        sleep(Duration::from_secs(5));
         assert_eq!(mock.call_called(), 0);
         assert!(upload_logger.log_buffer_len() > 0);
 

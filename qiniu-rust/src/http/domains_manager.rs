@@ -1,4 +1,4 @@
-use super::super::storage::region::Region;
+use crate::{storage::region::Region, utils::global_thread_pool};
 use assert_impl::assert_impl;
 use chashmap::CHashMap;
 use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
@@ -14,7 +14,7 @@ use std::{
     net::{SocketAddr, ToSocketAddrs},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    thread::{sleep, spawn},
+    thread::sleep,
     time::{Duration, Instant, SystemTime},
 };
 use tap::TapOps;
@@ -243,8 +243,9 @@ impl DomainsManagerBuilder {
             } else {
                 domains_manager.sync_resolve_urls(self.pre_resolution_urls);
             }
+        } else {
+            domains_manager.async_refresh_resolutions_without_update_refresh_time();
         }
-        domains_manager.async_refresh_resolutions_without_update_refresh_time();
         domains_manager
     }
 
@@ -402,8 +403,13 @@ impl DomainsManager {
                     .unwrap(),
             );
         }
-        self.try_to_persistent_if_needed();
-        self.try_to_async_refresh_resolutions_if_needed();
+        {
+            let domains_manager = self.clone();
+            global_thread_pool.spawn(move || {
+                domains_manager.try_to_persistent_if_needed();
+                domains_manager.try_to_async_refresh_resolutions_if_needed();
+            })
+        }
         Ok(choices)
     }
 
@@ -470,7 +476,9 @@ impl DomainsManager {
 
     fn async_update_cache(&self, url: Box<str>) {
         let domains_manager = self.clone();
-        spawn(move || domains_manager.resolve_and_update_cache(&url));
+        global_thread_pool.spawn(move || {
+            let _ = domains_manager.resolve_and_update_cache(&url);
+        });
     }
 
     fn resolve_and_update_cache(&self, url: &str) -> ResolveResult<Box<[SocketAddr]>> {
@@ -528,7 +536,9 @@ impl DomainsManager {
 
     fn async_resolve_urls(&self, urls: Vec<Cow<'static, str>>) {
         let domains_manager = self.clone();
-        spawn(move || domains_manager.sync_resolve_urls(urls));
+        global_thread_pool.spawn(move || {
+            domains_manager.sync_resolve_urls(urls);
+        });
     }
 
     fn try_to_async_refresh_resolutions_if_needed(&self) {
@@ -557,10 +567,7 @@ impl DomainsManager {
         });
         let to_fresh_urls = to_fresh_urls.into_inner();
         if !to_fresh_urls.is_empty() {
-            let domains_manager = self.clone();
-            spawn(move || {
-                domains_manager.sync_resolve_urls(to_fresh_urls);
-            });
+            self.async_resolve_urls(to_fresh_urls);
         }
     }
 

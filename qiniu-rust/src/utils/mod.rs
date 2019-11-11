@@ -5,3 +5,5 @@ pub mod etag;
 pub(crate) mod mime;
 pub(crate) mod ron;
 pub(crate) mod seek_adapter;
+mod thread_pool;
+pub(crate) use thread_pool::THREAD_POOL as global_thread_pool;
