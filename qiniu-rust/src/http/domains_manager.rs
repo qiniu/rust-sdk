@@ -17,6 +17,7 @@ use std::{
     thread::{sleep, spawn},
     time::{Duration, Instant, SystemTime},
 };
+use tap::TapOps;
 use thiserror::Error;
 use url::Url;
 
@@ -458,14 +459,18 @@ impl DomainsManager {
         match self.inner.inner_data.resolutions.get(&url) {
             Some(resolution) => {
                 if resolution.cache_deadline < SystemTime::now() {
-                    drop(resolution);
-                    self.resolve_and_update_cache(&url)
+                    Ok(resolution.socket_addrs.clone()).tap(|_| self.async_update_cache(url))
                 } else {
                     Ok(resolution.socket_addrs.clone())
                 }
             }
             None => self.resolve_and_update_cache(&url),
         }
+    }
+
+    fn async_update_cache(&self, url: Box<str>) {
+        let domains_manager = self.clone();
+        spawn(move || domains_manager.resolve_and_update_cache(&url));
     }
 
     fn resolve_and_update_cache(&self, url: &str) -> ResolveResult<Box<[SocketAddr]>> {

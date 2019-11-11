@@ -280,16 +280,13 @@ mod tests {
     use super::{
         super::{
             super::{
-                super::{
-                    config::{Config, ConfigBuilder},
-                    credential::Credential,
-                },
-                token::Token,
-                DomainsManagerBuilder,
+                config::{Config, ConfigBuilder},
+                credential::Credential,
             },
-            Builder,
+            token::Token,
+            DomainsManagerBuilder,
         },
-        *,
+        Builder, *,
     };
     use qiniu_http::HTTPCaller;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, ErrorResponseMock};
