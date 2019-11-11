@@ -3,7 +3,7 @@ use libc::{c_char, c_int, c_ushort, strerror};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind};
-use qiniu_ng::storage::{manager::DropBucketError, upload_token::UploadTokenParseError};
+use qiniu_ng::storage::{manager::DropBucketError, upload_token::UploadTokenParseError, uploader::UploadError};
 use std::{ffi::CStr, io};
 
 #[repr(C)]
@@ -27,12 +27,14 @@ pub enum qiniu_ng_err_code {
     /* Particular error */
     QiniuNgCannotDropNonEmptyBucket,
     QiniuNgInvalidUploadToken(QiniuNgInvalidUploadTokenCode),
+    QiniuNgBadMIMEType,
 }
 
 #[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct qiniu_ng_err(qiniu_ng_err_code);
 
-#[derive(FromPrimitive, ToPrimitive)]
+#[derive(FromPrimitive, ToPrimitive, Copy, Clone, Debug, PartialEq, Eq)]
 enum QiniuNgIoErrorKind {
     NotFound = 1,
     PermissionDenied,
@@ -237,6 +239,17 @@ pub extern "C" fn qiniu_ng_err_invalid_upload_token_extract(
     }
 }
 
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_is_bad_mime(err: *const qiniu_ng_err) -> bool {
+    if err.is_null() {
+        return false;
+    }
+    match unsafe { (*err).0 } {
+        qiniu_ng_err_code::QiniuNgBadMIMEType => true,
+        _ => false,
+    }
+}
+
 impl From<&io::Error> for qiniu_ng_err {
     fn from(err: &io::Error) -> Self {
         qiniu_ng_err(err.raw_os_error().map_or_else(
@@ -268,6 +281,15 @@ impl From<&HTTPError> for qiniu_ng_err {
     }
 }
 
+impl From<&UploadError> for qiniu_ng_err {
+    fn from(err: &UploadError) -> Self {
+        match err {
+            UploadError::IOError(err) => err.into(),
+            UploadError::QiniuError(err) => err.into(),
+        }
+    }
+}
+
 impl From<&DropBucketError> for qiniu_ng_err {
     fn from(err: &DropBucketError) -> Self {
         match err {
@@ -286,5 +308,11 @@ impl From<&UploadTokenParseError> for qiniu_ng_err {
             UploadTokenParseError::Base64DecodeError(_) => QiniuNgInvalidUploadTokenCode::Base64DecodeError,
             UploadTokenParseError::JSONDecodeError(_) => QiniuNgInvalidUploadTokenCode::JSONDecodeError,
         }))
+    }
+}
+
+impl From<&mime::FromStrError> for qiniu_ng_err {
+    fn from(_err: &mime::FromStrError) -> Self {
+        qiniu_ng_err(qiniu_ng_err_code::QiniuNgBadMIMEType)
     }
 }

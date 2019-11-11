@@ -9,11 +9,10 @@ pub const ETAG_SIZE: usize = 28;
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_from_file_path(
     path: *const c_char,
-    path_len: size_t,
     result_ptr: *mut c_char,
     error: *mut qiniu_ng_err,
 ) -> bool {
-    match etag::from_file(make_path_buf(path, path_len)) {
+    match etag::from_file(make_path_buf(path)) {
         Ok(etag_string) => {
             write_string_to_ptr(&etag_string, result_ptr);
             true

@@ -17,7 +17,7 @@ void test_qiniu_ng_region_query(void) {
     TEST_ASSERT_TRUE(qiniu_ng_regions_get(regions, 0, &region));
     urls = qiniu_ng_region_get_up_urls(region, true);
     size_t urls_len = qiniu_ng_string_list_len(urls);
-    TEST_ASSERT_TRUE(urls_len > 4);
+    TEST_ASSERT_GREATER_THAN(4, urls_len);
 
     for (size_t i = 0; i < urls_len; i++) {
         const char *p;

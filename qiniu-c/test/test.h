@@ -2,6 +2,7 @@
 
 int env_load(char*, bool);
 void write_str_to_file(const char* path, const char* content);
+char* create_temp_file(size_t size);
 
 void test_qiniu_ng_etag_from_file_path(void);
 void test_qiniu_ng_etag_from_buffer(void);
@@ -15,3 +16,5 @@ void test_qiniu_ng_bucket_name(void);
 void test_qiniu_ng_bucket_region(void);
 void test_qiniu_ng_bucket_regions(void);
 void test_qiniu_ng_make_upload_token(void);
+void test_qiniu_ng_upload_file(void);
+void test_qiniu_ng_upload_file_failed_by_mime(void);

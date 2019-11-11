@@ -4,6 +4,8 @@
 #include "test.h"
 
 void test_qiniu_ng_make_upload_token(void) {
+    env_load("..", false);
+
     const char *callback_urls[2] = {"https://apin1.qiniu.com/callback", "https://apin2.qiniu.com/callback"};
     qiniu_ng_err err;
     qiniu_ng_upload_policy_t policy = {

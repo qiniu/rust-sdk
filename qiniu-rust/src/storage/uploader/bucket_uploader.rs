@@ -107,11 +107,13 @@ impl BucketUploader {
     pub fn upload_policy<'b>(
         &'b self,
         upload_policy: UploadPolicy<'b>,
-        credential: Cow<'b, Credential>,
+        credential: impl Into<Cow<'b, Credential>>,
     ) -> FileUploaderBuilder<'b> {
         FileUploaderBuilder::new(
             Ron::Referenced(self),
-            UploadToken::from_policy(upload_policy, credential).token().into(),
+            UploadToken::from_policy(upload_policy, credential.into())
+                .token()
+                .into(),
         )
     }
 
@@ -173,6 +175,16 @@ impl<'b> FileUploaderBuilder<'b> {
     pub fn thread_pool(mut self, thread_pool: ThreadPool) -> FileUploaderBuilder<'b> {
         self.thread_pool = Some(Ron::Owned(thread_pool));
         self
+    }
+
+    pub fn thread_pool_size(self, num_threads: usize) -> FileUploaderBuilder<'b> {
+        self.thread_pool(
+            ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .thread_name(move |index| format!("file_uploader_thread_{}_{}", num_threads, index))
+                .build()
+                .unwrap(),
+        )
     }
 
     pub fn key(mut self, key: impl Into<Cow<'b, str>>) -> FileUploaderBuilder<'b> {

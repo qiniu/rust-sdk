@@ -1,9 +1,6 @@
 use crate::{
     result::qiniu_ng_err,
-    utils::{
-        convert_c_char_pointer_to_boxed_cstr, convert_c_char_to_string, convert_str_to_boxed_cstr,
-        convert_string_to_boxed_cstr,
-    },
+    utils::{convert_c_char_pointer_to_optional_boxed_cstr, convert_c_char_to_string, convert_str_to_boxed_cstr},
 };
 use libc::{c_char, c_ulonglong, c_void, size_t};
 use once_cell::sync::OnceCell;
@@ -86,29 +83,29 @@ struct UploadPolicy {
 impl From<&qiniu_ng_upload_policy_t> for UploadPolicy {
     fn from(policy: &qiniu_ng_upload_policy_t) -> Self {
         let mut policy = UploadPolicy {
-            bucket: convert_c_char_pointer_to_boxed_cstr(policy.bucket),
-            key: convert_c_char_pointer_to_boxed_cstr(policy.key),
+            bucket: convert_c_char_pointer_to_optional_boxed_cstr(policy.bucket),
+            key: convert_c_char_pointer_to_optional_boxed_cstr(policy.key),
             prefixal: policy.prefixal,
             insert_only: policy.insert_only,
             mime_detection: policy.mime_detection,
             deadline: Some(policy.deadline),
-            return_url: convert_c_char_pointer_to_boxed_cstr(policy.return_url),
-            return_body: convert_c_char_pointer_to_boxed_cstr(policy.return_body),
+            return_url: convert_c_char_pointer_to_optional_boxed_cstr(policy.return_url),
+            return_body: convert_c_char_pointer_to_optional_boxed_cstr(policy.return_body),
             callback_urls_storage: if policy.callback_urls.is_null() {
                 None
             } else {
                 Some(
                     unsafe { slice::from_raw_parts(policy.callback_urls, policy.callback_urls_len) }
                         .iter()
-                        .map(|&ptr| convert_c_char_pointer_to_boxed_cstr(ptr).unwrap())
+                        .map(|&ptr| convert_c_char_pointer_to_optional_boxed_cstr(ptr).unwrap())
                         .collect(),
                 )
             },
             callback_urls: Default::default(),
-            callback_host: convert_c_char_pointer_to_boxed_cstr(policy.callback_host),
-            callback_body: convert_c_char_pointer_to_boxed_cstr(policy.callback_body),
-            callback_body_type: convert_c_char_pointer_to_boxed_cstr(policy.callback_body_type),
-            save_key: convert_c_char_pointer_to_boxed_cstr(policy.save_key),
+            callback_host: convert_c_char_pointer_to_optional_boxed_cstr(policy.callback_host),
+            callback_body: convert_c_char_pointer_to_optional_boxed_cstr(policy.callback_body),
+            callback_body_type: convert_c_char_pointer_to_optional_boxed_cstr(policy.callback_body_type),
+            save_key: convert_c_char_pointer_to_optional_boxed_cstr(policy.save_key),
             force_save_key: policy.force_save_key,
             file_size_min: unsafe { policy.file_size_min.as_ref() }.copied(),
             file_size_max: unsafe { policy.file_size_max.as_ref() }.copied(),
@@ -118,7 +115,7 @@ impl From<&qiniu_ng_upload_policy_t> for UploadPolicy {
                 Some(
                     unsafe { slice::from_raw_parts(policy.mime, policy.mime_len) }
                         .iter()
-                        .map(|&ptr| convert_c_char_pointer_to_boxed_cstr(ptr).unwrap())
+                        .map(|&ptr| convert_c_char_pointer_to_optional_boxed_cstr(ptr).unwrap())
                         .collect(),
                 )
             },
@@ -189,30 +186,28 @@ impl From<&UploadPolicy> for qiniu_ng_upload_policy_t {
 impl From<&QiniuUploadPolicy<'_>> for UploadPolicy {
     fn from(policy: &QiniuUploadPolicy) -> Self {
         let mut policy = UploadPolicy {
-            bucket: policy.bucket().map(|s| convert_str_to_boxed_cstr(s)),
-            key: policy.key().map(|s| convert_str_to_boxed_cstr(s)),
+            bucket: policy.bucket().map(convert_str_to_boxed_cstr),
+            key: policy.key().map(convert_str_to_boxed_cstr),
             prefixal: policy.prefixal(),
             insert_only: policy.insert_only(),
             mime_detection: policy.mime_detection(),
             deadline: policy
                 .deadline()
                 .map(|t| t.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs()),
-            return_url: policy.return_url().map(|s| convert_str_to_boxed_cstr(s)),
-            return_body: policy.return_body().map(|s| convert_str_to_boxed_cstr(s)),
+            return_url: policy.return_url().map(convert_str_to_boxed_cstr),
+            return_body: policy.return_body().map(convert_str_to_boxed_cstr),
             callback_urls_storage: policy
                 .callback_urls()
-                .map(|iter| iter.map(|s| convert_str_to_boxed_cstr(s)).collect()),
+                .map(|iter| iter.map(convert_str_to_boxed_cstr).collect()),
             callback_urls: Default::default(),
-            callback_host: policy.callback_host().map(|s| convert_str_to_boxed_cstr(s)),
-            callback_body: policy.callback_body().map(|s| convert_str_to_boxed_cstr(s)),
-            callback_body_type: policy.callback_body_type().map(|s| convert_str_to_boxed_cstr(s)),
-            save_key: policy.save_key().map(|s| convert_str_to_boxed_cstr(s)),
+            callback_host: policy.callback_host().map(convert_str_to_boxed_cstr),
+            callback_body: policy.callback_body().map(convert_str_to_boxed_cstr),
+            callback_body_type: policy.callback_body_type().map(convert_str_to_boxed_cstr),
+            save_key: policy.save_key().map(convert_str_to_boxed_cstr),
             force_save_key: policy.force_save_key(),
             file_size_min: policy.file_size().0,
             file_size_max: policy.file_size().1,
-            mime_storage: policy
-                .mime()
-                .map(|iter| iter.map(|s| convert_str_to_boxed_cstr(s)).collect()),
+            mime_storage: policy.mime().map(|iter| iter.map(convert_str_to_boxed_cstr).collect()),
             mime: Default::default(),
             infrequent_storage: policy.infrequent_storage(),
             object_lifetime: policy.object_lifetime().map(|d| d.as_secs()),
@@ -375,7 +370,7 @@ impl UploadToken {
         self.upload_token.get_or_init(|| {
             let upload_policy_with_params = self.upload_policy_with_params.get().unwrap();
             let policy: QiniuUploadPolicy = upload_policy_with_params.into();
-            convert_string_to_boxed_cstr(
+            convert_str_to_boxed_cstr(
                 QiniuUploadToken::from_policy(policy, upload_policy_with_params.credential.as_ref().unwrap()).token(),
             )
         })
@@ -431,7 +426,7 @@ pub extern "C" fn qiniu_ng_new_upload_token_from_policy(
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_new_upload_token_from_token(token: *const c_char) -> qiniu_ng_upload_token_t {
-    let token: Box<CStr> = convert_c_char_pointer_to_boxed_cstr(token).unwrap();
+    let token: Box<CStr> = convert_c_char_pointer_to_optional_boxed_cstr(token).unwrap();
     let token: UploadToken = token.into();
     Box::new(token).into()
 }

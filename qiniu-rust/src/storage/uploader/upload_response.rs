@@ -1,5 +1,5 @@
 use delegate::delegate;
-use serde_json::Value;
+use serde_json::{map::Map, value::Index, Value};
 use std::{default::Default, fmt};
 
 #[derive(Debug, Clone)]
@@ -20,9 +20,9 @@ impl UploadResponse {
 
     delegate! {
         target self.0 {
-            pub fn get<I: serde_json::value::Index>(&self, index:I) -> Option<&Value>;
+            pub fn get<I: Index>(&self, index:I) -> Option<&Value>;
             pub fn is_object(&self) -> bool;
-            pub fn as_object(&self) -> Option<&serde_json::map::Map<String,Value>>;
+            pub fn as_object(&self) -> Option<&Map<String,Value>>;
             pub fn is_array(&self) -> bool;
             pub fn as_array(&self) -> Option<&Vec<Value>>;
             pub fn is_string(&self) -> bool;

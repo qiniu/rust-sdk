@@ -15,7 +15,7 @@ void test_qiniu_ng_storage_bucket_names(void) {
     TEST_ASSERT_TRUE(qiniu_ng_storage_bucket_names(client, &bucket_names, &err));
 
     unsigned int names_len = qiniu_ng_string_list_len(bucket_names);
-    TEST_ASSERT_TRUE(names_len > 5);
+    TEST_ASSERT_GREATER_THAN(5, names_len);
     for (unsigned int i = 0; i < names_len; i++) {
         const char *bucket_name;
         TEST_ASSERT_TRUE(qiniu_ng_string_list_get(bucket_names, i, &bucket_name));
@@ -42,7 +42,7 @@ void test_qiniu_ng_storage_bucket_create_and_drop(void) {
     TEST_ASSERT_TRUE(qiniu_ng_storage_bucket_names(client, &bucket_names, &err));
 
     unsigned int names_len = qiniu_ng_string_list_len(bucket_names);
-    TEST_ASSERT_TRUE(names_len > 5);
+    TEST_ASSERT_GREATER_THAN(5, names_len);
     bool found_new_bucket = false;
     for (unsigned int i = 0; i < names_len; i++) {
         const char *bucket_name;
