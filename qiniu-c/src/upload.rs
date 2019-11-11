@@ -188,6 +188,7 @@ pub extern "C" fn qiniu_ng_upload_file(
             if !err.is_null() {
                 unsafe { *err = e.into() };
             }
+            let _: qiniu_ng_bucket_uploader_t = bucket_uploader.into();
             return false;
         }
         _ => None,
