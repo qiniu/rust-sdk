@@ -239,7 +239,7 @@ mod tests {
             UploadManager::new(
                 ConfigBuilder::default()
                     .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
-                    .build()?,
+                    .build(),
             ),
         )
         .region(Region::hua_bei())
@@ -259,7 +259,7 @@ mod tests {
             UploadManager::new(
                 ConfigBuilder::default()
                     .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
-                    .build()?,
+                    .build(),
             ),
         )
         .region_id(RegionId::Z2)
@@ -299,7 +299,7 @@ mod tests {
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
             get_credential().into(),
-            UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?),
+            UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()),
         )
         .auto_detect_region()?
         .build();
@@ -369,7 +369,7 @@ mod tests {
             BucketBuilder::new(
                 "test-bucket".into(),
                 get_credential().into(),
-                UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?),
+                UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()),
             )
             .build(),
         );
@@ -446,7 +446,7 @@ mod tests {
             UploadManager::new(
                 ConfigBuilder::default()
                     .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
-                    .build()?,
+                    .build(),
             ),
         )
         .domain("abc.com")
@@ -463,7 +463,7 @@ mod tests {
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
             get_credential().into(),
-            UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?),
+            UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()),
         )
         .auto_detect_domains()?
         .build();
@@ -481,7 +481,7 @@ mod tests {
             BucketBuilder::new(
                 "test-bucket".into(),
                 get_credential().into(),
-                UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()?),
+                UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()),
             )
             .build(),
         );

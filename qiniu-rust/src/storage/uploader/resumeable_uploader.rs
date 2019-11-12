@@ -324,8 +324,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                             .up_type(UpType::Chunkedv2)
                             .sent(uploaded_size)
                             .total_size(uploaded_size)
-                            .build()
-                            .unwrap(),
+                            .build(),
                     );
                 }
                 Err(err) => {
@@ -337,7 +336,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                     if let Some(total_size) = self.io_size {
                         record_builder = record_builder.total_size(usize::max(uploaded_size, total_size));
                     }
-                    upload_logger.log(record_builder.build().unwrap());
+                    upload_logger.log(record_builder.build());
                 }
             }
         }
@@ -509,8 +508,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                                 .response(response)
                                 .duration(duration)
                                 .up_type(UpType::InitParts)
-                                .build()
-                                .unwrap(),
+                                .build(),
                         );
                     }
                 }
@@ -526,7 +524,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                         if let Some(host_url) = host_url {
                             builder = builder.host(host_url);
                         }
-                        builder.build().unwrap()
+                        builder.build()
                     });
                 }
             })
@@ -571,8 +569,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                                 .up_type(UpType::UploadPart)
                                 .sent(part.len())
                                 .total_size(part.len())
-                                .build()
-                                .unwrap(),
+                                .build(),
                         );
                     }
                 }
@@ -590,7 +587,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                         if let Some(host_url) = host_url {
                             builder = builder.host(host_url);
                         }
-                        builder.build().unwrap()
+                        builder.build()
                     });
                 }
             })
@@ -624,8 +621,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                                 .response(response)
                                 .duration(duration)
                                 .up_type(UpType::CompleteParts)
-                                .build()
-                                .unwrap(),
+                                .build(),
                         );
                     }
                 }
@@ -641,7 +637,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                         if let Some(host_url) = host_url {
                             builder = builder.host(host_url);
                         }
-                        builder.build().unwrap()
+                        builder.build()
                     });
                 }
             })
@@ -686,8 +682,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                             .up_type(UpType::Chunkedv2)
                             .sent(uploaded_size - init_uploaded_size)
                             .total_size(uploaded_size - init_uploaded_size)
-                            .build()
-                            .unwrap(),
+                            .build(),
                     )
                 }
                 response
@@ -704,7 +699,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                         record_builder =
                             record_builder.total_size(usize::max(uploaded_size, total_size) - init_uploaded_size);
                     }
-                    upload_logger.log(record_builder.build().unwrap());
+                    upload_logger.log(record_builder.build());
                 }
                 err
             })
@@ -844,7 +839,7 @@ mod tests {
                 .as_boxed(),
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
@@ -945,7 +940,7 @@ mod tests {
             )
             .http_request_retries(100)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
@@ -1070,7 +1065,7 @@ mod tests {
                 .as_boxed(),
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
@@ -1183,7 +1178,7 @@ mod tests {
                 .as_boxed(),
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
@@ -1334,7 +1329,7 @@ mod tests {
                 .as_boxed(),
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
@@ -1440,7 +1435,7 @@ mod tests {
                 .as_boxed(),
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build(),
             get_credential(),
@@ -1583,7 +1578,7 @@ mod tests {
                 .as_boxed(),
             )
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
 
         let upload_token = UploadToken::from_policy(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build(),

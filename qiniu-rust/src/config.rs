@@ -17,7 +17,6 @@ use std::{
     marker::{Send, Sync},
     ops::Deref,
     path::Path,
-    result,
     sync::Arc,
     time::Duration,
 };
@@ -26,109 +25,163 @@ use std::{
 #[builder(
     name = "ConfigBuilder",
     pattern = "owned",
-    default,
     public,
     build_fn(name = "inner_build", private)
 )]
 pub struct ConfigInner {
     #[get_copy = "pub"]
+    #[builder(default = "default::use_https()")]
     use_https: bool,
 
     #[get_copy = "pub"]
+    #[builder(default = "default::upload_token_lifetime()")]
     upload_token_lifetime: Duration,
 
     #[get_copy = "pub"]
+    #[builder(default = "default::batch_max_operation_size()")]
     batch_max_operation_size: usize,
 
     #[get_copy = "pub"]
+    #[builder(default = "default::upload_threshold()")]
     upload_threshold: u64,
 
     #[get_copy = "pub"]
+    #[builder(default = "default::upload_block_size()")]
     upload_block_size: usize,
 
     #[get_copy = "pub"]
+    #[builder(default = "default::upload_block_lifetime()")]
     upload_block_lifetime: Duration,
 
     #[get_copy = "pub"]
+    #[builder(default = "default::recorder_key_generator")]
     recorder_key_generator: fn(name: &str, path: &Path, key: Option<&str>) -> String,
 
     #[get_copy = "pub"]
+    #[builder(default = "default::always_flush_records()")]
     always_flush_records: bool,
 
     #[get_copy = "pub"]
+    #[builder(default = "default::uplog_disabled()")]
     uplog_disabled: bool,
 
     #[get_copy = "pub"]
     #[builder(setter(into))]
+    #[builder(default = "default::uplog_server_url()")]
     uplog_server_url: &'static str,
 
     #[get_copy = "pub"]
+    #[builder(default = "default::uplog_upload_threshold()")]
     uplog_upload_threshold: usize,
 
     #[get_copy = "pub"]
-    max_uplog_size: usize,
+    #[builder(default = "default::uplog_max_size()")]
+    uplog_max_size: usize,
 
     #[get = "pub"]
+    #[builder(default = "default::recorder()")]
     recorder: Arc<dyn Recorder>,
 
     #[get_copy = "pub"]
+    #[builder(default = "default::http_request_retries()")]
     http_request_retries: usize,
 
     #[get_copy = "pub"]
+    #[builder(default = "default::http_request_retry_delay()")]
     http_request_retry_delay: Duration,
 
     #[get = "pub"]
+    #[builder(default = "default::http_request_call()")]
     http_request_call: Box<dyn HTTPCaller + Send + Sync>,
 
     #[get = "pub"]
+    #[builder(default = "default::domains_manager()")]
     domains_manager: DomainsManager,
 }
 
-fn default_recorder_key_generator(name: &str, path: &Path, key: Option<&str>) -> String {
-    let mut sha1 = Sha1::new();
-    if let Some(key) = key {
-        sha1.input(key.as_bytes());
-        sha1.input(b"_._");
-    }
-    sha1.input(name.as_bytes());
-    sha1.input(b"_._");
-    sha1.input(path.to_string_lossy().as_ref().as_bytes());
-    sha1.result_str()
-}
+pub mod default {
+    use super::*;
 
-impl Default for ConfigInner {
-    fn default() -> Self {
-        ConfigInner {
-            use_https: false,
-            upload_token_lifetime: Duration::from_secs(60 * 60),
-            batch_max_operation_size: 1000,
-            upload_threshold: 1 << 22,
-            upload_block_size: 1 << 22,
-            upload_block_lifetime: Duration::from_secs(60 * 60 * 24 * 7),
-            recorder_key_generator: default_recorder_key_generator,
-            uplog_server_url: Region::uplog_url(),
-            recorder: FileSystemRecorder::default(),
-            always_flush_records: false,
-            uplog_disabled: false,
-            uplog_upload_threshold: 1 << 12,
-            max_uplog_size: 1 << 22,
-            http_request_retries: 3,
-            http_request_retry_delay: Duration::from_secs(1),
-            http_request_call: Self::default_http_request_call(),
-            domains_manager: DomainsManager::default(),
+    pub fn use_https() -> bool {
+        false
+    }
+
+    pub fn upload_token_lifetime() -> Duration {
+        Duration::from_secs(60 * 60)
+    }
+
+    pub fn batch_max_operation_size() -> usize {
+        1000
+    }
+
+    pub fn upload_threshold() -> u64 {
+        1 << 22
+    }
+
+    pub fn upload_block_size() -> usize {
+        1 << 22
+    }
+
+    pub fn upload_block_lifetime() -> Duration {
+        Duration::from_secs(60 * 60 * 24 * 7)
+    }
+
+    pub fn always_flush_records() -> bool {
+        false
+    }
+
+    pub fn uplog_disabled() -> bool {
+        false
+    }
+
+    pub fn uplog_server_url() -> &'static str {
+        Region::uplog_url()
+    }
+
+    pub fn uplog_upload_threshold() -> usize {
+        1 << 12
+    }
+
+    pub fn uplog_max_size() -> usize {
+        1 << 22
+    }
+
+    pub fn recorder() -> Arc<dyn Recorder> {
+        FileSystemRecorder::default()
+    }
+
+    pub fn http_request_retries() -> usize {
+        3
+    }
+
+    pub fn http_request_retry_delay() -> Duration {
+        Duration::from_secs(1)
+    }
+
+    pub fn domains_manager() -> DomainsManager {
+        Default::default()
+    }
+
+    pub fn recorder_key_generator(name: &str, path: &Path, key: Option<&str>) -> String {
+        let mut sha1 = Sha1::new();
+        if let Some(key) = key {
+            sha1.input(key.as_bytes());
+            sha1.input(b"_._");
         }
+        sha1.input(name.as_bytes());
+        sha1.input(b"_._");
+        sha1.input(path.to_string_lossy().as_ref().as_bytes());
+        sha1.result_str()
     }
-}
 
-impl ConfigInner {
-    fn default_http_request_call() -> Box<dyn HTTPCaller + Sync + Send> {
+    pub fn http_request_call() -> Box<dyn HTTPCaller + Sync + Send> {
         #[cfg(any(feature = "use-libcurl"))]
         {
             Box::new(qiniu_with_libcurl::CurlClientBuilder::default().build().unwrap())
         }
         #[cfg(not(feature = "use-libcurl"))]
         {
-            use super::http::PanickedHTTPCaller;
+            use super::super::http::PanickedHTTPCaller;
             Box::new(PanickedHTTPCaller("Must define config.http_request_call"))
         }
     }
@@ -148,7 +201,7 @@ impl fmt::Debug for ConfigInner {
             .field("always_flush_records", &self.always_flush_records)
             .field("uplog_disabled", &self.uplog_disabled)
             .field("uplog_upload_threshold", &self.uplog_upload_threshold)
-            .field("max_uplog_size", &self.max_uplog_size)
+            .field("uplog_max_size", &self.uplog_max_size)
             .field("http_request_retries", &self.http_request_retries)
             .field("http_request_retry_delay", &self.http_request_retry_delay)
             .field("domains_manager", &self.domains_manager)
@@ -160,14 +213,14 @@ impl fmt::Debug for ConfigInner {
 pub struct Config(Arc<ConfigInner>);
 
 impl ConfigBuilder {
-    pub fn build(self) -> result::Result<Config, String> {
-        self.inner_build().map(|config| Config(Arc::new(config)))
+    pub fn build(self) -> Config {
+        Config(Arc::new(self.inner_build().unwrap()))
     }
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Config(Arc::new(Default::default()))
+        ConfigBuilder::default().build()
     }
 }
 
@@ -215,7 +268,7 @@ mod tests {
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
             .http_request_call(Box::new(FakeHTTPRequester))
-            .build()?;
+            .build();
 
         let http_response = config
             .http_request_call()
@@ -234,7 +287,7 @@ mod tests {
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
             .http_request_call(Box::new(FakeHTTPRequester))
-            .build()?;
+            .build();
         assert_eq!(config.http_request_retries(), 5);
         assert_eq!(config.http_request_retry_delay(), Duration::from_secs(1));
         Ok(())

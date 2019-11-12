@@ -162,8 +162,7 @@ impl<'u> FormUploader<'u> {
                                 .up_type(UpType::Form)
                                 .sent(self.body.len())
                                 .total_size(self.body.len())
-                                .build()
-                                .unwrap(),
+                                .build(),
                         );
                     }
                 }
@@ -180,7 +179,7 @@ impl<'u> FormUploader<'u> {
                         if let Some(base_url) = base_url {
                             builder = builder.host(base_url);
                         }
-                        builder.build().unwrap()
+                        builder.build()
                     });
                 }
             })
@@ -218,7 +217,7 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
         let result = BucketUploaderBuilder::new(
             "test-bucket".into(),
@@ -248,7 +247,7 @@ mod tests {
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
@@ -277,7 +276,7 @@ mod tests {
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
@@ -306,7 +305,7 @@ mod tests {
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
@@ -336,7 +335,7 @@ mod tests {
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
@@ -366,7 +365,7 @@ mod tests {
             .http_request_retries(3)
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),

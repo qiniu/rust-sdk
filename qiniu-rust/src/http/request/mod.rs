@@ -330,7 +330,7 @@ mod tests {
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
         assert!(Builder::new(
             config.clone(),
@@ -369,7 +369,7 @@ mod tests {
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
         assert!(Builder::new(
             config.clone(),
@@ -408,7 +408,7 @@ mod tests {
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
         assert!(Builder::new(
             config.clone(),
@@ -447,7 +447,7 @@ mod tests {
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
         assert!(Builder::new(
             config.clone(),
@@ -486,7 +486,7 @@ mod tests {
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
         assert!(Builder::new(
             config.clone(),
@@ -525,7 +525,7 @@ mod tests {
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
         assert!(Builder::new(
             config.clone(),
@@ -561,7 +561,7 @@ mod tests {
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         assert!(Builder::new(
             config,
             Method::GET,
@@ -585,7 +585,7 @@ mod tests {
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         assert!(Builder::new(
             config,
             Method::POST,
@@ -608,7 +608,7 @@ mod tests {
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         assert!(Builder::new(
             config,
             Method::POST,
@@ -631,7 +631,7 @@ mod tests {
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         assert!(Builder::new(
             config,
             Method::GET,
@@ -654,7 +654,7 @@ mod tests {
             .http_request_retry_delay(Duration::from_millis(1))
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build()?;
+            .build();
         assert!(Builder::new(
             config,
             Method::GET,

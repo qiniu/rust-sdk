@@ -503,9 +503,7 @@ mod tests {
                         }
                     }]
                 }),
-            )))
-            .build()
-            ?;
+            ))).build();
         let regions = Region::query("z0-bucket", get_credential().access_key(), config)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();
@@ -563,7 +561,7 @@ mod tests {
                     }]
                 }),
             )))
-            .build()?;
+            .build();
         let regions = Region::query("z5-bucket", get_credential().access_key(), config)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();

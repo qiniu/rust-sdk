@@ -237,14 +237,16 @@ impl DomainsManagerBuilder {
                 last_refresh_time: Mutex::new(Instant::now()),
             }),
         };
-        if !self.pre_resolution_urls.is_empty() {
-            if self.is_pre_resolution_async {
-                domains_manager.async_resolve_urls(self.pre_resolution_urls);
+        if !domains_manager.inner.inner_data.disable_url_resolution {
+            if !self.pre_resolution_urls.is_empty() {
+                if self.is_pre_resolution_async {
+                    domains_manager.async_resolve_urls(self.pre_resolution_urls);
+                } else {
+                    domains_manager.sync_resolve_urls(self.pre_resolution_urls);
+                }
             } else {
-                domains_manager.sync_resolve_urls(self.pre_resolution_urls);
+                domains_manager.async_refresh_resolutions_without_update_refresh_time();
             }
-        } else {
-            domains_manager.async_refresh_resolutions_without_update_refresh_time();
         }
         domains_manager
     }
@@ -407,7 +409,9 @@ impl DomainsManager {
             let domains_manager = self.clone();
             global_thread_pool.spawn(move || {
                 domains_manager.try_to_persistent_if_needed();
-                domains_manager.try_to_async_refresh_resolutions_if_needed();
+                if !domains_manager.inner.inner_data.disable_url_resolution {
+                    domains_manager.try_to_async_refresh_resolutions_if_needed();
+                }
             })
         }
         Ok(choices)

@@ -39,7 +39,7 @@ impl UploadLoggerBuilder {
         }
         Some(UploadLoggerBuilder {
             inner: Arc::new(UploadLoggerInner {
-                log_buffer: RwLock::new(Vec::with_capacity(config.max_uplog_size())),
+                log_buffer: RwLock::new(Vec::with_capacity(config.uplog_max_size())),
                 http_client: Client::new(config),
             }),
         })
@@ -62,9 +62,9 @@ impl UploadLoggerBuilder {
 impl UploadLogger {
     pub(crate) fn log(&self, record: UploadLoggerRecord) {
         let log_buffer_len = self.log_buffer_len();
-        if log_buffer_len < self.shared.inner.http_client.config().max_uplog_size() {
+        if log_buffer_len < self.shared.inner.http_client.config().uplog_max_size() {
             let record = record.to_string() + "\n";
-            if log_buffer_len + record.len() < self.shared.inner.http_client.config().max_uplog_size() {
+            if log_buffer_len + record.len() < self.shared.inner.http_client.config().uplog_max_size() {
                 self.shared
                     .inner
                     .log_buffer
@@ -150,7 +150,12 @@ impl UpType {
 }
 
 #[derive(Builder, Debug)]
-#[builder(pattern = "owned", default, setter(into, strip_option))]
+#[builder(
+    pattern = "owned",
+    default,
+    setter(into, strip_option),
+    build_fn(name = "inner_build", private)
+)]
 pub(crate) struct UploadLoggerRecord<'a> {
     status_code: Option<i32>,
     request_id: Cow<'a, str>,
@@ -166,6 +171,10 @@ pub(crate) struct UploadLoggerRecord<'a> {
 }
 
 impl<'a> UploadLoggerRecordBuilder<'a> {
+    pub(crate) fn build(self) -> UploadLoggerRecord<'a> {
+        self.inner_build().unwrap()
+    }
+
     pub(crate) fn response(self, response: &'a Response) -> UploadLoggerRecordBuilder<'a> {
         let mut builder = self
             .status_code(response.status_code())
@@ -294,7 +303,7 @@ mod tests {
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .uplog_upload_threshold(100)
-            .build()?;
+            .build();
         let upload_logger = UploadLoggerBuilder::new(config.clone()).unwrap().upload_token(
             UploadToken::from_policy(
                 UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build(),
@@ -314,10 +323,9 @@ mod tests {
                 .duration(Duration::from_millis(123))
                 .sent(123_123usize)
                 .total_size(123_123usize)
-                .build()
-                .unwrap(),
+                .build(),
         );
-        sleep(Duration::from_secs(5));
+        sleep(Duration::from_secs(1));
         assert_eq!(mock.call_called(), 0);
         assert!(upload_logger.log_buffer_len() > 0);
         upload_logger.log(
@@ -331,24 +339,23 @@ mod tests {
                 .duration(Duration::from_millis(456))
                 .sent(456usize)
                 .total_size(456usize)
-                .build()
-                .unwrap(),
+                .build(),
         );
-        sleep(Duration::from_secs(5));
+        sleep(Duration::from_secs(1));
         assert_eq!(mock.call_called(), 1);
         assert_eq!(upload_logger.log_buffer_len(), 0);
         Ok(())
     }
 
     #[test]
-    fn test_storage_uploader_upload_logger_max_uplog_size() -> Result<(), Box<dyn Error>> {
+    fn test_storage_uploader_upload_logger_uplog_max_size() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!({})));
         let config = ConfigBuilder::default()
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .uplog_upload_threshold(100)
-            .max_uplog_size(100)
-            .build()?;
+            .uplog_max_size(100)
+            .build();
         let upload_logger = UploadLoggerBuilder::new(config.clone()).unwrap().upload_token(
             UploadToken::from_policy(
                 UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build(),
@@ -368,10 +375,9 @@ mod tests {
                 .duration(Duration::from_millis(123))
                 .sent(123_123usize)
                 .total_size(123_123usize)
-                .build()
-                .unwrap(),
+                .build(),
         );
-        sleep(Duration::from_secs(5));
+        sleep(Duration::from_secs(1));
         assert_eq!(mock.call_called(), 0);
         assert!(upload_logger.log_buffer_len() > 0);
         upload_logger.log(
@@ -385,10 +391,9 @@ mod tests {
                 .duration(Duration::from_millis(456))
                 .sent(456usize)
                 .total_size(456usize)
-                .build()
-                .unwrap(),
+                .build(),
         );
-        sleep(Duration::from_secs(5));
+        sleep(Duration::from_secs(1));
         assert_eq!(mock.call_called(), 0);
         assert!(upload_logger.log_buffer_len() > 0);
 
