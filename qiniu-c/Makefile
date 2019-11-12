@@ -1,4 +1,4 @@
-.PHONY: all build test clean
+.PHONY: all build test clean clippy
 CC=gcc
 TARGET=build/test.out
 UNITY_HOME=$(CURDIR)/test/unity/src
@@ -30,3 +30,5 @@ test: build
 clean:
 	rm -rf build
 	cargo clean
+clippy:
+	cargo clippy

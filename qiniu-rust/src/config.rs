@@ -1,6 +1,6 @@
 use crate::{
     http::DomainsManager,
-    storage::{region::Region, uploader::UploadRecorder},
+    storage::uploader::{UploadLogger, UploadRecorder},
 };
 use assert_impl::assert_impl;
 use derive_builder::Builder;
@@ -44,25 +44,12 @@ pub struct ConfigInner {
     #[builder(default = "default::upload_block_size()")]
     upload_block_size: usize,
 
-    #[get_copy = "pub"]
-    #[builder(default = "default::uplog_disabled()")]
-    uplog_disabled: bool,
-
-    #[get_copy = "pub"]
-    #[builder(setter(into))]
-    #[builder(default = "default::uplog_server_url()")]
-    uplog_server_url: &'static str,
-
-    #[get_copy = "pub"]
-    #[builder(default = "default::uplog_upload_threshold()")]
-    uplog_upload_threshold: usize,
-
-    #[get_copy = "pub"]
-    #[builder(default = "default::uplog_max_size()")]
-    uplog_max_size: usize,
+    #[get = "pub"]
+    #[builder(default = "default::upload_logger()")]
+    upload_logger: Option<UploadLogger>,
 
     #[get = "pub"]
-    #[builder(default = "default::recorder()")]
+    #[builder(default = "default::upload_recorder()")]
     upload_recorder: UploadRecorder,
 
     #[get_copy = "pub"]
@@ -109,19 +96,11 @@ pub mod default {
         false
     }
 
-    pub fn uplog_server_url() -> &'static str {
-        Region::uplog_url()
+    pub fn upload_logger() -> Option<UploadLogger> {
+        Some(Default::default())
     }
 
-    pub fn uplog_upload_threshold() -> usize {
-        1 << 12
-    }
-
-    pub fn uplog_max_size() -> usize {
-        1 << 22
-    }
-
-    pub fn recorder() -> UploadRecorder {
+    pub fn upload_recorder() -> UploadRecorder {
         Default::default()
     }
 
@@ -158,11 +137,8 @@ impl fmt::Debug for ConfigInner {
             .field("batch_max_operation_size", &self.batch_max_operation_size)
             .field("upload_threshold", &self.upload_threshold)
             .field("upload_block_size", &self.upload_block_size)
-            .field("uplog_server_url", &self.uplog_server_url)
             .field("upload_recorder", &self.upload_recorder)
-            .field("uplog_disabled", &self.uplog_disabled)
-            .field("uplog_upload_threshold", &self.uplog_upload_threshold)
-            .field("uplog_max_size", &self.uplog_max_size)
+            .field("upload_logger", &self.upload_logger)
             .field("http_request_retries", &self.http_request_retries)
             .field("http_request_retry_delay", &self.http_request_retry_delay)
             .field("domains_manager", &self.domains_manager)

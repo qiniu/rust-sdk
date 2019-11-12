@@ -97,7 +97,7 @@ pub type UploadTokenParseResult<T> = Result<T, UploadTokenParseError>;
 #[cfg(test)]
 mod tests {
     use super::{super::upload_policy::UploadPolicyBuilder, *};
-    use crate::config::Config;
+    use crate::config;
     use std::{borrow::Cow, boxed::Box, error::Error, result::Result};
 
     #[test]
@@ -105,7 +105,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_object(
             "test_bucket",
             "test:file",
-            Config::default().upload_token_lifetime(),
+            config::default::upload_token_lifetime(),
         )
         .build();
         let token = UploadToken::from_policy(policy, Cow::Owned(get_credential())).token();

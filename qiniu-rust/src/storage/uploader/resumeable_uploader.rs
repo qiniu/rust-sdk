@@ -1,7 +1,7 @@
 use super::{
     io_status_manager::{IOStatusManager, Result as IOStatusResult},
     upload_recorder::{FileUploadRecordMedium, FileUploadRecordMediumBlockItem, FileUploadRecordMediumMetadata},
-    upload_response_callback, BucketUploader, UpType, UploadLogger, UploadLoggerRecordBuilder, UploadResponse,
+    upload_response_callback, BucketUploader, TokenizedUploadLogger, UpType, UploadLoggerRecordBuilder, UploadResponse,
 };
 use crate::{
     http::Client,
@@ -83,7 +83,7 @@ pub(super) struct ResumeableUploaderBuilder<'u> {
     custom_vars: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
     on_uploading_progress: Option<&'u (dyn Fn(usize, Option<usize>) + Send + Sync)>,
     thread_pool: Option<Ron<'u, ThreadPool>>,
-    upload_logger: Option<UploadLogger>,
+    upload_logger: Option<TokenizedUploadLogger>,
 }
 
 pub(super) struct ResumeableUploader<'u, R: Read + Seek + Send + Sync + 'u> {
@@ -101,7 +101,7 @@ pub(super) struct ResumeableUploader<'u, R: Read + Seek + Send + Sync + 'u> {
     from_resuming: Option<FromResuming>,
     uploading_progress_callback: Option<UploadingProgressCallback<'u>>,
     thread_pool: Ron<'u, ThreadPool>,
-    upload_logger: Option<UploadLogger>,
+    upload_logger: Option<TokenizedUploadLogger>,
 }
 
 impl<'u> ResumeableUploaderBuilder<'u> {
@@ -117,9 +117,12 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             custom_vars: None,
             on_uploading_progress: None,
             thread_pool: None,
-            upload_logger: bucket_uploader
-                .upload_logger_builder()
-                .map(|builder| builder.upload_token(upload_token.into_owned().into())),
+            upload_logger: bucket_uploader.upload_logger().map(|upload_logger| {
+                upload_logger.tokenize(
+                    upload_token.into_owned().into(),
+                    bucket_uploader.http_client().to_owned(),
+                )
+            }),
         }
     }
 
@@ -546,7 +549,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         md5_hasher: &mut OptionalMd5,
         on_progress: OnProgressFn,
         on_error: OnErrorFn,
-        upload_logger: Option<&UploadLogger>,
+        upload_logger: Option<&TokenizedUploadLogger>,
         upload_recorder: Option<&FileUploadRecordMedium>,
     ) -> HTTPResult<Box<str>> {
         let mut builder = http_client
@@ -833,8 +836,9 @@ mod tests {
                             .build())
                     },
                 )
-                .as_boxed(),
+                .into_box(),
             )
+            .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
@@ -842,7 +846,6 @@ mod tests {
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config,
-            None,
         )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
@@ -930,9 +933,10 @@ mod tests {
                     16384,
                     0.5f64,
                 )
-                .as_boxed(),
+                .into_box(),
             )
             .http_request_retries(100)
+            .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
@@ -940,7 +944,6 @@ mod tests {
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config,
-            None,
         )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
@@ -1052,8 +1055,9 @@ mod tests {
                             .build())
                     },
                 )
-                .as_boxed(),
+                .into_box(),
             )
+            .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
@@ -1061,7 +1065,6 @@ mod tests {
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into()].into(),
             config,
-            None,
         )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
@@ -1162,8 +1165,9 @@ mod tests {
                             .build())
                     },
                 )
-                .as_boxed(),
+                .into_box(),
             )
+            .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
@@ -1175,7 +1179,6 @@ mod tests {
             ]
             .into(),
             config,
-            None,
         )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
@@ -1308,8 +1311,9 @@ mod tests {
                             .build())
                     },
                 )
-                .as_boxed(),
+                .into_box(),
             )
+            .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
@@ -1321,7 +1325,6 @@ mod tests {
             ]
             .into(),
             config,
-            None,
         )
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
@@ -1411,8 +1414,9 @@ mod tests {
                             .build())
                     },
                 )
-                .as_boxed(),
+                .into_box(),
             )
+            .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let upload_token = UploadToken::from_policy(
@@ -1424,7 +1428,6 @@ mod tests {
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config.clone(),
-            None,
         )
         .build()
         .upload_token(upload_token.clone())
@@ -1436,7 +1439,6 @@ mod tests {
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config,
-            None,
         )
         .build()
         .upload_token(upload_token)
@@ -1550,8 +1552,9 @@ mod tests {
                             .build())
                     },
                 )
-                .as_boxed(),
+                .into_box(),
             )
+            .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
 
@@ -1564,7 +1567,6 @@ mod tests {
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config.clone(),
-            None,
         )
         .build()
         .upload_token(upload_token.clone())
@@ -1576,7 +1578,6 @@ mod tests {
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config,
-            None,
         )
         .build()
         .upload_token(upload_token)

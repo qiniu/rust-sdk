@@ -3,7 +3,10 @@ use crate::{
     config::qiniu_ng_config_t,
     result::qiniu_ng_err,
     upload_token::{qiniu_ng_upload_token_get_token, qiniu_ng_upload_token_t},
-    utils::{convert_c_char_to_optional_string, convert_c_char_to_string, make_path_buf, qiniu_ng_string_map_t},
+    utils::{
+        convert_c_char_to_optional_string, convert_c_char_to_string, convert_str_to_boxed_cstr, make_path_buf,
+        qiniu_ng_string_map_t,
+    },
 };
 use libc::{c_char, c_ulonglong, c_void, size_t};
 use mime::Mime;
@@ -14,7 +17,7 @@ use qiniu_ng::storage::{
 };
 use std::{
     collections::{hash_map::RandomState, HashMap},
-    ffi::{CStr, CString},
+    ffi::CStr,
     mem::transmute,
     ptr::null,
 };
@@ -225,12 +228,8 @@ struct UploadResponse {
 impl From<&QiniuUploadResponse> for UploadResponse {
     fn from(upload_response: &QiniuUploadResponse) -> Self {
         UploadResponse {
-            key: upload_response
-                .key()
-                .map(|s| CString::new(s).unwrap().into_boxed_c_str()),
-            hash: upload_response
-                .hash()
-                .map(|s| CString::new(s).unwrap().into_boxed_c_str()),
+            key: upload_response.key().map(convert_str_to_boxed_cstr),
+            hash: upload_response.hash().map(convert_str_to_boxed_cstr),
         }
     }
 }

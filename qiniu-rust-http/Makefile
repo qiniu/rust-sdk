@@ -1,4 +1,4 @@
-.PHONY: all build test clean
+.PHONY: all build test clean clippy
 
 all: build
 build:
@@ -7,3 +7,5 @@ test:
 	cargo test
 clean:
 	cargo clean
+clippy:
+	cargo clippy

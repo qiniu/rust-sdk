@@ -225,7 +225,11 @@ mod tests {
         super::{region::RegionId, uploader::UploadManager},
         *,
     };
-    use crate::{config::ConfigBuilder, credential::Credential, http::PanickedHTTPCaller};
+    use crate::{
+        config::ConfigBuilder,
+        credential::Credential,
+        http::{DomainsManagerBuilder, PanickedHTTPCaller},
+    };
     use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};
     use serde_json::json;
@@ -238,6 +242,7 @@ mod tests {
             get_credential().into(),
             UploadManager::new(
                 ConfigBuilder::default()
+                    .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
                     .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
                     .build(),
             ),
@@ -258,6 +263,7 @@ mod tests {
             get_credential().into(),
             UploadManager::new(
                 ConfigBuilder::default()
+                    .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
                     .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
                     .build(),
             ),
@@ -299,23 +305,19 @@ mod tests {
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
             get_credential().into(),
-            UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()),
+            UploadManager::new(
+                ConfigBuilder::default()
+                    .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+                    .http_request_call(mock.as_boxed())
+                    .build(),
+            ),
         )
         .auto_detect_region()?
         .build();
         assert_eq!(mock.call_called(), 1);
-        assert!(bucket
-            .region()?
-            .up_urls(true)
-            .contains(&"https://up-xs.qiniup.com".into()));
-        assert!(bucket
-            .region()?
-            .up_urls(true)
-            .contains(&"https://up-jjh.qiniup.com".into()));
-        assert!(bucket
-            .region()?
-            .up_urls(true)
-            .contains(&"https://upload.qbox.me".into()));
+        assert!(bucket.region()?.up_urls(true).contains(&"https://up-xs.qiniup.com"));
+        assert!(bucket.region()?.up_urls(true).contains(&"https://up-jjh.qiniup.com"));
+        assert!(bucket.region()?.up_urls(true).contains(&"https://upload.qbox.me"));
 
         let regions = bucket.regions()?.collect::<Vec<_>>();
         assert_eq!(regions.len(), 2);
@@ -323,17 +325,17 @@ mod tests {
             .get(1)
             .unwrap()
             .up_urls(true)
-            .contains(&"https://up-xs-z1.qiniup.com".into()));
+            .contains(&"https://up-xs-z1.qiniup.com"));
         assert!(regions
             .get(1)
             .unwrap()
             .up_urls(true)
-            .contains(&"https://up-jjh-z1.qiniup.com".into()));
+            .contains(&"https://up-jjh-z1.qiniup.com"));
         assert!(regions
             .get(1)
             .unwrap()
             .up_urls(true)
-            .contains(&"https://upload-z1.qbox.me".into()));
+            .contains(&"https://upload-z1.qbox.me"));
 
         assert_eq!(mock.call_called(), 1);
 
@@ -369,7 +371,12 @@ mod tests {
             BucketBuilder::new(
                 "test-bucket".into(),
                 get_credential().into(),
-                UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()),
+                UploadManager::new(
+                    ConfigBuilder::default()
+                        .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+                        .http_request_call(mock.as_boxed())
+                        .build(),
+                ),
             )
             .build(),
         );
@@ -383,7 +390,7 @@ mod tests {
                     .region()
                     .unwrap()
                     .up_urls(true)
-                    .contains(&"https://up-xs.qiniup.com".into()));
+                    .contains(&"https://up-xs.qiniup.com"));
             }));
         }
 
@@ -394,7 +401,7 @@ mod tests {
                     .region()
                     .unwrap()
                     .up_urls(true)
-                    .contains(&"https://up-jjh.qiniup.com".into()));
+                    .contains(&"https://up-jjh.qiniup.com"));
             }));
         }
 
@@ -405,7 +412,7 @@ mod tests {
                     .region()
                     .unwrap()
                     .up_urls(true)
-                    .contains(&"https://upload.qbox.me".into()));
+                    .contains(&"https://upload.qbox.me"));
             }));
         }
 
@@ -418,17 +425,17 @@ mod tests {
                     .get(1)
                     .unwrap()
                     .up_urls(true)
-                    .contains(&"https://up-xs-z2.qiniup.com".into()));
+                    .contains(&"https://up-xs-z2.qiniup.com"));
                 assert!(regions
                     .get(1)
                     .unwrap()
                     .up_urls(true)
-                    .contains(&"https://up-jjh-z2.qiniup.com".into()));
+                    .contains(&"https://up-jjh-z2.qiniup.com"));
                 assert!(regions
                     .get(1)
                     .unwrap()
                     .up_urls(true)
-                    .contains(&"https://upload-z2.qbox.me".into()));
+                    .contains(&"https://upload-z2.qbox.me"));
             }));
         }
 
@@ -445,6 +452,7 @@ mod tests {
             get_credential().into(),
             UploadManager::new(
                 ConfigBuilder::default()
+                    .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
                     .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
                     .build(),
             ),
@@ -463,7 +471,12 @@ mod tests {
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
             get_credential().into(),
-            UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()),
+            UploadManager::new(
+                ConfigBuilder::default()
+                    .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+                    .http_request_call(mock.as_boxed())
+                    .build(),
+            ),
         )
         .auto_detect_domains()?
         .build();
@@ -481,7 +494,12 @@ mod tests {
             BucketBuilder::new(
                 "test-bucket".into(),
                 get_credential().into(),
-                UploadManager::new(ConfigBuilder::default().http_request_call(mock.as_boxed()).build()),
+                UploadManager::new(
+                    ConfigBuilder::default()
+                        .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+                        .http_request_call(mock.as_boxed())
+                        .build(),
+                ),
             )
             .build(),
         );

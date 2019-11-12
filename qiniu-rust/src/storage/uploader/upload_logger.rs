@@ -1,6 +1,6 @@
 use crate::{
-    config::Config,
     http::{Client, Response},
+    storage::region::Region,
     utils::global_thread_pool,
 };
 use assert_impl::assert_impl;
@@ -16,38 +16,46 @@ use std::{
 };
 use url::Url;
 
+#[derive(Builder)]
+#[builder(
+    name = "UploadLoggerBuilder",
+    pattern = "owned",
+    public,
+    build_fn(name = "inner_build", private)
+)]
+struct UploadLoggerValue {
+    #[builder(default = "default::server_url()")]
+    server_url: Cow<'static, str>,
+
+    #[builder(default = "default::upload_threshold()")]
+    upload_threshold: usize,
+
+    #[builder(default = "default::max_size()")]
+    max_size: usize,
+}
+
 struct UploadLoggerInner {
-    http_client: Client,
     log_buffer: RwLock<Vec<u8>>,
+    value: UploadLoggerValue,
 }
 
 #[derive(Clone)]
-pub(crate) struct UploadLoggerBuilder {
+pub struct UploadLogger {
     inner: Arc<UploadLoggerInner>,
 }
 
 #[derive(Clone)]
-pub(crate) struct UploadLogger {
-    shared: UploadLoggerBuilder,
+pub(crate) struct TokenizedUploadLogger {
+    upload_logger: UploadLogger,
+    http_client: Client,
     upload_token: Box<str>,
 }
 
-impl UploadLoggerBuilder {
-    pub(crate) fn new(config: Config) -> Option<UploadLoggerBuilder> {
-        if config.uplog_disabled() {
-            return None;
-        }
-        Some(UploadLoggerBuilder {
-            inner: Arc::new(UploadLoggerInner {
-                log_buffer: RwLock::new(Vec::with_capacity(config.uplog_max_size())),
-                http_client: Client::new(config),
-            }),
-        })
-    }
-
-    pub(crate) fn upload_token(&self, upload_token: Box<str>) -> UploadLogger {
-        UploadLogger {
-            shared: self.clone(),
+impl UploadLogger {
+    pub(crate) fn tokenize(&self, upload_token: Box<str>, http_client: Client) -> TokenizedUploadLogger {
+        TokenizedUploadLogger {
+            upload_logger: self.clone(),
+            http_client,
             upload_token,
         }
     }
@@ -59,13 +67,55 @@ impl UploadLoggerBuilder {
     }
 }
 
-impl UploadLogger {
+impl UploadLoggerBuilder {
+    pub fn build(self) -> UploadLogger {
+        let value = self.inner_build().unwrap();
+        let log_buffer = RwLock::new(Vec::with_capacity(value.max_size));
+        UploadLogger {
+            inner: Arc::new(UploadLoggerInner { log_buffer, value }),
+        }
+    }
+}
+
+impl Default for UploadLogger {
+    fn default() -> Self {
+        UploadLoggerBuilder::default().build()
+    }
+}
+
+pub mod default {
+    use super::*;
+
+    pub fn server_url() -> Cow<'static, str> {
+        Cow::Borrowed(Region::uplog_url())
+    }
+
+    pub fn upload_threshold() -> usize {
+        1 << 12
+    }
+
+    pub fn max_size() -> usize {
+        1 << 22
+    }
+}
+
+impl fmt::Debug for UploadLogger {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("UploadLogger")
+            .field("server_url", &self.inner.value.server_url)
+            .field("upload_threshold", &self.inner.value.upload_threshold)
+            .field("max_size", &self.inner.value.max_size)
+            .finish()
+    }
+}
+
+impl TokenizedUploadLogger {
     pub(crate) fn log(&self, record: UploadLoggerRecord) {
         let log_buffer_len = self.log_buffer_len();
-        if log_buffer_len < self.shared.inner.http_client.config().uplog_max_size() {
+        if log_buffer_len < self.upload_logger.inner.value.max_size {
             let record = record.to_string() + "\n";
-            if log_buffer_len + record.len() < self.shared.inner.http_client.config().uplog_max_size() {
-                self.shared
+            if log_buffer_len + record.len() < self.upload_logger.inner.value.max_size {
+                self.upload_logger
                     .inner
                     .log_buffer
                     .write()
@@ -73,7 +123,7 @@ impl UploadLogger {
                     .extend_from_slice(record.as_bytes());
             }
         }
-        if self.log_buffer_len() >= self.shared.inner.http_client.config().uplog_upload_threshold() {
+        if self.log_buffer_len() >= self.upload_logger.inner.value.upload_threshold {
             self.async_upload_log_buffer_and_clean();
         }
     }
@@ -86,7 +136,7 @@ impl UploadLogger {
     }
 
     fn upload_log_buffer_and_clean(&self) -> HTTPResult<()> {
-        let mut log_buffer = self.shared.inner.log_buffer.write().unwrap();
+        let mut log_buffer = self.upload_logger.inner.log_buffer.write().unwrap();
         self.upload_log_buffer(&log_buffer)?;
         log_buffer.clear();
         Ok(())
@@ -94,13 +144,8 @@ impl UploadLogger {
 
     fn upload_log_buffer(&self, log_buffer: &[u8]) -> HTTPResult<()> {
         if !log_buffer.is_empty() {
-            self.shared
-                .inner
-                .http_client
-                .post(
-                    "/log/3",
-                    &[self.shared.inner.http_client.config().uplog_server_url().as_ref()],
-                )
+            self.http_client
+                .post("/log/3", &[self.upload_logger.inner.value.server_url.as_ref()])
                 .header("Authorization", "UpToken ".to_owned() + &self.upload_token)
                 .raw_body("text/plain", log_buffer)
                 .send()?
@@ -110,7 +155,7 @@ impl UploadLogger {
     }
 
     fn log_buffer_len(&self) -> usize {
-        self.shared.inner.log_buffer.read().unwrap().len()
+        self.upload_logger.inner.log_buffer.read().unwrap().len()
     }
 
     #[allow(dead_code)]
@@ -120,7 +165,7 @@ impl UploadLogger {
     }
 }
 
-impl Drop for UploadLogger {
+impl Drop for TokenizedUploadLogger {
     fn drop(&mut self) {
         if self.log_buffer_len() > 0 {
             let _ = self.upload_log_buffer_and_clean();
@@ -302,15 +347,16 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .uplog_upload_threshold(100)
+            .upload_logger(Some(UploadLoggerBuilder::default().upload_threshold(100).build()))
             .build();
-        let upload_logger = UploadLoggerBuilder::new(config.clone()).unwrap().upload_token(
+        let upload_logger = config.upload_logger().as_ref().unwrap().tokenize(
             UploadToken::from_policy(
                 UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build(),
                 get_credential(),
             )
             .token()
             .into(),
+            Client::new(config.to_owned()),
         );
         upload_logger.log(
             UploadLoggerRecordBuilder::default()
@@ -353,16 +399,21 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .uplog_upload_threshold(100)
-            .uplog_max_size(100)
+            .upload_logger(Some(
+                UploadLoggerBuilder::default()
+                    .upload_threshold(100)
+                    .max_size(100)
+                    .build(),
+            ))
             .build();
-        let upload_logger = UploadLoggerBuilder::new(config.clone()).unwrap().upload_token(
+        let upload_logger = config.upload_logger().as_ref().unwrap().tokenize(
             UploadToken::from_policy(
                 UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build(),
                 get_credential(),
             )
             .token()
             .into(),
+            Client::new(config.to_owned()),
         );
         upload_logger.log(
             UploadLoggerRecordBuilder::default()

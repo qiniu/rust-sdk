@@ -2,8 +2,10 @@ use curl_sys::CURLcode;
 use libc::{c_char, c_int, c_ushort, strerror};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
-use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind};
-use qiniu_ng::storage::{manager::DropBucketError, upload_token::UploadTokenParseError, uploader::UploadError};
+use qiniu_ng::{
+    http::{Error as HTTPError, ErrorKind as HTTPErrorKind},
+    storage::{manager::DropBucketError, upload_token::UploadTokenParseError, uploader::UploadError},
+};
 use std::{ffi::CStr, io};
 
 #[repr(C)]

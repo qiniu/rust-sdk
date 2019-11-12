@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use chrono::offset::Utc;
-    use qiniu_http::ErrorKind as HTTPErrorKind;
     use qiniu_ng::{
+        http::ErrorKind as HTTPErrorKind,
         storage::{upload_policy::UploadPolicyBuilder, uploader::UploadError},
         utils::etag,
         Client, Config, ConfigBuilder, Credential,
@@ -17,7 +17,7 @@ mod tests {
         sync::{
             atomic::{
                 AtomicUsize,
-                Ordering::{AcqRel, Acquire},
+                Ordering::{Acquire, Release},
             },
             Mutex,
         },
@@ -67,7 +67,7 @@ mod tests {
             .metadata("metadata_key2", "metadata_value2")
             .on_progress(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 19));
-                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+                last_uploaded.store(uploaded, Release);
             })
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))?;
 
@@ -94,7 +94,7 @@ mod tests {
             .metadata("metadata_key2", "metadata_value2")
             .on_progress(&|uploaded, total| {
                 assert_eq!(total.unwrap(), 1 << 19);
-                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+                last_uploaded.store(uploaded, Release);
             })
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))?;
 
@@ -128,7 +128,7 @@ mod tests {
             .metadata("metadata_key2", "metadata_value2")
             .on_progress(&|uploaded, total| {
                 assert_eq!(total.unwrap(), FILE_SIZE);
-                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+                last_uploaded.store(uploaded, Release);
             })
             .upload_file(&temp_path, Some("257m"), Some(mime::IMAGE_PNG))?;
 
@@ -169,7 +169,7 @@ mod tests {
                     *thread_id = Some(current().id());
                 }
                 assert_eq!(total.unwrap(), FILE_SIZE);
-                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+                last_uploaded.store(uploaded, Release);
             })
             .upload_file(&temp_path, Some("5m"), Some(mime::IMAGE_PNG))?;
 
@@ -197,7 +197,7 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 20));
-                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+                last_uploaded.store(uploaded, Release);
             })
             .upload_file(&temp_path, Some("1m"), Some(mime::IMAGE_PNG))?;
 
@@ -219,7 +219,7 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
                 assert_eq!(total.unwrap(), 1 << 20);
-                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+                last_uploaded.store(uploaded, Release);
             })
             .upload_file(&temp_path, Some("1m"), Some(mime::IMAGE_PNG))?;
 
@@ -251,7 +251,7 @@ mod tests {
             .never_be_resumeable()
             .on_progress(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 23));
-                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+                last_uploaded.store(uploaded, Release);
             })
             .upload_stream(&file, None::<String>, None)?;
 
@@ -273,7 +273,7 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
                 assert!(total.is_none());
-                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+                last_uploaded.store(uploaded, Release);
             })
             .upload_stream(&file, Some("8m"), None)?;
 
@@ -295,7 +295,7 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
                 assert!(total.is_none());
-                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+                last_uploaded.store(uploaded, Release);
             })
             .upload_stream(&file, Some("8m+1"), None)?;
 
@@ -318,7 +318,7 @@ mod tests {
             .never_be_resumeable()
             .on_progress(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 21));
-                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+                last_uploaded.store(uploaded, Release);
             })
             .upload_stream(&file, Some("2m"), None)?;
 
@@ -340,7 +340,7 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
                 assert!(total.is_none());
-                assert!(uploaded + (1 << 16) >= last_uploaded.swap(uploaded, AcqRel));
+                last_uploaded.store(uploaded, Release);
             })
             .upload_stream(&file, Some("2m+3"), None)?;
 

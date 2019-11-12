@@ -164,7 +164,7 @@ impl CallHandlers {
         self
     }
 
-    pub fn as_boxed(self) -> Box<Self> {
+    pub fn into_box(self) -> Box<Self> {
         Box::new(self)
     }
 }
@@ -196,7 +196,7 @@ impl<T: HTTPCaller> UploadingProgressErrorMock<T> {
         }
     }
 
-    pub fn as_boxed(self) -> Box<Self> {
+    pub fn into_box(self) -> Box<Self> {
         Box::new(self)
     }
 }

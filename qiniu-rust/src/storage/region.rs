@@ -480,8 +480,11 @@ impl RegionQueryResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{config::ConfigBuilder, credential::Credential};
-    use qiniu_http::Headers;
+    use crate::{
+        config::ConfigBuilder,
+        credential::Credential,
+        http::{DomainsManagerBuilder, Headers},
+    };
     use qiniu_test_utils::http_call_mock::JSONCallMock;
     use serde_json::json;
     use std::{boxed::Box, error::Error, result::Result};
@@ -489,6 +492,7 @@ mod tests {
     #[test]
     fn test_query_region_by_expected_domain() -> Result<(), Box<dyn Error>> {
         let config = ConfigBuilder::default()
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .http_request_call(Box::new(JSONCallMock::new(
                 200,
                 Headers::new(),
@@ -546,6 +550,7 @@ mod tests {
     #[test]
     fn test_query_region_by_unexpected_domain() -> Result<(), Box<dyn Error>> {
         let config = ConfigBuilder::default()
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .http_request_call(Box::new(JSONCallMock::new(
                 200,
                 Headers::new(),

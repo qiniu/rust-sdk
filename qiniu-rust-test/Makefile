@@ -1,4 +1,4 @@
-.PHONY: all build test test-libcurl clean
+.PHONY: all build test test-libcurl clean clippy
 
 all: build
 build:
@@ -8,3 +8,5 @@ test-libcurl:
 	cargo test --features use-libcurl
 clean:
 	cargo clean
+clippy:
+	cargo clippy

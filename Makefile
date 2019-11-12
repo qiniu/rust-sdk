@@ -18,6 +18,11 @@ test:
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir test; \
 	done
+clippy:
+	set -e; \
+	for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir clippy; \
+	done
 publish:
 	set -e; \
 	for dir in qiniu-rust-http qiniu-rust-with-libcurl qiniu-rust-test-utils qiniu-rust; do \

@@ -22,9 +22,9 @@ pub fn create_temp_file(size: usize) -> Result<NamedTempFile> {
 }
 
 const fn make_fake_data() -> [u8; 4096] {
-    let mut buf = ['b' as u8; 4096];
-    buf[0] = 'A' as u8;
-    buf[4094] = '\r' as u8;
-    buf[4095] = '\n' as u8;
+    let mut buf = [b'b'; 4096];
+    buf[0] = b'A';
+    buf[4094] = b'\r';
+    buf[4095] = b'\n';
     buf
 }

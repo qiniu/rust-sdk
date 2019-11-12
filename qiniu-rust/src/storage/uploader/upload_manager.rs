@@ -5,7 +5,7 @@ use super::{
         upload_policy::UploadPolicy,
         upload_token::{UploadToken, UploadTokenParseError},
     },
-    BucketUploaderBuilder, FileUploaderBuilder, UploadLoggerBuilder,
+    BucketUploaderBuilder, FileUploaderBuilder,
 };
 use crate::{config::Config, credential::Credential, utils::ron::Ron};
 use assert_impl::assert_impl;
@@ -15,7 +15,6 @@ use thiserror::Error;
 #[derive(Clone)]
 pub struct UploadManager {
     config: Config,
-    upload_logger_builder: Option<UploadLoggerBuilder>,
 }
 
 impl UploadManager {
@@ -24,10 +23,7 @@ impl UploadManager {
     }
 
     pub fn new(config: Config) -> UploadManager {
-        UploadManager {
-            upload_logger_builder: UploadLoggerBuilder::new(config.clone()),
-            config,
-        }
+        UploadManager { config }
     }
 
     pub fn for_bucket(&self, bucket: &Bucket) -> BucketUploaderBuilder {
@@ -38,7 +34,6 @@ impl UploadManager {
                 .map(|iter| Self::extract_up_urls_list_from_regions(iter, self.config.use_https()))
                 .unwrap_or_else(|_| Self::all_possible_up_urls_list(self.config.use_https())),
             self.config.to_owned(),
-            self.upload_logger_builder.as_ref().cloned(),
         )
     }
 
@@ -51,12 +46,7 @@ impl UploadManager {
         let up_urls_list = Region::query(bucket_name.as_ref(), access_key.as_ref(), self.config.to_owned())
             .map(|regions| Self::extract_up_urls_list_from_regions(regions.iter(), self.config.use_https()))
             .unwrap_or_else(|_| Self::all_possible_up_urls_list(self.config.use_https()));
-        BucketUploaderBuilder::new(
-            bucket_name.into_owned().into(),
-            up_urls_list,
-            self.config.to_owned(),
-            self.upload_logger_builder.as_ref().cloned(),
-        )
+        BucketUploaderBuilder::new(bucket_name.into_owned().into(), up_urls_list, self.config.to_owned())
     }
 
     fn extract_up_urls_list_from_regions<'a>(

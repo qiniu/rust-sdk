@@ -9,9 +9,6 @@ pub struct qiniu_ng_config_t {
     pub batch_max_operation_size: size_t,
     pub upload_threshold: c_ulonglong,
     pub upload_block_size: size_t,
-    pub uplog_disabled: bool,
-    pub uplog_upload_threshold: size_t,
-    pub uplog_max_size: size_t,
     pub http_request_retries: size_t,
     pub http_request_retry_delay: c_ulonglong,
 }
@@ -24,9 +21,6 @@ pub extern "C" fn qiniu_ng_config_init(config: *mut qiniu_ng_config_t) {
         (*config).batch_max_operation_size = default_config::batch_max_operation_size();
         (*config).upload_threshold = default_config::upload_threshold();
         (*config).upload_block_size = default_config::upload_block_size();
-        (*config).uplog_disabled = default_config::uplog_disabled();
-        (*config).uplog_upload_threshold = default_config::uplog_upload_threshold();
-        (*config).uplog_max_size = default_config::uplog_max_size();
         (*config).http_request_retries = default_config::http_request_retries();
         (*config).http_request_retry_delay = default_config::http_request_retry_delay().as_secs();
     }
@@ -40,8 +34,6 @@ impl From<&qiniu_ng_config_t> for Config {
             .batch_max_operation_size(config.batch_max_operation_size)
             .upload_threshold(config.upload_threshold)
             .upload_block_size(config.upload_block_size)
-            .uplog_disabled(config.uplog_disabled)
-            .uplog_upload_threshold(config.uplog_upload_threshold)
             .http_request_retries(config.http_request_retries)
             .http_request_retry_delay(Duration::from_secs(config.http_request_retry_delay))
             .build()

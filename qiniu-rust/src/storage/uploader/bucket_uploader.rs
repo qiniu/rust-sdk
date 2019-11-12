@@ -3,7 +3,7 @@ use super::{
     form_uploader::FormUploaderBuilder,
     resumeable_uploader::{ResumeableUploader, ResumeableUploaderBuilder},
     upload_recorder::UploadRecorder,
-    UploadLoggerBuilder, UploadResponse,
+    UploadLogger, UploadResponse,
 };
 use crate::{config::Config, credential::Credential, http::Client, utils::ron::Ron};
 use assert_impl::assert_impl;
@@ -26,7 +26,7 @@ pub struct BucketUploaderInner {
     bucket_name: Box<str>,
     up_urls_list: Box<[Box<[Box<str>]>]>,
     http_client: Client,
-    upload_logger_builder: Option<UploadLoggerBuilder>,
+    upload_logger: Option<UploadLogger>,
     recorder: UploadRecorder,
     thread_pool: Option<ThreadPool>,
 }
@@ -46,8 +46,8 @@ impl BucketUploader {
     pub(super) fn http_client(&self) -> &Client {
         self.inner.http_client()
     }
-    pub(super) fn upload_logger_builder(&self) -> Option<&UploadLoggerBuilder> {
-        self.inner.upload_logger_builder().as_ref()
+    pub(super) fn upload_logger(&self) -> Option<&UploadLogger> {
+        self.inner.upload_logger().as_ref()
     }
     pub(super) fn recorder(&self) -> &UploadRecorder {
         self.inner.recorder()
@@ -66,17 +66,16 @@ impl BucketUploaderBuilder {
         bucket_name: Box<str>,
         up_urls_list: Box<[Box<[Box<str>]>]>,
         config: Config,
-        upload_logger_builder: Option<UploadLoggerBuilder>,
     ) -> BucketUploaderBuilder {
         assert!(!up_urls_list.is_empty());
         BucketUploaderBuilder {
             inner: BucketUploaderInner {
                 bucket_name,
                 up_urls_list,
-                recorder: config.upload_recorder().to_owned(),
-                http_client: Client::new(config),
                 thread_pool: None,
-                upload_logger_builder,
+                recorder: config.upload_recorder().to_owned(),
+                upload_logger: config.upload_logger().to_owned(),
+                http_client: Client::new(config),
             },
         }
     }
