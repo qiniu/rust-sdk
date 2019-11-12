@@ -79,7 +79,7 @@ mod tests {
         // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
 
         let key = format!("test-512k-{}", Utc::now().timestamp_nanos());
-        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, Config::default().upload_block_lifetime())
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, Config::default().upload_token_lifetime())
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
         let last_uploaded = AtomicUsize::new(0);

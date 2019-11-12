@@ -7,27 +7,35 @@ pub type StatusCode = u16;
 pub type Body = Box<dyn Read>;
 
 #[derive(Getters, CopyGetters, MutGetters, Builder)]
-#[builder(pattern = "owned", setter(into, strip_option), default)]
+#[builder(
+    pattern = "owned",
+    setter(into, strip_option),
+    build_fn(name = "inner_build", private)
+)]
 pub struct Response {
     #[get_copy = "pub"]
     #[get_mut = "pub"]
+    #[builder(default = "200")]
     status_code: StatusCode,
 
     #[get = "pub"]
     #[get_mut = "pub"]
+    #[builder(default)]
     headers: Headers<'static>,
 
     #[get = "pub"]
     #[get_mut = "pub"]
-    #[builder(private)]
+    #[builder(private, default)]
     body: Option<Body>,
 
     #[get_copy = "pub"]
     #[get_mut = "pub"]
+    #[builder(default)]
     server_ip: Option<IpAddr>,
 
     #[get_copy = "pub"]
     #[get_mut = "pub"]
+    #[builder(default)]
     server_port: u16,
 }
 
@@ -67,17 +75,15 @@ impl ResponseBuilder {
     pub fn stream<B: Read + 'static>(self, body: B) -> Self {
         self.body(Box::new(body) as Body)
     }
+
+    pub fn build(self) -> Response {
+        self.inner_build().unwrap()
+    }
 }
 
 impl Default for Response {
     fn default() -> Self {
-        Response {
-            status_code: 200,
-            headers: Headers::new(),
-            body: None,
-            server_ip: None,
-            server_port: 0,
-        }
+        ResponseBuilder::default().build()
     }
 }
 

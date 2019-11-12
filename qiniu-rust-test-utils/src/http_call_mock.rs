@@ -49,8 +49,7 @@ impl<T: Serialize> HTTPCaller for JSONCallMock<T> {
             .status_code(self.status_code)
             .headers(headers)
             .stream(Cursor::new(serde_json::to_string(&self.response_body).unwrap()))
-            .build()
-            .unwrap())
+            .build())
     }
 }
 
@@ -126,8 +125,7 @@ impl<'e> HTTPCaller for ErrorResponseMock<'e> {
             .status_code(self.status_code)
             .headers(headers)
             .stream(Cursor::new(body))
-            .build()
-            .unwrap())
+            .build())
     }
 }
 

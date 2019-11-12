@@ -12,4 +12,5 @@ pub use bucket_uploader::{BucketUploader, BucketUploaderBuilder, FileUploaderBui
 use callback::upload_response_callback;
 use upload_logger::{UpType, UploadLogger, UploadLoggerBuilder, UploadLoggerRecordBuilder};
 pub use upload_manager::{CreateUploaderError, CreateUploaderResult, UploadManager};
+pub use upload_recorder::{UploadRecorder, UploadRecorderBuilder};
 pub use upload_response::UploadResponse;

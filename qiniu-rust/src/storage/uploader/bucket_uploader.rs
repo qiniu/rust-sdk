@@ -73,7 +73,7 @@ impl BucketUploaderBuilder {
             inner: BucketUploaderInner {
                 bucket_name,
                 up_urls_list,
-                recorder: UploadRecorder::new(config.recorder().to_owned(), &config),
+                recorder: config.upload_recorder().to_owned(),
                 http_client: Client::new(config),
                 thread_pool: None,
                 upload_logger_builder,

@@ -786,8 +786,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({"uploadId":"test_upload_id"}).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -811,8 +810,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -832,8 +830,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .as_boxed(),
@@ -883,8 +880,7 @@ mod tests {
                                 .status_code(200u16)
                                 .headers(headers)
                                 .stream(Cursor::new(json!({"uploadId":"test_upload_id"}).to_string()))
-                                .build()
-                                .unwrap())
+                                .build())
                         },
                     )
                     .install(
@@ -908,8 +904,7 @@ mod tests {
                                 .status_code(200u16)
                                 .headers(headers)
                                 .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
-                                .build()
-                                .unwrap())
+                                .build())
                         },
                     )
                     .install(
@@ -929,8 +924,7 @@ mod tests {
                                 .status_code(200u16)
                                 .headers(headers)
                                 .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
-                                .build()
-                                .unwrap())
+                                .build())
                         },
                     ),
                     16384,
@@ -982,8 +976,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({"uploadId":"test_upload_id"}).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1012,8 +1005,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1037,8 +1029,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1058,8 +1049,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .as_boxed(),
@@ -1125,8 +1115,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({"uploadId":"test_upload_id"}).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1150,8 +1139,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1171,8 +1159,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .as_boxed(),
@@ -1225,8 +1212,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({"uploadId":"test_upload_id_1"}).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1246,8 +1232,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({"uploadId":"test_upload_id_2"}).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1276,8 +1261,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1301,8 +1285,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1322,8 +1305,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .as_boxed(),
@@ -1376,8 +1358,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({"uploadId": "test_upload_id"}).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1407,8 +1388,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1428,8 +1408,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .as_boxed(),
@@ -1496,8 +1475,7 @@ mod tests {
                             .stream(Cursor::new(
                                 json!({ "uploadId": format!("test_upload_id_{}", called) }).to_string(),
                             ))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1525,8 +1503,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1550,8 +1527,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .install(
@@ -1571,8 +1547,7 @@ mod tests {
                             .status_code(200u16)
                             .headers(headers)
                             .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
-                            .build()
-                            .unwrap())
+                            .build())
                     },
                 )
                 .as_boxed(),

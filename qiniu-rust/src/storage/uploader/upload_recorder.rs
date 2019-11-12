@@ -1,8 +1,9 @@
-use super::super::recorder::{RecordMedium, Recorder};
-use crate::config::Config;
+use super::super::recorder::{FileSystemRecorder, RecordMedium, Recorder};
 use assert_impl::assert_impl;
+use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::{
+    fmt,
     io::{BufRead, BufReader, Error, ErrorKind, Result},
     path::Path,
     sync::Arc,
@@ -10,11 +11,19 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-#[derive(Clone)]
-pub(super) struct UploadRecorder {
+#[derive(Builder, Clone)]
+#[builder(pattern = "owned", public, build_fn(name = "inner_build", private))]
+pub struct UploadRecorder {
+    #[builder(default = "default::recorder()")]
     recorder: Arc<dyn Recorder>,
+
+    #[builder(default = "default::key_generator")]
     key_generator: fn(name: &str, path: &Path, key: Option<&str>) -> String,
+
+    #[builder(default = "default::upload_block_lifetime()")]
     upload_block_lifetime: Duration,
+
+    #[builder(default = "default::always_flush_records()")]
     always_flush_records: bool,
 }
 
@@ -55,16 +64,13 @@ struct SerializableFileUploadRecordMediumBlockItem<'a> {
     block_size: u64,
 }
 
-impl UploadRecorder {
-    pub(super) fn new(recorder: Arc<dyn Recorder>, config: &Config) -> UploadRecorder {
-        UploadRecorder {
-            recorder,
-            key_generator: config.recorder_key_generator(),
-            upload_block_lifetime: config.upload_block_lifetime(),
-            always_flush_records: config.always_flush_records(),
-        }
+impl UploadRecorderBuilder {
+    pub fn build(self) -> UploadRecorder {
+        self.inner_build().unwrap()
     }
+}
 
+impl UploadRecorder {
     pub(super) fn open_and_write_metadata(
         &self,
         path: &Path,
@@ -164,6 +170,51 @@ impl UploadRecorder {
     fn ignore() {
         assert_impl!(Send: Self);
         assert_impl!(Sync: Self);
+    }
+}
+
+impl fmt::Debug for UploadRecorder {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("UploadRecorder")
+            .field("recorder", &self.recorder)
+            .field("upload_block_lifetime", &self.upload_block_lifetime)
+            .field("always_flush_records", &self.always_flush_records)
+            .finish()
+    }
+}
+
+impl Default for UploadRecorder {
+    fn default() -> Self {
+        UploadRecorderBuilder::default().build()
+    }
+}
+
+mod default {
+    use super::*;
+    use crypto::{digest::Digest, sha1::Sha1};
+
+    pub fn recorder() -> Arc<dyn Recorder> {
+        FileSystemRecorder::default()
+    }
+
+    pub fn upload_block_lifetime() -> Duration {
+        Duration::from_secs(60 * 60 * 24 * 7)
+    }
+
+    pub fn always_flush_records() -> bool {
+        false
+    }
+
+    pub fn key_generator(name: &str, path: &Path, key: Option<&str>) -> String {
+        let mut sha1 = Sha1::new();
+        if let Some(key) = key {
+            sha1.input(key.as_bytes());
+            sha1.input(b"_._");
+        }
+        sha1.input(name.as_bytes());
+        sha1.input(b"_._");
+        sha1.input(path.to_string_lossy().as_ref().as_bytes());
+        sha1.result_str()
     }
 }
 

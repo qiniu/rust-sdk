@@ -39,25 +39,20 @@ lazy_static! {
 }
 
 #[derive(Debug, Builder)]
-#[builder(pattern = "owned", setter(into, strip_option), default)]
+#[builder(
+    pattern = "owned",
+    setter(into, strip_option),
+    build_fn(name = "inner_build", private)
+)]
 pub struct CurlClient {
+    #[builder(default = "1 << 22")]
     buffer_size: usize,
 
+    #[builder(default)]
     temp_dir: Option<PathBuf>,
 
-    #[builder(setter(skip))]
+    #[builder(default, setter(skip))]
     user_agent: Option<String>,
-}
-
-impl Default for CurlClient {
-    fn default() -> Self {
-        INITIALIZER.call_once(curl::init);
-        CurlClient {
-            buffer_size: 1 << 22,
-            temp_dir: None,
-            user_agent: None,
-        }
-    }
 }
 
 impl HTTPCaller for CurlClient {
@@ -122,7 +117,7 @@ impl CurlClient {
             builder = builder.server_ip(server_ip);
         }
         builder = builder.server_port(server_port);
-        Ok(builder.build().unwrap())
+        Ok(builder.build())
     }
 
     fn reset_context<'r>(&'r self, easy: &mut Easy2<Context<'r>>) {
@@ -457,6 +452,19 @@ impl<'r> Handler for Context<'r> {
             _ => {}
         }
         true
+    }
+}
+
+impl Default for CurlClient {
+    fn default() -> Self {
+        INITIALIZER.call_once(curl::init);
+        CurlClientBuilder::default().build()
+    }
+}
+
+impl CurlClientBuilder {
+    fn build(self) -> CurlClient {
+        self.inner_build().unwrap()
     }
 }
 

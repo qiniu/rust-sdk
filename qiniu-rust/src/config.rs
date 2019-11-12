@@ -1,12 +1,8 @@
 use crate::{
     http::DomainsManager,
-    storage::{
-        recorder::{FileSystemRecorder, Recorder},
-        region::Region,
-    },
+    storage::{region::Region, uploader::UploadRecorder},
 };
 use assert_impl::assert_impl;
-use crypto::{digest::Digest, sha1::Sha1};
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
 use qiniu_http::HTTPCaller;
@@ -16,7 +12,6 @@ use std::{
     fmt,
     marker::{Send, Sync},
     ops::Deref,
-    path::Path,
     sync::Arc,
     time::Duration,
 };
@@ -50,18 +45,6 @@ pub struct ConfigInner {
     upload_block_size: usize,
 
     #[get_copy = "pub"]
-    #[builder(default = "default::upload_block_lifetime()")]
-    upload_block_lifetime: Duration,
-
-    #[get_copy = "pub"]
-    #[builder(default = "default::recorder_key_generator")]
-    recorder_key_generator: fn(name: &str, path: &Path, key: Option<&str>) -> String,
-
-    #[get_copy = "pub"]
-    #[builder(default = "default::always_flush_records()")]
-    always_flush_records: bool,
-
-    #[get_copy = "pub"]
     #[builder(default = "default::uplog_disabled()")]
     uplog_disabled: bool,
 
@@ -80,7 +63,7 @@ pub struct ConfigInner {
 
     #[get = "pub"]
     #[builder(default = "default::recorder()")]
-    recorder: Arc<dyn Recorder>,
+    upload_recorder: UploadRecorder,
 
     #[get_copy = "pub"]
     #[builder(default = "default::http_request_retries()")]
@@ -122,14 +105,6 @@ pub mod default {
         1 << 22
     }
 
-    pub fn upload_block_lifetime() -> Duration {
-        Duration::from_secs(60 * 60 * 24 * 7)
-    }
-
-    pub fn always_flush_records() -> bool {
-        false
-    }
-
     pub fn uplog_disabled() -> bool {
         false
     }
@@ -146,8 +121,8 @@ pub mod default {
         1 << 22
     }
 
-    pub fn recorder() -> Arc<dyn Recorder> {
-        FileSystemRecorder::default()
+    pub fn recorder() -> UploadRecorder {
+        Default::default()
     }
 
     pub fn http_request_retries() -> usize {
@@ -162,22 +137,10 @@ pub mod default {
         Default::default()
     }
 
-    pub fn recorder_key_generator(name: &str, path: &Path, key: Option<&str>) -> String {
-        let mut sha1 = Sha1::new();
-        if let Some(key) = key {
-            sha1.input(key.as_bytes());
-            sha1.input(b"_._");
-        }
-        sha1.input(name.as_bytes());
-        sha1.input(b"_._");
-        sha1.input(path.to_string_lossy().as_ref().as_bytes());
-        sha1.result_str()
-    }
-
     pub fn http_request_call() -> Box<dyn HTTPCaller + Sync + Send> {
         #[cfg(any(feature = "use-libcurl"))]
         {
-            Box::new(qiniu_with_libcurl::CurlClientBuilder::default().build().unwrap())
+            Box::new(qiniu_with_libcurl::CurlClient::default())
         }
         #[cfg(not(feature = "use-libcurl"))]
         {
@@ -195,10 +158,8 @@ impl fmt::Debug for ConfigInner {
             .field("batch_max_operation_size", &self.batch_max_operation_size)
             .field("upload_threshold", &self.upload_threshold)
             .field("upload_block_size", &self.upload_block_size)
-            .field("upload_block_lifetime", &self.upload_block_lifetime)
             .field("uplog_server_url", &self.uplog_server_url)
-            .field("recorder", &self.recorder)
-            .field("always_flush_records", &self.always_flush_records)
+            .field("upload_recorder", &self.upload_recorder)
             .field("uplog_disabled", &self.uplog_disabled)
             .field("uplog_upload_threshold", &self.uplog_upload_threshold)
             .field("uplog_max_size", &self.uplog_max_size)
@@ -257,8 +218,7 @@ mod tests {
             Ok(ResponseBuilder::default()
                 .status_code(612u16)
                 .stream(Cursor::new(Vec::from("It's HTTP Body".as_bytes())))
-                .build()
-                .unwrap())
+                .build())
         }
     }
 
