@@ -5,16 +5,72 @@ use crate::{
 };
 use assert_impl::assert_impl;
 use derive_builder::Builder;
+use dirs::cache_dir;
+use fs2::FileExt;
 use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCallerErrorKind, Result as HTTPResult};
 use std::{
     borrow::Cow,
-    error::Error as StdError,
+    convert::TryInto,
+    env::temp_dir,
+    error::Error,
     fmt,
+    fs::{create_dir_all, File, OpenOptions},
+    io::{Error as IOError, Read, Result as IOResult, Seek, SeekFrom, Write},
     net::IpAddr,
+    path::Path,
     sync::{Arc, RwLock},
     time::{Duration, SystemTime},
 };
+use tap::TapOps;
+use thiserror::Error;
 use url::Url;
+
+pub enum LockPolicy {
+    LockSharedDuringAppendingAndLockExclusiveDuringUploading,
+    AlwaysLockExclusive,
+    None,
+}
+
+impl LockPolicy {
+    fn lock_for_appending(&self, file: &File) -> IOResult<()> {
+        match self {
+            LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading => file.lock_shared(),
+            LockPolicy::AlwaysLockExclusive => file.lock_exclusive(),
+            LockPolicy::None => Ok(()),
+        }
+    }
+    fn lock_for_uploading(&self, file: &File) -> IOResult<()> {
+        match self {
+            LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading | LockPolicy::AlwaysLockExclusive => {
+                file.lock_exclusive()
+            }
+            LockPolicy::None => Ok(()),
+        }
+    }
+    fn try_lock_for_appending(&self, file: &File) -> IOResult<()> {
+        match self {
+            LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading => file.try_lock_shared(),
+            LockPolicy::AlwaysLockExclusive => file.try_lock_exclusive(),
+            LockPolicy::None => Ok(()),
+        }
+    }
+    fn try_lock_for_uploading(&self, file: &File) -> IOResult<()> {
+        match self {
+            LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading | LockPolicy::AlwaysLockExclusive => {
+                file.try_lock_exclusive()
+            }
+            LockPolicy::None => Ok(()),
+        }
+    }
+    fn unlock(&self, file: &File) -> IOResult<()> {
+        match self {
+            LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading | LockPolicy::AlwaysLockExclusive => {
+                file.unlock()
+            }
+            LockPolicy::None => Ok(()),
+        }
+    }
+}
 
 #[derive(Builder)]
 #[builder(
@@ -27,15 +83,22 @@ struct UploadLoggerValue {
     #[builder(default = "default::server_url()")]
     server_url: Cow<'static, str>,
 
+    #[builder(default = "default::log_file_path()")]
+    log_file_path: Cow<'static, Path>,
+
+    #[builder(default = "default::lock_policy()")]
+    lock_policy: LockPolicy,
+
     #[builder(default = "default::upload_threshold()")]
-    upload_threshold: usize,
+    upload_threshold: u32,
 
     #[builder(default = "default::max_size()")]
-    max_size: usize,
+    max_size: u32,
 }
 
 struct UploadLoggerInner {
     log_buffer: RwLock<Vec<u8>>,
+    log_file: RwLock<File>,
     value: UploadLoggerValue,
 }
 
@@ -49,6 +112,7 @@ pub(crate) struct TokenizedUploadLogger {
     upload_logger: UploadLogger,
     http_client: Client,
     upload_token: Box<str>,
+    dropped: bool,
 }
 
 impl UploadLogger {
@@ -57,6 +121,7 @@ impl UploadLogger {
             upload_logger: self.clone(),
             http_client,
             upload_token,
+            dropped: false,
         }
     }
 
@@ -68,18 +133,24 @@ impl UploadLogger {
 }
 
 impl UploadLoggerBuilder {
-    pub fn build(self) -> UploadLogger {
+    pub fn build(self) -> IOResult<UploadLogger> {
         let value = self.inner_build().unwrap();
-        let log_buffer = RwLock::new(Vec::with_capacity(value.max_size));
-        UploadLogger {
-            inner: Arc::new(UploadLoggerInner { log_buffer, value }),
-        }
-    }
-}
-
-impl Default for UploadLogger {
-    fn default() -> Self {
-        UploadLoggerBuilder::default().build()
+        let log_file = RwLock::new(
+            OpenOptions::new()
+                .read(true)
+                .write(true)
+                .append(true)
+                .create(true)
+                .open(value.log_file_path.as_ref())?,
+        );
+        let log_buffer = RwLock::new(Vec::with_capacity(value.max_size as usize));
+        Ok(UploadLogger {
+            inner: Arc::new(UploadLoggerInner {
+                log_file,
+                log_buffer,
+                value,
+            }),
+        })
     }
 }
 
@@ -87,15 +158,29 @@ pub mod default {
     use super::*;
 
     pub fn server_url() -> Cow<'static, str> {
-        Cow::Borrowed(Region::uplog_url())
+        Region::uplog_url().into()
     }
 
-    pub fn upload_threshold() -> usize {
+    pub fn log_file_path() -> Cow<'static, Path> {
+        let mut default_path = cache_dir().unwrap_or_else(temp_dir);
+        default_path.push("qiniu_sdk");
+        default_path = create_dir_all(&default_path)
+            .map(|_| default_path)
+            .unwrap_or_else(|_| temp_dir());
+        default_path.push("upload.log");
+        default_path.into()
+    }
+
+    pub fn upload_threshold() -> u32 {
         1 << 12
     }
 
-    pub fn max_size() -> usize {
+    pub fn max_size() -> u32 {
         1 << 22
+    }
+
+    pub fn lock_policy() -> LockPolicy {
+        LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading
     }
 }
 
@@ -110,36 +195,166 @@ impl fmt::Debug for UploadLogger {
 }
 
 impl TokenizedUploadLogger {
-    pub(crate) fn log(&self, record: UploadLoggerRecord) {
-        let log_buffer_len = self.log_buffer_len();
-        if log_buffer_len < self.upload_logger.inner.value.max_size {
+    pub(crate) fn log(&self, record: UploadLoggerRecord) -> IOResult<()> {
+        self.append_record_to_log_buffer(record);
+        self.append_log_buffer_to_record_or_upload_log_buffer(false)?;
+        self.async_lock_log_file_and_update_then_clean_if_needed()?;
+        Ok(())
+    }
+
+    fn append_record_to_log_buffer(&self, record: UploadLoggerRecord) {
+        let log_buffer_size: u32 = self
+            .upload_logger
+            .inner
+            .log_buffer
+            .read()
+            .unwrap()
+            .len()
+            .try_into()
+            .unwrap_or(u32::max_value());
+        if log_buffer_size < self.upload_logger.inner.value.max_size {
             let record = record.to_string() + "\n";
-            if log_buffer_len + record.len() < self.upload_logger.inner.value.max_size {
+            let record_bytes = record.as_bytes();
+            let record_size: u32 = record_bytes.len().try_into().unwrap_or(u32::max_value());
+            if log_buffer_size + record_size < self.upload_logger.inner.value.max_size {
                 self.upload_logger
                     .inner
                     .log_buffer
                     .write()
                     .unwrap()
-                    .extend_from_slice(record.as_bytes());
+                    .extend_from_slice(record_bytes);
             }
-        }
-        if self.log_buffer_len() >= self.upload_logger.inner.value.upload_threshold {
-            self.async_upload_log_buffer_and_clean();
         }
     }
 
-    fn async_upload_log_buffer_and_clean(&self) {
+    fn append_log_buffer_to_record_or_upload_log_buffer(&self, ignore_upload_threshold: bool) -> IOResult<()> {
+        let log_file_size: u32 = self
+            .upload_logger
+            .inner
+            .log_file
+            .read()
+            .unwrap()
+            .metadata()?
+            .len()
+            .try_into()
+            .unwrap_or(u32::max_value());
+        if log_file_size < self.upload_logger.inner.value.max_size {
+            let mut log_buffer_size: u32 = self
+                .upload_logger
+                .inner
+                .log_buffer
+                .read()
+                .unwrap()
+                .len()
+                .try_into()
+                .unwrap_or(u32::max_value());
+            if log_buffer_size > 0 {
+                if log_file_size + log_buffer_size < self.upload_logger.inner.value.max_size {
+                    if let Ok(mut log_file) = self.upload_logger.inner.log_file.try_write() {
+                        if self
+                            .upload_logger
+                            .inner
+                            .value
+                            .lock_policy
+                            .try_lock_for_appending(&log_file)
+                            .is_ok()
+                        {
+                            let log_buffer_content = {
+                                let mut log_buffer = self.upload_logger.inner.log_buffer.write().unwrap();
+                                log_buffer.clone().tap(|_| log_buffer.clear())
+                            };
+                            log_file.write_all(&log_buffer_content).tap(|_| {
+                                let _ = self.upload_logger.inner.value.lock_policy.unlock(&log_file);
+                            })?;
+                            return Ok(());
+                        }
+                    }
+                }
+                if ignore_upload_threshold || log_buffer_size > self.upload_logger.inner.value.upload_threshold {
+                    let log_buffer_content = {
+                        let mut log_buffer = self.upload_logger.inner.log_buffer.write().unwrap();
+                        log_buffer.clone().tap(|_| log_buffer.clear())
+                    };
+                    log_buffer_size = log_buffer_content.len().try_into().unwrap_or(u32::max_value());
+                    if ignore_upload_threshold && !log_buffer_content.is_empty()
+                        || log_buffer_size > self.upload_logger.inner.value.upload_threshold
+                    {
+                        self.async_upload_log_buffer(log_buffer_content);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn async_lock_log_file_and_update_then_clean_if_needed(&self) -> IOResult<()> {
+        let log_file_size: u32 = self
+            .upload_logger
+            .inner
+            .log_file
+            .read()
+            .unwrap()
+            .metadata()?
+            .len()
+            .try_into()
+            .unwrap_or(u32::max_value());
+        if log_file_size > self.upload_logger.inner.value.upload_threshold {
+            self.async_lock_log_file_and_update_then_clean();
+        }
+        Ok(())
+    }
+
+    fn async_lock_log_file_and_update_then_clean(&self) {
         let upload_logger = self.clone();
         global_thread_pool.spawn(move || {
-            let _ = upload_logger.upload_log_buffer_and_clean();
+            let _ = upload_logger.lock_log_file_and_update_then_clean();
         });
     }
 
-    fn upload_log_buffer_and_clean(&self) -> HTTPResult<()> {
-        let mut log_buffer = self.upload_logger.inner.log_buffer.write().unwrap();
-        self.upload_log_buffer(&log_buffer)?;
-        log_buffer.clear();
+    fn lock_log_file_and_update_then_clean(&self) -> UploadResult<()> {
+        let log_file_size: u32 = self
+            .upload_logger
+            .inner
+            .log_file
+            .read()
+            .unwrap()
+            .metadata()?
+            .len()
+            .try_into()
+            .unwrap_or(u32::max_value());
+        if log_file_size > self.upload_logger.inner.value.upload_threshold {
+            let mut log_file = self.upload_logger.inner.log_file.write().unwrap();
+
+            self.upload_logger
+                .inner
+                .value
+                .lock_policy
+                .lock_for_uploading(&log_file)?;
+            self.upload_log_file_and_clean(&mut log_file).tap(|_| {
+                let _ = self.upload_logger.inner.value.lock_policy.unlock(&log_file);
+            })?;
+        }
         Ok(())
+    }
+
+    fn upload_log_file_and_clean(&self, log_file: &mut File) -> UploadResult<()> {
+        let log_file_size: u32 = log_file.metadata()?.len().try_into().unwrap_or(u32::max_value());
+        if log_file_size > self.upload_logger.inner.value.upload_threshold {
+            let mut log_buffer = Vec::with_capacity(log_file_size as usize);
+            log_file.seek(SeekFrom::Start(0))?;
+            log_file.read_to_end(&mut log_buffer)?;
+            self.upload_log_buffer(&log_buffer)?;
+            log_file.set_len(0)?;
+            log_file.seek(SeekFrom::Start(0))?;
+        }
+        Ok(())
+    }
+
+    fn async_upload_log_buffer(&self, log_buffer: Vec<u8>) {
+        let upload_logger = self.clone();
+        global_thread_pool.spawn(move || {
+            let _ = upload_logger.upload_log_buffer(&log_buffer);
+        });
     }
 
     fn upload_log_buffer(&self, log_buffer: &[u8]) -> HTTPResult<()> {
@@ -154,8 +369,38 @@ impl TokenizedUploadLogger {
         Ok(())
     }
 
-    fn log_buffer_len(&self) -> usize {
-        self.upload_logger.inner.log_buffer.read().unwrap().len()
+    #[cfg(test)]
+    fn clear(&self) -> IOResult<()> {
+        let mut log_file = self.upload_logger.inner.log_file.write().unwrap();
+        log_file.set_len(0)?;
+        log_file.seek(SeekFrom::Start(0))?;
+        drop(log_file);
+
+        let mut log_buffer = self.upload_logger.inner.log_buffer.write().unwrap();
+        log_buffer.clear();
+        drop(log_buffer);
+
+        Ok(())
+    }
+
+    #[cfg(test)]
+    fn size(&self) -> IOResult<u32> {
+        let mut size = 0u32;
+
+        let log_file = self.upload_logger.inner.log_file.read().unwrap();
+        size += log_file.metadata()?.len().try_into().unwrap_or(u32::max_value());
+        drop(log_file);
+
+        let log_buffer = self.upload_logger.inner.log_buffer.read().unwrap();
+        size += log_buffer.len().try_into().unwrap_or(u32::max_value());
+        drop(log_buffer);
+
+        Ok(size)
+    }
+
+    #[cfg(test)]
+    fn lock_log_file(&self) -> IOResult<()> {
+        self.upload_logger.inner.log_file.read().unwrap().lock_exclusive()
     }
 
     #[allow(dead_code)]
@@ -167,11 +412,22 @@ impl TokenizedUploadLogger {
 
 impl Drop for TokenizedUploadLogger {
     fn drop(&mut self) {
-        if self.log_buffer_len() > 0 {
-            let _ = self.upload_log_buffer_and_clean();
+        if !self.dropped {
+            self.dropped = true;
+            let _ = self.append_log_buffer_to_record_or_upload_log_buffer(true);
         }
     }
 }
+
+#[derive(Error, Debug)]
+enum UploadError {
+    #[error("Qiniu API call error: {0}")]
+    QiniuAPIError(#[from] HTTPError),
+    #[error("Failed to do io operation for log file: {0}")]
+    IOError(#[from] IOError),
+}
+
+type UploadResult<T> = Result<T, UploadError>;
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum UpType {
@@ -347,7 +603,7 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_call(mock.as_boxed())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .upload_logger(Some(UploadLoggerBuilder::default().upload_threshold(100).build()))
+            .upload_logger(Some(UploadLoggerBuilder::default().upload_threshold(100).build()?))
             .build();
         let upload_logger = config.upload_logger().as_ref().unwrap().tokenize(
             UploadToken::from_policy(
@@ -358,6 +614,7 @@ mod tests {
             .into(),
             Client::new(config.to_owned()),
         );
+        upload_logger.clear()?;
         upload_logger.log(
             UploadLoggerRecordBuilder::default()
                 .status_code(200)
@@ -370,10 +627,10 @@ mod tests {
                 .sent(123_123usize)
                 .total_size(123_123usize)
                 .build(),
-        );
+        )?;
         sleep(Duration::from_secs(1));
         assert_eq!(mock.call_called(), 0);
-        assert!(upload_logger.log_buffer_len() > 0);
+        assert!(upload_logger.size()? > 0);
         upload_logger.log(
             UploadLoggerRecordBuilder::default()
                 .status_code(200)
@@ -386,10 +643,10 @@ mod tests {
                 .sent(456usize)
                 .total_size(456usize)
                 .build(),
-        );
+        )?;
         sleep(Duration::from_secs(1));
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(upload_logger.log_buffer_len(), 0);
+        assert_eq!(upload_logger.size()?, 0);
         Ok(())
     }
 
@@ -403,7 +660,7 @@ mod tests {
                 UploadLoggerBuilder::default()
                     .upload_threshold(100)
                     .max_size(100)
-                    .build(),
+                    .build()?,
             ))
             .build();
         let upload_logger = config.upload_logger().as_ref().unwrap().tokenize(
@@ -415,6 +672,7 @@ mod tests {
             .into(),
             Client::new(config.to_owned()),
         );
+        upload_logger.clear()?;
         upload_logger.log(
             UploadLoggerRecordBuilder::default()
                 .status_code(200)
@@ -427,10 +685,10 @@ mod tests {
                 .sent(123_123usize)
                 .total_size(123_123usize)
                 .build(),
-        );
+        )?;
         sleep(Duration::from_secs(1));
         assert_eq!(mock.call_called(), 0);
-        assert!(upload_logger.log_buffer_len() > 0);
+        assert!(upload_logger.size()? > 0);
         upload_logger.log(
             UploadLoggerRecordBuilder::default()
                 .status_code(200)
@@ -443,12 +701,14 @@ mod tests {
                 .sent(456usize)
                 .total_size(456usize)
                 .build(),
-        );
+        )?;
         sleep(Duration::from_secs(1));
         assert_eq!(mock.call_called(), 0);
-        assert!(upload_logger.log_buffer_len() > 0);
+        assert!(upload_logger.size()? > 0);
 
+        upload_logger.lock_log_file()?;
         drop(upload_logger);
+        sleep(Duration::from_secs(1));
         assert_eq!(mock.call_called(), 1);
 
         Ok(())

@@ -155,7 +155,7 @@ impl<'u> FormUploader<'u> {
                 let result = upload_response_callback(response);
                 if result.is_ok() {
                     if let Some(upload_logger) = &self.upload_logger {
-                        upload_logger.log(
+                        let _ = upload_logger.log(
                             UploadLoggerRecordBuilder::default()
                                 .response(response)
                                 .duration(duration)
@@ -170,7 +170,7 @@ impl<'u> FormUploader<'u> {
             })
             .on_error(&|base_url, err, duration| {
                 if let Some(upload_logger) = &self.upload_logger {
-                    upload_logger.log({
+                    let _ = upload_logger.log({
                         let mut builder = UploadLoggerRecordBuilder::default()
                             .duration(duration)
                             .up_type(UpType::Form)

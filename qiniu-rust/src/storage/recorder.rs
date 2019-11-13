@@ -1,4 +1,6 @@
+use dirs::cache_dir;
 use std::{
+    borrow::Cow,
     env::temp_dir,
     fmt::Debug,
     fs::{create_dir_all, remove_file, File, OpenOptions},
@@ -16,21 +18,24 @@ pub trait RecordMedium: Read + Write + Send {}
 
 #[derive(Clone, Debug)]
 pub struct FileSystemRecorder {
-    root_directory: Box<Path>,
+    root_directory: Cow<'static, Path>,
 }
 
 impl FileSystemRecorder {
-    pub fn from<P: Into<Box<Path>>>(root_directory: P) -> Arc<dyn Recorder> {
+    pub fn from<P: Into<Cow<'static, Path>>>(root_directory: P) -> Arc<dyn Recorder> {
         let root_directory = root_directory.into();
         Arc::new(FileSystemRecorder { root_directory }) as Arc<dyn Recorder>
     }
 
     pub fn default() -> Arc<dyn Recorder> {
-        let mut default_path = temp_dir();
-        default_path.push("qiniu_sdk");
-        default_path.push("records");
-        create_dir_all(&default_path).unwrap();
-        FileSystemRecorder::from(default_path)
+        FileSystemRecorder::from({
+            let mut default_path = cache_dir().unwrap_or_else(temp_dir);
+            default_path.push("qiniu_sdk");
+            default_path.push("records");
+            create_dir_all(&default_path)
+                .map(|_| default_path)
+                .unwrap_or_else(|_| temp_dir())
+        })
     }
 
     fn get_path<ID: AsRef<str>>(&self, id: ID) -> PathBuf {

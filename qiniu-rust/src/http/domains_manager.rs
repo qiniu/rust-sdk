@@ -1,14 +1,15 @@
 use crate::{storage::region::Region, utils::global_thread_pool};
 use assert_impl::assert_impl;
 use chashmap::CHashMap;
+use dirs::cache_dir;
 use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     boxed::Box,
     cell::RefCell,
-    env,
-    fs::{File, OpenOptions},
+    env::temp_dir,
+    fs::{create_dir_all, File, OpenOptions},
     io::Error as IOError,
     mem::drop,
     net::{SocketAddr, ToSocketAddrs},
@@ -318,9 +319,13 @@ impl DomainsManagerBuilder {
 impl Default for DomainsManagerBuilder {
     fn default() -> Self {
         let persistent_file_path = {
-            let mut path = env::temp_dir();
-            path.push("domains_manager.json");
-            path
+            let mut default_path = cache_dir().unwrap_or_else(temp_dir);
+            default_path.push("qiniu_sdk");
+            default_path = create_dir_all(&default_path)
+                .map(|_| default_path)
+                .unwrap_or_else(|_| temp_dir());
+            default_path.push("domains_manager.json");
+            default_path
         };
 
         DomainsManagerInnerData::load_from_file(&persistent_file_path)
@@ -652,6 +657,7 @@ mod tests {
     #[test]
     fn test_domains_manager_in_multiple_threads() -> Result<(), Box<dyn Error>> {
         let domains_manager = DomainsManagerBuilder::default()
+            .disable_url_resolution()
             .url_frozen_duration(Duration::from_secs(5))
             .build();
         assert!(!domains_manager.is_frozen_url("http://up.qiniup.com")?);
@@ -749,11 +755,11 @@ mod tests {
             _ => panic!(),
         }
         let inner = DomainsManagerInnerData::load_from_file(temp_path)?;
-        assert!(inner.frozen_urls.contains_key("up-z0.qiniup.com:80".into()));
-        assert!(inner.frozen_urls.contains_key("up-z1.qiniup.com:80".into()));
-        assert!(inner.resolutions.contains_key("up-z2.qiniup.com:80".into()));
-        assert!(!inner.resolutions.contains_key("unexisted-z3.qiniup.com:80".into()));
-        assert!(!inner.resolutions.contains_key("unexisted-z4.qiniup.com:80".into()));
+        assert!(inner.frozen_urls.contains_key("up-z0.qiniup.com:80"));
+        assert!(inner.frozen_urls.contains_key("up-z1.qiniup.com:80"));
+        assert!(inner.resolutions.contains_key("up-z2.qiniup.com:80"));
+        assert!(!inner.resolutions.contains_key("unexisted-z3.qiniup.com:80"));
+        assert!(!inner.resolutions.contains_key("unexisted-z4.qiniup.com:80"));
 
         let domains_manager = DomainsManagerBuilder::load_from_file(temp_path)?.build();
         assert!(domains_manager.is_frozen_url("http://up-z0.qiniup.com")?);
@@ -767,6 +773,7 @@ mod tests {
         let temp_path: &Path = temp_path.as_ref();
         let domains_manager = DomainsManagerBuilder::create_new(Some(temp_path))
             .auto_persistent_interval(Duration::from_secs(1))
+            .disable_url_resolution()
             .build();
         domains_manager.freeze_url("http://up-z0.qiniup.com")?;
         DomainsManagerInnerData::load_from_file(temp_path).unwrap_err();

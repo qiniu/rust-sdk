@@ -1,6 +1,6 @@
 use crate::{
     http::DomainsManager,
-    storage::uploader::{UploadLogger, UploadRecorder},
+    storage::uploader::{UploadLogger, UploadLoggerBuilder, UploadRecorder},
 };
 use assert_impl::assert_impl;
 use derive_builder::Builder;
@@ -97,7 +97,7 @@ pub mod default {
     }
 
     pub fn upload_logger() -> Option<UploadLogger> {
-        Some(Default::default())
+        UploadLoggerBuilder::default().build().map(Some).unwrap_or(None)
     }
 
     pub fn upload_recorder() -> UploadRecorder {

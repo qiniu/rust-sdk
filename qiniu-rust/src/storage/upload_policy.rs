@@ -146,7 +146,7 @@ impl<'p> UploadPolicy<'p> {
 
     pub fn object_lifetime(&self) -> Option<Duration> {
         self.delete_after_days
-            .map(|d| Duration::from_secs((d * 60 * 60 * 24).try_into().unwrap_or_else(|_| u64::max_value())))
+            .map(|d| Duration::from_secs((d * 60 * 60 * 24).try_into().unwrap_or(u64::max_value())))
     }
 
     pub fn object_deadline(&self) -> Option<SystemTime> {
@@ -262,7 +262,7 @@ impl<'p> UploadPolicyBuilder<'p> {
                 .checked_add(lifetime)
                 .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
                 .and_then(|t| t.as_secs().try_into().ok())
-                .unwrap_or_else(u32::max_value),
+                .unwrap_or(u32::max_value()),
         );
         self
     }
@@ -273,7 +273,7 @@ impl<'p> UploadPolicyBuilder<'p> {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .ok()
                 .and_then(|t| t.as_secs().try_into().ok())
-                .unwrap_or_else(u32::max_value),
+                .unwrap_or(u32::max_value()),
         );
         self
     }
@@ -375,7 +375,7 @@ impl<'p> UploadPolicyBuilder<'p> {
                 .and_then(|s| s.checked_sub(1))
                 .and_then(|s| s.checked_div(secs_one_day))
                 .and_then(|s| s.try_into().ok())
-                .unwrap_or_else(usize::max_value),
+                .unwrap_or(usize::max_value()),
         );
         self
     }

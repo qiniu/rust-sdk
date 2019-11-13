@@ -12,7 +12,7 @@ use std::{
     io::{Cursor, Error as IOError, ErrorKind as IOErrorKind},
     marker::{Send, Sync},
     sync::{
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicUsize, Ordering::SeqCst},
         Arc,
     },
 };
@@ -74,7 +74,7 @@ impl<T: HTTPCaller> CounterCallMock<T> {
     }
 
     pub fn call_called(&self) -> usize {
-        self.inner.call_counter.load(Ordering::SeqCst)
+        self.inner.call_counter.load(SeqCst)
     }
 
     pub fn as_boxed(&self) -> Box<Self> {
@@ -86,7 +86,7 @@ impl<T: HTTPCaller> CounterCallMock<T> {
 
 impl<T: HTTPCaller> HTTPCaller for CounterCallMock<T> {
     fn call(&self, request: &Request) -> Result<Response> {
-        self.inner.call_counter.fetch_add(1, Ordering::SeqCst);
+        self.inner.call_counter.fetch_add(1, SeqCst);
         self.inner.caller.call(request)
     }
 }
@@ -173,7 +173,7 @@ impl HTTPCaller for CallHandlers {
     fn call(&self, request: &Request) -> Result<Response> {
         for handler in self.handlers.iter() {
             if handler.method == request.method() && handler.url_regexp.is_match(request.url()) {
-                let called = handler.called.fetch_add(1, Ordering::SeqCst);
+                let called = handler.called.fetch_add(1, SeqCst);
                 return (handler.handler)(request, called + 1);
             }
         }

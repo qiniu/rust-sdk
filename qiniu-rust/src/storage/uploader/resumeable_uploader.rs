@@ -187,7 +187,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
                 parts: Vec::with_capacity(
                     ((file_size + block_size as u64 - 1) / (block_size as u64))
                         .try_into()
-                        .unwrap_or_else(|_| usize::max_value()),
+                        .unwrap_or(usize::max_value()),
                 ),
                 fname: file_name,
                 mime_type: mime_type.map(|m| m.as_ref().into()),
@@ -321,7 +321,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
             let uploaded_size = self.uploaded_size.load(Acquire);
             match &result {
                 Ok(_) => {
-                    upload_logger.log(
+                    let _ = upload_logger.log(
                         UploadLoggerRecordBuilder::default()
                             .duration(timer.elapsed())
                             .up_type(UpType::Chunkedv2)
@@ -339,7 +339,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                     if let Some(total_size) = self.io_size {
                         record_builder = record_builder.total_size(usize::max(uploaded_size, total_size));
                     }
-                    upload_logger.log(record_builder.build());
+                    let _ = upload_logger.log(record_builder.build());
                 }
             }
         }
@@ -506,7 +506,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                 let result = upload_response_callback(response);
                 if result.is_ok() {
                     if let Some(upload_logger) = &self.upload_logger {
-                        upload_logger.log(
+                        let _ = upload_logger.log(
                             UploadLoggerRecordBuilder::default()
                                 .response(response)
                                 .duration(duration)
@@ -519,7 +519,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
             })
             .on_error(&|host_url, err, duration| {
                 if let Some(upload_logger) = &self.upload_logger {
-                    upload_logger.log({
+                    let _ = upload_logger.log({
                         let mut builder = UploadLoggerRecordBuilder::default()
                             .duration(duration)
                             .up_type(UpType::InitParts)
@@ -565,7 +565,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                 let result = upload_response_callback(response);
                 if result.is_ok() {
                     if let Some(upload_logger) = upload_logger {
-                        upload_logger.log(
+                        let _ = upload_logger.log(
                             UploadLoggerRecordBuilder::default()
                                 .response(response)
                                 .duration(duration)
@@ -581,7 +581,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
             .on_error(&|host_url, err, duration| {
                 (on_error)(host_url, err, duration);
                 if let Some(upload_logger) = upload_logger {
-                    upload_logger.log({
+                    let _ = upload_logger.log({
                         let mut builder = UploadLoggerRecordBuilder::default()
                             .duration(duration)
                             .up_type(UpType::UploadPart)
@@ -619,7 +619,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                 let result = upload_response_callback(response);
                 if result.is_ok() {
                     if let Some(upload_logger) = &self.upload_logger {
-                        upload_logger.log(
+                        let _ = upload_logger.log(
                             UploadLoggerRecordBuilder::default()
                                 .response(response)
                                 .duration(duration)
@@ -632,7 +632,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
             })
             .on_error(&|host_url, err, duration| {
                 if let Some(upload_logger) = &self.upload_logger {
-                    upload_logger.log({
+                    let _ = upload_logger.log({
                         let mut builder = UploadLoggerRecordBuilder::default()
                             .duration(duration)
                             .up_type(UpType::CompleteParts)
@@ -679,14 +679,14 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
             .map(|response| {
                 if let Some(upload_logger) = &self.upload_logger {
                     let uploaded_size = self.uploaded_size.load(Acquire);
-                    upload_logger.log(
+                    let _ = upload_logger.log(
                         UploadLoggerRecordBuilder::default()
                             .duration(timer.elapsed())
                             .up_type(UpType::Chunkedv2)
                             .sent(uploaded_size - init_uploaded_size)
                             .total_size(uploaded_size - init_uploaded_size)
                             .build(),
-                    )
+                    );
                 }
                 response
             })
@@ -702,7 +702,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                         record_builder =
                             record_builder.total_size(usize::max(uploaded_size, total_size) - init_uploaded_size);
                     }
-                    upload_logger.log(record_builder.build());
+                    let _ = upload_logger.log(record_builder.build());
                 }
                 err
             })
