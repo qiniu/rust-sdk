@@ -1,4 +1,4 @@
-use libc::{c_ulonglong, size_t};
+use libc::{c_uint, c_ulonglong, size_t};
 use qiniu_ng::config::{default as default_config, Config, ConfigBuilder};
 use std::time::Duration;
 
@@ -7,8 +7,8 @@ pub struct qiniu_ng_config_t {
     pub use_https: bool,
     pub upload_token_lifetime: c_ulonglong,
     pub batch_max_operation_size: size_t,
-    pub upload_threshold: c_ulonglong,
-    pub upload_block_size: size_t,
+    pub upload_threshold: c_uint,
+    pub upload_block_size: c_uint,
     pub http_request_retries: size_t,
     pub http_request_retry_delay: c_ulonglong,
 }

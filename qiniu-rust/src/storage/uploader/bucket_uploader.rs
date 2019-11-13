@@ -134,7 +134,7 @@ impl BucketUploader {
 }
 
 pub enum ResumeablePolicy {
-    Threshold(u64),
+    Threshold(u32),
     Never,
     Always,
 }
@@ -147,7 +147,7 @@ pub struct FileUploaderBuilder<'b> {
     metadata: Option<HashMap<Cow<'b, str>, Cow<'b, str>>>,
     checksum_enabled: bool,
     resumeable_policy: ResumeablePolicy,
-    on_uploading_progress: Option<&'b (dyn Fn(usize, Option<usize>) + Send + Sync)>,
+    on_uploading_progress: Option<&'b (dyn Fn(u64, Option<u64>) + Send + Sync)>,
     thread_pool: Option<Ron<'b, ThreadPool>>,
 }
 
@@ -223,7 +223,7 @@ impl<'b> FileUploaderBuilder<'b> {
         self
     }
 
-    pub fn upload_threshold(mut self, threshold: u64) -> FileUploaderBuilder<'b> {
+    pub fn upload_threshold(mut self, threshold: u32) -> FileUploaderBuilder<'b> {
         self.resumeable_policy = ResumeablePolicy::Threshold(threshold);
         self
     }
@@ -238,10 +238,7 @@ impl<'b> FileUploaderBuilder<'b> {
         self
     }
 
-    pub fn on_progress(
-        mut self,
-        callback: &'b (dyn Fn(usize, Option<usize>) + Send + Sync),
-    ) -> FileUploaderBuilder<'b> {
+    pub fn on_progress(mut self, callback: &'b (dyn Fn(u64, Option<u64>) + Send + Sync)) -> FileUploaderBuilder<'b> {
         self.on_uploading_progress = Some(callback);
         self
     }
@@ -256,7 +253,7 @@ impl<'b> FileUploaderBuilder<'b> {
         let file_name = file_name.map(|file_name| file_name.into());
         match self.resumeable_policy {
             ResumeablePolicy::Threshold(threshold) => {
-                if file_path.metadata()?.len() > threshold {
+                if file_path.metadata()?.len() > threshold.into() {
                     self.upload_file_by_blocks(file_path, file_name, mime)
                 } else {
                     self.upload_file_by_form(file_path, file_name, mime)

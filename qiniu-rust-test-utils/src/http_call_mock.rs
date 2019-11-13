@@ -9,6 +9,7 @@ use serde::Serialize;
 use std::{
     borrow::Cow,
     boxed::Box,
+    convert::TryInto,
     io::{Cursor, Error as IOError, ErrorKind as IOErrorKind},
     marker::{Send, Sync},
     sync::{
@@ -183,12 +184,12 @@ impl HTTPCaller for CallHandlers {
 
 pub struct UploadingProgressErrorMock<T: HTTPCaller> {
     caller: T,
-    packet_size: usize,
+    packet_size: u32,
     uploading_failure_probability: f64,
 }
 
 impl<T: HTTPCaller> UploadingProgressErrorMock<T> {
-    pub fn new(caller: T, packet_size: usize, uploading_failure_probability: f64) -> UploadingProgressErrorMock<T> {
+    pub fn new(caller: T, packet_size: u32, uploading_failure_probability: f64) -> UploadingProgressErrorMock<T> {
         UploadingProgressErrorMock {
             caller,
             packet_size,
@@ -204,14 +205,18 @@ impl<T: HTTPCaller> UploadingProgressErrorMock<T> {
 impl<T: HTTPCaller> HTTPCaller for UploadingProgressErrorMock<T> {
     fn call(&self, request: &Request) -> Result<Response> {
         let mut rng = thread_rng();
-        let total_size = request.body().map(|body| body.len()).unwrap_or(0) as usize;
+        let total_size: u64 = request
+            .body()
+            .map(|body| body.len().try_into().unwrap_or(u64::max_value()))
+            .unwrap_or(0u64);
+        let packet_size: u64 = self.packet_size.into();
         for i in 1..=total_size {
-            if i % self.packet_size != total_size % self.packet_size {
+            if i % packet_size != total_size % packet_size {
                 continue;
             }
             if rng.gen_range(
                 0u64,
-                ((1.max(total_size / self.packet_size) as f64) / self.uploading_failure_probability) as u64,
+                ((1.max(total_size / packet_size) as f64) / self.uploading_failure_probability) as u64,
             ) == 0
             {
                 return Err(HTTPError::new_retryable_error(

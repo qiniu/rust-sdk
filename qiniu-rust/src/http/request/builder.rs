@@ -83,12 +83,12 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub(crate) fn on_uploading_progress(mut self, callback: &'a dyn Fn(usize, usize)) -> Builder<'a> {
+    pub(crate) fn on_uploading_progress(mut self, callback: &'a dyn Fn(u64, u64)) -> Builder<'a> {
         self.parts.on_uploading_progress = Some(callback);
         self
     }
 
-    pub(crate) fn on_downloading_progress(mut self, callback: &'a dyn Fn(usize, usize)) -> Builder<'a> {
+    pub(crate) fn on_downloading_progress(mut self, callback: &'a dyn Fn(u64, u64)) -> Builder<'a> {
         self.parts.on_downloading_progress = Some(callback);
         self
     }

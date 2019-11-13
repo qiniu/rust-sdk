@@ -32,11 +32,11 @@ pub struct Request<'b> {
 
     #[get_copy = "pub"]
     #[get_mut = "pub"]
-    on_uploading_progress: Option<&'b dyn Fn(usize, usize)>,
+    on_uploading_progress: Option<&'b dyn Fn(u64, u64)>,
 
     #[get_copy = "pub"]
     #[get_mut = "pub"]
-    on_downloading_progress: Option<&'b dyn Fn(usize, usize)>,
+    on_downloading_progress: Option<&'b dyn Fn(u64, u64)>,
 }
 
 impl<'b> Request<'b> {
@@ -95,12 +95,12 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    pub fn on_uploading_progress(mut self, callback: &'r dyn Fn(usize, usize)) -> RequestBuilder<'r> {
+    pub fn on_uploading_progress(mut self, callback: &'r dyn Fn(u64, u64)) -> RequestBuilder<'r> {
         self.request.on_uploading_progress = Some(callback);
         self
     }
 
-    pub fn on_downloading_progress(mut self, callback: &'r dyn Fn(usize, usize)) -> RequestBuilder<'r> {
+    pub fn on_downloading_progress(mut self, callback: &'r dyn Fn(u64, u64)) -> RequestBuilder<'r> {
         self.request.on_downloading_progress = Some(callback);
         self
     }

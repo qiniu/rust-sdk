@@ -1,5 +1,4 @@
-use std::io::Result;
-use std::io::Write;
+use std::io::{Result, Write};
 use tempfile::NamedTempFile;
 
 const FAKE_DATA: [u8; 4096] = make_fake_data();

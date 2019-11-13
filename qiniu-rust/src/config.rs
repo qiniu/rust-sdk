@@ -38,11 +38,11 @@ pub struct ConfigInner {
 
     #[get_copy = "pub"]
     #[builder(default = "default::upload_threshold()")]
-    upload_threshold: u64,
+    upload_threshold: u32,
 
     #[get_copy = "pub"]
     #[builder(default = "default::upload_block_size()")]
-    upload_block_size: usize,
+    upload_block_size: u32,
 
     #[get = "pub"]
     #[builder(default = "default::upload_logger()")]
@@ -84,11 +84,11 @@ pub mod default {
         1000
     }
 
-    pub fn upload_threshold() -> u64 {
+    pub fn upload_threshold() -> u32 {
         1 << 22
     }
 
-    pub fn upload_block_size() -> usize {
+    pub fn upload_block_size() -> u32 {
         1 << 22
     }
 

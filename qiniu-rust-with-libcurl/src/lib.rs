@@ -319,8 +319,8 @@ impl CurlClient {
 
 enum ProgressStatus {
     Initialized,
-    Uploading(usize),
-    Downloading(usize),
+    Uploading(u64),
+    Downloading(u64),
     Completed,
 }
 
@@ -331,8 +331,8 @@ struct Context<'r> {
     buffer_size: usize,
     temp_dir: &'r Path,
     progress_status: ProgressStatus,
-    upload_progress: Option<&'r dyn Fn(usize, usize)>,
-    download_progress: Option<&'r dyn Fn(usize, usize)>,
+    upload_progress: Option<&'r dyn Fn(u64, u64)>,
+    download_progress: Option<&'r dyn Fn(u64, u64)>,
 }
 
 enum ResponseBody {
@@ -403,10 +403,10 @@ impl<'r> Handler for Context<'r> {
     }
 
     fn progress(&mut self, dltotal: f64, dlnow: f64, ultotal: f64, ulnow: f64) -> bool {
-        let dltotal = dltotal as usize;
-        let dlnow = dlnow as usize;
-        let ultotal = ultotal as usize;
-        let ulnow = ulnow as usize;
+        let dltotal = dltotal as u64;
+        let dlnow = dlnow as u64;
+        let ultotal = ultotal as u64;
+        let ulnow = ulnow as u64;
 
         if dltotal == 0 && ultotal == 0 {
             return true;
@@ -415,7 +415,7 @@ impl<'r> Handler for Context<'r> {
             ProgressStatus::Initialized => {
                 if ultotal == 0 {
                     if let Some(download_progress) = self.download_progress.as_ref() {
-                        (download_progress)(dlnow as usize, dltotal as usize);
+                        (download_progress)(dlnow, dltotal);
                     }
                     if dlnow == dltotal {
                         self.progress_status = ProgressStatus::Completed;
@@ -424,14 +424,14 @@ impl<'r> Handler for Context<'r> {
                     }
                 } else {
                     if let Some(upload_progress) = self.upload_progress.as_ref() {
-                        (upload_progress)(ulnow as usize, ultotal as usize);
+                        (upload_progress)(ulnow, ultotal);
                     }
                     self.progress_status = ProgressStatus::Uploading(ulnow);
                 }
             }
             ProgressStatus::Uploading(now) if now < ulnow => {
                 if let Some(upload_progress) = self.upload_progress.as_ref() {
-                    (upload_progress)(ulnow as usize, ultotal as usize);
+                    (upload_progress)(ulnow, ultotal);
                 }
                 if ulnow == ultotal {
                     self.progress_status = ProgressStatus::Downloading(dlnow);
@@ -441,7 +441,7 @@ impl<'r> Handler for Context<'r> {
             }
             ProgressStatus::Downloading(now) if now < dlnow => {
                 if let Some(download_progress) = self.download_progress.as_ref() {
-                    (download_progress)(dlnow as usize, dltotal as usize);
+                    (download_progress)(dlnow, dltotal);
                 }
                 if dlnow == dltotal {
                     self.progress_status = ProgressStatus::Completed;

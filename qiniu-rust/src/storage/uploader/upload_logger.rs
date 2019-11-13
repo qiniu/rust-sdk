@@ -465,9 +465,9 @@ pub(crate) struct UploadLoggerRecord<'a> {
     server_ip: Option<IpAddr>,
     server_port: u16,
     duration: Option<Duration>,
-    sent: usize,
+    sent: u64,
     error_message: Cow<'a, str>,
-    total_size: usize,
+    total_size: u64,
     timestamp: u64,
 }
 
@@ -624,8 +624,8 @@ mod tests {
                 .server_ip(IpAddr::V4(Ipv4Addr::new(115, 238, 101, 49)))
                 .server_port(80u16)
                 .duration(Duration::from_millis(123))
-                .sent(123_123usize)
-                .total_size(123_123usize)
+                .sent(123_123u64)
+                .total_size(123_123u64)
                 .build(),
         )?;
         sleep(Duration::from_secs(1));
@@ -640,8 +640,8 @@ mod tests {
                 .server_ip(IpAddr::V4(Ipv4Addr::new(115, 238, 101, 49)))
                 .server_port(80u16)
                 .duration(Duration::from_millis(456))
-                .sent(456usize)
-                .total_size(456usize)
+                .sent(456u64)
+                .total_size(456u64)
                 .build(),
         )?;
         sleep(Duration::from_secs(1));
@@ -682,8 +682,8 @@ mod tests {
                 .server_ip(IpAddr::V4(Ipv4Addr::new(115, 238, 101, 49)))
                 .server_port(80u16)
                 .duration(Duration::from_millis(123))
-                .sent(123_123usize)
-                .total_size(123_123usize)
+                .sent(123_123u64)
+                .total_size(123_123u64)
                 .build(),
         )?;
         sleep(Duration::from_secs(1));
@@ -698,8 +698,8 @@ mod tests {
                 .server_ip(IpAddr::V4(Ipv4Addr::new(115, 238, 101, 49)))
                 .server_port(80u16)
                 .duration(Duration::from_millis(456))
-                .sent(456usize)
-                .total_size(456usize)
+                .sent(456u64)
+                .total_size(456u64)
                 .build(),
         )?;
         sleep(Duration::from_secs(1));

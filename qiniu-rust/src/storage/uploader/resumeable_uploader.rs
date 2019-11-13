@@ -24,7 +24,7 @@ use std::{
     path::Path,
     sync::{
         atomic::{
-            AtomicUsize,
+            AtomicU64, AtomicUsize,
             Ordering::{AcqRel, Acquire, Release},
         },
         Mutex,
@@ -70,9 +70,9 @@ struct FromResuming {
 }
 
 struct UploadingProgressCallback<'u> {
-    callback: &'u (dyn Fn(usize, Option<usize>) + Send + Sync),
-    completed_size: AtomicUsize,
-    total_size: Option<usize>,
+    callback: &'u (dyn Fn(u64, Option<u64>) + Send + Sync),
+    completed_size: AtomicU64,
+    total_size: Option<u64>,
 }
 
 pub(super) struct ResumeableUploaderBuilder<'u> {
@@ -81,7 +81,7 @@ pub(super) struct ResumeableUploaderBuilder<'u> {
     key: Option<Cow<'u, str>>,
     metadata: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
     custom_vars: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
-    on_uploading_progress: Option<&'u (dyn Fn(usize, Option<usize>) + Send + Sync)>,
+    on_uploading_progress: Option<&'u (dyn Fn(u64, Option<u64>) + Send + Sync)>,
     thread_pool: Option<Ron<'u, ThreadPool>>,
     upload_logger: Option<TokenizedUploadLogger>,
 }
@@ -93,10 +93,10 @@ pub(super) struct ResumeableUploader<'u, R: Read + Seek + Send + Sync + 'u> {
     completed_parts: Mutex<CompletedParts<'u>>,
     checksum_enabled: bool,
     is_seekable: bool,
-    block_size: usize,
-    io_size: Option<usize>,
+    block_size: u32,
+    io_size: Option<u64>,
     io: R,
-    uploaded_size: AtomicUsize,
+    uploaded_size: AtomicU64,
     file_path: Option<Cow<'u, Path>>,
     from_resuming: Option<FromResuming>,
     uploading_progress_callback: Option<UploadingProgressCallback<'u>>,
@@ -155,7 +155,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
 
     pub(super) fn on_uploading_progress(
         mut self,
-        callback: &'u (dyn Fn(usize, Option<usize>) + Send + Sync),
+        callback: &'u (dyn Fn(u64, Option<u64>) + Send + Sync),
     ) -> ResumeableUploaderBuilder<'u> {
         self.on_uploading_progress = Some(callback);
         self
@@ -178,17 +178,18 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             key: self.key,
             file_path: Some(file_path),
             io: file,
-            io_size: Some(file_size as usize),
-            uploaded_size: AtomicUsize::new(0),
+            io_size: Some(file_size),
+            uploaded_size: AtomicU64::new(0),
             checksum_enabled,
             is_seekable: true,
-            block_size: bucket_uploader.http_client().config().upload_block_size(),
+            block_size,
             completed_parts: Mutex::new(CompletedParts {
-                parts: Vec::with_capacity(
-                    ((file_size + block_size as u64 - 1) / (block_size as u64))
+                parts: Vec::with_capacity({
+                    let block_size: u64 = block_size.into();
+                    ((file_size + block_size - 1) / (block_size))
                         .try_into()
-                        .unwrap_or(usize::max_value()),
-                ),
+                        .unwrap_or(usize::max_value())
+                }),
                 fname: file_name,
                 mime_type: mime_type.map(|m| m.as_ref().into()),
                 metadata: self.metadata,
@@ -197,8 +198,8 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             from_resuming: None,
             uploading_progress_callback: self.on_uploading_progress.map(|callback| UploadingProgressCallback {
                 callback,
-                completed_size: AtomicUsize::new(0),
-                total_size: Some(file_size as usize),
+                completed_size: AtomicU64::new(0),
+                total_size: Some(file_size),
             }),
             thread_pool: self
                 .thread_pool
@@ -230,7 +231,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             file_path: None,
             io: seek_adapter::SeekAdapter(stream),
             io_size: None,
-            uploaded_size: AtomicUsize::new(0),
+            uploaded_size: AtomicU64::new(0),
             checksum_enabled,
             is_seekable: false,
             block_size: bucket_uploader.http_client().config().upload_block_size(),
@@ -244,7 +245,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
             from_resuming: None,
             uploading_progress_callback: self.on_uploading_progress.map(|callback| UploadingProgressCallback {
                 callback,
-                completed_size: AtomicUsize::new(0),
+                completed_size: AtomicU64::new(0),
                 total_size: None,
             }),
             thread_pool: self
@@ -337,7 +338,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                         .sent(uploaded_size)
                         .http_error(err);
                     if let Some(total_size) = self.io_size {
-                        record_builder = record_builder.total_size(usize::max(uploaded_size, total_size));
+                        record_builder = record_builder.total_size(u64::max(uploaded_size, total_size));
                     }
                     let _ = upload_logger.log(record_builder.build());
                 }
@@ -395,7 +396,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         self.thread_pool.scope(|s| {
             for _ in 0..thread_pool_size {
                 s.spawn(|_| {
-                    let mut body_buf = vec![0; block_size];
+                    let mut body_buf = vec![0; block_size.try_into().unwrap_or(usize::max_value())];
                     let mut md5 = OptionalMd5::new(checksum_enabled);
                     loop {
                         match io_status_manager.read(&mut body_buf) {
@@ -433,7 +434,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                                 ) {
                                     Ok(etag) => {
                                         completed_parts.lock().unwrap().parts.push(Part { etag, part_number });
-                                        uploaded_size.fetch_add(block_size, AcqRel);
+                                        uploaded_size.fetch_add(block_size.into(), AcqRel);
                                     }
                                     Err(err) => {
                                         io_status_manager.error(err);
@@ -474,7 +475,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         block_records: Box<[FileUploadRecordMediumBlockItem]>,
         recorder: FileUploadRecordMedium,
     ) {
-        let mut io_offset = 0;
+        let mut io_offset = 0u64;
         {
             let block_records: Vec<FileUploadRecordMediumBlockItem> = block_records.into();
             let mut completed_parts = self.completed_parts.lock().unwrap();
@@ -483,7 +484,8 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                     etag: block_record.etag,
                     part_number: block_record.part_number,
                 });
-                io_offset += block_record.block_size;
+                let block_size: u64 = block_record.block_size.into();
+                io_offset += block_size;
             }
         }
         self.from_resuming = Some(FromResuming {
@@ -492,7 +494,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
             recorder,
             io_offset,
         });
-        self.uploaded_size = AtomicUsize::new(io_offset as usize);
+        self.uploaded_size = AtomicU64::new(io_offset);
     }
 
     fn init_parts(&self, base_path: &str, up_urls: &[&str], authorization: &str) -> HTTPResult<Box<str>> {
@@ -538,14 +540,14 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
         Ok(result.upload_id)
     }
 
-    fn upload_part<OnProgressFn: Fn(usize, usize), OnErrorFn: Fn(Option<&str>, &HTTPError, Duration)>(
+    fn upload_part<OnProgressFn: Fn(u64, u64), OnErrorFn: Fn(Option<&str>, &HTTPError, Duration)>(
         http_client: &Client,
         path: &str,
         up_urls: &[&str],
         authorization: &str,
         part: &[u8],
         part_number: usize,
-        block_size: usize,
+        block_size: u32,
         md5_hasher: &mut OptionalMd5,
         on_progress: OnProgressFn,
         on_error: OnErrorFn,
@@ -570,8 +572,8 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                                 .response(response)
                                 .duration(duration)
                                 .up_type(UpType::UploadPart)
-                                .sent(part.len())
-                                .total_size(part.len())
+                                .sent(part.len().try_into().unwrap_or(u64::max_value()))
+                                .total_size(part.len().try_into().unwrap_or(u64::max_value()))
                                 .build(),
                         );
                     }
@@ -586,7 +588,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                             .duration(duration)
                             .up_type(UpType::UploadPart)
                             .http_error(err)
-                            .total_size(part.len());
+                            .total_size(part.len().try_into().unwrap_or(u64::max_value()));
                         if let Some(host_url) = host_url {
                             builder = builder.host(host_url);
                         }
@@ -663,7 +665,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                     .store(from_resuming.io_offset.try_into().unwrap(), Release);
             }
             let part_number = self.completed_parts.lock().unwrap().parts.len();
-            let init_uploaded_size = from_resuming.io_offset as usize;
+            let init_uploaded_size = from_resuming.io_offset;
             let timer = Instant::now();
             self.start_uploading_blocks(
                 part_number,
@@ -700,7 +702,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
                         .http_error(&err);
                     if let Some(total_size) = self.io_size {
                         record_builder =
-                            record_builder.total_size(usize::max(uploaded_size, total_size) - init_uploaded_size);
+                            record_builder.total_size(u64::max(uploaded_size, total_size) - init_uploaded_size);
                     }
                     let _ = upload_logger.log(record_builder.build());
                 }

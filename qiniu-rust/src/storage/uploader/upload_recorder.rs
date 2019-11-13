@@ -53,7 +53,7 @@ pub(super) struct FileUploadRecordMediumBlockItem {
     pub(super) etag: Box<str>,
     pub(super) part_number: usize,
     created_timestamp: u64,
-    pub(super) block_size: u64,
+    pub(super) block_size: u32,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -61,7 +61,7 @@ struct SerializableFileUploadRecordMediumBlockItem<'a> {
     etag: &'a str,
     part_number: usize,
     created_timestamp: u64,
-    block_size: u64,
+    block_size: u32,
 }
 
 impl UploadRecorderBuilder {
@@ -219,7 +219,7 @@ pub mod default {
 }
 
 impl FileUploadRecordMedium {
-    pub(super) fn append(&self, etag: &str, part_number: usize, block_size: u64) -> Result<()> {
+    pub(super) fn append(&self, etag: &str, part_number: usize, block_size: u32) -> Result<()> {
         let mut item = serde_json::to_string(&SerializableFileUploadRecordMediumBlockItem {
             etag,
             part_number,

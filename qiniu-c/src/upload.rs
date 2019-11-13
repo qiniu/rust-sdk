@@ -8,7 +8,7 @@ use crate::{
         qiniu_ng_string_map_t,
     },
 };
-use libc::{c_char, c_ulonglong, c_void, size_t};
+use libc::{c_char, c_uint, c_void, size_t};
 use mime::Mime;
 use qiniu_ng::storage::{
     bucket::Bucket,
@@ -125,7 +125,7 @@ pub struct qiniu_ng_upload_params_t {
     metadata: *const qiniu_ng_string_map_t,
     checksum_enabled: bool,
     resumeable_policy: qiniu_ng_resumeable_policy_e,
-    upload_threshold: c_ulonglong,
+    upload_threshold: c_uint,
     thread_pool_size: size_t,
 }
 

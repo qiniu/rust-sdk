@@ -15,8 +15,8 @@ pub(crate) struct Parts<'a> {
     pub(super) read_body: bool,
     pub(super) idempotent: bool,
     pub(super) follow_redirection: bool,
-    pub(super) on_uploading_progress: Option<&'a dyn Fn(usize, usize)>,
-    pub(super) on_downloading_progress: Option<&'a dyn Fn(usize, usize)>,
+    pub(super) on_uploading_progress: Option<&'a dyn Fn(u64, u64)>,
+    pub(super) on_downloading_progress: Option<&'a dyn Fn(u64, u64)>,
     pub(super) on_response: Option<&'a dyn Fn(&mut Response, Duration) -> Result<()>>,
     pub(super) on_error: Option<&'a dyn Fn(Option<&str>, &Error, Duration)>,
 }

@@ -15,7 +15,7 @@ use std::{
 pub(super) struct FormUploaderBuilder<'u> {
     bucket_uploader: &'u BucketUploader,
     multipart: Multipart<'u, 'u>,
-    on_uploading_progress: Option<&'u dyn Fn(usize, Option<usize>)>,
+    on_uploading_progress: Option<&'u dyn Fn(u64, Option<u64>)>,
     upload_logger: Option<TokenizedUploadLogger>,
 }
 
@@ -23,7 +23,7 @@ pub(super) struct FormUploader<'u> {
     bucket_uploader: &'u BucketUploader,
     content_type: String,
     body: Vec<u8>,
-    on_uploading_progress: Option<&'u dyn Fn(usize, Option<usize>)>,
+    on_uploading_progress: Option<&'u dyn Fn(u64, Option<u64>)>,
     upload_logger: Option<TokenizedUploadLogger>,
 }
 
@@ -56,10 +56,7 @@ impl<'u> FormUploaderBuilder<'u> {
         self
     }
 
-    pub(super) fn on_uploading_progress(
-        mut self,
-        callback: &'u dyn Fn(usize, Option<usize>),
-    ) -> FormUploaderBuilder<'u> {
+    pub(super) fn on_uploading_progress(mut self, callback: &'u dyn Fn(u64, Option<u64>)) -> FormUploaderBuilder<'u> {
         self.on_uploading_progress = Some(callback);
         self
     }
@@ -160,8 +157,8 @@ impl<'u> FormUploader<'u> {
                                 .response(response)
                                 .duration(duration)
                                 .up_type(UpType::Form)
-                                .sent(self.body.len())
-                                .total_size(self.body.len())
+                                .sent(self.body.len().try_into().unwrap_or(u64::max_value()))
+                                .total_size(self.body.len().try_into().unwrap_or(u64::max_value()))
                                 .build(),
                         );
                     }
@@ -175,7 +172,7 @@ impl<'u> FormUploader<'u> {
                             .duration(duration)
                             .up_type(UpType::Form)
                             .http_error(err)
-                            .total_size(self.body.len());
+                            .total_size(self.body.len().try_into().unwrap_or(u64::max_value()));
                         if let Some(base_url) = base_url {
                             builder = builder.host(base_url);
                         }
