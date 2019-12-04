@@ -171,6 +171,14 @@ impl Deref for Config {
 }
 
 impl Config {
+    pub fn into_raw(self) -> *const ConfigInner {
+        Arc::into_raw(self.0)
+    }
+
+    pub unsafe fn from_raw(ptr: *const ConfigInner) -> Config {
+        Config(Arc::from_raw(ptr))
+    }
+
     #[allow(dead_code)]
     fn ignore() {
         assert_impl!(Send: Self);

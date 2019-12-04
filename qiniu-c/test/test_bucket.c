@@ -4,11 +4,10 @@
 #include "test.h"
 
 void test_qiniu_ng_bucket_name(void) {
-    qiniu_ng_config_t config;
-    qiniu_ng_config_init(&config);
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
     env_load("..", false);
-    qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), &config);
+    qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), config);
 
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket(client, "z0-bucket");
     qiniu_ng_string_t bucket_name = qiniu_ng_bucket_name(bucket);
@@ -23,14 +22,14 @@ void test_qiniu_ng_bucket_name(void) {
     qiniu_ng_bucket_free(bucket_2);
 
     qiniu_ng_client_free(client);
+    qiniu_ng_config_free(config);
 }
 
 void test_qiniu_ng_bucket_region(void) {
-    qiniu_ng_config_t config;
-    qiniu_ng_config_init(&config);
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
     env_load("..", false);
-    qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), &config);
+    qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), config);
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket(client, "z0-bucket");
 
     qiniu_ng_region_t region;
@@ -44,14 +43,14 @@ void test_qiniu_ng_bucket_region(void) {
     qiniu_ng_region_free(region);
     qiniu_ng_bucket_free(bucket);
     qiniu_ng_client_free(client);
+    qiniu_ng_config_free(config);
 }
 
 void test_qiniu_ng_bucket_regions(void) {
-    qiniu_ng_config_t config;
-    qiniu_ng_config_init(&config);
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
     env_load("..", false);
-    qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), &config);
+    qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), config);
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket(client, "z0-bucket");
 
     qiniu_ng_regions_t regions;
@@ -77,4 +76,5 @@ void test_qiniu_ng_bucket_regions(void) {
     qiniu_ng_regions_free(regions);
     qiniu_ng_bucket_free(bucket);
     qiniu_ng_client_free(client);
+    qiniu_ng_config_free(config);
 }

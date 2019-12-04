@@ -23,12 +23,12 @@ impl From<Box<Client>> for qiniu_ng_client_t {
 pub extern "C" fn qiniu_ng_client_new(
     access_key: *const c_char,
     secret_key: *const c_char,
-    config: *const qiniu_ng_config_t,
+    config: qiniu_ng_config_t,
 ) -> qiniu_ng_client_t {
     Box::new(Client::new(
         convert_c_char_to_string(access_key),
         convert_c_char_to_string(secret_key),
-        unsafe { config.as_ref() }.unwrap().into(),
+        config.get_clone(),
     ))
     .into()
 }

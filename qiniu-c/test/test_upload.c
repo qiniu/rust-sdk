@@ -5,11 +5,10 @@
 #include "test.h"
 
 void test_qiniu_ng_upload_file(void) {
-    qiniu_ng_config_t config;
-    qiniu_ng_config_init(&config);
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
     env_load("..", false);
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(&config);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(upload_manager, "z0-bucket", getenv("access_key"), 5);
 
     const char buf[40];
@@ -45,14 +44,14 @@ void test_qiniu_ng_upload_file(void) {
 
     qiniu_ng_bucket_uploader_free(bucket_uploader);
     qiniu_ng_upload_manager_free(upload_manager);
+    qiniu_ng_config_free(config);
 }
 
 void test_qiniu_ng_upload_file_failed_by_mime(void) {
-    qiniu_ng_config_t config;
-    qiniu_ng_config_init(&config);
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
     env_load("..", false);
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(&config);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(upload_manager, "z0-bucket", getenv("access_key"), 5);
 
     qiniu_ng_upload_policy_t policy = {
@@ -69,4 +68,5 @@ void test_qiniu_ng_upload_file_failed_by_mime(void) {
 
     qiniu_ng_bucket_uploader_free(bucket_uploader);
     qiniu_ng_upload_manager_free(upload_manager);
+    qiniu_ng_config_free(config);
 }

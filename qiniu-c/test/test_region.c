@@ -3,13 +3,12 @@
 #include "test.h"
 
 void test_qiniu_ng_region_query(void) {
-    qiniu_ng_config_t config;
-    qiniu_ng_config_init(&config);
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
     env_load("..", false);
     qiniu_ng_regions_t regions;
     qiniu_ng_err err;
-    TEST_ASSERT_TRUE(qiniu_ng_region_query("z0-bucket", getenv("access_key"), &config, &regions, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_region_query("z0-bucket", getenv("access_key"), config, &regions, &err));
     TEST_ASSERT_EQUAL_INT(qiniu_ng_regions_len(regions), 2);
 
     qiniu_ng_region_t region;
@@ -38,4 +37,5 @@ void test_qiniu_ng_region_query(void) {
     qiniu_ng_region_free(region);
 
     qiniu_ng_regions_free(regions);
+    qiniu_ng_config_free(config);
 }

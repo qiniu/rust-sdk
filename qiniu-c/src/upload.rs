@@ -39,8 +39,8 @@ impl From<Box<UploadManager>> for qiniu_ng_upload_manager_t {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_manager_new(config: *const qiniu_ng_config_t) -> qiniu_ng_upload_manager_t {
-    Box::new(UploadManager::new(unsafe { config.as_ref() }.unwrap().into())).into()
+pub extern "C" fn qiniu_ng_upload_manager_new(config: qiniu_ng_config_t) -> qiniu_ng_upload_manager_t {
+    Box::new(UploadManager::new(config.get_clone())).into()
 }
 
 #[no_mangle]

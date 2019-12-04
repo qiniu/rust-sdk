@@ -142,14 +142,14 @@ pub extern "C" fn qiniu_ng_region_get_api_url(region: qiniu_ng_region_t, use_htt
 pub extern "C" fn qiniu_ng_region_query(
     bucket_name: *const c_char,
     access_key: *const c_char,
-    config: *const qiniu_ng_config_t,
+    config: qiniu_ng_config_t,
     regions: *mut qiniu_ng_regions_t,
     error: *mut qiniu_ng_err,
 ) -> bool {
     match Region::query(
         convert_c_char_to_string(bucket_name),
         convert_c_char_to_string(access_key),
-        unsafe { config.as_ref() }.unwrap().into(),
+        config.get_clone(),
     ) {
         Ok(r) => {
             if !regions.is_null() {
