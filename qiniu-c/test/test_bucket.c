@@ -87,7 +87,7 @@ void test_qiniu_ng_bucket_new(void) {
 
     qiniu_ng_region_t region = qiniu_ng_region_get_region_by_id(Z2);
     const char* domains_array[2] = {"domain1.bucket_z2.com", "domain2.bucket_z2.com"};
-    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new2(client, "z2-bucket", &region, NULL, (const char **) domains_array, 2);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new2(client, "z2-bucket", &region, (const char **) domains_array, 2);
 
     qiniu_ng_regions_t regions;
     qiniu_ng_err err;

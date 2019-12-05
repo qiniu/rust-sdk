@@ -9,7 +9,7 @@ void test_qiniu_ng_upload_file(void) {
 
     env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(upload_manager, "z0-bucket", getenv("access_key"), 5, NULL);
+    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(upload_manager, "z0-bucket", getenv("access_key"), 5);
 
     const char buf[40];
     sprintf((char *) buf, "test-257m-%lu", (unsigned long) time(NULL));
@@ -52,7 +52,7 @@ void test_qiniu_ng_upload_file_failed_by_mime(void) {
 
     env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(upload_manager, "z0-bucket", getenv("access_key"), 5, NULL);
+    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(upload_manager, "z0-bucket", getenv("access_key"), 5);
 
     qiniu_ng_upload_policy_t policy = {
         .bucket = "z0-bucket",

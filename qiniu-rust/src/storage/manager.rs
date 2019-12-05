@@ -1,8 +1,4 @@
-use super::{
-    bucket::BucketBuilder,
-    region::{Region, RegionId},
-    uploader::UploadManager,
-};
+use super::{bucket::BucketBuilder, region::RegionId, uploader::UploadManager};
 use crate::{
     config::Config,
     credential::Credential,
@@ -20,27 +16,22 @@ use thiserror::Error;
 pub struct StorageManager {
     http_client: Client,
     credential: Credential,
-    rs_url: &'static str,
+    rs_url: Box<str>,
 }
 
 impl StorageManager {
     pub(crate) fn new(credential: Credential, config: Config) -> StorageManager {
         StorageManager {
-            rs_url: Region::hua_dong().rs_url(config.use_https()),
+            rs_url: config.rs_url().into(),
             credential,
             http_client: Client::new(config),
         }
     }
 
-    pub fn rs_url(&mut self, rs_url: &'static str) -> &StorageManager {
-        self.rs_url = rs_url;
-        self
-    }
-
     pub fn bucket_names(&self) -> HTTPResult<Vec<String>> {
         Ok(self
             .http_client
-            .get("/buckets", &[self.rs_url])
+            .get("/buckets", &[&self.rs_url])
             .token(Token::V1(self.credential.borrow().into()))
             .accept_json()
             .no_body()
@@ -52,7 +43,7 @@ impl StorageManager {
         self.http_client
             .post(
                 &("/mkbucketv3/".to_owned() + bucket.as_ref() + "/region/" + region_id.as_str()),
-                &[self.rs_url],
+                &[&self.rs_url],
             )
             .token(Token::V1(self.credential.borrow().into()))
             .no_body()
@@ -64,7 +55,7 @@ impl StorageManager {
     pub fn drop_bucket(&self, bucket: impl AsRef<str>) -> DropBucketResult<()> {
         match self
             .http_client
-            .post(&("/drop/".to_owned() + bucket.as_ref()), &[self.rs_url])
+            .post(&("/drop/".to_owned() + bucket.as_ref()), &[&self.rs_url])
             .token(Token::V1(self.credential.borrow().into()))
             .no_body()
             .send()

@@ -8,6 +8,11 @@ build:
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir build; \
 	done
+build_test:
+	set -e; \
+	for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir build_test; \
+	done
 clean:
 	set -e; \
 	for dir in $(SUBDIRS); do \

@@ -2,10 +2,7 @@ use crate::{
     client::qiniu_ng_client_t,
     region::{qiniu_ng_region_t, qiniu_ng_regions_t},
     result::qiniu_ng_err,
-    utils::{
-        convert_c_char_to_optional_string, convert_c_char_to_string, make_string, make_string_list,
-        qiniu_ng_string_list_t, qiniu_ng_string_t,
-    },
+    utils::{convert_c_char_to_string, make_string, make_string_list, qiniu_ng_string_list_t, qiniu_ng_string_t},
 };
 use libc::{c_char, c_void};
 use qiniu_ng::{
@@ -33,7 +30,7 @@ impl<'r> From<Box<Bucket<'r>>> for qiniu_ng_bucket_t {
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_new(client: qiniu_ng_client_t, bucket_name: *const c_char) -> qiniu_ng_bucket_t {
-    qiniu_ng_bucket_new2(client, bucket_name, null(), null(), null(), 0)
+    qiniu_ng_bucket_new2(client, bucket_name, null(), null(), 0)
 }
 
 #[no_mangle]
@@ -41,7 +38,6 @@ pub extern "C" fn qiniu_ng_bucket_new2(
     client: qiniu_ng_client_t,
     bucket_name: *const c_char,
     region: *const qiniu_ng_region_t,
-    uc_url: *const c_char,
     domains: *const *const c_char,
     domains_count: usize,
 ) -> qiniu_ng_bucket_t {
@@ -52,9 +48,6 @@ pub extern "C" fn qiniu_ng_bucket_new2(
         let region: Box<Cow<Region>> = region.to_owned().into();
         bucket_builder = bucket_builder.region(region.to_owned().into_owned());
         let _: qiniu_ng_region_t = region.into();
-    }
-    if let Some(uc_url) = convert_c_char_to_optional_string(uc_url) {
-        bucket_builder = bucket_builder.uc_url(uc_url);
     }
     for i in 0..domains_count {
         bucket_builder = bucket_builder.domain(convert_c_char_to_string(unsafe { *domains.add(i) }));

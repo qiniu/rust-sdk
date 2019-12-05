@@ -1,12 +1,16 @@
 use crate::{
     http::DomainsManager,
-    storage::uploader::{UploadLogger, UploadLoggerBuilder, UploadRecorder},
+    storage::{
+        region::Region,
+        uploader::{UploadLogger, UploadLoggerBuilder, UploadRecorder},
+    },
 };
 use assert_impl::assert_impl;
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
 use qiniu_http::HTTPCaller;
 use std::{
+    borrow::Cow,
     boxed::Box,
     default::Default,
     fmt,
@@ -27,6 +31,14 @@ pub struct ConfigInner {
     #[get_copy = "pub"]
     #[builder(default = "default::use_https()")]
     use_https: bool,
+
+    #[get = "pub"]
+    #[builder(default = "default::uc_host()")]
+    uc_host: Cow<'static, str>,
+
+    #[get = "pub"]
+    #[builder(default = "default::rs_host()")]
+    rs_host: Cow<'static, str>,
 
     #[get_copy = "pub"]
     #[builder(default = "default::upload_token_lifetime()")]
@@ -74,6 +86,14 @@ pub mod default {
 
     pub fn use_https() -> bool {
         false
+    }
+
+    pub fn uc_host() -> Cow<'static, str> {
+        Cow::Borrowed(Region::uc_host())
+    }
+
+    pub fn rs_host() -> Cow<'static, str> {
+        Cow::Borrowed(Region::rs_host())
     }
 
     pub fn upload_token_lifetime() -> Duration {
@@ -133,6 +153,8 @@ impl fmt::Debug for ConfigInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Config")
             .field("use_https", &self.use_https)
+            .field("uc_host", &self.uc_host)
+            .field("rs_host", &self.rs_host)
             .field("upload_token_lifetime", &self.upload_token_lifetime)
             .field("batch_max_operation_size", &self.batch_max_operation_size)
             .field("upload_threshold", &self.upload_threshold)
@@ -143,6 +165,24 @@ impl fmt::Debug for ConfigInner {
             .field("http_request_retry_delay", &self.http_request_retry_delay)
             .field("domains_manager", &self.domains_manager)
             .finish()
+    }
+}
+
+impl ConfigInner {
+    pub fn uc_url(&self) -> String {
+        if self.use_https {
+            "https://".to_owned() + self.uc_host.as_ref()
+        } else {
+            "http://".to_owned() + self.uc_host.as_ref()
+        }
+    }
+
+    pub fn rs_url(&self) -> String {
+        if self.use_https {
+            "https://".to_owned() + self.rs_host.as_ref()
+        } else {
+            "http://".to_owned() + self.rs_host.as_ref()
+        }
     }
 }
 

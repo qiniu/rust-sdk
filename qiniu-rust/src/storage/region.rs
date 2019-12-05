@@ -126,6 +126,14 @@ impl Region {
         }
     }
 
+    pub fn uc_host() -> &'static str {
+        "uc.qbox.me"
+    }
+
+    pub fn rs_host() -> &'static str {
+        "rs.qiniu.com"
+    }
+
     pub fn uplog_url() -> &'static str {
         "https://uplog.qbox.me"
     }
@@ -214,11 +222,10 @@ impl Region {
         bucket: impl Into<Cow<'a, str>>,
         access_key: impl Into<Cow<'a, str>>,
         config: Config,
-        uc_url: Option<&str>,
     ) -> Result<Box<[Region]>> {
-        let uc_url = uc_url.unwrap_or_else(|| Self::uc_url(config.use_https()));
+        let uc_url = config.uc_url();
         let result: RegionQueryResults = http::Client::new(config)
-            .get("/v3/query", &[uc_url])
+            .get("/v3/query", &[&uc_url])
             .query("ak", access_key.into())
             .query("bucket", bucket.into())
             .accept_json()
@@ -521,7 +528,7 @@ mod tests {
                     }]
                 }),
             ))).build();
-        let regions = Region::query("z0-bucket", get_credential().access_key(), config, None)?;
+        let regions = Region::query("z0-bucket", get_credential().access_key(), config)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();
         assert_eq!(region.region_id(), None);
@@ -580,7 +587,7 @@ mod tests {
                 }),
             )))
             .build();
-        let regions = Region::query("z5-bucket", get_credential().access_key(), config, None)?;
+        let regions = Region::query("z5-bucket", get_credential().access_key(), config)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();
         assert_eq!(region.region_id(), None);
