@@ -9,7 +9,7 @@ use qiniu_ng::{
     storage::{bucket::Bucket, region::Region},
     Client,
 };
-use std::mem::transmute;
+use std::{borrow::Cow, mem::transmute};
 use tap::TapOps;
 
 #[repr(C)]
@@ -57,9 +57,12 @@ pub extern "C" fn qiniu_ng_bucket_region(
     error: *mut qiniu_ng_err,
 ) -> bool {
     let bucket: Box<Bucket> = bucket.into();
-    match bucket.region().map(|region| Box::new(region.to_owned())).tap(|_| {
-        let _: qiniu_ng_bucket_t = bucket.into();
-    }) {
+    match bucket
+        .region()
+        .map(|region| Box::new(Cow::Owned(region.to_owned())) as Box<Cow<Region>>)
+        .tap(|_| {
+            let _: qiniu_ng_bucket_t = bucket.into();
+        }) {
         Ok(r) => {
             if !region.is_null() {
                 unsafe { *region = r.into() };

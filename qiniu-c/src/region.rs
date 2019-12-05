@@ -8,7 +8,7 @@ use crate::{
 };
 use libc::{c_char, c_void, size_t};
 use qiniu_ng::storage::region::{Region, RegionId};
-use std::{ffi::CStr, mem::transmute};
+use std::{borrow::Cow, ffi::CStr, mem::transmute};
 use tap::TapOps;
 
 #[repr(C)]
@@ -70,14 +70,14 @@ pub extern "C" fn qiniu_ng_region_id_name(region_id: qiniu_ng_region_id_t) -> *c
 #[repr(C)]
 pub struct qiniu_ng_region_t(*mut c_void);
 
-impl From<qiniu_ng_region_t> for Box<Region> {
+impl From<qiniu_ng_region_t> for Box<Cow<'static, Region>> {
     fn from(region: qiniu_ng_region_t) -> Self {
-        unsafe { Box::from_raw(transmute::<_, *mut Region>(region)) }
+        unsafe { Box::from_raw(transmute::<_, *mut Cow<'static, Region>>(region)) }
     }
 }
 
-impl From<Box<Region>> for qiniu_ng_region_t {
-    fn from(region: Box<Region>) -> Self {
+impl From<Box<Cow<'static, Region>>> for qiniu_ng_region_t {
+    fn from(region: Box<Cow<'static, Region>>) -> Self {
         unsafe { transmute(Box::into_raw(region)) }
     }
 }
@@ -87,7 +87,7 @@ pub extern "C" fn qiniu_ng_region_get_region_id(
     region: qiniu_ng_region_t,
     region_id: *mut qiniu_ng_region_id_t,
 ) -> bool {
-    let region: Box<Region> = region.into();
+    let region: Box<Cow<'static, Region>> = region.into();
     match region.region_id().tap(|_| {
         let _: qiniu_ng_region_t = region.into();
     }) {
@@ -102,8 +102,19 @@ pub extern "C" fn qiniu_ng_region_get_region_id(
 }
 
 #[no_mangle]
+pub extern "C" fn qiniu_ng_region_get_region_by_id(region_id: qiniu_ng_region_id_t) -> qiniu_ng_region_t {
+    match region_id {
+        qiniu_ng_region_id_t::Z0 => Box::new(Cow::Borrowed(Region::z0())).into(),
+        qiniu_ng_region_id_t::Z1 => Box::new(Cow::Borrowed(Region::z1())).into(),
+        qiniu_ng_region_id_t::Z2 => Box::new(Cow::Borrowed(Region::z2())).into(),
+        qiniu_ng_region_id_t::AS0 => Box::new(Cow::Borrowed(Region::as0())).into(),
+        qiniu_ng_region_id_t::NA0 => Box::new(Cow::Borrowed(Region::na0())).into(),
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_up_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_list_t {
-    let region: Box<Region> = region.into();
+    let region: Box<Cow<'static, Region>> = region.into();
     make_string_list(&region.up_urls(use_https)).tap(|_| {
         let _: qiniu_ng_region_t = region.into();
     })
@@ -111,7 +122,7 @@ pub extern "C" fn qiniu_ng_region_get_up_urls(region: qiniu_ng_region_t, use_htt
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_io_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_list_t {
-    let region: Box<Region> = region.into();
+    let region: Box<Cow<'static, Region>> = region.into();
     make_string_list(&region.io_urls(use_https)).tap(|_| {
         let _: qiniu_ng_region_t = region.into();
     })
@@ -119,7 +130,7 @@ pub extern "C" fn qiniu_ng_region_get_io_urls(region: qiniu_ng_region_t, use_htt
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_rs_url(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_t {
-    let region: Box<Region> = region.into();
+    let region: Box<Cow<'static, Region>> = region.into();
     make_string(region.rs_url(use_https)).tap(|_| {
         let _: qiniu_ng_region_t = region.into();
     })
@@ -127,7 +138,7 @@ pub extern "C" fn qiniu_ng_region_get_rs_url(region: qiniu_ng_region_t, use_http
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_rsf_url(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_t {
-    let region: Box<Region> = region.into();
+    let region: Box<Cow<'static, Region>> = region.into();
     make_string(region.rsf_url(use_https)).tap(|_| {
         let _: qiniu_ng_region_t = region.into();
     })
@@ -135,10 +146,24 @@ pub extern "C" fn qiniu_ng_region_get_rsf_url(region: qiniu_ng_region_t, use_htt
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_api_url(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_t {
-    let region: Box<Region> = region.into();
+    let region: Box<Cow<'static, Region>> = region.into();
     make_string(region.api_url(use_https)).tap(|_| {
         let _: qiniu_ng_region_t = region.into();
     })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_get_uc_url(use_https: bool) -> *const c_char {
+    if use_https {
+        CStr::from_bytes_with_nul(b"https://uc.qbox.me\0").unwrap().as_ptr()
+    } else {
+        CStr::from_bytes_with_nul(b"http://uc.qbox.me\0").unwrap().as_ptr()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_get_uplog_url() -> *const c_char {
+    CStr::from_bytes_with_nul(b"https://uplog.qbox.me\0").unwrap().as_ptr()
 }
 
 #[no_mangle]
@@ -175,7 +200,7 @@ pub extern "C" fn qiniu_ng_region_query(
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_free(region: qiniu_ng_region_t) {
-    let _: Box<Region> = region.into();
+    let _: Box<Cow<'static, Region>> = region.into();
 }
 
 #[repr(C)]
@@ -211,7 +236,8 @@ pub extern "C" fn qiniu_ng_regions_get(
     let mut got = false;
     if let Some(r) = regions.get(index) {
         if !region.is_null() {
-            unsafe { *region = Box::new(r.to_owned()).into() };
+            let r: Box<Cow<Region>> = Box::new(Cow::Owned(r.to_owned()));
+            unsafe { *region = r.into() };
         }
         got = true;
     }

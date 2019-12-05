@@ -20,12 +20,18 @@ endif
 all: build
 build:
 	cargo build
-test: build
+build_test_via_static_link: build
 	mkdir -p build
 	$(CC) -Wall -Wextra $(INC_DIRS) $(SYMBOLS) $(SRC_FILES) $(STATIC_LIBRARY) -o $(TARGET) $(LDFLAGS)
+build_test_via_dynamic_link: build
+	mkdir -p build
+	$(CC) -Wall -Wextra $(INC_DIRS) -L$(DYNAMIC_LIBRARY) $(SYMBOLS) $(SRC_FILES) -o $(TARGET) -lqiniu_ng_c $(LDFLAGS)
+build_test: build_test_via_static_link build_test_via_dynamic_link
+test:
+	$(MAKE) build_test_via_static_link
 	./$(TARGET)
 	rm ./$(TARGET)
-	$(CC) -Wall -Wextra $(INC_DIRS) -L$(DYNAMIC_LIBRARY) $(SYMBOLS) $(SRC_FILES) -o $(TARGET) -lqiniu_ng_c $(LDFLAGS)
+	$(MAKE) build_test_via_dynamic_link
 	LD_LIBRARY_PATH=$(DYNAMIC_LIBRARY) ./$(TARGET)
 clean:
 	rm -rf build
