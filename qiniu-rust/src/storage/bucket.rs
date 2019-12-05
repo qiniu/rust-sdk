@@ -53,13 +53,13 @@ impl<'r> BucketBuilder<'r> {
         }
     }
 
-    pub fn region(mut self, region: &'r Region) -> BucketBuilder<'r> {
-        self.region = Some(Cow::Borrowed(region));
+    pub fn region(mut self, region: impl Into<Cow<'r, Region>>) -> BucketBuilder<'r> {
+        self.region = Some(region.into());
         self
     }
 
     pub fn region_id(self, region_id: RegionId) -> BucketBuilder<'r> {
-        self.region(region_id.as_region())
+        self.region(Cow::Borrowed(region_id.as_region()))
     }
 
     pub fn uc_url(mut self, uc_url: impl Into<Cow<'r, str>>) -> BucketBuilder<'r> {

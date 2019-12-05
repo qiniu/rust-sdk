@@ -28,7 +28,7 @@ impl<'r> From<Box<Bucket<'r>>> for qiniu_ng_bucket_t {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_bucket(client: qiniu_ng_client_t, bucket_name: *const c_char) -> qiniu_ng_bucket_t {
+pub extern "C" fn qiniu_ng_bucket_new(client: qiniu_ng_client_t, bucket_name: *const c_char) -> qiniu_ng_bucket_t {
     let client: Box<Client> = client.into();
     let bucket_name = convert_c_char_to_string(bucket_name);
     let bucket: qiniu_ng_bucket_t = Box::new(client.storage().bucket(bucket_name).build()).into();
