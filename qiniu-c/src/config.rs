@@ -4,6 +4,7 @@ use std::{mem::transmute, time::Duration};
 use tap::TapOps;
 
 #[repr(C)]
+#[derive(Clone)]
 pub struct qiniu_ng_config_fields_t {
     pub use_https: bool,
     pub upload_token_lifetime: c_ulonglong,
@@ -15,6 +16,7 @@ pub struct qiniu_ng_config_fields_t {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct qiniu_ng_config_t(*mut c_void);
 
 #[no_mangle]

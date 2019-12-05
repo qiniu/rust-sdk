@@ -235,6 +235,18 @@ impl Region {
     }
 }
 
+impl From<Region> for Cow<'_, Region> {
+    fn from(region: Region) -> Self {
+        Cow::Owned(region)
+    }
+}
+
+impl<'a> From<&'a Region> for Cow<'a, Region> {
+    fn from(region: &'a Region) -> Self {
+        Cow::Borrowed(region)
+    }
+}
+
 lazy_static! {
     static ref HUA_DONG: Region = RegionBuilder::default()
         .region_id(RegionId::Z0)

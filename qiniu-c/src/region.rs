@@ -68,6 +68,7 @@ pub extern "C" fn qiniu_ng_region_id_name(region_id: qiniu_ng_region_id_t) -> *c
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct qiniu_ng_region_t(*mut c_void);
 
 impl From<qiniu_ng_region_t> for Box<Cow<'static, Region>> {
@@ -204,6 +205,7 @@ pub extern "C" fn qiniu_ng_region_free(region: qiniu_ng_region_t) {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct qiniu_ng_regions_t(*mut c_void, *mut c_void);
 
 impl From<qiniu_ng_regions_t> for Box<[Region]> {

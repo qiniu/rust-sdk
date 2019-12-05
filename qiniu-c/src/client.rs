@@ -5,6 +5,7 @@ use std::mem::transmute;
 use tap::TapOps;
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct qiniu_ng_client_t(*mut c_void);
 
 impl From<qiniu_ng_client_t> for Box<Client> {

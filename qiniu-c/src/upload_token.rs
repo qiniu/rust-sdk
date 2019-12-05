@@ -21,6 +21,7 @@ use std::{
 use tap::TapOps;
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_policy_t {
     bucket: *const c_char,
     key: *const c_char,
@@ -394,6 +395,7 @@ impl UploadToken {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_token_t(*mut c_void);
 
 impl From<qiniu_ng_upload_token_t> for Box<UploadToken> {

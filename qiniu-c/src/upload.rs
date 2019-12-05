@@ -24,6 +24,7 @@ use std::{
 use tap::TapOps;
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_manager_t(*mut c_void);
 
 impl From<qiniu_ng_upload_manager_t> for Box<UploadManager> {
@@ -49,6 +50,7 @@ pub extern "C" fn qiniu_ng_upload_manager_free(upload_manager: qiniu_ng_upload_m
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct qiniu_ng_bucket_uploader_t(*mut c_void);
 
 impl From<qiniu_ng_bucket_uploader_t> for BucketUploader {
@@ -123,6 +125,7 @@ pub enum qiniu_ng_resumeable_policy_e {
 }
 
 #[repr(C)]
+#[derive(Clone)]
 pub struct qiniu_ng_upload_params_t {
     key: *const c_char,
     vars: *const qiniu_ng_string_map_t,
@@ -239,6 +242,7 @@ impl From<&QiniuUploadResponse> for UploadResponse {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_response_t(*mut c_void);
 
 impl From<qiniu_ng_upload_response_t> for Box<UploadResponse> {

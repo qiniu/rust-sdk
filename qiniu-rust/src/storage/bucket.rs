@@ -82,13 +82,13 @@ impl<'r> BucketBuilder<'r> {
         Ok(self)
     }
 
-    pub fn domain(mut self, domain: &'r str) -> BucketBuilder<'r> {
+    pub fn domain(mut self, domain: impl Into<Cow<'r, str>>) -> BucketBuilder<'r> {
         match &mut self.domains {
             Some(domains) => {
-                domains.push(Cow::from(domain));
+                domains.push(domain.into());
             }
             None => {
-                self.domains = Some(vec![Cow::from(domain)]);
+                self.domains = Some(vec![domain.into()]);
             }
         }
         self

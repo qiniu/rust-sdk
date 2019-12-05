@@ -35,6 +35,7 @@ pub extern "C" fn qiniu_ng_etag_from_buffer(buffer: *const c_char, buffer_len: s
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct qiniu_ng_etag_t(*mut c_void);
 
 impl From<qiniu_ng_etag_t> for Box<etag::Etag> {
