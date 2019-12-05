@@ -15,6 +15,7 @@ pub struct Bucket<'r> {
     region: OnceCell<Cow<'r, Region>>,
     backup_regions: OnceCell<Box<[Region]>>,
     domains: OnceCell<Box<[Cow<'r, str>]>>,
+    uc_url: Option<Cow<'r, str>>,
     http_client: Client,
 }
 
@@ -25,6 +26,7 @@ pub struct BucketBuilder<'r> {
     region: Option<Cow<'r, Region>>,
     backup_regions: Option<Box<[Region]>>,
     domains: Option<Vec<Cow<'r, str>>>,
+    uc_url: Option<Cow<'r, str>>,
     http_client: Client,
 }
 
@@ -47,6 +49,7 @@ impl<'r> BucketBuilder<'r> {
             region: None,
             backup_regions: None,
             domains: None,
+            uc_url: None,
         }
     }
 
@@ -59,11 +62,17 @@ impl<'r> BucketBuilder<'r> {
         self.region(region_id.as_region())
     }
 
+    pub fn uc_url(mut self, uc_url: impl Into<Cow<'r, str>>) -> BucketBuilder<'r> {
+        self.uc_url = Some(uc_url.into());
+        self
+    }
+
     pub fn auto_detect_region(mut self) -> Result<BucketBuilder<'r>> {
         let mut regions: Vec<Region> = Region::query(
             self.name.as_ref(),
             self.credential.access_key(),
             self.upload_manager.config().clone(),
+            self.uc_url.as_ref().map(|url| url.as_ref()),
         )?
         .into();
         self.region = Some(Cow::Owned(regions.swap_remove(0)));
@@ -87,10 +96,15 @@ impl<'r> BucketBuilder<'r> {
 
     pub fn auto_detect_domains(mut self) -> Result<BucketBuilder<'r>> {
         self.domains = Some(
-            domain::query(&self.http_client, &self.credential, self.uc_url(), self.name.as_ref())?
-                .into_iter()
-                .map(Cow::Owned)
-                .collect(),
+            domain::query(
+                &self.http_client,
+                &self.credential,
+                self.generate_uc_url(),
+                self.name.as_ref(),
+            )?
+            .into_iter()
+            .map(Cow::Owned)
+            .collect(),
         );
         Ok(self)
     }
@@ -101,6 +115,7 @@ impl<'r> BucketBuilder<'r> {
             credential: self.credential,
             upload_manager: self.upload_manager,
             http_client: self.http_client,
+            uc_url: self.uc_url,
             region: self.region.map(OnceCell::from).unwrap_or_else(OnceCell::new),
             backup_regions: self.backup_regions.map(OnceCell::from).unwrap_or_else(OnceCell::new),
             domains: self
@@ -110,8 +125,11 @@ impl<'r> BucketBuilder<'r> {
         }
     }
 
-    fn uc_url(&self) -> &'static str {
-        Region::uc_url(self.upload_manager.config().use_https())
+    fn generate_uc_url(&self) -> &str {
+        self.uc_url
+            .as_ref()
+            .map(|url| url.as_ref())
+            .unwrap_or_else(|| Region::uc_url(self.upload_manager.config().use_https()))
     }
 }
 
@@ -127,6 +145,7 @@ impl<'r> Bucket<'r> {
                     self.name(),
                     self.credential.access_key(),
                     self.upload_manager.config().clone(),
+                    self.uc_url.as_ref().map(|url| url.as_ref()),
                 )?
                 .into();
                 let first_region = Cow::Owned(regions.swap_remove(0));
@@ -166,8 +185,11 @@ impl<'r> Bucket<'r> {
             .rs_url(self.upload_manager.config().use_https())
     }
 
-    fn uc_url(&self) -> &'static str {
-        Region::uc_url(self.upload_manager.config().use_https())
+    fn uc_url(&self) -> &str {
+        self.uc_url
+            .as_ref()
+            .map(|url| url.as_ref())
+            .unwrap_or_else(|| Region::uc_url(self.upload_manager.config().use_https()))
     }
 
     #[allow(dead_code)]

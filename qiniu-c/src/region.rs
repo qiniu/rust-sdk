@@ -1,7 +1,10 @@
 use crate::{
     config::qiniu_ng_config_t,
     result::qiniu_ng_err,
-    utils::{convert_c_char_to_string, make_string, make_string_list, qiniu_ng_string_list_t, qiniu_ng_string_t},
+    utils::{
+        convert_c_char_to_optional_string, convert_c_char_to_string, make_string, make_string_list,
+        qiniu_ng_string_list_t, qiniu_ng_string_t,
+    },
 };
 use libc::{c_char, c_void, size_t};
 use qiniu_ng::storage::region::{Region, RegionId};
@@ -143,6 +146,7 @@ pub extern "C" fn qiniu_ng_region_query(
     bucket_name: *const c_char,
     access_key: *const c_char,
     config: qiniu_ng_config_t,
+    uc_url: *const c_char,
     regions: *mut qiniu_ng_regions_t,
     error: *mut qiniu_ng_err,
 ) -> bool {
@@ -150,6 +154,9 @@ pub extern "C" fn qiniu_ng_region_query(
         convert_c_char_to_string(bucket_name),
         convert_c_char_to_string(access_key),
         config.get_clone(),
+        convert_c_char_to_optional_string(uc_url)
+            .as_ref()
+            .map(|url| url.as_ref()),
     ) {
         Ok(r) => {
             if !regions.is_null() {

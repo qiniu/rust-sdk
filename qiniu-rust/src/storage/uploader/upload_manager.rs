@@ -41,11 +41,17 @@ impl UploadManager {
         &self,
         bucket_name: impl Into<Cow<'b, str>>,
         access_key: impl AsRef<str>,
+        uc_url: Option<&str>,
     ) -> BucketUploaderBuilder {
         let bucket_name = bucket_name.into();
-        let up_urls_list = Region::query(bucket_name.as_ref(), access_key.as_ref(), self.config.to_owned())
-            .map(|regions| Self::extract_up_urls_list_from_regions(regions.iter(), self.config.use_https()))
-            .unwrap_or_else(|_| Self::all_possible_up_urls_list(self.config.use_https()));
+        let up_urls_list = Region::query(
+            bucket_name.as_ref(),
+            access_key.as_ref(),
+            self.config.to_owned(),
+            uc_url,
+        )
+        .map(|regions| Self::extract_up_urls_list_from_regions(regions.iter(), self.config.use_https()))
+        .unwrap_or_else(|_| Self::all_possible_up_urls_list(self.config.use_https()));
         BucketUploaderBuilder::new(bucket_name.into_owned().into(), up_urls_list, self.config.to_owned())
     }
 
@@ -79,13 +85,14 @@ impl UploadManager {
     pub fn for_upload_token<'u>(
         &self,
         upload_token: impl Into<UploadToken<'u>>,
+        uc_url: Option<&str>,
     ) -> CreateUploaderResult<FileUploaderBuilder<'u>> {
         let upload_token = upload_token.into();
         let access_key = upload_token.access_key()?;
         let policy = upload_token.policy()?;
         if let Some(bucket_name) = policy.bucket() {
             Ok(FileUploaderBuilder::new(
-                Ron::Owned(self.for_bucket_name(bucket_name.to_owned(), access_key).build()),
+                Ron::Owned(self.for_bucket_name(bucket_name.to_owned(), access_key, uc_url).build()),
                 upload_token.token().into(),
             ))
         } else {
@@ -97,8 +104,9 @@ impl UploadManager {
         &self,
         upload_policy: UploadPolicy<'u>,
         credential: Cow<'u, Credential>,
+        uc_url: Option<&str>,
     ) -> CreateUploaderResult<FileUploaderBuilder<'u>> {
-        self.for_upload_token(UploadToken::from_policy(upload_policy, credential))
+        self.for_upload_token(UploadToken::from_policy(upload_policy, credential), uc_url)
     }
 
     #[allow(dead_code)]

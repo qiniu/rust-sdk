@@ -87,12 +87,16 @@ pub extern "C" fn qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
     bucket_name: *const c_char,
     access_key: *const c_char,
     thread_pool_size: size_t,
+    uc_url: *const c_char,
 ) -> qiniu_ng_bucket_uploader_t {
     let upload_manager: Box<UploadManager> = upload_manager.into();
     let mut bucket_uploader_builder = upload_manager
         .for_bucket_name(
-            convert_c_char_to_string(bucket_name.cast()),
-            convert_c_char_to_string(access_key.cast()),
+            convert_c_char_to_string(bucket_name),
+            convert_c_char_to_string(access_key),
+            convert_c_char_to_optional_string(uc_url)
+                .as_ref()
+                .map(|url| url.as_ref()),
         )
         .tap(|_| {
             let _: qiniu_ng_upload_manager_t = upload_manager.into();

@@ -210,12 +210,13 @@ impl Region {
         &ALL_REGIONS[..]
     }
 
-    pub fn query<'a, B: Into<Cow<'a, str>>, A: Into<Cow<'a, str>>>(
-        bucket: B,
-        access_key: A,
+    pub fn query<'a>(
+        bucket: impl Into<Cow<'a, str>>,
+        access_key: impl Into<Cow<'a, str>>,
         config: Config,
+        uc_url: Option<&str>,
     ) -> Result<Box<[Region]>> {
-        let uc_url = Self::uc_url(config.use_https());
+        let uc_url = uc_url.unwrap_or_else(|| Self::uc_url(config.use_https()));
         let result: RegionQueryResults = http::Client::new(config)
             .get("/v3/query", &[uc_url])
             .query("ak", access_key.into())
@@ -508,7 +509,7 @@ mod tests {
                     }]
                 }),
             ))).build();
-        let regions = Region::query("z0-bucket", get_credential().access_key(), config)?;
+        let regions = Region::query("z0-bucket", get_credential().access_key(), config, None)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();
         assert_eq!(region.region_id(), None);
@@ -567,7 +568,7 @@ mod tests {
                 }),
             )))
             .build();
-        let regions = Region::query("z5-bucket", get_credential().access_key(), config)?;
+        let regions = Region::query("z5-bucket", get_credential().access_key(), config, None)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();
         assert_eq!(region.region_id(), None);
