@@ -154,10 +154,10 @@ impl<'r> Bucket<'r> {
         self.upload_manager.for_bucket(self)
     }
 
-    fn rs_url(&self) -> &'static str {
+    fn rs_url(&self) -> Cow<'static, str> {
         self.region()
-            .unwrap_or_else(|_| Region::hua_dong())
-            .rs_url(self.upload_manager.config().use_https())
+            .map(|region| region.rs_url(self.upload_manager.config().use_https()).into())
+            .unwrap_or_else(|_| self.upload_manager.config().rs_url().into())
     }
 
     #[allow(dead_code)]
