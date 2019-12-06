@@ -179,7 +179,7 @@ mod domain {
         Ok(http_client
             .get("/v6/domain/list", &[&http_client.config().uc_url()])
             .query("tbl", bucket_name)
-            .token(Token::V1(credential.borrow().into()))
+            .token(Token::V2(credential.borrow().into()))
             .no_body()
             .send()?
             .parse_json()?)

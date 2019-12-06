@@ -112,7 +112,8 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub(crate) fn no_body(self) -> Request<'a> {
+    pub(crate) fn no_body(mut self) -> Request<'a> {
+        self = self.header("Content-Type", "application/x-www-form-urlencoded");
         self.build()
     }
 
