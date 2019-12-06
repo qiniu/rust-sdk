@@ -28,7 +28,7 @@ impl From<qiniu_ng_string_t> for Box<CStr> {
     }
 }
 
-pub(crate) fn make_string(s: &str) -> qiniu_ng_string_t {
+pub(crate) fn make_string(s: impl Into<Vec<u8>>) -> qiniu_ng_string_t {
     CString::new(s).unwrap().into_boxed_c_str().into()
 }
 
