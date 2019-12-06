@@ -306,7 +306,7 @@ impl TokenizedUploadLogger {
 
     fn async_lock_log_file_and_update_then_clean(&self) {
         let upload_logger = self.clone();
-        global_thread_pool.spawn(move || {
+        global_thread_pool.read().unwrap().spawn(move || {
             let _ = upload_logger.lock_log_file_and_update_then_clean();
         });
     }
@@ -352,7 +352,7 @@ impl TokenizedUploadLogger {
 
     fn async_upload_log_buffer(&self, log_buffer: Vec<u8>) {
         let upload_logger = self.clone();
-        global_thread_pool.spawn(move || {
+        global_thread_pool.read().unwrap().spawn(move || {
             let _ = upload_logger.upload_log_buffer(&log_buffer);
         });
     }

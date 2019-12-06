@@ -412,7 +412,7 @@ impl DomainsManager {
         }
         {
             let domains_manager = self.clone();
-            global_thread_pool.spawn(move || {
+            global_thread_pool.read().unwrap().spawn(move || {
                 domains_manager.try_to_persistent_if_needed();
                 if !domains_manager.inner.inner_data.disable_url_resolution {
                     domains_manager.try_to_async_refresh_resolutions_if_needed();
@@ -485,7 +485,7 @@ impl DomainsManager {
 
     fn async_update_cache(&self, url: Box<str>) {
         let domains_manager = self.clone();
-        global_thread_pool.spawn(move || {
+        global_thread_pool.read().unwrap().spawn(move || {
             let _ = domains_manager.resolve_and_update_cache(&url);
         });
     }
@@ -545,7 +545,7 @@ impl DomainsManager {
 
     fn async_resolve_urls(&self, urls: Vec<Cow<'static, str>>) {
         let domains_manager = self.clone();
-        global_thread_pool.spawn(move || {
+        global_thread_pool.read().unwrap().spawn(move || {
             domains_manager.sync_resolve_urls(urls);
         });
     }
