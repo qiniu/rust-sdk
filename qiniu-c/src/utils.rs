@@ -7,8 +7,8 @@ use std::{
     ffi::{CStr, CString},
     mem::transmute,
     path::PathBuf,
-    ptr::null,
-    slice,
+    ptr::{copy_nonoverlapping, null},
+    slice::from_raw_parts,
 };
 use tap::TapOps;
 
@@ -33,8 +33,37 @@ pub(crate) fn make_string(s: &str) -> qiniu_ng_string_t {
 }
 
 #[no_mangle]
+pub extern "C" fn qiniu_ng_string_new(s: *const c_char) -> qiniu_ng_string_t {
+    Cow::Borrowed(unsafe { CStr::from_ptr(s) })
+        .into_owned()
+        .into_boxed_c_str()
+        .into()
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_string_new_with_len(s: *const c_char, len: usize) -> qiniu_ng_string_t {
+    let mut vec: Vec<u8> = Vec::with_capacity(len + 1);
+    unsafe {
+        vec.set_len(len);
+        copy_nonoverlapping(s.cast(), vec.as_mut_ptr(), len);
+        CString::from_vec_unchecked(vec).into_boxed_c_str().into()
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn qiniu_ng_string_get_ptr(s: qiniu_ng_string_t) -> *const c_char {
-    s.0
+    let s: Box<CStr> = s.into();
+    s.as_ptr().tap(|_| {
+        let _: qiniu_ng_string_t = s.into();
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_string_get_len(s: qiniu_ng_string_t) -> usize {
+    let s: Box<CStr> = s.into();
+    s.to_bytes().len().tap(|_| {
+        let _: qiniu_ng_string_t = s.into();
+    })
 }
 
 #[no_mangle]
@@ -63,6 +92,15 @@ pub(crate) fn make_string_list(list: &[impl AsRef<str>]) -> qiniu_ng_string_list
         .map(|s| CString::new(s.as_ref()).unwrap().into_boxed_c_str())
         .collect::<Box<[Box<CStr>]>>()
         .into()
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_string_list_new(strlist: *const *const c_char, len: usize) -> qiniu_ng_string_list_t {
+    let mut vec: Vec<Box<CStr>> = Vec::with_capacity(len);
+    for i in 0..len {
+        vec.push(qiniu_ng_string_new(unsafe { *strlist.add(i) }).into());
+    }
+    vec.into_boxed_slice().into()
 }
 
 #[no_mangle]
@@ -113,12 +151,33 @@ impl From<qiniu_ng_string_map_t> for Box<HashMap<Box<CStr>, Box<CStr>, RandomSta
 }
 
 #[no_mangle]
+pub extern "C" fn qiniu_ng_string_map_new(capacity: usize) -> qiniu_ng_string_map_t {
+    let hashmap: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = Box::new(HashMap::with_capacity(capacity));
+    hashmap.into()
+}
+
+#[no_mangle]
 pub extern "C" fn qiniu_ng_string_map_set(hashmap: qiniu_ng_string_map_t, key: *const c_char, value: *const c_char) {
     let mut hashmap: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = hashmap.into();
     hashmap.insert(
         unsafe { CStr::from_ptr(key) }.into(),
         unsafe { CStr::from_ptr(value) }.into(),
     );
+    let _: qiniu_ng_string_map_t = hashmap.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_string_map_each_entry(
+    hashmap: qiniu_ng_string_map_t,
+    handler: fn(key: *const c_char, value: *const c_char, data: *mut c_void) -> bool,
+    data: *mut c_void,
+) {
+    let hashmap: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = hashmap.into();
+    for (key, value) in hashmap.iter() {
+        if !handler(key.as_ptr(), value.as_ptr(), data) {
+            break;
+        }
+    }
     let _: qiniu_ng_string_map_t = hashmap.into();
 }
 
@@ -135,6 +194,14 @@ pub extern "C" fn qiniu_ng_string_map_get(hashmap: qiniu_ng_string_map_t, key: *
 }
 
 #[no_mangle]
+pub extern "C" fn qiniu_ng_string_map_len(hashmap: qiniu_ng_string_map_t) -> usize {
+    let hashmap: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = hashmap.into();
+    hashmap.len().tap(|_| {
+        let _: qiniu_ng_string_map_t = hashmap.into();
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn qiniu_ng_string_map_free(hashmap: qiniu_ng_string_map_t) {
     let _: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = hashmap.into();
 }
@@ -144,14 +211,14 @@ cfg_if! {
         use std::ffi::OsStr;
         use std::os::unix::ffi::OsStrExt;
         pub(crate) fn make_path_buf(path: *const c_char) -> PathBuf {
-            let buf = unsafe { slice::from_raw_parts(path.cast(), strlen(path)) };
+            let buf = unsafe { from_raw_parts(path.cast(), strlen(path)) };
             PathBuf::from(OsStr::from_bytes(buf))
         }
     } else if #[cfg(windows)] {
         use std::ffi::OsStr;
         use std::os::windows::ffi::OsStrExt;
         pub(crate) fn make_path_buf(path: *const c_char) -> PathBuf {
-            let buf = unsafe { slice::from_raw_parts(path.cast(), strlen(path)) };
+            let buf = unsafe { from_raw_parts(path.cast(), strlen(path)) };
             PathBuf::from(OsStr::from_wide(buf))
         }
     } else {

@@ -20,3 +20,6 @@ void test_qiniu_ng_bucket_new(void);
 void test_qiniu_ng_make_upload_token(void);
 void test_qiniu_ng_upload_file(void);
 void test_qiniu_ng_upload_file_failed_by_mime(void);
+void test_qiniu_ng_string(void);
+void test_qiniu_ng_string_list(void);
+void test_qiniu_ng_string_map(void);
