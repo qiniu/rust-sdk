@@ -120,21 +120,21 @@ impl Region {
 
     pub fn uc_url(https: bool) -> &'static str {
         if https {
-            "https://uc.qbox.me"
+            concat!("https://", "uc.qbox.me")
         } else {
-            "http://uc.qbox.me"
+            concat!("http://", "uc.qbox.me")
         }
     }
 
-    pub fn uc_host() -> &'static str {
+    pub const fn uc_host() -> &'static str {
         "uc.qbox.me"
     }
 
-    pub fn rs_host() -> &'static str {
+    pub const fn rs_host() -> &'static str {
         "rs.qiniu.com"
     }
 
-    pub fn uplog_url() -> &'static str {
+    pub const fn uplog_url() -> &'static str {
         "https://uplog.qbox.me"
     }
 

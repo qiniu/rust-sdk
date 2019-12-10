@@ -25,6 +25,7 @@ use tap::TapOps;
 use thiserror::Error;
 use url::Url;
 
+#[derive(Debug, Clone, Copy)]
 pub enum LockPolicy {
     LockSharedDuringAppendingAndLockExclusiveDuringUploading,
     AlwaysLockExclusive,
@@ -32,14 +33,14 @@ pub enum LockPolicy {
 }
 
 impl LockPolicy {
-    fn lock_for_appending(&self, file: &File) -> IOResult<()> {
+    fn lock_for_appending(self, file: &File) -> IOResult<()> {
         match self {
             LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading => file.lock_shared(),
             LockPolicy::AlwaysLockExclusive => file.lock_exclusive(),
             LockPolicy::None => Ok(()),
         }
     }
-    fn lock_for_uploading(&self, file: &File) -> IOResult<()> {
+    fn lock_for_uploading(self, file: &File) -> IOResult<()> {
         match self {
             LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading | LockPolicy::AlwaysLockExclusive => {
                 file.lock_exclusive()
@@ -47,14 +48,14 @@ impl LockPolicy {
             LockPolicy::None => Ok(()),
         }
     }
-    fn try_lock_for_appending(&self, file: &File) -> IOResult<()> {
+    fn try_lock_for_appending(self, file: &File) -> IOResult<()> {
         match self {
             LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading => file.try_lock_shared(),
             LockPolicy::AlwaysLockExclusive => file.try_lock_exclusive(),
             LockPolicy::None => Ok(()),
         }
     }
-    fn try_lock_for_uploading(&self, file: &File) -> IOResult<()> {
+    fn try_lock_for_uploading(self, file: &File) -> IOResult<()> {
         match self {
             LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading | LockPolicy::AlwaysLockExclusive => {
                 file.try_lock_exclusive()
@@ -62,7 +63,7 @@ impl LockPolicy {
             LockPolicy::None => Ok(()),
         }
     }
-    fn unlock(&self, file: &File) -> IOResult<()> {
+    fn unlock(self, file: &File) -> IOResult<()> {
         match self {
             LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading | LockPolicy::AlwaysLockExclusive => {
                 file.unlock()
@@ -125,6 +126,26 @@ impl UploadLogger {
         }
     }
 
+    pub fn server_url(&self) -> &str {
+        self.inner.value.server_url.as_ref()
+    }
+
+    pub fn log_file_path(&self) -> &Path {
+        self.inner.value.log_file_path.as_ref()
+    }
+
+    pub fn lock_policy(&self) -> LockPolicy {
+        self.inner.value.lock_policy
+    }
+
+    pub fn upload_threshold(&self) -> u32 {
+        self.inner.value.upload_threshold
+    }
+
+    pub fn max_size(&self) -> u32 {
+        self.inner.value.max_size
+    }
+
     #[allow(dead_code)]
     fn ignore() {
         assert_impl!(Send: Self);
@@ -157,8 +178,8 @@ impl UploadLoggerBuilder {
 pub mod default {
     use super::*;
 
-    pub fn server_url() -> Cow<'static, str> {
-        Region::uplog_url().into()
+    pub const fn server_url() -> Cow<'static, str> {
+        Cow::Borrowed(Region::uplog_url())
     }
 
     pub fn log_file_path() -> Cow<'static, Path> {
@@ -171,15 +192,15 @@ pub mod default {
         default_path.into()
     }
 
-    pub fn upload_threshold() -> u32 {
+    pub const fn upload_threshold() -> u32 {
         1 << 12
     }
 
-    pub fn max_size() -> u32 {
+    pub const fn max_size() -> u32 {
         1 << 22
     }
 
-    pub fn lock_policy() -> LockPolicy {
+    pub const fn lock_policy() -> LockPolicy {
         LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading
     }
 }

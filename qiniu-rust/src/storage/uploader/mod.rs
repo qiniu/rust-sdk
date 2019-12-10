@@ -3,9 +3,9 @@ mod callback;
 mod form_uploader;
 mod io_status_manager;
 mod resumeable_uploader;
-mod upload_logger;
+pub mod upload_logger;
 mod upload_manager;
-mod upload_recorder;
+pub mod upload_recorder;
 mod upload_response;
 
 pub use bucket_uploader::{BucketUploader, BucketUploaderBuilder, FileUploaderBuilder, UploadError, UploadResult};

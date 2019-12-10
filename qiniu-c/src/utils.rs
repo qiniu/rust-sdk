@@ -7,7 +7,7 @@ use std::{
     ffi::{CStr, CString},
     mem::transmute,
     path::PathBuf,
-    ptr::{copy_nonoverlapping, null},
+    ptr::{copy_nonoverlapping, null, null_mut},
     slice::from_raw_parts,
 };
 use tap::TapOps;
@@ -69,6 +69,102 @@ pub extern "C" fn qiniu_ng_string_get_len(s: qiniu_ng_string_t) -> usize {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_string_free(s: qiniu_ng_string_t) {
     let _: Box<CStr> = s.into();
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct qiniu_ng_optional_string_t(*mut c_char, *mut c_char);
+
+impl Default for qiniu_ng_optional_string_t {
+    fn default() -> Self {
+        qiniu_ng_optional_string_null()
+    }
+}
+
+impl From<Option<Box<CStr>>> for qiniu_ng_optional_string_t {
+    fn from(s: Option<Box<CStr>>) -> Self {
+        if let Some(s) = s {
+            unsafe { transmute(Box::into_raw(s)) }
+        } else {
+            qiniu_ng_optional_string_t(null_mut(), null_mut())
+        }
+    }
+}
+
+impl From<qiniu_ng_optional_string_t> for Option<Box<CStr>> {
+    fn from(s: qiniu_ng_optional_string_t) -> Self {
+        if s.0.is_null() && s.1.is_null() {
+            None
+        } else {
+            Some(unsafe { Box::from_raw(transmute(s)) })
+        }
+    }
+}
+
+impl From<qiniu_ng_string_t> for qiniu_ng_optional_string_t {
+    fn from(s: qiniu_ng_string_t) -> Self {
+        let s: Box<CStr> = s.into();
+        Some(s).into()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_string_null() -> qiniu_ng_optional_string_t {
+    qiniu_ng_optional_string_t(null_mut(), null_mut())
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_string_is_null(s: qiniu_ng_optional_string_t) -> bool {
+    s.0.is_null() && s.1.is_null()
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_string_new(s: *const c_char) -> qiniu_ng_optional_string_t {
+    if s.is_null() {
+        qiniu_ng_optional_string_null()
+    } else {
+        Some(
+            Cow::Borrowed(unsafe { CStr::from_ptr(s) })
+                .into_owned()
+                .into_boxed_c_str(),
+        )
+        .into()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_string_new_with_len(s: *const c_char, len: usize) -> qiniu_ng_optional_string_t {
+    if s.is_null() {
+        qiniu_ng_optional_string_null()
+    } else {
+        let mut vec: Vec<u8> = Vec::with_capacity(len + 1);
+        unsafe {
+            vec.set_len(len);
+            copy_nonoverlapping(s.cast(), vec.as_mut_ptr(), len);
+            Some(CString::from_vec_unchecked(vec).into_boxed_c_str()).into()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_string_get_ptr(s: qiniu_ng_optional_string_t) -> *const c_char {
+    let s: Option<Box<CStr>> = s.into();
+    s.as_ref().map(|s| s.as_ptr()).unwrap_or_else(null).tap(|_| {
+        let _: qiniu_ng_optional_string_t = s.into();
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_string_get_len(s: qiniu_ng_optional_string_t) -> usize {
+    let s: Option<Box<CStr>> = s.into();
+    s.as_ref().map(|s| s.to_bytes().len()).unwrap_or(0).tap(|_| {
+        let _: qiniu_ng_optional_string_t = s.into();
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_string_free(s: qiniu_ng_optional_string_t) {
+    let _: Option<Box<CStr>> = s.into();
 }
 
 #[repr(C)]

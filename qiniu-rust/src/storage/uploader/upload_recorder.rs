@@ -166,6 +166,18 @@ impl UploadRecorder {
         (self.key_generator)("upload", path, key)
     }
 
+    pub fn recorder(&self) -> &dyn Recorder {
+        self.recorder.as_ref()
+    }
+
+    pub fn upload_block_lifetime(&self) -> Duration {
+        self.upload_block_lifetime
+    }
+
+    pub fn always_flush_records(&self) -> bool {
+        self.always_flush_records
+    }
+
     #[allow(dead_code)]
     fn ignore() {
         assert_impl!(Send: Self);
@@ -197,11 +209,11 @@ pub mod default {
         FileSystemRecorder::default()
     }
 
-    pub fn upload_block_lifetime() -> Duration {
+    pub const fn upload_block_lifetime() -> Duration {
         Duration::from_secs(60 * 60 * 24 * 7)
     }
 
-    pub fn always_flush_records() -> bool {
+    pub const fn always_flush_records() -> bool {
         false
     }
 

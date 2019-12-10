@@ -19,7 +19,9 @@ int main(void) {
     RUN_TEST(test_qiniu_ng_etag_from_buffer);
     RUN_TEST(test_qiniu_ng_etag_from_large_buffer);
     RUN_TEST(test_qiniu_ng_etag_from_unexisted_file_path);
-    RUN_TEST(test_qiniu_ng_config);
+    RUN_TEST(test_qiniu_ng_config_new_default);
+    RUN_TEST(test_qiniu_ng_config_new);
+    RUN_TEST(test_qiniu_ng_config_new2);
     RUN_TEST(test_qiniu_ng_region_query);
     RUN_TEST(test_qiniu_ng_region_get_by_id);
     RUN_TEST(test_qiniu_ng_storage_bucket_names);

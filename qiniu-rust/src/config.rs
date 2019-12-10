@@ -84,35 +84,35 @@ pub struct ConfigInner {
 pub mod default {
     use super::*;
 
-    pub fn use_https() -> bool {
+    pub const fn use_https() -> bool {
         false
     }
 
-    pub fn uc_host() -> Cow<'static, str> {
+    pub const fn uc_host() -> Cow<'static, str> {
         Cow::Borrowed(Region::uc_host())
     }
 
-    pub fn rs_host() -> Cow<'static, str> {
+    pub const fn rs_host() -> Cow<'static, str> {
         Cow::Borrowed(Region::rs_host())
     }
 
-    pub fn upload_token_lifetime() -> Duration {
+    pub const fn upload_token_lifetime() -> Duration {
         Duration::from_secs(60 * 60)
     }
 
-    pub fn batch_max_operation_size() -> usize {
+    pub const fn batch_max_operation_size() -> usize {
         1000
     }
 
-    pub fn upload_threshold() -> u32 {
+    pub const fn upload_threshold() -> u32 {
         1 << 22
     }
 
-    pub fn upload_block_size() -> u32 {
+    pub const fn upload_block_size() -> u32 {
         1 << 22
     }
 
-    pub fn uplog_disabled() -> bool {
+    pub const fn uplog_disabled() -> bool {
         false
     }
 
@@ -124,11 +124,11 @@ pub mod default {
         Default::default()
     }
 
-    pub fn http_request_retries() -> usize {
+    pub const fn http_request_retries() -> usize {
         3
     }
 
-    pub fn http_request_retry_delay() -> Duration {
+    pub const fn http_request_retry_delay() -> Duration {
         Duration::from_secs(1)
     }
 

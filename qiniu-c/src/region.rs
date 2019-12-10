@@ -9,6 +9,7 @@ use std::{borrow::Cow, ffi::CStr, mem::transmute};
 use tap::TapOps;
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub enum qiniu_ng_region_id_t {
     Z0,
     Z1,
@@ -18,7 +19,7 @@ pub enum qiniu_ng_region_id_t {
 }
 
 impl qiniu_ng_region_id_t {
-    pub fn as_cstr(&self) -> &'static CStr {
+    pub fn as_cstr(self) -> &'static CStr {
         match self {
             qiniu_ng_region_id_t::Z0 => CStr::from_bytes_with_nul(b"z0\0").unwrap(),
             qiniu_ng_region_id_t::Z1 => CStr::from_bytes_with_nul(b"z1\0").unwrap(),
