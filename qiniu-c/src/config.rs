@@ -7,6 +7,7 @@ use crate::{
 use libc::{c_char, c_uint, c_ulonglong, c_void, size_t};
 use qiniu_ng::{
     config::{default as default_config, Config as QiniuConfig, ConfigBuilder as QiniuConfigBuilder},
+    http::domains_manager::DomainsManagerBuilder as QiniuDomainsManagerBuilder,
     storage::{
         recorder::FileSystemRecorder,
         uploader::{
@@ -39,6 +40,7 @@ struct ConfigBuilder {
     http_request_retry_delay: Duration,
     upload_logger: Option<UploadLoggerBuilder>,
     upload_recorder: UploadRecorderBuilder,
+    domains_manager: Option<QiniuDomainsManagerBuilder>,
 }
 
 struct UploadLoggerBuilder {
@@ -69,6 +71,7 @@ impl Default for ConfigBuilder {
             http_request_retry_delay: default_config::http_request_retry_delay(),
             upload_logger: Some(Default::default()),
             upload_recorder: Default::default(),
+            domains_manager: None,
         }
     }
 }
@@ -535,6 +538,42 @@ pub extern "C" fn qiniu_ng_config_builder_set_upload_recorder_always_flush_recor
 }
 
 #[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_load_domains_manager_from_file(
+    builder: qiniu_ng_config_builder_t,
+    persistent_file: *const c_char,
+    error: *mut qiniu_ng_err,
+) -> bool {
+    let mut builder: Box<ConfigBuilder> = builder.into();
+    let mut result = true;
+    match QiniuDomainsManagerBuilder::load_from_file(make_path_buf(persistent_file)) {
+        Ok(domains_manager_builder) => builder.domains_manager = Some(domains_manager_builder),
+        Err(err) => {
+            if !error.is_null() {
+                unsafe { *error = (&err).into() };
+            }
+            result = false;
+        }
+    }
+    let _: qiniu_ng_config_builder_t = builder.into();
+    result
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_create_new_domains_manager(
+    builder: qiniu_ng_config_builder_t,
+    persistent_file: *const c_char,
+) {
+    let mut builder: Box<ConfigBuilder> = builder.into();
+    let persistent_file = if persistent_file.is_null() {
+        None
+    } else {
+        Some(make_path_buf(persistent_file))
+    };
+    builder.domains_manager = Some(QiniuDomainsManagerBuilder::create_new(persistent_file));
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
 pub extern "C" fn qiniu_ng_config_build(
     builder: qiniu_ng_config_builder_t,
     config: *mut qiniu_ng_config_t,
@@ -561,7 +600,7 @@ pub extern "C" fn qiniu_ng_config_build(
     };
     if !config.is_null() {
         unsafe {
-            *config = QiniuConfigBuilder::default()
+            let mut config_builder = QiniuConfigBuilder::default()
                 .use_https(builder.use_https)
                 .uc_host(builder.uc_host.to_string_lossy().into_owned().into())
                 .rs_host(builder.rs_host.to_string_lossy().into_owned().into())
@@ -580,9 +619,11 @@ pub extern "C" fn qiniu_ng_config_build(
                         .upload_block_lifetime(builder.upload_recorder.upload_block_lifetime)
                         .always_flush_records(builder.upload_recorder.always_flush_records)
                         .build(),
-                )
-                .build()
-                .into()
+                );
+            if let Some(domains_manager_builder) = builder.domains_manager {
+                config_builder = config_builder.domains_manager(domains_manager_builder.build());
+            }
+            *config = config_builder.build().into();
         };
     }
     true

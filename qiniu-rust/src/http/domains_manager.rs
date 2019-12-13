@@ -46,14 +46,53 @@ impl Default for DomainsManagerInnerData {
         DomainsManagerInnerData {
             frozen_urls: CHashMap::new(),
             resolutions: CHashMap::new(),
-            url_frozen_duration: Duration::from_secs(10 * 60),
-            resolutions_cache_lifetime: Duration::from_secs(60 * 60),
-            disable_url_resolution: false,
-            persistent_interval: Some(Duration::from_secs(30 * 60)),
-            refresh_resolutions_interval: Some(Duration::from_secs(30 * 60)),
-            url_resolve_retries: 10,
-            url_resolve_retry_delay: Duration::from_secs(1),
+            url_frozen_duration: default::url_frozen_duration(),
+            resolutions_cache_lifetime: default::resolutions_cache_lifetime(),
+            disable_url_resolution: default::disable_url_resolution(),
+            persistent_interval: default::persistent_interval(),
+            refresh_resolutions_interval: default::refresh_resolutions_interval(),
+            url_resolve_retries: default::url_resolve_retries(),
+            url_resolve_retry_delay: default::url_resolve_retry_delay(),
         }
+    }
+}
+
+pub mod default {
+    use super::*;
+
+    #[inline]
+    pub const fn url_frozen_duration() -> Duration {
+        Duration::from_secs(10 * 60)
+    }
+
+    #[inline]
+    pub const fn resolutions_cache_lifetime() -> Duration {
+        Duration::from_secs(60 * 60)
+    }
+
+    #[inline]
+    pub const fn disable_url_resolution() -> bool {
+        false
+    }
+
+    #[inline]
+    pub const fn persistent_interval() -> Option<Duration> {
+        Some(Duration::from_secs(30 * 60))
+    }
+
+    #[inline]
+    pub const fn refresh_resolutions_interval() -> Option<Duration> {
+        Some(Duration::from_secs(30 * 60))
+    }
+
+    #[inline]
+    pub const fn url_resolve_retries() -> usize {
+        10
+    }
+
+    #[inline]
+    pub const fn url_resolve_retry_delay() -> Duration {
+        Duration::from_secs(1)
     }
 }
 

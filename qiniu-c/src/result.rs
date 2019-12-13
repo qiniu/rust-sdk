@@ -3,7 +3,7 @@ use libc::{c_char, c_int, c_ushort, strerror};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 use qiniu_ng::{
-    http::{Error as HTTPError, ErrorKind as HTTPErrorKind},
+    http::{domains_manager::PersistentError, Error as HTTPError, ErrorKind as HTTPErrorKind},
     storage::{manager::DropBucketError, upload_token::UploadTokenParseError, uploader::UploadError},
 };
 use std::{ffi::CStr, io};
@@ -316,5 +316,14 @@ impl From<&UploadTokenParseError> for qiniu_ng_err {
 impl From<&mime::FromStrError> for qiniu_ng_err {
     fn from(_err: &mime::FromStrError) -> Self {
         qiniu_ng_err(qiniu_ng_err_code::QiniuNgBadMIMEType)
+    }
+}
+
+impl From<&PersistentError> for qiniu_ng_err {
+    fn from(err: &PersistentError) -> Self {
+        match err {
+            PersistentError::JSONError(_) => qiniu_ng_err(qiniu_ng_err_code::QiniuNgJSONError),
+            PersistentError::IOError(ref err) => err.into(),
+        }
     }
 }

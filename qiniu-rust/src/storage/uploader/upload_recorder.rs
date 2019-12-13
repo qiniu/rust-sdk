@@ -205,14 +205,17 @@ pub mod default {
     use super::*;
     use crypto::{digest::Digest, sha1::Sha1};
 
+    #[inline]
     pub fn recorder() -> Arc<dyn Recorder> {
         FileSystemRecorder::default()
     }
 
+    #[inline]
     pub const fn upload_block_lifetime() -> Duration {
         Duration::from_secs(60 * 60 * 24 * 7)
     }
 
+    #[inline]
     pub const fn always_flush_records() -> bool {
         false
     }

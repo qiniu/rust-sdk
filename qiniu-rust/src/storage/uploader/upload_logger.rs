@@ -178,6 +178,7 @@ impl UploadLoggerBuilder {
 pub mod default {
     use super::*;
 
+    #[inline]
     pub const fn server_url() -> Cow<'static, str> {
         Cow::Borrowed(Region::uplog_url())
     }
@@ -192,14 +193,17 @@ pub mod default {
         default_path.into()
     }
 
+    #[inline]
     pub const fn upload_threshold() -> u32 {
         1 << 12
     }
 
+    #[inline]
     pub const fn max_size() -> u32 {
         1 << 22
     }
 
+    #[inline]
     pub const fn lock_policy() -> LockPolicy {
         LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading
     }

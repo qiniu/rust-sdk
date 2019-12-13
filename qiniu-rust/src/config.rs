@@ -84,58 +84,72 @@ pub struct ConfigInner {
 pub mod default {
     use super::*;
 
+    #[inline]
     pub const fn use_https() -> bool {
         false
     }
 
+    #[inline]
     pub const fn uc_host() -> Cow<'static, str> {
         Cow::Borrowed(Region::uc_host())
     }
 
+    #[inline]
     pub const fn rs_host() -> Cow<'static, str> {
         Cow::Borrowed(Region::rs_host())
     }
 
+    #[inline]
     pub const fn upload_token_lifetime() -> Duration {
         Duration::from_secs(60 * 60)
     }
 
+    #[inline]
     pub const fn batch_max_operation_size() -> usize {
         1000
     }
 
+    #[inline]
     pub const fn upload_threshold() -> u32 {
         1 << 22
     }
 
+    #[inline]
     pub const fn upload_block_size() -> u32 {
         1 << 22
     }
 
+    #[inline]
     pub const fn uplog_disabled() -> bool {
         false
     }
 
+    #[inline]
     pub fn upload_logger() -> Option<UploadLogger> {
         UploadLoggerBuilder::default().build().map(Some).unwrap_or(None)
     }
 
+    #[inline]
     pub fn upload_recorder() -> UploadRecorder {
         Default::default()
     }
 
+    #[inline]
     pub const fn http_request_retries() -> usize {
         3
     }
 
+    #[inline]
     pub const fn http_request_retry_delay() -> Duration {
         Duration::from_secs(1)
     }
 
+    #[inline]
     pub fn domains_manager() -> DomainsManager {
         Default::default()
     }
 
+    #[inline]
     pub fn http_request_call() -> Box<dyn HTTPCaller + Sync + Send> {
         #[cfg(any(feature = "use-libcurl"))]
         {
