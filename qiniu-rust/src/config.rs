@@ -81,7 +81,7 @@ pub struct ConfigInner {
     domains_manager: DomainsManager,
 }
 
-pub mod default {
+mod default {
     use super::*;
 
     #[inline]
@@ -117,11 +117,6 @@ pub mod default {
     #[inline]
     pub const fn upload_block_size() -> u32 {
         1 << 22
-    }
-
-    #[inline]
-    pub const fn uplog_disabled() -> bool {
-        false
     }
 
     #[inline]

@@ -175,7 +175,7 @@ impl UploadLoggerBuilder {
     }
 }
 
-pub mod default {
+mod default {
     use super::*;
 
     #[inline]

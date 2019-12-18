@@ -34,7 +34,7 @@ struct DomainsManagerInnerData {
     resolutions: CHashMap<Box<str>, CachedResolutions>,
     url_frozen_duration: Duration,
     resolutions_cache_lifetime: Duration,
-    disable_url_resolution: bool,
+    url_resolution_disabled: bool,
     persistent_interval: Option<Duration>,
     refresh_resolutions_interval: Option<Duration>,
     url_resolve_retries: usize,
@@ -48,7 +48,7 @@ impl Default for DomainsManagerInnerData {
             resolutions: CHashMap::new(),
             url_frozen_duration: default::url_frozen_duration(),
             resolutions_cache_lifetime: default::resolutions_cache_lifetime(),
-            disable_url_resolution: default::disable_url_resolution(),
+            url_resolution_disabled: default::url_resolution_disabled(),
             persistent_interval: default::persistent_interval(),
             refresh_resolutions_interval: default::refresh_resolutions_interval(),
             url_resolve_retries: default::url_resolve_retries(),
@@ -57,7 +57,7 @@ impl Default for DomainsManagerInnerData {
     }
 }
 
-pub mod default {
+mod default {
     use super::*;
 
     #[inline]
@@ -71,7 +71,7 @@ pub mod default {
     }
 
     #[inline]
-    pub const fn disable_url_resolution() -> bool {
+    pub const fn url_resolution_disabled() -> bool {
         false
     }
 
@@ -102,7 +102,7 @@ struct PersistentDomainsManager {
     resolutions: Vec<PersistentResolutions>,
     url_frozen_duration: Duration,
     resolutions_cache_lifetime: Duration,
-    disable_url_resolution: bool,
+    url_resolution_disabled: bool,
     persistent_interval: Option<Duration>,
     refresh_resolutions_interval: Option<Duration>,
     url_resolve_retries: usize,
@@ -145,7 +145,7 @@ impl From<PersistentDomainsManager> for DomainsManagerInnerData {
             resolutions: CHashMap::new(),
             url_frozen_duration: persistent.url_frozen_duration,
             resolutions_cache_lifetime: persistent.resolutions_cache_lifetime,
-            disable_url_resolution: persistent.disable_url_resolution,
+            url_resolution_disabled: persistent.url_resolution_disabled,
             persistent_interval: persistent.persistent_interval,
             refresh_resolutions_interval: persistent.refresh_resolutions_interval,
             url_resolve_retries: persistent.url_resolve_retries,
@@ -176,7 +176,7 @@ impl From<DomainsManagerInnerData> for PersistentDomainsManager {
             resolutions: Vec::with_capacity(domains_manager.resolutions.len()),
             url_frozen_duration: domains_manager.url_frozen_duration,
             resolutions_cache_lifetime: domains_manager.resolutions_cache_lifetime,
-            disable_url_resolution: domains_manager.disable_url_resolution,
+            url_resolution_disabled: domains_manager.url_resolution_disabled,
             persistent_interval: domains_manager.persistent_interval,
             refresh_resolutions_interval: domains_manager.refresh_resolutions_interval,
             url_resolve_retries: domains_manager.url_resolve_retries,
@@ -219,12 +219,12 @@ impl DomainsManagerBuilder {
     }
 
     pub fn disable_url_resolution(mut self) -> Self {
-        self.inner_data.disable_url_resolution = true;
+        self.inner_data.url_resolution_disabled = true;
         self
     }
 
     pub fn enable_url_resolution(mut self) -> Self {
-        self.inner_data.disable_url_resolution = false;
+        self.inner_data.url_resolution_disabled = false;
         self
     }
 
@@ -277,7 +277,7 @@ impl DomainsManagerBuilder {
                 last_refresh_time: Mutex::new(Instant::now()),
             }),
         };
-        if !domains_manager.inner.inner_data.disable_url_resolution {
+        if !domains_manager.inner.inner_data.url_resolution_disabled {
             if !self.pre_resolution_urls.is_empty() {
                 if self.is_pre_resolution_async {
                     domains_manager.async_resolve_urls(self.pre_resolution_urls);
@@ -453,7 +453,7 @@ impl DomainsManager {
             let domains_manager = self.clone();
             global_thread_pool.read().unwrap().spawn(move || {
                 domains_manager.try_to_persistent_if_needed();
-                if !domains_manager.inner.inner_data.disable_url_resolution {
+                if !domains_manager.inner.inner_data.url_resolution_disabled {
                     domains_manager.try_to_async_refresh_resolutions_if_needed();
                 }
             })
@@ -492,7 +492,7 @@ impl DomainsManager {
     }
 
     fn make_choice<'a>(&self, base_url: &'a str, rng: &mut ThreadRng) -> Option<Choice<'a>> {
-        if self.inner.inner_data.disable_url_resolution {
+        if self.inner.inner_data.url_resolution_disabled {
             return Some(Choice {
                 base_url,
                 socket_addrs: Vec::new().into(),
@@ -636,6 +636,46 @@ impl DomainsManager {
                 }
             }
         }
+    }
+
+    #[inline]
+    pub fn url_frozen_duration(&self) -> Duration {
+        self.inner.inner_data.url_frozen_duration
+    }
+
+    #[inline]
+    pub fn resolutions_cache_lifetime(&self) -> Duration {
+        self.inner.inner_data.resolutions_cache_lifetime
+    }
+
+    #[inline]
+    pub fn url_resolution_disabled(&self) -> bool {
+        self.inner.inner_data.url_resolution_disabled
+    }
+
+    #[inline]
+    pub fn auto_persistent_interval(&self) -> Option<Duration> {
+        self.inner.inner_data.persistent_interval
+    }
+
+    #[inline]
+    pub fn auto_persistent_disabled(&self) -> bool {
+        self.auto_persistent_interval().is_none()
+    }
+
+    #[inline]
+    pub fn url_resolve_retries(&self) -> usize {
+        self.inner.inner_data.url_resolve_retries
+    }
+
+    #[inline]
+    pub fn url_resolve_retry_delay(&self) -> Duration {
+        self.inner.inner_data.url_resolve_retry_delay
+    }
+
+    #[inline]
+    pub fn persistent_file_path(&self) -> Option<&Path> {
+        self.inner.persistent_file_path.as_ref().map(|path| path.as_path())
     }
 
     #[allow(dead_code)]

@@ -201,7 +201,7 @@ impl Default for UploadRecorder {
     }
 }
 
-pub mod default {
+mod default {
     use super::*;
     use crypto::{digest::Digest, sha1::Sha1};
 

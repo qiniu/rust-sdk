@@ -322,6 +322,14 @@ cfg_if! {
     }
 }
 
+pub(crate) fn make_optional_path_buf(path: *const c_char) -> Option<PathBuf> {
+    if path.is_null() {
+        None
+    } else {
+        Some(make_path_buf(path))
+    }
+}
+
 pub(crate) fn convert_c_char_pointer_to_boxed_cstr(p: *const c_char) -> Box<CStr> {
     unsafe { CStr::from_ptr(p) }.into()
 }

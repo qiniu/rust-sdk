@@ -1,539 +1,267 @@
 use crate::{
     result::qiniu_ng_err,
     utils::{
-        convert_c_char_pointer_to_boxed_cstr, make_path_buf, make_string, qiniu_ng_optional_string_t, qiniu_ng_string_t,
+        convert_c_char_to_string, make_optional_path_buf, make_path_buf, make_string, qiniu_ng_optional_string_t,
+        qiniu_ng_string_t,
     },
 };
 use libc::{c_char, c_uint, c_ulonglong, c_void, size_t};
 use qiniu_ng::{
-    config::{default as default_config, Config as QiniuConfig, ConfigBuilder as QiniuConfigBuilder},
-    http::domains_manager::DomainsManagerBuilder as QiniuDomainsManagerBuilder,
+    config::{Config, ConfigBuilder},
+    http::domains_manager::DomainsManagerBuilder,
     storage::{
         recorder::FileSystemRecorder,
         uploader::{
-            upload_logger::{
-                default as default_upload_logger, LockPolicy as UploadLoggerLockPolicy,
-                UploadLoggerBuilder as QiniuUploadLoggerBuilder,
-            },
-            upload_recorder::{
-                default as default_upload_recorder, UploadRecorderBuilder as QiniuUploadRecorderBuilder,
-            },
+            upload_logger::{LockPolicy as UploadLoggerLockPolicy, UploadLoggerBuilder},
+            upload_recorder::UploadRecorderBuilder,
         },
     },
 };
-use std::{ffi::CStr, mem::transmute, ptr::null, time::Duration};
+use std::{mem::transmute, time::Duration};
 use tap::TapOps;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_config_builder_t(*mut c_void);
 
-struct ConfigBuilder {
-    use_https: bool,
-    uc_host: Box<CStr>,
-    rs_host: Box<CStr>,
-    upload_token_lifetime: Duration,
-    batch_max_operation_size: usize,
-    upload_threshold: u32,
-    upload_block_size: u32,
-    http_request_retries: usize,
-    http_request_retry_delay: Duration,
-    upload_logger: Option<UploadLoggerBuilder>,
-    upload_recorder: UploadRecorderBuilder,
-    domains_manager: Option<QiniuDomainsManagerBuilder>,
+struct Builder {
+    config_builder: ConfigBuilder,
+    upload_logger_builder: Option<UploadLoggerBuilder>,
+    upload_recorder_builder: UploadRecorderBuilder,
+    domains_manager_builder: DomainsManagerBuilder,
 }
 
-struct UploadLoggerBuilder {
-    server_url: Box<CStr>,
-    log_file_path: Box<CStr>,
-    lock_policy: UploadLoggerLockPolicy,
-    upload_threshold: u32,
-    max_size: u32,
-}
-
-struct UploadRecorderBuilder {
-    root_directory: Box<CStr>,
-    upload_block_lifetime: Duration,
-    always_flush_records: bool,
-}
-
-impl Default for ConfigBuilder {
-    fn default() -> Self {
-        ConfigBuilder {
-            use_https: default_config::use_https(),
-            uc_host: make_string(default_config::uc_host().as_ref()).into(),
-            rs_host: make_string(default_config::rs_host().as_ref()).into(),
-            upload_token_lifetime: default_config::upload_token_lifetime(),
-            batch_max_operation_size: default_config::batch_max_operation_size(),
-            upload_threshold: default_config::upload_threshold(),
-            upload_block_size: default_config::upload_block_size(),
-            http_request_retries: default_config::http_request_retries(),
-            http_request_retry_delay: default_config::http_request_retry_delay(),
-            upload_logger: Some(Default::default()),
-            upload_recorder: Default::default(),
-            domains_manager: None,
-        }
-    }
-}
-
-impl Default for UploadLoggerBuilder {
-    fn default() -> Self {
-        UploadLoggerBuilder {
-            server_url: make_string(default_upload_logger::server_url().as_ref()).into(),
-            log_file_path: make_string(
-                default_upload_logger::log_file_path()
-                    .as_ref()
-                    .to_string_lossy()
-                    .as_ref(),
-            )
-            .into(),
-            lock_policy: default_upload_logger::lock_policy(),
-            upload_threshold: default_upload_logger::upload_threshold(),
-            max_size: default_upload_logger::max_size(),
-        }
-    }
-}
-
-impl Default for UploadRecorderBuilder {
-    fn default() -> Self {
-        UploadRecorderBuilder {
-            root_directory: make_string(FileSystemRecorder::default_root_directory().to_string_lossy().as_ref()).into(),
-            upload_block_lifetime: default_upload_recorder::upload_block_lifetime(),
-            always_flush_records: default_upload_recorder::always_flush_records(),
-        }
-    }
-}
-
-impl From<Box<ConfigBuilder>> for qiniu_ng_config_builder_t {
-    fn from(builder: Box<ConfigBuilder>) -> Self {
+impl From<Box<Builder>> for qiniu_ng_config_builder_t {
+    fn from(builder: Box<Builder>) -> Self {
         unsafe { transmute(Box::into_raw(builder)) }
     }
 }
 
-impl From<qiniu_ng_config_builder_t> for Box<ConfigBuilder> {
+impl From<qiniu_ng_config_builder_t> for Box<Builder> {
     fn from(builder: qiniu_ng_config_builder_t) -> Self {
-        unsafe { Box::from_raw(transmute::<_, *mut ConfigBuilder>(builder)) }
+        unsafe { Box::from_raw(transmute::<_, *mut Builder>(builder)) }
     }
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_new() -> qiniu_ng_config_builder_t {
-    Box::new(ConfigBuilder::default()).into()
+    Box::new(Builder {
+        config_builder: Default::default(),
+        upload_logger_builder: Some(Default::default()),
+        upload_recorder_builder: Default::default(),
+        domains_manager_builder: Default::default(),
+    })
+    .into()
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_free(builder: qiniu_ng_config_builder_t) {
-    let _: Box<ConfigBuilder> = builder.into();
+    let _: Box<Builder> = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_use_https(builder: qiniu_ng_config_builder_t) -> bool {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.use_https.tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_uc_host(builder: qiniu_ng_config_builder_t) -> *const c_char {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.uc_host.as_ptr().tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_rs_host(builder: qiniu_ng_config_builder_t) -> *const c_char {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.rs_host.as_ptr().tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_upload_token_lifetime(builder: qiniu_ng_config_builder_t) -> c_ulonglong {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_token_lifetime.as_secs().tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_batch_max_operation_size(builder: qiniu_ng_config_builder_t) -> size_t {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.batch_max_operation_size.tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_upload_threshold(builder: qiniu_ng_config_builder_t) -> c_uint {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_threshold.tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_upload_block_size(builder: qiniu_ng_config_builder_t) -> c_uint {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_block_size.tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_http_request_retries(builder: qiniu_ng_config_builder_t) -> size_t {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.http_request_retries.tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_http_request_retry_delay(
-    builder: qiniu_ng_config_builder_t,
-) -> c_ulonglong {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.http_request_retry_delay.as_secs().tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_is_uplog_enabled(builder: qiniu_ng_config_builder_t) -> bool {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_logger.is_some().tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_uplog_server_url(builder: qiniu_ng_config_builder_t) -> *const c_char {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder
-        .upload_logger
-        .as_ref()
-        .map(|logger| logger.server_url.as_ptr())
-        .unwrap_or_else(null)
-        .tap(|_| {
-            let _: qiniu_ng_config_builder_t = builder.into();
-        })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_uplog_file_path(builder: qiniu_ng_config_builder_t) -> *const c_char {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder
-        .upload_logger
-        .as_ref()
-        .map(|logger| logger.log_file_path.as_ptr())
-        .unwrap_or_else(null)
-        .tap(|_| {
-            let _: qiniu_ng_config_builder_t = builder.into();
-        })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_uplog_file_lock_policy(
-    builder: qiniu_ng_config_builder_t,
-    lock_policy: *mut qiniu_ng_upload_logger_lock_policy_t,
-) -> bool {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder
-        .upload_logger
-        .as_ref()
-        .map(|logger| {
-            if !lock_policy.is_null() {
-                unsafe { *lock_policy = logger.lock_policy.into() };
-            }
-            true
-        })
-        .unwrap_or(false)
-        .tap(|_| {
-            let _: qiniu_ng_config_builder_t = builder.into();
-        })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_uplog_file_upload_threshold(
-    builder: qiniu_ng_config_builder_t,
-    upload_threshold: *mut c_uint,
-) -> bool {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder
-        .upload_logger
-        .as_ref()
-        .map(|logger| {
-            if !upload_threshold.is_null() {
-                unsafe { *upload_threshold = logger.upload_threshold };
-            }
-            true
-        })
-        .unwrap_or(false)
-        .tap(|_| {
-            let _: qiniu_ng_config_builder_t = builder.into();
-        })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_uplog_file_max_size(
-    builder: qiniu_ng_config_builder_t,
-    max_size: *mut c_uint,
-) -> bool {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder
-        .upload_logger
-        .as_ref()
-        .map(|logger| {
-            if !max_size.is_null() {
-                unsafe { *max_size = logger.max_size };
-            }
-            true
-        })
-        .unwrap_or(false)
-        .tap(|_| {
-            let _: qiniu_ng_config_builder_t = builder.into();
-        })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_upload_recorder_root_directory(
-    builder: qiniu_ng_config_builder_t,
-) -> *const c_char {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_recorder.root_directory.as_ptr().tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_upload_recorder_upload_block_lifetime(
-    builder: qiniu_ng_config_builder_t,
-) -> c_ulonglong {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_recorder.upload_block_lifetime.as_secs().tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_get_upload_recorder_always_flush_records(
-    builder: qiniu_ng_config_builder_t,
-) -> bool {
-    let builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_recorder.always_flush_records.tap(|_| {
-        let _: qiniu_ng_config_builder_t = builder.into();
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_use_https(builder: qiniu_ng_config_builder_t, use_https: bool) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.use_https = use_https;
+pub extern "C" fn qiniu_ng_config_builder_use_https(builder: qiniu_ng_config_builder_t, use_https: bool) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.config_builder = builder.config_builder.use_https(use_https);
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_uc_host(builder: qiniu_ng_config_builder_t, uc_host: *const c_char) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.uc_host = convert_c_char_pointer_to_boxed_cstr(uc_host);
+pub extern "C" fn qiniu_ng_config_builder_uc_host(builder: qiniu_ng_config_builder_t, uc_host: *const c_char) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.config_builder = builder.config_builder.uc_host(convert_c_char_to_string(uc_host));
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_rs_host(builder: qiniu_ng_config_builder_t, rs_host: *const c_char) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.rs_host = convert_c_char_pointer_to_boxed_cstr(rs_host);
+pub extern "C" fn qiniu_ng_config_builder_rs_host(builder: qiniu_ng_config_builder_t, rs_host: *const c_char) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.config_builder = builder.config_builder.rs_host(convert_c_char_to_string(rs_host));
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_upload_token_lifetime(
+pub extern "C" fn qiniu_ng_config_builder_upload_token_lifetime(
     builder: qiniu_ng_config_builder_t,
     upload_token_lifetime: c_ulonglong,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_token_lifetime = Duration::from_secs(upload_token_lifetime);
+    let mut builder: Box<Builder> = builder.into();
+    builder.config_builder = builder
+        .config_builder
+        .upload_token_lifetime(Duration::from_secs(upload_token_lifetime));
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_batch_max_operation_size(
+pub extern "C" fn qiniu_ng_config_builder_batch_max_operation_size(
     builder: qiniu_ng_config_builder_t,
     batch_max_operation_size: size_t,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.batch_max_operation_size = batch_max_operation_size;
+    let mut builder: Box<Builder> = builder.into();
+    builder.config_builder = builder
+        .config_builder
+        .batch_max_operation_size(batch_max_operation_size);
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_upload_threshold(
+pub extern "C" fn qiniu_ng_config_builder_upload_threshold(
     builder: qiniu_ng_config_builder_t,
     upload_threshold: c_uint,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_threshold = upload_threshold;
+    let mut builder: Box<Builder> = builder.into();
+    builder.config_builder = builder.config_builder.upload_threshold(upload_threshold);
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_upload_block_size(
+pub extern "C" fn qiniu_ng_config_builder_upload_block_size(
     builder: qiniu_ng_config_builder_t,
     upload_block_size: c_uint,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_block_size = upload_block_size;
+    let mut builder: Box<Builder> = builder.into();
+    builder.config_builder = builder.config_builder.upload_block_size(upload_block_size);
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_http_request_retries(
+pub extern "C" fn qiniu_ng_config_builder_http_request_retries(
     builder: qiniu_ng_config_builder_t,
     http_request_retries: size_t,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.http_request_retries = http_request_retries;
+    let mut builder: Box<Builder> = builder.into();
+    builder.config_builder = builder.config_builder.http_request_retries(http_request_retries);
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_http_request_retry_delay(
+pub extern "C" fn qiniu_ng_config_builder_http_request_retry_delay(
     builder: qiniu_ng_config_builder_t,
     http_request_retry_delay: c_ulonglong,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.http_request_retry_delay = Duration::from_secs(http_request_retry_delay);
+    let mut builder: Box<Builder> = builder.into();
+    builder.config_builder = builder
+        .config_builder
+        .http_request_retry_delay(Duration::from_secs(http_request_retry_delay));
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_disable_uplog(builder: qiniu_ng_config_builder_t) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_logger = None;
+    let mut builder: Box<Builder> = builder.into();
+    builder.upload_logger_builder = None;
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_enable_uplog(builder: qiniu_ng_config_builder_t) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_logger = Some(Default::default());
+    let mut builder: Box<Builder> = builder.into();
+    builder.upload_logger_builder = Some(Default::default());
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_uplog_server_url(
+pub extern "C" fn qiniu_ng_config_builder_uplog_server_url(
     builder: qiniu_ng_config_builder_t,
     server_url: *const c_char,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    if let Some(upload_logger) = &mut builder.upload_logger {
-        upload_logger.server_url = convert_c_char_pointer_to_boxed_cstr(server_url);
-    } else {
-        builder.upload_logger = Some(UploadLoggerBuilder {
-            server_url: convert_c_char_pointer_to_boxed_cstr(server_url),
-            ..Default::default()
-        });
-    }
+    let server_url = convert_c_char_to_string(server_url).into_owned();
+    let mut builder: Box<Builder> = builder.into();
+    builder.upload_logger_builder = Some(
+        builder
+            .upload_logger_builder
+            .unwrap_or_default()
+            .server_url(server_url.into()),
+    );
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_uplog_file_path(
+pub extern "C" fn qiniu_ng_config_builder_uplog_file_path(
     builder: qiniu_ng_config_builder_t,
     file_path: *const c_char,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    if let Some(upload_logger) = &mut builder.upload_logger {
-        upload_logger.log_file_path = convert_c_char_pointer_to_boxed_cstr(file_path);
-    } else {
-        builder.upload_logger = Some(UploadLoggerBuilder {
-            log_file_path: convert_c_char_pointer_to_boxed_cstr(file_path),
-            ..Default::default()
-        });
-    }
+    let file_path = make_path_buf(file_path);
+    let mut builder: Box<Builder> = builder.into();
+    builder.upload_logger_builder = Some(
+        builder
+            .upload_logger_builder
+            .unwrap_or_default()
+            .log_file_path(file_path.into()),
+    );
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_uplog_file_lock_policy(
+pub extern "C" fn qiniu_ng_config_builder_uplog_file_lock_policy(
     builder: qiniu_ng_config_builder_t,
     lock_policy: qiniu_ng_upload_logger_lock_policy_t,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    if let Some(upload_logger) = &mut builder.upload_logger {
-        upload_logger.lock_policy = lock_policy.into();
-    } else {
-        builder.upload_logger = Some(UploadLoggerBuilder {
-            lock_policy: lock_policy.into(),
-            ..Default::default()
-        });
-    }
+    let mut builder: Box<Builder> = builder.into();
+    builder.upload_logger_builder = Some(
+        builder
+            .upload_logger_builder
+            .unwrap_or_default()
+            .lock_policy(lock_policy.into()),
+    );
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_uplog_file_upload_threshold(
+pub extern "C" fn qiniu_ng_config_builder_uplog_file_upload_threshold(
     builder: qiniu_ng_config_builder_t,
     upload_threshold: c_uint,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    if let Some(upload_logger) = &mut builder.upload_logger {
-        upload_logger.upload_threshold = upload_threshold;
-    } else {
-        builder.upload_logger = Some(UploadLoggerBuilder {
-            upload_threshold,
-            ..Default::default()
-        });
-    }
+    let mut builder: Box<Builder> = builder.into();
+    builder.upload_logger_builder = Some(
+        builder
+            .upload_logger_builder
+            .unwrap_or_default()
+            .upload_threshold(upload_threshold),
+    );
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_uplog_file_max_size(
-    builder: qiniu_ng_config_builder_t,
-    max_size: c_uint,
-) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    if let Some(upload_logger) = &mut builder.upload_logger {
-        upload_logger.max_size = max_size;
-    } else {
-        builder.upload_logger = Some(UploadLoggerBuilder {
-            max_size,
-            ..Default::default()
-        });
-    }
+pub extern "C" fn qiniu_ng_config_builder_uplog_file_max_size(builder: qiniu_ng_config_builder_t, max_size: c_uint) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.upload_logger_builder = Some(builder.upload_logger_builder.unwrap_or_default().max_size(max_size));
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_upload_recorder_root_directory(
+pub extern "C" fn qiniu_ng_config_builder_upload_recorder_root_directory(
     builder: qiniu_ng_config_builder_t,
     root_directory: *const c_char,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_recorder.root_directory = convert_c_char_pointer_to_boxed_cstr(root_directory);
+    let mut builder: Box<Builder> = builder.into();
+    builder.upload_recorder_builder = builder
+        .upload_recorder_builder
+        .recorder(FileSystemRecorder::from(make_path_buf(root_directory)));
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_upload_recorder_upload_block_lifetime(
+pub extern "C" fn qiniu_ng_config_builder_upload_recorder_upload_block_lifetime(
     builder: qiniu_ng_config_builder_t,
     upload_block_lifetime: c_ulonglong,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_recorder.upload_block_lifetime = Duration::from_secs(upload_block_lifetime);
+    let mut builder: Box<Builder> = builder.into();
+    builder.upload_recorder_builder = builder
+        .upload_recorder_builder
+        .upload_block_lifetime(Duration::from_secs(upload_block_lifetime));
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_set_upload_recorder_always_flush_records(
+pub extern "C" fn qiniu_ng_config_builder_upload_recorder_always_flush_records(
     builder: qiniu_ng_config_builder_t,
     always_flush_records: bool,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    builder.upload_recorder.always_flush_records = always_flush_records;
+    let mut builder: Box<Builder> = builder.into();
+    builder.upload_recorder_builder = builder
+        .upload_recorder_builder
+        .always_flush_records(always_flush_records);
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
@@ -543,10 +271,10 @@ pub extern "C" fn qiniu_ng_config_builder_load_domains_manager_from_file(
     persistent_file: *const c_char,
     error: *mut qiniu_ng_err,
 ) -> bool {
-    let mut builder: Box<ConfigBuilder> = builder.into();
+    let mut builder: Box<Builder> = builder.into();
     let mut result = true;
-    match QiniuDomainsManagerBuilder::load_from_file(make_path_buf(persistent_file)) {
-        Ok(domains_manager_builder) => builder.domains_manager = Some(domains_manager_builder),
+    match DomainsManagerBuilder::load_from_file(make_path_buf(persistent_file)) {
+        Ok(domains_manager_builder) => builder.domains_manager_builder = domains_manager_builder,
         Err(err) => {
             if !error.is_null() {
                 unsafe { *error = (&err).into() };
@@ -563,13 +291,128 @@ pub extern "C" fn qiniu_ng_config_builder_create_new_domains_manager(
     builder: qiniu_ng_config_builder_t,
     persistent_file: *const c_char,
 ) {
-    let mut builder: Box<ConfigBuilder> = builder.into();
-    let persistent_file = if persistent_file.is_null() {
-        None
-    } else {
-        Some(make_path_buf(persistent_file))
-    };
-    builder.domains_manager = Some(QiniuDomainsManagerBuilder::create_new(persistent_file));
+    let mut builder: Box<Builder> = builder.into();
+    builder.domains_manager_builder = DomainsManagerBuilder::create_new(make_optional_path_buf(persistent_file));
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_domains_manager_url_frozen_duration(
+    builder: qiniu_ng_config_builder_t,
+    url_frozen_duration: c_ulonglong,
+) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.domains_manager_builder = builder
+        .domains_manager_builder
+        .url_frozen_duration(Duration::from_secs(url_frozen_duration));
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_domains_manager_resolutions_cache_lifetime(
+    builder: qiniu_ng_config_builder_t,
+    resolutions_cache_lifetime: c_ulonglong,
+) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.domains_manager_builder = builder
+        .domains_manager_builder
+        .resolutions_cache_lifetime(Duration::from_secs(resolutions_cache_lifetime));
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_domains_manager_disable_url_resolution(builder: qiniu_ng_config_builder_t) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.domains_manager_builder = builder.domains_manager_builder.disable_url_resolution();
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_domains_manager_enable_url_resolution(builder: qiniu_ng_config_builder_t) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.domains_manager_builder = builder.domains_manager_builder.enable_url_resolution();
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_domains_manager_auto_persistent_interval(
+    builder: qiniu_ng_config_builder_t,
+    persistent_interval: c_ulonglong,
+) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.domains_manager_builder = builder
+        .domains_manager_builder
+        .auto_persistent_interval(Duration::from_secs(persistent_interval));
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_domains_manager_disable_auto_persistent(builder: qiniu_ng_config_builder_t) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.domains_manager_builder = builder.domains_manager_builder.disable_auto_persistent();
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_domains_manager_url_resolve_retries(
+    builder: qiniu_ng_config_builder_t,
+    url_resolve_retries: size_t,
+) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.domains_manager_builder = builder.domains_manager_builder.url_resolve_retries(url_resolve_retries);
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_domains_manager_url_resolve_retry_delay(
+    builder: qiniu_ng_config_builder_t,
+    url_resolve_retry_delay: c_ulonglong,
+) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.domains_manager_builder = builder
+        .domains_manager_builder
+        .url_resolve_retry_delay(Duration::from_secs(url_resolve_retry_delay));
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_domains_manager_persistent_file_path(
+    builder: qiniu_ng_config_builder_t,
+    persistent_file_path: *const c_char,
+) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.domains_manager_builder = builder
+        .domains_manager_builder
+        .persistent(make_optional_path_buf(persistent_file_path));
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_domains_manager_pre_resolve_urls(
+    builder: qiniu_ng_config_builder_t,
+    pre_resolve_urls: *const *const c_char,
+    pre_resolve_urls_count: size_t,
+) {
+    let mut builder: Box<Builder> = builder.into();
+    for i in 0..pre_resolve_urls_count {
+        builder.domains_manager_builder = builder
+            .domains_manager_builder
+            .pre_resolve_url(convert_c_char_to_string(unsafe { *pre_resolve_urls.add(i) }));
+    }
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_domains_manager_async_pre_resolve(builder: qiniu_ng_config_builder_t) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.domains_manager_builder = builder.domains_manager_builder.async_pre_resolve();
+    let _: qiniu_ng_config_builder_t = builder.into();
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_domains_manager_sync_pre_resolve(builder: qiniu_ng_config_builder_t) {
+    let mut builder: Box<Builder> = builder.into();
+    builder.domains_manager_builder = builder.domains_manager_builder.sync_pre_resolve();
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
@@ -579,52 +422,28 @@ pub extern "C" fn qiniu_ng_config_build(
     config: *mut qiniu_ng_config_t,
     error: *mut qiniu_ng_err,
 ) -> bool {
-    let builder: Box<ConfigBuilder> = builder.into();
-    let upload_logger = match builder.upload_logger.map(|logger| {
-        QiniuUploadLoggerBuilder::default()
-            .server_url(logger.server_url.to_string_lossy().into_owned().into())
-            .log_file_path(make_path_buf(logger.log_file_path.as_ptr()).into())
-            .lock_policy(logger.lock_policy)
-            .upload_threshold(logger.upload_threshold)
-            .max_size(logger.max_size)
-            .build()
-    }) {
-        Some(Ok(upload_logger)) => Some(upload_logger),
-        Some(Err(err)) => {
-            if !error.is_null() {
-                unsafe { *error = (&err).into() };
-            }
-            return false;
-        }
-        None => None,
-    };
+    let builder: Box<Builder> = builder.into();
+    let builder = builder
+        .config_builder
+        .upload_logger(
+            match builder
+                .upload_logger_builder
+                .map(|logger_builder| logger_builder.build())
+                .map_or(Ok(None), |result| result.map(Some))
+            {
+                Ok(upload_logger) => upload_logger,
+                Err(err) => {
+                    if !error.is_null() {
+                        unsafe { *error = (&err).into() };
+                    }
+                    return false;
+                }
+            },
+        )
+        .upload_recorder(builder.upload_recorder_builder.build())
+        .domains_manager(builder.domains_manager_builder.build());
     if !config.is_null() {
-        unsafe {
-            let mut config_builder = QiniuConfigBuilder::default()
-                .use_https(builder.use_https)
-                .uc_host(builder.uc_host.to_string_lossy().into_owned().into())
-                .rs_host(builder.rs_host.to_string_lossy().into_owned().into())
-                .upload_token_lifetime(builder.upload_token_lifetime)
-                .batch_max_operation_size(builder.batch_max_operation_size)
-                .upload_threshold(builder.upload_threshold)
-                .upload_block_size(builder.upload_block_size)
-                .http_request_retries(builder.http_request_retries)
-                .http_request_retry_delay(builder.http_request_retry_delay)
-                .upload_logger(upload_logger)
-                .upload_recorder(
-                    QiniuUploadRecorderBuilder::default()
-                        .recorder(FileSystemRecorder::from(make_path_buf(
-                            builder.upload_recorder.root_directory.as_ptr(),
-                        )))
-                        .upload_block_lifetime(builder.upload_recorder.upload_block_lifetime)
-                        .always_flush_records(builder.upload_recorder.always_flush_records)
-                        .build(),
-                );
-            if let Some(domains_manager_builder) = builder.domains_manager {
-                config_builder = config_builder.domains_manager(domains_manager_builder.build());
-            }
-            *config = config_builder.build().into();
-        };
+        unsafe { *config = builder.build().into() };
     }
     true
 }
@@ -635,24 +454,24 @@ pub struct qiniu_ng_config_t(*mut c_void);
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_new_default() -> qiniu_ng_config_t {
-    QiniuConfig::default().into()
+    Config::default().into()
 }
 
-impl From<qiniu_ng_config_t> for QiniuConfig {
+impl From<qiniu_ng_config_t> for Config {
     fn from(config: qiniu_ng_config_t) -> Self {
-        unsafe { QiniuConfig::from_raw(transmute(config)) }
+        unsafe { Config::from_raw(transmute(config)) }
     }
 }
 
-impl From<QiniuConfig> for qiniu_ng_config_t {
-    fn from(config: QiniuConfig) -> Self {
+impl From<Config> for qiniu_ng_config_t {
+    fn from(config: Config) -> Self {
         unsafe { transmute(config.into_raw()) }
     }
 }
 
 impl qiniu_ng_config_t {
-    pub fn get_clone(self) -> QiniuConfig {
-        let config: QiniuConfig = self.into();
+    pub fn get_clone(self) -> Config {
+        let config: Config = self.into();
         config.clone().tap(|_| {
             let _: Self = config.into();
         })
@@ -661,7 +480,7 @@ impl qiniu_ng_config_t {
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_use_https(config: qiniu_ng_config_t) -> bool {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config.use_https().tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -669,7 +488,7 @@ pub extern "C" fn qiniu_ng_config_get_use_https(config: qiniu_ng_config_t) -> bo
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_uc_host(config: qiniu_ng_config_t) -> qiniu_ng_string_t {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     make_string(config.uc_host().as_ref()).tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -677,7 +496,7 @@ pub extern "C" fn qiniu_ng_config_get_uc_host(config: qiniu_ng_config_t) -> qini
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_uc_url(config: qiniu_ng_config_t) -> qiniu_ng_string_t {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     make_string(config.uc_url()).tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -685,7 +504,7 @@ pub extern "C" fn qiniu_ng_config_get_uc_url(config: qiniu_ng_config_t) -> qiniu
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_rs_host(config: qiniu_ng_config_t) -> qiniu_ng_string_t {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     make_string(config.rs_host().as_ref()).tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -693,7 +512,7 @@ pub extern "C" fn qiniu_ng_config_get_rs_host(config: qiniu_ng_config_t) -> qini
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_rs_url(config: qiniu_ng_config_t) -> qiniu_ng_string_t {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     make_string(config.rs_url()).tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -701,7 +520,7 @@ pub extern "C" fn qiniu_ng_config_get_rs_url(config: qiniu_ng_config_t) -> qiniu
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_upload_token_lifetime(config: qiniu_ng_config_t) -> c_ulonglong {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config.upload_token_lifetime().as_secs().tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -709,7 +528,7 @@ pub extern "C" fn qiniu_ng_config_get_upload_token_lifetime(config: qiniu_ng_con
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_batch_max_operation_size(config: qiniu_ng_config_t) -> size_t {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config.batch_max_operation_size().tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -717,7 +536,7 @@ pub extern "C" fn qiniu_ng_config_get_batch_max_operation_size(config: qiniu_ng_
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_upload_threshold(config: qiniu_ng_config_t) -> c_uint {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config.upload_threshold().tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -725,7 +544,7 @@ pub extern "C" fn qiniu_ng_config_get_upload_threshold(config: qiniu_ng_config_t
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_upload_block_size(config: qiniu_ng_config_t) -> c_uint {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config.upload_block_size().tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -733,7 +552,7 @@ pub extern "C" fn qiniu_ng_config_get_upload_block_size(config: qiniu_ng_config_
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_http_request_retries(config: qiniu_ng_config_t) -> size_t {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config.http_request_retries().tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -741,7 +560,7 @@ pub extern "C" fn qiniu_ng_config_get_http_request_retries(config: qiniu_ng_conf
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_http_request_retry_delay(config: qiniu_ng_config_t) -> c_ulonglong {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config.http_request_retry_delay().as_secs().tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -749,7 +568,7 @@ pub extern "C" fn qiniu_ng_config_get_http_request_retry_delay(config: qiniu_ng_
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_is_uplog_enabled(config: qiniu_ng_config_t) -> bool {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config.upload_logger().is_some().tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -757,7 +576,7 @@ pub extern "C" fn qiniu_ng_config_is_uplog_enabled(config: qiniu_ng_config_t) ->
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_uplog_server_url(config: qiniu_ng_config_t) -> qiniu_ng_optional_string_t {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config
         .upload_logger()
         .as_ref()
@@ -770,7 +589,7 @@ pub extern "C" fn qiniu_ng_config_get_uplog_server_url(config: qiniu_ng_config_t
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_uplog_file_path(config: qiniu_ng_config_t) -> qiniu_ng_optional_string_t {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config
         .upload_logger()
         .as_ref()
@@ -786,7 +605,7 @@ pub extern "C" fn qiniu_ng_config_get_uplog_file_lock_policy(
     config: qiniu_ng_config_t,
     lock_policy: *mut qiniu_ng_upload_logger_lock_policy_t,
 ) -> bool {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config
         .upload_logger()
         .as_ref()
@@ -807,7 +626,7 @@ pub extern "C" fn qiniu_ng_config_get_uplog_file_upload_threshold(
     config: qiniu_ng_config_t,
     upload_threshold: *mut c_uint,
 ) -> bool {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config
         .upload_logger()
         .as_ref()
@@ -825,7 +644,7 @@ pub extern "C" fn qiniu_ng_config_get_uplog_file_upload_threshold(
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_uplog_file_max_size(config: qiniu_ng_config_t, max_size: *mut c_uint) -> bool {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config
         .upload_logger()
         .as_ref()
@@ -845,7 +664,7 @@ pub extern "C" fn qiniu_ng_config_get_uplog_file_max_size(config: qiniu_ng_confi
 pub extern "C" fn qiniu_ng_config_get_upload_recorder_root_directory(
     config: qiniu_ng_config_t,
 ) -> qiniu_ng_optional_string_t {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config
         .upload_recorder()
         .recorder()
@@ -862,7 +681,7 @@ pub extern "C" fn qiniu_ng_config_get_upload_recorder_root_directory(
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_upload_recorder_upload_block_lifetime(config: qiniu_ng_config_t) -> c_ulonglong {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config.upload_recorder().upload_block_lifetime().as_secs().tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
@@ -870,15 +689,101 @@ pub extern "C" fn qiniu_ng_config_get_upload_recorder_upload_block_lifetime(conf
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_upload_recorder_always_flush_records(config: qiniu_ng_config_t) -> bool {
-    let config: QiniuConfig = config.into();
+    let config: Config = config.into();
     config.upload_recorder().always_flush_records().tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
 }
 
 #[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_domains_manager_url_frozen_duration(config: qiniu_ng_config_t) -> c_ulonglong {
+    let config: Config = config.into();
+    config.domains_manager().url_frozen_duration().as_secs().tap(|_| {
+        let _: qiniu_ng_config_t = config.into();
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_domains_manager_resolutions_cache_lifetime(
+    config: qiniu_ng_config_t,
+) -> c_ulonglong {
+    let config: Config = config.into();
+    config
+        .domains_manager()
+        .resolutions_cache_lifetime()
+        .as_secs()
+        .tap(|_| {
+            let _: qiniu_ng_config_t = config.into();
+        })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_domains_manager_url_resolution_disabled(config: qiniu_ng_config_t) -> bool {
+    let config: Config = config.into();
+    config.domains_manager().url_resolution_disabled().tap(|_| {
+        let _: qiniu_ng_config_t = config.into();
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_domains_manager_auto_persistent_interval(
+    config: qiniu_ng_config_t,
+) -> c_ulonglong {
+    let config: Config = config.into();
+    config
+        .domains_manager()
+        .auto_persistent_interval()
+        .map(|interval| interval.as_secs())
+        .unwrap_or(0)
+        .tap(|_| {
+            let _: qiniu_ng_config_t = config.into();
+        })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_domains_manager_auto_persistent_disabled(config: qiniu_ng_config_t) -> bool {
+    let config: Config = config.into();
+    config.domains_manager().auto_persistent_disabled().tap(|_| {
+        let _: qiniu_ng_config_t = config.into();
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_domains_manager_url_resolve_retries(config: qiniu_ng_config_t) -> usize {
+    let config: Config = config.into();
+    config.domains_manager().url_resolve_retries().tap(|_| {
+        let _: qiniu_ng_config_t = config.into();
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_domains_manager_url_resolve_retry_delay(
+    config: qiniu_ng_config_t,
+) -> c_ulonglong {
+    let config: Config = config.into();
+    config.domains_manager().url_resolve_retry_delay().as_secs().tap(|_| {
+        let _: qiniu_ng_config_t = config.into();
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_domains_manager_persistent_file_path(
+    config: qiniu_ng_config_t,
+) -> qiniu_ng_optional_string_t {
+    let config: Config = config.into();
+    config
+        .domains_manager()
+        .persistent_file_path()
+        .map(|path| make_string(path.as_os_str().to_string_lossy().into_owned()).into())
+        .unwrap_or_else(qiniu_ng_optional_string_t::default)
+        .tap(|_| {
+            let _: qiniu_ng_config_t = config.into();
+        })
+}
+
+#[no_mangle]
 pub extern "C" fn qiniu_ng_config_free(config: qiniu_ng_config_t) {
-    let _: QiniuConfig = config.into();
+    let _: Config = config.into();
 }
 
 #[repr(C)]
