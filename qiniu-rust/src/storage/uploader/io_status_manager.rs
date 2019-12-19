@@ -1,7 +1,7 @@
+use assert_impl::assert_impl;
 use qiniu_http::Error as HTTPError;
 use std::{
     io::{Error as IOError, ErrorKind as IOErrorKind, Read},
-    marker::PhantomData,
     sync::Mutex,
 };
 
@@ -11,32 +11,33 @@ pub(super) enum Result {
     HTTPError(HTTPError),
 }
 
-enum Status<'r, R: Read + Send + Sync + 'r> {
-    Uploading(R, PhantomData<&'r R>),
+enum Status<R: Read + Send> {
+    Uploading(R, usize),
     IOError(IOError),
     HTTPError(HTTPError),
     Success,
 }
 
-pub(super) struct IOStatusManager<'r, R: Read + Send + Sync + 'r> {
-    inner: Mutex<Status<'r, R>>,
+pub(super) struct IOStatusManager<R: Read + Send> {
+    inner: Mutex<Status<R>>,
 }
 
-impl<'r, R: Read + Send + Sync + 'r> IOStatusManager<'r, R> {
-    pub(super) fn new(io: R) -> IOStatusManager<'r, R> {
+impl<R: Read + Send> IOStatusManager<R> {
+    pub(super) fn new(io: R) -> IOStatusManager<R> {
         IOStatusManager {
-            inner: Mutex::new(Status::Uploading(io, PhantomData)),
+            inner: Mutex::new(Status::Uploading(io, 0)),
         }
     }
 
-    pub(super) fn read(&self, buf: &mut [u8]) -> Option<usize> {
+    pub(super) fn read(&self, buf: &mut [u8], c: &mut usize) -> Option<usize> {
         let mut lock = self.inner.lock().unwrap();
         match &mut *lock {
-            Status::Uploading(io, _) => {
+            Status::Uploading(io, count) => {
                 let mut have_read = 0;
                 loop {
                     match io.read(&mut buf[have_read..]) {
                         Ok(0) => {
+                            *c = *count + 1;
                             *lock = Status::Success;
                             if have_read > 0 {
                                 return Some(have_read);
@@ -45,6 +46,8 @@ impl<'r, R: Read + Send + Sync + 'r> IOStatusManager<'r, R> {
                             }
                         }
                         Ok(n) => {
+                            *count += 1;
+                            *c = *count;
                             have_read += n;
                             if have_read == buf.len() {
                                 return Some(have_read);
@@ -77,5 +80,18 @@ impl<'r, R: Read + Send + Sync + 'r> IOStatusManager<'r, R> {
                 panic!("Unexpected uploading status of task_manager");
             }
         }
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
+}
+
+impl<R: Read + Send> Status<R> {
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
     }
 }

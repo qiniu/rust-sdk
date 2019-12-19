@@ -24,7 +24,7 @@ use std::{
     path::Path,
     sync::{
         atomic::{
-            AtomicU64, AtomicUsize,
+            AtomicU64,
             Ordering::{AcqRel, Acquire, Release},
         },
         Mutex,
@@ -83,10 +83,11 @@ pub(super) struct ResumableUploaderBuilder<'u> {
     custom_vars: Option<HashMap<Cow<'u, str>, Cow<'u, str>>>,
     on_uploading_progress: Option<&'u (dyn Fn(u64, Option<u64>) + Send + Sync)>,
     thread_pool: Option<Ron<'u, ThreadPool>>,
+    max_concurrency: usize,
     upload_logger: Option<TokenizedUploadLogger>,
 }
 
-pub(super) struct ResumableUploader<'u, R: Read + Seek + Send + Sync + 'u> {
+pub(super) struct ResumableUploader<'u, R: Read + Seek + Send + 'u> {
     bucket_uploader: &'u BucketUploader,
     upload_token: Cow<'u, str>,
     key: Option<Cow<'u, str>>,
@@ -101,6 +102,7 @@ pub(super) struct ResumableUploader<'u, R: Read + Seek + Send + Sync + 'u> {
     from_resuming: Option<FromResuming>,
     uploading_progress_callback: Option<UploadingProgressCallback<'u>>,
     thread_pool: Ron<'u, ThreadPool>,
+    max_concurrency: usize,
     upload_logger: Option<TokenizedUploadLogger>,
 }
 
@@ -120,6 +122,7 @@ impl<'u> ResumableUploaderBuilder<'u> {
                     bucket_uploader.http_client().to_owned(),
                 )
             }),
+            max_concurrency: 0,
         }
     }
 
@@ -128,6 +131,11 @@ impl<'u> ResumableUploaderBuilder<'u> {
         thread_pool: Ron<'u, ThreadPool>,
     ) -> ResumableUploaderBuilder<'u> {
         self.thread_pool = Some(thread_pool);
+        self
+    }
+
+    pub(super) fn max_concurrency(mut self, concurrency: usize) -> ResumableUploaderBuilder<'u> {
+        self.max_concurrency = concurrency;
         self
     }
 
@@ -209,11 +217,12 @@ impl<'u> ResumableUploaderBuilder<'u> {
                             .unwrap(),
                     )
                 }),
+            max_concurrency: self.max_concurrency,
             upload_logger: self.upload_logger,
         })
     }
 
-    pub(super) fn stream<'n: 'u, R: Read + Send + Sync + 'u>(
+    pub(super) fn stream<'n: 'u, R: Read + Send + 'u>(
         self,
         stream: R,
         mime_type: Option<Mime>,
@@ -256,12 +265,13 @@ impl<'u> ResumableUploaderBuilder<'u> {
                             .unwrap(),
                     )
                 }),
+            max_concurrency: self.max_concurrency,
             upload_logger: self.upload_logger,
         })
     }
 }
 
-impl<'u, R: Read + Seek + Send + Sync> ResumableUploader<'u, R> {
+impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
     pub(super) fn send(&mut self) -> HTTPResult<UploadResponse> {
         let base_path = self.make_base_path();
         let authorization = self.make_authorization();
@@ -373,15 +383,13 @@ impl<'u, R: Read + Seek + Send + Sync> ResumableUploader<'u, R> {
 
     fn start_uploading_blocks(
         &mut self,
-        part_number: usize,
+        initial_part_number: usize,
         up_urls: &[&str],
         base_path: &str,
         authorization: &str,
         upload_recorder: Option<FileUploadRecordMedium>,
     ) -> HTTPResult<UploadResponse> {
         let io_status_manager = IOStatusManager::new(&mut self.io);
-        let part_number_counter = AtomicUsize::new(part_number);
-        let thread_pool_size = self.thread_pool.current_num_threads();
         let http_client = self.bucket_uploader.http_client();
         let block_size = self.block_size;
         let completed_parts = &self.completed_parts;
@@ -389,16 +397,24 @@ impl<'u, R: Read + Seek + Send + Sync> ResumableUploader<'u, R> {
         let uploading_progress_callback = self.uploading_progress_callback.as_ref();
         let checksum_enabled = self.checksum_enabled;
         let upload_logger = self.upload_logger.as_ref();
+        let concurrency = {
+            let mut c = self.thread_pool.current_num_threads();
+            if (1..c).contains(&self.max_concurrency) {
+                c = self.max_concurrency;
+            }
+            c
+        };
 
         self.thread_pool.scope(|s| {
-            for _ in 0..thread_pool_size {
+            for _ in 0..concurrency {
                 s.spawn(|_| {
                     let mut body_buf = vec![0; block_size.try_into().unwrap_or(usize::max_value())];
                     let mut md5 = OptionalMd5::new(checksum_enabled);
                     loop {
-                        match io_status_manager.read(&mut body_buf) {
+                        let mut read_count = 0usize;
+                        match io_status_manager.read(&mut body_buf, &mut read_count) {
                             Some(buf_size) => {
-                                let part_number = part_number_counter.fetch_add(1, AcqRel) + 1;
+                                let part_number = read_count + initial_part_number;
                                 let last_block_uploaded = Cell::new(0);
                                 match Self::upload_part(
                                     http_client,

@@ -154,6 +154,7 @@ pub struct FileUploaderBuilder<'b> {
     resumable_policy: ResumablePolicy,
     on_uploading_progress: Option<Rob<'b, dyn Fn(u64, Option<u64>) + Send + Sync>>,
     thread_pool: Option<Ron<'b, ThreadPool>>,
+    max_concurrency: usize,
 }
 
 impl<'b> FileUploaderBuilder<'b> {
@@ -166,6 +167,7 @@ impl<'b> FileUploaderBuilder<'b> {
             checksum_enabled: true,
             on_uploading_progress: None,
             thread_pool: None,
+            max_concurrency: 0,
             resumable_policy: ResumablePolicy::Threshold(bucket_uploader.http_client().config().upload_threshold()),
             bucket_uploader,
         }
@@ -189,6 +191,11 @@ impl<'b> FileUploaderBuilder<'b> {
                 .build()
                 .unwrap(),
         )
+    }
+
+    pub fn max_concurrency(mut self, concurrency: usize) -> FileUploaderBuilder<'b> {
+        self.max_concurrency = concurrency;
+        self
     }
 
     pub fn key(mut self, key: impl Into<Cow<'b, str>>) -> FileUploaderBuilder<'b> {
@@ -282,7 +289,7 @@ impl<'b> FileUploaderBuilder<'b> {
 
     pub fn upload_stream<'n>(
         self,
-        stream: impl Read + Send + Sync,
+        stream: impl Read + Send,
         file_name: Option<impl Into<Cow<'n, str>>>,
         mime: Option<Mime>,
     ) -> UploadResult {
@@ -334,7 +341,8 @@ impl<'b> FileUploaderBuilder<'b> {
         file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> UploadResult {
-        let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token);
+        let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)
+            .max_concurrency(self.max_concurrency);
         if let Some(key) = &self.key {
             uploader = uploader.key(key.to_owned());
         }
@@ -412,13 +420,14 @@ impl<'b> FileUploaderBuilder<'b> {
             .send()?)
     }
 
-    fn upload_stream_by_blocks<R: Read + Send + Sync>(
+    fn upload_stream_by_blocks<R: Read + Send>(
         self,
         stream: R,
         file_name: Option<Cow<str>>,
         mime: Option<Mime>,
     ) -> UploadResult {
-        let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token);
+        let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)
+            .max_concurrency(self.max_concurrency);
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }

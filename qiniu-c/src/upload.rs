@@ -137,6 +137,7 @@ pub struct qiniu_ng_upload_params_t {
     on_uploading_progress: Option<fn(uploaded: c_ulonglong, total: c_ulonglong)>,
     upload_threshold: c_uint,
     thread_pool_size: size_t,
+    max_concurrency: size_t,
 }
 
 #[no_mangle]
@@ -293,7 +294,7 @@ fn set_params_to_file_uploader<'n>(
             (on_uploading_progress)(uploaded, total.unwrap_or(0))
         });
     }
-    file_uploader
+    file_uploader.max_concurrency(params.max_concurrency)
 }
 
 struct UploadResponse {
@@ -395,8 +396,6 @@ impl Read for qiniu_ng_readable_t {
         }
     }
 }
-
-unsafe impl Sync for qiniu_ng_readable_t {}
 unsafe impl Send for qiniu_ng_readable_t {}
 
 struct FileReader(*mut FILE);
@@ -410,6 +409,4 @@ impl Read for FileReader {
         Ok(have_read)
     }
 }
-
-unsafe impl Sync for FileReader {}
 unsafe impl Send for FileReader {}
