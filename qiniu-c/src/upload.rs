@@ -8,16 +8,21 @@ use crate::{
         qiniu_ng_string_map_t,
     },
 };
-use libc::{c_char, c_uint, c_void, size_t};
+use libc::{c_char, c_uint, c_void, ferror, fread, size_t, FILE};
 use mime::Mime;
 use qiniu_ng::storage::{
     bucket::Bucket,
     upload_token::UploadToken,
-    uploader::{BucketUploader, UploadManager, UploadResponse as QiniuUploadResponse},
+    uploader::{
+        BucketUploader, FileUploaderBuilder, UploadManager, UploadResponse as QiniuUploadResponse,
+        UploadResult as QiniuUploadResult,
+    },
 };
 use std::{
+    borrow::Cow,
     collections::{hash_map::RandomState, HashMap},
     ffi::CStr,
+    io::{Error, ErrorKind, Read, Result},
     mem::transmute,
     ptr::null,
 };
@@ -133,10 +138,78 @@ pub struct qiniu_ng_upload_params_t {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_file(
+pub extern "C" fn qiniu_ng_upload_file_path(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
     file_path: *const c_char,
+    file_name: *const c_char,
+    mime: *const c_char,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err,
+) -> bool {
+    qiniu_ng_upload(
+        bucket_uploader,
+        upload_token,
+        UploadFile::FilePath(file_path),
+        file_name,
+        mime,
+        params,
+        response,
+        err,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_upload_file(
+    bucket_uploader: qiniu_ng_bucket_uploader_t,
+    upload_token: qiniu_ng_upload_token_t,
+    file: *mut FILE,
+    file_name: *const c_char,
+    mime: *const c_char,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err,
+) -> bool {
+    qiniu_ng_upload(
+        bucket_uploader,
+        upload_token,
+        UploadFile::File(file),
+        file_name,
+        mime,
+        params,
+        response,
+        err,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_upload_reader(
+    bucket_uploader: qiniu_ng_bucket_uploader_t,
+    upload_token: qiniu_ng_upload_token_t,
+    reader: qiniu_ng_readable_t,
+    file_name: *const c_char,
+    mime: *const c_char,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err,
+) -> bool {
+    qiniu_ng_upload(
+        bucket_uploader,
+        upload_token,
+        UploadFile::Readable(reader),
+        file_name,
+        mime,
+        params,
+        response,
+        err,
+    )
+}
+
+fn qiniu_ng_upload(
+    bucket_uploader: qiniu_ng_bucket_uploader_t,
+    upload_token: qiniu_ng_upload_token_t,
+    upload_file: UploadFile,
     file_name: *const c_char,
     mime: *const c_char,
     params: *const qiniu_ng_upload_params_t,
@@ -147,6 +220,42 @@ pub extern "C" fn qiniu_ng_upload_file(
     let upload_token = qiniu_ng_upload_token_get_token(upload_token);
     let mut file_uploader =
         bucket_uploader.upload_token(UploadToken::from_token(convert_c_char_to_string(upload_token)));
+    file_uploader = set_params_to_file_uploader(file_uploader, params);
+    let mime: Option<Mime> = match convert_c_char_to_optional_string(mime).map(|mime| mime.parse()) {
+        Some(Ok(mime)) => Some(mime),
+        Some(Err(ref e)) => {
+            if !err.is_null() {
+                unsafe { *err = e.into() };
+            }
+            let _: qiniu_ng_bucket_uploader_t = bucket_uploader.into();
+            return false;
+        }
+        _ => None,
+    };
+    match &upload_file.upload(file_uploader, convert_c_char_to_optional_string(file_name), mime) {
+        Ok(resp) => {
+            if !response.is_null() {
+                let resp: Box<UploadResponse> = Box::new(resp.into());
+                unsafe { *response = resp.into() };
+            }
+            true
+        }
+        Err(e) => {
+            if !err.is_null() {
+                unsafe { *err = e.into() };
+            }
+            false
+        }
+    }
+    .tap(|_| {
+        let _: qiniu_ng_bucket_uploader_t = bucket_uploader.into();
+    })
+}
+
+fn set_params_to_file_uploader(
+    mut file_uploader: FileUploaderBuilder,
+    params: *const qiniu_ng_upload_params_t,
+) -> FileUploaderBuilder {
     if let Some(params) = unsafe { params.as_ref() } {
         if params.thread_pool_size > 0 {
             file_uploader = file_uploader.thread_pool_size(params.thread_pool_size);
@@ -188,39 +297,7 @@ pub extern "C" fn qiniu_ng_upload_file(
             _ => {}
         }
     }
-    let mime: Option<Mime> = match convert_c_char_to_optional_string(mime).map(|mime| mime.parse()) {
-        Some(Ok(mime)) => Some(mime),
-        Some(Err(ref e)) => {
-            if !err.is_null() {
-                unsafe { *err = e.into() };
-            }
-            let _: qiniu_ng_bucket_uploader_t = bucket_uploader.into();
-            return false;
-        }
-        _ => None,
-    };
-    match &file_uploader.upload_file(
-        make_path_buf(file_path),
-        convert_c_char_to_optional_string(file_name),
-        mime,
-    ) {
-        Ok(resp) => {
-            if !response.is_null() {
-                let resp: Box<UploadResponse> = Box::new(resp.into());
-                unsafe { *response = resp.into() };
-            }
-            true
-        }
-        Err(e) => {
-            if !err.is_null() {
-                unsafe { *err = e.into() };
-            }
-            false
-        }
-    }
-    .tap(|_| {
-        let _: qiniu_ng_bucket_uploader_t = bucket_uploader.into();
-    })
+    file_uploader
 }
 
 struct UploadResponse {
@@ -283,3 +360,60 @@ pub extern "C" fn qiniu_ng_upload_response_get_hash(upload_response: qiniu_ng_up
 pub extern "C" fn qiniu_ng_upload_response_free(upload_response: qiniu_ng_upload_response_t) {
     let _: Box<UploadResponse> = upload_response.into();
 }
+
+enum UploadFile {
+    FilePath(*const c_char),
+    File(*mut FILE),
+    Readable(qiniu_ng_readable_t),
+}
+
+impl UploadFile {
+    fn upload<'n>(
+        self,
+        file_uploader: FileUploaderBuilder,
+        file_name: Option<impl Into<Cow<'n, str>>>,
+        mime: Option<Mime>,
+    ) -> QiniuUploadResult {
+        match self {
+            UploadFile::FilePath(file_path) => file_uploader.upload_file(make_path_buf(file_path), file_name, mime),
+            UploadFile::File(file) => file_uploader.upload_stream(FileReader(file), file_name, mime),
+            UploadFile::Readable(reader) => file_uploader.upload_stream(reader, file_name, mime),
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct qiniu_ng_readable_t {
+    read_func: fn(context: *mut c_void, buf: *mut c_void, count: size_t, have_read: *mut size_t) -> bool,
+    context: *mut c_void,
+}
+
+impl Read for qiniu_ng_readable_t {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let mut have_read: size_t = 0;
+        if (self.read_func)(self.context, buf.as_mut_ptr().cast(), buf.len(), &mut have_read) {
+            Ok(have_read)
+        } else {
+            Err(Error::new(ErrorKind::Other, "User callback returns false"))
+        }
+    }
+}
+
+unsafe impl Sync for qiniu_ng_readable_t {}
+unsafe impl Send for qiniu_ng_readable_t {}
+
+struct FileReader(*mut FILE);
+
+impl Read for FileReader {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let have_read = unsafe { fread(buf.as_mut_ptr().cast(), 1, buf.len(), self.0) };
+        if have_read < buf.len() && unsafe { ferror(self.0) } != 0 {
+            return Err(Error::new(ErrorKind::Other, "ferror() returns non-zero"));
+        }
+        Ok(have_read)
+    }
+}
+
+unsafe impl Sync for FileReader {}
+unsafe impl Send for FileReader {}

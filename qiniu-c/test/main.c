@@ -31,8 +31,8 @@ int main(void) {
     RUN_TEST(test_qiniu_ng_bucket_get_regions);
     RUN_TEST(test_qiniu_ng_bucket_new);
     RUN_TEST(test_qiniu_ng_make_upload_token);
-    RUN_TEST(test_qiniu_ng_upload_file);
-    RUN_TEST(test_qiniu_ng_upload_file_failed_by_mime);
+    RUN_TEST(test_qiniu_ng_upload_files);
+    RUN_TEST(test_qiniu_ng_upload_file_path_failed_by_mime);
     return UNITY_END();
 }
 

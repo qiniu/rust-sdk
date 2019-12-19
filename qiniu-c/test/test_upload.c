@@ -2,9 +2,10 @@
 #include "libqiniu_ng.h"
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 #include "test.h"
 
-void test_qiniu_ng_upload_file(void) {
+void test_qiniu_ng_upload_files(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
     env_load("..", false);
@@ -21,7 +22,6 @@ void test_qiniu_ng_upload_file(void) {
 
     qiniu_ng_upload_policy_t policy = {
         .bucket = "z0-bucket",
-        .key = (const char *) buf,
         .insert_only = true,
         .deadline = (unsigned long) time(NULL) + 86400,
     };
@@ -32,11 +32,24 @@ void test_qiniu_ng_upload_file(void) {
     };
     qiniu_ng_upload_response_t upload_response;
     qiniu_ng_err err;
-    TEST_ASSERT_TRUE(qiniu_ng_upload_file(bucket_uploader, token, file_path, (const char *) buf, NULL, &params, &upload_response, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_upload_file_path(bucket_uploader, token, file_path, (const char *) buf, NULL, &params, &upload_response, &err));
     TEST_ASSERT_NOT_NULL(qiniu_ng_upload_response_get_key(upload_response));
     TEST_ASSERT_EQUAL_STRING(qiniu_ng_upload_response_get_hash(upload_response), (const char *) &etag);
-
     qiniu_ng_upload_response_free(upload_response);
+
+    // TODO: Clean uploaded file
+
+    sprintf((char *) buf, "test-257m-%lu", (unsigned long) time(NULL));
+    FILE *file = fopen(file_path, "r");
+    TEST_ASSERT_NOT_NULL(file);
+    TEST_ASSERT_TRUE(qiniu_ng_upload_file(bucket_uploader, token, file, (const char *) buf, NULL, &params, &upload_response, &err));
+    TEST_ASSERT_EQUAL_INT(fclose(file), 0);
+    TEST_ASSERT_NOT_NULL(qiniu_ng_upload_response_get_key(upload_response));
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_upload_response_get_hash(upload_response), (const char *) &etag);
+    qiniu_ng_upload_response_free(upload_response);
+
+    // TODO: Clean uploaded file
+
     qiniu_ng_upload_token_free(token);
 
     TEST_ASSERT_EQUAL_INT(unlink(file_path), 0);
@@ -47,7 +60,7 @@ void test_qiniu_ng_upload_file(void) {
     qiniu_ng_config_free(config);
 }
 
-void test_qiniu_ng_upload_file_failed_by_mime(void) {
+void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
     env_load("..", false);
@@ -61,7 +74,7 @@ void test_qiniu_ng_upload_file_failed_by_mime(void) {
     qiniu_ng_upload_token_t token = qiniu_ng_new_upload_token_from_policy(&policy, getenv("access_key"), getenv("secret_key"));
 
     qiniu_ng_err err;
-    TEST_ASSERT_FALSE(qiniu_ng_upload_file(bucket_uploader, token, "/dev/null", NULL, "invalid", NULL, NULL, &err));
+    TEST_ASSERT_FALSE(qiniu_ng_upload_file_path(bucket_uploader, token, "/dev/null", NULL, "invalid", NULL, NULL, &err));
     TEST_ASSERT_TRUE(qiniu_ng_err_is_bad_mime(&err));
 
     qiniu_ng_upload_token_free(token);
