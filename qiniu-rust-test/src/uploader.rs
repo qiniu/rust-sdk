@@ -16,10 +16,7 @@ mod tests {
         io::{Seek, SeekFrom},
         result::Result,
         sync::{
-            atomic::{
-                AtomicU64,
-                Ordering::{Acquire, Release},
-            },
+            atomic::{AtomicU64, Ordering::Relaxed},
             Mutex,
         },
         thread::{current, ThreadId},
@@ -68,11 +65,11 @@ mod tests {
             .metadata("metadata_key2", "metadata_value2")
             .on_progress_ref(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 19));
-                last_uploaded.store(uploaded, Release);
+                last_uploaded.store(uploaded, Relaxed);
             })
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))?;
 
-        assert!(last_uploaded.load(Acquire) > (1 << 19));
+        assert!(last_uploaded.load(Relaxed) > (1 << 19));
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -95,11 +92,11 @@ mod tests {
             .metadata("metadata_key2", "metadata_value2")
             .on_progress_ref(&|uploaded, total| {
                 assert_eq!(total.unwrap(), 1 << 19);
-                last_uploaded.store(uploaded, Release);
+                last_uploaded.store(uploaded, Relaxed);
             })
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))?;
 
-        assert_eq!(last_uploaded.load(Acquire), 1 << 19);
+        assert_eq!(last_uploaded.load(Relaxed), 1 << 19);
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -129,11 +126,11 @@ mod tests {
             .metadata("metadata_key2", "metadata_value2")
             .on_progress_ref(&|uploaded, total| {
                 assert_eq!(total.unwrap(), FILE_SIZE);
-                last_uploaded.store(uploaded, Release);
+                last_uploaded.store(uploaded, Relaxed);
             })
             .upload_file(&temp_path, Some("257m"), Some(mime::IMAGE_PNG))?;
 
-        assert_eq!(last_uploaded.load(Acquire), FILE_SIZE);
+        assert_eq!(last_uploaded.load(Relaxed), FILE_SIZE);
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("fsize"), Some(&json!(FILE_SIZE)));
@@ -170,11 +167,11 @@ mod tests {
                     *thread_id = Some(current().id());
                 }
                 assert_eq!(total.unwrap(), FILE_SIZE);
-                last_uploaded.store(uploaded, Release);
+                last_uploaded.store(uploaded, Relaxed);
             })
             .upload_file(&temp_path, Some("5m"), Some(mime::IMAGE_PNG))?;
 
-        assert_eq!(last_uploaded.load(Acquire), FILE_SIZE);
+        assert_eq!(last_uploaded.load(Relaxed), FILE_SIZE);
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("fsize"), Some(&json!(FILE_SIZE)));
@@ -198,11 +195,11 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 20));
-                last_uploaded.store(uploaded, Release);
+                last_uploaded.store(uploaded, Relaxed);
             })
             .upload_file(&temp_path, Some("1m"), Some(mime::IMAGE_PNG))?;
 
-        assert!(last_uploaded.load(Acquire) > (1 << 20));
+        assert!(last_uploaded.load(Relaxed) > (1 << 20));
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -220,11 +217,11 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
                 assert_eq!(total.unwrap(), 1 << 20);
-                last_uploaded.store(uploaded, Release);
+                last_uploaded.store(uploaded, Relaxed);
             })
             .upload_file(&temp_path, Some("1m"), Some(mime::IMAGE_PNG))?;
 
-        assert_eq!(last_uploaded.load(Acquire), 1 << 20);
+        assert_eq!(last_uploaded.load(Relaxed), 1 << 20);
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
@@ -252,11 +249,11 @@ mod tests {
             .never_be_resumable()
             .on_progress_ref(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 23));
-                last_uploaded.store(uploaded, Release);
+                last_uploaded.store(uploaded, Relaxed);
             })
             .upload_stream(&file, None::<String>, None)?;
 
-        assert!(last_uploaded.load(Acquire) > (1 << 23));
+        assert!(last_uploaded.load(Relaxed) > (1 << 23));
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("fname"), Some(&json!("")));
@@ -274,11 +271,11 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
                 assert!(total.is_none());
-                last_uploaded.store(uploaded, Release);
+                last_uploaded.store(uploaded, Relaxed);
             })
             .upload_stream(&file, Some("8m"), None)?;
 
-        assert_eq!(last_uploaded.load(Acquire), 1 << 23);
+        assert_eq!(last_uploaded.load(Relaxed), 1 << 23);
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), None);
@@ -296,11 +293,11 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
                 assert!(total.is_none());
-                last_uploaded.store(uploaded, Release);
+                last_uploaded.store(uploaded, Relaxed);
             })
             .upload_stream(&file, Some("8m+1"), None)?;
 
-        assert_eq!(last_uploaded.load(Acquire), (1 << 23) + 1);
+        assert_eq!(last_uploaded.load(Relaxed), (1 << 23) + 1);
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), None);
@@ -319,11 +316,11 @@ mod tests {
             .never_be_resumable()
             .on_progress_ref(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 21));
-                last_uploaded.store(uploaded, Release);
+                last_uploaded.store(uploaded, Relaxed);
             })
             .upload_stream(&file, Some("2m"), None)?;
 
-        assert!(last_uploaded.load(Acquire) > (1 << 21));
+        assert!(last_uploaded.load(Relaxed) > (1 << 21));
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), None);
@@ -341,11 +338,11 @@ mod tests {
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
                 assert!(total.is_none());
-                last_uploaded.store(uploaded, Release);
+                last_uploaded.store(uploaded, Relaxed);
             })
             .upload_stream(&file, Some("2m+3"), None)?;
 
-        assert_eq!(last_uploaded.load(Acquire), ((1 << 22) - 3));
+        assert_eq!(last_uploaded.load(Relaxed), ((1 << 22) - 3));
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), None);

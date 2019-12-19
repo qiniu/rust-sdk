@@ -295,7 +295,7 @@ mod tests {
         error::Error as StdError,
         io,
         result::Result as StdResult,
-        sync::atomic::{AtomicUsize, Ordering},
+        sync::atomic::{AtomicUsize, Ordering::Relaxed},
         time::Duration,
     };
 
@@ -340,11 +340,11 @@ mod tests {
         )
         .token(Token::V2(get_credential().into()))
         .on_response(&|_, _| {
-            on_response_called.fetch_add(1, Ordering::SeqCst);
+            on_response_called.fetch_add(1, Relaxed);
             Ok(())
         })
         .on_error(&|_, _, _| {
-            on_error_called.fetch_add(1, Ordering::SeqCst);
+            on_error_called.fetch_add(1, Relaxed);
         })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
@@ -353,8 +353,8 @@ mod tests {
         assert!(config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
-        assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_error_called.load(Ordering::SeqCst), 2 * (RETRIES + 1) + 2);
+        assert_eq!(on_response_called.load(Relaxed), 0);
+        assert_eq!(on_error_called.load(Relaxed), 2 * (RETRIES + 1) + 2);
         Ok(())
     }
 
@@ -379,11 +379,11 @@ mod tests {
         )
         .token(Token::V2(get_credential().into()))
         .on_response(&|_, _| {
-            on_response_called.fetch_add(1, Ordering::SeqCst);
+            on_response_called.fetch_add(1, Relaxed);
             Ok(())
         })
         .on_error(&|_, _, _| {
-            on_error_called.fetch_add(1, Ordering::SeqCst);
+            on_error_called.fetch_add(1, Relaxed);
         })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
@@ -392,8 +392,8 @@ mod tests {
         assert!(config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
-        assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_error_called.load(Ordering::SeqCst), 2 * (RETRIES + 1) + 2);
+        assert_eq!(on_response_called.load(Relaxed), 0);
+        assert_eq!(on_error_called.load(Relaxed), 2 * (RETRIES + 1) + 2);
         Ok(())
     }
 
@@ -418,11 +418,11 @@ mod tests {
         )
         .token(Token::V2(get_credential().into()))
         .on_response(&|_, _| {
-            on_response_called.fetch_add(1, Ordering::SeqCst);
+            on_response_called.fetch_add(1, Relaxed);
             Ok(())
         })
         .on_error(&|_, _, _| {
-            on_error_called.fetch_add(1, Ordering::SeqCst);
+            on_error_called.fetch_add(1, Relaxed);
         })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
@@ -431,8 +431,8 @@ mod tests {
         assert!(!config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
+        assert_eq!(on_response_called.load(Relaxed), 0);
+        assert_eq!(on_error_called.load(Relaxed), 1);
         Ok(())
     }
 
@@ -457,11 +457,11 @@ mod tests {
         )
         .token(Token::V2(get_credential().into()))
         .on_response(&|_, _| {
-            on_response_called.fetch_add(1, Ordering::SeqCst);
+            on_response_called.fetch_add(1, Relaxed);
             Ok(())
         })
         .on_error(&|_, _, _| {
-            on_error_called.fetch_add(1, Ordering::SeqCst);
+            on_error_called.fetch_add(1, Relaxed);
         })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
@@ -470,8 +470,8 @@ mod tests {
         assert!(config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 2);
-        assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_error_called.load(Ordering::SeqCst), 2);
+        assert_eq!(on_response_called.load(Relaxed), 0);
+        assert_eq!(on_error_called.load(Relaxed), 2);
         Ok(())
     }
 
@@ -496,11 +496,11 @@ mod tests {
         )
         .token(Token::V2(get_credential().into()))
         .on_response(&|_, _| {
-            on_response_called.fetch_add(1, Ordering::SeqCst);
+            on_response_called.fetch_add(1, Relaxed);
             Ok(())
         })
         .on_error(&|_, _, _| {
-            on_error_called.fetch_add(1, Ordering::SeqCst);
+            on_error_called.fetch_add(1, Relaxed);
         })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
@@ -509,8 +509,8 @@ mod tests {
         assert!(!config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
+        assert_eq!(on_response_called.load(Relaxed), 0);
+        assert_eq!(on_error_called.load(Relaxed), 1);
         Ok(())
     }
 
@@ -535,11 +535,11 @@ mod tests {
         )
         .token(Token::V2(get_credential().into()))
         .on_response(&|_, _| {
-            on_response_called.fetch_add(1, Ordering::SeqCst);
+            on_response_called.fetch_add(1, Relaxed);
             Ok(())
         })
         .on_error(&|_, _, _| {
-            on_error_called.fetch_add(1, Ordering::SeqCst);
+            on_error_called.fetch_add(1, Relaxed);
         })
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
@@ -548,8 +548,8 @@ mod tests {
         assert!(!config.domains_manager().is_frozen_url("http://z1h2.com:2222")?);
 
         assert_eq!(mock.call_called(), 1);
-        assert_eq!(on_response_called.load(Ordering::SeqCst), 0);
-        assert_eq!(on_error_called.load(Ordering::SeqCst), 1);
+        assert_eq!(on_response_called.load(Relaxed), 0);
+        assert_eq!(on_error_called.load(Relaxed), 1);
         Ok(())
     }
 

@@ -229,8 +229,7 @@ fn qiniu_ng_upload(
     match upload_file.upload(file_uploader, file_name, mime) {
         Ok(resp) => {
             if !response.is_null() {
-                let resp: Box<QiniuUploadResponse> = Box::new(resp.into());
-                unsafe { *response = resp.into() };
+                unsafe { *response = Box::new(resp).into() };
             }
             true
         }

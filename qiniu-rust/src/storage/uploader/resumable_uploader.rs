@@ -23,10 +23,7 @@ use std::{
     io::{Read, Result as IOResult, Seek, SeekFrom},
     path::Path,
     sync::{
-        atomic::{
-            AtomicU64,
-            Ordering::{AcqRel, Acquire, Release},
-        },
+        atomic::{AtomicU64, Ordering::Relaxed},
         Mutex,
     },
     time::{Duration, Instant},
@@ -318,15 +315,15 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                 .seek(SeekFrom::Start(0))
                 .map_err(|err| HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None))?;
         }
-        self.uploaded_size.store(0, Release);
+        self.uploaded_size.store(0, Relaxed);
         if let Some(uploading_progress_callback) = &self.uploading_progress_callback {
-            uploading_progress_callback.completed_size.store(0, Release);
+            uploading_progress_callback.completed_size.store(0, Relaxed);
         }
         self.completed_parts.lock().unwrap().parts.clear();
         let timer = Instant::now();
         let result = self.try_to_init_and_upload(up_urls, base_path, authorization);
         if let Some(upload_logger) = &self.upload_logger {
-            let uploaded_size = self.uploaded_size.load(Acquire);
+            let uploaded_size = self.uploaded_size.load(Relaxed);
             match &result {
                 Ok(_) => {
                     let _ = upload_logger.log(
@@ -430,7 +427,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                                             let added_size =
                                                 block_uploaded - last_block_uploaded.replace(block_uploaded);
                                             (progress.callback)(
-                                                progress.completed_size.fetch_add(added_size, AcqRel) + added_size,
+                                                progress.completed_size.fetch_add(added_size, Relaxed) + added_size,
                                                 progress.total_size,
                                             );
                                         }
@@ -439,7 +436,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                                         if let Some(progress) = uploading_progress_callback {
                                             progress
                                                 .completed_size
-                                                .fetch_sub(last_block_uploaded.replace(0), AcqRel);
+                                                .fetch_sub(last_block_uploaded.replace(0), Relaxed);
                                         }
                                     },
                                     upload_logger,
@@ -447,7 +444,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                                 ) {
                                     Ok(etag) => {
                                         completed_parts.lock().unwrap().parts.push(Part { etag, part_number });
-                                        uploaded_size.fetch_add(block_size.into(), AcqRel);
+                                        uploaded_size.fetch_add(block_size.into(), Relaxed);
                                     }
                                     Err(err) => {
                                         io_status_manager.error(err);
@@ -675,7 +672,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
             if let Some(uploading_progress_callback) = &self.uploading_progress_callback {
                 uploading_progress_callback
                     .completed_size
-                    .store(from_resuming.io_offset.try_into().unwrap(), Release);
+                    .store(from_resuming.io_offset.try_into().unwrap(), Relaxed);
             }
             let part_number = self.completed_parts.lock().unwrap().parts.len();
             let init_uploaded_size = from_resuming.io_offset;
@@ -693,7 +690,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
             )
             .map(|response| {
                 if let Some(upload_logger) = &self.upload_logger {
-                    let uploaded_size = self.uploaded_size.load(Acquire);
+                    let uploaded_size = self.uploaded_size.load(Relaxed);
                     let _ = upload_logger.log(
                         UploadLoggerRecordBuilder::default()
                             .duration(timer.elapsed())
@@ -707,7 +704,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
             })
             .map_err(|err| {
                 if let Some(upload_logger) = &self.upload_logger {
-                    let uploaded_size = self.uploaded_size.load(Acquire);
+                    let uploaded_size = self.uploaded_size.load(Relaxed);
                     let mut record_builder = UploadLoggerRecordBuilder::default()
                         .duration(timer.elapsed())
                         .up_type(UpType::Chunkedv2)
