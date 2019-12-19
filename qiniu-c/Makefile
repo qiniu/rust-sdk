@@ -20,6 +20,8 @@ endif
 all: build
 build:
 	cargo build
+build_release:
+	cargo build --release
 build_test_via_static_link: build
 	mkdir -p build
 	$(CC) -Wall -Wextra $(INC_DIRS) $(SYMBOLS) $(SRC_FILES) $(STATIC_LIBRARY) -o $(TARGET) $(LDFLAGS)

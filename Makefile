@@ -8,6 +8,11 @@ build:
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir build; \
 	done
+build_release:
+	set -e; \
+	for dir in qiniu-rust qiniu-c; do \
+		$(MAKE) -C $$dir build_release; \
+	done
 build_test:
 	set -e; \
 	for dir in $(SUBDIRS); do \
