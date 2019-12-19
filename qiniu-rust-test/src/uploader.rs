@@ -66,7 +66,7 @@ mod tests {
             .var("var_key2", "var_value2")
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
-            .on_progress(&|uploaded, total| {
+            .on_progress_ref(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 19));
                 last_uploaded.store(uploaded, Release);
             })
@@ -93,7 +93,7 @@ mod tests {
             .var("var_key2", "var_value2")
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
-            .on_progress(&|uploaded, total| {
+            .on_progress_ref(&|uploaded, total| {
                 assert_eq!(total.unwrap(), 1 << 19);
                 last_uploaded.store(uploaded, Release);
             })
@@ -127,7 +127,7 @@ mod tests {
             .var("var_key2", "var_value2")
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
-            .on_progress(&|uploaded, total| {
+            .on_progress_ref(&|uploaded, total| {
                 assert_eq!(total.unwrap(), FILE_SIZE);
                 last_uploaded.store(uploaded, Release);
             })
@@ -162,7 +162,7 @@ mod tests {
             .var("var_key2", "var_value2")
             .metadata("metadata_key1", "metadata_value1")
             .metadata("metadata_key2", "metadata_value2")
-            .on_progress(&|uploaded, total| {
+            .on_progress_ref(&|uploaded, total| {
                 let mut thread_id = thread_id.lock().unwrap();
                 if let Some(thread_id) = *thread_id {
                     assert_eq!(thread_id, current().id());
@@ -196,7 +196,7 @@ mod tests {
             .for_upload_policy(policy, get_credential().into())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
-            .on_progress(&|uploaded, total| {
+            .on_progress_ref(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 20));
                 last_uploaded.store(uploaded, Release);
             })
@@ -218,7 +218,7 @@ mod tests {
             .always_be_resumable()
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
-            .on_progress(&|uploaded, total| {
+            .on_progress_ref(&|uploaded, total| {
                 assert_eq!(total.unwrap(), 1 << 20);
                 last_uploaded.store(uploaded, Release);
             })
@@ -250,7 +250,7 @@ mod tests {
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumable()
-            .on_progress(&|uploaded, total| {
+            .on_progress_ref(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 23));
                 last_uploaded.store(uploaded, Release);
             })
@@ -272,7 +272,7 @@ mod tests {
             .for_upload_policy(policy, get_credential().into())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
-            .on_progress(&|uploaded, total| {
+            .on_progress_ref(&|uploaded, total| {
                 assert!(total.is_none());
                 last_uploaded.store(uploaded, Release);
             })
@@ -294,7 +294,7 @@ mod tests {
             .for_upload_policy(policy, get_credential().into())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
-            .on_progress(&|uploaded, total| {
+            .on_progress_ref(&|uploaded, total| {
                 assert!(total.is_none());
                 last_uploaded.store(uploaded, Release);
             })
@@ -317,7 +317,7 @@ mod tests {
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumable()
-            .on_progress(&|uploaded, total| {
+            .on_progress_ref(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 21));
                 last_uploaded.store(uploaded, Release);
             })
@@ -339,7 +339,7 @@ mod tests {
             .for_upload_policy(policy, get_credential().into())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
-            .on_progress(&|uploaded, total| {
+            .on_progress_ref(&|uploaded, total| {
                 assert!(total.is_none());
                 last_uploaded.store(uploaded, Release);
             })

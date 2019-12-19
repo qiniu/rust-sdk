@@ -8,7 +8,7 @@ use crate::{
         qiniu_ng_string_map_t,
     },
 };
-use libc::{c_char, c_uint, c_void, ferror, fread, size_t, FILE};
+use libc::{c_char, c_uint, c_ulonglong, c_void, ferror, fread, size_t, FILE};
 use mime::Mime;
 use qiniu_ng::storage::{
     bucket::Bucket,
@@ -19,11 +19,10 @@ use qiniu_ng::storage::{
     },
 };
 use std::{
-    borrow::Cow,
     collections::{hash_map::RandomState, HashMap},
     ffi::CStr,
     io::{Error, ErrorKind, Read, Result},
-    mem::transmute,
+    mem::{drop, transmute},
     ptr::null,
 };
 use tap::TapOps;
@@ -129,10 +128,13 @@ pub enum qiniu_ng_resumable_policy_e {
 #[derive(Clone)]
 pub struct qiniu_ng_upload_params_t {
     key: *const c_char,
+    file_name: *const c_char,
+    mime: *const c_char,
     vars: *const qiniu_ng_string_map_t,
     metadata: *const qiniu_ng_string_map_t,
     checksum_enabled: bool,
     resumable_policy: qiniu_ng_resumable_policy_e,
+    on_uploading_progress: Option<fn(uploaded: c_ulonglong, total: c_ulonglong)>,
     upload_threshold: c_uint,
     thread_pool_size: size_t,
 }
@@ -142,8 +144,6 @@ pub extern "C" fn qiniu_ng_upload_file_path(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
     file_path: *const c_char,
-    file_name: *const c_char,
-    mime: *const c_char,
     params: *const qiniu_ng_upload_params_t,
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err,
@@ -152,8 +152,6 @@ pub extern "C" fn qiniu_ng_upload_file_path(
         bucket_uploader,
         upload_token,
         UploadFile::FilePath(file_path),
-        file_name,
-        mime,
         params,
         response,
         err,
@@ -165,8 +163,6 @@ pub extern "C" fn qiniu_ng_upload_file(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
     file: *mut FILE,
-    file_name: *const c_char,
-    mime: *const c_char,
     params: *const qiniu_ng_upload_params_t,
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err,
@@ -175,8 +171,6 @@ pub extern "C" fn qiniu_ng_upload_file(
         bucket_uploader,
         upload_token,
         UploadFile::File(file),
-        file_name,
-        mime,
         params,
         response,
         err,
@@ -188,8 +182,6 @@ pub extern "C" fn qiniu_ng_upload_reader(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
     reader: qiniu_ng_readable_t,
-    file_name: *const c_char,
-    mime: *const c_char,
     params: *const qiniu_ng_upload_params_t,
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err,
@@ -198,8 +190,6 @@ pub extern "C" fn qiniu_ng_upload_reader(
         bucket_uploader,
         upload_token,
         UploadFile::Readable(reader),
-        file_name,
-        mime,
         params,
         response,
         err,
@@ -210,8 +200,6 @@ fn qiniu_ng_upload(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
     upload_file: UploadFile,
-    file_name: *const c_char,
-    mime: *const c_char,
     params: *const qiniu_ng_upload_params_t,
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err,
@@ -220,19 +208,25 @@ fn qiniu_ng_upload(
     let upload_token = qiniu_ng_upload_token_get_token(upload_token);
     let mut file_uploader =
         bucket_uploader.upload_token(UploadToken::from_token(convert_c_char_to_string(upload_token)));
-    file_uploader = set_params_to_file_uploader(file_uploader, params);
-    let mime: Option<Mime> = match convert_c_char_to_optional_string(mime).map(|mime| mime.parse()) {
-        Some(Ok(mime)) => Some(mime),
-        Some(Err(ref e)) => {
-            if !err.is_null() {
-                unsafe { *err = e.into() };
+    let mut file_name: Option<String> = None;
+    let mut mime: Option<Mime> = None;
+    if let Some(params) = unsafe { params.as_ref() } {
+        file_uploader = set_params_to_file_uploader(file_uploader, params);
+        file_name = convert_c_char_to_optional_string(params.file_name).map(|file_name| file_name.into());
+        mime = match convert_c_char_to_optional_string(params.mime).map(|mime| mime.parse()) {
+            Some(Ok(mime)) => Some(mime),
+            Some(Err(ref e)) => {
+                if !err.is_null() {
+                    unsafe { *err = e.into() };
+                }
+                drop(file_uploader);
+                let _: qiniu_ng_bucket_uploader_t = bucket_uploader.into();
+                return false;
             }
-            let _: qiniu_ng_bucket_uploader_t = bucket_uploader.into();
-            return false;
-        }
-        _ => None,
-    };
-    match &upload_file.upload(file_uploader, convert_c_char_to_optional_string(file_name), mime) {
+            _ => None,
+        };
+    }
+    match &upload_file.upload(file_uploader, file_name, mime) {
         Ok(resp) => {
             if !response.is_null() {
                 let resp: Box<UploadResponse> = Box::new(resp.into());
@@ -252,50 +246,52 @@ fn qiniu_ng_upload(
     })
 }
 
-fn set_params_to_file_uploader(
-    mut file_uploader: FileUploaderBuilder,
-    params: *const qiniu_ng_upload_params_t,
-) -> FileUploaderBuilder {
-    if let Some(params) = unsafe { params.as_ref() } {
-        if params.thread_pool_size > 0 {
-            file_uploader = file_uploader.thread_pool_size(params.thread_pool_size);
+fn set_params_to_file_uploader<'n>(
+    mut file_uploader: FileUploaderBuilder<'n>,
+    params: &qiniu_ng_upload_params_t,
+) -> FileUploaderBuilder<'n> {
+    if params.thread_pool_size > 0 {
+        file_uploader = file_uploader.thread_pool_size(params.thread_pool_size);
+    }
+    if let Some(key) = convert_c_char_to_optional_string(params.key) {
+        file_uploader = file_uploader.key(key);
+    }
+    if !params.vars.is_null() {
+        let vars: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = unsafe { *params.vars }.into();
+        for (key, value) in vars.iter() {
+            file_uploader = file_uploader.var(key.to_string_lossy().into_owned(), value.to_string_lossy().into_owned());
         }
-        if let Some(key) = convert_c_char_to_optional_string(params.key) {
-            file_uploader = file_uploader.key(key);
+        let _: qiniu_ng_string_map_t = vars.into();
+    }
+    if !params.metadata.is_null() {
+        let metadata: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = unsafe { *params.metadata }.into();
+        for (key, value) in metadata.iter() {
+            file_uploader =
+                file_uploader.metadata(key.to_string_lossy().into_owned(), value.to_string_lossy().into_owned());
         }
-        if !params.vars.is_null() {
-            let vars: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = unsafe { *params.vars }.into();
-            for (key, value) in vars.iter() {
-                file_uploader =
-                    file_uploader.var(key.to_string_lossy().into_owned(), value.to_string_lossy().into_owned());
-            }
-            let _: qiniu_ng_string_map_t = vars.into();
+        let _: qiniu_ng_string_map_t = metadata.into();
+    }
+    file_uploader = if params.checksum_enabled {
+        file_uploader.enable_checksum()
+    } else {
+        file_uploader.disable_checksum()
+    };
+    match params.resumable_policy {
+        qiniu_ng_resumable_policy_e::Threshold => {
+            file_uploader = file_uploader.upload_threshold(params.upload_threshold);
         }
-        if !params.metadata.is_null() {
-            let metadata: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = unsafe { *params.metadata }.into();
-            for (key, value) in metadata.iter() {
-                file_uploader =
-                    file_uploader.metadata(key.to_string_lossy().into_owned(), value.to_string_lossy().into_owned());
-            }
-            let _: qiniu_ng_string_map_t = metadata.into();
+        qiniu_ng_resumable_policy_e::AlwaysBeResumable => {
+            file_uploader = file_uploader.always_be_resumable();
         }
-        file_uploader = if params.checksum_enabled {
-            file_uploader.enable_checksum()
-        } else {
-            file_uploader.disable_checksum()
-        };
-        match params.resumable_policy {
-            qiniu_ng_resumable_policy_e::Threshold => {
-                file_uploader = file_uploader.upload_threshold(params.upload_threshold);
-            }
-            qiniu_ng_resumable_policy_e::AlwaysBeResumable => {
-                file_uploader = file_uploader.always_be_resumable();
-            }
-            qiniu_ng_resumable_policy_e::NeverBeResumable => {
-                file_uploader = file_uploader.never_be_resumable();
-            }
-            _ => {}
+        qiniu_ng_resumable_policy_e::NeverBeResumable => {
+            file_uploader = file_uploader.never_be_resumable();
         }
+        _ => {}
+    }
+    if let Some(on_uploading_progress) = params.on_uploading_progress {
+        file_uploader = file_uploader.on_progress(move |uploaded: u64, total: Option<u64>| {
+            (on_uploading_progress)(uploaded, total.unwrap_or(0))
+        });
     }
     file_uploader
 }
@@ -368,10 +364,10 @@ enum UploadFile {
 }
 
 impl UploadFile {
-    fn upload<'n>(
+    fn upload(
         self,
         file_uploader: FileUploaderBuilder,
-        file_name: Option<impl Into<Cow<'n, str>>>,
+        file_name: Option<String>,
         mime: Option<Mime>,
     ) -> QiniuUploadResult {
         match self {

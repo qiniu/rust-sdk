@@ -5,7 +5,12 @@ use super::{
     upload_recorder::UploadRecorder,
     UploadLogger, UploadResponse,
 };
-use crate::{config::Config, credential::Credential, http::Client, utils::ron::Ron};
+use crate::{
+    config::Config,
+    credential::Credential,
+    http::Client,
+    utils::{rob::Rob, ron::Ron},
+};
 use assert_impl::assert_impl;
 use getset::Getters;
 use mime::Mime;
@@ -147,7 +152,7 @@ pub struct FileUploaderBuilder<'b> {
     metadata: Option<HashMap<Cow<'b, str>, Cow<'b, str>>>,
     checksum_enabled: bool,
     resumable_policy: ResumablePolicy,
-    on_uploading_progress: Option<&'b (dyn Fn(u64, Option<u64>) + Send + Sync)>,
+    on_uploading_progress: Option<Rob<'b, dyn Fn(u64, Option<u64>) + Send + Sync>>,
     thread_pool: Option<Ron<'b, ThreadPool>>,
 }
 
@@ -238,8 +243,19 @@ impl<'b> FileUploaderBuilder<'b> {
         self
     }
 
-    pub fn on_progress(mut self, callback: &'b (dyn Fn(u64, Option<u64>) + Send + Sync)) -> FileUploaderBuilder<'b> {
-        self.on_uploading_progress = Some(callback);
+    pub fn on_progress_ref(
+        mut self,
+        callback: &'b (dyn Fn(u64, Option<u64>) + Send + Sync),
+    ) -> FileUploaderBuilder<'b> {
+        self.on_uploading_progress = Some(Rob::Referenced(callback));
+        self
+    }
+
+    pub fn on_progress(
+        mut self,
+        callback: impl Fn(u64, Option<u64>) + Send + Sync + 'static,
+    ) -> FileUploaderBuilder<'b> {
+        self.on_uploading_progress = Some(Rob::Owned(Box::new(callback)));
         self
     }
 
@@ -299,8 +315,8 @@ impl<'b> FileUploaderBuilder<'b> {
                 uploader = uploader.metadata(&k, v);
             }
         }
-        if let Some(callback) = self.on_uploading_progress {
-            uploader = uploader.on_uploading_progress(callback);
+        if let Some(callback) = &self.on_uploading_progress {
+            uploader = uploader.on_uploading_progress(callback.as_ref());
         }
         Ok(uploader
             .seekable_stream(
@@ -328,8 +344,8 @@ impl<'b> FileUploaderBuilder<'b> {
         if let Some(metadata) = self.metadata {
             uploader = uploader.metadata(metadata);
         }
-        if let Some(callback) = self.on_uploading_progress {
-            uploader = uploader.on_uploading_progress(callback);
+        if let Some(callback) = &self.on_uploading_progress {
+            uploader = uploader.on_uploading_progress(callback.as_ref());
         }
         if let Some(thread_pool_or_referenced) = self.thread_pool {
             uploader = uploader.thread_pool_or_referenced(thread_pool_or_referenced);
@@ -383,8 +399,8 @@ impl<'b> FileUploaderBuilder<'b> {
                 uploader = uploader.metadata(&k, v);
             }
         }
-        if let Some(callback) = self.on_uploading_progress {
-            uploader = uploader.on_uploading_progress(callback);
+        if let Some(callback) = &self.on_uploading_progress {
+            uploader = uploader.on_uploading_progress(callback.as_ref());
         }
         Ok(uploader
             .stream(
@@ -412,8 +428,8 @@ impl<'b> FileUploaderBuilder<'b> {
         if let Some(metadata) = self.metadata {
             uploader = uploader.metadata(metadata);
         }
-        if let Some(callback) = self.on_uploading_progress {
-            uploader = uploader.on_uploading_progress(callback);
+        if let Some(callback) = &self.on_uploading_progress {
+            uploader = uploader.on_uploading_progress(callback.as_ref());
         }
         if let Some(thread_pool_or_referenced) = self.thread_pool {
             uploader = uploader.thread_pool_or_referenced(thread_pool_or_referenced);
