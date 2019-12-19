@@ -118,11 +118,11 @@ pub extern "C" fn qiniu_ng_bucket_uploader_free(bucket_uploader: qiniu_ng_bucket
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(dead_code)]
-pub enum qiniu_ng_resumeable_policy_e {
+pub enum qiniu_ng_resumable_policy_e {
     Default = 0,
     Threshold,
-    AlwaysBeResumeable,
-    NeverBeResumeable,
+    AlwaysBeResumable,
+    NeverBeResumable,
 }
 
 #[repr(C)]
@@ -132,7 +132,7 @@ pub struct qiniu_ng_upload_params_t {
     vars: *const qiniu_ng_string_map_t,
     metadata: *const qiniu_ng_string_map_t,
     checksum_enabled: bool,
-    resumeable_policy: qiniu_ng_resumeable_policy_e,
+    resumable_policy: qiniu_ng_resumable_policy_e,
     upload_threshold: c_uint,
     thread_pool_size: size_t,
 }
@@ -284,15 +284,15 @@ fn set_params_to_file_uploader(
         } else {
             file_uploader.disable_checksum()
         };
-        match params.resumeable_policy {
-            qiniu_ng_resumeable_policy_e::Threshold => {
+        match params.resumable_policy {
+            qiniu_ng_resumable_policy_e::Threshold => {
                 file_uploader = file_uploader.upload_threshold(params.upload_threshold);
             }
-            qiniu_ng_resumeable_policy_e::AlwaysBeResumeable => {
-                file_uploader = file_uploader.always_be_resumeable();
+            qiniu_ng_resumable_policy_e::AlwaysBeResumable => {
+                file_uploader = file_uploader.always_be_resumable();
             }
-            qiniu_ng_resumeable_policy_e::NeverBeResumeable => {
-                file_uploader = file_uploader.never_be_resumeable();
+            qiniu_ng_resumable_policy_e::NeverBeResumable => {
+                file_uploader = file_uploader.never_be_resumable();
             }
             _ => {}
         }

@@ -87,7 +87,7 @@ mod tests {
         let result = get_client(config)
             .upload()
             .for_upload_policy(policy, get_credential().into())?
-            .always_be_resumeable()
+            .always_be_resumable()
             .key(&key)
             .var("var_key1", "var_value1")
             .var("var_key2", "var_value2")
@@ -156,7 +156,7 @@ mod tests {
         let result = get_client(config)
             .upload()
             .for_upload_policy(policy, get_credential().into())?
-            .always_be_resumeable()
+            .always_be_resumable()
             .key(&key)
             .var("var_key1", "var_value1")
             .var("var_key2", "var_value2")
@@ -215,7 +215,7 @@ mod tests {
         let result = get_client(config)
             .upload()
             .for_upload_policy(policy, get_credential().into())?
-            .always_be_resumeable()
+            .always_be_resumable()
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress(&|uploaded, total| {
@@ -249,7 +249,7 @@ mod tests {
             .for_upload_policy(policy, get_credential().into())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
-            .never_be_resumeable()
+            .never_be_resumable()
             .on_progress(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 23));
                 last_uploaded.store(uploaded, Release);
@@ -316,7 +316,7 @@ mod tests {
             .for_upload_policy(policy, get_credential().into())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
-            .never_be_resumeable()
+            .never_be_resumable()
             .on_progress(&|uploaded, total| {
                 assert!(total.unwrap() > (1 << 21));
                 last_uploaded.store(uploaded, Release);

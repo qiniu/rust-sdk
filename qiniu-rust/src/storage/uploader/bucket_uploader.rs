@@ -1,7 +1,7 @@
 use super::{
     super::{upload_policy::UploadPolicy, upload_token::UploadToken},
     form_uploader::FormUploaderBuilder,
-    resumeable_uploader::{ResumeableUploader, ResumeableUploaderBuilder},
+    resumable_uploader::{ResumableUploader, ResumableUploaderBuilder},
     upload_recorder::UploadRecorder,
     UploadLogger, UploadResponse,
 };
@@ -133,7 +133,7 @@ impl BucketUploader {
     }
 }
 
-pub enum ResumeablePolicy {
+pub enum ResumablePolicy {
     Threshold(u32),
     Never,
     Always,
@@ -146,7 +146,7 @@ pub struct FileUploaderBuilder<'b> {
     vars: Option<HashMap<Cow<'b, str>, Cow<'b, str>>>,
     metadata: Option<HashMap<Cow<'b, str>, Cow<'b, str>>>,
     checksum_enabled: bool,
-    resumeable_policy: ResumeablePolicy,
+    resumable_policy: ResumablePolicy,
     on_uploading_progress: Option<&'b (dyn Fn(u64, Option<u64>) + Send + Sync)>,
     thread_pool: Option<Ron<'b, ThreadPool>>,
 }
@@ -161,7 +161,7 @@ impl<'b> FileUploaderBuilder<'b> {
             checksum_enabled: true,
             on_uploading_progress: None,
             thread_pool: None,
-            resumeable_policy: ResumeablePolicy::Threshold(bucket_uploader.http_client().config().upload_threshold()),
+            resumable_policy: ResumablePolicy::Threshold(bucket_uploader.http_client().config().upload_threshold()),
             bucket_uploader,
         }
     }
@@ -224,17 +224,17 @@ impl<'b> FileUploaderBuilder<'b> {
     }
 
     pub fn upload_threshold(mut self, threshold: u32) -> FileUploaderBuilder<'b> {
-        self.resumeable_policy = ResumeablePolicy::Threshold(threshold);
+        self.resumable_policy = ResumablePolicy::Threshold(threshold);
         self
     }
 
-    pub fn always_be_resumeable(mut self) -> FileUploaderBuilder<'b> {
-        self.resumeable_policy = ResumeablePolicy::Always;
+    pub fn always_be_resumable(mut self) -> FileUploaderBuilder<'b> {
+        self.resumable_policy = ResumablePolicy::Always;
         self
     }
 
-    pub fn never_be_resumeable(mut self) -> FileUploaderBuilder<'b> {
-        self.resumeable_policy = ResumeablePolicy::Never;
+    pub fn never_be_resumable(mut self) -> FileUploaderBuilder<'b> {
+        self.resumable_policy = ResumablePolicy::Never;
         self
     }
 
@@ -251,16 +251,16 @@ impl<'b> FileUploaderBuilder<'b> {
     ) -> UploadResult {
         let file_path = file_path.as_ref();
         let file_name = file_name.map(|file_name| file_name.into());
-        match self.resumeable_policy {
-            ResumeablePolicy::Threshold(threshold) => {
+        match self.resumable_policy {
+            ResumablePolicy::Threshold(threshold) => {
                 if file_path.metadata()?.len() > threshold.into() {
                     self.upload_file_by_blocks(file_path, file_name, mime)
                 } else {
                     self.upload_file_by_form(file_path, file_name, mime)
                 }
             }
-            ResumeablePolicy::Always => self.upload_file_by_blocks(file_path, file_name, mime),
-            ResumeablePolicy::Never => self.upload_file_by_form(file_path, file_name, mime),
+            ResumablePolicy::Always => self.upload_file_by_blocks(file_path, file_name, mime),
+            ResumablePolicy::Never => self.upload_file_by_form(file_path, file_name, mime),
         }
     }
 
@@ -271,11 +271,11 @@ impl<'b> FileUploaderBuilder<'b> {
         mime: Option<Mime>,
     ) -> UploadResult {
         let file_name = file_name.map(|file_name| file_name.into());
-        match self.resumeable_policy {
-            ResumeablePolicy::Threshold(_) | ResumeablePolicy::Always => {
+        match self.resumable_policy {
+            ResumablePolicy::Threshold(_) | ResumablePolicy::Always => {
                 self.upload_stream_by_blocks(stream, file_name, mime)
             }
-            ResumeablePolicy::Never => self.upload_stream_by_form(stream, file_name, mime),
+            ResumablePolicy::Never => self.upload_stream_by_form(stream, file_name, mime),
         }
     }
 
@@ -318,7 +318,7 @@ impl<'b> FileUploaderBuilder<'b> {
         file_name: Option<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> UploadResult {
-        let mut uploader = ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token);
+        let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token);
         if let Some(key) = &self.key {
             uploader = uploader.key(key.to_owned());
         }
@@ -354,7 +354,7 @@ impl<'b> FileUploaderBuilder<'b> {
     fn prepare_for_resuming(
         key: Option<&str>,
         recorder: &UploadRecorder,
-        uploader: &mut ResumeableUploader<'_, File>,
+        uploader: &mut ResumableUploader<'_, File>,
         file_path: &Path,
     ) -> IOResult<()> {
         if let Some((file_record, block_records)) = recorder.load(file_path, key)? {
@@ -402,7 +402,7 @@ impl<'b> FileUploaderBuilder<'b> {
         file_name: Option<Cow<str>>,
         mime: Option<Mime>,
     ) -> UploadResult {
-        let mut uploader = ResumeableUploaderBuilder::new(&self.bucket_uploader, self.upload_token);
+        let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token);
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }

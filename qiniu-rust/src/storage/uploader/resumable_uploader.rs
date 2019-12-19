@@ -75,7 +75,7 @@ struct UploadingProgressCallback<'u> {
     total_size: Option<u64>,
 }
 
-pub(super) struct ResumeableUploaderBuilder<'u> {
+pub(super) struct ResumableUploaderBuilder<'u> {
     bucket_uploader: &'u BucketUploader,
     upload_token: Cow<'u, str>,
     key: Option<Cow<'u, str>>,
@@ -86,7 +86,7 @@ pub(super) struct ResumeableUploaderBuilder<'u> {
     upload_logger: Option<TokenizedUploadLogger>,
 }
 
-pub(super) struct ResumeableUploader<'u, R: Read + Seek + Send + Sync + 'u> {
+pub(super) struct ResumableUploader<'u, R: Read + Seek + Send + Sync + 'u> {
     bucket_uploader: &'u BucketUploader,
     upload_token: Cow<'u, str>,
     key: Option<Cow<'u, str>>,
@@ -104,12 +104,9 @@ pub(super) struct ResumeableUploader<'u, R: Read + Seek + Send + Sync + 'u> {
     upload_logger: Option<TokenizedUploadLogger>,
 }
 
-impl<'u> ResumeableUploaderBuilder<'u> {
-    pub(super) fn new(
-        bucket_uploader: &'u BucketUploader,
-        upload_token: Cow<'u, str>,
-    ) -> ResumeableUploaderBuilder<'u> {
-        ResumeableUploaderBuilder {
+impl<'u> ResumableUploaderBuilder<'u> {
+    pub(super) fn new(bucket_uploader: &'u BucketUploader, upload_token: Cow<'u, str>) -> ResumableUploaderBuilder<'u> {
+        ResumableUploaderBuilder {
             bucket_uploader,
             upload_token: upload_token.clone(),
             key: None,
@@ -129,22 +126,22 @@ impl<'u> ResumeableUploaderBuilder<'u> {
     pub(super) fn thread_pool_or_referenced(
         mut self,
         thread_pool: Ron<'u, ThreadPool>,
-    ) -> ResumeableUploaderBuilder<'u> {
+    ) -> ResumableUploaderBuilder<'u> {
         self.thread_pool = Some(thread_pool);
         self
     }
 
-    pub(super) fn key(mut self, key: Cow<'u, str>) -> ResumeableUploaderBuilder<'u> {
+    pub(super) fn key(mut self, key: Cow<'u, str>) -> ResumableUploaderBuilder<'u> {
         self.key = Some(key);
         self
     }
 
-    pub(super) fn metadata(mut self, metadata: HashMap<Cow<'u, str>, Cow<'u, str>>) -> ResumeableUploaderBuilder<'u> {
+    pub(super) fn metadata(mut self, metadata: HashMap<Cow<'u, str>, Cow<'u, str>>) -> ResumableUploaderBuilder<'u> {
         self.metadata = Some(metadata);
         self
     }
 
-    pub(super) fn vars(mut self, vars: HashMap<Cow<'u, str>, Cow<'u, str>>) -> ResumeableUploaderBuilder<'u> {
+    pub(super) fn vars(mut self, vars: HashMap<Cow<'u, str>, Cow<'u, str>>) -> ResumableUploaderBuilder<'u> {
         let mut hashmap = HashMap::new();
         for (k, v) in vars.into_iter() {
             hashmap.insert(Cow::Owned("x:".to_owned() + &k), v);
@@ -156,7 +153,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
     pub(super) fn on_uploading_progress(
         mut self,
         callback: &'u (dyn Fn(u64, Option<u64>) + Send + Sync),
-    ) -> ResumeableUploaderBuilder<'u> {
+    ) -> ResumableUploaderBuilder<'u> {
         self.on_uploading_progress = Some(callback);
         self
     }
@@ -169,10 +166,10 @@ impl<'u> ResumeableUploaderBuilder<'u> {
         file_size: u64,
         mime_type: Option<Mime>,
         checksum_enabled: bool,
-    ) -> IOResult<ResumeableUploader<'u, File>> {
+    ) -> IOResult<ResumableUploader<'u, File>> {
         let bucket_uploader = self.bucket_uploader;
         let block_size = bucket_uploader.http_client().config().upload_block_size();
-        Ok(ResumeableUploader {
+        Ok(ResumableUploader {
             bucket_uploader,
             upload_token: self.upload_token,
             key: self.key,
@@ -207,7 +204,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
                 .unwrap_or_else(|| {
                     Ron::Owned(
                         ThreadPoolBuilder::new()
-                            .thread_name(|index| format!("resumeable_uploader_thread_{}", index))
+                            .thread_name(|index| format!("resumable_uploader_thread_{}", index))
                             .build()
                             .unwrap(),
                     )
@@ -222,9 +219,9 @@ impl<'u> ResumeableUploaderBuilder<'u> {
         mime_type: Option<Mime>,
         file_name: Option<Cow<'n, str>>,
         checksum_enabled: bool,
-    ) -> IOResult<ResumeableUploader<'u, seek_adapter::SeekAdapter<R>>> {
+    ) -> IOResult<ResumableUploader<'u, seek_adapter::SeekAdapter<R>>> {
         let bucket_uploader = self.bucket_uploader;
-        Ok(ResumeableUploader {
+        Ok(ResumableUploader {
             bucket_uploader,
             upload_token: self.upload_token,
             key: self.key,
@@ -254,7 +251,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
                 .unwrap_or_else(|| {
                     Ron::Owned(
                         ThreadPoolBuilder::new()
-                            .thread_name(|index| format!("resumeable_uploader_thread_{}", index))
+                            .thread_name(|index| format!("resumable_uploader_thread_{}", index))
                             .build()
                             .unwrap(),
                     )
@@ -264,7 +261,7 @@ impl<'u> ResumeableUploaderBuilder<'u> {
     }
 }
 
-impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
+impl<'u, R: Read + Seek + Send + Sync> ResumableUploader<'u, R> {
     pub(super) fn send(&mut self) -> HTTPResult<UploadResponse> {
         let base_path = self.make_base_path();
         let authorization = self.make_authorization();
@@ -297,7 +294,7 @@ impl<'u, R: Read + Seek + Send + Sync> ResumeableUploader<'u, R> {
             }
         }
 
-        Err(prev_err.expect("ResumeableUploader::send() should try at lease once, but not"))
+        Err(prev_err.expect("ResumableUploader::send() should try at lease once, but not"))
     }
 
     fn try_to_init_and_upload_with_log(
@@ -767,7 +764,7 @@ mod tests {
     use std::{boxed::Box, error::Error, io::Cursor, result::Result};
 
     #[test]
-    fn test_storage_uploader_resumeable_uploader_upload_file() -> Result<(), Box<dyn Error>> {
+    fn test_storage_uploader_resumable_uploader_upload_file() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
             .http_request_call(
@@ -859,8 +856,7 @@ mod tests {
     }
 
     #[test]
-    fn test_storage_uploader_resumeable_uploader_upload_file_with_many_retryable_errors() -> Result<(), Box<dyn Error>>
-    {
+    fn test_storage_uploader_resumable_uploader_upload_file_with_many_retryable_errors() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
             .http_request_call(
@@ -957,7 +953,7 @@ mod tests {
     }
 
     #[test]
-    fn test_storage_uploader_resumeable_uploader_upload_file_with_1_host_failure() -> Result<(), Box<dyn Error>> {
+    fn test_storage_uploader_resumable_uploader_upload_file_with_1_host_failure() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
             .http_request_call(
@@ -1078,7 +1074,7 @@ mod tests {
     }
 
     #[test]
-    fn test_storage_uploader_resumeable_uploader_upload_file_with_1_zone_failure() -> Result<(), Box<dyn Error>> {
+    fn test_storage_uploader_resumable_uploader_upload_file_with_1_zone_failure() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
             .http_request_call(
@@ -1192,7 +1188,7 @@ mod tests {
     }
 
     #[test]
-    fn test_storage_uploader_resumeable_uploader_upload_file_with_1_continuous_zone_failure(
+    fn test_storage_uploader_resumable_uploader_upload_file_with_1_continuous_zone_failure(
     ) -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
@@ -1338,8 +1334,7 @@ mod tests {
     }
 
     #[test]
-    fn test_storage_uploader_resumeable_uploader_upload_file_with_1_unretryable_failure() -> Result<(), Box<dyn Error>>
-    {
+    fn test_storage_uploader_resumable_uploader_upload_file_with_1_unretryable_failure() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
             .http_request_call(
@@ -1452,7 +1447,7 @@ mod tests {
     }
 
     #[test]
-    fn test_storage_uploader_resumeable_uploader_upload_file_with_1_unretryable_failure_on_upload_id(
+    fn test_storage_uploader_resumable_uploader_upload_file_with_1_unretryable_failure_on_upload_id(
     ) -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
