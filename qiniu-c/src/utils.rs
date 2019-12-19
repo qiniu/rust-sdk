@@ -32,6 +32,11 @@ pub(crate) fn make_string(s: impl Into<Vec<u8>>) -> qiniu_ng_string_t {
     CString::new(s).unwrap().into_boxed_c_str().into()
 }
 
+pub(crate) fn make_optional_string(s: Option<impl Into<Vec<u8>>>) -> qiniu_ng_optional_string_t {
+    s.map(|s| CString::new(s).unwrap().into_boxed_c_str().into())
+        .unwrap_or_default()
+}
+
 #[no_mangle]
 pub extern "C" fn qiniu_ng_string_new(s: *const c_char) -> qiniu_ng_string_t {
     Cow::Borrowed(unsafe { CStr::from_ptr(s) })
@@ -88,6 +93,12 @@ impl From<Option<Box<CStr>>> for qiniu_ng_optional_string_t {
         } else {
             qiniu_ng_optional_string_t(null_mut(), null_mut())
         }
+    }
+}
+
+impl From<Box<CStr>> for qiniu_ng_optional_string_t {
+    fn from(s: Box<CStr>) -> Self {
+        Some(s).into()
     }
 }
 

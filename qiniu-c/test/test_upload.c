@@ -47,8 +47,16 @@ void test_qiniu_ng_upload_files(void) {
     qiniu_ng_upload_response_t upload_response;
     qiniu_ng_err err;
     TEST_ASSERT_TRUE(qiniu_ng_upload_file_path(bucket_uploader, token, file_path, &params, &upload_response, &err));
-    TEST_ASSERT_NOT_NULL(qiniu_ng_upload_response_get_key(upload_response));
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_upload_response_get_hash(upload_response), (const char *) &etag);
+
+    qiniu_ng_optional_string_t key = qiniu_ng_upload_response_get_key(upload_response);
+    TEST_ASSERT_FALSE(qiniu_ng_optional_string_is_null(key));
+    qiniu_ng_optional_string_free(key);
+
+    qiniu_ng_optional_string_t hash = qiniu_ng_upload_response_get_hash(upload_response);
+    TEST_ASSERT_FALSE(qiniu_ng_optional_string_is_null(key));
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_optional_string_get_ptr(hash), (const char *) &etag);
+    qiniu_ng_optional_string_free(hash);
+
     qiniu_ng_upload_response_free(upload_response);
 
     // TODO: Clean uploaded file
@@ -59,8 +67,16 @@ void test_qiniu_ng_upload_files(void) {
     TEST_ASSERT_NOT_NULL(file);
     TEST_ASSERT_TRUE(qiniu_ng_upload_file(bucket_uploader, token, file, &params, &upload_response, &err));
     TEST_ASSERT_EQUAL_INT(fclose(file), 0);
-    TEST_ASSERT_NOT_NULL(qiniu_ng_upload_response_get_key(upload_response));
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_upload_response_get_hash(upload_response), (const char *) &etag);
+
+    key = qiniu_ng_upload_response_get_key(upload_response);
+    TEST_ASSERT_FALSE(qiniu_ng_optional_string_is_null(key));
+    qiniu_ng_optional_string_free(key);
+
+    hash = qiniu_ng_upload_response_get_hash(upload_response);
+    TEST_ASSERT_FALSE(qiniu_ng_optional_string_is_null(key));
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_optional_string_get_ptr(hash), (const char *) &etag);
+    qiniu_ng_optional_string_free(hash);
+
     qiniu_ng_upload_response_free(upload_response);
 
     // TODO: Clean uploaded file

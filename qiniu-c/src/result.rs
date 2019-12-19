@@ -327,3 +327,9 @@ impl From<&PersistentError> for qiniu_ng_err {
         }
     }
 }
+
+impl From<&serde_json::Error> for qiniu_ng_err {
+    fn from(_err: &serde_json::Error) -> Self {
+        qiniu_ng_err(qiniu_ng_err_code::QiniuNgJSONError)
+    }
+}

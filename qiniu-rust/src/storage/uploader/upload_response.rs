@@ -1,6 +1,6 @@
 use delegate::delegate;
-use serde_json::{map::Map, value::Index, Value};
-use std::{default::Default, fmt};
+use serde_json::{map::Map, value::Index, Result, Value};
+use std::default::Default;
 
 #[derive(Debug, Clone)]
 pub struct UploadResponse(pub(super) Value);
@@ -16,6 +16,10 @@ impl UploadResponse {
 
     pub fn into_value(self) -> Value {
         self.0
+    }
+
+    pub fn to_string(&self) -> Result<String> {
+        serde_json::to_string(&self.0)
     }
 
     delegate! {
@@ -39,12 +43,6 @@ impl UploadResponse {
             pub fn is_null(&self) -> bool;
             pub fn as_null(&self) -> Option<()>;
         }
-    }
-}
-
-impl fmt::Display for UploadResponse {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
     }
 }
 

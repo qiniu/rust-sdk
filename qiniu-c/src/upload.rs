@@ -4,8 +4,8 @@ use crate::{
     result::qiniu_ng_err,
     upload_token::{qiniu_ng_upload_token_get_token, qiniu_ng_upload_token_t},
     utils::{
-        convert_c_char_to_optional_string, convert_c_char_to_string, convert_str_to_boxed_cstr, make_path_buf,
-        qiniu_ng_string_map_t,
+        convert_c_char_to_optional_string, convert_c_char_to_string, make_optional_string, make_path_buf, make_string,
+        qiniu_ng_optional_string_t, qiniu_ng_string_map_t, qiniu_ng_string_t,
     },
 };
 use libc::{c_char, c_uint, c_ulonglong, c_void, ferror, fread, size_t, FILE};
@@ -23,7 +23,6 @@ use std::{
     ffi::CStr,
     io::{Error, ErrorKind, Read, Result},
     mem::{drop, transmute},
-    ptr::null,
 };
 use tap::TapOps;
 
@@ -227,15 +226,15 @@ fn qiniu_ng_upload(
             _ => None,
         };
     }
-    match &upload_file.upload(file_uploader, file_name, mime) {
+    match upload_file.upload(file_uploader, file_name, mime) {
         Ok(resp) => {
             if !response.is_null() {
-                let resp: Box<UploadResponse> = Box::new(resp.into());
+                let resp: Box<QiniuUploadResponse> = Box::new(resp.into());
                 unsafe { *response = resp.into() };
             }
             true
         }
-        Err(e) => {
+        Err(ref e) => {
             if !err.is_null() {
                 unsafe { *err = e.into() };
             }
@@ -297,65 +296,71 @@ fn set_params_to_file_uploader<'n>(
     file_uploader.max_concurrency(params.max_concurrency)
 }
 
-struct UploadResponse {
-    key: Option<Box<CStr>>,
-    hash: Option<Box<CStr>>,
-}
-
-impl From<&QiniuUploadResponse> for UploadResponse {
-    fn from(upload_response: &QiniuUploadResponse) -> Self {
-        UploadResponse {
-            key: upload_response.key().map(convert_str_to_boxed_cstr),
-            hash: upload_response.hash().map(convert_str_to_boxed_cstr),
-        }
-    }
-}
-
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_response_t(*mut c_void);
 
-impl From<qiniu_ng_upload_response_t> for Box<UploadResponse> {
+impl From<qiniu_ng_upload_response_t> for Box<QiniuUploadResponse> {
     fn from(upload_response: qiniu_ng_upload_response_t) -> Self {
         unsafe { Self::from_raw(transmute(upload_response)) }
     }
 }
 
-impl From<Box<UploadResponse>> for qiniu_ng_upload_response_t {
-    fn from(upload_response: Box<UploadResponse>) -> Self {
+impl From<Box<QiniuUploadResponse>> for qiniu_ng_upload_response_t {
+    fn from(upload_response: Box<QiniuUploadResponse>) -> Self {
         unsafe { transmute(Box::into_raw(upload_response)) }
     }
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_response_get_key(upload_response: qiniu_ng_upload_response_t) -> *const c_char {
-    let upload_response: Box<UploadResponse> = upload_response.into();
-    upload_response
-        .key
-        .as_ref()
-        .map(|key| key.as_ptr())
-        .unwrap_or_else(null)
-        .tap(|_| {
-            let _: qiniu_ng_upload_response_t = upload_response.into();
-        })
+pub extern "C" fn qiniu_ng_upload_response_get_key(
+    upload_response: qiniu_ng_upload_response_t,
+) -> qiniu_ng_optional_string_t {
+    let upload_response: Box<QiniuUploadResponse> = upload_response.into();
+    make_optional_string(upload_response.key()).tap(|_| {
+        let _: qiniu_ng_upload_response_t = upload_response.into();
+    })
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_response_get_hash(upload_response: qiniu_ng_upload_response_t) -> *const c_char {
-    let upload_response: Box<UploadResponse> = upload_response.into();
-    upload_response
-        .hash
-        .as_ref()
-        .map(|hash| hash.as_ptr())
-        .unwrap_or_else(null)
-        .tap(|_| {
-            let _: qiniu_ng_upload_response_t = upload_response.into();
-        })
+pub extern "C" fn qiniu_ng_upload_response_get_hash(
+    upload_response: qiniu_ng_upload_response_t,
+) -> qiniu_ng_optional_string_t {
+    let upload_response: Box<QiniuUploadResponse> = upload_response.into();
+    make_optional_string(upload_response.hash()).tap(|_| {
+        let _: qiniu_ng_upload_response_t = upload_response.into();
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_upload_response_get_json(
+    upload_response: qiniu_ng_upload_response_t,
+    json: *mut qiniu_ng_string_t,
+    err: *mut qiniu_ng_err,
+) -> bool {
+    let upload_response: Box<QiniuUploadResponse> = upload_response.into();
+    match upload_response.to_string() {
+        Ok(s) => {
+            if !json.is_null() {
+                unsafe { *json = make_string(s) };
+            }
+            true
+        }
+        Err(ref e) => {
+            if !err.is_null() {
+                unsafe { *err = e.into() };
+            }
+            false
+        }
+    }
+    .tap(|_| {
+        let _: qiniu_ng_upload_response_t = upload_response.into();
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_response_free(upload_response: qiniu_ng_upload_response_t) {
-    let _: Box<UploadResponse> = upload_response.into();
+    let _: Box<QiniuUploadResponse> = upload_response.into();
 }
 
 enum UploadFile {
