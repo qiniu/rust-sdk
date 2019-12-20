@@ -203,7 +203,8 @@ impl Default for UploadRecorder {
 
 mod default {
     use super::*;
-    use crypto::{digest::Digest, sha1::Sha1};
+    use digest::{FixedOutput, Input};
+    use sha1::Sha1;
 
     #[inline]
     pub fn recorder() -> Arc<dyn Recorder> {
@@ -221,7 +222,7 @@ mod default {
     }
 
     pub fn key_generator(name: &str, path: &Path, key: Option<&str>) -> String {
-        let mut sha1 = Sha1::new();
+        let mut sha1 = Sha1::default();
         if let Some(key) = key {
             sha1.input(key.as_bytes());
             sha1.input(b"_._");
@@ -229,7 +230,7 @@ mod default {
         sha1.input(name.as_bytes());
         sha1.input(b"_._");
         sha1.input(path.to_string_lossy().as_ref().as_bytes());
-        sha1.result_str()
+        hex::encode(sha1.fixed_result())
     }
 }
 

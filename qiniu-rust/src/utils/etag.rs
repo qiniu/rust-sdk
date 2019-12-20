@@ -1,8 +1,13 @@
 use super::base64;
-use crypto::{digest::Digest, sha1::Sha1};
+use digest::{
+    generic_array::{typenum::U28, GenericArray},
+    FixedOutput, Input, Reset,
+};
+use sha1::Sha1;
 use std::{
     fs::File,
     io::{copy, sink, Read, Result},
+    mem::replace,
     option::Option,
     path::Path,
 };
@@ -23,9 +28,15 @@ pub fn new() -> Etag {
     }
 }
 
-impl Digest for Etag {
-    fn input(&mut self, input: &[u8]) {
-        self.buffer.extend_from_slice(input);
+impl Default for Etag {
+    fn default() -> Self {
+        new()
+    }
+}
+
+impl Input for Etag {
+    fn input<B: AsRef<[u8]>>(&mut self, data: B) {
+        self.buffer.extend_from_slice(data.as_ref());
         let mut iter = self.buffer.chunks_exact(BLOCK_SIZE);
         for block in iter.by_ref() {
             self.sha1s.push(Self::sha1(block));
@@ -36,46 +47,45 @@ impl Digest for Etag {
             new_buffer
         };
     }
+}
 
-    fn result(&mut self, mut out: &mut [u8]) {
+impl FixedOutput for Etag {
+    type OutputSize = U28;
+
+    fn fixed_result(mut self) -> GenericArray<u8, Self::OutputSize> {
         if !self.buffer.is_empty() {
             self.sha1s.push(Self::sha1(&self.buffer));
             self.buffer.clear();
         }
-        self.encode_sha1s(&mut out);
+        self.encode_sha1s()
     }
+}
 
+impl Reset for Etag {
     fn reset(&mut self) {
         self.buffer.clear();
         self.sha1s.clear();
-    }
-
-    fn output_bits(&self) -> usize {
-        ETAG_SIZE * 8
-    }
-
-    fn block_size(&self) -> usize {
-        self.sha1s.len()
     }
 }
 
 impl Etag {
     fn sha1(bytes: &[u8]) -> Vec<u8> {
-        let mut sha1 = Sha1::new();
+        let mut sha1 = Sha1::default();
         sha1.input(bytes);
-        let mut result = vec![0; sha1.output_bytes()];
-        sha1.result(&mut result);
-        result
+        sha1.fixed_result().to_vec()
     }
 
-    fn encode_sha1s(&mut self, mut result: &mut [u8]) {
+    fn encode_sha1s(self) -> GenericArray<u8, U28> {
+        let mut fixed_result = [0u8; ETAG_SIZE];
         match self.sha1s.len() {
-            0 => result.copy_from_slice(b"Fto5o-5ea0sNMlW_75VgGJCv2AcJ"),
+            0 => {
+                fixed_result.copy_from_slice(b"Fto5o-5ea0sNMlW_75VgGJCv2AcJ");
+            }
             1 => {
                 let mut buf = Vec::with_capacity(32);
                 buf.push(0x16u8);
                 buf.extend_from_slice(self.sha1s.first().unwrap());
-                base64::urlsafe_slice(&buf, &mut result);
+                base64::urlsafe_slice(&buf, &mut fixed_result);
             }
             _ => {
                 let mut buf = Vec::with_capacity(1024);
@@ -86,9 +96,10 @@ impl Etag {
                 buf.clear();
                 buf.push(0x96u8);
                 buf.extend_from_slice(&sha1);
-                base64::urlsafe_slice(&buf, &mut result);
+                base64::urlsafe_slice(&buf, &mut fixed_result);
             }
         }
+        fixed_result.into()
     }
 }
 
@@ -122,9 +133,8 @@ where
                     self.have_read += have_read;
                     self.digest.input(buf.get(..have_read).unwrap())
                 } else {
-                    let mut etag = vec![0; self.digest.output_bytes()];
-                    self.digest.result(&mut etag);
-                    self.etag = Some(String::from_utf8(etag).unwrap());
+                    let digest = replace(&mut self.digest, new());
+                    self.etag = Some(String::from_utf8(digest.fixed_result().to_vec()).unwrap());
                 }
             }
         })
@@ -153,9 +163,7 @@ pub fn from<IO: Read>(io: IO) -> Result<String> {
 pub fn from_bytes<S: AsRef<[u8]>>(buf: S) -> String {
     let mut etag_digest = new();
     etag_digest.input(buf.as_ref());
-    let mut etag = vec![0; etag_digest.output_bytes()];
-    etag_digest.result(&mut etag);
-    String::from_utf8(etag).unwrap()
+    String::from_utf8(etag_digest.fixed_result().to_vec()).unwrap()
 }
 
 pub fn from_file<P: AsRef<Path>>(path: P) -> Result<String> {

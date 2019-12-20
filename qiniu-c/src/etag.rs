@@ -1,8 +1,12 @@
 use super::{result::qiniu_ng_err, utils::make_path_buf};
-use crypto::digest::Digest;
+use digest::{FixedOutput, Input, Reset};
 use libc::{c_char, c_void, size_t};
 use qiniu_ng::utils::etag;
-use std::{mem::transmute, slice};
+use std::{
+    mem::{replace, transmute},
+    ptr::copy_nonoverlapping,
+    slice::from_raw_parts,
+};
 
 pub const ETAG_SIZE: usize = 28;
 
@@ -29,7 +33,7 @@ pub extern "C" fn qiniu_ng_etag_from_file_path(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_from_buffer(buffer: *const c_char, buffer_len: size_t, result: *mut c_char) {
     write_string_to_ptr(
-        unsafe { &etag::from_bytes(slice::from_raw_parts(buffer.cast(), buffer_len)) },
+        unsafe { &etag::from_bytes(from_raw_parts(buffer.cast(), buffer_len)) },
         result,
     );
 }
@@ -58,14 +62,15 @@ pub extern "C" fn qiniu_ng_etag_new() -> qiniu_ng_etag_t {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_update(etag: qiniu_ng_etag_t, data: *mut c_char, data_len: size_t) {
     let mut etag: Box<etag::Etag> = etag.into();
-    etag.input(unsafe { slice::from_raw_parts(data.cast(), data_len) });
+    etag.input(unsafe { from_raw_parts(data.cast(), data_len) });
     let _: qiniu_ng_etag_t = etag.into();
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_result(etag: qiniu_ng_etag_t, result_ptr: *mut c_char) {
     let mut etag: Box<etag::Etag> = etag.into();
-    etag.result(unsafe { slice::from_raw_parts_mut(result_ptr.cast(), ETAG_SIZE) });
+    let result = replace(&mut *etag, etag::new()).fixed_result();
+    unsafe { copy_nonoverlapping(result.as_ptr(), result_ptr.cast(), ETAG_SIZE) };
     let _: qiniu_ng_etag_t = etag.into();
 }
 

@@ -2,8 +2,10 @@ use crate::{
     storage::upload_policy::UploadPolicy,
     utils::{base64, mime},
 };
-use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
+use crypto_mac::Mac;
+use hmac::Hmac;
 use qiniu_http::{Headers, Method, Request};
+use sha1::Sha1;
 use std::{borrow::Cow, cmp::PartialEq, convert::TryFrom, fmt, result::Result, string::String, sync::Arc, time};
 use url::Url;
 
@@ -143,9 +145,9 @@ impl Credential {
     }
 
     fn base64ed_hmac_digest(&self, data: &[u8]) -> String {
-        let mut hmac = Hmac::new(Sha1::new(), self.secret_key().as_bytes());
+        let mut hmac = Hmac::<Sha1>::new_varkey(self.secret_key().as_bytes()).unwrap();
         hmac.input(data);
-        base64::urlsafe(hmac.result().code())
+        base64::urlsafe(&hmac.result().code())
     }
 
     fn will_push_body_v1<ContentType: AsRef<str>>(content_type: ContentType) -> bool {

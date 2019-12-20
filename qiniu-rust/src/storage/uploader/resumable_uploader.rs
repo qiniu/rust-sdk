@@ -7,7 +7,6 @@ use crate::{
     http::Client,
     utils::{base64, ron::Ron, seek_adapter},
 };
-use crypto::{digest::Digest, md5::Md5 as CryptoMD5};
 use mime::Mime;
 use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult, RetryKind};
 use rayon::{ThreadPool, ThreadPoolBuilder};
@@ -741,20 +740,23 @@ fn encode_key(key: Option<&str>) -> Cow<'static, str> {
     key.map_or_else(|| "~".into(), |key| base64::urlsafe(key.as_bytes()).into())
 }
 
-struct OptionalMd5(Option<CryptoMD5>);
+struct OptionalMd5 {
+    enabled: bool,
+}
 
 impl OptionalMd5 {
     fn new(checksum_enabled: bool) -> OptionalMd5 {
-        OptionalMd5(if checksum_enabled { Some(CryptoMD5::new()) } else { None })
+        OptionalMd5 {
+            enabled: checksum_enabled,
+        }
     }
 
     fn hash(&mut self, buf: &[u8]) -> Option<String> {
-        self.0.as_mut().map(|md5_digest| {
-            md5_digest.input(buf);
-            let md5 = md5_digest.result_str();
-            md5_digest.reset();
-            md5
-        })
+        if self.enabled {
+            Some(format!("{:x}", md5::compute(buf)))
+        } else {
+            None
+        }
     }
 }
 
