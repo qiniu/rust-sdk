@@ -319,14 +319,14 @@ cfg_if! {
         use std::os::unix::ffi::OsStrExt;
         pub(crate) fn make_path_buf(path: *const c_char) -> PathBuf {
             let buf = unsafe { from_raw_parts(path.cast(), strlen(path)) };
-            PathBuf::from(OsStr::from_bytes(buf))
+            OsStr::from_bytes(buf).into()
         }
     } else if #[cfg(windows)] {
-        use std::ffi::OsStr;
-        use std::os::windows::ffi::OsStrExt;
+        use std::ffi::OsString;
+        use std::os::windows::ffi::OsStringExt;
         pub(crate) fn make_path_buf(path: *const c_char) -> PathBuf {
             let buf = unsafe { from_raw_parts(path.cast(), strlen(path)) };
-            PathBuf::from(OsStr::from_wide(buf))
+            OsString::from_wide(buf).into()
         }
     } else {
         panic!("Unsupported platform");
