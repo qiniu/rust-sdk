@@ -30,7 +30,7 @@ lazy_static = "1.4.0"
 maplit = "1.0.2"
 delegate = "0.3.0"
 once_cell = "1.2"
-qiniu-multipart = { version = "0.16.2", features = ["client"] }
+qiniu-multipart = { version = "0.16.2", features = ["client"], default-features = false }
 mime = "0.3.14"
 mime_guess = "2.0.1"
 rand = "0.7.2"

@@ -1,4 +1,6 @@
+#[cfg(any(feature = "use-libcurl"))]
 use curl_sys::CURLcode;
+
 use libc::{c_char, c_int, c_ushort, strerror};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -25,6 +27,8 @@ pub enum qiniu_ng_err_code {
     QiniuNgUnexpectedRedirectError,
     QiniuNgJSONError,
     QiniuNgResponseStatusCodeError(c_ushort),
+
+    #[cfg(any(feature = "use-libcurl"))]
     QiniuNgCurlError(CURLcode),
     /* Particular error */
     QiniuNgCannotDropNonEmptyBucket,
@@ -195,6 +199,7 @@ pub extern "C" fn qiniu_ng_err_response_status_code_error_extract(
     }
 }
 
+#[cfg(any(feature = "use-libcurl"))]
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_curl_error_extract(err: *const qiniu_ng_err, code: *mut CURLcode) -> bool {
     if err.is_null() {
@@ -265,11 +270,19 @@ impl From<&HTTPError> for qiniu_ng_err {
     fn from(err: &HTTPError) -> Self {
         match err.error_kind() {
             HTTPErrorKind::HTTPCallerError(e) => qiniu_ng_err(
-                e.inner()
-                    .downcast_ref::<curl::Error>()
-                    .map_or(qiniu_ng_err_code::QiniuNgUnknownError, |e| {
-                        qiniu_ng_err_code::QiniuNgCurlError(e.code())
-                    }),
+                #[cfg(any(feature = "use-libcurl"))]
+                {
+                    e.inner()
+                        .downcast_ref::<curl::Error>()
+                        .map_or(qiniu_ng_err_code::QiniuNgUnknownError, |e| {
+                            qiniu_ng_err_code::QiniuNgCurlError(e.code())
+                        })
+                },
+                #[cfg(not(feature = "use-libcurl"))]
+                {
+                    std::mem::drop(e);
+                    qiniu_ng_err_code::QiniuNgUnknownError
+                },
             ),
             HTTPErrorKind::JSONError(_) => qiniu_ng_err(qiniu_ng_err_code::QiniuNgJSONError),
             HTTPErrorKind::MaliciousResponse => qiniu_ng_err(qiniu_ng_err_code::QiniuNgUnknownError),
