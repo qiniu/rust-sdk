@@ -568,7 +568,7 @@ impl DomainsManager {
 
     fn make_resolution(&self, url: &str) -> ResolveResult<CachedResolutions> {
         Ok(CachedResolutions {
-            socket_addrs: url.to_socket_addrs()?.collect::<Box<[_]>>().clone(),
+            socket_addrs: url.to_socket_addrs()?.collect::<Box<[_]>>(),
             cache_deadline: SystemTime::now() + self.inner.inner_data.resolutions_cache_lifetime,
         })
     }

@@ -16,7 +16,7 @@ void test_qiniu_ng_string(void) {
     qiniu_ng_string_free(qiniu_str);
 }
 
-void test_qiniu_ng_string_list(void) {
+void test_qiniu_ng_str_list(void) {
     const char *strlist[3] = {"hello world", "hello qiniu", "hello kodo"};
 
     qiniu_ng_string_list_t list = qiniu_ng_string_list_new((const char* const*) strlist, 3);
@@ -33,25 +33,42 @@ void test_qiniu_ng_string_list(void) {
     qiniu_ng_string_list_free(list);
 }
 
-bool test_qiniu_ng_string_map_handler(const char*, const char*, void*);
-void test_qiniu_ng_string_map(void) {
-    qiniu_ng_string_map_t map = qiniu_ng_string_map_new(5);
-    qiniu_ng_string_map_set(map, "qiniu", "Qiniu");
-    qiniu_ng_string_map_set(map, "kodo", "KODO");
-    qiniu_ng_string_map_set(map, "dora", "Dora");
-    qiniu_ng_string_map_set(map, "pandora", "Pandora");
+void test_qiniu_ng_string_list(void) {
+    const qiniu_ng_char_t *strlist[3] = {"hello world", "hello qiniu", "hello kodo"};
 
-    TEST_ASSERT_EQUAL_INT(qiniu_ng_string_map_len(map), 4);
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_map_get(map, "dora"), "Dora");
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_map_get(map, "qiniu"), "Qiniu");
+    qiniu_ng_string_list_t list = qiniu_ng_string_list_new((const qiniu_ng_char_t* const*) strlist, 3);
+    TEST_ASSERT_EQUAL_INT(qiniu_ng_string_list_len(list), 3);
 
-    int score = 0;
-    qiniu_ng_string_map_each_entry(map, test_qiniu_ng_string_map_handler, &score);
-    TEST_ASSERT_EQUAL_INT(score, 10);
-    qiniu_ng_string_map_free(map);
+    const qiniu_ng_char_t *str;
+    qiniu_ng_string_list_get(list, 0, &str);
+    TEST_ASSERT_EQUAL_STRING(str, "hello world");
+    qiniu_ng_string_list_get(list, 1, &str);
+    TEST_ASSERT_EQUAL_STRING(str, "hello qiniu");
+    qiniu_ng_string_list_get(list, 2, &str);
+    TEST_ASSERT_EQUAL_STRING(str, "hello kodo");
+
+    qiniu_ng_string_list_free(list);
 }
 
-bool test_qiniu_ng_string_map_handler(const char *key, const char *value, void *score) {
+bool test_qiniu_ng_str_map_handler(const char*, const char*, void*);
+void test_qiniu_ng_str_map(void) {
+    qiniu_ng_str_map_t map = qiniu_ng_str_map_new(5);
+    qiniu_ng_str_map_set(map, "qiniu", "Qiniu");
+    qiniu_ng_str_map_set(map, "kodo", "KODO");
+    qiniu_ng_str_map_set(map, "dora", "Dora");
+    qiniu_ng_str_map_set(map, "pandora", "Pandora");
+
+    TEST_ASSERT_EQUAL_INT(qiniu_ng_str_map_len(map), 4);
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_map_get(map, "dora"), "Dora");
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_map_get(map, "qiniu"), "Qiniu");
+
+    int score = 0;
+    qiniu_ng_str_map_each_entry(map, test_qiniu_ng_str_map_handler, &score);
+    TEST_ASSERT_EQUAL_INT(score, 10);
+    qiniu_ng_str_map_free(map);
+}
+
+bool test_qiniu_ng_str_map_handler(const char *key, const char *value, void *score) {
     if (strcmp(key, "qiniu") == 0) {
         TEST_ASSERT_EQUAL_STRING(value, "Qiniu");
         (*(int *) score) += 1;

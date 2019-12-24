@@ -1,11 +1,9 @@
 use crate::{
     result::qiniu_ng_err,
-    utils::{
-        convert_c_char_to_string, make_optional_path_buf, make_path_buf, make_string, qiniu_ng_optional_string_t,
-        qiniu_ng_string_t,
-    },
+    string::{qiniu_ng_char_t, UCString},
+    utils::{qiniu_ng_optional_string_t, qiniu_ng_string_t},
 };
-use libc::{c_char, c_uint, c_ulonglong, c_void, size_t};
+use libc::{c_uint, c_ulonglong, c_void, size_t};
 use qiniu_ng::{
     config::{Config, ConfigBuilder},
     http::domains_manager::DomainsManagerBuilder,
@@ -67,16 +65,20 @@ pub extern "C" fn qiniu_ng_config_builder_use_https(builder: qiniu_ng_config_bui
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_uc_host(builder: qiniu_ng_config_builder_t, uc_host: *const c_char) {
+pub extern "C" fn qiniu_ng_config_builder_uc_host(builder: qiniu_ng_config_builder_t, uc_host: *const qiniu_ng_char_t) {
     let mut builder: Box<Builder> = builder.into();
-    builder.config_builder = builder.config_builder.uc_host(convert_c_char_to_string(uc_host));
+    builder.config_builder = builder
+        .config_builder
+        .uc_host(unsafe { UCString::from_ptr(uc_host) }.to_string().unwrap().into());
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_rs_host(builder: qiniu_ng_config_builder_t, rs_host: *const c_char) {
+pub extern "C" fn qiniu_ng_config_builder_rs_host(builder: qiniu_ng_config_builder_t, rs_host: *const qiniu_ng_char_t) {
     let mut builder: Box<Builder> = builder.into();
-    builder.config_builder = builder.config_builder.rs_host(convert_c_char_to_string(rs_host));
+    builder.config_builder = builder
+        .config_builder
+        .rs_host(unsafe { UCString::from_ptr(rs_host) }.to_string().unwrap().into());
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
@@ -163,15 +165,14 @@ pub extern "C" fn qiniu_ng_config_builder_enable_uplog(builder: qiniu_ng_config_
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_uplog_server_url(
     builder: qiniu_ng_config_builder_t,
-    server_url: *const c_char,
+    server_url: *const qiniu_ng_char_t,
 ) {
-    let server_url = convert_c_char_to_string(server_url).into_owned();
     let mut builder: Box<Builder> = builder.into();
     builder.upload_logger_builder = Some(
         builder
             .upload_logger_builder
             .unwrap_or_default()
-            .server_url(server_url.into()),
+            .server_url(unsafe { UCString::from_ptr(server_url) }.to_string().unwrap().into()),
     );
     let _: qiniu_ng_config_builder_t = builder.into();
 }
@@ -179,15 +180,14 @@ pub extern "C" fn qiniu_ng_config_builder_uplog_server_url(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_uplog_file_path(
     builder: qiniu_ng_config_builder_t,
-    file_path: *const c_char,
+    file_path: *const qiniu_ng_char_t,
 ) {
-    let file_path = make_path_buf(file_path);
     let mut builder: Box<Builder> = builder.into();
     builder.upload_logger_builder = Some(
         builder
             .upload_logger_builder
             .unwrap_or_default()
-            .log_file_path(file_path.into()),
+            .log_file_path(unsafe { UCString::from_ptr(file_path) }.into_path_buf().into()),
     );
     let _: qiniu_ng_config_builder_t = builder.into();
 }
@@ -232,12 +232,12 @@ pub extern "C" fn qiniu_ng_config_builder_uplog_file_max_size(builder: qiniu_ng_
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_upload_recorder_root_directory(
     builder: qiniu_ng_config_builder_t,
-    root_directory: *const c_char,
+    root_directory: *const qiniu_ng_char_t,
 ) {
     let mut builder: Box<Builder> = builder.into();
-    builder.upload_recorder_builder = builder
-        .upload_recorder_builder
-        .recorder(FileSystemRecorder::from(make_path_buf(root_directory)));
+    builder.upload_recorder_builder = builder.upload_recorder_builder.recorder(FileSystemRecorder::from(
+        unsafe { UCString::from_ptr(root_directory) }.into_path_buf(),
+    ));
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
@@ -268,12 +268,12 @@ pub extern "C" fn qiniu_ng_config_builder_upload_recorder_always_flush_records(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_load_domains_manager_from_file(
     builder: qiniu_ng_config_builder_t,
-    persistent_file: *const c_char,
+    persistent_file: *const qiniu_ng_char_t,
     error: *mut qiniu_ng_err,
 ) -> bool {
     let mut builder: Box<Builder> = builder.into();
     let mut result = true;
-    match DomainsManagerBuilder::load_from_file(make_path_buf(persistent_file)) {
+    match DomainsManagerBuilder::load_from_file(unsafe { UCString::from_ptr(persistent_file) }.into_path_buf()) {
         Ok(domains_manager_builder) => builder.domains_manager_builder = domains_manager_builder,
         Err(err) => {
             if !error.is_null() {
@@ -289,10 +289,12 @@ pub extern "C" fn qiniu_ng_config_builder_load_domains_manager_from_file(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_create_new_domains_manager(
     builder: qiniu_ng_config_builder_t,
-    persistent_file: *const c_char,
+    persistent_file: *const qiniu_ng_char_t,
 ) {
     let mut builder: Box<Builder> = builder.into();
-    builder.domains_manager_builder = DomainsManagerBuilder::create_new(make_optional_path_buf(persistent_file));
+    builder.domains_manager_builder = DomainsManagerBuilder::create_new(
+        unsafe { persistent_file.as_ref() }.map(|file| unsafe { UCString::from_ptr(file) }.into_path_buf()),
+    );
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
@@ -378,26 +380,28 @@ pub extern "C" fn qiniu_ng_config_builder_domains_manager_url_resolve_retry_dela
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_domains_manager_persistent_file_path(
     builder: qiniu_ng_config_builder_t,
-    persistent_file_path: *const c_char,
+    persistent_file_path: *const qiniu_ng_char_t,
 ) {
     let mut builder: Box<Builder> = builder.into();
-    builder.domains_manager_builder = builder
-        .domains_manager_builder
-        .persistent(make_optional_path_buf(persistent_file_path));
+    builder.domains_manager_builder = builder.domains_manager_builder.persistent(
+        unsafe { persistent_file_path.as_ref() }.map(|file| unsafe { UCString::from_ptr(file) }.into_path_buf()),
+    );
     let _: qiniu_ng_config_builder_t = builder.into();
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_domains_manager_pre_resolve_urls(
     builder: qiniu_ng_config_builder_t,
-    pre_resolve_urls: *const *const c_char,
+    pre_resolve_urls: *const *const qiniu_ng_char_t,
     pre_resolve_urls_count: size_t,
 ) {
     let mut builder: Box<Builder> = builder.into();
     for i in 0..pre_resolve_urls_count {
-        builder.domains_manager_builder = builder
-            .domains_manager_builder
-            .pre_resolve_url(convert_c_char_to_string(unsafe { *pre_resolve_urls.add(i) }));
+        builder.domains_manager_builder = builder.domains_manager_builder.pre_resolve_url(
+            unsafe { UCString::from_ptr(*pre_resolve_urls.add(i)) }
+                .to_string()
+                .unwrap(),
+        );
     }
     let _: qiniu_ng_config_builder_t = builder.into();
 }
@@ -489,7 +493,7 @@ pub extern "C" fn qiniu_ng_config_get_use_https(config: qiniu_ng_config_t) -> bo
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_uc_host(config: qiniu_ng_config_t) -> qiniu_ng_string_t {
     let config: Config = config.into();
-    make_string(config.uc_host().as_ref()).tap(|_| {
+    unsafe { qiniu_ng_string_t::from_str_unchecked(config.uc_host().as_ref()) }.tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
 }
@@ -497,7 +501,7 @@ pub extern "C" fn qiniu_ng_config_get_uc_host(config: qiniu_ng_config_t) -> qini
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_uc_url(config: qiniu_ng_config_t) -> qiniu_ng_string_t {
     let config: Config = config.into();
-    make_string(config.uc_url()).tap(|_| {
+    unsafe { qiniu_ng_string_t::from_string_unchecked(config.uc_url()) }.tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
 }
@@ -505,7 +509,7 @@ pub extern "C" fn qiniu_ng_config_get_uc_url(config: qiniu_ng_config_t) -> qiniu
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_rs_host(config: qiniu_ng_config_t) -> qiniu_ng_string_t {
     let config: Config = config.into();
-    make_string(config.rs_host().as_ref()).tap(|_| {
+    unsafe { qiniu_ng_string_t::from_str_unchecked(config.rs_host().as_ref()) }.tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
 }
@@ -513,7 +517,7 @@ pub extern "C" fn qiniu_ng_config_get_rs_host(config: qiniu_ng_config_t) -> qini
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_rs_url(config: qiniu_ng_config_t) -> qiniu_ng_string_t {
     let config: Config = config.into();
-    make_string(config.rs_url()).tap(|_| {
+    unsafe { qiniu_ng_string_t::from_string_unchecked(config.rs_url()) }.tap(|_| {
         let _: qiniu_ng_config_t = config.into();
     })
 }
@@ -580,8 +584,10 @@ pub extern "C" fn qiniu_ng_config_get_uplog_server_url(config: qiniu_ng_config_t
     config
         .upload_logger()
         .as_ref()
-        .map(|upload_logger| make_string(upload_logger.server_url().to_owned()).into())
-        .unwrap_or_else(qiniu_ng_optional_string_t::default)
+        .map(|upload_logger| unsafe {
+            qiniu_ng_optional_string_t::from_string_unchecked(Some(upload_logger.server_url().to_owned()))
+        })
+        .unwrap_or_default()
         .tap(|_| {
             let _: qiniu_ng_config_t = config.into();
         })
@@ -593,8 +599,12 @@ pub extern "C" fn qiniu_ng_config_get_uplog_file_path(config: qiniu_ng_config_t)
     config
         .upload_logger()
         .as_ref()
-        .map(|upload_logger| make_string(upload_logger.log_file_path().to_string_lossy().into_owned()).into())
-        .unwrap_or_else(qiniu_ng_optional_string_t::default)
+        .map(|upload_logger| {
+            qiniu_ng_optional_string_t::from(
+                UCString::from(upload_logger.log_file_path().to_owned()).into_boxed_ucstr(),
+            )
+        })
+        .unwrap_or_default()
         .tap(|_| {
             let _: qiniu_ng_config_t = config.into();
         })
@@ -671,9 +681,11 @@ pub extern "C" fn qiniu_ng_config_get_upload_recorder_root_directory(
         .as_any()
         .downcast_ref::<FileSystemRecorder>()
         .map(|file_system_recorder| {
-            make_string(file_system_recorder.root_directory().to_string_lossy().into_owned()).into()
+            qiniu_ng_optional_string_t::from(
+                UCString::from(file_system_recorder.root_directory().to_owned()).into_boxed_ucstr(),
+            )
         })
-        .unwrap_or_else(qiniu_ng_optional_string_t::default)
+        .unwrap_or_default()
         .tap(|_| {
             let _: qiniu_ng_config_t = config.into();
         })
@@ -774,8 +786,8 @@ pub extern "C" fn qiniu_ng_config_get_domains_manager_persistent_file_path(
     config
         .domains_manager()
         .persistent_file_path()
-        .map(|path| make_string(path.as_os_str().to_string_lossy().into_owned()).into())
-        .unwrap_or_else(qiniu_ng_optional_string_t::default)
+        .map(|path| qiniu_ng_optional_string_t::from(UCString::from(path.to_owned()).into_boxed_ucstr()))
+        .unwrap_or_default()
         .tap(|_| {
             let _: qiniu_ng_config_t = config.into();
         })

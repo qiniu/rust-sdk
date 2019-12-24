@@ -7,9 +7,19 @@ documentation = true
 include_guard = "__QINIU_NG_H"
 cpp_compat = true
 sys_includes = ["curl/curl.h"]
+header = """
+#ifndef qiniu_ng_char_t
+#if defined(_WIN32) || defined(WIN32)
+#define qiniu_ng_char_t wchar_t
+#else
+#define qiniu_ng_char_t char
+#endif
+#endif
+"""
 
 [export]
 item_types = ["globals", "enums", "structs", "unions", "typedefs", "opaque", "functions", "constants"]
+exclude = ["qiniu_ng_char_t"]
 
 [const]
 allow_static_const = true

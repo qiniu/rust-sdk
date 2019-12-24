@@ -31,7 +31,7 @@ build_test_via_dynamic_link: build
 	mkdir -p build
 	$(CC) -Wall -Wextra $(INC_DIRS) -L$(DYNAMIC_LIBRARY) $(SYMBOLS) $(SRC_FILES) -o $(TARGET) -lqiniu_ng_c $(LDFLAGS)
 build_test: build_test_via_static_link build_test_via_dynamic_link
-libqiniu_ng.h: $(shell find src -name '*.rs' -type f)
+libqiniu_ng.h: cbindgen.toml $(shell find src -name '*.rs' -type f)
 	cbindgen --config cbindgen.toml --crate qiniu-ng-c --output libqiniu_ng.h --quiet
 test:
 	$(MAKE) build_test_via_static_link

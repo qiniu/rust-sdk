@@ -23,5 +23,6 @@ void test_qiniu_ng_make_upload_token(void);
 void test_qiniu_ng_upload_files(void);
 void test_qiniu_ng_upload_file_path_failed_by_mime(void);
 void test_qiniu_ng_string(void);
+void test_qiniu_ng_str_list(void);
 void test_qiniu_ng_string_list(void);
-void test_qiniu_ng_string_map(void);
+void test_qiniu_ng_str_map(void);

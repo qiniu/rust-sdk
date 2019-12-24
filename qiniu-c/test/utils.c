@@ -15,7 +15,7 @@ char* create_temp_file(size_t size) {
     const size_t FILE_PATH_LEN = 40;
     const size_t BUF_LEN = 4096;
     char *file_path = (char *) malloc(FILE_PATH_LEN);
-    sprintf((char *) file_path, "/tmp/257m-%lu", (unsigned long) time(NULL));
+    sprintf((char *) file_path, "/tmp/随机测试文件-%lu", (unsigned long) time(NULL));
 
     FILE *src = fopen("/dev/urandom", "r");
     TEST_ASSERT_NOT_NULL(src);

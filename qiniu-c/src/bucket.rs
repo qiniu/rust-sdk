@@ -2,14 +2,15 @@ use crate::{
     client::qiniu_ng_client_t,
     region::{qiniu_ng_region_t, qiniu_ng_regions_t},
     result::qiniu_ng_err,
-    utils::{convert_c_char_to_string, make_string, make_string_list, qiniu_ng_string_list_t, qiniu_ng_string_t},
+    string::{qiniu_ng_char_t, UCString},
+    utils::{qiniu_ng_string_list_t, qiniu_ng_string_t},
 };
 use libc::{c_char, c_void};
 use qiniu_ng::{
     storage::{bucket::Bucket, region::Region},
     Client,
 };
-use std::{borrow::Cow, mem::transmute, ptr::null};
+use std::{borrow::Cow, ffi::CStr, mem::transmute, ptr::null};
 use tap::TapOps;
 
 #[repr(C)]
@@ -38,11 +39,11 @@ pub extern "C" fn qiniu_ng_bucket_new2(
     client: qiniu_ng_client_t,
     bucket_name: *const c_char,
     region: *const qiniu_ng_region_t,
-    domains: *const *const c_char,
+    domains: *const *const qiniu_ng_char_t,
     domains_count: usize,
 ) -> qiniu_ng_bucket_t {
     let client: Box<Client> = client.into();
-    let bucket_name = convert_c_char_to_string(bucket_name);
+    let bucket_name = unsafe { CStr::from_ptr(bucket_name) }.to_str().unwrap().to_owned();
     let mut bucket_builder = client.storage().bucket(bucket_name);
     if let Some(region) = unsafe { region.as_ref() } {
         let region: Box<Cow<Region>> = region.to_owned().into();
@@ -50,7 +51,8 @@ pub extern "C" fn qiniu_ng_bucket_new2(
         let _: qiniu_ng_region_t = region.into();
     }
     for i in 0..domains_count {
-        bucket_builder = bucket_builder.domain(convert_c_char_to_string(unsafe { *domains.add(i) }));
+        let domain = unsafe { *domains.add(i) };
+        bucket_builder = bucket_builder.domain(unsafe { UCString::from_ptr(domain) }.to_string().unwrap());
     }
     let bucket: qiniu_ng_bucket_t = Box::new(bucket_builder.build()).into();
     bucket.tap(|_| {
@@ -61,7 +63,7 @@ pub extern "C" fn qiniu_ng_bucket_new2(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_get_name(bucket: qiniu_ng_bucket_t) -> qiniu_ng_string_t {
     let bucket: Box<Bucket> = bucket.into();
-    make_string(bucket.name()).tap(|_| {
+    unsafe { qiniu_ng_string_t::from_str_unchecked(bucket.name()) }.tap(|_| {
         let _: qiniu_ng_bucket_t = bucket.into();
     })
 }
@@ -132,9 +134,12 @@ pub extern "C" fn qiniu_ng_bucket_get_domains(
     error: *mut qiniu_ng_err,
 ) -> bool {
     let bucket: Box<Bucket> = bucket.into();
-    match bucket.domains().map(|domains| make_string_list(&domains)).tap(|_| {
-        let _: qiniu_ng_bucket_t = bucket.into();
-    }) {
+    match bucket
+        .domains()
+        .map(|domains| unsafe { qiniu_ng_string_list_t::from_str_slice_unchecked(&domains) })
+        .tap(|_| {
+            let _: qiniu_ng_bucket_t = bucket.into();
+        }) {
         Ok(ds) => {
             if !domains.is_null() {
                 unsafe { *domains = ds };

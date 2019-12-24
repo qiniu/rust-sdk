@@ -5,6 +5,7 @@ mod etag;
 mod region;
 mod result;
 mod storage;
+mod string;
 mod upload;
 mod upload_token;
 mod utils;

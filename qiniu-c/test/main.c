@@ -13,8 +13,9 @@ void tearDown(void) {
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_qiniu_ng_string);
+    RUN_TEST(test_qiniu_ng_str_list);
     RUN_TEST(test_qiniu_ng_string_list);
-    RUN_TEST(test_qiniu_ng_string_map);
+    RUN_TEST(test_qiniu_ng_str_map);
     RUN_TEST(test_qiniu_ng_etag_from_file_path);
     RUN_TEST(test_qiniu_ng_etag_from_buffer);
     RUN_TEST(test_qiniu_ng_etag_from_large_buffer);

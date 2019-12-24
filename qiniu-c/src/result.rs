@@ -8,7 +8,10 @@ use qiniu_ng::{
     http::{domains_manager::PersistentError, Error as HTTPError, ErrorKind as HTTPErrorKind},
     storage::{manager::DropBucketError, upload_token::UploadTokenParseError, uploader::UploadError},
 };
-use std::{ffi::CStr, io};
+use std::{
+    ffi::CStr,
+    io::{Error as IOError, ErrorKind as IOErrorKind},
+};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -63,27 +66,27 @@ enum QiniuNgIoErrorKind {
     Unknown = -1,
 }
 
-impl From<io::ErrorKind> for QiniuNgIoErrorKind {
-    fn from(error_kind: io::ErrorKind) -> Self {
+impl From<IOErrorKind> for QiniuNgIoErrorKind {
+    fn from(error_kind: IOErrorKind) -> Self {
         match error_kind {
-            io::ErrorKind::NotFound => QiniuNgIoErrorKind::NotFound,
-            io::ErrorKind::PermissionDenied => QiniuNgIoErrorKind::PermissionDenied,
-            io::ErrorKind::ConnectionRefused => QiniuNgIoErrorKind::ConnectionRefused,
-            io::ErrorKind::ConnectionReset => QiniuNgIoErrorKind::ConnectionReset,
-            io::ErrorKind::ConnectionAborted => QiniuNgIoErrorKind::ConnectionAborted,
-            io::ErrorKind::NotConnected => QiniuNgIoErrorKind::NotConnected,
-            io::ErrorKind::AddrInUse => QiniuNgIoErrorKind::AddrInUse,
-            io::ErrorKind::AddrNotAvailable => QiniuNgIoErrorKind::AddrNotAvailable,
-            io::ErrorKind::BrokenPipe => QiniuNgIoErrorKind::BrokenPipe,
-            io::ErrorKind::AlreadyExists => QiniuNgIoErrorKind::AlreadyExists,
-            io::ErrorKind::WouldBlock => QiniuNgIoErrorKind::WouldBlock,
-            io::ErrorKind::InvalidInput => QiniuNgIoErrorKind::InvalidInput,
-            io::ErrorKind::InvalidData => QiniuNgIoErrorKind::InvalidData,
-            io::ErrorKind::TimedOut => QiniuNgIoErrorKind::TimedOut,
-            io::ErrorKind::WriteZero => QiniuNgIoErrorKind::WriteZero,
-            io::ErrorKind::Interrupted => QiniuNgIoErrorKind::Interrupted,
-            io::ErrorKind::Other => QiniuNgIoErrorKind::Other,
-            io::ErrorKind::UnexpectedEof => QiniuNgIoErrorKind::UnexpectedEof,
+            IOErrorKind::NotFound => QiniuNgIoErrorKind::NotFound,
+            IOErrorKind::PermissionDenied => QiniuNgIoErrorKind::PermissionDenied,
+            IOErrorKind::ConnectionRefused => QiniuNgIoErrorKind::ConnectionRefused,
+            IOErrorKind::ConnectionReset => QiniuNgIoErrorKind::ConnectionReset,
+            IOErrorKind::ConnectionAborted => QiniuNgIoErrorKind::ConnectionAborted,
+            IOErrorKind::NotConnected => QiniuNgIoErrorKind::NotConnected,
+            IOErrorKind::AddrInUse => QiniuNgIoErrorKind::AddrInUse,
+            IOErrorKind::AddrNotAvailable => QiniuNgIoErrorKind::AddrNotAvailable,
+            IOErrorKind::BrokenPipe => QiniuNgIoErrorKind::BrokenPipe,
+            IOErrorKind::AlreadyExists => QiniuNgIoErrorKind::AlreadyExists,
+            IOErrorKind::WouldBlock => QiniuNgIoErrorKind::WouldBlock,
+            IOErrorKind::InvalidInput => QiniuNgIoErrorKind::InvalidInput,
+            IOErrorKind::InvalidData => QiniuNgIoErrorKind::InvalidData,
+            IOErrorKind::TimedOut => QiniuNgIoErrorKind::TimedOut,
+            IOErrorKind::WriteZero => QiniuNgIoErrorKind::WriteZero,
+            IOErrorKind::Interrupted => QiniuNgIoErrorKind::Interrupted,
+            IOErrorKind::Other => QiniuNgIoErrorKind::Other,
+            IOErrorKind::UnexpectedEof => QiniuNgIoErrorKind::UnexpectedEof,
             _ => QiniuNgIoErrorKind::Unknown,
         }
     }
@@ -257,8 +260,8 @@ pub extern "C" fn qiniu_ng_err_is_bad_mime(err: *const qiniu_ng_err) -> bool {
     }
 }
 
-impl From<&io::Error> for qiniu_ng_err {
-    fn from(err: &io::Error) -> Self {
+impl From<&IOError> for qiniu_ng_err {
+    fn from(err: &IOError) -> Self {
         qiniu_ng_err(err.raw_os_error().map_or_else(
             || qiniu_ng_err_code::QiniuNgIoError(QiniuNgIoErrorKind::from(err.kind()).to_i32().unwrap()),
             qiniu_ng_err_code::QiniuNgOsError,

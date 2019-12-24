@@ -23,7 +23,7 @@ void test_qiniu_ng_upload_files(void) {
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(upload_manager, "z0-bucket", getenv("access_key"), 5);
 
     const char buf[40];
-    sprintf((char *) buf, "test-257m-%lu", (unsigned long) time(NULL));
+    sprintf((char *) buf, "测试-257m-%lu", (unsigned long) time(NULL));
 
     const char *file_path = create_temp_file(257 * 1024 * 1024);
     char etag[ETAG_SIZE + 1];
@@ -62,7 +62,7 @@ void test_qiniu_ng_upload_files(void) {
     // TODO: Clean uploaded file
     last_print_time = (unsigned long) time(NULL);
 
-    sprintf((char *) buf, "test-257m-%lu", (unsigned long) time(NULL));
+    sprintf((char *) buf, "测试-257m-%lu", (unsigned long) time(NULL));
     FILE *file = fopen(file_path, "r");
     TEST_ASSERT_NOT_NULL(file);
     TEST_ASSERT_TRUE(qiniu_ng_upload_file(bucket_uploader, token, file, &params, &upload_response, &err));

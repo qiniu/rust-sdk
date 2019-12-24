@@ -8,7 +8,7 @@ void test_qiniu_ng_etag_from_file_path(void) {
     char etag[ETAG_SIZE + 1];
     memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
 
-    const char *path = "/tmp/1024k";
+    const char *path = "/tmp/1024字节";
     write_str_to_file(path, "Hello world\n");
     TEST_ASSERT_TRUE(qiniu_ng_etag_from_file_path(path, (char *) &etag, NULL));
     TEST_ASSERT_EQUAL_STRING((const char *) &etag, "FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d");
@@ -19,12 +19,12 @@ void test_qiniu_ng_etag_from_buffer(void) {
     memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
 
     const char *buf = "Hello world\n";
-    qiniu_ng_etag_from_buffer(buf, strlen(buf), (char *) &etag);
+    qiniu_ng_etag_from_buffer((void *) buf, strlen(buf), (char *) &etag);
     TEST_ASSERT_EQUAL_STRING((const char *) &etag, "FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d");
 }
 
 void test_qiniu_ng_etag_from_unexisted_file_path(void) {
-    const char *path = "/not_existed";
+    const char *path = "/不存在的文件";
     qiniu_ng_err err;
     int error_code;
     const char *error_description;
