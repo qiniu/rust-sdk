@@ -1,0 +1,18 @@
+include_version = true
+braces = "SameLine"
+line_length = 120
+tab_width = 4
+language = "C"
+documentation = true
+include_guard = "__QINIU_NG_H"
+cpp_compat = true
+sys_includes = ["curl/curl.h"]
+
+[export]
+item_types = ["globals", "enums", "structs", "unions", "typedefs", "opaque", "functions", "constants"]
+
+[const]
+allow_static_const = true
+
+[defines]
+feature = "use-libcurl"

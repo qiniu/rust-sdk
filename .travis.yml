@@ -6,6 +6,7 @@ cache: cargo
 before_script:
   - sudo apt install -yq libcurl4
 script:
+  - cargo install --force cbindgen
   - make
   - |
     if [ "$TRAVIS_PULL_REQUEST" = "false" ]
