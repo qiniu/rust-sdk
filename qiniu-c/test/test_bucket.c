@@ -33,13 +33,16 @@ void test_qiniu_ng_bucket_get_region(void) {
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, "z0-bucket");
 
     qiniu_ng_region_t region;
+    const char *io_url;
     qiniu_ng_err err;
 
     TEST_ASSERT_TRUE(qiniu_ng_bucket_get_region(bucket, &region, &err));
-    qiniu_ng_string_t rs_url = qiniu_ng_region_get_rs_url(region, false);
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(rs_url), "http://rs.qiniu.com");
+    qiniu_ng_str_list_t io_urls = qiniu_ng_region_get_io_urls(region, false);
+    TEST_ASSERT_EQUAL_INT(qiniu_ng_str_list_len(io_urls), 1);
+    TEST_ASSERT_TRUE(qiniu_ng_str_list_get(io_urls, 0, &io_url));
+    TEST_ASSERT_EQUAL_STRING(io_url, "http://iovip.qbox.me");
 
-    qiniu_ng_string_free(rs_url);
+    qiniu_ng_str_list_free(io_urls);
     qiniu_ng_region_free(region);
     qiniu_ng_bucket_free(bucket);
     qiniu_ng_client_free(client);
@@ -55,22 +58,27 @@ void test_qiniu_ng_bucket_get_regions(void) {
 
     qiniu_ng_regions_t regions;
     qiniu_ng_region_t region;
-    qiniu_ng_string_t rs_url;
+    qiniu_ng_str_list_t io_urls;
+    const char *io_url;
     qiniu_ng_err err;
 
     TEST_ASSERT_TRUE(qiniu_ng_bucket_get_regions(bucket, &regions, &err));
     TEST_ASSERT_EQUAL_INT(qiniu_ng_regions_len(regions), 2);
 
     TEST_ASSERT_TRUE(qiniu_ng_regions_get(regions, 0, &region));
-    rs_url = qiniu_ng_region_get_rs_url(region, false);
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(rs_url), "http://rs.qiniu.com");
-    qiniu_ng_string_free(rs_url);
+    io_urls = qiniu_ng_region_get_io_urls(region, true);
+    TEST_ASSERT_EQUAL_INT(qiniu_ng_str_list_len(io_urls), 1);
+    TEST_ASSERT_TRUE(qiniu_ng_str_list_get(io_urls, 0, &io_url));
+    TEST_ASSERT_EQUAL_STRING(io_url, "https://iovip.qbox.me");
+    qiniu_ng_str_list_free(io_urls);
     qiniu_ng_region_free(region);
 
     TEST_ASSERT_TRUE(qiniu_ng_regions_get(regions, 1, &region));
-    rs_url = qiniu_ng_region_get_rs_url(region, false);
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(rs_url), "http://rs-z1.qiniu.com");
-    qiniu_ng_string_free(rs_url);
+    io_urls = qiniu_ng_region_get_io_urls(region, true);
+    TEST_ASSERT_EQUAL_INT(qiniu_ng_str_list_len(io_urls), 1);
+    TEST_ASSERT_TRUE(qiniu_ng_str_list_get(io_urls, 0, &io_url));
+    TEST_ASSERT_EQUAL_STRING(io_url, "https://iovip-z1.qbox.me");
+    qiniu_ng_str_list_free(io_urls);
     qiniu_ng_region_free(region);
 
     qiniu_ng_regions_free(regions);

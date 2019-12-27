@@ -1,8 +1,4 @@
-use crate::{
-    config::qiniu_ng_config_t,
-    result::qiniu_ng_err,
-    utils::{qiniu_ng_string_list_t, qiniu_ng_string_t},
-};
+use crate::{config::qiniu_ng_config_t, result::qiniu_ng_err, utils::qiniu_ng_str_list_t};
 use libc::{c_char, c_void, size_t};
 use qiniu_ng::storage::region::{Region, RegionId};
 use std::{borrow::Cow, ffi::CStr, mem::transmute};
@@ -112,57 +108,43 @@ pub extern "C" fn qiniu_ng_region_get_region_by_id(region_id: qiniu_ng_region_id
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_region_get_up_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_list_t {
-    let region: Box<Cow<'static, Region>> = region.into();
-    unsafe { qiniu_ng_string_list_t::from_str_slice_unchecked(&region.up_urls(use_https)) }.tap(|_| {
-        let _: qiniu_ng_region_t = region.into();
+pub extern "C" fn qiniu_ng_region_get_up_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_str_list_t {
+    let region = Box::<Cow<'static, Region>>::from(region);
+    unsafe { qiniu_ng_str_list_t::from_str_slice_unchecked(&region.up_urls_ref(use_https)) }.tap(|_| {
+        let _ = qiniu_ng_region_t::from(region);
     })
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_region_get_io_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_list_t {
-    let region: Box<Cow<'static, Region>> = region.into();
-    unsafe { qiniu_ng_string_list_t::from_str_slice_unchecked(&region.io_urls(use_https)) }.tap(|_| {
-        let _: qiniu_ng_region_t = region.into();
+pub extern "C" fn qiniu_ng_region_get_io_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_str_list_t {
+    let region = Box::<Cow<'static, Region>>::from(region);
+    unsafe { qiniu_ng_str_list_t::from_str_slice_unchecked(&region.io_urls_ref(use_https)) }.tap(|_| {
+        let _ = qiniu_ng_region_t::from(region);
     })
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_region_get_rs_url(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_t {
-    let region: Box<Cow<'static, Region>> = region.into();
-    unsafe { qiniu_ng_string_t::from_str_unchecked(region.rs_url(use_https)) }.tap(|_| {
-        let _: qiniu_ng_region_t = region.into();
+pub extern "C" fn qiniu_ng_region_get_rs_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_str_list_t {
+    let region = Box::<Cow<'static, Region>>::from(region);
+    unsafe { qiniu_ng_str_list_t::from_str_slice_unchecked(&region.rs_urls_ref(use_https)) }.tap(|_| {
+        let _ = qiniu_ng_region_t::from(region);
     })
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_region_get_rsf_url(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_t {
-    let region: Box<Cow<'static, Region>> = region.into();
-    unsafe { qiniu_ng_string_t::from_str_unchecked(region.rsf_url(use_https)) }.tap(|_| {
-        let _: qiniu_ng_region_t = region.into();
+pub extern "C" fn qiniu_ng_region_get_rsf_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_str_list_t {
+    let region = Box::<Cow<'static, Region>>::from(region);
+    unsafe { qiniu_ng_str_list_t::from_str_slice_unchecked(&region.rsf_urls_ref(use_https)) }.tap(|_| {
+        let _ = qiniu_ng_region_t::from(region);
     })
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_region_get_api_url(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_string_t {
-    let region: Box<Cow<'static, Region>> = region.into();
-    unsafe { qiniu_ng_string_t::from_str_unchecked(region.api_url(use_https)) }.tap(|_| {
-        let _: qiniu_ng_region_t = region.into();
+pub extern "C" fn qiniu_ng_region_get_api_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_str_list_t {
+    let region = Box::<Cow<'static, Region>>::from(region);
+    unsafe { qiniu_ng_str_list_t::from_str_slice_unchecked(&region.api_urls_ref(use_https)) }.tap(|_| {
+        let _ = qiniu_ng_region_t::from(region);
     })
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_get_uc_url(use_https: bool) -> *const c_char {
-    if use_https {
-        unsafe { CStr::from_bytes_with_nul_unchecked(b"https://uc.qbox.me\0") }.as_ptr()
-    } else {
-        unsafe { CStr::from_bytes_with_nul_unchecked(b"http://uc.qbox.me\0") }.as_ptr()
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_get_uplog_url() -> *const c_char {
-    unsafe { CStr::from_bytes_with_nul_unchecked(b"https://uplog.qbox.me\0") }.as_ptr()
 }
 
 #[no_mangle]

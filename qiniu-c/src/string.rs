@@ -77,20 +77,6 @@ mod unix {
             CString::from_vec_unchecked(slice.into()).into()
         }
 
-        pub unsafe fn from_ptr_with_len(ptr: *const qiniu_ng_char_t, len: usize) -> Result<Self, NulError> {
-            let mut vec: Vec<u8> = Vec::with_capacity(len + 1);
-            vec.set_len(len);
-            copy_nonoverlapping(ptr.cast(), vec.as_mut_ptr(), len);
-            Self::new(vec)
-        }
-
-        pub unsafe fn from_ptr_with_len_unchecked(ptr: *const qiniu_ng_char_t, len: usize) -> Self {
-            let mut vec: Vec<u8> = Vec::with_capacity(len + 1);
-            vec.set_len(len);
-            copy_nonoverlapping(ptr.cast(), vec.as_mut_ptr(), len);
-            Self::from_vec_unchecked(vec)
-        }
-
         #[inline]
         pub fn from_str(s: impl AsRef<str>) -> Result<Self, NulError> {
             Self::new(s.as_ref())
@@ -432,16 +418,6 @@ mod windows {
 
         pub unsafe fn from_vec_unchecked(slice: impl Into<Vec<WideChar>>) -> Self {
             WideCString::from_vec_unchecked(slice.into()).into()
-        }
-
-        pub unsafe fn from_ptr_with_len(ptr: *const qiniu_ng_char_t, len: usize) -> Result<Self, NulError> {
-            WideCString::from_ptr(ptr.cast(), len)
-                .map(|s| s.into())
-                .map_err(|e| e.into())
-        }
-
-        pub unsafe fn from_ptr_with_len_unchecked(ptr: *const qiniu_ng_char_t, len: usize) -> Self {
-            WideCString::from_ptr_unchecked(ptr.cast(), len).into()
         }
 
         pub fn from_str(s: impl AsRef<str>) -> Result<Self, NulError> {

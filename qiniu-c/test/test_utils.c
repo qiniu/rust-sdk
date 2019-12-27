@@ -9,11 +9,6 @@ void test_qiniu_ng_string(void) {
     TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(qiniu_str), str);
     TEST_ASSERT_EQUAL_INT(qiniu_ng_string_get_len(qiniu_str), strlen(str));
     qiniu_ng_string_free(qiniu_str);
-
-    qiniu_str = qiniu_ng_string_new_with_len(str, 5);
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(qiniu_str), "hello");
-    TEST_ASSERT_EQUAL_INT(qiniu_ng_string_get_len(qiniu_str), 5);
-    qiniu_ng_string_free(qiniu_str);
 }
 
 void test_qiniu_ng_str_list(void) {

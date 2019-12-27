@@ -12,23 +12,23 @@ void test_qiniu_ng_config_new(void) {
     qiniu_ng_err err;
     TEST_ASSERT_TRUE(qiniu_ng_config_build(qiniu_ng_config_builder_new(), &config, &err));
 
-    TEST_ASSERT_FALSE(qiniu_ng_config_get_use_https(config));
+    TEST_ASSERT_TRUE(qiniu_ng_config_get_use_https(config));
     TEST_ASSERT_EQUAL_INT(qiniu_ng_config_get_batch_max_operation_size(config), 1000);
     TEST_ASSERT_EQUAL_INT(qiniu_ng_config_get_upload_threshold(config), 1 << 22);
 
-    qiniu_ng_string_t rs_url = qiniu_ng_config_get_rs_url(config);
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(rs_url), "http://rs.qiniu.com");
-    qiniu_ng_string_free(rs_url);
+    qiniu_ng_str_t rs_url = qiniu_ng_config_get_rs_url(config);
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_get_ptr(rs_url), "https://rs.qbox.me");
+    qiniu_ng_str_free(rs_url);
 
-    qiniu_ng_string_t uc_url = qiniu_ng_config_get_uc_url(config);
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(uc_url), "http://uc.qbox.me");
-    qiniu_ng_string_free(uc_url);
+    qiniu_ng_str_t uc_url = qiniu_ng_config_get_uc_url(config);
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_get_ptr(uc_url), "https://uc.qbox.me");
+    qiniu_ng_str_free(uc_url);
+
+    qiniu_ng_str_t uplog_url = qiniu_ng_config_get_uplog_url(config);
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_get_ptr(uplog_url), "https://uplog.qbox.me");
+    qiniu_ng_str_free(uplog_url);
 
     TEST_ASSERT_TRUE(qiniu_ng_config_is_uplog_enabled(config));
-    qiniu_ng_optional_string_t uplog_server_url = qiniu_ng_config_get_uplog_server_url(config);
-    TEST_ASSERT_FALSE(qiniu_ng_optional_string_is_null(uplog_server_url));
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_optional_string_get_ptr(uplog_server_url), "https://uplog.qbox.me");
-    qiniu_ng_optional_string_free(uplog_server_url);
 
     unsigned int upload_threshold;
     TEST_ASSERT_TRUE(qiniu_ng_config_get_uplog_file_upload_threshold(config, &upload_threshold));
@@ -46,7 +46,7 @@ void test_qiniu_ng_config_new(void) {
 void test_qiniu_ng_config_new2(void) {
     qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
 
-    qiniu_ng_config_builder_use_https(builder, true);
+    qiniu_ng_config_builder_use_https(builder, false);
     qiniu_ng_config_builder_batch_max_operation_size(builder, 10000);
     qiniu_ng_config_builder_upload_threshold(builder, 1 << 23);
     qiniu_ng_config_builder_uc_host(builder, "uc.qiniu.com");
@@ -62,22 +62,23 @@ void test_qiniu_ng_config_new2(void) {
     qiniu_ng_err err;
     TEST_ASSERT_TRUE(qiniu_ng_config_build(builder, &config, &err));
 
-    TEST_ASSERT_TRUE(qiniu_ng_config_get_use_https(config));
+    TEST_ASSERT_FALSE(qiniu_ng_config_get_use_https(config));
     TEST_ASSERT_EQUAL_INT(qiniu_ng_config_get_batch_max_operation_size(config), 10000);
     TEST_ASSERT_EQUAL_INT(qiniu_ng_config_get_upload_threshold(config), 1 << 23);
 
-    qiniu_ng_string_t rs_url = qiniu_ng_config_get_rs_url(config);
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(rs_url), "https://rs.qiniu.com");
-    qiniu_ng_string_free(rs_url);
+    qiniu_ng_str_t rs_url = qiniu_ng_config_get_rs_url(config);
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_get_ptr(rs_url), "http://rs.qbox.me");
+    qiniu_ng_str_free(rs_url);
 
-    qiniu_ng_string_t uc_url = qiniu_ng_config_get_uc_url(config);
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(uc_url), "https://uc.qiniu.com");
-    qiniu_ng_string_free(uc_url);
+    qiniu_ng_str_t uc_url = qiniu_ng_config_get_uc_url(config);
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_get_ptr(uc_url), "http://uc.qiniu.com");
+    qiniu_ng_str_free(uc_url);
+
+    qiniu_ng_str_t uplog_url = qiniu_ng_config_get_uplog_url(config);
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_get_ptr(uplog_url), "https://uplog.qbox.me");
+    qiniu_ng_str_free(uplog_url);
 
     TEST_ASSERT_FALSE(qiniu_ng_config_is_uplog_enabled(config));
-    qiniu_ng_optional_string_t uplog_server_url = qiniu_ng_config_get_uplog_server_url(config);
-    TEST_ASSERT_TRUE(qiniu_ng_optional_string_is_null(uplog_server_url));
-    qiniu_ng_optional_string_free(uplog_server_url);
 
     qiniu_ng_optional_string_t root_directory = qiniu_ng_config_get_upload_recorder_root_directory(config);
     TEST_ASSERT_FALSE(qiniu_ng_optional_string_is_null(root_directory));

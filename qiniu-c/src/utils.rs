@@ -11,6 +11,72 @@ use tap::TapOps;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
+pub struct qiniu_ng_str_t(*mut c_void, *mut c_void);
+
+impl From<Box<CStr>> for qiniu_ng_str_t {
+    fn from(s: Box<CStr>) -> Self {
+        unsafe { transmute(Box::into_raw(s)) }
+    }
+}
+
+impl From<qiniu_ng_str_t> for Box<CStr> {
+    fn from(s: qiniu_ng_str_t) -> Self {
+        unsafe { Box::from_raw(transmute(s)) }
+    }
+}
+
+impl From<CString> for qiniu_ng_str_t {
+    fn from(s: CString) -> Self {
+        unsafe { transmute(Box::into_raw(s.into_boxed_c_str())) }
+    }
+}
+
+impl From<qiniu_ng_str_t> for CString {
+    fn from(s: qiniu_ng_str_t) -> Self {
+        Box::<CStr>::from(s).into()
+    }
+}
+
+impl qiniu_ng_str_t {
+    pub(crate) unsafe fn from_str_unchecked(s: &str) -> Self {
+        CString::from_vec_unchecked(s.to_owned().into_bytes())
+            .into_boxed_c_str()
+            .into()
+    }
+
+    pub(crate) unsafe fn from_string_unchecked(s: String) -> Self {
+        CString::from_vec_unchecked(s.into_bytes()).into_boxed_c_str().into()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_str_new(ptr: *const c_char) -> qiniu_ng_str_t {
+    unsafe { CStr::from_ptr(ptr) }.to_owned().into_boxed_c_str().into()
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_str_get_ptr(s: qiniu_ng_str_t) -> *const c_char {
+    let s = Box::<CStr>::from(s);
+    s.as_ptr().tap(|_| {
+        let _ = qiniu_ng_str_t::from(s);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_str_get_len(s: qiniu_ng_str_t) -> usize {
+    let s = Box::<CStr>::from(s);
+    s.to_bytes().len().tap(|_| {
+        let _ = qiniu_ng_str_t::from(s);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_str_free(s: qiniu_ng_str_t) {
+    let _ = Box::<CStr>::from(s);
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
 pub struct qiniu_ng_string_t(*mut c_void, *mut c_void);
 
 impl From<Box<ucstr>> for qiniu_ng_string_t {
@@ -54,13 +120,6 @@ pub extern "C" fn qiniu_ng_string_new(ptr: *const qiniu_ng_char_t) -> qiniu_ng_s
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_string_new_with_len(ptr: *const qiniu_ng_char_t, len: usize) -> qiniu_ng_string_t {
-    unsafe { UCString::from_ptr_with_len_unchecked(ptr, len) }
-        .into_boxed_ucstr()
-        .into()
-}
-
-#[no_mangle]
 pub extern "C" fn qiniu_ng_string_get_ptr(s: qiniu_ng_string_t) -> *const qiniu_ng_char_t {
     let s: Box<ucstr> = s.into();
     s.as_ptr().tap(|_| {
@@ -79,6 +138,125 @@ pub extern "C" fn qiniu_ng_string_get_len(s: qiniu_ng_string_t) -> usize {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_string_free(s: qiniu_ng_string_t) {
     let _: Box<ucstr> = s.into();
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct qiniu_ng_optional_str_t(*mut c_void, *mut c_void);
+
+impl qiniu_ng_optional_str_t {
+    pub(crate) unsafe fn from_str_unchecked(s: Option<&str>) -> Self {
+        s.map(|s| {
+            CString::from_vec_unchecked(s.to_owned().into_bytes())
+                .into_boxed_c_str()
+                .into()
+        })
+        .unwrap_or_default()
+    }
+
+    pub(crate) unsafe fn from_string_unchecked(s: Option<String>) -> Self {
+        s.map(|s| CString::from_vec_unchecked(s.into_bytes()).into_boxed_c_str().into())
+            .unwrap_or_default()
+    }
+
+    #[inline]
+    fn is_null(self) -> bool {
+        self.0.is_null() && self.1.is_null()
+    }
+}
+
+impl Default for qiniu_ng_optional_str_t {
+    #[inline]
+    fn default() -> Self {
+        qiniu_ng_optional_str_t(null_mut(), null_mut())
+    }
+}
+
+impl From<Option<Box<CStr>>> for qiniu_ng_optional_str_t {
+    fn from(s: Option<Box<CStr>>) -> Self {
+        s.map(|s| unsafe { transmute(Box::into_raw(s)) }).unwrap_or_default()
+    }
+}
+
+impl From<Option<CString>> for qiniu_ng_optional_str_t {
+    fn from(s: Option<CString>) -> Self {
+        s.map(|s| unsafe { transmute(Box::into_raw(s.into_boxed_c_str())) })
+            .unwrap_or_default()
+    }
+}
+
+impl From<Box<CStr>> for qiniu_ng_optional_str_t {
+    #[inline]
+    fn from(s: Box<CStr>) -> Self {
+        Some(s).into()
+    }
+}
+
+impl From<CString> for qiniu_ng_optional_str_t {
+    #[inline]
+    fn from(s: CString) -> Self {
+        Some(s).into()
+    }
+}
+
+impl From<qiniu_ng_optional_str_t> for Option<Box<CStr>> {
+    fn from(s: qiniu_ng_optional_str_t) -> Self {
+        if s.is_null() {
+            None
+        } else {
+            Some(unsafe { Box::from_raw(transmute(s)) })
+        }
+    }
+}
+
+impl From<qiniu_ng_optional_str_t> for Option<CString> {
+    fn from(s: qiniu_ng_optional_str_t) -> Self {
+        Option::<Box<CStr>>::from(s).map(|s| s.into())
+    }
+}
+
+impl From<qiniu_ng_str_t> for qiniu_ng_optional_str_t {
+    fn from(s: qiniu_ng_str_t) -> Self {
+        Some(Box::<CStr>::from(s)).into()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_str_null() -> qiniu_ng_optional_str_t {
+    Default::default()
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_str_is_null(s: qiniu_ng_optional_str_t) -> bool {
+    s.is_null()
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_str_new(ptr: *const qiniu_ng_char_t) -> qiniu_ng_optional_str_t {
+    unsafe { ptr.as_ref() }
+        .map(|ptr| unsafe { CStr::from_ptr(ptr) }.to_owned().into_boxed_c_str().into())
+        .unwrap_or_default()
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_str_get_ptr(s: qiniu_ng_optional_str_t) -> *const qiniu_ng_char_t {
+    let s = Option::<Box<CStr>>::from(s);
+    s.as_ref().map(|s| s.as_ptr()).unwrap_or_else(null).tap(|_| {
+        let _ = qiniu_ng_optional_str_t::from(s);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_str_get_len(s: qiniu_ng_optional_str_t) -> usize {
+    let s = Option::<Box<CStr>>::from(s);
+    s.as_ref().map(|s| s.to_bytes().len()).unwrap_or(0).tap(|_| {
+        let _ = qiniu_ng_optional_str_t::from(s);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_optional_str_free(s: qiniu_ng_optional_str_t) {
+    let _ = Option::<Box<CStr>>::from(s);
 }
 
 #[repr(C)]
@@ -174,20 +352,6 @@ pub extern "C" fn qiniu_ng_optional_string_new(ptr: *const qiniu_ng_char_t) -> q
     unsafe { ptr.as_ref() }
         .map(|ptr| unsafe { UCString::from_ptr(ptr) }.into_boxed_ucstr().into())
         .unwrap_or_default()
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_optional_string_new_with_len(
-    ptr: *const qiniu_ng_char_t,
-    len: usize,
-) -> qiniu_ng_optional_string_t {
-    if ptr.is_null() {
-        Default::default()
-    } else {
-        unsafe { UCString::from_ptr_with_len_unchecked(ptr, len) }
-            .into_boxed_ucstr()
-            .into()
-    }
 }
 
 #[no_mangle]

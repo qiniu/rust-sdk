@@ -1,4 +1,4 @@
-use crate::{storage::region::Region, utils::global_thread_pool};
+use crate::{config::Config, storage::region::Region, utils::global_thread_pool};
 use assert_impl::assert_impl;
 use chashmap::CHashMap;
 use dirs::cache_dir;
@@ -8,6 +8,7 @@ use std::{
     borrow::Cow,
     boxed::Box,
     cell::RefCell,
+    collections::HashSet,
     env::temp_dir,
     fs::{create_dir_all, File, OpenOptions},
     io::Error as IOError,
@@ -202,7 +203,7 @@ impl From<DomainsManagerInnerData> for PersistentDomainsManager {
 
 pub struct DomainsManagerBuilder {
     inner_data: DomainsManagerInnerData,
-    pre_resolution_urls: Vec<Cow<'static, str>>,
+    pre_resolution_urls: HashSet<Cow<'static, str>>,
     is_pre_resolution_async: bool,
     persistent_file_path: Option<PathBuf>,
 }
@@ -254,7 +255,7 @@ impl DomainsManagerBuilder {
     }
 
     pub fn pre_resolve_url<U: Into<Cow<'static, str>>>(mut self, pre_resolve_url: U) -> Self {
-        self.pre_resolution_urls.push(pre_resolve_url.into());
+        self.pre_resolution_urls.insert(pre_resolve_url.into());
         self
     }
 
@@ -291,46 +292,40 @@ impl DomainsManagerBuilder {
         domains_manager
     }
 
-    fn default_pre_resolve_urls() -> Vec<Cow<'static, str>> {
-        let mut urls = Vec::<Cow<'static, str>>::with_capacity(100);
+    fn default_pre_resolve_urls() -> HashSet<Cow<'static, str>> {
+        let mut urls = HashSet::with_capacity(100);
         Region::all().iter().for_each(|region| {
-            urls.extend_from_slice(
-                &region
-                    .up_urls(false)
-                    .into_iter()
-                    .map(|url| Cow::Borrowed(url))
-                    .collect::<Vec<_>>(),
-            );
-            urls.extend_from_slice(
-                &region
-                    .up_urls(true)
-                    .into_iter()
-                    .map(|url| Cow::Borrowed(url))
-                    .collect::<Vec<_>>(),
-            );
-            urls.extend_from_slice(
-                &region
-                    .io_urls(false)
-                    .into_iter()
-                    .map(|url| Cow::Borrowed(url))
-                    .collect::<Vec<_>>(),
-            );
-            urls.extend_from_slice(
-                &region
-                    .io_urls(true)
-                    .into_iter()
-                    .map(|url| Cow::Borrowed(url))
-                    .collect::<Vec<_>>(),
-            );
-            urls.push(region.rs_url(false).into());
-            urls.push(region.rs_url(true).into());
-            urls.push(region.rsf_url(false).into());
-            urls.push(region.rsf_url(true).into());
-            urls.push(region.api_url(false).into());
-            urls.push(region.api_url(true).into());
+            region.up_urls_ref(false).into_iter().for_each(|url| {
+                urls.insert(Cow::Borrowed(url));
+            });
+            region.up_urls_ref(true).into_iter().for_each(|url| {
+                urls.insert(Cow::Borrowed(url));
+            });
+            region.io_urls_ref(false).into_iter().for_each(|url| {
+                urls.insert(Cow::Borrowed(url));
+            });
+            region.io_urls_ref(true).into_iter().for_each(|url| {
+                urls.insert(Cow::Borrowed(url));
+            });
+            region.rs_urls_ref(false).into_iter().for_each(|url| {
+                urls.insert(Cow::Borrowed(url));
+            });
+            region.rs_urls_ref(true).into_iter().for_each(|url| {
+                urls.insert(Cow::Borrowed(url));
+            });
+            region.rsf_urls_ref(false).into_iter().for_each(|url| {
+                urls.insert(Cow::Borrowed(url));
+            });
+            region.rsf_urls_ref(true).into_iter().for_each(|url| {
+                urls.insert(Cow::Borrowed(url));
+            });
+            region.api_urls_ref(false).into_iter().for_each(|url| {
+                urls.insert(Cow::Borrowed(url));
+            });
+            region.api_urls_ref(true).into_iter().for_each(|url| {
+                urls.insert(Cow::Borrowed(url));
+            });
         });
-        urls.push(Region::uc_url(false).into());
-        urls.push(Region::uc_url(true).into());
         urls
     }
 
@@ -340,7 +335,7 @@ impl DomainsManagerBuilder {
         Ok(DomainsManagerBuilder {
             inner_data,
             persistent_file_path: Some(persistent_file_path),
-            pre_resolution_urls: Vec::new(),
+            pre_resolution_urls: Default::default(),
             is_pre_resolution_async: false,
         })
     }
@@ -371,7 +366,7 @@ impl Default for DomainsManagerBuilder {
             .map(|inner_data| DomainsManagerBuilder {
                 inner_data,
                 persistent_file_path: Some(persistent_file_path.to_owned()),
-                pre_resolution_urls: Vec::new(),
+                pre_resolution_urls: Default::default(),
                 is_pre_resolution_async: false,
             })
             .unwrap_or_else(|_| DomainsManagerBuilder {
@@ -582,7 +577,52 @@ impl DomainsManager {
         }
     }
 
-    fn async_resolve_urls(&self, urls: Vec<Cow<'static, str>>) {
+    pub fn async_resolve_config(&self, config: &Config) {
+        let mut urls = HashSet::with_capacity(6);
+        urls.insert(Cow::Owned(config.uc_url()));
+        urls.insert(Cow::Owned(config.rs_url()));
+        urls.insert(Cow::Owned(config.rsf_url()));
+        urls.insert(Cow::Owned(config.api_url()));
+        urls.insert(config.uplog_url().to_owned());
+        self.async_resolve_urls(urls)
+    }
+
+    pub fn async_resolve_region(&self, region: &Region) {
+        let mut urls = HashSet::with_capacity(100);
+        region.up_urls_owned(false).into_iter().for_each(|url| {
+            urls.insert(url);
+        });
+        region.up_urls_owned(true).into_iter().for_each(|url| {
+            urls.insert(url);
+        });
+        region.io_urls_owned(false).into_iter().for_each(|url| {
+            urls.insert(url);
+        });
+        region.io_urls_owned(true).into_iter().for_each(|url| {
+            urls.insert(url);
+        });
+        region.rs_urls_owned(false).into_iter().for_each(|url| {
+            urls.insert(url);
+        });
+        region.rs_urls_owned(true).into_iter().for_each(|url| {
+            urls.insert(url);
+        });
+        region.rsf_urls_owned(false).into_iter().for_each(|url| {
+            urls.insert(url);
+        });
+        region.rsf_urls_owned(true).into_iter().for_each(|url| {
+            urls.insert(url);
+        });
+        region.api_urls_owned(false).into_iter().for_each(|url| {
+            urls.insert(url);
+        });
+        region.api_urls_owned(true).into_iter().for_each(|url| {
+            urls.insert(url);
+        });
+        self.async_resolve_urls(urls)
+    }
+
+    fn async_resolve_urls(&self, urls: HashSet<Cow<'static, str>>) {
         let domains_manager = self.clone();
         global_thread_pool.read().unwrap().spawn(move || {
             domains_manager.sync_resolve_urls(urls);
@@ -604,10 +644,10 @@ impl DomainsManager {
             return;
         }
         let now = SystemTime::now();
-        let to_fresh_urls = RefCell::new(Vec::new());
+        let to_fresh_urls = RefCell::new(HashSet::new());
         self.inner.inner_data.resolutions.retain(|url, resolution| {
             if resolution.cache_deadline <= now {
-                to_fresh_urls.borrow_mut().push(Cow::Owned(url.to_string()));
+                to_fresh_urls.borrow_mut().insert(Cow::Owned(url.to_string()));
                 false
             } else {
                 true
@@ -619,7 +659,7 @@ impl DomainsManager {
         }
     }
 
-    fn sync_resolve_urls(&self, mut urls: Vec<Cow<'static, str>>) {
+    fn sync_resolve_urls(&self, mut urls: HashSet<Cow<'static, str>>) {
         let mut rng = thread_rng();
         for _ in 0..self.inner.inner_data.url_resolve_retries {
             urls = urls

@@ -154,10 +154,13 @@ impl<'r> Bucket<'r> {
         self.upload_manager.for_bucket(self)
     }
 
-    fn rs_url(&self) -> Cow<'static, str> {
-        self.region()
-            .map(|region| region.rs_url(self.upload_manager.config().use_https()).into())
-            .unwrap_or_else(|_| self.upload_manager.config().rs_url().into())
+    fn rs_urls(&self) -> Vec<Cow<'static, str>> {
+        let mut rs_urls = self
+            .region()
+            .map(|region| region.rs_urls_owned(self.upload_manager.config().use_https()))
+            .unwrap_or_else(|_| Vec::new());
+        rs_urls.push(Cow::Owned(self.upload_manager.config().rs_url()));
+        rs_urls
     }
 
     #[allow(dead_code)]
@@ -300,26 +303,37 @@ mod tests {
         .auto_detect_region()?
         .build();
         assert_eq!(mock.call_called(), 1);
-        assert!(bucket.region()?.up_urls(true).contains(&"https://up-xs.qiniup.com"));
-        assert!(bucket.region()?.up_urls(true).contains(&"https://up-jjh.qiniup.com"));
-        assert!(bucket.region()?.up_urls(true).contains(&"https://upload.qbox.me"));
+
+        let region = bucket.region()?;
+        assert!(region.up_urls_ref(true).contains(&"https://up-xs.qiniup.com"));
+        assert!(region
+            .up_urls_owned(true)
+            .contains(&Cow::Borrowed("https://up-xs.qiniup.com")));
+        assert!(region.up_urls_ref(true).contains(&"https://up-jjh.qiniup.com"));
+        assert!(region
+            .up_urls_owned(true)
+            .contains(&Cow::Borrowed("https://up-jjh.qiniup.com")));
+        assert!(region.up_urls_ref(true).contains(&"https://upload.qbox.me"));
+        assert!(region
+            .up_urls_owned(true)
+            .contains(&Cow::Borrowed("https://upload.qbox.me")));
 
         let regions = bucket.regions()?.collect::<Vec<_>>();
         assert_eq!(regions.len(), 2);
         assert!(regions
             .get(1)
             .unwrap()
-            .up_urls(true)
+            .up_urls_ref(true)
             .contains(&"https://up-xs-z1.qiniup.com"));
         assert!(regions
             .get(1)
             .unwrap()
-            .up_urls(true)
+            .up_urls_ref(true)
             .contains(&"https://up-jjh-z1.qiniup.com"));
         assert!(regions
             .get(1)
             .unwrap()
-            .up_urls(true)
+            .up_urls_ref(true)
             .contains(&"https://upload-z1.qbox.me"));
 
         assert_eq!(mock.call_called(), 1);
@@ -374,7 +388,7 @@ mod tests {
                 assert!(bucket
                     .region()
                     .unwrap()
-                    .up_urls(true)
+                    .up_urls_ref(true)
                     .contains(&"https://up-xs.qiniup.com"));
             }));
         }
@@ -385,7 +399,7 @@ mod tests {
                 assert!(bucket
                     .region()
                     .unwrap()
-                    .up_urls(true)
+                    .up_urls_ref(true)
                     .contains(&"https://up-jjh.qiniup.com"));
             }));
         }
@@ -396,7 +410,7 @@ mod tests {
                 assert!(bucket
                     .region()
                     .unwrap()
-                    .up_urls(true)
+                    .up_urls_ref(true)
                     .contains(&"https://upload.qbox.me"));
             }));
         }
@@ -409,17 +423,17 @@ mod tests {
                 assert!(regions
                     .get(1)
                     .unwrap()
-                    .up_urls(true)
+                    .up_urls_ref(true)
                     .contains(&"https://up-xs-z2.qiniup.com"));
                 assert!(regions
                     .get(1)
                     .unwrap()
-                    .up_urls(true)
+                    .up_urls_ref(true)
                     .contains(&"https://up-jjh-z2.qiniup.com"));
                 assert!(regions
                     .get(1)
                     .unwrap()
-                    .up_urls(true)
+                    .up_urls_ref(true)
                     .contains(&"https://upload-z2.qbox.me"));
             }));
         }

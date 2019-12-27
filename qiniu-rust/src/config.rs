@@ -1,9 +1,6 @@
 use crate::{
     http::DomainsManager,
-    storage::{
-        region::Region,
-        uploader::{UploadLogger, UploadLoggerBuilder, UploadRecorder},
-    },
+    storage::uploader::{UploadLogger, UploadLoggerBuilder, UploadRecorder},
 };
 use assert_impl::assert_impl;
 use derive_builder::Builder;
@@ -39,6 +36,18 @@ pub struct ConfigInner {
     #[get = "pub"]
     #[builder(default = "default::rs_host()")]
     rs_host: Cow<'static, str>,
+
+    #[get = "pub"]
+    #[builder(default = "default::rsf_host()")]
+    rsf_host: Cow<'static, str>,
+
+    #[get = "pub"]
+    #[builder(default = "default::api_host()")]
+    api_host: Cow<'static, str>,
+
+    #[get = "pub"]
+    #[builder(default = "default::uplog_url()")]
+    uplog_url: Cow<'static, str>,
 
     #[get_copy = "pub"]
     #[builder(default = "default::upload_token_lifetime()")]
@@ -86,17 +95,32 @@ mod default {
 
     #[inline]
     pub const fn use_https() -> bool {
-        false
+        true
     }
 
     #[inline]
     pub const fn uc_host() -> Cow<'static, str> {
-        Cow::Borrowed(Region::uc_host())
+        Cow::Borrowed("uc.qbox.me")
     }
 
     #[inline]
     pub const fn rs_host() -> Cow<'static, str> {
-        Cow::Borrowed(Region::rs_host())
+        Cow::Borrowed("rs.qbox.me")
+    }
+
+    #[inline]
+    pub const fn rsf_host() -> Cow<'static, str> {
+        Cow::Borrowed("rsf.qbox.me")
+    }
+
+    #[inline]
+    pub const fn api_host() -> Cow<'static, str> {
+        Cow::Borrowed("api.qiniu.com")
+    }
+
+    #[inline]
+    pub const fn uplog_url() -> Cow<'static, str> {
+        Cow::Borrowed("https://uplog.qbox.me")
     }
 
     #[inline]
@@ -164,6 +188,9 @@ impl fmt::Debug for ConfigInner {
             .field("use_https", &self.use_https)
             .field("uc_host", &self.uc_host)
             .field("rs_host", &self.rs_host)
+            .field("rsf_host", &self.rsf_host)
+            .field("api_host", &self.api_host)
+            .field("uplog_url", &self.uplog_url)
             .field("upload_token_lifetime", &self.upload_token_lifetime)
             .field("batch_max_operation_size", &self.batch_max_operation_size)
             .field("upload_threshold", &self.upload_threshold)
@@ -191,6 +218,22 @@ impl ConfigInner {
             "https://".to_owned() + self.rs_host.as_ref()
         } else {
             "http://".to_owned() + self.rs_host.as_ref()
+        }
+    }
+
+    pub fn rsf_url(&self) -> String {
+        if self.use_https {
+            "https://".to_owned() + self.rsf_host.as_ref()
+        } else {
+            "http://".to_owned() + self.rsf_host.as_ref()
+        }
+    }
+
+    pub fn api_url(&self) -> String {
+        if self.use_https {
+            "https://".to_owned() + self.api_host.as_ref()
+        } else {
+            "http://".to_owned() + self.api_host.as_ref()
         }
     }
 }
@@ -250,7 +293,7 @@ mod tests {
         fn call(&self, _: &Request) -> Result<Response> {
             Ok(ResponseBuilder::default()
                 .status_code(612u16)
-                .stream(Cursor::new(Vec::from("It's HTTP Body".as_bytes())))
+                .stream(Cursor::new(Vec::from(b"It's HTTP Body".as_ref())))
                 .build())
         }
     }

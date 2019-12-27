@@ -55,10 +55,10 @@ impl UploadManager {
     ) -> Box<[Box<[Box<str>]>]> {
         iter.map(|region| {
             region
-                .up_urls(use_https)
+                .up_urls_owned(use_https)
                 .into_iter()
-                .map(|url| url.into())
-                .collect::<Box<[Box<str>]>>()
+                .map(|url| url.into_owned().into_boxed_str())
+                .collect::<Box<[_]>>()
         })
         .collect()
     }
@@ -68,10 +68,10 @@ impl UploadManager {
             .iter()
             .map(|region| {
                 region
-                    .up_urls(use_https)
+                    .up_urls_owned(use_https)
                     .into_iter()
-                    .map(|url| url.into())
-                    .collect::<Box<[Box<str>]>>()
+                    .map(|url| url.into_owned().into_boxed_str())
+                    .collect::<Box<[_]>>()
             })
             .collect()
     }

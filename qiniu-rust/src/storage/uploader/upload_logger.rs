@@ -1,6 +1,5 @@
 use crate::{
     http::{Client, Response},
-    storage::region::Region,
     utils::global_thread_pool,
 };
 use assert_impl::assert_impl;
@@ -81,9 +80,6 @@ impl LockPolicy {
     build_fn(name = "inner_build", private)
 )]
 struct UploadLoggerValue {
-    #[builder(default = "default::server_url()")]
-    server_url: Cow<'static, str>,
-
     #[builder(default = "default::log_file_path()")]
     log_file_path: Cow<'static, Path>,
 
@@ -124,10 +120,6 @@ impl UploadLogger {
             upload_token,
             dropped: false,
         }
-    }
-
-    pub fn server_url(&self) -> &str {
-        self.inner.value.server_url.as_ref()
     }
 
     pub fn log_file_path(&self) -> &Path {
@@ -178,11 +170,6 @@ impl UploadLoggerBuilder {
 mod default {
     use super::*;
 
-    #[inline]
-    pub const fn server_url() -> Cow<'static, str> {
-        Cow::Borrowed(Region::uplog_url())
-    }
-
     pub fn log_file_path() -> Cow<'static, Path> {
         let mut default_path = cache_dir().unwrap_or_else(temp_dir);
         default_path.push("qiniu_sdk");
@@ -212,7 +199,6 @@ mod default {
 impl fmt::Debug for UploadLogger {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("UploadLogger")
-            .field("server_url", &self.inner.value.server_url)
             .field("upload_threshold", &self.inner.value.upload_threshold)
             .field("max_size", &self.inner.value.max_size)
             .finish()
@@ -385,7 +371,7 @@ impl TokenizedUploadLogger {
     fn upload_log_buffer(&self, log_buffer: &[u8]) -> HTTPResult<()> {
         if !log_buffer.is_empty() {
             self.http_client
-                .post("/log/3", &[self.upload_logger.inner.value.server_url.as_ref()])
+                .post("/log/3", &[self.http_client.config().uplog_url().as_ref()])
                 .header("Authorization", "UpToken ".to_owned() + &self.upload_token)
                 .raw_body("text/plain", log_buffer)
                 .send()?
