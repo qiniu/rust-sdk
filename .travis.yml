@@ -1,15 +1,28 @@
 language: rust
-dist: bionic
 rust:
   - 1.38.0
 cache: cargo
-before_script:
-  - sudo apt install -yq libcurl4
-script:
-  - cargo install --force cbindgen
-  - make
-  - |
-    if [ "$TRAVIS_PULL_REQUEST" = "false" ]
-    then
-      make test
-    fi
+matrix:
+  include:
+    - os: linux
+      dist: bionic
+      before_script:
+        - sudo apt install -yq libcurl4
+        - cargo install --force cbindgen
+      script:
+        - make
+        - |
+            if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
+              make test
+            fi
+    - os: windows
+      before_script:
+        - choco install make curl
+        - cargo install --force cbindgen
+        - export PATH="$(powershell -Command '("Process", "Machine" | % { [Environment]::GetEnvironmentVariable("PATH", $_) -Split ";" -Replace "\\$", "" } | Select -Unique | % { cygpath $_ }) -Join ":"')"
+      script:
+        - |
+            if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
+              cd qiniu-c
+              make -f Makefile.forWindows test
+            fi
