@@ -396,7 +396,7 @@ impl UploadToken {
     fn get_upload_token(&self) -> &CStr {
         self.upload_token.get_or_init(|| {
             let upload_policy_with_params = self.upload_policy_with_params.get().unwrap();
-            let policy: QiniuUploadPolicy = upload_policy_with_params.into();
+            let policy = QiniuUploadPolicy::from(upload_policy_with_params);
             unsafe {
                 CString::from_vec_unchecked(
                     QiniuUploadToken::from_policy(policy, upload_policy_with_params.credential.as_ref().unwrap())
@@ -431,7 +431,7 @@ pub struct qiniu_ng_upload_token_t(*mut c_void);
 
 impl From<qiniu_ng_upload_token_t> for Box<UploadToken> {
     fn from(upload_token: qiniu_ng_upload_token_t) -> Self {
-        unsafe { Box::from_raw(transmute::<_, *mut UploadToken>(upload_token)) }
+        unsafe { Box::from_raw(transmute(upload_token)) }
     }
 }
 
@@ -447,15 +447,14 @@ pub extern "C" fn qiniu_ng_new_upload_token_from_policy(
     access_key: *const c_char,
     secret_key: *const c_char,
 ) -> qiniu_ng_upload_token_t {
-    let upload_policy_with_params = UploadPolicyWithParams {
+    Box::new(UploadToken::from(UploadPolicyWithParams {
         upload_policy: unsafe { policy.as_ref() }.unwrap().into(),
         credential: Some(Credential::new(
             unsafe { CStr::from_ptr(access_key) }.to_str().unwrap().to_owned(),
             unsafe { CStr::from_ptr(secret_key) }.to_str().unwrap().to_owned(),
         )),
-    };
-    let token: UploadToken = upload_policy_with_params.into();
-    Box::new(token).into()
+    }))
+    .into()
 }
 
 #[no_mangle]
@@ -468,14 +467,14 @@ pub extern "C" fn qiniu_ng_new_upload_token_from_token(token: *const c_char) -> 
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_token_free(token: qiniu_ng_upload_token_t) {
-    let _: Box<UploadToken> = token.into();
+    let _ = Box::<UploadToken>::from(token);
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_token_get_token(token: qiniu_ng_upload_token_t) -> *const c_char {
-    let token: Box<UploadToken> = token.into();
+    let token = Box::<UploadToken>::from(token);
     token.get_upload_token().as_ptr().tap(|_| {
-        let _: qiniu_ng_upload_token_t = token.into();
+        let _ = qiniu_ng_upload_token_t::from(token);
     })
 }
 
@@ -485,22 +484,22 @@ pub extern "C" fn qiniu_ng_upload_token_get_policy(
     policy: *mut qiniu_ng_upload_policy_t,
     error: *mut qiniu_ng_err,
 ) -> bool {
-    let token: Box<UploadToken> = token.into();
+    let token = Box::<UploadToken>::from(token);
     match token.get_upload_policy() {
         Ok(upload_policy) => {
-            if !policy.is_null() {
-                unsafe { *policy = upload_policy.into() };
+            if let Some(policy) = unsafe { policy.as_mut() } {
+                *policy = upload_policy.into();
             }
             true
         }
         Err(ref err) => {
-            if !error.is_null() {
-                unsafe { *error = err.into() };
+            if let Some(error) = unsafe { error.as_mut() } {
+                *error = err.into();
             }
             false
         }
     }
     .tap(|_| {
-        let _: qiniu_ng_upload_token_t = token.into();
+        let _ = qiniu_ng_upload_token_t::from(token);
     })
 }

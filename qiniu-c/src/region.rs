@@ -67,7 +67,7 @@ pub struct qiniu_ng_region_t(*mut c_void);
 
 impl From<qiniu_ng_region_t> for Box<Cow<'static, Region>> {
     fn from(region: qiniu_ng_region_t) -> Self {
-        unsafe { Box::from_raw(transmute::<_, *mut Cow<'static, Region>>(region)) }
+        unsafe { Box::from_raw(transmute(region)) }
     }
 }
 
@@ -82,13 +82,13 @@ pub extern "C" fn qiniu_ng_region_get_region_id(
     region: qiniu_ng_region_t,
     region_id: *mut qiniu_ng_region_id_t,
 ) -> bool {
-    let region: Box<Cow<'static, Region>> = region.into();
+    let region = Box::<Cow<'static, Region>>::from(region);
     match region.region_id().tap(|_| {
-        let _: qiniu_ng_region_t = region.into();
+        let _ = qiniu_ng_region_t::from(region);
     }) {
         Some(rid) => {
-            if !region_id.is_null() {
-                unsafe { *region_id = rid.into() };
+            if let Some(region_id) = unsafe { region_id.as_mut() } {
+                *region_id = rid.into();
             }
             true
         }
@@ -161,14 +161,14 @@ pub extern "C" fn qiniu_ng_region_query(
         config.get_clone(),
     ) {
         Ok(r) => {
-            if !regions.is_null() {
-                unsafe { *regions = r.into() };
+            if let Some(regions) = unsafe { regions.as_mut() } {
+                *regions = r.into();
             }
             true
         }
-        Err(err) => {
-            if !error.is_null() {
-                unsafe { *error = (&err).into() };
+        Err(ref err) => {
+            if let Some(error) = unsafe { error.as_mut() } {
+                *error = err.into();
             }
             false
         }
@@ -177,7 +177,7 @@ pub extern "C" fn qiniu_ng_region_query(
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_free(region: qiniu_ng_region_t) {
-    let _: Box<Cow<'static, Region>> = region.into();
+    let _ = Box::<Cow<'static, Region>>::from(region);
 }
 
 #[repr(C)]
@@ -186,7 +186,7 @@ pub struct qiniu_ng_regions_t(*mut c_void, *mut c_void);
 
 impl From<qiniu_ng_regions_t> for Box<[Region]> {
     fn from(regions: qiniu_ng_regions_t) -> Self {
-        unsafe { Box::from_raw(transmute::<_, *mut [Region]>(regions)) }
+        unsafe { Box::from_raw(transmute(regions)) }
     }
 }
 
@@ -198,9 +198,9 @@ impl From<Box<[Region]>> for qiniu_ng_regions_t {
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_regions_len(regions: qiniu_ng_regions_t) -> size_t {
-    let regions: Box<[Region]> = regions.into();
+    let regions = Box::<[Region]>::from(regions);
     regions.len().tap(|_| {
-        let _: qiniu_ng_regions_t = regions.into();
+        let _ = qiniu_ng_regions_t::from(regions);
     })
 }
 
@@ -210,20 +210,19 @@ pub extern "C" fn qiniu_ng_regions_get(
     index: size_t,
     region: *mut qiniu_ng_region_t,
 ) -> bool {
-    let regions: Box<[Region]> = regions.into();
+    let regions = Box::<[Region]>::from(regions);
     let mut got = false;
     if let Some(r) = regions.get(index) {
-        if !region.is_null() {
-            let r: Box<Cow<Region>> = Box::new(Cow::Owned(r.to_owned()));
-            unsafe { *region = r.into() };
+        if let Some(region) = unsafe { region.as_mut() } {
+            *region = Box::<Cow<Region>>::new(Cow::Owned(r.to_owned())).into();
         }
         got = true;
     }
-    let _: qiniu_ng_regions_t = regions.into();
+    let _ = qiniu_ng_regions_t::from(regions);
     got
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_regions_free(regions: qiniu_ng_regions_t) {
-    let _: Box<[Region]> = regions.into();
+    let _ = Box::<[Region]>::from(regions);
 }

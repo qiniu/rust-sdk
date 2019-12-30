@@ -24,9 +24,9 @@ pub extern "C" fn qiniu_ng_etag_from_file_path(
             unsafe { write_string_to_ptr(&etag_string, result_ptr) };
             true
         }
-        Err(err) => {
-            if !error.is_null() {
-                unsafe { *error = (&err).into() };
+        Err(ref err) => {
+            if let Some(error) = unsafe { error.as_mut() } {
+                *error = err.into();
             }
             false
         }
@@ -50,7 +50,7 @@ pub struct qiniu_ng_etag_t(*mut c_void);
 
 impl From<qiniu_ng_etag_t> for Box<etag::Etag> {
     fn from(etag: qiniu_ng_etag_t) -> Self {
-        unsafe { Box::from_raw(transmute::<_, *mut etag::Etag>(etag)) }
+        unsafe { Box::from_raw(transmute(etag)) }
     }
 }
 
@@ -67,27 +67,27 @@ pub extern "C" fn qiniu_ng_etag_new() -> qiniu_ng_etag_t {
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_update(etag: qiniu_ng_etag_t, data: *mut c_void, data_len: size_t) {
-    let mut etag: Box<etag::Etag> = etag.into();
+    let mut etag = Box::<etag::Etag>::from(etag);
     etag.input(unsafe { from_raw_parts(data.cast(), data_len) });
-    let _: qiniu_ng_etag_t = etag.into();
+    let _ = qiniu_ng_etag_t::from(etag);
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_result(etag: qiniu_ng_etag_t, result_ptr: *mut c_void) {
-    let mut etag: Box<etag::Etag> = etag.into();
+    let mut etag = Box::<etag::Etag>::from(etag);
     let result = replace(&mut *etag, etag::new()).fixed_result();
     unsafe { copy_nonoverlapping(result.as_ptr(), result_ptr.cast(), ETAG_SIZE) };
-    let _: qiniu_ng_etag_t = etag.into();
+    let _ = qiniu_ng_etag_t::from(etag);
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_reset(etag: qiniu_ng_etag_t) {
-    let mut etag: Box<etag::Etag> = etag.into();
+    let mut etag = Box::<etag::Etag>::from(etag);
     etag.reset();
-    let _: qiniu_ng_etag_t = etag.into();
+    let _ = qiniu_ng_etag_t::from(etag);
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_free(etag: qiniu_ng_etag_t) {
-    let _: Box<etag::Etag> = etag.into();
+    let _ = Box::<etag::Etag>::from(etag);
 }

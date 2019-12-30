@@ -10,7 +10,7 @@ pub struct qiniu_ng_client_t(*mut c_void);
 
 impl From<qiniu_ng_client_t> for Box<Client> {
     fn from(client: qiniu_ng_client_t) -> Self {
-        unsafe { Box::from_raw(transmute::<_, *mut Client>(client)) }
+        unsafe { Box::from_raw(transmute(client)) }
     }
 }
 
@@ -36,15 +36,15 @@ pub extern "C" fn qiniu_ng_client_new(
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_client_free(client: qiniu_ng_client_t) {
-    let _: Box<Client> = client.into();
+    let _ = Box::<Client>::from(client);
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_client_get_upload_manager(client: qiniu_ng_client_t) -> qiniu_ng_upload_manager_t {
-    let client: Box<Client> = client.into();
+    let client = Box::<Client>::from(client);
     Box::new(client.upload().to_owned())
         .tap(|_| {
-            let _: qiniu_ng_client_t = client.into();
+            let _ = qiniu_ng_client_t::from(client);
         })
         .into()
 }

@@ -99,8 +99,7 @@ impl From<UCString> for qiniu_ng_string_t {
 
 impl From<qiniu_ng_string_t> for UCString {
     fn from(s: qiniu_ng_string_t) -> Self {
-        let s: Box<ucstr> = s.into();
-        s.into()
+        Box::<ucstr>::from(s).into()
     }
 }
 
@@ -121,23 +120,23 @@ pub extern "C" fn qiniu_ng_string_new(ptr: *const qiniu_ng_char_t) -> qiniu_ng_s
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_string_get_ptr(s: qiniu_ng_string_t) -> *const qiniu_ng_char_t {
-    let s: Box<ucstr> = s.into();
+    let s = Box::<ucstr>::from(s);
     s.as_ptr().tap(|_| {
-        let _: qiniu_ng_string_t = s.into();
+        let _ = qiniu_ng_string_t::from(s);
     })
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_string_get_len(s: qiniu_ng_string_t) -> usize {
-    let s: Box<ucstr> = s.into();
+    let s = Box::<ucstr>::from(s);
     s.len().tap(|_| {
-        let _: qiniu_ng_string_t = s.into();
+        let _ = qiniu_ng_string_t::from(s);
     })
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_string_free(s: qiniu_ng_string_t) {
-    let _: Box<ucstr> = s.into();
+    let _ = Box::<ucstr>::from(s);
 }
 
 #[repr(C)]
@@ -325,15 +324,13 @@ impl From<qiniu_ng_optional_string_t> for Option<Box<ucstr>> {
 
 impl From<qiniu_ng_optional_string_t> for Option<UCString> {
     fn from(s: qiniu_ng_optional_string_t) -> Self {
-        let s: Option<Box<ucstr>> = s.into();
-        s.map(|s| s.into())
+        Option::<Box<ucstr>>::from(s).map(|s| s.into())
     }
 }
 
 impl From<qiniu_ng_string_t> for qiniu_ng_optional_string_t {
     fn from(s: qiniu_ng_string_t) -> Self {
-        let s: Box<ucstr> = s.into();
-        Some(s).into()
+        Box::<ucstr>::from(s).into()
     }
 }
 
@@ -356,23 +353,23 @@ pub extern "C" fn qiniu_ng_optional_string_new(ptr: *const qiniu_ng_char_t) -> q
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_optional_string_get_ptr(s: qiniu_ng_optional_string_t) -> *const qiniu_ng_char_t {
-    let s: Option<Box<ucstr>> = s.into();
+    let s = Option::<Box<ucstr>>::from(s);
     s.as_ref().map(|s| s.as_ptr()).unwrap_or_else(null).tap(|_| {
-        let _: qiniu_ng_optional_string_t = s.into();
+        let _ = qiniu_ng_optional_string_t::from(s);
     })
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_optional_string_get_len(s: qiniu_ng_optional_string_t) -> usize {
-    let s: Option<Box<ucstr>> = s.into();
+    let s = Option::<Box<ucstr>>::from(s);
     s.as_ref().map(|s| s.len()).unwrap_or(0).tap(|_| {
-        let _: qiniu_ng_optional_string_t = s.into();
+        let _ = qiniu_ng_optional_string_t::from(s);
     })
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_optional_string_free(s: qiniu_ng_optional_string_t) {
-    let _: Option<Box<ucstr>> = s.into();
+    let _ = Option::<Box<ucstr>>::from(s);
 }
 
 #[repr(C)]
@@ -418,9 +415,9 @@ pub extern "C" fn qiniu_ng_str_list_new(strlist: *const *const c_char, len: usiz
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_list_len(strlist: qiniu_ng_str_list_t) -> size_t {
-    let strlist: Box<[Box<CStr>]> = strlist.into();
+    let strlist = Box::<[Box<CStr>]>::from(strlist);
     strlist.len().tap(|_| {
-        let _: qiniu_ng_str_list_t = strlist.into();
+        let _ = qiniu_ng_str_list_t::from(strlist);
     })
 }
 
@@ -430,21 +427,21 @@ pub extern "C" fn qiniu_ng_str_list_get(
     index: size_t,
     str_ptr: *mut *const c_char,
 ) -> bool {
-    let strlist: Box<[Box<CStr>]> = strlist.into();
+    let strlist = Box::<[Box<CStr>]>::from(strlist);
     let mut got = false;
     if let Some(s) = strlist.get(index) {
-        if !str_ptr.is_null() {
-            unsafe { *str_ptr = s.as_ptr() };
+        if let Some(str_ptr) = unsafe { str_ptr.as_mut() } {
+            *str_ptr = s.as_ptr();
         }
         got = true;
     }
-    let _: qiniu_ng_str_list_t = strlist.into();
+    let _ = qiniu_ng_str_list_t::from(strlist);
     got
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_list_free(strlist: qiniu_ng_str_list_t) {
-    let _: Box<[Box<CStr>]> = strlist.into();
+    let _ = Box::<[Box<CStr>]>::from(strlist);
 }
 
 #[repr(C)]
@@ -484,7 +481,7 @@ pub extern "C" fn qiniu_ng_string_list_new(
     strlist: *const *const qiniu_ng_char_t,
     len: usize,
 ) -> qiniu_ng_string_list_t {
-    let mut vec: Vec<Box<ucstr>> = Vec::with_capacity(len);
+    let mut vec = Vec::with_capacity(len);
     for i in 0..len {
         vec.push(unsafe { UCString::from_ptr(*strlist.add(i)) }.into_boxed_ucstr());
     }
@@ -493,9 +490,9 @@ pub extern "C" fn qiniu_ng_string_list_new(
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_string_list_len(strlist: qiniu_ng_string_list_t) -> size_t {
-    let strlist: Box<[Box<ucstr>]> = strlist.into();
+    let strlist = Box::<[Box<ucstr>]>::from(strlist);
     strlist.len().tap(|_| {
-        let _: qiniu_ng_string_list_t = strlist.into();
+        let _ = qiniu_ng_string_list_t::from(strlist);
     })
 }
 
@@ -505,21 +502,21 @@ pub extern "C" fn qiniu_ng_string_list_get(
     index: size_t,
     str_ptr: *mut *const qiniu_ng_char_t,
 ) -> bool {
-    let strlist: Box<[Box<ucstr>]> = strlist.into();
+    let strlist = Box::<[Box<ucstr>]>::from(strlist);
     let mut got = false;
     if let Some(s) = strlist.get(index) {
-        if !str_ptr.is_null() {
-            unsafe { *str_ptr = s.as_ptr() };
+        if let Some(str_ptr) = unsafe { str_ptr.as_mut() } {
+            *str_ptr = s.as_ptr();
         }
         got = true;
     }
-    let _: qiniu_ng_string_list_t = strlist.into();
+    let _ = qiniu_ng_string_list_t::from(strlist);
     got
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_string_list_free(strlist: qiniu_ng_string_list_t) {
-    let _: Box<[Box<ucstr>]> = strlist.into();
+    let _ = Box::<[Box<ucstr>]>::from(strlist);
 }
 
 #[repr(C)]
@@ -540,18 +537,17 @@ impl From<qiniu_ng_str_map_t> for Box<HashMap<Box<CStr>, Box<CStr>, RandomState>
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_new(capacity: usize) -> qiniu_ng_str_map_t {
-    let hashmap: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = Box::new(HashMap::with_capacity(capacity));
-    hashmap.into()
+    Box::<HashMap<Box<CStr>, Box<CStr>, RandomState>>::new(HashMap::with_capacity(capacity)).into()
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_set(hashmap: qiniu_ng_str_map_t, key: *const c_char, value: *const c_char) {
-    let mut hashmap: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = hashmap.into();
+    let mut hashmap = Box::<HashMap<Box<CStr>, Box<CStr>, RandomState>>::from(hashmap);
     hashmap.insert(
         unsafe { CStr::from_ptr(key) }.to_owned().into_boxed_c_str(),
         unsafe { CStr::from_ptr(value) }.to_owned().into_boxed_c_str(),
     );
-    let _: qiniu_ng_str_map_t = hashmap.into();
+    let _ = qiniu_ng_str_map_t::from(hashmap);
 }
 
 #[no_mangle]
@@ -560,36 +556,36 @@ pub extern "C" fn qiniu_ng_str_map_each_entry(
     handler: fn(key: *const c_char, value: *const c_char, data: *mut c_void) -> bool,
     data: *mut c_void,
 ) {
-    let hashmap: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = hashmap.into();
+    let hashmap = Box::<HashMap<Box<CStr>, Box<CStr>, RandomState>>::from(hashmap);
     for (key, value) in hashmap.iter() {
         if !handler(key.as_ptr(), value.as_ptr(), data) {
             break;
         }
     }
-    let _: qiniu_ng_str_map_t = hashmap.into();
+    let _ = qiniu_ng_str_map_t::from(hashmap);
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_get(hashmap: qiniu_ng_str_map_t, key: *const c_char) -> *const c_char {
-    let hashmap: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = hashmap.into();
+    let hashmap = Box::<HashMap<Box<CStr>, Box<CStr>, RandomState>>::from(hashmap);
     hashmap
         .get(unsafe { CStr::from_ptr(key) })
         .map(|val| val.as_ptr())
         .unwrap_or_else(null)
         .tap(|_| {
-            let _: qiniu_ng_str_map_t = hashmap.into();
+            let _ = qiniu_ng_str_map_t::from(hashmap);
         })
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_len(hashmap: qiniu_ng_str_map_t) -> usize {
-    let hashmap: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = hashmap.into();
+    let hashmap = Box::<HashMap<Box<CStr>, Box<CStr>, RandomState>>::from(hashmap);
     hashmap.len().tap(|_| {
-        let _: qiniu_ng_str_map_t = hashmap.into();
+        let _ = qiniu_ng_str_map_t::from(hashmap);
     })
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_free(hashmap: qiniu_ng_str_map_t) {
-    let _: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = hashmap.into();
+    let _ = Box::<HashMap<Box<CStr>, Box<CStr>, RandomState>>::from(hashmap);
 }

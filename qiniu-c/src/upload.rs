@@ -30,7 +30,7 @@ pub struct qiniu_ng_upload_manager_t(*mut c_void);
 
 impl From<qiniu_ng_upload_manager_t> for Box<UploadManager> {
     fn from(upload_manager: qiniu_ng_upload_manager_t) -> Self {
-        unsafe { Box::from_raw(transmute::<_, *mut UploadManager>(upload_manager)) }
+        unsafe { Box::from_raw(transmute(upload_manager)) }
     }
 }
 
@@ -72,11 +72,11 @@ pub extern "C" fn qiniu_ng_upload_manager_new_bucket_uploader_from_bucket(
     bucket: qiniu_ng_bucket_t,
     thread_pool_size: size_t,
 ) -> qiniu_ng_bucket_uploader_t {
-    let upload_manager: Box<UploadManager> = upload_manager.into();
-    let bucket: Box<Bucket> = bucket.into();
+    let upload_manager = Box::<UploadManager>::from(upload_manager);
+    let bucket = Box::<Bucket>::from(bucket);
     let mut bucket_uploader_builder = upload_manager.for_bucket(&bucket).tap(|_| {
-        let _: qiniu_ng_upload_manager_t = upload_manager.into();
-        let _: qiniu_ng_bucket_t = bucket.into();
+        let _ = qiniu_ng_bucket_t::from(bucket);
+        let _ = qiniu_ng_upload_manager_t::from(upload_manager);
     });
     if thread_pool_size > 0 {
         bucket_uploader_builder = bucket_uploader_builder.thread_pool_size(thread_pool_size);
@@ -91,14 +91,14 @@ pub extern "C" fn qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
     access_key: *const c_char,
     thread_pool_size: size_t,
 ) -> qiniu_ng_bucket_uploader_t {
-    let upload_manager: Box<UploadManager> = upload_manager.into();
+    let upload_manager = Box::<UploadManager>::from(upload_manager);
     let mut bucket_uploader_builder = upload_manager
         .for_bucket_name(
             unsafe { CStr::from_ptr(bucket_name) }.to_str().unwrap().to_owned(),
             unsafe { CStr::from_ptr(access_key) }.to_str().unwrap().to_owned(),
         )
         .tap(|_| {
-            let _: qiniu_ng_upload_manager_t = upload_manager.into();
+            let _ = qiniu_ng_upload_manager_t::from(upload_manager);
         });
     if thread_pool_size > 0 {
         bucket_uploader_builder = bucket_uploader_builder.thread_pool_size(thread_pool_size);
@@ -108,7 +108,7 @@ pub extern "C" fn qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_uploader_free(bucket_uploader: qiniu_ng_bucket_uploader_t) {
-    let _: BucketUploader = bucket_uploader.into();
+    let _ = BucketUploader::from(bucket_uploader);
 }
 
 #[repr(C)]
@@ -202,7 +202,7 @@ fn qiniu_ng_upload(
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err,
 ) -> bool {
-    let bucket_uploader: BucketUploader = bucket_uploader.into();
+    let bucket_uploader = BucketUploader::from(bucket_uploader);
     let upload_token = qiniu_ng_upload_token_get_token(upload_token);
     let mut file_uploader = bucket_uploader.upload_token(UploadToken::from_token(
         unsafe { CStr::from_ptr(upload_token) }.to_str().unwrap().to_owned(),
@@ -219,11 +219,11 @@ fn qiniu_ng_upload(
         {
             Some(Ok(mime)) => Some(mime),
             Some(Err(ref e)) => {
-                if !err.is_null() {
-                    unsafe { *err = e.into() };
+                if let Some(err) = unsafe { err.as_mut() } {
+                    *err = e.into();
                 }
                 drop(file_uploader);
-                let _: qiniu_ng_bucket_uploader_t = bucket_uploader.into();
+                let _ = qiniu_ng_bucket_uploader_t::from(bucket_uploader);
                 return false;
             }
             _ => None,
@@ -231,20 +231,20 @@ fn qiniu_ng_upload(
     }
     match upload_file.upload(file_uploader, file_name, mime) {
         Ok(resp) => {
-            if !response.is_null() {
-                unsafe { *response = Box::new(resp).into() };
+            if let Some(response) = unsafe { response.as_mut() } {
+                *response = Box::new(resp).into();
             }
             true
         }
         Err(ref e) => {
-            if !err.is_null() {
-                unsafe { *err = e.into() };
+            if let Some(err) = unsafe { err.as_mut() } {
+                *err = e.into();
             }
             false
         }
     }
     .tap(|_| {
-        let _: qiniu_ng_bucket_uploader_t = bucket_uploader.into();
+        let _ = qiniu_ng_bucket_uploader_t::from(bucket_uploader);
     })
 }
 
@@ -260,14 +260,14 @@ fn set_params_to_file_uploader<'n>(
         file_uploader = file_uploader.key(key);
     }
     if let Some(vars) = unsafe { params.vars.as_ref() } {
-        let vars: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = (*vars).into();
+        let vars = Box::<HashMap<Box<CStr>, Box<CStr>, RandomState>>::from(*vars);
         for (key, value) in vars.iter() {
             file_uploader = file_uploader.var(key.to_str().unwrap().to_owned(), value.to_str().unwrap().to_owned());
         }
         let _ = qiniu_ng_str_map_t::from(vars);
     };
     if let Some(metadata) = unsafe { params.metadata.as_ref() } {
-        let metadata: Box<HashMap<Box<CStr>, Box<CStr>, RandomState>> = (*metadata).into();
+        let metadata = Box::<HashMap<Box<CStr>, Box<CStr>, RandomState>>::from(*metadata);
         for (key, value) in metadata.iter() {
             file_uploader =
                 file_uploader.metadata(key.to_str().unwrap().to_owned(), value.to_str().unwrap().to_owned());
@@ -319,9 +319,9 @@ impl From<Box<QiniuUploadResponse>> for qiniu_ng_upload_response_t {
 pub extern "C" fn qiniu_ng_upload_response_get_key(
     upload_response: qiniu_ng_upload_response_t,
 ) -> qiniu_ng_optional_string_t {
-    let upload_response: Box<QiniuUploadResponse> = upload_response.into();
+    let upload_response = Box::<QiniuUploadResponse>::from(upload_response);
     unsafe { qiniu_ng_optional_string_t::from_str_unchecked(upload_response.key()) }.tap(|_| {
-        let _: qiniu_ng_upload_response_t = upload_response.into();
+        let _ = qiniu_ng_upload_response_t::from(upload_response);
     })
 }
 
@@ -329,9 +329,9 @@ pub extern "C" fn qiniu_ng_upload_response_get_key(
 pub extern "C" fn qiniu_ng_upload_response_get_hash(
     upload_response: qiniu_ng_upload_response_t,
 ) -> qiniu_ng_optional_string_t {
-    let upload_response: Box<QiniuUploadResponse> = upload_response.into();
+    let upload_response = Box::<QiniuUploadResponse>::from(upload_response);
     unsafe { qiniu_ng_optional_string_t::from_str_unchecked(upload_response.hash()) }.tap(|_| {
-        let _: qiniu_ng_upload_response_t = upload_response.into();
+        let _ = qiniu_ng_upload_response_t::from(upload_response);
     })
 }
 
@@ -341,29 +341,29 @@ pub extern "C" fn qiniu_ng_upload_response_get_json(
     json: *mut qiniu_ng_string_t,
     err: *mut qiniu_ng_err,
 ) -> bool {
-    let upload_response: Box<QiniuUploadResponse> = upload_response.into();
+    let upload_response = Box::<QiniuUploadResponse>::from(upload_response);
     match upload_response.to_string() {
         Ok(s) => {
-            if !json.is_null() {
-                unsafe { *json = qiniu_ng_string_t::from_string_unchecked(s) };
+            if let Some(json) = unsafe { json.as_mut() } {
+                *json = unsafe { qiniu_ng_string_t::from_string_unchecked(s) };
             }
             true
         }
         Err(ref e) => {
-            if !err.is_null() {
-                unsafe { *err = e.into() };
+            if let Some(err) = unsafe { err.as_mut() } {
+                *err = e.into();
             }
             false
         }
     }
     .tap(|_| {
-        let _: qiniu_ng_upload_response_t = upload_response.into();
+        let _ = qiniu_ng_upload_response_t::from(upload_response);
     })
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_response_free(upload_response: qiniu_ng_upload_response_t) {
-    let _: Box<QiniuUploadResponse> = upload_response.into();
+    let _ = Box::<QiniuUploadResponse>::from(upload_response);
 }
 
 enum UploadFile {

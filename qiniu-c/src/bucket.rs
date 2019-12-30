@@ -19,7 +19,7 @@ pub struct qiniu_ng_bucket_t(*mut c_void);
 
 impl<'r> From<qiniu_ng_bucket_t> for Box<Bucket<'r>> {
     fn from(bucket: qiniu_ng_bucket_t) -> Self {
-        unsafe { Box::from_raw(transmute::<_, *mut Bucket>(bucket)) }
+        unsafe { Box::from_raw(transmute(bucket)) }
     }
 }
 
@@ -42,13 +42,13 @@ pub extern "C" fn qiniu_ng_bucket_new2(
     domains: *const *const qiniu_ng_char_t,
     domains_count: usize,
 ) -> qiniu_ng_bucket_t {
-    let client: Box<Client> = client.into();
+    let client = Box::<Client>::from(client);
     let bucket_name = unsafe { CStr::from_ptr(bucket_name) }.to_str().unwrap().to_owned();
     let mut bucket_builder = client.storage().bucket(bucket_name);
     if let Some(region) = unsafe { region.as_ref() } {
-        let region: Box<Cow<Region>> = region.to_owned().into();
+        let region = Box::<Cow<Region>>::from(region.to_owned());
         bucket_builder = bucket_builder.region(region.to_owned().into_owned());
-        let _: qiniu_ng_region_t = region.into();
+        let _ = qiniu_ng_region_t::from(region);
     }
     for i in 0..domains_count {
         let domain = unsafe { *domains.add(i) };
@@ -56,21 +56,21 @@ pub extern "C" fn qiniu_ng_bucket_new2(
     }
     let bucket: qiniu_ng_bucket_t = Box::new(bucket_builder.build()).into();
     bucket.tap(|_| {
-        let _: qiniu_ng_client_t = client.into();
+        let _ = qiniu_ng_client_t::from(client);
     })
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_get_name(bucket: qiniu_ng_bucket_t) -> qiniu_ng_string_t {
-    let bucket: Box<Bucket> = bucket.into();
+    let bucket = Box::<Bucket>::from(bucket);
     unsafe { qiniu_ng_string_t::from_str_unchecked(bucket.name()) }.tap(|_| {
-        let _: qiniu_ng_bucket_t = bucket.into();
+        let _ = qiniu_ng_bucket_t::from(bucket);
     })
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_free(bucket: qiniu_ng_bucket_t) {
-    let _: Box<Bucket> = bucket.into();
+    let _ = Box::<Bucket>::from(bucket);
 }
 
 #[no_mangle]
@@ -79,20 +79,19 @@ pub extern "C" fn qiniu_ng_bucket_get_region(
     region: *mut qiniu_ng_region_t,
     error: *mut qiniu_ng_err,
 ) -> bool {
-    let bucket: Box<Bucket> = bucket.into();
+    let bucket = Box::<Bucket>::from(bucket);
     match bucket.region().map(|region| region.to_owned()).tap(|_| {
-        let _: qiniu_ng_bucket_t = bucket.into();
+        let _ = qiniu_ng_bucket_t::from(bucket);
     }) {
         Ok(r) => {
-            if !region.is_null() {
-                let r: Box<Cow<Region>> = Box::new(Cow::Owned(r));
-                unsafe { *region = r.into() };
+            if let Some(region) = unsafe { region.as_mut() } {
+                *region = Box::<Cow<Region>>::new(Cow::Owned(r)).into();
             }
             true
         }
-        Err(err) => {
-            if !error.is_null() {
-                unsafe { *error = (&err).into() };
+        Err(ref err) => {
+            if let Some(error) = unsafe { error.as_mut() } {
+                *error = err.into();
             }
             false
         }
@@ -110,17 +109,17 @@ pub extern "C" fn qiniu_ng_bucket_get_regions(
         .regions()
         .map(|iter| iter.map(|r| r.to_owned()).collect::<Box<[Region]>>())
         .tap(|_| {
-            let _: qiniu_ng_bucket_t = bucket.into();
+            let _ = qiniu_ng_bucket_t::from(bucket);
         }) {
         Ok(r) => {
-            if !regions.is_null() {
-                unsafe { *regions = r.into() };
+            if let Some(regions) = unsafe { regions.as_mut() } {
+                *regions = r.into();
             }
             true
         }
-        Err(err) => {
-            if !error.is_null() {
-                unsafe { *error = (&err).into() };
+        Err(ref err) => {
+            if let Some(error) = unsafe { error.as_mut() } {
+                *error = err.into();
             }
             false
         }
@@ -138,17 +137,17 @@ pub extern "C" fn qiniu_ng_bucket_get_domains(
         .domains()
         .map(|domains| unsafe { qiniu_ng_string_list_t::from_str_slice_unchecked(&domains) })
         .tap(|_| {
-            let _: qiniu_ng_bucket_t = bucket.into();
+            let _ = qiniu_ng_bucket_t::from(bucket);
         }) {
         Ok(ds) => {
-            if !domains.is_null() {
-                unsafe { *domains = ds };
+            if let Some(domains) = unsafe { domains.as_mut() } {
+                *domains = ds;
             }
             true
         }
-        Err(err) => {
-            if !error.is_null() {
-                unsafe { *error = (&err).into() };
+        Err(ref err) => {
+            if let Some(error) = unsafe { error.as_mut() } {
+                *error = err.into();
             }
             false
         }

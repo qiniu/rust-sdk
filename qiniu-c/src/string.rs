@@ -160,8 +160,7 @@ mod unix {
 
     impl<'a> Default for &'a ucstr {
         fn default() -> Self {
-            let cstr: &CStr = Default::default();
-            cstr.into()
+            <&CStr>::default().into()
         }
     }
 
@@ -174,16 +173,13 @@ mod unix {
 
     impl<'a> From<&'a ucstr> for Box<ucstr> {
         fn from(s: &'a ucstr) -> Self {
-            let s: &CStr = s.into();
-            let s: Box<CStr> = s.into();
-            s.into()
+            Box::<CStr>::from(<&CStr>::from(s)).into()
         }
     }
 
     impl Default for Box<ucstr> {
         fn default() -> Self {
-            let s: Box<CStr> = Default::default();
-            s.into()
+            Box::<CStr>::default().into()
         }
     }
 
@@ -201,8 +197,7 @@ mod unix {
 
     impl From<Box<ucstr>> for UCString {
         fn from(s: Box<ucstr>) -> Self {
-            let s: Box<CStr> = s.into();
-            s.into_c_string().into()
+            Box::<CStr>::from(s).into_c_string().into()
         }
     }
 
@@ -431,14 +426,12 @@ mod windows {
         }
 
         pub fn from_string(s: impl Into<String>) -> Result<Self, NulError> {
-            let s: String = s.into();
-            Self::from_str(s)
+            Self::from_str(s.into())
         }
 
         #[inline]
         pub unsafe fn from_string_unchecked(s: impl Into<String>) -> Self {
-            let s: String = s.into();
-            Self::from_str_unchecked(s)
+            Self::from_str_unchecked(s.into())
         }
 
         #[cfg(windows)]
@@ -504,8 +497,7 @@ mod windows {
 
     impl<'a> Default for &'a ucstr {
         fn default() -> Self {
-            let cstr: &WideCStr = Default::default();
-            cstr.into()
+            <&WideCStr>::default().into()
         }
     }
 
@@ -518,16 +510,13 @@ mod windows {
 
     impl<'a> From<&'a ucstr> for Box<ucstr> {
         fn from(s: &'a ucstr) -> Self {
-            let s: &WideCStr = s.into();
-            let s: Box<WideCStr> = s.into();
-            s.into()
+            Box::<WideCStr>::from(<&WideCStr>::from(s)).into()
         }
     }
 
     impl Default for Box<ucstr> {
         fn default() -> Self {
-            let s: Box<WideCStr> = Default::default();
-            s.into()
+            Box::<WideCStr>::default().into()
         }
     }
 
@@ -545,8 +534,7 @@ mod windows {
 
     impl From<Box<ucstr>> for UCString {
         fn from(s: Box<ucstr>) -> Self {
-            let s: Box<WideCStr> = s.into();
-            s.into_ucstring().into()
+            Box::<WideCStr>::from(s).into_ucstring().into()
         }
     }
 
@@ -590,15 +578,14 @@ mod windows {
     impl From<OsString> for UCString {
         fn from(s: OsString) -> Self {
             use std::os::windows::ffi::OsStrExt;
-            let s: Box<[WideChar]> = s.encode_wide().collect();
+            let s = s.encode_wide().collect::<Box<[_]>>();
             unsafe { WideCString::from_vec_unchecked(s) }.into()
         }
     }
 
     impl From<UCString> for OsString {
         fn from(s: UCString) -> Self {
-            let s: WideCString = s.into();
-            s.into()
+            WideCString::from(s).into()
         }
     }
 
