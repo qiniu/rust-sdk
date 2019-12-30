@@ -30,12 +30,12 @@ pub struct qiniu_ng_upload_policy_t {
     mime_detection: bool,
     deadline: c_ulonglong,
 
-    return_url: *const qiniu_ng_char_t,
+    return_url: *const c_char,
     return_body: *const qiniu_ng_char_t,
 
-    callback_urls: *const *const qiniu_ng_char_t,
+    callback_urls: *const *const c_char,
     callback_urls_len: size_t,
-    callback_host: *const qiniu_ng_char_t,
+    callback_host: *const c_char,
     callback_body: *const qiniu_ng_char_t,
     callback_body_type: *const qiniu_ng_char_t,
 
@@ -60,12 +60,12 @@ struct UploadPolicy {
     mime_detection: bool,
     deadline: Option<u64>,
 
-    return_url: Option<Box<ucstr>>,
+    return_url: Option<Box<CStr>>,
     return_body: Option<Box<ucstr>>,
 
-    callback_urls_storage: Option<Box<[Box<ucstr>]>>,
-    callback_urls: Option<Box<[*const qiniu_ng_char_t]>>,
-    callback_host: Option<Box<ucstr>>,
+    callback_urls_storage: Option<Box<[Box<CStr>]>>,
+    callback_urls: Option<Box<[*const c_char]>>,
+    callback_host: Option<Box<CStr>>,
     callback_body: Option<Box<ucstr>>,
     callback_body_type: Option<Box<ucstr>>,
 
@@ -92,7 +92,7 @@ impl From<&qiniu_ng_upload_policy_t> for UploadPolicy {
             mime_detection: policy.mime_detection,
             deadline: Some(policy.deadline),
             return_url: unsafe { policy.return_url.as_ref() }
-                .map(|s| unsafe { UCString::from_ptr(s) }.into_boxed_ucstr()),
+                .map(|s| unsafe { CStr::from_ptr(s) }.to_owned().into_boxed_c_str()),
             return_body: unsafe { policy.return_body.as_ref() }
                 .map(|s| unsafe { UCString::from_ptr(s) }.into_boxed_ucstr()),
             callback_urls_storage: unsafe { policy.callback_urls.as_ref() }.map(|callback_urls| {
@@ -100,14 +100,14 @@ impl From<&qiniu_ng_upload_policy_t> for UploadPolicy {
                     .iter()
                     .map(|&ptr| {
                         unsafe { ptr.as_ref() }
-                            .map(|s| unsafe { UCString::from_ptr(s) }.into_boxed_ucstr())
+                            .map(|s| unsafe { CStr::from_ptr(s) }.to_owned().into_boxed_c_str())
                             .unwrap()
                     })
                     .collect()
             }),
             callback_urls: Default::default(),
             callback_host: unsafe { policy.callback_host.as_ref() }
-                .map(|s| unsafe { UCString::from_ptr(s) }.into_boxed_ucstr()),
+                .map(|s| unsafe { CStr::from_ptr(s) }.to_owned().into_boxed_c_str()),
             callback_body: unsafe { policy.callback_body.as_ref() }
                 .map(|s| unsafe { UCString::from_ptr(s) }.into_boxed_ucstr()),
             callback_body_type: unsafe { policy.callback_body_type.as_ref() }
@@ -207,18 +207,18 @@ impl From<&QiniuUploadPolicy<'_>> for UploadPolicy {
                 .map(|t| t.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs()),
             return_url: policy
                 .return_url()
-                .map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr()),
+                .map(|s| unsafe { CString::from_vec_unchecked(s.to_owned().into_bytes()) }.into_boxed_c_str()),
             return_body: policy
                 .return_body()
                 .map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr()),
             callback_urls_storage: policy.callback_urls().map(|iter| {
-                iter.map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr())
+                iter.map(|s| unsafe { CString::from_vec_unchecked(s.to_owned().into_bytes()) }.into_boxed_c_str())
                     .collect()
             }),
             callback_urls: Default::default(),
             callback_host: policy
                 .callback_host()
-                .map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr()),
+                .map(|s| unsafe { CString::from_vec_unchecked(s.to_owned().into_bytes()) }.into_boxed_c_str()),
             callback_body: policy
                 .callback_body()
                 .map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr()),

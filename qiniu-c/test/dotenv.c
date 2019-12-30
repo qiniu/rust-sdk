@@ -2,6 +2,7 @@
 #include <memory.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
 /* strtok_r() won't remove the whole ${ part, only the $ */
 #define remove_bracket(name) name + 1
@@ -50,8 +51,13 @@ static char *parse_value(char *value)
 
     if (value && is_nested(value)) {
         while (1) {
+#if defined(_WIN32) || defined(WIN32)
+            parsed = concat(parsed, strtok_s(search, "${", &tok_ptr));
+            name = strtok_s(NULL, "}", &tok_ptr);
+#else
             parsed = concat(parsed, strtok_r(search, "${", &tok_ptr));
             name = strtok_r(NULL, "}", &tok_ptr);
+#endif
 
             if (!name) {
                 break;
@@ -88,7 +94,13 @@ static void set_variable(char *name, char *original, bool overwrite)
 
     if (original) {
         parsed = parse_value(original);
+#if defined(_WIN32) || defined(WIN32)
+        if (overwrite != 0 || getenv(name) == NULL) {
+            _putenv_s(name, remove_space(parsed), overwrite);
+        }
+#else
         setenv(name, remove_space(parsed), overwrite);
+#endif
 
         free(parsed);
     }
@@ -96,13 +108,19 @@ static void set_variable(char *name, char *original, bool overwrite)
 
 static void parse(FILE *file, bool overwrite)
 {
-    char *name, *original, *line = NULL, *tok_ptr;
-    size_t len = 0;
+    const int BUF_SIZE = 4096;
+    char *name, *original, *line = (char *) malloc(BUF_SIZE), *tok_ptr = NULL;
+    memset(line, 0, BUF_SIZE);
 
-    while (-1 != getline(&line, &len, file)) {
+    while (fgets(line, BUF_SIZE, file) != NULL) {
         if (!is_commented(line)) {
+#if defined(_WIN32) || defined(WIN32)
+            name = strtok_s(line, "=", &tok_ptr);
+            original = strtok_s(NULL, "\n", &tok_ptr);
+#else
             name = strtok_r(line, "=", &tok_ptr);
             original = strtok_r(NULL, "\n", &tok_ptr);
+#endif
 
             set_variable(name, original, overwrite);
         }
@@ -112,10 +130,12 @@ static void parse(FILE *file, bool overwrite)
 
 static FILE *open_default(char *base_path)
 {
-    char path[strlen(base_path) + strlen(".env") + 1];
+    char *path = (char *) malloc(strlen(base_path) + strlen(".env") + 1);
     sprintf(path, "%s/.env", base_path);
 
-    return fopen(path, "rb");
+    FILE *file = fopen(path, "rb");
+    free((void *) path);
+    return file;
 }
 
 int env_load(char *path, bool overwrite)

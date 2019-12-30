@@ -231,14 +231,14 @@ pub extern "C" fn qiniu_ng_optional_str_is_null(s: qiniu_ng_optional_str_t) -> b
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_optional_str_new(ptr: *const qiniu_ng_char_t) -> qiniu_ng_optional_str_t {
+pub extern "C" fn qiniu_ng_optional_str_new(ptr: *const c_char) -> qiniu_ng_optional_str_t {
     unsafe { ptr.as_ref() }
         .map(|ptr| unsafe { CStr::from_ptr(ptr) }.to_owned().into_boxed_c_str().into())
         .unwrap_or_default()
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_optional_str_get_ptr(s: qiniu_ng_optional_str_t) -> *const qiniu_ng_char_t {
+pub extern "C" fn qiniu_ng_optional_str_get_ptr(s: qiniu_ng_optional_str_t) -> *const c_char {
     let s = Option::<Box<CStr>>::from(s);
     s.as_ref().map(|s| s.as_ptr()).unwrap_or_else(null).tap(|_| {
         let _ = qiniu_ng_optional_str_t::from(s);

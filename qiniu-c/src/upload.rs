@@ -4,7 +4,7 @@ use crate::{
     result::qiniu_ng_err,
     string::{qiniu_ng_char_t, UCString},
     upload_token::{qiniu_ng_upload_token_get_token, qiniu_ng_upload_token_t},
-    utils::{qiniu_ng_optional_string_t, qiniu_ng_str_map_t, qiniu_ng_string_t},
+    utils::{qiniu_ng_optional_str_t, qiniu_ng_optional_string_t, qiniu_ng_str_map_t, qiniu_ng_string_t},
 };
 use libc::{c_char, c_uint, c_ulonglong, c_void, ferror, fread, size_t, FILE};
 use mime::Mime;
@@ -126,7 +126,7 @@ pub enum qiniu_ng_resumable_policy_e {
 pub struct qiniu_ng_upload_params_t {
     key: *const qiniu_ng_char_t,
     file_name: *const qiniu_ng_char_t,
-    mime: *const qiniu_ng_char_t,
+    mime: *const c_char,
     vars: *const qiniu_ng_str_map_t,
     metadata: *const qiniu_ng_str_map_t,
     checksum_enabled: bool,
@@ -215,7 +215,7 @@ fn qiniu_ng_upload(
             .map(|file_name| unsafe { UCString::from_ptr(file_name) }.to_string().unwrap());
 
         mime = match unsafe { params.mime.as_ref() }
-            .map(|mime| unsafe { UCString::from_ptr(mime) }.to_string().unwrap().parse())
+            .map(|mime| unsafe { CStr::from_ptr(mime) }.to_str().unwrap().parse())
         {
             Some(Ok(mime)) => Some(mime),
             Some(Err(ref e)) => {
@@ -328,9 +328,9 @@ pub extern "C" fn qiniu_ng_upload_response_get_key(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_response_get_hash(
     upload_response: qiniu_ng_upload_response_t,
-) -> qiniu_ng_optional_string_t {
+) -> qiniu_ng_optional_str_t {
     let upload_response = Box::<QiniuUploadResponse>::from(upload_response);
-    unsafe { qiniu_ng_optional_string_t::from_str_unchecked(upload_response.hash()) }.tap(|_| {
+    unsafe { qiniu_ng_optional_str_t::from_str_unchecked(upload_response.hash()) }.tap(|_| {
         let _ = qiniu_ng_upload_response_t::from(upload_response);
     })
 }

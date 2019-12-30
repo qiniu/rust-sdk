@@ -58,10 +58,16 @@ void test_qiniu_ng_config_new2(void) {
     qiniu_ng_config_builder_upload_threshold(builder, 1 << 23);
     qiniu_ng_config_builder_uc_host(builder, "uc.qiniu.com");
     qiniu_ng_config_builder_disable_uplog(builder);
-    qiniu_ng_config_builder_upload_recorder_root_directory(builder,getenv("HOME"));
     qiniu_ng_config_builder_upload_recorder_upload_block_lifetime(builder, 60 * 60 * 24 * 5);
     qiniu_ng_config_builder_upload_recorder_always_flush_records(builder, true);
-    qiniu_ng_config_builder_create_new_domains_manager(builder, "/tmp/persistent_file");
+#if defined(_WIN32) || defined(WIN32)
+    qiniu_ng_config_builder_upload_recorder_root_directory(builder, _wgetenv(L"USERPROFILE"));
+#else
+    qiniu_ng_config_builder_upload_recorder_root_directory(builder, getenv("HOME"));
+#endif
+    qiniu_ng_char_t* temp_file = create_temp_file(0);
+    qiniu_ng_config_builder_create_new_domains_manager(builder, temp_file);
+    free(temp_file);
     qiniu_ng_config_builder_domains_manager_url_frozen_duration(builder, 60 * 60 * 24);
     qiniu_ng_config_builder_domains_manager_disable_auto_persistent(builder);
 
@@ -95,13 +101,17 @@ void test_qiniu_ng_config_new2(void) {
 
     qiniu_ng_optional_string_t root_directory = qiniu_ng_config_get_upload_recorder_root_directory(config);
     TEST_ASSERT_FALSE(qiniu_ng_optional_string_is_null(root_directory));
+#if defined(_WIN32) || defined(WIN32)
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_optional_string_get_ptr(root_directory), _wgetenv(L"USERPROFILE"));
+#else
     TEST_ASSERT_EQUAL_STRING(qiniu_ng_optional_string_get_ptr(root_directory), getenv("HOME"));
+#endif
     qiniu_ng_optional_string_free(root_directory);
 
     TEST_ASSERT_EQUAL_UINT(qiniu_ng_config_get_upload_recorder_upload_block_lifetime(config), 60 * 60 * 24 * 5);
     TEST_ASSERT_TRUE(qiniu_ng_config_get_upload_recorder_always_flush_records(config));
 
-    TEST_ASSERT_EQUAL_UINT(qiniu_ng_config_get_domains_manager_resolutions_cache_lifetime(config), 60 * 60);
+    TEST_ASSERT_EQUAL_UINT(qiniu_ng_config_get_domains_manager_url_frozen_duration(config), 60 * 60 * 24);
     TEST_ASSERT_EQUAL_UINT(qiniu_ng_config_get_domains_manager_auto_persistent_interval(config), 0);
     TEST_ASSERT_TRUE(qiniu_ng_config_get_domains_manager_auto_persistent_disabled(config));
 

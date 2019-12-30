@@ -2,6 +2,10 @@
 #include "libqiniu_ng.h"
 #include "test.h"
 
+#if defined(_WIN32) || defined(WIN32)
+#pragma comment(lib, "qiniu_ng_c.dll.lib")
+#endif
+
 void setUp(void) {
 
 }
@@ -12,6 +16,7 @@ void tearDown(void) {
 
 int main(void) {
     UNITY_BEGIN();
+    RUN_TEST(test_qiniu_ng_str);
     RUN_TEST(test_qiniu_ng_string);
     RUN_TEST(test_qiniu_ng_str_list);
     RUN_TEST(test_qiniu_ng_string_list);

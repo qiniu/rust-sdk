@@ -1,11 +1,11 @@
 language: rust
-rust:
-  - 1.38.0
-cache: cargo
 matrix:
   include:
     - os: linux
       dist: bionic
+      rust:
+        - 1.38.0
+      cache: cargo
       before_script:
         - sudo apt install -yq libcurl4
         - cargo install --force cbindgen
@@ -16,13 +16,22 @@ matrix:
               make test
             fi
     - os: windows
+      rust:
+        - 1.38.0-x86_64-pc-windows-msvc
+      cache: cargo
       before_script:
-        - choco install make curl
+        - choco install make
+        - choco install curl --version=7.67.0
         - cargo install --force cbindgen
         - export PATH="$(powershell -Command '("Process", "Machine" | % { [Environment]::GetEnvironmentVariable("PATH", $_) -Split ";" -Replace "\\$", "" } | Select -Unique | % { cygpath $_ }) -Join ":"')"
       script:
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
               cd qiniu-c
-              make -f Makefile.forWindows test
+              mv Makefile.forWindows Makefile
+              cp /c/ProgramData/chocolatey/lib/curl/tools/curl-7.67.0-win64-mingw/bin/*.dll .
+              cp -r /c/ProgramData/chocolatey/lib/curl/tools/curl-7.67.0-win64-mingw/include/curl .
+              cmd.exe /C '"C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" amd64 && make build'
+              cp ../target/debug/qiniu_ng_c.dll* .
+              cmd.exe /C '"C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" amd64 && make test'
             fi

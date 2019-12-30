@@ -2,8 +2,7 @@ use crate::{
     client::qiniu_ng_client_t,
     region::{qiniu_ng_region_t, qiniu_ng_regions_t},
     result::qiniu_ng_err,
-    string::{qiniu_ng_char_t, UCString},
-    utils::{qiniu_ng_string_list_t, qiniu_ng_string_t},
+    utils::{qiniu_ng_str_list_t, qiniu_ng_str_t},
 };
 use libc::{c_char, c_void};
 use qiniu_ng::{
@@ -39,7 +38,7 @@ pub extern "C" fn qiniu_ng_bucket_new2(
     client: qiniu_ng_client_t,
     bucket_name: *const c_char,
     region: *const qiniu_ng_region_t,
-    domains: *const *const qiniu_ng_char_t,
+    domains: *const *const c_char,
     domains_count: usize,
 ) -> qiniu_ng_bucket_t {
     let client = Box::<Client>::from(client);
@@ -52,7 +51,7 @@ pub extern "C" fn qiniu_ng_bucket_new2(
     }
     for i in 0..domains_count {
         let domain = unsafe { *domains.add(i) };
-        bucket_builder = bucket_builder.domain(unsafe { UCString::from_ptr(domain) }.to_string().unwrap());
+        bucket_builder = bucket_builder.domain(unsafe { CStr::from_ptr(domain) }.to_str().unwrap().to_owned());
     }
     let bucket: qiniu_ng_bucket_t = Box::new(bucket_builder.build()).into();
     bucket.tap(|_| {
@@ -61,9 +60,9 @@ pub extern "C" fn qiniu_ng_bucket_new2(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_bucket_get_name(bucket: qiniu_ng_bucket_t) -> qiniu_ng_string_t {
+pub extern "C" fn qiniu_ng_bucket_get_name(bucket: qiniu_ng_bucket_t) -> qiniu_ng_str_t {
     let bucket = Box::<Bucket>::from(bucket);
-    unsafe { qiniu_ng_string_t::from_str_unchecked(bucket.name()) }.tap(|_| {
+    unsafe { qiniu_ng_str_t::from_str_unchecked(bucket.name()) }.tap(|_| {
         let _ = qiniu_ng_bucket_t::from(bucket);
     })
 }
@@ -129,13 +128,13 @@ pub extern "C" fn qiniu_ng_bucket_get_regions(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_get_domains(
     bucket: qiniu_ng_bucket_t,
-    domains: *mut qiniu_ng_string_list_t,
+    domains: *mut qiniu_ng_str_list_t,
     error: *mut qiniu_ng_err,
 ) -> bool {
     let bucket: Box<Bucket> = bucket.into();
     match bucket
         .domains()
-        .map(|domains| unsafe { qiniu_ng_string_list_t::from_str_slice_unchecked(&domains) })
+        .map(|domains| unsafe { qiniu_ng_str_list_t::from_str_slice_unchecked(&domains) })
         .tap(|_| {
             let _ = qiniu_ng_bucket_t::from(bucket);
         }) {

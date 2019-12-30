@@ -1,8 +1,8 @@
 #include "libqiniu_ng.h"
 
 int env_load(char*, bool);
-void write_str_to_file(const char* path, const char* content);
-char* create_temp_file(size_t size);
+void write_str_to_file(const qiniu_ng_char_t* path, const char* content);
+qiniu_ng_char_t* create_temp_file(size_t size);
 
 void test_qiniu_ng_etag_from_file_path(void);
 void test_qiniu_ng_etag_from_buffer(void);
@@ -22,6 +22,7 @@ void test_qiniu_ng_bucket_new(void);
 void test_qiniu_ng_make_upload_token(void);
 void test_qiniu_ng_upload_files(void);
 void test_qiniu_ng_upload_file_path_failed_by_mime(void);
+void test_qiniu_ng_str(void);
 void test_qiniu_ng_string(void);
 void test_qiniu_ng_str_list(void);
 void test_qiniu_ng_string_list(void);

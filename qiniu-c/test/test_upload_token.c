@@ -14,7 +14,11 @@ void test_qiniu_ng_make_upload_token(void) {
         .deadline = 1608877436,
         .callback_urls = (const char **) callback_urls,
         .callback_urls_len = 2,
+#if defined(_WIN32) || defined(WIN32)
+        .callback_body = L"key=$(key)"
+#else
         .callback_body = "key=$(key)"
+#endif
     };
     qiniu_ng_upload_token_t token = qiniu_ng_new_upload_token_from_policy(&policy, getenv("access_key"), getenv("secret_key"));
     const char *t = qiniu_ng_upload_token_get_token(token);

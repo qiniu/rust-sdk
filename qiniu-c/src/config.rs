@@ -93,7 +93,7 @@ pub extern "C" fn qiniu_ng_config_builder_rs_host(builder: qiniu_ng_config_build
     let mut builder = Box::<Builder>::from(builder);
     builder.config_builder = builder
         .config_builder
-        .rs_host(unsafe { UCString::from_ptr(rs_host) }.to_string().unwrap().into());
+        .rs_host(unsafe { CStr::from_ptr(rs_host) }.to_str().unwrap().to_owned().into());
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
@@ -102,7 +102,7 @@ pub extern "C" fn qiniu_ng_config_builder_rsf_host(builder: qiniu_ng_config_buil
     let mut builder = Box::<Builder>::from(builder);
     builder.config_builder = builder
         .config_builder
-        .rsf_host(unsafe { UCString::from_ptr(rsf_host) }.to_string().unwrap().into());
+        .rsf_host(unsafe { CStr::from_ptr(rsf_host) }.to_str().unwrap().to_owned().into());
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
@@ -111,7 +111,7 @@ pub extern "C" fn qiniu_ng_config_builder_api_host(builder: qiniu_ng_config_buil
     let mut builder = Box::<Builder>::from(builder);
     builder.config_builder = builder
         .config_builder
-        .api_host(unsafe { UCString::from_ptr(api_host) }.to_string().unwrap().into());
+        .api_host(unsafe { CStr::from_ptr(api_host) }.to_str().unwrap().to_owned().into());
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
@@ -120,7 +120,7 @@ pub extern "C" fn qiniu_ng_config_builder_uplog_url(builder: qiniu_ng_config_bui
     let mut builder = Box::<Builder>::from(builder);
     builder.config_builder = builder
         .config_builder
-        .uplog_url(unsafe { UCString::from_ptr(uplog_url) }.to_string().unwrap().into());
+        .uplog_url(unsafe { CStr::from_ptr(uplog_url) }.to_str().unwrap().to_owned().into());
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 

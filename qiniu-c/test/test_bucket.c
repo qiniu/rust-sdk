@@ -10,15 +10,15 @@ void test_qiniu_ng_bucket_get_name(void) {
     qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), config);
 
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, "z0-bucket");
-    qiniu_ng_string_t bucket_name = qiniu_ng_bucket_get_name(bucket);
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(bucket_name), "z0-bucket");
-    qiniu_ng_string_free(bucket_name);
+    qiniu_ng_str_t bucket_name = qiniu_ng_bucket_get_name(bucket);
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_get_ptr(bucket_name), "z0-bucket");
+    qiniu_ng_str_free(bucket_name);
     qiniu_ng_bucket_free(bucket);
 
     qiniu_ng_bucket_t bucket_2 = qiniu_ng_bucket_new(client, "z1-bucket");
-    qiniu_ng_string_t bucket_name_2 = qiniu_ng_bucket_get_name(bucket_2);
-    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(bucket_name_2), "z1-bucket");
-    qiniu_ng_string_free(bucket_name_2);
+    qiniu_ng_str_t bucket_name_2 = qiniu_ng_bucket_get_name(bucket_2);
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_get_ptr(bucket_name_2), "z1-bucket");
+    qiniu_ng_str_free(bucket_name_2);
     qiniu_ng_bucket_free(bucket_2);
 
     qiniu_ng_client_free(client);
@@ -108,15 +108,15 @@ void test_qiniu_ng_bucket_new(void) {
     TEST_ASSERT_EQUAL_STRING(qiniu_ng_region_id_name(id), "z2");
     qiniu_ng_regions_free(regions);
 
-    qiniu_ng_string_list_t domains;
+    qiniu_ng_str_list_t domains;
     const char *domain = NULL;
     TEST_ASSERT_TRUE(qiniu_ng_bucket_get_domains(bucket, &domains, &err));
-    TEST_ASSERT_EQUAL_INT(qiniu_ng_string_list_len(domains), 2);
-    qiniu_ng_string_list_get(domains, 0, &domain);
+    TEST_ASSERT_EQUAL_INT(qiniu_ng_str_list_len(domains), 2);
+    qiniu_ng_str_list_get(domains, 0, &domain);
     TEST_ASSERT_EQUAL_STRING(domain, domains_array[0]);
-    qiniu_ng_string_list_get(domains, 1, &domain);
+    qiniu_ng_str_list_get(domains, 1, &domain);
     TEST_ASSERT_EQUAL_STRING(domain, domains_array[1]);
-    qiniu_ng_string_list_free(domains);
+    qiniu_ng_str_list_free(domains);
 
     qiniu_ng_bucket_free(bucket);
     qiniu_ng_region_free(region);

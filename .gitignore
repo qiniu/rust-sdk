@@ -4,6 +4,8 @@
 Cargo.lock
 rls*.log
 /qiniu-c/build
+/qiniu-c/*.obj
+/qiniu-c/*.o
 /qiniu-c/libqiniu_ng.h
 /.idea
 /*.iml
