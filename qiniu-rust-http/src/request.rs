@@ -22,6 +22,10 @@ pub struct Request<'b> {
     #[get_mut = "pub"]
     body: Option<&'b Body>,
 
+    #[get = "pub"]
+    #[get_mut = "pub"]
+    user_agent: Option<&'b str>,
+
     #[get_copy = "pub"]
     #[get_mut = "pub"]
     follow_redirection: bool,
@@ -85,6 +89,11 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
+    pub fn user_agent(mut self, user_agent: &'r str) -> RequestBuilder<'r> {
+        self.request.user_agent = Some(user_agent);
+        self
+    }
+
     pub fn follow_redirection(mut self, follow_redirection: bool) -> RequestBuilder<'r> {
         self.request.follow_redirection = follow_redirection;
         self
@@ -117,6 +126,7 @@ impl Default for Request<'_> {
             method: Method::GET,
             headers: Headers::new(),
             body: None,
+            user_agent: None,
             follow_redirection: false,
             resolved_socket_addrs: &[],
             on_uploading_progress: None,
@@ -132,6 +142,7 @@ impl fmt::Debug for Request<'_> {
             .field("method", &self.method)
             .field("headers", &self.headers)
             .field("body", &self.body)
+            .field("user_agent", &self.user_agent)
             .field("follow_redirection", &self.follow_redirection)
             .field("resolved_socket_addrs", &self.resolved_socket_addrs)
             .field(

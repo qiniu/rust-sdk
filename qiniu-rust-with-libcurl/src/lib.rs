@@ -27,13 +27,14 @@ static INITIALIZER: Once = Once::new();
 lazy_static! {
     static ref IPV6_SUPPORT: bool = Version::get().feature_ipv6();
     static ref MULTI_IP_ADDRS_SUPPORT: bool = Version::get().version_num() >= 0x07_3b_00;
-    static ref USER_AGENT: Box<str> = format!(
-        "QiniuRust-libcurl/qiniu-{}/rust-{}/libcurl-{}",
+    static ref FULL_USER_AGENT: Box<str> = format!(
+        "QiniuRust/qiniu-http-{}/rust-{}/libcurl-{}",
         env!("CARGO_PKG_VERSION"),
         rustc_version_runtime::version(),
         Version::get().version(),
     )
     .into();
+    static ref PART_USER_AGENT: Box<str> = format!("libcurl-{}", Version::get().version()).into();
     static ref TEMP_DIR: PathBuf = env::temp_dir();
     static ref CURL_POOL: Pool<'static, Easy2ContextRef> = Pool::new(16, Easy2ContextRef::default);
 }
@@ -64,16 +65,6 @@ impl HTTPCaller for CurlClient {
         let result = self.perform(&mut easy, request);
         let _: Easy2ContextRef = easy.into();
         result
-    }
-
-    fn append_user_agent(&mut self, append_user_agent: &str) {
-        if let Some(user_agent) = &mut self.user_agent {
-            user_agent.push_str(append_user_agent);
-        } else {
-            let mut user_agent: String = USER_AGENT.to_string();
-            user_agent.push_str(append_user_agent);
-            self.user_agent = Some(user_agent);
-        }
     }
 }
 
@@ -211,10 +202,11 @@ impl CurlClient {
         Self::handle_if_err(easy.max_redirections(3), request)?;
         Self::handle_if_err(
             easy.useragent(
-                self.user_agent
+                request
+                    .user_agent()
+                    .map(|user_agent| user_agent.to_owned() + &PART_USER_AGENT + "/")
                     .as_ref()
-                    .map(|ua| ua.as_str())
-                    .unwrap_or_else(|| &USER_AGENT),
+                    .map_or_else(|| (&FULL_USER_AGENT).as_ref(), |user_agent| user_agent.as_str()),
             ),
             request,
         )?;

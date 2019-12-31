@@ -25,6 +25,9 @@ use std::{
     build_fn(name = "inner_build", private)
 )]
 pub struct ConfigInner {
+    #[builder(default = "default::user_agent()")]
+    user_agent: Option<Cow<'static, str>>,
+
     #[get_copy = "pub"]
     #[builder(default = "default::use_https()")]
     use_https: bool,
@@ -92,6 +95,11 @@ pub struct ConfigInner {
 
 mod default {
     use super::*;
+
+    #[inline]
+    pub fn user_agent() -> Option<Cow<'static, str>> {
+        None
+    }
 
     #[inline]
     pub const fn use_https() -> bool {
@@ -205,6 +213,10 @@ impl fmt::Debug for ConfigInner {
 }
 
 impl ConfigInner {
+    pub fn user_agent(&self) -> Option<&str> {
+        self.user_agent.as_ref().map(|user_agent| user_agent.as_ref())
+    }
+
     pub fn uc_url(&self) -> String {
         if self.use_https {
             "https://".to_owned() + self.uc_host.as_ref()
@@ -243,7 +255,19 @@ pub struct Config(Arc<ConfigInner>);
 
 impl ConfigBuilder {
     pub fn build(self) -> Config {
-        Config(Arc::new(self.inner_build().unwrap()))
+        let mut config = self.inner_build().unwrap();
+        config.user_agent = Some(
+            format!(
+                "QiniuRust/qiniu-ng-{}/rust-{}{}",
+                env!("CARGO_PKG_VERSION"),
+                rustc_version_runtime::version(),
+                config.user_agent.map_or(Cow::Borrowed("/"), |user_agent| Cow::Owned(
+                    "/".to_owned() + &user_agent + "/"
+                ))
+            )
+            .into(),
+        );
+        Config(Arc::new(config))
     }
 }
 
@@ -282,6 +306,7 @@ impl Config {
 mod tests {
     use super::*;
     use qiniu_http::{Request, RequestBuilder, Response, ResponseBuilder, Result};
+    use regex::Regex;
     use std::{
         error::Error,
         io::{Cursor, Read},
@@ -296,6 +321,17 @@ mod tests {
                 .stream(Cursor::new(Vec::from(b"It's HTTP Body".as_ref())))
                 .build())
         }
+    }
+
+    #[test]
+    fn test_config_with_set_user_agent() -> StdResult<(), Box<dyn Error>> {
+        let config = ConfigBuilder::default()
+            .user_agent(Some("fake_for_test".into()))
+            .build();
+        assert!(Regex::new("QiniuRust/qiniu-ng-[^/]+/rust-[^/]+/fake_for_test/")
+            .unwrap()
+            .is_match(config.user_agent().as_ref().unwrap()));
+        Ok(())
     }
 
     #[test]

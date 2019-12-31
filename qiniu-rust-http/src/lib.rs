@@ -11,5 +11,4 @@ pub use response::{Body as ResponseBody, Response, ResponseBuilder, StatusCode};
 
 pub trait HTTPCaller {
     fn call(&self, request: &Request) -> Result<Response>;
-    fn append_user_agent(&mut self, _user_agent: &str) {}
 }

@@ -1,7 +1,7 @@
 use crate::{
     result::qiniu_ng_err,
     string::{qiniu_ng_char_t, UCString},
-    utils::{qiniu_ng_optional_string_t, qiniu_ng_str_t},
+    utils::{qiniu_ng_optional_str_t, qiniu_ng_optional_string_t, qiniu_ng_str_t},
 };
 use libc::{c_char, c_uint, c_ulonglong, c_void, size_t};
 use qiniu_ng::{
@@ -55,6 +55,21 @@ pub extern "C" fn qiniu_ng_config_builder_new() -> qiniu_ng_config_builder_t {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_free(builder: qiniu_ng_config_builder_t) {
     let _ = Box::<Builder>::from(builder);
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_user_agent(builder: qiniu_ng_config_builder_t, user_agent: *const c_char) {
+    let mut builder = Box::<Builder>::from(builder);
+    builder.config_builder = builder
+        .config_builder
+        .user_agent(unsafe { user_agent.as_ref() }.map(|user_agent| {
+            unsafe { CStr::from_ptr(user_agent) }
+                .to_str()
+                .unwrap()
+                .to_owned()
+                .into()
+        }));
+    let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
 #[no_mangle]
@@ -487,6 +502,14 @@ impl qiniu_ng_config_t {
             let _: Self = config.into();
         })
     }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_user_agent(config: qiniu_ng_config_t) -> qiniu_ng_optional_str_t {
+    let config = Config::from(config);
+    unsafe { qiniu_ng_optional_str_t::from_str_unchecked(config.user_agent()) }.tap(|_| {
+        let _ = qiniu_ng_config_t::from(config);
+    })
 }
 
 #[no_mangle]

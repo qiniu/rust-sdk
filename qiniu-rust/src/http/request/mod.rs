@@ -89,6 +89,9 @@ impl<'a> Request<'a> {
             if let Some(body) = &self.parts.body {
                 builder = builder.body(body.as_slice());
             }
+            if let Some(user_agent) = self.parts.config.user_agent() {
+                builder = builder.user_agent(user_agent);
+            }
             builder.build()
         };
         self.parts.token.sign(&mut request);
