@@ -216,7 +216,7 @@ mod tests {
     use crate::{
         config::ConfigBuilder,
         credential::Credential,
-        http::{DomainsManagerBuilder, PanickedHTTPCaller},
+        http::{DomainsManagerBuilder, HTTPHandler, PanickedHTTPCaller},
     };
     use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};
@@ -231,7 +231,7 @@ mod tests {
             UploadManager::new(
                 ConfigBuilder::default()
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-                    .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
+                    .http_request_handler(HTTPHandler::Dynamic(Box::new(PanickedHTTPCaller("Should not call it"))))
                     .build(),
             ),
         )
@@ -252,7 +252,7 @@ mod tests {
             UploadManager::new(
                 ConfigBuilder::default()
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-                    .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
+                    .http_request_handler(HTTPHandler::Dynamic(Box::new(PanickedHTTPCaller("Should not call it"))))
                     .build(),
             ),
         )
@@ -296,7 +296,7 @@ mod tests {
             UploadManager::new(
                 ConfigBuilder::default()
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-                    .http_request_call(mock.as_boxed())
+                    .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
                     .build(),
             ),
         )
@@ -373,7 +373,7 @@ mod tests {
                 UploadManager::new(
                     ConfigBuilder::default()
                         .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-                        .http_request_call(mock.as_boxed())
+                        .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
                         .build(),
                 ),
             )
@@ -452,7 +452,7 @@ mod tests {
             UploadManager::new(
                 ConfigBuilder::default()
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-                    .http_request_call(Box::new(PanickedHTTPCaller("Should not call it")))
+                    .http_request_handler(HTTPHandler::Dynamic(Box::new(PanickedHTTPCaller("Should not call it"))))
                     .build(),
             ),
         )
@@ -473,7 +473,7 @@ mod tests {
             UploadManager::new(
                 ConfigBuilder::default()
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-                    .http_request_call(mock.as_boxed())
+                    .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
                     .build(),
             ),
         )
@@ -496,7 +496,7 @@ mod tests {
                 UploadManager::new(
                     ConfigBuilder::default()
                         .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-                        .http_request_call(mock.as_boxed())
+                        .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
                         .build(),
                 ),
             )

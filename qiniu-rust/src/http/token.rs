@@ -21,16 +21,21 @@ impl<'t> Token<'t> {
 
         match self {
             Token::V1(credential) => {
-                if let Ok(authorization) =
-                    credential.authorization_v1_for_request(&url, req.headers().get(&"Content-Type".into()), req.body())
-                {
+                if let Ok(authorization) = credential.authorization_v1_for_request(
+                    &url,
+                    req.headers().get(&"Content-Type".into()),
+                    req.body().as_ref().map(|body| body.as_ref()),
+                ) {
                     req.headers_mut().insert("Authorization".into(), authorization.into());
                 }
             }
             Token::V2(credential) => {
-                if let Ok(authorization) =
-                    credential.authorization_v2_for_request(method, &url, req.headers(), req.body())
-                {
+                if let Ok(authorization) = credential.authorization_v2_for_request(
+                    method,
+                    &url,
+                    req.headers(),
+                    req.body().as_ref().map(|body| body.as_ref()),
+                ) {
                     req.headers_mut().insert("Authorization".into(), authorization.into());
                 }
             }

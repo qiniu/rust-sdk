@@ -207,6 +207,7 @@ impl<T: HTTPCaller> HTTPCaller for UploadingProgressErrorMock<T> {
         let mut rng = thread_rng();
         let total_size: u64 = request
             .body()
+            .as_ref()
             .map(|body| body.len().try_into().unwrap_or(u64::max_value()))
             .unwrap_or(0u64);
         let packet_size: u64 = self.packet_size.into();

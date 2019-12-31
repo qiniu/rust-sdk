@@ -169,7 +169,7 @@ impl Credential {
                 == &self.authorization_v1_for_request(
                     req.url(),
                     req.headers().get(&"Content-Type".into()),
-                    req.body(),
+                    req.body().as_ref().map(|body| body.as_ref()),
                 )?)
         } else {
             Ok(false)
@@ -461,7 +461,7 @@ mod tests {
                     "Authorization",
                     credential.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)?
                 )
-                .body(json_body)
+                .body_ref(json_body)
                 .build()
         ));
         assert!(credential.is_valid_request(
@@ -472,7 +472,7 @@ mod tests {
                     credential.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)?
                 )
                 .header("Content-Type", "application/json")
-                .body(json_body)
+                .body_ref(json_body)
                 .build()
         ));
         assert!(credential.is_valid_request(
@@ -487,7 +487,7 @@ mod tests {
                     )?
                 )
                 .header("Content-Type", "application/x-www-form-urlencoded")
-                .body(form_body)
+                .body_ref(form_body)
                 .build()
         ));
         Ok(())

@@ -4,9 +4,9 @@ mod parts;
 pub(crate) use builder::Builder;
 pub(crate) use parts::Parts;
 
-use super::{response::Response, Choice, DomainsManager};
+use super::{response::Response, Choice, DomainsManager, HTTPAfterAction, HTTPBeforeAction};
 use qiniu_http::{
-    Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Request as HTTPRequest, RequestBuilder,
+    Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCaller, Method, Request as HTTPRequest, RequestBuilder,
     Response as HTTPResponse, Result as HTTPResult, RetryKind as HTTPRetryKind, StatusCode,
 };
 use rand::{thread_rng, Rng};
@@ -87,7 +87,7 @@ impl<'a> Request<'a> {
                 builder = builder.headers(headers.to_owned());
             }
             if let Some(body) = &self.parts.body {
-                builder = builder.body(body.as_slice());
+                builder = builder.body_ref(body.as_slice());
             }
             if let Some(user_agent) = self.parts.config.user_agent() {
                 builder = builder.user_agent(user_agent);
@@ -95,16 +95,14 @@ impl<'a> Request<'a> {
             builder.build()
         };
         self.parts.token.sign(&mut request);
+
         let mut prev_err: Option<HTTPError> = None;
         let retries = self.parts.config.http_request_retries();
         assert!(retries > 0);
         for _ in 0..=retries {
             let timer = Instant::now();
             match self
-                .parts
-                .config
-                .http_request_call()
-                .call(&request)
+                .do_request(&mut request)
                 .and_then(|response| Self::check_response(response, &request))
                 .and_then(|response| self.fulfill_body_if_needed(response, &request))
                 .map(|response| Response {
@@ -143,6 +141,17 @@ impl<'a> Request<'a> {
             }
         }
         Err(prev_err.unwrap())
+    }
+
+    fn do_request(&self, request: &mut HTTPRequest) -> HTTPResult<HTTPResponse> {
+        for handler in self.parts.config.http_request_before_action_handlers().iter() {
+            handler.before_call(request)?;
+        }
+        let mut response = self.parts.config.http_request_handler().call(&request)?;
+        for handler in self.parts.config.http_request_after_action_handlers().iter() {
+            handler.after_call(&request, &mut response)?;
+        }
+        Ok(response)
     }
 
     fn make_url(&self, base_url: &str) -> HTTPResult<String> {
@@ -287,27 +296,30 @@ mod tests {
                 credential::Credential,
             },
             token::Token,
-            DomainsManagerBuilder,
+            DomainsManagerBuilder, HTTPAfterActionHandler, HTTPBeforeActionHandler, HTTPHandler,
         },
         Builder, *,
     };
-    use qiniu_http::HTTPCaller;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, ErrorResponseMock};
     use std::{
         boxed::Box,
         error::Error as StdError,
         io,
         result::Result as StdResult,
-        sync::atomic::{AtomicUsize, Ordering::Relaxed},
+        sync::{
+            atomic::{AtomicUsize, Ordering::Relaxed},
+            Arc,
+        },
         time::Duration,
     };
 
-    struct HTTPRequestCounter {
+    #[derive(Debug, Clone)]
+    struct HTTPRetryer {
         is_retry_safe: bool,
         retry_kind: HTTPRetryKind,
     }
 
-    impl HTTPCaller for HTTPRequestCounter {
+    impl HTTPCaller for HTTPRetryer {
         fn call(&self, request: &HTTPRequest) -> HTTPResult<HTTPResponse> {
             assert!(request.headers().contains_key(&"authorization".into()));
             Err(HTTPError::new_from_parts(
@@ -324,14 +336,14 @@ mod tests {
 
     #[test]
     fn test_retryable_error_case_1() -> StdResult<(), Box<dyn StdError>> {
-        let mock = CounterCallMock::new(HTTPRequestCounter {
+        let mock = CounterCallMock::new(HTTPRetryer {
             retry_kind: HTTPRetryKind::RetryableError,
             is_retry_safe: true,
         });
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(mock.as_boxed())
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -363,14 +375,14 @@ mod tests {
 
     #[test]
     fn test_retryable_error_case_2() -> StdResult<(), Box<dyn StdError>> {
-        let mock = CounterCallMock::new(HTTPRequestCounter {
+        let mock = CounterCallMock::new(HTTPRetryer {
             retry_kind: HTTPRetryKind::RetryableError,
             is_retry_safe: true,
         });
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(mock.as_boxed())
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -402,14 +414,14 @@ mod tests {
 
     #[test]
     fn test_retryable_error_case_3() -> StdResult<(), Box<dyn StdError>> {
-        let mock = CounterCallMock::new(HTTPRequestCounter {
+        let mock = CounterCallMock::new(HTTPRetryer {
             retry_kind: HTTPRetryKind::RetryableError,
             is_retry_safe: false,
         });
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(mock.as_boxed())
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -441,14 +453,14 @@ mod tests {
 
     #[test]
     fn test_host_unretryable_error() -> StdResult<(), Box<dyn StdError>> {
-        let mock = CounterCallMock::new(HTTPRequestCounter {
+        let mock = CounterCallMock::new(HTTPRetryer {
             retry_kind: HTTPRetryKind::HostUnretryableError,
             is_retry_safe: true,
         });
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(mock.as_boxed())
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -480,14 +492,14 @@ mod tests {
 
     #[test]
     fn test_zone_unretryable_error() -> StdResult<(), Box<dyn StdError>> {
-        let mock = CounterCallMock::new(HTTPRequestCounter {
+        let mock = CounterCallMock::new(HTTPRetryer {
             retry_kind: HTTPRetryKind::ZoneUnretryableError,
             is_retry_safe: false,
         });
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(mock.as_boxed())
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -519,14 +531,14 @@ mod tests {
 
     #[test]
     fn test_unretryable_error() -> StdResult<(), Box<dyn StdError>> {
-        let mock = CounterCallMock::new(HTTPRequestCounter {
+        let mock = CounterCallMock::new(HTTPRetryer {
             retry_kind: HTTPRetryKind::UnretryableError,
             is_retry_safe: false,
         });
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(mock.as_boxed())
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -562,7 +574,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(mock.as_boxed())
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         assert!(Builder::new(
@@ -586,7 +598,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(mock.as_boxed())
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         assert!(Builder::new(
@@ -609,7 +621,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(mock.as_boxed())
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         assert!(Builder::new(
@@ -632,7 +644,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(mock.as_boxed())
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         assert!(Builder::new(
@@ -655,7 +667,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_call(mock.as_boxed())
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         assert!(Builder::new(
@@ -669,6 +681,106 @@ mod tests {
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 1);
+        Ok(())
+    }
+
+    #[derive(Debug, Clone, Default)]
+    struct HTTPActionCounter {
+        before: Arc<AtomicUsize>,
+        after: Arc<AtomicUsize>,
+        destroyer: Option<HTTPRetryer>,
+    }
+
+    impl HTTPBeforeAction for HTTPActionCounter {
+        fn before_call(&self, request: &mut HTTPRequest) -> HTTPResult<()> {
+            self.before.fetch_add(1, Relaxed);
+            if let Some(destroyer) = self.destroyer.as_ref() {
+                let _ = destroyer.call(request)?;
+            }
+            Ok(())
+        }
+    }
+
+    impl HTTPAfterAction for HTTPActionCounter {
+        fn after_call(&self, _request: &HTTPRequest, _response: &mut HTTPResponse) -> HTTPResult<()> {
+            self.after.fetch_add(1, Relaxed);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_retryable_error_case_4() -> StdResult<(), Box<dyn StdError>> {
+        let mock = CounterCallMock::new(HTTPRetryer {
+            retry_kind: HTTPRetryKind::RetryableError,
+            is_retry_safe: true,
+        });
+        let counter = Box::new(HTTPActionCounter::default());
+        let config = ConfigBuilder::default()
+            .http_request_retries(RETRIES)
+            .http_request_retry_delay(Duration::from_millis(1))
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(counter.clone()))
+            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(counter.clone()))
+            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(counter.clone()))
+            .append_http_request_after_action_handler(HTTPAfterActionHandler::Dynamic(counter.clone()))
+            .append_http_request_after_action_handler(HTTPAfterActionHandler::Dynamic(counter.clone()))
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .build();
+        assert!(Builder::new(
+            config,
+            Method::GET,
+            "/test_call",
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
+        )
+        .token(Token::V2(get_credential().into()))
+        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .send()
+        .is_err());
+
+        assert_eq!(mock.call_called(), 2 * (RETRIES + 1));
+        assert_eq!(counter.before.load(Relaxed), 3 * 2 * (RETRIES + 1));
+        assert_eq!(counter.after.load(Relaxed), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_retryable_error_case_5() -> StdResult<(), Box<dyn StdError>> {
+        let mock = CounterCallMock::new(HTTPRetryer {
+            retry_kind: HTTPRetryKind::RetryableError,
+            is_retry_safe: true,
+        });
+        let counter = Box::new(HTTPActionCounter {
+            destroyer: Some(HTTPRetryer {
+                retry_kind: HTTPRetryKind::UnretryableError,
+                is_retry_safe: false,
+            }),
+            ..Default::default()
+        });
+        let config = ConfigBuilder::default()
+            .http_request_retries(RETRIES)
+            .http_request_retry_delay(Duration::from_millis(1))
+            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(counter.clone()))
+            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(counter.clone()))
+            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(counter.clone()))
+            .append_http_request_after_action_handler(HTTPAfterActionHandler::Dynamic(counter.clone()))
+            .append_http_request_after_action_handler(HTTPAfterActionHandler::Dynamic(counter.clone()))
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .build();
+        assert!(Builder::new(
+            config,
+            Method::GET,
+            "/test_call",
+            &["http://z1h1.com:1111", "http://z1h2.com:2222"],
+        )
+        .token(Token::V2(get_credential().into()))
+        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .send()
+        .is_err());
+
+        assert_eq!(mock.call_called(), 0);
+        assert_eq!(counter.before.load(Relaxed), 1);
+        assert_eq!(counter.after.load(Relaxed), 0);
         Ok(())
     }
 

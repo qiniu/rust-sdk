@@ -769,7 +769,11 @@ mod tests {
         },
         *,
     };
-    use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
+    use crate::{
+        config::ConfigBuilder,
+        credential::Credential,
+        http::{DomainsManagerBuilder, HTTPHandler},
+    };
     use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Headers, Method, ResponseBuilder};
     use qiniu_test_utils::{
         http_call_mock::{fake_req_id, CallHandlers, UploadingProgressErrorMock},
@@ -782,7 +786,7 @@ mod tests {
     fn test_storage_uploader_resumable_uploader_upload_file() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_call(
+            .http_request_handler(HTTPHandler::Dynamic(
                 CallHandlers::new(|request| {
                     panic!("Unexpected Request: {} {}", request.method(), request.url());
                 })
@@ -851,7 +855,7 @@ mod tests {
                     },
                 )
                 .into_box(),
-            )
+            ))
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -874,7 +878,7 @@ mod tests {
     fn test_storage_uploader_resumable_uploader_upload_file_with_many_retryable_errors() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_call(
+            .http_request_handler(HTTPHandler::Dynamic(
                 UploadingProgressErrorMock::new(
                     CallHandlers::new(|request| {
                         panic!("Unexpected Request: {} {}", request.method(), request.url());
@@ -947,7 +951,7 @@ mod tests {
                     0.5f64,
                 )
                 .into_box(),
-            )
+            ))
             .http_request_retries(100)
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
@@ -971,7 +975,7 @@ mod tests {
     fn test_storage_uploader_resumable_uploader_upload_file_with_1_host_failure() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_call(
+            .http_request_handler(HTTPHandler::Dynamic(
                 CallHandlers::new(|request| {
                     panic!("Unexpected Request: {} {}", request.method(), request.url());
                 })
@@ -1069,7 +1073,7 @@ mod tests {
                     },
                 )
                 .into_box(),
-            )
+            ))
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -1092,7 +1096,7 @@ mod tests {
     fn test_storage_uploader_resumable_uploader_upload_file_with_1_zone_failure() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_call(
+            .http_request_handler(HTTPHandler::Dynamic(
                 CallHandlers::new(|request| {
                     panic!("Unexpected Request: {} {}", request.method(), request.url());
                 })
@@ -1179,7 +1183,7 @@ mod tests {
                     },
                 )
                 .into_box(),
-            )
+            ))
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -1207,7 +1211,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_call(
+            .http_request_handler(HTTPHandler::Dynamic(
                 CallHandlers::new(|request| {
                     panic!("Unexpected Request: {} {}", request.method(), request.url());
                 })
@@ -1325,7 +1329,7 @@ mod tests {
                     },
                 )
                 .into_box(),
-            )
+            ))
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -1352,7 +1356,7 @@ mod tests {
     fn test_storage_uploader_resumable_uploader_upload_file_with_1_unretryable_failure() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_call(
+            .http_request_handler(HTTPHandler::Dynamic(
                 CallHandlers::new(|request| {
                     panic!("Unexpected Request: {} {}", request.method(), request.url());
                 })
@@ -1427,7 +1431,7 @@ mod tests {
                     },
                 )
                 .into_box(),
-            )
+            ))
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -1466,7 +1470,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_call(
+            .http_request_handler(HTTPHandler::Dynamic(
                 CallHandlers::new(|request| {
                     panic!("Unexpected Request: {} {}", request.method(), request.url());
                 })
@@ -1565,7 +1569,7 @@ mod tests {
                     },
                 )
                 .into_box(),
-            )
+            ))
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();

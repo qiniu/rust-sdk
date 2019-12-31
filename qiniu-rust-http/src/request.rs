@@ -3,9 +3,9 @@ use getset::{CopyGetters, Getters, MutGetters};
 use std::{borrow::Cow, fmt, net::SocketAddr};
 
 pub type URL<'b> = Cow<'b, str>;
-pub type Body = [u8];
+pub type Body<'b> = Cow<'b, [u8]>;
 
-#[derive(Getters, CopyGetters, MutGetters, Clone)]
+#[derive(Getters, CopyGetters, MutGetters)]
 pub struct Request<'b> {
     #[get_mut = "pub"]
     url: URL<'b>,
@@ -18,9 +18,9 @@ pub struct Request<'b> {
     #[get_mut = "pub"]
     headers: Headers<'b>,
 
-    #[get_copy = "pub"]
+    #[get = "pub"]
     #[get_mut = "pub"]
-    body: Option<&'b Body>,
+    body: Option<Body<'b>>,
 
     #[get = "pub"]
     #[get_mut = "pub"]
@@ -84,8 +84,13 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    pub fn body(mut self, body: &'r [u8]) -> RequestBuilder<'r> {
-        self.request.body = Some(body);
+    pub fn body_ref(mut self, body: &'r [u8]) -> RequestBuilder<'r> {
+        self.request.body = Some(Cow::Borrowed(body));
+        self
+    }
+
+    pub fn body(mut self, body: Vec<u8>) -> RequestBuilder<'r> {
+        self.request.body = Some(Cow::Owned(body));
         self
     }
 

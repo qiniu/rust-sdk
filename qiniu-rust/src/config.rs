@@ -1,11 +1,10 @@
 use crate::{
-    http::DomainsManager,
+    http::{DomainsManager, HTTPAfterActionHandler, HTTPBeforeActionHandler, HTTPHandler},
     storage::uploader::{UploadLogger, UploadLoggerBuilder, UploadRecorder},
 };
 use assert_impl::assert_impl;
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
-use qiniu_http::HTTPCaller;
 use std::{
     borrow::Cow,
     boxed::Box,
@@ -25,7 +24,7 @@ use std::{
     build_fn(name = "inner_build", private)
 )]
 pub struct ConfigInner {
-    #[builder(default = "default::user_agent()")]
+    #[builder(default)]
     user_agent: Option<Cow<'static, str>>,
 
     #[get_copy = "pub"]
@@ -73,7 +72,7 @@ pub struct ConfigInner {
     upload_logger: Option<UploadLogger>,
 
     #[get = "pub"]
-    #[builder(default = "default::upload_recorder()")]
+    #[builder(default)]
     upload_recorder: UploadRecorder,
 
     #[get_copy = "pub"]
@@ -85,21 +84,24 @@ pub struct ConfigInner {
     http_request_retry_delay: Duration,
 
     #[get = "pub"]
-    #[builder(default = "default::http_request_call()")]
-    http_request_call: Box<dyn HTTPCaller + Send + Sync>,
+    #[builder(default)]
+    http_request_before_action_handlers: Vec<HTTPBeforeActionHandler>,
 
     #[get = "pub"]
-    #[builder(default = "default::domains_manager()")]
+    #[builder(default)]
+    http_request_after_action_handlers: Vec<HTTPAfterActionHandler>,
+
+    #[get = "pub"]
+    #[builder(default = "default::http_request_handler()")]
+    http_request_handler: HTTPHandler,
+
+    #[get = "pub"]
+    #[builder(default)]
     domains_manager: DomainsManager,
 }
 
 mod default {
     use super::*;
-
-    #[inline]
-    pub fn user_agent() -> Option<Cow<'static, str>> {
-        None
-    }
 
     #[inline]
     pub const fn use_https() -> bool {
@@ -157,11 +159,6 @@ mod default {
     }
 
     #[inline]
-    pub fn upload_recorder() -> UploadRecorder {
-        Default::default()
-    }
-
-    #[inline]
     pub const fn http_request_retries() -> usize {
         3
     }
@@ -172,20 +169,15 @@ mod default {
     }
 
     #[inline]
-    pub fn domains_manager() -> DomainsManager {
-        Default::default()
-    }
-
-    #[inline]
-    pub fn http_request_call() -> Box<dyn HTTPCaller + Sync + Send> {
+    pub fn http_request_handler() -> HTTPHandler {
         #[cfg(any(feature = "use-libcurl"))]
         {
-            Box::new(qiniu_with_libcurl::CurlClient::default())
+            HTTPHandler::Dynamic(Box::new(qiniu_with_libcurl::CurlClient::default()))
         }
         #[cfg(not(feature = "use-libcurl"))]
         {
-            use super::super::http::PanickedHTTPCaller;
-            Box::new(PanickedHTTPCaller("Must define config.http_request_call"))
+            use crate::http::PanickedHTTPCaller;
+            HTTPHandler::Dynamic(Box::new(PanickedHTTPCaller("Must define config.http_request_call")))
         }
     }
 }
@@ -254,6 +246,50 @@ impl ConfigInner {
 pub struct Config(Arc<ConfigInner>);
 
 impl ConfigBuilder {
+    pub fn append_http_request_before_action_handler(mut self, handler: HTTPBeforeActionHandler) -> Self {
+        if let Some(before_action_handlers) = &mut self.http_request_before_action_handlers {
+            before_action_handlers.push(handler);
+        } else {
+            let mut handlers = Vec::with_capacity(1);
+            handlers.push(handler);
+            self.http_request_before_action_handlers = Some(handlers);
+        }
+        self
+    }
+
+    pub fn prepend_http_request_before_action_handler(mut self, handler: HTTPBeforeActionHandler) -> Self {
+        if let Some(before_action_handlers) = &mut self.http_request_before_action_handlers {
+            before_action_handlers.insert(0, handler);
+        } else {
+            let mut handlers = Vec::with_capacity(1);
+            handlers.push(handler);
+            self.http_request_before_action_handlers = Some(handlers);
+        }
+        self
+    }
+
+    pub fn append_http_request_after_action_handler(mut self, handler: HTTPAfterActionHandler) -> Self {
+        if let Some(after_action_handlers) = &mut self.http_request_after_action_handlers {
+            after_action_handlers.push(handler);
+        } else {
+            let mut handlers = Vec::with_capacity(1);
+            handlers.push(handler);
+            self.http_request_after_action_handlers = Some(handlers);
+        }
+        self
+    }
+
+    pub fn prepend_http_request_after_action_handler(mut self, handler: HTTPAfterActionHandler) -> Self {
+        if let Some(after_action_handlers) = &mut self.http_request_after_action_handlers {
+            after_action_handlers.insert(0, handler);
+        } else {
+            let mut handlers = Vec::with_capacity(1);
+            handlers.push(handler);
+            self.http_request_after_action_handlers = Some(handlers);
+        }
+        self
+    }
+
     pub fn build(self) -> Config {
         let mut config = self.inner_build().unwrap();
         config.user_agent = Some(
@@ -305,7 +341,7 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use qiniu_http::{Request, RequestBuilder, Response, ResponseBuilder, Result};
+    use qiniu_http::{HTTPCaller, Request, RequestBuilder, Response, ResponseBuilder, Result};
     use regex::Regex;
     use std::{
         error::Error,
@@ -335,15 +371,15 @@ mod tests {
     }
 
     #[test]
-    fn test_config_with_set_http_request_call() -> StdResult<(), Box<dyn Error>> {
+    fn test_config_with_set_dynamic_http_request_call() -> StdResult<(), Box<dyn Error>> {
         let config = ConfigBuilder::default()
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
-            .http_request_call(Box::new(FakeHTTPRequester))
+            .http_request_handler(HTTPHandler::Dynamic(Box::new(FakeHTTPRequester)))
             .build();
 
         let http_response = config
-            .http_request_call()
+            .http_request_handler()
             .call(&RequestBuilder::default().url("http://fake.qiniu.com").build())?;
 
         let mut http_body = String::new();
@@ -358,7 +394,7 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
-            .http_request_call(Box::new(FakeHTTPRequester))
+            .http_request_handler(HTTPHandler::Dynamic(Box::new(FakeHTTPRequester)))
             .build();
         assert_eq!(config.http_request_retries(), 5);
         assert_eq!(config.http_request_retry_delay(), Duration::from_secs(1));

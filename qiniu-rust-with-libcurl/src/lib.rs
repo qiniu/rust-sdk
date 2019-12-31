@@ -123,11 +123,11 @@ impl CurlClient {
             .unwrap_or_else(|| &TEMP_DIR);
     }
 
-    fn set_context<'r>(&self, mut context: &mut Context<'r>, request: &Request<'r>) {
+    fn set_context<'r>(&self, mut context: &mut Context<'r>, request: &'r Request<'r>) {
         context.upload_progress = request.on_uploading_progress();
         context.download_progress = request.on_downloading_progress();
 
-        if let Some(request_body) = request.body() {
+        if let Some(request_body) = request.body().as_ref().map(|body| body.as_ref()) {
             if !request_body.is_empty() {
                 context.request_body = Some(Cursor::new(request_body));
             }
@@ -169,6 +169,7 @@ impl CurlClient {
     fn set_body<T>(&self, easy: &mut Easy2<T>, request: &Request) -> Result<()> {
         request
             .body()
+            .as_ref()
             .map(|body| Self::handle_if_err(easy.post_field_size(body.len().try_into().unwrap()), request))
             .unwrap_or(Ok(()))
     }

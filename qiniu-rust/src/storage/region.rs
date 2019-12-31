@@ -476,7 +476,7 @@ mod tests {
     use crate::{
         config::ConfigBuilder,
         credential::Credential,
-        http::{DomainsManagerBuilder, Headers},
+        http::{DomainsManagerBuilder, HTTPHandler, Headers},
     };
     use qiniu_test_utils::http_call_mock::JSONCallMock;
     use serde_json::json;
@@ -486,7 +486,7 @@ mod tests {
     fn test_query_region_by_expected_domain() -> Result<(), Box<dyn Error>> {
         let config = ConfigBuilder::default()
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .http_request_call(Box::new(JSONCallMock::new(
+            .http_request_handler(HTTPHandler::Dynamic(Box::new(JSONCallMock::new(
                 200,
                 Headers::new(),
                 json!({
@@ -500,7 +500,7 @@ mod tests {
                         }
                     }]
                 }),
-            ))).build();
+            )))).build();
         let regions = Region::query("z0-bucket", get_credential().access_key(), config)?;
         assert_eq!(regions.len(), 1);
         let region = regions.first().unwrap();
@@ -544,7 +544,7 @@ mod tests {
     fn test_query_region_by_unexpected_domain() -> Result<(), Box<dyn Error>> {
         let config = ConfigBuilder::default()
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .http_request_call(Box::new(JSONCallMock::new(
+            .http_request_handler(HTTPHandler::Dynamic(Box::new(JSONCallMock::new(
                 200,
                 Headers::new(),
                 json!({
@@ -558,7 +558,7 @@ mod tests {
                         }
                     }]
                 }),
-            )))
+            ))))
             .build();
         let regions = Region::query("z5-bucket", get_credential().access_key(), config)?;
         assert_eq!(regions.len(), 1);
