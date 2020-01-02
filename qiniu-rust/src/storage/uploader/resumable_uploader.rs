@@ -549,7 +549,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         Ok(result.upload_id)
     }
 
-    fn upload_part<OnProgressFn: Fn(u64, u64), OnErrorFn: Fn(Option<&str>, &HTTPError, Duration)>(
+    fn upload_part(
         http_client: &Client,
         path: &str,
         up_urls: &[&str],
@@ -558,8 +558,8 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         part_number: usize,
         block_size: u32,
         md5_hasher: &mut OptionalMd5,
-        on_progress: OnProgressFn,
-        on_error: OnErrorFn,
+        on_progress: impl Fn(u64, u64),
+        on_error: impl Fn(Option<&str>, &HTTPError, Duration),
         upload_logger: Option<&TokenizedUploadLogger>,
         upload_recorder: Option<&FileUploadRecordMedium>,
     ) -> HTTPResult<Box<str>> {

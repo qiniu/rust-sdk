@@ -6,8 +6,8 @@ use derive_builder::Builder;
 use lazy_static::lazy_static;
 use object_pool::Pool;
 use qiniu_http::{
-    Error, HTTPCaller, HTTPCallerError, HTTPCallerErrorKind, Headers, Method, Request, Response, ResponseBuilder,
-    Result, StatusCode,
+    Error, HTTPCaller, HTTPCallerError, HTTPCallerErrorKind, Headers, Method, ProgressCallback, Request, Response,
+    ResponseBuilder, Result, StatusCode,
 };
 use std::{
     convert::TryInto,
@@ -205,7 +205,8 @@ impl CurlClient {
             easy.useragent(
                 request
                     .user_agent()
-                    .map(|user_agent| user_agent.to_owned() + &PART_USER_AGENT + "/")
+                    .as_ref()
+                    .map(|user_agent| user_agent.to_owned().into_owned() + &PART_USER_AGENT + "/")
                     .as_ref()
                     .map_or_else(|| (&FULL_USER_AGENT).as_ref(), |user_agent| user_agent.as_str()),
             ),
@@ -324,8 +325,8 @@ struct Context<'r> {
     buffer_size: usize,
     temp_dir: &'r Path,
     progress_status: ProgressStatus,
-    upload_progress: Option<&'r dyn Fn(u64, u64)>,
-    download_progress: Option<&'r dyn Fn(u64, u64)>,
+    upload_progress: Option<ProgressCallback<'r>>,
+    download_progress: Option<ProgressCallback<'r>>,
 }
 
 enum ResponseBody {
@@ -407,8 +408,8 @@ impl<'r> Handler for Context<'r> {
         match self.progress_status {
             ProgressStatus::Initialized => {
                 if ultotal == 0 {
-                    if let Some(download_progress) = self.download_progress.as_ref() {
-                        (download_progress)(dlnow, dltotal);
+                    if let Some(download_progress) = self.download_progress {
+                        download_progress.call(dlnow, dltotal);
                     }
                     if dlnow == dltotal {
                         self.progress_status = ProgressStatus::Completed;
@@ -416,15 +417,15 @@ impl<'r> Handler for Context<'r> {
                         self.progress_status = ProgressStatus::Downloading(dlnow);
                     }
                 } else {
-                    if let Some(upload_progress) = self.upload_progress.as_ref() {
-                        (upload_progress)(ulnow, ultotal);
+                    if let Some(upload_progress) = self.upload_progress {
+                        upload_progress.call(ulnow, ultotal);
                     }
                     self.progress_status = ProgressStatus::Uploading(ulnow);
                 }
             }
             ProgressStatus::Uploading(now) if now < ulnow => {
-                if let Some(upload_progress) = self.upload_progress.as_ref() {
-                    (upload_progress)(ulnow, ultotal);
+                if let Some(upload_progress) = self.upload_progress {
+                    upload_progress.call(ulnow, ultotal);
                 }
                 if ulnow == ultotal {
                     self.progress_status = ProgressStatus::Downloading(dlnow);
@@ -433,8 +434,8 @@ impl<'r> Handler for Context<'r> {
                 }
             }
             ProgressStatus::Downloading(now) if now < dlnow => {
-                if let Some(download_progress) = self.download_progress.as_ref() {
-                    (download_progress)(dlnow, dltotal);
+                if let Some(download_progress) = self.download_progress {
+                    download_progress.call(dlnow, dltotal);
                 }
                 if dlnow == dltotal {
                     self.progress_status = ProgressStatus::Completed;

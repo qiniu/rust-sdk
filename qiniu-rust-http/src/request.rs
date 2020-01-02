@@ -5,6 +5,12 @@ use std::{borrow::Cow, fmt, net::SocketAddr};
 pub type URL<'b> = Cow<'b, str>;
 pub type Body<'b> = Cow<'b, [u8]>;
 
+#[derive(Copy, Clone)]
+pub enum ProgressCallback<'b> {
+    Closure(&'b dyn Fn(u64, u64)),
+    Fn(fn(u64, u64)),
+}
+
 #[derive(Getters, CopyGetters, MutGetters)]
 pub struct Request<'b> {
     #[get_mut = "pub"]
@@ -24,23 +30,23 @@ pub struct Request<'b> {
 
     #[get = "pub"]
     #[get_mut = "pub"]
-    user_agent: Option<&'b str>,
+    user_agent: Option<Cow<'b, str>>,
 
     #[get_copy = "pub"]
     #[get_mut = "pub"]
     follow_redirection: bool,
 
-    #[get_copy = "pub"]
+    #[get = "pub"]
     #[get_mut = "pub"]
-    resolved_socket_addrs: &'b [SocketAddr],
+    resolved_socket_addrs: Cow<'b, [SocketAddr]>,
 
     #[get_copy = "pub"]
     #[get_mut = "pub"]
-    on_uploading_progress: Option<&'b dyn Fn(u64, u64)>,
+    on_uploading_progress: Option<ProgressCallback<'b>>,
 
     #[get_copy = "pub"]
     #[get_mut = "pub"]
-    on_downloading_progress: Option<&'b dyn Fn(u64, u64)>,
+    on_downloading_progress: Option<ProgressCallback<'b>>,
 }
 
 impl<'b> Request<'b> {
@@ -84,18 +90,13 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    pub fn body_ref(mut self, body: &'r [u8]) -> RequestBuilder<'r> {
-        self.request.body = Some(Cow::Borrowed(body));
+    pub fn body(mut self, body: impl Into<Body<'r>>) -> RequestBuilder<'r> {
+        self.request.body = Some(body.into());
         self
     }
 
-    pub fn body(mut self, body: Vec<u8>) -> RequestBuilder<'r> {
-        self.request.body = Some(Cow::Owned(body));
-        self
-    }
-
-    pub fn user_agent(mut self, user_agent: &'r str) -> RequestBuilder<'r> {
-        self.request.user_agent = Some(user_agent);
+    pub fn user_agent(mut self, user_agent: impl Into<Cow<'r, str>>) -> RequestBuilder<'r> {
+        self.request.user_agent = Some(user_agent.into());
         self
     }
 
@@ -104,18 +105,18 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    pub fn resolved_socket_addrs(mut self, socket_addrs: &'r [SocketAddr]) -> RequestBuilder<'r> {
-        self.request.resolved_socket_addrs = socket_addrs;
+    pub fn resolved_socket_addrs(mut self, socket_addrs: impl Into<Cow<'r, [SocketAddr]>>) -> RequestBuilder<'r> {
+        self.request.resolved_socket_addrs = socket_addrs.into();
         self
     }
 
-    pub fn on_uploading_progress(mut self, callback: &'r dyn Fn(u64, u64)) -> RequestBuilder<'r> {
-        self.request.on_uploading_progress = Some(callback);
+    pub fn on_uploading_progress(mut self, callback: impl Into<ProgressCallback<'r>>) -> RequestBuilder<'r> {
+        self.request.on_uploading_progress = Some(callback.into());
         self
     }
 
-    pub fn on_downloading_progress(mut self, callback: &'r dyn Fn(u64, u64)) -> RequestBuilder<'r> {
-        self.request.on_downloading_progress = Some(callback);
+    pub fn on_downloading_progress(mut self, callback: impl Into<ProgressCallback<'r>>) -> RequestBuilder<'r> {
+        self.request.on_downloading_progress = Some(callback.into());
         self
     }
 
@@ -133,7 +134,7 @@ impl Default for Request<'_> {
             body: None,
             user_agent: None,
             follow_redirection: false,
-            resolved_socket_addrs: &[],
+            resolved_socket_addrs: Cow::Borrowed(&[]),
             on_uploading_progress: None,
             on_downloading_progress: None,
         }
@@ -167,5 +168,26 @@ impl fmt::Debug for Request<'_> {
                 },
             )
             .finish()
+    }
+}
+
+impl ProgressCallback<'_> {
+    pub fn call(&self, uploaded: u64, total: u64) {
+        match self {
+            ProgressCallback::Closure(closure) => (closure)(uploaded, total),
+            ProgressCallback::Fn(f) => (f)(uploaded, total),
+        }
+    }
+}
+
+impl<'a> From<&'a dyn Fn(u64, u64)> for ProgressCallback<'a> {
+    fn from(f: &'a dyn Fn(u64, u64)) -> Self {
+        ProgressCallback::Closure(f)
+    }
+}
+
+impl From<fn(u64, u64)> for ProgressCallback<'_> {
+    fn from(f: fn(u64, u64)) -> Self {
+        ProgressCallback::Fn(f)
     }
 }

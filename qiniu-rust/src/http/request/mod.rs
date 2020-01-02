@@ -75,7 +75,7 @@ impl<'a> Request<'a> {
                 .url(self.make_url(choice.base_url)?)
                 .follow_redirection(self.parts.follow_redirection);
             if !choice.socket_addrs.is_empty() {
-                builder = builder.resolved_socket_addrs(&choice.socket_addrs);
+                builder = builder.resolved_socket_addrs(choice.socket_addrs.as_ref());
             }
             if let Some(on_uploading_progress) = self.parts.on_uploading_progress {
                 builder = builder.on_uploading_progress(on_uploading_progress);
@@ -87,7 +87,7 @@ impl<'a> Request<'a> {
                 builder = builder.headers(headers.to_owned());
             }
             if let Some(body) = &self.parts.body {
-                builder = builder.body_ref(body.as_slice());
+                builder = builder.body(body.as_slice());
             }
             if let Some(user_agent) = self.parts.config.user_agent() {
                 builder = builder.user_agent(user_agent);

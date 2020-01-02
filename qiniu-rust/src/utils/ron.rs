@@ -32,3 +32,17 @@ impl<'t, T: fmt::Display + 't> fmt::Display for Ron<'t, T> {
         self.as_ref().fmt(f)
     }
 }
+
+impl<'t, T: 't> From<&'t T> for Ron<'t, T> {
+    #[inline]
+    fn from(t: &'t T) -> Self {
+        Ron::Referenced(t)
+    }
+}
+
+impl<T> From<T> for Ron<'_, T> {
+    #[inline]
+    fn from(t: T) -> Self {
+        Ron::Owned(t)
+    }
+}

@@ -173,13 +173,8 @@ impl<'b> FileUploaderBuilder<'b> {
         }
     }
 
-    pub fn thread_pool_ref(mut self, thread_pool: &'b ThreadPool) -> FileUploaderBuilder<'b> {
-        self.thread_pool = Some(Ron::Referenced(thread_pool));
-        self
-    }
-
-    pub fn thread_pool(mut self, thread_pool: ThreadPool) -> FileUploaderBuilder<'b> {
-        self.thread_pool = Some(Ron::Owned(thread_pool));
+    pub fn thread_pool(mut self, thread_pool: impl Into<Ron<'b, ThreadPool>>) -> FileUploaderBuilder<'b> {
+        self.thread_pool = Some(thread_pool.into());
         self
     }
 
@@ -254,7 +249,7 @@ impl<'b> FileUploaderBuilder<'b> {
         mut self,
         callback: &'b (dyn Fn(u64, Option<u64>) + Send + Sync),
     ) -> FileUploaderBuilder<'b> {
-        self.on_uploading_progress = Some(Rob::Referenced(callback));
+        self.on_uploading_progress = Some(callback.into());
         self
     }
 

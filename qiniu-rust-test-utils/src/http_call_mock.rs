@@ -231,7 +231,7 @@ impl<T: HTTPCaller> HTTPCaller for UploadingProgressErrorMock<T> {
                 ));
             }
             if let Some(on_uploading_progress) = request.on_uploading_progress() {
-                (on_uploading_progress)(i, total_size);
+                on_uploading_progress.call(i, total_size);
             }
         }
         self.caller.call(request)
