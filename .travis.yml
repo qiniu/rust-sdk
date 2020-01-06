@@ -5,9 +5,20 @@ matrix:
       dist: bionic
       rust:
         - 1.38.0
-      cache: cargo
       before_script:
         - sudo apt install -yq libcurl4
+        - cargo install --force cbindgen
+      script:
+        - make
+        - |
+            if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
+              make test
+            fi
+    - os: osx
+      rust:
+        - 1.38.0
+      before_script:
+        - brew install curl
         - cargo install --force cbindgen
       script:
         - make
@@ -18,7 +29,6 @@ matrix:
     - os: windows
       rust:
         - 1.38.0-x86_64-pc-windows-msvc
-      cache: cargo
       before_script:
         - choco install make
         - choco install curl --version=7.67.0
