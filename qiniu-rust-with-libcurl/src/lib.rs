@@ -147,7 +147,6 @@ impl CurlClient {
             Method::HEAD => easy.nobody(true),
             Method::POST => easy.post(true),
             Method::PUT => easy.upload(true),
-            m => easy.custom_request(m.as_str()),
         };
         Self::handle_if_err(result, request)
     }
@@ -205,8 +204,7 @@ impl CurlClient {
             easy.useragent(
                 request
                     .user_agent()
-                    .as_ref()
-                    .map(|user_agent| user_agent.to_owned().into_owned() + &PART_USER_AGENT + "/")
+                    .map(|user_agent| user_agent.to_owned() + &PART_USER_AGENT + "/")
                     .as_ref()
                     .map_or_else(|| (&FULL_USER_AGENT).as_ref(), |user_agent| user_agent.as_str()),
             ),

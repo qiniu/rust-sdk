@@ -1,4 +1,5 @@
 use crate::{
+    http::{qiniu_ng_http_request_t, qiniu_ng_http_response_t},
     result::qiniu_ng_err,
     string::{qiniu_ng_char_t, UCString},
     utils::{qiniu_ng_optional_str_t, qiniu_ng_optional_string_t, qiniu_ng_str_t},

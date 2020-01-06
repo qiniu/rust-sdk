@@ -15,11 +15,21 @@ header = """
 #define qiniu_ng_char_t char
 #endif
 #endif
+
+#if defined(_WIN32) || defined(WIN32)
+#include <winsock2.h>
+#else
+#include <netinet/in.h>
+#endif
 """
 
 [export]
 item_types = ["globals", "enums", "structs", "unions", "typedefs", "opaque", "functions", "constants"]
 exclude = ["qiniu_ng_char_t"]
+
+[export.rename]
+"in_addr" = "struct in_addr"
+"in6_addr" = "struct in6_addr"
 
 [const]
 allow_static_const = true

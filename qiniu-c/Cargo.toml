@@ -12,6 +12,7 @@ crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 qiniu-ng = { version = "0.0.1", path = "../qiniu-rust" }
+qiniu-http = { version = "0.0.1", path = "../qiniu-rust-http" }
 curl = { version = "0.4.25", features = ["http2"] }
 curl-sys = "0.4.23"
 digest = "0.8.1"
@@ -23,6 +24,9 @@ tap = "0.4.0"
 mime = "0.3.14"
 serde_json = "1.0.40"
 widestring = "0.4.0"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3.8", features = ["impl-default"] }
 
 [features]
 default = ["use-libcurl"]

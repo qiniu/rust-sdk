@@ -4,7 +4,9 @@ use crate::{
     result::qiniu_ng_err,
     string::{qiniu_ng_char_t, UCString},
     upload_token::{qiniu_ng_upload_token_get_token, qiniu_ng_upload_token_t},
-    utils::{qiniu_ng_optional_str_t, qiniu_ng_optional_string_t, qiniu_ng_str_map_t, qiniu_ng_string_t},
+    utils::{
+        qiniu_ng_optional_str_t, qiniu_ng_optional_string_t, qiniu_ng_readable_t, qiniu_ng_str_map_t, qiniu_ng_string_t,
+    },
 };
 use libc::{c_char, c_uint, c_ulonglong, c_void, ferror, fread, size_t, FILE};
 use mime::Mime;
@@ -388,25 +390,6 @@ impl UploadFile {
         }
     }
 }
-
-#[repr(C)]
-#[derive(Clone)]
-pub struct qiniu_ng_readable_t {
-    read_func: fn(context: *mut c_void, buf: *mut c_void, count: size_t, have_read: *mut size_t) -> bool,
-    context: *mut c_void,
-}
-
-impl Read for qiniu_ng_readable_t {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let mut have_read: size_t = 0;
-        if (self.read_func)(self.context, buf.as_mut_ptr().cast(), buf.len(), &mut have_read) {
-            Ok(have_read)
-        } else {
-            Err(Error::new(ErrorKind::Other, "User callback returns false"))
-        }
-    }
-}
-unsafe impl Send for qiniu_ng_readable_t {}
 
 struct FileReader(*mut FILE);
 

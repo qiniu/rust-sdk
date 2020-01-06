@@ -27,14 +27,6 @@ impl Client {
         self.request_builder(Method::PUT, path, hosts)
     }
 
-    pub(crate) fn delete<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
-        self.request_builder(Method::DELETE, path, hosts)
-    }
-
-    pub(crate) fn patch<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
-        self.request_builder(Method::PATCH, path, hosts)
-    }
-
     pub(crate) fn head<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
         self.request_builder(Method::HEAD, path, hosts)
     }

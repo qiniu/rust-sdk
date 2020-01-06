@@ -6,8 +6,6 @@ pub enum Method {
     HEAD,
     POST,
     PUT,
-    DELETE,
-    PATCH,
 }
 
 impl Method {
@@ -17,8 +15,6 @@ impl Method {
             Method::HEAD => "HEAD",
             Method::POST => "POST",
             Method::PUT => "PUT",
-            Method::DELETE => "DELETE",
-            Method::PATCH => "PATCH",
         }
     }
 
@@ -28,8 +24,6 @@ impl Method {
             Method::HEAD => b"HEAD",
             Method::POST => b"POST",
             Method::PUT => b"PUT",
-            Method::DELETE => b"DELETE",
-            Method::PATCH => b"PATCH",
         }
     }
 }
@@ -43,8 +37,6 @@ impl TryFrom<&str> for Method {
             "HEAD" => Ok(Method::HEAD),
             "POST" => Ok(Method::POST),
             "PUT" => Ok(Method::PUT),
-            "DELETE" => Ok(Method::DELETE),
-            "PATCH" => Ok(Method::PATCH),
             _ => Err(InvalidMethod),
         }
     }
@@ -59,8 +51,6 @@ impl TryFrom<&[u8]> for Method {
             b"HEAD" => Ok(Method::HEAD),
             b"POST" => Ok(Method::POST),
             b"PUT" => Ok(Method::PUT),
-            b"DELETE" => Ok(Method::DELETE),
-            b"PATCH" => Ok(Method::PATCH),
             _ => Err(InvalidMethod),
         }
     }
@@ -75,8 +65,6 @@ impl FromStr for Method {
             "HEAD" => Ok(Method::HEAD),
             "POST" => Ok(Method::POST),
             "PUT" => Ok(Method::PUT),
-            "DELETE" => Ok(Method::DELETE),
-            "PATCH" => Ok(Method::PATCH),
             _ => Err(InvalidMethod),
         }
     }

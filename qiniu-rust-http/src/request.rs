@@ -1,6 +1,6 @@
 use super::{HeaderName, HeaderValue, Headers, Method};
 use getset::{CopyGetters, Getters, MutGetters};
-use std::{borrow::Cow, fmt, net::SocketAddr};
+use std::{borrow::Cow, ffi::c_void, fmt, net::SocketAddr, ptr::null_mut};
 
 pub type URL<'b> = Cow<'b, str>;
 pub type Body<'b> = Cow<'b, [u8]>;
@@ -28,7 +28,6 @@ pub struct Request<'b> {
     #[get_mut = "pub"]
     body: Option<Body<'b>>,
 
-    #[get = "pub"]
     #[get_mut = "pub"]
     user_agent: Option<Cow<'b, str>>,
 
@@ -42,6 +41,10 @@ pub struct Request<'b> {
 
     #[get_copy = "pub"]
     #[get_mut = "pub"]
+    custom_data: *mut c_void,
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
     on_uploading_progress: Option<ProgressCallback<'b>>,
 
     #[get_copy = "pub"]
@@ -52,6 +55,10 @@ pub struct Request<'b> {
 impl<'b> Request<'b> {
     pub fn url(&self) -> &str {
         self.url.as_ref()
+    }
+
+    pub fn user_agent(&self) -> Option<&str> {
+        self.user_agent.as_ref().map(|user_agent| user_agent.as_ref())
     }
 }
 
@@ -137,6 +144,7 @@ impl Default for Request<'_> {
             resolved_socket_addrs: Cow::Borrowed(&[]),
             on_uploading_progress: None,
             on_downloading_progress: None,
+            custom_data: null_mut(),
         }
     }
 }

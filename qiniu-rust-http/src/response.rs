@@ -72,7 +72,7 @@ impl ResponseBuilder {
         self
     }
 
-    pub fn stream<B: Read + 'static>(self, body: B) -> Self {
+    pub fn stream(self, body: impl Read + 'static) -> Self {
         self.body(Box::new(body) as Body)
     }
 

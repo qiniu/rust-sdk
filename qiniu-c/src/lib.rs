@@ -2,6 +2,7 @@ mod bucket;
 mod client;
 mod config;
 mod etag;
+mod http;
 mod region;
 mod result;
 mod storage;

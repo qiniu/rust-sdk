@@ -149,7 +149,7 @@ impl<'a> Request<'a> {
         }
         let mut response = self.parts.config.http_request_handler().call(&request)?;
         for handler in self.parts.config.http_request_after_action_handlers().iter() {
-            handler.after_call(&request, &mut response)?;
+            handler.after_call(request, &mut response)?;
         }
         Ok(response)
     }
@@ -172,7 +172,7 @@ impl<'a> Request<'a> {
 
     fn is_retry_safe(&self, err: &HTTPError) -> bool {
         match self.parts.method {
-            Method::GET | Method::PUT | Method::HEAD | Method::PATCH | Method::DELETE => true,
+            Method::GET | Method::PUT | Method::HEAD => true,
             _ => self.parts.idempotent || err.is_retry_safe(),
         }
     }
@@ -702,7 +702,7 @@ mod tests {
     }
 
     impl HTTPAfterAction for HTTPActionCounter {
-        fn after_call(&self, _request: &HTTPRequest, _response: &mut HTTPResponse) -> HTTPResult<()> {
+        fn after_call(&self, _request: &mut HTTPRequest, _response: &mut HTTPResponse) -> HTTPResult<()> {
             self.after.fetch_add(1, Relaxed);
             Ok(())
         }
