@@ -769,11 +769,7 @@ mod tests {
         },
         *,
     };
-    use crate::{
-        config::ConfigBuilder,
-        credential::Credential,
-        http::{DomainsManagerBuilder, HTTPHandler},
-    };
+    use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
     use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Headers, Method, ResponseBuilder};
     use qiniu_test_utils::{
         http_call_mock::{fake_req_id, CallHandlers, UploadingProgressErrorMock},
@@ -786,7 +782,7 @@ mod tests {
     fn test_storage_uploader_resumable_uploader_upload_file() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_handler(HTTPHandler::Dynamic(
+            .http_request_handler(
                 CallHandlers::new(|request| {
                     panic!("Unexpected Request: {} {}", request.method(), request.url());
                 })
@@ -853,9 +849,8 @@ mod tests {
                             .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
                             .build())
                     },
-                )
-                .into_box(),
-            ))
+                ),
+            )
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -878,79 +873,76 @@ mod tests {
     fn test_storage_uploader_resumable_uploader_upload_file_with_many_retryable_errors() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_handler(HTTPHandler::Dynamic(
-                UploadingProgressErrorMock::new(
-                    CallHandlers::new(|request| {
-                        panic!("Unexpected Request: {} {}", request.method(), request.url());
-                    })
-                    .install(
-                        Method::POST,
-                        "^".to_owned()
-                            + &regex::escape(
-                                &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                    + &encode_key(Some("test-key"))
-                                    + "/uploads"),
-                            )
-                            + "$",
-                        |_, _| {
-                            let mut headers = Headers::new();
-                            headers.insert("Content-Type".into(), "application/json".into());
-                            headers.insert("X-Reqid".into(), fake_req_id().into());
-                            Ok(ResponseBuilder::default()
-                                .status_code(200u16)
-                                .headers(headers)
-                                .stream(Cursor::new(json!({"uploadId":"test_upload_id"}).to_string()))
-                                .build())
-                        },
-                    )
-                    .install(
-                        Method::PUT,
-                        "^".to_owned()
-                            + &regex::escape(
-                                &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                    + &encode_key(Some("test-key"))
-                                    + "/uploads/test_upload_id/"),
-                            )
-                            + "\\d"
-                            + "$",
-                        |request, called| {
-                            if called >= 4 {
-                                panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
-                            }
-                            let mut headers = Headers::new();
-                            headers.insert("Content-Type".into(), "application/json".into());
-                            headers.insert("X-Reqid".into(), fake_req_id().into());
-                            Ok(ResponseBuilder::default()
-                                .status_code(200u16)
-                                .headers(headers)
-                                .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
-                                .build())
-                        },
-                    )
-                    .install(
-                        Method::POST,
-                        "^".to_owned()
-                            + &regex::escape(
-                                &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                    + &encode_key(Some("test-key"))
-                                    + "/uploads/test_upload_id"),
-                            )
-                            + "$",
-                        |_, _| {
-                            let mut headers = Headers::new();
-                            headers.insert("Content-Type".into(), "application/json".into());
-                            headers.insert("X-Reqid".into(), fake_req_id().into());
-                            Ok(ResponseBuilder::default()
-                                .status_code(200u16)
-                                .headers(headers)
-                                .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
-                                .build())
-                        },
-                    ),
-                    16384,
-                    0.5f64,
+            .http_request_handler(UploadingProgressErrorMock::new(
+                CallHandlers::new(|request| {
+                    panic!("Unexpected Request: {} {}", request.method(), request.url());
+                })
+                .install(
+                    Method::POST,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads"),
+                        )
+                        + "$",
+                    |_, _| {
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .stream(Cursor::new(json!({"uploadId":"test_upload_id"}).to_string()))
+                            .build())
+                    },
                 )
-                .into_box(),
+                .install(
+                    Method::PUT,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads/test_upload_id/"),
+                        )
+                        + "\\d"
+                        + "$",
+                    |request, called| {
+                        if called >= 4 {
+                            panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
+                        }
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
+                            .build())
+                    },
+                )
+                .install(
+                    Method::POST,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads/test_upload_id"),
+                        )
+                        + "$",
+                    |_, _| {
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
+                            .build())
+                    },
+                ),
+                16384,
+                0.5f64,
             ))
             .http_request_retries(100)
             .upload_logger(None)
@@ -975,7 +967,7 @@ mod tests {
     fn test_storage_uploader_resumable_uploader_upload_file_with_1_host_failure() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_handler(HTTPHandler::Dynamic(
+            .http_request_handler(
                 CallHandlers::new(|request| {
                     panic!("Unexpected Request: {} {}", request.method(), request.url());
                 })
@@ -1071,9 +1063,8 @@ mod tests {
                             .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
                             .build())
                     },
-                )
-                .into_box(),
-            ))
+                ),
+            )
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -1096,7 +1087,7 @@ mod tests {
     fn test_storage_uploader_resumable_uploader_upload_file_with_1_zone_failure() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_handler(HTTPHandler::Dynamic(
+            .http_request_handler(
                 CallHandlers::new(|request| {
                     panic!("Unexpected Request: {} {}", request.method(), request.url());
                 })
@@ -1181,9 +1172,8 @@ mod tests {
                             .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
                             .build())
                     },
-                )
-                .into_box(),
-            ))
+                ),
+            )
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -1211,7 +1201,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_handler(HTTPHandler::Dynamic(
+            .http_request_handler(
                 CallHandlers::new(|request| {
                     panic!("Unexpected Request: {} {}", request.method(), request.url());
                 })
@@ -1327,9 +1317,8 @@ mod tests {
                             .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
                             .build())
                     },
-                )
-                .into_box(),
-            ))
+                ),
+            )
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -1356,7 +1345,7 @@ mod tests {
     fn test_storage_uploader_resumable_uploader_upload_file_with_1_unretryable_failure() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_handler(HTTPHandler::Dynamic(
+            .http_request_handler(
                 CallHandlers::new(|request| {
                     panic!("Unexpected Request: {} {}", request.method(), request.url());
                 })
@@ -1429,9 +1418,8 @@ mod tests {
                             .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
                             .build())
                     },
-                )
-                .into_box(),
-            ))
+                ),
+            )
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -1470,7 +1458,7 @@ mod tests {
     ) -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
-            .http_request_handler(HTTPHandler::Dynamic(
+            .http_request_handler(
                 CallHandlers::new(|request| {
                     panic!("Unexpected Request: {} {}", request.method(), request.url());
                 })
@@ -1567,9 +1555,8 @@ mod tests {
                             .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
                             .build())
                     },
-                )
-                .into_box(),
-            ))
+                ),
+            )
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();

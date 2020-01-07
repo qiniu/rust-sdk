@@ -1,5 +1,5 @@
 use crate::{
-    http::{DomainsManager, HTTPAfterActionHandler, HTTPBeforeActionHandler, HTTPHandler},
+    http::{DomainsManager, HTTPAfterAction, HTTPBeforeAction, HTTPCaller},
     storage::uploader::{UploadLogger, UploadLoggerBuilder, UploadRecorder},
 };
 use assert_impl::assert_impl;
@@ -85,15 +85,19 @@ pub struct ConfigInner {
 
     #[get = "pub"]
     #[builder(default)]
-    http_request_before_action_handlers: Vec<HTTPBeforeActionHandler>,
+    http_request_before_action_handlers: Vec<Box<dyn HTTPBeforeAction + Send + Sync>>,
 
     #[get = "pub"]
     #[builder(default)]
-    http_request_after_action_handlers: Vec<HTTPAfterActionHandler>,
+    http_request_after_action_handlers: Vec<Box<dyn HTTPAfterAction + Send + Sync>>,
 
     #[get = "pub"]
-    #[builder(default = "default::http_request_handler()")]
-    http_request_handler: HTTPHandler,
+    #[builder(
+        setter(name = "boxed_http_request_handler"),
+        private,
+        default = "default::http_request_handler()"
+    )]
+    http_request_handler: Box<dyn HTTPCaller + Send + Sync>,
 
     #[get = "pub"]
     #[builder(default)]
@@ -169,15 +173,15 @@ mod default {
     }
 
     #[inline]
-    pub fn http_request_handler() -> HTTPHandler {
+    pub fn http_request_handler() -> Box<dyn HTTPCaller + Send + Sync> {
         #[cfg(any(feature = "use-libcurl"))]
         {
-            HTTPHandler::Dynamic(Box::new(qiniu_with_libcurl::CurlClient::default()))
+            Box::new(qiniu_with_libcurl::CurlClient::default())
         }
         #[cfg(not(feature = "use-libcurl"))]
         {
             use crate::http::PanickedHTTPCaller;
-            HTTPHandler::Dynamic(Box::new(PanickedHTTPCaller("Must define config.http_request_call")))
+            Box::new(PanickedHTTPCaller("Must define config.http_request_call"))
         }
     }
 }
@@ -246,45 +250,61 @@ impl ConfigInner {
 pub struct Config(Arc<ConfigInner>);
 
 impl ConfigBuilder {
-    pub fn append_http_request_before_action_handler(mut self, handler: HTTPBeforeActionHandler) -> Self {
+    pub fn http_request_handler(self, handler: impl HTTPCaller + Sync + Send + 'static) -> Self {
+        self.boxed_http_request_handler(Box::new(handler))
+    }
+
+    pub fn append_http_request_before_action_handler(
+        mut self,
+        handler: impl HTTPBeforeAction + Sync + Send + 'static,
+    ) -> Self {
         if let Some(before_action_handlers) = &mut self.http_request_before_action_handlers {
-            before_action_handlers.push(handler);
+            before_action_handlers.push(Box::new(handler));
         } else {
-            let mut handlers = Vec::with_capacity(1);
-            handlers.push(handler);
+            let mut handlers = Vec::<Box<dyn HTTPBeforeAction + Sync + Send>>::with_capacity(1);
+            handlers.push(Box::new(handler));
             self.http_request_before_action_handlers = Some(handlers);
         }
         self
     }
 
-    pub fn prepend_http_request_before_action_handler(mut self, handler: HTTPBeforeActionHandler) -> Self {
+    pub fn prepend_http_request_before_action_handler(
+        mut self,
+        handler: impl HTTPBeforeAction + Sync + Send + 'static,
+    ) -> Self {
         if let Some(before_action_handlers) = &mut self.http_request_before_action_handlers {
-            before_action_handlers.insert(0, handler);
+            before_action_handlers.insert(0, Box::new(handler));
         } else {
-            let mut handlers = Vec::with_capacity(1);
-            handlers.push(handler);
+            let mut handlers = Vec::<Box<dyn HTTPBeforeAction + Sync + Send>>::with_capacity(1);
+            handlers.push(Box::new(handler));
             self.http_request_before_action_handlers = Some(handlers);
         }
         self
     }
 
-    pub fn append_http_request_after_action_handler(mut self, handler: HTTPAfterActionHandler) -> Self {
+    pub fn append_http_request_after_action_handler(
+        mut self,
+        handler: impl HTTPAfterAction + Sync + Send + 'static,
+    ) -> Self {
         if let Some(after_action_handlers) = &mut self.http_request_after_action_handlers {
-            after_action_handlers.push(handler);
+            after_action_handlers.push(Box::new(handler));
         } else {
-            let mut handlers = Vec::with_capacity(1);
-            handlers.push(handler);
+            let mut handlers = Vec::<Box<dyn HTTPAfterAction + Sync + Send>>::with_capacity(1);
+            handlers.push(Box::new(handler));
             self.http_request_after_action_handlers = Some(handlers);
         }
         self
     }
 
-    pub fn prepend_http_request_after_action_handler(mut self, handler: HTTPAfterActionHandler) -> Self {
+    pub fn prepend_http_request_after_action_handler(
+        mut self,
+        handler: impl HTTPAfterAction + Sync + Send + 'static,
+    ) -> Self {
         if let Some(after_action_handlers) = &mut self.http_request_after_action_handlers {
-            after_action_handlers.insert(0, handler);
+            after_action_handlers.insert(0, Box::new(handler));
         } else {
-            let mut handlers = Vec::with_capacity(1);
-            handlers.push(handler);
+            let mut handlers = Vec::<Box<dyn HTTPAfterAction + Sync + Send>>::with_capacity(1);
+            handlers.push(Box::new(handler));
             self.http_request_after_action_handlers = Some(handlers);
         }
         self
@@ -375,7 +395,7 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
-            .http_request_handler(HTTPHandler::Dynamic(Box::new(FakeHTTPRequester)))
+            .http_request_handler(FakeHTTPRequester)
             .build();
 
         let http_response = config
@@ -394,7 +414,7 @@ mod tests {
         let config = ConfigBuilder::default()
             .http_request_retries(5)
             .http_request_retry_delay(Duration::from_secs(1))
-            .http_request_handler(HTTPHandler::Dynamic(Box::new(FakeHTTPRequester)))
+            .http_request_handler(FakeHTTPRequester)
             .build();
         assert_eq!(config.http_request_retries(), 5);
         assert_eq!(config.http_request_retry_delay(), Duration::from_secs(1));

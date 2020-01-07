@@ -1,4 +1,4 @@
-pub use qiniu_http::{Error, ErrorKind, HeaderName, HeaderValue, Headers, Method};
+pub use qiniu_http::{Error, ErrorKind, HTTPCaller, HeaderName, HeaderValue, Headers, Method};
 mod client;
 pub(crate) use client::Client;
 pub mod domains_manager;
@@ -9,6 +9,6 @@ pub(crate) mod request;
 mod response;
 pub(crate) use response::Response;
 mod token;
-pub use handler::{HTTPHandler, PanickedHTTPCaller};
-pub use middleware::{HTTPAfterAction, HTTPAfterActionHandler, HTTPBeforeAction, HTTPBeforeActionHandler};
+pub use handler::PanickedHTTPCaller;
+pub use middleware::{HTTPAfterAction, HTTPBeforeAction};
 pub(crate) use token::Token;

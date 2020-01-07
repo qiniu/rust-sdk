@@ -59,7 +59,6 @@ struct CounterCallMockInner<T: HTTPCaller> {
     call_counter: AtomicUsize,
 }
 
-#[derive(Clone)]
 pub struct CounterCallMock<T: HTTPCaller> {
     inner: Arc<CounterCallMockInner<T>>,
 }
@@ -77,18 +76,20 @@ impl<T: HTTPCaller> CounterCallMock<T> {
     pub fn call_called(&self) -> usize {
         self.inner.call_counter.load(Relaxed)
     }
-
-    pub fn as_boxed(&self) -> Box<Self> {
-        Box::new(CounterCallMock {
-            inner: self.inner.clone(),
-        })
-    }
 }
 
 impl<T: HTTPCaller> HTTPCaller for CounterCallMock<T> {
     fn call(&self, request: &Request) -> Result<Response> {
         self.inner.call_counter.fetch_add(1, Relaxed);
         self.inner.caller.call(request)
+    }
+}
+
+impl<T: HTTPCaller> Clone for CounterCallMock<T> {
+    fn clone(&self) -> Self {
+        CounterCallMock {
+            inner: self.inner.clone(),
+        }
     }
 }
 
@@ -164,10 +165,6 @@ impl CallHandlers {
         });
         self
     }
-
-    pub fn into_box(self) -> Box<Self> {
-        Box::new(self)
-    }
 }
 
 impl HTTPCaller for CallHandlers {
@@ -195,10 +192,6 @@ impl<T: HTTPCaller> UploadingProgressErrorMock<T> {
             packet_size,
             uploading_failure_probability,
         }
-    }
-
-    pub fn into_box(self) -> Box<Self> {
-        Box::new(self)
     }
 }
 

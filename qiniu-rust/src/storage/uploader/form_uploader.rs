@@ -194,11 +194,7 @@ mod tests {
         super::{upload_policy::UploadPolicyBuilder, upload_token::UploadToken},
         BucketUploaderBuilder,
     };
-    use crate::{
-        config::ConfigBuilder,
-        credential::Credential,
-        http::{DomainsManagerBuilder, HTTPHandler},
-    };
+    use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
     use qiniu_http::Headers;
     use qiniu_test_utils::{
         http_call_mock::{CounterCallMock, ErrorResponseMock, JSONCallMock},
@@ -216,7 +212,7 @@ mod tests {
             json!({"key": "abc", "hash": "def"}),
         ));
         let config = ConfigBuilder::default()
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -246,7 +242,7 @@ mod tests {
         let mock = CounterCallMock::new(ErrorResponseMock::new(500, "test error"));
         let config = ConfigBuilder::default()
             .http_request_retries(3)
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -275,7 +271,7 @@ mod tests {
         let mock = CounterCallMock::new(ErrorResponseMock::new(503, "test error"));
         let config = ConfigBuilder::default()
             .http_request_retries(3)
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -304,7 +300,7 @@ mod tests {
         let mock = CounterCallMock::new(ErrorResponseMock::new(500, "test error"));
         let config = ConfigBuilder::default()
             .http_request_retries(3)
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -334,7 +330,7 @@ mod tests {
         let mock = CounterCallMock::new(ErrorResponseMock::new(503, "test error"));
         let config = ConfigBuilder::default()
             .http_request_retries(3)
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
@@ -364,7 +360,7 @@ mod tests {
         let mock = CounterCallMock::new(ErrorResponseMock::new(400, "incorrect region, please use z3h1.com"));
         let config = ConfigBuilder::default()
             .http_request_retries(3)
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();

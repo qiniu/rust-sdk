@@ -4,9 +4,9 @@ mod parts;
 pub(crate) use builder::Builder;
 pub(crate) use parts::Parts;
 
-use super::{response::Response, Choice, DomainsManager, HTTPAfterAction, HTTPBeforeAction};
+use super::{response::Response, Choice, DomainsManager};
 use qiniu_http::{
-    Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCaller, Method, Request as HTTPRequest, RequestBuilder,
+    Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Request as HTTPRequest, RequestBuilder,
     Response as HTTPResponse, Result as HTTPResult, RetryKind as HTTPRetryKind, StatusCode,
 };
 use rand::{thread_rng, Rng};
@@ -296,7 +296,7 @@ mod tests {
                 credential::Credential,
             },
             token::Token,
-            DomainsManagerBuilder, HTTPAfterActionHandler, HTTPBeforeActionHandler, HTTPHandler,
+            DomainsManagerBuilder, HTTPAfterAction, HTTPBeforeAction, HTTPCaller,
         },
         Builder, *,
     };
@@ -343,7 +343,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -382,7 +382,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -421,7 +421,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -460,7 +460,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -499,7 +499,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -538,7 +538,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let (on_response_called, on_error_called) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -574,7 +574,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         assert!(Builder::new(
@@ -598,7 +598,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         assert!(Builder::new(
@@ -621,7 +621,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         assert!(Builder::new(
@@ -644,7 +644,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         assert!(Builder::new(
@@ -667,7 +667,7 @@ mod tests {
         let config: Config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         assert!(Builder::new(
@@ -714,16 +714,16 @@ mod tests {
             retry_kind: HTTPRetryKind::RetryableError,
             is_retry_safe: true,
         });
-        let counter = Box::new(HTTPActionCounter::default());
+        let counter = HTTPActionCounter::default();
         let config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
-            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(counter.clone()))
-            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(counter.clone()))
-            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(counter.clone()))
-            .append_http_request_after_action_handler(HTTPAfterActionHandler::Dynamic(counter.clone()))
-            .append_http_request_after_action_handler(HTTPAfterActionHandler::Dynamic(counter.clone()))
+            .http_request_handler(mock.clone())
+            .append_http_request_before_action_handler(counter.clone())
+            .append_http_request_before_action_handler(counter.clone())
+            .append_http_request_before_action_handler(counter.clone())
+            .append_http_request_after_action_handler(counter.clone())
+            .append_http_request_after_action_handler(counter.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         assert!(Builder::new(
@@ -749,22 +749,22 @@ mod tests {
             retry_kind: HTTPRetryKind::RetryableError,
             is_retry_safe: true,
         });
-        let counter = Box::new(HTTPActionCounter {
+        let counter = HTTPActionCounter {
             destroyer: Some(HTTPRetryer {
                 retry_kind: HTTPRetryKind::UnretryableError,
                 is_retry_safe: false,
             }),
             ..Default::default()
-        });
+        };
         let config = ConfigBuilder::default()
             .http_request_retries(RETRIES)
             .http_request_retry_delay(Duration::from_millis(1))
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
-            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(counter.clone()))
-            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(counter.clone()))
-            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(counter.clone()))
-            .append_http_request_after_action_handler(HTTPAfterActionHandler::Dynamic(counter.clone()))
-            .append_http_request_after_action_handler(HTTPAfterActionHandler::Dynamic(counter.clone()))
+            .http_request_handler(mock.clone())
+            .append_http_request_before_action_handler(counter.clone())
+            .append_http_request_before_action_handler(counter.clone())
+            .append_http_request_before_action_handler(counter.clone())
+            .append_http_request_after_action_handler(counter.clone())
+            .append_http_request_after_action_handler(counter.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         assert!(Builder::new(

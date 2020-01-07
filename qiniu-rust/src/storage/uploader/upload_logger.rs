@@ -603,11 +603,7 @@ mod tests {
         super::super::{upload_policy::UploadPolicyBuilder, upload_token::UploadToken},
         *,
     };
-    use crate::{
-        config::ConfigBuilder,
-        credential::Credential,
-        http::{DomainsManagerBuilder, HTTPHandler},
-    };
+    use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
     use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};
     use serde_json::json;
@@ -617,7 +613,7 @@ mod tests {
     fn test_storage_uploader_upload_logger_upload_and_clean() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!({})));
         let config = ConfigBuilder::default()
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .upload_logger(Some(UploadLoggerBuilder::default().upload_threshold(100).build()?))
             .build();
@@ -670,7 +666,7 @@ mod tests {
     fn test_storage_uploader_upload_logger_uplog_max_size() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!({})));
         let config = ConfigBuilder::default()
-            .http_request_handler(HTTPHandler::Dynamic(mock.as_boxed()))
+            .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .upload_logger(Some(
                 UploadLoggerBuilder::default()
