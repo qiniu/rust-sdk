@@ -15,6 +15,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use sys_info::{os_release, os_type};
 
 #[derive(Builder, Getters, CopyGetters)]
 #[builder(
@@ -314,8 +315,10 @@ impl ConfigBuilder {
         let mut config = self.inner_build().unwrap();
         config.user_agent = Some(
             format!(
-                "QiniuRust/qiniu-ng-{}/rust-{}{}",
+                "QiniuRust/qiniu-ng-{}/{};{}/rust-{}{}",
                 env!("CARGO_PKG_VERSION"),
+                os_type().ok().unwrap_or_else(String::new),
+                os_release().ok().unwrap_or_else(String::new),
                 rustc_version_runtime::version(),
                 config.user_agent.map_or(Cow::Borrowed("/"), |user_agent| Cow::Owned(
                     "/".to_owned() + &user_agent + "/"
