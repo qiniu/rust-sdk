@@ -535,6 +535,7 @@ impl<'a> UploadLoggerRecordBuilder<'a> {
             HTTPErrorKind::JSONError(err) => self.error_message(err.description()),
             HTTPErrorKind::MaliciousResponse => self.error_message(err.description()),
             HTTPErrorKind::UnexpectedRedirect => self.error_message(err.description()),
+            HTTPErrorKind::UserCanceled => self.error_message(err.description()),
             HTTPErrorKind::IOError(err) => self.error_message(err.description()),
             HTTPErrorKind::UnknownError(err) => self.error_message(err.description()),
             HTTPErrorKind::ResponseStatusCodeError(status_code, error_message) => {

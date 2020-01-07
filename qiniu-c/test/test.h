@@ -11,6 +11,7 @@ void test_qiniu_ng_etag_from_large_buffer(void);
 void test_qiniu_ng_config_new_default(void);
 void test_qiniu_ng_config_new(void);
 void test_qiniu_ng_config_new2(void);
+void test_qiniu_ng_config_http_request_handlers(void);
 void test_qiniu_ng_region_query(void);
 void test_qiniu_ng_region_get_by_id(void);
 void test_qiniu_ng_storage_bucket_names(void);

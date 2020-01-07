@@ -5,9 +5,13 @@ use crate::{
     utils::{qiniu_ng_optional_str_t, qiniu_ng_optional_string_t, qiniu_ng_str_t},
 };
 use libc::{c_char, c_uint, c_ulonglong, c_void, size_t};
+use qiniu_http::{
+    Error as HTTPError, ErrorKind as HTTPErrorKind, Request as HTTPRequest, Response as HTTPResponse,
+    Result as HTTPResult,
+};
 use qiniu_ng::{
     config::{Config, ConfigBuilder},
-    http::domains_manager::DomainsManagerBuilder,
+    http::{DomainsManagerBuilder, HTTPAfterAction, HTTPAfterActionHandler, HTTPBeforeAction, HTTPBeforeActionHandler},
     storage::{
         recorder::FileSystemRecorder,
         uploader::{
@@ -440,6 +444,117 @@ pub extern "C" fn qiniu_ng_config_builder_domains_manager_async_pre_resolve(buil
 pub extern "C" fn qiniu_ng_config_builder_domains_manager_sync_pre_resolve(builder: qiniu_ng_config_builder_t) {
     let mut builder = Box::<Builder>::from(builder);
     builder.domains_manager_builder = builder.domains_manager_builder.sync_pre_resolve();
+    let _ = qiniu_ng_config_builder_t::from(builder);
+}
+
+struct QiniuNgHTTPBeforeActionHandler {
+    handler: fn(request: qiniu_ng_http_request_t) -> bool,
+}
+
+impl QiniuNgHTTPBeforeActionHandler {
+    fn new(handler: fn(request: qiniu_ng_http_request_t) -> bool) -> Self {
+        QiniuNgHTTPBeforeActionHandler { handler }
+    }
+}
+
+impl HTTPBeforeAction for QiniuNgHTTPBeforeActionHandler {
+    fn before_call(&self, request: &mut HTTPRequest) -> HTTPResult<()> {
+        let request = qiniu_ng_http_request_t::from(Box::new(request));
+        if (self.handler)(request) {
+            Ok(())
+        } else {
+            Err(HTTPError::new_unretryable_error(
+                HTTPErrorKind::UserCanceled,
+                &Box::<&HTTPRequest>::from(request),
+                None,
+            ))
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_append_http_request_before_action_handler(
+    builder: qiniu_ng_config_builder_t,
+    handler: fn(request: qiniu_ng_http_request_t) -> bool,
+) {
+    let mut builder = Box::<Builder>::from(builder);
+    builder.config_builder =
+        builder
+            .config_builder
+            .append_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(Box::new(
+                QiniuNgHTTPBeforeActionHandler::new(handler),
+            )));
+    let _ = qiniu_ng_config_builder_t::from(builder);
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_before_action_handler(
+    builder: qiniu_ng_config_builder_t,
+    handler: fn(request: qiniu_ng_http_request_t) -> bool,
+) {
+    let mut builder = Box::<Builder>::from(builder);
+    builder.config_builder =
+        builder
+            .config_builder
+            .prepend_http_request_before_action_handler(HTTPBeforeActionHandler::Dynamic(Box::new(
+                QiniuNgHTTPBeforeActionHandler::new(handler),
+            )));
+    let _ = qiniu_ng_config_builder_t::from(builder);
+}
+
+struct QiniuNgHTTPAfterActionHandler {
+    handler: fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t) -> bool,
+}
+
+impl QiniuNgHTTPAfterActionHandler {
+    fn new(handler: fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t) -> bool) -> Self {
+        QiniuNgHTTPAfterActionHandler { handler }
+    }
+}
+
+impl HTTPAfterAction for QiniuNgHTTPAfterActionHandler {
+    fn after_call(&self, request: &mut HTTPRequest, response: &mut HTTPResponse) -> HTTPResult<()> {
+        let request = qiniu_ng_http_request_t::from(Box::new(request));
+        let response = qiniu_ng_http_response_t::from(Box::new(response));
+        if (self.handler)(request, response) {
+            Ok(())
+        } else {
+            Err(HTTPError::new_unretryable_error(
+                HTTPErrorKind::UserCanceled,
+                &Box::<&HTTPRequest>::from(request),
+                Some(&Box::<&HTTPResponse>::from(response)),
+            ))
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_append_http_request_after_action_handler(
+    builder: qiniu_ng_config_builder_t,
+    handler: fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t) -> bool,
+) {
+    let mut builder = Box::<Builder>::from(builder);
+    builder.config_builder =
+        builder
+            .config_builder
+            .append_http_request_after_action_handler(HTTPAfterActionHandler::Dynamic(Box::new(
+                QiniuNgHTTPAfterActionHandler::new(handler),
+            )));
+    let _ = qiniu_ng_config_builder_t::from(builder);
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_after_action_handler(
+    builder: qiniu_ng_config_builder_t,
+    handler: fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t) -> bool,
+) {
+    let mut builder = Box::<Builder>::from(builder);
+    builder.config_builder =
+        builder
+            .config_builder
+            .prepend_http_request_after_action_handler(HTTPAfterActionHandler::Dynamic(Box::new(
+                QiniuNgHTTPAfterActionHandler::new(handler),
+            )));
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 

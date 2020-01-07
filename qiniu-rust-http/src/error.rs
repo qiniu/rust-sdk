@@ -27,6 +27,7 @@ pub enum ErrorKind {
     IOError(io::Error),
     UnknownError(Box<dyn StdError + Send>),
     ResponseStatusCodeError(StatusCode, Box<str>),
+    UserCanceled,
 }
 
 #[derive(Debug, Getters, CopyGetters)]
@@ -213,6 +214,7 @@ impl fmt::Display for ErrorKind {
             ErrorKind::JSONError(err) => write!(f, "JSONError({})", err),
             ErrorKind::MaliciousResponse => write!(f, "MaliciousResponse"),
             ErrorKind::UnexpectedRedirect => write!(f, "UnexpectedRedirect"),
+            ErrorKind::UserCanceled => write!(f, "UserCanceled"),
             ErrorKind::IOError(err) => write!(f, "IOError({})", err),
             ErrorKind::UnknownError(err) => write!(f, "UnknownError({})", err),
             ErrorKind::ResponseStatusCodeError(status_code, error_message) => write!(
@@ -246,6 +248,7 @@ impl StdError for Error {
             ErrorKind::JSONError(err) => err.description(),
             ErrorKind::MaliciousResponse => "Malicious response",
             ErrorKind::UnexpectedRedirect => "Unexpected redirect",
+            ErrorKind::UserCanceled => "User canceled",
             ErrorKind::IOError(err) => err.description(),
             ErrorKind::UnknownError(err) => err.description(),
             ErrorKind::ResponseStatusCodeError(_, error_message) => &error_message,
@@ -259,9 +262,7 @@ impl StdError for Error {
             ErrorKind::JSONError(err) => Some(err),
             ErrorKind::IOError(err) => Some(err),
             ErrorKind::UnknownError(err) => Some(err.deref()),
-            ErrorKind::MaliciousResponse => None,
-            ErrorKind::UnexpectedRedirect => None,
-            ErrorKind::ResponseStatusCodeError(_, _) => None,
+            _ => None,
         }
     }
 
@@ -271,9 +272,7 @@ impl StdError for Error {
             ErrorKind::JSONError(err) => Some(err),
             ErrorKind::IOError(err) => Some(err),
             ErrorKind::UnknownError(err) => Some(err.deref()),
-            ErrorKind::MaliciousResponse => None,
-            ErrorKind::UnexpectedRedirect => None,
-            ErrorKind::ResponseStatusCodeError(_, _) => None,
+            _ => None,
         }
     }
 }

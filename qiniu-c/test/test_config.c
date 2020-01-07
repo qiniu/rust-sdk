@@ -117,3 +117,43 @@ void test_qiniu_ng_config_new2(void) {
 
     qiniu_ng_config_free(config);
 }
+
+static int before_action_counter, after_action_counter;
+
+static bool test_qiniu_ng_config_http_request_before_action_handlers(qiniu_ng_http_request_t request) {
+    before_action_counter++;
+    qiniu_ng_http_request_set_custom_data(request, &before_action_counter);
+    return true;
+}
+
+static bool test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
+    TEST_ASSERT_EQUAL_INT(before_action_counter, *((int *) qiniu_ng_http_request_get_custom_data(request)));
+    (void)(response); // unuse response
+    after_action_counter++;
+    return true;
+}
+
+void test_qiniu_ng_config_http_request_handlers(void) {
+    before_action_counter = 0;
+    after_action_counter = 0;
+
+    qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
+
+    qiniu_ng_config_builder_append_http_request_before_action_handler(builder, test_qiniu_ng_config_http_request_before_action_handlers);
+    qiniu_ng_config_builder_prepend_http_request_before_action_handler(builder, test_qiniu_ng_config_http_request_before_action_handlers);
+    qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_http_request_after_action_handlers);
+
+    qiniu_ng_config_t config;
+    qiniu_ng_region_t region;
+    TEST_ASSERT_TRUE(qiniu_ng_config_build(builder, &config, NULL));
+
+    env_load("..", false);
+    qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), config);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, "z0-bucket");
+    TEST_ASSERT_TRUE(qiniu_ng_bucket_get_region(bucket, &region, NULL));
+    qiniu_ng_config_free(config);
+
+    TEST_ASSERT_EQUAL_INT(before_action_counter, 2);
+    TEST_ASSERT_EQUAL_INT(after_action_counter, 1);
+}
+

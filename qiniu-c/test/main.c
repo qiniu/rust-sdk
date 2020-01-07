@@ -28,6 +28,7 @@ int main(void) {
     RUN_TEST(test_qiniu_ng_config_new_default);
     RUN_TEST(test_qiniu_ng_config_new);
     RUN_TEST(test_qiniu_ng_config_new2);
+    RUN_TEST(test_qiniu_ng_config_http_request_handlers);
     RUN_TEST(test_qiniu_ng_region_query);
     RUN_TEST(test_qiniu_ng_region_get_by_id);
     RUN_TEST(test_qiniu_ng_storage_bucket_names);

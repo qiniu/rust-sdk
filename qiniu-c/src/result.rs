@@ -28,6 +28,7 @@ pub enum qiniu_ng_err_code {
     QiniuNgIoError(c_int),
     QiniuNgUnknownError,
     QiniuNgUnexpectedRedirectError,
+    QiniuNgUserCanceled,
     QiniuNgJSONError,
     QiniuNgResponseStatusCodeError(c_ushort),
 
@@ -334,6 +335,7 @@ impl From<&HTTPError> for qiniu_ng_err {
             HTTPErrorKind::JSONError(_) => qiniu_ng_err(qiniu_ng_err_code::QiniuNgJSONError),
             HTTPErrorKind::MaliciousResponse => qiniu_ng_err(qiniu_ng_err_code::QiniuNgUnknownError),
             HTTPErrorKind::UnexpectedRedirect => qiniu_ng_err(qiniu_ng_err_code::QiniuNgUnexpectedRedirectError),
+            HTTPErrorKind::UserCanceled => qiniu_ng_err(qiniu_ng_err_code::QiniuNgUserCanceled),
             HTTPErrorKind::IOError(e) => e.into(),
             HTTPErrorKind::UnknownError(_) => qiniu_ng_err(qiniu_ng_err_code::QiniuNgUnknownError),
             HTTPErrorKind::ResponseStatusCodeError(status_code, _) => qiniu_ng_err(
