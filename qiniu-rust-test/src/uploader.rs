@@ -107,11 +107,11 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_upload_large_file_with_key() -> Result<(), Box<dyn Error>> {
-        const FILE_SIZE: u64 = (1 << 28) + (1 << 20);
+        const FILE_SIZE: u64 = (1 << 23) + (1 << 20);
         let config = Config::default();
         let temp_path = create_temp_file(FILE_SIZE.try_into().unwrap())?.into_temp_path();
         let etag = etag::from_file(&temp_path)?;
-        let key = format!("test-257m-{}", Utc::now().timestamp_nanos());
+        let key = format!("test-9m-{}", Utc::now().timestamp_nanos());
         let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, config.upload_token_lifetime())
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fsize\":$(fsize)}")
             .build();
@@ -128,7 +128,7 @@ mod tests {
                 assert_eq!(total.unwrap(), FILE_SIZE);
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_file(&temp_path, Some("257m"), Some(mime::IMAGE_PNG))?;
+            .upload_file(&temp_path, Some("9m"), Some(mime::IMAGE_PNG))?;
 
         assert_eq!(last_uploaded.load(Relaxed), FILE_SIZE);
         assert_eq!(result.key(), Some(key.as_str()));
