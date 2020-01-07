@@ -38,21 +38,13 @@ void test_qiniu_ng_etag_from_unexisted_file_path(void) {
 #else
     const char *path = "/不存在的文件";
 #endif
-    qiniu_ng_err err;
-    int error_code;
-    const char *error_description;
+    qiniu_ng_err_t err;
+    int os_err_code;
     TEST_ASSERT_FALSE(qiniu_ng_etag_from_file_path(path, NULL, &err));
-    TEST_ASSERT_TRUE(qiniu_ng_err_os_error_extract(&err, &error_code, &error_description));
-    TEST_ASSERT_EQUAL_INT(error_code, ENOENT);
-    TEST_ASSERT_EQUAL_STRING(error_description, "No such file or directory");
+    TEST_ASSERT_TRUE(qiniu_ng_err_os_error_extract(&err, &os_err_code));
+    TEST_ASSERT_EQUAL_INT(os_err_code, ENOENT);
 
-    TEST_ASSERT_TRUE(qiniu_ng_err_os_error_extract(&err, &error_code, NULL));
-    TEST_ASSERT_EQUAL_INT(error_code, ENOENT);
-
-    TEST_ASSERT_TRUE(qiniu_ng_err_os_error_extract(&err, NULL, &error_description));
-    TEST_ASSERT_EQUAL_STRING(error_description, "No such file or directory");
-
-    TEST_ASSERT_TRUE(qiniu_ng_err_os_error_extract(&err, NULL, NULL));
+    TEST_ASSERT_FALSE(qiniu_ng_err_os_error_extract(&err, &os_err_code));
 }
 
 void test_qiniu_ng_etag_from_large_buffer(void) {

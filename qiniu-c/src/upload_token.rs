@@ -1,5 +1,5 @@
 use crate::{
-    result::qiniu_ng_err,
+    result::qiniu_ng_err_t,
     string::{qiniu_ng_char_t, ucstr, UCString},
 };
 use libc::{c_char, c_ulonglong, c_void, size_t};
@@ -482,7 +482,7 @@ pub extern "C" fn qiniu_ng_upload_token_get_token(token: qiniu_ng_upload_token_t
 pub extern "C" fn qiniu_ng_upload_token_get_policy(
     token: qiniu_ng_upload_token_t,
     policy: *mut qiniu_ng_upload_policy_t,
-    error: *mut qiniu_ng_err,
+    error: *mut qiniu_ng_err_t,
 ) -> bool {
     let token = Box::<UploadToken>::from(token);
     match token.get_upload_policy() {

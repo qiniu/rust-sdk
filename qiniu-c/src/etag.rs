@@ -1,5 +1,5 @@
 use super::{
-    result::qiniu_ng_err,
+    result::qiniu_ng_err_t,
     string::{qiniu_ng_char_t, UCString},
 };
 use digest::{FixedOutput, Input, Reset};
@@ -17,7 +17,7 @@ pub const ETAG_SIZE: usize = 28;
 pub extern "C" fn qiniu_ng_etag_from_file_path(
     path: *const qiniu_ng_char_t,
     result_ptr: *mut c_char,
-    error: *mut qiniu_ng_err,
+    error: *mut qiniu_ng_err_t,
 ) -> bool {
     match etag::from_file(unsafe { UCString::from_ptr(path) }.into_path_buf()) {
         Ok(etag_string) => {

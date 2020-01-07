@@ -1,7 +1,7 @@
 use crate::{
     client::qiniu_ng_client_t,
     region::{qiniu_ng_region_t, qiniu_ng_regions_t},
-    result::qiniu_ng_err,
+    result::qiniu_ng_err_t,
     utils::{qiniu_ng_str_list_t, qiniu_ng_str_t},
 };
 use libc::{c_char, c_void};
@@ -76,7 +76,7 @@ pub extern "C" fn qiniu_ng_bucket_free(bucket: qiniu_ng_bucket_t) {
 pub extern "C" fn qiniu_ng_bucket_get_region(
     bucket: qiniu_ng_bucket_t,
     region: *mut qiniu_ng_region_t,
-    error: *mut qiniu_ng_err,
+    error: *mut qiniu_ng_err_t,
 ) -> bool {
     let bucket = Box::<Bucket>::from(bucket);
     match bucket.region().map(|region| region.to_owned()).tap(|_| {
@@ -101,7 +101,7 @@ pub extern "C" fn qiniu_ng_bucket_get_region(
 pub extern "C" fn qiniu_ng_bucket_get_regions(
     bucket: qiniu_ng_bucket_t,
     regions: *mut qiniu_ng_regions_t,
-    error: *mut qiniu_ng_err,
+    error: *mut qiniu_ng_err_t,
 ) -> bool {
     let bucket: Box<Bucket> = bucket.into();
     match bucket
@@ -129,7 +129,7 @@ pub extern "C" fn qiniu_ng_bucket_get_regions(
 pub extern "C" fn qiniu_ng_bucket_get_domains(
     bucket: qiniu_ng_bucket_t,
     domains: *mut qiniu_ng_str_list_t,
-    error: *mut qiniu_ng_err,
+    error: *mut qiniu_ng_err_t,
 ) -> bool {
     let bucket: Box<Bucket> = bucket.into();
     match bucket

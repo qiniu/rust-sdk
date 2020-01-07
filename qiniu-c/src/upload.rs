@@ -1,7 +1,7 @@
 use crate::{
     bucket::qiniu_ng_bucket_t,
     config::qiniu_ng_config_t,
-    result::qiniu_ng_err,
+    result::qiniu_ng_err_t,
     string::{qiniu_ng_char_t, UCString},
     upload_token::{qiniu_ng_upload_token_get_token, qiniu_ng_upload_token_t},
     utils::{
@@ -146,7 +146,7 @@ pub extern "C" fn qiniu_ng_upload_file_path(
     file_path: *const qiniu_ng_char_t,
     params: *const qiniu_ng_upload_params_t,
     response: *mut qiniu_ng_upload_response_t,
-    err: *mut qiniu_ng_err,
+    err: *mut qiniu_ng_err_t,
 ) -> bool {
     qiniu_ng_upload(
         bucket_uploader,
@@ -165,7 +165,7 @@ pub extern "C" fn qiniu_ng_upload_file(
     file: *mut FILE,
     params: *const qiniu_ng_upload_params_t,
     response: *mut qiniu_ng_upload_response_t,
-    err: *mut qiniu_ng_err,
+    err: *mut qiniu_ng_err_t,
 ) -> bool {
     qiniu_ng_upload(
         bucket_uploader,
@@ -184,7 +184,7 @@ pub extern "C" fn qiniu_ng_upload_reader(
     reader: qiniu_ng_readable_t,
     params: *const qiniu_ng_upload_params_t,
     response: *mut qiniu_ng_upload_response_t,
-    err: *mut qiniu_ng_err,
+    err: *mut qiniu_ng_err_t,
 ) -> bool {
     qiniu_ng_upload(
         bucket_uploader,
@@ -202,7 +202,7 @@ fn qiniu_ng_upload(
     upload_file: UploadFile,
     params: *const qiniu_ng_upload_params_t,
     response: *mut qiniu_ng_upload_response_t,
-    err: *mut qiniu_ng_err,
+    err: *mut qiniu_ng_err_t,
 ) -> bool {
     let bucket_uploader = BucketUploader::from(bucket_uploader);
     let upload_token = qiniu_ng_upload_token_get_token(upload_token);
@@ -341,7 +341,7 @@ pub extern "C" fn qiniu_ng_upload_response_get_hash(
 pub extern "C" fn qiniu_ng_upload_response_get_json(
     upload_response: qiniu_ng_upload_response_t,
     json: *mut qiniu_ng_string_t,
-    err: *mut qiniu_ng_err,
+    err: *mut qiniu_ng_err_t,
 ) -> bool {
     let upload_response = Box::<QiniuUploadResponse>::from(upload_response);
     match upload_response.to_string() {

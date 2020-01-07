@@ -1,5 +1,5 @@
 use crate::{
-    client::qiniu_ng_client_t, region::qiniu_ng_region_id_t, result::qiniu_ng_err, utils::qiniu_ng_str_list_t,
+    client::qiniu_ng_client_t, region::qiniu_ng_region_id_t, result::qiniu_ng_err_t, utils::qiniu_ng_str_list_t,
 };
 use libc::c_char;
 use qiniu_ng::Client;
@@ -10,7 +10,7 @@ use tap::TapOps;
 pub extern "C" fn qiniu_ng_storage_bucket_names(
     client: qiniu_ng_client_t,
     names: *mut qiniu_ng_str_list_t,
-    error: *mut qiniu_ng_err,
+    error: *mut qiniu_ng_err_t,
 ) -> bool {
     let client = Box::<Client>::from(client);
     match client.storage().bucket_names().tap(|_| {
@@ -36,7 +36,7 @@ pub extern "C" fn qiniu_ng_storage_create_bucket(
     client: qiniu_ng_client_t,
     bucket_name: *const c_char,
     region_id: qiniu_ng_region_id_t,
-    error: *mut qiniu_ng_err,
+    error: *mut qiniu_ng_err_t,
 ) -> bool {
     let client = Box::<Client>::from(client);
     match client
@@ -62,7 +62,7 @@ pub extern "C" fn qiniu_ng_storage_create_bucket(
 pub extern "C" fn qiniu_ng_storage_drop_bucket(
     client: qiniu_ng_client_t,
     bucket_name: *const c_char,
-    error: *mut qiniu_ng_err,
+    error: *mut qiniu_ng_err_t,
 ) -> bool {
     let client = Box::<Client>::from(client);
     match client

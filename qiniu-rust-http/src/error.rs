@@ -38,8 +38,8 @@ pub struct HTTPCallerError {
     inner: Box<dyn StdError + Send>,
 }
 
-impl HTTPCallerError {
-    pub fn new<E: StdError + Send + 'static>(kind: HTTPCallerErrorKind, error: E) -> ErrorKind {
+impl ErrorKind {
+    pub fn new_http_caller_error_kind(kind: HTTPCallerErrorKind, error: impl StdError + Send + 'static) -> Self {
         ErrorKind::HTTPCallerError(HTTPCallerError {
             kind,
             inner: Box::new(error),

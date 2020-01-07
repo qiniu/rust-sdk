@@ -34,9 +34,8 @@ void test_qiniu_ng_bucket_get_region(void) {
 
     qiniu_ng_region_t region;
     const char *io_url;
-    qiniu_ng_err err;
 
-    TEST_ASSERT_TRUE(qiniu_ng_bucket_get_region(bucket, &region, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_bucket_get_region(bucket, &region, NULL));
     qiniu_ng_str_list_t io_urls = qiniu_ng_region_get_io_urls(region, false);
     TEST_ASSERT_EQUAL_INT(qiniu_ng_str_list_len(io_urls), 1);
     TEST_ASSERT_TRUE(qiniu_ng_str_list_get(io_urls, 0, &io_url));
@@ -60,9 +59,8 @@ void test_qiniu_ng_bucket_get_regions(void) {
     qiniu_ng_region_t region;
     qiniu_ng_str_list_t io_urls;
     const char *io_url;
-    qiniu_ng_err err;
 
-    TEST_ASSERT_TRUE(qiniu_ng_bucket_get_regions(bucket, &regions, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_bucket_get_regions(bucket, &regions, NULL));
     TEST_ASSERT_EQUAL_INT(qiniu_ng_regions_len(regions), 2);
 
     TEST_ASSERT_TRUE(qiniu_ng_regions_get(regions, 0, &region));
@@ -98,8 +96,7 @@ void test_qiniu_ng_bucket_new(void) {
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new2(client, "z2-bucket", &region, (const char **) domains_array, 2);
 
     qiniu_ng_regions_t regions;
-    qiniu_ng_err err;
-    TEST_ASSERT_TRUE(qiniu_ng_bucket_get_regions(bucket, &regions, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_bucket_get_regions(bucket, &regions, NULL));
     TEST_ASSERT_EQUAL_INT(qiniu_ng_regions_len(regions), 1);
     TEST_ASSERT_TRUE(qiniu_ng_regions_get(regions, 0, &region));
 
@@ -110,7 +107,7 @@ void test_qiniu_ng_bucket_new(void) {
 
     qiniu_ng_str_list_t domains;
     const char *domain = NULL;
-    TEST_ASSERT_TRUE(qiniu_ng_bucket_get_domains(bucket, &domains, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_bucket_get_domains(bucket, &domains, NULL));
     TEST_ASSERT_EQUAL_INT(qiniu_ng_str_list_len(domains), 2);
     qiniu_ng_str_list_get(domains, 0, &domain);
     TEST_ASSERT_EQUAL_STRING(domain, domains_array[0]);

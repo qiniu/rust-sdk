@@ -1,351 +1,365 @@
 #[cfg(any(feature = "use-libcurl"))]
 use curl_sys::CURLcode;
 
-use libc::{c_char, c_int, c_ushort, strerror};
-use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::{FromPrimitive, ToPrimitive};
+use crate::utils::{qiniu_ng_string_free, qiniu_ng_string_t};
 use qiniu_ng::{
     http::{domains_manager::PersistentError, Error as HTTPError, ErrorKind as HTTPErrorKind},
     storage::{manager::DropBucketError, upload_token::UploadTokenParseError, uploader::UploadError},
 };
-use std::{
-    ffi::CStr,
-    io::{Error as IOError, ErrorKind as IOErrorKind},
-};
+use std::io::Error as IOError;
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum QiniuNgInvalidUploadTokenCode {
-    InvalidUploadTokenFormat = 1,
-    Base64DecodeError,
-    JSONDecodeError,
+#[derive(Copy, Clone)]
+pub enum qiniu_ng_invalid_upload_token_error_kind_t {
+    ValidUploadToken,
+    InvalidUploadTokenFormat,
+    Base64DecodeError(qiniu_ng_string_t),
+    JSONDecodeError(qiniu_ng_string_t),
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum qiniu_ng_err_code {
-    QiniuNgOsError(c_int),
-    QiniuNgIoError(c_int),
-    QiniuNgUnknownError,
+#[derive(Copy, Clone)]
+pub struct qiniu_ng_invalid_upload_token_error_t(qiniu_ng_invalid_upload_token_error_kind_t);
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub enum qiniu_ng_err_kind_t {
+    NoError,
+    QiniuNgOsError(i32),
+    QiniuNgIoError(qiniu_ng_string_t),
     QiniuNgUnexpectedRedirectError,
     QiniuNgUserCanceled,
-    QiniuNgJSONError,
-    QiniuNgResponseStatusCodeError(c_ushort),
+    QiniuNgJSONError(qiniu_ng_string_t),
+    QiniuNgResponseStatusCodeError(u16, qiniu_ng_string_t),
+    QiniuNgUnknownError(qiniu_ng_string_t),
 
     #[cfg(any(feature = "use-libcurl"))]
     QiniuNgCurlError(CURLcode),
     /* Particular error */
     QiniuNgCannotDropNonEmptyBucket,
-    QiniuNgInvalidUploadToken(QiniuNgInvalidUploadTokenCode),
-    QiniuNgBadMIMEType,
+    QiniuNgInvalidUploadToken(qiniu_ng_invalid_upload_token_error_t),
+    QiniuNgBadMIMEType(qiniu_ng_string_t),
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct qiniu_ng_err(qiniu_ng_err_code);
-
-#[derive(FromPrimitive, ToPrimitive, Copy, Clone, Debug, PartialEq, Eq)]
-enum QiniuNgIoErrorKind {
-    NotFound = 1,
-    PermissionDenied,
-    ConnectionRefused,
-    ConnectionReset,
-    ConnectionAborted,
-    NotConnected,
-    AddrInUse,
-    AddrNotAvailable,
-    BrokenPipe,
-    AlreadyExists,
-    WouldBlock,
-    InvalidInput,
-    InvalidData,
-    TimedOut,
-    WriteZero,
-    Interrupted,
-    Other,
-    UnexpectedEof,
-    Unknown = -1,
-}
-
-impl From<IOErrorKind> for QiniuNgIoErrorKind {
-    fn from(error_kind: IOErrorKind) -> Self {
-        match error_kind {
-            IOErrorKind::NotFound => QiniuNgIoErrorKind::NotFound,
-            IOErrorKind::PermissionDenied => QiniuNgIoErrorKind::PermissionDenied,
-            IOErrorKind::ConnectionRefused => QiniuNgIoErrorKind::ConnectionRefused,
-            IOErrorKind::ConnectionReset => QiniuNgIoErrorKind::ConnectionReset,
-            IOErrorKind::ConnectionAborted => QiniuNgIoErrorKind::ConnectionAborted,
-            IOErrorKind::NotConnected => QiniuNgIoErrorKind::NotConnected,
-            IOErrorKind::AddrInUse => QiniuNgIoErrorKind::AddrInUse,
-            IOErrorKind::AddrNotAvailable => QiniuNgIoErrorKind::AddrNotAvailable,
-            IOErrorKind::BrokenPipe => QiniuNgIoErrorKind::BrokenPipe,
-            IOErrorKind::AlreadyExists => QiniuNgIoErrorKind::AlreadyExists,
-            IOErrorKind::WouldBlock => QiniuNgIoErrorKind::WouldBlock,
-            IOErrorKind::InvalidInput => QiniuNgIoErrorKind::InvalidInput,
-            IOErrorKind::InvalidData => QiniuNgIoErrorKind::InvalidData,
-            IOErrorKind::TimedOut => QiniuNgIoErrorKind::TimedOut,
-            IOErrorKind::WriteZero => QiniuNgIoErrorKind::WriteZero,
-            IOErrorKind::Interrupted => QiniuNgIoErrorKind::Interrupted,
-            IOErrorKind::Other => QiniuNgIoErrorKind::Other,
-            IOErrorKind::UnexpectedEof => QiniuNgIoErrorKind::UnexpectedEof,
-            _ => QiniuNgIoErrorKind::Unknown,
-        }
-    }
-}
+#[derive(Copy, Clone)]
+pub struct qiniu_ng_err_t(qiniu_ng_err_kind_t);
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_err_os_error_extract(
-    err: *const qiniu_ng_err,
-    code: *mut c_int,
-    description: *mut *const c_char,
-) -> bool {
-    if let Some(err) = unsafe { err.as_ref() } {
-        match err.0 {
-            qiniu_ng_err_code::QiniuNgOsError(os_error_code) => {
-                if let Some(code) = unsafe { code.as_mut() } {
-                    *code = os_error_code;
-                }
-                if let Some(description) = unsafe { description.as_mut() } {
-                    *description = unsafe { strerror(os_error_code) };
-                }
-                true
+pub extern "C" fn qiniu_ng_err_os_error_extract(err: &mut qiniu_ng_err_t, code: *mut i32) -> bool {
+    match err.0 {
+        qiniu_ng_err_kind_t::QiniuNgOsError(os_error_code) => {
+            if let Some(code) = unsafe { code.as_mut() } {
+                *code = os_error_code;
             }
-            _ => false,
+            err.0 = qiniu_ng_err_kind_t::NoError;
+            true
         }
-    } else {
-        false
+        _ => false,
     }
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_err_io_error_extract(
-    err: *const qiniu_ng_err,
-    code: *mut c_int,
-    description: *mut *const c_char,
-) -> bool {
-    if let Some(err) = unsafe { err.as_ref() } {
-        match err.0 {
-            qiniu_ng_err_code::QiniuNgIoError(io_error_code) => {
-                if let Some(code) = unsafe { code.as_mut() } {
-                    *code = io_error_code;
-                }
-                if let Some(description) = unsafe { description.as_mut() } {
-                    *description = match QiniuNgIoErrorKind::from_i32(io_error_code).unwrap() {
-                        QiniuNgIoErrorKind::NotFound => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"entity not found\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::PermissionDenied => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"permission denied\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::ConnectionRefused => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"connection refused\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::ConnectionReset => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"connection reset\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::ConnectionAborted => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"connection aborted\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::NotConnected => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"not connected\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::AddrInUse => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"address in use\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::AddrNotAvailable => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"address not available\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::BrokenPipe => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"broken pipe\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::AlreadyExists => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"entity already exists\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::WouldBlock => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"operation would block\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::InvalidInput => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"invalid input parameter\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::InvalidData => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"invalid data\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::TimedOut => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"timed out\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::WriteZero => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"write zero\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::Interrupted => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"operation interrupted\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::Other => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"other os error\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::UnexpectedEof => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"unexpected end of file\0") }.as_ptr()
-                        }
-                        QiniuNgIoErrorKind::Unknown => {
-                            unsafe { CStr::from_bytes_with_nul_unchecked(b"unknown error\0") }.as_ptr()
-                        }
-                    }
-                }
-                true
+pub extern "C" fn qiniu_ng_err_io_error_extract(err: &mut qiniu_ng_err_t, description: *mut qiniu_ng_string_t) -> bool {
+    match err.0 {
+        qiniu_ng_err_kind_t::QiniuNgIoError(error_description) => {
+            if let Some(description) = unsafe { description.as_mut() } {
+                *description = error_description;
+            } else {
+                qiniu_ng_string_free(error_description);
             }
-            _ => false,
+            err.0 = qiniu_ng_err_kind_t::NoError;
+            true
         }
-    } else {
-        false
+        _ => false,
     }
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_err_is_unknown_error(err: *const qiniu_ng_err) -> bool {
-    if let Some(err) = unsafe { err.as_ref() } {
-        match err.0 {
-            qiniu_ng_err_code::QiniuNgUnknownError => true,
-            _ => false,
+pub extern "C" fn qiniu_ng_err_unknown_error_extract(
+    err: &mut qiniu_ng_err_t,
+    description: *mut qiniu_ng_string_t,
+) -> bool {
+    match err.0 {
+        qiniu_ng_err_kind_t::QiniuNgUnknownError(error_description) => {
+            if let Some(description) = unsafe { description.as_mut() } {
+                *description = error_description;
+            } else {
+                qiniu_ng_string_free(error_description);
+            }
+            err.0 = qiniu_ng_err_kind_t::NoError;
+            true
         }
-    } else {
-        false
+        _ => false,
     }
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_err_is_json_error(err: *const qiniu_ng_err) -> bool {
-    if let Some(err) = unsafe { err.as_ref() } {
-        match err.0 {
-            qiniu_ng_err_code::QiniuNgJSONError => true,
-            _ => false,
+pub extern "C" fn qiniu_ng_err_unexpected_redirect_error_extract(err: &mut qiniu_ng_err_t) -> bool {
+    match err.0 {
+        qiniu_ng_err_kind_t::QiniuNgUnexpectedRedirectError => {
+            err.0 = qiniu_ng_err_kind_t::NoError;
+            true
         }
-    } else {
-        false
+        _ => false,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_user_canceled_error_extract(err: &mut qiniu_ng_err_t) -> bool {
+    match err.0 {
+        qiniu_ng_err_kind_t::QiniuNgUserCanceled => {
+            err.0 = qiniu_ng_err_kind_t::NoError;
+            true
+        }
+        _ => false,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_json_error_extract(
+    err: &mut qiniu_ng_err_t,
+    description: *mut qiniu_ng_string_t,
+) -> bool {
+    match err.0 {
+        qiniu_ng_err_kind_t::QiniuNgJSONError(error_description) => {
+            if let Some(description) = unsafe { description.as_mut() } {
+                *description = error_description;
+            } else {
+                qiniu_ng_string_free(error_description);
+            }
+            err.0 = qiniu_ng_err_kind_t::NoError;
+            true
+        }
+        _ => false,
     }
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_response_status_code_error_extract(
-    err: *const qiniu_ng_err,
-    code: *mut c_ushort,
+    err: &mut qiniu_ng_err_t,
+    status_code: *mut u16,
+    error: *mut qiniu_ng_string_t,
 ) -> bool {
-    if let Some(err) = unsafe { err.as_ref() } {
-        match err.0 {
-            qiniu_ng_err_code::QiniuNgResponseStatusCodeError(status_code) => {
-                if let Some(code) = unsafe { code.as_mut() } {
-                    *code = status_code;
-                }
-                true
+    match err.0 {
+        qiniu_ng_err_kind_t::QiniuNgResponseStatusCodeError(code, error_description) => {
+            if let Some(status_code) = unsafe { status_code.as_mut() } {
+                *status_code = code;
             }
-            _ => false,
+            if let Some(error) = unsafe { error.as_mut() } {
+                *error = error_description;
+            } else {
+                qiniu_ng_string_free(error_description);
+            }
+            err.0 = qiniu_ng_err_kind_t::NoError;
+            true
         }
-    } else {
-        false
+        _ => false,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_drop_non_empty_bucket_error_extract(err: &mut qiniu_ng_err_t) -> bool {
+    match err.0 {
+        qiniu_ng_err_kind_t::QiniuNgCannotDropNonEmptyBucket => {
+            err.0 = qiniu_ng_err_kind_t::NoError;
+            true
+        }
+        _ => false,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_bad_mime_type_error_extract(
+    err: &mut qiniu_ng_err_t,
+    description: *mut qiniu_ng_string_t,
+) -> bool {
+    match err.0 {
+        qiniu_ng_err_kind_t::QiniuNgBadMIMEType(error_description) => {
+            if let Some(description) = unsafe { description.as_mut() } {
+                *description = error_description;
+            } else {
+                qiniu_ng_string_free(error_description);
+            }
+            err.0 = qiniu_ng_err_kind_t::NoError;
+            true
+        }
+        _ => false,
     }
 }
 
 #[cfg(any(feature = "use-libcurl"))]
 #[no_mangle]
-pub extern "C" fn qiniu_ng_err_curl_error_extract(err: *const qiniu_ng_err, code: *mut CURLcode) -> bool {
-    if let Some(err) = unsafe { err.as_ref() } {
-        match err.0 {
-            qiniu_ng_err_code::QiniuNgCurlError(curl_code) => {
-                if let Some(code) = unsafe { code.as_mut() } {
-                    *code = curl_code;
-                }
-                true
+pub extern "C" fn qiniu_ng_err_curl_error_extract(err: &mut qiniu_ng_err_t, code: *mut CURLcode) -> bool {
+    match err.0 {
+        qiniu_ng_err_kind_t::QiniuNgCurlError(curl_code) => {
+            if let Some(code) = unsafe { code.as_mut() } {
+                *code = curl_code;
             }
-            _ => false,
+            err.0 = qiniu_ng_err_kind_t::NoError;
+            true
         }
-    } else {
-        false
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_err_is_cannot_drop_non_empty_bucket(err: *const qiniu_ng_err) -> bool {
-    if let Some(err) = unsafe { err.as_ref() } {
-        match err.0 {
-            qiniu_ng_err_code::QiniuNgCannotDropNonEmptyBucket => true,
-            _ => false,
-        }
-    } else {
-        false
+        _ => false,
     }
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_invalid_upload_token_extract(
-    err: *const qiniu_ng_err,
-    code: *mut QiniuNgInvalidUploadTokenCode,
+    err: &mut qiniu_ng_err_t,
+    upload_token_error: *mut qiniu_ng_invalid_upload_token_error_t,
 ) -> bool {
-    if let Some(err) = unsafe { err.as_ref() } {
-        match err.0 {
-            qiniu_ng_err_code::QiniuNgInvalidUploadToken(invalid_upload_token_code) => {
-                if let Some(code) = unsafe { code.as_mut() } {
-                    *code = invalid_upload_token_code;
-                }
-                true
+    match err.0 {
+        qiniu_ng_err_kind_t::QiniuNgInvalidUploadToken(mut e) => {
+            if let Some(upload_token_error) = unsafe { upload_token_error.as_mut() } {
+                *upload_token_error = e;
+            } else {
+                qiniu_ng_invalid_upload_token_error_ignore(&mut e);
             }
-            _ => false,
+            err.0 = qiniu_ng_err_kind_t::NoError;
+            true
         }
-    } else {
-        false
+        _ => false,
     }
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_err_is_bad_mime(err: *const qiniu_ng_err) -> bool {
-    if let Some(err) = unsafe { err.as_ref() } {
-        match err.0 {
-            qiniu_ng_err_code::QiniuNgBadMIMEType => true,
-            _ => false,
+pub extern "C" fn qiniu_ng_err_invalid_upload_token_format_extract(
+    err: &mut qiniu_ng_invalid_upload_token_error_t,
+) -> bool {
+    match err.0 {
+        qiniu_ng_invalid_upload_token_error_kind_t::InvalidUploadTokenFormat => {
+            err.0 = qiniu_ng_invalid_upload_token_error_kind_t::ValidUploadToken;
+            true
         }
-    } else {
-        false
+        _ => false,
     }
 }
 
-impl From<&IOError> for qiniu_ng_err {
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_invalid_upload_token_base64_error_extract(
+    err: &mut qiniu_ng_invalid_upload_token_error_t,
+    error: *mut qiniu_ng_string_t,
+) -> bool {
+    match err.0 {
+        qiniu_ng_invalid_upload_token_error_kind_t::Base64DecodeError(error_description) => {
+            if let Some(error) = unsafe { error.as_mut() } {
+                *error = error_description;
+            } else {
+                qiniu_ng_string_free(error_description);
+            }
+            err.0 = qiniu_ng_invalid_upload_token_error_kind_t::ValidUploadToken;
+            true
+        }
+        _ => false,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_invalid_upload_token_json_error_extract(
+    err: &mut qiniu_ng_invalid_upload_token_error_t,
+    error: *mut qiniu_ng_string_t,
+) -> bool {
+    match err.0 {
+        qiniu_ng_invalid_upload_token_error_kind_t::JSONDecodeError(error_description) => {
+            if let Some(error) = unsafe { error.as_mut() } {
+                *error = error_description;
+            } else {
+                qiniu_ng_string_free(error_description);
+            }
+            err.0 = qiniu_ng_invalid_upload_token_error_kind_t::ValidUploadToken;
+            true
+        }
+        _ => false,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_ignore(err: &mut qiniu_ng_err_t) {
+    match err.0 {
+        qiniu_ng_err_kind_t::QiniuNgIoError(error_description) => qiniu_ng_string_free(error_description),
+        qiniu_ng_err_kind_t::QiniuNgUnknownError(error_description) => qiniu_ng_string_free(error_description),
+        qiniu_ng_err_kind_t::QiniuNgJSONError(error_description) => qiniu_ng_string_free(error_description),
+        qiniu_ng_err_kind_t::QiniuNgResponseStatusCodeError(_, error_description) => {
+            qiniu_ng_string_free(error_description)
+        }
+        qiniu_ng_err_kind_t::QiniuNgInvalidUploadToken(mut err) => qiniu_ng_invalid_upload_token_error_ignore(&mut err),
+        qiniu_ng_err_kind_t::QiniuNgBadMIMEType(error_description) => qiniu_ng_string_free(error_description),
+        _ => {}
+    }
+    err.0 = qiniu_ng_err_kind_t::NoError;
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_invalid_upload_token_error_ignore(err: &mut qiniu_ng_invalid_upload_token_error_t) {
+    match err.0 {
+        qiniu_ng_invalid_upload_token_error_kind_t::Base64DecodeError(error_description) => {
+            qiniu_ng_string_free(error_description)
+        }
+        qiniu_ng_invalid_upload_token_error_kind_t::JSONDecodeError(error_description) => {
+            qiniu_ng_string_free(error_description)
+        }
+        _ => {}
+    }
+    err.0 = qiniu_ng_invalid_upload_token_error_kind_t::ValidUploadToken;
+}
+
+impl From<&IOError> for qiniu_ng_err_t {
     fn from(err: &IOError) -> Self {
-        qiniu_ng_err(err.raw_os_error().map_or_else(
-            || qiniu_ng_err_code::QiniuNgIoError(QiniuNgIoErrorKind::from(err.kind()).to_i32().unwrap()),
-            qiniu_ng_err_code::QiniuNgOsError,
+        qiniu_ng_err_t(err.raw_os_error().map_or_else(
+            || {
+                qiniu_ng_err_kind_t::QiniuNgIoError(unsafe {
+                    qiniu_ng_string_t::from_string_unchecked(err.to_string())
+                })
+            },
+            qiniu_ng_err_kind_t::QiniuNgOsError,
         ))
     }
 }
 
-impl From<&HTTPError> for qiniu_ng_err {
+impl From<&HTTPError> for qiniu_ng_err_t {
     fn from(err: &HTTPError) -> Self {
         match err.error_kind() {
-            HTTPErrorKind::HTTPCallerError(e) => qiniu_ng_err(
+            HTTPErrorKind::HTTPCallerError(e) => qiniu_ng_err_t(
                 #[cfg(any(feature = "use-libcurl"))]
                 {
-                    e.inner()
-                        .downcast_ref::<curl::Error>()
-                        .map_or(qiniu_ng_err_code::QiniuNgUnknownError, |e| {
-                            qiniu_ng_err_code::QiniuNgCurlError(e.code())
-                        })
+                    e.inner().downcast_ref::<curl::Error>().map_or_else(
+                        || {
+                            qiniu_ng_err_kind_t::QiniuNgUnknownError(unsafe {
+                                qiniu_ng_string_t::from_string_unchecked(err.to_string())
+                            })
+                        },
+                        |e| qiniu_ng_err_kind_t::QiniuNgCurlError(e.code()),
+                    )
                 },
                 #[cfg(not(feature = "use-libcurl"))]
                 {
-                    std::mem::drop(e);
-                    qiniu_ng_err_code::QiniuNgUnknownError
+                    qiniu_ng_err_kind_t::QiniuNgUnknownError(qiniu_ng_string_t::from_str_unchecked(
+                        "Unrecognized HTTP Error kind",
+                    ))
                 },
             ),
-            HTTPErrorKind::JSONError(_) => qiniu_ng_err(qiniu_ng_err_code::QiniuNgJSONError),
-            HTTPErrorKind::MaliciousResponse => qiniu_ng_err(qiniu_ng_err_code::QiniuNgUnknownError),
-            HTTPErrorKind::UnexpectedRedirect => qiniu_ng_err(qiniu_ng_err_code::QiniuNgUnexpectedRedirectError),
-            HTTPErrorKind::UserCanceled => qiniu_ng_err(qiniu_ng_err_code::QiniuNgUserCanceled),
+            HTTPErrorKind::JSONError(e) => qiniu_ng_err_t(qiniu_ng_err_kind_t::QiniuNgJSONError(unsafe {
+                qiniu_ng_string_t::from_string_unchecked(e.to_string())
+            })),
+            HTTPErrorKind::MaliciousResponse => qiniu_ng_err_t(qiniu_ng_err_kind_t::QiniuNgUnknownError(unsafe {
+                qiniu_ng_string_t::from_str_unchecked("Malicious HTTP Response, please try HTTPs protocol")
+            })),
+            HTTPErrorKind::UnexpectedRedirect => qiniu_ng_err_t(qiniu_ng_err_kind_t::QiniuNgUnexpectedRedirectError),
+            HTTPErrorKind::UserCanceled => qiniu_ng_err_t(qiniu_ng_err_kind_t::QiniuNgUserCanceled),
             HTTPErrorKind::IOError(e) => e.into(),
-            HTTPErrorKind::UnknownError(_) => qiniu_ng_err(qiniu_ng_err_code::QiniuNgUnknownError),
-            HTTPErrorKind::ResponseStatusCodeError(status_code, _) => qiniu_ng_err(
-                qiniu_ng_err_code::QiniuNgResponseStatusCodeError(status_code.to_owned()),
+            HTTPErrorKind::UnknownError(e) => qiniu_ng_err_t(qiniu_ng_err_kind_t::QiniuNgUnknownError(unsafe {
+                qiniu_ng_string_t::from_string_unchecked(e.to_string())
+            })),
+            HTTPErrorKind::ResponseStatusCodeError(status_code, error_description) => qiniu_ng_err_t(
+                qiniu_ng_err_kind_t::QiniuNgResponseStatusCodeError(status_code.to_owned(), unsafe {
+                    qiniu_ng_string_t::from_str_unchecked(error_description)
+                }),
             ),
         }
     }
 }
 
-impl From<&UploadError> for qiniu_ng_err {
+impl From<&UploadError> for qiniu_ng_err_t {
     fn from(err: &UploadError) -> Self {
         match err {
             UploadError::IOError(err) => err.into(),
@@ -354,44 +368,62 @@ impl From<&UploadError> for qiniu_ng_err {
     }
 }
 
-impl From<&DropBucketError> for qiniu_ng_err {
+impl From<&DropBucketError> for qiniu_ng_err_t {
     fn from(err: &DropBucketError) -> Self {
         match err {
             DropBucketError::CannotDropNonEmptyBucket => {
-                qiniu_ng_err(qiniu_ng_err_code::QiniuNgCannotDropNonEmptyBucket)
+                qiniu_ng_err_t(qiniu_ng_err_kind_t::QiniuNgCannotDropNonEmptyBucket)
             }
             DropBucketError::HTTPError(e) => e.into(),
         }
     }
 }
 
-impl From<&UploadTokenParseError> for qiniu_ng_err {
+impl From<&UploadTokenParseError> for qiniu_ng_err_t {
     fn from(err: &UploadTokenParseError) -> Self {
-        qiniu_ng_err(qiniu_ng_err_code::QiniuNgInvalidUploadToken(match err {
-            UploadTokenParseError::InvalidUploadTokenFormat => QiniuNgInvalidUploadTokenCode::InvalidUploadTokenFormat,
-            UploadTokenParseError::Base64DecodeError(_) => QiniuNgInvalidUploadTokenCode::Base64DecodeError,
-            UploadTokenParseError::JSONDecodeError(_) => QiniuNgInvalidUploadTokenCode::JSONDecodeError,
+        qiniu_ng_err_t(qiniu_ng_err_kind_t::QiniuNgInvalidUploadToken(
+            qiniu_ng_invalid_upload_token_error_t(match err {
+                UploadTokenParseError::InvalidUploadTokenFormat => {
+                    qiniu_ng_invalid_upload_token_error_kind_t::InvalidUploadTokenFormat
+                }
+                UploadTokenParseError::Base64DecodeError(e) => {
+                    qiniu_ng_invalid_upload_token_error_kind_t::Base64DecodeError(unsafe {
+                        qiniu_ng_string_t::from_string_unchecked(e.to_string())
+                    })
+                }
+                UploadTokenParseError::JSONDecodeError(e) => {
+                    qiniu_ng_invalid_upload_token_error_kind_t::JSONDecodeError(unsafe {
+                        qiniu_ng_string_t::from_string_unchecked(e.to_string())
+                    })
+                }
+            }),
+        ))
+    }
+}
+
+impl From<&mime::FromStrError> for qiniu_ng_err_t {
+    fn from(e: &mime::FromStrError) -> Self {
+        qiniu_ng_err_t(qiniu_ng_err_kind_t::QiniuNgBadMIMEType(unsafe {
+            qiniu_ng_string_t::from_string_unchecked(e.to_string())
         }))
     }
 }
 
-impl From<&mime::FromStrError> for qiniu_ng_err {
-    fn from(_err: &mime::FromStrError) -> Self {
-        qiniu_ng_err(qiniu_ng_err_code::QiniuNgBadMIMEType)
-    }
-}
-
-impl From<&PersistentError> for qiniu_ng_err {
+impl From<&PersistentError> for qiniu_ng_err_t {
     fn from(err: &PersistentError) -> Self {
         match err {
-            PersistentError::JSONError(_) => qiniu_ng_err(qiniu_ng_err_code::QiniuNgJSONError),
+            PersistentError::JSONError(e) => qiniu_ng_err_t(qiniu_ng_err_kind_t::QiniuNgJSONError(unsafe {
+                qiniu_ng_string_t::from_string_unchecked(e.to_string())
+            })),
             PersistentError::IOError(ref err) => err.into(),
         }
     }
 }
 
-impl From<&serde_json::Error> for qiniu_ng_err {
-    fn from(_err: &serde_json::Error) -> Self {
-        qiniu_ng_err(qiniu_ng_err_code::QiniuNgJSONError)
+impl From<&serde_json::Error> for qiniu_ng_err_t {
+    fn from(err: &serde_json::Error) -> Self {
+        qiniu_ng_err_t(qiniu_ng_err_kind_t::QiniuNgJSONError(unsafe {
+            qiniu_ng_string_t::from_string_unchecked(err.to_string())
+        }))
     }
 }

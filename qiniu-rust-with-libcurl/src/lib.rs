@@ -6,7 +6,7 @@ use derive_builder::Builder;
 use lazy_static::lazy_static;
 use object_pool::Pool;
 use qiniu_http::{
-    Error, HTTPCaller, HTTPCallerError, HTTPCallerErrorKind, Headers, Method, ProgressCallback, Request, Response,
+    Error, ErrorKind, HTTPCaller, HTTPCallerErrorKind, Headers, Method, ProgressCallback, Request, Response,
     ResponseBuilder, Result, StatusCode,
 };
 use std::{
@@ -224,56 +224,56 @@ impl CurlClient {
             Err(err) => {
                 if err.is_partial_file() || err.is_read_error() {
                     Err(Error::new_retryable_error(
-                        HTTPCallerError::new(HTTPCallerErrorKind::UnknownError, err),
+                        ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::UnknownError, err),
                         false,
                         request,
                         None,
                     ))
                 } else if err.is_recv_error() {
                     Err(Error::new_retryable_error(
-                        HTTPCallerError::new(HTTPCallerErrorKind::ResponseError, err),
+                        ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::ResponseError, err),
                         false,
                         request,
                         None,
                     ))
                 } else if err.is_write_error() || err.is_again() || err.is_chunk_failed() {
                     Err(Error::new_retryable_error(
-                        HTTPCallerError::new(HTTPCallerErrorKind::UnknownError, err),
+                        ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::UnknownError, err),
                         true,
                         request,
                         None,
                     ))
                 } else if err.is_operation_timedout() {
                     Err(Error::new_retryable_error(
-                        HTTPCallerError::new(HTTPCallerErrorKind::TimeoutError, err),
+                        ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::TimeoutError, err),
                         true,
                         request,
                         None,
                     ))
                 } else if err.is_send_error() {
                     Err(Error::new_retryable_error(
-                        HTTPCallerError::new(HTTPCallerErrorKind::RequestError, err),
+                        ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::RequestError, err),
                         true,
                         request,
                         None,
                     ))
                 } else if err.is_too_many_redirects() || err.is_got_nothing() {
                     Err(Error::new_host_unretryable_error(
-                        HTTPCallerError::new(HTTPCallerErrorKind::UnknownError, err),
+                        ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::UnknownError, err),
                         true,
                         request,
                         None,
                     ))
                 } else if err.is_couldnt_resolve_proxy() {
                     Err(Error::new_host_unretryable_error(
-                        HTTPCallerError::new(HTTPCallerErrorKind::ResolveError, err),
+                        ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::ResolveError, err),
                         true,
                         request,
                         None,
                     ))
                 } else if err.is_couldnt_connect() {
                     Err(Error::new_host_unretryable_error(
-                        HTTPCallerError::new(HTTPCallerErrorKind::ConnectionError, err),
+                        ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::ConnectionError, err),
                         true,
                         request,
                         None,
@@ -292,14 +292,14 @@ impl CurlClient {
                     || err.is_ssl_issuer_error()
                 {
                     Err(Error::new_host_unretryable_error(
-                        HTTPCallerError::new(HTTPCallerErrorKind::SSLError, err),
+                        ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::SSLError, err),
                         true,
                         request,
                         None,
                     ))
                 } else {
                     Err(Error::new_unretryable_error(
-                        HTTPCallerError::new(HTTPCallerErrorKind::UnknownError, err),
+                        ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::UnknownError, err),
                         request,
                         None,
                     ))

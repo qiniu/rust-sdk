@@ -1,6 +1,6 @@
 use qiniu_http::{
-    Error as HTTPError, HTTPCaller, HTTPCallerError, HTTPCallerErrorKind, Headers, Method, Request, Response,
-    ResponseBuilder, Result, StatusCode,
+    Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCaller, HTTPCallerErrorKind, Headers, Method, Request,
+    Response, ResponseBuilder, Result, StatusCode,
 };
 use rand::{thread_rng, Rng};
 use rand_core::RngCore;
@@ -214,7 +214,7 @@ impl<T: HTTPCaller> HTTPCaller for UploadingProgressErrorMock<T> {
             ) == 0
             {
                 return Err(HTTPError::new_retryable_error(
-                    HTTPCallerError::new(
+                    HTTPErrorKind::new_http_caller_error_kind(
                         HTTPCallerErrorKind::RequestError,
                         IOError::new(IOErrorKind::TimedOut, "Custom error"),
                     ),

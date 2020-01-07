@@ -1,4 +1,4 @@
-use crate::{config::qiniu_ng_config_t, result::qiniu_ng_err, utils::qiniu_ng_str_list_t};
+use crate::{config::qiniu_ng_config_t, result::qiniu_ng_err_t, utils::qiniu_ng_str_list_t};
 use libc::{c_char, c_void, size_t};
 use qiniu_ng::storage::region::{Region, RegionId};
 use std::{borrow::Cow, ffi::CStr, mem::transmute};
@@ -153,7 +153,7 @@ pub extern "C" fn qiniu_ng_region_query(
     access_key: *const c_char,
     config: qiniu_ng_config_t,
     regions: *mut qiniu_ng_regions_t,
-    error: *mut qiniu_ng_err,
+    error: *mut qiniu_ng_err_t,
 ) -> bool {
     match Region::query(
         unsafe { CStr::from_ptr(bucket_name) }.to_str().unwrap().to_owned(),

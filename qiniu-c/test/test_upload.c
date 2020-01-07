@@ -141,7 +141,8 @@ void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
     qiniu_ng_upload_params_t params = {
         .mime = "invalid"
     };
-    qiniu_ng_err err;
+    qiniu_ng_err_t err;
+    qiniu_ng_string_t error;
 
 #if defined(_WIN32) || defined(WIN32)
     const wchar_t *file_path = L"/不存在的路径";
@@ -149,7 +150,9 @@ void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
     const char *file_path = "不存在的路径";
 #endif
     TEST_ASSERT_FALSE(qiniu_ng_upload_file_path(bucket_uploader, token, file_path, &params, NULL, &err));
-    TEST_ASSERT_TRUE(qiniu_ng_err_is_bad_mime(&err));
+    TEST_ASSERT_TRUE(qiniu_ng_err_bad_mime_type_error_extract(&err, &error));
+    TEST_ASSERT_EQUAL_INT(strncmp(qiniu_ng_string_get_ptr(error), "an error occurred while parsing a MIME type", strlen("an error occurred while parsing a MIME type")), 0);
+    TEST_ASSERT_FALSE(qiniu_ng_err_bad_mime_type_error_extract(&err, &error));
 
     qiniu_ng_upload_token_free(token);
 

@@ -10,8 +10,7 @@ void test_qiniu_ng_storage_bucket_names(void) {
     qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), config);
 
     qiniu_ng_str_list_t bucket_names;
-    qiniu_ng_err err;
-    TEST_ASSERT_TRUE(qiniu_ng_storage_bucket_names(client, &bucket_names, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_storage_bucket_names(client, &bucket_names, NULL));
 
     unsigned int names_len = qiniu_ng_str_list_len(bucket_names);
     TEST_ASSERT_GREATER_THAN(5, names_len);
@@ -34,11 +33,10 @@ void test_qiniu_ng_storage_bucket_create_and_drop(void) {
     sprintf((char *) buf, "test-qiniu-c-%lu", (unsigned long) time(NULL));
     const char *new_bucket_name = (const char *) buf;
 
-    qiniu_ng_err err;
-    TEST_ASSERT_TRUE(qiniu_ng_storage_create_bucket(client, new_bucket_name, Z1, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_storage_create_bucket(client, new_bucket_name, Z1, NULL));
 
     qiniu_ng_str_list_t bucket_names;
-    TEST_ASSERT_TRUE(qiniu_ng_storage_bucket_names(client, &bucket_names, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_storage_bucket_names(client, &bucket_names, NULL));
 
     unsigned int names_len = qiniu_ng_str_list_len(bucket_names);
     TEST_ASSERT_GREATER_THAN(5, names_len);
@@ -53,7 +51,7 @@ void test_qiniu_ng_storage_bucket_create_and_drop(void) {
     qiniu_ng_str_list_free(bucket_names);
     TEST_ASSERT_TRUE(found_new_bucket);
 
-    TEST_ASSERT_TRUE(qiniu_ng_storage_drop_bucket(client, new_bucket_name, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_storage_drop_bucket(client, new_bucket_name, NULL));
     qiniu_ng_client_free(client);
     qiniu_ng_config_free(config);
 }

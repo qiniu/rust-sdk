@@ -1,5 +1,5 @@
 use crate::{
-    result::qiniu_ng_err,
+    result::qiniu_ng_err_t,
     utils::{qiniu_ng_optional_str_t, qiniu_ng_str_map_t, qiniu_ng_str_t},
 };
 use libc::{c_char, c_void, size_t};
@@ -488,7 +488,7 @@ pub extern "C" fn qiniu_ng_http_response_dump_body(
     response: qiniu_ng_http_response_t,
     body_ptr: *mut *const c_void,
     body_size: *mut size_t,
-    err: *mut qiniu_ng_err,
+    err: *mut qiniu_ng_err_t,
 ) -> bool {
     let response = Box::<&mut Response>::from(response);
     let mut ok = true;

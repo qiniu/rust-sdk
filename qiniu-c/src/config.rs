@@ -1,6 +1,6 @@
 use crate::{
     http::{qiniu_ng_http_request_t, qiniu_ng_http_response_t},
-    result::qiniu_ng_err,
+    result::qiniu_ng_err_t,
     string::{qiniu_ng_char_t, UCString},
     utils::{qiniu_ng_optional_str_t, qiniu_ng_optional_string_t, qiniu_ng_str_t},
 };
@@ -301,7 +301,7 @@ pub extern "C" fn qiniu_ng_config_builder_upload_recorder_always_flush_records(
 pub extern "C" fn qiniu_ng_config_builder_load_domains_manager_from_file(
     builder: qiniu_ng_config_builder_t,
     persistent_file: *const qiniu_ng_char_t,
-    error: *mut qiniu_ng_err,
+    error: *mut qiniu_ng_err_t,
 ) -> bool {
     let mut builder = Box::<Builder>::from(builder);
     let mut result = true;
@@ -550,7 +550,7 @@ pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_after_action_hand
 pub extern "C" fn qiniu_ng_config_build(
     builder: qiniu_ng_config_builder_t,
     config: *mut qiniu_ng_config_t,
-    error: *mut qiniu_ng_err,
+    error: *mut qiniu_ng_err_t,
 ) -> bool {
     let builder = Box::<Builder>::from(builder);
     let config_builder = builder

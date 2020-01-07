@@ -10,8 +10,7 @@ void test_qiniu_ng_config_new_default(void) {
 
 void test_qiniu_ng_config_new(void) {
     qiniu_ng_config_t config;
-    qiniu_ng_err err;
-    TEST_ASSERT_TRUE(qiniu_ng_config_build(qiniu_ng_config_builder_new(), &config, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_config_build(qiniu_ng_config_builder_new(), &config, NULL));
 
     TEST_ASSERT_TRUE(qiniu_ng_config_get_use_https(config));
     TEST_ASSERT_EQUAL_INT(qiniu_ng_config_get_batch_max_operation_size(config), 1000);
@@ -72,8 +71,7 @@ void test_qiniu_ng_config_new2(void) {
     qiniu_ng_config_builder_domains_manager_disable_auto_persistent(builder);
 
     qiniu_ng_config_t config;
-    qiniu_ng_err err;
-    TEST_ASSERT_TRUE(qiniu_ng_config_build(builder, &config, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_config_build(builder, &config, NULL));
 
     TEST_ASSERT_FALSE(qiniu_ng_config_get_use_https(config));
     TEST_ASSERT_EQUAL_INT(qiniu_ng_config_get_batch_max_operation_size(config), 10000);
