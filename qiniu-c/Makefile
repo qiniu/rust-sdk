@@ -7,7 +7,7 @@ INC_DIRS=-I$(CURDIR) -I$(UNITY_HOME)
 STATIC_LIBRARY=$(CURDIR)/../target/debug/libqiniu_ng_c.a
 DYNAMIC_LIBRARY=$(CURDIR)/../target/debug
 LDFLAGS=-lm -lpthread -ldl -lcurl
-SYMBOLS=-DTEST
+SYMBOLS=-DTEST -DUNITY_USE_FLUSH_STDOUT
 
 ifeq ($(OS),Windows_NT)
 else

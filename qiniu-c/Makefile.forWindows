@@ -4,7 +4,7 @@ TARGET=build/test.exe
 UNITY_HOME=test/unity/src
 SRC_FILES=$(UNITY_HOME)/unity.c $(wildcard test/*.c)
 INC_DIRS=/I . /I $(UNITY_HOME)
-SYMBOLS=/D TEST
+SYMBOLS=/D TEST /D UNITY_USE_FLUSH_STDOUT
 
 all: build
 build:
