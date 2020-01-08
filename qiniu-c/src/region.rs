@@ -6,22 +6,23 @@ use tap::TapOps;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
+#[allow(non_camel_case_types)]
 pub enum qiniu_ng_region_id_t {
-    Z0,
-    Z1,
-    Z2,
-    AS0,
-    NA0,
+    qiniu_ng_region_z0,
+    qiniu_ng_region_z1,
+    qiniu_ng_region_z2,
+    qiniu_ng_region_as0,
+    qiniu_ng_region_na0,
 }
 
 impl qiniu_ng_region_id_t {
     pub fn as_cstr(self) -> &'static CStr {
         match self {
-            qiniu_ng_region_id_t::Z0 => unsafe { CStr::from_bytes_with_nul_unchecked(b"z0\0") },
-            qiniu_ng_region_id_t::Z1 => unsafe { CStr::from_bytes_with_nul_unchecked(b"z1\0") },
-            qiniu_ng_region_id_t::Z2 => unsafe { CStr::from_bytes_with_nul_unchecked(b"z2\0") },
-            qiniu_ng_region_id_t::AS0 => unsafe { CStr::from_bytes_with_nul_unchecked(b"as0\0") },
-            qiniu_ng_region_id_t::NA0 => unsafe { CStr::from_bytes_with_nul_unchecked(b"na0\0") },
+            qiniu_ng_region_id_t::qiniu_ng_region_z0 => unsafe { CStr::from_bytes_with_nul_unchecked(b"z0\0") },
+            qiniu_ng_region_id_t::qiniu_ng_region_z1 => unsafe { CStr::from_bytes_with_nul_unchecked(b"z1\0") },
+            qiniu_ng_region_id_t::qiniu_ng_region_z2 => unsafe { CStr::from_bytes_with_nul_unchecked(b"z2\0") },
+            qiniu_ng_region_id_t::qiniu_ng_region_as0 => unsafe { CStr::from_bytes_with_nul_unchecked(b"as0\0") },
+            qiniu_ng_region_id_t::qiniu_ng_region_na0 => unsafe { CStr::from_bytes_with_nul_unchecked(b"na0\0") },
         }
     }
 }
@@ -29,11 +30,11 @@ impl qiniu_ng_region_id_t {
 impl From<RegionId> for qiniu_ng_region_id_t {
     fn from(region_id: RegionId) -> Self {
         match region_id {
-            RegionId::Z0 => qiniu_ng_region_id_t::Z0,
-            RegionId::Z1 => qiniu_ng_region_id_t::Z1,
-            RegionId::Z2 => qiniu_ng_region_id_t::Z2,
-            RegionId::AS0 => qiniu_ng_region_id_t::AS0,
-            RegionId::NA0 => qiniu_ng_region_id_t::NA0,
+            RegionId::Z0 => qiniu_ng_region_id_t::qiniu_ng_region_z0,
+            RegionId::Z1 => qiniu_ng_region_id_t::qiniu_ng_region_z1,
+            RegionId::Z2 => qiniu_ng_region_id_t::qiniu_ng_region_z2,
+            RegionId::AS0 => qiniu_ng_region_id_t::qiniu_ng_region_as0,
+            RegionId::NA0 => qiniu_ng_region_id_t::qiniu_ng_region_na0,
         }
     }
 }
@@ -41,11 +42,11 @@ impl From<RegionId> for qiniu_ng_region_id_t {
 impl From<qiniu_ng_region_id_t> for RegionId {
     fn from(region_id: qiniu_ng_region_id_t) -> Self {
         match region_id {
-            qiniu_ng_region_id_t::Z0 => RegionId::Z0,
-            qiniu_ng_region_id_t::Z1 => RegionId::Z1,
-            qiniu_ng_region_id_t::Z2 => RegionId::Z2,
-            qiniu_ng_region_id_t::AS0 => RegionId::AS0,
-            qiniu_ng_region_id_t::NA0 => RegionId::NA0,
+            qiniu_ng_region_id_t::qiniu_ng_region_z0 => RegionId::Z0,
+            qiniu_ng_region_id_t::qiniu_ng_region_z1 => RegionId::Z1,
+            qiniu_ng_region_id_t::qiniu_ng_region_z2 => RegionId::Z2,
+            qiniu_ng_region_id_t::qiniu_ng_region_as0 => RegionId::AS0,
+            qiniu_ng_region_id_t::qiniu_ng_region_na0 => RegionId::NA0,
         }
     }
 }
@@ -99,11 +100,11 @@ pub extern "C" fn qiniu_ng_region_get_region_id(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_region_by_id(region_id: qiniu_ng_region_id_t) -> qiniu_ng_region_t {
     match region_id {
-        qiniu_ng_region_id_t::Z0 => Box::new(Cow::Borrowed(Region::z0())).into(),
-        qiniu_ng_region_id_t::Z1 => Box::new(Cow::Borrowed(Region::z1())).into(),
-        qiniu_ng_region_id_t::Z2 => Box::new(Cow::Borrowed(Region::z2())).into(),
-        qiniu_ng_region_id_t::AS0 => Box::new(Cow::Borrowed(Region::as0())).into(),
-        qiniu_ng_region_id_t::NA0 => Box::new(Cow::Borrowed(Region::na0())).into(),
+        qiniu_ng_region_id_t::qiniu_ng_region_z0 => Box::new(Cow::Borrowed(Region::z0())).into(),
+        qiniu_ng_region_id_t::qiniu_ng_region_z1 => Box::new(Cow::Borrowed(Region::z1())).into(),
+        qiniu_ng_region_id_t::qiniu_ng_region_z2 => Box::new(Cow::Borrowed(Region::z2())).into(),
+        qiniu_ng_region_id_t::qiniu_ng_region_as0 => Box::new(Cow::Borrowed(Region::as0())).into(),
+        qiniu_ng_region_id_t::qiniu_ng_region_na0 => Box::new(Cow::Borrowed(Region::na0())).into(),
     }
 }
 

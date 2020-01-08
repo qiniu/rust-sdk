@@ -151,8 +151,42 @@ void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
 #endif
     TEST_ASSERT_FALSE(qiniu_ng_upload_file_path(bucket_uploader, token, file_path, &params, NULL, &err));
     TEST_ASSERT_TRUE(qiniu_ng_err_bad_mime_type_error_extract(&err, &error));
-    TEST_ASSERT_EQUAL_INT(strncmp(qiniu_ng_string_get_ptr(error), "an error occurred while parsing a MIME type", strlen("an error occurred while parsing a MIME type")), 0);
+    qiniu_ng_string_free(error);
     TEST_ASSERT_FALSE(qiniu_ng_err_bad_mime_type_error_extract(&err, &error));
+
+    qiniu_ng_upload_token_free(token);
+
+    qiniu_ng_bucket_uploader_free(bucket_uploader);
+    qiniu_ng_upload_manager_free(upload_manager);
+    qiniu_ng_config_free(config);
+}
+
+void test_qiniu_ng_upload_file_path_failed_by_non_existed_path(void) {
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
+
+    env_load("..", false);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
+    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(upload_manager, "z0-bucket", getenv("access_key"), 5);
+
+    qiniu_ng_upload_policy_t policy = {
+        .bucket = "z0-bucket",
+        .deadline = (unsigned long) time(NULL) + 86400,
+    };
+    qiniu_ng_upload_token_t token = qiniu_ng_new_upload_token_from_policy(&policy, getenv("access_key"), getenv("secret_key"));
+
+    qiniu_ng_err_t err;
+    int code;
+
+#if defined(_WIN32) || defined(WIN32)
+    const wchar_t *file_path = L"/不存在的路径";
+#else
+    const char *file_path = "不存在的路径";
+#endif
+    TEST_ASSERT_FALSE(qiniu_ng_upload_file_path(bucket_uploader, token, file_path, NULL, NULL, &err));
+    TEST_ASSERT_FALSE(qiniu_ng_err_bad_mime_type_error_extract(&err, NULL));
+    TEST_ASSERT_TRUE(qiniu_ng_err_os_error_extract(&err, &code));
+    TEST_ASSERT_EQUAL_STRING(strerror(code), "No such file or directory");
+    TEST_ASSERT_FALSE(qiniu_ng_err_os_error_extract(&err, &code));
 
     qiniu_ng_upload_token_free(token);
 

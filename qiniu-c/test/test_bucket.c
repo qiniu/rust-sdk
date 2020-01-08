@@ -48,6 +48,37 @@ void test_qiniu_ng_bucket_get_region(void) {
     qiniu_ng_config_free(config);
 }
 
+void test_qiniu_ng_bucket_get_unexisted_region(void) {
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
+
+    env_load("..", false);
+    qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), config);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, "not-existed-bucket");
+
+    qiniu_ng_err_t err;
+    unsigned short code;
+    qiniu_ng_string_t error_message;
+
+    TEST_ASSERT_FALSE(qiniu_ng_bucket_get_region(bucket, NULL, &err));
+    TEST_ASSERT_FALSE(qiniu_ng_err_os_error_extract(&err, NULL));
+    TEST_ASSERT_FALSE(qiniu_ng_err_io_error_extract(&err, NULL));
+    TEST_ASSERT_FALSE(qiniu_ng_err_json_error_extract(&err, NULL));
+    TEST_ASSERT_FALSE(qiniu_ng_err_unknown_error_extract(&err, NULL));
+    TEST_ASSERT_TRUE(qiniu_ng_err_response_status_code_error_extract(&err, &code, &error_message));
+    TEST_ASSERT_EQUAL_UINT(code, 631);
+#if defined(_WIN32) || defined(WIN32)
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(error_message), L"no such bucket");
+#else
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(error_message), "no such bucket");
+#endif
+    TEST_ASSERT_FALSE(qiniu_ng_err_response_status_code_error_extract(&err, NULL, NULL));
+
+    qiniu_ng_string_free(error_message);
+    qiniu_ng_bucket_free(bucket);
+    qiniu_ng_client_free(client);
+    qiniu_ng_config_free(config);
+}
+
 void test_qiniu_ng_bucket_get_regions(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
@@ -91,7 +122,7 @@ void test_qiniu_ng_bucket_new(void) {
     env_load("..", false);
     qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), config);
 
-    qiniu_ng_region_t region = qiniu_ng_region_get_region_by_id(Z2);
+    qiniu_ng_region_t region = qiniu_ng_region_get_region_by_id(qiniu_ng_region_z2);
     const char* domains_array[2] = {"domain1.bucket_z2.com", "domain2.bucket_z2.com"};
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new2(client, "z2-bucket", &region, (const char **) domains_array, 2);
 

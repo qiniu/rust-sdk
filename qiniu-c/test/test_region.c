@@ -41,12 +41,12 @@ void test_qiniu_ng_region_query(void) {
 
 void test_qiniu_ng_region_get_by_id(void) {
     qiniu_ng_region_id_t id;
-    qiniu_ng_region_t region = qiniu_ng_region_get_region_by_id(Z0);
+    qiniu_ng_region_t region = qiniu_ng_region_get_region_by_id(qiniu_ng_region_z0);
     TEST_ASSERT_TRUE(qiniu_ng_region_get_region_id(region, &id));
     TEST_ASSERT_EQUAL_STRING(qiniu_ng_region_id_name(id), "z0");
     qiniu_ng_region_free(region);
 
-    region = qiniu_ng_region_get_region_by_id(NA0);
+    region = qiniu_ng_region_get_region_by_id(qiniu_ng_region_na0);
     TEST_ASSERT_TRUE(qiniu_ng_region_get_region_id(region, &id));
     TEST_ASSERT_EQUAL_STRING(qiniu_ng_region_id_name(id), "na0");
     qiniu_ng_region_free(region);

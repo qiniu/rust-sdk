@@ -30,19 +30,27 @@ use tap::TapOps;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub enum qiniu_ng_http_method_t {
-    GET,
-    HEAD,
-    POST,
-    PUT,
+    qiniu_ng_http_method_get,
+    qiniu_ng_http_method_head,
+    qiniu_ng_http_method_post,
+    qiniu_ng_http_method_put,
 }
 
 impl qiniu_ng_http_method_t {
     pub fn as_cstr(self) -> &'static CStr {
         match self {
-            qiniu_ng_http_method_t::GET => unsafe { CStr::from_bytes_with_nul_unchecked(b"GET\0") },
-            qiniu_ng_http_method_t::HEAD => unsafe { CStr::from_bytes_with_nul_unchecked(b"HEAD\0") },
-            qiniu_ng_http_method_t::POST => unsafe { CStr::from_bytes_with_nul_unchecked(b"POST\0") },
-            qiniu_ng_http_method_t::PUT => unsafe { CStr::from_bytes_with_nul_unchecked(b"PUT\0") },
+            qiniu_ng_http_method_t::qiniu_ng_http_method_get => unsafe {
+                CStr::from_bytes_with_nul_unchecked(b"GET\0")
+            },
+            qiniu_ng_http_method_t::qiniu_ng_http_method_head => unsafe {
+                CStr::from_bytes_with_nul_unchecked(b"HEAD\0")
+            },
+            qiniu_ng_http_method_t::qiniu_ng_http_method_post => unsafe {
+                CStr::from_bytes_with_nul_unchecked(b"POST\0")
+            },
+            qiniu_ng_http_method_t::qiniu_ng_http_method_put => unsafe {
+                CStr::from_bytes_with_nul_unchecked(b"PUT\0")
+            },
         }
     }
 }
@@ -50,10 +58,10 @@ impl qiniu_ng_http_method_t {
 impl From<Method> for qiniu_ng_http_method_t {
     fn from(method: Method) -> Self {
         match method {
-            Method::GET => qiniu_ng_http_method_t::GET,
-            Method::HEAD => qiniu_ng_http_method_t::HEAD,
-            Method::POST => qiniu_ng_http_method_t::POST,
-            Method::PUT => qiniu_ng_http_method_t::PUT,
+            Method::GET => qiniu_ng_http_method_t::qiniu_ng_http_method_get,
+            Method::HEAD => qiniu_ng_http_method_t::qiniu_ng_http_method_head,
+            Method::POST => qiniu_ng_http_method_t::qiniu_ng_http_method_post,
+            Method::PUT => qiniu_ng_http_method_t::qiniu_ng_http_method_put,
         }
     }
 }
@@ -61,10 +69,10 @@ impl From<Method> for qiniu_ng_http_method_t {
 impl From<qiniu_ng_http_method_t> for Method {
     fn from(method: qiniu_ng_http_method_t) -> Self {
         match method {
-            qiniu_ng_http_method_t::GET => Method::GET,
-            qiniu_ng_http_method_t::HEAD => Method::HEAD,
-            qiniu_ng_http_method_t::POST => Method::POST,
-            qiniu_ng_http_method_t::PUT => Method::PUT,
+            qiniu_ng_http_method_t::qiniu_ng_http_method_get => Method::GET,
+            qiniu_ng_http_method_t::qiniu_ng_http_method_head => Method::HEAD,
+            qiniu_ng_http_method_t::qiniu_ng_http_method_post => Method::POST,
+            qiniu_ng_http_method_t::qiniu_ng_http_method_put => Method::PUT,
         }
     }
 }
