@@ -27,13 +27,21 @@ pub(crate) struct Response<'a> {
 impl<'a> Response<'a> {
     delegate! {
         target self.inner {
+            #[allow(dead_code)]
             pub(crate) fn status_code(&self) -> StatusCode;
+            #[allow(dead_code)]
             pub(crate) fn headers(&self) -> &Headers;
+            #[allow(dead_code)]
             pub(crate) fn into_body(self) -> Option<HTTPResponseBody>;
+            #[allow(dead_code)]
             pub(crate) fn take_body(&mut self) -> Option<HTTPResponseBody>;
+            #[allow(dead_code)]
             pub(crate) fn clone_body(&mut self) -> IOResult<Option<HTTPResponseBody>>;
+            #[allow(dead_code)]
             pub(crate) fn body_len(&mut self) -> IOResult<u64>;
+            #[allow(dead_code)]
             pub(crate) fn server_ip(&self) -> Option<IpAddr>;
+            #[allow(dead_code)]
             pub(crate) fn server_port(&self) -> u16;
         }
     }
