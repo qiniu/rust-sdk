@@ -1,6 +1,7 @@
 use crate::{
     result::qiniu_ng_err_t,
-    utils::{qiniu_ng_optional_str_t, qiniu_ng_str_map_t, qiniu_ng_str_t},
+    string::{qiniu_ng_char_t, ucstr},
+    utils::{qiniu_ng_optional_str_t, qiniu_ng_readable_t, qiniu_ng_str_map_t, qiniu_ng_str_t},
 };
 use libc::{c_char, c_void, size_t};
 
@@ -14,21 +15,24 @@ use winapi::shared::{
 #[cfg(not(windows))]
 use libc::{in6_addr, in_addr, AF_INET, AF_INET6};
 
-use qiniu_http::{HeaderName, Method, Request, Response};
+use qiniu_http::{HeaderName, Method, Request, Response, ResponseBody};
 use std::{
     borrow::Cow,
     collections::{hash_map::RandomState, HashMap},
+    convert::TryInto,
     ffi::{CStr, CString},
-    io::{Cursor, Read},
+    fs::File,
+    io::{copy as io_copy, sink as io_sink, Read},
     mem::transmute,
-    net::{IpAddr, SocketAddr, SocketAddrV4, SocketAddrV6},
-    ptr::null_mut,
-    slice::from_raw_parts,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+    ptr::{copy_nonoverlapping, null_mut},
+    slice::{from_raw_parts, from_raw_parts_mut},
 };
 use tap::TapOps;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
+#[allow(non_camel_case_types)]
 pub enum qiniu_ng_http_method_t {
     qiniu_ng_http_method_get,
     qiniu_ng_http_method_head,
@@ -278,38 +282,51 @@ pub extern "C" fn qiniu_ng_http_request_get_resolved_socket_addr(
     port: *mut u16,
 ) -> bool {
     let request = Box::<&Request>::from(request);
-    let mut has_socket_addr = true;
-    match request.resolved_socket_addrs().as_ref().get(index) {
-        Some(SocketAddr::V4(socket_addr)) => {
-            if let Some(sa_family) = unsafe { sa_family.as_mut() } {
-                *sa_family = AF_INET as u16;
-            }
-            let ip_addr: *mut in_addr = ip_addr.cast();
-            if let Some(ip_addr) = unsafe { ip_addr.as_mut() } {
-                *ip_addr = from_ipv4_addr_to_in_addr(*socket_addr.ip());
-            }
-            if let Some(port) = unsafe { port.as_mut() } {
-                *port = socket_addr.port();
-            }
-        }
-        Some(SocketAddr::V6(socket_addr)) => {
-            if let Some(sa_family) = unsafe { sa_family.as_mut() } {
-                *sa_family = AF_INET6 as u16;
-            }
-            let ip_addr: *mut in6_addr = ip_addr.cast();
-            if let Some(ip_addr) = unsafe { ip_addr.as_mut() } {
-                *ip_addr = from_ipv6_addr_to_in6_addr(*socket_addr.ip());
-            }
-            if let Some(port) = unsafe { port.as_mut() } {
-                *port = socket_addr.port();
-            }
-        }
-        None => {
-            has_socket_addr = false;
-        }
+    return match request.resolved_socket_addrs().as_ref().get(index) {
+        Some(SocketAddr::V4(socket_addr)) => set_resolved_socket_addr_as_ipv4(socket_addr, sa_family, ip_addr, port),
+        Some(SocketAddr::V6(socket_addr)) => set_resolved_socket_addr_as_ipv6(socket_addr, sa_family, ip_addr, port),
+        None => false,
     }
-    let _ = qiniu_ng_http_request_t::from(request);
-    has_socket_addr
+    .tap(|_| {
+        let _ = qiniu_ng_http_request_t::from(request);
+    });
+
+    fn set_resolved_socket_addr_as_ipv4(
+        socket_addr: &SocketAddrV4,
+        sa_family: *mut u16,
+        ip_addr: *mut c_void,
+        port: *mut u16,
+    ) -> bool {
+        if let Some(sa_family) = unsafe { sa_family.as_mut() } {
+            *sa_family = AF_INET as u16;
+        }
+        let ip_addr: *mut in_addr = ip_addr.cast();
+        if let Some(ip_addr) = unsafe { ip_addr.as_mut() } {
+            *ip_addr = from_ipv4_addr_to_in_addr(*socket_addr.ip());
+        }
+        if let Some(port) = unsafe { port.as_mut() } {
+            *port = socket_addr.port();
+        }
+        true
+    }
+    fn set_resolved_socket_addr_as_ipv6(
+        socket_addr: &SocketAddrV6,
+        sa_family: *mut u16,
+        ip_addr: *mut c_void,
+        port: *mut u16,
+    ) -> bool {
+        if let Some(sa_family) = unsafe { sa_family.as_mut() } {
+            *sa_family = AF_INET6 as u16;
+        }
+        let ip_addr: *mut in6_addr = ip_addr.cast();
+        if let Some(ip_addr) = unsafe { ip_addr.as_mut() } {
+            *ip_addr = from_ipv6_addr_to_in6_addr(*socket_addr.ip());
+        }
+        if let Some(port) = unsafe { port.as_mut() } {
+            *port = socket_addr.port();
+        }
+        true
+    }
 }
 
 #[no_mangle]
@@ -492,40 +509,142 @@ pub extern "C" fn qiniu_ng_http_response_set_header(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_http_response_dump_body(
+pub extern "C" fn qiniu_ng_http_response_get_body_length(
     response: qiniu_ng_http_response_t,
-    body_ptr: *mut *const c_void,
-    body_size: *mut size_t,
+    length: *mut u64,
     err: *mut qiniu_ng_err_t,
 ) -> bool {
     let response = Box::<&mut Response>::from(response);
-    let mut ok = true;
-    if let Some(body) = response.body_mut().as_mut() {
-        let mut buf = Vec::new();
-        match body.read_to_end(&mut buf) {
-            Ok(have_read) => {
+    match response.body_len() {
+        Ok(len) => {
+            if let Some(length) = unsafe { length.as_mut() } {
+                *length = len;
+            }
+            true
+        }
+        Err(ref e) => {
+            if let Some(err) = unsafe { err.as_mut() } {
+                *err = e.into();
+            }
+            false
+        }
+    }
+    .tap(|_| {
+        let _ = qiniu_ng_http_response_t::from(response);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_http_response_dump_body(
+    response: qiniu_ng_http_response_t,
+    max_body_size: u64,
+    body_ptr: *mut c_void,
+    body_size: *mut u64,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    let response = Box::<&mut Response>::from(response);
+    return match response.clone_body() {
+        Ok(Some(ResponseBody::Bytes(bytes))) => {
+            qiniu_ng_http_response_dump_body_as_bytes(bytes, max_body_size, body_ptr, body_size)
+        }
+        Ok(Some(ResponseBody::Reader(reader))) => {
+            qiniu_ng_http_response_dump_body_as_reader(reader, max_body_size, body_ptr, body_size, err)
+        }
+        Ok(Some(ResponseBody::File(file))) => {
+            qiniu_ng_http_response_dump_body_as_file(file, max_body_size, body_ptr, body_size, err)
+        }
+        Ok(None) => {
+            if let Some(body_size) = unsafe { body_size.as_mut() } {
+                *body_size = 0;
+            }
+            true
+        }
+        Err(ref e) => {
+            if let Some(err) = unsafe { err.as_mut() } {
+                *err = e.into();
+            }
+            false
+        }
+    }
+    .tap(|_| {
+        let _ = qiniu_ng_http_response_t::from(response);
+    });
+
+    fn qiniu_ng_http_response_dump_body_as_bytes(
+        bytes: Vec<u8>,
+        max_body_size: u64,
+        body_ptr: *mut c_void,
+        body_size: *mut u64,
+    ) -> bool {
+        let bs = u64::max(max_body_size, bytes.len().try_into().unwrap());
+        if let Some(body_ptr) = unsafe { body_ptr.as_mut() } {
+            unsafe { copy_nonoverlapping(bytes.as_ptr().cast(), body_ptr, bs.try_into().unwrap()) };
+        }
+        if let Some(body_size) = unsafe { body_size.as_mut() } {
+            *body_size = bs;
+        }
+        true
+    }
+
+    fn qiniu_ng_http_response_dump_body_as_reader(
+        mut reader: Box<dyn Read>,
+        max_body_size: u64,
+        body_ptr: *mut c_void,
+        body_size: *mut u64,
+        err: *mut qiniu_ng_err_t,
+    ) -> bool {
+        let r = if let Some(body_ptr) = unsafe { body_ptr.as_mut() } {
+            io_copy(&mut reader, &mut unsafe {
+                from_raw_parts_mut(body_ptr as *mut c_void as *mut u8, max_body_size.try_into().unwrap())
+            })
+        } else {
+            io_copy(&mut reader.take(max_body_size), &mut io_sink())
+        };
+        match r {
+            Ok(bs) => {
                 if let Some(body_size) = unsafe { body_size.as_mut() } {
-                    *body_size = have_read;
+                    *body_size = bs;
                 }
-                *body = Box::new(Cursor::new(buf)) as Box<dyn Read>;
+                true
             }
             Err(ref e) => {
                 if let Some(err) = unsafe { err.as_mut() } {
                     *err = e.into();
                 }
-                ok = false;
+                false
             }
         }
-    } else {
-        if let Some(body_size) = unsafe { body_size.as_mut() } {
-            *body_size = 0;
-        }
-        if let Some(body_ptr) = unsafe { body_ptr.as_mut() } {
-            *body_ptr = null_mut();
+    }
+
+    fn qiniu_ng_http_response_dump_body_as_file(
+        mut file: File,
+        max_body_size: u64,
+        body_ptr: *mut c_void,
+        body_size: *mut u64,
+        err: *mut qiniu_ng_err_t,
+    ) -> bool {
+        let r = if let Some(body_ptr) = unsafe { body_ptr.as_mut() } {
+            io_copy(&mut file, &mut unsafe {
+                from_raw_parts_mut(body_ptr as *mut c_void as *mut u8, max_body_size.try_into().unwrap())
+            })
+        } else {
+            io_copy(&mut file.take(max_body_size), &mut io_sink())
+        };
+        match r {
+            Ok(bs) => {
+                if let Some(body_size) = unsafe { body_size.as_mut() } {
+                    *body_size = bs;
+                }
+                true
+            }
+            Err(ref e) => {
+                if let Some(err) = unsafe { err.as_mut() } {
+                    *err = e.into();
+                }
+                false
+            }
         }
     }
-    let _ = qiniu_ng_http_response_t::from(response);
-    ok
 }
 
 #[no_mangle]
@@ -540,8 +659,42 @@ pub extern "C" fn qiniu_ng_http_response_set_body(
     } else {
         let mut buf = Vec::with_capacity(body_size);
         buf.copy_from_slice(unsafe { from_raw_parts(body_ptr.cast(), body_size) });
-        Some(Box::new(Cursor::new(buf)) as Box<dyn Read>)
+        Some(ResponseBody::Bytes(buf))
     };
+    let _ = qiniu_ng_http_response_t::from(response);
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_http_response_set_body_to_file(
+    response: qiniu_ng_http_response_t,
+    path: *const qiniu_ng_char_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    let response = Box::<&mut Response>::from(response);
+    match File::open(unsafe { ucstr::from_ptr(path) }.to_path_buf()) {
+        Ok(file) => {
+            *response.body_mut() = Some(ResponseBody::File(file));
+            true
+        }
+        Err(ref e) => {
+            if let Some(err) = unsafe { err.as_mut() } {
+                *err = e.into();
+            }
+            false
+        }
+    }
+    .tap(|_| {
+        let _ = qiniu_ng_http_response_t::from(response);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_http_response_set_body_to_reader(
+    response: qiniu_ng_http_response_t,
+    readable: qiniu_ng_readable_t,
+) {
+    let response = Box::<&mut Response>::from(response);
+    *response.body_mut() = Some(ResponseBody::Reader(Box::new(readable)));
     let _ = qiniu_ng_http_response_t::from(response);
 }
 
@@ -552,32 +705,35 @@ pub extern "C" fn qiniu_ng_http_response_get_server_ip(
     ip_addr: *mut c_void,
 ) -> bool {
     let response = Box::<&Response>::from(response);
-    let mut has_server_ip = true;
-    match response.server_ip() {
-        Some(IpAddr::V4(server_ip)) => {
-            if let Some(sa_family) = unsafe { sa_family.as_mut() } {
-                *sa_family = AF_INET as u16;
-            }
-            let ip_addr: *mut in_addr = ip_addr.cast();
-            if let Some(ip_addr) = unsafe { ip_addr.as_mut() } {
-                *ip_addr = from_ipv4_addr_to_in_addr(server_ip);
-            }
-        }
-        Some(IpAddr::V6(server_ip)) => {
-            if let Some(sa_family) = unsafe { sa_family.as_mut() } {
-                *sa_family = AF_INET6 as u16;
-            }
-            let ip_addr: *mut in6_addr = ip_addr.cast();
-            if let Some(ip_addr) = unsafe { ip_addr.as_mut() } {
-                *ip_addr = from_ipv6_addr_to_in6_addr(server_ip);
-            }
-        }
-        None => {
-            has_server_ip = false;
-        }
+    return match response.server_ip() {
+        Some(IpAddr::V4(server_ip)) => set_server_ip_as_ipv4(server_ip, sa_family, ip_addr),
+        Some(IpAddr::V6(server_ip)) => set_server_ip_as_ipv6(server_ip, sa_family, ip_addr),
+        None => false,
     }
-    let _ = qiniu_ng_http_response_t::from(response);
-    has_server_ip
+    .tap(|_| {
+        let _ = qiniu_ng_http_response_t::from(response);
+    });
+
+    fn set_server_ip_as_ipv4(server_ip: Ipv4Addr, sa_family: *mut u16, ip_addr: *mut c_void) -> bool {
+        if let Some(sa_family) = unsafe { sa_family.as_mut() } {
+            *sa_family = AF_INET as u16;
+        }
+        let ip_addr: *mut in_addr = ip_addr.cast();
+        if let Some(ip_addr) = unsafe { ip_addr.as_mut() } {
+            *ip_addr = from_ipv4_addr_to_in_addr(server_ip);
+        }
+        true
+    }
+    fn set_server_ip_as_ipv6(server_ip: Ipv6Addr, sa_family: *mut u16, ip_addr: *mut c_void) -> bool {
+        if let Some(sa_family) = unsafe { sa_family.as_mut() } {
+            *sa_family = AF_INET6 as u16;
+        }
+        let ip_addr: *mut in6_addr = ip_addr.cast();
+        if let Some(ip_addr) = unsafe { ip_addr.as_mut() } {
+            *ip_addr = from_ipv6_addr_to_in6_addr(server_ip);
+        }
+        true
+    }
 }
 
 #[no_mangle]

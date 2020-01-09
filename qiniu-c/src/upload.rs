@@ -115,7 +115,7 @@ pub extern "C" fn qiniu_ng_bucket_uploader_free(bucket_uploader: qiniu_ng_bucket
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[allow(dead_code)]
+#[allow(dead_code, non_camel_case_types)]
 pub enum qiniu_ng_resumable_policy_e {
     qiniu_ng_resumable_policy_default = 0,
     qiniu_ng_resumable_policy_threshold,

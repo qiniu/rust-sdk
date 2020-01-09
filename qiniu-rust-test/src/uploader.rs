@@ -37,12 +37,12 @@ mod tests {
             .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))
             .unwrap_err();
 
-        if let UploadError::QiniuError(e) = err {
+        if let UploadError::QiniuError(e) = &err {
             if let HTTPErrorKind::UnexpectedRedirect = e.error_kind() {
                 return Ok(());
             }
         }
-        panic!();
+        panic!("Unexpected error: {:?}", err);
     }
 
     #[test]

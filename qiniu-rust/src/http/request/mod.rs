@@ -7,13 +7,14 @@ pub(crate) use parts::Parts;
 use super::{response::Response, Choice, DomainsManager};
 use qiniu_http::{
     Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Request as HTTPRequest, RequestBuilder,
-    Response as HTTPResponse, Result as HTTPResult, RetryKind as HTTPRetryKind, StatusCode,
+    Response as HTTPResponse, ResponseBody as HTTPResponseBody, Result as HTTPResult, RetryKind as HTTPRetryKind,
+    StatusCode,
 };
 use rand::{thread_rng, Rng};
 use serde::Deserialize;
 use std::{
     fmt,
-    io::{self, Cursor},
+    io::{Error as IOError, ErrorKind as IOErrorKind, Read},
     thread::sleep,
     time::{Duration, Instant},
 };
@@ -183,9 +184,9 @@ impl<'a> Request<'a> {
             return Ok(response);
         }
         let mut error_message: Option<Box<str>> = None;
-        if let Some(body) = Self::read_body_to_string(&mut response, request)? {
+        if let Some(body) = Self::read_body_to_bytes(&mut response, request)? {
             if response.header("Content-Type") == Some(&"application/json".into()) {
-                error_message = serde_json::from_str::<RequestErrorResponse>(&body)
+                error_message = serde_json::from_slice::<RequestErrorResponse>(&body)
                     .map_err(|err| {
                         HTTPError::new_retryable_error(HTTPErrorKind::JSONError(err), false, request, Some(&response))
                     })?
@@ -210,28 +211,37 @@ impl<'a> Request<'a> {
     }
 
     fn fulfill_body(mut response: HTTPResponse, request: &HTTPRequest) -> HTTPResult<HTTPResponse> {
-        if let Some(body) = Self::read_body_to_string(&mut response, request)? {
-            *response.body_mut() = Some(Box::new(Cursor::new(body)));
+        if let Some(body) = Self::read_body_to_bytes(&mut response, request)? {
+            *response.body_mut() = Some(HTTPResponseBody::Bytes(body));
         }
         Ok(response)
     }
 
-    fn read_body_to_string(response: &mut HTTPResponse, request: &HTTPRequest) -> HTTPResult<Option<String>> {
+    fn read_body_to_bytes(response: &mut HTTPResponse, request: &HTTPRequest) -> HTTPResult<Option<Vec<u8>>> {
         let mut content_length = None::<usize>;
         if let Some(content_length_str) = response.header("Content-Length") {
             content_length = Some(content_length_str.parse().map_err(|err| {
                 HTTPError::new_unretryable_error(HTTPErrorKind::UnknownError(Box::new(err)), request, Some(response))
             })?);
         }
-        if let Some(body_reader) = response.body_mut() {
-            let mut buf = String::new();
-            let body_len = body_reader.read_to_string(&mut buf).map_err(|err| {
-                HTTPError::new_retryable_error(HTTPErrorKind::IOError(err), false, request, Some(response))
-            })?;
+        if let Some(body) = response.take_body() {
+            let mut buf = Vec::<u8>::new();
+            let body_len = match body {
+                HTTPResponseBody::Reader(mut reader) => reader.read_to_end(&mut buf).map_err(|err| {
+                    HTTPError::new_retryable_error(HTTPErrorKind::IOError(err), false, request, Some(response))
+                })?,
+                HTTPResponseBody::File(mut file) => file.read_to_end(&mut buf).map_err(|err| {
+                    HTTPError::new_retryable_error(HTTPErrorKind::IOError(err), false, request, Some(response))
+                })?,
+                HTTPResponseBody::Bytes(body) => {
+                    buf = body;
+                    buf.len()
+                }
+            };
             if let Some(content_length) = content_length {
                 if content_length != body_len {
                     return Err(HTTPError::new_retryable_error(
-                        HTTPErrorKind::IOError(io::Error::from(io::ErrorKind::UnexpectedEof)),
+                        HTTPErrorKind::IOError(IOError::from(IOErrorKind::UnexpectedEof)),
                         false,
                         request,
                         Some(response),

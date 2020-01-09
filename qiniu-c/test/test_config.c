@@ -121,13 +121,38 @@ static int before_action_counter, after_action_counter;
 static bool test_qiniu_ng_config_http_request_before_action_handlers(qiniu_ng_http_request_t request) {
     before_action_counter++;
     qiniu_ng_http_request_set_custom_data(request, &before_action_counter);
+
+    qiniu_ng_str_map_t headers = qiniu_ng_http_request_get_headers(request);
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_map_get(headers, "Accept"), "application/json");
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_map_get(headers, "Content-Type"), "application/x-www-form-urlencoded");
+    qiniu_ng_str_map_free(headers);
+
     return true;
 }
 
 static bool test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
     TEST_ASSERT_EQUAL_INT(before_action_counter, *((int *) qiniu_ng_http_request_get_custom_data(request)));
-    (void)(response); // unuse response
     after_action_counter++;
+
+    unsigned long long body_len;
+    TEST_ASSERT_TRUE(qiniu_ng_http_response_get_body_length(response, &body_len, NULL));
+    TEST_ASSERT_GREATER_THAN_UINT(1, body_len);
+    char* body = (char *) malloc(body_len);
+    TEST_ASSERT_TRUE(qiniu_ng_http_response_dump_body(response, body_len, body, &body_len, NULL));
+    TEST_ASSERT_GREATER_THAN_UINT(1, body_len);
+
+    qiniu_ng_char_t* temp_file_path = create_temp_file(0);
+#if defined(_WIN32) || defined(WIN32)
+    FILE *file = _wfopen(temp_file_path, L"wb");
+#else
+    FILE *file = fopen(temp_file_path, "w");
+#endif
+    TEST_ASSERT_EQUAL_INT(fwrite(body, 1, body_len, file), body_len);
+    fclose(file);
+    free(body);
+    TEST_ASSERT_TRUE(qiniu_ng_http_response_set_body_to_file(response, temp_file_path, NULL));
+    free((void *) temp_file_path);
+
     return true;
 }
 
@@ -149,9 +174,80 @@ void test_qiniu_ng_config_http_request_handlers(void) {
     qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), config);
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, "z0-bucket");
     TEST_ASSERT_TRUE(qiniu_ng_bucket_get_region(bucket, &region, NULL));
+    qiniu_ng_region_free(region);
+    qiniu_ng_bucket_free(bucket);
+    qiniu_ng_client_free(client);
     qiniu_ng_config_free(config);
 
     TEST_ASSERT_EQUAL_INT(before_action_counter, 2);
     TEST_ASSERT_EQUAL_INT(after_action_counter, 1);
 }
 
+static bool qiniu_ng_readable_always_returns_false(void *context, void *buf, size_t count, size_t *have_read) {
+    (void)(context);
+    (void)(buf);
+    (void)(count);
+    (void)(have_read);
+    return false;
+}
+
+static bool test_qiniu_ng_config_bad_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
+    (void)(request);
+    qiniu_ng_readable_t reader = {
+        .read_func = qiniu_ng_readable_always_returns_false,
+        .context = NULL
+    };
+    qiniu_ng_http_response_set_body_to_reader(response, reader);
+    return true;
+}
+
+void test_qiniu_ng_config_bad_http_request_handlers(void) {
+    qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
+    qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_bad_http_request_after_action_handlers);
+
+    qiniu_ng_config_t config;
+    qiniu_ng_string_t error_description;
+    qiniu_ng_err_t err;
+    TEST_ASSERT_TRUE(qiniu_ng_config_build(builder, &config, NULL));
+
+    env_load("..", false);
+    qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), config);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, "z0-bucket");
+    TEST_ASSERT_FALSE(qiniu_ng_bucket_get_region(bucket, NULL, &err));
+    TEST_ASSERT_FALSE(qiniu_ng_err_curl_error_extract(&err, NULL));
+    TEST_ASSERT_FALSE(qiniu_ng_err_os_error_extract(&err, NULL));
+    TEST_ASSERT_TRUE(qiniu_ng_err_io_error_extract(&err, &error_description));
+#if defined(_WIN32) || defined(WIN32)
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(error_description), L"User callback returns false");
+#else
+    TEST_ASSERT_EQUAL_STRING(qiniu_ng_string_get_ptr(error_description), "User callback returns false");
+#endif
+    qiniu_ng_string_free(error_description);
+    qiniu_ng_bucket_free(bucket);
+    qiniu_ng_client_free(client);
+    qiniu_ng_config_free(config);
+}
+
+static bool test_qiniu_ng_config_http_request_after_action_handlers_always_return_false(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
+    (void)(request);
+    (void)(response);
+    return false;
+}
+
+void test_qiniu_ng_config_bad_http_request_handlers_2(void) {
+    qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
+    qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_http_request_after_action_handlers_always_return_false);
+
+    qiniu_ng_config_t config;
+    qiniu_ng_err_t err;
+    TEST_ASSERT_TRUE(qiniu_ng_config_build(builder, &config, NULL));
+
+    env_load("..", false);
+    qiniu_ng_client_t client = qiniu_ng_client_new(getenv("access_key"), getenv("secret_key"), config);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, "z0-bucket");
+    TEST_ASSERT_FALSE(qiniu_ng_bucket_get_region(bucket, NULL, &err));
+    TEST_ASSERT_TRUE(qiniu_ng_err_user_canceled_error_extract(&err));
+    qiniu_ng_bucket_free(bucket);
+    qiniu_ng_client_free(client);
+    qiniu_ng_config_free(config);
+}

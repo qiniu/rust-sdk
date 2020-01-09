@@ -37,7 +37,7 @@ pub struct qiniu_ng_upload_policy_t {
     callback_urls_len: size_t,
     callback_host: *const c_char,
     callback_body: *const qiniu_ng_char_t,
-    callback_body_type: *const qiniu_ng_char_t,
+    callback_body_type: *const c_char,
 
     save_key: *const qiniu_ng_char_t,
     force_save_key: bool,
@@ -265,20 +265,20 @@ impl<'a> From<&'a UploadPolicyWithParams> for QiniuUploadPolicy<'a> {
         ) {
             (Some(bucket), Some(key), Some(lifetime)) if policy.prefixal => {
                 QiniuUploadPolicyBuilder::new_policy_for_objects_with_prefix(
-                    bucket.to_string_lossy(),
-                    key.to_string_lossy(),
+                    bucket.to_str().unwrap().to_owned(),
+                    key.to_string().unwrap(),
                     lifetime,
                 )
             }
             (Some(bucket), Some(key), Some(lifetime)) if !policy.prefixal => {
                 QiniuUploadPolicyBuilder::new_policy_for_object(
-                    bucket.to_string_lossy(),
-                    key.to_string_lossy(),
+                    bucket.to_str().unwrap().to_owned(),
+                    key.to_string().unwrap(),
                     lifetime,
                 )
             }
             (Some(bucket), None, Some(lifetime)) => {
-                QiniuUploadPolicyBuilder::new_policy_for_bucket(bucket.to_string_lossy(), lifetime)
+                QiniuUploadPolicyBuilder::new_policy_for_bucket(bucket.to_str().unwrap().to_owned(), lifetime)
             }
             _ => panic!("Invalid upload token, bucket or lifetime is none"),
         };
@@ -301,35 +301,41 @@ impl<'a> From<&'a UploadPolicyWithParams> for QiniuUploadPolicy<'a> {
         }
 
         if let Some(return_url) = policy.return_url.as_ref() {
-            policy_builder = policy_builder.return_url(return_url.to_string_lossy());
+            policy_builder = policy_builder.return_url(return_url.to_str().unwrap().to_owned());
         }
 
         if let Some(return_body) = policy.return_body.as_ref() {
-            policy_builder = policy_builder.return_body(return_body.to_string_lossy());
+            policy_builder = policy_builder.return_body(return_body.to_str().unwrap().to_owned());
         }
 
         if let Some(callback_urls) = policy.callback_urls_storage.as_ref() {
             policy_builder = policy_builder.callback_urls(
                 &callback_urls
                     .iter()
-                    .map(|url| url.to_string_lossy())
+                    .map(|url| url.to_str().unwrap().to_owned())
                     .collect::<Vec<_>>()
                     .iter()
                     .map(|url| url.as_ref())
                     .collect::<Vec<_>>(),
-                policy.callback_host.as_ref().map(|host| host.to_string_lossy()),
+                policy
+                    .callback_host
+                    .as_ref()
+                    .map(|host| host.to_str().unwrap().to_owned()),
             );
 
             if let Some(callback_body) = policy.callback_body.as_ref() {
                 policy_builder = policy_builder.callback_body(
-                    callback_body.to_string_lossy(),
-                    policy.callback_body_type.as_ref().map(|bt| bt.to_string_lossy()),
+                    callback_body.to_string().unwrap(),
+                    policy
+                        .callback_body_type
+                        .as_ref()
+                        .map(|bt| bt.to_str().unwrap().to_owned()),
                 );
             }
         }
 
         if let Some(save_key) = policy.save_key.as_ref() {
-            policy_builder = policy_builder.save_as(save_key.to_string_lossy(), policy.force_save_key);
+            policy_builder = policy_builder.save_as(save_key.to_string().unwrap(), policy.force_save_key);
         }
 
         match (policy.file_size_min, policy.file_size_max) {
@@ -349,7 +355,7 @@ impl<'a> From<&'a UploadPolicyWithParams> for QiniuUploadPolicy<'a> {
             policy_builder = policy_builder.mime(
                 &mime
                     .iter()
-                    .map(|m| m.to_string_lossy())
+                    .map(|m| m.to_str().unwrap().to_owned())
                     .collect::<Vec<_>>()
                     .iter()
                     .map(|m| m.as_ref())
@@ -412,7 +418,7 @@ impl UploadToken {
         let upload_policy_with_params: QiniuUploadTokenParseResult<&UploadPolicyWithParams> =
             self.upload_policy_with_params.get_or_try_init(|| {
                 let policy: UploadPolicy =
-                    QiniuUploadToken::from_token(self.upload_token.get().unwrap().to_string_lossy())
+                    QiniuUploadToken::from_token(self.upload_token.get().unwrap().to_str().unwrap())
                         .policy()?
                         .as_ref()
                         .into();

@@ -10,7 +10,7 @@ use std::{
     borrow::Cow,
     boxed::Box,
     convert::TryInto,
-    io::{Cursor, Error as IOError, ErrorKind as IOErrorKind},
+    io::{Error as IOError, ErrorKind as IOErrorKind},
     marker::{Send, Sync},
     sync::{
         atomic::{AtomicUsize, Ordering::Relaxed},
@@ -49,7 +49,7 @@ impl<T: Serialize> HTTPCaller for JSONCallMock<T> {
         Ok(ResponseBuilder::default()
             .status_code(self.status_code)
             .headers(headers)
-            .stream(Cursor::new(serde_json::to_string(&self.response_body).unwrap()))
+            .bytes_as_body(serde_json::to_string(&self.response_body).unwrap())
             .build())
     }
 }
@@ -126,7 +126,7 @@ impl<'e> HTTPCaller for ErrorResponseMock<'e> {
         Ok(ResponseBuilder::default()
             .status_code(self.status_code)
             .headers(headers)
-            .stream(Cursor::new(body))
+            .bytes_as_body(body)
             .build())
     }
 }

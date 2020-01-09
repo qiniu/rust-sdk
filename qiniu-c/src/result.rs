@@ -24,6 +24,7 @@ pub struct qiniu_ng_invalid_upload_token_error_t(qiniu_ng_invalid_upload_token_e
 
 #[repr(C)]
 #[derive(Copy, Clone)]
+#[allow(non_camel_case_types)]
 pub enum qiniu_ng_err_kind_t {
     qiniu_ng_err_kind_none,
     qiniu_ng_err_kind_os_error(i32),

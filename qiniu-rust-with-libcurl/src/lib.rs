@@ -96,11 +96,11 @@ impl CurlClient {
         }
         if let Some(response_body) = context.response_body.take() {
             match response_body {
-                ResponseBody::Memory(memory) => {
-                    builder = builder.stream(Cursor::new(memory));
+                ResponseBody::Bytes(bytes) => {
+                    builder = builder.bytes_as_body(bytes);
                 }
                 ResponseBody::File(file) => {
-                    builder = builder.stream(file);
+                    builder = builder.file_as_body(file);
                 }
             }
         }
@@ -136,7 +136,7 @@ impl CurlClient {
         match request.method() {
             Method::HEAD => (),
             _ => {
-                context.response_body = Some(ResponseBody::Memory(Vec::with_capacity(context.buffer_size)));
+                context.response_body = Some(ResponseBody::Bytes(Vec::with_capacity(context.buffer_size)));
             }
         }
     }
@@ -328,24 +328,24 @@ struct Context<'r> {
 }
 
 enum ResponseBody {
-    Memory(Vec<u8>),
+    Bytes(Vec<u8>),
     File(File),
 }
 
 impl<'r> Handler for Context<'r> {
     fn write(&mut self, data: &[u8]) -> result::Result<usize, WriteError> {
-        match self.response_body {
-            Some(ResponseBody::Memory(ref mut memory)) => {
-                if memory.len() + data.len() > self.buffer_size {
+        match &mut self.response_body {
+            Some(ResponseBody::Bytes(bytes)) => {
+                if bytes.len() + data.len() > self.buffer_size {
                     let mut tmpfile = tempfile::tempfile_in(&self.temp_dir).map_err(|_| WriteError::Pause)?;
-                    tmpfile.write_all(memory).map_err(|_| WriteError::Pause)?;
+                    tmpfile.write_all(bytes).map_err(|_| WriteError::Pause)?;
                     tmpfile.write_all(data).map_err(|_| WriteError::Pause)?;
                     self.response_body = Some(ResponseBody::File(tmpfile));
                 } else {
-                    memory.extend_from_slice(data);
+                    bytes.extend_from_slice(data);
                 }
             }
-            Some(ResponseBody::File(ref mut file)) => {
+            Some(ResponseBody::File(file)) => {
                 file.write_all(data).map_err(|_| WriteError::Pause)?;
             }
             _ => {}
@@ -371,7 +371,12 @@ impl<'r> Handler for Context<'r> {
     }
 
     fn header(&mut self, data: &[u8]) -> bool {
-        let header = String::from_utf8_lossy(data).into_owned();
+        let header = match String::from_utf8(data.to_vec()) {
+            Ok(header) => header,
+            Err(_) => {
+                return false;
+            }
+        };
         if header.starts_with("HTTP/") {
             return true;
         }

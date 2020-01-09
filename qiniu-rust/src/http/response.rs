@@ -5,7 +5,11 @@ use qiniu_http::{
     ResponseBody as HTTPResponseBody, Result as HTTPResult, StatusCode,
 };
 use serde::de::DeserializeOwned;
-use std::{fmt, io, net::IpAddr};
+use std::{
+    fmt,
+    io::{copy as io_copy, sink as io_sink, Result as IOResult},
+    net::IpAddr,
+};
 use tap::TapOptionOps;
 
 #[derive(CopyGetters, Getters)]
@@ -27,6 +31,8 @@ impl<'a> Response<'a> {
             pub(crate) fn headers(&self) -> &Headers;
             pub(crate) fn into_body(self) -> Option<HTTPResponseBody>;
             pub(crate) fn take_body(&mut self) -> Option<HTTPResponseBody>;
+            pub(crate) fn clone_body(&mut self) -> IOResult<Option<HTTPResponseBody>>;
+            pub(crate) fn body_len(&mut self) -> IOResult<u64>;
             pub(crate) fn server_ip(&self) -> Option<IpAddr>;
             pub(crate) fn server_port(&self) -> u16;
         }
@@ -44,8 +50,12 @@ impl<'a> Response<'a> {
     }
 
     pub(crate) fn parse_json<T: DeserializeOwned>(&mut self) -> HTTPResult<T> {
-        let body = self.take_body().unwrap();
-        serde_json::from_reader(body).map_err(|err| {
+        match self.take_body().unwrap() {
+            HTTPResponseBody::Reader(reader) => serde_json::from_reader(reader),
+            HTTPResponseBody::File(file) => serde_json::from_reader(file),
+            HTTPResponseBody::Bytes(bytes) => serde_json::from_slice(&bytes),
+        }
+        .map_err(|err| {
             HTTPError::new_unretryable_error_from_parts(
                 HTTPErrorKind::JSONError(err),
                 Some(self.method),
@@ -55,8 +65,14 @@ impl<'a> Response<'a> {
     }
 
     pub(crate) fn ignore_body(&mut self) {
-        self.take_body().as_mut().tap_some(|r| {
-            let _ = io::copy(r, &mut io::sink()); // Ignore read result
+        self.take_body().as_mut().tap_some(|r| match r {
+            HTTPResponseBody::Reader(reader) => {
+                let _ = io_copy(reader, &mut io_sink());
+            }
+            HTTPResponseBody::File(file) => {
+                let _ = io_copy(file, &mut io_sink());
+            }
+            _ => {}
         });
     }
 }

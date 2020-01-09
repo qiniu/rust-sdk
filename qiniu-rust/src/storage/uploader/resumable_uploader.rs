@@ -776,7 +776,7 @@ mod tests {
         temp_file::create_temp_file,
     };
     use serde_json::json;
-    use std::{boxed::Box, error::Error, io::Cursor, result::Result};
+    use std::{error::Error, result::Result};
 
     #[test]
     fn test_storage_uploader_resumable_uploader_upload_file() -> Result<(), Box<dyn Error>> {
@@ -802,7 +802,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"uploadId":"test_upload_id"}).to_string()))
+                            .bytes_as_body(json!({"uploadId":"test_upload_id"}).to_string())
                             .build())
                     },
                 )
@@ -826,7 +826,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
+                            .bytes_as_body(json!({ "etag": format!("etag_{}", called) }).to_string())
                             .build())
                     },
                 )
@@ -846,7 +846,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
+                            .bytes_as_body(json!({"hash": "abcdef", "key": "test-key"}).to_string())
                             .build())
                     },
                 ),
@@ -893,7 +893,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"uploadId":"test_upload_id"}).to_string()))
+                            .bytes_as_body(json!({"uploadId":"test_upload_id"}).to_string())
                             .build())
                     },
                 )
@@ -917,7 +917,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
+                            .bytes_as_body(json!({ "etag": format!("etag_{}", called) }).to_string())
                             .build())
                     },
                 )
@@ -937,7 +937,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
+                            .bytes_as_body(json!({"hash": "abcdef", "key": "test-key"}).to_string())
                             .build())
                     },
                 ),
@@ -987,7 +987,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"uploadId":"test_upload_id"}).to_string()))
+                            .bytes_as_body(json!({"uploadId":"test_upload_id"}).to_string())
                             .build())
                     },
                 )
@@ -1016,7 +1016,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
+                            .bytes_as_body(json!({ "etag": format!("etag_{}", called) }).to_string())
                             .build())
                     },
                 )
@@ -1040,7 +1040,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
+                            .bytes_as_body(json!({ "etag": format!("etag_{}", called) }).to_string())
                             .build())
                     },
                 )
@@ -1060,7 +1060,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
+                            .bytes_as_body(json!({"hash": "abcdef", "key": "test-key"}).to_string())
                             .build())
                     },
                 ),
@@ -1125,7 +1125,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"uploadId":"test_upload_id"}).to_string()))
+                            .bytes_as_body(json!({"uploadId":"test_upload_id"}).to_string())
                             .build())
                     },
                 )
@@ -1149,7 +1149,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
+                            .bytes_as_body(json!({ "etag": format!("etag_{}", called) }).to_string())
                             .build())
                     },
                 )
@@ -1169,7 +1169,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
+                            .bytes_as_body(json!({"hash": "abcdef", "key": "test-key"}).to_string())
                             .build())
                     },
                 ),
@@ -1221,7 +1221,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"uploadId":"test_upload_id_1"}).to_string()))
+                            .bytes_as_body(json!({"uploadId":"test_upload_id_1"}).to_string())
                             .build())
                     },
                 )
@@ -1241,7 +1241,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"uploadId":"test_upload_id_2"}).to_string()))
+                            .bytes_as_body(json!({"uploadId":"test_upload_id_2"}).to_string())
                             .build())
                     },
                 )
@@ -1270,7 +1270,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
+                            .bytes_as_body(json!({ "etag": format!("etag_{}", called) }).to_string())
                             .build())
                     },
                 )
@@ -1294,7 +1294,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
+                            .bytes_as_body(json!({ "etag": format!("etag_{}", called) }).to_string())
                             .build())
                     },
                 )
@@ -1314,7 +1314,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
+                            .bytes_as_body(json!({"hash": "abcdef", "key": "test-key"}).to_string())
                             .build())
                     },
                 ),
@@ -1365,7 +1365,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"uploadId": "test_upload_id"}).to_string()))
+                            .bytes_as_body(json!({"uploadId": "test_upload_id"}).to_string())
                             .build())
                     },
                 )
@@ -1395,7 +1395,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
+                            .bytes_as_body(json!({ "etag": format!("etag_{}", called) }).to_string())
                             .build())
                     },
                 )
@@ -1415,7 +1415,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
+                            .bytes_as_body(json!({"hash": "abcdef", "key": "test-key"}).to_string())
                             .build())
                     },
                 ),
@@ -1478,9 +1478,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(
-                                json!({ "uploadId": format!("test_upload_id_{}", called) }).to_string(),
-                            ))
+                            .bytes_as_body(json!({ "uploadId": format!("test_upload_id_{}", called) }).to_string())
                             .build())
                     },
                 )
@@ -1508,7 +1506,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
+                            .bytes_as_body(json!({ "etag": format!("etag_{}", called) }).to_string())
                             .build())
                     },
                 )
@@ -1532,7 +1530,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({ "etag": format!("etag_{}", called) }).to_string()))
+                            .bytes_as_body(json!({ "etag": format!("etag_{}", called) }).to_string())
                             .build())
                     },
                 )
@@ -1552,7 +1550,7 @@ mod tests {
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
-                            .stream(Cursor::new(json!({"hash": "abcdef", "key": "test-key"}).to_string()))
+                            .bytes_as_body(json!({"hash": "abcdef", "key": "test-key"}).to_string())
                             .build())
                     },
                 ),

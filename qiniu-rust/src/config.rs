@@ -368,20 +368,16 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use qiniu_http::{HTTPCaller, Request, RequestBuilder, Response, ResponseBuilder, Result};
+    use qiniu_http::{HTTPCaller, Request, RequestBuilder, Response, ResponseBody, ResponseBuilder, Result};
     use regex::Regex;
-    use std::{
-        error::Error,
-        io::{Cursor, Read},
-        result::Result as StdResult,
-    };
+    use std::{error::Error, result::Result as StdResult};
 
     struct FakeHTTPRequester;
     impl HTTPCaller for FakeHTTPRequester {
         fn call(&self, _: &Request) -> Result<Response> {
             Ok(ResponseBuilder::default()
                 .status_code(612u16)
-                .stream(Cursor::new(Vec::from(b"It's HTTP Body".as_ref())))
+                .bytes_as_body(b"It's HTTP Body".as_ref())
                 .build())
         }
     }
@@ -409,10 +405,15 @@ mod tests {
             .http_request_handler()
             .call(&RequestBuilder::default().url("http://fake.qiniu.com").build())?;
 
-        let mut http_body = String::new();
         assert_eq!(http_response.status_code(), 612);
-        http_response.into_body().unwrap().read_to_string(&mut http_body)?;
-        assert_eq!(http_body, "It's HTTP Body");
+        match http_response.into_body().unwrap() {
+            ResponseBody::Bytes(http_body) => {
+                assert_eq!(http_body, b"It's HTTP Body");
+            }
+            _ => {
+                panic!("Unexpected response type");
+            }
+        }
         Ok(())
     }
 
