@@ -63,11 +63,14 @@ pub extern "C" fn qiniu_ng_config_builder_free(builder: qiniu_ng_config_builder_
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_user_agent(builder: qiniu_ng_config_builder_t, user_agent: *const c_char) {
+pub extern "C" fn qiniu_ng_config_builder_set_appended_user_agent(
+    builder: qiniu_ng_config_builder_t,
+    user_agent: *const c_char,
+) {
     let mut builder = Box::<Builder>::from(builder);
     builder.config_builder = builder
         .config_builder
-        .user_agent(unsafe { user_agent.as_ref() }.map(|user_agent| {
+        .appended_user_agent(unsafe { user_agent.as_ref() }.map(|user_agent| {
             unsafe { CStr::from_ptr(user_agent) }
                 .to_str()
                 .unwrap()
@@ -609,9 +612,17 @@ impl qiniu_ng_config_t {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_get_user_agent(config: qiniu_ng_config_t) -> qiniu_ng_optional_str_t {
+pub extern "C" fn qiniu_ng_config_get_user_agent(config: qiniu_ng_config_t) -> qiniu_ng_str_t {
     let config = Config::from(config);
-    unsafe { qiniu_ng_optional_str_t::from_str_unchecked(config.user_agent()) }.tap(|_| {
+    unsafe { qiniu_ng_str_t::from_str_unchecked(config.user_agent()) }.tap(|_| {
+        let _ = qiniu_ng_config_t::from(config);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_appended_user_agent(config: qiniu_ng_config_t) -> qiniu_ng_optional_str_t {
+    let config = Config::from(config);
+    unsafe { qiniu_ng_optional_str_t::from_str_unchecked(config.appended_user_agent()) }.tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
     })
 }

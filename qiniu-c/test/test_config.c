@@ -16,10 +16,9 @@ void test_qiniu_ng_config_new(void) {
     TEST_ASSERT_EQUAL_INT(qiniu_ng_config_get_batch_max_operation_size(config), 1000);
     TEST_ASSERT_EQUAL_INT(qiniu_ng_config_get_upload_threshold(config), 1 << 22);
 
-    qiniu_ng_optional_str_t user_agent = qiniu_ng_config_get_user_agent(config);
-    TEST_ASSERT_FALSE(qiniu_ng_optional_str_is_null(user_agent));
-    TEST_ASSERT_EQUAL_INT(strncmp(qiniu_ng_optional_str_get_ptr(user_agent), "QiniuRust/qiniu-ng-", strlen("QiniuRust/qiniu-ng-")), 0);
-    qiniu_ng_optional_str_free(user_agent);
+    qiniu_ng_str_t user_agent = qiniu_ng_config_get_user_agent(config);
+    TEST_ASSERT_EQUAL_INT(strncmp(qiniu_ng_str_get_ptr(user_agent), "QiniuRust/qiniu-ng-", strlen("QiniuRust/qiniu-ng-")), 0);
+    qiniu_ng_str_free(user_agent);
 
     qiniu_ng_str_t rs_url = qiniu_ng_config_get_rs_url(config);
     TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_get_ptr(rs_url), "https://rs.qbox.me");
@@ -51,7 +50,7 @@ void test_qiniu_ng_config_new(void) {
 void test_qiniu_ng_config_new2(void) {
     qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
 
-    qiniu_ng_config_builder_user_agent(builder, "test-user-agent");
+    qiniu_ng_config_builder_set_appended_user_agent(builder, "test-user-agent");
     qiniu_ng_config_builder_use_https(builder, false);
     qiniu_ng_config_builder_batch_max_operation_size(builder, 10000);
     qiniu_ng_config_builder_upload_threshold(builder, 1 << 23);
@@ -77,11 +76,10 @@ void test_qiniu_ng_config_new2(void) {
     TEST_ASSERT_EQUAL_INT(qiniu_ng_config_get_batch_max_operation_size(config), 10000);
     TEST_ASSERT_EQUAL_INT(qiniu_ng_config_get_upload_threshold(config), 1 << 23);
 
-    qiniu_ng_optional_str_t user_agent = qiniu_ng_config_get_user_agent(config);
-    TEST_ASSERT_FALSE(qiniu_ng_optional_str_is_null(user_agent));
-    TEST_ASSERT_EQUAL_INT(strncmp(qiniu_ng_optional_str_get_ptr(user_agent), "QiniuRust/qiniu-ng-", strlen("QiniuRust/qiniu-ng-")), 0);
-    TEST_ASSERT_NOT_NULL(strstr(qiniu_ng_optional_str_get_ptr(user_agent), "test-user-agent"));
-    qiniu_ng_optional_str_free(user_agent);
+    qiniu_ng_str_t user_agent = qiniu_ng_config_get_user_agent(config);
+    TEST_ASSERT_EQUAL_INT(strncmp(qiniu_ng_str_get_ptr(user_agent), "QiniuRust/qiniu-ng-", strlen("QiniuRust/qiniu-ng-")), 0);
+    TEST_ASSERT_NOT_NULL(strstr(qiniu_ng_str_get_ptr(user_agent), "test-user-agent"));
+    qiniu_ng_str_free(user_agent);
 
     qiniu_ng_str_t rs_url = qiniu_ng_config_get_rs_url(config);
     TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_get_ptr(rs_url), "http://rs.qbox.me");

@@ -25,8 +25,12 @@ use sys_info::{linux_os_release, os_release, os_type};
     build_fn(name = "inner_build", private)
 )]
 pub struct ConfigInner {
+    #[get = "pub"]
+    #[builder(setter(skip))]
+    user_agent: String,
+
     #[builder(default)]
-    user_agent: Option<Cow<'static, str>>,
+    appended_user_agent: Option<Cow<'static, str>>,
 
     #[get_copy = "pub"]
     #[builder(default = "default::use_https()")]
@@ -210,8 +214,8 @@ impl fmt::Debug for ConfigInner {
 }
 
 impl ConfigInner {
-    pub fn user_agent(&self) -> Option<&str> {
-        self.user_agent.as_ref().map(|user_agent| user_agent.as_ref())
+    pub fn appended_user_agent(&self) -> Option<&str> {
+        self.appended_user_agent.as_ref().map(|ua| ua.as_ref())
     }
 
     pub fn uc_url(&self) -> String {
@@ -313,22 +317,19 @@ impl ConfigBuilder {
 
     pub fn build(self) -> Config {
         let mut config = self.inner_build().unwrap();
-        config.user_agent = Some(
-            format!(
-                "QiniuRust/qiniu-ng-{}/{};{};{}/rust-{}{}",
-                env!("CARGO_PKG_VERSION"),
-                os_type().ok().unwrap_or_else(String::new),
-                os_release().ok().unwrap_or_else(String::new),
-                linux_os_release()
-                    .ok()
-                    .and_then(|info| info.pretty_name)
-                    .unwrap_or_else(String::new),
-                rustc_version_runtime::version(),
-                config.user_agent.map_or(Cow::Borrowed("/"), |user_agent| Cow::Owned(
-                    "/".to_owned() + &user_agent + "/"
-                ))
-            )
-            .into(),
+        config.user_agent = format!(
+            "QiniuRust/qiniu-ng-{}/{};{};{}/rust-{}{}",
+            env!("CARGO_PKG_VERSION"),
+            os_type().ok().unwrap_or_else(String::new),
+            os_release().ok().unwrap_or_else(String::new),
+            linux_os_release()
+                .ok()
+                .and_then(|info| info.pretty_name)
+                .unwrap_or_else(String::new),
+            rustc_version_runtime::version(),
+            config
+                .appended_user_agent()
+                .map_or(Cow::Borrowed("/"), |ua| Cow::Owned("/".to_owned() + ua + "/"))
         );
         Config(Arc::new(config))
     }
@@ -385,11 +386,11 @@ mod tests {
     #[test]
     fn test_config_with_set_user_agent() -> StdResult<(), Box<dyn Error>> {
         let config = ConfigBuilder::default()
-            .user_agent(Some("fake_for_test".into()))
+            .appended_user_agent(Some("fake_for_test".into()))
             .build();
         assert!(Regex::new("QiniuRust/qiniu-ng-[^/]+/[^/]+/rust-[^/]+/fake_for_test/")
             .unwrap()
-            .is_match(config.user_agent().as_ref().unwrap()));
+            .is_match(config.user_agent()));
         Ok(())
     }
 
