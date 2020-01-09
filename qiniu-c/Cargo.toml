@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-ng-c"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"
 license = "Apache-2.0"
@@ -11,8 +11,8 @@ description = "New Generation Qiniu Resource Storage SDK for C/C++"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
-qiniu-ng = { version = "0.0.1", path = "../qiniu-rust" }
-qiniu-http = { version = "0.0.1", path = "../qiniu-rust-http" }
+qiniu-ng = { version = "0.0.2", path = "../qiniu-rust" }
+qiniu-http = { version = "0.0.2", path = "../qiniu-rust-http" }
 curl = { version = "0.4.25", features = ["http2"] }
 curl-sys = "0.4.23"
 digest = "0.8.1"

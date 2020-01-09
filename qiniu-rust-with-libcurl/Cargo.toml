@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-with-libcurl"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ homepage = "https://www.qiniu.com"
 description = "Provide libcurl for qiniu"
 
 [dependencies]
-qiniu-http = { version = "0.0.1", path = "../qiniu-rust-http" }
+qiniu-http = { version = "0.0.2", path = "../qiniu-rust-http" }
 lazy_static = "1.4.0"
 url = "2.1.0"
 curl = { version = "0.4.25", features = ["http2"] }
