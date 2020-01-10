@@ -931,7 +931,7 @@ pub extern "C" fn qiniu_ng_config_get_domains_manager_auto_persistent_disabled(c
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_get_domains_manager_url_resolve_retries(config: qiniu_ng_config_t) -> usize {
+pub extern "C" fn qiniu_ng_config_get_domains_manager_url_resolve_retries(config: qiniu_ng_config_t) -> size_t {
     let config = Config::from(config);
     config.domains_manager().url_resolve_retries().tap(|_| {
         let _ = qiniu_ng_config_t::from(config);

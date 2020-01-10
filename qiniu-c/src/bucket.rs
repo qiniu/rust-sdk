@@ -4,7 +4,7 @@ use crate::{
     result::qiniu_ng_err_t,
     utils::{qiniu_ng_str_list_t, qiniu_ng_str_t},
 };
-use libc::{c_char, c_void};
+use libc::{c_char, c_void, size_t};
 use qiniu_ng::{
     storage::{bucket::Bucket, region::Region},
     Client,
@@ -39,7 +39,7 @@ pub extern "C" fn qiniu_ng_bucket_new2(
     bucket_name: *const c_char,
     region: *const qiniu_ng_region_t,
     domains: *const *const c_char,
-    domains_count: usize,
+    domains_count: size_t,
 ) -> qiniu_ng_bucket_t {
     let client = Box::<Client>::from(client);
     let bucket_name = unsafe { CStr::from_ptr(bucket_name) }.to_str().unwrap().to_owned();

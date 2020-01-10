@@ -64,7 +64,7 @@ pub extern "C" fn qiniu_ng_str_get_ptr(s: qiniu_ng_str_t) -> *const c_char {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_str_get_len(s: qiniu_ng_str_t) -> usize {
+pub extern "C" fn qiniu_ng_str_get_len(s: qiniu_ng_str_t) -> size_t {
     let s = Box::<CStr>::from(s);
     s.to_bytes().len().tap(|_| {
         let _ = qiniu_ng_str_t::from(s);
@@ -128,7 +128,7 @@ pub extern "C" fn qiniu_ng_string_get_ptr(s: qiniu_ng_string_t) -> *const qiniu_
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_string_get_len(s: qiniu_ng_string_t) -> usize {
+pub extern "C" fn qiniu_ng_string_get_len(s: qiniu_ng_string_t) -> size_t {
     let s = Box::<ucstr>::from(s);
     s.len().tap(|_| {
         let _ = qiniu_ng_string_t::from(s);
@@ -247,7 +247,7 @@ pub extern "C" fn qiniu_ng_optional_str_get_ptr(s: qiniu_ng_optional_str_t) -> *
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_optional_str_get_len(s: qiniu_ng_optional_str_t) -> usize {
+pub extern "C" fn qiniu_ng_optional_str_get_len(s: qiniu_ng_optional_str_t) -> size_t {
     let s = Option::<Box<CStr>>::from(s);
     s.as_ref().map(|s| s.to_bytes().len()).unwrap_or(0).tap(|_| {
         let _ = qiniu_ng_optional_str_t::from(s);
@@ -361,7 +361,7 @@ pub extern "C" fn qiniu_ng_optional_string_get_ptr(s: qiniu_ng_optional_string_t
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_optional_string_get_len(s: qiniu_ng_optional_string_t) -> usize {
+pub extern "C" fn qiniu_ng_optional_string_get_len(s: qiniu_ng_optional_string_t) -> size_t {
     let s = Option::<Box<ucstr>>::from(s);
     s.as_ref().map(|s| s.len()).unwrap_or(0).tap(|_| {
         let _ = qiniu_ng_optional_string_t::from(s);
@@ -406,7 +406,7 @@ impl From<qiniu_ng_str_list_t> for Box<[Box<CStr>]> {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_str_list_new(strlist: *const *const c_char, len: usize) -> qiniu_ng_str_list_t {
+pub extern "C" fn qiniu_ng_str_list_new(strlist: *const *const c_char, len: size_t) -> qiniu_ng_str_list_t {
     let mut vec: Vec<Box<CStr>> = Vec::with_capacity(len);
     for i in 0..len {
         vec.push(unsafe { CStr::from_ptr(*strlist.add(i)) }.to_owned().into_boxed_c_str());
@@ -480,7 +480,7 @@ impl From<qiniu_ng_string_list_t> for Box<[Box<ucstr>]> {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_string_list_new(
     strlist: *const *const qiniu_ng_char_t,
-    len: usize,
+    len: size_t,
 ) -> qiniu_ng_string_list_t {
     let mut vec = Vec::with_capacity(len);
     for i in 0..len {
@@ -537,7 +537,7 @@ impl From<qiniu_ng_str_map_t> for Box<HashMap<Box<CStr>, Box<CStr>, RandomState>
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_str_map_new(capacity: usize) -> qiniu_ng_str_map_t {
+pub extern "C" fn qiniu_ng_str_map_new(capacity: size_t) -> qiniu_ng_str_map_t {
     Box::<HashMap<Box<CStr>, Box<CStr>, RandomState>>::new(HashMap::with_capacity(capacity)).into()
 }
 
@@ -579,7 +579,7 @@ pub extern "C" fn qiniu_ng_str_map_get(hashmap: qiniu_ng_str_map_t, key: *const 
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_str_map_len(hashmap: qiniu_ng_str_map_t) -> usize {
+pub extern "C" fn qiniu_ng_str_map_len(hashmap: qiniu_ng_str_map_t) -> size_t {
     let hashmap = Box::<HashMap<Box<CStr>, Box<CStr>, RandomState>>::from(hashmap);
     hashmap.len().tap(|_| {
         let _ = qiniu_ng_str_map_t::from(hashmap);

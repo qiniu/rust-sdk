@@ -11,7 +11,7 @@ use std::{
     slice::from_raw_parts,
 };
 
-pub const ETAG_SIZE: usize = 28;
+pub const ETAG_SIZE: size_t = 28;
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_from_file_path(
