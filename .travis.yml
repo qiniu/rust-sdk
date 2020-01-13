@@ -38,7 +38,6 @@ matrix:
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
               cd qiniu-c
-              mv Makefile.forWindows Makefile
               cp /c/ProgramData/chocolatey/lib/curl/tools/curl-7.67.0-win64-mingw/bin/*.dll .
               cp -r /c/ProgramData/chocolatey/lib/curl/tools/curl-7.67.0-win64-mingw/include/curl .
               cmd.exe /C '"C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" amd64 && make build'
