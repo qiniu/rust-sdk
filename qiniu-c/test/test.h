@@ -1,4 +1,29 @@
+#ifndef __TEST_H
+#define __TEST_H
+
 #include "libqiniu_ng.h"
+
+#if defined(_WIN32) || defined(WIN32)
+    #define QINIU_NG_CHARS(x) (L##x)
+    #define GETENV(env) (_wgetenv(env))
+    #define QINIU_NG_CHARS_LEN(str) (wcslen(str))
+    #define QINIU_NG_CHARS_CMP(str1, str2) (wcscmp(str1, str2))
+    #define QINIU_NG_CHARS_NCMP(str1, str2, size) (wcsncmp(str1, str2, size))
+    #define QINIU_NG_CHARS_STR(str1, str2) (wcsstr(str1, str2))
+    #define OPEN_FILE_FOR_READING(file) (_wfopen(file, L"rb"))
+    #define OPEN_FILE_FOR_WRITING(file) (_wfopen(file, L"wb"))
+    #define DELETE_FILE(file) (_wunlink(file))
+#else
+    #define QINIU_NG_CHARS(x) x
+    #define GETENV(env) (getenv(env))
+    #define QINIU_NG_CHARS_LEN(str) (strlen(str))
+    #define QINIU_NG_CHARS_CMP(str1, str2) (strcmp(str1, str2))
+    #define QINIU_NG_CHARS_NCMP(str1, str2, size) (strncmp(str1, str2, size))
+    #define QINIU_NG_CHARS_STR(str1, str2) (strstr(str1, str2))
+    #define OPEN_FILE_FOR_READING(file) (fopen(file, "r"))
+    #define OPEN_FILE_FOR_WRITING(file) (fopen(file, "w"))
+    #define DELETE_FILE(file) (unlink(file))
+#endif
 
 int env_load(char*, bool);
 void write_str_to_file(const qiniu_ng_char_t* path, const char* content);
@@ -29,7 +54,7 @@ void test_qiniu_ng_upload_files(void);
 void test_qiniu_ng_upload_file_path_failed_by_mime(void);
 void test_qiniu_ng_upload_file_path_failed_by_non_existed_path(void);
 void test_qiniu_ng_str(void);
-void test_qiniu_ng_string(void);
 void test_qiniu_ng_str_list(void);
-void test_qiniu_ng_string_list(void);
 void test_qiniu_ng_str_map(void);
+
+#endif

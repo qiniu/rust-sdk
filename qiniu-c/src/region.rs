@@ -1,4 +1,9 @@
-use crate::{config::qiniu_ng_config_t, result::qiniu_ng_err_t, utils::qiniu_ng_str_list_t};
+use crate::{
+    config::qiniu_ng_config_t,
+    result::qiniu_ng_err_t,
+    string::{qiniu_ng_char_t, ucstr},
+    utils::qiniu_ng_str_list_t,
+};
 use libc::{c_char, c_void, size_t};
 use qiniu_ng::storage::region::{Region, RegionId};
 use std::{borrow::Cow, ffi::CStr, mem::transmute};
@@ -150,15 +155,15 @@ pub extern "C" fn qiniu_ng_region_get_api_urls(region: qiniu_ng_region_t, use_ht
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_query(
-    bucket_name: *const c_char,
-    access_key: *const c_char,
+    bucket_name: *const qiniu_ng_char_t,
+    access_key: *const qiniu_ng_char_t,
     config: qiniu_ng_config_t,
     regions: *mut qiniu_ng_regions_t,
     error: *mut qiniu_ng_err_t,
 ) -> bool {
     match Region::query(
-        unsafe { CStr::from_ptr(bucket_name) }.to_str().unwrap().to_owned(),
-        unsafe { CStr::from_ptr(access_key) }.to_str().unwrap().to_owned(),
+        unsafe { ucstr::from_ptr(bucket_name) }.to_string().unwrap(),
+        unsafe { ucstr::from_ptr(access_key) }.to_string().unwrap(),
         config.get_clone(),
     ) {
         Ok(r) => {

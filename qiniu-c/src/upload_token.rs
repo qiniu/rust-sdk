@@ -2,7 +2,7 @@ use crate::{
     result::qiniu_ng_err_t,
     string::{qiniu_ng_char_t, ucstr, UCString},
 };
-use libc::{c_char, c_ulonglong, c_void, size_t};
+use libc::{c_ulonglong, c_void, size_t};
 use once_cell::sync::OnceCell;
 use qiniu_ng::{
     storage::{
@@ -12,7 +12,6 @@ use qiniu_ng::{
     Credential,
 };
 use std::{
-    ffi::{CStr, CString},
     mem::transmute,
     ptr::null,
     slice,
@@ -23,21 +22,21 @@ use tap::TapOps;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_policy_t {
-    bucket: *const c_char,
+    bucket: *const qiniu_ng_char_t,
     key: *const qiniu_ng_char_t,
     prefixal: bool,
     insert_only: bool,
     mime_detection: bool,
     deadline: c_ulonglong,
 
-    return_url: *const c_char,
+    return_url: *const qiniu_ng_char_t,
     return_body: *const qiniu_ng_char_t,
 
-    callback_urls: *const *const c_char,
+    callback_urls: *const *const qiniu_ng_char_t,
     callback_urls_len: size_t,
-    callback_host: *const c_char,
+    callback_host: *const qiniu_ng_char_t,
     callback_body: *const qiniu_ng_char_t,
-    callback_body_type: *const c_char,
+    callback_body_type: *const qiniu_ng_char_t,
 
     save_key: *const qiniu_ng_char_t,
     force_save_key: bool,
@@ -45,7 +44,7 @@ pub struct qiniu_ng_upload_policy_t {
     file_size_min: *const size_t,
     file_size_max: *const size_t,
 
-    mime: *const *const c_char,
+    mime: *const *const qiniu_ng_char_t,
     mime_len: size_t,
 
     infrequent_storage: bool,
@@ -53,19 +52,19 @@ pub struct qiniu_ng_upload_policy_t {
 }
 
 struct UploadPolicy {
-    bucket: Option<Box<CStr>>,
+    bucket: Option<Box<ucstr>>,
     key: Option<Box<ucstr>>,
     prefixal: bool,
     insert_only: bool,
     mime_detection: bool,
     deadline: Option<u64>,
 
-    return_url: Option<Box<CStr>>,
+    return_url: Option<Box<ucstr>>,
     return_body: Option<Box<ucstr>>,
 
-    callback_urls_storage: Option<Box<[Box<CStr>]>>,
-    callback_urls: Option<Box<[*const c_char]>>,
-    callback_host: Option<Box<CStr>>,
+    callback_urls_storage: Option<Box<[Box<ucstr>]>>,
+    callback_urls: Option<Box<[*const qiniu_ng_char_t]>>,
+    callback_host: Option<Box<ucstr>>,
     callback_body: Option<Box<ucstr>>,
     callback_body_type: Option<Box<ucstr>>,
 
@@ -75,8 +74,8 @@ struct UploadPolicy {
     file_size_min: Option<usize>,
     file_size_max: Option<usize>,
 
-    mime_storage: Option<Box<[Box<CStr>]>>,
-    mime: Option<Box<[*const c_char]>>,
+    mime_storage: Option<Box<[Box<ucstr>]>>,
+    mime: Option<Box<[*const qiniu_ng_char_t]>>,
     infrequent_storage: bool,
     object_lifetime: Option<u64>,
 }
@@ -84,15 +83,14 @@ struct UploadPolicy {
 impl From<&qiniu_ng_upload_policy_t> for UploadPolicy {
     fn from(policy: &qiniu_ng_upload_policy_t) -> Self {
         let mut policy = UploadPolicy {
-            bucket: unsafe { policy.bucket.as_ref() }
-                .map(|s| unsafe { CStr::from_ptr(s) }.to_owned().into_boxed_c_str()),
+            bucket: unsafe { policy.bucket.as_ref() }.map(|s| unsafe { UCString::from_ptr(s) }.into_boxed_ucstr()),
             key: unsafe { policy.key.as_ref() }.map(|s| unsafe { UCString::from_ptr(s) }.into_boxed_ucstr()),
             prefixal: policy.prefixal,
             insert_only: policy.insert_only,
             mime_detection: policy.mime_detection,
             deadline: Some(policy.deadline),
             return_url: unsafe { policy.return_url.as_ref() }
-                .map(|s| unsafe { CStr::from_ptr(s) }.to_owned().into_boxed_c_str()),
+                .map(|s| unsafe { UCString::from_ptr(s) }.into_boxed_ucstr()),
             return_body: unsafe { policy.return_body.as_ref() }
                 .map(|s| unsafe { UCString::from_ptr(s) }.into_boxed_ucstr()),
             callback_urls_storage: unsafe { policy.callback_urls.as_ref() }.map(|callback_urls| {
@@ -100,14 +98,14 @@ impl From<&qiniu_ng_upload_policy_t> for UploadPolicy {
                     .iter()
                     .map(|&ptr| {
                         unsafe { ptr.as_ref() }
-                            .map(|s| unsafe { CStr::from_ptr(s) }.to_owned().into_boxed_c_str())
+                            .map(|s| unsafe { UCString::from_ptr(s) }.to_owned().into_boxed_ucstr())
                             .unwrap()
                     })
                     .collect()
             }),
             callback_urls: Default::default(),
             callback_host: unsafe { policy.callback_host.as_ref() }
-                .map(|s| unsafe { CStr::from_ptr(s) }.to_owned().into_boxed_c_str()),
+                .map(|s| unsafe { UCString::from_ptr(s) }.into_boxed_ucstr()),
             callback_body: unsafe { policy.callback_body.as_ref() }
                 .map(|s| unsafe { UCString::from_ptr(s) }.into_boxed_ucstr()),
             callback_body_type: unsafe { policy.callback_body_type.as_ref() }
@@ -121,7 +119,7 @@ impl From<&qiniu_ng_upload_policy_t> for UploadPolicy {
                     .iter()
                     .map(|&ptr| {
                         unsafe { ptr.as_ref() }
-                            .map(|s| unsafe { CStr::from_ptr(s) }.to_owned().into_boxed_c_str())
+                            .map(|s| unsafe { UCString::from_ptr(s) }.into_boxed_ucstr())
                             .unwrap()
                     })
                     .collect()
@@ -195,7 +193,7 @@ impl From<&QiniuUploadPolicy<'_>> for UploadPolicy {
         let mut policy = UploadPolicy {
             bucket: policy
                 .bucket()
-                .map(|s| unsafe { CString::from_vec_unchecked(s.to_owned().into_bytes()) }.into_boxed_c_str()),
+                .map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr()),
             key: policy
                 .key()
                 .map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr()),
@@ -207,18 +205,18 @@ impl From<&QiniuUploadPolicy<'_>> for UploadPolicy {
                 .map(|t| t.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs()),
             return_url: policy
                 .return_url()
-                .map(|s| unsafe { CString::from_vec_unchecked(s.to_owned().into_bytes()) }.into_boxed_c_str()),
+                .map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr()),
             return_body: policy
                 .return_body()
                 .map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr()),
             callback_urls_storage: policy.callback_urls().map(|iter| {
-                iter.map(|s| unsafe { CString::from_vec_unchecked(s.to_owned().into_bytes()) }.into_boxed_c_str())
+                iter.map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr())
                     .collect()
             }),
             callback_urls: Default::default(),
             callback_host: policy
                 .callback_host()
-                .map(|s| unsafe { CString::from_vec_unchecked(s.to_owned().into_bytes()) }.into_boxed_c_str()),
+                .map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr()),
             callback_body: policy
                 .callback_body()
                 .map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr()),
@@ -232,7 +230,7 @@ impl From<&QiniuUploadPolicy<'_>> for UploadPolicy {
             file_size_min: policy.file_size().0,
             file_size_max: policy.file_size().1,
             mime_storage: policy.mime().map(|iter| {
-                iter.map(|s| unsafe { CString::from_vec_unchecked(s.to_owned().into_bytes()) }.into_boxed_c_str())
+                iter.map(|s| unsafe { UCString::from_str_unchecked(s) }.into_boxed_ucstr())
                     .collect()
             }),
             mime: Default::default(),
@@ -265,20 +263,20 @@ impl<'a> From<&'a UploadPolicyWithParams> for QiniuUploadPolicy<'a> {
         ) {
             (Some(bucket), Some(key), Some(lifetime)) if policy.prefixal => {
                 QiniuUploadPolicyBuilder::new_policy_for_objects_with_prefix(
-                    bucket.to_str().unwrap().to_owned(),
+                    bucket.to_string().unwrap(),
                     key.to_string().unwrap(),
                     lifetime,
                 )
             }
             (Some(bucket), Some(key), Some(lifetime)) if !policy.prefixal => {
                 QiniuUploadPolicyBuilder::new_policy_for_object(
-                    bucket.to_str().unwrap().to_owned(),
+                    bucket.to_string().unwrap(),
                     key.to_string().unwrap(),
                     lifetime,
                 )
             }
             (Some(bucket), None, Some(lifetime)) => {
-                QiniuUploadPolicyBuilder::new_policy_for_bucket(bucket.to_str().unwrap().to_owned(), lifetime)
+                QiniuUploadPolicyBuilder::new_policy_for_bucket(bucket.to_string().unwrap(), lifetime)
             }
             _ => panic!("Invalid upload token, bucket or lifetime is none"),
         };
@@ -301,35 +299,29 @@ impl<'a> From<&'a UploadPolicyWithParams> for QiniuUploadPolicy<'a> {
         }
 
         if let Some(return_url) = policy.return_url.as_ref() {
-            policy_builder = policy_builder.return_url(return_url.to_str().unwrap().to_owned());
+            policy_builder = policy_builder.return_url(return_url.to_string().unwrap());
         }
 
         if let Some(return_body) = policy.return_body.as_ref() {
-            policy_builder = policy_builder.return_body(return_body.to_str().unwrap().to_owned());
+            policy_builder = policy_builder.return_body(return_body.to_string().unwrap());
         }
 
         if let Some(callback_urls) = policy.callback_urls_storage.as_ref() {
             policy_builder = policy_builder.callback_urls(
                 &callback_urls
                     .iter()
-                    .map(|url| url.to_str().unwrap().to_owned())
+                    .map(|url| url.to_string().unwrap())
                     .collect::<Vec<_>>()
                     .iter()
                     .map(|url| url.as_ref())
                     .collect::<Vec<_>>(),
-                policy
-                    .callback_host
-                    .as_ref()
-                    .map(|host| host.to_str().unwrap().to_owned()),
+                policy.callback_host.as_ref().map(|host| host.to_string().unwrap()),
             );
 
             if let Some(callback_body) = policy.callback_body.as_ref() {
                 policy_builder = policy_builder.callback_body(
                     callback_body.to_string().unwrap(),
-                    policy
-                        .callback_body_type
-                        .as_ref()
-                        .map(|bt| bt.to_str().unwrap().to_owned()),
+                    policy.callback_body_type.as_ref().map(|bt| bt.to_string().unwrap()),
                 );
             }
         }
@@ -355,7 +347,7 @@ impl<'a> From<&'a UploadPolicyWithParams> for QiniuUploadPolicy<'a> {
             policy_builder = policy_builder.mime(
                 &mime
                     .iter()
-                    .map(|m| m.to_str().unwrap().to_owned())
+                    .map(|m| m.to_string().unwrap())
                     .collect::<Vec<_>>()
                     .iter()
                     .map(|m| m.as_ref())
@@ -371,7 +363,7 @@ impl<'a> From<&'a UploadPolicyWithParams> for QiniuUploadPolicy<'a> {
 }
 
 struct UploadToken {
-    upload_token: OnceCell<Box<CStr>>,
+    upload_token: OnceCell<Box<ucstr>>,
     upload_policy_with_params: OnceCell<UploadPolicyWithParams>,
 }
 
@@ -389,8 +381,8 @@ impl From<UploadPolicyWithParams> for UploadToken {
     }
 }
 
-impl From<Box<CStr>> for UploadToken {
-    fn from(token: Box<CStr>) -> Self {
+impl From<Box<ucstr>> for UploadToken {
+    fn from(token: Box<ucstr>) -> Self {
         UploadToken {
             upload_token: OnceCell::from(token),
             upload_policy_with_params: OnceCell::new(),
@@ -399,18 +391,17 @@ impl From<Box<CStr>> for UploadToken {
 }
 
 impl UploadToken {
-    fn get_upload_token(&self) -> &CStr {
+    fn get_upload_token(&self) -> &ucstr {
         self.upload_token.get_or_init(|| {
             let upload_policy_with_params = self.upload_policy_with_params.get().unwrap();
             let policy = QiniuUploadPolicy::from(upload_policy_with_params);
             unsafe {
-                CString::from_vec_unchecked(
+                UCString::from_string_unchecked(
                     QiniuUploadToken::from_policy(policy, upload_policy_with_params.credential.as_ref().unwrap())
-                        .token()
-                        .into_bytes(),
+                        .token(),
                 )
             }
-            .into_boxed_c_str()
+            .into_boxed_ucstr()
         })
     }
 
@@ -418,7 +409,7 @@ impl UploadToken {
         let upload_policy_with_params: QiniuUploadTokenParseResult<&UploadPolicyWithParams> =
             self.upload_policy_with_params.get_or_try_init(|| {
                 let policy: UploadPolicy =
-                    QiniuUploadToken::from_token(self.upload_token.get().unwrap().to_str().unwrap())
+                    QiniuUploadToken::from_token(self.upload_token.get().unwrap().to_string().unwrap())
                         .policy()?
                         .as_ref()
                         .into();
@@ -450,23 +441,23 @@ impl From<Box<UploadToken>> for qiniu_ng_upload_token_t {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_new_upload_token_from_policy(
     policy: *const qiniu_ng_upload_policy_t,
-    access_key: *const c_char,
-    secret_key: *const c_char,
+    access_key: *const qiniu_ng_char_t,
+    secret_key: *const qiniu_ng_char_t,
 ) -> qiniu_ng_upload_token_t {
     Box::new(UploadToken::from(UploadPolicyWithParams {
         upload_policy: unsafe { policy.as_ref() }.unwrap().into(),
         credential: Some(Credential::new(
-            unsafe { CStr::from_ptr(access_key) }.to_str().unwrap().to_owned(),
-            unsafe { CStr::from_ptr(secret_key) }.to_str().unwrap().to_owned(),
+            unsafe { ucstr::from_ptr(access_key) }.to_string().unwrap(),
+            unsafe { ucstr::from_ptr(secret_key) }.to_string().unwrap(),
         )),
     }))
     .into()
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_new_upload_token_from_token(token: *const c_char) -> qiniu_ng_upload_token_t {
+pub extern "C" fn qiniu_ng_new_upload_token_from_token(token: *const qiniu_ng_char_t) -> qiniu_ng_upload_token_t {
     Box::new(UploadToken::from(
-        unsafe { CStr::from_ptr(token) }.to_owned().into_boxed_c_str(),
+        unsafe { UCString::from_ptr(token) }.into_boxed_ucstr(),
     ))
     .into()
 }
@@ -477,7 +468,7 @@ pub extern "C" fn qiniu_ng_upload_token_free(token: qiniu_ng_upload_token_t) {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_token_get_token(token: qiniu_ng_upload_token_t) -> *const c_char {
+pub extern "C" fn qiniu_ng_upload_token_get_token(token: qiniu_ng_upload_token_t) -> *const qiniu_ng_char_t {
     let token = Box::<UploadToken>::from(token);
     token.get_upload_token().as_ptr().tap(|_| {
         let _ = qiniu_ng_upload_token_t::from(token);

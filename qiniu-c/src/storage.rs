@@ -1,9 +1,11 @@
 use crate::{
-    client::qiniu_ng_client_t, region::qiniu_ng_region_id_t, result::qiniu_ng_err_t, utils::qiniu_ng_str_list_t,
+    client::qiniu_ng_client_t,
+    region::qiniu_ng_region_id_t,
+    result::qiniu_ng_err_t,
+    string::{qiniu_ng_char_t, ucstr},
+    utils::qiniu_ng_str_list_t,
 };
-use libc::c_char;
 use qiniu_ng::Client;
-use std::ffi::CStr;
 use tap::TapOps;
 
 #[no_mangle]
@@ -34,7 +36,7 @@ pub extern "C" fn qiniu_ng_storage_bucket_names(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_storage_create_bucket(
     client: qiniu_ng_client_t,
-    bucket_name: *const c_char,
+    bucket_name: *const qiniu_ng_char_t,
     region_id: qiniu_ng_region_id_t,
     error: *mut qiniu_ng_err_t,
 ) -> bool {
@@ -42,7 +44,7 @@ pub extern "C" fn qiniu_ng_storage_create_bucket(
     match client
         .storage()
         .create_bucket(
-            unsafe { CStr::from_ptr(bucket_name) }.to_str().unwrap().to_owned(),
+            unsafe { ucstr::from_ptr(bucket_name) }.to_string().unwrap(),
             region_id.into(),
         )
         .tap(|_| {
@@ -61,13 +63,13 @@ pub extern "C" fn qiniu_ng_storage_create_bucket(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_storage_drop_bucket(
     client: qiniu_ng_client_t,
-    bucket_name: *const c_char,
+    bucket_name: *const qiniu_ng_char_t,
     error: *mut qiniu_ng_err_t,
 ) -> bool {
     let client = Box::<Client>::from(client);
     match client
         .storage()
-        .drop_bucket(unsafe { CStr::from_ptr(bucket_name) }.to_str().unwrap().to_owned())
+        .drop_bucket(unsafe { ucstr::from_ptr(bucket_name) }.to_string().unwrap())
         .tap(|_| {
             let _ = qiniu_ng_client_t::from(client);
         }) {

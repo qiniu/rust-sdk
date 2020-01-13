@@ -1,7 +1,7 @@
 use crate::{
     result::qiniu_ng_err_t,
-    string::{qiniu_ng_char_t, ucstr},
-    utils::{qiniu_ng_optional_str_t, qiniu_ng_readable_t, qiniu_ng_str_map_t, qiniu_ng_str_t},
+    string::{qiniu_ng_char_t, ucstr, UCString},
+    utils::{qiniu_ng_readable_t, qiniu_ng_str_map_t, qiniu_ng_str_t},
 };
 use libc::{c_char, c_void, size_t};
 
@@ -20,7 +20,7 @@ use std::{
     borrow::Cow,
     collections::{hash_map::RandomState, HashMap},
     convert::TryInto,
-    ffi::{CStr, CString},
+    ffi::CStr,
     fs::File,
     io::{copy as io_copy, sink as io_sink, Read},
     mem::transmute,
@@ -124,9 +124,9 @@ pub extern "C" fn qiniu_ng_http_request_get_url(request: qiniu_ng_http_request_t
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_http_request_set_url(request: qiniu_ng_http_request_t, url: *const c_char) {
+pub extern "C" fn qiniu_ng_http_request_set_url(request: qiniu_ng_http_request_t, url: *const qiniu_ng_char_t) {
     let request = Box::<&mut Request>::from(request);
-    *request.url_mut() = unsafe { CStr::from_ptr(url) }.to_str().unwrap().to_owned().into();
+    *request.url_mut() = unsafe { ucstr::from_ptr(url) }.to_string().unwrap().into();
     let _ = qiniu_ng_http_request_t::from(request);
 }
 
@@ -151,14 +151,14 @@ pub extern "C" fn qiniu_ng_http_request_set_method(request: qiniu_ng_http_reques
 #[no_mangle]
 pub extern "C" fn qiniu_ng_http_request_get_header(
     request: qiniu_ng_http_request_t,
-    header_name: *const c_char,
-) -> qiniu_ng_optional_str_t {
+    header_name: *const qiniu_ng_char_t,
+) -> qiniu_ng_str_t {
     let request = Box::<&Request>::from(request);
     unsafe {
-        qiniu_ng_optional_str_t::from_str_unchecked(
+        qiniu_ng_str_t::from_optional_str_unchecked(
             request
                 .headers()
-                .get(&HeaderName::new(CStr::from_ptr(header_name).to_str().unwrap()))
+                .get(&HeaderName::new(ucstr::from_ptr(header_name).to_string().unwrap()))
                 .as_ref()
                 .map(|header_value| header_value.as_ref()),
         )
@@ -172,13 +172,13 @@ pub extern "C" fn qiniu_ng_http_request_get_header(
 pub extern "C" fn qiniu_ng_http_request_get_headers(request: qiniu_ng_http_request_t) -> qiniu_ng_str_map_t {
     let request = Box::<&Request>::from(request);
     let src_headers = request.headers();
-    let mut dest_headers = Box::new(HashMap::<Box<CStr>, Box<CStr>, RandomState>::with_capacity(
+    let mut dest_headers = Box::new(HashMap::<Box<ucstr>, Box<ucstr>, RandomState>::with_capacity(
         src_headers.len(),
     ));
     src_headers.iter().for_each(|(header_name, header_value)| {
         dest_headers.insert(
-            unsafe { CString::from_vec_unchecked(header_name.as_ref().as_bytes().to_owned()) }.into_boxed_c_str(),
-            unsafe { CString::from_vec_unchecked(header_value.as_ref().as_bytes().to_owned()) }.into_boxed_c_str(),
+            UCString::from_str(header_name.as_ref()).unwrap().into_boxed_ucstr(),
+            UCString::from_str(header_value.as_ref()).unwrap().into_boxed_ucstr(),
         );
     });
     let _ = qiniu_ng_http_request_t::from(request);
@@ -188,18 +188,18 @@ pub extern "C" fn qiniu_ng_http_request_get_headers(request: qiniu_ng_http_reque
 #[no_mangle]
 pub extern "C" fn qiniu_ng_http_request_set_header(
     request: qiniu_ng_http_request_t,
-    header_name: *const c_char,
-    header_value: *const c_char,
+    header_name: *const qiniu_ng_char_t,
+    header_value: *const qiniu_ng_char_t,
 ) {
     let request = Box::<&mut Request>::from(request);
     if let Some(header_value) = unsafe { header_value.as_ref() } {
         request.headers_mut().insert(
-            HeaderName::new(unsafe { CStr::from_ptr(header_name) }.to_str().unwrap()),
-            unsafe { CStr::from_ptr(header_value) }.to_str().unwrap().into(),
+            HeaderName::new(unsafe { ucstr::from_ptr(header_name) }.to_string().unwrap()),
+            unsafe { ucstr::from_ptr(header_value) }.to_string().unwrap().into(),
         );
     } else {
         request.headers_mut().remove(&HeaderName::new(
-            unsafe { CStr::from_ptr(header_name) }.to_str().unwrap(),
+            unsafe { ucstr::from_ptr(header_name) }.to_string().unwrap(),
         ));
     }
     let _ = qiniu_ng_http_request_t::from(request);
@@ -454,14 +454,14 @@ pub extern "C" fn qiniu_ng_http_response_set_status_code(response: qiniu_ng_http
 #[no_mangle]
 pub extern "C" fn qiniu_ng_http_response_get_header(
     response: qiniu_ng_http_response_t,
-    header_name: *const c_char,
-) -> qiniu_ng_optional_str_t {
+    header_name: *const qiniu_ng_char_t,
+) -> qiniu_ng_str_t {
     let response = Box::<&Response>::from(response);
     unsafe {
-        qiniu_ng_optional_str_t::from_str_unchecked(
+        qiniu_ng_str_t::from_optional_str_unchecked(
             response
                 .headers()
-                .get(&HeaderName::new(CStr::from_ptr(header_name).to_str().unwrap()))
+                .get(&HeaderName::new(ucstr::from_ptr(header_name).to_string().unwrap()))
                 .as_ref()
                 .map(|header_value| header_value.as_ref()),
         )
@@ -475,13 +475,13 @@ pub extern "C" fn qiniu_ng_http_response_get_header(
 pub extern "C" fn qiniu_ng_http_response_get_headers(response: qiniu_ng_http_response_t) -> qiniu_ng_str_map_t {
     let response = Box::<&Response>::from(response);
     let src_headers = response.headers();
-    let mut dest_headers = Box::new(HashMap::<Box<CStr>, Box<CStr>, RandomState>::with_capacity(
+    let mut dest_headers = Box::new(HashMap::<Box<ucstr>, Box<ucstr>, RandomState>::with_capacity(
         src_headers.len(),
     ));
     src_headers.iter().for_each(|(header_name, header_value)| {
         dest_headers.insert(
-            unsafe { CString::from_vec_unchecked(header_name.as_ref().as_bytes().to_owned()) }.into_boxed_c_str(),
-            unsafe { CString::from_vec_unchecked(header_value.as_ref().as_bytes().to_owned()) }.into_boxed_c_str(),
+            UCString::from_str(header_name.as_ref()).unwrap().into_boxed_ucstr(),
+            UCString::from_str(header_value.as_ref()).unwrap().into_boxed_ucstr(),
         );
     });
     let _ = qiniu_ng_http_response_t::from(response);
@@ -491,18 +491,18 @@ pub extern "C" fn qiniu_ng_http_response_get_headers(response: qiniu_ng_http_res
 #[no_mangle]
 pub extern "C" fn qiniu_ng_http_response_set_header(
     response: qiniu_ng_http_response_t,
-    header_name: *const c_char,
-    header_value: *const c_char,
+    header_name: *const qiniu_ng_char_t,
+    header_value: *const qiniu_ng_char_t,
 ) {
     let response = Box::<&mut Response>::from(response);
     if let Some(header_value) = unsafe { header_value.as_ref() } {
         response.headers_mut().insert(
-            HeaderName::new(unsafe { CStr::from_ptr(header_name) }.to_str().unwrap()),
-            unsafe { CStr::from_ptr(header_value) }.to_str().unwrap().into(),
+            HeaderName::new(unsafe { ucstr::from_ptr(header_name) }.to_string().unwrap()),
+            unsafe { ucstr::from_ptr(header_value) }.to_string().unwrap().into(),
         );
     } else {
         response.headers_mut().remove(&HeaderName::new(
-            unsafe { CStr::from_ptr(header_name) }.to_str().unwrap(),
+            unsafe { ucstr::from_ptr(header_name) }.to_string().unwrap(),
         ));
     }
     let _ = qiniu_ng_http_response_t::from(response);

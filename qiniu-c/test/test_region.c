@@ -7,7 +7,7 @@ void test_qiniu_ng_region_query(void) {
 
     env_load("..", false);
     qiniu_ng_regions_t regions;
-    TEST_ASSERT_TRUE(qiniu_ng_region_query("z0-bucket", getenv("access_key"), config, &regions, NULL));
+    TEST_ASSERT_TRUE(qiniu_ng_region_query(QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), config, &regions, NULL));
     TEST_ASSERT_EQUAL_INT(qiniu_ng_regions_len(regions), 2);
 
     qiniu_ng_region_t region;
@@ -18,7 +18,7 @@ void test_qiniu_ng_region_query(void) {
     TEST_ASSERT_GREATER_THAN(4, urls_len);
 
     for (size_t i = 0; i < urls_len; i++) {
-        const char *p;
+        const qiniu_ng_char_t* p;
         TEST_ASSERT_TRUE(qiniu_ng_str_list_get(urls, i, &p));
     }
 
@@ -30,7 +30,7 @@ void test_qiniu_ng_region_query(void) {
     urls_len = qiniu_ng_str_list_len(urls);
     TEST_ASSERT_EQUAL_INT(urls_len, 1);
     for (size_t i = 0; i < urls_len; i++) {
-        const char *p;
+        const qiniu_ng_char_t *p;
         TEST_ASSERT_TRUE(qiniu_ng_str_list_get(urls, i, &p));
     }
     qiniu_ng_region_free(region);

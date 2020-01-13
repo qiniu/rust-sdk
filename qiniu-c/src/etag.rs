@@ -16,12 +16,13 @@ pub const ETAG_SIZE: size_t = 28;
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_from_file_path(
     path: *const qiniu_ng_char_t,
-    result_ptr: *mut c_char,
+    result: *mut c_char,
     error: *mut qiniu_ng_err_t,
 ) -> bool {
     match etag::from_file(unsafe { UCString::from_ptr(path) }.into_path_buf()) {
         Ok(etag_string) => {
-            unsafe { write_string_to_ptr(&etag_string, result_ptr) };
+            let etag_bytes = etag_string.as_bytes();
+            unsafe { copy_nonoverlapping(etag_bytes.as_ptr(), result.cast(), etag_bytes.len()) };
             true
         }
         Err(ref err) => {
@@ -36,12 +37,10 @@ pub extern "C" fn qiniu_ng_etag_from_file_path(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_from_buffer(buffer: *const c_void, buffer_len: size_t, result: *mut c_char) {
     unsafe {
-        write_string_to_ptr(&etag::from_bytes(from_raw_parts(buffer.cast(), buffer_len)), result);
+        let e = etag::from_bytes(from_raw_parts(buffer.cast(), buffer_len));
+        let e = e.as_bytes();
+        copy_nonoverlapping(e.as_ptr(), result.cast(), e.len());
     }
-}
-
-unsafe fn write_string_to_ptr(src: &str, dst: *mut c_char) {
-    dst.copy_from_nonoverlapping(src.as_ptr().cast(), src.len());
 }
 
 #[repr(C)]

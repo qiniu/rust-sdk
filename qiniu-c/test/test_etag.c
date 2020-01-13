@@ -13,7 +13,7 @@ void test_qiniu_ng_etag_from_file_path(void) {
     memset(path, 0, (PATH_LEN + 1) * sizeof(qiniu_ng_char_t));
 
 #if defined(_WIN32) || defined(WIN32)
-    swprintf(path, PATH_LEN, "%s/1024字节", _wgetenv(L"TMP"));
+    swprintf(path, PATH_LEN, L"%s/1024字节", _wgetenv(L"TMP"));
 #else
     strncpy(path, "/tmp/1024字节", PATH_LEN);
 #endif
@@ -33,11 +33,7 @@ void test_qiniu_ng_etag_from_buffer(void) {
 }
 
 void test_qiniu_ng_etag_from_unexisted_file_path(void) {
-#if defined(_WIN32) || defined(WIN32)
-    const wchar_t *path = L"/不存在的文件";
-#else
-    const char *path = "/不存在的文件";
-#endif
+    const qiniu_ng_char_t *path = QINIU_NG_CHARS("/不存在的文件");
     qiniu_ng_err_t err;
     int os_err_code;
     TEST_ASSERT_FALSE(qiniu_ng_etag_from_file_path(path, NULL, &err));

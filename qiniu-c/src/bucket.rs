@@ -2,14 +2,15 @@ use crate::{
     client::qiniu_ng_client_t,
     region::{qiniu_ng_region_t, qiniu_ng_regions_t},
     result::qiniu_ng_err_t,
+    string::{qiniu_ng_char_t, ucstr},
     utils::{qiniu_ng_str_list_t, qiniu_ng_str_t},
 };
-use libc::{c_char, c_void, size_t};
+use libc::{c_void, size_t};
 use qiniu_ng::{
     storage::{bucket::Bucket, region::Region},
     Client,
 };
-use std::{borrow::Cow, ffi::CStr, mem::transmute, ptr::null};
+use std::{borrow::Cow, mem::transmute, ptr::null};
 use tap::TapOps;
 
 #[repr(C)]
@@ -29,20 +30,23 @@ impl<'r> From<Box<Bucket<'r>>> for qiniu_ng_bucket_t {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_bucket_new(client: qiniu_ng_client_t, bucket_name: *const c_char) -> qiniu_ng_bucket_t {
+pub extern "C" fn qiniu_ng_bucket_new(
+    client: qiniu_ng_client_t,
+    bucket_name: *const qiniu_ng_char_t,
+) -> qiniu_ng_bucket_t {
     qiniu_ng_bucket_new2(client, bucket_name, null(), null(), 0)
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_new2(
     client: qiniu_ng_client_t,
-    bucket_name: *const c_char,
+    bucket_name: *const qiniu_ng_char_t,
     region: *const qiniu_ng_region_t,
-    domains: *const *const c_char,
+    domains: *const *const qiniu_ng_char_t,
     domains_count: size_t,
 ) -> qiniu_ng_bucket_t {
     let client = Box::<Client>::from(client);
-    let bucket_name = unsafe { CStr::from_ptr(bucket_name) }.to_str().unwrap().to_owned();
+    let bucket_name = unsafe { ucstr::from_ptr(bucket_name) }.to_string().unwrap();
     let mut bucket_builder = client.storage().bucket(bucket_name);
     if let Some(region) = unsafe { region.as_ref() } {
         let region = Box::<Cow<Region>>::from(region.to_owned());
@@ -51,7 +55,7 @@ pub extern "C" fn qiniu_ng_bucket_new2(
     }
     for i in 0..domains_count {
         let domain = unsafe { *domains.add(i) };
-        bucket_builder = bucket_builder.domain(unsafe { CStr::from_ptr(domain) }.to_str().unwrap().to_owned());
+        bucket_builder = bucket_builder.domain(unsafe { ucstr::from_ptr(domain) }.to_string().unwrap());
     }
     let bucket: qiniu_ng_bucket_t = Box::new(bucket_builder.build()).into();
     bucket.tap(|_| {
