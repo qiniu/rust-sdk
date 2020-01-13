@@ -7,6 +7,8 @@ documentation = true
 include_guard = "__QINIU_NG_H"
 cpp_compat = true
 sys_includes = ["curl/curl.h"]
+style = "both"
+
 header = """
 #ifndef qiniu_ng_char_t
 #if defined(_WIN32) || defined(WIN32)
