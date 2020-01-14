@@ -72,25 +72,25 @@ impl<'p> UploadPolicy<'p> {
         bool_utils::int_to_bool(self.is_prefixal_scope.unwrap_or(0))
     }
 
-    pub fn insert_only(&self) -> bool {
+    pub fn is_insert_only(&self) -> bool {
         bool_utils::int_to_bool(self.insert_only.unwrap_or(0))
     }
 
-    pub fn overwritable(&self) -> bool {
-        !self.insert_only()
+    pub fn is_overwritable(&self) -> bool {
+        !self.is_insert_only()
     }
 
-    pub fn mime_detection(&self) -> bool {
+    pub fn mime_detection_enabled(&self) -> bool {
         bool_utils::int_to_bool(self.detect_mime.unwrap_or(0))
     }
 
-    pub fn deadline(&self) -> Option<SystemTime> {
+    pub fn token_deadline(&self) -> Option<SystemTime> {
         self.deadline
             .map(|t| SystemTime::UNIX_EPOCH + Duration::from_secs(t.into()))
     }
 
-    pub fn lifetime(&self) -> Option<Duration> {
-        self.deadline().map(|t| {
+    pub fn token_lifetime(&self) -> Option<Duration> {
+        self.token_deadline().map(|t| {
             t.duration_since(SystemTime::now())
                 .unwrap_or_else(|_| Duration::from_secs(0))
         })
@@ -124,7 +124,7 @@ impl<'p> UploadPolicy<'p> {
         Self::convert_to_optional_str(&self.save_key)
     }
 
-    pub fn force_save_key(&self) -> bool {
+    pub fn is_save_key_forced(&self) -> bool {
         self.force_save_key.unwrap_or(false)
     }
 
@@ -132,15 +132,15 @@ impl<'p> UploadPolicy<'p> {
         (self.fsize_min, self.fsize_limit)
     }
 
-    pub fn mime(&self) -> Option<Split<char>> {
+    pub fn mime_types(&self) -> Option<Split<char>> {
         Self::convert_to_optional_splited_str(&self.mime_limit, ';')
     }
 
-    pub fn normal_storage(&self) -> bool {
-        !self.infrequent_storage()
+    pub fn is_normal_storage_used(&self) -> bool {
+        !self.is_infrequent_storage_used()
     }
 
-    pub fn infrequent_storage(&self) -> bool {
+    pub fn is_infrequent_storage_used(&self) -> bool {
         bool_utils::int_to_bool(self.file_type.unwrap_or(0))
     }
 
@@ -360,7 +360,7 @@ impl<'p> UploadPolicyBuilder<'p> {
         self
     }
 
-    pub fn mime<'a>(mut self, content_types: impl AsRef<[&'a str]>) -> UploadPolicyBuilder<'p> {
+    pub fn mime_types<'a>(mut self, content_types: impl AsRef<[&'a str]>) -> UploadPolicyBuilder<'p> {
         self.inner.mime_limit = Some(content_types.as_ref().join(";").into());
         self
     }
@@ -409,7 +409,10 @@ mod tests {
         assert_eq!(policy.key(), None);
         assert!(
             one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
-                - policy.deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
+                - policy
+                    .token_deadline()
+                    .unwrap()
+                    .duration_since(SystemTime::UNIX_EPOCH)?
                 < Duration::from_secs(5)
         );
 
@@ -436,7 +439,10 @@ mod tests {
         assert!(!policy.prefixal());
         assert!(
             one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
-                - policy.deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
+                - policy
+                    .token_deadline()
+                    .unwrap()
+                    .duration_since(SystemTime::UNIX_EPOCH)?
                 < Duration::from_secs(5)
         );
 
@@ -468,7 +474,10 @@ mod tests {
         assert!(policy.prefixal());
         assert!(
             one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
-                - policy.deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
+                - policy
+                    .token_deadline()
+                    .unwrap()
+                    .duration_since(SystemTime::UNIX_EPOCH)?
                 < Duration::from_secs(5)
         );
 
@@ -491,7 +500,10 @@ mod tests {
             .build();
         assert!(
             SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?
-                - policy.deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
+                - policy
+                    .token_deadline()
+                    .unwrap()
+                    .duration_since(SystemTime::UNIX_EPOCH)?
                 < Duration::from_secs(5)
         );
 
@@ -514,7 +526,10 @@ mod tests {
         let tomorrow = now + one_day;
         assert!(
             tomorrow.duration_since(SystemTime::UNIX_EPOCH)?
-                - policy.deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
+                - policy
+                    .token_deadline()
+                    .unwrap()
+                    .duration_since(SystemTime::UNIX_EPOCH)?
                 < Duration::from_secs(5)
         );
 
@@ -533,7 +548,10 @@ mod tests {
             .token_lifetime(future)
             .build();
         assert!(
-            policy.deadline().unwrap().duration_since(SystemTime::UNIX_EPOCH)?
+            policy
+                .token_deadline()
+                .unwrap()
+                .duration_since(SystemTime::UNIX_EPOCH)?
                 > SystemTime::now()
                     .checked_add(Duration::from_secs(50 * 365 * 24 * 60 * 60))
                     .unwrap()
@@ -547,8 +565,8 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
             .insert_only()
             .build();
-        assert_eq!(policy.insert_only(), true);
-        assert_eq!(policy.overwritable(), false);
+        assert_eq!(policy.is_insert_only(), true);
+        assert_eq!(policy.is_overwritable(), false);
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["insertOnly"], 1);
         Ok(())
@@ -559,8 +577,8 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
             .overwritable()
             .build();
-        assert_eq!(policy.insert_only(), false);
-        assert_eq!(policy.overwritable(), true);
+        assert_eq!(policy.is_insert_only(), false);
+        assert_eq!(policy.is_overwritable(), true);
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["insertOnly"], json!(null));
         Ok(())
@@ -571,7 +589,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
             .enable_mime_detection()
             .build();
-        assert_eq!(policy.mime_detection(), true);
+        assert_eq!(policy.mime_detection_enabled(), true);
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["detectMime"], 1);
         Ok(())
@@ -582,8 +600,8 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
             .normal_storage()
             .build();
-        assert_eq!(policy.normal_storage(), true);
-        assert_eq!(policy.infrequent_storage(), false);
+        assert_eq!(policy.is_normal_storage_used(), true);
+        assert_eq!(policy.is_infrequent_storage_used(), false);
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["fileType"], json!(null));
         Ok(())
@@ -594,8 +612,8 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
             .infrequent_storage()
             .build();
-        assert_eq!(policy.normal_storage(), false);
-        assert_eq!(policy.infrequent_storage(), true);
+        assert_eq!(policy.is_normal_storage_used(), false);
+        assert_eq!(policy.is_infrequent_storage_used(), true);
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["fileType"], 1);
         Ok(())
@@ -674,7 +692,7 @@ mod tests {
             .save_as("target_file", false)
             .build();
         assert_eq!(policy.save_key(), Some("target_file"));
-        assert_eq!(policy.force_save_key(), false);
+        assert_eq!(policy.is_save_key_forced(), false);
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["saveKey"], "target_file");
         assert_eq!(v["forceSaveKey"], json!(null));
@@ -687,7 +705,7 @@ mod tests {
             .save_as("target_file", true)
             .build();
         assert_eq!(policy.save_key(), Some("target_file"));
-        assert_eq!(policy.force_save_key(), true);
+        assert_eq!(policy.is_save_key_forced(), true);
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["saveKey"], "target_file");
         assert_eq!(v["forceSaveKey"], true);
@@ -745,10 +763,10 @@ mod tests {
     #[test]
     fn test_build_upload_policy_with_mime() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
-            .mime(&["image/jpeg", "image/png"])
+            .mime_types(&["image/jpeg", "image/png"])
             .build();
         assert_eq!(
-            policy.mime().map(|ops| ops.collect::<Vec<&str>>()),
+            policy.mime_types().map(|ops| ops.collect::<Vec<&str>>()),
             Some(vec!["image/jpeg", "image/png"])
         );
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;

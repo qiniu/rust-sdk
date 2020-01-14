@@ -3,10 +3,10 @@ use crate::{
     config::qiniu_ng_config_t,
     result::qiniu_ng_err_t,
     string::{qiniu_ng_char_t, ucstr, UCString},
-    upload_token::{qiniu_ng_upload_token_get_token, qiniu_ng_upload_token_t},
+    upload_token::qiniu_ng_upload_token_t,
     utils::{qiniu_ng_readable_t, qiniu_ng_str_map_t, qiniu_ng_str_t},
 };
-use libc::{c_uint, c_ulonglong, c_void, ferror, fread, size_t, FILE};
+use libc::{c_void, ferror, fread, size_t, FILE};
 use mime::Mime;
 use qiniu_ng::storage::{
     bucket::Bucket,
@@ -194,8 +194,8 @@ pub struct qiniu_ng_upload_params_t {
     metadata: qiniu_ng_str_map_t,
     checksum_enabled: bool,
     resumable_policy: qiniu_ng_resumable_policy_e,
-    on_uploading_progress: Option<fn(uploaded: c_ulonglong, total: c_ulonglong)>,
-    upload_threshold: c_uint,
+    on_uploading_progress: Option<fn(uploaded: u64, total: u64)>,
+    upload_threshold: u32,
     thread_pool_size: size_t,
     max_concurrency: size_t,
 }
@@ -266,10 +266,10 @@ fn qiniu_ng_upload(
     err: *mut qiniu_ng_err_t,
 ) -> bool {
     let bucket_uploader = Option::<BucketUploader>::from(bucket_uploader).unwrap();
-    let upload_token = qiniu_ng_upload_token_get_token(upload_token);
-    let mut file_uploader = bucket_uploader.upload_token(UploadToken::from_token(
-        unsafe { ucstr::from_ptr(upload_token) }.to_string().unwrap(),
-    ));
+    let upload_token = Option::<Box<UploadToken>>::from(upload_token).unwrap();
+    let mut file_uploader = bucket_uploader.upload_token(upload_token.as_ref().to_owned()).tap(|_| {
+        let _ = qiniu_ng_upload_token_t::from(upload_token);
+    });
     let mut file_name: Option<String> = None;
     let mut mime: Option<Mime> = None;
     if let Some(params) = unsafe { params.as_ref() } {

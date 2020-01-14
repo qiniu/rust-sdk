@@ -35,7 +35,7 @@ void test_qiniu_ng_etag_from_buffer(void) {
 void test_qiniu_ng_etag_from_unexisted_file_path(void) {
     const qiniu_ng_char_t *path = QINIU_NG_CHARS("/不存在的文件");
     qiniu_ng_err_t err;
-    int os_err_code;
+    int32_t os_err_code;
     TEST_ASSERT_FALSE(qiniu_ng_etag_from_file_path(path, NULL, &err));
     TEST_ASSERT_TRUE(qiniu_ng_err_os_error_extract(&err, &os_err_code));
     TEST_ASSERT_EQUAL_INT(os_err_code, ENOENT);

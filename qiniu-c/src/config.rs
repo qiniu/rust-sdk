@@ -4,7 +4,7 @@ use crate::{
     string::{qiniu_ng_char_t, ucstr, UCString},
     utils::qiniu_ng_str_t,
 };
-use libc::{c_uint, c_ulonglong, c_void, size_t};
+use libc::{c_void, size_t};
 use qiniu_http::{
     Error as HTTPError, ErrorKind as HTTPErrorKind, Request as HTTPRequest, Response as HTTPResponse,
     Result as HTTPResult,
@@ -171,7 +171,7 @@ pub extern "C" fn qiniu_ng_config_builder_uplog_url(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_upload_token_lifetime(
     builder: qiniu_ng_config_builder_t,
-    upload_token_lifetime: c_ulonglong,
+    upload_token_lifetime: u64,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
@@ -193,10 +193,7 @@ pub extern "C" fn qiniu_ng_config_builder_batch_max_operation_size(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_upload_threshold(
-    builder: qiniu_ng_config_builder_t,
-    upload_threshold: c_uint,
-) {
+pub extern "C" fn qiniu_ng_config_builder_upload_threshold(builder: qiniu_ng_config_builder_t, upload_threshold: u32) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder.config_builder.upload_threshold(upload_threshold);
     let _ = qiniu_ng_config_builder_t::from(builder);
@@ -205,7 +202,7 @@ pub extern "C" fn qiniu_ng_config_builder_upload_threshold(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_upload_block_size(
     builder: qiniu_ng_config_builder_t,
-    upload_block_size: c_uint,
+    upload_block_size: u32,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder.config_builder.upload_block_size(upload_block_size);
@@ -225,7 +222,7 @@ pub extern "C" fn qiniu_ng_config_builder_http_request_retries(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_http_request_retry_delay(
     builder: qiniu_ng_config_builder_t,
-    http_request_retry_delay: c_ulonglong,
+    http_request_retry_delay: u64,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
@@ -282,7 +279,7 @@ pub extern "C" fn qiniu_ng_config_builder_uplog_file_lock_policy(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_uplog_file_upload_threshold(
     builder: qiniu_ng_config_builder_t,
-    upload_threshold: c_uint,
+    upload_threshold: u32,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.upload_logger_builder = Some(
@@ -295,7 +292,7 @@ pub extern "C" fn qiniu_ng_config_builder_uplog_file_upload_threshold(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_uplog_file_max_size(builder: qiniu_ng_config_builder_t, max_size: c_uint) {
+pub extern "C" fn qiniu_ng_config_builder_uplog_file_max_size(builder: qiniu_ng_config_builder_t, max_size: u32) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.upload_logger_builder = Some(builder.upload_logger_builder.unwrap_or_default().max_size(max_size));
     let _ = qiniu_ng_config_builder_t::from(builder);
@@ -315,7 +312,7 @@ pub extern "C" fn qiniu_ng_config_builder_upload_recorder_root_directory(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_upload_recorder_upload_block_lifetime(
     builder: qiniu_ng_config_builder_t,
-    upload_block_lifetime: c_ulonglong,
+    upload_block_lifetime: u64,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.upload_recorder_builder = builder
@@ -372,7 +369,7 @@ pub extern "C" fn qiniu_ng_config_builder_create_new_domains_manager(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_domains_manager_url_frozen_duration(
     builder: qiniu_ng_config_builder_t,
-    url_frozen_duration: c_ulonglong,
+    url_frozen_duration: u64,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.domains_manager_builder = builder
@@ -384,7 +381,7 @@ pub extern "C" fn qiniu_ng_config_builder_domains_manager_url_frozen_duration(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_domains_manager_resolutions_cache_lifetime(
     builder: qiniu_ng_config_builder_t,
-    resolutions_cache_lifetime: c_ulonglong,
+    resolutions_cache_lifetime: u64,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.domains_manager_builder = builder
@@ -410,7 +407,7 @@ pub extern "C" fn qiniu_ng_config_builder_domains_manager_enable_url_resolution(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_domains_manager_auto_persistent_interval(
     builder: qiniu_ng_config_builder_t,
-    persistent_interval: c_ulonglong,
+    persistent_interval: u64,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.domains_manager_builder = builder
@@ -439,7 +436,7 @@ pub extern "C" fn qiniu_ng_config_builder_domains_manager_url_resolve_retries(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_domains_manager_url_resolve_retry_delay(
     builder: qiniu_ng_config_builder_t,
-    url_resolve_retry_delay: c_ulonglong,
+    url_resolve_retry_delay: u64,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.domains_manager_builder = builder
@@ -768,7 +765,7 @@ pub extern "C" fn qiniu_ng_config_get_uplog_url(config: qiniu_ng_config_t) -> qi
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_get_upload_token_lifetime(config: qiniu_ng_config_t) -> c_ulonglong {
+pub extern "C" fn qiniu_ng_config_get_upload_token_lifetime(config: qiniu_ng_config_t) -> u64 {
     let config = Option::<Config>::from(config).unwrap();
     config.upload_token_lifetime().as_secs().tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
@@ -784,7 +781,7 @@ pub extern "C" fn qiniu_ng_config_get_batch_max_operation_size(config: qiniu_ng_
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_get_upload_threshold(config: qiniu_ng_config_t) -> c_uint {
+pub extern "C" fn qiniu_ng_config_get_upload_threshold(config: qiniu_ng_config_t) -> u32 {
     let config = Option::<Config>::from(config).unwrap();
     config.upload_threshold().tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
@@ -792,7 +789,7 @@ pub extern "C" fn qiniu_ng_config_get_upload_threshold(config: qiniu_ng_config_t
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_get_upload_block_size(config: qiniu_ng_config_t) -> c_uint {
+pub extern "C" fn qiniu_ng_config_get_upload_block_size(config: qiniu_ng_config_t) -> u32 {
     let config = Option::<Config>::from(config).unwrap();
     config.upload_block_size().tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
@@ -808,7 +805,7 @@ pub extern "C" fn qiniu_ng_config_get_http_request_retries(config: qiniu_ng_conf
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_get_http_request_retry_delay(config: qiniu_ng_config_t) -> c_ulonglong {
+pub extern "C" fn qiniu_ng_config_get_http_request_retry_delay(config: qiniu_ng_config_t) -> u64 {
     let config = Option::<Config>::from(config).unwrap();
     config.http_request_retry_delay().as_secs().tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
@@ -862,7 +859,7 @@ pub extern "C" fn qiniu_ng_config_get_uplog_file_lock_policy(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_uplog_file_upload_threshold(
     config: qiniu_ng_config_t,
-    upload_threshold: *mut c_uint,
+    upload_threshold: *mut u32,
 ) -> bool {
     let config = Option::<Config>::from(config).unwrap();
     config
@@ -881,7 +878,7 @@ pub extern "C" fn qiniu_ng_config_get_uplog_file_upload_threshold(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_get_uplog_file_max_size(config: qiniu_ng_config_t, max_size: *mut c_uint) -> bool {
+pub extern "C" fn qiniu_ng_config_get_uplog_file_max_size(config: qiniu_ng_config_t, max_size: *mut u32) -> bool {
     let config = Option::<Config>::from(config).unwrap();
     config
         .upload_logger()
@@ -916,7 +913,7 @@ pub extern "C" fn qiniu_ng_config_get_upload_recorder_root_directory(config: qin
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_get_upload_recorder_upload_block_lifetime(config: qiniu_ng_config_t) -> c_ulonglong {
+pub extern "C" fn qiniu_ng_config_get_upload_recorder_upload_block_lifetime(config: qiniu_ng_config_t) -> u64 {
     let config = Option::<Config>::from(config).unwrap();
     config.upload_recorder().upload_block_lifetime().as_secs().tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
@@ -932,7 +929,7 @@ pub extern "C" fn qiniu_ng_config_get_upload_recorder_always_flush_records(confi
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_get_domains_manager_url_frozen_duration(config: qiniu_ng_config_t) -> c_ulonglong {
+pub extern "C" fn qiniu_ng_config_get_domains_manager_url_frozen_duration(config: qiniu_ng_config_t) -> u64 {
     let config = Option::<Config>::from(config).unwrap();
     config.domains_manager().url_frozen_duration().as_secs().tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
@@ -940,9 +937,7 @@ pub extern "C" fn qiniu_ng_config_get_domains_manager_url_frozen_duration(config
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_get_domains_manager_resolutions_cache_lifetime(
-    config: qiniu_ng_config_t,
-) -> c_ulonglong {
+pub extern "C" fn qiniu_ng_config_get_domains_manager_resolutions_cache_lifetime(config: qiniu_ng_config_t) -> u64 {
     let config = Option::<Config>::from(config).unwrap();
     config
         .domains_manager()
@@ -962,9 +957,7 @@ pub extern "C" fn qiniu_ng_config_get_domains_manager_url_resolution_disabled(co
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_get_domains_manager_auto_persistent_interval(
-    config: qiniu_ng_config_t,
-) -> c_ulonglong {
+pub extern "C" fn qiniu_ng_config_get_domains_manager_auto_persistent_interval(config: qiniu_ng_config_t) -> u64 {
     let config = Option::<Config>::from(config).unwrap();
     config
         .domains_manager()
@@ -993,9 +986,7 @@ pub extern "C" fn qiniu_ng_config_get_domains_manager_url_resolve_retries(config
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_get_domains_manager_url_resolve_retry_delay(
-    config: qiniu_ng_config_t,
-) -> c_ulonglong {
+pub extern "C" fn qiniu_ng_config_get_domains_manager_url_resolve_retry_delay(config: qiniu_ng_config_t) -> u64 {
     let config = Option::<Config>::from(config).unwrap();
     config.domains_manager().url_resolve_retry_delay().as_secs().tap(|_| {
         let _ = qiniu_ng_config_t::from(config);

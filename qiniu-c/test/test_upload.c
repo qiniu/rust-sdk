@@ -8,7 +8,7 @@
 #include <windows.h>
 long long last_print_time;
 HANDLE mutex;
-void print_progress(unsigned long long uploaded, unsigned long long total) {
+void print_progress(uint64_t uploaded, uint64_t total) {
     DWORD mutex_wait_result = WaitForSingleObject(mutex, INFINITE);
     switch (mutex_wait_result) {
     case WAIT_OBJECT_0:
@@ -26,7 +26,7 @@ void print_progress(unsigned long long uploaded, unsigned long long total) {
 #include <unistd.h>
 #include <stdatomic.h>
 atomic_llong last_print_time;
-void print_progress(unsigned long long uploaded, unsigned long long total) {
+void print_progress(uint64_t uploaded, uint64_t total) {
     if (last_print_time + 5 < (long long) time(NULL)) {
         printf("progress: %lld / %lld\n", uploaded, total);
         last_print_time = (long long) time(NULL);
@@ -54,12 +54,9 @@ void test_qiniu_ng_upload_files(void) {
     memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
     TEST_ASSERT_TRUE(qiniu_ng_etag_from_file_path(file_path, (char *) &etag[0], NULL));
 
-    qiniu_ng_upload_policy_t policy = {
-        .bucket = QINIU_NG_CHARS("z0-bucket"),
-        .insert_only = true,
-        .deadline = (unsigned long long) time(NULL) + 86400,
-    };
-    qiniu_ng_upload_token_t token = qiniu_ng_new_upload_token_from_policy(&policy, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_new_upload_policy_builder_for_bucket(QINIU_NG_CHARS("z0-bucket"), (unsigned long long) time(NULL) + 86400);
+    qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
+    qiniu_ng_upload_token_t token = qiniu_ng_new_upload_token_from_policy_builder(&policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
 
     last_print_time = (long long) time(NULL);
 #if defined(_WIN32) || defined(WIN32)
@@ -131,11 +128,8 @@ void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
         upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
 
-    qiniu_ng_upload_policy_t policy = {
-        .bucket = QINIU_NG_CHARS("z0-bucket"),
-        .deadline = (unsigned long long) time(NULL) + 86400,
-    };
-    qiniu_ng_upload_token_t token = qiniu_ng_new_upload_token_from_policy(&policy, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_new_upload_policy_builder_for_bucket(QINIU_NG_CHARS("z0-bucket"), (unsigned long long) time(NULL) + 86400);
+    qiniu_ng_upload_token_t token = qiniu_ng_new_upload_token_from_policy_builder(&policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
 
     qiniu_ng_upload_params_t params = {
         .mime = "invalid"
@@ -163,14 +157,11 @@ void test_qiniu_ng_upload_file_path_failed_by_non_existed_path(void) {
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
         upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
 
-    qiniu_ng_upload_policy_t policy = {
-        .bucket = QINIU_NG_CHARS("z0-bucket"),
-        .deadline = (unsigned long long) time(NULL) + 86400,
-    };
-    qiniu_ng_upload_token_t token = qiniu_ng_new_upload_token_from_policy(&policy, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_new_upload_policy_builder_for_bucket(QINIU_NG_CHARS("z0-bucket"), (unsigned long long) time(NULL) + 86400);
+    qiniu_ng_upload_token_t token = qiniu_ng_new_upload_token_from_policy_builder(&policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
 
     qiniu_ng_err_t err;
-    int code;
+    int32_t code;
 
     TEST_ASSERT_FALSE(qiniu_ng_upload_file_path(bucket_uploader, token, QINIU_NG_CHARS("/不存在的路径"), NULL, NULL, &err));
     TEST_ASSERT_FALSE(qiniu_ng_err_bad_mime_type_error_extract(&err, NULL));

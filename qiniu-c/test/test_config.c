@@ -38,7 +38,7 @@ void test_qiniu_ng_config_new(void) {
 
     TEST_ASSERT_TRUE(qiniu_ng_config_is_uplog_enabled(config));
 
-    unsigned int upload_threshold;
+    uint32_t upload_threshold;
     TEST_ASSERT_TRUE(qiniu_ng_config_get_uplog_file_upload_threshold(config, &upload_threshold));
     TEST_ASSERT_EQUAL_UINT(upload_threshold, 1 << 12);
     TEST_ASSERT_EQUAL_UINT(qiniu_ng_config_get_upload_recorder_upload_block_lifetime(config), 60 * 60 * 24 * 7);

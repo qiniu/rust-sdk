@@ -159,11 +159,21 @@ impl qiniu_ng_str_list_t {
             .into()
     }
 
+    pub(crate) unsafe fn from_optional_str_slice_unchecked(list: Option<&[&str]>) -> Self {
+        list.map(|list| Self::from_str_slice_unchecked(list))
+            .unwrap_or_default()
+    }
+
     pub(crate) unsafe fn from_string_vec_unchecked(list: Vec<String>) -> Self {
         list.into_iter()
             .map(|s| UCString::from_string_unchecked(s).into_boxed_ucstr())
             .collect::<Box<[_]>>()
             .into()
+    }
+
+    pub(crate) unsafe fn from_optional_string_vec_unchecked(list: Option<Vec<String>>) -> Self {
+        list.map(|list| Self::from_string_vec_unchecked(list))
+            .unwrap_or_default()
     }
 }
 

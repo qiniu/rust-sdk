@@ -5,7 +5,6 @@ use thiserror::Error;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum UploadToken<'p> {
-    // TODO: Token 缓存 Policy，Policy 缓存 Token
     Token(Cow<'p, str>),
     Policy(UploadPolicy<'p>, Cow<'p, Credential>),
 }
@@ -47,10 +46,10 @@ impl<'p> UploadToken<'p> {
         }
     }
 
-    pub fn token(self) -> String {
+    pub fn token(&self) -> String {
         match self {
-            UploadToken::Token(token) => token.into_owned(),
-            UploadToken::Policy(policy, credential) => credential.sign_upload_policy(&policy),
+            UploadToken::Token(token) => token.to_owned().into_owned(),
+            UploadToken::Policy(policy, credential) => credential.sign_upload_policy(policy),
         }
     }
 }
