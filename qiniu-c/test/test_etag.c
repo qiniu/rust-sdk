@@ -63,7 +63,7 @@ void test_qiniu_ng_etag_from_large_buffer(void) {
     qiniu_ng_etag_update(qiniu_ng_etag, (void *) buf, strlen(buf));
     qiniu_ng_etag_update(qiniu_ng_etag, (void *) buf, strlen(buf));
     qiniu_ng_etag_result(qiniu_ng_etag, (char *) &etag);
-    qiniu_ng_etag_free(qiniu_ng_etag);
+    qiniu_ng_etag_free(&qiniu_ng_etag);
 
     TEST_ASSERT_EQUAL_STRING((const char *) &etag, "FhV9_jRUUi8lQ9eL_AbKIZj5pWXx");
 }

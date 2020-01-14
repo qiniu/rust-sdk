@@ -6,7 +6,7 @@
 void test_qiniu_ng_storage_bucket_names(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    env_load("..", false);
+    TEST_ASSERT_EQUAL_INT(env_load("..", false), 0);
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
 
     qiniu_ng_str_list_t bucket_names;
@@ -18,15 +18,15 @@ void test_qiniu_ng_storage_bucket_names(void) {
         const qiniu_ng_char_t* bucket_name;
         TEST_ASSERT_TRUE(qiniu_ng_str_list_get(bucket_names, i, &bucket_name));
     }
-    qiniu_ng_str_list_free(bucket_names);
-    qiniu_ng_client_free(client);
-    qiniu_ng_config_free(config);
+    qiniu_ng_str_list_free(&bucket_names);
+    qiniu_ng_client_free(&client);
+    qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_storage_bucket_create_and_drop(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    env_load("..", false);
+    TEST_ASSERT_EQUAL_INT(env_load("..", false), 0);
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
 
     const qiniu_ng_char_t new_bucket_name[40];
@@ -51,18 +51,18 @@ void test_qiniu_ng_storage_bucket_create_and_drop(void) {
             found_new_bucket = true;
         }
     }
-    qiniu_ng_str_list_free(bucket_names);
+    qiniu_ng_str_list_free(&bucket_names);
     TEST_ASSERT_TRUE(found_new_bucket);
 
     TEST_ASSERT_TRUE(qiniu_ng_storage_drop_bucket(client, new_bucket_name, NULL));
-    qiniu_ng_client_free(client);
-    qiniu_ng_config_free(config);
+    qiniu_ng_client_free(&client);
+    qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_storage_bucket_create_duplicated(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    env_load("..", false);
+    TEST_ASSERT_EQUAL_INT(env_load("..", false), 0);
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
 
     qiniu_ng_err_t err;
@@ -79,7 +79,7 @@ void test_qiniu_ng_storage_bucket_create_duplicated(void) {
     TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_get_ptr(error_message), QINIU_NG_CHARS("the bucket already exists and you own it."));
     TEST_ASSERT_FALSE(qiniu_ng_err_response_status_code_error_extract(&err, NULL, NULL));
 
-    qiniu_ng_str_free(error_message);
-    qiniu_ng_client_free(client);
-    qiniu_ng_config_free(config);
+    qiniu_ng_str_free(&error_message);
+    qiniu_ng_client_free(&client);
+    qiniu_ng_config_free(&config);
 }

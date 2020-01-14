@@ -9,7 +9,11 @@ void test_qiniu_ng_str(void) {
     qiniu_ng_str_t qiniu_str = qiniu_ng_str_new(str);
     TEST_ASSERT_EQUAL_STRING(qiniu_ng_str_get_ptr(qiniu_str), str);
     TEST_ASSERT_EQUAL_INT(qiniu_ng_str_get_len(qiniu_str), len);
-    qiniu_ng_str_free(qiniu_str);
+    qiniu_ng_str_free(&qiniu_str);
+    TEST_ASSERT_TRUE(qiniu_ng_str_is_freed(qiniu_str));
+    TEST_ASSERT_NULL(qiniu_str._0);
+    TEST_ASSERT_NULL(qiniu_str._1);
+    qiniu_ng_str_free(&qiniu_str);
 }
 
 void test_qiniu_ng_str_list(void) {
@@ -25,7 +29,7 @@ void test_qiniu_ng_str_list(void) {
     qiniu_ng_str_list_get(list, 2, &str);
     TEST_ASSERT_EQUAL_STRING(str, QINIU_NG_CHARS("你好，科多兽"));
 
-    qiniu_ng_str_list_free(list);
+    qiniu_ng_str_list_free(&list);
 }
 
 bool test_qiniu_ng_str_map_handler(const qiniu_ng_char_t*, const qiniu_ng_char_t*, void*);
@@ -45,7 +49,7 @@ void test_qiniu_ng_str_map(void) {
     int score = 0;
     qiniu_ng_str_map_each_entry(map, test_qiniu_ng_str_map_handler, &score);
     TEST_ASSERT_EQUAL_INT(score, 10);
-    qiniu_ng_str_map_free(map);
+    qiniu_ng_str_map_free(&map);
 }
 
 bool test_qiniu_ng_str_map_handler(const qiniu_ng_char_t *key, const qiniu_ng_char_t *value, void *score) {

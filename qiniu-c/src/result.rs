@@ -64,11 +64,11 @@ pub extern "C" fn qiniu_ng_err_os_error_extract(err: &mut qiniu_ng_err_t, code: 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_io_error_extract(err: &mut qiniu_ng_err_t, description: *mut qiniu_ng_str_t) -> bool {
     match err.0 {
-        qiniu_ng_err_kind_t::qiniu_ng_err_kind_io_error(error_description) => {
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_io_error(mut error_description) => {
             if let Some(description) = unsafe { description.as_mut() } {
                 *description = error_description;
             } else {
-                qiniu_ng_str_free(error_description);
+                qiniu_ng_str_free(&mut error_description);
             }
             err.0 = qiniu_ng_err_kind_t::qiniu_ng_err_kind_none;
             true
@@ -83,11 +83,11 @@ pub extern "C" fn qiniu_ng_err_unknown_error_extract(
     description: *mut qiniu_ng_str_t,
 ) -> bool {
     match err.0 {
-        qiniu_ng_err_kind_t::qiniu_ng_err_kind_unknown_error(error_description) => {
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_unknown_error(mut error_description) => {
             if let Some(description) = unsafe { description.as_mut() } {
                 *description = error_description;
             } else {
-                qiniu_ng_str_free(error_description);
+                qiniu_ng_str_free(&mut error_description);
             }
             err.0 = qiniu_ng_err_kind_t::qiniu_ng_err_kind_none;
             true
@@ -121,11 +121,11 @@ pub extern "C" fn qiniu_ng_err_user_canceled_error_extract(err: &mut qiniu_ng_er
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_json_error_extract(err: &mut qiniu_ng_err_t, description: *mut qiniu_ng_str_t) -> bool {
     match err.0 {
-        qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(error_description) => {
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(mut error_description) => {
             if let Some(description) = unsafe { description.as_mut() } {
                 *description = error_description;
             } else {
-                qiniu_ng_str_free(error_description);
+                qiniu_ng_str_free(&mut error_description);
             }
             err.0 = qiniu_ng_err_kind_t::qiniu_ng_err_kind_none;
             true
@@ -141,14 +141,14 @@ pub extern "C" fn qiniu_ng_err_response_status_code_error_extract(
     error: *mut qiniu_ng_str_t,
 ) -> bool {
     match err.0 {
-        qiniu_ng_err_kind_t::qiniu_ng_err_kind_response_status_code_error(code, error_description) => {
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_response_status_code_error(code, mut error_description) => {
             if let Some(status_code) = unsafe { status_code.as_mut() } {
                 *status_code = code;
             }
             if let Some(error) = unsafe { error.as_mut() } {
                 *error = error_description;
             } else {
-                qiniu_ng_str_free(error_description);
+                qiniu_ng_str_free(&mut error_description);
             }
             err.0 = qiniu_ng_err_kind_t::qiniu_ng_err_kind_none;
             true
@@ -174,11 +174,11 @@ pub extern "C" fn qiniu_ng_err_bad_mime_type_error_extract(
     description: *mut qiniu_ng_str_t,
 ) -> bool {
     match err.0 {
-        qiniu_ng_err_kind_t::qiniu_ng_err_kind_bad_mime_type(error_description) => {
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_bad_mime_type(mut error_description) => {
             if let Some(description) = unsafe { description.as_mut() } {
                 *description = error_description;
             } else {
-                qiniu_ng_str_free(error_description);
+                qiniu_ng_str_free(&mut error_description);
             }
             err.0 = qiniu_ng_err_kind_t::qiniu_ng_err_kind_none;
             true
@@ -241,12 +241,12 @@ pub extern "C" fn qiniu_ng_err_invalid_upload_token_base64_error_extract(
 ) -> bool {
     match err.0 {
         qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_base64_decode_error(
-            error_description,
+            mut error_description,
         ) => {
             if let Some(error) = unsafe { error.as_mut() } {
                 *error = error_description;
             } else {
-                qiniu_ng_str_free(error_description);
+                qiniu_ng_str_free(&mut error_description);
             }
             err.0 = qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_none;
             true
@@ -262,12 +262,12 @@ pub extern "C" fn qiniu_ng_err_invalid_upload_token_json_error_extract(
 ) -> bool {
     match err.0 {
         qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_json_decode_error(
-            error_description,
+            mut error_description,
         ) => {
             if let Some(error) = unsafe { error.as_mut() } {
                 *error = error_description;
             } else {
-                qiniu_ng_str_free(error_description);
+                qiniu_ng_str_free(&mut error_description);
             }
             err.0 = qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_none;
             true
@@ -279,14 +279,14 @@ pub extern "C" fn qiniu_ng_err_invalid_upload_token_json_error_extract(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_ignore(err: &mut qiniu_ng_err_t) {
     match err.0 {
-        qiniu_ng_err_kind_t::qiniu_ng_err_kind_io_error(desc) => qiniu_ng_str_free(desc),
-        qiniu_ng_err_kind_t::qiniu_ng_err_kind_unknown_error(desc) => qiniu_ng_str_free(desc),
-        qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(desc) => qiniu_ng_str_free(desc),
-        qiniu_ng_err_kind_t::qiniu_ng_err_kind_response_status_code_error(_, desc) => qiniu_ng_str_free(desc),
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_io_error(mut desc) => qiniu_ng_str_free(&mut desc),
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_unknown_error(mut desc) => qiniu_ng_str_free(&mut desc),
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(mut desc) => qiniu_ng_str_free(&mut desc),
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_response_status_code_error(_, mut desc) => qiniu_ng_str_free(&mut desc),
         qiniu_ng_err_kind_t::qiniu_ng_err_kind_invalid_upload_token_error(mut err) => {
             qiniu_ng_invalid_upload_token_error_ignore(&mut err)
         }
-        qiniu_ng_err_kind_t::qiniu_ng_err_kind_bad_mime_type(desc) => qiniu_ng_str_free(desc),
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_bad_mime_type(mut desc) => qiniu_ng_str_free(&mut desc),
         _ => {}
     }
     err.0 = qiniu_ng_err_kind_t::qiniu_ng_err_kind_none;
@@ -296,11 +296,11 @@ pub extern "C" fn qiniu_ng_err_ignore(err: &mut qiniu_ng_err_t) {
 pub extern "C" fn qiniu_ng_invalid_upload_token_error_ignore(err: &mut qiniu_ng_invalid_upload_token_error_t) {
     match err.0 {
         qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_base64_decode_error(
-            desc,
-        ) => qiniu_ng_str_free(desc),
+            mut desc,
+        ) => qiniu_ng_str_free(&mut desc),
         qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_json_decode_error(
-            desc,
-        ) => qiniu_ng_str_free(desc),
+            mut desc,
+        ) => qiniu_ng_str_free(&mut desc),
         _ => {}
     }
     err.0 = qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_none;

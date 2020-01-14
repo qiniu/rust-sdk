@@ -5,16 +5,40 @@ use crate::{
 };
 use libc::c_void;
 use qiniu_ng::Client;
-use std::mem::transmute;
+use std::{mem::transmute, ptr::null_mut};
 use tap::TapOps;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_client_t(*mut c_void);
 
-impl From<qiniu_ng_client_t> for Box<Client> {
+impl Default for qiniu_ng_client_t {
+    #[inline]
+    fn default() -> Self {
+        Self(null_mut())
+    }
+}
+
+impl qiniu_ng_client_t {
+    #[inline]
+    pub fn is_null(self) -> bool {
+        self.0.is_null()
+    }
+}
+
+impl From<qiniu_ng_client_t> for Option<Box<Client>> {
     fn from(client: qiniu_ng_client_t) -> Self {
-        unsafe { Box::from_raw(transmute(client)) }
+        if client.is_null() {
+            None
+        } else {
+            Some(unsafe { Box::from_raw(transmute(client)) })
+        }
+    }
+}
+
+impl From<Option<Box<Client>>> for qiniu_ng_client_t {
+    fn from(client: Option<Box<Client>>) -> Self {
+        client.map(|client| client.into()).unwrap_or_default()
     }
 }
 
@@ -33,19 +57,27 @@ pub extern "C" fn qiniu_ng_client_new(
     Box::new(Client::new(
         unsafe { ucstr::from_ptr(access_key) }.to_string().unwrap(),
         unsafe { ucstr::from_ptr(secret_key) }.to_string().unwrap(),
-        config.get_clone(),
+        config.get_clone().unwrap(),
     ))
     .into()
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_client_free(client: qiniu_ng_client_t) {
-    let _ = Box::<Client>::from(client);
+pub extern "C" fn qiniu_ng_client_free(client: *mut qiniu_ng_client_t) {
+    if let Some(client) = unsafe { client.as_mut() } {
+        let _ = Option::<Box<Client>>::from(*client);
+        *client = qiniu_ng_client_t::default();
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_client_is_freed(client: qiniu_ng_client_t) -> bool {
+    client.is_null()
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_client_get_upload_manager(client: qiniu_ng_client_t) -> qiniu_ng_upload_manager_t {
-    let client = Box::<Client>::from(client);
+    let client = Option::<Box<Client>>::from(client).unwrap();
     Box::new(client.upload().to_owned())
         .tap(|_| {
             let _ = qiniu_ng_client_t::from(client);

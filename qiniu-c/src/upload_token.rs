@@ -13,7 +13,7 @@ use qiniu_ng::{
 };
 use std::{
     mem::transmute,
-    ptr::null,
+    ptr::{null, null_mut},
     slice,
     time::{Duration, SystemTime},
 };
@@ -426,9 +426,33 @@ impl UploadToken {
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_token_t(*mut c_void);
 
-impl From<qiniu_ng_upload_token_t> for Box<UploadToken> {
+impl Default for qiniu_ng_upload_token_t {
+    #[inline]
+    fn default() -> Self {
+        Self(null_mut())
+    }
+}
+
+impl qiniu_ng_upload_token_t {
+    #[inline]
+    pub fn is_null(self) -> bool {
+        self.0.is_null()
+    }
+}
+
+impl From<qiniu_ng_upload_token_t> for Option<Box<UploadToken>> {
     fn from(upload_token: qiniu_ng_upload_token_t) -> Self {
-        unsafe { Box::from_raw(transmute(upload_token)) }
+        if upload_token.is_null() {
+            None
+        } else {
+            Some(unsafe { Box::from_raw(transmute(upload_token)) })
+        }
+    }
+}
+
+impl From<Option<Box<UploadToken>>> for qiniu_ng_upload_token_t {
+    fn from(upload_token: Option<Box<UploadToken>>) -> Self {
+        upload_token.map(|upload_token| upload_token.into()).unwrap_or_default()
     }
 }
 
@@ -463,13 +487,21 @@ pub extern "C" fn qiniu_ng_new_upload_token_from_token(token: *const qiniu_ng_ch
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_token_free(token: qiniu_ng_upload_token_t) {
-    let _ = Box::<UploadToken>::from(token);
+pub extern "C" fn qiniu_ng_upload_token_free(token: *mut qiniu_ng_upload_token_t) {
+    if let Some(token) = unsafe { token.as_mut() } {
+        let _ = Option::<Box<UploadToken>>::from(*token);
+        *token = qiniu_ng_upload_token_t::default();
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_upload_token_is_freed(token: qiniu_ng_upload_token_t) -> bool {
+    token.is_null()
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_token_get_token(token: qiniu_ng_upload_token_t) -> *const qiniu_ng_char_t {
-    let token = Box::<UploadToken>::from(token);
+    let token = Option::<Box<UploadToken>>::from(token).unwrap();
     token.get_upload_token().as_ptr().tap(|_| {
         let _ = qiniu_ng_upload_token_t::from(token);
     })
@@ -481,7 +513,7 @@ pub extern "C" fn qiniu_ng_upload_token_get_policy(
     policy: *mut qiniu_ng_upload_policy_t,
     error: *mut qiniu_ng_err_t,
 ) -> bool {
-    let token = Box::<UploadToken>::from(token);
+    let token = Option::<Box<UploadToken>>::from(token).unwrap();
     match token.get_upload_policy() {
         Ok(upload_policy) => {
             if let Some(policy) = unsafe { policy.as_mut() } {

@@ -7,7 +7,7 @@ use libc::{c_char, c_void, size_t};
 use qiniu_ng::utils::etag;
 use std::{
     mem::{replace, transmute},
-    ptr::copy_nonoverlapping,
+    ptr::{copy_nonoverlapping, null_mut},
     slice::from_raw_parts,
 };
 
@@ -47,15 +47,39 @@ pub extern "C" fn qiniu_ng_etag_from_buffer(buffer: *const c_void, buffer_len: s
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_etag_t(*mut c_void);
 
-impl From<qiniu_ng_etag_t> for Box<etag::Etag> {
+impl Default for qiniu_ng_etag_t {
+    #[inline]
+    fn default() -> Self {
+        Self(null_mut())
+    }
+}
+
+impl qiniu_ng_etag_t {
+    #[inline]
+    pub fn is_null(self) -> bool {
+        self.0.is_null()
+    }
+}
+
+impl From<qiniu_ng_etag_t> for Option<Box<etag::Etag>> {
     fn from(etag: qiniu_ng_etag_t) -> Self {
-        unsafe { Box::from_raw(transmute(etag)) }
+        if etag.is_null() {
+            None
+        } else {
+            Some(unsafe { Box::from_raw(transmute(etag)) })
+        }
     }
 }
 
 impl From<Box<etag::Etag>> for qiniu_ng_etag_t {
     fn from(etag: Box<etag::Etag>) -> Self {
         unsafe { transmute(Box::into_raw(etag)) }
+    }
+}
+
+impl From<Option<Box<etag::Etag>>> for qiniu_ng_etag_t {
+    fn from(etag: Option<Box<etag::Etag>>) -> Self {
+        etag.map(|etag| etag.into()).unwrap_or_default()
     }
 }
 
@@ -66,14 +90,14 @@ pub extern "C" fn qiniu_ng_etag_new() -> qiniu_ng_etag_t {
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_update(etag: qiniu_ng_etag_t, data: *mut c_void, data_len: size_t) {
-    let mut etag = Box::<etag::Etag>::from(etag);
+    let mut etag = Option::<Box<etag::Etag>>::from(etag).unwrap();
     etag.input(unsafe { from_raw_parts(data.cast(), data_len) });
     let _ = qiniu_ng_etag_t::from(etag);
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_result(etag: qiniu_ng_etag_t, result_ptr: *mut c_void) {
-    let mut etag = Box::<etag::Etag>::from(etag);
+    let mut etag = Option::<Box<etag::Etag>>::from(etag).unwrap();
     let result = replace(&mut *etag, etag::new()).fixed_result();
     unsafe { copy_nonoverlapping(result.as_ptr(), result_ptr.cast(), ETAG_SIZE) };
     let _ = qiniu_ng_etag_t::from(etag);
@@ -81,12 +105,20 @@ pub extern "C" fn qiniu_ng_etag_result(etag: qiniu_ng_etag_t, result_ptr: *mut c
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_reset(etag: qiniu_ng_etag_t) {
-    let mut etag = Box::<etag::Etag>::from(etag);
+    let mut etag = Option::<Box<etag::Etag>>::from(etag).unwrap();
     etag.reset();
     let _ = qiniu_ng_etag_t::from(etag);
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_etag_free(etag: qiniu_ng_etag_t) {
-    let _ = Box::<etag::Etag>::from(etag);
+pub extern "C" fn qiniu_ng_etag_free(etag: *mut qiniu_ng_etag_t) {
+    if let Some(etag) = unsafe { etag.as_mut() } {
+        let _ = Option::<Box<etag::Etag>>::from(*etag);
+        *etag = qiniu_ng_etag_t::default();
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_etag_is_freed(etag: qiniu_ng_etag_t) -> bool {
+    etag.is_null()
 }

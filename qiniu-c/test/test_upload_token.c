@@ -4,7 +4,7 @@
 #include "test.h"
 
 void test_qiniu_ng_make_upload_token(void) {
-    env_load("..", false);
+    TEST_ASSERT_EQUAL_INT(env_load("..", false), 0);
 
     const qiniu_ng_char_t *callback_urls[2] = {
         QINIU_NG_CHARS("https://apin1.qiniu.com/callback"),
@@ -49,7 +49,7 @@ void test_qiniu_ng_make_upload_token(void) {
     TEST_ASSERT_NULL(policy2.callback_body_type);
 
     qiniu_ng_upload_token_t token2 = qiniu_ng_new_upload_token_from_token(t);
-    qiniu_ng_upload_token_free(token);
+    qiniu_ng_upload_token_free(&token);
 
     qiniu_ng_upload_policy_t policy3;
     TEST_ASSERT_TRUE(qiniu_ng_upload_token_get_policy(token2, &policy3, NULL));
@@ -77,5 +77,5 @@ void test_qiniu_ng_make_upload_token(void) {
     TEST_ASSERT_NULL(policy3.callback_host);
     TEST_ASSERT_EQUAL_STRING(policy3.callback_body, policy.callback_body);
     TEST_ASSERT_NULL(policy3.callback_body_type);
-    qiniu_ng_upload_token_free(token2);
+    qiniu_ng_upload_token_free(&token2);
 }

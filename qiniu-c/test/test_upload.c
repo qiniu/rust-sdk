@@ -37,7 +37,7 @@ void print_progress(unsigned long long uploaded, unsigned long long total) {
 void test_qiniu_ng_upload_files(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    env_load("..", false);
+    TEST_ASSERT_EQUAL_INT(env_load("..", false), 0);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
         upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
@@ -76,7 +76,7 @@ void test_qiniu_ng_upload_files(void) {
 
     qiniu_ng_str_t key = qiniu_ng_upload_response_get_key(upload_response);
     TEST_ASSERT_FALSE(qiniu_ng_str_is_null(key));
-    qiniu_ng_str_free(key);
+    qiniu_ng_str_free(&key);
 
     char hash[ETAG_SIZE + 1];
     size_t hash_size;
@@ -85,7 +85,7 @@ void test_qiniu_ng_upload_files(void) {
     TEST_ASSERT_EQUAL_INT(hash_size, ETAG_SIZE);
     TEST_ASSERT_EQUAL_STRING(hash, (const char *) &etag);
 
-    qiniu_ng_upload_response_free(upload_response);
+    qiniu_ng_upload_response_free(&upload_response);
 
     // TODO: Clean uploaded file
     last_print_time = (long long) time(NULL);
@@ -102,31 +102,31 @@ void test_qiniu_ng_upload_files(void) {
 
     key = qiniu_ng_upload_response_get_key(upload_response);
     TEST_ASSERT_FALSE(qiniu_ng_str_is_null(key));
-    qiniu_ng_str_free(key);
+    qiniu_ng_str_free(&key);
 
     memset(hash, 0, ETAG_SIZE + 1);
     qiniu_ng_upload_response_get_hash(upload_response, (char *) &hash[0], &hash_size);
     TEST_ASSERT_EQUAL_INT(hash_size, ETAG_SIZE);
     TEST_ASSERT_EQUAL_STRING(hash, (const char *) &etag);
 
-    qiniu_ng_upload_response_free(upload_response);
+    qiniu_ng_upload_response_free(&upload_response);
 
     // TODO: Clean uploaded file
 
-    qiniu_ng_upload_token_free(token);
+    qiniu_ng_upload_token_free(&token);
 
     DELETE_FILE(file_path);
     free((void *) file_path);
 
-    qiniu_ng_bucket_uploader_free(bucket_uploader);
-    qiniu_ng_upload_manager_free(upload_manager);
-    qiniu_ng_config_free(config);
+    qiniu_ng_bucket_uploader_free(&bucket_uploader);
+    qiniu_ng_upload_manager_free(&upload_manager);
+    qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    env_load("..", false);
+    TEST_ASSERT_EQUAL_INT(env_load("..", false), 0);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
         upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
@@ -145,20 +145,20 @@ void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
 
     TEST_ASSERT_FALSE(qiniu_ng_upload_file_path(bucket_uploader, token, QINIU_NG_CHARS("/不存在的路径"), &params, NULL, &err));
     TEST_ASSERT_TRUE(qiniu_ng_err_bad_mime_type_error_extract(&err, &error));
-    qiniu_ng_str_free(error);
+    qiniu_ng_str_free(&error);
     TEST_ASSERT_FALSE(qiniu_ng_err_bad_mime_type_error_extract(&err, &error));
 
-    qiniu_ng_upload_token_free(token);
+    qiniu_ng_upload_token_free(&token);
 
-    qiniu_ng_bucket_uploader_free(bucket_uploader);
-    qiniu_ng_upload_manager_free(upload_manager);
-    qiniu_ng_config_free(config);
+    qiniu_ng_bucket_uploader_free(&bucket_uploader);
+    qiniu_ng_upload_manager_free(&upload_manager);
+    qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_upload_file_path_failed_by_non_existed_path(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    env_load("..", false);
+    TEST_ASSERT_EQUAL_INT(env_load("..", false), 0);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
         upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
@@ -178,9 +178,9 @@ void test_qiniu_ng_upload_file_path_failed_by_non_existed_path(void) {
     TEST_ASSERT_EQUAL_STRING(strerror(code), "No such file or directory");
     TEST_ASSERT_FALSE(qiniu_ng_err_os_error_extract(&err, &code));
 
-    qiniu_ng_upload_token_free(token);
+    qiniu_ng_upload_token_free(&token);
 
-    qiniu_ng_bucket_uploader_free(bucket_uploader);
-    qiniu_ng_upload_manager_free(upload_manager);
-    qiniu_ng_config_free(config);
+    qiniu_ng_bucket_uploader_free(&bucket_uploader);
+    qiniu_ng_upload_manager_free(&upload_manager);
+    qiniu_ng_config_free(&config);
 }

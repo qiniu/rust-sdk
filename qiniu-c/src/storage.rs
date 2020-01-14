@@ -14,7 +14,7 @@ pub extern "C" fn qiniu_ng_storage_bucket_names(
     names: *mut qiniu_ng_str_list_t,
     error: *mut qiniu_ng_err_t,
 ) -> bool {
-    let client = Box::<Client>::from(client);
+    let client = Option::<Box<Client>>::from(client).unwrap();
     match client.storage().bucket_names().tap(|_| {
         let _ = qiniu_ng_client_t::from(client);
     }) {
@@ -40,7 +40,7 @@ pub extern "C" fn qiniu_ng_storage_create_bucket(
     region_id: qiniu_ng_region_id_t,
     error: *mut qiniu_ng_err_t,
 ) -> bool {
-    let client = Box::<Client>::from(client);
+    let client = Option::<Box<Client>>::from(client).unwrap();
     match client
         .storage()
         .create_bucket(
@@ -66,7 +66,7 @@ pub extern "C" fn qiniu_ng_storage_drop_bucket(
     bucket_name: *const qiniu_ng_char_t,
     error: *mut qiniu_ng_err_t,
 ) -> bool {
-    let client = Box::<Client>::from(client);
+    let client = Option::<Box<Client>>::from(client).unwrap();
     match client
         .storage()
         .drop_bucket(unsafe { ucstr::from_ptr(bucket_name) }.to_string().unwrap())

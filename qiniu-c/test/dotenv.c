@@ -131,7 +131,7 @@ static void parse(FILE *file, bool overwrite)
 
 static FILE *open_default(char *base_path)
 {
-    const size_t path_len = strlen(base_path) + strlen(".env") + 1;
+    const size_t path_len = strlen(base_path) + strlen(".env") + 2;
     char *path = (char *) malloc(path_len);
     snprintf(path, path_len, "%s/.env", base_path);
 
