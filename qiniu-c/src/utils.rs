@@ -1,5 +1,5 @@
 use crate::string::{qiniu_ng_char_t, ucstr, UCString};
-use libc::{c_void, size_t};
+use libc::{c_int, c_void, size_t};
 use std::{
     boxed::Box,
     collections::{hash_map::RandomState, HashMap},
@@ -309,12 +309,12 @@ pub extern "C" fn qiniu_ng_str_map_set(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_each_entry(
     hashmap: qiniu_ng_str_map_t,
-    handler: fn(key: *const qiniu_ng_char_t, value: *const qiniu_ng_char_t, data: *mut c_void) -> bool,
+    handler: fn(key: *const qiniu_ng_char_t, value: *const qiniu_ng_char_t, data: *mut c_void) -> c_int,
     data: *mut c_void,
 ) {
     let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap).unwrap();
     for (key, value) in hashmap.iter() {
-        if !handler(key.as_ptr(), value.as_ptr(), data) {
+        if handler(key.as_ptr(), value.as_ptr(), data) != 0 {
             break;
         }
     }
@@ -355,14 +355,14 @@ pub extern "C" fn qiniu_ng_str_map_free(hashmap: *mut qiniu_ng_str_map_t) {
 #[repr(C)]
 #[derive(Clone)]
 pub struct qiniu_ng_readable_t {
-    read_func: fn(context: *mut c_void, buf: *mut c_void, count: size_t, have_read: *mut size_t) -> bool,
+    read_func: fn(context: *mut c_void, buf: *mut c_void, count: size_t, have_read: *mut size_t) -> c_int,
     context: *mut c_void,
 }
 
 impl Read for qiniu_ng_readable_t {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let mut have_read: size_t = 0;
-        if (self.read_func)(self.context, buf.as_mut_ptr().cast(), buf.len(), &mut have_read) {
+        if (self.read_func)(self.context, buf.as_mut_ptr().cast(), buf.len(), &mut have_read) == 0 {
             Ok(have_read)
         } else {
             Err(Error::new(ErrorKind::Other, "User callback returns false"))

@@ -5,7 +5,7 @@ authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technol
 edition = "2018"
 license = "Apache-2.0"
 homepage = "https://www.qiniu.com"
-description = "New Generation Qiniu Resource Storage SDK for C/C++"
+description = "Qiniu Resource Storage SDK for C"
 
 [lib]
 crate-type = ["staticlib", "cdylib"]

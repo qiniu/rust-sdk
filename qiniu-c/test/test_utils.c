@@ -56,7 +56,7 @@ void test_qiniu_ng_str_list(void) {
     qiniu_ng_str_list_free(&list);
 }
 
-bool test_qiniu_ng_str_map_handler(const qiniu_ng_char_t*, const qiniu_ng_char_t*, void*);
+static int test_qiniu_ng_str_map_handler(const qiniu_ng_char_t*, const qiniu_ng_char_t*, void*);
 void test_qiniu_ng_str_map(void) {
     qiniu_ng_str_map_t map = qiniu_ng_str_map_new(5);
     qiniu_ng_str_map_set(map, QINIU_NG_CHARS("qiniu"), QINIU_NG_CHARS("七牛"));
@@ -88,32 +88,32 @@ void test_qiniu_ng_str_map(void) {
     qiniu_ng_str_map_free(&map);
 }
 
-bool test_qiniu_ng_str_map_handler(const qiniu_ng_char_t *key, const qiniu_ng_char_t *value, void *score) {
+static int test_qiniu_ng_str_map_handler(const qiniu_ng_char_t *key, const qiniu_ng_char_t *value, void *score) {
     if (QINIU_NG_CHARS_CMP(key, QINIU_NG_CHARS("qiniu")) == 0) {
         TEST_ASSERT_EQUAL_STRING_MESSAGE(
             value, QINIU_NG_CHARS("七牛"),
             "value != \"七牛\"");
         (*(unsigned long *) score) += 1;
-        return true;
+        return 0;
     } else if (QINIU_NG_CHARS_CMP(key, QINIU_NG_CHARS("kodo")) == 0) {
         TEST_ASSERT_EQUAL_STRING_MESSAGE(
             value, QINIU_NG_CHARS("科多兽"),
             "value != \"科多兽\"");
         (*(unsigned long *) score) += 2;
-        return true;
+        return 0;
     } else if (QINIU_NG_CHARS_CMP(key, QINIU_NG_CHARS("dora")) == 0) {
         TEST_ASSERT_EQUAL_STRING_MESSAGE(
             value, QINIU_NG_CHARS("多啦A梦"),
             "value != \"多啦A梦\"");
         (*(unsigned long *) score) += 3;
-        return true;
+        return 0;
     } else if (QINIU_NG_CHARS_CMP(key, QINIU_NG_CHARS("pandora")) == 0) {
         TEST_ASSERT_EQUAL_STRING_MESSAGE(
             value, QINIU_NG_CHARS("潘多拉"),
             "value != \"潘多拉\"");
         (*(unsigned long *) score) += 4;
-        return true;
+        return 0;
     } else {
-        return false;
+        return -1;
     }
 }

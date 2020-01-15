@@ -1,0 +1,16 @@
+[package]
+name = "qiniu-c-translator"
+version = "0.0.2"
+authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
+edition = "2018"
+license = "Apache-2.0"
+homepage = "https://www.qiniu.com"
+description = "Qiniu C headers Translator, generate c bindings for multiple programming languages"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clang = "0.23.0"
+tap = "0.4.0"
+clap = "2.33.0"
+getset = "0.0.9"
