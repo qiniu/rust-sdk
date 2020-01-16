@@ -1,5 +1,5 @@
+use crate::utils::generate_prefix_spaces;
 use clang::Entity;
-use std::iter;
 
 pub fn dump_entity(entity: &Entity, pretty_print: bool) {
     dump_entity_with_level(entity, pretty_print, 0);
@@ -7,7 +7,7 @@ pub fn dump_entity(entity: &Entity, pretty_print: bool) {
 
 fn dump_entity_with_level(entity: &Entity, pretty_print: bool, level: usize) {
     if entity.is_in_main_file() {
-        let prefix_spaces = iter::repeat(" ").take(level * 4).collect::<String>();
+        let prefix_spaces = generate_prefix_spaces(level, 4);
         if pretty_print {
             format!("{:#?}", entity)
                 .lines()

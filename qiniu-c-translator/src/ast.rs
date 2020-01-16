@@ -7,7 +7,7 @@ use std::fmt::Debug;
 use tap::TapOps;
 
 #[derive(Debug, Clone)]
-enum Declaration {
+pub enum Declaration {
     SourceFile(SourceFile),
     EnumConstant(EnumConstantDeclaration),
     Field(FieldDeclaration),
@@ -17,7 +17,7 @@ enum Declaration {
 }
 
 impl Declaration {
-    fn name(&self) -> Option<&str> {
+    pub fn name(&self) -> Option<&str> {
         match self {
             Self::SourceFile(source_file) => Some(source_file.path().as_str()),
             Self::EnumConstant(enum_constant) => Some(enum_constant.name().as_str()),
@@ -27,7 +27,7 @@ impl Declaration {
             Self::Type(t) => t.name(),
         }
     }
-    fn set_name(&mut self, new_name: String) {
+    pub fn set_name(&mut self, new_name: String) {
         match self {
             Self::SourceFile(source_file) => source_file.path = new_name,
             Self::EnumConstant(enum_constant) => enum_constant.name = new_name,
@@ -37,7 +37,7 @@ impl Declaration {
             Self::Type(t) => t.set_name(new_name),
         }
     }
-    fn location(&self) -> &SourceLocation {
+    pub fn location(&self) -> &SourceLocation {
         match self {
             Self::SourceFile(source_file) => source_file.location(),
             Self::EnumConstant(enum_constant) => enum_constant.location(),
@@ -47,7 +47,7 @@ impl Declaration {
             Self::Type(t) => t.location(),
         }
     }
-    fn sub_declarations(&self) -> Vec<Declaration> {
+    pub fn sub_declarations(&self) -> Vec<Declaration> {
         match self {
             Self::SourceFile(source_file) => source_file
                 .type_declarations()
@@ -72,34 +72,34 @@ impl Declaration {
 }
 
 #[derive(Debug, Clone)]
-enum TypeDeclaration {
+pub enum TypeDeclaration {
     Enum(EnumDeclaration),
     Struct(StructDeclaration),
 }
 
 impl TypeDeclaration {
-    fn name(&self) -> Option<&str> {
+    pub fn name(&self) -> Option<&str> {
         match self {
             Self::Enum(declaration) => declaration.enum_name().as_ref().map(|s| s.as_ref()),
             Self::Struct(declaration) => declaration.struct_name().as_ref().map(|s| s.as_ref()),
         }
     }
 
-    fn set_name(&mut self, new_name: String) {
+    pub fn set_name(&mut self, new_name: String) {
         match self {
             Self::Enum(declaration) => declaration.enum_name = Some(new_name),
             Self::Struct(declaration) => declaration.struct_name = Some(new_name),
         }
     }
 
-    fn location(&self) -> &SourceLocation {
+    pub fn location(&self) -> &SourceLocation {
         match self {
             Self::Enum(declaration) => declaration.location(),
             Self::Struct(declaration) => declaration.location(),
         }
     }
 
-    fn sub_declarations(&self) -> Vec<Declaration> {
+    pub fn sub_declarations(&self) -> Vec<Declaration> {
         match self {
             Self::Enum(declaration) => declaration
                 .constants()
@@ -114,13 +114,13 @@ impl TypeDeclaration {
         }
     }
 
-    fn typedef_name(&self) -> Option<&str> {
+    pub fn typedef_name(&self) -> Option<&str> {
         match self {
             Self::Enum(declaration) => declaration.typedef_name().as_ref().map(|n| n.as_ref()),
             Self::Struct(declaration) => declaration.typedef_name().as_ref().map(|n| n.as_ref()),
         }
     }
-    fn set_typedef_name(&mut self, new_typedef_name: String) {
+    pub fn set_typedef_name(&mut self, new_typedef_name: String) {
         match self {
             Self::Enum(declaration) => declaration.typedef_name = Some(new_typedef_name),
             Self::Struct(declaration) => declaration.typedef_name = Some(new_typedef_name),
@@ -129,7 +129,7 @@ impl TypeDeclaration {
 }
 
 #[derive(Debug, Clone, Getters)]
-struct FunctionType {
+pub struct FunctionType {
     #[get]
     return_type: Type,
 
@@ -150,13 +150,13 @@ impl FunctionType {
 }
 
 #[derive(Debug, Clone)]
-enum SubType {
+pub enum SubType {
     PointeeType(Type),
     FunctionType(FunctionType),
 }
 
 #[derive(Debug, Clone, Getters, CopyGetters)]
-struct Type {
+pub struct Type {
     #[get_copy]
     type_kind: ClangTypeKind,
 
@@ -323,7 +323,7 @@ enum EnumConstantValue {
 }
 
 #[derive(Debug, Clone, Getters, CopyGetters)]
-struct EnumConstantDeclaration {
+pub struct EnumConstantDeclaration {
     #[get]
     name: String,
 
@@ -357,7 +357,7 @@ impl EnumConstantDeclaration {
 }
 
 #[derive(Debug, Clone, Getters)]
-struct EnumDeclaration {
+pub struct EnumDeclaration {
     #[get]
     enum_name: Option<String>,
 
@@ -392,13 +392,13 @@ impl EnumDeclaration {
 }
 
 #[derive(Debug, Clone)]
-enum FieldType {
+pub enum FieldType {
     NamedType(Type),
     AnonymousType(StructDeclaration),
 }
 
 #[derive(Debug, Clone, Getters)]
-struct FieldDeclaration {
+pub struct FieldDeclaration {
     #[get]
     name: Option<String>,
 
@@ -430,7 +430,7 @@ impl FieldDeclaration {
 }
 
 #[derive(Debug, Clone, Getters, CopyGetters)]
-struct StructDeclaration {
+pub struct StructDeclaration {
     #[get]
     struct_name: Option<String>,
 
@@ -471,7 +471,7 @@ impl StructDeclaration {
 }
 
 #[derive(Debug, Clone, Getters)]
-struct FunctionDeclaration {
+pub struct FunctionDeclaration {
     #[get]
     name: String,
 
@@ -503,7 +503,7 @@ impl FunctionDeclaration {
 }
 
 #[derive(Debug, Clone, Getters)]
-struct ParameterDeclaration {
+pub struct ParameterDeclaration {
     #[get]
     name: String,
 
