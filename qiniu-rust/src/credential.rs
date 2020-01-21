@@ -382,15 +382,33 @@ mod tests {
     #[test]
     fn test_sign_request_v2() -> Result<(), Box<dyn Error>> {
         let credential = get_credential();
-        let empty_headers = Headers::new();
+        let empty_headers = {
+            let mut headers = Headers::new();
+            headers.insert("X-Qbox-Meta".into(), "value".into());
+            headers
+        };
         let json_headers = {
             let mut headers = Headers::new();
             headers.insert("Content-Type".into(), "application/json".into());
+            headers.insert("X-Qbox-Meta".into(), "value".into());
+            headers.insert("X-Qiniu-Cxxxx".into(), "valuec".into());
+            headers.insert("X-Qiniu-Bxxxx".into(), "valueb".into());
+            headers.insert("X-Qiniu-axxxx".into(), "valuea".into());
+            headers.insert("X-Qiniu-e".into(), "value".into());
+            headers.insert("X-Qiniu-".into(), "value".into());
+            headers.insert("X-Qiniu".into(), "value".into());
             headers
         };
         let form_headers = {
             let mut headers = Headers::new();
             headers.insert("Content-Type".into(), "application/x-www-form-urlencoded".into());
+            headers.insert("X-Qbox-Meta".into(), "value".into());
+            headers.insert("X-Qiniu-Cxxxx".into(), "valuec".into());
+            headers.insert("X-Qiniu-Bxxxx".into(), "valueb".into());
+            headers.insert("X-Qiniu-axxxx".into(), "valuea".into());
+            headers.insert("X-Qiniu-e".into(), "value".into());
+            headers.insert("X-Qiniu-".into(), "value".into());
+            headers.insert("X-Qiniu".into(), "value".into());
             headers
         };
         assert_eq!(
@@ -400,7 +418,19 @@ mod tests {
                 &json_headers,
                 Some(b"{\"name\":\"test\"}")
             )?,
-            credential.sign(b"GET /\nHost: upload.qiniup.com\nContent-Type: application/json\n\n{\"name\":\"test\"}")
+            credential.sign(
+                concat!(
+                    "GET /\n",
+                    "Host: upload.qiniup.com\n",
+                    "Content-Type: application/json\n",
+                    "X-Qiniu-Axxxx: valuea\n",
+                    "X-Qiniu-Bxxxx: valueb\n",
+                    "X-Qiniu-Cxxxx: valuec\n",
+                    "X-Qiniu-E: value\n\n",
+                    "{\"name\":\"test\"}"
+                )
+                .as_bytes()
+            )
         );
         assert_eq!(
             credential.sign_request_v2(
@@ -409,7 +439,7 @@ mod tests {
                 &empty_headers,
                 Some(b"{\"name\":\"test\"}")
             )?,
-            credential.sign(b"GET /\nHost: upload.qiniup.com\n\n")
+            credential.sign(concat!("GET /\n", "Host: upload.qiniup.com\n\n").as_bytes())
         );
         assert_eq!(
             credential.sign_request_v2(
@@ -418,7 +448,19 @@ mod tests {
                 &json_headers,
                 Some(b"{\"name\":\"test\"}")
             )?,
-            credential.sign(b"POST /\nHost: upload.qiniup.com\nContent-Type: application/json\n\n{\"name\":\"test\"}")
+            credential.sign(
+                concat!(
+                    "POST /\n",
+                    "Host: upload.qiniup.com\n",
+                    "Content-Type: application/json\n",
+                    "X-Qiniu-Axxxx: valuea\n",
+                    "X-Qiniu-Bxxxx: valueb\n",
+                    "X-Qiniu-Cxxxx: valuec\n",
+                    "X-Qiniu-E: value\n\n",
+                    "{\"name\":\"test\"}"
+                )
+                .as_bytes()
+            )
         );
         assert_eq!(
             credential.sign_request_v2(
@@ -427,7 +469,19 @@ mod tests {
                 &form_headers,
                 Some(b"name=test&language=go")
             )?,
-            credential.sign(b"GET /\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
+            credential.sign(
+                concat!(
+                    "GET /\n",
+                    "Host: upload.qiniup.com\n",
+                    "Content-Type: application/x-www-form-urlencoded\n",
+                    "X-Qiniu-Axxxx: valuea\n",
+                    "X-Qiniu-Bxxxx: valueb\n",
+                    "X-Qiniu-Cxxxx: valuec\n",
+                    "X-Qiniu-E: value\n\n",
+                    "name=test&language=go"
+                )
+                .as_bytes()
+            )
         );
         assert_eq!(
             credential.sign_request_v2(
@@ -436,7 +490,19 @@ mod tests {
                 &form_headers,
                 Some(b"name=test&language=go")
             )?,
-            credential.sign(b"GET /?v=2\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
+            credential.sign(
+                concat!(
+                    "GET /?v=2\n",
+                    "Host: upload.qiniup.com\n",
+                    "Content-Type: application/x-www-form-urlencoded\n",
+                    "X-Qiniu-Axxxx: valuea\n",
+                    "X-Qiniu-Bxxxx: valueb\n",
+                    "X-Qiniu-Cxxxx: valuec\n",
+                    "X-Qiniu-E: value\n\n",
+                    "name=test&language=go"
+                )
+                .as_bytes()
+            )
         );
         assert_eq!(
             credential.sign_request_v2(
@@ -445,7 +511,19 @@ mod tests {
                 &form_headers,
                 Some(b"name=test&language=go")
             )?,
-            credential.sign(b"GET /find/sdk?v=2\nHost: upload.qiniup.com\nContent-Type: application/x-www-form-urlencoded\n\nname=test&language=go")
+            credential.sign(
+                concat!(
+                    "GET /find/sdk?v=2\n",
+                    "Host: upload.qiniup.com\n",
+                    "Content-Type: application/x-www-form-urlencoded\n",
+                    "X-Qiniu-Axxxx: valuea\n",
+                    "X-Qiniu-Bxxxx: valueb\n",
+                    "X-Qiniu-Cxxxx: valuec\n",
+                    "X-Qiniu-E: value\n\n",
+                    "name=test&language=go"
+                )
+                .as_bytes()
+            )
         );
         Ok(())
     }
