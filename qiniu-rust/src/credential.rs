@@ -130,15 +130,17 @@ impl Credential {
         fn sign_data_for_x_qiniu_headers(data_to_sign: &mut Vec<u8>, headers: &Headers) {
             let mut x_qiniu_headers = headers
                 .iter()
+                .filter(|(key, _)| key.len() > "X-Qiniu-".len())
                 .filter(|(key, _)| key.starts_with("X-Qiniu-"))
-                .map(|(key, value)| key.to_string() + ": " + value)
                 .collect::<Vec<_>>();
             if x_qiniu_headers.is_empty() {
                 return;
             }
             x_qiniu_headers.sort_unstable();
-            for header_line in x_qiniu_headers {
-                data_to_sign.extend_from_slice(header_line.as_bytes());
+            for (header_key, header_value) in x_qiniu_headers {
+                data_to_sign.extend_from_slice(header_key.as_bytes());
+                data_to_sign.extend_from_slice(b": ");
+                data_to_sign.extend_from_slice(header_value.as_bytes());
                 data_to_sign.extend_from_slice(b"\n");
             }
         }

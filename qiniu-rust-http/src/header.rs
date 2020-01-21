@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    cmp::{Ord, Ordering},
     collections::HashMap,
     fmt,
     hash::{Hash, Hasher},
@@ -35,9 +36,21 @@ impl Deref for HeaderName<'_> {
     }
 }
 
-impl<'n> Hash for HeaderName<'n> {
+impl Hash for HeaderName<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_ref().to_uppercase().hash(state)
+    }
+}
+
+impl PartialOrd for HeaderName<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.to_ascii_lowercase().partial_cmp(&other.to_ascii_lowercase())
+    }
+}
+
+impl Ord for HeaderName<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.to_ascii_lowercase().cmp(&other.to_ascii_lowercase())
     }
 }
 
