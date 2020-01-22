@@ -53,8 +53,8 @@ pub struct ConfigInner {
     api_host: Cow<'static, str>,
 
     #[get = "pub"]
-    #[builder(default = "default::uplog_url()")]
-    uplog_url: Cow<'static, str>,
+    #[builder(default = "default::uplog_host()")]
+    uplog_host: Cow<'static, str>,
 
     #[get_copy = "pub"]
     #[builder(default = "default::upload_token_lifetime()")]
@@ -138,8 +138,8 @@ mod default {
     }
 
     #[inline]
-    pub const fn uplog_url() -> Cow<'static, str> {
-        Cow::Borrowed("https://uplog.qbox.me")
+    pub const fn uplog_host() -> Cow<'static, str> {
+        Cow::Borrowed("uplog.qbox.me")
     }
 
     #[inline]
@@ -199,7 +199,7 @@ impl fmt::Debug for ConfigInner {
             .field("rs_host", &self.rs_host)
             .field("rsf_host", &self.rsf_host)
             .field("api_host", &self.api_host)
-            .field("uplog_url", &self.uplog_url)
+            .field("uplog_host", &self.uplog_host)
             .field("upload_token_lifetime", &self.upload_token_lifetime)
             .field("batch_max_operation_size", &self.batch_max_operation_size)
             .field("upload_threshold", &self.upload_threshold)
@@ -247,6 +247,14 @@ impl ConfigInner {
             "https://".to_owned() + self.api_host.as_ref()
         } else {
             "http://".to_owned() + self.api_host.as_ref()
+        }
+    }
+
+    pub fn uplog_url(&self) -> String {
+        if self.use_https {
+            "https://".to_owned() + self.uplog_host.as_ref()
+        } else {
+            "http://".to_owned() + self.uplog_host.as_ref()
         }
     }
 }

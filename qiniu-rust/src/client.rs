@@ -17,9 +17,9 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new<AccessKey: Into<Cow<'static, str>>, SecretKey: Into<Cow<'static, str>>>(
-        access_key: AccessKey,
-        secret_key: SecretKey,
+    pub fn new(
+        access_key: impl Into<Cow<'static, str>>,
+        secret_key: impl Into<Cow<'static, str>>,
         config: Config,
     ) -> Client {
         let credential = Credential::new(access_key, secret_key);

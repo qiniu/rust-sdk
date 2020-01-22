@@ -583,7 +583,7 @@ impl DomainsManager {
         urls.insert(Cow::Owned(config.rs_url()));
         urls.insert(Cow::Owned(config.rsf_url()));
         urls.insert(Cow::Owned(config.api_url()));
-        urls.insert(config.uplog_url().to_owned());
+        urls.insert(Cow::Owned(config.uplog_url()));
         self.async_resolve_urls(urls)
     }
 

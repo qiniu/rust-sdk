@@ -157,14 +157,14 @@ pub extern "C" fn qiniu_ng_config_builder_api_host(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_uplog_url(
+pub extern "C" fn qiniu_ng_config_builder_uplog_host(
     builder: qiniu_ng_config_builder_t,
-    uplog_url: *const qiniu_ng_char_t,
+    uplog_host: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
         .config_builder
-        .uplog_url(unsafe { ucstr::from_ptr(uplog_url) }.to_string().unwrap().into());
+        .uplog_host(unsafe { ucstr::from_ptr(uplog_host) }.to_string().unwrap().into());
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
@@ -759,7 +759,7 @@ pub extern "C" fn qiniu_ng_config_get_api_url(config: qiniu_ng_config_t) -> qini
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_uplog_url(config: qiniu_ng_config_t) -> qiniu_ng_str_t {
     let config = Option::<Config>::from(config).unwrap();
-    unsafe { qiniu_ng_str_t::from_str_unchecked(config.uplog_url()) }.tap(|_| {
+    unsafe { qiniu_ng_str_t::from_string_unchecked(config.uplog_url()) }.tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
     })
 }
