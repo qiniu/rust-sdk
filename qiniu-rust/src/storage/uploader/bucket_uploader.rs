@@ -350,8 +350,8 @@ impl<'b> FileUploaderBuilder<'b> {
         if let Some(callback) = &self.on_uploading_progress {
             uploader = uploader.on_uploading_progress(callback.as_ref());
         }
-        if let Some(thread_pool_or_referenced) = self.thread_pool {
-            uploader = uploader.thread_pool_or_referenced(thread_pool_or_referenced);
+        if let Some(thread_pool) = self.thread_pool {
+            uploader = uploader.thread_pool(thread_pool);
         }
         let mut uploader = uploader.file(
             File::open(file_path)?,
@@ -435,8 +435,8 @@ impl<'b> FileUploaderBuilder<'b> {
         if let Some(callback) = &self.on_uploading_progress {
             uploader = uploader.on_uploading_progress(callback.as_ref());
         }
-        if let Some(thread_pool_or_referenced) = self.thread_pool {
-            uploader = uploader.thread_pool_or_referenced(thread_pool_or_referenced);
+        if let Some(thread_pool) = self.thread_pool {
+            uploader = uploader.thread_pool(thread_pool);
         }
         Ok(uploader
             .stream(

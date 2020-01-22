@@ -901,7 +901,7 @@ pub extern "C" fn qiniu_ng_config_get_upload_recorder_root_directory(config: qin
     config
         .upload_recorder()
         .recorder()
-        .as_any()
+        .as_downcastable()
         .downcast_ref::<FileSystemRecorder>()
         .map(|file_system_recorder| {
             qiniu_ng_str_t::from(UCString::from(file_system_recorder.root_directory().to_owned()).into_boxed_ucstr())

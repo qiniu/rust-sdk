@@ -122,10 +122,7 @@ impl<'u> ResumableUploaderBuilder<'u> {
         }
     }
 
-    pub(super) fn thread_pool_or_referenced(
-        mut self,
-        thread_pool: Ron<'u, ThreadPool>,
-    ) -> ResumableUploaderBuilder<'u> {
+    pub(super) fn thread_pool(mut self, thread_pool: Ron<'u, ThreadPool>) -> ResumableUploaderBuilder<'u> {
         self.thread_pool = Some(thread_pool);
         self
     }

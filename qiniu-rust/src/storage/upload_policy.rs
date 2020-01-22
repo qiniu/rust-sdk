@@ -68,7 +68,7 @@ impl<'p> UploadPolicy<'p> {
         self.scope.as_ref().and_then(|s| s.splitn(2, ':').nth(1))
     }
 
-    pub fn prefixal(&self) -> bool {
+    pub fn use_prefixal_object_key(&self) -> bool {
         bool_utils::int_to_bool(self.is_prefixal_scope.unwrap_or(0))
     }
 
@@ -128,7 +128,7 @@ impl<'p> UploadPolicy<'p> {
         self.force_save_key.unwrap_or(false)
     }
 
-    pub fn file_size(&self) -> (Option<usize>, Option<usize>) {
+    pub fn file_size_limitation(&self) -> (Option<usize>, Option<usize>) {
         (self.fsize_min, self.fsize_limit)
     }
 
@@ -346,7 +346,7 @@ impl<'p> UploadPolicyBuilder<'p> {
         self
     }
 
-    pub fn file_size(mut self, size: impl RangeBounds<usize>) -> UploadPolicyBuilder<'p> {
+    pub fn file_size_limitation(mut self, size: impl RangeBounds<usize>) -> UploadPolicyBuilder<'p> {
         self.inner.fsize_min = match size.start_bound() {
             Bound::Included(&s) => Some(s),
             Bound::Excluded(&s) => Some(s + 1),
@@ -436,7 +436,7 @@ mod tests {
         let one_hour_later = now + one_hour;
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), Some("test:object"));
-        assert!(!policy.prefixal());
+        assert!(!policy.use_prefixal_object_key());
         assert!(
             one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
                 - policy
@@ -471,7 +471,7 @@ mod tests {
         let one_hour_later = now + one_hour;
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), Some("test:object"));
-        assert!(policy.prefixal());
+        assert!(policy.use_prefixal_object_key());
         assert!(
             one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
                 - policy
@@ -715,9 +715,9 @@ mod tests {
     #[test]
     fn test_build_upload_policy_with_file_size_exclusive_limit() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
-            .file_size(15..20)
+            .file_size_limitation(15..20)
             .build();
-        assert_eq!(policy.file_size(), (Some(15), Some(19)));
+        assert_eq!(policy.file_size_limitation(), (Some(15), Some(19)));
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["fsizeMin"], 15);
         assert_eq!(v["fsizeLimit"], 19);
@@ -727,9 +727,9 @@ mod tests {
     #[test]
     fn test_build_upload_policy_with_file_size_inclusive_limit() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
-            .file_size(15..=20)
+            .file_size_limitation(15..=20)
             .build();
-        assert_eq!(policy.file_size(), (Some(15), Some(20)));
+        assert_eq!(policy.file_size_limitation(), (Some(15), Some(20)));
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["fsizeMin"], 15);
         assert_eq!(v["fsizeLimit"], 20);
@@ -739,9 +739,9 @@ mod tests {
     #[test]
     fn test_build_upload_policy_with_file_size_max_limit() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
-            .file_size(..20)
+            .file_size_limitation(..20)
             .build();
-        assert_eq!(policy.file_size(), (None, Some(19)));
+        assert_eq!(policy.file_size_limitation(), (None, Some(19)));
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["fsizeMin"], json!(null));
         assert_eq!(v["fsizeLimit"], 19);
@@ -751,9 +751,9 @@ mod tests {
     #[test]
     fn test_build_upload_policy_with_file_size_min_limit() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
-            .file_size(15..)
+            .file_size_limitation(15..)
             .build();
-        assert_eq!(policy.file_size(), (Some(15), None));
+        assert_eq!(policy.file_size_limitation(), (Some(15), None));
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["fsizeMin"], 15);
         assert_eq!(v["fsizeLimit"], json!(null));

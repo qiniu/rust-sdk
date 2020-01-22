@@ -242,16 +242,16 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_file_size_limitation(
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
     match (unsafe { min_file_size.as_ref() }, unsafe { max_file_size.as_ref() }) {
         (Some(min_file_size), Some(max_file_size)) => {
-            *builder = builder.file_size(min_file_size..=max_file_size);
+            *builder = builder.file_size_limitation(min_file_size..=max_file_size);
         }
         (None, Some(max_file_size)) => {
-            *builder = builder.file_size(..=max_file_size);
+            *builder = builder.file_size_limitation(..=max_file_size);
         }
         (Some(min_file_size), None) => {
-            *builder = builder.file_size(min_file_size..);
+            *builder = builder.file_size_limitation(min_file_size..);
         }
         (None, None) => {
-            *builder = builder.file_size(..);
+            *builder = builder.file_size_limitation(..);
         }
     };
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
@@ -386,7 +386,7 @@ pub extern "C" fn qiniu_ng_upload_policy_get_key(upload_policy: qiniu_ng_upload_
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_policy_is_prefixal_scope(upload_policy: qiniu_ng_upload_policy_t) -> bool {
     let upload_policy = Option::<Box<UploadPolicy>>::from(upload_policy).unwrap();
-    upload_policy.prefixal().tap(|_| {
+    upload_policy.use_prefixal_object_key().tap(|_| {
         let _ = qiniu_ng_upload_policy_t::from(upload_policy);
     })
 }
@@ -538,7 +538,7 @@ pub extern "C" fn qiniu_ng_upload_policy_get_file_size_limitation(
 ) -> u8 {
     let upload_policy = Option::<Box<UploadPolicy>>::from(upload_policy).unwrap();
     let mut return_value = 0u8;
-    let (file_size_min, file_size_max) = upload_policy.file_size();
+    let (file_size_min, file_size_max) = upload_policy.file_size_limitation();
     if let Some(file_size_min) = file_size_min {
         if let Some(min_file_size) = unsafe { min_file_size.as_mut() } {
             *min_file_size = file_size_min;

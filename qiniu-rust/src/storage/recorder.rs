@@ -13,7 +13,7 @@ use std::{
 pub trait Recorder: Debug + Sync + Send {
     fn open(&self, id: &str, truncate: bool) -> Result<Arc<Mutex<dyn RecordMedium>>>;
     fn delete(&self, id: &str) -> Result<()>;
-    fn as_any(&self) -> &dyn Any;
+    fn as_downcastable(&self) -> &dyn Any;
 }
 
 pub trait RecordMedium: Read + Write + Send {}
@@ -69,7 +69,7 @@ impl Recorder for FileSystemRecorder {
         remove_file(self.get_path(id))
     }
 
-    fn as_any(&self) -> &dyn Any {
+    fn as_downcastable(&self) -> &dyn Any {
         self
     }
 }
