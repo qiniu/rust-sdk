@@ -471,6 +471,6 @@ pub enum UploadError {
     #[error("Failed to do local io operation during uploading: {0}")]
     IOError(#[from] IOError),
     #[error("Qiniu API call error: {0}")]
-    QiniuError(#[from] qiniu_http::Error),
+    QiniuError(#[from] crate::http::Error),
 }
 pub type UploadResult = Result<UploadResponse, UploadError>;

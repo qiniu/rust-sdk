@@ -1,9 +1,8 @@
 use super::{
     super::{token::Token, DomainsManager, Response},
-    Parts, Request,
+    HTTPError, HTTPResult, HeaderName, HeaderValue, Headers, Method, Parts, Request,
 };
 use crate::config::Config;
-use qiniu_http::{Error as HTTPError, HeaderName, HeaderValue, Headers, Method, Result as HTTPResult};
 use serde::Serialize;
 use std::{borrow::Cow, collections::HashMap, time::Duration};
 

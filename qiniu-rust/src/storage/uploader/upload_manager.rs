@@ -113,7 +113,7 @@ pub enum CreateUploaderError {
     #[error("Failed to parse upload token: {0}")]
     UploadTokenParseError(#[from] UploadTokenParseError),
     #[error("Qiniu API call error: {0}")]
-    QiniuAPIError(#[from] qiniu_http::Error),
+    QiniuAPIError(#[from] crate::http::Error),
     #[error("Failed to do local io operation during uploading: {0}")]
     IOError(#[from] IOError),
     #[error("Bucket is missing in upload token")]

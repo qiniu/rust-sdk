@@ -1,9 +1,11 @@
-use crate::{config::Config, http};
+use crate::{
+    config::Config,
+    http::{Client, Result},
+};
 use assert_impl::assert_impl;
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
 use lazy_static::lazy_static;
-use qiniu_http::Result;
 use serde::Deserialize;
 use std::borrow::Cow;
 
@@ -218,7 +220,7 @@ impl Region {
         config: Config,
     ) -> Result<Box<[Region]>> {
         let uc_url = config.uc_url();
-        let result: RegionQueryResults = http::Client::new(config)
+        let result: RegionQueryResults = Client::new(config)
             .get("/v3/query", &[&uc_url])
             .query("ak", access_key.into())
             .query("bucket", bucket.into())

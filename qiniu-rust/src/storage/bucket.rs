@@ -2,10 +2,12 @@ use super::{
     region::{Region, RegionId},
     uploader::{BucketUploaderBuilder, UploadManager},
 };
-use crate::{credential::Credential, http::Client};
+use crate::{
+    credential::Credential,
+    http::{Client, Result},
+};
 use assert_impl::assert_impl;
 use once_cell::sync::OnceCell;
-use qiniu_http::Result;
 use std::{borrow::Cow, iter::Iterator};
 
 pub struct Bucket<'r> {
@@ -173,9 +175,8 @@ impl<'r> Bucket<'r> {
 mod domain {
     use crate::{
         credential::Credential,
-        http::{Client, Token},
+        http::{Client, Result, Token},
     };
-    use qiniu_http::Result;
     use std::borrow::Borrow;
 
     pub(super) fn query(http_client: &Client, credential: &Credential, bucket_name: &str) -> Result<Vec<String>> {
@@ -216,9 +217,8 @@ mod tests {
     use crate::{
         config::ConfigBuilder,
         credential::Credential,
-        http::{DomainsManagerBuilder, PanickedHTTPCaller},
+        http::{DomainsManagerBuilder, Headers, PanickedHTTPCaller},
     };
-    use qiniu_http::Headers;
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};
     use serde_json::json;
     use std::{boxed::Box, error::Error, result::Result, sync::Arc, thread};

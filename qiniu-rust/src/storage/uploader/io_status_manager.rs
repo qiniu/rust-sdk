@@ -1,5 +1,5 @@
+use crate::http::Error as HTTPError;
 use assert_impl::assert_impl;
-use qiniu_http::Error as HTTPError;
 use std::{
     io::{Error as IOError, ErrorKind as IOErrorKind, Read},
     sync::Mutex,

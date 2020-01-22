@@ -1,12 +1,13 @@
 use crate::{
-    http::{Client, Response},
+    http::{
+        Client, Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCallerErrorKind, Response, Result as HTTPResult,
+    },
     utils::global_thread_pool,
 };
 use assert_impl::assert_impl;
 use derive_builder::Builder;
 use dirs::cache_dir;
 use fs2::FileExt;
-use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCallerErrorKind, Result as HTTPResult};
 use std::{
     borrow::Cow,
     convert::TryInto,
@@ -603,8 +604,11 @@ mod tests {
         super::super::{upload_policy::UploadPolicyBuilder, upload_token::UploadToken},
         *,
     };
-    use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
-    use qiniu_http::Headers;
+    use crate::{
+        config::ConfigBuilder,
+        credential::Credential,
+        http::{DomainsManagerBuilder, Headers},
+    };
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};
     use serde_json::json;
     use std::{boxed::Box, error::Error, mem::drop, net::Ipv4Addr, result::Result, thread::sleep};

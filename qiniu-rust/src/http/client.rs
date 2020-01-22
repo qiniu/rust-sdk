@@ -1,8 +1,7 @@
-use super::request;
-use crate::config::Config;
+use super::request::Builder as RequestBuilder;
+use crate::{config::Config, http::Method};
 use assert_impl::assert_impl;
 use getset::Getters;
-use qiniu_http::Method;
 
 #[derive(Clone, Getters)]
 #[get = "pub(crate)"]
@@ -15,24 +14,24 @@ impl Client {
         Client { config }
     }
 
-    pub(crate) fn get<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
+    pub(crate) fn get<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> RequestBuilder<'a> {
         self.request_builder(Method::GET, path, hosts)
     }
 
-    pub(crate) fn post<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
+    pub(crate) fn post<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> RequestBuilder<'a> {
         self.request_builder(Method::POST, path, hosts)
     }
 
-    pub(crate) fn put<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
+    pub(crate) fn put<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> RequestBuilder<'a> {
         self.request_builder(Method::PUT, path, hosts)
     }
 
-    pub(crate) fn head<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
+    pub(crate) fn head<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> RequestBuilder<'a> {
         self.request_builder(Method::HEAD, path, hosts)
     }
 
-    fn request_builder<'a>(&self, method: Method, path: &'a str, hosts: &'a [&'a str]) -> request::Builder<'a> {
-        request::Builder::new(self.config.clone(), method, path, hosts)
+    fn request_builder<'a>(&self, method: Method, path: &'a str, hosts: &'a [&'a str]) -> RequestBuilder<'a> {
+        RequestBuilder::new(self.config.clone(), method, path, hosts)
     }
 
     #[allow(dead_code)]

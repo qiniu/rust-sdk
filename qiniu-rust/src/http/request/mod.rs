@@ -6,9 +6,9 @@ pub(crate) use parts::Parts;
 
 use super::{response::Response, Choice, DomainsManager};
 use qiniu_http::{
-    Error as HTTPError, ErrorKind as HTTPErrorKind, Method, Request as HTTPRequest, RequestBuilder,
-    Response as HTTPResponse, ResponseBody as HTTPResponseBody, Result as HTTPResult, RetryKind as HTTPRetryKind,
-    StatusCode,
+    Error as HTTPError, ErrorKind as HTTPErrorKind, HeaderName, HeaderValue, Headers, Method, Request as HTTPRequest,
+    RequestBuilder, Response as HTTPResponse, ResponseBody as HTTPResponseBody, Result as HTTPResult,
+    RetryKind as HTTPRetryKind, StatusCode,
 };
 use rand::{thread_rng, Rng};
 use serde::Deserialize;

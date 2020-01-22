@@ -1,9 +1,10 @@
+use super::{
+    Error as HTTPError, ErrorKind as HTTPErrorKind, HeaderName, HeaderValue, Headers, Method, Result as HTTPResult,
+    StatusCode,
+};
 use delegate::delegate;
 use getset::{CopyGetters, Getters};
-use qiniu_http::{
-    Error as HTTPError, ErrorKind as HTTPErrorKind, HeaderName, HeaderValue, Headers, Method, Response as HTTPResponse,
-    ResponseBody as HTTPResponseBody, Result as HTTPResult, StatusCode,
-};
+use qiniu_http::{Response as HTTPResponse, ResponseBody as HTTPResponseBody};
 use serde::de::DeserializeOwned;
 use std::{
     fmt,

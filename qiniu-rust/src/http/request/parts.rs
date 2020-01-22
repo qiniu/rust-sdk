@@ -1,6 +1,8 @@
-use super::super::response::Response;
-use crate::{config::Config, http::token::Token};
-use qiniu_http::{Error, Headers, Method, Result};
+use super::{
+    super::{response::Response, token::Token},
+    HTTPError, HTTPResult, Headers, Method,
+};
+use crate::config::Config;
 use std::{borrow::Cow, collections::HashMap, fmt, time::Duration};
 
 pub(crate) struct Parts<'a> {
@@ -17,8 +19,8 @@ pub(crate) struct Parts<'a> {
     pub(super) follow_redirection: bool,
     pub(super) on_uploading_progress: Option<&'a dyn Fn(u64, u64)>,
     pub(super) on_downloading_progress: Option<&'a dyn Fn(u64, u64)>,
-    pub(super) on_response: Option<&'a dyn Fn(&mut Response, Duration) -> Result<()>>,
-    pub(super) on_error: Option<&'a dyn Fn(Option<&str>, &Error, Duration)>,
+    pub(super) on_response: Option<&'a dyn Fn(&mut Response, Duration) -> HTTPResult<()>>,
+    pub(super) on_error: Option<&'a dyn Fn(Option<&str>, &HTTPError, Duration)>,
 }
 
 impl fmt::Debug for Parts<'_> {

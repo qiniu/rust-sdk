@@ -1,5 +1,4 @@
-use crate::http::Response;
-use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult};
+use crate::http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Response, Result as HTTPResult};
 
 pub(super) fn upload_response_callback(response: &mut Response) -> HTTPResult<()> {
     if with_reqid(response) {

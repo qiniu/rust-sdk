@@ -1,4 +1,7 @@
-pub use qiniu_http::{Error, ErrorKind, HTTPCaller, HeaderName, HeaderValue, Headers, Method};
+pub use qiniu_http::{
+    Error, ErrorKind, HTTPCaller, HTTPCallerErrorKind, HeaderName, HeaderValue, Headers, Method, Result, RetryKind,
+    StatusCode,
+};
 mod client;
 pub(crate) use client::Client;
 pub mod domains_manager;

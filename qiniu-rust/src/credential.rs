@@ -1,10 +1,11 @@
 use crate::{
+    http::{Headers, Method},
     storage::upload_policy::UploadPolicy,
     utils::{base64, mime},
 };
 use crypto_mac::Mac;
 use hmac::Hmac;
-use qiniu_http::{Headers, Method, Request};
+use qiniu_http::Request;
 use sha1::Sha1;
 use std::{borrow::Cow, cmp::PartialEq, convert::TryFrom, fmt, result::Result, string::String, sync::Arc, time};
 use url::Url;

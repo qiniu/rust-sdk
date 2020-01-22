@@ -2,10 +2,9 @@ use super::{bucket::BucketBuilder, region::RegionId, uploader::UploadManager};
 use crate::{
     config::Config,
     credential::Credential,
-    http::{Client, Token},
+    http::{Client, Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult, Token},
 };
 use assert_impl::assert_impl;
-use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult};
 use std::{
     borrow::{Borrow, Cow},
     result::Result,

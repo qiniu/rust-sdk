@@ -1,9 +1,11 @@
 use super::{
     upload_response_callback, BucketUploader, TokenizedUploadLogger, UpType, UploadLoggerRecordBuilder, UploadResponse,
 };
-use crate::utils::crc32;
+use crate::{
+    http::{Error as HTTPError, Result as HTTPResult, RetryKind},
+    utils::crc32,
+};
 use mime::Mime;
-use qiniu_http::{Error as HTTPError, Result as HTTPResult, RetryKind};
 use qiniu_multipart::client::lazy::Multipart;
 use serde_json::Value;
 use std::{
@@ -194,8 +196,11 @@ mod tests {
         super::{upload_policy::UploadPolicyBuilder, upload_token::UploadToken},
         BucketUploaderBuilder,
     };
-    use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
-    use qiniu_http::Headers;
+    use crate::{
+        config::ConfigBuilder,
+        credential::Credential,
+        http::{DomainsManagerBuilder, Headers},
+    };
     use qiniu_test_utils::{
         http_call_mock::{CounterCallMock, ErrorResponseMock, JSONCallMock},
         temp_file::create_temp_file,

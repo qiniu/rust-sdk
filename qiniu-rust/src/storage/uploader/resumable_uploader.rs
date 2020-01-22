@@ -4,11 +4,10 @@ use super::{
     upload_response_callback, BucketUploader, TokenizedUploadLogger, UpType, UploadLoggerRecordBuilder, UploadResponse,
 };
 use crate::{
-    http::Client,
+    http::{Client, Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult, RetryKind},
     utils::{base64, ron::Ron, seek_adapter},
 };
 use mime::Mime;
-use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult, RetryKind};
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -766,8 +765,12 @@ mod tests {
         },
         *,
     };
-    use crate::{config::ConfigBuilder, credential::Credential, http::DomainsManagerBuilder};
-    use qiniu_http::{Error as HTTPError, ErrorKind as HTTPErrorKind, Headers, Method, ResponseBuilder};
+    use crate::{
+        config::ConfigBuilder,
+        credential::Credential,
+        http::{DomainsManagerBuilder, Error as HTTPError, ErrorKind as HTTPErrorKind, Headers, Method},
+    };
+    use qiniu_http::ResponseBuilder;
     use qiniu_test_utils::{
         http_call_mock::{fake_req_id, CallHandlers, UploadingProgressErrorMock},
         temp_file::create_temp_file,
