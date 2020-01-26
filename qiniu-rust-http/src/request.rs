@@ -1,6 +1,6 @@
 use super::{HeaderName, HeaderValue, Headers, Method};
 use getset::{CopyGetters, Getters, MutGetters};
-use std::{borrow::Cow, ffi::c_void, fmt, net::SocketAddr, ptr::null_mut};
+use std::{borrow::Cow, ffi::c_void, fmt, net::SocketAddr, ptr::null_mut, time::Duration};
 
 pub type URL<'b> = Cow<'b, str>;
 pub type Body<'b> = Cow<'b, [u8]>;
@@ -50,6 +50,30 @@ pub struct Request<'b> {
     #[get_copy = "pub"]
     #[get_mut = "pub"]
     on_downloading_progress: Option<ProgressCallback<'b>>,
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
+    connect_timeout: Duration,
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
+    request_timeout: Duration,
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
+    tcp_keepalive_idle_timeout: Duration,
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
+    tcp_keepalive_probe_interval: Duration,
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
+    low_transfer_speed: u32,
+
+    #[get_copy = "pub"]
+    #[get_mut = "pub"]
+    low_transfer_speed_timeout: Duration,
 }
 
 impl<'b> Request<'b> {
@@ -127,6 +151,36 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
+    pub fn connect_timeout(mut self, timeout: Duration) -> RequestBuilder<'r> {
+        self.request.connect_timeout = timeout;
+        self
+    }
+
+    pub fn request_timeout(mut self, timeout: Duration) -> RequestBuilder<'r> {
+        self.request.request_timeout = timeout;
+        self
+    }
+
+    pub fn tcp_keepalive_idle_timeout(mut self, timeout: Duration) -> RequestBuilder<'r> {
+        self.request.tcp_keepalive_idle_timeout = timeout;
+        self
+    }
+
+    pub fn tcp_keepalive_probe_interval(mut self, timeout: Duration) -> RequestBuilder<'r> {
+        self.request.tcp_keepalive_probe_interval = timeout;
+        self
+    }
+
+    pub fn low_transfer_speed(mut self, speed: u32) -> RequestBuilder<'r> {
+        self.request.low_transfer_speed = speed;
+        self
+    }
+
+    pub fn low_transfer_speed_timeout(mut self, timeout: Duration) -> RequestBuilder<'r> {
+        self.request.low_transfer_speed_timeout = timeout;
+        self
+    }
+
     pub fn build(self) -> Request<'r> {
         self.request
     }
@@ -145,6 +199,12 @@ impl Default for Request<'_> {
             on_uploading_progress: None,
             on_downloading_progress: None,
             custom_data: null_mut(),
+            connect_timeout: Duration::from_secs(5),
+            request_timeout: Duration::from_secs(300),
+            tcp_keepalive_idle_timeout: Duration::from_secs(300),
+            tcp_keepalive_probe_interval: Duration::from_secs(5),
+            low_transfer_speed: 1024,
+            low_transfer_speed_timeout: Duration::from_secs(30),
         }
     }
 }
@@ -175,6 +235,12 @@ impl fmt::Debug for Request<'_> {
                     &"Not Installed"
                 },
             )
+            .field("connect_timeout", &self.connect_timeout)
+            .field("request_timeout", &self.request_timeout)
+            .field("tcp_keepalive_idle_timeout", &self.tcp_keepalive_idle_timeout)
+            .field("tcp_keepalive_probe_interval", &self.tcp_keepalive_probe_interval)
+            .field("low_transfer_speed", &self.low_transfer_speed)
+            .field("low_transfer_speed_timeout", &self.low_transfer_speed_timeout)
             .finish()
     }
 }

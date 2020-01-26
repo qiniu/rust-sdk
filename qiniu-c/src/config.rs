@@ -210,6 +210,76 @@ pub extern "C" fn qiniu_ng_config_builder_upload_block_size(
 }
 
 #[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_http_connect_timeout(
+    builder: qiniu_ng_config_builder_t,
+    http_connect_timeout: u64,
+) {
+    let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
+    builder.config_builder = builder
+        .config_builder
+        .http_connect_timeout(Duration::from_secs(http_connect_timeout));
+    let _ = qiniu_ng_config_builder_t::from(builder);
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_http_request_timeout(
+    builder: qiniu_ng_config_builder_t,
+    http_request_timeout: u64,
+) {
+    let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
+    builder.config_builder = builder
+        .config_builder
+        .http_request_timeout(Duration::from_secs(http_request_timeout));
+    let _ = qiniu_ng_config_builder_t::from(builder);
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_tcp_keepalive_idle_timeout(
+    builder: qiniu_ng_config_builder_t,
+    tcp_keepalive_idle_timeout: u64,
+) {
+    let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
+    builder.config_builder = builder
+        .config_builder
+        .tcp_keepalive_idle_timeout(Duration::from_secs(tcp_keepalive_idle_timeout));
+    let _ = qiniu_ng_config_builder_t::from(builder);
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_tcp_keepalive_probe_interval(
+    builder: qiniu_ng_config_builder_t,
+    tcp_keepalive_probe_interval: u64,
+) {
+    let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
+    builder.config_builder = builder
+        .config_builder
+        .tcp_keepalive_probe_interval(Duration::from_secs(tcp_keepalive_probe_interval));
+    let _ = qiniu_ng_config_builder_t::from(builder);
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_http_low_transfer_speed(
+    builder: qiniu_ng_config_builder_t,
+    low_transfer_speed: u32,
+) {
+    let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
+    builder.config_builder = builder.config_builder.http_low_transfer_speed(low_transfer_speed);
+    let _ = qiniu_ng_config_builder_t::from(builder);
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_http_low_transfer_speed_timeout(
+    builder: qiniu_ng_config_builder_t,
+    low_transfer_speed_timeout: u64,
+) {
+    let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
+    builder.config_builder = builder
+        .config_builder
+        .http_low_transfer_speed_timeout(Duration::from_secs(low_transfer_speed_timeout));
+    let _ = qiniu_ng_config_builder_t::from(builder);
+}
+
+#[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_http_request_retries(
     builder: qiniu_ng_config_builder_t,
     http_request_retries: size_t,

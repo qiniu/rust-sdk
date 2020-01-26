@@ -81,6 +81,30 @@ pub struct ConfigInner {
     upload_recorder: UploadRecorder,
 
     #[get_copy = "pub"]
+    #[builder(default = "default::http_connect_timeout()")]
+    http_connect_timeout: Duration,
+
+    #[get_copy = "pub"]
+    #[builder(default = "default::http_request_timeout()")]
+    http_request_timeout: Duration,
+
+    #[get_copy = "pub"]
+    #[builder(default = "default::tcp_keepalive_idle_timeout()")]
+    tcp_keepalive_idle_timeout: Duration,
+
+    #[get_copy = "pub"]
+    #[builder(default = "default::tcp_keepalive_probe_interval()")]
+    tcp_keepalive_probe_interval: Duration,
+
+    #[get_copy = "pub"]
+    #[builder(default = "default::http_low_transfer_speed()")]
+    http_low_transfer_speed: u32,
+
+    #[get_copy = "pub"]
+    #[builder(default = "default::http_low_transfer_speed_timeout()")]
+    http_low_transfer_speed_timeout: Duration,
+
+    #[get_copy = "pub"]
     #[builder(default = "default::http_request_retries()")]
     http_request_retries: usize,
 
@@ -165,6 +189,36 @@ mod default {
     #[inline]
     pub fn upload_logger() -> Option<UploadLogger> {
         UploadLoggerBuilder::default().build().map(Some).unwrap_or(None)
+    }
+
+    #[inline]
+    pub fn http_connect_timeout() -> Duration {
+        Duration::from_secs(5)
+    }
+
+    #[inline]
+    pub fn http_request_timeout() -> Duration {
+        Duration::from_secs(300)
+    }
+
+    #[inline]
+    pub fn tcp_keepalive_idle_timeout() -> Duration {
+        Duration::from_secs(300)
+    }
+
+    #[inline]
+    pub fn tcp_keepalive_probe_interval() -> Duration {
+        Duration::from_secs(5)
+    }
+
+    #[inline]
+    pub fn http_low_transfer_speed() -> u32 {
+        1024
+    }
+
+    #[inline]
+    pub fn http_low_transfer_speed_timeout() -> Duration {
+        Duration::from_secs(30)
     }
 
     #[inline]

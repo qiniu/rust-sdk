@@ -200,6 +200,13 @@ impl CurlClient {
         Self::handle_if_err(easy.transfer_encoding(true), request)?;
         Self::handle_if_err(easy.follow_location(request.follow_redirection()), request)?;
         Self::handle_if_err(easy.max_redirections(3), request)?;
+        Self::handle_if_err(easy.connect_timeout(request.connect_timeout()), request)?;
+        Self::handle_if_err(easy.timeout(request.request_timeout()), request)?;
+        Self::handle_if_err(easy.tcp_keepalive(true), request)?;
+        Self::handle_if_err(easy.tcp_keepidle(request.tcp_keepalive_idle_timeout()), request)?;
+        Self::handle_if_err(easy.tcp_keepintvl(request.tcp_keepalive_probe_interval()), request)?;
+        Self::handle_if_err(easy.low_speed_limit(request.low_transfer_speed()), request)?;
+        Self::handle_if_err(easy.low_speed_time(request.low_transfer_speed_timeout()), request)?;
         Self::handle_if_err(
             easy.useragent(
                 request

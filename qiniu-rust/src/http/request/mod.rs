@@ -75,6 +75,12 @@ impl<'a> Request<'a> {
                 .method(self.parts.method)
                 .url(self.make_url(choice.base_url)?)
                 .user_agent(self.parts.config.user_agent())
+                .connect_timeout(self.parts.config.http_connect_timeout())
+                .request_timeout(self.parts.config.http_request_timeout())
+                .tcp_keepalive_idle_timeout(self.parts.config.tcp_keepalive_idle_timeout())
+                .tcp_keepalive_probe_interval(self.parts.config.tcp_keepalive_probe_interval())
+                .low_transfer_speed(self.parts.config.http_low_transfer_speed())
+                .low_transfer_speed_timeout(self.parts.config.http_low_transfer_speed_timeout())
                 .follow_redirection(self.parts.follow_redirection);
             if !choice.socket_addrs.is_empty() {
                 builder = builder.resolved_socket_addrs(choice.socket_addrs.as_ref());
