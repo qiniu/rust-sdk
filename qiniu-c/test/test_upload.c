@@ -187,12 +187,7 @@ void *thread_of_upload_file(void* data) {
 }
 
 void test_qiniu_ng_upload_huge_number_of_files(void) {
-    qiniu_ng_config_builder_t config_builder = qiniu_ng_config_builder_new();
-    qiniu_ng_config_builder_use_https(config_builder, false);
-    qiniu_ng_config_t config;
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_config_build(&config_builder, &config, NULL),
-        "qiniu_ng_config_build() failed");
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         env_load("..", false), 0,

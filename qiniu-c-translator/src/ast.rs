@@ -129,11 +129,9 @@ impl TypeDeclaration {
 }
 
 #[derive(Debug, Clone, Getters)]
+#[get = "pub"]
 pub struct FunctionType {
-    #[get]
     return_type: Type,
-
-    #[get]
     parameter_types: Vec<Type>,
 }
 
@@ -153,17 +151,18 @@ impl FunctionType {
 pub enum SubType {
     PointeeType(Type),
     FunctionType(FunctionType),
+    OriginalType(Type),
 }
 
 #[derive(Debug, Clone, Getters, CopyGetters)]
 pub struct Type {
-    #[get_copy]
+    #[get_copy = "pub"]
     type_kind: ClangTypeKind,
 
-    #[get]
+    #[get = "pub"]
     display_name: String,
 
-    #[get]
+    #[get = "pub"]
     subtype: Option<Box<SubType>>,
 }
 
@@ -175,6 +174,9 @@ impl Type {
             subtype: match clang_type.get_kind() {
                 ClangTypeKind::Pointer => Some(Box::new(SubType::PointeeType(Self::new(
                     clang_type.get_pointee_type().as_ref().unwrap(),
+                )))),
+                ClangTypeKind::Typedef => Some(Box::new(SubType::OriginalType(Self::new(
+                    &clang_type.get_canonical_type(),
                 )))),
                 ClangTypeKind::FunctionPrototype => Some(Box::new(SubType::FunctionType(FunctionType::new(
                     clang_type.get_result_type().as_ref().unwrap(),
@@ -188,13 +190,13 @@ impl Type {
 
 #[derive(Debug, Clone, Getters, CopyGetters)]
 pub struct SourceLocation {
-    #[get]
+    #[get = "pub"]
     path: String,
 
-    #[get_copy]
+    #[get_copy = "pub"]
     line_number: u32,
 
-    #[get_copy]
+    #[get_copy = "pub"]
     column_number: u32,
 }
 
@@ -218,17 +220,11 @@ impl SourceLocation {
 }
 
 #[derive(Debug, Clone, Getters)]
+#[get = "pub"]
 pub struct SourceFile {
-    #[get]
     path: String,
-
-    #[get]
     location: SourceLocation,
-
-    #[get]
     type_declarations: Vec<TypeDeclaration>,
-
-    #[get]
     function_declarations: Vec<FunctionDeclaration>,
 }
 
@@ -317,20 +313,20 @@ impl SourceFile {
 }
 
 #[derive(Debug, Copy, Clone)]
-enum EnumConstantValue {
+pub enum EnumConstantValue {
     Signed(i64),
     Unsigned(u64),
 }
 
 #[derive(Debug, Clone, Getters, CopyGetters)]
 pub struct EnumConstantDeclaration {
-    #[get]
+    #[get = "pub"]
     name: String,
 
-    #[get]
+    #[get = "pub"]
     location: SourceLocation,
 
-    #[get_copy]
+    #[get_copy = "pub"]
     constant_value: EnumConstantValue,
 }
 
@@ -357,20 +353,12 @@ impl EnumConstantDeclaration {
 }
 
 #[derive(Debug, Clone, Getters)]
+#[get = "pub"]
 pub struct EnumDeclaration {
-    #[get]
     enum_name: Option<String>,
-
-    #[get]
     typedef_name: Option<String>,
-
-    #[get]
     location: SourceLocation,
-
-    #[get]
     constants: Vec<EnumConstantDeclaration>,
-
-    #[get]
     enum_type: Type,
 }
 
@@ -398,14 +386,10 @@ pub enum FieldType {
 }
 
 #[derive(Debug, Clone, Getters)]
+#[get = "pub"]
 pub struct FieldDeclaration {
-    #[get]
     name: Option<String>,
-
-    #[get]
     location: SourceLocation,
-
-    #[get]
     field_type: FieldType,
 }
 
@@ -431,19 +415,19 @@ impl FieldDeclaration {
 
 #[derive(Debug, Clone, Getters, CopyGetters)]
 pub struct StructDeclaration {
-    #[get]
+    #[get = "pub"]
     struct_name: Option<String>,
 
-    #[get]
+    #[get = "pub"]
     typedef_name: Option<String>,
 
-    #[get]
+    #[get = "pub"]
     location: SourceLocation,
 
-    #[get]
+    #[get = "pub"]
     fields: Vec<FieldDeclaration>,
 
-    #[get_copy]
+    #[get_copy = "pub"]
     is_union: bool,
 }
 
@@ -471,17 +455,11 @@ impl StructDeclaration {
 }
 
 #[derive(Debug, Clone, Getters)]
+#[get = "pub"]
 pub struct FunctionDeclaration {
-    #[get]
     name: String,
-
-    #[get]
     location: SourceLocation,
-
-    #[get]
     return_type: Type,
-
-    #[get]
     parameters: Vec<ParameterDeclaration>,
 }
 
@@ -503,14 +481,10 @@ impl FunctionDeclaration {
 }
 
 #[derive(Debug, Clone, Getters)]
+#[get = "pub"]
 pub struct ParameterDeclaration {
-    #[get]
     name: String,
-
-    #[get]
     location: SourceLocation,
-
-    #[get]
     parameter_type: Type,
 }
 

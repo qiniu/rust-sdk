@@ -68,21 +68,23 @@ fn main() -> Result<()> {
                 &entity,
                 &mut args
                     .and_then(|args| args.value_of_os("output"))
+                    .and_then(|path| if path == "-" { None } else { Some(path) })
                     .map(|file_path| {
-                        Ok(Box::new(
+                        let output: Box<dyn Write> = Box::new(
                             OpenOptions::new()
                                 .write(true)
                                 .truncate(true)
                                 .create(true)
                                 .open(file_path)?,
-                        ) as Box<dyn Write>) as Result<Box<dyn Write>>
+                        );
+                        Ok(output) as Result<Box<dyn Write>>
                     })
                     .unwrap_or_else(|| Ok(Box::new(stdout())))?,
             )?,
         ("dump-entity", args) => dump_entity(
             &entity,
             args.map(|args| args.is_present("pretty-print")).unwrap_or(false),
-        ),
+        )?,
 
         ("dump-ast", args) => dump_ast(
             &entity,
