@@ -51,6 +51,7 @@ void test_qiniu_ng_bucket_get_regions(void);
 void test_qiniu_ng_bucket_new(void);
 void test_qiniu_ng_make_upload_token(void);
 void test_qiniu_ng_upload_files(void);
+void test_qiniu_ng_upload_huge_number_of_files(void);
 void test_qiniu_ng_upload_file_path_failed_by_mime(void);
 void test_qiniu_ng_upload_file_path_failed_by_non_existed_path(void);
 void test_qiniu_ng_str(void);

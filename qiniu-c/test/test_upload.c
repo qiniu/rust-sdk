@@ -145,6 +145,119 @@ void test_qiniu_ng_upload_files(void) {
     qiniu_ng_config_free(&config);
 }
 
+struct upload_file_thread_context {
+    const qiniu_ng_char_t *key;
+    const qiniu_ng_char_t *file_path;
+    const char *etag;
+    qiniu_ng_bucket_uploader_t bucket_uploader;
+    qiniu_ng_upload_token_t token;
+};
+
+void *thread_of_upload_file(void* data) {
+    struct upload_file_thread_context *context = (struct upload_file_thread_context *) data;
+    qiniu_ng_upload_params_t params = {
+        .key = (const qiniu_ng_char_t *) context->key,
+        .file_name = (const qiniu_ng_char_t *) context->key,
+        .on_uploading_progress = print_progress,
+    };
+    qiniu_ng_upload_response_t upload_response;
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_upload_file_path(context->bucket_uploader, context->token, context->file_path, &params, &upload_response, NULL),
+        "qiniu_ng_upload_file_path() failed");
+
+    qiniu_ng_str_t key = qiniu_ng_upload_response_get_key(upload_response);
+    TEST_ASSERT_FALSE_MESSAGE(
+        qiniu_ng_str_is_null(key),
+        "qiniu_ng_str_is_null(key) != false");
+    qiniu_ng_str_free(&key);
+
+    char hash[ETAG_SIZE + 1];
+    size_t hash_size;
+    memset(hash, 0, ETAG_SIZE + 1);
+    qiniu_ng_upload_response_get_hash(upload_response, (char *) &hash[0], &hash_size);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(
+        hash_size, ETAG_SIZE,
+        "hash_size != ETAG_SIZE");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(
+        hash, (const char *) context->etag,
+        "hash != etag");
+
+    qiniu_ng_upload_response_free(&upload_response);
+    return NULL;
+}
+
+void test_qiniu_ng_upload_huge_number_of_files(void) {
+    qiniu_ng_config_builder_t config_builder = qiniu_ng_config_builder_new();
+    qiniu_ng_config_builder_use_https(config_builder, false);
+    qiniu_ng_config_t config;
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_config_build(&config_builder, &config, NULL),
+        "qiniu_ng_config_build() failed");
+
+    TEST_ASSERT_EQUAL_INT_MESSAGE(
+        env_load("..", false), 0,
+        "env_load() failed");
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
+    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
+        upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
+
+    const qiniu_ng_char_t *file_path = create_temp_file(4 * 1024 * 1024 + 1);
+
+    char etag[ETAG_SIZE + 1];
+    memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_etag_from_file_path(file_path, (char *) &etag[0], NULL),
+        "qiniu_ng_etag_from_file_path() failed");
+
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_new_upload_policy_builder_for_bucket(QINIU_NG_CHARS("z0-bucket"), (unsigned long long) time(NULL) + 86400);
+    qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
+    qiniu_ng_upload_token_t token = qiniu_ng_new_upload_token_from_policy_builder(&policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+
+    last_print_time = (long long) time(NULL);
+#if defined(_WIN32) || defined(WIN32)
+    mutex = CreateMutex(NULL, FALSE, NULL);
+#endif
+
+    const int THREAD_COUNT = 128;
+    struct upload_file_thread_context contexts[THREAD_COUNT];
+    pthread_t threads[THREAD_COUNT];
+    char *keys[THREAD_COUNT];
+    for (int i = 0; i < THREAD_COUNT; i++) {
+        keys[i] = malloc(256 * sizeof(qiniu_ng_char_t));
+#if defined(_WIN32) || defined(WIN32)
+        swprintf((wchar_t *) keys[i], 256, L"测试-4m-%d-%lld", i, (long long) time(NULL));
+#else
+        snprintf((char *) keys[i], 256, "测试-4m-%d-%lld", i, (long long) time(NULL));
+#endif
+        contexts[i] = (struct upload_file_thread_context) {
+            .key = keys[i],
+            .file_path = file_path,
+            .etag = (char *) &etag[0],
+            .bucket_uploader = bucket_uploader,
+            .token = token,
+        };
+        TEST_ASSERT_EQUAL_INT_MESSAGE(
+            pthread_create(&threads[i], NULL, thread_of_upload_file, &contexts[i]), 0,
+            "pthread_create() failed");
+    }
+    for (int i = 0; i < THREAD_COUNT; i++) {
+        TEST_ASSERT_EQUAL_INT_MESSAGE(
+            pthread_join(threads[i], NULL), 0,
+            "pthread_join() failed");
+        printf("Done: %d / %d\n", i + 1, THREAD_COUNT);
+        free((void *) contexts[i].key);
+    }
+
+    qiniu_ng_upload_token_free(&token);
+
+    DELETE_FILE(file_path);
+    free((void *) file_path);
+
+    qiniu_ng_bucket_uploader_free(&bucket_uploader);
+    qiniu_ng_upload_manager_free(&upload_manager);
+    qiniu_ng_config_free(&config);
+}
+
 void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
