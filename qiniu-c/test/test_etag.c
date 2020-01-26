@@ -18,8 +18,12 @@ void test_qiniu_ng_etag_from_file_path(void) {
     strncpy(path, "/tmp/1024字节", PATH_LEN);
 #endif
     write_str_to_file(path, "Hello world\n");
-    TEST_ASSERT_TRUE(qiniu_ng_etag_from_file_path(path, (char *) &etag, NULL));
-    TEST_ASSERT_EQUAL_STRING((const char *) &etag, "FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d");
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_etag_from_file_path(path, (char *) &etag, NULL),
+        "qiniu_ng_etag_from_file_path() failed");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(
+        (const char *) &etag, "FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d",
+        "etag was wrong");
     free(path);
 }
 
@@ -29,18 +33,28 @@ void test_qiniu_ng_etag_from_buffer(void) {
 
     const char *buf = "Hello world\n";
     qiniu_ng_etag_from_buffer((void *) buf, strlen(buf), (char *) &etag);
-    TEST_ASSERT_EQUAL_STRING((const char *) &etag, "FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(
+        (const char *) &etag, "FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d",
+        "etag was wrong");
 }
 
 void test_qiniu_ng_etag_from_unexisted_file_path(void) {
     const qiniu_ng_char_t *path = QINIU_NG_CHARS("/不存在的文件");
     qiniu_ng_err_t err;
     int32_t os_err_code;
-    TEST_ASSERT_FALSE(qiniu_ng_etag_from_file_path(path, NULL, &err));
-    TEST_ASSERT_TRUE(qiniu_ng_err_os_error_extract(&err, &os_err_code));
-    TEST_ASSERT_EQUAL_INT(os_err_code, ENOENT);
+    TEST_ASSERT_FALSE_MESSAGE(
+        qiniu_ng_etag_from_file_path(path, NULL, &err),
+        "qiniu_ng_etag_from_file_path() returns unexpected value");
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_err_os_error_extract(&err, &os_err_code),
+        "qiniu_ng_err_os_error_extract() failed");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(
+        os_err_code, ENOENT,
+        "os_err_code != ENOENT");
 
-    TEST_ASSERT_FALSE(qiniu_ng_err_os_error_extract(&err, &os_err_code));
+    TEST_ASSERT_FALSE_MESSAGE(
+        qiniu_ng_err_os_error_extract(&err, &os_err_code),
+        "qiniu_ng_err_os_error_extract() returns unexpected value");
 }
 
 void test_qiniu_ng_etag_from_large_buffer(void) {
@@ -56,7 +70,9 @@ void test_qiniu_ng_etag_from_large_buffer(void) {
     qiniu_ng_etag_result(qiniu_ng_etag, (char *) &etag);
     qiniu_ng_etag_reset(qiniu_ng_etag);
 
-    TEST_ASSERT_EQUAL_STRING((const char *) &etag, "FgAgNanfbszl6CSk8MEyKDDXvpgG");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(
+        (const char *) &etag, "FgAgNanfbszl6CSk8MEyKDDXvpgG",
+        "etag was wrong");
 
     qiniu_ng_etag_update(qiniu_ng_etag, (void *) buf, strlen(buf));
     qiniu_ng_etag_update(qiniu_ng_etag, (void *) buf, strlen(buf));
@@ -65,5 +81,7 @@ void test_qiniu_ng_etag_from_large_buffer(void) {
     qiniu_ng_etag_result(qiniu_ng_etag, (char *) &etag);
     qiniu_ng_etag_free(&qiniu_ng_etag);
 
-    TEST_ASSERT_EQUAL_STRING((const char *) &etag, "FhV9_jRUUi8lQ9eL_AbKIZj5pWXx");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(
+        (const char *) &etag, "FhV9_jRUUi8lQ9eL_AbKIZj5pWXx",
+        "etag was wrong");
 }

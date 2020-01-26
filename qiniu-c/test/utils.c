@@ -21,10 +21,12 @@ qiniu_ng_char_t* create_temp_file(size_t size) {
     snprintf((char *) file_path, FILE_PATH_LEN, "/tmp/随机测试文件-%lld", (long long) time(NULL));
 #endif
     FILE *dest = OPEN_FILE_FOR_WRITING(file_path);
-    TEST_ASSERT_NOT_NULL(dest);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        dest, "dest == null");
     size_t rest = size;
     char *buf = (char *) malloc(BUF_LEN);
-    TEST_ASSERT_NOT_NULL(buf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        buf, "buf != null");
 
     srand(time(NULL));
     while (rest > 0) {
@@ -36,7 +38,9 @@ qiniu_ng_char_t* create_temp_file(size_t size) {
             buf[i] = (char) rand();
         }
         size_t written = fwrite(buf, sizeof(char), to_write, dest);
-        TEST_ASSERT_EQUAL_INT(written, to_write);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(
+            written, to_write,
+            "written != to_write");
         rest -= written;
     }
 
