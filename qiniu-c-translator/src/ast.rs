@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use clang::{
     source::SourceLocation as ClangSourceLocation, Entity as ClangEntity, EntityKind as ClangEntityKind,
     Type as ClangType, TypeKind as ClangTypeKind,

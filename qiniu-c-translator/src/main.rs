@@ -58,7 +58,13 @@ fn main() -> Result<()> {
         .get_matches();
     let cl = Clang::new().unwrap();
     let idx = Index::new(&cl, true, false);
-    let tu = idx.parser(matches.value_of_os("header-file").unwrap()).parse().unwrap();
+    let tu = {
+        let header_file_path = matches.value_of_os("header-file").unwrap();
+        if let Err(err) = OpenOptions::new().read(true).open(&header_file_path) {
+            panic!("Failed to open header file: {}", err);
+        }
+        idx.parser(header_file_path).parse().unwrap()
+    };
     let entity = tu.get_entity();
     match matches.subcommand() {
         ("generate-ruby-bindings", args) => GenerateRubyBindings::default()

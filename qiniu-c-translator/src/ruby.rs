@@ -28,13 +28,11 @@ struct TopLevelNode {
 }
 
 impl CodeGenerator for TopLevelNode {
-    fn generate_code(&self, output: CodeWriter) -> Result<CodeWriter> {
-        output.try_with_next_level(|mut output| {
-            for node in self.sub_nodes.iter() {
-                output = node.generate_code(output)?;
-            }
-            Ok(output)
-        })
+    fn generate_code(&self, mut output: CodeWriter) -> Result<CodeWriter> {
+        for node in self.sub_nodes.iter() {
+            output = node.generate_code(output)?;
+        }
+        Ok(output)
     }
 
     fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
@@ -220,12 +218,12 @@ enum StructFieldType {
 impl StructFieldType {
     fn from(c_type: Type) -> Self {
         match c_type.type_kind() {
-            ClangTypeKind::Typedef => Self::new_type_by_val(c_type.display_name().to_owned().to_camel_case()),
+            ClangTypeKind::Typedef => Self::new_type_by_val(normalize_constant(c_type.display_name())),
             ClangTypeKind::Pointer => {
                 if let Some(subtype) = c_type.subtype().as_ref() {
                     if let SubType::PointeeType(pointer_type) = subtype.as_ref() {
                         if pointer_type.type_kind() == ClangTypeKind::Typedef {
-                            return Self::new_type_by_ptr(pointer_type.display_name().to_owned().to_camel_case());
+                            return Self::new_type_by_ptr(normalize_constant(pointer_type.display_name()));
                         }
                     }
                 }
@@ -281,7 +279,7 @@ impl fmt::Display for StructFieldType {
         match self {
             StructFieldType::BaseType(type_name) => type_name.to_symbol().fmt(f),
             StructFieldType::ByVal(type_name) => type_name.fmt(f),
-            StructFieldType::ByPtr(type_name) => write!(f, "{}.ptr", type_name),
+            StructFieldType::ByPtr(_) => Self::BaseType(BaseType::Pointer).fmt(f),
         }
     }
 }
@@ -428,6 +426,7 @@ impl GenerateBindings {
     fn build_without_syntax_check(&self, entity: &ClangEntity, output: Writer) -> Result<Writer> {
         let source_file = SourceFile::parse(&entity);
         let mut top_level_node = TopLevelNode::default();
+        top_level_node.sub_nodes.push(Box::new(RawCode::new("require 'ffi'")));
 
         if let Some(top_level_module) = self.module_names.iter().rev().fold(None, |module, module_name| {
             Some(Box::new(Module::new(module_name).tap(|m| {
@@ -456,18 +455,20 @@ impl GenerateBindings {
     fn insert_ffi_bindings(&self, module: &mut Module) {
         module.sub_nodes.push(Box::new(RawCode::new("extend FFI::Library")));
         module.sub_nodes.push(Box::new(RawCode::new(
-            "DEFAULT_RELEASE_TARGET_DIR = ".to_owned()
-                + "File.expand_path(File.join('..', '..', '..', '..', '..', 'target', 'release'))",
+            "DEFAULT_TARGET_DIR = ".to_owned()
+                + "File.expand_path(File.join('..', '..', '..', '..', 'target'), __dir__)",
         )));
         module
             .sub_nodes
-            .push(Box::new(RawCode::new("private_constant :DEFAULT_RELEASE_TARGET_DIR")));
+            .push(Box::new(RawCode::new("private_constant :DEFAULT_TARGET_DIR")));
         module.sub_nodes.push(Box::new(RawCode::new(
             "ffi_lib [".to_owned()
                 + &format!("\"qiniu_ng_c-#{{{}}}\", ", self.version_constant)
                 + "'qiniu_ng_c', "
-                + &format!("File.expand_path(File.join(DEFAULT_RELEASE_TARGET_DIR, \"#{{FFI::Platform::LIBPREFIX}}qiniu_ng_c-#{{{}}}.#{{FFI::Platform::LIBSUFFIX}}\"), __dir__), ", self.version_constant)
-                + "File.expand_path(File.join(DEFAULT_RELEASE_TARGET_DIR, \"#{FFI::Platform::LIBPREFIX}qiniu_ng_c.#{FFI::Platform::LIBSUFFIX}\"), __dir__)"
+                + &format!("File.expand_path(File.join(DEFAULT_TARGET_DIR, 'release', \"#{{FFI::Platform::LIBPREFIX}}qiniu_ng_c-#{{{}}}.#{{FFI::Platform::LIBSUFFIX}}\"), __dir__), ", self.version_constant)
+                + "File.expand_path(File.join(DEFAULT_TARGET_DIR, 'release', \"#{FFI::Platform::LIBPREFIX}qiniu_ng_c.#{FFI::Platform::LIBSUFFIX}\"), __dir__),"
+                + &format!("File.expand_path(File.join(DEFAULT_TARGET_DIR, 'debug', \"#{{FFI::Platform::LIBPREFIX}}qiniu_ng_c-#{{{}}}.#{{FFI::Platform::LIBSUFFIX}}\"), __dir__), ", self.version_constant)
+                + "File.expand_path(File.join(DEFAULT_TARGET_DIR, 'debug', \"#{FFI::Platform::LIBPREFIX}qiniu_ng_c.#{FFI::Platform::LIBSUFFIX}\"), __dir__)"
                 + "]"
         )));
     }
@@ -510,7 +511,7 @@ impl GenerateBindings {
                         .typedef_name()
                         .as_ref()
                         .or_else(|| enum_declaration.enum_name().as_ref())
-                        .map(|name| name.to_camel_case())
+                        .map(normalize_constant)
                         .unwrap_or_else(|| IDENTIFIER_GENERATOR.upper_camel_case())
                         .tap(|constant| {
                             TYPE_CONSTANTS.lock().unwrap().insert(constant.to_owned());
@@ -548,7 +549,7 @@ impl GenerateBindings {
                         .typedef_name()
                         .as_ref()
                         .or_else(|| struct_declaration.struct_name().as_ref())
-                        .map(|name| name.to_camel_case())
+                        .map(normalize_constant)
                         .unwrap_or_else(|| IDENTIFIER_GENERATOR.upper_camel_case())
                         .tap(|constant| {
                             TYPE_CONSTANTS.lock().unwrap().insert(constant.to_owned());
@@ -612,4 +613,8 @@ impl GenerateBindings {
             })
         }
     }
+}
+
+fn normalize_constant(name: impl AsRef<str>) -> String {
+    name.as_ref().split(' ').last().unwrap().to_camel_case()
 }
