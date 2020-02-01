@@ -9,6 +9,7 @@ STATIC_LIBRARY =
 DYNAMIC_LIBRARY =
 LDFLAGS =
 SYMBOLS =
+UNAME_S =
 
 ifeq ($(OS),Windows_NT)
 	CC := cl.exe
@@ -25,6 +26,7 @@ else
 	LDFLAGS := -lm -lpthread -ldl -lcurl
 	SYMBOLS := -DTEST -DUNITY_USE_FLUSH_STDOUT
 	CFLAGS := -O0 -Wall -Wextra
+	UNAME_S = $(shell uname -s)
 
 	ifeq ($(shell uname -s),Darwin)
 		LDFLAGS += -framework Security -framework Foundation
@@ -58,6 +60,11 @@ endif
 build_test: build_test_via_static_link build_test_via_dynamic_link
 libqiniu_ng.h: cbindgen.toml $(wildcard src/*.rs)
 	cbindgen --config cbindgen.toml --crate qiniu-ng-c --output libqiniu_ng.h --quiet
+ifeq ($(UNAME_S),Linux)
+	sed -i 's/\bbool\b/_Bool/g' libqiniu_ng.h
+else
+	sed -i '' 's/[[:<:]]bool[[:>:]]/_Bool/g' libqiniu_ng.h
+endif
 test:
 ifeq ($(OS),Windows_NT)
 	$(MAKE) build_test_via_dynamic_link

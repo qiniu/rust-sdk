@@ -4,7 +4,7 @@ use crate::{
     string::{qiniu_ng_char_t, ucstr, UCString},
     utils::qiniu_ng_str_t,
 };
-use libc::{c_int, c_void, size_t};
+use libc::{c_void, size_t};
 use qiniu_http::{
     Error as HTTPError, ErrorKind as HTTPErrorKind, Request as HTTPRequest, Response as HTTPResponse,
     Result as HTTPResult,
@@ -554,11 +554,11 @@ pub extern "C" fn qiniu_ng_config_builder_domains_manager_sync_pre_resolve(build
 }
 
 struct QiniuNgHTTPBeforeActionHandler {
-    handler: fn(request: qiniu_ng_http_request_t) -> c_int,
+    handler: fn(request: qiniu_ng_http_request_t) -> bool,
 }
 
 impl QiniuNgHTTPBeforeActionHandler {
-    fn new(handler: fn(request: qiniu_ng_http_request_t) -> c_int) -> Self {
+    fn new(handler: fn(request: qiniu_ng_http_request_t) -> bool) -> Self {
         QiniuNgHTTPBeforeActionHandler { handler }
     }
 }
@@ -566,7 +566,7 @@ impl QiniuNgHTTPBeforeActionHandler {
 impl HTTPBeforeAction for QiniuNgHTTPBeforeActionHandler {
     fn before_call(&self, request: &mut HTTPRequest) -> HTTPResult<()> {
         let request = qiniu_ng_http_request_t::from(Box::new(request));
-        if (self.handler)(request) == 0 {
+        if (self.handler)(request) {
             Ok(())
         } else {
             Err(HTTPError::new_unretryable_error(
@@ -581,7 +581,7 @@ impl HTTPBeforeAction for QiniuNgHTTPBeforeActionHandler {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_append_http_request_before_action_handler(
     builder: qiniu_ng_config_builder_t,
-    handler: fn(request: qiniu_ng_http_request_t) -> c_int,
+    handler: fn(request: qiniu_ng_http_request_t) -> bool,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
@@ -593,7 +593,7 @@ pub extern "C" fn qiniu_ng_config_builder_append_http_request_before_action_hand
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_before_action_handler(
     builder: qiniu_ng_config_builder_t,
-    handler: fn(request: qiniu_ng_http_request_t) -> c_int,
+    handler: fn(request: qiniu_ng_http_request_t) -> bool,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
@@ -603,11 +603,11 @@ pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_before_action_han
 }
 
 struct QiniuNgHTTPAfterActionHandler {
-    handler: fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t) -> c_int,
+    handler: fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t) -> bool,
 }
 
 impl QiniuNgHTTPAfterActionHandler {
-    fn new(handler: fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t) -> c_int) -> Self {
+    fn new(handler: fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t) -> bool) -> Self {
         QiniuNgHTTPAfterActionHandler { handler }
     }
 }
@@ -616,7 +616,7 @@ impl HTTPAfterAction for QiniuNgHTTPAfterActionHandler {
     fn after_call(&self, request: &mut HTTPRequest, response: &mut HTTPResponse) -> HTTPResult<()> {
         let request = qiniu_ng_http_request_t::from(Box::new(request));
         let response = qiniu_ng_http_response_t::from(Box::new(response));
-        if (self.handler)(request, response) == 0 {
+        if (self.handler)(request, response) {
             Ok(())
         } else {
             Err(HTTPError::new_unretryable_error(
@@ -631,7 +631,7 @@ impl HTTPAfterAction for QiniuNgHTTPAfterActionHandler {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_append_http_request_after_action_handler(
     builder: qiniu_ng_config_builder_t,
-    handler: fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t) -> c_int,
+    handler: fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t) -> bool,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
@@ -643,7 +643,7 @@ pub extern "C" fn qiniu_ng_config_builder_append_http_request_after_action_handl
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_after_action_handler(
     builder: qiniu_ng_config_builder_t,
-    handler: fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t) -> c_int,
+    handler: fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t) -> bool,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
