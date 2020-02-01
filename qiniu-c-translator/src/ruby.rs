@@ -3,13 +3,14 @@ use crate::{
         EnumConstantValue, EnumDeclaration, FieldType, FunctionDeclaration, SourceFile, StructDeclaration, SubType,
         Type, TypeDeclaration,
     },
+    classifier::Classifier,
     utils::{CodeGenerator, CodeWriter, RandomIdentifier, Writer},
 };
 use clang::{Entity as ClangEntity, TypeKind as ClangTypeKind};
 use heck::CamelCase;
 use lazy_static::lazy_static;
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     fmt,
     io::{Result, Write},
     process::{exit, Command, Stdio},
@@ -18,8 +19,16 @@ use std::{
 use tap::TapOps;
 
 lazy_static! {
-    static ref TYPE_CONSTANTS: Mutex<HashSet<String>> = Default::default();
+    static ref TYPE_CONSTANTS: Mutex<HashMap<String, ConstantType>> = Default::default();
     static ref IDENTIFIER_GENERATOR: RandomIdentifier = Default::default();
+}
+
+const CORE_FFI_MODULE_NAME: &str = "CoreFFI";
+const CLASS_CONTEXT_INSTANCE_VARIABLE_NAME: &str = "@instance";
+
+enum ConstantType {
+    Enum,
+    Struct,
 }
 
 #[derive(Default)]
@@ -64,14 +73,16 @@ impl CodeGenerator for RawCode {
 
 #[derive(Default)]
 struct Module {
-    module_name: String,
+    name: String,
+    is_class: bool,
     sub_nodes: Vec<Box<dyn CodeGenerator>>,
 }
 
 impl Module {
-    fn new(module_name: impl Into<String>) -> Self {
+    fn new(name: impl Into<String>, is_class: bool) -> Self {
         Self {
-            module_name: module_name.into(),
+            name: name.into(),
+            is_class,
             ..Default::default()
         }
     }
@@ -79,7 +90,11 @@ impl Module {
 
 impl CodeGenerator for Module {
     fn generate_code(&self, mut output: CodeWriter) -> Result<CodeWriter> {
-        output.write(&format!("module {}", self.module_name))?;
+        if self.is_class {
+            output.write(&format!("class {}", self.name))?;
+        } else {
+            output.write(&format!("module {}", self.name))?;
+        }
         output = output.try_with_next_level(|mut output| {
             for node in self.sub_nodes.iter() {
                 output = node.generate_code(output)?;
@@ -103,14 +118,14 @@ struct EnumValue {
 
 #[derive(Default)]
 struct Enum {
-    enum_name: String,
-    enum_constants: Vec<EnumValue>,
+    name: String,
+    constants: Vec<EnumValue>,
 }
 
 impl Enum {
     fn new(name: impl Into<String>) -> Self {
         Self {
-            enum_name: name.into(),
+            name: name.into(),
             ..Default::default()
         }
     }
@@ -118,9 +133,9 @@ impl Enum {
 
 impl CodeGenerator for Enum {
     fn generate_code(&self, mut output: CodeWriter) -> Result<CodeWriter> {
-        output.write(&format!("{} = enum(", self.enum_name))?;
+        output.write(&format!("{} = enum(", self.name))?;
         output = output.try_with_next_level(|mut output| {
-            for enum_value in self.enum_constants.iter() {
+            for enum_value in self.constants.iter() {
                 output.write(&format!(":{}, {},", enum_value.name, enum_value.value))?;
             }
             Ok(output)
@@ -279,7 +294,10 @@ impl fmt::Display for StructFieldType {
         match self {
             StructFieldType::BaseType(type_name) => type_name.to_symbol().fmt(f),
             StructFieldType::ByVal(type_name) => type_name.fmt(f),
-            StructFieldType::ByPtr(_) => Self::BaseType(BaseType::Pointer).fmt(f),
+            StructFieldType::ByPtr(type_name) => match TYPE_CONSTANTS.lock().unwrap().get(type_name) {
+                Some(ConstantType::Struct) => write!(f, "{}.ptr", type_name),
+                _ => Self::BaseType(BaseType::Pointer).fmt(f),
+            },
         }
     }
 }
@@ -298,7 +316,7 @@ struct StructField {
 
 #[derive(Default)]
 struct Struct {
-    struct_name: String,
+    name: String,
     fields: Vec<StructField>,
     is_union: bool,
 }
@@ -306,7 +324,7 @@ struct Struct {
 impl Struct {
     fn new(name: impl Into<String>, is_union: bool) -> Self {
         Self {
-            struct_name: name.into(),
+            name: name.into(),
             is_union,
             ..Default::default()
         }
@@ -317,7 +335,7 @@ impl CodeGenerator for Struct {
     fn generate_code(&self, mut output: CodeWriter) -> Result<CodeWriter> {
         output.write(&format!(
             "class {} < FFI::{}",
-            self.struct_name,
+            self.name,
             if self.is_union { "Union" } else { "Struct" }
         ))?;
         output = output.try_with_next_level(|mut output| {
@@ -343,7 +361,7 @@ impl CodeGenerator for Struct {
 
 #[derive(Default)]
 struct AttachFunction {
-    function_name: String,
+    name: String,
     parameters: Vec<StructFieldType>,
     return_value: StructFieldType,
 }
@@ -351,7 +369,7 @@ struct AttachFunction {
 impl AttachFunction {
     fn new(name: impl Into<String>, return_value: StructFieldType) -> Self {
         Self {
-            function_name: name.into(),
+            name: name.into(),
             return_value,
             ..Default::default()
         }
@@ -362,7 +380,7 @@ impl CodeGenerator for AttachFunction {
     fn generate_code(&self, mut output: CodeWriter) -> Result<CodeWriter> {
         output.write(&format!(
             "attach_function :{}, [{}], {}",
-            self.function_name,
+            self.name,
             self.parameters
                 .iter()
                 .map(|parameter| parameter.to_string())
@@ -379,9 +397,137 @@ impl CodeGenerator for AttachFunction {
 }
 
 #[derive(Default)]
+struct Method {
+    name: String,
+    is_class_method: bool,
+    parameter_names: Vec<String>,
+    sub_nodes: Vec<Box<dyn CodeGenerator>>,
+}
+
+impl Method {
+    fn new(name: impl Into<String>, is_class_method: bool) -> Self {
+        Self {
+            name: name.into(),
+            is_class_method,
+            ..Default::default()
+        }
+    }
+}
+
+impl CodeGenerator for Method {
+    fn generate_code(&self, mut output: CodeWriter) -> Result<CodeWriter> {
+        let parameters = if self.parameter_names.is_empty() {
+            String::new()
+        } else {
+            format!("({})", self.parameter_names.join(", "))
+        };
+        if self.is_class_method {
+            output.write(&format!("def self.{}{}", self.name, parameters))?;
+        } else {
+            output.write(&format!("def {}{}", self.name, parameters))?;
+        }
+        output = output.try_with_next_level(|mut output| {
+            for node in self.sub_nodes.iter() {
+                output = node.generate_code(output)?;
+            }
+            Ok(output)
+        })?;
+        output.write("end")?;
+        Ok(output)
+    }
+
+    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
+        self.sub_nodes.iter().map(|node| node.as_ref()).collect::<Vec<_>>()
+    }
+}
+
+enum Context {
+    Modules(Vec<String>),
+    Instance(String),
+}
+
+#[derive(Default)]
+struct MethodCall {
+    receiver_names: Vec<String>,
+    context: Option<Context>,
+    method_name: String,
+    parameter_names: Vec<String>,
+}
+
+impl MethodCall {
+    fn new(context: Option<Context>, method_name: String) -> Self {
+        Self {
+            context,
+            method_name,
+            ..Default::default()
+        }
+    }
+}
+
+impl CodeGenerator for MethodCall {
+    fn generate_code(&self, mut output: CodeWriter) -> Result<CodeWriter> {
+        let receivers = if self.receiver_names.is_empty() {
+            String::new()
+        } else {
+            format!("{} = ", self.receiver_names.join(", "))
+        };
+        let full_method_name = match &self.context {
+            Some(Context::Modules(modules)) => format!("{}::{}", modules.join("::"), self.method_name),
+            Some(Context::Instance(instance)) => format!("{}.{}", instance, self.method_name),
+            None => self.method_name.to_owned(),
+        };
+        let parameters = if self.parameter_names.is_empty() {
+            String::new()
+        } else {
+            format!("({})", self.parameter_names.join(", "))
+        };
+        output.write(&format!("{}{}{}", receivers, full_method_name, parameters))?;
+        Ok(output)
+    }
+
+    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
+        Vec::new()
+    }
+}
+
+#[derive(Default)]
+struct Proc {
+    is_lambda: bool,
+    sub_nodes: Vec<Box<dyn CodeGenerator>>,
+}
+
+impl Proc {
+    fn new(is_lambda: bool) -> Self {
+        Self {
+            is_lambda,
+            ..Default::default()
+        }
+    }
+}
+
+impl CodeGenerator for Proc {
+    fn generate_code(&self, mut output: CodeWriter) -> Result<CodeWriter> {
+        output.write(if self.is_lambda { "lambda do" } else { "proc do" })?;
+        output = output.try_with_next_level(|mut output| {
+            for node in self.sub_nodes.iter() {
+                output = node.generate_code(output)?;
+            }
+            Ok(output)
+        })?;
+        output.write("end")?;
+        Ok(output)
+    }
+
+    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
+        self.sub_nodes.iter().map(|node| node.as_ref()).collect::<Vec<_>>()
+    }
+}
+
+#[derive(Default)]
 pub struct GenerateBindings {
     module_names: Vec<String>,
     version_constant: String,
+    classifier: Classifier,
 }
 
 impl GenerateBindings {
@@ -395,7 +541,8 @@ impl GenerateBindings {
         self
     }
 
-    pub fn build(self, entity: &ClangEntity, output: &mut dyn Write) -> Result<()> {
+    pub fn build(mut self, entity: &ClangEntity, classifier: Classifier, output: &mut dyn Write) -> Result<()> {
+        self.classifier = classifier;
         let mut output_buf = self.build_without_syntax_check(entity, Writer::Memory(Vec::new()))?;
         match &mut output_buf {
             Writer::Memory(output_buf) => {
@@ -429,18 +576,19 @@ impl GenerateBindings {
         top_level_node.sub_nodes.push(Box::new(RawCode::new("require 'ffi'")));
 
         if let Some(top_level_module) = self.module_names.iter().rev().fold(None, |module, module_name| {
-            Some(Box::new(Module::new(module_name).tap(|m| {
+            Some(Box::new(Module::new(module_name, false).tap(|m| {
                 if let Some(module) = module {
                     m.sub_nodes = vec![module];
                 } else {
-                    let mut core_ffi_module = Module::new("CoreFFI");
+                    let mut core_ffi_module = Module::new(CORE_FFI_MODULE_NAME, false);
                     self.insert_ffi_bindings(&mut core_ffi_module);
                     self.insert_type_declaration_bindings(&source_file, &mut core_ffi_module);
                     self.insert_attach_function_declaration_bindings(&source_file, &mut core_ffi_module);
                     m.sub_nodes = vec![
                         Box::new(core_ffi_module),
-                        Box::new(RawCode::new("private_constant :CoreFFI")),
+                        Box::new(RawCode::new(format!("private_constant :{}", CORE_FFI_MODULE_NAME))),
                     ];
+                    self.insert_ffi_wrapper_classes(m);
                 }
             })) as Box<dyn CodeGenerator>)
         }) {
@@ -501,7 +649,10 @@ impl GenerateBindings {
                     },
                 ]
             })));
-            TYPE_CONSTANTS.lock().unwrap().insert("In6Addr".to_owned());
+            TYPE_CONSTANTS
+                .lock()
+                .unwrap()
+                .insert("In6Addr".to_owned(), ConstantType::Struct);
         }
 
         fn insert_enum_node(enum_declaration: &EnumDeclaration, nodes: &mut Vec<Box<dyn CodeGenerator>>) -> String {
@@ -514,11 +665,14 @@ impl GenerateBindings {
                         .map(normalize_constant)
                         .unwrap_or_else(|| IDENTIFIER_GENERATOR.upper_camel_case())
                         .tap(|constant| {
-                            TYPE_CONSTANTS.lock().unwrap().insert(constant.to_owned());
+                            TYPE_CONSTANTS
+                                .lock()
+                                .unwrap()
+                                .insert(constant.to_owned(), ConstantType::Enum);
                         }),
                 )
                 .tap(|enum_node| {
-                    enum_node.enum_constants = enum_declaration
+                    enum_node.constants = enum_declaration
                         .constants()
                         .iter()
                         .map(|constant| {
@@ -534,7 +688,7 @@ impl GenerateBindings {
                         .collect();
                 }),
             );
-            enum_node.enum_name.to_owned().tap(|_| {
+            enum_node.name.to_owned().tap(|_| {
                 nodes.push(enum_node);
             })
         }
@@ -552,7 +706,10 @@ impl GenerateBindings {
                         .map(normalize_constant)
                         .unwrap_or_else(|| IDENTIFIER_GENERATOR.upper_camel_case())
                         .tap(|constant| {
-                            TYPE_CONSTANTS.lock().unwrap().insert(constant.to_owned());
+                            TYPE_CONSTANTS
+                                .lock()
+                                .unwrap()
+                                .insert(constant.to_owned(), ConstantType::Struct);
                         }),
                     struct_declaration.is_union(),
                 )
@@ -584,7 +741,7 @@ impl GenerateBindings {
                         .collect();
                 }),
             );
-            struct_node.struct_name.to_owned().tap(|_| {
+            struct_node.name.to_owned().tap(|_| {
                 nodes.push(struct_node);
             })
         }
@@ -608,9 +765,64 @@ impl GenerateBindings {
                     .parameters
                     .push(StructFieldType::from(parameter.parameter_type().to_owned()));
             }
-            function_node.function_name.to_owned().tap(|_| {
+            function_node.name.to_owned().tap(|_| {
                 nodes.push(function_node);
             })
+        }
+    }
+
+    fn insert_ffi_wrapper_classes(&self, module: &mut Module) {
+        for class in self.classifier.classes().iter() {
+            module
+                .sub_nodes
+                .push(Box::new(Module::new(class.name().to_owned(), true)).tap(|new_class| {
+                    new_class
+                        .sub_nodes
+                        .push(Box::new(Method::new("initialize", false)).tap(|initializer| {
+                            if let Some(constructor) = class.constructor().as_ref() {
+                                initializer.parameter_names = constructor
+                                    .parameters()
+                                    .iter()
+                                    .map(|param| param.name().to_owned())
+                                    .collect();
+                                initializer.sub_nodes.push(
+                                    Box::new(MethodCall::new(
+                                        Some(Context::Modules(vec![CORE_FFI_MODULE_NAME.to_owned()])),
+                                        constructor.name().to_owned(),
+                                    ))
+                                    .tap(|method_call| {
+                                        method_call.parameter_names = initializer.parameter_names.clone();
+                                        method_call.receiver_names =
+                                            vec![CLASS_CONTEXT_INSTANCE_VARIABLE_NAME.to_owned()];
+                                    }),
+                                )
+                            }
+                            if class.destructor().is_some() {
+                                initializer.sub_nodes.push(Box::new(RawCode::new(format!(
+                                    "ObjectSpace.define_finalizer(self, self.class.finalize({}))",
+                                    CLASS_CONTEXT_INSTANCE_VARIABLE_NAME
+                                ))));
+                            }
+                        }));
+                    if let Some(destructor) = class.destructor().as_ref() {
+                        new_class
+                            .sub_nodes
+                            .push(Box::new(Method::new("finalize", true)).tap(|finalizer| {
+                                finalizer.parameter_names = vec!["instance".to_owned()];
+                                finalizer.sub_nodes.push(Box::new(Proc::new(false)).tap(|proc| {
+                                    proc.sub_nodes.push(
+                                        Box::new(MethodCall::new(
+                                            Some(Context::Modules(vec![CORE_FFI_MODULE_NAME.to_owned()])),
+                                            destructor.name().to_owned(),
+                                        ))
+                                        .tap(|finalizer_method_call| {
+                                            finalizer_method_call.parameter_names = finalizer.parameter_names.clone();
+                                        }),
+                                    )
+                                }))
+                            }));
+                    }
+                }));
         }
     }
 }

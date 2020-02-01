@@ -1,4 +1,4 @@
-SUBDIRS := qiniu-rust qiniu-rust-http qiniu-rust-with-libcurl qiniu-rust-test qiniu-rust-test-utils qiniu-c
+SUBDIRS := qiniu-rust qiniu-rust-http qiniu-rust-with-libcurl qiniu-rust-test qiniu-rust-test-utils qiniu-c qiniu-c-translator
 RUBY_DIR := qiniu-ruby/qiniu_ng
 
 all: $(SUBDIRS) $(RUBY_DIR)

@@ -76,6 +76,7 @@ fn main() -> Result<()> {
             .version_constant("QiniuNg::VERSION")
             .build(
                 &entity,
+                make_classifier(&entity),
                 &mut args
                     .and_then(|args| args.value_of_os("output"))
                     .and_then(|path| if path == "-" { None } else { Some(path) })
