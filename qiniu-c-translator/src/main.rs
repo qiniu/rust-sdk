@@ -1,15 +1,19 @@
-use clang::{Clang, Index};
+use clang::{Clang, Entity, Index};
 use clap::{App, Arg, SubCommand};
+use regex::Regex;
 use std::{
     fs::OpenOptions,
     io::{stdout, Result, Write},
 };
+use tap::TapOps;
 
 mod ast;
+mod classifier;
 mod dump_entity;
 mod ruby;
 mod utils;
-use ast::dump_ast;
+use ast::{dump_ast, SourceFile};
+use classifier::{dump_classifier, Class, Classifier};
 use dump_entity::dump_entity;
 use ruby::GenerateBindings as GenerateRubyBindings;
 
@@ -46,14 +50,13 @@ fn main() -> Result<()> {
                         .help("Pretty-printed output"),
                 ),
         )
+        .subcommand(SubCommand::with_name("dump-classifier").about("Show classifier, only for debug"))
         .subcommand(
-            SubCommand::with_name("dump-ast")
-                .about("Show clang ast, only for debug")
-                .arg(
-                    Arg::with_name("pretty-print")
-                        .long("pretty")
-                        .help("Pretty-printed output"),
-                ),
+            SubCommand::with_name("dump-ast").about("Show ast, only for debug").arg(
+                Arg::with_name("pretty-print")
+                    .long("pretty")
+                    .help("Pretty-printed output"),
+            ),
         )
         .get_matches();
     let cl = Clang::new().unwrap();
@@ -68,6 +71,7 @@ fn main() -> Result<()> {
     let entity = tu.get_entity();
     match matches.subcommand() {
         ("generate-ruby-bindings", args) => GenerateRubyBindings::default()
+            // 这里目前是写死的模块路径，如果有需要可以改为参数配置
             .module_names(["QiniuNg".into(), "Bindings".into()])
             .version_constant("QiniuNg::VERSION")
             .build(
@@ -96,10 +100,24 @@ fn main() -> Result<()> {
             &entity,
             args.map(|args| args.is_present("pretty-print")).unwrap_or(false),
         ),
-
+        ("dump-classifier", _) => dump_classifier(&make_classifier(&entity))?,
         ("", _) => {}
         (subcommand, _) => panic!("Unrecognized subcommand: {}", subcommand),
     }
 
     Ok(())
+}
+
+fn make_classifier(entity: &Entity) -> Classifier {
+    let source_file = SourceFile::parse(&entity);
+    Classifier::default().tap(|classifier| {
+        classifier.add_class(Class::new(
+            "Str",
+            Regex::new("^qiniu_ng_str_(\\w+)").unwrap(),
+            Some(Regex::new("^qiniu_ng_str_(list|map)_").unwrap()),
+            source_file.function_declarations().iter(),
+            None,
+            None,
+        ))
+    })
 }

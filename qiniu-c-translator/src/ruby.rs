@@ -342,13 +342,13 @@ impl CodeGenerator for Struct {
 }
 
 #[derive(Default)]
-struct Function {
+struct AttachFunction {
     function_name: String,
     parameters: Vec<StructFieldType>,
     return_value: StructFieldType,
 }
 
-impl Function {
+impl AttachFunction {
     fn new(name: impl Into<String>, return_value: StructFieldType) -> Self {
         Self {
             function_name: name.into(),
@@ -358,7 +358,7 @@ impl Function {
     }
 }
 
-impl CodeGenerator for Function {
+impl CodeGenerator for AttachFunction {
     fn generate_code(&self, mut output: CodeWriter) -> Result<CodeWriter> {
         output.write(&format!(
             "attach_function :{}, [{}], {}",
@@ -436,7 +436,7 @@ impl GenerateBindings {
                     let mut core_ffi_module = Module::new("CoreFFI");
                     self.insert_ffi_bindings(&mut core_ffi_module);
                     self.insert_type_declaration_bindings(&source_file, &mut core_ffi_module);
-                    self.insert_function_declaration_bindings(&source_file, &mut core_ffi_module);
+                    self.insert_attach_function_declaration_bindings(&source_file, &mut core_ffi_module);
                     m.sub_nodes = vec![
                         Box::new(core_ffi_module),
                         Box::new(RawCode::new("private_constant :CoreFFI")),
@@ -590,16 +590,16 @@ impl GenerateBindings {
         }
     }
 
-    fn insert_function_declaration_bindings(&self, source_file: &SourceFile, module: &mut Module) {
+    fn insert_attach_function_declaration_bindings(&self, source_file: &SourceFile, module: &mut Module) {
         source_file.function_declarations().iter().for_each(|type_declaration| {
-            insert_function_node(type_declaration, &mut module.sub_nodes);
+            insert_attach_function_node(type_declaration, &mut module.sub_nodes);
         });
 
-        fn insert_function_node(
+        fn insert_attach_function_node(
             function_declaration: &FunctionDeclaration,
             nodes: &mut Vec<Box<dyn CodeGenerator>>,
         ) -> String {
-            let mut function_node = Box::new(Function::new(
+            let mut function_node = Box::new(AttachFunction::new(
                 function_declaration.name().to_owned(),
                 StructFieldType::from(function_declaration.return_type().to_owned()),
             ));

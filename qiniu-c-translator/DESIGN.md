@@ -13,3 +13,11 @@
 | ast                           | 解析 C 语言头文件代码并将其转换为抽象语法树 |
 | ruby                          | 将 `ast` 生成的抽象语法树转换为 Ruby 绑定代码 |
 | dump_entity                   | 将 `ast` 生成的抽象语法树展示出来，仅用于功能调试 |
+| classifier                    | 将相同类的方法归类，并从中辨识出构造函数和析构函数 |
+| utils                         | 为方便各个语言编写自身的模块而抽象出来的通用库 |
+
+## Ruby 模块
+
+默认情况下，Ruby 模块将会将代码生成在 `QiniuNg::Bindings` 模块内。因此，生成代码的文件应该配置在 `qiniu-ruby/<GEM PATH>/lib/qiniu_ng/bindings.rb` 路径上。
+
+与 C 接口的绑定代码总是生成在 `QiniuNg::Bindings::CoreFFI` 模块内，包含结构体，枚举类和关联函数。

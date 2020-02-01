@@ -88,11 +88,6 @@ impl From<qiniu_ng_str_t> for Option<UCString> {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_str_null() -> qiniu_ng_str_t {
-    Default::default()
-}
-
-#[no_mangle]
 pub extern "C" fn qiniu_ng_str_is_null(s: qiniu_ng_str_t) -> bool {
     s.is_null()
 }
