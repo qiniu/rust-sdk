@@ -1,11 +1,13 @@
 all: build
-build: lib/qiniu_ng/bindings.rb
-	rake build
-lib/qiniu_ng/bindings.rb:
-	rake generate_bindings
-clean:
+build: lib/qiniu_ng/bindings.rb bundle
+	bundle exec rake build
+lib/qiniu_ng/bindings.rb: bundle
+	bundle exec rake generate_bindings
+clean: bundle
 	$(RM) lib/qiniu_ng/bindings.rb
-	rake clean
+	bundle exec rake clean
 test:
 	# TODO
-.PHONY: all build clean test
+bundle:
+	bundle install
+.PHONY: all build clean test bundle
