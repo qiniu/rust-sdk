@@ -166,6 +166,9 @@ pub struct Type {
 
     #[get = "pub"]
     subtype: Option<Box<SubType>>,
+
+    #[get_copy = "pub"]
+    is_const: bool,
 }
 
 impl Type {
@@ -186,6 +189,7 @@ impl Type {
                 )))),
                 _ => None,
             },
+            is_const: clang_type.is_const_qualified(),
         }
     }
 }

@@ -198,8 +198,7 @@ impl From<qiniu_ng_str_list_t> for Option<Box<[Box<ucstr>]>> {
 pub extern "C" fn qiniu_ng_str_list_new(strlist: *const *const qiniu_ng_char_t, len: size_t) -> qiniu_ng_str_list_t {
     (0..len)
         .map(|i| unsafe { UCString::from_ptr(*strlist.add(i)) }.into_boxed_ucstr())
-        .collect::<Vec<_>>()
-        .into_boxed_slice()
+        .collect::<Box<[_]>>()
         .into()
 }
 

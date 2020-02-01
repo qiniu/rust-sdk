@@ -6,8 +6,8 @@ lib/qiniu_ng/bindings.rb: bundle
 clean: bundle
 	$(RM) lib/qiniu_ng/bindings.rb
 	bundle exec rake clean
-test:
-	# TODO
+test: bundle
+	bundle exec rspec
 bundle:
 	bundle install
 .PHONY: all build clean test bundle

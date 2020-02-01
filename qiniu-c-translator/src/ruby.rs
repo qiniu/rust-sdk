@@ -1,9 +1,9 @@
 use crate::{
     ast::{
-        EnumConstantValue, EnumDeclaration, FieldType, FunctionDeclaration, SourceFile, StructDeclaration, SubType,
-        Type, TypeDeclaration,
+        EnumConstantValue, EnumDeclaration, FieldType, FunctionDeclaration, ParameterDeclaration, SourceFile,
+        StructDeclaration, SubType, Type, TypeDeclaration,
     },
-    classifier::Classifier,
+    classifier::{Class, Classifier},
     utils::{CodeGenerator, CodeWriter, RandomIdentifier, Writer},
 };
 use clang::{Entity as ClangEntity, TypeKind as ClangTypeKind};
@@ -160,7 +160,7 @@ enum BaseType {
     I64,
     U64,
     Size,
-    Usize,
+    Ssize,
     F32,
     F64,
     Ldouble,
@@ -182,9 +182,9 @@ impl BaseType {
             ClangTypeKind::CharU | ClangTypeKind::UChar => Self::Uchar,
             ClangTypeKind::UInt => Self::U32,
             ClangTypeKind::Int => Self::I32,
-            ClangTypeKind::Long => Self::Size,
+            ClangTypeKind::Long => Self::Ssize,
             ClangTypeKind::LongLong => Self::I64,
-            ClangTypeKind::ULong => Self::Usize,
+            ClangTypeKind::ULong => Self::Size,
             ClangTypeKind::ULongLong => Self::U64,
             ClangTypeKind::Pointer => match c_type.display_name().as_str() {
                 "const char *" | "char *" => Self::String,
@@ -208,8 +208,8 @@ impl BaseType {
             Self::U32 => ":uint32",
             Self::I64 => ":int64",
             Self::U64 => ":uint64",
-            Self::Size => ":long",
-            Self::Usize => ":ulong",
+            Self::Size => ":ulong",
+            Self::Ssize => ":long",
             Self::F32 => ":float",
             Self::F64 => ":double",
             Self::Ldouble => ":long_double",
@@ -275,8 +275,7 @@ impl StructFieldType {
                 "Uint32T" => Self::BaseType(BaseType::U32),
                 "Uint64T" => Self::BaseType(BaseType::U64),
                 "SizeT" => Self::BaseType(BaseType::Size),
-                "UsizeT" => Self::BaseType(BaseType::Usize),
-                "CurLcode" => Self::BaseType(BaseType::Usize),
+                "CurLcode" => Self::BaseType(BaseType::Size),
                 _ => panic!("Unrecognized base type: {}", t),
             };
         }
@@ -293,7 +292,10 @@ impl fmt::Display for StructFieldType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             StructFieldType::BaseType(type_name) => type_name.to_symbol().fmt(f),
-            StructFieldType::ByVal(type_name) => type_name.fmt(f),
+            StructFieldType::ByVal(type_name) => match TYPE_CONSTANTS.lock().unwrap().get(type_name) {
+                Some(ConstantType::Struct) => write!(f, "{}.by_value", type_name),
+                _ => type_name.fmt(f),
+            },
             StructFieldType::ByPtr(type_name) => match TYPE_CONSTANTS.lock().unwrap().get(type_name) {
                 Some(ConstantType::Struct) => write!(f, "{}.ptr", type_name),
                 _ => Self::BaseType(BaseType::Pointer).fmt(f),
@@ -776,53 +778,182 @@ impl GenerateBindings {
             module
                 .sub_nodes
                 .push(Box::new(Module::new(class.name().to_owned(), true)).tap(|new_class| {
-                    new_class
-                        .sub_nodes
-                        .push(Box::new(Method::new("initialize", false)).tap(|initializer| {
-                            if let Some(constructor) = class.constructor().as_ref() {
-                                initializer.parameter_names = constructor
-                                    .parameters()
-                                    .iter()
-                                    .map(|param| param.name().to_owned())
-                                    .collect();
-                                initializer.sub_nodes.push(
-                                    Box::new(MethodCall::new(
-                                        Some(Context::Modules(vec![CORE_FFI_MODULE_NAME.to_owned()])),
-                                        constructor.name().to_owned(),
-                                    ))
-                                    .tap(|method_call| {
-                                        method_call.parameter_names = initializer.parameter_names.clone();
-                                        method_call.receiver_names =
-                                            vec![CLASS_CONTEXT_INSTANCE_VARIABLE_NAME.to_owned()];
-                                    }),
-                                )
-                            }
-                            if class.destructor().is_some() {
-                                initializer.sub_nodes.push(Box::new(RawCode::new(format!(
-                                    "ObjectSpace.define_finalizer(self, self.class.finalize({}))",
-                                    CLASS_CONTEXT_INSTANCE_VARIABLE_NAME
-                                ))));
-                            }
-                        }));
-                    if let Some(destructor) = class.destructor().as_ref() {
-                        new_class
-                            .sub_nodes
-                            .push(Box::new(Method::new("finalize", true)).tap(|finalizer| {
-                                finalizer.parameter_names = vec!["instance".to_owned()];
-                                finalizer.sub_nodes.push(Box::new(Proc::new(false)).tap(|proc| {
-                                    proc.sub_nodes.push(
-                                        Box::new(MethodCall::new(
-                                            Some(Context::Modules(vec![CORE_FFI_MODULE_NAME.to_owned()])),
-                                            destructor.name().to_owned(),
-                                        ))
-                                        .tap(|finalizer_method_call| {
-                                            finalizer_method_call.parameter_names = finalizer.parameter_names.clone();
-                                        }),
-                                    )
-                                }))
-                            }));
-                    }
+                    insert_constructor_node(class, &mut new_class.sub_nodes);
+                    insert_destructor_node(class, &mut new_class.sub_nodes);
+                    insert_methods_nodes(class, &mut new_class.sub_nodes);
                 }));
+        }
+
+        fn insert_constructor_node(class: &Class, nodes: &mut Vec<Box<dyn CodeGenerator>>) {
+            nodes.push(Box::new(Method::new("initialize", false)).tap(|initializer| {
+                if let Some(constructor) = class.constructor().as_ref() {
+                    normalize_parameters_for_method_and_method_call(
+                        initializer,
+                        constructor.parameters(),
+                        constructor.return_type(),
+                        MethodCall::new(
+                            Some(Context::Modules(vec![CORE_FFI_MODULE_NAME.to_owned()])),
+                            constructor.name().to_owned(),
+                        )
+                        .tap(|method_call| {
+                            method_call.receiver_names = vec![CLASS_CONTEXT_INSTANCE_VARIABLE_NAME.to_owned()];
+                        }),
+                    );
+                }
+                if class.destructor().is_some() {
+                    initializer.sub_nodes.push(Box::new(RawCode::new(format!(
+                        "ObjectSpace.define_finalizer(self, self.class.finalize({}))",
+                        CLASS_CONTEXT_INSTANCE_VARIABLE_NAME
+                    ))));
+                }
+            }));
+        }
+
+        fn insert_destructor_node(class: &Class, nodes: &mut Vec<Box<dyn CodeGenerator>>) {
+            if let Some(destructor) = class.destructor().as_ref() {
+                nodes.push(Box::new(Method::new("finalize", true)).tap(|finalizer| {
+                    finalizer.parameter_names = vec!["instance".to_owned()];
+                    finalizer.sub_nodes.push(Box::new(Proc::new(false)).tap(|proc| {
+                        proc.sub_nodes.push(
+                            Box::new(MethodCall::new(
+                                Some(Context::Modules(vec![CORE_FFI_MODULE_NAME.to_owned()])),
+                                destructor.name().to_owned(),
+                            ))
+                            .tap(|finalizer_method_call| {
+                                finalizer_method_call.parameter_names = finalizer.parameter_names.clone();
+                            }),
+                        )
+                    }))
+                }));
+            }
+        }
+
+        fn insert_methods_nodes(class: &Class, nodes: &mut Vec<Box<dyn CodeGenerator>>) {
+            for method in class.methods().iter() {
+                let new_method_name = if method.declaration().return_type().type_kind() == ClangTypeKind::Bool {
+                    format!("{}?", method.name())
+                } else {
+                    method.name().to_owned()
+                };
+                nodes.push(Box::new(Method::new(new_method_name, false)).tap(|new_method| {
+                    if let Some(first_parameter) = method.declaration().parameters().first() {
+                        if class.ffi_class_name()
+                            == normalize_constant(first_parameter.parameter_type().display_name()).as_str()
+                        {
+                            normalize_parameters_for_method_and_method_call(
+                                new_method,
+                                method.declaration().parameters().get(1..).unwrap_or(&[]),
+                                method.declaration().return_type(),
+                                MethodCall::new(
+                                    Some(Context::Modules(vec![CORE_FFI_MODULE_NAME.to_owned()])),
+                                    method.declaration().name().to_owned(),
+                                )
+                                .tap(|method_call| {
+                                    method_call.parameter_names = vec![CLASS_CONTEXT_INSTANCE_VARIABLE_NAME.to_owned()];
+                                }),
+                            );
+                        } else {
+                            panic!("Cannot support method call without context: {}", method.name());
+                        }
+                    }
+                }))
+            }
+        }
+
+        fn normalize_parameters_for_method_and_method_call(
+            method: &mut Method,
+            parameters: &[ParameterDeclaration],
+            return_type: &Type,
+            mut method_call: MethodCall,
+        ) {
+            let identifier_generator = RandomIdentifier::new();
+            let mut skip = 0usize;
+            for (i, parameter) in parameters.iter().enumerate() {
+                if skip > 0 {
+                    skip -= 1;
+                    continue;
+                }
+                let cur_param_type = parameter.parameter_type();
+                let next_param_type = parameters.get(i + 1).map(|next| next.parameter_type());
+                if is_str(cur_param_type) {
+                    method.parameter_names.push(parameter.name().to_owned());
+                    method_call
+                        .parameter_names
+                        .push(format!("{}.encode('UTF-8')", parameter.name()));
+                } else if is_str_list(cur_param_type) && next_param_type.map(is_size) == Some(true) {
+                    let temp_pointer_variable_name = identifier_generator.lower_camel_case();
+                    method.sub_nodes.push(
+                        Box::new(MethodCall::new(
+                            Some(Context::Modules(vec!["FFI".to_owned(), "MemoryPointer".to_owned()])),
+                            "new".to_owned(),
+                        ))
+                        .tap(|ffi_memory_new| {
+                            ffi_memory_new.parameter_names =
+                                vec![":string".to_owned(), format!("{}.size", parameter.name())];
+                            ffi_memory_new.receiver_names = vec![temp_pointer_variable_name.to_owned()];
+                        }),
+                    );
+                    method.sub_nodes.push(Box::new(RawCode::new(format!(
+                        "{}.write_array_of_pointer({}.map {{|s| FFI::MemoryPointer.from_string(s) }})",
+                        temp_pointer_variable_name,
+                        parameter.name(),
+                    ))));
+                    method.parameter_names.push(parameter.name().to_owned());
+                    method_call.parameter_names.push(temp_pointer_variable_name.to_owned());
+                    method_call.parameter_names.push(format!("{}.size", parameter.name()));
+                    skip = 1;
+                } else {
+                    method.parameter_names.push(parameter.name().to_owned());
+                    method_call.parameter_names.push(parameter.name().to_owned());
+                }
+            }
+            if method_call.receiver_names.is_empty() && is_str(return_type) {
+                let temp_pointer_variable_name = identifier_generator.lower_camel_case();
+                method_call.receiver_names = vec![temp_pointer_variable_name.to_owned()];
+                method.sub_nodes.push(Box::new(method_call));
+                method.sub_nodes.push(
+                    Box::new(MethodCall::new(
+                        Some(Context::Instance(temp_pointer_variable_name)),
+                        "force_encoding".to_owned(),
+                    ))
+                    .tap(|encode_method_call| {
+                        encode_method_call.parameter_names = vec!["'UTF-8'".to_owned()];
+                    }),
+                )
+            } else {
+                method.sub_nodes.push(Box::new(method_call));
+            }
+
+            fn is_str(t: &Type) -> bool {
+                if t.type_kind() == ClangTypeKind::Pointer {
+                    if let Some(subtype1) = t.subtype().as_ref() {
+                        if let SubType::PointeeType(sub_pointee_type1) = subtype1.as_ref() {
+                            if (sub_pointee_type1.type_kind() == ClangTypeKind::CharS
+                                || sub_pointee_type1.type_kind() == ClangTypeKind::SChar)
+                                && sub_pointee_type1.is_const()
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                false
+            }
+
+            fn is_str_list(t: &Type) -> bool {
+                if t.type_kind() == ClangTypeKind::Pointer {
+                    if let Some(subtype1) = t.subtype().as_ref() {
+                        if let SubType::PointeeType(sub_pointee_type1) = subtype1.as_ref() {
+                            return sub_pointee_type1.is_const() && is_str(sub_pointee_type1);
+                        }
+                    }
+                }
+                false
+            }
+
+            fn is_size(t: &Type) -> bool {
+                t.type_kind() == ClangTypeKind::Typedef && t.display_name().as_str() == "size_t"
+            }
         }
     }
 }

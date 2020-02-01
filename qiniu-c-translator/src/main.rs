@@ -114,11 +114,30 @@ fn make_classifier(entity: &Entity) -> Classifier {
     Classifier::default().tap(|classifier| {
         classifier.add_class(Class::new(
             "Str",
+            "QiniuNgStrT",
             Regex::new("^qiniu_ng_str_(\\w+)").unwrap(),
             Some(Regex::new("^qiniu_ng_str_(list|map)_").unwrap()),
             source_file.function_declarations().iter(),
             None,
             None,
-        ))
+        ));
+        classifier.add_class(Class::new(
+            "StrList",
+            "QiniuNgStrListT",
+            Regex::new("^qiniu_ng_str_list_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            None,
+        ));
+        // classifier.add_class(Class::new(
+        //     "StrMap",
+        //     "QiniuNgStrMapT",
+        //     Regex::new("^qiniu_ng_str_map_(\\w+)").unwrap(),
+        //     None,
+        //     source_file.function_declarations().iter(),
+        //     None,
+        //     None,
+        // ));
     })
 }
