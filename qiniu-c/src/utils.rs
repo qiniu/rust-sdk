@@ -196,11 +196,11 @@ impl From<qiniu_ng_str_list_t> for Option<Box<[Box<ucstr>]>> {
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_list_new(strlist: *const *const qiniu_ng_char_t, len: size_t) -> qiniu_ng_str_list_t {
-    let mut vec = Vec::with_capacity(len);
-    for i in 0..len {
-        vec.push(unsafe { UCString::from_ptr(*strlist.add(i)) }.into_boxed_ucstr());
-    }
-    vec.into_boxed_slice().into()
+    (0..len)
+        .map(|i| unsafe { UCString::from_ptr(*strlist.add(i)) }.into_boxed_ucstr())
+        .collect::<Vec<_>>()
+        .into_boxed_slice()
+        .into()
 }
 
 #[no_mangle]
@@ -212,21 +212,16 @@ pub extern "C" fn qiniu_ng_str_list_len(strlist: qiniu_ng_str_list_t) -> size_t 
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_str_list_get(
-    strlist: qiniu_ng_str_list_t,
-    index: size_t,
-    str_ptr: *mut *const qiniu_ng_char_t,
-) -> bool {
+pub extern "C" fn qiniu_ng_str_list_get(strlist: qiniu_ng_str_list_t, index: size_t) -> *const qiniu_ng_char_t {
     let strlist = Option::<Box<[Box<ucstr>]>>::from(strlist).unwrap();
-    let mut got = false;
-    if let Some(s) = strlist.get(index) {
-        if let Some(str_ptr) = unsafe { str_ptr.as_mut() } {
-            *str_ptr = s.as_ptr();
-        }
-        got = true;
-    }
-    let _ = qiniu_ng_str_list_t::from(strlist);
-    got
+    strlist
+        .get(index)
+        .map(|s| s.as_ptr())
+        .unwrap_or_else(null)
+        .tap(|_| {
+            let _ = qiniu_ng_str_list_t::from(strlist);
+        })
+        .cast()
 }
 
 #[no_mangle]

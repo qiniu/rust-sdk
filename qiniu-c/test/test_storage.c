@@ -21,10 +21,10 @@ void test_qiniu_ng_storage_bucket_names(void) {
         5, names_len,
         "names_len < 5");
     for (size_t i = 0; i < names_len; i++) {
-        const qiniu_ng_char_t* bucket_name;
-        TEST_ASSERT_TRUE_MESSAGE(
-            qiniu_ng_str_list_get(bucket_names, i, &bucket_name),
-            "qiniu_ng_str_list_get() failed");
+        const qiniu_ng_char_t* bucket_name = qiniu_ng_str_list_get(bucket_names, i);
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            bucket_name,
+            "bucket_name == null");
     }
     qiniu_ng_str_list_free(&bucket_names);
     qiniu_ng_client_free(&client);
@@ -61,10 +61,10 @@ void test_qiniu_ng_storage_bucket_create_and_drop(void) {
         "names_len < 5");
     bool found_new_bucket = false;
     for (size_t i = 0; i < names_len; i++) {
-        const qiniu_ng_char_t *bucket_name;
-        TEST_ASSERT_TRUE_MESSAGE(
-            qiniu_ng_str_list_get(bucket_names, i, &bucket_name),
-            "qiniu_ng_str_list_get() failed");
+        const qiniu_ng_char_t *bucket_name = qiniu_ng_str_list_get(bucket_names, i);
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            bucket_name,
+            "bucket_name == NULL");
         if (QINIU_NG_CHARS_CMP(bucket_name, new_bucket_name) == 0) {
             found_new_bucket = true;
         }

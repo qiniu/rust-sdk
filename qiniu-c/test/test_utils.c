@@ -34,21 +34,24 @@ void test_qiniu_ng_str_list(void) {
         "qiniu_ng_str_list_len(list) != 3");
 
     const qiniu_ng_char_t *str;
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_str_list_get(list, 0, &str),
-        "qiniu_ng_str_list_get(list, 0, &str) failed");
+    str = qiniu_ng_str_list_get(list, 0);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        str,
+        "str == null");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         str, QINIU_NG_CHARS("你好，世界"),
         "str != \"你好，世界\"");
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_str_list_get(list, 1, &str),
-        "qiniu_ng_str_list_get(list, 1, &str) failed");
+    str = qiniu_ng_str_list_get(list, 1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        str,
+        "str == null");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         str, QINIU_NG_CHARS("你好，七牛"),
         "str != \"你好，七牛\"");
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_str_list_get(list, 2, &str),
-        "qiniu_ng_str_list_get(list, 2, &str) failed");
+    str = qiniu_ng_str_list_get(list, 2);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        str,
+        "str == null");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         str, QINIU_NG_CHARS("你好，科多兽"),
         "str != \"你好，科多兽\"");

@@ -52,15 +52,17 @@ void test_qiniu_ng_make_upload_token(void) {
         "qiniu_ng_str_list_len(callback_urls) != 2");
 
     const qiniu_ng_char_t *callback_url;
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_str_list_get(callback_urls, 0, &callback_url),
-        "qiniu_ng_str_list_get(callback_urls, 0, &callback_url) failed");
+    callback_url = qiniu_ng_str_list_get(callback_urls, 0);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        callback_url,
+        "callback_url == NULL");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         callback_url, QINIU_NG_CHARS("https://apin1.qiniu.com/callback"),
         "callback_url != \"https://apin1.qiniu.com/callback\"");
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_str_list_get(callback_urls, 1, &callback_url),
-        "qiniu_ng_str_list_get(callback_urls, 1, &callback_url) failed");
+    callback_url = qiniu_ng_str_list_get(callback_urls, 1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        callback_url,
+        "callback_url == NULL");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         callback_url, QINIU_NG_CHARS("https://apin2.qiniu.com/callback"),
         "callback_url != \"https://apin2.qiniu.com/callback\"");
@@ -133,15 +135,17 @@ void test_qiniu_ng_make_upload_token(void) {
         qiniu_ng_str_list_len(callback_urls), 2,
         "qiniu_ng_str_list_len(callback_urls) != 2");
 
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_str_list_get(callback_urls, 0, &callback_url),
-        "qiniu_ng_str_list_get(callback_urls, 0, &callback_url) failed");
+    callback_url = qiniu_ng_str_list_get(callback_urls, 0);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        callback_url,
+        "callback_url == NULL");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         callback_url, QINIU_NG_CHARS("https://apin1.qiniu.com/callback"),
         "callback_url != \"https://apin1.qiniu.com/callback\"");
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_str_list_get(callback_urls, 1, &callback_url),
-        "qiniu_ng_str_list_get(callback_urls, 1, &callback_url) failed");
+    callback_url = qiniu_ng_str_list_get(callback_urls, 1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        callback_url,
+        "callback_url == NULL");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         callback_url, QINIU_NG_CHARS("https://apin2.qiniu.com/callback"),
         "callback_url != \"https://apin2.qiniu.com/callback\"");
@@ -204,15 +208,17 @@ void test_qiniu_ng_make_upload_token(void) {
         qiniu_ng_str_list_len(callback_urls), 2,
         "qiniu_ng_str_list_len(callback_urls) != 2");
 
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_str_list_get(callback_urls, 0, &callback_url),
-        "qiniu_ng_str_list_get(callback_urls, 0, &callback_url) failed");
+    callback_url = qiniu_ng_str_list_get(callback_urls, 0);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        callback_url,
+        "callback_url == NULL");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         callback_url, QINIU_NG_CHARS("https://apin1.qiniu.com/callback"),
         "callback_url != \"https://apin1.qiniu.com/callback\"");
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_str_list_get(callback_urls, 1, &callback_url),
-        "qiniu_ng_str_list_get(callback_urls, 1, &callback_url) failed");
+    callback_url = qiniu_ng_str_list_get(callback_urls, 1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        callback_url,
+        "callback_url == NULL");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         callback_url, QINIU_NG_CHARS("https://apin2.qiniu.com/callback"),
         "callback_url != \"https://apin2.qiniu.com/callback\"");

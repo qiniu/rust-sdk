@@ -28,10 +28,10 @@ void test_qiniu_ng_region_query(void) {
         "urls_len <= 4");
 
     for (size_t i = 0; i < urls_len; i++) {
-        const qiniu_ng_char_t* p;
-        TEST_ASSERT_TRUE_MESSAGE(
-            qiniu_ng_str_list_get(urls, i, &p),
-            "qiniu_ng_str_list_get(urls, i, &p) failed");
+        const qiniu_ng_char_t* p = qiniu_ng_str_list_get(urls, i);
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            p,
+            "p == null");
     }
 
     qiniu_ng_str_list_free(&urls);
@@ -46,10 +46,10 @@ void test_qiniu_ng_region_query(void) {
         urls_len, 1,
         "urls_len != 1");
     for (size_t i = 0; i < urls_len; i++) {
-        const qiniu_ng_char_t *p;
-        TEST_ASSERT_TRUE_MESSAGE(
-            qiniu_ng_str_list_get(urls, i, &p),
-            "qiniu_ng_str_list_get(urls, i, &p) failed");
+        const qiniu_ng_char_t* p = qiniu_ng_str_list_get(urls, i);
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            p,
+            "p == null");
     }
     qiniu_ng_region_free(&region);
 

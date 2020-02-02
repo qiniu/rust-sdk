@@ -50,9 +50,10 @@ void test_qiniu_ng_bucket_get_region(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         qiniu_ng_str_list_len(io_urls), 1,
         "qiniu_ng_str_list_len(io_urls) != 1");
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_str_list_get(io_urls, 0, &io_url),
-        "qiniu_ng_str_list_get() returns unexpected value");
+    io_url = qiniu_ng_str_list_get(io_urls, 0);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        io_url,
+        "io_url == null");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         io_url, QINIU_NG_CHARS("http://iovip.qbox.me"),
         "io_url != \"http://iovip.qbox.me\"");
@@ -139,9 +140,10 @@ void test_qiniu_ng_bucket_get_regions(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         qiniu_ng_str_list_len(io_urls), 1,
         "qiniu_ng_str_list_len(io_urls) != 1");
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_str_list_get(io_urls, 0, &io_url),
-        "qiniu_ng_str_list_get(io_urls, 0, &io_url) failed");
+    io_url = qiniu_ng_str_list_get(io_urls, 0);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        io_url,
+        "io_url == null");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         io_url, QINIU_NG_CHARS("https://iovip.qbox.me"),
         "io_url != \"https://iovip.qbox.me\"");
@@ -155,9 +157,10 @@ void test_qiniu_ng_bucket_get_regions(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         qiniu_ng_str_list_len(io_urls), 1,
         "qiniu_ng_str_list_len(io_urls) != 1");
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_str_list_get(io_urls, 0, &io_url),
-        "qiniu_ng_str_list_get(io_urls, 0, &io_url) failed");
+    io_url = qiniu_ng_str_list_get(io_urls, 0);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        io_url,
+        "io_url == null");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         io_url, QINIU_NG_CHARS("https://iovip-z1.qbox.me"),
         "io_url != \"https://iovip-z1.qbox.me\"");
@@ -213,11 +216,17 @@ void test_qiniu_ng_bucket_new(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         qiniu_ng_str_list_len(domains), 2,
         "qiniu_ng_str_list_len(domains) != 2");
-    qiniu_ng_str_list_get(domains, 0, &domain);
+    domain = qiniu_ng_str_list_get(domains, 0);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        domain,
+        "domain == null");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         domain, domains_array[0],
         "domain != domains_array[0]");
-    qiniu_ng_str_list_get(domains, 1, &domain);
+    domain = qiniu_ng_str_list_get(domains, 1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        domain,
+        "domain == null");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         domain, domains_array[1],
         "domain != domains_array[1]");
