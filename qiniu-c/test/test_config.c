@@ -188,7 +188,7 @@ void test_qiniu_ng_config_new2(void) {
 
 static int before_action_counter, after_action_counter;
 
-static int test_qiniu_ng_config_http_request_before_action_handlers(qiniu_ng_http_request_t request) {
+static bool test_qiniu_ng_config_http_request_before_action_handlers(qiniu_ng_http_request_t request) {
     before_action_counter++;
     qiniu_ng_http_request_set_custom_data(request, &before_action_counter);
 
@@ -201,10 +201,10 @@ static int test_qiniu_ng_config_http_request_before_action_handlers(qiniu_ng_htt
         "headers[\"Content-Type\"] != \"application/x-www-form-urlencoded\"");
     qiniu_ng_str_map_free(&headers);
 
-    return 0;
+    return true;
 }
 
-static int test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
+static bool test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         before_action_counter, *((int *) qiniu_ng_http_request_get_custom_data(request)),
         "qiniu_ng_http_request_get_custom_data() returns unexpected value");
@@ -239,7 +239,7 @@ static int test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_http
         "qiniu_ng_http_response_set_body_to_file() failed");
     free((void *) temp_file_path);
 
-    return 0;
+    return true;
 }
 
 void test_qiniu_ng_config_http_request_handlers(void) {
@@ -282,22 +282,22 @@ void test_qiniu_ng_config_http_request_handlers(void) {
         "after_action_counter != 1");
 }
 
-static int qiniu_ng_readable_always_returns_error(void *context, void *buf, size_t count, size_t *have_read) {
+static bool qiniu_ng_readable_always_returns_error(void *context, void *buf, size_t count, size_t *have_read) {
     (void)(context);
     (void)(buf);
     (void)(count);
     (void)(have_read);
-    return -1;
+    return false;
 }
 
-static int test_qiniu_ng_config_bad_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
+static bool test_qiniu_ng_config_bad_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
     (void)(request);
     qiniu_ng_readable_t reader = {
         .read_func = qiniu_ng_readable_always_returns_error,
         .context = NULL
     };
     qiniu_ng_http_response_set_body_to_reader(response, reader);
-    return 0;
+    return true;
 }
 
 void test_qiniu_ng_config_bad_http_request_handlers(void) {
@@ -340,10 +340,10 @@ void test_qiniu_ng_config_bad_http_request_handlers(void) {
     qiniu_ng_config_free(&config);
 }
 
-static int test_qiniu_ng_config_http_request_after_action_handlers_always_return_error(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
+static bool test_qiniu_ng_config_http_request_after_action_handlers_always_return_error(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
     (void)(request);
     (void)(response);
-    return -1;
+    return false;
 }
 
 void test_qiniu_ng_config_bad_http_request_handlers_2(void) {

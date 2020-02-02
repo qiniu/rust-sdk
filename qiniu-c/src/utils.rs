@@ -350,14 +350,14 @@ pub extern "C" fn qiniu_ng_str_map_free(hashmap: *mut qiniu_ng_str_map_t) {
 #[repr(C)]
 #[derive(Clone)]
 pub struct qiniu_ng_readable_t {
-    read_func: fn(context: *mut c_void, buf: *mut c_void, count: size_t, have_read: *mut size_t) -> c_int,
+    read_func: fn(context: *mut c_void, buf: *mut c_void, count: size_t, have_read: *mut size_t) -> bool,
     context: *mut c_void,
 }
 
 impl Read for qiniu_ng_readable_t {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let mut have_read: size_t = 0;
-        if (self.read_func)(self.context, buf.as_mut_ptr().cast(), buf.len(), &mut have_read) == 0 {
+        if (self.read_func)(self.context, buf.as_mut_ptr().cast(), buf.len(), &mut have_read) {
             Ok(have_read)
         } else {
             Err(Error::new(ErrorKind::Other, "User callback returns false"))
