@@ -6,7 +6,7 @@ use crate::{
     classifier::{Class, Classifier},
     utils::{CodeGenerator, CodeWriter, RandomIdentifier, Writer},
 };
-use clang::{Entity as ClangEntity, TypeKind as ClangTypeKind};
+use clang::TypeKind as ClangTypeKind;
 use heck::CamelCase;
 use lazy_static::lazy_static;
 use matches::matches;
@@ -553,9 +553,9 @@ impl GenerateBindings {
         self
     }
 
-    pub fn build(mut self, entity: &ClangEntity, classifier: Classifier, output: &mut dyn Write) -> Result<()> {
+    pub fn build(mut self, source_file: &SourceFile, classifier: Classifier, output: &mut dyn Write) -> Result<()> {
         self.classifier = classifier;
-        let mut output_buf = self.build_without_syntax_check(entity, Writer::Memory(Vec::new()))?;
+        let mut output_buf = self.build_without_syntax_check(source_file, Writer::Memory(Vec::new()))?;
         match &mut output_buf {
             Writer::Memory(output_buf) => {
                 output.write_all(output_buf)?;
@@ -582,8 +582,7 @@ impl GenerateBindings {
         Ok(())
     }
 
-    fn build_without_syntax_check(&self, entity: &ClangEntity, output: Writer) -> Result<Writer> {
-        let source_file = SourceFile::parse(&entity);
+    fn build_without_syntax_check(&self, source_file: &SourceFile, output: Writer) -> Result<Writer> {
         let mut top_level_node = TopLevelNode::default();
         top_level_node.sub_nodes.push(Box::new(RawCode::new("require 'ffi'")));
 
@@ -595,17 +594,17 @@ impl GenerateBindings {
                     let mut core_ffi_module = Module::new(CORE_FFI_MODULE_NAME, false);
                     self.insert_ffi_bindings(&mut core_ffi_module);
                     self.insert_callback_declaration_bindings(
-                        &source_file,
+                        source_file,
                         &mut core_ffi_module,
                         InsertCallbackDeclarationBindingsFor::Structs,
                     );
-                    self.insert_type_declaration_bindings(&source_file, &mut core_ffi_module);
+                    self.insert_type_declaration_bindings(source_file, &mut core_ffi_module);
                     self.insert_callback_declaration_bindings(
-                        &source_file,
+                        source_file,
                         &mut core_ffi_module,
                         InsertCallbackDeclarationBindingsFor::Functions,
                     );
-                    self.insert_attach_function_declaration_bindings(&source_file, &mut core_ffi_module);
+                    self.insert_attach_function_declaration_bindings(source_file, &mut core_ffi_module);
                     m.sub_nodes = vec![
                         Box::new(core_ffi_module),
                         Box::new(RawCode::new(format!("private_constant :{}", CORE_FFI_MODULE_NAME))),

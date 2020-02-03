@@ -1,4 +1,4 @@
-use clang::{Clang, Entity, Index};
+use clang::{Clang, Index};
 use clap::{App, Arg, SubCommand};
 use regex::Regex;
 use std::{
@@ -70,28 +70,31 @@ fn main() -> Result<()> {
     };
     let entity = tu.get_entity();
     match matches.subcommand() {
-        ("generate-ruby-bindings", args) => GenerateRubyBindings::default()
-            // 这里目前是写死的模块路径，如果有需要可以改为参数配置
-            .module_names(["QiniuNg".into(), "Bindings".into()])
-            .version_constant("QiniuNg::VERSION")
-            .build(
-                &entity,
-                make_classifier(&entity),
-                &mut args
-                    .and_then(|args| args.value_of_os("output"))
-                    .and_then(|path| if path == "-" { None } else { Some(path) })
-                    .map(|file_path| {
-                        let output: Box<dyn Write> = Box::new(
-                            OpenOptions::new()
-                                .write(true)
-                                .truncate(true)
-                                .create(true)
-                                .open(file_path)?,
-                        );
-                        Ok(output) as Result<Box<dyn Write>>
-                    })
-                    .unwrap_or_else(|| Ok(Box::new(stdout())))?,
-            )?,
+        ("generate-ruby-bindings", args) => {
+            let source_file = SourceFile::parse(&entity);
+            GenerateRubyBindings::default()
+                // 这里目前是写死的模块路径，如果有需要可以改为参数配置
+                .module_names(["QiniuNg".into(), "Bindings".into()])
+                .version_constant("QiniuNg::VERSION")
+                .build(
+                    &source_file,
+                    make_classifier(&source_file),
+                    &mut args
+                        .and_then(|args| args.value_of_os("output"))
+                        .and_then(|path| if path == "-" { None } else { Some(path) })
+                        .map(|file_path| {
+                            let output: Box<dyn Write> = Box::new(
+                                OpenOptions::new()
+                                    .write(true)
+                                    .truncate(true)
+                                    .create(true)
+                                    .open(file_path)?,
+                            );
+                            Ok(output) as Result<Box<dyn Write>>
+                        })
+                        .unwrap_or_else(|| Ok(Box::new(stdout())))?,
+                )?;
+        }
         ("dump-entity", args) => dump_entity(
             &entity,
             args.map(|args| args.is_present("pretty-print")).unwrap_or(false),
@@ -101,7 +104,8 @@ fn main() -> Result<()> {
             &entity,
             args.map(|args| args.is_present("pretty-print")).unwrap_or(false),
         ),
-        ("dump-classifier", _) => dump_classifier(&make_classifier(&entity))?,
+        ("dump-classifier", _) => dump_classifier(&make_classifier(&SourceFile::parse(&entity)))?,
+
         ("", _) => {}
         (subcommand, _) => panic!("Unrecognized subcommand: {}", subcommand),
     }
@@ -109,8 +113,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn make_classifier(entity: &Entity) -> Classifier {
-    let source_file = SourceFile::parse(&entity);
+fn make_classifier(source_file: &SourceFile) -> Classifier {
     Classifier::default().tap(|classifier| {
         classifier.add_class(Class::new(
             "Str",
