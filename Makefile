@@ -1,12 +1,12 @@
 SUBDIRS := qiniu-rust qiniu-rust-http qiniu-rust-with-libcurl qiniu-rust-test qiniu-rust-test-utils qiniu-c qiniu-c-translator
-RUBY_DIR := qiniu-ruby/qiniu_ng
+OTHER_LANG_DIRS := qiniu-ruby
 
-all: $(SUBDIRS) $(RUBY_DIR)
-$(SUBDIRS) $(RUBY_DIR):
+all: $(SUBDIRS) $(OTHER_LANG_DIRS)
+$(SUBDIRS) $(OTHER_LANG_DIRS):
 	$(MAKE) -C $@
 build:
 	set -e; \
-	for dir in $(SUBDIRS) $(RUBY_DIR); do \
+	for dir in $(SUBDIRS) $(OTHER_LANG_DIRS); do \
 		$(MAKE) -C $$dir build; \
 	done
 build_release:
@@ -21,12 +21,12 @@ build_test:
 	done
 clean:
 	set -e; \
-	for dir in $(SUBDIRS) $(RUBY_DIR); do \
+	for dir in $(SUBDIRS) $(OTHER_LANG_DIRS); do \
 		$(MAKE) -C $$dir clean; \
 	done
 test:
 	set -e; \
-	for dir in $(SUBDIRS) $(RUBY_DIR); do \
+	for dir in $(SUBDIRS) $(OTHER_LANG_DIRS); do \
 		$(MAKE) -C $$dir test; \
 	done
 clippy:
@@ -40,4 +40,4 @@ publish:
 		(cd $$dir && cargo publish); \
 	done
 
-.PHONY: all build clean test $(SUBDIRS) $(RUBY_DIR)
+.PHONY: all build clean test $(SUBDIRS) $(OTHER_LANG_DIRS)
