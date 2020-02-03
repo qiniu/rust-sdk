@@ -3,9 +3,9 @@ task :default => :spec
 
 desc 'Generate FFI Bindings'
 task :generate_bindings do
-  Dir.chdir File.expand_path(File.join('..', '..', 'qiniu-c-translator'), __dir__) do
+  Dir.chdir File.expand_path(File.join('..', 'qiniu-c-translator'), __dir__) do
     sh 'cargo', 'run', '--',
-       '--header-file', File.expand_path(File.join('..', '..', 'qiniu-c', 'libqiniu_ng.h'), __dir__),
+       '--header-file', File.expand_path(File.join('..', 'qiniu-c', 'libqiniu_ng.h'), __dir__),
        'generate-ruby-bindings',
        '--output', File.expand_path(File.join('lib', 'qiniu_ng', 'bindings.rb'), __dir__)
   end

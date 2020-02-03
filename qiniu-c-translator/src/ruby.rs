@@ -650,8 +650,7 @@ impl GenerateBindings {
     fn insert_ffi_bindings(&self, module: &mut Module) {
         module.sub_nodes.push(Box::new(RawCode::new("extend FFI::Library")));
         module.sub_nodes.push(Box::new(RawCode::new(
-            "DEFAULT_TARGET_DIR = ".to_owned()
-                + "File.expand_path(File.join('..', '..', '..', '..', 'target'), __dir__)",
+            "DEFAULT_TARGET_DIR = ".to_owned() + "File.expand_path(File.join('..', '..', '..', 'target'), __dir__)",
         )));
         module
             .sub_nodes
