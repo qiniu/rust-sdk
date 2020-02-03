@@ -89,7 +89,7 @@ pub extern "C" fn qiniu_ng_etag_new() -> qiniu_ng_etag_t {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_etag_update(etag: qiniu_ng_etag_t, data: *mut c_void, data_len: size_t) {
+pub extern "C" fn qiniu_ng_etag_update(etag: qiniu_ng_etag_t, data: *const c_void, data_len: size_t) {
     let mut etag = Option::<Box<etag::Etag>>::from(etag).unwrap();
     etag.input(unsafe { from_raw_parts(data.cast(), data_len) });
     let _ = qiniu_ng_etag_t::from(etag);

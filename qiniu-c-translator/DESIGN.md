@@ -24,4 +24,4 @@ Ruby 模块所有生成代码基于 [FFI](https://rubygems.org/gems/ffi) 库实�
 
 与 C 接口的绑定代码总是生成在 `QiniuNg::Bindings::CoreFFI` 模块内，包含结构体，枚举类和关联函数，该模块是私有模块，只能被 `QiniuNg::Bindings` 调用。
 
-而 `QiniuNg::Bindings` 模块将面向过程的 `QiniuNg::Bindings::CoreFFI` 内方法转换为面向对象，提供内存安全的保障并使其成为一个 Ruby 库而非一个 FFI 库。
+而 `QiniuNg::Bindings` 模块将面向过程的 `QiniuNg::Bindings::CoreFFI` 内方法转换为面向对象，提供内存安全的保障。

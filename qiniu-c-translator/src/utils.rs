@@ -9,7 +9,6 @@ use std::{
 
 pub trait CodeGenerator {
     fn generate_code(&self, output: CodeWriter) -> Result<CodeWriter>;
-    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator>;
 }
 
 #[derive(Debug)]

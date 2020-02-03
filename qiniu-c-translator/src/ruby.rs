@@ -45,10 +45,6 @@ impl CodeGenerator for TopLevelNode {
         }
         Ok(output)
     }
-
-    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
-        self.sub_nodes.iter().map(|node| node.as_ref()).collect::<Vec<_>>()
-    }
 }
 
 #[derive(Default)]
@@ -66,10 +62,6 @@ impl CodeGenerator for RawCode {
     fn generate_code(&self, mut output: CodeWriter) -> Result<CodeWriter> {
         output.write(&self.code)?;
         Ok(output)
-    }
-
-    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
-        Vec::new()
     }
 }
 
@@ -106,10 +98,6 @@ impl CodeGenerator for Module {
         output.write("end")?;
         Ok(output)
     }
-
-    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
-        self.sub_nodes.iter().map(|node| node.as_ref()).collect::<Vec<_>>()
-    }
 }
 
 #[derive(Default)]
@@ -144,10 +132,6 @@ impl CodeGenerator for Enum {
         })?;
         output.write(")")?;
         Ok(output)
-    }
-
-    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
-        Vec::new()
     }
 }
 
@@ -188,8 +172,15 @@ impl BaseType {
             TypeKind::Base(ClangTypeKind::LongLong) => Self::I64,
             TypeKind::Base(ClangTypeKind::ULong) => Self::Size,
             TypeKind::Base(ClangTypeKind::ULongLong) => Self::U64,
-            TypeKind::Pointer { .. } => match c_type.display_name().as_str() {
-                "const char *" | "char *" => Self::String,
+            TypeKind::Pointer { subtype } => match subtype.type_kind() {
+                TypeKind::Base(ClangTypeKind::CharS)
+                | TypeKind::Base(ClangTypeKind::SChar)
+                | TypeKind::Base(ClangTypeKind::CharU)
+                | TypeKind::Base(ClangTypeKind::UChar)
+                    if subtype.is_const() =>
+                {
+                    Self::String
+                }
                 _ => Self::Pointer,
             },
             TypeKind::Base(ClangTypeKind::Elaborated) => match c_type.display_name().as_str() {
@@ -361,10 +352,6 @@ impl CodeGenerator for Struct {
         output.write("end")?;
         Ok(output)
     }
-
-    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
-        Vec::new()
-    }
 }
 
 #[derive(Default)]
@@ -405,10 +392,6 @@ impl CodeGenerator for AttachFunction {
         ))?;
         Ok(output)
     }
-
-    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
-        Vec::new()
-    }
 }
 
 #[derive(Default)]
@@ -416,6 +399,7 @@ struct Method {
     name: String,
     is_class_method: bool,
     parameter_names: Vec<String>,
+    return_node: Option<Box<dyn CodeGenerator>>,
     sub_nodes: Vec<Box<dyn CodeGenerator>>,
 }
 
@@ -447,12 +431,11 @@ impl CodeGenerator for Method {
             }
             Ok(output)
         })?;
+        if let Some(return_node) = self.return_node.as_ref() {
+            output = return_node.generate_code(output)?;
+        }
         output.write("end")?;
         Ok(output)
-    }
-
-    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
-        self.sub_nodes.iter().map(|node| node.as_ref()).collect::<Vec<_>>()
     }
 }
 
@@ -499,10 +482,6 @@ impl CodeGenerator for MethodCall {
         output.write(&format!("{}{}{}", receivers, full_method_name, parameters))?;
         Ok(output)
     }
-
-    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
-        Vec::new()
-    }
 }
 
 #[derive(Default)]
@@ -548,10 +527,6 @@ impl CodeGenerator for Proc {
         })?;
         output.write("end")?;
         Ok(output)
-    }
-
-    fn sub_nodes(&self) -> Vec<&dyn CodeGenerator> {
-        self.sub_nodes.iter().map(|node| node.as_ref()).collect::<Vec<_>>()
     }
 }
 
@@ -861,24 +836,23 @@ impl GenerateBindings {
                     struct_node.fields = struct_declaration
                         .fields()
                         .iter()
-                        .map(|field| match field.field_type() {
-                            FieldType::NamedType(t) => StructField {
-                                name: field
-                                    .name()
-                                    .as_ref()
-                                    .map(|name| name.to_owned())
-                                    .unwrap_or_else(|| IDENTIFIER_GENERATOR.snack_case()),
-                                field_type: StructFieldType::from(t.to_owned()),
-                            },
-                            FieldType::AnonymousType(anon_struct_declaration) => {
-                                let anon_struct_name = insert_struct_node(anon_struct_declaration, nodes);
-                                StructField {
-                                    name: field
-                                        .name()
-                                        .as_ref()
-                                        .map(|name| name.to_owned())
-                                        .unwrap_or_else(|| IDENTIFIER_GENERATOR.snack_case()),
-                                    field_type: StructFieldType::new_type_by_val(anon_struct_name),
+                        .map(|field| {
+                            let field_name = field
+                                .name()
+                                .as_ref()
+                                .map(|name| name.to_owned())
+                                .unwrap_or_else(|| IDENTIFIER_GENERATOR.snack_case());
+                            match field.field_type() {
+                                FieldType::NamedType(t) => StructField {
+                                    name: field_name,
+                                    field_type: StructFieldType::from(t.to_owned()),
+                                },
+                                FieldType::AnonymousType(anon_struct_declaration) => {
+                                    let anon_struct_name = insert_struct_node(anon_struct_declaration, nodes);
+                                    StructField {
+                                        name: field_name,
+                                        field_type: StructFieldType::new_type_by_val(anon_struct_name),
+                                    }
                                 }
                             }
                         })
@@ -1004,7 +978,19 @@ impl GenerateBindings {
                                 }),
                             );
                         } else {
-                            panic!("Cannot support method call without context: {}", method.name());
+                            new_method.is_class_method = true;
+                            normalize_parameters_for_method_and_method_call(
+                                new_method,
+                                method.declaration().parameters(),
+                                method.declaration().return_type(),
+                                MethodCall::new(
+                                    Some(Context::Modules(vec![CORE_FFI_MODULE_NAME.to_owned()])),
+                                    method.declaration().name().to_owned(),
+                                )
+                                .tap(|_method_call| {
+                                    // TODO
+                                }),
+                            );
                         }
                     }
                 }))
@@ -1024,14 +1010,15 @@ impl GenerateBindings {
                     skip -= 1;
                     continue;
                 }
+                method.parameter_names.push(parameter.name().to_owned());
+
                 let cur_param_type = parameter.parameter_type();
                 let next_param_type = parameters.get(i + 1).map(|next| next.parameter_type());
-                if is_str_type(cur_param_type) {
-                    method.parameter_names.push(parameter.name().to_owned());
+                if is_const_str_type(cur_param_type) {
                     method_call
                         .parameter_names
                         .push(format!("{}.encode(Encoding::UTF_8)", parameter.name()));
-                } else if is_str_list_type(cur_param_type) && next_param_type.map(is_size_type) == Some(true) {
+                } else if is_const_str_list_type(cur_param_type) && next_param_type.map(is_size_type) == Some(true) {
                     let temp_pointer_variable_name = identifier_generator.lower_camel_case();
                     method.sub_nodes.push(
                         Box::new(MethodCall::new(
@@ -1049,9 +1036,30 @@ impl GenerateBindings {
                         temp_pointer_variable_name,
                         parameter.name(),
                     ))));
-                    method.parameter_names.push(parameter.name().to_owned());
                     method_call.parameter_names.push(temp_pointer_variable_name.to_owned());
                     method_call.parameter_names.push(format!("{}.size", parameter.name()));
+                    skip = 1;
+                } else if is_const_binary_type(cur_param_type) && next_param_type.map(is_size_type) == Some(true) {
+                    let temp_pointer_variable_name = identifier_generator.lower_camel_case();
+                    method.sub_nodes.push(
+                        Box::new(MethodCall::new(
+                            Some(Context::Modules(vec!["FFI".to_owned(), "MemoryPointer".to_owned()])),
+                            "new".to_owned(),
+                        ))
+                        .tap(|ffi_memory_new| {
+                            ffi_memory_new.parameter_names = vec![format!("{}.bytesize", parameter.name())];
+                            ffi_memory_new.receiver_names = vec![temp_pointer_variable_name.to_owned()];
+                        }),
+                    );
+                    method.sub_nodes.push(Box::new(RawCode::new(format!(
+                        "{}.write_bytes({})",
+                        temp_pointer_variable_name,
+                        parameter.name(),
+                    ))));
+                    method_call.parameter_names.push(temp_pointer_variable_name.to_owned());
+                    method_call
+                        .parameter_names
+                        .push(format!("{}.bytesize", parameter.name()));
                     skip = 1;
                 } else if let Some(function_type) = try_to_extract_function_type(cur_param_type) {
                     let temp_pointer_variable_name = identifier_generator.lower_camel_case();
@@ -1074,7 +1082,7 @@ impl GenerateBindings {
                                         .iter()
                                         .enumerate()
                                         .map(|(i, t)| {
-                                            if is_str_type(t) {
+                                            if is_const_str_type(t) {
                                                 format!("__{}.force_encoding(Encoding::UTF_8)", i)
                                             } else {
                                                 format!("__{}", i)
@@ -1085,14 +1093,12 @@ impl GenerateBindings {
                             )
                         }),
                     );
-                    method.parameter_names.push(parameter.name().to_owned());
                     method_call.parameter_names.push(temp_pointer_variable_name.to_owned());
                 } else {
-                    method.parameter_names.push(parameter.name().to_owned());
                     method_call.parameter_names.push(parameter.name().to_owned());
                 }
             }
-            if method_call.receiver_names.is_empty() && is_str_type(return_type) {
+            if method_call.receiver_names.is_empty() && is_const_str_type(return_type) {
                 let temp_pointer_variable_name = identifier_generator.lower_camel_case();
                 method_call.receiver_names = vec![temp_pointer_variable_name.to_owned()];
                 method.sub_nodes.push(Box::new(method_call));
@@ -1110,7 +1116,7 @@ impl GenerateBindings {
             }
         }
 
-        fn is_str_type(t: &Type) -> bool {
+        fn is_const_str_type(t: &Type) -> bool {
             if let TypeKind::Pointer { subtype } = t.type_kind() {
                 match subtype.type_kind() {
                     TypeKind::Base(ClangTypeKind::CharS)
@@ -1128,9 +1134,20 @@ impl GenerateBindings {
             }
         }
 
-        fn is_str_list_type(t: &Type) -> bool {
+        fn is_const_binary_type(t: &Type) -> bool {
             if let TypeKind::Pointer { subtype } = t.type_kind() {
-                subtype.is_const() && is_str_type(&subtype)
+                match subtype.type_kind() {
+                    TypeKind::Base(ClangTypeKind::Void) if subtype.is_const() => true,
+                    _ => false,
+                }
+            } else {
+                false
+            }
+        }
+
+        fn is_const_str_list_type(t: &Type) -> bool {
+            if let TypeKind::Pointer { subtype } = t.type_kind() {
+                subtype.is_const() && is_const_str_type(&subtype)
             } else {
                 false
             }

@@ -139,5 +139,14 @@ fn make_classifier(entity: &Entity) -> Classifier {
             None,
             None,
         ));
+        classifier.add_class(Class::new(
+            "Etag",
+            "QiniuNgEtagT",
+            Regex::new("^qiniu_ng_etag_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            None,
+        ));
     })
 }

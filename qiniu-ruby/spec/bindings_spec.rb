@@ -1,3 +1,5 @@
+require 'tempfile'
+
 RSpec.describe QiniuNg::Bindings do
   context QiniuNg::Bindings::Str do
     it 'should be ok to initialize string' do
@@ -70,6 +72,47 @@ RSpec.describe QiniuNg::Bindings do
         true
       end, FFI::MemoryPointer.new(:pointer))
       expect(looped).to eq 3
+    end
+  end
+
+  context QiniuNg::Bindings::Etag do
+    ETAG_SIZE = 28
+
+    it 'should get etag from buffer' do
+      FFI::MemoryPointer::new(ETAG_SIZE) do |etag_result|
+        QiniuNg::Bindings::Etag.from_buffer("Hello world\n", etag_result)
+        expect(etag_result.read_bytes(ETAG_SIZE)).to eq('FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d')
+      end
+    end
+
+    it 'should get etag from file' do
+      FFI::MemoryPointer::new(ETAG_SIZE) do |etag_result|
+        Tempfile.create('foo') do |tmpfile|
+          tmpfile.puts "Hello world\n"
+          tmpfile.flush
+          expect(QiniuNg::Bindings::Etag.from_file_path?(tmpfile.path, etag_result, nil)).to be true
+        end
+        expect(etag_result.read_bytes(ETAG_SIZE)).to eq('FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d')
+      end
+    end
+
+    it 'should get etag from unexisted file' do
+      FFI::MemoryPointer::new(ETAG_SIZE) do |etag_result|
+        expect(QiniuNg::Bindings::Etag.from_file_path?("/不存在的文件", etag_result, nil)).to be false
+      end
+    end
+
+    it 'should get etag from Etag instance' do
+      FFI::MemoryPointer::new(ETAG_SIZE) do |etag_result|
+        etag = QiniuNg::Bindings::Etag.new
+        3.times { etag.update("Hello world\n") }
+        etag.result(etag_result)
+        expect(etag_result.read_bytes(ETAG_SIZE)).to eq('FgAgNanfbszl6CSk8MEyKDDXvpgG')
+        etag.reset
+        4.times { etag.update("Hello world\n") }
+        etag.result(etag_result)
+        expect(etag_result.read_bytes(ETAG_SIZE)).to eq('FhV9_jRUUi8lQ9eL_AbKIZj5pWXx')
+      end
     end
   end
 end
