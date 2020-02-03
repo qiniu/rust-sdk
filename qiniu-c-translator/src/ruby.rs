@@ -1043,18 +1043,13 @@ impl GenerateBindings {
                     method.sub_nodes.push(
                         Box::new(MethodCall::new(
                             Some(Context::Modules(vec!["FFI".to_owned(), "MemoryPointer".to_owned()])),
-                            "new".to_owned(),
+                            "from_string".to_owned(),
                         ))
                         .tap(|ffi_memory_new| {
-                            ffi_memory_new.parameter_names = vec![format!("{}.bytesize", parameter.name())];
+                            ffi_memory_new.parameter_names = vec![parameter.name().to_owned()];
                             ffi_memory_new.receiver_names = vec![temp_pointer_variable_name.to_owned()];
                         }),
                     );
-                    method.sub_nodes.push(Box::new(RawCode::new(format!(
-                        "{}.write_bytes({})",
-                        temp_pointer_variable_name,
-                        parameter.name(),
-                    ))));
                     method_call.parameter_names.push(temp_pointer_variable_name.to_owned());
                     method_call
                         .parameter_names

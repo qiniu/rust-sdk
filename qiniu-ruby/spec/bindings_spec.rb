@@ -108,7 +108,6 @@ RSpec.describe QiniuNg::Bindings do
         3.times { etag.update("Hello world\n") }
         etag.result(etag_result)
         expect(etag_result.read_bytes(ETAG_SIZE)).to eq('FgAgNanfbszl6CSk8MEyKDDXvpgG')
-        etag.reset
         4.times { etag.update("Hello world\n") }
         etag.result(etag_result)
         expect(etag_result.read_bytes(ETAG_SIZE)).to eq('FhV9_jRUUi8lQ9eL_AbKIZj5pWXx')
