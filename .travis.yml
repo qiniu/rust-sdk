@@ -31,9 +31,8 @@ matrix:
       rust:
         - 1.38.0
       before_script:
-        - brew install curl rbenv
+        - brew install curl rbenv llvm
         - |
-            brew install --with-toolchain llvm
             export PATH="$(brew --prefix llvm)/bin:$PATH"
         - cargo install --force cbindgen
       script:

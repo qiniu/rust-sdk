@@ -1,5 +1,6 @@
 require 'ffi'
 require 'forwardable'
+require 'qiniu_ng/error'
 
 module QiniuNg
   class Etag
@@ -14,8 +15,11 @@ module QiniuNg
       alias from_buffer from_data
 
       def from_file_path(path)
-        # TODO: Implement
-        raise NotImplementedError
+        etag_result = FFI::MemoryPointer::new(ETAG_SIZE)
+        QiniuNg.wrap_ffi_function do |err|
+          Bindings::Etag.from_file_path?(path, etag_result, err)
+        end
+        etag_result.read_bytes(ETAG_SIZE)
       end
 
       def from_io(io)

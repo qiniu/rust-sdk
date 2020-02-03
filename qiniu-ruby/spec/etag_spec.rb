@@ -7,11 +7,20 @@ RSpec.describe QiniuNg::Etag do
     end
   end
 
-  # TODO: context '#from_file_path'
+  context '#from_file_path' do
+    it 'should get etag from given file' do
+      Tempfile.create('临时文件') do |tmpfile|
+        3.times { tmpfile.puts("Hello world") }
+        tmpfile.flush
+        tmpfile.rewind
+        expect(QiniuNg::Etag.from_file_path(tmpfile.path)).to eq 'FgAgNanfbszl6CSk8MEyKDDXvpgG'
+      end
+    end
+  end
 
   context '#from_io' do
     it 'should get etag from given file' do
-      Tempfile.create('foo') do |tmpfile|
+      Tempfile.create('临时文件') do |tmpfile|
         3.times { tmpfile.puts("Hello world") }
         tmpfile.flush
         tmpfile.rewind

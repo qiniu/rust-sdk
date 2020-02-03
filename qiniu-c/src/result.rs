@@ -2,6 +2,7 @@
 use curl_sys::CURLcode;
 
 use crate::utils::{qiniu_ng_str_free, qiniu_ng_str_t};
+use matches::matches;
 use qiniu_ng::{
     http::{domains_manager::PersistentError, Error as HTTPError, ErrorKind as HTTPErrorKind},
     storage::{manager::DropBucketError, upload_token::UploadTokenParseError, uploader::UploadError},
@@ -46,6 +47,11 @@ pub enum qiniu_ng_err_kind_t {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_err_t(qiniu_ng_err_kind_t);
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_any_error(err: &mut qiniu_ng_err_t) -> bool {
+    !matches!(err.0, qiniu_ng_err_kind_t::qiniu_ng_err_kind_none)
+}
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_os_error_extract(err: &mut qiniu_ng_err_t, code: *mut i32) -> bool {
@@ -212,7 +218,7 @@ pub extern "C" fn qiniu_ng_err_invalid_upload_token_extract(
             if let Some(upload_token_error) = unsafe { upload_token_error.as_mut() } {
                 *upload_token_error = e;
             } else {
-                qiniu_ng_invalid_upload_token_error_ignore(&mut e);
+                qiniu_ng_err_invalid_upload_token_error_ignore(&mut e);
             }
             err.0 = qiniu_ng_err_kind_t::qiniu_ng_err_kind_none;
             true
@@ -284,7 +290,7 @@ pub extern "C" fn qiniu_ng_err_ignore(err: &mut qiniu_ng_err_t) {
         qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(mut desc) => qiniu_ng_str_free(&mut desc),
         qiniu_ng_err_kind_t::qiniu_ng_err_kind_response_status_code_error(_, mut desc) => qiniu_ng_str_free(&mut desc),
         qiniu_ng_err_kind_t::qiniu_ng_err_kind_invalid_upload_token_error(mut err) => {
-            qiniu_ng_invalid_upload_token_error_ignore(&mut err)
+            qiniu_ng_err_invalid_upload_token_error_ignore(&mut err)
         }
         qiniu_ng_err_kind_t::qiniu_ng_err_kind_bad_mime_type(mut desc) => qiniu_ng_str_free(&mut desc),
         _ => {}
@@ -293,7 +299,7 @@ pub extern "C" fn qiniu_ng_err_ignore(err: &mut qiniu_ng_err_t) {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_invalid_upload_token_error_ignore(err: &mut qiniu_ng_invalid_upload_token_error_t) {
+pub extern "C" fn qiniu_ng_err_invalid_upload_token_error_ignore(err: &mut qiniu_ng_invalid_upload_token_error_t) {
     match err.0 {
         qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_base64_decode_error(
             mut desc,

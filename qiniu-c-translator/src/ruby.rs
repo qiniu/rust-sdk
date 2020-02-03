@@ -589,7 +589,7 @@ impl GenerateBindings {
         if let Some(top_level_module) = self.module_names.iter().rev().fold(None, |module, module_name| {
             Some(Box::new(Module::new(module_name, false).tap(|m| {
                 if let Some(module) = module {
-                    m.sub_nodes = vec![module];
+                    m.sub_nodes.push(module);
                 } else {
                     let mut core_ffi_module = Module::new(CORE_FFI_MODULE_NAME, false);
                     self.insert_ffi_bindings(&mut core_ffi_module);
