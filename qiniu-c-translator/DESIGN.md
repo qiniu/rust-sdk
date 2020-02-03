@@ -18,6 +18,8 @@
 
 ## Ruby 模块
 
+Ruby 模块所有生成代码基于 [FFI](https://rubygems.org/gems/ffi) 库实现。使用该库可以获得更好的内存安全特性及其无缝对接 JRuby。
+
 默认情况下，Ruby 模块将会将代码生成在 `QiniuNg::Bindings` 模块内。因此，生成代码的文件应该配置在 `qiniu-ruby/<GEM PATH>/lib/qiniu_ng/bindings.rb` 路径上。
 
 与 C 接口的绑定代码总是生成在 `QiniuNg::Bindings::CoreFFI` 模块内，包含结构体，枚举类和关联函数，该模块是私有模块，只能被 `QiniuNg::Bindings` 调用。

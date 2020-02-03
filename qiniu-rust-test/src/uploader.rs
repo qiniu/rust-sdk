@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use chrono::offset::Utc;
+    use matches::matches;
     use qiniu_ng::{
         http::ErrorKind as HTTPErrorKind,
         storage::{upload_policy::UploadPolicyBuilder, uploader::UploadError},
@@ -38,7 +39,7 @@ mod tests {
             .unwrap_err();
 
         if let UploadError::QiniuError(e) = &err {
-            if let HTTPErrorKind::UnexpectedRedirect = e.error_kind() {
+            if matches!(e.error_kind(), HTTPErrorKind::UnexpectedRedirect) {
                 return Ok(());
             }
         }

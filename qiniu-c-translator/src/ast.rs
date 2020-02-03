@@ -135,11 +135,13 @@ impl TypeDeclaration {
 pub struct FunctionType {
     return_type: Type,
     parameter_types: Vec<Type>,
+    display_name: String,
 }
 
 impl FunctionType {
-    fn new(return_type: &ClangType, parameter_types: &[ClangType]) -> Self {
+    fn new(display_name: String, return_type: &ClangType, parameter_types: &[ClangType]) -> Self {
         Self {
+            display_name,
             return_type: Type::new(return_type),
             parameter_types: parameter_types
                 .iter()
@@ -150,22 +152,20 @@ impl FunctionType {
 }
 
 #[derive(Debug, Clone)]
-pub enum SubType {
-    PointeeType(Type),
-    FunctionType(FunctionType),
-    OriginalType(Type),
+pub enum TypeKind {
+    Base(ClangTypeKind),
+    Pointer { subtype: Box<Type> },
+    Function { subtype: Box<FunctionType> },
+    Typedef { subtype: Box<Type> },
 }
 
 #[derive(Debug, Clone, Getters, CopyGetters)]
 pub struct Type {
-    #[get_copy = "pub"]
-    type_kind: ClangTypeKind,
+    #[get = "pub"]
+    type_kind: TypeKind,
 
     #[get = "pub"]
     display_name: String,
-
-    #[get = "pub"]
-    subtype: Option<Box<SubType>>,
 
     #[get_copy = "pub"]
     is_const: bool,
@@ -174,20 +174,22 @@ pub struct Type {
 impl Type {
     fn new(clang_type: &ClangType) -> Self {
         Self {
-            type_kind: clang_type.get_kind(),
             display_name: clang_type.get_display_name(),
-            subtype: match clang_type.get_kind() {
-                ClangTypeKind::Pointer => Some(Box::new(SubType::PointeeType(Self::new(
-                    clang_type.get_pointee_type().as_ref().unwrap(),
-                )))),
-                ClangTypeKind::Typedef => Some(Box::new(SubType::OriginalType(Self::new(
-                    &clang_type.get_canonical_type(),
-                )))),
-                ClangTypeKind::FunctionPrototype => Some(Box::new(SubType::FunctionType(FunctionType::new(
-                    clang_type.get_result_type().as_ref().unwrap(),
-                    clang_type.get_argument_types().unwrap_or_default().as_ref(),
-                )))),
-                _ => None,
+            type_kind: match clang_type.get_kind() {
+                ClangTypeKind::Pointer => TypeKind::Pointer {
+                    subtype: Box::new(Self::new(clang_type.get_pointee_type().as_ref().unwrap())),
+                },
+                ClangTypeKind::Typedef => TypeKind::Typedef {
+                    subtype: Box::new(Self::new(&clang_type.get_canonical_type())),
+                },
+                ClangTypeKind::FunctionPrototype => TypeKind::Function {
+                    subtype: Box::new(FunctionType::new(
+                        clang_type.get_display_name(),
+                        clang_type.get_result_type().as_ref().unwrap(),
+                        clang_type.get_argument_types().unwrap_or_default().as_ref(),
+                    )),
+                },
+                base_type_kind => TypeKind::Base(base_type_kind),
             },
             is_const: clang_type.is_const_qualified(),
         }

@@ -43,6 +43,7 @@ thiserror = "1.0"
 dirs = "2.0.2"
 fs2 = "0.4.3"
 sys-info = "0.5.8"
+matches = "0.1.8"
 
 qiniu-with-libcurl = { version = "0.0.2", path = "../qiniu-rust-with-libcurl", optional = true }
 qiniu-http = { version = "0.0.2", path = "../qiniu-rust-http" }

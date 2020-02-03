@@ -2,6 +2,7 @@ use crate::{config::Config, storage::region::Region, utils::global_thread_pool};
 use assert_impl::assert_impl;
 use chashmap::CHashMap;
 use dirs::cache_dir;
+use matches::matches;
 use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -394,7 +395,7 @@ pub struct DomainsManager {
 impl DomainsManager {
     pub fn persistent(&self) -> Option<PersistentResult<()>> {
         let result = self.persistent_without_lock();
-        if let Some(Ok(_)) = result {
+        if matches!(result, Some(Ok(_))) {
             *self.inner.last_persistent_time.lock().unwrap() = Instant::now();
         }
         result

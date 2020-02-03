@@ -1,5 +1,5 @@
 use crate::string::{qiniu_ng_char_t, ucstr, UCString};
-use libc::{c_int, c_void, size_t};
+use libc::{c_void, size_t};
 use std::{
     boxed::Box,
     collections::{hash_map::RandomState, HashMap},
@@ -298,12 +298,12 @@ pub extern "C" fn qiniu_ng_str_map_set(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_each_entry(
     hashmap: qiniu_ng_str_map_t,
-    handler: fn(key: *const qiniu_ng_char_t, value: *const qiniu_ng_char_t, data: *mut c_void) -> c_int,
+    handler: fn(key: *const qiniu_ng_char_t, value: *const qiniu_ng_char_t, data: *mut c_void) -> bool,
     data: *mut c_void,
 ) {
     let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap).unwrap();
     for (key, value) in hashmap.iter() {
-        if handler(key.as_ptr(), value.as_ptr(), data) != 0 {
+        if !handler(key.as_ptr(), value.as_ptr(), data) {
             break;
         }
     }
