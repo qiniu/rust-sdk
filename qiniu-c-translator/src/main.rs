@@ -117,38 +117,34 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
     Classifier::default().tap(|classifier| {
         classifier.add_class(Class::new(
             "Str",
-            "QiniuNgStrT",
+            "qiniu_ng_str_t",
             Regex::new("^qiniu_ng_str_(\\w+)").unwrap(),
             Some(Regex::new("^qiniu_ng_str_(list|map)_").unwrap()),
             source_file.function_declarations().iter(),
             None,
-            None,
         ));
         classifier.add_class(Class::new(
             "StrList",
-            "QiniuNgStrListT",
+            "qiniu_ng_str_list_t",
             Regex::new("^qiniu_ng_str_list_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
             None,
-            None,
         ));
         classifier.add_class(Class::new(
             "StrMap",
-            "QiniuNgStrMapT",
+            "qiniu_ng_str_map_t",
             Regex::new("^qiniu_ng_str_map_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
             None,
-            None,
         ));
         classifier.add_class(Class::new(
             "Etag",
-            "QiniuNgEtagT",
+            "qiniu_ng_etag_t",
             Regex::new("^qiniu_ng_etag_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
-            None,
             None,
         ));
     })

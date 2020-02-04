@@ -429,11 +429,11 @@ impl CodeGenerator for Method {
             for node in self.sub_nodes.iter() {
                 output = node.generate_code(output)?;
             }
+            if let Some(return_node) = self.return_node.as_ref() {
+                output = return_node.generate_code(output)?;
+            }
             Ok(output)
         })?;
-        if let Some(return_node) = self.return_node.as_ref() {
-            output = return_node.generate_code(output)?;
-        }
         output.write("end")?;
         Ok(output)
     }
@@ -899,6 +899,9 @@ impl GenerateBindings {
             module
                 .sub_nodes
                 .push(Box::new(Module::new(class.name().to_owned(), true)).tap(|new_class| {
+                    new_class
+                        .sub_nodes
+                        .push(Box::new(RawCode::new("attr_reader :instance")));
                     insert_constructor_node(class, &mut new_class.sub_nodes);
                     insert_destructor_node(class, &mut new_class.sub_nodes);
                     insert_methods_nodes(class, &mut new_class.sub_nodes);
@@ -907,20 +910,11 @@ impl GenerateBindings {
 
         fn insert_constructor_node(class: &Class, nodes: &mut Vec<Box<dyn CodeGenerator>>) {
             nodes.push(Box::new(Method::new("initialize", false)).tap(|initializer| {
-                if let Some(constructor) = class.constructor().as_ref() {
-                    normalize_parameters_for_method_and_method_call(
-                        initializer,
-                        constructor.parameters(),
-                        constructor.return_type(),
-                        MethodCall::new(
-                            Some(Context::Modules(vec![CORE_FFI_MODULE_NAME.to_owned()])),
-                            constructor.name().to_owned(),
-                        )
-                        .tap(|method_call| {
-                            method_call.receiver_names = vec![CLASS_CONTEXT_INSTANCE_VARIABLE_NAME.to_owned()];
-                        }),
-                    );
-                }
+                initializer.parameter_names = vec!["instance".to_owned()];
+                initializer.sub_nodes.push(Box::new(RawCode::new(format!(
+                    "{} = instance",
+                    CLASS_CONTEXT_INSTANCE_VARIABLE_NAME
+                ))));
                 if class.destructor().is_some() {
                     initializer.sub_nodes.push(Box::new(RawCode::new(format!(
                         "ObjectSpace.define_finalizer(self, self.class.finalize({}))",
@@ -951,7 +945,9 @@ impl GenerateBindings {
 
         fn insert_methods_nodes(class: &Class, nodes: &mut Vec<Box<dyn CodeGenerator>>) {
             for method in class.methods().iter() {
-                let new_method_name = if matches!(
+                let new_method_name = if method.name().as_str() == "new" {
+                    "new!".to_owned()
+                } else if matches!(
                     method.declaration().return_type().type_kind(),
                     TypeKind::Base(ClangTypeKind::Bool)
                 ) {
@@ -959,40 +955,59 @@ impl GenerateBindings {
                 } else {
                     method.name().to_owned()
                 };
-                nodes.push(Box::new(Method::new(new_method_name, false)).tap(|new_method| {
-                    if let Some(first_parameter) = method.declaration().parameters().first() {
-                        if class.ffi_class_name()
-                            == normalize_constant(first_parameter.parameter_type().display_name()).as_str()
-                        {
-                            normalize_parameters_for_method_and_method_call(
-                                new_method,
-                                method.declaration().parameters().get(1..).unwrap_or(&[]),
-                                method.declaration().return_type(),
-                                MethodCall::new(
-                                    Some(Context::Modules(vec![CORE_FFI_MODULE_NAME.to_owned()])),
-                                    method.declaration().name().to_owned(),
-                                )
-                                .tap(|method_call| {
-                                    method_call.parameter_names = vec![CLASS_CONTEXT_INSTANCE_VARIABLE_NAME.to_owned()];
-                                }),
-                            );
+                let is_instance_method = if let Some(first_parameter) = method.declaration().parameters().first() {
+                    is_current_class_by_value(first_parameter.parameter_type(), class)
+                } else {
+                    false
+                };
+                let identifier_generator = RandomIdentifier::new();
+                nodes.push(
+                    Box::new(Method::new(new_method_name, !is_instance_method)).tap(|new_method| {
+                        let parameters = if is_instance_method {
+                            method.declaration().parameters().get(1..).unwrap_or(&[])
                         } else {
-                            new_method.is_class_method = true;
-                            normalize_parameters_for_method_and_method_call(
-                                new_method,
-                                method.declaration().parameters(),
-                                method.declaration().return_type(),
-                                MethodCall::new(
-                                    Some(Context::Modules(vec![CORE_FFI_MODULE_NAME.to_owned()])),
-                                    method.declaration().name().to_owned(),
-                                )
-                                .tap(|_method_call| {
-                                    // TODO
-                                }),
-                            );
+                            method.declaration().parameters()
+                        };
+                        let return_type = method.declaration().return_type();
+
+                        let mut method_call_receive_names: Option<Vec<String>> = None;
+
+                        if !is_instance_method && is_current_class_by_value(return_type, class) {
+                            new_method.return_node =
+                                Some(Box::new(MethodCall::new(None, "new".to_owned())).tap(|return_node| {
+                                    return_node.parameter_names = vec![identifier_generator.lower_camel_case()];
+                                    method_call_receive_names = Some(return_node.parameter_names.clone());
+                                }))
                         }
-                    }
-                }))
+
+                        normalize_parameters_for_method_and_method_call(
+                            new_method,
+                            parameters,
+                            return_type,
+                            MethodCall::new(
+                                Some(Context::Modules(vec![CORE_FFI_MODULE_NAME.to_owned()])),
+                                method.declaration().name().to_owned(),
+                            )
+                            .tap(|method_call| {
+                                if is_instance_method {
+                                    method_call.parameter_names = vec![CLASS_CONTEXT_INSTANCE_VARIABLE_NAME.to_owned()];
+                                } else if let Some(method_call_receive_names) = method_call_receive_names.as_ref() {
+                                    method_call.receiver_names = method_call_receive_names.clone();
+                                }
+                            }),
+                            &identifier_generator,
+                        );
+                    }),
+                );
+            }
+        }
+
+        fn is_current_class_by_value(current_type: &Type, class: &Class) -> bool {
+            if let TypeKind::Typedef { subtype } = current_type.type_kind() {
+                matches!(subtype.type_kind(), TypeKind::Base(ClangTypeKind::Record))
+                    && class.ffi_class_name().as_str() == current_type.display_name().as_str()
+            } else {
+                false
             }
         }
 
@@ -1001,8 +1016,8 @@ impl GenerateBindings {
             parameters: &[ParameterDeclaration],
             return_type: &Type,
             mut method_call: MethodCall,
+            identifier_generator: &RandomIdentifier,
         ) {
-            let identifier_generator = RandomIdentifier::new();
             let mut skip = 0usize;
             for (i, parameter) in parameters.iter().enumerate() {
                 if skip > 0 {

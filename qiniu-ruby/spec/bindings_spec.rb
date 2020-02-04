@@ -3,8 +3,8 @@ require 'tempfile'
 RSpec.describe QiniuNg::Bindings do
   context QiniuNg::Bindings::Str do
     it 'should be ok to initialize string' do
-      str1 = QiniuNg::Bindings::Str.new '你好'
-      str2 = QiniuNg::Bindings::Str.new '七牛'
+      str1 = QiniuNg::Bindings::Str.new! '你好'
+      str2 = QiniuNg::Bindings::Str.new! '七牛'
       expect(str1.get_ptr).to eq('你好')
       expect(str2.get_ptr).to eq('七牛')
       expect(str1.get_len).to eq('你好'.bytesize)
@@ -18,8 +18,8 @@ RSpec.describe QiniuNg::Bindings do
 
   context QiniuNg::Bindings::StrList do
     it 'should be ok to initialize string list' do
-      list1 = QiniuNg::Bindings::StrList.new(['七牛', '你好', '武汉', '加油'])
-      list2 = QiniuNg::Bindings::StrList.new(['科多兽', '多啦A梦', '潘多拉'])
+      list1 = QiniuNg::Bindings::StrList.new!(['七牛', '你好', '武汉', '加油'])
+      list2 = QiniuNg::Bindings::StrList.new!(['科多兽', '多啦A梦', '潘多拉'])
       expect(list1.len).to eq(4)
       expect(list2.len).to eq(3)
       expect(list1.get(0)).to eq('七牛')
@@ -36,12 +36,12 @@ RSpec.describe QiniuNg::Bindings do
 
   context QiniuNg::Bindings::StrMap do
     it 'should be ok to initialize string map' do
-      map1 = QiniuNg::Bindings::StrMap.new 5
+      map1 = QiniuNg::Bindings::StrMap.new! 5
       map1.set('KODO', '科多兽')
       map1.set('多啦A梦', 'DORA')
       map1.set('PANDORA', '潘多拉')
 
-      map2 = QiniuNg::Bindings::StrMap.new 10
+      map2 = QiniuNg::Bindings::StrMap.new! 10
       map2.set('科多兽', 'KODO')
       map2.set('DORA', '多啦A梦')
       map2.set('潘多拉', 'PANDORA')
@@ -104,7 +104,7 @@ RSpec.describe QiniuNg::Bindings do
 
     it 'should get etag from Etag instance' do
       FFI::MemoryPointer::new(ETAG_SIZE) do |etag_result|
-        etag = QiniuNg::Bindings::Etag.new
+        etag = QiniuNg::Bindings::Etag.new!
         3.times { etag.update("Hello world\n") }
         etag.result(etag_result)
         expect(etag_result.read_bytes(ETAG_SIZE)).to eq('FgAgNanfbszl6CSk8MEyKDDXvpgG')

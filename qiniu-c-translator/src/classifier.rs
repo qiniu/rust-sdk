@@ -34,7 +34,6 @@ pub struct Method {
 pub struct Class {
     name: String,
     ffi_class_name: String,
-    constructor: Option<FunctionDeclaration>,
     destructor: Option<FunctionDeclaration>,
     methods: Vec<Method>,
 }
@@ -46,25 +45,16 @@ impl Class {
         function_name_captures_regex: Regex,
         function_name_exclude_regex: Option<Regex>,
         functions_iter: impl Iterator<Item = &'a FunctionDeclaration>,
-        constructor: Option<&str>,
         destructor: Option<&str>,
     ) -> Self {
         Class {
             name: name.into(),
             ffi_class_name: ffi_class_name.into(),
-            constructor: None,
             destructor: None,
             methods: Vec::new(),
         }
         .tap(|class| {
             for function_declaration in functions_iter {
-                if class.constructor.is_none() {
-                    if let Some(constructor_name) = constructor {
-                        if function_declaration.name() == constructor_name {
-                            class.constructor = Some(function_declaration.to_owned());
-                        }
-                    }
-                }
                 if class.destructor.is_none() {
                     if let Some(destructor_name) = destructor {
                         if function_declaration.name() == destructor_name {
@@ -78,12 +68,7 @@ impl Class {
                     .unwrap_or(false)
                 {
                     if let Some(captures) = function_name_captures_regex.captures(function_declaration.name()) {
-                        if class.constructor.is_none()
-                            && constructor.is_none()
-                            && function_declaration.name().ends_with("_new")
-                        {
-                            class.constructor = Some(function_declaration.to_owned());
-                        } else if class.destructor.is_none()
+                        if class.destructor.is_none()
                             && destructor.is_none()
                             && function_declaration.name().ends_with("_free")
                         {
@@ -113,10 +98,6 @@ pub fn dump_classifier(classifier: &Classifier) -> Result<()> {
         for class in classifier.classes().iter() {
             output.write(class.name())?;
             output = output.try_with_next_level(|mut output| {
-                output.write(&format!(
-                    "constructor: {:?}",
-                    class.constructor().as_ref().map(|f| f.name())
-                ))?;
                 output.write(&format!(
                     "destructor: {:?}",
                     class.destructor().as_ref().map(|f| f.name())

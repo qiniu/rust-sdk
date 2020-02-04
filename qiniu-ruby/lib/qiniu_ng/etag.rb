@@ -24,7 +24,7 @@ module QiniuNg
 
       def from_io(io)
         io.binmode
-        e = Bindings::Etag.new
+        e = Bindings::Etag.new!
         e.update(io.read(1 << 22)) until io.eof?
         etag_result = FFI::MemoryPointer::new(ETAG_SIZE)
         e.result(etag_result)
@@ -36,7 +36,7 @@ module QiniuNg
     extend Forwardable
 
     def initialize
-      @etag = Bindings::Etag.new
+      @etag = Bindings::Etag.new!
     end
     def_delegators :@etag, :update, :reset
     alias :<< :update
