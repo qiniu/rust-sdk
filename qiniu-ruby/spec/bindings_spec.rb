@@ -9,10 +9,10 @@ RSpec.describe QiniuNg::Bindings do
       expect(str2.get_ptr).to eq('七牛')
       expect(str1.get_len).to eq('你好'.bytesize)
       expect(str2.get_len).to eq('七牛'.bytesize)
-      expect(str1.is_freed?).to be false
-      expect(str2.is_freed?).to be false
-      expect(str1.is_null?).to be false
-      expect(str2.is_null?).to be false
+      expect(str1.is_freed).to be false
+      expect(str2.is_freed).to be false
+      expect(str1.is_null).to be false
+      expect(str2.is_null).to be false
     end
   end
 
@@ -29,8 +29,8 @@ RSpec.describe QiniuNg::Bindings do
       expect(list2.get(0)).to eq('科多兽')
       expect(list2.get(1)).to eq('多啦A梦')
       expect(list2.get(2)).to eq('潘多拉')
-      expect(list1.is_freed?).to be false
-      expect(list2.is_freed?).to be false
+      expect(list1.is_freed).to be false
+      expect(list2.is_freed).to be false
     end
   end
 
@@ -90,15 +90,11 @@ RSpec.describe QiniuNg::Bindings do
         Tempfile.create('foo') do |tmpfile|
           tmpfile.puts "Hello world\n"
           tmpfile.flush
-          expect(QiniuNg::Bindings::Etag.from_file_path?(tmpfile.path, etag_result, nil)).to be true
+          QiniuNg.wrap_ffi_function do
+            QiniuNg::Bindings::Etag.from_file_path(tmpfile.path, etag_result)
+          end
         end
         expect(etag_result.read_bytes(ETAG_SIZE)).to eq('FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d')
-      end
-    end
-
-    it 'should get etag from unexisted file' do
-      FFI::MemoryPointer::new(ETAG_SIZE) do |etag_result|
-        expect(QiniuNg::Bindings::Etag.from_file_path?("/不存在的文件", etag_result, nil)).to be false
       end
     end
 

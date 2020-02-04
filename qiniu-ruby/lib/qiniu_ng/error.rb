@@ -100,31 +100,39 @@ module QiniuNg
 
   def self.wrap_ffi_function
     core_ffi = Bindings.const_get(:CoreFFI)
-    err = core_ffi::QiniuNgErrT.new
-    yield err
-    if core_ffi::qiniu_ng_err_any_error(err)
-      code = FFI::MemoryPointer.new(:int)
-      raise Error::OSError, code.read_int if core_ffi::qiniu_ng_err_os_error_extract(err, code)
-      msg = core_ffi::QiniuNgStrT.new
-      raise Error::IOError, msg if core_ffi::qiniu_ng_err_os_error_extract(err, msg)
-      raise Error::UnexpectedRedirectError if core_ffi::qiniu_ng_err_unexpected_redirect_error_extract(err)
-      raise Error::UserCancelledError if core_ffi::qiniu_ng_err_user_canceled_error_extract(err)
-      raise Error::JSONError, msg if core_ffi::qiniu_ng_err_json_error_extract(err, msg)
-      raise Error::ResponseStatusCodeError.new(code.read_int, msg) if core_ffi::qiniu_ng_err_response_status_code_error_extract(err, code, msg)
-      raise Error::UnknownError, msg if core_ffi::qiniu_ng_err_unknown_error_extract(err, msg)
-      raise Error::CurlError, code.read_int if core_ffi::qiniu_ng_err_curl_error_extract(err, code)
-      raise Error::CannotDropNonEmptyBucketError if core_ffi::qiniu_ng_err_drop_non_empty_bucket_error_extract(err)
-      raise Error::BadMIMEError, msg if core_ffi::qiniu_ng_err_bad_mime_type_error_extract(err, msg)
-      err2 = core_ffi::QiniuNgInvalidUploadTokenErrorT.new
-      if core_ffi::qiniu_ng_err_invalid_upload_token_extract(err, err2)
-        raise Error::InvalidUploadTokenFormatError if core_ffi::qiniu_ng_err_invalid_upload_token_format_extract(err)
-        raise Error::InvalidUploadTokenJSONDecodeError, msg if core_ffi::qiniu_ng_err_invalid_upload_token_json_error_extract(err, msg)
-        raise Error::InvalidUploadTokenBase64DecodeError, msg if core_ffi::qiniu_ng_err_invalid_upload_token_base64_error_extract(err, msg)
-        core_ffi::qiniu_ng_err_invalid_upload_token_error_ignore(err)
-      end
-      core_ffi::qiniu_ng_err_ignore(err)
+    return_values = yield
+    return_values = [return_values] unless return_values.is_a?(Array)
+    errs, return_values = return_values.partition { |v| v.is_a?(core_ffi::QiniuNgErrT) }
+    errs.each do |err|
+      if core_ffi::qiniu_ng_err_any_error(err)
+        code = FFI::MemoryPointer.new(:int)
+        raise Error::OSError, code.read_int if core_ffi::qiniu_ng_err_os_error_extract(err, code)
+        msg = core_ffi::QiniuNgStrT.new
+        raise Error::IOError, msg if core_ffi::qiniu_ng_err_os_error_extract(err, msg)
+        raise Error::UnexpectedRedirectError if core_ffi::qiniu_ng_err_unexpected_redirect_error_extract(err)
+        raise Error::UserCancelledError if core_ffi::qiniu_ng_err_user_canceled_error_extract(err)
+        raise Error::JSONError, msg if core_ffi::qiniu_ng_err_json_error_extract(err, msg)
+        raise Error::ResponseStatusCodeError.new(code.read_int, msg) if core_ffi::qiniu_ng_err_response_status_code_error_extract(err, code, msg)
+        raise Error::UnknownError, msg if core_ffi::qiniu_ng_err_unknown_error_extract(err, msg)
+        raise Error::CurlError, code.read_int if core_ffi::qiniu_ng_err_curl_error_extract(err, code)
+        raise Error::CannotDropNonEmptyBucketError if core_ffi::qiniu_ng_err_drop_non_empty_bucket_error_extract(err)
+        raise Error::BadMIMEError, msg if core_ffi::qiniu_ng_err_bad_mime_type_error_extract(err, msg)
+        err2 = core_ffi::QiniuNgInvalidUploadTokenErrorT.new
+        if core_ffi::qiniu_ng_err_invalid_upload_token_extract(err, err2)
+          raise Error::InvalidUploadTokenFormatError if core_ffi::qiniu_ng_err_invalid_upload_token_format_extract(err)
+          raise Error::InvalidUploadTokenJSONDecodeError, msg if core_ffi::qiniu_ng_err_invalid_upload_token_json_error_extract(err, msg)
+          raise Error::InvalidUploadTokenBase64DecodeError, msg if core_ffi::qiniu_ng_err_invalid_upload_token_base64_error_extract(err, msg)
+          core_ffi::qiniu_ng_err_invalid_upload_token_error_ignore(err)
+        end
+        core_ffi::qiniu_ng_err_ignore(err)
 
-      raise RuntimeError, 'Unknown QiniuNg Library Error'
+        raise RuntimeError, 'Unknown QiniuNg Library Error'
+      end
+    end
+    case return_values.size
+    when 0 then nil
+    when 1 then return_values.first
+    else        return_values
     end
   end
 end

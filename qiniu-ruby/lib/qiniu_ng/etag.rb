@@ -16,8 +16,8 @@ module QiniuNg
 
       def from_file_path(path)
         etag_result = FFI::MemoryPointer::new(ETAG_SIZE)
-        QiniuNg.wrap_ffi_function do |err|
-          Bindings::Etag.from_file_path?(path, etag_result, err)
+        QiniuNg.wrap_ffi_function do
+          Bindings::Etag.from_file_path(path, etag_result)
         end
         etag_result.read_bytes(ETAG_SIZE)
       end

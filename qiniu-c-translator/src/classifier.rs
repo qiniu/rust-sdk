@@ -27,6 +27,7 @@ impl Classifier {
 pub struct Method {
     name: String,
     declaration: FunctionDeclaration,
+    receive_pointers_parameter_names: Vec<String>,
 }
 
 #[derive(Debug, Getters)]
@@ -40,16 +41,17 @@ pub struct Class {
 
 impl Class {
     pub fn new<'a>(
-        name: impl Into<String>,
-        ffi_class_name: impl Into<String>,
+        name: &str,
+        ffi_class_name: &str,
         function_name_captures_regex: Regex,
         function_name_exclude_regex: Option<Regex>,
         functions_iter: impl Iterator<Item = &'a FunctionDeclaration>,
         destructor: Option<&str>,
+        function_receive_pointers_parameter_names: Vec<(&str, &str)>,
     ) -> Self {
         Class {
-            name: name.into(),
-            ffi_class_name: ffi_class_name.into(),
+            name: name.to_owned(),
+            ffi_class_name: ffi_class_name.to_owned(),
             destructor: None,
             methods: Vec::new(),
         }
@@ -59,6 +61,7 @@ impl Class {
                     if let Some(destructor_name) = destructor {
                         if function_declaration.name() == destructor_name {
                             class.destructor = Some(function_declaration.to_owned());
+                            continue;
                         }
                     }
                 }
@@ -73,7 +76,7 @@ impl Class {
                             && function_declaration.name().ends_with("_free")
                         {
                             class.destructor = Some(function_declaration.to_owned());
-                        } else {
+                        } else if Some(function_declaration.name()) != class.destructor.as_ref().map(|c| c.name()) {
                             class.methods.push(Method {
                                 name: captures
                                     .get(1)
@@ -81,6 +84,16 @@ impl Class {
                                     .as_str()
                                     .to_owned(),
                                 declaration: function_declaration.to_owned(),
+                                receive_pointers_parameter_names: function_receive_pointers_parameter_names
+                                    .iter()
+                                    .filter_map(|&(func_name, param_name)| {
+                                        if func_name == function_declaration.name() {
+                                            Some(param_name.to_owned())
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect(),
                             });
                         }
                     }

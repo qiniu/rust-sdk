@@ -122,6 +122,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             Some(Regex::new("^qiniu_ng_str_(list|map)_").unwrap()),
             source_file.function_declarations().iter(),
             None,
+            vec![],
         ));
         classifier.add_class(Class::new(
             "StrList",
@@ -130,6 +131,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             None,
             source_file.function_declarations().iter(),
             None,
+            vec![],
         ));
         classifier.add_class(Class::new(
             "StrMap",
@@ -138,6 +140,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             None,
             source_file.function_declarations().iter(),
             None,
+            vec![],
         ));
         classifier.add_class(Class::new(
             "Etag",
@@ -146,6 +149,25 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             None,
             source_file.function_declarations().iter(),
             None,
+            vec![],
+        ));
+        classifier.add_class(Class::new(
+            "ConfigBuilder",
+            "qiniu_ng_config_builder_t",
+            Regex::new("^qiniu_ng_config_builder_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![],
+        ));
+        classifier.add_class(Class::new(
+            "Config",
+            "qiniu_ng_config_t",
+            Regex::new("^qiniu_ng_config_(\\w+)").unwrap(),
+            Some(Regex::new("^qiniu_ng_config_builder_(\\w+)").unwrap()),
+            source_file.function_declarations().iter(),
+            None,
+            vec![("qiniu_ng_config_build", "builder_ptr")],
         ));
     })
 }

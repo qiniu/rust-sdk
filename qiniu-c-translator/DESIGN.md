@@ -25,3 +25,17 @@ Ruby 模块所有生成代码基于 [FFI](https://rubygems.org/gems/ffi) 库实�
 与 C 接口的绑定代码总是生成在 `QiniuNg::Bindings::CoreFFI` 模块内，包含结构体，枚举类和关联函数，该模块是私有模块，只能被 `QiniuNg::Bindings` 调用。
 
 而 `QiniuNg::Bindings` 模块将面向过程的 `QiniuNg::Bindings::CoreFFI` 内方法转换为面向对象，提供内存安全的保障。
+
+### 功能模块
+
+| 模块名                                                       | 模块描述                                                     |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| mod                           | Ruby 模块入口，负责遍历外层的 AST 并调用代码生成模块 |
+| ast                           | Ruby 代码抽象语法树 |
+| types                         | Ruby 类型枚举类，可以将 Clang 解析得到的类型翻译为 Ruby 类型 |
+| utils                         | 为方便 Ruby 类型判断和标识符转换而抽象出来的通用库 |
+| ffi_bindings                         | 负责为模块插入 FFI 初始化语句 |
+| callback_declaration_bindings        | 负责为模块插入回调类型声明语句，该模块为遍历所有绑定的类型和方法，从中发现回调类型，并转换成 Ruby 的回调类型声明 |
+| type_declaration_bindings            | 负责为模块插入类型声明语句 |
+| attach_function_declaration_bindings | 负责为模块插入方法声明语句 |
+| ffi_wrapper_classes                  | 负责为模块插入面向对象的 FFI 封装类型 |
