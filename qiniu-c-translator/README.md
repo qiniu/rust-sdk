@@ -9,7 +9,7 @@
 ## 依赖环境
 
 - Rust 1.38+
-- libclang3.5+
+- llvm & libclang 9
 
 ## 使用方法
 

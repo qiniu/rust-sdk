@@ -99,7 +99,7 @@ module QiniuNg
   private
 
   def self.wrap_ffi_function
-    core_ffi = Bindings.const_get('CoreFFI')
+    core_ffi = Bindings.const_get(:CoreFFI)
     err = core_ffi::QiniuNgErrT.new
     yield err
     if core_ffi::qiniu_ng_err_any_error(err)
