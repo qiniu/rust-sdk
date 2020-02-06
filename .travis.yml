@@ -6,7 +6,7 @@ matrix:
       rust:
         - 1.38.0
       before_script:
-        - sudo apt install -yq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev gnupg software-properties-common
+        - sudo apt install -yq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev gnupg software-properties-common openjdk-8-jdk
         - cargo install --force cbindgen
         - |
             curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
@@ -19,12 +19,20 @@ matrix:
             curl -fsSL https://github.com/rbenv/rbenv-installer/raw/master/bin/rbenv-installer | bash
             eval "$(rbenv init -)"
             rbenv install 2.4.0
+            rbenv install jruby-9.2.0.0
             rbenv global 2.4.0
             gem install bundler
       script:
         - make
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
+              make test
+            fi
+        - |
+            if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
+              gem install bundler
+              rbenv global jruby-9.2.0.0
+              cd qiniu-ruby
               make test
             fi
     - os: osx
