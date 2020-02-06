@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module QiniuNg
   class Error < StandardError
     class IOError < Error
@@ -96,9 +98,7 @@ module QiniuNg
     end
   end
 
-  private
-
-  def self.wrap_ffi_function
+  def Error.wrap_ffi_function
     core_ffi = Bindings.const_get(:CoreFFI)
     return_values = yield
     return_values = [return_values] unless return_values.is_a?(Array)

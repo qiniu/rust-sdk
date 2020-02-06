@@ -660,26 +660,30 @@ pub extern "C" fn qiniu_ng_config_build(
 ) -> bool {
     let builder_ptr = unsafe { builder_ptr.as_mut() }.unwrap();
     let builder = Option::<Box<Builder>>::from(*builder_ptr).unwrap();
-    let config_builder = builder
-        .config_builder
-        .upload_logger(
-            match builder
-                .upload_logger_builder
-                .map(|logger_builder| logger_builder.build())
-                .map_or(Ok(None), |result| result.map(Some))
-            {
-                Ok(upload_logger) => upload_logger,
-                Err(ref err) => {
-                    if let Some(error) = unsafe { error.as_mut() } {
-                        *error = err.into();
-                    }
-                    return false;
-                }
-            },
-        )
-        .upload_recorder(builder.upload_recorder_builder.build())
-        .domains_manager(builder.domains_manager_builder.build());
     *builder_ptr = qiniu_ng_config_builder_t::default();
+
+    let config_builder = {
+        builder
+            .config_builder
+            .upload_logger(
+                match builder
+                    .upload_logger_builder
+                    .map(|logger_builder| logger_builder.build())
+                    .map_or(Ok(None), |result| result.map(Some))
+                {
+                    Ok(upload_logger) => upload_logger,
+                    Err(ref err) => {
+                        if let Some(error) = unsafe { error.as_mut() } {
+                            *error = err.into();
+                        }
+                        return false;
+                    }
+                },
+            )
+            .upload_recorder(builder.upload_recorder_builder.build())
+            .domains_manager(builder.domains_manager_builder.build())
+    };
+
     if let Some(config) = unsafe { config.as_mut() } {
         *config = config_builder.build().into();
     }
@@ -827,6 +831,14 @@ pub extern "C" fn qiniu_ng_config_get_api_url(config: qiniu_ng_config_t) -> qini
 }
 
 #[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_uplog_host(config: qiniu_ng_config_t) -> qiniu_ng_str_t {
+    let config = Option::<Config>::from(config).unwrap();
+    unsafe { qiniu_ng_str_t::from_str_unchecked(config.uplog_host()) }.tap(|_| {
+        let _ = qiniu_ng_config_t::from(config);
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_uplog_url(config: qiniu_ng_config_t) -> qiniu_ng_str_t {
     let config = Option::<Config>::from(config).unwrap();
     unsafe { qiniu_ng_str_t::from_string_unchecked(config.uplog_url()) }.tap(|_| {
@@ -862,6 +874,54 @@ pub extern "C" fn qiniu_ng_config_get_upload_threshold(config: qiniu_ng_config_t
 pub extern "C" fn qiniu_ng_config_get_upload_block_size(config: qiniu_ng_config_t) -> u32 {
     let config = Option::<Config>::from(config).unwrap();
     config.upload_block_size().tap(|_| {
+        let _ = qiniu_ng_config_t::from(config);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_tcp_keepalive_idle_timeout(config: qiniu_ng_config_t) -> u64 {
+    let config = Option::<Config>::from(config).unwrap();
+    config.tcp_keepalive_idle_timeout().as_secs().tap(|_| {
+        let _ = qiniu_ng_config_t::from(config);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_tcp_keepalive_probe_interval(config: qiniu_ng_config_t) -> u64 {
+    let config = Option::<Config>::from(config).unwrap();
+    config.tcp_keepalive_probe_interval().as_secs().tap(|_| {
+        let _ = qiniu_ng_config_t::from(config);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_http_low_transfer_speed(config: qiniu_ng_config_t) -> u32 {
+    let config = Option::<Config>::from(config).unwrap();
+    config.http_low_transfer_speed().tap(|_| {
+        let _ = qiniu_ng_config_t::from(config);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_http_low_transfer_speed_timeout(config: qiniu_ng_config_t) -> u64 {
+    let config = Option::<Config>::from(config).unwrap();
+    config.http_low_transfer_speed_timeout().as_secs().tap(|_| {
+        let _ = qiniu_ng_config_t::from(config);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_http_connect_timeout(config: qiniu_ng_config_t) -> u64 {
+    let config = Option::<Config>::from(config).unwrap();
+    config.http_connect_timeout().as_secs().tap(|_| {
+        let _ = qiniu_ng_config_t::from(config);
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_get_http_request_timeout(config: qiniu_ng_config_t) -> u64 {
+    let config = Option::<Config>::from(config).unwrap();
+    config.http_request_timeout().as_secs().tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
     })
 }
@@ -1081,7 +1141,7 @@ pub extern "C" fn qiniu_ng_config_get_domains_manager_persistent_file_path(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_free(config: *mut qiniu_ng_config_t) {
     if let Some(config) = unsafe { config.as_mut() } {
-        let _ = Option::<Config>::from(*config).unwrap();
+        let _ = Option::<Config>::from(*config);
         *config = qiniu_ng_config_t::new_freed();
     }
 }

@@ -90,7 +90,7 @@ RSpec.describe QiniuNg::Bindings do
         Tempfile.create('foo') do |tmpfile|
           tmpfile.puts "Hello world\n"
           tmpfile.flush
-          QiniuNg.wrap_ffi_function do
+          QiniuNg::Error.wrap_ffi_function do
             QiniuNg::Bindings::Etag.from_file_path(tmpfile.path, etag_result)
           end
         end
@@ -107,6 +107,35 @@ RSpec.describe QiniuNg::Bindings do
         4.times { etag.update("Hello world\n") }
         etag.result(etag_result)
         expect(etag_result.read_bytes(ETAG_SIZE)).to eq('FhV9_jRUUi8lQ9eL_AbKIZj5pWXx')
+      end
+    end
+  end
+
+  context QiniuNg::Bindings::Config do
+    context '#new_default' do
+      it 'should be ok to build default config' do
+        config = QiniuNg::Bindings::Config.new_default
+        expect(config.get_use_https).to be true
+        expect(config.get_uc_url&.get_ptr).to eq "https://uc.qbox.me"
+        expect(config.get_rs_url&.get_ptr).to eq "https://rs.qbox.me"
+        expect(config.get_uplog_file_path&.get_ptr).to be_end_with('qiniu_sdk/upload.log')
+      end
+    end
+
+    context '#build' do
+      it 'should be ok to build config' do
+        config_builder = QiniuNg::Bindings::ConfigBuilder.new!
+        config_builder.use_https false
+        config_builder.uc_host('uc.fake.com')
+        config_builder.disable_uplog
+
+        config = QiniuNg::Error.wrap_ffi_function do
+                   QiniuNg::Bindings::Config.build(config_builder)
+                 end
+        expect(config.get_use_https).to be false
+        expect(config.get_uc_url&.get_ptr).to eq "http://uc.fake.com"
+        expect(config.get_rs_url&.get_ptr).to eq "http://rs.qbox.me"
+        expect(config.get_uplog_file_path&.get_ptr).to be_nil
       end
     end
   end

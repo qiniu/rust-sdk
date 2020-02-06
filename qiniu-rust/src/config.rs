@@ -9,6 +9,7 @@ use std::{
     borrow::Cow,
     boxed::Box,
     default::Default,
+    env::consts::ARCH,
     fmt,
     marker::{Send, Sync},
     ops::Deref,
@@ -380,7 +381,7 @@ impl ConfigBuilder {
     pub fn build(self) -> Config {
         let mut config = self.inner_build().unwrap();
         config.user_agent = format!(
-            "QiniuRust/qiniu-ng-{}/{};{};{}/rust-{}{}",
+            "QiniuRust/qiniu-ng-{}/{};{};{};{}/rust-{}{}",
             env!("CARGO_PKG_VERSION"),
             os_type().ok().unwrap_or_else(String::new),
             os_release().ok().unwrap_or_else(String::new),
@@ -388,6 +389,7 @@ impl ConfigBuilder {
                 .ok()
                 .and_then(|info| info.pretty_name)
                 .unwrap_or_else(String::new),
+            ARCH,
             rustc_version_runtime::version(),
             config
                 .appended_user_agent()

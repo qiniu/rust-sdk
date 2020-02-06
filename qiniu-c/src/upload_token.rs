@@ -357,7 +357,7 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_build(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_policy_builder_free(builder: *mut qiniu_ng_upload_policy_builder_t) {
     if let Some(builder) = unsafe { builder.as_mut() } {
-        let _ = Option::<Box<UploadPolicyBuilder>>::from(*builder).unwrap();
+        let _ = Option::<Box<UploadPolicyBuilder>>::from(*builder);
         *builder = qiniu_ng_upload_policy_builder_t::default();
     }
 }
