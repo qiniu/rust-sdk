@@ -181,7 +181,7 @@ mod domain {
 
     pub(super) fn query(http_client: &Client, credential: &Credential, bucket_name: &str) -> Result<Vec<String>> {
         Ok(http_client
-            .get("/v6/domain/list", &[&http_client.config().uc_url()])
+            .get("/v6/domain/list", &[&http_client.config().api_url()])
             .query("tbl", bucket_name)
             .token(Token::V2(credential.borrow().into()))
             .no_body()

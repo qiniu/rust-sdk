@@ -28,6 +28,16 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_storage_get_bucket() -> Result<(), Box<dyn Error>> {
+        let client = get_client(Config::default());
+        let bucket = client.storage().bucket("z0-bucket").build();
+        assert_eq!(bucket.regions()?.count(), 2);
+        let domains = bucket.domains()?;
+        assert_eq!(domains.len(), 2);
+        Ok(())
+    }
+
     fn get_client(config: Config) -> Client {
         let e = env::get();
         Client::new(e.access_key().to_owned(), e.secret_key().to_owned(), config)

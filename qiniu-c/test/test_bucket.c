@@ -237,3 +237,45 @@ void test_qiniu_ng_bucket_new(void) {
     qiniu_ng_client_free(&client);
     qiniu_ng_config_free(&config);
 }
+
+void test_qiniu_ng_bucket_get_regions_and_domains(void) {
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
+
+    TEST_ASSERT_EQUAL_INT_MESSAGE(
+        env_load("..", false), 0,
+        "env_load() failed");
+    qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
+
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
+
+    qiniu_ng_regions_t regions;
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_bucket_get_regions(bucket, &regions, NULL),
+        "qiniu_ng_bucket_get_regions() failed");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(
+        qiniu_ng_regions_len(regions), 2,
+        "qiniu_ng_regions_len(regions) != 1");
+    qiniu_ng_regions_free(&regions);
+
+    qiniu_ng_str_list_t domains;
+    const qiniu_ng_char_t *domain = NULL;
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_bucket_get_domains(bucket, &domains, NULL),
+        "qiniu_ng_bucket_get_domains() failed");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(
+        qiniu_ng_str_list_len(domains), 2,
+        "qiniu_ng_str_list_len(domains) != 2");
+    domain = qiniu_ng_str_list_get(domains, 0);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        domain,
+        "domain == null");
+    domain = qiniu_ng_str_list_get(domains, 1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        domain,
+        "domain == null");
+    qiniu_ng_str_list_free(&domains);
+
+    qiniu_ng_bucket_free(&bucket);
+    qiniu_ng_client_free(&client);
+    qiniu_ng_config_free(&config);
+}

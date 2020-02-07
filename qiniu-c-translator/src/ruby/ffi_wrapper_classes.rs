@@ -2,7 +2,7 @@ use super::{
     ast::{Context, Method, MethodCall, Module, Proc, RawCode},
     utils::{
         is_const_binary_type, is_const_str_list_type, is_const_str_type, is_size_type, normalize_constant,
-        try_to_extract_function_type, try_to_extract_receiver_pointer_type_name, try_to_extract_typedef_type_name,
+        try_to_extract_function_type, try_to_extract_pointer_type_name, try_to_extract_typedef_type_name,
     },
     CORE_FFI_MODULE_NAME,
 };
@@ -178,8 +178,8 @@ fn normalize_parameters_and_insert_into_method_and_method_call(
                 &mut method_call,
                 identifier_generator,
             );
-        } else if let Some(receiver_pointer_type_name) = try_to_extract_receiver_pointer_type_name(cur_param_type) {
-            // 对于参数列表中含有接受数据的指针参数
+        } else if let Some(receiver_pointer_type_name) = try_to_extract_pointer_type_name(cur_param_type) {
+            // 对于参数列表中含有结构体的指针参数
             //   如果在 `receive_pointers_parameter_names` 中列举过，则表示该指针并非用于接受数据，而只是普通的指针传递数据，对其调用 `instance` 方法，以访问到内部的 CoreFFI 类的实例
             //   如果不是，则该指针确实用于接受数据，该方法的参数列表中将不会含有该参数，而在方法内自行创建，创建完毕后先尝试将数据转换为 Bindings 类的实例，然后将其作为方法的返回值。
             skip += if receive_pointers_parameter_names.contains(parameter.name()) {
@@ -346,7 +346,7 @@ fn convert_bindings_instance_to_coreffi_instance(
     method.parameter_names_mut().push(parameter.name().to_owned());
     method_call
         .parameter_names_mut()
-        .push(format!("{}.instance", parameter.name()));
+        .push(format!("{}&.instance", parameter.name()));
     0
 }
 

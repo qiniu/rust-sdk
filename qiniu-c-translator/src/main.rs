@@ -187,5 +187,23 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             None,
             vec![],
         ));
+        classifier.add_class(Class::new(
+            "Client",
+            "qiniu_ng_client_t",
+            Regex::new("^qiniu_ng_client_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![],
+        ));
+        classifier.add_class(Class::new(
+            "Bucket",
+            "qiniu_ng_bucket_t",
+            Regex::new("^qiniu_ng_bucket_(\\w+)").unwrap(),
+            Some(Regex::new("^qiniu_ng_bucket_uploader_(\\w+)").unwrap()),
+            source_file.function_declarations().iter(),
+            None,
+            vec![("qiniu_ng_bucket_new2", "region")],
+        ));
     })
 }

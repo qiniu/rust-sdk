@@ -107,18 +107,16 @@ pub(super) fn is_size_type(t: &Type) -> bool {
     }
 }
 
-pub(super) fn try_to_extract_receiver_pointer_type_name(t: &Type) -> Option<String> {
+pub(super) fn try_to_extract_pointer_type_name(t: &Type) -> Option<String> {
     if let TypeKind::Pointer { subtype: pointer_type } = t.type_kind() {
-        if !pointer_type.is_const() {
-            return try_to_extract_typedef_type_name(&pointer_type);
-        }
+        return try_to_extract_typedef_type_name(&pointer_type);
     }
     None
 }
 
 pub(super) fn try_to_extract_typedef_type_name(t: &Type) -> Option<String> {
     if let TypeKind::Typedef { subtype: def_type } = t.type_kind() {
-        if !def_type.is_const() && matches!(def_type.type_kind(), TypeKind::Base(ClangTypeKind::Record)) {
+        if matches!(def_type.type_kind(), TypeKind::Base(ClangTypeKind::Record)) {
             return Some(normalize_constant(t.display_name()));
         }
     }
