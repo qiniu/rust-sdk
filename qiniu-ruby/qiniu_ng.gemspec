@@ -25,4 +25,5 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
   spec.add_dependency 'ffi', ['>= 1.0', '< 2.0']
   spec.add_development_dependency 'rspec', '~> 3.9'
+  spec.add_development_dependency 'dotenv', '~> 2.7'
 end

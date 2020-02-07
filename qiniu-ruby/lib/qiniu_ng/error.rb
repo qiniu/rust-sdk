@@ -2,6 +2,10 @@
 
 module QiniuNg
   class Error < StandardError
+    def inspect
+      "#<#{self.class.name}>"
+    end
+
     class IOError < Error
       def initialize(qiniu_str)
         @reason = qiniu_str

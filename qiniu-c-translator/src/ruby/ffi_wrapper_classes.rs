@@ -183,7 +183,7 @@ fn normalize_parameters_and_insert_into_method_and_method_call(
             //   如果在 `receive_pointers_parameter_names` 中列举过，则表示该指针并非用于接受数据，而只是普通的指针传递数据，对其调用 `instance` 方法，以访问到内部的 CoreFFI 类的实例
             //   如果不是，则该指针确实用于接受数据，该方法的参数列表中将不会含有该参数，而在方法内自行创建，创建完毕后先尝试将数据转换为 Bindings 类的实例，然后将其作为方法的返回值。
             skip += if receive_pointers_parameter_names.contains(parameter.name()) {
-                convert_pointer_to_coreffi_instance(parameter, method, &mut method_call)
+                convert_bindings_instance_to_coreffi_instance(parameter, method, &mut method_call)
             } else {
                 convert_pointer_to_receiver(
                     receiver_pointer_type_name,
@@ -193,6 +193,9 @@ fn normalize_parameters_and_insert_into_method_and_method_call(
                     identifier_generator,
                 )
             };
+        } else if try_to_extract_typedef_type_name(cur_param_type).is_some() {
+            // 对于参数列表中含有传送结构体值的参数，对其调用 `instance` 方法，以访问到内部的 CoreFFI 类的实例
+            skip += convert_bindings_instance_to_coreffi_instance(parameter, method, &mut method_call);
         } else {
             method.parameter_names_mut().push(parameter.name().to_owned());
             method_call.parameter_names_mut().push(parameter.name().to_owned());
@@ -335,7 +338,7 @@ fn convert_callback_and_insert_into_method_and_method_call(
     0
 }
 
-fn convert_pointer_to_coreffi_instance(
+fn convert_bindings_instance_to_coreffi_instance(
     parameter: &ParameterDeclaration,
     method: &mut Method,
     method_call: &mut MethodCall,

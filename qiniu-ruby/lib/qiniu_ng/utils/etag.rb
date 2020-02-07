@@ -49,6 +49,10 @@ module QiniuNg
         @etag.result(etag_result)
         etag_result.read_bytes(ETAG_SIZE)
       end
+
+      def inspect
+        "#<#{self.class.name}>"
+      end
     end
   end
 end

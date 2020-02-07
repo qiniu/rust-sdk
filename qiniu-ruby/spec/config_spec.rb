@@ -44,7 +44,7 @@ RSpec.describe QiniuNg::Config do
       expect(config.upload_recorder_always_flush_records?).to be true
       expect(config.upload_recorder_upload_block_lifetime.to_i).to eq 24 * 60 * 60 * 7
 
-      expect(config.uplog_file_lock_policy).to eq(:qiniu_ng_lock_policy_lock_shared_duration_appending_and_lock_exclusive_duration_uploading)
+      expect(config.uplog_file_lock_policy).to eq(:lock_shared_duration_appending_and_lock_exclusive_duration_uploading)
       expect(config.uplog_file_upload_threshold).to eq 4096
       expect(config.uplog_file_max_size).to eq 1 << 22
     end
@@ -83,10 +83,10 @@ RSpec.describe QiniuNg::Config do
 
     it 'shoud be able to update uplog file lock policy' do
       builder = QiniuNg::Config::Builder.new
-      builder.uplog_file_lock_policy = :qiniu_ng_lock_policy_none
+      builder.uplog_file_lock_policy = :none
       config = builder.build!
 
-      expect(config.uplog_file_lock_policy).to eq(:qiniu_ng_lock_policy_none)
+      expect(config.uplog_file_lock_policy).to eq(:none)
     end
 
     it 'should not accept invalid uplog_file_path' do

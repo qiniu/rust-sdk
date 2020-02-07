@@ -139,4 +139,55 @@ RSpec.describe QiniuNg::Bindings do
       end
     end
   end
+
+  context QiniuNg::Bindings::Region do
+    context '#query' do
+      it 'should get region by id' do
+        region = QiniuNg::Bindings::Region.get_region_by_id(:qiniu_ng_region_z0)
+        expect(region.is_freed).to be false
+        up_urls = region.get_up_urls(true)
+        expect(up_urls.len > 2).to be true
+        io_urls = region.get_io_urls(true)
+        expect(io_urls.len).to eq 1
+        expect(region.get_rs_urls(true).len).to eq 1
+        expect(region.get_rsf_urls(true).len).to eq 1
+        expect(region.get_api_urls(true).len).to eq 1
+      end
+
+      it 'should not accept invalid region id' do
+        expect do
+          QiniuNg::Bindings::Region.get_region_by_id(:qiniu_ng_region_z3)
+        end.to raise_error(ArgumentError)
+      end
+
+      it 'should query regions by access_key and bucket name' do
+        regions = QiniuNg::Error.wrap_ffi_function do
+                    QiniuNg::Bindings::Region.query('z0-bucket', ENV['access_key'], QiniuNg::Bindings::Config.new_default)
+                  end
+        expect(regions.len).to eq 2
+        region = regions.get(0)
+        expect(region.is_freed).to be false
+        up_urls = region.get_up_urls(true)
+        expect(up_urls.len > 2).to be true
+        io_urls = region.get_io_urls(true)
+        expect(io_urls.len).to eq 1
+        expect(region.get_rs_urls(true).len).to eq 0
+        expect(region.get_rsf_urls(true).len).to eq 0
+        expect(region.get_api_urls(true).len).to eq 0
+
+        region = regions.get(1)
+        expect(region.is_freed).to be false
+        up_urls = region.get_up_urls(true)
+        expect(up_urls.len > 2).to be true
+        io_urls = region.get_io_urls(true)
+        expect(io_urls.len).to eq 1
+        expect(region.get_rs_urls(true).len).to eq 0
+        expect(region.get_rsf_urls(true).len).to eq 0
+        expect(region.get_api_urls(true).len).to eq 0
+
+        region = regions.get(2)
+        expect(region.is_freed).to be true
+      end
+    end
+  end
 end

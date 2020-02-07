@@ -29,6 +29,8 @@ module QiniuNg
                    upload_recorder_upload_block_lifetime: nil,
                    builder: nil)
       builder ||= Builder.new
+      raise ArgumentError, 'builder must be instance of Config::Builder' unless builder.is_a?(Builder)
+
       builder.use_https = use_https unless use_https.nil?
       builder.api_host = api_host unless api_host.nil?
       builder.rs_host = rs_host unless rs_host.nil?
@@ -53,6 +55,10 @@ module QiniuNg
       @config = QiniuNg::Error.wrap_ffi_function do
                   Bindings::Config.build(builder.instance_variable_get(:@builder))
                 end
+    end
+
+    def inspect
+      "#<#{self.class.name}>"
     end
 
     # 设置布尔值属性 Getters
@@ -135,7 +141,16 @@ module QiniuNg
     def uplog_file_lock_policy
       policy = TempStruct::LockPolicy.new
       return nil unless @config.get_uplog_file_lock_policy(policy)
-      policy[:enum]
+      case policy[:enum]
+      when :qiniu_ng_lock_policy_lock_shared_duration_appending_and_lock_exclusive_duration_uploading
+        :lock_shared_duration_appending_and_lock_exclusive_duration_uploading
+      when :qiniu_ng_lock_policy_always_lock_exclusive
+        :always_lock_exclusive
+      when :qiniu_ng_lock_policy_none
+        :none
+      else
+        raise RuntimeError, "unrecognized lock policy: #{policy[:enum].inspect}"
+      end
     end
 
     def uplog_file_upload_threshold
@@ -191,12 +206,20 @@ module QiniuNg
       end
 
       # 设置枚举型参数 Setters
-      %i[uplog_file_lock_policy].each do |method|
-        define_method(method) do |arg|
-          @builder.public_send(method, arg.to_sym)
-        end
-        alias_method :"#{method}=", method
+      def uplog_file_lock_policy(lock_policy)
+        lock_policy = case lock_policy.to_sym
+                      when :lock_shared_duration_appending_and_lock_exclusive_duration_uploading
+                        :qiniu_ng_lock_policy_lock_shared_duration_appending_and_lock_exclusive_duration_uploading
+                      when :always_lock_exclusive
+                        :qiniu_ng_lock_policy_always_lock_exclusive
+                      when :none
+                        :qiniu_ng_lock_policy_none
+                      else
+                        raise ArgumentError, "invalid lock policy: #{lock_policy.inspect}"
+                      end
+        @builder.uplog_file_lock_policy(lock_policy)
       end
+      alias uplog_file_lock_policy= uplog_file_lock_policy
 
       # 设置字符串属性 Setters
       %i[create_new_domains_manager
