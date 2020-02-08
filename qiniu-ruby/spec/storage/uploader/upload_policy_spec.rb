@@ -38,6 +38,17 @@ RSpec.describe QiniuNg::Storage::Uploader::UploadPolicy do
       expect(j['deadline']).to be_within(5).of(Time.now.to_i + 7200)
     end
 
+    it 'should set token lifetime for the upload policy' do
+      upload_policy = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket')
+                                                                       .token_lifetime(hours: 2)
+                                                                       .build!
+      expect(upload_policy.token_lifetime.to_i).to be_within(5).of 7200
+      expect(upload_policy.token_deadline.to_i).to be_within(5).of(Time.now.to_i + 7200)
+      j = JSON.load(upload_policy.as_json)
+      expect(j['scope']).to eq 'z0-bucket'
+      expect(j['deadline']).to be_within(5).of(Time.now.to_i + 7200)
+    end
+
     it 'should set object deadline for the upload policy' do
       upload_policy = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket')
                                                                        .object_deadline(Time.now + 86400)
@@ -47,6 +58,12 @@ RSpec.describe QiniuNg::Storage::Uploader::UploadPolicy do
 
       upload_policy = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket')
                                                                        .object_lifetime(QiniuNg::Utils::Duration.new(day: 1))
+                                                                       .build!
+      expect(upload_policy.object_lifetime.to_i).to be_within(5).of 86400
+      expect(upload_policy.object_deadline.to_i).to be_within(5).of(Time.now.to_i + 86400)
+
+      upload_policy = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket')
+                                                                       .object_lifetime(day: 1)
                                                                        .build!
       expect(upload_policy.object_lifetime.to_i).to be_within(5).of 86400
       expect(upload_policy.object_deadline.to_i).to be_within(5).of(Time.now.to_i + 86400)

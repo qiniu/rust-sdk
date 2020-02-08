@@ -247,27 +247,28 @@ module QiniuNg
       end
 
       # 设置整型和时间型属性 Setters
-      [[:batch_max_operation_size, 0, 1 << 32 - 1],
-       [:domains_manager_auto_persistent_interval, 0, 1 << 64 - 1],
-       [:domains_manager_resolutions_cache_lifetime, 0, 1 << 64 - 1],
-       [:domains_manager_url_frozen_duration, 0, 1 << 64 - 1],
-       [:domains_manager_url_resolve_retries, 0, 1 << 32 - 1],
-       [:domains_manager_url_resolve_retry_delay, 0, 1 << 64 - 1],
-       [:http_connect_timeout, 0, 1 << 64 - 1],
-       [:http_low_transfer_speed, 0, 1 << 32 - 1],
-       [:http_low_transfer_speed_timeout, 0, 1 << 64 - 1],
-       [:http_request_retries, 0, 1 << 32 - 1],
-       [:http_request_retry_delay, 0, 1 << 64 - 1],
-       [:http_request_timeout, 0, 1 << 64 - 1],
-       [:tcp_keepalive_idle_timeout, 0, 1 << 64 - 1],
-       [:tcp_keepalive_probe_interval, 0, 1 << 64 - 1],
-       [:upload_block_size, 0, 1 << 32 - 1],
-       [:upload_recorder_upload_block_lifetime, 0, 1 << 64 - 1],
-       [:upload_threshold, 0, 1 << 32 - 1],
-       [:upload_token_lifetime, 0, 1 << 64 - 1],
-       [:uplog_file_max_size, 0, 1 << 32 - 1],
-       [:uplog_file_upload_threshold, 0, 1 << 32 - 1]].each do |method, min_value, max_value|
+      [[:batch_max_operation_size, 0, 1 << 32 - 1, false],
+       [:domains_manager_auto_persistent_interval, 0, 1 << 64 - 1, true],
+       [:domains_manager_resolutions_cache_lifetime, 0, 1 << 64 - 1, true],
+       [:domains_manager_url_frozen_duration, 0, 1 << 64 - 1, true],
+       [:domains_manager_url_resolve_retries, 0, 1 << 32 - 1, false],
+       [:domains_manager_url_resolve_retry_delay, 0, 1 << 64 - 1, true],
+       [:http_connect_timeout, 0, 1 << 64 - 1, true],
+       [:http_low_transfer_speed, 0, 1 << 32 - 1, false],
+       [:http_low_transfer_speed_timeout, 0, 1 << 64 - 1, true],
+       [:http_request_retries, 0, 1 << 32 - 1, false],
+       [:http_request_retry_delay, 0, 1 << 64 - 1, true],
+       [:http_request_timeout, 0, 1 << 64 - 1, true],
+       [:tcp_keepalive_idle_timeout, 0, 1 << 64 - 1, true],
+       [:tcp_keepalive_probe_interval, 0, 1 << 64 - 1, true],
+       [:upload_block_size, 0, 1 << 32 - 1, false],
+       [:upload_recorder_upload_block_lifetime, 0, 1 << 64 - 1, true],
+       [:upload_threshold, 0, 1 << 32 - 1, false],
+       [:upload_token_lifetime, 0, 1 << 64 - 1, true],
+       [:uplog_file_max_size, 0, 1 << 32 - 1, false],
+       [:uplog_file_upload_threshold, 0, 1 << 32 - 1, false]].each do |method, min_value, max_value, is_time|
         define_method(method) do |arg|
+          arg = Utils::Duration.new(arg) if is_time && arg.is_a?(Hash)
           arg = arg.to_i
           raise RangeError, "#{arg} is out of range" if arg > max_value || arg < min_value
           @builder.public_send(method, arg)

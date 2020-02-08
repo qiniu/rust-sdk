@@ -35,7 +35,7 @@ module QiniuNg
       end
 
       def id
-        core_ffi = Bindings.const_get :@CoreFFI
+        core_ffi = Bindings.const_get :CoreFFI
         id_s = core_ffi::QiniuNgRegionIdTWrapper.new
         return nil unless @region.get_region_id(id_s)
         case id_s[:inner]

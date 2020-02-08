@@ -13,14 +13,17 @@ module QiniuNg
         private_class_method :new
 
         def self.new_for_bucket(bucket_name, token_lifetime: Utils::Duration.new(hour: 1))
+          token_lifetime = Utils::Duration.new(token_lifetime) if token_lifetime.is_a?(Hash)
           Builder.new_for_bucket(bucket_name, token_lifetime: token_lifetime).build!
         end
 
         def self.new_for_object(bucket_name, object_key, token_lifetime: Utils::Duration.new(hour: 1))
+          token_lifetime = Utils::Duration.new(token_lifetime) if token_lifetime.is_a?(Hash)
           Builder.new_for_object(bucket_name, object_key, token_lifetime: token_lifetime).build!
         end
 
         def self.new_for_objects_with_prefix(bucket_name, object_key_prefix, token_lifetime: Utils::Duration.new(hour: 1))
+          token_lifetime = Utils::Duration.new(token_lifetime) if token_lifetime.is_a?(Hash)
           Builder.new_for_objects_with_prefix(bucket_name, object_key_prefix, token_lifetime: token_lifetime).build!
         end
 
@@ -43,21 +46,15 @@ module QiniuNg
 
         %w[object token].each do |method|
           define_method :"#{method}_deadline" do
-            return @cache[:"#{method}_deadline"] if @cache.has_key?(:"#{method}_deadline")
             core_ffi = Bindings.const_get :CoreFFI
             timestamp_s = core_ffi::U64.new
-            @cache[:"#{method}_deadline"] = if @upload_policy.public_send(:"get_#{method}_deadline", timestamp_s)
-                                              Time.at(timestamp_s[:value])
-                                            end
+            Time.at(timestamp_s[:value]) if @upload_policy.public_send(:"get_#{method}_deadline", timestamp_s)
           end
 
           define_method :"#{method}_lifetime" do
-            return @cache[:"#{method}_lifetime"] if @cache.has_key?(:"#{method}_lifetime")
             core_ffi = Bindings.const_get :CoreFFI
             lifetime_s = core_ffi::U64.new
-            @cache[:"#{method}_lifetime"] = if @upload_policy.public_send(:"get_#{method}_lifetime", lifetime_s)
-                                              lifetime_s[:value]
-                                            end
+            lifetime_s[:value] if @upload_policy.public_send(:"get_#{method}_lifetime", lifetime_s)
           end
         end
 
@@ -150,6 +147,7 @@ module QiniuNg
           end
 
           def token_lifetime(lifetime)
+            lifetime = Utils::Duration::new(lifetime) if lifetime.is_a?(Hash)
             @builder.set_token_lifetime(lifetime.to_i)
             self
           end
@@ -236,6 +234,7 @@ module QiniuNg
           end
 
           def object_lifetime(lifetime)
+            lifetime = Utils::Duration::new(lifetime) if lifetime.is_a?(Hash)
             @builder.set_object_lifetime(lifetime.to_i)
             self
           end

@@ -49,6 +49,41 @@ RSpec.describe QiniuNg::Config do
       expect(config.uplog_file_max_size).to eq 1 << 22
     end
 
+    it 'should accept hash directly for duration related config items' do
+      config = QiniuNg::Config.new(use_https: true,
+                                   api_host: 'api.fake.com',
+                                   rs_host: 'rs.fake.com',
+                                   rsf_host: 'rsf.fake.com',
+                                   batch_max_operation_size: 1000,
+                                   http_connect_timeout: { seconds: 30 },
+                                   http_low_transfer_speed: 1024,
+                                   http_low_transfer_speed_timeout: { minute: 1 },
+                                   http_request_retries: 5,
+                                   http_request_retry_delay: { second: 1 },
+                                   http_request_timeout: { minutes: 5 },
+                                   tcp_keepalive_idle_timeout: { minutes: 5 },
+                                   tcp_keepalive_probe_interval: { seconds: 5 },
+                                   upload_block_size: 1 << 22,
+                                   upload_threshold: 1 << 22,
+                                   upload_token_lifetime: { hours: 2 },
+                                   upload_recorder_always_flush_records: true)
+      expect(config.batch_max_operation_size).to eq 1000
+      expect(config.http_connect_timeout.to_i).to eq 30
+      expect(config.http_low_transfer_speed).to eq 1024
+      expect(config.http_low_transfer_speed_timeout.to_i).to eq 60
+      expect(config.http_request_retries).to eq 5
+      expect(config.http_request_retry_delay.to_i).to eq 1
+      expect(config.http_request_timeout.to_i).to eq 300
+      expect(config.tcp_keepalive_idle_timeout.to_i).to eq 300
+      expect(config.tcp_keepalive_probe_interval.to_i).to eq 5
+      expect(config.upload_block_size).to eq 1 << 22
+      expect(config.upload_threshold.to_i).to eq 1 << 22
+      expect(config.upload_token_lifetime.to_i).to eq 7200
+      expect(config.upload_recorder_root_directory).to be_end_with('qiniu_sdk/records')
+      expect(config.upload_recorder_always_flush_records?).to be true
+      expect(config.upload_recorder_upload_block_lifetime.to_i).to eq 24 * 60 * 60 * 7
+    end
+
     it 'should not accept value which is out of range' do
       expect do
         QiniuNg::Config.new(batch_max_operation_size: -1)
