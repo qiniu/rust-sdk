@@ -14,4 +14,17 @@ RSpec.describe QiniuNg::Error do
       end
     end
   end
+
+  context QiniuNg::Error::JSONError do
+    it 'should get JSON error' do
+      begin
+        QiniuNg::Storage::Uploader::UploadPolicy.from_json 'invalid_json'
+        fail 'Should get exception'
+      rescue QiniuNg::Error::JSONError => e
+        expect(e.message).to eq('expected value at line 1 column 1')
+      else
+        fail 'Should get JSONError'
+      end
+    end
+  end
 end

@@ -35,9 +35,10 @@ module QiniuNg
       end
 
       def id
-        id_s = TempStruct::RegionId.new
+        core_ffi = Bindings.const_get :@CoreFFI
+        id_s = core_ffi::QiniuNgRegionIdTWrapper.new
         return nil unless @region.get_region_id(id_s)
-        case id_s[:enum]
+        case id_s[:inner]
         when :qiniu_ng_region_z0 then :z0
         when :qiniu_ng_region_z1 then :z1
         when :qiniu_ng_region_z2 then :z2
@@ -76,14 +77,6 @@ module QiniuNg
       private def get_str_array_from_list(list)
         (0...list.len).map { |i| list.get(i) }
       end
-
-      module TempStruct
-        class RegionId < FFI::Struct
-          core_ffi = Bindings.const_get(:CoreFFI)
-          layout :enum, core_ffi::QiniuNgRegionIdT
-        end
-      end
-      private_constant :TempStruct
     end
   end
 end

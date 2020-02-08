@@ -55,6 +55,7 @@ module QiniuNg
       @config = QiniuNg::Error.wrap_ffi_function do
                   Bindings::Config.build(builder.instance_variable_get(:@builder))
                 end
+      @cache = {}
     end
 
     def inspect
@@ -99,12 +100,9 @@ module QiniuNg
        upload_recorder_root_directory
        uplog_file_path].each do |method|
       define_method(method) do
-        cache = instance_variable_get(:"@#{method}")
-        if cache.nil?
-          cache = @config.public_send(:"get_#{method}")
-          instance_variable_set(:"@#{method}", cache)
-        end
-        cache&.get_ptr
+        @cache[method] ||= @config.public_send(:"get_#{method}")
+        return nil if @cache[method].is_null
+        @cache[method].get_ptr
       end
     end
 
@@ -126,22 +124,11 @@ module QiniuNg
       end
     end
 
-    module TempStruct
-      class LockPolicy < FFI::Struct
-        core_ffi = Bindings.const_get(:CoreFFI)
-        layout :enum, core_ffi::QiniuNgUploadLoggerLockPolicyT
-      end
-
-      class U32 < FFI::Struct
-        layout :value, :uint32
-      end
-    end
-    private_constant :TempStruct
-
     def uplog_file_lock_policy
-      policy = TempStruct::LockPolicy.new
+      core_ffi = Bindings.const_get(:CoreFFI)
+      policy = core_ffi::QiniuNgUploadLoggerLockPolicyTWrapper.new
       return nil unless @config.get_uplog_file_lock_policy(policy)
-      case policy[:enum]
+      case policy[:inner]
       when :qiniu_ng_lock_policy_lock_shared_duration_appending_and_lock_exclusive_duration_uploading
         :lock_shared_duration_appending_and_lock_exclusive_duration_uploading
       when :qiniu_ng_lock_policy_always_lock_exclusive
@@ -154,13 +141,15 @@ module QiniuNg
     end
 
     def uplog_file_upload_threshold
-      u32 = TempStruct::U32.new
+      core_ffi = Bindings.const_get(:CoreFFI)
+      u32 = core_ffi::U32.new
       return nil unless @config.get_uplog_file_upload_threshold(u32)
       u32[:value]
     end
 
     def uplog_file_max_size
-      u32 = TempStruct::U32.new
+      core_ffi = Bindings.const_get(:CoreFFI)
+      u32 = core_ffi::U32.new
       return nil unless @config.get_uplog_file_max_size(u32)
       u32[:value]
     end
@@ -193,6 +182,7 @@ module QiniuNg
          domains_manager_enable_url_resolution].each do |method|
         define_method(method) do
           @builder.public_send(method)
+          self
         end
       end
 
@@ -201,6 +191,7 @@ module QiniuNg
          upload_recorder_always_flush_records].each do |method|
         define_method(method) do |arg|
           @builder.public_send(method, !!arg)
+          self
         end
         alias_method :"#{method}=", method
       end
@@ -218,6 +209,7 @@ module QiniuNg
                         raise ArgumentError, "invalid lock policy: #{lock_policy.inspect}"
                       end
         @builder.uplog_file_lock_policy(lock_policy)
+        self
       end
       alias uplog_file_lock_policy= uplog_file_lock_policy
 
@@ -226,6 +218,7 @@ module QiniuNg
          load_domains_manager_from_file].each do |method|
         define_method(method) do |arg|
           @builder.public_send(method, arg.to_s)
+          self
         end
       end
 
@@ -234,6 +227,7 @@ module QiniuNg
         user_agent = [user_agent.to_s] unless user_agent.is_a?(Array)
         user_agent = (DEFAULT_APPENDED_USER_AGENT + user_agent).join('/')
         @builder.set_appended_user_agent(user_agent)
+        self
       end
 
       %i[api_host
@@ -247,6 +241,7 @@ module QiniuNg
          uplog_file_path].each do |method|
         define_method(method) do |arg|
           @builder.public_send(method, arg.to_s)
+          self
         end
         alias_method :"#{method}=", method
       end
@@ -276,6 +271,7 @@ module QiniuNg
           arg = arg.to_i
           raise RangeError, "#{arg} is out of range" if arg > max_value || arg < min_value
           @builder.public_send(method, arg)
+          self
         end
         alias_method :"#{method}=", method
       end

@@ -93,6 +93,7 @@ pub(super) enum StructFieldType {
     ByVal(String),
     ByPtr(String),
     ByCallback(String),
+    Plain(String),
 }
 
 impl StructFieldType {
@@ -164,6 +165,7 @@ impl fmt::Display for StructFieldType {
                 _ => Self::BaseType(BaseType::Pointer).fmt(f),
             },
             Self::ByCallback(callback_name) => write!(f, ":{}", callback_name),
+            Self::Plain(name) => name.fmt(f),
         }
     }
 }

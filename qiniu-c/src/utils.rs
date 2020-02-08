@@ -204,17 +204,18 @@ pub extern "C" fn qiniu_ng_str_list_new(strlist: *const *const qiniu_ng_char_t, 
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_list_len(strlist: qiniu_ng_str_list_t) -> size_t {
-    let strlist = Option::<Box<[Box<ucstr>]>>::from(strlist).unwrap();
-    strlist.len().tap(|_| {
+    let strlist = Option::<Box<[Box<ucstr>]>>::from(strlist);
+    strlist.as_ref().map(|list| list.len()).unwrap_or(0).tap(|_| {
         let _ = qiniu_ng_str_list_t::from(strlist);
     })
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_list_get(strlist: qiniu_ng_str_list_t, index: size_t) -> *const qiniu_ng_char_t {
-    let strlist = Option::<Box<[Box<ucstr>]>>::from(strlist).unwrap();
+    let strlist = Option::<Box<[Box<ucstr>]>>::from(strlist);
     strlist
-        .get(index)
+        .as_ref()
+        .and_then(|list| list.get(index))
         .map(|s| s.as_ptr())
         .unwrap_or_else(null)
         .tap(|_| {
@@ -301,10 +302,12 @@ pub extern "C" fn qiniu_ng_str_map_each_entry(
     handler: fn(key: *const qiniu_ng_char_t, value: *const qiniu_ng_char_t, data: *mut c_void) -> bool,
     data: *mut c_void,
 ) {
-    let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap).unwrap();
-    for (key, value) in hashmap.iter() {
-        if !handler(key.as_ptr(), value.as_ptr(), data) {
-            break;
+    let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap);
+    if let Some(hashmap) = hashmap.as_ref() {
+        for (key, value) in hashmap.iter() {
+            if !handler(key.as_ptr(), value.as_ptr(), data) {
+                break;
+            }
         }
     }
     let _ = qiniu_ng_str_map_t::from(hashmap);
@@ -315,9 +318,10 @@ pub extern "C" fn qiniu_ng_str_map_get(
     hashmap: qiniu_ng_str_map_t,
     key: *const qiniu_ng_char_t,
 ) -> *const qiniu_ng_char_t {
-    let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap).unwrap();
+    let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap);
     hashmap
-        .get(unsafe { ucstr::from_ptr(key) })
+        .as_ref()
+        .and_then(|hashmap| hashmap.get(unsafe { ucstr::from_ptr(key) }))
         .map(|val| val.as_ptr())
         .unwrap_or_else(null)
         .tap(|_| {
@@ -327,8 +331,8 @@ pub extern "C" fn qiniu_ng_str_map_get(
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_len(hashmap: qiniu_ng_str_map_t) -> size_t {
-    let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap).unwrap();
-    hashmap.len().tap(|_| {
+    let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap);
+    hashmap.as_ref().map(|hashmap| hashmap.len()).unwrap_or(0).tap(|_| {
         let _ = qiniu_ng_str_map_t::from(hashmap);
     })
 }

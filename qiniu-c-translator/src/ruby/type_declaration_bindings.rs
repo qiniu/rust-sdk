@@ -36,37 +36,75 @@ fn insert_predefined_struct_nodes(nodes: &mut Vec<Box<dyn CodeGenerator>>) {
         ]
     })));
     insert_type_constants("In6Addr", ConstantType::Struct);
+
+    nodes.push(Box::new(Struct::new("I8", false).tap(|struct_node| {
+        *struct_node.fields_mut() = vec![StructField::new("value", StructFieldType::BaseType(BaseType::I8))]
+    })));
+    nodes.push(Box::new(Struct::new("U8", false).tap(|struct_node| {
+        *struct_node.fields_mut() = vec![StructField::new("value", StructFieldType::BaseType(BaseType::U8))]
+    })));
+    nodes.push(Box::new(Struct::new("I16", false).tap(|struct_node| {
+        *struct_node.fields_mut() = vec![StructField::new("value", StructFieldType::BaseType(BaseType::I16))]
+    })));
+    nodes.push(Box::new(Struct::new("U16", false).tap(|struct_node| {
+        *struct_node.fields_mut() = vec![StructField::new("value", StructFieldType::BaseType(BaseType::U16))]
+    })));
+    nodes.push(Box::new(Struct::new("I32", false).tap(|struct_node| {
+        *struct_node.fields_mut() = vec![StructField::new("value", StructFieldType::BaseType(BaseType::I32))]
+    })));
+    nodes.push(Box::new(Struct::new("U32", false).tap(|struct_node| {
+        *struct_node.fields_mut() = vec![StructField::new("value", StructFieldType::BaseType(BaseType::U32))]
+    })));
+    nodes.push(Box::new(Struct::new("I64", false).tap(|struct_node| {
+        *struct_node.fields_mut() = vec![StructField::new("value", StructFieldType::BaseType(BaseType::I64))]
+    })));
+    nodes.push(Box::new(Struct::new("U64", false).tap(|struct_node| {
+        *struct_node.fields_mut() = vec![StructField::new("value", StructFieldType::BaseType(BaseType::U64))]
+    })));
+    nodes.push(Box::new(Struct::new("Size", false).tap(|struct_node| {
+        *struct_node.fields_mut() = vec![StructField::new("value", StructFieldType::BaseType(BaseType::Size))]
+    })));
+    nodes.push(Box::new(Struct::new("Ssize", false).tap(|struct_node| {
+        *struct_node.fields_mut() = vec![StructField::new("value", StructFieldType::BaseType(BaseType::Ssize))]
+    })));
 }
 
 fn insert_enum_node(enum_declaration: &EnumDeclaration, nodes: &mut Vec<Box<dyn CodeGenerator>>) -> String {
-    let enum_node = Box::new(
-        Enum::new(
-            enum_declaration
-                .typedef_name()
-                .as_ref()
-                .or_else(|| enum_declaration.enum_name().as_ref())
-                .map(normalize_constant)
-                .unwrap_or_else(get_random_constant_identifier)
-                .tap(|constant| {
-                    insert_type_constants(constant.as_str(), ConstantType::Enum);
-                }),
-        )
-        .tap(|enum_node| {
-            *enum_node.constants_mut() = enum_declaration
-                .constants()
-                .iter()
-                .map(|constant| {
-                    let value = match constant.constant_value() {
-                        EnumConstantValue::Signed(num) => num.to_string(),
-                        EnumConstantValue::Unsigned(num) => num.to_string(),
-                    };
-                    EnumValue::new(constant.name(), value)
-                })
-                .collect();
-        }),
+    let enum_inner = Enum::new(
+        enum_declaration
+            .typedef_name()
+            .as_ref()
+            .or_else(|| enum_declaration.enum_name().as_ref())
+            .map(normalize_constant)
+            .unwrap_or_else(get_random_constant_identifier)
+            .tap(|constant| {
+                insert_type_constants(constant.as_str(), ConstantType::Enum);
+            }),
     );
+    let enum_struct_wrapper =
+        Box::new(Struct::new(format!("{}Wrapper", enum_inner.name()), false)).tap(|struct_node| {
+            struct_node.fields_mut().push(StructField::new(
+                "inner",
+                StructFieldType::Plain(enum_inner.name().to_owned()),
+            ));
+        });
+
+    let enum_node = Box::new(enum_inner).tap(|enum_node| {
+        *enum_node.constants_mut() = enum_declaration
+            .constants()
+            .iter()
+            .map(|constant| {
+                let value = match constant.constant_value() {
+                    EnumConstantValue::Signed(num) => num.to_string(),
+                    EnumConstantValue::Unsigned(num) => num.to_string(),
+                };
+                EnumValue::new(constant.name(), value)
+            })
+            .collect();
+    });
     enum_node.name().to_owned().tap(|_| {
         nodes.push(enum_node);
+        nodes.push(enum_struct_wrapper);
     })
 }
 

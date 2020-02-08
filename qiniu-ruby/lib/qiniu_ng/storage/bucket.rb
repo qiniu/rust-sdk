@@ -11,7 +11,7 @@ module QiniuNg
         domains ||= []
         domains = [domains] unless domains.is_a?(Array)
 
-        @bucket = Bindings::Bucket.new2(client.instance_variable_get(:@client), bucket_name.to_s, region, domains)
+        @bucket = Bindings::Bucket.new2(client.instance_variable_get(:@client), bucket_name.to_s, region, domains.map(&:to_s))
       end
 
       def name

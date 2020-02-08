@@ -59,7 +59,7 @@ impl From<Box<UploadPolicyBuilder<'_>>> for qiniu_ng_upload_policy_builder_t {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_new_upload_policy_builder_for_bucket(
+pub extern "C" fn qiniu_ng_upload_policy_builder_new_for_bucket(
     bucket: *const qiniu_ng_char_t,
     lifetime: u64,
 ) -> qiniu_ng_upload_policy_builder_t {
@@ -71,7 +71,7 @@ pub extern "C" fn qiniu_ng_new_upload_policy_builder_for_bucket(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_new_upload_policy_builder_for_object(
+pub extern "C" fn qiniu_ng_upload_policy_builder_new_for_object(
     bucket: *const qiniu_ng_char_t,
     key: *const qiniu_ng_char_t,
     lifetime: u64,
@@ -85,7 +85,7 @@ pub extern "C" fn qiniu_ng_new_upload_policy_builder_for_object(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_new_upload_policy_builder_for_objects_with_prefix(
+pub extern "C" fn qiniu_ng_upload_policy_builder_new_for_objects_with_prefix(
     bucket: *const qiniu_ng_char_t,
     prefix: *const qiniu_ng_char_t,
     lifetime: u64,
@@ -345,7 +345,7 @@ impl From<Box<UploadPolicy<'_>>> for qiniu_ng_upload_policy_t {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_policy_builder_build(
+pub extern "C" fn qiniu_ng_upload_policy_build(
     builder_ptr: *mut qiniu_ng_upload_policy_builder_t,
 ) -> qiniu_ng_upload_policy_t {
     let builder_ptr = unsafe { builder_ptr.as_mut() }.unwrap();

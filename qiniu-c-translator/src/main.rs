@@ -205,5 +205,23 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             None,
             vec![("qiniu_ng_bucket_new2", "region")],
         ));
+        classifier.add_class(Class::new(
+            "UploadPolicyBuilder",
+            "qiniu_ng_upload_policy_builder_t",
+            Regex::new("^qiniu_ng_upload_policy_builder_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![],
+        ));
+        classifier.add_class(Class::new(
+            "UploadPolicy",
+            "qiniu_ng_upload_policy_t",
+            Regex::new("^qiniu_ng_upload_policy_(\\w+)").unwrap(),
+            Some(Regex::new("^qiniu_ng_upload_policy_builder_(\\w+)").unwrap()),
+            source_file.function_declarations().iter(),
+            None,
+            vec![("qiniu_ng_upload_policy_build", "builder_ptr")],
+        ));
     })
 }
