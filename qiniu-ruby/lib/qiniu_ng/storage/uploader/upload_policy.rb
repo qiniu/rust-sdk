@@ -138,6 +138,10 @@ module QiniuNg
           def build!
             UploadPolicy.send(:new, Bindings::UploadPolicy.build(@builder))
           ensure
+            reset!
+          end
+
+          private def reset!
             @builder = Bindings::UploadPolicyBuilder.public_send(@constructor_name, *@constructor_arguments)
           end
 

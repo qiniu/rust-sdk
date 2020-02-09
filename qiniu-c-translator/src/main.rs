@@ -223,5 +223,14 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             None,
             vec![("qiniu_ng_upload_policy_build", "builder_ptr")],
         ));
+        classifier.add_class(Class::new(
+            "UploadToken",
+            "qiniu_ng_upload_token_t",
+            Regex::new("^qiniu_ng_upload_token_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![("qiniu_ng_upload_token_new_from_policy_builder", "policy_builder_ptr")],
+        ));
     })
 }
