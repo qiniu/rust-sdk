@@ -153,6 +153,14 @@ struct upload_file_thread_context {
     qiniu_ng_upload_token_t token;
 };
 
+#if defined(_WIN32) || defined(WIN32)
+void *thread_of_upload_file(void* data);
+DWORD WINAPI ThreadOfUploadFile(LPVOID data) {
+    thread_of_upload_file((void*) data);
+    return 0;
+}
+#endif
+
 void *thread_of_upload_file(void* data) {
     struct upload_file_thread_context *context = (struct upload_file_thread_context *) data;
     qiniu_ng_upload_params_t params = {
@@ -213,9 +221,8 @@ void test_qiniu_ng_upload_huge_number_of_files(void) {
     mutex = CreateMutex(NULL, FALSE, NULL);
 #endif
 
-    const int THREAD_COUNT = 128;
+#define THREAD_COUNT (128)
     struct upload_file_thread_context contexts[THREAD_COUNT];
-    pthread_t threads[THREAD_COUNT];
     char *keys[THREAD_COUNT];
     for (int i = 0; i < THREAD_COUNT; i++) {
         keys[i] = malloc(256 * sizeof(qiniu_ng_char_t));
@@ -231,6 +238,30 @@ void test_qiniu_ng_upload_huge_number_of_files(void) {
             .bucket_uploader = bucket_uploader,
             .token = token,
         };
+    }
+#if defined(_WIN32) || defined(WIN32)
+    DWORD thread_ids[THREAD_COUNT];
+    HANDLE threads[THREAD_COUNT];
+    for (int i = 0; i < THREAD_COUNT; i++) {
+	threads[i] = CreateThread(NULL, 0, ThreadOfUploadFile, &contexts[i], 0, &thread_ids[i]);
+	TEST_ASSERT_NOT_NULL_MESSAGE(
+	    threads[i],
+	    "threads[i] == null");
+    }
+    for (int i = 0; i < THREAD_COUNT; i++) {
+	TEST_ASSERT_EQUAL_INT_MESSAGE(
+	    WaitForSingleObject(threads[i], INFINITE),
+	    0,
+	    "WaitForSingleObject() failed");
+        TEST_ASSERT_NOT_EQUAL_MESSAGE(
+	    CloseHandle(threads[i]),
+	    0,
+	    "CloseHandle() failed");
+        printf("Done: %d / %d\n", i + 1, THREAD_COUNT);
+    }
+#else
+    pthread_t threads[THREAD_COUNT];
+    for (int i = 0; i < THREAD_COUNT; i++) {
         TEST_ASSERT_EQUAL_INT_MESSAGE(
             pthread_create(&threads[i], NULL, thread_of_upload_file, &contexts[i]), 0,
             "pthread_create() failed");
@@ -240,6 +271,9 @@ void test_qiniu_ng_upload_huge_number_of_files(void) {
             pthread_join(threads[i], NULL), 0,
             "pthread_join() failed");
         printf("Done: %d / %d\n", i + 1, THREAD_COUNT);
+    }
+#endif
+    for (int i = 0; i < THREAD_COUNT; i++) {
         free((void *) contexts[i].key);
     }
 
