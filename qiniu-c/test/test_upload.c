@@ -47,12 +47,12 @@ void test_qiniu_ng_upload_files(void) {
 
     const qiniu_ng_char_t file_key[256];
 #if defined(_WIN32) || defined(WIN32)
-    swprintf((wchar_t *) file_key, 256, L"测试-257m-%lld", (long long) time(NULL));
+    swprintf((wchar_t *) file_key, 256, L"测试-129m-%lld", (long long) time(NULL));
 #else
-    snprintf((char *) file_key, 256, "测试-257m-%lld", (long long) time(NULL));
+    snprintf((char *) file_key, 256, "测试-129m-%lld", (long long) time(NULL));
 #endif
 
-    const qiniu_ng_char_t *file_path = create_temp_file(257 * 1024 * 1024);
+    const qiniu_ng_char_t *file_path = create_temp_file(129 * 1024 * 1024);
     char etag[ETAG_SIZE + 1];
     memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
     TEST_ASSERT_TRUE_MESSAGE(
@@ -101,9 +101,9 @@ void test_qiniu_ng_upload_files(void) {
     last_print_time = (long long) time(NULL);
 
 #if defined(_WIN32) || defined(WIN32)
-    swprintf((wchar_t *) file_key, 256, L"测试-257m-%lld", (long long) time(NULL));
+    swprintf((wchar_t *) file_key, 256, L"测试-129m-%lld", (long long) time(NULL));
 #else
-    snprintf((char *) file_key, 256, "测试-257m-%lld", (long long) time(NULL));
+    snprintf((char *) file_key, 256, "测试-129m-%lld", (long long) time(NULL));
 #endif
     FILE *file = OPEN_FILE_FOR_READING(file_path);
     TEST_ASSERT_NOT_NULL_MESSAGE(

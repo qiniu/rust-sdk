@@ -21,25 +21,25 @@ matrix:
             curl -fsSL https://github.com/rbenv/rbenv-installer/raw/master/bin/rbenv-doctor | bash
             mkdir -p "$(rbenv root)"/plugins
             git clone https://github.com/rbenv/ruby-build.git "$(rbenv root)"/plugins/ruby-build
+            eval "$(rbenv init -)"
             rbenv install 2.4.0
-            rbenv install jruby-9.2.0.0
-            rbenv global 2.4.0
+            rbenv shell 2.4.0
             gem install bundler
       script:
         - make
-        - |
-            cd qiniu-ruby
-            cargo run -- --header-file ../qiniu-c/libqiniu_ng.h dump-ast --pretty
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
               make test
             fi
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-              gem install bundler
-              rbenv global jruby-9.2.0.0
-              cd qiniu-ruby
-              make test
+              (
+                gem install bundler
+                rbenv install jruby-9.2.0.0
+                rbenv shell jruby-9.2.0.0
+                cd qiniu-ruby
+                make test
+              )
             fi
     - os: osx
       rust:

@@ -1,17 +1,20 @@
+BINDINGS = lib/qiniu_ng/bindings.rb
+LIBQINIU_HEADER = ../qiniu-c/libqiniu_ng.h
+
 all: build
-build: lib/qiniu_ng/bindings.rb bundle
+build: $(BINDINGS) bundle
 	bundle exec rake build
-build_test: lib/qiniu_ng/bindings.rb bundle
+build_test: $(BINDINGS) bundle
 	bundle exec rake build
 	bundle exec rspec --dry-run
-lib/qiniu_ng/bindings.rb: bundle ../qiniu-c/libqiniu_ng.h
+$(BINDINGS): bundle $(LIBQINIU_HEADER)
 	bundle exec rake generate_bindings
-../qiniu-c/libqiniu_ng.h:
+$(LIBQINIU_HEADER):
 	$(MAKE) -C ../qiniu-c build
 clean: bundle
-	$(RM) lib/qiniu_ng/bindings.rb
+	$(RM) $(BINDINGS)
 	bundle exec rake clean
-test: bundle
+test: $(BINDINGS) bundle
 	bundle exec rspec
 bundle:
 	bundle install

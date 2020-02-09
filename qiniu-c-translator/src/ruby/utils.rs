@@ -103,7 +103,7 @@ pub(super) fn is_size_type(t: &Type) -> bool {
     if let TypeKind::Typedef { subtype } = t.type_kind() {
         matches!(subtype.type_kind(), TypeKind::Base(ClangTypeKind::ULong)) && t.display_name().as_str() == "size_t"
     } else {
-        false
+        matches!(t.type_kind(), TypeKind::Base(ClangTypeKind::Int))
     }
 }
 
