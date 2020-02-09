@@ -18,12 +18,18 @@ matrix:
             export PATH="$PATH:$HOME/.rbenv/bin"
             curl -fsSL https://github.com/rbenv/rbenv-installer/raw/master/bin/rbenv-installer | bash
             eval "$(rbenv init -)"
+            curl -fsSL https://github.com/rbenv/rbenv-installer/raw/master/bin/rbenv-doctor | bash
+            mkdir -p "$(rbenv root)"/plugins
+            git clone https://github.com/rbenv/ruby-build.git "$(rbenv root)"/plugins/ruby-build
             rbenv install 2.4.0
             rbenv install jruby-9.2.0.0
             rbenv global 2.4.0
             gem install bundler
       script:
         - make
+        - |
+            cd qiniu-ruby
+            cargo run -- --header-file ../qiniu-c/libqiniu_ng.h dump-ast --pretty
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
               make test
