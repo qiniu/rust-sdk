@@ -83,7 +83,7 @@ void test_qiniu_ng_make_upload_token(void) {
         "qiniu_ng_str_is_null(callback_body_type) != true");
     qiniu_ng_str_free(&callback_body_type);
 
-    qiniu_ng_upload_token_t upload_token = qiniu_ng_new_upload_token_from_policy(upload_policy, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_token_t upload_token = qiniu_ng_upload_token_new_from_policy(upload_policy, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_upload_policy_free(&upload_policy);
 
     qiniu_ng_str_t access_key;
@@ -171,7 +171,7 @@ void test_qiniu_ng_make_upload_token(void) {
 
     token = qiniu_ng_upload_token_get_token(upload_token);
     qiniu_ng_upload_token_free(&upload_token);
-    qiniu_ng_upload_token_t upload_token_2 = qiniu_ng_new_upload_token_from_token(qiniu_ng_str_get_ptr(token));
+    qiniu_ng_upload_token_t upload_token_2 = qiniu_ng_upload_token_new_from_token(qiniu_ng_str_get_ptr(token));
     qiniu_ng_str_free(&token);
 
     qiniu_ng_upload_policy_t upload_policy_3;

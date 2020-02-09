@@ -715,7 +715,7 @@ impl From<Box<UploadToken<'_>>> for qiniu_ng_upload_token_t {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_new_upload_token_from_policy_builder(
+pub extern "C" fn qiniu_ng_upload_token_new_from_policy_builder(
     policy_builder_ptr: *mut qiniu_ng_upload_policy_builder_t,
     access_key: *const qiniu_ng_char_t,
     secret_key: *const qiniu_ng_char_t,
@@ -736,7 +736,7 @@ pub extern "C" fn qiniu_ng_new_upload_token_from_policy_builder(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_new_upload_token_from_policy(
+pub extern "C" fn qiniu_ng_upload_token_new_from_policy(
     policy: qiniu_ng_upload_policy_t,
     access_key: *const qiniu_ng_char_t,
     secret_key: *const qiniu_ng_char_t,
@@ -756,7 +756,7 @@ pub extern "C" fn qiniu_ng_new_upload_token_from_policy(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_new_upload_token_from_token(token: *const qiniu_ng_char_t) -> qiniu_ng_upload_token_t {
+pub extern "C" fn qiniu_ng_upload_token_new_from_token(token: *const qiniu_ng_char_t) -> qiniu_ng_upload_token_t {
     Box::new(UploadToken::from_token(
         unsafe { ucstr::from_ptr(token) }.to_string().unwrap(),
     ))

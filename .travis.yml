@@ -59,7 +59,7 @@ matrix:
         - 1.38.0-x86_64-pc-windows-msvc
       before_script:
         - choco install make
-        - choco install curl --version=7.67.0
+        - choco install curl --version=7.67.0 --force
         - cargo install --force cbindgen
         - export PATH="$(powershell -Command '("Process", "Machine" | % { [Environment]::GetEnvironmentVariable("PATH", $_) -Split ";" -Replace "\\$", "" } | Select -Unique | % { cygpath $_ }) -Join ":"')"
       script:

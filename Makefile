@@ -16,7 +16,7 @@ build_release:
 	done
 build_test:
 	set -e; \
-	for dir in $(SUBDIRS); do \
+	for dir in $(SUBDIRS) $(OTHER_LANG_DIRS); do \
 		$(MAKE) -C $$dir build_test; \
 	done
 clean:
