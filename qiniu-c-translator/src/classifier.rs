@@ -34,7 +34,7 @@ pub struct Method {
 #[get = "pub"]
 pub struct Class {
     name: String,
-    ffi_class_name: String,
+    ffi_class_name: Option<String>,
     destructor: Option<FunctionDeclaration>,
     methods: Vec<Method>,
 }
@@ -42,7 +42,7 @@ pub struct Class {
 impl Class {
     pub fn new<'a>(
         name: &str,
-        ffi_class_name: &str,
+        ffi_class_name: Option<&str>,
         function_name_captures_regex: Regex,
         function_name_exclude_regex: Option<Regex>,
         functions_iter: impl Iterator<Item = &'a FunctionDeclaration>,
@@ -51,7 +51,7 @@ impl Class {
     ) -> Self {
         Class {
             name: name.to_owned(),
-            ffi_class_name: ffi_class_name.to_owned(),
+            ffi_class_name: ffi_class_name.map(|name| name.to_owned()),
             destructor: None,
             methods: Vec::new(),
         }

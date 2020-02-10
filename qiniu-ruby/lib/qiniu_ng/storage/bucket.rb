@@ -11,7 +11,8 @@ module QiniuNg
         domains ||= []
         domains = [domains] unless domains.is_a?(Array)
 
-        @bucket = Bindings::Bucket.new2(client.instance_variable_get(:@client), bucket_name.to_s, region, domains.map(&:to_s))
+        @client = client.instance_variable_get(:@client)
+        @bucket = Bindings::Bucket.new2(@client, bucket_name.to_s, region, domains.map(&:to_s))
       end
 
       def name
@@ -37,6 +38,13 @@ module QiniuNg
                        @bucket.get_domains
                      end
         (0...@domains.len).map { |i| @domains.get(i) }
+      end
+
+      def drop
+        QiniuNg::Error.wrap_ffi_function do
+          Bindings::Storage.drop_bucket(@client, name)
+        end
+        nil
       end
 
       def inspect

@@ -121,7 +121,7 @@ fn insert_methods_nodes(class: &Class, classes: &[Class], nodes: &mut Vec<Box<dy
 fn is_current_class_matches_type_by_value(current_type: &Type, class: &Class) -> bool {
     if let TypeKind::Typedef { subtype } = current_type.type_kind() {
         matches!(subtype.type_kind(), TypeKind::Base(ClangTypeKind::Record))
-            && class.ffi_class_name().as_str() == current_type.display_name().as_str()
+            && class.ffi_class_name().as_ref().map(|name| name.as_str()) == Some(current_type.display_name().as_str())
     } else {
         false
     }
@@ -442,7 +442,14 @@ fn try_to_convert_core_ffi_class_name_to_bindings_class_name(
     classes: &[Class],
 ) -> Option<String> {
     classes.iter().find_map(|class| {
-        if normalize_constant(class.ffi_class_name()).as_str() == core_ffi_class_name {
+        if class
+            .ffi_class_name()
+            .as_ref()
+            .map(|name| normalize_constant(name))
+            .as_ref()
+            .map(|name| name.as_str())
+            == Some(core_ffi_class_name)
+        {
             Some(class.name().to_owned())
         } else {
             None

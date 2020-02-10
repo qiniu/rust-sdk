@@ -117,7 +117,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
     Classifier::default().tap(|classifier| {
         classifier.add_class(Class::new(
             "Str",
-            "qiniu_ng_str_t",
+            Some("qiniu_ng_str_t"),
             Regex::new("^qiniu_ng_str_(\\w+)").unwrap(),
             Some(Regex::new("^qiniu_ng_str_(list|map)_").unwrap()),
             source_file.function_declarations().iter(),
@@ -126,7 +126,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
         ));
         classifier.add_class(Class::new(
             "StrList",
-            "qiniu_ng_str_list_t",
+            Some("qiniu_ng_str_list_t"),
             Regex::new("^qiniu_ng_str_list_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
@@ -135,7 +135,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
         ));
         classifier.add_class(Class::new(
             "StrMap",
-            "qiniu_ng_str_map_t",
+            Some("qiniu_ng_str_map_t"),
             Regex::new("^qiniu_ng_str_map_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
@@ -144,7 +144,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
         ));
         classifier.add_class(Class::new(
             "Etag",
-            "qiniu_ng_etag_t",
+            Some("qiniu_ng_etag_t"),
             Regex::new("^qiniu_ng_etag_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
@@ -153,7 +153,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
         ));
         classifier.add_class(Class::new(
             "ConfigBuilder",
-            "qiniu_ng_config_builder_t",
+            Some("qiniu_ng_config_builder_t"),
             Regex::new("^qiniu_ng_config_builder_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
@@ -162,7 +162,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
         ));
         classifier.add_class(Class::new(
             "Config",
-            "qiniu_ng_config_t",
+            Some("qiniu_ng_config_t"),
             Regex::new("^qiniu_ng_config_(\\w+)").unwrap(),
             Some(Regex::new("^qiniu_ng_config_builder_(\\w+)").unwrap()),
             source_file.function_declarations().iter(),
@@ -171,7 +171,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
         ));
         classifier.add_class(Class::new(
             "Region",
-            "qiniu_ng_region_t",
+            Some("qiniu_ng_region_t"),
             Regex::new("^qiniu_ng_region_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
@@ -180,7 +180,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
         ));
         classifier.add_class(Class::new(
             "Regions",
-            "qiniu_ng_regions_t",
+            Some("qiniu_ng_regions_t"),
             Regex::new("^qiniu_ng_regions_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
@@ -189,7 +189,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
         ));
         classifier.add_class(Class::new(
             "Client",
-            "qiniu_ng_client_t",
+            Some("qiniu_ng_client_t"),
             Regex::new("^qiniu_ng_client_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
@@ -197,8 +197,17 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             vec![],
         ));
         classifier.add_class(Class::new(
+            "Storage",
+            None,
+            Regex::new("^qiniu_ng_storage_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![],
+        ));
+        classifier.add_class(Class::new(
             "Bucket",
-            "qiniu_ng_bucket_t",
+            Some("qiniu_ng_bucket_t"),
             Regex::new("^qiniu_ng_bucket_(\\w+)").unwrap(),
             Some(Regex::new("^qiniu_ng_bucket_uploader_(\\w+)").unwrap()),
             source_file.function_declarations().iter(),
@@ -207,7 +216,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
         ));
         classifier.add_class(Class::new(
             "UploadPolicyBuilder",
-            "qiniu_ng_upload_policy_builder_t",
+            Some("qiniu_ng_upload_policy_builder_t"),
             Regex::new("^qiniu_ng_upload_policy_builder_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
@@ -216,7 +225,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
         ));
         classifier.add_class(Class::new(
             "UploadPolicy",
-            "qiniu_ng_upload_policy_t",
+            Some("qiniu_ng_upload_policy_t"),
             Regex::new("^qiniu_ng_upload_policy_(\\w+)").unwrap(),
             Some(Regex::new("^qiniu_ng_upload_policy_builder_(\\w+)").unwrap()),
             source_file.function_declarations().iter(),
@@ -225,7 +234,7 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
         ));
         classifier.add_class(Class::new(
             "UploadToken",
-            "qiniu_ng_upload_token_t",
+            Some("qiniu_ng_upload_token_t"),
             Regex::new("^qiniu_ng_upload_token_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
