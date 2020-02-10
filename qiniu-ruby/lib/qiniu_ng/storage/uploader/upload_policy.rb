@@ -4,7 +4,7 @@ require 'ffi'
 
 module QiniuNg
   module Storage
-    module Uploader
+    class Uploader
       class UploadPolicy
         def initialize(upload_policy_ffi)
           @upload_policy = upload_policy_ffi

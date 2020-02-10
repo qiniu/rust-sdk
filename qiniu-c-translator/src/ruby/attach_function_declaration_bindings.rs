@@ -23,14 +23,14 @@ fn insert_attach_function_node(
 ) -> String {
     let function_node = Box::new(AttachFunction::new(
         function_declaration.name(),
-        StructFieldType::from(function_declaration.return_type().to_owned()),
+        StructFieldType::from(function_declaration.return_type().to_owned(), false),
         false,
     ))
     .tap(|attach_function| {
         *attach_function.parameters_mut() = function_declaration
             .parameters()
             .iter()
-            .map(|parameter| StructFieldType::from(parameter.parameter_type().to_owned()))
+            .map(|parameter| StructFieldType::from(parameter.parameter_type().to_owned(), false))
             .collect();
     });
     function_node.name().to_owned().tap(|_| {

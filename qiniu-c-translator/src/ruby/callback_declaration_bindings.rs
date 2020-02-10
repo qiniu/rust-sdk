@@ -82,14 +82,14 @@ fn insert_callback_node(
     nodes.push(
         Box::new(AttachFunction::new(
             name,
-            StructFieldType::from(function_type.return_type().to_owned()),
+            StructFieldType::from(function_type.return_type().to_owned(), false),
             true,
         ))
         .tap(|attach_function| {
             *attach_function.parameters_mut() = function_type
                 .parameter_types()
                 .iter()
-                .map(|parameter_type| StructFieldType::from(parameter_type.to_owned()))
+                .map(|parameter_type| StructFieldType::from(parameter_type.to_owned(), false))
                 .collect();
         }),
     );

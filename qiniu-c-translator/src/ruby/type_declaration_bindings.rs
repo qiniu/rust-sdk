@@ -133,7 +133,9 @@ fn insert_struct_node(struct_declaration: &StructDeclaration, nodes: &mut Vec<Bo
                         .cloned()
                         .unwrap_or_else(get_random_field_identifier);
                     match field.field_type() {
-                        FieldType::NamedType(t) => StructField::new(field_name, StructFieldType::from(t.to_owned())),
+                        FieldType::NamedType(t) => {
+                            StructField::new(field_name, StructFieldType::from(t.to_owned(), true))
+                        }
                         FieldType::AnonymousType(anon_struct_declaration) => {
                             let anon_struct_name = insert_struct_node(anon_struct_declaration, nodes);
                             StructField::new(field_name, StructFieldType::new_type_by_val(anon_struct_name))

@@ -2,9 +2,16 @@
 
 module QiniuNg
   class Client
+    attr_reader :access_key
+    attr_reader :config
+
     def initialize(access_key:, secret_key:, config:)
       raise ArgumentError, 'config must be instance of Config' unless config.is_a?(Config)
-      @client = Bindings::Client.new!(access_key.to_s, secret_key.to_s, config.instance_variable_get(:@config))
+      @access_key, @config = access_key.to_s, config
+      @client = Bindings::Client.new!(
+                  access_key.to_s,
+                  secret_key.to_s,
+                  config.instance_variable_get(:@config))
     end
 
     def bucket(name)
@@ -42,7 +49,6 @@ module QiniuNg
       nil
     end
 
-    # TODO: get upload manager
     def inspect
       "#<#{self.class.name}>"
     end

@@ -2,7 +2,7 @@
 
 module QiniuNg
   module Storage
-    module Uploader
+    class Uploader
       class UploadToken
         def initialize(upload_token_ffi)
           @upload_token = upload_token_ffi

@@ -29,7 +29,7 @@ RSpec.describe QiniuNg::Client do
                                    secret_key: ENV['secret_key'],
                                    config: QiniuNg::Config.new
       bucket_name = "test-bucket-#{Time.now.to_i}"
-      bucket = client.create_bucket(bucket_name, :z1)
+      bucket = client.create_bucket(bucket_name, :z2)
       begin
         expect(client.bucket_names).to include(bucket_name)
       ensure

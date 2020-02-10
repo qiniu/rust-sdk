@@ -201,7 +201,7 @@ pub struct qiniu_ng_upload_params_t {
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_file_path(
+pub extern "C" fn qiniu_ng_bucket_uploader_upload_file_path(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
     file_path: *const qiniu_ng_char_t,
@@ -220,7 +220,7 @@ pub extern "C" fn qiniu_ng_upload_file_path(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_file(
+pub extern "C" fn qiniu_ng_bucket_uploader_upload_file(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
     file: *mut FILE,
@@ -239,7 +239,7 @@ pub extern "C" fn qiniu_ng_upload_file(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_reader(
+pub extern "C" fn qiniu_ng_bucket_uploader_upload_reader(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
     reader: qiniu_ng_readable_t,
@@ -429,6 +429,8 @@ pub extern "C" fn qiniu_ng_upload_response_get_hash(
         if let Some(result_ptr) = unsafe { result_ptr.as_mut() } {
             unsafe { copy_nonoverlapping(hash.as_ptr(), result_ptr as *mut c_void as *mut u8, hash.len()) };
         }
+    } else if let Some(result_size) = unsafe { result_size.as_mut() } {
+        *result_size = 0;
     }
     let _ = qiniu_ng_upload_response_t::from(upload_response);
 }

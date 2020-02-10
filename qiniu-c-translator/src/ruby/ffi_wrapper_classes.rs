@@ -145,45 +145,49 @@ fn normalize_parameters_and_insert_into_method_and_method_call(
 
         let cur_param_type = parameter.parameter_type();
         let next_param_type = parameters.get(i + 1).map(|next| next.parameter_type());
-        if is_const_str_type(cur_param_type) {
+        skip += if is_const_str_type(cur_param_type) {
             // 对于参数列表中含有字符串的参数，添加一条语句将参数转换为 UTF-8 编码
-            skip += convert_str_encoding_and_insert_into_method_and_method_call(
+            convert_str_encoding_and_insert_into_method_and_method_call(
                 parameter,
                 method,
                 &mut method_call,
                 identifier_generator,
-            );
+            )
         } else if is_const_str_list_type(cur_param_type) && next_param_type.map(is_size_type) == Some(true) {
             // 对于参数列表中含有字符串列表和其尺寸的参数，添加一条语句将参数转换为 FFI 内存指针
-            skip += convert_str_list_and_size_to_list_and_insert_into_method_and_method_call(
+            convert_str_list_and_size_to_list_and_insert_into_method_and_method_call(
                 parameter,
                 method,
                 &mut method_call,
                 identifier_generator,
-            );
+            )
         } else if is_const_binary_type(cur_param_type) && next_param_type.map(is_size_type) == Some(true) {
             // 对于参数列表中含有数据和其尺寸的参数，添加一条语句将参数转换为 FFI 内存指针
-            skip += convert_data_and_size_to_string_and_insert_into_method_and_method_call(
+            convert_data_and_size_to_string_and_insert_into_method_and_method_call(
                 parameter,
                 method,
                 &mut method_call,
                 identifier_generator,
-            );
+            )
         } else if let Some(function_type) = try_to_extract_function_type(cur_param_type) {
             // 对于参数列表中含有回调函数的参数，添加一条创建 proc 的语句，并在 proc 里将参数正常化。
-            skip += convert_callback_and_insert_into_method_and_method_call(
+            convert_callback_and_insert_into_method_and_method_call(
                 parameter,
                 &function_type,
                 method,
                 &mut method_call,
                 identifier_generator,
-            );
+            )
         } else if let Some(receiver_pointer_type_name) = try_to_extract_pointer_type_name(cur_param_type) {
             // 对于参数列表中含有结构体的指针参数
             //   如果在 `receive_pointers_parameter_names` 中列举过，则表示该指针并非用于接受数据，而只是普通的指针传递数据，对其调用 `instance` 方法，以访问到内部的 CoreFFI 类的实例
             //   如果不是，则该指针确实用于接受数据，该方法的参数列表中将不会含有该参数，而在方法内自行创建，创建完毕后先尝试将数据转换为 Bindings 类的实例，然后将其作为方法的返回值。
-            skip += if receive_pointers_parameter_names.contains(parameter.name()) {
-                convert_bindings_instance_to_coreffi_instance(parameter, method, &mut method_call)
+            if receive_pointers_parameter_names.contains(parameter.name()) {
+                if is_core_ffi_class(cur_param_type, classes) {
+                    convert_bindings_instance_to_core_ffi_instance(parameter, method, &mut method_call)
+                } else {
+                    add_parameter_directly(parameter, method, &mut method_call)
+                }
             } else {
                 convert_pointer_to_receiver(
                     receiver_pointer_type_name,
@@ -192,14 +196,15 @@ fn normalize_parameters_and_insert_into_method_and_method_call(
                     classes,
                     identifier_generator,
                 )
-            };
-        } else if try_to_extract_typedef_type_name(cur_param_type).is_some() {
+            }
+        } else if is_core_ffi_class(cur_param_type, classes)
+            && try_to_extract_typedef_type_name(cur_param_type).is_some()
+        {
             // 对于参数列表中含有传送结构体值的参数，对其调用 `instance` 方法，以访问到内部的 CoreFFI 类的实例
-            skip += convert_bindings_instance_to_coreffi_instance(parameter, method, &mut method_call);
+            convert_bindings_instance_to_core_ffi_instance(parameter, method, &mut method_call)
         } else {
-            method.parameter_names_mut().push(parameter.name().to_owned());
-            method_call.parameter_names_mut().push(parameter.name().to_owned());
-        }
+            add_parameter_directly(parameter, method, &mut method_call)
+        };
     }
     if method_call.receiver_names().is_empty() {
         if is_const_str_type(return_type) {
@@ -338,7 +343,7 @@ fn convert_callback_and_insert_into_method_and_method_call(
     0
 }
 
-fn convert_bindings_instance_to_coreffi_instance(
+fn convert_bindings_instance_to_core_ffi_instance(
     parameter: &ParameterDeclaration,
     method: &mut Method,
     method_call: &mut MethodCall,
@@ -396,6 +401,16 @@ fn convert_pointer_to_receiver(
     0
 }
 
+fn add_parameter_directly(
+    parameter: &ParameterDeclaration,
+    method: &mut Method,
+    method_call: &mut MethodCall,
+) -> usize {
+    method.parameter_names_mut().push(parameter.name().to_owned());
+    method_call.parameter_names_mut().push(parameter.name().to_owned());
+    0
+}
+
 fn convert_returned_str_encoding(
     method: &mut Method,
     method_call: &mut MethodCall,
@@ -445,7 +460,7 @@ fn try_to_convert_core_ffi_class_name_to_bindings_class_name(
         if class
             .ffi_class_name()
             .as_ref()
-            .map(|name| normalize_constant(name))
+            .map(normalize_constant)
             .as_ref()
             .map(|name| name.as_str())
             == Some(core_ffi_class_name)
@@ -455,4 +470,24 @@ fn try_to_convert_core_ffi_class_name_to_bindings_class_name(
             None
         }
     })
+}
+
+fn is_core_ffi_class(t: &Type, classes: &[Class]) -> bool {
+    return if let TypeKind::Pointer { subtype } = t.type_kind() {
+        is_typedef_of_core_ffi_class(&subtype, classes)
+    } else {
+        is_typedef_of_core_ffi_class(t, classes)
+    };
+
+    fn is_typedef_of_core_ffi_class(t: &Type, classes: &[Class]) -> bool {
+        let struct_name = t.display_name().split(' ').last().unwrap();
+        if let TypeKind::Typedef { subtype } = t.type_kind() {
+            matches!(subtype.type_kind(), TypeKind::Base(ClangTypeKind::Record))
+                && classes
+                    .iter()
+                    .any(|class| class.ffi_class_name().as_ref().map(|name| name.as_str()) == Some(struct_name))
+        } else {
+            false
+        }
+    }
 }

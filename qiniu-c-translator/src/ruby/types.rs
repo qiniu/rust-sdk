@@ -31,7 +31,7 @@ pub(super) enum BaseType {
 }
 
 impl BaseType {
-    fn from(c_type: Type) -> Self {
+    fn from(c_type: Type, as_struct_field_type: bool) -> Self {
         match c_type.type_kind() {
             TypeKind::Base(ClangTypeKind::Void) => Self::Void,
             TypeKind::Base(ClangTypeKind::Bool) => Self::Bool,
@@ -48,7 +48,7 @@ impl BaseType {
                 | TypeKind::Base(ClangTypeKind::SChar)
                 | TypeKind::Base(ClangTypeKind::CharU)
                 | TypeKind::Base(ClangTypeKind::UChar)
-                    if subtype.is_const() =>
+                    if subtype.is_const() && !as_struct_field_type =>
                 {
                     Self::String
                 }
@@ -97,7 +97,7 @@ pub(super) enum StructFieldType {
 }
 
 impl StructFieldType {
-    pub(super) fn from(c_type: Type) -> Self {
+    pub(super) fn from(c_type: Type, as_struct_field_type: bool) -> Self {
         return match c_type.type_kind() {
             TypeKind::Typedef { .. } => Self::new_type_by_val(normalize_constant(c_type.display_name())),
             TypeKind::Pointer { subtype: pointer_type } => match pointer_type.type_kind() {
@@ -106,17 +106,17 @@ impl StructFieldType {
                     if let Some(callback_name) =
                         find_function_pointer_type_for_callback_name(pointer_type.display_name())
                     {
-                        Self::ByCallback(callback_name.to_owned())
+                        Self::ByCallback(callback_name)
                     } else {
                         Self::BaseType(BaseType::Pointer)
                     }
                 }
-                _ => new_base_type(c_type),
+                _ => new_base_type(c_type, as_struct_field_type),
             },
-            _ => new_base_type(c_type),
+            _ => new_base_type(c_type, as_struct_field_type),
         };
 
-        fn new_base_type(c_type: Type) -> StructFieldType {
+        fn new_base_type(c_type: Type, as_struct_field_type: bool) -> StructFieldType {
             if matches!(c_type.type_kind(), TypeKind::Base(ClangTypeKind::Elaborated)) {
                 match c_type.display_name().as_str() {
                     "struct in_addr" => {
@@ -128,7 +128,7 @@ impl StructFieldType {
                     _ => {}
                 }
             }
-            StructFieldType::BaseType(BaseType::from(c_type))
+            StructFieldType::BaseType(BaseType::from(c_type, as_struct_field_type))
         }
     }
 

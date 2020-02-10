@@ -82,10 +82,7 @@ pub(super) fn is_const_str_type(t: &Type) -> bool {
 
 pub(super) fn is_const_binary_type(t: &Type) -> bool {
     if let TypeKind::Pointer { subtype } = t.type_kind() {
-        match subtype.type_kind() {
-            TypeKind::Base(ClangTypeKind::Void) if subtype.is_const() => true,
-            _ => false,
-        }
+        subtype.is_const() && matches!(subtype.type_kind(), TypeKind::Base(ClangTypeKind::Void))
     } else {
         false
     }

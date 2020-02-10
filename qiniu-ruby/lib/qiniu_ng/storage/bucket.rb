@@ -11,8 +11,9 @@ module QiniuNg
         domains ||= []
         domains = [domains] unless domains.is_a?(Array)
 
-        @client = client.instance_variable_get(:@client)
-        @bucket = Bindings::Bucket.new2(@client, bucket_name.to_s, region, domains.map(&:to_s))
+        @client = client
+        @bucket = Bindings::Bucket.new2(client.instance_variable_get(:@client), bucket_name.to_s, region, domains.map(&:to_s))
+        @uploader_manager = Uploader.new(client.config)
       end
 
       def name
@@ -42,9 +43,13 @@ module QiniuNg
 
       def drop
         QiniuNg::Error.wrap_ffi_function do
-          Bindings::Storage.drop_bucket(@client, name)
+          Bindings::Storage.drop_bucket(@client.instance_variable_get(:@client), name)
         end
         nil
+      end
+
+      def uploader(thread_pool_size: 3)
+        BucketUploader.send(:new_from_bucket, @uploader_manager, self, thread_pool_size.to_i)
       end
 
       def inspect

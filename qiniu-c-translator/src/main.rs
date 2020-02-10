@@ -241,5 +241,37 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             None,
             vec![("qiniu_ng_upload_token_new_from_policy_builder", "policy_builder_ptr")],
         ));
+        classifier.add_class(Class::new(
+            "UploadManager",
+            Some("qiniu_ng_upload_manager_t"),
+            Regex::new("^qiniu_ng_upload_manager_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![],
+        ));
+        classifier.add_class(Class::new(
+            "BucketUploader",
+            Some("qiniu_ng_bucket_uploader_t"),
+            Regex::new("^qiniu_ng_bucket_uploader_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![
+                ("qiniu_ng_bucket_uploader_upload_file", "file"),
+                ("qiniu_ng_bucket_uploader_upload_file", "params"),
+                ("qiniu_ng_bucket_uploader_upload_file_path", "params"),
+                ("qiniu_ng_bucket_uploader_upload_reader", "params"),
+            ],
+        ));
+        classifier.add_class(Class::new(
+            "UploadResponse",
+            Some("qiniu_ng_upload_response_t"),
+            Regex::new("^qiniu_ng_upload_response_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![],
+        ));
     })
 }
