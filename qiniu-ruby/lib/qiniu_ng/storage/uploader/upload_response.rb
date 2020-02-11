@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'ffi'
+require 'json'
 
 module QiniuNg
   module Storage
@@ -33,6 +34,14 @@ module QiniuNg
                             end
           return nil if @cache[:json].is_null
           @cache[:json].get_ptr
+        end
+
+        def method_missing(method_name)
+          @cache[:parsed_json] ||= JSON.load(as_json)
+          if @cache[:parsed_json].has_key?(method_name.to_s)
+            return @cache[:parsed_json][method_name.to_s]
+          end
+          super
         end
 
         def inspect

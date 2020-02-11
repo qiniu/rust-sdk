@@ -40,7 +40,8 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
 
     it 'should upload customized io' do
       upload_token = QiniuNg::Storage::Uploader::UploadToken.from_policy_builder(
-                       QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket'),
+                       QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket')
+                                                                        .return_body(%[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)"}]),
                        access_key: ENV['access_key'],
                        secret_key: ENV['secret_key'])
       bucket_uploader = QiniuNg::Storage::Uploader.new(QiniuNg::Config.new).
@@ -60,12 +61,20 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
       response = bucket_uploader.upload_io(io, upload_token: upload_token,
                                                key: key,
                                                file_name: key,
+                                               vars: { 'name': key },
                                                on_uploading_progress: on_uploading_progress)
       expect(response.hash).to eq(etag)
       expect(response.key).to eq(key)
+      expect(response.fsize).to eq(1 << 24)
+      expect(response.bucket).to eq('z0-bucket')
+      expect(response.name).to eq(key)
+      expect(response.name).to eq(key)
       j = JSON.load response.as_json
       expect(j['hash']).to eq(etag)
       expect(j['key']).to eq(key)
+      expect(j['fsize']).to eq(1 << 24)
+      expect(j['bucket']).to eq('z0-bucket')
+      expect(j['name']).to eq(key)
     end
   end
 
