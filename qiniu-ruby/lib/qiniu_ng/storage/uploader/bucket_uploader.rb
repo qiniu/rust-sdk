@@ -50,17 +50,27 @@ module QiniuNg
                                         upload_threshold: upload_threshold,
                                         thread_pool_size: thread_pool_size,
                                         max_concurrency: max_concurrency)
-          raise ArgumentError, 'file must own fileno' if file.fileno.nil?
-          file = Bindings.const_get(:CoreFFI).fdopen(file.fileno, "r")
-          raise SystemCallError, 'libc::fdopen() returns NULL' if file.nil?
+          reader = Bindings.const_get(:CoreFFI)::QiniuNgReadableT.new
+          reader[:context] = nil
+          reader[:read_func] = proc do |_, data, size, have_read|
+                                 content = file.read(size)
+                                 if content.nil?
+                                   have_read.write_ulong(0)
+                                 else
+                                   data.write_string(content)
+                                   have_read.write_ulong(content.bytesize)
+                                 end
+                                 true
+                               end
           upload_response = QiniuNg::Error.wrap_ffi_function do
-                              @bucket_uploader.upload_file(
+                              @bucket_uploader.upload_reader(
                                 upload_token.instance_variable_get(:@upload_token),
-                                file,
+                                reader,
                                 params)
                             end
           UploadResponse.send(:new, upload_response)
         end
+        alias upload_io upload_file
 
         def upload_file_path(file_path, upload_token:, key: nil,
                                                        file_name: nil,

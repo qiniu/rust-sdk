@@ -112,7 +112,7 @@ module QiniuNg
         code = FFI::MemoryPointer.new(:int)
         raise Error::OSError, code.read_int if core_ffi::qiniu_ng_err_os_error_extract(err, code)
         msg = core_ffi::QiniuNgStrT.new
-        raise Error::IOError, Bindings::Str.new(msg) if core_ffi::qiniu_ng_err_os_error_extract(err, msg)
+        raise Error::IOError, Bindings::Str.new(msg) if core_ffi::qiniu_ng_err_io_error_extract(err, msg)
         raise Error::UnexpectedRedirectError if core_ffi::qiniu_ng_err_unexpected_redirect_error_extract(err)
         raise Error::UserCancelledError if core_ffi::qiniu_ng_err_user_canceled_error_extract(err)
         raise Error::JSONError, Bindings::Str.new(msg) if core_ffi::qiniu_ng_err_json_error_extract(err, msg)

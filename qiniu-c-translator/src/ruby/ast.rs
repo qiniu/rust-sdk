@@ -227,7 +227,7 @@ impl AttachFunction {
 impl CodeGenerator for AttachFunction {
     fn generate_code(&self, mut output: CodeWriter) -> Result<CodeWriter> {
         output.write(&format!(
-            "{} :{}, [{}], {}",
+            "{} :{}, [{}], {}{}",
             if self.is_callback {
                 "callback"
             } else {
@@ -239,7 +239,8 @@ impl CodeGenerator for AttachFunction {
                 .map(|parameter| parameter.to_string())
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.return_value
+            self.return_value,
+            if self.is_callback { "" } else { ", blocking: true" }
         ))?;
         Ok(output)
     }
