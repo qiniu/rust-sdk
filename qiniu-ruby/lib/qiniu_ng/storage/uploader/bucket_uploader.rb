@@ -50,8 +50,16 @@ module QiniuNg
                                         upload_threshold: upload_threshold,
                                         thread_pool_size: thread_pool_size,
                                         max_concurrency: max_concurrency)
-          # @bucket_uploader.upload_file_path(upload_token, file.to_path, params)
-          raise NotImplementedError
+          raise ArgumentError, 'file must own fileno' if file.fileno.nil?
+          file = Bindings.const_get(:CoreFFI).fdopen(file.fileno, "r")
+          raise SystemCallError, 'libc::fdopen() returns NULL' if file.nil?
+          upload_response = QiniuNg::Error.wrap_ffi_function do
+                              @bucket_uploader.upload_file(
+                                upload_token.instance_variable_get(:@upload_token),
+                                file,
+                                params)
+                            end
+          UploadResponse.send(:new, upload_response)
         end
 
         def upload_file_path(file_path, upload_token:, key: nil,
@@ -110,13 +118,13 @@ module QiniuNg
           params[:key] = FFI::MemoryPointer.from_string(key.to_s) unless key.nil?
           params[:file_name] = FFI::MemoryPointer.from_string(file_name.to_s) unless file_name.nil?
           params[:mime] = FFI::MemoryPointer.from_string(mime.to_s) unless mime.nil?
-          params[:vars] = create_str_map(vars) unless vars.nil?
-          params[:metadata] = create_str_map(metadata) unless metadata.nil?
+          params[:vars] = create_str_map(vars).instance unless vars.nil?
+          params[:metadata] = create_str_map(metadata).instance unless metadata.nil?
           params[:checksum_enabled] = !!checksum_enabled unless checksum_enabled.nil?
           params[:resumable_policy] = normalize_resumable_policy(resumable_policy) unless resumable_policy.nil?
           unless on_uploading_progress.nil?
             params[:on_uploading_progress] = proc do |uploaded, total|
-                                               on_uploading_progress(uploaded, total)
+                                               on_uploading_progress.(uploaded, total)
                                              end
           end
           params[:upload_threshold] = upload_threshold.to_i unless upload_threshold.nil?
