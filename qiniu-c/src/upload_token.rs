@@ -1,4 +1,5 @@
 use crate::{
+    config::qiniu_ng_config_t,
     result::qiniu_ng_err_t,
     string::{qiniu_ng_char_t, ucstr},
     utils::{qiniu_ng_str_list_t, qiniu_ng_str_t},
@@ -9,7 +10,7 @@ use qiniu_ng::{
         upload_policy::{UploadPolicy, UploadPolicyBuilder},
         upload_token::UploadToken,
     },
-    Credential,
+    Config, Credential,
 };
 use std::{
     mem::transmute,
@@ -61,12 +62,16 @@ impl From<Box<UploadPolicyBuilder<'_>>> for qiniu_ng_upload_policy_builder_t {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_policy_builder_new_for_bucket(
     bucket: *const qiniu_ng_char_t,
-    lifetime: u64,
+    config: qiniu_ng_config_t,
 ) -> qiniu_ng_upload_policy_builder_t {
+    let config = Option::<Config>::from(config).unwrap();
     Box::new(UploadPolicyBuilder::new_policy_for_bucket(
         unsafe { ucstr::from_ptr(bucket) }.to_string().unwrap(),
-        Duration::from_secs(lifetime),
+        &config,
     ))
+    .tap(|_| {
+        let _ = qiniu_ng_config_t::from(config);
+    })
     .into()
 }
 
@@ -74,13 +79,17 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_new_for_bucket(
 pub extern "C" fn qiniu_ng_upload_policy_builder_new_for_object(
     bucket: *const qiniu_ng_char_t,
     key: *const qiniu_ng_char_t,
-    lifetime: u64,
+    config: qiniu_ng_config_t,
 ) -> qiniu_ng_upload_policy_builder_t {
+    let config = Option::<Config>::from(config).unwrap();
     Box::new(UploadPolicyBuilder::new_policy_for_object(
         unsafe { ucstr::from_ptr(bucket) }.to_string().unwrap(),
         unsafe { ucstr::from_ptr(key) }.to_string().unwrap(),
-        Duration::from_secs(lifetime),
+        &config,
     ))
+    .tap(|_| {
+        let _ = qiniu_ng_config_t::from(config);
+    })
     .into()
 }
 
@@ -88,13 +97,17 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_new_for_object(
 pub extern "C" fn qiniu_ng_upload_policy_builder_new_for_objects_with_prefix(
     bucket: *const qiniu_ng_char_t,
     prefix: *const qiniu_ng_char_t,
-    lifetime: u64,
+    config: qiniu_ng_config_t,
 ) -> qiniu_ng_upload_policy_builder_t {
+    let config = Option::<Config>::from(config).unwrap();
     Box::new(UploadPolicyBuilder::new_policy_for_objects_with_prefix(
         unsafe { ucstr::from_ptr(bucket) }.to_string().unwrap(),
         unsafe { ucstr::from_ptr(prefix) }.to_string().unwrap(),
-        Duration::from_secs(lifetime),
+        &config,
     ))
+    .tap(|_| {
+        let _ = qiniu_ng_config_t::from(config);
+    })
     .into()
 }
 
@@ -203,7 +216,8 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_callback_urls(
             .map(|url| url.as_ref())
             .collect::<Box<[_]>>(),
         unsafe { callback_host.as_ref() }
-            .map(|callback_host| unsafe { ucstr::from_ptr(callback_host) }.to_string().unwrap()),
+            .map(|callback_host| unsafe { ucstr::from_ptr(callback_host) }.to_string().unwrap())
+            .unwrap_or_else(String::new),
     );
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
 }
@@ -217,7 +231,9 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_callback_body(
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
     *builder = builder.callback_body(
         unsafe { ucstr::from_ptr(body) }.to_string().unwrap(),
-        unsafe { body_type.as_ref() }.map(|body_type| unsafe { ucstr::from_ptr(body_type) }.to_string().unwrap()),
+        unsafe { body_type.as_ref() }
+            .map(|body_type| unsafe { ucstr::from_ptr(body_type) }.to_string().unwrap())
+            .unwrap_or_else(String::new),
     );
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
 }

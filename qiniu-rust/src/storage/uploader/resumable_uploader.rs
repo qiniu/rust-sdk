@@ -61,7 +61,6 @@ struct FromResuming {
     upload_id: Box<str>,
     up_urls: Box<[Box<str>]>,
     recorder: FileUploadRecordMedium,
-    io_offset: u64,
 }
 
 struct UploadingProgressCallback<'u> {
@@ -361,11 +360,11 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                     self.key.as_ref().map(|key| key.as_ref()),
                     &upload_id,
                     up_urls,
+                    self.block_size,
                 )
                 .ok()
         });
         self.start_uploading_blocks(
-            0,
             up_urls,
             &(base_path.to_owned() + "/" + &upload_id),
             authorization,
@@ -375,13 +374,23 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
 
     fn start_uploading_blocks(
         &mut self,
-        initial_part_number: usize,
         up_urls: &[&str],
         base_path: &str,
         authorization: &str,
         upload_recorder: Option<FileUploadRecordMedium>,
     ) -> HTTPResult<UploadResponse> {
-        let io_status_manager = IOStatusManager::new(&mut self.io);
+        let io_status_manager = IOStatusManager::new(
+            &mut self.io,
+            self.block_size,
+            &self
+                .completed_parts
+                .lock()
+                .unwrap()
+                .parts
+                .iter()
+                .map(|part| part.part_number)
+                .collect::<Vec<_>>(),
+        );
         let http_client = self.bucket_uploader.http_client();
         let block_size = self.block_size;
         let completed_parts = &self.completed_parts;
@@ -400,22 +409,18 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         self.thread_pool.scope(|s| {
             for _ in 0..concurrency {
                 s.spawn(|_| {
-                    let mut body_buf = vec![0; block_size.try_into().unwrap_or(usize::max_value())];
                     let mut md5 = OptionalMd5::new(checksum_enabled);
                     loop {
-                        let mut read_count = 0usize;
-                        match io_status_manager.read(&mut body_buf, &mut read_count) {
-                            Some(buf_size) => {
-                                let part_number = read_count + initial_part_number;
+                        match io_status_manager.read() {
+                            Some(part_data) => {
                                 let last_block_uploaded = Cell::new(0);
                                 match Self::upload_part(
                                     http_client,
-                                    &(base_path.to_owned() + "/" + &part_number.to_string()),
+                                    &(base_path.to_owned() + "/" + &part_data.part_number.to_string()),
                                     up_urls,
                                     authorization,
-                                    &body_buf[..buf_size],
-                                    part_number,
-                                    block_size,
+                                    &part_data.data,
+                                    part_data.part_number,
                                     &mut md5,
                                     |block_uploaded, _| {
                                         if let Some(progress) = uploading_progress_callback {
@@ -438,7 +443,10 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                                     upload_recorder.as_ref(),
                                 ) {
                                     Ok(etag) => {
-                                        completed_parts.lock().unwrap().parts.push(Part { etag, part_number });
+                                        completed_parts.lock().unwrap().parts.push(Part {
+                                            etag,
+                                            part_number: part_data.part_number,
+                                        });
                                         uploaded_size.fetch_add(block_size.into(), Relaxed);
                                     }
                                     Err(err) => {
@@ -489,16 +497,15 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                     etag: block_record.etag,
                     part_number: block_record.part_number,
                 });
-                let block_size: u64 = block_record.block_size.into();
-                io_offset += block_size;
+                io_offset += u64::from(file_record.block_size);
             }
         }
         self.from_resuming = Some(FromResuming {
             upload_id: file_record.upload_id,
             up_urls: file_record.up_urls,
             recorder,
-            io_offset,
         });
+        self.block_size = file_record.block_size;
         self.uploaded_size = AtomicU64::new(io_offset);
     }
 
@@ -552,7 +559,6 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         authorization: &str,
         part: &[u8],
         part_number: usize,
-        block_size: u32,
         md5_hasher: &mut OptionalMd5,
         on_progress: impl Fn(u64, u64),
         on_error: impl Fn(Option<&str>, &HTTPError, Duration),
@@ -607,7 +613,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
             .parse_json()?;
         if let Some(upload_recorder) = upload_recorder {
             upload_recorder
-                .append(&result.etag, part_number, block_size.try_into().unwrap())
+                .append(&result.etag, part_number)
                 .map_err(|err| HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None))?;
         }
         Ok(result.etag)
@@ -661,19 +667,14 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
 
     fn try_to_resume(&mut self, base_path: &str, authorization: &str) -> HTTPResult<Option<UploadResponse>> {
         if let Some(from_resuming) = self.from_resuming.take() {
-            self.io
-                .seek(SeekFrom::Start(from_resuming.io_offset))
-                .map_err(|err| HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None))?;
+            let init_uploaded_size = self.uploaded_size.load(Relaxed);
             if let Some(uploading_progress_callback) = &self.uploading_progress_callback {
                 uploading_progress_callback
                     .completed_size
-                    .store(from_resuming.io_offset.try_into().unwrap(), Relaxed);
+                    .store(init_uploaded_size, Relaxed);
             }
-            let part_number = self.completed_parts.lock().unwrap().parts.len();
-            let init_uploaded_size = from_resuming.io_offset;
             let timer = Instant::now();
             self.start_uploading_blocks(
-                part_number,
                 &from_resuming
                     .up_urls
                     .iter()
@@ -854,7 +855,7 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
@@ -863,7 +864,120 @@ mod tests {
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
-        .upload_file(&temp_path, Some("file"), None)?;
+        .upload_file(&temp_path, "", None)?;
+        assert_eq!(result.key(), Some("test-key"));
+        assert_eq!(result.hash(), Some("abcdef"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_uploader_resumable_uploader_upload_file_with_recovering() -> Result<(), Box<dyn Error>> {
+        let temp_path = create_temp_file(5 * (1 << 22))?.into_temp_path();
+        let config = ConfigBuilder::default()
+            .http_request_handler(
+                CallHandlers::new(|request| {
+                    panic!("Unexpected Request: {} {}", request.method(), request.url());
+                })
+                .install(
+                    Method::POST,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads"),
+                        )
+                        + "$",
+                    |request, _| {
+                        panic!("Unexpected call `POST {}`", request.url());
+                    },
+                )
+                .install(
+                    Method::PUT,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads/test_upload_id/2"),
+                        )
+                        + "$",
+                    |_, _| {
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .bytes_as_body(json!({ "etag": "etag_3" }).to_string())
+                            .build())
+                    },
+                )
+                .install(
+                    Method::PUT,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads/test_upload_id/4"),
+                        )
+                        + "$",
+                    |_, _| {
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .bytes_as_body(json!({ "etag": "etag_4" }).to_string())
+                            .build())
+                    },
+                )
+                .install(
+                    Method::POST,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads/test_upload_id"),
+                        )
+                        + "$",
+                    |_, _| {
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .bytes_as_body(json!({"hash": "abcdef", "key": "test-key"}).to_string())
+                            .build())
+                    },
+                ),
+            )
+            .upload_logger(None)
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        let bucket_uploader = BucketUploaderBuilder::new(
+            "test_bucket".into(),
+            vec![vec![Box::from("http://z1h1.com")].into()].into(),
+            config,
+        )
+        .build();
+        {
+            let medium = bucket_uploader.recorder().open_and_write_metadata(
+                &temp_path,
+                Some("test-key"),
+                "test_upload_id",
+                &["http://z1h1.com"],
+                1 << 22,
+            )?;
+            medium.append("etag_1", 1)?;
+            medium.append("etag_3", 3)?;
+            medium.append("etag_5", 5)?;
+        }
+        let result = bucket_uploader
+            .upload_token(UploadToken::from_policy(policy, get_credential()))
+            .key("test-key")
+            .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));
         Ok(())
@@ -948,7 +1062,7 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
@@ -957,7 +1071,7 @@ mod tests {
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
-        .upload_file(&temp_path, Some("file"), None)?;
+        .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));
         Ok(())
@@ -1068,7 +1182,7 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into()].into(),
@@ -1077,7 +1191,7 @@ mod tests {
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
-        .upload_file(&temp_path, Some("file"), None)?;
+        .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));
         Ok(())
@@ -1177,7 +1291,7 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![
@@ -1190,7 +1304,7 @@ mod tests {
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
-        .upload_file(&temp_path, Some("file"), None)?;
+        .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));
         Ok(())
@@ -1322,7 +1436,7 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let result = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![
@@ -1335,7 +1449,7 @@ mod tests {
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test-key")
-        .upload_file(&temp_path, Some("file"), None)?;
+        .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));
         Ok(())
@@ -1424,7 +1538,7 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let upload_token = UploadToken::from_policy(
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build(),
+            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
             get_credential(),
         );
 
@@ -1436,7 +1550,7 @@ mod tests {
         .build()
         .upload_token(upload_token.clone())
         .key("test-key")
-        .upload_file(&temp_path, Some("file"), None)
+        .upload_file(&temp_path, "", None)
         .unwrap_err();
 
         let result = BucketUploaderBuilder::new(
@@ -1447,7 +1561,7 @@ mod tests {
         .build()
         .upload_token(upload_token)
         .key("test-key")
-        .upload_file(&temp_path, Some("file"), None)?;
+        .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));
         Ok(())
@@ -1560,7 +1674,7 @@ mod tests {
             .build();
 
         let upload_token = UploadToken::from_policy(
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", config.upload_token_lifetime()).build(),
+            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
             get_credential(),
         );
 
@@ -1572,7 +1686,7 @@ mod tests {
         .build()
         .upload_token(upload_token.clone())
         .key("test-key")
-        .upload_file(&temp_path, Some("file"), None)
+        .upload_file(&temp_path, "", None)
         .unwrap_err();
 
         let result = BucketUploaderBuilder::new(
@@ -1583,7 +1697,7 @@ mod tests {
         .build()
         .upload_token(upload_token)
         .key("test-key")
-        .upload_file(&temp_path, Some("file"), None)?;
+        .upload_file(&temp_path, "", None)?;
 
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));

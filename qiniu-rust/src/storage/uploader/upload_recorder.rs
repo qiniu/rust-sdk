@@ -34,10 +34,11 @@ pub(super) struct FileUploadRecordMedium {
 
 #[derive(Deserialize, Debug, Clone)]
 pub(super) struct FileUploadRecordMediumMetadata {
-    file_size: u64,
-    modified_timestamp: u64,
+    pub(super) file_size: u64,
+    pub(super) modified_timestamp: u64,
     pub(super) upload_id: Box<str>,
     pub(super) up_urls: Box<[Box<str>]>,
+    pub(super) block_size: u32,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -46,14 +47,14 @@ struct SerializableFileUploadRecordMediumMetadata<'a> {
     modified_timestamp: u64,
     upload_id: &'a str,
     up_urls: &'a [&'a str],
+    block_size: u32,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub(super) struct FileUploadRecordMediumBlockItem {
     pub(super) etag: Box<str>,
     pub(super) part_number: usize,
-    created_timestamp: u64,
-    pub(super) block_size: u32,
+    pub(super) created_timestamp: u64,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -61,7 +62,6 @@ struct SerializableFileUploadRecordMediumBlockItem<'a> {
     etag: &'a str,
     part_number: usize,
     created_timestamp: u64,
-    block_size: u32,
 }
 
 impl UploadRecorderBuilder {
@@ -77,6 +77,7 @@ impl UploadRecorder {
         key: Option<&str>,
         upload_id: &str,
         up_urls: &[&str],
+        block_size: u32,
     ) -> Result<FileUploadRecordMedium> {
         let metadata = path.metadata()?;
         let metadata = SerializableFileUploadRecordMediumMetadata {
@@ -88,6 +89,7 @@ impl UploadRecorder {
                 .as_secs(),
             upload_id,
             up_urls,
+            block_size,
         };
         let medium = self.recorder.open(&self.generate_key(path, key), true)?;
         {
@@ -235,11 +237,10 @@ mod default {
 }
 
 impl FileUploadRecordMedium {
-    pub(super) fn append(&self, etag: &str, part_number: usize, block_size: u32) -> Result<()> {
+    pub(super) fn append(&self, etag: &str, part_number: usize) -> Result<()> {
         let mut item = serde_json::to_string(&SerializableFileUploadRecordMediumBlockItem {
             etag,
             part_number,
-            block_size,
             created_timestamp: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .expect("Clock may have gone backwards")

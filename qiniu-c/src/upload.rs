@@ -270,12 +270,13 @@ fn qiniu_ng_upload(
     let mut file_uploader = bucket_uploader.upload_token(upload_token.as_ref().to_owned()).tap(|_| {
         let _ = qiniu_ng_upload_token_t::from(upload_token);
     });
-    let mut file_name: Option<String> = None;
+    let mut file_name: String = "".into();
     let mut mime: Option<Mime> = None;
     if let Some(params) = unsafe { params.as_ref() } {
         file_uploader = set_params_to_file_uploader(file_uploader, params);
-        file_name = unsafe { params.file_name.as_ref() }
-            .map(|file_name| unsafe { UCString::from_ptr(file_name) }.to_string().unwrap());
+        if let Some(f) = unsafe { params.file_name.as_ref() } {
+            file_name = unsafe { UCString::from_ptr(f) }.to_string().unwrap()
+        }
 
         mime = match unsafe { params.mime.as_ref() }
             .map(|mime| unsafe { ucstr::from_ptr(mime) }.to_string().unwrap().parse())
@@ -476,12 +477,7 @@ enum UploadFile {
 }
 
 impl UploadFile {
-    fn upload(
-        self,
-        file_uploader: FileUploaderBuilder,
-        file_name: Option<String>,
-        mime: Option<Mime>,
-    ) -> QiniuUploadResult {
+    fn upload(self, file_uploader: FileUploaderBuilder, file_name: String, mime: Option<Mime>) -> QiniuUploadResult {
         match self {
             UploadFile::FilePath(file_path) => {
                 file_uploader.upload_file(unsafe { UCString::from_ptr(file_path) }.to_path_buf(), file_name, mime)

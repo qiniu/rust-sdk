@@ -221,7 +221,7 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
         let result = BucketUploaderBuilder::new(
             "test-bucket".into(),
             vec![
@@ -234,7 +234,7 @@ mod tests {
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
-        .upload_file(&temp_path, Some("file"), None)?;
+        .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("abc"));
         assert_eq!(result.hash(), Some("def"));
         assert_eq!(mock.call_called(), 1);
@@ -251,7 +251,7 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
             vec![
@@ -264,7 +264,7 @@ mod tests {
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
-        .upload_file(&temp_path, Some("file"), None)
+        .upload_file(&temp_path, "", None)
         .unwrap_err();
         assert_eq!(mock.call_called(), 16);
         Ok(())
@@ -280,7 +280,7 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
             vec![
@@ -293,7 +293,7 @@ mod tests {
         .build()
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
-        .upload_file(&temp_path, Some("file"), None)
+        .upload_file(&temp_path, "", None)
         .unwrap_err();
         assert_eq!(mock.call_called(), 4);
         Ok(())
@@ -309,7 +309,7 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
             vec![
@@ -323,7 +323,7 @@ mod tests {
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .never_be_resumable()
-        .upload_stream(&file, Some("file"), None)
+        .upload_stream(&file, "", None)
         .unwrap_err();
         assert_eq!(mock.call_called(), 16);
         Ok(())
@@ -339,7 +339,7 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
             vec![
@@ -353,7 +353,7 @@ mod tests {
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .never_be_resumable()
-        .upload_stream(&file, Some("file"), None)
+        .upload_stream(&file, "", None)
         .unwrap_err();
         assert_eq!(mock.call_called(), 4);
         Ok(())
@@ -369,7 +369,7 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
         BucketUploaderBuilder::new(
             "test-bucket".into(),
             vec![
@@ -383,7 +383,7 @@ mod tests {
         .upload_token(UploadToken::from_policy(policy, get_credential()))
         .key("test:file")
         .never_be_resumable()
-        .upload_stream(&file, Some("file"), None)
+        .upload_stream(&file, "", None)
         .unwrap_err();
         assert_eq!(mock.call_called(), 2);
         Ok(())

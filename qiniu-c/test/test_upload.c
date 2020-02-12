@@ -59,7 +59,7 @@ void test_qiniu_ng_upload_files(void) {
         qiniu_ng_etag_from_file_path(file_path, (char *) &etag[0], NULL),
         "qiniu_ng_etag_from_file_path() failed");
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), (unsigned long long) time(NULL) + 86400);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
     qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(&policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
 
@@ -75,8 +75,8 @@ void test_qiniu_ng_upload_files(void) {
     };
     qiniu_ng_upload_response_t upload_response;
     TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_upload_file_path(bucket_uploader, token, file_path, &params, &upload_response, NULL),
-        "qiniu_ng_upload_file_path() failed");
+        qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, token, file_path, &params, &upload_response, NULL),
+        "qiniu_ng_bucket_uploader_upload_file_path() failed");
 
     qiniu_ng_str_t key = qiniu_ng_upload_response_get_key(upload_response);
     TEST_ASSERT_FALSE_MESSAGE(
@@ -110,8 +110,8 @@ void test_qiniu_ng_upload_files(void) {
         file,
         "file == null");
     TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_upload_file(bucket_uploader, token, file, &params, &upload_response, NULL),
-        "qiniu_ng_upload_file() failed");
+        qiniu_ng_bucket_uploader_upload_file(bucket_uploader, token, file, &params, &upload_response, NULL),
+        "qiniu_ng_bucket_uploader_upload_file() failed");
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         fclose(file), 0,
         "fclose(file) != 0");
@@ -170,8 +170,8 @@ void *thread_of_upload_file(void* data) {
     };
     qiniu_ng_upload_response_t upload_response;
     TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_upload_file_path(context->bucket_uploader, context->token, context->file_path, &params, &upload_response, NULL),
-        "qiniu_ng_upload_file_path() failed");
+        qiniu_ng_bucket_uploader_upload_file_path(context->bucket_uploader, context->token, context->file_path, &params, &upload_response, NULL),
+        "qiniu_ng_bucket_uploader_upload_file_path() failed");
 
     qiniu_ng_str_t key = qiniu_ng_upload_response_get_key(upload_response);
     TEST_ASSERT_FALSE_MESSAGE(
@@ -212,7 +212,7 @@ void test_qiniu_ng_upload_huge_number_of_files(void) {
         qiniu_ng_etag_from_file_path(file_path, (char *) &etag[0], NULL),
         "qiniu_ng_etag_from_file_path() failed");
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), (unsigned long long) time(NULL) + 86400);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
     qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(&policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
 
@@ -297,7 +297,7 @@ void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
         upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), (unsigned long long) time(NULL) + 86400);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(&policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
 
     qiniu_ng_upload_params_t params = {
@@ -307,8 +307,8 @@ void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
     qiniu_ng_str_t error;
 
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_upload_file_path(bucket_uploader, token, QINIU_NG_CHARS("/不存在的路径"), &params, NULL, &err),
-        "qiniu_ng_upload_file_path() returns unexpected value");
+        qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, token, QINIU_NG_CHARS("/不存在的路径"), &params, NULL, &err),
+        "qiniu_ng_bucket_uploader_upload_file_path() returns unexpected value");
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_err_bad_mime_type_error_extract(&err, &error),
         "qiniu_ng_err_bad_mime_type_error_extract() failed");
@@ -334,15 +334,15 @@ void test_qiniu_ng_upload_file_path_failed_by_non_existed_path(void) {
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
         upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), (unsigned long long) time(NULL) + 86400);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(&policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
 
     qiniu_ng_err_t err;
     int32_t code;
 
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_upload_file_path(bucket_uploader, token, QINIU_NG_CHARS("/不存在的路径"), NULL, NULL, &err),
-        "qiniu_ng_upload_file_path() returns unexpected value");
+        qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, token, QINIU_NG_CHARS("/不存在的路径"), NULL, NULL, &err),
+        "qiniu_ng_bucket_uploader_upload_file_path() returns unexpected value");
     TEST_ASSERT_FALSE_MESSAGE(
         qiniu_ng_err_bad_mime_type_error_extract(&err, NULL),
         "qiniu_ng_err_bad_mime_type_error_extract() returns unexpected value");

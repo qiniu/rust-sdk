@@ -264,11 +264,12 @@ impl<'b> FileUploaderBuilder<'b> {
     pub fn upload_file<'n>(
         self,
         file_path: impl AsRef<Path>,
-        file_name: Option<impl Into<Cow<'n, str>>>,
+        file_name: impl Into<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> UploadResult {
         let file_path = file_path.as_ref();
-        let file_name = file_name.map(|file_name| file_name.into());
+        let file_name = file_name.into();
+        let file_name = if file_name.is_empty() { None } else { Some(file_name) };
         match self.resumable_policy {
             ResumablePolicy::Threshold(threshold) => {
                 if file_path.metadata()?.len() > threshold.into() {
@@ -285,10 +286,11 @@ impl<'b> FileUploaderBuilder<'b> {
     pub fn upload_stream<'n>(
         self,
         stream: impl Read + Send,
-        file_name: Option<impl Into<Cow<'n, str>>>,
+        file_name: impl Into<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> UploadResult {
-        let file_name = file_name.map(|file_name| file_name.into());
+        let file_name = file_name.into();
+        let file_name = if file_name.is_empty() { None } else { Some(file_name) };
         match self.resumable_policy {
             ResumablePolicy::Threshold(_) | ResumablePolicy::Always => {
                 self.upload_stream_by_blocks(stream, file_name, mime)

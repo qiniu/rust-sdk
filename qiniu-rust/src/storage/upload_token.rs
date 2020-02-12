@@ -96,13 +96,12 @@ pub type UploadTokenParseResult<T> = Result<T, UploadTokenParseError>;
 #[cfg(test)]
 mod tests {
     use super::{super::upload_policy::UploadPolicyBuilder, *};
-    use std::{borrow::Cow, boxed::Box, error::Error, result::Result, time::Duration};
+    use crate::Config;
+    use std::{borrow::Cow, boxed::Box, error::Error, result::Result};
 
     #[test]
     fn test_build_upload_token_from_upload_policy() -> Result<(), Box<dyn Error>> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", Duration::from_secs(60 * 60))
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", &Config::default()).build();
         let token = UploadToken::from_policy(policy, Cow::Owned(get_credential())).token();
         assert!(token.starts_with(get_credential().access_key()));
         let token = UploadToken::from_token(token);

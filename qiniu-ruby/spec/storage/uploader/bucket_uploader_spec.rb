@@ -4,11 +4,12 @@ require 'securerandom'
 RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
   context '#upload_file' do
     it 'should upload file by io' do
+      config = QiniuNg::Config.new
       upload_token = QiniuNg::Storage::Uploader::UploadToken.from_policy_builder(
-                       QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket'),
+                       QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config),
                        access_key: ENV['access_key'],
                        secret_key: ENV['secret_key'])
-      bucket_uploader = QiniuNg::Storage::Uploader.new(QiniuNg::Config.new).
+      bucket_uploader = QiniuNg::Storage::Uploader.new(config).
                                                    bucket_uploader(bucket_name: 'z0-bucket',
                                                                    access_key: ENV['access_key'])
       file_path = '/etc/services'
@@ -39,12 +40,13 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
     end
 
     it 'should upload customized io' do
+      config = QiniuNg::Config.new
       upload_token = QiniuNg::Storage::Uploader::UploadToken.from_policy_builder(
-                       QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket')
+                       QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config)
                                                                         .return_body(%[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)"}]),
                        access_key: ENV['access_key'],
                        secret_key: ENV['secret_key'])
-      bucket_uploader = QiniuNg::Storage::Uploader.new(QiniuNg::Config.new).
+      bucket_uploader = QiniuNg::Storage::Uploader.new(config).
                                                    bucket_uploader(bucket_name: 'z0-bucket',
                                                                    access_key: ENV['access_key'])
       key = "测试-#{Time.now.to_i}"
@@ -80,11 +82,12 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
 
   context '#upload_file_path' do
     it 'should upload file by path' do
+      config = QiniuNg::Config.new
       upload_token = QiniuNg::Storage::Uploader::UploadToken.from_policy_builder(
-                       QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket'),
+                       QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config),
                        access_key: ENV['access_key'],
                        secret_key: ENV['secret_key'])
-      bucket_uploader = QiniuNg::Storage::Uploader.new(QiniuNg::Config.new).
+      bucket_uploader = QiniuNg::Storage::Uploader.new(config).
                                                    bucket_uploader(bucket_name: 'z0-bucket',
                                                                    access_key: ENV['access_key'])
       file_path = '/etc/services'

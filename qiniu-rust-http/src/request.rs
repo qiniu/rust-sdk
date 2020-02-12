@@ -97,20 +97,20 @@ impl<'r> RequestBuilder<'r> {
         }
     }
 
-    pub fn method<M: Into<Method>>(mut self, method: M) -> RequestBuilder<'r> {
+    pub fn method(mut self, method: impl Into<Method>) -> RequestBuilder<'r> {
         self.request.method = method.into();
         self
     }
 
-    pub fn url<U: Into<URL<'r>>>(mut self, url: U) -> RequestBuilder<'r> {
+    pub fn url(mut self, url: impl Into<URL<'r>>) -> RequestBuilder<'r> {
         self.request.url = url.into();
         self
     }
 
-    pub fn header<HeaderNameT: Into<HeaderName<'r>>, HeaderValueT: Into<HeaderValue<'r>>>(
+    pub fn header(
         mut self,
-        header_name: HeaderNameT,
-        header_value: HeaderValueT,
+        header_name: impl Into<HeaderName<'r>>,
+        header_value: impl Into<HeaderValue<'r>>,
     ) -> RequestBuilder<'r> {
         self.request.headers.insert(header_name.into(), header_value.into());
         self

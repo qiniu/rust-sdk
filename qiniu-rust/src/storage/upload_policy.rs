@@ -1,4 +1,4 @@
-use crate::utils::bool as bool_utils;
+use crate::{utils::bool as bool_utils, Config};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -217,20 +217,20 @@ impl<'p> UploadPolicyBuilder<'p> {
         UploadPolicyBuilder { inner: policy }
     }
 
-    pub fn new_policy_for_bucket(bucket: impl Into<Cow<'p, str>>, lifetime: Duration) -> UploadPolicyBuilder<'p> {
+    pub fn new_policy_for_bucket(bucket: impl Into<Cow<'p, str>>, config: &Config) -> UploadPolicyBuilder<'p> {
         UploadPolicyBuilder {
             inner: UploadPolicy {
                 scope: Some(bucket.into()),
                 ..Default::default()
             },
         }
-        .token_lifetime(lifetime)
+        .token_lifetime(config.upload_token_lifetime())
     }
 
     pub fn new_policy_for_object(
         bucket: impl Into<String>,
         key: impl AsRef<str>,
-        lifetime: Duration,
+        config: &Config,
     ) -> UploadPolicyBuilder<'p> {
         UploadPolicyBuilder {
             inner: UploadPolicy {
@@ -238,13 +238,13 @@ impl<'p> UploadPolicyBuilder<'p> {
                 ..Default::default()
             },
         }
-        .token_lifetime(lifetime)
+        .token_lifetime(config.upload_token_lifetime())
     }
 
     pub fn new_policy_for_objects_with_prefix(
         bucket: impl Into<String>,
         prefix: impl AsRef<str>,
-        lifetime: Duration,
+        config: &Config,
     ) -> UploadPolicyBuilder<'p> {
         UploadPolicyBuilder {
             inner: UploadPolicy {
@@ -253,7 +253,7 @@ impl<'p> UploadPolicyBuilder<'p> {
                 ..Default::default()
             },
         }
-        .token_lifetime(lifetime)
+        .token_lifetime(config.upload_token_lifetime())
     }
 
     pub fn token_lifetime(mut self, lifetime: Duration) -> UploadPolicyBuilder<'p> {
@@ -321,20 +321,34 @@ impl<'p> UploadPolicyBuilder<'p> {
     pub fn callback_urls<'a>(
         mut self,
         urls: impl AsRef<[&'a str]>,
-        host: Option<impl Into<Cow<'p, str>>>,
+        host: impl Into<Cow<'p, str>>,
     ) -> UploadPolicyBuilder<'p> {
         self.inner.callback_url = Some(urls.as_ref().join(";").into());
-        self.inner.callback_host = host.map(|h| h.into());
+        self.inner.callback_host = {
+            let callback_host = host.into();
+            if callback_host.is_empty() {
+                None
+            } else {
+                Some(callback_host)
+            }
+        };
         self
     }
 
     pub fn callback_body(
         mut self,
         body: impl Into<Cow<'p, str>>,
-        body_type: Option<impl Into<Cow<'p, str>>>,
+        body_type: impl Into<Cow<'p, str>>,
     ) -> UploadPolicyBuilder<'p> {
         self.inner.callback_body = Some(body.into());
-        self.inner.callback_body_type = body_type.map(|bt| bt.into());
+        self.inner.callback_body_type = {
+            let callback_body_type = body_type.into();
+            if callback_body_type.is_empty() {
+                None
+            } else {
+                Some(callback_body_type)
+            }
+        };
         self
     }
 
@@ -401,10 +415,9 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_for_bucket() -> Result<(), Box<dyn Error>> {
-        let one_hour = Duration::from_secs(60 * 60);
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", one_hour).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default()).build();
         let now = SystemTime::now();
-        let one_hour_later = now + one_hour;
+        let one_hour_later = now + Duration::from_secs(60 * 60);
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), None);
         assert!(
@@ -430,10 +443,10 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_for_object() -> Result<(), Box<dyn Error>> {
-        let one_hour = Duration::from_secs(60 * 60);
-        let policy = UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:object", one_hour).build();
+        let policy =
+            UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:object", &Config::default()).build();
         let now = SystemTime::now();
-        let one_hour_later = now + one_hour;
+        let one_hour_later = now + Duration::from_secs(60 * 60);
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), Some("test:object"));
         assert!(!policy.use_prefixal_object_key());
@@ -460,15 +473,11 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_for_objects_with_prefix() -> Result<(), Box<dyn Error>> {
-        let one_hour = Duration::from_secs(60 * 60);
-        let policy = UploadPolicyBuilder::new_policy_for_objects_with_prefix(
-            "test_bucket",
-            "test:object",
-            Duration::from_secs(60 * 60),
-        )
-        .build();
+        let policy =
+            UploadPolicyBuilder::new_policy_for_objects_with_prefix("test_bucket", "test:object", &Config::default())
+                .build();
         let now = SystemTime::now();
-        let one_hour_later = now + one_hour;
+        let one_hour_later = now + Duration::from_secs(60 * 60);
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), Some("test:object"));
         assert!(policy.use_prefixal_object_key());
@@ -495,7 +504,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_deadline() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .token_deadline(SystemTime::now())
             .build();
         assert!(
@@ -519,7 +528,7 @@ mod tests {
     #[test]
     fn test_build_upload_policy_with_lifetime() -> Result<(), Box<dyn Error>> {
         let one_day = Duration::from_secs(60 * 60 * 24);
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .token_lifetime(one_day)
             .build();
         let now = SystemTime::now();
@@ -544,7 +553,7 @@ mod tests {
     #[test]
     fn test_build_upload_policy_with_lifetime_overflow() -> Result<(), Box<dyn Error>> {
         let future = Duration::from_secs(u64::max_value());
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .token_lifetime(future)
             .build();
         assert!(
@@ -562,7 +571,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_insert_only() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .insert_only()
             .build();
         assert_eq!(policy.is_insert_only(), true);
@@ -574,7 +583,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_overwritable() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .overwritable()
             .build();
         assert_eq!(policy.is_insert_only(), false);
@@ -586,7 +595,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_mime_detection() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .enable_mime_detection()
             .build();
         assert_eq!(policy.mime_detection_enabled(), true);
@@ -597,7 +606,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_normal_storage() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .normal_storage()
             .build();
         assert_eq!(policy.is_normal_storage_used(), true);
@@ -609,7 +618,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_infrequent_storage() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .infrequent_storage()
             .build();
         assert_eq!(policy.is_normal_storage_used(), false);
@@ -621,7 +630,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_return_url() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .return_url("http://www.qiniu.io/test")
             .build();
         assert_eq!(policy.return_url(), Some("http://www.qiniu.io/test"));
@@ -632,7 +641,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_return_body() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .return_body("datadatadata")
             .build();
         assert_eq!(policy.return_body(), Some("datadatadata"));
@@ -643,10 +652,10 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_callback_urls() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .callback_urls(
                 &["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"],
-                Some("www.qiniu.com"),
+                "www.qiniu.com",
             )
             .build();
         assert_eq!(
@@ -662,8 +671,8 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_callback_body() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
-            .callback_body("a=b&c=d", None::<String>)
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
+            .callback_body("a=b&c=d", "")
             .build();
         assert_eq!(policy.callback_body(), Some("a=b&c=d"));
         assert_eq!(policy.callback_body_type(), None);
@@ -675,8 +684,8 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_callback_body_with_body_type() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
-            .callback_body("a=b&c=d", Some("application/x-www-form-urlencoded"))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
+            .callback_body("a=b&c=d", "application/x-www-form-urlencoded")
             .build();
         assert_eq!(policy.callback_body(), Some("a=b&c=d"));
         assert_eq!(policy.callback_body_type(), Some("application/x-www-form-urlencoded"));
@@ -688,7 +697,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_save_key() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .save_as("target_file", false)
             .build();
         assert_eq!(policy.save_key(), Some("target_file"));
@@ -701,7 +710,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_save_key_by_force() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .save_as("target_file", true)
             .build();
         assert_eq!(policy.save_key(), Some("target_file"));
@@ -714,7 +723,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_file_size_exclusive_limit() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .file_size_limitation(15..20)
             .build();
         assert_eq!(policy.file_size_limitation(), (Some(15), Some(19)));
@@ -726,7 +735,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_file_size_inclusive_limit() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .file_size_limitation(15..=20)
             .build();
         assert_eq!(policy.file_size_limitation(), (Some(15), Some(20)));
@@ -738,7 +747,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_file_size_max_limit() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .file_size_limitation(..20)
             .build();
         assert_eq!(policy.file_size_limitation(), (None, Some(19)));
@@ -750,7 +759,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_file_size_min_limit() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .file_size_limitation(15..)
             .build();
         assert_eq!(policy.file_size_limitation(), (Some(15), None));
@@ -762,7 +771,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_mime() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .mime_types(&["image/jpeg", "image/png"])
             .build();
         assert_eq!(
@@ -777,7 +786,7 @@ mod tests {
     #[test]
     fn test_build_upload_policy_with_object_lifetime() -> Result<(), Box<dyn Error>> {
         let one_hundred_days = Duration::from_secs(100 * 24 * 60 * 60);
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .object_lifetime(one_hundred_days)
             .build();
         assert_eq!(policy.object_lifetime(), Some(one_hundred_days));
@@ -791,7 +800,7 @@ mod tests {
     fn test_build_upload_policy_with_short_object_lifetime() -> Result<(), Box<dyn Error>> {
         let one_hundred_secs = Duration::from_secs(100);
         let one_day = Duration::from_secs(24 * 60 * 60);
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .object_lifetime(one_hundred_secs)
             .build();
         assert_eq!(policy.object_lifetime(), Some(one_day));
@@ -805,7 +814,7 @@ mod tests {
     fn test_build_upload_policy_with_object_deadline() -> Result<(), Box<dyn Error>> {
         let one_hundred_days = Duration::from_secs(100 * 24 * 60 * 60);
         let after_one_hundred_days = SystemTime::now() + one_hundred_days;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(60 * 60))
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &Config::default())
             .object_lifetime(one_hundred_days)
             .build();
         assert!(

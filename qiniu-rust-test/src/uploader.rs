@@ -28,14 +28,14 @@ mod tests {
         let config = Config::default();
         let temp_path = create_temp_file(1 << 19)?.into_temp_path();
         let key = format!("test-512k-{}", Utc::now().timestamp_nanos());
-        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, config.upload_token_lifetime())
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config)
             .return_url("http://www.qiniu.com")
             .build();
         let err = get_client(config)
             .upload()
             .for_upload_policy(policy, get_credential().into())?
             .key(&key)
-            .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))
+            .upload_file(&temp_path, "512k", Some(mime::IMAGE_PNG))
             .unwrap_err();
 
         if let UploadError::QiniuError(e) = &err {
@@ -52,7 +52,7 @@ mod tests {
         let temp_path = create_temp_file(1 << 19)?.into_temp_path();
         let etag = etag::from_file(&temp_path)?;
         let key = format!("test-512k-{}", Utc::now().timestamp_nanos());
-        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, config.upload_token_lifetime())
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
@@ -68,7 +68,7 @@ mod tests {
                 assert!(total.unwrap() > (1 << 19));
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))?;
+            .upload_file(&temp_path, "512k", Some(mime::IMAGE_PNG))?;
 
         assert!(last_uploaded.load(Relaxed) > (1 << 19));
         assert_eq!(result.key(), Some(key.as_str()));
@@ -78,7 +78,7 @@ mod tests {
         // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
 
         let key = format!("test-512k-{}", Utc::now().timestamp_nanos());
-        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, Config::default().upload_token_lifetime())
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &Config::default())
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
@@ -95,7 +95,7 @@ mod tests {
                 assert_eq!(total.unwrap(), 1 << 19);
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_file(&temp_path, Some("512k"), Some(mime::IMAGE_PNG))?;
+            .upload_file(&temp_path, "512k", Some(mime::IMAGE_PNG))?;
 
         assert_eq!(last_uploaded.load(Relaxed), 1 << 19);
         assert_eq!(result.key(), Some(key.as_str()));
@@ -113,7 +113,7 @@ mod tests {
         let temp_path = create_temp_file(FILE_SIZE.try_into().unwrap())?.into_temp_path();
         let etag = etag::from_file(&temp_path)?;
         let key = format!("test-9m-{}", Utc::now().timestamp_nanos());
-        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, config.upload_token_lifetime())
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fsize\":$(fsize)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
@@ -129,7 +129,7 @@ mod tests {
                 assert_eq!(total.unwrap(), FILE_SIZE);
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_file(&temp_path, Some("9m"), Some(mime::IMAGE_PNG))?;
+            .upload_file(&temp_path, "9m", Some(mime::IMAGE_PNG))?;
 
         assert_eq!(last_uploaded.load(Relaxed), FILE_SIZE);
         assert_eq!(result.key(), Some(key.as_str()));
@@ -146,7 +146,7 @@ mod tests {
         let temp_path = create_temp_file(FILE_SIZE.try_into().unwrap())?.into_temp_path();
         let etag = etag::from_file(&temp_path)?;
         let key = format!("test-5m-{}", Utc::now().timestamp_nanos());
-        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, config.upload_token_lifetime())
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fsize\":$(fsize)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
@@ -170,7 +170,7 @@ mod tests {
                 assert_eq!(total.unwrap(), FILE_SIZE);
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_file(&temp_path, Some("5m"), Some(mime::IMAGE_PNG))?;
+            .upload_file(&temp_path, "5m", Some(mime::IMAGE_PNG))?;
 
         assert_eq!(last_uploaded.load(Relaxed), FILE_SIZE);
         assert_eq!(result.key(), Some(key.as_str()));
@@ -185,7 +185,7 @@ mod tests {
         let config = Config::default();
         let temp_path = create_temp_file(1 << 20)?.into_temp_path();
         let etag = etag::from_file(&temp_path)?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", config.upload_token_lifetime())
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
@@ -198,7 +198,7 @@ mod tests {
                 assert!(total.unwrap() > (1 << 20));
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_file(&temp_path, Some("1m"), Some(mime::IMAGE_PNG))?;
+            .upload_file(&temp_path, "1m", Some(mime::IMAGE_PNG))?;
 
         assert!(last_uploaded.load(Relaxed) > (1 << 20));
         assert!(result.key().is_some());
@@ -206,7 +206,7 @@ mod tests {
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
         assert_eq!(result.get("var_key2"), None);
 
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", config.upload_token_lifetime())
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
@@ -220,7 +220,7 @@ mod tests {
                 assert_eq!(total.unwrap(), 1 << 20);
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_file(&temp_path, Some("1m"), Some(mime::IMAGE_PNG))?;
+            .upload_file(&temp_path, "1m", Some(mime::IMAGE_PNG))?;
 
         assert_eq!(last_uploaded.load(Relaxed), 1 << 20);
         assert!(result.key().is_some());
@@ -238,7 +238,7 @@ mod tests {
         file.seek(SeekFrom::Start(0))?;
 
         let etag = etag::from_file(&temp_path)?;
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", config.upload_token_lifetime())
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
@@ -252,7 +252,7 @@ mod tests {
                 assert!(total.unwrap() > (1 << 23));
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, None::<String>, None)?;
+            .upload_stream(&file, "", None)?;
 
         assert!(last_uploaded.load(Relaxed) > (1 << 23));
         assert!(result.key().is_some());
@@ -264,7 +264,7 @@ mod tests {
 
         file.seek(SeekFrom::Start(0))?;
         let last_uploaded = AtomicU64::new(0);
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
         let result = get_client(config.clone())
             .upload()
             .for_upload_policy(policy, get_credential().into())?
@@ -274,7 +274,7 @@ mod tests {
                 assert!(total.is_none());
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, Some("8m"), None)?;
+            .upload_stream(&file, "8m", None)?;
 
         assert_eq!(last_uploaded.load(Relaxed), 1 << 23);
         assert!(result.key().is_some());
@@ -286,7 +286,7 @@ mod tests {
         file.seek(SeekFrom::Start(0))?;
         let etag = etag::from_file(&temp_path)?;
         let last_uploaded = AtomicU64::new(0);
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
         let result = get_client(config.clone())
             .upload()
             .for_upload_policy(policy, get_credential().into())?
@@ -296,7 +296,7 @@ mod tests {
                 assert!(total.is_none());
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, Some("8m+1"), None)?;
+            .upload_stream(&file, "8m+1", None)?;
 
         assert_eq!(last_uploaded.load(Relaxed), (1 << 23) + 1);
         assert!(result.key().is_some());
@@ -308,7 +308,7 @@ mod tests {
         file.seek(SeekFrom::Start(0))?;
         let etag = etag::from_file(&temp_path)?;
         let last_uploaded = AtomicU64::new(0);
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
         let result = get_client(config.clone())
             .upload()
             .for_upload_policy(policy, get_credential().into())?
@@ -319,7 +319,7 @@ mod tests {
                 assert!(total.unwrap() > (1 << 21));
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, Some("2m"), None)?;
+            .upload_stream(&file, "2m", None)?;
 
         assert!(last_uploaded.load(Relaxed) > (1 << 21));
         assert!(result.key().is_some());
@@ -331,7 +331,7 @@ mod tests {
         file.seek(SeekFrom::Start(0))?;
         let etag = etag::from_file(&temp_path)?;
         let last_uploaded = AtomicU64::new(0);
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", config.upload_token_lifetime()).build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
         let result = get_client(config.clone())
             .upload()
             .for_upload_policy(policy, get_credential().into())?
@@ -341,7 +341,7 @@ mod tests {
                 assert!(total.is_none());
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, Some("2m+3"), None)?;
+            .upload_stream(&file, "2m+3", None)?;
 
         assert_eq!(last_uploaded.load(Relaxed), ((1 << 22) - 3));
         assert!(result.key().is_some());

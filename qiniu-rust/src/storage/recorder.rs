@@ -33,7 +33,7 @@ impl FileSystemRecorder {
             .unwrap_or_else(|_| temp_dir())
     }
 
-    pub fn from<P: Into<Cow<'static, Path>>>(root_directory: P) -> Arc<dyn Recorder> {
+    pub fn from(root_directory: impl Into<Cow<'static, Path>>) -> Arc<dyn Recorder> {
         let root_directory = root_directory.into();
         Arc::new(FileSystemRecorder { root_directory }) as Arc<dyn Recorder>
     }

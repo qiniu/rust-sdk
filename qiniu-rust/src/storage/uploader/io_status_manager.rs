@@ -1,7 +1,9 @@
 use crate::http::Error as HTTPError;
 use assert_impl::assert_impl;
 use std::{
-    io::{Error as IOError, ErrorKind as IOErrorKind, Read},
+    collections::HashSet,
+    convert::TryInto,
+    io::{Error as IOError, ErrorKind as IOErrorKind, Read, Seek, SeekFrom},
     sync::Mutex,
 };
 
@@ -11,46 +13,93 @@ pub(super) enum Result {
     HTTPError(HTTPError),
 }
 
-enum Status<R: Read + Send> {
-    Uploading(R, usize),
+enum Status<R: Read + Seek + Send> {
+    Uploading {
+        reader: R,
+        block_size: u32,
+        current_part_number: usize,
+        uploaded_part_numbers: HashSet<usize>,
+    },
     IOError(IOError),
     HTTPError(HTTPError),
     Success,
 }
 
-pub(super) struct IOStatusManager<R: Read + Send> {
+pub(super) struct IOStatusManager<R: Read + Seek + Send> {
     inner: Mutex<Status<R>>,
 }
 
-impl<R: Read + Send> IOStatusManager<R> {
-    pub(super) fn new(io: R) -> IOStatusManager<R> {
+pub(super) struct PartData {
+    pub(super) data: Vec<u8>,
+    pub(super) part_number: usize,
+}
+
+impl<R: Read + Seek + Send> IOStatusManager<R> {
+    pub(super) fn new(io: R, block_size: u32, uploaded_part_numbers: &[usize]) -> IOStatusManager<R> {
         IOStatusManager {
-            inner: Mutex::new(Status::Uploading(io, 0)),
+            inner: Mutex::new(Status::Uploading {
+                reader: io,
+                current_part_number: 0,
+                block_size,
+                uploaded_part_numbers: {
+                    let mut set = HashSet::new();
+                    for &part_number in uploaded_part_numbers {
+                        set.insert(part_number);
+                    }
+                    set
+                },
+            }),
         }
     }
 
-    pub(super) fn read(&self, buf: &mut [u8], c: &mut usize) -> Option<usize> {
+    pub(super) fn read(&self) -> Option<PartData> {
         let mut lock = self.inner.lock().unwrap();
         match &mut *lock {
-            Status::Uploading(io, count) => {
+            Status::Uploading {
+                reader,
+                block_size,
+                current_part_number,
+                uploaded_part_numbers,
+            } => {
                 let mut have_read = 0;
+                let mut buf = vec![0; block_size.to_owned().try_into().unwrap_or(usize::max_value())];
+                let new_part_number = {
+                    let mut new_part_number = *current_part_number + 1;
+                    let mut skip_bytes = 0i64;
+                    while uploaded_part_numbers.get(&new_part_number).is_some() {
+                        new_part_number += 1;
+                        skip_bytes += *block_size as i64;
+                    }
+                    if skip_bytes > 0 {
+                        if let Err(err) = reader.seek(SeekFrom::Current(skip_bytes)) {
+                            *lock = Status::IOError(err);
+                            return None;
+                        }
+                    }
+                    new_part_number
+                };
                 loop {
-                    match io.read(&mut buf[have_read..]) {
+                    match reader.read(&mut buf[have_read..]) {
                         Ok(0) => {
-                            *c = *count + 1;
                             *lock = Status::Success;
                             if have_read > 0 {
-                                return Some(have_read);
+                                buf.resize_with(have_read, Default::default);
+                                return Some(PartData {
+                                    data: buf,
+                                    part_number: new_part_number,
+                                });
                             } else {
                                 return None;
                             }
                         }
                         Ok(n) => {
-                            *count += 1;
-                            *c = *count;
                             have_read += n;
                             if have_read == buf.len() {
-                                return Some(have_read);
+                                *current_part_number = new_part_number;
+                                return Some(PartData {
+                                    data: buf,
+                                    part_number: new_part_number,
+                                });
                             }
                         }
                         Err(ref err) if err.kind() == IOErrorKind::Interrupted => {
@@ -76,7 +125,7 @@ impl<R: Read + Send> IOStatusManager<R> {
             Status::Success => Result::Success,
             Status::IOError(err) => Result::IOError(err),
             Status::HTTPError(err) => Result::HTTPError(err),
-            Status::Uploading(_, _) => {
+            Status::Uploading { .. } => {
                 panic!("Unexpected uploading status of task_manager");
             }
         }
@@ -89,7 +138,7 @@ impl<R: Read + Send> IOStatusManager<R> {
     }
 }
 
-impl<R: Read + Send> Status<R> {
+impl<R: Read + Seek + Send> Status<R> {
     #[allow(dead_code)]
     fn ignore() {
         assert_impl!(Send: Self);

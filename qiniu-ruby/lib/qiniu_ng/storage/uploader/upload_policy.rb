@@ -12,19 +12,16 @@ module QiniuNg
         end
         private_class_method :new
 
-        def self.new_for_bucket(bucket_name, token_lifetime: Utils::Duration.new(hour: 1))
-          token_lifetime = Utils::Duration.new(token_lifetime) if token_lifetime.is_a?(Hash)
-          Builder.new_for_bucket(bucket_name, token_lifetime: token_lifetime).build!
+        def self.new_for_bucket(bucket_name, config)
+          Builder.new_for_bucket(bucket_name, config).build!
         end
 
-        def self.new_for_object(bucket_name, object_key, token_lifetime: Utils::Duration.new(hour: 1))
-          token_lifetime = Utils::Duration.new(token_lifetime) if token_lifetime.is_a?(Hash)
-          Builder.new_for_object(bucket_name, object_key, token_lifetime: token_lifetime).build!
+        def self.new_for_object(bucket_name, object_key, config)
+          Builder.new_for_object(bucket_name, object_key, config).build!
         end
 
-        def self.new_for_objects_with_prefix(bucket_name, object_key_prefix, token_lifetime: Utils::Duration.new(hour: 1))
-          token_lifetime = Utils::Duration.new(token_lifetime) if token_lifetime.is_a?(Hash)
-          Builder.new_for_objects_with_prefix(bucket_name, object_key_prefix, token_lifetime: token_lifetime).build!
+        def self.new_for_objects_with_prefix(bucket_name, object_key_prefix, config)
+          Builder.new_for_objects_with_prefix(bucket_name, object_key_prefix, config).build!
         end
 
         def inspect
@@ -107,28 +104,28 @@ module QiniuNg
           end
           private_class_method :new
 
-          def self.new_for_bucket(bucket_name, token_lifetime: Utils::Duration.new(hour: 1))
+          def self.new!(constructor_name, *constructor_arguments)
             new(
-              Bindings::UploadPolicyBuilder.new_for_bucket(bucket_name.to_s, token_lifetime.to_i),
-              :new_for_bucket,
-              [bucket_name.to_s, token_lifetime.to_i],
+              Bindings::UploadPolicyBuilder.public_send(constructor_name, *constructor_arguments),
+              constructor_name,
+              constructor_arguments
             )
           end
+          private_class_method :new!
 
-          def self.new_for_object(bucket_name, object_key, token_lifetime: Utils::Duration.new(hour: 1))
-            new(
-              Bindings::UploadPolicyBuilder.new_for_object(bucket_name.to_s, object_key.to_s, token_lifetime.to_i),
-              :new_for_object,
-              [bucket_name.to_s, object_key.to_s, token_lifetime.to_i],
-            )
+          def self.new_for_bucket(bucket_name, config)
+            raise ArgumentError, 'config must be instance of Config' unless config.is_a?(Config)
+            new!(:new_for_bucket, bucket_name.to_s, config.instance_variable_get(:@config))
           end
 
-          def self.new_for_objects_with_prefix(bucket_name, object_key_prefix, token_lifetime: Utils::Duration.new(hour: 1))
-            new(
-              Bindings::UploadPolicyBuilder.new_for_objects_with_prefix(bucket_name.to_s, object_key_prefix.to_s, token_lifetime.to_i),
-              :new_for_objects_with_prefix,
-              [bucket_name.to_s, object_key_prefix.to_s, token_lifetime.to_i],
-            )
+          def self.new_for_object(bucket_name, object_key, config)
+            raise ArgumentError, 'config must be instance of Config' unless config.is_a?(Config)
+            new!(:new_for_object, bucket_name.to_s, object_key.to_s, config.instance_variable_get(:@config))
+          end
+
+          def self.new_for_objects_with_prefix(bucket_name, object_key_prefix, config)
+            raise ArgumentError, 'config must be instance of Config' unless config.is_a?(Config)
+            new!(:new_for_objects_with_prefix, bucket_name.to_s, object_key_prefix.to_s, config.instance_variable_get(:@config))
           end
 
           def inspect

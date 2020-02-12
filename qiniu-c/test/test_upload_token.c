@@ -4,6 +4,7 @@
 #include "test.h"
 
 void test_qiniu_ng_make_upload_token(void) {
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         env_load("..", false), 0,
         "env_load() failed");
@@ -12,9 +13,9 @@ void test_qiniu_ng_make_upload_token(void) {
         QINIU_NG_CHARS("https://apin1.qiniu.com/callback"),
         QINIU_NG_CHARS("https://apin2.qiniu.com/callback")
     };
-    uint64_t deadline = (unsigned long long) time(NULL) + 86400;
+    uint64_t deadline = (unsigned long long) time(NULL) + 3600;
 
-    qiniu_ng_upload_policy_builder_t builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("test-bucket"), 86400);
+    qiniu_ng_upload_policy_builder_t builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("test-bucket"), config);
     qiniu_ng_upload_policy_builder_set_insert_only(builder);
     qiniu_ng_upload_policy_builder_set_callback_urls(builder, (const qiniu_ng_char_t *const *) &CALLBACK_URLS[0], 2, NULL);
     qiniu_ng_upload_policy_builder_set_callback_body(builder, QINIU_NG_CHARS("key=$(key)"), NULL);
@@ -241,4 +242,5 @@ void test_qiniu_ng_make_upload_token(void) {
     qiniu_ng_str_free(&callback_body_type);
 
     qiniu_ng_upload_policy_free(&upload_policy_3);
+    qiniu_ng_config_free(&config);
 }

@@ -22,7 +22,3 @@ impl<R: Read> Seek for SeekAdapter<R> {
         Err(IOError::new(IOErrorKind::Other, NOT_IMPLEMENTED))
     }
 }
-
-pub fn is_seek_adapter_err(err: &IOError) -> bool {
-    err.kind() == IOErrorKind::Other && err.to_string() == NOT_IMPLEMENTED
-}
