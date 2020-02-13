@@ -1,3 +1,5 @@
+//! 七牛 Etag 计算库
+
 use super::base64;
 use digest::{
     generic_array::{typenum::U28, GenericArray},
@@ -13,14 +15,18 @@ use std::{
 };
 use tap::TapResultOps;
 
-pub const BLOCK_SIZE: usize = 1 << 22;
+const BLOCK_SIZE: usize = 1 << 22;
+
+/// Etag 字符串固定长度
 pub const ETAG_SIZE: usize = 28;
 
+/// 七牛 Etag 计算器
 pub struct Etag {
     buffer: Vec<u8>,
     sha1s: Vec<Vec<u8>>,
 }
 
+/// 创建一个 Etag 计算器
 pub fn new() -> Etag {
     Etag {
         buffer: Vec::new(),
@@ -35,6 +41,7 @@ impl Default for Etag {
 }
 
 impl Input for Etag {
+    /// 向 Etag 计算器输入数据
     fn input<B: AsRef<[u8]>>(&mut self, data: B) {
         self.buffer.extend_from_slice(data.as_ref());
         let mut iter = self.buffer.chunks_exact(BLOCK_SIZE);
@@ -52,6 +59,7 @@ impl Input for Etag {
 impl FixedOutput for Etag {
     type OutputSize = U28;
 
+    /// 从 Etag 计算器获取结果
     fn fixed_result(mut self) -> GenericArray<u8, Self::OutputSize> {
         if !self.buffer.is_empty() {
             self.sha1s.push(Self::sha1(&self.buffer));
@@ -62,6 +70,7 @@ impl FixedOutput for Etag {
 }
 
 impl Reset for Etag {
+    /// 重置 Etag 计算器
     fn reset(&mut self) {
         self.buffer.clear();
         self.sha1s.clear();
@@ -103,6 +112,10 @@ impl Etag {
     }
 }
 
+/// 一个 Etag 读取器
+///
+/// Etag 读取器实现 `std::io::Read` 接口，能够边读取数据边计算 Etag。
+/// 可以用于在数据流无法倒回的情况下，边读取数据流边计算 Etag
 pub struct Reader<IO>
 where
     IO: Read,
@@ -113,6 +126,9 @@ where
     digest: Etag,
 }
 
+/// 创建一个 Etag 读取器
+///
+/// 封装输入流
 pub fn new_reader<IO: Read>(io: IO) -> Reader<IO> {
     Reader {
         io,
@@ -145,27 +161,34 @@ impl<IO> Reader<IO>
 where
     IO: Read,
 {
+    /// 获取 Etag
     pub fn etag(&self) -> Option<&str> {
         self.etag.as_ref().map(|s| s.as_str())
     }
 
+    /// 获取 Etag，并销毁自身
     pub fn into_etag(self) -> Option<String> {
         self.etag
     }
 }
 
+/// 读取输入流并计算 Etag
+///
+/// 该方法将从输入流中读出全部数据，直到读到 EOF 为止
 pub fn from<IO: Read>(io: IO) -> Result<String> {
     let mut reader = new_reader(io);
     copy(&mut reader, &mut sink())?;
     Ok(reader.into_etag().unwrap())
 }
 
+/// 根据给出的数据计算 Etag
 pub fn from_bytes<S: AsRef<[u8]>>(buf: S) -> String {
     let mut etag_digest = new();
     etag_digest.input(buf.as_ref());
     String::from_utf8(etag_digest.fixed_result().to_vec()).unwrap()
 }
 
+/// 根据给出的文件内容计算 Etag
 pub fn from_file<P: AsRef<Path>>(path: P) -> Result<String> {
     from(File::open(path)?)
 }

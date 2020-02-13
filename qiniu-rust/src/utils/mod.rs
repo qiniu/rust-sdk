@@ -1,3 +1,5 @@
+//! SDK 实用库
+
 pub(crate) mod base64;
 pub(crate) mod bool;
 pub(crate) mod crc32;
