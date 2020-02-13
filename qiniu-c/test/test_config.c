@@ -261,9 +261,7 @@ void test_qiniu_ng_config_http_request_handlers(void) {
         qiniu_ng_config_builder_is_freed(builder),
         "qiniu_ng_config_builder_is_freed() failed");
 
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        env_load("..", false), 0,
-        "env_load() failed");
+    env_load("..", false);
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
     TEST_ASSERT_TRUE_MESSAGE(
@@ -314,9 +312,7 @@ void test_qiniu_ng_config_bad_http_request_handlers(void) {
         qiniu_ng_config_builder_is_freed(builder),
         "qiniu_ng_config_builder_is_freed() failed");
 
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        env_load("..", false), 0,
-        "env_load() failed");
+    env_load("..", false);
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
     TEST_ASSERT_FALSE_MESSAGE(
@@ -359,9 +355,7 @@ void test_qiniu_ng_config_bad_http_request_handlers_2(void) {
         qiniu_ng_config_builder_is_freed(builder),
         "qiniu_ng_config_builder_is_freed() failed");
 
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        env_load("..", false), 0,
-        "env_load() failed");
+    env_load("..", false);
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
     TEST_ASSERT_FALSE_MESSAGE(

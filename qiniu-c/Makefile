@@ -13,7 +13,7 @@ UNAME_S =
 
 ifeq ($(OS),Windows_NT)
 	CC := cl.exe
-	TARGET := build/test.exe
+	TARGET := test.exe
 	INC_DIRS := /I . /I $(UNITY_HOME)
 	SYMBOLS := /D TEST /D UNITY_USE_FLUSH_STDOUT
 	CFLAGS := /MD /W4 /utf-8
@@ -47,11 +47,6 @@ ifneq ($(OS),Windows_NT)
 endif
 build_test_via_dynamic_link: build
 ifeq ($(OS),Windows_NT)
-	if [ -d build ]; \
-	then \
-		rd /s /q build; \
-	fi
-	mkdir build
 	$(CC) $(CFLAGS) $(SRC_FILES) $(INC_DIRS) $(SYMBOLS) /link /out:$(TARGET)
 else
 	mkdir -p build
@@ -60,7 +55,9 @@ endif
 build_test: build_test_via_static_link build_test_via_dynamic_link
 libqiniu_ng.h: cbindgen.toml $(wildcard src/*.rs)
 	cbindgen --config cbindgen.toml --crate qiniu-ng-c --output libqiniu_ng.h --quiet
-ifeq ($(UNAME_S),Linux)
+ifeq ($(OS),Windows_NT)
+	sed -i 's/\bbool\b/_Bool/g' libqiniu_ng.h
+else ifeq ($(UNAME_S),Linux)
 	sed -i 's/\bbool\b/_Bool/g' libqiniu_ng.h
 else
 	sed -i '' 's/[[:<:]]bool[[:>:]]/_Bool/g' libqiniu_ng.h
@@ -68,7 +65,7 @@ endif
 test:
 ifeq ($(OS),Windows_NT)
 	$(MAKE) build_test_via_dynamic_link
-	$(TARGET)
+	.\$(TARGET)
 	rm $(TARGET)
 else
 	$(MAKE) build_test_via_static_link
@@ -79,10 +76,7 @@ else
 endif
 clean:
 ifeq ($(OS),Windows_NT)
-	if [ -d build ]; \
-	then \
-		rd /s /q build; \
-	fi
+	-del /f $(TARGET)
 else
 	rm -rf build
 endif

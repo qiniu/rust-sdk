@@ -67,14 +67,13 @@ matrix:
         - choco install make
         - choco install curl --version=7.67.0 --force
         - cargo install --force cbindgen
-        - export PATH="$(powershell -Command '("Process", "Machine" | % { [Environment]::GetEnvironmentVariable("PATH", $_) -Split ";" -Replace "\\$", "" } | Select -Unique | % { cygpath $_ }) -Join ":"')"
       script:
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
               cd qiniu-c
               cp /c/ProgramData/chocolatey/lib/curl/tools/curl-7.67.0-win64-mingw/bin/*.dll .
               cp -r /c/ProgramData/chocolatey/lib/curl/tools/curl-7.67.0-win64-mingw/include/curl .
-              cmd.exe /C '"C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" amd64 && make build'
+              echo '"C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" amd64 && make build || exit 1' | cmd.exe
               cp ../target/debug/qiniu_ng_c.dll* .
-              cmd.exe /C '"C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" amd64 && make test'
+              echo '"C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" amd64 && make test || exit 1' | cmd.exe
             fi

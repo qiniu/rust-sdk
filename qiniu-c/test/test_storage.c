@@ -6,9 +6,7 @@
 void test_qiniu_ng_storage_bucket_names(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        env_load("..", false), 0,
-        "env_load() failed");
+    env_load("..", false);
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
 
     qiniu_ng_str_list_t bucket_names;
@@ -34,9 +32,7 @@ void test_qiniu_ng_storage_bucket_names(void) {
 void test_qiniu_ng_storage_bucket_create_and_drop(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        env_load("..", false), 0,
-        "env_load() failed");
+    env_load("..", false);
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
 
     const qiniu_ng_char_t new_bucket_name[40];
@@ -84,9 +80,7 @@ void test_qiniu_ng_storage_bucket_create_and_drop(void) {
 void test_qiniu_ng_storage_bucket_create_duplicated(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        env_load("..", false), 0,
-        "env_load() failed");
+    env_load("..", false);
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
 
     qiniu_ng_err_t err;

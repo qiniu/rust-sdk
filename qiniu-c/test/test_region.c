@@ -5,9 +5,7 @@
 void test_qiniu_ng_region_query(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        env_load("..", false), 0,
-        "env_load() failed");
+    env_load("..", false);
     qiniu_ng_regions_t regions;
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_region_query(QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), config, &regions, NULL),

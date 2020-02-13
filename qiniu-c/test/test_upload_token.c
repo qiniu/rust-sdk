@@ -5,9 +5,7 @@
 
 void test_qiniu_ng_make_upload_token(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        env_load("..", false), 0,
-        "env_load() failed");
+    env_load("..", false);
 
     const qiniu_ng_char_t *CALLBACK_URLS[2] = {
         QINIU_NG_CHARS("https://apin1.qiniu.com/callback"),

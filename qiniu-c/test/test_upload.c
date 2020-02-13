@@ -38,9 +38,7 @@ void print_progress(uint64_t uploaded, uint64_t total) {
 void test_qiniu_ng_upload_files(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        env_load("..", false), 0,
-        "env_load() failed");
+    env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
         upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
@@ -197,9 +195,7 @@ void *thread_of_upload_file(void* data) {
 void test_qiniu_ng_upload_huge_number_of_files(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        env_load("..", false), 0,
-        "env_load() failed");
+    env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
         upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
@@ -290,9 +286,7 @@ void test_qiniu_ng_upload_huge_number_of_files(void) {
 void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        env_load("..", false), 0,
-        "env_load() failed");
+    env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
         upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
@@ -327,9 +321,7 @@ void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
 void test_qiniu_ng_upload_file_path_failed_by_non_existed_path(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        env_load("..", false), 0,
-        "env_load() failed");
+    env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
         upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
