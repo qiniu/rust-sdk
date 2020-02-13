@@ -1,3 +1,4 @@
+//! 七牛认证信息模块
 use crate::{
     http::{Headers, Method},
     storage::upload_policy::UploadPolicy,
@@ -16,10 +17,26 @@ struct CredentialInner {
     secret_key: Cow<'static, str>,
 }
 
+/// 认证信息
+///
+/// 该结构体仅用于为其他 SDK 类提供认证信息，本身并不会验证认证信息的有效性
 #[derive(Clone, Eq)]
 pub struct Credential(Arc<CredentialInner>);
 
 impl Credential {
+    /// 创建认证，注意该方法不会验证 Access Key 和 Secret Key 的有效性。
+    ///
+    /// # Arguments
+    ///
+    /// * `access_key` - 七牛 Access Key
+    /// * `secret_key` - 七牛 Secret Key
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use qiniu_ng::Credential;
+    /// let credential = Credential::new("[Access Key]", "[Secret Key]");
+    /// ```
     pub fn new(access_key: impl Into<Cow<'static, str>>, secret_key: impl Into<Cow<'static, str>>) -> Credential {
         Credential(Arc::new(CredentialInner {
             access_key: access_key.into(),
@@ -27,6 +44,7 @@ impl Credential {
         }))
     }
 
+    /// 获取七牛 Access Key
     pub fn access_key(&self) -> &str {
         self.0.access_key.as_ref()
     }
@@ -166,6 +184,7 @@ impl Credential {
             || mime::JSON_MIME.eq_ignore_ascii_case(content_type.as_ref())
     }
 
+    /// 验证七牛回调请求
     pub fn is_valid_request(&self, req: &Request) -> bool {
         self.is_valid_request_with_err(req).unwrap_or(false)
     }
@@ -183,10 +202,12 @@ impl Credential {
         }
     }
 
+    /// 对上传策略进行签名，将其转变为上传凭证
     pub fn sign_upload_policy(&self, upload_policy: &UploadPolicy) -> String {
         self.sign_with_data(upload_policy.as_json().as_bytes())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn sign_download_url_with_deadline(
         &self,
         url: Url,
@@ -230,6 +251,7 @@ impl Credential {
         Ok(signed_url)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn sign_download_url_with_lifetime(
         &self,
         url: Url,

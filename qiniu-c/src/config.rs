@@ -119,7 +119,7 @@ pub extern "C" fn qiniu_ng_config_builder_uc_host(builder: qiniu_ng_config_build
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
         .config_builder
-        .uc_host(unsafe { ucstr::from_ptr(uc_host) }.to_string().unwrap().into());
+        .uc_host(unsafe { ucstr::from_ptr(uc_host) }.to_string().unwrap());
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
@@ -128,7 +128,7 @@ pub extern "C" fn qiniu_ng_config_builder_rs_host(builder: qiniu_ng_config_build
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
         .config_builder
-        .rs_host(unsafe { ucstr::from_ptr(rs_host) }.to_string().unwrap().into());
+        .rs_host(unsafe { ucstr::from_ptr(rs_host) }.to_string().unwrap());
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
@@ -140,7 +140,7 @@ pub extern "C" fn qiniu_ng_config_builder_rsf_host(
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
         .config_builder
-        .rsf_host(unsafe { ucstr::from_ptr(rsf_host) }.to_string().unwrap().into());
+        .rsf_host(unsafe { ucstr::from_ptr(rsf_host) }.to_string().unwrap());
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
@@ -152,7 +152,7 @@ pub extern "C" fn qiniu_ng_config_builder_api_host(
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
         .config_builder
-        .api_host(unsafe { ucstr::from_ptr(api_host) }.to_string().unwrap().into());
+        .api_host(unsafe { ucstr::from_ptr(api_host) }.to_string().unwrap());
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
@@ -164,7 +164,7 @@ pub extern "C" fn qiniu_ng_config_builder_uplog_host(
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
         .config_builder
-        .uplog_host(unsafe { ucstr::from_ptr(uplog_host) }.to_string().unwrap().into());
+        .uplog_host(unsafe { ucstr::from_ptr(uplog_host) }.to_string().unwrap());
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
