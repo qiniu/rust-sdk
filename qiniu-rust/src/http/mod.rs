@@ -13,6 +13,7 @@ pub mod domains_manager;
 pub use domains_manager::{Choice, DomainsManager, DomainsManagerBuilder};
 
 mod handler;
+#[cfg(not(feature = "use-libcurl"))]
 pub(crate) use handler::PanickedHTTPCaller;
 
 mod middleware;

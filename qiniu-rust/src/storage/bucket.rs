@@ -1,3 +1,5 @@
+//! 存储空间模块
+
 use super::{
     region::{Region, RegionId},
     uploader::{BucketUploaderBuilder, UploadManager},
@@ -10,6 +12,9 @@ use assert_impl::assert_impl;
 use once_cell::sync::OnceCell;
 use std::{borrow::Cow, iter::Iterator};
 
+/// 存储空间
+///
+/// 封装存储空间相关功能
 pub struct Bucket<'r> {
     name: Cow<'r, str>,
     credential: Cow<'r, Credential>,
@@ -20,6 +25,9 @@ pub struct Bucket<'r> {
     http_client: Client,
 }
 
+/// 存储空间生成器
+///
+/// 注意，该结构体仅用于在 SDK 中配置生成存储空间实例，而非在七牛云服务器上创建新的存储空间
 pub struct BucketBuilder<'r> {
     name: Cow<'r, str>,
     credential: Cow<'r, Credential>,
@@ -30,6 +38,7 @@ pub struct BucketBuilder<'r> {
     http_client: Client,
 }
 
+/// 存储空间区域迭代器
 pub struct BucketRegionIter<'a, 'r: 'a> {
     bucket: &'a Bucket<'r>,
     itered: usize,
@@ -52,15 +61,29 @@ impl<'r> BucketBuilder<'r> {
         }
     }
 
+    /// 指定存储空间区域
     pub fn region(mut self, region: impl Into<Cow<'r, Region>>) -> BucketBuilder<'r> {
         self.region = Some(region.into());
         self
     }
 
+    /// 指定存储空间备用区域
+    pub fn backup_regions(mut self, regions: impl Into<Vec<Region>>) -> BucketBuilder<'r> {
+        self.backup_regions = Some(regions.into().into_boxed_slice());
+        self
+    }
+
+    /// 指定存储空间 ID
+    ///
+    /// 该方法仅适用于指定七牛公有云区域。
+    /// 如果使用的是私有云，则请调用 `region` 方法
     pub fn region_id(self, region_id: RegionId) -> BucketBuilder<'r> {
         self.region(Cow::Borrowed(region_id.as_region()))
     }
 
+    /// 自动检测区域
+    ///
+    /// 将连接七牛服务器查询当前存储空间所在区域和备用区域
     pub fn auto_detect_region(mut self) -> Result<BucketBuilder<'r>> {
         let mut regions: Vec<Region> = Region::query(
             self.name.as_ref(),
@@ -75,7 +98,8 @@ impl<'r> BucketBuilder<'r> {
         Ok(self)
     }
 
-    pub fn domain(mut self, domain: impl Into<Cow<'r, str>>) -> BucketBuilder<'r> {
+    /// 追加下载域名
+    pub fn append_domain(mut self, domain: impl Into<Cow<'r, str>>) -> BucketBuilder<'r> {
         match &mut self.domains {
             Some(domains) => {
                 domains.push(domain.into());
@@ -87,6 +111,9 @@ impl<'r> BucketBuilder<'r> {
         self
     }
 
+    /// 自动检测下载域名
+    ///
+    /// 将连接七牛服务器查询当前存储空间的下载域名列表
     pub fn auto_detect_domains(mut self) -> Result<BucketBuilder<'r>> {
         self.domains = Some(
             domain::query(&self.http_client, &self.credential, self.name.as_ref())?
@@ -97,6 +124,9 @@ impl<'r> BucketBuilder<'r> {
         Ok(self)
     }
 
+    /// 生成存储空间
+    ///
+    /// 注意，该方法仅用于在 SDK 中配置生成存储空间实例，而非在七牛云服务器上创建新的存储空间
     pub fn build(self) -> Bucket<'r> {
         Bucket {
             name: self.name,
@@ -114,10 +144,14 @@ impl<'r> BucketBuilder<'r> {
 }
 
 impl<'r> Bucket<'r> {
+    /// 存储空间名称
     pub fn name(&self) -> &str {
         self.name.as_ref()
     }
 
+    /// 存储空间区域
+    ///
+    /// 如果区域在存储空间生成前未指定，则该方法可能会连接七牛服务器查询当前存储空间所在区域
     pub fn region(&self) -> Result<&Region> {
         self.region
             .get_or_try_init(|| {
@@ -134,6 +168,11 @@ impl<'r> Bucket<'r> {
             .map(|region| region.as_ref())
     }
 
+    /// 存储空间区域迭代器
+    ///
+    /// 该迭代器将首先返回当前存储空间所在区域，随后返回所有备用区域
+    ///
+    /// 如果区域在存储空间生成前未指定，则该方法可能会连接七牛服务器查询当前存储空间所在区域和备用区域
     pub fn regions<'a>(&'a self) -> Result<BucketRegionIter<'a, 'r>> {
         self.region()?;
         Ok(BucketRegionIter {
@@ -142,6 +181,9 @@ impl<'r> Bucket<'r> {
         })
     }
 
+    /// 存储空间下载域名列表
+    ///
+    /// 如果下载域名在存储空间生成前未指定，则该方法可能会连接七牛服务器查询当前存储空间下载域名列表
     pub fn domains(&self) -> Result<Vec<&str>> {
         let domains = self.domains.get_or_try_init(|| {
             Ok(domain::query(&self.http_client, &self.credential, self.name())?
@@ -152,6 +194,7 @@ impl<'r> Bucket<'r> {
         Ok(domains.iter().map(|domain| domain.as_ref()).collect())
     }
 
+    /// 获取当前存储空间上传生成器
     pub fn uploader(&self) -> BucketUploaderBuilder {
         self.upload_manager.for_bucket(self)
     }
@@ -456,8 +499,8 @@ mod tests {
                     .build(),
             ),
         )
-        .domain("abc.com")
-        .domain("def.com")
+        .append_domain("abc.com")
+        .append_domain("def.com")
         .build();
         assert_eq!(bucket.domains()?.len(), 2);
         assert_eq!(bucket.domains()?.first(), Some(&"abc.com"));

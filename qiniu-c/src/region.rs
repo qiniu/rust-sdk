@@ -32,6 +32,18 @@ impl qiniu_ng_region_id_t {
     }
 }
 
+impl AsRef<str> for qiniu_ng_region_id_t {
+    fn as_ref(&self) -> &str {
+        match self {
+            qiniu_ng_region_id_t::qiniu_ng_region_z0 => "z0",
+            qiniu_ng_region_id_t::qiniu_ng_region_z1 => "z1",
+            qiniu_ng_region_id_t::qiniu_ng_region_z2 => "z2",
+            qiniu_ng_region_id_t::qiniu_ng_region_as0 => "as0",
+            qiniu_ng_region_id_t::qiniu_ng_region_na0 => "na0",
+        }
+    }
+}
+
 impl From<RegionId> for qiniu_ng_region_id_t {
     fn from(region_id: RegionId) -> Self {
         match region_id {

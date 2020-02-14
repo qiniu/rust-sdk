@@ -443,7 +443,7 @@ impl Default for DomainsManagerBuilder {
     /// 注意，对于默认的域名管理器生成器，如果默认的持久化路径无法使用，则将会 Panic
     ///
     /// 默认的持久化路径规则如下：
-    ///   1. 尝试在[操作系统特定的缓存目录](https://docs.rs/dirs/2.0.2/dirs/fn.cache_dir.html)下创建 `qiniu_sdk` 目录
+    ///   1. 尝试在[操作系统特定的缓存目录](https://docs.rs/dirs/2.0.2/dirs/fn.cache_dir.html)下创建 `qiniu_sdk` 目录。
     ///   2. 如果成功，则使用 `qiniu_sdk` 目录下的 `domains_manager.json` 文件。
     ///   3. 如果失败，则使用临时目录下的 `domains_manager.json` 文件。
     fn default() -> Self {

@@ -7,7 +7,7 @@ use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
 use lazy_static::lazy_static;
 use serde::Deserialize;
-use std::borrow::Cow;
+use std::{borrow::Cow, convert::AsRef};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum RegionId {
@@ -37,6 +37,13 @@ impl RegionId {
             RegionId::AS0 => Region::as0(),
             RegionId::NA0 => Region::na0(),
         }
+    }
+}
+
+impl AsRef<str> for RegionId {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        self.as_str()
     }
 }
 

@@ -114,7 +114,7 @@ impl Etag {
 
 /// 一个 Etag 读取器
 ///
-/// Etag 读取器实现 `std::io::Read` 接口，能够边读取数据边计算 Etag。
+/// Etag 读取器实现 `std::io::Read` 特性，能够边读取数据边计算 Etag。
 /// 可以用于在数据流无法倒回的情况下，边读取数据流边计算 Etag
 pub struct Reader<IO>
 where

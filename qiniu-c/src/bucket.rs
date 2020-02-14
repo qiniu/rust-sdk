@@ -85,7 +85,7 @@ pub extern "C" fn qiniu_ng_bucket_new2(
     }
     for i in 0..domains_count {
         let domain = unsafe { *domains.add(i) };
-        bucket_builder = bucket_builder.domain(unsafe { ucstr::from_ptr(domain) }.to_string().unwrap());
+        bucket_builder = bucket_builder.append_domain(unsafe { ucstr::from_ptr(domain) }.to_string().unwrap());
     }
     let bucket: qiniu_ng_bucket_t = Box::new(bucket_builder.build()).into();
     bucket.tap(|_| {
