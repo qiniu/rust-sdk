@@ -102,7 +102,9 @@ void test_qiniu_ng_config_new2(void) {
 #endif
     qiniu_ng_config_builder_upload_recorder_root_directory(builder, home_directory);
     qiniu_ng_char_t* temp_file = create_temp_file(0);
-    qiniu_ng_config_builder_create_new_domains_manager(builder, temp_file);
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_config_builder_create_new_domains_manager(builder, temp_file, NULL),
+        "qiniu_ng_config_builder_create_new_domains_manager() failed");
     free(temp_file);
     qiniu_ng_config_builder_domains_manager_url_frozen_duration(builder, 60 * 60 * 24);
     qiniu_ng_config_builder_domains_manager_disable_auto_persistent(builder);

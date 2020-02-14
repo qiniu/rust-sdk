@@ -215,7 +215,9 @@ module QiniuNg
       %i[create_new_domains_manager
          load_domains_manager_from_file].each do |method|
         define_method(method) do |arg|
-          @builder.public_send(method, arg.to_s)
+          QiniuNg::Error.wrap_ffi_function do
+            @builder.public_send(method, arg.to_s)
+          end
           self
         end
       end
@@ -238,7 +240,9 @@ module QiniuNg
          upload_recorder_root_directory
          uplog_file_path].each do |method|
         define_method(method) do |arg|
-          @builder.public_send(method, arg.to_s)
+          QiniuNg::Error.wrap_ffi_function do
+            @builder.public_send(method, arg.to_s)
+          end
           self
         end
         alias_method :"#{method}=", method

@@ -20,7 +20,7 @@ use qiniu_ng::{
         },
     },
 };
-use std::{mem::transmute, ptr::null_mut, time::Duration};
+use std::{fs::OpenOptions, mem::transmute, ptr::null_mut, time::Duration};
 use tap::TapOps;
 
 #[repr(C)]
@@ -428,12 +428,23 @@ pub extern "C" fn qiniu_ng_config_builder_load_domains_manager_from_file(
 pub extern "C" fn qiniu_ng_config_builder_create_new_domains_manager(
     builder: qiniu_ng_config_builder_t,
     persistent_file: *const qiniu_ng_char_t,
-) {
+    error: *mut qiniu_ng_err_t,
+) -> bool {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
+    let mut result = true;
     let persistent_file =
         unsafe { persistent_file.as_ref() }.map(|file| unsafe { UCString::from_ptr(file) }.into_path_buf());
-    builder.domains_manager_builder = DomainsManagerBuilder::create_new(persistent_file);
+    match DomainsManagerBuilder::create_new(persistent_file) {
+        Ok(domains_manager_builder) => builder.domains_manager_builder = domains_manager_builder,
+        Err(ref err) => {
+            if let Some(error) = unsafe { error.as_mut() } {
+                *error = err.into();
+            }
+            result = false;
+        }
+    }
     let _ = qiniu_ng_config_builder_t::from(builder);
+    result
 }
 
 #[no_mangle]
@@ -519,12 +530,31 @@ pub extern "C" fn qiniu_ng_config_builder_domains_manager_url_resolve_retry_dela
 pub extern "C" fn qiniu_ng_config_builder_domains_manager_persistent_file_path(
     builder: qiniu_ng_config_builder_t,
     persistent_file_path: *const qiniu_ng_char_t,
-) {
+    error: *mut qiniu_ng_err_t,
+) -> bool {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
-    let persistent_file_path =
-        unsafe { persistent_file_path.as_ref() }.map(|file| unsafe { UCString::from_ptr(file) }.into_path_buf());
-    builder.domains_manager_builder = builder.domains_manager_builder.persistent(persistent_file_path);
+    let mut result = true;
+    if let Some(persistent_file_path) =
+        unsafe { persistent_file_path.as_ref() }.map(|file| unsafe { UCString::from_ptr(file) }.into_path_buf())
+    {
+        match OpenOptions::new().write(true).create(true).open(&persistent_file_path) {
+            Ok(persistent_file) => {
+                builder.domains_manager_builder = builder
+                    .domains_manager_builder
+                    .persistent_file(persistent_file, persistent_file_path);
+            }
+            Err(ref e) => {
+                if let Some(error) = unsafe { error.as_mut() } {
+                    *error = e.into();
+                }
+                result = false;
+            }
+        }
+    } else {
+        builder.domains_manager_builder = builder.domains_manager_builder.disable_persistent();
+    }
     let _ = qiniu_ng_config_builder_t::from(builder);
+    result
 }
 
 #[no_mangle]

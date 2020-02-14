@@ -137,6 +137,21 @@ RSpec.describe QiniuNg::Config do
       end.to raise_error(QiniuNg::Error::OSError)
     end
 
+    it 'should not accept invalid domains manager persistent file path' do
+      builder = QiniuNg::Config::Builder.new
+      expect do
+        builder.domains_manager_persistent_file_path = '/不存在的目录/不存在的文件'
+      end.to raise_error(QiniuNg::Error::OSError)
+
+      expect do
+        builder.create_new_domains_manager('/不存在的目录/不存在的文件')
+      end.to raise_error(QiniuNg::Error::OSError)
+
+      expect do
+        builder.load_domains_manager_from_file('/不存在的目录/不存在的文件')
+      end.to raise_error(QiniuNg::Error::OSError)
+    end
+
     it 'should not accept value which is out of range' do
       builder = QiniuNg::Config::Builder.new
       expect do

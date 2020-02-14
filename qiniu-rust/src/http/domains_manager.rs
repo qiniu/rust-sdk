@@ -1,6 +1,6 @@
 //! 域名管理 模块
 //!
-//! 对七牛 Rust SDK 所用的所有域名及域名所用的 IP 地址进行管理。功能包含域名 IP 地址的预解析和缓存，冻结域名，并会对这些状态进行持久化存储。
+//! 对七牛 Rust SDK 所用的所有域名及域名解析后的 IP 地址进行管理。功能包含域名预解析和缓存，冻结域名，并会对这些状态进行持久化存储。
 
 use crate::{config::Config, storage::region::Region, utils::global_thread_pool};
 use assert_impl::assert_impl;
@@ -16,7 +16,7 @@ use std::{
     collections::HashSet,
     env::temp_dir,
     fs::{create_dir_all, File, OpenOptions},
-    io::Error as IOError,
+    io::{Error as IOError, Result as IOResult},
     mem::drop,
     net::{SocketAddr, ToSocketAddrs},
     path::{Path, PathBuf},
@@ -134,12 +134,9 @@ impl DomainsManagerInnerData {
         Ok(persistent.into())
     }
 
-    fn save_to_file(&self, path: &Path) -> PersistentResult<()> {
+    fn save_to_file(&self, file: &mut File) -> PersistentResult<()> {
         let persistent: PersistentDomainsManager = self.to_owned().into();
-        serde_json::to_writer(
-            OpenOptions::new().write(true).truncate(true).create(true).open(path)?,
-            &persistent,
-        )?;
+        serde_json::to_writer(file, &persistent)?;
         Ok(())
     }
 }
@@ -212,7 +209,12 @@ impl From<DomainsManagerInnerData> for PersistentDomainsManager {
 pub struct DomainsManagerBuilder {
     inner_data: DomainsManagerInnerData,
     pre_resolution_urls: HashSet<Cow<'static, str>>,
-    persistent_file_path: Option<PathBuf>,
+    persistent: Option<PersistentBuilder>,
+}
+
+struct PersistentBuilder {
+    file_path: PathBuf,
+    file: File,
 }
 
 impl DomainsManagerBuilder {
@@ -227,7 +229,7 @@ impl DomainsManagerBuilder {
         self
     }
 
-    /// 解析缓存生命周期
+    /// 域名解析缓存生命周期
     ///
     /// 默认缓存一小时
     pub fn resolutions_cache_lifetime(mut self, resolutions_cache_lifetime: Duration) -> Self {
@@ -235,17 +237,17 @@ impl DomainsManagerBuilder {
         self
     }
 
-    /// 禁止 URL 预解析
+    /// 禁止 URL 域名预解析
     ///
-    /// 默认启用 URL 预解析
+    /// 默认启用 URL 域名预解析
     pub fn disable_url_resolution(mut self) -> Self {
         self.inner_data.url_resolution_disabled = true;
         self
     }
 
-    /// 启用 URL 预解析
+    /// 启用 URL 域名预解析
     ///
-    /// 默认启用 URL 预解析
+    /// 默认启用 URL 域名预解析
     pub fn enable_url_resolution(mut self) -> Self {
         self.inner_data.url_resolution_disabled = false;
         self
@@ -269,7 +271,7 @@ impl DomainsManagerBuilder {
         self
     }
 
-    /// URL 预解析重试次数
+    /// URL 域名预解析重试次数
     ///
     /// 当 SDK 预解析域名时发送错误时，SDK 将尝试的最大重试次数。
     ///
@@ -279,7 +281,7 @@ impl DomainsManagerBuilder {
         self
     }
 
-    /// URL 预解析重试前等待时间
+    /// URL 域名预解析重试前等待时间
     ///
     /// 当 SDK 预解析域名时发送错误时，SDK 将等待一段时间并且重试。
     ///
@@ -294,16 +296,40 @@ impl DomainsManagerBuilder {
     /// 设置持久化路径
     ///
     /// 一旦设置持久化路径，域名管理器可以以手动或自动的方式保存自身状态到文件系统。
-    /// 这里也可以传入 None 以禁止持久化
-    pub fn persistent<P: Into<PathBuf>>(mut self, persistent_file_path: Option<P>) -> Self {
-        self.persistent_file_path = persistent_file_path.map(|path| path.into());
+    pub fn persistent(mut self, persistent_file_path: impl Into<PathBuf>) -> IOResult<Self> {
+        let file_path = persistent_file_path.into();
+        self.persistent = Some(PersistentBuilder {
+            file: open_persistent_file(&file_path)?,
+            file_path,
+        });
+        Ok(self)
+    }
+
+    /// 禁止持久化
+    pub fn disable_persistent(mut self) -> Self {
+        self.persistent = None;
         self
     }
 
-    /// 添加预解析 URL
+    /// 设置持久化文件
     ///
-    /// 当域名管理器生成前，可以指定多个预解析 URL。
-    /// 当域名管理器生成时，将以异步的方式预解析 URL，并将结果缓存在域名管理器内。
+    /// 传入持久化文件句柄及其路径
+    ///
+    /// 一旦设置持久化路径，域名管理器可以以手动或自动的方式保存自身状态到文件系统。
+    ///
+    /// 建议您尽可能使用 `persistent` 方法替代，否则您必须保证传入的 `persistent_file` 可以被写入
+    pub fn persistent_file(mut self, persistent_file: File, persistent_file_path: impl Into<PathBuf>) -> Self {
+        self.persistent = Some(PersistentBuilder {
+            file: persistent_file,
+            file_path: persistent_file_path.into(),
+        });
+        self
+    }
+
+    /// 添加域名预解析 URL
+    ///
+    /// 当域名管理器生成前，可以指定多个预解析 URL 域名。
+    /// 当域名管理器生成时，将以异步的方式预解析 URL 域名，并将结果缓存在域名管理器内。
     pub fn pre_resolve_url<U: Into<Cow<'static, str>>>(mut self, pre_resolve_url: U) -> Self {
         self.pre_resolution_urls.insert(pre_resolve_url.into());
         self
@@ -311,12 +337,15 @@ impl DomainsManagerBuilder {
 
     /// 构建域名管理器
     ///
-    /// 构建时，可能会创建新的线程预解析 URL 或刷新解析缓存。
+    /// 构建时，可能会创建新的线程预解析 URL 域名或刷新域名解析缓存。
     pub fn build(self) -> DomainsManager {
         let domains_manager = DomainsManager {
             inner: Arc::new(DomainsManagerInner {
                 inner_data: self.inner_data,
-                persistent_file_path: self.persistent_file_path,
+                persistent: self.persistent.map(|persistent| Persistent {
+                    file: Mutex::new(persistent.file),
+                    file_path: persistent.file_path,
+                }),
                 last_persistent_time: Mutex::new(Instant::now()),
                 last_refresh_time: Mutex::new(Instant::now()),
             }),
@@ -373,10 +402,14 @@ impl DomainsManagerBuilder {
     /// 加载后，该路径将作为域名管理器的持久化路径
     pub fn load_from_file<P: Into<PathBuf>>(persistent_file_path: P) -> PersistentResult<DomainsManagerBuilder> {
         let persistent_file_path = persistent_file_path.into();
+        let persistent_file = open_persistent_file(&persistent_file_path)?;
         let inner_data = DomainsManagerInnerData::load_from_file(&persistent_file_path)?;
         Ok(DomainsManagerBuilder {
             inner_data,
-            persistent_file_path: Some(persistent_file_path),
+            persistent: Some(PersistentBuilder {
+                file: persistent_file,
+                file_path: persistent_file_path,
+            }),
             pre_resolution_urls: Default::default(),
         })
     }
@@ -385,13 +418,18 @@ impl DomainsManagerBuilder {
     ///
     /// 将创建新的域名管理器生成器，并将传入的路径作为新的域名管理器的持久化路径
     ///
-    /// 对于新的域名管理器生成器，将会自动将所有七牛公有云 URL 添加到预解析 URL 列表中
-    pub fn create_new<P: Into<PathBuf>>(persistent_file_path: Option<P>) -> DomainsManagerBuilder {
-        DomainsManagerBuilder {
+    /// 对于新的域名管理器生成器，将会自动将所有七牛公有云 URL 添加到预解析 URL 域名列表中
+    pub fn create_new<P: Into<PathBuf>>(persistent_file_path: Option<P>) -> IOResult<DomainsManagerBuilder> {
+        Ok(DomainsManagerBuilder {
             inner_data: Default::default(),
-            persistent_file_path: persistent_file_path.map(|path| path.into()),
+            persistent: persistent_file_path
+                .map(|file_path| {
+                    let file_path = file_path.into();
+                    open_persistent_file(&file_path).map(|file| PersistentBuilder { file, file_path })
+                })
+                .map_or(Ok(None), |r| r.map(Some))?,
             pre_resolution_urls: Self::default_pre_resolve_urls(),
-        }
+        })
     }
 }
 
@@ -401,6 +439,13 @@ impl Default for DomainsManagerBuilder {
     /// 默认的域名管理器生成器的创建策略与 `load_from_file` 和 `create_new` 均不相同。
     /// 而是先从默认持久化路径尝试加载域名管理器生成器。
     /// 如果失败，则创建新的域名管理器生成器，并将持久化路径设置为默认持久化路径。
+    ///
+    /// 注意，对于默认的域名管理器生成器，如果默认的持久化路径无法使用，则将会 Panic
+    ///
+    /// 默认的持久化路径规则如下：
+    ///   1. 尝试在[操作系统特定的缓存目录](https://docs.rs/dirs/2.0.2/dirs/fn.cache_dir.html)下创建 `qiniu_sdk` 目录
+    ///   2. 如果成功，则使用 `qiniu_sdk` 目录下的 `domains_manager.json` 文件。
+    ///   3. 如果失败，则使用临时目录下的 `domains_manager.json` 文件。
     fn default() -> Self {
         let persistent_file_path = {
             let mut default_path = cache_dir().unwrap_or_else(temp_dir);
@@ -415,21 +460,33 @@ impl Default for DomainsManagerBuilder {
         DomainsManagerInnerData::load_from_file(&persistent_file_path)
             .map(|inner_data| DomainsManagerBuilder {
                 inner_data,
-                persistent_file_path: Some(persistent_file_path.to_owned()),
+                persistent: Some(PersistentBuilder {
+                    file: open_persistent_file(&persistent_file_path).unwrap(),
+                    file_path: persistent_file_path.to_owned(),
+                }),
                 pre_resolution_urls: Default::default(),
             })
             .unwrap_or_else(|_| DomainsManagerBuilder {
                 inner_data: Default::default(),
-                persistent_file_path: Some(persistent_file_path),
+                persistent: Some(PersistentBuilder {
+                    file: open_persistent_file(&persistent_file_path).unwrap(),
+                    file_path: persistent_file_path,
+                }),
                 pre_resolution_urls: Self::default_pre_resolve_urls(),
             })
     }
 }
 
 #[derive(Debug)]
+struct Persistent {
+    file_path: PathBuf,
+    file: Mutex<File>,
+}
+
+#[derive(Debug)]
 struct DomainsManagerInner {
     inner_data: DomainsManagerInnerData,
-    persistent_file_path: Option<PathBuf>,
+    persistent: Option<Persistent>,
     last_persistent_time: Mutex<Instant>,
     last_refresh_time: Mutex<Instant>,
 }
@@ -465,18 +522,19 @@ impl DomainsManager {
     }
 
     fn persistent_without_lock(&self) -> Option<PersistentResult<()>> {
-        self.inner
-            .persistent_file_path
-            .as_ref()
-            .map(|persistent_file_path| self.inner.inner_data.save_to_file(persistent_file_path))
+        self.inner.persistent.as_ref().map(|persistent| {
+            let mut persistent_file = persistent.file.lock().unwrap();
+            persistent_file.set_len(0)?;
+            self.inner.inner_data.save_to_file(&mut persistent_file)
+        })
     }
 
-    /// 选择域名并给出解析结果
+    /// 选择域名并给出域名解析结果
     ///
-    /// 从给出的候选 URL 中排除被冻结的域名，然后对每个候选 URL 给出一组解析结果。
+    /// 从给出的候选 URL 中排除被冻结的域名，然后对每个候选 URL 给出一组域名解析结果。
     ///
     /// 该方法可能会触发自动持久化。
-    /// 该方法有可能会触发异步刷新解析缓存
+    /// 该方法有可能会触发异步刷新域名解析缓存
     pub fn choose<'a>(&self, base_urls: &'a [&'a str]) -> ResolveResult<Vec<Choice<'a>>> {
         let mut rng = rand::thread_rng();
         assert!(!base_urls.is_empty());
@@ -646,7 +704,7 @@ impl DomainsManager {
 
     // 异步预解析 `Config` 中所有域名
     //
-    // 可以在配置私有云域名后，调用该方法将私有云 URL 解析结果纳入解析缓存
+    // 可以在配置私有云域名后，调用该方法将私有云 URL 域名解析结果纳入域名解析缓存
     pub fn async_resolve_config(&self, config: &Config) {
         let mut urls = HashSet::with_capacity(6);
         urls.insert(Cow::Owned(config.uc_url()));
@@ -659,7 +717,7 @@ impl DomainsManager {
 
     // 异步预解析 `Region` 中所有域名
     //
-    // 可以在创建私有云区域后，调用该方法将所有区域中的 URL 解析结果纳入解析缓存
+    // 可以在创建私有云区域后，调用该方法将所有区域中的 URL 域名解析结果纳入域名解析缓存
     pub fn async_resolve_region(&self, region: &Region) {
         let mut urls = HashSet::with_capacity(100);
         region.up_urls_owned(false).into_iter().for_each(|url| {
@@ -757,13 +815,13 @@ impl DomainsManager {
         self.inner.inner_data.url_frozen_duration
     }
 
-    /// 解析缓存生命周期
+    /// 域名解析缓存生命周期
     #[inline]
     pub fn resolutions_cache_lifetime(&self) -> Duration {
         self.inner.inner_data.resolutions_cache_lifetime
     }
 
-    /// 是否禁止 URL 解析
+    /// 是否禁止 URL 域名解析
     #[inline]
     pub fn url_resolution_disabled(&self) -> bool {
         self.inner.inner_data.url_resolution_disabled
@@ -781,13 +839,13 @@ impl DomainsManager {
         self.auto_persistent_interval().is_none()
     }
 
-    /// URL 预解析重试次数
+    /// URL 域名预解析重试次数
     #[inline]
     pub fn url_resolve_retries(&self) -> usize {
         self.inner.inner_data.url_resolve_retries
     }
 
-    /// URL 预解析重试前等待时间
+    /// URL 域名预解析重试前等待时间
     #[inline]
     pub fn url_resolve_retry_delay(&self) -> Duration {
         self.inner.inner_data.url_resolve_retry_delay
@@ -796,7 +854,10 @@ impl DomainsManager {
     /// 持久化路径
     #[inline]
     pub fn persistent_file_path(&self) -> Option<&Path> {
-        self.inner.persistent_file_path.as_ref().map(|path| path.as_path())
+        self.inner
+            .persistent
+            .as_ref()
+            .map(|persistent| persistent.file_path.as_path())
     }
 
     #[allow(dead_code)]
@@ -813,12 +874,20 @@ impl Default for DomainsManager {
     }
 }
 
+/// 候选 URL
+///
+/// 一个简单的结构体，包含候选 URL 及其域名解析结果
 #[derive(Debug, Clone)]
 pub struct Choice<'a> {
     pub base_url: &'a str,
     pub socket_addrs: Box<[SocketAddr]>,
 }
 
+fn open_persistent_file(path: &Path) -> IOResult<File> {
+    OpenOptions::new().write(true).create(true).open(path)
+}
+
+/// URL 解析错误
 #[derive(Error, Debug)]
 pub enum URLParseError {
     #[error("Invalid url: {url}")]
@@ -827,8 +896,10 @@ pub enum URLParseError {
     URLParseError(#[from] url::ParseError),
 }
 
+/// URL 解析结果
 pub type URLParseResult<T> = Result<T, URLParseError>;
 
+/// URL 域名解析错误
 #[derive(Error, Debug)]
 pub enum ResolveError {
     #[error("URL Parse error: {0}")]
@@ -837,8 +908,10 @@ pub enum ResolveError {
     ResolveError(#[from] IOError),
 }
 
+/// URL 域名解析结果
 pub type ResolveResult<T> = Result<T, ResolveError>;
 
+/// 持久化错误
 #[derive(Error, Debug)]
 pub enum PersistentError {
     #[error("JSON encode error: {0}")]
@@ -847,6 +920,7 @@ pub enum PersistentError {
     IOError(#[from] IOError),
 }
 
+/// 持久化结果
 pub type PersistentResult<T> = Result<T, PersistentError>;
 
 #[cfg(test)]
@@ -942,7 +1016,7 @@ mod tests {
     fn test_domains_manager_persistent() -> Result<(), Box<dyn Error>> {
         let temp_path = temp_file::create_temp_file(0)?.into_temp_path();
         let temp_path: &Path = temp_path.as_ref();
-        let domains_manager = DomainsManagerBuilder::create_new(Some(temp_path)).build();
+        let domains_manager = DomainsManagerBuilder::create_new(Some(temp_path))?.build();
         domains_manager.freeze_url("http://up-z0.qiniup.com")?;
         domains_manager.freeze_url("http://up-z1.qiniup.com")?;
         domains_manager.choose(&[
@@ -972,7 +1046,7 @@ mod tests {
     fn test_domains_manager_auto_persistent() -> Result<(), Box<dyn Error>> {
         let temp_path = temp_file::create_temp_file(0)?.into_temp_path();
         let temp_path: &Path = temp_path.as_ref();
-        let domains_manager = DomainsManagerBuilder::create_new(Some(temp_path))
+        let domains_manager = DomainsManagerBuilder::create_new(Some(temp_path))?
             .auto_persistent_interval(Duration::from_secs(1))
             .disable_url_resolution()
             .build();
