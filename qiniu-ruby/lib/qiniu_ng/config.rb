@@ -175,8 +175,6 @@ module QiniuNg
       # 设置无参数 Setters
       %i[enable_uplog
          disable_uplog
-         domains_manager_sync_pre_resolve
-         domains_manager_async_pre_resolve
          domains_manager_disable_auto_persistent
          domains_manager_disable_url_resolution
          domains_manager_enable_url_resolution].each do |method|

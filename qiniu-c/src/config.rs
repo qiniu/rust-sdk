@@ -539,20 +539,6 @@ pub extern "C" fn qiniu_ng_config_builder_domains_manager_pre_resolve_url(
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_domains_manager_async_pre_resolve(builder: qiniu_ng_config_builder_t) {
-    let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
-    builder.domains_manager_builder = builder.domains_manager_builder.async_pre_resolve();
-    let _ = qiniu_ng_config_builder_t::from(builder);
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_domains_manager_sync_pre_resolve(builder: qiniu_ng_config_builder_t) {
-    let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
-    builder.domains_manager_builder = builder.domains_manager_builder.sync_pre_resolve();
-    let _ = qiniu_ng_config_builder_t::from(builder);
-}
-
 struct QiniuNgHTTPBeforeActionHandler {
     handler: fn(request: qiniu_ng_http_request_t) -> bool,
 }

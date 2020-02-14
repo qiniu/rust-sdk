@@ -15,9 +15,17 @@ lazy_static! {
 /// 重建线程池
 ///
 /// 仅在某些情况下（例如，在线程池已经被初始化后 fork 进程，则在子进程内，线程池存储的线程具柄无法使用）才需要调用该方法
-pub fn recreate_thread_pool() {
+/// 使用该方法也可以用于调整全局线程池线程数量。
+///
+/// # Arguments
+///
+/// * `num_threads` - 调整全局线程池数量。如果传入 0，则表示不改变线程池数量。
+pub fn recreate_thread_pool(mut num_threads: usize) {
     let mut thread_pool = THREAD_POOL.write().unwrap();
-    *thread_pool = create_thread_pool(thread_pool.current_num_threads());
+    if num_threads == 0 {
+        num_threads = thread_pool.current_num_threads();
+    }
+    *thread_pool = create_thread_pool(num_threads);
 }
 
 fn create_thread_pool(num_threads: usize) -> ThreadPool {

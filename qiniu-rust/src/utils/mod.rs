@@ -1,4 +1,4 @@
-//! SDK 实用库
+//! 实用模块
 
 pub(crate) mod base64;
 pub(crate) mod bool;
