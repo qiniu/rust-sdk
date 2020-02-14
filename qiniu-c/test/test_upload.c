@@ -13,7 +13,7 @@ void print_progress(uint64_t uploaded, uint64_t total) {
     switch (mutex_wait_result) {
     case WAIT_OBJECT_0:
         if (last_print_time + 5 < (long long) time(NULL)) {
-            printf("%d: progress: %lld / %lld\n", GetCurrentThreadId(), uploaded, total);
+            printf("%d: progress: %llu / %llu\n", GetCurrentThreadId(), uploaded, total);
             last_print_time = (long long) time(NULL);
         }
 	ReleaseMutex(mutex);
@@ -29,7 +29,7 @@ void print_progress(uint64_t uploaded, uint64_t total) {
 atomic_llong last_print_time;
 void print_progress(uint64_t uploaded, uint64_t total) {
     if (last_print_time + 5 < (long long) time(NULL)) {
-        printf("%d: progress: %lld / %lld\n", (int) pthread_self(), uploaded, total);
+        printf("%d: progress: %llu / %llu\n", (int) pthread_self(), uploaded, total);
         last_print_time = (long long) time(NULL);
     }
 }
@@ -45,12 +45,12 @@ void test_qiniu_ng_upload_files(void) {
 
     const qiniu_ng_char_t file_key[256];
 #if defined(_WIN32) || defined(WIN32)
-    swprintf((wchar_t *) file_key, 256, L"测试-129m-%lld", (long long) time(NULL));
+    swprintf((wchar_t *) file_key, 256, L"测试-513m-%lld", (long long) time(NULL));
 #else
-    snprintf((char *) file_key, 256, "测试-129m-%lld", (long long) time(NULL));
+    snprintf((char *) file_key, 256, "测试-513m-%lld", (long long) time(NULL));
 #endif
 
-    const qiniu_ng_char_t *file_path = create_temp_file(129 * 1024 * 1024);
+    const qiniu_ng_char_t *file_path = create_temp_file(513 * 1024 * 1024);
     char etag[ETAG_SIZE + 1];
     memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
     TEST_ASSERT_TRUE_MESSAGE(
@@ -66,6 +66,7 @@ void test_qiniu_ng_upload_files(void) {
     mutex = CreateMutex(NULL, FALSE, NULL);
 #endif
 
+    last_print_time = (long long) time(NULL);
     qiniu_ng_upload_params_t params = {
         .key = (const qiniu_ng_char_t *) &file_key[0],
         .file_name = (const qiniu_ng_char_t *) &file_key[0],
@@ -99,9 +100,9 @@ void test_qiniu_ng_upload_files(void) {
     last_print_time = (long long) time(NULL);
 
 #if defined(_WIN32) || defined(WIN32)
-    swprintf((wchar_t *) file_key, 256, L"测试-129m-%lld", (long long) time(NULL));
+    swprintf((wchar_t *) file_key, 256, L"测试-513m-%lld", (long long) time(NULL));
 #else
-    snprintf((char *) file_key, 256, "测试-129m-%lld", (long long) time(NULL));
+    snprintf((char *) file_key, 256, "测试-513m-%lld", (long long) time(NULL));
 #endif
     FILE *file = OPEN_FILE_FOR_READING(file_path);
     TEST_ASSERT_NOT_NULL_MESSAGE(

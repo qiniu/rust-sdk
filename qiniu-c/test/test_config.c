@@ -210,14 +210,14 @@ static bool test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_htt
         "qiniu_ng_http_request_get_custom_data() returns unexpected value");
     after_action_counter++;
 
-    unsigned long long body_len;
+    uint64_t body_len;
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_http_response_get_body_length(response, &body_len, NULL),
         "qiniu_ng_http_response_get_body_length() failed");
     TEST_ASSERT_GREATER_THAN_UINT_MESSAGE(
         1, body_len,
         "body_len != 1");
-    char* body = (char *) malloc(body_len);
+    char* body = (char *) malloc((size_t) body_len);
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_http_response_dump_body(response, body_len, body, &body_len, NULL),
         "qiniu_ng_http_response_dump_body() failed");
@@ -227,8 +227,8 @@ static bool test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_htt
 
     qiniu_ng_char_t* temp_file_path = create_temp_file(0);
     FILE *file = OPEN_FILE_FOR_WRITING(temp_file_path);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        fwrite(body, 1, body_len, file), body_len,
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(
+        fwrite(body, 1, (size_t) body_len, file), body_len,
         "fwrite failed");
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         fclose(file), 0,
