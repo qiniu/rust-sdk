@@ -1,5 +1,5 @@
 use super::{
-    super::{upload_policy::UploadPolicy, upload_token::UploadToken},
+    super::uploader::{UploadPolicy, UploadToken},
     form_uploader::FormUploaderBuilder,
     resumable_uploader::{ResumableUploader, ResumableUploaderBuilder},
     upload_recorder::UploadRecorder,

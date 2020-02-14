@@ -2,8 +2,7 @@ use super::{
     super::{
         bucket::Bucket,
         region::Region,
-        upload_policy::UploadPolicy,
-        upload_token::{UploadToken, UploadTokenParseError},
+        uploader::{UploadPolicy, UploadToken, UploadTokenParseError},
     },
     BucketUploaderBuilder, FileUploaderBuilder,
 };

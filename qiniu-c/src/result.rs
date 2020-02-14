@@ -5,7 +5,10 @@ use crate::utils::{qiniu_ng_str_free, qiniu_ng_str_t};
 use matches::matches;
 use qiniu_ng::{
     http::{domains_manager::PersistentError, Error as HTTPError, ErrorKind as HTTPErrorKind},
-    storage::{manager::DropBucketError, upload_token::UploadTokenParseError, uploader::UploadError},
+    storage::{
+        manager::DropBucketError,
+        uploader::{UploadError, UploadTokenParseError},
+    },
 };
 use std::io::Error as IOError;
 

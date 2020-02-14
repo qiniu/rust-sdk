@@ -95,8 +95,7 @@
 //!
 //! ```rust
 //! use qiniu_ng::{Credential, Config};
-//! use qiniu_ng::storage::upload_policy::{UploadPolicyBuilder, UploadPolicy};
-//! use qiniu_ng::storage::upload_token::UploadToken;
+//! use qiniu_ng::storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken};
 //!
 //! let config = Config::default();
 //! let upload_policy = UploadPolicyBuilder::new_policy_for_bucket("[Bucket Name]", &config)
@@ -113,13 +112,7 @@
 //! ```rust
 //! # use qiniu_ng::{
 //! #     Credential, Config, ConfigBuilder,
-//! #     storage::{
-//! #         upload_policy::{
-//! #             UploadPolicyBuilder,
-//! #             UploadPolicy
-//! #         },
-//! #         upload_token::UploadToken,
-//! #     },
+//! #     storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken},
 //! # };
 //! # use std::time::Duration;
 //! #
@@ -144,13 +137,7 @@
 //! ```rust
 //! # use qiniu_ng::{
 //! #     Credential, Config,
-//! #     storage::{
-//! #         upload_policy::{
-//! #             UploadPolicyBuilder,
-//! #             UploadPolicy
-//! #         },
-//! #         upload_token::UploadToken,
-//! #     },
+//! #     storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken},
 //! # };
 //! # use std::time::Duration;
 //! #
@@ -180,13 +167,7 @@
 //! ```rust
 //! # use qiniu_ng::{
 //! #     Credential, Config,
-//! #     storage::{
-//! #         upload_policy::{
-//! #             UploadPolicyBuilder,
-//! #             UploadPolicy
-//! #         },
-//! #         upload_token::UploadToken,
-//! #     },
+//! #     storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken},
 //! # };
 //! # use std::time::Duration;
 //! #
@@ -215,14 +196,7 @@
 //! ```rust,no_run
 //! # use qiniu_ng::{
 //! #     Credential, Client, Config,
-//! #     storage::{
-//! #         upload_policy::{
-//! #             UploadPolicyBuilder,
-//! #             UploadPolicy
-//! #         },
-//! #         upload_token::UploadToken,
-//! #         uploader::UploadManager,
-//! #     },
+//! #     storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken, UploadManager},
 //! # };
 //! # use std::{path::Path, time::Duration, result::Result, error::Error};
 //! #
@@ -257,13 +231,7 @@
 //! ```rust
 //! # use qiniu_ng::{
 //! #     Credential, Config, ConfigBuilder,
-//! #     storage::{
-//! #         upload_policy::{
-//! #             UploadPolicyBuilder,
-//! #             UploadPolicy
-//! #         },
-//! #         upload_token::UploadToken,
-//! #     },
+//! #     storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken},
 //! # };
 //! # use std::time::Duration;
 //! #
@@ -295,13 +263,7 @@
 //! ```rust
 //! # use qiniu_ng::{
 //! #     Credential, Config, ConfigBuilder,
-//! #     storage::{
-//! #         upload_policy::{
-//! #             UploadPolicyBuilder,
-//! #             UploadPolicy
-//! #         },
-//! #         upload_token::UploadToken,
-//! #     },
+//! #     storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken},
 //! # };
 //! # use std::time::Duration;
 //! #
@@ -327,13 +289,7 @@
 //! ```rust
 //! # use qiniu_ng::{
 //! #     Credential, Config,
-//! #     storage::{
-//! #         upload_policy::{
-//! #             UploadPolicyBuilder,
-//! #             UploadPolicy
-//! #         },
-//! #         upload_token::UploadToken,
-//! #     },
+//! #     storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken},
 //! # };
 //! # use std::time::Duration;
 //! #
@@ -356,13 +312,7 @@
 //! ```rust
 //! # use qiniu_ng::{
 //! #     Credential, Config, ConfigBuilder,
-//! #     storage::{
-//! #         upload_policy::{
-//! #             UploadPolicyBuilder,
-//! #             UploadPolicy
-//! #         },
-//! #         upload_token::UploadToken,
-//! #     },
+//! #     storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken},
 //! # };
 //! # use std::time::Duration;
 //! #
@@ -394,19 +344,12 @@
 //! 最简单的就是上传本地文件，直接指定文件的完整路径即可上传。
 //!
 //! ```rust,no_run
-//! # use qiniu_ng::{
-//! #     Credential, Client, Config,
-//! #     storage::{
-//! #         upload_policy::{
-//! #             UploadPolicyBuilder,
-//! #             UploadPolicy
-//! #         },
-//! #         upload_token::UploadToken,
-//! #         uploader::UploadManager,
-//! #     },
-//! # };
+//! use qiniu_ng::{
+//!     Credential, Client, Config,
+//!     storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken, UploadManager},
+//! };
 //! # use std::{path::Path, time::Duration, result::Result, error::Error};
-//! #
+//!
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! # let access_key = "[Qiniu Access Key]";
 //! # let secret_key = "[Qiniu Secret Key]";
@@ -433,14 +376,7 @@
 //! ```rust,no_run
 //! # use qiniu_ng::{
 //! #     Credential, Client, Config,
-//! #     storage::{
-//! #         upload_policy::{
-//! #             UploadPolicyBuilder,
-//! #             UploadPolicy
-//! #         },
-//! #         upload_token::UploadToken,
-//! #         uploader::UploadManager,
-//! #     },
+//! #     storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken, UploadManager},
 //! # };
 //! # use std::{path::Path, time::Duration, io::{Read, Cursor}, fs::File, result::Result, error::Error};
 //! #
@@ -471,14 +407,7 @@
 //! ```rust,no_run
 //! # use qiniu_ng::{
 //! #     Credential, Client, Config,
-//! #     storage::{
-//! #         upload_policy::{
-//! #             UploadPolicyBuilder,
-//! #             UploadPolicy
-//! #         },
-//! #         upload_token::UploadToken,
-//! #         uploader::UploadManager,
-//! #     },
+//! #     storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken, UploadManager},
 //! # };
 //! # use std::{path::Path, time::Duration, io::stdin, result::Result, error::Error};
 //! #

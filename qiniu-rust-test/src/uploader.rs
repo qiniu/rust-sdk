@@ -4,7 +4,7 @@ mod tests {
     use matches::matches;
     use qiniu_ng::{
         http::ErrorKind as HTTPErrorKind,
-        storage::{upload_policy::UploadPolicyBuilder, uploader::UploadError},
+        storage::uploader::{UploadError, UploadPolicyBuilder},
         utils::etag,
         Client, Config, ConfigBuilder, Credential,
     };

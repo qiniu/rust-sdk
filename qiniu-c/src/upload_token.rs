@@ -6,10 +6,7 @@ use crate::{
 };
 use libc::{c_void, size_t};
 use qiniu_ng::{
-    storage::{
-        upload_policy::{UploadPolicy, UploadPolicyBuilder},
-        upload_token::UploadToken,
-    },
+    storage::uploader::{UploadPolicy, UploadPolicyBuilder, UploadToken},
     Config, Credential,
 };
 use std::{

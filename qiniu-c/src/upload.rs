@@ -10,10 +10,9 @@ use libc::{c_void, ferror, fread, size_t, FILE};
 use mime::Mime;
 use qiniu_ng::storage::{
     bucket::Bucket,
-    upload_token::UploadToken,
     uploader::{
         BucketUploader, FileUploaderBuilder, UploadManager, UploadResponse as QiniuUploadResponse,
-        UploadResult as QiniuUploadResult,
+        UploadResult as QiniuUploadResult, UploadToken,
     },
 };
 use std::{

@@ -1,7 +1,7 @@
 //! 七牛认证信息模块
 use crate::{
     http::{Headers, Method},
-    storage::upload_policy::UploadPolicy,
+    storage::uploader::UploadPolicy,
     utils::{base64, mime},
 };
 use crypto_mac::Mac;

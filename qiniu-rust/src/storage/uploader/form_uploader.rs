@@ -193,7 +193,7 @@ impl<'u> FormUploader<'u> {
 #[cfg(test)]
 mod tests {
     use super::super::{
-        super::{upload_policy::UploadPolicyBuilder, upload_token::UploadToken},
+        super::uploader::{UploadPolicyBuilder, UploadToken},
         BucketUploaderBuilder,
     };
     use crate::{

@@ -601,7 +601,7 @@ impl fmt::Display for UploadLoggerRecord<'_> {
 #[cfg(test)]
 mod tests {
     use super::{
-        super::super::{upload_policy::UploadPolicyBuilder, upload_token::UploadToken},
+        super::super::uploader::{UploadPolicyBuilder, UploadToken},
         *,
     };
     use crate::{
