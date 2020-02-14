@@ -2,7 +2,7 @@ use super::{bucket::BucketBuilder, region::RegionId, uploader::UploadManager};
 use crate::{
     config::Config,
     credential::Credential,
-    http::{Client, Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult, Token},
+    http::{Client, Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult, TokenVersion},
 };
 use assert_impl::assert_impl;
 use std::{
@@ -31,7 +31,7 @@ impl StorageManager {
         Ok(self
             .http_client
             .get("/buckets", &[&self.rs_url])
-            .token(Token::V2(self.credential.borrow().into()))
+            .token(TokenVersion::V2, self.credential.borrow().into())
             .accept_json()
             .no_body()
             .send()?
@@ -44,7 +44,7 @@ impl StorageManager {
                 &("/mkbucketv3/".to_owned() + bucket.as_ref() + "/region/" + region_id.as_str()),
                 &[&self.rs_url],
             )
-            .token(Token::V2(self.credential.borrow().into()))
+            .token(TokenVersion::V2, self.credential.borrow().into())
             .no_body()
             .send()?
             .ignore_body();
@@ -55,7 +55,7 @@ impl StorageManager {
         match self
             .http_client
             .post(&("/drop/".to_owned() + bucket.as_ref()), &[&self.rs_url])
-            .token(Token::V2(self.credential.borrow().into()))
+            .token(TokenVersion::V2, self.credential.borrow().into())
             .no_body()
             .send()
         {

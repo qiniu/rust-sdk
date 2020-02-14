@@ -175,7 +175,7 @@ impl<'r> Bucket<'r> {
 mod domain {
     use crate::{
         credential::Credential,
-        http::{Client, Result, Token},
+        http::{Client, Result, TokenVersion},
     };
     use std::borrow::Borrow;
 
@@ -183,7 +183,7 @@ mod domain {
         Ok(http_client
             .get("/v6/domain/list", &[&http_client.config().api_url()])
             .query("tbl", bucket_name)
-            .token(Token::V2(credential.borrow().into()))
+            .token(TokenVersion::V2, credential.borrow().into())
             .no_body()
             .send()?
             .parse_json()?)

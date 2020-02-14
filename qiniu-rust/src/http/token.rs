@@ -2,26 +2,31 @@ use super::super::credential::Credential;
 use qiniu_http::Request;
 use std::borrow::Cow;
 
-// TODO: Think about reference credential here
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Token<'t> {
-    V1(Cow<'t, Credential>),
-    V2(Cow<'t, Credential>),
-    None,
+pub(crate) struct Token<'t> {
+    version: Version,
+    credential: Cow<'t, Credential>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub(crate) enum Version {
+    V1,
+    V2,
 }
 
 impl<'t> Token<'t> {
-    pub(crate) fn sign(&self, req: &mut Request) {
-        if self == &Token::None {
-            return;
-        }
+    pub(crate) fn new(version: Version, credential: Cow<'t, Credential>) -> Self {
+        Self { version, credential }
+    }
 
+    pub(crate) fn sign(&self, req: &mut Request) {
         let url = req.url();
         let method = req.method();
 
-        match self {
-            Token::V1(credential) => {
-                if let Ok(authorization) = credential.authorization_v1_for_request(
+        match self.version {
+            Version::V1 => {
+                if let Ok(authorization) = self.credential.authorization_v1_for_request(
                     &url,
                     req.headers().get(&"Content-Type".into()),
                     req.body().as_ref().map(|body| body.as_ref()),
@@ -29,8 +34,8 @@ impl<'t> Token<'t> {
                     req.headers_mut().insert("Authorization".into(), authorization.into());
                 }
             }
-            Token::V2(credential) => {
-                if let Ok(authorization) = credential.authorization_v2_for_request(
+            Version::V2 => {
+                if let Ok(authorization) = self.credential.authorization_v2_for_request(
                     method,
                     &url,
                     req.headers(),
@@ -39,7 +44,6 @@ impl<'t> Token<'t> {
                     req.headers_mut().insert("Authorization".into(), authorization.into());
                 }
             }
-            Token::None => {}
         }
     }
 }

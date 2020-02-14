@@ -1,7 +1,7 @@
 use qiniu_http::{HTTPCaller, Request, Response, Result};
 
 #[allow(dead_code)]
-pub struct PanickedHTTPCaller(pub(crate) &'static str);
+pub(crate) struct PanickedHTTPCaller(pub(crate) &'static str);
 
 impl HTTPCaller for PanickedHTTPCaller {
     fn call(&self, _request: &Request) -> Result<Response> {

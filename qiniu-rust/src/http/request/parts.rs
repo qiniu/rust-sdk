@@ -13,7 +13,7 @@ pub(crate) struct Parts<'a> {
     pub(super) headers: Option<Headers<'a>>,
     pub(super) body: Option<Vec<u8>>,
     pub(super) config: Config,
-    pub(super) token: Token<'a>,
+    pub(super) token: Option<Token<'a>>,
     pub(super) read_body: bool,
     pub(super) idempotent: bool,
     pub(super) follow_redirection: bool,

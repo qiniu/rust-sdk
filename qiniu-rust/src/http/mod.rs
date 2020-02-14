@@ -13,7 +13,7 @@ pub mod domains_manager;
 pub use domains_manager::{Choice, DomainsManager, DomainsManagerBuilder};
 
 mod handler;
-pub use handler::PanickedHTTPCaller;
+pub(crate) use handler::PanickedHTTPCaller;
 
 mod middleware;
 pub use middleware::{HTTPAfterAction, HTTPBeforeAction};
@@ -23,4 +23,4 @@ mod response;
 pub(crate) use response::Response;
 
 mod token;
-pub(crate) use token::Token;
+pub(crate) use token::Version as TokenVersion;

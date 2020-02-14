@@ -99,7 +99,9 @@ impl<'a> Request<'a> {
             }
             builder.build()
         };
-        self.parts.token.sign(&mut request);
+        if let Some(token) = &self.parts.token {
+            token.sign(&mut request);
+        }
 
         let mut prev_err: Option<HTTPError> = None;
         let retries = self.parts.config.http_request_retries();
@@ -309,8 +311,7 @@ mod tests {
                 config::{Config, ConfigBuilder},
                 credential::Credential,
             },
-            token::Token,
-            DomainsManagerBuilder, HTTPAfterAction, HTTPBeforeAction, HTTPCaller,
+            DomainsManagerBuilder, HTTPAfterAction, HTTPBeforeAction, HTTPCaller, TokenVersion,
         },
         Builder, *,
     };
@@ -367,7 +368,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Relaxed);
             Ok(())
@@ -406,7 +407,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Relaxed);
             Ok(())
@@ -445,7 +446,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Relaxed);
             Ok(())
@@ -484,7 +485,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Relaxed);
             Ok(())
@@ -523,7 +524,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Relaxed);
             Ok(())
@@ -562,7 +563,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .on_response(&|_, _| {
             on_response_called.fetch_add(1, Relaxed);
             Ok(())
@@ -597,7 +598,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -621,7 +622,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -644,7 +645,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -667,7 +668,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -690,7 +691,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -746,7 +747,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());
@@ -787,7 +788,7 @@ mod tests {
             "/test_call",
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
-        .token(Token::V2(get_credential().into()))
+        .token(TokenVersion::V2, get_credential().into())
         .raw_body("application/json", b"{\"test\":123}".as_ref())
         .send()
         .is_err());

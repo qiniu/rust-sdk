@@ -1,8 +1,11 @@
 use super::{
-    super::{token::Token, DomainsManager, Response},
+    super::{
+        token::{Token, Version},
+        DomainsManager, Response,
+    },
     HTTPError, HTTPResult, HeaderName, HeaderValue, Headers, Method, Parts, Request,
 };
-use crate::config::Config;
+use crate::{Config, Credential};
 use serde::Serialize;
 use std::{borrow::Cow, collections::HashMap, time::Duration};
 
@@ -23,7 +26,7 @@ impl<'a> Builder<'a> {
                 query: None,
                 headers: None,
                 body: None,
-                token: Token::None,
+                token: None,
                 read_body: false,
                 idempotent: false,
                 follow_redirection: false,
@@ -67,8 +70,8 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub(crate) fn token(mut self, token: Token<'a>) -> Builder<'a> {
-        self.parts.token = token;
+    pub(crate) fn token(mut self, version: Version, credential: Cow<'a, Credential>) -> Builder<'a> {
+        self.parts.token = Some(Token::new(version, credential));
         self
     }
 
