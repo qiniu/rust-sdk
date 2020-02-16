@@ -1,3 +1,6 @@
+//! 区域模块
+//!
+//! 区域存储七牛不同公有云区域的域名，以及提供定制私有云区域的接口
 use crate::{
     config::Config,
     http::{Client, Result},
@@ -9,16 +12,26 @@ use lazy_static::lazy_static;
 use serde::Deserialize;
 use std::{borrow::Cow, convert::AsRef};
 
+/// 存储区域 ID
+///
+/// 枚举类，仅包含七牛公有云的所有存储区域 ID。
+/// 对于私有云，则应采用其他方案替代
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum RegionId {
+    /// 华东区区域 ID
     Z0,
+    /// 华北区区域 ID
     Z1,
+    /// 华南区区域 ID
     Z2,
+    /// 东南亚地区区域 ID
     AS0,
+    /// 北美地区区域 ID
     NA0,
 }
 
 impl RegionId {
+    /// 获取区域 ID 的字符串
     pub fn as_str(self) -> &'static str {
         match self {
             RegionId::Z0 => "z0",
@@ -29,6 +42,9 @@ impl RegionId {
         }
     }
 
+    /// 根据区域 ID 获取区域实例
+    ///
+    /// 仅对公有云区域有效，对于私有云，则应该自行构建区域实例
     pub fn as_region(self) -> &'static Region {
         match self {
             RegionId::Z0 => Region::z0(),
@@ -47,44 +63,61 @@ impl AsRef<str> for RegionId {
     }
 }
 
+/// 区域
+///
+/// 区域实例负责管理七牛多个服务器的 URL，用于为存储管理器或上传管理器提供 URL。
 #[derive(Getters, CopyGetters, Builder, Clone, Debug, Default)]
 #[builder(default, pattern = "owned", setter(into))]
 pub struct Region {
+    /// 存储区域 ID
+    ///
+    /// 需要注意：通过七牛服务器查询获得的区域实例，`region_id` 将会返回 `None`
     #[get_copy = "pub"]
     region_id: Option<RegionId>,
 
+    /// 上传服务器 URL 列表（HTTP 协议）
     #[get = "pub"]
     up_http_urls: Vec<Cow<'static, str>>,
 
+    /// 上传服务器 URL 列表（HTTPS 协议）
     #[get = "pub"]
     up_https_urls: Vec<Cow<'static, str>>,
 
+    /// IO 服务器 URL 列表（HTTP 协议）
     #[get = "pub"]
     io_http_urls: Vec<Cow<'static, str>>,
 
+    /// IO 服务器 URL 列表（HTTPS 协议）
     #[get = "pub"]
     io_https_urls: Vec<Cow<'static, str>>,
 
+    /// RS 服务器 URL 列表（HTTP 协议）
     #[get = "pub"]
     rs_http_urls: Vec<Cow<'static, str>>,
 
+    /// RS 服务器 URL 列表（HTTPS 协议）
     #[get = "pub"]
     rs_https_urls: Vec<Cow<'static, str>>,
 
+    /// RSF 服务器 URL 列表（HTTP 协议）
     #[get = "pub"]
     rsf_http_urls: Vec<Cow<'static, str>>,
 
+    /// RSF 服务器 URL 列表（HTTPS 协议）
     #[get = "pub"]
     rsf_https_urls: Vec<Cow<'static, str>>,
 
+    /// API 服务器 URL 列表（HTTP 协议）
     #[get = "pub"]
     api_http_urls: Vec<Cow<'static, str>>,
 
+    /// API 服务器 URL 列表（HTTPS 协议）
     #[get = "pub"]
     api_https_urls: Vec<Cow<'static, str>>,
 }
 
 impl Region {
+    /// 获取上传服务器 URL 列表
     pub fn up_urls_owned(&self, https: bool) -> Vec<Cow<'static, str>> {
         if https {
             self.up_https_urls.clone()
@@ -93,6 +126,7 @@ impl Region {
         }
     }
 
+    /// 获取上传服务器 URL 引用的列表
     pub fn up_urls_ref(&self, https: bool) -> Vec<&str> {
         if https {
             self.up_https_urls.iter().map(|url| url.as_ref()).collect()
@@ -101,6 +135,7 @@ impl Region {
         }
     }
 
+    /// 获取 IO 服务器 URL 列表
     pub fn io_urls_owned(&self, https: bool) -> Vec<Cow<'static, str>> {
         if https {
             self.io_https_urls.clone()
@@ -109,6 +144,7 @@ impl Region {
         }
     }
 
+    /// 获取 IO 服务器 URL 引用的列表
     pub fn io_urls_ref(&self, https: bool) -> Vec<&str> {
         if https {
             self.io_https_urls.iter().map(|url| url.as_ref()).collect()
@@ -117,6 +153,7 @@ impl Region {
         }
     }
 
+    /// 获取 RS 服务器 URL 列表
     pub fn rs_urls_owned(&self, https: bool) -> Vec<Cow<'static, str>> {
         if https {
             self.rs_https_urls.clone()
@@ -125,6 +162,7 @@ impl Region {
         }
     }
 
+    /// 获取 RS 服务器 URL 引用的列表
     pub fn rs_urls_ref(&self, https: bool) -> Vec<&str> {
         if https {
             self.rs_https_urls.iter().map(|url| url.as_ref()).collect()
@@ -133,6 +171,7 @@ impl Region {
         }
     }
 
+    /// 获取 RSF 服务器 URL 列表
     pub fn rsf_urls_owned(&self, https: bool) -> Vec<Cow<'static, str>> {
         if https {
             self.rsf_https_urls.clone()
@@ -141,6 +180,7 @@ impl Region {
         }
     }
 
+    /// 获取 RSF 服务器 URL 引用的列表
     pub fn rsf_urls_ref(&self, https: bool) -> Vec<&str> {
         if https {
             self.rsf_https_urls.iter().map(|url| url.as_ref()).collect()
@@ -149,6 +189,7 @@ impl Region {
         }
     }
 
+    /// 获取 API 服务器 URL 列表
     pub fn api_urls_owned(&self, https: bool) -> Vec<Cow<'static, str>> {
         if https {
             self.api_https_urls.clone()
@@ -157,6 +198,7 @@ impl Region {
         }
     }
 
+    /// 获取 API 服务器 URL 引用的列表
     pub fn api_urls_ref(&self, https: bool) -> Vec<&str> {
         if https {
             self.api_https_urls.iter().map(|url| url.as_ref()).collect()
@@ -165,62 +207,67 @@ impl Region {
         }
     }
 
+    /// 获取华东区公有云区域实例
     pub fn z0() -> &'static Region {
         &HUA_DONG
     }
 
+    /// 获取华东区公有云区域实例
     pub fn hua_dong() -> &'static Region {
         &HUA_DONG
     }
 
+    /// 获取华东区公有云区域实例
     pub fn east_china() -> &'static Region {
         &HUA_DONG
     }
 
+    /// 获取华北区公有云区域实例
     pub fn z1() -> &'static Region {
         &HUA_BEI
     }
 
+    /// 获取华北区公有云区域实例
     pub fn hua_bei() -> &'static Region {
         &HUA_BEI
     }
 
+    /// 获取华北区公有云区域实例
     pub fn north_china() -> &'static Region {
-        &HUA_DONG
+        &HUA_BEI
     }
 
+    /// 获取华南区公有云区域实例
     pub fn z2() -> &'static Region {
         &HUA_NAN
     }
 
+    /// 获取华南区公有云区域实例
     pub fn hua_nan() -> &'static Region {
         &HUA_NAN
     }
 
+    /// 获取华南区公有云区域实例
     pub fn south_china() -> &'static Region {
         &HUA_NAN
     }
 
+    /// 获取北美地区公有云区域实例
     pub fn na0() -> &'static Region {
         &NORTH_AMERICA
     }
 
-    pub fn north_america() -> &'static Region {
-        &NORTH_AMERICA
-    }
-
+    /// 获取东南亚地区公有云区域实例
     pub fn as0() -> &'static Region {
         &SINGAPORE
     }
 
-    pub fn singapore() -> &'static Region {
-        &SINGAPORE
-    }
-
+    /// 获取所有公有云区域实例
     pub fn all() -> &'static [&'static Region] {
         &ALL_REGIONS[..]
     }
 
+    /// 查询七牛服务器，根据存储空间名称获取区域列表
     pub fn query<'a>(
         bucket: impl Into<Cow<'a, str>>,
         access_key: impl Into<Cow<'a, str>>,
@@ -378,13 +425,8 @@ lazy_static! {
         .api_https_urls(vec!["https://api-as0.qiniu.com".into()])
         .build()
         .unwrap();
-    static ref ALL_REGIONS: [&'static Region; 5] = [
-        Region::hua_dong(),
-        Region::hua_bei(),
-        Region::hua_nan(),
-        Region::north_america(),
-        Region::singapore(),
-    ];
+    static ref ALL_REGIONS: [&'static Region; 5] =
+        [Region::z0(), Region::z1(), Region::z2(), Region::na0(), Region::as0()];
 }
 
 #[derive(Deserialize, Debug, Clone)]
