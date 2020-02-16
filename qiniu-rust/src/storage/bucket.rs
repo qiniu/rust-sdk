@@ -27,7 +27,19 @@ pub struct Bucket<'r> {
 
 /// 存储空间生成器
 ///
-/// 注意，该结构体仅用于在 SDK 中配置生成存储空间实例，而非在七牛云服务器上创建新的存储空间
+/// 注意，该结构体仅用于在 SDK 中配置生成存储空间实例，而非在七牛云服务器上创建新的存储空间。
+/// 事实上，除非您使用了私有云，或七牛以外的 CDN 服务商，否则您总是可以直接构建存储空间，存储空间为以懒加载的方式从七牛服务器获取区域信息和下载域名，SDK 确保懒加载的线程安全。
+///
+/// ```rust,no_run
+/// use qiniu_ng::{Client, Config};
+/// # use std::{result::Result, error::Error};
+///
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// let client = Client::new("[Access Key]", "[Secret Key]", Config::default());
+/// let bucket = client.storage().bucket("[Bucket name]").build();
+/// # Ok(())
+/// # }
+/// ```
 pub struct BucketBuilder<'r> {
     name: Cow<'r, str>,
     credential: Cow<'r, Credential>,
@@ -62,12 +74,17 @@ impl<'r> BucketBuilder<'r> {
     }
 
     /// 指定存储空间区域
+    ///
+    /// 注意：该方法不要与 `region_id` 方法连用
     pub fn region(mut self, region: impl Into<Cow<'r, Region>>) -> BucketBuilder<'r> {
         self.region = Some(region.into());
         self
     }
 
     /// 指定存储空间备用区域
+    ///
+    /// 注意，应该首先设置存储空间区域，然后再设置备用区域。
+    /// 如果只设置备用区域而不设置存储空间区域
     pub fn backup_regions(mut self, regions: impl Into<Vec<Region>>) -> BucketBuilder<'r> {
         self.backup_regions = Some(regions.into().into_boxed_slice());
         self
@@ -76,7 +93,7 @@ impl<'r> BucketBuilder<'r> {
     /// 指定存储空间 ID
     ///
     /// 该方法仅适用于指定七牛公有云区域。
-    /// 如果使用的是私有云，则请调用 `region` 方法
+    /// 如果使用的是私有云，则请调用 `region` 方法。该方法不要与 `region` 方法连用。
     pub fn region_id(self, region_id: RegionId) -> BucketBuilder<'r> {
         self.region(Cow::Borrowed(region_id.as_region()))
     }
@@ -84,6 +101,9 @@ impl<'r> BucketBuilder<'r> {
     /// 自动检测区域
     ///
     /// 将连接七牛服务器查询当前存储空间所在区域和备用区域
+    ///
+    /// 注意，如果调用了该方法，则不应该再调用 `region`，`backup_regions` 和 `region_id` 方法。
+    /// 除非有特殊需求，否则不建议您调用该方法，而是尽量使用懒加载的方式在必要时自动检测区域
     pub fn auto_detect_region(mut self) -> Result<BucketBuilder<'r>> {
         let mut regions: Vec<Region> = Region::query(
             self.name.as_ref(),
@@ -98,8 +118,10 @@ impl<'r> BucketBuilder<'r> {
         Ok(self)
     }
 
-    /// 追加下载域名
-    pub fn append_domain(mut self, domain: impl Into<Cow<'r, str>>) -> BucketBuilder<'r> {
+    /// 新增下载域名
+    ///
+    /// 注意，可以先调用 `auto_detect_domains` 方法然后再调用该方法，SDK 将优先使用最后新增的域名
+    pub fn prepend_domain(mut self, domain: impl Into<Cow<'r, str>>) -> BucketBuilder<'r> {
         match &mut self.domains {
             Some(domains) => {
                 domains.push(domain.into());
@@ -137,7 +159,10 @@ impl<'r> BucketBuilder<'r> {
             backup_regions: self.backup_regions.map(OnceCell::from).unwrap_or_else(OnceCell::new),
             domains: self
                 .domains
-                .map(|domains| OnceCell::from(domains.into_boxed_slice()))
+                .map(|mut domains| {
+                    domains.reverse(); // 反转 domains，后 prepend 的放到开头
+                    OnceCell::from(domains.into_boxed_slice())
+                })
                 .unwrap_or_else(OnceCell::new),
         }
     }
@@ -499,11 +524,12 @@ mod tests {
                     .build(),
             ),
         )
-        .append_domain("abc.com")
-        .append_domain("def.com")
+        .prepend_domain("abc.com")
+        .prepend_domain("def.com")
         .build();
         assert_eq!(bucket.domains()?.len(), 2);
-        assert_eq!(bucket.domains()?.first(), Some(&"abc.com"));
+        assert_eq!(bucket.domains()?.get(0), Some(&"def.com"));
+        assert_eq!(bucket.domains()?.get(1), Some(&"abc.com"));
         Ok(())
     }
 

@@ -492,6 +492,8 @@ struct DomainsManagerInner {
 }
 
 /// 域名管理器
+///
+/// SDK 保证域名管理器的所有状态修改和获取均线程安全
 #[derive(Debug, Clone)]
 pub struct DomainsManager {
     inner: Arc<DomainsManagerInner>,

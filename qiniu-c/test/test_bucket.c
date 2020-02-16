@@ -211,15 +211,15 @@ void test_qiniu_ng_bucket_new(void) {
         domain,
         "domain == null");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
-        domain, domains_array[0],
-        "domain != domains_array[0]");
+        domain, domains_array[1],
+        "domain != domains_array[1]");
     domain = qiniu_ng_str_list_get(domains, 1);
     TEST_ASSERT_NOT_NULL_MESSAGE(
         domain,
         "domain == null");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
-        domain, domains_array[1],
-        "domain != domains_array[1]");
+        domain, domains_array[0],
+        "domain != domains_array[0]");
     qiniu_ng_str_list_free(&domains);
 
     qiniu_ng_bucket_free(&bucket);

@@ -83,6 +83,8 @@ pub extern "C" fn qiniu_ng_region_id_name(region_id: qiniu_ng_region_id_t) -> *c
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_region_t(*mut c_void);
 
+// TODO: Region Builder
+
 impl Default for qiniu_ng_region_t {
     #[inline]
     fn default() -> Self {

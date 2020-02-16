@@ -51,6 +51,24 @@ impl StorageManager {
     /// 这里的参数 `region_id` 建议传入枚举类 `RegionId`，
     /// 但如果使用的是私有云且区域 ID 不在 `RegionId` 定义的枚举类内，则使用字符串。
     ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use qiniu_ng::{Client, Config, storage::region::RegionId};
+    /// # use std::{result::Result, error::Error};
+    ///
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = Client::new("[Access Key]", "[Secret Key]", Config::default());
+    ///
+    /// // 创建华东区存储空间
+    /// client.storage().create_bucket("[Bucket name 1]", RegionId::Z0)?;
+    ///
+    /// // 在名为 z3 的区域创建存储空间
+    /// client.storage().create_bucket("[Bucket name 2]", "z3")?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
     /// 在创建存储空间时，需要注意存储空间的名称必须遵守以下规则：
     /// - 存储空间名称不允许重复，遇到冲突请更换名称。
     /// - 名称由 3 ~ 63 个字符组成 ，可包含小写字母、数字和短划线，且必须以小写字母或者数字开头和结尾。

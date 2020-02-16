@@ -33,6 +33,7 @@ pub enum LockPolicy {
 }
 
 impl LockPolicy {
+    #[allow(dead_code)]
     fn lock_for_appending(self, file: &File) -> IOResult<()> {
         match self {
             LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading => file.lock_shared(),
@@ -40,6 +41,7 @@ impl LockPolicy {
             LockPolicy::None => Ok(()),
         }
     }
+    #[allow(dead_code)]
     fn lock_for_uploading(self, file: &File) -> IOResult<()> {
         match self {
             LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading | LockPolicy::AlwaysLockExclusive => {
@@ -48,6 +50,7 @@ impl LockPolicy {
             LockPolicy::None => Ok(()),
         }
     }
+    #[allow(dead_code)]
     fn try_lock_for_appending(self, file: &File) -> IOResult<()> {
         match self {
             LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading => file.try_lock_shared(),
@@ -55,6 +58,7 @@ impl LockPolicy {
             LockPolicy::None => Ok(()),
         }
     }
+    #[allow(dead_code)]
     fn try_lock_for_uploading(self, file: &File) -> IOResult<()> {
         match self {
             LockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading | LockPolicy::AlwaysLockExclusive => {

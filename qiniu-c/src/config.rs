@@ -14,10 +14,7 @@ use qiniu_ng::{
     http::{DomainsManagerBuilder, HTTPAfterAction, HTTPBeforeAction},
     storage::{
         recorder::FileSystemRecorder,
-        uploader::{
-            upload_logger::{LockPolicy as UploadLoggerLockPolicy, UploadLoggerBuilder},
-            upload_recorder::UploadRecorderBuilder,
-        },
+        uploader::{UploadLoggerBuilder, UploadLoggerFileLockPolicy, UploadRecorderBuilder},
     },
 };
 use std::{fs::OpenOptions, mem::transmute, ptr::null_mut, time::Duration};
@@ -1176,26 +1173,26 @@ pub enum qiniu_ng_upload_logger_lock_policy_t {
     qiniu_ng_lock_policy_none,
 }
 
-impl From<qiniu_ng_upload_logger_lock_policy_t> for UploadLoggerLockPolicy {
+impl From<qiniu_ng_upload_logger_lock_policy_t> for UploadLoggerFileLockPolicy {
     fn from(policy: qiniu_ng_upload_logger_lock_policy_t) -> Self {
         match policy {
             qiniu_ng_upload_logger_lock_policy_t::qiniu_ng_lock_policy_lock_shared_duration_appending_and_lock_exclusive_duration_uploading => {
-                UploadLoggerLockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading
+                UploadLoggerFileLockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading
             }
-            qiniu_ng_upload_logger_lock_policy_t::qiniu_ng_lock_policy_always_lock_exclusive => UploadLoggerLockPolicy::AlwaysLockExclusive,
-            qiniu_ng_upload_logger_lock_policy_t::qiniu_ng_lock_policy_none => UploadLoggerLockPolicy::None,
+            qiniu_ng_upload_logger_lock_policy_t::qiniu_ng_lock_policy_always_lock_exclusive => UploadLoggerFileLockPolicy::AlwaysLockExclusive,
+            qiniu_ng_upload_logger_lock_policy_t::qiniu_ng_lock_policy_none => UploadLoggerFileLockPolicy::None,
         }
     }
 }
 
-impl From<UploadLoggerLockPolicy> for qiniu_ng_upload_logger_lock_policy_t {
-    fn from(policy: UploadLoggerLockPolicy) -> Self {
+impl From<UploadLoggerFileLockPolicy> for qiniu_ng_upload_logger_lock_policy_t {
+    fn from(policy: UploadLoggerFileLockPolicy) -> Self {
         match policy {
-            UploadLoggerLockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading => {
+            UploadLoggerFileLockPolicy::LockSharedDuringAppendingAndLockExclusiveDuringUploading => {
                 qiniu_ng_upload_logger_lock_policy_t::qiniu_ng_lock_policy_lock_shared_duration_appending_and_lock_exclusive_duration_uploading
             }
-            UploadLoggerLockPolicy::AlwaysLockExclusive => qiniu_ng_upload_logger_lock_policy_t::qiniu_ng_lock_policy_always_lock_exclusive,
-            UploadLoggerLockPolicy::None => qiniu_ng_upload_logger_lock_policy_t::qiniu_ng_lock_policy_none,
+            UploadLoggerFileLockPolicy::AlwaysLockExclusive => qiniu_ng_upload_logger_lock_policy_t::qiniu_ng_lock_policy_always_lock_exclusive,
+            UploadLoggerFileLockPolicy::None => qiniu_ng_upload_logger_lock_policy_t::qiniu_ng_lock_policy_none,
         }
     }
 }
