@@ -20,7 +20,7 @@ pub struct Bucket<'r> {
     credential: Cow<'r, Credential>,
     upload_manager: UploadManager,
     region: OnceCell<Cow<'r, Region>>,
-    backup_regions: OnceCell<Box<[Region]>>,
+    backup_regions: OnceCell<Box<[Cow<'r, Region>]>>,
     domains: OnceCell<Box<[Cow<'r, str>]>>,
     http_client: Client,
 }
@@ -45,8 +45,8 @@ pub struct BucketBuilder<'r> {
     credential: Cow<'r, Credential>,
     upload_manager: UploadManager,
     region: Option<Cow<'r, Region>>,
-    backup_regions: Option<Box<[Region]>>,
-    domains: Option<Vec<Cow<'r, str>>>,
+    backup_regions: Vec<Cow<'r, Region>>,
+    domains: Vec<Cow<'r, str>>,
     http_client: Client,
 }
 
@@ -68,32 +68,47 @@ impl<'r> BucketBuilder<'r> {
             http_client: Client::new(upload_manager.config().clone()),
             upload_manager,
             region: None,
-            backup_regions: None,
-            domains: None,
+            backup_regions: Vec::new(),
+            domains: Vec::new(),
         }
     }
 
     /// 指定存储空间区域
     ///
-    /// 注意：该方法不要与 `region_id` 方法连用
-    pub fn region(mut self, region: impl Into<Cow<'r, Region>>) -> BucketBuilder<'r> {
-        self.region = Some(region.into());
-        self
-    }
-
-    /// 指定存储空间备用区域
+    /// 注意：对于之前尚未指定过存储空间区域的情况，该方法将为存储空间指定区域。
+    /// 而一旦指定过，之后调用该方法则表示指定备用区域。
     ///
-    /// 注意，应该首先设置存储空间区域，然后再设置备用区域。
-    /// 如果只设置备用区域而不设置存储空间区域
-    pub fn backup_regions(mut self, regions: impl Into<Vec<Region>>) -> BucketBuilder<'r> {
-        self.backup_regions = Some(regions.into().into_boxed_slice());
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use qiniu_ng::{Client, Config, storage::region::Region};
+    /// # use std::{result::Result, error::Error};
+    ///
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = Client::new("[Access Key]", "[Secret Key]", Config::default());
+    /// # let (region1, region2, region3) = (Region::z0(),Region::z1(),Region::z2());
+    /// // 这里 bucket 将优先使用 `region1` 作为主要区域，而 `region2` 和 `region3` 则作为备用区域
+    /// let bucket = client.storage().bucket("[Bucket name]")
+    ///                              .region(region1)
+    ///                              .region(region2)
+    ///                              .region(region3)
+    ///                              .build();
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn region(mut self, region: impl Into<Cow<'r, Region>>) -> BucketBuilder<'r> {
+        if self.region.is_none() {
+            self.region = Some(region.into());
+        } else {
+            self.backup_regions.push(region.into());
+        }
         self
     }
 
     /// 指定存储空间 ID
     ///
     /// 该方法仅适用于指定七牛公有云区域。
-    /// 如果使用的是私有云，则请调用 `region` 方法。该方法不要与 `region` 方法连用。
+    /// 如果使用的是私有云，则请调用 `region` 方法。
     pub fn region_id(self, region_id: RegionId) -> BucketBuilder<'r> {
         self.region(Cow::Borrowed(region_id.as_region()))
     }
@@ -102,7 +117,7 @@ impl<'r> BucketBuilder<'r> {
     ///
     /// 将连接七牛服务器查询当前存储空间所在区域和备用区域
     ///
-    /// 注意，如果调用了该方法，则不应该再调用 `region`，`backup_regions` 和 `region_id` 方法。
+    /// 注意，如果调用了该方法，则不应该再调用 `region` 或 `region_id` 方法。
     /// 除非有特殊需求，否则不建议您调用该方法，而是尽量使用懒加载的方式在必要时自动检测区域
     pub fn auto_detect_region(mut self) -> Result<BucketBuilder<'r>> {
         let mut regions: Vec<Region> = Region::query(
@@ -113,7 +128,7 @@ impl<'r> BucketBuilder<'r> {
         .into();
         self.region = Some(Cow::Owned(regions.swap_remove(0)));
         if !regions.is_empty() {
-            self.backup_regions = Some(regions.into());
+            self.backup_regions = regions.into_iter().map(Cow::Owned).collect();
         }
         Ok(self)
     }
@@ -121,15 +136,27 @@ impl<'r> BucketBuilder<'r> {
     /// 新增下载域名
     ///
     /// 注意，可以先调用 `auto_detect_domains` 方法然后再调用该方法，SDK 将优先使用最后新增的域名
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use qiniu_ng::{Client, Config, storage::region::Region};
+    /// # use std::{result::Result, error::Error};
+    ///
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = Client::new("[Access Key]", "[Secret Key]", Config::default());
+    ///
+    /// // 这里 bucket 将优先使用 `cdn2.example.com` 作为下载域名，其次是 `cdn1.example.com`，最终才轮到七牛配置的下载域名
+    /// let bucket = client.storage().bucket("[Bucket name]")
+    ///                              .auto_detect_domains()?
+    ///                              .prepend_domain("cdn1.example.com")
+    ///                              .prepend_domain("cdn2.example.com")
+    ///                              .build();
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn prepend_domain(mut self, domain: impl Into<Cow<'r, str>>) -> BucketBuilder<'r> {
-        match &mut self.domains {
-            Some(domains) => {
-                domains.push(domain.into());
-            }
-            None => {
-                self.domains = Some(vec![domain.into()]);
-            }
-        }
+        self.domains.push(domain.into());
         self
     }
 
@@ -137,12 +164,10 @@ impl<'r> BucketBuilder<'r> {
     ///
     /// 将连接七牛服务器查询当前存储空间的下载域名列表
     pub fn auto_detect_domains(mut self) -> Result<BucketBuilder<'r>> {
-        self.domains = Some(
-            domain::query(&self.http_client, &self.credential, self.name.as_ref())?
-                .into_iter()
-                .map(Cow::Owned)
-                .collect(),
-        );
+        self.domains = domain::query(&self.http_client, &self.credential, self.name.as_ref())?
+            .into_iter()
+            .map(Cow::Owned)
+            .collect();
         Ok(self)
     }
 
@@ -150,20 +175,36 @@ impl<'r> BucketBuilder<'r> {
     ///
     /// 注意，该方法仅用于在 SDK 中配置生成存储空间实例，而非在七牛云服务器上创建新的存储空间
     pub fn build(self) -> Bucket<'r> {
+        let BucketBuilder {
+            name,
+            credential,
+            upload_manager,
+            region: original_region,
+            backup_regions: original_backup_regions,
+            domains: mut original_domains,
+            http_client,
+        } = self;
+        let backup_regions = OnceCell::new();
+        let region = original_region
+            .map(|r| {
+                backup_regions.get_or_init(|| original_backup_regions.into_boxed_slice());
+                OnceCell::from(r)
+            })
+            .unwrap_or_else(OnceCell::new);
+        let domains = if original_domains.is_empty() {
+            OnceCell::new()
+        } else {
+            original_domains.reverse();
+            OnceCell::from(original_domains.into_boxed_slice())
+        };
         Bucket {
-            name: self.name,
-            credential: self.credential,
-            upload_manager: self.upload_manager,
-            http_client: self.http_client,
-            region: self.region.map(OnceCell::from).unwrap_or_else(OnceCell::new),
-            backup_regions: self.backup_regions.map(OnceCell::from).unwrap_or_else(OnceCell::new),
-            domains: self
-                .domains
-                .map(|mut domains| {
-                    domains.reverse(); // 反转 domains，后 prepend 的放到开头
-                    OnceCell::from(domains.into_boxed_slice())
-                })
-                .unwrap_or_else(OnceCell::new),
+            name,
+            credential,
+            upload_manager,
+            http_client,
+            region,
+            backup_regions,
+            domains,
         }
     }
 }
@@ -187,7 +228,8 @@ impl<'r> Bucket<'r> {
                 )?
                 .into();
                 let first_region = Cow::Owned(regions.swap_remove(0));
-                self.backup_regions.get_or_init(|| regions.into());
+                self.backup_regions
+                    .get_or_init(|| regions.into_iter().map(Cow::Owned).collect());
                 Ok(first_region)
             })
             .map(|region| region.as_ref())
@@ -268,10 +310,14 @@ impl<'a, 'r: 'a> Iterator for BucketRegionIter<'a, 'r> {
                 region.as_ref()
             })
         } else {
-            self.bucket.backup_regions.get().and_then(|regions| {
-                self.itered += 1;
-                regions.get(self.itered - 2)
-            })
+            self.bucket
+                .backup_regions
+                .get()
+                .and_then(|regions| {
+                    self.itered += 1;
+                    regions.get(self.itered - 2)
+                })
+                .map(|r| r.as_ref())
         }
     }
 }
