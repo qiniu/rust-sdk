@@ -14,10 +14,10 @@ use std::borrow::Cow;
 /// 实际上，该结构体由于会存储用户的 SecretKey，因此不推荐在客户端应用程序上使用，而应该只在服务器端应用程序上使用。
 #[derive(Getters, Clone)]
 pub struct Client {
-    #[get = "pub"]
+    #[get]
     storage_manager: StorageManager,
 
-    #[get = "pub"]
+    #[get]
     upload_manager: UploadManager,
 }
 
@@ -49,11 +49,13 @@ impl Client {
     }
 
     /// 获取存储空间管理器
+    #[inline]
     pub fn storage(&self) -> &StorageManager {
         self.storage_manager()
     }
 
     /// 获取上传管理器
+    #[inline]
     pub fn upload(&self) -> &UploadManager {
         self.upload_manager()
     }

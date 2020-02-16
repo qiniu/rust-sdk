@@ -27,6 +27,8 @@ use tap::TapOps;
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_manager_t(*mut c_void);
 
+// TODO: 提供 Upload Manager 的 clone() 方法
+
 impl Default for qiniu_ng_upload_manager_t {
     #[inline]
     fn default() -> Self {

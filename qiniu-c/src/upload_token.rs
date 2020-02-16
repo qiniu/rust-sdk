@@ -20,6 +20,8 @@ use tap::TapOps;
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_policy_builder_t(*mut c_void);
 
+// TODO: 提供 Upload Policy Builder 的 clone() 方法
+
 impl Default for qiniu_ng_upload_policy_builder_t {
     #[inline]
     fn default() -> Self {
@@ -318,6 +320,8 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_object_deadline(
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_policy_t(*mut c_void);
+
+// TODO: 提供 Upload Policy 的 clone() 方法
 
 impl Default for qiniu_ng_upload_policy_t {
     #[inline]
@@ -690,6 +694,8 @@ pub extern "C" fn qiniu_ng_upload_policy_is_freed(policy: qiniu_ng_upload_policy
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_token_t(*mut c_void);
+
+// TODO: 提供 Upload Token 的 clone() 方法
 
 impl Default for qiniu_ng_upload_token_t {
     #[inline]

@@ -13,6 +13,9 @@ use tap::TapOps;
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_str_t(*mut c_void, *mut c_void);
 
+// TODO: 提供 String 的 eql() 方法
+// TODO: 提供 String 的 clone() 方法
+
 impl qiniu_ng_str_t {
     pub(crate) unsafe fn from_str_unchecked(s: &str) -> Self {
         UCString::from_str_unchecked(s).into()
@@ -132,6 +135,9 @@ pub extern "C" fn qiniu_ng_str_is_freed(s: qiniu_ng_str_t) -> bool {
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_str_list_t(*mut c_void, *mut c_void);
 
+// TODO: 提供 StrList 的 eql() 方法
+// TODO: 提供 StrList 的 clone() 方法
+
 impl Default for qiniu_ng_str_list_t {
     #[inline]
     fn default() -> Self {
@@ -240,6 +246,9 @@ pub extern "C" fn qiniu_ng_str_list_is_freed(strlist: qiniu_ng_str_list_t) -> bo
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_str_map_t(*mut c_void);
+
+// TODO: 提供 StrMap 的 eql() 方法
+// TODO: 提供 StrMap 的 clone() 方法
 
 impl Default for qiniu_ng_str_map_t {
     #[inline]

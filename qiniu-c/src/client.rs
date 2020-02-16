@@ -12,6 +12,8 @@ use tap::TapOps;
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_client_t(*mut c_void);
 
+// TODO: 提供 Client 的 clone() 方法
+
 impl Default for qiniu_ng_client_t {
     #[inline]
     fn default() -> Self {

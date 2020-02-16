@@ -24,6 +24,8 @@ use tap::TapOps;
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_config_builder_t(*mut c_void);
 
+// TODO: 提供 Config 的 clone() 方法
+
 struct Builder {
     config_builder: ConfigBuilder,
     upload_logger_builder: Option<UploadLoggerBuilder>,
