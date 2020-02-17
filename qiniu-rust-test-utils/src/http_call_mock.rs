@@ -25,13 +25,13 @@ pub fn fake_req_id() -> String {
     base64::encode_config(&buf, base64::URL_SAFE)
 }
 
-pub struct JSONCallMock<T: Serialize> {
+pub struct JSONCallMock<T: Serialize + Send + Sync> {
     status_code: StatusCode,
     response_headers: Headers<'static>,
     response_body: T,
 }
 
-impl<T: Serialize> JSONCallMock<T> {
+impl<T: Serialize + Send + Sync> JSONCallMock<T> {
     pub fn new(status_code: StatusCode, response_headers: Headers<'static>, response_body: T) -> JSONCallMock<T> {
         JSONCallMock {
             status_code,
@@ -41,7 +41,7 @@ impl<T: Serialize> JSONCallMock<T> {
     }
 }
 
-impl<T: Serialize> HTTPCaller for JSONCallMock<T> {
+impl<T: Serialize + Send + Sync> HTTPCaller for JSONCallMock<T> {
     fn call(&self, _request: &Request) -> Result<Response> {
         let mut headers = self.response_headers.to_owned();
         headers.insert("Content-Type".into(), "application/json".into());

@@ -6,17 +6,7 @@ use crate::{
 use assert_impl::assert_impl;
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
-use std::{
-    borrow::Cow,
-    boxed::Box,
-    default::Default,
-    env::consts::ARCH,
-    fmt,
-    marker::{Send, Sync},
-    ops::Deref,
-    sync::Arc,
-    time::Duration,
-};
+use std::{borrow::Cow, boxed::Box, default::Default, env::consts::ARCH, fmt, ops::Deref, sync::Arc, time::Duration};
 use sys_info::{linux_os_release, os_release, os_type};
 
 #[derive(Builder, Getters, CopyGetters)]
@@ -222,7 +212,7 @@ pub struct ConfigInner {
     /// 但注意，您必须确保不破坏请求中必要的内容，否则七牛服务器可能无法处理该请求。
     #[get = "pub"]
     #[builder(default)]
-    http_request_before_action_handlers: Vec<Box<dyn HTTPBeforeAction + Send + Sync>>,
+    http_request_before_action_handlers: Vec<Box<dyn HTTPBeforeAction>>,
 
     /// HTTP 请求响应后回调函数
     ///
@@ -234,7 +224,7 @@ pub struct ConfigInner {
     /// 但注意，您必须确保不破坏响应中必要的内容，否则七牛 Rust SDK 可能无法处理该响应。
     #[get = "pub"]
     #[builder(default)]
-    http_request_after_action_handlers: Vec<Box<dyn HTTPAfterAction + Send + Sync>>,
+    http_request_after_action_handlers: Vec<Box<dyn HTTPAfterAction>>,
 
     /// HTTP 请求处理函数
     ///
@@ -249,7 +239,7 @@ pub struct ConfigInner {
         private,
         default = "default::http_request_handler()"
     )]
-    http_request_handler: Box<dyn HTTPCaller + Send + Sync>,
+    http_request_handler: Box<dyn HTTPCaller>,
 
     /// 域名管理器
     ///
@@ -360,7 +350,7 @@ mod default {
     }
 
     #[inline]
-    pub fn http_request_handler() -> Box<dyn HTTPCaller + Send + Sync> {
+    pub fn http_request_handler() -> Box<dyn HTTPCaller> {
         #[cfg(any(feature = "use-libcurl"))]
         {
             Box::new(qiniu_with_libcurl::CurlClient::default())
@@ -463,7 +453,7 @@ impl ConfigBuilder {
     /// 对于开启了 `use-libcurl` 功能的七牛 Rust SDK，Config 会默认使用 [qiniu-with-libcurl](https://crates.io/crates/qiniu-with-libcurl) 提供的 `HTTPCaller` 来处理 HTTP 请求。
     ///
     /// 对七牛 Rust SDK 所有发出的 HTTP 请求均有效
-    pub fn http_request_handler(self, handler: impl HTTPCaller + Sync + Send + 'static) -> Self {
+    pub fn http_request_handler(self, handler: impl HTTPCaller + 'static) -> Self {
         self.boxed_http_request_handler(Box::new(handler))
     }
 
@@ -471,14 +461,11 @@ impl ConfigBuilder {
     ///
     /// 您可以利用该特性输出 HTTP 日志或对 HTTP 请求内容进行修改。
     /// 但注意，您必须确保不破坏请求中必要的内容，否则七牛服务器可能无法处理该请求。
-    pub fn append_http_request_before_action_handler(
-        mut self,
-        handler: impl HTTPBeforeAction + Sync + Send + 'static,
-    ) -> Self {
+    pub fn append_http_request_before_action_handler(mut self, handler: impl HTTPBeforeAction + 'static) -> Self {
         if let Some(before_action_handlers) = &mut self.http_request_before_action_handlers {
             before_action_handlers.push(Box::new(handler));
         } else {
-            let mut handlers = Vec::<Box<dyn HTTPBeforeAction + Sync + Send>>::with_capacity(1);
+            let mut handlers = Vec::<Box<dyn HTTPBeforeAction>>::with_capacity(1);
             handlers.push(Box::new(handler));
             self.http_request_before_action_handlers = Some(handlers);
         }
@@ -489,14 +476,11 @@ impl ConfigBuilder {
     ///
     /// 您可以利用该特性输出 HTTP 日志或对 HTTP 请求内容进行修改。
     /// 但注意，您必须确保不破坏请求中必要的内容，否则七牛服务器可能无法处理该请求。
-    pub fn prepend_http_request_before_action_handler(
-        mut self,
-        handler: impl HTTPBeforeAction + Sync + Send + 'static,
-    ) -> Self {
+    pub fn prepend_http_request_before_action_handler(mut self, handler: impl HTTPBeforeAction + 'static) -> Self {
         if let Some(before_action_handlers) = &mut self.http_request_before_action_handlers {
             before_action_handlers.insert(0, Box::new(handler));
         } else {
-            let mut handlers = Vec::<Box<dyn HTTPBeforeAction + Sync + Send>>::with_capacity(1);
+            let mut handlers = Vec::<Box<dyn HTTPBeforeAction>>::with_capacity(1);
             handlers.push(Box::new(handler));
             self.http_request_before_action_handlers = Some(handlers);
         }
@@ -507,14 +491,11 @@ impl ConfigBuilder {
     ///
     /// 您可以利用该特性输出 HTTP 日志或对 HTTP 响应内容进行修改。
     /// 但注意，您必须确保不破坏响应中必要的内容，否则七牛 Rust SDK 可能无法处理该响应。
-    pub fn append_http_request_after_action_handler(
-        mut self,
-        handler: impl HTTPAfterAction + Sync + Send + 'static,
-    ) -> Self {
+    pub fn append_http_request_after_action_handler(mut self, handler: impl HTTPAfterAction + 'static) -> Self {
         if let Some(after_action_handlers) = &mut self.http_request_after_action_handlers {
             after_action_handlers.push(Box::new(handler));
         } else {
-            let mut handlers = Vec::<Box<dyn HTTPAfterAction + Sync + Send>>::with_capacity(1);
+            let mut handlers = Vec::<Box<dyn HTTPAfterAction>>::with_capacity(1);
             handlers.push(Box::new(handler));
             self.http_request_after_action_handlers = Some(handlers);
         }
@@ -525,14 +506,11 @@ impl ConfigBuilder {
     ///
     /// 您可以利用该特性输出 HTTP 日志或对 HTTP 响应内容进行修改。
     /// 但注意，您必须确保不破坏响应中必要的内容，否则七牛 Rust SDK 可能无法处理该响应。
-    pub fn prepend_http_request_after_action_handler(
-        mut self,
-        handler: impl HTTPAfterAction + Sync + Send + 'static,
-    ) -> Self {
+    pub fn prepend_http_request_after_action_handler(mut self, handler: impl HTTPAfterAction + 'static) -> Self {
         if let Some(after_action_handlers) = &mut self.http_request_after_action_handlers {
             after_action_handlers.insert(0, Box::new(handler));
         } else {
-            let mut handlers = Vec::<Box<dyn HTTPAfterAction + Sync + Send>>::with_capacity(1);
+            let mut handlers = Vec::<Box<dyn HTTPAfterAction>>::with_capacity(1);
             handlers.push(Box::new(handler));
             self.http_request_after_action_handlers = Some(handlers);
         }
