@@ -85,7 +85,7 @@ impl UploadManager {
         if let Some(bucket_name) = policy.bucket() {
             Ok(FileUploaderBuilder::new(
                 Ron::Owned(self.for_bucket_name(bucket_name.to_owned(), access_key).build()),
-                upload_token.token().into(),
+                upload_token.to_string().into(),
             ))
         } else {
             Err(CreateUploaderError::BucketIsMissingInUploadToken)
@@ -97,7 +97,7 @@ impl UploadManager {
         upload_policy: UploadPolicy<'u>,
         credential: Cow<'u, Credential>,
     ) -> CreateUploaderResult<FileUploaderBuilder<'u>> {
-        self.for_upload_token(UploadToken::from_policy(upload_policy, credential))
+        self.for_upload_token(UploadToken::new(upload_policy, credential))
     }
 
     #[allow(dead_code)]

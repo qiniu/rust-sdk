@@ -552,6 +552,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         Ok(result.upload_id)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn upload_part(
         http_client: &Client,
         path: &str,
@@ -862,7 +863,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::new(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -975,7 +976,7 @@ mod tests {
             medium.append("etag_5", 5)?;
         }
         let result = bucket_uploader
-            .upload_token(UploadToken::from_policy(policy, get_credential()))
+            .upload_token(UploadToken::new(policy, get_credential()))
             .key("test-key")
             .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1069,7 +1070,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::new(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1189,7 +1190,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::new(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1302,7 +1303,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::new(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1447,7 +1448,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::new(policy, get_credential()))
         .key("test-key")
         .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1537,7 +1538,7 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let upload_token = UploadToken::from_policy(
+        let upload_token = UploadToken::new(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
             get_credential(),
         );
@@ -1673,7 +1674,7 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
 
-        let upload_token = UploadToken::from_policy(
+        let upload_token = UploadToken::new(
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
             get_credential(),
         );

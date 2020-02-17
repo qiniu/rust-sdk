@@ -1,3 +1,7 @@
+//! 上传模块
+//!
+//! 提供对象上传相关功能
+
 mod bucket_uploader;
 mod callback;
 mod form_uploader;

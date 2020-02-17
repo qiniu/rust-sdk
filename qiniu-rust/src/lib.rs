@@ -104,7 +104,7 @@
 //! let access_key = "[Qiniu Access Key]";
 //! let secret_key = "[Qiniu Secret Key]";
 //! let credential = Credential::new(access_key, secret_key);
-//! let upload_token = UploadToken::from_policy(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, &credential);
 //! ```
 //!
 //! 默认情况下，在不指定上传凭证的有效时间情况下，默认有效期为 1 个小时。也可以自行指定上传凭证的有效期，例如：
@@ -127,7 +127,7 @@
 //! let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(bucket, &config)
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::from_policy(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, &credential);
 //! ```
 //!
 //! ### 覆盖上传凭证
@@ -151,18 +151,18 @@
 //! let upload_policy = UploadPolicyBuilder::new_policy_for_object(bucket, key_to_overwrite, &config)
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::from_policy(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, &credential);
 //! ```
 //!
 //! ### 自定义上传回复凭证
 //!
-//! 默认情况下，文件上传到七牛之后，在没有设置 `returnBody` 或者回调相关的参数情况下，七牛返回给上传端的回复格式为 `hash`和 `key`，例如：
+//! 默认情况下，文件上传到七牛之后，在没有设置 `return_body` 或者回调相关的参数情况下，七牛返回给上传端的回复格式为 `hash`和 `key`，例如：
 //!
 //! ```json
 //! {"hash":"Ftgm-CkWePC9fzMBTRNmPMhGBcSV","key":"qiniu.jpg"}
 //! ```
 //!
-//! 有时候我们希望能自定义这个返回的 JSON 格式的内容，可以通过设置 `returnBody` 参数来实现，在 `returnBody` 中，我们可以使用七牛支持的[魔法变量](https://developer.qiniu.com/kodo/manual/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/vars#xvar)。
+//! 有时候我们希望能自定义这个返回的 JSON 格式的内容，可以通过设置 `return_body` 参数来实现，在 `return_body` 中，我们可以使用七牛支持的[魔法变量](https://developer.qiniu.com/kodo/manual/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/vars#xvar)。
 //!
 //! ```rust
 //! # use qiniu_ng::{
@@ -182,7 +182,7 @@
 //!                                         .return_body("{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"fsize\":$(fsize),\"bucket\":\"$(bucket)\",\"name\":\"$(x:name)\"}")
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::from_policy(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, &credential);
 //! ```
 //!
 //! 则文件上传到七牛之后，收到的回复内容格式如下：
@@ -191,7 +191,7 @@
 //! {"key":"github-x.png","hash":"FqKXVdTvIx_mPjOYdjDyUSy_H1jr","fsize":6091,"bucket":"if-pbl","name":"github logo"}
 //! ```
 //!
-//! 对于上面的自定义返回值，我们可以调用 UploadResponse 的方法解析这个结果，例如下面提供了一个解析结果的方法：
+//! 对于上面的自定义返回值，我们可以调用 `upload_response` 的方法解析这个结果，例如下面提供了一个解析结果的方法：
 //!
 //! ```rust,no_run
 //! # use qiniu_ng::{
@@ -212,7 +212,7 @@
 //! #                                         .return_body("{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"fsize\":$(fsize),\"bucket\":\"$(bucket)\",\"name\":\"$(x:name)\"}")
 //! #                                         .build();
 //! #
-//! # let upload_token = UploadToken::from_policy(upload_policy, &credential);
+//! # let upload_token = UploadToken::new(upload_policy, &credential);
 //! let local_file_path = Path::new("local file path");
 //! let upload_manager = UploadManager::new(config);
 //! let upload_response = upload_manager.for_upload_token(upload_token)?
@@ -243,22 +243,25 @@
 //! let credential = Credential::new(access_key, secret_key);
 //! let config = Config::default();
 //! let upload_policy = UploadPolicyBuilder::new_policy_for_object(bucket, key_to_overwrite, &config)
-//!                                         .callback_urls(["http://api.example.com/qiniu/upload/callback"], "")
-//!                                         .callback_body("{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"fsize\":$(fsize),\"bucket\":\"$(bucket)\",\"name\":\"$(x:name)\"}", "application/json")
+//!                                         .callback(
+//!                                             ["http://api.example.com/qiniu/upload/callback"], "",
+//!                                             "{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"fsize\":$(fsize),\"bucket\":\"$(bucket)\",\"name\":\"$(x:name)\"}",
+//!                                             "application/json",
+//!                                         )
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::from_policy(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, &credential);
 //! ```
 //!
 //! 在使用了上传回调的情况下，客户端收到的回复就是业务服务器响应七牛的 JSON 格式内容，业务服务器收到回调之后必须响应 JSON 格式的回复給七牛，这个回复会被七牛传递给客户端。
 //!
-//! 例如上面的 `CallbackBody` 的设置会在文件上传到七牛之后，触发七牛回调如下内容給业务服务器：
+//! 例如上面的 `callback` 的设置会在文件上传到七牛之后，触发七牛回调如下内容給业务服务器：
 //!
 //! ```json
 //! {"key":"github-x.png","hash":"FqKXVdTvIx_mPjOYdjDyUSy_H1jr","fsize":6091,"bucket":"if-pbl","name":"github logo"}
 //! ```
 //!
-//! 通常情况下，我们建议使用 `application/json` 格式来设置 `callbackBody` ，保持数据格式的统一性。实际情况下， `callbackBody` 也支持 `application/x-www-form-urlencoded` 格式来组织内容，这个主要看业务服务器在接收到 `callbackBody` 的内容时如何解析。例如：
+//! 通常情况下，我们建议使用 `application/json` 格式来设置 `callback` ，保持数据格式的统一性。实际情况下， `callback` 也支持 `application/x-www-form-urlencoded` 格式来组织内容，这个主要看业务服务器在接收到 `callback` 的内容时如何解析。例如：
 //!
 //! ```rust
 //! # use qiniu_ng::{
@@ -275,16 +278,19 @@
 //! let credential = Credential::new(access_key, secret_key);
 //! let config = Config::default();
 //! let upload_policy = UploadPolicyBuilder::new_policy_for_object(bucket, key_to_overwrite, &config)
-//!                                         .callback_urls(["http://api.example.com/qiniu/upload/callback"], "")
-//!                                         .callback_body("key=$(key)&hash=$(etag)&bucket=$(bucket)&fsize=$(fsize)&name=$(x:name)", "application/x-www-form-urlencoded")
+//!                                         .callback(
+//!                                             ["http://api.example.com/qiniu/upload/callback"], "",
+//!                                             "key=$(key)&hash=$(etag)&bucket=$(bucket)&fsize=$(fsize)&name=$(x:name)",
+//!                                             "application/x-www-form-urlencoded",
+//!                                         )
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::from_policy(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, &credential);
 //! ```
 //!
 //! ### 带自定义参数的凭证
 //!
-//! 七牛支持客户端上传文件的时候定义一些自定义参数，这些参数可以在 `returnBody` 和 `callbackBody` 里面和七牛内置支持的魔法变量（即系统变量）通过相同的方式来引用。这些自定义的参数名称必须以 `x:` 开头。例如客户端上传的时候指定了自定义的参数 `x:name` 和 `x:age` 分别是 string 和 int 类型。那么可以通过下面的方式引用：
+//! 七牛支持客户端上传文件的时候定义一些自定义参数，这些参数可以在 `return_body` 和 `callback` 里面和七牛内置支持的魔法变量（即系统变量）通过相同的方式来引用。这些自定义的参数名称必须以 `x:` 开头。例如客户端上传的时候指定了自定义的参数 `x:name` 和 `x:age` 分别是 string 和 int 类型。那么可以通过下面的方式引用：
 //!
 //! ```rust
 //! # use qiniu_ng::{
@@ -304,7 +310,7 @@
 //!                                         .return_body("{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"fsize\":$(fsize),\"bucket\":\"$(bucket)\",\"name\":\"$(x:name)\",\"age\":$(x:age)}")
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::from_policy(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, &credential);
 //! ```
 //!
 //! 或者
@@ -324,11 +330,14 @@
 //! # let credential = Credential::new(access_key, secret_key);
 //! # let config = Config::default();
 //! let upload_policy = UploadPolicyBuilder::new_policy_for_object(bucket, key_to_overwrite, &config)
-//!                                         .callback_urls(["http://api.example.com/qiniu/upload/callback"], "")
-//!                                         .callback_body("{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"fsize\":$(fsize),\"bucket\":\"$(bucket)\",\"name\":\"$(x:name)\",\"age\":$(x:age)}", "application/json")
+//!                                         .callback(
+//!                                             ["http://api.example.com/qiniu/upload/callback"], "",
+//!                                             "{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"fsize\":$(fsize),\"bucket\":\"$(bucket)\",\"name\":\"$(x:name)\",\"age\":$(x:age)}",
+//!                                             "application/json",
+//!                                         )
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::from_policy(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, &credential);
 //! ```
 //!
 //! ### 综合上传凭证
@@ -337,7 +346,7 @@
 //!
 //! ## 服务器直传
 //!
-//! 服务端直传是指客户利用七牛服务端 SDK 从服务端直接上传文件到七牛云，交互的双方一般都在机房里面，所以服务端可以自己生成上传凭证，然后利用 SDK 中的上传逻辑进行上传，最后从七牛云获取上传的结果，这个过程中由于双方都是业务服务器，所以很少利用到上传回调的功能，而是直接自定义 `returnBody` 来获取自定义的回复内容。
+//! 服务端直传是指客户利用七牛服务端 SDK 从服务端直接上传文件到七牛云，交互的双方一般都在机房里面，所以服务端可以自己生成上传凭证，然后利用 SDK 中的上传逻辑进行上传，最后从七牛云获取上传的结果，这个过程中由于双方都是业务服务器，所以很少利用到上传回调的功能，而是直接自定义 `return_body` 来获取自定义的回复内容。
 //!
 //! ### 文件上传
 //!
@@ -360,7 +369,7 @@
 //! # let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(bucket, &config)
 //! #                                         .build();
 //! #
-//! # let upload_token = UploadToken::from_policy(upload_policy, &credential);
+//! # let upload_token = UploadToken::new(upload_policy, &credential);
 //! let local_file_path = Path::new("local file path");
 //! let upload_manager = UploadManager::new(config);
 //! let upload_response = upload_manager.for_upload_token(upload_token)?
@@ -393,7 +402,7 @@
 //! # let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(bucket, &config)
 //! #                                         .build();
 //! #
-//! # let upload_token = UploadToken::from_policy(upload_policy, &credential);
+//! # let upload_token = UploadToken::new(upload_policy, &credential);
 //! let stream = Cursor::new(bytes);
 //! let upload_manager = UploadManager::new(config);
 //! let upload_response = upload_manager.for_upload_token(upload_token)?
@@ -421,7 +430,7 @@
 //! # let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(bucket, &config)
 //! #                                         .build();
 //! #
-//! # let upload_token = UploadToken::from_policy(upload_policy, &credential);
+//! # let upload_token = UploadToken::new(upload_policy, &credential);
 //! let upload_manager = UploadManager::new(config);
 //! let upload_response = upload_manager.for_upload_token(upload_token)?
 //!                                     .upload_stream(stdin(), "file name", None)?;
@@ -464,7 +473,7 @@
 //!
 //! ### 业务服务器验证七牛回调
 //!
-//! 在上传策略里面设置了上传回调相关参数的时候，七牛在文件上传到服务器之后，会主动地向 `callbackUrl` 发送 `POST` 请求的回调，回调的内容为 `callbackBody` 模版所定义的内容，如果这个模版里面引用了魔法变量或者自定义变量，那么这些变量会被自动填充对应的值，然后在发送给业务服务器。
+//! 在上传策略里面设置了上传回调相关参数的时候，七牛在文件上传到服务器之后，会主动地向 `callback_url` 发送 `POST` 请求的回调，回调的内容为 `callback_body` 模版所定义的内容，如果这个模版里面引用了魔法变量或者自定义变量，那么这些变量会被自动填充对应的值，然后在发送给业务服务器。
 //!
 //! 业务服务器在收到来自七牛的回调请求的时候，可以根据请求头部的 `Authorization` 字段来进行验证，查看该请求是否是来自七牛的未经篡改的请求。
 //!

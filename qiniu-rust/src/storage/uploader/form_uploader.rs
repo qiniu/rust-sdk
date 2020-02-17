@@ -232,7 +232,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::new(policy, get_credential()))
         .key("test:file")
         .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("abc"));
@@ -262,7 +262,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::new(policy, get_credential()))
         .key("test:file")
         .upload_file(&temp_path, "", None)
         .unwrap_err();
@@ -291,7 +291,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::new(policy, get_credential()))
         .key("test:file")
         .upload_file(&temp_path, "", None)
         .unwrap_err();
@@ -320,7 +320,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::new(policy, get_credential()))
         .key("test:file")
         .never_be_resumable()
         .upload_stream(&file, "", None)
@@ -350,7 +350,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::new(policy, get_credential()))
         .key("test:file")
         .never_be_resumable()
         .upload_stream(&file, "", None)
@@ -380,7 +380,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(UploadToken::from_policy(policy, get_credential()))
+        .upload_token(UploadToken::new(policy, get_credential()))
         .key("test:file")
         .never_be_resumable()
         .upload_stream(&file, "", None)

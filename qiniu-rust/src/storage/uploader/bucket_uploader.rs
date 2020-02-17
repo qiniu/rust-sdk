@@ -105,7 +105,7 @@ impl BucketUploaderBuilder {
 
 impl BucketUploader {
     pub fn upload_token<'b>(&'b self, upload_token: impl Into<UploadToken<'b>>) -> FileUploaderBuilder<'b> {
-        FileUploaderBuilder::new(Ron::Referenced(self), upload_token.into().token().into())
+        FileUploaderBuilder::new(Ron::Referenced(self), upload_token.into().to_string().into())
     }
 
     pub fn upload_policy<'b>(
@@ -115,9 +115,7 @@ impl BucketUploader {
     ) -> FileUploaderBuilder<'b> {
         FileUploaderBuilder::new(
             Ron::Referenced(self),
-            UploadToken::from_policy(upload_policy, credential.into())
-                .token()
-                .into(),
+            UploadToken::new(upload_policy, credential.into()).to_string().into(),
         )
     }
 
@@ -152,6 +150,7 @@ pub struct FileUploaderBuilder<'b> {
     metadata: Option<HashMap<Cow<'b, str>, Cow<'b, str>>>,
     checksum_enabled: bool,
     resumable_policy: ResumablePolicy,
+    #[allow(clippy::type_complexity)]
     on_uploading_progress: Option<Rob<'b, dyn Fn(u64, Option<u64>) + Send + Sync>>,
     thread_pool: Option<Ron<'b, ThreadPool>>,
     max_concurrency: usize,

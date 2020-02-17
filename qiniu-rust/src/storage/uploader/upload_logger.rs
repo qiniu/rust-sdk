@@ -626,11 +626,11 @@ mod tests {
             .upload_logger(Some(UploadLoggerBuilder::default().upload_threshold(100).build()?))
             .build();
         let upload_logger = config.upload_logger().as_ref().unwrap().tokenize(
-            UploadToken::from_policy(
+            UploadToken::new(
                 UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
                 get_credential(),
             )
-            .token()
+            .to_string()
             .into(),
             Client::new(config.to_owned()),
         );
@@ -684,11 +684,11 @@ mod tests {
             ))
             .build();
         let upload_logger = config.upload_logger().as_ref().unwrap().tokenize(
-            UploadToken::from_policy(
+            UploadToken::new(
                 UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
                 get_credential(),
             )
-            .token()
+            .to_string()
             .into(),
             Client::new(config.to_owned()),
         );
