@@ -516,7 +516,7 @@ impl<'p> UploadPolicyBuilder<'p> {
     }
 
     /// 生成上传策略
-    pub fn build(&mut self) -> UploadPolicy<'p> {
+    pub fn build(&self) -> UploadPolicy<'p> {
         self.inner.clone()
     }
 }

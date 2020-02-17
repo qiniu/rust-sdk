@@ -96,7 +96,7 @@ impl<'r> BucketBuilder<'r> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn region(mut self, region: impl Into<Cow<'r, Region>>) -> BucketBuilder<'r> {
+    pub fn region(&mut self, region: impl Into<Cow<'r, Region>>) -> &mut Self {
         if self.region.is_none() {
             self.region = Some(region.into());
         } else {
@@ -109,7 +109,7 @@ impl<'r> BucketBuilder<'r> {
     ///
     /// 该方法仅适用于指定七牛公有云区域。
     /// 如果使用的是私有云，则请调用 `region` 方法。
-    pub fn region_id(self, region_id: RegionId) -> BucketBuilder<'r> {
+    pub fn region_id(&mut self, region_id: RegionId) -> &mut Self {
         self.region(Cow::Borrowed(region_id.as_region()))
     }
 
@@ -119,7 +119,7 @@ impl<'r> BucketBuilder<'r> {
     ///
     /// 注意，如果调用了该方法，则不应该再调用 `region` 或 `region_id` 方法。
     /// 除非有特殊需求，否则不建议您调用该方法，而是尽量使用懒加载的方式在必要时自动检测区域
-    pub fn auto_detect_region(mut self) -> Result<BucketBuilder<'r>> {
+    pub fn auto_detect_region(&mut self) -> Result<&mut Self> {
         let mut regions: Vec<Region> = Region::query(
             self.name.as_ref(),
             self.credential.access_key(),
@@ -155,7 +155,7 @@ impl<'r> BucketBuilder<'r> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn prepend_domain(mut self, domain: impl Into<Cow<'r, str>>) -> BucketBuilder<'r> {
+    pub fn prepend_domain(&mut self, domain: impl Into<Cow<'r, str>>) -> &mut Self {
         self.domains.push(domain.into());
         self
     }
@@ -163,7 +163,7 @@ impl<'r> BucketBuilder<'r> {
     /// 自动检测下载域名
     ///
     /// 将连接七牛服务器查询当前存储空间的下载域名列表
-    pub fn auto_detect_domains(mut self) -> Result<BucketBuilder<'r>> {
+    pub fn auto_detect_domains(&mut self) -> Result<&mut Self> {
         self.domains = domain::query(&self.http_client, &self.credential, self.name.as_ref())?
             .into_iter()
             .map(Cow::Owned)
@@ -174,34 +174,37 @@ impl<'r> BucketBuilder<'r> {
     /// 生成存储空间
     ///
     /// 注意，该方法仅用于在 SDK 中配置生成存储空间实例，而非在七牛云服务器上创建新的存储空间
-    pub fn build(self) -> Bucket<'r> {
+    pub fn build(&self) -> Bucket<'r> {
         let BucketBuilder {
             name,
             credential,
             upload_manager,
+            http_client,
             region: original_region,
             backup_regions: original_backup_regions,
-            domains: mut original_domains,
-            http_client,
+            domains: original_domains,
         } = self;
+
         let backup_regions = OnceCell::new();
         let region = original_region
+            .to_owned()
             .map(|r| {
-                backup_regions.get_or_init(|| original_backup_regions.into_boxed_slice());
+                backup_regions.get_or_init(|| original_backup_regions.to_owned().into_boxed_slice());
                 OnceCell::from(r)
             })
             .unwrap_or_else(OnceCell::new);
         let domains = if original_domains.is_empty() {
             OnceCell::new()
         } else {
-            original_domains.reverse();
-            OnceCell::from(original_domains.into_boxed_slice())
+            let mut domains = original_domains.to_owned();
+            domains.reverse();
+            OnceCell::from(domains.into_boxed_slice())
         };
         Bucket {
-            name,
-            credential,
-            upload_manager,
-            http_client,
+            name: name.to_owned(),
+            credential: credential.to_owned(),
+            upload_manager: upload_manager.to_owned(),
+            http_client: http_client.to_owned(),
             region,
             backup_regions,
             domains,
