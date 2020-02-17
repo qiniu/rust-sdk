@@ -364,7 +364,10 @@ fn set_params_to_file_uploader<'n>(
             (on_uploading_progress)(uploaded, total.unwrap_or(0))
         });
     }
-    file_uploader.max_concurrency(params.max_concurrency)
+    if params.max_concurrency > 0 {
+        file_uploader = file_uploader.max_concurrency(params.max_concurrency);
+    }
+    file_uploader
 }
 
 #[repr(C)]
@@ -438,27 +441,9 @@ pub extern "C" fn qiniu_ng_upload_response_get_hash(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_response_get_json_string(
-    upload_response: qiniu_ng_upload_response_t,
-    json_str: *mut qiniu_ng_str_t,
-    err: *mut qiniu_ng_err_t,
-) -> bool {
+pub extern "C" fn qiniu_ng_upload_response_get_string(upload_response: qiniu_ng_upload_response_t) -> qiniu_ng_str_t {
     let upload_response = Option::<Box<QiniuUploadResponse>>::from(upload_response).unwrap();
-    match upload_response.to_string() {
-        Ok(s) => {
-            if let Some(json_str) = unsafe { json_str.as_mut() } {
-                *json_str = unsafe { qiniu_ng_str_t::from_string_unchecked(s) };
-            }
-            true
-        }
-        Err(ref e) => {
-            if let Some(err) = unsafe { err.as_mut() } {
-                *err = e.into();
-            }
-            false
-        }
-    }
-    .tap(|_| {
+    unsafe { qiniu_ng_str_t::from_string_unchecked(upload_response.to_string()) }.tap(|_| {
         let _ = qiniu_ng_upload_response_t::from(upload_response);
     })
 }

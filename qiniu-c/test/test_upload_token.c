@@ -15,8 +15,7 @@ void test_qiniu_ng_make_upload_token(void) {
 
     qiniu_ng_upload_policy_builder_t builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("test-bucket"), config);
     qiniu_ng_upload_policy_builder_set_insert_only(builder);
-    qiniu_ng_upload_policy_builder_set_callback_urls(builder, (const qiniu_ng_char_t *const *) &CALLBACK_URLS[0], 2, NULL);
-    qiniu_ng_upload_policy_builder_set_callback_body(builder, QINIU_NG_CHARS("key=$(key)"), NULL);
+    qiniu_ng_upload_policy_builder_set_callback(builder, (const qiniu_ng_char_t *const *) &CALLBACK_URLS[0], 2, NULL, QINIU_NG_CHARS("key=$(key)"), NULL);
     qiniu_ng_upload_policy_t upload_policy = qiniu_ng_upload_policy_build(&builder);
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_upload_policy_builder_is_freed(builder),
@@ -94,7 +93,7 @@ void test_qiniu_ng_make_upload_token(void) {
         "qiniu_ng_str_get_ptr(access_key) != getenv(\"access_key\")");
     qiniu_ng_str_free(&access_key);
 
-    qiniu_ng_str_t token = qiniu_ng_upload_token_get_token(upload_token);
+    qiniu_ng_str_t token = qiniu_ng_upload_token_get_string(upload_token);
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         QINIU_NG_CHARS_NCMP(qiniu_ng_str_get_ptr(token), GETENV(QINIU_NG_CHARS("access_key")), QINIU_NG_CHARS_LEN(GETENV(QINIU_NG_CHARS("access_key")))), 0,
         "qiniu_ng_str_get_ptr(token) does not have prefix getenv(\"access_key\")");
@@ -168,7 +167,7 @@ void test_qiniu_ng_make_upload_token(void) {
 
     qiniu_ng_upload_policy_free(&upload_policy_2);
 
-    token = qiniu_ng_upload_token_get_token(upload_token);
+    token = qiniu_ng_upload_token_get_string(upload_token);
     qiniu_ng_upload_token_free(&upload_token);
     qiniu_ng_upload_token_t upload_token_2 = qiniu_ng_upload_token_new_from_token(qiniu_ng_str_get_ptr(token));
     qiniu_ng_str_free(&token);

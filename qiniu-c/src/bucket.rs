@@ -79,13 +79,13 @@ pub extern "C" fn qiniu_ng_bucket_new2(
     if let Some(region) = unsafe { region.as_ref() } {
         let region = Option::<Box<Cow<Region>>>::from(*region);
         if let Some(region) = region.as_ref() {
-            bucket_builder = bucket_builder.region(region.to_owned().into_owned());
+            bucket_builder.region(region.to_owned().into_owned());
         }
         let _ = qiniu_ng_region_t::from(region);
     }
     for i in 0..domains_count {
         let domain = unsafe { *domains.add(i) };
-        bucket_builder = bucket_builder.prepend_domain(unsafe { ucstr::from_ptr(domain) }.to_string().unwrap());
+        bucket_builder.prepend_domain(unsafe { ucstr::from_ptr(domain) }.to_string().unwrap());
     }
     let bucket: qiniu_ng_bucket_t = Box::new(bucket_builder.build()).into();
     bucket.tap(|_| {

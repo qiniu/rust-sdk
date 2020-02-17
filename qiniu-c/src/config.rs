@@ -374,7 +374,7 @@ pub extern "C" fn qiniu_ng_config_builder_upload_recorder_root_directory(
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     let recorder = FileSystemRecorder::from(unsafe { UCString::from_ptr(root_directory) }.into_path_buf());
-    builder.upload_recorder_builder = builder.upload_recorder_builder.recorder(recorder);
+    builder.upload_recorder_builder.recorder(recorder);
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
@@ -384,7 +384,7 @@ pub extern "C" fn qiniu_ng_config_builder_upload_recorder_upload_block_lifetime(
     upload_block_lifetime: u64,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
-    builder.upload_recorder_builder = builder
+    builder
         .upload_recorder_builder
         .upload_block_lifetime(Duration::from_secs(upload_block_lifetime));
     let _ = qiniu_ng_config_builder_t::from(builder);
@@ -396,7 +396,7 @@ pub extern "C" fn qiniu_ng_config_builder_upload_recorder_always_flush_records(
     always_flush_records: bool,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
-    builder.upload_recorder_builder = builder
+    builder
         .upload_recorder_builder
         .always_flush_records(always_flush_records);
     let _ = qiniu_ng_config_builder_t::from(builder);

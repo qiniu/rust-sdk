@@ -116,7 +116,7 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_token_lifetime(
     lifetime: u64,
 ) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.token_lifetime(Duration::from_secs(lifetime));
+    builder.token_lifetime(Duration::from_secs(lifetime));
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
 }
 
@@ -126,7 +126,7 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_token_deadline(
     deadline: u64,
 ) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.token_deadline(
+    builder.token_deadline(
         SystemTime::UNIX_EPOCH
             .checked_add(Duration::from_secs(deadline))
             .unwrap(),
@@ -137,42 +137,43 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_token_deadline(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_policy_builder_set_insert_only(builder: qiniu_ng_upload_policy_builder_t) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.insert_only();
+    builder.insert_only();
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_policy_builder_set_overwritable(builder: qiniu_ng_upload_policy_builder_t) {
+pub extern "C" fn qiniu_ng_upload_policy_builder_set_overwritable(builder: qiniu_ng_upload_policy_builder_t) -> bool {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.overwritable();
-    let _ = qiniu_ng_upload_policy_builder_t::from(builder);
+    builder.overwritable().is_ok().tap(|_| {
+        let _ = qiniu_ng_upload_policy_builder_t::from(builder);
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_policy_builder_enable_mime_detection(builder: qiniu_ng_upload_policy_builder_t) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.enable_mime_detection();
+    builder.enable_mime_detection();
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_policy_builder_disable_mime_detection(builder: qiniu_ng_upload_policy_builder_t) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.disable_mime_detection();
+    builder.disable_mime_detection();
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_policy_builder_use_infrequent_storage(builder: qiniu_ng_upload_policy_builder_t) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.infrequent_storage();
+    builder.infrequent_storage();
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
 }
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_policy_builder_use_normal_storage(builder: qiniu_ng_upload_policy_builder_t) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.normal_storage();
+    builder.normal_storage();
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
 }
 
@@ -182,7 +183,7 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_return_url(
     return_url: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.return_url(unsafe { ucstr::from_ptr(return_url) }.to_string().unwrap());
+    builder.return_url(unsafe { ucstr::from_ptr(return_url) }.to_string().unwrap());
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
 }
 
@@ -192,19 +193,21 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_return_body(
     return_body: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.return_body(unsafe { ucstr::from_ptr(return_body) }.to_string().unwrap());
+    builder.return_body(unsafe { ucstr::from_ptr(return_body) }.to_string().unwrap());
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_policy_builder_set_callback_urls(
+pub extern "C" fn qiniu_ng_upload_policy_builder_set_callback(
     builder: qiniu_ng_upload_policy_builder_t,
     callback_urls: *const *const qiniu_ng_char_t,
     callback_urls_size: size_t,
     callback_host: *const qiniu_ng_char_t,
+    body: *const qiniu_ng_char_t,
+    body_type: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.callback_urls(
+    builder.callback(
         Vec::<String>::with_capacity(callback_urls_size)
             .tap(|urls| {
                 for i in 0..callback_urls_size {
@@ -217,18 +220,6 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_callback_urls(
         unsafe { callback_host.as_ref() }
             .map(|callback_host| unsafe { ucstr::from_ptr(callback_host) }.to_string().unwrap())
             .unwrap_or_else(String::new),
-    );
-    let _ = qiniu_ng_upload_policy_builder_t::from(builder);
-}
-
-#[no_mangle]
-pub extern "C" fn qiniu_ng_upload_policy_builder_set_callback_body(
-    builder: qiniu_ng_upload_policy_builder_t,
-    body: *const qiniu_ng_char_t,
-    body_type: *const qiniu_ng_char_t,
-) {
-    let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.callback_body(
         unsafe { ucstr::from_ptr(body) }.to_string().unwrap(),
         unsafe { body_type.as_ref() }
             .map(|body_type| unsafe { ucstr::from_ptr(body_type) }.to_string().unwrap())
@@ -244,7 +235,7 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_save_as_key(
     force: bool,
 ) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.save_as(unsafe { ucstr::from_ptr(key) }.to_string().unwrap(), force);
+    builder.save_as(unsafe { ucstr::from_ptr(key) }.to_string().unwrap(), force);
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
 }
 
@@ -257,16 +248,16 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_file_size_limitation(
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
     match (unsafe { min_file_size.as_ref() }, unsafe { max_file_size.as_ref() }) {
         (Some(min_file_size), Some(max_file_size)) => {
-            *builder = builder.file_size_limitation(min_file_size..=max_file_size);
+            builder.file_size_limitation(min_file_size..=max_file_size);
         }
         (None, Some(max_file_size)) => {
-            *builder = builder.file_size_limitation(..=max_file_size);
+            builder.file_size_limitation(..=max_file_size);
         }
         (Some(min_file_size), None) => {
-            *builder = builder.file_size_limitation(min_file_size..);
+            builder.file_size_limitation(min_file_size..);
         }
         (None, None) => {
-            *builder = builder.file_size_limitation(..);
+            builder.file_size_limitation(..);
         }
     };
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
@@ -279,7 +270,7 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_mime_types(
     mime_types_size: size_t,
 ) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.mime_types(
+    builder.mime_types(
         Vec::<String>::with_capacity(mime_types_size)
             .tap(|m| {
                 for i in 0..mime_types_size {
@@ -299,7 +290,7 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_object_lifetime(
     lifetime: u64,
 ) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.object_lifetime(Duration::from_secs(lifetime));
+    builder.object_lifetime(Duration::from_secs(lifetime));
     let _ = qiniu_ng_upload_policy_builder_t::from(builder);
 }
 
@@ -309,7 +300,7 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_object_deadline(
     deadline: u64,
 ) {
     let mut builder = Option::<Box<UploadPolicyBuilder>>::from(builder).unwrap();
-    *builder = builder.object_deadline(
+    builder.object_deadline(
         SystemTime::UNIX_EPOCH
             .checked_add(Duration::from_secs(deadline))
             .unwrap(),
@@ -741,7 +732,7 @@ pub extern "C" fn qiniu_ng_upload_token_new_from_policy_builder(
 ) -> qiniu_ng_upload_token_t {
     let policy_builder_ptr = unsafe { policy_builder_ptr.as_mut() }.unwrap();
     let policy_builder = Option::<Box<UploadPolicyBuilder>>::from(*policy_builder_ptr).unwrap();
-    Box::new(UploadToken::from_policy(
+    Box::new(UploadToken::new(
         policy_builder.build(),
         Credential::new(
             unsafe { ucstr::from_ptr(access_key) }.to_string().unwrap(),
@@ -761,7 +752,7 @@ pub extern "C" fn qiniu_ng_upload_token_new_from_policy(
     secret_key: *const qiniu_ng_char_t,
 ) -> qiniu_ng_upload_token_t {
     let policy = Option::<Box<UploadPolicy>>::from(policy).unwrap();
-    Box::new(UploadToken::from_policy(
+    Box::new(UploadToken::new(
         policy.as_ref().to_owned(),
         Credential::new(
             unsafe { ucstr::from_ptr(access_key) }.to_string().unwrap(),
@@ -776,7 +767,7 @@ pub extern "C" fn qiniu_ng_upload_token_new_from_policy(
 
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_token_new_from_token(token: *const qiniu_ng_char_t) -> qiniu_ng_upload_token_t {
-    Box::new(UploadToken::from_token(
+    Box::new(UploadToken::from(
         unsafe { ucstr::from_ptr(token) }.to_string().unwrap(),
     ))
     .into()
@@ -822,9 +813,9 @@ pub extern "C" fn qiniu_ng_upload_token_get_access_key(
 }
 
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_token_get_token(upload_token: qiniu_ng_upload_token_t) -> qiniu_ng_str_t {
+pub extern "C" fn qiniu_ng_upload_token_get_string(upload_token: qiniu_ng_upload_token_t) -> qiniu_ng_str_t {
     let upload_token = Option::<Box<UploadToken>>::from(upload_token).unwrap();
-    unsafe { qiniu_ng_str_t::from_string_unchecked(upload_token.token()) }.tap(|_| {
+    unsafe { qiniu_ng_str_t::from_string_unchecked(upload_token.to_string()) }.tap(|_| {
         let _ = qiniu_ng_upload_token_t::from(upload_token);
     })
 }
