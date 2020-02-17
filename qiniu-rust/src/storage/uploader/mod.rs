@@ -10,7 +10,7 @@ mod resumable_uploader;
 mod upload_logger;
 mod upload_manager;
 mod upload_policy;
-pub mod upload_recorder;
+mod upload_recorder;
 mod upload_response;
 mod upload_token;
 

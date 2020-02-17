@@ -47,6 +47,27 @@ mod tests {
     }
 
     #[test]
+    fn test_storage_uploader_upload_file_with_non_json_return_body() -> Result<(), Box<dyn Error>> {
+        let config = Config::default();
+        let temp_path = create_temp_file(1 << 19)?.into_temp_path();
+        let key = format!("test-512k-{}", Utc::now().timestamp_nanos());
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config)
+            .return_body("$(fname)/$(key)")
+            .build();
+        let result = get_client(config)
+            .upload()
+            .for_upload_policy(policy, get_credential().into())?
+            .key(&key)
+            .upload_file(&temp_path, "512k", Some(mime::IMAGE_PNG))?;
+
+        assert_eq!(result.key(), None);
+        assert_eq!(result.hash(), None);
+        assert!(!result.is_json_value());
+        assert_eq!(String::from_utf8(result.into_bytes())?, format!("\"512k\"/\"{}\"", key));
+        Ok(())
+    }
+
+    #[test]
     fn test_storage_uploader_upload_file_with_key() -> Result<(), Box<dyn Error>> {
         let config = Config::default();
         let temp_path = create_temp_file(1 << 19)?.into_temp_path();

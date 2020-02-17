@@ -293,6 +293,7 @@ mod domain {
     use std::borrow::Borrow;
 
     pub(super) fn query(http_client: &Client, credential: &Credential, bucket_name: &str) -> Result<Vec<String>> {
+        // TODO: 缓存结果
         Ok(http_client
             .get("/v6/domain/list", &[&http_client.config().api_url()])
             .query("tbl", bucket_name)

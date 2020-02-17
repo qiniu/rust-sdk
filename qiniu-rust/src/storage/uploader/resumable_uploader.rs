@@ -623,7 +623,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
     fn complete_parts(&self, path: &str, up_urls: &[&str], authorization: &str) -> HTTPResult<UploadResponse> {
         let mut completed_parts = self.completed_parts.lock().unwrap();
         completed_parts.parts.sort_unstable_by_key(|part| part.part_number);
-        let value: Value = self
+        let upload_result = self
             .bucket_uploader
             .http_client()
             .post(path, up_urls)
@@ -662,8 +662,11 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
             .json_body(&*completed_parts)
             .unwrap()
             .send()?
-            .parse_json()?;
-        Ok(value.into())
+            .try_parse_json::<Value>();
+        match upload_result {
+            Ok(value) => Ok(value.into()),
+            Err(bytes) => Ok(bytes.into()),
+        }
     }
 
     fn try_to_resume(&mut self, base_path: &str, authorization: &str) -> HTTPResult<Option<UploadResponse>> {

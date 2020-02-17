@@ -140,7 +140,7 @@ impl<'u> FormUploader<'u> {
     }
 
     fn send_form_request(&self, up_urls: &[&str]) -> HTTPResult<UploadResponse> {
-        let value: Value = self
+        let upload_result = self
             .bucket_uploader
             .http_client()
             .post("/", up_urls)
@@ -185,8 +185,11 @@ impl<'u> FormUploader<'u> {
             .accept_json()
             .raw_body(self.content_type.to_owned(), self.body.as_slice())
             .send()?
-            .parse_json()?;
-        Ok(value.into())
+            .try_parse_json::<Value>();
+        match upload_result {
+            Ok(value) => Ok(value.into()),
+            Err(bytes) => Ok(bytes.into()),
+        }
     }
 }
 

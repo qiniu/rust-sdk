@@ -7,11 +7,13 @@ use getset::{CopyGetters, Getters};
 use qiniu_http::{Response as HTTPResponse, ResponseBody as HTTPResponseBody};
 use serde::de::DeserializeOwned;
 use std::{
+    borrow::Cow,
     fmt,
-    io::{copy as io_copy, sink as io_sink, Result as IOResult},
+    io::{copy as io_copy, sink as io_sink, Read, Result as IOResult},
     net::IpAddr,
+    result::Result,
 };
-use tap::TapOptionOps;
+use tap::{TapOps, TapOptionOps};
 
 #[derive(CopyGetters, Getters)]
 pub(crate) struct Response<'a> {
@@ -71,6 +73,22 @@ impl<'a> Response<'a> {
                 Some((self.base_url.to_owned() + self.path).into()),
             )
         })
+    }
+
+    pub(crate) fn try_parse_json<T: DeserializeOwned>(&mut self) -> Result<T, Vec<u8>> {
+        let body = match self.take_body().unwrap() {
+            HTTPResponseBody::Reader(mut reader) => Vec::new().tap(|buf| {
+                let _ = reader.read(buf);
+            }),
+            HTTPResponseBody::File(mut file) => Vec::new().tap(|buf| {
+                let _ = file.read(buf);
+            }),
+            HTTPResponseBody::Bytes(bytes) => bytes,
+        };
+        if self.header("Content-Type") != Some(&Cow::Borrowed("application/json")) {
+            return Err(body);
+        }
+        serde_json::from_slice(&body).map_err(|_| body)
     }
 
     pub(crate) fn ignore_body(&mut self) {

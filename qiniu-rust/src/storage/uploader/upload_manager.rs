@@ -1,3 +1,7 @@
+//! 上传管理器
+//!
+//! 封装上传相关功能
+
 use super::{
     super::{
         bucket::Bucket,
@@ -8,9 +12,12 @@ use super::{
 };
 use crate::{config::Config, credential::Credential, utils::ron::Ron};
 use assert_impl::assert_impl;
-use std::{borrow::Cow, io::Error as IOError, result::Result};
+use std::{borrow::Cow, result::Result};
 use thiserror::Error;
 
+/// 上传管理器
+///
+/// 上传管理器更接近于一个上传入口，帮助构建存储空间上传器或文件上传器，而本身并不具有实质管理功能。
 #[derive(Clone)]
 pub struct UploadManager {
     config: Config,
@@ -21,10 +28,12 @@ impl UploadManager {
         &self.config
     }
 
-    pub fn new(config: Config) -> UploadManager {
+    /// 创建新的上传管理器
+    pub fn new(config: Config) -> Self {
         UploadManager { config }
     }
 
+    /// 创建存储空间上传器生成器
     pub fn for_bucket(&self, bucket: &Bucket) -> BucketUploaderBuilder {
         BucketUploaderBuilder::new(
             bucket.name().into(),
@@ -36,6 +45,7 @@ impl UploadManager {
         )
     }
 
+    /// 根据存储空间名称和对应的 Access Key 创建存储空间上传器生成器
     pub fn for_bucket_name<'b>(
         &self,
         bucket_name: impl Into<Cow<'b, str>>,
@@ -75,6 +85,7 @@ impl UploadManager {
             .collect()
     }
 
+    /// 根据上传凭证创建文件上传器生成器
     pub fn for_upload_token<'u>(
         &self,
         upload_token: impl Into<UploadToken<'u>>,
@@ -92,6 +103,7 @@ impl UploadManager {
         }
     }
 
+    /// 根据上传策略和认证信息创建文件上传器生成器
     pub fn for_upload_policy<'u>(
         &self,
         upload_policy: UploadPolicy<'u>,
@@ -107,16 +119,19 @@ impl UploadManager {
     }
 }
 
+/// 创建上传器错误
 #[derive(Error, Debug)]
 pub enum CreateUploaderError {
+    /// 上传凭证解析错误
     #[error("Failed to parse upload token: {0}")]
     UploadTokenParseError(#[from] UploadTokenParseError),
+    /// 七牛 API 调用错误
     #[error("Qiniu API call error: {0}")]
     QiniuAPIError(#[from] crate::http::Error),
-    #[error("Failed to do local io operation during uploading: {0}")]
-    IOError(#[from] IOError),
+    /// 上传凭证中不包含存储空间信息
     #[error("Bucket is missing in upload token")]
     BucketIsMissingInUploadToken,
 }
 
+/// 创建上传器结果
 pub type CreateUploaderResult<T> = Result<T, CreateUploaderError>;

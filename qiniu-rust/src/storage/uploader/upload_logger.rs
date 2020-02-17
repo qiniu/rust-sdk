@@ -25,10 +25,18 @@ use tap::TapOps;
 use thiserror::Error;
 use url::Url;
 
+/// 上传日志文件的锁策略
+///
+/// 为了防止上传文件的过程中，上传日志文件被多个进程同时修改引发竞争，因此需要在操作日志文件时使用文件锁保护
 #[derive(Debug, Clone, Copy)]
 pub enum LockPolicy {
+    /// 追加日志时为日志文件加共享锁，而上传时使用排他锁，相较其他策略可以实现安全和性能之间的平衡，因此是默认策略
     LockSharedDuringAppendingAndLockExclusiveDuringUploading,
+    /// 始终使用排他锁保护文件，性能较差
     AlwaysLockExclusive,
+    /// 不使用任何锁保护文件，安全性差。
+    /// 建议仅在能确保当前操作系统内不会有多个进程同时上传文件时，
+    /// 或不同进程不会使用相同路径的上传日志时才使用这种策略
     None,
 }
 
@@ -77,6 +85,9 @@ impl LockPolicy {
     }
 }
 
+/// 上传日志记录仪生成器
+///
+/// 用于配置并生成上传日志记录仪
 #[derive(Builder)]
 #[builder(
     name = "UploadLoggerBuilder",
@@ -85,15 +96,38 @@ impl LockPolicy {
     build_fn(name = "inner_build", private)
 )]
 struct UploadLoggerValue {
+    /// 日志文件路径
+    ///
+    /// 默认的日志文件路径规则如下：
+    ///   1. 尝试在[操作系统特定的缓存目录](https://docs.rs/dirs/2.0.2/dirs/fn.cache_dir.html)下创建 `qiniu_sdk` 目录。
+    ///   2. 如果成功，则使用 `qiniu_sdk` 目录下的 `upload.log`。
+    ///   3. 如果失败，则直接使用临时目录下的 `upload.log`。
     #[builder(default = "default::log_file_path()")]
     log_file_path: Cow<'static, Path>,
 
+    /// 日志文件的锁策略
+    ///
+    /// 为了防止上传文件的过程中，上传日志文件被多个进程同时修改引发竞争，因此需要在操作日志文件时使用文件锁保护。
+    /// 默认策略为在追加日志时为日志文件加共享锁，而上传时使用排他锁，尽可能做到安全和性能之间的平衡。
+    ///
+    /// 但在有些场景下中，并发追加日志文件同样会引发竞争，此时需要改用 `AlwaysLockExclusive` 策略。
+    /// 此外，如果确定当前操作系统内不会有多个进程同时上传文件，或不同进程不会使用相同路径的日志时，
+    /// 也可以使用 `None` 策略，减少文件锁的性能影响。
     #[builder(default = "default::lock_policy()")]
     lock_policy: LockPolicy,
 
+    /// 日志文件的阙值
+    ///
+    /// 当且仅当日志文件尺寸大于阙值时才会上传日志。
+    /// 单位为字节
     #[builder(default = "default::upload_threshold()")]
     upload_threshold: u32,
 
+    /// 日志文件最大尺寸
+    ///
+    /// 当日志文件尺寸大于指定尺寸时，将不会再记录任何数据到日志内。
+    /// 防止在上传发生困难时日志文件无限制膨胀。
+    /// 单位为字节。该值必须大于 `upload_threshold`
     #[builder(default = "default::max_size()")]
     max_size: u32,
 }
@@ -104,6 +138,9 @@ struct UploadLoggerInner {
     value: UploadLoggerValue,
 }
 
+/// 上传日志记录仪
+///
+/// 收集文件上传相关日志信息，并自动以异步的形式上传到 Uplog 服务器，并由七牛工作人员进行统计或定位问题
 #[derive(Clone)]
 pub struct UploadLogger {
     inner: Arc<UploadLoggerInner>,
@@ -127,18 +164,22 @@ impl UploadLogger {
         }
     }
 
+    /// 获取日志文件路径
     pub fn log_file_path(&self) -> &Path {
         self.inner.value.log_file_path.as_ref()
     }
 
+    /// 获取日志文件锁策略
     pub fn lock_policy(&self) -> LockPolicy {
         self.inner.value.lock_policy
     }
 
+    /// 日志文件的阙值
     pub fn upload_threshold(&self) -> u32 {
         self.inner.value.upload_threshold
     }
 
+    /// 日志文件的最大尺寸
     pub fn max_size(&self) -> u32 {
         self.inner.value.max_size
     }
@@ -151,6 +192,7 @@ impl UploadLogger {
 }
 
 impl UploadLoggerBuilder {
+    /// 生成上传日志记录仪
     pub fn build(self) -> IOResult<UploadLogger> {
         let value = self.inner_build().unwrap();
         let log_file = RwLock::new(

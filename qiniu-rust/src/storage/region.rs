@@ -273,6 +273,7 @@ impl Region {
         access_key: impl Into<Cow<'a, str>>,
         config: Config,
     ) -> Result<Box<[Region]>> {
+        // TODO: 缓存结果
         let uc_url = config.uc_url();
         let result: RegionQueryResults = Client::new(config)
             .get("/v3/query", &[&uc_url])

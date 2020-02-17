@@ -11,18 +11,33 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+/// 上传进度记录仪
+///
+/// 用于记录文件块上传进度，如果文件在上传期间发生错误，将可以在重试时避免再次上传已经成功上传的文件分块，实现断点续传
 #[derive(Builder, Clone)]
-#[builder(pattern = "owned", public, build_fn(name = "inner_build", private))]
+#[builder(pattern = "mutable", public, build_fn(name = "inner_build", private))]
 pub struct UploadRecorder {
+    /// 设置记录仪
     #[builder(default = "default::recorder()")]
     recorder: Arc<dyn Recorder>,
 
-    #[builder(default = "default::key_generator")]
-    key_generator: fn(name: &str, path: &Path, key: Option<&str>) -> String,
+    /// 记录仪 ID 生成器
+    ///
+    /// 默认将使用基于 SHA1 的策略生成 ID
+    #[builder(default = "default::id_generator")]
+    id_generator: fn(name: &str, path: &Path, key: Option<&str>) -> String,
 
+    /// 文件分块有效期
+    ///
+    /// 对于超过有效期的分块，SDK 将重新上传，确保所有分块在创建文件时均有效。
+    ///
+    /// 默认为 7 天，这是七牛公有云默认的配置。对于私有云的情况，需要参照私有云的配置来设置。
     #[builder(default = "default::upload_block_lifetime()")]
     upload_block_lifetime: Duration,
 
+    /// 始终刷新
+    ///
+    /// 当记录上传进度后，是否始终刷新 IO 确保数据已经被持久化，默认为否
     #[builder(default = "default::always_flush_records()")]
     always_flush_records: bool,
 }
@@ -65,7 +80,7 @@ struct SerializableFileUploadRecordMediumBlockItem<'a> {
 }
 
 impl UploadRecorderBuilder {
-    pub fn build(self) -> UploadRecorder {
+    pub fn build(&self) -> UploadRecorder {
         self.inner_build().unwrap()
     }
 }
@@ -165,17 +180,20 @@ impl UploadRecorder {
     }
 
     fn generate_key(&self, path: &Path, key: Option<&str>) -> String {
-        (self.key_generator)("upload", path, key)
+        (self.id_generator)("upload", path, key)
     }
 
+    /// 获取记录仪的引用
     pub fn recorder(&self) -> &dyn Recorder {
         self.recorder.as_ref()
     }
 
+    /// 获取文件分块的有效期
     pub fn upload_block_lifetime(&self) -> Duration {
         self.upload_block_lifetime
     }
 
+    /// 是否总是刷新
     pub fn always_flush_records(&self) -> bool {
         self.always_flush_records
     }
@@ -223,7 +241,7 @@ mod default {
         false
     }
 
-    pub fn key_generator(name: &str, path: &Path, key: Option<&str>) -> String {
+    pub fn id_generator(name: &str, path: &Path, key: Option<&str>) -> String {
         let mut sha1 = Sha1::default();
         if let Some(key) = key {
             sha1.input(key.as_bytes());
