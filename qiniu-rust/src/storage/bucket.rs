@@ -210,6 +210,17 @@ impl<'r> BucketBuilder<'r> {
             domains,
         }
     }
+
+    /// 重置生成器
+    ///
+    /// 重置生成器使得生成器可以被多次复用
+    pub fn reset(&mut self, name: impl Into<Cow<'r, str>>) -> &mut Self {
+        self.name = name.into();
+        self.region = None;
+        self.backup_regions.clear();
+        self.domains.clear();
+        self
+    }
 }
 
 impl<'r> Bucket<'r> {

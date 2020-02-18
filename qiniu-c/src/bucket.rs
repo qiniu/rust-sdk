@@ -20,7 +20,9 @@ use tap::TapOps;
 /// @details 用于配置并生成存储空间实例
 /// @note
 ///   * 调用 `qiniu_ng_bucket_builder_new()` 函数创建 `qiniu_ng_bucket_builder_t` 实例。
-///   * 当 `qiniu_ng_bucket_builder_t` 生成 `qiniu_ng_bucket_t` 完毕后，并且没有其他生成需求时，请务必调用 `qiniu_ng_bucket_builder_free()` 方法释放内存。
+///   * 当 `qiniu_ng_bucket_builder_t` 生成 `qiniu_ng_bucket_t` 完毕后
+///     - 当需要继续生成其他存储空间实例时，可以调用 `qiniu_ng_bucket_builder_reset()` 方法重置生成器。
+///     - 当没有其他生成需求时，请务必调用 `qiniu_ng_bucket_builder_free()` 方法释放内存。
 /// @note
 ///   该结构体不可以跨线程使用
 /// @note
@@ -91,7 +93,7 @@ pub extern "C" fn qiniu_ng_bucket_builder_new(
 /// @note
 ///     对于之前尚未指定过存储空间区域的情况，该方法将为存储空间指定区域。
 ///     而一旦指定过，之后调用该方法则表示指定备用区域。
-/// @note 务必保证在 `qiniu_ng_bucket_builder_t` 和其构建的 `qiniu_ng_bucket_t` 没有被释放之前，不要释放传入的 `qiniu_ng_region_t`
+/// @warning 务必保证在 `qiniu_ng_bucket_builder_t` 和其构建的 `qiniu_ng_bucket_t` 没有被释放之前，不要释放传入的 `qiniu_ng_region_t`
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_builder_set_region(builder: qiniu_ng_bucket_builder_t, region: qiniu_ng_region_t) {
     let mut builder = Option::<Box<BucketBuilder>>::from(builder).unwrap();
@@ -123,7 +125,7 @@ pub extern "C" fn qiniu_ng_bucket_builder_set_region_id(
 /// @brief 自动检测区域
 /// @details 将连接七牛服务器查询当前存储空间所在区域和备用区域
 /// @param[in] builder 存储空间生成器
-/// @param[out] error 用于返回错误
+/// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否运行正常，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @note
 ///     注意，如果调用了该方法，则不应该再调用 `qiniu_ng_bucket_builder_set_region()` 或 `qiniu_ng_bucket_builder_set_region_id()` 方法。
@@ -163,7 +165,7 @@ pub extern "C" fn qiniu_ng_bucket_builder_prepend_domain(
 /// @brief 自动检测下载域名
 /// @details 将连接七牛服务器查询当前存储空间的下载域名列表
 /// @param[in] builder 存储空间生成器
-/// @param[out] error 用于返回错误
+/// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否运行正常，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_builder_auto_detect_domains(
@@ -196,8 +198,24 @@ pub extern "C" fn qiniu_ng_bucket_build(builder: qiniu_ng_bucket_builder_t) -> q
     })
 }
 
+/// @brief 重置存储空间生成器实例
+/// @details 调用该方法使生成器可以被多次复用
+/// @param[in] builder 存储空间生成器
+/// @param[in] new_bucket_name 新的存储空间名称
+/// @note 重置实例时，SDK 客户端会复制并存储输入的 `bucket_name`，因此 `bucket_name` 的使用完毕后即可释放
+#[no_mangle]
+pub extern "C" fn qiniu_ng_bucket_builder_reset(
+    builder: qiniu_ng_bucket_builder_t,
+    new_bucket_name: *const qiniu_ng_char_t,
+) {
+    let mut builder = Option::<Box<BucketBuilder>>::from(builder).unwrap();
+    let new_bucket_name = unsafe { ucstr::from_ptr(new_bucket_name) }.to_string().unwrap();
+    builder.reset(new_bucket_name);
+    let _ = qiniu_ng_bucket_builder_t::from(builder);
+}
+
 /// @brief 释放存储空间生成器实例
-/// @param[in,out] client 存储空间生成器实例地址，释放完毕后该生成器实例将不再可用
+/// @param[in,out] builder 存储空间生成器实例地址，释放完毕后该生成器实例将不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_builder_free(builder: *mut qiniu_ng_bucket_builder_t) {
     if let Some(builder) = unsafe { builder.as_mut() } {
@@ -207,7 +225,7 @@ pub extern "C" fn qiniu_ng_bucket_builder_free(builder: *mut qiniu_ng_bucket_bui
 }
 
 /// @brief 判断存储空间生成器实例是否已经被释放
-/// @param[in] client 存储空间生成器实例
+/// @param[in] builder 存储空间生成器实例
 /// @retval bool 如果返回 `true` 则表示存储空间生成器实例已经被释放，该实例不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_builder_is_freed(builder: qiniu_ng_bucket_builder_t) -> bool {
@@ -313,8 +331,8 @@ pub extern "C" fn qiniu_ng_bucket_get_name(bucket: qiniu_ng_bucket_t) -> qiniu_n
 
 /// @brief 获取存储空间区域
 /// @param[in] bucket 存储空间实例
-/// @param[out] region 用于返回区域的内存地址
-/// @param[out] error 用于返回错误
+/// @param[out] region 用于返回区域的内存地址，如果传入 `NULL` 表示不获取 `region`。但如果运行正常，返回值将依然是 `true`
+/// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否运行正常，如果返回 `true`，则表示可以读取 `region` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @warning 对于获取的 `region` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
 #[no_mangle]
@@ -344,8 +362,8 @@ pub extern "C" fn qiniu_ng_bucket_get_region(
 
 /// @brief 获取存储空间区域列表
 /// @param[in] bucket 存储空间实例
-/// @param[out] regions 用于返回区域列表的内存地址，区域列表中第一个区域是当前存储空间所在区域，之后的区域则是备用区域
-/// @param[out] error 用于返回错误
+/// @param[out] regions 用于返回区域列表的内存地址，区域列表中第一个区域是当前存储空间所在区域，之后的区域则是备用区域。如果传入 `NULL` 表示不获取 `regions`。但如果运行正常，返回值将依然是 `true`
+/// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否运行正常，如果返回 `true`，则表示可以读取 `regions` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @warning 对于获取的 `regions` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
 #[no_mangle]
@@ -378,8 +396,8 @@ pub extern "C" fn qiniu_ng_bucket_get_regions(
 
 /// @brief 获取存储空间下载域名列表
 /// @param[in] bucket 存储空间实例
-/// @param[out] domains 用于返回下载域名列表的内存地址
-/// @param[out] error 用于返回错误
+/// @param[out] domains 用于返回下载域名列表的内存地址。如果传入 `NULL` 表示不获取 `domains`。但如果运行正常，返回值将依然是 `true`
+/// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否运行正常，如果返回 `true`，则表示可以读取 `domains` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @warning 对于获取的 `domains` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
 #[no_mangle]

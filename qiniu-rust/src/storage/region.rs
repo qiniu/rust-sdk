@@ -67,7 +67,7 @@ impl AsRef<str> for RegionId {
 ///
 /// 区域实例负责管理七牛多个服务器的 URL，用于为存储管理器或上传管理器提供 URL。
 #[derive(Getters, CopyGetters, Builder, Clone, Debug, Default)]
-#[builder(default, pattern = "owned", setter(into))]
+#[builder(default, pattern = "mutable", build_fn(name = "inner_build", private), setter(into))]
 pub struct Region {
     /// 存储区域 ID
     ///
@@ -114,6 +114,121 @@ pub struct Region {
     /// API 服务器 URL 列表（HTTPS 协议）
     #[get = "pub"]
     api_https_urls: Vec<Cow<'static, str>>,
+}
+
+impl RegionBuilder {
+    /// 追加上传服务器（HTTP 协议）URL
+    pub fn append_up_http_url(&mut self, url: impl Into<Cow<'static, str>>) -> &mut Self {
+        if let Some(urls) = &mut self.up_http_urls {
+            urls.push(url.into());
+        } else {
+            self.up_http_urls = Some(vec![url.into()]);
+        }
+        self
+    }
+
+    /// 追加上传服务器（HTTPS 协议）URL
+    pub fn append_up_https_url(&mut self, url: impl Into<Cow<'static, str>>) -> &mut Self {
+        if let Some(urls) = &mut self.up_https_urls {
+            urls.push(url.into());
+        } else {
+            self.up_https_urls = Some(vec![url.into()]);
+        }
+        self
+    }
+
+    /// 追加 IO 服务器（HTTP 协议）URL
+    pub fn append_io_http_url(&mut self, url: impl Into<Cow<'static, str>>) -> &mut Self {
+        if let Some(urls) = &mut self.io_http_urls {
+            urls.push(url.into());
+        } else {
+            self.io_http_urls = Some(vec![url.into()]);
+        }
+        self
+    }
+
+    /// 追加 IO 服务器（HTTPS 协议）URL
+    pub fn append_io_https_url(&mut self, url: impl Into<Cow<'static, str>>) -> &mut Self {
+        if let Some(urls) = &mut self.io_https_urls {
+            urls.push(url.into());
+        } else {
+            self.io_https_urls = Some(vec![url.into()]);
+        }
+        self
+    }
+
+    /// 追加 RS 服务器（HTTP 协议）URL
+    pub fn append_rs_http_url(&mut self, url: impl Into<Cow<'static, str>>) -> &mut Self {
+        if let Some(urls) = &mut self.rs_http_urls {
+            urls.push(url.into());
+        } else {
+            self.rs_http_urls = Some(vec![url.into()]);
+        }
+        self
+    }
+
+    /// 追加 RS 服务器（HTTPS 协议）URL
+    pub fn append_rs_https_url(&mut self, url: impl Into<Cow<'static, str>>) -> &mut Self {
+        if let Some(urls) = &mut self.rs_https_urls {
+            urls.push(url.into());
+        } else {
+            self.rs_https_urls = Some(vec![url.into()]);
+        }
+        self
+    }
+
+    /// 追加 RSF 服务器（HTTP 协议）URL
+    pub fn append_rsf_http_url(&mut self, url: impl Into<Cow<'static, str>>) -> &mut Self {
+        if let Some(urls) = &mut self.rsf_http_urls {
+            urls.push(url.into());
+        } else {
+            self.rsf_http_urls = Some(vec![url.into()]);
+        }
+        self
+    }
+
+    /// 追加 RSF 服务器（HTTPS 协议）URL
+    pub fn append_rsf_https_url(&mut self, url: impl Into<Cow<'static, str>>) -> &mut Self {
+        if let Some(urls) = &mut self.rsf_https_urls {
+            urls.push(url.into());
+        } else {
+            self.rsf_https_urls = Some(vec![url.into()]);
+        }
+        self
+    }
+
+    /// 追加 API 服务器（HTTP 协议）URL
+    pub fn append_api_http_url(&mut self, url: impl Into<Cow<'static, str>>) -> &mut Self {
+        if let Some(urls) = &mut self.api_http_urls {
+            urls.push(url.into());
+        } else {
+            self.api_http_urls = Some(vec![url.into()]);
+        }
+        self
+    }
+
+    /// 追加 API 服务器（HTTPS 协议）URL
+    pub fn append_api_https_url(&mut self, url: impl Into<Cow<'static, str>>) -> &mut Self {
+        if let Some(urls) = &mut self.api_https_urls {
+            urls.push(url.into());
+        } else {
+            self.api_https_urls = Some(vec![url.into()]);
+        }
+        self
+    }
+
+    /// 生成区域实例
+    pub fn build(&self) -> Region {
+        self.inner_build().unwrap()
+    }
+
+    /// 重置区域生成器
+    ///
+    /// 重置生成器使得生成器可以被多次复用
+    pub fn reset(&mut self) -> &mut Self {
+        *self = Default::default();
+        self
+    }
 }
 
 impl Region {
@@ -328,8 +443,7 @@ lazy_static! {
         .rsf_https_urls(vec!["https://rsf.qbox.me".into()])
         .api_http_urls(vec!["http://api.qiniu.com".into()])
         .api_https_urls(vec!["https://api.qiniu.com".into()])
-        .build()
-        .unwrap();
+        .build();
     static ref HUA_BEI: Region = RegionBuilder::default()
         .region_id(RegionId::Z1)
         .up_http_urls(vec![
@@ -352,8 +466,7 @@ lazy_static! {
         .rsf_https_urls(vec!["https://rsf-z1.qbox.me".into()])
         .api_http_urls(vec!["http://api-z1.qiniu.com".into()])
         .api_https_urls(vec!["https://api-z1.qiniu.com".into()])
-        .build()
-        .unwrap();
+        .build();
     static ref HUA_NAN: Region = RegionBuilder::default()
         .region_id(RegionId::Z2)
         .up_http_urls(vec![
@@ -376,8 +489,7 @@ lazy_static! {
         .rsf_https_urls(vec!["https://rsf-z2.qbox.me".into()])
         .api_http_urls(vec!["http://api-z2.qiniu.com".into()])
         .api_https_urls(vec!["https://api-z2.qiniu.com".into()])
-        .build()
-        .unwrap();
+        .build();
     static ref NORTH_AMERICA: Region = RegionBuilder::default()
         .region_id(RegionId::NA0)
         .up_http_urls(vec![
@@ -400,8 +512,7 @@ lazy_static! {
         .rsf_https_urls(vec!["https://rsf-na0.qbox.me".into()])
         .api_http_urls(vec!["http://api-na0.qiniu.com".into()])
         .api_https_urls(vec!["https://api-na0.qiniu.com".into()])
-        .build()
-        .unwrap();
+        .build();
     static ref SINGAPORE: Region = RegionBuilder::default()
         .region_id(RegionId::AS0)
         .up_http_urls(vec![
@@ -424,8 +535,7 @@ lazy_static! {
         .rsf_https_urls(vec!["https://rsf-as0.qbox.me".into()])
         .api_http_urls(vec!["http://api-as0.qiniu.com".into()])
         .api_https_urls(vec!["https://api-as0.qiniu.com".into()])
-        .build()
-        .unwrap();
+        .build();
     static ref ALL_REGIONS: [&'static Region; 5] =
         [Region::z0(), Region::z1(), Region::z2(), Region::na0(), Region::as0()];
 }
@@ -518,7 +628,6 @@ impl RegionQueryResult {
             )
             // TODO: Add rs, rsf, api URLs here
             .build()
-            .unwrap()
     }
 }
 

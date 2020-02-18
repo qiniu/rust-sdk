@@ -15,10 +15,10 @@ pub const ETAG_SIZE: size_t = 28;
 
 /// @brief 计算指定路径的文件的 七牛 Etag
 /// @param[in] path 文件路径
-/// @param[out] result 用于返回 Etag 的内存地址
-/// @param[out] error 用于返回错误
+/// @param[out] result 用于返回 Etag 的内存地址，如果传入 `NULL` 表示不获取 `result`。但如果运行正常，返回值将依然是 `true`
+/// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否运行正常，如果返回 `true`，则表示可以读取 `result` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
-/// @warning 保证提供给 `result` 至少 `ETAG_SIZE` 长度的内存
+/// @warning 保证提供给 `result` 至少 `ETAG_SIZE` 长度的内存，除非 `result` 为 `NULL`
 /// @warning 对于获取的 `result` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
 #[no_mangle]
 pub extern "C" fn qiniu_ng_etag_from_file_path(
@@ -44,7 +44,7 @@ pub extern "C" fn qiniu_ng_etag_from_file_path(
 /// @brief 计算指定二进制数据的 七牛 Etag
 /// @param[in] buffer 输入数据地址
 /// @param[in] buffer_len 输入数据长度
-/// @param[out] result 用于返回 Etag 的内存地址
+/// @param[out] result 用于返回 Etag 的内存地址，这里 `result` 必须不能为 `NULL`
 /// @note 该函数总是返回正确的结果
 /// @warning 保证提供给 `result` 至少 ETAG_SIZE 长度的内存
 #[no_mangle]
@@ -125,7 +125,7 @@ pub extern "C" fn qiniu_ng_etag_update(etag: qiniu_ng_etag_t, data: *const c_voi
 
 /// @brief 向七牛 Etag 计算器实例输入数据
 /// @param[in] etag 七牛 Etag 计算器实例
-/// @param[out] result_ptr 用于返回 Etag 的内存地址
+/// @param[out] result_ptr 用于返回 Etag 的内存地址，这里 `result_ptr` 必须不能为 `NULL`
 /// @warning 保证提供给 `result_ptr` 至少 ETAG_SIZE 长度的内存
 /// @note 该函数总是返回正确的结果
 /// @note 该方法调用后，七牛 Etag 计算器实例将被自动重置，可以重新输入新的数据
