@@ -4,12 +4,23 @@ line_length = 120
 tab_width = 4
 language = "C"
 documentation = true
+documentation_style = "doxy"
 include_guard = "__QINIU_NG_H"
 cpp_compat = true
 sys_includes = ["curl/curl.h"]
 style = "both"
 
 header = """
+/**
+ * @file libqiniu_ng.h
+ * @author Rong Zhou
+ * @brief 新一代七牛 C SDK 定义
+ *
+ * 此 C SDK 基于 [七牛云官方 API](http://developer.qiniu.com/) 构建。
+ * 使用此 SDK 构建您的网络应用程序，能让您以非常便捷地方式将数据安全地存储到七牛云上。
+ * 无论您的网络应用是一个网站程序，还是包括从云端（服务端程序）到终端（手持设备应用）的架构的服务或应用，通过七牛云及其 SDK，都能让您应用程序的终端用户高速上传和下载，同时也让您的服务端更加轻盈。
+ */
+
 #ifndef qiniu_ng_char_t
 #if defined(_WIN32) || defined(WIN32)
 #define qiniu_ng_char_t wchar_t

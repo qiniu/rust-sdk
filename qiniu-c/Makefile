@@ -1,4 +1,4 @@
-.PHONY: all build build_release build_test_via_static_link build_test_via_dynamic_link build_test test clean clippy
+.PHONY: all build build_release cargo_build cargo_build_release build_test_via_static_link build_test_via_dynamic_link build_test test clean clippy doc
 CC =
 TARGET =
 CFLAGS =
@@ -33,13 +33,13 @@ else
 	endif
 endif
 
-all: build
-build:
+all: build doc
+build: cargo_build libqiniu_ng.h
+build_release: cargo_build_release libqiniu_ng.h
+cargo_build:
 	cargo build
-	$(MAKE) libqiniu_ng.h
-build_release:
+cargo_build_release:
 	cargo build --release
-	$(MAKE) libqiniu_ng.h
 build_test_via_static_link: build
 ifneq ($(OS),Windows_NT)
 	mkdir -p build
@@ -62,6 +62,9 @@ else ifeq ($(UNAME_S),Linux)
 else
 	sed -i '' 's/[[:<:]]bool[[:>:]]/_Bool/g' libqiniu_ng.h
 endif
+doc: libqiniu_ng.h
+	rm -rf ../target/doc/qiniu_ng_c/html/*
+	doxygen Doxyfile
 test:
 ifeq ($(OS),Windows_NT)
 	$(MAKE) build_test_via_dynamic_link

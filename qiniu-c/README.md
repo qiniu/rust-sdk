@@ -46,6 +46,12 @@ make
 make build_release
 ```
 
+### 生成 API 文档
+
+```bash
+make doc
+```
+
 ### 构建集成测试程序
 
 ```bash

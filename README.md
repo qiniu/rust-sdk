@@ -33,6 +33,12 @@ make
 make build_release
 ```
 
+### 生成 API 文档
+
+```bash
+make doc
+```
+
 ### 测试所有库（需要配置七牛账户，具体做法参见 [TEST.md](TEST.md)）
 
 ```bash
