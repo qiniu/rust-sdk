@@ -165,65 +165,96 @@ void test_qiniu_ng_bucket_get_regions(void) {
     qiniu_ng_config_free(&config);
 }
 
-void test_qiniu_ng_bucket_new(void) {
+void test_qiniu_ng_bucket_builder(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
     env_load("..", false);
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
 
-    qiniu_ng_region_t region = qiniu_ng_region_get_region_by_id(qiniu_ng_region_z2);
-    const qiniu_ng_char_t* domains_array[2] = {
-        QINIU_NG_CHARS("domain1.bucket_z2.com"),
-        QINIU_NG_CHARS("domain2.bucket_z2.com")
-    };
-    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new2(client, QINIU_NG_CHARS("z2-bucket"), &region, (const qiniu_ng_char_t **) domains_array, 2);
+// TODO: Use region builder to build new region
+    qiniu_ng_region_t region_z0 = qiniu_ng_region_get_region_by_id(qiniu_ng_region_z0);
+    qiniu_ng_region_t region_z1 = qiniu_ng_region_get_region_by_id(qiniu_ng_region_z1);
+    qiniu_ng_region_t region_z2 = qiniu_ng_region_get_region_by_id(qiniu_ng_region_z2);
+    // const qiniu_ng_char_t* domains_array[2] = {
+    //     QINIU_NG_CHARS("domain1.bucket_z2.com"),
+    //     QINIU_NG_CHARS("domain2.bucket_z2.com")
+    // };
+    qiniu_ng_bucket_builder_t bucket_builder = qiniu_ng_bucket_builder_new(client, QINIU_NG_CHARS("z2-bucket"));
+    qiniu_ng_bucket_builder_set_region(bucket_builder, region_z0);
+    qiniu_ng_bucket_builder_set_region(bucket_builder, region_z1);
+    qiniu_ng_bucket_builder_set_region(bucket_builder, region_z2);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_build(bucket_builder);
+    qiniu_ng_bucket_builder_free(&bucket_builder);
 
     qiniu_ng_regions_t regions;
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_bucket_get_regions(bucket, &regions, NULL),
         "qiniu_ng_bucket_get_regions() failed");
     TEST_ASSERT_EQUAL_INT_MESSAGE(
-        qiniu_ng_regions_len(regions), 1,
+        qiniu_ng_regions_len(regions), 3,
         "qiniu_ng_regions_len(regions) != 1");
+    qiniu_ng_region_t region;
+    qiniu_ng_region_id_t id;
+
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_regions_get(regions, 0, &region),
         "qiniu_ng_regions_get(regions, 0, &region) failed");
-
-    qiniu_ng_region_id_t id;
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_region_get_region_id(region, &id),
+        "qiniu_ng_region_get_region_id() failed");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(
+        qiniu_ng_region_id_name(id), "z0",
+        "qiniu_ng_region_id_name(id) != \"z0\"");
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_regions_get(regions, 1, &region),
+        "qiniu_ng_regions_get(regions, 1, &region) failed");
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_region_get_region_id(region, &id),
+        "qiniu_ng_region_get_region_id() failed");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(
+        qiniu_ng_region_id_name(id), "z1",
+        "qiniu_ng_region_id_name(id) != \"z1\"");
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_regions_get(regions, 2, &region),
+        "qiniu_ng_regions_get(regions, 2, &region) failed");
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_region_get_region_id(region, &id),
         "qiniu_ng_region_get_region_id() failed");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         qiniu_ng_region_id_name(id), "z2",
         "qiniu_ng_region_id_name(id) != \"z2\"");
+
     qiniu_ng_regions_free(&regions);
 
-    qiniu_ng_str_list_t domains;
-    const qiniu_ng_char_t *domain = NULL;
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_bucket_get_domains(bucket, &domains, NULL),
-        "qiniu_ng_bucket_get_domains() failed");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        qiniu_ng_str_list_len(domains), 2,
-        "qiniu_ng_str_list_len(domains) != 2");
-    domain = qiniu_ng_str_list_get(domains, 0);
-    TEST_ASSERT_NOT_NULL_MESSAGE(
-        domain,
-        "domain == null");
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(
-        domain, domains_array[1],
-        "domain != domains_array[1]");
-    domain = qiniu_ng_str_list_get(domains, 1);
-    TEST_ASSERT_NOT_NULL_MESSAGE(
-        domain,
-        "domain == null");
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(
-        domain, domains_array[0],
-        "domain != domains_array[0]");
-    qiniu_ng_str_list_free(&domains);
-
     qiniu_ng_bucket_free(&bucket);
-    qiniu_ng_region_free(&region);
+    qiniu_ng_region_free(&region_z0);
+    qiniu_ng_region_free(&region_z1);
+    qiniu_ng_region_free(&region_z2);
+
+    // qiniu_ng_str_list_t domains;
+    // const qiniu_ng_char_t *domain = NULL;
+    // TEST_ASSERT_TRUE_MESSAGE(
+    //     qiniu_ng_bucket_get_domains(bucket, &domains, NULL),
+    //     "qiniu_ng_bucket_get_domains() failed");
+    // TEST_ASSERT_EQUAL_INT_MESSAGE(
+    //     qiniu_ng_str_list_len(domains), 2,
+    //     "qiniu_ng_str_list_len(domains) != 2");
+    // domain = qiniu_ng_str_list_get(domains, 0);
+    // TEST_ASSERT_NOT_NULL_MESSAGE(
+    //     domain,
+    //     "domain == null");
+    // TEST_ASSERT_EQUAL_STRING_MESSAGE(
+    //     domain, domains_array[1],
+    //     "domain != domains_array[1]");
+    // domain = qiniu_ng_str_list_get(domains, 1);
+    // TEST_ASSERT_NOT_NULL_MESSAGE(
+    //     domain,
+    //     "domain == null");
+    // TEST_ASSERT_EQUAL_STRING_MESSAGE(
+    //     domain, domains_array[0],
+    //     "domain != domains_array[0]");
+    // qiniu_ng_str_list_free(&domains);
+
     qiniu_ng_client_free(&client);
     qiniu_ng_config_free(&config);
 }

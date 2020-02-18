@@ -14,7 +14,7 @@ use std::{borrow::Cow, iter::Iterator};
 
 /// 存储空间
 ///
-/// 封装存储空间相关功能
+/// 封装存储空间相关数据，例如配置，区域，下载域名等
 pub struct Bucket<'r> {
     name: Cow<'r, str>,
     credential: Cow<'r, Credential>,
