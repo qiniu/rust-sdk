@@ -360,6 +360,8 @@ impl qiniu_ng_region_t {
     }
 }
 
+// TODO: 设计一个新的枚举类替代 `Region`，可以在引用的情况下不使用堆内存
+
 impl From<qiniu_ng_region_t> for Option<Box<Cow<'static, Region>>> {
     fn from(region: qiniu_ng_region_t) -> Self {
         if region.is_null() {

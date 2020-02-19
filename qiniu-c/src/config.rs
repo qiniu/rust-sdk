@@ -580,13 +580,13 @@ impl QiniuNgHTTPBeforeActionHandler {
 
 impl HTTPBeforeAction for QiniuNgHTTPBeforeActionHandler {
     fn before_call(&self, request: &mut HTTPRequest) -> HTTPResult<()> {
-        let request = qiniu_ng_http_request_t::from(Box::new(request));
+        let request = qiniu_ng_http_request_t::from(request);
         if (self.handler)(request) {
             Ok(())
         } else {
             Err(HTTPError::new_unretryable_error(
                 HTTPErrorKind::UserCanceled,
-                &Box::<&HTTPRequest>::from(request),
+                request.into(),
                 None,
             ))
         }
@@ -629,15 +629,15 @@ impl QiniuNgHTTPAfterActionHandler {
 
 impl HTTPAfterAction for QiniuNgHTTPAfterActionHandler {
     fn after_call(&self, request: &mut HTTPRequest, response: &mut HTTPResponse) -> HTTPResult<()> {
-        let request = qiniu_ng_http_request_t::from(Box::new(request));
-        let response = qiniu_ng_http_response_t::from(Box::new(response));
+        let request = qiniu_ng_http_request_t::from(request);
+        let response = qiniu_ng_http_response_t::from(response);
         if (self.handler)(request, response) {
             Ok(())
         } else {
             Err(HTTPError::new_unretryable_error(
                 HTTPErrorKind::UserCanceled,
-                &Box::<&HTTPRequest>::from(request),
-                Some(&Box::<&HTTPResponse>::from(response)),
+                request.into(),
+                Some(response.into()),
             ))
         }
     }

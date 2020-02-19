@@ -23,22 +23,18 @@ use tap::TapOps;
 pub struct qiniu_ng_str_t(*mut c_void, *mut c_void);
 
 impl qiniu_ng_str_t {
-    #[allow(dead_code)]
     pub(crate) unsafe fn from_str_unchecked(s: &str) -> Self {
         UCString::from_str_unchecked(s).into()
     }
 
-    #[allow(dead_code)]
     pub(crate) unsafe fn from_optional_str_unchecked(s: Option<&str>) -> Self {
         s.map(|s| UCString::from_str_unchecked(s).into()).unwrap_or_default()
     }
 
-    #[allow(dead_code)]
     pub(crate) unsafe fn from_string_unchecked(s: String) -> Self {
         UCString::from_string_unchecked(s).into_boxed_ucstr().into()
     }
 
-    #[allow(dead_code)]
     pub(crate) unsafe fn from_optional_string_unchecked(s: Option<String>) -> Self {
         s.map(|s| UCString::from_string_unchecked(s).into_boxed_ucstr().into())
             .unwrap_or_default()
