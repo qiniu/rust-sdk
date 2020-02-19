@@ -23,8 +23,14 @@ header = """
 
 #ifndef qiniu_ng_char_t
 #if defined(_WIN32) || defined(WIN32)
+/**
+ * @brief 相当于 `wchar_t`
+ */
 #define qiniu_ng_char_t wchar_t
 #else
+/**
+ * @brief 相当于 `char`
+ */
 #define qiniu_ng_char_t char
 #endif
 #endif

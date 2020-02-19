@@ -789,6 +789,13 @@ impl Borrow<ucstr> for UCString {
     }
 }
 
+impl Clone for Box<ucstr> {
+    #[inline]
+    fn clone(&self) -> Self {
+        UCString::from(self.as_ref()).into()
+    }
+}
+
 impl ToOwned for ucstr {
     type Owned = UCString;
 
