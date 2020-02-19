@@ -23,6 +23,7 @@ mime = "0.3.14"
 serde_json = "1.0.40"
 widestring = "0.4.0"
 matches = "0.1.8"
+lazy_static = "1.4.0"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.8", features = ["impl-default"] }

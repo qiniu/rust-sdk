@@ -15,6 +15,7 @@ void tearDown(void) {
 }
 
 int main(void) {
+    printf("Version = %s, Features = %s\n", qiniu_ng_version(), qiniu_ng_features());
     UNITY_BEGIN();
     RUN_TEST(test_qiniu_ng_str);
     RUN_TEST(test_qiniu_ng_str_list);

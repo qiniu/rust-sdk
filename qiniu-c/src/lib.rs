@@ -10,3 +10,4 @@ mod string;
 mod upload;
 mod upload_token;
 mod utils;
+mod version;
