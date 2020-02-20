@@ -75,8 +75,10 @@ impl Credential {
         let mut data_to_sign = Vec::with_capacity(1024);
         data_to_sign.extend_from_slice(u.path().as_bytes());
         if let Some(query) = u.query() {
-            data_to_sign.extend_from_slice(b"?");
-            data_to_sign.extend_from_slice(query.as_bytes());
+            if !query.is_empty() {
+                data_to_sign.extend_from_slice(b"?");
+                data_to_sign.extend_from_slice(query.as_bytes());
+            }
         }
         data_to_sign.extend_from_slice(b"\n");
         if let (Some(content_type), Some(body)) = (content_type, body) {
@@ -100,8 +102,10 @@ impl Credential {
         data_to_sign.extend_from_slice(b" ");
         data_to_sign.extend_from_slice(u.path().as_bytes());
         if let Some(query) = u.query() {
-            data_to_sign.extend_from_slice(b"?");
-            data_to_sign.extend_from_slice(query.as_bytes());
+            if !query.is_empty() {
+                data_to_sign.extend_from_slice(b"?");
+                data_to_sign.extend_from_slice(query.as_bytes());
+            }
         }
         data_to_sign.extend_from_slice(b"\nHost: ");
         data_to_sign.extend_from_slice(u.host_str().expect("Host must be existed in URL").as_bytes());
