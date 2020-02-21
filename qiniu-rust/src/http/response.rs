@@ -68,7 +68,7 @@ impl<'a> Response<'a> {
         }
         .map_err(|err| {
             HTTPError::new_unretryable_error_from_parts(
-                HTTPErrorKind::JSONError(err),
+                HTTPErrorKind::JSONError(err.into()),
                 Some(self.method),
                 Some((self.base_url.to_owned() + self.path).into()),
             )

@@ -1,21 +1,56 @@
 #[cfg(any(feature = "use-libcurl"))]
 use curl_sys::CURLcode;
 
-use crate::utils::{qiniu_ng_str_free, qiniu_ng_str_t};
+use crate::{
+    string::ucstr,
+    utils::{qiniu_ng_str_free, qiniu_ng_str_t},
+};
+use libc::c_char;
 use matches::matches;
 use qiniu_ng::{
-    http::{domains_manager::PersistentError, Error as HTTPError, ErrorKind as HTTPErrorKind},
+    http::{
+        domains_manager::PersistentError, Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCallerErrorKind,
+        RetryKind as HTTPRetryKind,
+    },
     storage::{
         manager::DropBucketError,
         uploader::{UploadError, UploadTokenParseError},
     },
 };
-use std::io::Error as IOError;
+use std::io::{Error as IOError, ErrorKind as IOErrorKind};
+use thiserror::Error;
+
+/// @brief HTTP 重试类型
+/// @note 通过返回不同的重试类型，可以让 SDK 采用不同的策略解决当前的错误
+#[repr(C)]
+#[derive(Copy, Clone)]
+#[allow(non_camel_case_types)]
+pub enum qiniu_ng_retry_kind_t {
+    /// 可重试错误，当错误是通讯超时或是其他无法预期的错误时，一般采用这样的重试策略
+    qiniu_ng_retry_kind_retryable_error,
+    /// 区域不可重试错误，当错误是区域不匹配时，则采用该重试策略，SDK 将直接尝试下一个区域
+    qiniu_ng_retry_kind_zone_unretryable_error,
+    /// 主机不可重试错误，当错误是当前服务器无法连接，则采用该重试策略，SDK 将直接尝试下一个主机
+    qiniu_ng_retry_kind_host_unretryable_error,
+    /// 不可重试错误，当错误是客户端报文无法被服务器解析时，则采用该重试策略，SDK 将不再重试，直接出错返回
+    qiniu_ng_retry_kind_unretryable_error,
+}
+
+impl From<qiniu_ng_retry_kind_t> for HTTPRetryKind {
+    fn from(kind: qiniu_ng_retry_kind_t) -> Self {
+        match kind {
+            qiniu_ng_retry_kind_t::qiniu_ng_retry_kind_retryable_error => Self::RetryableError,
+            qiniu_ng_retry_kind_t::qiniu_ng_retry_kind_zone_unretryable_error => Self::ZoneUnretryableError,
+            qiniu_ng_retry_kind_t::qiniu_ng_retry_kind_host_unretryable_error => Self::HostUnretryableError,
+            qiniu_ng_retry_kind_t::qiniu_ng_retry_kind_unretryable_error => Self::UnretryableError,
+        }
+    }
+}
 
 /// @brief 非法的上传凭证错误类型
 /// @note 请通过调用 `qiniu_ng_invalid_upload_token_error_t` 相关的函数来判定错误具体类型
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Debug, Clone)]
 #[allow(non_camel_case_types)]
 pub enum qiniu_ng_invalid_upload_token_error_kind_t {
     /// 没有错误
@@ -38,13 +73,13 @@ pub enum qiniu_ng_invalid_upload_token_error_kind_t {
 ///     如果确定无需判定错误具体类型，则调用 `qiniu_ng_err_invalid_upload_token_error_ignore()` 直接释放内存
 /// @note 该结构体不可以跨线程使用
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Debug, Clone)]
 pub struct qiniu_ng_invalid_upload_token_error_t(qiniu_ng_invalid_upload_token_error_kind_t);
 
 /// @brief SDK 错误类型
 /// @note 请通过调用 `qiniu_ng_err_kind_t` 相关的函数来判定错误具体类型
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Debug, Clone)]
 #[allow(non_camel_case_types)]
 pub enum qiniu_ng_err_kind_t {
     /// 没有错误
@@ -64,16 +99,23 @@ pub enum qiniu_ng_err_kind_t {
     /// 未知错误
     qiniu_ng_err_kind_unknown_error(qiniu_ng_str_t),
 
-    #[cfg(any(feature = "use-libcurl"))]
     /// Curl 错误
+    #[cfg(any(feature = "use-libcurl"))]
     qiniu_ng_err_kind_curl_error(CURLcode),
     /* Particular error */
     /// 删除非空存储空间
-    qiniu_ng_err_kind_cannot_drop_non_empty_bucket_error,
+    qiniu_ng_err_kind_drop_non_empty_bucket_error,
     /// 非法的上传凭证错误
     qiniu_ng_err_kind_invalid_upload_token_error(qiniu_ng_invalid_upload_token_error_t),
     /// 非法的 MIME 类型错误
     qiniu_ng_err_kind_bad_mime_type(qiniu_ng_str_t),
+}
+
+impl Default for qiniu_ng_err_kind_t {
+    #[inline]
+    fn default() -> Self {
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_none
+    }
 }
 
 /// @brief SDK 错误
@@ -94,7 +136,7 @@ pub enum qiniu_ng_err_kind_t {
 ///     如果确定无需判定错误具体类型，则调用 `qiniu_ng_err_ignore()` 直接释放内存
 /// @note 该结构体不可以跨线程使用
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Debug, Default, Clone)]
 pub struct qiniu_ng_err_t(qiniu_ng_err_kind_t);
 
 /// @brief 判定错误是否确实存在
@@ -124,6 +166,14 @@ pub extern "C" fn qiniu_ng_err_os_error_extract(err: &mut qiniu_ng_err_t, code: 
     }
 }
 
+/// @brief 创建操作系统异常
+/// @param[in] code 操作系统异常号码
+/// @retval qiniu_ng_err_t 返回创建的操作系统异常
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_os_error_new(code: i32) -> qiniu_ng_err_t {
+    qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_os_error(code))
+}
+
 /// @brief 判定错误是否是 IO 异常，如果是，则释放其内存
 /// @details IO 异常是 SDK 对操作系统异常的补充，当 SDK 发生了无法用操作系统错误表示的 IO 异常时，则使用该类型表示
 /// @param[in] err SDK 错误实例
@@ -144,6 +194,17 @@ pub extern "C" fn qiniu_ng_err_io_error_extract(err: &mut qiniu_ng_err_t, descri
         }
         _ => false,
     }
+}
+
+/// @brief 创建 IO 异常
+/// @param[in] description IO 异常描述
+/// @retval qiniu_ng_err_t 返回创建的 IO 异常
+/// @warning 对于创建的 IO 异常，需要自己调用 `qiniu_ng_err_ignore()` 函数释放内存
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_io_error_new(description: *const c_char) -> qiniu_ng_err_t {
+    qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_io_error(
+        unsafe { ucstr::from_ptr(description) }.to_owned().into(),
+    ))
 }
 
 /// @brief 判定错误是否是未知异常，如果是，则释放其内存
@@ -185,6 +246,13 @@ pub extern "C" fn qiniu_ng_err_unexpected_redirect_error_extract(err: &mut qiniu
     }
 }
 
+/// @brief 创建未预期的重定向错误
+/// @retval qiniu_ng_err_t 返回创建的未预期的重定向错误
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_unexpected_redirect_error_new() -> qiniu_ng_err_t {
+    qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_unexpected_redirect_error)
+}
+
 /// @brief 判定错误是否是用户取消错误，如果是，则释放其内存
 /// @param[in] err SDK 错误实例
 /// @retval bool 当错误确实是用户取消错误时返回 `true`
@@ -197,6 +265,13 @@ pub extern "C" fn qiniu_ng_err_user_canceled_error_extract(err: &mut qiniu_ng_er
         }
         _ => false,
     }
+}
+
+/// @brief 创建用户取消错误
+/// @retval qiniu_ng_err_t 返回创建的用户取消错误
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_user_canceled_error_new() -> qiniu_ng_err_t {
+    qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_user_canceled)
 }
 
 /// @brief 判定错误是否是 JSON 错误，如果是，则释放其内存
@@ -217,6 +292,17 @@ pub extern "C" fn qiniu_ng_err_json_error_extract(err: &mut qiniu_ng_err_t, desc
         }
         _ => false,
     }
+}
+
+/// @brief 创建 JSON 错误
+/// @param[in] description JSON 错误描述
+/// @retval qiniu_ng_err_t 返回创建的 JSON 错误
+/// @warning 对于创建的 JSON 错误，需要自己调用 `qiniu_ng_err_ignore()` 函数释放内存
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_json_error_new(description: *const c_char) -> qiniu_ng_err_t {
+    qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(
+        unsafe { ucstr::from_ptr(description) }.to_owned().into(),
+    ))
 }
 
 /// @brief 判定错误是否是 HTTP 状态码错误，如果是，则释放其内存
@@ -248,13 +334,29 @@ pub extern "C" fn qiniu_ng_err_response_status_code_error_extract(
     }
 }
 
-/// @brief 判定错误是删除非空存储空间，如果是，则释放其内存
+/// @brief 创建 HTTP 状态码错误
+/// @param[in] status_code HTTP 状态码
+/// @param[in] error HTTP 状态码错误描述
+/// @retval qiniu_ng_err_t 返回创建的 HTTP 状态码错误
+/// @warning 对于创建的 HTTP 状态码错误，需要自己调用 `qiniu_ng_err_ignore()` 函数释放内存
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_response_status_code_error_new(
+    status_code: u16,
+    error: *const c_char,
+) -> qiniu_ng_err_t {
+    qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_response_status_code_error(
+        status_code,
+        unsafe { ucstr::from_ptr(error) }.to_owned().into(),
+    ))
+}
+
+/// @brief 判定错误是否是删除非空存储空间，如果是，则释放其内存
 /// @param[in] err SDK 错误实例
 /// @retval bool 当错误确实是删除非空存储空间时返回 `true`
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_drop_non_empty_bucket_error_extract(err: &mut qiniu_ng_err_t) -> bool {
     match err.0 {
-        qiniu_ng_err_kind_t::qiniu_ng_err_kind_cannot_drop_non_empty_bucket_error => {
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_drop_non_empty_bucket_error => {
             err.0 = qiniu_ng_err_kind_t::qiniu_ng_err_kind_none;
             true
         }
@@ -303,6 +405,14 @@ pub extern "C" fn qiniu_ng_err_curl_error_extract(err: &mut qiniu_ng_err_t, code
         }
         _ => false,
     }
+}
+
+/// @brief 创建 Curl 错误
+/// @param[in] code Curl 错误代码
+/// @retval qiniu_ng_err_t 返回创建的 Curl 错误
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_curl_error_new(code: CURLcode) -> qiniu_ng_err_t {
+    qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_curl_error(code))
 }
 
 /// @brief 判定错误是否是非法的上传凭证错误，如果是，则释放其内存
@@ -507,7 +617,7 @@ impl From<&DropBucketError> for qiniu_ng_err_t {
     fn from(err: &DropBucketError) -> Self {
         match err {
             DropBucketError::CannotDropNonEmptyBucket => {
-                qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_cannot_drop_non_empty_bucket_error)
+                qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_drop_non_empty_bucket_error)
             }
             DropBucketError::HTTPError(e) => e.into(),
         }
@@ -562,5 +672,52 @@ impl From<&serde_json::Error> for qiniu_ng_err_t {
         qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(unsafe {
             qiniu_ng_str_t::from_string_unchecked(err.to_string())
         }))
+    }
+}
+
+impl From<&qiniu_ng_err_kind_t> for Option<HTTPErrorKind> {
+    fn from(kind: &qiniu_ng_err_kind_t) -> Self {
+        return match kind {
+            qiniu_ng_err_kind_t::qiniu_ng_err_kind_none => None,
+            qiniu_ng_err_kind_t::qiniu_ng_err_kind_os_error(code) => {
+                Some(HTTPErrorKind::IOError(IOError::from_raw_os_error(*code)))
+            }
+            qiniu_ng_err_kind_t::qiniu_ng_err_kind_io_error(desc) => Some(HTTPErrorKind::IOError(IOError::new(
+                IOErrorKind::Other,
+                convert_qiniu_ng_str_to_string(*desc),
+            ))),
+            qiniu_ng_err_kind_t::qiniu_ng_err_kind_unexpected_redirect_error => Some(HTTPErrorKind::UnexpectedRedirect),
+            qiniu_ng_err_kind_t::qiniu_ng_err_kind_user_canceled => Some(HTTPErrorKind::UserCanceled),
+            qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(desc) => {
+                Some(HTTPErrorKind::JSONError(convert_qiniu_ng_str_to_string(*desc).into()))
+            }
+            qiniu_ng_err_kind_t::qiniu_ng_err_kind_response_status_code_error(code, error) => Some(
+                HTTPErrorKind::ResponseStatusCodeError(*code, convert_qiniu_ng_str_to_string(*error).into()),
+            ),
+            qiniu_ng_err_kind_t::qiniu_ng_err_kind_unknown_error(desc) => Some(HTTPErrorKind::UnknownError(Box::new(
+                StrError::Str(convert_qiniu_ng_str_to_string(*desc).into_boxed_str()),
+            ))),
+            qiniu_ng_err_kind_t::qiniu_ng_err_kind_curl_error(code) => Some(HTTPErrorKind::new_http_caller_error_kind(
+                HTTPCallerErrorKind::UnknownError,
+                curl::Error::new(*code),
+            )),
+            _ => panic!("Cannot convert this error kind: {:?}", kind),
+        };
+
+        fn convert_qiniu_ng_str_to_string(s: qiniu_ng_str_t) -> String {
+            Option::<Box<ucstr>>::from(s).unwrap().to_string().unwrap()
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+enum StrError {
+    #[error("{0}")]
+    Str(Box<str>),
+}
+
+impl From<&qiniu_ng_err_t> for Option<HTTPErrorKind> {
+    fn from(err: &qiniu_ng_err_t) -> Self {
+        Self::from(&err.0)
     }
 }

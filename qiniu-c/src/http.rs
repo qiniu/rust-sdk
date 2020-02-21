@@ -21,8 +21,8 @@ use std::{
     collections::{hash_map::RandomState, HashMap},
     convert::TryInto,
     ffi::CStr,
-    fs::File,
-    io::{copy as io_copy, sink as io_sink, Read},
+    fs::{File, OpenOptions},
+    io::{copy as io_copy, sink as io_sink, Read, Write},
     mem::transmute,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     ptr::{copy_nonoverlapping, null_mut},
@@ -691,7 +691,9 @@ pub extern "C" fn qiniu_ng_http_response_get_body_length(
 }
 
 /// @brief 提供缓冲区以获取 HTTP 响应体
-/// @details 该 API 将会尝试获取整个响应体
+/// @details
+///     该 API 将会尝试获取整个响应体并加载到内存中，建议您先调用 `qiniu_ng_http_response_get_body_length()` 获取响应体具体尺寸，
+///     当尺寸大小可以接受全部被载入内存时，才调用该函数
 /// @param[in] response HTTP 响应实例
 /// @param[in] max_body_size 缓冲区最大尺寸，单位为字节
 /// @param[out] body_ptr 缓冲区地址
@@ -710,13 +712,13 @@ pub extern "C" fn qiniu_ng_http_response_dump_body(
     let response: &mut Response = response.into();
     return match response.clone_body() {
         Ok(Some(ResponseBody::Bytes(bytes))) => {
-            qiniu_ng_http_response_dump_body_as_bytes(bytes, max_body_size, body_ptr, body_size)
+            qiniu_ng_http_response_dump_body_from_bytes(bytes, max_body_size, body_ptr, body_size)
         }
         Ok(Some(ResponseBody::Reader(reader))) => {
-            qiniu_ng_http_response_dump_body_as_reader(reader, max_body_size, body_ptr, body_size, err)
+            qiniu_ng_http_response_dump_body_from_reader(reader, max_body_size, body_ptr, body_size, err)
         }
         Ok(Some(ResponseBody::File(file))) => {
-            qiniu_ng_http_response_dump_body_as_file(file, max_body_size, body_ptr, body_size, err)
+            qiniu_ng_http_response_dump_body_from_file(file, max_body_size, body_ptr, body_size, err)
         }
         Ok(None) => {
             if let Some(body_size) = unsafe { body_size.as_mut() } {
@@ -735,7 +737,7 @@ pub extern "C" fn qiniu_ng_http_response_dump_body(
         let _ = qiniu_ng_http_response_t::from(response);
     });
 
-    fn qiniu_ng_http_response_dump_body_as_bytes(
+    fn qiniu_ng_http_response_dump_body_from_bytes(
         bytes: Vec<u8>,
         max_body_size: u64,
         body_ptr: *mut c_void,
@@ -751,7 +753,7 @@ pub extern "C" fn qiniu_ng_http_response_dump_body(
         true
     }
 
-    fn qiniu_ng_http_response_dump_body_as_reader(
+    fn qiniu_ng_http_response_dump_body_from_reader(
         mut reader: Box<dyn Read>,
         max_body_size: u64,
         body_ptr: *mut c_void,
@@ -781,7 +783,7 @@ pub extern "C" fn qiniu_ng_http_response_dump_body(
         }
     }
 
-    fn qiniu_ng_http_response_dump_body_as_file(
+    fn qiniu_ng_http_response_dump_body_from_file(
         mut file: File,
         max_body_size: u64,
         body_ptr: *mut c_void,
@@ -810,6 +812,52 @@ pub extern "C" fn qiniu_ng_http_response_dump_body(
             }
         }
     }
+}
+
+/// @brief 提供文件路径以获取 HTTP 响应体
+/// @details
+///     该 API 将会尝试整个响应体并将响应体全部写入到指定文件中，
+///     该 API 虽然性能不及 `qiniu_ng_http_response_dump_body()`，但可以适应更大的响应体内容，
+///     建议您先调用 `qiniu_ng_http_response_get_body_length()` 获取响应体具体尺寸，然后决定调用哪个 API 获取响应体
+/// @param[in] response HTTP 响应实例
+/// @param[in] path 文件路径
+/// @param[out] err 用于返回错误，如果传入 `NULL` 表示不获取 `err`。但如果运行发生错误，返回值将依然是 `false`
+/// @retval bool 是否运行正常，如果返回 `false`，则表示可以读取 `err` 获得错误信息
+/// @warning 对于运行错误的情况，需要调用 `qiniu_ng_err_t` 系列的函数判定具体错误并释放其内存
+#[no_mangle]
+pub extern "C" fn qiniu_ng_http_response_dump_body_to_file(
+    response: qiniu_ng_http_response_t,
+    path: *const qiniu_ng_char_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    let response: &mut Response = response.into();
+    if let Err(ref e) = response
+        .clone_body()
+        .and_then(|body| {
+            OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(unsafe { ucstr::from_ptr(path) }.to_path_buf())
+                .map(|file| (file, body))
+        })
+        .and_then(|(mut file, mut body)| match &mut body {
+            Some(ResponseBody::Bytes(bytes)) => file.write_all(&bytes),
+            Some(ResponseBody::Reader(reader)) => io_copy(reader, &mut file).map(|_| ()),
+            Some(ResponseBody::File(f)) => io_copy(&mut file, f).map(|_| ()),
+            None => Ok(()),
+        })
+    {
+        if let Some(err) = unsafe { err.as_mut() } {
+            *err = e.into();
+        }
+        false
+    } else {
+        true
+    }
+    .tap(|_| {
+        let _ = qiniu_ng_http_response_t::from(response);
+    })
 }
 
 /// @brief 设置 HTTP 响应体

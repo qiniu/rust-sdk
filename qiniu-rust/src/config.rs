@@ -39,37 +39,37 @@ pub struct ConfigInner {
     #[builder(default = "default::use_https()")]
     use_https: bool,
 
-    /// UC 服务器地址
+    /// UC 服务器地址（仅需要指定主机地址和端口，无需包含协议）
     ///
-    /// 仅在使用私有云时才需要配置
+    ///默认将会使用七牛公有云的 UC 服务器地址， 仅在使用私有云时才需要配置
     #[get = "pub"]
     #[builder(default = "default::uc_host()", setter(into))]
     uc_host: Cow<'static, str>,
 
-    /// RS 服务器地址
+    /// RS 服务器地址（仅需要指定主机地址和端口，无需包含协议）
     ///
-    /// 仅在使用私有云时才需要配置
+    /// 默认将会使用七牛公有云的 RS 服务器地址，仅在使用私有云时才需要配置
     #[get = "pub"]
     #[builder(default = "default::rs_host()", setter(into))]
     rs_host: Cow<'static, str>,
 
-    /// RSF 服务器地址
+    /// RSF 服务器地址（仅需要指定主机地址和端口，无需包含协议）
     ///
-    /// 仅在使用私有云时才需要配置
+    /// 默认将会使用七牛公有云的 RSF 服务器地址，仅在使用私有云时才需要配置
     #[get = "pub"]
     #[builder(default = "default::rsf_host()", setter(into))]
     rsf_host: Cow<'static, str>,
 
-    /// API 服务器地址
+    /// API 服务器地址（仅需要指定主机地址和端口，无需包含协议）
     ///
-    /// 仅在使用私有云时才需要配置
+    /// 默认将会使用七牛公有云的 API 服务器地址，仅在使用私有云时才需要配置
     #[get = "pub"]
     #[builder(default = "default::api_host()", setter(into))]
     api_host: Cow<'static, str>,
 
-    /// UpLog 服务器地址
+    /// UpLog 服务器地址（仅需要指定主机地址和端口，无需包含协议）
     ///
-    /// 仅在使用私有云时才需要配置
+    /// 默认将会使用七牛公有云的 UpLog 服务器地址，仅在使用私有云时才需要配置
     #[get = "pub"]
     #[builder(default = "default::uplog_host()", setter(into))]
     uplog_host: Cow<'static, str>,
@@ -184,7 +184,7 @@ pub struct ConfigInner {
 
     /// HTTP 请求重试次数
     ///
-    /// 当 SDK 发送 HTTP 请求时发生错误，且该错误可以通过重试来解决时，SDK 将尝试的最大重试次数。
+    /// 当 SDK 发送 HTTP 请求时发生错误，且该错误可以通过重试来解决时，SDK 将重试的次数。
     ///
     /// 默认为 3 次
     #[get_copy = "pub"]

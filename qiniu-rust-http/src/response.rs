@@ -7,7 +7,7 @@ use std::{
     default::Default,
     fmt,
     fs::File,
-    io::{copy as io_copy, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
+    io::{copy as io_copy, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult, Seek, SeekFrom},
     net::IpAddr,
 };
 use tempfile::tempfile;
@@ -146,8 +146,9 @@ impl ResponseBuilder {
         self.body(Body::Bytes(body.into()))
     }
 
-    pub fn file_as_body(self, body: File) -> Self {
-        self.body(Body::File(body))
+    pub fn file_as_body(self, mut body: File) -> IOResult<Self> {
+        body.seek(SeekFrom::Start(0))?;
+        Ok(self.body(Body::File(body)))
     }
 
     pub fn build(self) -> Response {

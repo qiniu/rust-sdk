@@ -273,7 +273,7 @@ impl DomainsManagerBuilder {
 
     /// URL 域名预解析重试次数
     ///
-    /// 当 SDK 预解析域名时发送错误时，SDK 将尝试的最大重试次数。
+    /// 当 SDK 预解析域名时发送错误时，SDK 将重试的次数。
     ///
     /// 默认为 10 次
     pub fn url_resolve_retries(mut self, url_resolve_retries: usize) -> Self {

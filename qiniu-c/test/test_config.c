@@ -2,6 +2,7 @@
 #include "libqiniu_ng.h"
 #include "test.h"
 #include <string.h>
+#include <errno.h>
 
 void test_qiniu_ng_config_new_default(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
@@ -190,7 +191,7 @@ void test_qiniu_ng_config_new2(void) {
 
 static int before_action_counter, after_action_counter;
 
-static bool test_qiniu_ng_config_http_request_before_action_handlers(qiniu_ng_http_request_t request) {
+static void test_qiniu_ng_config_http_request_before_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_callback_err_t *err) {
     before_action_counter++;
     qiniu_ng_http_request_set_custom_data(request, &before_action_counter);
 
@@ -202,11 +203,10 @@ static bool test_qiniu_ng_config_http_request_before_action_handlers(qiniu_ng_ht
         qiniu_ng_str_map_get(headers, QINIU_NG_CHARS("Content-Type")), QINIU_NG_CHARS("application/x-www-form-urlencoded"),
         "headers[\"Content-Type\"] != \"application/x-www-form-urlencoded\"");
     qiniu_ng_str_map_free(&headers);
-
-    return true;
+    (void)(err);
 }
 
-static bool test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
+static void test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         before_action_counter, *((int *) qiniu_ng_http_request_get_custom_data(request)),
         "qiniu_ng_http_request_get_custom_data() returns unexpected value");
@@ -228,20 +228,22 @@ static bool test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_htt
         "body_len != 1");
 
     qiniu_ng_char_t* temp_file_path = create_temp_file(0);
-    FILE *file = OPEN_FILE_FOR_WRITING(temp_file_path);
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(
-        fwrite(body, 1, (size_t) body_len, file), body_len,
-        "fwrite failed");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        fclose(file), 0,
-        "fclose failed");
-    free(body);
+
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_http_response_dump_body_to_file(response, temp_file_path, NULL),
+        "qiniu_ng_http_response_dump_body_to_file() failed");
+
+    char etag[ETAG_SIZE], etag2[ETAG_SIZE];
+    qiniu_ng_etag_from_buffer(body, body_len, (char *) &etag);
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_etag_from_file_path(temp_file_path, (char *) &etag2, NULL),
+        "qiniu_ng_etag_from_file_path() failed");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(strncmp(etag, etag2, ETAG_SIZE), 0, "etag != etag2");
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_http_response_set_body_to_file(response, temp_file_path, NULL),
         "qiniu_ng_http_response_set_body_to_file() failed");
     free((void *) temp_file_path);
-
-    return true;
+    (void)(err);
 }
 
 void test_qiniu_ng_config_http_request_handlers(void) {
@@ -282,22 +284,22 @@ void test_qiniu_ng_config_http_request_handlers(void) {
         "after_action_counter != 1");
 }
 
-static bool qiniu_ng_readable_always_returns_error(void *context, void *buf, size_t count, size_t *have_read) {
+static int32_t qiniu_ng_readable_always_returns_error(void *context, void *buf, size_t count, size_t *have_read) {
     (void)(context);
     (void)(buf);
     (void)(count);
     (void)(have_read);
-    return false;
+    return EACCES;
 }
 
-static bool test_qiniu_ng_config_bad_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
+static void test_qiniu_ng_config_bad_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err) {
     (void)(request);
     qiniu_ng_readable_t reader = {
         .read_func = qiniu_ng_readable_always_returns_error,
         .context = NULL
     };
     qiniu_ng_http_response_set_body_to_reader(response, reader);
-    return true;
+    (void)(err);
 }
 
 void test_qiniu_ng_config_bad_http_request_handlers(void) {
@@ -305,7 +307,6 @@ void test_qiniu_ng_config_bad_http_request_handlers(void) {
     qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_bad_http_request_after_action_handlers);
 
     qiniu_ng_config_t config;
-    qiniu_ng_str_t error_description;
     qiniu_ng_err_t err;
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_config_build(&builder, &config, NULL),
@@ -314,6 +315,7 @@ void test_qiniu_ng_config_bad_http_request_handlers(void) {
         qiniu_ng_config_builder_is_freed(builder),
         "qiniu_ng_config_builder_is_freed() failed");
 
+    int32_t code;
     env_load("..", false);
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
@@ -323,25 +325,20 @@ void test_qiniu_ng_config_bad_http_request_handlers(void) {
     TEST_ASSERT_FALSE_MESSAGE(
         qiniu_ng_err_curl_error_extract(&err, NULL),
         "qiniu_ng_err_curl_error_extract() returns unexpected value");
-    TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_err_os_error_extract(&err, NULL),
-        "qiniu_ng_err_os_error_extract() returns unexpected value");
     TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_err_io_error_extract(&err, &error_description),
-        "qiniu_ng_err_io_error_extract() returns unexpected value");
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(
-        qiniu_ng_str_get_ptr(error_description), QINIU_NG_CHARS("User callback returns false"),
-        "qiniu_ng_str_get_ptr(error_description) != \"User callback returns false\"");
-    qiniu_ng_str_free(&error_description);
+        qiniu_ng_err_os_error_extract(&err, &code),
+        "qiniu_ng_err_os_error_extract() returns unexpected value");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(code, EACCES, "code != EACCES");
     qiniu_ng_bucket_free(&bucket);
     qiniu_ng_client_free(&client);
     qiniu_ng_config_free(&config);
 }
 
-static bool test_qiniu_ng_config_http_request_after_action_handlers_always_return_error(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response) {
+static void test_qiniu_ng_config_http_request_after_action_handlers_always_return_error(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err) {
     (void)(request);
     (void)(response);
-    return false;
+    err->error = qiniu_ng_err_os_error_new(EPERM);
+    err->retry_kind = qiniu_ng_retry_kind_unretryable_error;
 }
 
 void test_qiniu_ng_config_bad_http_request_handlers_2(void) {
@@ -363,9 +360,11 @@ void test_qiniu_ng_config_bad_http_request_handlers_2(void) {
     TEST_ASSERT_FALSE_MESSAGE(
         qiniu_ng_bucket_get_region(bucket, NULL, &err),
         "qiniu_ng_bucket_get_region() returns unexpected value");
+    int32_t code;
     TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_err_user_canceled_error_extract(&err),
+        qiniu_ng_err_os_error_extract(&err, &code),
         "qiniu_ng_err_user_canceled_error_extract() returns unexpected value");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(code, EPERM, "code != EPERM");
     qiniu_ng_bucket_free(&bucket);
     qiniu_ng_client_free(&client);
     qiniu_ng_config_free(&config);

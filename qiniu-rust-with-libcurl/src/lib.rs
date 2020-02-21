@@ -80,12 +80,13 @@ impl CurlClient {
         let server_ip: Option<IpAddr> =
             Self::handle_if_err(easy.primary_ip().map(|s| s.and_then(|s| s.parse().ok())), request)?;
         let server_port = Self::handle_if_err(easy.primary_port(), request)?;
-        self.build_response(easy.get_mut(), status_code, server_ip, server_port)
+        self.build_response(easy.get_mut(), request, status_code, server_ip, server_port)
     }
 
     fn build_response(
         &self,
         context: &mut Context,
+        request: &Request,
         status_code: StatusCode,
         server_ip: Option<IpAddr>,
         server_port: u16,
@@ -100,7 +101,9 @@ impl CurlClient {
                     builder = builder.bytes_as_body(bytes);
                 }
                 ResponseBody::File(file) => {
-                    builder = builder.file_as_body(file);
+                    builder = builder
+                        .file_as_body(file)
+                        .map_err(|err| Error::new_unretryable_error(ErrorKind::IOError(err), request, None))?;
                 }
             }
         }

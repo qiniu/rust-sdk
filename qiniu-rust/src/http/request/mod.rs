@@ -194,7 +194,12 @@ impl<'a> Request<'a> {
             if response.header("Content-Type") == Some(&"application/json".into()) {
                 error_message = serde_json::from_slice::<RequestErrorResponse>(&body)
                     .map_err(|err| {
-                        HTTPError::new_retryable_error(HTTPErrorKind::JSONError(err), false, request, Some(&response))
+                        HTTPError::new_retryable_error(
+                            HTTPErrorKind::JSONError(err.into()),
+                            false,
+                            request,
+                            Some(&response),
+                        )
                     })?
                     .error
                     .map(|e| e.into())

@@ -20,7 +20,9 @@ use tap::TapOps;
 /// @details 用于配置并生成存储空间实例
 /// @note
 ///   * 调用 `qiniu_ng_bucket_builder_new()` 函数创建 `qiniu_ng_bucket_builder_t` 实例。
-///   * 当 `qiniu_ng_bucket_builder_t` 生成 `qiniu_ng_bucket_t` 完毕后
+///   * 调用一系列方法修改 `qiniu_ng_bucket_builder_t` 实例的数据。
+///   * 调用 `qiniu_ng_bucket_build()` 生成 `qiniu_ng_bucket_t` 实例。
+///   * 当通过 `qiniu_ng_bucket_builder_t` 生成 `qiniu_ng_bucket_t` 完毕后
 ///     - 当需要继续生成其他存储空间实例时，可以调用 `qiniu_ng_bucket_builder_reset()` 方法重置生成器。
 ///     - 当没有其他生成需求时，请务必调用 `qiniu_ng_bucket_builder_free()` 方法释放内存。
 /// @note

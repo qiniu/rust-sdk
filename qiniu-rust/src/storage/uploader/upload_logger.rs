@@ -116,10 +116,11 @@ struct UploadLoggerValue {
     #[builder(default = "default::lock_policy()")]
     lock_policy: LockPolicy,
 
-    /// 日志文件的阙值
+    /// 日志文件的上传阙值
     ///
     /// 当且仅当日志文件尺寸大于阙值时才会上传日志。
-    /// 单位为字节
+    /// 单位为字节。
+    /// 默认为 4 KB
     #[builder(default = "default::upload_threshold()")]
     upload_threshold: u32,
 
@@ -127,7 +128,9 @@ struct UploadLoggerValue {
     ///
     /// 当日志文件尺寸大于指定尺寸时，将不会再记录任何数据到日志内。
     /// 防止在上传发生困难时日志文件无限制膨胀。
-    /// 单位为字节。该值必须大于 `upload_threshold`
+    /// 单位为字节。
+    /// 默认为 4 MB。
+    /// 该值必须大于 `upload_threshold`
     #[builder(default = "default::max_size()")]
     max_size: u32,
 }

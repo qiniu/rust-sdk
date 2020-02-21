@@ -19,9 +19,15 @@ pub enum RetryKind {
 }
 
 #[derive(Debug)]
+pub enum JSONError {
+    SerdeJSONError(serde_json::Error),
+    Description(Box<str>),
+}
+
+#[derive(Debug)]
 pub enum ErrorKind {
     HTTPCallerError(HTTPCallerError),
-    JSONError(serde_json::Error),
+    JSONError(JSONError),
     MaliciousResponse,
     UnexpectedRedirect,
     IOError(io::Error),
@@ -207,17 +213,26 @@ impl fmt::Debug for Error {
     }
 }
 
+impl fmt::Display for JSONError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::SerdeJSONError(err) => err.fmt(f),
+            Self::Description(err) => err.fmt(f),
+        }
+    }
+}
+
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ErrorKind::HTTPCallerError(err) => write!(f, "HTTPCallerError({})", err.inner),
-            ErrorKind::JSONError(err) => write!(f, "JSONError({})", err),
-            ErrorKind::MaliciousResponse => write!(f, "MaliciousResponse"),
-            ErrorKind::UnexpectedRedirect => write!(f, "UnexpectedRedirect"),
-            ErrorKind::UserCanceled => write!(f, "UserCanceled"),
-            ErrorKind::IOError(err) => write!(f, "IOError({})", err),
-            ErrorKind::UnknownError(err) => write!(f, "UnknownError({})", err),
-            ErrorKind::ResponseStatusCodeError(status_code, error_message) => write!(
+            Self::HTTPCallerError(err) => write!(f, "HTTPCallerError({})", err.inner),
+            Self::JSONError(err) => write!(f, "JSONError({})", err),
+            Self::MaliciousResponse => write!(f, "MaliciousResponse"),
+            Self::UnexpectedRedirect => write!(f, "UnexpectedRedirect"),
+            Self::UserCanceled => write!(f, "UserCanceled"),
+            Self::IOError(err) => write!(f, "IOError({})", err),
+            Self::UnknownError(err) => write!(f, "UnknownError({})", err),
+            Self::ResponseStatusCodeError(status_code, error_message) => write!(
                 f,
                 "ResponseStatusCodeError(status_code = {}, error_message = {})",
                 status_code, error_message
@@ -241,6 +256,28 @@ impl fmt::Display for Error {
     }
 }
 
+impl StdError for JSONError {
+    fn description(&self) -> &str {
+        match self {
+            Self::SerdeJSONError(err) => err.description(),
+            Self::Description(err) => err.as_ref(),
+        }
+    }
+    #[allow(deprecated)]
+    fn cause(&self) -> Option<&dyn StdError> {
+        match self {
+            Self::SerdeJSONError(err) => Some(err),
+            Self::Description(_) => None,
+        }
+    }
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Self::SerdeJSONError(err) => Some(err),
+            Self::Description(_) => None,
+        }
+    }
+}
+
 impl StdError for Error {
     fn description(&self) -> &str {
         match &self.error_kind {
@@ -259,7 +296,7 @@ impl StdError for Error {
     fn cause(&self) -> Option<&dyn StdError> {
         match &self.error_kind {
             ErrorKind::HTTPCallerError(err) => err.cause(),
-            ErrorKind::JSONError(err) => Some(err),
+            ErrorKind::JSONError(err) => err.cause(),
             ErrorKind::IOError(err) => Some(err),
             ErrorKind::UnknownError(err) => Some(err.deref()),
             _ => None,
@@ -269,7 +306,7 @@ impl StdError for Error {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match &self.error_kind {
             ErrorKind::HTTPCallerError(err) => err.source(),
-            ErrorKind::JSONError(err) => Some(err),
+            ErrorKind::JSONError(err) => err.source(),
             ErrorKind::IOError(err) => Some(err),
             ErrorKind::UnknownError(err) => Some(err.deref()),
             _ => None,
@@ -295,5 +332,23 @@ impl StdError for HTTPCallerError {
 
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         Some(self.inner.deref())
+    }
+}
+
+impl From<serde_json::Error> for JSONError {
+    fn from(err: serde_json::Error) -> Self {
+        Self::SerdeJSONError(err)
+    }
+}
+
+impl From<Box<str>> for JSONError {
+    fn from(err: Box<str>) -> Self {
+        Self::Description(err)
+    }
+}
+
+impl From<String> for JSONError {
+    fn from(err: String) -> Self {
+        Self::Description(err.into_boxed_str())
     }
 }

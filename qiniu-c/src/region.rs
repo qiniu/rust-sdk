@@ -96,8 +96,10 @@ pub extern "C" fn qiniu_ng_region_id_name(region_id: qiniu_ng_region_id_t) -> *c
 /// @details 用于配置并生成区域实例
 /// @note
 ///   * 调用 `qiniu_ng_region_builder_new()` 函数创建 `qiniu_ng_region_builder_t` 实例。
-///   * 当 `qiniu_ng_region_builder_t` 生成 `qiniu_ng_region_t` 完毕后
-///     - 当需要继续生成其他存储空间实例时，可以调用 `qiniu_ng_region_builder_reset()` 方法重置生成器。
+///   * 调用一系列方法修改 `qiniu_ng_region_builder_t` 实例的数据。
+///   * 调用 `qiniu_ng_region_build()` 生成 `qiniu_ng_region_t` 实例。
+///   * 当通过 `qiniu_ng_region_builder_t` 生成 `qiniu_ng_region_t` 完毕后
+///     - 当需要继续生成其他区域实例时，可以调用 `qiniu_ng_region_builder_reset()` 方法重置生成器。
 ///     - 当没有其他生成需求时，请务必调用 `qiniu_ng_region_builder_free()` 方法释放内存。
 /// @note
 ///   该结构体不可以跨线程使用
@@ -144,7 +146,7 @@ impl From<Box<RegionBuilder>> for qiniu_ng_region_builder_t {
 }
 
 /// @brief 创建区域生成器实例
-/// @retval qiniu_ng_bucket_t 获取创建的存储空间实例
+/// @retval qiniu_ng_bucket_t 获取创建的区域实例
 /// @warning 务必在使用完毕后调用 `qiniu_ng_region_builder_free()` 方法释放 `qiniu_ng_region_builder_t`
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_new() -> qiniu_ng_region_builder_t {
@@ -167,6 +169,7 @@ pub extern "C" fn qiniu_ng_region_builder_set_region_id(
 /// @brief 追加上传服务器（HTTP 协议）URL
 /// @param[in] builder 区域生成器
 /// @param[in] up_http_url 上传服务器（HTTP 协议）URL
+/// @note 调用该方法时，输入的 `up_http_url` 将被复制并存储，因此 `up_http_url` 的调用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_up_http_url(
     builder: qiniu_ng_region_builder_t,
@@ -180,6 +183,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_up_http_url(
 /// @brief 追加上传服务器（HTTPS 协议）URL
 /// @param[in] builder 区域生成器
 /// @param[in] up_https_url 上传服务器（HTTPS 协议）URL
+/// @note 调用该方法时，输入的 `up_https_url` 将被复制并存储，因此 `up_https_url` 的调用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_up_https_url(
     builder: qiniu_ng_region_builder_t,
@@ -193,6 +197,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_up_https_url(
 /// @brief 追加 IO 服务器（HTTP 协议）URL
 /// @param[in] builder 区域生成器
 /// @param[in] io_http_url IO 服务器（HTTP 协议）URL
+/// @note 调用该方法时，输入的 `io_http_url` 将被复制并存储，因此 `io_http_url` 的调用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_io_http_url(
     builder: qiniu_ng_region_builder_t,
@@ -206,6 +211,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_io_http_url(
 /// @brief 追加 IO 服务器（HTTPS 协议）URL
 /// @param[in] builder 区域生成器
 /// @param[in] io_https_url IO 服务器（HTTPS 协议）URL
+/// @note 调用该方法时，输入的 `io_https_url` 将被复制并存储，因此 `io_https_url` 的调用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_io_https_url(
     builder: qiniu_ng_region_builder_t,
@@ -219,6 +225,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_io_https_url(
 /// @brief 追加 RS 服务器（HTTP 协议）URL
 /// @param[in] builder 区域生成器
 /// @param[in] rs_http_url RS 服务器（HTTP 协议）URL
+/// @note 调用该方法时，输入的 `rs_http_url` 将被复制并存储，因此 `rs_http_url` 的调用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_rs_http_url(
     builder: qiniu_ng_region_builder_t,
@@ -232,6 +239,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_rs_http_url(
 /// @brief 追加 RS 服务器（HTTPS 协议）URL
 /// @param[in] builder 区域生成器
 /// @param[in] rs_https_url RS 服务器（HTTPS 协议）URL
+/// @note 调用该方法时，输入的 `rs_https_url` 将被复制并存储，因此 `rs_https_url` 的调用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_rs_https_url(
     builder: qiniu_ng_region_builder_t,
@@ -245,6 +253,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_rs_https_url(
 /// @brief 追加 RSF 服务器（HTTP 协议）URL
 /// @param[in] builder 区域生成器
 /// @param[in] rsf_http_url RSF 服务器（HTTP 协议）URL
+/// @note 调用该方法时，输入的 `rsf_http_url` 将被复制并存储，因此 `rsf_http_url` 的调用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_rsf_http_url(
     builder: qiniu_ng_region_builder_t,
@@ -258,6 +267,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_rsf_http_url(
 /// @brief 追加 RSF 服务器（HTTPS 协议）URL
 /// @param[in] builder 区域生成器
 /// @param[in] rsf_https_url RSF 服务器（HTTPS 协议）URL
+/// @note 调用该方法时，输入的 `rsf_https_url` 将被复制并存储，因此 `rsf_https_url` 的调用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_rsf_https_url(
     builder: qiniu_ng_region_builder_t,
@@ -271,6 +281,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_rsf_https_url(
 /// @brief 追加 API 服务器（HTTP 协议）URL
 /// @param[in] builder 区域生成器
 /// @param[in] api_http_url API 服务器（HTTP 协议）URL
+/// @note 调用该方法时，输入的 `api_http_url` 将被复制并存储，因此 `api_http_url` 的调用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_api_http_url(
     builder: qiniu_ng_region_builder_t,
@@ -284,6 +295,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_api_http_url(
 /// @brief 追加 API 服务器（HTTPS 协议）URL
 /// @param[in] builder 区域生成器
 /// @param[in] api_https_url API 服务器（HTTPS 协议）URL
+/// @note 调用该方法时，输入的 `api_https_url` 将被复制并存储，因此 `api_https_url` 的调用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_api_https_url(
     builder: qiniu_ng_region_builder_t,
