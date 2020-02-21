@@ -6,7 +6,7 @@ matrix:
       rust:
         - 1.38.0
       before_script:
-        - sudo apt install -yq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev gnupg software-properties-common openjdk-8-jdk
+        - sudo apt install -yq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev gnupg software-properties-common openjdk-8-jdk doxygen
         - cargo install --force cbindgen
         - |
             curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
@@ -45,7 +45,7 @@ matrix:
       rust:
         - 1.38.0
       before_script:
-        - brew install curl rbenv llvm
+        - brew install curl rbenv llvm doxygen
         - |
             export PATH="$(brew --prefix llvm)/bin:$PATH"
         - cargo install --force cbindgen
@@ -64,7 +64,8 @@ matrix:
       rust:
         - 1.38.0-x86_64-pc-windows-msvc
       before_script:
-        - choco install make
+        - choco install make --force
+        - choco install doxygen.install --force
         - choco install curl --version=7.67.0 --force
         - cargo install --force cbindgen
       script:
@@ -85,7 +86,7 @@ matrix:
         only:
           - features/docs
       before_script:
-        - sudo apt install -yq curl libcurl4 git-core
+        - sudo apt install -yq curl libcurl4 git-core doxygen
         - cargo install --force cbindgen
       script:
         - |
