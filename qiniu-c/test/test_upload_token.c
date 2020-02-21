@@ -15,8 +15,11 @@ void test_qiniu_ng_make_upload_token(void) {
 
     qiniu_ng_upload_policy_builder_t builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("test-bucket"), config);
     qiniu_ng_upload_policy_builder_set_insert_only(builder);
+    TEST_ASSERT_FALSE_MESSAGE(
+        qiniu_ng_upload_policy_builder_set_overwritable(builder),
+        "qiniu_ng_upload_policy_builder_set_overwritable(builder) should return false");
     qiniu_ng_upload_policy_builder_set_callback(builder, (const qiniu_ng_char_t *const *) &CALLBACK_URLS[0], 2, NULL, QINIU_NG_CHARS("key=$(key)"), NULL);
-    qiniu_ng_upload_policy_t upload_policy = qiniu_ng_upload_policy_build(&builder);
+    qiniu_ng_upload_policy_t upload_policy = qiniu_ng_upload_policy_build(builder);
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_upload_policy_builder_is_freed(builder),
         "qiniu_ng_upload_policy_builder_is_freed() failed");
@@ -30,9 +33,6 @@ void test_qiniu_ng_make_upload_token(void) {
         "qiniu_ng_str_get_ptr(bucket_name) != \"test-bucket\"");
     qiniu_ng_str_free(&bucket_name);
 
-    TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_upload_policy_builder_set_overwritable(upload_policy),
-        "qiniu_ng_upload_policy_builder_set_overwritable(upload_policy) should return false");
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_upload_policy_is_insert_only(upload_policy),
         "qiniu_ng_upload_policy_is_insert_only(upload_policy) returns unexpected value");
@@ -172,7 +172,7 @@ void test_qiniu_ng_make_upload_token(void) {
 
     token = qiniu_ng_upload_token_get_string(upload_token);
     qiniu_ng_upload_token_free(&upload_token);
-    qiniu_ng_upload_token_t upload_token_2 = qiniu_ng_upload_token_new_from_token(qiniu_ng_str_get_ptr(token));
+    qiniu_ng_upload_token_t upload_token_2 = qiniu_ng_upload_token_new_from(qiniu_ng_str_get_ptr(token));
     qiniu_ng_str_free(&token);
 
     qiniu_ng_upload_policy_t upload_policy_3;

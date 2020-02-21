@@ -91,6 +91,7 @@ matrix:
       script:
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
+              set -e
               (
                 cd qiniu-rust
                 make doc
