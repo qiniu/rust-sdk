@@ -6,7 +6,8 @@ matrix:
       rust:
         - 1.38.0
       before_script:
-        - sudo apt install -yq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev gnupg software-properties-common openjdk-8-jdk doxygen
+        - sudo apt update -yqq
+        - sudo apt install -yqq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev gnupg software-properties-common openjdk-8-jdk doxygen
         - cargo install --force cbindgen
         - |
             curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
@@ -86,7 +87,8 @@ matrix:
         only:
           - features/docs
       before_script:
-        - sudo apt install -yq curl libcurl4 git-core doxygen
+        - sudo apt update -yqq
+        - sudo apt install -yqq curl libcurl4 git-core doxygen
         - cargo install --force cbindgen
       script:
         - |
