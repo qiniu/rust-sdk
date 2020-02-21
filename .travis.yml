@@ -77,3 +77,39 @@ matrix:
               cp ../target/debug/qiniu_ng_c.dll* .
               echo '"C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" amd64 && make test || exit 1' | cmd.exe
             fi
+    - os: linux
+      dist: bionic
+      rust:
+        - 1.38.0
+      branches:
+        only:
+          - features/docs
+      before_script:
+        - sudo apt install -yq curl libcurl4 git-core
+        - cargo install --force cbindgen
+      script:
+        - |
+            if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
+              (
+                cd qiniu-rust
+                make doc
+              )
+              tar -zcvf /tmp/qiniu_ng.tar.gz -C target/doc/qiniu_ng .
+              (
+                cd qiniu-c
+                make doc
+              )
+              tar -zcvf /tmp/qiniu_ng_c.tar.gz -C target/doc/qiniu_ng_c/html .
+              git checkout -q -f gh-pages
+              mkdir -p doc/qiniu-{rust,c}
+              (
+                cd doc/qiniu-rust
+                tar xf /tmp/qiniu_ng.tar.gz
+              )
+              (
+                cd doc/qiniu-c
+                tar xf /tmp/qiniu_ng_c.tar.gz
+              )
+              git add doc
+              git commit -m 'Update docs' || true
+            fi
