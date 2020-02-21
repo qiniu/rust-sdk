@@ -228,10 +228,18 @@ pub enum qiniu_ng_resumable_policy_t {
     /// @brief 默认断点续传策略，将采用客户端配置中的配置项
     qiniu_ng_resumable_policy_default = 0,
     /// @brief 使用分片上传策略阙值
+    /// @details
+    ///     对于上传文件的情况，如果文件尺寸大于该值，将自动使用分片上传，否则，使用表单上传。
+    ///     单位为字节。
+    ///     对于上传数据流的情况，由于无法预知数据尺寸，将总是使用分片上传
     qiniu_ng_resumable_policy_threshold,
     /// @brief 总是使用分片上传
     qiniu_ng_resumable_policy_always_be_resumeable,
     /// @brief 总是使用表单上传
+    /// @details
+    ///     需要注意的是，虽然表单上传仅需要一次 HTTP 调用，性能优于分片上传，
+    ///     但分片上传具有断点续传的特性，以及表单上传会将整个文件内容都加载进内存中，对大文件极不友好。
+    ///     因此总是推荐使用默认策略，如果认为默认阙值过小，可以适当提高客户端配置的阙值。
     qiniu_ng_resumable_policy_never_be_resumeable,
 }
 
@@ -254,13 +262,13 @@ pub struct qiniu_ng_upload_params_t {
     pub checksum_disabled: bool,
     /// @brief 断点续传策略，建议使用默认策略
     pub resumable_policy: qiniu_ng_resumable_policy_t,
-    /// 上传进度回调函数
+    /// @brief 上传进度回调函数
     pub on_uploading_progress: Option<fn(uploaded: u64, total: u64)>,
-    /// 当且仅当 `resumable_policy` 为 `qiniu_ng_resumable_policy_threshold` 才生效，表示设置的上传策略阙值
+    /// @brief 当且仅当 `resumable_policy` 为 `qiniu_ng_resumable_policy_threshold` 才生效，表示设置的上传策略阙值
     pub upload_threshold: u32,
-    /// 线程池大小，当大于 `0` 时，将为本次上传创建专用线程池
+    /// @brief 线程池大小，当大于 `0` 时，将为本次上传创建专用线程池
     pub thread_pool_size: size_t,
-    /// 上传文件最大并发度
+    /// @brief 上传文件最大并发度
     pub max_concurrency: size_t,
 }
 
@@ -460,6 +468,11 @@ fn set_params_to_file_uploader<'n>(
     file_uploader
 }
 
+/// @brief 上传响应
+/// @details
+///     上传响应实例对上传响应中的响应体进行封装，提供一些辅助方法。
+///     当 `qiniu_ng_upload_response_t` 使用完毕后，请务必调用 `qiniu_ng_upload_response_free()` 方法释放内存
+/// @note 该结构体内部状态不可变，因此可以跨线程使用
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_response_t(*mut c_void);
