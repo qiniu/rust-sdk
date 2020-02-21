@@ -425,7 +425,7 @@ pub extern "C" fn qiniu_ng_http_request_clear_resolved_socket_addrs(request: qin
 #[no_mangle]
 pub extern "C" fn qiniu_ng_http_request_append_resolved_socket_addr_as_str(
     request: qiniu_ng_http_request_t,
-    socket_addr: *const c_char,
+    socket_addr: *const qiniu_ng_char_t,
 ) -> bool {
     let request: &mut Request = request.into();
     let socket_addr: SocketAddr = {
@@ -988,7 +988,7 @@ pub extern "C" fn qiniu_ng_http_response_get_server_ip(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_http_response_set_server_ip_as_str(
     response: qiniu_ng_http_response_t,
-    ip_addr: *const c_char,
+    ip_addr: *const qiniu_ng_char_t,
 ) -> bool {
     let response: &mut Response = response.into();
     let mut is_ok = true;

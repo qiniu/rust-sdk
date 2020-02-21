@@ -173,7 +173,7 @@ pub extern "C" fn qiniu_ng_region_builder_set_region_id(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_up_http_url(
     builder: qiniu_ng_region_builder_t,
-    up_http_url: *const c_char,
+    up_http_url: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<RegionBuilder>>::from(builder).unwrap();
     builder.append_up_http_url(unsafe { ucstr::from_ptr(up_http_url) }.to_string().unwrap());
@@ -187,7 +187,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_up_http_url(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_up_https_url(
     builder: qiniu_ng_region_builder_t,
-    up_https_url: *const c_char,
+    up_https_url: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<RegionBuilder>>::from(builder).unwrap();
     builder.append_up_https_url(unsafe { ucstr::from_ptr(up_https_url) }.to_string().unwrap());
@@ -201,7 +201,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_up_https_url(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_io_http_url(
     builder: qiniu_ng_region_builder_t,
-    io_http_url: *const c_char,
+    io_http_url: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<RegionBuilder>>::from(builder).unwrap();
     builder.append_io_http_url(unsafe { ucstr::from_ptr(io_http_url) }.to_string().unwrap());
@@ -215,7 +215,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_io_http_url(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_io_https_url(
     builder: qiniu_ng_region_builder_t,
-    io_https_url: *const c_char,
+    io_https_url: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<RegionBuilder>>::from(builder).unwrap();
     builder.append_io_https_url(unsafe { ucstr::from_ptr(io_https_url) }.to_string().unwrap());
@@ -229,7 +229,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_io_https_url(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_rs_http_url(
     builder: qiniu_ng_region_builder_t,
-    rs_http_url: *const c_char,
+    rs_http_url: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<RegionBuilder>>::from(builder).unwrap();
     builder.append_rs_http_url(unsafe { ucstr::from_ptr(rs_http_url) }.to_string().unwrap());
@@ -243,7 +243,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_rs_http_url(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_rs_https_url(
     builder: qiniu_ng_region_builder_t,
-    rs_https_url: *const c_char,
+    rs_https_url: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<RegionBuilder>>::from(builder).unwrap();
     builder.append_rs_https_url(unsafe { ucstr::from_ptr(rs_https_url) }.to_string().unwrap());
@@ -257,7 +257,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_rs_https_url(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_rsf_http_url(
     builder: qiniu_ng_region_builder_t,
-    rsf_http_url: *const c_char,
+    rsf_http_url: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<RegionBuilder>>::from(builder).unwrap();
     builder.append_rsf_http_url(unsafe { ucstr::from_ptr(rsf_http_url) }.to_string().unwrap());
@@ -271,7 +271,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_rsf_http_url(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_rsf_https_url(
     builder: qiniu_ng_region_builder_t,
-    rsf_https_url: *const c_char,
+    rsf_https_url: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<RegionBuilder>>::from(builder).unwrap();
     builder.append_rsf_https_url(unsafe { ucstr::from_ptr(rsf_https_url) }.to_string().unwrap());
@@ -285,7 +285,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_rsf_https_url(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_api_http_url(
     builder: qiniu_ng_region_builder_t,
-    api_http_url: *const c_char,
+    api_http_url: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<RegionBuilder>>::from(builder).unwrap();
     builder.append_api_http_url(unsafe { ucstr::from_ptr(api_http_url) }.to_string().unwrap());
@@ -299,7 +299,7 @@ pub extern "C" fn qiniu_ng_region_builder_append_api_http_url(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_builder_append_api_https_url(
     builder: qiniu_ng_region_builder_t,
-    api_https_url: *const c_char,
+    api_https_url: *const qiniu_ng_char_t,
 ) {
     let mut builder = Option::<Box<RegionBuilder>>::from(builder).unwrap();
     builder.append_api_https_url(unsafe { ucstr::from_ptr(api_https_url) }.to_string().unwrap());

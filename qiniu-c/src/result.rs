@@ -2,10 +2,9 @@
 use curl_sys::CURLcode;
 
 use crate::{
-    string::ucstr,
+    string::{qiniu_ng_char_t, ucstr},
     utils::{qiniu_ng_str_free, qiniu_ng_str_t},
 };
-use libc::c_char;
 use matches::matches;
 use qiniu_ng::{
     http::{
@@ -201,7 +200,7 @@ pub extern "C" fn qiniu_ng_err_io_error_extract(err: &mut qiniu_ng_err_t, descri
 /// @retval qiniu_ng_err_t 返回创建的 IO 异常
 /// @warning 对于创建的 IO 异常，需要自己调用 `qiniu_ng_err_ignore()` 函数释放内存
 #[no_mangle]
-pub extern "C" fn qiniu_ng_err_io_error_new(description: *const c_char) -> qiniu_ng_err_t {
+pub extern "C" fn qiniu_ng_err_io_error_new(description: *const qiniu_ng_char_t) -> qiniu_ng_err_t {
     qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_io_error(
         unsafe { ucstr::from_ptr(description) }.to_owned().into(),
     ))
@@ -299,7 +298,7 @@ pub extern "C" fn qiniu_ng_err_json_error_extract(err: &mut qiniu_ng_err_t, desc
 /// @retval qiniu_ng_err_t 返回创建的 JSON 错误
 /// @warning 对于创建的 JSON 错误，需要自己调用 `qiniu_ng_err_ignore()` 函数释放内存
 #[no_mangle]
-pub extern "C" fn qiniu_ng_err_json_error_new(description: *const c_char) -> qiniu_ng_err_t {
+pub extern "C" fn qiniu_ng_err_json_error_new(description: *const qiniu_ng_char_t) -> qiniu_ng_err_t {
     qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(
         unsafe { ucstr::from_ptr(description) }.to_owned().into(),
     ))
@@ -342,7 +341,7 @@ pub extern "C" fn qiniu_ng_err_response_status_code_error_extract(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_response_status_code_error_new(
     status_code: u16,
-    error: *const c_char,
+    error: *const qiniu_ng_char_t,
 ) -> qiniu_ng_err_t {
     qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_response_status_code_error(
         status_code,
