@@ -10,7 +10,7 @@ use tap::TapOps;
 
 /// @brief 列出所有存储空间名称
 /// @param[in] client 七牛客户端
-/// @param[out] names 存储空间名称列表，如果传入 `NULL` 表示不获取 `names`。但如果运行正常，返回值将依然是 `true`
+/// @param[out] names 用于返回存储空间名称列表，如果传入 `NULL` 表示不获取 `names`。但如果运行正常，返回值将依然是 `true`
 /// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否运行正常，如果返回 `true`，则表示可以读取 `names` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @warning 对于获取的 `names` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
@@ -41,8 +41,8 @@ pub extern "C" fn qiniu_ng_storage_bucket_names(
 
 /// @brief 创建存储空间
 /// @param[in] client 七牛客户端
-/// @param[out] bucket_name 存储空间名称
-/// @param[out] region_id 区域 ID，如果您的区域 ID 不是 `qiniu_ng_region_id_t` 所能提供，则调用 `qiniu_ng_storage_create_bucket_with_customized_region_id()` 函数创建存储空间
+/// @param[in] bucket_name 存储空间名称
+/// @param[in] region_id 区域 ID，如果您的区域 ID 不是 `qiniu_ng_region_id_t` 所能提供，则调用 `qiniu_ng_storage_create_bucket_with_customized_region_id()` 函数创建存储空间
 /// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否运行正常，如果返回 `true`，则表示创建成功，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @details
@@ -70,8 +70,8 @@ pub extern "C" fn qiniu_ng_storage_create_bucket(
 
 /// @brief 使用自定义区域 ID 创建存储空间
 /// @param[in] client 七牛客户端
-/// @param[out] bucket_name 存储空间名称
-/// @param[out] region_id 区域 ID 字符串，参考[官方文档](https://developer.qiniu.com/kodo/manual/1671/region-endpoint)
+/// @param[in] bucket_name 存储空间名称
+/// @param[in] region_id 区域 ID 字符串，参考[官方文档](https://developer.qiniu.com/kodo/manual/1671/region-endpoint)
 /// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否运行正常，如果返回 `true`，则表示创建成功，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @details
@@ -116,7 +116,7 @@ fn _qiniu_ng_storage_create_bucket(
 
 /// @brief 删除存储空间
 /// @param[in] client 七牛客户端
-/// @param[out] bucket_name 即将删除的存储空间名称
+/// @param[in] bucket_name 即将删除的存储空间名称
 /// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否运行正常，如果返回 `true`，则表示删除成功，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 #[no_mangle]

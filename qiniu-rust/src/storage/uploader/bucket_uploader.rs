@@ -156,7 +156,6 @@ impl BucketUploader {
     }
 }
 
-/// 断点续传策略
 enum ResumablePolicy {
     Threshold(u32),
     Never,

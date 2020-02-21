@@ -2,9 +2,9 @@ use matches::matches;
 use serde_json::{map::Map, value::Index, Value};
 use std::fmt;
 
-/// 上传响应
+/// 上传响应实例
 ///
-/// 上传响应对上传响应中的响应体进行封装，提供一些辅助方法。
+/// 上传响应实例对上传响应中的响应体进行封装，提供一些辅助方法。
 #[derive(Debug, Clone)]
 pub struct UploadResponse(UploadResponseInner);
 

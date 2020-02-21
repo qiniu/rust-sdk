@@ -23,11 +23,16 @@ use std::{
 };
 use tap::TapOps;
 
+/// @brief 上传管理器
+/// @details 上传管理器更接近于一个上传入口，帮助构建存储空间上传器或文件上传器，而本身并不具有实质管理功能
+/// @note
+///   * 调用 `qiniu_ng_upload_manager_new()` 函数创建 `qiniu_ng_upload_manager_t` 实例。
+///   * 当 `qiniu_ng_upload_manager_t` 使用完毕后，请务必调用 `qiniu_ng_upload_manager_free()` 方法释放内存。
+/// @note
+///   该结构体内部状态不可变，因此可以跨线程使用
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_upload_manager_t(*mut c_void);
-
-// TODO: 提供 Upload Manager 的 clone() 方法
 
 impl Default for qiniu_ng_upload_manager_t {
     #[inline]
@@ -67,11 +72,17 @@ impl From<Box<UploadManager>> for qiniu_ng_upload_manager_t {
     }
 }
 
+/// @brief 创建上传管理器实例
+/// @param[in] config 七牛客户端配置
+/// @retval qiniu_ng_upload_manager_t 获取创建的上传管理器实例
+/// @warning 务必在使用完毕后调用 `qiniu_ng_upload_manager_free()` 方法释放 `qiniu_ng_upload_manager_t`
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_manager_new(config: qiniu_ng_config_t) -> qiniu_ng_upload_manager_t {
     Box::new(UploadManager::new(config.get_clone().unwrap())).into()
 }
 
+/// @brief 释放上传管理器实例
+/// @param[in,out] upload_manager 上传管理器实例地址，释放完毕后该上传管理器实例将不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_manager_free(upload_manager: *mut qiniu_ng_upload_manager_t) {
     if let Some(upload_manager) = unsafe { upload_manager.as_mut() } {
@@ -80,11 +91,21 @@ pub extern "C" fn qiniu_ng_upload_manager_free(upload_manager: *mut qiniu_ng_upl
     }
 }
 
+/// @brief 判断上传管理器实例是否已经被释放
+/// @param[in] upload_manager 上传管理器实例
+/// @retval bool 如果返回 `true` 则表示上传管理器实例已经被释放，该实例不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_manager_is_freed(upload_manager: qiniu_ng_upload_manager_t) -> bool {
     upload_manager.is_null()
 }
 
+/// @brief 存储空间上传器
+/// @details 为指定存储空间的上传准备初始化数据，可以反复使用以上传多个文件
+/// @note
+///   * 调用 `qiniu_ng_bucket_uploader_new_from_bucket()` 或 `qiniu_ng_bucket_uploader_new_from_bucket_name()` 函数创建 `qiniu_ng_bucket_uploader_t` 实例。
+///   * 当 `qiniu_ng_bucket_uploader_t` 使用完毕后，请务必调用 `qiniu_ng_bucket_uploader_free()` 方法释放内存。
+/// @note
+///   该结构体内部状态不可变，因此可以跨线程使用
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_bucket_uploader_t(*mut c_void);
@@ -127,8 +148,14 @@ impl From<BucketUploader> for qiniu_ng_bucket_uploader_t {
     }
 }
 
+/// @brief 创建存储空间上传器实例
+/// @param[in] upload_manager 上传管理器实例
+/// @param[in] bucket 存储空间实例
+/// @param[in] thread_pool_size 上传线程池大小，如果传入 `0`，则使用默认的线程池策略
+/// @retval qiniu_ng_bucket_uploader_t 获取创建的存储空间上传器实例
+/// @warning 务必在使用完毕后调用 `qiniu_ng_bucket_uploader_free()` 方法释放 `qiniu_ng_bucket_uploader_t`
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_manager_new_bucket_uploader_from_bucket(
+pub extern "C" fn qiniu_ng_bucket_uploader_new_from_bucket(
     upload_manager: qiniu_ng_upload_manager_t,
     bucket: qiniu_ng_bucket_t,
     thread_pool_size: size_t,
@@ -145,8 +172,15 @@ pub extern "C" fn qiniu_ng_upload_manager_new_bucket_uploader_from_bucket(
     bucket_uploader_builder.build().into()
 }
 
+/// @brief 创建存储空间上传器实例
+/// @param[in] upload_manager 上传管理器实例
+/// @param[in] bucket_name 存储空间名称
+/// @param[in] access_key 七牛 Access Key
+/// @param[in] thread_pool_size 上传线程池大小，如果传入 `0`，则使用默认的线程池策略
+/// @retval qiniu_ng_bucket_uploader_t 获取创建的存储空间上传器实例
+/// @warning 务必在使用完毕后调用 `qiniu_ng_bucket_uploader_free()` 方法释放 `qiniu_ng_bucket_uploader_t`
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
+pub extern "C" fn qiniu_ng_bucket_uploader_new_from_bucket_name(
     upload_manager: qiniu_ng_upload_manager_t,
     bucket_name: *const qiniu_ng_char_t,
     access_key: *const qiniu_ng_char_t,
@@ -167,6 +201,8 @@ pub extern "C" fn qiniu_ng_upload_manager_new_bucket_uploader_from_bucket_name(
     bucket_uploader_builder.build().into()
 }
 
+/// @brief 释放存储空间上传器实例
+/// @param[in,out] client 存储空间上传器实例地址，释放完毕后该上传器实例将不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_uploader_free(bucket_uploader: *mut qiniu_ng_bucket_uploader_t) {
     if let Some(bucket_uploader) = unsafe { bucket_uploader.as_mut() } {
@@ -175,32 +211,68 @@ pub extern "C" fn qiniu_ng_bucket_uploader_free(bucket_uploader: *mut qiniu_ng_b
     }
 }
 
+/// @brief 判断存储空间上传器实例是否已经被释放
+/// @param[in] bucket_uploader 存储空间上传器实例
+/// @retval bool 如果返回 `true` 则表示存储空间上传器实例已经被释放，该实例不再可用
+#[no_mangle]
+pub extern "C" fn qiniu_ng_bucket_uploader_is_freed(bucket_uploader: qiniu_ng_bucket_uploader_t) -> bool {
+    bucket_uploader.is_null()
+}
+
+/// @brief 分片上传策略
+/// @details 为了防止上传文件的过程中，上传日志文件被多个进程同时修改引发竞争，因此需要在操作日志文件时使用文件锁保护
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(dead_code, non_camel_case_types)]
-pub enum qiniu_ng_resumable_policy_e {
+pub enum qiniu_ng_resumable_policy_t {
+    /// @brief 默认断点续传策略，将采用客户端配置中的配置项
     qiniu_ng_resumable_policy_default = 0,
+    /// @brief 使用分片上传策略阙值
     qiniu_ng_resumable_policy_threshold,
+    /// @brief 总是使用分片上传
     qiniu_ng_resumable_policy_always_be_resumeable,
+    /// @brief 总是使用表单上传
     qiniu_ng_resumable_policy_never_be_resumeable,
 }
 
+/// @brief 上传参数
+/// @details 该结构是个简单的开放结构体，用于为上传提供可选参数
 #[repr(C)]
 #[derive(Clone)]
 pub struct qiniu_ng_upload_params_t {
-    key: *const qiniu_ng_char_t,
-    file_name: *const qiniu_ng_char_t,
-    mime: *const qiniu_ng_char_t,
-    vars: qiniu_ng_str_map_t,
-    metadata: qiniu_ng_str_map_t,
-    checksum_enabled: bool,
-    resumable_policy: qiniu_ng_resumable_policy_e,
-    on_uploading_progress: Option<fn(uploaded: u64, total: u64)>,
-    upload_threshold: u32,
-    thread_pool_size: size_t,
-    max_concurrency: size_t,
+    /// @brief 对象名称，如果不指定，服务器将使用默认的对象名称
+    pub key: *const qiniu_ng_char_t,
+    /// @brief 指定上传文件的文件名称，在下载文件时将会被使用，如果不指定，SDK 将生成默认的文件名称
+    pub file_name: *const qiniu_ng_char_t,
+    /// @brief 指定文件的 MIME 类型
+    pub mime: *const qiniu_ng_char_t,
+    /// @brief 为上传对象指定[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
+    pub vars: qiniu_ng_str_map_t,
+    /// @brief 为上传对象指定自定义元数据
+    pub metadata: qiniu_ng_str_map_t,
+    /// @brief 是否禁用文件校验，在任何场景下都不推荐禁用文件校验
+    pub checksum_disabled: bool,
+    /// @brief 断点续传策略，建议使用默认策略
+    pub resumable_policy: qiniu_ng_resumable_policy_t,
+    /// 上传进度回调函数
+    pub on_uploading_progress: Option<fn(uploaded: u64, total: u64)>,
+    /// 当且仅当 `resumable_policy` 为 `qiniu_ng_resumable_policy_threshold` 才生效，表示设置的上传策略阙值
+    pub upload_threshold: u32,
+    /// 线程池大小，当大于 `0` 时，将为本次上传创建专用线程池
+    pub thread_pool_size: size_t,
+    /// 上传文件最大并发度
+    pub max_concurrency: size_t,
 }
 
+/// @brief 上传指定路径的文件
+/// @param[in] bucket_uploader 存储空间上传器
+/// @param[in] upload_token 上传凭证实例
+/// @param[in] file_path 文件路径
+/// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
+/// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
+/// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_uploader_upload_file_path(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
@@ -220,6 +292,15 @@ pub extern "C" fn qiniu_ng_bucket_uploader_upload_file_path(
     )
 }
 
+/// @brief 上传文件
+/// @param[in] bucket_uploader 存储空间上传器
+/// @param[in] upload_token 上传凭证实例
+/// @param[in] file 文件实例
+/// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
+/// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
+/// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_uploader_upload_file(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
@@ -239,6 +320,15 @@ pub extern "C" fn qiniu_ng_bucket_uploader_upload_file(
     )
 }
 
+/// @brief 上传阅读器提供的数据
+/// @param[in] bucket_uploader 存储空间上传器
+/// @param[in] upload_token 上传凭证实例
+/// @param[in] reader 阅读器实例，将不断从阅读器中读取数据并上传
+/// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
+/// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
+/// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_uploader_upload_reader(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
@@ -342,22 +432,22 @@ fn set_params_to_file_uploader<'n>(
         }
         let _ = qiniu_ng_str_map_t::from(metadata);
     }
-    file_uploader = if params.checksum_enabled {
-        file_uploader.enable_checksum()
-    } else {
+    file_uploader = if params.checksum_disabled {
         file_uploader.disable_checksum()
+    } else {
+        file_uploader.enable_checksum()
     };
     match params.resumable_policy {
-        qiniu_ng_resumable_policy_e::qiniu_ng_resumable_policy_threshold => {
+        qiniu_ng_resumable_policy_t::qiniu_ng_resumable_policy_threshold => {
             file_uploader = file_uploader.upload_threshold(params.upload_threshold);
         }
-        qiniu_ng_resumable_policy_e::qiniu_ng_resumable_policy_always_be_resumeable => {
+        qiniu_ng_resumable_policy_t::qiniu_ng_resumable_policy_always_be_resumeable => {
             file_uploader = file_uploader.always_be_resumable();
         }
-        qiniu_ng_resumable_policy_e::qiniu_ng_resumable_policy_never_be_resumeable => {
+        qiniu_ng_resumable_policy_t::qiniu_ng_resumable_policy_never_be_resumeable => {
             file_uploader = file_uploader.never_be_resumable();
         }
-        _ => {}
+        qiniu_ng_resumable_policy_t::qiniu_ng_resumable_policy_default => {}
     }
     if let Some(on_uploading_progress) = params.on_uploading_progress {
         file_uploader = file_uploader.on_progress(move |uploaded: u64, total: Option<u64>| {
@@ -412,6 +502,11 @@ impl From<Box<QiniuUploadResponse>> for qiniu_ng_upload_response_t {
     }
 }
 
+/// @brief 获取上传响应中的对象名称
+/// @param[in] upload_response 上传响应实例
+/// @retval qiniu_ng_str_t 对象名称
+/// @note 这里返回的 `qiniu_ng_str_t` 有可能封装的是 `NULL`，请调用 `qiniu_ng_str_is_null()` 进行判断
+/// @warning 当 `qiniu_ng_str_t` 使用完毕后，请务必调用 `qiniu_ng_str_free()` 方法释放内存
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_response_get_key(upload_response: qiniu_ng_upload_response_t) -> qiniu_ng_str_t {
     let upload_response = Option::<Box<QiniuUploadResponse>>::from(upload_response).unwrap();
@@ -420,6 +515,10 @@ pub extern "C" fn qiniu_ng_upload_response_get_key(upload_response: qiniu_ng_upl
     })
 }
 
+/// @brief 获取上传响应中的校验和字段
+/// @param[in] upload_response 上传响应实例
+/// @param[out] result_ptr 提供内存地址用于返回校验和字段，如果传入 `NULL` 表示不获取 `result_ptr`。但如果该字段存在，返回值依然是 `true`，且不影响其他字段的获取
+/// @param[out] result_size 用于返回校验和字段长度，如果传入 `NULL` 表示不获取 `result_size`。但如果该字段存在，返回值依然是 `true`，且不影响其他字段的获取。该字段一般返回的是 Etag，因此长度一般会等于 `ETAG_SIZE`。如果返回 `0`，则表明该校验和字段并不存在
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_response_get_hash(
     upload_response: qiniu_ng_upload_response_t,
@@ -440,6 +539,10 @@ pub extern "C" fn qiniu_ng_upload_response_get_hash(
     let _ = qiniu_ng_upload_response_t::from(upload_response);
 }
 
+/// @brief 获取上传响应的字符串
+/// @param[in] upload_response 上传响应实例
+/// @retval qiniu_ng_str_t 上传响应字符串，一般是 JSON 格式的
+/// @warning 当 `qiniu_ng_str_t` 使用完毕后，请务必调用 `qiniu_ng_str_free()` 方法释放内存
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_response_get_string(upload_response: qiniu_ng_upload_response_t) -> qiniu_ng_str_t {
     let upload_response = Option::<Box<QiniuUploadResponse>>::from(upload_response).unwrap();
@@ -448,12 +551,22 @@ pub extern "C" fn qiniu_ng_upload_response_get_string(upload_response: qiniu_ng_
     })
 }
 
+/// @brief 释放上传响应实例
+/// @param[in,out] policy 上传响应实例地址，释放完毕后该实例将不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_response_free(upload_response: *mut qiniu_ng_upload_response_t) {
     if let Some(upload_response) = unsafe { upload_response.as_mut() } {
         let _ = Option::<Box<QiniuUploadResponse>>::from(*upload_response);
         *upload_response = qiniu_ng_upload_response_t::default();
     }
+}
+
+/// @brief 判断上传响应实例是否已经被释放
+/// @param[in] config 上传响应实例
+/// @retval bool 如果返回 `true` 则表示上传响应实例已经被释放，该实例不再可用
+#[no_mangle]
+pub extern "C" fn qiniu_ng_upload_response_is_freed(upload_response: qiniu_ng_upload_response_t) -> bool {
+    upload_response.is_null()
 }
 
 enum UploadFile {

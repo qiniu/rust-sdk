@@ -17,7 +17,7 @@ use thiserror::Error;
 
 /// 上传管理器
 ///
-/// 上传管理器更接近于一个上传入口，帮助构建存储空间上传器或文件上传器，而本身并不具有实质管理功能。
+/// 上传管理器更接近于一个上传入口，帮助构建存储空间上传器或文件上传器，而本身并不具有实质管理功能
 #[derive(Clone)]
 pub struct UploadManager {
     config: Config,
