@@ -63,7 +63,7 @@ impl From<Box<Client>> for qiniu_ng_client_t {
 /// @param[in] secret_key 七牛 Secret Key
 /// @param[in] config 七牛客户端配置
 /// @retval qiniu_ng_client_t 获取创建的七牛 SDK 客户端实例
-/// @note 创建实例时，SDK 客户端会复制并存储输入的 `access_key` 和 `secret_key`，因此 `access_key` 和 `secret_key` 的使用完毕后即可释放
+/// @note 创建实例时，SDK 客户端会复制并存储输入的 `access_key` 和 `secret_key`，因此 `access_key` 和 `secret_key` 在使用完毕后即可释放
 /// @warning 务必在使用完毕后调用 `qiniu_ng_client_free()` 方法释放 `qiniu_ng_client_t`
 #[no_mangle]
 pub extern "C" fn qiniu_ng_client_new(

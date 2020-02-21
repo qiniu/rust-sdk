@@ -17,7 +17,7 @@ use thiserror::Error;
 /// 上传策略
 ///
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1206/put-policy)了解七牛安全机制。
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct UploadPolicy<'p> {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -88,7 +88,7 @@ impl<'p> UploadPolicy<'p> {
         bool_utils::int_to_bool(self.insert_only.unwrap_or(0))
     }
 
-    /// 允许覆盖对象
+    /// 是否允许覆盖对象
     ///
     /// 相当于 `!is_insert_only()`
     pub fn is_overwritable(&self) -> bool {
@@ -219,35 +219,10 @@ impl<'p> UploadPolicy<'p> {
     }
 }
 
-impl Default for UploadPolicy<'_> {
-    fn default() -> Self {
-        UploadPolicy {
-            scope: None,
-            is_prefixal_scope: None,
-            deadline: None,
-            insert_only: None,
-            return_url: None,
-            return_body: None,
-            callback_url: None,
-            callback_host: None,
-            callback_body: None,
-            callback_body_type: None,
-            save_key: None,
-            force_save_key: None,
-            fsize_min: None,
-            fsize_limit: None,
-            detect_mime: None,
-            mime_limit: None,
-            file_type: None,
-            delete_after_days: None,
-        }
-    }
-}
-
 /// 上传策略生成器
 ///
 /// 用于生成上传策略，一旦生成完毕，上传策略将无法被修改
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UploadPolicyBuilder<'p> {
     inner: UploadPolicy<'p>,
 }
@@ -452,8 +427,8 @@ impl<'p> UploadPolicyBuilder<'p> {
     /// 支持支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)。
     /// `force` 为 `false` 时，`save_as` 字段仅当用户上传的时候没有主动指定对象名时起作用，
     /// `force` 为 `true` 时，将强制按 `save_as` 字段的格式命名
-    pub fn save_as(&mut self, key: impl Into<Cow<'p, str>>, force: bool) -> &mut Self {
-        self.inner.save_key = Some(key.into());
+    pub fn save_as(&mut self, save_as: impl Into<Cow<'p, str>>, force: bool) -> &mut Self {
+        self.inner.save_key = Some(save_as.into());
         if force {
             self.inner.force_save_key = Some(true);
         }
@@ -518,6 +493,27 @@ impl<'p> UploadPolicyBuilder<'p> {
     /// 生成上传策略
     pub fn build(&self) -> UploadPolicy<'p> {
         self.inner.clone()
+    }
+
+    /// 重置上传策略生成器
+    ///
+    /// 重置生成器使得生成器可以被多次复用
+    pub fn reset(&mut self) {
+        self.inner.insert_only = None;
+        self.inner.return_url = None;
+        self.inner.return_body = None;
+        self.inner.callback_url = None;
+        self.inner.callback_host = None;
+        self.inner.callback_body = None;
+        self.inner.callback_body_type = None;
+        self.inner.save_key = None;
+        self.inner.force_save_key = None;
+        self.inner.fsize_min = None;
+        self.inner.fsize_limit = None;
+        self.inner.detect_mime = None;
+        self.inner.mime_limit = None;
+        self.inner.file_type = None;
+        self.inner.delete_after_days = None;
     }
 }
 

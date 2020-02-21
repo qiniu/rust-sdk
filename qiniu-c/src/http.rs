@@ -274,7 +274,7 @@ pub extern "C" fn qiniu_ng_http_request_get_body(
 /// @param[in] request HTTP 请求实例
 /// @param[in] body_ptr HTTP 请求体地址。
 /// @param[in] body_size HTTP 请求体长度，单位为字节。
-/// @note 设置请求体时，SDK 客户端会复制并存储输入的请求体内容，因此 `body_ptr` 的使用完毕后即可释放
+/// @note 设置请求体时，SDK 客户端会复制并存储输入的请求体内容，因此 `body_ptr` 在使用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_http_request_set_body(
     request: qiniu_ng_http_request_t,
@@ -864,7 +864,7 @@ pub extern "C" fn qiniu_ng_http_response_dump_body_to_file(
 /// @param[in] response HTTP 响应实例
 /// @param[in] body_ptr HTTP 响应体地址
 /// @param[in] body_size HTTP 响应体长度，单位为字节
-/// @note 设置响应体时，SDK 客户端会复制并存储输入的响应体内容，因此 `body_ptr` 的使用完毕后即可释放
+/// @note 设置响应体时，SDK 客户端会复制并存储输入的响应体内容，因此 `body_ptr` 在使用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_http_response_set_body(
     response: qiniu_ng_http_response_t,

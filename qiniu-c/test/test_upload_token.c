@@ -30,6 +30,9 @@ void test_qiniu_ng_make_upload_token(void) {
         "qiniu_ng_str_get_ptr(bucket_name) != \"test-bucket\"");
     qiniu_ng_str_free(&bucket_name);
 
+    TEST_ASSERT_FALSE_MESSAGE(
+        qiniu_ng_upload_policy_builder_set_overwritable(upload_policy),
+        "qiniu_ng_upload_policy_builder_set_overwritable(upload_policy) should return false");
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_upload_policy_is_insert_only(upload_policy),
         "qiniu_ng_upload_policy_is_insert_only(upload_policy) returns unexpected value");

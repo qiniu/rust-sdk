@@ -74,7 +74,7 @@ impl<'r> From<Box<BucketBuilder<'r>>> for qiniu_ng_bucket_builder_t {
 /// @param[in] client 七牛 SDK 客户端实例
 /// @param[in] bucket_name 存储空间名称
 /// @retval qiniu_ng_bucket_t 获取创建的存储空间实例
-/// @note 创建实例时，SDK 客户端会复制并存储输入的 `bucket_name`，因此 `bucket_name` 的使用完毕后即可释放
+/// @note 创建实例时，SDK 客户端会复制并存储输入的 `bucket_name`，因此 `bucket_name` 在使用完毕后即可释放
 /// @warning 务必在使用完毕后调用 `qiniu_ng_bucket_builder_free()` 方法释放 `qiniu_ng_bucket_builder_t`
 /// @warning 务必保证在 `qiniu_ng_bucket_builder_t` 和其构建的 `qiniu_ng_bucket_t` 没有被释放之前，不要释放传入的 `qiniu_ng_client_t`
 #[no_mangle]
@@ -204,7 +204,7 @@ pub extern "C" fn qiniu_ng_bucket_build(builder: qiniu_ng_bucket_builder_t) -> q
 /// @details 调用该方法使生成器可以被多次复用
 /// @param[in] builder 存储空间生成器
 /// @param[in] new_bucket_name 新的存储空间名称
-/// @note 重置实例时，SDK 客户端会复制并存储输入的 `bucket_name`，因此 `bucket_name` 的使用完毕后即可释放
+/// @note 重置实例时，SDK 客户端会复制并存储输入的 `bucket_name`，因此 `bucket_name` 在使用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_builder_reset(
     builder: qiniu_ng_bucket_builder_t,
@@ -286,7 +286,7 @@ impl<'r> From<Box<Bucket<'r>>> for qiniu_ng_bucket_t {
 /// @param[in] bucket_name 存储空间名称
 /// @retval qiniu_ng_bucket_t 获取创建的存储空间实例
 /// @note 注意，该方法仅用于在 SDK 中配置生成存储空间实例，而非在七牛云服务器上创建新的存储空间
-/// @note 创建实例时，SDK 客户端会复制并存储输入的 `bucket_name`，因此 `bucket_name` 的使用完毕后即可释放
+/// @note 创建实例时，SDK 客户端会复制并存储输入的 `bucket_name`，因此 `bucket_name` 在使用完毕后即可释放
 /// @warning 务必在使用完毕后调用 `qiniu_ng_bucket_free()` 方法释放 `qiniu_ng_bucket_t`
 /// @warning 务必保证在 `qiniu_ng_bucket_t` 没有被释放之前，不要释放传入的 `qiniu_ng_client_t`
 #[no_mangle]

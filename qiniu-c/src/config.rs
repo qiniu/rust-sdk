@@ -25,9 +25,7 @@ use tap::TapOps;
 ///   * 调用 `qiniu_ng_config_builder_new()` 函数创建 `qiniu_ng_config_builder_t` 实例。
 ///   * 调用一系列方法修改 `qiniu_ng_config_builder_t` 实例的数据。
 ///   * 调用 `qiniu_ng_config_build()` 生成 `qiniu_ng_config_t` 实例。
-///   * 当通过 `qiniu_ng_config_builder_t` 生成 `qiniu_ng_config_t` 完毕后
-///     - 当需要继续生成其他客户端配置实例时，可以调用 `qiniu_ng_config_builder_reset()` 方法重置生成器。
-///     - 当没有其他生成需求时，请务必调用 `qiniu_ng_config_builder_free()` 方法释放内存。
+///   * 当通过 `qiniu_ng_config_builder_t` 生成 `qiniu_ng_config_t` 完毕后，`qiniu_ng_config_builder_t` 的内存将被自动回收，您无需调用 `qiniu_ng_config_builder_free()` 回收内存，也不可能再使用该生成器实例
 /// @note
 ///   该结构体不可以跨线程使用
 #[repr(C)]
@@ -90,20 +88,10 @@ impl From<qiniu_ng_config_builder_t> for Option<Box<Builder>> {
 
 /// @brief 创建客户端配置生成器实例
 /// @retval qiniu_ng_config_builder_t 获取创建的客户端配置生成器实例
-/// @warning 务必在使用完毕后调用 `qiniu_ng_config_builder_free()` 方法释放 `qiniu_ng_config_builder_t`
+/// @warning 当通过 `qiniu_ng_config_builder_t` 生成 `qiniu_ng_config_t` 完毕后，`qiniu_ng_config_builder_t` 的内存将被自动回收，您无需调用 `qiniu_ng_config_builder_free()` 回收内存，也不可能再使用该生成器实例
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_new() -> qiniu_ng_config_builder_t {
     Box::new(Builder::default()).into()
-}
-
-/// @brief 重置客户端配置生成器实例
-/// @details 调用该方法使生成器可以被多次复用
-/// @param[in] builder 客户端配置生成器
-#[no_mangle]
-pub extern "C" fn qiniu_ng_config_builder_reset(builder: qiniu_ng_config_builder_t) {
-    let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
-    *builder = Builder::default();
-    let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
 /// @brief 释放客户端配置生成器实例
@@ -1008,7 +996,7 @@ pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_after_action_hand
 /// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否生成正常，如果返回 `true`，则表示可以读取 `config` 获得生成的客户端配置实例，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @warning 务必在使用 `qiniu_ng_config_t` 完毕后调用 `qiniu_ng_config_free()` 方法释放 `qiniu_ng_config_t`
-/// @warning 在调用完毕后 `qiniu_ng_config_builder_t` 依然需要被 `qiniu_ng_config_builder_free()` 释放
+/// @warning 在调用完毕后 `qiniu_ng_config_builder_t` 无需被 `qiniu_ng_config_builder_free()` 释放，且该生成器实例将不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_build(
     builder_ptr: *mut qiniu_ng_config_builder_t,
