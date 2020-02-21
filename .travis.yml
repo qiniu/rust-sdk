@@ -94,17 +94,19 @@ matrix:
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
               set -e
+              git fetch -p
+              git branch -a
               (
                 cd qiniu-rust
                 make doc
               )
-              tar -zcvf /tmp/qiniu_ng.tar.gz -C target/doc/qiniu_ng .
+              tar -zcf /tmp/qiniu_ng.tar.gz -C target/doc/qiniu_ng .
               (
                 cd qiniu-c
                 make doc
               )
-              tar -zcvf /tmp/qiniu_ng_c.tar.gz -C target/doc/qiniu_ng_c/html .
-              git checkout -q -f gh-pages
+              tar -zcf /tmp/qiniu_ng_c.tar.gz -C target/doc/qiniu_ng_c/html .
+              git checkout -f -b gh-pages --track origin/gh-pages
               mkdir -p doc/qiniu-{rust,c}
               (
                 cd doc/qiniu-rust
@@ -116,4 +118,5 @@ matrix:
               )
               git add doc
               git commit -m 'Update docs' || true
+              git push origin gh-pages:gh-pages
             fi
