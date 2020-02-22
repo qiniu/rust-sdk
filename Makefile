@@ -19,6 +19,11 @@ build_test:
 	for dir in $(SUBDIRS) $(OTHER_LANG_DIRS); do \
 		$(MAKE) -C $$dir build_test; \
 	done
+doc:
+	set -e; \
+	for dir in qiniu-rust qiniu-c; do \
+		$(MAKE) -C $$dir doc; \
+	done
 clean:
 	set -e; \
 	for dir in $(SUBDIRS) $(OTHER_LANG_DIRS); do \
@@ -40,4 +45,4 @@ publish:
 		(cd $$dir && cargo publish); \
 	done
 
-.PHONY: all build clean test $(SUBDIRS) $(OTHER_LANG_DIRS)
+.PHONY: all build clean doc test $(SUBDIRS) $(OTHER_LANG_DIRS)

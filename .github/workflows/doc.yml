@@ -1,0 +1,44 @@
+name: Generate doc for gh-pages
+on:
+  push:
+    branches:
+      - features/docs
+jobs:
+  doc:
+    runs-on: ubuntu-18.04
+    steps:
+    - name: Checkout source code branch
+      uses: actions/checkout@v2
+    - name: Apt install
+      run: |
+        sudo apt update -yqq
+        sudo apt install -yqq curl libcurl4 git-core doxygen build-essential
+    - name: Prepare for Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.38.0
+        default: true
+    - name: Prepare for cargo
+      run: |
+        cargo install --force cbindgen
+    - name: Generate doc
+      run: |
+        make doc
+        tar -zcf /tmp/qiniu_ng.tar.gz -C target doc
+    - name: Switch to gh-pages
+      uses: actions/checkout@v2
+      with:
+        ref: gh-pages
+    - name: Prepare for gh-pages
+      run: |
+        tar xf /tmp/qiniu_ng.tar.gz -C .
+        rm /tmp/qiniu_ng.tar.gz
+        git add doc
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git commit -m 'Update docs' || true
+    - name: Push gh-pages changes
+      uses: ad-m/github-push-action@master
+      with:
+        branch: gh-pages
+        github_token: ${{ secrets.GITHUB_TOKEN }}
