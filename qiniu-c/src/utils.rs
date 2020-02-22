@@ -332,7 +332,7 @@ pub extern "C" fn qiniu_ng_str_list_free(strlist: *mut qiniu_ng_str_list_t) {
 }
 
 /// @brief 判断字符串列表是否是 NULL
-/// @param[in] s 字符串列表实例
+/// @param[in] strlist 字符串列表实例
 /// @retval bool 如果返回 `true` 则表示字符串列表是 `NULL`
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_list_is_null(strlist: qiniu_ng_str_list_t) -> bool {
@@ -497,7 +497,7 @@ pub extern "C" fn qiniu_ng_str_map_free(hashmap: *mut qiniu_ng_str_map_t) {
 }
 
 /// @brief 判断字符串列表实例是否已经被释放
-/// @param[in] strlist 字符串列表实例
+/// @param[in] hashmap 字符串列表实例
 /// @retval bool 如果返回 `true` 则表示字符串列表实例已经被释放，该实例不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_is_freed(hashmap: qiniu_ng_str_map_t) -> bool {

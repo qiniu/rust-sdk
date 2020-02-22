@@ -608,7 +608,7 @@ pub extern "C" fn qiniu_ng_upload_policy_get_token_lifetime(
 
 /// @brief 获取上传策略的上传凭证过期时间
 /// @param[in] upload_policy 上传策略实例
-/// @param[out] lifetime 用于获取上传凭证过期时间，使用以秒为单位的 UNIX 时间戳表示，如果传入 `NULL` 表示不获取 `deadline`，但如果上传凭证过期时间存在，返回值依然是 `true`
+/// @param[out] deadline 用于获取上传凭证过期时间，使用以秒为单位的 UNIX 时间戳表示，如果传入 `NULL` 表示不获取 `deadline`，但如果上传凭证过期时间存在，返回值依然是 `true`
 /// @retval bool 如果上传凭证过期时间存在，则返回 `true`，否则返回 `false`
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_policy_get_token_deadline(
@@ -840,7 +840,7 @@ pub extern "C" fn qiniu_ng_upload_policy_get_object_lifetime(
 
 /// @brief 获取上传策略的对象生命结束时间
 /// @param[in] upload_policy 上传策略实例
-/// @param[out] lifetime 用于获取对象生命结束时间，使用以秒为单位的 UNIX 时间戳表示，如果传入 `NULL` 表示不获取 `deadline`，但如果对象生命结束时间存在，返回值依然是 `true`
+/// @param[out] deadline 用于获取对象生命结束时间，使用以秒为单位的 UNIX 时间戳表示，如果传入 `NULL` 表示不获取 `deadline`，但如果对象生命结束时间存在，返回值依然是 `true`
 /// @retval bool 如果对象生命结束时间存在，则返回 `true`，否则返回 `false`
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_policy_get_object_deadline(
@@ -912,7 +912,7 @@ pub extern "C" fn qiniu_ng_upload_policy_free(policy: *mut qiniu_ng_upload_polic
 }
 
 /// @brief 判断上传策略实例是否已经被释放
-/// @param[in] config 上传策略实例
+/// @param[in] policy 上传策略实例
 /// @retval bool 如果返回 `true` 则表示上传策略实例已经被释放，该实例不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_policy_is_freed(policy: qiniu_ng_upload_policy_t) -> bool {
@@ -1027,7 +1027,7 @@ pub extern "C" fn qiniu_ng_upload_token_new_from(s: *const qiniu_ng_char_t) -> q
 }
 
 /// @brief 释放上传凭证实例
-/// @param[in,out] policy 上传凭证实例地址，释放完毕后该实例将不再可用
+/// @param[in,out] token 上传凭证实例地址，释放完毕后该实例将不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_token_free(token: *mut qiniu_ng_upload_token_t) {
     if let Some(token) = unsafe { token.as_mut() } {
@@ -1037,7 +1037,7 @@ pub extern "C" fn qiniu_ng_upload_token_free(token: *mut qiniu_ng_upload_token_t
 }
 
 /// @brief 判断上传凭证实例是否已经被释放
-/// @param[in] config 上传凭证实例
+/// @param[in] token 上传凭证实例
 /// @retval bool 如果返回 `true` 则表示上传凭证实例已经被释放，该实例不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_token_is_freed(token: qiniu_ng_upload_token_t) -> bool {

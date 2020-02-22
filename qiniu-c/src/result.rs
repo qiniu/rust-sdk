@@ -275,6 +275,7 @@ pub extern "C" fn qiniu_ng_err_user_canceled_error_new() -> qiniu_ng_err_t {
 
 /// @brief 判定错误是否是 JSON 错误，如果是，则释放其内存
 /// @param[in] err SDK 错误实例
+/// @param[in] description 用于返回错误描述，如果传入 `NULL` 表示不获取 `description`，但如果错误确实是 JSON 错误，返回值依然是 `true` 且内存依然会被释放
 /// @retval bool 当错误确实是 JSON 错误时返回 `true`
 /// @warning 对于获取的 `description`，使用完毕后应该调用 `qiniu_ng_str_free()` 释放其内存
 #[no_mangle]

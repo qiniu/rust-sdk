@@ -202,7 +202,7 @@ pub extern "C" fn qiniu_ng_bucket_uploader_new_from_bucket_name(
 }
 
 /// @brief 释放存储空间上传器实例
-/// @param[in,out] client 存储空间上传器实例地址，释放完毕后该上传器实例将不再可用
+/// @param[in,out] bucket_uploader 存储空间上传器实例地址，释放完毕后该上传器实例将不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_uploader_free(bucket_uploader: *mut qiniu_ng_bucket_uploader_t) {
     if let Some(bucket_uploader) = unsafe { bucket_uploader.as_mut() } {
@@ -565,7 +565,7 @@ pub extern "C" fn qiniu_ng_upload_response_get_string(upload_response: qiniu_ng_
 }
 
 /// @brief 释放上传响应实例
-/// @param[in,out] policy 上传响应实例地址，释放完毕后该实例将不再可用
+/// @param[in,out] upload_response 上传响应实例地址，释放完毕后该实例将不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_response_free(upload_response: *mut qiniu_ng_upload_response_t) {
     if let Some(upload_response) = unsafe { upload_response.as_mut() } {
@@ -575,7 +575,7 @@ pub extern "C" fn qiniu_ng_upload_response_free(upload_response: *mut qiniu_ng_u
 }
 
 /// @brief 判断上传响应实例是否已经被释放
-/// @param[in] config 上传响应实例
+/// @param[in] upload_response 上传响应实例
 /// @retval bool 如果返回 `true` 则表示上传响应实例已经被释放，该实例不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_response_is_freed(upload_response: qiniu_ng_upload_response_t) -> bool {

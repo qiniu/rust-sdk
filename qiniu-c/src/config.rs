@@ -238,7 +238,7 @@ pub extern "C" fn qiniu_ng_config_builder_upload_token_lifetime(
 
 /// @brief 指定客户端配置中的最大批量操作数
 /// @param[in] builder 客户端配置生成器实例
-/// @param[in] upload_token_lifetime 最大批量操作数
+/// @param[in] batch_max_operation_size 最大批量操作数
 /// @note 默认为 1000
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_batch_max_operation_size(
@@ -991,7 +991,7 @@ pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_after_action_hand
 }
 
 /// @brief 生成客户端配置实例
-/// @param[in] builder 客户端配置生成器实例
+/// @param[in] builder_ptr 客户端配置生成器实例
 /// @param[out] config 用来返回客户端配置实例，如果传入 `NULL` 表示不获取 `config`。但如果运行正常，返回值将依然是 `true`
 /// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否生成正常，如果返回 `true`，则表示可以读取 `config` 获得生成的客户端配置实例，如果返回 `false`，则表示可以读取 `error` 获得错误信息
