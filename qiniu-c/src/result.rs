@@ -1,13 +1,11 @@
 #[cfg(any(feature = "use-libcurl"))]
 use curl_sys::CURLcode;
 
-#[cfg(not(windows))]
-use libc::{c_char, c_int, c_void, FILE};
-
 use crate::{
-    string::{qiniu_ng_char_t, ucstr},
+    string::{qiniu_ng_char_t, ucstr, UCString},
     utils::{qiniu_ng_str_free, qiniu_ng_str_t},
 };
+use libc::{c_char, c_int, c_void, FILE};
 use matches::matches;
 use qiniu_ng::{
     http::{
@@ -572,7 +570,20 @@ pub extern "C" fn qiniu_ng_err_invalid_upload_token_json_error_extract(
     }
 }
 
-/// @brief 输出错误信息
+/// @brief 当错误存在时，调用 `fputs()` 输出错误信息
+/// @param[in] stream 输出流
+/// @param[in] err SDK 错误实例
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_fputs(err: qiniu_ng_err_t, stream: *mut FILE) -> c_int {
+    if let Some(err_kind) = Option::<HTTPErrorKind>::from(&err.0) {
+        let error_description = unsafe { UCString::from_string_unchecked(err_kind.to_string()) };
+        unsafe { libc::fputs(error_description.as_ptr().cast(), stream) }
+    } else {
+        0
+    }
+}
+
+/// @brief 当错误存在时，调用 `fprintf()` 输出错误信息
 /// @param[in] stream 输出流
 /// @param[in] format 输出格式，采用 `fprintf` 语法，本函数向该格式输出一个字符串类型的参数作为错误信息，因此，如果该参数设置为 `"%s"` 将会直接输出错误信息，而 `"%s\n"` 将会输出错误信息并换行
 /// @param[in] err SDK 错误实例
@@ -580,7 +591,7 @@ pub extern "C" fn qiniu_ng_err_invalid_upload_token_json_error_extract(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_fprintf(stream: *mut FILE, format: *const c_char, err: qiniu_ng_err_t) -> c_int {
     if let Some(err_kind) = Option::<HTTPErrorKind>::from(&err.0) {
-        let error_description = unsafe { crate::string::UCString::from_string_unchecked(err_kind.to_string()) };
+        let error_description = unsafe { UCString::from_string_unchecked(err_kind.to_string()) };
         unsafe { libc::fprintf(stream, format, error_description.as_ptr() as *mut c_void) }
     } else {
         0

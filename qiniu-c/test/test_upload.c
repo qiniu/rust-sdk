@@ -73,9 +73,11 @@ void test_qiniu_ng_upload_files(void) {
         .on_uploading_progress = print_progress,
     };
     qiniu_ng_upload_response_t upload_response;
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, token, file_path, &params, &upload_response, NULL),
-        "qiniu_ng_bucket_uploader_upload_file_path() failed");
+    qiniu_ng_err_t err;
+    if (!qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, token, file_path, &params, &upload_response, &err)) {
+        qiniu_ng_err_fputs(err, stderr);
+        TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file_path() failed");
+    }
 
     qiniu_ng_str_t key = qiniu_ng_upload_response_get_key(upload_response);
     TEST_ASSERT_FALSE_MESSAGE(
@@ -108,9 +110,10 @@ void test_qiniu_ng_upload_files(void) {
     TEST_ASSERT_NOT_NULL_MESSAGE(
         file,
         "file == null");
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_bucket_uploader_upload_file(bucket_uploader, token, file, &params, &upload_response, NULL),
-        "qiniu_ng_bucket_uploader_upload_file() failed");
+    if (!qiniu_ng_bucket_uploader_upload_file(bucket_uploader, token, file, &params, &upload_response, &err)) {
+        qiniu_ng_err_fputs(err, stderr);
+        TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file() failed");
+    }
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         fclose(file), 0,
         "fclose(file) != 0");
@@ -168,9 +171,11 @@ void *thread_of_upload_file(void* data) {
         .on_uploading_progress = print_progress,
     };
     qiniu_ng_upload_response_t upload_response;
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_bucket_uploader_upload_file_path(context->bucket_uploader, context->token, context->file_path, &params, &upload_response, NULL),
-        "qiniu_ng_bucket_uploader_upload_file_path() failed");
+    qiniu_ng_err_t err;
+    if (!qiniu_ng_bucket_uploader_upload_file_path(context->bucket_uploader, context->token, context->file_path, &params, &upload_response, &err)) {
+        qiniu_ng_err_fputs(err, stderr);
+        TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file_path() failed");
+    }
 
     qiniu_ng_str_t key = qiniu_ng_upload_response_get_key(upload_response);
     TEST_ASSERT_FALSE_MESSAGE(
