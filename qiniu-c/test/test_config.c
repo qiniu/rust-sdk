@@ -334,7 +334,7 @@ void test_qiniu_ng_config_bad_http_request_handlers(void) {
     qiniu_ng_config_free(&config);
 }
 
-static void test_qiniu_ng_config_http_request_after_action_handlers_always_return_error(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err) {
+static void test_qiniu_ng_config_http_request_handlers_always_return_error(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err) {
     (void)(request);
     (void)(response);
     err->error = qiniu_ng_err_os_error_new(EPERM);
@@ -343,7 +343,7 @@ static void test_qiniu_ng_config_http_request_after_action_handlers_always_retur
 
 void test_qiniu_ng_config_bad_http_request_handlers_2(void) {
     qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
-    qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_http_request_after_action_handlers_always_return_error);
+    qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_http_request_handlers_always_return_error);
 
     qiniu_ng_config_t config;
     qiniu_ng_err_t err;
@@ -365,6 +365,76 @@ void test_qiniu_ng_config_bad_http_request_handlers_2(void) {
         qiniu_ng_err_os_error_extract(&err, &code),
         "qiniu_ng_err_user_canceled_error_extract() returns unexpected value");
     TEST_ASSERT_EQUAL_INT_MESSAGE(code, EPERM, "code != EPERM");
+    qiniu_ng_bucket_free(&bucket);
+    qiniu_ng_client_free(&client);
+    qiniu_ng_config_free(&config);
+}
+
+void test_qiniu_ng_config_bad_http_request_handlers_3(void) {
+    qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
+    qiniu_ng_config_builder_set_http_call_handler(builder, test_qiniu_ng_config_http_request_handlers_always_return_error);
+
+    qiniu_ng_config_t config;
+    qiniu_ng_err_t err;
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_config_build(&builder, &config, NULL),
+        "qiniu_ng_config_build() failed");
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_config_builder_is_freed(builder),
+        "qiniu_ng_config_builder_is_freed() failed");
+
+    env_load("..", false);
+    qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
+    TEST_ASSERT_FALSE_MESSAGE(
+        qiniu_ng_bucket_get_region(bucket, NULL, &err),
+        "qiniu_ng_bucket_get_region() returns unexpected value");
+    int32_t code;
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_err_os_error_extract(&err, &code),
+        "qiniu_ng_err_user_canceled_error_extract() returns unexpected value");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(code, EPERM, "code != EPERM");
+    qiniu_ng_bucket_free(&bucket);
+    qiniu_ng_client_free(&client);
+    qiniu_ng_config_free(&config);
+}
+
+static void test_qiniu_ng_config_http_request_handlers_always_return_500(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err) {
+    (void)(request);
+    (void)(err);
+    const char *body = "{\"error\":\"Internal Server Error\"}";
+    qiniu_ng_http_response_set_status_code(response, 500);
+    qiniu_ng_http_response_set_header(response, "Content-Type", "application/json");
+    qiniu_ng_http_response_set_body(response, body, strlen(body));
+}
+
+void test_qiniu_ng_config_bad_http_request_handlers_4(void) {
+    qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
+    qiniu_ng_config_builder_set_http_call_handler(builder, test_qiniu_ng_config_http_request_handlers_always_return_500);
+
+    qiniu_ng_config_t config;
+    qiniu_ng_err_t err;
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_config_build(&builder, &config, NULL),
+        "qiniu_ng_config_build() failed");
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_config_builder_is_freed(builder),
+        "qiniu_ng_config_builder_is_freed() failed");
+
+    env_load("..", false);
+    qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
+    TEST_ASSERT_FALSE_MESSAGE(
+        qiniu_ng_bucket_get_region(bucket, NULL, &err),
+        "qiniu_ng_bucket_get_region() returns unexpected value");
+    uint16_t code;
+    qiniu_ng_str_t message;
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_err_response_status_code_error_extract(&err, &code, &message),
+        "qiniu_ng_err_user_canceled_error_extract() returns unexpected value");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(code, 500, "code != 500");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(qiniu_ng_str_get_ptr(message), "Internal Server Error", "message != \"Internal Server Error\"");
+    qiniu_ng_str_free(&message);
     qiniu_ng_bucket_free(&bucket);
     qiniu_ng_client_free(&client);
     qiniu_ng_config_free(&config);

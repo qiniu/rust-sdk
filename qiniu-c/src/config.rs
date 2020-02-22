@@ -6,7 +6,7 @@ use crate::{
 };
 use libc::{c_void, size_t};
 use qiniu_http::{
-    Error as HTTPError, ErrorKind as HTTPErrorKind, Request as HTTPRequest, Response as HTTPResponse,
+    Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCaller, Request as HTTPRequest, Response as HTTPResponse,
     Result as HTTPResult,
 };
 use qiniu_ng::{
@@ -834,6 +834,63 @@ impl Default for qiniu_ng_callback_err_t {
     }
 }
 
+type QiniuNgHTTPCallFunc =
+    fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t, err: *mut qiniu_ng_callback_err_t);
+
+struct QiniuNgHTTPCallHandler {
+    handler: QiniuNgHTTPCallFunc,
+}
+
+impl QiniuNgHTTPCallHandler {
+    fn new(handler: QiniuNgHTTPCallFunc) -> Self {
+        Self { handler }
+    }
+}
+
+impl HTTPCaller for QiniuNgHTTPCallHandler {
+    fn call(&self, request: &HTTPRequest) -> HTTPResult<HTTPResponse> {
+        let request = qiniu_ng_http_request_t::from(request);
+        let mut original_response = HTTPResponse::default();
+        let response = qiniu_ng_http_response_t::from(&mut original_response);
+        let mut err = qiniu_ng_callback_err_t::default();
+        (self.handler)(request, response, &mut err);
+        if let Some(e) = Option::<HTTPErrorKind>::from(&err.error) {
+            qiniu_ng_err_ignore(&mut err.error);
+            Err(HTTPError::new(
+                err.retry_kind.into(),
+                e,
+                err.is_retry_safe,
+                request.into(),
+                Some(response.into()),
+            ))
+        } else {
+            Ok(original_response)
+        }
+    }
+}
+
+/// @brief 设置 HTTP 请求处理回调函数
+/// @details
+///     SDK 本身并不直接包含 HTTP 请求处理逻辑，而是根据编译参数，依赖于外部扩展的请求处理逻辑实现。
+/// @param[in] builder 客户端配置生成器实例
+/// @param[in] handler 回调函数。回调函数的第一个参数是传入的的 HTTP 请求，可以参考 `qiniu_ng_http_request_t` 的文档了解其用法，第二个参数是即将返回的 HTTP 响应，可以参考 `qiniu_ng_http_response_t` 的文档了解其用法。而第三个参数则用来填充具体的错误信息，可以参考 `qiniu_ng_callback_err_t` 的文档了解其用法，如果没有错误，则无需修改 `err` 参数的值
+/// @note 如果发生错误，您需要调用 `qiniu_ng_err_t` 的创建函数对 `err` 中的 `error` 字段赋值，但内存释放函数无需您调用，将由 SDK 负责内存回收
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_set_http_call_handler(
+    builder: qiniu_ng_config_builder_t,
+    handler: fn(
+        request: qiniu_ng_http_request_t,
+        response: qiniu_ng_http_response_t,
+        err: *mut qiniu_ng_callback_err_t,
+    ),
+) {
+    let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
+    builder.config_builder = builder
+        .config_builder
+        .http_request_handler(QiniuNgHTTPCallHandler::new(handler));
+    let _ = qiniu_ng_config_builder_t::from(builder);
+}
+
 type QiniuNgHTTPBeforeActionFunc = fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t);
 
 struct QiniuNgHTTPBeforeActionHandler {
@@ -842,7 +899,7 @@ struct QiniuNgHTTPBeforeActionHandler {
 
 impl QiniuNgHTTPBeforeActionHandler {
     fn new(handler: QiniuNgHTTPBeforeActionFunc) -> Self {
-        QiniuNgHTTPBeforeActionHandler { handler }
+        Self { handler }
     }
 }
 
@@ -919,7 +976,7 @@ impl QiniuNgHTTPAfterActionHandler {
             err: *mut qiniu_ng_callback_err_t,
         ),
     ) -> Self {
-        QiniuNgHTTPAfterActionHandler { handler }
+        Self { handler }
     }
 }
 

@@ -285,8 +285,8 @@ pub extern "C" fn qiniu_ng_http_request_set_body(
     *request.body_mut() = if body_size == 0 {
         None
     } else {
-        let mut buf = Vec::with_capacity(body_size);
-        buf.copy_from_slice(unsafe { from_raw_parts(body_ptr.cast(), body_size) });
+        let mut buf = Vec::new();
+        buf.extend_from_slice(unsafe { from_raw_parts(body_ptr.cast(), body_size) });
         Some(buf.into())
     };
     let _ = qiniu_ng_http_request_t::from(request);
@@ -875,8 +875,8 @@ pub extern "C" fn qiniu_ng_http_response_set_body(
     *response.body_mut() = if body_size == 0 {
         None
     } else {
-        let mut buf = Vec::with_capacity(body_size);
-        buf.copy_from_slice(unsafe { from_raw_parts(body_ptr.cast(), body_size) });
+        let mut buf = Vec::new();
+        buf.extend_from_slice(unsafe { from_raw_parts(body_ptr.cast(), body_size) });
         Some(ResponseBody::Bytes(buf))
     };
     let _ = qiniu_ng_http_response_t::from(response);

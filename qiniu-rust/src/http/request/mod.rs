@@ -202,12 +202,12 @@ impl<'a> Request<'a> {
                         )
                     })?
                     .error
-                    .map(|e| e.into())
+                    .map(|e| e.into());
             }
         }
         Err(Self::response_error(
             response.status_code(),
-            error_message.unwrap_or_else(|| "(None)".into()),
+            error_message.unwrap_or_default(),
             request,
             Some(&response),
         ))
