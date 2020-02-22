@@ -64,7 +64,7 @@ else
 endif
 doc: libqiniu_ng.h
 	rm -rf ../target/doc/qiniu_ng_c/html/*
-	doxygen Doxyfile
+	doxygen Doxyfile README.md
 test:
 ifeq ($(OS),Windows_NT)
 	$(MAKE) build_test_via_dynamic_link

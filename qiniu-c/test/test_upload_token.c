@@ -20,9 +20,10 @@ void test_qiniu_ng_make_upload_token(void) {
         "qiniu_ng_upload_policy_builder_set_overwritable(builder) should return false");
     qiniu_ng_upload_policy_builder_set_callback(builder, (const qiniu_ng_char_t *const *) &CALLBACK_URLS[0], 2, NULL, QINIU_NG_CHARS("key=$(key)"), NULL);
     qiniu_ng_upload_policy_t upload_policy = qiniu_ng_upload_policy_build(builder);
-    TEST_ASSERT_TRUE_MESSAGE(
+    TEST_ASSERT_FALSE_MESSAGE(
         qiniu_ng_upload_policy_builder_is_freed(builder),
         "qiniu_ng_upload_policy_builder_is_freed() failed");
+    qiniu_ng_upload_policy_builder_free(&builder);
 
     qiniu_ng_str_t bucket_name = qiniu_ng_upload_policy_get_bucket(upload_policy);
     TEST_ASSERT_FALSE_MESSAGE(

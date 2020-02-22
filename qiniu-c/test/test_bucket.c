@@ -4,10 +4,8 @@
 #include "test.h"
 
 void test_qiniu_ng_bucket_get_name(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
     env_load("..", false);
-    qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
+    qiniu_ng_client_t client = qiniu_ng_client_new_default(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
 
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
     qiniu_ng_str_t bucket_name = qiniu_ng_bucket_get_name(bucket);
@@ -26,14 +24,11 @@ void test_qiniu_ng_bucket_get_name(void) {
     qiniu_ng_bucket_free(&bucket_2);
 
     qiniu_ng_client_free(&client);
-    qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_bucket_get_region(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
     env_load("..", false);
-    qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
+    qiniu_ng_client_t client = qiniu_ng_client_new_default(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
 
     qiniu_ng_region_t region;
@@ -58,14 +53,11 @@ void test_qiniu_ng_bucket_get_region(void) {
     qiniu_ng_region_free(&region);
     qiniu_ng_bucket_free(&bucket);
     qiniu_ng_client_free(&client);
-    qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_bucket_get_unexisted_region(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
     env_load("..", false);
-    qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
+    qiniu_ng_client_t client = qiniu_ng_client_new_default(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("not-existed-bucket"));
 
     qiniu_ng_err_t err;
@@ -103,14 +95,11 @@ void test_qiniu_ng_bucket_get_unexisted_region(void) {
     qiniu_ng_str_free(&error_message);
     qiniu_ng_bucket_free(&bucket);
     qiniu_ng_client_free(&client);
-    qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_bucket_get_regions(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
     env_load("..", false);
-    qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
+    qiniu_ng_client_t client = qiniu_ng_client_new_default(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
 
     qiniu_ng_regions_t regions;
@@ -162,14 +151,11 @@ void test_qiniu_ng_bucket_get_regions(void) {
     qiniu_ng_regions_free(&regions);
     qiniu_ng_bucket_free(&bucket);
     qiniu_ng_client_free(&client);
-    qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_bucket_builder(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
     env_load("..", false);
-    qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
+    qiniu_ng_client_t client = qiniu_ng_client_new_default(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
 
     qiniu_ng_region_builder_t region_builder = qiniu_ng_region_builder_new();
     qiniu_ng_region_builder_set_region_id(region_builder, qiniu_ng_region_z0);
@@ -265,14 +251,11 @@ void test_qiniu_ng_bucket_builder(void) {
     qiniu_ng_str_list_free(&domains);
 
     qiniu_ng_client_free(&client);
-    qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_bucket_get_regions_and_domains(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
     env_load("..", false);
-    qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
+    qiniu_ng_client_t client = qiniu_ng_client_new_default(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
 
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
 
@@ -305,5 +288,4 @@ void test_qiniu_ng_bucket_get_regions_and_domains(void) {
 
     qiniu_ng_bucket_free(&bucket);
     qiniu_ng_client_free(&client);
-    qiniu_ng_config_free(&config);
 }

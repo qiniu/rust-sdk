@@ -323,7 +323,7 @@ void test_qiniu_ng_config_bad_http_request_handlers(void) {
         qiniu_ng_bucket_get_region(bucket, NULL, &err),
         "qiniu_ng_bucket_get_region() returns unexpected value");
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_err_curl_error_extract(&err, NULL),
+        qiniu_ng_err_curl_error_extract(&err, NULL, NULL),
         "qiniu_ng_err_curl_error_extract() returns unexpected value");
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_err_os_error_extract(&err, &code),

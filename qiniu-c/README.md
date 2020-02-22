@@ -20,13 +20,9 @@
 - Windows: Rust 1.38+, cbindgen, Visual Studio, libcurl
 - MacOS: Rust 1.38+, cbindgen, Clang（from XCode）, libcurl
 
-## 使用案例
-
-TODO
-
 ## 接口文档
 
-TODO
+[点击进入](https://bachue.github.io/rust-sdk/doc/qiniu_ng_c/html/)
 
 ## 设计文档
 

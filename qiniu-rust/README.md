@@ -19,13 +19,9 @@
 - Rust 1.38+
 - 其他依赖与 `qiniu-rust-http` 接口的实现模块有关
 
-## 使用案例
-
-TODO
-
 ## 接口文档
 
-TODO
+[点击进入](https://bachue.github.io/rust-sdk/doc/qiniu_ng/)
 
 ## 设计文档
 

@@ -216,6 +216,7 @@
 //! let local_file_path = Path::new("local file path");
 //! let upload_manager = UploadManager::new(config);
 //! let upload_response = upload_manager.for_upload_token(upload_token)?
+//!                                     .key(key_to_overwrite)
 //!                                     .var("name", "七牛云视频")
 //!                                     .upload_file(local_file_path, "local file name", None)?;
 //! assert_eq!(Some(bucket), upload_response.get("bucket").and_then(|v| v.as_str()));

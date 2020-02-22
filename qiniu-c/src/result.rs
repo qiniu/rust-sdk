@@ -2,9 +2,10 @@
 use curl_sys::CURLcode;
 
 use crate::{
-    string::{qiniu_ng_char_t, ucstr},
+    string::{qiniu_ng_char_t, ucstr, UCString},
     utils::{qiniu_ng_str_free, qiniu_ng_str_t},
 };
+use libc::{c_char, c_int, c_void, fprintf, FILE};
 use matches::matches;
 use qiniu_ng::{
     http::{
@@ -22,7 +23,7 @@ use thiserror::Error;
 /// @brief HTTP 重试类型
 /// @note 通过返回不同的重试类型，可以让 SDK 采用不同的策略解决当前的错误
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[allow(non_camel_case_types)]
 pub enum qiniu_ng_retry_kind_t {
     /// 可重试错误，当错误是通讯超时或是其他无法预期的错误时，一般采用这样的重试策略
@@ -42,6 +43,60 @@ impl From<qiniu_ng_retry_kind_t> for HTTPRetryKind {
             qiniu_ng_retry_kind_t::qiniu_ng_retry_kind_zone_unretryable_error => Self::ZoneUnretryableError,
             qiniu_ng_retry_kind_t::qiniu_ng_retry_kind_host_unretryable_error => Self::HostUnretryableError,
             qiniu_ng_retry_kind_t::qiniu_ng_retry_kind_unretryable_error => Self::UnretryableError,
+        }
+    }
+}
+
+/// @brief HTTP 重试类型
+/// @note 通过返回不同的重试类型，可以让 SDK 采用不同的策略解决当前的错误
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+#[allow(non_camel_case_types)]
+pub enum qiniu_ng_curl_error_kind_t {
+    /// 解析错误
+    qiniu_ng_resolve_error,
+    /// 代理错误
+    qiniu_ng_proxy_error,
+    /// SSL 错误
+    qiniu_ng_ssl_error,
+    /// 连接错误
+    qiniu_ng_connection_error,
+    /// 请求错误
+    qiniu_ng_request_error,
+    /// 响应错误
+    qiniu_ng_response_error,
+    /// 超时错误
+    qiniu_ng_timeout_error,
+    /// 未知错误
+    qiniu_ng_unknown_error,
+}
+
+impl From<qiniu_ng_curl_error_kind_t> for HTTPCallerErrorKind {
+    fn from(kind: qiniu_ng_curl_error_kind_t) -> Self {
+        match kind {
+            qiniu_ng_curl_error_kind_t::qiniu_ng_resolve_error => Self::ResolveError,
+            qiniu_ng_curl_error_kind_t::qiniu_ng_proxy_error => Self::ProxyError,
+            qiniu_ng_curl_error_kind_t::qiniu_ng_ssl_error => Self::SSLError,
+            qiniu_ng_curl_error_kind_t::qiniu_ng_connection_error => Self::ConnectionError,
+            qiniu_ng_curl_error_kind_t::qiniu_ng_request_error => Self::RequestError,
+            qiniu_ng_curl_error_kind_t::qiniu_ng_response_error => Self::ResponseError,
+            qiniu_ng_curl_error_kind_t::qiniu_ng_timeout_error => Self::TimeoutError,
+            qiniu_ng_curl_error_kind_t::qiniu_ng_unknown_error => Self::UnknownError,
+        }
+    }
+}
+
+impl From<HTTPCallerErrorKind> for qiniu_ng_curl_error_kind_t {
+    fn from(kind: HTTPCallerErrorKind) -> Self {
+        match kind {
+            HTTPCallerErrorKind::ResolveError => Self::qiniu_ng_resolve_error,
+            HTTPCallerErrorKind::ProxyError => Self::qiniu_ng_proxy_error,
+            HTTPCallerErrorKind::SSLError => Self::qiniu_ng_ssl_error,
+            HTTPCallerErrorKind::ConnectionError => Self::qiniu_ng_connection_error,
+            HTTPCallerErrorKind::RequestError => Self::qiniu_ng_request_error,
+            HTTPCallerErrorKind::ResponseError => Self::qiniu_ng_response_error,
+            HTTPCallerErrorKind::TimeoutError => Self::qiniu_ng_timeout_error,
+            HTTPCallerErrorKind::UnknownError => Self::qiniu_ng_unknown_error,
         }
     }
 }
@@ -100,7 +155,7 @@ pub enum qiniu_ng_err_kind_t {
 
     /// Curl 错误
     #[cfg(any(feature = "use-libcurl"))]
-    qiniu_ng_err_kind_curl_error(CURLcode),
+    qiniu_ng_err_kind_curl_error(CURLcode, qiniu_ng_curl_error_kind_t),
     /* Particular error */
     /// 删除非空存储空间
     qiniu_ng_err_kind_drop_non_empty_bucket_error,
@@ -391,14 +446,22 @@ pub extern "C" fn qiniu_ng_err_bad_mime_type_error_extract(
 /// @brief 判定错误是否是 Curl 错误，如果是，则释放其内存
 /// @param[in] err SDK 错误实例
 /// @param[out] code 用于返回 Curl 错误号码，如果传入 `NULL` 表示不获取 `code`，但如果错误确实是 Curl 错误，返回值依然是 `true` 且内存依然会被释放
+/// @param[out] kind 用于返回 Curl 错误类型，如果传入 `NULL` 表示不获取 `kind`，但如果错误确实是 Curl 错误，返回值依然是 `true` 且内存依然会被释放
 /// @retval bool 当错误确实是 Curl 错误时返回 `true`
 #[cfg(any(feature = "use-libcurl"))]
 #[no_mangle]
-pub extern "C" fn qiniu_ng_err_curl_error_extract(err: &mut qiniu_ng_err_t, code: *mut CURLcode) -> bool {
+pub extern "C" fn qiniu_ng_err_curl_error_extract(
+    err: &mut qiniu_ng_err_t,
+    code: *mut CURLcode,
+    kind: *mut qiniu_ng_curl_error_kind_t,
+) -> bool {
     match err.0 {
-        qiniu_ng_err_kind_t::qiniu_ng_err_kind_curl_error(curl_code) => {
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_curl_error(curl_code, curl_kind) => {
             if let Some(code) = unsafe { code.as_mut() } {
                 *code = curl_code;
+            }
+            if let Some(kind) = unsafe { kind.as_mut() } {
+                *kind = curl_kind;
             }
             err.0 = qiniu_ng_err_kind_t::qiniu_ng_err_kind_none;
             true
@@ -411,8 +474,8 @@ pub extern "C" fn qiniu_ng_err_curl_error_extract(err: &mut qiniu_ng_err_t, code
 /// @param[in] code Curl 错误代码
 /// @retval qiniu_ng_err_t 返回创建的 Curl 错误
 #[no_mangle]
-pub extern "C" fn qiniu_ng_err_curl_error_new(code: CURLcode) -> qiniu_ng_err_t {
-    qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_curl_error(code))
+pub extern "C" fn qiniu_ng_err_curl_error_new(code: CURLcode, kind: qiniu_ng_curl_error_kind_t) -> qiniu_ng_err_t {
+    qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_curl_error(code, kind))
 }
 
 /// @brief 判定错误是否是非法的上传凭证错误，如果是，则释放其内存
@@ -507,6 +570,20 @@ pub extern "C" fn qiniu_ng_err_invalid_upload_token_json_error_extract(
     }
 }
 
+/// @brief 输出错误信息
+/// @param[in] stream 输出流
+/// @param[in] format 输出格式，采用 `fprintf` 语法，本函数向该格式输出一个字符串类型的参数作为错误信息，因此，如果该参数设置为 `"%s"` 将会直接输出错误信息，而 `"%s\n"` 将会输出错误信息并换行
+/// @param[in] err SDK 错误实例
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_fprintf(stream: *mut FILE, format: *const c_char, err: qiniu_ng_err_t) -> c_int {
+    if let Some(err_kind) = Option::<HTTPErrorKind>::from(&err.0) {
+        let error_description = unsafe { UCString::from_string_unchecked(err_kind.to_string()) };
+        unsafe { fprintf(stream, format, error_description.as_ptr() as *mut c_void) }
+    } else {
+        0
+    }
+}
+
 /// @brief 忽略错误具体类型，释放内存
 /// @param[in,out] err SDK 错误实例地址，释放完毕后该错误实例将不再可用
 #[no_mangle]
@@ -563,7 +640,12 @@ impl From<&HTTPError> for qiniu_ng_err_t {
                 {
                     e.inner()
                         .downcast_ref::<curl::Error>()
-                        .map(|e| qiniu_ng_err_kind_t::qiniu_ng_err_kind_curl_error(e.code()))
+                        .map(|curl_err| {
+                            qiniu_ng_err_kind_t::qiniu_ng_err_kind_curl_error(
+                                curl_err.code(),
+                                e.kind().to_owned().into(),
+                            )
+                        })
                         .unwrap_or_else(|| {
                             qiniu_ng_err_kind_t::qiniu_ng_err_kind_unknown_error(unsafe {
                                 qiniu_ng_str_t::from_string_unchecked(err.to_string())
@@ -697,10 +779,9 @@ impl From<&qiniu_ng_err_kind_t> for Option<HTTPErrorKind> {
             qiniu_ng_err_kind_t::qiniu_ng_err_kind_unknown_error(desc) => Some(HTTPErrorKind::UnknownError(Box::new(
                 StrError::Str(convert_qiniu_ng_str_to_string(*desc).into_boxed_str()),
             ))),
-            qiniu_ng_err_kind_t::qiniu_ng_err_kind_curl_error(code) => Some(HTTPErrorKind::new_http_caller_error_kind(
-                HTTPCallerErrorKind::UnknownError,
-                curl::Error::new(*code),
-            )),
+            qiniu_ng_err_kind_t::qiniu_ng_err_kind_curl_error(code, kind) => Some(
+                HTTPErrorKind::new_http_caller_error_kind(kind.to_owned().into(), curl::Error::new(*code)),
+            ),
             _ => panic!("Cannot convert this error kind: {:?}", kind),
         };
 
@@ -717,7 +798,7 @@ enum StrError {
 }
 
 impl From<&qiniu_ng_err_t> for Option<HTTPErrorKind> {
-    fn from(err: &qiniu_ng_err_t) -> Self {
-        Self::from(&err.0)
+    fn from(kind: &qiniu_ng_err_t) -> Self {
+        Self::from(&kind.0)
     }
 }

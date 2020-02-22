@@ -14,7 +14,7 @@ use tap::TapOps;
 ///     实际上，该结构体由于会存储用户的 SecretKey，因此不推荐在客户端应用程序上使用，而应该只在服务器端应用程序上使用。
 /// @details 除了 Etag 和 上传功能外，`qiniu_ng_client_t` 是七牛大多数 API 调用的入口。
 /// @note
-///   * 调用 `qiniu_ng_client_new()` 函数创建 `qiniu_ng_client_t` 实例。
+///   * 调用 `qiniu_ng_client_new()` 或 `qiniu_ng_client_new_default()` 函数创建 `qiniu_ng_client_t` 实例。
 ///   * 当 `qiniu_ng_client_t` 使用完毕后，请务必调用 `qiniu_ng_client_free()` 方法释放内存。
 /// @note
 ///   该结构体内部状态不可变，因此可以跨线程使用
@@ -65,6 +65,7 @@ impl From<Box<Client>> for qiniu_ng_client_t {
 /// @retval qiniu_ng_client_t 获取创建的七牛 SDK 客户端实例
 /// @note 创建实例时，SDK 客户端会复制并存储输入的 `access_key` 和 `secret_key`，因此 `access_key` 和 `secret_key` 在使用完毕后即可释放
 /// @warning 务必在使用完毕后调用 `qiniu_ng_client_free()` 方法释放 `qiniu_ng_client_t`
+/// @warning 务必在 `config` 被使用完毕后调用 `qiniu_ng_config_free()` 方法释放 `qiniu_ng_config_t`
 #[no_mangle]
 pub extern "C" fn qiniu_ng_client_new(
     access_key: *const qiniu_ng_char_t,
@@ -75,6 +76,25 @@ pub extern "C" fn qiniu_ng_client_new(
         unsafe { ucstr::from_ptr(access_key) }.to_string().unwrap(),
         unsafe { ucstr::from_ptr(secret_key) }.to_string().unwrap(),
         config.get_clone().unwrap(),
+    ))
+    .into()
+}
+
+/// @brief 使用默认七牛客户端配置创建 七牛 SDK 客户端实例
+/// @param[in] access_key 七牛 Access Key
+/// @param[in] secret_key 七牛 Secret Key
+/// @retval qiniu_ng_client_t 获取创建的七牛 SDK 客户端实例
+/// @note 创建实例时，SDK 客户端会复制并存储输入的 `access_key` 和 `secret_key`，因此 `access_key` 和 `secret_key` 在使用完毕后即可释放
+/// @warning 务必在使用完毕后调用 `qiniu_ng_client_free()` 方法释放 `qiniu_ng_client_t`
+#[no_mangle]
+pub extern "C" fn qiniu_ng_client_new_default(
+    access_key: *const qiniu_ng_char_t,
+    secret_key: *const qiniu_ng_char_t,
+) -> qiniu_ng_client_t {
+    Box::new(Client::new(
+        unsafe { ucstr::from_ptr(access_key) }.to_string().unwrap(),
+        unsafe { ucstr::from_ptr(secret_key) }.to_string().unwrap(),
+        Default::default(),
     ))
     .into()
 }
