@@ -363,7 +363,7 @@ void test_qiniu_ng_config_bad_http_request_handlers_2(void) {
     int32_t code;
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_err_os_error_extract(&err, &code),
-        "qiniu_ng_err_user_canceled_error_extract() returns unexpected value");
+        "qiniu_ng_err_os_error_extract() returns unexpected value");
     TEST_ASSERT_EQUAL_INT_MESSAGE(code, EPERM, "code != EPERM");
     qiniu_ng_bucket_free(&bucket);
     qiniu_ng_client_free(&client);
@@ -392,7 +392,7 @@ void test_qiniu_ng_config_bad_http_request_handlers_3(void) {
     int32_t code;
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_err_os_error_extract(&err, &code),
-        "qiniu_ng_err_user_canceled_error_extract() returns unexpected value");
+        "qiniu_ng_err_os_error_extract() returns unexpected value");
     TEST_ASSERT_EQUAL_INT_MESSAGE(code, EPERM, "code != EPERM");
     qiniu_ng_bucket_free(&bucket);
     qiniu_ng_client_free(&client);
@@ -404,7 +404,7 @@ static void test_qiniu_ng_config_http_request_handlers_always_return_500(qiniu_n
     (void)(err);
     const char *body = "{\"error\":\"Internal Server Error\"}";
     qiniu_ng_http_response_set_status_code(response, 500);
-    qiniu_ng_http_response_set_header(response, "Content-Type", "application/json");
+    qiniu_ng_http_response_set_header(response, QINIU_NG_CHARS("Content-Type"), QINIU_NG_CHARS("application/json"));
     qiniu_ng_http_response_set_body(response, body, strlen(body));
 }
 
@@ -431,9 +431,9 @@ void test_qiniu_ng_config_bad_http_request_handlers_4(void) {
     qiniu_ng_str_t message;
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_err_response_status_code_error_extract(&err, &code, &message),
-        "qiniu_ng_err_user_canceled_error_extract() returns unexpected value");
+        "qiniu_ng_err_response_status_code_error_extract() returns unexpected value");
     TEST_ASSERT_EQUAL_INT_MESSAGE(code, 500, "code != 500");
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(qiniu_ng_str_get_ptr(message), "Internal Server Error", "message != \"Internal Server Error\"");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(qiniu_ng_str_get_ptr(message), QINIU_NG_CHARS("Internal Server Error"), "message != \"Internal Server Error\"");
     qiniu_ng_str_free(&message);
     qiniu_ng_bucket_free(&bucket);
     qiniu_ng_client_free(&client);
