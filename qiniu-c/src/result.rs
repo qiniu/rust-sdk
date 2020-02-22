@@ -1,11 +1,13 @@
 #[cfg(any(feature = "use-libcurl"))]
 use curl_sys::CURLcode;
 
+#[cfg(not(windows))]
+use libc::{c_char, c_int, c_void, FILE};
+
 use crate::{
-    string::{qiniu_ng_char_t, ucstr, UCString},
+    string::{qiniu_ng_char_t, ucstr},
     utils::{qiniu_ng_str_free, qiniu_ng_str_t},
 };
-use libc::{c_char, c_int, c_void, FILE};
 use matches::matches;
 use qiniu_ng::{
     http::{
@@ -578,7 +580,7 @@ pub extern "C" fn qiniu_ng_err_invalid_upload_token_json_error_extract(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_fprintf(stream: *mut FILE, format: *const c_char, err: qiniu_ng_err_t) -> c_int {
     if let Some(err_kind) = Option::<HTTPErrorKind>::from(&err.0) {
-        let error_description = unsafe { UCString::from_string_unchecked(err_kind.to_string()) };
+        let error_description = unsafe { crate::string::UCString::from_string_unchecked(err_kind.to_string()) };
         unsafe { libc::fprintf(stream, format, error_description.as_ptr() as *mut c_void) }
     } else {
         0
