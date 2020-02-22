@@ -7,13 +7,25 @@ matrix:
         - 1.38.0
       before_script:
         - sudo apt update -yqq
-        - sudo apt install -yqq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev gnupg software-properties-common openjdk-8-jdk doxygen
+        - sudo apt install -yqq curl libcurl4 git-core build-essential doxygen
+        - cargo install --force cbindgen
+      script:
+        - make
+        - |
+            if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
+              for dir in qiniu-rust qiniu-rust-http qiniu-rust-with-libcurl qiniu-rust-test qiniu-rust-test-utils qiniu-c; do
+                make -C $dir test
+              done
+            fi
+    - os: linux
+      dist: bionic
+      rust:
+        - 1.38.0
+      before_script:
+        - sudo apt update -yqq
+        - sudo apt install -yqq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev openjdk-8-jdk llvm-9 libclang1-9
         - cargo install --force cbindgen
         - |
-            curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-            sudo add-apt-repository 'deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-9 main'
-            sudo apt-get update -yqq
-            sudo apt-get install -yqq clang-9
             export PATH="$PATH:/usr/lib/llvm-9/bin"
         - |
             export PATH="$PATH:$HOME/.rbenv/bin"
@@ -26,40 +38,56 @@ matrix:
             rbenv install 2.4.0
             rbenv shell 2.4.0
             gem install bundler
+            rbenv install jruby-9.2.0.0
+            rbenv shell jruby-9.2.0.0
+            gem install bundler
       script:
         - make
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-              make test
-            fi
-        - |
-            if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-              (
-                gem install bundler
-                rbenv install jruby-9.2.0.0
-                rbenv shell jruby-9.2.0.0
-                cd qiniu-ruby
-                make test
-              )
+              rbenv shell 2.4.0
+              for dir in qiniu-ruby; do
+                make -C $dir test
+              done
+              rbenv shell jruby-9.2.0.0
+              for dir in qiniu-ruby; do
+                make -C $dir test
+              done
             fi
     - os: osx
       rust:
         - 1.38.0
       before_script:
-        - brew install curl rbenv llvm doxygen
+        - brew install curl doxygen
+        - cargo install --force cbindgen
+      script:
+        - make
+        - |
+            if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
+              for dir in qiniu-rust qiniu-rust-http qiniu-rust-with-libcurl qiniu-rust-test qiniu-rust-test-utils qiniu-c; do
+                make -C $dir test
+              done
+            fi
+    - os: osx
+      rust:
+        - 1.38.0
+      before_script:
+        - brew install curl rbenv llvm
         - |
             export PATH="$(brew --prefix llvm)/bin:$PATH"
         - cargo install --force cbindgen
       script:
+        - make
         - |
             eval "$(rbenv init -)"
             rbenv install 2.4.0
             rbenv global 2.4.0
             gem install bundler
-        - make
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-              make test
+              for dir in qiniu-ruby; do
+                make -C $dir test
+              done
             fi
     - os: windows
       rust:
