@@ -105,7 +105,7 @@ pub extern "C" fn qiniu_ng_upload_manager_is_freed(upload_manager: qiniu_ng_uplo
 ///   * 调用 `qiniu_ng_bucket_uploader_new_from_bucket()` 或 `qiniu_ng_bucket_uploader_new_from_bucket_name()` 函数创建 `qiniu_ng_bucket_uploader_t` 实例。
 ///   * 当 `qiniu_ng_bucket_uploader_t` 使用完毕后，请务必调用 `qiniu_ng_bucket_uploader_free()` 方法释放内存。
 /// @note
-///   该结构体内部状态不可变，因此可以跨线程使用
+///   该结构体内部状态不可变，因此可以跨线程使用，但由于可能会自带线程池，所以不要跨进程使用，否则可能会发生线程池无法使用的问题
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_bucket_uploader_t(*mut c_void);

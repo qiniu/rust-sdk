@@ -43,7 +43,8 @@ pub struct BucketUploaderInner {
 
 /// 存储空间上传器
 ///
-/// 为指定存储空间的上传准备初始化数据，可以反复使用以上传多个文件
+/// 为指定存储空间的上传准备初始化数据，可以反复使用以上传多个文件。
+/// 可以跨线程使用，但由于可能会自带线程池，请勿跨进程使用
 #[derive(Clone)]
 pub struct BucketUploader {
     inner: Arc<BucketUploaderInner>,
