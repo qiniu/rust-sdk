@@ -24,10 +24,6 @@ pub struct UploadManager {
 }
 
 impl UploadManager {
-    pub(in super::super) fn config(&self) -> &Config {
-        &self.config
-    }
-
     /// 创建新的上传管理器
     pub fn new(config: Config) -> Self {
         UploadManager { config }
@@ -110,6 +106,10 @@ impl UploadManager {
         credential: Cow<'u, Credential>,
     ) -> CreateUploaderResult<FileUploaderBuilder<'u>> {
         self.for_upload_token(UploadToken::new(upload_policy, credential))
+    }
+
+    pub(crate) fn config(&self) -> &Config {
+        &self.config
     }
 
     #[allow(dead_code)]

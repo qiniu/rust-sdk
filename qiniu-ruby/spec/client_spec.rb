@@ -1,9 +1,18 @@
 RSpec.describe QiniuNg::Client do
+  context '#new' do
+    it 'can create new client and get attributes' do
+      client = QiniuNg::Client.new access_key: ENV['access_key'],
+                                   secret_key: ENV['secret_key']
+      expect(client.access_key).to eq ENV['access_key']
+      expect(client.secret_key).to eq ENV['secret_key']
+      expect(client.config.is_a?(QiniuNg::Config)).to be true
+    end
+  end
+
   context '#bucket_names' do
     it 'should list all bucket_names' do
       client = QiniuNg::Client.new access_key: ENV['access_key'],
-                                   secret_key: ENV['secret_key'],
-                                   config: QiniuNg::Config.new
+                                   secret_key: ENV['secret_key']
       expect(client.bucket_names).to include('z0-bucket', 'z1-bucket', 'z0-bucket-bind')
     end
   end
@@ -11,8 +20,7 @@ RSpec.describe QiniuNg::Client do
   context '#create_bucket' do
     it 'should create bucket and then drop it via client' do
       client = QiniuNg::Client.new access_key: ENV['access_key'],
-                                   secret_key: ENV['secret_key'],
-                                   config: QiniuNg::Config.new
+                                   secret_key: ENV['secret_key']
       bucket_name = "test-bucket-#{Time.now.to_i}"
       bucket = client.create_bucket(bucket_name, :z1)
       begin
@@ -26,8 +34,7 @@ RSpec.describe QiniuNg::Client do
 
     it 'should create bucket and then drop it via bucket' do
       client = QiniuNg::Client.new access_key: ENV['access_key'],
-                                   secret_key: ENV['secret_key'],
-                                   config: QiniuNg::Config.new
+                                   secret_key: ENV['secret_key']
       bucket_name = "test-bucket-#{Time.now.to_i}"
       bucket = client.create_bucket(bucket_name, :z2)
       begin

@@ -115,6 +115,7 @@ fn _qiniu_ng_storage_create_bucket(
 }
 
 /// @brief 删除存储空间
+/// @details 删除存储空间前务必保证存储空间里已经没有任何文件，否则删除将会失败
 /// @param[in] client 七牛客户端
 /// @param[in] bucket_name 即将删除的存储空间名称
 /// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`

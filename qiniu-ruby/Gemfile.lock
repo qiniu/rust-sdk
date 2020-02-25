@@ -25,6 +25,7 @@ GEM
       diff-lcs (>= 1.2.0, < 2.0)
       rspec-support (~> 3.9.0)
     rspec-support (3.9.2)
+    yard (0.9.24)
 
 PLATFORMS
   java
@@ -35,6 +36,7 @@ DEPENDENCIES
   qiniu_ng!
   rake (~> 12.0)
   rspec (~> 3.9)
+  yard (~> 0.9)
 
 BUNDLED WITH
    2.1.4

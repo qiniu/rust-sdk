@@ -10,10 +10,10 @@ Gem::Specification.new do |spec|
   spec.description   = %q{An FFI Wrapper for qiniu-ng, new generation Qiniu SDK}
   spec.homepage      = 'https://github.com/bachue/rust-sdk'
   spec.license       = 'Apache-2.0'
-  spec.required_ruby_version = Gem::Requirement.new('>= 2.3.0')
-
+  spec.metadata['yard.run']  = 'yri'
   spec.metadata['source_code_uri'] = 'https://github.com/bachue/rust-sdk'
   spec.metadata['bug_tracker_uri']  = 'https://github.com/bachue/rust-sdk/issues'
+  spec.required_ruby_version = Gem::Requirement.new('>= 2.4.0')
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
@@ -26,4 +26,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'ffi', ['>= 1.0', '< 2.0']
   spec.add_development_dependency 'rspec', '~> 3.9'
   spec.add_development_dependency 'dotenv', '~> 2.7'
+  spec.add_development_dependency 'yard', '~> 0.9'
 end

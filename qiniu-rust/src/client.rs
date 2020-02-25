@@ -60,6 +60,18 @@ impl Client {
         self.upload_manager()
     }
 
+    /// 获取客户端配置
+    #[inline]
+    pub fn config(&self) -> &Config {
+        self.upload_manager().config()
+    }
+
+    /// 获取客户端认证信息
+    #[inline]
+    pub fn credential(&self) -> &Credential {
+        self.storage_manager().credential()
+    }
+
     #[allow(dead_code)]
     fn ignore() {
         assert_impl!(Send: Self);

@@ -27,7 +27,15 @@ module QiniuNg
                    upload_recorder_always_flush_records: nil,
                    upload_recorder_root_directory: nil,
                    upload_recorder_upload_block_lifetime: nil,
-                   builder: nil)
+                   builder: nil,
+                   config: nil)
+      @cache = {}
+
+      if config
+        @config = config
+        return
+      end
+
       builder ||= Builder.new
       raise ArgumentError, 'builder must be instance of Config::Builder' unless builder.is_a?(Builder)
 
@@ -55,7 +63,6 @@ module QiniuNg
       @config = QiniuNg::Error.wrap_ffi_function do
                   Bindings::Config.build(builder.instance_variable_get(:@builder))
                 end
-      @cache = {}
     end
 
     def inspect

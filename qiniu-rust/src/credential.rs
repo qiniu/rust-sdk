@@ -49,7 +49,8 @@ impl Credential {
         self.0.access_key.as_ref()
     }
 
-    fn secret_key(&self) -> &str {
+    /// 获取七牛 Secret Key
+    pub fn secret_key(&self) -> &str {
         self.0.secret_key.as_ref()
     }
 

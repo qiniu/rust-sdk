@@ -1,5 +1,17 @@
-require "bundler/gem_tasks"
-task :default => :spec
+# frozen_string_literal: true
+
+require 'bundler/gem_tasks'
+require 'fileutils'
+
+task default: :spec
+
+desc 'Generate Doc'
+task :generate_doc do
+  doc_dir = File.join('..', 'target', 'doc', 'qiniu_ng_ruby').freeze
+  FileUtils.rm_r doc_dir, force: true, secure: true, verbose: true
+  FileUtils.mkdir_p doc_dir, verbose: true
+  sh 'bundle', 'exec', 'yard', 'doc', '--fail-on-warning', '--output-dir', File.expand_path(doc_dir, __dir__)
+end
 
 desc 'Generate FFI Bindings'
 task :generate_bindings do

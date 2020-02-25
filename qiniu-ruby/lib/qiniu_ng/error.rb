@@ -58,9 +58,20 @@ module QiniuNg
     end
 
     class CurlError < Error
-      attr_reader :curl_code
-      def initialize(curl_code)
+      attr_reader :curl_code, :error_kind
+      def initialize(curl_code, error_kind)
         @curl_code = curl_code
+        @error_kind = case error_kind
+                      when :qiniu_ng_resolve_error then :resolve_error
+                      when :qiniu_ng_proxy_error then :proxy_error
+                      when :qiniu_ng_ssl_error then :ssl_error
+                      when :qiniu_ng_connection_error then :connection_error
+                      when :qiniu_ng_request_error then :request_error
+                      when :qiniu_ng_response_error then :response_error
+                      when :qiniu_ng_timeout_error then :timeout_error
+                      else
+                        :unknown_error
+                      end
         super('Curl Error')
       end
     end
@@ -118,7 +129,8 @@ module QiniuNg
         raise Error::JSONError, Bindings::Str.new(msg) if core_ffi::qiniu_ng_err_json_error_extract(err, msg)
         raise Error::ResponseStatusCodeError.new(code.read_int, Bindings::Str.new(msg)) if core_ffi::qiniu_ng_err_response_status_code_error_extract(err, code, msg)
         raise Error::UnknownError, Bindings::Str.new(msg) if core_ffi::qiniu_ng_err_unknown_error_extract(err, msg)
-        raise Error::CurlError, code.read_int if core_ffi::qiniu_ng_err_curl_error_extract(err, code)
+        curl_kind = Bindings::QiniuNgCurlErrorKindTWrapper.new
+        raise Error::CurlError, code.read_int, curl_kind.inner if core_ffi::qiniu_ng_err_curl_error_extract(err, code, curl_kind)
         raise Error::CannotDropNonEmptyBucketError if core_ffi::qiniu_ng_err_drop_non_empty_bucket_error_extract(err)
         raise Error::BadMIMEError, Bindings::Str.new(msg) if core_ffi::qiniu_ng_err_bad_mime_type_error_extract(err, msg)
         err2 = core_ffi::QiniuNgInvalidUploadTokenErrorT.new

@@ -3,16 +3,33 @@
 module QiniuNg
   module Storage
     class Bucket
-      def initialize(client:, bucket_name:, region: nil, domains: [])
+      def initialize(client:, bucket_name:, region: nil, domains: [], auto_detect_domains: false)
         raise ArgumentError, 'client must be instance of Client' unless client.is_a?(Client)
-        raise ArgumentError, 'region must be instance of Region' unless region.nil? || region.is_a?(Region)
 
-        region = region.instance_variable_get(:@region) unless region.nil?
-        domains ||= []
-        domains = [domains] unless domains.is_a?(Array)
+        builder = Bindings::BucketBuilder.new!(client.instance_variable_get(:@client), bucket_name.to_s)
+
+        case region
+        when nil
+          # do nothing
+        when :auto_detect
+          builder.auto_detect_region
+        when Symbol
+          builder.set_region_id(region)
+        when Region
+          builder.set_region(region)
+        else
+          raise ArgumentError, 'region must be instance of Region or Symbol'
+        end
+
+        if auto_detect_domains
+          builder.auto_detect_domains
+        end
+        domains.each do |domain|
+          builder.prepend_domain(domain.to_s)
+        end
 
         @client = client
-        @bucket = Bindings::Bucket.new2(client.instance_variable_get(:@client), bucket_name.to_s, region, domains.map(&:to_s))
+        @bucket = Bindings::Bucket.build(builder)
         @uploader_manager = Uploader.new(client.config)
       end
 

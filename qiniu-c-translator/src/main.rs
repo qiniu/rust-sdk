@@ -209,10 +209,19 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             "Bucket",
             Some("qiniu_ng_bucket_t"),
             Regex::new("^qiniu_ng_bucket_(\\w+)").unwrap(),
-            Some(Regex::new("^qiniu_ng_bucket_uploader_(\\w+)").unwrap()),
+            Some(Regex::new("^qiniu_ng_bucket_(uploader|builder)_(\\w+)").unwrap()),
             source_file.function_declarations().iter(),
             None,
-            vec![("qiniu_ng_bucket_new2", "region")],
+            vec![],
+        ));
+        classifier.add_class(Class::new(
+            "BucketBuilder",
+            Some("qiniu_ng_bucket_builder_t"),
+            Regex::new("^qiniu_ng_bucket_builder_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![],
         ));
         classifier.add_class(Class::new(
             "UploadPolicyBuilder",

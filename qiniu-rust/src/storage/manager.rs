@@ -121,6 +121,10 @@ impl StorageManager {
         BucketBuilder::new(bucket.into(), self.credential.borrow().into(), self.upload_manager())
     }
 
+    pub fn credential(&self) -> &Credential {
+        &self.credential
+    }
+
     #[allow(dead_code)]
     fn ignore() {
         assert_impl!(Send: Self);

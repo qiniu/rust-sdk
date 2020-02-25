@@ -2,6 +2,7 @@ use crate::{
     config::qiniu_ng_config_t,
     string::{qiniu_ng_char_t, ucstr},
     upload::qiniu_ng_upload_manager_t,
+    utils::qiniu_ng_str_t,
 };
 use libc::c_void;
 use qiniu_ng::Client;
@@ -121,10 +122,51 @@ pub extern "C" fn qiniu_ng_client_is_freed(client: qiniu_ng_client_t) -> bool {
 /// @param[in] client 七牛 SDK 客户端实例
 /// @retval qiniu_ng_upload_manager_t 获取创建的上传管理器
 /// @note `qiniu_ng_upload_manager_new()` 可能是更简单的创建上传管理器的方法，仅需要客户端配置即可创建。
+/// @warning 对于获取的上传管理器，使用完毕后应该调用 `qiniu_ng_upload_manager_free()` 释放其内存
 #[no_mangle]
 pub extern "C" fn qiniu_ng_client_get_upload_manager(client: qiniu_ng_client_t) -> qiniu_ng_upload_manager_t {
     let client = Option::<Box<Client>>::from(client).unwrap();
     Box::new(client.upload().to_owned())
+        .tap(|_| {
+            let _ = qiniu_ng_client_t::from(client);
+        })
+        .into()
+}
+
+/// @brief 获取客户端的 Access Key
+/// @param[in] client 七牛 SDK 客户端实例
+/// @retval qiniu_ng_str_t 返回客户端的 Access Key
+/// @warning 对于获取的 Access Key，使用完毕后应该调用 `qiniu_ng_str_free()` 释放其内存
+#[no_mangle]
+pub extern "C" fn qiniu_ng_client_get_access_key(client: qiniu_ng_client_t) -> qiniu_ng_str_t {
+    let client = Option::<Box<Client>>::from(client).unwrap();
+    unsafe { qiniu_ng_str_t::from_str_unchecked(client.credential().access_key()) }.tap(|_| {
+        let _ = qiniu_ng_client_t::from(client);
+    })
+}
+
+/// @brief 获取客户端的 Secret Key
+/// @param[in] client 七牛 SDK 客户端实例
+/// @retval qiniu_ng_str_t 返回客户端的 Secret Key
+/// @warning 对于获取的 Secret Key，使用完毕后应该调用 `qiniu_ng_str_free()` 释放其内存
+#[no_mangle]
+pub extern "C" fn qiniu_ng_client_get_secret_key(client: qiniu_ng_client_t) -> qiniu_ng_str_t {
+    let client = Option::<Box<Client>>::from(client).unwrap();
+    unsafe { qiniu_ng_str_t::from_str_unchecked(client.credential().secret_key()) }.tap(|_| {
+        let _ = qiniu_ng_client_t::from(client);
+    })
+}
+
+/// @brief 获取客户端的配置
+/// @param[in] client 七牛 SDK 客户端实例
+/// @retval qiniu_ng_config_t 返回客户端的配置
+/// @warning 对于获取的客户端配置，使用完毕后应该调用 `qiniu_ng_config_free()` 释放其内存
+#[no_mangle]
+pub extern "C" fn qiniu_ng_client_get_config(client: qiniu_ng_client_t) -> qiniu_ng_config_t {
+    let client = Option::<Box<Client>>::from(client).unwrap();
+    client
+        .config()
+        .to_owned()
         .tap(|_| {
             let _ = qiniu_ng_client_t::from(client);
         })
