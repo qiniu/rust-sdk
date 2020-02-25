@@ -56,7 +56,7 @@ make
 make doc
 ```
 
-### 执行集成测试（需要配置七牛账户，具体做法参见 [../TEST.md](../TEST.md)）
+### 执行集成测试（需要配置七牛账户，具体做法参见 [TEST.md](https://github.com/bachue/rust-sdk/blob/master/TEST.md)）
 
 ```bash
 make test

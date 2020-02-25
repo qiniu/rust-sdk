@@ -222,7 +222,7 @@ pub extern "C" fn qiniu_ng_config_builder_uplog_host(
 
 /// @brief 指定客户端配置中的上传凭证有效期
 /// @param[in] builder 客户端配置生成器实例
-/// @param[in] upload_token_lifetime 上传凭证有效期
+/// @param[in] upload_token_lifetime 上传凭证有效期，单位为秒
 /// @note 默认为 1 小时
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_upload_token_lifetime(
@@ -374,7 +374,7 @@ pub extern "C" fn qiniu_ng_config_builder_http_low_transfer_speed(
 ///     当 HTTP 传输速度低于最低传输速度 `http_low_transfer_speed` 并维持超过 `http_low_transfer_speed_timeout` 的时长，则出错。
 ///     SDK 会自动重试，或出错退出
 /// @param[in] builder 客户端配置生成器实例
-/// @param[in] low_transfer_speed_timeout 最低传输速度，单位为秒
+/// @param[in] low_transfer_speed_timeout 最低传输速度维持时长，单位为秒
 /// @note 默认为 30 秒
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_http_low_transfer_speed_timeout(
@@ -444,11 +444,11 @@ pub extern "C" fn qiniu_ng_config_builder_enable_uplog(builder: qiniu_ng_config_
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
-/// @brief 设置日志文件路径
+/// @brief 设置上传日志文件路径
 /// @param[in] builder 客户端配置生成器实例
 /// @param[in] file_path 日志文件路径
 /// @details
-///     默认的日志文件路径规则如下：
+///     默认的上传日志文件路径规则如下：
 ///       1. 尝试在[操作系统特定的缓存目录](https://docs.rs/dirs/2.0.2/dirs/fn.cache_dir.html)下创建 `qiniu_sdk` 目录。
 ///       2. 如果成功，则使用 `qiniu_sdk` 目录下的 `upload.log`。
 ///       3. 如果失败，则直接使用临时目录下的 `upload.log`。
@@ -469,7 +469,7 @@ pub extern "C" fn qiniu_ng_config_builder_uplog_file_path(
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
-/// @brief 设置日志文件锁策略
+/// @brief 设置上传日志文件锁策略
 /// @param[in] builder 客户端配置生成器实例
 /// @param[in] lock_policy 日志文件锁策略
 /// @details
@@ -494,8 +494,8 @@ pub extern "C" fn qiniu_ng_config_builder_uplog_file_lock_policy(
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
-/// @brief 设置日志文件的上传阙值
-/// @details 当且仅当日志文件尺寸大于阙值时才会上传日志
+/// @brief 设置上传日志文件的上传阙值
+/// @details 当且仅当上传日志文件尺寸大于阙值时才会上传日志
 /// @param[in] builder 客户端配置生成器实例
 /// @param[in] upload_threshold 上传阙值，单位为字节
 /// @note 默认为 4 KB
@@ -514,9 +514,9 @@ pub extern "C" fn qiniu_ng_config_builder_uplog_file_upload_threshold(
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
-/// @brief 设置日志文件的最大尺寸
+/// @brief 设置上传日志文件的最大尺寸
 /// @details
-///     当日志文件尺寸大于指定尺寸时，将不会再记录任何数据到日志内。
+///     当上传日志文件尺寸大于指定尺寸时，将不会再记录任何数据到日志内。
 ///     防止在上传发生困难时日志文件无限制膨胀。
 /// @param[in] builder 客户端配置生成器实例
 /// @param[in] max_size 日志文件最大尺寸，单位为字节
@@ -612,7 +612,7 @@ pub extern "C" fn qiniu_ng_config_builder_load_domains_manager_from_file(
 
 /// @brief 创建一个新的域名管理器
 /// @param[in] builder 客户端配置生成器实例
-/// @param[in] persistent_file 新的域名管理器的持久化路径
+/// @param[in] persistent_file 新的域名管理器的持久化路径，如果传入 `NULL` 则表示禁止持久化
 /// @param[out] error 用于返回错误，如果传入 `NULL` 表示不获取 `error`。但如果运行发生错误，返回值将依然是 `false`
 /// @retval bool 是否运行正常，如果返回 `true`，则表示创建正常，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 #[no_mangle]

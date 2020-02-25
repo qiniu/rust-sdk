@@ -97,9 +97,7 @@ RSpec.describe QiniuNg::Config do
 
   context QiniuNg::Config::Builder do
     it 'should set user_agent correctly' do
-      builder = QiniuNg::Config::Builder.new
-      builder.set_appended_user_agent('TEST_USER_AGENT')
-      config = builder.build!
+      config = QiniuNg::Config::Builder.new.set_appended_user_agent('TEST_USER_AGENT').build!
       expect(config.user_agent).to be_start_with('QiniuRust/qiniu-ng-')
       expect(config.user_agent).to be_include('/qiniu-ruby/')
       expect(config.user_agent).to be_end_with('TEST_USER_AGENT/')
@@ -107,9 +105,7 @@ RSpec.describe QiniuNg::Config do
     end
 
     it 'should return uplog attributes even uplog is disabled' do
-      builder = QiniuNg::Config::Builder.new
-      builder.disable_uplog
-      config = builder.build!
+      config = QiniuNg::Config::Builder.new.disable_uplog.build!
 
       expect(config.uplog_file_lock_policy).to be_nil
       expect(config.uplog_file_upload_threshold).to be_nil

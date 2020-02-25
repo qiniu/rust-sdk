@@ -41,7 +41,7 @@ pub struct ConfigInner {
 
     /// UC 服务器地址（仅需要指定主机地址和端口，无需包含协议）
     ///
-    ///默认将会使用七牛公有云的 UC 服务器地址， 仅在使用私有云时才需要配置
+    /// 默认将会使用七牛公有云的 UC 服务器地址，仅在使用私有云时才需要配置
     #[get = "pub"]
     #[builder(default = "default::uc_host()", setter(into))]
     uc_host: Cow<'static, str>,

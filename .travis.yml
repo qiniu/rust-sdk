@@ -26,17 +26,11 @@ matrix:
         - RUST_BACKTRACE=1
       before_script:
         - sudo apt update -yqq
-        - sudo apt install -yqq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev openjdk-8-jdk llvm-9 libclang1-9
+        - sudo apt install -yqq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev openjdk-8-jdk llvm-9 libclang1-9 rbenv
         - cargo install --force cbindgen
         - |
             export PATH="$PATH:/usr/lib/llvm-9/bin"
         - |
-            export PATH="$PATH:$HOME/.rbenv/bin"
-            curl -fsSL https://github.com/rbenv/rbenv-installer/raw/master/bin/rbenv-installer | bash
-            eval "$(rbenv init -)"
-            curl -fsSL https://github.com/rbenv/rbenv-installer/raw/master/bin/rbenv-doctor | bash
-            mkdir -p "$(rbenv root)"/plugins
-            git clone https://github.com/rbenv/ruby-build.git "$(rbenv root)"/plugins/ruby-build
             eval "$(rbenv init -)"
             rbenv install 2.4.0
             rbenv shell 2.4.0

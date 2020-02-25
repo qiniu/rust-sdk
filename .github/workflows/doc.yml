@@ -12,7 +12,7 @@ jobs:
     - name: Apt install
       run: |
         sudo apt update -yqq
-        sudo apt install -yqq curl libcurl4 git-core doxygen build-essential ruby-bundler
+        sudo apt install -yqq curl libcurl4 git-core doxygen build-essential ruby-bundler llvm-9 libclang1-9
     - name: Prepare for Rust
       uses: actions-rs/toolchain@v1
       with:
@@ -23,6 +23,7 @@ jobs:
         cargo install --force cbindgen
     - name: Generate doc
       run: |
+        export PATH="$PATH:/usr/lib/llvm-9/bin"
         make doc
         tar -zcf /tmp/qiniu_ng.tar.gz -C target doc
     - name: Switch to gh-pages
