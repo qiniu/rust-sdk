@@ -78,6 +78,7 @@ module QiniuNg
       # 持续时间相加
       #
       # @param [Integer, QiniuNg::Duration] other 增加的持续时间
+      # @return [Duration] 返回结果
       def +(other)
         Duration.new(@total + other.to_i)
       end
@@ -85,6 +86,7 @@ module QiniuNg
       # 持续时间相减
       #
       # @param [Integer, QiniuNg::Duration] other 减少的持续时间
+      # @return [Duration] 返回结果
       def -(other)
         Duration.new(@total - other.to_i)
       end
@@ -92,6 +94,7 @@ module QiniuNg
       # 持续时间相乘
       #
       # @param [Integer, QiniuNg::Duration] other 倍数
+      # @return [Duration] 返回结果
       def *(other)
         Duration.new(@total * other.to_i)
       end
@@ -99,6 +102,7 @@ module QiniuNg
       # 持续时间相除
       #
       # @param [Integer, QiniuNg::Duration] other 除数
+      # @return [Duration] 返回结果
       def /(other)
         Duration.new(@total / other.to_i)
       end
@@ -106,6 +110,7 @@ module QiniuNg
       # 持续时间取模
       #
       # @param [Integer, QiniuNg::Duration] other 除数
+      # @return [Duration] 返回结果
       def %(other)
         Duration.new(@total % other.to_i)
       end

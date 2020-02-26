@@ -123,7 +123,7 @@ pub extern "C" fn qiniu_ng_etag_update(etag: qiniu_ng_etag_t, data: *const c_voi
     let _ = qiniu_ng_etag_t::from(etag);
 }
 
-/// @brief 向七牛 Etag 计算器实例输入数据
+/// @brief 从七牛 Etag 计算器获取结果
 /// @param[in] etag 七牛 Etag 计算器实例
 /// @param[out] result_ptr 用于返回 Etag 的内存地址，这里 `result_ptr` 必须不能为 `NULL`
 /// @warning 保证提供给 `result_ptr` 至少 ETAG_SIZE 长度的内存

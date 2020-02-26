@@ -2,6 +2,7 @@
 
 module QiniuNg
   module Storage
+    # 文件上传相关模块
     class Uploader
       autoload :UploadPolicy, 'qiniu_ng/storage/uploader/upload_policy'
       autoload :UploadToken, 'qiniu_ng/storage/uploader/upload_token'
