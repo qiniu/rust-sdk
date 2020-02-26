@@ -83,8 +83,8 @@ module QiniuNg
     #   @param [Utils::Duration] http_request_timeout HTTP 请求超时时长，默认为 5 分钟
     #   @param [Utils::Duration] tcp_keepalive_idle_timeout TCP KeepAlive 空闲时长，默认为 5 分钟
     #   @param [Utils::Duration] tcp_keepalive_probe_interval TCP KeepAlive 探测包的发送间隔，默认为 5 秒
-    #   @param [Integer] http_low_transfer_speed HTTP 最低传输速度，与 `http_low_transfer_speed_timeout` 配合使用，单位为字节/秒，默认为 1024 字节/秒
-    #   @param [Utils::Duration] http_low_transfer_speed_timeout HTTP 最低传输速度维持时长，与 `http_low_transfer_speed` 配合使用，默认为 30 秒
+    #   @param [Integer] http_low_transfer_speed HTTP 最低传输速度，与 http_low_transfer_speed_timeout 配合使用，单位为字节/秒，默认为 1024 字节/秒
+    #   @param [Utils::Duration] http_low_transfer_speed_timeout HTTP 最低传输速度维持时长，与 http_low_transfer_speed 配合使用，默认为 30 秒
     #   @param [Integer] http_request_retries HTTP 请求重试次数，当 SDK 发送 HTTP 请求时发生错误，且该错误可以通过重试来解决时，SDK 将重试的次数。默认为 3 次
     #   @param [Utils::Duration] http_request_retry_delay HTTP 请求重试前等待时间，当 SDK 发送 HTTP 请求时发生错误，且该错误可以通过重试来解决时，SDK 将等待一段时间并且重试，每次实际等待时长为该项值的 50% - 100% 之间的随机时长。默认为 1 秒，也就是说每次等待 500 毫秒至 1 秒间不等
     #   @param [Integer] upload_block_size 上传分块尺寸，尺寸越小越适合弱网环境，必须是 4 MB 的倍数。单位为字节，默认为 4 MB
@@ -387,11 +387,11 @@ module QiniuNg
       # 设置文件锁策略
       #
       # 为了防止上传文件的过程中，上传日志文件被多个进程同时修改引发竞争，因此需要在操作日志文件时使用文件锁保护。
-      # 默认策略 `:lock_shared_duration_appending_and_lock_exclusive_duration_uploading` 为在追加日志时为日志文件加共享锁，而上传时使用排他锁，尽可能做到安全和性能之间的平衡。
+      # 默认策略 :lock_shared_duration_appending_and_lock_exclusive_duration_uploading 为在追加日志时为日志文件加共享锁，而上传时使用排他锁，尽可能做到安全和性能之间的平衡。
       #
-      # 但在有些场景下中，并发追加日志文件同样会引发竞争，此时需要改用 `:always_lock_exclusive` 策略。
+      # 但在有些场景下中，并发追加日志文件同样会引发竞争，此时需要改用 :always_lock_exclusive 策略。
       # 此外，如果确定当前操作系统内不会有多个进程同时上传文件，或不同进程不会使用相同路径的日志时，
-      # 也可以使用 `:none` 策略，减少文件锁的性能影响。
+      # 也可以使用 :none 策略，减少文件锁的性能影响。
       #
       # @param [Symbol] lock_policy 上传日志文件锁策略
       # @return [Builder] 返回自身，可以形成链式调用
@@ -412,7 +412,7 @@ module QiniuNg
       alias uplog_file_lock_policy= uplog_file_lock_policy
 
       # 创建一个新的域名管理器
-      # @param [String] persistent_file 新的域名管理器的持久化路径，如果传入 `nil` 则表示禁止持久化
+      # @param [String] persistent_file 新的域名管理器的持久化路径，如果传入 nil 则表示禁止持久化
       # @return [Builder] 返回自身，可以形成链式调用
       def create_new_domains_manager(persistent_file = nil)
         QiniuNg::Error.wrap_ffi_function do
@@ -466,7 +466,7 @@ module QiniuNg
       #   @return [Builder] 返回自身，可以形成链式调用
       # @!method domains_manager_persistent_file_path(persistent_file_path)
       #   设置域名管理器的持久化路径
-      #   @param [Boolean] persistent_file_path 持久化路径，如果传入 `nil` 则表示禁止持久化
+      #   @param [Boolean] persistent_file_path 持久化路径，如果传入 nil 则表示禁止持久化
       #   @return [Builder] 返回自身，可以形成链式调用
       # @!method domains_manager_pre_resolve_url(pre_resolve_url)
       #   添加域名预解析 URL
@@ -480,8 +480,8 @@ module QiniuNg
       #   设置上传进度记录仪文件根目录
       #
       #   默认的文件系统记录仪目录规则如下：
-      #     1. 尝试在操作系统特定的缓存目录下创建 `qiniu_sdk/records` 目录。
-      #     2. 如果成功，则使用 `qiniu_sdk/records` 目录。
+      #     1. 尝试在操作系统特定的缓存目录下创建 qiniu_sdk/records 目录。
+      #     2. 如果成功，则使用 qiniu_sdk/records 目录。
       #     3. 如果失败，则直接使用临时目录。
       #
       #   @param [Boolean] root_directory 文件根目录
@@ -490,9 +490,9 @@ module QiniuNg
       #   设置上传日志文件路径
       #
       #   默认的上传日志文件路径规则如下：
-      #     1. 尝试在操作系统特定的缓存目录下创建 `qiniu_sdk` 目录。
-      #     2. 如果成功，则使用 `qiniu_sdk` 目录下的 `upload.log`。
-      #     3. 如果失败，则直接使用临时目录下的 `upload.log`。
+      #     1. 尝试在操作系统特定的缓存目录下创建 qiniu_sdk 目录。
+      #     2. 如果成功，则使用 qiniu_sdk 目录下的 upload.log。
+      #     3. 如果失败，则直接使用临时目录下的 upload.log。
       #
       #   @param [Boolean] path 上传日志文件路径
       #   @return [Builder] 返回自身，可以形成链式调用
@@ -534,8 +534,8 @@ module QiniuNg
       # @!method http_low_transfer_speed(speed)
       #   设置 HTTP 最低传输速度
       #
-      #   与 `http_low_transfer_speed_timeout` 配合使用。
-      #   当 HTTP 传输速度低于最低传输速度 `http_low_transfer_speed` 并维持超过 `http_low_transfer_speed_timeout` 的时长，则出错。
+      #   与 http_low_transfer_speed_timeout 配合使用。
+      #   当 HTTP 传输速度低于最低传输速度 http_low_transfer_speed 并维持超过 http_low_transfer_speed_timeout 的时长，则出错。
       #   SDK 会自动重试，或出错退出
       #
       #   默认为 1024 字节/秒
@@ -577,7 +577,7 @@ module QiniuNg
       #   当上传日志文件尺寸大于指定尺寸时，将不会再记录任何数据到日志内。
       #   防止在上传发生困难时日志文件无限制膨胀。
       #
-      #   该值必须大于 `upload_threshold`，默认为 4 MB
+      #   该值必须大于 upload_threshold，默认为 4 MB
       #
       #   @param [Integer] max_size 上传日志文件的最大尺寸，单位为字节
       #   @return [Builder] 返回自身，可以形成链式调用
@@ -643,8 +643,8 @@ module QiniuNg
       # @!method http_low_transfer_speed_timeout(timeout)
       #   设置 HTTP 最低传输速度维持时长
       #
-      #   与 `http_low_transfer_speed` 配合使用。
-      #   当 HTTP 传输速度低于最低传输速度 `http_low_transfer_speed` 并维持超过 `http_low_transfer_speed_timeout` 的时长，则出错。
+      #   与 http_low_transfer_speed 配合使用。
+      #   当 HTTP 传输速度低于最低传输速度 http_low_transfer_speed 并维持超过 http_low_transfer_speed_timeout 的时长，则出错。
       #   SDK 会自动重试，或出错退出
       #
       #   默认为 30 秒

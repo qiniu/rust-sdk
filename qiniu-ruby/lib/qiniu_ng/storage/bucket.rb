@@ -97,8 +97,7 @@ module QiniuNg
       # @return [BucketUploader] 返回存储空间上传器
       # @raise [ArgumentError] 线程池参数错误
       def uploader(thread_pool_size: nil)
-        raise ArgumentError, 'invalid thread_pool_size' if thread_pool_size <= 0
-        BucketUploader.send(:new_from_bucket, @uploader_manager, self, thread_pool_size&.to_i || 0)
+        BucketUploader.send(:new_from_bucket, @uploader_manager, self, thread_pool_size: thread_pool_size)
       end
 
       # @!visibility private

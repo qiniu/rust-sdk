@@ -105,7 +105,7 @@ module QiniuNg
       # 创建 Curl 错误
       #
       # @param [Integer] curl_code Curl 错误代码
-      # @param [Symbol] error_kind Curl 错误类型，接受如下错误类型 `:qiniu_ng_resolve_error`, `:qiniu_ng_proxy_error`, `:qiniu_ng_ssl_error`, `:qiniu_ng_connection_error`, `:qiniu_ng_request_error`, `:qiniu_ng_response_error`, `:qiniu_ng_timeout_error`
+      # @param [Symbol] error_kind Curl 错误类型，接受如下错误类型 :qiniu_ng_resolve_error, :qiniu_ng_proxy_error, :qiniu_ng_ssl_error, :qiniu_ng_connection_error, :qiniu_ng_request_error, :qiniu_ng_response_error, :qiniu_ng_timeout_error
       def initialize(curl_code, error_kind)
         @curl_code = curl_code
         @error_kind = case error_kind
