@@ -1,4 +1,5 @@
 require 'stringio'
+require 'tempfile'
 
 RSpec.describe QiniuNg::Utils do
   context QiniuNg::Utils::Etag do
