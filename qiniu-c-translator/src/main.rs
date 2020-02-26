@@ -173,6 +173,15 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             "Region",
             Some("qiniu_ng_region_t"),
             Regex::new("^qiniu_ng_region_(\\w+)").unwrap(),
+            Some(Regex::new("^qiniu_ng_region_builder_(\\w+)").unwrap()),
+            source_file.function_declarations().iter(),
+            None,
+            vec![],
+        ));
+        classifier.add_class(Class::new(
+            "RegionBuilder",
+            Some("qiniu_ng_region_builder_t"),
+            Regex::new("^qiniu_ng_region_builder_(\\w+)").unwrap(),
             None,
             source_file.function_declarations().iter(),
             None,
