@@ -18,7 +18,7 @@
 
 - Linux: Rust 1.38+, cbindgen, GCC, libcurl
 - Windows: Rust 1.38+, cbindgen, Visual Studio, libcurl
-- MacOS: Rust 1.38+, cbindgen, Clang（from XCode）, libcurl
+- MacOS: Rust 1.38+, cbindgen, Clang （from XCode）, libcurl
 
 ## 接口文档
 

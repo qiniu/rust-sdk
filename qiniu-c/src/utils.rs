@@ -1,5 +1,5 @@
 use crate::string::{qiniu_ng_char_t, ucstr, UCString};
-use libc::{c_void, size_t};
+use libc::{c_int, c_void, size_t};
 use std::{
     boxed::Box,
     collections::{hash_map::RandomState, HashMap},
@@ -519,7 +519,7 @@ pub struct qiniu_ng_readable_t {
     ///   您需要读取数据并将数据写入 `buf` 缓冲区，且写入数据的尺寸不能超过 `count`。
     ///   写入完毕后，需要您将实际写入的数据长度填充在第四个参数 `have_read` 内。如果 `have_read` 中填充 `0`，则数据读取结束。
     ///   如果发生无法处理的读取错误，则返回相应的操作系统错误号码。如果没有发生任何错误，则返回 `0`。
-    pub read_func: fn(context: *mut c_void, buf: *mut c_void, count: size_t, have_read: *mut size_t) -> i32,
+    pub read_func: fn(context: *mut c_void, buf: *mut c_void, count: size_t, have_read: *mut size_t) -> c_int,
     pub context: *mut c_void,
 }
 

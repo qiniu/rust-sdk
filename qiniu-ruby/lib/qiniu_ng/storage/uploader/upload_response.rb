@@ -23,7 +23,7 @@ module QiniuNg
           data_len = core_ffi::Size.new
           @upload_response.get_hash(data, data_len)
           return nil if data_len[:value].zero?
-          data.read_string_length(data_len[:value])
+          data.read_string(data_len[:value])
         end
 
         # 上传响应中的对象名称字段
@@ -38,7 +38,7 @@ module QiniuNg
         # @return [String] 返回 JSON 格式的上传响应
         def as_json
           @cache[:json] ||= QiniuNg::Error.wrap_ffi_function do
-                              @upload_response.get_json_string
+                              @upload_response.get_string
                             end
           return nil if @cache[:json].is_null
           @cache[:json].get_ptr

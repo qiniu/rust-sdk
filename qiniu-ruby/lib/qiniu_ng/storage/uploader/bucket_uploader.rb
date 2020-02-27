@@ -21,7 +21,7 @@ module QiniuNg
           raise ArgumentError, 'invalid thread_pool_size' if !thread_pool_size.nil? && thread_pool_size <= 0
           upload_manager = upload_manager.instance_variable_get(:@upload_manager)
           bucket = bucket.instance_variable_get(:@bucket)
-          new(BucketUploader.new_from_bucket(upload_manager, bucket, thread_pool_size&.to_i || 0))
+          new(Bindings::BucketUploader.new_from_bucket(upload_manager, bucket, thread_pool_size&.to_i || 0))
         end
         private_class_method :new_from_bucket
 
@@ -29,7 +29,7 @@ module QiniuNg
           raise ArgumentError, 'upload_manager must be instance of Uploader' unless upload_manager.is_a?(Uploader)
           raise ArgumentError, 'invalid thread_pool_size' if !thread_pool_size.nil? && thread_pool_size <= 0
           upload_manager = upload_manager.instance_variable_get(:@upload_manager)
-          new(upload_manager.new_bucket_uploader_from_bucket_name(bucket_name.to_s, access_key.to_s, thread_pool_size&.to_i || 0))
+          new(Bindings::BucketUploader.new_from_bucket_name(upload_manager, bucket_name.to_s, access_key.to_s, thread_pool_size&.to_i || 0))
         end
         private_class_method :new_from_bucket_name
 
@@ -83,7 +83,7 @@ module QiniuNg
                                    data.write_string(content)
                                    have_read.write_ulong(content.bytesize)
                                  end
-                                 true
+                                 0
                                end
           upload_response = QiniuNg::Error.wrap_ffi_function do
                               @bucket_uploader.upload_reader(

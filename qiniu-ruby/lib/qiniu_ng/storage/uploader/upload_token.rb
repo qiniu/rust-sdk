@@ -28,11 +28,25 @@ module QiniuNg
                                       secret_key.to_s))
         end
 
+        # 通过上传策略生成器生成上传凭证
+        # @param [UploadPolicyBuilder] builder 上传策略生成器
+        # @param [String] access_key 七牛 Access Key
+        # @param [String] secret_key 七牛 Secret Key
+        # @return [UploadToken] 返回创建的上传凭证
+        # @raise [ArgumentError] 参数错误
+        def self.from_policy_builder(builder, access_key:, secret_key:)
+          raise ArgumentError, 'builder must be instance of UploadPolicy::Builder' unless builder.is_a?(UploadPolicy::Builder)
+          new(Bindings::UploadToken.new_from_policy_builder(
+                                      builder.instance_variable_get(:@builder),
+                                      access_key.to_s,
+                                      secret_key.to_s))
+        end
+
         # 通过字符串生成上传凭证
         # @param [String] token 上传凭证字符串
         # @return [UploadToken] 返回创建的上传凭证
         def self.from(token)
-          new(Bindings::UploadToken.new_from_token(token.to_s))
+          new(Bindings::UploadToken.new_from(token.to_s))
         end
 
         # 获取上传凭证中的 Access Key
@@ -60,7 +74,7 @@ module QiniuNg
         # @return [String] 返回上传凭证字符串
         def to_s
           @cache[:token] ||= QiniuNg::Error.wrap_ffi_function do
-                               @upload_token.get_token
+                               @upload_token.get_string
                              end
           @cache[:token].get_ptr
         end

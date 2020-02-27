@@ -119,7 +119,7 @@ module QiniuNg
           define_method :"#{method}_lifetime" do
             core_ffi = Bindings.const_get :CoreFFI
             lifetime_s = core_ffi::U64.new
-            Duration::new(seconds: lifetime_s[:value]) if @upload_policy.public_send(:"get_#{method}_lifetime", lifetime_s)
+            Utils::Duration::new(seconds: lifetime_s[:value]) if @upload_policy.public_send(:"get_#{method}_lifetime", lifetime_s)
           end
         end
 
@@ -183,14 +183,14 @@ module QiniuNg
         # @!method mime_detection_enabled?
         #   是否启用 MIME 类型自动检测
         #   @return [Boolean] 是否启用 MIME 类型自动检测
-        # @!method prefixal_scope_key?
+        # @!method prefixal_object_key?
         #   上传策略是否是对象名称前缀约束
         #   @return [Boolean] 上传策略是否是对象名称前缀约束
         # @!method infrequent_storage_used?
         #   是否忽略客户端指定的对象名称
         #   @return [Boolean] 是否忽略客户端指定的对象名称
         %i[is_infrequent_storage_used is_normal_storage_used is_insert_only is_overwritable
-           is_mime_detection_enabled use_prefixal_scope_key is_save_key_forced].each do |method|
+           is_mime_detection_enabled use_prefixal_object_key is_save_key_forced].each do |method|
           define_method :"#{method.to_s.sub(/^(is|use)_/, '')}?" do
             @upload_policy.public_send(method)
           end
@@ -292,6 +292,14 @@ module QiniuNg
           # @return [UploadPolicy] 返回生成的上传策略
           def build!
             UploadPolicy.send(:new, Bindings::UploadPolicy.build(@builder))
+          end
+
+          # 生成上传凭证
+          # @param [String] access_key 七牛 Access Key
+          # @param [String] secret_key 七牛 Secret Key
+          # @return [UploadToken] 返回创建的上传凭证
+          def build_token(access_key:, secret_key:)
+            UploadToken.from_policy_builder(self, access_key: access_key, secret_key: secret_key)
           end
 
           # 指定上传凭证过期时间

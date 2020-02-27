@@ -19,4 +19,4 @@ rand = "0.7.2"
 base64 = "0.10.1"
 rand_core = "0.5.1"
 
-qiniu-http = { version = "0.0.2", path = "../qiniu-rust-http" }
+qiniu-http = { version = "=0.0.2", path = "../qiniu-rust-http" }

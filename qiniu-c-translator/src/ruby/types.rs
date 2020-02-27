@@ -113,6 +113,14 @@ impl StructFieldType {
                 }
                 _ => new_base_type(c_type, as_struct_field_type),
             },
+            TypeKind::Function { subtype: function_type } => {
+                if let Some(callback_name) = find_function_pointer_type_for_callback_name(function_type.display_name())
+                {
+                    Self::ByCallback(callback_name)
+                } else {
+                    Self::BaseType(BaseType::Pointer)
+                }
+            }
             _ => new_base_type(c_type, as_struct_field_type),
         };
 

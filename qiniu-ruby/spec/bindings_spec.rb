@@ -143,7 +143,7 @@ RSpec.describe QiniuNg::Bindings do
   context QiniuNg::Bindings::Region do
     context '#query' do
       it 'should get region by id' do
-        region = QiniuNg::Bindings::Region.get_region_by_id(:qiniu_ng_region_z0)
+        region = QiniuNg::Bindings::Region.get_by_id(:qiniu_ng_region_z0)
         expect(region.is_freed).to be false
         up_urls = region.get_up_urls(true)
         expect(up_urls.len > 2).to be true
@@ -156,7 +156,7 @@ RSpec.describe QiniuNg::Bindings do
 
       it 'should not accept invalid region id' do
         expect do
-          QiniuNg::Bindings::Region.get_region_by_id(:qiniu_ng_region_z3)
+          QiniuNg::Bindings::Region.get_by_id(:qiniu_ng_region_z3)
         end.to raise_error(ArgumentError)
       end
 

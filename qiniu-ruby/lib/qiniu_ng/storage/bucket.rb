@@ -30,7 +30,7 @@ module QiniuNg
         when Symbol
           builder.set_region_id(region)
         when Region
-          builder.set_region(region)
+          builder.set_region(region.instance_variable_get(:@region))
         else
           raise ArgumentError, 'region must be instance of Region or Symbol'
         end

@@ -11,8 +11,8 @@ description = "Qiniu Resource Storage SDK for C"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
-qiniu-ng = { version = "0.0.2", path = "../qiniu-rust" }
-qiniu-http = { version = "0.0.2", path = "../qiniu-rust-http" }
+qiniu-ng = { version = "=0.0.2", path = "../qiniu-rust" }
+qiniu-http = { version = "=0.0.2", path = "../qiniu-rust-http" }
 curl = { version = "0.4.25", features = ["http2"] }
 curl-sys = "0.4.23"
 digest = "0.8.1"

@@ -6,7 +6,7 @@ RSpec.describe QiniuNg::Storage::Uploader::UploadPolicy do
       upload_policy = QiniuNg::Storage::Uploader::UploadPolicy.new_for_bucket('z0-bucket', QiniuNg::Config.new)
       expect(upload_policy.bucket).to eq('z0-bucket')
       expect(upload_policy.key).to be_nil
-      expect(upload_policy.prefixal_scope?).to be false
+      expect(upload_policy.prefixal_object_key?).to be false
       expect(upload_policy.token_lifetime.to_i).to be_within(5).of 3600
       expect(upload_policy.token_deadline.to_i).to be_within(5).of(Time.now.to_i + 3600)
       j = JSON.load(upload_policy.as_json)
@@ -18,7 +18,7 @@ RSpec.describe QiniuNg::Storage::Uploader::UploadPolicy do
       upload_policy = QiniuNg::Storage::Uploader::UploadPolicy.new_for_object('z0-bucket', 'test-key', QiniuNg::Config.new)
       expect(upload_policy.bucket).to eq 'z0-bucket'
       expect(upload_policy.key).to eq 'test-key'
-      expect(upload_policy.prefixal_scope?).to be false
+      expect(upload_policy.prefixal_object_key?).to be false
       expect(upload_policy.token_lifetime.to_i).to be_within(5).of 3600
       expect(upload_policy.token_deadline.to_i).to be_within(5).of(Time.now.to_i + 3600)
       j = JSON.load(upload_policy.as_json)
@@ -31,7 +31,7 @@ RSpec.describe QiniuNg::Storage::Uploader::UploadPolicy do
       upload_policy = QiniuNg::Storage::Uploader::UploadPolicy.new_for_objects_with_prefix('z0-bucket', 'test-key', config)
       expect(upload_policy.bucket).to eq 'z0-bucket'
       expect(upload_policy.key).to eq 'test-key'
-      expect(upload_policy.prefixal_scope?).to be true
+      expect(upload_policy.prefixal_object_key?).to be true
       expect(upload_policy.token_lifetime.to_i).to be_within(5).of 7200
       expect(upload_policy.token_deadline.to_i).to be_within(5).of(Time.now.to_i + 7200)
       j = JSON.load(upload_policy.as_json)
@@ -91,13 +91,13 @@ RSpec.describe QiniuNg::Storage::Uploader::UploadPolicy do
 
     it 'could set file type for the upload policy' do
       config = QiniuNg::Config.new
-      upload_policy = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config)
+      upload_policy = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object('z0-bucket', 'test-key', config)
                                                                        .overwritable
                                                                        .build!
       expect(upload_policy.overwritable?).to be true
       expect(upload_policy.insert_only?).to be false
 
-      upload_policy = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config)
+      upload_policy = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object('z0-bucket', 'test-key', config)
                                                                        .insert_only
                                                                        .build!
       expect(upload_policy.insert_only?).to be true
@@ -164,8 +164,7 @@ RSpec.describe QiniuNg::Storage::Uploader::UploadPolicy do
       expect(upload_policy.callback_urls).to be_empty
 
       upload_policy = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config)
-                                                                       .callback_urls('https://www.qiniu.com')
-                                                                       .callback_body('testbody')
+                                                                       .callback('https://www.qiniu.com', body: 'testbody')
                                                                        .build!
       expect(upload_policy.callback_body).to eq 'testbody'
       expect(upload_policy.callback_body_type).to be_nil
@@ -173,8 +172,7 @@ RSpec.describe QiniuNg::Storage::Uploader::UploadPolicy do
       expect(upload_policy.callback_urls).to contain_exactly('https://www.qiniu.com')
 
       upload_policy = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config)
-                                                                       .callback_urls('https://www.qiniu.com', host: 'qiniu.com')
-                                                                       .callback_body('testbody', body_type: 'text/plain')
+                                                                       .callback('https://www.qiniu.com', host: 'qiniu.com', body: 'testbody', body_type: 'text/plain')
                                                                        .build!
       expect(upload_policy.callback_body).to eq 'testbody'
       expect(upload_policy.callback_body_type).to eq 'text/plain'
@@ -182,8 +180,7 @@ RSpec.describe QiniuNg::Storage::Uploader::UploadPolicy do
       expect(upload_policy.callback_urls).to contain_exactly('https://www.qiniu.com')
 
       upload_policy = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config)
-                                                                       .callback_urls(%w[https://www.qiniu.com https://www2.qiniu.com], host: 'qiniu.com')
-                                                                       .callback_body('testbody', body_type: 'text/plain')
+                                                                       .callback(%w[https://www.qiniu.com https://www2.qiniu.com], host: 'qiniu.com', body: 'testbody', body_type: 'text/plain')
                                                                        .build!
       expect(upload_policy.callback_body).to eq 'testbody'
       expect(upload_policy.callback_body_type).to eq 'text/plain'

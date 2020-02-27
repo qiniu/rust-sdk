@@ -5,10 +5,10 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
   context '#upload_file' do
     it 'should upload file by io' do
       config = QiniuNg::Config.new
-      upload_token = QiniuNg::Storage::Uploader::UploadToken.from_policy_builder(
-                       QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config),
-                       access_key: ENV['access_key'],
-                       secret_key: ENV['secret_key'])
+      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
+                                                                       build!.
+                                                                       build_token(access_key: ENV['access_key'],
+                                                                                   secret_key: ENV['secret_key'])
       bucket_uploader = QiniuNg::Storage::Uploader.new(config).
                                                    bucket_uploader(bucket_name: 'z0-bucket',
                                                                    access_key: ENV['access_key'])
@@ -41,11 +41,9 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
 
     it 'should upload customized io' do
       config = QiniuNg::Config.new
-      upload_token = QiniuNg::Storage::Uploader::UploadToken.from_policy_builder(
-                       QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config)
-                                                                        .return_body(%[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)"}]),
-                       access_key: ENV['access_key'],
-                       secret_key: ENV['secret_key'])
+      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config)
+                                                                        .return_body(%[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)"}])
+                                                                        .build_token(access_key: ENV['access_key'], secret_key: ENV['secret_key'])
       bucket_uploader = QiniuNg::Storage::Uploader.new(config).
                                                    bucket_uploader(bucket_name: 'z0-bucket',
                                                                    access_key: ENV['access_key'])

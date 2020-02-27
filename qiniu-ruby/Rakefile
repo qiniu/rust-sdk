@@ -10,7 +10,8 @@ task :generate_doc do
   doc_dir = File.join('..', 'target', 'doc', 'qiniu_ng_ruby').freeze
   FileUtils.rm_r doc_dir, force: true, secure: true, verbose: true
   FileUtils.mkdir_p doc_dir, verbose: true
-  sh 'bundle', 'exec', 'yard', 'doc', '--fail-on-warning', '--output-dir', File.expand_path(doc_dir, __dir__)
+  sh 'bundle', 'exec', 'yard', 'doc', '--fail-on-warning', '--output-dir', File.expand_path(doc_dir, __dir__),
+                                      '--exclude', "^#{Regexp.escape('lib/qiniu_ng/bindings.rb')}$"
 end
 
 desc 'Generate FFI Bindings'

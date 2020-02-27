@@ -26,30 +26,34 @@ matrix:
         - RUST_BACKTRACE=1
       before_script:
         - sudo apt update -yqq
-        - sudo apt install -yqq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev openjdk-8-jdk llvm-9 libclang1-9 rbenv
+        - sudo apt install -yqq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev openjdk-8-jdk rbenv
         - cargo install --force cbindgen
         - |
-            export PATH="$PATH:/usr/lib/llvm-9/bin"
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository 'deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-10 main'
+          sudo apt-get update -yqq
+          sudo apt-get install -yqq clang-10
+          export PATH="$PATH:/usr/lib/llvm-10/bin"
         - |
-            eval "$(rbenv init -)"
-            rbenv install 2.4.0
-            rbenv shell 2.4.0
-            gem install bundler
-            rbenv install jruby-9.2.0.0
-            rbenv shell jruby-9.2.0.0
-            gem install bundler
+            mkdir -p "$(rbenv root)"/plugins
+            git clone https://github.com/rbenv/ruby-build.git "$(rbenv root)"/plugins/ruby-build
       script:
         - make -C qiniu-c build
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-              rbenv shell 2.4.0
-              for dir in qiniu-ruby; do
-                make -C $dir test
-              done
-              rbenv shell jruby-9.2.0.0
-              for dir in qiniu-ruby; do
-                make -C $dir test
-              done
+              eval "$(rbenv init -)"
+              (
+                rbenv install 2.4.0
+                rbenv shell 2.4.0
+                gem install bundler
+                make -C qiniu-ruby test
+              )
+              (
+                rbenv install jruby-9.2.0.0
+                rbenv shell jruby-9.2.0.0
+                gem install bundler
+                make -C qiniu-ruby test
+              )
             fi
     - os: osx
       rust:
@@ -71,8 +75,7 @@ matrix:
         - 1.38.0
       before_script:
         - brew install curl rbenv llvm
-        - |
-            export PATH="$(brew --prefix llvm)/bin:$PATH"
+        - export PATH="$(brew --prefix llvm)/bin:$PATH"
         - cargo install --force cbindgen
       env:
         - RUST_BACKTRACE=1
