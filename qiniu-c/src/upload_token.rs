@@ -322,10 +322,10 @@ pub extern "C" fn qiniu_ng_upload_policy_builder_set_callback(
 
 /// @brief 设置自定义对象名称
 /// @details
-///     支持支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
+///     支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
 /// @param[in] builder 客户端配置生成器实例
 /// @param[in] save_as 对象名称
-/// @param[in] force 当它为 `false` 时，`save_as` 字段仅当用户上传的时候没有主动指定对象名时起作用。当它为 `true` 时，将强制按 `save_as` 字段的格式命名
+/// @param[in] force 当它为 `false` 时，`save_as` 字段仅当用户上传的时候没有主动指定对象名时起作用。当它为 `true` 时，将强制按 `save_as` 字段的内容命名
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_policy_builder_set_save_as_key(
     builder: qiniu_ng_upload_policy_builder_t,
@@ -657,7 +657,7 @@ pub extern "C" fn qiniu_ng_upload_policy_get_return_body(upload_policy: qiniu_ng
 
 /// @brief 上传成功后，七牛云向业务服务器发送 POST 请求的 URL 列表
 /// @param[in] upload_policy 上传策略实例
-/// @retval qiniu_ng_str_list_t 回调请求的 URL 列表
+/// @retval qiniu_ng_str_list_t 返回回调请求的 URL 列表
 /// @note 这里返回的 `qiniu_ng_str_list_t` 有可能封装的是 `NULL`，请调用 `qiniu_ng_str_list_is_null()` 进行判断
 /// @warning 当 `qiniu_ng_str_list_t` 使用完毕后，请务必调用 `qiniu_ng_str_list_free()` 方法释放内存
 #[no_mangle]

@@ -424,9 +424,9 @@ impl<'p> UploadPolicyBuilder<'p> {
 
     /// 自定义对象名称
     ///
-    /// 支持支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)。
+    /// 支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)。
     /// `force` 为 `false` 时，`save_as` 字段仅当用户上传的时候没有主动指定对象名时起作用，
-    /// `force` 为 `true` 时，将强制按 `save_as` 字段的格式命名
+    /// `force` 为 `true` 时，将强制按 `save_as` 字段的内容命名
     pub fn save_as(&mut self, save_as: impl Into<Cow<'p, str>>, force: bool) -> &mut Self {
         self.inner.save_key = Some(save_as.into());
         if force {
