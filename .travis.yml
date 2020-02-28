@@ -58,11 +58,12 @@ matrix:
     - os: osx
       rust:
         - 1.38.0
+      env:
+        - HOMEBREW_NO_AUTO_UPDATE=1
+        - RUST_BACKTRACE=1
       before_script:
         - brew install curl
         - cargo install --force cbindgen
-      env:
-        - RUST_BACKTRACE=1
       script:
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
@@ -73,12 +74,13 @@ matrix:
     - os: osx
       rust:
         - 1.38.0
+      env:
+        - HOMEBREW_NO_AUTO_UPDATE=1
+        - RUST_BACKTRACE=1
       before_script:
         - brew install curl rbenv llvm
         - export PATH="$(brew --prefix llvm)/bin:$PATH"
         - cargo install --force cbindgen
-      env:
-        - RUST_BACKTRACE=1
       script:
         - make -C qiniu-c build
         - |

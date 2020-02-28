@@ -1,5 +1,6 @@
 require 'json'
 require 'securerandom'
+require 'tempfile'
 
 RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
   context '#upload_file' do
@@ -12,31 +13,35 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
       bucket_uploader = QiniuNg::Storage::Uploader.new(config).
                                                    bucket_uploader(bucket_name: 'z0-bucket',
                                                                    access_key: ENV['access_key'])
-      file_path = '/etc/services'
-      key = "测试-#{Time.now.to_i}"
+      Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
+        4.times { file.write(SecureRandom.random_bytes(rand(1 << 26))) }
+        file.rewind
 
-      last_uploaded = -1
-      on_uploading_progress = ->(uploaded, total) do
-                                expect(total).to be_zero
-                                expect(uploaded >= last_uploaded).to be true
-                                last_uploaded = uploaded
-                              end
+        key = "测试-#{Time.now.to_i}"
 
-      etag = File.open(file_path, 'rb') do |file|
-               QiniuNg::Utils::Etag.from_io(file)
-             end
-      response = File.open(file_path, 'rb') do |file|
-                  bucket_uploader.upload_file(file, upload_token: upload_token,
-                                                    key: key,
-                                                    vars: { 'key_1': 'value_1', 'key_2': 'value_2' },
-                                                    metadata: { 'k_1': 'v_1', 'k_2': 'v_2' },
-                                                    on_uploading_progress: on_uploading_progress)
-                 end
-      expect(response.hash).to eq(etag)
-      expect(response.key).to eq(key)
-      j = JSON.load response.as_json
-      expect(j['hash']).to eq(etag)
-      expect(j['key']).to eq(key)
+        last_uploaded = -1
+        on_uploading_progress = ->(uploaded, total) do
+                                  expect(total).to be_zero
+                                  expect(uploaded >= last_uploaded).to be true
+                                  last_uploaded = uploaded
+                                end
+
+        etag = QiniuNg::Utils::Etag.from_io(file)
+        file.rewind
+
+        response = File.open(file.path, 'rb') do |file|
+                    bucket_uploader.upload_file(file, upload_token: upload_token,
+                                                      key: key,
+                                                      vars: { 'key_1': 'value_1', 'key_2': 'value_2' },
+                                                      metadata: { 'k_1': 'v_1', 'k_2': 'v_2' },
+                                                      on_uploading_progress: on_uploading_progress)
+                   end
+        expect(response.hash).to eq(etag)
+        expect(response.key).to eq(key)
+        j = JSON.load response.as_json
+        expect(j['hash']).to eq(etag)
+        expect(j['key']).to eq(key)
+      end
     end
 
     it 'should upload customized io' do
@@ -68,7 +73,6 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
       expect(response.fsize).to eq(1 << 24)
       expect(response.bucket).to eq('z0-bucket')
       expect(response.name).to eq(key)
-      expect(response.name).to eq(key)
       j = JSON.load response.as_json
       expect(j['hash']).to eq(etag)
       expect(j['key']).to eq(key)
@@ -81,33 +85,35 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
   context '#upload_file_path' do
     it 'should upload file by path' do
       config = QiniuNg::Config.new
-      upload_token = QiniuNg::Storage::Uploader::UploadToken.from_policy_builder(
-                       QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config),
-                       access_key: ENV['access_key'],
-                       secret_key: ENV['secret_key'])
+      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
+                                                                       build_token(
+                                                                         access_key: ENV['access_key'],
+                                                                         secret_key: ENV['secret_key'])
       bucket_uploader = QiniuNg::Storage::Uploader.new(config).
                                                    bucket_uploader(bucket_name: 'z0-bucket',
-                                                                   access_key: ENV['access_key'])
-      file_path = '/etc/services'
-      etag = File.open(file_path, 'rb') do |file|
-        QiniuNg::Utils::Etag.from_io(file)
-      end
-      key = "测试-#{Time.now.to_i}"
-      last_uploaded, file_size = -1, File.size(file_path)
-      on_uploading_progress = ->(uploaded, total) do
-                                expect(total >= file_size).to be true
-                                expect(uploaded >= last_uploaded).to be true
-                                last_uploaded = uploaded
-                              end
+                                                                   access_key: ENV['access_key'],
+                                                                   thread_pool_size: 10)
+      Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
+        4.times { file.write(SecureRandom.random_bytes(rand(1 << 26))) }
+        file.rewind
+        etag = QiniuNg::Utils::Etag.from_io(file)
+        key = "测试-#{Time.now.to_i}"
+        last_uploaded, file_size = -1, File.size(file.path)
+        on_uploading_progress = ->(uploaded, total) do
+                                  expect(total >= file_size).to be true
+                                  expect(uploaded >= last_uploaded).to be true
+                                  last_uploaded = uploaded
+                                end
 
-      response = bucket_uploader.upload_file_path('/etc/services', upload_token: upload_token,
-                                                                   key: key,
-                                                                   on_uploading_progress: on_uploading_progress)
-      expect(response.hash).to eq(etag)
-      expect(response.key).to eq(key)
-      j = JSON.load response.as_json
-      expect(j['hash']).to eq(etag)
-      expect(j['key']).to eq(key)
+        response = bucket_uploader.upload_file_path(file.path, upload_token: upload_token,
+                                                               key: key,
+                                                               on_uploading_progress: on_uploading_progress)
+        expect(response.hash).to eq(etag)
+        expect(response.key).to eq(key)
+        j = JSON.load response.as_json
+        expect(j['hash']).to eq(etag)
+        expect(j['key']).to eq(key)
+      end
     end
   end
 end
