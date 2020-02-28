@@ -307,7 +307,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         if self.is_seekable {
             self.io
                 .seek(SeekFrom::Start(0))
-                .map_err(|err| HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None))?;
+                .map_err(|err| HTTPError::new_unretryable_error(HTTPErrorKind::IOError(err), None, None))?;
         }
         self.uploaded_size.store(0, Relaxed);
         if let Some(uploading_progress_callback) = &self.uploading_progress_callback {
@@ -473,7 +473,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                         .drop(file_path, self.key.as_ref().map(|key| key.as_ref()));
                 })
             }),
-            IOStatusResult::IOError(err) => Err(HTTPError::new_unretryable_error_from_parts(
+            IOStatusResult::IOError(err) => Err(HTTPError::new_unretryable_error(
                 HTTPErrorKind::IOError(err),
                 None,
                 None,
@@ -615,7 +615,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         if let Some(upload_recorder) = upload_recorder {
             upload_recorder
                 .append(&result.etag, part_number)
-                .map_err(|err| HTTPError::new_unretryable_error_from_parts(HTTPErrorKind::IOError(err), None, None))?;
+                .map_err(|err| HTTPError::new_unretryable_error(HTTPErrorKind::IOError(err), None, None))?;
         }
         Ok(result.etag)
     }
@@ -1121,7 +1121,7 @@ mod tests {
                         + "$",
                     |_, called| {
                         if called >= 3 {
-                            return Err(HTTPError::new_retryable_error_from_parts(
+                            return Err(HTTPError::new_retryable_error(
                                 HTTPErrorKind::MaliciousResponse,
                                 true,
                                 None,
@@ -1219,7 +1219,7 @@ mod tests {
                         )
                         + "$",
                     |_, _| {
-                        Err(HTTPError::new_zone_unretryable_error_from_parts(
+                        Err(HTTPError::new_zone_unretryable_error(
                             HTTPErrorKind::MaliciousResponse,
                             true,
                             None,
@@ -1375,7 +1375,7 @@ mod tests {
                         + "$",
                     |_, called| {
                         if called >= 3 {
-                            return Err(HTTPError::new_retryable_error_from_parts(
+                            return Err(HTTPError::new_retryable_error(
                                 HTTPErrorKind::MaliciousResponse,
                                 true,
                                 None,
@@ -1499,7 +1499,7 @@ mod tests {
                         + "$",
                     |request, called| {
                         if called == 3 {
-                            return Err(HTTPError::new_unretryable_error_from_parts(
+                            return Err(HTTPError::new_unretryable_error(
                                 HTTPErrorKind::MaliciousResponse,
                                 None,
                                 None,
@@ -1612,7 +1612,7 @@ mod tests {
                         + "$",
                     |_, called| {
                         if called >= 3 {
-                            return Err(HTTPError::new_unretryable_error_from_parts(
+                            return Err(HTTPError::new_unretryable_error(
                                 HTTPErrorKind::MaliciousResponse,
                                 None,
                                 None,

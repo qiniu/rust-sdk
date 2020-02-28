@@ -1,14 +1,22 @@
 use std::{convert::TryFrom, error::Error, fmt, str::FromStr};
 
+/// HTTP 方法
+///
+/// 这里的 HTTP 方法并不完整，但已经满足了七牛 SDK 的需要
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Method {
+    /// GET 方法
     GET,
+    /// HEAD 方法
     HEAD,
+    /// POST 方法
     POST,
+    /// PUT 方法
     PUT,
 }
 
 impl Method {
+    /// 将 HTTP 方法转换成字符串
     pub fn as_str(&self) -> &str {
         match self {
             Method::GET => "GET",
@@ -18,6 +26,7 @@ impl Method {
         }
     }
 
+    /// 将 HTTP 方法转换成二进制字节数组
     pub fn as_bytes(&self) -> &[u8] {
         match self {
             Method::GET => b"GET",
@@ -144,6 +153,7 @@ impl<'a> From<&'a Method> for Method {
     }
 }
 
+/// 非法的 HTTP 方法错误
 #[derive(Debug)]
 pub struct InvalidMethod;
 

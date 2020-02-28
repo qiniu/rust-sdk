@@ -6,45 +6,79 @@ use super::{
 use getset::{CopyGetters, Getters};
 use std::{boxed::Box, error::Error as StdError, fmt, io, marker::Send, ops::Deref, result};
 
+/// 出现请求错误时的 URL
 pub type URL = Box<str>;
+
+/// 出现请求错误时的七牛请求 ID
 pub type RequestID = Box<str>;
+
+/// HTTP 请求结果
 pub type Result<T> = result::Result<T, Error>;
 
+/// 错误可重试性类型
+///
+/// 对于可重试性的概念，可以参见主页中 [重试策略，幂等性与重试安全之间的关系](index.html#重试策略幂等性与重试安全之间的关系)
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RetryKind {
+    /// 总是可重试的错误
     RetryableError,
+    /// 区域不可重试错误
     ZoneUnretryableError,
+    /// 主机不可重试错误
     HostUnretryableError,
+    /// 不可重试错误
     UnretryableError,
 }
 
+/// JSON 错误
 #[derive(Debug)]
-pub enum JSONError {
+pub struct JSONError(_JSONError);
+
+#[derive(Debug)]
+enum _JSONError {
     SerdeJSONError(serde_json::Error),
     Description(Box<str>),
 }
 
+/// HTTP 错误类型
 #[derive(Debug)]
 pub enum ErrorKind {
+    /// HTTP 调用错误
     HTTPCallerError(HTTPCallerError),
+    /// JSON 错误
     JSONError(JSONError),
+    /// 恶意响应
+    //
+    /// 响应可能并非来自七牛
     MaliciousResponse,
+    /// 非预期的重定向
     UnexpectedRedirect,
+    /// IO 错误
     IOError(io::Error),
+    /// 未知错误
     UnknownError(Box<dyn StdError + Send>),
+    /// 响应状态码错误
     ResponseStatusCodeError(StatusCode, Box<str>),
+    /// 用户取消
     UserCanceled,
 }
 
+/// HTTP 调用错误
+///
+/// 由于与 HTTP 客户端实现解耦合，但外层依然需要根据错误类型判断处理方式。因此需要在赋值错误时给出错误类型。
 #[derive(Debug, Getters, CopyGetters)]
 pub struct HTTPCallerError {
+    /// 错误类型
     #[get_copy = "pub"]
     kind: HTTPCallerErrorKind,
+
+    /// 错误内容
     #[get = "pub"]
     inner: Box<dyn StdError + Send>,
 }
 
 impl ErrorKind {
+    /// 创建 HTTP 调用错误
     pub fn new_http_caller_error_kind(kind: HTTPCallerErrorKind, error: impl StdError + Send + 'static) -> Self {
         ErrorKind::HTTPCallerError(HTTPCallerError {
             kind,
@@ -53,41 +87,58 @@ impl ErrorKind {
     }
 }
 
+/// HTTP 调用错误类型
 #[derive(Debug, Copy, Clone)]
 pub enum HTTPCallerErrorKind {
+    /// DNS 解析错误
     ResolveError,
+    /// 代理错误
     ProxyError,
+    /// SSL 错误
     SSLError,
+    /// 连接错误
     ConnectionError,
+    /// 请求错误
     RequestError,
+    /// 响应错误
     ResponseError,
+    /// 超时错误
     TimeoutError,
+    /// 未知错误
     UnknownError,
 }
 
+/// HTTP 错误
 #[derive(Getters, CopyGetters)]
 pub struct Error {
+    /// 可重试类型
     #[get_copy = "pub"]
     retry_kind: RetryKind,
 
+    /// 是否重试安全
     #[get_copy = "pub"]
     is_retry_safe: bool,
 
+    /// 错误类型
     #[get = "pub"]
     error_kind: ErrorKind,
 
+    /// HTTP 请求方法
     #[get_copy = "pub"]
     method: Option<Method>,
 
+    /// HTTP 请求 ID
     #[get = "pub"]
     request_id: Option<RequestID>,
 
+    /// HTTP 请求 URL
     #[get = "pub"]
     url: Option<URL>,
 }
 
 impl Error {
-    pub fn new(
+    /// 通过请求和响应创建 HTTP 错误
+    pub fn new_from_req_resp(
         retry_kind: RetryKind,
         error_kind: ErrorKind,
         is_retry_safe: bool,
@@ -104,22 +155,24 @@ impl Error {
         }
     }
 
-    pub fn new_retryable_error(
+    /// 通过请求和响应创建可重试的 HTTP 错误
+    pub fn new_retryable_error_from_req_resp(
         error_kind: ErrorKind,
         is_retry_safe: bool,
         request: &Request,
         response: Option<&Response>,
     ) -> Error {
-        Self::new(RetryKind::RetryableError, error_kind, is_retry_safe, request, response)
+        Self::new_from_req_resp(RetryKind::RetryableError, error_kind, is_retry_safe, request, response)
     }
 
-    pub fn new_zone_unretryable_error(
+    /// 通过请求和响应创建区域不可重试的 HTTP 错误
+    pub fn new_zone_unretryable_error_from_req_resp(
         error_kind: ErrorKind,
         is_retry_safe: bool,
         request: &Request,
         response: Option<&Response>,
     ) -> Error {
-        Self::new(
+        Self::new_from_req_resp(
             RetryKind::ZoneUnretryableError,
             error_kind,
             is_retry_safe,
@@ -128,13 +181,14 @@ impl Error {
         )
     }
 
-    pub fn new_host_unretryable_error(
+    /// 通过请求和响应创建主机不可重试的 HTTP 错误
+    pub fn new_host_unretryable_error_from_req_resp(
         error_kind: ErrorKind,
         is_retry_safe: bool,
         request: &Request,
         response: Option<&Response>,
     ) -> Error {
-        Self::new(
+        Self::new_from_req_resp(
             RetryKind::HostUnretryableError,
             error_kind,
             is_retry_safe,
@@ -143,11 +197,21 @@ impl Error {
         )
     }
 
-    pub fn new_unretryable_error(error_kind: ErrorKind, request: &Request, response: Option<&Response>) -> Error {
-        Self::new(RetryKind::UnretryableError, error_kind, false, request, response)
+    /// 通过请求和响应创建不可重试的 HTTP 错误
+    ///
+    /// 由于是不可重试的，因此总被认为是重试不安全的
+    pub fn new_unretryable_error_from_req_resp(
+        error_kind: ErrorKind,
+        request: &Request,
+        response: Option<&Response>,
+    ) -> Error {
+        Self::new_from_req_resp(RetryKind::UnretryableError, error_kind, false, request, response)
     }
 
-    pub fn new_from_parts(
+    /// 通过直接赋值的方式创建 HTTP 错误
+    ///
+    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL 和 HTTP 方法即可
+    pub fn new(
         retry_kind: RetryKind,
         error_kind: ErrorKind,
         is_retry_safe: bool,
@@ -164,35 +228,48 @@ impl Error {
         }
     }
 
-    pub fn new_retryable_error_from_parts(
+    /// 创建可重试的 HTTP 错误
+    ///
+    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL 和 HTTP 方法即可
+    pub fn new_retryable_error(
         error_kind: ErrorKind,
         is_retry_safe: bool,
         method: Option<Method>,
         url: Option<URL>,
     ) -> Error {
-        Self::new_from_parts(RetryKind::RetryableError, error_kind, is_retry_safe, method, url)
+        Self::new(RetryKind::RetryableError, error_kind, is_retry_safe, method, url)
     }
 
-    pub fn new_zone_unretryable_error_from_parts(
+    /// 创建区域不可重试的 HTTP 错误
+    ///
+    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL 和 HTTP 方法即可
+    pub fn new_zone_unretryable_error(
         error_kind: ErrorKind,
         is_retry_safe: bool,
         method: Option<Method>,
         url: Option<URL>,
     ) -> Error {
-        Self::new_from_parts(RetryKind::ZoneUnretryableError, error_kind, is_retry_safe, method, url)
+        Self::new(RetryKind::ZoneUnretryableError, error_kind, is_retry_safe, method, url)
     }
 
-    pub fn new_host_unretryable_error_from_parts(
+    /// 创建主机不可重试的 HTTP 错误
+    ///
+    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL 和 HTTP 方法即可
+    pub fn new_host_unretryable_error(
         error_kind: ErrorKind,
         is_retry_safe: bool,
         method: Option<Method>,
         url: Option<URL>,
     ) -> Error {
-        Self::new_from_parts(RetryKind::HostUnretryableError, error_kind, is_retry_safe, method, url)
+        Self::new(RetryKind::HostUnretryableError, error_kind, is_retry_safe, method, url)
     }
 
-    pub fn new_unretryable_error_from_parts(error_kind: ErrorKind, method: Option<Method>, url: Option<URL>) -> Error {
-        Self::new_from_parts(RetryKind::UnretryableError, error_kind, false, method, url)
+    /// 创建不可重试的 HTTP 错误
+    ///
+    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL 和 HTTP 方法即可。
+    /// 由于是不可重试的，因此总被认为是重试不安全的
+    pub fn new_unretryable_error(error_kind: ErrorKind, method: Option<Method>, url: Option<URL>) -> Error {
+        Self::new(RetryKind::UnretryableError, error_kind, false, method, url)
     }
 
     fn extract_req_id_from_response(response: Option<&Response>) -> Option<RequestID> {
@@ -215,9 +292,9 @@ impl fmt::Debug for Error {
 
 impl fmt::Display for JSONError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::SerdeJSONError(err) => err.fmt(f),
-            Self::Description(err) => err.fmt(f),
+        match &self.0 {
+            _JSONError::SerdeJSONError(err) => err.fmt(f),
+            _JSONError::Description(err) => err.fmt(f),
         }
     }
 }
@@ -258,22 +335,22 @@ impl fmt::Display for Error {
 
 impl StdError for JSONError {
     fn description(&self) -> &str {
-        match self {
-            Self::SerdeJSONError(err) => err.description(),
-            Self::Description(err) => err.as_ref(),
+        match &self.0 {
+            _JSONError::SerdeJSONError(err) => err.description(),
+            _JSONError::Description(err) => err.as_ref(),
         }
     }
     #[allow(deprecated)]
     fn cause(&self) -> Option<&dyn StdError> {
-        match self {
-            Self::SerdeJSONError(err) => Some(err),
-            Self::Description(_) => None,
+        match &self.0 {
+            _JSONError::SerdeJSONError(err) => Some(err),
+            _JSONError::Description(_) => None,
         }
     }
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        match self {
-            Self::SerdeJSONError(err) => Some(err),
-            Self::Description(_) => None,
+        match &self.0 {
+            _JSONError::SerdeJSONError(err) => Some(err),
+            _JSONError::Description(_) => None,
         }
     }
 }
@@ -337,18 +414,18 @@ impl StdError for HTTPCallerError {
 
 impl From<serde_json::Error> for JSONError {
     fn from(err: serde_json::Error) -> Self {
-        Self::SerdeJSONError(err)
+        Self(_JSONError::SerdeJSONError(err))
     }
 }
 
 impl From<Box<str>> for JSONError {
     fn from(err: Box<str>) -> Self {
-        Self::Description(err)
+        Self(_JSONError::Description(err))
     }
 }
 
 impl From<String> for JSONError {
     fn from(err: String) -> Self {
-        Self::Description(err.into_boxed_str())
+        Self(_JSONError::Description(err.into_boxed_str()))
     }
 }

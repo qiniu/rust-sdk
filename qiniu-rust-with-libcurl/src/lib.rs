@@ -101,9 +101,9 @@ impl CurlClient {
                     builder = builder.bytes_as_body(bytes);
                 }
                 ResponseBody::File(file) => {
-                    builder = builder
-                        .file_as_body(file)
-                        .map_err(|err| Error::new_unretryable_error(ErrorKind::IOError(err), request, None))?;
+                    builder = builder.file_as_body(file).map_err(|err| {
+                        Error::new_unretryable_error_from_req_resp(ErrorKind::IOError(err), request, None)
+                    })?;
                 }
             }
         }
@@ -233,56 +233,56 @@ impl CurlClient {
             Ok(result) => Ok(result),
             Err(err) => {
                 if err.is_partial_file() || err.is_read_error() {
-                    Err(Error::new_retryable_error(
+                    Err(Error::new_retryable_error_from_req_resp(
                         ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::UnknownError, err),
                         false,
                         request,
                         None,
                     ))
                 } else if err.is_recv_error() {
-                    Err(Error::new_retryable_error(
+                    Err(Error::new_retryable_error_from_req_resp(
                         ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::ResponseError, err),
                         false,
                         request,
                         None,
                     ))
                 } else if err.is_write_error() || err.is_again() || err.is_chunk_failed() {
-                    Err(Error::new_retryable_error(
+                    Err(Error::new_retryable_error_from_req_resp(
                         ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::UnknownError, err),
                         true,
                         request,
                         None,
                     ))
                 } else if err.is_operation_timedout() {
-                    Err(Error::new_retryable_error(
+                    Err(Error::new_retryable_error_from_req_resp(
                         ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::TimeoutError, err),
                         true,
                         request,
                         None,
                     ))
                 } else if err.is_send_error() {
-                    Err(Error::new_retryable_error(
+                    Err(Error::new_retryable_error_from_req_resp(
                         ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::RequestError, err),
                         true,
                         request,
                         None,
                     ))
                 } else if err.is_too_many_redirects() || err.is_got_nothing() {
-                    Err(Error::new_host_unretryable_error(
+                    Err(Error::new_host_unretryable_error_from_req_resp(
                         ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::UnknownError, err),
                         true,
                         request,
                         None,
                     ))
                 } else if err.is_couldnt_resolve_proxy() {
-                    Err(Error::new_host_unretryable_error(
+                    Err(Error::new_host_unretryable_error_from_req_resp(
                         ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::ResolveError, err),
                         true,
                         request,
                         None,
                     ))
                 } else if err.is_couldnt_connect() {
-                    Err(Error::new_host_unretryable_error(
+                    Err(Error::new_host_unretryable_error_from_req_resp(
                         ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::ConnectionError, err),
                         true,
                         request,
@@ -301,14 +301,14 @@ impl CurlClient {
                     || err.is_ssl_shutdown_failed()
                     || err.is_ssl_issuer_error()
                 {
-                    Err(Error::new_host_unretryable_error(
+                    Err(Error::new_host_unretryable_error_from_req_resp(
                         ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::SSLError, err),
                         true,
                         request,
                         None,
                     ))
                 } else {
-                    Err(Error::new_unretryable_error(
+                    Err(Error::new_unretryable_error_from_req_resp(
                         ErrorKind::new_http_caller_error_kind(HTTPCallerErrorKind::UnknownError, err),
                         request,
                         None,

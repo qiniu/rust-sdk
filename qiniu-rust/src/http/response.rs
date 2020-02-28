@@ -67,7 +67,7 @@ impl<'a> Response<'a> {
             HTTPResponseBody::Bytes(bytes) => serde_json::from_slice(&bytes),
         }
         .map_err(|err| {
-            HTTPError::new_unretryable_error_from_parts(
+            HTTPError::new_unretryable_error(
                 HTTPErrorKind::JSONError(err.into()),
                 Some(self.method),
                 Some((self.base_url.to_owned() + self.path).into()),

@@ -21,7 +21,7 @@ build_test:
 	done
 doc:
 	set -e; \
-	for dir in qiniu-rust qiniu-c qiniu-ruby; do \
+	for dir in qiniu-rust qiniu-rust-http qiniu-c qiniu-ruby; do \
 		$(MAKE) -C $$dir doc; \
 	done
 clean:

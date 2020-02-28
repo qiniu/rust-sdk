@@ -34,7 +34,7 @@ impl<'a> Request<'a> {
     pub(crate) fn send(&self) -> HTTPResult<Response> {
         let mut prev_err: Option<HTTPError> = None;
         let choices = self.domains_manager.choose(self.parts.base_urls).map_err(|err| {
-            HTTPError::new_host_unretryable_error_from_parts(
+            HTTPError::new_host_unretryable_error(
                 HTTPErrorKind::UnknownError(Box::new(err)),
                 true,
                 Some(self.parts.method.to_owned()),
@@ -166,7 +166,7 @@ impl<'a> Request<'a> {
         if let Some(query) = &self.parts.query {
             url = Url::parse_with_params(url.as_str(), query)
                 .map_err(|err| {
-                    HTTPError::new_unretryable_error_from_parts(
+                    HTTPError::new_unretryable_error(
                         HTTPErrorKind::UnknownError(Box::new(err)),
                         Some(self.parts.method),
                         Some(url.into()),
@@ -194,7 +194,7 @@ impl<'a> Request<'a> {
             if response.header("Content-Type") == Some(&"application/json".into()) {
                 error_message = serde_json::from_slice::<RequestErrorResponse>(&body)
                     .map_err(|err| {
-                        HTTPError::new_retryable_error(
+                        HTTPError::new_retryable_error_from_req_resp(
                             HTTPErrorKind::JSONError(err.into()),
                             false,
                             request,
@@ -232,17 +232,31 @@ impl<'a> Request<'a> {
         let mut content_length = None::<usize>;
         if let Some(content_length_str) = response.header("Content-Length") {
             content_length = Some(content_length_str.parse().map_err(|err| {
-                HTTPError::new_unretryable_error(HTTPErrorKind::UnknownError(Box::new(err)), request, Some(response))
+                HTTPError::new_unretryable_error_from_req_resp(
+                    HTTPErrorKind::UnknownError(Box::new(err)),
+                    request,
+                    Some(response),
+                )
             })?);
         }
         if let Some(body) = response.take_body() {
             let mut buf = Vec::<u8>::new();
             let body_len = match body {
                 HTTPResponseBody::Reader(mut reader) => reader.read_to_end(&mut buf).map_err(|err| {
-                    HTTPError::new_retryable_error(HTTPErrorKind::IOError(err), false, request, Some(response))
+                    HTTPError::new_retryable_error_from_req_resp(
+                        HTTPErrorKind::IOError(err),
+                        false,
+                        request,
+                        Some(response),
+                    )
                 })?,
                 HTTPResponseBody::File(mut file) => file.read_to_end(&mut buf).map_err(|err| {
-                    HTTPError::new_retryable_error(HTTPErrorKind::IOError(err), false, request, Some(response))
+                    HTTPError::new_retryable_error_from_req_resp(
+                        HTTPErrorKind::IOError(err),
+                        false,
+                        request,
+                        Some(response),
+                    )
                 })?,
                 HTTPResponseBody::Bytes(body) => {
                     buf = body;
@@ -251,7 +265,7 @@ impl<'a> Request<'a> {
             };
             if let Some(content_length) = content_length {
                 if content_length != body_len {
-                    return Err(HTTPError::new_retryable_error(
+                    return Err(HTTPError::new_retryable_error_from_req_resp(
                         HTTPErrorKind::IOError(IOError::from(IOErrorKind::UnexpectedEof)),
                         false,
                         request,
@@ -272,27 +286,29 @@ impl<'a> Request<'a> {
         response: Option<&HTTPResponse>,
     ) -> HTTPError {
         match status_code {
-            300..=399 => HTTPError::new_unretryable_error(HTTPErrorKind::UnexpectedRedirect, request, response),
-            400 if error_message.contains("incorrect region") => HTTPError::new_zone_unretryable_error(
+            300..=399 => {
+                HTTPError::new_unretryable_error_from_req_resp(HTTPErrorKind::UnexpectedRedirect, request, response)
+            }
+            400 if error_message.contains("incorrect region") => HTTPError::new_zone_unretryable_error_from_req_resp(
                 HTTPErrorKind::ResponseStatusCodeError(status_code, error_message),
                 false,
                 request,
                 response,
             ),
             400..=499 | 501 | 573 | 608 | 612 | 614 | 615 | 616 | 619 | 630 | 631 | 640 | 701 => {
-                HTTPError::new_unretryable_error(
+                HTTPError::new_unretryable_error_from_req_resp(
                     HTTPErrorKind::ResponseStatusCodeError(status_code, error_message),
                     request,
                     response,
                 )
             }
-            502 | 503 | 571 => HTTPError::new_host_unretryable_error(
+            502 | 503 | 571 => HTTPError::new_host_unretryable_error_from_req_resp(
                 HTTPErrorKind::ResponseStatusCodeError(status_code, error_message),
                 true,
                 request,
                 response,
             ),
-            _ => HTTPError::new_retryable_error(
+            _ => HTTPError::new_retryable_error_from_req_resp(
                 HTTPErrorKind::ResponseStatusCodeError(status_code, error_message),
                 false,
                 request,
@@ -342,7 +358,7 @@ mod tests {
     impl HTTPCaller for HTTPRetryer {
         fn call(&self, request: &HTTPRequest) -> HTTPResult<HTTPResponse> {
             assert!(request.headers().contains_key(&"authorization".into()));
-            Err(HTTPError::new_from_parts(
+            Err(HTTPError::new(
                 self.retry_kind,
                 HTTPErrorKind::IOError(io::Error::new(io::ErrorKind::Other, "Test Error")),
                 self.is_retry_safe,

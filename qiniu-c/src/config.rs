@@ -856,7 +856,7 @@ impl HTTPCaller for QiniuNgHTTPCallHandler {
         (self.handler)(request, response, &mut err);
         if let Some(e) = Option::<HTTPErrorKind>::from(&err.error) {
             qiniu_ng_err_ignore(&mut err.error);
-            Err(HTTPError::new(
+            Err(HTTPError::new_from_req_resp(
                 err.retry_kind.into(),
                 e,
                 err.is_retry_safe,
@@ -910,7 +910,7 @@ impl HTTPBeforeAction for QiniuNgHTTPBeforeActionHandler {
         (self.handler)(request, &mut err);
         if let Some(e) = Option::<HTTPErrorKind>::from(&err.error) {
             qiniu_ng_err_ignore(&mut err.error);
-            Err(HTTPError::new(
+            Err(HTTPError::new_from_req_resp(
                 err.retry_kind.into(),
                 e,
                 err.is_retry_safe,
@@ -988,7 +988,7 @@ impl HTTPAfterAction for QiniuNgHTTPAfterActionHandler {
         (self.handler)(request, response, &mut err);
         if let Some(e) = Option::<HTTPErrorKind>::from(&err.error) {
             qiniu_ng_err_ignore(&mut err.error);
-            Err(HTTPError::new(
+            Err(HTTPError::new_from_req_resp(
                 err.retry_kind.into(),
                 e,
                 err.is_retry_safe,

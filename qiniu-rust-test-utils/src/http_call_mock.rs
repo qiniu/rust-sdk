@@ -213,7 +213,7 @@ impl<T: HTTPCaller> HTTPCaller for UploadingProgressErrorMock<T> {
                 ((1.max(total_size / packet_size) as f64) / self.uploading_failure_probability) as u64,
             ) == 0
             {
-                return Err(HTTPError::new_retryable_error(
+                return Err(HTTPError::new_retryable_error_from_req_resp(
                     HTTPErrorKind::new_http_caller_error_kind(
                         HTTPCallerErrorKind::RequestError,
                         IOError::new(IOErrorKind::TimedOut, "Custom error"),

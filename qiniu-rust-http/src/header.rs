@@ -8,10 +8,12 @@ use std::{
     ops::Deref,
 };
 
+/// HTTP Header 名称
 #[derive(Clone, Eq)]
 pub struct HeaderName<'n>(Cow<'n, str>);
 
 impl<'n> HeaderName<'n> {
+    /// 创建 HTTP Header 名称
     pub fn new(header_name: impl Into<Cow<'n, str>>) -> HeaderName<'n> {
         make_header_name(header_name.into())
     }
@@ -203,7 +205,10 @@ lazy_static! {
     };
 }
 
+/// HTTP Header 值
 pub type HeaderValue<'v> = Cow<'v, str>;
+
+/// HTTP Header
 pub type Headers<'h> = HashMap<HeaderName<'h>, HeaderValue<'h>>;
 
 #[cfg(test)]

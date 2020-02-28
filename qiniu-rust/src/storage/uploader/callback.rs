@@ -4,7 +4,7 @@ pub(super) fn upload_response_callback(response: &mut Response) -> HTTPResult<()
     if with_reqid(response) {
         Ok(())
     } else {
-        Err(HTTPError::new_retryable_error_from_parts(
+        Err(HTTPError::new_retryable_error(
             HTTPErrorKind::MaliciousResponse,
             true,
             Some(response.method()),
