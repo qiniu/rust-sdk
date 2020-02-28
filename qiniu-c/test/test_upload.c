@@ -14,6 +14,7 @@ void print_progress(uint64_t uploaded, uint64_t total) {
     case WAIT_OBJECT_0:
         if (last_print_time + 5 < (long long) time(NULL)) {
             printf("%d: progress: %llu / %llu\n", GetCurrentThreadId(), uploaded, total);
+            fflush(NULL);
             last_print_time = (long long) time(NULL);
         }
 	ReleaseMutex(mutex);
@@ -30,6 +31,7 @@ atomic_llong last_print_time;
 void print_progress(uint64_t uploaded, uint64_t total) {
     if (last_print_time + 5 < (long long) time(NULL)) {
         printf("%d: progress: %llu / %llu\n", (int) pthread_self(), uploaded, total);
+        fflush(NULL);
         last_print_time = (long long) time(NULL);
     }
 }
@@ -260,6 +262,7 @@ void test_qiniu_ng_upload_huge_number_of_files(void) {
 	    0,
 	    "CloseHandle() failed");
         printf("Done: %d / %d\n", i + 1, THREAD_COUNT);
+        fflush(NULL);
     }
 #else
     pthread_t threads[THREAD_COUNT];
@@ -273,6 +276,7 @@ void test_qiniu_ng_upload_huge_number_of_files(void) {
             pthread_join(threads[i], NULL), 0,
             "pthread_join() failed");
         printf("Done: %d / %d\n", i + 1, THREAD_COUNT);
+        fflush(NULL);
     }
 #endif
     for (int i = 0; i < THREAD_COUNT; i++) {
