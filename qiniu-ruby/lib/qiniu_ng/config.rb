@@ -32,6 +32,10 @@ module QiniuNg
                    upload_recorder_always_flush_records: nil,
                    upload_recorder_root_directory: nil,
                    upload_recorder_upload_block_lifetime: nil,
+                   uplog_file_lock_policy: nil,
+                   uplog_file_max_size: nil,
+                   uplog_file_path: nil,
+                   uplog_file_upload_threshold: nil,
                    builder: nil,
                    config: nil)
       @cache = {}
@@ -65,12 +69,16 @@ module QiniuNg
       builder.upload_recorder_always_flush_records = upload_recorder_always_flush_records unless upload_recorder_always_flush_records.nil?
       builder.upload_recorder_root_directory = upload_recorder_root_directory unless upload_recorder_root_directory.nil?
       builder.upload_recorder_upload_block_lifetime = upload_recorder_upload_block_lifetime unless upload_recorder_upload_block_lifetime.nil?
+      builder.uplog_file_lock_policy = uplog_file_lock_policy unless uplog_file_lock_policy.nil?
+      builder.uplog_file_max_size = uplog_file_max_size unless uplog_file_max_size.nil?
+      builder.uplog_file_path = uplog_file_path unless uplog_file_path.nil?
+      builder.uplog_file_upload_threshold = uplog_file_upload_threshold unless uplog_file_upload_threshold.nil?
       @config = QiniuNg::Error.wrap_ffi_function do
                   Bindings::Config.build(builder.instance_variable_get(:@builder))
                 end
     end
 
-    # @!method initialize(use_https: nil, api_host: nil, rs_host: nil, rsf_host: nil, uc_host: nil, uplog_host: nil, batch_max_operation_size: nil, http_connect_timeout: nil, http_low_transfer_speed: nil, http_low_transfer_speed_timeout: nil, http_request_retries: nil, http_request_retry_delay: nil, http_request_timeout: nil, tcp_keepalive_idle_timeout: nil, tcp_keepalive_probe_interval: nil, upload_block_size: nil, upload_threshold: nil, upload_token_lifetime: nil, upload_recorder_always_flush_records: nil, upload_recorder_root_directory: nil, upload_recorder_upload_block_lifetime: nil)
+    # @!method initialize(use_https: nil, api_host: nil, rs_host: nil, rsf_host: nil, uc_host: nil, uplog_host: nil, batch_max_operation_size: nil, http_connect_timeout: nil, http_low_transfer_speed: nil, http_low_transfer_speed_timeout: nil, http_request_retries: nil, http_request_retry_delay: nil, http_request_timeout: nil, tcp_keepalive_idle_timeout: nil, tcp_keepalive_probe_interval: nil, upload_block_size: nil, upload_threshold: nil, upload_token_lifetime: nil, upload_recorder_always_flush_records: nil, upload_recorder_root_directory: nil, upload_recorder_upload_block_lifetime: nil, uplog_file_lock_policy: nil, uplog_file_max_size: nil, uplog_file_path: nil, uplog_file_upload_threshold: nil)
     #   创建客户端实例
     #   @param [Boolean] use_https 是否使用 HTTPS 协议，默认为使用 HTTPS 协议
     #   @param [String] api_host API 服务器地址（仅需要指定主机地址和端口，无需包含协议），默认将会使用七牛公有云的 API 服务器地址，仅在使用私有云时才需要配置
@@ -93,6 +101,10 @@ module QiniuNg
     #   @param [Boolean] upload_recorder_always_flush_records 设置进度记录文件始终刷新，默认不刷新
     #   @param [String] upload_recorder_root_directory 设置上传进度记录仪文件根目录
     #   @param [Utils::Duration] upload_recorder_upload_block_lifetime 设置文件分块有效期。对于超过有效期的分块，SDK 将重新上传，确保所有分块在创建文件时均有效，默认为 7 天，这是七牛公有云默认的配置。对于私有云的情况，需要参照私有云的配置来设置
+    #   @param [Symbol] uplog_file_lock_policy 设置文件锁策略，默认为 "在追加日志时为日志文件加共享锁，而上传时使用排他锁"
+    #   @param [Integer] uplog_file_max_size 设置上传日志文件的最大尺寸，单位为字节，默认为 4 MB
+    #   @param [String] uplog_file_path 设置上传日志文件路径
+    #   @param [Integer] uplog_file_upload_threshold 设置上传日志文件的上传阙值，单位为字节，默认为 4 KB
 
     # @!visibility private
     def inspect

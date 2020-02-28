@@ -18,6 +18,10 @@
 - Linux: Ruby 2.4.0+ 或 JRuby 9.2.0.0+, Rust 1.38+, cbindgen, GCC, libcurl
 - MacOS: Ruby 2.4.0+ 或 JRuby 9.2.0.0+, Rust 1.38+, cbindgen, Clang（from XCode）, libcurl
 
+## 接入指南
+
+[点击进入](https://github.com/bachue/rust-sdk/blob/master/USAGE.md)
+
 ## 接口文档
 
 [点击进入](https://bachue.github.io/rust-sdk/doc/qiniu_ng_ruby/)
@@ -25,7 +29,7 @@
 ## 安装指南
 
 1. 确定 Rust 1.38+ 已经被安装，`cargo` 命令可用，安装方法参见 [rustup.rs](https://rustup.rs/)。
-2. 确定 `pkg-config` 命令，`openssl` 库，`libcurl` 库已经被安装。
+2. 确定 `pkg-config` 命令可用，`openssl` 开发库，`libcurl` 库已经被安装。
 3. 添加这行代码到应用的 Gemfile:
 
 ```ruby

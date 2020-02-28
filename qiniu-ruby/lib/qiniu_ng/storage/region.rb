@@ -59,7 +59,7 @@ module QiniuNg
 
       # 通过区域 ID 获取区域实例
       #
-      # @param [Symbol] region_id 区域 ID，参考官方文档 {https://developer.qiniu.com/kodo/manual/1671/region-endpoint}
+      # @param [Symbol] region_id 区域 ID，参考 [官方文档](https://developer.qiniu.com/kodo/manual/1671/region-endpoint)
       # @return [Region] 返回对应的区域实例
       # @raise [Argument] 非法的区域 ID
       def self.by_id(region_id)

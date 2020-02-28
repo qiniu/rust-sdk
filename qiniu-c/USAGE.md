@@ -61,7 +61,7 @@ int main() {
 int main() {
     const char *access_key = "[Qiniu Access Key]";
     const char *secret_key = "[Qiniu Secret Key]";
-    const char *bucket_name = "Bucket Name";
+    const char *bucket_name = "[Bucket Name]";
     qiniu_ng_client_t client = qiniu_ng_client_new_default(access_key, secret_key);
     qiniu_ng_err_t err;
 
@@ -240,7 +240,7 @@ int main() {
 
     qiniu_ng_upload_response_t upload_response;
     qiniu_ng_upload_params_t params = {
-        .key = "qiniu.mp4",
+        .key = key_to_overwrite,
         .file_name = "local file name",
     };
     qiniu_ng_err_t err;
@@ -486,7 +486,7 @@ int main() {
     qiniu_ng_config_builder_upload_threshold(config_builder, 16 * 1024 * 1024); // 修改成尺寸大于 16 MB 的文件才使用分片上传
     qiniu_ng_config_builder_upload_block_size(config_builder, 8 * 1024 * 1024); // 每个分块尺寸修改为 8 MB
     qiniu_ng_config_builder_upload_recorder_root_directory(config_builder, "/recorder/data"); // 修改上传进度记录文件的存储目录
-    qiniu_ng_config_builder_upload_recorder_upload_block_lifetime(config_builder,5 * 24 * 60 * 60); // 每个分块的有效期减少为 5 天
+    qiniu_ng_config_builder_upload_recorder_upload_block_lifetime(config_builder, 5 * 24 * 60 * 60); // 每个分块的有效期减少为 5 天
 
     qiniu_ng_config_t config;
     qiniu_ng_err_t err;

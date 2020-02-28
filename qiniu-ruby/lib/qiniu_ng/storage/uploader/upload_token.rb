@@ -5,7 +5,7 @@ module QiniuNg
     class Uploader
       # 上传凭证
       #
-      # 从这里 {https://developer.qiniu.com/kodo/manual/1208/upload-token} 了解七牛安全机制
+      # 从 [这里](https://developer.qiniu.com/kodo/manual/1208/upload-token) 了解七牛安全机制
       class UploadToken
         # @!visibility private
         def initialize(upload_token_ffi)

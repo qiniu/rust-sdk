@@ -13,7 +13,7 @@ module QiniuNg
       # @param [Client] client 客户端实例
       # @param [String] bucket_name 存储空间名称
       # @param [Region,Symbol] region 存储空间区域，如果传入 nil 将使用懒加载自动检测。
-      #                        可以接受 {Region} 实例或符号，对于传入符号的情况，如果是 :auto_detect 表示立即检测，而其他符号表示区域 ID
+      #                        可以接受 {Region} 实例或符号，对于传入符号的情况，如果是 `:auto_detect` 表示立即检测，而其他符号表示区域 ID
       # @param [Array<String>] domains 下载域名列表
       # @param [Boolean] auto_detect_domains 是否自动检测下载域名，如果是，将首先使用传入的 domains，如果无法使用，才会选择七牛存储的下载域名
       # @raise [ArgumentError] 参数错误
@@ -97,7 +97,7 @@ module QiniuNg
       # @return [BucketUploader] 返回存储空间上传器
       # @raise [ArgumentError] 线程池参数错误
       def uploader(thread_pool_size: nil)
-        BucketUploader.send(:new_from_bucket, @uploader_manager, self, thread_pool_size: thread_pool_size)
+        Uploader::BucketUploader.send(:new_from_bucket, @uploader_manager, self, thread_pool_size: thread_pool_size)
       end
 
       # @!visibility private

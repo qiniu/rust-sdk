@@ -7,7 +7,7 @@ module QiniuNg
     class Uploader
       # 上传策略
       #
-      # 从这里 {https://developer.qiniu.com/kodo/manual/1206/put-policy} 了解七牛安全机制
+      # 从 [这里](https://developer.qiniu.com/kodo/manual/1206/put-policy) 了解七牛安全机制
       class UploadPolicy
         # @!visibility private
         def initialize(upload_policy_ffi)

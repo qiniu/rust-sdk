@@ -39,13 +39,13 @@ module QiniuNg
         # @param [UploadToken,String] upload_token 上传凭证
         # @param [String] key 对象名称
         # @param [String] file_name 原始文件名称
-        # @param [Hash] vars 自定义变量 {https://developer.qiniu.com/kodo/manual/1235/vars#xvar}
+        # @param [Hash] vars [自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
         # @param [Hash] metadata 元数据
         # @param [Boolean] checksum_enabled 是否启用文件校验，默认总是启用，且不推荐禁用
-        # @param [Symbol] resumable_policy 分片上传策略，可以接受 :default, :threshold, :always_be_resumeable, :never_be_resumeable 四种取值
+        # @param [Symbol] resumable_policy 分片上传策略，可以接受 `:default`, `:threshold`, `:always_be_resumeable`, `:never_be_resumeable` 四种取值
         #                                  默认且推荐使用 default 策略
         # @param [Lambda] on_uploading_progress 上传进度回调，需要提供一个带有两个参数的闭包函数，第一个参数为已经上传的数据量，第二个参数为总数据量（如果总数据量未知，将返回 0），没有返回值
-        # @param [Integer] upload_threshold 分片上传策略阙值，仅当 resumable_policy 为 :threshold 时起效，为其设置分片上传的阙值
+        # @param [Integer] upload_threshold 分片上传策略阙值，仅当 resumable_policy 为 `:threshold` 时起效，为其设置分片上传的阙值
         # @param [Ingeger] thread_pool_size 上传线程池尺寸，默认使用默认的线程池策略
         # @param [Ingeger] max_concurrency 最大并发度，默认与线程池大小相同
         # @return [UploadResponse] 上传响应
@@ -101,13 +101,13 @@ module QiniuNg
         # @param [UploadToken,String] upload_token 上传凭证
         # @param [String] key 对象名称
         # @param [String] file_name 原始文件名称
-        # @param [Hash] vars 自定义变量 {https://developer.qiniu.com/kodo/manual/1235/vars#xvar}
+        # @param [Hash] vars [自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
         # @param [Hash] metadata 元数据
         # @param [Boolean] checksum_enabled 是否启用文件校验，默认总是启用，且不推荐禁用
-        # @param [Symbol] resumable_policy 分片上传策略，可以接受 :default, :threshold, :always_be_resumeable, :never_be_resumeable 四种取值
+        # @param [Symbol] resumable_policy 分片上传策略，可以接受 `:default`, `:threshold`, `:always_be_resumeable`, `:never_be_resumeable` 四种取值
         #                                  默认且推荐使用 default 策略
         # @param [Lambda] on_uploading_progress 上传进度回调，需要提供一个带有两个参数的闭包函数，第一个参数为已经上传的数据量，第二个参数为总数据量（如果总数据量未知，将返回 0），没有返回值
-        # @param [Integer] upload_threshold 分片上传策略阙值，仅当 resumable_policy 为 :threshold 时起效，为其设置分片上传的阙值
+        # @param [Integer] upload_threshold 分片上传策略阙值，仅当 resumable_policy 为 `:threshold` 时起效，为其设置分片上传的阙值
         # @param [Ingeger] thread_pool_size 上传线程池尺寸，默认使用默认的线程池策略
         # @param [Ingeger] max_concurrency 最大并发度，默认与线程池大小相同
         # @return [UploadResponse] 上传响应

@@ -80,7 +80,7 @@ module QiniuNg
     #   client.create_bucket('[New Bucket Name]', :z0)
     #
     # @param [String] bucket_name 存储空间名称
-    # @param [Symbol] region 区域 ID，公有云区域 ID 参考官方文档 {https://developer.qiniu.com/kodo/manual/1671/region-endpoint}
+    # @param [Symbol] region 区域 ID，公有云区域 ID 参考 [官方文档](https://developer.qiniu.com/kodo/manual/1671/region-endpoint)
     # @return [Storage::Bucket] 返回新的存储空间实例
     def create_bucket(bucket_name, region)
       region = region.id if region.is_a?(Storage::Region)
