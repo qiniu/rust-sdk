@@ -46,13 +46,13 @@ matrix:
                 rbenv install 2.4.0
                 rbenv shell 2.4.0
                 gem install bundler
-                make -C qiniu-ruby test
+                make -C qiniu-ruby build test
               )
               (
                 rbenv install jruby-9.2.0.0
                 rbenv shell jruby-9.2.0.0
                 gem install bundler
-                make -C qiniu-ruby test
+                make -C qiniu-ruby build test
               )
             fi
     - os: osx
@@ -84,14 +84,9 @@ matrix:
         - |
             eval "$(rbenv init -)"
             rbenv install 2.4.0
-            rbenv global 2.4.0
+            rbenv shell 2.4.0
             gem install bundler
-        - |
-            if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-              for dir in qiniu-ruby; do
-                make -C $dir test
-              done
-            fi
+            make -C qiniu-ruby build test
     - os: windows
       rust:
         - 1.38.0-x86_64-pc-windows-msvc

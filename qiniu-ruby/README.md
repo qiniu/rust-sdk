@@ -24,7 +24,9 @@
 
 ## 安装指南
 
-添加这行代码到应用的 Gemfile:
+1. 确定 Rust 1.38+ 已经被安装，`cargo` 命令可用，安装方法参见 [rustup.rs](https://rustup.rs/)。
+2. 确定 `pkg-config` 命令，`openssl` 库，`libcurl` 库已经被安装。
+3. 添加这行代码到应用的 Gemfile:
 
 ```ruby
 gem 'qiniu_ng'
@@ -41,6 +43,8 @@ bundle install
 ```bash
 gem install qiniu_ng
 ```
+
+由于需要下载编译 `qiniu_ng` 所需的依赖，安装需要较长时间，请耐心等待。
 
 ## 构建指南
 

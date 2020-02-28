@@ -77,8 +77,7 @@ module QiniuNg
       #
       # @return [String,nil] 返回区域 ID
       def id
-        core_ffi = Bindings.const_get :CoreFFI
-        id_s = core_ffi::QiniuNgRegionIdTWrapper.new
+        id_s = Bindings::CoreFFI::QiniuNgRegionIdTWrapper.new
         return nil unless @region.get_region_id(id_s)
         case id_s[:inner]
         when :qiniu_ng_region_z0 then :z0

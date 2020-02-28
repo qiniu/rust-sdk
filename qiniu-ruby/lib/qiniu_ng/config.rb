@@ -276,8 +276,7 @@ module QiniuNg
     # 上传日志文件锁策略
     # @return [Symbol] 上传日志文件锁策略
     def uplog_file_lock_policy
-      core_ffi = Bindings.const_get(:CoreFFI)
-      policy = core_ffi::QiniuNgUploadLoggerLockPolicyTWrapper.new
+      policy = Bindings::CoreFFI::QiniuNgUploadLoggerLockPolicyTWrapper.new
       return nil unless @config.get_uplog_file_lock_policy(policy)
       case policy[:inner]
       when :qiniu_ng_lock_policy_lock_shared_duration_appending_and_lock_exclusive_duration_uploading
@@ -294,8 +293,7 @@ module QiniuNg
     # 上传日志文件的上传阙值
     # @return [Symbol] 上传日志文件的上传阙值，单位为字节
     def uplog_file_upload_threshold
-      core_ffi = Bindings.const_get(:CoreFFI)
-      u32 = core_ffi::U32.new
+      u32 = Bindings::CoreFFI::U32.new
       return nil unless @config.get_uplog_file_upload_threshold(u32)
       u32[:value]
     end
@@ -303,8 +301,7 @@ module QiniuNg
     # 上传日志文件的最大尺寸
     # @return [Symbol] 上传日志文件的最大尺寸，单位为字节
     def uplog_file_max_size
-      core_ffi = Bindings.const_get(:CoreFFI)
-      u32 = core_ffi::U32.new
+      u32 = Bindings::CoreFFI::U32.new
       return nil unless @config.get_uplog_file_max_size(u32)
       u32[:value]
     end

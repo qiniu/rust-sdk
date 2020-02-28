@@ -73,7 +73,7 @@ module QiniuNg
                                         upload_threshold: upload_threshold,
                                         thread_pool_size: thread_pool_size,
                                         max_concurrency: max_concurrency)
-          reader = Bindings.const_get(:CoreFFI)::QiniuNgReadableT.new
+          reader = Bindings::CoreFFI::QiniuNgReadableT.new
           reader[:context] = nil
           reader[:read_func] = proc do |_, data, size, have_read|
                                  content = file.read(size)
@@ -163,8 +163,7 @@ module QiniuNg
                                  upload_threshold: nil,
                                  thread_pool_size: nil,
                                  max_concurrency: nil)
-          core_ffi = Bindings.const_get(:CoreFFI)
-          params = core_ffi::QiniuNgUploadParamsT.new
+          params = Bindings::CoreFFI::QiniuNgUploadParamsT.new
           params[:key] = FFI::MemoryPointer.from_string(key.to_s) unless key.nil?
           params[:file_name] = FFI::MemoryPointer.from_string(file_name.to_s) unless file_name.nil?
           params[:mime] = FFI::MemoryPointer.from_string(mime.to_s) unless mime.nil?

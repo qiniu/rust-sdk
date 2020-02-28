@@ -18,9 +18,8 @@ module QiniuNg
         # 上传响应中的校验和字段
         # @return [String,nil] 返回上传响应中的校验和字段
         def hash
-          core_ffi = Bindings.const_get :CoreFFI
           data = FFI::MemoryPointer.new(256)
-          data_len = core_ffi::Size.new
+          data_len = Bindings::CoreFFI::Size.new
           @upload_response.get_hash(data, data_len)
           return nil if data_len[:value].zero?
           data.read_string(data_len[:value])

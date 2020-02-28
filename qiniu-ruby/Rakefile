@@ -23,3 +23,35 @@ task :generate_bindings do
        '--output', File.expand_path(File.join('lib', 'qiniu_ng', 'bindings.rb'), __dir__)
   end
 end
+
+desc 'Prepare for build'
+task :before_build do
+  ext_dir = File.expand_path(File.join('ext', 'qiniu_ng'), __dir__).freeze
+  FileUtils.rm_r ext_dir, force: true, secure: true, verbose: true
+  FileUtils.mkdir_p ext_dir, verbose: true
+  FileUtils.cp_r File.expand_path(File.join('..', 'qiniu-c'), __dir__), File.join(ext_dir, 'qiniu-c'), verbose: true
+  FileUtils.rm_r File.join(ext_dir, 'qiniu-c', 'test'), force: true, secure: true, verbose: true
+  FileUtils.cp_r File.expand_path(File.join('..', 'qiniu-rust'), __dir__), File.join(ext_dir, 'qiniu-rust'), verbose: true
+  FileUtils.cp_r File.expand_path(File.join('..', 'qiniu-rust-http'), __dir__), File.join(ext_dir, 'qiniu-rust-http'), verbose: true
+  FileUtils.cp_r File.expand_path(File.join('..', 'qiniu-rust-with-libcurl'), __dir__), File.join(ext_dir, 'qiniu-rust-with-libcurl'), verbose: true
+  File.write File.join(ext_dir, 'extconf.rb'), <<~EXTCONF
+    # frozen_string_literal: true
+
+    require 'mkmf'
+    require 'ffi'
+    require 'fileutils'
+
+    create_makefile 'qiniu_ng'
+    File.write('Makefile', <<~MAKEFILE, mode: 'a')
+      all:\\n\\tmake -C qiniu-c cargo_build_release && cp qiniu-c/target/release/\#{FFI::Platform::LIBPREFIX}qiniu_ng_c.\#{FFI::Platform::LIBSUFFIX} ..
+      clean:\\n\\tcd qiniu-c && cargo clean
+      install:
+    MAKEFILE
+  EXTCONF
+end
+
+desc 'Clearn for build'
+task :after_build do
+  ext_dir = File.expand_path('ext', __dir__).freeze
+  FileUtils.rm_r ext_dir, force: true, secure: true, verbose: true
+end

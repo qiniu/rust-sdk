@@ -111,14 +111,12 @@ module QiniuNg
 
         %w[object token].each do |method|
           define_method :"#{method}_deadline" do
-            core_ffi = Bindings.const_get :CoreFFI
-            timestamp_s = core_ffi::U64.new
+            timestamp_s = Bindings::CoreFFI::U64.new
             Time.at(timestamp_s[:value]) if @upload_policy.public_send(:"get_#{method}_deadline", timestamp_s)
           end
 
           define_method :"#{method}_lifetime" do
-            core_ffi = Bindings.const_get :CoreFFI
-            lifetime_s = core_ffi::U64.new
+            lifetime_s = Bindings::CoreFFI::U64.new
             Utils::Duration::new(seconds: lifetime_s[:value]) if @upload_policy.public_send(:"get_#{method}_lifetime", lifetime_s)
           end
         end

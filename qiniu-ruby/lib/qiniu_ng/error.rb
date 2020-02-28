@@ -181,33 +181,32 @@ module QiniuNg
 
   # @!visibility private
   def Error.wrap_ffi_function
-    core_ffi = Bindings.const_get(:CoreFFI)
     return_values = yield
     return_values = [return_values] unless return_values.is_a?(Array)
-    errs, return_values = return_values.partition { |v| v.is_a?(core_ffi::QiniuNgErrT) }
+    errs, return_values = return_values.partition { |v| v.is_a?(Bindings::CoreFFI::QiniuNgErrT) }
     errs.each do |err|
-      if core_ffi::qiniu_ng_err_any_error(err)
+      if Bindings::CoreFFI::qiniu_ng_err_any_error(err)
         code = FFI::MemoryPointer.new(:int)
-        raise Error::OSError, code.read_int if core_ffi::qiniu_ng_err_os_error_extract(err, code)
-        msg = core_ffi::QiniuNgStrT.new
-        raise Error::IOError, Bindings::Str.new(msg) if core_ffi::qiniu_ng_err_io_error_extract(err, msg)
-        raise Error::UnexpectedRedirectError if core_ffi::qiniu_ng_err_unexpected_redirect_error_extract(err)
-        raise Error::UserCancelledError if core_ffi::qiniu_ng_err_user_canceled_error_extract(err)
-        raise Error::JSONError, Bindings::Str.new(msg) if core_ffi::qiniu_ng_err_json_error_extract(err, msg)
-        raise Error::ResponseStatusCodeError.new(code.read_int, Bindings::Str.new(msg)) if core_ffi::qiniu_ng_err_response_status_code_error_extract(err, code, msg)
-        raise Error::UnknownError, Bindings::Str.new(msg) if core_ffi::qiniu_ng_err_unknown_error_extract(err, msg)
+        raise Error::OSError, code.read_int if Bindings::CoreFFI::qiniu_ng_err_os_error_extract(err, code)
+        msg = Bindings::CoreFFI::QiniuNgStrT.new
+        raise Error::IOError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_io_error_extract(err, msg)
+        raise Error::UnexpectedRedirectError if Bindings::CoreFFI::qiniu_ng_err_unexpected_redirect_error_extract(err)
+        raise Error::UserCancelledError if Bindings::CoreFFI::qiniu_ng_err_user_canceled_error_extract(err)
+        raise Error::JSONError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_json_error_extract(err, msg)
+        raise Error::ResponseStatusCodeError.new(code.read_int, Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_response_status_code_error_extract(err, code, msg)
+        raise Error::UnknownError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_unknown_error_extract(err, msg)
         curl_kind = Bindings::QiniuNgCurlErrorKindTWrapper.new
-        raise Error::CurlError, code.read_int, curl_kind.inner if core_ffi::qiniu_ng_err_curl_error_extract(err, code, curl_kind)
-        raise Error::CannotDropNonEmptyBucketError if core_ffi::qiniu_ng_err_drop_non_empty_bucket_error_extract(err)
-        raise Error::BadMIMEError, Bindings::Str.new(msg) if core_ffi::qiniu_ng_err_bad_mime_type_error_extract(err, msg)
-        err2 = core_ffi::QiniuNgInvalidUploadTokenErrorT.new
-        if core_ffi::qiniu_ng_err_invalid_upload_token_extract(err, err2)
-          raise Error::InvalidUploadTokenFormatError if core_ffi::qiniu_ng_err_invalid_upload_token_format_extract(err)
-          raise Error::InvalidUploadTokenJSONDecodeError, Bindings::Str.new(msg) if core_ffi::qiniu_ng_err_invalid_upload_token_json_error_extract(err, msg)
-          raise Error::InvalidUploadTokenBase64DecodeError, Bindings::Str.new(msg) if core_ffi::qiniu_ng_err_invalid_upload_token_base64_error_extract(err, msg)
-          core_ffi::qiniu_ng_err_invalid_upload_token_error_ignore(err)
+        raise Error::CurlError, code.read_int, curl_kind.inner if Bindings::CoreFFI::qiniu_ng_err_curl_error_extract(err, code, curl_kind)
+        raise Error::CannotDropNonEmptyBucketError if Bindings::CoreFFI::qiniu_ng_err_drop_non_empty_bucket_error_extract(err)
+        raise Error::BadMIMEError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_bad_mime_type_error_extract(err, msg)
+        err2 = Bindings::CoreFFI::QiniuNgInvalidUploadTokenErrorT.new
+        if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_extract(err, err2)
+          raise Error::InvalidUploadTokenFormatError if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_format_extract(err)
+          raise Error::InvalidUploadTokenJSONDecodeError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_json_error_extract(err, msg)
+          raise Error::InvalidUploadTokenBase64DecodeError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_base64_error_extract(err, msg)
+          Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_error_ignore(err)
         end
-        core_ffi::qiniu_ng_err_ignore(err)
+        Bindings::CoreFFI::qiniu_ng_err_ignore(err)
 
         raise RuntimeError, 'Unknown QiniuNg Library Error'
       end

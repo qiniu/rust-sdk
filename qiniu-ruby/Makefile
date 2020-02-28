@@ -3,7 +3,7 @@ LIBQINIU_HEADER = ../qiniu-c/libqiniu_ng.h
 
 all: build doc
 build: $(BINDINGS) bundle
-	bundle exec rake build
+	bundle exec rake before_build build after_build
 build_test: $(BINDINGS) bundle
 	bundle exec rake build
 	bundle exec rspec --dry-run

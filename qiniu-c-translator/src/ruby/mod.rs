@@ -100,10 +100,7 @@ impl GenerateBindings {
                         InsertCallbackDeclarationBindingsFor::Functions,
                     );
                     insert_attach_function_declaration_bindings(source_file, &mut core_ffi_module);
-                    *m.sub_nodes_mut() = vec![
-                        Box::new(core_ffi_module),
-                        Box::new(RawCode::new(format!("private_constant :{}", CORE_FFI_MODULE_NAME))),
-                    ];
+                    *m.sub_nodes_mut() = vec![Box::new(core_ffi_module)];
                     insert_ffi_wrapper_classes(&self.classifier, m);
                 }
             })) as Box<dyn CodeGenerator>)
