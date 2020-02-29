@@ -5,5 +5,6 @@ module QiniuNg
   module Utils
     autoload :Etag, 'qiniu_ng/utils/etag'
     autoload :Duration, 'qiniu_ng/utils/duration'
+    autoload :ThreadPool, 'qiniu_ng/utils/thread_pool'
   end
 end

@@ -4,6 +4,24 @@ require 'tempfile'
 
 RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
   context '#upload_file' do
+    it 'xxx' do
+      config = QiniuNg::Config.new
+      pid = fork do
+              QiniuNg::Utils::ThreadPool.recreate_thread_pool
+              upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
+                                                                               build!.
+                                                                               build_token(access_key: ENV['access_key'],
+                                                                                           secret_key: ENV['secret_key'])
+              bucket_uploader = QiniuNg::Storage::Uploader.new(config).
+                                                           bucket_uploader(bucket_name: 'z0-bucket',
+                                                                           access_key: ENV['access_key'])
+              response = bucket_uploader.upload_file_path('/etc/services', upload_token: upload_token, key: "测试-#{Time.now.to_i}")
+              p response.as_json
+            end
+      _, status = Process.wait2(pid)
+      expect(status).to be_success
+    end
+
     it 'should upload file by io' do
       config = QiniuNg::Config.new
       upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
