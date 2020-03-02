@@ -774,6 +774,7 @@ mod tests {
         config::ConfigBuilder,
         credential::Credential,
         http::{DomainsManagerBuilder, Error as HTTPError, ErrorKind as HTTPErrorKind, Headers, Method},
+        utils::mime,
     };
     use qiniu_http::ResponseBuilder;
     use qiniu_test_utils::{
@@ -802,7 +803,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -826,7 +827,7 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -846,7 +847,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -906,7 +907,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -926,7 +927,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -946,7 +947,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1006,7 +1007,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1030,7 +1031,7 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1050,7 +1051,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1100,7 +1101,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1129,7 +1130,7 @@ mod tests {
                             ));
                         }
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1153,7 +1154,7 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1173,7 +1174,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1238,7 +1239,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1262,7 +1263,7 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1282,7 +1283,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1334,7 +1335,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1354,7 +1355,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1383,7 +1384,7 @@ mod tests {
                             ));
                         }
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1407,7 +1408,7 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1427,7 +1428,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1478,7 +1479,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1508,7 +1509,7 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1528,7 +1529,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1591,7 +1592,7 @@ mod tests {
                         + "$",
                     |_, called| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1619,7 +1620,7 @@ mod tests {
                             ));
                         }
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1643,7 +1644,7 @@ mod tests {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
@@ -1663,7 +1664,7 @@ mod tests {
                         + "$",
                     |_, _| {
                         let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), "application/json".into());
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)

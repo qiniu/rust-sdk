@@ -5,6 +5,7 @@ pub(crate) use builder::Builder;
 pub(crate) use parts::Parts;
 
 use super::{response::Response, Choice, DomainsManager};
+use crate::utils::mime;
 use qiniu_http::{
     Error as HTTPError, ErrorKind as HTTPErrorKind, HeaderName, HeaderValue, Headers, Method, Request as HTTPRequest,
     RequestBuilder, Response as HTTPResponse, ResponseBody as HTTPResponseBody, Result as HTTPResult,
@@ -191,7 +192,7 @@ impl<'a> Request<'a> {
         }
         let mut error_message: Option<Box<str>> = None;
         if let Some(body) = Self::read_body_to_bytes(&mut response, request)? {
-            if response.header("Content-Type") == Some(&"application/json".into()) {
+            if response.header("Content-Type") == Some(&mime::JSON_MIME.into()) {
                 error_message = serde_json::from_slice::<RequestErrorResponse>(&body)
                     .map_err(|err| {
                         HTTPError::new_retryable_error_from_req_resp(
@@ -397,7 +398,7 @@ mod tests {
         .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Relaxed);
         })
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
         assert!(config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
@@ -436,7 +437,7 @@ mod tests {
         .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Relaxed);
         })
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
         assert!(config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
@@ -475,7 +476,7 @@ mod tests {
         .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Relaxed);
         })
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
         assert!(!config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
@@ -514,7 +515,7 @@ mod tests {
         .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Relaxed);
         })
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
         assert!(config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
@@ -553,7 +554,7 @@ mod tests {
         .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Relaxed);
         })
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
         assert!(!config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
@@ -592,7 +593,7 @@ mod tests {
         .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Relaxed);
         })
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
         assert!(!config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
@@ -620,7 +621,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
 
@@ -644,7 +645,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 2);
@@ -667,7 +668,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 1);
@@ -690,7 +691,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 2);
@@ -713,7 +714,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 1);
@@ -769,7 +770,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
 
@@ -810,7 +811,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body("application/json", b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
         .send()
         .is_err());
 

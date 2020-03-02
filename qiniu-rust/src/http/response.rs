@@ -2,12 +2,12 @@ use super::{
     Error as HTTPError, ErrorKind as HTTPErrorKind, HeaderName, HeaderValue, Headers, Method, Result as HTTPResult,
     StatusCode,
 };
+use crate::utils::mime;
 use delegate::delegate;
 use getset::{CopyGetters, Getters};
 use qiniu_http::{Response as HTTPResponse, ResponseBody as HTTPResponseBody};
 use serde::de::DeserializeOwned;
 use std::{
-    borrow::Cow,
     fmt,
     io::{copy as io_copy, sink as io_sink, Read, Result as IOResult},
     net::IpAddr,
@@ -85,7 +85,7 @@ impl<'a> Response<'a> {
             }),
             HTTPResponseBody::Bytes(bytes) => bytes,
         };
-        if self.header("Content-Type") != Some(&Cow::Borrowed("application/json")) {
+        if self.header("Content-Type") != Some(&mime::JSON_MIME.into()) {
             return Err(body);
         }
         serde_json::from_slice(&body).map_err(|_| body)

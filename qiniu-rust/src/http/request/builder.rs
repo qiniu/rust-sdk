@@ -5,7 +5,7 @@ use super::{
     },
     HTTPError, HTTPResult, HeaderName, HeaderValue, Headers, Method, Parts, Request,
 };
-use crate::{Config, Credential};
+use crate::{utils::mime, Config, Credential};
 use serde::Serialize;
 use std::{borrow::Cow, collections::HashMap, time::Duration};
 
@@ -109,13 +109,13 @@ impl<'a> Builder<'a> {
     }
 
     pub(crate) fn accept_json(mut self) -> Builder<'a> {
-        self = self.header("Accept", "application/json");
+        self = self.header("Accept", mime::JSON_MIME);
         self.parts.read_body = true;
         self
     }
 
     pub(crate) fn no_body(mut self) -> Request<'a> {
-        self = self.header("Content-Type", "application/x-www-form-urlencoded");
+        self = self.header("Content-Type", mime::FORM_MIME);
         self.build()
     }
 
@@ -131,7 +131,7 @@ impl<'a> Builder<'a> {
 
     pub(crate) fn json_body<T: Serialize>(mut self, body: &T) -> serde_json::Result<Request<'a>> {
         let serialized_body = serde_json::to_vec(body)?;
-        self = self.header("Content-Type", "application/json");
+        self = self.header("Content-Type", mime::JSON_MIME);
         self.parts.body = Some(serialized_body);
         Ok(self.build())
     }

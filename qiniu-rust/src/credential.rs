@@ -181,8 +181,7 @@ impl Credential {
     }
 
     fn will_push_body_v2<ContentType: AsRef<str>>(content_type: ContentType) -> bool {
-        mime::FORM_MIME.eq_ignore_ascii_case(content_type.as_ref())
-            || mime::JSON_MIME.eq_ignore_ascii_case(content_type.as_ref())
+        !mime::BINARY_MIME.eq_ignore_ascii_case(content_type.as_ref())
     }
 
     /// 验证七牛回调请求
@@ -375,7 +374,7 @@ mod tests {
         assert_eq!(
             credential.sign_request_v1(
                 "http://upload.qiniup.com/",
-                Some("application/json"),
+                Some(mime::JSON_MIME),
                 Some(b"{\"name\":\"test\"}")
             )?,
             credential.sign(b"/\n")
@@ -383,7 +382,7 @@ mod tests {
         assert_eq!(
             credential.sign_request_v1(
                 "http://upload.qiniup.com/",
-                Some("application/x-www-form-urlencoded"),
+                Some(mime::FORM_MIME),
                 Some(b"name=test&language=go")
             )?,
             credential.sign(b"/\nname=test&language=go")
@@ -391,7 +390,7 @@ mod tests {
         assert_eq!(
             credential.sign_request_v1(
                 "http://upload.qiniup.com/?v=2",
-                Some("application/x-www-form-urlencoded"),
+                Some(mime::FORM_MIME),
                 Some(b"name=test&language=go")
             )?,
             credential.sign(b"/?v=2\nname=test&language=go")
@@ -399,7 +398,7 @@ mod tests {
         assert_eq!(
             credential.sign_request_v1(
                 "http://upload.qiniup.com/find/sdk?v=2",
-                Some("application/x-www-form-urlencoded"),
+                Some(mime::FORM_MIME),
                 Some(b"name=test&language=go")
             )?,
             credential.sign(b"/find/sdk?v=2\nname=test&language=go")
@@ -417,7 +416,7 @@ mod tests {
         };
         let json_headers = {
             let mut headers = Headers::new();
-            headers.insert("Content-Type".into(), "application/json".into());
+            headers.insert("Content-Type".into(), mime::JSON_MIME.into());
             headers.insert("X-Qbox-Meta".into(), "value".into());
             headers.insert("X-Qiniu-Cxxxx".into(), "valuec".into());
             headers.insert("X-Qiniu-Bxxxx".into(), "valueb".into());
@@ -429,7 +428,7 @@ mod tests {
         };
         let form_headers = {
             let mut headers = Headers::new();
-            headers.insert("Content-Type".into(), "application/x-www-form-urlencoded".into());
+            headers.insert("Content-Type".into(), mime::FORM_MIME.into());
             headers.insert("X-Qbox-Meta".into(), "value".into());
             headers.insert("X-Qiniu-Cxxxx".into(), "valuec".into());
             headers.insert("X-Qiniu-Bxxxx".into(), "valueb".into());
@@ -579,7 +578,7 @@ mod tests {
                     "Authorization",
                     credential.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)?
                 )
-                .header("Content-Type", "application/json")
+                .header("Content-Type", mime::JSON_MIME)
                 .body(json_body)
                 .build()
         ));
@@ -590,11 +589,11 @@ mod tests {
                     "Authorization",
                     credential.authorization_v1_for_request(
                         "http://upload.qiniup.com/find/sdk?v=2",
-                        Some("application/x-www-form-urlencoded"),
+                        Some(mime::FORM_MIME),
                         Some(b"name=test&language=go")
                     )?
                 )
-                .header("Content-Type", "application/x-www-form-urlencoded")
+                .header("Content-Type", mime::FORM_MIME)
                 .body(form_body)
                 .build()
         ));

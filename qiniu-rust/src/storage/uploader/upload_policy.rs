@@ -528,6 +528,7 @@ pub type UploadPolicyResult<T> = Result<T, UploadPolicyError>;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::mime;
     use serde_json::{json, Value};
     use std::{boxed::Box, error::Error, result::Result};
 
@@ -809,7 +810,7 @@ mod tests {
                 &["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"],
                 "www.qiniu.com",
                 "a=b&c=d",
-                "application/x-www-form-urlencoded",
+                mime::FORM_MIME,
             )
             .build();
         assert_eq!(
@@ -818,12 +819,12 @@ mod tests {
         );
         assert_eq!(policy.callback_host(), Some("www.qiniu.com"));
         assert_eq!(policy.callback_body(), Some("a=b&c=d"));
-        assert_eq!(policy.callback_body_type(), Some("application/x-www-form-urlencoded"));
+        assert_eq!(policy.callback_body_type(), Some(mime::FORM_MIME));
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["callbackUrl"], "https://1.1.1.1;https://2.2.2.2;https://3.3.3.3");
         assert_eq!(v["callbackHost"], "www.qiniu.com");
         assert_eq!(v["callbackBody"], "a=b&c=d");
-        assert_eq!(v["callbackBodyType"], "application/x-www-form-urlencoded");
+        assert_eq!(v["callbackBodyType"], mime::FORM_MIME);
         Ok(())
     }
 
