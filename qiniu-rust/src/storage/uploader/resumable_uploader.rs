@@ -307,7 +307,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         if self.is_seekable {
             self.io
                 .seek(SeekFrom::Start(0))
-                .map_err(|err| HTTPError::new_unretryable_error(HTTPErrorKind::IOError(err), None, None))?;
+                .map_err(|err| HTTPError::new_unretryable_error(HTTPErrorKind::IOError(err), None, None, None))?;
         }
         self.uploaded_size.store(0, Relaxed);
         if let Some(uploading_progress_callback) = &self.uploading_progress_callback {
@@ -477,6 +477,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                 HTTPErrorKind::IOError(err),
                 None,
                 None,
+                None,
             )),
             IOStatusResult::HTTPError(err) => Err(err),
         }
@@ -615,7 +616,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         if let Some(upload_recorder) = upload_recorder {
             upload_recorder
                 .append(&result.etag, part_number)
-                .map_err(|err| HTTPError::new_unretryable_error(HTTPErrorKind::IOError(err), None, None))?;
+                .map_err(|err| HTTPError::new_unretryable_error(HTTPErrorKind::IOError(err), None, None, None))?;
         }
         Ok(result.etag)
     }
@@ -1127,6 +1128,7 @@ mod tests {
                                 true,
                                 None,
                                 None,
+                                None,
                             ));
                         }
                         let mut headers = Headers::new();
@@ -1223,6 +1225,7 @@ mod tests {
                         Err(HTTPError::new_zone_unretryable_error(
                             HTTPErrorKind::MaliciousResponse,
                             true,
+                            None,
                             None,
                             None,
                         ))
@@ -1381,6 +1384,7 @@ mod tests {
                                 true,
                                 None,
                                 None,
+                                None,
                             ));
                         }
                         let mut headers = Headers::new();
@@ -1504,6 +1508,7 @@ mod tests {
                                 HTTPErrorKind::MaliciousResponse,
                                 None,
                                 None,
+                                None,
                             ));
                         } else if called >= 5 {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
@@ -1615,6 +1620,7 @@ mod tests {
                         if called >= 3 {
                             return Err(HTTPError::new_unretryable_error(
                                 HTTPErrorKind::MaliciousResponse,
+                                None,
                                 None,
                                 None,
                             ));

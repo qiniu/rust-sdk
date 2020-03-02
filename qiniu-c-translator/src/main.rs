@@ -291,5 +291,23 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             None,
             vec![],
         ));
+        classifier.add_class(Class::new(
+            "HTTPRequest",
+            Some("qiniu_ng_http_request_t"),
+            Regex::new("^qiniu_ng_http_request_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![],
+        ));
+        classifier.add_class(Class::new(
+            "HTTPResponse",
+            Some("qiniu_ng_http_response_t"),
+            Regex::new("^qiniu_ng_http_response_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![],
+        ));
     })
 }

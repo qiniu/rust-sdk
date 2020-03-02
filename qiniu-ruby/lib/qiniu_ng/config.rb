@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'ffi'
-
 module QiniuNg
   # 七牛客户端配置
   #
@@ -451,6 +449,214 @@ module QiniuNg
         user_agent = (DEFAULT_APPENDED_USER_AGENT + user_agent).join('/')
         @builder.set_appended_user_agent(user_agent)
         self
+      end
+
+      # 追加 HTTP 请求响应后回调函数
+      #
+      # 您可以利用该特性输出 HTTP 日志或对 HTTP 响应内容进行修改。
+      # 但注意，您必须确保不破坏响应中必要的内容，否则 SDK 可能无法处理该响应。
+      #
+      # 如果在回调中发生错误，您可以抛出对应的异常。但只有以下几种异常会被 SDK 处理:
+      #
+      #   - `Error::IOHandlerError` - IO 异常
+      #
+      #   - `Error::OSHandlerError` - 系统调用异常
+      #
+      #   - `Error::UnexpectedRedirectHandlerError` - 非预期的重定向错误
+      #
+      #   - `Error::UserCancelledHandlerError` - 用户取消异常
+      #
+      #   - `Error::JSONHandlerError` - JSON 错误
+      #
+      #   - `Error::ResponseStatusCodeHandlerError` - 响应状态码错误
+      #
+      #   - `Error::CurlHandlerError` - Curl 错误
+      #
+      # @yield [request, response] 回调函数
+      # @yieldparam [HTTP::Request] request HTTP 请求
+      # @yieldparam [HTTP::Response] response HTTP 响应
+      def append_http_request_after_action_handler(&handler)
+        h = ->(request, response, err) do
+              wrap_action_handler(err) do
+                handler.call(
+                  HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)),
+                  HTTP::Response::send(:new, Bindings::HTTPResponse.new(response)),
+                )
+              end
+            end
+        @builder.append_http_request_after_action_handler(h)
+        self
+      end
+
+      # 追加 HTTP 请求前回调函数
+      #
+      # 您可以利用该特性输出 HTTP 日志或对 HTTP 请求内容进行修改。
+      # 但注意，您必须确保不破坏请求中必要的内容，否则七牛服务器可能无法处理该请求。
+      #
+      # 如果在回调中发生错误，您可以抛出对应的异常。但只有以下几种异常会被 SDK 处理:
+      #
+      #   - `Error::IOHandlerError` - IO 异常
+      #
+      #   - `Error::OSHandlerError` - 系统调用异常
+      #
+      #   - `Error::UnexpectedRedirectHandlerError` - 非预期的重定向错误
+      #
+      #   - `Error::UserCancelledHandlerError` - 用户取消异常
+      #
+      #   - `Error::JSONHandlerError` - JSON 错误
+      #
+      #   - `Error::ResponseStatusCodeHandlerError` - 响应状态码错误
+      #
+      #   - `Error::CurlHandlerError` - Curl 错误
+      #
+      # @yield [request] 回调函数
+      # @yieldparam [HTTP::Request] request HTTP 请求
+      def append_http_request_before_action_handler(&handler)
+        h = ->(request, err) do
+              wrap_action_handler(err) do
+                handler.call(HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)))
+              end
+            end
+        @builder.append_http_request_before_action_handler(h)
+        self
+      end
+
+      # 新增 HTTP 请求响应后回调函数
+      #
+      # 您可以利用该特性输出 HTTP 日志或对 HTTP 响应内容进行修改。
+      # 但注意，您必须确保不破坏响应中必要的内容，否则 SDK 可能无法处理该响应。
+      #
+      # 如果在回调中发生错误，您可以抛出对应的异常。但只有以下几种异常会被 SDK 处理:
+      #
+      #   - `Error::IOHandlerError` - IO 异常
+      #
+      #   - `Error::OSHandlerError` - 系统调用异常
+      #
+      #   - `Error::UnexpectedRedirectHandlerError` - 非预期的重定向错误
+      #
+      #   - `Error::UserCancelledHandlerError` - 用户取消异常
+      #
+      #   - `Error::JSONHandlerError` - JSON 错误
+      #
+      #   - `Error::ResponseStatusCodeHandlerError` - 响应状态码错误
+      #
+      #   - `Error::CurlHandlerError` - Curl 错误
+      #
+      # @yield [request, response] 回调函数
+      # @yieldparam [HTTP::Request] request HTTP 请求
+      # @yieldparam [HTTP::Response] response HTTP 响应
+      def prepend_http_request_after_action_handler(&handler)
+        h = ->(request, response, err) do
+              wrap_action_handler(err) do
+                handler.call(
+                  HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)),
+                  HTTP::Response::send(:new, Bindings::HTTPResponse.new(response)),
+                )
+              end
+            end
+        @builder.prepend_http_request_after_action_handler(h)
+        self
+      end
+
+      # 新增 HTTP 请求前回调函数
+      #
+      # 您可以利用该特性输出 HTTP 日志或对 HTTP 请求内容进行修改。
+      # 但注意，您必须确保不破坏请求中必要的内容，否则七牛服务器可能无法处理该请求。
+      #
+      # 如果在回调中发生错误，您可以抛出对应的异常。但只有以下几种异常会被 SDK 处理:
+      #
+      #   - `Error::IOHandlerError` - IO 异常
+      #
+      #   - `Error::OSHandlerError` - 系统调用异常
+      #
+      #   - `Error::UnexpectedRedirectHandlerError` - 非预期的重定向错误
+      #
+      #   - `Error::UserCancelledHandlerError` - 用户取消异常
+      #
+      #   - `Error::JSONHandlerError` - JSON 错误
+      #
+      #   - `Error::ResponseStatusCodeHandlerError` - 响应状态码错误
+      #
+      #   - `Error::CurlHandlerError` - Curl 错误
+      #
+      # @yield [request] 回调函数
+      # @yieldparam [HTTP::Request] request HTTP 请求
+      def prepend_http_request_before_action_handler(&handler)
+        h = ->(request, err) do
+              wrap_action_handler(err) do
+                handler.call(HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)))
+              end
+            end
+        @builder.prepend_http_request_before_action_handler(h)
+        self
+      end
+
+      # 设置 HTTP 请求处理函数
+      #
+      # 如果在处理函数中发生错误，您可以抛出对应的异常。但只有以下几种异常会被 SDK 处理:
+      #
+      #   - `Error::IOHandlerError` - IO 异常
+      #
+      #   - `Error::OSHandlerError` - 系统调用异常
+      #
+      #   - `Error::UnexpectedRedirectHandlerError` - 非预期的重定向错误
+      #
+      #   - `Error::UserCancelledHandlerError` - 用户取消异常
+      #
+      #   - `Error::JSONHandlerError` - JSON 错误
+      #
+      #   - `Error::ResponseStatusCodeHandlerError` - 响应状态码错误
+      #
+      #   - `Error::CurlHandlerError` - Curl 错误
+      #
+      # @yield [request, response] 处理函数
+      # @yieldparam [HTTP::Request] request HTTP 请求
+      # @yieldparam [HTTP::Response] response HTTP 响应
+      def http_request_handler(&handler)
+        h = ->(request, response, err) do
+              wrap_action_handler(err) do
+                handler.call(
+                  HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)),
+                  HTTP::Response::send(:new, Bindings::HTTPResponse.new(response)),
+                )
+              end
+            end
+        @builder.set_http_call_handler(h)
+        self
+      end
+
+      private def wrap_action_handler(err)
+        begin
+          yield
+        rescue Error::IOHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_io_error_new(e.cause.message)
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        rescue Error::OSHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_os_error_new(e.cause.errno)
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        rescue Error::UnexpectedRedirectHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_unexpected_redirect_error_new
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        rescue Error::UserCancelledHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_user_canceled_error_new
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        rescue Error::JSONHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_json_error_new(e.cause.message)
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        rescue Error::ResponseStatusCodeHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_response_status_code_error_new(e.cause.code, e.cause.message)
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        rescue Error::CurlHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_curl_error_new(e.cause.curl_code, e.cause.original_error_kind)
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        end
       end
 
       # @!method api_host(api_host)

@@ -71,6 +71,7 @@ impl<'a> Response<'a> {
                 HTTPErrorKind::JSONError(err.into()),
                 Some(self.method),
                 Some((self.base_url.to_owned() + self.path).into()),
+                self.request_id().map(|request_id| request_id.into()),
             )
         })
     }

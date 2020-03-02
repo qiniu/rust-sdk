@@ -40,6 +40,7 @@ impl<'a> Request<'a> {
                 true,
                 Some(self.parts.method.to_owned()),
                 None,
+                None,
             )
         })?;
         for choice in choices {
@@ -171,6 +172,7 @@ impl<'a> Request<'a> {
                         HTTPErrorKind::UnknownError(Box::new(err)),
                         Some(self.parts.method),
                         Some(url.into()),
+                        None,
                     )
                 })?
                 .into_string();
@@ -363,6 +365,7 @@ mod tests {
                 self.retry_kind,
                 HTTPErrorKind::IOError(io::Error::new(io::ErrorKind::Other, "Test Error")),
                 self.is_retry_safe,
+                None,
                 None,
                 None,
             ))

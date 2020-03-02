@@ -67,6 +67,9 @@ fn insert_predefined_struct_nodes(nodes: &mut Vec<Box<dyn CodeGenerator>>) {
     nodes.push(Box::new(Struct::new("Ssize", false).tap(|struct_node| {
         *struct_node.fields_mut() = vec![StructField::new("value", StructFieldType::BaseType(BaseType::Ssize))]
     })));
+    nodes.push(Box::new(Struct::new("Pointer", false).tap(|struct_node| {
+        *struct_node.fields_mut() = vec![StructField::new("value", StructFieldType::BaseType(BaseType::Pointer))]
+    })));
 }
 
 fn insert_enum_node(enum_declaration: &EnumDeclaration, nodes: &mut Vec<Box<dyn CodeGenerator>>) -> String {

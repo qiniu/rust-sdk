@@ -210,13 +210,14 @@ impl Error {
 
     /// 通过直接赋值的方式创建 HTTP 错误
     ///
-    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL 和 HTTP 方法即可
+    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL，HTTP 和 RequestID 方法即可
     pub fn new(
         retry_kind: RetryKind,
         error_kind: ErrorKind,
         is_retry_safe: bool,
         method: Option<Method>,
         url: Option<URL>,
+        request_id: Option<RequestID>,
     ) -> Error {
         Error {
             retry_kind,
@@ -224,52 +225,81 @@ impl Error {
             is_retry_safe,
             method,
             url,
-            request_id: None,
+            request_id,
         }
     }
 
     /// 创建可重试的 HTTP 错误
     ///
-    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL 和 HTTP 方法即可
+    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL，HTTP 和 RequestID 方法即可
     pub fn new_retryable_error(
         error_kind: ErrorKind,
         is_retry_safe: bool,
         method: Option<Method>,
         url: Option<URL>,
+        request_id: Option<RequestID>,
     ) -> Error {
-        Self::new(RetryKind::RetryableError, error_kind, is_retry_safe, method, url)
+        Self::new(
+            RetryKind::RetryableError,
+            error_kind,
+            is_retry_safe,
+            method,
+            url,
+            request_id,
+        )
     }
 
     /// 创建区域不可重试的 HTTP 错误
     ///
-    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL 和 HTTP 方法即可
+    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL，HTTP 和 RequestID 方法即可
     pub fn new_zone_unretryable_error(
         error_kind: ErrorKind,
         is_retry_safe: bool,
         method: Option<Method>,
         url: Option<URL>,
+        request_id: Option<RequestID>,
     ) -> Error {
-        Self::new(RetryKind::ZoneUnretryableError, error_kind, is_retry_safe, method, url)
+        Self::new(
+            RetryKind::ZoneUnretryableError,
+            error_kind,
+            is_retry_safe,
+            method,
+            url,
+            request_id,
+        )
     }
 
     /// 创建主机不可重试的 HTTP 错误
     ///
-    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL 和 HTTP 方法即可
+    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL，HTTP 和 RequestID 方法即可
     pub fn new_host_unretryable_error(
         error_kind: ErrorKind,
         is_retry_safe: bool,
         method: Option<Method>,
         url: Option<URL>,
+        request_id: Option<RequestID>,
     ) -> Error {
-        Self::new(RetryKind::HostUnretryableError, error_kind, is_retry_safe, method, url)
+        Self::new(
+            RetryKind::HostUnretryableError,
+            error_kind,
+            is_retry_safe,
+            method,
+            url,
+            request_id,
+        )
     }
 
     /// 创建不可重试的 HTTP 错误
     ///
-    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL 和 HTTP 方法即可。
+    /// 此类错误通常发生的 HTTP 请求发生前，因此 `#new` 方法的 `request` 参数无法给出，此时，可以调用该方法，直接传入 URL，HTTP 和 RequestID 方法即可。
     /// 由于是不可重试的，因此总被认为是重试不安全的
-    pub fn new_unretryable_error(error_kind: ErrorKind, method: Option<Method>, url: Option<URL>) -> Error {
-        Self::new(RetryKind::UnretryableError, error_kind, false, method, url)
+    pub fn new_unretryable_error(
+        error_kind: ErrorKind,
+        method: Option<Method>,
+        url: Option<URL>,
+        request_id: Option<RequestID>,
+    ) -> Error {
+        Self::new(RetryKind::UnretryableError, error_kind, false, method, url, request_id)
     }
 
     fn extract_req_id_from_response(response: Option<&Response>) -> Option<RequestID> {

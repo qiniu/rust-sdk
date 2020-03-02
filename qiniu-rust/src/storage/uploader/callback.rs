@@ -9,6 +9,7 @@ pub(super) fn upload_response_callback(response: &mut Response) -> HTTPResult<()
             true,
             Some(response.method()),
             Some((response.base_url().to_owned() + response.path()).into()),
+            response.request_id().map(|request_id| request_id.into()),
         ))
     }
 }

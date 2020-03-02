@@ -12,4 +12,5 @@ module QiniuNg
   autoload :Storage, 'qiniu_ng/storage'
   autoload :Utils, 'qiniu_ng/utils'
   autoload :Error, 'qiniu_ng/error'
+  autoload :HTTP, 'qiniu_ng/http'
 end

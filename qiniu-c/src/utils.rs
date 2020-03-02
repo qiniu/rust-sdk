@@ -99,7 +99,10 @@ impl From<qiniu_ng_str_t> for Option<UCString> {
 
 impl fmt::Debug for qiniu_ng_str_t {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Option::<UCString>::from(*self).fmt(f)
+        let s = Option::<Box<ucstr>>::from(*self);
+        s.fmt(f).tap(|_| {
+            let _ = qiniu_ng_str_t::from(s);
+        })
     }
 }
 

@@ -18,6 +18,7 @@ use qiniu_ng::{
     },
 };
 use std::io::{Error as IOError, ErrorKind as IOErrorKind};
+use tap::TapOps;
 use thiserror::Error;
 
 /// @brief HTTP 重试类型
@@ -138,7 +139,7 @@ pub struct qiniu_ng_invalid_upload_token_error_t(qiniu_ng_invalid_upload_token_e
 pub enum qiniu_ng_err_kind_t {
     /// 没有错误
     qiniu_ng_err_kind_none,
-    /// 操作系统异常
+    /// 系统调用异常
     qiniu_ng_err_kind_os_error(i32),
     /// IO 异常
     qiniu_ng_err_kind_io_error(qiniu_ng_str_t),
@@ -202,10 +203,10 @@ pub extern "C" fn qiniu_ng_err_any_error(err: &qiniu_ng_err_t) -> bool {
     !matches!(err.0, qiniu_ng_err_kind_t::qiniu_ng_err_kind_none)
 }
 
-/// @brief 判定错误是否是操作系统异常，如果是，则释放其内存
+/// @brief 判定错误是否是系统调用异常，如果是，则释放其内存
 /// @param[in] err SDK 错误实例
-/// @param[out] code 用于返回操作系统异常号码，如果传入 `NULL` 表示不获取 `code`，但如果错误确实是操作系统异常，返回值依然是 `true` 且内存依然会被释放
-/// @retval bool 当错误确实是操作系统异常时返回 `true`
+/// @param[out] code 用于返回系统调用异常号码，如果传入 `NULL` 表示不获取 `code`，但如果错误确实是系统调用异常，返回值依然是 `true` 且内存依然会被释放
+/// @retval bool 当错误确实是系统调用异常时返回 `true`
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_os_error_extract(err: &mut qiniu_ng_err_t, code: *mut i32) -> bool {
     match err.0 {
@@ -220,16 +221,16 @@ pub extern "C" fn qiniu_ng_err_os_error_extract(err: &mut qiniu_ng_err_t, code: 
     }
 }
 
-/// @brief 创建操作系统异常
-/// @param[in] code 操作系统异常号码
-/// @retval qiniu_ng_err_t 返回创建的操作系统异常
+/// @brief 创建系统调用异常
+/// @param[in] code 系统调用异常号码
+/// @retval qiniu_ng_err_t 返回创建的系统调用异常
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_os_error_new(code: i32) -> qiniu_ng_err_t {
     qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_os_error(code))
 }
 
 /// @brief 判定错误是否是 IO 异常，如果是，则释放其内存
-/// @details IO 异常是 SDK 对操作系统异常的补充，当 SDK 发生了无法用操作系统错误表示的 IO 异常时，则使用该类型表示
+/// @details IO 异常是 SDK 对系统调用异常的补充，当 SDK 发生了无法用系统调用错误代码表示的 IO 异常时，则使用该类型表示
 /// @param[in] err SDK 错误实例
 /// @param[out] description 用于返回 IO 错误描述，如果传入 `NULL` 表示不获取 `description`，但如果错误确实是 IO 异常，返回值依然是 `true` 且内存依然会被释放
 /// @retval bool 当错误确实是 IO 异常时返回 `true`
@@ -780,18 +781,18 @@ impl From<&qiniu_ng_err_kind_t> for Option<HTTPErrorKind> {
             }
             qiniu_ng_err_kind_t::qiniu_ng_err_kind_io_error(desc) => Some(HTTPErrorKind::IOError(IOError::new(
                 IOErrorKind::Other,
-                convert_qiniu_ng_str_to_string(*desc),
+                clone_string_from_qiniu_ng_str(*desc),
             ))),
             qiniu_ng_err_kind_t::qiniu_ng_err_kind_unexpected_redirect_error => Some(HTTPErrorKind::UnexpectedRedirect),
             qiniu_ng_err_kind_t::qiniu_ng_err_kind_user_canceled => Some(HTTPErrorKind::UserCanceled),
             qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(desc) => {
-                Some(HTTPErrorKind::JSONError(convert_qiniu_ng_str_to_string(*desc).into()))
+                Some(HTTPErrorKind::JSONError(clone_string_from_qiniu_ng_str(*desc).into()))
             }
             qiniu_ng_err_kind_t::qiniu_ng_err_kind_response_status_code_error(code, error) => Some(
-                HTTPErrorKind::ResponseStatusCodeError(*code, convert_qiniu_ng_str_to_string(*error).into()),
+                HTTPErrorKind::ResponseStatusCodeError(*code, clone_string_from_qiniu_ng_str(*error).into()),
             ),
             qiniu_ng_err_kind_t::qiniu_ng_err_kind_unknown_error(desc) => Some(HTTPErrorKind::UnknownError(Box::new(
-                StrError::Str(convert_qiniu_ng_str_to_string(*desc).into_boxed_str()),
+                StrError::Str(clone_string_from_qiniu_ng_str(*desc).into_boxed_str()),
             ))),
             qiniu_ng_err_kind_t::qiniu_ng_err_kind_curl_error(code, kind) => Some(
                 HTTPErrorKind::new_http_caller_error_kind(kind.to_owned().into(), curl::Error::new(*code)),
@@ -799,8 +800,11 @@ impl From<&qiniu_ng_err_kind_t> for Option<HTTPErrorKind> {
             _ => panic!("Cannot convert this error kind: {:?}", kind),
         };
 
-        fn convert_qiniu_ng_str_to_string(s: qiniu_ng_str_t) -> String {
-            Option::<Box<ucstr>>::from(s).unwrap().to_string().unwrap()
+        fn clone_string_from_qiniu_ng_str(s: qiniu_ng_str_t) -> String {
+            let s = Option::<Box<ucstr>>::from(s).unwrap();
+            s.to_string().unwrap().tap(|_| {
+                let _ = qiniu_ng_str_t::from(s);
+            })
         }
     }
 }
