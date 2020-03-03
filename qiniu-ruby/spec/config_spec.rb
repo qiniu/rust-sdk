@@ -260,12 +260,15 @@ RSpec.describe QiniuNg::Config do
                                                                          build_token(access_key: ENV['access_key'],
                                                                                      secret_key: ENV['secret_key'])
         io = StringIO.new(SecureRandom.random_bytes(1 << 23))
-        expect do
+        begin
           QiniuNg::Storage::Uploader.new(config).
                                      bucket_uploader(bucket_name: 'z0-bucket',
                                                      access_key: ENV['access_key']).
                                      upload_io(io, upload_token: upload_token, key: "测试-#{Time.now.to_i}")
-        end.to raise_error(an_instance_of(QiniuNg::Error::ResponseStatusCodeError).and(having_attributes(code: 401)))
+          fail 'expect to raise error here'
+        rescue QiniuNg::Error::ResponseStatusCodeError => e
+          expect(e.code).to eq 401
+        end
       end
 
       it 'could modify body before http call' do
@@ -283,12 +286,14 @@ RSpec.describe QiniuNg::Config do
                                                                                      secret_key: ENV['secret_key'])
         Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
           file.write(SecureRandom.random_bytes(1 << 21))
-          expect do
+          begin
             QiniuNg::Storage::Uploader.new(config).
                                        bucket_uploader(bucket_name: 'z0-bucket',
                                                        access_key: ENV['access_key']).
                                        upload_file_path(file.path, upload_token: upload_token, key: "测试-#{Time.now.to_i}")
-          end.to raise_error(an_instance_of(QiniuNg::Error::ResponseStatusCodeError).and(having_attributes(code: 400)))
+          rescue QiniuNg::Error::ResponseStatusCodeError => e
+            expect(e.code).to eq 400
+          end
         end
       end
 
