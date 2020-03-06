@@ -89,6 +89,7 @@ module QiniuNg
                               @bucket_uploader.upload_reader(
                                 upload_token.instance_variable_get(:@upload_token),
                                 reader,
+                                file.respond_to?(:size) ? file.size : 0,
                                 params)
                             end
           UploadResponse.send(:new, upload_response)

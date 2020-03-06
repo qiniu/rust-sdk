@@ -511,7 +511,7 @@ pub extern "C" fn qiniu_ng_str_map_is_freed(hashmap: qiniu_ng_str_map_t) -> bool
 /// @details
 ///   该结构是个简单的开放结构体，其中的 `read_func` 字段需要您用来定义回调函数实现对数据的读取。
 ///
-///   `context` 字段则是您用来传入到回调函数的上下文参数指针，您可以用来作为回调函数的上下文使用
+///   `context` 字段则是您用来传入到回调函数的上下文参数指针，您可以用来作为回调函数的上下文使用。
 #[repr(C)]
 #[derive(Clone)]
 pub struct qiniu_ng_readable_t {
@@ -523,6 +523,7 @@ pub struct qiniu_ng_readable_t {
     ///   写入完毕后，需要您将实际写入的数据长度填充在第四个参数 `have_read` 内。如果 `have_read` 中填充 `0`，则数据读取结束。
     ///   如果发生无法处理的读取错误，则返回相应的操作系统错误号码。如果没有发生任何错误，则返回 `0`。
     pub read_func: fn(context: *mut c_void, buf: *mut c_void, count: size_t, have_read: *mut size_t) -> c_int,
+    /// @brief 上下文参数指针
     pub context: *mut c_void,
 }
 

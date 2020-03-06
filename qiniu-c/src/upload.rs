@@ -6,7 +6,7 @@ use crate::{
     upload_token::qiniu_ng_upload_token_t,
     utils::{qiniu_ng_readable_t, qiniu_ng_str_map_t, qiniu_ng_str_t},
 };
-use libc::{c_void, ferror, fread, size_t, FILE};
+use libc::{c_void, ferror, fread, fseek, ftell, size_t, FILE, SEEK_END, SEEK_SET};
 use mime::Mime;
 use qiniu_ng::storage::{
     bucket::Bucket,
@@ -332,6 +332,7 @@ pub extern "C" fn qiniu_ng_bucket_uploader_upload_file(
 /// @param[in] bucket_uploader 存储空间上传器
 /// @param[in] upload_token 上传凭证实例
 /// @param[in] reader 阅读器实例，将不断从阅读器中读取数据并上传
+/// @param[in] len 阅读器预期将会读到的最大数据量，如果无法预期则传入 `0`。如果传入的值大于 `0`，最终读取的数据量将始终不大于该值
 /// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
 /// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
 /// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
@@ -342,6 +343,7 @@ pub extern "C" fn qiniu_ng_bucket_uploader_upload_reader(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
     reader: qiniu_ng_readable_t,
+    len: u64,
     params: *const qiniu_ng_upload_params_t,
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err_t,
@@ -349,7 +351,7 @@ pub extern "C" fn qiniu_ng_bucket_uploader_upload_reader(
     qiniu_ng_upload(
         bucket_uploader,
         upload_token,
-        UploadFile::Readable(reader),
+        UploadFile::Readable { reader, len },
         params,
         response,
         err,
@@ -585,7 +587,7 @@ pub extern "C" fn qiniu_ng_upload_response_is_freed(upload_response: qiniu_ng_up
 enum UploadFile {
     FilePath(*const qiniu_ng_char_t),
     File(*mut FILE),
-    Readable(qiniu_ng_readable_t),
+    Readable { reader: qiniu_ng_readable_t, len: u64 },
 }
 
 impl UploadFile {
@@ -594,8 +596,24 @@ impl UploadFile {
             UploadFile::FilePath(file_path) => {
                 file_uploader.upload_file(unsafe { UCString::from_ptr(file_path) }.to_path_buf(), file_name, mime)
             }
-            UploadFile::File(file) => file_uploader.upload_stream(FileReader(file), file_name, mime),
-            UploadFile::Readable(reader) => file_uploader.upload_stream(reader, file_name, mime),
+            UploadFile::File(file) => {
+                let mut file_size = 0u64;
+                match unsafe { ftell(file) } {
+                    -1 => {}
+                    fpos => {
+                        let original_fops = fpos;
+                        if unsafe { fseek(file, 0, SEEK_END) } == 0 {
+                            match unsafe { ftell(file) } {
+                                -1 => {}
+                                fpos => file_size = fpos as u64,
+                            }
+                        }
+                        let _ = unsafe { fseek(file, original_fops, SEEK_SET) };
+                    }
+                }
+                file_uploader.upload_stream(FileReader(file), file_size, file_name, mime)
+            }
+            UploadFile::Readable { reader, len } => file_uploader.upload_stream(reader, len, file_name, mime),
         }
     }
 }

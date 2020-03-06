@@ -216,6 +216,7 @@ impl<'u> ResumableUploaderBuilder<'u> {
     pub(super) fn stream<'n: 'u, R: Read + Send + 'u>(
         self,
         stream: R,
+        size: u64,
         mime_type: Option<Mime>,
         file_name: Option<Cow<'n, str>>,
         checksum_enabled: bool,
@@ -227,7 +228,7 @@ impl<'u> ResumableUploaderBuilder<'u> {
             key: self.key,
             file_path: None,
             io: seek_adapter::SeekAdapter(stream),
-            io_size: None,
+            io_size: if size > 0 { Some(size) } else { None },
             uploaded_size: AtomicU64::new(0),
             checksum_enabled,
             is_seekable: false,
@@ -243,7 +244,7 @@ impl<'u> ResumableUploaderBuilder<'u> {
             uploading_progress_callback: self.on_uploading_progress.map(|callback| UploadingProgressCallback {
                 callback,
                 completed_size: AtomicU64::new(0),
-                total_size: None,
+                total_size: if size > 0 { Some(size) } else { None },
             }),
             thread_pool: self
                 .thread_pool

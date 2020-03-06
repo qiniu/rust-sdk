@@ -326,7 +326,7 @@ mod tests {
         .upload_token(UploadToken::new(policy, get_credential()))
         .key("test:file")
         .never_be_resumable()
-        .upload_stream(&file, "", None)
+        .upload_stream(&file, 1 << 10, "", None)
         .unwrap_err();
         assert_eq!(mock.call_called(), 16);
         Ok(())
@@ -356,7 +356,7 @@ mod tests {
         .upload_token(UploadToken::new(policy, get_credential()))
         .key("test:file")
         .never_be_resumable()
-        .upload_stream(&file, "", None)
+        .upload_stream(&file, 1 << 10, "", None)
         .unwrap_err();
         assert_eq!(mock.call_called(), 4);
         Ok(())
@@ -386,7 +386,7 @@ mod tests {
         .upload_token(UploadToken::new(policy, get_credential()))
         .key("test:file")
         .never_be_resumable()
-        .upload_stream(&file, "", None)
+        .upload_stream(&file, 1 << 10, "", None)
         .unwrap_err();
         assert_eq!(mock.call_called(), 2);
         Ok(())

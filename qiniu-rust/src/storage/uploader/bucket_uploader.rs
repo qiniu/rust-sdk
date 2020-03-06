@@ -359,26 +359,33 @@ impl<'b> FileUploaderBuilder<'b> {
         }
     }
 
-    /// 开始上传文件流
+    /// 开始上传数据流
     ///
     /// # Arguments
     ///
     /// * `stream` - 数据流
+    /// * `size` - 数据流最大长度，如果数据流大小不可预知，则传入 `0`。如果传入的值大于 `0`，则最终读取数据量将始终不大于该值。
     /// * `file_name` - 指定上传文件的文件名称，在下载文件时将会被使用
     /// * `mime` - 指定文件的 MIME 类型，参照[文档](https://docs.rs/mime/0.3.14/mime/) 传值，如果不填写，七牛服务器将根据上传策略决定 `Content-Type`
     pub fn upload_stream<'n>(
         self,
         stream: impl Read + Send,
+        size: u64,
         file_name: impl Into<Cow<'n, str>>,
         mime: Option<Mime>,
     ) -> UploadResult {
         let file_name = file_name.into();
         let file_name = if file_name.is_empty() { None } else { Some(file_name) };
         match self.resumable_policy {
-            ResumablePolicy::Threshold(_) | ResumablePolicy::Always => {
-                self.upload_stream_by_blocks(stream, file_name, mime)
+            ResumablePolicy::Threshold(threshold) => {
+                if size > 0 && size < threshold.into() {
+                    self.upload_stream_by_form(stream, size, file_name, mime)
+                } else {
+                    self.upload_stream_by_blocks(stream, size, file_name, mime)
+                }
             }
-            ResumablePolicy::Never => self.upload_stream_by_form(stream, file_name, mime),
+            ResumablePolicy::Always => self.upload_stream_by_blocks(stream, size, file_name, mime),
+            ResumablePolicy::Never => self.upload_stream_by_form(stream, size, file_name, mime),
         }
     }
 
@@ -470,6 +477,7 @@ impl<'b> FileUploaderBuilder<'b> {
     fn upload_stream_by_form<R: Read>(
         self,
         stream: R,
+        size: u64,
         file_name: Option<Cow<str>>,
         mime: Option<Mime>,
     ) -> UploadResult {
@@ -490,19 +498,19 @@ impl<'b> FileUploaderBuilder<'b> {
         if let Some(callback) = &self.on_uploading_progress {
             uploader = uploader.on_uploading_progress(callback.as_ref());
         }
-        Ok(uploader
-            .stream(
-                stream,
-                Self::guess_mime_from_file_name(mime, file_name.as_ref().map(|name| name.as_ref())),
-                file_name,
-                None,
-            )?
-            .send()?)
+        let mime = Self::guess_mime_from_file_name(mime, file_name.as_ref().map(|name| name.as_ref()));
+        let upload_response = if size > 0 {
+            uploader.stream(stream.take(size), mime, file_name, None)?.send()?
+        } else {
+            uploader.stream(stream, mime, file_name, None)?.send()?
+        };
+        Ok(upload_response)
     }
 
     fn upload_stream_by_blocks<R: Read + Send>(
         self,
         stream: R,
+        size: u64,
         file_name: Option<Cow<str>>,
         mime: Option<Mime>,
     ) -> UploadResult {
@@ -523,14 +531,15 @@ impl<'b> FileUploaderBuilder<'b> {
         if let Some(thread_pool) = self.thread_pool {
             uploader = uploader.thread_pool(thread_pool);
         }
-        Ok(uploader
-            .stream(
-                stream,
-                Self::guess_mime_from_file_name(mime, file_name.as_ref().map(|name| name.as_ref())),
-                file_name,
-                true,
-            )?
-            .send()?)
+        let mime = Self::guess_mime_from_file_name(mime, file_name.as_ref().map(|name| name.as_ref()));
+        let upload_response = if size > 0 {
+            uploader
+                .stream(stream.take(size), size, mime, file_name, true)?
+                .send()?
+        } else {
+            uploader.stream(stream, size, mime, file_name, true)?.send()?
+        };
+        Ok(upload_response)
     }
 
     fn guess_filename<'n>(file_path: &Path, file_name: Option<Cow<'n, str>>) -> Option<Cow<'n, str>> {

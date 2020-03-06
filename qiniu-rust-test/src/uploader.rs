@@ -273,7 +273,7 @@ mod tests {
                 assert!(total.unwrap() > (1 << 23));
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, "", None)?;
+            .upload_stream(&file, 1 << 23, "", None)?;
 
         assert!(last_uploaded.load(Relaxed) > (1 << 23));
         assert!(result.key().is_some());
@@ -295,7 +295,7 @@ mod tests {
                 assert!(total.is_none());
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, "8m", None)?;
+            .upload_stream(&file, 0, "8m", None)?;
 
         assert_eq!(last_uploaded.load(Relaxed), 1 << 23);
         assert!(result.key().is_some());
@@ -314,10 +314,10 @@ mod tests {
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
-                assert!(total.is_none());
+                assert_eq!(total.unwrap(), (1 << 23) + 1);
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, "8m+1", None)?;
+            .upload_stream(&file, (1 << 23) + 1, "8m+1", None)?;
 
         assert_eq!(last_uploaded.load(Relaxed), (1 << 23) + 1);
         assert!(result.key().is_some());
@@ -340,7 +340,7 @@ mod tests {
                 assert!(total.unwrap() > (1 << 21));
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, "2m", None)?;
+            .upload_stream(&file, 1 << 21, "2m", None)?;
 
         assert!(last_uploaded.load(Relaxed) > (1 << 21));
         assert!(result.key().is_some());
@@ -359,12 +359,12 @@ mod tests {
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
-                assert!(total.is_none());
+                assert!(total.unwrap() > (1 << 22) - 3);
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, "2m+3", None)?;
+            .upload_stream(&file, (1 << 22) - 3, "2m+3", None)?;
 
-        assert_eq!(last_uploaded.load(Relaxed), ((1 << 22) - 3));
+        assert!(last_uploaded.load(Relaxed) > (1 << 22) - 3);
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), None);

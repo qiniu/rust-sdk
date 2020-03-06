@@ -404,10 +404,10 @@
 //! #                                         .build();
 //! #
 //! # let upload_token = UploadToken::new(upload_policy, &credential);
-//! let stream = Cursor::new(bytes);
+//! let stream = Cursor::new(&bytes);
 //! let upload_manager = UploadManager::new(config);
 //! let upload_response = upload_manager.for_upload_token(upload_token)?
-//!                                     .upload_stream(stream, "file name", None)?;
+//!                                     .upload_stream(stream, bytes.len() as u64, "file name", None)?;
 //! # Ok(())
 //! # }
 //! ```
@@ -434,7 +434,7 @@
 //! # let upload_token = UploadToken::new(upload_policy, &credential);
 //! let upload_manager = UploadManager::new(config);
 //! let upload_response = upload_manager.for_upload_token(upload_token)?
-//!                                     .upload_stream(stdin(), "file name", None)?;
+//!                                     .upload_stream(stdin(), 0, "file name", None)?;
 //! # Ok(())
 //! # }
 //! ```
