@@ -33,6 +33,7 @@ mod unix {
 
     impl ucstr {
         pub unsafe fn from_ptr<'a>(ptr: *const qiniu_ng_char_t) -> &'a ucstr {
+            assert!(!ptr.is_null());
             CStr::from_ptr(ptr).into()
         }
 
@@ -369,6 +370,7 @@ mod windows {
 
     impl ucstr {
         pub unsafe fn from_ptr<'a>(ptr: *const qiniu_ng_char_t) -> &'a ucstr {
+            assert!(!ptr.is_null());
             WideCStr::from_ptr_str(ptr.cast()).into()
         }
 

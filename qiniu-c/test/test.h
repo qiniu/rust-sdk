@@ -30,10 +30,13 @@ void write_str_to_file(const qiniu_ng_char_t* path, const char* content);
 qiniu_ng_char_t* create_temp_file(size_t size);
 
 void test_qiniu_ng_etag_from_file_path(void);
-void test_qiniu_ng_etag_from_buffer(void);
+void test_qiniu_ng_etag_from_data(void);
 void test_qiniu_ng_etag_from_unexisted_file_path(void);
-void test_qiniu_ng_etag_from_large_buffer(void);
+void test_qiniu_ng_etag_from_large_data(void);
 void test_qiniu_ng_config_new_default(void);
+void test_qiniu_ng_credential_new(void);
+void test_qiniu_ng_credential_sign(void);
+void test_qiniu_ng_credential_sign_with_data(void);
 void test_qiniu_ng_config_new(void);
 void test_qiniu_ng_config_new2(void);
 void test_qiniu_ng_config_http_request_handlers(void);

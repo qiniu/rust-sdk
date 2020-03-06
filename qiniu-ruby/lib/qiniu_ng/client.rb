@@ -13,7 +13,7 @@ module QiniuNg
     # @example
     #   access_key = '[Qiniu Access Key]'
     #   secret_key = '[Qiniu Secret Key]'
-    #   client = QiniuNg::Client.new(access_key, secret_key)
+    #   client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
     #
     # @param [String] access_key 七牛 Access Key
     # @param [String] secret_key 七牛 Secret Key
@@ -46,6 +46,12 @@ module QiniuNg
     def secret_key
       @secret_key ||= @client.get_secret_key
       @secret_key.get_ptr
+    end
+
+    # 获取认证信息
+    # @return [Credential] 返回认证信息
+    def credential
+      @credential ||= Credential.new(self.access_key, self.secret_key)
     end
 
     # 获取客户端配置

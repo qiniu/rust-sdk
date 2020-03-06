@@ -234,7 +234,7 @@ static void test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_htt
         "qiniu_ng_http_response_dump_body_to_file() failed");
 
     char etag[ETAG_SIZE], etag2[ETAG_SIZE];
-    qiniu_ng_etag_from_buffer(body, body_len, (char *) &etag);
+    qiniu_ng_etag_from_data(body, body_len, (char *) &etag);
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_etag_from_file_path(temp_file_path, (char *) &etag2, NULL),
         "qiniu_ng_etag_from_file_path() failed");

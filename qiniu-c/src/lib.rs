@@ -1,14 +1,15 @@
 mod bucket;
 mod client;
 mod config;
+mod credential;
 mod etag;
 mod http;
 mod region;
 mod result;
 mod storage;
 mod string;
+mod thread_pool;
 mod upload;
 mod upload_token;
 mod utils;
 mod version;
-mod thread_pool;

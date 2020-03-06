@@ -6,11 +6,12 @@ module QiniuNg
       # 上传凭证
       #
       # 从 [这里](https://developer.qiniu.com/kodo/manual/1208/upload-token) 了解七牛安全机制
-      class UploadToken
+      class UploadToken < String
         # @!visibility private
         def initialize(upload_token_ffi)
           @upload_token = upload_token_ffi
           @cache = {}
+          super(self.token)
         end
         private_class_method :new
 
@@ -79,11 +80,6 @@ module QiniuNg
           @cache[:token].get_ptr
         end
         alias token to_s
-
-        # @!visibility private
-        def inspect
-          "#<#{self.class.name}>"
-        end
       end
     end
   end

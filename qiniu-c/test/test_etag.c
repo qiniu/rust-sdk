@@ -27,12 +27,12 @@ void test_qiniu_ng_etag_from_file_path(void) {
     free(path);
 }
 
-void test_qiniu_ng_etag_from_buffer(void) {
+void test_qiniu_ng_etag_from_data(void) {
     char etag[ETAG_SIZE + 1];
     memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
 
     const char *buf = "Hello world\n";
-    qiniu_ng_etag_from_buffer((void *) buf, strlen(buf), (char *) &etag);
+    qiniu_ng_etag_from_data((void *) buf, strlen(buf), (char *) &etag);
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         (const char *) &etag, "FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d",
         "etag was wrong");
@@ -57,7 +57,7 @@ void test_qiniu_ng_etag_from_unexisted_file_path(void) {
         "qiniu_ng_err_os_error_extract() returns unexpected value");
 }
 
-void test_qiniu_ng_etag_from_large_buffer(void) {
+void test_qiniu_ng_etag_from_large_data(void) {
     char etag[ETAG_SIZE + 1];
     memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
 

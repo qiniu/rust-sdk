@@ -504,6 +504,33 @@ int main() {
 }
 ```
 
+### 业务服务器验证七牛回调
+
+在上传策略里面设置了上传回调相关参数的时候，七牛在文件上传到服务器之后，会主动地向 `callback_url` 发送 `POST` 请求的回调，回调的内容为 `callback_body` 模版所定义的内容，如果这个模版里面引用了魔法变量或者自定义变量，那么这些变量会被自动填充对应的值，然后在发送给业务服务器。
+
+业务服务器在收到来自七牛的回调请求的时候，可以根据请求头部的 `Authorization` 字段来进行验证，查看该请求是否是来自七牛的未经篡改的请求。
+
+C SDK 提供了一个方法 `qiniu_ng_credential_validate_qiniu_callback_request()` 用于验证回调的请求：
+
+```c
+#include "libqiniu_ng.h"
+#include <string.h>
+
+int main() {
+    const char *access_key = "[Qiniu Access Key]";
+    const char *secret_key = "[Qiniu Secret Key]";
+    const char *url = "http://api.example.com/qiniu/upload/callback";
+    const char *content_type = "application/json";
+    const char *authorization = "QBox [Qiniu Access Key]:[Authorization Token]";
+    const char *body = "{\"key\":\"github-x.png\",\"hash\":\"FqKXVdTvIx_mPjOYdjDyUSy_H1jr\",\"fsize\":6091,\"bucket\":\"if-pbl\",\"name\":\"github logo\"}";
+    qiniu_ng_credential_t credential = qiniu_ng_credential_new(access_key, secret_key);
+    _Bool is_valid = qiniu_ng_credential_validate_qiniu_callback_request(credential, url, authorization, content_type, body, strlen(body));
+
+    qiniu_ng_credential_free(&credential);
+    return 0;
+}
+```
+
 ## 私有云配置
 
 默认情况下，C SDK 内置了七牛公有云存储的配置。如果需要使用七牛私有云，则需要对 `qiniu_ng_config_builder_t` 中的配置作出必要的调整，这里给出一个例子：

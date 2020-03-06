@@ -21,9 +21,12 @@ int main(void) {
     RUN_TEST(test_qiniu_ng_str_list);
     RUN_TEST(test_qiniu_ng_str_map);
     RUN_TEST(test_qiniu_ng_etag_from_file_path);
-    RUN_TEST(test_qiniu_ng_etag_from_buffer);
-    RUN_TEST(test_qiniu_ng_etag_from_large_buffer);
+    RUN_TEST(test_qiniu_ng_etag_from_data);
+    RUN_TEST(test_qiniu_ng_etag_from_large_data);
     RUN_TEST(test_qiniu_ng_etag_from_unexisted_file_path);
+    RUN_TEST(test_qiniu_ng_credential_new);
+    RUN_TEST(test_qiniu_ng_credential_sign);
+    RUN_TEST(test_qiniu_ng_credential_sign_with_data);
     RUN_TEST(test_qiniu_ng_config_new_default);
     RUN_TEST(test_qiniu_ng_config_new);
     RUN_TEST(test_qiniu_ng_config_new2);

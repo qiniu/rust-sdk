@@ -4,8 +4,8 @@ RSpec.describe QiniuNg::Storage::Uploader::UploadToken do
       config = QiniuNg::Config.new
       upload_policy = QiniuNg::Storage::Uploader::UploadPolicy.new_for_bucket('z0-bucket', config)
       upload_token = upload_policy.build_token(access_key: ENV['access_key'], secret_key: ENV['secret_key'])
+      expect(upload_token).to be_start_with("#{ENV['access_key']}:")
       expect(upload_token.access_key).to eq(ENV['access_key'])
-      expect(upload_token.token).to be_start_with("#{ENV['access_key']}:")
       expect(upload_token.policy.bucket).to eq('z0-bucket')
       expect(upload_token.policy.key).to be_nil
     end
@@ -16,8 +16,8 @@ RSpec.describe QiniuNg::Storage::Uploader::UploadToken do
       config = QiniuNg::Config.new
       policy_builder = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config)
       upload_token = policy_builder.build_token(access_key: ENV['access_key'], secret_key: ENV['secret_key'])
+      expect(upload_token).to be_start_with("#{ENV['access_key']}:")
       expect(upload_token.access_key).to eq(ENV['access_key'])
-      expect(upload_token.token).to be_start_with("#{ENV['access_key']}:")
       expect(upload_token.policy.bucket).to eq('z0-bucket')
       expect(upload_token.policy.key).to be_nil
     end

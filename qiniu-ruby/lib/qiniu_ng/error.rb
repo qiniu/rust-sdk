@@ -326,7 +326,7 @@ module QiniuNg
         raise Error::JSONError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_json_error_extract(err, msg)
         raise Error::ResponseStatusCodeError.new(code.read_int, Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_response_status_code_error_extract(err, code, msg)
         raise Error::UnknownError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_unknown_error_extract(err, msg)
-        curl_kind = Bindings::QiniuNgCurlErrorKindTWrapper.new
+        curl_kind = Bindings::CoreFFI::QiniuNgCurlErrorKindTWrapper.new
         raise Error::CurlError, code.read_int, curl_kind.inner if Bindings::CoreFFI::qiniu_ng_err_curl_error_extract(err, code, curl_kind)
         raise Error::CannotDropNonEmptyBucketError if Bindings::CoreFFI::qiniu_ng_err_drop_non_empty_bucket_error_extract(err)
         raise Error::BadMIMEError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_bad_mime_type_error_extract(err, msg)

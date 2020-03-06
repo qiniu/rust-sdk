@@ -42,15 +42,15 @@ pub extern "C" fn qiniu_ng_etag_from_file_path(
 }
 
 /// @brief 计算指定二进制数据的 七牛 Etag
-/// @param[in] buffer 输入数据地址
-/// @param[in] buffer_len 输入数据长度
+/// @param[in] data 输入数据地址
+/// @param[in] data_len 输入数据长度
 /// @param[out] result 用于返回 Etag 的内存地址，这里 `result` 必须不能为 `NULL`
 /// @note 该函数总是返回正确的结果
 /// @warning 保证提供给 `result` 至少 ETAG_SIZE 长度的内存
 #[no_mangle]
-pub extern "C" fn qiniu_ng_etag_from_buffer(buffer: *const c_void, buffer_len: size_t, result: *mut c_char) {
+pub extern "C" fn qiniu_ng_etag_from_data(data: *const c_void, data_len: size_t, result: *mut c_char) {
     unsafe {
-        let e = etag::from_bytes(from_raw_parts(buffer.cast(), buffer_len));
+        let e = etag::from_bytes(from_raw_parts(data.cast(), data_len));
         let e = e.as_bytes();
         copy_nonoverlapping(e.as_ptr(), result.cast(), e.len());
     }

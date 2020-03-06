@@ -3,9 +3,9 @@ require 'tempfile'
 
 RSpec.describe QiniuNg::Utils do
   context QiniuNg::Utils::Etag do
-    context '#from_buffer' do
-      it 'should get etag from given buffer' do
-        expect(QiniuNg::Utils::Etag::from_buffer("Hello world\n")).to eq('FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d')
+    context '#from_data' do
+      it 'should get etag from given data' do
+        expect(QiniuNg::Utils::Etag::from_data("Hello world\n")).to eq('FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d')
       end
     end
 
@@ -30,7 +30,7 @@ RSpec.describe QiniuNg::Utils do
         end
       end
 
-      it 'should get etag from given buffer' do
+      it 'should get etag from given data' do
         buf = StringIO.new
         3.times { buf.puts("Hello world") }
         buf.rewind

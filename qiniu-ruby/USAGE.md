@@ -21,7 +21,7 @@ Ruby SDK 属于七牛服务端 SDK 之一，主要有如下功能：
 
 # 存储空间
 
-七牛对象存储的文件需要存储在存储空间中，存储空间即可以通过[七牛开发者后台](https://portal.qiniu.com/kodo/bucket)进行管理，也可以调用 C SDK 提供的 API 进行管理。
+七牛对象存储的文件需要存储在存储空间中，存储空间即可以通过[七牛开发者后台](https://portal.qiniu.com/kodo/bucket)进行管理，也可以调用 Ruby SDK 提供的 API 进行管理。
 
 ## 创建存储空间
 
@@ -75,7 +75,7 @@ client.bucket_names
 
 ## 客户端上传凭证
 
-客户端（移动端或者 Web 端）上传文件的时候，需要从客户自己的业务服务器获取上传凭证，而这些上传凭证是通过服务端的 SDK 来生成的，然后通过客户自己的业务 API 分发给客户端使用。根据上传的业务需求不同，七牛云 C SDK 支持丰富的上传凭证生成方式。
+客户端（移动端或者 Web 端）上传文件的时候，需要从客户自己的业务服务器获取上传凭证，而这些上传凭证是通过服务端的 SDK 来生成的，然后通过客户自己的业务 API 分发给客户端使用。根据上传的业务需求不同，七牛云 Ruby SDK 支持丰富的上传凭证生成方式。
 
 ### 简单上传凭证
 
@@ -307,9 +307,33 @@ QiniuNg::Config.new(upload_threshold: 16 * 1024 * 1024,                         
                     upload_recorder_upload_block_lifetime: 5 * 24 * 60 * 60)     # 每个分块的有效期减少为 5 天
 ```
 
+### 业务服务器验证七牛回调
+
+在上传策略里面设置了上传回调相关参数的时候，七牛在文件上传到服务器之后，会主动地向 `callback_url` 发送 `POST` 请求的回调，回调的内容为 `callback_body` 模版所定义的内容，如果这个模版里面引用了魔法变量或者自定义变量，那么这些变量会被自动填充对应的值，然后在发送给业务服务器。
+
+业务服务器在收到来自七牛的回调请求的时候，可以根据请求头部的 `Authorization` 字段来进行验证，查看该请求是否是来自七牛的未经篡改的请求。
+
+Ruby SDK 提供了一个方法 `QiniuNg::Credential#validate_qiniu_callback_request` 用于验证回调的请求：
+
+```ruby
+require 'qiniu_ng'
+
+access_key = '[Qiniu Access Key]'
+secret_key = '[Qiniu Secret Key]'
+url = "http://api.example.com/qiniu/upload/callback"
+content_type = "application/json"
+authorization = "QBox [Qiniu Access Key]:[Authorization Token]"
+body = "{\"key\":\"github-x.png\",\"hash\":\"FqKXVdTvIx_mPjOYdjDyUSy_H1jr\",\"fsize\":6091,\"bucket\":\"if-pbl\",\"name\":\"github logo\"}"
+
+is_valid = QiniuNg::Credential.new(access_key, secret_key).validate_qiniu_callback_request url: url,
+                                                                                           content_type: content_type,
+                                                                                           authorization: authorization,
+                                                                                           body: body
+```
+
 ## 私有云配置
 
-默认情况下，C SDK 内置了七牛公有云存储的配置。如果需要使用七牛私有云，则需要对 `qiniu_ng_config_builder_t` 中的配置作出必要的调整，这里给出一个例子：
+默认情况下，Ruby SDK 内置了七牛公有云存储的配置。如果需要使用七牛私有云，则需要对 `qiniu_ng_config_builder_t` 中的配置作出必要的调整，这里给出一个例子：
 
 ```ruby
 require 'qiniu_ng'

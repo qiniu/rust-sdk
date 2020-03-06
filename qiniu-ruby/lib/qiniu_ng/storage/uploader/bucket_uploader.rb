@@ -148,7 +148,7 @@ module QiniuNg
         private
 
         def normalize_upload_token(upload_token)
-          upload_token = UploadToken.from_token(upload_token) if upload_token.is_a?(String)
+          upload_token = UploadToken.from_token(upload_token) if !upload_token.is_a?(UploadToken) && upload_token.is_a?(String)
           raise ArgumentError, 'upload_token must be instance of UploadToken' unless upload_token.is_a?(UploadToken)
           upload_token
         end

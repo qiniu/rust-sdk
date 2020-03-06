@@ -80,7 +80,7 @@ RSpec.describe QiniuNg::Bindings do
 
     it 'should get etag from buffer' do
       FFI::MemoryPointer::new(ETAG_SIZE) do |etag_result|
-        QiniuNg::Bindings::Etag.from_buffer("Hello world\n", etag_result)
+        QiniuNg::Bindings::Etag.from_data("Hello world\n", etag_result)
         expect(etag_result.read_bytes(ETAG_SIZE)).to eq('FjOrVjm_2Oe5XrHY0Lh3gdT_6k1d')
       end
     end

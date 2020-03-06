@@ -8,7 +8,16 @@ use crypto_mac::Mac;
 use hmac::Hmac;
 use qiniu_http::Request;
 use sha1::Sha1;
-use std::{borrow::Cow, cmp::PartialEq, convert::TryFrom, fmt, result::Result, string::String, sync::Arc, time};
+use std::{
+    borrow::Cow,
+    cmp::PartialEq,
+    convert::TryFrom,
+    fmt,
+    result::Result,
+    string::String,
+    sync::Arc,
+    time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH},
+};
 use url::Url;
 
 #[derive(Clone, Eq, PartialEq)]
@@ -54,11 +63,17 @@ impl Credential {
         self.0.secret_key.as_ref()
     }
 
-    pub(crate) fn sign(&self, data: &[u8]) -> String {
+    /// 使用七牛签名算法对数据进行签名
+    ///
+    /// 参考[管理凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1201/access-token)
+    pub fn sign(&self, data: &[u8]) -> String {
         self.access_key().to_owned() + ":" + &self.base64ed_hmac_digest(data)
     }
 
-    pub(crate) fn sign_with_data(&self, data: &[u8]) -> String {
+    /// 使用七牛签名算法对数据进行签名，并同时给出签名和原数据
+    ///
+    /// 参考[上传凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1208/upload-token)
+    pub fn sign_with_data(&self, data: &[u8]) -> String {
         let encoded_data = base64::urlsafe(data);
         self.sign(encoded_data.as_bytes()) + ":" + &encoded_data
     }
@@ -211,9 +226,9 @@ impl Credential {
     pub(crate) fn sign_download_url_with_deadline(
         &self,
         url: Url,
-        deadline: time::SystemTime,
+        deadline: SystemTime,
         only_path: bool,
-    ) -> Result<String, time::SystemTimeError> {
+    ) -> Result<String, SystemTimeError> {
         let mut signed_url = {
             let mut s = String::with_capacity(2048);
             s.push_str(url.as_str());
@@ -241,7 +256,7 @@ impl Credential {
             signed_url.push_str("?e=");
         }
 
-        let deadline = u32::try_from(deadline.duration_since(time::UNIX_EPOCH)?.as_secs())
+        let deadline = u32::try_from(deadline.duration_since(UNIX_EPOCH)?.as_secs())
             .unwrap_or(std::u32::MAX)
             .to_string();
         to_sign.push_str(&deadline);
@@ -255,10 +270,10 @@ impl Credential {
     pub(crate) fn sign_download_url_with_lifetime(
         &self,
         url: Url,
-        lifetime: time::Duration,
+        lifetime: Duration,
         only_path: bool,
-    ) -> Result<String, time::SystemTimeError> {
-        let deadline = time::SystemTime::now() + lifetime;
+    ) -> Result<String, SystemTimeError> {
+        let deadline = SystemTime::now() + lifetime;
         self.sign_download_url_with_deadline(url, deadline, only_path)
     }
 }
@@ -606,7 +621,7 @@ mod tests {
         assert_eq!(
             credential.sign_download_url_with_deadline(
                 Url::parse("http://www.qiniu.com/?go=1")?,
-                time::SystemTime::UNIX_EPOCH + time::Duration::from_secs(1_234_567_890 + 3600),
+                SystemTime::UNIX_EPOCH + Duration::from_secs(1_234_567_890 + 3600),
                 false
             )?,
             "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq:KjQtlGAkEOhSwtFjJfYtYa2-reE=",
@@ -614,7 +629,7 @@ mod tests {
         assert_eq!(
             credential.sign_download_url_with_deadline(
                 Url::parse("http://www.qiniu.com/?go=1")?,
-                time::SystemTime::UNIX_EPOCH + time::Duration::from_secs(1_234_567_890 + 3600),
+                SystemTime::UNIX_EPOCH + Duration::from_secs(1_234_567_890 + 3600),
                 true
             )?,
             "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq:86uQeCB9GsFFvL2wA0mgBcOMsmk=",

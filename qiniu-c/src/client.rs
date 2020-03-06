@@ -1,11 +1,12 @@
 use crate::{
     config::qiniu_ng_config_t,
+    credential::qiniu_ng_credential_t,
     string::{qiniu_ng_char_t, ucstr},
     upload::qiniu_ng_upload_manager_t,
     utils::qiniu_ng_str_t,
 };
 use libc::c_void;
-use qiniu_ng::Client;
+use qiniu_ng::{Client, Credential};
 use std::{mem::transmute, ptr::null_mut};
 use tap::TapOps;
 
@@ -15,7 +16,7 @@ use tap::TapOps;
 ///     实际上，该结构体由于会存储用户的 SecretKey，因此不推荐在客户端应用程序上使用，而应该只在服务器端应用程序上使用。
 /// @details 除了 Etag 和 上传功能外，`qiniu_ng_client_t` 是七牛大多数 API 调用的入口。
 /// @note
-///   * 调用 `qiniu_ng_client_new()` 或 `qiniu_ng_client_new_default()` 函数创建 `qiniu_ng_client_t` 实例。
+///   * 调用 `qiniu_ng_client_new()` 或 `qiniu_ng_client_new_default()` 或 `qiniu_ng_client_new_from_credential()` 或 `qiniu_ng_client_new_default_from_credential()` 函数创建 `qiniu_ng_client_t` 实例。
 ///   * 当 `qiniu_ng_client_t` 使用完毕后，请务必调用 `qiniu_ng_client_free()` 方法释放内存。
 /// @note
 ///   该结构体内部状态不可变，因此可以跨线程使用
@@ -81,6 +82,30 @@ pub extern "C" fn qiniu_ng_client_new(
     .into()
 }
 
+/// @brief 创建 七牛 SDK 客户端实例
+/// @param[in] credential 七牛认证信息
+/// @param[in] config 七牛客户端配置
+/// @retval qiniu_ng_client_t 获取创建的七牛 SDK 客户端实例
+/// @warning 务必在使用完毕后调用 `qiniu_ng_client_free()` 方法释放 `qiniu_ng_client_t`
+/// @warning 务必在 `credential` 被使用完毕后调用 `qiniu_ng_credential_free()` 方法释放 `qiniu_ng_credential_t`
+/// @warning 务必在 `config` 被使用完毕后调用 `qiniu_ng_config_free()` 方法释放 `qiniu_ng_config_t`
+#[no_mangle]
+pub extern "C" fn qiniu_ng_client_new_from_credential(
+    credential: qiniu_ng_credential_t,
+    config: qiniu_ng_config_t,
+) -> qiniu_ng_client_t {
+    let credential = Option::<Box<Credential>>::from(credential).unwrap();
+    Box::new(Client::new(
+        credential.access_key().to_owned(),
+        credential.secret_key().to_owned(),
+        config.get_clone().unwrap(),
+    ))
+    .tap(|_| {
+        let _ = qiniu_ng_credential_t::from(credential);
+    })
+    .into()
+}
+
 /// @brief 使用默认七牛客户端配置创建 七牛 SDK 客户端实例
 /// @param[in] access_key 七牛 Access Key
 /// @param[in] secret_key 七牛 Secret Key
@@ -97,6 +122,25 @@ pub extern "C" fn qiniu_ng_client_new_default(
         unsafe { ucstr::from_ptr(secret_key) }.to_string().unwrap(),
         Default::default(),
     ))
+    .into()
+}
+
+/// @brief 使用默认七牛客户端配置创建 七牛 SDK 客户端实例
+/// @param[in] credential 七牛认证信息
+/// @retval qiniu_ng_client_t 获取创建的七牛 SDK 客户端实例
+/// @warning 务必在使用完毕后调用 `qiniu_ng_client_free()` 方法释放 `qiniu_ng_client_t`
+/// @warning 务必在 `credential` 被使用完毕后调用 `qiniu_ng_credential_free()` 方法释放 `qiniu_ng_credential_t`
+#[no_mangle]
+pub extern "C" fn qiniu_ng_client_new_default_from_credential(credential: qiniu_ng_credential_t) -> qiniu_ng_client_t {
+    let credential = Option::<Box<Credential>>::from(credential).unwrap();
+    Box::new(Client::new(
+        credential.access_key().to_owned(),
+        credential.secret_key().to_owned(),
+        Default::default(),
+    ))
+    .tap(|_| {
+        let _ = qiniu_ng_credential_t::from(credential);
+    })
     .into()
 }
 
@@ -155,6 +199,20 @@ pub extern "C" fn qiniu_ng_client_get_secret_key(client: qiniu_ng_client_t) -> q
     unsafe { qiniu_ng_str_t::from_str_unchecked(client.credential().secret_key()) }.tap(|_| {
         let _ = qiniu_ng_client_t::from(client);
     })
+}
+
+/// @brief 获取客户端的认证信息
+/// @param[in] client 七牛 SDK 客户端实例
+/// @retval qiniu_ng_credential_t 返回客户端的认证信息
+/// @warning 对于获取的认证信息，使用完毕后应该调用 `qiniu_ng_credential_free()` 释放其内存
+#[no_mangle]
+pub extern "C" fn qiniu_ng_client_get_credential(client: qiniu_ng_client_t) -> qiniu_ng_credential_t {
+    let client = Option::<Box<Client>>::from(client).unwrap();
+    Box::new(client.credential().to_owned())
+        .tap(|_| {
+            let _ = qiniu_ng_client_t::from(client);
+        })
+        .into()
 }
 
 /// @brief 获取客户端的配置

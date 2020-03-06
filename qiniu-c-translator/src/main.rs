@@ -197,6 +197,15 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             vec![],
         ));
         classifier.add_class(Class::new(
+            "Credential",
+            Some("qiniu_ng_credential_t"),
+            Regex::new("^qiniu_ng_credential_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![],
+        ));
+        classifier.add_class(Class::new(
             "Client",
             Some("qiniu_ng_client_t"),
             Regex::new("^qiniu_ng_client_(\\w+)").unwrap(),

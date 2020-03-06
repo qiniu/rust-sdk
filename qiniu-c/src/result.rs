@@ -473,6 +473,7 @@ pub extern "C" fn qiniu_ng_err_curl_error_extract(
 
 /// @brief 创建 Curl 错误
 /// @param[in] code Curl 错误代码
+/// @param[in] kind Curl 错误类型
 /// @retval qiniu_ng_err_t 返回创建的 Curl 错误
 #[no_mangle]
 pub extern "C" fn qiniu_ng_err_curl_error_new(code: CURLcode, kind: qiniu_ng_curl_error_kind_t) -> qiniu_ng_err_t {

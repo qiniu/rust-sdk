@@ -16,10 +16,9 @@ module QiniuNg
         # @return [String] 计算得到的 Etag
         def from_data(data)
           etag_result = FFI::MemoryPointer::new(ETAG_SIZE)
-          Bindings::Etag.from_buffer(data, etag_result)
+          Bindings::Etag.from_data(data, etag_result)
           etag_result.read_bytes(ETAG_SIZE)
         end
-        alias from_buffer from_data
 
         # 计算指定文件的七牛 Etag
         # @param [String] path 文件路径
