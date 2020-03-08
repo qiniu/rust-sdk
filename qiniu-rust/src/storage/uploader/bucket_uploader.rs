@@ -1,9 +1,6 @@
-/// 存储空间上传模块
-///
-/// 封装存储空间上传器和文件上传器逻辑。
-/// 需要注意的是，该模块内所有提到的与线程，并发相关的概念仅在分片上传时起效
 use super::{
     super::uploader::{UploadPolicy, UploadToken},
+    batch_uploader::BatchUploader,
     form_uploader::FormUploaderBuilder,
     resumable_uploader::{ResumableUploader, ResumableUploaderBuilder},
     upload_recorder::UploadRecorder,
@@ -138,6 +135,25 @@ impl BucketUploader {
         )
     }
 
+    /// 根据上传凭证创建批量文件上传器生成器
+    pub fn batch_for_upload_token<'b>(
+        &self,
+        upload_token: impl Into<UploadToken<'b>>,
+        expected_jobs_count: usize,
+    ) -> BatchUploader {
+        BatchUploader::new(self, upload_token.into(), expected_jobs_count)
+    }
+
+    /// 根据上传策略创建批量文件上传器生成器
+    pub fn batch_for_upload_policy<'b>(
+        &self,
+        upload_policy: UploadPolicy<'b>,
+        credential: impl Into<Cow<'b, Credential>>,
+        expected_jobs_count: usize,
+    ) -> BatchUploader {
+        self.batch_for_upload_token(UploadToken::new(upload_policy, credential.into()), expected_jobs_count)
+    }
+
     #[doc(hidden)]
     pub unsafe fn from_raw(ptr: *const BucketUploaderInner) -> BucketUploader {
         BucketUploader {
@@ -157,7 +173,7 @@ impl BucketUploader {
     }
 }
 
-enum ResumablePolicy {
+pub(super) enum ResumablePolicy {
     Threshold(u32),
     Never,
     Always,
@@ -169,9 +185,9 @@ enum ResumablePolicy {
 pub struct FileUploaderBuilder<'b> {
     bucket_uploader: Ron<'b, BucketUploader>,
     upload_token: Cow<'b, str>,
-    key: Option<Cow<'b, str>>,
-    vars: Option<HashMap<Cow<'b, str>, Cow<'b, str>>>,
-    metadata: Option<HashMap<Cow<'b, str>, Cow<'b, str>>>,
+    key: Cow<'b, str>,
+    vars: HashMap<Cow<'b, str>, Cow<'b, str>>,
+    metadata: HashMap<Cow<'b, str>, Cow<'b, str>>,
     checksum_enabled: bool,
     resumable_policy: ResumablePolicy,
     #[allow(clippy::type_complexity)]
@@ -181,12 +197,12 @@ pub struct FileUploaderBuilder<'b> {
 }
 
 impl<'b> FileUploaderBuilder<'b> {
-    pub(super) fn new(bucket_uploader: Ron<'b, BucketUploader>, upload_token: Cow<'b, str>) -> FileUploaderBuilder<'b> {
+    pub(super) fn new(bucket_uploader: Ron<'b, BucketUploader>, upload_token: Cow<'b, str>) -> Self {
         FileUploaderBuilder {
             upload_token,
-            key: None,
-            vars: None,
-            metadata: None,
+            key: Cow::Borrowed(""),
+            vars: HashMap::new(),
+            metadata: HashMap::new(),
             checksum_enabled: true,
             on_uploading_progress: None,
             thread_pool: None,
@@ -197,13 +213,13 @@ impl<'b> FileUploaderBuilder<'b> {
     }
 
     /// 为指定的文件上传指定线程池
-    pub fn thread_pool(mut self, thread_pool: impl Into<Ron<'b, ThreadPool>>) -> FileUploaderBuilder<'b> {
+    pub fn thread_pool(mut self, thread_pool: impl Into<Ron<'b, ThreadPool>>) -> Self {
         self.thread_pool = Some(thread_pool.into());
         self
     }
 
     /// 为上传器创建专用线程池指定线程池大小
-    pub fn thread_pool_size(self, num_threads: usize) -> FileUploaderBuilder<'b> {
+    pub fn thread_pool_size(self, num_threads: usize) -> Self {
         self.thread_pool(
             ThreadPoolBuilder::new()
                 .num_threads(num_threads)
@@ -217,60 +233,45 @@ impl<'b> FileUploaderBuilder<'b> {
     ///
     /// 默认情况下，分片上传将采用多线程并发的方式进行上传，最大并发度等于文件上传器内线程池的大小。
     /// 调用该方法可以修改最大并发度
-    ///
-    /// `concurrency` 必须大于 0
-    pub fn max_concurrency(mut self, concurrency: usize) -> FileUploaderBuilder<'b> {
-        assert!(concurrency > 0);
+    pub fn max_concurrency(mut self, concurrency: usize) -> Self {
         self.max_concurrency = concurrency;
         self
     }
 
     /// 指定上传对象的名称
-    pub fn key(mut self, key: impl Into<Cow<'b, str>>) -> FileUploaderBuilder<'b> {
-        self.key = Some(key.into());
+    pub fn key(mut self, key: impl Into<Cow<'b, str>>) -> Self {
+        self.key = key.into();
         self
     }
 
     /// 为上传对象指定[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
     ///
     /// 可以多次调用以指定多个自定义变量
-    pub fn var(mut self, key: impl Into<Cow<'b, str>>, value: impl Into<Cow<'b, str>>) -> FileUploaderBuilder<'b> {
-        if let Some(vars) = &mut self.vars {
-            vars.insert(key.into(), value.into());
-        } else {
-            let mut vars = HashMap::with_capacity(1);
-            vars.insert(key.into(), value.into());
-            self.vars = Some(vars);
-        }
+    pub fn var(mut self, key: impl Into<Cow<'b, str>>, value: impl Into<Cow<'b, str>>) -> Self {
+        self.vars.insert(key.into(), value.into());
         self
     }
 
     /// 为上传对象指定自定义元数据
     ///
     /// 可以多次调用以指定多个自定义元数据
-    pub fn metadata(mut self, key: impl Into<Cow<'b, str>>, value: impl Into<Cow<'b, str>>) -> FileUploaderBuilder<'b> {
-        if let Some(metadata) = &mut self.metadata {
-            metadata.insert(key.into(), value.into());
-        } else {
-            let mut metadata = HashMap::with_capacity(1);
-            metadata.insert(key.into(), value.into());
-            self.metadata = Some(metadata);
-        }
+    pub fn metadata(mut self, key: impl Into<Cow<'b, str>>, value: impl Into<Cow<'b, str>>) -> Self {
+        self.metadata.insert(key.into(), value.into());
         self
     }
 
-    /// 禁用文件校验
+    /// 禁用上传数据校验
     ///
-    /// 在任何场景下都不推荐禁用文件校验
-    pub fn disable_checksum(mut self) -> FileUploaderBuilder<'b> {
+    /// 在任何场景下都不推荐禁用上传数据校验
+    pub fn disable_checksum(mut self) -> Self {
         self.checksum_enabled = false;
         self
     }
 
-    /// 启用文件校验
+    /// 启用上传数据校验
     ///
-    /// 默认总是启用，在任何场景下都不推荐禁用文件校验
-    pub fn enable_checksum(mut self) -> FileUploaderBuilder<'b> {
+    /// 默认总是启用，在任何场景下都不推荐禁用上传数据校验
+    pub fn enable_checksum(mut self) -> Self {
         self.checksum_enabled = true;
         self
     }
@@ -281,13 +282,13 @@ impl<'b> FileUploaderBuilder<'b> {
     /// 单位为字节，默认将采用客户端配置中的配置项。
     ///
     /// 对于上传数据流的情况，由于无法预知数据尺寸，将总是使用分片上传
-    pub fn upload_threshold(mut self, threshold: u32) -> FileUploaderBuilder<'b> {
+    pub fn upload_threshold(mut self, threshold: u32) -> Self {
         self.resumable_policy = ResumablePolicy::Threshold(threshold);
         self
     }
 
     /// 总是使用分片上传
-    pub fn always_be_resumable(mut self) -> FileUploaderBuilder<'b> {
+    pub fn always_be_resumable(mut self) -> Self {
         self.resumable_policy = ResumablePolicy::Always;
         self
     }
@@ -297,7 +298,7 @@ impl<'b> FileUploaderBuilder<'b> {
     /// 需要注意的是，虽然表单上传仅需要一次 HTTP 调用，性能优于分片上传，
     /// 但分片上传具有断点续传的特性，以及表单上传会将整个文件内容都加载进内存中，对大文件极不友好。
     /// 因此总是推荐使用默认策略，如果认为默认阙值过小，可以适当提高客户端配置的阙值。
-    pub fn never_be_resumable(mut self) -> FileUploaderBuilder<'b> {
+    pub fn never_be_resumable(mut self) -> Self {
         self.resumable_policy = ResumablePolicy::Never;
         self
     }
@@ -308,10 +309,7 @@ impl<'b> FileUploaderBuilder<'b> {
     /// 上传进度闭包的第一个参数为已经上传的数据量，
     /// 第二个参数为数据总量，如果为 `None` 表示数据总量不可预知，
     /// 单位均为字节
-    pub fn on_progress_ref(
-        mut self,
-        callback: &'b (dyn Fn(u64, Option<u64>) + Send + Sync),
-    ) -> FileUploaderBuilder<'b> {
+    pub fn on_progress_ref(mut self, callback: &'b (dyn Fn(u64, Option<u64>) + Send + Sync)) -> Self {
         self.on_uploading_progress = Some(callback.into());
         self
     }
@@ -345,7 +343,6 @@ impl<'b> FileUploaderBuilder<'b> {
     ) -> UploadResult {
         let file_path = file_path.as_ref();
         let file_name = file_name.into();
-        let file_name = if file_name.is_empty() { None } else { Some(file_name) };
         match self.resumable_policy {
             ResumablePolicy::Threshold(threshold) => {
                 if file_path.metadata()?.len() > threshold.into() {
@@ -375,7 +372,6 @@ impl<'b> FileUploaderBuilder<'b> {
         mime: Option<Mime>,
     ) -> UploadResult {
         let file_name = file_name.into();
-        let file_name = if file_name.is_empty() { None } else { Some(file_name) };
         match self.resumable_policy {
             ResumablePolicy::Threshold(threshold) => {
                 if size > 0 && size < threshold.into() {
@@ -389,25 +385,13 @@ impl<'b> FileUploaderBuilder<'b> {
         }
     }
 
-    fn upload_file_by_form<'n>(
-        self,
-        file_path: &Path,
-        file_name: Option<Cow<'n, str>>,
-        mime: Option<Mime>,
-    ) -> UploadResult {
-        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token);
-        if let Some(key) = self.key {
-            uploader = uploader.key(key);
+    fn upload_file_by_form<'n>(self, file_path: &Path, file_name: Cow<'n, str>, mime: Option<Mime>) -> UploadResult {
+        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token).key(self.key);
+        for (k, v) in self.vars.into_iter() {
+            uploader = uploader.var(&k, v);
         }
-        if let Some(vars) = self.vars {
-            for (k, v) in vars.into_iter() {
-                uploader = uploader.var(&k, v);
-            }
-        }
-        if let Some(metadata) = self.metadata {
-            for (k, v) in metadata.into_iter() {
-                uploader = uploader.metadata(&k, v);
-            }
+        for (k, v) in self.metadata.into_iter() {
+            uploader = uploader.metadata(&k, v);
         }
         if let Some(callback) = &self.on_uploading_progress {
             uploader = uploader.on_uploading_progress(callback.as_ref());
@@ -422,23 +406,12 @@ impl<'b> FileUploaderBuilder<'b> {
             .send()?)
     }
 
-    fn upload_file_by_blocks<'n>(
-        self,
-        file_path: &Path,
-        file_name: Option<Cow<'n, str>>,
-        mime: Option<Mime>,
-    ) -> UploadResult {
+    fn upload_file_by_blocks<'n>(self, file_path: &Path, file_name: Cow<'n, str>, mime: Option<Mime>) -> UploadResult {
         let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)
-            .max_concurrency(self.max_concurrency);
-        if let Some(key) = &self.key {
-            uploader = uploader.key(key.to_owned());
-        }
-        if let Some(vars) = self.vars {
-            uploader = uploader.vars(vars);
-        }
-        if let Some(metadata) = self.metadata {
-            uploader = uploader.metadata(metadata);
-        }
+            .max_concurrency(self.max_concurrency)
+            .key(self.key.to_owned())
+            .vars(self.vars)
+            .metadata(self.metadata);
         if let Some(callback) = &self.on_uploading_progress {
             uploader = uploader.on_uploading_progress(callback.as_ref());
         }
@@ -454,7 +427,7 @@ impl<'b> FileUploaderBuilder<'b> {
             self.checksum_enabled,
         )?;
         Self::prepare_for_resuming(
-            self.key.as_ref().map(|key| key.as_ref()),
+            self.key.as_ref(),
             &self.bucket_uploader.recorder(),
             &mut uploader,
             file_path,
@@ -463,7 +436,7 @@ impl<'b> FileUploaderBuilder<'b> {
     }
 
     fn prepare_for_resuming(
-        key: Option<&str>,
+        key: &str,
         recorder: &UploadRecorder,
         uploader: &mut ResumableUploader<'_, File>,
         file_path: &Path,
@@ -478,27 +451,20 @@ impl<'b> FileUploaderBuilder<'b> {
         self,
         stream: R,
         size: u64,
-        file_name: Option<Cow<str>>,
+        file_name: Cow<str>,
         mime: Option<Mime>,
     ) -> UploadResult {
-        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token);
-        if let Some(key) = self.key {
-            uploader = uploader.key(key);
+        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token).key(self.key);
+        for (k, v) in self.vars.into_iter() {
+            uploader = uploader.var(&k, v);
         }
-        if let Some(vars) = self.vars {
-            for (k, v) in vars.into_iter() {
-                uploader = uploader.var(&k, v);
-            }
-        }
-        if let Some(metadata) = self.metadata {
-            for (k, v) in metadata.into_iter() {
-                uploader = uploader.metadata(&k, v);
-            }
+        for (k, v) in self.metadata.into_iter() {
+            uploader = uploader.metadata(&k, v);
         }
         if let Some(callback) = &self.on_uploading_progress {
             uploader = uploader.on_uploading_progress(callback.as_ref());
         }
-        let mime = Self::guess_mime_from_file_name(mime, file_name.as_ref().map(|name| name.as_ref()));
+        let mime = Self::guess_mime_from_file_name(mime, file_name.as_ref());
         let upload_response = if size > 0 {
             uploader.stream(stream.take(size), mime, file_name, None)?.send()?
         } else {
@@ -511,27 +477,21 @@ impl<'b> FileUploaderBuilder<'b> {
         self,
         stream: R,
         size: u64,
-        file_name: Option<Cow<str>>,
+        file_name: Cow<str>,
         mime: Option<Mime>,
     ) -> UploadResult {
         let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)
-            .max_concurrency(self.max_concurrency);
-        if let Some(key) = self.key {
-            uploader = uploader.key(key);
-        }
-        if let Some(vars) = self.vars {
-            uploader = uploader.vars(vars);
-        }
-        if let Some(metadata) = self.metadata {
-            uploader = uploader.metadata(metadata);
-        }
+            .max_concurrency(self.max_concurrency)
+            .key(self.key)
+            .vars(self.vars)
+            .metadata(self.metadata);
         if let Some(callback) = &self.on_uploading_progress {
             uploader = uploader.on_uploading_progress(callback.as_ref());
         }
         if let Some(thread_pool) = self.thread_pool {
             uploader = uploader.thread_pool(thread_pool);
         }
-        let mime = Self::guess_mime_from_file_name(mime, file_name.as_ref().map(|name| name.as_ref()));
+        let mime = Self::guess_mime_from_file_name(mime, file_name.as_ref());
         let upload_response = if size > 0 {
             uploader
                 .stream(stream.take(size), size, mime, file_name, true)?
@@ -542,21 +502,28 @@ impl<'b> FileUploaderBuilder<'b> {
         Ok(upload_response)
     }
 
-    fn guess_filename<'n>(file_path: &Path, file_name: Option<Cow<'n, str>>) -> Option<Cow<'n, str>> {
-        file_name.or_else(|| {
+    fn guess_filename<'n>(file_path: &Path, file_name: Cow<'n, str>) -> Cow<'n, str> {
+        if file_name.is_empty() {
             file_path
                 .file_name()
                 .and_then(|name| name.to_str())
                 .map(|name| name.to_owned().into())
-        })
+                .unwrap_or_default()
+        } else {
+            file_name
+        }
     }
 
     fn guess_mime_from_file_path(mime: Option<Mime>, file_path: &Path) -> Option<Mime> {
         mime.or_else(|| mime_guess::from_path(file_path).first())
     }
 
-    fn guess_mime_from_file_name(mime: Option<Mime>, file_name: Option<&str>) -> Option<Mime> {
-        mime.or_else(|| file_name.and_then(|file_name| mime_guess::from_path(file_name).first()))
+    fn guess_mime_from_file_name(mime: Option<Mime>, file_name: &str) -> Option<Mime> {
+        mime.or_else(|| {
+            Some(file_name)
+                .filter(|n| !n.is_empty())
+                .and_then(|file_name| mime_guess::from_path(file_name).first())
+        })
     }
 }
 

@@ -439,6 +439,44 @@
 //! # }
 //! ```
 //!
+//! ### 批量上传
+//!
+//! SDK 支持将多个文件批量上传，将会尽可能使用线程池并发上传加速上传效率，因此效率将优于串行的上传方法。
+//!
+//! ```rust,no_run
+//! use qiniu_ng::{
+//!     Credential, Client, Config,
+//!     storage::uploader::{BatchUploadJobBuilder, UploadPolicyBuilder, UploadPolicy, UploadToken, UploadManager},
+//! };
+//! # use std::{path::Path, fs::File, io::{Cursor, Read}, time::Duration, result::Result, error::Error};
+//!
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! # let access_key = "[Qiniu Access Key]";
+//! # let secret_key = "[Qiniu Secret Key]";
+//! # let bucket = "[Bucket Name]";
+//! #
+//! # let credential = Credential::new(access_key, secret_key);
+//! # let config = Config::default();
+//! # let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(bucket, &config)
+//! #                                         .build();
+//! #
+//! # let upload_token = UploadToken::new(upload_policy, &credential);
+//! # let local_file_path = Path::new("local file path");
+//! # let mut bytes = Vec::new();
+//! # File::open("/etc/services")?.read_to_end(&mut bytes)?;
+//! # let stream_len = bytes.len() as u64;
+//! # let stream = Cursor::new(bytes);
+//! let upload_manager = UploadManager::new(config);
+//! upload_manager.batch_for_upload_token(upload_token, 2)?
+//!               .push_job(BatchUploadJobBuilder::default()
+//!                                               .upload_file(local_file_path, "local file name", None)?)
+//!               .push_job(BatchUploadJobBuilder::default()
+//!                                               .upload_stream(stream, stream_len, "file name", None))
+//!               .start();
+//! # Ok(())
+//! # }
+//! ```
+//!
 //! ### 文件上传策略
 //!
 //! 默认情况下，对于尺寸大于 4 MB 的文件，SDK 默认自动使用分片上传的方式来上传，分片上传通过将一个文件切割为标准的块（默认的固定大小为 4 MB，可以通过修改配置增加尺寸，但必须是 4 MB 的倍数），然后通过上传块的方式来进行文件的上传。一个块中的片和另外一个块中的片是可以并发的。分片上传不等于断点续传，但是分片上传可以支持断点续传。

@@ -23,9 +23,9 @@ impl<'a> Builder<'a> {
                 method,
                 base_urls,
                 path,
-                query: None,
-                headers: None,
-                body: None,
+                query: HashMap::new(),
+                headers: Headers::new(),
+                body: Vec::new(),
                 token: None,
                 read_body: false,
                 idempotent: false,
@@ -39,34 +39,12 @@ impl<'a> Builder<'a> {
     }
 
     pub(crate) fn header<K: Into<HeaderName<'a>>, V: Into<HeaderValue<'a>>>(mut self, key: K, value: V) -> Builder<'a> {
-        match &mut self.parts.headers {
-            Some(headers) => {
-                headers.insert(key.into(), value.into());
-            }
-            None => {
-                self.parts.headers = Some({
-                    let mut h = Headers::with_capacity(4);
-                    h.insert(key.into(), value.into());
-                    h
-                });
-            }
-        }
+        self.parts.headers.insert(key.into(), value.into());
         self
     }
 
     pub(crate) fn query<K: Into<Cow<'a, str>>, V: Into<Cow<'a, str>>>(mut self, key: K, value: V) -> Builder<'a> {
-        match self.parts.query {
-            Some(ref mut query) => {
-                query.insert(key.into(), value.into());
-            }
-            None => {
-                self.parts.query = Some({
-                    let mut q = HashMap::with_capacity(4);
-                    q.insert(key.into(), value.into());
-                    q
-                });
-            }
-        }
+        self.parts.query.insert(key.into(), value.into());
         self
     }
 
@@ -125,14 +103,14 @@ impl<'a> Builder<'a> {
         body: T,
     ) -> Request<'a> {
         self = self.header("Content-Type", content_type);
-        self.parts.body = Some(body.into());
+        self.parts.body = body.into();
         self.build()
     }
 
     pub(crate) fn json_body<T: Serialize>(mut self, body: &T) -> serde_json::Result<Request<'a>> {
         let serialized_body = serde_json::to_vec(body)?;
         self = self.header("Content-Type", mime::JSON_MIME);
-        self.parts.body = Some(serialized_body);
+        self.parts.body = serialized_body;
         Ok(self.build())
     }
 

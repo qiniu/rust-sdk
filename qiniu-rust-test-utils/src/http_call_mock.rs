@@ -144,18 +144,18 @@ pub struct CallHandlers {
 }
 
 impl CallHandlers {
-    pub fn new<R: Fn(&Request) -> Result<Response> + Send + Sync + 'static>(default_handler: R) -> Self {
+    pub fn new(default_handler: impl Fn(&Request) -> Result<Response> + Send + Sync + 'static) -> Self {
         CallHandlers {
             handlers: Vec::new(),
             default: Box::new(default_handler),
         }
     }
 
-    pub fn install<S: AsRef<str>, R: Fn(&Request, usize) -> Result<Response> + Send + Sync + 'static>(
+    pub fn install(
         mut self,
         method: Method,
-        url_regexp: S,
-        handler: R,
+        url_regexp: impl AsRef<str>,
+        handler: impl Fn(&Request, usize) -> Result<Response> + Send + Sync + 'static,
     ) -> Self {
         self.handlers.push(CallHandler {
             method,
@@ -198,11 +198,7 @@ impl<T: HTTPCaller> UploadingProgressErrorMock<T> {
 impl<T: HTTPCaller> HTTPCaller for UploadingProgressErrorMock<T> {
     fn call(&self, request: &Request) -> Result<Response> {
         let mut rng = thread_rng();
-        let total_size: u64 = request
-            .body()
-            .as_ref()
-            .map(|body| body.len().try_into().unwrap_or(u64::max_value()))
-            .unwrap_or(0u64);
+        let total_size: u64 = request.body().as_ref().len().try_into().unwrap_or(u64::max_value());
         let packet_size: u64 = self.packet_size.into();
         for i in 1..=total_size {
             if i % packet_size != total_size % packet_size {

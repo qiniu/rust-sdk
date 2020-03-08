@@ -80,9 +80,9 @@ impl Credential {
 
     pub(crate) fn authorization_v1_for_request(
         &self,
-        url_string: impl AsRef<str>,
-        content_type: Option<impl AsRef<str>>,
-        body: Option<&[u8]>,
+        url_string: &str,
+        content_type: &str,
+        body: &[u8],
     ) -> Result<String, url::ParseError> {
         let authorization_token = self.sign_request_v1(url_string, content_type, body)?;
         Ok("QBox ".to_owned() + &authorization_token)
@@ -91,9 +91,9 @@ impl Credential {
     pub(crate) fn authorization_v2_for_request(
         &self,
         method: Method,
-        url_string: impl AsRef<str>,
+        url_string: &str,
         headers: &Headers,
-        body: Option<&[u8]>,
+        body: &[u8],
     ) -> Result<String, url::ParseError> {
         let authorization_token = self.sign_request_v2(method, url_string, headers, body)?;
         Ok("Qiniu ".to_owned() + &authorization_token)
@@ -101,9 +101,9 @@ impl Credential {
 
     pub(crate) fn sign_request_v1(
         &self,
-        url_string: impl AsRef<str>,
-        content_type: Option<impl AsRef<str>>,
-        body: Option<&[u8]>,
+        url_string: &str,
+        content_type: &str,
+        body: &[u8],
     ) -> Result<String, url::ParseError> {
         let u = Url::parse(url_string.as_ref())?;
         let mut data_to_sign = Vec::with_capacity(1024);
@@ -115,7 +115,7 @@ impl Credential {
             }
         }
         data_to_sign.extend_from_slice(b"\n");
-        if let (Some(content_type), Some(body)) = (content_type, body) {
+        if !content_type.is_empty() && !body.is_empty() {
             if Self::will_push_body_v1(content_type) {
                 data_to_sign.extend_from_slice(body);
             }
@@ -128,7 +128,7 @@ impl Credential {
         method: Method,
         url_string: impl AsRef<str>,
         headers: &Headers,
-        body: Option<&[u8]>,
+        body: &[u8],
     ) -> Result<String, url::ParseError> {
         let u = Url::parse(url_string.as_ref())?;
         let mut data_to_sign = Vec::with_capacity(1024);
@@ -155,10 +155,8 @@ impl Credential {
             data_to_sign.extend_from_slice(b"\n");
             sign_data_for_x_qiniu_headers(&mut data_to_sign, headers);
             data_to_sign.extend_from_slice(b"\n");
-            if let Some(body) = body {
-                if Self::will_push_body_v2(content_type) {
-                    data_to_sign.extend_from_slice(body);
-                }
+            if !body.is_empty() && Self::will_push_body_v2(content_type) {
+                data_to_sign.extend_from_slice(body);
             }
         } else {
             sign_data_for_x_qiniu_headers(&mut data_to_sign, &headers);
@@ -191,12 +189,12 @@ impl Credential {
         base64::urlsafe(&hmac.result().code())
     }
 
-    fn will_push_body_v1<ContentType: AsRef<str>>(content_type: ContentType) -> bool {
-        mime::FORM_MIME.eq_ignore_ascii_case(content_type.as_ref())
+    fn will_push_body_v1(content_type: &str) -> bool {
+        mime::FORM_MIME.eq_ignore_ascii_case(content_type)
     }
 
-    fn will_push_body_v2<ContentType: AsRef<str>>(content_type: ContentType) -> bool {
-        !mime::BINARY_MIME.eq_ignore_ascii_case(content_type.as_ref())
+    fn will_push_body_v2(content_type: &str) -> bool {
+        !mime::BINARY_MIME.eq_ignore_ascii_case(content_type)
     }
 
     /// 验证七牛回调请求
@@ -209,8 +207,8 @@ impl Credential {
             Ok(original_authorization
                 == &self.authorization_v1_for_request(
                     req.url(),
-                    req.headers().get(&"Content-Type".into()),
-                    req.body().as_ref().map(|body| body.as_ref()),
+                    req.headers().get(&"Content-Type".into()).unwrap_or(&"".into()),
+                    req.body().as_ref(),
                 )?)
         } else {
             Ok(false)
@@ -383,38 +381,30 @@ mod tests {
     fn test_sign_request_v1() -> Result<(), Box<dyn Error>> {
         let credential = get_credential();
         assert_eq!(
-            credential.sign_request_v1("http://upload.qiniup.com/", None::<&str>, Some(b"{\"name\":\"test\"}"))?,
+            credential.sign_request_v1("http://upload.qiniup.com/", "", b"{\"name\":\"test\"}")?,
             credential.sign(b"/\n")
         );
         assert_eq!(
-            credential.sign_request_v1(
-                "http://upload.qiniup.com/",
-                Some(mime::JSON_MIME),
-                Some(b"{\"name\":\"test\"}")
-            )?,
+            credential.sign_request_v1("http://upload.qiniup.com/", mime::JSON_MIME, b"{\"name\":\"test\"}")?,
             credential.sign(b"/\n")
         );
         assert_eq!(
-            credential.sign_request_v1(
-                "http://upload.qiniup.com/",
-                Some(mime::FORM_MIME),
-                Some(b"name=test&language=go")
-            )?,
+            credential.sign_request_v1("http://upload.qiniup.com/", mime::FORM_MIME, b"name=test&language=go")?,
             credential.sign(b"/\nname=test&language=go")
         );
         assert_eq!(
             credential.sign_request_v1(
                 "http://upload.qiniup.com/?v=2",
-                Some(mime::FORM_MIME),
-                Some(b"name=test&language=go")
+                mime::FORM_MIME,
+                b"name=test&language=go"
             )?,
             credential.sign(b"/?v=2\nname=test&language=go")
         );
         assert_eq!(
             credential.sign_request_v1(
                 "http://upload.qiniup.com/find/sdk?v=2",
-                Some(mime::FORM_MIME),
-                Some(b"name=test&language=go")
+                mime::FORM_MIME,
+                b"name=test&language=go"
             )?,
             credential.sign(b"/find/sdk?v=2\nname=test&language=go")
         );
@@ -458,7 +448,7 @@ mod tests {
                 Method::GET,
                 "http://upload.qiniup.com/",
                 &json_headers,
-                Some(b"{\"name\":\"test\"}")
+                b"{\"name\":\"test\"}"
             )?,
             credential.sign(
                 concat!(
@@ -479,7 +469,7 @@ mod tests {
                 Method::GET,
                 "http://upload.qiniup.com/",
                 &empty_headers,
-                Some(b"{\"name\":\"test\"}")
+                b"{\"name\":\"test\"}"
             )?,
             credential.sign(concat!("GET /\n", "Host: upload.qiniup.com\n\n").as_bytes())
         );
@@ -488,7 +478,7 @@ mod tests {
                 Method::POST,
                 "http://upload.qiniup.com/",
                 &json_headers,
-                Some(b"{\"name\":\"test\"}")
+                b"{\"name\":\"test\"}"
             )?,
             credential.sign(
                 concat!(
@@ -509,7 +499,7 @@ mod tests {
                 Method::GET,
                 "http://upload.qiniup.com/",
                 &form_headers,
-                Some(b"name=test&language=go")
+                b"name=test&language=go"
             )?,
             credential.sign(
                 concat!(
@@ -530,7 +520,7 @@ mod tests {
                 Method::GET,
                 "http://upload.qiniup.com/?v=2",
                 &form_headers,
-                Some(b"name=test&language=go")
+                b"name=test&language=go"
             )?,
             credential.sign(
                 concat!(
@@ -551,7 +541,7 @@ mod tests {
                 Method::GET,
                 "http://upload.qiniup.com/find/sdk?v=2",
                 &form_headers,
-                Some(b"name=test&language=go")
+                b"name=test&language=go"
             )?,
             credential.sign(
                 concat!(
@@ -581,7 +571,7 @@ mod tests {
                 .url("http://upload.qiniup.com/")
                 .header(
                     "Authorization",
-                    credential.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)?
+                    credential.authorization_v1_for_request("http://upload.qiniup.com/", "", b"")?
                 )
                 .body(json_body)
                 .build()
@@ -591,7 +581,7 @@ mod tests {
                 .url("http://upload.qiniup.com/")
                 .header(
                     "Authorization",
-                    credential.authorization_v1_for_request("http://upload.qiniup.com/", None::<&str>, None)?
+                    credential.authorization_v1_for_request("http://upload.qiniup.com/", "", b"")?
                 )
                 .header("Content-Type", mime::JSON_MIME)
                 .body(json_body)
@@ -604,8 +594,8 @@ mod tests {
                     "Authorization",
                     credential.authorization_v1_for_request(
                         "http://upload.qiniup.com/find/sdk?v=2",
-                        Some(mime::FORM_MIME),
-                        Some(b"name=test&language=go")
+                        mime::FORM_MIME,
+                        b"name=test&language=go"
                     )?
                 )
                 .header("Content-Type", mime::FORM_MIME)

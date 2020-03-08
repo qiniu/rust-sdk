@@ -24,7 +24,7 @@ mod tests {
                 request.headers().get(&"Accept".into()),
                 Some(&"application/json".into())
             );
-            assert!(request.body().is_none());
+            assert!(request.body().is_empty());
             Ok(())
         }
     }

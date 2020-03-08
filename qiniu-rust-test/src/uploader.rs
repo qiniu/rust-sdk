@@ -4,7 +4,7 @@ mod tests {
     use matches::matches;
     use qiniu_ng::{
         http::ErrorKind as HTTPErrorKind,
-        storage::uploader::{UploadError, UploadPolicyBuilder},
+        storage::uploader::{BatchUploadJobBuilder, UploadError, UploadPolicyBuilder},
         utils::etag,
         Client, Config, ConfigBuilder, Credential,
     };
@@ -14,11 +14,11 @@ mod tests {
         boxed::Box,
         convert::TryInto,
         error::Error,
-        io::{Seek, SeekFrom},
+        io::{Error as IOError, Seek, SeekFrom},
         result::Result,
         sync::{
             atomic::{AtomicU64, Ordering::Relaxed},
-            Mutex,
+            Arc, Mutex, RwLock,
         },
         thread::{current, ThreadId},
     };
@@ -370,6 +370,221 @@ mod tests {
         assert_eq!(result.get("var_key1"), None);
         assert_eq!(result.get("var_key2"), None);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_uploader_upload_files_by_batch_uploader() -> Result<(), Box<dyn Error>> {
+        const FILE_SIZES: [u64; 12] = [
+            (1 << 22) + (1 << 20) + (1 << 10) + 1,
+            (1 << 20) + (1 << 20) + (1 << 10) + 1,
+            (1 << 21) + (1 << 20) + (1 << 10) + 1,
+            (1 << 23) + (1 << 20) + (1 << 10) + 1,
+            (1 << 22) + (1 << 20) + 1,
+            (1 << 20) + (1 << 20) + 1,
+            (1 << 21) + (1 << 20) + 1,
+            (1 << 23) + (1 << 20) + 1,
+            (1 << 22) + 1,
+            (1 << 20) + 1,
+            (1 << 21) + 1,
+            (1 << 23) + 1,
+        ];
+        let config = Config::default();
+        let temp_paths = FILE_SIZES
+            .iter()
+            .map(|&size| Ok(create_temp_file(size.try_into().unwrap())?.into_temp_path()))
+            .collect::<Result<Vec<_>, IOError>>()?;
+        let etags = Arc::new(
+            temp_paths
+                .iter()
+                .map(etag::from_file)
+                .collect::<Result<Vec<_>, IOError>>()?,
+        );
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
+            .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
+            .build();
+        let mut batch_uploader = get_client(config)
+            .upload()
+            .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?
+            .thread_pool_size(4);
+        let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
+        for (idx, temp_path) in temp_paths.iter().enumerate() {
+            let etags = etags.clone();
+            let thread_ids_1 = thread_ids.clone();
+            let thread_ids_2 = thread_ids.clone();
+            batch_uploader = batch_uploader.push_job(
+                BatchUploadJobBuilder::default()
+                    .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
+                    .var("var_key1", format!("var_value_{}", idx))
+                    .on_uploading_progress(move |_, _| {
+                        let cur_thread_id = current().id();
+                        if !thread_ids_1.read().unwrap().contains(&cur_thread_id) {
+                            assert!(thread_ids_1.read().unwrap().len() <= 4);
+                            thread_ids_1.write().unwrap().push(cur_thread_id);
+                        }
+                    })
+                    .on_completed(move |result| {
+                        let cur_thread_id = current().id();
+                        if !thread_ids_2.read().unwrap().contains(&cur_thread_id) {
+                            assert!(thread_ids_2.read().unwrap().len() <= 4);
+                            thread_ids_2.write().unwrap().push(cur_thread_id);
+                        }
+                        let response = result.unwrap();
+                        assert_eq!(response.hash(), etags.get(idx).map(|s| s.as_ref()));
+                        assert_eq!(
+                            response.get("fname").and_then(|f| f.as_str()),
+                            Some(format!("filename-{}", idx).as_str())
+                        );
+                        assert_eq!(
+                            response.get("var_key1").and_then(|f| f.as_str()),
+                            Some(format!("var_value_{}", idx).as_str())
+                        );
+                    })
+                    .upload_file(temp_path, format!("filename-{}", idx), None)?,
+            );
+        }
+
+        batch_uploader.start();
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_uploader_upload_large_files_by_batch_uploader() -> Result<(), Box<dyn Error>> {
+        const FILE_SIZES: [u64; 12] = [
+            (1 << 24) + (1 << 20) + (1 << 10) + 1,
+            (1 << 22) + (1 << 20) + (1 << 10) + 1,
+            (1 << 23) + (1 << 20) + (1 << 10) + 1,
+            (1 << 25) + (1 << 20) + (1 << 10) + 1,
+            (1 << 24) + (1 << 20) + 1,
+            (1 << 22) + (1 << 20) + 1,
+            (1 << 23) + (1 << 20) + 1,
+            (1 << 25) + (1 << 20) + 1,
+            (1 << 24) + 1,
+            (1 << 22) + 1,
+            (1 << 23) + 1,
+            (1 << 25) + 1,
+        ];
+        let config = Config::default();
+        let temp_paths = FILE_SIZES
+            .iter()
+            .map(|&size| Ok(create_temp_file(size.try_into().unwrap())?.into_temp_path()))
+            .collect::<Result<Vec<_>, IOError>>()?;
+        let etags = Arc::new(
+            temp_paths
+                .iter()
+                .map(etag::from_file)
+                .collect::<Result<Vec<_>, IOError>>()?,
+        );
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
+        let mut batch_uploader = get_client(config)
+            .upload()
+            .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?
+            .thread_pool_size(4);
+        let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
+        for (idx, temp_path) in temp_paths.iter().enumerate() {
+            let etags = etags.clone();
+            let thread_ids_1 = thread_ids.clone();
+            let thread_ids_2 = thread_ids.clone();
+            batch_uploader = batch_uploader.push_job(
+                BatchUploadJobBuilder::default()
+                    .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
+                    .on_uploading_progress(move |_, _| {
+                        let cur_thread_id = current().id();
+                        if !thread_ids_1.read().unwrap().contains(&cur_thread_id) {
+                            assert!(thread_ids_1.read().unwrap().len() <= 4);
+                            thread_ids_1.write().unwrap().push(cur_thread_id);
+                        }
+                    })
+                    .on_completed(move |result| {
+                        let cur_thread_id = current().id();
+                        if !thread_ids_2.read().unwrap().contains(&cur_thread_id) {
+                            assert!(thread_ids_2.read().unwrap().len() <= 4);
+                            thread_ids_2.write().unwrap().push(cur_thread_id);
+                        }
+                        let response = result.unwrap();
+                        assert_eq!(response.hash(), etags.get(idx).map(|s| s.as_ref()));
+                    })
+                    .upload_file(temp_path, "", None)?,
+            );
+        }
+
+        batch_uploader.start();
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_uploader_upload_streams_by_batch_uploader() -> Result<(), Box<dyn Error>> {
+        const FILE_SIZES: [u64; 12] = [
+            (1 << 22) + (1 << 20) + (1 << 10) + 1,
+            (1 << 20) + (1 << 20) + (1 << 10) + 1,
+            (1 << 21) + (1 << 20) + (1 << 10) + 1,
+            (1 << 23) + (1 << 20) + (1 << 10) + 1,
+            (1 << 22) + (1 << 20) + 1,
+            (1 << 20) + (1 << 20) + 1,
+            (1 << 21) + (1 << 20) + 1,
+            (1 << 23) + (1 << 20) + 1,
+            (1 << 22) + 1,
+            (1 << 20) + 1,
+            (1 << 21) + 1,
+            (1 << 23) + 1,
+        ];
+        let config = Config::default();
+        let parts = FILE_SIZES
+            .iter()
+            .map(|&size| Ok(create_temp_file(size.try_into().unwrap())?.into_parts()))
+            .collect::<Result<Vec<_>, IOError>>()?;
+        let etags = Arc::new(
+            parts
+                .iter()
+                .map(|part| etag::from_file(&part.1))
+                .collect::<Result<Vec<_>, IOError>>()?,
+        );
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
+            .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
+            .build();
+        let mut batch_uploader = get_client(config)
+            .upload()
+            .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?
+            .thread_pool_size(5);
+        let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
+        for (idx, (mut file, _)) in parts.into_iter().enumerate() {
+            file.seek(SeekFrom::Start(0))?;
+            let etags = etags.clone();
+            let thread_ids_1 = thread_ids.clone();
+            let thread_ids_2 = thread_ids.clone();
+            batch_uploader = batch_uploader.push_job(
+                BatchUploadJobBuilder::default()
+                    .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
+                    .var("var_key1", format!("var_value_{}", idx))
+                    .on_uploading_progress(move |_, _| {
+                        let cur_thread_id = current().id();
+                        if !thread_ids_1.read().unwrap().contains(&cur_thread_id) {
+                            assert!(thread_ids_1.read().unwrap().len() <= 4);
+                            thread_ids_1.write().unwrap().push(cur_thread_id);
+                        }
+                    })
+                    .on_completed(move |result| {
+                        let cur_thread_id = current().id();
+                        if !thread_ids_2.read().unwrap().contains(&cur_thread_id) {
+                            assert!(thread_ids_2.read().unwrap().len() <= 4);
+                            thread_ids_2.write().unwrap().push(cur_thread_id);
+                        }
+                        let response = result.unwrap();
+                        assert_eq!(response.hash(), etags.get(idx).map(|s| s.as_ref()));
+                        assert_eq!(
+                            response.get("fname").and_then(|f| f.as_str()),
+                            Some(format!("filename-{}", idx).as_str())
+                        );
+                        assert_eq!(
+                            response.get("var_key1").and_then(|f| f.as_str()),
+                            Some(format!("var_value_{}", idx).as_str())
+                        );
+                    })
+                    .upload_stream(file, FILE_SIZES[idx], format!("filename-{}", idx), None),
+            );
+        }
+
+        batch_uploader.start();
         Ok(())
     }
 

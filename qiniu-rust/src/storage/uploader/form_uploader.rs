@@ -44,7 +44,9 @@ impl<'u> FormUploaderBuilder<'u> {
     }
 
     pub(super) fn key(mut self, key: Cow<'u, str>) -> FormUploaderBuilder<'u> {
-        self.multipart.add_text("key", key);
+        if !key.is_empty() {
+            self.multipart.add_text("key", key);
+        }
         self
     }
 
@@ -66,7 +68,7 @@ impl<'u> FormUploaderBuilder<'u> {
     pub(super) fn seekable_stream<'n: 'u, R: Read + Seek + 'u>(
         mut self,
         mut stream: R,
-        file_name: Option<Cow<'n, str>>,
+        file_name: Cow<'n, str>,
         mime: Option<Mime>,
         checksum_enabled: bool,
     ) -> IOResult<FormUploader<'u>> {
@@ -75,6 +77,7 @@ impl<'u> FormUploaderBuilder<'u> {
             crc32 = Some(crc32::from(&mut stream)?);
             stream.seek(SeekFrom::Start(0))?;
         }
+        let file_name = if file_name.is_empty() { None } else { Some(file_name) };
         self.multipart.add_stream("file", stream, file_name, mime);
         if let Some(crc32) = crc32 {
             self.multipart.add_text("crc32", crc32.to_string());
@@ -86,9 +89,10 @@ impl<'u> FormUploaderBuilder<'u> {
         mut self,
         stream: R,
         mime: Option<Mime>,
-        file_name: Option<Cow<'n, str>>,
+        file_name: Cow<'n, str>,
         crc32: Option<u32>,
     ) -> IOResult<FormUploader<'u>> {
+        let file_name = if file_name.is_empty() { None } else { Some(file_name) };
         self.multipart.add_stream("file", stream, file_name, mime);
         if let Some(crc32) = crc32 {
             self.multipart.add_text("crc32", crc32.to_string());

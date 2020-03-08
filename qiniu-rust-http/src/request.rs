@@ -40,11 +40,11 @@ pub struct Request<'b> {
     /// 请求体
     #[get = "pub"]
     #[get_mut = "pub"]
-    body: Option<Body<'b>>,
+    body: Body<'b>,
 
     /// 用户代理
     #[get_mut = "pub"]
-    user_agent: Option<Cow<'b, str>>,
+    user_agent: Cow<'b, str>,
 
     /// 是否自动跟踪重定向
     #[get_copy = "pub"]
@@ -114,7 +114,11 @@ impl<'b> Request<'b> {
 
     /// 用户代理
     pub fn user_agent(&self) -> Option<&str> {
-        self.user_agent.as_ref().map(|user_agent| user_agent.as_ref())
+        if self.user_agent.is_empty() {
+            None
+        } else {
+            Some(self.user_agent.as_ref())
+        }
     }
 }
 
@@ -161,13 +165,13 @@ impl<'r> RequestBuilder<'r> {
 
     /// 设置请求体
     pub fn body(mut self, body: impl Into<Body<'r>>) -> RequestBuilder<'r> {
-        self.request.body = Some(body.into());
+        self.request.body = body.into();
         self
     }
 
     /// 设置用户代理
     pub fn user_agent(mut self, user_agent: impl Into<Cow<'r, str>>) -> RequestBuilder<'r> {
-        self.request.user_agent = Some(user_agent.into());
+        self.request.user_agent = user_agent.into();
         self
     }
 
@@ -243,8 +247,8 @@ impl Default for Request<'_> {
             url: "http://localhost".into(),
             method: Method::GET,
             headers: Headers::new(),
-            body: None,
-            user_agent: None,
+            body: Cow::Borrowed(&[]),
+            user_agent: Cow::Borrowed(""),
             follow_redirection: false,
             resolved_socket_addrs: Cow::Borrowed(&[]),
             on_uploading_progress: None,

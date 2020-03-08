@@ -2,6 +2,7 @@
 //!
 //! 提供对象上传相关功能
 
+mod batch_uploader;
 mod bucket_uploader;
 mod callback;
 mod form_uploader;
@@ -14,6 +15,7 @@ mod upload_recorder;
 mod upload_response;
 mod upload_token;
 
+pub use batch_uploader::{BatchUploadJob, BatchUploadJobBuilder, BatchUploader};
 pub use bucket_uploader::{BucketUploader, BucketUploaderBuilder, FileUploaderBuilder, UploadError, UploadResult};
 use callback::upload_response_callback;
 pub use upload_logger::{LockPolicy as UploadLoggerFileLockPolicy, UploadLogger, UploadLoggerBuilder};

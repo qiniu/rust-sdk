@@ -8,7 +8,7 @@ use super::{
         region::Region,
         uploader::{UploadPolicy, UploadToken, UploadTokenParseError},
     },
-    BucketUploaderBuilder, FileUploaderBuilder,
+    BatchUploader, BucketUploaderBuilder, FileUploaderBuilder,
 };
 use crate::{config::Config, credential::Credential, utils::ron::Ron};
 use assert_impl::assert_impl;
@@ -106,6 +106,36 @@ impl UploadManager {
         credential: Cow<'u, Credential>,
     ) -> CreateUploaderResult<FileUploaderBuilder<'u>> {
         self.for_upload_token(UploadToken::new(upload_policy, credential))
+    }
+
+    /// 根据上传凭证创建批量文件上传器生成器
+    pub fn batch_for_upload_token<'u>(
+        &self,
+        upload_token: impl Into<UploadToken<'u>>,
+        expected_jobs_count: usize,
+    ) -> CreateUploaderResult<BatchUploader> {
+        let upload_token = upload_token.into();
+        let access_key = upload_token.access_key()?;
+        let policy = upload_token.policy()?;
+        if let Some(bucket_name) = policy.bucket() {
+            Ok(BatchUploader::new(
+                &self.for_bucket_name(bucket_name.to_owned(), access_key).build(),
+                upload_token,
+                expected_jobs_count,
+            ))
+        } else {
+            Err(CreateUploaderError::BucketIsMissingInUploadToken)
+        }
+    }
+
+    /// 根据上传策略和认证信息创建批量文件上传器生成器
+    pub fn batch_for_upload_policy<'u>(
+        &self,
+        upload_policy: UploadPolicy<'u>,
+        credential: Cow<'u, Credential>,
+        expected_jobs_count: usize,
+    ) -> CreateUploaderResult<BatchUploader> {
+        self.batch_for_upload_token(UploadToken::new(upload_policy, credential), expected_jobs_count)
     }
 
     pub(crate) fn config(&self) -> &Config {

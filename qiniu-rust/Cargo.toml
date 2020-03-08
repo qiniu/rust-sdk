@@ -28,7 +28,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.40"
 serde_urlencoded = "0.6.1"
 lazy_static = "1.4.0"
-maplit = "1.0.2"
 delegate = "0.3.0"
 once_cell = "1.2"
 qiniu-multipart = { version = "0.16.2", features = ["client"], default-features = false }
@@ -42,8 +41,9 @@ tap = "0.4.0"
 thiserror = "1.0"
 dirs = "2.0.2"
 fs2 = "0.4.3"
-sys-info = "<= 0.5.8"
+sys-info = "0.5.10"
 matches = "0.1.8"
+object-pool = "0.4.4"
 
 qiniu-with-libcurl = { version = "=0.0.2", path = "../qiniu-rust-with-libcurl", optional = true }
 qiniu-http = { version = "=0.0.2", path = "../qiniu-rust-http" }

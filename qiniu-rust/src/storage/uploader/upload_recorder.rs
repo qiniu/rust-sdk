@@ -25,7 +25,7 @@ pub struct UploadRecorder {
     ///
     /// 默认将使用基于 SHA1 的策略生成 ID
     #[builder(default = "default::id_generator")]
-    id_generator: fn(name: &str, path: &Path, key: Option<&str>) -> String,
+    id_generator: fn(name: &str, path: &Path, key: &str) -> String,
 
     /// 文件分块有效期
     ///
@@ -89,7 +89,7 @@ impl UploadRecorder {
     pub(super) fn open_and_write_metadata(
         &self,
         path: &Path,
-        key: Option<&str>,
+        key: &str,
         upload_id: &str,
         up_urls: &[&str],
         block_size: u32,
@@ -122,21 +122,21 @@ impl UploadRecorder {
         })
     }
 
-    pub(super) fn open_for_appending(&self, path: &Path, key: Option<&str>) -> Result<FileUploadRecordMedium> {
+    pub(super) fn open_for_appending(&self, path: &Path, key: &str) -> Result<FileUploadRecordMedium> {
         Ok(FileUploadRecordMedium {
             medium: self.recorder.open(&self.generate_key(path, key), false)?,
             always_flush_records: self.always_flush_records,
         })
     }
 
-    pub(super) fn drop(&self, path: &Path, key: Option<&str>) -> Result<()> {
+    pub(super) fn drop(&self, path: &Path, key: &str) -> Result<()> {
         self.recorder.delete(&self.generate_key(path, key))
     }
 
     pub(super) fn load(
         &self,
         path: &Path,
-        key: Option<&str>,
+        key: &str,
     ) -> Result<Option<(FileUploadRecordMediumMetadata, Box<[FileUploadRecordMediumBlockItem]>)>> {
         let file_metadata = path.metadata()?;
         let medium = self.recorder.open(&self.generate_key(path, key), false)?;
@@ -179,7 +179,7 @@ impl UploadRecorder {
         }
     }
 
-    fn generate_key(&self, path: &Path, key: Option<&str>) -> String {
+    fn generate_key(&self, path: &Path, key: &str) -> String {
         (self.id_generator)("upload", path, key)
     }
 
@@ -241,9 +241,9 @@ mod default {
         false
     }
 
-    pub fn id_generator(name: &str, path: &Path, key: Option<&str>) -> String {
+    pub fn id_generator(name: &str, path: &Path, key: &str) -> String {
         let mut sha1 = Sha1::default();
-        if let Some(key) = key {
+        if !key.is_empty() {
             sha1.input(key.as_bytes());
             sha1.input(b"_._");
         }

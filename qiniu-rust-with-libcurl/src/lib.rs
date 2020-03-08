@@ -130,10 +130,8 @@ impl CurlClient {
         context.upload_progress = request.on_uploading_progress();
         context.download_progress = request.on_downloading_progress();
 
-        if let Some(request_body) = request.body().as_ref().map(|body| body.as_ref()) {
-            if !request_body.is_empty() {
-                context.request_body = Some(Cursor::new(request_body));
-            }
+        if !request.body().is_empty() {
+            context.request_body = Some(Cursor::new(request.body()));
         }
 
         match request.method() {
@@ -169,11 +167,10 @@ impl CurlClient {
     }
 
     fn set_body<T>(&self, easy: &mut Easy2<T>, request: &Request) -> Result<()> {
-        request
-            .body()
-            .as_ref()
-            .map(|body| Self::handle_if_err(easy.post_field_size(body.len().try_into().unwrap()), request))
-            .unwrap_or(Ok(()))
+        if !request.body().is_empty() {
+            Self::handle_if_err(easy.post_field_size(request.body().len().try_into().unwrap()), request)?;
+        }
+        Ok(())
     }
 
     fn set_options<T>(&self, easy: &mut Easy2<T>, request: &Request) -> Result<()> {

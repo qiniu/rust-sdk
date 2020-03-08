@@ -28,19 +28,17 @@ impl<'t> Token<'t> {
             Version::V1 => {
                 if let Ok(authorization) = self.credential.authorization_v1_for_request(
                     &url,
-                    req.headers().get(&"Content-Type".into()),
-                    req.body().as_ref().map(|body| body.as_ref()),
+                    req.headers().get(&"Content-Type".into()).unwrap_or(&"".into()),
+                    req.body().as_ref(),
                 ) {
                     req.headers_mut().insert("Authorization".into(), authorization.into());
                 }
             }
             Version::V2 => {
-                if let Ok(authorization) = self.credential.authorization_v2_for_request(
-                    method,
-                    &url,
-                    req.headers(),
-                    req.body().as_ref().map(|body| body.as_ref()),
-                ) {
+                if let Ok(authorization) =
+                    self.credential
+                        .authorization_v2_for_request(method, &url, req.headers(), req.body().as_ref())
+                {
                     req.headers_mut().insert("Authorization".into(), authorization.into());
                 }
             }

@@ -83,7 +83,9 @@ impl<'a> Request<'a> {
                 .tcp_keepalive_probe_interval(self.parts.config.tcp_keepalive_probe_interval())
                 .low_transfer_speed(self.parts.config.http_low_transfer_speed())
                 .low_transfer_speed_timeout(self.parts.config.http_low_transfer_speed_timeout())
-                .follow_redirection(self.parts.follow_redirection);
+                .follow_redirection(self.parts.follow_redirection)
+                .headers(self.parts.headers.to_owned())
+                .body(self.parts.body.as_slice());
             if !choice.socket_addrs.is_empty() {
                 builder = builder.resolved_socket_addrs(choice.socket_addrs.as_ref());
             }
@@ -92,12 +94,6 @@ impl<'a> Request<'a> {
             }
             if let Some(on_downloading_progress) = self.parts.on_downloading_progress {
                 builder = builder.on_downloading_progress(on_downloading_progress);
-            }
-            if let Some(headers) = &self.parts.headers {
-                builder = builder.headers(headers.to_owned());
-            }
-            if let Some(body) = &self.parts.body {
-                builder = builder.body(body.as_slice());
             }
             builder.build()
         };
@@ -165,8 +161,8 @@ impl<'a> Request<'a> {
 
     fn make_url(&self, base_url: &str) -> HTTPResult<String> {
         let mut url = base_url.to_owned() + self.parts.path;
-        if let Some(query) = &self.parts.query {
-            url = Url::parse_with_params(url.as_str(), query)
+        if !self.parts.query.is_empty() {
+            url = Url::parse_with_params(url.as_str(), &self.parts.query)
                 .map_err(|err| {
                     HTTPError::new_unretryable_error(
                         HTTPErrorKind::UnknownError(Box::new(err)),
