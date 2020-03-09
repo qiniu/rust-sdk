@@ -120,7 +120,7 @@ impl UploadManager {
         if let Some(bucket_name) = policy.bucket() {
             Ok(BatchUploader::new(
                 &self.for_bucket_name(bucket_name.to_owned(), access_key).build(),
-                upload_token,
+                upload_token.to_string(),
                 expected_jobs_count,
             ))
         } else {

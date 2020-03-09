@@ -8,8 +8,10 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{Read, Result},
+    mem::replace,
     path::Path,
 };
+use tap::TapOps;
 
 type OnUploadingProgressCallback = Box<dyn Fn(u64, Option<u64>) + Send + Sync>;
 type OnCompletedCallback = Box<dyn Fn(UploadResult) + Send + Sync>;
@@ -62,16 +64,12 @@ pub struct BatchUploader {
 }
 
 impl BatchUploader {
-    pub(super) fn new(
-        bucket_uploader: &BucketUploader,
-        upload_token: impl Into<String>,
-        expected_jobs_count: usize,
-    ) -> Self {
+    pub(super) fn new(bucket_uploader: &BucketUploader, upload_token: String, expected_jobs_count: usize) -> Self {
         Self {
             jobs: Vec::with_capacity(expected_jobs_count),
             context: BatchUploaderContext {
                 bucket_uploader: bucket_uploader.to_owned(),
-                upload_token: upload_token.into(),
+                upload_token,
                 max_concurrency: 0,
                 thread_pool_size: 0,
             },
@@ -104,22 +102,25 @@ impl BatchUploader {
     /// 开始执行上传任务
     ///
     /// 需要注意的是，该方法会持续阻塞直到上传任务全部执行完毕。
-    /// 该方法不返回任何结果，上传结果由每个上传任务内定义的 `on_completed` 回调负责返回
-    pub fn start(self) {
-        let Self { context, jobs } = self;
-        let thread_pool = build_thread_pool(&context);
+    /// 该方法不返回任何结果，上传结果由每个上传任务内定义的 `on_completed` 回调负责返回。
+    ///
+    /// 方法返回后，当前批量上传器的上传任务将被清空，但其他参数都将保留，可以重新添加任务并复用
+    pub fn start(&mut self) {
+        let thread_pool = build_thread_pool(&self.context);
+        let context = &self.context;
+        let jobs = replace(&mut self.jobs, Vec::new());
 
         // 防止出现当所有上传任务都是分片上传时，控制上传所用的线程占满整个线程池，没有任何线程用于实质上传，导致程序死锁
         let semaphore = Pool::new(thread_pool.current_num_threads() - 1, || ());
         thread_pool.scope(|s| {
             for job in jobs {
-                let _ = if job.use_resumeable_uploader(&context.bucket_uploader.http_client().config()) {
+                let _ = if job.use_resumeable_uploader(context.bucket_uploader.http_client().config()) {
                     Some(semaphore.pull())
                 } else {
                     None
                 };
                 s.spawn(|_| {
-                    handle_job(&context, job, &thread_pool);
+                    handle_job(context, job, &thread_pool);
                 })
             }
         });
@@ -127,14 +128,22 @@ impl BatchUploader {
 }
 
 fn build_thread_pool(context: &BatchUploaderContext) -> Ron<'_, ThreadPool> {
+    // 返回的线程池尺寸必须大于 1，否则可能会导致死锁
     context
         .bucket_uploader
         .thread_pool()
+        .filter(|pool| pool.current_num_threads() > 1)
         .map(Ron::Referenced)
         .unwrap_or_else(|| {
             let mut builder = ThreadPoolBuilder::new();
-            if context.thread_pool_size > 0 {
-                builder = builder.num_threads(context.thread_pool_size);
+            match context.thread_pool_size {
+                0 => {
+                    if num_cpus::get() < 2 {
+                        builder = builder.num_threads(2);
+                    }
+                }
+                1 => builder = builder.num_threads(2),
+                thread_pool_size => builder = builder.num_threads(thread_pool_size),
             }
             Ron::Owned(
                 builder
@@ -143,6 +152,7 @@ fn build_thread_pool(context: &BatchUploaderContext) -> Ron<'_, ThreadPool> {
                     .unwrap(),
             )
         })
+        .tap(|pool| assert!(pool.current_num_threads() >= 2))
 }
 
 fn handle_job(context: &BatchUploaderContext, job: BatchUploadJob, thread_pool: &ThreadPool) {

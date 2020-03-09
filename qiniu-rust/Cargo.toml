@@ -44,6 +44,7 @@ fs2 = "0.4.3"
 sys-info = "0.5.10"
 matches = "0.1.8"
 object-pool = "0.4.4"
+num_cpus = "1.12.0"
 
 qiniu-with-libcurl = { version = "=0.0.2", path = "../qiniu-rust-with-libcurl", optional = true }
 qiniu-http = { version = "=0.0.2", path = "../qiniu-rust-http" }

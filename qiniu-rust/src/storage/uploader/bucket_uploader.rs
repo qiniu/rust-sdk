@@ -136,11 +136,7 @@ impl BucketUploader {
     }
 
     /// 根据上传凭证创建批量文件上传器生成器
-    pub fn batch_for_upload_token<'b>(
-        &self,
-        upload_token: impl Into<UploadToken<'b>>,
-        expected_jobs_count: usize,
-    ) -> BatchUploader {
+    pub fn batch_for_upload_token(&self, upload_token: impl Into<String>, expected_jobs_count: usize) -> BatchUploader {
         BatchUploader::new(self, upload_token.into(), expected_jobs_count)
     }
 
