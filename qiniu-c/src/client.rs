@@ -2,7 +2,7 @@ use crate::{
     config::qiniu_ng_config_t,
     credential::qiniu_ng_credential_t,
     string::{qiniu_ng_char_t, ucstr},
-    upload::qiniu_ng_upload_manager_t,
+    upload_manager::qiniu_ng_upload_manager_t,
     utils::qiniu_ng_str_t,
 };
 use libc::c_void;

@@ -25,7 +25,7 @@ else
 	DYNAMIC_LIBRARY := $(CURDIR)/../target/debug
 	LDFLAGS := -lm -lpthread -ldl -lcurl
 	SYMBOLS := -DTEST -DUNITY_USE_FLUSH_STDOUT
-	CFLAGS := -O2 -Wall -Wextra
+	CFLAGS := -O0 -g -Wall -Wextra
 	UNAME_S = $(shell uname -s)
 
 	ifeq ($(shell uname -s),Darwin)

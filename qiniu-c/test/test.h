@@ -29,6 +29,9 @@ int env_load(char*, bool);
 void write_str_to_file(const qiniu_ng_char_t* path, const char* content);
 qiniu_ng_char_t* create_temp_file(size_t size);
 
+void test_qiniu_ng_str(void);
+void test_qiniu_ng_str_list(void);
+void test_qiniu_ng_str_map(void);
 void test_qiniu_ng_etag_from_file_path(void);
 void test_qiniu_ng_etag_from_data(void);
 void test_qiniu_ng_etag_from_unexisted_file_path(void);
@@ -60,8 +63,8 @@ void test_qiniu_ng_upload_files(void);
 void test_qiniu_ng_upload_huge_number_of_files(void);
 void test_qiniu_ng_upload_file_path_failed_by_mime(void);
 void test_qiniu_ng_upload_file_path_failed_by_non_existed_path(void);
-void test_qiniu_ng_str(void);
-void test_qiniu_ng_str_list(void);
-void test_qiniu_ng_str_map(void);
+void test_qiniu_ng_batch_upload_files(void);
+void test_qiniu_ng_batch_upload_file_path_failed_by_mime(void);
+void test_qiniu_ng_batch_upload_file_path_failed_by_non_existed_path(void);
 
 #endif

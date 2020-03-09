@@ -4,11 +4,13 @@
 #include <stdio.h>
 #include "test.h"
 
+static long long last_print_time;
+
 #if defined(_WIN32) || defined(WIN32)
 #include <windows.h>
-long long last_print_time;
-HANDLE mutex;
-void print_progress(uint64_t uploaded, uint64_t total) {
+static HANDLE mutex;
+static void print_progress(uint64_t uploaded, uint64_t total, void* data) {
+    TEST_ASSERT_NULL_MESSAGE(data, "data != null");
     DWORD mutex_wait_result = WaitForSingleObject(mutex, INFINITE);
     switch (mutex_wait_result) {
     case WAIT_OBJECT_0:
@@ -17,23 +19,26 @@ void print_progress(uint64_t uploaded, uint64_t total) {
             fflush(NULL);
             last_print_time = (long long) time(NULL);
         }
-	ReleaseMutex(mutex);
-	break;
+        ReleaseMutex(mutex);
+        break;
     case WAIT_ABANDONED:
-	break;
+        break;
     }
 }
 #else
 #include <unistd.h>
 #include <stdatomic.h>
 #include <pthread.h>
-atomic_llong last_print_time;
-void print_progress(uint64_t uploaded, uint64_t total) {
+static pthread_mutex_t mutex;
+static void print_progress(uint64_t uploaded, uint64_t total, void* data) {
+    TEST_ASSERT_NULL_MESSAGE(data, "data != null");
+    pthread_mutex_lock(&mutex);
     if (last_print_time + 5 < (long long) time(NULL)) {
         printf("%d: progress: %llu / %llu\n", (int) pthread_self(), uploaded, total);
         fflush(NULL);
         last_print_time = (long long) time(NULL);
     }
+    pthread_mutex_unlock(&mutex);
 }
 #endif
 
@@ -62,10 +67,12 @@ void test_qiniu_ng_upload_files(void) {
     qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
     qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_free(&policy_builder);
 
-    last_print_time = (long long) time(NULL);
 #if defined(_WIN32) || defined(WIN32)
     mutex = CreateMutex(NULL, FALSE, NULL);
+#else
+    pthread_mutex_init(&mutex, NULL);
 #endif
 
     last_print_time = (long long) time(NULL);
@@ -138,6 +145,12 @@ void test_qiniu_ng_upload_files(void) {
     qiniu_ng_upload_response_free(&upload_response);
 
     // TODO: Clean uploaded file
+
+#if defined(_WIN32) || defined(WIN32)
+    ReleaseMutex(mutex);
+#else
+    pthread_mutex_destroy(&mutex);
+#endif
 
     qiniu_ng_upload_token_free(&token);
 
@@ -219,6 +232,7 @@ void test_qiniu_ng_upload_huge_number_of_files(void) {
     qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
     qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_free(&policy_builder);
 
     last_print_time = (long long) time(NULL);
 #if defined(_WIN32) || defined(WIN32)
@@ -303,6 +317,7 @@ void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
 
     qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_free(&policy_builder);
 
     qiniu_ng_upload_params_t params = {
         .mime = "invalid"
@@ -338,6 +353,7 @@ void test_qiniu_ng_upload_file_path_failed_by_non_existed_path(void) {
 
     qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_free(&policy_builder);
 
     qiniu_ng_err_t err;
     int32_t code;

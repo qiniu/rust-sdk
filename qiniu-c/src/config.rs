@@ -2,7 +2,7 @@ use crate::{
     http::{qiniu_ng_http_request_t, qiniu_ng_http_response_t},
     result::{qiniu_ng_err_ignore, qiniu_ng_err_t, qiniu_ng_retry_kind_t},
     string::{qiniu_ng_char_t, ucstr, UCString},
-    utils::qiniu_ng_str_t,
+    utils::{convert_optional_c_string_to_optional_path_buf, qiniu_ng_str_t},
 };
 use libc::{c_void, size_t};
 use qiniu_http::{
@@ -623,8 +623,7 @@ pub extern "C" fn qiniu_ng_config_builder_create_new_domains_manager(
 ) -> bool {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     let mut result = true;
-    let persistent_file =
-        unsafe { persistent_file.as_ref() }.map(|file| unsafe { UCString::from_ptr(file) }.into_path_buf());
+    let persistent_file = unsafe { convert_optional_c_string_to_optional_path_buf(persistent_file) };
     match DomainsManagerBuilder::create_new(persistent_file) {
         Ok(domains_manager_builder) => builder.domains_manager_builder = domains_manager_builder,
         Err(ref err) => {
@@ -767,8 +766,7 @@ pub extern "C" fn qiniu_ng_config_builder_domains_manager_persistent_file_path(
 ) -> bool {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     let mut result = true;
-    if let Some(persistent_file_path) =
-        unsafe { persistent_file_path.as_ref() }.map(|file| unsafe { UCString::from_ptr(file) }.into_path_buf())
+    if let Some(persistent_file_path) = unsafe { convert_optional_c_string_to_optional_path_buf(persistent_file_path) }
     {
         match OpenOptions::new().write(true).create(true).open(&persistent_file_path) {
             Ok(persistent_file) => {

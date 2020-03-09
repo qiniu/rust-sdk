@@ -436,20 +436,21 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
-        let mut batch_uploader = get_client(config)
-            .upload()
-            .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?
-            .thread_pool_size(4);
+        let mut batch_uploader =
+            get_client(config)
+                .upload()
+                .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?;
+        batch_uploader.thread_pool_size(4);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
         for (idx, temp_path) in temp_paths.iter().enumerate() {
             let etags = etags.clone();
             let thread_ids_1 = thread_ids.clone();
             let thread_ids_2 = thread_ids.clone();
-            batch_uploader = batch_uploader.push_job(
+            batch_uploader.push_job(
                 BatchUploadJobBuilder::default()
                     .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
                     .var("var_key1", format!("var_value_{}", idx))
-                    .on_uploading_progress(move |_, _| {
+                    .on_progress(move |_, _| {
                         let cur_thread_id = current().id();
                         if !thread_ids_1.read().unwrap().contains(&cur_thread_id) {
                             assert!(thread_ids_1.read().unwrap().len() <= 4);
@@ -508,19 +509,20 @@ mod tests {
                 .collect::<Result<Vec<_>, IOError>>()?,
         );
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
-        let mut batch_uploader = get_client(config)
-            .upload()
-            .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?
-            .thread_pool_size(1);
+        let mut batch_uploader =
+            get_client(config)
+                .upload()
+                .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?;
+        batch_uploader.thread_pool_size(1);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
         for (idx, temp_path) in temp_paths.iter().enumerate() {
             let etags = etags.clone();
             let thread_ids_1 = thread_ids.clone();
             let thread_ids_2 = thread_ids.clone();
-            batch_uploader = batch_uploader.push_job(
+            batch_uploader.push_job(
                 BatchUploadJobBuilder::default()
                     .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
-                    .on_uploading_progress(move |_, _| {
+                    .on_progress(move |_, _| {
                         let cur_thread_id = current().id();
                         if !thread_ids_1.read().unwrap().contains(&cur_thread_id) {
                             assert!(thread_ids_1.read().unwrap().len() <= 4);
@@ -572,19 +574,20 @@ mod tests {
                 .collect::<Result<Vec<_>, IOError>>()?,
         );
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
-        let mut batch_uploader = get_client(config)
-            .upload()
-            .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?
-            .thread_pool_size(4);
+        let mut batch_uploader =
+            get_client(config)
+                .upload()
+                .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?;
+        batch_uploader.thread_pool_size(4);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
         for (idx, temp_path) in temp_paths.iter().enumerate() {
             let etags = etags.clone();
             let thread_ids_1 = thread_ids.clone();
             let thread_ids_2 = thread_ids.clone();
-            batch_uploader = batch_uploader.push_job(
+            batch_uploader.push_job(
                 BatchUploadJobBuilder::default()
                     .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
-                    .on_uploading_progress(move |_, _| {
+                    .on_progress(move |_, _| {
                         let cur_thread_id = current().id();
                         if !thread_ids_1.read().unwrap().contains(&cur_thread_id) {
                             assert!(thread_ids_1.read().unwrap().len() <= 4);
@@ -638,21 +641,22 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
-        let mut batch_uploader = get_client(config)
-            .upload()
-            .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?
-            .thread_pool_size(5);
+        let mut batch_uploader =
+            get_client(config)
+                .upload()
+                .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?;
+        batch_uploader.thread_pool_size(5);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
         for (idx, (mut file, _)) in parts.into_iter().enumerate() {
             file.seek(SeekFrom::Start(0))?;
             let etags = etags.clone();
             let thread_ids_1 = thread_ids.clone();
             let thread_ids_2 = thread_ids.clone();
-            batch_uploader = batch_uploader.push_job(
+            batch_uploader.push_job(
                 BatchUploadJobBuilder::default()
                     .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
                     .var("var_key1", format!("var_value_{}", idx))
-                    .on_uploading_progress(move |_, _| {
+                    .on_progress(move |_, _| {
                         let cur_thread_id = current().id();
                         if !thread_ids_1.read().unwrap().contains(&cur_thread_id) {
                             assert!(thread_ids_1.read().unwrap().len() <= 4);

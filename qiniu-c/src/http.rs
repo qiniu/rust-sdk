@@ -252,20 +252,15 @@ pub extern "C" fn qiniu_ng_http_request_get_body(
     body_size: *mut size_t,
 ) {
     let request: &Request = request.into();
-    if let Some(body) = request.body().as_ref() {
-        if let Some(body_size) = unsafe { body_size.as_mut() } {
-            *body_size = body.len();
-        }
-        if let Some(body_ptr) = unsafe { body_ptr.as_mut() } {
-            *body_ptr = body.as_ref().as_ptr().cast();
-        }
-    } else {
-        if let Some(body_size) = unsafe { body_size.as_mut() } {
-            *body_size = 0;
-        }
-        if let Some(body_ptr) = unsafe { body_ptr.as_mut() } {
-            *body_ptr = null_mut();
-        }
+    if let Some(body_size) = unsafe { body_size.as_mut() } {
+        *body_size = request.body().len();
+    }
+    if let Some(body_ptr) = unsafe { body_ptr.as_mut() } {
+        *body_ptr = if request.body().is_empty() {
+            null_mut()
+        } else {
+            request.body().as_ref().as_ptr().cast()
+        };
     }
     let _ = qiniu_ng_http_request_t::from(request);
 }
@@ -283,11 +278,11 @@ pub extern "C" fn qiniu_ng_http_request_set_body(
 ) {
     let request: &mut Request = request.into();
     *request.body_mut() = if body_size == 0 {
-        None
+        Cow::Borrowed(&[])
     } else {
         let mut buf = Vec::new();
         buf.extend_from_slice(unsafe { from_raw_parts(body_ptr.cast(), body_size) });
-        Some(buf.into())
+        buf.into()
     };
     let _ = qiniu_ng_http_request_t::from(request);
 }

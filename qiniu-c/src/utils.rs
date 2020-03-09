@@ -1,14 +1,27 @@
 use crate::string::{qiniu_ng_char_t, ucstr, UCString};
-use libc::{c_int, c_void, size_t};
+use libc::{c_int, c_void, ferror, fread, fseek, ftell, size_t, FILE, SEEK_END, SEEK_SET};
 use std::{
     boxed::Box,
     collections::{hash_map::RandomState, HashMap},
     fmt,
-    io::{Error, Read, Result},
+    io::{Error, ErrorKind, Read, Result},
     mem::transmute,
+    path::PathBuf,
     ptr::{null, null_mut},
 };
 use tap::TapOps;
+
+pub(crate) unsafe fn convert_optional_c_string_to_rust_optional_string(s: *const qiniu_ng_char_t) -> Option<String> {
+    s.as_ref().map(|s| ucstr::from_ptr(s).to_string().unwrap())
+}
+
+pub(crate) unsafe fn convert_optional_c_string_to_rust_string(s: *const qiniu_ng_char_t) -> String {
+    convert_optional_c_string_to_rust_optional_string(s).unwrap_or_default()
+}
+
+pub(crate) unsafe fn convert_optional_c_string_to_optional_path_buf(s: *const qiniu_ng_char_t) -> Option<PathBuf> {
+    s.as_ref().map(|s| UCString::from_ptr(s).into_path_buf())
+}
 
 /// @brief 字符串
 /// @details 封装一个 C 字符串，字符类型为 `qiniu_ng_char_t`
@@ -537,3 +550,47 @@ impl Read for qiniu_ng_readable_t {
     }
 }
 unsafe impl Send for qiniu_ng_readable_t {}
+
+pub(crate) struct FileReader(*mut FILE);
+
+impl From<*mut FILE> for FileReader {
+    fn from(file: *mut FILE) -> Self {
+        Self::new(file)
+    }
+}
+
+impl FileReader {
+    pub fn new(file: *mut FILE) -> Self {
+        Self(file)
+    }
+
+    pub fn guess_file_size(&mut self) -> Option<u64> {
+        let mut file_size: Option<u64> = None;
+        match unsafe { ftell(self.0) } {
+            -1 => {
+                // ignore error, maybe file is not seekable
+            }
+            original_fops => {
+                if unsafe { fseek(self.0, 0, SEEK_END) } == 0 {
+                    match unsafe { ftell(self.0) } {
+                        -1 => {}
+                        fpos => file_size = Some(fpos as u64),
+                    }
+                }
+                let _ = unsafe { fseek(self.0, original_fops, SEEK_SET) };
+            }
+        }
+        file_size
+    }
+}
+
+impl Read for FileReader {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let have_read = unsafe { fread(buf.as_mut_ptr().cast(), 1, buf.len(), self.0) };
+        if have_read < buf.len() && unsafe { ferror(self.0) } != 0 {
+            return Err(Error::new(ErrorKind::Other, "ferror() returns non-zero"));
+        }
+        Ok(have_read)
+    }
+}
+unsafe impl Send for FileReader {}

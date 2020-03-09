@@ -1,7 +1,6 @@
 use super::{bucket_uploader::ResumablePolicy, BucketUploader, FileUploaderBuilder, UploadResult};
-use crate::{utils::ron::Ron, Config};
+use crate::utils::ron::Ron;
 use mime::Mime;
-use object_pool::Pool;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::{
     borrow::Cow,
@@ -78,8 +77,8 @@ impl BatchUploader {
 
     /// 为上传器创建专用线程池指定线程池大小
     ///
-    /// 批量上传器总是优先使用线程池存储空间上传器中的线程池，如果存储空间上传器中没有创建过线程池，则自行创建专用线程池
-    pub fn thread_pool_size(mut self, num_threads: usize) -> Self {
+    /// 批量上传器总是优先使用存储空间上传器中的线程池，如果存储空间上传器中没有创建过线程池，则自行创建专用线程池
+    pub fn thread_pool_size(&mut self, num_threads: usize) -> &mut Self {
         self.context.thread_pool_size = num_threads;
         self
     }
@@ -88,13 +87,13 @@ impl BatchUploader {
     ///
     /// 默认情况下，上传文件时的最大并发度等于其使用的线程池大小。
     /// 调用该方法可以修改最大并发度
-    pub fn max_concurrency(mut self, concurrency: usize) -> Self {
+    pub fn max_concurrency(&mut self, concurrency: usize) -> &mut Self {
         self.context.max_concurrency = concurrency;
         self
     }
 
     /// 提交上传任务
-    pub fn push_job(mut self, job: BatchUploadJob) -> Self {
+    pub fn push_job(&mut self, job: BatchUploadJob) -> &mut Self {
         self.jobs.push(job);
         self
     }
@@ -110,18 +109,9 @@ impl BatchUploader {
         let context = &self.context;
         let jobs = replace(&mut self.jobs, Vec::new());
 
-        // 防止出现当所有上传任务都是分片上传时，控制上传所用的线程占满整个线程池，没有任何线程用于实质上传，导致程序死锁
-        let semaphore = Pool::new(thread_pool.current_num_threads() - 1, || ());
         thread_pool.scope(|s| {
             for job in jobs {
-                let _ = if job.use_resumeable_uploader(context.bucket_uploader.http_client().config()) {
-                    Some(semaphore.pull())
-                } else {
-                    None
-                };
-                s.spawn(|_| {
-                    handle_job(context, job, &thread_pool);
-                })
+                s.spawn(|_| handle_job(context, job, &thread_pool))
             }
         });
     }
@@ -314,7 +304,7 @@ impl BatchUploadJobBuilder {
     /// 上传进度闭包的第一个参数为已经上传的数据量，
     /// 第二个参数为数据总量，如果为 `None` 表示数据总量不可预知，
     /// 单位均为字节
-    pub fn on_uploading_progress(mut self, progress: impl Fn(u64, Option<u64>) + Send + Sync + 'static) -> Self {
+    pub fn on_progress(mut self, progress: impl Fn(u64, Option<u64>) + Send + Sync + 'static) -> Self {
         self.on_uploading_progress = Some(Box::new(progress));
         self
     }
@@ -377,19 +367,6 @@ impl BatchUploadJobBuilder {
             mime,
             expected_stream_size: size,
             target: BatchUploadTarget::Stream(Box::new(stream)),
-        }
-    }
-}
-
-impl BatchUploadJob {
-    fn use_resumeable_uploader(&self, config: &Config) -> bool {
-        match self.resumable_policy {
-            Some(ResumablePolicy::Never) => false,
-            Some(ResumablePolicy::Always) => true,
-            Some(ResumablePolicy::Threshold(threshold)) => {
-                self.expected_stream_size == 0 || self.expected_stream_size > threshold.into()
-            }
-            None => self.expected_stream_size == 0 || self.expected_stream_size > config.upload_threshold().into(),
         }
     }
 }
