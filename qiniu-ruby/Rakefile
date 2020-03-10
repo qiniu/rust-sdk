@@ -35,6 +35,13 @@ task :before_build do
   FileUtils.cp_r File.expand_path(File.join('..', 'qiniu-rust'), __dir__), File.join(ext_dir, 'qiniu-rust'), verbose: true
   FileUtils.cp_r File.expand_path(File.join('..', 'qiniu-rust-http'), __dir__), File.join(ext_dir, 'qiniu-rust-http'), verbose: true
   FileUtils.cp_r File.expand_path(File.join('..', 'qiniu-rust-with-libcurl'), __dir__), File.join(ext_dir, 'qiniu-rust-with-libcurl'), verbose: true
+  File.open(File.join(ext_dir, 'qiniu-c', 'Cargo.toml'), 'a') do |file|
+    file.puts <<~CARGO_TOML
+[profile.release]
+lto = "fat"
+codegen-units = 1
+    CARGO_TOML
+  end
   File.write File.join(ext_dir, 'extconf.rb'), <<~EXTCONF
     # frozen_string_literal: true
 
@@ -44,7 +51,7 @@ task :before_build do
 
     create_makefile 'qiniu_ng'
     File.write('Makefile', <<~MAKEFILE, mode: 'a')
-      all:\\n\\tmake -C qiniu-c cargo_build_release && cp qiniu-c/target/release/\#{FFI::Platform::LIBPREFIX}qiniu_ng_c.\#{FFI::Platform::LIBSUFFIX} ..
+      all:\\n\\tRUSTFLAGS="-C target-cpu=native" make -C qiniu-c cargo_build_release && cp qiniu-c/target/release/\#{FFI::Platform::LIBPREFIX}qiniu_ng_c.\#{FFI::Platform::LIBSUFFIX} ..
       clean:\\n\\tcd qiniu-c && cargo clean
       install:
     MAKEFILE

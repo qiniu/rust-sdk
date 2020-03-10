@@ -112,7 +112,6 @@ impl UploadManager {
     pub fn batch_for_upload_token<'u>(
         &self,
         upload_token: impl Into<UploadToken<'u>>,
-        expected_jobs_count: usize,
     ) -> CreateUploaderResult<BatchUploader> {
         let upload_token = upload_token.into();
         let access_key = upload_token.access_key()?;
@@ -121,7 +120,6 @@ impl UploadManager {
             Ok(BatchUploader::new(
                 &self.for_bucket_name(bucket_name.to_owned(), access_key).build(),
                 upload_token.to_string(),
-                expected_jobs_count,
             ))
         } else {
             Err(CreateUploaderError::BucketIsMissingInUploadToken)
@@ -133,9 +131,8 @@ impl UploadManager {
         &self,
         upload_policy: UploadPolicy<'u>,
         credential: Cow<'u, Credential>,
-        expected_jobs_count: usize,
     ) -> CreateUploaderResult<BatchUploader> {
-        self.batch_for_upload_token(UploadToken::new(upload_policy, credential), expected_jobs_count)
+        self.batch_for_upload_token(UploadToken::new(upload_policy, credential))
     }
 
     pub(crate) fn config(&self) -> &Config {

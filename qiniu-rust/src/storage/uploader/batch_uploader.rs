@@ -7,10 +7,9 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{Read, Result},
-    mem::replace,
+    mem::take,
     path::Path,
 };
-use tap::TapOps;
 
 type OnUploadingProgressCallback = Box<dyn Fn(u64, Option<u64>) + Send + Sync>;
 type OnCompletedCallback = Box<dyn Fn(UploadResult) + Send + Sync>;
@@ -34,7 +33,7 @@ pub struct BatchUploadJob {
     on_uploading_progress: Option<OnUploadingProgressCallback>,
     on_completed: Option<OnCompletedCallback>,
     target: BatchUploadTarget,
-    expected_stream_size: u64,
+    expected_data_size: u64,
 }
 
 /// 批量上传任务生成器，提供上传数据所需的多个参数
@@ -63,9 +62,9 @@ pub struct BatchUploader {
 }
 
 impl BatchUploader {
-    pub(super) fn new(bucket_uploader: &BucketUploader, upload_token: String, expected_jobs_count: usize) -> Self {
+    pub(super) fn new(bucket_uploader: &BucketUploader, upload_token: String) -> Self {
         Self {
-            jobs: Vec::with_capacity(expected_jobs_count),
+            jobs: Vec::new(),
             context: BatchUploaderContext {
                 bucket_uploader: bucket_uploader.to_owned(),
                 upload_token,
@@ -73,6 +72,14 @@ impl BatchUploader {
                 thread_pool_size: 0,
             },
         }
+    }
+
+    /// 预期批量上传的任务数量
+    pub fn expected_jobs_count(&mut self, expected_jobs_count: usize) -> &mut Self {
+        if expected_jobs_count > self.jobs.len() {
+            self.jobs.reserve(expected_jobs_count - self.jobs.len());
+        }
+        self
     }
 
     /// 为上传器创建专用线程池指定线程池大小
@@ -100,25 +107,32 @@ impl BatchUploader {
 
     /// 开始执行上传任务
     ///
-    /// 需要注意的是，该方法会持续阻塞直到上传任务全部执行完毕。
+    /// 需要注意的是，该方法会持续阻塞直到上传任务全部执行完毕（不保证执行顺序）。
     /// 该方法不返回任何结果，上传结果由每个上传任务内定义的 `on_completed` 回调负责返回。
     ///
     /// 方法返回后，当前批量上传器的上传任务将被清空，但其他参数都将保留，可以重新添加任务并复用
     pub fn start(&mut self) {
         let thread_pool = build_thread_pool(&self.context);
         let context = &self.context;
-        let jobs = replace(&mut self.jobs, Vec::new());
+        let mut jobs = take(&mut self.jobs);
 
         thread_pool.scope(|s| {
-            for job in jobs {
+            while let Some(job) = jobs.pop() {
                 s.spawn(|_| handle_job(context, job, &thread_pool))
             }
         });
+
+        self.jobs = jobs;
     }
 }
 
+/// 构建线程池
+///
+/// 默认情况下总是使用存储空间上传器的线程池。
+/// 如果没有或该线程池尺寸只有 1，则自行创建。
+/// 自行创建时将会使用 `thread_pool_size` 的建议，如果没有建议，就使用 CPU 数量（但如果 CPU 的数量为 1，则使用 2）。
+/// 确保返回的线程池尺寸必须大于 1，否则可能会导致死锁
 fn build_thread_pool(context: &BatchUploaderContext) -> Ron<'_, ThreadPool> {
-    // 返回的线程池尺寸必须大于 1，否则可能会导致死锁
     context
         .bucket_uploader
         .thread_pool()
@@ -126,14 +140,8 @@ fn build_thread_pool(context: &BatchUploaderContext) -> Ron<'_, ThreadPool> {
         .map(Ron::Referenced)
         .unwrap_or_else(|| {
             let mut builder = ThreadPoolBuilder::new();
-            match context.thread_pool_size {
-                0 => {
-                    if num_cpus::get() < 2 {
-                        builder = builder.num_threads(2);
-                    }
-                }
-                1 => builder = builder.num_threads(2),
-                thread_pool_size => builder = builder.num_threads(thread_pool_size),
+            if context.thread_pool_size > 0 {
+                builder = builder.num_threads(context.thread_pool_size);
             }
             Ron::Owned(
                 builder
@@ -142,7 +150,6 @@ fn build_thread_pool(context: &BatchUploaderContext) -> Ron<'_, ThreadPool> {
                     .unwrap(),
             )
         })
-        .tap(|pool| assert!(pool.current_num_threads() >= 2))
 }
 
 fn handle_job(context: &BatchUploaderContext, job: BatchUploadJob, thread_pool: &ThreadPool) {
@@ -156,7 +163,7 @@ fn handle_job(context: &BatchUploaderContext, job: BatchUploadJob, thread_pool: 
         file_name,
         mime,
         target,
-        expected_stream_size,
+        expected_data_size,
         on_uploading_progress,
         on_completed,
     } = job;
@@ -200,8 +207,8 @@ fn handle_job(context: &BatchUploaderContext, job: BatchUploadJob, thread_pool: 
         }
     }
     let upload_result = match target {
-        BatchUploadTarget::File(file) => builder.upload_stream(file, expected_stream_size, file_name, mime),
-        BatchUploadTarget::Stream(reader) => builder.upload_stream(reader, expected_stream_size, file_name, mime),
+        BatchUploadTarget::File(file) => builder.upload_stream(file, expected_data_size, file_name, mime),
+        BatchUploadTarget::Stream(reader) => builder.upload_stream(reader, expected_data_size, file_name, mime),
     };
     if let Some(on_completed) = on_completed.as_ref() {
         on_completed(upload_result);
@@ -338,7 +345,7 @@ impl BatchUploadJobBuilder {
             on_completed: self.on_completed,
             file_name: file_name.into(),
             mime,
-            expected_stream_size: file.metadata()?.len(),
+            expected_data_size: file.metadata()?.len(),
             target: BatchUploadTarget::File(file),
         };
         Ok(job)
@@ -365,7 +372,7 @@ impl BatchUploadJobBuilder {
             on_completed: self.on_completed,
             file_name: file_name.into(),
             mime,
-            expected_stream_size: size,
+            expected_data_size: size,
             target: BatchUploadTarget::Stream(Box::new(stream)),
         }
     }

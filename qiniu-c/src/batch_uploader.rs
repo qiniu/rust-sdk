@@ -21,7 +21,6 @@ use std::{
     mem::transmute,
     ptr::null_mut,
 };
-use tap::TapOps;
 
 /// @brief 批量上传器
 /// @details 准备批量上传多个文件或数据流，可以反复使用以上传多个批次的文件或数据
@@ -75,7 +74,6 @@ impl From<Box<BatchUploader>> for qiniu_ng_batch_uploader_t {
 /// @brief 创建批量上传器实例
 /// @param[in] bucket_uploader 存储空间上传器实例
 /// @param[in] upload_token 上传凭证实例。除非为上传任务指定额外的上传凭证，否则所有文件都将使用该上传凭证实例上传
-/// @param[in] expected_jobs_count 预期即将推送的上传任务数量，该数量仅用做内存预分配。如果任务数量不可预知，也可以填入 `0`
 /// @retval qiniu_ng_batch_uploader_t 获取创建的批量上传器实例
 /// @note 创建实例时，SDK 客户端会复制并存储输入的 `bucket_uploader` 和 `upload_token`，因此 `bucket_uploader` 和 `upload_token` 在使用完毕后即可调用各自的内存释放函数释放
 /// @warning 务必在使用完毕后调用 `qiniu_ng_batch_uploader_free()` 方法释放 `qiniu_ng_batch_uploader_t`
@@ -83,11 +81,10 @@ impl From<Box<BatchUploader>> for qiniu_ng_batch_uploader_t {
 pub extern "C" fn qiniu_ng_batch_uploader_new(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
-    expected_jobs_count: usize,
 ) -> qiniu_ng_batch_uploader_t {
     let bucket_uploader = Option::<BucketUploader>::from(bucket_uploader).unwrap();
     let upload_token = Option::<Box<UploadToken>>::from(upload_token).unwrap();
-    Box::new(bucket_uploader.batch_for_upload_token(upload_token.to_string(), expected_jobs_count))
+    Box::new(bucket_uploader.batch_for_upload_token(upload_token.to_string()))
         .tap(|_| {
             let _ = qiniu_ng_upload_token_t::from(upload_token);
             let _ = qiniu_ng_bucket_uploader_t::from(bucket_uploader);
@@ -111,6 +108,20 @@ pub extern "C" fn qiniu_ng_batch_uploader_free(batch_uploader: *mut qiniu_ng_bat
 #[no_mangle]
 pub extern "C" fn qiniu_ng_batch_uploader_is_freed(batch_uploader: qiniu_ng_batch_uploader_t) -> bool {
     batch_uploader.is_null()
+}
+
+/// @brief 设置批量上传器预期的任务数量
+/// @details 如果预先知道上传任务的数量，可以调用该函数预分配内存空间
+/// @param[in] batch_uploader 批量上传器实例
+/// @param[in] expected_jobs_count 预期即将推送的上传任务数量
+#[no_mangle]
+pub extern "C" fn qiniu_ng_batch_uploader_set_expected_jobs_count(
+    batch_uploader: qiniu_ng_batch_uploader_t,
+    expected_jobs_count: usize,
+) {
+    let mut batch_uploader = Option::<Box<BatchUploader>>::from(batch_uploader).unwrap();
+    batch_uploader.expected_jobs_count(expected_jobs_count);
+    let _ = qiniu_ng_batch_uploader_t::from(batch_uploader);
 }
 
 /// @brief 设置批量上传器线程池数量
@@ -197,7 +208,7 @@ pub extern "C" fn qiniu_ng_batch_uploader_upload_reader(
 
 /// @brief 开始执行上传任务
 /// @details
-///     需要注意的是，该方法会持续阻塞直到上传任务全部执行完毕。
+///     需要注意的是，该方法会持续阻塞直到上传任务全部执行完毕（不保证执行顺序）。
 ///     该方法不返回任何结果，上传结果由每个上传任务内定义的 `on_completed` 回调函数负责返回。
 ///     方法返回后，当前批量上传器的上传任务将被清空，但其他参数都将保留，可以重新添加任务并复用。
 /// @param[in] batch_uploader 批量上传器实例
@@ -322,11 +333,7 @@ fn set_params_to_job_builder(
                     qiniu_ng_err_t::default(),
                     callback_data,
                 ),
-                Err(ref err) => (on_completed)(
-                    None.into(),
-                    err.tap(|err| println!("*** 4: {:?}", err)).into(),
-                    callback_data,
-                ),
+                Err(ref err) => (on_completed)(None.into(), err, callback_data),
             };
         });
     }

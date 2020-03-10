@@ -467,7 +467,7 @@
 //! # let stream_len = bytes.len() as u64;
 //! # let stream = Cursor::new(bytes);
 //! let upload_manager = UploadManager::new(config);
-//! upload_manager.batch_for_upload_token(upload_token, 2)?
+//! upload_manager.batch_for_upload_token(upload_token)?
 //!               .push_job(BatchUploadJobBuilder::default()
 //!                                               .upload_file(local_file_path, "local file name", None)?)
 //!               .push_job(BatchUploadJobBuilder::default()

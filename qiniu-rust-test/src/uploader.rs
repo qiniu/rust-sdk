@@ -17,7 +17,7 @@ mod tests {
         io::{Error as IOError, Seek, SeekFrom},
         result::Result,
         sync::{
-            atomic::{AtomicU64, Ordering::Relaxed},
+            atomic::{AtomicU64, AtomicUsize, Ordering::Relaxed},
             Arc, Mutex, RwLock,
         },
         thread::{current, ThreadId},
@@ -436,16 +436,17 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
-        let mut batch_uploader =
-            get_client(config)
-                .upload()
-                .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?;
-        batch_uploader.thread_pool_size(4);
+        let mut batch_uploader = get_client(config)
+            .upload()
+            .batch_for_upload_policy(policy, get_credential().into())?;
+        batch_uploader.expected_jobs_count(FILE_SIZES.len()).thread_pool_size(4);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
+        let completed = Arc::new(AtomicUsize::new(0));
         for (idx, temp_path) in temp_paths.iter().enumerate() {
             let etags = etags.clone();
             let thread_ids_1 = thread_ids.clone();
             let thread_ids_2 = thread_ids.clone();
+            let completed = completed.clone();
             batch_uploader.push_job(
                 BatchUploadJobBuilder::default()
                     .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
@@ -473,12 +474,14 @@ mod tests {
                             response.get("var_key1").and_then(|f| f.as_str()),
                             Some(format!("var_value_{}", idx).as_str())
                         );
+                        completed.fetch_add(1, Relaxed);
                     })
                     .upload_file(temp_path, format!("filename-{}", idx), None)?,
             );
         }
 
         batch_uploader.start();
+        assert_eq!(completed.load(Relaxed), FILE_SIZES.len());
         Ok(())
     }
     #[test]
@@ -509,16 +512,17 @@ mod tests {
                 .collect::<Result<Vec<_>, IOError>>()?,
         );
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
-        let mut batch_uploader =
-            get_client(config)
-                .upload()
-                .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?;
-        batch_uploader.thread_pool_size(1);
+        let mut batch_uploader = get_client(config)
+            .upload()
+            .batch_for_upload_policy(policy, get_credential().into())?;
+        batch_uploader.expected_jobs_count(FILE_SIZES.len()).thread_pool_size(1);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
+        let completed = Arc::new(AtomicUsize::new(0));
         for (idx, temp_path) in temp_paths.iter().enumerate() {
             let etags = etags.clone();
             let thread_ids_1 = thread_ids.clone();
             let thread_ids_2 = thread_ids.clone();
+            let completed = completed.clone();
             batch_uploader.push_job(
                 BatchUploadJobBuilder::default()
                     .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
@@ -537,12 +541,14 @@ mod tests {
                         }
                         let response = result.unwrap();
                         assert_eq!(response.hash(), etags.get(idx).map(|s| s.as_ref()));
+                        completed.fetch_add(1, Relaxed);
                     })
                     .upload_file(temp_path, "", None)?,
             );
         }
 
         batch_uploader.start();
+        assert_eq!(completed.load(Relaxed), FILE_SIZES.len());
         Ok(())
     }
 
@@ -574,16 +580,17 @@ mod tests {
                 .collect::<Result<Vec<_>, IOError>>()?,
         );
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config).build();
-        let mut batch_uploader =
-            get_client(config)
-                .upload()
-                .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?;
-        batch_uploader.thread_pool_size(4);
+        let mut batch_uploader = get_client(config)
+            .upload()
+            .batch_for_upload_policy(policy, get_credential().into())?;
+        batch_uploader.expected_jobs_count(FILE_SIZES.len()).thread_pool_size(3);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
+        let completed = Arc::new(AtomicUsize::new(0));
         for (idx, temp_path) in temp_paths.iter().enumerate() {
             let etags = etags.clone();
             let thread_ids_1 = thread_ids.clone();
             let thread_ids_2 = thread_ids.clone();
+            let completed = completed.clone();
             batch_uploader.push_job(
                 BatchUploadJobBuilder::default()
                     .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
@@ -602,12 +609,14 @@ mod tests {
                         }
                         let response = result.unwrap();
                         assert_eq!(response.hash(), etags.get(idx).map(|s| s.as_ref()));
+                        completed.fetch_add(1, Relaxed);
                     })
                     .upload_file(temp_path, "", None)?,
             );
         }
 
         batch_uploader.start();
+        assert_eq!(completed.load(Relaxed), FILE_SIZES.len());
         Ok(())
     }
 
@@ -641,17 +650,18 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("z0-bucket", &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
-        let mut batch_uploader =
-            get_client(config)
-                .upload()
-                .batch_for_upload_policy(policy, get_credential().into(), FILE_SIZES.len())?;
-        batch_uploader.thread_pool_size(5);
+        let mut batch_uploader = get_client(config)
+            .upload()
+            .batch_for_upload_policy(policy, get_credential().into())?;
+        batch_uploader.expected_jobs_count(FILE_SIZES.len()).thread_pool_size(5);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
+        let completed = Arc::new(AtomicUsize::new(0));
         for (idx, (mut file, _)) in parts.into_iter().enumerate() {
             file.seek(SeekFrom::Start(0))?;
             let etags = etags.clone();
             let thread_ids_1 = thread_ids.clone();
             let thread_ids_2 = thread_ids.clone();
+            let completed = completed.clone();
             batch_uploader.push_job(
                 BatchUploadJobBuilder::default()
                     .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
@@ -679,12 +689,14 @@ mod tests {
                             response.get("var_key1").and_then(|f| f.as_str()),
                             Some(format!("var_value_{}", idx).as_str())
                         );
+                        completed.fetch_add(1, Relaxed);
                     })
                     .upload_stream(file, FILE_SIZES[idx], format!("filename-{}", idx), None),
             );
         }
 
         batch_uploader.start();
+        assert_eq!(completed.load(Relaxed), FILE_SIZES.len());
         Ok(())
     }
 
