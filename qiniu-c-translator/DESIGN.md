@@ -39,3 +39,5 @@ Ruby 模块所有生成代码基于 [FFI](https://rubygems.org/gems/ffi) 库实�
 | type_declaration_bindings            | 负责为模块插入类型声明语句 |
 | attach_function_declaration_bindings | 负责为模块插入方法声明语句 |
 | ffi_wrapper_classes                  | 负责为模块插入面向对象的 FFI 封装类型 |
+| find_types | 预声明类型，用于判断一个标识符是即将定义的类型还是 C 原生类型 |
+| dependency_resolver | 使用拓扑算法对依赖进行排序，使代码执行时不会出现类型使用在前定义在后的情况 |

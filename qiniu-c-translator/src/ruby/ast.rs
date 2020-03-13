@@ -132,7 +132,12 @@ impl CodeGenerator for Enum {
 
 #[derive(Getters, MutGetters)]
 pub(super) struct StructField {
+    #[get = "pub(super)"]
+    #[get_mut = "pub(super)"]
     name: String,
+
+    #[get = "pub(super)"]
+    #[get_mut = "pub(super)"]
     field_type: StructFieldType,
 }
 

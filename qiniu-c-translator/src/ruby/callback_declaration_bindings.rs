@@ -1,39 +1,29 @@
 use super::{
-    ast::{AttachFunction, Module},
+    ast::AttachFunction,
+    dependency_resolver::DependenciesResolver,
     types::StructFieldType,
-    utils::{insert_function_pointer_type_callback_name_map, try_to_extract_function_type},
+    utils::{filter_dependencies, insert_function_pointer_type_callback_name_map, try_to_extract_function_type},
 };
-use crate::{
-    ast::{FieldType, FunctionDeclaration, FunctionType, SourceFile, StructDeclaration, TypeDeclaration},
-    utils::CodeGenerator,
-};
+use crate::ast::{FieldType, FunctionDeclaration, FunctionType, SourceFile, StructDeclaration, TypeDeclaration};
 use tap::TapOps;
 
-pub(super) enum For {
-    Structs,
-    Functions,
-}
-
-pub(super) fn insert_callback_declaration_bindings(source_file: &SourceFile, module: &mut Module, callback_for: For) {
-    match callback_for {
-        For::Structs => {
-            source_file.type_declarations().iter().for_each(|type_declaration| {
-                if let TypeDeclaration::Struct(s) = type_declaration {
-                    for_struct_node(s, module.sub_nodes_mut());
-                }
-            });
+pub(super) fn insert_callback_declaration_bindings(
+    source_file: &SourceFile,
+    dependency_resolver: &mut DependenciesResolver,
+) {
+    source_file.type_declarations().iter().for_each(|type_declaration| {
+        if let TypeDeclaration::Struct(s) = type_declaration {
+            for_struct_node(s, dependency_resolver);
         }
-        For::Functions => {
-            source_file
-                .function_declarations()
-                .iter()
-                .for_each(|function_declaration| {
-                    for_function_node(function_declaration, module.sub_nodes_mut());
-                });
-        }
-    }
+    });
+    source_file
+        .function_declarations()
+        .iter()
+        .for_each(|function_declaration| {
+            for_function_node(function_declaration, dependency_resolver);
+        });
 }
-fn for_struct_node(struct_declaration: &StructDeclaration, nodes: &mut Vec<Box<dyn CodeGenerator>>) {
+fn for_struct_node(struct_declaration: &StructDeclaration, dependency_resolver: &mut DependenciesResolver) {
     struct_declaration
         .fields()
         .iter()
@@ -54,12 +44,12 @@ fn for_struct_node(struct_declaration: &StructDeclaration, nodes: &mut Vec<Box<d
                     .unwrap(),
                 s.as_ref().unwrap(),
             );
-            insert_callback_node(&callback_name, ft, nodes);
+            insert_callback_node(&callback_name, ft, dependency_resolver);
             insert_function_pointer_type_callback_name_map(ft, callback_name);
         });
 }
 
-fn for_function_node(function_declaration: &FunctionDeclaration, nodes: &mut Vec<Box<dyn CodeGenerator>>) {
+fn for_function_node(function_declaration: &FunctionDeclaration, dependency_resolver: &mut DependenciesResolver) {
     function_declaration
         .parameters()
         .iter()
@@ -69,7 +59,7 @@ fn for_function_node(function_declaration: &FunctionDeclaration, nodes: &mut Vec
         })
         .for_each(|(s, ft)| {
             let callback_name = format!("{}_{}_callback", function_declaration.name(), s);
-            insert_callback_node(&callback_name, ft, nodes);
+            insert_callback_node(&callback_name, ft, dependency_resolver);
             insert_function_pointer_type_callback_name_map(ft, callback_name);
         });
 }
@@ -77,20 +67,29 @@ fn for_function_node(function_declaration: &FunctionDeclaration, nodes: &mut Vec
 fn insert_callback_node(
     name: impl Into<String>,
     function_type: &FunctionType,
-    nodes: &mut Vec<Box<dyn CodeGenerator>>,
+    dependency_resolver: &mut DependenciesResolver,
 ) {
-    nodes.push(
-        Box::new(AttachFunction::new(
-            name,
-            StructFieldType::from(function_type.return_type().to_owned(), false),
-            true,
-        ))
-        .tap(|attach_function| {
-            *attach_function.parameters_mut() = function_type
-                .parameter_types()
-                .iter()
-                .map(|parameter_type| StructFieldType::from(parameter_type.to_owned(), false))
-                .collect();
-        }),
-    );
+    let name = name.into();
+    let new_callback_node = Box::new(AttachFunction::new(
+        name.to_owned(),
+        StructFieldType::from(function_type.return_type().to_owned(), false),
+        true,
+    ))
+    .tap(|new_callback_node| {
+        *new_callback_node.parameters_mut() = function_type
+            .parameter_types()
+            .iter()
+            .map(|parameter_type| StructFieldType::from(parameter_type.to_owned(), false))
+            .collect();
+    });
+    let mut dependencies = new_callback_node
+        .parameters()
+        .iter()
+        .filter_map(filter_dependencies)
+        .collect::<Vec<_>>();
+    if let Some(return_type_dependency) = filter_dependencies(new_callback_node.return_value()) {
+        dependencies.push(return_type_dependency);
+    }
+
+    dependency_resolver.insert(name, new_callback_node, dependencies);
 }

@@ -377,6 +377,8 @@ pub struct qiniu_ng_batch_upload_params_t {
     ///     第二个参数总是传入本结构体的 `callback_data` 字段，您可以根据您的需要为 `callback_data` 字段设置上下文数据。
     ///     该函数无需返回任何值
     /// @warning
+    ///     对于获取的 `response` 和 `err`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+    /// @warning
     ///     该回调函数可能会被多个线程并发调用，因此需要保证实现的函数具有可重入性
     pub on_completed:
         Option<extern "C" fn(response: qiniu_ng_upload_response_t, err: qiniu_ng_err_t, data: *mut c_void)>,

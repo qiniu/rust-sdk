@@ -151,8 +151,10 @@ impl StructFieldType {
                 "Uint16T" => Self::BaseType(BaseType::U16),
                 "Uint32T" => Self::BaseType(BaseType::U32),
                 "Uint64T" => Self::BaseType(BaseType::U64),
+                "UintptrT" => Self::BaseType(BaseType::Pointer),
                 "SizeT" => Self::BaseType(BaseType::Size),
                 "CurLcode" => Self::BaseType(BaseType::Size),
+                "QiniuNgUploadResponseT" | "QiniuNgErrT" => Self::ByVal(t),
                 _ => panic!("Unrecognized base type: {}", t),
             };
         }
@@ -165,7 +167,7 @@ impl fmt::Display for StructFieldType {
         match self {
             Self::BaseType(type_name) => type_name.to_symbol().fmt(f),
             Self::ByVal(type_name) => match find_type_constants(type_name) {
-                Some(ConstantType::Struct) => write!(f, "{}.by_value", type_name),
+                Some(ConstantType::Struct) => write!(f, "{}.val", type_name),
                 _ => type_name.fmt(f),
             },
             Self::ByPtr(type_name) => match find_type_constants(type_name) {

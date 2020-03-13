@@ -561,6 +561,7 @@
 //!                            .build();
 //! ```
 
+#![deny(missing_docs)]
 #![recursion_limit = "256"]
 
 mod client;

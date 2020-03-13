@@ -1,3 +1,4 @@
+use super::types::StructFieldType;
 use crate::{
     ast::{FunctionType, Type, TypeKind},
     utils::RandomIdentifier,
@@ -7,8 +8,9 @@ use heck::CamelCase;
 use lazy_static::lazy_static;
 use matches::matches;
 use std::{collections::HashMap, sync::Mutex};
+use tap::TapOptionOps;
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(super) enum ConstantType {
     Enum,
     Struct,
@@ -21,11 +23,26 @@ lazy_static! {
 }
 
 pub(super) fn insert_type_constants(name: impl Into<String>, constant_type: ConstantType) {
-    TYPE_CONSTANTS.lock().unwrap().insert(name.into(), constant_type);
+    // 类型可以多次声明，但不能出现相互冲突的声明
+    TYPE_CONSTANTS
+        .lock()
+        .unwrap()
+        .insert(name.into(), constant_type)
+        .tap_some(|previous_constant_type| assert_eq!(previous_constant_type, &constant_type));
 }
 
 pub(super) fn find_type_constants(name: impl AsRef<str>) -> Option<ConstantType> {
     TYPE_CONSTANTS.lock().unwrap().get(name.as_ref()).cloned()
+}
+
+pub(super) fn filter_dependencies(field_type: &StructFieldType) -> Option<String> {
+    match field_type {
+        StructFieldType::ByVal(type_name) | StructFieldType::ByPtr(type_name) => {
+            find_type_constants(type_name).map(|_| type_name.to_owned())
+        }
+        StructFieldType::ByCallback(callback_name) => Some(callback_name.to_owned()),
+        _ => None,
+    }
 }
 
 pub(super) fn insert_function_pointer_type_callback_name_map(
