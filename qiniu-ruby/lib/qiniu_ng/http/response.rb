@@ -101,17 +101,8 @@ module QiniuNg
       def body=(body)
         if body.respond_to?(:read)
           reader = Bindings::CoreFFI::QiniuNgReadableT.new
-          reader[:context] = nil
-          reader[:read_func] = proc do |_, data, size, have_read|
-                                 content = body.read(size)
-                                 if content.nil?
-                                   have_read.write_ulong(0)
-                                 else
-                                   data.write_string(content)
-                                   have_read.write_ulong(content.bytesize)
-                                 end
-                                 0
-                               end
+          reader[:context] = CallbackData.put(body)
+          reader[:read_func] = QiniuNgReadFunc
           @response.set_body_to_reader(reader)
         elsif body.respond_to?(:to_s)
           @response.set_body(body.to_s)
@@ -119,6 +110,26 @@ module QiniuNg
           raise ArgumentError, 'invalid body, only string or readable instance is acceptable'
         end
       end
+
+      QiniuNgReadFunc = proc do |idx, data, size, have_read|
+        begin
+          body = CallbackData.get(idx)
+          c = FFI::IO.native_read(body, data, size)
+          if c > 0
+            have_read.write_ulong(c)
+          else
+            have_read.write_ulong(0)
+            CallbackData.delete(idx)
+          end
+          0
+        rescue => e
+          # TODO: use error handler instead
+          STDERR.puts e.message
+          e.backtrace.each { |trace| STDERR.puts "\t#{trace}" }
+          Errno::EIO::Errno
+        end
+      end
+      private_constant :QiniuNgReadFunc
 
       # 获取响应体尺寸
       # @return [Integer] 响应体尺寸

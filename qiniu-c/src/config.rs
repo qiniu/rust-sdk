@@ -832,8 +832,11 @@ impl Default for qiniu_ng_callback_err_t {
     }
 }
 
-type QiniuNgHTTPCallFunc =
-    fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t, err: *mut qiniu_ng_callback_err_t);
+type QiniuNgHTTPCallFunc = extern "C" fn(
+    request: qiniu_ng_http_request_t,
+    response: qiniu_ng_http_response_t,
+    err: *mut qiniu_ng_callback_err_t,
+);
 
 struct QiniuNgHTTPCallHandler {
     handler: QiniuNgHTTPCallFunc,
@@ -876,7 +879,7 @@ impl HTTPCaller for QiniuNgHTTPCallHandler {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_set_http_call_handler(
     builder: qiniu_ng_config_builder_t,
-    handler: fn(
+    handler: extern "C" fn(
         request: qiniu_ng_http_request_t,
         response: qiniu_ng_http_response_t,
         err: *mut qiniu_ng_callback_err_t,
@@ -889,7 +892,7 @@ pub extern "C" fn qiniu_ng_config_builder_set_http_call_handler(
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
-type QiniuNgHTTPBeforeActionFunc = fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t);
+type QiniuNgHTTPBeforeActionFunc = extern "C" fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t);
 
 struct QiniuNgHTTPBeforeActionHandler {
     handler: QiniuNgHTTPBeforeActionFunc,
@@ -931,7 +934,7 @@ impl HTTPBeforeAction for QiniuNgHTTPBeforeActionHandler {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_append_http_request_before_action_handler(
     builder: qiniu_ng_config_builder_t,
-    handler: fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t),
+    handler: extern "C" fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t),
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
@@ -950,7 +953,7 @@ pub extern "C" fn qiniu_ng_config_builder_append_http_request_before_action_hand
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_before_action_handler(
     builder: qiniu_ng_config_builder_t,
-    handler: fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t),
+    handler: extern "C" fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t),
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
@@ -959,8 +962,11 @@ pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_before_action_han
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
-type QiniuNgHTTPAfterActionFunc =
-    fn(request: qiniu_ng_http_request_t, response: qiniu_ng_http_response_t, err: *mut qiniu_ng_callback_err_t);
+type QiniuNgHTTPAfterActionFunc = extern "C" fn(
+    request: qiniu_ng_http_request_t,
+    response: qiniu_ng_http_response_t,
+    err: *mut qiniu_ng_callback_err_t,
+);
 
 struct QiniuNgHTTPAfterActionHandler {
     handler: QiniuNgHTTPAfterActionFunc,
@@ -968,7 +974,7 @@ struct QiniuNgHTTPAfterActionHandler {
 
 impl QiniuNgHTTPAfterActionHandler {
     fn new(
-        handler: fn(
+        handler: extern "C" fn(
             request: qiniu_ng_http_request_t,
             response: qiniu_ng_http_response_t,
             err: *mut qiniu_ng_callback_err_t,
@@ -1009,7 +1015,7 @@ impl HTTPAfterAction for QiniuNgHTTPAfterActionHandler {
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_append_http_request_after_action_handler(
     builder: qiniu_ng_config_builder_t,
-    handler: fn(
+    handler: extern "C" fn(
         request: qiniu_ng_http_request_t,
         response: qiniu_ng_http_response_t,
         err: *mut qiniu_ng_callback_err_t,
@@ -1032,7 +1038,7 @@ pub extern "C" fn qiniu_ng_config_builder_append_http_request_after_action_handl
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_after_action_handler(
     builder: qiniu_ng_config_builder_t,
-    handler: fn(
+    handler: extern "C" fn(
         request: qiniu_ng_http_request_t,
         response: qiniu_ng_http_response_t,
         err: *mut qiniu_ng_callback_err_t,

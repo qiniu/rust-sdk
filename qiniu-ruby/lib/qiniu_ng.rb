@@ -14,4 +14,5 @@ module QiniuNg
   autoload :Utils, 'qiniu_ng/utils'
   autoload :Error, 'qiniu_ng/error'
   autoload :HTTP, 'qiniu_ng/http'
+  autoload :CallbackData, 'qiniu_ng/callback_data'
 end

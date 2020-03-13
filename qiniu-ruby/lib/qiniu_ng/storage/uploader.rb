@@ -8,7 +8,9 @@ module QiniuNg
     class Uploader
       autoload :UploadPolicy, 'qiniu_ng/storage/uploader/upload_policy'
       autoload :UploadToken, 'qiniu_ng/storage/uploader/upload_token'
+      autoload :UploaderHelper, 'qiniu_ng/storage/uploader/uploader_helper'
       autoload :BucketUploader, 'qiniu_ng/storage/uploader/bucket_uploader'
+      autoload :BatchUploader, 'qiniu_ng/storage/uploader/batch_uploader'
       autoload :UploadResponse, 'qiniu_ng/storage/uploader/upload_response'
 
       # 创建上传管理器

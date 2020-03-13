@@ -121,6 +121,7 @@ impl StorageManager {
         BucketBuilder::new(bucket.into(), self.credential.borrow().into(), self.upload_manager())
     }
 
+    /// 获取存储管理器中的认证信息
     pub fn credential(&self) -> &Credential {
         &self.credential
     }
@@ -135,8 +136,10 @@ impl StorageManager {
 /// 删除存储空间错误
 #[derive(Error, Debug)]
 pub enum DropBucketError {
+    /// HTTP API 调用错误
     #[error("Qiniu API call error: {0}")]
     HTTPError(#[from] HTTPError),
+    /// 不允许删除非空的存储空间
     #[error("Drop non empty bucket is not allowed")]
     CannotDropNonEmptyBucket,
 }

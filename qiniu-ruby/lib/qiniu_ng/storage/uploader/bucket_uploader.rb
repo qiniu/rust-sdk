@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'ffi'
-
 module QiniuNg
   module Storage
     class Uploader
@@ -9,6 +7,8 @@ module QiniuNg
       #
       # 为指定存储空间的上传准备初始化数据，可以反复使用以上传多个文件
       class BucketUploader
+        include UploaderHelper
+
         # @!visibility private
         def initialize(bucket_uploader_ffi)
           @bucket_uploader = bucket_uploader_ffi
@@ -73,22 +73,10 @@ module QiniuNg
                                         upload_threshold: upload_threshold,
                                         thread_pool_size: thread_pool_size,
                                         max_concurrency: max_concurrency)
-          reader = Bindings::CoreFFI::QiniuNgReadableT.new
-          reader[:context] = nil
-          reader[:read_func] = proc do |_, data, size, have_read|
-                                 content = file.read(size)
-                                 if content.nil?
-                                   have_read.write_ulong(0)
-                                 else
-                                   data.write_string(content)
-                                   have_read.write_ulong(content.bytesize)
-                                 end
-                                 0
-                               end
           upload_response = QiniuNg::Error.wrap_ffi_function do
                               @bucket_uploader.upload_reader(
                                 upload_token.instance_variable_get(:@upload_token),
-                                reader,
+                                normalize_io(file),
                                 file.respond_to?(:size) ? file.size : 0,
                                 params)
                             end
@@ -139,19 +127,26 @@ module QiniuNg
           upload_response = QiniuNg::Error.wrap_ffi_function do
                               @bucket_uploader.upload_file_path(
                                 upload_token.instance_variable_get(:@upload_token),
-                                file_path,
+                                file_path.to_s,
                                 params)
                             end
           UploadResponse.send(:new, upload_response)
         end
 
-        private
-
-        def normalize_upload_token(upload_token)
-          upload_token = UploadToken.from_token(upload_token) if !upload_token.is_a?(UploadToken) && upload_token.is_a?(String)
-          raise ArgumentError, 'upload_token must be instance of UploadToken' unless upload_token.is_a?(UploadToken)
-          upload_token
+        # 创建批量上传器
+        #
+        # @param [UploadToken, String] upload_token 默认上传凭证
+        # @return [BatchUploader] 批量上传器
+        def batch(upload_token:)
+          BatchUploader.send(:new_from_bucket_uploader, self, normalize_upload_token(upload_token))
         end
+
+        # @!visibility private
+        def inspect
+          "#<#{self.class.name}>"
+        end
+
+        private
 
         def create_upload_params(key: nil,
                                  file_name: nil,
@@ -173,9 +168,8 @@ module QiniuNg
           params[:checksum_enabled] = !!checksum_enabled unless checksum_enabled.nil?
           params[:resumable_policy] = normalize_resumable_policy(resumable_policy) unless resumable_policy.nil?
           unless on_uploading_progress.nil?
-            params[:on_uploading_progress] = proc do |uploaded, total|
-                                               on_uploading_progress.(uploaded, total)
-                                             end
+            params[:callback_data] = CallbackData.put(on_uploading_progress: on_uploading_progress)
+            params[:on_uploading_progress] = OnUploadingProgressCallback
           end
           params[:upload_threshold] = upload_threshold.to_i unless upload_threshold.nil?
           unless thread_pool_size.nil?
@@ -191,26 +185,12 @@ module QiniuNg
           params
         end
 
-        def create_str_map(hash)
-          hash.each_with_object(Bindings::StrMap.new!(hash.size)) do |(key, value), strmap|
-            strmap.set(key.to_s, value.to_s)
-          end
+        OnUploadingProgressCallback = proc do |uploaded, total, idx|
+          context = CallbackData.get(idx)
+          context[:on_uploading_progress]&.call(uploaded, total)
+          CallbackData.delete(idx) if uploaded == total
         end
-
-        def normalize_resumable_policy(resumable_policy)
-          case resumable_policy
-          when :default then :qiniu_ng_resumable_policy_default
-          when :threshold then :qiniu_ng_resumable_policy_threshold
-          when :always_be_resumeable then :qiniu_ng_resumable_policy_always_be_resumeable
-          when :never_be_resumeable then :qiniu_ng_resumable_policy_never_be_resumeable
-          else
-            raise ArgumentError, "invalid resumable policy: #{resumable_policy.inspect}"
-          end
-        end
-
-        def inspect
-          "#<#{self.class.name}>"
-        end
+        private_constant :OnUploadingProgressCallback
       end
     end
   end

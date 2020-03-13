@@ -308,44 +308,52 @@ module QiniuNg
         super(@reason.get_ptr)
       end
     end
-  end
 
-  # @!visibility private
-  def Error.wrap_ffi_function
-    return_values = yield
-    return_values = [return_values] unless return_values.is_a?(Array)
-    errs, return_values = return_values.partition { |v| v.is_a?(Bindings::CoreFFI::QiniuNgErrT) }
-    errs.each do |err|
+    # @!visibility private
+    def self.wrap_ffi_function
+      return_values = yield
+      return_values = [return_values] unless return_values.is_a?(Array)
+      errs, return_values = return_values.partition { |v| v.is_a?(Bindings::CoreFFI::QiniuNgErrT) }
+      errs.each do |err|
+        err = normalize_error(err)
+        raise err unless err.nil?
+      end
+      case return_values.size
+      when 0 then nil
+      when 1 then return_values.first
+      else        return_values
+      end
+    end
+
+    # @!visibility private
+    def self.normalize_error(err)
       if Bindings::CoreFFI::qiniu_ng_err_any_error(err)
         code = FFI::MemoryPointer.new(:int)
-        raise Error::OSError, code.read_int if Bindings::CoreFFI::qiniu_ng_err_os_error_extract(err, code)
+        return Error::OSError.new(code.read_int) if Bindings::CoreFFI::qiniu_ng_err_os_error_extract(err, code)
         msg = Bindings::CoreFFI::QiniuNgStrT.new
-        raise Error::IOError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_io_error_extract(err, msg)
-        raise Error::UnexpectedRedirectError if Bindings::CoreFFI::qiniu_ng_err_unexpected_redirect_error_extract(err)
-        raise Error::UserCancelledError if Bindings::CoreFFI::qiniu_ng_err_user_canceled_error_extract(err)
-        raise Error::JSONError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_json_error_extract(err, msg)
-        raise Error::ResponseStatusCodeError.new(code.read_int, Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_response_status_code_error_extract(err, code, msg)
-        raise Error::UnknownError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_unknown_error_extract(err, msg)
+        return Error::IOError.new(Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_io_error_extract(err, msg)
+        return Error::UnexpectedRedirectError if Bindings::CoreFFI::qiniu_ng_err_unexpected_redirect_error_extract(err)
+        return Error::UserCancelledError if Bindings::CoreFFI::qiniu_ng_err_user_canceled_error_extract(err)
+        return Error::JSONError.new(Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_json_error_extract(err, msg)
+        return Error::ResponseStatusCodeError.new(code.read_int, Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_response_status_code_error_extract(err, code, msg)
+        return Error::UnknownError.new(Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_unknown_error_extract(err, msg)
         curl_kind = Bindings::CoreFFI::QiniuNgCurlErrorKindTWrapper.new
-        raise Error::CurlError, code.read_int, curl_kind.inner if Bindings::CoreFFI::qiniu_ng_err_curl_error_extract(err, code, curl_kind)
-        raise Error::CannotDropNonEmptyBucketError if Bindings::CoreFFI::qiniu_ng_err_drop_non_empty_bucket_error_extract(err)
-        raise Error::BadMIMEError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_bad_mime_type_error_extract(err, msg)
+        return Error::CurlError.new(code.read_int, curl_kind[:inner]) if Bindings::CoreFFI::qiniu_ng_err_curl_error_extract(err, code, curl_kind)
+        return Error::CannotDropNonEmptyBucketError if Bindings::CoreFFI::qiniu_ng_err_drop_non_empty_bucket_error_extract(err)
+        return Error::BadMIMEError.new(Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_bad_mime_type_error_extract(err, msg)
         err2 = Bindings::CoreFFI::QiniuNgInvalidUploadTokenErrorT.new
         if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_extract(err, err2)
-          raise Error::InvalidUploadTokenFormatError if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_format_extract(err)
-          raise Error::InvalidUploadTokenJSONDecodeError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_json_error_extract(err, msg)
-          raise Error::InvalidUploadTokenBase64DecodeError, Bindings::Str.new(msg) if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_base64_error_extract(err, msg)
+          return Error::InvalidUploadTokenFormatError if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_format_extract(err)
+          return Error::InvalidUploadTokenJSONDecodeError.new(Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_json_error_extract(err, msg)
+          return Error::InvalidUploadTokenBase64DecodeError.new(Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_base64_error_extract(err, msg)
           Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_error_ignore(err)
+        else
+          Bindings::CoreFFI::qiniu_ng_err_ignore(err)
         end
-        Bindings::CoreFFI::qiniu_ng_err_ignore(err)
 
         raise RuntimeError, 'Unknown QiniuNg Library Error'
       end
     end
-    case return_values.size
-    when 0 then nil
-    when 1 then return_values.first
-    else        return_values
-    end
+    private_class_method :normalize_error
   end
 end

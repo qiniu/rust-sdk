@@ -446,7 +446,7 @@ pub extern "C" fn qiniu_ng_str_map_set(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_each_entry(
     hashmap: qiniu_ng_str_map_t,
-    handler: fn(key: *const qiniu_ng_char_t, value: *const qiniu_ng_char_t, data: *mut c_void) -> bool,
+    handler: extern "C" fn(key: *const qiniu_ng_char_t, value: *const qiniu_ng_char_t, data: *mut c_void) -> bool,
     data: *mut c_void,
 ) {
     let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap);
@@ -535,7 +535,8 @@ pub struct qiniu_ng_readable_t {
     ///   您需要读取数据并将数据写入 `buf` 缓冲区，且写入数据的尺寸不能超过 `count`。
     ///   写入完毕后，需要您将实际写入的数据长度填充在第四个参数 `have_read` 内。如果 `have_read` 中填充 `0`，则数据读取结束。
     ///   如果发生无法处理的读取错误，则返回相应的操作系统错误号码。如果没有发生任何错误，则返回 `0`。
-    pub read_func: fn(context: *mut c_void, buf: *mut c_void, count: size_t, have_read: *mut size_t) -> c_int,
+    pub read_func:
+        extern "C" fn(context: *mut c_void, buf: *mut c_void, count: size_t, have_read: *mut size_t) -> c_int,
     /// @brief 上下文参数指针
     pub context: *mut c_void,
 }

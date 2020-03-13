@@ -704,9 +704,9 @@ impl DomainsManager {
         }
     }
 
-    // 异步预解析 `Config` 中所有域名
-    //
-    // 可以在配置私有云域名后，调用该方法将私有云 URL 域名解析结果纳入域名解析缓存
+    /// 异步预解析 `Config` 中所有域名
+    ///
+    /// 可以在配置私有云域名后，调用该方法将私有云 URL 域名解析结果纳入域名解析缓存
     pub fn async_resolve_config(&self, config: &Config) {
         let mut urls = HashSet::with_capacity(6);
         urls.insert(Cow::Owned(config.uc_url()));
@@ -717,9 +717,9 @@ impl DomainsManager {
         self.async_resolve_urls(urls)
     }
 
-    // 异步预解析 `Region` 中所有域名
-    //
-    // 可以在创建私有云区域后，调用该方法将所有区域中的 URL 域名解析结果纳入域名解析缓存
+    /// 异步预解析 `Region` 中所有域名
+    ///
+    /// 可以在创建私有云区域后，调用该方法将所有区域中的 URL 域名解析结果纳入域名解析缓存
     pub fn async_resolve_region(&self, region: &Region) {
         let mut urls = HashSet::with_capacity(100);
         region.up_urls_owned(false).into_iter().for_each(|url| {
@@ -881,7 +881,9 @@ impl Default for DomainsManager {
 /// 一个简单的结构体，包含候选 URL 及其域名解析结果
 #[derive(Debug, Clone)]
 pub struct Choice<'a> {
+    /// 候选 URL
     pub base_url: &'a str,
+    /// 域名解析结果
     pub socket_addrs: Box<[SocketAddr]>,
 }
 
@@ -892,8 +894,13 @@ fn open_persistent_file(path: &Path) -> IOResult<File> {
 /// URL 解析错误
 #[derive(Error, Debug)]
 pub enum URLParseError {
+    /// URL 的域名部分不存在
     #[error("Invalid url: {url}")]
-    InvalidURL { url: String },
+    InvalidURL {
+        /// 发生错误的 URL 字符串
+        url: String,
+    },
+    /// URL 解析出错
     #[error("URL parse error: {0}")]
     URLParseError(#[from] url::ParseError),
 }
@@ -904,8 +911,10 @@ pub type URLParseResult<T> = Result<T, URLParseError>;
 /// URL 域名解析错误
 #[derive(Error, Debug)]
 pub enum ResolveError {
+    /// URL 解析出错
     #[error("URL Parse error: {0}")]
     URLParseError(#[from] URLParseError),
+    /// URL 域名解析出错
     #[error("Resolve URL error: {0}")]
     ResolveError(#[from] IOError),
 }
@@ -916,8 +925,10 @@ pub type ResolveResult<T> = Result<T, ResolveError>;
 /// 持久化错误
 #[derive(Error, Debug)]
 pub enum PersistentError {
+    /// JSON 错误
     #[error("JSON encode error: {0}")]
     JSONError(#[from] serde_json::Error),
+    /// 读写 I/O 错误
     #[error("IO error: {0}")]
     IOError(#[from] IOError),
 }

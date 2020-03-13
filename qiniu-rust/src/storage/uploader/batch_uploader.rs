@@ -7,7 +7,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{Read, Result},
-    mem::take,
+    mem::replace,
     path::Path,
 };
 
@@ -114,7 +114,7 @@ impl BatchUploader {
     pub fn start(&mut self) {
         let thread_pool = build_thread_pool(&self.context);
         let context = &self.context;
-        let mut jobs = take(&mut self.jobs);
+        let mut jobs = replace(&mut self.jobs, Vec::new());
 
         thread_pool.scope(|s| {
             while let Some(job) = jobs.pop() {

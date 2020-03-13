@@ -80,6 +80,7 @@ struct SerializableFileUploadRecordMediumBlockItem<'a> {
 }
 
 impl UploadRecorderBuilder {
+    /// 生产上传进度记录仪
     pub fn build(&self) -> UploadRecorder {
         self.inner_build().unwrap()
     }

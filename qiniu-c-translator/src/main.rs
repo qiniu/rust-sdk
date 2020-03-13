@@ -292,6 +292,20 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             ],
         ));
         classifier.add_class(Class::new(
+            "BatchUploader",
+            Some("qiniu_ng_batch_uploader_t"),
+            Regex::new("^qiniu_ng_batch_uploader_(\\w+)").unwrap(),
+            None,
+            source_file.function_declarations().iter(),
+            None,
+            vec![
+                ("qiniu_ng_batch_uploader_upload_file", "file"),
+                ("qiniu_ng_batch_uploader_upload_file", "params"),
+                ("qiniu_ng_batch_uploader_upload_file_path", "params"),
+                ("qiniu_ng_batch_uploader_upload_reader", "params"),
+            ],
+        ));
+        classifier.add_class(Class::new(
             "UploadResponse",
             Some("qiniu_ng_upload_response_t"),
             Regex::new("^qiniu_ng_upload_response_(\\w+)").unwrap(),

@@ -1,6 +1,7 @@
 require 'json'
 require 'securerandom'
 require 'tempfile'
+require 'concurrent-ruby'
 
 RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
   context '#upload_file' do
@@ -19,11 +20,15 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
 
         key = "测试-#{Time.now.to_i}"
 
-        last_uploaded = -1
+        err = Concurrent::AtomicReference.new
+        last_uploaded, file_size = Concurrent::AtomicFixnum.new(-1), file.size
         on_uploading_progress = ->(uploaded, total) do
-                                  expect(total).to be_zero
-                                  expect(uploaded >= last_uploaded).to be true
-                                  last_uploaded = uploaded
+                                  begin
+                                    expect(total).to eq file_size
+                                    last_uploaded.value = uploaded
+                                  rescue Exception => e
+                                    err.set(e)
+                                  end
                                 end
 
         etag = QiniuNg::Utils::Etag.from_io(file)
@@ -32,8 +37,6 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
         response = File.open(file.path, 'rb') do |file|
                     bucket_uploader.upload_file(file, upload_token: upload_token,
                                                       key: key,
-                                                      vars: { 'key_1': 'value_1', 'key_2': 'value_2' },
-                                                      metadata: { 'k_1': 'v_1', 'k_2': 'v_2' },
                                                       on_uploading_progress: on_uploading_progress)
                    end
         expect(response.hash).to eq(etag)
@@ -41,6 +44,8 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
         j = JSON.load response.as_json
         expect(j['hash']).to eq(etag)
         expect(j['key']).to eq(key)
+        expect(err.get).to be_nil
+        expect(last_uploaded.value).to eq file_size
       end
     end
 
@@ -54,15 +59,20 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
                                                                    access_key: ENV['access_key'])
       key = "测试-#{Time.now.to_i}"
 
-      last_uploaded = -1
-      on_uploading_progress = ->(uploaded, total) do
-                                expect(total).to be_zero
-                                expect(uploaded >= last_uploaded).to be true
-                                last_uploaded = uploaded
-                              end
       io = StringIO.new SecureRandom.random_bytes(1 << 24)
       etag = QiniuNg::Utils::Etag.from_io(io)
       io.rewind
+
+      err = Concurrent::AtomicReference.new
+      last_uploaded, io_size = Concurrent::AtomicFixnum.new(-1), io.size
+      on_uploading_progress = ->(uploaded, total) do
+                                begin
+                                  expect(total).to eq io_size
+                                  last_uploaded.value = uploaded
+                                rescue Exception => e
+                                  err.set(e)
+                                end
+                              end
       response = bucket_uploader.upload_io(io, upload_token: upload_token,
                                                key: key,
                                                file_name: key,
@@ -79,6 +89,8 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
       expect(j['fsize']).to eq(1 << 24)
       expect(j['bucket']).to eq('z0-bucket')
       expect(j['name']).to eq(key)
+      expect(err.get).to be_nil
+      expect(last_uploaded.value).to eq io_size
     end
   end
 
@@ -98,11 +110,15 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
         file.rewind
         etag = QiniuNg::Utils::Etag.from_io(file)
         key = "测试-#{Time.now.to_i}"
-        last_uploaded, file_size = -1, File.size(file.path)
+        err = Concurrent::AtomicReference.new
+        last_uploaded, file_size = Concurrent::AtomicFixnum.new(-1), file.size
         on_uploading_progress = ->(uploaded, total) do
-                                  expect(total >= file_size).to be true
-                                  expect(uploaded >= last_uploaded).to be true
-                                  last_uploaded = uploaded
+                                  begin
+                                    expect(total >= file_size).to be true
+                                    last_uploaded.value = uploaded
+                                  rescue Exception => e
+                                    err.set(e)
+                                  end
                                 end
 
         response = bucket_uploader.upload_file_path(file.path, upload_token: upload_token,
@@ -113,6 +129,8 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
         j = JSON.load response.as_json
         expect(j['hash']).to eq(etag)
         expect(j['key']).to eq(key)
+        expect(err.get).to be_nil
+        expect(last_uploaded.value).to eq file_size
       end
     end
   end

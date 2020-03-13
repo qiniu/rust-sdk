@@ -10,7 +10,7 @@ use crate::{
         qiniu_ng_readable_t, qiniu_ng_str_map_t, FileReader,
     },
 };
-use libc::{c_void, FILE};
+use libc::{c_void, size_t, FILE};
 use mime::Mime;
 use qiniu_ng::storage::uploader::{
     BatchUploadJob, BatchUploadJobBuilder, BatchUploader, BucketUploader, UploadResult, UploadToken,
@@ -21,6 +21,7 @@ use std::{
     mem::transmute,
     ptr::null_mut,
 };
+use tap::TapOps;
 
 /// @brief 批量上传器
 /// @details 准备批量上传多个文件或数据流，可以反复使用以上传多个批次的文件或数据
@@ -28,7 +29,7 @@ use std::{
 ///   * 调用 `qiniu_ng_batch_uploader_new()` 函数创建 `qiniu_ng_batch_uploader_t` 实例。
 ///   * 当 `qiniu_ng_batch_uploader_t` 使用完毕后，请务必调用 `qiniu_ng_batch_uploader_free()` 方法释放内存。
 /// @note
-///   该结构体内部状态不可变，因此可以跨线程使用，但由于可能会自带线程池，所以不要跨进程使用，否则可能会发生线程池无法使用的问题
+///   该结构体不可以跨线程使用
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_batch_uploader_t(*mut c_void);
@@ -117,7 +118,7 @@ pub extern "C" fn qiniu_ng_batch_uploader_is_freed(batch_uploader: qiniu_ng_batc
 #[no_mangle]
 pub extern "C" fn qiniu_ng_batch_uploader_set_expected_jobs_count(
     batch_uploader: qiniu_ng_batch_uploader_t,
-    expected_jobs_count: usize,
+    expected_jobs_count: size_t,
 ) {
     let mut batch_uploader = Option::<Box<BatchUploader>>::from(batch_uploader).unwrap();
     batch_uploader.expected_jobs_count(expected_jobs_count);
@@ -131,7 +132,7 @@ pub extern "C" fn qiniu_ng_batch_uploader_set_expected_jobs_count(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_batch_uploader_set_thread_pool_size(
     batch_uploader: qiniu_ng_batch_uploader_t,
-    thread_pool_size: usize,
+    thread_pool_size: size_t,
 ) {
     let mut batch_uploader = Option::<Box<BatchUploader>>::from(batch_uploader).unwrap();
     batch_uploader.thread_pool_size(thread_pool_size);
@@ -145,7 +146,7 @@ pub extern "C" fn qiniu_ng_batch_uploader_set_thread_pool_size(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_batch_uploader_set_max_concurrency(
     batch_uploader: qiniu_ng_batch_uploader_t,
-    max_concurrency: usize,
+    max_concurrency: size_t,
 ) {
     let mut batch_uploader = Option::<Box<BatchUploader>>::from(batch_uploader).unwrap();
     batch_uploader.max_concurrency(max_concurrency);
@@ -333,7 +334,7 @@ fn set_params_to_job_builder(
                     qiniu_ng_err_t::default(),
                     callback_data,
                 ),
-                Err(ref err) => (on_completed)(None.into(), err, callback_data),
+                Err(ref err) => (on_completed)(None.into(), err.into(), callback_data),
             };
         });
     }
