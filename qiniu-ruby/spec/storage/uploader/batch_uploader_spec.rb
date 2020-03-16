@@ -17,6 +17,7 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
                                                   batch(upload_token: upload_token)
       batch_uploader.thread_pool_size = 8
       completed = Concurrent::AtomicFixnum.new
+      err = Concurrent::AtomicReference.new
       8.times do |idx|
         tempfile = Tempfile.create('测试', encoding: 'ascii-8bit')
         tempfile.write(SecureRandom.random_bytes(rand(1 << 24)))
@@ -25,14 +26,20 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
         tempfile.rewind
         key = "测试-#{idx}-#{Time.now.to_i}"
         batch_uploader.upload_file(tempfile, key: key) do |response, err|
-          expect(response).not_to be_nil
-          expect(response.hash).to eq etag
-          expect(response.key).to eq key
-          completed.increment
+          begin
+            expect(err).to be_nil
+            expect(response).not_to be_nil
+            expect(response.hash).to eq etag
+            expect(response.key).to eq key
+            completed.increment
+          rescue Exception => e
+            err.set(e)
+          end
         end
       end
       batch_uploader.start
       expect(completed.value).to eq 8
+      expect(err.get).to be_nil
     end
 
     it 'should upload files by path' do
@@ -47,6 +54,7 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
                                                   batch(upload_token: upload_token)
       batch_uploader.thread_pool_size = 8
       completed = Concurrent::AtomicFixnum.new
+      err = Concurrent::AtomicReference.new
       8.times do |idx|
         tempfile = Tempfile.create('测试', encoding: 'ascii-8bit')
         tempfile.write(SecureRandom.random_bytes(rand(1 << 24)))
@@ -61,14 +69,19 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
                                   last_uploaded = uploaded
                                 end
         batch_uploader.upload_file_path(tempfile.path, key: key, on_uploading_progress: on_uploading_progress) do |response, err|
-          expect(response).not_to be_nil
-          expect(response.hash).to eq etag
-          expect(response.key).to eq key
-          completed.increment
+          begin
+            expect(response).not_to be_nil
+            expect(response.hash).to eq etag
+            expect(response.key).to eq key
+            completed.increment
+          rescue Exception => e
+            err.set(e)
+          end
         end
       end
       batch_uploader.start
       expect(completed.value).to eq 8
+      expect(err.get).to be_nil
     end
   end
 end

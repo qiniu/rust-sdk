@@ -45,10 +45,10 @@ module QiniuNg
             c = if io.is_a?(IO)
                   FFI::IO.native_read(io, data, size)
                 else
-                  io.binmode unless io.binmode?
+                  io.binmode unless !io.respond_to?(:binmode) || io.respond_to?(:binmode?) && io.binmode?
                   io_data = io.read(size)
                   data.write_string(io_data)
-                  body_data.size
+                  io_data.size
                 end
             if c > 0
               have_read.write_ulong(c)

@@ -117,7 +117,7 @@ module QiniuNg
           c = if body.is_a?(IO)
                 FFI::IO.native_read(body, data, size)
               else
-                body.binmode unless body.binmode?
+                io.binmode unless !io.respond_to?(:binmode) || io.respond_to?(:binmode?) && io.binmode?
                 body_data = body.read(size)
                 data.write_string(body_data)
                 body_data.size

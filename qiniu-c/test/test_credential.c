@@ -4,7 +4,7 @@
 #include <string.h>
 
 static qiniu_ng_credential_t get_credential(void) {
-    return qiniu_ng_credential_new("abcdefghklmnopq", "1234567890");
+    return qiniu_ng_credential_new(QINIU_NG_CHARS("abcdefghklmnopq"), QINIU_NG_CHARS("1234567890"));
 }
 
 void test_qiniu_ng_credential_new(void) {
@@ -14,13 +14,13 @@ void test_qiniu_ng_credential_new(void) {
     access_key = qiniu_ng_credential_get_access_key(credential);
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         qiniu_ng_str_get_ptr(access_key),
-        "abcdefghklmnopq",
+        QINIU_NG_CHARS("abcdefghklmnopq"),
         "qiniu_ng_credential_get_access_key() returns unexpected value");
 
     secret_key = qiniu_ng_credential_get_secret_key(credential);
     TEST_ASSERT_EQUAL_STRING_MESSAGE(
         qiniu_ng_str_get_ptr(secret_key),
-        "1234567890",
+        QINIU_NG_CHARS("1234567890"),
         "qiniu_ng_credential_get_secret_key() returns unexpected value");
 
     qiniu_ng_str_free(&access_key);
