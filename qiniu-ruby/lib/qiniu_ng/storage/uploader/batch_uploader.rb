@@ -22,15 +22,27 @@ module QiniuNg
           raise ArgumentError, 'upload_token must be instance of UploadToken' unless upload_token.is_a?(UploadToken)
           bucket_uploader = bucket_uploader.instance_variable_get(:@bucket_uploader)
           upload_token = upload_token.instance_variable_get(:@upload_token)
-          new(Bindings::BatchUploader.new!(bucket_uploader, upload_token))
+          new(Bindings::BatchUploader.new_from_bucket_uploader(bucket_uploader, upload_token))
         end
         private_class_method :new_from_bucket_uploader
+
+        def self.new_from_config(upload_token, config)
+          raise ArgumentError, 'upload_token must be instance of UploadToken' unless upload_token.is_a?(UploadToken)
+          raise ArgumentError, 'config must be instance of Config' unless config.is_a?(Config)
+          upload_token = upload_token.instance_variable_get(:@upload_token)
+          config = config.instance_variable_get(:@config)
+          batch_uploader = Bindings::BatchUploader.new_from_config(upload_token, config)
+          raise Error::BucketIsMissingInUploadToken if batch_uploader.is_freed
+          new(batch_uploader)
+        end
+        private_class_method :new_from_config
 
         # 设置批量上传器预期的任务数量
         #
         # 如果预先知道上传任务的数量，可以调用该函数预分配内存空间
         #
         # @param [Integer] expected_jobs_count 预期即将推送的上传任务数量
+        # @return [void]
         def expected_jobs_count=(expected_jobs_count)
           @batch_uploader.set_expected_jobs_count(expected_jobs_count.to_i)
         end
@@ -40,6 +52,7 @@ module QiniuNg
         # 默认情况下，上传文件时的最大并发度等于其使用的线程池大小。调用该方法可以修改最大并发度
         #
         # @param [Integer] max_concurrency 上传文件最大并发度
+        # @return [void]
         def max_concurrency=(max_concurrency)
           @batch_uploader.set_max_concurrency(max_concurrency.to_i)
         end
@@ -49,6 +62,7 @@ module QiniuNg
         # 批量上传器总是优先使用存储空间上传器中的线程池，如果存储空间上传器中没有创建过线程池，则自行创建专用线程池
         #
         # @param [Integer] thread_pool_size 上传线程池大小
+        # @return [void]
         def thread_pool_size=(thread_pool_size)
           @batch_uploader.set_thread_pool_size(thread_pool_size.to_i)
         end
@@ -69,6 +83,7 @@ module QiniuNg
         # @yieldparam response [UploadResponse] 上传响应，应该首先判断上传是否有错误，然后再获取上传响应中的数据
         # @yieldparam err [Error] 上传错误
         # @raise [ArgumentError] 参数错误
+        # @return [void]
         def upload_file(file, upload_token: nil,
                               key: nil,
                               file_name: nil,
@@ -116,6 +131,7 @@ module QiniuNg
         # @yieldparam response [UploadResponse] 上传响应，应该首先判断上传是否有错误，然后再获取上传响应中的数据
         # @yieldparam err [Error] 上传错误
         # @raise [ArgumentError] 参数错误
+        # @return [void]
         def upload_file_path(file_path, upload_token: nil,
                                         key: nil,
                                         file_name: nil,
@@ -149,6 +165,7 @@ module QiniuNg
         # 需要注意的是，该方法会持续阻塞直到上传任务全部执行完毕（不保证执行顺序）。
         # 该方法不返回任何结果，上传结果由每个上传任务内定义的代码块负责返回。
         # 方法返回后，当前批量上传器的上传任务将被清空，但其他参数都将保留，可以重新添加任务并复用。
+        # @return [void]
         def start
           @batch_uploader.start
         end

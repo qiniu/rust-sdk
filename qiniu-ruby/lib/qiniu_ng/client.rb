@@ -60,6 +60,23 @@ module QiniuNg
       @config ||= Config::new(config: @client.get_config)
     end
 
+    # 为指定 Bucket 创建存储空间上传器
+    # @param [String] bucket_name 存储空间名称
+    # @param [Integer] thread_pool_size 上传线程池尺寸，默认使用默认的线程池策略
+    # @return [BucketUploader] 返回存储空间上传器
+    # @raise [ArgumentError] 参数错误
+    def uploader_for(bucket_name, thread_pool_size: nil)
+      Storage::Uploader.new(self.config).bucket_uploader(bucket_name: bucket_name, access_key: self.access_key, thread_pool_size: thread_pool_size)
+    end
+
+    # 创建批量上传器
+    # @param [UploadToken, String] upload_token 默认上传凭证
+    # @return [Storage::Uploader::BatchUploader] 返回批量上传器
+    # @raise [Error::BucketIsMissingInUploadToken] 上传凭证内没有存储空间相关信息
+    def batch_uploader_for(upload_token)
+      Storage::Uploader::BatchUploader.send(:new_from_config, upload_token, self.config)
+    end
+
     # 获取指定的存储空间实例
     # @param [String] name 存储空间名称
     # @return [Storage::Bucket] 返回存储空间实例

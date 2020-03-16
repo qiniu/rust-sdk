@@ -33,6 +33,15 @@ module QiniuNg
                             thread_pool_size: thread_pool_size&.to_i)
       end
 
+      # 创建批量上传器
+      # @param [UploadToken, String] upload_token 默认上传凭证
+      # @param [Config] config 客户端配置实例
+      # @return [BatchUploader] 返回批量上传器
+      # @raise [Error::BucketIsMissingInUploadToken] 上传凭证内没有存储空间相关信息
+      def batch_uploader(upload_token, config:)
+        Storage::Uploader::BatchUploader.send(:new_from_config, upload_token, config)
+      end
+
       # @!visibility private
       def inspect
         "#<#{self.class.name}>"

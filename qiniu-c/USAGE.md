@@ -489,7 +489,7 @@ int main() {
 
     qiniu_ng_upload_policy_builder_t upload_policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(bucket_name, config);
     qiniu_ng_upload_token_t upload_token = qiniu_ng_upload_token_new_from_policy_builder(upload_policy_builder, access_key, secret_key);
-    qiniu_ng_batch_uploader_t batch_uploader = qiniu_ng_batch_uploader_new(bucket_uploader, upload_token);
+    qiniu_ng_batch_uploader_t batch_uploader = qiniu_ng_batch_uploader_new_from_bucket_uploader(bucket_uploader, upload_token);
 
     qiniu_ng_batch_upload_params_t params = {
         .on_completed = on_completed,
@@ -498,6 +498,7 @@ int main() {
     if (!qiniu_ng_batch_uploader_upload_file_path(batch_uploader, file_path, &params, &err)) { // 这里可以添加多个等待上传的文件
         qiniu_ng_err_fprintf(stderr, "%s\n", err);
         qiniu_ng_err_ignore(&err);
+        qiniu_ng_batch_uploader_free(&batch_uploader);
         qiniu_ng_upload_token_free(&upload_token);
         qiniu_ng_bucket_uploader_free(&bucket_uploader);
         qiniu_ng_upload_policy_builder_free(&upload_policy_builder);
@@ -505,7 +506,7 @@ int main() {
         qiniu_ng_config_free(&config);
         return 1;
     }
-    qiniu_ng_batch_uploader_start(batch_uploader); // 这里才进行上传
+    qiniu_ng_batch_uploader_start(batch_uploader); // 这里才会进行上传，直到上传完毕后才会返回，上传结果由 `on_completed()` 回调函数返回
 
     qiniu_ng_batch_uploader_free(&batch_uploader);
     qiniu_ng_upload_token_free(&upload_token);

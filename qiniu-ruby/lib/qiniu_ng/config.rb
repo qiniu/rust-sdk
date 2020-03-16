@@ -475,6 +475,7 @@ module QiniuNg
       # @yield [request, response] 回调函数
       # @yieldparam [HTTP::Request] request HTTP 请求
       # @yieldparam [HTTP::Response] response HTTP 响应
+      # @return [Builder] 返回自身，可以形成链式调用
       def append_http_request_after_action_handler(&handler)
         h = ->(request, response, err) do
               wrap_action_handler(err) do
@@ -511,6 +512,7 @@ module QiniuNg
       #
       # @yield [request] 回调函数
       # @yieldparam [HTTP::Request] request HTTP 请求
+      # @return [Builder] 返回自身，可以形成链式调用
       def append_http_request_before_action_handler(&handler)
         h = ->(request, err) do
               wrap_action_handler(err) do
@@ -545,6 +547,7 @@ module QiniuNg
       # @yield [request, response] 回调函数
       # @yieldparam [HTTP::Request] request HTTP 请求
       # @yieldparam [HTTP::Response] response HTTP 响应
+      # @return [Builder] 返回自身，可以形成链式调用
       def prepend_http_request_after_action_handler(&handler)
         h = ->(request, response, err) do
               wrap_action_handler(err) do
@@ -581,6 +584,7 @@ module QiniuNg
       #
       # @yield [request] 回调函数
       # @yieldparam [HTTP::Request] request HTTP 请求
+      # @return [Builder] 返回自身，可以形成链式调用
       def prepend_http_request_before_action_handler(&handler)
         h = ->(request, err) do
               wrap_action_handler(err) do
@@ -612,6 +616,7 @@ module QiniuNg
       # @yield [request, response] 处理函数
       # @yieldparam [HTTP::Request] request HTTP 请求
       # @yieldparam [HTTP::Response] response HTTP 响应
+      # @return [Builder] 返回自身，可以形成链式调用
       def http_request_handler(&handler)
         h = ->(request, response, err) do
               wrap_action_handler(err) do

@@ -267,7 +267,7 @@ file_path = '/local/file/path'
 client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
 upload_token = QiniuNg::Storage::Uploader::UploadPolicy.new_for_bucket(bucket_name, QiniuNg::Config.new).
                                                         build_token(access_key: access_key, secret_key: secret_key)
-upload_response = client.bucket(bucket_name).uploader.upload_file_path(file_path, upload_token: upload_token)
+upload_response = client.uploader_for(bucket_name).upload_file_path(file_path, upload_token: upload_token)
 ```
 
 ### IO 流上传
@@ -283,7 +283,37 @@ bucket_name = '[Bucket Name]'
 client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
 upload_token = QiniuNg::Storage::Uploader::UploadPolicy.new_for_bucket(bucket_name, QiniuNg::Config.new).
                                                         build_token(access_key: access_key, secret_key: secret_key)
-upload_response = client.bucket(bucket_name).uploader.upload_file(STDIN, upload_token: upload_token)
+upload_response = client.uploader_for(bucket_name).upload_file(STDIN, upload_token: upload_token)
+```
+
+### 批量上传
+
+SDK 支持将多个文件批量上传，将会尽可能使用线程池并发上传加速上传效率，因此效率将优于串行的上传方法。
+
+```ruby
+require 'qiniu_ng'
+
+access_key = '[Qiniu Access Key]'
+secret_key = '[Qiniu Secret Key]'
+bucket_name = '[Bucket Name]'
+key_to_overwrite = 'qiniu.mp4'
+file_path = '/local/file/path'
+client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
+                                                                 build_token(access_key: access_key, secret_key: secret_key)
+batch_uploader = client.batch_uploader_for(upload_token)
+
+# 这里可以添加多个等待上传的文件。在代码块内设置完成后的回调
+batch_uploader.upload_file_path(file_path) do |upload_response, err|
+    unless err.nil?
+        STDERR.puts "Upload failed: #{err.message}"
+        exit 1
+    end
+
+# 在这里对上传响应进行处理
+
+end
+batch_uploader.start # 这里才会进行上传，直到上传完毕后才会返回，上传结果由代码块返回
 ```
 
 ### 文件上传策略

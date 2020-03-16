@@ -10,6 +10,10 @@ module QiniuNg
       "#<#{self.class.name}>"
     end
 
+    # 上传凭证内没有存储空间相关信息
+    class BucketIsMissingInUploadToken < Error
+    end
+
     # HTTP 回调函数
     class HandlerError < Error
       attr_reader :cause, :retry_kind, :is_retry_safe

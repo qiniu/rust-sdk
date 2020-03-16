@@ -25,6 +25,7 @@ module QiniuNg
 
       # 设置响应状态码
       # @param [Integer] status_code 响应状态码
+      # @return [void]
       def status_code=(status_code)
         @response.set_status_code(status_code.to_i)
       end
@@ -49,6 +50,7 @@ module QiniuNg
 
       # 设置服务器 IP 地址
       # @param [String] server_ip 服务器 IP 地址
+      # @return [void]
       def server_ip=(server_ip)
         if server_port.nil?
           @response.unset_server_ip
@@ -65,6 +67,7 @@ module QiniuNg
 
       # 设置服务器端口
       # @param [Integer] server_port 服务器端口
+      # @return [void]
       def server_port=(server_port)
         @response.set_server_port(server_port.to_i)
       end
@@ -98,6 +101,7 @@ module QiniuNg
       # 此外，也可以以字符串的形式提供
       #
       # @param [#read,#to_s] body 响应体内容
+      # @return [void]
       def body=(body)
         if body.respond_to?(:read)
           reader = Bindings::CoreFFI::QiniuNgReadableT.new

@@ -18,6 +18,7 @@ module QiniuNg
 
       # 根据 HTTP Header 名称获取 HTTP Header 值
       # @param [String] key HTTP Header 名称
+      # @return [String] HTTP Header 值
       def [](key)
         @headers[key.to_s]
       end
@@ -25,6 +26,7 @@ module QiniuNg
       # 设置 HTTP Header
       # @param [String] key HTTP Header 名称
       # @param [String] value HTTP Header 值
+      # @return [void]
       def []=(key, value)
         @headers[key.to_s] = value.to_s
         @req_resp.set_header(key.to_s, value.to_s)
@@ -32,6 +34,7 @@ module QiniuNg
 
       # 删除 HTTP Header
       # @param [String] key HTTP Header 名称
+      # @return [void]
       def delete(key)
         @headers.delete(key.to_s)
         @req_resp.set_header(key.to_s, nil)

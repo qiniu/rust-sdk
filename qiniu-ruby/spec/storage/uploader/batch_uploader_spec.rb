@@ -12,9 +12,7 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
                                                                        build_token(access_key: ENV['access_key'],
                                                                                    secret_key: ENV['secret_key'])
       batch_uploader = QiniuNg::Storage::Uploader.new(config).
-                                                  bucket_uploader(bucket_name: 'z0-bucket',
-                                                                  access_key: ENV['access_key']).
-                                                  batch(upload_token: upload_token)
+                                                  batch_uploader(upload_token, config: config)
       batch_uploader.thread_pool_size = 8
       completed = Concurrent::AtomicFixnum.new
       err = Concurrent::AtomicReference.new
@@ -49,9 +47,7 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
                                                                        build_token(access_key: ENV['access_key'],
                                                                                    secret_key: ENV['secret_key'])
       batch_uploader = QiniuNg::Storage::Uploader.new(config).
-                                                  bucket_uploader(bucket_name: 'z0-bucket',
-                                                                  access_key: ENV['access_key']).
-                                                  batch(upload_token: upload_token)
+                                                  batch_uploader(upload_token, config: config)
       batch_uploader.thread_pool_size = 8
       completed = Concurrent::AtomicFixnum.new
       err = Concurrent::AtomicReference.new

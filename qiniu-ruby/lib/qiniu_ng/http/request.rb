@@ -22,6 +22,7 @@ module QiniuNg
 
       # 设置请求 URL
       # @param [String] url 请求 URL
+      # @return [void]
       def url=(url)
         @cache.delete(:url)
         @request.set_url(url.to_s)
@@ -42,6 +43,7 @@ module QiniuNg
 
       # 设置请求 HTTP 方法
       # @param [Symbol] method 请求 HTTP 方法
+      # @return [void]
       def method=(method)
         case method.to_sym
         when :GET  then :qiniu_ng_http_method_get
@@ -78,6 +80,7 @@ module QiniuNg
 
       # 设置请求体内容
       # @param [String] body 请求体内容
+      # @return [void]
       def body=(body)
         @request.set_body(body.to_s)
       end
@@ -90,6 +93,7 @@ module QiniuNg
 
       # 设置自动追踪重定向
       # @param [Boolean] yes 是否自动追踪重定向
+      # @return [void]
       def set_follow_redirection(yes = true)
         @request.set_follow_redirection(yes)
       end
@@ -103,6 +107,7 @@ module QiniuNg
 
       # 设置预解析的套接字地址
       # @param [Array<String>,nil] addrs 设置预解析的套接字地址，如果传入 `nil` 表示置空
+      # @return [void]
       def resolved_socket_addrs=(addrs)
         addrs = [] if addrs.nil?
         addrs = [addrs] unless addrs.is_a?(Array)

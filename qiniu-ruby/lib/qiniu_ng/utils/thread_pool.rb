@@ -10,6 +10,7 @@ module QiniuNg
       # 使用该方法也可以用于调整全局线程池线程数量。
       #
       # @param [Integer] num_threads 调整后的线程池数量，默认为不调整
+      # @return [void]
       def recreate_thread_pool(num_threads: 0)
         Bindings::CoreFFI::qiniu_ng_recreate_global_thread_pool(num_threads || 0)
       end

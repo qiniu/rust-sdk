@@ -420,6 +420,7 @@ module QiniuNg
 
           # 指定对象生命到期时间
           # @param [Time] deadline 过期时间，精确到天
+          # @return [Builder] 返回自身，可以形成链式调用
           def object_deadline(deadline)
             @builder.set_object_deadline(deadline.to_i)
             self
@@ -427,6 +428,7 @@ module QiniuNg
 
           # 指定对象生命周期
           # @param [Time] lifetime 生命周期，精确到天，可以直接传入 Hash 时间参数
+          # @return [Builder] 返回自身，可以形成链式调用
           def object_lifetime(lifetime)
             lifetime = Utils::Duration::new(lifetime) if lifetime.is_a?(Hash)
             @builder.set_object_lifetime(lifetime.to_i)
