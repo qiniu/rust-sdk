@@ -410,8 +410,6 @@ int main() {
         return 1;
     }
 
-    qiniu_ng_str_free(&upload_response_string);
-    qiniu_ng_upload_response_free(&upload_response);
     qiniu_ng_upload_token_free(&upload_token);
     qiniu_ng_bucket_uploader_free(&bucket_uploader);
     qiniu_ng_upload_policy_builder_free(&upload_policy_builder);
@@ -451,8 +449,6 @@ int main() {
         return 1;
     }
 
-    qiniu_ng_str_free(&upload_response_string);
-    qiniu_ng_upload_response_free(&upload_response);
     qiniu_ng_upload_token_free(&upload_token);
     qiniu_ng_bucket_uploader_free(&bucket_uploader);
     qiniu_ng_upload_policy_builder_free(&upload_policy_builder);
@@ -465,6 +461,61 @@ int main() {
 ### 自定义数据上传
 
 对于数据存在于内存中，无法使用文件路径或输入流的情况，可以考虑定义基于 `qiniu_ng_readable_t` 的回调函数，并且调用 `qiniu_ng_bucket_uploader_upload_reader()` 函数上传。
+
+### 批量上传
+
+SDK 支持将多个文件批量上传，将会尽可能使用线程池并发上传加速上传效率，因此效率将优于串行的上传方法。
+
+```c
+#include "libqiniu_ng.h"
+
+static void on_completed(qiniu_ng_upload_response_t upload_response, qiniu_ng_err_t err, void *data) {
+    if (qiniu_ng_err_any_error(&err)) {
+        qiniu_ng_err_fprintf(stderr, "%s\n", err);
+        qiniu_ng_err_ignore(&err);
+    }
+    /// 处理上传响应
+    qiniu_ng_upload_response_free(&upload_response);
+}
+
+int main() {
+    const char *access_key = "[Qiniu Access Key]";
+    const char *secret_key = "[Qiniu Secret Key]";
+    const char *bucket_name = "[Bucket Name]";
+    const char *file_path = "/local/file/path";
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
+    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(upload_manager, access_key, secret_key, 0);
+
+    qiniu_ng_upload_policy_builder_t upload_policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(bucket_name, config);
+    qiniu_ng_upload_token_t upload_token = qiniu_ng_upload_token_new_from_policy_builder(upload_policy_builder, access_key, secret_key);
+    qiniu_ng_batch_uploader_t batch_uploader = qiniu_ng_batch_uploader_new(bucket_uploader, upload_token);
+
+    qiniu_ng_batch_upload_params_t params = {
+        .on_completed = on_completed,
+    };
+    qiniu_ng_err_t err;
+    if (!qiniu_ng_batch_uploader_upload_file_path(batch_uploader, file_path, &params, &err)) { // 这里可以添加多个等待上传的文件
+        qiniu_ng_err_fprintf(stderr, "%s\n", err);
+        qiniu_ng_err_ignore(&err);
+        qiniu_ng_upload_token_free(&upload_token);
+        qiniu_ng_bucket_uploader_free(&bucket_uploader);
+        qiniu_ng_upload_policy_builder_free(&upload_policy_builder);
+        qiniu_ng_upload_manager_free(&upload_manager);
+        qiniu_ng_config_free(&config);
+        return 1;
+    }
+    qiniu_ng_batch_uploader_start(batch_uploader); // 这里才进行上传
+
+    qiniu_ng_batch_uploader_free(&batch_uploader);
+    qiniu_ng_upload_token_free(&upload_token);
+    qiniu_ng_bucket_uploader_free(&bucket_uploader);
+    qiniu_ng_upload_policy_builder_free(&upload_policy_builder);
+    qiniu_ng_upload_manager_free(&upload_manager);
+    qiniu_ng_config_free(&config);
+    return 0;
+}
+```
 
 ### 文件上传策略
 
