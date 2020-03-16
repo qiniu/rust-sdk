@@ -836,15 +836,17 @@ type QiniuNgHTTPCallFunc = extern "C" fn(
     request: qiniu_ng_http_request_t,
     response: qiniu_ng_http_response_t,
     err: *mut qiniu_ng_callback_err_t,
+    data: *mut c_void,
 );
 
 struct QiniuNgHTTPCallHandler {
     handler: QiniuNgHTTPCallFunc,
+    data: *mut c_void,
 }
 
 impl QiniuNgHTTPCallHandler {
-    fn new(handler: QiniuNgHTTPCallFunc) -> Self {
-        Self { handler }
+    fn new(handler: QiniuNgHTTPCallFunc, data: *mut c_void) -> Self {
+        Self { handler, data }
     }
 }
 
@@ -854,7 +856,7 @@ impl HTTPCaller for QiniuNgHTTPCallHandler {
         let mut original_response = HTTPResponse::default();
         let response = qiniu_ng_http_response_t::from(&mut original_response);
         let mut err = qiniu_ng_callback_err_t::default();
-        (self.handler)(request, response, &mut err);
+        (self.handler)(request, response, &mut err, self.data);
         if let Some(e) = Option::<HTTPErrorKind>::from(&err.error) {
             qiniu_ng_err_ignore(&mut err.error);
             Err(HTTPError::new_from_req_resp(
@@ -869,12 +871,15 @@ impl HTTPCaller for QiniuNgHTTPCallHandler {
         }
     }
 }
+unsafe impl Sync for QiniuNgHTTPCallHandler {}
+unsafe impl Send for QiniuNgHTTPCallHandler {}
 
 /// @brief 设置 HTTP 请求处理回调函数
 /// @details
 ///     SDK 本身并不直接包含 HTTP 请求处理逻辑，而是根据编译参数，依赖于外部扩展的请求处理逻辑实现。
 /// @param[in] builder 客户端配置生成器实例
-/// @param[in] handler 回调函数。回调函数的第一个参数是传入的的 HTTP 请求，可以参考 `qiniu_ng_http_request_t` 的文档了解其用法，第二个参数是即将返回的 HTTP 响应，可以参考 `qiniu_ng_http_response_t` 的文档了解其用法。而第三个参数则用来填充具体的错误信息，可以参考 `qiniu_ng_callback_err_t` 的文档了解其用法，如果没有错误，则无需修改 `err` 参数的值
+/// @param[in] handler 回调函数。回调函数的第一个参数是传入的的 HTTP 请求，可以参考 `qiniu_ng_http_request_t` 的文档了解其用法，第二个参数是即将返回的 HTTP 响应，可以参考 `qiniu_ng_http_response_t` 的文档了解其用法。而第三个参数则用来填充具体的错误信息，可以参考 `qiniu_ng_callback_err_t` 的文档了解其用法，如果没有错误，则无需修改 `err` 参数的值。第四个参数总是传入本函数调用时传入的 `data` 参数，您可以根据您的需要为 `data` 设置上下文数据。
+/// @param[in] data 回调函数使用的上下文指针
 /// @note 如果发生错误，您需要调用 `qiniu_ng_err_t` 的创建函数对 `err` 中的 `error` 字段赋值，但内存释放函数无需您调用，将由 SDK 负责内存回收
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_set_http_call_handler(
@@ -883,24 +888,28 @@ pub extern "C" fn qiniu_ng_config_builder_set_http_call_handler(
         request: qiniu_ng_http_request_t,
         response: qiniu_ng_http_response_t,
         err: *mut qiniu_ng_callback_err_t,
+        data: *mut c_void,
     ),
+    data: *mut c_void,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
         .config_builder
-        .http_request_handler(QiniuNgHTTPCallHandler::new(handler));
+        .http_request_handler(QiniuNgHTTPCallHandler::new(handler, data));
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
-type QiniuNgHTTPBeforeActionFunc = extern "C" fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t);
+type QiniuNgHTTPBeforeActionFunc =
+    extern "C" fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t, data: *mut c_void);
 
 struct QiniuNgHTTPBeforeActionHandler {
     handler: QiniuNgHTTPBeforeActionFunc,
+    data: *mut c_void,
 }
 
 impl QiniuNgHTTPBeforeActionHandler {
-    fn new(handler: QiniuNgHTTPBeforeActionFunc) -> Self {
-        Self { handler }
+    fn new(handler: QiniuNgHTTPBeforeActionFunc, data: *mut c_void) -> Self {
+        Self { handler, data }
     }
 }
 
@@ -908,7 +917,7 @@ impl HTTPBeforeAction for QiniuNgHTTPBeforeActionHandler {
     fn before_call(&self, request: &mut HTTPRequest) -> HTTPResult<()> {
         let request = qiniu_ng_http_request_t::from(request);
         let mut err = qiniu_ng_callback_err_t::default();
-        (self.handler)(request, &mut err);
+        (self.handler)(request, &mut err, self.data);
         if let Some(e) = Option::<HTTPErrorKind>::from(&err.error) {
             qiniu_ng_err_ignore(&mut err.error);
             Err(HTTPError::new_from_req_resp(
@@ -923,23 +932,27 @@ impl HTTPBeforeAction for QiniuNgHTTPBeforeActionHandler {
         }
     }
 }
+unsafe impl Sync for QiniuNgHTTPBeforeActionHandler {}
+unsafe impl Send for QiniuNgHTTPBeforeActionHandler {}
 
 /// @brief 追加 HTTP 请求前回调函数
 /// @details
 ///     您可以利用该特性输出 HTTP 日志或对 HTTP 请求内容进行修改。
 ///     但注意，您必须确保不破坏请求中必要的内容，否则七牛服务器可能无法处理该请求。
 /// @param[in] builder 客户端配置生成器实例
-/// @param[in] handler 回调函数。回调函数的第一个参数是即将发送的 HTTP 请求，可以参考 `qiniu_ng_http_request_t` 的文档了解其用法。而第二个参数则用来填充具体的错误信息，可以参考 `qiniu_ng_callback_err_t` 的文档了解其用法，如果没有错误，则无需修改 `err` 参数的值
+/// @param[in] handler 回调函数。回调函数的第一个参数是即将发送的 HTTP 请求，可以参考 `qiniu_ng_http_request_t` 的文档了解其用法。而第二个参数则用来填充具体的错误信息，可以参考 `qiniu_ng_callback_err_t` 的文档了解其用法，如果没有错误，则无需修改 `err` 参数的值，第三个参数总是传入本函数调用时传入的 `data` 参数，您可以根据您的需要为 `data` 设置上下文数据。
+/// @param[in] data 回调函数使用的上下文指针
 /// @note 如果发生错误，您需要调用 `qiniu_ng_err_t` 的创建函数对 `err` 中的 `error` 字段赋值，但内存释放函数无需您调用，将由 SDK 负责内存回收
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_append_http_request_before_action_handler(
     builder: qiniu_ng_config_builder_t,
-    handler: extern "C" fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t),
+    handler: extern "C" fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t, data: *mut c_void),
+    data: *mut c_void,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
         .config_builder
-        .append_http_request_before_action_handler(QiniuNgHTTPBeforeActionHandler::new(handler));
+        .append_http_request_before_action_handler(QiniuNgHTTPBeforeActionHandler::new(handler, data));
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
@@ -948,17 +961,19 @@ pub extern "C" fn qiniu_ng_config_builder_append_http_request_before_action_hand
 ///     您可以利用该特性输出 HTTP 日志或对 HTTP 请求内容进行修改。
 ///     但注意，您必须确保不破坏请求中必要的内容，否则七牛服务器可能无法处理该请求。
 /// @param[in] builder 客户端配置生成器实例
-/// @param[in] handler 回调函数。回调函数的第一个参数是即将发送的 HTTP 请求，可以参考 `qiniu_ng_http_request_t` 的文档了解其用法。而第二个参数则用来填充具体的错误信息，可以参考 `qiniu_ng_callback_err_t` 的文档了解其用法，如果没有错误，则无需修改 `err` 参数的值
+/// @param[in] handler 回调函数。回调函数的第一个参数是即将发送的 HTTP 请求，可以参考 `qiniu_ng_http_request_t` 的文档了解其用法。而第二个参数则用来填充具体的错误信息，可以参考 `qiniu_ng_callback_err_t` 的文档了解其用法，如果没有错误，则无需修改 `err` 参数的值，第三个参数总是传入本函数调用时传入的 `data` 参数，您可以根据您的需要为 `data` 设置上下文数据。
+/// @param[in] data 回调函数使用的上下文指针
 /// @note 如果发生错误，您需要调用 `qiniu_ng_err_t` 的创建函数对 `err` 中的 `error` 字段赋值，但内存释放函数无需您调用，将由 SDK 负责内存回收
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_before_action_handler(
     builder: qiniu_ng_config_builder_t,
-    handler: extern "C" fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t),
+    handler: extern "C" fn(request: qiniu_ng_http_request_t, err: *mut qiniu_ng_callback_err_t, data: *mut c_void),
+    data: *mut c_void,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
         .config_builder
-        .prepend_http_request_before_action_handler(QiniuNgHTTPBeforeActionHandler::new(handler));
+        .prepend_http_request_before_action_handler(QiniuNgHTTPBeforeActionHandler::new(handler, data));
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
@@ -966,10 +981,12 @@ type QiniuNgHTTPAfterActionFunc = extern "C" fn(
     request: qiniu_ng_http_request_t,
     response: qiniu_ng_http_response_t,
     err: *mut qiniu_ng_callback_err_t,
+    data: *mut c_void,
 );
 
 struct QiniuNgHTTPAfterActionHandler {
     handler: QiniuNgHTTPAfterActionFunc,
+    data: *mut c_void,
 }
 
 impl QiniuNgHTTPAfterActionHandler {
@@ -978,9 +995,11 @@ impl QiniuNgHTTPAfterActionHandler {
             request: qiniu_ng_http_request_t,
             response: qiniu_ng_http_response_t,
             err: *mut qiniu_ng_callback_err_t,
+            data: *mut c_void,
         ),
+        data: *mut c_void,
     ) -> Self {
-        Self { handler }
+        Self { handler, data }
     }
 }
 
@@ -989,7 +1008,7 @@ impl HTTPAfterAction for QiniuNgHTTPAfterActionHandler {
         let request = qiniu_ng_http_request_t::from(request);
         let response = qiniu_ng_http_response_t::from(response);
         let mut err = qiniu_ng_callback_err_t::default();
-        (self.handler)(request, response, &mut err);
+        (self.handler)(request, response, &mut err, self.data);
         if let Some(e) = Option::<HTTPErrorKind>::from(&err.error) {
             qiniu_ng_err_ignore(&mut err.error);
             Err(HTTPError::new_from_req_resp(
@@ -1004,13 +1023,16 @@ impl HTTPAfterAction for QiniuNgHTTPAfterActionHandler {
         }
     }
 }
+unsafe impl Sync for QiniuNgHTTPAfterActionHandler {}
+unsafe impl Send for QiniuNgHTTPAfterActionHandler {}
 
 /// @brief 追加 HTTP 响应后回调函数
 /// @details
 ///     您可以利用该特性输出 HTTP 日志或对 HTTP 响应内容进行修改。
 ///     但注意，您必须确保不破坏响应中必要的内容，否则 SDK 可能无法处理该响应。
 /// @param[in] builder 客户端配置生成器实例
-/// @param[in] handler 回调函数。回调函数的第一个参数是即将发送的 HTTP 请求，可以参考 `qiniu_ng_http_request_t` 的文档了解其用法，回调函数的第二个参数是即将发送的 HTTP 请求，可以参考 `qiniu_ng_http_response_t` 的文档了解其用法，而第三个参数则用来填充具体的错误信息，可以参考 `qiniu_ng_callback_err_t` 的文档了解其用法，如果没有错误，则无需修改 `err` 参数的值
+/// @param[in] handler 回调函数。回调函数的第一个参数是即将发送的 HTTP 请求，可以参考 `qiniu_ng_http_request_t` 的文档了解其用法，回调函数的第二个参数是即将发送的 HTTP 请求，可以参考 `qiniu_ng_http_response_t` 的文档了解其用法，而第三个参数则用来填充具体的错误信息，可以参考 `qiniu_ng_callback_err_t` 的文档了解其用法，如果没有错误，则无需修改 `err` 参数的值。第四个参数总是传入本函数调用时传入的 `data` 参数，您可以根据您的需要为 `data` 设置上下文数据。
+/// @param[in] data 回调函数使用的上下文指针
 /// @note 如果发生错误，您需要调用 `qiniu_ng_err_t` 的创建函数对 `err` 中的 `error` 字段赋值，但内存释放函数无需您调用，将由 SDK 负责内存回收
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_append_http_request_after_action_handler(
@@ -1019,12 +1041,14 @@ pub extern "C" fn qiniu_ng_config_builder_append_http_request_after_action_handl
         request: qiniu_ng_http_request_t,
         response: qiniu_ng_http_response_t,
         err: *mut qiniu_ng_callback_err_t,
+        data: *mut c_void,
     ),
+    data: *mut c_void,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
         .config_builder
-        .append_http_request_after_action_handler(QiniuNgHTTPAfterActionHandler::new(handler));
+        .append_http_request_after_action_handler(QiniuNgHTTPAfterActionHandler::new(handler, data));
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
@@ -1033,7 +1057,8 @@ pub extern "C" fn qiniu_ng_config_builder_append_http_request_after_action_handl
 ///     您可以利用该特性输出 HTTP 日志或对 HTTP 响应内容进行修改。
 ///     但注意，您必须确保不破坏响应中必要的内容，否则 SDK 可能无法处理该响应。
 /// @param[in] builder 客户端配置生成器实例
-/// @param[in] handler 回调函数。回调函数的第一个参数是即将发送的 HTTP 请求，可以参考 `qiniu_ng_http_request_t` 的文档了解其用法，回调函数的第二个参数是即将发送的 HTTP 请求，可以参考 `qiniu_ng_http_response_t` 的文档了解其用法，而第三个参数则用来填充具体的错误信息，可以参考 `qiniu_ng_callback_err_t` 的文档了解其用法，如果没有错误，则无需修改 `err` 参数的值
+/// @param[in] handler 回调函数。回调函数的第一个参数是即将发送的 HTTP 请求，可以参考 `qiniu_ng_http_request_t` 的文档了解其用法，回调函数的第二个参数是即将发送的 HTTP 请求，可以参考 `qiniu_ng_http_response_t` 的文档了解其用法，而第三个参数则用来填充具体的错误信息，可以参考 `qiniu_ng_callback_err_t` 的文档了解其用法，如果没有错误，则无需修改 `err` 参数的值。第四个参数总是传入本函数调用时传入的 `data` 参数，您可以根据您的需要为 `data` 设置上下文数据。
+/// @param[in] data 回调函数使用的上下文指针
 /// @note 如果发生错误，您需要调用 `qiniu_ng_err_t` 的创建函数对 `err` 中的 `error` 字段赋值，但内存释放函数无需您调用，将由 SDK 负责内存回收
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_after_action_handler(
@@ -1042,12 +1067,14 @@ pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_after_action_hand
         request: qiniu_ng_http_request_t,
         response: qiniu_ng_http_response_t,
         err: *mut qiniu_ng_callback_err_t,
+        data: *mut c_void,
     ),
+    data: *mut c_void,
 ) {
     let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
     builder.config_builder = builder
         .config_builder
-        .prepend_http_request_after_action_handler(QiniuNgHTTPAfterActionHandler::new(handler));
+        .prepend_http_request_after_action_handler(QiniuNgHTTPAfterActionHandler::new(handler, data));
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 

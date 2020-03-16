@@ -10,7 +10,7 @@ module QiniuNg
     private_constant :Map
 
     def self.put(object)
-      (Time.now.to_i..(2**64-1)).find { |idx| Map.put_if_absent(idx, object).nil? }
+      FFI::Pointer.new((Time.now.to_i..(2**64-1)).find { |idx| Map.put_if_absent(idx, object).nil? })
     end
 
     def self.get(ptr)

@@ -58,13 +58,13 @@ RSpec.describe QiniuNg::Bindings do
 
       looped = 0
       map1.each_entry(->(key, value, _) do
-        case key
+        case key.force_encoding(Encoding::UTF_8)
         when 'KODO' then
-          expect(value).to eq('科多兽')
+          expect(value.force_encoding(Encoding::UTF_8)).to eq('科多兽')
         when '多啦A梦' then
-          expect(value).to eq('DORA')
+          expect(value.force_encoding(Encoding::UTF_8)).to eq('DORA')
         when 'PANDORA' then
-          expect(value).to eq('潘多拉')
+          expect(value.force_encoding(Encoding::UTF_8)).to eq('潘多拉')
         else
           fail "Unrecognized key: #{key}"
         end

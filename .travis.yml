@@ -47,14 +47,14 @@ matrix:
                 rbenv shell 2.4.0
                 gem install bundler
                 make -C qiniu-ruby build
-                travis_retry make -C qiniu-ruby test
+                make -C qiniu-ruby test
               )
               (
                 rbenv install jruby-9.2.0.0
                 rbenv shell jruby-9.2.0.0
                 gem install bundler
                 make -C qiniu-ruby build
-                travis_retry make -C qiniu-ruby test
+                make -C qiniu-ruby test
               )
             fi
     - os: osx
@@ -90,8 +90,7 @@ matrix:
             rbenv install 2.4.0
             rbenv shell 2.4.0
             gem install bundler
-            make -C qiniu-ruby build
-            travis_retry make -C qiniu-ruby test
+            make -C qiniu-ruby build test
     - os: windows
       rust:
         - 1.38.0-x86_64-pc-windows-msvc

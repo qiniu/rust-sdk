@@ -2,12 +2,12 @@ use super::{
     ast::{Context, Method, MethodCall, Module, Proc, RawCode},
     utils::{
         is_const_binary_type, is_const_str_list_type, is_const_str_type, is_size_type, normalize_constant,
-        try_to_extract_function_type, try_to_extract_pointer_type_name, try_to_extract_typedef_type_name,
+        try_to_extract_pointer_type_name, try_to_extract_typedef_type_name,
     },
     CORE_FFI_MODULE_NAME,
 };
 use crate::{
-    ast::{FunctionType, ParameterDeclaration, Type, TypeKind},
+    ast::{ParameterDeclaration, Type, TypeKind},
     classifier::{Class, Classifier},
     utils::{CodeGenerator, RandomIdentifier},
 };
@@ -169,15 +169,6 @@ fn normalize_parameters_and_insert_into_method_and_method_call(
                 &mut method_call,
                 identifier_generator,
             )
-        } else if let Some(function_type) = try_to_extract_function_type(cur_param_type) {
-            // 对于参数列表中含有回调函数的参数，添加一条创建 proc 的语句，并在 proc 里将参数正常化。
-            convert_callback_and_insert_into_method_and_method_call(
-                parameter,
-                &function_type,
-                method,
-                &mut method_call,
-                identifier_generator,
-            )
         } else if let Some(receiver_pointer_type_name) = try_to_extract_pointer_type_name(cur_param_type) {
             // 对于参数列表中含有结构体的指针参数
             //   如果在 `receive_pointers_parameter_names` 中列举过，则表示该指针并非用于接受数据，而只是普通的指针传递数据，对其调用 `instance` 方法，以访问到内部的 CoreFFI 类的实例
@@ -298,49 +289,6 @@ fn convert_data_and_size_to_string_and_insert_into_method_and_method_call(
         .parameter_names_mut()
         .push(format!("{}.bytesize", parameter.name()));
     1
-}
-
-fn convert_callback_and_insert_into_method_and_method_call(
-    parameter: &ParameterDeclaration,
-    function_type: &FunctionType,
-    method: &mut Method,
-    method_call: &mut MethodCall,
-    identifier_generator: &RandomIdentifier,
-) -> usize {
-    let temp_pointer_variable_name = identifier_generator.lower_camel_case();
-    method.insert_asc_node(
-        Box::new(Proc::new(Some(temp_pointer_variable_name.to_owned()), false)).tap(|in_proc| {
-            *in_proc.parameter_names_mut() = function_type
-                .parameter_types()
-                .iter()
-                .enumerate()
-                .map(|(i, _)| format!("__{}", i))
-                .collect();
-            in_proc.sub_nodes_mut().push(
-                Box::new(MethodCall::new(
-                    Some(Context::Instance(parameter.name().to_owned())),
-                    "call",
-                ))
-                .tap(|proc_call| {
-                    *proc_call.parameter_names_mut() = function_type
-                        .parameter_types()
-                        .iter()
-                        .enumerate()
-                        .map(|(i, t)| {
-                            if is_const_str_type(t) {
-                                format!("__{}&.force_encoding(Encoding::UTF_8)", i)
-                            } else {
-                                format!("__{}", i)
-                            }
-                        })
-                        .collect();
-                }),
-            )
-        }),
-    );
-    method.parameter_names_mut().push(parameter.name().to_owned());
-    method_call.parameter_names_mut().push(temp_pointer_variable_name);
-    0
 }
 
 fn convert_bindings_instance_to_core_ffi_instance(

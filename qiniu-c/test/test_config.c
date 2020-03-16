@@ -191,7 +191,9 @@ void test_qiniu_ng_config_new2(void) {
 
 static int before_action_counter, after_action_counter;
 
-static void test_qiniu_ng_config_http_request_before_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_callback_err_t *err) {
+static void test_qiniu_ng_config_http_request_before_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_callback_err_t *err, void *data) {
+    (void)(data);
+
     before_action_counter++;
     qiniu_ng_http_request_set_custom_data(request, &before_action_counter);
 
@@ -206,7 +208,9 @@ static void test_qiniu_ng_config_http_request_before_action_handlers(qiniu_ng_ht
     (void)(err);
 }
 
-static void test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err) {
+static void test_qiniu_ng_config_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err, void *data) {
+    (void)(data);
+
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         before_action_counter, *((int *) qiniu_ng_http_request_get_custom_data(request)),
         "qiniu_ng_http_request_get_custom_data() returns unexpected value");
@@ -252,9 +256,9 @@ void test_qiniu_ng_config_http_request_handlers(void) {
 
     qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
 
-    qiniu_ng_config_builder_append_http_request_before_action_handler(builder, test_qiniu_ng_config_http_request_before_action_handlers);
-    qiniu_ng_config_builder_prepend_http_request_before_action_handler(builder, test_qiniu_ng_config_http_request_before_action_handlers);
-    qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_http_request_after_action_handlers);
+    qiniu_ng_config_builder_append_http_request_before_action_handler(builder, test_qiniu_ng_config_http_request_before_action_handlers, NULL);
+    qiniu_ng_config_builder_prepend_http_request_before_action_handler(builder, test_qiniu_ng_config_http_request_before_action_handlers, NULL);
+    qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_http_request_after_action_handlers, NULL);
 
     qiniu_ng_config_t config;
     qiniu_ng_region_t region;
@@ -292,11 +296,11 @@ static int32_t qiniu_ng_readable_always_returns_error(void *context, void *buf, 
     return EACCES;
 }
 
-static void test_qiniu_ng_config_bad_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err) {
+static void test_qiniu_ng_config_bad_http_request_after_action_handlers(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err, void *data) {
     (void)(request);
     qiniu_ng_readable_t reader = {
         .read_func = qiniu_ng_readable_always_returns_error,
-        .context = NULL
+        .context = data,
     };
     qiniu_ng_http_response_set_body_to_reader(response, reader);
     (void)(err);
@@ -304,7 +308,7 @@ static void test_qiniu_ng_config_bad_http_request_after_action_handlers(qiniu_ng
 
 void test_qiniu_ng_config_bad_http_request_handlers(void) {
     qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
-    qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_bad_http_request_after_action_handlers);
+    qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_bad_http_request_after_action_handlers, NULL);
 
     qiniu_ng_config_t config;
     qiniu_ng_err_t err;
@@ -334,7 +338,8 @@ void test_qiniu_ng_config_bad_http_request_handlers(void) {
     qiniu_ng_config_free(&config);
 }
 
-static void test_qiniu_ng_config_http_request_handlers_always_return_error(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err) {
+static void test_qiniu_ng_config_http_request_handlers_always_return_error(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err, void *data) {
+    (void)(data);
     (void)(request);
     (void)(response);
     err->error = qiniu_ng_err_os_error_new(EPERM);
@@ -343,7 +348,7 @@ static void test_qiniu_ng_config_http_request_handlers_always_return_error(qiniu
 
 void test_qiniu_ng_config_bad_http_request_handlers_2(void) {
     qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
-    qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_http_request_handlers_always_return_error);
+    qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_http_request_handlers_always_return_error, NULL);
 
     qiniu_ng_config_t config;
     qiniu_ng_err_t err;
@@ -372,7 +377,7 @@ void test_qiniu_ng_config_bad_http_request_handlers_2(void) {
 
 void test_qiniu_ng_config_bad_http_request_handlers_3(void) {
     qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
-    qiniu_ng_config_builder_set_http_call_handler(builder, test_qiniu_ng_config_http_request_handlers_always_return_error);
+    qiniu_ng_config_builder_set_http_call_handler(builder, test_qiniu_ng_config_http_request_handlers_always_return_error, NULL);
 
     qiniu_ng_config_t config;
     qiniu_ng_err_t err;
@@ -399,9 +404,10 @@ void test_qiniu_ng_config_bad_http_request_handlers_3(void) {
     qiniu_ng_config_free(&config);
 }
 
-static void test_qiniu_ng_config_http_request_handlers_always_return_500(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err) {
+static void test_qiniu_ng_config_http_request_handlers_always_return_500(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err, void *data) {
     (void)(request);
     (void)(err);
+    (void)(data);
     const char *body = "{\"error\":\"Internal Server Error\"}";
     qiniu_ng_http_response_set_status_code(response, 500);
     qiniu_ng_http_response_set_header(response, QINIU_NG_CHARS("Content-Type"), QINIU_NG_CHARS("application/json"));
@@ -410,7 +416,7 @@ static void test_qiniu_ng_config_http_request_handlers_always_return_500(qiniu_n
 
 void test_qiniu_ng_config_bad_http_request_handlers_4(void) {
     qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
-    qiniu_ng_config_builder_set_http_call_handler(builder, test_qiniu_ng_config_http_request_handlers_always_return_500);
+    qiniu_ng_config_builder_set_http_call_handler(builder, test_qiniu_ng_config_http_request_handlers_always_return_500, NULL);
 
     qiniu_ng_config_t config;
     qiniu_ng_err_t err;

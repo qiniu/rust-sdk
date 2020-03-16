@@ -477,15 +477,8 @@ module QiniuNg
       # @yieldparam [HTTP::Response] response HTTP 响应
       # @return [Builder] 返回自身，可以形成链式调用
       def append_http_request_after_action_handler(&handler)
-        h = ->(request, response, err) do
-              wrap_action_handler(err) do
-                handler.call(
-                  HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)),
-                  HTTP::Response::send(:new, Bindings::HTTPResponse.new(response)),
-                )
-              end
-            end
-        @builder.append_http_request_after_action_handler(h)
+        idx = CallbackData.put(handler)
+        @builder.append_http_request_after_action_handler(HTTPRequestAfterActionHandler, idx)
         self
       end
 
@@ -514,12 +507,8 @@ module QiniuNg
       # @yieldparam [HTTP::Request] request HTTP 请求
       # @return [Builder] 返回自身，可以形成链式调用
       def append_http_request_before_action_handler(&handler)
-        h = ->(request, err) do
-              wrap_action_handler(err) do
-                handler.call(HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)))
-              end
-            end
-        @builder.append_http_request_before_action_handler(h)
+        idx = CallbackData.put(handler)
+        @builder.append_http_request_before_action_handler(HTTPRequestBeforeActionHandler, idx)
         self
       end
 
@@ -549,15 +538,8 @@ module QiniuNg
       # @yieldparam [HTTP::Response] response HTTP 响应
       # @return [Builder] 返回自身，可以形成链式调用
       def prepend_http_request_after_action_handler(&handler)
-        h = ->(request, response, err) do
-              wrap_action_handler(err) do
-                handler.call(
-                  HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)),
-                  HTTP::Response::send(:new, Bindings::HTTPResponse.new(response)),
-                )
-              end
-            end
-        @builder.prepend_http_request_after_action_handler(h)
+        idx = CallbackData.put(handler)
+        @builder.prepend_http_request_after_action_handler(HTTPRequestAfterActionHandler, idx)
         self
       end
 
@@ -586,12 +568,8 @@ module QiniuNg
       # @yieldparam [HTTP::Request] request HTTP 请求
       # @return [Builder] 返回自身，可以形成链式调用
       def prepend_http_request_before_action_handler(&handler)
-        h = ->(request, err) do
-              wrap_action_handler(err) do
-                handler.call(HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)))
-              end
-            end
-        @builder.prepend_http_request_before_action_handler(h)
+        idx = CallbackData.put(handler)
+        @builder.prepend_http_request_before_action_handler(HTTPRequestBeforeActionHandler, idx)
         self
       end
 
@@ -618,50 +596,9 @@ module QiniuNg
       # @yieldparam [HTTP::Response] response HTTP 响应
       # @return [Builder] 返回自身，可以形成链式调用
       def http_request_handler(&handler)
-        h = ->(request, response, err) do
-              wrap_action_handler(err) do
-                handler.call(
-                  HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)),
-                  HTTP::Response::send(:new, Bindings::HTTPResponse.new(response)),
-                )
-              end
-            end
-        @builder.set_http_call_handler(h)
+        idx = CallbackData.put(handler)
+        @builder.set_http_call_handler(HTTPRequestAfterActionHandler, idx)
         self
-      end
-
-      private def wrap_action_handler(err)
-        begin
-          yield
-        rescue Error::IOHandlerError => e
-          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_io_error_new(e.cause.message)
-          err[:retry_kind] = e.retry_kind
-          err[:is_retry_safe] = e.is_retry_safe?
-        rescue Error::OSHandlerError => e
-          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_os_error_new(e.cause.errno)
-          err[:retry_kind] = e.retry_kind
-          err[:is_retry_safe] = e.is_retry_safe?
-        rescue Error::UnexpectedRedirectHandlerError => e
-          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_unexpected_redirect_error_new
-          err[:retry_kind] = e.retry_kind
-          err[:is_retry_safe] = e.is_retry_safe?
-        rescue Error::UserCancelledHandlerError => e
-          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_user_canceled_error_new
-          err[:retry_kind] = e.retry_kind
-          err[:is_retry_safe] = e.is_retry_safe?
-        rescue Error::JSONHandlerError => e
-          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_json_error_new(e.cause.message)
-          err[:retry_kind] = e.retry_kind
-          err[:is_retry_safe] = e.is_retry_safe?
-        rescue Error::ResponseStatusCodeHandlerError => e
-          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_response_status_code_error_new(e.cause.code, e.cause.message)
-          err[:retry_kind] = e.retry_kind
-          err[:is_retry_safe] = e.is_retry_safe?
-        rescue Error::CurlHandlerError => e
-          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_curl_error_new(e.cause.curl_code, e.cause.original_error_kind)
-          err[:retry_kind] = e.retry_kind
-          err[:is_retry_safe] = e.is_retry_safe?
-        end
       end
 
       # @!method api_host(api_host)
@@ -964,6 +901,60 @@ module QiniuNg
         end
         alias_method :"#{method}=", method
       end
+
+      HTTPRequestBeforeActionHandler = proc do |request, err, idx|
+        handler = CallbackData.get(idx)
+        wrap_action_handler(err) do
+          handler.call(HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)))
+        end
+      end
+
+      HTTPRequestAfterActionHandler = proc do |request, response, err, idx|
+        handler = CallbackData.get(idx)
+        wrap_action_handler(err) do
+          handler.call(
+            HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)),
+            HTTP::Response::send(:new, Bindings::HTTPResponse.new(response)),
+          )
+        end
+      end
+      private_constant :HTTPRequestBeforeActionHandler, :HTTPRequestAfterActionHandler
+
+      # @!visibility private
+      def self.wrap_action_handler(err)
+        begin
+          yield
+        rescue Error::IOHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_io_error_new(e.cause.message)
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        rescue Error::OSHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_os_error_new(e.cause.errno)
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        rescue Error::UnexpectedRedirectHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_unexpected_redirect_error_new
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        rescue Error::UserCancelledHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_user_canceled_error_new
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        rescue Error::JSONHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_json_error_new(e.cause.message)
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        rescue Error::ResponseStatusCodeHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_response_status_code_error_new(e.cause.code, e.cause.message)
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        rescue Error::CurlHandlerError => e
+          err[:error] = QiniuNg::Bindings::CoreFFI::qiniu_ng_err_curl_error_new(e.cause.curl_code, e.cause.original_error_kind)
+          err[:retry_kind] = e.retry_kind
+          err[:is_retry_safe] = e.is_retry_safe?
+        end
+      end
+      private_class_method :wrap_action_handler
     end
   end
 end

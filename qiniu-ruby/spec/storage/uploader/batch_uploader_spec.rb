@@ -8,7 +8,6 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
     it 'should upload files by io' do
       config = QiniuNg::Config.new
       upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
-                                                                       build!.
                                                                        build_token(access_key: ENV['access_key'],
                                                                                    secret_key: ENV['secret_key'])
       batch_uploader = QiniuNg::Storage::Uploader.new(config).
@@ -35,7 +34,11 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
           end
         end
       end
+
+      GC.start
       batch_uploader.start
+      GC.start
+
       expect(completed.value).to eq 8
       expect(err.get).to be_nil
     end
@@ -43,7 +46,6 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
     it 'should upload files by path' do
       config = QiniuNg::Config.new
       upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
-                                                                       build!.
                                                                        build_token(access_key: ENV['access_key'],
                                                                                    secret_key: ENV['secret_key'])
       batch_uploader = QiniuNg::Storage::Uploader.new(config).
@@ -75,7 +77,9 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
           end
         end
       end
+      GC.start
       batch_uploader.start
+      GC.start
       expect(completed.value).to eq 8
       expect(err.get).to be_nil
     end

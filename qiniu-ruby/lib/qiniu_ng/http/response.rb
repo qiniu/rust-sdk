@@ -35,7 +35,7 @@ module QiniuNg
       def headers
         headers = {}
         handler = ->(name, value, _) do
-                    headers[name] = value
+                    headers[name.force_encoding(Encoding::UTF_8)] = value.force_encoding(Encoding::UTF_8)
                     true
                   end
         @response.get_headers.each_entry(handler, nil)

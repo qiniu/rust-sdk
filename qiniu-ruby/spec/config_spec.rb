@@ -200,6 +200,9 @@ RSpec.describe QiniuNg::Config do
           expect(request.resolved_socket_addrs.size >= 0).to be true
         end
         config = builder.build!
+
+        GC.start
+
         regions = QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
         expect(regions.size).to eq 1
         expect(regions[0].io_urls).to eq %w[https://iovip-z1.qbox.me]
@@ -211,6 +214,9 @@ RSpec.describe QiniuNg::Config do
           raise QiniuNg::Error::IOHandlerError.new('test error')
         end
         config = builder.build!
+
+        GC.start
+
         expect do
           QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
         end.to raise_error(QiniuNg::Error::IOError, 'test error')
@@ -222,6 +228,9 @@ RSpec.describe QiniuNg::Config do
           raise QiniuNg::Error::OSHandlerError.new(Errno::EPERM::Errno)
         end
         config = builder.build!
+
+        GC.start
+
         begin
           QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
           fail 'expect to raise error here'
@@ -236,6 +245,9 @@ RSpec.describe QiniuNg::Config do
           raise QiniuNg::Error::ResponseStatusCodeHandlerError.new(503, 'Gateway Timeout')
         end
         config = builder.build!
+
+        GC.start
+
         begin
           QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
           fail 'expect to raise error here'
@@ -254,6 +266,8 @@ RSpec.describe QiniuNg::Config do
           end
         end
         config = builder.build!
+
+        GC.start
 
         upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
                                                                          build!.
@@ -279,6 +293,8 @@ RSpec.describe QiniuNg::Config do
           end
         end
         config = builder.build!
+
+        GC.start
 
         upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
                                                                          build!.
@@ -309,6 +325,9 @@ RSpec.describe QiniuNg::Config do
           response.body = '{}'
         end
         config = builder.build!
+
+        GC.start
+
         expect do
           QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
         end.to raise_error(QiniuNg::Error::JSONError, /missing field `hosts`/)
@@ -320,6 +339,9 @@ RSpec.describe QiniuNg::Config do
           # do nothing
         end
         config = builder.build!
+
+        GC.start
+
         client = QiniuNg::Client.new access_key: ENV['access_key'],
                                      secret_key: ENV['secret_key'],
                                      config: config
@@ -336,6 +358,9 @@ RSpec.describe QiniuNg::Config do
           raise QiniuNg::Error::UserCancelledHandlerError
         end
         config = builder.build!
+
+        GC.start
+
         client = QiniuNg::Client.new access_key: ENV['access_key'],
                                      secret_key: ENV['secret_key'],
                                      config: config
