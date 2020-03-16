@@ -42,7 +42,14 @@ module QiniuNg
         QiniuNgReadFunc = proc do |idx, data, size, have_read|
           begin
             io = CallbackData.get(idx)
-            c = FFI::IO.native_read(io, data, size)
+            c = if io.is_a?(IO)
+                  FFI::IO.native_read(io, data, size)
+                else
+                  io.binmode unless io.binmode?
+                  io_data = io.read(size)
+                  data.write_string(io_data)
+                  body_data.size
+                end
             if c > 0
               have_read.write_ulong(c)
             else

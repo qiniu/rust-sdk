@@ -82,7 +82,7 @@ static void on_completed(qiniu_ng_upload_response_t upload_response, qiniu_ng_er
 }
 
 void test_qiniu_ng_batch_upload_files(void) {
-    const int FILES_COUNT = 16;
+#define FILES_COUNT (16)
 
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
@@ -176,6 +176,7 @@ void test_qiniu_ng_batch_upload_files(void) {
     qiniu_ng_bucket_uploader_free(&bucket_uploader);
     qiniu_ng_upload_manager_free(&upload_manager);
     qiniu_ng_config_free(&config);
+#undef FILES_COUNT
 }
 
 void test_qiniu_ng_batch_upload_file_path_failed_by_mime(void) {

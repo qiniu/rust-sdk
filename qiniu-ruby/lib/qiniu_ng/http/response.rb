@@ -114,7 +114,14 @@ module QiniuNg
       QiniuNgReadFunc = proc do |idx, data, size, have_read|
         begin
           body = CallbackData.get(idx)
-          c = FFI::IO.native_read(body, data, size)
+          c = if body.is_a?(IO)
+                FFI::IO.native_read(body, data, size)
+              else
+                body.binmode unless body.binmode?
+                body_data = body.read(size)
+                data.write_string(body_data)
+                body_data.size
+              end
           if c > 0
             have_read.write_ulong(c)
           else
