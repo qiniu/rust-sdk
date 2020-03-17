@@ -5,15 +5,15 @@ require 'concurrent-ruby'
 
 RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
   if ENV['USE_NA_BUCKET'].nil?
-    BUCKET_NAME = 'na-bucket'
+    bucket_name = 'na-bucket'
   else
-    BUCKET_NAME = 'z0-bucket'
+    bucket_name = 'z0-bucket'
   end
 
   context '#upload_file' do
     it 'should upload files by io' do
       config = QiniuNg::Config.new
-      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(BUCKET_NAME, config).
+      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(bucket_name, config).
                                                                        build_token(access_key: ENV['access_key'],
                                                                                    secret_key: ENV['secret_key'])
       batch_uploader = QiniuNg::Storage::Uploader.new(config).
@@ -51,7 +51,7 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
 
     it 'should upload files by path' do
       config = QiniuNg::Config.new
-      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(BUCKET_NAME, config).
+      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(bucket_name, config).
                                                                        build_token(access_key: ENV['access_key'],
                                                                                    secret_key: ENV['secret_key'])
       batch_uploader = QiniuNg::Storage::Uploader.new(config).

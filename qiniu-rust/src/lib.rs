@@ -356,9 +356,9 @@
 //! ```rust,no_run
 //! use qiniu_ng::{
 //!     Credential, Client, Config,
-//!     storage::uploader::{UploadPolicyBuilder, UploadPolicy, UploadToken, UploadManager},
+//!     storage::uploader::{UploadPolicyBuilder, UploadToken, UploadManager},
 //! };
-//! # use std::{path::Path, time::Duration, result::Result, error::Error};
+//! # use std::{path::Path, result::Result, error::Error};
 //!
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! # let access_key = "[Qiniu Access Key]";
@@ -538,6 +538,50 @@
 //!                                                            .body(request_body)
 //!                                                            .build());
 //! ```
+//!
+//! # HTTP 回调函数
+//!
+//! SDK 支持在发送 HTTP 请求前和收到响应后调用回调函数对 HTTP 请求和响应进行处理，这里给出一个打印 HTTP 请求和响应相关信息的回调函数实现：
+//!
+//! ```rust
+//! use qiniu_http::{Request as HTTPRequest, Response as HTTPResponse, Result as HTTPResult};
+//! use qiniu_ng::http::{HTTPAfterAction, HTTPBeforeAction};
+//! # use qiniu_ng::ConfigBuilder;
+//! # use rand::{thread_rng, Rng};
+//! # use std::{error::Error, ffi::c_void, mem::transmute, result::Result};
+//!
+//! struct HTTPLogger {}
+//!
+//! impl HTTPBeforeAction for HTTPLogger {
+//!     fn before_call(&self, request: &mut HTTPRequest) -> HTTPResult<()> {
+//!         let request_id: usize = thread_rng().gen();
+//!         println!("[{}] {} {}", request_id, request.method().as_str(), request.url());
+//!         for (header_name, header_value) in request.headers().iter() {
+//!             println!("[{}]   {}: {}", request_id, header_name, header_value);
+//!         }
+//!         *request.custom_data_mut() = request_id as *mut c_void;
+//!         Ok(())
+//!     }
+//! }
+//! impl HTTPAfterAction for HTTPLogger {
+//!     fn after_call(&self, request: &mut HTTPRequest, response: &mut HTTPResponse) -> HTTPResult<()> {
+//!         let request_id: usize = unsafe { transmute(request.custom_data()) };
+//!         println!("[{}] {}", request_id, response.status_code());
+//!         for (header_name, header_value) in response.headers().iter() {
+//!             println!("[{}]   {}: {}", request_id, header_name, header_value);
+//!         }
+//!         Ok(())
+//!     }
+//! }
+//!
+//! let config = ConfigBuilder::default()
+//!     .append_http_request_before_action_handler(HTTPLogger {})
+//!     .append_http_request_after_action_handler(HTTPLogger {})
+//!     .build();
+//! ```
+//!
+//! 该实现使用 `request` 的 `custom_data` 字段，该字段是瘦指针类型，支持从请求前回调函数传输数据到响应后回调函数，由于传输的数据比较简单，可以直接填入 `custom_data` 字段。
+//! 如果传输的数据比较复杂，则必须使用 `Box` 将数据封装为指针。
 //!
 //! ## 私有云配置
 //!

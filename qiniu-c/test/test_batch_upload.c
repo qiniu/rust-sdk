@@ -152,9 +152,9 @@ void test_qiniu_ng_batch_upload_files(void) {
     FILE *files[FILES_COUNT];
     for (int i = 0; i < FILES_COUNT; i++) {
 #if defined(_WIN32) || defined(WIN32)
-        swprintf((wchar_t *) file_keys[i], 256, L"测试-2-%dm-%d-%lld", FILE_SIZE_MB, i, (long long) time(NULL));
+        swprintf((wchar_t *) file_keys[i], 256, L"测试-17m-%d-%lld", i, (long long) time(NULL));
 #else
-        snprintf((char *) file_keys[i], 256, "测试-2-%dm-%d-%lld",  FILE_SIZE_MB, i, (long long) time(NULL));
+        snprintf((char *) file_keys[i], 256, "测试-17m-%d-%lld", i, (long long) time(NULL));
 #endif
         qiniu_ng_batch_upload_params_t params = {
             .key = file_keys[i],

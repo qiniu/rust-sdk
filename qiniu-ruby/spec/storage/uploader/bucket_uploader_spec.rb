@@ -5,19 +5,19 @@ require 'concurrent-ruby'
 
 RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
   if ENV['USE_NA_BUCKET'].nil?
-    BUCKET_NAME = 'na-bucket'
+    bucket_name = 'na-bucket'
   else
-    BUCKET_NAME = 'z0-bucket'
+    bucket_name = 'z0-bucket'
   end
 
   context '#upload_file' do
     it 'should upload file by io' do
       config = QiniuNg::Config.new
-      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(BUCKET_NAME, config).
+      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(bucket_name, config).
                                                                        build_token(access_key: ENV['access_key'],
                                                                                    secret_key: ENV['secret_key'])
       bucket_uploader = QiniuNg::Storage::Uploader.new(config).
-                                                   bucket_uploader(bucket_name: BUCKET_NAME,
+                                                   bucket_uploader(bucket_name: bucket_name,
                                                                    access_key: ENV['access_key'])
       Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
         4.times { file.write(SecureRandom.random_bytes(rand(1 << 26))) }
@@ -58,11 +58,11 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
 
     it 'should upload customized io' do
       config = QiniuNg::Config.new
-      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(BUCKET_NAME, config)
+      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(bucket_name, config)
                                                                       .return_body(%[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)"}])
                                                                       .build_token(access_key: ENV['access_key'], secret_key: ENV['secret_key'])
       bucket_uploader = QiniuNg::Storage::Uploader.new(config).
-                                                   bucket_uploader(bucket_name: BUCKET_NAME,
+                                                   bucket_uploader(bucket_name: bucket_name,
                                                                    access_key: ENV['access_key'])
       key = "测试-#{Time.now.to_i}"
 
@@ -90,13 +90,13 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
       expect(response.hash).to eq(etag)
       expect(response.key).to eq(key)
       expect(response.fsize).to eq(1 << 24)
-      expect(response.bucket).to eq(BUCKET_NAME)
+      expect(response.bucket).to eq(bucket_name)
       expect(response.name).to eq(key)
       j = JSON.load response.as_json
       expect(j['hash']).to eq(etag)
       expect(j['key']).to eq(key)
       expect(j['fsize']).to eq(1 << 24)
-      expect(j['bucket']).to eq(BUCKET_NAME)
+      expect(j['bucket']).to eq(bucket_name)
       expect(j['name']).to eq(key)
       expect(err.get).to be_nil
       expect(last_uploaded.value).to eq io_size
@@ -106,12 +106,12 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
   context '#upload_file_path' do
     it 'should upload file by path' do
       config = QiniuNg::Config.new
-      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(BUCKET_NAME, config).
+      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(bucket_name, config).
                                                                        build_token(
                                                                          access_key: ENV['access_key'],
                                                                          secret_key: ENV['secret_key'])
       bucket_uploader = QiniuNg::Storage::Uploader.new(config).
-                                                   bucket_uploader(bucket_name: BUCKET_NAME,
+                                                   bucket_uploader(bucket_name: bucket_name,
                                                                    access_key: ENV['access_key'],
                                                                    thread_pool_size: 10)
       Tempfile.create('测试', encoding: 'ascii-8bit') do |file|

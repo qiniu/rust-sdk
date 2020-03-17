@@ -16,7 +16,7 @@ matrix:
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
               for dir in qiniu-rust qiniu-rust-http qiniu-rust-with-libcurl qiniu-rust-test qiniu-rust-test-utils qiniu-c; do
-                travis_retry make -C $dir test
+                make -C $dir test
               done
             fi
     - os: linux
@@ -73,7 +73,7 @@ matrix:
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
               for dir in qiniu-rust qiniu-rust-http qiniu-rust-with-libcurl qiniu-rust-test qiniu-rust-test-utils qiniu-c; do
-                travis_retry make -C $dir test
+                make -C $dir test
               done
             fi
     - os: osx
