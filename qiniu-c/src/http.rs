@@ -92,6 +92,14 @@ impl From<qiniu_ng_http_method_t> for *const c_char {
     }
 }
 
+/// @brief 获取 HTTP 方法的名称
+/// @param[in] method HTTP 方法
+/// @retval *char 返回 HTTP 方法的名称
+#[no_mangle]
+pub extern "C" fn qiniu_ng_http_method_get_str(method: qiniu_ng_http_method_t) -> *const c_char {
+    method.as_cstr().as_ptr()
+}
+
 /// @brief HTTP 请求
 /// @details 该结构体封装 HTTP 请求相关数据
 /// @note 无需对该结构体进行内存释放

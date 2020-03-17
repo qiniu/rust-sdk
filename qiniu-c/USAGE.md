@@ -232,7 +232,7 @@ int main() {
     const char *file_path = "/local/file/path";
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(upload_manager, access_key, secret_key, 0);
+    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(upload_manager, bucket_name, access_key, 0);
 
     qiniu_ng_upload_policy_builder_t upload_policy_builder = qiniu_ng_upload_policy_builder_new_for_object(bucket_name, key_to_overwrite, config);
     qiniu_ng_upload_policy_builder_set_return_body(upload_policy_builder, "{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"fsize\":$(fsize),\"bucket\":\"$(bucket)\",\"name\":\"$(x:name)\"}");
@@ -393,7 +393,7 @@ int main() {
     const char *file_path = "/local/file/path";
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(upload_manager, access_key, secret_key, 0);
+    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(upload_manager, bucket_name, access_key, 0);
 
     qiniu_ng_upload_policy_builder_t upload_policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(bucket_name, config);
     qiniu_ng_upload_token_t upload_token = qiniu_ng_upload_token_new_from_policy_builder(upload_policy_builder, access_key, secret_key);
@@ -432,7 +432,7 @@ int main() {
     const char *bucket_name = "[Bucket Name]";
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(upload_manager, access_key, secret_key, 0);
+    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(upload_manager, bucket_name, access_key, 0);
 
     qiniu_ng_upload_policy_builder_t upload_policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(bucket_name, config);
     qiniu_ng_upload_token_t upload_token = qiniu_ng_upload_token_new_from_policy_builder(upload_policy_builder, access_key, secret_key);
@@ -485,7 +485,7 @@ int main() {
     const char *file_path = "/local/file/path";
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(upload_manager, access_key, secret_key, 0);
+    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(upload_manager, bucket_name, access_key, 0);
 
     qiniu_ng_upload_policy_builder_t upload_policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(bucket_name, config);
     qiniu_ng_upload_token_t upload_token = qiniu_ng_upload_token_new_from_policy_builder(upload_policy_builder, access_key, secret_key);
@@ -582,6 +582,50 @@ int main() {
     return 0;
 }
 ```
+
+## HTTP 回调函数
+
+SDK 支持在发送 HTTP 请求前和收到响应后调用回调函数对 HTTP 请求和响应进行处理，这里给出一个打印 HTTP 请求和响应相关信息的回调函数实现：
+
+```c
+static _Bool print_header(const qiniu_ng_char_t *header_name, const qiniu_ng_char_t *header_value, void *data) {
+    long request_id = (long) data;
+    printf("[%ld]   %s: %s\n", request_id, header_name, header_value);
+    return true;
+}
+
+static void log_http_request(qiniu_ng_http_request_t request, qiniu_ng_callback_err_t *err, void *data) {
+    long request_id = (long) rand();
+    qiniu_ng_http_method_t method = qiniu_ng_http_request_get_method(request);
+    qiniu_ng_str_t url = qiniu_ng_http_request_get_url(request);
+    printf("[%ld] %s %s\n", request_id, qiniu_ng_http_method_get_str(method), qiniu_ng_str_get_ptr(url));
+    qiniu_ng_str_free(&url);
+    qiniu_ng_str_map_t headers = qiniu_ng_http_request_get_headers(request);
+    qiniu_ng_str_map_each_entry(headers, print_header, (void *) request_id);
+    qiniu_ng_str_map_free(&headers);
+    qiniu_ng_http_request_set_custom_data(request, (void *) request_id);
+}
+
+static void log_http_response(qiniu_ng_http_request_t request, qiniu_ng_http_response_t response, qiniu_ng_callback_err_t *err, void *data) {
+    long request_id = (long) qiniu_ng_http_request_get_custom_data(request);
+    printf("[%ld] %d\n", request_id, qiniu_ng_http_response_get_status_code(response));
+    qiniu_ng_str_map_t headers = qiniu_ng_http_response_get_headers(response);
+    qiniu_ng_str_map_each_entry(headers, print_header, (void *) request_id);
+    qiniu_ng_str_map_free(&headers);
+}
+
+qiniu_ng_config_t config;
+qiniu_ng_err_t err;
+qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
+qiniu_ng_config_builder_append_http_request_before_action_handler(builder, log_http_request, NULL);
+qiniu_ng_config_builder_append_http_request_after_action_handler(builder, log_http_response, NULL);
+qiniu_ng_config_build(&builder, &config, &err);
+```
+
+该实现使用 `request` 的 `custom_data` 字段，该字段是指针类型，支持从请求前回调函数传输数据到响应后回调函数，由于传输的数据比较简单，可以直接填入 `custom_data` 字段。
+如果传输的数据比较复杂，则需要申请堆空间并自行维护指针。
+
+此外，还应当注意，所有回调函数都必须确保可重入性。
 
 ## 私有云配置
 
