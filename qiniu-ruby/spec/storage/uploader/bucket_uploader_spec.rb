@@ -20,7 +20,7 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
                                                    bucket_uploader(bucket_name: bucket_name,
                                                                    access_key: ENV['access_key'])
       Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
-        4.times { file.write(SecureRandom.random_bytes(rand(1 << 26))) }
+        4.times { file.write(SecureRandom.random_bytes(rand(1 << 25))) }
         file.rewind
 
         key = "测试-#{Time.now.to_i}"
@@ -115,7 +115,7 @@ RSpec.describe QiniuNg::Storage::Uploader::BucketUploader do
                                                                    access_key: ENV['access_key'],
                                                                    thread_pool_size: 10)
       Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
-        4.times { file.write(SecureRandom.random_bytes(rand(1 << 26))) }
+        4.times { file.write(SecureRandom.random_bytes(rand(1 << 25))) }
         file.rewind
         etag = QiniuNg::Utils::Etag.from_io(file)
         key = "测试-#{Time.now.to_i}"
