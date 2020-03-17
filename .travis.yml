@@ -7,6 +7,7 @@ matrix:
         - 1.38.0
       env:
         - RUST_BACKTRACE=1
+        - USE_NA_BUCKET=1
       before_script:
         - sudo apt update -yqq
         - sudo apt install -yqq curl libcurl4 git-core build-essential
@@ -24,6 +25,7 @@ matrix:
         - 1.38.0
       env:
         - RUST_BACKTRACE=1
+        - USE_NA_BUCKET=1
       before_script:
         - sudo apt update -yqq
         - sudo apt install -yqq curl libcurl4 git-core build-essential pkg-config libssl-dev zlib1g-dev libreadline-dev openjdk-8-jdk rbenv
@@ -63,6 +65,7 @@ matrix:
       env:
         - HOMEBREW_NO_AUTO_UPDATE=1
         - RUST_BACKTRACE=1
+        - USE_NA_BUCKET=1
       before_script:
         - brew install curl
         - cargo install --force cbindgen
@@ -79,6 +82,7 @@ matrix:
       env:
         - HOMEBREW_NO_AUTO_UPDATE=1
         - RUST_BACKTRACE=1
+        - USE_NA_BUCKET=1
       before_script:
         - brew install curl rbenv llvm
         - export PATH="$(brew --prefix llvm)/bin:$PATH"
@@ -96,6 +100,7 @@ matrix:
         - 1.38.0-x86_64-pc-windows-msvc
       env:
         - RUST_BACKTRACE=1
+        - USE_NA_BUCKET=1
       before_script:
         - choco install make --force
         - choco install doxygen.install --force

@@ -4,6 +4,12 @@
 #include <stdio.h>
 #include "test.h"
 
+#ifdef USE_NA_BUCKET
+#define BUCKET_NAME (QINIU_NG_CHARS("na-bucket"))
+#else
+#define BUCKET_NAME (QINIU_NG_CHARS("z0-bucket"))
+#endif
+
 struct callback_context {
     int file_index;
     char *etag;
@@ -87,7 +93,7 @@ void test_qiniu_ng_batch_upload_files(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
     env_load("..", false);
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
     qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_upload_policy_builder_free(&policy_builder);
@@ -145,6 +151,11 @@ void test_qiniu_ng_batch_upload_files(void) {
     completed = 0;
     FILE *files[FILES_COUNT];
     for (int i = 0; i < FILES_COUNT; i++) {
+#if defined(_WIN32) || defined(WIN32)
+        swprintf((wchar_t *) file_keys[i], 256, L"测试-2-%dm-%d-%lld", FILE_SIZE_MB, i, (long long) time(NULL));
+#else
+        snprintf((char *) file_keys[i], 256, "测试-2-%dm-%d-%lld",  FILE_SIZE_MB, i, (long long) time(NULL));
+#endif
         qiniu_ng_batch_upload_params_t params = {
             .key = file_keys[i],
             .file_name = file_keys[i],
@@ -183,9 +194,9 @@ void test_qiniu_ng_batch_upload_file_path_failed_by_mime(void) {
     env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
+        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_upload_policy_builder_free(&policy_builder);
     qiniu_ng_batch_uploader_t batch_uploader = qiniu_ng_batch_uploader_new_from_bucket_uploader(bucket_uploader, token);
@@ -223,9 +234,9 @@ void test_qiniu_ng_batch_upload_file_path_failed_by_non_existed_path(void) {
     env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
+        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_upload_policy_builder_free(&policy_builder);
     qiniu_ng_batch_uploader_t batch_uploader = qiniu_ng_batch_uploader_new_from_bucket_uploader(bucket_uploader, token);

@@ -4,6 +4,12 @@
 #include <stdio.h>
 #include "test.h"
 
+#ifdef USE_NA_BUCKET
+#define BUCKET_NAME (QINIU_NG_CHARS("na-bucket"))
+#else
+#define BUCKET_NAME (QINIU_NG_CHARS("z0-bucket"))
+#endif
+
 static long long last_print_time;
 
 #if defined(_WIN32) || defined(WIN32)
@@ -48,7 +54,7 @@ void test_qiniu_ng_upload_files(void) {
     env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
+        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
 
     const qiniu_ng_char_t file_key[256];
 #if defined(_WIN32) || defined(WIN32)
@@ -64,7 +70,7 @@ void test_qiniu_ng_upload_files(void) {
         qiniu_ng_etag_from_file_path(file_path, (char *) &etag[0], NULL),
         "qiniu_ng_etag_from_file_path() failed");
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
     qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_upload_policy_builder_free(&policy_builder);
@@ -219,7 +225,7 @@ void test_qiniu_ng_upload_huge_number_of_files(void) {
     env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
+        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
 
     const qiniu_ng_char_t *file_path = create_temp_file(4 * 1024 * 1024 + 1);
 
@@ -229,7 +235,7 @@ void test_qiniu_ng_upload_huge_number_of_files(void) {
         qiniu_ng_etag_from_file_path(file_path, (char *) &etag[0], NULL),
         "qiniu_ng_etag_from_file_path() failed");
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
     qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_upload_policy_builder_free(&policy_builder);
@@ -313,9 +319,9 @@ void test_qiniu_ng_upload_file_path_failed_by_mime(void) {
     env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
+        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_upload_policy_builder_free(&policy_builder);
 
@@ -349,9 +355,9 @@ void test_qiniu_ng_upload_file_path_failed_by_non_existed_path(void) {
     env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, QINIU_NG_CHARS("z0-bucket"), GETENV(QINIU_NG_CHARS("access_key")), 5);
+        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_upload_policy_builder_free(&policy_builder);
 

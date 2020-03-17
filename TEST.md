@@ -27,7 +27,7 @@ z2_encrypt_key=[z2_encrypt_key]
 - 华北区 `z0-bucket-bind`，公开空间。
 - 华南区 `z2-bucket`，公开空间。
 - 新加坡地区 `as-bucket`，公开空间。
-- 北美地区 `na0-bucket`，公开空间。
+- 北美地区 `na-bucket`，公开空间。
 
 2. 将存储空间 `z0-bucket-bind` 配置为 `z0-bucket` 的双活空间。
 3. 为 z0-bucket 绑定至少一个 CDN 域名
