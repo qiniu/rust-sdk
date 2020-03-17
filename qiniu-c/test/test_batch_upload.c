@@ -87,7 +87,7 @@ static void on_completed(qiniu_ng_upload_response_t upload_response, qiniu_ng_er
 #endif
 }
 
-void test_qiniu_ng_batch_upload_files(void) {
+void test_qiniu_ng_batch_upload_file_paths(void) {
 #define FILES_COUNT (16)
 
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
@@ -148,14 +148,72 @@ void test_qiniu_ng_batch_upload_files(void) {
     qiniu_ng_batch_uploader_start(batch_uploader);
     TEST_ASSERT_EQUAL_INT_MESSAGE(completed, FILES_COUNT, "completed != FILES_COUNT");
 
-    completed = 0;
+    for (int i = 0; i < FILES_COUNT; i++) {
+        DELETE_FILE(file_paths[i]);
+    }
+
+#if defined(_WIN32) || defined(WIN32)
+    ReleaseMutex(mutex);
+#else
+    pthread_mutex_destroy(&mutex);
+#endif
+
+    qiniu_ng_batch_uploader_free(&batch_uploader);
+    qiniu_ng_config_free(&config);
+#undef FILES_COUNT
+}
+
+void test_qiniu_ng_batch_upload_files(void) {
+#define FILES_COUNT (16)
+
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
+
+    env_load("..", false);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
+    qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
+    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_free(&policy_builder);
+    qiniu_ng_batch_uploader_t batch_uploader;
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_batch_uploader_new_from_config(token, config, &batch_uploader),
+        "qiniu_ng_batch_uploader_new_from_config() returns unexpected value"
+    );
+    qiniu_ng_batch_uploader_set_expected_jobs_count(batch_uploader, FILES_COUNT);
+    qiniu_ng_upload_token_free(&token);
+
+#if defined(_WIN32) || defined(WIN32)
+    mutex = CreateMutex(NULL, FALSE, NULL);
+#else
+    pthread_mutex_init(&mutex, NULL);
+#endif
+    last_print_time = (long long) time(NULL);
+
+    const qiniu_ng_char_t file_keys[FILES_COUNT][256];
+    const qiniu_ng_char_t *file_paths[FILES_COUNT];
     FILE *files[FILES_COUNT];
+    struct callback_context contexts[FILES_COUNT];
+    char etags[FILES_COUNT][ETAG_SIZE + 1];
+    int completed = 0;
     for (int i = 0; i < FILES_COUNT; i++) {
 #if defined(_WIN32) || defined(WIN32)
         swprintf((wchar_t *) file_keys[i], 256, L"测试-17m-%d-%lld", i, (long long) time(NULL));
 #else
         snprintf((char *) file_keys[i], 256, "测试-17m-%d-%lld", i, (long long) time(NULL));
 #endif
+        file_paths[i] = create_temp_file(17 * 1024 * 1024 + i * 1024);
+
+        files[i] = OPEN_FILE_FOR_READING(file_paths[i]);
+        TEST_ASSERT_NOT_NULL_MESSAGE(files[i], "files[i] == NULL");
+
+        memset(&etags[i], 0, (ETAG_SIZE + 1) * sizeof(char));
+        TEST_ASSERT_TRUE_MESSAGE(
+            qiniu_ng_etag_from_file_path(file_paths[i], (char *) &etags[i][0], NULL),
+            "qiniu_ng_etag_from_file_path() failed");
+
+        contexts[i].file_index = i;
+        contexts[i].etag = &etags[i][0];
+        contexts[i].completed = &completed;
+
         qiniu_ng_batch_upload_params_t params = {
             .key = file_keys[i],
             .file_name = file_keys[i],
@@ -163,10 +221,9 @@ void test_qiniu_ng_batch_upload_files(void) {
             .on_completed = on_completed,
             .callback_data = (void *) &contexts[i],
         };
-        files[i] = OPEN_FILE_FOR_READING(file_paths[i]);
         TEST_ASSERT_TRUE_MESSAGE(
             qiniu_ng_batch_uploader_upload_file(batch_uploader, files[i], &params, NULL),
-            "qiniu_ng_batch_uploader_upload_file_path() failed");
+            "qiniu_ng_batch_uploader_upload_file() failed");
     }
 
     qiniu_ng_batch_uploader_start(batch_uploader);

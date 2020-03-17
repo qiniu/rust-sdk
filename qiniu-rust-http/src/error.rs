@@ -364,6 +364,7 @@ impl fmt::Display for Error {
 }
 
 impl StdError for JSONError {
+    #[allow(deprecated)]
     fn description(&self) -> &str {
         match &self.0 {
             _JSONError::SerdeJSONError(err) => err.description(),
@@ -386,6 +387,7 @@ impl StdError for JSONError {
 }
 
 impl StdError for Error {
+    #[allow(deprecated)]
     fn description(&self) -> &str {
         match &self.error_kind {
             ErrorKind::HTTPCallerError(err) => err.description(),
@@ -428,6 +430,7 @@ impl fmt::Display for HTTPCallerError {
 }
 
 impl StdError for HTTPCallerError {
+    #[allow(deprecated)]
     fn description(&self) -> &str {
         self.inner.description()
     }

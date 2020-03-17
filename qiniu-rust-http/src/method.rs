@@ -159,7 +159,7 @@ pub struct InvalidMethod;
 
 impl fmt::Display for InvalidMethod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.description())
+        write!(f, "Invalid HTTP method")
     }
 }
 

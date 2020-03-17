@@ -552,6 +552,7 @@ impl<'a> UploadLoggerRecordBuilder<'a> {
     }
 
     pub(crate) fn http_error(self, err: &'a HTTPError) -> UploadLoggerRecordBuilder<'a> {
+        #[allow(deprecated)]
         match err.error_kind() {
             HTTPErrorKind::HTTPCallerError(err) => {
                 const NETWORK_ERROR: i32 = -1;

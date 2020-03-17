@@ -52,6 +52,7 @@ int main(void) {
     RUN_TEST(test_qiniu_ng_upload_files);
     RUN_TEST(test_qiniu_ng_upload_huge_number_of_files);
     RUN_TEST(test_qiniu_ng_batch_upload_files);
+    RUN_TEST(test_qiniu_ng_batch_upload_file_paths);
     RUN_TEST(test_qiniu_ng_batch_upload_file_path_failed_by_mime);
     RUN_TEST(test_qiniu_ng_batch_upload_file_path_failed_by_non_existed_path);
     return UNITY_END();

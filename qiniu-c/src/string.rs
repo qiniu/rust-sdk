@@ -315,6 +315,7 @@ mod unix {
 
     impl Error for NulError {
         #[inline]
+        #[allow(deprecated)]
         fn description(&self) -> &str {
             self.0.description()
         }
@@ -343,6 +344,7 @@ mod unix {
 
     impl Error for EncodingError {
         #[inline]
+        #[allow(deprecated)]
         fn description(&self) -> &str {
             self.0.description()
         }
@@ -621,6 +623,7 @@ mod windows {
 
     impl Error for MissingNulError {
         #[inline]
+        #[allow(deprecated)]
         fn description(&self) -> &str {
             self.0.description()
         }
@@ -649,6 +652,7 @@ mod windows {
 
     impl Error for NulError {
         #[inline]
+        #[allow(deprecated)]
         fn description(&self) -> &str {
             self.0.description()
         }

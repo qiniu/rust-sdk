@@ -29,7 +29,9 @@ pub extern "C" fn qiniu_ng_etag_from_file_path(
     match etag::from_file(unsafe { UCString::from_ptr(path) }.into_path_buf()) {
         Ok(etag_string) => {
             let etag_bytes = etag_string.as_bytes();
-            unsafe { copy_nonoverlapping(etag_bytes.as_ptr(), result.cast(), etag_bytes.len()) };
+            if let Some(result) = unsafe { result.as_mut() } {
+                unsafe { copy_nonoverlapping(etag_bytes.as_ptr(), result as *mut c_char as *mut u8, etag_bytes.len()) };
+            }
             true
         }
         Err(ref err) => {
