@@ -357,11 +357,7 @@ fn set_params_to_job_builder(
                 .map(|data| data as *const c_void as *mut c_void)
                 .unwrap_or_else(null_mut);
             match result {
-                Ok(response) => (on_completed)(
-                    Some(Box::new(response)).into(),
-                    qiniu_ng_err_t::default(),
-                    callback_data,
-                ),
+                Ok(response) => (on_completed)(Box::new(response).into(), qiniu_ng_err_t::default(), callback_data),
                 Err(ref err) => (on_completed)(None.into(), err.into(), callback_data),
             };
         });

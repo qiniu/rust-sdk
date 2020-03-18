@@ -77,6 +77,10 @@ make test
 make clean
 ```
 
+## 已知问题
+
+- 在 JRuby 中使用 BatchUploader 可能会造成进程崩溃，原因未知
+
 ## 贡献代码
 
 1. Fork
