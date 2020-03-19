@@ -134,9 +134,7 @@ module QiniuNg
           end
           0
         rescue => e
-          # TODO: use error handler instead
-          STDERR.puts e.message
-          e.backtrace.each { |trace| STDERR.puts "\t#{trace}" }
+          Config::CallbackExceptionHandler.call(e)
           Errno::EIO::Errno
         end
       end

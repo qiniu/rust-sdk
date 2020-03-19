@@ -8,6 +8,11 @@ module QiniuNg
     # @!visibility private
     DEFAULT_APPENDED_USER_AGENT = ["qiniu-ruby", VERSION, RUBY_ENGINE, RUBY_ENGINE_VERSION, RUBY_PLATFORM].freeze
 
+    CallbackExceptionHandler = proc do |exception|
+      STDERR.puts "Callback exception: #{exception.message}"
+      exception.backtrace.each { |trace| STDERR.puts "\t#{trace}" }
+    end
+
     # @!visibility private
     def initialize(use_https: nil,
                    api_host: nil,
@@ -903,19 +908,27 @@ module QiniuNg
       end
 
       HTTPRequestBeforeActionHandler = proc do |request, err, idx|
-        handler = CallbackData.get(idx)
-        wrap_action_handler(err) do
-          handler.call(HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)))
+        begin
+          handler = CallbackData.get(idx)
+          wrap_action_handler(err) do
+            handler.call(HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)))
+          end
+        rescue Exception => e
+          Config::CallbackExceptionHandler.call(e)
         end
       end
 
       HTTPRequestAfterActionHandler = proc do |request, response, err, idx|
-        handler = CallbackData.get(idx)
-        wrap_action_handler(err) do
-          handler.call(
-            HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)),
-            HTTP::Response::send(:new, Bindings::HTTPResponse.new(response)),
-          )
+        begin
+          handler = CallbackData.get(idx)
+          wrap_action_handler(err) do
+            handler.call(
+              HTTP::Request::send(:new, Bindings::HTTPRequest.new(request)),
+              HTTP::Response::send(:new, Bindings::HTTPResponse.new(response)),
+            )
+          end
+        rescue Exception => e
+          Config::CallbackExceptionHandler.call(e)
         end
       end
       private_constant :HTTPRequestBeforeActionHandler, :HTTPRequestAfterActionHandler

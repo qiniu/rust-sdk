@@ -207,8 +207,12 @@ module QiniuNg
         end
 
         OnUploadingProgressCallback = proc do |uploaded, total, idx|
-          context = CallbackData.get(idx)
-          context[:on_uploading_progress]&.call(uploaded, total)
+          begin
+            context = CallbackData.get(idx)
+            context[:on_uploading_progress]&.call(uploaded, total)
+          rescue Exception => e
+            Config::CallbackExceptionHandler.call(e)
+          end
         end
 
         OnCompletedCallback = proc do |response, err, idx|
@@ -217,6 +221,8 @@ module QiniuNg
             err = Error.send(:normalize_error, err)
             response = UploadResponse.send(:new, Bindings::UploadResponse.new(response)) if err.nil?
             context[:on_completed]&.call(response, err)
+          rescue Exception => e
+            Config::CallbackExceptionHandler.call(e)
           ensure
             CallbackData.delete(idx)
           end

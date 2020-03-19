@@ -186,9 +186,13 @@ module QiniuNg
         end
 
         OnUploadingProgressCallback = proc do |uploaded, total, idx|
-          context = CallbackData.get(idx)
-          context[:on_uploading_progress]&.call(uploaded, total)
-          CallbackData.delete(idx) if uploaded == total
+          begin
+            context = CallbackData.get(idx)
+            context[:on_uploading_progress]&.call(uploaded, total)
+            CallbackData.delete(idx) if uploaded == total
+          rescue Exception => e
+            Config::CallbackExceptionHandler.call(e)
+          end
         end
         private_constant :OnUploadingProgressCallback
       end
