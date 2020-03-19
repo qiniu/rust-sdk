@@ -241,6 +241,11 @@ pub struct ConfigInner {
     )]
     http_request_handler: Box<dyn HTTPCaller>,
 
+    #[doc(hidden)]
+    #[get = "pub"]
+    #[builder(default, setter(strip_option))]
+    http_request_final_handler: Option<Box<dyn HTTPAfterAction>>,
+
     /// 域名管理器
     ///
     /// 对七牛 Rust SDK 所用的所有域名及域名所用的 IP 地址进行管理。功能包含域名 IP 地址的预解析和缓存，冻结域名，并会对这些状态进行持久化存储。
@@ -514,6 +519,12 @@ impl ConfigBuilder {
             handlers.push(Box::new(handler));
             self.http_request_after_action_handlers = Some(handlers);
         }
+        self
+    }
+
+    #[doc(hidden)]
+    pub fn set_http_request_final_handler(mut self, handler: impl HTTPAfterAction + 'static) -> Self {
+        self.http_request_final_handler = Some(Some(Box::new(handler) as Box<dyn HTTPAfterAction>));
         self
     }
 

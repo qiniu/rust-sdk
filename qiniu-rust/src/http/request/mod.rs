@@ -156,6 +156,9 @@ impl<'a> Request<'a> {
         for handler in self.parts.config.http_request_after_action_handlers().iter() {
             handler.after_call(request, &mut response)?;
         }
+        if let Some(handler) = self.parts.config.http_request_final_handler() {
+            handler.after_call(request, &mut response)?;
+        }
         Ok(response)
     }
 

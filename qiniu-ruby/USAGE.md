@@ -361,6 +361,34 @@ is_valid = QiniuNg::Credential.new(access_key, secret_key).validate_qiniu_callba
                                                                                            body: body
 ```
 
+## HTTP 回调函数
+
+SDK 支持在发送 HTTP 请求前和收到响应后调用回调函数对 HTTP 请求和响应进行处理，这里给出一个打印 HTTP 请求和响应相关信息的回调函数实现：
+
+```ruby
+require 'qiniu_ng'
+
+config_builder = QiniuNg::Config::Builder.new
+config_builder.append_http_request_before_action_handler do |request|
+  request_id = rand(2**64 - 1)
+  puts "[#{request_id}] #{request.method} #{request.url}"
+  request.headers.each do |header_name, header_value|
+    puts "[#{request_id}]   #{header_name}: #{header_value}"
+  end
+  request.custom_data = request_id
+end
+config_builder.append_http_request_after_action_handler do |request, response|
+  request_id = request.custom_data
+  puts "[#{request_id}] #{response.status_code}"
+  response.headers.each do |header_name, header_value|
+    puts "[#{request_id}]   #{header_name}: #{header_value}"
+  end
+end
+config = config_builder.build!
+```
+
+此外，还应当注意，所有回调函数都必须确保可重入性。
+
 ## 私有云配置
 
 默认情况下，Ruby SDK 内置了七牛公有云存储的配置。如果需要使用七牛私有云，则需要对 `qiniu_ng_config_builder_t` 中的配置作出必要的调整，这里给出一个例子：

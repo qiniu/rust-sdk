@@ -1083,6 +1083,26 @@ pub extern "C" fn qiniu_ng_config_builder_prepend_http_request_after_action_hand
     let _ = qiniu_ng_config_builder_t::from(builder);
 }
 
+/// @private
+#[doc(hidden)]
+#[no_mangle]
+pub extern "C" fn qiniu_ng_config_builder_set_http_request_final_handler(
+    builder: qiniu_ng_config_builder_t,
+    handler: extern "C" fn(
+        request: qiniu_ng_http_request_t,
+        response: qiniu_ng_http_response_t,
+        err: *mut qiniu_ng_callback_err_t,
+        data: *mut c_void,
+    ),
+    data: *mut c_void,
+) {
+    let mut builder = Option::<Box<Builder>>::from(builder).unwrap();
+    builder.config_builder = builder
+        .config_builder
+        .set_http_request_final_handler(QiniuNgHTTPAfterActionHandler::new(handler, data));
+    let _ = qiniu_ng_config_builder_t::from(builder);
+}
+
 /// @brief 生成客户端配置实例
 /// @param[in] builder_ptr 客户端配置生成器实例
 /// @param[out] config 用来返回客户端配置实例，如果传入 `NULL` 表示不获取 `config`。但如果运行正常，返回值将依然是 `true`

@@ -2,6 +2,7 @@ require 'uri'
 require 'stringio'
 require 'securerandom'
 require 'webrick/httputils'
+require 'concurrent-ruby'
 require 'json'
 
 RSpec.describe QiniuNg::Config do
@@ -206,6 +207,29 @@ RSpec.describe QiniuNg::Config do
         regions = QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
         expect(regions.size).to eq 1
         expect(regions[0].io_urls).to eq %w[https://iovip-z1.qbox.me]
+      end
+
+      it 'could pass custom_data by request' do
+        ref_cnt = Concurrent::AtomicFixnum.new
+
+        builder = QiniuNg::Config::Builder.new
+        builder.append_http_request_before_action_handler do |request|
+          request.custom_data = ['hello world']
+          ref_cnt.increment
+        end
+        builder.append_http_request_before_action_handler do |request|
+          expect(request.custom_data).to eq(['hello world'])
+          request.custom_data = 'hello world'
+          ref_cnt.increment
+        end
+        builder.append_http_request_after_action_handler do |request|
+          expect(request.custom_data).to eq('hello world')
+          ref_cnt.increment
+        end
+        config = builder.build!
+        GC.start
+        QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
+        expect(ref_cnt.value).to eq 3
       end
 
       it 'could modify request by io error before http call' do

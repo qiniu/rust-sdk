@@ -85,6 +85,22 @@ module QiniuNg
         @request.set_body(body.to_s)
       end
 
+      # 获取自定义数据
+      # @return [Object] 自定义数据
+      def custom_data
+        idx = @request.get_custom_data
+        CallbackData.get(idx) if idx
+      end
+
+      # 设置请求体内容
+      # @param [Object] custom_data 自定义数据
+      # @return [void]
+      def custom_data=(custom_data)
+        idx = @request.get_custom_data
+        CallbackData.delete(idx) if idx
+        @request.set_custom_data(CallbackData.put(custom_data)) if !custom_data.nil?
+      end
+
       # 是否自动追踪重定向
       # @return [Boolean] 是否自动追踪重定向
       def follow_redirection?

@@ -8,6 +8,12 @@ module QiniuNg
     # @!visibility private
     DEFAULT_APPENDED_USER_AGENT = ["qiniu-ruby", VERSION, RUBY_ENGINE, RUBY_ENGINE_VERSION, RUBY_PLATFORM].freeze
 
+    # 设置回调异常处理函数
+    #
+    # 由于回调函数内可能会抛出异常，而 SDK 使用的原生库无法接收到 Ruby 异常，
+    # 因此，所有回调函数内抛出的异常将会在这个处理函数内进行处理。
+    # 默认情况下，将会把错误详细信息输出到 STDERR。
+    # 如果有需要，您可以通过赋值的方式定制处理方法。
     CallbackExceptionHandler = proc do |exception|
       STDERR.puts "Callback exception: #{exception.message}"
       exception.backtrace.each { |trace| STDERR.puts "\t#{trace}" }
@@ -345,6 +351,7 @@ module QiniuNg
       def self.new_default
         Bindings::ConfigBuilder.new!.tap do |builder|
           builder.set_appended_user_agent(DEFAULT_APPENDED_USER_AGENT.join('/'))
+          builder.set_http_request_final_handler(HTTPRequestFinalHandler, nil)
         end
       end
       private_class_method :new_default
@@ -907,6 +914,7 @@ module QiniuNg
         alias_method :"#{method}=", method
       end
 
+      # @!visibility private
       HTTPRequestBeforeActionHandler = proc do |request, err, idx|
         begin
           handler = CallbackData.get(idx)
@@ -918,6 +926,7 @@ module QiniuNg
         end
       end
 
+      # @!visibility private
       HTTPRequestAfterActionHandler = proc do |request, response, err, idx|
         begin
           handler = CallbackData.get(idx)
@@ -931,7 +940,14 @@ module QiniuNg
           Config::CallbackExceptionHandler.call(e)
         end
       end
-      private_constant :HTTPRequestBeforeActionHandler, :HTTPRequestAfterActionHandler
+
+      # @!visibility private
+      HTTPRequestFinalHandler = proc do |request, response, err, idx|
+        http_request = Bindings::HTTPRequest.new(request)
+        idx = http_request.get_custom_data
+        CallbackData.delete(idx) if idx
+      end
+      private_constant :HTTPRequestBeforeActionHandler, :HTTPRequestAfterActionHandler, :HTTPRequestFinalHandler
 
       # @!visibility private
       def self.wrap_action_handler(err)
