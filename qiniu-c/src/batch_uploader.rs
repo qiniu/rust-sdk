@@ -392,7 +392,7 @@ pub struct qiniu_ng_batch_upload_params_t {
     ///     第三个参数总是传入本结构体的 `callback_data` 字段，您可以根据您的需要为 `callback_data` 字段设置上下文数据。
     ///     该函数无需返回任何值
     /// @warning
-    ///     该回调函数可能会被多个线程并发调用，因此需要保证实现的函数具有可重入性
+    ///     该回调函数可能会被多个线程并发调用，因此需要保证实现的函数线程安全
     pub on_uploading_progress: Option<extern "C" fn(uploaded: u64, total: u64, data: *mut c_void)>,
     /// @brief 上传完成后回调函数
     /// @details
@@ -404,7 +404,7 @@ pub struct qiniu_ng_batch_upload_params_t {
     /// @warning
     ///     对于获取的 `response` 和 `err`，一旦使用完毕，应该调用各自的内存释放方法释放内存
     /// @warning
-    ///     该回调函数可能会被多个线程并发调用，因此需要保证实现的函数具有可重入性
+    ///     该回调函数可能会被多个线程并发调用，因此需要保证实现的函数线程安全
     pub on_completed:
         Option<extern "C" fn(response: qiniu_ng_upload_response_t, err: qiniu_ng_err_t, data: *mut c_void)>,
     /// @brief 回调函数使用的上下文指针

@@ -78,8 +78,8 @@ module QiniuNg
         # @param [Symbol] resumable_policy 分片上传策略，可以接受 `:default`, `:threshold`, `:always_be_resumeable`, `:never_be_resumeable` 四种取值
         #                                  默认且推荐使用 default 策略
         # @param [Integer] upload_threshold 分片上传策略阙值，仅当 resumable_policy 为 `:threshold` 时起效，为其设置分片上传的阙值
-        # @param [Lambda] on_uploading_progress 上传进度回调，需要提供一个带有两个参数的闭包函数，其中第一个参数为已经上传的数据量，单位为字节，第二个参数为需要上传的数据总量，单位为字节。如果无法预期需要上传的数据总量，则第二个参数将总是传入 0。该函数无需返回任何值。需要注意的是，该回调函数可能会被多个线程并发调用，因此需要保证实现的函数具有可重入性
-        # @yield [response, err] 上传完成后回调函数，用于接受上传完成后的结果。需要注意的是，该回调函数可能会被多个线程并发调用，因此需要保证实现的函数具有可重入性
+        # @param [Lambda] on_uploading_progress 上传进度回调，需要提供一个带有两个参数的闭包函数，其中第一个参数为已经上传的数据量，单位为字节，第二个参数为需要上传的数据总量，单位为字节。如果无法预期需要上传的数据总量，则第二个参数将总是传入 0。该函数无需返回任何值。需要注意的是，该回调函数可能会被多个线程并发调用，因此需要保证实现的函数线程安全
+        # @yield [response, err] 上传完成后回调函数，用于接受上传完成后的结果。需要注意的是，该回调函数可能会被多个线程并发调用，因此需要保证实现的函数线程安全
         # @yieldparam response [UploadResponse] 上传响应，应该首先判断上传是否有错误，然后再获取上传响应中的数据
         # @yieldparam err [Error] 上传错误
         # @raise [ArgumentError] 参数错误
@@ -126,8 +126,8 @@ module QiniuNg
         # @param [Symbol] resumable_policy 分片上传策略，可以接受 `:default`, `:threshold`, `:always_be_resumeable`, `:never_be_resumeable` 四种取值
         #                                  默认且推荐使用 default 策略
         # @param [Integer] upload_threshold 分片上传策略阙值，仅当 resumable_policy 为 `:threshold` 时起效，为其设置分片上传的阙值
-        # @param [Lambda] on_uploading_progress 上传进度回调，需要提供一个带有两个参数的闭包函数，其中第一个参数为已经上传的数据量，单位为字节，第二个参数为需要上传的数据总量，单位为字节。如果无法预期需要上传的数据总量，则第二个参数将总是传入 0。该函数无需返回任何值。需要注意的是，该回调函数可能会被多个线程并发调用，因此需要保证实现的函数具有可重入性
-        # @yield [response, err] 上传完成后回调函数，用于接受上传完成后的结果。需要注意的是，该回调函数可能会被多个线程并发调用，因此需要保证实现的函数具有可重入性
+        # @param [Lambda] on_uploading_progress 上传进度回调，需要提供一个带有两个参数的闭包函数，其中第一个参数为已经上传的数据量，单位为字节，第二个参数为需要上传的数据总量，单位为字节。如果无法预期需要上传的数据总量，则第二个参数将总是传入 0。该函数无需返回任何值。需要注意的是，该回调函数可能会被多个线程并发调用，因此需要保证实现的函数线程安全
+        # @yield [response, err] 上传完成后回调函数，用于接受上传完成后的结果。需要注意的是，该回调函数可能会被多个线程并发调用，因此需要保证实现的函数线程安全
         # @yieldparam response [UploadResponse] 上传响应，应该首先判断上传是否有错误，然后再获取上传响应中的数据
         # @yieldparam err [Error] 上传错误
         # @raise [ArgumentError] 参数错误
