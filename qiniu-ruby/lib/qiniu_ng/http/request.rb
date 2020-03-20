@@ -129,7 +129,9 @@ module QiniuNg
         addrs = [addrs] unless addrs.is_a?(Array)
         @request.clear_resolved_socket_addrs
         addrs.each do |addr|
-          @request.append_resolved_socket_addr_as_str(addr.to_s)
+          unless @request.append_resolved_socket_addr_as_str(addr.to_s)
+            raise Error::InvalidSocketAddress, addr.to_s
+          end
         end
       end
     end

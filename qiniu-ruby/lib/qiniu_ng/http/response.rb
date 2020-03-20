@@ -55,7 +55,9 @@ module QiniuNg
         if server_port.nil?
           @response.unset_server_ip
         else
-          @response.set_server_ip_as_str = server_ip.to_s
+          unless @response.set_server_ip_as_str(server_ip.to_s)
+            raise Error::InvalidIPAddress, server_ip.to_s
+          end
         end
       end
 

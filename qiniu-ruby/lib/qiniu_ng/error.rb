@@ -14,6 +14,24 @@ module QiniuNg
     class BucketIsMissingInUploadToken < Error
     end
 
+    # 非法的套接字地址
+    class InvalidSocketAddress < Error
+      attr_reader :socket_address
+      def initialize(socket_address)
+        @socket_address = socket_address
+        super("Socket address #{socket_address.inspect} is invalid")
+      end
+    end
+
+    # 非法的 IP 地址
+    class InvalidIPAddress < Error
+      attr_reader :ip_address
+      def initialize(ip_address)
+        @ip_address = ip_address
+        super("IP address #{ip_address.inspect} is invalid")
+      end
+    end
+
     # HTTP 回调函数
     class HandlerError < Error
       attr_reader :cause, :retry_kind, :is_retry_safe
