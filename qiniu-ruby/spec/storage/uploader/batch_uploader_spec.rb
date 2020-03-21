@@ -61,14 +61,15 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
       errref = Concurrent::AtomicReference.new
       8.times do |idx|
         tempfile = Tempfile.create('测试', encoding: 'ascii-8bit')
-        tempfile.write(SecureRandom.random_bytes(rand(1 << 23)))
+        file_size = rand(1 << 23)
+        tempfile.write(SecureRandom.random_bytes(file_size))
         tempfile.rewind
         etag = QiniuNg::Utils::Etag.from_io(tempfile)
         tempfile.rewind
         key = "测试-#{idx}-#{Time.now.to_i}"
         last_uploaded = -1
         on_uploading_progress = ->(uploaded, total) do
-                                  expect(total).to be_zero
+                                  expect(total >= file_size).to be true
                                   expect(uploaded >= last_uploaded).to be true
                                   last_uploaded = uploaded
                                 end
