@@ -275,7 +275,12 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             None,
             source_file.function_declarations().iter(),
             None,
-            vec![],
+            vec![
+                ("qiniu_ng_upload_manager_upload_file", "file"),
+                ("qiniu_ng_upload_manager_upload_file", "params"),
+                ("qiniu_ng_upload_manager_upload_file_path", "params"),
+                ("qiniu_ng_upload_manager_upload_reader", "params"),
+            ],
         ));
         classifier.add_class(Class::new(
             "BucketUploader",

@@ -13,6 +13,7 @@ module QiniuNg
 
         # @!visibility private
         def initialize(batch_uploader_ffi)
+          raise NotImplementedError, 'BatchUploader is unavailable for JRuby' if RUBY_ENGINE == 'jruby'
           @batch_uploader = batch_uploader_ffi
         end
         private_class_method :new

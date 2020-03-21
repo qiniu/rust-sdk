@@ -87,6 +87,32 @@ static void on_completed(qiniu_ng_upload_response_t upload_response, qiniu_ng_er
 #endif
 }
 
+static void generate_file_key(const qiniu_ng_char_t *file_key, int max_size, int file_id, int file_size) {
+#if defined(_WIN32) || defined(WIN32)
+    swprintf((wchar_t *) file_key, max_size, L"测试-%dm-%d-%lld", file_size, file_id, (long long) time(NULL));
+#else
+    snprintf((char *) file_key, max_size, "测试-%dm-%d-%lld", file_size, file_id, (long long) time(NULL));
+#endif
+}
+
+static void prepare_for_uploading(void) {
+#if defined(_WIN32) || defined(WIN32)
+    mutex = CreateMutex(NULL, FALSE, NULL);
+#else
+    pthread_mutex_init(&mutex, NULL);
+#endif
+    last_print_time = (long long) time(NULL);
+}
+
+static void upload_done(void) {
+    last_print_time = (long long) time(NULL);
+#if defined(_WIN32) || defined(WIN32)
+    ReleaseMutex(mutex);
+#else
+    pthread_mutex_destroy(&mutex);
+#endif
+}
+
 void test_qiniu_ng_batch_upload_file_paths(void) {
 #define FILES_COUNT (16)
 
@@ -105,12 +131,7 @@ void test_qiniu_ng_batch_upload_file_paths(void) {
     qiniu_ng_batch_uploader_set_expected_jobs_count(batch_uploader, FILES_COUNT);
     qiniu_ng_upload_token_free(&token);
 
-#if defined(_WIN32) || defined(WIN32)
-    mutex = CreateMutex(NULL, FALSE, NULL);
-#else
-    pthread_mutex_init(&mutex, NULL);
-#endif
-    last_print_time = (long long) time(NULL);
+    prepare_for_uploading();
 
     const qiniu_ng_char_t file_keys[FILES_COUNT][256];
     const qiniu_ng_char_t *file_paths[FILES_COUNT];
@@ -118,11 +139,7 @@ void test_qiniu_ng_batch_upload_file_paths(void) {
     char etags[FILES_COUNT][ETAG_SIZE + 1];
     int completed = 0;
     for (int i = 0; i < FILES_COUNT; i++) {
-#if defined(_WIN32) || defined(WIN32)
-        swprintf((wchar_t *) file_keys[i], 256, L"测试-17m-%d-%lld", i, (long long) time(NULL));
-#else
-        snprintf((char *) file_keys[i], 256, "测试-17m-%d-%lld", i, (long long) time(NULL));
-#endif
+        generate_file_key(file_keys[i], 256, i, 17);
         file_paths[i] = create_temp_file(17 * 1024 * 1024 + i * 1024);
         memset(&etags[i], 0, (ETAG_SIZE + 1) * sizeof(char));
         TEST_ASSERT_TRUE_MESSAGE(
@@ -152,12 +169,7 @@ void test_qiniu_ng_batch_upload_file_paths(void) {
         DELETE_FILE(file_paths[i]);
     }
 
-#if defined(_WIN32) || defined(WIN32)
-    ReleaseMutex(mutex);
-#else
-    pthread_mutex_destroy(&mutex);
-#endif
-
+    upload_done();
     qiniu_ng_batch_uploader_free(&batch_uploader);
     qiniu_ng_config_free(&config);
 #undef FILES_COUNT
@@ -181,12 +193,7 @@ void test_qiniu_ng_batch_upload_files(void) {
     qiniu_ng_batch_uploader_set_expected_jobs_count(batch_uploader, FILES_COUNT);
     qiniu_ng_upload_token_free(&token);
 
-#if defined(_WIN32) || defined(WIN32)
-    mutex = CreateMutex(NULL, FALSE, NULL);
-#else
-    pthread_mutex_init(&mutex, NULL);
-#endif
-    last_print_time = (long long) time(NULL);
+    prepare_for_uploading();
 
     const qiniu_ng_char_t file_keys[FILES_COUNT][256];
     const qiniu_ng_char_t *file_paths[FILES_COUNT];
@@ -195,11 +202,7 @@ void test_qiniu_ng_batch_upload_files(void) {
     char etags[FILES_COUNT][ETAG_SIZE + 1];
     int completed = 0;
     for (int i = 0; i < FILES_COUNT; i++) {
-#if defined(_WIN32) || defined(WIN32)
-        swprintf((wchar_t *) file_keys[i], 256, L"测试-17m-%d-%lld", i, (long long) time(NULL));
-#else
-        snprintf((char *) file_keys[i], 256, "测试-17m-%d-%lld", i, (long long) time(NULL));
-#endif
+        generate_file_key(file_keys[i], 256, i, 17);
         file_paths[i] = create_temp_file(17 * 1024 * 1024 + i * 1024);
 
         files[i] = OPEN_FILE_FOR_READING(file_paths[i]);
@@ -234,12 +237,7 @@ void test_qiniu_ng_batch_upload_files(void) {
         DELETE_FILE(file_paths[i]);
     }
 
-#if defined(_WIN32) || defined(WIN32)
-    ReleaseMutex(mutex);
-#else
-    pthread_mutex_destroy(&mutex);
-#endif
-
+    upload_done();
     qiniu_ng_batch_uploader_free(&batch_uploader);
     qiniu_ng_config_free(&config);
 #undef FILES_COUNT
@@ -260,7 +258,6 @@ void test_qiniu_ng_batch_upload_file_path_failed_by_mime(void) {
     qiniu_ng_upload_token_free(&token);
 
     qiniu_ng_char_t *file_path = create_temp_file(0);
-
     qiniu_ng_batch_upload_params_t params = {
         .mime = "invalid",
     };
@@ -278,6 +275,7 @@ void test_qiniu_ng_batch_upload_file_path_failed_by_mime(void) {
         "qiniu_ng_err_bad_mime_type_error_extract() returns unexpected value");
 
     DELETE_FILE(file_path);
+    free((void *) file_path);
 
     qiniu_ng_batch_uploader_free(&batch_uploader);
     qiniu_ng_bucket_uploader_free(&bucket_uploader);

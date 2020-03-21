@@ -14,7 +14,7 @@ use qiniu_ng::{
     },
     storage::{
         manager::DropBucketError,
-        uploader::{UploadError, UploadTokenParseError},
+        uploader::{CreateUploaderError, UploadError, UploadTokenParseError},
     },
 };
 use std::io::{Error as IOError, ErrorKind as IOErrorKind};
@@ -116,6 +116,8 @@ pub enum qiniu_ng_invalid_upload_token_error_kind_t {
     qiniu_ng_invalid_upload_token_error_kind_base64_decode_error(qiniu_ng_str_t),
     /// 上传凭证 JSON 解析错误
     qiniu_ng_invalid_upload_token_error_kind_json_decode_error(qiniu_ng_str_t),
+    /// 上传凭证中不包含存储空间信息
+    qiniu_ng_invalid_upload_token_error_kind_bucket_is_missing,
 }
 
 /// @brief 非法的上传凭证错误
@@ -124,6 +126,7 @@ pub enum qiniu_ng_invalid_upload_token_error_kind_t {
 ///         - `qiniu_ng_err_invalid_upload_token_format_extract()`
 ///         - `qiniu_ng_err_invalid_upload_token_base64_error_extract()`
 ///         - `qiniu_ng_err_invalid_upload_token_json_error_extract()`
+///         - `qiniu_ng_err_invalid_upload_token_bucket_is_missing_extract()`
 ///     判定错误的类型，并获取详细错误信息，同时释放内存。
 ///     如果确定无需判定错误具体类型，则调用 `qiniu_ng_err_invalid_upload_token_error_ignore()` 直接释放内存
 /// @note 该结构体不可以跨线程使用
@@ -572,6 +575,22 @@ pub extern "C" fn qiniu_ng_err_invalid_upload_token_json_error_extract(
     }
 }
 
+/// @brief 判定错误是上传凭证中不包含存储空间信息，如果是，则释放其内存
+/// @param[in] err 上传凭证错误实例
+/// @retval bool 当错误确实是上传凭证中不包含存储空间信息时返回 `true`
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_invalid_upload_token_bucket_is_missing_extract(
+    err: &mut qiniu_ng_invalid_upload_token_error_t,
+) -> bool {
+    match err.0 {
+        qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_bucket_is_missing => {
+            err.0 = qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_none;
+            true
+        }
+        _ => false,
+    }
+}
+
 /// @brief 当错误存在时，调用 `fputs()` 输出错误信息
 /// @param[in] stream 输出流
 /// @param[in] err SDK 错误实例
@@ -636,7 +655,7 @@ pub extern "C" fn qiniu_ng_err_invalid_upload_token_error_ignore(err: &mut qiniu
 
 impl From<&IOError> for qiniu_ng_err_t {
     fn from(err: &IOError) -> Self {
-        qiniu_ng_err_t(
+        Self(
             err.raw_os_error()
                 .map(qiniu_ng_err_kind_t::qiniu_ng_err_kind_os_error)
                 .unwrap_or_else(|| {
@@ -651,7 +670,7 @@ impl From<&IOError> for qiniu_ng_err_t {
 impl From<&HTTPError> for qiniu_ng_err_t {
     fn from(err: &HTTPError) -> Self {
         match err.error_kind() {
-            HTTPErrorKind::HTTPCallerError(e) => qiniu_ng_err_t(
+            HTTPErrorKind::HTTPCallerError(e) => Self(
                 #[cfg(any(feature = "use-libcurl"))]
                 {
                     e.inner()
@@ -675,29 +694,23 @@ impl From<&HTTPError> for qiniu_ng_err_t {
                     ))
                 },
             ),
-            HTTPErrorKind::ResponseStatusCodeError(status_code, error_description) => qiniu_ng_err_t(
+            HTTPErrorKind::ResponseStatusCodeError(status_code, error_description) => Self(
                 qiniu_ng_err_kind_t::qiniu_ng_err_kind_response_status_code_error(status_code.to_owned(), unsafe {
                     qiniu_ng_str_t::from_str_unchecked(error_description)
                 }),
             ),
             HTTPErrorKind::IOError(e) => e.into(),
-            HTTPErrorKind::JSONError(e) => qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(unsafe {
+            HTTPErrorKind::JSONError(e) => Self(qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(unsafe {
                 qiniu_ng_str_t::from_string_unchecked(e.to_string())
             })),
-            HTTPErrorKind::UnexpectedRedirect => {
-                qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_unexpected_redirect_error)
-            }
-            HTTPErrorKind::MaliciousResponse => {
-                qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_unknown_error(unsafe {
-                    qiniu_ng_str_t::from_str_unchecked("Malicious HTTP Response, please try HTTPs protocol")
-                }))
-            }
-            HTTPErrorKind::UserCanceled => qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_user_canceled),
-            HTTPErrorKind::UnknownError(e) => {
-                qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_unknown_error(unsafe {
-                    qiniu_ng_str_t::from_string_unchecked(e.to_string())
-                }))
-            }
+            HTTPErrorKind::UnexpectedRedirect => Self(qiniu_ng_err_kind_t::qiniu_ng_err_kind_unexpected_redirect_error),
+            HTTPErrorKind::MaliciousResponse => Self(qiniu_ng_err_kind_t::qiniu_ng_err_kind_unknown_error(unsafe {
+                qiniu_ng_str_t::from_str_unchecked("Malicious HTTP Response, please try HTTPs protocol")
+            })),
+            HTTPErrorKind::UserCanceled => Self(qiniu_ng_err_kind_t::qiniu_ng_err_kind_user_canceled),
+            HTTPErrorKind::UnknownError(e) => Self(qiniu_ng_err_kind_t::qiniu_ng_err_kind_unknown_error(unsafe {
+                qiniu_ng_str_t::from_string_unchecked(e.to_string())
+            })),
         }
     }
 }
@@ -715,7 +728,7 @@ impl From<&DropBucketError> for qiniu_ng_err_t {
     fn from(err: &DropBucketError) -> Self {
         match err {
             DropBucketError::CannotDropNonEmptyBucket => {
-                qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_drop_non_empty_bucket_error)
+                Self(qiniu_ng_err_kind_t::qiniu_ng_err_kind_drop_non_empty_bucket_error)
             }
             DropBucketError::HTTPError(e) => e.into(),
         }
@@ -724,7 +737,7 @@ impl From<&DropBucketError> for qiniu_ng_err_t {
 
 impl From<&UploadTokenParseError> for qiniu_ng_err_t {
     fn from(err: &UploadTokenParseError) -> Self {
-        qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_invalid_upload_token_error(
+        Self(qiniu_ng_err_kind_t::qiniu_ng_err_kind_invalid_upload_token_error(
             qiniu_ng_invalid_upload_token_error_t(match err {
                 UploadTokenParseError::InvalidUploadTokenFormat => {
                     qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_invalid_format
@@ -746,7 +759,7 @@ impl From<&UploadTokenParseError> for qiniu_ng_err_t {
 
 impl From<&mime::FromStrError> for qiniu_ng_err_t {
     fn from(e: &mime::FromStrError) -> Self {
-        qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_bad_mime_type(unsafe {
+        Self(qiniu_ng_err_kind_t::qiniu_ng_err_kind_bad_mime_type(unsafe {
             qiniu_ng_str_t::from_string_unchecked(e.to_string())
         }))
     }
@@ -755,11 +768,9 @@ impl From<&mime::FromStrError> for qiniu_ng_err_t {
 impl From<&PersistentError> for qiniu_ng_err_t {
     fn from(err: &PersistentError) -> Self {
         match err {
-            PersistentError::JSONError(e) => {
-                qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(unsafe {
-                    qiniu_ng_str_t::from_string_unchecked(e.to_string())
-                }))
-            }
+            PersistentError::JSONError(e) => Self(qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(unsafe {
+                qiniu_ng_str_t::from_string_unchecked(e.to_string())
+            })),
             PersistentError::IOError(ref err) => err.into(),
         }
     }
@@ -767,9 +778,23 @@ impl From<&PersistentError> for qiniu_ng_err_t {
 
 impl From<&serde_json::Error> for qiniu_ng_err_t {
     fn from(err: &serde_json::Error) -> Self {
-        qiniu_ng_err_t(qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(unsafe {
+        Self(qiniu_ng_err_kind_t::qiniu_ng_err_kind_json_error(unsafe {
             qiniu_ng_str_t::from_string_unchecked(err.to_string())
         }))
+    }
+}
+
+impl From<&CreateUploaderError> for qiniu_ng_err_t {
+    fn from(err: &CreateUploaderError) -> Self {
+        match err {
+            CreateUploaderError::UploadTokenParseError(err) => err.into(),
+            CreateUploaderError::QiniuAPIError(err) => err.into(),
+            CreateUploaderError::BucketIsMissingInUploadToken=>Self(
+                qiniu_ng_err_kind_t::qiniu_ng_err_kind_invalid_upload_token_error(
+                    qiniu_ng_invalid_upload_token_error_t(qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_bucket_is_missing),
+                ),
+            ),
+        }
     }
 }
 

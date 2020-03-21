@@ -12,7 +12,9 @@ use std::{mem::transmute, ptr::null_mut};
 use tap::TapOps;
 
 /// @brief 存储空间上传器
-/// @details 为指定存储空间的上传准备初始化数据，可以反复使用以上传多个文件
+/// @details
+///     为指定存储空间的上传准备初始化数据，可以反复使用以上传多个文件。
+///     与通过上传管理器上传相比，存储空间上传器可以复用初始化数据，并使用指定线程池来上传，效率优于上传管理器。
 /// @note
 ///   * 调用 `qiniu_ng_bucket_uploader_new_from_bucket()` 或 `qiniu_ng_bucket_uploader_new_from_bucket_name()` 函数创建 `qiniu_ng_bucket_uploader_t` 实例。
 ///   * 当 `qiniu_ng_bucket_uploader_t` 使用完毕后，请务必调用 `qiniu_ng_bucket_uploader_free()` 方法释放内存。

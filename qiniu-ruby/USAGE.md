@@ -157,11 +157,11 @@ secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
 file_path = '/local/file/path'
-client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
+config = QiniuNg::Config.new
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, config).
                                                                  return_body(%q[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)"}]).
                                                                  build_token(access_key: access_key, secret_key: secret_key)
-upload_response = client.bucket(bucket_name).uploader.upload_file_path(file_path, upload_token: upload_token, key: key_to_overwrite, file_name: 'local file name', vars: { name: '测试' })
+upload_response = QiniuNg::Storage::Uploader.new(config).upload_file_path(file_path, upload_token: upload_token, key: key_to_overwrite, file_name: 'local file name', vars: { name: '测试' })
 puts "Bucket: #{upload_response.bucket}"
 puts "Key: #{upload_response.key}"
 puts "File Size: #{upload_response.fsize}"
@@ -181,7 +181,6 @@ secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
 callback_url = 'http://api.example.com/qiniu/upload/callback'
-client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
 upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
                                                                  callback(callback_url, body: %q[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)"}]).
                                                                  build_token(access_key: access_key, secret_key: secret_key)
@@ -205,7 +204,6 @@ secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
 callback_url = 'http://api.example.com/qiniu/upload/callback'
-client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
 upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
                                                                  callback(callback_url, body: 'key=$(key)&hash=$(etag)&bucket=$(bucket)&fsize=$(fsize)&name=$(x:name)', body_type: 'application/x-www-form-urlencoded').
                                                                  build_token(access_key: access_key, secret_key: secret_key)
@@ -223,7 +221,6 @@ secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
 callback_url = 'http://api.example.com/qiniu/upload/callback'
-client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
 upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
                                                                  callback(callback_url, body: %q[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)","age":$(x:age)}]).
                                                                  build_token(access_key: access_key, secret_key: secret_key)
@@ -239,7 +236,6 @@ secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
 callback_url = 'http://api.example.com/qiniu/upload/callback'
-client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
 upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
                                                                  callback(callback_url, body: %q[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)","age":$(x:age)}], body_type: 'application/json').
                                                                  build_token(access_key: access_key, secret_key: secret_key)
@@ -264,10 +260,10 @@ access_key = '[Qiniu Access Key]'
 secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 file_path = '/local/file/path'
-client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy.new_for_bucket(bucket_name, QiniuNg::Config.new).
+config = QiniuNg::Config.new
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy.new_for_bucket(bucket_name, config).
                                                         build_token(access_key: access_key, secret_key: secret_key)
-upload_response = client.uploader_for(bucket_name).upload_file_path(file_path, upload_token: upload_token)
+upload_response = QiniuNg::Storage::Uploader.new(config).upload_file_path(file_path, upload_token: upload_token)
 ```
 
 ### IO 流上传
@@ -280,10 +276,10 @@ require 'qiniu_ng'
 access_key = '[Qiniu Access Key]'
 secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
-client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy.new_for_bucket(bucket_name, QiniuNg::Config.new).
+config = QiniuNg::Config.new
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy.new_for_bucket(bucket_name, config).
                                                         build_token(access_key: access_key, secret_key: secret_key)
-upload_response = client.uploader_for(bucket_name).upload_file(STDIN, upload_token: upload_token)
+upload_response = QiniuNg::Storage::Uploader.new(config).upload_file(STDIN, upload_token: upload_token)
 ```
 
 ### 批量上传
@@ -298,10 +294,10 @@ secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
 file_path = '/local/file/path'
-client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
+config = QiniuNg::Config.new
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, config).
                                                                  build_token(access_key: access_key, secret_key: secret_key)
-batch_uploader = client.batch_uploader_for(upload_token)
+batch_uploader = QiniuNg::Storage::Uploader::BatchUploader.new_from_config(upload_token, config)
 
 # 这里可以添加多个等待上传的文件。在代码块内设置完成后的回调
 batch_uploader.upload_file_path(file_path) do |upload_response, err|

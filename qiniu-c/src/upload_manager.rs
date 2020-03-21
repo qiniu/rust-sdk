@@ -4,7 +4,7 @@ use qiniu_ng::storage::uploader::UploadManager;
 use std::{mem::transmute, ptr::null_mut};
 
 /// @brief 上传管理器
-/// @details 上传管理器更接近于一个上传入口，帮助构建存储空间上传器或文件上传器，而本身并不具有实质管理功能
+/// @details 上传管理器可以用于构建存储空间上传器，或直接上传单个文件
 /// @note
 ///   * 调用 `qiniu_ng_upload_manager_new()` 函数创建 `qiniu_ng_upload_manager_t` 实例。
 ///   * 当 `qiniu_ng_upload_manager_t` 使用完毕后，请务必调用 `qiniu_ng_upload_manager_free()` 方法释放内存。
