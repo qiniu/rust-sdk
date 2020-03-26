@@ -50,13 +50,14 @@ impl<'u> FormUploaderBuilder<'u> {
         self
     }
 
-    pub(super) fn var(mut self, key: &str, value: Cow<'u, str>) -> FormUploaderBuilder<'u> {
-        self.multipart.add_text("x:".to_owned() + key, value);
+    pub(super) fn var(mut self, var_key: &str, var_value: Cow<'u, str>) -> FormUploaderBuilder<'u> {
+        self.multipart.add_text("x:".to_owned() + var_key, var_value);
         self
     }
 
-    pub(super) fn metadata(mut self, key: &str, value: Cow<'u, str>) -> FormUploaderBuilder<'u> {
-        self.multipart.add_text("x-qn-meta-".to_owned() + key, value);
+    pub(super) fn metadata(mut self, metadata_key: &str, metadata_value: Cow<'u, str>) -> FormUploaderBuilder<'u> {
+        self.multipart
+            .add_text("x-qn-meta-".to_owned() + metadata_key, metadata_value);
         self
     }
 

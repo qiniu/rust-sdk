@@ -72,7 +72,7 @@ struct UploadingProgressCallback<'u> {
 pub(super) struct ResumableUploaderBuilder<'u> {
     bucket_uploader: &'u BucketUploader,
     upload_token: Cow<'u, str>,
-    key: Cow<'u, str>,
+    key: Option<Cow<'u, str>>,
     metadata: HashMap<Cow<'u, str>, Cow<'u, str>>,
     custom_vars: HashMap<Cow<'u, str>, Cow<'u, str>>,
     on_uploading_progress: Option<&'u (dyn Fn(u64, Option<u64>) + Send + Sync)>,
@@ -84,7 +84,7 @@ pub(super) struct ResumableUploaderBuilder<'u> {
 pub(super) struct ResumableUploader<'u, R: Read + Seek + Send + 'u> {
     bucket_uploader: &'u BucketUploader,
     upload_token: Cow<'u, str>,
-    key: Cow<'u, str>,
+    key: Option<Cow<'u, str>>,
     completed_parts: Mutex<CompletedParts<'u>>,
     checksum_enabled: bool,
     is_seekable: bool,
@@ -105,7 +105,7 @@ impl<'u> ResumableUploaderBuilder<'u> {
         ResumableUploaderBuilder {
             bucket_uploader,
             upload_token: upload_token.clone(),
-            key: Cow::Borrowed(""),
+            key: None,
             metadata: HashMap::new(),
             custom_vars: HashMap::new(),
             on_uploading_progress: None,
@@ -131,7 +131,7 @@ impl<'u> ResumableUploaderBuilder<'u> {
     }
 
     pub(super) fn key(mut self, key: Cow<'u, str>) -> ResumableUploaderBuilder<'u> {
-        self.key = key;
+        self.key = Some(key);
         self
     }
 
@@ -356,7 +356,13 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         let recorder = self.file_path.as_ref().and_then(|file_path| {
             self.bucket_uploader
                 .recorder()
-                .open_and_write_metadata(file_path, self.key.as_ref(), &upload_id, up_urls, self.block_size)
+                .open_and_write_metadata(
+                    file_path,
+                    self.key.as_ref().map(|key| key.as_ref()),
+                    &upload_id,
+                    up_urls,
+                    self.block_size,
+                )
                 .ok()
         });
         self.start_uploading_blocks(
@@ -460,7 +466,10 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         match io_status_manager.result() {
             IOStatusResult::Success => self.complete_parts(base_path, up_urls, authorization).tap_ok(|_| {
                 self.file_path.as_ref().tap_some(|file_path| {
-                    let _ = self.bucket_uploader.recorder().drop(file_path, self.key.as_ref());
+                    let _ = self
+                        .bucket_uploader
+                        .recorder()
+                        .drop(file_path, self.key.as_ref().map(|key| key.as_ref()));
                 })
             }),
             IOStatusResult::IOError(err) => Err(HTTPError::new_unretryable_error(
@@ -719,7 +728,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         "/buckets/".to_owned()
             + self.bucket_uploader.bucket_name().as_ref()
             + "/objects/"
-            + encode_key(self.key.as_ref()).as_ref()
+            + encode_key(self.key.as_ref().map(|key| key.as_ref())).as_ref()
             + "/uploads"
     }
 
@@ -728,11 +737,11 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
     }
 }
 
-fn encode_key(key: &str) -> Cow<'static, str> {
-    if key.is_empty() {
-        "~".into()
-    } else {
+fn encode_key(key: Option<&str>) -> Cow<'static, str> {
+    if let Some(key) = key {
         base64::urlsafe(key.as_bytes()).into()
+    } else {
+        "~".into()
     }
 }
 
@@ -792,7 +801,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
                         + "$",
@@ -812,7 +821,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/"),
                         )
                         + "\\d"
@@ -836,7 +845,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id"),
                         )
                         + "$",
@@ -883,7 +892,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
                         + "$",
@@ -896,7 +905,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/2"),
                         )
                         + "$",
@@ -916,7 +925,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/4"),
                         )
                         + "$",
@@ -936,7 +945,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id"),
                         )
                         + "$",
@@ -965,7 +974,7 @@ mod tests {
         {
             let medium = bucket_uploader.recorder().open_and_write_metadata(
                 &temp_path,
-                "test-key",
+                Some("test-key"),
                 "test_upload_id",
                 &["http://z1h1.com"],
                 1 << 22,
@@ -996,7 +1005,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
                         + "$",
@@ -1016,7 +1025,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/"),
                         )
                         + "\\d"
@@ -1040,7 +1049,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id"),
                         )
                         + "$",
@@ -1090,7 +1099,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
                         + "$",
@@ -1110,7 +1119,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/"),
                         )
                         + "\\d"
@@ -1140,7 +1149,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h2.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/"),
                         )
                         + "\\d"
@@ -1164,7 +1173,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h2.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id"),
                         )
                         + "$",
@@ -1211,7 +1220,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
                         + "$",
@@ -1230,7 +1239,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z2h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
                         + "$",
@@ -1250,7 +1259,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z2h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/"),
                         )
                         + "\\d"
@@ -1274,7 +1283,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z2h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id"),
                         )
                         + "$",
@@ -1326,7 +1335,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
                         + "$",
@@ -1346,7 +1355,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z2h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
                         + "$",
@@ -1366,7 +1375,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id_1/"),
                         )
                         + "\\d"
@@ -1396,7 +1405,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z2h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id_2/"),
                         )
                         + "\\d"
@@ -1420,7 +1429,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z2h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id_2"),
                         )
                         + "$",
@@ -1471,7 +1480,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
                         + "$",
@@ -1491,7 +1500,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id/"),
                         )
                         + "\\d"
@@ -1522,7 +1531,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id"),
                         )
                         + "$",
@@ -1585,7 +1594,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
                         + "$",
@@ -1605,7 +1614,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id_1/"),
                         )
                         + "\\d"
@@ -1634,7 +1643,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id_2/"),
                         )
                         + "\\d"
@@ -1658,7 +1667,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads/test_upload_id_2"),
                         )
                         + "$",

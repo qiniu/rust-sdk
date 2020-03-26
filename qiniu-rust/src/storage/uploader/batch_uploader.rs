@@ -22,7 +22,7 @@ enum BatchUploadTarget {
 /// 批量上传任务，包装一个上传任务供批量上传器负责上传
 #[must_use = "创建上传任务并不会真正上传文件，您需要将当前任务提交到批量上传器后，调用 `start` 方法执行上传任务"]
 pub struct BatchUploadJob {
-    key: String,
+    key: Option<String>,
     upload_token: String,
     vars: HashMap<String, String>,
     metadata: HashMap<String, String>,
@@ -38,7 +38,7 @@ pub struct BatchUploadJob {
 
 /// 批量上传任务生成器，提供上传数据所需的多个参数
 pub struct BatchUploadJobBuilder {
-    key: String,
+    key: Option<String>,
     upload_token: String,
     vars: HashMap<String, String>,
     metadata: HashMap<String, String>,
@@ -177,8 +177,10 @@ fn handle_job(context: &BatchUploaderContext, job: BatchUploadJob, thread_pool: 
         },
     )
     .thread_pool(thread_pool)
-    .max_concurrency(context.max_concurrency)
-    .key(key);
+    .max_concurrency(context.max_concurrency);
+    if let Some(key) = key {
+        builder = builder.key(key);
+    }
     for (var_name, var_value) in vars.into_iter() {
         builder = builder.var(var_name, var_value);
     }
@@ -218,7 +220,7 @@ fn handle_job(context: &BatchUploaderContext, job: BatchUploadJob, thread_pool: 
 impl Default for BatchUploadJobBuilder {
     fn default() -> Self {
         Self {
-            key: String::new(),
+            key: None,
             upload_token: String::new(),
             vars: HashMap::new(),
             metadata: HashMap::new(),
@@ -233,7 +235,7 @@ impl Default for BatchUploadJobBuilder {
 impl BatchUploadJobBuilder {
     /// 指定上传对象的名称
     pub fn key(mut self, key: impl Into<String>) -> Self {
-        self.key = key.into();
+        self.key = Some(key.into());
         self
     }
 

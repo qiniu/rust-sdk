@@ -180,7 +180,7 @@ pub(super) enum ResumablePolicy {
 pub struct FileUploaderBuilder<'b> {
     bucket_uploader: Ron<'b, BucketUploader>,
     upload_token: Cow<'b, str>,
-    key: Cow<'b, str>,
+    key: Option<Cow<'b, str>>,
     vars: HashMap<Cow<'b, str>, Cow<'b, str>>,
     metadata: HashMap<Cow<'b, str>, Cow<'b, str>>,
     checksum_enabled: bool,
@@ -195,7 +195,7 @@ impl<'b> FileUploaderBuilder<'b> {
     pub(super) fn new(bucket_uploader: Ron<'b, BucketUploader>, upload_token: Cow<'b, str>) -> Self {
         FileUploaderBuilder {
             upload_token,
-            key: Cow::Borrowed(""),
+            key: None,
             vars: HashMap::new(),
             metadata: HashMap::new(),
             checksum_enabled: true,
@@ -235,23 +235,23 @@ impl<'b> FileUploaderBuilder<'b> {
 
     /// 指定上传对象的名称
     pub fn key(mut self, key: impl Into<Cow<'b, str>>) -> Self {
-        self.key = key.into();
+        self.key = Some(key.into());
         self
     }
 
     /// 为上传对象指定[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
     ///
     /// 可以多次调用以指定多个自定义变量
-    pub fn var(mut self, key: impl Into<Cow<'b, str>>, value: impl Into<Cow<'b, str>>) -> Self {
-        self.vars.insert(key.into(), value.into());
+    pub fn var(mut self, var_key: impl Into<Cow<'b, str>>, var_value: impl Into<Cow<'b, str>>) -> Self {
+        self.vars.insert(var_key.into(), var_value.into());
         self
     }
 
     /// 为上传对象指定自定义元数据
     ///
     /// 可以多次调用以指定多个自定义元数据
-    pub fn metadata(mut self, key: impl Into<Cow<'b, str>>, value: impl Into<Cow<'b, str>>) -> Self {
-        self.metadata.insert(key.into(), value.into());
+    pub fn metadata(mut self, metadata_key: impl Into<Cow<'b, str>>, metadata_value: impl Into<Cow<'b, str>>) -> Self {
+        self.metadata.insert(metadata_key.into(), metadata_value.into());
         self
     }
 
@@ -381,7 +381,10 @@ impl<'b> FileUploaderBuilder<'b> {
     }
 
     fn upload_file_by_form<'n>(self, file_path: &Path, file_name: Cow<'n, str>, mime: Option<Mime>) -> UploadResult {
-        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token).key(self.key);
+        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token);
+        if let Some(key) = self.key {
+            uploader = uploader.key(key);
+        }
         for (k, v) in self.vars.into_iter() {
             uploader = uploader.var(&k, v);
         }
@@ -404,9 +407,11 @@ impl<'b> FileUploaderBuilder<'b> {
     fn upload_file_by_blocks<'n>(self, file_path: &Path, file_name: Cow<'n, str>, mime: Option<Mime>) -> UploadResult {
         let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)
             .max_concurrency(self.max_concurrency)
-            .key(self.key.to_owned())
             .vars(self.vars)
             .metadata(self.metadata);
+        if let Some(key) = &self.key {
+            uploader = uploader.key(key.to_owned());
+        }
         if let Some(callback) = &self.on_uploading_progress {
             uploader = uploader.on_uploading_progress(callback.as_ref());
         }
@@ -422,7 +427,7 @@ impl<'b> FileUploaderBuilder<'b> {
             self.checksum_enabled,
         )?;
         Self::prepare_for_resuming(
-            self.key.as_ref(),
+            self.key.as_ref().map(|key| key.as_ref()),
             &self.bucket_uploader.recorder(),
             &mut uploader,
             file_path,
@@ -431,7 +436,7 @@ impl<'b> FileUploaderBuilder<'b> {
     }
 
     fn prepare_for_resuming(
-        key: &str,
+        key: Option<&str>,
         recorder: &UploadRecorder,
         uploader: &mut ResumableUploader<'_, File>,
         file_path: &Path,
@@ -449,7 +454,10 @@ impl<'b> FileUploaderBuilder<'b> {
         file_name: Cow<str>,
         mime: Option<Mime>,
     ) -> UploadResult {
-        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token).key(self.key);
+        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token);
+        if let Some(key) = self.key {
+            uploader = uploader.key(key);
+        }
         for (k, v) in self.vars.into_iter() {
             uploader = uploader.var(&k, v);
         }
@@ -477,9 +485,11 @@ impl<'b> FileUploaderBuilder<'b> {
     ) -> UploadResult {
         let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)
             .max_concurrency(self.max_concurrency)
-            .key(self.key)
             .vars(self.vars)
             .metadata(self.metadata);
+        if let Some(key) = self.key {
+            uploader = uploader.key(key);
+        }
         if let Some(callback) = &self.on_uploading_progress {
             uploader = uploader.on_uploading_progress(callback.as_ref());
         }
