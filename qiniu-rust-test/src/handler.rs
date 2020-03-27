@@ -1,30 +1,32 @@
 #[cfg(test)]
 mod tests {
-    use matches::matches;
-    use qiniu_http::{ErrorKind, Method, Request, Response, ResponseBody, Result, RetryKind};
+    use chrono::offset::Utc;
+    use qiniu_http::{Method, Request, Response, ResponseBody, Result};
     use qiniu_ng::{
         http::{HTTPAfterAction, HTTPBeforeAction},
-        storage::region::Region,
-        ConfigBuilder,
+        storage::uploader::UploadPolicyBuilder,
+        Client, Config, ConfigBuilder, Credential,
     };
-    use qiniu_test_utils::env;
+    use qiniu_test_utils::{env, temp_file::create_temp_file};
     use std::{error::Error, result::Result as StdResult};
 
     struct HTTPBeforeActionTester;
 
     impl HTTPBeforeAction for HTTPBeforeActionTester {
         fn before_call(&self, request: &mut Request) -> Result<()> {
-            assert!(request.url().starts_with("https://uc.qbox.me/v3/query"));
-            assert_eq!(request.method(), Method::GET);
-            assert_eq!(
-                request.headers().get(&"Content-Type".into()),
-                Some(&"application/x-www-form-urlencoded".into())
-            );
-            assert_eq!(
-                request.headers().get(&"Accept".into()),
-                Some(&"application/json".into())
-            );
-            assert!(request.body().is_empty());
+            if request.url() == "https://upload.qiniup.com/" {
+                assert_eq!(request.method(), Method::POST);
+                assert!(request
+                    .headers()
+                    .get(&"Content-Type".into())
+                    .unwrap()
+                    .starts_with("multipart/form-data"));
+                assert_eq!(
+                    request.headers().get(&"Accept".into()),
+                    Some(&"application/json".into())
+                );
+                assert!(!request.body().is_empty());
+            }
             Ok(())
         }
     }
@@ -34,22 +36,34 @@ mod tests {
         let config = ConfigBuilder::default()
             .append_http_request_before_action_handler(HTTPBeforeActionTester)
             .build();
-        Region::query("z0-bucket", env::get().access_key(), config)?;
+        let temp_path = create_temp_file(1)?.into_temp_path();
+        let key = format!("test-1b-{}", Utc::now().timestamp_nanos());
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config).build();
+        get_client(config)
+            .upload()
+            .for_upload_policy(policy, get_credential().into())?
+            .key(&key)
+            .upload_file(&temp_path, "1b", None)
+            .unwrap();
+        // TODO: Clean Uploaded File
         Ok(())
     }
 
     struct HTTPAfterActionTester;
 
     impl HTTPAfterAction for HTTPAfterActionTester {
-        fn after_call(&self, _request: &mut Request, response: &mut Response) -> Result<()> {
-            assert_eq!(response.status_code(), 200);
-            assert!(response.headers().get(&"X-Reqid".into()).is_some());
-            assert!(response.server_ip().is_some());
-            assert_eq!(response.server_port(), 443);
-            assert!(response.body_len().unwrap() > 0);
+        fn after_call(&self, request: &mut Request, response: &mut Response) -> Result<()> {
+            if request.url() == "https://upload.qiniup.com/" {
+                assert_eq!(response.status_code(), 200);
+                assert!(response.headers().get(&"X-Reqid".into()).is_some());
+                assert!(response.server_ip().is_some());
+                assert_eq!(response.server_port(), 443);
+                assert!(response.body_len().unwrap() > 0);
 
-            *response.body_mut() = Some(ResponseBody::Bytes(b"{}".to_vec()));
-            response.headers_mut().insert("Content-Length".into(), "2".into());
+                *response.body_mut() = Some(ResponseBody::Bytes(b"[]".to_vec()));
+                response.headers_mut().insert("Content-Length".into(), "2".into());
+            }
+
             Ok(())
         }
     }
@@ -59,16 +73,26 @@ mod tests {
         let config = ConfigBuilder::default()
             .append_http_request_after_action_handler(HTTPAfterActionTester)
             .build();
-        let err = Region::query("z0-bucket", env::get().access_key(), config).unwrap_err();
-        assert_eq!(err.retry_kind(), RetryKind::UnretryableError);
-        assert!(!err.is_retry_safe());
-        assert!(matches!(err.error_kind(), ErrorKind::JSONError(..)));
-        assert!(err.request_id().is_some());
-        assert_eq!(err.method(), Some(Method::GET));
-        assert_eq!(
-            err.url().as_ref().map(|u| u.starts_with("https://uc.qbox.me/v3/query")),
-            Some(true)
-        );
+        let temp_path = create_temp_file(1)?.into_temp_path();
+        let key = format!("test-1b-{}", Utc::now().timestamp_nanos());
+        let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config).build();
+        let response = get_client(config)
+            .upload()
+            .for_upload_policy(policy, get_credential().into())?
+            .key(&key)
+            .upload_file(&temp_path, "1b", None)
+            .unwrap();
+        assert_eq!(response.into_bytes(), b"[]");
         Ok(())
+    }
+
+    fn get_client(config: Config) -> Client {
+        let e = env::get();
+        Client::new(e.access_key().to_owned(), e.secret_key().to_owned(), config)
+    }
+
+    fn get_credential() -> Credential {
+        let e = env::get();
+        Credential::new(e.access_key().to_owned(), e.secret_key().to_owned())
     }
 }

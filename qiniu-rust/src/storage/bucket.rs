@@ -300,18 +300,47 @@ mod domain {
     use crate::{
         credential::Credential,
         http::{Client, Result, TokenVersion},
+        utils::cache_map::CacheMap,
     };
-    use std::borrow::Borrow;
+    use lazy_static::lazy_static;
+    use std::{
+        borrow::Borrow,
+        time::{Duration, SystemTime},
+    };
 
+    lazy_static! {
+        static ref QUERY_CACHE: CacheMap<QueryCacheKey, Vec<String>> = CacheMap::new(true);
+    }
+
+    #[derive(PartialEq, Hash, Clone, Debug)]
+    struct QueryCacheKey(String);
+
+    impl QueryCacheKey {
+        fn new(credential: &Credential, bucket_name: &str) -> Self {
+            Self(credential.access_key().to_owned() + ":" + credential.secret_key() + ":" + bucket_name)
+        }
+    }
+
+    /// 该方法具有缓存机制，对同一 Access Key / Secret Key 和存储空间多次调用时，将会返回缓存结果而不会发送 HTTP 请求
     pub(super) fn query(http_client: &Client, credential: &Credential, bucket_name: &str) -> Result<Vec<String>> {
-        // TODO: 缓存结果
-        Ok(http_client
-            .get("/v6/domain/list", &[&http_client.config().api_url()])
-            .query("tbl", bucket_name)
-            .token(TokenVersion::V2, credential.borrow().into())
-            .no_body()
-            .send()?
-            .parse_json()?)
+        let (domains, _) = QUERY_CACHE
+            .try_get_or_insert(QueryCacheKey::new(credential, bucket_name), || {
+                let results = http_client
+                    .get("/v6/domain/list", &[&http_client.config().api_url()])
+                    .query("tbl", bucket_name)
+                    .token(TokenVersion::V2, credential.borrow().into())
+                    .no_body()
+                    .send()?
+                    .parse_json()?;
+                Ok(Some((results, SystemTime::now() + Duration::from_secs(24 * 60 * 60))))
+            })?
+            .unwrap();
+        Ok(domains)
+    }
+
+    #[cfg(test)]
+    pub(super) fn clear_query_cache() {
+        QUERY_CACHE.clear();
     }
 }
 
@@ -340,7 +369,8 @@ impl<'a, 'r: 'a> Iterator for BucketRegionIter<'a, 'r> {
 #[cfg(test)]
 mod tests {
     use super::{
-        super::{region::RegionId, uploader::UploadManager},
+        super::{region::clear_query_cache as clear_region_query_cache, region::RegionId, uploader::UploadManager},
+        domain::clear_query_cache as clear_domain_query_cache,
         *,
     };
     use crate::{
@@ -354,6 +384,8 @@ mod tests {
 
     #[test]
     fn test_storage_bucket_set_region() -> Result<(), Box<dyn Error>> {
+        clear_query_cache();
+
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
             get_credential().into(),
@@ -375,6 +407,8 @@ mod tests {
 
     #[test]
     fn test_storage_bucket_set_region_id() -> Result<(), Box<dyn Error>> {
+        clear_query_cache();
+
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
             get_credential().into(),
@@ -396,6 +430,8 @@ mod tests {
 
     #[test]
     fn test_storage_bucket_prequery_region() -> Result<(), Box<dyn Error>> {
+        clear_query_cache();
+
         let mock = CounterCallMock::new(JSONCallMock::new(
             200,
             Headers::new(),
@@ -472,6 +508,8 @@ mod tests {
 
     #[test]
     fn test_storage_bucket_query_region() -> Result<(), Box<dyn Error>> {
+        clear_query_cache();
+
         let mock = CounterCallMock::new(JSONCallMock::new(
             200,
             Headers::new(),
@@ -575,6 +613,8 @@ mod tests {
 
     #[test]
     fn test_storage_bucket_set_domain() -> Result<(), Box<dyn Error>> {
+        clear_query_cache();
+
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
             get_credential().into(),
@@ -596,6 +636,8 @@ mod tests {
 
     #[test]
     fn test_storage_bucket_prequery_domain() -> Result<(), Box<dyn Error>> {
+        clear_query_cache();
+
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
@@ -617,7 +659,9 @@ mod tests {
     }
 
     #[test]
-    fn test_storage_bucket_query_domain() -> Result<(), Box<dyn Error>> {
+    fn test_storage_cloned_bucket_query_domain() -> Result<(), Box<dyn Error>> {
+        clear_query_cache();
+
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
         let bucket = Arc::new(
             BucketBuilder::new(
@@ -654,7 +698,63 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_storage_independent_bucket_query_domain() -> Result<(), Box<dyn Error>> {
+        clear_query_cache();
+
+        let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
+        let bucket1 = Arc::new(
+            BucketBuilder::new(
+                "test-bucket".into(),
+                get_credential().into(),
+                UploadManager::new(
+                    ConfigBuilder::default()
+                        .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+                        .http_request_handler(mock.clone())
+                        .build(),
+                ),
+            )
+            .build(),
+        );
+        let bucket2 = Arc::new(
+            BucketBuilder::new(
+                "test-bucket".into(),
+                get_credential().into(),
+                UploadManager::new(
+                    ConfigBuilder::default()
+                        .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+                        .http_request_handler(mock.clone())
+                        .build(),
+                ),
+            )
+            .build(),
+        );
+        assert_eq!(mock.call_called(), 0);
+
+        let mut threads = Vec::with_capacity(3);
+        {
+            threads.push(thread::spawn(move || {
+                assert!(bucket1.domains().unwrap().contains(&"abc.com"));
+            }));
+        }
+
+        {
+            threads.push(thread::spawn(move || {
+                assert!(bucket2.domains().unwrap().contains(&"def.com"));
+            }));
+        }
+
+        threads.into_iter().for_each(|thread| thread.join().unwrap());
+        assert_eq!(mock.call_called(), 1);
+        Ok(())
+    }
+
     fn get_credential() -> Credential {
         Credential::new("abcdefghklmnopq", "1234567890")
+    }
+
+    fn clear_query_cache() {
+        clear_domain_query_cache();
+        clear_region_query_cache();
     }
 }

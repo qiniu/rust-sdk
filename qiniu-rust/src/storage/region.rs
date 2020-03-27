@@ -4,13 +4,18 @@
 use crate::{
     config::Config,
     http::{Client, Result},
+    utils::cache_map::CacheMap,
 };
 use assert_impl::assert_impl;
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
 use lazy_static::lazy_static;
 use serde::Deserialize;
-use std::{borrow::Cow, convert::AsRef};
+use std::{
+    borrow::Cow,
+    convert::AsRef,
+    time::{Duration, SystemTime},
+};
 
 /// 存储区域 ID
 ///
@@ -383,22 +388,33 @@ impl Region {
     }
 
     /// 查询七牛服务器，根据存储空间名称获取区域列表
+    ///
+    /// 需要注意的是，当前方法具有缓存机制，对同一 Access Key 和存储空间多次调用时，将会返回缓存结果而不会发送 HTTP 请求
     pub fn query<'a>(
         bucket: impl Into<Cow<'a, str>>,
         access_key: impl Into<Cow<'a, str>>,
         config: Config,
     ) -> Result<Box<[Region]>> {
-        // TODO: 缓存结果
-        let uc_url = config.uc_url();
-        let result: RegionQueryResults = Client::new(config)
-            .get("/v3/query", &[&uc_url])
-            .query("ak", access_key.into())
-            .query("bucket", bucket.into())
-            .accept_json()
-            .no_body()
-            .send()?
-            .parse_json()?;
-        Ok(result.into_regions())
+        let bucket = bucket.into();
+        let access_key = access_key.into();
+        let (regions, _) = QUERY_CACHE
+            .try_get_or_insert(QueryCacheKey::new(&access_key, &bucket), || {
+                let uc_url = config.uc_url();
+                let result: RegionQueryResults = Client::new(config)
+                    .get("/v3/query", &[&uc_url])
+                    .query("ak", access_key)
+                    .query("bucket", bucket)
+                    .accept_json()
+                    .no_body()
+                    .send()?
+                    .parse_json()?;
+                Ok(Some((
+                    result.into_regions(),
+                    SystemTime::now() + Duration::from_secs(24 * 60 * 60),
+                )))
+            })?
+            .unwrap();
+        Ok(regions)
     }
 
     #[allow(dead_code)]
@@ -406,6 +422,22 @@ impl Region {
         assert_impl!(Send: Self);
         assert_impl!(Sync: Self);
     }
+}
+
+lazy_static! {
+    static ref QUERY_CACHE: CacheMap<QueryCacheKey, Box<[Region]>> = CacheMap::new(true);
+}
+#[derive(PartialEq, Hash, Clone, Debug)]
+struct QueryCacheKey(String);
+
+impl QueryCacheKey {
+    fn new(access_key: &str, bucket_name: &str) -> Self {
+        Self(access_key.to_owned() + ":" + bucket_name)
+    }
+}
+
+pub(super) fn clear_query_cache() {
+    QUERY_CACHE.clear();
 }
 
 impl From<Region> for Cow<'_, Region> {
@@ -645,6 +677,8 @@ mod tests {
 
     #[test]
     fn test_query_region_by_expected_domain() -> Result<(), Box<dyn Error>> {
+        clear_query_cache();
+
         let config = ConfigBuilder::default()
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .http_request_handler(JSONCallMock::new(
@@ -703,6 +737,8 @@ mod tests {
 
     #[test]
     fn test_query_region_by_unexpected_domain() -> Result<(), Box<dyn Error>> {
+        clear_query_cache();
+
         let config = ConfigBuilder::default()
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .http_request_handler(JSONCallMock::new(

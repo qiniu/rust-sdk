@@ -13,7 +13,7 @@ use std::{
     net::IpAddr,
     result::Result,
 };
-use tap::{TapOps, TapOptionOps};
+use tap::TapOptionOps;
 
 #[derive(CopyGetters, Getters)]
 pub(crate) struct Response<'a> {
@@ -76,20 +76,36 @@ impl<'a> Response<'a> {
         })
     }
 
-    pub(crate) fn try_parse_json<T: DeserializeOwned>(&mut self) -> Result<T, Vec<u8>> {
-        let body = match self.take_body().unwrap() {
-            HTTPResponseBody::Reader(mut reader) => Vec::new().tap(|buf| {
-                let _ = reader.read(buf);
-            }),
-            HTTPResponseBody::File(mut file) => Vec::new().tap(|buf| {
-                let _ = file.read(buf);
-            }),
-            HTTPResponseBody::Bytes(bytes) => bytes,
+    pub(crate) fn try_parse_json<T: DeserializeOwned>(&mut self) -> HTTPResult<Result<T, Vec<u8>>> {
+        let body_result: IOResult<Vec<u8>> = match self.take_body().unwrap() {
+            HTTPResponseBody::Reader(mut reader) => {
+                let mut buf = Vec::new();
+                match reader.read(&mut buf) {
+                    Ok(_) => Ok(buf),
+                    Err(err) => Err(err),
+                }
+            }
+            HTTPResponseBody::File(mut file) => {
+                let mut buf = Vec::new();
+                match file.read(&mut buf) {
+                    Ok(_) => Ok(buf),
+                    Err(err) => Err(err),
+                }
+            }
+            HTTPResponseBody::Bytes(bytes) => Ok(bytes),
         };
+        let body = body_result.map_err(|err| {
+            HTTPError::new_unretryable_error(
+                HTTPErrorKind::IOError(err),
+                Some(self.method),
+                Some((self.base_url.to_owned() + self.path).into()),
+                self.request_id().map(|request_id| request_id.into()),
+            )
+        })?;
         if self.header("Content-Type") != Some(&mime::JSON_MIME.into()) {
-            return Err(body);
+            return Ok(Err(body));
         }
-        serde_json::from_slice(&body).map_err(|_| body)
+        Ok(serde_json::from_slice(&body).map_err(|_| body))
     }
 
     pub(crate) fn ignore_body(&mut self) {

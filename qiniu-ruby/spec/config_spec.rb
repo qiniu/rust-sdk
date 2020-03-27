@@ -179,34 +179,34 @@ RSpec.describe QiniuNg::Config do
 
     context 'Handler' do
       it 'could modify request before http call' do
+        handler_called = Concurrent::AtomicBoolean.new
+
         builder = QiniuNg::Config::Builder.new
         builder.append_http_request_before_action_handler do |request|
-          url = URI.parse(request.url)
-          expect(url.scheme).to eq 'https'
-          expect(url.host).to eq 'uc.qbox.me'
-          expect(url.path).to eq '/v3/query'
-          query = WEBrick::HTTPUtils.parse_query(url.query)
-          expect(query['bucket']).to eq 'z0-bucket'
-          expect(query['ak']).to eq ENV['access_key']
-          url.query = "bucket=z1-bucket&ak=#{ENV['access_key']}"
-          request.url = url
-
-          expect(request.method).to eq :GET
-          headers = request.headers
-          expect(headers['Accept']).to eq 'application/json'
-          expect(headers['Content-Type']).to eq 'application/x-www-form-urlencoded'
-          expect(request.body).to be_nil
-          expect(request).not_to be_follow_redirection
-          expect(request.resolved_socket_addrs.is_a?(Array)).to be true
-          expect(request.resolved_socket_addrs.size >= 0).to be true
+          if request.url == 'https://upload.qiniup.com/'
+            request.url = 'https://upload-z1.qiniup.com/'
+            expect(request.method).to eq :POST
+            headers = request.headers
+            expect(headers['Accept']).to eq 'application/json'
+            expect(headers['Content-Type']).to start_with 'multipart/form-data'
+            expect(request.body).not_to be_nil
+            expect(request).not_to be_follow_redirection
+            expect(request.resolved_socket_addrs.is_a?(Array)).to be true
+            expect(request.resolved_socket_addrs.size >= 0).to be true
+            handler_called.make_true
+          end
         end
         config = builder.build!
 
         GC.start
 
-        regions = QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
-        expect(regions.size).to eq 1
-        expect(regions[0].io_urls).to eq %w[https://iovip-z1.qbox.me]
+        upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
+                                                                         build_token(access_key: ENV['access_key'],
+                                                                                     secret_key: ENV['secret_key'])
+        QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
+                                                         upload_token: upload_token,
+                                                         key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
+        expect(handler_called).to be_true
       end
 
       it 'could pass custom_data by request' do
@@ -214,21 +214,33 @@ RSpec.describe QiniuNg::Config do
 
         builder = QiniuNg::Config::Builder.new
         builder.append_http_request_before_action_handler do |request|
-          request.custom_data = ['hello world']
-          ref_cnt.increment
+          if request.url == 'https://upload.qiniup.com/'
+            request.custom_data = ['hello world']
+            ref_cnt.increment
+          end
         end
         builder.append_http_request_before_action_handler do |request|
-          expect(request.custom_data).to eq(['hello world'])
-          request.custom_data = 'hello world'
-          ref_cnt.increment
+          if request.url == 'https://upload.qiniup.com/'
+            expect(request.custom_data).to eq(['hello world'])
+            request.custom_data = 'hello world'
+            ref_cnt.increment
+          end
         end
         builder.append_http_request_after_action_handler do |request|
-          expect(request.custom_data).to eq('hello world')
-          ref_cnt.increment
+          if request.url == 'https://upload.qiniup.com/'
+            expect(request.custom_data).to eq('hello world')
+            ref_cnt.increment
+          end
         end
         config = builder.build!
         GC.start
-        QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
+        upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
+                                                                         build_token(access_key: ENV['access_key'],
+                                                                                     secret_key: ENV['secret_key'])
+        QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
+                                                         upload_token: upload_token,
+                                                         key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
+        # TODO: Clean uploaded file
         expect(ref_cnt.value).to eq 3
       end
 
@@ -242,7 +254,12 @@ RSpec.describe QiniuNg::Config do
         GC.start
 
         expect do
-          QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
+          upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
+                                                                           build_token(access_key: ENV['access_key'],
+                                                                                       secret_key: ENV['secret_key'])
+          QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
+                                                           upload_token: upload_token,
+                                                           key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
         end.to raise_error(QiniuNg::Error::IOError, 'test error')
       end
 
@@ -256,7 +273,12 @@ RSpec.describe QiniuNg::Config do
         GC.start
 
         begin
-          QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
+          upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
+                                                                           build_token(access_key: ENV['access_key'],
+                                                                                       secret_key: ENV['secret_key'])
+          QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
+                                                           upload_token: upload_token,
+                                                           key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
           fail 'expect to raise error here'
         rescue QiniuNg::Error::OSError => e
           expect(e.errno).to eq Errno::EPERM::Errno
@@ -273,7 +295,12 @@ RSpec.describe QiniuNg::Config do
         GC.start
 
         begin
-          QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
+          upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
+                                                                           build_token(access_key: ENV['access_key'],
+                                                                                       secret_key: ENV['secret_key'])
+          QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
+                                                           upload_token: upload_token,
+                                                           key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
           fail 'expect to raise error here'
         rescue QiniuNg::Error::ResponseStatusCodeError => e
           expect(e.code).to eq 503
@@ -284,7 +311,7 @@ RSpec.describe QiniuNg::Config do
       it 'could modify headers before http call' do
         builder = QiniuNg::Config::Builder.new
         builder.append_http_request_before_action_handler do |request|
-          unless request.url.start_with?('https://uc.qbox.me/')
+          if request.url.start_with?('https://upload.qiniup.com/')
             expect(request.headers['Authorization']).to be_start_with('UpToken ')
             request.headers['Authorization'] = nil
           end
@@ -294,15 +321,11 @@ RSpec.describe QiniuNg::Config do
         GC.start
 
         upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
-                                                                         build!.
                                                                          build_token(access_key: ENV['access_key'],
                                                                                      secret_key: ENV['secret_key'])
-        io = StringIO.new(SecureRandom.random_bytes(1 << 23))
+        io = StringIO.new(SecureRandom.random_bytes((1<<22)+1))
         begin
-          QiniuNg::Storage::Uploader.new(config).
-                                     bucket_uploader(bucket_name: 'z0-bucket',
-                                                     access_key: ENV['access_key']).
-                                     upload_io(io, upload_token: upload_token, key: "测试-#{Time.now.to_i}")
+          QiniuNg::Storage::Uploader.new(config).upload_io(io, upload_token: upload_token, key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}")
           fail 'expect to raise error here'
         rescue QiniuNg::Error::ResponseStatusCodeError => e
           expect(e.code).to eq 401
@@ -324,37 +347,39 @@ RSpec.describe QiniuNg::Config do
                                                                          build!.
                                                                          build_token(access_key: ENV['access_key'],
                                                                                      secret_key: ENV['secret_key'])
-        Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
-          file.write(SecureRandom.random_bytes(1 << 21))
-          begin
-            QiniuNg::Storage::Uploader.new(config).
-                                       bucket_uploader(bucket_name: 'z0-bucket',
-                                                       access_key: ENV['access_key']).
-                                       upload_file_path(file.path, upload_token: upload_token, key: "测试-#{Time.now.to_i}")
-          rescue QiniuNg::Error::ResponseStatusCodeError => e
-            expect(e.code).to eq 400
-          end
+        io = StringIO.new(SecureRandom.random_bytes(1))
+        begin
+          QiniuNg::Storage::Uploader.new(config).upload_io(io, upload_token: upload_token, key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}")
+        rescue QiniuNg::Error::ResponseStatusCodeError => e
+          expect(e.code).to eq 400
         end
       end
 
       it 'could modify response after http call' do
         builder = QiniuNg::Config::Builder.new
         builder.append_http_request_after_action_handler do |request, response|
-          expect(response.status_code).to eq 200
-          expect(response.server_port).to eq 443
-          expect(response.headers['Content-Length'].to_i > 2).to be true
-          expect(JSON.parse(response.body.read)['hosts'].is_a?(Array)).to be true
+          if request.url == 'https://upload.qiniup.com/'
+            expect(response.status_code).to eq 200
+            expect(response.server_port).to eq 443
+            expect(response.headers['Content-Length'].to_i > 2).to be true
+            expect(JSON.parse(response.body.read)['key'].is_a?(String)).to be true
 
-          response.headers['Content-Length'] = 2
-          response.body = '{}'
+            response.headers['Content-Length'] = 2
+            response.body = '{}'
+          end
         end
         config = builder.build!
 
         GC.start
 
-        expect do
-          QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
-        end.to raise_error(QiniuNg::Error::JSONError, /missing field `hosts`/)
+        upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
+                                                                         build!.
+                                                                         build_token(access_key: ENV['access_key'],
+                                                                                     secret_key: ENV['secret_key'])
+        io = StringIO.new(SecureRandom.random_bytes(1))
+        response = QiniuNg::Storage::Uploader.new(config).upload_io(io, upload_token: upload_token, key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}")
+        expect(response.key).to be_nil
+        expect(response.hash).to be_nil
       end
 
       it 'could make response for http call handler' do

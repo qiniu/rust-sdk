@@ -190,7 +190,7 @@ impl<'u> FormUploader<'u> {
             .accept_json()
             .raw_body(self.content_type.to_owned(), self.body.as_slice())
             .send()?
-            .try_parse_json::<Value>();
+            .try_parse_json::<Value>()?;
         match upload_result {
             Ok(value) => Ok(value.into()),
             Err(bytes) => Ok(bytes.into()),

@@ -2,10 +2,17 @@
 //!
 //! 对七牛 Rust SDK 所用的所有域名及域名解析后的 IP 地址进行管理。功能包含域名预解析和缓存，冻结域名，并会对这些状态进行持久化存储。
 
-use crate::{config::Config, storage::region::Region, utils::global_thread_pool};
+use crate::{
+    config::Config,
+    storage::region::Region,
+    utils::{
+        cache_map::{CacheMap, PersistentEntry},
+        global_thread_pool,
+    },
+};
 use assert_impl::assert_impl;
-use chashmap::CHashMap;
 use dirs::cache_dir;
+use lazy_static::lazy_static;
 use matches::matches;
 use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -17,7 +24,6 @@ use std::{
     env::temp_dir,
     fs::{create_dir_all, File, OpenOptions},
     io::{Error as IOError, Result as IOResult},
-    mem::drop,
     net::{SocketAddr, ToSocketAddrs},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -29,15 +35,9 @@ use thiserror::Error;
 use url::Url;
 
 #[derive(Debug, Clone)]
-struct CachedResolutions {
-    socket_addrs: Box<[SocketAddr]>,
-    cache_deadline: SystemTime,
-}
-
-#[derive(Debug, Clone)]
 struct DomainsManagerInnerData {
-    frozen_urls: CHashMap<Box<str>, SystemTime>,
-    resolutions: CHashMap<Box<str>, CachedResolutions>,
+    frozen_urls: CacheMap<Box<str>, ()>,
+    resolutions: CacheMap<Box<str>, Box<[SocketAddr]>>,
     url_frozen_duration: Duration,
     resolutions_cache_lifetime: Duration,
     url_resolution_disabled: bool,
@@ -50,8 +50,8 @@ struct DomainsManagerInnerData {
 impl Default for DomainsManagerInnerData {
     fn default() -> Self {
         DomainsManagerInnerData {
-            frozen_urls: CHashMap::new(),
-            resolutions: CHashMap::new(),
+            frozen_urls: CacheMap::new(false),
+            resolutions: CacheMap::new(false),
             url_frozen_duration: default::url_frozen_duration(),
             resolutions_cache_lifetime: default::resolutions_cache_lifetime(),
             url_resolution_disabled: default::url_resolution_disabled(),
@@ -104,8 +104,8 @@ mod default {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PersistentDomainsManager {
-    frozen_urls: Vec<PersistentFrozenURL>,
-    resolutions: Vec<PersistentResolutions>,
+    frozen_urls: Vec<PersistentEntry<Box<str>, ()>>,
+    resolutions: Vec<PersistentEntry<Box<str>, Box<[SocketAddr]>>>,
     url_frozen_duration: Duration,
     resolutions_cache_lifetime: Duration,
     url_resolution_disabled: bool,
@@ -113,19 +113,6 @@ struct PersistentDomainsManager {
     refresh_resolutions_interval: Option<Duration>,
     url_resolve_retries: usize,
     url_resolve_retry_delay: Duration,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct PersistentFrozenURL {
-    base_url: Box<str>,
-    frozen_until: SystemTime,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct PersistentResolutions {
-    base_url: Box<str>,
-    socket_addrs: Box<[SocketAddr]>,
-    cache_deadline: SystemTime,
 }
 
 impl DomainsManagerInnerData {
@@ -143,9 +130,9 @@ impl DomainsManagerInnerData {
 
 impl From<PersistentDomainsManager> for DomainsManagerInnerData {
     fn from(persistent: PersistentDomainsManager) -> Self {
-        let domains_manager = DomainsManagerInnerData {
-            frozen_urls: CHashMap::new(),
-            resolutions: CHashMap::new(),
+        Self {
+            frozen_urls: CacheMap::from_persistent(persistent.frozen_urls, false),
+            resolutions: CacheMap::from_persistent(persistent.resolutions, false),
             url_frozen_duration: persistent.url_frozen_duration,
             resolutions_cache_lifetime: persistent.resolutions_cache_lifetime,
             url_resolution_disabled: persistent.url_resolution_disabled,
@@ -153,30 +140,15 @@ impl From<PersistentDomainsManager> for DomainsManagerInnerData {
             refresh_resolutions_interval: persistent.refresh_resolutions_interval,
             url_resolve_retries: persistent.url_resolve_retries,
             url_resolve_retry_delay: persistent.url_resolve_retry_delay,
-        };
-
-        for item in persistent.frozen_urls {
-            domains_manager.frozen_urls.insert(item.base_url, item.frozen_until);
         }
-        for item in persistent.resolutions {
-            domains_manager.resolutions.insert(
-                item.base_url,
-                CachedResolutions {
-                    socket_addrs: item.socket_addrs,
-                    cache_deadline: item.cache_deadline,
-                },
-            );
-        }
-
-        domains_manager
     }
 }
 
 impl From<DomainsManagerInnerData> for PersistentDomainsManager {
     fn from(domains_manager: DomainsManagerInnerData) -> Self {
-        let mut persistent = PersistentDomainsManager {
-            frozen_urls: Vec::with_capacity(domains_manager.frozen_urls.len()),
-            resolutions: Vec::with_capacity(domains_manager.resolutions.len()),
+        Self {
+            frozen_urls: domains_manager.frozen_urls.into_persistent(),
+            resolutions: domains_manager.resolutions.into_persistent(),
             url_frozen_duration: domains_manager.url_frozen_duration,
             resolutions_cache_lifetime: domains_manager.resolutions_cache_lifetime,
             url_resolution_disabled: domains_manager.url_resolution_disabled,
@@ -184,22 +156,7 @@ impl From<DomainsManagerInnerData> for PersistentDomainsManager {
             refresh_resolutions_interval: domains_manager.refresh_resolutions_interval,
             url_resolve_retries: domains_manager.url_resolve_retries,
             url_resolve_retry_delay: domains_manager.url_resolve_retry_delay,
-        };
-
-        for (base_url, frozen_until) in domains_manager.frozen_urls {
-            persistent
-                .frozen_urls
-                .push(PersistentFrozenURL { base_url, frozen_until });
         }
-        for (base_url, resolutions) in domains_manager.resolutions {
-            persistent.resolutions.push(PersistentResolutions {
-                base_url,
-                socket_addrs: resolutions.socket_addrs,
-                cache_deadline: resolutions.cache_deadline,
-            });
-        }
-
-        persistent
     }
 }
 
@@ -558,7 +515,7 @@ impl DomainsManager {
                             .inner_data
                             .frozen_urls
                             .get(&Self::host_with_port(choice.base_url).unwrap())
-                            .map(|time| time.duration_since(SystemTime::UNIX_EPOCH).unwrap())
+                            .map(|cache_entry| cache_entry.expired_at().duration_since(SystemTime::UNIX_EPOCH).unwrap())
                             .unwrap_or_else(|| Duration::from_secs(0))
                     })
                     .unwrap(),
@@ -582,6 +539,7 @@ impl DomainsManager {
     pub fn freeze_url(&self, url: &str) -> URLParseResult<()> {
         self.inner.inner_data.frozen_urls.insert(
             Self::host_with_port(url)?,
+            (),
             SystemTime::now() + self.inner.inner_data.url_frozen_duration,
         );
         self.try_to_persistent_if_needed();
@@ -599,18 +557,18 @@ impl DomainsManager {
     /// 判定域名是否被冻结
     pub fn is_frozen_url(&self, url: &str) -> URLParseResult<bool> {
         let url = Self::host_with_port(url)?;
-        match self.inner.inner_data.frozen_urls.get(&url) {
-            Some(unfreeze_time) => {
-                if *unfreeze_time < SystemTime::now() {
-                    drop(unfreeze_time);
-                    self.inner.inner_data.frozen_urls.remove(&url);
-                    Ok(false)
+        let mut result = false;
+        self.inner.inner_data.frozen_urls.alter(url, |cache_entry| {
+            cache_entry.and_then(|(_, expired_at)| {
+                if expired_at < SystemTime::now() {
+                    None
                 } else {
-                    Ok(true)
+                    result = true;
+                    Some(((), expired_at))
                 }
-            }
-            None => Ok(false),
-        }
+            })
+        });
+        Ok(result)
     }
 
     fn make_choice<'a>(&self, base_url: &'a str, rng: &mut ThreadRng) -> Option<Choice<'a>> {
@@ -633,11 +591,11 @@ impl DomainsManager {
     fn resolve(&self, url: &str) -> ResolveResult<Box<[SocketAddr]>> {
         let url = Self::host_with_port(url)?;
         match self.inner.inner_data.resolutions.get(&url) {
-            Some(resolution) => {
-                if resolution.cache_deadline < SystemTime::now() {
-                    Ok(resolution.socket_addrs.clone()).tap(|_| self.async_update_cache(url))
+            Some(cache_entry) => {
+                if cache_entry.expired_at() < SystemTime::now() {
+                    Ok(cache_entry.data().clone()).tap(|_| self.async_update_cache(url))
                 } else {
-                    Ok(resolution.socket_addrs.clone())
+                    Ok(cache_entry.data().clone())
                 }
             }
             None => self.resolve_and_update_cache(&url),
@@ -657,12 +615,12 @@ impl DomainsManager {
             .inner_data
             .resolutions
             .alter(url.into(), |resolution| match resolution {
-                Some(resolution) => {
-                    if resolution.cache_deadline < SystemTime::now() {
+                Some((socket_addrs, expired_at)) => {
+                    if expired_at < SystemTime::now() {
                         match self.make_resolution(url) {
-                            Ok(resolution) => {
-                                result = Some(Ok(resolution.socket_addrs.clone()));
-                                Some(resolution)
+                            Ok((socket_addrs, expired_at)) => {
+                                result = Some(Ok(socket_addrs.to_owned()));
+                                Some((socket_addrs, expired_at))
                             }
                             Err(err) => {
                                 result = Some(Err(err));
@@ -670,14 +628,14 @@ impl DomainsManager {
                             }
                         }
                     } else {
-                        result = Some(Ok(resolution.socket_addrs.clone()));
-                        Some(resolution)
+                        result = Some(Ok(socket_addrs.to_owned()));
+                        Some((socket_addrs, expired_at))
                     }
                 }
                 None => match self.make_resolution(url) {
-                    Ok(resolution) => {
-                        result = Some(Ok(resolution.socket_addrs.clone()));
-                        Some(resolution)
+                    Ok((socket_addrs, expired_at)) => {
+                        result = Some(Ok(socket_addrs.to_owned()));
+                        Some((socket_addrs, expired_at))
                     }
                     Err(err) => {
                         result = Some(Err(err));
@@ -688,11 +646,11 @@ impl DomainsManager {
         result.unwrap()
     }
 
-    fn make_resolution(&self, url: &str) -> ResolveResult<CachedResolutions> {
-        Ok(CachedResolutions {
-            socket_addrs: url.to_socket_addrs()?.collect::<Box<[_]>>(),
-            cache_deadline: SystemTime::now() + self.inner.inner_data.resolutions_cache_lifetime,
-        })
+    fn make_resolution(&self, url: &str) -> ResolveResult<(Box<[SocketAddr]>, SystemTime)> {
+        Ok((
+            url.to_socket_addrs()?.collect::<Box<[_]>>(),
+            SystemTime::now() + self.inner.inner_data.resolutions_cache_lifetime,
+        ))
     }
 
     fn host_with_port(url: &str) -> URLParseResult<Box<str>> {
@@ -776,15 +734,9 @@ impl DomainsManager {
         if self.inner.inner_data.resolutions.is_empty() {
             return;
         }
-        let now = SystemTime::now();
         let to_fresh_urls = RefCell::new(HashSet::new());
-        self.inner.inner_data.resolutions.retain(|url, resolution| {
-            if resolution.cache_deadline <= now {
-                to_fresh_urls.borrow_mut().insert(Cow::Owned(url.to_string()));
-                false
-            } else {
-                true
-            }
+        self.inner.inner_data.resolutions.for_each_expired(|url, _, _| {
+            to_fresh_urls.borrow_mut().insert(Cow::Owned(url.to_string()));
         });
         let to_fresh_urls = to_fresh_urls.into_inner();
         if !to_fresh_urls.is_empty() {
@@ -869,10 +821,16 @@ impl DomainsManager {
     }
 }
 
+lazy_static! {
+    static ref DEFAULT_DOMAINS_MANAGER: DomainsManager = DomainsManagerBuilder::default().build();
+}
+
 impl Default for DomainsManager {
     /// 创建默认的域名管理器
+    ///
+    /// 对于多次创建默认域名管理器的情况，不会真的反复创建，而只会获取到副本
     fn default() -> Self {
-        DomainsManagerBuilder::default().build()
+        DEFAULT_DOMAINS_MANAGER.clone()
     }
 }
 

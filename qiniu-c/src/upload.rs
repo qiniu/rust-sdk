@@ -190,10 +190,11 @@ fn qiniu_ng_upload_manager_upload(
             let _ = qiniu_ng_upload_token_t::from(upload_token);
         }) {
         Ok(mut file_uploader) => {
+            let mut file_name = String::new();
+            let mut mime: Option<Mime> = None;
             if let Some(params) = unsafe { params.as_ref() } {
                 file_uploader = set_params_to_file_uploader(file_uploader, params);
-                let file_name = unsafe { convert_optional_c_string_to_rust_string(params.file_name) };
-                let mut mime: Option<Mime> = None;
+                file_name = unsafe { convert_optional_c_string_to_rust_string(params.file_name) };
                 match parse_mime(params.mime) {
                     Some(Ok(parsed_mime)) => {
                         mime = Some(parsed_mime);
@@ -206,19 +207,19 @@ fn qiniu_ng_upload_manager_upload(
                     }
                     None => {}
                 };
-                if result {
-                    match upload_target.upload(file_uploader, file_name, mime) {
-                        Ok(resp) => {
-                            if let Some(response) = unsafe { response.as_mut() } {
-                                *response = Box::new(resp).into();
-                            }
+            }
+            if result {
+                match upload_target.upload(file_uploader, file_name, mime) {
+                    Ok(resp) => {
+                        if let Some(response) = unsafe { response.as_mut() } {
+                            *response = Box::new(resp).into();
                         }
-                        Err(ref e) => {
-                            if let Some(err) = unsafe { err.as_mut() } {
-                                *err = e.into();
-                            }
-                            result = false;
+                    }
+                    Err(ref e) => {
+                        if let Some(err) = unsafe { err.as_mut() } {
+                            *err = e.into();
                         }
+                        result = false;
                     }
                 }
             }

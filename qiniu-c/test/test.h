@@ -14,6 +14,7 @@
     #define OPEN_FILE_FOR_WRITING(file) (_wfopen(file, L"wb"))
     #define DELETE_FILE(file) (_wunlink(file))
 #else
+    #include <unistd.h>
     #define QINIU_NG_CHARS(x) x
     #define GETENV(env) (getenv(env))
     #define QINIU_NG_CHARS_LEN(str) (strlen(str))

@@ -307,6 +307,8 @@ static void test_qiniu_ng_config_bad_http_request_after_action_handlers(qiniu_ng
 }
 
 void test_qiniu_ng_config_bad_http_request_handlers(void) {
+    env_load("..", false);
+
     qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
     qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_bad_http_request_after_action_handlers, NULL);
 
@@ -319,13 +321,20 @@ void test_qiniu_ng_config_bad_http_request_handlers(void) {
         qiniu_ng_config_builder_is_freed(builder),
         "qiniu_ng_config_builder_is_freed() failed");
 
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
+    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_free(&policy_builder);
+
+    const qiniu_ng_char_t *file_path = create_temp_file(1);
+
     int32_t code;
     env_load("..", false);
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
-    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
+
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_bucket_get_region(bucket, NULL, &err),
-        "qiniu_ng_bucket_get_region() returns unexpected value");
+        qiniu_ng_upload_manager_upload_file_path(upload_manager, token, file_path, NULL, NULL, &err),
+        "qiniu_ng_upload_manager_upload_file_path() returns unexpected value");
     TEST_ASSERT_FALSE_MESSAGE(
         qiniu_ng_err_curl_error_extract(&err, NULL, NULL),
         "qiniu_ng_err_curl_error_extract() returns unexpected value");
@@ -333,7 +342,11 @@ void test_qiniu_ng_config_bad_http_request_handlers(void) {
         qiniu_ng_err_os_error_extract(&err, &code),
         "qiniu_ng_err_os_error_extract() returns unexpected value");
     TEST_ASSERT_EQUAL_INT_MESSAGE(code, EACCES, "code != EACCES");
-    qiniu_ng_bucket_free(&bucket);
+
+    DELETE_FILE(file_path);
+    free((void *) file_path);
+    qiniu_ng_upload_manager_free(&upload_manager);
+    qiniu_ng_upload_token_free(&token);
     qiniu_ng_client_free(&client);
     qiniu_ng_config_free(&config);
 }
@@ -347,6 +360,8 @@ static void test_qiniu_ng_config_http_request_handlers_always_return_error(qiniu
 }
 
 void test_qiniu_ng_config_bad_http_request_handlers_2(void) {
+    env_load("..", false);
+
     qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
     qiniu_ng_config_builder_append_http_request_after_action_handler(builder, test_qiniu_ng_config_http_request_handlers_always_return_error, NULL);
 
@@ -359,23 +374,33 @@ void test_qiniu_ng_config_bad_http_request_handlers_2(void) {
         qiniu_ng_config_builder_is_freed(builder),
         "qiniu_ng_config_builder_is_freed() failed");
 
-    env_load("..", false);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
+    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_free(&policy_builder);
+
+    const qiniu_ng_char_t *file_path = create_temp_file(1);
+
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
-    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_bucket_get_region(bucket, NULL, &err),
-        "qiniu_ng_bucket_get_region() returns unexpected value");
+        qiniu_ng_upload_manager_upload_file_path(upload_manager, token, file_path, NULL, NULL, &err),
+        "qiniu_ng_upload_manager_upload_file_path() returns unexpected value");
     int32_t code;
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_err_os_error_extract(&err, &code),
         "qiniu_ng_err_os_error_extract() returns unexpected value");
     TEST_ASSERT_EQUAL_INT_MESSAGE(code, EPERM, "code != EPERM");
-    qiniu_ng_bucket_free(&bucket);
+    DELETE_FILE(file_path);
+    free((void *) file_path);
+    qiniu_ng_upload_manager_free(&upload_manager);
+    qiniu_ng_upload_token_free(&token);
     qiniu_ng_client_free(&client);
     qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_config_bad_http_request_handlers_3(void) {
+    env_load("..", false);
+
     qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
     qiniu_ng_config_builder_set_http_call_handler(builder, test_qiniu_ng_config_http_request_handlers_always_return_error, NULL);
 
@@ -388,18 +413,25 @@ void test_qiniu_ng_config_bad_http_request_handlers_3(void) {
         qiniu_ng_config_builder_is_freed(builder),
         "qiniu_ng_config_builder_is_freed() failed");
 
-    env_load("..", false);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
+    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_free(&policy_builder);
+
+    const qiniu_ng_char_t *file_path = create_temp_file(1);
+
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
-    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_bucket_get_region(bucket, NULL, &err),
-        "qiniu_ng_bucket_get_region() returns unexpected value");
+        qiniu_ng_upload_manager_upload_file_path(upload_manager, token, file_path, NULL, NULL, &err),
+        "qiniu_ng_upload_manager_upload_file_path() returns unexpected value");
+
     int32_t code;
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_err_os_error_extract(&err, &code),
         "qiniu_ng_err_os_error_extract() returns unexpected value");
     TEST_ASSERT_EQUAL_INT_MESSAGE(code, EPERM, "code != EPERM");
-    qiniu_ng_bucket_free(&bucket);
+    qiniu_ng_upload_manager_free(&upload_manager);
+    qiniu_ng_upload_token_free(&token);
     qiniu_ng_client_free(&client);
     qiniu_ng_config_free(&config);
 }
@@ -415,6 +447,8 @@ static void test_qiniu_ng_config_http_request_handlers_always_return_500(qiniu_n
 }
 
 void test_qiniu_ng_config_bad_http_request_handlers_4(void) {
+    env_load("..", false);
+
     qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
     qiniu_ng_config_builder_set_http_call_handler(builder, test_qiniu_ng_config_http_request_handlers_always_return_500, NULL);
 
@@ -427,12 +461,18 @@ void test_qiniu_ng_config_bad_http_request_handlers_4(void) {
         qiniu_ng_config_builder_is_freed(builder),
         "qiniu_ng_config_builder_is_freed() failed");
 
-    env_load("..", false);
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(QINIU_NG_CHARS("z0-bucket"), config);
+    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_free(&policy_builder);
+
+    const qiniu_ng_char_t *file_path = create_temp_file(1);
+
     qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
-    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, QINIU_NG_CHARS("z0-bucket"));
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_bucket_get_region(bucket, NULL, &err),
-        "qiniu_ng_bucket_get_region() returns unexpected value");
+        qiniu_ng_upload_manager_upload_file_path(upload_manager, token, file_path, NULL, NULL, &err),
+        "qiniu_ng_upload_manager_upload_file_path() returns unexpected value");
+
     uint16_t code;
     qiniu_ng_str_t message;
     TEST_ASSERT_TRUE_MESSAGE(
@@ -441,7 +481,8 @@ void test_qiniu_ng_config_bad_http_request_handlers_4(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(code, 500, "code != 500");
     TEST_ASSERT_EQUAL_STRING_MESSAGE(qiniu_ng_str_get_ptr(message), QINIU_NG_CHARS("Internal Server Error"), "message != \"Internal Server Error\"");
     qiniu_ng_str_free(&message);
-    qiniu_ng_bucket_free(&bucket);
+    qiniu_ng_upload_manager_free(&upload_manager);
+    qiniu_ng_upload_token_free(&token);
     qiniu_ng_client_free(&client);
     qiniu_ng_config_free(&config);
 }

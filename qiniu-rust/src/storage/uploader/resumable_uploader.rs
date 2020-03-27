@@ -662,7 +662,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
             .json_body(&*completed_parts)
             .unwrap()
             .send()?
-            .try_parse_json::<Value>();
+            .try_parse_json::<Value>()?;
         match upload_result {
             Ok(value) => Ok(value.into()),
             Err(bytes) => Ok(bytes.into()),

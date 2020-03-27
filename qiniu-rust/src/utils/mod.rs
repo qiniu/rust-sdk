@@ -2,6 +2,7 @@
 
 pub(crate) mod base64;
 pub(crate) mod bool;
+pub(crate) mod cache_map;
 pub(crate) mod crc32;
 pub mod etag;
 pub(crate) mod mime;
