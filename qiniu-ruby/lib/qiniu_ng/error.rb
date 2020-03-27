@@ -155,6 +155,14 @@ module QiniuNg
       public_class_method :new
     end
 
+    # 空文件异常
+    class EmptyFileError < Error
+      # 创建空文件异常
+      def initialize
+        super('File must not be empty')
+      end
+    end
+
     # JSON 错误
     class JSONError < Error
       # 创建 JSON 错误
@@ -356,6 +364,7 @@ module QiniuNg
         return Error::IOError.new(Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_io_error_extract(err, msg)
         return Error::UnexpectedRedirectError if Bindings::CoreFFI::qiniu_ng_err_unexpected_redirect_error_extract(err)
         return Error::UserCancelledError if Bindings::CoreFFI::qiniu_ng_err_user_canceled_error_extract(err)
+        return Error::EmptyFileError if Bindings::CoreFFI::qiniu_ng_err_empty_file_error_extract(err)
         return Error::JSONError.new(Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_json_error_extract(err, msg)
         return Error::ResponseStatusCodeError.new(code.read_int, Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_response_status_code_error_extract(err, code, msg)
         return Error::UnknownError.new(Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_unknown_error_extract(err, msg)

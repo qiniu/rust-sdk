@@ -63,6 +63,7 @@ void test_qiniu_ng_make_upload_token(void);
 void test_qiniu_ng_upload_manager_upload_files(void);
 void test_qiniu_ng_bucket_uploader_upload_files(void);
 void test_qiniu_ng_bucket_uploader_upload_huge_number_of_files(void);
+void test_qiniu_ng_bucket_uploader_upload_empty_file(void);
 void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_mime(void);
 void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_non_existed_path(void);
 void test_qiniu_ng_batch_upload_files(void);

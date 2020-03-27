@@ -50,9 +50,9 @@ static void print_progress(uint64_t uploaded, uint64_t total, void* data) {
 
 static void generate_file_key(const qiniu_ng_char_t *file_key, int max_size, int file_id, int file_size) {
 #if defined(_WIN32) || defined(WIN32)
-    swprintf((wchar_t *) file_key, max_size, L"测试-%dm-%d-%lld", file_size, file_id, (long long) time(NULL));
+    swprintf((wchar_t *) file_key, max_size, L"测试-%dm-%d-%lld-%d", file_size, file_id, (long long) time(NULL), rand());
 #else
-    snprintf((char *) file_key, max_size, "测试-%dm-%d-%lld", file_size, file_id, (long long) time(NULL));
+    snprintf((char *) file_key, max_size, "测试-%dm-%d-%lld-%d", file_size, file_id, (long long) time(NULL), rand());
 #endif
 }
 
@@ -397,6 +397,41 @@ void test_qiniu_ng_bucket_uploader_upload_huge_number_of_files(void) {
 
     DELETE_FILE(file_path);
     free((void *) file_path);
+
+    qiniu_ng_bucket_uploader_free(&bucket_uploader);
+    qiniu_ng_upload_manager_free(&upload_manager);
+    qiniu_ng_config_free(&config);
+}
+
+void test_qiniu_ng_bucket_uploader_upload_empty_file(void) {
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
+
+    env_load("..", false);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
+    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
+        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 0);
+
+    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
+    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_upload_policy_builder_free(&policy_builder);
+
+    qiniu_ng_char_t *file_path = create_temp_file(0);
+    qiniu_ng_upload_params_t params = {
+        .resumable_policy = qiniu_ng_resumable_policy_always_be_resumeable,
+    };
+    qiniu_ng_err_t err;
+
+    TEST_ASSERT_FALSE_MESSAGE(
+        qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, token, file_path, &params, NULL, &err),
+        "qiniu_ng_bucket_uploader_upload_file_path() returns unexpected value");
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_err_empty_file_error_extract(&err),
+        "qiniu_ng_err_empty_file_error_extract() failed");
+
+    DELETE_FILE(file_path);
+    free((void *) file_path);
+
+    qiniu_ng_upload_token_free(&token);
 
     qiniu_ng_bucket_uploader_free(&bucket_uploader);
     qiniu_ng_upload_manager_free(&upload_manager);

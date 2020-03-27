@@ -1,3 +1,4 @@
+use super::UploadError as UploadFileError;
 use crate::{
     http::{
         Client, Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCallerErrorKind, Response, Result as HTTPResult,
@@ -18,12 +19,23 @@ use std::{
     io::{Error as IOError, Read, Result as IOResult, Seek, SeekFrom, Write},
     net::IpAddr,
     path::Path,
+    result::Result,
     sync::{Arc, RwLock},
     time::{Duration, SystemTime},
 };
 use tap::TapOps;
 use thiserror::Error;
 use url::Url;
+
+#[derive(Error, Debug)]
+enum UploadError {
+    #[error("Qiniu API call error: {0}")]
+    QiniuAPIError(#[from] HTTPError),
+    #[error("Failed to do io operation for log file: {0}")]
+    IOError(#[from] IOError),
+}
+
+type UploadResult<T> = Result<T, UploadError>;
 
 /// 上传日志文件的锁策略
 ///
@@ -480,16 +492,6 @@ impl Drop for TokenizedUploadLogger {
     }
 }
 
-#[derive(Error, Debug)]
-enum UploadError {
-    #[error("Qiniu API call error: {0}")]
-    QiniuAPIError(#[from] HTTPError),
-    #[error("Failed to do io operation for log file: {0}")]
-    IOError(#[from] IOError),
-}
-
-type UploadResult<T> = Result<T, UploadError>;
-
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum UpType {
     Form,
@@ -549,6 +551,17 @@ impl<'a> UploadLoggerRecordBuilder<'a> {
             builder = builder.server_ip(server_ip);
         }
         builder
+    }
+
+    pub(crate) fn upload_error(self, err: &'a UploadFileError) -> UploadLoggerRecordBuilder<'a> {
+        const ZERO_SIZE_FILE: i32 = -6;
+        const INVALID_FILE: i32 = -3;
+        #[allow(deprecated)]
+        match err {
+            UploadFileError::QiniuError(ref err) => self.http_error(err),
+            UploadFileError::IOError(ref err) => self.status_code(INVALID_FILE).error_message(err.description()),
+            UploadFileError::EmptyFileError => self.status_code(ZERO_SIZE_FILE).error_message(err.description()),
+        }
     }
 
     pub(crate) fn http_error(self, err: &'a HTTPError) -> UploadLoggerRecordBuilder<'a> {

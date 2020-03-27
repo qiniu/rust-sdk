@@ -405,6 +405,12 @@ impl<'b> FileUploaderBuilder<'b> {
     }
 
     fn upload_file_by_blocks<'n>(self, file_path: &Path, file_name: Cow<'n, str>, mime: Option<Mime>) -> UploadResult {
+        let file = File::open(file_path)?;
+        let file_size = file.metadata()?.len();
+        if file_size == 0 {
+            return Err(UploadError::EmptyFileError);
+        }
+
         let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)
             .max_concurrency(self.max_concurrency)
             .vars(self.vars)
@@ -419,10 +425,10 @@ impl<'b> FileUploaderBuilder<'b> {
             uploader = uploader.thread_pool(thread_pool);
         }
         let mut uploader = uploader.file(
-            File::open(file_path)?,
+            file,
             file_path.into(),
             Self::guess_filename(file_path, file_name),
-            file_path.metadata()?.len(),
+            file_size,
             Self::guess_mime_from_file_path(mime, file_path),
             self.checksum_enabled,
         )?;
@@ -538,6 +544,9 @@ pub enum UploadError {
     /// 读取数据发送 IO 错误
     #[error("Failed to do local io operation during uploading: {0}")]
     IOError(#[from] IOError),
+    /// 读取数据发送 IO 错误
+    #[error("Should not upload empty file")]
+    EmptyFileError,
     /// 调用七牛 API 上传时发送错误
     #[error("Qiniu API call error: {0}")]
     QiniuError(#[from] crate::http::Error),

@@ -89,9 +89,9 @@ static void on_completed(qiniu_ng_upload_response_t upload_response, qiniu_ng_er
 
 static void generate_file_key(const qiniu_ng_char_t *file_key, int max_size, int file_id, int file_size) {
 #if defined(_WIN32) || defined(WIN32)
-    swprintf((wchar_t *) file_key, max_size, L"测试-%dm-%d-%lld", file_size, file_id, (long long) time(NULL));
+    swprintf((wchar_t *) file_key, max_size, L"测试-%dm-%d-%lld-%d", file_size, file_id, (long long) time(NULL), rand());
 #else
-    snprintf((char *) file_key, max_size, "测试-%dm-%d-%lld", file_size, file_id, (long long) time(NULL));
+    snprintf((char *) file_key, max_size, "测试-%dm-%d-%lld-%d", file_size, file_id, (long long) time(NULL), rand());
 #endif
 }
 

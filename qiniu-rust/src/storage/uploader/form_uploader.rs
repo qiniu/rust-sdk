@@ -1,5 +1,6 @@
 use super::{
-    upload_response_callback, BucketUploader, TokenizedUploadLogger, UpType, UploadLoggerRecordBuilder, UploadResponse,
+    upload_response_callback, BucketUploader, TokenizedUploadLogger, UpType, UploadError, UploadLoggerRecordBuilder,
+    UploadResponse,
 };
 use crate::{
     http::{Error as HTTPError, Result as HTTPResult, RetryKind},
@@ -11,7 +12,8 @@ use serde_json::Value;
 use std::{
     borrow::Cow,
     convert::TryInto,
-    io::{Read, Result as IOResult, Seek, SeekFrom},
+    io::{Read, Seek, SeekFrom},
+    result::Result,
 };
 
 pub(super) struct FormUploaderBuilder<'u> {
@@ -72,7 +74,7 @@ impl<'u> FormUploaderBuilder<'u> {
         file_name: Cow<'n, str>,
         mime: Option<Mime>,
         checksum_enabled: bool,
-    ) -> IOResult<FormUploader<'u>> {
+    ) -> Result<FormUploader<'u>, UploadError> {
         let mut crc32: Option<u32> = None;
         if checksum_enabled {
             crc32 = Some(crc32::from(&mut stream)?);
@@ -92,7 +94,7 @@ impl<'u> FormUploaderBuilder<'u> {
         mime: Option<Mime>,
         file_name: Cow<'n, str>,
         crc32: Option<u32>,
-    ) -> IOResult<FormUploader<'u>> {
+    ) -> Result<FormUploader<'u>, UploadError> {
         let file_name = if file_name.is_empty() { None } else { Some(file_name) };
         self.multipart.add_stream("file", stream, file_name, mime);
         if let Some(crc32) = crc32 {
@@ -101,7 +103,7 @@ impl<'u> FormUploaderBuilder<'u> {
         self.upload_multipart()
     }
 
-    fn upload_multipart(mut self) -> IOResult<FormUploader<'u>> {
+    fn upload_multipart(mut self) -> Result<FormUploader<'u>, UploadError> {
         let mut fields = self.multipart.prepare().map_err(|err| err.error)?;
         let mut body = Vec::with_capacity(
             self.bucket_uploader

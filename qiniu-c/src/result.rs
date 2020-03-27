@@ -150,6 +150,8 @@ pub enum qiniu_ng_err_kind_t {
     qiniu_ng_err_kind_unexpected_redirect_error,
     /// 用户取消
     qiniu_ng_err_kind_user_canceled,
+    /// 上传空文件错误
+    qiniu_ng_err_kind_empty_file,
     /// JSON 错误
     qiniu_ng_err_kind_json_error(qiniu_ng_str_t),
     /// HTTP 状态码错误
@@ -188,6 +190,7 @@ impl Default for qiniu_ng_err_kind_t {
 ///         - `qiniu_ng_err_unexpected_redirect_error_extract()`
 ///         - `qiniu_ng_err_drop_non_empty_bucket_error_extract()`
 ///         - `qiniu_ng_err_user_canceled_error_extract()`
+///         - `qiniu_ng_err_empty_file_error_extract()`
 ///         - `qiniu_ng_err_invalid_upload_token_extract()`
 ///         - `qiniu_ng_err_unknown_error_extract()`
 ///     判定错误的类型，并获取详细错误信息，同时释放内存。
@@ -318,6 +321,20 @@ pub extern "C" fn qiniu_ng_err_unexpected_redirect_error_new() -> qiniu_ng_err_t
 pub extern "C" fn qiniu_ng_err_user_canceled_error_extract(err: &mut qiniu_ng_err_t) -> bool {
     match err.0 {
         qiniu_ng_err_kind_t::qiniu_ng_err_kind_user_canceled => {
+            err.0 = qiniu_ng_err_kind_t::qiniu_ng_err_kind_none;
+            true
+        }
+        _ => false,
+    }
+}
+
+/// @brief 判定错误是否是用户取消错误，如果是，则释放其内存
+/// @param[in] err SDK 错误实例
+/// @retval bool 当错误确实是用户取消错误时返回 `true`
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_empty_file_error_extract(err: &mut qiniu_ng_err_t) -> bool {
+    match err.0 {
+        qiniu_ng_err_kind_t::qiniu_ng_err_kind_empty_file => {
             err.0 = qiniu_ng_err_kind_t::qiniu_ng_err_kind_none;
             true
         }
@@ -720,6 +737,7 @@ impl From<&UploadError> for qiniu_ng_err_t {
         match err {
             UploadError::IOError(err) => err.into(),
             UploadError::QiniuError(err) => err.into(),
+            UploadError::EmptyFileError => Self(qiniu_ng_err_kind_t::qiniu_ng_err_kind_empty_file),
         }
     }
 }

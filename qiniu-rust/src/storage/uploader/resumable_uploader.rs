@@ -1,7 +1,8 @@
 use super::{
     io_status_manager::{IOStatusManager, Result as IOStatusResult},
     upload_recorder::{FileUploadRecordMedium, FileUploadRecordMediumBlockItem, FileUploadRecordMediumMetadata},
-    upload_response_callback, BucketUploader, TokenizedUploadLogger, UpType, UploadLoggerRecordBuilder, UploadResponse,
+    upload_response_callback, BucketUploader, TokenizedUploadLogger, UpType, UploadError, UploadLoggerRecordBuilder,
+    UploadResponse,
 };
 use crate::{
     http::{Client, Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult, RetryKind},
@@ -20,6 +21,7 @@ use std::{
     fs::File,
     io::{Read, Result as IOResult, Seek, SeekFrom},
     path::Path,
+    result::Result,
     sync::{
         atomic::{AtomicU64, Ordering::Relaxed},
         Mutex,
@@ -264,7 +266,7 @@ impl<'u> ResumableUploaderBuilder<'u> {
 }
 
 impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
-    pub(super) fn send(&mut self) -> HTTPResult<UploadResponse> {
+    pub(super) fn send(&mut self) -> Result<UploadResponse, UploadError> {
         let base_path = self.make_base_path();
         let authorization = self.make_authorization();
         if let Ok(Some(result)) = self.try_to_resume(&base_path, &authorization) {
@@ -280,23 +282,28 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                 Ok(result) => {
                     return Ok(result);
                 }
-                Err(err) => match err.retry_kind() {
+                Err(UploadError::QiniuError(err)) => match err.retry_kind() {
                     RetryKind::RetryableError | RetryKind::HostUnretryableError | RetryKind::ZoneUnretryableError => {
                         if self.is_seekable {
                             prev_err = Some(err);
                             continue;
                         } else {
-                            return Err(err);
+                            return Err(UploadError::QiniuError(err));
                         }
                     }
                     _ => {
-                        return Err(err);
+                        return Err(UploadError::QiniuError(err));
                     }
                 },
+                Err(err) => {
+                    return Err(err);
+                }
             }
         }
 
-        Err(prev_err.expect("ResumableUploader::send() should try at lease once, but not"))
+        Err(UploadError::QiniuError(
+            prev_err.expect("ResumableUploader::send() should try at lease once, but not"),
+        ))
     }
 
     fn try_to_init_and_upload_with_log(
@@ -304,7 +311,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         up_urls: &[&str],
         base_path: &str,
         authorization: &str,
-    ) -> HTTPResult<UploadResponse> {
+    ) -> Result<UploadResponse, UploadError> {
         if self.is_seekable {
             self.io
                 .seek(SeekFrom::Start(0))
@@ -335,7 +342,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                         .duration(timer.elapsed())
                         .up_type(UpType::Chunkedv2)
                         .sent(uploaded_size)
-                        .http_error(err);
+                        .upload_error(err);
                     if let Some(total_size) = self.io_size {
                         record_builder = record_builder.total_size(u64::max(uploaded_size, total_size));
                     }
@@ -351,7 +358,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         up_urls: &[&str],
         base_path: &str,
         authorization: &str,
-    ) -> HTTPResult<UploadResponse> {
+    ) -> Result<UploadResponse, UploadError> {
         let upload_id = self.init_parts(&base_path, up_urls, &authorization)?;
         let recorder = self.file_path.as_ref().and_then(|file_path| {
             self.bucket_uploader
@@ -379,7 +386,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         base_path: &str,
         authorization: &str,
         upload_recorder: Option<FileUploadRecordMedium>,
-    ) -> HTTPResult<UploadResponse> {
+    ) -> Result<UploadResponse, UploadError> {
         let io_status_manager = IOStatusManager::new(
             &mut self.io,
             self.block_size,
@@ -472,13 +479,8 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                         .drop(file_path, self.key.as_ref().map(|key| key.as_ref()));
                 })
             }),
-            IOStatusResult::IOError(err) => Err(HTTPError::new_unretryable_error(
-                HTTPErrorKind::IOError(err),
-                None,
-                None,
-                None,
-            )),
-            IOStatusResult::HTTPError(err) => Err(err),
+            IOStatusResult::IOError(err) => Err(UploadError::IOError(err)),
+            IOStatusResult::HTTPError(err) => Err(UploadError::QiniuError(err)),
         }
     }
 
@@ -620,8 +622,11 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         Ok(result.etag)
     }
 
-    fn complete_parts(&self, path: &str, up_urls: &[&str], authorization: &str) -> HTTPResult<UploadResponse> {
+    fn complete_parts(&self, path: &str, up_urls: &[&str], authorization: &str) -> Result<UploadResponse, UploadError> {
         let mut completed_parts = self.completed_parts.lock().unwrap();
+        if completed_parts.parts.is_empty() {
+            return Err(UploadError::EmptyFileError);
+        }
         completed_parts.parts.sort_unstable_by_key(|part| part.part_number);
         let upload_result = self
             .bucket_uploader
@@ -669,7 +674,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         }
     }
 
-    fn try_to_resume(&mut self, base_path: &str, authorization: &str) -> HTTPResult<Option<UploadResponse>> {
+    fn try_to_resume(&mut self, base_path: &str, authorization: &str) -> Result<Option<UploadResponse>, UploadError> {
         if let Some(from_resuming) = self.from_resuming.take() {
             let init_uploaded_size = self.uploaded_size.load(Relaxed);
             if let Some(uploading_progress_callback) = &self.uploading_progress_callback {
@@ -709,7 +714,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                         .duration(timer.elapsed())
                         .up_type(UpType::Chunkedv2)
                         .sent(uploaded_size - init_uploaded_size)
-                        .http_error(&err);
+                        .upload_error(&err);
                     if let Some(total_size) = self.io_size {
                         record_builder =
                             record_builder.total_size(u64::max(uploaded_size, total_size) - init_uploaded_size);
@@ -787,6 +792,53 @@ mod tests {
     };
     use serde_json::json;
     use std::{error::Error, result::Result};
+
+    #[test]
+    fn test_storage_uploader_resumable_uploader_upload_empty_file() -> Result<(), Box<dyn Error>> {
+        let temp_file = create_temp_file(0)?;
+        let config = ConfigBuilder::default()
+            .http_request_handler(
+                CallHandlers::new(|request| {
+                    panic!("Unexpected Request: {} {}", request.method(), request.url());
+                })
+                .install(
+                    Method::POST,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key("test-key")
+                                + "/uploads"),
+                        )
+                        + "$",
+                    |_, _| {
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .bytes_as_body(json!({"uploadId":"test_upload_id"}).to_string())
+                            .build())
+                    },
+                ),
+            )
+            .upload_logger(None)
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        let err = BucketUploaderBuilder::new(
+            "test_bucket".into(),
+            vec![vec![Box::from("http://z1h1.com")].into()].into(),
+            config,
+        )
+        .build()
+        .upload_token(UploadToken::new(policy, get_credential()))
+        .key("test-key")
+        .upload_stream(&temp_file, 0, "", None)
+        .unwrap_err();
+        assert!(matches!(err, UploadError::EmptyFileError));
+        Ok(())
+    }
 
     #[test]
     fn test_storage_uploader_resumable_uploader_upload_file() -> Result<(), Box<dyn Error>> {
