@@ -8,7 +8,7 @@ use super::{
         region::Region,
         uploader::{UploadPolicy, UploadToken, UploadTokenParseError},
     },
-    BatchUploader, BucketUploaderBuilder, FileUploaderBuilder,
+    BatchUploader, BucketUploaderBuilder, FileUploader,
 };
 use crate::{config::Config, credential::Credential, utils::ron::Ron};
 use assert_impl::assert_impl;
@@ -81,16 +81,16 @@ impl UploadManager {
             .collect()
     }
 
-    /// 根据上传凭证创建文件上传器生成器
-    pub fn for_upload_token<'u>(
+    /// 根据上传凭证创建文件上传器
+    pub fn upload_for_upload_token<'u>(
         &self,
         upload_token: impl Into<UploadToken<'u>>,
-    ) -> CreateUploaderResult<FileUploaderBuilder<'u>> {
+    ) -> CreateUploaderResult<FileUploader<'u>> {
         let upload_token = upload_token.into();
         let access_key = upload_token.access_key()?;
         let policy = upload_token.policy()?;
         if let Some(bucket_name) = policy.bucket() {
-            Ok(FileUploaderBuilder::new(
+            Ok(FileUploader::new(
                 Ron::Owned(self.for_bucket_name(bucket_name.to_owned(), access_key).build()),
                 upload_token.to_string().into(),
             ))
@@ -99,17 +99,26 @@ impl UploadManager {
         }
     }
 
-    /// 根据上传策略和认证信息创建文件上传器生成器
-    pub fn for_upload_policy<'u>(
+    /// 根据上传策略和认证信息创建文件上传器
+    pub fn upload_for_upload_policy<'u>(
         &self,
         upload_policy: UploadPolicy<'u>,
         credential: Cow<'u, Credential>,
-    ) -> CreateUploaderResult<FileUploaderBuilder<'u>> {
-        self.for_upload_token(UploadToken::new(upload_policy, credential))
+    ) -> CreateUploaderResult<FileUploader<'u>> {
+        self.upload_for_upload_token(UploadToken::new(upload_policy, credential))
     }
 
-    /// 根据上传凭证创建批量文件上传器生成器
-    pub fn batch_for_upload_token<'u>(
+    /// 根据存储空间和认证信息创建文件上传器
+    pub fn upload_for_bucket<'u>(
+        &self,
+        bucket: Cow<'u, str>,
+        credential: Cow<'u, Credential>,
+    ) -> CreateUploaderResult<FileUploader<'u>> {
+        self.upload_for_upload_token(UploadToken::new_from_bucket(bucket, credential, &self.config))
+    }
+
+    /// 根据上传凭证创建批量文件上传器
+    pub fn batch_upload_for_upload_token<'u>(
         &self,
         upload_token: impl Into<UploadToken<'u>>,
     ) -> CreateUploaderResult<BatchUploader> {
@@ -126,13 +135,22 @@ impl UploadManager {
         }
     }
 
-    /// 根据上传策略和认证信息创建批量文件上传器生成器
-    pub fn batch_for_upload_policy<'u>(
+    /// 根据上传策略和认证信息创建批量文件上传器
+    pub fn batch_upload_for_upload_policy<'u>(
         &self,
         upload_policy: UploadPolicy<'u>,
         credential: Cow<'u, Credential>,
     ) -> CreateUploaderResult<BatchUploader> {
-        self.batch_for_upload_token(UploadToken::new(upload_policy, credential))
+        self.batch_upload_for_upload_token(UploadToken::new(upload_policy, credential))
+    }
+
+    /// 根据存储空间和认证信息创建批量文件上传器
+    pub fn batch_upload_for_bucket<'u>(
+        &self,
+        bucket: Cow<'u, str>,
+        credential: Cow<'u, Credential>,
+    ) -> CreateUploaderResult<BatchUploader> {
+        self.batch_upload_for_upload_token(UploadToken::new_from_bucket(bucket, credential, &self.config))
     }
 
     pub(crate) fn config(&self) -> &Config {

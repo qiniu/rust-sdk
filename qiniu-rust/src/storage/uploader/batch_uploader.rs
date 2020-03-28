@@ -1,5 +1,5 @@
-use super::{bucket_uploader::ResumablePolicy, BucketUploader, FileUploaderBuilder, UploadResult};
-use crate::utils::ron::Ron;
+use super::{bucket_uploader::ResumablePolicy, BucketUploader, FileUploader, UploadPolicy, UploadResult, UploadToken};
+use crate::{utils::ron::Ron, Credential};
 use mime::Mime;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::{
@@ -168,7 +168,7 @@ fn handle_job(context: &BatchUploaderContext, job: BatchUploadJob, thread_pool: 
         on_completed,
     } = job;
 
-    let mut builder = FileUploaderBuilder::new(
+    let mut builder = FileUploader::new(
         Ron::Referenced(&context.bucket_uploader),
         if upload_token.is_empty() {
             Cow::Borrowed(&context.upload_token)
@@ -243,9 +243,21 @@ impl BatchUploadJobBuilder {
     ///
     /// 默认情况下，总是复用批量上传器创建时传入的上传凭证。
     /// 该方法则可以在指定上传当前对象时使用上传凭证
-    pub fn upload_token(mut self, upload_token: impl Into<String>) -> Self {
-        self.upload_token = upload_token.into();
+    pub fn upload_token<'p>(mut self, upload_token: impl Into<UploadToken<'p>>) -> Self {
+        self.upload_token = upload_token.into().to_string().into();
         self
+    }
+
+    /// 指定上传所用的上传策略
+    ///
+    /// 默认情况下，总是复用批量上传器创建时传入的上传凭证。
+    /// 该方法则可以在指定上传当前对象时使用上传策略生成的上传凭证
+    pub fn upload_policy<'p>(
+        self,
+        upload_policy: UploadPolicy<'p>,
+        credential: impl Into<Cow<'p, Credential>>,
+    ) -> Self {
+        self.upload_token(UploadToken::new(upload_policy, credential.into()))
     }
 
     /// 为上传对象指定[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)

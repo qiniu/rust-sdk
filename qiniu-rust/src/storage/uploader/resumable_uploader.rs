@@ -159,11 +159,11 @@ impl<'u> ResumableUploaderBuilder<'u> {
         self
     }
 
-    pub(super) fn file<'n: 'u>(
+    pub(super) fn file(
         self,
         file: File,
-        file_path: Cow<'n, Path>,
-        file_name: Cow<'n, str>,
+        file_path: Cow<'u, Path>,
+        file_name: Cow<'u, str>,
         file_size: u64,
         mime_type: Option<Mime>,
         checksum_enabled: bool,
@@ -215,12 +215,12 @@ impl<'u> ResumableUploaderBuilder<'u> {
         })
     }
 
-    pub(super) fn stream<'n: 'u, R: Read + Send + 'u>(
+    pub(super) fn stream<R: Read + Send + 'u>(
         self,
         stream: R,
         size: u64,
         mime_type: Option<Mime>,
-        file_name: Cow<'n, str>,
+        file_name: Cow<'u, str>,
         checksum_enabled: bool,
     ) -> IOResult<ResumableUploader<'u, seek_adapter::SeekAdapter<R>>> {
         let bucket_uploader = self.bucket_uploader;

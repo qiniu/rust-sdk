@@ -118,35 +118,62 @@ impl BucketUploaderBuilder {
 }
 
 impl BucketUploader {
-    /// 根据上传凭证创建文件上传器生成器
-    pub fn upload_token<'b>(&'b self, upload_token: impl Into<UploadToken<'b>>) -> FileUploaderBuilder<'b> {
-        FileUploaderBuilder::new(Ron::Referenced(self), upload_token.into().to_string().into())
+    /// 根据上传凭证创建文件上传器
+    pub fn upload_token<'b>(&'b self, upload_token: impl Into<UploadToken<'b>>) -> FileUploader<'b> {
+        FileUploader::new(Ron::Referenced(self), upload_token.into().to_string().into())
     }
 
-    /// 根据上传策略创建文件上传器生成器
+    /// 根据上传策略创建文件上传器
     pub fn upload_policy<'b>(
         &'b self,
         upload_policy: UploadPolicy<'b>,
         credential: impl Into<Cow<'b, Credential>>,
-    ) -> FileUploaderBuilder<'b> {
-        FileUploaderBuilder::new(
+    ) -> FileUploader<'b> {
+        FileUploader::new(
             Ron::Referenced(self),
             UploadToken::new(upload_policy, credential.into()).to_string().into(),
         )
     }
 
-    /// 根据上传凭证创建批量文件上传器生成器
-    pub fn batch_for_upload_token(&self, upload_token: impl Into<String>) -> BatchUploader {
-        BatchUploader::new(self, upload_token.into())
+    /// 根据认证信息直接创建文件上传器
+    ///
+    /// 使用该方法将自动生成上传策略
+    pub fn upload_for<'b>(&'b self, credential: impl Into<Cow<'b, Credential>>) -> FileUploader<'b> {
+        FileUploader::new(
+            Ron::Referenced(self),
+            UploadToken::new_from_bucket(
+                Cow::Borrowed(self.bucket_name().as_ref()),
+                credential.into(),
+                self.http_client().config(),
+            )
+            .to_string()
+            .into(),
+        )
     }
 
-    /// 根据上传策略创建批量文件上传器生成器
+    /// 根据上传凭证创建批量文件上传器
+    pub fn batch_for_upload_token<'b>(&self, upload_token: impl Into<UploadToken<'b>>) -> BatchUploader {
+        BatchUploader::new(self, upload_token.into().to_string())
+    }
+
+    /// 根据上传策略创建批量文件上传器
     pub fn batch_for_upload_policy<'b>(
         &self,
         upload_policy: UploadPolicy<'b>,
         credential: impl Into<Cow<'b, Credential>>,
     ) -> BatchUploader {
         self.batch_for_upload_token(UploadToken::new(upload_policy, credential.into()))
+    }
+
+    /// 根据认证信息直接创建批量文件上传器
+    ///
+    /// 使用该方法将自动生成上传策略
+    pub fn batch_for<'b>(&self, credential: impl Into<Cow<'b, Credential>>) -> BatchUploader {
+        self.batch_for_upload_token(UploadToken::new_from_bucket(
+            Cow::Borrowed(self.bucket_name().as_ref()),
+            credential.into(),
+            self.http_client().config(),
+        ))
     }
 
     #[doc(hidden)]
@@ -177,7 +204,7 @@ pub(super) enum ResumablePolicy {
 /// 文件上传器
 ///
 /// 为指定的文件上传准备数据，不能跨线程使用，不能反复使用
-pub struct FileUploaderBuilder<'b> {
+pub struct FileUploader<'b> {
     bucket_uploader: Ron<'b, BucketUploader>,
     upload_token: Cow<'b, str>,
     key: Option<Cow<'b, str>>,
@@ -191,9 +218,9 @@ pub struct FileUploaderBuilder<'b> {
     max_concurrency: usize,
 }
 
-impl<'b> FileUploaderBuilder<'b> {
+impl<'b> FileUploader<'b> {
     pub(super) fn new(bucket_uploader: Ron<'b, BucketUploader>, upload_token: Cow<'b, str>) -> Self {
-        FileUploaderBuilder {
+        FileUploader {
             upload_token,
             key: None,
             vars: HashMap::new(),
@@ -315,10 +342,7 @@ impl<'b> FileUploaderBuilder<'b> {
     /// 上传进度闭包的第一个参数为已经上传的数据量，
     /// 第二个参数为数据总两，如果为 `None` 表示数据总量不可预知，
     /// 单位均为字节
-    pub fn on_progress(
-        mut self,
-        callback: impl Fn(u64, Option<u64>) + Send + Sync + 'static,
-    ) -> FileUploaderBuilder<'b> {
+    pub fn on_progress(mut self, callback: impl Fn(u64, Option<u64>) + Send + Sync + 'static) -> FileUploader<'b> {
         self.on_uploading_progress = Some(Rob::Owned(Box::new(callback)));
         self
     }
@@ -330,10 +354,10 @@ impl<'b> FileUploaderBuilder<'b> {
     /// * `file_path` - 上传文件路径
     /// * `file_name` - 指定上传文件的文件名称，在下载文件时将会被使用
     /// * `mime` - 指定文件的 MIME 类型，参照[文档](https://docs.rs/mime/0.3.14/mime/) 传值，如果不填写，七牛服务器将根据上传策略决定 `Content-Type`
-    pub fn upload_file<'n>(
+    pub fn upload_file(
         self,
         file_path: impl AsRef<Path>,
-        file_name: impl Into<Cow<'n, str>>,
+        file_name: impl Into<Cow<'b, str>>,
         mime: Option<Mime>,
     ) -> UploadResult {
         let file_path = file_path.as_ref();
@@ -359,11 +383,11 @@ impl<'b> FileUploaderBuilder<'b> {
     /// * `size` - 数据流最大长度，如果数据流大小不可预知，则传入 `0`。如果传入的值大于 `0`，则最终读取数据量将始终不大于该值。
     /// * `file_name` - 指定上传文件的文件名称，在下载文件时将会被使用
     /// * `mime` - 指定文件的 MIME 类型，参照[文档](https://docs.rs/mime/0.3.14/mime/) 传值，如果不填写，七牛服务器将根据上传策略决定 `Content-Type`
-    pub fn upload_stream<'n>(
+    pub fn upload_stream(
         self,
         stream: impl Read + Send,
         size: u64,
-        file_name: impl Into<Cow<'n, str>>,
+        file_name: impl Into<Cow<'b, str>>,
         mime: Option<Mime>,
     ) -> UploadResult {
         let file_name = file_name.into();
@@ -380,7 +404,7 @@ impl<'b> FileUploaderBuilder<'b> {
         }
     }
 
-    fn upload_file_by_form<'n>(self, file_path: &Path, file_name: Cow<'n, str>, mime: Option<Mime>) -> UploadResult {
+    fn upload_file_by_form(self, file_path: &Path, file_name: Cow<str>, mime: Option<Mime>) -> UploadResult {
         let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token);
         if let Some(key) = self.key {
             uploader = uploader.key(key);
@@ -410,7 +434,6 @@ impl<'b> FileUploaderBuilder<'b> {
         if file_size == 0 {
             return Err(UploadError::EmptyFileError);
         }
-
         let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)
             .max_concurrency(self.max_concurrency)
             .vars(self.vars)

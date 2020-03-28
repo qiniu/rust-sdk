@@ -16,7 +16,7 @@ mod upload_response;
 mod upload_token;
 
 pub use batch_uploader::{BatchUploadJob, BatchUploadJobBuilder, BatchUploader};
-pub use bucket_uploader::{BucketUploader, BucketUploaderBuilder, FileUploaderBuilder, UploadError, UploadResult};
+pub use bucket_uploader::{BucketUploader, BucketUploaderBuilder, FileUploader, UploadError, UploadResult};
 use callback::upload_response_callback;
 pub use upload_logger::{LockPolicy as UploadLoggerFileLockPolicy, UploadLogger, UploadLoggerBuilder};
 use upload_logger::{TokenizedUploadLogger, UpType, UploadLoggerRecordBuilder};

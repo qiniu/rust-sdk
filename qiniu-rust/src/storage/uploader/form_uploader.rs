@@ -68,10 +68,10 @@ impl<'u> FormUploaderBuilder<'u> {
         self
     }
 
-    pub(super) fn seekable_stream<'n: 'u, R: Read + Seek + 'u>(
+    pub(super) fn seekable_stream(
         mut self,
-        mut stream: R,
-        file_name: Cow<'n, str>,
+        mut stream: impl Read + Seek + 'u,
+        file_name: Cow<'u, str>,
         mime: Option<Mime>,
         checksum_enabled: bool,
     ) -> Result<FormUploader<'u>, UploadError> {
@@ -88,11 +88,11 @@ impl<'u> FormUploaderBuilder<'u> {
         self.upload_multipart()
     }
 
-    pub(super) fn stream<'n: 'u, R: Read + 'u>(
+    pub(super) fn stream(
         mut self,
-        stream: R,
+        stream: impl Read + 'u,
         mime: Option<Mime>,
-        file_name: Cow<'n, str>,
+        file_name: Cow<'u, str>,
         crc32: Option<u32>,
     ) -> Result<FormUploader<'u>, UploadError> {
         let file_name = if file_name.is_empty() { None } else { Some(file_name) };
