@@ -3,6 +3,7 @@
 //! 负责解析和生成上传策略
 
 use crate::{utils::bool as bool_utils, Config};
+use assert_impl::assert_impl;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -217,6 +218,12 @@ impl<'p> UploadPolicy<'p> {
     pub fn from_json(json: impl AsRef<[u8]>) -> serde_json::Result<UploadPolicy<'static>> {
         serde_json::from_slice(json.as_ref())
     }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 /// 上传策略生成器
@@ -242,13 +249,20 @@ impl<'p> UploadPolicyBuilder<'p> {
     ///
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
     pub fn new_policy_for_bucket(bucket: impl Into<Cow<'p, str>>, config: &Config) -> Self {
+        Self::new_policy_for_bucket_and_upload_token_lifetime(bucket, config.upload_token_lifetime())
+    }
+
+    pub(super) fn new_policy_for_bucket_and_upload_token_lifetime(
+        bucket: impl Into<Cow<'p, str>>,
+        upload_token_lifetime: Duration,
+    ) -> Self {
         let mut policy = Self {
             inner: UploadPolicy {
                 scope: Some(bucket.into()),
                 ..Default::default()
             },
         };
-        policy.token_lifetime(config.upload_token_lifetime()).insert_only();
+        policy.token_lifetime(upload_token_lifetime).insert_only();
         policy
     }
 
