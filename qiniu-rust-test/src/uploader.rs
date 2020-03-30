@@ -33,7 +33,7 @@ mod tests {
             .build();
         let err = get_client(config)
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .key(&key)
             .upload_file(&temp_path, "512k", Some(mime::IMAGE_PNG))
             .unwrap_err();
@@ -56,7 +56,7 @@ mod tests {
             .build();
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .key(&key)
             .upload_file(&temp_path, "512k", Some(mime::IMAGE_PNG))?;
 
@@ -79,7 +79,7 @@ mod tests {
         let last_uploaded = AtomicU64::new(0);
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .key(&key)
             .var("var_key1", "var_value1")
             .var("var_key2", "var_value2")
@@ -112,7 +112,7 @@ mod tests {
         let last_uploaded = AtomicU64::new(0);
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .always_be_resumable()
             .key(&key)
             .var("var_key1", "var_value1")
@@ -147,7 +147,7 @@ mod tests {
         let last_uploaded = AtomicU64::new(0);
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .key(&key)
             .var("var_key1", "var_value1")
             .var("var_key2", "var_value2")
@@ -181,7 +181,7 @@ mod tests {
         let thread_id: Mutex<Option<ThreadId>> = Mutex::new(None);
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .always_be_resumable()
             .key(&key)
             .var("var_key1", "var_value1")
@@ -219,7 +219,7 @@ mod tests {
         let last_uploaded = AtomicU64::new(0);
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
@@ -240,7 +240,7 @@ mod tests {
         let last_uploaded = AtomicU64::new(0);
         let result = get_client(config)
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .always_be_resumable()
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
@@ -272,7 +272,7 @@ mod tests {
         let last_uploaded = AtomicU64::new(0);
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumable()
@@ -300,10 +300,9 @@ mod tests {
 
         let etag = etag::from_file(&temp_path)?;
         let last_uploaded = AtomicU64::new(0);
-        let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config).build();
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_bucket(bucket_name(), get_credential())
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
@@ -328,10 +327,9 @@ mod tests {
         file.seek(SeekFrom::Start(0))?;
         let etag = etag::from_file(&temp_path)?;
         let last_uploaded = AtomicU64::new(0);
-        let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config).build();
-        let result = get_client(config.clone())
+        let result = get_client(config)
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_bucket(bucket_name(), get_credential())
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
@@ -359,7 +357,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config).build();
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumable()
@@ -388,7 +386,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config).build();
         let result = get_client(config.clone())
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
@@ -438,7 +436,7 @@ mod tests {
             .build();
         let mut batch_uploader = get_client(config)
             .upload()
-            .batch_for_upload_policy(policy, get_credential().into())?;
+            .batch_uploader_for_upload_policy(policy, get_credential())?;
         batch_uploader.expected_jobs_count(FILE_SIZES.len()).thread_pool_size(4);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
         let completed = Arc::new(AtomicUsize::new(0));
@@ -514,7 +512,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config).build();
         let mut batch_uploader = get_client(config)
             .upload()
-            .batch_for_upload_policy(policy, get_credential().into())?;
+            .batch_uploader_for_upload_policy(policy, get_credential())?;
         batch_uploader.expected_jobs_count(FILE_SIZES.len()).thread_pool_size(1);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
         let completed = Arc::new(AtomicUsize::new(0));
@@ -582,7 +580,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config).build();
         let mut batch_uploader = get_client(config)
             .upload()
-            .batch_for_upload_policy(policy, get_credential().into())?;
+            .batch_uploader_for_upload_policy(policy, get_credential())?;
         batch_uploader.expected_jobs_count(FILE_SIZES.len()).thread_pool_size(3);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
         let completed = Arc::new(AtomicUsize::new(0));
@@ -652,7 +650,7 @@ mod tests {
             .build();
         let mut batch_uploader = get_client(config)
             .upload()
-            .batch_for_upload_policy(policy, get_credential().into())?;
+            .batch_uploader_for_upload_policy(policy, get_credential())?;
         batch_uploader.expected_jobs_count(FILE_SIZES.len()).thread_pool_size(5);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
         let completed = Arc::new(AtomicUsize::new(0));

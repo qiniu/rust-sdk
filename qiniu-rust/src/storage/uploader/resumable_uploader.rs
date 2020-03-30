@@ -1602,18 +1602,14 @@ mod tests {
             .upload_logger(None)
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
-        let upload_token = UploadToken::new(
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
-            get_credential(),
-        );
 
-        BucketUploaderBuilder::new(
+        let _ = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config.clone(),
         )
         .build()
-        .upload_token(upload_token.clone())
+        .upload_for(get_credential())
         .key("test-key")
         .upload_file(&temp_path, "", None)
         .unwrap_err();
@@ -1624,7 +1620,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(upload_token)
+        .upload_for(get_credential())
         .key("test-key")
         .upload_file(&temp_path, "", None)?;
         assert_eq!(result.key(), Some("test-key"));
@@ -1739,18 +1735,13 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
 
-        let upload_token = UploadToken::new(
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build(),
-            get_credential(),
-        );
-
-        BucketUploaderBuilder::new(
+        let _ = BucketUploaderBuilder::new(
             "test_bucket".into(),
             vec![vec![Box::from("http://z1h1.com")].into()].into(),
             config.clone(),
         )
         .build()
-        .upload_token(upload_token.clone())
+        .upload_for(get_credential())
         .key("test-key")
         .upload_file(&temp_path, "", None)
         .unwrap_err();
@@ -1761,7 +1752,7 @@ mod tests {
             config,
         )
         .build()
-        .upload_token(upload_token)
+        .upload_for(get_credential())
         .key("test-key")
         .upload_file(&temp_path, "", None)?;
 

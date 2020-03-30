@@ -41,7 +41,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config).build();
         get_client(config)
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .key(&key)
             .upload_file(&temp_path, "1b", None)
             .unwrap();
@@ -78,7 +78,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_object("z0-bucket", &key, &config).build();
         let response = get_client(config)
             .upload()
-            .for_upload_policy(policy, get_credential().into())?
+            .upload_for_upload_policy(policy, get_credential())?
             .key(&key)
             .upload_file(&temp_path, "1b", None)
             .unwrap();

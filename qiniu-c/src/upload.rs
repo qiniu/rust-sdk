@@ -1,5 +1,6 @@
 use crate::{
     bucket_uploader::qiniu_ng_bucket_uploader_t,
+    credential::qiniu_ng_credential_t,
     result::qiniu_ng_err_t,
     string::{qiniu_ng_char_t, ucstr, UCString},
     upload_manager::qiniu_ng_upload_manager_t,
@@ -12,14 +13,16 @@ use crate::{
 };
 use libc::{c_void, size_t, FILE};
 use mime::Mime;
-use qiniu_ng::storage::uploader::{BucketUploader, FileUploaderBuilder, UploadManager, UploadResult, UploadToken};
+use qiniu_ng::{
+    storage::uploader::{BucketUploader, FileUploader, UploadManager, UploadResult, UploadToken},
+    Credential,
+};
 use std::{
+    borrow::Cow,
     collections::{hash_map::RandomState, HashMap},
-    mem::drop,
     ptr::null_mut,
     result::Result,
 };
-use tap::TapOps;
 
 /// @brief 分片上传策略
 /// @details 为了防止上传文件的过程中，上传日志文件被多个进程同时修改引发竞争，因此需要在操作日志文件时使用文件锁保护
@@ -89,25 +92,29 @@ pub struct qiniu_ng_upload_params_t {
 
 /// @brief 上传指定路径的文件
 /// @param[in] upload_manager 上传管理器
-/// @param[in] upload_token 上传凭证实例
+/// @param[in] bucket_name 目标存储空间名称
+/// @param[in] credential 认证信息
 /// @param[in] file_path 文件路径
 /// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
 /// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
 /// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
 /// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_upload_manager_upload_file_path_via_upload_token()` 方法替代
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_manager_upload_file_path(
     upload_manager: qiniu_ng_upload_manager_t,
-    upload_token: qiniu_ng_upload_token_t,
+    bucket_name: *const qiniu_ng_char_t,
+    credential: qiniu_ng_credential_t,
     file_path: *const qiniu_ng_char_t,
     params: *const qiniu_ng_upload_params_t,
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err_t,
 ) -> bool {
-    qiniu_ng_upload_manager_upload(
+    qiniu_ng_upload_manager_upload_without_upload_token(
         upload_manager,
-        upload_token,
+        bucket_name,
+        credential,
         UploadTarget::FilePath(file_path),
         params,
         response,
@@ -117,6 +124,128 @@ pub extern "C" fn qiniu_ng_upload_manager_upload_file_path(
 
 /// @brief 上传文件
 /// @param[in] upload_manager 上传管理器
+/// @param[in] bucket_name 目标存储空间名称
+/// @param[in] credential 认证信息
+/// @param[in] file 文件实例，务必保证文件实例可以读取。上传完毕后，请不要忘记调用 `fclose()` 关闭文件实例
+/// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
+/// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
+/// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_upload_manager_upload_file_via_upload_token()` 方法替代
+#[no_mangle]
+pub extern "C" fn qiniu_ng_upload_manager_upload_file(
+    upload_manager: qiniu_ng_upload_manager_t,
+    bucket_name: *const qiniu_ng_char_t,
+    credential: qiniu_ng_credential_t,
+    file: *mut FILE,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    qiniu_ng_upload_manager_upload_without_upload_token(
+        upload_manager,
+        bucket_name,
+        credential,
+        UploadTarget::File(file),
+        params,
+        response,
+        err,
+    )
+}
+
+/// @brief 上传阅读器提供的数据
+/// @param[in] upload_manager 上传管理器
+/// @param[in] bucket_name 目标存储空间名称
+/// @param[in] credential 认证信息
+/// @param[in] reader 阅读器实例，将不断从阅读器中读取数据并上传
+/// @param[in] len 阅读器预期将会读到的最大数据量，如果无法预期则传入 `0`。如果传入的值大于 `0`，最终读取的数据量将始终不大于该值
+/// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
+/// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
+/// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_upload_manager_upload_reader_via_upload_token()` 方法替代
+#[no_mangle]
+pub extern "C" fn qiniu_ng_upload_manager_upload_reader(
+    upload_manager: qiniu_ng_upload_manager_t,
+    bucket_name: *const qiniu_ng_char_t,
+    credential: qiniu_ng_credential_t,
+    reader: qiniu_ng_readable_t,
+    len: u64,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    qiniu_ng_upload_manager_upload_without_upload_token(
+        upload_manager,
+        bucket_name,
+        credential,
+        UploadTarget::Readable { reader, len },
+        params,
+        response,
+        err,
+    )
+}
+
+fn qiniu_ng_upload_manager_upload_without_upload_token(
+    upload_manager: qiniu_ng_upload_manager_t,
+    bucket_name: *const qiniu_ng_char_t,
+    credential: qiniu_ng_credential_t,
+    upload_target: UploadTarget,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    let upload_manager = Option::<Box<UploadManager>>::from(upload_manager).unwrap();
+    let credential = Option::<Box<Credential>>::from(credential).unwrap();
+    let bucket_name = unsafe { convert_optional_c_string_to_rust_string(bucket_name) };
+    let ok = qiniu_ng_upload_manager_upload(
+        &upload_manager,
+        UploadManagerUploadTokenPolicy::Auto {
+            bucket_name: Cow::Owned(bucket_name),
+            credential: Cow::Borrowed(&credential),
+        },
+        upload_target,
+        params,
+        response,
+        err,
+    );
+    let _ = qiniu_ng_credential_t::from(credential);
+    let _ = qiniu_ng_upload_manager_t::from(upload_manager);
+    ok
+}
+
+/// @brief 使用指定的上传凭证，上传指定路径的文件
+/// @param[in] upload_manager 上传管理器
+/// @param[in] upload_token 上传凭证实例
+/// @param[in] file_path 文件路径
+/// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
+/// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
+/// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+#[no_mangle]
+pub extern "C" fn qiniu_ng_upload_manager_upload_file_path_via_upload_token(
+    upload_manager: qiniu_ng_upload_manager_t,
+    upload_token: qiniu_ng_upload_token_t,
+    file_path: *const qiniu_ng_char_t,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    qiniu_ng_upload_manager_upload_via_upload_token(
+        upload_manager,
+        upload_token,
+        UploadTarget::FilePath(file_path),
+        params,
+        response,
+        err,
+    )
+}
+
+/// @brief 使用指定的上传凭证，上传文件
+/// @param[in] upload_manager 上传管理器
 /// @param[in] upload_token 上传凭证实例
 /// @param[in] file 文件实例，务必保证文件实例可以读取。上传完毕后，请不要忘记调用 `fclose()` 关闭文件实例
 /// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
@@ -125,7 +254,7 @@ pub extern "C" fn qiniu_ng_upload_manager_upload_file_path(
 /// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_manager_upload_file(
+pub extern "C" fn qiniu_ng_upload_manager_upload_file_via_upload_token(
     upload_manager: qiniu_ng_upload_manager_t,
     upload_token: qiniu_ng_upload_token_t,
     file: *mut FILE,
@@ -133,7 +262,7 @@ pub extern "C" fn qiniu_ng_upload_manager_upload_file(
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err_t,
 ) -> bool {
-    qiniu_ng_upload_manager_upload(
+    qiniu_ng_upload_manager_upload_via_upload_token(
         upload_manager,
         upload_token,
         UploadTarget::File(file),
@@ -143,7 +272,7 @@ pub extern "C" fn qiniu_ng_upload_manager_upload_file(
     )
 }
 
-/// @brief 上传阅读器提供的数据
+/// @brief 使用指定的上传凭证，上传阅读器提供的数据
 /// @param[in] upload_manager 上传管理器
 /// @param[in] upload_token 上传凭证实例
 /// @param[in] reader 阅读器实例，将不断从阅读器中读取数据并上传
@@ -154,7 +283,7 @@ pub extern "C" fn qiniu_ng_upload_manager_upload_file(
 /// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
 #[no_mangle]
-pub extern "C" fn qiniu_ng_upload_manager_upload_reader(
+pub extern "C" fn qiniu_ng_upload_manager_upload_reader_via_upload_token(
     upload_manager: qiniu_ng_upload_manager_t,
     upload_token: qiniu_ng_upload_token_t,
     reader: qiniu_ng_readable_t,
@@ -163,7 +292,7 @@ pub extern "C" fn qiniu_ng_upload_manager_upload_reader(
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err_t,
 ) -> bool {
-    qiniu_ng_upload_manager_upload(
+    qiniu_ng_upload_manager_upload_via_upload_token(
         upload_manager,
         upload_token,
         UploadTarget::Readable { reader, len },
@@ -173,7 +302,7 @@ pub extern "C" fn qiniu_ng_upload_manager_upload_reader(
     )
 }
 
-fn qiniu_ng_upload_manager_upload(
+fn qiniu_ng_upload_manager_upload_via_upload_token(
     upload_manager: qiniu_ng_upload_manager_t,
     upload_token: qiniu_ng_upload_token_t,
     upload_target: UploadTarget,
@@ -183,12 +312,44 @@ fn qiniu_ng_upload_manager_upload(
 ) -> bool {
     let upload_manager = Option::<Box<UploadManager>>::from(upload_manager).unwrap();
     let upload_token = Option::<Box<UploadToken>>::from(upload_token).unwrap();
+    let ok = qiniu_ng_upload_manager_upload(
+        &upload_manager,
+        UploadManagerUploadTokenPolicy::Fixed(upload_token.as_ref().to_owned()),
+        upload_target,
+        params,
+        response,
+        err,
+    );
+    let _ = qiniu_ng_upload_token_t::from(upload_token);
+    let _ = qiniu_ng_upload_manager_t::from(upload_manager);
+    ok
+}
+
+enum UploadManagerUploadTokenPolicy<'t> {
+    Fixed(UploadToken<'t>),
+    Auto {
+        bucket_name: Cow<'t, str>,
+        credential: Cow<'t, Credential>,
+    },
+}
+
+fn qiniu_ng_upload_manager_upload(
+    upload_manager: &UploadManager,
+    upload_token_policy: UploadManagerUploadTokenPolicy,
+    upload_target: UploadTarget,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
     let mut result = true;
-    match upload_manager
-        .for_upload_token(upload_token.as_ref().to_owned())
-        .tap(|_| {
-            let _ = qiniu_ng_upload_token_t::from(upload_token);
-        }) {
+    let file_uploader_create_result = match upload_token_policy {
+        UploadManagerUploadTokenPolicy::Fixed(upload_token) => upload_manager.upload_for_upload_token(upload_token),
+        UploadManagerUploadTokenPolicy::Auto {
+            bucket_name,
+            credential,
+        } => Ok(upload_manager.upload_for_bucket(bucket_name, credential)),
+    };
+    match file_uploader_create_result {
         Ok(mut file_uploader) => {
             let mut file_name = String::new();
             let mut mime: Option<Mime> = None;
@@ -231,31 +392,31 @@ fn qiniu_ng_upload_manager_upload(
             result = false;
         }
     }
-    let _ = qiniu_ng_upload_manager_t::from(upload_manager);
     result
 }
 
 /// @brief 上传指定路径的文件
 /// @param[in] bucket_uploader 存储空间上传器
-/// @param[in] upload_token 上传凭证实例
+/// @param[in] credential 认证信息
 /// @param[in] file_path 文件路径
 /// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
 /// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
 /// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
 /// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_bucket_uploader_upload_file_path_via_upload_token()` 方法替代
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_uploader_upload_file_path(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
-    upload_token: qiniu_ng_upload_token_t,
+    credential: qiniu_ng_credential_t,
     file_path: *const qiniu_ng_char_t,
     params: *const qiniu_ng_upload_params_t,
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err_t,
 ) -> bool {
-    qiniu_ng_upload(
+    qiniu_ng_bucket_uploader_upload_without_upload_token(
         bucket_uploader,
-        upload_token,
+        credential,
         UploadTarget::FilePath(file_path),
         params,
         response,
@@ -265,6 +426,117 @@ pub extern "C" fn qiniu_ng_bucket_uploader_upload_file_path(
 
 /// @brief 上传文件
 /// @param[in] bucket_uploader 存储空间上传器
+/// @param[in] credential 认证信息
+/// @param[in] file 文件实例，务必保证文件实例可以读取。上传完毕后，请不要忘记调用 `fclose()` 关闭文件实例
+/// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
+/// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
+/// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_bucket_uploader_upload_file_via_upload_token()` 方法替代
+#[no_mangle]
+pub extern "C" fn qiniu_ng_bucket_uploader_upload_file(
+    bucket_uploader: qiniu_ng_bucket_uploader_t,
+    credential: qiniu_ng_credential_t,
+    file: *mut FILE,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    qiniu_ng_bucket_uploader_upload_without_upload_token(
+        bucket_uploader,
+        credential,
+        UploadTarget::File(file),
+        params,
+        response,
+        err,
+    )
+}
+
+/// @brief 上传阅读器提供的数据
+/// @param[in] bucket_uploader 存储空间上传器
+/// @param[in] credential 认证信息
+/// @param[in] reader 阅读器实例，将不断从阅读器中读取数据并上传
+/// @param[in] len 阅读器预期将会读到的最大数据量，如果无法预期则传入 `0`。如果传入的值大于 `0`，最终读取的数据量将始终不大于该值
+/// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
+/// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
+/// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_bucket_uploader_upload_reader_via_upload_token()` 方法替代
+#[no_mangle]
+pub extern "C" fn qiniu_ng_bucket_uploader_upload_reader(
+    bucket_uploader: qiniu_ng_bucket_uploader_t,
+    credential: qiniu_ng_credential_t,
+    reader: qiniu_ng_readable_t,
+    len: u64,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    qiniu_ng_bucket_uploader_upload_without_upload_token(
+        bucket_uploader,
+        credential,
+        UploadTarget::Readable { reader, len },
+        params,
+        response,
+        err,
+    )
+}
+
+fn qiniu_ng_bucket_uploader_upload_without_upload_token(
+    bucket_uploader: qiniu_ng_bucket_uploader_t,
+    credential: qiniu_ng_credential_t,
+    upload_target: UploadTarget,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    let bucket_uploader = Option::<BucketUploader>::from(bucket_uploader).unwrap();
+    let credential = Option::<Box<Credential>>::from(credential).unwrap();
+    let ok = qiniu_ng_bucket_uploader_upload(
+        &bucket_uploader,
+        BucketUploaderUploadTokenPolicy::Auto(Cow::Borrowed(&credential)),
+        upload_target,
+        params,
+        response,
+        err,
+    );
+    let _ = qiniu_ng_credential_t::from(credential);
+    let _ = qiniu_ng_bucket_uploader_t::from(bucket_uploader);
+    ok
+}
+
+/// @brief 使用指定的上传凭证，上传指定路径的文件
+/// @param[in] bucket_uploader 存储空间上传器
+/// @param[in] upload_token 上传凭证实例
+/// @param[in] file_path 文件路径
+/// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
+/// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
+/// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+#[no_mangle]
+pub extern "C" fn qiniu_ng_bucket_uploader_upload_file_path_via_upload_token(
+    bucket_uploader: qiniu_ng_bucket_uploader_t,
+    upload_token: qiniu_ng_upload_token_t,
+    file_path: *const qiniu_ng_char_t,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    qiniu_ng_bucket_uploader_upload_via_upload_token(
+        bucket_uploader,
+        upload_token,
+        UploadTarget::FilePath(file_path),
+        params,
+        response,
+        err,
+    )
+}
+
+/// @brief 使用指定的上传凭证，上传文件
+/// @param[in] bucket_uploader 存储空间上传器
 /// @param[in] upload_token 上传凭证实例
 /// @param[in] file 文件实例，务必保证文件实例可以读取。上传完毕后，请不要忘记调用 `fclose()` 关闭文件实例
 /// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
@@ -273,7 +545,7 @@ pub extern "C" fn qiniu_ng_bucket_uploader_upload_file_path(
 /// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
 #[no_mangle]
-pub extern "C" fn qiniu_ng_bucket_uploader_upload_file(
+pub extern "C" fn qiniu_ng_bucket_uploader_upload_file_via_upload_token(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
     file: *mut FILE,
@@ -281,7 +553,7 @@ pub extern "C" fn qiniu_ng_bucket_uploader_upload_file(
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err_t,
 ) -> bool {
-    qiniu_ng_upload(
+    qiniu_ng_bucket_uploader_upload_via_upload_token(
         bucket_uploader,
         upload_token,
         UploadTarget::File(file),
@@ -291,7 +563,7 @@ pub extern "C" fn qiniu_ng_bucket_uploader_upload_file(
     )
 }
 
-/// @brief 上传阅读器提供的数据
+/// @brief 使用指定的上传凭证，上传阅读器提供的数据
 /// @param[in] bucket_uploader 存储空间上传器
 /// @param[in] upload_token 上传凭证实例
 /// @param[in] reader 阅读器实例，将不断从阅读器中读取数据并上传
@@ -302,7 +574,7 @@ pub extern "C" fn qiniu_ng_bucket_uploader_upload_file(
 /// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 /// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
 #[no_mangle]
-pub extern "C" fn qiniu_ng_bucket_uploader_upload_reader(
+pub extern "C" fn qiniu_ng_bucket_uploader_upload_reader_via_upload_token(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
     reader: qiniu_ng_readable_t,
@@ -311,7 +583,7 @@ pub extern "C" fn qiniu_ng_bucket_uploader_upload_reader(
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err_t,
 ) -> bool {
-    qiniu_ng_upload(
+    qiniu_ng_bucket_uploader_upload_via_upload_token(
         bucket_uploader,
         upload_token,
         UploadTarget::Readable { reader, len },
@@ -321,7 +593,7 @@ pub extern "C" fn qiniu_ng_bucket_uploader_upload_reader(
     )
 }
 
-fn qiniu_ng_upload(
+fn qiniu_ng_bucket_uploader_upload_via_upload_token(
     bucket_uploader: qiniu_ng_bucket_uploader_t,
     upload_token: qiniu_ng_upload_token_t,
     upload_target: UploadTarget,
@@ -331,9 +603,36 @@ fn qiniu_ng_upload(
 ) -> bool {
     let bucket_uploader = Option::<BucketUploader>::from(bucket_uploader).unwrap();
     let upload_token = Option::<Box<UploadToken>>::from(upload_token).unwrap();
-    let mut file_uploader = bucket_uploader.upload_token(upload_token.as_ref().to_owned()).tap(|_| {
-        let _ = qiniu_ng_upload_token_t::from(upload_token);
-    });
+    let ok = qiniu_ng_bucket_uploader_upload(
+        &bucket_uploader,
+        BucketUploaderUploadTokenPolicy::Fixed(upload_token.as_ref().to_owned()),
+        upload_target,
+        params,
+        response,
+        err,
+    );
+    let _ = qiniu_ng_upload_token_t::from(upload_token);
+    let _ = qiniu_ng_bucket_uploader_t::from(bucket_uploader);
+    ok
+}
+
+enum BucketUploaderUploadTokenPolicy<'t> {
+    Fixed(UploadToken<'t>),
+    Auto(Cow<'t, Credential>),
+}
+
+fn qiniu_ng_bucket_uploader_upload<'a>(
+    bucket_uploader: &'a BucketUploader,
+    upload_token_policy: BucketUploaderUploadTokenPolicy<'a>,
+    upload_target: UploadTarget,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    let mut file_uploader = match upload_token_policy {
+        BucketUploaderUploadTokenPolicy::Fixed(upload_token) => bucket_uploader.upload_token(upload_token),
+        BucketUploaderUploadTokenPolicy::Auto(credential) => bucket_uploader.upload_for(credential),
+    };
     let mut result = true;
     let mut file_name = String::new();
     let mut mime: Option<Mime> = None;
@@ -367,17 +666,14 @@ fn qiniu_ng_upload(
                 result = false;
             }
         }
-    } else {
-        drop(file_uploader);
     }
-    let _ = qiniu_ng_bucket_uploader_t::from(bucket_uploader);
     result
 }
 
 fn set_params_to_file_uploader<'n>(
-    mut file_uploader: FileUploaderBuilder<'n>,
+    mut file_uploader: FileUploader<'n>,
     params: &qiniu_ng_upload_params_t,
-) -> FileUploaderBuilder<'n> {
+) -> FileUploader<'n> {
     if params.thread_pool_size > 0 {
         file_uploader = file_uploader.thread_pool_size(params.thread_pool_size);
     }
@@ -448,7 +744,7 @@ enum UploadTarget {
 }
 
 impl UploadTarget {
-    fn upload(self, file_uploader: FileUploaderBuilder, file_name: String, mime: Option<Mime>) -> UploadResult {
+    fn upload(self, file_uploader: FileUploader, file_name: String, mime: Option<Mime>) -> UploadResult {
         match self {
             UploadTarget::FilePath(file_path) => file_uploader.upload_file(
                 unsafe { UCString::from_ptr(file_path) }.into_path_buf(),

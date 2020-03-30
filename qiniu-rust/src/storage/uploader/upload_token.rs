@@ -11,7 +11,7 @@ use thiserror::Error;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct UploadToken<'p>(UploadTokenInner<'p>);
 
-#[allow(clippy::large_enum_variant)]
+// TODO: Think about wrap with Arc
 #[derive(Debug, Clone, Eq, PartialEq)]
 enum UploadTokenInner<'p> {
     Token {

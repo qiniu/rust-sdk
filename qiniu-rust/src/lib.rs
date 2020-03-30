@@ -215,7 +215,7 @@
 //! # let upload_token = UploadToken::new(upload_policy, &credential);
 //! let local_file_path = Path::new("local file path");
 //! let upload_manager = UploadManager::new(config);
-//! let upload_response = upload_manager.for_upload_token(upload_token)?
+//! let upload_response = upload_manager.upload_for_upload_token(upload_token)?
 //!                                     .key(key_to_overwrite)
 //!                                     .var("name", "七牛云视频")
 //!                                     .upload_file(local_file_path, "local file name", None)?;
@@ -373,7 +373,7 @@
 //! # let upload_token = UploadToken::new(upload_policy, &credential);
 //! let local_file_path = Path::new("local file path");
 //! let upload_manager = UploadManager::new(config);
-//! let upload_response = upload_manager.for_upload_token(upload_token)?
+//! let upload_response = upload_manager.upload_for_upload_token(upload_token)?
 //!                                     .upload_file(local_file_path, "local file name", None)?;
 //! # Ok(())
 //! # }
@@ -406,7 +406,7 @@
 //! # let upload_token = UploadToken::new(upload_policy, &credential);
 //! let stream = Cursor::new(&bytes);
 //! let upload_manager = UploadManager::new(config);
-//! let upload_response = upload_manager.for_upload_token(upload_token)?
+//! let upload_response = upload_manager.upload_for_upload_token(upload_token)?
 //!                                     .upload_stream(stream, bytes.len() as u64, "file name", None)?;
 //! # Ok(())
 //! # }
@@ -433,7 +433,7 @@
 //! #
 //! # let upload_token = UploadToken::new(upload_policy, &credential);
 //! let upload_manager = UploadManager::new(config);
-//! let upload_response = upload_manager.for_upload_token(upload_token)?
+//! let upload_response = upload_manager.upload_for_upload_token(upload_token)?
 //!                                     .upload_stream(stdin(), 0, "file name", None)?;
 //! # Ok(())
 //! # }
@@ -467,7 +467,7 @@
 //! # let stream_len = bytes.len() as u64;
 //! # let stream = Cursor::new(bytes);
 //! let upload_manager = UploadManager::new(config);
-//! upload_manager.batch_for_upload_token(upload_token)?
+//! upload_manager.batch_uploader_for_upload_token(upload_token)?
 //!               .push_job(BatchUploadJobBuilder::default()
 //!                                               .upload_file(local_file_path, "local file name", None)?)
 //!               .push_job(BatchUploadJobBuilder::default()

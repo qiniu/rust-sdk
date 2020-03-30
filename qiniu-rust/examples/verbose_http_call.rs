@@ -73,7 +73,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .append_http_request_after_action_handler(HTTPLogger {})
         .build();
     let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(args.value_of("bucket").unwrap(), &config).build();
-    let mut batch_uploader = UploadManager::new(config).batch_for_upload_policy(upload_policy, credential.into())?;
+    let mut batch_uploader = UploadManager::new(config).batch_uploader_for_upload_policy(upload_policy, credential)?;
     for file_path in args.values_of_os("FILES").unwrap() {
         let file_path_str = file_path.to_string_lossy().into_owned();
         batch_uploader.push_job(

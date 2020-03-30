@@ -90,10 +90,7 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
         qiniu_ng_etag_from_file_path(file_path, (char *) &etag[0], NULL),
         "qiniu_ng_etag_from_file_path() failed");
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
-    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
-    qiniu_ng_upload_policy_builder_free(&policy_builder);
-
+    qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     prepare_for_uploading();
     qiniu_ng_upload_params_t params = {
         .key = (const qiniu_ng_char_t *) &file_key[0],
@@ -102,7 +99,7 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
     };
     qiniu_ng_upload_response_t upload_response;
     qiniu_ng_err_t err;
-    if (!qiniu_ng_upload_manager_upload_file_path(upload_manager, token, file_path, &params, &upload_response, &err)) {
+    if (!qiniu_ng_upload_manager_upload_file_path(upload_manager, BUCKET_NAME, credential, file_path, &params, &upload_response, &err)) {
         qiniu_ng_err_fputs(err, stderr);
         TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file_path() failed");
     }
@@ -132,7 +129,7 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
 
     FILE *file = OPEN_FILE_FOR_READING(file_path);
     TEST_ASSERT_NOT_NULL_MESSAGE(file, "file == null");
-    if (!qiniu_ng_upload_manager_upload_file(upload_manager, token, file, &params, &upload_response, &err)) {
+    if (!qiniu_ng_upload_manager_upload_file(upload_manager, BUCKET_NAME, credential, file, &params, &upload_response, &err)) {
         qiniu_ng_err_fputs(err, stderr);
         TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file() failed");
     }
@@ -159,7 +156,7 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
     // TODO: Clean uploaded file
 
     upload_done();
-    qiniu_ng_upload_token_free(&token);
+    qiniu_ng_credential_free(&credential);
     DELETE_FILE(file_path);
     free((void *) file_path);
     qiniu_ng_upload_manager_free(&upload_manager);
@@ -184,11 +181,7 @@ void test_qiniu_ng_bucket_uploader_upload_files(void) {
         qiniu_ng_etag_from_file_path(file_path, (char *) &etag[0], NULL),
         "qiniu_ng_etag_from_file_path() failed");
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
-    qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
-    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
-    qiniu_ng_upload_policy_builder_free(&policy_builder);
-
+    qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     prepare_for_uploading();
     qiniu_ng_upload_params_t params = {
         .key = (const qiniu_ng_char_t *) &file_key[0],
@@ -197,7 +190,7 @@ void test_qiniu_ng_bucket_uploader_upload_files(void) {
     };
     qiniu_ng_upload_response_t upload_response;
     qiniu_ng_err_t err;
-    if (!qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, token, file_path, &params, &upload_response, &err)) {
+    if (!qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, credential, file_path, &params, &upload_response, &err)) {
         qiniu_ng_err_fputs(err, stderr);
         TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file_path() failed");
     }
@@ -227,7 +220,7 @@ void test_qiniu_ng_bucket_uploader_upload_files(void) {
 
     FILE *file = OPEN_FILE_FOR_READING(file_path);
     TEST_ASSERT_NOT_NULL_MESSAGE(file, "file == null");
-    if (!qiniu_ng_bucket_uploader_upload_file(bucket_uploader, token, file, &params, &upload_response, &err)) {
+    if (!qiniu_ng_bucket_uploader_upload_file(bucket_uploader, credential, file, &params, &upload_response, &err)) {
         qiniu_ng_err_fputs(err, stderr);
         TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file() failed");
     }
@@ -254,7 +247,7 @@ void test_qiniu_ng_bucket_uploader_upload_files(void) {
     // TODO: Clean uploaded file
 
     upload_done();
-    qiniu_ng_upload_token_free(&token);
+    qiniu_ng_credential_free(&credential);
 
     DELETE_FILE(file_path);
     free((void *) file_path);
@@ -269,7 +262,7 @@ struct upload_file_thread_context {
     const qiniu_ng_char_t *file_path;
     const char *etag;
     qiniu_ng_bucket_uploader_t bucket_uploader;
-    qiniu_ng_upload_token_t token;
+    qiniu_ng_credential_t credential;
 };
 
 #if defined(_WIN32) || defined(WIN32)
@@ -289,7 +282,7 @@ void *thread_of_upload_file(void* data) {
     };
     qiniu_ng_upload_response_t upload_response;
     qiniu_ng_err_t err;
-    if (!qiniu_ng_bucket_uploader_upload_file_path(context->bucket_uploader, context->token, context->file_path, &params, &upload_response, &err)) {
+    if (!qiniu_ng_bucket_uploader_upload_file_path(context->bucket_uploader, context->credential, context->file_path, &params, &upload_response, &err)) {
         qiniu_ng_err_fputs(err, stderr);
         TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file_path() failed");
     }
@@ -331,11 +324,7 @@ void test_qiniu_ng_bucket_uploader_upload_huge_number_of_files(void) {
         qiniu_ng_etag_from_file_path(file_path, (char *) &etag[0], NULL),
         "qiniu_ng_etag_from_file_path() failed");
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
-    qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
-    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
-    qiniu_ng_upload_policy_builder_free(&policy_builder);
-
+    qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     prepare_for_uploading();
 #define THREAD_COUNT (32)
     struct upload_file_thread_context contexts[THREAD_COUNT];
@@ -348,7 +337,7 @@ void test_qiniu_ng_bucket_uploader_upload_huge_number_of_files(void) {
             .file_path = file_path,
             .etag = (char *) &etag[0],
             .bucket_uploader = bucket_uploader,
-            .token = token,
+            .credential = credential,
         };
     }
 #if defined(_WIN32) || defined(WIN32)
@@ -393,7 +382,7 @@ void test_qiniu_ng_bucket_uploader_upload_huge_number_of_files(void) {
 #undef THREAD_COUNT
 
     upload_done();
-    qiniu_ng_upload_token_free(&token);
+    qiniu_ng_credential_free(&credential);
 
     DELETE_FILE(file_path);
     free((void *) file_path);
@@ -445,11 +434,7 @@ void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_mime(void) {
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
         upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
-
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
-    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
-    qiniu_ng_upload_policy_builder_free(&policy_builder);
-
+    qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_char_t *file_path = create_temp_file(0);
     qiniu_ng_upload_params_t params = {
         .mime = "invalid"
@@ -458,7 +443,7 @@ void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_mime(void) {
     qiniu_ng_str_t error;
 
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, token, file_path, &params, NULL, &err),
+        qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, credential, file_path, &params, NULL, &err),
         "qiniu_ng_bucket_uploader_upload_file_path() returns unexpected value");
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_err_bad_mime_type_error_extract(&err, &error),
@@ -467,11 +452,10 @@ void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_mime(void) {
     TEST_ASSERT_FALSE_MESSAGE(
         qiniu_ng_err_bad_mime_type_error_extract(&err, &error),
         "qiniu_ng_err_bad_mime_type_error_extract() returns unexpected value");
+
     DELETE_FILE(file_path);
     free((void *) file_path);
-
-    qiniu_ng_upload_token_free(&token);
-
+    qiniu_ng_credential_free(&credential);
     qiniu_ng_bucket_uploader_free(&bucket_uploader);
     qiniu_ng_upload_manager_free(&upload_manager);
     qiniu_ng_config_free(&config);
@@ -484,16 +468,13 @@ void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_non_existed_path(v
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
     qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
         upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
-
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
-    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
-    qiniu_ng_upload_policy_builder_free(&policy_builder);
+    qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
 
     qiniu_ng_err_t err;
     int32_t code;
 
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, token, QINIU_NG_CHARS("/不存在的路径"), NULL, NULL, &err),
+        qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, credential, QINIU_NG_CHARS("/不存在的路径"), NULL, NULL, &err),
         "qiniu_ng_bucket_uploader_upload_file_path() returns unexpected value");
     TEST_ASSERT_FALSE_MESSAGE(
         qiniu_ng_err_bad_mime_type_error_extract(&err, NULL),
@@ -508,8 +489,7 @@ void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_non_existed_path(v
         qiniu_ng_err_os_error_extract(&err, &code),
         "qiniu_ng_err_os_error_extract() returns unexpected value");
 
-    qiniu_ng_upload_token_free(&token);
-
+    qiniu_ng_credential_free(&credential);
     qiniu_ng_bucket_uploader_free(&bucket_uploader);
     qiniu_ng_upload_manager_free(&upload_manager);
     qiniu_ng_config_free(&config);
@@ -528,10 +508,7 @@ void test_qiniu_ng_upload_manager_upload_file_with_null_key(void) {
         qiniu_ng_etag_from_file_path(file_path, (char *) &etag[0], NULL),
         "qiniu_ng_etag_from_file_path() failed");
 
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
-    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
-    qiniu_ng_upload_policy_builder_free(&policy_builder);
-
+    qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     prepare_for_uploading();
     qiniu_ng_upload_params_t params = {
         .key = (const qiniu_ng_char_t *) NULL,
@@ -539,7 +516,7 @@ void test_qiniu_ng_upload_manager_upload_file_with_null_key(void) {
     };
     qiniu_ng_upload_response_t upload_response;
     qiniu_ng_err_t err;
-    if (!qiniu_ng_upload_manager_upload_file_path(upload_manager, token, file_path, &params, &upload_response, &err)) {
+    if (!qiniu_ng_upload_manager_upload_file_path(upload_manager, BUCKET_NAME, credential, file_path, &params, &upload_response, &err)) {
         qiniu_ng_err_fputs(err, stderr);
         TEST_FAIL_MESSAGE("qiniu_ng_upload_manager_upload_file_path() failed");
     }
@@ -563,7 +540,7 @@ void test_qiniu_ng_upload_manager_upload_file_with_null_key(void) {
         "hash != etag");
 
     upload_done();
-    qiniu_ng_upload_token_free(&token);
+    qiniu_ng_credential_free(&credential);
     // TODO: Clean uploaded file
 
     DELETE_FILE(file_path);

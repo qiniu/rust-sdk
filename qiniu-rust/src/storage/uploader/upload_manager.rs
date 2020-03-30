@@ -103,22 +103,27 @@ impl UploadManager {
     pub fn upload_for_upload_policy<'u>(
         &self,
         upload_policy: UploadPolicy<'u>,
-        credential: Cow<'u, Credential>,
+        credential: impl Into<Cow<'u, Credential>>,
     ) -> CreateUploaderResult<FileUploader<'u>> {
-        self.upload_for_upload_token(UploadToken::new(upload_policy, credential))
+        self.upload_for_upload_token(UploadToken::new(upload_policy, credential.into()))
     }
 
     /// 根据存储空间和认证信息创建文件上传器
     pub fn upload_for_bucket<'u>(
         &self,
-        bucket: Cow<'u, str>,
-        credential: Cow<'u, Credential>,
-    ) -> CreateUploaderResult<FileUploader<'u>> {
-        self.upload_for_upload_token(UploadToken::new_from_bucket(bucket, credential, &self.config))
+        bucket: impl Into<Cow<'u, str>>,
+        credential: impl Into<Cow<'u, Credential>>,
+    ) -> FileUploader<'u> {
+        self.upload_for_upload_token(UploadToken::new_from_bucket(
+            bucket.into(),
+            credential.into(),
+            &self.config,
+        ))
+        .unwrap()
     }
 
     /// 根据上传凭证创建批量文件上传器
-    pub fn batch_upload_for_upload_token<'u>(
+    pub fn batch_uploader_for_upload_token<'u>(
         &self,
         upload_token: impl Into<UploadToken<'u>>,
     ) -> CreateUploaderResult<BatchUploader> {
@@ -136,21 +141,22 @@ impl UploadManager {
     }
 
     /// 根据上传策略和认证信息创建批量文件上传器
-    pub fn batch_upload_for_upload_policy<'u>(
+    pub fn batch_uploader_for_upload_policy<'u>(
         &self,
         upload_policy: UploadPolicy<'u>,
-        credential: Cow<'u, Credential>,
+        credential: impl Into<Cow<'u, Credential>>,
     ) -> CreateUploaderResult<BatchUploader> {
-        self.batch_upload_for_upload_token(UploadToken::new(upload_policy, credential))
+        self.batch_uploader_for_upload_token(UploadToken::new(upload_policy, credential))
     }
 
     /// 根据存储空间和认证信息创建批量文件上传器
-    pub fn batch_upload_for_bucket<'u>(
+    pub fn batch_uploader_for_bucket<'u>(
         &self,
-        bucket: Cow<'u, str>,
-        credential: Cow<'u, Credential>,
-    ) -> CreateUploaderResult<BatchUploader> {
-        self.batch_upload_for_upload_token(UploadToken::new_from_bucket(bucket, credential, &self.config))
+        bucket: impl Into<Cow<'u, str>>,
+        credential: impl Into<Cow<'u, Credential>>,
+    ) -> BatchUploader {
+        self.batch_uploader_for_upload_token(UploadToken::new_from_bucket(bucket, credential, &self.config))
+            .unwrap()
     }
 
     pub(crate) fn config(&self) -> &Config {
