@@ -1,19 +1,12 @@
 use super::{
-    super::uploader::{UploadPolicy, UploadToken},
-    batch_uploader::BatchUploader,
     form_uploader::FormUploaderBuilder,
     resumable_uploader::{ResumableUploader, ResumableUploaderBuilder},
+    upload_manager::UploadManager,
     upload_recorder::UploadRecorder,
-    UploadLogger, UploadResponse,
+    upload_token::UploadToken,
+    UploadResponse,
 };
-use crate::{
-    config::Config,
-    credential::Credential,
-    http::Client,
-    utils::{rob::Rob, ron::Ron},
-};
-use assert_impl::assert_impl;
-use getset::Getters;
+use crate::utils::{rob::Rob, ron::Ron};
 use mime::Mime;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::{
@@ -22,178 +15,8 @@ use std::{
     fs::File,
     io::{Error as IOError, Read, Result as IOResult},
     path::Path,
-    sync::Arc,
 };
 use thiserror::Error;
-
-#[doc(hidden)]
-#[derive(Getters)]
-#[get = "pub(super)"]
-pub struct BucketUploaderInner {
-    bucket_name: Box<str>,
-    up_urls_list: Box<[Box<[Box<str>]>]>,
-    http_client: Client,
-    upload_logger: Option<UploadLogger>,
-    recorder: UploadRecorder,
-    thread_pool: Option<ThreadPool>,
-}
-
-/// 存储空间上传器
-///
-/// 为指定存储空间的上传准备初始化数据，可以反复使用以上传多个文件。
-/// 可以跨线程使用，但由于可能会自带线程池，请勿跨进程使用
-#[derive(Clone)]
-pub struct BucketUploader {
-    inner: Arc<BucketUploaderInner>,
-}
-
-impl BucketUploader {
-    pub(super) fn bucket_name(&self) -> &str {
-        self.inner.bucket_name()
-    }
-    pub(super) fn up_urls_list(&self) -> &[Box<[Box<str>]>] {
-        self.inner.up_urls_list()
-    }
-    pub(super) fn http_client(&self) -> &Client {
-        self.inner.http_client()
-    }
-    pub(super) fn upload_logger(&self) -> Option<&UploadLogger> {
-        self.inner.upload_logger().as_ref()
-    }
-    pub(super) fn recorder(&self) -> &UploadRecorder {
-        self.inner.recorder()
-    }
-    pub(super) fn thread_pool(&self) -> Option<&ThreadPool> {
-        self.inner.thread_pool().as_ref()
-    }
-}
-
-/// 存储空间上传器生成器
-pub struct BucketUploaderBuilder {
-    inner: BucketUploaderInner,
-}
-
-impl BucketUploaderBuilder {
-    pub(super) fn new(
-        bucket_name: Box<str>,
-        up_urls_list: Box<[Box<[Box<str>]>]>,
-        config: Config,
-    ) -> BucketUploaderBuilder {
-        assert!(!up_urls_list.is_empty());
-        BucketUploaderBuilder {
-            inner: BucketUploaderInner {
-                bucket_name,
-                up_urls_list,
-                thread_pool: None,
-                recorder: config.upload_recorder().to_owned(),
-                upload_logger: config.upload_logger().to_owned(),
-                http_client: Client::new(config),
-            },
-        }
-    }
-
-    /// 为指定的文件上传指定线程池
-    pub fn thread_pool(mut self, thread_pool: ThreadPool) -> BucketUploaderBuilder {
-        self.inner.thread_pool = Some(thread_pool);
-        self
-    }
-
-    /// 为上传器创建专用线程池指定线程池大小
-    pub fn thread_pool_size(self, num_threads: usize) -> BucketUploaderBuilder {
-        self.thread_pool(
-            ThreadPoolBuilder::new()
-                .num_threads(num_threads)
-                .thread_name(move |index| format!("bucket_uploader_thread_{}_{}", num_threads, index))
-                .build()
-                .unwrap(),
-        )
-    }
-
-    /// 生成存储空间上传器
-    pub fn build(self) -> BucketUploader {
-        BucketUploader {
-            inner: Arc::new(self.inner),
-        }
-    }
-}
-
-impl BucketUploader {
-    /// 根据上传凭证创建文件上传器
-    pub fn upload_token<'b>(&'b self, upload_token: impl Into<UploadToken<'b>>) -> FileUploader<'b> {
-        FileUploader::new(Ron::Referenced(self), upload_token.into().to_string().into())
-    }
-
-    /// 根据上传策略创建文件上传器
-    pub fn upload_policy<'b>(
-        &'b self,
-        upload_policy: UploadPolicy<'b>,
-        credential: impl Into<Cow<'b, Credential>>,
-    ) -> FileUploader<'b> {
-        FileUploader::new(
-            Ron::Referenced(self),
-            UploadToken::new(upload_policy, credential.into()).to_string().into(),
-        )
-    }
-
-    /// 根据认证信息直接创建文件上传器
-    ///
-    /// 使用该方法将自动生成上传策略
-    pub fn upload_for<'b>(&'b self, credential: impl Into<Cow<'b, Credential>>) -> FileUploader<'b> {
-        FileUploader::new(
-            Ron::Referenced(self),
-            UploadToken::new_from_bucket(
-                Cow::Borrowed(self.bucket_name().as_ref()),
-                credential.into(),
-                self.http_client().config(),
-            )
-            .to_string()
-            .into(),
-        )
-    }
-
-    /// 根据上传凭证创建批量文件上传器
-    pub fn batch_for_upload_token<'b>(&self, upload_token: impl Into<UploadToken<'b>>) -> BatchUploader {
-        BatchUploader::new(self, upload_token.into().to_string())
-    }
-
-    /// 根据上传策略创建批量文件上传器
-    pub fn batch_for_upload_policy<'b>(
-        &self,
-        upload_policy: UploadPolicy<'b>,
-        credential: impl Into<Cow<'b, Credential>>,
-    ) -> BatchUploader {
-        self.batch_for_upload_token(UploadToken::new(upload_policy, credential.into()))
-    }
-
-    /// 根据认证信息直接创建批量文件上传器
-    ///
-    /// 使用该方法将自动生成上传策略
-    pub fn batch_for<'b>(&self, credential: impl Into<Cow<'b, Credential>>) -> BatchUploader {
-        self.batch_for_upload_token(UploadToken::new_from_bucket(
-            Cow::Borrowed(self.bucket_name().as_ref()),
-            credential.into(),
-            self.http_client().config(),
-        ))
-    }
-
-    #[doc(hidden)]
-    pub unsafe fn from_raw(ptr: *const BucketUploaderInner) -> BucketUploader {
-        BucketUploader {
-            inner: Arc::from_raw(ptr),
-        }
-    }
-
-    #[doc(hidden)]
-    pub fn into_raw(self) -> *const BucketUploaderInner {
-        Arc::into_raw(self.inner)
-    }
-
-    #[allow(dead_code)]
-    fn ignore() {
-        assert_impl!(Send: Self);
-        assert_impl!(Sync: Self);
-    }
-}
 
 pub(super) enum ResumablePolicy {
     Threshold(u32),
@@ -204,9 +27,12 @@ pub(super) enum ResumablePolicy {
 /// 文件上传器
 ///
 /// 为指定的文件上传准备数据，不能跨线程使用，不能反复使用
+#[must_use]
 pub struct FileUploader<'b> {
-    bucket_uploader: Ron<'b, BucketUploader>,
-    upload_token: Cow<'b, str>,
+    upload_manager: &'b UploadManager,
+    bucket_name: Cow<'b, str>,
+    up_urls_list: Box<[Box<[Box<str>]>]>,
+    upload_token: Cow<'b, UploadToken>,
     key: Option<Cow<'b, str>>,
     vars: HashMap<Cow<'b, str>, Cow<'b, str>>,
     metadata: HashMap<Cow<'b, str>, Cow<'b, str>>,
@@ -219,9 +45,17 @@ pub struct FileUploader<'b> {
 }
 
 impl<'b> FileUploader<'b> {
-    pub(super) fn new(bucket_uploader: Ron<'b, BucketUploader>, upload_token: Cow<'b, str>) -> Self {
+    pub(super) fn new(
+        upload_manager: &'b UploadManager,
+        upload_token: Cow<'b, UploadToken>,
+        bucket_name: Cow<'b, str>,
+        up_urls_list: Box<[Box<[Box<str>]>]>,
+    ) -> Self {
         FileUploader {
+            upload_manager,
             upload_token,
+            bucket_name,
+            up_urls_list,
             key: None,
             vars: HashMap::new(),
             metadata: HashMap::new(),
@@ -229,8 +63,7 @@ impl<'b> FileUploader<'b> {
             on_uploading_progress: None,
             thread_pool: None,
             max_concurrency: 0,
-            resumable_policy: ResumablePolicy::Threshold(bucket_uploader.http_client().config().upload_threshold()),
-            bucket_uploader,
+            resumable_policy: ResumablePolicy::Threshold(upload_manager.config().upload_threshold()),
         }
     }
 
@@ -405,7 +238,7 @@ impl<'b> FileUploader<'b> {
     }
 
     fn upload_file_by_form(self, file_path: &Path, file_name: Cow<str>, mime: Option<Mime>) -> UploadResult {
-        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token);
+        let mut uploader = FormUploaderBuilder::new(self.upload_manager, &self.upload_token, &self.up_urls_list);
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }
@@ -434,10 +267,16 @@ impl<'b> FileUploader<'b> {
         if file_size == 0 {
             return Err(UploadError::EmptyFileError);
         }
-        let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)
-            .max_concurrency(self.max_concurrency)
-            .vars(self.vars)
-            .metadata(self.metadata);
+        let mut uploader = ResumableUploaderBuilder::new(
+            self.upload_manager,
+            self.upload_token,
+            &self.bucket_name,
+            &self.up_urls_list,
+        )
+        .max_concurrency(self.max_concurrency)
+        .vars(self.vars)
+        .metadata(self.metadata);
+
         if let Some(key) = &self.key {
             uploader = uploader.key(key.to_owned());
         }
@@ -457,7 +296,7 @@ impl<'b> FileUploader<'b> {
         )?;
         Self::prepare_for_resuming(
             self.key.as_ref().map(|key| key.as_ref()),
-            &self.bucket_uploader.recorder(),
+            self.upload_manager.config().upload_recorder(),
             &mut uploader,
             file_path,
         )?;
@@ -483,7 +322,7 @@ impl<'b> FileUploader<'b> {
         file_name: Cow<str>,
         mime: Option<Mime>,
     ) -> UploadResult {
-        let mut uploader = FormUploaderBuilder::new(&self.bucket_uploader, &self.upload_token);
+        let mut uploader = FormUploaderBuilder::new(self.upload_manager, &self.upload_token, &self.up_urls_list);
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }
@@ -498,9 +337,9 @@ impl<'b> FileUploader<'b> {
         }
         let mime = Self::guess_mime_from_file_name(mime, file_name.as_ref());
         let upload_response = if size > 0 {
-            uploader.stream(stream.take(size), mime, file_name, None)?.send()?
+            uploader.stream(stream.take(size), file_name, mime, None)?.send()?
         } else {
-            uploader.stream(stream, mime, file_name, None)?.send()?
+            uploader.stream(stream, file_name, mime, None)?.send()?
         };
         Ok(upload_response)
     }
@@ -512,10 +351,15 @@ impl<'b> FileUploader<'b> {
         file_name: Cow<str>,
         mime: Option<Mime>,
     ) -> UploadResult {
-        let mut uploader = ResumableUploaderBuilder::new(&self.bucket_uploader, self.upload_token)
-            .max_concurrency(self.max_concurrency)
-            .vars(self.vars)
-            .metadata(self.metadata);
+        let mut uploader = ResumableUploaderBuilder::new(
+            &self.upload_manager,
+            self.upload_token,
+            &self.bucket_name,
+            &self.up_urls_list,
+        )
+        .max_concurrency(self.max_concurrency)
+        .vars(self.vars)
+        .metadata(self.metadata);
         if let Some(key) = self.key {
             uploader = uploader.key(key);
         }
@@ -576,3 +420,247 @@ pub enum UploadError {
 }
 /// 上传结果
 pub type UploadResult = Result<UploadResponse, UploadError>;
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        super::{resumable_uploader::encode_key, UploadPolicyBuilder},
+        *,
+    };
+    use crate::{
+        http::{DomainsManagerBuilder, Error as HTTPError, ErrorKind as HTTPErrorKind, Headers, Method},
+        utils::mime,
+        ConfigBuilder, Credential,
+    };
+    use qiniu_http::ResponseBuilder;
+    use qiniu_test_utils::{
+        http_call_mock::{fake_req_id, CallHandlers},
+        temp_file::create_temp_file,
+    };
+    use serde_json::json;
+    use std::{error::Error, result::Result};
+
+    #[test]
+    fn test_storage_uploader_file_uploader_upload_file_with_recovering() -> Result<(), Box<dyn Error>> {
+        let temp_path = create_temp_file(5 * (1 << 22))?.into_temp_path();
+        let config = ConfigBuilder::default()
+            .http_request_handler(
+                CallHandlers::new(|request| {
+                    panic!("Unexpected Request: {} {}", request.method(), request.url());
+                })
+                .install(
+                    Method::POST,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads"),
+                        )
+                        + "$",
+                    |request, _| {
+                        panic!("Unexpected call `POST {}`", request.url());
+                    },
+                )
+                .install(
+                    Method::PUT,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads/test_upload_id/2"),
+                        )
+                        + "$",
+                    |_, _| {
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .bytes_as_body(json!({ "etag": "etag_3" }).to_string())
+                            .build())
+                    },
+                )
+                .install(
+                    Method::PUT,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads/test_upload_id/4"),
+                        )
+                        + "$",
+                    |_, _| {
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .bytes_as_body(json!({ "etag": "etag_4" }).to_string())
+                            .build())
+                    },
+                )
+                .install(
+                    Method::POST,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads/test_upload_id"),
+                        )
+                        + "$",
+                    |_, _| {
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .bytes_as_body(json!({"hash": "abcdef", "key": "test-key"}).to_string())
+                            .build())
+                    },
+                ),
+            )
+            .upload_logger(None)
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        {
+            let medium = config.upload_recorder().open_and_write_metadata(
+                &temp_path,
+                Some("test-key"),
+                "test_upload_id",
+                &["http://z1h1.com"],
+                1 << 22,
+            )?;
+            medium.append("etag_1", 1)?;
+            medium.append("etag_3", 3)?;
+            medium.append("etag_5", 5)?;
+        }
+        let result = FileUploader::new(
+            &UploadManager::new(config),
+            Cow::Owned(UploadToken::new(policy, get_credential())),
+            "test_bucket".into(),
+            vec![vec![Box::from("http://z1h1.com")].into()].into(),
+        )
+        .key("test-key")
+        .upload_file(temp_path, "", None)?;
+        assert_eq!(result.key(), Some("test-key"));
+        assert_eq!(result.hash(), Some("abcdef"));
+        Ok(())
+    }
+    #[test]
+    fn test_storage_uploader_file_uploader_upload_file_with_1_unretryable_failure() -> Result<(), Box<dyn Error>> {
+        let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
+        let config = ConfigBuilder::default()
+            .http_request_handler(
+                CallHandlers::new(|request| {
+                    panic!("Unexpected Request: {} {}", request.method(), request.url());
+                })
+                .install(
+                    Method::POST,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads"),
+                        )
+                        + "$",
+                    |_, _| {
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .bytes_as_body(json!({"uploadId": "test_upload_id"}).to_string())
+                            .build())
+                    },
+                )
+                .install(
+                    Method::PUT,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads/test_upload_id/"),
+                        )
+                        + "\\d"
+                        + "$",
+                    |request, called| {
+                        if called == 3 {
+                            return Err(HTTPError::new_unretryable_error(
+                                HTTPErrorKind::MaliciousResponse,
+                                None,
+                                None,
+                                None,
+                            ));
+                        } else if called >= 5 {
+                            panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
+                        }
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .bytes_as_body(json!({ "etag": format!("etag_{}", called) }).to_string())
+                            .build())
+                    },
+                )
+                .install(
+                    Method::POST,
+                    "^".to_owned()
+                        + &regex::escape(
+                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
+                                + &encode_key(Some("test-key"))
+                                + "/uploads/test_upload_id"),
+                        )
+                        + "$",
+                    |_, _| {
+                        let mut headers = Headers::new();
+                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
+                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        Ok(ResponseBuilder::default()
+                            .status_code(200u16)
+                            .headers(headers)
+                            .bytes_as_body(json!({"hash": "abcdef", "key": "test-key"}).to_string())
+                            .build())
+                    },
+                ),
+            )
+            .upload_logger(None)
+            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+            .build();
+
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        let token = UploadToken::new(policy, get_credential());
+
+        assert!(FileUploader::new(
+            &UploadManager::new(config.to_owned()),
+            Cow::Borrowed(&token),
+            "test_bucket".into(),
+            vec![vec![Box::from("http://z1h1.com")].into(),].into(),
+        )
+        .key("test-key")
+        .upload_file(&temp_path, "", None)
+        .is_err());
+
+        let result = FileUploader::new(
+            &UploadManager::new(config),
+            Cow::Borrowed(&token),
+            "test_bucket".into(),
+            vec![vec![Box::from("http://z1h1.com")].into()].into(),
+        )
+        .key("test-key")
+        .upload_file(temp_path, "", None)?;
+        assert_eq!(result.key(), Some("test-key"));
+        assert_eq!(result.hash(), Some("abcdef"));
+        Ok(())
+    }
+
+    fn get_credential() -> Credential {
+        Credential::new("abcdefghklmnopq", "1234567890")
+    }
+}

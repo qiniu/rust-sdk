@@ -1,5 +1,8 @@
-use super::{bucket_uploader::ResumablePolicy, BucketUploader, FileUploader, UploadPolicy, UploadResult, UploadToken};
-use crate::{utils::ron::Ron, Credential};
+use super::{
+    file_uploader::ResumablePolicy, CreateUploaderError, CreateUploaderResult, UploadManager, UploadPolicy,
+    UploadResult, UploadToken,
+};
+use crate::{utils::ron::Ron, Config, Credential};
 use mime::Mime;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::{
@@ -23,7 +26,7 @@ enum BatchUploadTarget {
 #[must_use = "创建上传任务并不会真正上传文件，您需要将当前任务提交到批量上传器后，调用 `start` 方法执行上传任务"]
 pub struct BatchUploadJob {
     key: Option<String>,
-    upload_token: String,
+    upload_token: Option<UploadToken>,
     vars: HashMap<String, String>,
     metadata: HashMap<String, String>,
     checksum_enabled: bool,
@@ -39,7 +42,7 @@ pub struct BatchUploadJob {
 /// 批量上传任务生成器，提供上传数据所需的多个参数
 pub struct BatchUploadJobBuilder {
     key: Option<String>,
-    upload_token: String,
+    upload_token: Option<UploadToken>,
     vars: HashMap<String, String>,
     metadata: HashMap<String, String>,
     checksum_enabled: bool,
@@ -49,8 +52,8 @@ pub struct BatchUploadJobBuilder {
 }
 
 struct BatchUploaderContext {
-    upload_token: String,
-    bucket_uploader: BucketUploader,
+    upload_manager: UploadManager,
+    upload_token: UploadToken,
     max_concurrency: usize,
     thread_pool_size: usize,
 }
@@ -62,16 +65,19 @@ pub struct BatchUploader {
 }
 
 impl BatchUploader {
-    pub(super) fn new(bucket_uploader: &BucketUploader, upload_token: String) -> Self {
-        Self {
+    pub(super) fn new(upload_manager: UploadManager, upload_token: UploadToken) -> CreateUploaderResult<Self> {
+        if upload_token.policy()?.bucket().is_none() {
+            return Err(CreateUploaderError::BucketIsMissingInUploadToken);
+        }
+        Ok(Self {
             jobs: Vec::new(),
             context: BatchUploaderContext {
-                bucket_uploader: bucket_uploader.to_owned(),
+                upload_manager,
                 upload_token,
                 max_concurrency: 0,
                 thread_pool_size: 0,
             },
-        }
+        })
     }
 
     /// 预期批量上传的任务数量
@@ -134,10 +140,11 @@ impl BatchUploader {
 /// 确保返回的线程池尺寸必须大于 1，否则可能会导致死锁
 fn build_thread_pool(context: &BatchUploaderContext) -> Ron<'_, ThreadPool> {
     context
-        .bucket_uploader
+        .upload_manager
         .thread_pool()
+        .as_ref()
         .filter(|pool| pool.current_num_threads() > 1)
-        .map(Ron::Referenced)
+        .map(|pool| Ron::Referenced(pool.as_ref()))
         .unwrap_or_else(|| {
             let mut builder = ThreadPoolBuilder::new();
             if context.thread_pool_size > 0 {
@@ -168,49 +175,49 @@ fn handle_job(context: &BatchUploaderContext, job: BatchUploadJob, thread_pool: 
         on_completed,
     } = job;
 
-    let mut builder = FileUploader::new(
-        Ron::Referenced(&context.bucket_uploader),
-        if upload_token.is_empty() {
-            Cow::Borrowed(&context.upload_token)
-        } else {
-            Cow::Owned(upload_token)
-        },
-    )
-    .thread_pool(thread_pool)
-    .max_concurrency(context.max_concurrency);
+    let mut file_uploader = context
+        .upload_manager
+        .upload_for_upload_token(
+            upload_token
+                .map(Cow::Owned)
+                .unwrap_or_else(|| Cow::Borrowed(&context.upload_token)),
+        )
+        .unwrap()
+        .thread_pool(thread_pool)
+        .max_concurrency(context.max_concurrency);
     if let Some(key) = key {
-        builder = builder.key(key);
+        file_uploader = file_uploader.key(key);
     }
     for (var_name, var_value) in vars.into_iter() {
-        builder = builder.var(var_name, var_value);
+        file_uploader = file_uploader.var(var_name, var_value);
     }
     for (metadata_name, metadata_value) in metadata.into_iter() {
-        builder = builder.metadata(metadata_name, metadata_value);
+        file_uploader = file_uploader.metadata(metadata_name, metadata_value);
     }
     if checksum_enabled {
-        builder = builder.enable_checksum();
+        file_uploader = file_uploader.enable_checksum();
     } else {
-        builder = builder.disable_checksum();
+        file_uploader = file_uploader.disable_checksum();
     }
     if let Some(on_uploading_progress) = on_uploading_progress {
-        builder = builder.on_progress(on_uploading_progress);
+        file_uploader = file_uploader.on_progress(on_uploading_progress);
     }
     if let Some(resumable_policy) = resumable_policy {
         match resumable_policy {
             ResumablePolicy::Threshold(threshold) => {
-                builder = builder.upload_threshold(threshold);
+                file_uploader = file_uploader.upload_threshold(threshold);
             }
             ResumablePolicy::Never => {
-                builder = builder.never_be_resumable();
+                file_uploader = file_uploader.never_be_resumable();
             }
             ResumablePolicy::Always => {
-                builder = builder.always_be_resumable();
+                file_uploader = file_uploader.always_be_resumable();
             }
         }
     }
     let upload_result = match target {
-        BatchUploadTarget::File(file) => builder.upload_stream(file, expected_data_size, file_name, mime),
-        BatchUploadTarget::Stream(reader) => builder.upload_stream(reader, expected_data_size, file_name, mime),
+        BatchUploadTarget::File(file) => file_uploader.upload_stream(file, expected_data_size, file_name, mime),
+        BatchUploadTarget::Stream(reader) => file_uploader.upload_stream(reader, expected_data_size, file_name, mime),
     };
     if let Some(on_completed) = on_completed.as_ref() {
         on_completed(upload_result);
@@ -221,7 +228,7 @@ impl Default for BatchUploadJobBuilder {
     fn default() -> Self {
         Self {
             key: None,
-            upload_token: String::new(),
+            upload_token: None,
             vars: HashMap::new(),
             metadata: HashMap::new(),
             checksum_enabled: true,
@@ -243,21 +250,39 @@ impl BatchUploadJobBuilder {
     ///
     /// 默认情况下，总是复用批量上传器创建时传入的上传凭证。
     /// 该方法则可以在指定上传当前对象时使用上传凭证
-    pub fn upload_token<'p>(mut self, upload_token: impl Into<UploadToken<'p>>) -> Self {
-        self.upload_token = upload_token.into().to_string().into();
-        self
+    pub fn upload_token(mut self, upload_token: impl Into<UploadToken>) -> CreateUploaderResult<Self> {
+        let upload_token = upload_token.into();
+        if upload_token.policy()?.bucket().is_none() {
+            return Err(CreateUploaderError::BucketIsMissingInUploadToken);
+        }
+        self.upload_token = Some(upload_token);
+        Ok(self)
     }
 
     /// 指定上传所用的上传策略
     ///
     /// 默认情况下，总是复用批量上传器创建时传入的上传凭证。
     /// 该方法则可以在指定上传当前对象时使用上传策略生成的上传凭证
-    pub fn upload_policy<'p>(
+    pub fn upload_policy(
         self,
-        upload_policy: UploadPolicy<'p>,
-        credential: impl Into<Cow<'p, Credential>>,
-    ) -> Self {
+        upload_policy: UploadPolicy,
+        credential: impl Into<Credential>,
+    ) -> CreateUploaderResult<Self> {
         self.upload_token(UploadToken::new(upload_policy, credential.into()))
+    }
+
+    /// 指定上传所用的存储空间和认证信息
+    ///
+    /// 默认情况下，总是复用批量上传器创建时传入的上传凭证。
+    /// 该方法则可以在指定上传当前对象时使用的根据存储空间和认证信息生成的上传凭证
+    pub fn upload_for_bucket(
+        self,
+        bucket: impl Into<Cow<'static, str>>,
+        credential: Credential,
+        config: &Config,
+    ) -> Self {
+        self.upload_token(UploadToken::new_from_bucket(bucket.into(), credential, config))
+            .unwrap()
     }
 
     /// 为上传对象指定[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)

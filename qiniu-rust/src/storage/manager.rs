@@ -117,8 +117,8 @@ impl StorageManager {
     }
 
     /// 获取存储空间实例生成器
-    pub fn bucket<'b>(&'b self, bucket: impl Into<Cow<'b, str>>) -> BucketBuilder<'b> {
-        BucketBuilder::new(bucket.into(), self.credential.borrow().into(), self.upload_manager())
+    pub fn bucket(&self, bucket: impl Into<Cow<'static, str>>) -> BucketBuilder {
+        BucketBuilder::new(bucket.into(), self.credential.to_owned(), self.upload_manager())
     }
 
     /// 获取存储管理器中的认证信息

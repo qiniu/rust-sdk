@@ -1,11 +1,11 @@
 mod builder;
-mod parts;
+mod inner;
 
 pub(crate) use builder::Builder;
-pub(crate) use parts::Parts;
 
-use super::{response::Response, Choice, DomainsManager};
+use super::{response::Response, Choice};
 use crate::utils::mime;
+use inner::Inner;
 use qiniu_http::{
     Error as HTTPError, ErrorKind as HTTPErrorKind, HeaderName, HeaderValue, Headers, Method, Request as HTTPRequest,
     RequestBuilder, Response as HTTPResponse, ResponseBody as HTTPResponseBody, Result as HTTPResult,
@@ -26,23 +26,25 @@ pub(super) struct RequestErrorResponse {
     pub(super) error: Option<String>,
 }
 
-pub(crate) struct Request<'a> {
-    pub(super) parts: Parts<'a>,
-    pub(super) domains_manager: DomainsManager,
-}
+pub(crate) struct Request<'a>(Inner<'a>);
 
 impl<'a> Request<'a> {
     pub(crate) fn send(&self) -> HTTPResult<Response> {
         let mut prev_err: Option<HTTPError> = None;
-        let choices = self.domains_manager.choose(self.parts.base_urls).map_err(|err| {
-            HTTPError::new_host_unretryable_error(
-                HTTPErrorKind::UnknownError(Box::new(err)),
-                true,
-                Some(self.parts.method.to_owned()),
-                None,
-                None,
-            )
-        })?;
+        let choices = self
+            .0
+            .config
+            .domains_manager()
+            .choose(self.0.base_urls)
+            .map_err(|err| {
+                HTTPError::new_host_unretryable_error(
+                    HTTPErrorKind::UnknownError(Box::new(err)),
+                    true,
+                    Some(self.0.method.to_owned()),
+                    None,
+                    None,
+                )
+            })?;
         for choice in choices {
             let base_url = choice.base_url;
             let timer = Instant::now();
@@ -52,15 +54,15 @@ impl<'a> Request<'a> {
                 }
                 Err(err) => match err.retry_kind() {
                     HTTPRetryKind::RetryableError | HTTPRetryKind::HostUnretryableError if self.is_retry_safe(&err) => {
-                        self.domains_manager.freeze_url(base_url).unwrap();
-                        if let Some(on_error) = &self.parts.on_error {
+                        self.0.config.domains_manager().freeze_url(base_url).unwrap();
+                        if let Some(on_error) = &self.0.on_error {
                             (on_error)(Some(base_url), &err, timer.elapsed());
                         }
                         prev_err = Some(err);
                         continue;
                     }
                     _ => {
-                        if let Some(on_error) = &self.parts.on_error {
+                        if let Some(on_error) = &self.0.on_error {
                             (on_error)(Some(base_url), &err, timer.elapsed());
                         }
                         return Err(err);
@@ -74,35 +76,35 @@ impl<'a> Request<'a> {
     fn try_choice(&self, choice: Choice<'a>) -> HTTPResult<Response<'a>> {
         let mut request = {
             let mut builder = RequestBuilder::default()
-                .method(self.parts.method)
+                .method(self.0.method)
                 .url(self.make_url(choice.base_url)?)
-                .user_agent(self.parts.config.user_agent())
-                .connect_timeout(self.parts.config.http_connect_timeout())
-                .request_timeout(self.parts.config.http_request_timeout())
-                .tcp_keepalive_idle_timeout(self.parts.config.tcp_keepalive_idle_timeout())
-                .tcp_keepalive_probe_interval(self.parts.config.tcp_keepalive_probe_interval())
-                .low_transfer_speed(self.parts.config.http_low_transfer_speed())
-                .low_transfer_speed_timeout(self.parts.config.http_low_transfer_speed_timeout())
-                .follow_redirection(self.parts.follow_redirection)
-                .headers(self.parts.headers.to_owned())
-                .body(self.parts.body.as_slice());
+                .user_agent(self.0.config.user_agent())
+                .connect_timeout(self.0.config.http_connect_timeout())
+                .request_timeout(self.0.config.http_request_timeout())
+                .tcp_keepalive_idle_timeout(self.0.config.tcp_keepalive_idle_timeout())
+                .tcp_keepalive_probe_interval(self.0.config.tcp_keepalive_probe_interval())
+                .low_transfer_speed(self.0.config.http_low_transfer_speed())
+                .low_transfer_speed_timeout(self.0.config.http_low_transfer_speed_timeout())
+                .follow_redirection(self.0.follow_redirection)
+                .headers(self.0.headers.to_owned())
+                .body(self.0.body.as_slice());
             if !choice.socket_addrs.is_empty() {
                 builder = builder.resolved_socket_addrs(choice.socket_addrs.as_ref());
             }
-            if let Some(on_uploading_progress) = self.parts.on_uploading_progress {
+            if let Some(on_uploading_progress) = self.0.on_uploading_progress {
                 builder = builder.on_uploading_progress(on_uploading_progress);
             }
-            if let Some(on_downloading_progress) = self.parts.on_downloading_progress {
+            if let Some(on_downloading_progress) = self.0.on_downloading_progress {
                 builder = builder.on_downloading_progress(on_downloading_progress);
             }
             builder.build()
         };
-        if let Some(token) = &self.parts.token {
+        if let Some(token) = &self.0.token {
             token.sign(&mut request);
         }
 
         let mut prev_err: Option<HTTPError> = None;
-        let retries = self.parts.config.http_request_retries();
+        let retries = self.0.config.http_request_retries();
         assert!(retries > 0);
         for _ in 0..=retries {
             let timer = Instant::now();
@@ -112,12 +114,12 @@ impl<'a> Request<'a> {
                 .and_then(|response| self.fulfill_body_if_needed(response, &request))
                 .map(|response| Response {
                     inner: response,
-                    method: self.parts.method,
+                    method: self.0.method,
                     base_url: choice.base_url,
-                    path: self.parts.path,
+                    path: self.0.path,
                 })
                 .and_then(|mut response| {
-                    if let Some(on_response) = &self.parts.on_response {
+                    if let Some(on_response) = &self.0.on_response {
                         (on_response)(&mut response, timer.elapsed())?;
                     }
                     Ok(response)
@@ -127,11 +129,11 @@ impl<'a> Request<'a> {
                 }
                 Err(err) => match err.retry_kind() {
                     HTTPRetryKind::RetryableError if self.is_retry_safe(&err) => {
-                        if let Some(on_error) = &self.parts.on_error {
+                        if let Some(on_error) = &self.0.on_error {
                             (on_error)(Some(&choice.base_url), &err, timer.elapsed());
                         }
                         prev_err = Some(err);
-                        let delay_nanos = self.parts.config.http_request_retry_delay().as_nanos() as u64;
+                        let delay_nanos = self.0.config.http_request_retry_delay().as_nanos() as u64;
                         if delay_nanos > 0 {
                             sleep(Duration::from_nanos(
                                 thread_rng().gen_range(delay_nanos / 2, delay_nanos),
@@ -149,27 +151,27 @@ impl<'a> Request<'a> {
     }
 
     fn do_request(&self, request: &mut HTTPRequest) -> HTTPResult<HTTPResponse> {
-        for handler in self.parts.config.http_request_before_action_handlers().iter() {
+        for handler in self.0.config.http_request_before_action_handlers().iter() {
             handler.before_call(request)?;
         }
-        let mut response = self.parts.config.http_request_handler().call(&request)?;
-        for handler in self.parts.config.http_request_after_action_handlers().iter() {
+        let mut response = self.0.config.http_request_handler().call(&request)?;
+        for handler in self.0.config.http_request_after_action_handlers().iter() {
             handler.after_call(request, &mut response)?;
         }
-        if let Some(handler) = self.parts.config.http_request_final_handler() {
+        if let Some(handler) = self.0.config.http_request_final_handler() {
             handler.after_call(request, &mut response)?;
         }
         Ok(response)
     }
 
     fn make_url(&self, base_url: &str) -> HTTPResult<String> {
-        let mut url = base_url.to_owned() + self.parts.path;
-        if !self.parts.query.is_empty() {
-            url = Url::parse_with_params(url.as_str(), &self.parts.query)
+        let mut url = base_url.to_owned() + self.0.path;
+        if !self.0.query.is_empty() {
+            url = Url::parse_with_params(url.as_str(), &self.0.query)
                 .map_err(|err| {
                     HTTPError::new_unretryable_error(
                         HTTPErrorKind::UnknownError(Box::new(err)),
-                        Some(self.parts.method),
+                        Some(self.0.method),
                         Some(url.into()),
                         None,
                     )
@@ -180,9 +182,9 @@ impl<'a> Request<'a> {
     }
 
     fn is_retry_safe(&self, err: &HTTPError) -> bool {
-        match self.parts.method {
+        match self.0.method {
             Method::GET | Method::PUT | Method::HEAD => true,
-            _ => self.parts.idempotent || err.is_retry_safe(),
+            _ => self.0.idempotent || err.is_retry_safe(),
         }
     }
 
@@ -216,7 +218,7 @@ impl<'a> Request<'a> {
     }
 
     fn fulfill_body_if_needed(&self, response: HTTPResponse, request: &HTTPRequest) -> HTTPResult<HTTPResponse> {
-        if self.parts.read_body {
+        if self.0.read_body {
             Self::fulfill_body(response, request)
         } else {
             Ok(response)
@@ -322,7 +324,7 @@ impl<'a> Request<'a> {
 
 impl fmt::Debug for Request<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Request").field("parts", &self.parts).finish()
+        self.0.fmt(f)
     }
 }
 

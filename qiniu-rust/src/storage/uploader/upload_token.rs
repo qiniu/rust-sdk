@@ -8,48 +8,43 @@ use thiserror::Error;
 /// 上传凭证
 ///
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1208/upload-token)了解七牛安全机制。
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct UploadToken<'p>(UploadTokenInner<'p>);
+#[derive(Debug, Clone)]
+pub struct UploadToken(UploadTokenInner);
 
-// TODO: Think about wrap with Arc
-#[derive(Debug, Clone, Eq, PartialEq)]
-enum UploadTokenInner<'p> {
+#[derive(Debug, Clone)]
+enum UploadTokenInner {
     Token {
-        token: Cow<'p, str>,
-        policy: OnceCell<UploadPolicy<'p>>,
-        access_key: OnceCell<String>,
+        token: Box<str>,
+        policy: OnceCell<UploadPolicy>,
+        access_key: OnceCell<Box<str>>,
     },
     Policy {
-        policy: UploadPolicy<'p>,
-        credential: Cow<'p, Credential>,
-        token: OnceCell<String>,
+        policy: UploadPolicy,
+        credential: Credential,
+        token: OnceCell<Box<str>>,
     },
     Bucket {
-        bucket: Cow<'p, str>,
+        bucket: Cow<'static, str>,
         upload_token_lifetime: Duration,
-        credential: Cow<'p, Credential>,
+        credential: Credential,
     },
 }
 
-impl<'p> UploadToken<'p> {
+impl UploadToken {
     /// 根据上传策略创建新的上传凭证
-    pub fn new(policy: UploadPolicy<'p>, credential: impl Into<Cow<'p, Credential>>) -> Self {
+    pub fn new(policy: UploadPolicy, credential: Credential) -> Self {
         Self(UploadTokenInner::Policy {
             policy,
-            credential: credential.into(),
+            credential,
             token: OnceCell::new(),
         })
     }
 
     /// 根据存储空间创建新的上传凭证
-    pub fn new_from_bucket(
-        bucket: impl Into<Cow<'p, str>>,
-        credential: impl Into<Cow<'p, Credential>>,
-        config: &Config,
-    ) -> Self {
+    pub fn new_from_bucket(bucket: impl Into<Cow<'static, str>>, credential: Credential, config: &Config) -> Self {
         Self(UploadTokenInner::Bucket {
+            credential,
             bucket: bucket.into(),
-            credential: credential.into(),
             upload_token_lifetime: config.upload_token_lifetime(),
         })
     }
@@ -61,10 +56,10 @@ impl<'p> UploadToken<'p> {
                 .get_or_try_init(|| {
                     token
                         .find(':')
-                        .map(|i| token.split_at(i).0.to_owned())
+                        .map(|i| token.split_at(i).0.to_owned().into())
                         .ok_or_else(|| UploadTokenParseError::InvalidUploadTokenFormat)
                 })
-                .map(|access_key| access_key.as_str()),
+                .map(|access_key| access_key.as_ref()),
             UploadTokenInner::Policy { credential, .. } | UploadTokenInner::Bucket { credential, .. } => {
                 Ok(credential.access_key())
             }
@@ -72,7 +67,7 @@ impl<'p> UploadToken<'p> {
     }
 
     /// 解析上传凭证，获取上传策略
-    pub fn policy<'a>(&'a self) -> UploadTokenParseResult<Cow<'a, UploadPolicy<'p>>> {
+    pub fn policy<'a>(&'a self) -> UploadTokenParseResult<Cow<'a, UploadPolicy>> {
         match &self.0 {
             UploadTokenInner::Token { token, policy, .. } => policy
                 .get_or_try_init(|| {
@@ -84,19 +79,18 @@ impl<'p> UploadToken<'p> {
                         base64::decode(encoded_policy.as_bytes()).map_err(UploadTokenParseError::Base64DecodeError)?;
                     Ok(UploadPolicy::from_json(&decoded_policy).map_err(UploadTokenParseError::JSONDecodeError)?)
                 })
-                .map(Cow::Borrowed),
-            UploadTokenInner::Policy { policy, .. } => Ok(Cow::Borrowed(policy)),
+                .map(|policy| policy.into()),
+            UploadTokenInner::Policy { policy, .. } => Ok(policy.into()),
             UploadTokenInner::Bucket {
                 bucket,
                 upload_token_lifetime,
                 ..
-            } => Ok(Cow::Owned(
-                UploadPolicyBuilder::new_policy_for_bucket_and_upload_token_lifetime(
-                    bucket.to_owned(),
-                    *upload_token_lifetime,
-                )
-                .build(),
-            )),
+            } => Ok(UploadPolicyBuilder::new_policy_for_bucket_and_upload_token_lifetime(
+                bucket.to_string(),
+                *upload_token_lifetime,
+            )
+            .build()
+            .into()),
         }
     }
 
@@ -107,15 +101,17 @@ impl<'p> UploadToken<'p> {
     }
 }
 
-impl fmt::Display for UploadToken<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for UploadToken {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.0 {
             UploadTokenInner::Token { token, .. } => token.fmt(f),
             UploadTokenInner::Policy {
                 policy,
                 credential,
                 token,
-            } => token.get_or_init(|| credential.sign_upload_policy(policy)).fmt(f),
+            } => token
+                .get_or_init(|| credential.sign_upload_policy(policy).into())
+                .fmt(f),
             UploadTokenInner::Bucket {
                 bucket,
                 upload_token_lifetime,
@@ -123,7 +119,7 @@ impl fmt::Display for UploadToken<'_> {
             } => credential
                 .sign_upload_policy(
                     &UploadPolicyBuilder::new_policy_for_bucket_and_upload_token_lifetime(
-                        bucket.to_owned(),
+                        bucket.to_string(),
                         *upload_token_lifetime,
                     )
                     .build(),
@@ -133,17 +129,17 @@ impl fmt::Display for UploadToken<'_> {
     }
 }
 
-impl<'p> From<Cow<'p, str>> for UploadToken<'p> {
+impl<'p> From<Cow<'p, str>> for UploadToken {
     fn from(s: Cow<'p, str>) -> Self {
         Self(UploadTokenInner::Token {
-            token: s,
+            token: s.into_owned().into(),
             policy: OnceCell::new(),
             access_key: OnceCell::new(),
         })
     }
 }
 
-impl From<String> for UploadToken<'_> {
+impl From<String> for UploadToken {
     fn from(s: String) -> Self {
         Self(UploadTokenInner::Token {
             token: s.into(),
@@ -153,7 +149,7 @@ impl From<String> for UploadToken<'_> {
     }
 }
 
-impl<'p> From<&'p str> for UploadToken<'p> {
+impl<'p> From<&'p str> for UploadToken {
     fn from(s: &'p str) -> Self {
         Self(UploadTokenInner::Token {
             token: s.into(),
@@ -163,8 +159,23 @@ impl<'p> From<&'p str> for UploadToken<'p> {
     }
 }
 
-impl<'p> From<UploadToken<'p>> for String {
-    fn from(upload_token: UploadToken<'p>) -> Self {
+impl<'p> From<&'p UploadToken> for Cow<'p, UploadToken> {
+    #[inline]
+    fn from(token: &'p UploadToken) -> Self {
+        Cow::Borrowed(token)
+    }
+}
+
+impl From<UploadToken> for Cow<'_, UploadToken> {
+    #[inline]
+    fn from(token: UploadToken) -> Self {
+        Cow::Owned(token)
+    }
+}
+
+impl From<UploadToken> for String {
+    #[inline]
+    fn from(upload_token: UploadToken) -> Self {
         upload_token.to_string()
     }
 }
@@ -190,12 +201,12 @@ pub type UploadTokenParseResult<T> = Result<T, UploadTokenParseError>;
 mod tests {
     use super::{super::upload_policy::UploadPolicyBuilder, *};
     use crate::Config;
-    use std::{borrow::Cow, boxed::Box, error::Error, result::Result};
+    use std::{boxed::Box, error::Error, result::Result};
 
     #[test]
     fn test_build_upload_token_from_upload_policy() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", &Config::default()).build();
-        let token = UploadToken::new(policy, Cow::Owned(get_credential())).to_string();
+        let token = UploadToken::new(policy, get_credential()).to_string();
         assert!(token.starts_with(get_credential().access_key()));
         let token = UploadToken::from(token);
         let policy = token.policy()?;

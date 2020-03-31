@@ -1,8 +1,9 @@
 use super::{
     io_status_manager::{IOStatusManager, Result as IOStatusResult},
+    upload_manager::UploadManager,
     upload_recorder::{FileUploadRecordMedium, FileUploadRecordMediumBlockItem, FileUploadRecordMediumMetadata},
-    upload_response_callback, BucketUploader, TokenizedUploadLogger, UpType, UploadError, UploadLoggerRecordBuilder,
-    UploadResponse,
+    upload_response_callback, TokenizedUploadLogger, UpType, UploadError, UploadLoggerRecordBuilder, UploadResponse,
+    UploadToken,
 };
 use crate::{
     http::{Client, Error as HTTPError, ErrorKind as HTTPErrorKind, Result as HTTPResult, RetryKind},
@@ -72,8 +73,10 @@ struct UploadingProgressCallback<'u> {
 }
 
 pub(super) struct ResumableUploaderBuilder<'u> {
-    bucket_uploader: &'u BucketUploader,
-    upload_token: Cow<'u, str>,
+    upload_manager: &'u UploadManager,
+    bucket_name: &'u str,
+    up_urls_list: &'u [Box<[Box<str>]>],
+    upload_token: Cow<'u, UploadToken>,
     key: Option<Cow<'u, str>>,
     metadata: HashMap<Cow<'u, str>, Cow<'u, str>>,
     custom_vars: HashMap<Cow<'u, str>, Cow<'u, str>>,
@@ -83,9 +86,12 @@ pub(super) struct ResumableUploaderBuilder<'u> {
     upload_logger: Option<TokenizedUploadLogger>,
 }
 
+#[must_use]
 pub(super) struct ResumableUploader<'u, R: Read + Seek + Send + 'u> {
-    bucket_uploader: &'u BucketUploader,
-    upload_token: Cow<'u, str>,
+    upload_manager: &'u UploadManager,
+    bucket_name: &'u str,
+    up_urls_list: &'u [Box<[Box<str>]>],
+    upload_token: Cow<'u, UploadToken>,
     key: Option<Cow<'u, str>>,
     completed_parts: Mutex<CompletedParts<'u>>,
     checksum_enabled: bool,
@@ -103,21 +109,25 @@ pub(super) struct ResumableUploader<'u, R: Read + Seek + Send + 'u> {
 }
 
 impl<'u> ResumableUploaderBuilder<'u> {
-    pub(super) fn new(bucket_uploader: &'u BucketUploader, upload_token: Cow<'u, str>) -> ResumableUploaderBuilder<'u> {
+    pub(super) fn new(
+        upload_manager: &'u UploadManager,
+        upload_token: Cow<'u, UploadToken>,
+        bucket_name: &'u str,
+        up_urls_list: &'u [Box<[Box<str>]>],
+    ) -> ResumableUploaderBuilder<'u> {
         ResumableUploaderBuilder {
-            bucket_uploader,
-            upload_token: upload_token.clone(),
+            upload_manager,
+            bucket_name,
+            up_urls_list,
             key: None,
             metadata: HashMap::new(),
             custom_vars: HashMap::new(),
             on_uploading_progress: None,
             thread_pool: None,
-            upload_logger: bucket_uploader.upload_logger().map(|upload_logger| {
-                upload_logger.tokenize(
-                    upload_token.into_owned().into(),
-                    bucket_uploader.http_client().to_owned(),
-                )
+            upload_logger: upload_manager.config().upload_logger().as_ref().map(|upload_logger| {
+                upload_logger.tokenize(upload_token.to_string().into(), upload_manager.http_client().to_owned())
             }),
+            upload_token,
             max_concurrency: 0,
         }
     }
@@ -168,10 +178,12 @@ impl<'u> ResumableUploaderBuilder<'u> {
         mime_type: Option<Mime>,
         checksum_enabled: bool,
     ) -> IOResult<ResumableUploader<'u, File>> {
-        let bucket_uploader = self.bucket_uploader;
-        let block_size = bucket_uploader.http_client().config().upload_block_size();
+        let upload_manager = self.upload_manager;
+        let block_size = upload_manager.config().upload_block_size();
         Ok(ResumableUploader {
-            bucket_uploader,
+            upload_manager,
+            bucket_name: self.bucket_name,
+            up_urls_list: self.up_urls_list,
             upload_token: self.upload_token,
             key: self.key,
             file_path: Some(file_path),
@@ -201,7 +213,12 @@ impl<'u> ResumableUploaderBuilder<'u> {
             }),
             thread_pool: self
                 .thread_pool
-                .or_else(|| bucket_uploader.thread_pool().map(|pool| Ron::Referenced(pool)))
+                .or_else(|| {
+                    upload_manager
+                        .thread_pool()
+                        .as_ref()
+                        .map(|pool| Ron::Referenced(pool.as_ref()))
+                })
                 .unwrap_or_else(|| {
                     Ron::Owned(
                         ThreadPoolBuilder::new()
@@ -223,9 +240,11 @@ impl<'u> ResumableUploaderBuilder<'u> {
         file_name: Cow<'u, str>,
         checksum_enabled: bool,
     ) -> IOResult<ResumableUploader<'u, seek_adapter::SeekAdapter<R>>> {
-        let bucket_uploader = self.bucket_uploader;
+        let upload_manager = self.upload_manager;
         Ok(ResumableUploader {
-            bucket_uploader,
+            upload_manager,
+            bucket_name: self.bucket_name,
+            up_urls_list: self.up_urls_list,
             upload_token: self.upload_token,
             key: self.key,
             file_path: None,
@@ -234,7 +253,7 @@ impl<'u> ResumableUploaderBuilder<'u> {
             uploaded_size: AtomicU64::new(0),
             checksum_enabled,
             is_seekable: false,
-            block_size: bucket_uploader.http_client().config().upload_block_size(),
+            block_size: upload_manager.config().upload_block_size(),
             completed_parts: Mutex::new(CompletedParts {
                 parts: Vec::new(),
                 fname: if file_name.is_empty() { None } else { Some(file_name) },
@@ -250,7 +269,12 @@ impl<'u> ResumableUploaderBuilder<'u> {
             }),
             thread_pool: self
                 .thread_pool
-                .or_else(|| bucket_uploader.thread_pool().map(|pool| Ron::Referenced(pool)))
+                .or_else(|| {
+                    upload_manager
+                        .thread_pool()
+                        .as_ref()
+                        .map(|pool| Ron::Referenced(pool.as_ref()))
+                })
                 .unwrap_or_else(|| {
                     Ron::Owned(
                         ThreadPoolBuilder::new()
@@ -273,7 +297,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
             return Ok(result);
         }
         let mut prev_err: Option<HTTPError> = None;
-        for up_urls in self.bucket_uploader.up_urls_list().iter() {
+        for up_urls in self.up_urls_list.iter() {
             match self.try_to_init_and_upload_with_log(
                 &up_urls.iter().map(|url| url.as_ref()).collect::<Box<[&str]>>(),
                 &base_path,
@@ -361,8 +385,9 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
     ) -> Result<UploadResponse, UploadError> {
         let upload_id = self.init_parts(&base_path, up_urls, &authorization)?;
         let recorder = self.file_path.as_ref().and_then(|file_path| {
-            self.bucket_uploader
-                .recorder()
+            self.upload_manager
+                .config()
+                .upload_recorder()
                 .open_and_write_metadata(
                     file_path,
                     self.key.as_ref().map(|key| key.as_ref()),
@@ -399,7 +424,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
                 .map(|part| part.part_number)
                 .collect::<Vec<_>>(),
         );
-        let http_client = self.bucket_uploader.http_client();
+        let http_client = self.upload_manager.http_client();
         let block_size = self.block_size;
         let completed_parts = &self.completed_parts;
         let uploaded_size = &self.uploaded_size;
@@ -474,8 +499,9 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
             IOStatusResult::Success => self.complete_parts(base_path, up_urls, authorization).tap_ok(|_| {
                 self.file_path.as_ref().tap_some(|file_path| {
                     let _ = self
-                        .bucket_uploader
-                        .recorder()
+                        .upload_manager
+                        .config()
+                        .upload_recorder()
                         .drop(file_path, self.key.as_ref().map(|key| key.as_ref()));
                 })
             }),
@@ -513,7 +539,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
 
     fn init_parts(&self, base_path: &str, up_urls: &[&str], authorization: &str) -> HTTPResult<Box<str>> {
         let result: InitPartsResult = self
-            .bucket_uploader
+            .upload_manager
             .http_client()
             .post(base_path, up_urls)
             .header("Authorization", authorization)
@@ -629,7 +655,7 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
         }
         completed_parts.parts.sort_unstable_by_key(|part| part.part_number);
         let upload_result = self
-            .bucket_uploader
+            .upload_manager
             .http_client()
             .post(path, up_urls)
             .header("Authorization", authorization)
@@ -731,18 +757,19 @@ impl<'u, R: Read + Seek + Send> ResumableUploader<'u, R> {
 
     fn make_base_path(&self) -> String {
         "/buckets/".to_owned()
-            + self.bucket_uploader.bucket_name().as_ref()
+            + self.bucket_name
             + "/objects/"
-            + encode_key(self.key.as_ref().map(|key| key.as_ref())).as_ref()
+            + &encode_key(self.key.as_ref().map(|key| key.as_ref()))
             + "/uploads"
     }
 
     fn make_authorization(&self) -> Box<str> {
-        ("UpToken ".to_owned() + self.upload_token.as_ref()).into()
+        let upload_token = "UpToken ".to_owned() + &self.upload_token.to_string();
+        upload_token.into()
     }
 }
 
-fn encode_key(key: Option<&str>) -> Cow<'static, str> {
+pub(super) fn encode_key(key: Option<&str>) -> Cow<'static, str> {
     if let Some(key) = key {
         base64::urlsafe(key.as_bytes()).into()
     } else {
@@ -773,17 +800,13 @@ impl OptionalMd5 {
 #[cfg(test)]
 mod tests {
     use super::{
-        super::{
-            super::uploader::{UploadPolicyBuilder, UploadToken},
-            BucketUploaderBuilder,
-        },
+        super::{UploadPolicyBuilder, UploadToken},
         *,
     };
     use crate::{
-        config::ConfigBuilder,
-        credential::Credential,
         http::{DomainsManagerBuilder, Error as HTTPError, ErrorKind as HTTPErrorKind, Headers, Method},
         utils::mime,
+        ConfigBuilder, Credential,
     };
     use qiniu_http::ResponseBuilder;
     use qiniu_test_utils::{
@@ -842,7 +865,7 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_resumable_uploader_upload_file() -> Result<(), Box<dyn Error>> {
-        let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
+        let (temp_file, temp_path) = create_temp_file(10 * (1 << 20))?.into_parts();
         let config = ConfigBuilder::default()
             .http_request_handler(
                 CallHandlers::new(|request| {
@@ -917,128 +940,22 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        let result = BucketUploaderBuilder::new(
-            "test_bucket".into(),
-            vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            config,
+        let result = ResumableUploaderBuilder::new(
+            &UploadManager::new(config),
+            Cow::Owned(UploadToken::new(policy, get_credential())),
+            "test_bucket",
+            &[vec![Box::from("http://z1h1.com")].into()],
         )
-        .build()
-        .upload_token(UploadToken::new(policy, get_credential()))
-        .key("test-key")
-        .upload_file(&temp_path, "", None)?;
-        assert_eq!(result.key(), Some("test-key"));
-        assert_eq!(result.hash(), Some("abcdef"));
-        Ok(())
-    }
-
-    #[test]
-    fn test_storage_uploader_resumable_uploader_upload_file_with_recovering() -> Result<(), Box<dyn Error>> {
-        let temp_path = create_temp_file(5 * (1 << 22))?.into_temp_path();
-        let config = ConfigBuilder::default()
-            .http_request_handler(
-                CallHandlers::new(|request| {
-                    panic!("Unexpected Request: {} {}", request.method(), request.url());
-                })
-                .install(
-                    Method::POST,
-                    "^".to_owned()
-                        + &regex::escape(
-                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key(Some("test-key"))
-                                + "/uploads"),
-                        )
-                        + "$",
-                    |request, _| {
-                        panic!("Unexpected call `POST {}`", request.url());
-                    },
-                )
-                .install(
-                    Method::PUT,
-                    "^".to_owned()
-                        + &regex::escape(
-                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key(Some("test-key"))
-                                + "/uploads/test_upload_id/2"),
-                        )
-                        + "$",
-                    |_, _| {
-                        let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
-                        Ok(ResponseBuilder::default()
-                            .status_code(200u16)
-                            .headers(headers)
-                            .bytes_as_body(json!({ "etag": "etag_3" }).to_string())
-                            .build())
-                    },
-                )
-                .install(
-                    Method::PUT,
-                    "^".to_owned()
-                        + &regex::escape(
-                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key(Some("test-key"))
-                                + "/uploads/test_upload_id/4"),
-                        )
-                        + "$",
-                    |_, _| {
-                        let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
-                        Ok(ResponseBuilder::default()
-                            .status_code(200u16)
-                            .headers(headers)
-                            .bytes_as_body(json!({ "etag": "etag_4" }).to_string())
-                            .build())
-                    },
-                )
-                .install(
-                    Method::POST,
-                    "^".to_owned()
-                        + &regex::escape(
-                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key(Some("test-key"))
-                                + "/uploads/test_upload_id"),
-                        )
-                        + "$",
-                    |_, _| {
-                        let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
-                        Ok(ResponseBuilder::default()
-                            .status_code(200u16)
-                            .headers(headers)
-                            .bytes_as_body(json!({"hash": "abcdef", "key": "test-key"}).to_string())
-                            .build())
-                    },
-                ),
-            )
-            .upload_logger(None)
-            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build();
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        let bucket_uploader = BucketUploaderBuilder::new(
-            "test_bucket".into(),
-            vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            config,
-        )
-        .build();
-        {
-            let medium = bucket_uploader.recorder().open_and_write_metadata(
-                &temp_path,
-                Some("test-key"),
-                "test_upload_id",
-                &["http://z1h1.com"],
-                1 << 22,
-            )?;
-            medium.append("etag_1", 1)?;
-            medium.append("etag_3", 3)?;
-            medium.append("etag_5", 5)?;
-        }
-        let result = bucket_uploader
-            .upload_token(UploadToken::new(policy, get_credential()))
-            .key("test-key")
-            .upload_file(&temp_path, "", None)?;
+        .key("test-key".into())
+        .file(
+            temp_file,
+            Cow::Borrowed(temp_path.as_ref()),
+            "".into(),
+            10 * (1 << 20),
+            None,
+            true,
+        )?
+        .send()?;
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));
         Ok(())
@@ -1046,7 +963,7 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_resumable_uploader_upload_file_with_many_retryable_errors() -> Result<(), Box<dyn Error>> {
-        let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
+        let (temp_file, temp_path) = create_temp_file(10 * (1 << 20))?.into_parts();
         let config = ConfigBuilder::default()
             .http_request_handler(UploadingProgressErrorMock::new(
                 CallHandlers::new(|request| {
@@ -1124,15 +1041,22 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        let result = BucketUploaderBuilder::new(
-            "test_bucket".into(),
-            vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            config,
+        let result = ResumableUploaderBuilder::new(
+            &UploadManager::new(config),
+            Cow::Owned(UploadToken::new(policy, get_credential())),
+            "test_bucket",
+            &[vec![Box::from("http://z1h1.com")].into()],
         )
-        .build()
-        .upload_token(UploadToken::new(policy, get_credential()))
-        .key("test-key")
-        .upload_file(&temp_path, "", None)?;
+        .key("test-key".into())
+        .file(
+            temp_file,
+            Cow::Borrowed(temp_path.as_ref()),
+            "".into(),
+            10 * (1 << 20),
+            None,
+            true,
+        )?
+        .send()?;
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));
         Ok(())
@@ -1140,7 +1064,7 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_resumable_uploader_upload_file_with_1_host_failure() -> Result<(), Box<dyn Error>> {
-        let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
+        let (temp_file, temp_path) = create_temp_file(10 * (1 << 20))?.into_parts();
         let config = ConfigBuilder::default()
             .http_request_handler(
                 CallHandlers::new(|request| {
@@ -1245,15 +1169,22 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        let result = BucketUploaderBuilder::new(
-            "test_bucket".into(),
-            vec![vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into()].into(),
-            config,
+        let result = ResumableUploaderBuilder::new(
+            &UploadManager::new(config),
+            Cow::Owned(UploadToken::new(policy, get_credential())),
+            "test_bucket",
+            &[vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into()],
         )
-        .build()
-        .upload_token(UploadToken::new(policy, get_credential()))
-        .key("test-key")
-        .upload_file(&temp_path, "", None)?;
+        .key("test-key".into())
+        .file(
+            temp_file,
+            Cow::Borrowed(temp_path.as_ref()),
+            "".into(),
+            10 * (1 << 20),
+            None,
+            true,
+        )?
+        .send()?;
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));
         Ok(())
@@ -1261,7 +1192,7 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_resumable_uploader_upload_file_with_1_zone_failure() -> Result<(), Box<dyn Error>> {
-        let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
+        let (temp_file, temp_path) = create_temp_file(10 * (1 << 20))?.into_parts();
         let config = ConfigBuilder::default()
             .http_request_handler(
                 CallHandlers::new(|request| {
@@ -1355,19 +1286,25 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        let result = BucketUploaderBuilder::new(
-            "test_bucket".into(),
-            vec![
+        let result = ResumableUploaderBuilder::new(
+            &UploadManager::new(config),
+            Cow::Owned(UploadToken::new(policy, get_credential())),
+            "test_bucket",
+            &[
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
-            ]
-            .into(),
-            config,
+            ],
         )
-        .build()
-        .upload_token(UploadToken::new(policy, get_credential()))
-        .key("test-key")
-        .upload_file(&temp_path, "", None)?;
+        .key("test-key".into())
+        .file(
+            temp_file,
+            Cow::Borrowed(temp_path.as_ref()),
+            "".into(),
+            10 * (1 << 20),
+            None,
+            true,
+        )?
+        .send()?;
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));
         Ok(())
@@ -1376,7 +1313,7 @@ mod tests {
     #[test]
     fn test_storage_uploader_resumable_uploader_upload_file_with_1_continuous_zone_failure(
     ) -> Result<(), Box<dyn Error>> {
-        let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
+        let (temp_file, temp_path) = create_temp_file(10 * (1 << 20))?.into_parts();
         let config = ConfigBuilder::default()
             .http_request_handler(
                 CallHandlers::new(|request| {
@@ -1501,128 +1438,25 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        let result = BucketUploaderBuilder::new(
-            "test_bucket".into(),
-            vec![
+        let result = ResumableUploaderBuilder::new(
+            &UploadManager::new(config),
+            Cow::Owned(UploadToken::new(policy, get_credential())),
+            "test_bucket",
+            &[
                 vec![Box::from("http://z1h1.com")].into(),
                 vec![Box::from("http://z2h1.com")].into(),
-            ]
-            .into(),
-            config,
+            ],
         )
-        .build()
-        .upload_token(UploadToken::new(policy, get_credential()))
-        .key("test-key")
-        .upload_file(&temp_path, "", None)?;
-        assert_eq!(result.key(), Some("test-key"));
-        assert_eq!(result.hash(), Some("abcdef"));
-        Ok(())
-    }
-
-    #[test]
-    fn test_storage_uploader_resumable_uploader_upload_file_with_1_unretryable_failure() -> Result<(), Box<dyn Error>> {
-        let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
-        let config = ConfigBuilder::default()
-            .http_request_handler(
-                CallHandlers::new(|request| {
-                    panic!("Unexpected Request: {} {}", request.method(), request.url());
-                })
-                .install(
-                    Method::POST,
-                    "^".to_owned()
-                        + &regex::escape(
-                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key(Some("test-key"))
-                                + "/uploads"),
-                        )
-                        + "$",
-                    |_, _| {
-                        let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
-                        Ok(ResponseBuilder::default()
-                            .status_code(200u16)
-                            .headers(headers)
-                            .bytes_as_body(json!({"uploadId": "test_upload_id"}).to_string())
-                            .build())
-                    },
-                )
-                .install(
-                    Method::PUT,
-                    "^".to_owned()
-                        + &regex::escape(
-                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key(Some("test-key"))
-                                + "/uploads/test_upload_id/"),
-                        )
-                        + "\\d"
-                        + "$",
-                    |request, called| {
-                        if called == 3 {
-                            return Err(HTTPError::new_unretryable_error(
-                                HTTPErrorKind::MaliciousResponse,
-                                None,
-                                None,
-                                None,
-                            ));
-                        } else if called >= 5 {
-                            panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
-                        }
-                        let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
-                        Ok(ResponseBuilder::default()
-                            .status_code(200u16)
-                            .headers(headers)
-                            .bytes_as_body(json!({ "etag": format!("etag_{}", called) }).to_string())
-                            .build())
-                    },
-                )
-                .install(
-                    Method::POST,
-                    "^".to_owned()
-                        + &regex::escape(
-                            &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key(Some("test-key"))
-                                + "/uploads/test_upload_id"),
-                        )
-                        + "$",
-                    |_, _| {
-                        let mut headers = Headers::new();
-                        headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
-                        Ok(ResponseBuilder::default()
-                            .status_code(200u16)
-                            .headers(headers)
-                            .bytes_as_body(json!({"hash": "abcdef", "key": "test-key"}).to_string())
-                            .build())
-                    },
-                ),
-            )
-            .upload_logger(None)
-            .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-            .build();
-
-        let _ = BucketUploaderBuilder::new(
-            "test_bucket".into(),
-            vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            config.clone(),
-        )
-        .build()
-        .upload_for(get_credential())
-        .key("test-key")
-        .upload_file(&temp_path, "", None)
-        .unwrap_err();
-
-        let result = BucketUploaderBuilder::new(
-            "test_bucket".into(),
-            vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            config,
-        )
-        .build()
-        .upload_for(get_credential())
-        .key("test-key")
-        .upload_file(&temp_path, "", None)?;
+        .key("test-key".into())
+        .file(
+            temp_file,
+            Cow::Borrowed(temp_path.as_ref()),
+            "".into(),
+            10 * (1 << 20),
+            None,
+            true,
+        )?
+        .send()?;
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));
         Ok(())
@@ -1631,7 +1465,7 @@ mod tests {
     #[test]
     fn test_storage_uploader_resumable_uploader_upload_file_with_1_unretryable_failure_on_upload_id(
     ) -> Result<(), Box<dyn Error>> {
-        let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
+        let (temp_file, temp_path) = create_temp_file(10 * (1 << 20))?.into_parts();
         let config = ConfigBuilder::default()
             .http_request_handler(
                 CallHandlers::new(|request| {
@@ -1735,26 +1569,42 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
 
-        let _ = BucketUploaderBuilder::new(
-            "test_bucket".into(),
-            vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            config.clone(),
-        )
-        .build()
-        .upload_for(get_credential())
-        .key("test-key")
-        .upload_file(&temp_path, "", None)
-        .unwrap_err();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
+        let token = UploadToken::new(policy, get_credential());
 
-        let result = BucketUploaderBuilder::new(
-            "test_bucket".into(),
-            vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            config,
+        assert!(ResumableUploaderBuilder::new(
+            &UploadManager::new(config.to_owned()),
+            Cow::Borrowed(&token),
+            "test_bucket",
+            &[vec![Box::from("http://z1h1.com")].into(),],
         )
-        .build()
-        .upload_for(get_credential())
-        .key("test-key")
-        .upload_file(&temp_path, "", None)?;
+        .key("test-key".into())
+        .file(
+            temp_file.try_clone()?,
+            Cow::Borrowed(temp_path.as_ref()),
+            "".into(),
+            10 * (1 << 20),
+            None,
+            true,
+        )?
+        .send()
+        .is_err());
+        let result = ResumableUploaderBuilder::new(
+            &UploadManager::new(config),
+            Cow::Borrowed(&token),
+            "test_bucket",
+            &[vec![Box::from("http://z1h1.com")].into()],
+        )
+        .key("test-key".into())
+        .file(
+            temp_file,
+            Cow::Borrowed(temp_path.as_ref()),
+            "".into(),
+            10 * (1 << 20),
+            None,
+            true,
+        )?
+        .send()?;
 
         assert_eq!(result.key(), Some("test-key"));
         assert_eq!(result.hash(), Some("abcdef"));

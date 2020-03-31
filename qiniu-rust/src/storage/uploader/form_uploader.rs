@@ -1,6 +1,6 @@
 use super::{
-    upload_response_callback, BucketUploader, TokenizedUploadLogger, UpType, UploadError, UploadLoggerRecordBuilder,
-    UploadResponse,
+    upload_response_callback, TokenizedUploadLogger, UpType, UploadError, UploadLoggerRecordBuilder, UploadManager,
+    UploadResponse, UploadToken,
 };
 use crate::{
     http::{Error as HTTPError, Result as HTTPResult, RetryKind},
@@ -17,14 +17,17 @@ use std::{
 };
 
 pub(super) struct FormUploaderBuilder<'u> {
-    bucket_uploader: &'u BucketUploader,
+    upload_manager: &'u UploadManager,
+    up_urls_list: &'u [Box<[Box<str>]>],
     multipart: Multipart<'u, 'u>,
     on_uploading_progress: Option<&'u dyn Fn(u64, Option<u64>)>,
     upload_logger: Option<TokenizedUploadLogger>,
 }
 
+#[must_use]
 pub(super) struct FormUploader<'u> {
-    bucket_uploader: &'u BucketUploader,
+    upload_manager: &'u UploadManager,
+    up_urls_list: &'u [Box<[Box<str>]>],
     content_type: String,
     body: Vec<u8>,
     on_uploading_progress: Option<&'u dyn Fn(u64, Option<u64>)>,
@@ -32,13 +35,19 @@ pub(super) struct FormUploader<'u> {
 }
 
 impl<'u> FormUploaderBuilder<'u> {
-    pub(super) fn new(bucket_uploader: &'u BucketUploader, upload_token: &'u str) -> FormUploaderBuilder<'u> {
+    pub(super) fn new(
+        upload_manager: &'u UploadManager,
+        upload_token: &'u UploadToken,
+        up_urls_list: &'u [Box<[Box<str>]>],
+    ) -> FormUploaderBuilder<'u> {
+        let upload_token = upload_token.to_string();
         let mut uploader = FormUploaderBuilder {
-            bucket_uploader,
+            upload_manager,
+            up_urls_list,
             multipart: Multipart::new(),
             on_uploading_progress: None,
-            upload_logger: bucket_uploader.upload_logger().map(|upload_logger| {
-                upload_logger.tokenize(upload_token.into(), bucket_uploader.http_client().to_owned())
+            upload_logger: upload_manager.config().upload_logger().as_ref().map(|upload_logger| {
+                upload_logger.tokenize(upload_token.to_owned().into(), upload_manager.http_client().to_owned())
             }),
         };
         uploader.multipart.add_text("token", upload_token);
@@ -91,8 +100,8 @@ impl<'u> FormUploaderBuilder<'u> {
     pub(super) fn stream(
         mut self,
         stream: impl Read + 'u,
-        mime: Option<Mime>,
         file_name: Cow<'u, str>,
+        mime: Option<Mime>,
         crc32: Option<u32>,
     ) -> Result<FormUploader<'u>, UploadError> {
         let file_name = if file_name.is_empty() { None } else { Some(file_name) };
@@ -106,8 +115,7 @@ impl<'u> FormUploaderBuilder<'u> {
     fn upload_multipart(mut self) -> Result<FormUploader<'u>, UploadError> {
         let mut fields = self.multipart.prepare().map_err(|err| err.error)?;
         let mut body = Vec::with_capacity(
-            self.bucket_uploader
-                .http_client()
+            self.upload_manager
                 .config()
                 .upload_threshold()
                 .try_into()
@@ -115,7 +123,8 @@ impl<'u> FormUploaderBuilder<'u> {
         );
         fields.read_to_end(&mut body)?;
         Ok(FormUploader {
-            bucket_uploader: self.bucket_uploader,
+            upload_manager: self.upload_manager,
+            up_urls_list: self.up_urls_list,
             content_type: "multipart/form-data; boundary=".to_owned() + fields.boundary(),
             body,
             on_uploading_progress: self.on_uploading_progress,
@@ -127,7 +136,7 @@ impl<'u> FormUploaderBuilder<'u> {
 impl<'u> FormUploader<'u> {
     pub(super) fn send(&self) -> HTTPResult<UploadResponse> {
         let mut prev_err: Option<HTTPError> = None;
-        for up_urls in self.bucket_uploader.up_urls_list().iter() {
+        for up_urls in self.up_urls_list.iter() {
             match self.send_form_request(&up_urls.iter().map(|url| url.as_ref()).collect::<Box<[&str]>>()) {
                 Ok(value) => {
                     return Ok(value);
@@ -148,7 +157,7 @@ impl<'u> FormUploader<'u> {
 
     fn send_form_request(&self, up_urls: &[&str]) -> HTTPResult<UploadResponse> {
         let upload_result = self
-            .bucket_uploader
+            .upload_manager
             .http_client()
             .post("/", up_urls)
             .idempotent()
@@ -202,9 +211,9 @@ impl<'u> FormUploader<'u> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{
-        super::uploader::{UploadPolicyBuilder, UploadToken},
-        BucketUploaderBuilder,
+    use super::{
+        super::{UploadManager, UploadPolicyBuilder, UploadToken},
+        *,
     };
     use crate::{
         config::ConfigBuilder,
@@ -219,8 +228,7 @@ mod tests {
     use std::{boxed::Box, error::Error, result::Result};
 
     #[test]
-    fn test_storage_uploader_form_uploader_upload_file() -> Result<(), Box<dyn Error>> {
-        let temp_path = create_temp_file(1 << 10)?.into_temp_path();
+    fn test_storage_uploader_form_uploader_upload_seekable_stream() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(
             200,
             Headers::new(),
@@ -232,19 +240,17 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
-        let result = BucketUploaderBuilder::new(
-            "test-bucket".into(),
-            vec![
+        let result = FormUploaderBuilder::new(
+            &UploadManager::new(config),
+            &UploadToken::new(policy, get_credential()),
+            &[
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
-            ]
-            .into(),
-            config,
+            ],
         )
-        .build()
-        .upload_token(UploadToken::new(policy, get_credential()))
-        .key("test:file")
-        .upload_file(&temp_path, "", None)?;
+        .key("test:file".into())
+        .seekable_stream(create_temp_file(1 << 10)?, "".into(), None, true)?
+        .send()?;
         assert_eq!(result.key(), Some("abc"));
         assert_eq!(result.hash(), Some("def"));
         assert_eq!(mock.call_called(), 1);
@@ -252,8 +258,7 @@ mod tests {
     }
 
     #[test]
-    fn test_storage_uploader_form_uploader_upload_file_with_500_error() -> Result<(), Box<dyn Error>> {
-        let temp_path = create_temp_file(1 << 10)?.into_temp_path();
+    fn test_storage_uploader_form_uploader_upload_seekable_stream_with_500_error() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(ErrorResponseMock::new(500, "test error"));
         let config = ConfigBuilder::default()
             .http_request_retries(3)
@@ -262,27 +267,24 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
-        BucketUploaderBuilder::new(
-            "test-bucket".into(),
-            vec![
+        assert!(FormUploaderBuilder::new(
+            &UploadManager::new(config),
+            &UploadToken::new(policy, get_credential()),
+            &[
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
-            ]
-            .into(),
-            config,
+            ],
         )
-        .build()
-        .upload_token(UploadToken::new(policy, get_credential()))
-        .key("test:file")
-        .upload_file(&temp_path, "", None)
-        .unwrap_err();
+        .key("test:file".into())
+        .seekable_stream(create_temp_file(1 << 10)?, "".into(), None, true)?
+        .send()
+        .is_err());
         assert_eq!(mock.call_called(), 16);
         Ok(())
     }
 
     #[test]
-    fn test_storage_uploader_form_uploader_upload_file_with_503_error() -> Result<(), Box<dyn Error>> {
-        let temp_path = create_temp_file(1 << 10)?.into_temp_path();
+    fn test_storage_uploader_form_uploader_upload_seekable_stream_with_503_error() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(ErrorResponseMock::new(503, "test error"));
         let config = ConfigBuilder::default()
             .http_request_retries(3)
@@ -291,27 +293,24 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
-        BucketUploaderBuilder::new(
-            "test-bucket".into(),
-            vec![
+        assert!(FormUploaderBuilder::new(
+            &UploadManager::new(config),
+            &UploadToken::new(policy, get_credential()),
+            &[
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
-            ]
-            .into(),
-            config,
+            ],
         )
-        .build()
-        .upload_token(UploadToken::new(policy, get_credential()))
-        .key("test:file")
-        .upload_file(&temp_path, "", None)
-        .unwrap_err();
+        .key("test:file".into())
+        .seekable_stream(create_temp_file(1 << 10)?, "".into(), None, true)?
+        .send()
+        .is_err());
         assert_eq!(mock.call_called(), 4);
         Ok(())
     }
 
     #[test]
     fn test_storage_uploader_form_uploader_upload_stream_with_500_error() -> Result<(), Box<dyn Error>> {
-        let file = create_temp_file(1 << 10)?.into_file();
         let mock = CounterCallMock::new(ErrorResponseMock::new(500, "test error"));
         let config = ConfigBuilder::default()
             .http_request_retries(3)
@@ -320,28 +319,24 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
-        BucketUploaderBuilder::new(
-            "test-bucket".into(),
-            vec![
+        assert!(FormUploaderBuilder::new(
+            &UploadManager::new(config),
+            &UploadToken::new(policy, get_credential()),
+            &[
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
-            ]
-            .into(),
-            config,
+            ],
         )
-        .build()
-        .upload_token(UploadToken::new(policy, get_credential()))
-        .key("test:file")
-        .never_be_resumable()
-        .upload_stream(&file, 1 << 10, "", None)
-        .unwrap_err();
+        .key("test:file".into())
+        .stream(create_temp_file(1 << 10)?, "".into(), None, None)?
+        .send()
+        .is_err());
         assert_eq!(mock.call_called(), 16);
         Ok(())
     }
 
     #[test]
     fn test_storage_uploader_form_uploader_upload_stream_with_503_error() -> Result<(), Box<dyn Error>> {
-        let file = create_temp_file(1 << 10)?.into_file();
         let mock = CounterCallMock::new(ErrorResponseMock::new(503, "test error"));
         let config = ConfigBuilder::default()
             .http_request_retries(3)
@@ -350,28 +345,24 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
-        BucketUploaderBuilder::new(
-            "test-bucket".into(),
-            vec![
+        assert!(FormUploaderBuilder::new(
+            &UploadManager::new(config),
+            &UploadToken::new(policy, get_credential()),
+            &[
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
-            ]
-            .into(),
-            config,
+            ],
         )
-        .build()
-        .upload_token(UploadToken::new(policy, get_credential()))
-        .key("test:file")
-        .never_be_resumable()
-        .upload_stream(&file, 1 << 10, "", None)
-        .unwrap_err();
+        .key("test:file".into())
+        .stream(create_temp_file(1 << 10)?, "".into(), None, None)?
+        .send()
+        .is_err());
         assert_eq!(mock.call_called(), 4);
         Ok(())
     }
 
     #[test]
     fn test_storage_uploader_form_uploader_upload_stream_with_400_incorrect_zone_error() -> Result<(), Box<dyn Error>> {
-        let file = create_temp_file(1 << 10)?.into_file();
         let mock = CounterCallMock::new(ErrorResponseMock::new(400, "incorrect region, please use z3h1.com"));
         let config = ConfigBuilder::default()
             .http_request_retries(3)
@@ -380,21 +371,18 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test-bucket", &config).build();
-        BucketUploaderBuilder::new(
-            "test-bucket".into(),
-            vec![
+        assert!(FormUploaderBuilder::new(
+            &UploadManager::new(config),
+            &UploadToken::new(policy, get_credential()),
+            &[
                 vec![Box::from("http://z1h1.com"), Box::from("http://z1h2.com")].into(),
                 vec![Box::from("http://z2h1.com"), Box::from("http://z2h2.com")].into(),
-            ]
-            .into(),
-            config,
+            ],
         )
-        .build()
-        .upload_token(UploadToken::new(policy, get_credential()))
-        .key("test:file")
-        .never_be_resumable()
-        .upload_stream(&file, 1 << 10, "", None)
-        .unwrap_err();
+        .key("test:file".into())
+        .stream(create_temp_file(1 << 10)?, "".into(), None, None)?
+        .send()
+        .is_err());
         assert_eq!(mock.call_called(), 2);
         Ok(())
     }

@@ -2,7 +2,7 @@
 
 use super::{
     region::{Region, RegionId},
-    uploader::{BucketUploaderBuilder, UploadManager},
+    uploader::{FileUploader, UploadManager},
 };
 use crate::{
     credential::Credential,
@@ -15,13 +15,13 @@ use std::{borrow::Cow, iter::Iterator};
 /// 存储空间
 ///
 /// 封装存储空间相关数据，例如配置，区域，下载域名等
-pub struct Bucket<'r> {
-    name: Cow<'r, str>,
-    credential: Cow<'r, Credential>,
+pub struct Bucket {
+    name: Cow<'static, str>,
+    credential: Credential,
     upload_manager: UploadManager,
-    region: OnceCell<Cow<'r, Region>>,
-    backup_regions: OnceCell<Box<[Cow<'r, Region>]>>,
-    domains: OnceCell<Box<[Cow<'r, str>]>>,
+    region: OnceCell<Cow<'static, Region>>,
+    backup_regions: OnceCell<Box<[Cow<'static, Region>]>>,
+    domains: OnceCell<Box<[Cow<'static, str>]>>,
     http_client: Client,
 }
 
@@ -40,28 +40,24 @@ pub struct Bucket<'r> {
 /// # Ok(())
 /// # }
 /// ```
-pub struct BucketBuilder<'r> {
-    name: Cow<'r, str>,
-    credential: Cow<'r, Credential>,
+pub struct BucketBuilder {
+    name: Cow<'static, str>,
+    credential: Credential,
     upload_manager: UploadManager,
-    region: Option<Cow<'r, Region>>,
-    backup_regions: Vec<Cow<'r, Region>>,
-    domains: Vec<Cow<'r, str>>,
+    region: Option<Cow<'static, Region>>,
+    backup_regions: Vec<Cow<'static, Region>>,
+    domains: Vec<Cow<'static, str>>,
     http_client: Client,
 }
 
 /// 存储空间区域迭代器
-pub struct BucketRegionIter<'a, 'r: 'a> {
-    bucket: &'a Bucket<'r>,
+pub struct BucketRegionIter<'a> {
+    bucket: &'a Bucket,
     itered: usize,
 }
 
-impl<'r> BucketBuilder<'r> {
-    pub(crate) fn new(
-        name: Cow<'r, str>,
-        credential: Cow<'r, Credential>,
-        upload_manager: UploadManager,
-    ) -> BucketBuilder<'r> {
+impl BucketBuilder {
+    pub(crate) fn new(name: Cow<'static, str>, credential: Credential, upload_manager: UploadManager) -> BucketBuilder {
         BucketBuilder {
             name,
             credential,
@@ -96,7 +92,7 @@ impl<'r> BucketBuilder<'r> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn region(&mut self, region: impl Into<Cow<'r, Region>>) -> &mut Self {
+    pub fn region(&mut self, region: impl Into<Cow<'static, Region>>) -> &mut Self {
         if self.region.is_none() {
             self.region = Some(region.into());
         } else {
@@ -155,7 +151,7 @@ impl<'r> BucketBuilder<'r> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn prepend_domain(&mut self, domain: impl Into<Cow<'r, str>>) -> &mut Self {
+    pub fn prepend_domain(&mut self, domain: impl Into<Cow<'static, str>>) -> &mut Self {
         self.domains.push(domain.into());
         self
     }
@@ -174,7 +170,7 @@ impl<'r> BucketBuilder<'r> {
     /// 生成存储空间
     ///
     /// 注意，该方法仅用于在 SDK 中配置生成存储空间实例，而非在七牛云服务器上创建新的存储空间
-    pub fn build(&self) -> Bucket<'r> {
+    pub fn build(&self) -> Bucket {
         let BucketBuilder {
             name,
             credential,
@@ -214,7 +210,7 @@ impl<'r> BucketBuilder<'r> {
     /// 重置生成器
     ///
     /// 重置生成器使得生成器可以被多次复用
-    pub fn reset(&mut self, name: impl Into<Cow<'r, str>>) -> &mut Self {
+    pub fn reset(&mut self, name: impl Into<Cow<'static, str>>) -> &mut Self {
         self.name = name.into();
         self.region = None;
         self.backup_regions.clear();
@@ -223,7 +219,7 @@ impl<'r> BucketBuilder<'r> {
     }
 }
 
-impl<'r> Bucket<'r> {
+impl Bucket {
     /// 存储空间名称
     pub fn name(&self) -> &str {
         self.name.as_ref()
@@ -254,7 +250,7 @@ impl<'r> Bucket<'r> {
     /// 该迭代器将首先返回当前存储空间所在区域，随后返回所有备用区域
     ///
     /// 如果区域在存储空间生成前未指定，则该方法可能会连接七牛服务器查询当前存储空间所在区域和备用区域
-    pub fn regions<'a>(&'a self) -> Result<BucketRegionIter<'a, 'r>> {
+    pub fn regions<'a>(&'a self) -> Result<BucketRegionIter<'a>> {
         self.region()?;
         Ok(BucketRegionIter {
             bucket: self,
@@ -275,9 +271,10 @@ impl<'r> Bucket<'r> {
         Ok(domains.iter().map(|domain| domain.as_ref()).collect())
     }
 
-    /// 获取当前存储空间上传生成器
-    pub fn uploader(&self) -> BucketUploaderBuilder {
-        self.upload_manager.for_bucket(self)
+    /// 创建面向该存储区域的文件上传器
+    pub fn uploader(&self) -> FileUploader {
+        self.upload_manager
+            .upload_for_bucket(self.name.to_owned(), self.credential.to_owned())
     }
 
     fn rs_urls(&self) -> Vec<Cow<'static, str>> {
@@ -344,7 +341,7 @@ mod domain {
     }
 }
 
-impl<'a, 'r: 'a> Iterator for BucketRegionIter<'a, 'r> {
+impl<'a> Iterator for BucketRegionIter<'a> {
     type Item = &'a Region;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -388,7 +385,7 @@ mod tests {
 
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
-            get_credential().into(),
+            get_credential(),
             UploadManager::new(
                 ConfigBuilder::default()
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
@@ -411,7 +408,7 @@ mod tests {
 
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
-            get_credential().into(),
+            get_credential(),
             UploadManager::new(
                 ConfigBuilder::default()
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
@@ -457,7 +454,7 @@ mod tests {
         ));
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
-            get_credential().into(),
+            get_credential(),
             UploadManager::new(
                 ConfigBuilder::default()
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
@@ -536,7 +533,7 @@ mod tests {
         let bucket = Arc::new(
             BucketBuilder::new(
                 "test-bucket".into(),
-                get_credential().into(),
+                get_credential(),
                 UploadManager::new(
                     ConfigBuilder::default()
                         .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
@@ -583,7 +580,6 @@ mod tests {
         }
 
         {
-            let bucket = bucket.clone();
             threads.push(thread::spawn(move || {
                 let regions = bucket.regions().unwrap().collect::<Vec<_>>();
                 assert_eq!(regions.len(), 2);
@@ -617,7 +613,7 @@ mod tests {
 
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
-            get_credential().into(),
+            get_credential(),
             UploadManager::new(
                 ConfigBuilder::default()
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
@@ -641,7 +637,7 @@ mod tests {
         let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
-            get_credential().into(),
+            get_credential(),
             UploadManager::new(
                 ConfigBuilder::default()
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
@@ -666,7 +662,7 @@ mod tests {
         let bucket = Arc::new(
             BucketBuilder::new(
                 "test-bucket".into(),
-                get_credential().into(),
+                get_credential(),
                 UploadManager::new(
                     ConfigBuilder::default()
                         .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
@@ -687,7 +683,6 @@ mod tests {
         }
 
         {
-            let bucket = bucket.clone();
             threads.push(thread::spawn(move || {
                 assert!(bucket.domains().unwrap().contains(&"def.com"));
             }));
@@ -706,7 +701,7 @@ mod tests {
         let bucket1 = Arc::new(
             BucketBuilder::new(
                 "test-bucket".into(),
-                get_credential().into(),
+                get_credential(),
                 UploadManager::new(
                     ConfigBuilder::default()
                         .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
@@ -719,7 +714,7 @@ mod tests {
         let bucket2 = Arc::new(
             BucketBuilder::new(
                 "test-bucket".into(),
-                get_credential().into(),
+                get_credential(),
                 UploadManager::new(
                     ConfigBuilder::default()
                         .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())

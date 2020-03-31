@@ -5,7 +5,7 @@ use super::{
 use crate::config::Config;
 use std::{borrow::Cow, collections::HashMap, fmt, time::Duration};
 
-pub(crate) struct Parts<'a> {
+pub(super) struct Inner<'a> {
     pub(super) method: Method,
     pub(super) base_urls: &'a [&'a str],
     pub(super) path: &'a str,
@@ -23,9 +23,9 @@ pub(crate) struct Parts<'a> {
     pub(super) on_error: Option<&'a dyn Fn(Option<&str>, &HTTPError, Duration)>,
 }
 
-impl fmt::Debug for Parts<'_> {
+impl fmt::Debug for Inner<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Parts")
+        f.debug_struct("Request")
             .field("method", &self.method)
             .field("base_urls", &self.base_urls)
             .field("path", &self.path)

@@ -105,7 +105,7 @@ impl Credential {
         content_type: &str,
         body: &[u8],
     ) -> Result<String, url::ParseError> {
-        let u = Url::parse(url_string.as_ref())?;
+        let u = Url::parse(url_string)?;
         let mut data_to_sign = Vec::with_capacity(1024);
         data_to_sign.extend_from_slice(u.path().as_bytes());
         if let Some(query) = u.query() {
@@ -115,10 +115,8 @@ impl Credential {
             }
         }
         data_to_sign.extend_from_slice(b"\n");
-        if !content_type.is_empty() && !body.is_empty() {
-            if Self::will_push_body_v1(content_type) {
-                data_to_sign.extend_from_slice(body);
-            }
+        if !content_type.is_empty() && !body.is_empty() && Self::will_push_body_v1(content_type) {
+            data_to_sign.extend_from_slice(body);
         }
         Ok(self.sign(&data_to_sign))
     }

@@ -20,9 +20,9 @@ use thiserror::Error;
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1206/put-policy)了解七牛安全机制。
 #[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct UploadPolicy<'p> {
+pub struct UploadPolicy {
     #[serde(skip_serializing_if = "Option::is_none")]
-    scope: Option<Cow<'p, str>>,
+    scope: Option<Box<str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     deadline: Option<u32>,
 
@@ -33,21 +33,21 @@ pub struct UploadPolicy<'p> {
     insert_only: Option<u8>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    return_url: Option<Cow<'p, str>>,
+    return_url: Option<Box<str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    return_body: Option<Cow<'p, str>>,
+    return_body: Option<Box<str>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    callback_url: Option<Cow<'p, str>>,
+    callback_url: Option<Box<str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    callback_host: Option<Cow<'p, str>>,
+    callback_host: Option<Box<str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    callback_body: Option<Cow<'p, str>>,
+    callback_body: Option<Box<str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    callback_body_type: Option<Cow<'p, str>>,
+    callback_body_type: Option<Box<str>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    save_key: Option<Cow<'p, str>>,
+    save_key: Option<Box<str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     force_save_key: Option<bool>,
 
@@ -59,7 +59,7 @@ pub struct UploadPolicy<'p> {
     #[serde(skip_serializing_if = "Option::is_none")]
     detect_mime: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    mime_limit: Option<Cow<'p, str>>,
+    mime_limit: Option<Box<str>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     file_type: Option<u8>,
@@ -68,10 +68,10 @@ pub struct UploadPolicy<'p> {
     delete_after_days: Option<usize>,
 }
 
-impl<'p> UploadPolicy<'p> {
+impl UploadPolicy {
     /// 存储空间约束
     pub fn bucket(&self) -> Option<&str> {
-        self.scope.as_ref().and_then(|s| s.splitn(2, ':').nth(0))
+        self.scope.as_ref().and_then(|s| s.splitn(2, ':').next())
     }
 
     /// 对象名称约束或对象名称前缀约束
@@ -201,11 +201,11 @@ impl<'p> UploadPolicy<'p> {
         self.object_lifetime().map(|t| SystemTime::now() + t)
     }
 
-    fn convert_to_optional_str<'a>(s: &'a Option<Cow<'p, str>>) -> Option<&'a str> {
+    fn convert_to_optional_str<'a>(s: &'a Option<Box<str>>) -> Option<&'a str> {
         s.as_ref().map(|s| s.as_ref())
     }
 
-    fn convert_to_optional_splited_str<'a>(s: &'a Option<Cow<'p, str>>, pat: char) -> Option<Split<'a, char>> {
+    fn convert_to_optional_splited_str<'a>(s: &'a Option<Box<str>>, pat: char) -> Option<Split<'a, char>> {
         s.as_ref().map(|x| x.split(pat))
     }
 
@@ -215,7 +215,7 @@ impl<'p> UploadPolicy<'p> {
     }
 
     /// 解析 JSON 格式的上传凭证
-    pub fn from_json(json: impl AsRef<[u8]>) -> serde_json::Result<UploadPolicy<'static>> {
+    pub fn from_json(json: impl AsRef<[u8]>) -> serde_json::Result<UploadPolicy> {
         serde_json::from_slice(json.as_ref())
     }
 
@@ -230,17 +230,17 @@ impl<'p> UploadPolicy<'p> {
 ///
 /// 用于生成上传策略，一旦生成完毕，上传策略将无法被修改
 #[derive(Debug, Clone)]
-pub struct UploadPolicyBuilder<'p> {
-    inner: UploadPolicy<'p>,
+pub struct UploadPolicyBuilder {
+    inner: UploadPolicy,
 }
 
-impl<'p> From<UploadPolicy<'p>> for UploadPolicyBuilder<'p> {
-    fn from(policy: UploadPolicy<'p>) -> Self {
+impl From<UploadPolicy> for UploadPolicyBuilder {
+    fn from(policy: UploadPolicy) -> Self {
         Self { inner: policy }
     }
 }
 
-impl<'p> UploadPolicyBuilder<'p> {
+impl UploadPolicyBuilder {
     /// 为指定的存储空间生成的上传策略
     ///
     /// 允许用户上传文件到指定的存储空间，不限制上传客户端指定对象名称。
@@ -248,12 +248,12 @@ impl<'p> UploadPolicyBuilder<'p> {
     /// 因此上传时不能通过覆盖的方式修改同名对象。
     ///
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
-    pub fn new_policy_for_bucket(bucket: impl Into<Cow<'p, str>>, config: &Config) -> Self {
-        Self::new_policy_for_bucket_and_upload_token_lifetime(bucket, config.upload_token_lifetime())
+    pub fn new_policy_for_bucket(bucket: impl Into<String>, config: &Config) -> Self {
+        Self::new_policy_for_bucket_and_upload_token_lifetime(bucket.into(), config.upload_token_lifetime())
     }
 
     pub(super) fn new_policy_for_bucket_and_upload_token_lifetime(
-        bucket: impl Into<Cow<'p, str>>,
+        bucket: String,
         upload_token_lifetime: Duration,
     ) -> Self {
         let mut policy = Self {
@@ -384,7 +384,7 @@ impl<'p> UploadPolicyBuilder<'p> {
     /// 文件上传成功后会跳转到 `<return_url>?upload_ret=<queryString>`，
     /// `<queryString>` 包含 `return_body()` 内容。
     /// 如不设置 `return_url`，则直接将 `return_body()` 的内容返回给客户端
-    pub fn return_url(&mut self, url: impl Into<Cow<'p, str>>) -> &mut Self {
+    pub fn return_url(&mut self, url: impl Into<Box<str>>) -> &mut Self {
         self.inner.return_url = Some(url.into());
         self
     }
@@ -394,7 +394,7 @@ impl<'p> UploadPolicyBuilder<'p> {
     /// 支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)。
     /// `return_body` 要求是合法的 JSON 文本。
     /// 例如 `{"key": $(key), "hash": $(etag), "w": $(imageInfo.width), "h": $(imageInfo.height)}`
-    pub fn return_body(&mut self, body: impl Into<Cow<'p, str>>) -> &mut Self {
+    pub fn return_body(&mut self, body: impl Into<Box<str>>) -> &mut Self {
         self.inner.return_body = Some(body.into());
         self
     }
@@ -411,9 +411,9 @@ impl<'p> UploadPolicyBuilder<'p> {
     pub fn callback<'a>(
         &mut self,
         urls: impl AsRef<[&'a str]>,
-        host: impl Into<Cow<'p, str>>,
-        body: impl Into<Cow<'p, str>>,
-        body_type: impl Into<Cow<'p, str>>,
+        host: impl Into<Box<str>>,
+        body: impl Into<Box<str>>,
+        body_type: impl Into<Box<str>>,
     ) -> &mut Self {
         self.inner.callback_url = Some(urls.as_ref().join(";").into());
         self.inner.callback_host = {
@@ -441,7 +441,7 @@ impl<'p> UploadPolicyBuilder<'p> {
     /// 支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)。
     /// `force` 为 `false` 时，`save_as` 字段仅当用户上传的时候没有主动指定对象名时起作用，
     /// `force` 为 `true` 时，将强制按 `save_as` 字段的内容命名
-    pub fn save_as(&mut self, save_as: impl Into<Cow<'p, str>>, force: bool) -> &mut Self {
+    pub fn save_as(&mut self, save_as: impl Into<Box<str>>, force: bool) -> &mut Self {
         self.inner.save_key = Some(save_as.into());
         if force {
             self.inner.force_save_key = Some(true);
@@ -505,7 +505,7 @@ impl<'p> UploadPolicyBuilder<'p> {
     }
 
     /// 生成上传策略
-    pub fn build(&self) -> UploadPolicy<'p> {
+    pub fn build(&self) -> UploadPolicy {
         self.inner.clone()
     }
 
@@ -528,6 +528,20 @@ impl<'p> UploadPolicyBuilder<'p> {
         self.inner.mime_limit = None;
         self.inner.file_type = None;
         self.inner.delete_after_days = None;
+    }
+}
+
+impl<'p> From<&'p UploadPolicy> for Cow<'p, UploadPolicy> {
+    #[inline]
+    fn from(policy: &'p UploadPolicy) -> Self {
+        Cow::Borrowed(policy)
+    }
+}
+
+impl From<UploadPolicy> for Cow<'_, UploadPolicy> {
+    #[inline]
+    fn from(policy: UploadPolicy) -> Self {
+        Cow::Owned(policy)
     }
 }
 

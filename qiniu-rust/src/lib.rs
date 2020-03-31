@@ -104,7 +104,7 @@
 //! let access_key = "[Qiniu Access Key]";
 //! let secret_key = "[Qiniu Secret Key]";
 //! let credential = Credential::new(access_key, secret_key);
-//! let upload_token = UploadToken::new(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, credential);
 //! ```
 //!
 //! 默认情况下，在不指定上传凭证的有效时间情况下，默认有效期为 1 个小时。也可以自行指定上传凭证的有效期，例如：
@@ -127,7 +127,7 @@
 //! let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(bucket, &config)
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::new(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, credential);
 //! ```
 //!
 //! ### 覆盖上传凭证
@@ -151,7 +151,7 @@
 //! let upload_policy = UploadPolicyBuilder::new_policy_for_object(bucket, key_to_overwrite, &config)
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::new(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, credential);
 //! ```
 //!
 //! ### 自定义上传回复凭证
@@ -182,7 +182,7 @@
 //!                                         .return_body("{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"fsize\":$(fsize),\"bucket\":\"$(bucket)\",\"name\":\"$(x:name)\"}")
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::new(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, credential);
 //! ```
 //!
 //! 则文件上传到七牛之后，收到的回复内容格式如下：
@@ -212,7 +212,7 @@
 //! #                                         .return_body("{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"fsize\":$(fsize),\"bucket\":\"$(bucket)\",\"name\":\"$(x:name)\"}")
 //! #                                         .build();
 //! #
-//! # let upload_token = UploadToken::new(upload_policy, &credential);
+//! # let upload_token = UploadToken::new(upload_policy, credential);
 //! let local_file_path = Path::new("local file path");
 //! let upload_manager = UploadManager::new(config);
 //! let upload_response = upload_manager.upload_for_upload_token(upload_token)?
@@ -251,7 +251,7 @@
 //!                                         )
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::new(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, credential);
 //! ```
 //!
 //! 在使用了上传回调的情况下，客户端收到的回复就是业务服务器响应七牛的 JSON 格式内容，业务服务器收到回调之后必须响应 JSON 格式的回复給七牛，这个回复会被七牛传递给客户端。
@@ -286,7 +286,7 @@
 //!                                         )
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::new(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, credential);
 //! ```
 //!
 //! ### 带自定义参数的凭证
@@ -311,7 +311,7 @@
 //!                                         .return_body("{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"fsize\":$(fsize),\"bucket\":\"$(bucket)\",\"name\":\"$(x:name)\",\"age\":$(x:age)}")
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::new(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, credential);
 //! ```
 //!
 //! 或者
@@ -338,7 +338,7 @@
 //!                                         )
 //!                                         .build();
 //!
-//! let upload_token = UploadToken::new(upload_policy, &credential);
+//! let upload_token = UploadToken::new(upload_policy, credential);
 //! ```
 //!
 //! ### 综合上传凭证
@@ -370,7 +370,7 @@
 //! # let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(bucket, &config)
 //! #                                         .build();
 //! #
-//! # let upload_token = UploadToken::new(upload_policy, &credential);
+//! # let upload_token = UploadToken::new(upload_policy, credential);
 //! let local_file_path = Path::new("local file path");
 //! let upload_manager = UploadManager::new(config);
 //! let upload_response = upload_manager.upload_for_upload_token(upload_token)?
@@ -403,7 +403,7 @@
 //! # let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(bucket, &config)
 //! #                                         .build();
 //! #
-//! # let upload_token = UploadToken::new(upload_policy, &credential);
+//! # let upload_token = UploadToken::new(upload_policy, credential);
 //! let stream = Cursor::new(&bytes);
 //! let upload_manager = UploadManager::new(config);
 //! let upload_response = upload_manager.upload_for_upload_token(upload_token)?
@@ -431,7 +431,7 @@
 //! # let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(bucket, &config)
 //! #                                         .build();
 //! #
-//! # let upload_token = UploadToken::new(upload_policy, &credential);
+//! # let upload_token = UploadToken::new(upload_policy, credential);
 //! let upload_manager = UploadManager::new(config);
 //! let upload_response = upload_manager.upload_for_upload_token(upload_token)?
 //!                                     .upload_stream(stdin(), 0, "file name", None)?;
@@ -460,7 +460,7 @@
 //! # let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(bucket, &config)
 //! #                                         .build();
 //! #
-//! # let upload_token = UploadToken::new(upload_policy, &credential);
+//! # let upload_token = UploadToken::new(upload_policy, credential);
 //! # let local_file_path = Path::new("local file path");
 //! # let mut bytes = Vec::new();
 //! # File::open("/etc/services")?.read_to_end(&mut bytes)?;

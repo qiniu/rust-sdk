@@ -446,8 +446,8 @@ impl From<Region> for Cow<'_, Region> {
     }
 }
 
-impl<'a> From<&'a Region> for Cow<'a, Region> {
-    fn from(region: &'a Region) -> Self {
+impl From<&'static Region> for Cow<'static, Region> {
+    fn from(region: &'static Region) -> Self {
         Cow::Borrowed(region)
     }
 }
