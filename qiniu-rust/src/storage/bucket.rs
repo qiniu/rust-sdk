@@ -440,7 +440,10 @@ mod tests {
                         "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload.qbox.me" ] },
                         "old_src": { "info": "compatible to non-SNI device", "main": [ "up.qbox.me" ] },
                         "src": { "backup": [ "up-jjh.qiniup.com", "up-xs.qiniup.com" ], "main": [ "up.qiniup.com" ] }
-                    }
+                    },
+                    "rs": { "acc": { "main": [ "rs.qbox.me" ] } },
+                    "rsf": { "acc": { "main": [ "rsf.qbox.me" ] } },
+                    "api": { "acc": { "main": [ "api.qiniu.com" ] } }
                 },{
                     "io": { "src": { "main": [ "iovip-z1.qbox.me" ] } },
                     "up": {
@@ -448,7 +451,10 @@ mod tests {
                         "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload-z1.qbox.me" ] },
                         "old_src": { "info": "compatible to non-SNI device", "main": [ "up-z1.qbox.me" ] },
                         "src": { "backup": [ "up-jjh-z1.qiniup.com", "up-xs-z1.qiniup.com" ], "main": [ "up-z1.qiniup.com" ] }
-                    }
+                    },
+                    "rs": { "acc": { "main": [ "rs-z1.qbox.me" ] } },
+                    "rsf": { "acc": { "main": [ "rsf-z1.qbox.me" ] } },
+                    "api": { "acc": { "main": [ "api-z1.qiniu.com" ] } }
                 }]
             }),
         ));
@@ -518,7 +524,10 @@ mod tests {
                         "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload.qbox.me" ] },
                         "old_src": { "info": "compatible to non-SNI device", "main": [ "up.qbox.me" ] },
                         "src": { "backup": [ "up-jjh.qiniup.com", "up-xs.qiniup.com" ], "main": [ "up.qiniup.com" ] }
-                    }
+                    },
+                    "rs": { "acc": { "main": [ "rs.qbox.me" ] } },
+                    "rsf": { "acc": { "main": [ "rsf.qbox.me" ] } },
+                    "api": { "acc": { "main": [ "api.qiniu.com" ] } }
                 },{
                     "io": { "src": { "main": [ "iovip-z2.qbox.me" ] } },
                     "up": {
@@ -526,7 +535,10 @@ mod tests {
                         "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload-z2.qbox.me" ] },
                         "old_src": { "info": "compatible to non-SNI device", "main": [ "up-z2.qbox.me" ] },
                         "src": { "backup": [ "up-jjh-z2.qiniup.com", "up-xs-z2.qiniup.com" ], "main": [ "up-z2.qiniup.com" ] }
-                    }
+                    },
+                    "rs": { "acc": { "main": [ "rs-z2.qbox.me" ] } },
+                    "rsf": { "acc": { "main": [ "rsf-z2.qbox.me" ] } },
+                    "api": { "acc": { "main": [ "api-z2.qiniu.com" ] } }
                 }]
             }),
         ));

@@ -14,6 +14,9 @@ use serde::Deserialize;
 use std::{
     borrow::Cow,
     convert::AsRef,
+    ffi::c_void,
+    ops::Deref,
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -68,12 +71,19 @@ impl AsRef<str> for RegionId {
     }
 }
 
-/// 区域
-///
-/// 区域实例负责管理七牛多个服务器的 URL，用于为存储管理器或上传管理器提供 URL。
 #[derive(Getters, CopyGetters, Builder, Clone, Debug, Default)]
-#[builder(default, pattern = "mutable", build_fn(name = "inner_build", private), setter(into))]
-pub struct Region {
+#[builder(
+    default,
+    name = "RegionBuilder",
+    pattern = "mutable",
+    build_fn(name = "inner_build", private),
+    setter(into)
+)]
+/// 区域配置内容
+///
+/// 注意，请勿直接使用该结构体，您可以通过调用 `RegionBuilder` 的同名方法来构建 `Region` 的实例，
+/// 然后调用 `Region` 的同名方法来访问到该结构体的数据
+pub struct RegionInner {
     /// 存储区域 ID
     ///
     /// 需要注意：通过七牛服务器查询获得的区域实例，`region_id` 将会返回 `None`
@@ -120,6 +130,12 @@ pub struct Region {
     #[get = "pub"]
     api_https_urls: Vec<Cow<'static, str>>,
 }
+
+/// 区域
+///
+/// 区域实例负责管理七牛多个服务器的 URL，用于为存储管理器或上传管理器提供 URL。
+#[derive(Clone, Default)]
+pub struct Region(Arc<RegionInner>);
 
 impl RegionBuilder {
     /// 追加上传服务器（HTTP 协议）URL
@@ -224,7 +240,7 @@ impl RegionBuilder {
 
     /// 生成区域实例
     pub fn build(&self) -> Region {
-        self.inner_build().unwrap()
+        Region(Arc::new(self.inner_build().unwrap()))
     }
 
     /// 重置区域生成器
@@ -417,10 +433,29 @@ impl Region {
         Ok(regions)
     }
 
+    #[doc(hidden)]
+    pub fn into_raw(self) -> *const c_void {
+        Arc::into_raw(self.0).cast()
+    }
+
+    #[doc(hidden)]
+    pub unsafe fn from_raw(ptr: *const c_void) -> Self {
+        Self(Arc::from_raw(ptr.cast::<RegionInner>()))
+    }
+
     #[allow(dead_code)]
     fn ignore() {
         assert_impl!(Send: Self);
         assert_impl!(Sync: Self);
+    }
+}
+
+impl Deref for Region {
+    type Target = RegionInner;
+
+    #[inline]
+    fn deref(&self) -> &RegionInner {
+        self.0.deref()
     }
 }
 
@@ -436,10 +471,6 @@ impl QueryCacheKey {
     }
 }
 
-pub(super) fn clear_query_cache() {
-    QUERY_CACHE.clear();
-}
-
 impl From<Region> for Cow<'_, Region> {
     fn from(region: Region) -> Self {
         Cow::Owned(region)
@@ -450,6 +481,11 @@ impl From<&'static Region> for Cow<'static, Region> {
     fn from(region: &'static Region) -> Self {
         Cow::Borrowed(region)
     }
+}
+
+#[cfg(test)]
+pub(super) fn clear_query_cache() {
+    QUERY_CACHE.clear();
 }
 
 lazy_static! {
@@ -579,13 +615,21 @@ struct RegionQueryResults {
 
 #[derive(Deserialize, Debug, Clone)]
 struct RegionQueryResult {
-    io: RegionQueryResultForIO,
     up: RegionQueryResultForUP,
+    io: RegionQueryResultForSrc,
+    rs: RegionQueryResultForAcc,
+    rsf: RegionQueryResultForAcc,
+    api: RegionQueryResultForAcc,
 }
 
 #[derive(Deserialize, Debug, Clone)]
-struct RegionQueryResultForIO {
+struct RegionQueryResultForSrc {
     src: RegionQueryResultDomains,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct RegionQueryResultForAcc {
+    acc: RegionQueryResultDomains,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -658,7 +702,54 @@ impl RegionQueryResult {
                     .map(|domain| Cow::Owned("https://".to_owned() + domain))
                     .collect::<Vec<_>>(),
             )
-            // TODO: Add rs, rsf, api URLs here
+            .rs_http_urls(
+                [Some(&self.rs.acc.main), self.rs.acc.backup.as_ref()]
+                    .iter()
+                    .filter_map(|&domains| domains)
+                    .flatten()
+                    .map(|domain| Cow::Owned("http://".to_owned() + domain))
+                    .collect::<Vec<_>>(),
+            )
+            .rs_https_urls(
+                [Some(&self.rs.acc.main), self.rs.acc.backup.as_ref()]
+                    .iter()
+                    .filter_map(|&domains| domains)
+                    .flatten()
+                    .map(|domain| Cow::Owned("https://".to_owned() + domain))
+                    .collect::<Vec<_>>(),
+            )
+            .rsf_http_urls(
+                [Some(&self.rsf.acc.main), self.rsf.acc.backup.as_ref()]
+                    .iter()
+                    .filter_map(|&domains| domains)
+                    .flatten()
+                    .map(|domain| Cow::Owned("http://".to_owned() + domain))
+                    .collect::<Vec<_>>(),
+            )
+            .rsf_https_urls(
+                [Some(&self.rsf.acc.main), self.rsf.acc.backup.as_ref()]
+                    .iter()
+                    .filter_map(|&domains| domains)
+                    .flatten()
+                    .map(|domain| Cow::Owned("https://".to_owned() + domain))
+                    .collect::<Vec<_>>(),
+            )
+            .api_http_urls(
+                [Some(&self.api.acc.main), self.api.acc.backup.as_ref()]
+                    .iter()
+                    .filter_map(|&domains| domains)
+                    .flatten()
+                    .map(|domain| Cow::Owned("http://".to_owned() + domain))
+                    .collect::<Vec<_>>(),
+            )
+            .api_https_urls(
+                [Some(&self.api.acc.main), self.api.acc.backup.as_ref()]
+                    .iter()
+                    .filter_map(|&domains| domains)
+                    .flatten()
+                    .map(|domain| Cow::Owned("https://".to_owned() + domain))
+                    .collect::<Vec<_>>(),
+            )
             .build()
     }
 }
@@ -692,7 +783,10 @@ mod tests {
                             "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload.qbox.me" ] },
                             "old_src": { "info": "compatible to non-SNI device", "main": [ "up.qbox.me" ] },
                             "src": { "backup": [ "up-jjh.qiniup.com", "up-xs.qiniup.com" ], "main": [ "up.qiniup.com" ] }
-                        }
+                        },
+                        "rs": { "acc": { "main": [ "rs.qbox.me" ] } },
+                        "rsf": { "acc": { "main": [ "rsf.qbox.me" ] } },
+                        "api": { "acc": { "main": [ "api.qiniu.com" ] } }
                     }]
                 }),
             )).build();
@@ -726,12 +820,12 @@ mod tests {
         );
         assert_eq!(region.io_http_urls(), &["http://iovip.qbox.me".to_owned()]);
         assert_eq!(region.io_https_urls(), &["https://iovip.qbox.me".to_owned()]);
-        assert!(region.rs_http_urls().is_empty());
-        assert!(region.rs_https_urls().is_empty());
-        assert!(region.rsf_http_urls().is_empty());
-        assert!(region.rsf_https_urls().is_empty());
-        assert!(region.api_http_urls().is_empty());
-        assert!(region.api_https_urls().is_empty());
+        assert_eq!(region.rs_http_urls(), &["http://rs.qbox.me".to_owned()]);
+        assert_eq!(region.rs_https_urls(), &["https://rs.qbox.me".to_owned()]);
+        assert_eq!(region.rsf_http_urls(), &["http://rsf.qbox.me".to_owned()]);
+        assert_eq!(region.rsf_https_urls(), &["https://rsf.qbox.me".to_owned()]);
+        assert_eq!(region.api_http_urls(), &["http://api.qiniu.com".to_owned()]);
+        assert_eq!(region.api_https_urls(), &["https://api.qiniu.com".to_owned()]);
         Ok(())
     }
 
@@ -752,7 +846,10 @@ mod tests {
                             "old_acc": { "info": "compatible to non-SNI device", "main": [ "upload-z5.qbox.me" ] },
                             "old_src": { "info": "compatible to non-SNI device", "main": [ "up-z5.qbox.me" ] },
                             "src": { "backup": [ "up-jjh-z5.qiniup.com", "up-xs-z5.qiniup.com" ], "main": [ "up-z5.qiniup.com" ] }
-                        }
+                        },
+                        "rs": { "acc": { "main": [ "rs-z5.qbox.me" ] } },
+                        "rsf": { "acc": { "main": [ "rsf-z5.qbox.me" ] } },
+                        "api": { "acc": { "main": [ "api-z5.qiniu.com" ] } }
                     }]
                 }),
             ))
@@ -787,12 +884,12 @@ mod tests {
         );
         assert_eq!(region.io_http_urls(), &["http://iovip-z5.qbox.me".to_owned()]);
         assert_eq!(region.io_https_urls(), &["https://iovip-z5.qbox.me".to_owned()]);
-        assert!(region.rs_http_urls().is_empty());
-        assert!(region.rs_https_urls().is_empty());
-        assert!(region.rsf_http_urls().is_empty());
-        assert!(region.rsf_https_urls().is_empty());
-        assert!(region.api_http_urls().is_empty());
-        assert!(region.api_https_urls().is_empty());
+        assert_eq!(region.rs_http_urls(), &["http://rs-z5.qbox.me".to_owned()]);
+        assert_eq!(region.rs_https_urls(), &["https://rs-z5.qbox.me".to_owned()]);
+        assert_eq!(region.rsf_http_urls(), &["http://rsf-z5.qbox.me".to_owned()]);
+        assert_eq!(region.rsf_https_urls(), &["https://rsf-z5.qbox.me".to_owned()]);
+        assert_eq!(region.api_http_urls(), &["http://api-z5.qiniu.com".to_owned()]);
+        assert_eq!(region.api_https_urls(), &["https://api-z5.qiniu.com".to_owned()]);
         Ok(())
     }
 
