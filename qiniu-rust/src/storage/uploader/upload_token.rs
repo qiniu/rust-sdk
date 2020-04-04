@@ -2,16 +2,17 @@ use super::upload_policy::{UploadPolicy, UploadPolicyBuilder};
 use crate::{utils::base64, Config, Credential};
 use assert_impl::assert_impl;
 use once_cell::sync::OnceCell;
-use std::{borrow::Cow, convert::From, fmt, result::Result, time::Duration};
+use std::{borrow::Cow, convert::From, ffi::c_void, fmt, result::Result, sync::Arc, time::Duration};
 use thiserror::Error;
 
 /// 上传凭证
 ///
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1208/upload-token)了解七牛安全机制。
 #[derive(Debug, Clone)]
-pub struct UploadToken(UploadTokenInner);
+pub struct UploadToken(Arc<UploadTokenInner>);
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 enum UploadTokenInner {
     Token {
         token: Box<str>,
@@ -33,25 +34,25 @@ enum UploadTokenInner {
 impl UploadToken {
     /// 根据上传策略创建新的上传凭证
     pub fn new(policy: UploadPolicy, credential: Credential) -> Self {
-        Self(UploadTokenInner::Policy {
+        Self(Arc::new(UploadTokenInner::Policy {
             policy,
             credential,
             token: OnceCell::new(),
-        })
+        }))
     }
 
     /// 根据存储空间创建新的上传凭证
     pub fn new_from_bucket(bucket: impl Into<Cow<'static, str>>, credential: Credential, config: &Config) -> Self {
-        Self(UploadTokenInner::Bucket {
+        Self(Arc::new(UploadTokenInner::Bucket {
             credential,
             bucket: bucket.into(),
             upload_token_lifetime: config.upload_token_lifetime(),
-        })
+        }))
     }
 
     /// 解析上传凭证，获取 `Access Key`
     pub fn access_key(&self) -> UploadTokenParseResult<&str> {
-        match &self.0 {
+        match self.0.as_ref() {
             UploadTokenInner::Token { token, access_key, .. } => access_key
                 .get_or_try_init(|| {
                     token
@@ -68,7 +69,7 @@ impl UploadToken {
 
     /// 解析上传凭证，获取上传策略
     pub fn policy<'a>(&'a self) -> UploadTokenParseResult<Cow<'a, UploadPolicy>> {
-        match &self.0 {
+        match self.0.as_ref() {
             UploadTokenInner::Token { token, policy, .. } => policy
                 .get_or_try_init(|| {
                     let encoded_policy = token
@@ -94,6 +95,16 @@ impl UploadToken {
         }
     }
 
+    #[doc(hidden)]
+    pub fn into_raw(self) -> *const c_void {
+        Arc::into_raw(self.0).cast()
+    }
+
+    #[doc(hidden)]
+    pub unsafe fn from_raw(ptr: *const c_void) -> Self {
+        Self(Arc::from_raw(ptr.cast::<UploadTokenInner>()))
+    }
+
     #[allow(dead_code)]
     fn ignore() {
         assert_impl!(Send: Self);
@@ -103,7 +114,7 @@ impl UploadToken {
 
 impl fmt::Display for UploadToken {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.0 {
+        match self.0.as_ref() {
             UploadTokenInner::Token { token, .. } => token.fmt(f),
             UploadTokenInner::Policy {
                 policy,
@@ -131,31 +142,31 @@ impl fmt::Display for UploadToken {
 
 impl<'p> From<Cow<'p, str>> for UploadToken {
     fn from(s: Cow<'p, str>) -> Self {
-        Self(UploadTokenInner::Token {
+        Self(Arc::new(UploadTokenInner::Token {
             token: s.into_owned().into(),
             policy: OnceCell::new(),
             access_key: OnceCell::new(),
-        })
+        }))
     }
 }
 
 impl From<String> for UploadToken {
     fn from(s: String) -> Self {
-        Self(UploadTokenInner::Token {
+        Self(Arc::new(UploadTokenInner::Token {
             token: s.into(),
             policy: OnceCell::new(),
             access_key: OnceCell::new(),
-        })
+        }))
     }
 }
 
 impl<'p> From<&'p str> for UploadToken {
     fn from(s: &'p str) -> Self {
-        Self(UploadTokenInner::Token {
+        Self(Arc::new(UploadTokenInner::Token {
             token: s.into(),
             policy: OnceCell::new(),
             access_key: OnceCell::new(),
-        })
+        }))
     }
 }
 

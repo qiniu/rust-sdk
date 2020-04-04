@@ -6,7 +6,10 @@ use crate::{
 use assert_impl::assert_impl;
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters};
-use std::{borrow::Cow, boxed::Box, default::Default, env::consts::ARCH, fmt, ops::Deref, sync::Arc, time::Duration};
+use std::{
+    borrow::Cow, boxed::Box, default::Default, env::consts::ARCH, ffi::c_void, fmt, ops::Deref, sync::Arc,
+    time::Duration,
+};
 use sys_info::{linux_os_release, os_release, os_type};
 
 #[derive(Builder, Getters, CopyGetters)]
@@ -567,13 +570,13 @@ impl Deref for Config {
 
 impl Config {
     #[doc(hidden)]
-    pub fn into_raw(self) -> *const ConfigInner {
-        Arc::into_raw(self.0)
+    pub fn into_raw(self) -> *const c_void {
+        Arc::into_raw(self.0).cast()
     }
 
     #[doc(hidden)]
-    pub unsafe fn from_raw(ptr: *const ConfigInner) -> Config {
-        Config(Arc::from_raw(ptr))
+    pub unsafe fn from_raw(ptr: *const c_void) -> Self {
+        Self(Arc::from_raw(ptr.cast::<ConfigInner>()))
     }
 
     #[allow(dead_code)]
