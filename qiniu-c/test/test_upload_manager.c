@@ -75,10 +75,8 @@ static void upload_done(void) {
 }
 
 void test_qiniu_ng_upload_manager_upload_files(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
     env_load("..", false);
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
 
     const qiniu_ng_char_t file_key[256];
     generate_file_key(file_key, 256, 0, 23);
@@ -101,7 +99,7 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
     qiniu_ng_err_t err;
     if (!qiniu_ng_upload_manager_upload_file_path(upload_manager, BUCKET_NAME, credential, file_path, &params, &upload_response, &err)) {
         qiniu_ng_err_fputs(err, stderr);
-        TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file_path() failed");
+        TEST_FAIL_MESSAGE("qiniu_ng_upload_manager_upload_file_path() failed");
     }
 
     qiniu_ng_str_t key = qiniu_ng_upload_response_get_key(upload_response);
@@ -114,12 +112,8 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
     size_t hash_size;
     memset(hash, 0, ETAG_SIZE + 1);
     qiniu_ng_upload_response_get_hash(upload_response, (char *) &hash[0], &hash_size);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        hash_size, ETAG_SIZE,
-        "hash_size != ETAG_SIZE");
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(
-        hash, (const char *) &etag,
-        "hash != etag");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(hash_size, ETAG_SIZE, "hash_size != ETAG_SIZE");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(hash, (const char *) &etag, "hash != etag");
 
     qiniu_ng_upload_response_free(&upload_response);
     // TODO: Clean uploaded file
@@ -131,7 +125,7 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
     TEST_ASSERT_NOT_NULL_MESSAGE(file, "file == null");
     if (!qiniu_ng_upload_manager_upload_file(upload_manager, BUCKET_NAME, credential, file, &params, &upload_response, &err)) {
         qiniu_ng_err_fputs(err, stderr);
-        TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file() failed");
+        TEST_FAIL_MESSAGE("qiniu_ng_upload_manager_upload_file() failed");
     }
     TEST_ASSERT_EQUAL_INT_MESSAGE(
         fclose(file), 0,
@@ -160,108 +154,13 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
     DELETE_FILE(file_path);
     free((void *) file_path);
     qiniu_ng_upload_manager_free(&upload_manager);
-    qiniu_ng_config_free(&config);
-}
-
-void test_qiniu_ng_bucket_uploader_upload_files(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
-    env_load("..", false);
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
-
-    const qiniu_ng_char_t file_key[256];
-    generate_file_key(file_key, 256, 0, 259);
-
-    const qiniu_ng_char_t *file_path = create_temp_file(259 * 1024 * 1024);
-    char etag[ETAG_SIZE + 1];
-    memset(&etag, 0, (ETAG_SIZE + 1) * sizeof(char));
-    TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_etag_from_file_path(file_path, (char *) &etag[0], NULL),
-        "qiniu_ng_etag_from_file_path() failed");
-
-    qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
-    prepare_for_uploading();
-    qiniu_ng_upload_params_t params = {
-        .key = (const qiniu_ng_char_t *) &file_key[0],
-        .file_name = (const qiniu_ng_char_t *) &file_key[0],
-        .on_uploading_progress = print_progress,
-    };
-    qiniu_ng_upload_response_t upload_response;
-    qiniu_ng_err_t err;
-    if (!qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, credential, file_path, &params, &upload_response, &err)) {
-        qiniu_ng_err_fputs(err, stderr);
-        TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file_path() failed");
-    }
-
-    qiniu_ng_str_t key = qiniu_ng_upload_response_get_key(upload_response);
-    TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_str_is_null(key),
-        "qiniu_ng_str_is_null(key) != false");
-    qiniu_ng_str_free(&key);
-
-    char hash[ETAG_SIZE + 1];
-    size_t hash_size;
-    memset(hash, 0, ETAG_SIZE + 1);
-    qiniu_ng_upload_response_get_hash(upload_response, (char *) &hash[0], &hash_size);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        hash_size, ETAG_SIZE,
-        "hash_size != ETAG_SIZE");
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(
-        hash, (const char *) &etag,
-        "hash != etag");
-
-    qiniu_ng_upload_response_free(&upload_response);
-    // TODO: Clean uploaded file
-
-    last_print_time = (long long) time(NULL);
-    generate_file_key(file_key, 256, 1, 259);
-
-    FILE *file = OPEN_FILE_FOR_READING(file_path);
-    TEST_ASSERT_NOT_NULL_MESSAGE(file, "file == null");
-    if (!qiniu_ng_bucket_uploader_upload_file(bucket_uploader, credential, file, &params, &upload_response, &err)) {
-        qiniu_ng_err_fputs(err, stderr);
-        TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file() failed");
-    }
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        fclose(file), 0,
-        "fclose(file) != 0");
-
-    key = qiniu_ng_upload_response_get_key(upload_response);
-    TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_str_is_null(key),
-        "qiniu_ng_str_is_null(key) != false");
-    qiniu_ng_str_free(&key);
-
-    memset(hash, 0, ETAG_SIZE + 1);
-    qiniu_ng_upload_response_get_hash(upload_response, (char *) &hash[0], &hash_size);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        hash_size, ETAG_SIZE,
-        "hash_size != ETAG_SIZE");
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(
-        hash, (const char *) &etag,
-        "hash != etag");
-
-    qiniu_ng_upload_response_free(&upload_response);
-    // TODO: Clean uploaded file
-
-    upload_done();
-    qiniu_ng_credential_free(&credential);
-
-    DELETE_FILE(file_path);
-    free((void *) file_path);
-
-    qiniu_ng_bucket_uploader_free(&bucket_uploader);
-    qiniu_ng_upload_manager_free(&upload_manager);
-    qiniu_ng_config_free(&config);
 }
 
 struct upload_file_thread_context {
     const qiniu_ng_char_t *key;
     const qiniu_ng_char_t *file_path;
     const char *etag;
-    qiniu_ng_bucket_uploader_t bucket_uploader;
+    qiniu_ng_upload_manager_t upload_manager;
     qiniu_ng_credential_t credential;
 };
 
@@ -282,9 +181,9 @@ void *thread_of_upload_file(void* data) {
     };
     qiniu_ng_upload_response_t upload_response;
     qiniu_ng_err_t err;
-    if (!qiniu_ng_bucket_uploader_upload_file_path(context->bucket_uploader, context->credential, context->file_path, &params, &upload_response, &err)) {
+    if (!qiniu_ng_upload_manager_upload_file_path(context->upload_manager, BUCKET_NAME, context->credential, context->file_path, &params, &upload_response, &err)) {
         qiniu_ng_err_fputs(err, stderr);
-        TEST_FAIL_MESSAGE("qiniu_ng_bucket_uploader_upload_file_path() failed");
+        TEST_FAIL_MESSAGE("qiniu_ng_upload_manager_upload_file_path() failed");
     }
 
     qiniu_ng_str_t key = qiniu_ng_upload_response_get_key(upload_response);
@@ -308,13 +207,9 @@ void *thread_of_upload_file(void* data) {
     return NULL;
 }
 
-void test_qiniu_ng_bucket_uploader_upload_huge_number_of_files(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
+void test_qiniu_ng_upload_manager_upload_huge_number_of_files(void) {
     env_load("..", false);
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
 
     const qiniu_ng_char_t *file_path = create_temp_file(4 * 1024 * 1024 + 1);
 
@@ -336,7 +231,7 @@ void test_qiniu_ng_bucket_uploader_upload_huge_number_of_files(void) {
             .key = keys[i],
             .file_path = file_path,
             .etag = (char *) &etag[0],
-            .bucket_uploader = bucket_uploader,
+            .upload_manager = upload_manager,
             .credential = credential,
         };
     }
@@ -387,22 +282,12 @@ void test_qiniu_ng_bucket_uploader_upload_huge_number_of_files(void) {
     DELETE_FILE(file_path);
     free((void *) file_path);
 
-    qiniu_ng_bucket_uploader_free(&bucket_uploader);
     qiniu_ng_upload_manager_free(&upload_manager);
-    qiniu_ng_config_free(&config);
 }
 
-void test_qiniu_ng_bucket_uploader_upload_empty_file(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
+void test_qiniu_ng_upload_manager_upload_empty_file(void) {
     env_load("..", false);
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 0);
-
-    qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
-    qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
-    qiniu_ng_upload_policy_builder_free(&policy_builder);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
 
     qiniu_ng_char_t *file_path = create_temp_file(0);
     qiniu_ng_upload_params_t params = {
@@ -411,8 +296,8 @@ void test_qiniu_ng_bucket_uploader_upload_empty_file(void) {
     qiniu_ng_err_t err;
 
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, token, file_path, &params, NULL, &err),
-        "qiniu_ng_bucket_uploader_upload_file_path() returns unexpected value");
+        qiniu_ng_upload_manager_upload_file_path(upload_manager, token, file_path, &params, NULL, &err),
+        "qiniu_ng_upload_manager_upload_file_path() returns unexpected value");
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_err_empty_file_error_extract(&err),
         "qiniu_ng_err_empty_file_error_extract() failed");
@@ -420,20 +305,15 @@ void test_qiniu_ng_bucket_uploader_upload_empty_file(void) {
     DELETE_FILE(file_path);
     free((void *) file_path);
 
-    qiniu_ng_upload_token_free(&token);
-
-    qiniu_ng_bucket_uploader_free(&bucket_uploader);
     qiniu_ng_upload_manager_free(&upload_manager);
-    qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_mime(void) {
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
 
     env_load("..", false);
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
+
     qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_char_t *file_path = create_temp_file(0);
     qiniu_ng_upload_params_t params = {
@@ -443,8 +323,8 @@ void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_mime(void) {
     qiniu_ng_str_t error;
 
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, credential, file_path, &params, NULL, &err),
-        "qiniu_ng_bucket_uploader_upload_file_path() returns unexpected value");
+        qiniu_ng_upload_manager_upload_file_path(upload_manager, BUCKET_NAME, credential, file_path, &params, NULL, &err),
+        "qiniu_ng_upload_manager_upload_file_path() returns unexpected value");
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_err_bad_mime_type_error_extract(&err, &error),
         "qiniu_ng_err_bad_mime_type_error_extract() failed");
@@ -456,26 +336,20 @@ void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_mime(void) {
     DELETE_FILE(file_path);
     free((void *) file_path);
     qiniu_ng_credential_free(&credential);
-    qiniu_ng_bucket_uploader_free(&bucket_uploader);
     qiniu_ng_upload_manager_free(&upload_manager);
-    qiniu_ng_config_free(&config);
 }
 
-void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_non_existed_path(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
+void test_qiniu_ng_upload_manager_upload_file_path_failed_by_non_existed_path(void) {
     env_load("..", false);
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
     qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
 
     qiniu_ng_err_t err;
     int32_t code;
 
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_bucket_uploader_upload_file_path(bucket_uploader, credential, QINIU_NG_CHARS("/不存在的路径"), NULL, NULL, &err),
-        "qiniu_ng_bucket_uploader_upload_file_path() returns unexpected value");
+        qiniu_ng_upload_manager_upload_file_path(upload_manager, BUCKET_NAME, credential, QINIU_NG_CHARS("/不存在的路径"), NULL, NULL, &err),
+        "qiniu_ng_upload_manager_upload_file_path() returns unexpected value");
     TEST_ASSERT_FALSE_MESSAGE(
         qiniu_ng_err_bad_mime_type_error_extract(&err, NULL),
         "qiniu_ng_err_bad_mime_type_error_extract() returns unexpected value");
@@ -490,16 +364,13 @@ void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_non_existed_path(v
         "qiniu_ng_err_os_error_extract() returns unexpected value");
 
     qiniu_ng_credential_free(&credential);
-    qiniu_ng_bucket_uploader_free(&bucket_uploader);
     qiniu_ng_upload_manager_free(&upload_manager);
-    qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_upload_manager_upload_file_with_null_key(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
     env_load("..", false);
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
+
     const qiniu_ng_char_t *file_path = create_temp_file(1 * 1024 * 1024 - 1);
 
     char etag[ETAG_SIZE + 1];
@@ -547,7 +418,6 @@ void test_qiniu_ng_upload_manager_upload_file_with_null_key(void) {
     free((void *) file_path);
 
     qiniu_ng_upload_manager_free(&upload_manager);
-    qiniu_ng_config_free(&config);
 }
 
 // void test_qiniu_ng_upload_manager_upload_file_with_empty_key(void) {

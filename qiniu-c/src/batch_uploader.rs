@@ -1,32 +1,29 @@
 use crate::{
-    bucket_uploader::qiniu_ng_bucket_uploader_t,
-    config::qiniu_ng_config_t,
+    bucket::qiniu_ng_bucket_t,
     credential::qiniu_ng_credential_t,
     result::qiniu_ng_err_t,
-    string::{qiniu_ng_char_t, ucstr, UCString},
-    upload::qiniu_ng_resumable_policy_t,
+    string::{qiniu_ng_char_t, UCString},
+    upload_manager::{qiniu_ng_resumable_policy_t, qiniu_ng_upload_manager_t},
     upload_response::qiniu_ng_upload_response_t,
-    upload_token::qiniu_ng_upload_token_t,
+    upload_token::{qiniu_ng_upload_policy_t, qiniu_ng_upload_token_t},
     utils::{
         convert_optional_c_string_to_rust_optional_string, convert_optional_c_string_to_rust_string,
-        qiniu_ng_readable_t, qiniu_ng_str_map_t, FileReader,
+        qiniu_ng_readable_t, qiniu_ng_str_map_t, FileReader, QiniuNgStrMap,
     },
 };
 use libc::{c_void, size_t, FILE};
 use mime::Mime;
 use qiniu_ng::{
-    storage::uploader::{
-        BatchUploadJob, BatchUploadJobBuilder, BatchUploader, BucketUploader, UploadManager, UploadResult, UploadToken,
+    storage::{
+        bucket::Bucket,
+        uploader::{
+            BatchUploadJob, BatchUploadJobBuilder, BatchUploader, CreateUploaderResult, UploadManager, UploadPolicy,
+            UploadResult, UploadToken,
+        },
     },
     Credential,
 };
-use std::{
-    borrow::Cow,
-    collections::{hash_map::RandomState, HashMap},
-    io::Result as IOResult,
-    mem::transmute,
-    ptr::null_mut,
-};
+use std::{io::Result as IOResult, mem::transmute, ptr::null_mut};
 use tap::TapOps;
 
 /// @brief 批量上传器
@@ -55,124 +52,147 @@ impl qiniu_ng_batch_uploader_t {
 }
 
 impl From<qiniu_ng_batch_uploader_t> for Option<Box<BatchUploader>> {
-    fn from(bucket_uploader: qiniu_ng_batch_uploader_t) -> Self {
-        if bucket_uploader.is_null() {
+    fn from(batch_uploader: qiniu_ng_batch_uploader_t) -> Self {
+        if batch_uploader.is_null() {
             None
         } else {
-            Some(unsafe { Box::from_raw(transmute(bucket_uploader)) })
+            Some(unsafe { Box::from_raw(transmute(batch_uploader)) })
         }
     }
 }
 
 impl From<Option<Box<BatchUploader>>> for qiniu_ng_batch_uploader_t {
-    fn from(bucket_uploader: Option<Box<BatchUploader>>) -> Self {
-        bucket_uploader
-            .map(|bucket_uploader| bucket_uploader.into())
+    fn from(batch_uploader: Option<Box<BatchUploader>>) -> Self {
+        batch_uploader
+            .map(|batch_uploader| batch_uploader.into())
             .unwrap_or_default()
     }
 }
 
 impl From<Box<BatchUploader>> for qiniu_ng_batch_uploader_t {
-    fn from(bucket_uploader: Box<BatchUploader>) -> Self {
-        unsafe { transmute(Box::into_raw(bucket_uploader)) }
+    fn from(batch_uploader: Box<BatchUploader>) -> Self {
+        unsafe { transmute(Box::into_raw(batch_uploader)) }
     }
 }
 
-/// @brief 通过存储空间上传器创建批量上传器实例
-/// @param[in] bucket_uploader 存储空间上传器实例
-/// @param[in] credential 认证信息
-/// @param[in] config 客户端配置实例
-/// @note 创建实例时，SDK 客户端会复制并存储输入的 `bucket_uploader` 和 `credential`，因此 `bucket_uploader` 和 `credential` 在使用完毕后即可调用各自的内存释放函数释放
-/// @warning 务必在使用完毕后调用 `qiniu_ng_batch_uploader_free()` 方法释放 `qiniu_ng_batch_uploader_t`
-/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_upload_manager_upload_file_path_via_upload_token()` 方法替代
+/// @brief 使用上传凭证创建批量上传器
+/// @param[in] upload_manager 上传管理器
+/// @param[in] upload_token 上传凭证实例
+/// @param[out] batch_uploader 用于返回创建的批量上传器，如果传入 `NULL` 表示不获取 `batch_uploader`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回创建批量上传器错误，如果传入 `NULL` 表示不获取 `err`。但如果批量上传器创建错误，返回值将依然是 `false`
+/// @warning 对于获取的 `batch_uploader` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+/// @retval bool 是否创建批量上传器，如果返回 `true`，则表示可以读取 `batch_uploader` 获得批量上传器，如果返回 `false`，则表示可以读取 `error` 获得错误信息
 #[no_mangle]
-pub extern "C" fn qiniu_ng_batch_uploader_new_from_bucket_uploader(
-    bucket_uploader: qiniu_ng_bucket_uploader_t,
-    credential: qiniu_ng_credential_t,
-) -> qiniu_ng_batch_uploader_t {
-    let bucket_uploader = Option::<BucketUploader>::from(bucket_uploader).unwrap();
-    let credential = Option::<Box<Credential>>::from(credential).unwrap();
-    Box::new(bucket_uploader.batch_for(Cow::Borrowed(credential.as_ref())))
-        .tap(|_| {
-            let _ = qiniu_ng_credential_t::from(credential);
-            let _ = qiniu_ng_bucket_uploader_t::from(bucket_uploader);
-        })
-        .into()
-}
-
-/// @brief 通过存储空间上传器创建批量上传器实例，并使用指定上传凭证
-/// @param[in] bucket_name 存储空间名称
-/// @param[in] credential 认证信息
-/// @param[in] upload_token 上传凭证实例。除非为上传任务指定额外的上传凭证，否则所有文件都将使用该上传凭证实例上传
-/// @retval qiniu_ng_batch_uploader_t 获取创建的批量上传器实例
-/// @note 创建实例时，SDK 客户端会复制并存储输入的 `bucket_uploader`，`credential` 和 `config`，因此 `bucket_uploader`，`credential` 和 `config` 在使用完毕后即可调用各自的内存释放函数释放
-/// @warning 务必在使用完毕后调用 `qiniu_ng_batch_uploader_free()` 方法释放 `qiniu_ng_batch_uploader_t`
-#[no_mangle]
-pub extern "C" fn qiniu_ng_batch_uploader_new_from_config(
-    bucket_name: *const qiniu_ng_char_t,
-    credential: qiniu_ng_credential_t,
-    config: qiniu_ng_config_t,
-) -> qiniu_ng_batch_uploader_t {
-    let bucket_name = unsafe { convert_optional_c_string_to_rust_string(bucket_name) };
-    let config = config.get_clone().unwrap();
-    let credential = Option::<Box<Credential>>::from(credential).unwrap();
-    Box::new(UploadManager::new(config).batch_uploader_for_bucket(bucket_name, Cow::Borrowed(credential.as_ref())))
-        .tap(|_| {
-            let _ = qiniu_ng_credential_t::from(credential);
-        })
-        .into()
-}
-
-/// @brief 通过存储空间上传器创建批量上传器实例，并使用指定上传凭证
-/// @param[in] bucket_uploader 存储空间上传器实例
-/// @param[in] upload_token 上传凭证实例。除非为上传任务指定额外的上传凭证，否则所有文件都将使用该上传凭证实例上传
-/// @retval qiniu_ng_batch_uploader_t 获取创建的批量上传器实例
-/// @note 创建实例时，SDK 客户端会复制并存储输入的 `bucket_uploader` 和 `upload_token`，因此 `bucket_uploader` 和 `upload_token` 在使用完毕后即可调用各自的内存释放函数释放
-/// @warning 务必在使用完毕后调用 `qiniu_ng_batch_uploader_free()` 方法释放 `qiniu_ng_batch_uploader_t`
-#[no_mangle]
-pub extern "C" fn qiniu_ng_batch_uploader_new_from_bucket_uploader_with_upload_token(
-    bucket_uploader: qiniu_ng_bucket_uploader_t,
+pub extern "C" fn qiniu_ng_batch_uploader_new_for_upload_token(
+    upload_manager: qiniu_ng_upload_manager_t,
     upload_token: qiniu_ng_upload_token_t,
-) -> qiniu_ng_batch_uploader_t {
-    let bucket_uploader = Option::<BucketUploader>::from(bucket_uploader).unwrap();
-    let upload_token = Option::<Box<UploadToken>>::from(upload_token).unwrap();
-    Box::new(bucket_uploader.batch_for_upload_token(upload_token.to_string()))
-        .tap(|_| {
-            let _ = qiniu_ng_upload_token_t::from(upload_token);
-            let _ = qiniu_ng_bucket_uploader_t::from(bucket_uploader);
-        })
-        .into()
-}
-
-/// @brief 通过客户端配置创建批量上传器实例，并使用指定上传凭证
-/// @param[in] upload_token 上传凭证实例。除非为上传任务指定额外的上传凭证，否则所有文件都将使用该上传凭证实例上传
-/// @param[in] config 客户端配置实例
-/// @param[out] batch_uploader 用于返回批量上传器实例，如果传入 `NULL` 表示不获取 `batch_uploader`。但如果运行正常，返回值将依然是 `true`
-/// @retval bool 是否成功创建批量上传器实例，如果失败，表示给出的上传凭证不包含存储空间信息
-/// @note 创建实例时，SDK 客户端会复制并存储输入的 `upload_token` 和 `config`，因此 `upload_token` 和 `config` 在使用完毕后即可调用各自的内存释放函数释放
-/// @warning 务必在使用完毕后调用 `qiniu_ng_batch_uploader_free()` 方法释放 `qiniu_ng_batch_uploader_t`
-#[no_mangle]
-pub extern "C" fn qiniu_ng_batch_uploader_new_from_config_with_upload_token(
-    upload_token: qiniu_ng_upload_token_t,
-    config: qiniu_ng_config_t,
     batch_uploader: *mut qiniu_ng_batch_uploader_t,
+    err: *mut qiniu_ng_err_t,
 ) -> bool {
-    let config = config.get_clone().unwrap();
-    let upload_token = Option::<Box<UploadToken>>::from(upload_token).unwrap();
-    let mut result = true;
-    if let Ok(bu) = UploadManager::new(config).batch_uploader_for_upload_token(upload_token.as_ref().to_owned()) {
-        if let Some(batch_uploader) = unsafe { batch_uploader.as_mut() } {
-            *batch_uploader = Box::new(bu).into();
+    let upload_manager = Option::<Box<UploadManager>>::from(upload_manager).unwrap();
+    let upload_token = Option::<UploadToken>::from(upload_token).unwrap();
+    let mut ok = true;
+    match upload_manager.batch_uploader_for_upload_token(upload_token.to_owned()) {
+        Ok(bu) => {
+            if let Some(batch_uploader) = unsafe { batch_uploader.as_mut() } {
+                *batch_uploader = Box::new(bu).into();
+            }
         }
-    } else {
-        result = false;
+        Err(ref e) => {
+            if let Some(err) = unsafe { err.as_mut() } {
+                *err = e.into();
+            }
+            ok = false;
+        }
     }
     let _ = qiniu_ng_upload_token_t::from(upload_token);
-    result
+    let _ = qiniu_ng_upload_manager_t::from(upload_manager);
+    ok
+}
+
+/// @brief 使用上传策略创建批量上传器
+/// @param[in] upload_manager 上传管理器
+/// @param[in] upload_policy 上传策略实例
+/// @param[in] credential 认证信息
+/// @param[out] batch_uploader 用于返回创建的批量上传器，如果传入 `NULL` 表示不获取 `batch_uploader`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回创建批量上传器错误，如果传入 `NULL` 表示不获取 `err`。但如果批量上传器创建错误，返回值将依然是 `false`
+/// @retval bool 是否创建批量上传器，如果返回 `true`，则表示可以读取 `batch_uploader` 获得批量上传器，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `batch_uploader` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_batch_uploader_new_for_upload_token()` 方法替代
+#[no_mangle]
+pub extern "C" fn qiniu_ng_batch_uploader_new_for_upload_policy(
+    upload_manager: qiniu_ng_upload_manager_t,
+    upload_policy: qiniu_ng_upload_policy_t,
+    credential: qiniu_ng_credential_t,
+    batch_uploader: *mut qiniu_ng_batch_uploader_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    let upload_manager = Option::<Box<UploadManager>>::from(upload_manager).unwrap();
+    let upload_policy = Option::<Box<UploadPolicy>>::from(upload_policy).unwrap();
+    let credential = Option::<Box<Credential>>::from(credential).unwrap();
+    let mut ok = true;
+    match upload_manager
+        .batch_uploader_for_upload_policy(upload_policy.as_ref().to_owned(), credential.as_ref().to_owned())
+    {
+        Ok(bu) => {
+            if let Some(batch_uploader) = unsafe { batch_uploader.as_mut() } {
+                *batch_uploader = Box::new(bu).into();
+            }
+        }
+        Err(ref e) => {
+            if let Some(err) = unsafe { err.as_mut() } {
+                *err = e.into();
+            }
+            ok = false;
+        }
+    }
+    let _ = qiniu_ng_credential_t::from(credential);
+    let _ = qiniu_ng_upload_policy_t::from(upload_policy);
+    let _ = qiniu_ng_upload_manager_t::from(upload_manager);
+    ok
+}
+
+/// @brief 使用存储空间名称创建批量上传器
+/// @param[in] upload_manager 上传管理器
+/// @param[in] bucket_name 目标存储空间名称
+/// @param[in] credential 认证信息
+/// @retval qiniu_ng_batch_uploader_t 返回创建的批量上传器
+/// @warning 务必在使用完毕后调用 `qiniu_ng_batch_uploader_free()` 方法释放 `qiniu_ng_batch_uploader_t`
+/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_batch_uploader_new_for_upload_token()` 方法替代
+#[no_mangle]
+pub extern "C" fn qiniu_ng_batch_uploader_new(
+    upload_manager: qiniu_ng_upload_manager_t,
+    bucket_name: *const qiniu_ng_char_t,
+    credential: qiniu_ng_credential_t,
+) -> qiniu_ng_batch_uploader_t {
+    let upload_manager = Option::<Box<UploadManager>>::from(upload_manager).unwrap();
+    let bucket_name = unsafe { convert_optional_c_string_to_rust_string(bucket_name) };
+    let credential = Option::<Box<Credential>>::from(credential).unwrap();
+    Box::new(upload_manager.batch_uploader_for_bucket(bucket_name, credential.as_ref().to_owned()))
+        .tap(|_| {
+            let _ = qiniu_ng_credential_t::from(credential);
+            let _ = qiniu_ng_upload_manager_t::from(upload_manager);
+        })
+        .into()
+}
+
+/// @brief 使用存储空间创建批量上传器
+/// @param[in] bucket 目标存储空间实例
+/// @retval qiniu_ng_batch_uploader_t 返回创建的批量上传器
+/// @warning 务必在使用完毕后调用 `qiniu_ng_batch_uploader_free()` 方法释放 `qiniu_ng_batch_uploader_t`
+/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_batch_uploader_new_for_upload_token()` 方法替代
+#[no_mangle]
+pub extern "C" fn qiniu_ng_batch_uploader_new_for_bucket(bucket: qiniu_ng_bucket_t) -> qiniu_ng_batch_uploader_t {
+    let bucket = Option::<Box<Bucket>>::from(bucket).unwrap();
+    Box::new(bucket.batch_uploader())
+        .tap(|_| {
+            let _ = qiniu_ng_bucket_t::from(bucket);
+        })
+        .into()
 }
 
 /// @brief 释放批量上传器实例
-/// @param[in,out] bucket_uploader 批量上传器实例地址，释放完毕后该上传器实例将不再可用
+/// @param[in,out] batch_uploader 批量上传器实例地址，释放完毕后该上传器实例将不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_batch_uploader_free(batch_uploader: *mut qiniu_ng_batch_uploader_t) {
     if let Some(batch_uploader) = unsafe { batch_uploader.as_mut() } {
@@ -204,7 +224,7 @@ pub extern "C" fn qiniu_ng_batch_uploader_set_expected_jobs_count(
 }
 
 /// @brief 设置批量上传器线程池数量
-/// @details 批量上传器总是优先使用存储空间上传器中的线程池，如果存储空间上传器中没有创建过线程池，则自行创建专用线程池
+/// @details 批量上传器总是优先使用上传管理器中的线程池，如果上传管理器中没有创建过线程池，则自行创建专用线程池
 /// @param[in] batch_uploader 批量上传器实例
 /// @param[in] thread_pool_size 上传线程池大小，如果传入 `0`，则使用默认的线程池策略
 #[no_mangle]
@@ -309,7 +329,18 @@ fn qiniu_ng_batch_uploader_upload(
     let mut file_name = String::new();
     let mut mime: Option<Mime> = None;
     if let Some(params) = unsafe { params.as_ref() } {
-        job_builder = set_params_to_job_builder(job_builder, params);
+        match set_params_to_job_builder(job_builder, params) {
+            Ok(job_builder_with_params) => {
+                job_builder = job_builder_with_params;
+            }
+            Err(ref e) => {
+                if let Some(err) = unsafe { err.as_mut() } {
+                    *err = e.into();
+                }
+                let _ = qiniu_ng_batch_uploader_t::from(batch_uploader);
+                return false;
+            }
+        }
         file_name = unsafe { convert_optional_c_string_to_rust_string(params.file_name) };
         mime = match unsafe { convert_optional_c_string_to_rust_optional_string(params.mime) }.map(|mime| mime.parse())
         {
@@ -343,18 +374,19 @@ fn qiniu_ng_batch_uploader_upload(
 fn set_params_to_job_builder(
     mut job_builder: BatchUploadJobBuilder,
     params: &qiniu_ng_batch_upload_params_t,
-) -> BatchUploadJobBuilder {
+) -> CreateUploaderResult<BatchUploadJobBuilder> {
     if let Some(key) = unsafe { convert_optional_c_string_to_rust_optional_string(params.key) } {
         job_builder = job_builder.key(key);
     }
     if let Some(upload_token) = unsafe { params.upload_token.as_ref() }
-        .and_then(|upload_token| Option::<Box<UploadToken>>::from(upload_token.to_owned()))
+        .and_then(|upload_token| Option::<UploadToken>::from(upload_token.to_owned()))
     {
-        job_builder = job_builder.upload_token(upload_token.to_string());
+        let upload_token_cloned = upload_token.to_owned();
         let _ = qiniu_ng_upload_token_t::from(upload_token);
+        job_builder = job_builder.upload_token(upload_token_cloned)?;
     }
     {
-        let vars = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(params.vars);
+        let vars = Option::<QiniuNgStrMap>::from(params.vars);
         if let Some(vars) = vars.as_ref() {
             for (key, value) in vars.iter() {
                 job_builder = job_builder.var(key.to_string().unwrap(), value.to_string().unwrap());
@@ -363,7 +395,7 @@ fn set_params_to_job_builder(
         let _ = qiniu_ng_str_map_t::from(vars);
     }
     {
-        let metadata = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(params.metadata);
+        let metadata = Option::<QiniuNgStrMap>::from(params.metadata);
         if let Some(metadata) = metadata.as_ref() {
             for (key, value) in metadata.iter() {
                 job_builder = job_builder.metadata(key.to_string().unwrap(), value.to_string().unwrap());
@@ -412,7 +444,7 @@ fn set_params_to_job_builder(
             };
         });
     }
-    job_builder
+    Ok(job_builder)
 }
 
 /// @brief 批量上传参数

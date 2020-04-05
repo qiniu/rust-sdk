@@ -13,7 +13,7 @@ use qiniu_ng::{
     },
     Client,
 };
-use std::{borrow::Cow, mem::transmute, ptr::null_mut};
+use std::{mem::transmute, ptr::null_mut};
 use tap::TapOps;
 
 /// @brief 存储空间生成器
@@ -48,7 +48,7 @@ impl qiniu_ng_bucket_builder_t {
     }
 }
 
-impl<'r> From<qiniu_ng_bucket_builder_t> for Option<Box<BucketBuilder<'r>>> {
+impl From<qiniu_ng_bucket_builder_t> for Option<Box<BucketBuilder>> {
     fn from(builder: qiniu_ng_bucket_builder_t) -> Self {
         if builder.is_null() {
             None
@@ -58,13 +58,13 @@ impl<'r> From<qiniu_ng_bucket_builder_t> for Option<Box<BucketBuilder<'r>>> {
     }
 }
 
-impl<'r> From<Option<Box<BucketBuilder<'r>>>> for qiniu_ng_bucket_builder_t {
+impl From<Option<Box<BucketBuilder>>> for qiniu_ng_bucket_builder_t {
     fn from(builder: Option<Box<BucketBuilder>>) -> Self {
         builder.map(|builder| builder.into()).unwrap_or_default()
     }
 }
 
-impl<'r> From<Box<BucketBuilder<'r>>> for qiniu_ng_bucket_builder_t {
+impl From<Box<BucketBuilder>> for qiniu_ng_bucket_builder_t {
     fn from(builder: Box<BucketBuilder>) -> Self {
         unsafe { transmute(Box::into_raw(builder)) }
     }
@@ -99,9 +99,9 @@ pub extern "C" fn qiniu_ng_bucket_builder_new(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_builder_set_region(builder: qiniu_ng_bucket_builder_t, region: qiniu_ng_region_t) {
     let mut builder = Option::<Box<BucketBuilder>>::from(builder).unwrap();
-    let region = Option::<Box<Cow<Region>>>::from(region).unwrap();
-    let region = Box::leak(region);
-    builder.region(region.as_ref());
+    let region = Option::<Region>::from(region).unwrap();
+    builder.region(region.to_owned());
+    let _ = qiniu_ng_region_t::from(region);
     let _ = qiniu_ng_bucket_builder_t::from(builder);
 }
 
@@ -259,7 +259,7 @@ impl qiniu_ng_bucket_t {
     }
 }
 
-impl<'r> From<qiniu_ng_bucket_t> for Option<Box<Bucket<'r>>> {
+impl From<qiniu_ng_bucket_t> for Option<Box<Bucket>> {
     fn from(bucket: qiniu_ng_bucket_t) -> Self {
         if bucket.is_null() {
             None
@@ -269,13 +269,13 @@ impl<'r> From<qiniu_ng_bucket_t> for Option<Box<Bucket<'r>>> {
     }
 }
 
-impl<'r> From<Option<Box<Bucket<'r>>>> for qiniu_ng_bucket_t {
+impl From<Option<Box<Bucket>>> for qiniu_ng_bucket_t {
     fn from(bucket: Option<Box<Bucket>>) -> Self {
         bucket.map(|bucket| bucket.into()).unwrap_or_default()
     }
 }
 
-impl<'r> From<Box<Bucket<'r>>> for qiniu_ng_bucket_t {
+impl From<Box<Bucket>> for qiniu_ng_bucket_t {
     fn from(bucket: Box<Bucket>) -> Self {
         unsafe { transmute(Box::into_raw(bucket)) }
     }
@@ -349,7 +349,7 @@ pub extern "C" fn qiniu_ng_bucket_get_region(
     }) {
         Ok(r) => {
             if let Some(region) = unsafe { region.as_mut() } {
-                *region = Box::<Cow<Region>>::new(Cow::Owned(r)).into();
+                *region = r.into();
             }
             true
         }

@@ -44,7 +44,7 @@ impl qiniu_ng_upload_policy_builder_t {
     }
 }
 
-impl From<qiniu_ng_upload_policy_builder_t> for Option<Box<UploadPolicyBuilder<'_>>> {
+impl From<qiniu_ng_upload_policy_builder_t> for Option<Box<UploadPolicyBuilder>> {
     fn from(builder: qiniu_ng_upload_policy_builder_t) -> Self {
         if builder.is_null() {
             None
@@ -54,13 +54,13 @@ impl From<qiniu_ng_upload_policy_builder_t> for Option<Box<UploadPolicyBuilder<'
     }
 }
 
-impl From<Option<Box<UploadPolicyBuilder<'_>>>> for qiniu_ng_upload_policy_builder_t {
+impl From<Option<Box<UploadPolicyBuilder>>> for qiniu_ng_upload_policy_builder_t {
     fn from(builder: Option<Box<UploadPolicyBuilder>>) -> Self {
         builder.map(|builder| builder.into()).unwrap_or_default()
     }
 }
 
-impl From<Box<UploadPolicyBuilder<'_>>> for qiniu_ng_upload_policy_builder_t {
+impl From<Box<UploadPolicyBuilder>> for qiniu_ng_upload_policy_builder_t {
     fn from(builder: Box<UploadPolicyBuilder>) -> Self {
         unsafe { transmute(Box::into_raw(builder)) }
     }
@@ -448,7 +448,7 @@ impl qiniu_ng_upload_policy_t {
     }
 }
 
-impl From<qiniu_ng_upload_policy_t> for Option<Box<UploadPolicy<'_>>> {
+impl From<qiniu_ng_upload_policy_t> for Option<Box<UploadPolicy>> {
     fn from(upload_policy: qiniu_ng_upload_policy_t) -> Self {
         if upload_policy.is_null() {
             None
@@ -458,7 +458,7 @@ impl From<qiniu_ng_upload_policy_t> for Option<Box<UploadPolicy<'_>>> {
     }
 }
 
-impl From<Option<Box<UploadPolicy<'_>>>> for qiniu_ng_upload_policy_t {
+impl From<Option<Box<UploadPolicy>>> for qiniu_ng_upload_policy_t {
     fn from(upload_policy: Option<Box<UploadPolicy>>) -> Self {
         upload_policy
             .map(|upload_policy| upload_policy.into())
@@ -466,7 +466,7 @@ impl From<Option<Box<UploadPolicy<'_>>>> for qiniu_ng_upload_policy_t {
     }
 }
 
-impl From<Box<UploadPolicy<'_>>> for qiniu_ng_upload_policy_t {
+impl From<Box<UploadPolicy>> for qiniu_ng_upload_policy_t {
     fn from(upload_policy: Box<UploadPolicy>) -> Self {
         unsafe { transmute(Box::into_raw(upload_policy)) }
     }
@@ -941,25 +941,25 @@ impl qiniu_ng_upload_token_t {
     }
 }
 
-impl From<qiniu_ng_upload_token_t> for Option<Box<UploadToken<'_>>> {
+impl From<qiniu_ng_upload_token_t> for Option<UploadToken> {
     fn from(upload_token: qiniu_ng_upload_token_t) -> Self {
         if upload_token.is_null() {
             None
         } else {
-            Some(unsafe { Box::from_raw(transmute(upload_token)) })
+            Some(unsafe { UploadToken::from_raw(transmute(upload_token)) })
         }
     }
 }
 
-impl From<Option<Box<UploadToken<'_>>>> for qiniu_ng_upload_token_t {
-    fn from(upload_token: Option<Box<UploadToken>>) -> Self {
+impl From<Option<UploadToken>> for qiniu_ng_upload_token_t {
+    fn from(upload_token: Option<UploadToken>) -> Self {
         upload_token.map(|upload_token| upload_token.into()).unwrap_or_default()
     }
 }
 
-impl From<Box<UploadToken<'_>>> for qiniu_ng_upload_token_t {
-    fn from(upload_token: Box<UploadToken>) -> Self {
-        unsafe { transmute(Box::into_raw(upload_token)) }
+impl From<UploadToken> for qiniu_ng_upload_token_t {
+    fn from(upload_token: UploadToken) -> Self {
+        unsafe { transmute(upload_token.into_raw()) }
     }
 }
 
@@ -977,13 +977,13 @@ pub extern "C" fn qiniu_ng_upload_token_new_from_policy_builder(
     secret_key: *const qiniu_ng_char_t,
 ) -> qiniu_ng_upload_token_t {
     let policy_builder = Option::<Box<UploadPolicyBuilder>>::from(policy_builder).unwrap();
-    qiniu_ng_upload_token_t::from(Box::new(UploadToken::new(
+    qiniu_ng_upload_token_t::from(UploadToken::new(
         policy_builder.to_owned().build(),
         Credential::new(
             unsafe { ucstr::from_ptr(access_key) }.to_string().unwrap(),
             unsafe { ucstr::from_ptr(secret_key) }.to_string().unwrap(),
         ),
-    )))
+    ))
     .tap(|_| {
         let _ = qiniu_ng_upload_policy_builder_t::from(policy_builder);
     })
@@ -1003,13 +1003,13 @@ pub extern "C" fn qiniu_ng_upload_token_new_from_policy(
     secret_key: *const qiniu_ng_char_t,
 ) -> qiniu_ng_upload_token_t {
     let policy = Option::<Box<UploadPolicy>>::from(policy).unwrap();
-    Box::new(UploadToken::new(
+    UploadToken::new(
         policy.as_ref().to_owned(),
         Credential::new(
             unsafe { ucstr::from_ptr(access_key) }.to_string().unwrap(),
             unsafe { ucstr::from_ptr(secret_key) }.to_string().unwrap(),
         ),
-    ))
+    )
     .tap(|_| {
         let _ = qiniu_ng_upload_policy_t::from(policy);
     })
@@ -1023,7 +1023,7 @@ pub extern "C" fn qiniu_ng_upload_token_new_from_policy(
 /// @warning 在调用完毕后 `qiniu_ng_upload_policy_t` 依然需要被 `qiniu_ng_upload_policy_free()` 释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_token_new_from(s: *const qiniu_ng_char_t) -> qiniu_ng_upload_token_t {
-    Box::new(UploadToken::from(unsafe { ucstr::from_ptr(s) }.to_string().unwrap())).into()
+    UploadToken::from(unsafe { ucstr::from_ptr(s) }.to_string().unwrap()).into()
 }
 
 /// @brief 释放上传凭证实例
@@ -1031,7 +1031,7 @@ pub extern "C" fn qiniu_ng_upload_token_new_from(s: *const qiniu_ng_char_t) -> q
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_token_free(token: *mut qiniu_ng_upload_token_t) {
     if let Some(token) = unsafe { token.as_mut() } {
-        let _ = Option::<Box<UploadToken>>::from(*token);
+        let _ = Option::<UploadToken>::from(*token);
         *token = qiniu_ng_upload_token_t::default();
     }
 }
@@ -1057,7 +1057,7 @@ pub extern "C" fn qiniu_ng_upload_token_get_access_key(
     access_key: *mut qiniu_ng_str_t,
     err: *mut qiniu_ng_err_t,
 ) -> bool {
-    let upload_token = Option::<Box<UploadToken>>::from(upload_token).unwrap();
+    let upload_token = Option::<UploadToken>::from(upload_token).unwrap();
     match upload_token.access_key() {
         Ok(ak) => {
             if let Some(access_key) = unsafe { access_key.as_mut() } {
@@ -1083,7 +1083,7 @@ pub extern "C" fn qiniu_ng_upload_token_get_access_key(
 /// @warning 在 `qiniu_ng_str_t` 被使用完毕后，必须调用 `qiniu_ng_str_free()` 方法释放内存
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_token_get_string(upload_token: qiniu_ng_upload_token_t) -> qiniu_ng_str_t {
-    let upload_token = Option::<Box<UploadToken>>::from(upload_token).unwrap();
+    let upload_token = Option::<UploadToken>::from(upload_token).unwrap();
     unsafe { qiniu_ng_str_t::from_string_unchecked(upload_token.to_string()) }.tap(|_| {
         let _ = qiniu_ng_upload_token_t::from(upload_token);
     })
@@ -1101,7 +1101,7 @@ pub extern "C" fn qiniu_ng_upload_token_get_policy(
     policy: *mut qiniu_ng_upload_policy_t,
     err: *mut qiniu_ng_err_t,
 ) -> bool {
-    let upload_token = Option::<Box<UploadToken>>::from(upload_token).unwrap();
+    let upload_token = Option::<UploadToken>::from(upload_token).unwrap();
     match upload_token.policy() {
         Ok(upload_policy) => {
             if let Some(policy) = unsafe { policy.as_mut() } {

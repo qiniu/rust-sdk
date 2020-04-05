@@ -47,17 +47,16 @@ int main(void) {
     RUN_TEST(test_qiniu_ng_bucket_builder);
     RUN_TEST(test_qiniu_ng_bucket_get_regions_and_domains);
     RUN_TEST(test_qiniu_ng_make_upload_token);
-    RUN_TEST(test_qiniu_ng_bucket_uploader_upload_empty_file);
-    RUN_TEST(test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_mime);
-    RUN_TEST(test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_non_existed_path);
-    RUN_TEST(test_qiniu_ng_bucket_uploader_upload_files);
-    RUN_TEST(test_qiniu_ng_bucket_uploader_upload_huge_number_of_files);
+    RUN_TEST(test_qiniu_ng_upload_manager_upload_empty_file);
+    RUN_TEST(test_qiniu_ng_upload_manager_upload_file_path_failed_by_mime);
+    RUN_TEST(test_qiniu_ng_upload_manager_upload_file_path_failed_by_non_existed_path);
+    RUN_TEST(test_qiniu_ng_upload_manager_upload_huge_number_of_files);
     RUN_TEST(test_qiniu_ng_upload_manager_upload_files);
+    RUN_TEST(test_qiniu_ng_upload_manager_upload_file_with_null_key);
+    // RUN_TEST(test_qiniu_ng_upload_manager_upload_file_with_empty_key);
     RUN_TEST(test_qiniu_ng_batch_upload_files);
     RUN_TEST(test_qiniu_ng_batch_upload_file_paths);
     RUN_TEST(test_qiniu_ng_batch_upload_file_path_failed_by_mime);
     RUN_TEST(test_qiniu_ng_batch_upload_file_path_failed_by_non_existed_path);
-    RUN_TEST(test_qiniu_ng_upload_manager_upload_file_with_null_key);
-    // RUN_TEST(test_qiniu_ng_upload_manager_upload_file_with_empty_key);
     return UNITY_END();
 }

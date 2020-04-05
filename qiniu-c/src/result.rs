@@ -806,7 +806,6 @@ impl From<&CreateUploaderError> for qiniu_ng_err_t {
     fn from(err: &CreateUploaderError) -> Self {
         match err {
             CreateUploaderError::UploadTokenParseError(err) => err.into(),
-            CreateUploaderError::QiniuAPIError(err) => err.into(),
             CreateUploaderError::BucketIsMissingInUploadToken=>Self(
                 qiniu_ng_err_kind_t::qiniu_ng_err_kind_invalid_upload_token_error(
                     qiniu_ng_invalid_upload_token_error_t(qiniu_ng_invalid_upload_token_error_kind_t::qiniu_ng_invalid_upload_token_error_kind_bucket_is_missing),

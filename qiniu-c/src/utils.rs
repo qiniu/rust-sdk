@@ -376,6 +376,7 @@ pub extern "C" fn qiniu_ng_str_list_is_freed(strlist: qiniu_ng_str_list_t) -> bo
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_str_map_t(*mut c_void);
+pub(crate) type QiniuNgStrMap = Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>;
 
 impl Default for qiniu_ng_str_map_t {
     #[inline]
@@ -391,19 +392,19 @@ impl qiniu_ng_str_map_t {
     }
 }
 
-impl From<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>> for qiniu_ng_str_map_t {
-    fn from(hashmap: Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>) -> Self {
+impl From<QiniuNgStrMap> for qiniu_ng_str_map_t {
+    fn from(hashmap: QiniuNgStrMap) -> Self {
         unsafe { transmute(Box::into_raw(hashmap)) }
     }
 }
 
-impl From<Option<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>> for qiniu_ng_str_map_t {
-    fn from(hashmap: Option<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>) -> Self {
+impl From<Option<QiniuNgStrMap>> for qiniu_ng_str_map_t {
+    fn from(hashmap: Option<QiniuNgStrMap>) -> Self {
         hashmap.map(|hashmap| hashmap.into()).unwrap_or_default()
     }
 }
 
-impl From<qiniu_ng_str_map_t> for Option<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>> {
+impl From<qiniu_ng_str_map_t> for Option<QiniuNgStrMap> {
     fn from(hashmap: qiniu_ng_str_map_t) -> Self {
         if hashmap.is_null() {
             None
@@ -431,7 +432,7 @@ pub extern "C" fn qiniu_ng_str_map_set(
     key: *const qiniu_ng_char_t,
     value: *const qiniu_ng_char_t,
 ) {
-    let mut hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap).unwrap();
+    let mut hashmap = Option::<QiniuNgStrMap>::from(hashmap).unwrap();
     hashmap.insert(
         unsafe { ucstr::from_ptr(key) }.to_owned().into_boxed_ucstr(),
         unsafe { ucstr::from_ptr(value) }.to_owned().into_boxed_ucstr(),
@@ -449,7 +450,7 @@ pub extern "C" fn qiniu_ng_str_map_each_entry(
     handler: extern "C" fn(key: *const qiniu_ng_char_t, value: *const qiniu_ng_char_t, data: *mut c_void) -> bool,
     data: *mut c_void,
 ) {
-    let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap);
+    let hashmap = Option::<QiniuNgStrMap>::from(hashmap);
     if let Some(hashmap) = hashmap.as_ref() {
         for (key, value) in hashmap.iter() {
             if !handler(key.as_ptr(), value.as_ptr(), data) {
@@ -469,7 +470,7 @@ pub extern "C" fn qiniu_ng_str_map_get(
     hashmap: qiniu_ng_str_map_t,
     key: *const qiniu_ng_char_t,
 ) -> *const qiniu_ng_char_t {
-    let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap);
+    let hashmap = Option::<QiniuNgStrMap>::from(hashmap);
     hashmap
         .as_ref()
         .and_then(|hashmap| hashmap.get(unsafe { ucstr::from_ptr(key) }))
@@ -485,7 +486,7 @@ pub extern "C" fn qiniu_ng_str_map_get(
 /// @retval size_t 返回字符串映射实例中键值对的数量
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_len(hashmap: qiniu_ng_str_map_t) -> size_t {
-    let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap);
+    let hashmap = Option::<QiniuNgStrMap>::from(hashmap);
     hashmap.as_ref().map(|hashmap| hashmap.len()).unwrap_or(0).tap(|_| {
         let _ = qiniu_ng_str_map_t::from(hashmap);
     })
@@ -496,7 +497,7 @@ pub extern "C" fn qiniu_ng_str_map_len(hashmap: qiniu_ng_str_map_t) -> size_t {
 /// @retval qiniu_ng_str_map_t 返回复制的字符串列表实例。在使用完毕后，两个字符串映射实例必须分别调用 `qiniu_ng_str_map_free()` 方法释放内存
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_clone(hashmap: qiniu_ng_str_map_t) -> qiniu_ng_str_map_t {
-    let hashmap = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(hashmap);
+    let hashmap = Option::<QiniuNgStrMap>::from(hashmap);
     qiniu_ng_str_map_t::from(hashmap.clone()).tap(|_| {
         let _ = qiniu_ng_str_map_t::from(hashmap);
     })
@@ -507,7 +508,7 @@ pub extern "C" fn qiniu_ng_str_map_clone(hashmap: qiniu_ng_str_map_t) -> qiniu_n
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_map_free(hashmap: *mut qiniu_ng_str_map_t) {
     if let Some(hashmap) = unsafe { hashmap.as_mut() } {
-        let _ = Option::<Box<HashMap<Box<ucstr>, Box<ucstr>, RandomState>>>::from(*hashmap);
+        let _ = Option::<QiniuNgStrMap>::from(*hashmap);
         *hashmap = qiniu_ng_str_map_t::default();
     }
 }

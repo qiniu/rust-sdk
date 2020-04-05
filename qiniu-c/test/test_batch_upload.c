@@ -115,18 +115,18 @@ static void upload_done(void) {
 
 void test_qiniu_ng_batch_upload_file_paths(void) {
 #define FILES_COUNT (16)
-
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
     env_load("..", false);
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
+
     qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
     qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_upload_policy_builder_free(&policy_builder);
     qiniu_ng_batch_uploader_t batch_uploader;
     TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_batch_uploader_new_from_config_with_upload_token(token, config, &batch_uploader),
-        "qiniu_ng_batch_uploader_new_from_config_with_upload_token() returns unexpected value"
+        qiniu_ng_batch_uploader_new_for_upload_token(upload_manager, token, &batch_uploader, NULL),
+        "qiniu_ng_batch_uploader_new_for_upload_token() returns unexpected value"
     );
     qiniu_ng_batch_uploader_set_expected_jobs_count(batch_uploader, FILES_COUNT);
     qiniu_ng_upload_token_free(&token);
@@ -171,24 +171,25 @@ void test_qiniu_ng_batch_upload_file_paths(void) {
 
     upload_done();
     qiniu_ng_batch_uploader_free(&batch_uploader);
+    qiniu_ng_upload_manager_free(&upload_manager);
     qiniu_ng_config_free(&config);
 #undef FILES_COUNT
 }
 
 void test_qiniu_ng_batch_upload_files(void) {
 #define FILES_COUNT (16)
-
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
     env_load("..", false);
+    qiniu_ng_config_t config = qiniu_ng_config_new_default();
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
+
     qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
     qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
     qiniu_ng_upload_token_t token = qiniu_ng_upload_token_new_from_policy_builder(policy_builder, GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_upload_policy_builder_free(&policy_builder);
     qiniu_ng_batch_uploader_t batch_uploader;
     TEST_ASSERT_TRUE_MESSAGE(
-        qiniu_ng_batch_uploader_new_from_config_with_upload_token(token, config, &batch_uploader),
-        "qiniu_ng_batch_uploader_new_from_config_with_upload_token() returns unexpected value"
+        qiniu_ng_batch_uploader_new_for_upload_token(upload_manager, token, &batch_uploader, NULL),
+        "qiniu_ng_batch_uploader_new_for_upload_token() returns unexpected value"
     );
     qiniu_ng_batch_uploader_set_expected_jobs_count(batch_uploader, FILES_COUNT);
     qiniu_ng_upload_token_free(&token);
@@ -239,19 +240,16 @@ void test_qiniu_ng_batch_upload_files(void) {
 
     upload_done();
     qiniu_ng_batch_uploader_free(&batch_uploader);
+    qiniu_ng_upload_manager_free(&upload_manager);
     qiniu_ng_config_free(&config);
 #undef FILES_COUNT
 }
 
 void test_qiniu_ng_batch_upload_file_path_failed_by_mime(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
     env_load("..", false);
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
     qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
-    qiniu_ng_batch_uploader_t batch_uploader = qiniu_ng_batch_uploader_new_from_bucket_uploader(bucket_uploader, credential);
+    qiniu_ng_batch_uploader_t batch_uploader = qiniu_ng_batch_uploader_new(upload_manager, BUCKET_NAME, credential);
 
     qiniu_ng_char_t *file_path = create_temp_file(0);
     qiniu_ng_batch_upload_params_t params = {
@@ -275,20 +273,14 @@ void test_qiniu_ng_batch_upload_file_path_failed_by_mime(void) {
 
     qiniu_ng_batch_uploader_free(&batch_uploader);
     qiniu_ng_credential_free(&credential);
-    qiniu_ng_bucket_uploader_free(&bucket_uploader);
     qiniu_ng_upload_manager_free(&upload_manager);
-    qiniu_ng_config_free(&config);
 }
 
 void test_qiniu_ng_batch_upload_file_path_failed_by_non_existed_path(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
     env_load("..", false);
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(
-        upload_manager, BUCKET_NAME, GETENV(QINIU_NG_CHARS("access_key")), 5);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
     qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
-    qiniu_ng_batch_uploader_t batch_uploader = qiniu_ng_batch_uploader_new_from_bucket_uploader(bucket_uploader, credential);
+    qiniu_ng_batch_uploader_t batch_uploader = qiniu_ng_batch_uploader_new(upload_manager, BUCKET_NAME, credential);
 
     qiniu_ng_err_t err;
     int32_t code;
@@ -307,7 +299,5 @@ void test_qiniu_ng_batch_upload_file_path_failed_by_non_existed_path(void) {
 
     qiniu_ng_batch_uploader_free(&batch_uploader);
     qiniu_ng_credential_free(&credential);
-    qiniu_ng_bucket_uploader_free(&bucket_uploader);
     qiniu_ng_upload_manager_free(&upload_manager);
-    qiniu_ng_config_free(&config);
 }

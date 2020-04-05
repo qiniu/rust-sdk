@@ -2,7 +2,7 @@
 
 use super::{
     region::{Region, RegionId},
-    uploader::{FileUploader, UploadManager},
+    uploader::{BatchUploader, FileUploader, UploadManager},
 };
 use crate::{
     credential::Credential,
@@ -275,6 +275,12 @@ impl Bucket {
     pub fn uploader(&self) -> FileUploader {
         self.upload_manager
             .upload_for_bucket(self.name.to_owned(), self.credential.to_owned())
+    }
+
+    /// 创建面向该存储区域的批量上传器
+    pub fn batch_uploader(&self) -> BatchUploader {
+        self.upload_manager
+            .batch_uploader_for_bucket(self.name.to_owned(), self.credential.to_owned())
     }
 
     fn rs_urls(&self) -> Vec<Cow<'static, str>> {

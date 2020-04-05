@@ -1,6 +1,5 @@
 mod batch_uploader;
 mod bucket;
-mod bucket_uploader;
 mod client;
 mod config;
 mod credential;
@@ -11,7 +10,6 @@ mod result;
 mod storage;
 mod string;
 mod thread_pool;
-mod upload;
 mod upload_manager;
 mod upload_response;
 mod upload_token;

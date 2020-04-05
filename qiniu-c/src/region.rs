@@ -6,7 +6,7 @@ use crate::{
 };
 use libc::{c_char, c_void, size_t};
 use qiniu_ng::storage::region::{Region, RegionBuilder, RegionId};
-use std::{borrow::Cow, ffi::CStr, mem::transmute, ptr::null_mut};
+use std::{ffi::CStr, mem::transmute, ptr::null_mut};
 use tap::TapOps;
 
 /// 存储区域 ID
@@ -314,9 +314,12 @@ pub extern "C" fn qiniu_ng_region_builder_append_api_https_url(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_build(builder: qiniu_ng_region_builder_t) -> qiniu_ng_region_t {
     let builder = Option::<Box<RegionBuilder>>::from(builder).unwrap();
-    qiniu_ng_region_t::from(Box::new(Cow::Owned(builder.build()))).tap(|_| {
-        let _ = qiniu_ng_region_builder_t::from(builder);
-    })
+    builder
+        .build()
+        .tap(|_| {
+            let _ = qiniu_ng_region_builder_t::from(builder);
+        })
+        .into()
 }
 
 /// @brief 重置区域生成器实例
@@ -372,27 +375,25 @@ impl qiniu_ng_region_t {
     }
 }
 
-// TODO: 设计一个新的枚举类替代 `Region`，可以在引用的情况下不使用堆内存
-
-impl From<qiniu_ng_region_t> for Option<Box<Cow<'static, Region>>> {
+impl From<qiniu_ng_region_t> for Option<Region> {
     fn from(region: qiniu_ng_region_t) -> Self {
         if region.is_null() {
             None
         } else {
-            Some(unsafe { Box::from_raw(transmute(region)) })
+            Some(unsafe { Region::from_raw(transmute(region)) })
         }
     }
 }
 
-impl From<Option<Box<Cow<'static, Region>>>> for qiniu_ng_region_t {
-    fn from(region: Option<Box<Cow<'static, Region>>>) -> Self {
+impl From<Option<Region>> for qiniu_ng_region_t {
+    fn from(region: Option<Region>) -> Self {
         region.map(|region| region.into()).unwrap_or_default()
     }
 }
 
-impl From<Box<Cow<'static, Region>>> for qiniu_ng_region_t {
-    fn from(region: Box<Cow<'static, Region>>) -> Self {
-        unsafe { transmute(Box::into_raw(region)) }
+impl From<Region> for qiniu_ng_region_t {
+    fn from(region: Region) -> Self {
+        unsafe { transmute(region.into_raw()) }
     }
 }
 
@@ -406,7 +407,7 @@ pub extern "C" fn qiniu_ng_region_get_region_id(
     region: qiniu_ng_region_t,
     region_id: *mut qiniu_ng_region_id_t,
 ) -> bool {
-    let region = Option::<Box<Cow<'static, Region>>>::from(region).unwrap();
+    let region = Option::<Region>::from(region).unwrap();
     match region.region_id().tap(|_| {
         let _ = qiniu_ng_region_t::from(region);
     }) {
@@ -427,11 +428,11 @@ pub extern "C" fn qiniu_ng_region_get_region_id(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_by_id(region_id: qiniu_ng_region_id_t) -> qiniu_ng_region_t {
     match region_id {
-        qiniu_ng_region_id_t::qiniu_ng_region_z0 => Box::new(Cow::Borrowed(Region::z0())).into(),
-        qiniu_ng_region_id_t::qiniu_ng_region_z1 => Box::new(Cow::Borrowed(Region::z1())).into(),
-        qiniu_ng_region_id_t::qiniu_ng_region_z2 => Box::new(Cow::Borrowed(Region::z2())).into(),
-        qiniu_ng_region_id_t::qiniu_ng_region_as0 => Box::new(Cow::Borrowed(Region::as0())).into(),
-        qiniu_ng_region_id_t::qiniu_ng_region_na0 => Box::new(Cow::Borrowed(Region::na0())).into(),
+        qiniu_ng_region_id_t::qiniu_ng_region_z0 => Region::z0().to_owned().into(),
+        qiniu_ng_region_id_t::qiniu_ng_region_z1 => Region::z1().to_owned().into(),
+        qiniu_ng_region_id_t::qiniu_ng_region_z2 => Region::z2().to_owned().into(),
+        qiniu_ng_region_id_t::qiniu_ng_region_as0 => Region::as0().to_owned().into(),
+        qiniu_ng_region_id_t::qiniu_ng_region_na0 => Region::na0().to_owned().into(),
     }
 }
 
@@ -442,7 +443,7 @@ pub extern "C" fn qiniu_ng_region_get_by_id(region_id: qiniu_ng_region_id_t) -> 
 /// @warning 当 `qiniu_ng_str_list_t` 使用完毕后，请务必调用 `qiniu_ng_str_list_free()` 方法释放内存。
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_up_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_str_list_t {
-    let region = Option::<Box<Cow<'static, Region>>>::from(region).unwrap();
+    let region = Option::<Region>::from(region).unwrap();
     unsafe { qiniu_ng_str_list_t::from_str_slice_unchecked(&region.up_urls_ref(use_https)) }.tap(|_| {
         let _ = qiniu_ng_region_t::from(region);
     })
@@ -455,7 +456,7 @@ pub extern "C" fn qiniu_ng_region_get_up_urls(region: qiniu_ng_region_t, use_htt
 /// @warning 当 `qiniu_ng_str_list_t` 使用完毕后，请务必调用 `qiniu_ng_str_list_free()` 方法释放内存。
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_io_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_str_list_t {
-    let region = Option::<Box<Cow<'static, Region>>>::from(region).unwrap();
+    let region = Option::<Region>::from(region).unwrap();
     unsafe { qiniu_ng_str_list_t::from_str_slice_unchecked(&region.io_urls_ref(use_https)) }.tap(|_| {
         let _ = qiniu_ng_region_t::from(region);
     })
@@ -468,7 +469,7 @@ pub extern "C" fn qiniu_ng_region_get_io_urls(region: qiniu_ng_region_t, use_htt
 /// @warning 当 `qiniu_ng_str_list_t` 使用完毕后，请务必调用 `qiniu_ng_str_list_free()` 方法释放内存。
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_rs_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_str_list_t {
-    let region = Option::<Box<Cow<'static, Region>>>::from(region).unwrap();
+    let region = Option::<Region>::from(region).unwrap();
     unsafe { qiniu_ng_str_list_t::from_str_slice_unchecked(&region.rs_urls_ref(use_https)) }.tap(|_| {
         let _ = qiniu_ng_region_t::from(region);
     })
@@ -481,7 +482,7 @@ pub extern "C" fn qiniu_ng_region_get_rs_urls(region: qiniu_ng_region_t, use_htt
 /// @warning 当 `qiniu_ng_str_list_t` 使用完毕后，请务必调用 `qiniu_ng_str_list_free()` 方法释放内存。
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_rsf_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_str_list_t {
-    let region = Option::<Box<Cow<'static, Region>>>::from(region).unwrap();
+    let region = Option::<Region>::from(region).unwrap();
     unsafe { qiniu_ng_str_list_t::from_str_slice_unchecked(&region.rsf_urls_ref(use_https)) }.tap(|_| {
         let _ = qiniu_ng_region_t::from(region);
     })
@@ -494,7 +495,7 @@ pub extern "C" fn qiniu_ng_region_get_rsf_urls(region: qiniu_ng_region_t, use_ht
 /// @warning 当 `qiniu_ng_str_list_t` 使用完毕后，请务必调用 `qiniu_ng_str_list_free()` 方法释放内存。
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_get_api_urls(region: qiniu_ng_region_t, use_https: bool) -> qiniu_ng_str_list_t {
-    let region = Option::<Box<Cow<'static, Region>>>::from(region).unwrap();
+    let region = Option::<Region>::from(region).unwrap();
     unsafe { qiniu_ng_str_list_t::from_str_slice_unchecked(&region.api_urls_ref(use_https)) }.tap(|_| {
         let _ = qiniu_ng_region_t::from(region);
     })
@@ -541,7 +542,7 @@ pub extern "C" fn qiniu_ng_region_query(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_region_free(region: *mut qiniu_ng_region_t) {
     if let Some(region) = unsafe { region.as_mut() } {
-        let _ = Option::<Box<Cow<'static, Region>>>::from(*region);
+        let _ = Option::<Region>::from(*region);
         *region = qiniu_ng_region_t::default();
     }
 }
@@ -633,7 +634,7 @@ pub extern "C" fn qiniu_ng_regions_get(
     let mut got = false;
     if let Some(r) = regions.get(index) {
         if let Some(region) = unsafe { region.as_mut() } {
-            *region = Box::<Cow<Region>>::new(Cow::Owned(r.to_owned())).into();
+            *region = r.to_owned().into();
         }
         got = true;
     }

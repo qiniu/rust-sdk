@@ -829,7 +829,7 @@ mod tests {
                     "^".to_owned()
                         + &regex::escape(
                             &("http://z1h1.com/buckets/test_bucket/objects/".to_owned()
-                                + &encode_key("test-key")
+                                + &encode_key(Some("test-key"))
                                 + "/uploads"),
                         )
                         + "$",
@@ -849,15 +849,15 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .build();
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
-        let err = BucketUploaderBuilder::new(
-            "test_bucket".into(),
-            vec![vec![Box::from("http://z1h1.com")].into()].into(),
-            config,
+        let err = ResumableUploaderBuilder::new(
+            &UploadManager::new(config),
+            Cow::Owned(UploadToken::new(policy, get_credential())),
+            "test_bucket",
+            &[vec![Box::from("http://z1h1.com")].into()],
         )
-        .build()
-        .upload_token(UploadToken::new(policy, get_credential()))
-        .key("test-key")
-        .upload_stream(&temp_file, 0, "", None)
+        .key("test-key".into())
+        .stream(temp_file, 0, None, "".into(), true)?
+        .send()
         .unwrap_err();
         assert!(matches!(err, UploadError::EmptyFileError));
         Ok(())
