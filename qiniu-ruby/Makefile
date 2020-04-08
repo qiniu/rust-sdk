@@ -17,7 +17,7 @@ clean: bundle
 	$(RM) $(BINDINGS)
 	bundle exec rake clean
 test: $(BINDINGS) bundle
-	bundle exec rspec -f d
+	bundle exec rspec -f d --fail-fast
 bundle:
 	bundle install
 .PHONY: all build clean test bundle

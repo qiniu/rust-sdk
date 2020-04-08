@@ -18,26 +18,6 @@ module QiniuNg
         end
         private_class_method :new
 
-        def self.new_from_bucket_uploader(bucket_uploader, upload_token)
-          raise ArgumentError, 'bucket_uploader must be instance of BucketUploader' unless bucket_uploader.is_a?(BucketUploader)
-          raise ArgumentError, 'upload_token must be instance of UploadToken' unless upload_token.is_a?(UploadToken)
-          bucket_uploader = bucket_uploader.instance_variable_get(:@bucket_uploader)
-          upload_token = upload_token.instance_variable_get(:@upload_token)
-          new(Bindings::BatchUploader.new_from_bucket_uploader(bucket_uploader, upload_token))
-        end
-        private_class_method :new_from_bucket_uploader
-
-        def self.new_from_config(upload_token, config)
-          raise ArgumentError, 'upload_token must be instance of UploadToken' unless upload_token.is_a?(UploadToken)
-          raise ArgumentError, 'config must be instance of Config' unless config.is_a?(Config)
-          upload_token = upload_token.instance_variable_get(:@upload_token)
-          config = config.instance_variable_get(:@config)
-          batch_uploader = Bindings::BatchUploader.new_from_config(upload_token, config)
-          raise Error::BucketIsMissingInUploadToken if batch_uploader.is_freed
-          new(batch_uploader)
-        end
-        private_class_method :new_from_config
-
         # 设置批量上传器预期的任务数量
         #
         # 如果预先知道上传任务的数量，可以调用该函数预分配内存空间

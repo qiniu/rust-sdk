@@ -6,9 +6,9 @@ RSpec.describe QiniuNg::Storage::Region do
       expect(regions.size).to eq 2
 
       expect(regions[0].id).to be_nil
-      expect(regions[0].api_urls).to be_empty
-      expect(regions[0].rs_urls).to be_empty
-      expect(regions[0].rsf_urls).to be_empty
+      expect(regions[0].api_urls(use_https: false)).to include('http://api.qiniu.com')
+      expect(regions[0].rs_urls(use_https: false)).to include('http://rs-z0.qbox.me')
+      expect(regions[0].rsf_urls(use_https: false)).to include('http://rsf-z0.qbox.me')
       expect(regions[0].up_urls.size >= 2).to be true
       expect(regions[0].up_urls).to include('https://up.qbox.me', 'https://upload.qbox.me')
       expect(regions[0].io_urls).to contain_exactly('https://iovip.qbox.me')
@@ -18,9 +18,9 @@ RSpec.describe QiniuNg::Storage::Region do
 
       expect(regions[1].id).to be_nil
       expect(regions[1].id).to be_nil
-      expect(regions[1].api_urls).to be_empty
-      expect(regions[1].rs_urls).to be_empty
-      expect(regions[1].rsf_urls).to be_empty
+      expect(regions[1].api_urls(use_https: false)).to include('http://api.qiniu.com')
+      expect(regions[1].rs_urls(use_https: false)).to include('http://rs-z1.qbox.me')
+      expect(regions[1].rsf_urls(use_https: false)).to include('http://rsf-z1.qbox.me')
       expect(regions[1].up_urls.size >= 2).to be true
       expect(regions[1].up_urls).to include('https://up-z1.qbox.me', 'https://upload-z1.qbox.me')
       expect(regions[1].io_urls).to contain_exactly('https://iovip-z1.qbox.me')

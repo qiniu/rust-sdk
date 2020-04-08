@@ -305,7 +305,7 @@ module QiniuNg
 
     # 非法的上传凭证错误
     #
-    # 总共有三种非法的上传凭证错误类，该类是他们共同的父类
+    # 总共有四种非法的上传凭证错误类，该类是他们共同的父类
     class InvalidUploadTokenError < Error
     end
 
@@ -336,6 +336,14 @@ module QiniuNg
       def initialize(reason)
         @reason = reason
         super(@reason.get_ptr)
+      end
+    end
+
+    # 上传凭证的存储空间信息不存在
+    class InvalidUploadTokenBucketIsMissing < InvalidUploadTokenError
+      # 创建上传凭证的存储空间信息不存在
+      def initialize
+        super('Bucket is missing in upload token')
       end
     end
 
@@ -377,6 +385,7 @@ module QiniuNg
           return Error::InvalidUploadTokenFormatError if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_format_extract(err)
           return Error::InvalidUploadTokenJSONDecodeError.new(Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_json_error_extract(err, msg)
           return Error::InvalidUploadTokenBase64DecodeError.new(Bindings::Str.new(msg)) if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_base64_error_extract(err, msg)
+          return Error::InvalidUploadTokenBucketIsMissing if Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_bucket_is_missing_extract(err)
           Bindings::CoreFFI::qiniu_ng_err_invalid_upload_token_error_ignore(err)
         else
           Bindings::CoreFFI::qiniu_ng_err_ignore(err)

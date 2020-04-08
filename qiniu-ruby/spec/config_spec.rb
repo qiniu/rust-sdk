@@ -197,14 +197,10 @@ RSpec.describe QiniuNg::Config do
           end
         end
         config = builder.build!
-
         GC.start
-
-        upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
-                                                                         build_token(access_key: ENV['access_key'],
-                                                                                     secret_key: ENV['secret_key'])
         QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
-                                                         upload_token: upload_token,
+                                                         bucket_name: 'z0-bucket',
+                                                         credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
                                                          key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
         expect(handler_called).to be_true
       end
@@ -234,11 +230,9 @@ RSpec.describe QiniuNg::Config do
         end
         config = builder.build!
         GC.start
-        upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
-                                                                         build_token(access_key: ENV['access_key'],
-                                                                                     secret_key: ENV['secret_key'])
         QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
-                                                         upload_token: upload_token,
+                                                         bucket_name: 'z0-bucket',
+                                                         credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
                                                          key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
         # TODO: Clean uploaded file
         expect(ref_cnt.value).to eq 3
@@ -250,15 +244,11 @@ RSpec.describe QiniuNg::Config do
           raise QiniuNg::Error::IOHandlerError.new('test error')
         end
         config = builder.build!
-
         GC.start
-
         expect do
-          upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
-                                                                           build_token(access_key: ENV['access_key'],
-                                                                                       secret_key: ENV['secret_key'])
           QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
-                                                           upload_token: upload_token,
+                                                           bucket_name: 'z0-bucket',
+                                                           credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
                                                            key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
         end.to raise_error(QiniuNg::Error::IOError, 'test error')
       end
@@ -269,15 +259,11 @@ RSpec.describe QiniuNg::Config do
           raise QiniuNg::Error::OSHandlerError.new(Errno::EPERM::Errno)
         end
         config = builder.build!
-
         GC.start
-
         begin
-          upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
-                                                                           build_token(access_key: ENV['access_key'],
-                                                                                       secret_key: ENV['secret_key'])
           QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
-                                                           upload_token: upload_token,
+                                                           bucket_name: 'z0-bucket',
+                                                           credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
                                                            key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
           fail 'expect to raise error here'
         rescue QiniuNg::Error::OSError => e
@@ -291,15 +277,11 @@ RSpec.describe QiniuNg::Config do
           raise QiniuNg::Error::ResponseStatusCodeHandlerError.new(503, 'Gateway Timeout')
         end
         config = builder.build!
-
         GC.start
-
         begin
-          upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
-                                                                           build_token(access_key: ENV['access_key'],
-                                                                                       secret_key: ENV['secret_key'])
           QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
-                                                           upload_token: upload_token,
+                                                           bucket_name: 'z0-bucket',
+                                                           credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
                                                            key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
           fail 'expect to raise error here'
         rescue QiniuNg::Error::ResponseStatusCodeError => e
@@ -317,15 +299,13 @@ RSpec.describe QiniuNg::Config do
           end
         end
         config = builder.build!
-
         GC.start
-
-        upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
-                                                                         build_token(access_key: ENV['access_key'],
-                                                                                     secret_key: ENV['secret_key'])
         io = StringIO.new(SecureRandom.random_bytes((1<<22)+1))
         begin
-          QiniuNg::Storage::Uploader.new(config).upload_io(io, upload_token: upload_token, key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}")
+          QiniuNg::Storage::Uploader.new(config).upload_io io,
+                                                           bucket_name: 'z0-bucket',
+                                                           credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
+                                                           key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
           fail 'expect to raise error here'
         rescue QiniuNg::Error::ResponseStatusCodeError => e
           expect(e.code).to eq 401
@@ -340,16 +320,13 @@ RSpec.describe QiniuNg::Config do
           end
         end
         config = builder.build!
-
         GC.start
-
-        upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
-                                                                         build!.
-                                                                         build_token(access_key: ENV['access_key'],
-                                                                                     secret_key: ENV['secret_key'])
         io = StringIO.new(SecureRandom.random_bytes(1))
         begin
-          QiniuNg::Storage::Uploader.new(config).upload_io(io, upload_token: upload_token, key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}")
+          QiniuNg::Storage::Uploader.new(config).upload_io io,
+                                                           bucket_name: 'z0-bucket',
+                                                           credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
+                                                           key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
         rescue QiniuNg::Error::ResponseStatusCodeError => e
           expect(e.code).to eq 400
         end
@@ -369,15 +346,12 @@ RSpec.describe QiniuNg::Config do
           end
         end
         config = builder.build!
-
         GC.start
-
-        upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket('z0-bucket', config).
-                                                                         build!.
-                                                                         build_token(access_key: ENV['access_key'],
-                                                                                     secret_key: ENV['secret_key'])
         io = StringIO.new(SecureRandom.random_bytes(1))
-        response = QiniuNg::Storage::Uploader.new(config).upload_io(io, upload_token: upload_token, key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}")
+        response = QiniuNg::Storage::Uploader.new(config).upload_io io,
+                                                          bucket_name: 'z0-bucket',
+                                                          credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
+                                                          key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
         expect(response.key).to be_nil
         expect(response.hash).to be_nil
       end

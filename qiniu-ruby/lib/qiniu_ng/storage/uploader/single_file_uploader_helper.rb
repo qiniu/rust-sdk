@@ -10,6 +10,32 @@ module QiniuNg
 
         private
 
+        def check_upload_params!(method_name, bucket_name, credential, upload_policy, upload_token)
+          method_name = case method_name
+                        when :file then :upload_file
+                        when :file_path then :upload_file_path
+                        when :reader then :upload_reader
+                        else
+                          raise ArgumentError, 'Invalid method_name'
+                        end
+          case
+          when upload_token
+            upload_token = normalize_upload_token(upload_token)
+            [:"#{method_name}_via_upload_token", upload_token.instance_variable_get(:@upload_token)]
+          when bucket_name && credential
+            raise ArgumentError, 'credential must be instance of Credential' unless credential.is_a?(Credential)
+            [method_name, bucket_name.to_s, credential.instance_variable_get(:@credential)]
+          when upload_policy && credential
+            raise ArgumentError, 'upload_policy must be instance of UploadPolicy' unless upload_policy.is_a?(UploadPolicy)
+            raise ArgumentError, 'credential must be instance of Credential' unless credential.is_a?(Credential)
+            [:"#{method_name}_via_upload_policy", upload_policy.instance_variable_get(:@upload_policy), credential.instance_variable_get(:@credential)]
+          when !credential
+            raise ArgumentError, 'credential must be specified'
+          else
+            raise ArgumentError, 'either bucket_name or upload_policy must be specified'
+          end
+        end
+
         def create_upload_params(key: nil,
                                  file_name: nil,
                                  mime: nil,
@@ -47,13 +73,15 @@ module QiniuNg
           params
         end
 
+        def clear_upload_params(params)
+          callback_data = params[:callback_data]
+          CallbackData.delete(callback_data) if callback_data
+        end
+
         OnUploadingProgressCallback = proc do |uploaded, total, idx|
           begin
             context = CallbackData.get(idx)
-            if context
-              context[:on_uploading_progress]&.call(uploaded, total)
-              CallbackData.delete(idx) if uploaded == total
-            end
+            context[:on_uploading_progress]&.call(uploaded, total) if context
           rescue Exception => e
             Config::CallbackExceptionHandler.call(e)
           end

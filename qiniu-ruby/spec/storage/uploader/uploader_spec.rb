@@ -6,16 +6,13 @@ require 'concurrent-ruby'
 RSpec.describe QiniuNg::Storage::Uploader do
   context '#upload_file' do
     it 'should upload file by io' do
-      config = QiniuNg::Config.new
-      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(upload_bucket_name, config).
-                                                                       build_token(access_key: ENV['access_key'],
-                                                                                   secret_key: ENV['secret_key'])
-      uploader = QiniuNg::Storage::Uploader.new(config)
+      uploader = QiniuNg::Storage::Uploader.new
+      credential = QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key'])
       Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
         4.times { file.write(SecureRandom.random_bytes(rand(1 << 25))) }
         file.rewind
 
-        key = "测试-#{Time.now.to_i}"
+        key = "测试-#{Time.now.to_i}-#{rand(2**64 - 1)}"
 
         err = Concurrent::AtomicReference.new
         last_uploaded, file_size = Concurrent::AtomicFixnum.new(-1), file.size
@@ -32,11 +29,10 @@ RSpec.describe QiniuNg::Storage::Uploader do
         file.rewind
 
         GC.start
-        response = File.open(file.path, 'rb') do |file|
-                    uploader.upload_file(file, upload_token: upload_token,
-                                               key: key,
-                                               on_uploading_progress: on_uploading_progress)
-                   end
+        response = uploader.upload_file(file, credential: credential,
+                                              bucket_name: upload_bucket_name,
+                                              key: key,
+                                              on_uploading_progress: on_uploading_progress)
         GC.start
         expect(response.hash).to eq(etag)
         expect(response.key).to eq(key)
@@ -49,12 +45,11 @@ RSpec.describe QiniuNg::Storage::Uploader do
     end
 
     it 'should upload customized io' do
-      config = QiniuNg::Config.new
-      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(upload_bucket_name, config)
+      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(upload_bucket_name, QiniuNg::Config.new)
                                                                       .return_body(%[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)"}])
                                                                       .build_token(access_key: ENV['access_key'], secret_key: ENV['secret_key'])
-      uploader = QiniuNg::Storage::Uploader.new(config)
-      key = "测试-#{Time.now.to_i}"
+      uploader = QiniuNg::Storage::Uploader.new
+      key = "测试-#{Time.now.to_i}-#{rand(2**64 - 1)}"
 
       io = StringIO.new SecureRandom.random_bytes(1 << 24)
       etag = QiniuNg::Utils::Etag.from_io(io)
@@ -95,17 +90,13 @@ RSpec.describe QiniuNg::Storage::Uploader do
 
   context '#upload_file_path' do
     it 'should upload file by path' do
-      config = QiniuNg::Config.new
-      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(upload_bucket_name, config).
-                                                                       build_token(
-                                                                         access_key: ENV['access_key'],
-                                                                         secret_key: ENV['secret_key'])
-      uploader = QiniuNg::Storage::Uploader.new(config)
+      uploader = QiniuNg::Storage::Uploader.new
+      credential = QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key'])
       Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
         4.times { file.write(SecureRandom.random_bytes(rand(1 << 25))) }
         file.rewind
         etag = QiniuNg::Utils::Etag.from_io(file)
-        key = "测试-#{Time.now.to_i}"
+        key = "测试-#{Time.now.to_i}-#{rand(2**64 - 1)}"
         err = Concurrent::AtomicReference.new
         last_uploaded, file_size = Concurrent::AtomicFixnum.new(-1), file.size
         on_uploading_progress = ->(uploaded, total) do
@@ -117,7 +108,8 @@ RSpec.describe QiniuNg::Storage::Uploader do
                                   end
                                 end
 
-        response = uploader.upload_file_path(file.path, upload_token: upload_token,
+        response = uploader.upload_file_path(file.path, bucket_name: upload_bucket_name,
+                                                        credential: credential,
                                                         key: key,
                                                         on_uploading_progress: on_uploading_progress)
         expect(response.hash).to eq(etag)

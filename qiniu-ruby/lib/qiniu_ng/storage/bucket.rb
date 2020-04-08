@@ -6,6 +6,7 @@ module QiniuNg
     #
     # 封装存储空间相关数据，例如配置，区域，下载域名等
     class Bucket
+      include Uploader.const_get(:SingleFileUploaderHelper)
       # 创建存储空间实例
       #
       # 注意，该方法仅用于在 SDK 中配置生成存储空间实例，而非在七牛云服务器上创建新的存储空间
@@ -84,6 +85,7 @@ module QiniuNg
       end
 
       # 删除存储空间
+      # @return [void]
       def drop
         QiniuNg::Error.wrap_ffi_function do
           Bindings::Storage.drop_bucket(@client.instance_variable_get(:@client), name)
@@ -91,13 +93,101 @@ module QiniuNg
         nil
       end
 
-      # 获取存储空间上传器
+      # 创建批量上传器
+      # @return [BatchUploader] 返回批量上传器
+      def batch_uploader
+        BatchUploader.send(:new, Bindings::BatchUploader.new_for_bucket(@bucket))
+      end
+
+      # 上传文件
       #
-      # @param [Integer] thread_pool_size 上传线程池尺寸，默认使用默认的线程池策略
-      # @return [BucketUploader] 返回存储空间上传器
-      # @raise [ArgumentError] 线程池参数错误
-      def uploader(thread_pool_size: nil)
-        Uploader::BucketUploader.send(:new_from_bucket, @uploader_manager, self, thread_pool_size: thread_pool_size)
+      # @param [IO] file 要上传的文件
+      # @param [String] key 对象名称
+      # @param [String] file_name 原始文件名称
+      # @param [Hash] vars [自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
+      # @param [Hash] metadata 元数据
+      # @param [Boolean] checksum_enabled 是否启用文件校验，默认总是启用，且不推荐禁用
+      # @param [Symbol] resumable_policy 分片上传策略，可以接受 `:default`, `:threshold`, `:always_be_resumeable`, `:never_be_resumeable` 四种取值
+      #                                  默认且推荐使用 default 策略
+      # @param [Lambda] on_uploading_progress 上传进度回调，需要提供一个带有两个参数的闭包函数，其中第一个参数为已经上传的数据量，单位为字节，第二个参数为需要上传的数据总量，单位为字节。如果无法预期需要上传的数据总量，则第二个参数将总是传入 0。该函数无需返回任何值。需要注意的是，该回调函数可能会被多个线程并发调用，因此需要保证实现的函数线程安全
+      # @param [Integer] upload_threshold 分片上传策略阙值，仅当 resumable_policy 为 `:threshold` 时起效，为其设置分片上传的阙值
+      # @param [Ingeger] thread_pool_size 上传线程池尺寸，默认使用默认的线程池策略
+      # @param [Ingeger] max_concurrency 最大并发度，默认与线程池大小相同
+      # @return [Uploader::UploadResponse] 上传响应
+      # @raise [ArgumentError] 参数错误
+      def upload_file(file, key: nil,
+                            file_name: nil,
+                            mime: nil,
+                            vars: nil,
+                            metadata: nil,
+                            checksum_enabled: nil,
+                            resumable_policy: nil,
+                            on_uploading_progress: nil,
+                            upload_threshold: nil,
+                            thread_pool_size: nil,
+                            max_concurrency: nil)
+        params = create_upload_params(key: key,
+                                      file_name: file_name,
+                                      mime: mime,
+                                      vars: vars,
+                                      metadata: metadata,
+                                      checksum_enabled: checksum_enabled,
+                                      resumable_policy: resumable_policy,
+                                      on_uploading_progress: on_uploading_progress,
+                                      upload_threshold: upload_threshold,
+                                      thread_pool_size: thread_pool_size,
+                                      max_concurrency: max_concurrency)
+        upload_response = QiniuNg::Error.wrap_ffi_function do
+                            @bucket.upload_reader(normalize_io(file),
+                                                  file.respond_to?(:size) ? file.size : 0,
+                                                  params)
+                          end
+        Uploader::UploadResponse.send(:new, upload_response)
+      end
+      alias upload_io upload_file
+
+      # 根据文件路径上传文件
+      #
+      # @param [String] file_path 要上传的文件路径
+      # @param [String] key 对象名称
+      # @param [String] file_name 原始文件名称
+      # @param [Hash] vars [自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
+      # @param [Hash] metadata 元数据
+      # @param [Boolean] checksum_enabled 是否启用文件校验，默认总是启用，且不推荐禁用
+      # @param [Symbol] resumable_policy 分片上传策略，可以接受 `:default`, `:threshold`, `:always_be_resumeable`, `:never_be_resumeable` 四种取值
+      #                                  默认且推荐使用 default 策略
+      # @param [Lambda] on_uploading_progress 上传进度回调，需要提供一个带有两个参数的闭包函数，其中第一个参数为已经上传的数据量，单位为字节，第二个参数为需要上传的数据总量，单位为字节。如果无法预期需要上传的数据总量，则第二个参数将总是传入 0。该函数无需返回任何值。需要注意的是，该回调函数可能会被多个线程并发调用，因此需要保证实现的函数线程安全
+      # @param [Integer] upload_threshold 分片上传策略阙值，仅当 resumable_policy 为 `:threshold` 时起效，为其设置分片上传的阙值
+      # @param [Ingeger] thread_pool_size 上传线程池尺寸，默认使用默认的线程池策略
+      # @param [Ingeger] max_concurrency 最大并发度，默认与线程池大小相同
+      # @return [Uploader::UploadResponse] 上传响应
+      # @raise [ArgumentError] 参数错误
+      def upload_file_path(file_path, key: nil,
+                                      file_name: nil,
+                                      mime: nil,
+                                      vars: nil,
+                                      metadata: nil,
+                                      checksum_enabled: nil,
+                                      resumable_policy: nil,
+                                      on_uploading_progress: nil,
+                                      upload_threshold: nil,
+                                      thread_pool_size: nil,
+                                      max_concurrency: nil)
+        params = create_upload_params(key: key,
+                                      file_name: file_name,
+                                      mime: mime,
+                                      vars: vars,
+                                      metadata: metadata,
+                                      checksum_enabled: checksum_enabled,
+                                      resumable_policy: resumable_policy,
+                                      on_uploading_progress: on_uploading_progress,
+                                      upload_threshold: upload_threshold,
+                                      thread_pool_size: thread_pool_size,
+                                      max_concurrency: max_concurrency)
+        upload_response = QiniuNg::Error.wrap_ffi_function do
+                            @bucket.upload_file_path(file_path.to_s, params)
+                          end
+        Uploader::UploadResponse.send(:new, upload_response)
       end
 
       # @!visibility private

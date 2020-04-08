@@ -230,7 +230,12 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             Some(Regex::new("^qiniu_ng_bucket_(uploader|builder)_(\\w+)").unwrap()),
             source_file.function_declarations().iter(),
             None,
-            vec![],
+            vec![
+                ("qiniu_ng_bucket_upload_file", "file"),
+                ("qiniu_ng_bucket_upload_file", "params"),
+                ("qiniu_ng_bucket_upload_file_path", "params"),
+                ("qiniu_ng_bucket_upload_reader", "params"),
+            ],
         ));
         classifier.add_class(Class::new(
             "BucketBuilder",
@@ -278,22 +283,16 @@ fn make_classifier(source_file: &SourceFile) -> Classifier {
             vec![
                 ("qiniu_ng_upload_manager_upload_file", "file"),
                 ("qiniu_ng_upload_manager_upload_file", "params"),
+                ("qiniu_ng_upload_manager_upload_file_via_upload_policy", "file"),
+                ("qiniu_ng_upload_manager_upload_file_via_upload_policy", "params"),
+                ("qiniu_ng_upload_manager_upload_file_via_upload_token", "file"),
+                ("qiniu_ng_upload_manager_upload_file_via_upload_token", "params"),
                 ("qiniu_ng_upload_manager_upload_file_path", "params"),
+                ("qiniu_ng_upload_manager_upload_file_path_via_upload_policy", "params"),
+                ("qiniu_ng_upload_manager_upload_file_path_via_upload_token", "params"),
                 ("qiniu_ng_upload_manager_upload_reader", "params"),
-            ],
-        ));
-        classifier.add_class(Class::new(
-            "BucketUploader",
-            Some("qiniu_ng_bucket_uploader_t"),
-            Regex::new("^qiniu_ng_bucket_uploader_(\\w+)").unwrap(),
-            None,
-            source_file.function_declarations().iter(),
-            None,
-            vec![
-                ("qiniu_ng_bucket_uploader_upload_file", "file"),
-                ("qiniu_ng_bucket_uploader_upload_file", "params"),
-                ("qiniu_ng_bucket_uploader_upload_file_path", "params"),
-                ("qiniu_ng_bucket_uploader_upload_reader", "params"),
+                ("qiniu_ng_upload_manager_upload_reader_via_upload_policy", "params"),
+                ("qiniu_ng_upload_manager_upload_reader_via_upload_token", "params"),
             ],
         ));
         classifier.add_class(Class::new(

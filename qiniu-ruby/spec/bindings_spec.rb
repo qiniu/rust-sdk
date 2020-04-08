@@ -167,23 +167,19 @@ RSpec.describe QiniuNg::Bindings do
         expect(regions.len).to eq 2
         region = regions.get(0)
         expect(region.is_freed).to be false
-        up_urls = region.get_up_urls(true)
-        expect(up_urls.len > 2).to be true
-        io_urls = region.get_io_urls(true)
-        expect(io_urls.len).to eq 1
-        expect(region.get_rs_urls(true).len).to eq 0
-        expect(region.get_rsf_urls(true).len).to eq 0
-        expect(region.get_api_urls(true).len).to eq 0
+        expect(region.get_up_urls(true).len > 2).to be true
+        expect(region.get_io_urls(true).len).to eq 1
+        expect(region.get_rs_urls(true).len).to eq 1
+        expect(region.get_rsf_urls(true).len).to eq 1
+        expect(region.get_api_urls(true).len).to eq 1
 
         region = regions.get(1)
         expect(region.is_freed).to be false
-        up_urls = region.get_up_urls(true)
-        expect(up_urls.len > 2).to be true
-        io_urls = region.get_io_urls(true)
-        expect(io_urls.len).to eq 1
-        expect(region.get_rs_urls(true).len).to eq 0
-        expect(region.get_rsf_urls(true).len).to eq 0
-        expect(region.get_api_urls(true).len).to eq 0
+        expect(region.get_up_urls(true).len > 2).to be true
+        expect(region.get_io_urls(true).len).to eq 1
+        expect(region.get_rs_urls(true).len).to eq 1
+        expect(region.get_rsf_urls(true).len).to eq 1
+        expect(region.get_api_urls(true).len).to eq 1
 
         region = regions.get(2)
         expect(region.is_freed).to be true
