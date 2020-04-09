@@ -6,7 +6,6 @@ module QiniuNg
     #
     # 封装存储空间相关数据，例如配置，区域，下载域名等
     class Bucket
-      include Uploader.const_get(:SingleFileUploaderHelper)
       # 创建存储空间实例
       #
       # 注意，该方法仅用于在 SDK 中配置生成存储空间实例，而非在七牛云服务器上创建新的存储空间
@@ -194,6 +193,8 @@ module QiniuNg
       def inspect
         "#<#{self.class.name} @name=#{name.inspect}>"
       end
+
+      public_send(:include, Uploader.const_get(:SingleFileUploaderHelper))
     end
   end
 end

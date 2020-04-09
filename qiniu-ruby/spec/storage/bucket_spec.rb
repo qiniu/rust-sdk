@@ -37,7 +37,7 @@ RSpec.describe QiniuNg::Storage::Bucket do
       client = QiniuNg::Client.new access_key: ENV['access_key'], secret_key: ENV['secret_key']
       bucket = QiniuNg::Storage::Bucket.new client: client, bucket_name: 'z0-bucket'
       Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
-        file.write(SecureRandom.random_bytes(rand(1 << 25)))
+        4.times { file.write(SecureRandom.random_bytes(rand(1 << 25))) }
         file.rewind
 
         key = "测试-#{Time.now.to_i}-#{rand(2**64 - 1)}"
@@ -76,7 +76,7 @@ RSpec.describe QiniuNg::Storage::Bucket do
       client = QiniuNg::Client.new access_key: ENV['access_key'], secret_key: ENV['secret_key']
       bucket = QiniuNg::Storage::Bucket.new client: client, bucket_name: 'z0-bucket'
       Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
-        file.write(SecureRandom.random_bytes(rand(1 << 25)))
+        4.times { file.write(SecureRandom.random_bytes(rand(1 << 25))) }
         file.rewind
         etag = QiniuNg::Utils::Etag.from_io(file)
         file.rewind
