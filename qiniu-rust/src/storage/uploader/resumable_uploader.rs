@@ -213,12 +213,7 @@ impl<'u> ResumableUploaderBuilder<'u> {
             }),
             thread_pool: self
                 .thread_pool
-                .or_else(|| {
-                    upload_manager
-                        .thread_pool()
-                        .as_ref()
-                        .map(|pool| Ron::Referenced(pool.as_ref()))
-                })
+                .or_else(|| upload_manager.thread_pool().map(|pool| Ron::Referenced(pool.as_ref())))
                 .unwrap_or_else(|| {
                     Ron::Owned(
                         ThreadPoolBuilder::new()
@@ -269,12 +264,7 @@ impl<'u> ResumableUploaderBuilder<'u> {
             }),
             thread_pool: self
                 .thread_pool
-                .or_else(|| {
-                    upload_manager
-                        .thread_pool()
-                        .as_ref()
-                        .map(|pool| Ron::Referenced(pool.as_ref()))
-                })
+                .or_else(|| upload_manager.thread_pool().map(|pool| Ron::Referenced(pool.as_ref())))
                 .unwrap_or_else(|| {
                     Ron::Owned(
                         ThreadPoolBuilder::new()

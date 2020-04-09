@@ -183,7 +183,7 @@ pub extern "C" fn qiniu_ng_batch_uploader_new(
 /// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_batch_uploader_new_for_upload_token()` 方法替代
 #[no_mangle]
 pub extern "C" fn qiniu_ng_batch_uploader_new_for_bucket(bucket: qiniu_ng_bucket_t) -> qiniu_ng_batch_uploader_t {
-    let bucket = Option::<Box<Bucket>>::from(bucket).unwrap();
+    let bucket = Option::<Bucket>::from(bucket).unwrap();
     Box::new(bucket.batch_uploader())
         .tap(|_| {
             let _ = qiniu_ng_bucket_t::from(bucket);

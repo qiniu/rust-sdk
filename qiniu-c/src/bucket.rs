@@ -195,7 +195,7 @@ pub extern "C" fn qiniu_ng_bucket_builder_auto_detect_domains(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_build(builder: qiniu_ng_bucket_builder_t) -> qiniu_ng_bucket_t {
     let builder = Option::<Box<BucketBuilder>>::from(builder).unwrap();
-    qiniu_ng_bucket_t::from(Box::new(builder.build())).tap(|_| {
+    qiniu_ng_bucket_t::from(builder.build()).tap(|_| {
         let _ = qiniu_ng_bucket_builder_t::from(builder);
     })
 }
@@ -259,25 +259,25 @@ impl qiniu_ng_bucket_t {
     }
 }
 
-impl From<qiniu_ng_bucket_t> for Option<Box<Bucket>> {
+impl From<qiniu_ng_bucket_t> for Option<Bucket> {
     fn from(bucket: qiniu_ng_bucket_t) -> Self {
         if bucket.is_null() {
             None
         } else {
-            Some(unsafe { Box::from_raw(transmute(bucket)) })
+            Some(unsafe { Bucket::from_raw(transmute(bucket)) })
         }
     }
 }
 
-impl From<Option<Box<Bucket>>> for qiniu_ng_bucket_t {
-    fn from(bucket: Option<Box<Bucket>>) -> Self {
+impl From<Option<Bucket>> for qiniu_ng_bucket_t {
+    fn from(bucket: Option<Bucket>) -> Self {
         bucket.map(|bucket| bucket.into()).unwrap_or_default()
     }
 }
 
-impl From<Box<Bucket>> for qiniu_ng_bucket_t {
-    fn from(bucket: Box<Bucket>) -> Self {
-        unsafe { transmute(Box::into_raw(bucket)) }
+impl From<Bucket> for qiniu_ng_bucket_t {
+    fn from(bucket: Bucket) -> Self {
+        unsafe { transmute(bucket.into_raw()) }
     }
 }
 
@@ -296,7 +296,7 @@ pub extern "C" fn qiniu_ng_bucket_new(
 ) -> qiniu_ng_bucket_t {
     let client = Option::<Box<Client>>::from(client).unwrap();
     let bucket_name = unsafe { ucstr::from_ptr(bucket_name) }.to_string().unwrap();
-    qiniu_ng_bucket_t::from(Box::new(client.storage().bucket(bucket_name).build())).tap(|_| {
+    qiniu_ng_bucket_t::from(client.storage().bucket(bucket_name).build()).tap(|_| {
         let _ = qiniu_ng_client_t::from(client);
     })
 }
@@ -306,7 +306,7 @@ pub extern "C" fn qiniu_ng_bucket_new(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_free(bucket: *mut qiniu_ng_bucket_t) {
     if let Some(bucket) = unsafe { bucket.as_mut() } {
-        let _ = Option::<Box<Bucket>>::from(*bucket);
+        let _ = Option::<Bucket>::from(*bucket);
         *bucket = qiniu_ng_bucket_t::default();
     }
 }
@@ -325,7 +325,7 @@ pub extern "C" fn qiniu_ng_bucket_is_freed(bucket: qiniu_ng_bucket_t) -> bool {
 /// @warning 务必记得 `qiniu_ng_str_t` 需要在使用完毕后调用 `qiniu_ng_str_free()` 释放内存。
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_get_name(bucket: qiniu_ng_bucket_t) -> qiniu_ng_str_t {
-    let bucket = Option::<Box<Bucket>>::from(bucket).unwrap();
+    let bucket = Option::<Bucket>::from(bucket).unwrap();
     unsafe { qiniu_ng_str_t::from_str_unchecked(bucket.name()) }.tap(|_| {
         let _ = qiniu_ng_bucket_t::from(bucket);
     })
@@ -343,7 +343,7 @@ pub extern "C" fn qiniu_ng_bucket_get_region(
     region: *mut qiniu_ng_region_t,
     error: *mut qiniu_ng_err_t,
 ) -> bool {
-    let bucket = Option::<Box<Bucket>>::from(bucket).unwrap();
+    let bucket = Option::<Bucket>::from(bucket).unwrap();
     match bucket.region().map(|region| region.to_owned()).tap(|_| {
         let _ = qiniu_ng_bucket_t::from(bucket);
     }) {
@@ -374,7 +374,7 @@ pub extern "C" fn qiniu_ng_bucket_get_regions(
     regions: *mut qiniu_ng_regions_t,
     error: *mut qiniu_ng_err_t,
 ) -> bool {
-    let bucket = Option::<Box<Bucket>>::from(bucket).unwrap();
+    let bucket = Option::<Bucket>::from(bucket).unwrap();
     match bucket
         .regions()
         .map(|iter| iter.map(|r| r.to_owned()).collect::<Box<[Region]>>())
@@ -408,7 +408,7 @@ pub extern "C" fn qiniu_ng_bucket_get_domains(
     domains: *mut qiniu_ng_str_list_t,
     error: *mut qiniu_ng_err_t,
 ) -> bool {
-    let bucket = Option::<Box<Bucket>>::from(bucket).unwrap();
+    let bucket = Option::<Bucket>::from(bucket).unwrap();
     match bucket
         .domains()
         .map(|domains| unsafe { qiniu_ng_str_list_t::from_str_slice_unchecked(&domains) })

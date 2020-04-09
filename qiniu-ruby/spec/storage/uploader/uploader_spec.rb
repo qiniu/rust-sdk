@@ -15,11 +15,14 @@ RSpec.describe QiniuNg::Storage::Uploader do
         key = "测试-#{Time.now.to_i}-#{rand(2**64 - 1)}"
 
         err = Concurrent::AtomicReference.new
-        last_uploaded, file_size = Concurrent::AtomicFixnum.new(-1), file.size
+        last_uploaded, mutex, file_size = -1, Mutex.new, file.size
         on_uploading_progress = ->(uploaded, total) do
                                   begin
                                     expect(total).to eq file_size
-                                    last_uploaded.value = uploaded
+                                    expect(uploaded <= total).to be true
+                                    mutex.synchronize do
+                                      last_uploaded = [last_uploaded, uploaded].max
+                                    end
                                   rescue Exception => e
                                     err.set(e)
                                   end
@@ -40,7 +43,7 @@ RSpec.describe QiniuNg::Storage::Uploader do
         expect(j['hash']).to eq(etag)
         expect(j['key']).to eq(key)
         expect(err.get).to be_nil
-        expect(last_uploaded.value).to eq file_size
+        expect(last_uploaded).to eq file_size
       end
     end
 
@@ -56,11 +59,14 @@ RSpec.describe QiniuNg::Storage::Uploader do
       io.rewind
 
       err = Concurrent::AtomicReference.new
-      last_uploaded, io_size = Concurrent::AtomicFixnum.new(-1), io.size
+      last_uploaded, mutex, io_size = -1, Mutex.new, io.size
       on_uploading_progress = ->(uploaded, total) do
                                 begin
                                   expect(total).to eq io_size
-                                  last_uploaded.value = uploaded
+                                  expect(uploaded <= total).to be true
+                                  mutex.synchronize do
+                                    last_uploaded = [last_uploaded, uploaded].max
+                                  end
                                 rescue Exception => e
                                   err.set(e)
                                 end
@@ -84,7 +90,7 @@ RSpec.describe QiniuNg::Storage::Uploader do
       expect(j['bucket']).to eq(upload_bucket_name)
       expect(j['name']).to eq(key)
       expect(err.get).to be_nil
-      expect(last_uploaded.value).to eq io_size
+      expect(last_uploaded).to eq io_size
     end
   end
 
@@ -98,11 +104,14 @@ RSpec.describe QiniuNg::Storage::Uploader do
         etag = QiniuNg::Utils::Etag.from_io(file)
         key = "测试-#{Time.now.to_i}-#{rand(2**64 - 1)}"
         err = Concurrent::AtomicReference.new
-        last_uploaded, file_size = Concurrent::AtomicFixnum.new(-1), file.size
+        last_uploaded, mutex, file_size = -1, Mutex.new, file.size
         on_uploading_progress = ->(uploaded, total) do
                                   begin
                                     expect(total >= file_size).to be true
-                                    last_uploaded.value = uploaded
+                                    expect(uploaded <= total).to be true
+                                    mutex.synchronize do
+                                      last_uploaded = [last_uploaded, uploaded].max
+                                    end
                                   rescue Exception => e
                                     err.set(e)
                                   end
@@ -118,7 +127,7 @@ RSpec.describe QiniuNg::Storage::Uploader do
         expect(j['hash']).to eq(etag)
         expect(j['key']).to eq(key)
         expect(err.get).to be_nil
-        expect(last_uploaded.value).to eq file_size
+        expect(last_uploaded).to eq file_size
       end
     end
   end

@@ -682,7 +682,7 @@ fn qiniu_ng_bucket_upload(
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err_t,
 ) -> bool {
-    let bucket = Option::<Box<Bucket>>::from(bucket).unwrap();
+    let bucket = Option::<Bucket>::from(bucket).unwrap();
     let mut result = true;
     {
         let mut file_uploader = bucket.uploader();

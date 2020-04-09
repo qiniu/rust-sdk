@@ -11,7 +11,6 @@ use super::{
 };
 use crate::{config::Config, credential::Credential, http::Client};
 use assert_impl::assert_impl;
-use getset::Getters;
 use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
 use std::{borrow::Cow, result::Result, sync::Arc};
 use thiserror::Error;
@@ -20,8 +19,7 @@ use thiserror::Error;
 ///
 /// 上传管理器更接近于一个上传入口，提供上传文件的功能，并可以利用它构建批量文件上传器
 /// 可以跨线程使用，但由于可能会自带线程池，请勿跨进程使用
-#[derive(Clone, Getters)]
-#[get = "pub(super)"]
+#[derive(Clone)]
 pub struct UploadManager {
     http_client: Client,
     thread_pool: Option<Arc<ThreadPool>>,
@@ -79,6 +77,18 @@ impl UploadManager {
         }
     }
 
+    pub(in super::super) fn upload_for_internal_generated_upload_token_with_regions<'a>(
+        &'a self,
+        bucket_name: Cow<'a, str>,
+        upload_token: Cow<'a, UploadToken>,
+        regions: Option<impl Iterator<Item = &'a Region>>,
+    ) -> FileUploader<'a> {
+        let up_urls_list = regions
+            .map(|regions| extract_up_urls_list_from_regions(regions, self.config().use_https()))
+            .unwrap_or_else(|| all_possible_up_urls_list(self.config().use_https()));
+        FileUploader::new(self, upload_token, bucket_name, up_urls_list)
+    }
+
     /// 根据上传策略和认证信息创建文件上传器
     pub fn upload_for_upload_policy(
         &self,
@@ -99,7 +109,7 @@ impl UploadManager {
         &self,
         upload_token: impl Into<UploadToken>,
     ) -> CreateUploaderResult<BatchUploader> {
-        BatchUploader::new(self.to_owned(), upload_token.into())
+        BatchUploader::new_for_upload_manager(self.to_owned(), upload_token.into())
     }
 
     /// 根据上传策略和认证信息创建批量文件上传器
@@ -121,6 +131,17 @@ impl UploadManager {
             .unwrap()
     }
 
+    #[inline]
+    pub(crate) fn thread_pool(&self) -> Option<&Arc<ThreadPool>> {
+        self.thread_pool.as_ref()
+    }
+
+    #[inline]
+    pub(crate) fn http_client(&self) -> &Client {
+        &self.http_client
+    }
+
+    #[inline]
     pub(crate) fn config(&self) -> &Config {
         self.http_client.config()
     }

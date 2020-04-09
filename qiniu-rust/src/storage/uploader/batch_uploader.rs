@@ -1,6 +1,6 @@
 use super::{
-    file_uploader::ResumablePolicy, CreateUploaderError, CreateUploaderResult, UploadManager, UploadPolicy,
-    UploadResult, UploadToken,
+    super::bucket::Bucket, file_uploader::ResumablePolicy, CreateUploaderError, CreateUploaderResult, UploadManager,
+    UploadPolicy, UploadResult, UploadToken,
 };
 use crate::{utils::ron::Ron, Config, Credential};
 use mime::Mime;
@@ -12,6 +12,7 @@ use std::{
     io::{Read, Result},
     mem::replace,
     path::Path,
+    sync::Arc,
 };
 
 type OnUploadingProgressCallback = Box<dyn Fn(u64, Option<u64>) + Send + Sync>;
@@ -51,9 +52,16 @@ pub struct BatchUploadJobBuilder {
     resumable_policy: Option<ResumablePolicy>,
 }
 
+enum BatchUploaderCore {
+    UploadManager {
+        upload_manager: UploadManager,
+        upload_token: UploadToken,
+    },
+    Bucket(Bucket),
+}
+
 struct BatchUploaderContext {
-    upload_manager: UploadManager,
-    upload_token: UploadToken,
+    core: BatchUploaderCore,
     max_concurrency: usize,
     thread_pool_size: usize,
 }
@@ -65,19 +73,35 @@ pub struct BatchUploader {
 }
 
 impl BatchUploader {
-    pub(super) fn new(upload_manager: UploadManager, upload_token: UploadToken) -> CreateUploaderResult<Self> {
+    pub(super) fn new_for_upload_manager(
+        upload_manager: UploadManager,
+        upload_token: UploadToken,
+    ) -> CreateUploaderResult<Self> {
         if upload_token.policy()?.bucket().is_none() {
             return Err(CreateUploaderError::BucketIsMissingInUploadToken);
         }
         Ok(Self {
             jobs: Vec::new(),
             context: BatchUploaderContext {
-                upload_manager,
-                upload_token,
+                core: BatchUploaderCore::UploadManager {
+                    upload_manager,
+                    upload_token,
+                },
                 max_concurrency: 0,
                 thread_pool_size: 0,
             },
         })
+    }
+
+    pub(in super::super) fn new_for_bucket(bucket: Bucket) -> Self {
+        Self {
+            jobs: Vec::new(),
+            context: BatchUploaderContext {
+                core: BatchUploaderCore::Bucket(bucket),
+                max_concurrency: 0,
+                thread_pool_size: 0,
+            },
+        }
     }
 
     /// 预期批量上传的任务数量
@@ -140,9 +164,8 @@ impl BatchUploader {
 /// 确保返回的线程池尺寸必须大于 1，否则可能会导致死锁
 fn build_thread_pool(context: &BatchUploaderContext) -> Ron<'_, ThreadPool> {
     context
-        .upload_manager
+        .core
         .thread_pool()
-        .as_ref()
         .filter(|pool| pool.current_num_threads() > 1)
         .map(|pool| Ron::Referenced(pool.as_ref()))
         .unwrap_or_else(|| {
@@ -175,14 +198,20 @@ fn handle_job(context: &BatchUploaderContext, job: BatchUploadJob, thread_pool: 
         on_completed,
     } = job;
 
-    let mut file_uploader = context
-        .upload_manager
-        .upload_for_upload_token(
-            upload_token
-                .map(Cow::Owned)
-                .unwrap_or_else(|| Cow::Borrowed(&context.upload_token)),
-        )
-        .unwrap()
+    let mut file_uploader = match &context.core {
+        BatchUploaderCore::UploadManager {
+            upload_manager,
+            upload_token: context_upload_token,
+        } => upload_manager
+            .upload_for_upload_token(
+                upload_token
+                    .map(Cow::Owned)
+                    .unwrap_or_else(|| Cow::Borrowed(context_upload_token)),
+            )
+            .unwrap(),
+        BatchUploaderCore::Bucket(bucket) => bucket.uploader(),
+    };
+    file_uploader = file_uploader
         .thread_pool(thread_pool)
         .max_concurrency(context.max_concurrency);
     if let Some(key) = key {
@@ -413,6 +442,15 @@ impl BatchUploadJobBuilder {
             mime,
             expected_data_size: size,
             target: BatchUploadTarget::Stream(Box::new(stream)),
+        }
+    }
+}
+
+impl BatchUploaderCore {
+    fn thread_pool(&self) -> Option<&Arc<ThreadPool>> {
+        match self {
+            Self::UploadManager { upload_manager, .. } => upload_manager.thread_pool(),
+            Self::Bucket(bucket) => bucket.thread_pool(),
         }
     }
 }

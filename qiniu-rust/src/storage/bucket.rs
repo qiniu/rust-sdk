@@ -2,20 +2,25 @@
 
 use super::{
     region::{Region, RegionId},
-    uploader::{BatchUploader, FileUploader, UploadManager},
+    uploader::{BatchUploader, FileUploader, UploadManager, UploadToken},
 };
 use crate::{
+    config::Config,
     credential::Credential,
     http::{Client, Result},
 };
 use assert_impl::assert_impl;
 use once_cell::sync::OnceCell;
-use std::{borrow::Cow, iter::Iterator};
+use rayon::ThreadPool;
+use std::{borrow::Cow, ffi::c_void, iter::Iterator, sync::Arc};
 
 /// 存储空间
 ///
 /// 封装存储空间相关数据，例如配置，区域，下载域名等
-pub struct Bucket {
+#[derive(Clone)]
+pub struct Bucket(Arc<BucketInner>);
+
+struct BucketInner {
     name: Cow<'static, str>,
     credential: Credential,
     upload_manager: UploadManager,
@@ -196,7 +201,7 @@ impl BucketBuilder {
             domains.reverse();
             OnceCell::from(domains.into_boxed_slice())
         };
-        Bucket {
+        Bucket(Arc::new(BucketInner {
             name: name.to_owned(),
             credential: credential.to_owned(),
             upload_manager: upload_manager.to_owned(),
@@ -204,7 +209,7 @@ impl BucketBuilder {
             region,
             backup_regions,
             domains,
-        }
+        }))
     }
 
     /// 重置生成器
@@ -222,23 +227,25 @@ impl BucketBuilder {
 impl Bucket {
     /// 存储空间名称
     pub fn name(&self) -> &str {
-        self.name.as_ref()
+        self.0.name.as_ref()
     }
 
     /// 存储空间区域
     ///
     /// 如果区域在存储空间生成前未指定，则该方法可能会连接七牛服务器查询当前存储空间所在区域
     pub fn region(&self) -> Result<&Region> {
-        self.region
+        self.0
+            .region
             .get_or_try_init(|| {
                 let mut regions: Vec<Region> = Region::query(
                     self.name(),
-                    self.credential.access_key(),
-                    self.upload_manager.config().clone(),
+                    self.0.credential.access_key(),
+                    self.0.upload_manager.config().clone(),
                 )?
                 .into();
                 let first_region = Cow::Owned(regions.swap_remove(0));
-                self.backup_regions
+                self.0
+                    .backup_regions
                     .get_or_init(|| regions.into_iter().map(Cow::Owned).collect());
                 Ok(first_region)
             })
@@ -262,8 +269,8 @@ impl Bucket {
     ///
     /// 如果下载域名在存储空间生成前未指定，则该方法可能会连接七牛服务器查询当前存储空间下载域名列表
     pub fn domains(&self) -> Result<Vec<&str>> {
-        let domains = self.domains.get_or_try_init(|| {
-            Ok(domain::query(&self.http_client, &self.credential, self.name())?
+        let domains = self.0.domains.get_or_try_init(|| {
+            Ok(domain::query(&self.0.http_client, &self.0.credential, self.name())?
                 .into_iter()
                 .map(Cow::Owned)
                 .collect())
@@ -273,23 +280,48 @@ impl Bucket {
 
     /// 创建面向该存储区域的文件上传器
     pub fn uploader(&self) -> FileUploader {
-        self.upload_manager
-            .upload_for_bucket(self.name.to_owned(), self.credential.to_owned())
+        self.0
+            .upload_manager
+            .upload_for_internal_generated_upload_token_with_regions(
+                self.0.name.to_owned(),
+                UploadToken::new_from_bucket(self.0.name.to_owned(), self.0.credential.to_owned(), self.config())
+                    .into(),
+                self.regions().ok(),
+            )
     }
 
     /// 创建面向该存储区域的批量上传器
     pub fn batch_uploader(&self) -> BatchUploader {
-        self.upload_manager
-            .batch_uploader_for_bucket(self.name.to_owned(), self.credential.to_owned())
+        BatchUploader::new_for_bucket(self.to_owned())
     }
 
     fn rs_urls(&self) -> Vec<Cow<'static, str>> {
         let mut rs_urls = self
             .region()
-            .map(|region| region.rs_urls_owned(self.upload_manager.config().use_https()))
+            .map(|region| region.rs_urls_owned(self.config().use_https()))
             .unwrap_or_else(|_| Vec::new());
-        rs_urls.push(Cow::Owned(self.upload_manager.config().rs_url()));
+        rs_urls.push(Cow::Owned(self.config().rs_url()));
         rs_urls
+    }
+
+    #[inline]
+    pub(crate) fn config(&self) -> &Config {
+        self.0.upload_manager.config()
+    }
+
+    #[inline]
+    pub(crate) fn thread_pool(&self) -> Option<&Arc<ThreadPool>> {
+        self.0.upload_manager.thread_pool()
+    }
+
+    #[doc(hidden)]
+    pub fn into_raw(self) -> *const c_void {
+        Arc::into_raw(self.0).cast()
+    }
+
+    #[doc(hidden)]
+    pub unsafe fn from_raw(ptr: *const c_void) -> Self {
+        Self(Arc::from_raw(ptr.cast::<BucketInner>()))
     }
 
     #[allow(dead_code)]
@@ -352,12 +384,13 @@ impl<'a> Iterator for BucketRegionIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.itered == 0 {
-            self.bucket.region.get().map(|region| {
+            self.bucket.0.region.get().map(|region| {
                 self.itered += 1;
                 region.as_ref()
             })
         } else {
             self.bucket
+                .0
                 .backup_regions
                 .get()
                 .and_then(|regions| {
