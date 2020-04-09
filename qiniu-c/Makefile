@@ -68,7 +68,15 @@ else ifeq ($(UNAME_S),Linux)
 else
 	sed -i '' 's/[[:<:]]bool[[:>:]]/_Bool/g' libqiniu_ng.h
 endif
-doc: libqiniu_ng.h
+doc: build
+ifeq ($(OS),Windows_NT)
+	cargo script ../scripts/check_doc -- --usage-file USAGE.md --lang c --ext c --cmd "$(CC) $(CFLAGS) {} $(INC_DIRS) /link /out:$(TARGET)"
+	rm $(TARGET)
+else
+	mkdir -p build
+	cargo script ../scripts/check_doc -- --usage-file USAGE.md --lang c --ext c --cmd "$(CC) $(CFLAGS) $(INC_DIRS) -L$(DYNAMIC_LIBRARY) $(SYMBOLS) {} -o $(TARGET) -lqiniu_ng_c $(LDFLAGS)"
+	rm -rf build
+endif
 	rm -rf ../target/doc/qiniu_ng_c/html/*
 	doxygen Doxyfile README.md
 test:

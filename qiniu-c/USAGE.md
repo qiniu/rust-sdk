@@ -243,7 +243,7 @@ int main() {
         .file_name = "local file name",
     };
     qiniu_ng_err_t err;
-    if (!qiniu_ng_upload_manager_upload_file_path(upload_manager, upload_token, file_path, &params, &upload_response, &err)) {
+    if (!qiniu_ng_upload_manager_upload_file_path_via_upload_token(upload_manager, upload_token, file_path, &params, &upload_response, &err)) {
         qiniu_ng_err_fprintf(stderr, "%s\n", err);
         qiniu_ng_err_ignore(&err);
         qiniu_ng_upload_token_free(&upload_token);
@@ -388,27 +388,20 @@ int main() {
     const char *secret_key = "[Qiniu Secret Key]";
     const char *bucket_name = "[Bucket Name]";
     const char *file_path = "/local/file/path";
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-
-    qiniu_ng_upload_policy_builder_t upload_policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(bucket_name, config);
-    qiniu_ng_upload_token_t upload_token = qiniu_ng_upload_token_new_from_policy_builder(upload_policy_builder, access_key, secret_key);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
+    qiniu_ng_credential_t credential = qiniu_ng_credential_new(access_key, secret_key);
 
     qiniu_ng_err_t err;
-    if (!qiniu_ng_upload_manager_upload_file_path(upload_manager, upload_token, file_path, NULL, NULL, &err)) {
+    if (!qiniu_ng_upload_manager_upload_file_path(upload_manager, bucket_name, credential, file_path, NULL, NULL, &err)) {
         qiniu_ng_err_fprintf(stderr, "%s\n", err);
         qiniu_ng_err_ignore(&err);
-        qiniu_ng_upload_token_free(&upload_token);
-        qiniu_ng_upload_policy_builder_free(&upload_policy_builder);
+        qiniu_ng_credential_free(&credential);
         qiniu_ng_upload_manager_free(&upload_manager);
-        qiniu_ng_config_free(&config);
         return 1;
     }
 
-    qiniu_ng_upload_token_free(&upload_token);
-    qiniu_ng_upload_policy_builder_free(&upload_policy_builder);
+    qiniu_ng_credential_free(&credential);
     qiniu_ng_upload_manager_free(&upload_manager);
-    qiniu_ng_config_free(&config);
     return 0;
 }
 ```
@@ -424,27 +417,20 @@ int main() {
     const char *access_key = "[Qiniu Access Key]";
     const char *secret_key = "[Qiniu Secret Key]";
     const char *bucket_name = "[Bucket Name]";
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-
-    qiniu_ng_upload_policy_builder_t upload_policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(bucket_name, config);
-    qiniu_ng_upload_token_t upload_token = qiniu_ng_upload_token_new_from_policy_builder(upload_policy_builder, access_key, secret_key);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
+    qiniu_ng_credential_t credential = qiniu_ng_credential_new(access_key, secret_key);
 
     qiniu_ng_err_t err;
-    if (!qiniu_ng_upload_manager_upload_file(upload_manager, upload_token, stdin, NULL, NULL, &err)) {
+    if (!qiniu_ng_upload_manager_upload_file(upload_manager, bucket_name, credential, stdin, NULL, NULL, &err)) {
         qiniu_ng_err_fprintf(stderr, "%s\n", err);
         qiniu_ng_err_ignore(&err);
-        qiniu_ng_upload_token_free(&upload_token);
-        qiniu_ng_upload_policy_builder_free(&upload_policy_builder);
+        qiniu_ng_credential_free(&credential);
         qiniu_ng_upload_manager_free(&upload_manager);
-        qiniu_ng_config_free(&config);
         return 1;
     }
 
-    qiniu_ng_upload_token_free(&upload_token);
-    qiniu_ng_upload_policy_builder_free(&upload_policy_builder);
+    qiniu_ng_credential_free(&credential);
     qiniu_ng_upload_manager_free(&upload_manager);
-    qiniu_ng_config_free(&config);
     return 0;
 }
 ```
@@ -474,13 +460,9 @@ int main() {
     const char *secret_key = "[Qiniu Secret Key]";
     const char *bucket_name = "[Bucket Name]";
     const char *file_path = "/local/file/path";
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
-    qiniu_ng_bucket_uploader_t bucket_uploader = qiniu_ng_bucket_uploader_new_from_bucket_name(upload_manager, bucket_name, access_key, 0);
-
-    qiniu_ng_upload_policy_builder_t upload_policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(bucket_name, config);
-    qiniu_ng_upload_token_t upload_token = qiniu_ng_upload_token_new_from_policy_builder(upload_policy_builder, access_key, secret_key);
-    qiniu_ng_batch_uploader_t batch_uploader = qiniu_ng_batch_uploader_new_from_bucket_uploader(bucket_uploader, upload_token);
+    qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
+    qiniu_ng_credential_t credential = qiniu_ng_credential_new(access_key, secret_key);
+    qiniu_ng_batch_uploader_t batch_uploader = qiniu_ng_batch_uploader_new(upload_manager, bucket_name, credential);
 
     qiniu_ng_batch_upload_params_t params = {
         .on_completed = on_completed,
@@ -490,21 +472,15 @@ int main() {
         qiniu_ng_err_fprintf(stderr, "%s\n", err);
         qiniu_ng_err_ignore(&err);
         qiniu_ng_batch_uploader_free(&batch_uploader);
-        qiniu_ng_upload_token_free(&upload_token);
-        qiniu_ng_bucket_uploader_free(&bucket_uploader);
-        qiniu_ng_upload_policy_builder_free(&upload_policy_builder);
+        qiniu_ng_credential_free(&credential);
         qiniu_ng_upload_manager_free(&upload_manager);
-        qiniu_ng_config_free(&config);
         return 1;
     }
     qiniu_ng_batch_uploader_start(batch_uploader); // 这里才会进行上传，直到上传完毕后才会返回，上传结果由 `on_completed()` 回调函数返回
 
     qiniu_ng_batch_uploader_free(&batch_uploader);
-    qiniu_ng_upload_token_free(&upload_token);
-    qiniu_ng_bucket_uploader_free(&bucket_uploader);
-    qiniu_ng_upload_policy_builder_free(&upload_policy_builder);
+    qiniu_ng_credential_free(&credential);
     qiniu_ng_upload_manager_free(&upload_manager);
-    qiniu_ng_config_free(&config);
     return 0;
 }
 ```
@@ -579,6 +555,8 @@ int main() {
 SDK 支持在发送 HTTP 请求前和收到响应后调用回调函数对 HTTP 请求和响应进行处理，这里给出一个打印 HTTP 请求和响应相关信息的回调函数实现：
 
 ```c
+#include "libqiniu_ng.h"
+
 static _Bool print_header(const qiniu_ng_char_t *header_name, const qiniu_ng_char_t *header_value, void *data) {
     long request_id = (long) data;
     printf("[%ld]   %s: %s\n", request_id, header_name, header_value);
@@ -605,12 +583,15 @@ static void log_http_response(qiniu_ng_http_request_t request, qiniu_ng_http_res
     qiniu_ng_str_map_free(&headers);
 }
 
-qiniu_ng_config_t config;
-qiniu_ng_err_t err;
-qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
-qiniu_ng_config_builder_append_http_request_before_action_handler(builder, log_http_request, NULL);
-qiniu_ng_config_builder_append_http_request_after_action_handler(builder, log_http_response, NULL);
-qiniu_ng_config_build(&builder, &config, &err);
+int main() {
+    qiniu_ng_config_t config;
+    qiniu_ng_err_t err;
+    qiniu_ng_config_builder_t builder = qiniu_ng_config_builder_new();
+    qiniu_ng_config_builder_append_http_request_before_action_handler(builder, log_http_request, NULL);
+    qiniu_ng_config_builder_append_http_request_after_action_handler(builder, log_http_response, NULL);
+    qiniu_ng_config_build(&builder, &config, &err);
+    // ...
+}
 ```
 
 该实现使用 `request` 的 `custom_data` 字段，该字段是指针类型，支持从请求前回调函数传输数据到响应后回调函数，由于传输的数据比较简单，可以直接填入 `custom_data` 字段。

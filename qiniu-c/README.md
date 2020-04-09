@@ -17,9 +17,9 @@
 
 ## 依赖环境
 
-- Linux: Rust 1.38+, cbindgen, GCC, libcurl
-- Windows: Rust 1.38+, cbindgen, Visual Studio, libcurl
-- MacOS: Rust 1.38+, cbindgen, Clang （from XCode）, libcurl
+- Linux: Rust 1.38+ with cbindgen & cargo-script, GCC, libcurl
+- Windows: Rust 1.38+ with cbindgen & cargo-script, Visual Studio, libcurl
+- MacOS: Rust 1.38+ with cbindgen & cargo-script, Clang （from XCode）, libcurl
 
 ## 接口文档
 
