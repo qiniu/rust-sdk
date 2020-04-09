@@ -59,6 +59,8 @@ void test_qiniu_ng_bucket_get_unexisted_region(void);
 void test_qiniu_ng_bucket_get_regions(void);
 void test_qiniu_ng_bucket_builder(void);
 void test_qiniu_ng_bucket_get_regions_and_domains(void);
+void test_qiniu_ng_bucket_upload_files(void);
+void test_qiniu_ng_object_upload_files(void);
 void test_qiniu_ng_make_upload_token(void);
 void test_qiniu_ng_upload_manager_upload_files(void);
 void test_qiniu_ng_upload_manager_upload_empty_file(void);

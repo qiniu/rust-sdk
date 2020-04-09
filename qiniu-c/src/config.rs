@@ -1266,7 +1266,7 @@ pub extern "C" fn qiniu_ng_config_get_uc_host(config: qiniu_ng_config_t) -> qini
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_uc_url(config: qiniu_ng_config_t) -> qiniu_ng_str_t {
     let config = Option::<Config>::from(config).unwrap();
-    unsafe { qiniu_ng_str_t::from_string_unchecked(config.uc_url()) }.tap(|_| {
+    unsafe { qiniu_ng_str_t::from_str_unchecked(config.uc_url()) }.tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
     })
 }
@@ -1290,7 +1290,7 @@ pub extern "C" fn qiniu_ng_config_get_rs_host(config: qiniu_ng_config_t) -> qini
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_rs_url(config: qiniu_ng_config_t) -> qiniu_ng_str_t {
     let config = Option::<Config>::from(config).unwrap();
-    unsafe { qiniu_ng_str_t::from_string_unchecked(config.rs_url()) }.tap(|_| {
+    unsafe { qiniu_ng_str_t::from_str_unchecked(config.rs_url()) }.tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
     })
 }
@@ -1314,7 +1314,7 @@ pub extern "C" fn qiniu_ng_config_get_rsf_host(config: qiniu_ng_config_t) -> qin
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_rsf_url(config: qiniu_ng_config_t) -> qiniu_ng_str_t {
     let config = Option::<Config>::from(config).unwrap();
-    unsafe { qiniu_ng_str_t::from_string_unchecked(config.rsf_url()) }.tap(|_| {
+    unsafe { qiniu_ng_str_t::from_str_unchecked(config.rsf_url()) }.tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
     })
 }
@@ -1338,7 +1338,7 @@ pub extern "C" fn qiniu_ng_config_get_api_host(config: qiniu_ng_config_t) -> qin
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_api_url(config: qiniu_ng_config_t) -> qiniu_ng_str_t {
     let config = Option::<Config>::from(config).unwrap();
-    unsafe { qiniu_ng_str_t::from_string_unchecked(config.api_url()) }.tap(|_| {
+    unsafe { qiniu_ng_str_t::from_str_unchecked(config.api_url()) }.tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
     })
 }
@@ -1362,7 +1362,7 @@ pub extern "C" fn qiniu_ng_config_get_uplog_host(config: qiniu_ng_config_t) -> q
 #[no_mangle]
 pub extern "C" fn qiniu_ng_config_get_uplog_url(config: qiniu_ng_config_t) -> qiniu_ng_str_t {
     let config = Option::<Config>::from(config).unwrap();
-    unsafe { qiniu_ng_str_t::from_string_unchecked(config.uplog_url()) }.tap(|_| {
+    unsafe { qiniu_ng_str_t::from_str_unchecked(config.uplog_url()) }.tap(|_| {
         let _ = qiniu_ng_config_t::from(config);
     })
 }

@@ -89,6 +89,9 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
         "qiniu_ng_etag_from_file_path() failed");
 
     qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_client_t client = qiniu_ng_client_new_default_from_credential(credential);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, BUCKET_NAME);
+    qiniu_ng_object_t object = qiniu_ng_object_new(bucket, file_key);
     prepare_for_uploading();
     qiniu_ng_upload_params_t params = {
         .key = (const qiniu_ng_char_t *) &file_key[0],
@@ -103,9 +106,8 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
     }
 
     qiniu_ng_str_t key = qiniu_ng_upload_response_get_key(upload_response);
-    TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_str_is_null(key),
-        "qiniu_ng_str_is_null(key) != false");
+    TEST_ASSERT_FALSE_MESSAGE(qiniu_ng_str_is_null(key), "qiniu_ng_str_is_null(key) != false");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(params.key, qiniu_ng_str_get_ptr(key), "params.key != key");
     qiniu_ng_str_free(&key);
 
     char hash[ETAG_SIZE + 1];
@@ -116,10 +118,22 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
     TEST_ASSERT_EQUAL_STRING_MESSAGE(hash, (const char *) &etag, "hash != etag");
 
     qiniu_ng_upload_response_free(&upload_response);
-    // TODO: Clean uploaded file
+
+    qiniu_ng_object_info_t object_info;
+    TEST_ASSERT_TRUE_MESSAGE(qiniu_ng_object_get_info(object, &object_info, NULL), "qiniu_ng_object_get_info() failed");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(qiniu_ng_object_info_get_size(object_info), 23 * 1024 * 1024, "qiniu_ng_object_info_get_size() returns unexpected value");
+    memset(hash, 0, ETAG_SIZE + 1);
+    qiniu_ng_object_info_get_hash(object_info, (char *) &hash[0], &hash_size);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(hash_size, ETAG_SIZE, "hash_size != ETAG_SIZE");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(hash, (const char *) &etag, "hash != etag");
+    qiniu_ng_object_info_free(&object_info);
+
+    TEST_ASSERT_TRUE_MESSAGE(qiniu_ng_object_delete(object, NULL), "qiniu_ng_object_delete() failed");
+    qiniu_ng_object_free(&object);
 
     last_print_time = (long long) time(NULL);
     generate_file_key(file_key, 256, 1, 23);
+    object = qiniu_ng_object_new(bucket, file_key);
 
     FILE *file = OPEN_FILE_FOR_READING(file_path);
     TEST_ASSERT_NOT_NULL_MESSAGE(file, "file == null");
@@ -135,6 +149,7 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
     TEST_ASSERT_FALSE_MESSAGE(
         qiniu_ng_str_is_null(key),
         "qiniu_ng_str_is_null(key) != false");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(params.key, qiniu_ng_str_get_ptr(key), "params.key != key");
     qiniu_ng_str_free(&key);
 
     memset(hash, 0, ETAG_SIZE + 1);
@@ -147,9 +162,21 @@ void test_qiniu_ng_upload_manager_upload_files(void) {
         "hash != etag");
 
     qiniu_ng_upload_response_free(&upload_response);
-    // TODO: Clean uploaded file
+
+    TEST_ASSERT_TRUE_MESSAGE(qiniu_ng_object_get_info(object, &object_info, NULL), "qiniu_ng_object_get_info() failed");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(qiniu_ng_object_info_get_size(object_info), 23 * 1024 * 1024, "qiniu_ng_object_info_get_size() returns unexpected value");
+    memset(hash, 0, ETAG_SIZE + 1);
+    qiniu_ng_object_info_get_hash(object_info, (char *) &hash[0], &hash_size);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(hash_size, ETAG_SIZE, "hash_size != ETAG_SIZE");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(hash, (const char *) &etag, "hash != etag");
+    qiniu_ng_object_info_free(&object_info);
+
+    TEST_ASSERT_TRUE_MESSAGE(qiniu_ng_object_delete(object, NULL), "qiniu_ng_object_delete() failed");
+    qiniu_ng_object_free(&object);
 
     upload_done();
+    qiniu_ng_bucket_free(&bucket);
+    qiniu_ng_client_free(&client);
     qiniu_ng_credential_free(&credential);
     DELETE_FILE(file_path);
     free((void *) file_path);
@@ -187,21 +214,16 @@ void *thread_of_upload_file(void* data) {
     }
 
     qiniu_ng_str_t key = qiniu_ng_upload_response_get_key(upload_response);
-    TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_str_is_null(key),
-        "qiniu_ng_str_is_null(key) != false");
+    TEST_ASSERT_FALSE_MESSAGE(qiniu_ng_str_is_null(key), "qiniu_ng_str_is_null(key) != false");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(params.key, qiniu_ng_str_get_ptr(key), "params.key != key");
     qiniu_ng_str_free(&key);
 
     char hash[ETAG_SIZE + 1];
     size_t hash_size;
     memset(hash, 0, ETAG_SIZE + 1);
     qiniu_ng_upload_response_get_hash(upload_response, (char *) &hash[0], &hash_size);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(
-        hash_size, ETAG_SIZE,
-        "hash_size != ETAG_SIZE");
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(
-        hash, (const char *) context->etag,
-        "hash != etag");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(hash_size, ETAG_SIZE, "hash_size != ETAG_SIZE");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(hash, (const char *) context->etag, "hash != etag");
 
     qiniu_ng_upload_response_free(&upload_response);
     return NULL;
@@ -220,6 +242,8 @@ void test_qiniu_ng_upload_manager_upload_huge_number_of_files(void) {
         "qiniu_ng_etag_from_file_path() failed");
 
     qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_client_t client = qiniu_ng_client_new_default_from_credential(credential);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, BUCKET_NAME);
     prepare_for_uploading();
 #define THREAD_COUNT (32)
     struct upload_file_thread_context contexts[THREAD_COUNT];
@@ -272,11 +296,28 @@ void test_qiniu_ng_upload_manager_upload_huge_number_of_files(void) {
     }
 #endif
     for (int i = 0; i < THREAD_COUNT; i++) {
+        qiniu_ng_object_t object = qiniu_ng_object_new(bucket, contexts[i].key);
+
+        char hash[ETAG_SIZE + 1];
+        size_t hash_size;
+        memset(hash, 0, ETAG_SIZE + 1);
+        qiniu_ng_object_info_t object_info;
+        TEST_ASSERT_TRUE_MESSAGE(qiniu_ng_object_get_info(object, &object_info, NULL), "qiniu_ng_object_get_info() failed");
+        qiniu_ng_object_info_get_hash(object_info, (char *) &hash[0], &hash_size);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(hash_size, ETAG_SIZE, "hash_size != ETAG_SIZE");
+        TEST_ASSERT_EQUAL_STRING_MESSAGE(hash, (const char *) contexts[i].etag, "hash != etag");
+        qiniu_ng_object_info_free(&object_info);
+
+        TEST_ASSERT_TRUE_MESSAGE(qiniu_ng_object_delete(object, NULL), "qiniu_ng_object_delete() failed");
+        qiniu_ng_object_free(&object);
         free((void *) contexts[i].key);
     }
+
 #undef THREAD_COUNT
 
     upload_done();
+    qiniu_ng_bucket_free(&bucket);
+    qiniu_ng_client_free(&client);
     qiniu_ng_credential_free(&credential);
 
     DELETE_FILE(file_path);
@@ -380,6 +421,8 @@ void test_qiniu_ng_upload_manager_upload_file_with_null_key(void) {
         "qiniu_ng_etag_from_file_path() failed");
 
     qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
+    qiniu_ng_client_t client = qiniu_ng_client_new_default_from_credential(credential);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, BUCKET_NAME);
     prepare_for_uploading();
     qiniu_ng_upload_params_t params = {
         .key = (const qiniu_ng_char_t *) NULL,
@@ -397,6 +440,8 @@ void test_qiniu_ng_upload_manager_upload_file_with_null_key(void) {
         qiniu_ng_str_is_null(key),
         "qiniu_ng_str_is_null(key) != false");
     TEST_ASSERT_TRUE_MESSAGE(qiniu_ng_str_get_len(key) > 0, "qiniu_ng_str_get_len(key) == 0");
+
+    qiniu_ng_object_t object = qiniu_ng_object_new(bucket, qiniu_ng_str_get_ptr(key));
     qiniu_ng_str_free(&key);
 
     char hash[ETAG_SIZE + 1];
@@ -411,8 +456,13 @@ void test_qiniu_ng_upload_manager_upload_file_with_null_key(void) {
         "hash != etag");
 
     upload_done();
+
+    TEST_ASSERT_TRUE_MESSAGE(qiniu_ng_object_delete(object, NULL), "qiniu_ng_object_free() failed");
+    qiniu_ng_object_free(&object);
+
+    qiniu_ng_bucket_free(&bucket);
+    qiniu_ng_client_free(&client);
     qiniu_ng_credential_free(&credential);
-    // TODO: Clean uploaded file
 
     DELETE_FILE(file_path);
     free((void *) file_path);

@@ -4,6 +4,8 @@
 
 pub mod bucket;
 pub mod manager;
+pub mod object;
 pub mod recorder;
 pub mod region;
+pub mod resource;
 pub mod uploader;

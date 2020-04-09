@@ -1,6 +1,7 @@
 //! 存储空间模块
 
 use super::{
+    object::Object,
     region::{Region, RegionId},
     uploader::{BatchUploader, FileUploader, UploadManager, UploadToken},
 };
@@ -27,6 +28,7 @@ struct BucketInner {
     region: OnceCell<Cow<'static, Region>>,
     backup_regions: OnceCell<Box<[Cow<'static, Region>]>>,
     domains: OnceCell<Box<[Cow<'static, str>]>>,
+    rs_urls: OnceCell<Box<[String]>>,
     http_client: Client,
 }
 
@@ -209,6 +211,7 @@ impl BucketBuilder {
             region,
             backup_regions,
             domains,
+            rs_urls: OnceCell::new(),
         }))
     }
 
@@ -230,6 +233,11 @@ impl Bucket {
         self.0.name.as_ref()
     }
 
+    /// 获取存储空间中的一个对象
+    pub fn object(&self, key: impl Into<Cow<'static, str>>) -> Object {
+        Object::new(self.to_owned(), key.into())
+    }
+
     /// 存储空间区域
     ///
     /// 如果区域在存储空间生成前未指定，则该方法可能会连接七牛服务器查询当前存储空间所在区域
@@ -237,12 +245,8 @@ impl Bucket {
         self.0
             .region
             .get_or_try_init(|| {
-                let mut regions: Vec<Region> = Region::query(
-                    self.name(),
-                    self.0.credential.access_key(),
-                    self.0.upload_manager.config().clone(),
-                )?
-                .into();
+                let mut regions: Vec<Region> =
+                    Region::query(self.name(), self.credential().access_key(), self.config().clone())?.into();
                 let first_region = Cow::Owned(regions.swap_remove(0));
                 self.0
                     .backup_regions
@@ -280,8 +284,7 @@ impl Bucket {
 
     /// 创建面向该存储区域的文件上传器
     pub fn uploader(&self) -> FileUploader {
-        self.0
-            .upload_manager
+        self.upload_manager()
             .upload_for_internal_generated_upload_token_with_regions(
                 self.0.name.to_owned(),
                 UploadToken::new_from_bucket(self.0.name.to_owned(), self.0.credential.to_owned(), self.config())
@@ -295,23 +298,51 @@ impl Bucket {
         BatchUploader::new_for_bucket(self.to_owned())
     }
 
-    fn rs_urls(&self) -> Vec<Cow<'static, str>> {
-        let mut rs_urls = self
-            .region()
-            .map(|region| region.rs_urls_owned(self.config().use_https()))
-            .unwrap_or_else(|_| Vec::new());
-        rs_urls.push(Cow::Owned(self.config().rs_url()));
-        rs_urls
+    pub(super) fn rs_urls(&self) -> Vec<&str> {
+        self.0
+            .rs_urls
+            .get_or_init(|| {
+                let mut rs_urls = self
+                    .region()
+                    .map(|region| {
+                        region
+                            .rs_urls_ref(self.config().use_https())
+                            .into_iter()
+                            .map(|url| url.to_owned())
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                rs_urls.push(self.config().rs_url().to_owned());
+                rs_urls.into_boxed_slice()
+            })
+            .iter()
+            .map(|url| url.as_str())
+            .collect()
+    }
+
+    #[inline]
+    pub(crate) fn upload_manager(&self) -> &UploadManager {
+        &self.0.upload_manager
     }
 
     #[inline]
     pub(crate) fn config(&self) -> &Config {
-        self.0.upload_manager.config()
+        self.upload_manager().config()
     }
 
     #[inline]
     pub(crate) fn thread_pool(&self) -> Option<&Arc<ThreadPool>> {
-        self.0.upload_manager.thread_pool()
+        self.upload_manager().thread_pool()
+    }
+
+    #[inline]
+    pub(crate) fn http_client(&self) -> &Client {
+        &self.0.http_client
+    }
+
+    #[inline]
+    pub(crate) fn credential(&self) -> &Credential {
+        &self.0.credential
     }
 
     #[doc(hidden)]

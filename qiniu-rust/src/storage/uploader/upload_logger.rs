@@ -612,16 +612,16 @@ impl<'a> UploadLoggerRecordBuilder<'a> {
 impl Default for UploadLoggerRecord<'_> {
     fn default() -> Self {
         UploadLoggerRecord {
-            status_code: None,
-            request_id: "".into(),
-            host: "".into(),
-            up_type: None,
-            server_ip: None,
-            server_port: 0,
-            duration: None,
-            sent: 0,
-            error_message: "".into(),
-            total_size: 0,
+            status_code: Default::default(),
+            request_id: Default::default(),
+            host: Default::default(),
+            up_type: Default::default(),
+            server_ip: Default::default(),
+            server_port: Default::default(),
+            duration: Default::default(),
+            sent: Default::default(),
+            error_message: Default::default(),
+            total_size: Default::default(),
             timestamp: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()

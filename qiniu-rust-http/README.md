@@ -7,13 +7,9 @@
 
 本模块定义了 `qiniu-rust` 所使用的 HTTP 客户端接口，并提供 HTTP 请求 / 响应 / 错误类的封装。
 
-## 使用案例
-
-TODO
-
 ## 接口文档
 
-TODO
+[点击进入](https://bachue.github.io/rust-sdk/doc/qiniu_http)
 
 ## 构建指南
 

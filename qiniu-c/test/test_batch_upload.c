@@ -118,6 +118,8 @@ void test_qiniu_ng_batch_upload_file_paths(void) {
     env_load("..", false);
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
+    qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, BUCKET_NAME);
 
     qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
     qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
@@ -166,11 +168,16 @@ void test_qiniu_ng_batch_upload_file_paths(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(completed, FILES_COUNT, "completed != FILES_COUNT");
 
     for (int i = 0; i < FILES_COUNT; i++) {
+        qiniu_ng_object_t object = qiniu_ng_object_new(bucket, file_keys[i]);
+        TEST_ASSERT_TRUE_MESSAGE(qiniu_ng_object_delete(object, NULL), "qiniu_ng_object_free() failed");
+        qiniu_ng_object_free(&object);
         DELETE_FILE(file_paths[i]);
     }
 
     upload_done();
     qiniu_ng_batch_uploader_free(&batch_uploader);
+    qiniu_ng_bucket_free(&bucket);
+    qiniu_ng_client_free(&client);
     qiniu_ng_upload_manager_free(&upload_manager);
     qiniu_ng_config_free(&config);
 #undef FILES_COUNT
@@ -181,6 +188,8 @@ void test_qiniu_ng_batch_upload_files(void) {
     env_load("..", false);
     qiniu_ng_config_t config = qiniu_ng_config_new_default();
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new(config);
+    qiniu_ng_client_t client = qiniu_ng_client_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")), config);
+    qiniu_ng_bucket_t bucket = qiniu_ng_bucket_new(client, BUCKET_NAME);
 
     qiniu_ng_upload_policy_builder_t policy_builder = qiniu_ng_upload_policy_builder_new_for_bucket(BUCKET_NAME, config);
     qiniu_ng_upload_policy_builder_set_insert_only(policy_builder);
@@ -234,12 +243,18 @@ void test_qiniu_ng_batch_upload_files(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(completed, FILES_COUNT, "completed != FILES_COUNT");
 
     for (int i = 0; i < FILES_COUNT; i++) {
+        qiniu_ng_object_t object = qiniu_ng_object_new(bucket, file_keys[i]);
+        TEST_ASSERT_TRUE_MESSAGE(qiniu_ng_object_delete(object, NULL), "qiniu_ng_object_free() failed");
+        qiniu_ng_object_free(&object);
+
         fclose(files[i]);
         DELETE_FILE(file_paths[i]);
     }
 
     upload_done();
     qiniu_ng_batch_uploader_free(&batch_uploader);
+    qiniu_ng_bucket_free(&bucket);
+    qiniu_ng_client_free(&client);
     qiniu_ng_upload_manager_free(&upload_manager);
     qiniu_ng_config_free(&config);
 #undef FILES_COUNT

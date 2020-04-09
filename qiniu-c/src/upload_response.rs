@@ -69,8 +69,8 @@ pub extern "C" fn qiniu_ng_upload_response_get_key(upload_response: qiniu_ng_upl
 
 /// @brief 获取上传响应中的校验和字段
 /// @param[in] upload_response 上传响应实例
-/// @param[out] result_ptr 提供内存地址用于返回校验和字段，如果传入 `NULL` 表示不获取 `result_ptr`。但如果该字段存在，返回值依然是 `true`，且不影响其他字段的获取
-/// @param[out] result_size 用于返回校验和字段长度，如果传入 `NULL` 表示不获取 `result_size`。但如果该字段存在，返回值依然是 `true`，且不影响其他字段的获取。该字段一般返回的是 Etag，因此长度一般会等于 `ETAG_SIZE`。如果返回 `0`，则表明该校验和字段并不存在
+/// @param[out] result_ptr 提供内存地址用于返回校验和字段，如果传入 `NULL` 表示不获取 `result_ptr`。且不影响其他字段的获取
+/// @param[out] result_size 用于返回校验和字段长度，如果传入 `NULL` 表示不获取 `result_size`。且不影响其他字段的获取。该字段一般返回的是 Etag，因此长度一般会等于 `ETAG_SIZE`。如果返回 `0`，则表明该校验和字段并不存在
 #[no_mangle]
 pub extern "C" fn qiniu_ng_upload_response_get_hash(
     upload_response: qiniu_ng_upload_response_t,

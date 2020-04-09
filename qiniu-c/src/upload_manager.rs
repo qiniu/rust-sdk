@@ -2,6 +2,7 @@ use crate::{
     bucket::qiniu_ng_bucket_t,
     config::qiniu_ng_config_t,
     credential::qiniu_ng_credential_t,
+    object::qiniu_ng_object_t,
     result::qiniu_ng_err_t,
     string::{qiniu_ng_char_t, UCString},
     upload_response::qiniu_ng_upload_response_t,
@@ -16,11 +17,13 @@ use mime::Mime;
 use qiniu_ng::{
     storage::{
         bucket::Bucket,
+        object::Object,
         uploader::{FileUploader, UploadManager, UploadPolicy, UploadResult, UploadToken},
     },
     Config, Credential,
 };
 use std::{mem::transmute, ptr::null_mut};
+use tap::TapOps;
 
 /// @brief 上传管理器
 /// @details 上传管理器可以用于构建批量上传器，或直接上传单个文件
@@ -555,7 +558,6 @@ fn qiniu_ng_upload_manager_upload(
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err_t,
 ) -> bool {
-    let mut result = true;
     let file_uploader_create_result = match upload_token_policy {
         UploadTokenPolicy::Token(upload_token) => upload_manager.upload_for_upload_token(upload_token),
         UploadTokenPolicy::Policy {
@@ -568,49 +570,14 @@ fn qiniu_ng_upload_manager_upload(
         } => Ok(upload_manager.upload_for_bucket(bucket_name, credential)),
     };
     match file_uploader_create_result {
-        Ok(mut file_uploader) => {
-            let mut file_name = String::new();
-            let mut mime: Option<Mime> = None;
-            if let Some(params) = unsafe { params.as_ref() } {
-                file_uploader = set_params_to_file_uploader(file_uploader, params);
-                file_name = unsafe { convert_optional_c_string_to_rust_string(params.file_name) };
-                match parse_mime(params.mime) {
-                    Some(Ok(parsed_mime)) => {
-                        mime = Some(parsed_mime);
-                    }
-                    Some(Err(ref e)) => {
-                        if let Some(err) = unsafe { err.as_mut() } {
-                            *err = e.into();
-                        }
-                        result = false;
-                    }
-                    None => {}
-                };
-            }
-            if result {
-                match upload_target.upload(file_uploader, file_name, mime) {
-                    Ok(resp) => {
-                        if let Some(response) = unsafe { response.as_mut() } {
-                            *response = Box::new(resp).into();
-                        }
-                    }
-                    Err(ref e) => {
-                        if let Some(err) = unsafe { err.as_mut() } {
-                            *err = e.into();
-                        }
-                        result = false;
-                    }
-                }
-            }
-        }
+        Ok(file_uploader) => qiniu_ng_file_uploader_upload(file_uploader, upload_target, params, response, err),
         Err(ref e) => {
             if let Some(err) = unsafe { err.as_mut() } {
                 *err = e.into();
             }
-            result = false;
+            false
         }
     }
-    result
 }
 
 /// @brief 向指定存储空间上传指定路径的文件
@@ -683,44 +650,127 @@ fn qiniu_ng_bucket_upload(
     err: *mut qiniu_ng_err_t,
 ) -> bool {
     let bucket = Option::<Bucket>::from(bucket).unwrap();
+    qiniu_ng_file_uploader_upload(bucket.uploader(), upload_target, params, response, err).tap(|_| {
+        let _ = qiniu_ng_bucket_t::from(bucket);
+    })
+}
+
+/// @brief 向指定对象上传指定路径的文件
+/// @param[in] object 目标对象实例
+/// @param[in] file_path 文件路径
+/// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
+/// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
+/// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_upload_manager_upload_file_path_via_upload_token()` 方法替代
+#[no_mangle]
+pub extern "C" fn qiniu_ng_object_upload_file_path(
+    object: qiniu_ng_object_t,
+    file_path: *const qiniu_ng_char_t,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    qiniu_ng_object_upload(object, UploadTarget::FilePath(file_path), params, response, err)
+}
+
+/// @brief 向指定对象上传文件
+/// @param[in] object 目标对象
+/// @param[in] file 文件实例，务必保证文件实例可以读取。上传完毕后，请不要忘记调用 `fclose()` 关闭文件实例
+/// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
+/// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
+/// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_upload_manager_upload_file_via_upload_token()` 方法替代
+#[no_mangle]
+pub extern "C" fn qiniu_ng_object_upload_file(
+    object: qiniu_ng_object_t,
+    file: *mut FILE,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    qiniu_ng_object_upload(object, UploadTarget::File(file), params, response, err)
+}
+
+/// @brief 向指定对象上传阅读器提供的数据
+/// @param[in] object 目标对象
+/// @param[in] reader 阅读器实例，将不断从阅读器中读取数据并上传
+/// @param[in] len 阅读器预期将会读到的最大数据量，如果无法预期则传入 `0`。如果传入的值大于 `0`，最终读取的数据量将始终不大于该值
+/// @param[in] params 上传参数，如果为 `NULL`，则使用默认上传参数
+/// @param[out] response 用于返回上传响应，如果传入 `NULL` 表示不获取 `response`。但如果上传成功，返回值将依然是 `true`
+/// @param[out] err 用于返回上传错误，如果传入 `NULL` 表示不获取 `err`。但如果上传错误，返回值将依然是 `false`
+/// @retval bool 是否上传成功，如果返回 `true`，则表示可以读取 `response` 获得结果，如果返回 `false`，则表示可以读取 `error` 获得错误信息
+/// @warning 对于获取的 `response` 或 `error`，一旦使用完毕，应该调用各自的内存释放方法释放内存
+/// @warning 当前函数要求用户认证信息，如果被使用在客户端中，无法获取到认证信息，应该调用 `qiniu_ng_upload_manager_upload_reader_via_upload_token()` 方法替代
+#[no_mangle]
+pub extern "C" fn qiniu_ng_object_upload_reader(
+    object: qiniu_ng_object_t,
+    reader: qiniu_ng_readable_t,
+    len: u64,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    qiniu_ng_object_upload(object, UploadTarget::Readable { reader, len }, params, response, err)
+}
+
+fn qiniu_ng_object_upload(
+    object: qiniu_ng_object_t,
+    upload_target: UploadTarget,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
+    let object = Option::<Box<Object>>::from(object).unwrap();
+    qiniu_ng_file_uploader_upload(object.uploader(), upload_target, params, response, err).tap(|_| {
+        let _ = qiniu_ng_object_t::from(object);
+    })
+}
+
+fn qiniu_ng_file_uploader_upload(
+    mut file_uploader: FileUploader,
+    upload_target: UploadTarget,
+    params: *const qiniu_ng_upload_params_t,
+    response: *mut qiniu_ng_upload_response_t,
+    err: *mut qiniu_ng_err_t,
+) -> bool {
     let mut result = true;
-    {
-        let mut file_uploader = bucket.uploader();
-        let mut file_name = String::new();
-        let mut mime: Option<Mime> = None;
-        if let Some(params) = unsafe { params.as_ref() } {
-            file_uploader = set_params_to_file_uploader(file_uploader, params);
-            file_name = unsafe { convert_optional_c_string_to_rust_string(params.file_name) };
-            match parse_mime(params.mime) {
-                Some(Ok(parsed_mime)) => {
-                    mime = Some(parsed_mime);
+    let mut file_name = String::new();
+    let mut mime: Option<Mime> = None;
+    if let Some(params) = unsafe { params.as_ref() } {
+        file_uploader = set_params_to_file_uploader(file_uploader, params);
+        file_name = unsafe { convert_optional_c_string_to_rust_string(params.file_name) };
+        match parse_mime(params.mime) {
+            Some(Ok(parsed_mime)) => {
+                mime = Some(parsed_mime);
+            }
+            Some(Err(ref e)) => {
+                if let Some(err) = unsafe { err.as_mut() } {
+                    *err = e.into();
                 }
-                Some(Err(ref e)) => {
-                    if let Some(err) = unsafe { err.as_mut() } {
-                        *err = e.into();
-                    }
-                    result = false;
+                result = false;
+            }
+            None => {}
+        };
+    }
+    if result {
+        match upload_target.upload(file_uploader, file_name, mime) {
+            Ok(resp) => {
+                if let Some(response) = unsafe { response.as_mut() } {
+                    *response = Box::new(resp).into();
                 }
-                None => {}
-            };
-        }
-        if result {
-            match upload_target.upload(file_uploader, file_name, mime) {
-                Ok(resp) => {
-                    if let Some(response) = unsafe { response.as_mut() } {
-                        *response = Box::new(resp).into();
-                    }
+            }
+            Err(ref e) => {
+                if let Some(err) = unsafe { err.as_mut() } {
+                    *err = e.into();
                 }
-                Err(ref e) => {
-                    if let Some(err) = unsafe { err.as_mut() } {
-                        *err = e.into();
-                    }
-                    result = false;
-                }
+                result = false;
             }
         }
     }
-    let _ = qiniu_ng_bucket_t::from(bucket);
     result
 }
 

@@ -9,6 +9,7 @@ mod tests {
         Client, Config, ConfigBuilder, Credential,
     };
     use qiniu_test_utils::{env, temp_file::create_temp_file};
+    use rand::{thread_rng, Rng};
     use serde_json::json;
     use std::{
         boxed::Box,
@@ -21,6 +22,7 @@ mod tests {
             Arc, Mutex, RwLock,
         },
         thread::{current, ThreadId},
+        time::{Duration, SystemTime},
     };
 
     #[test]
@@ -54,7 +56,8 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_object(bucket_name(), &key, &config)
             .return_body("$(fname)/$(key)")
             .build();
-        let result = get_client(config)
+        let client = get_client(config);
+        let result = client
             .upload()
             .upload_for_upload_policy(policy, get_credential())?
             .key(&key)
@@ -64,6 +67,14 @@ mod tests {
         assert_eq!(result.hash(), None);
         assert!(!result.is_json_value());
         assert_eq!(String::from_utf8(result.into_bytes())?, format!("\"512k\"/\"{}\"", key));
+
+        let object = client.storage().bucket(bucket_name()).build().object(key);
+
+        let object_info = object.get_info()?;
+        assert_eq!(object_info.mime_type(), mime::IMAGE_PNG);
+        assert_eq!(object_info.size(), 1 << 19);
+
+        object.delete()?;
         Ok(())
     }
 
@@ -77,7 +88,8 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
-        let result = get_client(config.clone())
+        let client = get_client(config);
+        let result = client
             .upload()
             .upload_for_upload_policy(policy, get_credential())?
             .key(&key)
@@ -96,7 +108,15 @@ mod tests {
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
         assert_eq!(result.get("var_key2"), Some(&json!("var_value2")));
-        // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
+
+        let object = client.storage().bucket(bucket_name()).build().object(key);
+        let object_info = object.get_info()?;
+        assert_eq!(object_info.mime_type(), mime::IMAGE_PNG);
+        assert_eq!(object_info.size(), 1 << 19);
+        assert_eq!(object_info.hash(), etag.as_str());
+        assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
+        // TODO: Verify Metadata
+        object.delete()?;
         Ok(())
     }
 
@@ -110,7 +130,8 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1),\"var_key2\":$(x:var_key2)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
-        let result = get_client(config)
+        let client = get_client(config);
+        let result = client
             .upload()
             .upload_for_upload_policy(policy, get_credential())?
             .always_be_resumable()
@@ -130,7 +151,15 @@ mod tests {
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
         assert_eq!(result.get("var_key2"), Some(&json!("var_value2")));
-        // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
+
+        let object = client.storage().bucket(bucket_name()).build().object(key);
+        let object_info = object.get_info()?;
+        assert_eq!(object_info.mime_type(), mime::IMAGE_PNG);
+        assert_eq!(object_info.size(), 1 << 19);
+        assert_eq!(object_info.hash(), etag.as_str());
+        assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
+        // TODO: Verify Metadata
+        object.delete()?;
         Ok(())
     }
 
@@ -145,7 +174,8 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fsize\":$(fsize)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
-        let result = get_client(config)
+        let client = get_client(config);
+        let result = client
             .upload()
             .upload_for_upload_policy(policy, get_credential())?
             .key(&key)
@@ -163,7 +193,15 @@ mod tests {
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("fsize"), Some(&json!(FILE_SIZE)));
-        // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
+
+        let object = client.storage().bucket(bucket_name()).build().object(key);
+        let object_info = object.get_info()?;
+        assert_eq!(object_info.mime_type(), mime::IMAGE_PNG);
+        assert_eq!(object_info.size(), FILE_SIZE);
+        assert_eq!(object_info.hash(), etag.as_str());
+        assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
+        // TODO: Verify Metadata
+        object.delete()?;
         Ok(())
     }
 
@@ -179,7 +217,8 @@ mod tests {
             .build();
         let last_uploaded = AtomicU64::new(0);
         let thread_id: Mutex<Option<ThreadId>> = Mutex::new(None);
-        let result = get_client(config)
+        let client = get_client(config);
+        let result = client
             .upload()
             .upload_for_upload_policy(policy, get_credential())?
             .always_be_resumable()
@@ -204,65 +243,96 @@ mod tests {
         assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("fsize"), Some(&json!(FILE_SIZE)));
-        // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
+
+        let object = client.storage().bucket(bucket_name()).build().object(key);
+        let object_info = object.get_info()?;
+        assert_eq!(object_info.mime_type(), mime::IMAGE_PNG);
+        assert_eq!(object_info.size(), FILE_SIZE);
+        assert_eq!(object_info.hash(), etag.as_str());
+        assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
+        // TODO: Verify Metadata
+        object.delete()?;
         Ok(())
     }
 
     #[test]
     fn test_storage_uploader_upload_file_without_key() -> Result<(), Box<dyn Error>> {
         let config = Config::default();
-        let temp_path = create_temp_file(1 << 20)?.into_temp_path();
+        let file_size: u64 = thread_rng().gen_range(1 << 10, 1 << 22);
+        let temp_path = create_temp_file(file_size as usize)?.into_temp_path();
         let etag = etag::from_file(&temp_path)?;
         let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
-        let result = get_client(config.clone())
+        let client = get_client(config.clone());
+        let result = client
             .upload()
             .upload_for_upload_policy(policy, get_credential())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
-                assert!(total.unwrap() > (1 << 20));
+                assert!(total.unwrap() > (file_size));
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_file(&temp_path, "1m", Some(mime::IMAGE_PNG))?;
+            .upload_file(&temp_path, "", Some(mime::IMAGE_PNG))?;
 
-        assert!(last_uploaded.load(Relaxed) > (1 << 20));
+        assert!(last_uploaded.load(Relaxed) > (file_size));
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
         assert_eq!(result.get("var_key2"), None);
 
+        let object = client
+            .storage()
+            .bucket(bucket_name())
+            .build()
+            .object(result.key().unwrap().to_owned());
+        let object_info = object.get_info()?;
+        assert_eq!(object_info.mime_type(), mime::IMAGE_PNG);
+        assert_eq!(object_info.size(), file_size);
+        assert_eq!(object_info.hash(), etag.as_str());
+        assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
+        // TODO: Verify Metadata
+        object.delete()?;
+
         let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
-        let result = get_client(config)
+        let result = client
             .upload()
             .upload_for_upload_policy(policy, get_credential())?
             .always_be_resumable()
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
-                assert_eq!(total.unwrap(), 1 << 20);
+                assert_eq!(total.unwrap(), file_size);
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_file(&temp_path, "1m", Some(mime::IMAGE_PNG))?;
+            .upload_file(&temp_path, "", Some(mime::IMAGE_PNG))?;
 
-        assert_eq!(last_uploaded.load(Relaxed), 1 << 20);
+        assert_eq!(last_uploaded.load(Relaxed), file_size);
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
         assert_eq!(result.get("var_key2"), None);
-        // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
+
+        let object_info = object.get_info()?;
+        assert_eq!(object_info.mime_type(), mime::IMAGE_PNG);
+        assert_eq!(object_info.size(), file_size);
+        assert_eq!(object_info.hash(), etag.as_str());
+        assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
+        // TODO: Verify Metadata
+        object.delete()?;
         Ok(())
     }
 
     #[test]
     fn test_storage_uploader_upload_stream() -> Result<(), Box<dyn Error>> {
+        let file_size: u64 = thread_rng().gen_range((1 << 22) + 1, 1 << 23);
         let config = Config::default();
-        let (mut file, temp_path) = create_temp_file(1 << 23)?.into_parts();
+        let (mut file, temp_path) = create_temp_file(file_size as usize)?.into_parts();
         file.seek(SeekFrom::Start(0))?;
 
         let etag = etag::from_file(&temp_path)?;
@@ -270,37 +340,51 @@ mod tests {
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
         let last_uploaded = AtomicU64::new(0);
-        let result = get_client(config.clone())
+        let client = get_client(config);
+        let result = client
             .upload()
             .upload_for_upload_policy(policy, get_credential())?
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumable()
             .on_progress_ref(&|uploaded, total| {
-                assert!(total.unwrap() > (1 << 23));
+                assert!(total.unwrap() > file_size);
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, 1 << 23, "", None)?;
+            .upload_stream(&file, file_size, "", None)?;
 
-        assert!(last_uploaded.load(Relaxed) > (1 << 23));
+        assert!(last_uploaded.load(Relaxed) > file_size);
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("fname"), Some(&json!("")));
         assert_eq!(result.get("var_key1"), Some(&json!("var_value1")));
         assert_eq!(result.get("var_key2"), None);
-        // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
+
+        let object = client
+            .storage()
+            .bucket(bucket_name())
+            .build()
+            .object(result.key().unwrap().to_owned());
+        let object_info = object.get_info()?;
+        assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
+        assert_eq!(object_info.size(), file_size);
+        assert_eq!(object_info.hash(), etag.as_str());
+        assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
+        // TODO: Verify Metadata
+        object.delete()?;
         Ok(())
     }
 
     #[test]
     fn test_storage_uploader_upload_stream_without_vars_and_expected_size() -> Result<(), Box<dyn Error>> {
-        let config = Config::default();
-        let (mut file, temp_path) = create_temp_file(1 << 23)?.into_parts();
+        let file_size: u64 = thread_rng().gen_range(1 << 22, 1 << 23);
+        let (mut file, temp_path) = create_temp_file(file_size as usize)?.into_parts();
         file.seek(SeekFrom::Start(0))?;
 
         let etag = etag::from_file(&temp_path)?;
         let last_uploaded = AtomicU64::new(0);
-        let result = get_client(config.clone())
+        let client = get_client(Default::default());
+        let result = client
             .upload()
             .upload_for_bucket(bucket_name(), get_credential())
             .var("var_key1", "var_value1")
@@ -309,98 +393,146 @@ mod tests {
                 assert!(total.is_none());
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, 0, "8m", None)?;
+            .upload_stream(&file, 0, "", None)?;
 
-        assert_eq!(last_uploaded.load(Relaxed), 1 << 23);
+        assert_eq!(last_uploaded.load(Relaxed), file_size);
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), None);
         assert_eq!(result.get("var_key2"), None);
-        // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
+
+        let object = client
+            .storage()
+            .bucket(bucket_name())
+            .build()
+            .object(result.key().unwrap().to_owned());
+        let object_info = object.get_info()?;
+        assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
+        assert_eq!(object_info.size(), file_size);
+        assert_eq!(object_info.hash(), etag.as_str());
+        assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
+        // TODO: Verify Metadata
+        object.delete()?;
         Ok(())
     }
 
     #[test]
     fn test_storage_uploader_upload_stream_without_4m_multiples_size() -> Result<(), Box<dyn Error>> {
-        let config = Config::default();
-        let (mut file, temp_path) = create_temp_file((1 << 23) + 1)?.into_parts();
+        let file_size: u64 = thread_rng().gen_range((1 << 23) + 1, (1 << 24) - 1);
+        let (mut file, temp_path) = create_temp_file(file_size as usize)?.into_parts();
         file.seek(SeekFrom::Start(0))?;
         let etag = etag::from_file(&temp_path)?;
         let last_uploaded = AtomicU64::new(0);
-        let result = get_client(config)
+        let client = get_client(Default::default());
+        let result = client
             .upload()
             .upload_for_bucket(bucket_name(), get_credential())
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
-                assert_eq!(total.unwrap(), (1 << 23) + 1);
+                assert_eq!(total.unwrap(), file_size);
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, (1 << 23) + 1, "8m+1", None)?;
+            .upload_stream(&file, file_size, "", None)?;
 
-        assert_eq!(last_uploaded.load(Relaxed), (1 << 23) + 1);
+        assert_eq!(last_uploaded.load(Relaxed), file_size);
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), None);
         assert_eq!(result.get("var_key2"), None);
-        // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
+
+        let object = client
+            .storage()
+            .bucket(bucket_name())
+            .build()
+            .object(result.key().unwrap().to_owned());
+        let object_info = object.get_info()?;
+        assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
+        assert_eq!(object_info.size(), file_size);
+        assert_eq!(object_info.hash(), etag.as_str());
+        assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
+        // TODO: Verify Metadata
+        object.delete()?;
         Ok(())
     }
 
     #[test]
     fn test_storage_uploader_upload_stream_with_never_be_resumable_policy() -> Result<(), Box<dyn Error>> {
-        let config = Config::default();
-        let (mut file, temp_path) = create_temp_file(1 << 21)?.into_parts();
+        let file_size: u64 = thread_rng().gen_range(1 << 19, 1 << 21);
+        let (mut file, temp_path) = create_temp_file(file_size as usize)?.into_parts();
         file.seek(SeekFrom::Start(0))?;
         let etag = etag::from_file(&temp_path)?;
         let last_uploaded = AtomicU64::new(0);
-        let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config).build();
-        let result = get_client(config.clone())
-            .upload()
-            .upload_for_upload_policy(policy, get_credential())?
+        let key = format!("测试-stream-{}", Utc::now().timestamp_nanos());
+        let object = get_client(Default::default())
+            .storage()
+            .bucket(bucket_name())
+            .build()
+            .object(key.to_owned());
+        let result = object
+            .uploader()
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .never_be_resumable()
             .on_progress_ref(&|uploaded, total| {
-                assert!(total.unwrap() > (1 << 21));
+                assert!(total.unwrap() > file_size);
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, 1 << 21, "2m", None)?;
+            .upload_stream(&file, file_size, "", None)?;
 
-        assert!(last_uploaded.load(Relaxed) > (1 << 21));
-        assert!(result.key().is_some());
+        assert!(last_uploaded.load(Relaxed) > file_size);
+        assert_eq!(result.key(), Some(key.as_str()));
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), None);
         assert_eq!(result.get("var_key2"), None);
-        // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
+
+        let object_info = object.get_info()?;
+        assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
+        assert_eq!(object_info.size(), file_size);
+        assert_eq!(object_info.hash(), etag.as_str());
+        assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
+        // TODO: Verify Metadata
+        object.delete()?;
         Ok(())
     }
 
     #[test]
     fn test_storage_uploader_upload_small_stream() -> Result<(), Box<dyn Error>> {
-        let config = Config::default();
-        let (mut file, temp_path) = create_temp_file((1 << 22) - 3)?.into_parts();
+        let file_size: u64 = thread_rng().gen_range(1 << 20, (1 << 22) - 3);
+        let (mut file, temp_path) = create_temp_file(file_size as usize)?.into_parts();
         file.seek(SeekFrom::Start(0))?;
         let etag = etag::from_file(&temp_path)?;
         let last_uploaded = AtomicU64::new(0);
-        let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config).build();
-        let result = get_client(config.clone())
+        let client = get_client(Default::default());
+        let result = client
             .upload()
-            .upload_for_upload_policy(policy, get_credential())?
+            .upload_for_bucket(bucket_name(), get_credential())
             .var("var_key1", "var_value1")
             .metadata("metadata_key1", "metadata_value1")
             .on_progress_ref(&|uploaded, total| {
-                assert!(total.unwrap() > (1 << 22) - 3);
+                assert!(total.unwrap() > file_size);
                 last_uploaded.store(uploaded, Relaxed);
             })
-            .upload_stream(&file, (1 << 22) - 3, "2m-3", None)?;
+            .upload_stream(&file, file_size, "", None)?;
 
-        assert!(last_uploaded.load(Relaxed) > (1 << 22) - 3);
+        assert!(last_uploaded.load(Relaxed) > file_size);
         assert!(result.key().is_some());
         assert_eq!(result.hash(), Some(etag.as_str()));
         assert_eq!(result.get("var_key1"), None);
         assert_eq!(result.get("var_key2"), None);
-        // TODO: Verify METADATA & FILE_SIZE & CONTENT_TYPE
+
+        let object = client
+            .storage()
+            .bucket(bucket_name())
+            .build()
+            .object(result.key().unwrap().to_owned());
+        let object_info = object.get_info()?;
+        assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
+        assert_eq!(object_info.size(), file_size);
+        assert_eq!(object_info.hash(), etag.as_str());
+        assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
+        // TODO: Verify Metadata
+        object.delete()?;
         Ok(())
     }
 
@@ -434,20 +566,24 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
-        let mut batch_uploader = get_client(config)
+        let client = get_client(config);
+        let mut batch_uploader = client
             .upload()
             .batch_uploader_for_upload_policy(policy, get_credential())?;
         batch_uploader.expected_jobs_count(FILE_SIZES.len()).thread_pool_size(4);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
         let completed = Arc::new(AtomicUsize::new(0));
+        let mut keys = Vec::with_capacity(FILE_SIZES.len());
         for (idx, temp_path) in temp_paths.iter().enumerate() {
             let etags = etags.clone();
             let thread_ids_1 = thread_ids.clone();
             let thread_ids_2 = thread_ids.clone();
             let completed = completed.clone();
+            let key = format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos());
+            keys.push(key.to_owned());
             batch_uploader.push_job(
                 BatchUploadJobBuilder::default()
-                    .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
+                    .key(key)
                     .var("var_key1", format!("var_value_{}", idx))
                     .on_progress(move |_, _| {
                         let cur_thread_id = current().id();
@@ -480,6 +616,18 @@ mod tests {
 
         batch_uploader.start();
         assert_eq!(completed.load(Relaxed), FILE_SIZES.len());
+
+        let bucket = client.storage().bucket(bucket_name()).build();
+        for (idx, key) in keys.into_iter().enumerate() {
+            let object = bucket.object(key);
+            let object_info = object.get_info()?;
+            assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
+            assert_eq!(object_info.size(), FILE_SIZES.get(idx).unwrap().to_owned());
+            assert_eq!(object_info.hash(), etags.get(idx).unwrap().as_str());
+            assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(300));
+            // TODO: Verify Metadata
+            object.delete()?;
+        }
         Ok(())
     }
     #[test]
@@ -498,7 +646,6 @@ mod tests {
             (1 << 21) + 1,
             (1 << 23) + 1,
         ];
-        let config = Config::default();
         let temp_paths = FILE_SIZES
             .iter()
             .map(|&size| Ok(create_temp_file(size.try_into().unwrap())?.into_temp_path()))
@@ -509,21 +656,24 @@ mod tests {
                 .map(etag::from_file)
                 .collect::<Result<Vec<_>, IOError>>()?,
         );
-        let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config).build();
-        let mut batch_uploader = get_client(config)
+        let client = get_client(Default::default());
+        let mut batch_uploader = client
             .upload()
-            .batch_uploader_for_upload_policy(policy, get_credential())?;
+            .batch_uploader_for_bucket(bucket_name(), get_credential());
         batch_uploader.expected_jobs_count(FILE_SIZES.len()).thread_pool_size(1);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
         let completed = Arc::new(AtomicUsize::new(0));
+        let mut keys = Vec::with_capacity(FILE_SIZES.len());
         for (idx, temp_path) in temp_paths.iter().enumerate() {
             let etags = etags.clone();
             let thread_ids_1 = thread_ids.clone();
             let thread_ids_2 = thread_ids.clone();
             let completed = completed.clone();
+            let key = format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos());
+            keys.push(key.to_owned());
             batch_uploader.push_job(
                 BatchUploadJobBuilder::default()
-                    .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
+                    .key(key)
                     .on_progress(move |_, _| {
                         let cur_thread_id = current().id();
                         if !thread_ids_1.read().unwrap().contains(&cur_thread_id) {
@@ -547,6 +697,18 @@ mod tests {
 
         batch_uploader.start();
         assert_eq!(completed.load(Relaxed), FILE_SIZES.len());
+
+        let bucket = client.storage().bucket(bucket_name()).build();
+        for (idx, key) in keys.into_iter().enumerate() {
+            let object = bucket.object(key);
+            let object_info = object.get_info()?;
+            assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
+            assert_eq!(object_info.size(), FILE_SIZES.get(idx).unwrap().to_owned());
+            assert_eq!(object_info.hash(), etags.get(idx).unwrap().as_str());
+            assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(300));
+            // TODO: Verify Metadata
+            object.delete()?;
+        }
         Ok(())
     }
 
@@ -566,7 +728,6 @@ mod tests {
             (1 << 23) + 1,
             (1 << 25) + 1,
         ];
-        let config = Config::default();
         let temp_paths = FILE_SIZES
             .iter()
             .map(|&size| Ok(create_temp_file(size.try_into().unwrap())?.into_temp_path()))
@@ -577,21 +738,24 @@ mod tests {
                 .map(etag::from_file)
                 .collect::<Result<Vec<_>, IOError>>()?,
         );
-        let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config).build();
-        let mut batch_uploader = get_client(config)
+        let client = get_client(Default::default());
+        let mut batch_uploader = client
             .upload()
-            .batch_uploader_for_upload_policy(policy, get_credential())?;
+            .batch_uploader_for_bucket(bucket_name(), get_credential());
         batch_uploader.expected_jobs_count(FILE_SIZES.len()).thread_pool_size(3);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
         let completed = Arc::new(AtomicUsize::new(0));
+        let mut keys = Vec::with_capacity(FILE_SIZES.len());
         for (idx, temp_path) in temp_paths.iter().enumerate() {
             let etags = etags.clone();
             let thread_ids_1 = thread_ids.clone();
             let thread_ids_2 = thread_ids.clone();
             let completed = completed.clone();
+            let key = format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos());
+            keys.push(key.to_owned());
             batch_uploader.push_job(
                 BatchUploadJobBuilder::default()
-                    .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
+                    .key(key)
                     .on_progress(move |_, _| {
                         let cur_thread_id = current().id();
                         if !thread_ids_1.read().unwrap().contains(&cur_thread_id) {
@@ -615,6 +779,18 @@ mod tests {
 
         batch_uploader.start();
         assert_eq!(completed.load(Relaxed), FILE_SIZES.len());
+
+        let bucket = client.storage().bucket(bucket_name()).build();
+        for (idx, key) in keys.into_iter().enumerate() {
+            let object = bucket.object(key);
+            let object_info = object.get_info()?;
+            assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
+            assert_eq!(object_info.size(), FILE_SIZES.get(idx).unwrap().to_owned());
+            assert_eq!(object_info.hash(), etags.get(idx).unwrap().as_str());
+            assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(300));
+            // TODO: Verify Metadata
+            object.delete()?;
+        }
         Ok(())
     }
 
@@ -648,21 +824,25 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config)
             .return_body("{\"hash\":$(etag),\"key\":$(key),\"fname\":$(fname),\"var_key1\":$(x:var_key1)}")
             .build();
-        let mut batch_uploader = get_client(config)
+        let client = get_client(config);
+        let mut batch_uploader = client
             .upload()
             .batch_uploader_for_upload_policy(policy, get_credential())?;
         batch_uploader.expected_jobs_count(FILE_SIZES.len()).thread_pool_size(5);
         let thread_ids = Arc::new(RwLock::new(Vec::with_capacity(12)));
         let completed = Arc::new(AtomicUsize::new(0));
+        let mut keys = Vec::with_capacity(FILE_SIZES.len());
         for (idx, (mut file, _)) in parts.into_iter().enumerate() {
             file.seek(SeekFrom::Start(0))?;
             let etags = etags.clone();
             let thread_ids_1 = thread_ids.clone();
             let thread_ids_2 = thread_ids.clone();
             let completed = completed.clone();
+            let key = format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos());
+            keys.push(key.to_owned());
             batch_uploader.push_job(
                 BatchUploadJobBuilder::default()
-                    .key(format!("test-batch-{}-{}", idx, Utc::now().timestamp_nanos()))
+                    .key(key)
                     .var("var_key1", format!("var_value_{}", idx))
                     .on_progress(move |_, _| {
                         let cur_thread_id = current().id();
@@ -695,6 +875,18 @@ mod tests {
 
         batch_uploader.start();
         assert_eq!(completed.load(Relaxed), FILE_SIZES.len());
+
+        let bucket = client.storage().bucket(bucket_name()).build();
+        for (idx, key) in keys.into_iter().enumerate() {
+            let object = bucket.object(key);
+            let object_info = object.get_info()?;
+            assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
+            assert_eq!(object_info.size(), FILE_SIZES.get(idx).unwrap().to_owned());
+            assert_eq!(object_info.hash(), etags.get(idx).unwrap().as_str());
+            assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(300));
+            // TODO: Verify Metadata
+            object.delete()?;
+        }
         Ok(())
     }
 

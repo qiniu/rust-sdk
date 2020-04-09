@@ -667,11 +667,11 @@ impl DomainsManager {
     /// 可以在配置私有云域名后，调用该方法将私有云 URL 域名解析结果纳入域名解析缓存
     pub fn async_resolve_config(&self, config: &Config) {
         let mut urls = HashSet::with_capacity(6);
-        urls.insert(Cow::Owned(config.uc_url()));
-        urls.insert(Cow::Owned(config.rs_url()));
-        urls.insert(Cow::Owned(config.rsf_url()));
-        urls.insert(Cow::Owned(config.api_url()));
-        urls.insert(Cow::Owned(config.uplog_url()));
+        urls.insert(config.uc_url().to_owned().into());
+        urls.insert(config.rs_url().to_owned().into());
+        urls.insert(config.rsf_url().to_owned().into());
+        urls.insert(config.api_url().to_owned().into());
+        urls.insert(config.uplog_url().to_owned().into());
         self.async_resolve_urls(urls)
     }
 

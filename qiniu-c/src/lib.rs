@@ -5,6 +5,7 @@ mod config;
 mod credential;
 mod etag;
 mod http;
+mod object;
 mod region;
 mod result;
 mod storage;
