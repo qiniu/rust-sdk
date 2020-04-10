@@ -169,8 +169,8 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_upload_file_with_only_one_part() -> Result<(), Box<dyn Error>> {
-        const FILE_SIZE: u64 = (1 << 22) + (1 << 20) + (1 << 10) + 1;
-        let config = ConfigBuilder::default().upload_block_size(1 << 30).build();
+        const FILE_SIZE: u64 = (1 << 20) + (1 << 10) + 1;
+        let config = ConfigBuilder::default().build();
         let temp_path = create_temp_file(FILE_SIZE.try_into().unwrap())?.into_temp_path();
         let etag = etag::from_file(&temp_path)?;
         let key = format!("test-5m-{}", Utc::now().timestamp_nanos());

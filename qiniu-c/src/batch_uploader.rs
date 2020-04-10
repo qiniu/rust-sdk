@@ -29,7 +29,7 @@ use tap::TapOps;
 /// @brief 批量上传器
 /// @details 准备批量上传多个文件或数据流，可以反复使用以上传多个批次的文件或数据
 /// @note
-///   * 调用 `qiniu_ng_batch_uploader_new_from_bucket_uploader()` 或 `qiniu_ng_batch_uploader_new_from_config` 函数创建 `qiniu_ng_batch_uploader_t` 实例。
+///   * 调用 `qiniu_ng_batch_uploader_new*` 系列函数创建 `qiniu_ng_batch_uploader_t` 实例。
 ///   * 当 `qiniu_ng_batch_uploader_t` 使用完毕后，请务必调用 `qiniu_ng_batch_uploader_free()` 方法释放内存。
 /// @note
 ///   该结构体不可以跨线程使用

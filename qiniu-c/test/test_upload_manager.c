@@ -289,6 +289,7 @@ void test_qiniu_ng_upload_manager_upload_empty_file(void) {
     env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
 
+    qiniu_ng_credential_t credential = qiniu_ng_credential_new(GETENV(QINIU_NG_CHARS("access_key")), GETENV(QINIU_NG_CHARS("secret_key")));
     qiniu_ng_char_t *file_path = create_temp_file(0);
     qiniu_ng_upload_params_t params = {
         .resumable_policy = qiniu_ng_resumable_policy_always_be_resumeable,
@@ -296,7 +297,7 @@ void test_qiniu_ng_upload_manager_upload_empty_file(void) {
     qiniu_ng_err_t err;
 
     TEST_ASSERT_FALSE_MESSAGE(
-        qiniu_ng_upload_manager_upload_file_path(upload_manager, token, file_path, &params, NULL, &err),
+        qiniu_ng_upload_manager_upload_file_path(upload_manager, BUCKET_NAME, credential, file_path, &params, NULL, &err),
         "qiniu_ng_upload_manager_upload_file_path() returns unexpected value");
     TEST_ASSERT_TRUE_MESSAGE(
         qiniu_ng_err_empty_file_error_extract(&err),
@@ -305,12 +306,11 @@ void test_qiniu_ng_upload_manager_upload_empty_file(void) {
     DELETE_FILE(file_path);
     free((void *) file_path);
 
+    qiniu_ng_credential_free(&credential);
     qiniu_ng_upload_manager_free(&upload_manager);
 }
 
-void test_qiniu_ng_bucket_uploader_upload_file_path_failed_by_mime(void) {
-    qiniu_ng_config_t config = qiniu_ng_config_new_default();
-
+void test_qiniu_ng_upload_manager_upload_file_path_failed_by_mime(void) {
     env_load("..", false);
     qiniu_ng_upload_manager_t upload_manager = qiniu_ng_upload_manager_new_default();
 
