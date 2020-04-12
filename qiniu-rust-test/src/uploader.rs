@@ -624,7 +624,7 @@ mod tests {
             assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
             assert_eq!(object_info.size(), FILE_SIZES.get(idx).unwrap().to_owned());
             assert_eq!(object_info.hash(), etags.get(idx).unwrap().as_str());
-            assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(300));
+            assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(600));
             // TODO: Verify Metadata
             object.delete()?;
         }
@@ -705,7 +705,7 @@ mod tests {
             assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
             assert_eq!(object_info.size(), FILE_SIZES.get(idx).unwrap().to_owned());
             assert_eq!(object_info.hash(), etags.get(idx).unwrap().as_str());
-            assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(300));
+            assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(600));
             // TODO: Verify Metadata
             object.delete()?;
         }
@@ -787,7 +787,7 @@ mod tests {
             assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
             assert_eq!(object_info.size(), FILE_SIZES.get(idx).unwrap().to_owned());
             assert_eq!(object_info.hash(), etags.get(idx).unwrap().as_str());
-            assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(300));
+            assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(600));
             // TODO: Verify Metadata
             object.delete()?;
         }
@@ -883,7 +883,7 @@ mod tests {
             assert_eq!(object_info.mime_type(), mime::APPLICATION_OCTET_STREAM);
             assert_eq!(object_info.size(), FILE_SIZES.get(idx).unwrap().to_owned());
             assert_eq!(object_info.hash(), etags.get(idx).unwrap().as_str());
-            assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(300));
+            assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(600));
             // TODO: Verify Metadata
             object.delete()?;
         }

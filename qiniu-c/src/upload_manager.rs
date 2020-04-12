@@ -18,7 +18,7 @@ use qiniu_ng::{
     storage::{
         bucket::Bucket,
         object::Object,
-        uploader::{FileUploader, UploadManager, UploadPolicy, UploadResult, UploadToken},
+        uploader::{ObjectUploader, UploadManager, UploadPolicy, UploadResult, UploadToken},
     },
     Config, Credential,
 };
@@ -558,7 +558,7 @@ fn qiniu_ng_upload_manager_upload(
     response: *mut qiniu_ng_upload_response_t,
     err: *mut qiniu_ng_err_t,
 ) -> bool {
-    let file_uploader_create_result = match upload_token_policy {
+    let object_uploader_create_result = match upload_token_policy {
         UploadTokenPolicy::Token(upload_token) => upload_manager.upload_for_upload_token(upload_token),
         UploadTokenPolicy::Policy {
             upload_policy,
@@ -569,8 +569,8 @@ fn qiniu_ng_upload_manager_upload(
             credential,
         } => Ok(upload_manager.upload_for_bucket(bucket_name, credential)),
     };
-    match file_uploader_create_result {
-        Ok(file_uploader) => qiniu_ng_file_uploader_upload(file_uploader, upload_target, params, response, err),
+    match object_uploader_create_result {
+        Ok(object_uploader) => qiniu_ng_object_uploader_upload(object_uploader, upload_target, params, response, err),
         Err(ref e) => {
             if let Some(err) = unsafe { err.as_mut() } {
                 *err = e.into();
@@ -650,7 +650,7 @@ fn qiniu_ng_bucket_upload(
     err: *mut qiniu_ng_err_t,
 ) -> bool {
     let bucket = Option::<Bucket>::from(bucket).unwrap();
-    qiniu_ng_file_uploader_upload(bucket.uploader(), upload_target, params, response, err).tap(|_| {
+    qiniu_ng_object_uploader_upload(bucket.uploader(), upload_target, params, response, err).tap(|_| {
         let _ = qiniu_ng_bucket_t::from(bucket);
     })
 }
@@ -725,13 +725,13 @@ fn qiniu_ng_object_upload(
     err: *mut qiniu_ng_err_t,
 ) -> bool {
     let object = Option::<Box<Object>>::from(object).unwrap();
-    qiniu_ng_file_uploader_upload(object.uploader(), upload_target, params, response, err).tap(|_| {
+    qiniu_ng_object_uploader_upload(object.uploader(), upload_target, params, response, err).tap(|_| {
         let _ = qiniu_ng_object_t::from(object);
     })
 }
 
-fn qiniu_ng_file_uploader_upload(
-    mut file_uploader: FileUploader,
+fn qiniu_ng_object_uploader_upload(
+    mut object_uploader: ObjectUploader,
     upload_target: UploadTarget,
     params: *const qiniu_ng_upload_params_t,
     response: *mut qiniu_ng_upload_response_t,
@@ -741,7 +741,7 @@ fn qiniu_ng_file_uploader_upload(
     let mut file_name = String::new();
     let mut mime: Option<Mime> = None;
     if let Some(params) = unsafe { params.as_ref() } {
-        file_uploader = set_params_to_file_uploader(file_uploader, params);
+        object_uploader = set_params_to_object_uploader(object_uploader, params);
         file_name = unsafe { convert_optional_c_string_to_rust_string(params.file_name) };
         match parse_mime(params.mime) {
             Some(Ok(parsed_mime)) => {
@@ -757,7 +757,7 @@ fn qiniu_ng_file_uploader_upload(
         };
     }
     if result {
-        match upload_target.upload(file_uploader, file_name, mime) {
+        match upload_target.upload(object_uploader, file_name, mime) {
             Ok(resp) => {
                 if let Some(response) = unsafe { response.as_mut() } {
                     *response = Box::new(resp).into();
@@ -774,21 +774,21 @@ fn qiniu_ng_file_uploader_upload(
     result
 }
 
-fn set_params_to_file_uploader<'n>(
-    mut file_uploader: FileUploader<'n>,
+fn set_params_to_object_uploader<'n>(
+    mut object_uploader: ObjectUploader<'n>,
     params: &qiniu_ng_upload_params_t,
-) -> FileUploader<'n> {
+) -> ObjectUploader<'n> {
     if params.thread_pool_size > 0 {
-        file_uploader = file_uploader.thread_pool_size(params.thread_pool_size);
+        object_uploader = object_uploader.thread_pool_size(params.thread_pool_size);
     }
     if let Some(key) = unsafe { convert_optional_c_string_to_rust_optional_string(params.key) } {
-        file_uploader = file_uploader.key(key);
+        object_uploader = object_uploader.key(key);
     }
     {
         let vars = Option::<QiniuNgStrMap>::from(params.vars);
         if let Some(vars) = vars.as_ref() {
             for (key, value) in vars.iter() {
-                file_uploader = file_uploader.var(key.to_string().unwrap(), value.to_string().unwrap());
+                object_uploader = object_uploader.var(key.to_string().unwrap(), value.to_string().unwrap());
             }
         }
         let _ = qiniu_ng_str_map_t::from(vars);
@@ -797,31 +797,31 @@ fn set_params_to_file_uploader<'n>(
         let metadata = Option::<QiniuNgStrMap>::from(params.metadata);
         if let Some(metadata) = metadata.as_ref() {
             for (key, value) in metadata.iter() {
-                file_uploader = file_uploader.metadata(key.to_string().unwrap(), value.to_string().unwrap());
+                object_uploader = object_uploader.metadata(key.to_string().unwrap(), value.to_string().unwrap());
             }
         }
         let _ = qiniu_ng_str_map_t::from(metadata);
     }
-    file_uploader = if params.checksum_disabled {
-        file_uploader.disable_checksum()
+    object_uploader = if params.checksum_disabled {
+        object_uploader.disable_checksum()
     } else {
-        file_uploader.enable_checksum()
+        object_uploader.enable_checksum()
     };
     match params.resumable_policy {
         qiniu_ng_resumable_policy_t::qiniu_ng_resumable_policy_threshold => {
-            file_uploader = file_uploader.upload_threshold(params.upload_threshold);
+            object_uploader = object_uploader.upload_threshold(params.upload_threshold);
         }
         qiniu_ng_resumable_policy_t::qiniu_ng_resumable_policy_always_be_resumeable => {
-            file_uploader = file_uploader.always_be_resumable();
+            object_uploader = object_uploader.always_be_resumable();
         }
         qiniu_ng_resumable_policy_t::qiniu_ng_resumable_policy_never_be_resumeable => {
-            file_uploader = file_uploader.never_be_resumable();
+            object_uploader = object_uploader.never_be_resumable();
         }
         qiniu_ng_resumable_policy_t::qiniu_ng_resumable_policy_default => {}
     }
     if let Some(on_uploading_progress) = params.on_uploading_progress {
         let callback_data = unsafe { params.callback_data.as_ref() }.map(|data| &*data);
-        file_uploader = file_uploader.on_progress(move |uploaded: u64, total: Option<u64>| {
+        object_uploader = object_uploader.on_progress(move |uploaded: u64, total: Option<u64>| {
             (on_uploading_progress)(
                 uploaded,
                 total.unwrap_or(0),
@@ -832,9 +832,9 @@ fn set_params_to_file_uploader<'n>(
         });
     }
     if params.max_concurrency > 0 {
-        file_uploader = file_uploader.max_concurrency(params.max_concurrency);
+        object_uploader = object_uploader.max_concurrency(params.max_concurrency);
     }
-    file_uploader
+    object_uploader
 }
 
 fn parse_mime(mime: *const qiniu_ng_char_t) -> Option<Result<Mime, mime::FromStrError>> {
@@ -848,9 +848,9 @@ enum UploadTarget {
 }
 
 impl UploadTarget {
-    fn upload(self, file_uploader: FileUploader, file_name: String, mime: Option<Mime>) -> UploadResult {
+    fn upload(self, object_uploader: ObjectUploader, file_name: String, mime: Option<Mime>) -> UploadResult {
         match self {
-            UploadTarget::FilePath(file_path) => file_uploader.upload_file(
+            UploadTarget::FilePath(file_path) => object_uploader.upload_file(
                 unsafe { UCString::from_ptr(file_path) }.into_path_buf(),
                 file_name,
                 mime,
@@ -858,9 +858,9 @@ impl UploadTarget {
             UploadTarget::File(file) => {
                 let mut reader = FileReader::new(file);
                 let guess_file_size = reader.guess_file_size().unwrap_or(0);
-                file_uploader.upload_stream(reader, guess_file_size, file_name, mime)
+                object_uploader.upload_stream(reader, guess_file_size, file_name, mime)
             }
-            UploadTarget::Readable { reader, len } => file_uploader.upload_stream(reader, len, file_name, mime),
+            UploadTarget::Readable { reader, len } => object_uploader.upload_stream(reader, len, file_name, mime),
         }
     }
 }

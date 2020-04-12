@@ -7,7 +7,7 @@ use super::{
         region::Region,
         uploader::{UploadPolicy, UploadToken, UploadTokenParseError},
     },
-    BatchUploader, FileUploader,
+    BatchUploader, ObjectUploader,
 };
 use crate::{config::Config, credential::Credential, http::Client};
 use assert_impl::assert_impl;
@@ -17,7 +17,7 @@ use thiserror::Error;
 
 /// 上传管理器
 ///
-/// 上传管理器更接近于一个上传入口，提供上传文件的功能，并可以利用它构建批量文件上传器
+/// 上传管理器更接近于一个上传入口，提供上传文件的功能，并可以利用它构建批量上传器
 /// 可以跨线程使用，但由于可能会自带线程池，请勿跨进程使用
 #[derive(Clone)]
 pub struct UploadManager {
@@ -59,11 +59,11 @@ impl UploadManager {
         Ok(upload_manager)
     }
 
-    /// 根据上传凭证创建文件上传器
+    /// 根据上传凭证创建对象上传器
     pub fn upload_for_upload_token<'a>(
         &'a self,
         upload_token: impl Into<Cow<'a, UploadToken>>,
-    ) -> CreateUploaderResult<FileUploader<'a>> {
+    ) -> CreateUploaderResult<ObjectUploader<'a>> {
         let upload_token = upload_token.into();
         let access_key = upload_token.access_key()?;
         if let Some(bucket_name) = upload_token.policy()?.bucket() {
@@ -71,7 +71,12 @@ impl UploadManager {
             let up_urls_list = Region::query(&bucket_name, access_key, self.config().to_owned())
                 .map(|regions| extract_up_urls_list_from_regions(regions.iter(), self.config().use_https()))
                 .unwrap_or_else(|_| all_possible_up_urls_list(self.config().use_https()));
-            Ok(FileUploader::new(self, upload_token, bucket_name.into(), up_urls_list))
+            Ok(ObjectUploader::new(
+                self,
+                upload_token,
+                bucket_name.into(),
+                up_urls_list,
+            ))
         } else {
             Err(CreateUploaderError::BucketIsMissingInUploadToken)
         }
@@ -82,29 +87,29 @@ impl UploadManager {
         bucket_name: Cow<'a, str>,
         upload_token: Cow<'a, UploadToken>,
         regions: Option<impl Iterator<Item = &'a Region>>,
-    ) -> FileUploader<'a> {
+    ) -> ObjectUploader<'a> {
         let up_urls_list = regions
             .map(|regions| extract_up_urls_list_from_regions(regions, self.config().use_https()))
             .unwrap_or_else(|| all_possible_up_urls_list(self.config().use_https()));
-        FileUploader::new(self, upload_token, bucket_name, up_urls_list)
+        ObjectUploader::new(self, upload_token, bucket_name, up_urls_list)
     }
 
-    /// 根据上传策略和认证信息创建文件上传器
+    /// 根据上传策略和认证信息创建对象上传器
     pub fn upload_for_upload_policy(
         &self,
         upload_policy: UploadPolicy,
         credential: Credential,
-    ) -> CreateUploaderResult<FileUploader> {
+    ) -> CreateUploaderResult<ObjectUploader> {
         self.upload_for_upload_token(UploadToken::new(upload_policy, credential))
     }
 
-    /// 根据存储空间和认证信息创建文件上传器
-    pub fn upload_for_bucket(&self, bucket: impl Into<Cow<'static, str>>, credential: Credential) -> FileUploader {
+    /// 根据存储空间和认证信息创建对象上传器
+    pub fn upload_for_bucket(&self, bucket: impl Into<Cow<'static, str>>, credential: Credential) -> ObjectUploader {
         self.upload_for_upload_token(UploadToken::new_from_bucket(bucket.into(), credential, self.config()))
             .unwrap()
     }
 
-    /// 根据上传凭证创建批量文件上传器
+    /// 根据上传凭证创建批量对象上传器
     pub fn batch_uploader_for_upload_token(
         &self,
         upload_token: impl Into<UploadToken>,
@@ -112,7 +117,7 @@ impl UploadManager {
         BatchUploader::new_for_upload_manager(self.to_owned(), upload_token.into())
     }
 
-    /// 根据上传策略和认证信息创建批量文件上传器
+    /// 根据上传策略和认证信息创建批量上传器
     pub fn batch_uploader_for_upload_policy(
         &self,
         upload_policy: UploadPolicy,
@@ -121,7 +126,7 @@ impl UploadManager {
         self.batch_uploader_for_upload_token(UploadToken::new(upload_policy, credential))
     }
 
-    /// 根据存储空间和认证信息创建批量文件上传器
+    /// 根据存储空间和认证信息创建批量上传器
     pub fn batch_uploader_for_bucket(
         &self,
         bucket: impl Into<Cow<'static, str>>,

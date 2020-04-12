@@ -1,5 +1,5 @@
 use super::{
-    super::bucket::Bucket, file_uploader::ResumablePolicy, CreateUploaderError, CreateUploaderResult, UploadManager,
+    super::bucket::Bucket, object_uploader::ResumablePolicy, CreateUploaderError, CreateUploaderResult, UploadManager,
     UploadPolicy, UploadResult, UploadToken,
 };
 use crate::{utils::ron::Ron, Config, Credential};
@@ -198,7 +198,7 @@ fn handle_job(context: &BatchUploaderContext, job: BatchUploadJob, thread_pool: 
         on_completed,
     } = job;
 
-    let mut file_uploader = match &context.core {
+    let mut object_uploader = match &context.core {
         BatchUploaderCore::UploadManager {
             upload_manager,
             upload_token: context_upload_token,
@@ -211,42 +211,42 @@ fn handle_job(context: &BatchUploaderContext, job: BatchUploadJob, thread_pool: 
             .unwrap(),
         BatchUploaderCore::Bucket(bucket) => bucket.uploader(),
     };
-    file_uploader = file_uploader
+    object_uploader = object_uploader
         .thread_pool(thread_pool)
         .max_concurrency(context.max_concurrency);
     if let Some(key) = key {
-        file_uploader = file_uploader.key(key);
+        object_uploader = object_uploader.key(key);
     }
     for (var_name, var_value) in vars.into_iter() {
-        file_uploader = file_uploader.var(var_name, var_value);
+        object_uploader = object_uploader.var(var_name, var_value);
     }
     for (metadata_name, metadata_value) in metadata.into_iter() {
-        file_uploader = file_uploader.metadata(metadata_name, metadata_value);
+        object_uploader = object_uploader.metadata(metadata_name, metadata_value);
     }
     if checksum_enabled {
-        file_uploader = file_uploader.enable_checksum();
+        object_uploader = object_uploader.enable_checksum();
     } else {
-        file_uploader = file_uploader.disable_checksum();
+        object_uploader = object_uploader.disable_checksum();
     }
     if let Some(on_uploading_progress) = on_uploading_progress {
-        file_uploader = file_uploader.on_progress(on_uploading_progress);
+        object_uploader = object_uploader.on_progress(on_uploading_progress);
     }
     if let Some(resumable_policy) = resumable_policy {
         match resumable_policy {
             ResumablePolicy::Threshold(threshold) => {
-                file_uploader = file_uploader.upload_threshold(threshold);
+                object_uploader = object_uploader.upload_threshold(threshold);
             }
             ResumablePolicy::Never => {
-                file_uploader = file_uploader.never_be_resumable();
+                object_uploader = object_uploader.never_be_resumable();
             }
             ResumablePolicy::Always => {
-                file_uploader = file_uploader.always_be_resumable();
+                object_uploader = object_uploader.always_be_resumable();
             }
         }
     }
     let upload_result = match target {
-        BatchUploadTarget::File(file) => file_uploader.upload_stream(file, expected_data_size, file_name, mime),
-        BatchUploadTarget::Stream(reader) => file_uploader.upload_stream(reader, expected_data_size, file_name, mime),
+        BatchUploadTarget::File(file) => object_uploader.upload_stream(file, expected_data_size, file_name, mime),
+        BatchUploadTarget::Stream(reader) => object_uploader.upload_stream(reader, expected_data_size, file_name, mime),
     };
     if let Some(on_completed) = on_completed.as_ref() {
         on_completed(upload_result);

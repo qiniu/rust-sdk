@@ -24,11 +24,11 @@ pub(super) enum ResumablePolicy {
     Always,
 }
 
-/// 文件上传器
+/// 对象上传器
 ///
 /// 为指定的文件上传准备数据，不能跨线程使用，不能反复使用
 #[must_use]
-pub struct FileUploader<'b> {
+pub struct ObjectUploader<'b> {
     upload_manager: &'b UploadManager,
     bucket_name: Cow<'b, str>,
     up_urls_list: Box<[Box<[Box<str>]>]>,
@@ -44,14 +44,14 @@ pub struct FileUploader<'b> {
     max_concurrency: usize,
 }
 
-impl<'b> FileUploader<'b> {
+impl<'b> ObjectUploader<'b> {
     pub(super) fn new(
         upload_manager: &'b UploadManager,
         upload_token: Cow<'b, UploadToken>,
         bucket_name: Cow<'b, str>,
         up_urls_list: Box<[Box<[Box<str>]>]>,
     ) -> Self {
-        FileUploader {
+        Self {
             upload_manager,
             upload_token,
             bucket_name,
@@ -78,7 +78,7 @@ impl<'b> FileUploader<'b> {
         self.thread_pool(
             ThreadPoolBuilder::new()
                 .num_threads(num_threads)
-                .thread_name(move |index| format!("file_uploader_thread_{}_{}", num_threads, index))
+                .thread_name(move |index| format!("object_uploader_thread_{}_{}", num_threads, index))
                 .build()
                 .unwrap(),
         )
@@ -86,7 +86,7 @@ impl<'b> FileUploader<'b> {
 
     /// 上传文件最大并发度
     ///
-    /// 默认情况下，分片上传将采用多线程并发的方式进行上传，最大并发度等于文件上传器内线程池的大小。
+    /// 默认情况下，分片上传将采用多线程并发的方式进行上传，最大并发度等于对象上传器内线程池的大小。
     /// 调用该方法可以修改最大并发度
     pub fn max_concurrency(mut self, concurrency: usize) -> Self {
         self.max_concurrency = concurrency;
@@ -175,7 +175,7 @@ impl<'b> FileUploader<'b> {
     /// 上传进度闭包的第一个参数为已经上传的数据量，
     /// 第二个参数为数据总两，如果为 `None` 表示数据总量不可预知，
     /// 单位均为字节
-    pub fn on_progress(mut self, callback: impl Fn(u64, Option<u64>) + Send + Sync + 'static) -> FileUploader<'b> {
+    pub fn on_progress(mut self, callback: impl Fn(u64, Option<u64>) + Send + Sync + 'static) -> Self {
         self.on_uploading_progress = Some(Rob::Owned(Box::new(callback)));
         self
     }
@@ -441,7 +441,7 @@ mod tests {
     use std::{error::Error, result::Result};
 
     #[test]
-    fn test_storage_uploader_file_uploader_upload_file_with_recovering() -> Result<(), Box<dyn Error>> {
+    fn test_storage_uploader_object_uploader_upload_file_with_recovering() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(5 * (1 << 22))?.into_temp_path();
         let config = ConfigBuilder::default()
             .http_request_handler(
@@ -538,7 +538,7 @@ mod tests {
             medium.append("etag_3", 3)?;
             medium.append("etag_5", 5)?;
         }
-        let result = FileUploader::new(
+        let result = ObjectUploader::new(
             &UploadManager::new(config),
             Cow::Owned(UploadToken::new(policy, get_credential())),
             "test_bucket".into(),
@@ -551,7 +551,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_storage_uploader_file_uploader_upload_file_with_1_unretryable_failure() -> Result<(), Box<dyn Error>> {
+    fn test_storage_uploader_object_uploader_upload_file_with_1_unretryable_failure() -> Result<(), Box<dyn Error>> {
         let temp_path = create_temp_file(10 * (1 << 20))?.into_temp_path();
         let config = ConfigBuilder::default()
             .http_request_handler(
@@ -637,7 +637,7 @@ mod tests {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", &config).build();
         let token = UploadToken::new(policy, get_credential());
 
-        assert!(FileUploader::new(
+        assert!(ObjectUploader::new(
             &UploadManager::new(config.to_owned()),
             Cow::Borrowed(&token),
             "test_bucket".into(),
@@ -647,7 +647,7 @@ mod tests {
         .upload_file(&temp_path, "", None)
         .is_err());
 
-        let result = FileUploader::new(
+        let result = ObjectUploader::new(
             &UploadManager::new(config),
             Cow::Borrowed(&token),
             "test_bucket".into(),

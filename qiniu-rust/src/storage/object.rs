@@ -3,7 +3,7 @@
 use super::{
     bucket::Bucket,
     resource::{Delete, ObjectInfo, Stat, ToURI},
-    uploader::{FileUploader, UploadPolicyBuilder, UploadToken},
+    uploader::{ObjectUploader, UploadPolicyBuilder, UploadToken},
 };
 use crate::{
     http::{Result as HTTPResult, TokenVersion},
@@ -73,8 +73,8 @@ impl Object {
         })
     }
 
-    /// 创建面向该对象的文件上传器
-    pub fn uploader(&self) -> FileUploader {
+    /// 创建面向该对象的对象上传器
+    pub fn uploader(&self) -> ObjectUploader {
         self.bucket
             .upload_manager()
             .upload_for_internal_generated_upload_token_with_regions(

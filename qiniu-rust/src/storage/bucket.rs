@@ -3,7 +3,7 @@
 use super::{
     object::Object,
     region::{Region, RegionId},
-    uploader::{BatchUploader, FileUploader, UploadManager, UploadToken},
+    uploader::{BatchUploader, ObjectUploader, UploadManager, UploadToken},
 };
 use crate::{
     config::Config,
@@ -282,8 +282,8 @@ impl Bucket {
         Ok(domains.iter().map(|domain| domain.as_ref()).collect())
     }
 
-    /// 创建面向该存储区域的文件上传器
-    pub fn uploader(&self) -> FileUploader {
+    /// 创建面向该存储区域的对象上传器
+    pub fn uploader(&self) -> ObjectUploader {
         self.upload_manager()
             .upload_for_internal_generated_upload_token_with_regions(
                 self.0.name.to_owned(),

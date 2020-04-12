@@ -4,9 +4,9 @@
 
 mod batch_uploader;
 mod callback;
-mod file_uploader;
 mod form_uploader;
 mod io_status_manager;
+mod object_uploader;
 mod resumable_uploader;
 mod upload_logger;
 mod upload_manager;
@@ -17,7 +17,7 @@ mod upload_token;
 
 pub use batch_uploader::{BatchUploadJob, BatchUploadJobBuilder, BatchUploader};
 use callback::upload_response_callback;
-pub use file_uploader::{FileUploader, UploadError, UploadResult};
+pub use object_uploader::{ObjectUploader, UploadError, UploadResult};
 pub use upload_logger::{LockPolicy as UploadLoggerFileLockPolicy, UploadLogger, UploadLoggerBuilder};
 use upload_logger::{TokenizedUploadLogger, UpType, UploadLoggerRecordBuilder};
 pub use upload_manager::{CreateUploaderError, CreateUploaderResult, UploadManager};
