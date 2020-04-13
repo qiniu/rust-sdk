@@ -2,111 +2,104 @@
 
 module QiniuNg
   module Storage
-    # 存储空间实例
+    # 对象实例
     #
-    # 封装存储空间相关数据，例如配置，区域，下载域名等
-    class Bucket
+    # 用于表示存储空间中的一个对象，可用来获取对象信息或对对象进行操作
+    class Object
       # @!visibility private
-      def initialize(client, bucket_ffi)
-        raise ArgumentError, 'client must be instance of Client' unless client.is_a?(Client)
-        @client = client
-        @bucket = bucket_ffi
-        @cache = {}
+      def initialize(object_ffi)
+        @object = object_ffi
       end
       private_class_method :new
 
       # @!visibility private
-      def self.init(client, bucket_name, region, domains, auto_detect_domains)
-        raise ArgumentError, 'client must be instance of Client' unless client.is_a?(Client)
-
-        builder = Bindings::BucketBuilder.new!(client.instance_variable_get(:@client), bucket_name.to_s)
-
-        case region
-        when nil
-          # do nothing
-        when :auto_detect
-          builder.auto_detect_region
-        when Symbol
-          builder.set_region_id(region)
-        when Region
-          builder.set_region(region.instance_variable_get(:@region))
-        else
-          raise ArgumentError, 'region must be instance of Region or Symbol'
-        end
-
-        if auto_detect_domains
-          builder.auto_detect_domains
-        end
-        domains.each do |domain|
-          builder.prepend_domain(domain.to_s)
-        end
-        new(client, Bindings::Bucket.build(builder))
+      def self.init(bucket, key)
+        raise ArgumentError, 'bucket must be instance of Bucket' unless bucket.is_a?(Bucket)
+        object = Bindings::Object.new! bucket.instance_variable_get(:@bucket), key.to_s
+        new(object)
       end
       private_class_method :init
 
-      # 存储空间名称
-      # @return [String] 存储空间名称
-      def name
-        @bucket_name ||= @bucket.get_name
-        @bucket_name.get_ptr
+      # 获得对象所在的存储空间
+      # @return [Bucket] 返回对象所在的存储空间实例
+      def bucket
+        @bucket ||= Bucket.send(:new, @object.get_bucket)
       end
 
-      # 存储空间所在区域
-      # @return [Region] 返回存储空间所在区域
-      def region
-        regions.first
+      # 获得对象名称
+      # @return [String] 返回对象名称
+      def key
+        @key ||= @object.get_key
+        @key.get_ptr
       end
 
-      # 存储空间区域列表
-      #
-      # 区域列表中第一个区域是当前存储空间所在区域，之后的区域则是备用区域
-      #
-      # @return [Array<Region>] 返回存储空间区域列表
-      def regions
-        @regions ||= begin
-                       regions = QiniuNg::Error.wrap_ffi_function do
-                                   @bucket.get_regions
-                                 end
-                       (0...regions.len).map { |i| Region.send(:new, regions.get(i)) }
-                     end
+      # 获得对象详细信息
+      # @return [Object::Info] 返回对象详细信息
+      def stat
+        info = QiniuNg::Error.wrap_ffi_function do
+                 @object.get_info
+               end
+        Info.send(:new, info)
       end
 
-      # 存储空间下载域名列表
-      # @return [Array<String>] 返回存储空间存储空间下载域名列表
-      def domains
-        @domains ||= QiniuNg::Error.wrap_ffi_function do
-                       @bucket.get_domains
-                     end
-        (0...@domains.len).map { |i| @domains.get(i) }
-      end
-
-      # 删除存储空间
+      # 删除对象
       # @return [void]
-      def drop!
+      def delete!
         QiniuNg::Error.wrap_ffi_function do
-          Bindings::Storage.drop_bucket(@client.instance_variable_get(:@client), name)
+          @object.delete
         end
         nil
       end
 
-      # 获取对象
-      #
-      # @param [String] key 对象名称
-      # @return [Object] 返回存储空间中的对象
-      def object(key)
-        Object.send(:init, self, key)
-      end
+      # 对象详细信息
+      class Info
+        # @!visibility private
+        def initialize(info_ffi)
+          @info = info_ffi
+          @cache = {}
+        end
+        private_class_method :new
 
-      # 创建批量上传器
-      # @return [BatchUploader] 返回批量上传器
-      def batch_uploader
-        BatchUploader.send(:new, Bindings::BatchUploader.new_for_bucket(@bucket))
+        # 获取对象尺寸
+        # @return [Integer] 返回对象尺寸
+        def size
+          @info.get_size
+        end
+
+        # 获取对象校验和
+        # @return [String] 返回对象校验和
+        def hash
+          @cache[:hash] ||= begin
+                              data = FFI::MemoryPointer.new(256)
+                              data_len = Bindings::CoreFFI::Size.new
+                              @info.get_hash(data, data_len)
+                              data.read_string(data_len[:value]) unless data_len[:value].zero?
+                            end
+        end
+
+        # 获取对象 MIME 类型
+        # @return [String] 返回对象 MIME 类型
+        def mime_type
+          @cache[:mime_type] ||= @info.get_mime_type
+          @cache[:mime_type].get_ptr
+        end
+
+        # 获取对象上传时间
+        # @return [Time] 返回对象上传时间
+        def uploaded_at
+          Time.at @info.get_put_time
+        end
+        alias put_time uploaded_at
+
+        # @!visibility private
+        def inspect
+          "#<#{self.class.name} @size=#{size.inspect} @hash=#{hash.inspect} @mime_type=#{mime_type.inspect} @uploaded_at=#{uploaded_at.inspect}>"
+        end
       end
 
       # 上传文件
       #
       # @param [IO] file 要上传的文件
-      # @param [String] key 对象名称
       # @param [String] file_name 原始文件名称
       # @param [Hash] vars [自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
       # @param [Hash] metadata 元数据
@@ -119,8 +112,7 @@ module QiniuNg
       # @param [Ingeger] max_concurrency 最大并发度，默认与线程池大小相同
       # @return [Uploader::UploadResponse] 上传响应
       # @raise [ArgumentError] 参数错误
-      def upload_file(file, key: nil,
-                            file_name: nil,
+      def upload_file(file, file_name: nil,
                             mime: nil,
                             vars: nil,
                             metadata: nil,
@@ -130,8 +122,7 @@ module QiniuNg
                             upload_threshold: nil,
                             thread_pool_size: nil,
                             max_concurrency: nil)
-        params = create_upload_params(key: key,
-                                      file_name: file_name,
+        params = create_upload_params(file_name: file_name,
                                       mime: mime,
                                       vars: vars,
                                       metadata: metadata,
@@ -142,7 +133,7 @@ module QiniuNg
                                       thread_pool_size: thread_pool_size,
                                       max_concurrency: max_concurrency)
         upload_response = QiniuNg::Error.wrap_ffi_function do
-                            @bucket.upload_reader(normalize_io(file),
+                            @object.upload_reader(normalize_io(file),
                                                   file.respond_to?(:size) ? file.size : 0,
                                                   params)
                           end
@@ -153,7 +144,6 @@ module QiniuNg
       # 根据文件路径上传文件
       #
       # @param [String] file_path 要上传的文件路径
-      # @param [String] key 对象名称
       # @param [String] file_name 原始文件名称
       # @param [Hash] vars [自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
       # @param [Hash] metadata 元数据
@@ -166,8 +156,7 @@ module QiniuNg
       # @param [Ingeger] max_concurrency 最大并发度，默认与线程池大小相同
       # @return [Uploader::UploadResponse] 上传响应
       # @raise [ArgumentError] 参数错误
-      def upload_file_path(file_path, key: nil,
-                                      file_name: nil,
+      def upload_file_path(file_path, file_name: nil,
                                       mime: nil,
                                       vars: nil,
                                       metadata: nil,
@@ -177,8 +166,7 @@ module QiniuNg
                                       upload_threshold: nil,
                                       thread_pool_size: nil,
                                       max_concurrency: nil)
-        params = create_upload_params(key: key,
-                                      file_name: file_name,
+        params = create_upload_params(file_name: file_name,
                                       mime: mime,
                                       vars: vars,
                                       metadata: metadata,
@@ -189,14 +177,14 @@ module QiniuNg
                                       thread_pool_size: thread_pool_size,
                                       max_concurrency: max_concurrency)
         upload_response = QiniuNg::Error.wrap_ffi_function do
-                            @bucket.upload_file_path(file_path.to_s, params)
+                            @object.upload_file_path(file_path.to_s, params)
                           end
         Uploader::UploadResponse.send(:new, upload_response)
       end
 
       # @!visibility private
       def inspect
-        "#<#{self.class.name} @name=#{name.inspect}>"
+        "#<#{self.class.name} @bucket=#{bucket.inspect} @key=#{key.inspect}>"
       end
 
       public_send(:include, Uploader.const_get(:SingleFileUploaderHelper))

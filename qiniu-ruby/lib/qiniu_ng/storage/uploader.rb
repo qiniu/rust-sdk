@@ -14,16 +14,23 @@ module QiniuNg
       autoload :UploadResponse, 'qiniu_ng/storage/uploader/upload_response'
       include SingleFileUploaderHelper
 
+      # @!visibility private
+      def initialize(uploader_ffi)
+        @upload_manager = uploader_ffi
+      end
+      private_class_method :new
+
       # 创建上传管理器
-      # @param [Config] config 客户端配置
+      # @param [Config] config 客户端配置，默认为默认客户端配置
       # @raise [ArgumentError] 参数错误
-      def initialize(config = nil)
-        @upload_manager = if config.nil?
-                            Bindings::UploadManager.new_default
-                          else
-                            raise ArgumentError, 'config must be instance of Config' unless config.is_a?(Config)
-                            Bindings::UploadManager.new!(config.instance_variable_get(:@config))
-                          end
+      def self.create(config = nil)
+        uploader_ffi = if config.nil?
+                         Bindings::UploadManager.new_default
+                       else
+                         raise ArgumentError, 'config must be instance of Config' unless config.is_a?(Config)
+                         Bindings::UploadManager.new!(config.instance_variable_get(:@config))
+                       end
+        new(uploader_ffi)
       end
 
       # 创建批量上传器

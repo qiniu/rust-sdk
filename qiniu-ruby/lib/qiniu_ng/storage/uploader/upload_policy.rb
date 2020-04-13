@@ -25,10 +25,10 @@ module QiniuNg
         # 上传策略根据给出的客户端配置指定上传凭证有效期
         #
         # @param [String] bucket_name 存储空间名称
-        # @param [Config] config 客户端配置
+        # @param [Config] config 客户端配置，默认为默认客户端配置
         # @return [UploadPolicy] 返回创建的上传策略
-        def self.new_for_bucket(bucket_name, config)
-          Builder.new_for_bucket(bucket_name, config).build!
+        def self.new_for_bucket(bucket_name, config: Config.create)
+          Builder.new_for_bucket(bucket_name, config: config).build!
         end
 
         # 为指定的存储空间和对象名称生成的上传策略
@@ -42,10 +42,10 @@ module QiniuNg
         #
         # @param [String] bucket_name 存储空间名称
         # @param [String] object_key 对象名称
-        # @param [Config] config 客户端配置
+        # @param [Config] config 客户端配置，默认为默认客户端配置
         # @return [UploadPolicy] 返回创建的上传策略
-        def self.new_for_object(bucket_name, object_key, config)
-          Builder.new_for_object(bucket_name, object_key, config).build!
+        def self.new_for_object(bucket_name, object_key, config: Config.create)
+          Builder.new_for_object(bucket_name, object_key, config: config).build!
         end
 
         # 为指定的存储空间和对象名称前缀生成的上传策略
@@ -59,10 +59,10 @@ module QiniuNg
         #
         # @param [String] bucket_name 存储空间名称
         # @param [String] object_key_prefix 对象名称前缀
-        # @param [Config] config 客户端配置
+        # @param [Config] config 客户端配置，默认为默认客户端配置
         # @return [UploadPolicy] 返回创建的上传策略
-        def self.new_for_objects_with_prefix(bucket_name, object_key_prefix, config)
-          Builder.new_for_objects_with_prefix(bucket_name, object_key_prefix, config).build!
+        def self.new_for_objects_with_prefix(bucket_name, object_key_prefix, config: Config.create)
+          Builder.new_for_objects_with_prefix(bucket_name, object_key_prefix, config: config).build!
         end
 
         # @!visibility private
@@ -237,9 +237,9 @@ module QiniuNg
           # 上传策略根据给出的客户端配置指定上传凭证有效期
           #
           # @param [String] bucket_name 存储空间名称
-          # @param [Config] config 客户端配置
+          # @param [Config] config 客户端配置，默认为默认客户端配置
           # @return [Builder] 返回创建的上传策略生成器
-          def self.new_for_bucket(bucket_name, config)
+          def self.new_for_bucket(bucket_name, config: Config.create)
             raise ArgumentError, 'config must be instance of Config' unless config.is_a?(Config)
             new!(:new_for_bucket, bucket_name.to_s, config.instance_variable_get(:@config))
           end
@@ -255,9 +255,9 @@ module QiniuNg
           #
           # @param [String] bucket_name 存储空间名称
           # @param [String] object_key 对象名称
-          # @param [Config] config 客户端配置
+          # @param [Config] config 客户端配置，默认为默认客户端配置
           # @return [Builder] 返回创建的上传策略生成器
-          def self.new_for_object(bucket_name, object_key, config)
+          def self.new_for_object(bucket_name, object_key, config: Config.create)
             raise ArgumentError, 'config must be instance of Config' unless config.is_a?(Config)
             new!(:new_for_object, bucket_name.to_s, object_key.to_s, config.instance_variable_get(:@config))
           end
@@ -273,9 +273,9 @@ module QiniuNg
           #
           # @param [String] bucket_name 存储空间名称
           # @param [String] object_key_prefix 对象名称前缀
-          # @param [Config] config 客户端配置
+          # @param [Config] config 客户端配置，默认为默认客户端配置
           # @return [Builder] 返回创建的上传策略生成器
-          def self.new_for_objects_with_prefix(bucket_name, object_key_prefix, config)
+          def self.new_for_objects_with_prefix(bucket_name, object_key_prefix, config: Config.create)
             raise ArgumentError, 'config must be instance of Config' unless config.is_a?(Config)
             new!(:new_for_objects_with_prefix, bucket_name.to_s, object_key_prefix.to_s, config.instance_variable_get(:@config))
           end

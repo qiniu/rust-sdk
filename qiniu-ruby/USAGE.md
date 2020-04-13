@@ -36,7 +36,7 @@ access_key = '[Qiniu Access Key]'
 secret_key = '[Qiniu Secret Key]'
 new_bucket_name = "[New Bucket Name, Must be Unique]";
 
-client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
+client = QiniuNg::Client.create access_key: access_key, secret_key: secret_key
 bucket = client.create_bucket(new_bucket_name, :z1)
 ```
 
@@ -50,7 +50,7 @@ require 'qiniu_ng'
 access_key = '[Qiniu Access Key]'
 secret_key = '[Qiniu Secret Key]'
 
-client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
+client = QiniuNg::Client.create access_key: access_key, secret_key: secret_key
 client.drop_bucket("[Bucket Name]")
 ```
 
@@ -62,7 +62,7 @@ require 'qiniu_ng'
 access_key = '[Qiniu Access Key]'
 secret_key = '[Qiniu Secret Key]'
 
-client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
+client = QiniuNg::Client.create access_key: access_key, secret_key: secret_key
 client.bucket_names
 ```
 
@@ -87,7 +87,7 @@ require 'qiniu_ng'
 access_key = '[Qiniu Access Key]'
 secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy.new_for_bucket(bucket_name, QiniuNg::Config.new).
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy.new_for_bucket(bucket_name).
                                                         build_token(access_key: access_key, secret_key: secret_key)
 ```
 
@@ -99,7 +99,7 @@ require 'qiniu_ng'
 access_key = '[Qiniu Access Key]'
 secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(bucket_name, QiniuNg::Config.new).
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(bucket_name).
                                                                  token_lifetime(hours: 2).
                                                                  build_token(access_key: access_key, secret_key: secret_key)
 ```
@@ -115,7 +115,7 @@ access_key = '[Qiniu Access Key]'
 secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy.new_for_object(bucket_name, key_to_overwrite).
                                                         build_token(access_key: access_key, secret_key: secret_key)
 ```
 
@@ -136,7 +136,7 @@ access_key = '[Qiniu Access Key]'
 secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite).
                                                                  return_body(%q[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)"}]).
                                                                  build_token(access_key: access_key, secret_key: secret_key)
 ```
@@ -157,11 +157,11 @@ secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
 file_path = '/local/file/path'
-config = QiniuNg::Config.new
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, config).
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite).
                                                                  return_body(%q[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)"}]).
                                                                  build_token(access_key: access_key, secret_key: secret_key)
-upload_response = QiniuNg::Storage::Uploader.new(config).upload_file_path(file_path, upload_token: upload_token, key: key_to_overwrite, file_name: 'local file name', vars: { name: '测试' })
+uploader = QiniuNg::Storage::Uploader.create
+upload_response = uploader.upload_file_path(file_path, upload_token: upload_token, key: key_to_overwrite, file_name: 'local file name', vars: { name: '测试' })
 puts "Bucket: #{upload_response.bucket}"
 puts "Key: #{upload_response.key}"
 puts "File Size: #{upload_response.fsize}"
@@ -181,7 +181,7 @@ secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
 callback_url = 'http://api.example.com/qiniu/upload/callback'
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite).
                                                                  callback(callback_url, body: %q[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)"}]).
                                                                  build_token(access_key: access_key, secret_key: secret_key)
 ```
@@ -204,7 +204,7 @@ secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
 callback_url = 'http://api.example.com/qiniu/upload/callback'
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite).
                                                                  callback(callback_url, body: 'key=$(key)&hash=$(etag)&bucket=$(bucket)&fsize=$(fsize)&name=$(x:name)', body_type: 'application/x-www-form-urlencoded').
                                                                  build_token(access_key: access_key, secret_key: secret_key)
 ```
@@ -221,7 +221,7 @@ secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
 callback_url = 'http://api.example.com/qiniu/upload/callback'
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite).
                                                                  callback(callback_url, body: %q[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)","age":$(x:age)}]).
                                                                  build_token(access_key: access_key, secret_key: secret_key)
 ```
@@ -236,7 +236,7 @@ secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
 callback_url = 'http://api.example.com/qiniu/upload/callback'
-upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite, QiniuNg::Config.new).
+upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_object(bucket_name, key_to_overwrite).
                                                                  callback(callback_url, body: %q[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)","age":$(x:age)}], body_type: 'application/json').
                                                                  build_token(access_key: access_key, secret_key: secret_key)
 ```
@@ -260,7 +260,8 @@ access_key = '[Qiniu Access Key]'
 secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 file_path = '/local/file/path'
-upload_response = QiniuNg::Storage::Uploader.new.upload_file_path(file_path, bucket_name: bucket_name, credential: QiniuNg::Credential.new(access_key, secret_key))
+uploader = QiniuNg::Storage::Uploader.create
+upload_response = uploader.upload_file_path(file_path, bucket_name: bucket_name, credential: QiniuNg::Credential.create(access_key, secret_key))
 ```
 
 ### IO 流上传
@@ -273,7 +274,8 @@ require 'qiniu_ng'
 access_key = '[Qiniu Access Key]'
 secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
-upload_response = QiniuNg::Storage::Uploader.new.upload_file(STDIN, bucket_name: bucket_name, credential: QiniuNg::Credential.new(access_key, secret_key))
+uploader = QiniuNg::Storage::Uploader.create
+upload_response = uploader.upload_file(STDIN, bucket_name: bucket_name, credential: QiniuNg::Credential.create(access_key, secret_key))
 ```
 
 ### 批量上传
@@ -288,7 +290,8 @@ secret_key = '[Qiniu Secret Key]'
 bucket_name = '[Bucket Name]'
 key_to_overwrite = 'qiniu.mp4'
 file_path = '/local/file/path'
-batch_uploader = QiniuNg::Storage::Uploader.new.batch_uploader(bucket_name: bucket_name, credential: QiniuNg::Credential.new(access_key, secret_key))
+uploader = QiniuNg::Storage::Uploader.create
+batch_uploader = uploader.batch_uploader(bucket_name: bucket_name, credential: QiniuNg::Credential.create(access_key, secret_key))
 
 # 这里可以添加多个等待上传的文件。在代码块内设置完成后的回调
 batch_uploader.upload_file_path(file_path) do |upload_response, err|
@@ -313,15 +316,16 @@ batch_uploader.start # 这里才会进行上传，直到上传完毕后才会返
 
 另外需要注意，每个 `context` 的有效期最长默认是 `7` 天，过期的 `context` 会触发 `701` 的错误，默认情况下，如果 `context` 超过 7 天，SDK 会自动重新上传 `context` 对应的分块。
 
-上述策略中不少参数可以在 `qiniu_ng_config_builder_t` 中配置，这里给出一个修改配置参数的例子：
+上述策略中不少参数可以在 `Config` 中配置，这里给出一个修改配置参数的例子：
 
 ```ruby
 require 'qiniu_ng'
 
-QiniuNg::Config.new(upload_threshold: 16 * 1024 * 1024,                          # 修改成尺寸大于 16 MB 的文件才使用分片上传
-                    upload_block_size: 8 * 1024 * 1024,                          # 每个分块尺寸修改为 8 MB
-                    upload_recorder_root_directory: '/recorder/data',            # 修改上传进度记录文件的存储目录
-                    upload_recorder_upload_block_lifetime: 5 * 24 * 60 * 60)     # 每个分块的有效期减少为 5 天
+config = QiniuNg::Config.create(upload_threshold: 16 * 1024 * 1024,                          # 修改成尺寸大于 16 MB 的文件才使用分片上传
+                                upload_block_size: 8 * 1024 * 1024,                          # 每个分块尺寸修改为 8 MB
+                                upload_recorder_root_directory: '/recorder/data',            # 修改上传进度记录文件的存储目录
+                                upload_recorder_upload_block_lifetime: 5 * 24 * 60 * 60)     # 每个分块的有效期减少为 5 天
+uploader = QiniuNg::Storage::Uploader.create(config)
 ```
 
 ### 业务服务器验证七牛回调
@@ -342,10 +346,10 @@ content_type = "application/json"
 authorization = "QBox [Qiniu Access Key]:[Authorization Token]"
 body = "{\"key\":\"github-x.png\",\"hash\":\"FqKXVdTvIx_mPjOYdjDyUSy_H1jr\",\"fsize\":6091,\"bucket\":\"if-pbl\",\"name\":\"github logo\"}"
 
-is_valid = QiniuNg::Credential.new(access_key, secret_key).validate_qiniu_callback_request url: url,
-                                                                                           content_type: content_type,
-                                                                                           authorization: authorization,
-                                                                                           body: body
+is_valid = QiniuNg::Credential.create(access_key, secret_key).validate_qiniu_callback_request url: url,
+                                                                                              content_type: content_type,
+                                                                                              authorization: authorization,
+                                                                                              body: body
 ```
 
 ## HTTP 回调函数
@@ -378,14 +382,14 @@ config = config_builder.build!
 
 ## 私有云配置
 
-默认情况下，Ruby SDK 内置了七牛公有云存储的配置。如果需要使用七牛私有云，则需要对 `qiniu_ng_config_builder_t` 中的配置作出必要的调整，这里给出一个例子：
+默认情况下，Ruby SDK 内置了七牛公有云存储的配置。如果需要使用七牛私有云，则需要对 `Config` 中的配置作出必要的调整，这里给出一个例子：
 
 ```ruby
 require 'qiniu_ng'
 
-QiniuNg::Config.new(use_https: true,              # 设置为使用 HTTPS 协议
-                    uc_host: 'uc.example.com',    # 设置 UC 服务器地址
-                    rs_host: 'rs.example.com',    # 设置 RS 服务器地址
-                    rsf_host: 'rsf.example.com',  # 设置 RSF 服务器地址
-                    api_host: 'api.example.com')  # 设置 API 服务器地址
+QiniuNg::Config.create(use_https: true,              # 设置为使用 HTTPS 协议
+                       uc_host: 'uc.example.com',    # 设置 UC 服务器地址
+                       rs_host: 'rs.example.com',    # 设置 RS 服务器地址
+                       rsf_host: 'rsf.example.com',  # 设置 RSF 服务器地址
+                       api_host: 'api.example.com')  # 设置 API 服务器地址
 ```

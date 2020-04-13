@@ -20,100 +20,175 @@ module QiniuNg
     end
 
     # @!visibility private
-    def initialize(use_https: nil,
-                   api_host: nil,
-                   rs_host: nil,
-                   rsf_host: nil,
-                   uc_host: nil,
-                   uplog_host: nil,
-                   batch_max_operation_size: nil,
-                   http_connect_timeout: nil,
-                   http_low_transfer_speed: nil,
-                   http_low_transfer_speed_timeout: nil,
-                   http_request_retries: nil,
-                   http_request_retry_delay: nil,
-                   http_request_timeout: nil,
-                   tcp_keepalive_idle_timeout: nil,
-                   tcp_keepalive_probe_interval: nil,
-                   upload_block_size: nil,
-                   upload_threshold: nil,
-                   upload_token_lifetime: nil,
-                   upload_recorder_always_flush_records: nil,
-                   upload_recorder_root_directory: nil,
-                   upload_recorder_upload_block_lifetime: nil,
-                   uplog_file_lock_policy: nil,
-                   uplog_file_max_size: nil,
-                   uplog_file_path: nil,
-                   uplog_file_upload_threshold: nil,
-                   builder: nil,
-                   config: nil)
+    def initialize(config_ffi)
+      @config = config_ffi
       @cache = {}
-
-      if config
-        @config = config
-        return
-      end
-
-      builder ||= Builder.new
-      raise ArgumentError, 'builder must be instance of Config::Builder' unless builder.is_a?(Builder)
-
-      builder.use_https = use_https unless use_https.nil?
-      builder.api_host = api_host unless api_host.nil?
-      builder.rs_host = rs_host unless rs_host.nil?
-      builder.rsf_host = rsf_host unless rsf_host.nil?
-      builder.uc_host = uc_host unless uc_host.nil?
-      builder.uplog_host = uplog_host unless uplog_host.nil?
-      builder.batch_max_operation_size = batch_max_operation_size unless batch_max_operation_size.nil?
-      builder.http_connect_timeout = http_connect_timeout unless http_connect_timeout.nil?
-      builder.http_low_transfer_speed = http_low_transfer_speed unless http_low_transfer_speed.nil?
-      builder.http_low_transfer_speed_timeout = http_low_transfer_speed_timeout unless http_low_transfer_speed_timeout.nil?
-      builder.http_request_retries = http_request_retries unless http_request_retries.nil?
-      builder.http_request_retry_delay = http_request_retry_delay unless http_request_retry_delay.nil?
-      builder.http_request_timeout = http_request_timeout unless http_request_timeout.nil?
-      builder.tcp_keepalive_idle_timeout = tcp_keepalive_idle_timeout unless tcp_keepalive_idle_timeout.nil?
-      builder.tcp_keepalive_probe_interval = tcp_keepalive_probe_interval unless tcp_keepalive_probe_interval.nil?
-      builder.upload_block_size = upload_block_size unless upload_block_size.nil?
-      builder.upload_threshold = upload_threshold unless upload_threshold.nil?
-      builder.upload_token_lifetime = upload_token_lifetime unless upload_token_lifetime.nil?
-      builder.upload_recorder_always_flush_records = upload_recorder_always_flush_records unless upload_recorder_always_flush_records.nil?
-      builder.upload_recorder_root_directory = upload_recorder_root_directory unless upload_recorder_root_directory.nil?
-      builder.upload_recorder_upload_block_lifetime = upload_recorder_upload_block_lifetime unless upload_recorder_upload_block_lifetime.nil?
-      builder.uplog_file_lock_policy = uplog_file_lock_policy unless uplog_file_lock_policy.nil?
-      builder.uplog_file_max_size = uplog_file_max_size unless uplog_file_max_size.nil?
-      builder.uplog_file_path = uplog_file_path unless uplog_file_path.nil?
-      builder.uplog_file_upload_threshold = uplog_file_upload_threshold unless uplog_file_upload_threshold.nil?
-      @config = QiniuNg::Error.wrap_ffi_function do
-                  Bindings::Config.build(builder.instance_variable_get(:@builder))
-                end
     end
+    private_class_method :new
 
-    # @!method initialize(use_https: nil, api_host: nil, rs_host: nil, rsf_host: nil, uc_host: nil, uplog_host: nil, batch_max_operation_size: nil, http_connect_timeout: nil, http_low_transfer_speed: nil, http_low_transfer_speed_timeout: nil, http_request_retries: nil, http_request_retry_delay: nil, http_request_timeout: nil, tcp_keepalive_idle_timeout: nil, tcp_keepalive_probe_interval: nil, upload_block_size: nil, upload_threshold: nil, upload_token_lifetime: nil, upload_recorder_always_flush_records: nil, upload_recorder_root_directory: nil, upload_recorder_upload_block_lifetime: nil, uplog_file_lock_policy: nil, uplog_file_max_size: nil, uplog_file_path: nil, uplog_file_upload_threshold: nil)
-    #   创建客户端实例
-    #   @param [Boolean] use_https 是否使用 HTTPS 协议，默认为使用 HTTPS 协议
-    #   @param [String] api_host API 服务器地址（仅需要指定主机地址和端口，无需包含协议），默认将会使用七牛公有云的 API 服务器地址，仅在使用私有云时才需要配置
-    #   @param [String] rs_host RS 服务器地址（仅需要指定主机地址和端口，无需包含协议），默认将会使用七牛公有云的 RS 服务器地址，仅在使用私有云时才需要配置
-    #   @param [String] rsf_host RSF 服务器地址（仅需要指定主机地址和端口，无需包含协议），默认将会使用七牛公有云的 RSF 服务器地址，仅在使用私有云时才需要配置
-    #   @param [String] uc_host UC 服务器地址（仅需要指定主机地址和端口，无需包含协议），默认将会使用七牛公有云的 UC 服务器地址，仅在使用私有云时才需要配置
-    #   @param [String] uplog_host UpLog 服务器地址（仅需要指定主机地址和端口，无需包含协议），默认将会使用七牛公有云的 UpLog 服务器地址，仅在使用私有云时才需要配置
-    #   @param [Integer] batch_max_operation_size 最大批量操作数，默认为 1000
-    #   @param [Utils::Duration] http_connect_timeout HTTP 请求连接超时时长，默认为 5 秒
-    #   @param [Utils::Duration] http_request_timeout HTTP 请求超时时长，默认为 5 分钟
-    #   @param [Utils::Duration] tcp_keepalive_idle_timeout TCP KeepAlive 空闲时长，默认为 5 分钟
-    #   @param [Utils::Duration] tcp_keepalive_probe_interval TCP KeepAlive 探测包的发送间隔，默认为 5 秒
-    #   @param [Integer] http_low_transfer_speed HTTP 最低传输速度，与 http_low_transfer_speed_timeout 配合使用，单位为字节/秒，默认为 1024 字节/秒
-    #   @param [Utils::Duration] http_low_transfer_speed_timeout HTTP 最低传输速度维持时长，与 http_low_transfer_speed 配合使用，默认为 30 秒
-    #   @param [Integer] http_request_retries HTTP 请求重试次数，当 SDK 发送 HTTP 请求时发生错误，且该错误可以通过重试来解决时，SDK 将重试的次数。默认为 3 次
-    #   @param [Utils::Duration] http_request_retry_delay HTTP 请求重试前等待时间，当 SDK 发送 HTTP 请求时发生错误，且该错误可以通过重试来解决时，SDK 将等待一段时间并且重试，每次实际等待时长为该项值的 50% - 100% 之间的随机时长。默认为 1 秒，也就是说每次等待 500 毫秒至 1 秒间不等
-    #   @param [Integer] upload_block_size 上传分块尺寸，尺寸越小越适合弱网环境，必须是 4 MB 的倍数。单位为字节，默认为 4 MB
-    #   @param [Integer] upload_threshold 如果上传文件尺寸大于该值，将自动使用分片上传，否则，使用表单上传。单位为字节，默认为 4 MB
-    #   @param [Utils::Duration] upload_token_lifetime 上传凭证有效期，默认为 1 小时
-    #   @param [Boolean] upload_recorder_always_flush_records 设置进度记录文件始终刷新，默认不刷新
-    #   @param [String] upload_recorder_root_directory 设置上传进度记录仪文件根目录
-    #   @param [Utils::Duration] upload_recorder_upload_block_lifetime 设置文件分块有效期。对于超过有效期的分块，SDK 将重新上传，确保所有分块在创建文件时均有效，默认为 7 天，这是七牛公有云默认的配置。对于私有云的情况，需要参照私有云的配置来设置
-    #   @param [Symbol] uplog_file_lock_policy 设置文件锁策略，默认为 "在追加日志时为日志文件加共享锁，而上传时使用排他锁"
-    #   @param [Integer] uplog_file_max_size 设置上传日志文件的最大尺寸，单位为字节，默认为 4 MB
-    #   @param [String] uplog_file_path 设置上传日志文件路径
-    #   @param [Integer] uplog_file_upload_threshold 设置上传日志文件的上传阙值，单位为字节，默认为 4 KB
+    # 创建客户端实例
+    # @param [Boolean] use_https 是否使用 HTTPS 协议，默认为使用 HTTPS 协议
+    # @param [String] api_host API 服务器地址（仅需要指定主机地址和端口，无需包含协议），默认将会使用七牛公有云的 API 服务器地址，仅在使用私有云时才需要配置
+    # @param [String] rs_host RS 服务器地址（仅需要指定主机地址和端口，无需包含协议），默认将会使用七牛公有云的 RS 服务器地址，仅在使用私有云时才需要配置
+    # @param [String] rsf_host RSF 服务器地址（仅需要指定主机地址和端口，无需包含协议），默认将会使用七牛公有云的 RSF 服务器地址，仅在使用私有云时才需要配置
+    # @param [String] uc_host UC 服务器地址（仅需要指定主机地址和端口，无需包含协议），默认将会使用七牛公有云的 UC 服务器地址，仅在使用私有云时才需要配置
+    # @param [String] uplog_host UpLog 服务器地址（仅需要指定主机地址和端口，无需包含协议），默认将会使用七牛公有云的 UpLog 服务器地址，仅在使用私有云时才需要配置
+    # @param [Integer] batch_max_operation_size 最大批量操作数，默认为 1000
+    # @param [Utils::Duration] http_connect_timeout HTTP 请求连接超时时长，默认为 5 秒
+    # @param [Utils::Duration] http_request_timeout HTTP 请求超时时长，默认为 5 分钟
+    # @param [Utils::Duration] tcp_keepalive_idle_timeout TCP KeepAlive 空闲时长，默认为 5 分钟
+    # @param [Utils::Duration] tcp_keepalive_probe_interval TCP KeepAlive 探测包的发送间隔，默认为 5 秒
+    # @param [Integer] http_low_transfer_speed HTTP 最低传输速度，与 http_low_transfer_speed_timeout 配合使用，单位为字节/秒，默认为 1024 字节/秒
+    # @param [Utils::Duration] http_low_transfer_speed_timeout HTTP 最低传输速度维持时长，与 http_low_transfer_speed 配合使用，默认为 30 秒
+    # @param [Integer] http_request_retries HTTP 请求重试次数，当 SDK 发送 HTTP 请求时发生错误，且该错误可以通过重试来解决时，SDK 将重试的次数。默认为 3 次
+    # @param [Utils::Duration] http_request_retry_delay HTTP 请求重试前等待时间，当 SDK 发送 HTTP 请求时发生错误，且该错误可以通过重试来解决时，SDK 将等待一段时间并且重试，每次实际等待时长为该项值的 50% - 100% 之间的随机时长。默认为 1 秒，也就是说每次等待 500 毫秒至 1 秒间不等
+    # @param [Integer] upload_block_size 上传分块尺寸，尺寸越小越适合弱网环境，必须是 4 MB 的倍数。单位为字节，默认为 4 MB
+    # @param [Integer] upload_threshold 如果上传文件尺寸大于该值，将自动使用分片上传，否则，使用表单上传。单位为字节，默认为 4 MB
+    # @param [Utils::Duration] upload_token_lifetime 上传凭证有效期，默认为 1 小时
+    # @param [Boolean] upload_recorder_always_flush_records 设置进度记录文件始终刷新，默认不刷新
+    # @param [String] upload_recorder_root_directory 设置上传进度记录仪文件根目录
+    # @param [Utils::Duration] upload_recorder_upload_block_lifetime 设置文件分块有效期。对于超过有效期的分块，SDK 将重新上传，确保所有分块在创建文件时均有效，默认为 7 天，这是七牛公有云默认的配置。对于私有云的情况，需要参照私有云的配置来设置
+    # @param [Symbol] uplog_file_lock_policy 设置文件锁策略，默认为 "在追加日志时为日志文件加共享锁，而上传时使用排他锁"
+    # @param [Integer] uplog_file_max_size 设置上传日志文件的最大尺寸，单位为字节，默认为 4 MB
+    # @param [String] uplog_file_path 设置上传日志文件路径
+    # @param [Integer] uplog_file_upload_threshold 设置上传日志文件的上传阙值，单位为字节，默认为 4 KB
+    # @return [Config] 返回创建的客户端配置实例
+    def self.create(use_https: nil,
+                    api_host: nil,
+                    rs_host: nil,
+                    rsf_host: nil,
+                    uc_host: nil,
+                    uplog_host: nil,
+                    batch_max_operation_size: nil,
+                    http_connect_timeout: nil,
+                    http_low_transfer_speed: nil,
+                    http_low_transfer_speed_timeout: nil,
+                    http_request_retries: nil,
+                    http_request_retry_delay: nil,
+                    http_request_timeout: nil,
+                    tcp_keepalive_idle_timeout: nil,
+                    tcp_keepalive_probe_interval: nil,
+                    upload_block_size: nil,
+                    upload_threshold: nil,
+                    upload_token_lifetime: nil,
+                    upload_recorder_always_flush_records: nil,
+                    upload_recorder_root_directory: nil,
+                    upload_recorder_upload_block_lifetime: nil,
+                    uplog_file_lock_policy: nil,
+                    uplog_file_max_size: nil,
+                    uplog_file_path: nil,
+                    uplog_file_upload_threshold: nil)
+      builder = Builder.new
+      generate_default = true
+      unless use_https.nil?
+        builder.use_https = use_https
+        generate_default = false
+      end
+      unless api_host.nil?
+        builder.api_host = api_host
+        generate_default = false
+      end
+      unless rs_host.nil?
+        builder.rs_host = rs_host
+        generate_default = false
+      end
+      unless rsf_host.nil?
+        builder.rsf_host = rsf_host
+        generate_default = false
+      end
+      unless uc_host.nil?
+        builder.uc_host = uc_host
+        generate_default = false
+      end
+      unless uplog_host.nil?
+        builder.uplog_host = uplog_host
+        generate_default = false
+      end
+      unless batch_max_operation_size.nil?
+        builder.batch_max_operation_size = batch_max_operation_size
+        generate_default = false
+      end
+      unless http_connect_timeout.nil?
+        builder.http_connect_timeout = http_connect_timeout
+        generate_default = false
+      end
+      unless http_low_transfer_speed.nil?
+        builder.http_low_transfer_speed = http_low_transfer_speed
+        generate_default = false
+      end
+      unless http_low_transfer_speed_timeout.nil?
+        builder.http_low_transfer_speed_timeout = http_low_transfer_speed_timeout
+        generate_default = false
+      end
+      unless http_request_retries.nil?
+        builder.http_request_retries = http_request_retries
+        generate_default = false
+      end
+      unless http_request_retry_delay.nil?
+        builder.http_request_retry_delay = http_request_retry_delay
+        generate_default = false
+      end
+      unless http_request_timeout.nil?
+        builder.http_request_timeout = http_request_timeout
+        generate_default = false
+      end
+      unless tcp_keepalive_idle_timeout.nil?
+        builder.tcp_keepalive_idle_timeout = tcp_keepalive_idle_timeout
+        generate_default = false
+      end
+      unless tcp_keepalive_probe_interval.nil?
+        builder.tcp_keepalive_probe_interval = tcp_keepalive_probe_interval
+        generate_default = false
+      end
+      unless upload_block_size.nil?
+        builder.upload_block_size = upload_block_size
+        generate_default = false
+      end
+      unless upload_threshold.nil?
+        builder.upload_threshold = upload_threshold
+        generate_default = false
+      end
+      unless upload_token_lifetime.nil?
+        builder.upload_token_lifetime = upload_token_lifetime
+        generate_default = false
+      end
+      unless upload_recorder_always_flush_records.nil?
+        builder.upload_recorder_always_flush_records = upload_recorder_always_flush_records
+        generate_default = false
+      end
+      unless upload_recorder_root_directory.nil?
+        builder.upload_recorder_root_directory = upload_recorder_root_directory
+        generate_default = false
+      end
+      unless upload_recorder_upload_block_lifetime.nil?
+        builder.upload_recorder_upload_block_lifetime = upload_recorder_upload_block_lifetime
+        generate_default = false
+      end
+      unless uplog_file_lock_policy.nil?
+        builder.uplog_file_lock_policy = uplog_file_lock_policy
+        generate_default = false
+      end
+      unless uplog_file_max_size.nil?
+        builder.uplog_file_max_size = uplog_file_max_size
+        generate_default = false
+      end
+      unless uplog_file_path.nil?
+        builder.uplog_file_path = uplog_file_path
+        generate_default = false
+      end
+      unless uplog_file_upload_threshold.nil?
+        builder.uplog_file_upload_threshold = uplog_file_upload_threshold
+        generate_default = false
+      end
+      config_ffi = QiniuNg::Error.wrap_ffi_function do
+                     if generate_default
+                       Bindings::Config.new_default
+                     else
+                       Bindings::Config.build(builder.instance_variable_get(:@builder))
+                     end
+                   end
+      new(config_ffi)
+    end
 
     # @!visibility private
     def inspect
@@ -342,7 +417,10 @@ module QiniuNg
       # 生成客户端配置
       # @return [Config] 返回新建的客户端配置实例
       def build!
-        Config.new(builder: self)
+        config_ffi = QiniuNg::Error.wrap_ffi_function do
+                       Bindings::Config.build(@builder)
+                     end
+        Config.send(:new, config_ffi)
       ensure
         @builder = self.class.send(:new_default)
       end

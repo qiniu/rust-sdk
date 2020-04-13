@@ -7,12 +7,12 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
   if RUBY_ENGINE != 'jruby'
     context '#upload_file' do
       it 'should upload files by io' do
-        config = QiniuNg::Config.new
-        batch_uploader = QiniuNg::Storage::Uploader.new.batch_uploader(bucket_name: 'z0-bucket',
-                                                                       credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']))
+        credential = QiniuNg::Credential.create(ENV['access_key'], ENV['secret_key'])
+        batch_uploader = QiniuNg::Storage::Uploader.create.batch_uploader(bucket_name: 'z0-bucket', credential: credential)
         batch_uploader.thread_pool_size = 8
         completed = Concurrent::AtomicFixnum.new
         errref = Concurrent::AtomicReference.new
+        infos = []
         8.times do |idx|
           tempfile = Tempfile.create('测试', encoding: 'ascii-8bit')
           tempfile.write(SecureRandom.random_bytes(rand(1 << 23)))
@@ -20,6 +20,7 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
           etag = QiniuNg::Utils::Etag.from_io(tempfile)
           tempfile.rewind
           key = "测试-#{idx}-#{Time.now.to_i}"
+          infos.push(key: key, size: tempfile.size, etag: etag)
           batch_uploader.upload_file(tempfile, key: key) do |response, err|
             begin
               expect(err).to be_nil
@@ -39,15 +40,28 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
 
         expect(errref.get).to be_nil
         expect(completed.value).to eq 8
+
+        client = QiniuNg::Client.create(credential: credential)
+        bucket = client.bucket('z0-bucket')
+
+        infos.each do |info|
+          object = bucket.object(info[:key])
+          stat = object.stat
+          expect(stat.size).to eq(info[:size])
+          expect(stat.hash).to eq(info[:etag])
+          expect(Time.now).to be_within(240).of(stat.uploaded_at)
+
+          object.delete!
+        end
       end
 
       it 'should upload files by path' do
-        config = QiniuNg::Config.new
-        batch_uploader = QiniuNg::Storage::Uploader.new.batch_uploader(bucket_name: 'z0-bucket',
-                                                                       credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']))
+        credential = QiniuNg::Credential.create(ENV['access_key'], ENV['secret_key'])
+        batch_uploader = QiniuNg::Storage::Uploader.create.batch_uploader(bucket_name: 'z0-bucket', credential: credential)
         batch_uploader.thread_pool_size = 8
         completed = Concurrent::AtomicFixnum.new
         errref = Concurrent::AtomicReference.new
+        infos = []
         8.times do |idx|
           tempfile = Tempfile.create('测试', encoding: 'ascii-8bit')
           file_size = rand(1 << 23)
@@ -56,6 +70,7 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
           etag = QiniuNg::Utils::Etag.from_io(tempfile)
           tempfile.rewind
           key = "测试-#{idx}-#{Time.now.to_i}"
+          infos.push(key: key, size: tempfile.size, etag: etag)
           on_uploading_progress = ->(uploaded, total) do
                                     expect(total >= file_size).to be true
                                     expect(uploaded <= total).to be true
@@ -77,6 +92,19 @@ RSpec.describe QiniuNg::Storage::Uploader::BatchUploader do
         GC.start
         expect(errref.get).to be_nil
         expect(completed.value).to eq 8
+
+        client = QiniuNg::Client.create(credential: credential)
+        bucket = client.bucket('z0-bucket')
+
+        infos.each do |info|
+          object = bucket.object(info[:key])
+          stat = object.stat
+          expect(stat.size).to eq(info[:size])
+          expect(stat.hash).to eq(info[:etag])
+          expect(Time.now).to be_within(240).of(stat.uploaded_at)
+
+          object.delete!
+        end
       end
     end
   end

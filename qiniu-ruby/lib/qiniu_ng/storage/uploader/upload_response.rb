@@ -18,11 +18,12 @@ module QiniuNg
         # 上传响应中的校验和字段
         # @return [String,nil] 返回上传响应中的校验和字段
         def hash
-          data = FFI::MemoryPointer.new(256)
-          data_len = Bindings::CoreFFI::Size.new
-          @upload_response.get_hash(data, data_len)
-          return nil if data_len[:value].zero?
-          data.read_string(data_len[:value])
+          @cache[:hash] ||= begin
+                              data = FFI::MemoryPointer.new(256)
+                              data_len = Bindings::CoreFFI::Size.new
+                              @upload_response.get_hash(data, data_len)
+                              data.read_string(data_len[:value]) unless data_len[:value].zero?
+                            end
         end
 
         # 上传响应中的对象名称字段

@@ -1,8 +1,7 @@
 RSpec.describe QiniuNg::Storage::Region do
   context '#query' do
     it 'should query region by access key and region id' do
-      config = QiniuNg::Config.new
-      regions = QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket', config: config)
+      regions = QiniuNg::Storage::Region.query(access_key: ENV['access_key'], bucket_name: 'z0-bucket')
       expect(regions.size).to eq 2
 
       expect(regions[0].id).to be_nil

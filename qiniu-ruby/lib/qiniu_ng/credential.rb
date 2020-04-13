@@ -5,9 +5,19 @@ module QiniuNg
   #
   # 七牛认证信息仅包含 Access Key 和 Secret Key。主要用于签名七牛的凭证
   class Credential
-    def initialize(access_key, secret_key)
-      @credential = Bindings::Credential.new!(access_key.to_s, secret_key.to_s)
+    # @!visibility private
+    def initialize(credential_ffi)
+      @credential = credential_ffi
       @cache = {}
+    end
+    private_class_method :new
+
+    # 创建认证信息
+    # @param [String] access_key 七牛 Access Key
+    # @param [String] secret_key 七牛 Secret Key
+    # @return [Credential] 返回认证信息实例
+    def self.create(access_key, secret_key)
+      new(Bindings::Credential.new!(access_key.to_s, secret_key.to_s))
     end
 
     # 获取 Access Key
@@ -49,6 +59,7 @@ module QiniuNg
     end
 
     # @!visibility private
+    # TODO: 考虑将该类通用化
     class Signature < String
       def initialize(str)
         @str = str

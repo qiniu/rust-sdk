@@ -6,13 +6,16 @@ require 'concurrent-ruby'
 RSpec.describe QiniuNg::Storage::Uploader do
   context '#upload_file' do
     it 'should upload file by io' do
-      uploader = QiniuNg::Storage::Uploader.new
-      credential = QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key'])
+      uploader = QiniuNg::Storage::Uploader.create
+      credential = QiniuNg::Credential.create(ENV['access_key'], ENV['secret_key'])
+      client = QiniuNg::Client.create(credential: credential)
+      bucket = client.bucket(upload_bucket_name)
       Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
         4.times { file.write(SecureRandom.random_bytes(rand(1 << 25))) }
         file.rewind
 
         key = "测试-#{Time.now.to_i}-#{rand(2**64 - 1)}"
+        object = bucket.object(key)
 
         err = Concurrent::AtomicReference.new
         last_uploaded, mutex, file_size = -1, Mutex.new, file.size
@@ -44,15 +47,25 @@ RSpec.describe QiniuNg::Storage::Uploader do
         expect(j['key']).to eq(key)
         expect(err.get).to be_nil
         expect(last_uploaded).to eq file_size
+
+        stat = object.stat
+        expect(stat.size).to eq(file.size)
+        expect(stat.hash).to eq(etag)
+        expect(Time.now).to be_within(30).of(stat.uploaded_at)
+
+        object.delete!
       end
     end
 
     it 'should upload customized io' do
-      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(upload_bucket_name, QiniuNg::Config.new)
+      client = QiniuNg::Client.create(access_key: ENV['access_key'], secret_key: ENV['secret_key'])
+      bucket = client.bucket(upload_bucket_name)
+      upload_token = QiniuNg::Storage::Uploader::UploadPolicy::Builder.new_for_bucket(upload_bucket_name)
                                                                       .return_body(%[{"key":"$(key)","hash":"$(etag)","fsize":$(fsize),"bucket":"$(bucket)","name":"$(x:name)"}])
                                                                       .build_token(access_key: ENV['access_key'], secret_key: ENV['secret_key'])
-      uploader = QiniuNg::Storage::Uploader.new
+      uploader = QiniuNg::Storage::Uploader.create
       key = "测试-#{Time.now.to_i}-#{rand(2**64 - 1)}"
+      object = bucket.object(key)
 
       io = StringIO.new SecureRandom.random_bytes(1 << 24)
       etag = QiniuNg::Utils::Etag.from_io(io)
@@ -91,18 +104,29 @@ RSpec.describe QiniuNg::Storage::Uploader do
       expect(j['name']).to eq(key)
       expect(err.get).to be_nil
       expect(last_uploaded).to eq io_size
+
+      stat = object.stat
+      expect(stat.size).to eq(1 << 24)
+      expect(stat.hash).to eq(etag)
+      expect(Time.now).to be_within(30).of(stat.uploaded_at)
+
+      object.delete!
     end
   end
 
   context '#upload_file_path' do
     it 'should upload file by path' do
-      uploader = QiniuNg::Storage::Uploader.new
-      credential = QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key'])
+      uploader = QiniuNg::Storage::Uploader.create
+      credential = QiniuNg::Credential.create(ENV['access_key'], ENV['secret_key'])
+      client = QiniuNg::Client.create credential: credential
+      bucket = client.bucket(upload_bucket_name)
       Tempfile.create('测试', encoding: 'ascii-8bit') do |file|
         4.times { file.write(SecureRandom.random_bytes(rand(1 << 25))) }
         file.rewind
         etag = QiniuNg::Utils::Etag.from_io(file)
         key = "测试-#{Time.now.to_i}-#{rand(2**64 - 1)}"
+        object = bucket.object(key)
+
         err = Concurrent::AtomicReference.new
         last_uploaded, mutex, file_size = -1, Mutex.new, file.size
         on_uploading_progress = ->(uploaded, total) do
@@ -128,6 +152,13 @@ RSpec.describe QiniuNg::Storage::Uploader do
         expect(j['key']).to eq(key)
         expect(err.get).to be_nil
         expect(last_uploaded).to eq file_size
+
+        stat = object.stat
+        expect(stat.size).to eq(file.size)
+        expect(stat.hash).to eq(etag)
+        expect(Time.now).to be_within(30).of(stat.uploaded_at)
+
+        object.delete!
       end
     end
   end

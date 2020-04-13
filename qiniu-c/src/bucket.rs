@@ -296,9 +296,14 @@ pub extern "C" fn qiniu_ng_bucket_new(
 ) -> qiniu_ng_bucket_t {
     let client = Option::<Box<Client>>::from(client).unwrap();
     let bucket_name = unsafe { ucstr::from_ptr(bucket_name) }.to_string().unwrap();
-    qiniu_ng_bucket_t::from(client.storage().bucket(bucket_name).build()).tap(|_| {
-        let _ = qiniu_ng_client_t::from(client);
-    })
+    client
+        .storage()
+        .bucket(bucket_name)
+        .build()
+        .tap(|_| {
+            let _ = qiniu_ng_client_t::from(client);
+        })
+        .into()
 }
 
 /// @brief 释放存储空间实例

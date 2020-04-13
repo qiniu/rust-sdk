@@ -14,6 +14,17 @@ module QiniuNg
       private_class_method :new
 
       # 创建新的存储区域
+      # @param [String] region_id 区域 ID
+      # @param [Array<String>] up_http_urls Up HTTP URL 列表
+      # @param [Array<String>] up_https_urls Up HTTPS URL 列表
+      # @param [Array<String>] rs_http_urls Rs HTTP URL 列表
+      # @param [Array<String>] rs_https_urls Rs HTTPS URL 列表
+      # @param [Array<String>] rsf_http_urls Rsf HTTP URL 列表
+      # @param [Array<String>] rsf_https_urls Rsf HTTPS URL 列表
+      # @param [Array<String>] io_http_urls IO HTTP URL 列表
+      # @param [Array<String>] io_https_urls IO HTTPS URL 列表
+      # @param [Array<String>] api_http_urls API HTTP URL 列表
+      # @param [Array<String>] api_https_urls API HTTPS URL 列表
       # @return [Region] 返回新建的存储区域
       # @raise [Argument] 非法的区域 ID
       def self.create(region_id: nil,
@@ -46,10 +57,10 @@ module QiniuNg
       #
       # @param [String] access_key 七牛 Access Key
       # @param [String] bucket_name 存储空间名称
-      # @param [Config] config 客户端配置
+      # @param [Config] config 客户端配置，默认为默认配置
       # @return [Array<Region>] 区域列表，区域列表中第一个区域是当前存储空间所在区域，之后的区域则是备用区域
       # @raise [ArgumentError] config 参数错误
-      def self.query(access_key:, bucket_name:, config:)
+      def self.query(access_key:, bucket_name:, config: Config.create)
         raise ArgumentError, 'config must be instance of Config' unless config.is_a?(Config)
         regions = QiniuNg::Error.wrap_ffi_function do
                     Bindings::Region.query(bucket_name.to_s, access_key.to_s, config.instance_variable_get(:@config))

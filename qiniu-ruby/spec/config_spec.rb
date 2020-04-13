@@ -8,23 +8,23 @@ require 'json'
 RSpec.describe QiniuNg::Config do
   context QiniuNg::Config do
     it 'should be ok to construct config and get attributes from it' do
-      config = QiniuNg::Config.new(use_https: true,
-                                   api_host: 'api.fake.com',
-                                   rs_host: 'rs.fake.com',
-                                   rsf_host: 'rsf.fake.com',
-                                   batch_max_operation_size: 1000,
-                                   http_connect_timeout: QiniuNg::Utils::Duration::new(seconds: 30),
-                                   http_low_transfer_speed: 1024,
-                                   http_low_transfer_speed_timeout: QiniuNg::Utils::Duration::new(minute: 1),
-                                   http_request_retries: 5,
-                                   http_request_retry_delay: QiniuNg::Utils::Duration::new(second: 1),
-                                   http_request_timeout: QiniuNg::Utils::Duration::new(minutes: 5),
-                                   tcp_keepalive_idle_timeout: QiniuNg::Utils::Duration::new(minutes: 5),
-                                   tcp_keepalive_probe_interval: QiniuNg::Utils::Duration::new(seconds: 5),
-                                   upload_block_size: 1 << 22,
-                                   upload_threshold: 1 << 22,
-                                   upload_token_lifetime: QiniuNg::Utils::Duration::new(hours: 2),
-                                   upload_recorder_always_flush_records: true)
+      config = QiniuNg::Config.create(use_https: true,
+                                      api_host: 'api.fake.com',
+                                      rs_host: 'rs.fake.com',
+                                      rsf_host: 'rsf.fake.com',
+                                      batch_max_operation_size: 1000,
+                                      http_connect_timeout: QiniuNg::Utils::Duration::new(seconds: 30),
+                                      http_low_transfer_speed: 1024,
+                                      http_low_transfer_speed_timeout: QiniuNg::Utils::Duration::new(minute: 1),
+                                      http_request_retries: 5,
+                                      http_request_retry_delay: QiniuNg::Utils::Duration::new(second: 1),
+                                      http_request_timeout: QiniuNg::Utils::Duration::new(minutes: 5),
+                                      tcp_keepalive_idle_timeout: QiniuNg::Utils::Duration::new(minutes: 5),
+                                      tcp_keepalive_probe_interval: QiniuNg::Utils::Duration::new(seconds: 5),
+                                      upload_block_size: 1 << 22,
+                                      upload_threshold: 1 << 22,
+                                      upload_token_lifetime: QiniuNg::Utils::Duration::new(hours: 2),
+                                      upload_recorder_always_flush_records: true)
       expect(config.user_agent).to be_start_with('QiniuRust/qiniu-ng-')
       expect(config.user_agent).to be_include('/qiniu-ruby/')
       expect(config.user_agent).to be_include("/#{RUBY_ENGINE}/")
@@ -57,23 +57,23 @@ RSpec.describe QiniuNg::Config do
     end
 
     it 'should accept hash directly for duration related config items' do
-      config = QiniuNg::Config.new(use_https: true,
-                                   api_host: 'api.fake.com',
-                                   rs_host: 'rs.fake.com',
-                                   rsf_host: 'rsf.fake.com',
-                                   batch_max_operation_size: 1000,
-                                   http_connect_timeout: { seconds: 30 },
-                                   http_low_transfer_speed: 1024,
-                                   http_low_transfer_speed_timeout: { minute: 1 },
-                                   http_request_retries: 5,
-                                   http_request_retry_delay: { second: 1 },
-                                   http_request_timeout: { minutes: 5 },
-                                   tcp_keepalive_idle_timeout: { minutes: 5 },
-                                   tcp_keepalive_probe_interval: { seconds: 5 },
-                                   upload_block_size: 1 << 22,
-                                   upload_threshold: 1 << 22,
-                                   upload_token_lifetime: { hours: 2 },
-                                   upload_recorder_always_flush_records: true)
+      config = QiniuNg::Config.create(use_https: true,
+                                      api_host: 'api.fake.com',
+                                      rs_host: 'rs.fake.com',
+                                      rsf_host: 'rsf.fake.com',
+                                      batch_max_operation_size: 1000,
+                                      http_connect_timeout: { seconds: 30 },
+                                      http_low_transfer_speed: 1024,
+                                      http_low_transfer_speed_timeout: { minute: 1 },
+                                      http_request_retries: 5,
+                                      http_request_retry_delay: { second: 1 },
+                                      http_request_timeout: { minutes: 5 },
+                                      tcp_keepalive_idle_timeout: { minutes: 5 },
+                                      tcp_keepalive_probe_interval: { seconds: 5 },
+                                      upload_block_size: 1 << 22,
+                                      upload_threshold: 1 << 22,
+                                      upload_token_lifetime: { hours: 2 },
+                                      upload_recorder_always_flush_records: true)
       expect(config.batch_max_operation_size).to eq 1000
       expect(config.http_connect_timeout.to_i).to eq 30
       expect(config.http_low_transfer_speed).to eq 1024
@@ -93,11 +93,11 @@ RSpec.describe QiniuNg::Config do
 
     it 'should not accept value which is out of range' do
       expect do
-        QiniuNg::Config.new(batch_max_operation_size: -1)
+        QiniuNg::Config.create(batch_max_operation_size: -1)
       end.to raise_error(RangeError)
 
       expect do
-        QiniuNg::Config.new(batch_max_operation_size: 1 << 32)
+        QiniuNg::Config.create(batch_max_operation_size: 1 << 32)
       end.to raise_error(RangeError)
     end
   end
@@ -198,10 +198,10 @@ RSpec.describe QiniuNg::Config do
         end
         config = builder.build!
         GC.start
-        QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
-                                                         bucket_name: 'z0-bucket',
-                                                         credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
-                                                         key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
+        QiniuNg::Storage::Uploader.create(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
+                                                            bucket_name: 'z0-bucket',
+                                                            credential: QiniuNg::Credential.create(ENV['access_key'], ENV['secret_key']),
+                                                            key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
         expect(handler_called).to be_true
       end
 
@@ -230,10 +230,10 @@ RSpec.describe QiniuNg::Config do
         end
         config = builder.build!
         GC.start
-        QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
-                                                         bucket_name: 'z0-bucket',
-                                                         credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
-                                                         key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
+        QiniuNg::Storage::Uploader.create(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
+                                                            bucket_name: 'z0-bucket',
+                                                            credential: QiniuNg::Credential.create(ENV['access_key'], ENV['secret_key']),
+                                                            key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
         # TODO: Clean uploaded file
         expect(ref_cnt.value).to eq 3
       end
@@ -246,10 +246,10 @@ RSpec.describe QiniuNg::Config do
         config = builder.build!
         GC.start
         expect do
-          QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
-                                                           bucket_name: 'z0-bucket',
-                                                           credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
-                                                           key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
+          QiniuNg::Storage::Uploader.create(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
+                                                              bucket_name: 'z0-bucket',
+                                                              credential: QiniuNg::Credential.create(ENV['access_key'], ENV['secret_key']),
+                                                              key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
         end.to raise_error(QiniuNg::Error::IOError, 'test error')
       end
 
@@ -261,10 +261,10 @@ RSpec.describe QiniuNg::Config do
         config = builder.build!
         GC.start
         begin
-          QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
-                                                           bucket_name: 'z0-bucket',
-                                                           credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
-                                                           key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
+          QiniuNg::Storage::Uploader.create(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
+                                                              bucket_name: 'z0-bucket',
+                                                              credential: QiniuNg::Credential.create(ENV['access_key'], ENV['secret_key']),
+                                                              key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
           fail 'expect to raise error here'
         rescue QiniuNg::Error::OSError => e
           expect(e.errno).to eq Errno::EPERM::Errno
@@ -279,10 +279,10 @@ RSpec.describe QiniuNg::Config do
         config = builder.build!
         GC.start
         begin
-          QiniuNg::Storage::Uploader.new(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
-                                                           bucket_name: 'z0-bucket',
-                                                           credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
-                                                           key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
+          QiniuNg::Storage::Uploader.create(config).upload_io StringIO.new(SecureRandom.random_bytes(1)),
+                                                              bucket_name: 'z0-bucket',
+                                                              credential: QiniuNg::Credential.create(ENV['access_key'], ENV['secret_key']),
+                                                              key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
           fail 'expect to raise error here'
         rescue QiniuNg::Error::ResponseStatusCodeError => e
           expect(e.code).to eq 503
@@ -302,10 +302,10 @@ RSpec.describe QiniuNg::Config do
         GC.start
         io = StringIO.new(SecureRandom.random_bytes((1<<22)+1))
         begin
-          QiniuNg::Storage::Uploader.new(config).upload_io io,
-                                                           bucket_name: 'z0-bucket',
-                                                           credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
-                                                           key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
+          QiniuNg::Storage::Uploader.create(config).upload_io io,
+                                                              bucket_name: 'z0-bucket',
+                                                              credential: QiniuNg::Credential.create(ENV['access_key'], ENV['secret_key']),
+                                                              key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
           fail 'expect to raise error here'
         rescue QiniuNg::Error::ResponseStatusCodeError => e
           expect(e.code).to eq 401
@@ -323,10 +323,10 @@ RSpec.describe QiniuNg::Config do
         GC.start
         io = StringIO.new(SecureRandom.random_bytes(1))
         begin
-          QiniuNg::Storage::Uploader.new(config).upload_io io,
-                                                           bucket_name: 'z0-bucket',
-                                                           credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
-                                                           key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
+          QiniuNg::Storage::Uploader.create(config).upload_io io,
+                                                              bucket_name: 'z0-bucket',
+                                                              credential: QiniuNg::Credential.create(ENV['access_key'], ENV['secret_key']),
+                                                              key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
         rescue QiniuNg::Error::ResponseStatusCodeError => e
           expect(e.code).to eq 400
         end
@@ -348,10 +348,10 @@ RSpec.describe QiniuNg::Config do
         config = builder.build!
         GC.start
         io = StringIO.new(SecureRandom.random_bytes(1))
-        response = QiniuNg::Storage::Uploader.new(config).upload_io io,
-                                                          bucket_name: 'z0-bucket',
-                                                          credential: QiniuNg::Credential.new(ENV['access_key'], ENV['secret_key']),
-                                                          key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
+        response = QiniuNg::Storage::Uploader.create(config).upload_io io,
+                                                                       bucket_name: 'z0-bucket',
+                                                                       credential: QiniuNg::Credential.create(ENV['access_key'], ENV['secret_key']),
+                                                                       key: "测试-#{Time.now.to_i}-#{rand(2**64-1)}"
         expect(response.key).to be_nil
         expect(response.hash).to be_nil
       end
@@ -365,13 +365,13 @@ RSpec.describe QiniuNg::Config do
 
         GC.start
 
-        client = QiniuNg::Client.new access_key: ENV['access_key'],
-                                     secret_key: ENV['secret_key'],
-                                     config: config
+        client = QiniuNg::Client.create access_key: ENV['access_key'],
+                                        secret_key: ENV['secret_key'],
+                                        config: config
         client.create_bucket('test-bucket', :z1)
 
-        client = QiniuNg::Client.new access_key: ENV['access_key'],
-                                     secret_key: ENV['secret_key']
+        client = QiniuNg::Client.create access_key: ENV['access_key'],
+                                        secret_key: ENV['secret_key']
         expect(client.bucket_names).not_to include('test-bucket')
       end
 
@@ -384,9 +384,9 @@ RSpec.describe QiniuNg::Config do
 
         GC.start
 
-        client = QiniuNg::Client.new access_key: ENV['access_key'],
-                                     secret_key: ENV['secret_key'],
-                                     config: config
+        client = QiniuNg::Client.create access_key: ENV['access_key'],
+                                        secret_key: ENV['secret_key'],
+                                        config: config
         expect do
           client.create_bucket('test-bucket', :z1)
         end.to raise_error(QiniuNg::Error::UserCancelledError)

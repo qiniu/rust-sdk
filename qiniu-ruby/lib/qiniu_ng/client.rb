@@ -8,30 +8,42 @@ module QiniuNg
   #
   # 您可以通过该类作为入口调用到七牛大部分功能。
   class Client
+    # @!visibility private
+    def initialize(client_ffi)
+      @client = client_ffi
+    end
+    private_class_method :new
+
     # 创建新的七牛客户端
     #
     # @example
     #   access_key = '[Qiniu Access Key]'
     #   secret_key = '[Qiniu Secret Key]'
-    #   client = QiniuNg::Client.new access_key: access_key, secret_key: secret_key
+    #   client = QiniuNg::Client.create access_key: access_key, secret_key: secret_key
     #
-    # @param [String] access_key 七牛 Access Key
-    # @param [String] secret_key 七牛 Secret Key
+    # @param [String] access_key 七牛 Access Key，如果提供了 `credential`，则无需传入该参数
+    # @param [String] secret_key 七牛 Secret Key，如果提供了 `credential`，则无需传入该参数
+    # @param [Credential] credential 七牛认证信息，如果提供，将无需传入 `access_key` 和 `secret_key`
     # @param [Config] config 七牛客户端配置，默认将会创建默认配置
     # @return [Client] 返回新的客户端实例
     # @raise [ArgumentError] config 参数错误
-    def initialize(access_key:, secret_key:, config: nil)
+    def self.create(access_key: nil, secret_key: nil, credential: nil, config: nil)
       raise ArgumentError, 'config must be instance of Config' unless config.nil? || config.is_a?(Config)
-      @client = if config.nil?
-                  Bindings::Client.new_default(
-                    access_key.to_s,
-                    secret_key.to_s)
-                else
-                  Bindings::Client.new!(
-                    access_key.to_s,
-                    secret_key.to_s,
-                    config.instance_variable_get(:@config))
-                end
+      client = if access_key && secret_key
+                 if config.nil?
+                   Bindings::Client.new_default(access_key.to_s, secret_key.to_s)
+                 else
+                   Bindings::Client.new!(access_key.to_s, secret_key.to_s, config.instance_variable_get(:@config))
+                 end
+               elsif credential
+                 raise ArgumentError, 'credential must be instance of Credential' unless credential.nil? || credential.is_a?(Credential)
+                 if config.nil?
+                   Bindings::Client.new_default_from_credential(credential.instance_variable_get(:@credential))
+                 else
+                   Bindings::Client.new_from_credential(credential.instance_variable_get(:@credential), config.instance_variable_get(:@config))
+                 end
+               end
+      new(client)
     end
 
     # 获取 Access Key
@@ -51,19 +63,19 @@ module QiniuNg
     # 获取认证信息
     # @return [Credential] 返回认证信息
     def credential
-      @credential ||= Credential.new(self.access_key, self.secret_key)
+      @credential ||= Credential.create(self.access_key, self.secret_key)
     end
 
     # 获取客户端配置
     # @return [Config] 返回客户端配置
     def config
-      @config ||= Config::new(config: @client.get_config)
+      @config ||= Config.send(:new, @client.get_config)
     end
 
     # 创建上传管理器
     # @return [Uploader] 返回上传管理器
     def uploader
-      Storage::Uploader.new(self.config)
+      Storage::Uploader.create(self.config)
     end
 
     # 为指定 Bucket 创建存储空间上传器
@@ -84,10 +96,14 @@ module QiniuNg
     end
 
     # 获取指定的存储空间实例
-    # @param [String] name 存储空间名称
+    # @param [String] bucket_name 存储空间名称
+    # @param [Region,Symbol] region 存储空间区域，如果传入 nil 将使用懒加载自动检测。
+    #                        可以接受 {Storage::Region} 实例或符号，对于传入符号的情况，如果是 `:auto_detect` 表示立即检测，而其他符号表示区域 ID
+    # @param [Array<String>] domains 下载域名列表
+    # @param [Boolean] auto_detect_domains 是否自动检测下载域名，如果是，将首先使用传入的 domains，如果无法使用，才会选择七牛存储的下载域名
     # @return [Storage::Bucket] 返回存储空间实例
-    def bucket(name)
-      Storage::Bucket.new(client: self, bucket_name: name)
+    def bucket(bucket_name, region: nil, domains: [], auto_detect_domains: false)
+      Storage::Bucket.send(:init, self, bucket_name, region, domains, auto_detect_domains)
     end
 
     # 列出所有存储空间名称
