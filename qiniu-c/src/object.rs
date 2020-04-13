@@ -5,7 +5,10 @@ use crate::{
     utils::qiniu_ng_str_t,
 };
 use libc::{c_void, size_t};
-use qiniu_ng::storage::{bucket::Bucket, object::Object, resource::ObjectInfo};
+use qiniu_ng::storage::{
+    bucket::Bucket,
+    object::{Object, ObjectInfo},
+};
 use std::{
     mem::transmute,
     ptr::{copy_nonoverlapping, null_mut},
@@ -122,6 +125,13 @@ pub extern "C" fn qiniu_ng_object_get_key(object: qiniu_ng_object_t) -> qiniu_ng
     })
 }
 
+/// @brief 对象详细信息
+/// @details 用于记录对象的详细信息
+/// @note
+///   * 调用 `qiniu_ng_object_info_new()` 函数创建 `qiniu_ng_object_info_t` 实例。
+///   * 当 `qiniu_ng_object_info_t` 使用完毕后，请务必调用 `qiniu_ng_object_info_free()` 方法释放内存。
+/// @note
+///   该结构体数据为只读，因此可以跨线程使用
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct qiniu_ng_object_info_t(*mut c_void);
@@ -206,8 +216,8 @@ pub extern "C" fn qiniu_ng_object_info_get_size(object_info: qiniu_ng_object_inf
 
 /// @brief 获取对象信息中的校验和字段
 /// @param[in] object_info 对象详细信息
-/// @param[out] result_ptr 提供内存地址用于返回校验和字段，如果传入 `NULL` 表示不获取 `result_ptr`。且不影响其他字段的获取
-/// @param[out] result_size 用于返回校验和字段长度，如果传入 `NULL` 表示不获取 `result_size`。且不影响其他字段的获取。该字段一般返回的是 Etag，因此长度一般会等于 `ETAG_SIZE`
+/// @param[out] hash_ptr 提供内存地址用于返回校验和字段，如果传入 `NULL` 表示不获取 `hash_ptr`。且不影响其他字段的获取
+/// @param[out] hash_size 用于返回校验和字段长度，如果传入 `NULL` 表示不获取 `hash_size`。且不影响其他字段的获取。该字段一般返回的是 Etag，因此长度一般会等于 `ETAG_SIZE`
 #[no_mangle]
 pub extern "C" fn qiniu_ng_object_info_get_hash(
     object_info: qiniu_ng_object_info_t,
@@ -261,7 +271,7 @@ pub extern "C" fn qiniu_ng_object_info_get_put_time(object_info: qiniu_ng_object
 }
 
 /// @brief 释放对象详细信息实例
-/// @param[in,out] object 对象详细信息实例地址，释放完毕后该对象详细信息实例将不再可用
+/// @param[in,out] object_info 对象详细信息实例地址，释放完毕后该对象详细信息实例将不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_object_info_free(object_info: *mut qiniu_ng_object_info_t) {
     if let Some(object_info) = unsafe { object_info.as_mut() } {
@@ -271,7 +281,7 @@ pub extern "C" fn qiniu_ng_object_info_free(object_info: *mut qiniu_ng_object_in
 }
 
 /// @brief 判断对象详细信息实例是否已经被释放
-/// @param[in] object 对象详细信息实例
+/// @param[in] object_info 对象详细信息实例
 /// @retval bool 如果返回 `true` 则表示对象详细信息实例已经被释放，该实例不再可用
 #[no_mangle]
 pub extern "C" fn qiniu_ng_object_info_is_freed(object_info: qiniu_ng_object_info_t) -> bool {

@@ -7,5 +7,5 @@ pub mod manager;
 pub mod object;
 pub mod recorder;
 pub mod region;
-pub mod resource;
+mod resource;
 pub mod uploader;
