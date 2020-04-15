@@ -15,7 +15,7 @@ use winapi::shared::{
 #[cfg(not(windows))]
 use libc::{in6_addr, in_addr, AF_INET, AF_INET6};
 
-use qiniu_http::{HeaderName, Method, Request, Response, ResponseBody};
+use qiniu_http::{HeaderName, HeaderNameOwned, Headers, HeadersOwned, Method, Request, Response, ResponseBody};
 use std::{
     borrow::Cow,
     collections::{hash_map::RandomState, HashMap},
@@ -210,16 +210,16 @@ pub extern "C" fn qiniu_ng_http_request_get_header(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_http_request_get_headers(request: qiniu_ng_http_request_t) -> qiniu_ng_str_map_t {
     let request: &Request = request.into();
-    let src_headers = request.headers();
+    let src_headers: &Headers = request.headers();
     let mut dest_headers = Box::new(HashMap::<Box<ucstr>, Box<ucstr>, RandomState>::with_capacity(
         src_headers.len(),
     ));
-    src_headers.iter().for_each(|(header_name, header_value)| {
+    for (header_name, header_value) in src_headers.iter() {
         dest_headers.insert(
-            UCString::from_str(header_name.as_ref()).unwrap().into_boxed_ucstr(),
-            UCString::from_str(header_value.as_ref()).unwrap().into_boxed_ucstr(),
+            unsafe { UCString::from_str_unchecked(header_name) }.into_boxed_ucstr(),
+            unsafe { UCString::from_str_unchecked(header_value) }.into_boxed_ucstr(),
         );
-    });
+    }
     let _ = qiniu_ng_http_request_t::from(request);
     dest_headers.into()
 }
@@ -605,7 +605,7 @@ pub extern "C" fn qiniu_ng_http_response_get_header(
         qiniu_ng_str_t::from_optional_str_unchecked(
             response
                 .headers()
-                .get(&HeaderName::new(ucstr::from_ptr(header_name).to_string().unwrap()))
+                .get(&HeaderNameOwned::new(ucstr::from_ptr(header_name).to_string().unwrap()))
                 .as_ref()
                 .map(|header_value| header_value.as_ref()),
         )
@@ -622,16 +622,16 @@ pub extern "C" fn qiniu_ng_http_response_get_header(
 #[no_mangle]
 pub extern "C" fn qiniu_ng_http_response_get_headers(response: qiniu_ng_http_response_t) -> qiniu_ng_str_map_t {
     let response: &Response = response.into();
-    let src_headers = response.headers();
+    let src_headers: &HeadersOwned = response.headers();
     let mut dest_headers = Box::new(HashMap::<Box<ucstr>, Box<ucstr>, RandomState>::with_capacity(
         src_headers.len(),
     ));
-    src_headers.iter().for_each(|(header_name, header_value)| {
+    for (header_name, header_value) in src_headers.iter() {
         dest_headers.insert(
-            UCString::from_str(header_name.as_ref()).unwrap().into_boxed_ucstr(),
-            UCString::from_str(header_value.as_ref()).unwrap().into_boxed_ucstr(),
+            unsafe { UCString::from_str_unchecked(header_name) }.into_boxed_ucstr(),
+            unsafe { UCString::from_str_unchecked(header_value) }.into_boxed_ucstr(),
         );
-    });
+    }
     let _ = qiniu_ng_http_response_t::from(response);
     dest_headers.into()
 }
@@ -649,11 +649,11 @@ pub extern "C" fn qiniu_ng_http_response_set_header(
     let response: &mut Response = response.into();
     if let Some(header_value) = unsafe { header_value.as_ref() } {
         response.headers_mut().insert(
-            HeaderName::new(unsafe { ucstr::from_ptr(header_name) }.to_string().unwrap()),
+            HeaderNameOwned::new(unsafe { ucstr::from_ptr(header_name) }.to_string().unwrap()),
             unsafe { ucstr::from_ptr(header_value) }.to_string().unwrap().into(),
         );
     } else {
-        response.headers_mut().remove(&HeaderName::new(
+        response.headers_mut().remove(&HeaderNameOwned::new(
             unsafe { ucstr::from_ptr(header_name) }.to_string().unwrap(),
         ));
     }

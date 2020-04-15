@@ -798,6 +798,7 @@ mod tests {
         utils::mime,
         ConfigBuilder, Credential,
     };
+    use matches::matches;
     use qiniu_http::ResponseBuilder;
     use qiniu_test_utils::{
         http_call_mock::{fake_req_id, CallHandlers, UploadingProgressErrorMock},
@@ -826,7 +827,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -873,7 +874,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -897,7 +898,7 @@ mod tests {
                         }
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -917,7 +918,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -971,7 +972,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -995,7 +996,7 @@ mod tests {
                         }
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1015,7 +1016,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1072,7 +1073,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1102,7 +1103,7 @@ mod tests {
                         }
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1126,7 +1127,7 @@ mod tests {
                         }
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1146,7 +1147,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1219,7 +1220,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1243,7 +1244,7 @@ mod tests {
                         }
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1263,7 +1264,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1321,7 +1322,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1341,7 +1342,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1371,7 +1372,7 @@ mod tests {
                         }
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1395,7 +1396,7 @@ mod tests {
                         }
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1415,7 +1416,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1473,7 +1474,7 @@ mod tests {
                     |_, called| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1502,7 +1503,7 @@ mod tests {
                         }
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1526,7 +1527,7 @@ mod tests {
                         }
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
@@ -1546,7 +1547,7 @@ mod tests {
                     |_, _| {
                         let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-                        headers.insert("X-Reqid".into(), fake_req_id().into());
+                        headers.insert("X-Reqid".into(), fake_req_id());
                         Ok(ResponseBuilder::default()
                             .status_code(200u16)
                             .headers(headers)
