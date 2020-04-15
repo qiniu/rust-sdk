@@ -39,7 +39,7 @@ module QiniuNg
       # @param [UploadPolicy] upload_policy 上传策略，如果指定，则必须传入 `credential` 参数
       # @param [Credential] credential 认证信息，如果指定，则必须传入 `bucket_name` 或 `upload_policy` 参数
       # @return [BatchUploader] 返回批量上传器
-      # @raise [Error::BucketIsMissingInUploadToken] 上传凭证内没有存储空间相关信息
+      # @raise [ArgumentError] 参数错误
       def batch_uploader(bucket_name: nil, credential: nil, upload_policy: nil, upload_token: nil)
         uploader = case
                    when upload_token

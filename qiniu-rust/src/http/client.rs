@@ -14,24 +14,24 @@ impl Client {
         Client { config }
     }
 
-    pub(crate) fn get<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> RequestBuilder<'a> {
-        self.request_builder(Method::GET, path, hosts)
+    pub(crate) fn get<'a>(&self, path: &'a str, base_urls: &'a [&'a str]) -> RequestBuilder<'a> {
+        self.request_builder(Method::GET, path, base_urls)
     }
 
-    pub(crate) fn post<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> RequestBuilder<'a> {
-        self.request_builder(Method::POST, path, hosts)
+    pub(crate) fn post<'a>(&self, path: &'a str, base_urls: &'a [&'a str]) -> RequestBuilder<'a> {
+        self.request_builder(Method::POST, path, base_urls)
     }
 
-    pub(crate) fn put<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> RequestBuilder<'a> {
-        self.request_builder(Method::PUT, path, hosts)
+    pub(crate) fn put<'a>(&self, path: &'a str, base_urls: &'a [&'a str]) -> RequestBuilder<'a> {
+        self.request_builder(Method::PUT, path, base_urls)
     }
 
-    pub(crate) fn head<'a>(&self, path: &'a str, hosts: &'a [&'a str]) -> RequestBuilder<'a> {
-        self.request_builder(Method::HEAD, path, hosts)
+    pub(crate) fn head<'a>(&self, path: &'a str, base_urls: &'a [&'a str]) -> RequestBuilder<'a> {
+        self.request_builder(Method::HEAD, path, base_urls)
     }
 
-    fn request_builder<'a>(&self, method: Method, path: &'a str, hosts: &'a [&'a str]) -> RequestBuilder<'a> {
-        RequestBuilder::new(self.config.clone(), method, path, hosts)
+    fn request_builder<'a>(&self, method: Method, path: &'a str, base_urls: &'a [&'a str]) -> RequestBuilder<'a> {
+        RequestBuilder::new(self.config.clone(), method, path, base_urls)
     }
 
     #[allow(dead_code)]

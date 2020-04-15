@@ -8,12 +8,21 @@ use super::{
 use crate::{
     config::Config,
     credential::Credential,
-    http::{Client, Result},
+    http::{Client, Error as HTTPError, Result as HTTPResult, TokenVersion},
 };
 use assert_impl::assert_impl;
 use once_cell::sync::OnceCell;
 use rayon::ThreadPool;
-use std::{borrow::Cow, ffi::c_void, iter::Iterator, sync::Arc};
+use serde::Deserialize;
+use std::{
+    borrow::{Borrow, Cow},
+    ffi::c_void,
+    iter::Iterator,
+    result::Result,
+    sync::Arc,
+};
+use thiserror::Error;
+use url::{ParseError as UrlParseError, Url};
 
 /// 存储空间
 ///
@@ -30,6 +39,7 @@ struct BucketInner {
     domains: OnceCell<Box<[Cow<'static, str>]>>,
     rs_urls: OnceCell<Box<[String]>>,
     http_client: Client,
+    bucket_info: OnceCell<BucketInfo>,
 }
 
 /// 存储空间生成器
@@ -61,6 +71,11 @@ pub struct BucketBuilder {
 pub struct BucketRegionIter<'a> {
     bucket: &'a Bucket,
     itered: usize,
+}
+
+#[derive(Deserialize)]
+struct BucketInfo {
+    private: u8,
 }
 
 impl BucketBuilder {
@@ -122,7 +137,7 @@ impl BucketBuilder {
     ///
     /// 注意，如果调用了该方法，则不应该再调用 `region` 或 `region_id` 方法。
     /// 除非有特殊需求，否则不建议您调用该方法，而是尽量使用懒加载的方式在必要时自动检测区域
-    pub fn auto_detect_region(&mut self) -> Result<&mut Self> {
+    pub fn auto_detect_region(&mut self) -> HTTPResult<&mut Self> {
         let mut regions: Vec<Region> = Region::query(
             self.name.as_ref(),
             self.credential.access_key(),
@@ -152,21 +167,23 @@ impl BucketBuilder {
     /// // 这里 bucket 将优先使用 `cdn2.example.com` 作为下载域名，其次是 `cdn1.example.com`，最终才轮到七牛配置的下载域名
     /// let bucket = client.storage().bucket("[Bucket name]")
     ///                              .auto_detect_domains()?
-    ///                              .prepend_domain("cdn1.example.com")
-    ///                              .prepend_domain("cdn2.example.com")
+    ///                              .prepend_domain("cdn1.example.com")?
+    ///                              .prepend_domain("cdn2.example.com")?
     ///                              .build();
     /// # Ok(())
     /// # }
     /// ```
-    pub fn prepend_domain(&mut self, domain: impl Into<Cow<'static, str>>) -> &mut Self {
-        self.domains.push(domain.into());
-        self
+    pub fn prepend_domain(&mut self, domain: impl Into<Cow<'static, str>>) -> Result<&mut Self, UrlParseError> {
+        let domain = domain.into();
+        let _ = Url::parse(&("http://".to_owned() + &domain))?;
+        self.domains.push(domain);
+        Ok(self)
     }
 
     /// 自动检测下载域名
     ///
     /// 将连接七牛服务器查询当前存储空间的下载域名列表
-    pub fn auto_detect_domains(&mut self) -> Result<&mut Self> {
+    pub fn auto_detect_domains(&mut self) -> HTTPResult<&mut Self> {
         self.domains = domain::query(&self.http_client, &self.credential, self.name.as_ref())?
             .into_iter()
             .map(Cow::Owned)
@@ -212,6 +229,7 @@ impl BucketBuilder {
             backup_regions,
             domains,
             rs_urls: OnceCell::new(),
+            bucket_info: OnceCell::new(),
         }))
     }
 
@@ -241,7 +259,7 @@ impl Bucket {
     /// 存储空间区域
     ///
     /// 如果区域在存储空间生成前未指定，则该方法可能会连接七牛服务器查询当前存储空间所在区域
-    pub fn region(&self) -> Result<&Region> {
+    pub fn region(&self) -> HTTPResult<&Region> {
         self.0
             .region
             .get_or_try_init(|| {
@@ -261,7 +279,7 @@ impl Bucket {
     /// 该迭代器将首先返回当前存储空间所在区域，随后返回所有备用区域
     ///
     /// 如果区域在存储空间生成前未指定，则该方法可能会连接七牛服务器查询当前存储空间所在区域和备用区域
-    pub fn regions<'a>(&'a self) -> Result<BucketRegionIter<'a>> {
+    pub fn regions<'a>(&'a self) -> HTTPResult<BucketRegionIter<'a>> {
         self.region()?;
         Ok(BucketRegionIter {
             bucket: self,
@@ -272,7 +290,7 @@ impl Bucket {
     /// 存储空间下载域名列表
     ///
     /// 如果下载域名在存储空间生成前未指定，则该方法可能会连接七牛服务器查询当前存储空间下载域名列表
-    pub fn domains(&self) -> Result<Vec<&str>> {
+    pub fn domains(&self) -> HTTPResult<Vec<&str>> {
         let domains = self.0.domains.get_or_try_init(|| {
             Ok(domain::query(&self.0.http_client, &self.0.credential, self.name())?
                 .into_iter()
@@ -280,6 +298,17 @@ impl Bucket {
                 .collect())
         })?;
         Ok(domains.iter().map(|domain| domain.as_ref()).collect())
+    }
+
+    pub(super) fn get_domain_and_backup_domains(&self) -> DomainsResult<(&str, Vec<&str>)> {
+        let mut domains = self.domains()?;
+        match domains.pop() {
+            Some(first_domain) => {
+                domains.reverse();
+                Ok((first_domain, domains))
+            }
+            None => Err(DomainsError::NoDomainsBound),
+        }
     }
 
     /// 创建面向该存储区域的对象上传器
@@ -296,6 +325,26 @@ impl Bucket {
     /// 创建面向该存储区域的批量上传器
     pub fn batch_uploader(&self) -> BatchUploader {
         BatchUploader::new_for_bucket(self.to_owned())
+    }
+
+    /// 存储空间是否是私有的
+    pub fn is_private(&self) -> HTTPResult<bool> {
+        self.get_bucket_info().map(|info| info.private != 0)
+    }
+
+    fn get_bucket_info(&self) -> HTTPResult<&BucketInfo> {
+        self.0.bucket_info.get_or_try_init(|| {
+            let bucket_info: BucketInfo = self
+                .0
+                .http_client
+                .get("/v2/bucketInfo", &[&self.0.http_client.config().uc_url()])
+                .query("bucket".into(), self.name().into())
+                .token(TokenVersion::V2, self.0.credential.borrow().into())
+                .no_body()
+                .send()?
+                .parse_json()?;
+            Ok(bucket_info)
+        })
     }
 
     pub(super) fn rs_urls(&self) -> Vec<&str> {
@@ -362,6 +411,21 @@ impl Bucket {
     }
 }
 
+/// 存储空间域名获取错误
+#[derive(Error, Debug)]
+pub enum DomainsError {
+    /// 存储空间上没有绑定任何域名
+    #[error("No domains bound")]
+    NoDomainsBound,
+
+    /// 获取存储空间域名错误
+    #[error("Get domains error: {0}")]
+    GetDomainsError(#[from] HTTPError),
+}
+
+/// 存储空间域名获取结果
+pub type DomainsResult<T> = Result<T, DomainsError>;
+
 mod domain {
     use crate::{
         credential::Credential,
@@ -393,7 +457,7 @@ mod domain {
             .try_get_or_insert(QueryCacheKey::new(credential, bucket_name), || {
                 let results = http_client
                     .get("/v6/domain/list", &[&http_client.config().api_url()])
-                    .query("tbl", bucket_name)
+                    .query("tbl".into(), bucket_name.into())
                     .token(TokenVersion::V2, credential.borrow().into())
                     .no_body()
                     .send()?
@@ -443,7 +507,7 @@ mod tests {
     use crate::{
         config::ConfigBuilder,
         credential::Credential,
-        http::{DomainsManagerBuilder, Headers, PanickedHTTPCaller},
+        http::{DomainsManagerBuilder, HeadersOwned, PanickedHTTPCaller},
     };
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};
     use serde_json::json;
@@ -501,7 +565,7 @@ mod tests {
 
         let mock = CounterCallMock::new(JSONCallMock::new(
             200,
-            Headers::new(),
+            HeadersOwned::new(),
             json!({
                 "hosts": [{
                     "io": { "src": { "main": [ "iovip.qbox.me" ] } },
@@ -585,7 +649,7 @@ mod tests {
 
         let mock = CounterCallMock::new(JSONCallMock::new(
             200,
-            Headers::new(),
+            HeadersOwned::new(),
             json!({
                 "hosts": [{
                     "io": { "src": { "main": [ "iovip.qbox.me" ] } },
@@ -703,8 +767,8 @@ mod tests {
                     .build(),
             ),
         )
-        .prepend_domain("abc.com")
-        .prepend_domain("def.com")
+        .prepend_domain("abc.com")?
+        .prepend_domain("def.com")?
         .build();
         assert_eq!(bucket.domains()?.len(), 2);
         assert_eq!(bucket.domains()?.get(0), Some(&"def.com"));
@@ -716,7 +780,11 @@ mod tests {
     fn test_storage_bucket_prequery_domain() -> Result<(), Box<dyn Error>> {
         clear_query_cache();
 
-        let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
+        let mock = CounterCallMock::new(JSONCallMock::new(
+            200,
+            HeadersOwned::new(),
+            json!(["abc.com", "def.com"]),
+        ));
         let bucket = BucketBuilder::new(
             "test-bucket".into(),
             get_credential(),
@@ -740,7 +808,11 @@ mod tests {
     fn test_storage_cloned_bucket_query_domain() -> Result<(), Box<dyn Error>> {
         clear_query_cache();
 
-        let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
+        let mock = CounterCallMock::new(JSONCallMock::new(
+            200,
+            HeadersOwned::new(),
+            json!(["abc.com", "def.com"]),
+        ));
         let bucket = Arc::new(
             BucketBuilder::new(
                 "test-bucket".into(),
@@ -779,7 +851,11 @@ mod tests {
     fn test_storage_independent_bucket_query_domain() -> Result<(), Box<dyn Error>> {
         clear_query_cache();
 
-        let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!(["abc.com", "def.com"])));
+        let mock = CounterCallMock::new(JSONCallMock::new(
+            200,
+            HeadersOwned::new(),
+            json!(["abc.com", "def.com"]),
+        ));
         let bucket1 = Arc::new(
             BucketBuilder::new(
                 "test-bucket".into(),
@@ -823,6 +899,23 @@ mod tests {
 
         threads.into_iter().for_each(|thread| thread.join().unwrap());
         assert_eq!(mock.call_called(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_bucket_is_private() -> Result<(), Box<dyn Error>> {
+        let bucket = BucketBuilder::new(
+            "test-bucket".into(),
+            get_credential(),
+            UploadManager::new(
+                ConfigBuilder::default()
+                    .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
+                    .http_request_handler(JSONCallMock::new(200, HeadersOwned::new(), json!({"private": 1})))
+                    .build(),
+            ),
+        )
+        .build();
+        assert!(bucket.is_private()?);
         Ok(())
     }
 

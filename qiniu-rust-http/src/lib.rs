@@ -31,7 +31,7 @@ mod method;
 mod request;
 mod response;
 pub use error::{Error, ErrorKind, HTTPCallerError, HTTPCallerErrorKind, Result, RetryKind};
-pub use header::{HeaderName, HeaderValue, Headers};
+pub use header::{HeaderName, HeaderNameOwned, HeaderValue, HeaderValueOwned, Headers, HeadersOwned};
 pub use method::Method;
 pub use request::{Body as RequestBody, ProgressCallback, Request, RequestBuilder, URL};
 pub use response::{Body as ResponseBody, Response, ResponseBuilder, StatusCode};

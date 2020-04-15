@@ -6,7 +6,7 @@ use derive_builder::Builder;
 use lazy_static::lazy_static;
 use object_pool::Pool;
 use qiniu_http::{
-    Error, ErrorKind, HTTPCaller, HTTPCallerErrorKind, Headers, Method, ProgressCallback, Request, Response,
+    Error, ErrorKind, HTTPCaller, HTTPCallerErrorKind, HeadersOwned, Method, ProgressCallback, Request, Response,
     ResponseBuilder, Result, StatusCode,
 };
 use std::{
@@ -326,7 +326,7 @@ enum ProgressStatus {
 struct Context<'r> {
     request_body: Option<Cursor<&'r [u8]>>,
     response_body: Option<ResponseBody>,
-    response_headers: Option<Headers<'static>>,
+    response_headers: Option<HeadersOwned>,
     buffer_size: usize,
     temp_dir: &'r Path,
     progress_status: ProgressStatus,
@@ -398,7 +398,7 @@ impl<'r> Handler for Context<'r> {
             if let Some(response_headers) = &mut self.response_headers {
                 response_headers.insert(header_name.to_string().into(), header_value.to_string().into());
             } else {
-                let mut response_headers = Headers::with_capacity(1);
+                let mut response_headers = HeadersOwned::with_capacity(1);
                 response_headers.insert(header_name.to_string().into(), header_value.to_string().into());
                 self.response_headers = Some(response_headers);
             }

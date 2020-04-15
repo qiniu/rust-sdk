@@ -8,7 +8,6 @@ pub(crate) struct Token<'t> {
     credential: Cow<'t, Credential>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub(crate) enum Version {
     V1,

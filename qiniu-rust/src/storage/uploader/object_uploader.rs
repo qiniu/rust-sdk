@@ -428,7 +428,7 @@ mod tests {
         *,
     };
     use crate::{
-        http::{DomainsManagerBuilder, Error as HTTPError, ErrorKind as HTTPErrorKind, Headers, Method},
+        http::{DomainsManagerBuilder, Error as HTTPError, ErrorKind as HTTPErrorKind, HeadersOwned, Method},
         utils::mime,
         ConfigBuilder, Credential,
     };
@@ -471,7 +471,7 @@ mod tests {
                         )
                         + "$",
                     |_, _| {
-                        let mut headers = Headers::new();
+                        let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
@@ -491,7 +491,7 @@ mod tests {
                         )
                         + "$",
                     |_, _| {
-                        let mut headers = Headers::new();
+                        let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
@@ -511,7 +511,7 @@ mod tests {
                         )
                         + "$",
                     |_, _| {
-                        let mut headers = Headers::new();
+                        let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
@@ -568,7 +568,7 @@ mod tests {
                         )
                         + "$",
                     |_, _| {
-                        let mut headers = Headers::new();
+                        let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
@@ -599,7 +599,7 @@ mod tests {
                         } else if called >= 5 {
                             panic!("Unexpected call `PUT {}` for {} times", request.url(), called);
                         }
-                        let mut headers = Headers::new();
+                        let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()
@@ -619,7 +619,7 @@ mod tests {
                         )
                         + "$",
                     |_, _| {
-                        let mut headers = Headers::new();
+                        let mut headers = HeadersOwned::new();
                         headers.insert("Content-Type".into(), mime::JSON_MIME.into());
                         headers.insert("X-Reqid".into(), fake_req_id().into());
                         Ok(ResponseBuilder::default()

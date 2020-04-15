@@ -7,7 +7,8 @@ use super::{
 };
 use crate::{utils::mime, Config, Credential};
 use serde::Serialize;
-use std::{borrow::Cow, collections::HashMap, time::Duration};
+use std::{borrow::Cow, time::Duration};
+use url::Url;
 
 pub(crate) struct Builder<'a>(Inner<'a>);
 
@@ -18,13 +19,15 @@ impl<'a> Builder<'a> {
             method,
             base_urls,
             path,
-            query: HashMap::new(),
+            fop: Default::default(),
+            query: Default::default(),
             headers: Headers::new(),
-            body: Vec::new(),
+            body: Default::default(),
             token: None,
             read_body: false,
             idempotent: false,
             follow_redirection: false,
+            on_url_constructed: None,
             on_uploading_progress: None,
             on_downloading_progress: None,
             on_response: None,
@@ -32,13 +35,18 @@ impl<'a> Builder<'a> {
         })
     }
 
-    pub(crate) fn header<K: Into<HeaderName<'a>>, V: Into<HeaderValue<'a>>>(mut self, key: K, value: V) -> Builder<'a> {
-        self.0.headers.insert(key.into(), value.into());
+    pub(crate) fn header(mut self, key: HeaderName<'a>, value: HeaderValue<'a>) -> Builder<'a> {
+        self.0.headers.insert(key, value);
         self
     }
 
-    pub(crate) fn query<K: Into<Cow<'a, str>>, V: Into<Cow<'a, str>>>(mut self, key: K, value: V) -> Builder<'a> {
-        self.0.query.insert(key.into(), value.into());
+    pub(crate) fn fop(mut self, fop: Cow<'a, str>) -> Builder<'a> {
+        self.0.fop = fop;
+        self
+    }
+
+    pub(crate) fn query(mut self, key: Cow<'a, str>, value: Cow<'a, str>) -> Builder<'a> {
+        self.0.query.push((key, value));
         self
     }
 
@@ -54,6 +62,11 @@ impl<'a> Builder<'a> {
 
     pub(crate) fn follow_redirection(mut self) -> Builder<'a> {
         self.0.follow_redirection = true;
+        self
+    }
+
+    pub(crate) fn on_url_constructed(mut self, callback: &'a dyn Fn(&mut Url)) -> Builder<'a> {
+        self.0.on_url_constructed = Some(callback);
         self
     }
 
@@ -81,30 +94,26 @@ impl<'a> Builder<'a> {
     }
 
     pub(crate) fn accept_json(mut self) -> Builder<'a> {
-        self = self.header("Accept", mime::JSON_MIME);
+        self = self.header("Accept".into(), mime::JSON_MIME.into());
         self.0.read_body = true;
         self
     }
 
     pub(crate) fn no_body(mut self) -> Request<'a> {
-        self = self.header("Content-Type", mime::FORM_MIME);
+        self = self.header("Content-Type".into(), mime::FORM_MIME.into());
         self.build()
     }
 
-    pub(crate) fn raw_body<T: Into<Vec<u8>>, S: Into<HeaderValue<'a>>>(
-        mut self,
-        content_type: S,
-        body: T,
-    ) -> Request<'a> {
-        self = self.header("Content-Type", content_type);
-        self.0.body = body.into();
+    pub(crate) fn raw_body(mut self, content_type: HeaderValue<'a>, body: Cow<'a, [u8]>) -> Request<'a> {
+        self = self.header("Content-Type".into(), content_type);
+        self.0.body = body;
         self.build()
     }
 
-    pub(crate) fn json_body<T: Serialize>(mut self, body: &T) -> serde_json::Result<Request<'a>> {
+    pub(crate) fn json_body(mut self, body: &impl Serialize) -> serde_json::Result<Request<'a>> {
         let serialized_body = serde_json::to_vec(body)?;
-        self = self.header("Content-Type", mime::JSON_MIME);
-        self.0.body = serialized_body;
+        self = self.header("Content-Type".into(), mime::JSON_MIME.into());
+        self.0.body = Cow::Owned(serialized_body);
         Ok(self.build())
     }
 

@@ -199,7 +199,7 @@ impl<'u> FormUploader<'u> {
                 }
             })
             .accept_json()
-            .raw_body(self.content_type.to_owned(), self.body.as_slice())
+            .raw_body(Cow::Borrowed(&self.content_type), Cow::Borrowed(&self.body))
             .send()?
             .try_parse_json::<Value>()?;
         match upload_result {
@@ -218,7 +218,7 @@ mod tests {
     use crate::{
         config::ConfigBuilder,
         credential::Credential,
-        http::{DomainsManagerBuilder, Headers},
+        http::{DomainsManagerBuilder, HeadersOwned},
     };
     use qiniu_test_utils::{
         http_call_mock::{CounterCallMock, ErrorResponseMock, JSONCallMock},
@@ -231,7 +231,7 @@ mod tests {
     fn test_storage_uploader_form_uploader_upload_seekable_stream() -> Result<(), Box<dyn Error>> {
         let mock = CounterCallMock::new(JSONCallMock::new(
             200,
-            Headers::new(),
+            HeadersOwned::new(),
             json!({"key": "abc", "hash": "def"}),
         ));
         let config = ConfigBuilder::default()

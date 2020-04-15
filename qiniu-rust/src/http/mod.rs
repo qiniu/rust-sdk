@@ -3,8 +3,8 @@
 //! 负责对整个 SDK 的 HTTP 逻辑进行处理，包含 HTTP 请求的重试逻辑，HTTP 请求中间件和域名管理等。
 
 pub use qiniu_http::{
-    Error, ErrorKind, HTTPCaller, HTTPCallerErrorKind, HeaderName, HeaderValue, Headers, Method, Result, RetryKind,
-    StatusCode,
+    Error, ErrorKind, HTTPCaller, HTTPCallerErrorKind, HeaderName, HeaderNameOwned, HeaderValue, HeaderValueOwned,
+    Headers, HeadersOwned, Method, Result, RetryKind, StatusCode,
 };
 mod client;
 pub(crate) use client::Client;

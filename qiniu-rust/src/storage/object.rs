@@ -1,9 +1,10 @@
 //! 对象模块
 
 use super::{
-    bucket::Bucket,
+    bucket::{Bucket, DomainsResult},
     resource::{Delete, Stat, ToURI},
     uploader::{ObjectUploader, UploadPolicyBuilder, UploadToken},
+    url::{HeaderInfo, URL},
 };
 use crate::{
     http::{Result as HTTPResult, TokenVersion},
@@ -95,6 +96,61 @@ impl Object {
             )
             .key(Cow::Borrowed(self.key.as_ref()))
     }
+
+    /// 获取下载 URL 元信息
+    pub fn head(&self) -> DomainsResult<HeaderInfo> {
+        let header_info = self.url(Duration::from_secs(60))?.head(self.bucket().http_client())?;
+        Ok(header_info)
+    }
+
+    /// 获取下载 URL
+    ///
+    /// 该 API 将会根据当前存储空间是否私有，来决定生成的 URL
+    pub fn url(&self, lifetime: Duration) -> DomainsResult<URL> {
+        if self.bucket().is_private()? {
+            self.private_url(lifetime)
+        } else {
+            self.public_url()
+        }
+    }
+
+    /// 获取公开空间的下载 URL
+    pub fn public_url(&self) -> DomainsResult<URL> {
+        let (domain, backup_domains) = self.bucket.get_domain_and_backup_domains()?;
+        Ok(URL::new_public_url(
+            false,
+            domain.to_owned().into(),
+            backup_domains
+                .into_iter()
+                .map(|domain| domain.to_owned().into())
+                .collect(),
+            self.key.to_owned(),
+            Vec::new(),
+            "".into(),
+        ))
+    }
+
+    /// 获取私有空间的下载 URL
+    pub fn private_url(&self, lifetime: Duration) -> DomainsResult<URL> {
+        let (domain, backup_domains) = self.bucket.get_domain_and_backup_domains()?;
+        let deadline = SystemTime::now() + lifetime;
+        let deadline = deadline
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("Deadline is earlier than UNIX EPOCH");
+        Ok(URL::new_private_url(
+            self.bucket().credential().to_owned(),
+            deadline,
+            false,
+            domain.to_owned().into(),
+            backup_domains
+                .into_iter()
+                .map(|domain| domain.to_owned().into())
+                .collect(),
+            self.key.to_owned(),
+            Vec::new(),
+            "".into(),
+        ))
+    }
 }
 
 /// 对象详细信息
@@ -166,7 +222,7 @@ mod tests {
     use crate::{
         config::ConfigBuilder,
         credential::Credential,
-        http::{DomainsManagerBuilder, ErrorKind as HTTPErrorKind, Headers},
+        http::{DomainsManagerBuilder, ErrorKind as HTTPErrorKind, HeadersOwned},
     };
     use chrono::{offset::Utc, DateTime};
     use qiniu_test_utils::http_call_mock::JSONCallMock;
@@ -183,7 +239,7 @@ mod tests {
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
                     .http_request_handler(JSONCallMock::new(
                         200,
-                        Headers::new(),
+                        HeadersOwned::new(),
                         json!({
                             "fsize":        5_122_935u64,
                             "hash":         "ljfockr0lOil_bZfyaI2ZY78HWoH",
@@ -215,7 +271,7 @@ mod tests {
             UploadManager::new(
                 ConfigBuilder::default()
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
-                    .http_request_handler(JSONCallMock::new(200, Headers::new(), json!({})))
+                    .http_request_handler(JSONCallMock::new(200, HeadersOwned::new(), json!({})))
                     .build(),
             ),
         )
@@ -234,7 +290,7 @@ mod tests {
                     .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
                     .http_request_handler(JSONCallMock::new(
                         612,
-                        Headers::new(),
+                        HeadersOwned::new(),
                         json!({"error": "Document not found"}),
                     ))
                     .build(),

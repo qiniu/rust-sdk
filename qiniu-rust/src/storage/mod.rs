@@ -9,3 +9,4 @@ pub mod recorder;
 pub mod region;
 mod resource;
 pub mod uploader;
+pub mod url;

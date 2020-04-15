@@ -19,6 +19,7 @@ use std::{
     thread::sleep,
     time::{Duration, Instant},
 };
+use tap::TapOps;
 use url::Url;
 
 #[derive(Deserialize)]
@@ -87,7 +88,7 @@ impl<'a> Request<'a> {
                 .low_transfer_speed_timeout(self.0.config.http_low_transfer_speed_timeout())
                 .follow_redirection(self.0.follow_redirection)
                 .headers(self.0.headers.to_owned())
-                .body(self.0.body.as_slice());
+                .body(self.0.body.as_ref());
             if !choice.socket_addrs.is_empty() {
                 builder = builder.resolved_socket_addrs(choice.socket_addrs.as_ref());
             }
@@ -166,6 +167,10 @@ impl<'a> Request<'a> {
 
     fn make_url(&self, base_url: &str) -> HTTPResult<String> {
         let mut url = base_url.to_owned() + self.0.path;
+        if !self.0.fop.is_empty() {
+            url.push_str("?");
+            url.push_str(&self.0.fop);
+        }
         if !self.0.query.is_empty() {
             url = Url::parse_with_params(url.as_str(), &self.0.query)
                 .map_err(|err| {
@@ -176,6 +181,11 @@ impl<'a> Request<'a> {
                         None,
                     )
                 })?
+                .tap(|url| {
+                    if let Some(on_url_constructed) = self.0.on_url_constructed {
+                        on_url_constructed(url)
+                    }
+                })
                 .into_string();
         }
         Ok(url)
@@ -402,7 +412,7 @@ mod tests {
         .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Relaxed);
         })
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
         assert!(config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
@@ -441,7 +451,7 @@ mod tests {
         .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Relaxed);
         })
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
         assert!(config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
@@ -480,7 +490,7 @@ mod tests {
         .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Relaxed);
         })
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
         assert!(!config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
@@ -519,7 +529,7 @@ mod tests {
         .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Relaxed);
         })
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
         assert!(config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
@@ -558,7 +568,7 @@ mod tests {
         .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Relaxed);
         })
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
         assert!(!config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
@@ -597,7 +607,7 @@ mod tests {
         .on_error(&|_, _, _| {
             on_error_called.fetch_add(1, Relaxed);
         })
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
         assert!(!config.domains_manager().is_frozen_url("http://z1h1.com:1111")?);
@@ -625,7 +635,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
 
@@ -649,7 +659,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 2);
@@ -672,7 +682,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 1);
@@ -695,7 +705,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 2);
@@ -718,7 +728,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
         assert_eq!(mock.call_called(), 1);
@@ -774,7 +784,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
 
@@ -815,7 +825,7 @@ mod tests {
             &["http://z1h1.com:1111", "http://z1h2.com:2222"],
         )
         .token(TokenVersion::V2, get_credential().into())
-        .raw_body(mime::JSON_MIME, b"{\"test\":123}".as_ref())
+        .raw_body(mime::JSON_MIME.into(), b"{\"test\":123}".as_ref().into())
         .send()
         .is_err());
 

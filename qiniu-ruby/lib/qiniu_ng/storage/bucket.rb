@@ -38,7 +38,7 @@ module QiniuNg
           builder.auto_detect_domains
         end
         domains.each do |domain|
-          builder.prepend_domain(domain.to_s)
+          raise InvalidDomain, domain.to_s unless builder.prepend_domain(domain.to_s)
         end
         new(client, Bindings::Bucket.build(builder))
       end

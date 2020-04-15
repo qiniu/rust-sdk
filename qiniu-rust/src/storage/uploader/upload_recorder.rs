@@ -262,7 +262,7 @@ impl FileUploadRecordMedium {
             part_number,
             created_timestamp: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
-                .expect("Clock may have gone backwards")
+                .expect("Now is earlier than UNIX EPOCH")
                 .as_secs(),
         })
         .map_err(|err| Error::new(ErrorKind::Other, err))?;

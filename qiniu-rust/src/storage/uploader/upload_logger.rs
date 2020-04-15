@@ -434,8 +434,11 @@ impl TokenizedUploadLogger {
         if !log_buffer.is_empty() {
             self.http_client
                 .post("/log/3", &[self.http_client.config().uplog_url().as_ref()])
-                .header("Authorization", "UpToken ".to_owned() + &self.upload_token)
-                .raw_body("text/plain", log_buffer)
+                .header(
+                    "Authorization".into(),
+                    Cow::Owned("UpToken ".to_owned() + &self.upload_token),
+                )
+                .raw_body("text/plain".into(), log_buffer.into())
                 .send()?
                 .ignore_body();
         }
@@ -624,7 +627,7 @@ impl Default for UploadLoggerRecord<'_> {
             total_size: Default::default(),
             timestamp: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
+                .expect("Now is earlier than UNIX EPOCH")
                 .as_secs(),
         }
     }
@@ -670,7 +673,7 @@ mod tests {
     use crate::{
         config::ConfigBuilder,
         credential::Credential,
-        http::{DomainsManagerBuilder, Headers},
+        http::{DomainsManagerBuilder, HeadersOwned},
     };
     use qiniu_test_utils::http_call_mock::{CounterCallMock, JSONCallMock};
     use serde_json::json;
@@ -678,7 +681,7 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_upload_logger_upload_and_clean() -> Result<(), Box<dyn Error>> {
-        let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!({})));
+        let mock = CounterCallMock::new(JSONCallMock::new(200, HeadersOwned::new(), json!({})));
         let config = ConfigBuilder::default()
             .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
@@ -731,7 +734,7 @@ mod tests {
 
     #[test]
     fn test_storage_uploader_upload_logger_uplog_max_size() -> Result<(), Box<dyn Error>> {
-        let mock = CounterCallMock::new(JSONCallMock::new(200, Headers::new(), json!({})));
+        let mock = CounterCallMock::new(JSONCallMock::new(200, HeadersOwned::new(), json!({})));
         let config = ConfigBuilder::default()
             .http_request_handler(mock.clone())
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())

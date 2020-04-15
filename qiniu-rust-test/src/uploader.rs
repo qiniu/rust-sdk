@@ -115,7 +115,17 @@ mod tests {
         assert_eq!(object_info.size(), 1 << 19);
         assert_eq!(object_info.hash(), etag.as_str());
         assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
-        // TODO: Verify Metadata
+
+        let header_info = object.head()?;
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key1".into()),
+            Some(&"metadata_value1".into())
+        );
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key2".into()),
+            Some(&"metadata_value2".into())
+        );
+
         object.delete()?;
         Ok(())
     }
@@ -158,7 +168,17 @@ mod tests {
         assert_eq!(object_info.size(), 1 << 19);
         assert_eq!(object_info.hash(), etag.as_str());
         assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
-        // TODO: Verify Metadata
+
+        let header_info = object.head()?;
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key1".into()),
+            Some(&"metadata_value1".into())
+        );
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key2".into()),
+            Some(&"metadata_value2".into())
+        );
+
         object.delete()?;
         Ok(())
     }
@@ -200,7 +220,17 @@ mod tests {
         assert_eq!(object_info.size(), FILE_SIZE);
         assert_eq!(object_info.hash(), etag.as_str());
         assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
-        // TODO: Verify Metadata
+
+        let header_info = object.head()?;
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key1".into()),
+            Some(&"metadata_value1".into())
+        );
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key2".into()),
+            Some(&"metadata_value2".into())
+        );
+
         object.delete()?;
         Ok(())
     }
@@ -250,7 +280,17 @@ mod tests {
         assert_eq!(object_info.size(), FILE_SIZE);
         assert_eq!(object_info.hash(), etag.as_str());
         assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
-        // TODO: Verify Metadata
+
+        let header_info = object.head()?;
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key1".into()),
+            Some(&"metadata_value1".into())
+        );
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key2".into()),
+            Some(&"metadata_value2".into())
+        );
+
         object.delete()?;
         Ok(())
     }
@@ -293,7 +333,14 @@ mod tests {
         assert_eq!(object_info.size(), file_size);
         assert_eq!(object_info.hash(), etag.as_str());
         assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
-        // TODO: Verify Metadata
+
+        let header_info = object.head()?;
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key1".into()),
+            Some(&"metadata_value1".into())
+        );
+        assert_eq!(header_info.metadata().get(&"metadata_key2".into()), None,);
+
         object.delete()?;
 
         let policy = UploadPolicyBuilder::new_policy_for_bucket(bucket_name(), &config)
@@ -323,7 +370,14 @@ mod tests {
         assert_eq!(object_info.size(), file_size);
         assert_eq!(object_info.hash(), etag.as_str());
         assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
-        // TODO: Verify Metadata
+
+        let header_info = object.head()?;
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key1".into()),
+            Some(&"metadata_value1".into())
+        );
+        assert_eq!(header_info.metadata().get(&"metadata_key2".into()), None,);
+
         object.delete()?;
         Ok(())
     }
@@ -370,7 +424,14 @@ mod tests {
         assert_eq!(object_info.size(), file_size);
         assert_eq!(object_info.hash(), etag.as_str());
         assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
-        // TODO: Verify Metadata
+
+        let header_info = object.head()?;
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key1".into()),
+            Some(&"metadata_value1".into())
+        );
+        assert_eq!(header_info.metadata().get(&"metadata_key2".into()), None,);
+
         object.delete()?;
         Ok(())
     }
@@ -411,7 +472,14 @@ mod tests {
         assert_eq!(object_info.size(), file_size);
         assert_eq!(object_info.hash(), etag.as_str());
         assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
-        // TODO: Verify Metadata
+
+        let header_info = object.head()?;
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key1".into()),
+            Some(&"metadata_value1".into())
+        );
+        assert_eq!(header_info.metadata().get(&"metadata_key2".into()), None,);
+
         object.delete()?;
         Ok(())
     }
@@ -451,7 +519,14 @@ mod tests {
         assert_eq!(object_info.size(), file_size);
         assert_eq!(object_info.hash(), etag.as_str());
         assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
-        // TODO: Verify Metadata
+
+        let header_info = object.head()?;
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key1".into()),
+            Some(&"metadata_value1".into())
+        );
+        assert_eq!(header_info.metadata().get(&"metadata_key2".into()), None,);
+
         object.delete()?;
         Ok(())
     }
@@ -491,7 +566,14 @@ mod tests {
         assert_eq!(object_info.size(), file_size);
         assert_eq!(object_info.hash(), etag.as_str());
         assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
-        // TODO: Verify Metadata
+
+        let header_info = object.head()?;
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key1".into()),
+            Some(&"metadata_value1".into())
+        );
+        assert_eq!(header_info.metadata().get(&"metadata_key2".into()), None,);
+
         object.delete()?;
         Ok(())
     }
@@ -531,7 +613,14 @@ mod tests {
         assert_eq!(object_info.size(), file_size);
         assert_eq!(object_info.hash(), etag.as_str());
         assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(30));
-        // TODO: Verify Metadata
+
+        let header_info = object.head()?;
+        assert_eq!(
+            header_info.metadata().get(&"metadata_key1".into()),
+            Some(&"metadata_value1".into())
+        );
+        assert_eq!(header_info.metadata().get(&"metadata_key2".into()), None,);
+
         object.delete()?;
         Ok(())
     }
@@ -625,7 +714,7 @@ mod tests {
             assert_eq!(object_info.size(), FILE_SIZES.get(idx).unwrap().to_owned());
             assert_eq!(object_info.hash(), etags.get(idx).unwrap().as_str());
             assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(600));
-            // TODO: Verify Metadata
+
             object.delete()?;
         }
         Ok(())
@@ -706,7 +795,7 @@ mod tests {
             assert_eq!(object_info.size(), FILE_SIZES.get(idx).unwrap().to_owned());
             assert_eq!(object_info.hash(), etags.get(idx).unwrap().as_str());
             assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(600));
-            // TODO: Verify Metadata
+
             object.delete()?;
         }
         Ok(())
@@ -788,7 +877,7 @@ mod tests {
             assert_eq!(object_info.size(), FILE_SIZES.get(idx).unwrap().to_owned());
             assert_eq!(object_info.hash(), etags.get(idx).unwrap().as_str());
             assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(600));
-            // TODO: Verify Metadata
+
             object.delete()?;
         }
         Ok(())
@@ -884,7 +973,7 @@ mod tests {
             assert_eq!(object_info.size(), FILE_SIZES.get(idx).unwrap().to_owned());
             assert_eq!(object_info.hash(), etags.get(idx).unwrap().as_str());
             assert!(SystemTime::now().duration_since(object_info.uploaded_at()).unwrap() < Duration::from_secs(600));
-            // TODO: Verify Metadata
+
             object.delete()?;
         }
         Ok(())

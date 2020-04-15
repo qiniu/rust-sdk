@@ -418,8 +418,8 @@ impl Region {
                 let uc_url = config.uc_url().to_owned();
                 let result: RegionQueryResults = Client::new(config)
                     .get("/v3/query", &[&uc_url])
-                    .query("ak", access_key)
-                    .query("bucket", bucket)
+                    .query("ak".into(), access_key)
+                    .query("bucket".into(), bucket)
                     .accept_json()
                     .no_body()
                     .send()?
@@ -760,7 +760,7 @@ mod tests {
     use crate::{
         config::ConfigBuilder,
         credential::Credential,
-        http::{DomainsManagerBuilder, Headers},
+        http::{DomainsManagerBuilder, HeadersOwned},
     };
     use qiniu_test_utils::http_call_mock::JSONCallMock;
     use serde_json::json;
@@ -774,7 +774,7 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .http_request_handler(JSONCallMock::new(
                 200,
-                Headers::new(),
+                HeadersOwned::new(),
                 json!({
                     "hosts":[{
                         "io": { "src": { "main": [ "iovip.qbox.me" ] } },
@@ -837,7 +837,7 @@ mod tests {
             .domains_manager(DomainsManagerBuilder::default().disable_url_resolution().build())
             .http_request_handler(JSONCallMock::new(
                 200,
-                Headers::new(),
+                HeadersOwned::new(),
                 json!({
                     "hosts": [{
                         "io": { "src": { "main": [ "iovip-z5.qbox.me" ] } },

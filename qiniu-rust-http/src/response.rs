@@ -1,4 +1,4 @@
-use super::{HeaderName, HeaderValue, Headers};
+use super::{HeaderNameOwned, HeaderValueOwned, HeadersOwned};
 use derive_builder::Builder;
 use getset::{CopyGetters, Getters, MutGetters};
 use std::{
@@ -42,7 +42,7 @@ pub struct Response {
     #[get = "pub"]
     #[get_mut = "pub"]
     #[builder(default)]
-    headers: Headers<'static>,
+    headers: HeadersOwned,
 
     /// HTTP 响应体
     #[get = "pub"]
@@ -65,7 +65,7 @@ pub struct Response {
 
 impl Response {
     /// 获取 HTTP 响应 Header
-    pub fn header<HeaderNameT: Into<HeaderName<'static>>>(&self, header_name: HeaderNameT) -> Option<&HeaderValue> {
+    pub fn header(&self, header_name: impl Into<HeaderNameOwned>) -> Option<&HeaderValueOwned> {
         self.headers.get(&header_name.into())
     }
 
@@ -141,17 +141,17 @@ impl Response {
 
 impl ResponseBuilder {
     /// 添加 HTTP 响应 Header
-    pub fn header<HeaderNameT: Into<HeaderName<'static>>, HeaderValueT: Into<HeaderValue<'static>>>(
+    pub fn header(
         mut self,
-        header_name: HeaderNameT,
-        header_value: HeaderValueT,
+        header_name: impl Into<HeaderNameOwned>,
+        header_value: impl Into<HeaderValueOwned>,
     ) -> Self {
         match &mut self.headers {
             Some(headers) => {
                 headers.insert(header_name.into(), header_value.into());
             }
             None => {
-                let mut headers = Headers::new();
+                let mut headers = HeadersOwned::new();
                 headers.insert(header_name.into(), header_value.into());
                 self = self.headers(headers);
             }

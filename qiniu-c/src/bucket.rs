@@ -152,16 +152,21 @@ pub extern "C" fn qiniu_ng_bucket_builder_auto_detect_region(
 /// @brief 新增下载域名
 /// @param[in] builder 存储空间生成器
 /// @param[in] domain 下载域名
+/// @retval bool 下载域名是否合法，如果返回 `false`，将不会使用该域名
 /// @note 可以先调用 `qiniu_ng_bucket_builder_auto_detect_domains()` 方法然后再调用该方法，SDK 将优先使用最后新增的域名
 /// @note 调用该方法时，输入的 `domain` 将被复制并存储，因此 `domain` 的调用完毕后即可释放
 #[no_mangle]
 pub extern "C" fn qiniu_ng_bucket_builder_prepend_domain(
     builder: qiniu_ng_bucket_builder_t,
     domain: *const qiniu_ng_char_t,
-) {
+) -> bool {
     let mut builder = Option::<Box<BucketBuilder>>::from(builder).unwrap();
-    builder.prepend_domain(unsafe { ucstr::from_ptr(domain) }.to_string().unwrap());
-    let _ = qiniu_ng_bucket_builder_t::from(builder);
+    builder
+        .prepend_domain(unsafe { ucstr::from_ptr(domain) }.to_string().unwrap())
+        .is_ok()
+        .tap(|_| {
+            let _ = qiniu_ng_bucket_builder_t::from(builder);
+        })
 }
 
 /// @brief 自动检测下载域名

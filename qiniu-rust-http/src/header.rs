@@ -12,10 +12,20 @@ use std::{
 #[derive(Clone, Eq)]
 pub struct HeaderName<'n>(Cow<'n, str>);
 
+/// HTTP Header 名称
+#[derive(Clone, Eq)]
+pub struct HeaderNameOwned(String);
+
 impl<'n> HeaderName<'n> {
     /// 创建 HTTP Header 名称
     pub fn new(header_name: impl Into<Cow<'n, str>>) -> HeaderName<'n> {
         make_header_name(header_name.into())
+    }
+}
+
+impl HeaderNameOwned {
+    pub fn new<'a>(header_name: impl Into<Cow<'a, str>>) -> HeaderNameOwned {
+        HeaderName::new(header_name).into()
     }
 }
 
@@ -59,15 +69,39 @@ impl PartialEq for HeaderName<'_> {
     }
 }
 
+impl PartialEq for HeaderNameOwned {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_ref().eq_ignore_ascii_case(other.as_ref())
+    }
+}
+
 impl AsRef<str> for HeaderName<'_> {
+    #[inline]
     fn as_ref(&self) -> &str {
         self.0.as_ref()
+    }
+}
+
+impl AsRef<str> for HeaderNameOwned {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
     }
 }
 
 impl Deref for HeaderName<'_> {
     type Target = str;
 
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
+
+impl Deref for HeaderNameOwned {
+    type Target = str;
+
+    #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_ref()
     }
@@ -79,7 +113,19 @@ impl Hash for HeaderName<'_> {
     }
 }
 
+impl Hash for HeaderNameOwned {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_ref().to_uppercase().hash(state)
+    }
+}
+
 impl PartialOrd for HeaderName<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.to_ascii_lowercase().partial_cmp(&other.to_ascii_lowercase())
+    }
+}
+
+impl PartialOrd for HeaderNameOwned {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.to_ascii_lowercase().partial_cmp(&other.to_ascii_lowercase())
     }
@@ -91,9 +137,21 @@ impl Ord for HeaderName<'_> {
     }
 }
 
+impl Ord for HeaderNameOwned {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.to_ascii_lowercase().cmp(&other.to_ascii_lowercase())
+    }
+}
+
 impl<'n> From<&'n str> for HeaderName<'n> {
     fn from(s: &'n str) -> Self {
         make_header_name(s.into())
+    }
+}
+
+impl<'n> From<&'n str> for HeaderNameOwned {
+    fn from(s: &'n str) -> Self {
+        HeaderName::from(s).into()
     }
 }
 
@@ -103,9 +161,28 @@ impl From<String> for HeaderName<'_> {
     }
 }
 
+impl From<String> for HeaderNameOwned {
+    fn from(s: String) -> Self {
+        HeaderName::from(s).into()
+    }
+}
+
 impl<'n> From<Cow<'n, str>> for HeaderName<'n> {
     fn from(s: Cow<'n, str>) -> Self {
         make_header_name(s)
+    }
+}
+
+impl<'n> From<Cow<'n, str>> for HeaderNameOwned {
+    fn from(s: Cow<'n, str>) -> Self {
+        HeaderName::from(s).into()
+    }
+}
+
+impl<'n> From<HeaderName<'n>> for HeaderNameOwned {
+    #[inline]
+    fn from(s: HeaderName<'n>) -> Self {
+        Self(s.0.into_owned())
     }
 }
 
@@ -116,6 +193,18 @@ impl fmt::Debug for HeaderName<'_> {
 }
 
 impl fmt::Display for HeaderName<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.as_ref().fmt(f)
+    }
+}
+
+impl fmt::Debug for HeaderNameOwned {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.as_ref().fmt(f)
+    }
+}
+
+impl fmt::Display for HeaderNameOwned {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.as_ref().fmt(f)
     }
@@ -208,8 +297,14 @@ lazy_static! {
 /// HTTP Header 值
 pub type HeaderValue<'v> = Cow<'v, str>;
 
+/// HTTP Header 值
+pub type HeaderValueOwned = String;
+
 /// HTTP Header
 pub type Headers<'h> = HashMap<HeaderName<'h>, HeaderValue<'h>>;
+
+/// HTTP Header
+pub type HeadersOwned = HashMap<HeaderNameOwned, HeaderValueOwned>;
 
 #[cfg(test)]
 mod tests {

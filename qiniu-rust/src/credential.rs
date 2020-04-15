@@ -9,14 +9,7 @@ use hmac::Hmac;
 use qiniu_http::Request;
 use sha1::Sha1;
 use std::{
-    borrow::Cow,
-    cmp::PartialEq,
-    convert::TryFrom,
-    fmt,
-    result::Result,
-    string::String,
-    sync::Arc,
-    time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH},
+    borrow::Cow, cmp::PartialEq, convert::TryFrom, fmt, result::Result, string::String, sync::Arc, time::Duration,
 };
 use url::Url;
 
@@ -218,20 +211,9 @@ impl Credential {
         self.sign_with_data(upload_policy.as_json().as_bytes())
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn sign_download_url_with_deadline(
-        &self,
-        url: Url,
-        deadline: SystemTime,
-        only_path: bool,
-    ) -> Result<String, SystemTimeError> {
-        let mut signed_url = {
-            let mut s = String::with_capacity(2048);
-            s.push_str(url.as_str());
-            s
-        };
+    pub(crate) fn sign_download_url(&self, url: &mut Url, deadline: Duration, only_path: bool) {
         let mut to_sign = {
-            let mut s = String::with_capacity(2048);
+            let mut s = String::with_capacity(1 << 10);
             if only_path {
                 s.push_str(url.path());
                 if let Some(query) = url.query() {
@@ -246,31 +228,15 @@ impl Credential {
 
         if to_sign.contains('?') {
             to_sign.push_str("&e=");
-            signed_url.push_str("&e=");
         } else {
             to_sign.push_str("?e=");
-            signed_url.push_str("?e=");
         }
 
-        let deadline = u32::try_from(deadline.duration_since(UNIX_EPOCH)?.as_secs())
-            .unwrap_or(std::u32::MAX)
-            .to_string();
+        let deadline = u32::try_from(deadline.as_secs()).unwrap_or(std::u32::MAX).to_string();
         to_sign.push_str(&deadline);
-        signed_url.push_str(&deadline);
-        signed_url.push_str("&token=");
-        signed_url.push_str(&self.sign(to_sign.as_bytes()));
-        Ok(signed_url)
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn sign_download_url_with_lifetime(
-        &self,
-        url: Url,
-        lifetime: Duration,
-        only_path: bool,
-    ) -> Result<String, SystemTimeError> {
-        let deadline = SystemTime::now() + lifetime;
-        self.sign_download_url_with_deadline(url, deadline, only_path)
+        let mut query_pairs = url.query_pairs_mut();
+        query_pairs.append_pair("e", &deadline);
+        query_pairs.append_pair("token", &&self.sign(to_sign.as_bytes()));
     }
 }
 
@@ -305,7 +271,7 @@ impl<'a> From<&'a Credential> for Cow<'a, Credential> {
 mod tests {
     use super::*;
     use qiniu_http::RequestBuilder;
-    use std::{boxed::Box, error::Error, result::Result, thread};
+    use std::{boxed::Box, error::Error, result::Result, thread, time::Duration};
 
     #[test]
     fn test_sign() -> Result<(), Box<dyn Error>> {
@@ -604,24 +570,24 @@ mod tests {
     }
 
     #[test]
-    fn test_sign_download_url_with_deadline() -> Result<(), Box<dyn Error>> {
+    fn test_sign_download_url() -> Result<(), Box<dyn Error>> {
         let credential = get_credential();
-        assert_eq!(
-            credential.sign_download_url_with_deadline(
-                Url::parse("http://www.qiniu.com/?go=1")?,
-                SystemTime::UNIX_EPOCH + Duration::from_secs(1_234_567_890 + 3600),
-                false
-            )?,
-            "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq:KjQtlGAkEOhSwtFjJfYtYa2-reE=",
-        );
-        assert_eq!(
-            credential.sign_download_url_with_deadline(
-                Url::parse("http://www.qiniu.com/?go=1")?,
-                SystemTime::UNIX_EPOCH + Duration::from_secs(1_234_567_890 + 3600),
-                true
-            )?,
-            "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq:86uQeCB9GsFFvL2wA0mgBcOMsmk=",
-        );
+        {
+            let mut url = Url::parse("http://www.qiniu.com/?go=1")?;
+            credential.sign_download_url(&mut url, Duration::from_secs(1_234_567_890 + 3600), false);
+            assert_eq!(
+                url.into_string(),
+                "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq%3AKjQtlGAkEOhSwtFjJfYtYa2-reE%3D",
+            );
+        }
+        {
+            let mut url = Url::parse("http://www.qiniu.com/?go=1")?;
+            credential.sign_download_url(&mut url, Duration::from_secs(1_234_567_890 + 3600), true);
+            assert_eq!(
+                url.into_string(),
+                "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq%3A86uQeCB9GsFFvL2wA0mgBcOMsmk%3D",
+            );
+        }
         Ok(())
     }
 

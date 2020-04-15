@@ -172,8 +172,12 @@ void test_qiniu_ng_bucket_builder(void) {
     qiniu_ng_bucket_builder_set_region(bucket_builder, region_1);
     qiniu_ng_bucket_builder_set_region(bucket_builder, region_2);
     qiniu_ng_bucket_builder_set_region(bucket_builder, region_3);
-    qiniu_ng_bucket_builder_prepend_domain(bucket_builder, "domain2.example.com");
-    qiniu_ng_bucket_builder_prepend_domain(bucket_builder, "domain1.example.com");
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_bucket_builder_prepend_domain(bucket_builder, "domain2.example.com"),
+        "qiniu_ng_bucket_builder_prepend_domain() returns unexpected value");
+    TEST_ASSERT_TRUE_MESSAGE(
+        qiniu_ng_bucket_builder_prepend_domain(bucket_builder, "domain1.example.com"),
+        "qiniu_ng_bucket_builder_prepend_domain() returns unexpected value");
     qiniu_ng_bucket_t bucket = qiniu_ng_bucket_build(bucket_builder);
     qiniu_ng_bucket_builder_free(&bucket_builder);
 

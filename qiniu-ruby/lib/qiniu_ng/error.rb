@@ -10,8 +10,13 @@ module QiniuNg
       "#<#{self.class.name}>"
     end
 
-    # 上传凭证内没有存储空间相关信息
-    class BucketIsMissingInUploadToken < Error
+    # 非法的域名
+    class InvalidDomain < Error
+      attr_reader :domain
+      def initialize(domain)
+        @domain = domain
+        super("Domain #{domain.inspect} is invalid")
+      end
     end
 
     # 非法的套接字地址
@@ -267,7 +272,7 @@ module QiniuNg
                         @original_error_kind = :qiniu_ng_unknown_error
                         :unknown_error
                       end
-        super('Curl Error')
+        super(@error_kind.to_s)
       end
     end
 

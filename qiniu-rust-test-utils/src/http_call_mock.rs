@@ -1,5 +1,5 @@
 use qiniu_http::{
-    Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCaller, HTTPCallerErrorKind, Headers, Method, Request,
+    Error as HTTPError, ErrorKind as HTTPErrorKind, HTTPCaller, HTTPCallerErrorKind, HeadersOwned, Method, Request,
     Response, ResponseBuilder, Result, StatusCode,
 };
 use rand::{thread_rng, Rng};
@@ -14,7 +14,7 @@ use std::{
     marker::{Send, Sync},
     sync::{
         atomic::{AtomicUsize, Ordering::Relaxed},
-        Arc,
+        Arc, RwLock,
     },
 };
 
@@ -27,12 +27,12 @@ pub fn fake_req_id() -> String {
 
 pub struct JSONCallMock<T: Serialize + Send + Sync> {
     status_code: StatusCode,
-    response_headers: Headers<'static>,
+    response_headers: HeadersOwned,
     response_body: T,
 }
 
 impl<T: Serialize + Send + Sync> JSONCallMock<T> {
-    pub fn new(status_code: StatusCode, response_headers: Headers<'static>, response_body: T) -> JSONCallMock<T> {
+    pub fn new(status_code: StatusCode, response_headers: HeadersOwned, response_body: T) -> JSONCallMock<T> {
         JSONCallMock {
             status_code,
             response_headers,
@@ -45,7 +45,7 @@ impl<T: Serialize + Send + Sync> HTTPCaller for JSONCallMock<T> {
     fn call(&self, _request: &Request) -> Result<Response> {
         let mut headers = self.response_headers.to_owned();
         headers.insert("Content-Type".into(), "application/json".into());
-        headers.insert("X-Reqid".into(), fake_req_id().into());
+        headers.insert("X-Reqid".into(), fake_req_id());
         Ok(ResponseBuilder::default()
             .status_code(self.status_code)
             .headers(headers)
@@ -87,7 +87,7 @@ impl<T: HTTPCaller> HTTPCaller for CounterCallMock<T> {
 
 impl<T: HTTPCaller> Clone for CounterCallMock<T> {
     fn clone(&self) -> Self {
-        CounterCallMock {
+        Self {
             inner: self.inner.clone(),
         }
     }
@@ -104,8 +104,8 @@ pub struct ErrorResponseMock<'e> {
 }
 
 impl<'e> ErrorResponseMock<'e> {
-    pub fn new<E: Into<Cow<'e, str>>>(status_code: StatusCode, error_message: E) -> ErrorResponseMock<'e> {
-        ErrorResponseMock {
+    pub fn new(status_code: StatusCode, error_message: impl Into<Cow<'e, str>>) -> Self {
+        Self {
             status_code,
             error_message: error_message.into(),
         }
@@ -114,9 +114,9 @@ impl<'e> ErrorResponseMock<'e> {
 
 impl<'e> HTTPCaller for ErrorResponseMock<'e> {
     fn call(&self, _request: &Request) -> Result<Response> {
-        let mut headers = Headers::with_capacity(1);
+        let mut headers = HeadersOwned::with_capacity(1);
         headers.insert("Content-Type".into(), "application/json".into());
-        headers.insert("X-Reqid".into(), fake_req_id().into());
+        headers.insert("X-Reqid".into(), fake_req_id());
 
         let body = serde_json::to_string(&ErrorResponse {
             error: self.error_message.clone(),
@@ -128,6 +128,67 @@ impl<'e> HTTPCaller for ErrorResponseMock<'e> {
             .headers(headers)
             .bytes_as_body(body)
             .build())
+    }
+}
+
+pub struct HeadResponse {
+    status_code: StatusCode,
+    headers: HeadersOwned,
+}
+
+impl HeadResponse {
+    pub fn new(status_code: StatusCode, headers: HeadersOwned) -> Self {
+        Self { status_code, headers }
+    }
+}
+
+impl HTTPCaller for HeadResponse {
+    fn call(&self, _request: &Request) -> Result<Response> {
+        let mut headers = self.headers.to_owned();
+        headers.insert("X-Reqid".into(), fake_req_id());
+        Ok(ResponseBuilder::default()
+            .status_code(self.status_code)
+            .headers(headers)
+            .build())
+    }
+}
+
+struct URLRecorderCallMockInner<T: HTTPCaller> {
+    caller: T,
+    urls_called: RwLock<Vec<String>>,
+}
+
+pub struct URLRecorderCallMock<T: HTTPCaller> {
+    inner: Arc<URLRecorderCallMockInner<T>>,
+}
+
+impl<T: HTTPCaller> URLRecorderCallMock<T> {
+    pub fn new(caller: T) -> Self {
+        Self {
+            inner: Arc::new(URLRecorderCallMockInner {
+                caller,
+                urls_called: RwLock::new(Vec::new()),
+            }),
+        }
+    }
+
+    pub fn urls_called(&self) -> Vec<String> {
+        self.inner.urls_called.read().unwrap().to_owned()
+    }
+}
+
+impl<T: HTTPCaller> HTTPCaller for URLRecorderCallMock<T> {
+    fn call(&self, request: &Request) -> Result<Response> {
+        self.inner.urls_called.write().unwrap().push(request.url().to_owned());
+        self.inner.caller.call(request)
+    }
+}
+
+impl<T: HTTPCaller> Clone for URLRecorderCallMock<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
     }
 }
 

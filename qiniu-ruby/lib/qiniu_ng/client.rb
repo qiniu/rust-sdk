@@ -87,14 +87,6 @@ module QiniuNg
       self.uploader.bucket_uploader(bucket_name: bucket_name, access_key: self.access_key, thread_pool_size: thread_pool_size)
     end
 
-    # 创建批量上传器
-    # @param [UploadToken, String] upload_token 默认上传凭证
-    # @return [Storage::Uploader::BatchUploader] 返回批量上传器
-    # @raise [Error::BucketIsMissingInUploadToken] 上传凭证内没有存储空间相关信息
-    def batch_uploader_for(upload_token)
-      Storage::Uploader::BatchUploader.send(:new_from_config, upload_token, self.config)
-    end
-
     # 获取指定的存储空间实例
     # @param [String] bucket_name 存储空间名称
     # @param [Region,Symbol] region 存储空间区域，如果传入 nil 将使用懒加载自动检测。

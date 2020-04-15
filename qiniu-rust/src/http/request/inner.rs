@@ -3,20 +3,23 @@ use super::{
     HTTPError, HTTPResult, Headers, Method,
 };
 use crate::config::Config;
-use std::{borrow::Cow, collections::HashMap, fmt, time::Duration};
+use std::{borrow::Cow, fmt, time::Duration};
+use url::Url;
 
 pub(super) struct Inner<'a> {
     pub(super) method: Method,
     pub(super) base_urls: &'a [&'a str],
     pub(super) path: &'a str,
-    pub(super) query: HashMap<Cow<'a, str>, Cow<'a, str>>,
+    pub(super) fop: Cow<'a, str>,
+    pub(super) query: Vec<(Cow<'a, str>, Cow<'a, str>)>,
     pub(super) headers: Headers<'a>,
-    pub(super) body: Vec<u8>,
+    pub(super) body: Cow<'a, [u8]>,
     pub(super) config: Config,
     pub(super) token: Option<Token<'a>>,
     pub(super) read_body: bool,
     pub(super) idempotent: bool,
     pub(super) follow_redirection: bool,
+    pub(super) on_url_constructed: Option<&'a dyn Fn(&mut Url)>,
     pub(super) on_uploading_progress: Option<&'a dyn Fn(u64, u64)>,
     pub(super) on_downloading_progress: Option<&'a dyn Fn(u64, u64)>,
     pub(super) on_response: Option<&'a dyn Fn(&mut Response, Duration) -> HTTPResult<()>>,
@@ -29,6 +32,7 @@ impl fmt::Debug for Inner<'_> {
             .field("method", &self.method)
             .field("base_urls", &self.base_urls)
             .field("path", &self.path)
+            .field("fop", &self.fop)
             .field("query", &self.query)
             .field("headers", &self.headers)
             .field("body", &self.body)
@@ -37,6 +41,14 @@ impl fmt::Debug for Inner<'_> {
             .field("read_body", &self.read_body)
             .field("idempotent", &self.idempotent)
             .field("follow_redirection", &self.follow_redirection)
+            .field(
+                "on_url_constructed",
+                if self.on_url_constructed.is_some() {
+                    &"Installed"
+                } else {
+                    &"Not Installed"
+                },
+            )
             .field(
                 "on_uploading_progress",
                 if self.on_uploading_progress.is_some() {

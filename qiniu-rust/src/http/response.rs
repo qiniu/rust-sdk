@@ -1,6 +1,6 @@
 use super::{
-    Error as HTTPError, ErrorKind as HTTPErrorKind, HeaderName, HeaderValue, Headers, Method, Result as HTTPResult,
-    StatusCode,
+    Error as HTTPError, ErrorKind as HTTPErrorKind, HeaderNameOwned, HeaderValueOwned, HeadersOwned, Method,
+    Result as HTTPResult, StatusCode,
 };
 use crate::utils::mime;
 use delegate::delegate;
@@ -33,7 +33,7 @@ impl<'a> Response<'a> {
             #[allow(dead_code)]
             pub(crate) fn status_code(&self) -> StatusCode;
             #[allow(dead_code)]
-            pub(crate) fn headers(&self) -> &Headers;
+            pub(crate) fn headers(&self) -> &HeadersOwned;
             #[allow(dead_code)]
             pub(crate) fn into_body(self) -> Option<HTTPResponseBody>;
             #[allow(dead_code)]
@@ -49,15 +49,12 @@ impl<'a> Response<'a> {
         }
     }
 
-    pub(crate) fn header<HeaderNameT: Into<HeaderName<'static>>>(
-        &self,
-        header_name: HeaderNameT,
-    ) -> Option<&HeaderValue> {
-        self.inner.headers().get(&header_name.into())
+    pub(crate) fn header(&self, header_name: &HeaderNameOwned) -> Option<&HeaderValueOwned> {
+        self.inner.headers().get(header_name)
     }
 
     pub(crate) fn request_id(&self) -> Option<&str> {
-        self.header("X-Reqid").map(|h| h.as_ref())
+        self.header(&"X-Reqid".into()).map(|h| h.as_ref())
     }
 
     pub(crate) fn parse_json<T: DeserializeOwned>(&mut self) -> HTTPResult<T> {
@@ -102,7 +99,7 @@ impl<'a> Response<'a> {
                 self.request_id().map(|request_id| request_id.into()),
             )
         })?;
-        if self.header("Content-Type") != Some(&mime::JSON_MIME.into()) {
+        if self.header(&"Content-Type".into()) != Some(&mime::JSON_MIME.into()) {
             return Ok(Err(body));
         }
         Ok(serde_json::from_slice(&body).map_err(|_| body))
