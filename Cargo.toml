@@ -1,0 +1,10 @@
+[workspace]
+
+members = [
+    "qiniu-rust/credential",
+    "qiniu-rust/utils",
+]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
