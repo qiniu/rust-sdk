@@ -49,7 +49,7 @@ pub trait AsCredential: Any + Debug + Sync + Send {
         self.sign(encoded_data.as_bytes()) + ":" + &encoded_data
     }
 
-    /// 使用七牛签名算法 V1 对 HTTP 请求进行签名，返回签名字符串
+    /// 使用七牛签名算法 V1 对 HTTP 请求进行签名，返回 Authorization 的值
     fn authorization_v1_for_request(
         &self,
         url_string: &str,
@@ -61,7 +61,7 @@ pub trait AsCredential: Any + Debug + Sync + Send {
         Ok("QBox ".to_owned() + &authorization_token)
     }
 
-    /// 使用七牛签名算法 V2 对 HTTP 请求进行签名，返回签名字符串
+    /// 使用七牛签名算法 V2 对 HTTP 请求进行签名，返回 Authorization 的值
     fn authorization_v2_for_request(
         &self,
         method: Method,
@@ -74,6 +74,7 @@ pub trait AsCredential: Any + Debug + Sync + Send {
         Ok("Qiniu ".to_owned() + &authorization_token)
     }
 
+    /// 对对象的下载 URL 签名，可以生成私有存储空间的下载地址或带有时间戳鉴权的下载地址
     fn sign_download_url(&self, url: &mut Url, deadline: Duration, only_path: bool) {
         let mut to_sign = {
             let mut s = String::with_capacity(1 << 10);
@@ -207,13 +208,13 @@ fn will_push_body_v2(content_type: &str) -> bool {
     !mime::BINARY_MIME.eq_ignore_ascii_case(content_type)
 }
 
+/// 静态认证信息，包含一个静态的 AccessKey 和 SecretKey，一旦创建则不可修改
 #[derive(Eq, PartialEq)]
 pub struct StaticCredential {
     access_key: Cow<'static, str>,
     secret_key: Cow<'static, str>,
 }
 
-/// 静态认证信息，包含一个静态的 AccessKey 和 SecretKey，一旦创建则不可修改
 impl StaticCredential {
     /// 构建一个静态认证信息，只需要传入静态的 AccessKey 和 SecretKey 即可
     pub fn new(
