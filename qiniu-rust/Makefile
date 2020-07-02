@@ -1,8 +1,10 @@
-SUBDIRS := credential utils etag
+SUBDIRS := credential utils etag upload_token
 
-all: $(SUBDIRS)
-$(SUBDIRS):
-	$(MAKE) -C $@
+all: 
+	set -e; \
+	for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir; \
+	done
 build:
 	set -e; \
 	for dir in $(SUBDIRS); do \

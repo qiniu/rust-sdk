@@ -1,7 +1,5 @@
-use digest::{
-    generic_array::{typenum::U28, GenericArray},
-    FixedOutput, Reset, Update,
-};
+use digest::generic_array::{typenum::U28, GenericArray};
+pub use digest::{FixedOutput, Reset, Update};
 use qiniu_utils::base64;
 use std::{
     fs::File,
@@ -103,6 +101,7 @@ impl EtagV1 {
 }
 
 impl EtagV2 {
+    /// 构建 Etag V2 计算器
     pub fn new() -> Self {
         Default::default()
     }

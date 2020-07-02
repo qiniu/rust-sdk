@@ -4,6 +4,7 @@ members = [
     "qiniu-rust/credential",
     "qiniu-rust/utils",
     "qiniu-rust/etag",
+    "qiniu-rust/upload_token",
 ]
 
 [profile.release]
