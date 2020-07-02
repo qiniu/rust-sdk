@@ -1,5 +1,4 @@
-use crypto_mac::Mac;
-use hmac::Hmac;
+use hmac::{Hmac, Mac, NewMac};
 use qiniu_utils::{
     base64,
     http::{header::Headers, method::Method},
@@ -194,8 +193,8 @@ fn sign_request_v2(
 
 fn base64ed_hmac_digest(secret_key: &str, data: &[u8]) -> String {
     let mut hmac = Hmac::<Sha1>::new_varkey(secret_key.as_bytes()).unwrap();
-    hmac.input(data);
-    base64::urlsafe(&hmac.result().code())
+    hmac.update(data);
+    base64::urlsafe(&hmac.finalize().into_bytes())
 }
 
 #[inline]

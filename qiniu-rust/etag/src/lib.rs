@@ -1,5 +1,7 @@
-use digest::{FixedOutput, Reset, Update};
-use generic_array::{typenum::U28, GenericArray};
+use digest::{
+    generic_array::{typenum::U28, GenericArray},
+    FixedOutput, Reset, Update,
+};
 use qiniu_utils::base64;
 use std::{
     fs::File,
