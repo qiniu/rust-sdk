@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-etag"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"
 license = "Apache-2.0"
@@ -15,4 +15,4 @@ sha-1 = "0.9.1"
 digest = "0.9.0"
 generic-array = "0.14.2"
 
-qiniu-utils = { version = "0.0.3", path = "../utils" }
+qiniu-utils = { version = "0.0.4", path = "../utils" }

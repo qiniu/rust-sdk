@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-utils"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"
 license = "Apache-2.0"
