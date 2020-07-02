@@ -1,4 +1,4 @@
-SUBDIRS := credential utils
+SUBDIRS := credential utils etag
 
 all: $(SUBDIRS)
 $(SUBDIRS):

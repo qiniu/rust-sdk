@@ -3,6 +3,7 @@
 members = [
     "qiniu-rust/credential",
     "qiniu-rust/utils",
+    "qiniu-rust/etag",
 ]
 
 [profile.release]
