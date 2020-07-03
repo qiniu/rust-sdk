@@ -5,6 +5,7 @@ members = [
     "qiniu-rust/utils",
     "qiniu-rust/etag",
     "qiniu-rust/upload_token",
+    "qiniu-rust/http",
 ]
 
 [profile.release]
