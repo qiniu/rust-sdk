@@ -1,109 +1,95 @@
 use super::{FileType, InvalidFileType};
 use assert_impl::assert_impl;
-use serde::{Deserialize, Serialize};
+use serde_json::{json, Value as JSONValue};
 use std::{
     borrow::Cow,
     convert::{TryFrom, TryInto},
-    error::Error,
     fmt,
-    num::{NonZeroU32, NonZeroU8},
     ops::{Bound, RangeBounds},
     str::Split,
     time::{Duration, SystemTime},
 };
 
+const SCOPE_KEY: &str = "scope";
+const IS_PREFIXAL_SCOPE_KEY: &str = "isPrefixalScope";
+const DEADLINE_KEY: &str = "deadline";
+const INSERT_ONLY_KEY: &str = "insertOnly";
+const RETURN_URL_KEY: &str = "returnUrl";
+const RETURN_BODY_KEY: &str = "returnBody";
+const CALLBACK_URL_KEY: &str = "callbackUrl";
+const CALLBACK_HOST_KEY: &str = "callbackHost";
+const CALLBACK_BODY_KEY: &str = "callbackBody";
+const CALLBACK_BODY_TYPE_KEY: &str = "callbackBodyType";
+const SAVE_KEY_KEY: &str = "saveKey";
+const FORCE_SAVE_KEY_KEY: &str = "forceSaveKey";
+const FSIZE_MIN_KEY: &str = "fsizeMin";
+const FSIZE_LIMIT_KEY: &str = "fsizeLimit";
+const DETECT_MIME_KEY: &str = "detectMime";
+const MIME_LIMIT_KEY: &str = "mimeLimit";
+const FILE_TYPE_KEY: &str = "fileType";
+const DELETE_AFTER_DAYS_KEY: &str = "deleteAfterDays";
+
 /// 上传策略
 ///
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1206/put-policy)了解七牛安全机制。
-#[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Eq, PartialEq)]
 pub struct UploadPolicy {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    scope: Option<Box<str>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    deadline: Option<NonZeroU32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    is_prefixal_scope: Option<NonZeroU8>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    insert_only: Option<NonZeroU8>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    return_url: Option<Box<str>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    return_body: Option<Box<str>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    callback_url: Option<Box<str>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    callback_host: Option<Box<str>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    callback_body: Option<Box<str>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    callback_body_type: Option<Box<str>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    save_key: Option<Box<str>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    force_save_key: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    fsize_min: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    fsize_limit: Option<usize>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    detect_mime: Option<NonZeroU8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    mime_limit: Option<Box<str>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    file_type: Option<NonZeroU8>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    delete_after_days: Option<usize>,
+    inner: JSONValue,
 }
+
 impl UploadPolicy {
     /// 存储空间约束
     pub fn bucket(&self) -> Option<&str> {
-        self.scope.as_ref().and_then(|s| s.splitn(2, ':').next())
+        self.inner
+            .get(SCOPE_KEY)
+            .as_ref()
+            .and_then(|s| s.as_str())
+            .and_then(|s| s.splitn(2, ':').next())
     }
 
     /// 对象名称约束或对象名称前缀约束
     pub fn key(&self) -> Option<&str> {
-        self.scope.as_ref().and_then(|s| s.splitn(2, ':').nth(1))
+        self.inner
+            .get(SCOPE_KEY)
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.splitn(2, ':').nth(1))
     }
 
     /// 是否是对象名称前缀约束
     pub fn use_prefixal_object_key(&self) -> bool {
-        self.is_prefixal_scope.is_some()
+        self.inner
+            .get(IS_PREFIXAL_SCOPE_KEY)
+            .and_then(|v| v.as_u64())
+            .is_some()
     }
 
     /// 是否仅允许新增对象，不允许覆盖对象
     pub fn is_insert_only(&self) -> bool {
-        self.insert_only.is_some()
-    }
-
-    /// 是否允许覆盖对象
-    ///
-    /// 相当于 `!is_insert_only()`
-    pub fn is_overwritable(&self) -> bool {
-        !self.is_insert_only()
+        self.inner
+            .get(INSERT_ONLY_KEY)
+            .and_then(|v| v.as_u64())
+            .is_some()
     }
 
     /// 是否启用 MIME 类型自动检测
     pub fn mime_detection_enabled(&self) -> bool {
-        self.detect_mime.is_some()
+        self.inner
+            .get(DETECT_MIME_KEY)
+            .and_then(|v| v.as_u64())
+            .is_some()
     }
 
     /// 上传凭证过期时间
     pub fn token_deadline(&self) -> Option<SystemTime> {
-        self.deadline.map(|t| {
-            SystemTime::UNIX_EPOCH
-                .checked_add(Duration::from_secs(t.get().into()))
-                .unwrap()
-        })
+        self.inner
+            .get(DEADLINE_KEY)
+            .and_then(|v| v.as_u64())
+            .map(|t| {
+                SystemTime::UNIX_EPOCH
+                    .checked_add(Duration::from_secs(t.into()))
+                    .unwrap()
+            })
     }
 
     /// 上传凭证有效期
@@ -116,55 +102,66 @@ impl UploadPolicy {
 
     /// Web 端文件上传成功后，浏览器执行 303 跳转的 URL
     pub fn return_url(&self) -> Option<&str> {
-        Self::convert_to_optional_str(&self.return_url)
+        self.inner.get(RETURN_URL_KEY).and_then(|v| v.as_str())
     }
 
     /// 上传成功后，自定义七牛云最终返回给上传端的数据
     pub fn return_body(&self) -> Option<&str> {
-        Self::convert_to_optional_str(&self.return_body)
+        self.inner.get(RETURN_BODY_KEY).and_then(|v| v.as_str())
     }
 
     /// 上传成功后，七牛云向业务服务器发送 POST 请求的 URL 列表
     pub fn callback_urls(&self) -> Option<Split<char>> {
-        Self::convert_to_optional_splited_str(&self.callback_url, ';')
+        self.inner
+            .get(RETURN_BODY_KEY)
+            .and_then(|v| v.as_str())
+            .map(|s| s.split(';'))
     }
 
     /// 上传成功后，七牛云向业务服务器发送回调请求时的 `Host`
     pub fn callback_host(&self) -> Option<&str> {
-        Self::convert_to_optional_str(&self.callback_host)
+        self.inner.get(CALLBACK_HOST_KEY).and_then(|v| v.as_str())
     }
 
     /// 上传成功后，七牛云向业务服务器发送回调请求时的内容
     ///
     /// 支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
     pub fn callback_body(&self) -> Option<&str> {
-        Self::convert_to_optional_str(&self.callback_body)
+        self.inner.get(CALLBACK_BODY_KEY).and_then(|v| v.as_str())
     }
 
     /// 上传成功后，七牛云向业务服务器发送回调通知 `callback_body()` 的 `Content-Type`
     ///
     /// 默认为 `application/x-www-form-urlencoded` ，也可设置为 `application/json` 。
     pub fn callback_body_type(&self) -> Option<&str> {
-        Self::convert_to_optional_str(&self.callback_body_type)
+        self.inner
+            .get(CALLBACK_BODY_TYPE_KEY)
+            .and_then(|v| v.as_str())
     }
 
     /// 自定义对象名称
     ///
     /// 支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
     pub fn save_key(&self) -> Option<&str> {
-        Self::convert_to_optional_str(&self.save_key)
+        self.inner.get(SAVE_KEY_KEY).and_then(|v| v.as_str())
     }
 
     /// 是否忽略客户端指定的对象名称，强制使用自定义对象名称 `save_key()` 进行文件命名
     pub fn is_save_key_forced(&self) -> bool {
-        self.force_save_key.unwrap_or(false)
+        self.inner
+            .get(FORCE_SAVE_KEY_KEY)
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
     }
 
     /// 限定上传文件尺寸的范围
     ///
     /// 返回的第一个元素为最小尺寸，第二个元素为最大尺寸，如果为 `None` 表示不限制，单位为字节
-    pub fn file_size_limitation(&self) -> (Option<usize>, Option<usize>) {
-        (self.fsize_min, self.fsize_limit)
+    pub fn file_size_limitation(&self) -> (Option<u64>, Option<u64>) {
+        (
+            self.inner.get(FSIZE_MIN_KEY).and_then(|v| v.as_u64()),
+            self.inner.get(FSIZE_LIMIT_KEY).and_then(|v| v.as_u64()),
+        )
     }
 
     /// 限定用户上传的文件类型
@@ -172,19 +169,29 @@ impl UploadPolicy {
     /// 指定本字段值，七牛服务器会侦测文件内容以判断 MIME 类型，再用判断值跟指定值进行匹配，
     /// 匹配成功则允许上传，匹配失败则返回 403 状态码
     pub fn mime_types(&self) -> Option<Split<char>> {
-        Self::convert_to_optional_splited_str(&self.mime_limit, ';')
+        self.inner
+            .get(MIME_LIMIT_KEY)
+            .and_then(|v| v.as_str())
+            .map(|s| s.split(';'))
     }
 
     /// 文件类型
     pub fn file_type(&self) -> Result<FileType, InvalidFileType> {
-        self.file_type.map(|v| v.get()).unwrap_or(0).try_into()
+        self.inner
+            .get(FILE_TYPE_KEY)
+            .and_then(|v| v.as_u64())
+            .and_then(|v| u8::try_from(v).ok())
+            .unwrap_or(0)
+            .try_into()
     }
 
     /// 对象生命周期
     ///
     /// 精确到天
     pub fn object_lifetime(&self) -> Option<Duration> {
-        self.delete_after_days
+        self.inner
+            .get(DELETE_AFTER_DAYS_KEY)
+            .and_then(|v| v.as_u64())
             .map(|d| Duration::from_secs((d * 60 * 60 * 24).try_into().unwrap_or(u64::max_value())))
     }
 
@@ -195,25 +202,14 @@ impl UploadPolicy {
         self.object_lifetime().map(|t| SystemTime::now() + t)
     }
 
-    fn convert_to_optional_str<'a>(s: &'a Option<Box<str>>) -> Option<&'a str> {
-        s.as_ref().map(|s| s.as_ref())
-    }
-
-    fn convert_to_optional_splited_str<'a>(
-        s: &'a Option<Box<str>>,
-        pat: char,
-    ) -> Option<Split<'a, char>> {
-        s.as_ref().map(|x| x.split(pat))
-    }
-
     /// 获取 JSON 格式的上传凭证
     pub fn as_json(&self) -> String {
-        serde_json::to_string(&self).unwrap()
+        serde_json::to_string(&self.inner).unwrap()
     }
 
     /// 解析 JSON 格式的上传凭证
     pub fn from_json(json: impl AsRef<[u8]>) -> serde_json::Result<UploadPolicy> {
-        serde_json::from_slice(json.as_ref())
+        serde_json::from_slice(json.as_ref()).map(|inner| UploadPolicy { inner })
     }
 
     #[allow(dead_code)]
@@ -223,17 +219,25 @@ impl UploadPolicy {
     }
 }
 
+impl fmt::Debug for UploadPolicy {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
 /// 上传策略生成器
 ///
 /// 用于生成上传策略，一旦生成完毕，上传策略将无法被修改
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct UploadPolicyBuilder {
-    inner: UploadPolicy,
+    inner: JSONValue,
 }
 
 impl From<UploadPolicy> for UploadPolicyBuilder {
     fn from(policy: UploadPolicy) -> Self {
-        Self { inner: policy }
+        Self {
+            inner: policy.inner,
+        }
     }
 }
 
@@ -241,8 +245,6 @@ impl UploadPolicyBuilder {
     /// 为指定的存储空间生成的上传策略
     ///
     /// 允许用户上传文件到指定的存储空间，不限制上传客户端指定对象名称。
-    /// 且这种模式下生成的上传策略将被自动指定 `insert_only()`，且不允许指定 `overwritable()`，
-    /// 因此上传时不能通过覆盖的方式修改同名对象。
     ///
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
     pub fn new_policy_for_bucket(
@@ -250,12 +252,11 @@ impl UploadPolicyBuilder {
         upload_token_lifetime: Duration,
     ) -> Self {
         let mut policy = Self {
-            inner: UploadPolicy {
-                scope: Some(bucket.into().into_boxed_str()),
-                ..Default::default()
-            },
+            inner: json!({
+                SCOPE_KEY: bucket.into().into_boxed_str(),
+            }),
         };
-        policy.token_lifetime(upload_token_lifetime).insert_only();
+        policy.token_lifetime(upload_token_lifetime);
         policy
     }
 
@@ -263,8 +264,6 @@ impl UploadPolicyBuilder {
     ///
     /// 允许用户以指定的对象名称上传文件到指定的存储空间。
     /// 上传客户端不能指定与上传策略冲突的对象名称。
-    /// 且这种模式下生成的上传策略将被自动指定 `overwritable()`，
-    /// 如果不希望允许同名对象被覆盖和修改，则应该调用 `insert_only()`。
     ///
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
     pub fn new_policy_for_object(
@@ -273,10 +272,9 @@ impl UploadPolicyBuilder {
         upload_token_lifetime: Duration,
     ) -> Self {
         let mut policy = Self {
-            inner: UploadPolicy {
-                scope: Some((bucket.into() + ":" + key.as_ref()).into()),
-                ..Default::default()
-            },
+            inner: json!({
+                SCOPE_KEY: bucket.into() + ":" + key.as_ref(),
+            }),
         };
         policy.token_lifetime(upload_token_lifetime);
         policy
@@ -286,8 +284,6 @@ impl UploadPolicyBuilder {
     ///
     /// 允许用户以指定的对象名称前缀上传文件到指定的存储空间。
     /// 上传客户端指定包含该前缀的对象名称。
-    /// 且这种模式下生成的上传策略将被自动指定 `overwritable()`，
-    /// 如果不希望允许同名对象被覆盖和修改，则应该调用 `insert_only()`。
     ///
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
     pub fn new_policy_for_objects_with_prefix(
@@ -296,11 +292,10 @@ impl UploadPolicyBuilder {
         upload_token_lifetime: Duration,
     ) -> Self {
         let mut policy = Self {
-            inner: UploadPolicy {
-                scope: Some((bucket.into() + ":" + prefix.as_ref()).into()),
-                is_prefixal_scope: NonZeroU8::new(1),
-                ..Default::default()
-            },
+            inner: json!({
+                SCOPE_KEY: bucket.into() + ":" + prefix.as_ref(),
+                IS_PREFIXAL_SCOPE_KEY: 1,
+            }),
         };
         policy.token_lifetime(upload_token_lifetime);
         policy
@@ -308,64 +303,66 @@ impl UploadPolicyBuilder {
 
     /// 指定上传凭证有效期
     pub fn token_lifetime(&mut self, lifetime: Duration) -> &mut Self {
-        self.inner.deadline = Some(
-            SystemTime::now()
-                .checked_add(lifetime)
-                .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
-                .and_then(|t| u32::try_from(t.as_secs()).ok().and_then(NonZeroU32::new))
-                .unwrap_or(unsafe { NonZeroU32::new_unchecked(u32::max_value()) }),
+        self.inner.as_object_mut().unwrap().insert(
+            DEADLINE_KEY.into(),
+            JSONValue::Number(
+                SystemTime::now()
+                    .checked_add(lifetime)
+                    .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+                    .and_then(|t| u32::try_from(t.as_secs()).ok())
+                    .unwrap_or(u32::max_value())
+                    .into(),
+            ),
         );
         self
     }
 
     /// 指定上传凭证过期时间
     pub fn token_deadline(&mut self, deadline: SystemTime) -> &mut Self {
-        self.inner.deadline = Some(
-            deadline
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .ok()
-                .and_then(|t| u32::try_from(t.as_secs()).ok().and_then(NonZeroU32::new))
-                .unwrap_or(unsafe { NonZeroU32::new_unchecked(u32::max_value()) }),
+        self.inner.as_object_mut().unwrap().insert(
+            DEADLINE_KEY.into(),
+            JSONValue::Number(
+                deadline
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()
+                    .and_then(|t| u32::try_from(t.as_secs()).ok())
+                    .unwrap_or(u32::max_value())
+                    .into(),
+            ),
         );
         self
     }
 
     /// 仅允许创建新的对象，不允许覆盖和修改同名对象
     pub fn insert_only(&mut self) -> &mut Self {
-        self.inner.insert_only = NonZeroU8::new(1);
+        self.inner
+            .as_object_mut()
+            .unwrap()
+            .insert(INSERT_ONLY_KEY.into(), JSONValue::Number(1.into()));
         self
-    }
-
-    /// 允许覆盖和修改同名对象
-    pub fn overwritable(&mut self) -> Result<&mut Self, OverwritableIsForbidden> {
-        if !self
-            .inner
-            .scope
-            .as_ref()
-            .map(|scope| scope.contains(':'))
-            .unwrap_or(false)
-        {
-            return Err(OverwritableIsForbidden);
-        }
-        self.inner.insert_only = None;
-        Ok(self)
     }
 
     /// 启用 MIME 类型自动检测
     pub fn enable_mime_detection(&mut self) -> &mut Self {
-        self.inner.detect_mime = NonZeroU8::new(1);
+        self.inner
+            .as_object_mut()
+            .unwrap()
+            .insert(DETECT_MIME_KEY.into(), JSONValue::Number(1.into()));
         self
     }
 
     /// 禁用 MIME 类型自动检测
     pub fn disable_mime_detection(&mut self) -> &mut Self {
-        self.inner.detect_mime = None;
+        self.inner.as_object_mut().unwrap().remove(DETECT_MIME_KEY);
         self
     }
 
     /// 设置文件类型
     pub fn file_type(&mut self, file_type: FileType) -> &mut Self {
-        self.inner.file_type = NonZeroU8::new(file_type.into());
+        self.inner.as_object_mut().unwrap().insert(
+            FILE_TYPE_KEY.into(),
+            JSONValue::Number(u8::from(file_type).into()),
+        );
         self
     }
 
@@ -375,8 +372,11 @@ impl UploadPolicyBuilder {
     /// 文件上传成功后会跳转到 `<return_url>?upload_ret=<queryString>`，
     /// `<queryString>` 包含 `return_body()` 内容。
     /// 如不设置 `return_url`，则直接将 `return_body()` 的内容返回给客户端
-    pub fn return_url(&mut self, url: impl Into<Box<str>>) -> &mut Self {
-        self.inner.return_url = Some(url.into());
+    pub fn return_url(&mut self, url: impl Into<String>) -> &mut Self {
+        self.inner
+            .as_object_mut()
+            .unwrap()
+            .insert(RETURN_URL_KEY.into(), JSONValue::String(url.into()));
         self
     }
 
@@ -385,8 +385,11 @@ impl UploadPolicyBuilder {
     /// 支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)。
     /// `return_body` 要求是合法的 JSON 文本。
     /// 例如 `{"key": $(key), "hash": $(etag), "w": $(imageInfo.width), "h": $(imageInfo.height)}`
-    pub fn return_body(&mut self, body: impl Into<Box<str>>) -> &mut Self {
-        self.inner.return_body = Some(body.into());
+    pub fn return_body(&mut self, body: impl Into<String>) -> &mut Self {
+        self.inner
+            .as_object_mut()
+            .unwrap()
+            .insert(RETURN_BODY_KEY.into(), JSONValue::String(body.into()));
         self
     }
 
@@ -402,28 +405,35 @@ impl UploadPolicyBuilder {
     pub fn callback<'a>(
         &mut self,
         urls: impl AsRef<[&'a str]>,
-        host: impl Into<Box<str>>,
-        body: impl Into<Box<str>>,
-        body_type: impl Into<Box<str>>,
+        host: impl Into<String>,
+        body: impl Into<String>,
+        body_type: impl Into<String>,
     ) -> &mut Self {
-        self.inner.callback_url = Some(urls.as_ref().join(";").into());
-        self.inner.callback_host = {
+        let inner = self.inner.as_object_mut().unwrap();
+        inner.insert(
+            CALLBACK_URL_KEY.into(),
+            JSONValue::String(urls.as_ref().join(";")),
+        );
+        {
             let callback_host = host.into();
             if callback_host.is_empty() {
-                None
+                inner.remove(CALLBACK_HOST_KEY);
             } else {
-                Some(callback_host)
+                inner.insert(CALLBACK_HOST_KEY.into(), JSONValue::String(callback_host));
             }
-        };
-        self.inner.callback_body = Some(body.into());
-        self.inner.callback_body_type = {
+        }
+        inner.insert(CALLBACK_BODY_KEY.into(), JSONValue::String(body.into()));
+        {
             let callback_body_type = body_type.into();
             if callback_body_type.is_empty() {
-                None
+                inner.remove(CALLBACK_BODY_TYPE_KEY);
             } else {
-                Some(callback_body_type)
+                inner.insert(
+                    CALLBACK_BODY_TYPE_KEY.into(),
+                    JSONValue::String(callback_body_type),
+                );
             }
-        };
+        }
         self
     }
 
@@ -432,10 +442,13 @@ impl UploadPolicyBuilder {
     /// 支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)。
     /// `force` 为 `false` 时，`save_as` 字段仅当用户上传的时候没有主动指定对象名时起作用，
     /// `force` 为 `true` 时，将强制按 `save_as` 字段的内容命名
-    pub fn save_as(&mut self, save_as: impl Into<Box<str>>, force: bool) -> &mut Self {
-        self.inner.save_key = Some(save_as.into());
+    pub fn save_as(&mut self, save_as: impl Into<String>, force: bool) -> &mut Self {
+        let inner = self.inner.as_object_mut().unwrap();
+        inner.insert(SAVE_KEY_KEY.into(), JSONValue::String(save_as.into()));
         if force {
-            self.inner.force_save_key = Some(true);
+            inner.insert(FORCE_SAVE_KEY_KEY.into(), JSONValue::Bool(true));
+        } else {
+            inner.remove(FORCE_SAVE_KEY_KEY);
         }
         self
     }
@@ -443,17 +456,30 @@ impl UploadPolicyBuilder {
     /// 限定上传文件尺寸的范围
     ///
     /// 单位为字节
-    pub fn file_size_limitation(&mut self, size: impl RangeBounds<usize>) -> &mut Self {
-        self.inner.fsize_min = match size.start_bound() {
-            Bound::Included(&s) => Some(s),
-            Bound::Excluded(&s) => Some(s + 1),
-            Bound::Unbounded => None,
-        };
-        self.inner.fsize_limit = match size.end_bound() {
-            Bound::Included(&s) => Some(s),
-            Bound::Excluded(&s) => Some(s - 1),
-            Bound::Unbounded => None,
-        };
+    pub fn file_size_limitation(&mut self, size: impl RangeBounds<u64>) -> &mut Self {
+        let inner = self.inner.as_object_mut().unwrap();
+        match size.start_bound() {
+            Bound::Included(&s) => {
+                inner.insert(FSIZE_MIN_KEY.into(), JSONValue::Number(s.into()));
+            }
+            Bound::Excluded(&s) => {
+                inner.insert(FSIZE_MIN_KEY.into(), JSONValue::Number((s + 1).into()));
+            }
+            Bound::Unbounded => {
+                inner.remove(FSIZE_MIN_KEY);
+            }
+        }
+        match size.end_bound() {
+            Bound::Included(&s) => {
+                inner.insert(FSIZE_LIMIT_KEY.into(), JSONValue::Number(s.into()));
+            }
+            Bound::Excluded(&s) => {
+                inner.insert(FSIZE_LIMIT_KEY.into(), JSONValue::Number((s - 1).into()));
+            }
+            Bound::Unbounded => {
+                inner.remove(FSIZE_LIMIT_KEY);
+            }
+        }
         self
     }
 
@@ -462,7 +488,10 @@ impl UploadPolicyBuilder {
     /// 指定本字段值，七牛服务器会侦测文件内容以判断 MIME 类型，再用判断值跟指定值进行匹配，
     /// 匹配成功则允许上传，匹配失败则返回 403 状态码
     pub fn mime_types<'a>(&mut self, content_types: impl AsRef<[&'a str]>) -> &mut Self {
-        self.inner.mime_limit = Some(content_types.as_ref().join(";").into());
+        self.inner.as_object_mut().unwrap().insert(
+            MIME_LIMIT_KEY.into(),
+            JSONValue::String(content_types.as_ref().join(";")),
+        );
         self
     }
 
@@ -473,13 +502,14 @@ impl UploadPolicyBuilder {
         let lifetime_secs = lifetime.as_secs();
         let secs_one_day = 60 * 60 * 24;
 
-        self.inner.delete_after_days = Some(
+        self.inner.as_object_mut().unwrap().insert(
+            DELETE_AFTER_DAYS_KEY.into(),
             lifetime_secs
                 .checked_add(secs_one_day)
                 .and_then(|s| s.checked_sub(1))
                 .and_then(|s| s.checked_div(secs_one_day))
                 .and_then(|s| s.try_into().ok())
-                .unwrap_or(usize::max_value()),
+                .unwrap_or_else(|| JSONValue::Number(u64::max_value().into())),
         );
         self
     }
@@ -497,22 +527,35 @@ impl UploadPolicyBuilder {
 
     /// 生成上传策略
     pub fn build(&self) -> UploadPolicy {
-        self.inner.clone()
+        UploadPolicy {
+            inner: self.inner.clone(),
+        }
     }
 
     /// 重置上传策略生成器
     ///
     /// 重置生成器使得生成器可以被多次复用
     pub fn reset(&mut self) {
-        let scope = self.inner.scope.take();
-        let deadline = self.inner.deadline.take();
-        let is_prefixal_scope = self.inner.is_prefixal_scope.take();
-        self.inner = UploadPolicy {
-            scope,
-            deadline,
-            is_prefixal_scope,
-            ..Default::default()
-        };
+        let immutable_keys = [SCOPE_KEY, DEADLINE_KEY, IS_PREFIXAL_SCOPE_KEY];
+        self.inner = JSONValue::Object(
+            self.inner
+                .as_object()
+                .unwrap()
+                .iter()
+                .filter_map(|(k, v)| {
+                    immutable_keys
+                        .iter()
+                        .find(|&ik| k == ik)
+                        .map(|_| (k.to_owned(), v.to_owned()))
+                })
+                .collect(),
+        );
+    }
+}
+
+impl fmt::Debug for UploadPolicyBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.inner.fmt(f)
     }
 }
 
@@ -529,18 +572,6 @@ impl From<UploadPolicy> for Cow<'_, UploadPolicy> {
         Cow::Owned(policy)
     }
 }
-
-/// Overwritable 对该上传策略禁用
-#[derive(Copy, Clone, Debug)]
-pub struct OverwritableIsForbidden;
-
-impl fmt::Display for OverwritableIsForbidden {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Overwritable is forbidden for the policy")
-    }
-}
-
-impl Error for OverwritableIsForbidden {}
 
 #[cfg(test)]
 mod tests {
@@ -729,33 +760,8 @@ mod tests {
         .insert_only()
         .build();
         assert_eq!(policy.is_insert_only(), true);
-        assert_eq!(policy.is_overwritable(), false);
         let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(v["insertOnly"], 1);
-        Ok(())
-    }
-
-    #[test]
-    fn test_build_upload_policy_with_overwritable() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_object(
-            "test_bucket",
-            "test",
-            Duration::from_secs(3600),
-        )
-        .overwritable()?
-        .build();
-        assert_eq!(policy.is_insert_only(), false);
-        assert_eq!(policy.is_overwritable(), true);
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["insertOnly"], json!(null));
-        Ok(())
-    }
-
-    #[test]
-    fn test_build_bucket_level_upload_policy_with_overwritable() -> Result<(), Box<dyn Error>> {
-        UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-            .overwritable()
-            .unwrap_err();
         Ok(())
     }
 
