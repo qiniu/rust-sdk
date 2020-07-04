@@ -1,10 +1,16 @@
 use super::{FileType, InvalidFileType};
 use assert_impl::assert_impl;
-use serde_json::{json, Value as JSONValue};
+use serde_json::{
+    json,
+    map::{Keys as JSONMapKeys, Values as JSONMapValues},
+    value::Index as JSONValueIndex,
+    Value as JSONValue,
+};
 use std::{
-    borrow::Cow,
+    borrow::{Borrow, Cow},
     convert::{TryFrom, TryInto},
     fmt,
+    hash::Hash,
     ops::{Bound, RangeBounds},
     str::Split,
     time::{Duration, SystemTime},
@@ -40,8 +46,7 @@ pub struct UploadPolicy {
 impl UploadPolicy {
     /// 存储空间约束
     pub fn bucket(&self) -> Option<&str> {
-        self.inner
-            .get(SCOPE_KEY)
+        self.get(SCOPE_KEY)
             .as_ref()
             .and_then(|s| s.as_str())
             .and_then(|s| s.splitn(2, ':').next())
@@ -49,8 +54,7 @@ impl UploadPolicy {
 
     /// 对象名称约束或对象名称前缀约束
     pub fn key(&self) -> Option<&str> {
-        self.inner
-            .get(SCOPE_KEY)
+        self.get(SCOPE_KEY)
             .as_ref()
             .and_then(|v| v.as_str())
             .and_then(|s| s.splitn(2, ':').nth(1))
@@ -58,38 +62,28 @@ impl UploadPolicy {
 
     /// 是否是对象名称前缀约束
     pub fn use_prefixal_object_key(&self) -> bool {
-        self.inner
-            .get(IS_PREFIXAL_SCOPE_KEY)
+        self.get(IS_PREFIXAL_SCOPE_KEY)
             .and_then(|v| v.as_u64())
             .is_some()
     }
 
     /// 是否仅允许新增对象，不允许覆盖对象
     pub fn is_insert_only(&self) -> bool {
-        self.inner
-            .get(INSERT_ONLY_KEY)
-            .and_then(|v| v.as_u64())
-            .is_some()
+        self.get(INSERT_ONLY_KEY).and_then(|v| v.as_u64()).is_some()
     }
 
     /// 是否启用 MIME 类型自动检测
     pub fn mime_detection_enabled(&self) -> bool {
-        self.inner
-            .get(DETECT_MIME_KEY)
-            .and_then(|v| v.as_u64())
-            .is_some()
+        self.get(DETECT_MIME_KEY).and_then(|v| v.as_u64()).is_some()
     }
 
     /// 上传凭证过期时间
     pub fn token_deadline(&self) -> Option<SystemTime> {
-        self.inner
-            .get(DEADLINE_KEY)
-            .and_then(|v| v.as_u64())
-            .map(|t| {
-                SystemTime::UNIX_EPOCH
-                    .checked_add(Duration::from_secs(t.into()))
-                    .unwrap()
-            })
+        self.get(DEADLINE_KEY).and_then(|v| v.as_u64()).map(|t| {
+            SystemTime::UNIX_EPOCH
+                .checked_add(Duration::from_secs(t))
+                .unwrap()
+        })
     }
 
     /// 上传凭证有效期
@@ -102,54 +96,50 @@ impl UploadPolicy {
 
     /// Web 端文件上传成功后，浏览器执行 303 跳转的 URL
     pub fn return_url(&self) -> Option<&str> {
-        self.inner.get(RETURN_URL_KEY).and_then(|v| v.as_str())
+        self.get(RETURN_URL_KEY).and_then(|v| v.as_str())
     }
 
     /// 上传成功后，自定义七牛云最终返回给上传端的数据
     pub fn return_body(&self) -> Option<&str> {
-        self.inner.get(RETURN_BODY_KEY).and_then(|v| v.as_str())
+        self.get(RETURN_BODY_KEY).and_then(|v| v.as_str())
     }
 
     /// 上传成功后，七牛云向业务服务器发送 POST 请求的 URL 列表
     pub fn callback_urls(&self) -> Option<Split<char>> {
-        self.inner
-            .get(RETURN_BODY_KEY)
+        self.get(CALLBACK_URL_KEY)
             .and_then(|v| v.as_str())
             .map(|s| s.split(';'))
     }
 
     /// 上传成功后，七牛云向业务服务器发送回调请求时的 `Host`
     pub fn callback_host(&self) -> Option<&str> {
-        self.inner.get(CALLBACK_HOST_KEY).and_then(|v| v.as_str())
+        self.get(CALLBACK_HOST_KEY).and_then(|v| v.as_str())
     }
 
     /// 上传成功后，七牛云向业务服务器发送回调请求时的内容
     ///
     /// 支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
     pub fn callback_body(&self) -> Option<&str> {
-        self.inner.get(CALLBACK_BODY_KEY).and_then(|v| v.as_str())
+        self.get(CALLBACK_BODY_KEY).and_then(|v| v.as_str())
     }
 
     /// 上传成功后，七牛云向业务服务器发送回调通知 `callback_body()` 的 `Content-Type`
     ///
     /// 默认为 `application/x-www-form-urlencoded` ，也可设置为 `application/json` 。
     pub fn callback_body_type(&self) -> Option<&str> {
-        self.inner
-            .get(CALLBACK_BODY_TYPE_KEY)
-            .and_then(|v| v.as_str())
+        self.get(CALLBACK_BODY_TYPE_KEY).and_then(|v| v.as_str())
     }
 
     /// 自定义对象名称
     ///
     /// 支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
     pub fn save_key(&self) -> Option<&str> {
-        self.inner.get(SAVE_KEY_KEY).and_then(|v| v.as_str())
+        self.get(SAVE_KEY_KEY).and_then(|v| v.as_str())
     }
 
     /// 是否忽略客户端指定的对象名称，强制使用自定义对象名称 `save_key()` 进行文件命名
     pub fn is_save_key_forced(&self) -> bool {
-        self.inner
-            .get(FORCE_SAVE_KEY_KEY)
+        self.get(FORCE_SAVE_KEY_KEY)
             .and_then(|v| v.as_bool())
             .unwrap_or(false)
     }
@@ -159,8 +149,8 @@ impl UploadPolicy {
     /// 返回的第一个元素为最小尺寸，第二个元素为最大尺寸，如果为 `None` 表示不限制，单位为字节
     pub fn file_size_limitation(&self) -> (Option<u64>, Option<u64>) {
         (
-            self.inner.get(FSIZE_MIN_KEY).and_then(|v| v.as_u64()),
-            self.inner.get(FSIZE_LIMIT_KEY).and_then(|v| v.as_u64()),
+            self.get(FSIZE_MIN_KEY).and_then(|v| v.as_u64()),
+            self.get(FSIZE_LIMIT_KEY).and_then(|v| v.as_u64()),
         )
     }
 
@@ -169,16 +159,14 @@ impl UploadPolicy {
     /// 指定本字段值，七牛服务器会侦测文件内容以判断 MIME 类型，再用判断值跟指定值进行匹配，
     /// 匹配成功则允许上传，匹配失败则返回 403 状态码
     pub fn mime_types(&self) -> Option<Split<char>> {
-        self.inner
-            .get(MIME_LIMIT_KEY)
+        self.get(MIME_LIMIT_KEY)
             .and_then(|v| v.as_str())
             .map(|s| s.split(';'))
     }
 
     /// 文件类型
     pub fn file_type(&self) -> Result<FileType, InvalidFileType> {
-        self.inner
-            .get(FILE_TYPE_KEY)
+        self.get(FILE_TYPE_KEY)
             .and_then(|v| v.as_u64())
             .and_then(|v| u8::try_from(v).ok())
             .unwrap_or(0)
@@ -189,8 +177,7 @@ impl UploadPolicy {
     ///
     /// 精确到天
     pub fn object_lifetime(&self) -> Option<Duration> {
-        self.inner
-            .get(DELETE_AFTER_DAYS_KEY)
+        self.get(DELETE_AFTER_DAYS_KEY)
             .and_then(|v| v.as_u64())
             .map(|d| Duration::from_secs((d * 60 * 60 * 24).try_into().unwrap_or(u64::max_value())))
     }
@@ -210,6 +197,24 @@ impl UploadPolicy {
     /// 解析 JSON 格式的上传凭证
     pub fn from_json(json: impl AsRef<[u8]>) -> serde_json::Result<UploadPolicy> {
         serde_json::from_slice(json.as_ref()).map(|inner| UploadPolicy { inner })
+    }
+
+    /// 根据指定的上传凭证字段获取相应的值
+    #[inline]
+    pub fn get(&self, key: impl JSONValueIndex) -> Option<&JSONValue> {
+        self.inner.get(key)
+    }
+
+    /// 获取上传凭证的字段迭代器
+    #[inline]
+    pub fn keys(&self) -> JSONMapKeys {
+        self.inner.as_object().unwrap().keys()
+    }
+
+    /// 获取上传凭证的字段值的迭代器
+    #[inline]
+    pub fn values(&self) -> JSONMapValues {
+        self.inner.as_object().unwrap().values()
     }
 
     #[allow(dead_code)]
@@ -303,7 +308,7 @@ impl UploadPolicyBuilder {
 
     /// 指定上传凭证有效期
     pub fn token_lifetime(&mut self, lifetime: Duration) -> &mut Self {
-        self.inner.as_object_mut().unwrap().insert(
+        self.set(
             DEADLINE_KEY.into(),
             JSONValue::Number(
                 SystemTime::now()
@@ -313,13 +318,12 @@ impl UploadPolicyBuilder {
                     .unwrap_or(u32::max_value())
                     .into(),
             ),
-        );
-        self
+        )
     }
 
     /// 指定上传凭证过期时间
     pub fn token_deadline(&mut self, deadline: SystemTime) -> &mut Self {
-        self.inner.as_object_mut().unwrap().insert(
+        self.set(
             DEADLINE_KEY.into(),
             JSONValue::Number(
                 deadline
@@ -329,41 +333,30 @@ impl UploadPolicyBuilder {
                     .unwrap_or(u32::max_value())
                     .into(),
             ),
-        );
-        self
+        )
     }
 
     /// 仅允许创建新的对象，不允许覆盖和修改同名对象
     pub fn insert_only(&mut self) -> &mut Self {
-        self.inner
-            .as_object_mut()
-            .unwrap()
-            .insert(INSERT_ONLY_KEY.into(), JSONValue::Number(1.into()));
-        self
+        self.set(INSERT_ONLY_KEY.into(), JSONValue::Number(1.into()))
     }
 
     /// 启用 MIME 类型自动检测
     pub fn enable_mime_detection(&mut self) -> &mut Self {
-        self.inner
-            .as_object_mut()
-            .unwrap()
-            .insert(DETECT_MIME_KEY.into(), JSONValue::Number(1.into()));
-        self
+        self.set(DETECT_MIME_KEY.into(), JSONValue::Number(1.into()))
     }
 
     /// 禁用 MIME 类型自动检测
     pub fn disable_mime_detection(&mut self) -> &mut Self {
-        self.inner.as_object_mut().unwrap().remove(DETECT_MIME_KEY);
-        self
+        self.unset(DETECT_MIME_KEY)
     }
 
     /// 设置文件类型
     pub fn file_type(&mut self, file_type: FileType) -> &mut Self {
-        self.inner.as_object_mut().unwrap().insert(
+        self.set(
             FILE_TYPE_KEY.into(),
             JSONValue::Number(u8::from(file_type).into()),
-        );
-        self
+        )
     }
 
     /// Web 端文件上传成功后，浏览器执行 303 跳转的 URL
@@ -373,11 +366,7 @@ impl UploadPolicyBuilder {
     /// `<queryString>` 包含 `return_body()` 内容。
     /// 如不设置 `return_url`，则直接将 `return_body()` 的内容返回给客户端
     pub fn return_url(&mut self, url: impl Into<String>) -> &mut Self {
-        self.inner
-            .as_object_mut()
-            .unwrap()
-            .insert(RETURN_URL_KEY.into(), JSONValue::String(url.into()));
-        self
+        self.set(RETURN_URL_KEY.into(), JSONValue::String(url.into()))
     }
 
     /// 上传成功后，自定义七牛云最终返回给上传端（在指定 `return_url()` 时是携带在跳转路径参数中）的数据
@@ -386,11 +375,7 @@ impl UploadPolicyBuilder {
     /// `return_body` 要求是合法的 JSON 文本。
     /// 例如 `{"key": $(key), "hash": $(etag), "w": $(imageInfo.width), "h": $(imageInfo.height)}`
     pub fn return_body(&mut self, body: impl Into<String>) -> &mut Self {
-        self.inner
-            .as_object_mut()
-            .unwrap()
-            .insert(RETURN_BODY_KEY.into(), JSONValue::String(body.into()));
-        self
+        self.set(RETURN_BODY_KEY.into(), JSONValue::String(body.into()))
     }
 
     /// 上传成功后，七牛云向业务服务器发送 POST 请求的 URL 列表，`Host`，回调请求的内容以及其 `Content-Type`
@@ -409,26 +394,25 @@ impl UploadPolicyBuilder {
         body: impl Into<String>,
         body_type: impl Into<String>,
     ) -> &mut Self {
-        let inner = self.inner.as_object_mut().unwrap();
-        inner.insert(
+        self.set(
             CALLBACK_URL_KEY.into(),
             JSONValue::String(urls.as_ref().join(";")),
         );
         {
             let callback_host = host.into();
             if callback_host.is_empty() {
-                inner.remove(CALLBACK_HOST_KEY);
+                self.unset(CALLBACK_HOST_KEY);
             } else {
-                inner.insert(CALLBACK_HOST_KEY.into(), JSONValue::String(callback_host));
+                self.set(CALLBACK_HOST_KEY.into(), JSONValue::String(callback_host));
             }
         }
-        inner.insert(CALLBACK_BODY_KEY.into(), JSONValue::String(body.into()));
+        self.set(CALLBACK_BODY_KEY.into(), JSONValue::String(body.into()));
         {
             let callback_body_type = body_type.into();
             if callback_body_type.is_empty() {
-                inner.remove(CALLBACK_BODY_TYPE_KEY);
+                self.unset(CALLBACK_BODY_TYPE_KEY);
             } else {
-                inner.insert(
+                self.set(
                     CALLBACK_BODY_TYPE_KEY.into(),
                     JSONValue::String(callback_body_type),
                 );
@@ -443,12 +427,11 @@ impl UploadPolicyBuilder {
     /// `force` 为 `false` 时，`save_as` 字段仅当用户上传的时候没有主动指定对象名时起作用，
     /// `force` 为 `true` 时，将强制按 `save_as` 字段的内容命名
     pub fn save_as(&mut self, save_as: impl Into<String>, force: bool) -> &mut Self {
-        let inner = self.inner.as_object_mut().unwrap();
-        inner.insert(SAVE_KEY_KEY.into(), JSONValue::String(save_as.into()));
+        self.set(SAVE_KEY_KEY.into(), JSONValue::String(save_as.into()));
         if force {
-            inner.insert(FORCE_SAVE_KEY_KEY.into(), JSONValue::Bool(true));
+            self.set(FORCE_SAVE_KEY_KEY.into(), JSONValue::Bool(true));
         } else {
-            inner.remove(FORCE_SAVE_KEY_KEY);
+            self.unset(FORCE_SAVE_KEY_KEY);
         }
         self
     }
@@ -457,27 +440,26 @@ impl UploadPolicyBuilder {
     ///
     /// 单位为字节
     pub fn file_size_limitation(&mut self, size: impl RangeBounds<u64>) -> &mut Self {
-        let inner = self.inner.as_object_mut().unwrap();
         match size.start_bound() {
             Bound::Included(&s) => {
-                inner.insert(FSIZE_MIN_KEY.into(), JSONValue::Number(s.into()));
+                self.set(FSIZE_MIN_KEY.into(), JSONValue::Number(s.into()));
             }
             Bound::Excluded(&s) => {
-                inner.insert(FSIZE_MIN_KEY.into(), JSONValue::Number((s + 1).into()));
+                self.set(FSIZE_MIN_KEY.into(), JSONValue::Number((s + 1).into()));
             }
             Bound::Unbounded => {
-                inner.remove(FSIZE_MIN_KEY);
+                self.unset(FSIZE_MIN_KEY);
             }
         }
         match size.end_bound() {
             Bound::Included(&s) => {
-                inner.insert(FSIZE_LIMIT_KEY.into(), JSONValue::Number(s.into()));
+                self.set(FSIZE_LIMIT_KEY.into(), JSONValue::Number(s.into()));
             }
             Bound::Excluded(&s) => {
-                inner.insert(FSIZE_LIMIT_KEY.into(), JSONValue::Number((s - 1).into()));
+                self.set(FSIZE_LIMIT_KEY.into(), JSONValue::Number((s - 1).into()));
             }
             Bound::Unbounded => {
-                inner.remove(FSIZE_LIMIT_KEY);
+                self.unset(FSIZE_LIMIT_KEY);
             }
         }
         self
@@ -488,11 +470,10 @@ impl UploadPolicyBuilder {
     /// 指定本字段值，七牛服务器会侦测文件内容以判断 MIME 类型，再用判断值跟指定值进行匹配，
     /// 匹配成功则允许上传，匹配失败则返回 403 状态码
     pub fn mime_types<'a>(&mut self, content_types: impl AsRef<[&'a str]>) -> &mut Self {
-        self.inner.as_object_mut().unwrap().insert(
+        self.set(
             MIME_LIMIT_KEY.into(),
             JSONValue::String(content_types.as_ref().join(";")),
-        );
-        self
+        )
     }
 
     /// 对象生命周期
@@ -502,7 +483,7 @@ impl UploadPolicyBuilder {
         let lifetime_secs = lifetime.as_secs();
         let secs_one_day = 60 * 60 * 24;
 
-        self.inner.as_object_mut().unwrap().insert(
+        self.set(
             DELETE_AFTER_DAYS_KEY.into(),
             lifetime_secs
                 .checked_add(secs_one_day)
@@ -510,8 +491,7 @@ impl UploadPolicyBuilder {
                 .and_then(|s| s.checked_div(secs_one_day))
                 .and_then(|s| s.try_into().ok())
                 .unwrap_or_else(|| JSONValue::Number(u64::max_value().into())),
-        );
-        self
+        )
     }
 
     /// 对象的生命到期时间
@@ -523,6 +503,22 @@ impl UploadPolicyBuilder {
                 .duration_since(SystemTime::now())
                 .unwrap_or_else(|_| Duration::from_secs(0)),
         )
+    }
+
+    #[inline]
+    pub fn set(&mut self, k: String, v: JSONValue) -> &mut Self {
+        self.inner.as_object_mut().unwrap().insert(k, v);
+        self
+    }
+
+    #[inline]
+    pub fn unset<Q>(&mut self, k: &Q) -> &mut Self
+    where
+        String: Borrow<Q>,
+        Q: ?Sized + Ord + Eq + Hash,
+    {
+        self.inner.as_object_mut().unwrap().remove(k);
+        self
     }
 
     /// 生成上传策略
@@ -554,6 +550,7 @@ impl UploadPolicyBuilder {
 }
 
 impl fmt::Debug for UploadPolicyBuilder {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.inner.fmt(f)
     }
@@ -577,7 +574,7 @@ impl From<UploadPolicy> for Cow<'_, UploadPolicy> {
 mod tests {
     use super::*;
     use qiniu_utils::mime;
-    use serde_json::{json, Value};
+    use serde_json::json;
     use std::{boxed::Box, error::Error, result::Result};
 
     #[test]
@@ -598,16 +595,14 @@ mod tests {
                 < Duration::from_secs(5)
         );
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v.as_object().unwrap().len(), 3);
-        assert_eq!(v["scope"], "test_bucket");
-        assert_eq!(v["insertOnly"], 1);
+        assert_eq!(policy.keys().len(), 2);
+        assert_eq!(policy.get("scope"), Some(&json!("test_bucket")));
         assert!(
             one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
-                - Duration::from_secs(v["deadline"].as_u64().unwrap())
+                - Duration::from_secs(policy.get("deadline").unwrap().as_u64().unwrap())
                 < Duration::from_secs(5)
         );
-        assert_eq!(v["isPrefixalScope"], json!(null));
+        assert!(policy.get("isPrefixalScope").is_none());
         Ok(())
     }
 
@@ -633,15 +628,14 @@ mod tests {
                 < Duration::from_secs(5)
         );
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v.as_object().unwrap().len(), 2);
-        assert_eq!(v["scope"], "test_bucket:test:object");
+        assert_eq!(policy.keys().len(), 2);
+        assert_eq!(policy.get("scope"), Some(&json!("test_bucket:test:object")));
         assert!(
             one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
-                - Duration::from_secs(v["deadline"].as_u64().unwrap())
+                - Duration::from_secs(policy.get("deadline").unwrap().as_u64().unwrap())
                 < Duration::from_secs(5)
         );
-        assert_eq!(v["isPrefixalScope"], json!(null));
+        assert!(policy.get("isPrefixalScope").is_none());
         Ok(())
     }
 
@@ -667,15 +661,14 @@ mod tests {
                 < Duration::from_secs(5)
         );
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v.as_object().unwrap().len(), 3);
-        assert_eq!(v["scope"], "test_bucket:test:object");
+        assert_eq!(policy.keys().len(), 3);
+        assert_eq!(policy.get("scope"), Some(&json!("test_bucket:test:object")));
         assert!(
             one_hour_later.duration_since(SystemTime::UNIX_EPOCH)?
-                - Duration::from_secs(v["deadline"].as_u64().unwrap())
+                - Duration::from_secs(policy.get("deadline").unwrap().as_u64().unwrap())
                 < Duration::from_secs(5)
         );
-        assert_eq!(v["isPrefixalScope"], json!(1));
+        assert_eq!(policy.get("isPrefixalScope"), Some(&json!(1)));
         Ok(())
     }
 
@@ -694,10 +687,9 @@ mod tests {
                 < Duration::from_secs(5)
         );
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert!(
             SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?
-                - Duration::from_secs(v["deadline"].as_u64().unwrap())
+                - Duration::from_secs(policy.get("deadline").unwrap().as_u64().unwrap())
                 < Duration::from_secs(5)
         );
         Ok(())
@@ -721,10 +713,9 @@ mod tests {
                 < Duration::from_secs(5)
         );
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert!(
             tomorrow.duration_since(SystemTime::UNIX_EPOCH)?
-                - Duration::from_secs(v["deadline"].as_u64().unwrap())
+                - Duration::from_secs(policy.get("deadline").unwrap().as_u64().unwrap())
                 < Duration::from_secs(5)
         );
         Ok(())
@@ -760,8 +751,7 @@ mod tests {
         .insert_only()
         .build();
         assert_eq!(policy.is_insert_only(), true);
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["insertOnly"], 1);
+        assert_eq!(policy.get("insertOnly"), Some(&json!(1)));
         Ok(())
     }
 
@@ -772,8 +762,7 @@ mod tests {
                 .enable_mime_detection()
                 .build();
         assert_eq!(policy.mime_detection_enabled(), true);
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["detectMime"], 1);
+        assert_eq!(policy.get("detectMime"), Some(&json!(1)));
         Ok(())
     }
 
@@ -784,8 +773,7 @@ mod tests {
                 .file_type(FileType::Normal)
                 .build();
         assert_eq!(policy.file_type()?, FileType::Normal);
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["fileType"], json!(null));
+        assert_eq!(policy.get("fileType"), Some(&json!(0)));
         Ok(())
     }
 
@@ -796,8 +784,7 @@ mod tests {
                 .file_type(FileType::InfrequentAccess)
                 .build();
         assert_eq!(policy.file_type()?, FileType::InfrequentAccess);
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["fileType"], 1);
+        assert_eq!(policy.get("fileType"), Some(&json!(1)));
         Ok(())
     }
 
@@ -808,8 +795,10 @@ mod tests {
                 .return_url("http://www.qiniu.io/test")
                 .build();
         assert_eq!(policy.return_url(), Some("http://www.qiniu.io/test"));
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["returnUrl"], "http://www.qiniu.io/test");
+        assert_eq!(
+            policy.get("returnUrl"),
+            Some(&json!("http://www.qiniu.io/test"))
+        );
         Ok(())
     }
 
@@ -820,8 +809,7 @@ mod tests {
                 .return_body("datadatadata")
                 .build();
         assert_eq!(policy.return_body(), Some("datadatadata"));
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["returnBody"], "datadatadata");
+        assert_eq!(policy.get("returnBody"), Some(&json!("datadatadata")));
         Ok(())
     }
 
@@ -849,14 +837,13 @@ mod tests {
         assert_eq!(policy.callback_host(), Some("www.qiniu.com"));
         assert_eq!(policy.callback_body(), Some("a=b&c=d"));
         assert_eq!(policy.callback_body_type(), None);
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(
-            v["callbackUrl"],
-            "https://1.1.1.1;https://2.2.2.2;https://3.3.3.3"
+            policy.get("callbackUrl"),
+            Some(&json!("https://1.1.1.1;https://2.2.2.2;https://3.3.3.3"))
         );
-        assert_eq!(v["callbackHost"], "www.qiniu.com");
-        assert_eq!(v["callbackBody"], "a=b&c=d");
-        assert_eq!(v["callbackBodyType"], json!(null));
+        assert_eq!(policy.get("callbackHost"), Some(&json!("www.qiniu.com")));
+        assert_eq!(policy.get("callbackBody"), Some(&json!("a=b&c=d")));
+        assert!(policy.get("callbackBodyType").is_none());
         Ok(())
     }
 
@@ -884,14 +871,16 @@ mod tests {
         assert_eq!(policy.callback_host(), Some("www.qiniu.com"));
         assert_eq!(policy.callback_body(), Some("a=b&c=d"));
         assert_eq!(policy.callback_body_type(), Some(mime::FORM_MIME));
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
         assert_eq!(
-            v["callbackUrl"],
-            "https://1.1.1.1;https://2.2.2.2;https://3.3.3.3"
+            policy.get("callbackUrl"),
+            Some(&json!("https://1.1.1.1;https://2.2.2.2;https://3.3.3.3"))
         );
-        assert_eq!(v["callbackHost"], "www.qiniu.com");
-        assert_eq!(v["callbackBody"], "a=b&c=d");
-        assert_eq!(v["callbackBodyType"], mime::FORM_MIME);
+        assert_eq!(policy.get("callbackHost"), Some(&json!("www.qiniu.com")));
+        assert_eq!(policy.get("callbackBody"), Some(&json!("a=b&c=d")));
+        assert_eq!(
+            policy.get("callbackBodyType"),
+            Some(&json!(mime::FORM_MIME))
+        );
         Ok(())
     }
 
@@ -903,9 +892,8 @@ mod tests {
                 .build();
         assert_eq!(policy.save_key(), Some("target_file"));
         assert_eq!(policy.is_save_key_forced(), false);
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["saveKey"], "target_file");
-        assert_eq!(v["forceSaveKey"], json!(null));
+        assert_eq!(policy.get("saveKey"), Some(&json!("target_file")));
+        assert!(policy.get("forceSaveKey").is_none());
         Ok(())
     }
 
@@ -917,9 +905,8 @@ mod tests {
                 .build();
         assert_eq!(policy.save_key(), Some("target_file"));
         assert_eq!(policy.is_save_key_forced(), true);
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["saveKey"], "target_file");
-        assert_eq!(v["forceSaveKey"], true);
+        assert_eq!(policy.get("saveKey"), Some(&json!("target_file")));
+        assert_eq!(policy.get("forceSaveKey"), Some(&json!(true)));
         Ok(())
     }
 
@@ -930,9 +917,8 @@ mod tests {
                 .file_size_limitation(15..20)
                 .build();
         assert_eq!(policy.file_size_limitation(), (Some(15), Some(19)));
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["fsizeMin"], 15);
-        assert_eq!(v["fsizeLimit"], 19);
+        assert_eq!(policy.get("fsizeMin"), Some(&json!(15)));
+        assert_eq!(policy.get("fsizeLimit"), Some(&json!(19)));
         Ok(())
     }
 
@@ -943,9 +929,8 @@ mod tests {
                 .file_size_limitation(15..=20)
                 .build();
         assert_eq!(policy.file_size_limitation(), (Some(15), Some(20)));
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["fsizeMin"], 15);
-        assert_eq!(v["fsizeLimit"], 20);
+        assert_eq!(policy.get("fsizeMin"), Some(&json!(15)));
+        assert_eq!(policy.get("fsizeLimit"), Some(&json!(20)));
         Ok(())
     }
 
@@ -956,9 +941,8 @@ mod tests {
                 .file_size_limitation(..20)
                 .build();
         assert_eq!(policy.file_size_limitation(), (None, Some(19)));
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["fsizeMin"], json!(null));
-        assert_eq!(v["fsizeLimit"], 19);
+        assert!(policy.get("fsizeMin").is_none());
+        assert_eq!(policy.get("fsizeLimit"), Some(&json!(19)));
         Ok(())
     }
 
@@ -969,9 +953,8 @@ mod tests {
                 .file_size_limitation(15..)
                 .build();
         assert_eq!(policy.file_size_limitation(), (Some(15), None));
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["fsizeMin"], 15);
-        assert_eq!(v["fsizeLimit"], json!(null));
+        assert_eq!(policy.get("fsizeMin"), Some(&json!(15)));
+        assert!(policy.get("fsizeLimit").is_none());
         Ok(())
     }
 
@@ -985,8 +968,10 @@ mod tests {
             policy.mime_types().map(|ops| ops.collect::<Vec<&str>>()),
             Some(vec!["image/jpeg", "image/png"])
         );
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["mimeLimit"], "image/jpeg;image/png");
+        assert_eq!(
+            policy.get("mimeLimit"),
+            Some(&json!("image/jpeg;image/png"))
+        );
         Ok(())
     }
 
@@ -999,8 +984,7 @@ mod tests {
                 .build();
         assert_eq!(policy.object_lifetime(), Some(one_hundred_days));
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["deleteAfterDays"], 100);
+        assert_eq!(policy.get("deleteAfterDays"), Some(&json!(100)));
         Ok(())
     }
 
@@ -1014,8 +998,7 @@ mod tests {
                 .build();
         assert_eq!(policy.object_lifetime(), Some(one_day));
 
-        let v: Value = serde_json::from_str(policy.as_json().as_str())?;
-        assert_eq!(v["deleteAfterDays"], 1);
+        assert_eq!(policy.get("deleteAfterDays"), Some(&json!(1)));
         Ok(())
     }
 
