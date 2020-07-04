@@ -1,206 +1,240 @@
 use super::{UploadPolicy, UploadPolicyBuilder};
-use assert_impl::assert_impl;
 use once_cell::sync::OnceCell;
 use qiniu_credential::AsCredential;
 use qiniu_utils::base64;
-use std::{borrow::Cow, ffi::c_void, fmt, sync::Arc, time::Duration};
+use std::{
+    any::Any,
+    borrow::Cow,
+    fmt::{self, Debug, Display},
+    sync::Arc,
+    time::Duration,
+};
 use thiserror::Error;
 
 /// 上传凭证
 ///
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1208/upload-token)了解七牛安全机制。
-#[derive(Debug, Clone)]
-pub struct UploadToken(Arc<UploadTokenInner>);
+pub trait AsUploadToken: Any + Debug + Display + Sync + Send {
+    /// 从上传凭证内获取 AccessKey
+    fn access_key(&self) -> ParseResult<Cow<str>>;
 
-#[derive(Debug, Clone)]
-#[allow(clippy::large_enum_variant)]
-enum UploadTokenInner {
-    Token {
-        token: Box<str>,
-        policy: OnceCell<UploadPolicy>,
-        access_key: OnceCell<Box<str>>,
-    },
-    Policy {
-        policy: UploadPolicy,
-        credential: Arc<dyn AsCredential>,
-        token: OnceCell<Box<str>>,
-    },
-    Bucket {
-        bucket: Cow<'static, str>,
-        upload_token_lifetime: Duration,
-        credential: Arc<dyn AsCredential>,
-    },
+    /// 从上传凭证内获取上传策略
+    fn policy(&self) -> ParseResult<Cow<UploadPolicy>>;
+
+    fn as_upload_token(&self) -> &dyn AsUploadToken;
+    fn as_any(&self) -> &dyn Any;
 }
 
-impl UploadToken {
-    /// 根据上传策略创建新的上传凭证
-    pub fn new(policy: UploadPolicy, credential: Arc<dyn AsCredential>) -> Self {
-        Self(Arc::new(UploadTokenInner::Policy {
-            policy,
-            credential,
-            token: OnceCell::new(),
-        }))
-    }
+/// 静态上传凭证
+///
+/// 根据已经被生成好的上传凭证字符串生成上传凭证实例，可以将上传凭证解析为 Access Token 和上传策略
+pub struct StaticUploadToken {
+    upload_token: Box<str>,
+    policy: OnceCell<UploadPolicy>,
+    access_key: OnceCell<Box<str>>,
+}
 
-    /// 根据存储空间创建新的上传凭证
-    pub fn new_from_bucket(
-        bucket: impl Into<Cow<'static, str>>,
-        credential: Arc<dyn AsCredential>,
-        upload_token_lifetime: Duration,
-    ) -> Self {
-        Self(Arc::new(UploadTokenInner::Bucket {
-            credential,
-            upload_token_lifetime,
-            bucket: bucket.into(),
-        }))
-    }
-
-    /// 解析上传凭证，获取 `Access Key`
-    pub fn access_key(&self) -> ParseResult<Cow<str>> {
-        match self.0.as_ref() {
-            UploadTokenInner::Token {
-                token, access_key, ..
-            } => access_key
-                .get_or_try_init(|| {
-                    token
-                        .find(':')
-                        .map(|i| token.split_at(i).0.to_owned().into())
-                        .ok_or_else(|| ParseError::InvalidUploadTokenFormat)
-                })
-                .map(|access_key| access_key.as_ref().into()),
-            UploadTokenInner::Policy { credential, .. }
-            | UploadTokenInner::Bucket { credential, .. } => Ok(credential.get().access_key),
+impl StaticUploadToken {
+    /// 构建一个静态上传凭证，只需要传入静态的上传凭证字符串即可
+    pub fn new(upload_token: impl Into<String>) -> Self {
+        Self {
+            upload_token: upload_token.into().into_boxed_str(),
+            policy: OnceCell::new(),
+            access_key: OnceCell::new(),
         }
     }
+}
 
-    /// 解析上传凭证，获取上传策略
-    pub fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
-        match self.0.as_ref() {
-            UploadTokenInner::Token { token, policy, .. } => policy
-                .get_or_try_init(|| {
-                    let encoded_policy = token
-                        .splitn(3, ':')
-                        .last()
-                        .ok_or(ParseError::InvalidUploadTokenFormat)?;
-                    let decoded_policy = base64::decode(encoded_policy.as_bytes())
-                        .map_err(ParseError::Base64DecodeError)?;
-                    Ok(UploadPolicy::from_json(&decoded_policy)
-                        .map_err(ParseError::JSONDecodeError)?)
-                })
-                .map(|policy| policy.into()),
-            UploadTokenInner::Policy { policy, .. } => Ok(policy.into()),
-            UploadTokenInner::Bucket {
-                bucket,
-                upload_token_lifetime,
-                ..
-            } => Ok(UploadPolicyBuilder::new_policy_for_bucket(
-                bucket.to_string(),
-                *upload_token_lifetime,
+impl fmt::Debug for StaticUploadToken {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("StaticUploadToken")
+            .field("upload_token", &self.upload_token)
+            .finish()
+    }
+}
+
+impl fmt::Display for StaticUploadToken {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.upload_token, f)
+    }
+}
+
+impl AsUploadToken for StaticUploadToken {
+    fn access_key(&self) -> ParseResult<Cow<str>> {
+        self.access_key
+            .get_or_try_init(|| {
+                self.upload_token
+                    .find(':')
+                    .map(|i| self.upload_token.split_at(i).0.to_owned().into())
+                    .ok_or_else(|| ParseError::InvalidUploadTokenFormat)
+            })
+            .map(|access_key| access_key.as_ref().into())
+    }
+
+    fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
+        self.policy
+            .get_or_try_init(|| {
+                let encoded_policy = self
+                    .upload_token
+                    .splitn(3, ':')
+                    .last()
+                    .ok_or(ParseError::InvalidUploadTokenFormat)?;
+                let decoded_policy = base64::decode(encoded_policy.as_bytes())
+                    .map_err(ParseError::Base64DecodeError)?;
+                Ok(
+                    UploadPolicy::from_json(&decoded_policy)
+                        .map_err(ParseError::JSONDecodeError)?,
+                )
+            })
+            .map(|policy| policy.into())
+    }
+
+    fn as_upload_token(&self) -> &dyn AsUploadToken {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl<T: Into<String>> From<T> for StaticUploadToken {
+    #[inline]
+    fn from(s: T) -> Self {
+        Self::new(s)
+    }
+}
+
+/// 基于上传策略生成
+///
+/// 将上传策略签名，可以生成上传凭证实例
+pub struct FromUploadPolicy {
+    upload_policy: UploadPolicy,
+    credential: Arc<dyn AsCredential>,
+    upload_token: OnceCell<Box<str>>,
+}
+
+impl FromUploadPolicy {
+    /// 基于上传策略和认证信息生成上传凭证实例
+    pub fn new(upload_policy: UploadPolicy, credential: Arc<dyn AsCredential>) -> Self {
+        Self {
+            upload_policy,
+            credential,
+            upload_token: OnceCell::new(),
+        }
+    }
+}
+
+impl fmt::Debug for FromUploadPolicy {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("FromUploadPolicy")
+            .field("upload_policy", &self.upload_policy)
+            .finish()
+    }
+}
+
+impl fmt::Display for FromUploadPolicy {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let upload_token = self.upload_token.get_or_init(|| {
+            self.credential
+                .sign_with_data(self.upload_policy.as_json().as_bytes())
+                .into()
+        });
+        fmt::Display::fmt(&upload_token, f)
+    }
+}
+
+impl AsUploadToken for FromUploadPolicy {
+    fn access_key(&self) -> ParseResult<Cow<str>> {
+        Ok(self.credential.get().access_key)
+    }
+
+    fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
+        Ok(Cow::Borrowed(&self.upload_policy))
+    }
+
+    fn as_upload_token(&self) -> &dyn AsUploadToken {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// 基于存储空间动态生成
+///
+/// 根据存储空间快速生成上传凭证实例
+pub struct FromBucket {
+    bucket: Cow<'static, str>,
+    upload_token_lifetime: Duration,
+    credential: Arc<dyn AsCredential>,
+}
+
+impl FromBucket {
+    /// 基于存储空间名称和认证信息动态生成上传凭证实例
+    pub fn new(
+        bucket: impl Into<Cow<'static, str>>,
+        upload_token_lifetime: Duration,
+        credential: Arc<dyn AsCredential>,
+    ) -> Self {
+        Self {
+            bucket: bucket.into(),
+            upload_token_lifetime,
+            credential,
+        }
+    }
+}
+
+impl fmt::Debug for FromBucket {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("FromBucket")
+            .field("bucket", &self.bucket)
+            .field("upload_token_lifetime", &self.upload_token_lifetime)
+            .finish()
+    }
+}
+
+impl fmt::Display for FromBucket {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let upload_token = self.credential.sign_with_data(
+            UploadPolicyBuilder::new_policy_for_bucket(
+                self.bucket.to_string(),
+                self.upload_token_lifetime,
             )
             .build()
-            .into()),
-        }
-    }
-
-    #[doc(hidden)]
-    pub fn into_raw(self) -> *const c_void {
-        Arc::into_raw(self.0).cast()
-    }
-
-    #[doc(hidden)]
-    pub unsafe fn from_raw(ptr: *const c_void) -> Self {
-        Self(Arc::from_raw(ptr.cast::<UploadTokenInner>()))
-    }
-
-    #[allow(dead_code)]
-    fn ignore() {
-        assert_impl!(Send: Self);
-        assert_impl!(Sync: Self);
+            .as_json()
+            .as_bytes(),
+        );
+        fmt::Display::fmt(&upload_token, f)
     }
 }
 
-impl fmt::Display for UploadToken {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.0.as_ref() {
-            UploadTokenInner::Token { token, .. } => token.fmt(f),
-            UploadTokenInner::Policy {
-                policy,
-                credential,
-                token,
-            } => token
-                .get_or_init(|| {
-                    credential
-                        .sign_with_data(policy.as_json().as_bytes())
-                        .into()
-                })
-                .fmt(f),
-            UploadTokenInner::Bucket {
-                bucket,
-                upload_token_lifetime,
-                credential,
-            } => credential
-                .sign_with_data(
-                    UploadPolicyBuilder::new_policy_for_bucket(
-                        bucket.to_string(),
-                        *upload_token_lifetime,
-                    )
-                    .build()
-                    .as_json()
-                    .as_bytes(),
-                )
-                .fmt(f),
-        }
+impl AsUploadToken for FromBucket {
+    fn access_key(&self) -> ParseResult<Cow<str>> {
+        Ok(self.credential.get().access_key)
     }
-}
 
-impl<'p> From<Cow<'p, str>> for UploadToken {
-    fn from(s: Cow<'p, str>) -> Self {
-        Self(Arc::new(UploadTokenInner::Token {
-            token: s.into_owned().into(),
-            policy: OnceCell::new(),
-            access_key: OnceCell::new(),
-        }))
+    fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
+        Ok(UploadPolicyBuilder::new_policy_for_bucket(
+            self.bucket.to_string(),
+            self.upload_token_lifetime,
+        )
+        .build()
+        .into())
     }
-}
 
-impl From<String> for UploadToken {
-    fn from(s: String) -> Self {
-        Self(Arc::new(UploadTokenInner::Token {
-            token: s.into(),
-            policy: OnceCell::new(),
-            access_key: OnceCell::new(),
-        }))
+    fn as_upload_token(&self) -> &dyn AsUploadToken {
+        self
     }
-}
 
-impl<'p> From<&'p str> for UploadToken {
-    fn from(s: &'p str) -> Self {
-        Self(Arc::new(UploadTokenInner::Token {
-            token: s.into(),
-            policy: OnceCell::new(),
-            access_key: OnceCell::new(),
-        }))
-    }
-}
-
-impl<'p> From<&'p UploadToken> for Cow<'p, UploadToken> {
-    #[inline]
-    fn from(token: &'p UploadToken) -> Self {
-        Cow::Borrowed(token)
-    }
-}
-
-impl From<UploadToken> for Cow<'_, UploadToken> {
-    #[inline]
-    fn from(token: UploadToken) -> Self {
-        Cow::Owned(token)
-    }
-}
-
-impl From<UploadToken> for String {
-    #[inline]
-    fn from(upload_token: UploadToken) -> Self {
-        upload_token.to_string()
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -235,20 +269,14 @@ mod tests {
             Duration::from_secs(3600),
         )
         .build();
-        let token = UploadToken::new(policy, get_credential()).to_string();
+        let token = FromUploadPolicy::new(policy, get_credential()).to_string();
         assert!(token.starts_with(get_credential().get().access_key.as_ref()));
-        let token = UploadToken::from(token);
+        let token = StaticUploadToken::from(token);
         let policy = token.policy()?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), Some("test:file"));
-        accept_string(token.to_owned().into());
-        accept_upload_token(&token.to_string().into());
-        accept_upload_token(&token.to_string().as_str().into());
         Ok(())
     }
-
-    fn accept_string(_: String) {}
-    fn accept_upload_token(_: &UploadToken) {}
 
     fn get_credential() -> Arc<dyn AsCredential> {
         Arc::new(StaticCredential::new("abcdefghklmnopq", "1234567890"))
