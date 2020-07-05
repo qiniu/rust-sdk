@@ -10,6 +10,7 @@ use std::{
     borrow::Cow,
     convert::TryFrom,
     fmt::{self, Debug},
+    io::{Error, Result},
     time::Duration,
 };
 pub use url::Url;
@@ -27,47 +28,55 @@ pub struct Credential<'a> {
 /// 为认证信息的实现提供接口支持
 pub trait AsCredential: Any + Debug + Sync + Send {
     /// 返回七牛认证信息
-    fn get(&self) -> Credential;
+    fn get(&self) -> Result<Credential>;
 
     fn as_any(&self) -> &dyn Any;
     fn as_credential(&self) -> &dyn AsCredential;
+}
 
+impl Credential<'_> {
     /// 使用七牛签名算法对数据进行签名
     ///
     /// 参考[管理凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1201/access-token)
-    fn sign(&self, data: &[u8]) -> String {
-        let value = self.get();
-        value.access_key.into_owned() + ":" + &base64ed_hmac_digest(value.secret_key.as_ref(), data)
+    pub fn sign(&self, data: &[u8]) -> String {
+        self.access_key.to_owned().into_owned()
+            + ":"
+            + &base64ed_hmac_digest(self.secret_key.as_ref(), data)
     }
 
     /// 使用七牛签名算法对数据进行签名，并同时给出签名和原数据
     ///
     /// 参考[上传凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1208/upload-token)
-    fn sign_with_data(&self, data: &[u8]) -> String {
+    pub fn sign_with_data(&self, data: &[u8]) -> String {
         let encoded_data = base64::urlsafe(data);
         self.sign(encoded_data.as_bytes()) + ":" + &encoded_data
     }
 
     /// 使用七牛签名算法 V1 对 HTTP 请求进行签名，返回 Authorization 的值
-    fn authorization_v1_for_request(&self, url: &Url, content_type: &str, body: &[u8]) -> String {
-        let authorization_token = sign_request_v1(self.as_credential(), url, content_type, body);
+    pub fn authorization_v1_for_request(
+        &self,
+        url: &Url,
+        content_type: &str,
+        body: &[u8],
+    ) -> String {
+        let authorization_token = sign_request_v1(self, url, content_type, body);
         "QBox ".to_owned() + &authorization_token
     }
 
     /// 使用七牛签名算法 V2 对 HTTP 请求进行签名，返回 Authorization 的值
-    fn authorization_v2_for_request(
+    pub fn authorization_v2_for_request(
         &self,
         method: Method,
         url: &Url,
         headers: &Headers,
         body: &[u8],
     ) -> String {
-        let authorization_token = sign_request_v2(self.as_credential(), method, url, headers, body);
+        let authorization_token = sign_request_v2(self, method, url, headers, body);
         "Qiniu ".to_owned() + &authorization_token
     }
 
     /// 对对象的下载 URL 签名，可以生成私有存储空间的下载地址或带有时间戳鉴权的下载地址
-    fn sign_download_url(&self, url: &mut Url, deadline: Duration, only_path: bool) {
+    pub fn sign_download_url(&self, url: &mut Url, deadline: Duration, only_path: bool) {
         let mut to_sign = {
             let mut s = String::with_capacity(1 << 10);
             if only_path {
@@ -94,11 +103,11 @@ pub trait AsCredential: Any + Debug + Sync + Send {
         to_sign.push_str(&deadline);
         let mut query_pairs = url.query_pairs_mut();
         query_pairs.append_pair("e", &deadline);
-        query_pairs.append_pair("token", &&self.sign(to_sign.as_bytes()));
+        query_pairs.append_pair("token", &self.sign(to_sign.as_bytes()));
     }
 }
 
-fn sign_request_v1(cred: &dyn AsCredential, url: &Url, content_type: &str, body: &[u8]) -> String {
+fn sign_request_v1(cred: &Credential, url: &Url, content_type: &str, body: &[u8]) -> String {
     let mut data_to_sign = Vec::with_capacity(1024);
     data_to_sign.extend_from_slice(url.path().as_bytes());
     if let Some(query) = url.query() {
@@ -115,7 +124,7 @@ fn sign_request_v1(cred: &dyn AsCredential, url: &Url, content_type: &str, body:
 }
 
 fn sign_request_v2(
-    cred: &dyn AsCredential,
+    cred: &Credential,
     method: Method,
     url: &Url,
     headers: &Headers,
@@ -215,11 +224,11 @@ impl StaticCredential {
 
 impl AsCredential for StaticCredential {
     #[inline]
-    fn get(&self) -> Credential {
-        Credential {
+    fn get(&self) -> Result<Credential> {
+        Ok(Credential {
             access_key: Cow::Borrowed(&self.access_key),
             secret_key: Cow::Borrowed(&self.secret_key),
-        }
+        })
     }
 
     #[inline]
@@ -233,10 +242,14 @@ impl AsCredential for StaticCredential {
     }
 }
 
-impl From<&dyn AsCredential> for StaticCredential {
-    fn from(cred: &dyn AsCredential) -> Self {
-        let value = cred.get();
-        StaticCredential::new(value.access_key.into_owned(), value.secret_key.into_owned())
+impl TryFrom<&dyn AsCredential> for StaticCredential {
+    type Error = Error;
+    fn try_from(cred: &dyn AsCredential) -> Result<Self> {
+        let value = cred.get()?;
+        Ok(StaticCredential::new(
+            value.access_key.into_owned(),
+            value.secret_key.into_owned(),
+        ))
     }
 }
 
@@ -251,7 +264,7 @@ impl fmt::Debug for StaticCredential {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
             "StaticCredential {{ access_key: {:?}, secret_key: CENSORED }}",
-            self.get().access_key.as_ref(),
+            self.access_key,
         ))
     }
 }
@@ -269,11 +282,11 @@ mod tests {
             let credential = credential.clone();
             threads.push(thread::spawn(move || {
                 assert_eq!(
-                    credential.sign(b"hello"),
+                    credential.get().unwrap().sign(b"hello"),
                     "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0="
                 );
                 assert_eq!(
-                    credential.sign(b"world"),
+                    credential.get().unwrap().sign(b"world"),
                     "abcdefghklmnopq:VjgXt0P_nCxHuaTfiFz-UjDJ1AQ="
                 );
             }));
@@ -282,11 +295,11 @@ mod tests {
             let credential = credential.clone();
             threads.push(thread::spawn(move || {
                 assert_eq!(
-                    credential.sign(b"-test"),
+                    credential.get().unwrap().sign(b"-test"),
                     "abcdefghklmnopq:vYKRLUoXRlNHfpMEQeewG0zylaw="
                 );
                 assert_eq!(
-                    credential.sign(b"ba#a-"),
+                    credential.get().unwrap().sign(b"ba#a-"),
                     "abcdefghklmnopq:2d_Yr6H1GdTKg3RvMtpHOhi047M="
                 );
             }));
@@ -305,11 +318,11 @@ mod tests {
             let credential = credential.clone();
             threads.push(thread::spawn(move || {
                 assert_eq!(
-                    credential.sign_with_data(b"hello"),
+                    credential.get().unwrap().sign_with_data(b"hello"),
                     "abcdefghklmnopq:BZYt5uVRy1RVt5ZTXbaIt2ROVMA=:aGVsbG8="
                 );
                 assert_eq!(
-                    credential.sign_with_data(b"world"),
+                    credential.get().unwrap().sign_with_data(b"world"),
                     "abcdefghklmnopq:Wpe04qzPphiSZb1u6I0nFn6KpZg=:d29ybGQ="
                 );
             }));
@@ -318,11 +331,11 @@ mod tests {
             let credential = credential.clone();
             threads.push(thread::spawn(move || {
                 assert_eq!(
-                    credential.sign_with_data(b"-test"),
+                    credential.get().unwrap().sign_with_data(b"-test"),
                     "abcdefghklmnopq:HlxenSSP_6BbaYNzx1fyeyw8v1Y=:LXRlc3Q="
                 );
                 assert_eq!(
-                    credential.sign_with_data(b"ba#a-"),
+                    credential.get().unwrap().sign_with_data(b"ba#a-"),
                     "abcdefghklmnopq:kwzeJrFziPDMO4jv3DKVLDyqud0=:YmEjYS0="
                 );
             }));
@@ -337,44 +350,52 @@ mod tests {
     fn test_authorization_v1() -> Result<(), Box<dyn Error>> {
         let credential = get_credential();
         assert_eq!(
-            credential.authorization_v1_for_request(
+            credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/")?,
                 "",
                 b"{\"name\":\"test\"}"
             ),
-            "QBox ".to_owned() + &credential.sign(b"/\n")
+            "QBox ".to_owned() + &credential.get().unwrap().sign(b"/\n")
         );
         assert_eq!(
-            credential.authorization_v1_for_request(
+            credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/")?,
                 mime::JSON_MIME,
                 b"{\"name\":\"test\"}"
             ),
-            "QBox ".to_owned() + &credential.sign(b"/\n")
+            "QBox ".to_owned() + &credential.get().unwrap().sign(b"/\n")
         );
         assert_eq!(
-            credential.authorization_v1_for_request(
+            credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/")?,
                 mime::FORM_MIME,
                 b"name=test&language=go"
             ),
-            "QBox ".to_owned() + &credential.sign(b"/\nname=test&language=go")
+            "QBox ".to_owned() + &credential.get().unwrap().sign(b"/\nname=test&language=go")
         );
         assert_eq!(
-            credential.authorization_v1_for_request(
+            credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/?v=2")?,
                 mime::FORM_MIME,
                 b"name=test&language=go"
             ),
-            "QBox ".to_owned() + &credential.sign(b"/?v=2\nname=test&language=go")
+            "QBox ".to_owned()
+                + &credential
+                    .get()
+                    .unwrap()
+                    .sign(b"/?v=2\nname=test&language=go")
         );
         assert_eq!(
-            credential.authorization_v1_for_request(
+            credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/find/sdk?v=2")?,
                 mime::FORM_MIME,
                 b"name=test&language=go"
             ),
-            "QBox ".to_owned() + &credential.sign(b"/find/sdk?v=2\nname=test&language=go")
+            "QBox ".to_owned()
+                + &credential
+                    .get()
+                    .unwrap()
+                    .sign(b"/find/sdk?v=2\nname=test&language=go")
         );
         Ok(())
     }
@@ -412,14 +433,14 @@ mod tests {
             headers
         };
         assert_eq!(
-            credential.authorization_v2_for_request(
+            credential.get().unwrap().authorization_v2_for_request(
                 Method::GET,
                 &Url::parse("http://upload.qiniup.com/")?,
                 &json_headers,
                 b"{\"name\":\"test\"}"
             ),
             "Qiniu ".to_owned()
-                + &credential.sign(
+                + &credential.get().unwrap().sign(
                     concat!(
                         "GET /\n",
                         "Host: upload.qiniup.com\n",
@@ -434,24 +455,27 @@ mod tests {
                 )
         );
         assert_eq!(
-            credential.authorization_v2_for_request(
+            credential.get().unwrap().authorization_v2_for_request(
                 Method::GET,
                 &Url::parse("http://upload.qiniup.com/")?,
                 &empty_headers,
                 b"{\"name\":\"test\"}"
             ),
             "Qiniu ".to_owned()
-                + &credential.sign(concat!("GET /\n", "Host: upload.qiniup.com\n\n").as_bytes())
+                + &credential
+                    .get()
+                    .unwrap()
+                    .sign(concat!("GET /\n", "Host: upload.qiniup.com\n\n").as_bytes())
         );
         assert_eq!(
-            credential.authorization_v2_for_request(
+            credential.get().unwrap().authorization_v2_for_request(
                 Method::POST,
                 &Url::parse("http://upload.qiniup.com/")?,
                 &json_headers,
                 b"{\"name\":\"test\"}"
             ),
             "Qiniu ".to_owned()
-                + &credential.sign(
+                + &credential.get().unwrap().sign(
                     concat!(
                         "POST /\n",
                         "Host: upload.qiniup.com\n",
@@ -466,14 +490,14 @@ mod tests {
                 )
         );
         assert_eq!(
-            credential.authorization_v2_for_request(
+            credential.get().unwrap().authorization_v2_for_request(
                 Method::GET,
                 &Url::parse("http://upload.qiniup.com/")?,
                 &form_headers,
                 b"name=test&language=go"
             ),
             "Qiniu ".to_owned()
-                + &credential.sign(
+                + &credential.get().unwrap().sign(
                     concat!(
                         "GET /\n",
                         "Host: upload.qiniup.com\n",
@@ -488,14 +512,14 @@ mod tests {
                 )
         );
         assert_eq!(
-            credential.authorization_v2_for_request(
+            credential.get().unwrap().authorization_v2_for_request(
                 Method::GET,
                 &Url::parse("http://upload.qiniup.com/?v=2")?,
                 &form_headers,
                 b"name=test&language=go"
             ),
             "Qiniu ".to_owned()
-                + &credential.sign(
+                + &credential.get().unwrap().sign(
                     concat!(
                         "GET /?v=2\n",
                         "Host: upload.qiniup.com\n",
@@ -510,14 +534,14 @@ mod tests {
                 )
         );
         assert_eq!(
-            credential.authorization_v2_for_request(
+            credential.get().unwrap().authorization_v2_for_request(
                 Method::GET,
                 &Url::parse("http://upload.qiniup.com/find/sdk?v=2")?,
                 &form_headers,
                 b"name=test&language=go"
             ),
             "Qiniu ".to_owned()
-                + &credential.sign(
+                + &credential.get().unwrap().sign(
                     concat!(
                         "GET /find/sdk?v=2\n",
                         "Host: upload.qiniup.com\n",
@@ -539,7 +563,7 @@ mod tests {
         let credential = get_credential();
         {
             let mut url = Url::parse("http://www.qiniu.com/?go=1")?;
-            credential.sign_download_url(
+            credential.get().unwrap().sign_download_url(
                 &mut url,
                 Duration::from_secs(1_234_567_890 + 3600),
                 false,
@@ -551,7 +575,11 @@ mod tests {
         }
         {
             let mut url = Url::parse("http://www.qiniu.com/?go=1")?;
-            credential.sign_download_url(&mut url, Duration::from_secs(1_234_567_890 + 3600), true);
+            credential.get().unwrap().sign_download_url(
+                &mut url,
+                Duration::from_secs(1_234_567_890 + 3600),
+                true,
+            );
             assert_eq!(
                 url.into_string(),
                 "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq%3A86uQeCB9GsFFvL2wA0mgBcOMsmk%3D",

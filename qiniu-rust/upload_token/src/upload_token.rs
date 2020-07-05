@@ -5,7 +5,8 @@ use qiniu_utils::base64;
 use std::{
     any::Any,
     borrow::Cow,
-    fmt::{self, Debug, Display},
+    fmt::{self, Debug},
+    io::Error as IOError,
     sync::Arc,
     time::Duration,
 };
@@ -14,12 +15,15 @@ use thiserror::Error;
 /// 上传凭证
 ///
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1208/upload-token)了解七牛安全机制。
-pub trait AsUploadToken: Any + Debug + Display + Sync + Send {
+pub trait AsUploadToken: Any + Debug + Sync + Send {
     /// 从上传凭证内获取 AccessKey
     fn access_key(&self) -> ParseResult<Cow<str>>;
 
     /// 从上传凭证内获取上传策略
     fn policy(&self) -> ParseResult<Cow<UploadPolicy>>;
+
+    /// 生成字符串
+    fn to_string(&self) -> GenerateResult<Cow<str>>;
 
     fn as_upload_token(&self) -> &dyn AsUploadToken;
     fn as_any(&self) -> &dyn Any;
@@ -54,13 +58,6 @@ impl fmt::Debug for StaticUploadToken {
     }
 }
 
-impl fmt::Display for StaticUploadToken {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.upload_token, f)
-    }
-}
-
 impl AsUploadToken for StaticUploadToken {
     fn access_key(&self) -> ParseResult<Cow<str>> {
         self.access_key
@@ -89,6 +86,10 @@ impl AsUploadToken for StaticUploadToken {
                 )
             })
             .map(|policy| policy.into())
+    }
+
+    fn to_string(&self) -> GenerateResult<Cow<str>> {
+        Ok(Cow::Borrowed(&self.upload_token))
     }
 
     fn as_upload_token(&self) -> &dyn AsUploadToken {
@@ -136,25 +137,24 @@ impl fmt::Debug for FromUploadPolicy {
     }
 }
 
-impl fmt::Display for FromUploadPolicy {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let upload_token = self.upload_token.get_or_init(|| {
-            self.credential
-                .sign_with_data(self.upload_policy.as_json().as_bytes())
-                .into()
-        });
-        fmt::Display::fmt(&upload_token, f)
-    }
-}
-
 impl AsUploadToken for FromUploadPolicy {
     fn access_key(&self) -> ParseResult<Cow<str>> {
-        Ok(self.credential.get().access_key)
+        Ok(self.credential.get()?.access_key)
     }
 
     fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
         Ok(Cow::Borrowed(&self.upload_policy))
+    }
+
+    fn to_string(&self) -> GenerateResult<Cow<str>> {
+        let upload_token = self.upload_token.get_or_try_init::<_, IOError>(|| {
+            Ok(self
+                .credential
+                .get()?
+                .sign_with_data(self.upload_policy.as_json().as_bytes())
+                .into_boxed_str())
+        })?;
+        Ok(Cow::Borrowed(upload_token))
     }
 
     fn as_upload_token(&self) -> &dyn AsUploadToken {
@@ -200,24 +200,9 @@ impl fmt::Debug for FromBucket {
     }
 }
 
-impl fmt::Display for FromBucket {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let upload_token = self.credential.sign_with_data(
-            UploadPolicyBuilder::new_policy_for_bucket(
-                self.bucket.to_string(),
-                self.upload_token_lifetime,
-            )
-            .build()
-            .as_json()
-            .as_bytes(),
-        );
-        fmt::Display::fmt(&upload_token, f)
-    }
-}
-
 impl AsUploadToken for FromBucket {
     fn access_key(&self) -> ParseResult<Cow<str>> {
-        Ok(self.credential.get().access_key)
+        Ok(self.credential.get()?.access_key)
     }
 
     fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
@@ -227,6 +212,19 @@ impl AsUploadToken for FromBucket {
         )
         .build()
         .into())
+    }
+
+    fn to_string(&self) -> GenerateResult<Cow<str>> {
+        let upload_token = self.credential.get()?.sign_with_data(
+            UploadPolicyBuilder::new_policy_for_bucket(
+                self.bucket.to_string(),
+                self.upload_token_lifetime,
+            )
+            .build()
+            .as_json()
+            .as_bytes(),
+        );
+        Ok(upload_token.into())
     }
 
     fn as_upload_token(&self) -> &dyn AsUploadToken {
@@ -250,10 +248,24 @@ pub enum ParseError {
     /// 上传凭证 JSON 解析错误
     #[error("JSON decode error: {0}")]
     JSONDecodeError(#[from] serde_json::Error),
+    /// 上传凭证获取认证信息错误
+    #[error("Credential get error: {0}")]
+    CredentialGetError(#[from] IOError),
 }
 
 /// 上传凭证解析结果
 pub type ParseResult<T> = Result<T, ParseError>;
+
+/// 上传凭证生成错误
+#[derive(Error, Debug)]
+pub enum GenerateError {
+    /// 上传凭证获取认证信息错误
+    #[error("Credential get error: {0}")]
+    CredentialGetError(#[from] IOError),
+}
+
+/// 上传凭证解析结果
+pub type GenerateResult<T> = Result<T, GenerateError>;
 
 #[cfg(test)]
 mod tests {
@@ -269,8 +281,10 @@ mod tests {
             Duration::from_secs(3600),
         )
         .build();
-        let token = FromUploadPolicy::new(policy, get_credential()).to_string();
-        assert!(token.starts_with(get_credential().get().access_key.as_ref()));
+        let token = FromUploadPolicy::new(policy, get_credential())
+            .to_string()?
+            .into_owned();
+        assert!(token.starts_with(get_credential().get()?.access_key.as_ref()));
         let token = StaticUploadToken::from(token);
         let policy = token.policy()?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
