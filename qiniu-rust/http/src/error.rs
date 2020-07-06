@@ -1,6 +1,8 @@
-use std::result;
+use std::{error, fmt, result};
 
-pub enum Error {
+/// HTTP 响应错误类型
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ErrorType {
     /// 协议错误，该协议不能支持
     ProtocolError,
 
@@ -29,19 +31,25 @@ pub enum Error {
     TooManyRedirect,
 
     /// 未知错误
-    UnknownError(Box<str>),
-
-    /// JSON 解析错误
-    ParseJSONError,
-
-    /// 响应码错误
-    ResponseError,
+    UnknownError,
 
     /// 用户取消
     UserCancelled,
-
-    /// 恶意响应
-    MaliciousResponse,
 }
+
+/// HTTP 响应错误
+#[derive(Clone, Debug)]
+pub struct Error {
+    error_type: ErrorType,
+    description: Box<str>,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.description.fmt(f)
+    }
+}
+
+impl error::Error for Error {}
 
 pub type Result<T> = result::Result<T, Error>;

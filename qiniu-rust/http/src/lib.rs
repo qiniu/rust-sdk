@@ -1,15 +1,13 @@
 mod error;
 mod request;
-mod request_config;
 mod response;
 
-pub use error::{Error as ResponseError, Result as ResponseResult};
+pub use error::{Error as ResponseError, ErrorType as ResponseErrorType, Result as ResponseResult};
 pub use qiniu_utils::http::{
     header::{HeaderName, HeaderNameOwned, HeaderValue, HeaderValueOwned, Headers, HeadersOwned},
     method::{InvalidMethod, Method},
 };
 pub use request::{Body as RequestBody, Request, RequestBuilder, URL};
-pub use request_config::{RequestConfig, RequestConfigBuilder};
 pub use response::{Body as ResponseBody, Response, ResponseBuilder, StatusCode};
 
 use std::any::Any;

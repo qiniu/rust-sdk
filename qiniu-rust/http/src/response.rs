@@ -2,7 +2,7 @@ use super::{HeaderNameOwned, HeaderValueOwned, HeadersOwned};
 use std::{
     convert::TryInto,
     default::Default,
-    fmt,
+    fmt::Debug,
     fs::File,
     io::{copy as io_copy, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
     mem::take,
@@ -13,9 +13,15 @@ use tempfile::tempfile;
 /// HTTP 响应状态码
 pub type StatusCode = u16;
 
+/// 实现了 Read 和 Debug 的 Trait
+pub trait ReadDebug: Read + Debug {}
+
+impl<T: Read + Debug> ReadDebug for T {}
+
 /// HTTP 响应体
+#[derive(Debug)]
 pub enum Body {
-    Reader(Box<dyn Read>),
+    Reader(Box<dyn ReadDebug>),
     File(File),
     Bytes(Vec<u8>),
 }
@@ -24,16 +30,6 @@ impl Default for Body {
     #[inline]
     fn default() -> Self {
         Self::Bytes(Default::default())
-    }
-}
-
-impl fmt::Debug for Body {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::Reader(_) => f.debug_struct("Body::Reader").finish(),
-            Self::File(file) => file.fmt(f),
-            Self::Bytes(body) => body.fmt(f),
-        }
     }
 }
 
@@ -250,7 +246,7 @@ impl ResponseBuilder {
 
     /// 设置数据流为 HTTP 响应体
     #[inline]
-    pub fn stream_as_body(mut self, body: impl Read + 'static) -> Self {
+    pub fn stream_as_body(mut self, body: impl Read + Debug + 'static) -> Self {
         self.inner.body = Body::Reader(Box::new(body));
         self
     }
