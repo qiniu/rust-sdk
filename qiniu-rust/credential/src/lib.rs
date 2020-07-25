@@ -270,7 +270,7 @@ impl StaticCredential {
 
 impl AsCredential for StaticCredential {
     #[inline]
-    fn get<'a>(&'a self) -> Result<Credential<'a>> {
+    fn get(&self) -> Result<Credential> {
         Ok(Credential::new(
             Cow::Borrowed(self.access_key.as_ref()),
             Cow::Borrowed(self.secret_key.as_ref()),
@@ -331,6 +331,12 @@ impl GlobalCredential {
         let mut global_credential = GLOBAL_CREDENTIAL.write().unwrap();
         *global_credential = Some(Credential::new(access_key, secret_key));
     }
+
+    /// 清空全局认证信息
+    pub fn clear() {
+        let mut global_credential = GLOBAL_CREDENTIAL.write().unwrap();
+        *global_credential = None;
+    }
 }
 
 impl AsCredential for GlobalCredential {
@@ -373,7 +379,9 @@ impl fmt::Debug for GlobalCredential {
 #[derive(Eq, PartialEq)]
 pub struct EnvCredential;
 
+/// 设置七牛 AccessKey 的环境变量
 pub const QINIU_ACCESS_KEY_ENV_KEY: &str = "QINIU_ACCESS_KEY";
+/// 设置七牛 SecretKey 的环境变量
 pub const QINIU_SECRET_KEY_ENV_KEY: &str = "QINIU_SECRET_KEY";
 
 impl EnvCredential {
@@ -430,6 +438,7 @@ impl fmt::Debug for EnvCredential {
 /// 认证信息串
 ///
 /// 将多个认证信息串联，遍历并找寻第一个可用认证信息
+#[derive(Debug)]
 pub struct ChainCredentials {
     credentials: Box<[Box<dyn AsCredential>]>,
 }
@@ -457,9 +466,13 @@ impl AsCredential for ChainCredentials {
     }
 }
 
-impl fmt::Debug for ChainCredentials {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ChainCredentials")
+impl Default for ChainCredentials {
+    #[inline]
+    fn default() -> Self {
+        ChainCredentialsBuilder::default()
+            .append_credential(GlobalCredential)
+            .append_credential(EnvCredential)
+            .build()
     }
 }
 
@@ -819,18 +832,31 @@ mod tests {
     }
 
     fn get_global_credential() -> impl AsCredential {
-        static ONCE: Lazy<()> =
-            Lazy::new(|| GlobalCredential::setup("abcdefghklmnopq", "1234567890"));
-        Lazy::force(&ONCE);
+        GlobalCredential::setup("abcdefghklmnopq", "1234567890");
         GlobalCredential
     }
 
     fn get_env_credential() -> impl AsCredential {
-        static ONCE: Lazy<()> = Lazy::new(|| {
-            env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "abcdefghklmnopq");
-            env::set_var(QINIU_SECRET_KEY_ENV_KEY, "1234567890");
-        });
-        Lazy::force(&ONCE);
+        env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "abcdefghklmnopq");
+        env::set_var(QINIU_SECRET_KEY_ENV_KEY, "1234567890");
         EnvCredential
+    }
+
+    #[test]
+    fn test_chain_credentials() -> Result<(), Box<dyn Error>> {
+        GlobalCredential::clear();
+        let chain_credentials = ChainCredentials::default();
+        env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "TEST2");
+        env::set_var(QINIU_SECRET_KEY_ENV_KEY, "test2");
+        {
+            let cred = chain_credentials.get()?;
+            assert_eq!(cred.access_key(), "TEST2");
+        }
+        GlobalCredential::setup("TEST1", "test1");
+        {
+            let cred = chain_credentials.get()?;
+            assert_eq!(cred.access_key(), "TEST1");
+        }
+        Ok(())
     }
 }
