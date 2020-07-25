@@ -24,8 +24,48 @@ pub use url::Url;
 /// 返回认证信息的 AccessKey 和 SecretKey
 #[derive(Clone, Debug)]
 pub struct Credential<'a> {
-    pub access_key: Cow<'a, str>,
-    pub secret_key: Cow<'a, str>,
+    access_key: Cow<'a, str>,
+    secret_key: Cow<'a, str>,
+}
+
+impl<'a> Credential<'a> {
+    /// 创建认证信息
+    #[inline]
+    pub fn new(access_key: impl Into<Cow<'a, str>>, secret_key: impl Into<Cow<'a, str>>) -> Self {
+        Self {
+            access_key: access_key.into(),
+            secret_key: secret_key.into(),
+        }
+    }
+
+    /// 获取认证信息的 AccessKey
+    #[inline]
+    pub fn access_key(&self) -> &str {
+        self.access_key.as_ref()
+    }
+
+    /// 获取认证信息的 SecretKey
+    #[inline]
+    pub fn secret_key(&self) -> &str {
+        self.secret_key.as_ref()
+    }
+
+    /// 同时返回认证信息的 AccessKey 和 SecretKey
+    #[inline]
+    pub fn into_pair(self) -> (Cow<'a, str>, Cow<'a, str>) {
+        (self.access_key, self.secret_key)
+    }
+
+    /// 修改认证信息的 AccessKey
+    #[inline]
+    pub fn access_key_mut(&mut self) -> &mut Cow<'a, str> {
+        &mut self.access_key
+    }
+    /// 修改认证信息的 SecretKey
+    #[inline]
+    pub fn secret_key_mut(&mut self) -> &mut Cow<'a, str> {
+        &mut self.secret_key
+    }
 }
 
 /// 认证信息
@@ -229,11 +269,11 @@ impl StaticCredential {
 
 impl AsCredential for StaticCredential {
     #[inline]
-    fn get(&self) -> Result<Credential> {
-        Ok(Credential {
-            access_key: Cow::Borrowed(&self.access_key),
-            secret_key: Cow::Borrowed(&self.secret_key),
-        })
+    fn get<'a>(&'a self) -> Result<Credential<'a>> {
+        Ok(Credential::new(
+            Cow::Borrowed(self.access_key.as_ref()),
+            Cow::Borrowed(self.secret_key.as_ref()),
+        ))
     }
 
     #[inline]
@@ -288,10 +328,7 @@ impl GlobalCredential {
         secret_key: impl Into<Cow<'static, str>>,
     ) {
         let mut global_credential = GLOBAL_CREDENTIAL.write().unwrap();
-        *global_credential = Some(Credential {
-            access_key: access_key.into(),
-            secret_key: secret_key.into(),
-        });
+        *global_credential = Some(Credential::new(access_key, secret_key));
     }
 }
 
@@ -353,10 +390,7 @@ impl AsCredential for EnvironmentVariableCredential {
             env::var(QINIU_ACCESS_KEY_ENV_KEY),
             env::var(QINIU_SECRET_KEY_ENV_KEY),
         ) {
-            (Ok(access_key), Ok(secret_key)) => Ok(Credential {
-                access_key: access_key.into(),
-                secret_key: secret_key.into(),
-            }),
+            (Ok(access_key), Ok(secret_key)) => Ok(Credential::new(access_key, secret_key)),
             _ => {
                 static ERROR_MESSAGE: Lazy<String> = Lazy::new(|| {
                     format!("EnvironmentVariableCredential is not setuped, please call EnvironmentVariableCredential::setup() to do it, or set environment variable `{}` and `{}`", QINIU_ACCESS_KEY_ENV_KEY, QINIU_SECRET_KEY_ENV_KEY)

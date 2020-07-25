@@ -139,7 +139,7 @@ impl fmt::Debug for FromUploadPolicy {
 
 impl AsUploadToken for FromUploadPolicy {
     fn access_key(&self) -> ParseResult<Cow<str>> {
-        Ok(self.credential.get()?.access_key)
+        Ok(self.credential.get()?.into_pair().0)
     }
 
     fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
@@ -202,7 +202,7 @@ impl fmt::Debug for FromBucket {
 
 impl AsUploadToken for FromBucket {
     fn access_key(&self) -> ParseResult<Cow<str>> {
-        Ok(self.credential.get()?.access_key)
+        Ok(self.credential.get()?.into_pair().0)
     }
 
     fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
