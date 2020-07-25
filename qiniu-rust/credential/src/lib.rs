@@ -10,6 +10,8 @@ use std::{
     any::Any,
     borrow::Cow,
     convert::TryFrom,
+    env,
+    ffi::OsStr,
     fmt::{self, Debug},
     io::{Error, ErrorKind, Result},
     sync::RwLock,
@@ -294,7 +296,6 @@ impl GlobalCredential {
 }
 
 impl AsCredential for GlobalCredential {
-    #[inline]
     fn get(&self) -> Result<Credential> {
         if let Some(credential) = GLOBAL_CREDENTIAL.read().unwrap().as_ref() {
             Ok(credential.clone())
@@ -326,6 +327,67 @@ impl fmt::Debug for GlobalCredential {
             ))
         } else {
             write!(f, "GlobalCredential {{ None }}")
+        }
+    }
+}
+
+/// 环境变量认证信息，可以将认证信息配置在环境变量中。
+#[derive(Eq, PartialEq)]
+pub struct EnvironmentVariableCredential;
+
+pub const QINIU_ACCESS_KEY_ENV_KEY: &str = "QINIU_ACCESS_KEY";
+pub const QINIU_SECRET_KEY_ENV_KEY: &str = "QINIU_SECRET_KEY";
+
+impl EnvironmentVariableCredential {
+    /// 配置环境变量认证信息
+    #[inline]
+    pub fn setup(access_key: impl AsRef<OsStr>, secret_key: impl AsRef<OsStr>) {
+        env::set_var(QINIU_ACCESS_KEY_ENV_KEY, access_key);
+        env::set_var(QINIU_SECRET_KEY_ENV_KEY, secret_key);
+    }
+}
+
+impl AsCredential for EnvironmentVariableCredential {
+    fn get(&self) -> Result<Credential> {
+        match (
+            env::var(QINIU_ACCESS_KEY_ENV_KEY),
+            env::var(QINIU_SECRET_KEY_ENV_KEY),
+        ) {
+            (Ok(access_key), Ok(secret_key)) => Ok(Credential {
+                access_key: access_key.into(),
+                secret_key: secret_key.into(),
+            }),
+            _ => {
+                static ERROR_MESSAGE: Lazy<String> = Lazy::new(|| {
+                    format!("EnvironmentVariableCredential is not setuped, please call EnvironmentVariableCredential::setup() to do it, or set environment variable `{}` and `{}`", QINIU_ACCESS_KEY_ENV_KEY, QINIU_SECRET_KEY_ENV_KEY)
+                });
+                Err(Error::new(ErrorKind::Other, ERROR_MESSAGE.as_str()))
+            }
+        }
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_credential(&self) -> &dyn AsCredential {
+        self
+    }
+}
+
+impl fmt::Debug for EnvironmentVariableCredential {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match (
+            env::var_os(QINIU_ACCESS_KEY_ENV_KEY),
+            env::var_os(QINIU_SECRET_KEY_ENV_KEY),
+        ) {
+            (Some(access_key), Some(_)) => f.write_fmt(format_args!(
+                "EnvironmentVariableCredential {{ access_key: {:?}, secret_key: CENSORED }}",
+                access_key,
+            )),
+            _ => write!(f, "EnvironmentVariableCredential {{ None }}"),
         }
     }
 }
@@ -463,7 +525,7 @@ mod tests {
 
     #[test]
     fn test_authorization_v2() -> Result<(), Box<dyn Error>> {
-        let credential = get_static_credential();
+        let credential = get_global_credential();
         let empty_headers = {
             let mut headers = Headers::new();
             headers.insert("X-Qbox-Meta".into(), "value".into());
@@ -621,7 +683,7 @@ mod tests {
 
     #[test]
     fn test_sign_download_url() -> Result<(), Box<dyn Error>> {
-        let credential = get_global_credential();
+        let credential = get_environment_variable_credential();
         {
             let mut url = Url::parse("http://www.qiniu.com/?go=1")?;
             credential.get().unwrap().sign_download_url(
@@ -658,5 +720,14 @@ mod tests {
             Lazy::new(|| GlobalCredential::setup("abcdefghklmnopq", "1234567890"));
         Lazy::force(&ONCE);
         GlobalCredential
+    }
+
+    fn get_environment_variable_credential() -> impl AsCredential {
+        static ONCE: Lazy<()> = Lazy::new(|| {
+            env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "abcdefghklmnopq");
+            env::set_var(QINIU_SECRET_KEY_ENV_KEY, "1234567890");
+        });
+        Lazy::force(&ONCE);
+        EnvironmentVariableCredential
     }
 }
