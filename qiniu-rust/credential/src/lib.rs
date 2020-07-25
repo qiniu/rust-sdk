@@ -9,6 +9,7 @@ use sha1::Sha1;
 use std::{
     any::Any,
     borrow::Cow,
+    collections::VecDeque,
     convert::TryFrom,
     env,
     ffi::OsStr,
@@ -422,6 +423,74 @@ impl fmt::Debug for EnvCredential {
                 access_key,
             )),
             _ => write!(f, "EnvCredential {{ None }}"),
+        }
+    }
+}
+
+/// 认证信息串
+///
+/// 将多个认证信息串联，遍历并找寻第一个可用认证信息
+pub struct ChainCredentials {
+    credentials: Box<[Box<dyn AsCredential>]>,
+}
+
+impl AsCredential for ChainCredentials {
+    fn get(&self) -> Result<Credential> {
+        if let Some(credential) = self.credentials.iter().find_map(|c| c.get().ok()) {
+            Ok(credential)
+        } else {
+            Err(Error::new(
+                ErrorKind::Other,
+                "All credentials are failed to get",
+            ))
+        }
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_credential(&self) -> &dyn AsCredential {
+        self
+    }
+}
+
+impl fmt::Debug for ChainCredentials {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "ChainCredentials")
+    }
+}
+
+/// 串联认证信息构建器
+///
+/// 接受多个认证信息并将他们串联成串联认证信息
+#[derive(Default)]
+pub struct ChainCredentialsBuilder {
+    credentials: VecDeque<Box<dyn AsCredential>>,
+}
+
+impl ChainCredentialsBuilder {
+    /// 将认证信息推送到认证串末端
+    #[inline]
+    pub fn append_credential(mut self, credential: impl AsCredential) -> Self {
+        self.credentials.push_back(Box::new(credential));
+        self
+    }
+
+    /// 将认证信息推送到认证串顶端
+    #[inline]
+    pub fn prepend_credential(mut self, credential: impl AsCredential) -> Self {
+        self.credentials.push_front(Box::new(credential));
+        self
+    }
+
+    /// 串联认证信息
+    #[inline]
+    pub fn build(self) -> ChainCredentials {
+        ChainCredentials {
+            credentials: self.credentials.into_iter().collect(),
         }
     }
 }
