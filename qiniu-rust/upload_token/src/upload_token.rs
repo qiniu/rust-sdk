@@ -284,7 +284,7 @@ mod tests {
         let token = FromUploadPolicy::new(policy, get_credential())
             .to_string()?
             .into_owned();
-        assert!(token.starts_with(get_credential().get()?.access_key.as_ref()));
+        assert!(token.starts_with(get_credential().get()?.access_key()));
         let token = StaticUploadToken::from(token);
         let policy = token.policy()?;
         assert_eq!(policy.bucket(), Some("test_bucket"));

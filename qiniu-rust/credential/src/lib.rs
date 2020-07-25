@@ -370,12 +370,12 @@ impl fmt::Debug for GlobalCredential {
 
 /// 环境变量认证信息，可以将认证信息配置在环境变量中。
 #[derive(Eq, PartialEq)]
-pub struct EnvironmentVariableCredential;
+pub struct EnvCredential;
 
 pub const QINIU_ACCESS_KEY_ENV_KEY: &str = "QINIU_ACCESS_KEY";
 pub const QINIU_SECRET_KEY_ENV_KEY: &str = "QINIU_SECRET_KEY";
 
-impl EnvironmentVariableCredential {
+impl EnvCredential {
     /// 配置环境变量认证信息
     #[inline]
     pub fn setup(access_key: impl AsRef<OsStr>, secret_key: impl AsRef<OsStr>) {
@@ -384,7 +384,7 @@ impl EnvironmentVariableCredential {
     }
 }
 
-impl AsCredential for EnvironmentVariableCredential {
+impl AsCredential for EnvCredential {
     fn get(&self) -> Result<Credential> {
         match (
             env::var(QINIU_ACCESS_KEY_ENV_KEY),
@@ -393,7 +393,7 @@ impl AsCredential for EnvironmentVariableCredential {
             (Ok(access_key), Ok(secret_key)) => Ok(Credential::new(access_key, secret_key)),
             _ => {
                 static ERROR_MESSAGE: Lazy<String> = Lazy::new(|| {
-                    format!("EnvironmentVariableCredential is not setuped, please call EnvironmentVariableCredential::setup() to do it, or set environment variable `{}` and `{}`", QINIU_ACCESS_KEY_ENV_KEY, QINIU_SECRET_KEY_ENV_KEY)
+                    format!("EnvCredential is not setuped, please call EnvCredential::setup() to do it, or set environment variable `{}` and `{}`", QINIU_ACCESS_KEY_ENV_KEY, QINIU_SECRET_KEY_ENV_KEY)
                 });
                 Err(Error::new(ErrorKind::Other, ERROR_MESSAGE.as_str()))
             }
@@ -411,17 +411,17 @@ impl AsCredential for EnvironmentVariableCredential {
     }
 }
 
-impl fmt::Debug for EnvironmentVariableCredential {
+impl fmt::Debug for EnvCredential {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match (
             env::var_os(QINIU_ACCESS_KEY_ENV_KEY),
             env::var_os(QINIU_SECRET_KEY_ENV_KEY),
         ) {
             (Some(access_key), Some(_)) => f.write_fmt(format_args!(
-                "EnvironmentVariableCredential {{ access_key: {:?}, secret_key: CENSORED }}",
+                "EnvCredential {{ access_key: {:?}, secret_key: CENSORED }}",
                 access_key,
             )),
-            _ => write!(f, "EnvironmentVariableCredential {{ None }}"),
+            _ => write!(f, "EnvCredential {{ None }}"),
         }
     }
 }
@@ -717,7 +717,7 @@ mod tests {
 
     #[test]
     fn test_sign_download_url() -> Result<(), Box<dyn Error>> {
-        let credential = get_environment_variable_credential();
+        let credential = get_env_credential();
         {
             let mut url = Url::parse("http://www.qiniu.com/?go=1")?;
             credential.get().unwrap().sign_download_url(
@@ -756,12 +756,12 @@ mod tests {
         GlobalCredential
     }
 
-    fn get_environment_variable_credential() -> impl AsCredential {
+    fn get_env_credential() -> impl AsCredential {
         static ONCE: Lazy<()> = Lazy::new(|| {
             env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "abcdefghklmnopq");
             env::set_var(QINIU_SECRET_KEY_ENV_KEY, "1234567890");
         });
         Lazy::force(&ONCE);
-        EnvironmentVariableCredential
+        EnvCredential
     }
 }
