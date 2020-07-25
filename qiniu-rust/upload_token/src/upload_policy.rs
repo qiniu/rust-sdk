@@ -314,8 +314,8 @@ impl UploadPolicyBuilder {
                 SystemTime::now()
                     .checked_add(lifetime)
                     .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
-                    .and_then(|t| u32::try_from(t.as_secs()).ok())
-                    .unwrap_or(u32::max_value())
+                    .and_then(|t| u64::try_from(t.as_secs()).ok())
+                    .unwrap_or(u64::max_value())
                     .into(),
             ),
         )
@@ -329,8 +329,8 @@ impl UploadPolicyBuilder {
                 deadline
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .ok()
-                    .and_then(|t| u32::try_from(t.as_secs()).ok())
-                    .unwrap_or(u32::max_value())
+                    .and_then(|t| u64::try_from(t.as_secs()).ok())
+                    .unwrap_or(u64::max_value())
                     .into(),
             ),
         )
