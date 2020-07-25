@@ -1,4 +1,5 @@
 use hmac::{Hmac, Mac, NewMac};
+use once_cell::sync::Lazy;
 use qiniu_utils::{
     base64,
     http::{header::Headers, method::Method},
@@ -10,7 +11,8 @@ use std::{
     borrow::Cow,
     convert::TryFrom,
     fmt::{self, Debug},
-    io::{Error, Result},
+    io::{Error, ErrorKind, Result},
+    sync::RwLock,
     time::Duration,
 };
 pub use url::Url;
@@ -18,6 +20,7 @@ pub use url::Url;
 /// 认证信息
 ///
 /// 返回认证信息的 AccessKey 和 SecretKey
+#[derive(Clone, Debug)]
 pub struct Credential<'a> {
     pub access_key: Cow<'a, str>,
     pub secret_key: Cow<'a, str>,
@@ -269,6 +272,64 @@ impl fmt::Debug for StaticCredential {
     }
 }
 
+/// 全局认证信息，可以将认证信息配置在全局变量中。任何全局认证信息实例都可以设置和访问全局认证信息。
+#[derive(Eq, PartialEq)]
+pub struct GlobalCredential;
+
+static GLOBAL_CREDENTIAL: Lazy<RwLock<Option<Credential<'static>>>> =
+    Lazy::new(|| RwLock::new(None));
+
+impl GlobalCredential {
+    /// 配置全局认证信息
+    pub fn setup(
+        access_key: impl Into<Cow<'static, str>>,
+        secret_key: impl Into<Cow<'static, str>>,
+    ) {
+        let mut global_credential = GLOBAL_CREDENTIAL.write().unwrap();
+        *global_credential = Some(Credential {
+            access_key: access_key.into(),
+            secret_key: secret_key.into(),
+        });
+    }
+}
+
+impl AsCredential for GlobalCredential {
+    #[inline]
+    fn get(&self) -> Result<Credential> {
+        if let Some(credential) = GLOBAL_CREDENTIAL.read().unwrap().as_ref() {
+            Ok(credential.clone())
+        } else {
+            Err(Error::new(
+                ErrorKind::Other,
+                "GlobalCredential is not setuped, please call GlobalCredential::setup() to do it",
+            ))
+        }
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_credential(&self) -> &dyn AsCredential {
+        self
+    }
+}
+
+impl fmt::Debug for GlobalCredential {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(credential) = GLOBAL_CREDENTIAL.read().unwrap().as_ref() {
+            f.write_fmt(format_args!(
+                "GlobalCredential {{ access_key: {:?}, secret_key: CENSORED }}",
+                credential.access_key,
+            ))
+        } else {
+            write!(f, "GlobalCredential {{ None }}")
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,7 +337,7 @@ mod tests {
 
     #[test]
     fn test_sign() -> Result<(), Box<dyn Error>> {
-        let credential: Arc<dyn AsCredential> = Arc::new(get_credential());
+        let credential: Arc<dyn AsCredential> = Arc::new(get_static_credential());
         let mut threads = Vec::new();
         {
             let credential = credential.clone();
@@ -312,7 +373,7 @@ mod tests {
 
     #[test]
     fn test_sign_data() -> Result<(), Box<dyn Error>> {
-        let credential: Arc<dyn AsCredential> = Arc::new(get_credential());
+        let credential: Arc<dyn AsCredential> = Arc::new(get_static_credential());
         let mut threads = Vec::new();
         {
             let credential = credential.clone();
@@ -348,7 +409,7 @@ mod tests {
 
     #[test]
     fn test_authorization_v1() -> Result<(), Box<dyn Error>> {
-        let credential = get_credential();
+        let credential = get_static_credential();
         assert_eq!(
             credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/")?,
@@ -402,7 +463,7 @@ mod tests {
 
     #[test]
     fn test_authorization_v2() -> Result<(), Box<dyn Error>> {
-        let credential = get_credential();
+        let credential = get_static_credential();
         let empty_headers = {
             let mut headers = Headers::new();
             headers.insert("X-Qbox-Meta".into(), "value".into());
@@ -560,7 +621,7 @@ mod tests {
 
     #[test]
     fn test_sign_download_url() -> Result<(), Box<dyn Error>> {
-        let credential = get_credential();
+        let credential = get_global_credential();
         {
             let mut url = Url::parse("http://www.qiniu.com/?go=1")?;
             credential.get().unwrap().sign_download_url(
@@ -588,7 +649,14 @@ mod tests {
         Ok(())
     }
 
-    fn get_credential() -> impl AsCredential {
+    fn get_static_credential() -> impl AsCredential {
         StaticCredential::new("abcdefghklmnopq", "1234567890")
+    }
+
+    fn get_global_credential() -> impl AsCredential {
+        static ONCE: Lazy<()> =
+            Lazy::new(|| GlobalCredential::setup("abcdefghklmnopq", "1234567890"));
+        Lazy::force(&ONCE);
+        GlobalCredential
     }
 }

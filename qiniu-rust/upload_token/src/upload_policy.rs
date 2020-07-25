@@ -722,26 +722,6 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_lifetime_overflow() -> Result<(), Box<dyn Error>> {
-        let future = Duration::from_secs(u64::max_value());
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .token_lifetime(future)
-                .build();
-        assert!(
-            policy
-                .token_deadline()
-                .unwrap()
-                .duration_since(SystemTime::UNIX_EPOCH)?
-                > SystemTime::now()
-                    .checked_add(Duration::from_secs(50 * 365 * 24 * 60 * 60))
-                    .unwrap()
-                    .duration_since(SystemTime::UNIX_EPOCH)?
-        );
-        Ok(())
-    }
-
-    #[test]
     fn test_build_upload_policy_with_insert_only() -> Result<(), Box<dyn Error>> {
         let policy = UploadPolicyBuilder::new_policy_for_object(
             "test_bucket",
