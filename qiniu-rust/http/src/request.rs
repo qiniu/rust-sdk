@@ -1,15 +1,15 @@
 use super::{Headers, Method};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use std::{borrow::Cow, ffi::c_void, fmt, net::SocketAddr, ptr::null_mut, time::Duration};
 
-lazy_static! {
-    static ref FULL_USER_AGENT: Box<str> = format!(
+static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
+    format!(
         "QiniuRust/qiniu-http-{}/rust-{}",
         env!("CARGO_PKG_VERSION"),
         rustc_version_runtime::version(),
     )
-    .into();
-}
+    .into()
+});
 
 /// 请求 URL
 pub type URL<'s> = Cow<'s, str>;
