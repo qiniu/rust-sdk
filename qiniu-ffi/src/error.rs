@@ -1,4 +1,10 @@
-use std::io::{Error as IOError, ErrorKind as IOErrorKind};
+use super::ucstring::UCString;
+use libc::{c_char, c_int, c_void, fprintf, fputs, FILE};
+use std::{
+    error::Error,
+    fmt,
+    io::{Error as IOError, ErrorKind as IOErrorKind},
+};
 
 /// @brief SDK 错误类型
 /// @note 请通过调用 `qiniu_ng_err_t` 相关的函数来判定错误具体类型
@@ -54,7 +60,7 @@ pub enum qiniu_ng_err_io_error_t {
     /// Any I/O error not part of this list.
     qiniu_ng_err_io_other_err = 17,
     /// An error returned when an operation could not be completed because an "end of file" was reached prematurely.
-    qiniu_ng_err_io_expected_eof_err = 18,
+    qiniu_ng_err_io_unexpected_eof_err = 18,
 }
 
 impl Default for qiniu_ng_err_t {
@@ -106,6 +112,24 @@ pub extern "C" fn qiniu_ng_err_io_error_extract(err: &qiniu_ng_err_t, code: *mut
     }
 }
 
+impl fmt::Display for qiniu_ng_err_io_error_t {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        IOError::from(IOErrorKind::from(*self)).fmt(f)
+    }
+}
+
+impl Error for qiniu_ng_err_io_error_t {}
+
+impl fmt::Display for qiniu_ng_err_t {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::qiniu_ng_err_none => write!(f, "Ok"),
+            Self::qiniu_ng_err_os_error(errno) => IOError::from_raw_os_error(*errno).fmt(f),
+            Self::qiniu_ng_err_io_error(err) => err.fmt(f),
+        }
+    }
+}
+
 impl From<IOError> for qiniu_ng_err_t {
     fn from(err: IOError) -> Self {
         err.raw_os_error()
@@ -133,15 +157,67 @@ impl From<IOErrorKind> for qiniu_ng_err_io_error_t {
             IOErrorKind::TimedOut => Self::qiniu_ng_err_io_timed_out_err,
             IOErrorKind::WriteZero => Self::qiniu_ng_err_io_write_zero_err,
             IOErrorKind::Interrupted => Self::qiniu_ng_err_io_interrupted_err,
-            IOErrorKind::UnexpectedEof => Self::qiniu_ng_err_io_expected_eof_err,
+            IOErrorKind::UnexpectedEof => Self::qiniu_ng_err_io_unexpected_eof_err,
             _ => Self::qiniu_ng_err_io_other_err,
         }
     }
 }
 
-impl From<qiniu_ng_err_io_error_t> for qiniu_ng_err_t {
+#[allow(non_camel_case_types)]
+type io_err_t = qiniu_ng_err_io_error_t;
+
+impl From<io_err_t> for IOErrorKind {
+    fn from(err: io_err_t) -> Self {
+        match err {
+            io_err_t::qiniu_ng_err_io_not_found_err => Self::NotFound,
+            io_err_t::qiniu_ng_err_io_permission_denied_err => Self::PermissionDenied,
+            io_err_t::qiniu_ng_err_io_connection_refused_err => Self::ConnectionRefused,
+            io_err_t::qiniu_ng_err_io_connection_reset_err => Self::ConnectionReset,
+            io_err_t::qiniu_ng_err_io_connection_aborted_err => Self::ConnectionAborted,
+            io_err_t::qiniu_ng_err_io_not_connected_err => Self::NotConnected,
+            io_err_t::qiniu_ng_err_io_addr_in_use_err => Self::AddrInUse,
+            io_err_t::qiniu_ng_err_io_addr_not_available_err => Self::AddrNotAvailable,
+            io_err_t::qiniu_ng_err_io_broken_pipe_err => Self::BrokenPipe,
+            io_err_t::qiniu_ng_err_io_already_exists_err => Self::AlreadyExists,
+            io_err_t::qiniu_ng_err_io_would_block_err => Self::WouldBlock,
+            io_err_t::qiniu_ng_err_io_invalid_input_err => Self::InvalidInput,
+            io_err_t::qiniu_ng_err_io_invalid_data_err => Self::InvalidData,
+            io_err_t::qiniu_ng_err_io_timed_out_err => Self::TimedOut,
+            io_err_t::qiniu_ng_err_io_write_zero_err => Self::WriteZero,
+            io_err_t::qiniu_ng_err_io_interrupted_err => Self::Interrupted,
+            io_err_t::qiniu_ng_err_io_unexpected_eof_err => Self::UnexpectedEof,
+            io_err_t::qiniu_ng_err_io_other_err => Self::Other,
+        }
+    }
+}
+
+impl From<io_err_t> for qiniu_ng_err_t {
     #[inline]
-    fn from(err: qiniu_ng_err_io_error_t) -> Self {
+    fn from(err: io_err_t) -> Self {
         qiniu_ng_err_t::qiniu_ng_err_io_error(err)
     }
+}
+
+/// @brief 当错误存在时，调用 `fputs()` 输出错误信息
+/// @param[in] stream 输出流
+/// @param[in] err SDK 错误实例
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_fputs(err: qiniu_ng_err_t, stream: *mut FILE) -> c_int {
+    let error_description = unsafe { UCString::from_string_unchecked(err.to_string()) };
+    unsafe { fputs(error_description.as_ptr().cast(), stream) }
+}
+
+/// @brief 当错误存在时，调用 `fprintf()` 输出错误信息
+/// @param[in] stream 输出流
+/// @param[in] format 输出格式，采用 `fprintf` 语法，本函数向该格式输出一个字符串类型的参数作为错误信息，因此，如果该参数设置为 `"%s"` 将会直接输出错误信息，而 `"%s\n"` 将会输出错误信息并换行
+/// @param[in] err SDK 错误实例
+#[cfg(not(windows))]
+#[no_mangle]
+pub extern "C" fn qiniu_ng_err_fprintf(
+    stream: *mut FILE,
+    format: *const c_char,
+    err: qiniu_ng_err_t,
+) -> c_int {
+    let error_description = unsafe { UCString::from_string_unchecked(err.to_string()) };
+    unsafe { fprintf(stream, format, error_description.as_ptr() as *mut c_void) }
 }

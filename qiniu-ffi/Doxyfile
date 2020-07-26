@@ -58,7 +58,7 @@ PROJECT_LOGO           = "favicon.ico"
 # entered, it will be relative to the location where doxygen was started. If
 # left blank the current directory will be used.
 
-OUTPUT_DIRECTORY       = ../target/doc/qiniu_ng_c
+OUTPUT_DIRECTORY       = ../target/doc/qiniu_ffi
 
 # If the CREATE_SUBDIRS tag is set to YES then doxygen will create 4096 sub-
 # directories (in 2 levels) under the output directory of each output format and
