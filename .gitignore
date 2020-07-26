@@ -3,9 +3,9 @@
 **/*.rs.bk
 Cargo.lock
 rls*.log
-/qiniu-c/build
-/qiniu-c/*.obj
-/qiniu-c/*.o
-/qiniu-c/libqiniu_ng.h
 /.idea
 /*.iml
+/qiniu-ffi/libqiniu_ng.h
+/qiniu-ffi/build
+/qiniu-ffi/*.obj
+/qiniu-ffi/*.o
