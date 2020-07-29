@@ -1,10 +1,7 @@
 use digest::generic_array::{typenum::U28, GenericArray};
 use digest::{FixedOutput, Reset, Update};
 use qiniu_utils::base64;
-use std::{
-    fs::File,
-    io::{copy, Read, Result, Write},
-};
+use std::io::{copy, Read, Result, Write};
 
 const DEFAULT_BLOCK_SIZE: usize = 1 << 22;
 
@@ -157,26 +154,16 @@ fn _etag_of_reader(mut reader: impl Read, out: &mut GenericArray<u8, U28>) -> Re
 }
 
 /// 读取 reader 中的数据并计算它的 Etag，生成结果
-pub fn etag_of_reader(reader: impl Read) -> Result<String> {
+pub fn etag_of(reader: impl Read) -> Result<String> {
     let mut buf = GenericArray::default();
     _etag_of_reader(reader, &mut buf)?;
     Ok(String::from_utf8(buf.to_vec()).unwrap())
 }
 
-/// 读取文件并计算它的 Etag，生成结果
-pub fn etag_of_file(file: &mut File) -> Result<String> {
-    etag_of_reader(file)
-}
-
-/// 读取 reader 中的数据并计算它的 Etag，生成结果到指定的数组中
-pub fn etag_of_reader_to_array(reader: impl Read, array: &mut [u8; ETAG_SIZE]) -> Result<()> {
+/// 读取 reader 中的数据并计算它的 Etag，生成结果到指定的缓冲中
+pub fn etag_to_buf(reader: impl Read, array: &mut [u8; ETAG_SIZE]) -> Result<()> {
     _etag_of_reader(reader, GenericArray::from_mut_slice(array))?;
     Ok(())
-}
-
-/// 读取文件并计算它的 Etag，生成结果到指定的数组中
-pub fn etag_of_file_to_array(file: &mut File, array: &mut [u8; ETAG_SIZE]) -> Result<()> {
-    etag_of_reader_to_array(file, array)
 }
 
 fn _etag_of_reader_with_parts(
@@ -200,34 +187,20 @@ fn _etag_of_reader_with_parts(
 }
 
 /// 根据给出的数据块尺寸，读取 reader 中的数据并计算它的 Etag，生成结果
-pub fn etag_of_reader_with_parts(reader: impl Read, parts: &[usize]) -> Result<String> {
+pub fn etag_with_parts(reader: impl Read, parts: &[usize]) -> Result<String> {
     let mut buf = GenericArray::default();
     _etag_of_reader_with_parts(reader, parts, &mut buf)?;
     Ok(String::from_utf8(buf.to_vec()).unwrap())
 }
 
-/// 根据给出的数据块尺寸，读取文件并计算它的 Etag，生成结果
-pub fn etag_of_file_with_parts(file: &mut File, parts: &[usize]) -> Result<String> {
-    etag_of_reader_with_parts(file, parts)
-}
-
 /// 根据给出的数据块尺寸，读取 reader 中的数据并计算它的 Etag，生成结果到指定的数组中
-pub fn etag_of_reader_with_parts_to_array(
+pub fn etag_with_parts_to_buf(
     reader: impl Read,
     parts: &[usize],
     array: &mut [u8; ETAG_SIZE],
 ) -> Result<()> {
     _etag_of_reader_with_parts(reader, parts, GenericArray::from_mut_slice(array))?;
     Ok(())
-}
-
-/// 根据给出的数据块尺寸，读取文件并计算它的 Etag，生成结果到指定的数组中
-pub fn etag_of_file_with_parts_to_array(
-    file: &mut File,
-    parts: &[usize],
-    array: &mut [u8; ETAG_SIZE],
-) -> Result<()> {
-    etag_of_reader_with_parts_to_array(file, parts, array)
 }
 
 mod sha1_encoder {
@@ -379,11 +352,11 @@ mod tests {
     #[test]
     fn test_etag_of_reader() -> Result<(), Box<dyn Error>> {
         assert_eq!(
-            etag_of_reader(Cursor::new(utils::data_of_size(1 << 20)))?,
+            etag_of(Cursor::new(utils::data_of_size(1 << 20)))?,
             "Foyl8onxBLWeRLL5oItRJphv6i4b",
         );
         assert_eq!(
-            etag_of_reader(&mut Cursor::new(utils::data_of_size(9 << 20)))?,
+            etag_of(&mut Cursor::new(utils::data_of_size(9 << 20)))?,
             "ljgVjMtyMsOgIySv79U8Qz4TrUO4",
         );
         Ok(())
@@ -392,25 +365,25 @@ mod tests {
     #[test]
     fn test_etag_of_reader_with_parts() -> Result<(), Box<dyn Error>> {
         assert_eq!(
-            etag_of_reader_with_parts(Cursor::new(utils::data_of_size(1 << 20)), &[1 << 20])?,
+            etag_with_parts(Cursor::new(utils::data_of_size(1 << 20)), &[1 << 20])?,
             "Foyl8onxBLWeRLL5oItRJphv6i4b",
         );
         assert_eq!(
-            etag_of_reader_with_parts(
+            etag_with_parts(
                 &mut Cursor::new(utils::data_of_size(9 << 20)),
                 &[1 << 22, 1 << 22, 1 << 20]
             )?,
             "ljgVjMtyMsOgIySv79U8Qz4TrUO4",
         );
         assert_eq!(
-            etag_of_reader_with_parts(
+            etag_with_parts(
                 Cursor::new(utils::data_of_size(1 << 20)),
                 &[1 << 19, 1 << 19]
             )?,
             "nlF4JinKEDBChmFGYbEIsZt6Gxnw",
         );
         assert_eq!(
-            etag_of_reader_with_parts(
+            etag_with_parts(
                 &mut Cursor::new(utils::data_of_size((1 << 19) + (1 << 23))),
                 &[1 << 19, 1 << 23]
             )?,
