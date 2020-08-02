@@ -1,148 +1,67 @@
-use digest::generic_array::{typenum::U28, GenericArray};
-use digest::{FixedOutput, Reset, Update};
-use qiniu_utils::base64;
-use std::io::{copy, Read, Result, Write};
-
-const DEFAULT_BLOCK_SIZE: usize = 1 << 22;
+use super::{etag_v1::DEFAULT_BLOCK_SIZE, EtagV1, EtagV2};
+use digest::{
+    generic_array::{typenum::U28, GenericArray},
+    FixedOutput, Reset, Update,
+};
+use std::io::{copy, Read, Result};
 
 /// Etag 字符串固定长度
 pub const ETAG_SIZE: usize = 28;
 
-/// Etag V1 计算器，使用 Etag V1 算法计算七牛云存储上文件的 HASH 值
-#[derive(Default)]
-pub struct EtagV1 {
-    buffer: Vec<u8>,
-    sha1s: Vec<Vec<u8>>,
+/// 通用 Etag 计算器
+pub enum Etag {
+    V1(EtagV1),
+    V2(EtagV2),
 }
 
-/// Etag V2 计算器，使用 Etag V2 算法计算七牛云存储上文件的 HASH 值
-#[derive(Default)]
-pub struct EtagV2 {
-    buffer: Vec<u8>,
-    etag_v1: EtagV1,
-}
-
-impl EtagV1 {
-    /// 构建 Etag V1 计算器
-    pub fn new() -> Self {
-        Default::default()
-    }
-}
-
-impl Update for EtagV1 {
-    /// 向 Etag V1 计算器输入数据，数据尺寸任意
-    fn update(&mut self, data: impl AsRef<[u8]>) {
-        self.buffer.extend_from_slice(data.as_ref());
-        let mut iter = self.buffer.chunks_exact(DEFAULT_BLOCK_SIZE);
-        for block in iter.by_ref() {
-            self.sha1s.push(sha1::sha1(block));
+impl Etag {
+    /// 创建指定版本的 Etag 计算器
+    pub fn new(version: u8) -> Etag {
+        match version {
+            1 => Etag::V1(EtagV1::new()),
+            2 => Etag::V2(EtagV2::new()),
+            _ => panic!("Invalid etag version: {}", version),
         }
-        self.buffer = {
-            let mut new_buffer = Vec::new();
-            new_buffer.extend_from_slice(iter.remainder());
-            new_buffer
-        };
     }
 }
 
-impl Write for EtagV1 {
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        self.update(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> Result<()> {
-        Ok(())
+impl Update for Etag {
+    /// 向 Etag 计算器输入数据，数据尺寸任意
+    fn update(&mut self, data: impl AsRef<[u8]>) {
+        match self {
+            Self::V1(etag_v1) => etag_v1.update(data),
+            Self::V2(etag_v2) => etag_v2.update(data),
+        }
     }
 }
 
-impl FixedOutput for EtagV1 {
+impl FixedOutput for Etag {
     type OutputSize = U28;
 
-    /// 计算 Etag V1，生成结果
-    fn finalize_into(mut self, out: &mut GenericArray<u8, Self::OutputSize>) {
-        self.finalize_into_without_reset(out);
-    }
-
-    /// 计算 Etag V1，生成结果，然后重置该实例
-    fn finalize_into_reset(&mut self, out: &mut GenericArray<u8, Self::OutputSize>) {
-        self.finalize_into_without_reset(out);
-        self.reset();
-    }
-}
-
-impl Reset for EtagV1 {
-    /// 重置 Etag V1 计算器
-    fn reset(&mut self) {
-        self.buffer.clear();
-        self.sha1s.clear();
-    }
-}
-
-impl EtagV1 {
-    fn finalize_into_without_reset(&mut self, out: &mut GenericArray<u8, U28>) {
-        self.finish();
-        self.calculate(out);
-    }
-
-    fn finish(&mut self) {
-        if !self.buffer.is_empty() {
-            self.sha1s.push(sha1::sha1(&self.buffer));
-            self.buffer.clear();
+    /// 计算 Etag，生成结果
+    fn finalize_into(self, out: &mut GenericArray<u8, Self::OutputSize>) {
+        match self {
+            Self::V1(etag_v1) => etag_v1.finalize_into(out),
+            Self::V2(etag_v2) => etag_v2.finalize_into(out),
         }
     }
 
-    fn calculate(&mut self, out: &mut GenericArray<u8, U28>) {
-        base64::urlsafe_slice(&sha1_encoder::hash_sha1s(&self.sha1s), out);
-    }
-}
-
-impl EtagV2 {
-    /// 构建 Etag V2 计算器
-    pub fn new() -> Self {
-        Default::default()
-    }
-}
-
-impl Update for EtagV2 {
-    /// 向 Etag V2 计算器输入数据，数据尺寸任意，但是一次输入的数据将被视为一个数据块
-    fn update(&mut self, data: impl AsRef<[u8]>) {
-        self.etag_v1.update(data);
-        self.etag_v1.finish();
-        self.buffer
-            .extend_from_slice(&sha1_encoder::hash_sha1s(&self.etag_v1.sha1s)[1..]);
-        self.etag_v1.reset()
-    }
-}
-
-impl Reset for EtagV2 {
-    /// 重置 Etag V2 计算器
-    fn reset(&mut self) {
-        self.buffer.clear();
-    }
-}
-
-impl FixedOutput for EtagV2 {
-    type OutputSize = U28;
-
-    /// 计算 Etag V2，生成结果
-    fn finalize_into(mut self, out: &mut GenericArray<u8, Self::OutputSize>) {
-        self.finalize_into_without_reset(out);
-    }
-
-    /// 计算 Etag V2，生成结果，然后重置该实例
+    /// 计算 Etag，生成结果，然后重置该实例
     fn finalize_into_reset(&mut self, out: &mut GenericArray<u8, Self::OutputSize>) {
-        self.finalize_into_without_reset(out);
-        self.reset();
+        match self {
+            Self::V1(etag_v1) => etag_v1.finalize_into_reset(out),
+            Self::V2(etag_v2) => etag_v2.finalize_into_reset(out),
+        }
     }
 }
 
-impl EtagV2 {
-    fn finalize_into_without_reset(&mut self, out: &mut GenericArray<u8, U28>) {
-        let mut buffer = Vec::with_capacity(21);
-        buffer.push(0x9eu8);
-        buffer.extend_from_slice(&sha1::sha1(&self.buffer));
-        base64::urlsafe_slice(&buffer, out);
+impl Reset for Etag {
+    /// 重置 Etag 计算器
+    fn reset(&mut self) {
+        match self {
+            Self::V1(etag_v1) => etag_v1.reset(),
+            Self::V2(etag_v2) => etag_v2.reset(),
+        }
     }
 }
 
@@ -203,53 +122,10 @@ pub fn etag_with_parts_to_buf(
     Ok(())
 }
 
-mod sha1_encoder {
-    use super::sha1;
-
-    pub(super) fn hash_sha1s(sha1s: &[Vec<u8>]) -> Vec<u8> {
-        match sha1s.len() {
-            0 => vec![
-                0x16, 0xda, 0x39, 0xa3, 0xee, 0x5e, 0x6b, 0x4b, 0xd, 0x32, 0x55, 0xbf, 0xef, 0x95,
-                0x60, 0x18, 0x90, 0xaf, 0xd8, 0x7, 0x9,
-            ],
-            1 => {
-                let mut buf = Vec::with_capacity(32);
-                buf.push(0x16u8);
-                buf.extend_from_slice(sha1s.first().unwrap());
-                buf
-            }
-            _ => {
-                let mut buf = Vec::with_capacity(sha1s.iter().map(|s| s.len()).sum());
-                for sha1 in sha1s.iter() {
-                    buf.extend_from_slice(&sha1);
-                }
-                let sha1 = sha1::sha1(&buf);
-                buf.clear();
-                buf.push(0x96u8);
-                buf.extend_from_slice(&sha1);
-                buf
-            }
-        }
-    }
-}
-
-mod sha1 {
-    use sha1::{Digest, Sha1};
-
-    pub(super) fn sha1(bytes: &[u8]) -> Vec<u8> {
-        let mut sha1 = Sha1::default();
-        sha1.update(bytes);
-        sha1.finalize().to_vec()
-    }
-}
-
 fn can_use_etag_v1(parts: &[usize]) -> bool {
-    for (i, &part) in parts.iter().enumerate() {
-        if i != parts.len() - 1 && part != DEFAULT_BLOCK_SIZE || part > DEFAULT_BLOCK_SIZE {
-            return false;
-        }
-    }
-    true
+    !parts.iter().enumerate().any(|(i, &part)| {
+        i != parts.len() - 1 && part != DEFAULT_BLOCK_SIZE || part > DEFAULT_BLOCK_SIZE
+    })
 }
 
 #[cfg(test)]
