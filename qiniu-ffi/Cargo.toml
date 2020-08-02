@@ -17,3 +17,4 @@ widestring = "0.4.2"
 tap = "0.4.0"
 
 qiniu-etag = { version = "0.0.4", path = "../qiniu-rust/etag" }
+qiniu-ffi-struct-macros = { version = "0.0.4", path = "./ffi-struct-macros" }

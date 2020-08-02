@@ -3,11 +3,8 @@ use libc::{c_void, size_t, FILE};
 use qiniu_etag::{
     etag_to_buf, etag_with_parts_to_buf, Etag, FixedOutput, GenericArray, Reset, Update,
 };
-use std::{
-    mem::{transmute, ManuallyDrop},
-    ptr::null_mut,
-    slice::from_raw_parts,
-};
+use qiniu_ffi_struct_macros::FFIStruct;
+use std::{mem::ManuallyDrop, slice::from_raw_parts};
 
 /// Etag 字符串固定长度
 pub const ETAG_SIZE: usize = 28;
@@ -20,46 +17,9 @@ pub const ETAG_SIZE: usize = 28;
 ///   * 最终调用 `qiniu_ng_etag_result()` 函数获取计算结果。
 ///   * 当 `qiniu_ng_etag_t` 使用完毕后，请务必调用 `qiniu_ng_etag_free()` 方法释放内存。
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, FFIStruct)]
+#[ffi_wrap(Box, Etag)]
 pub struct qiniu_ng_etag_t(*mut c_void);
-
-impl Default for qiniu_ng_etag_t {
-    #[inline]
-    fn default() -> Self {
-        Self(null_mut())
-    }
-}
-
-impl qiniu_ng_etag_t {
-    #[inline]
-    pub fn is_null(self) -> bool {
-        self.0.is_null()
-    }
-}
-
-impl From<qiniu_ng_etag_t> for Option<Box<Etag>> {
-    fn from(etag: qiniu_ng_etag_t) -> Self {
-        if etag.is_null() {
-            None
-        } else {
-            Some(unsafe { Box::from_raw(transmute(etag)) })
-        }
-    }
-}
-
-impl From<Box<Etag>> for qiniu_ng_etag_t {
-    #[inline]
-    fn from(etag: Box<Etag>) -> Self {
-        unsafe { transmute(Box::into_raw(etag)) }
-    }
-}
-
-impl From<Option<Box<Etag>>> for qiniu_ng_etag_t {
-    #[inline]
-    fn from(etag: Option<Box<Etag>>) -> Self {
-        etag.map(|etag| etag.into()).unwrap_or_default()
-    }
-}
 
 /// @brief 创建 七牛 Etag 计算器实例
 /// @param[in] version 七牛 Etag 计算器版本，可选值为 1 或 2
