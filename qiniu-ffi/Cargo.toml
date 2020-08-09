@@ -16,5 +16,7 @@ libc = "0.2.73"
 widestring = "0.4.2"
 tap = "0.4.0"
 
+qiniu-credential = { version = "0.0.4", path = "../qiniu-rust/credential" }
 qiniu-etag = { version = "0.0.4", path = "../qiniu-rust/etag" }
+qiniu-http = { version = "0.0.4", path = "../qiniu-rust/http" }
 qiniu-ffi-struct-macros = { version = "0.0.4", path = "./ffi-struct-macros" }

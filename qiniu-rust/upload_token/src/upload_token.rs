@@ -1,6 +1,6 @@
 use super::{UploadPolicy, UploadPolicyBuilder};
 use once_cell::sync::OnceCell;
-use qiniu_credential::AsCredential;
+use qiniu_credential::CredentialProvider;
 use qiniu_utils::base64;
 use std::{
     any::Any,
@@ -12,10 +12,10 @@ use std::{
 };
 use thiserror::Error;
 
-/// 上传凭证
+/// 上传凭证提供者
 ///
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1208/upload-token)了解七牛安全机制。
-pub trait AsUploadToken: Any + Debug + Sync + Send {
+pub trait UploadTokenProvider: Any + Debug + Sync + Send {
     /// 从上传凭证内获取 AccessKey
     fn access_key(&self) -> ParseResult<Cow<str>>;
 
@@ -25,20 +25,20 @@ pub trait AsUploadToken: Any + Debug + Sync + Send {
     /// 生成字符串
     fn to_string(&self) -> GenerateResult<Cow<str>>;
 
-    fn as_upload_token(&self) -> &dyn AsUploadToken;
+    fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider;
     fn as_any(&self) -> &dyn Any;
 }
 
-/// 静态上传凭证
+/// 静态上传凭证提供者
 ///
-/// 根据已经被生成好的上传凭证字符串生成上传凭证实例，可以将上传凭证解析为 Access Token 和上传策略
-pub struct StaticUploadToken {
+/// 根据已经被生成好的上传凭证字符串生成上传凭证提供者实例，可以将上传凭证解析为 Access Token 和上传策略
+pub struct StaticUploadTokenProvider {
     upload_token: Box<str>,
     policy: OnceCell<UploadPolicy>,
     access_key: OnceCell<Box<str>>,
 }
 
-impl StaticUploadToken {
+impl StaticUploadTokenProvider {
     /// 构建一个静态上传凭证，只需要传入静态的上传凭证字符串即可
     pub fn new(upload_token: impl Into<String>) -> Self {
         Self {
@@ -49,16 +49,16 @@ impl StaticUploadToken {
     }
 }
 
-impl fmt::Debug for StaticUploadToken {
+impl fmt::Debug for StaticUploadTokenProvider {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("StaticUploadToken")
+        f.debug_struct("StaticUploadTokenProvider")
             .field("upload_token", &self.upload_token)
             .finish()
     }
 }
 
-impl AsUploadToken for StaticUploadToken {
+impl UploadTokenProvider for StaticUploadTokenProvider {
     fn access_key(&self) -> ParseResult<Cow<str>> {
         self.access_key
             .get_or_try_init(|| {
@@ -92,7 +92,7 @@ impl AsUploadToken for StaticUploadToken {
         Ok(Cow::Borrowed(&self.upload_token))
     }
 
-    fn as_upload_token(&self) -> &dyn AsUploadToken {
+    fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider {
         self
     }
 
@@ -101,7 +101,7 @@ impl AsUploadToken for StaticUploadToken {
     }
 }
 
-impl<T: Into<String>> From<T> for StaticUploadToken {
+impl<T: Into<String>> From<T> for StaticUploadTokenProvider {
     #[inline]
     fn from(s: T) -> Self {
         Self::new(s)
@@ -113,13 +113,13 @@ impl<T: Into<String>> From<T> for StaticUploadToken {
 /// 将上传策略签名，可以生成上传凭证实例
 pub struct FromUploadPolicy {
     upload_policy: UploadPolicy,
-    credential: Arc<dyn AsCredential>,
+    credential: Arc<dyn CredentialProvider>,
     upload_token: OnceCell<Box<str>>,
 }
 
 impl FromUploadPolicy {
     /// 基于上传策略和认证信息生成上传凭证实例
-    pub fn new(upload_policy: UploadPolicy, credential: Arc<dyn AsCredential>) -> Self {
+    pub fn new(upload_policy: UploadPolicy, credential: Arc<dyn CredentialProvider>) -> Self {
         Self {
             upload_policy,
             credential,
@@ -137,7 +137,7 @@ impl fmt::Debug for FromUploadPolicy {
     }
 }
 
-impl AsUploadToken for FromUploadPolicy {
+impl UploadTokenProvider for FromUploadPolicy {
     fn access_key(&self) -> ParseResult<Cow<str>> {
         Ok(self.credential.get()?.into_pair().0)
     }
@@ -157,7 +157,7 @@ impl AsUploadToken for FromUploadPolicy {
         Ok(Cow::Borrowed(upload_token))
     }
 
-    fn as_upload_token(&self) -> &dyn AsUploadToken {
+    fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider {
         self
     }
 
@@ -172,7 +172,7 @@ impl AsUploadToken for FromUploadPolicy {
 pub struct FromBucket {
     bucket: Cow<'static, str>,
     upload_token_lifetime: Duration,
-    credential: Arc<dyn AsCredential>,
+    credential: Arc<dyn CredentialProvider>,
 }
 
 impl FromBucket {
@@ -180,7 +180,7 @@ impl FromBucket {
     pub fn new(
         bucket: impl Into<Cow<'static, str>>,
         upload_token_lifetime: Duration,
-        credential: Arc<dyn AsCredential>,
+        credential: Arc<dyn CredentialProvider>,
     ) -> Self {
         Self {
             bucket: bucket.into(),
@@ -200,7 +200,7 @@ impl fmt::Debug for FromBucket {
     }
 }
 
-impl AsUploadToken for FromBucket {
+impl UploadTokenProvider for FromBucket {
     fn access_key(&self) -> ParseResult<Cow<str>> {
         Ok(self.credential.get()?.into_pair().0)
     }
@@ -227,7 +227,7 @@ impl AsUploadToken for FromBucket {
         Ok(upload_token.into())
     }
 
-    fn as_upload_token(&self) -> &dyn AsUploadToken {
+    fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider {
         self
     }
 
@@ -270,7 +270,7 @@ pub type GenerateResult<T> = Result<T, GenerateError>;
 #[cfg(test)]
 mod tests {
     use super::{super::UploadPolicyBuilder, *};
-    use qiniu_credential::StaticCredential;
+    use qiniu_credential::StaticCredentialProvider;
     use std::{boxed::Box, error::Error, result::Result};
 
     #[test]
@@ -285,14 +285,17 @@ mod tests {
             .to_string()?
             .into_owned();
         assert!(token.starts_with(get_credential().get()?.access_key()));
-        let token = StaticUploadToken::from(token);
+        let token = StaticUploadTokenProvider::from(token);
         let policy = token.policy()?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), Some("test:file"));
         Ok(())
     }
 
-    fn get_credential() -> Arc<dyn AsCredential> {
-        Arc::new(StaticCredential::new("abcdefghklmnopq", "1234567890"))
+    fn get_credential() -> Arc<dyn CredentialProvider> {
+        Arc::new(StaticCredentialProvider::new(
+            "abcdefghklmnopq",
+            "1234567890",
+        ))
     }
 }

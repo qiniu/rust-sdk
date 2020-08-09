@@ -1,10 +1,11 @@
 use super::ucstring::{qiniu_ng_char_t, ucstr, UCString};
 use libc::{c_void, size_t};
+use qiniu_ffi_struct_macros::FFIStruct;
 use std::{
     boxed::Box,
     fmt,
-    mem::transmute,
-    ptr::{copy_nonoverlapping, null, null_mut},
+    mem::{transmute, ManuallyDrop},
+    ptr::{copy_nonoverlapping, null},
 };
 use tap::TapOps;
 
@@ -18,29 +19,9 @@ use tap::TapOps;
 /// @warning `qiniu_ng_str_t` 中的字符串有可能是 `NULL`，这种情况下，可以通过 `qiniu_ng_str_is_null()` 判定
 /// @warning `qiniu_ng_str_get_cstr()` 将会返回存储的 C 字符串内存地址，请勿修改其存储的字符串内容
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, FFIStruct)]
+#[ffi_wrap(Box, ucstr)]
 pub struct qiniu_ng_str_t(*mut c_void, *mut c_void);
-
-impl qiniu_ng_str_t {
-    #[inline]
-    pub fn is_null(self) -> bool {
-        self.0.is_null() && self.1.is_null()
-    }
-}
-
-impl Default for qiniu_ng_str_t {
-    #[inline]
-    fn default() -> Self {
-        Self(null_mut(), null_mut())
-    }
-}
-
-impl From<Option<Box<ucstr>>> for qiniu_ng_str_t {
-    fn from(s: Option<Box<ucstr>>) -> Self {
-        s.map(|s| unsafe { transmute(Box::into_raw(s)) })
-            .unwrap_or_default()
-    }
-}
 
 impl From<Option<UCString>> for qiniu_ng_str_t {
     fn from(s: Option<UCString>) -> Self {
@@ -49,27 +30,10 @@ impl From<Option<UCString>> for qiniu_ng_str_t {
     }
 }
 
-impl From<Box<ucstr>> for qiniu_ng_str_t {
-    #[inline]
-    fn from(s: Box<ucstr>) -> Self {
-        Some(s).into()
-    }
-}
-
 impl From<UCString> for qiniu_ng_str_t {
     #[inline]
     fn from(s: UCString) -> Self {
         Some(s).into()
-    }
-}
-
-impl From<qiniu_ng_str_t> for Option<Box<ucstr>> {
-    fn from(s: qiniu_ng_str_t) -> Self {
-        if s.is_null() {
-            None
-        } else {
-            Some(unsafe { Box::from_raw(transmute(s)) })
-        }
     }
 }
 
@@ -106,6 +70,23 @@ pub extern "C" fn qiniu_ng_str_new(ptr: *const qiniu_ng_char_t) -> qiniu_ng_str_
         .unwrap_or_default()
 }
 
+/// @brief 推送字符串到字符串实例中
+/// @param[in,out] s 字符串实例的指针，可以为空字符串实例，但必须不为 `NULL`
+/// @param[in] cs 推送的 C 字符串指针，必须不为 `NULL`
+#[no_mangle]
+pub extern "C" fn qiniu_ng_str_push_cstr(s: *mut qiniu_ng_str_t, cs: *const qiniu_ng_char_t) {
+    let ss = Option::<Box<ucstr>>::from(unsafe { s.read() });
+    if let Some(ss) = &ss {
+        let mut bytes = ss.as_slice().to_owned();
+        bytes.extend_from_slice(unsafe { ucstr::from_ptr(cs) }.as_slice());
+        let new_s = unsafe { UCString::from_vec_unchecked(bytes) }.into_boxed_ucstr();
+        unsafe { s.write(new_s.into()) };
+    } else {
+        let ss = qiniu_ng_str_new(cs);
+        unsafe { s.write(ss) };
+    }
+}
+
 /// @brief 获取被封装的 C 字符串指针
 /// @param[in] s 字符串实例
 /// @retval *qiniu_ng_char_t 返回 C 字符串指针
@@ -113,13 +94,8 @@ pub extern "C" fn qiniu_ng_str_new(ptr: *const qiniu_ng_char_t) -> qiniu_ng_str_
 /// @warning 该方法将会返回存储的 C 字符串内存地址，请勿修改其存储的字符串内容
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_get_cstr(s: qiniu_ng_str_t) -> *const qiniu_ng_char_t {
-    let s = Option::<Box<ucstr>>::from(s);
-    s.as_ref()
-        .map(|s| s.as_ptr())
-        .unwrap_or_else(null)
-        .tap(|_| {
-            let _ = qiniu_ng_str_t::from(s);
-        })
+    let s = Option::<Box<ucstr>>::from(s).map(ManuallyDrop::new);
+    s.as_ref().map(|s| s.as_ptr()).unwrap_or_else(null)
 }
 
 /// @brief 获取字符串的二进制数据
@@ -135,7 +111,7 @@ pub extern "C" fn qiniu_ng_str_get_bytes(
     data_ptr: *mut c_void,
     data_len: *mut size_t,
 ) -> bool {
-    let s = Option::<Box<ucstr>>::from(s);
+    let s = Option::<Box<ucstr>>::from(s).map(ManuallyDrop::new);
     let mut result = true;
     if let Some(s) = s.as_ref() {
         match s.to_string() {
@@ -164,7 +140,6 @@ pub extern "C" fn qiniu_ng_str_get_bytes(
     } else if let Some(data_len) = unsafe { data_len.as_mut() } {
         *data_len = 0;
     }
-    let _ = qiniu_ng_str_t::from(s);
     result
 }
 
@@ -174,10 +149,8 @@ pub extern "C" fn qiniu_ng_str_get_bytes(
 /// @note 如果封装的 C 字符串地址为 `NULL`，该函数将返回 `0`
 #[no_mangle]
 pub extern "C" fn qiniu_ng_str_get_len(s: qiniu_ng_str_t) -> size_t {
-    let s = Option::<Box<ucstr>>::from(s);
-    s.as_ref().map(|s| s.len()).unwrap_or(0).tap(|_| {
-        let _ = qiniu_ng_str_t::from(s);
-    })
+    let s = Option::<Box<ucstr>>::from(s).map(ManuallyDrop::new);
+    s.as_ref().map(|s| s.len()).unwrap_or(0)
 }
 
 /// @brief 复制字符串实例
@@ -199,7 +172,7 @@ pub extern "C" fn qiniu_ng_str_clone(s: qiniu_ng_str_t) -> qiniu_ng_str_t {
 pub extern "C" fn qiniu_ng_str_free(s: *mut qiniu_ng_str_t) {
     if let Some(s) = unsafe { s.as_mut() } {
         let _ = Option::<Box<ucstr>>::from(*s);
-        *s = qiniu_ng_str_t::default();
+        *s = Default::default();
     }
 }
 

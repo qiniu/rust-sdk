@@ -872,3 +872,22 @@ impl From<UCString> for PathBuf {
         OsString::from(s).into()
     }
 }
+
+#[inline]
+pub(super) unsafe fn convert_optional_c_string_to_rust_optional_string(
+    s: *const qiniu_ng_char_t,
+) -> Option<String> {
+    s.as_ref().map(|s| ucstr::from_ptr(s).to_string().unwrap())
+}
+
+#[inline]
+pub(super) unsafe fn convert_optional_c_string_to_rust_string(s: *const qiniu_ng_char_t) -> String {
+    convert_optional_c_string_to_rust_optional_string(s).unwrap_or_default()
+}
+
+// #[inline]
+// pub(super) unsafe fn convert_optional_c_string_to_optional_path_buf(
+//     s: *const qiniu_ng_char_t,
+// ) -> Option<PathBuf> {
+//     s.as_ref().map(|s| UCString::from_ptr(s).into_path_buf())
+// }

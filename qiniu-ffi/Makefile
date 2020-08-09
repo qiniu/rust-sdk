@@ -3,7 +3,8 @@ CC =
 TARGET =
 CFLAGS =
 UNITY_HOME = $(CURDIR)/test/unity/src
-SRC_FILES = $(UNITY_HOME)/unity.c $(wildcard test/*.c)
+SRC_FILES = $(shell find $(CURDIR)/src/ -name '*.rs')
+TEST_FILES = $(UNITY_HOME)/unity.c $(wildcard $(CURDIR)/test/*.c)
 INC_DIRS =
 STATIC_LIBRARY =
 DYNAMIC_LIBRARY =
@@ -43,17 +44,17 @@ cargo_build_release:
 build_test_via_static_link: build
 ifneq ($(OS),Windows_NT)
 	mkdir -p build
-	$(CC) $(CFLAGS) $(INC_DIRS) $(SYMBOLS) $(SRC_FILES) $(STATIC_LIBRARY) -o $(TARGET) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(INC_DIRS) $(SYMBOLS) $(TEST_FILES) $(STATIC_LIBRARY) -o $(TARGET) $(LDFLAGS)
 endif
 build_test_via_dynamic_link: build
 ifeq ($(OS),Windows_NT)
-	$(CC) $(CFLAGS) $(SRC_FILES) $(INC_DIRS) $(SYMBOLS) /link /out:$(TARGET)
+	$(CC) $(CFLAGS) $(TEST_FILES) $(INC_DIRS) $(SYMBOLS) /link /out:$(TARGET)
 else
 	mkdir -p build
-	$(CC) $(CFLAGS) $(INC_DIRS) -L$(DYNAMIC_LIBRARY) $(SYMBOLS) $(SRC_FILES) -o $(TARGET) -lqiniu_ffi $(LDFLAGS)
+	$(CC) $(CFLAGS) $(INC_DIRS) -L$(DYNAMIC_LIBRARY) $(SYMBOLS) $(TEST_FILES) -o $(TARGET) -lqiniu_ffi $(LDFLAGS)
 endif
 build_test: build_test_via_static_link build_test_via_dynamic_link
-libqiniu_ng.h: cbindgen.toml $(wildcard src/*.rs)
+libqiniu_ng.h: cbindgen.toml $(SRC_FILES)
 	cbindgen --config cbindgen.toml --crate qiniu-ffi --output libqiniu_ng.h --quiet
 ifeq ($(OS),Windows_NT)
 	sed -i 's/\bbool\b/_Bool/g' libqiniu_ng.h

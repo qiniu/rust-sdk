@@ -73,7 +73,7 @@ pub extern "C" fn qiniu_ng_etag_reset(etag: qiniu_ng_etag_t) {
 pub extern "C" fn qiniu_ng_etag_free(etag: *mut qiniu_ng_etag_t) {
     if let Some(etag) = unsafe { etag.as_mut() } {
         let _ = Option::<Box<Etag>>::from(*etag);
-        *etag = qiniu_ng_etag_t::default();
+        *etag = Default::default();
     }
 }
 

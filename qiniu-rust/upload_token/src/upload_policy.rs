@@ -1,5 +1,6 @@
-use super::{FileType, InvalidFileType};
+use super::{FileType, FromUploadPolicy, InvalidFileType, UploadTokenProvider};
 use assert_impl::assert_impl;
+use qiniu_credential::CredentialProvider;
 use serde_json::{
     json,
     map::{Keys as JSONMapKeys, Values as JSONMapValues},
@@ -13,6 +14,7 @@ use std::{
     hash::Hash,
     ops::{Bound, RangeBounds},
     str::Split,
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -215,6 +217,15 @@ impl UploadPolicy {
     #[inline]
     pub fn values(&self) -> JSONMapValues {
         self.inner.as_object().unwrap().values()
+    }
+
+    /// 将上传策略转换为上传凭证提供者
+    #[inline]
+    pub fn into_upload_token_provider(
+        self,
+        credential: Arc<dyn CredentialProvider>,
+    ) -> impl UploadTokenProvider {
+        FromUploadPolicy::new(self, credential)
     }
 
     #[allow(dead_code)]

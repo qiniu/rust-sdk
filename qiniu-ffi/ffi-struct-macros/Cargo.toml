@@ -12,5 +12,6 @@ keywords = ["qiniu", "storage"]
 proc-macro = true
 
 [dependencies]
-syn = "1.0.36"
+syn = "1.0.38"
+proc-macro2 = "1.0.19"
 quote = "1.0.7"

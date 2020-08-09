@@ -17,6 +17,7 @@ void test_qiniu_ng_etag_v1(void) {
     qiniu_ng_etag_result(etag, etag_buf);
     TEST_ASSERT_EQUAL_STRING_MESSAGE(etag_buf, "FpLiADEaVoALPkdb8tJEJyRTXoe_",
         "qiniu_ng_etag_result() returns expected result");
+    qiniu_ng_etag_free(&etag);
 }
 
 void test_qiniu_ng_etag_v2(void) {
@@ -28,6 +29,7 @@ void test_qiniu_ng_etag_v2(void) {
     qiniu_ng_etag_result(etag, etag_buf);
     TEST_ASSERT_EQUAL_STRING_MESSAGE(etag_buf, "ns56DcSIfBFUENXjdhsJTIvl3Rcu",
         "qiniu_ng_etag_result() returns expected result");
+    qiniu_ng_etag_free(&etag);
 }
 
 void test_qiniu_ng_etag_from_file(void) {
