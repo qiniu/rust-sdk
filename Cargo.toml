@@ -1,0 +1,13 @@
+[workspace]
+
+members = [
+    "credential",
+    "utils",
+    "etag",
+    "upload_token",
+    "http"
+]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
