@@ -1,8 +1,8 @@
-use std::{error, fmt, result};
+use std::{error, fmt};
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ErrorType {
+pub enum ErrorKind {
     /// 协议错误，该协议不能支持
     ProtocolError,
 
@@ -38,18 +38,31 @@ pub enum ErrorType {
 }
 
 /// HTTP 响应错误
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Error {
-    error_type: ErrorType,
-    description: Box<str>,
+    kind: ErrorKind,
+    error: Box<dyn error::Error + Send + Sync>,
+}
+
+impl Error {
+    #[inline]
+    pub fn new(kind: ErrorKind, err: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
+        Error {
+            kind,
+            error: err.into(),
+        }
+    }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.description.fmt(f)
+        self.error.fmt(f)
     }
 }
 
-impl error::Error for Error {}
-
-pub type Result<T> = result::Result<T, Error>;
+impl error::Error for Error {
+    #[inline]
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        Some(self.error.as_ref())
+    }
+}

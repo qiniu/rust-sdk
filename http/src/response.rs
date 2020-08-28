@@ -1,4 +1,4 @@
-use super::{HeaderNameOwned, HeaderValueOwned, HeadersOwned};
+use super::{HeaderNameOwned, HeaderValueOwned, HeadersOwned, ResponseError};
 use std::{
     convert::TryInto,
     default::Default,
@@ -7,6 +7,7 @@ use std::{
     io::{copy as io_copy, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
     mem::take,
     net::IpAddr,
+    result,
 };
 use tempfile::tempfile;
 
@@ -271,3 +272,6 @@ impl ResponseBuilder {
         self.inner
     }
 }
+
+/// HTTP 响应结果
+pub type Result = result::Result<Response, ResponseError>;

@@ -1,6 +1,7 @@
-use super::{Headers, Method};
+use super::{HeaderName, HeaderValue, Headers, Method, StatusCode};
+use assert_impl::assert_impl;
 use once_cell::sync::Lazy;
-use std::{borrow::Cow, ffi::c_void, fmt, net::SocketAddr, ptr::null_mut, time::Duration};
+use std::{borrow::Cow, fmt, net::SocketAddr, time::Duration};
 
 static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
     format!(
@@ -17,6 +18,11 @@ pub type URL<'s> = Cow<'s, str>;
 /// 请求体
 pub type Body<'b> = Cow<'b, [u8]>;
 
+type OnProgress<'r> = Option<&'r (dyn Fn(u64, u64) -> bool + Send + Sync)>;
+type OnBody<'r> = Option<&'r (dyn Fn(&[u8]) -> bool + Send + Sync)>;
+type OnStatusCode<'r> = Option<&'r (dyn Fn(StatusCode) -> bool + Send + Sync)>;
+type OnHeader<'r> = Option<&'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync)>;
+
 /// HTTP 请求
 ///
 /// 封装 HTTP 请求相关字段
@@ -31,12 +37,12 @@ pub struct Request<'r> {
     user_agent: Cow<'r, str>,
     follow_redirection: bool,
     resolved_socket_addrs: Cow<'r, [SocketAddr]>,
-    custom_data: *mut c_void,
-    on_uploading_progress: Option<&'r dyn Fn(u64, u64, *mut c_void)>,
-    on_downloading_progress: Option<&'r dyn Fn(u64, u64, *mut c_void)>,
-    on_send_request_body: Option<&'r dyn Fn(&mut Request<'_>)>,
-    on_receive_response_body: Option<&'r dyn Fn(&mut Request<'_>)>,
-    on_receive_response_header: Option<&'r dyn Fn(&mut Request<'_>, &mut str, &mut str)>,
+    on_uploading_progress: OnProgress<'r>,
+    on_downloading_progress: OnProgress<'r>,
+    on_send_request_body: OnBody<'r>,
+    on_receive_response_status: OnStatusCode<'r>,
+    on_receive_response_body: OnBody<'r>,
+    on_receive_response_header: OnHeader<'r>,
     connect_timeout: Duration,
     request_timeout: Duration,
     tcp_keepalive_idle_timeout: Duration,
@@ -130,42 +136,76 @@ impl<'r> Request<'r> {
         &mut self.resolved_socket_addrs
     }
 
-    /// 自定义数据指针
-    #[inline]
-    pub fn custom_data(&self) -> *mut c_void {
-        self.custom_data
-    }
-
-    /// 修改自定义数据指针
-    #[inline]
-    pub fn custom_data_mut(&mut self) -> &mut *mut c_void {
-        &mut self.custom_data
-    }
-
     /// 上传进度回调
     #[inline]
-    pub fn on_uploading_progress(&self) -> Option<&dyn Fn(u64, u64, *mut c_void)> {
+    pub fn on_uploading_progress(&self) -> OnProgress {
         self.on_uploading_progress
     }
 
     /// 修改上传进度回调
     #[inline]
-    pub fn on_uploading_progress_mut(&mut self) -> &mut Option<&'r dyn Fn(u64, u64, *mut c_void)> {
+    pub fn on_uploading_progress_mut(&mut self) -> &mut OnProgress<'r> {
         &mut self.on_uploading_progress
     }
 
     /// 下载进度回调
     #[inline]
-    pub fn on_downloading_progress(&self) -> Option<&dyn Fn(u64, u64, *mut c_void)> {
+    pub fn on_downloading_progress(&self) -> OnProgress {
         self.on_downloading_progress
     }
 
     /// 修改下载进度回调
     #[inline]
-    pub fn on_downloading_progress_mut(
-        &mut self,
-    ) -> &mut Option<&'r dyn Fn(u64, u64, *mut c_void)> {
+    pub fn on_downloading_progress_mut(&mut self) -> &mut OnProgress<'r> {
         &mut self.on_downloading_progress
+    }
+
+    /// 发送请求体回调
+    #[inline]
+    pub fn on_send_request_body(&self) -> OnBody {
+        self.on_send_request_body
+    }
+
+    /// 修改发送请求体回调
+    #[inline]
+    pub fn on_send_request_body_mut(&mut self) -> &mut OnBody<'r> {
+        &mut self.on_send_request_body
+    }
+
+    /// 接受到响应状态回调
+    #[inline]
+    pub fn on_receive_response_status(&self) -> OnStatusCode {
+        self.on_receive_response_status
+    }
+
+    /// 修改接受到响应状态回调
+    #[inline]
+    pub fn on_receive_response_status_mut(&mut self) -> &mut OnStatusCode<'r> {
+        &mut self.on_receive_response_status
+    }
+
+    /// 接受到响应体回调
+    #[inline]
+    pub fn on_receive_response_body(&self) -> OnBody {
+        self.on_receive_response_body
+    }
+
+    /// 修改接受到响应体回调
+    #[inline]
+    pub fn on_receive_response_body_mut(&mut self) -> &mut OnBody<'r> {
+        &mut self.on_receive_response_body
+    }
+
+    /// 接受到响应 Header 回调
+    #[inline]
+    pub fn on_receive_response_header(&self) -> OnHeader {
+        self.on_receive_response_header
+    }
+
+    /// 修改接受到响应 Header 回调
+    #[inline]
+    pub fn on_receive_response_header_mut(&mut self) -> &mut OnHeader<'r> {
+        &mut self.on_receive_response_header
     }
 
     /// 连接超时时长
@@ -230,6 +270,12 @@ impl<'r> Request<'r> {
             &mut self.low_transfer_speed_timeout,
         )
     }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 impl Default for Request<'_> {
@@ -242,10 +288,10 @@ impl Default for Request<'_> {
             user_agent: Cow::Borrowed(&FULL_USER_AGENT),
             follow_redirection: false,
             resolved_socket_addrs: Default::default(),
-            custom_data: null_mut(),
             on_uploading_progress: None,
             on_downloading_progress: None,
             on_send_request_body: None,
+            on_receive_response_status: None,
             on_receive_response_body: None,
             on_receive_response_header: None,
             connect_timeout: Duration::from_secs(30),
@@ -260,45 +306,43 @@ impl Default for Request<'_> {
 
 impl fmt::Debug for Request<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Request")
-            .field("url", &self.url)
-            .field("method", &self.method)
-            .field("headers", &self.headers)
-            .field("body", &self.body)
-            .field("user_agent", &self.user_agent)
-            .field("follow_redirection", &self.follow_redirection)
-            .field("resolved_socket_addrs", &self.resolved_socket_addrs)
-            .field("custom_data", &self.custom_data)
-            .field("connect_timeout", &self.connect_timeout)
-            .field("request_timeout", &self.request_timeout)
-            .field(
-                "on_uploading_progress",
-                &self.on_uploading_progress.map_or_else(
-                    || Cow::Borrowed("Uninstalled"),
-                    |_| Cow::Borrowed("Installed"),
-                ),
-            )
-            .field(
-                "on_downloading_progress",
-                &self.on_downloading_progress.map_or_else(
-                    || Cow::Borrowed("Uninstalled"),
-                    |_| Cow::Borrowed("Installed"),
-                ),
-            )
-            .field(
-                "tcp_keepalive_idle_timeout",
-                &self.tcp_keepalive_idle_timeout,
-            )
-            .field(
-                "tcp_keepalive_probe_interval",
-                &self.tcp_keepalive_probe_interval,
-            )
-            .field("low_transfer_speed", &self.low_transfer_speed)
-            .field(
-                "low_transfer_speed_timeout",
-                &self.low_transfer_speed_timeout,
-            )
-            .finish()
+        macro_rules! field {
+            ($ctx:ident,$method:ident) => {
+                $ctx.field("$method", &self.$method)
+            };
+        }
+        macro_rules! closure_field {
+            ($ctx:ident,$method:ident) => {
+                $ctx.field(
+                    "$method",
+                    &self.$method.map_or_else(
+                        || Cow::Borrowed("Uninstalled"),
+                        |_| Cow::Borrowed("Installed"),
+                    ),
+                )
+            };
+        }
+        let s = &mut f.debug_struct("Request");
+        field!(s, url);
+        field!(s, method);
+        field!(s, headers);
+        field!(s, body);
+        field!(s, user_agent);
+        field!(s, follow_redirection);
+        field!(s, resolved_socket_addrs);
+        field!(s, connect_timeout);
+        field!(s, request_timeout);
+        field!(s, tcp_keepalive_idle_timeout);
+        field!(s, tcp_keepalive_probe_interval);
+        field!(s, low_transfer_speed);
+        field!(s, low_transfer_speed_timeout);
+        closure_field!(s, on_uploading_progress);
+        closure_field!(s, on_downloading_progress);
+        closure_field!(s, on_send_request_body);
+        closure_field!(s, on_receive_response_status);
+        closure_field!(s, on_receive_response_body);
+        closure_field!(s, on_receive_response_header);
+        s.finish()
     }
 }
 
@@ -361,30 +405,45 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    /// 设置自定义数据指针
-    #[inline]
-    pub fn custom_data(&mut self, custom_data: *mut c_void) -> &mut Self {
-        self.inner.custom_data = custom_data;
-        self
-    }
-
     /// 设置上传进度回调
     #[inline]
-    pub fn on_uploading_progress(
-        &mut self,
-        on_uploading_progress: Option<&'r dyn Fn(u64, u64, *mut c_void)>,
-    ) -> &mut Self {
-        self.inner.on_uploading_progress = on_uploading_progress;
+    pub fn on_uploading_progress(&mut self, f: OnProgress<'r>) -> &mut Self {
+        self.inner.on_uploading_progress = f;
         self
     }
 
     /// 设置下载进度回调
     #[inline]
-    pub fn on_downloading_progress(
-        &mut self,
-        on_downloading_progress: Option<&'r dyn Fn(u64, u64, *mut c_void)>,
-    ) -> &mut Self {
-        self.inner.on_downloading_progress = on_downloading_progress;
+    pub fn on_downloading_progress(&mut self, f: OnProgress<'r>) -> &mut Self {
+        self.inner.on_downloading_progress = f;
+        self
+    }
+
+    /// 发送请求体回调
+    #[inline]
+    pub fn on_send_request_body(&mut self, f: OnBody<'r>) -> &mut Self {
+        self.inner.on_send_request_body = f;
+        self
+    }
+
+    /// 接受到响应状态回调
+    #[inline]
+    pub fn on_receive_response_status(&mut self, f: OnStatusCode<'r>) -> &mut Self {
+        self.inner.on_receive_response_status = f;
+        self
+    }
+
+    /// 接受到响应体回调
+    #[inline]
+    pub fn on_receive_response_body(&mut self, f: OnBody<'r>) -> &mut Self {
+        self.inner.on_receive_response_body = f;
+        self
+    }
+
+    /// 接受到响应 Header 回调
+    #[inline]
+    pub fn on_receive_response_header(&mut self, f: OnHeader<'r>) -> &mut Self {
+        self.inner.on_receive_response_header = f;
         self
     }
 
