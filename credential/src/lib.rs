@@ -236,6 +236,7 @@ pub trait CredentialProvider: Any + Debug + Sync + Send {
     /// 异步返回七牛认证信息
     #[inline]
     #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_get(&self) -> BoxFuture<Result<Credential>> {
         Box::pin(async move { self.get() })
     }
@@ -453,6 +454,22 @@ impl CredentialProvider for ChainCredentialsProvider {
                 "All credentials are failed to get",
             ))
         }
+    }
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    fn async_get(&self) -> BoxFuture<Result<Credential>> {
+        Box::pin(async move {
+            for provider in self.credentials.iter() {
+                if let Some(credential) = provider.async_get().await.ok() {
+                    return Ok(credential);
+                }
+            }
+            Err(Error::new(
+                ErrorKind::Other,
+                "All credentials are failed to get",
+            ))
+        })
     }
 
     #[inline]
@@ -818,6 +835,24 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_chain_credentials() -> Result<(), Box<dyn Error>> {
+        GlobalCredentialProvider::clear();
+        let chain_credentials = ChainCredentialsProvider::default();
+        env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "TEST2");
+        env::set_var(QINIU_SECRET_KEY_ENV_KEY, "test2");
+        {
+            let cred = chain_credentials.get()?;
+            assert_eq!(cred.access_key(), "TEST2");
+        }
+        GlobalCredentialProvider::setup("TEST1", "test1");
+        {
+            let cred = chain_credentials.get()?;
+            assert_eq!(cred.access_key(), "TEST1");
+        }
+        Ok(())
+    }
+
     fn get_static_credential() -> impl CredentialProvider {
         StaticCredentialProvider::new("abcdefghklmnopq", "1234567890")
     }
@@ -852,23 +887,23 @@ mod tests {
             );
             Ok(())
         }
-    }
 
-    #[test]
-    fn test_chain_credentials() -> Result<(), Box<dyn Error>> {
-        GlobalCredentialProvider::clear();
-        let chain_credentials = ChainCredentialsProvider::default();
-        env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "TEST2");
-        env::set_var(QINIU_SECRET_KEY_ENV_KEY, "test2");
-        {
-            let cred = chain_credentials.get()?;
-            assert_eq!(cred.access_key(), "TEST2");
+        #[async_std::test]
+        async fn test_async_chain_credentials() -> Result<(), Box<dyn Error>> {
+            GlobalCredentialProvider::clear();
+            let chain_credentials = ChainCredentialsProvider::default();
+            env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "TEST2");
+            env::set_var(QINIU_SECRET_KEY_ENV_KEY, "test2");
+            {
+                let cred = chain_credentials.async_get().await?;
+                assert_eq!(cred.access_key(), "TEST2");
+            }
+            GlobalCredentialProvider::setup("TEST1", "test1");
+            {
+                let cred = chain_credentials.async_get().await?;
+                assert_eq!(cred.access_key(), "TEST1");
+            }
+            Ok(())
         }
-        GlobalCredentialProvider::setup("TEST1", "test1");
-        {
-            let cred = chain_credentials.get()?;
-            assert_eq!(cred.access_key(), "TEST1");
-        }
-        Ok(())
     }
 }

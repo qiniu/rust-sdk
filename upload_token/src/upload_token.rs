@@ -24,6 +24,7 @@ pub trait UploadTokenProvider: Any + Debug + Sync + Send {
     /// 异步从上传凭证内获取 AccessKey
     #[inline]
     #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_access_key(&self) -> BoxFuture<ParseResult<Cow<str>>> {
         Box::pin(async move { self.access_key() })
     }
@@ -34,6 +35,7 @@ pub trait UploadTokenProvider: Any + Debug + Sync + Send {
     /// 异步从上传凭证内获取上传策略
     #[inline]
     #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_policy(&self) -> BoxFuture<ParseResult<Cow<UploadPolicy>>> {
         Box::pin(async move { self.policy() })
     }
@@ -44,6 +46,7 @@ pub trait UploadTokenProvider: Any + Debug + Sync + Send {
     /// 异步生成字符串
     #[inline]
     #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_to_string(&self) -> BoxFuture<GenerateResult<Cow<str>>> {
         Box::pin(async move { self.to_string() })
     }
