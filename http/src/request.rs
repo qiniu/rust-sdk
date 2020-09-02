@@ -1,7 +1,7 @@
 use super::{HeaderName, HeaderValue, Headers, Method, StatusCode};
 use assert_impl::assert_impl;
 use once_cell::sync::Lazy;
-use std::{borrow::Cow, fmt, net::SocketAddr, time::Duration};
+use std::{borrow::Cow, fmt, net::IpAddr, time::Duration};
 
 static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
     format!(
@@ -34,9 +34,9 @@ pub struct Request<'r> {
     body: Body<'r>,
 
     // 请求配置属性
-    user_agent: Cow<'r, str>,
+    appended_user_agent: Cow<'r, str>,
     follow_redirection: bool,
-    resolved_socket_addrs: Cow<'r, [SocketAddr]>,
+    resolved_ip_addrs: Cow<'r, [IpAddr]>,
     on_uploading_progress: OnProgress<'r>,
     on_downloading_progress: OnProgress<'r>,
     on_send_request_body: OnBody<'r>,
@@ -52,6 +52,12 @@ pub struct Request<'r> {
 }
 
 impl<'r> Request<'r> {
+    // 返回 HTTP 响应构建器
+    #[inline]
+    pub fn builder() -> RequestBuilder<'r> {
+        RequestBuilder::default()
+    }
+
     /// 请求 URL
     #[inline]
     pub fn url(&self) -> &str {
@@ -102,14 +108,20 @@ impl<'r> Request<'r> {
 
     /// 用户代理
     #[inline]
-    pub fn user_agent(&self) -> &str {
-        &self.user_agent
+    pub fn user_agent(&self) -> String {
+        FULL_USER_AGENT.to_string() + self.appended_user_agent()
     }
 
-    /// 修改用户代理
+    /// 追加的用户代理
     #[inline]
-    pub fn user_agent_mut(&mut self) -> &mut Cow<'r, str> {
-        &mut self.user_agent
+    pub fn appended_user_agent(&self) -> &str {
+        &self.appended_user_agent
+    }
+
+    /// 修改追加的用户代理
+    #[inline]
+    pub fn appended_user_agent_mut(&mut self) -> &mut Cow<'r, str> {
+        &mut self.appended_user_agent
     }
 
     /// 是否自动跟踪重定向
@@ -126,14 +138,14 @@ impl<'r> Request<'r> {
 
     /// 预解析的服务器套接字地址
     #[inline]
-    pub fn resolved_socket_addrs(&self) -> &[SocketAddr] {
-        &self.resolved_socket_addrs
+    pub fn resolved_ip_addrs(&self) -> &[IpAddr] {
+        &self.resolved_ip_addrs
     }
 
     /// 修改预解析的服务器套接字地址
     #[inline]
-    pub fn resolved_socket_addrs_mut(&mut self) -> &mut Cow<'r, [SocketAddr]> {
-        &mut self.resolved_socket_addrs
+    pub fn resolved_ip_addrs_mut(&mut self) -> &mut Cow<'r, [IpAddr]> {
+        &mut self.resolved_ip_addrs
     }
 
     /// 上传进度回调
@@ -285,9 +297,9 @@ impl Default for Request<'_> {
             method: Method::GET,
             headers: Default::default(),
             body: Default::default(),
-            user_agent: Cow::Borrowed(&FULL_USER_AGENT),
+            appended_user_agent: Default::default(),
             follow_redirection: false,
-            resolved_socket_addrs: Default::default(),
+            resolved_ip_addrs: Default::default(),
             on_uploading_progress: None,
             on_downloading_progress: None,
             on_send_request_body: None,
@@ -327,9 +339,9 @@ impl fmt::Debug for Request<'_> {
         field!(s, method);
         field!(s, headers);
         field!(s, body);
-        field!(s, user_agent);
+        field!(s, appended_user_agent);
         field!(s, follow_redirection);
-        field!(s, resolved_socket_addrs);
+        field!(s, resolved_ip_addrs);
         field!(s, connect_timeout);
         field!(s, request_timeout);
         field!(s, tcp_keepalive_idle_timeout);
@@ -355,8 +367,8 @@ pub struct RequestBuilder<'r> {
 impl<'r> RequestBuilder<'r> {
     /// 设置请求 URL
     #[inline]
-    pub fn url(&mut self, url: URL<'r>) -> &mut Self {
-        self.inner.url = url;
+    pub fn url(&mut self, url: impl Into<URL<'r>>) -> &mut Self {
+        self.inner.url = url.into();
         self
     }
 
@@ -376,15 +388,15 @@ impl<'r> RequestBuilder<'r> {
 
     /// 设置请求体
     #[inline]
-    pub fn body(&mut self, body: Body<'r>) -> &mut Self {
-        self.inner.body = body;
+    pub fn body(&mut self, body: impl Into<Body<'r>>) -> &mut Self {
+        self.inner.body = body.into();
         self
     }
 
     /// 设置用户代理
     #[inline]
-    pub fn user_agent(&mut self, user_agent: impl Into<Cow<'r, str>>) -> &mut Self {
-        self.inner.user_agent = user_agent.into();
+    pub fn appended_user_agent(&mut self, user_agent: impl Into<Cow<'r, str>>) -> &mut Self {
+        self.inner.appended_user_agent = user_agent.into();
         self
     }
 
@@ -397,11 +409,11 @@ impl<'r> RequestBuilder<'r> {
 
     /// 设置预解析的服务器套接字地址
     #[inline]
-    pub fn resolved_socket_addrs(
+    pub fn resolved_ip_addrs(
         &mut self,
-        resolved_socket_addrs: impl Into<Cow<'r, [SocketAddr]>>,
+        resolved_ip_addrs: impl Into<Cow<'r, [IpAddr]>>,
     ) -> &mut Self {
-        self.inner.resolved_socket_addrs = resolved_socket_addrs.into();
+        self.inner.resolved_ip_addrs = resolved_ip_addrs.into();
         self
     }
 

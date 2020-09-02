@@ -1,10 +1,14 @@
 use super::{HeaderNameOwned, HeaderValueOwned, HeadersOwned, ResponseError};
+use assert_impl::assert_impl;
 use std::{
     convert::TryInto,
     default::Default,
     fmt::Debug,
     fs::File,
-    io::{copy as io_copy, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
+    io::{
+        copy as io_copy, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult,
+        Seek, SeekFrom,
+    },
     mem::take,
     net::IpAddr,
     result,
@@ -15,9 +19,9 @@ use tempfile::tempfile;
 pub type StatusCode = u16;
 
 /// 实现了 Read 和 Debug 的 Trait
-pub trait ReadDebug: Read + Debug {}
+pub trait ReadDebug: Read + Debug + Send + Sync {}
 
-impl<T: Read + Debug> ReadDebug for T {}
+impl<T: Read + Debug + Send + Sync> ReadDebug for T {}
 
 /// HTTP 响应体
 #[derive(Debug)]
@@ -60,6 +64,12 @@ impl Default for Response {
 }
 
 impl Response {
+    // 返回 HTTP 响应构建器
+    #[inline]
+    pub fn builder() -> ResponseBuilder {
+        ResponseBuilder::default()
+    }
+
     /// HTTP 状态码
     #[inline]
     pub fn status_code(&self) -> StatusCode {
@@ -98,8 +108,8 @@ impl Response {
 
     /// HTTP 服务器 IP 地址
     #[inline]
-    pub fn server_ip(&self) -> Option<&IpAddr> {
-        self.server_ip.as_ref()
+    pub fn server_ip(&self) -> Option<IpAddr> {
+        self.server_ip
     }
 
     /// 修改 HTTP 服务器 IP 地址
@@ -196,6 +206,12 @@ impl Response {
         self.header("Content-Length")
             .and_then(|content_length| content_length.parse().ok())
     }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 #[derive(Debug, Default)]
@@ -247,7 +263,7 @@ impl ResponseBuilder {
 
     /// 设置数据流为 HTTP 响应体
     #[inline]
-    pub fn stream_as_body(mut self, body: impl Read + Debug + 'static) -> Self {
+    pub fn stream_as_body(mut self, body: impl Read + Debug + Send + Sync + 'static) -> Self {
         self.inner.body = Body::Reader(Box::new(body));
         self
     }
@@ -261,9 +277,10 @@ impl ResponseBuilder {
 
     /// 设置文件为 HTTP 响应体
     #[inline]
-    pub fn file_as_body(mut self, body: File) -> Self {
+    pub fn file_as_body(mut self, mut body: File) -> IOResult<Self> {
+        body.seek(SeekFrom::Start(0))?;
         self.inner.body = Body::File(body);
-        self
+        Ok(self)
     }
 
     /// 构建 HTTP 请求

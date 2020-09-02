@@ -18,8 +18,14 @@ pub enum ErrorKind {
     /// 域名解析失败
     UnknownHostError,
 
-    /// 传输失败
-    TransmissionError,
+    /// 发送失败
+    SendError,
+
+    /// 接受失败
+    ReceiveError,
+
+    /// 本地 IO 失败
+    LocalIOError,
 
     /// 超时失败
     TimeoutError,
@@ -45,12 +51,19 @@ pub struct Error {
 }
 
 impl Error {
+    /// 创建 HTTP 响应错误
     #[inline]
     pub fn new(kind: ErrorKind, err: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
         Error {
             kind,
             error: err.into(),
         }
+    }
+
+    /// 获取 HTTP 响应错误类型
+    #[inline]
+    pub fn kind(&self) -> ErrorKind {
+        self.kind
     }
 }
 

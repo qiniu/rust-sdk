@@ -5,7 +5,8 @@ members = [
     "utils",
     "etag",
     "upload_token",
-    "http"
+    "http",
+    "curl",
 ]
 
 [profile.release]

@@ -45,6 +45,53 @@ pub struct UploadPolicy {
 }
 
 impl UploadPolicy {
+    /// 为指定的存储空间生成的上传策略
+    ///
+    /// 允许用户上传文件到指定的存储空间，不限制上传客户端指定对象名称。
+    ///
+    /// 上传策略根据给出的客户端配置指定上传凭证有效期
+    #[inline]
+    pub fn new_for_bucket(
+        bucket: impl Into<String>,
+        upload_token_lifetime: Duration,
+    ) -> UploadPolicyBuilder {
+        UploadPolicyBuilder::new_policy_for_bucket(bucket, upload_token_lifetime)
+    }
+
+    /// 为指定的存储空间和对象名称生成的上传策略
+    ///
+    /// 允许用户以指定的对象名称上传文件到指定的存储空间。
+    /// 上传客户端不能指定与上传策略冲突的对象名称。
+    ///
+    /// 上传策略根据给出的客户端配置指定上传凭证有效期
+    #[inline]
+    pub fn new_for_object(
+        bucket: impl Into<String>,
+        key: impl AsRef<str>,
+        upload_token_lifetime: Duration,
+    ) -> UploadPolicyBuilder {
+        UploadPolicyBuilder::new_policy_for_object(bucket, key, upload_token_lifetime)
+    }
+
+    /// 为指定的存储空间和对象名称前缀生成的上传策略
+    ///
+    /// 允许用户以指定的对象名称前缀上传文件到指定的存储空间。
+    /// 上传客户端指定包含该前缀的对象名称。
+    ///
+    /// 上传策略根据给出的客户端配置指定上传凭证有效期
+    #[inline]
+    pub fn new_for_objects_with_prefix(
+        bucket: impl Into<String>,
+        prefix: impl AsRef<str>,
+        upload_token_lifetime: Duration,
+    ) -> UploadPolicyBuilder {
+        UploadPolicyBuilder::new_policy_for_objects_with_prefix(
+            bucket,
+            prefix,
+            upload_token_lifetime,
+        )
+    }
+
     /// 存储空间约束
     pub fn bucket(&self) -> Option<&str> {
         self.get(SCOPE_KEY)
