@@ -70,7 +70,7 @@ fn set_body(easy: &mut Easy2<Context>, request: &Request) -> Result<(), Response
 
 fn set_options(easy: &mut Easy2<Context>, request: &Request) -> Result<(), ResponseError> {
     set_preresolved_socket_addrs(easy, request)?;
-    handle(easy.useragent(&request.user_agent()))?;
+    handle(easy.useragent(&(request.user_agent() + "/libcurl-" + &Version::get().version())))?;
     handle(easy.accept_encoding(""))?;
     handle(easy.show_header(false))?;
     handle(easy.progress(
@@ -162,12 +162,10 @@ fn handle<T>(result: Result<T, CurlError>) -> Result<T, ResponseError> {
             ResponseError::new(ResponseErrorKind::SendError, err)
         } else if err.is_recv_error() {
             ResponseError::new(ResponseErrorKind::ReceiveError, err)
-        } else if err.is_read_error()
-            || err.is_write_error()
-            || err.is_aborted_by_callback()
-            || err.is_send_fail_rewind()
-        {
+        } else if err.is_read_error() || err.is_write_error() || err.is_send_fail_rewind() {
             ResponseError::new(ResponseErrorKind::LocalIOError, err)
+        } else if err.is_aborted_by_callback() {
+            ResponseError::new(ResponseErrorKind::UserCancelled, err)
         } else if err.is_operation_timedout() {
             ResponseError::new(ResponseErrorKind::TimeoutError, err)
         } else if err.is_too_many_redirects() {
@@ -202,14 +200,17 @@ mod tests {
     use rand::{thread_rng, RngCore};
     use std::{
         io::Read,
-        sync::{Arc, Mutex},
+        sync::{
+            atomic::{AtomicUsize, Ordering::Relaxed},
+            Arc, Mutex,
+        },
         thread::sleep,
         time::Duration,
     };
     use tokio::task::{spawn, spawn_blocking};
     use warp::{
-        body,
-        http::{StatusCode, Uri},
+        body, header,
+        http::{HeaderValue, StatusCode, Uri},
         path, redirect,
         reply::Response,
         Filter,
@@ -223,7 +224,9 @@ mod tests {
                     rx.await.ok();
                 });
             let handler = spawn(server);
-            $code;
+            {
+                $code;
+            }
             tx.send(()).ok();
             handler.await.ok();
         }};
@@ -268,15 +271,29 @@ mod tests {
         };
 
         starts_with_server!(addr, routes, {
-            let mut response = spawn_blocking(move || {
-                sync_http_call(
-                    &CurlHTTPCaller::default(),
-                    &Request::builder()
-                        .url(format!("http://{}/file/content", addr))
-                        .build(),
-                )
-            })
-            .await??;
+            let response_body_size_cnt = Arc::new(AtomicUsize::new(0));
+            let mut response = {
+                let response_body_size_cnt = response_body_size_cnt.to_owned();
+                spawn_blocking(move || {
+                    sync_http_call(
+                        &CurlHTTPCaller::default(),
+                        &Request::builder()
+                            .url(format!("http://{}/file/content", addr))
+                            .on_uploading_progress(Some(&|_uploaded, _total| unreachable!()))
+                            .on_downloading_progress(Some(&|downloaded, total| {
+                                assert_eq!(total, 10 * (1 << 20));
+                                assert!(downloaded <= total);
+                                true
+                            }))
+                            .on_receive_response_body(Some(&|data| {
+                                response_body_size_cnt.fetch_add(data.len(), Relaxed);
+                                true
+                            }))
+                            .build(),
+                    )
+                })
+                .await??
+            };
             assert_eq!(response.status_code(), StatusCode::OK);
             if let ResponseBody::File(file) = response.body_mut() {
                 let mut bytes = Vec::with_capacity(buffer.len());
@@ -287,6 +304,44 @@ mod tests {
             }
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
+            assert_eq!(response_body_size_cnt.load(Relaxed), 10 * (1 << 20));
+        });
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_abort_downloading() -> Result<()> {
+        let routes = {
+            let buffer = generate_buffer(1 << 20);
+            path!("file" / "content").map(move || Response::new(buffer.to_owned().into()))
+        };
+
+        starts_with_server!(addr, routes, {
+            let err = spawn_blocking(move || {
+                sync_http_call(
+                    &CurlHTTPCaller::default(),
+                    &Request::builder()
+                        .url(format!("http://{}/file/content", addr))
+                        .on_downloading_progress(Some(&|_downloaded, _total| false))
+                        .build(),
+                )
+            })
+            .await?
+            .unwrap_err();
+            assert_eq!(err.kind(), ResponseErrorKind::UserCancelled);
+
+            let err = spawn_blocking(move || {
+                sync_http_call(
+                    &CurlHTTPCaller::default(),
+                    &Request::builder()
+                        .url(format!("http://{}/file/content", addr))
+                        .on_receive_response_body(Some(&|_body| false))
+                        .build(),
+                )
+            })
+            .await?
+            .unwrap_err();
+            assert_eq!(err.kind(), ResponseErrorKind::LocalIOError);
         });
         Ok(())
     }
@@ -304,16 +359,24 @@ mod tests {
         };
 
         starts_with_server!(addr, routes, {
-            let response = spawn_blocking(move || {
-                sync_http_call(
-                    &CurlHTTPCaller::default(),
-                    &Request::builder()
-                        .url(format!("http://{}/redirect/1", addr))
-                        .follow_redirection(true)
-                        .build(),
-                )
-            })
-            .await??;
+            let status_codes = Arc::new(Mutex::new(Vec::<u16>::new()));
+            let response = {
+                let status_codes = status_codes.clone();
+                spawn_blocking(move || {
+                    sync_http_call(
+                        &CurlHTTPCaller::default(),
+                        &Request::builder()
+                            .url(format!("http://{}/redirect/1", addr))
+                            .follow_redirection(true)
+                            .on_receive_response_status(Some(&|status| {
+                                status_codes.lock().unwrap().push(status);
+                                true
+                            }))
+                            .build(),
+                    )
+                })
+                .await??
+            };
             assert_eq!(response.status_code(), StatusCode::OK);
             if let ResponseBody::Bytes(bytes) = response.body() {
                 assert!(bytes == &buffer);
@@ -322,6 +385,10 @@ mod tests {
             }
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
+            assert_eq!(
+                status_codes.lock().unwrap().as_slice(),
+                &[301, 301, 301, 200]
+            );
         });
         Ok(())
     }
@@ -358,7 +425,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_upload_content() -> Result<()> {
-        let req_body = generate_buffer(1 << 20);
         let resp_body = Arc::new(Mutex::new(Vec::new()));
         let routes = {
             let resp_body = resp_body.to_owned();
@@ -372,14 +438,27 @@ mod tests {
                 })
         };
         starts_with_server!(addr, routes, {
+            let req_body = generate_buffer(1 << 20);
+            let req_body_size_cnt = Arc::new(AtomicUsize::new(0));
             let response = {
                 let req_body = req_body.to_owned();
+                let req_body_size_cnt = req_body_size_cnt.to_owned();
                 spawn_blocking(move || {
                     sync_http_call(
                         &CurlHTTPCaller::default(),
                         &Request::builder()
                             .url(format!("http://{}/upload", addr))
                             .body(&req_body)
+                            .on_uploading_progress(Some(&|uploaded, total| {
+                                assert_eq!(total, 1 << 20);
+                                assert!(uploaded <= total);
+                                true
+                            }))
+                            .on_downloading_progress(Some(&|_downloaded, _total| unreachable!()))
+                            .on_send_request_body(Some(&|data| {
+                                req_body_size_cnt.fetch_add(data.len(), Relaxed);
+                                true
+                            }))
                             .build(),
                     )
                 })
@@ -389,6 +468,49 @@ mod tests {
             assert!(&req_body == &*resp_body.lock().unwrap());
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
+            assert_eq!(req_body_size_cnt.load(Relaxed), 1 << 20);
+        });
+        Ok(())
+    }
+    #[tokio::test]
+    async fn test_abort_uploading() -> Result<()> {
+        let routes = path!("upload").map(|| StatusCode::OK);
+
+        starts_with_server!(addr, routes, {
+            let req_body = generate_buffer(1 << 20);
+            let err = {
+                let req_body = req_body.to_owned();
+                spawn_blocking(move || {
+                    sync_http_call(
+                        &CurlHTTPCaller::default(),
+                        &Request::builder()
+                            .url(format!("http://{}/upload", addr))
+                            .body(&req_body)
+                            .on_uploading_progress(Some(&|_downloaded, _total| false))
+                            .build(),
+                    )
+                })
+                .await?
+                .unwrap_err()
+            };
+            assert_eq!(err.kind(), ResponseErrorKind::UserCancelled);
+
+            let err = {
+                spawn_blocking(move || {
+                    let req_body = req_body.to_owned();
+                    sync_http_call(
+                        &CurlHTTPCaller::default(),
+                        &Request::builder()
+                            .url(format!("http://{}/upload", addr))
+                            .body(&req_body)
+                            .on_send_request_body(Some(&|_body| false))
+                            .build(),
+                    )
+                })
+                .await?
+                .unwrap_err()
+            };
+            assert_eq!(err.kind(), ResponseErrorKind::UserCancelled);
         });
         Ok(())
     }
@@ -440,6 +562,63 @@ mod tests {
             .await?
             .unwrap_err();
             assert_eq!(err.kind(), ResponseErrorKind::TimeoutError);
+        });
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_user_agent() -> Result<()> {
+        let user_agent = Arc::new(Mutex::new(String::new()));
+        let routes = {
+            let user_agent = user_agent.clone();
+            path!("get" / "useragent")
+                .and(header::value("User-Agent"))
+                .map(move |agent: HeaderValue| {
+                    user_agent.lock().unwrap().push_str(agent.to_str().unwrap());
+                    StatusCode::OK
+                })
+        };
+
+        starts_with_server!(addr, routes, {
+            let response = spawn_blocking(move || {
+                sync_http_call(
+                    &CurlHTTPCaller::default(),
+                    &Request::builder()
+                        .url(format!("http://{}/get/useragent", addr))
+                        .request_timeout(Duration::from_secs(3))
+                        .build(),
+                )
+            })
+            .await??;
+            assert_eq!(response.status_code(), StatusCode::OK);
+            assert!(user_agent
+                .lock()
+                .unwrap()
+                .as_str()
+                .starts_with("QiniuRust/qiniu-http-"));
+
+            let response = spawn_blocking(move || {
+                sync_http_call(
+                    &CurlHTTPCaller::default(),
+                    &Request::builder()
+                        .url(format!("http://{}/get/useragent", addr))
+                        .request_timeout(Duration::from_secs(3))
+                        .appended_user_agent("/user-agent-test")
+                        .build(),
+                )
+            })
+            .await??;
+            assert_eq!(response.status_code(), StatusCode::OK);
+            assert!(user_agent
+                .lock()
+                .unwrap()
+                .as_str()
+                .starts_with("QiniuRust/qiniu-http-"));
+            assert!(user_agent
+                .lock()
+                .unwrap()
+                .as_str()
+                .contains("/user-agent-test/libcurl-"));
         });
         Ok(())
     }

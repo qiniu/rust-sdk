@@ -111,33 +111,40 @@ impl<'ctx> Context<'ctx> {
 
 impl Handler for Context<'_> {
     fn write(&mut self, data: &[u8]) -> Result<usize, WriteError> {
-        match &mut self.response_body {
-            ResponseBody::Bytes(bytes) => {
-                if bytes.len() + data.len() > self.buffer_size {
-                    let mut tmpfile = tempfile_in(self.temp_dir).map_err(|_| WriteError::Pause)?;
-                    tmpfile.write_all(bytes).map_err(|_| WriteError::Pause)?;
-                    tmpfile.write_all(data).map_err(|_| WriteError::Pause)?;
-                    self.response_body = ResponseBody::File(tmpfile);
-                } else {
-                    bytes.extend_from_slice(data);
+        if data.len() == 0 {
+            return Ok(0);
+        }
+        return _write(self, data).or(Ok(0));
+
+        fn _write(context: &mut Context, data: &[u8]) -> Result<usize, WriteError> {
+            match &mut context.response_body {
+                ResponseBody::Bytes(bytes) => {
+                    if bytes.len() + data.len() > context.buffer_size {
+                        let mut tmpfile =
+                            tempfile_in(context.temp_dir).map_err(|_| WriteError::Pause)?;
+                        tmpfile.write_all(bytes).map_err(|_| WriteError::Pause)?;
+                        tmpfile.write_all(data).map_err(|_| WriteError::Pause)?;
+                        context.response_body = ResponseBody::File(tmpfile);
+                    } else {
+                        bytes.extend_from_slice(data);
+                    }
+                    if !context.on_receive_response_body.map_or(true, |f| f(data)) {
+                        return Err(WriteError::Pause);
+                    }
+                    Ok(data.len())
                 }
-                if !self.on_receive_response_body.map_or(true, |f| f(data)) {
-                    return Err(WriteError::Pause);
-                }
-                Ok(data.len())
-            }
-            ResponseBody::File(file) => {
-                file.write(data)
+                ResponseBody::File(file) => file
+                    .write(data)
                     .map_err(|_| WriteError::Pause)
                     .and_then(|len| {
-                        if !self
+                        if !context
                             .on_receive_response_body
                             .map_or(true, |f| f(data.get(0..len).unwrap()))
                         {
                             return Err(WriteError::Pause);
                         }
                         Ok(len)
-                    })
+                    }),
             }
         }
     }
@@ -217,6 +224,7 @@ impl Handler for Context<'_> {
         let dlnow = dlnow as u64;
         let ultotal = ultotal as u64;
         let ulnow = ulnow as u64;
+        let mut result = true;
 
         if dltotal == 0 && ultotal == 0 {
             return true;
@@ -225,7 +233,7 @@ impl Handler for Context<'_> {
             ProgressStatus::Initialized => {
                 if ultotal == 0 {
                     if let Some(on_downloading_progress) = self.on_downloading_progress {
-                        on_downloading_progress(dlnow, dltotal);
+                        result = on_downloading_progress(dlnow, dltotal);
                     }
                     if dlnow == dltotal {
                         self.progress_status = ProgressStatus::Completed;
@@ -234,14 +242,14 @@ impl Handler for Context<'_> {
                     }
                 } else {
                     if let Some(on_uploading_progress) = self.on_uploading_progress {
-                        on_uploading_progress(ulnow, ultotal);
+                        result = on_uploading_progress(ulnow, ultotal);
                     }
                     self.progress_status = ProgressStatus::Uploading(ulnow);
                 }
             }
             ProgressStatus::Uploading(now) if now < ulnow => {
                 if let Some(on_uploading_progress) = self.on_uploading_progress {
-                    on_uploading_progress(ulnow, ultotal);
+                    result = on_uploading_progress(ulnow, ultotal);
                 }
                 if ulnow == ultotal {
                     self.progress_status = ProgressStatus::Downloading(dlnow);
@@ -251,7 +259,7 @@ impl Handler for Context<'_> {
             }
             ProgressStatus::Downloading(now) if now < dlnow => {
                 if let Some(on_downloading_progress) = self.on_downloading_progress {
-                    on_downloading_progress(dlnow, dltotal);
+                    result = on_downloading_progress(dlnow, dltotal);
                 }
                 if dlnow == dltotal {
                     self.progress_status = ProgressStatus::Completed;
@@ -261,6 +269,6 @@ impl Handler for Context<'_> {
             }
             _ => {}
         }
-        true
+        result
     }
 }
