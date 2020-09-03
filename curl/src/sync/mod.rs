@@ -4,7 +4,7 @@ mod pool;
 use super::CurlHTTPCaller;
 use context::{Context, ResponseBody};
 use curl::{
-    easy::{Easy2, List},
+    easy::{Easy2, HttpVersion, List},
     Error as CurlError, Version,
 };
 use once_cell::sync::Lazy;
@@ -72,6 +72,7 @@ fn set_options(easy: &mut Easy2<Context>, request: &Request) -> Result<(), Respo
     set_preresolved_socket_addrs(easy, request)?;
     handle(easy.useragent(&(request.user_agent() + "/libcurl-" + &Version::get().version())))?;
     handle(easy.accept_encoding(""))?;
+    handle(easy.http_version(HttpVersion::Any))?;
     handle(easy.show_header(false))?;
     handle(easy.progress(
         request.on_uploading_progress().is_some() || request.on_downloading_progress().is_some(),
