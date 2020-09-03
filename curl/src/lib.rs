@@ -35,6 +35,7 @@ impl CurlHTTPCaller {
 }
 
 impl Default for CurlHTTPCaller {
+    #[inline]
     fn default() -> Self {
         Self {
             buffer_size: 1 << 22,
@@ -51,18 +52,21 @@ pub struct CurlHTTPCallerBuilder {
 
 impl CurlHTTPCallerBuilder {
     /// 设置内存缓存区大小，默认为 4 MB
+    #[inline]
     pub fn buffer_size(mut self, buffer_size: usize) -> Self {
         self.inner.buffer_size = buffer_size;
         self
     }
 
     /// 设置临时文件目录路径，用于缓存尺寸大于 `buffer_size` 的 HTTP 响应体，默认为系统临时目录
+    #[inline]
     pub fn temp_dir(mut self, temp_dir: Option<PathBuf>) -> Self {
         self.inner.temp_dir = temp_dir;
         self
     }
 
     /// 构建基于 Curl 的 HTTP 客户端
+    #[inline]
     pub fn build(self) -> CurlHTTPCaller {
         self.inner
     }

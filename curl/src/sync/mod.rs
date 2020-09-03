@@ -71,12 +71,22 @@ fn set_body(easy: &mut Easy2<Context>, request: &Request) -> Result<(), Response
 fn set_options(easy: &mut Easy2<Context>, request: &Request) -> Result<(), ResponseError> {
     set_preresolved_socket_addrs(easy, request)?;
     handle(easy.useragent(&(request.user_agent() + "/libcurl-" + &Version::get().version())))?;
-    handle(easy.accept_encoding(""))?;
+    handle(
+        easy.accept_encoding(
+            request
+                .headers()
+                .get(&"Accept-Encoding".into())
+                .unwrap_or(&Default::default()),
+        ),
+    )?;
     handle(easy.http_version(HttpVersion::Any))?;
     handle(easy.show_header(false))?;
-    handle(easy.progress(
-        request.on_uploading_progress().is_some() || request.on_downloading_progress().is_some(),
-    ))?;
+    handle(easy.signal(false))?;
+    {
+        let need_progress = request.on_uploading_progress().is_some()
+            || request.on_downloading_progress().is_some();
+        handle(easy.progress(need_progress))?;
+    }
     handle(easy.transfer_encoding(true))?;
     handle(easy.follow_location(request.follow_redirection()))?;
     handle(easy.max_redirections(3))?;
@@ -226,9 +236,7 @@ mod tests {
                     rx.await.ok();
                 });
             let handler = spawn(server);
-            {
-                $code;
-            }
+            $code;
             tx.send(()).ok();
             handler.await.ok();
         }};
