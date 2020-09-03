@@ -211,6 +211,7 @@ mod tests {
     use warp::{
         body, header,
         http::{HeaderValue, StatusCode, Uri},
+        hyper::body::Bytes,
         path, redirect,
         reply::Response,
         Filter,
@@ -428,14 +429,12 @@ mod tests {
         let resp_body = Arc::new(Mutex::new(Vec::new()));
         let routes = {
             let resp_body = resp_body.to_owned();
-            path!("upload")
-                .and(body::bytes())
-                .map(move |bytes: bytes::Bytes| {
-                    let mut resp_body = resp_body.lock().unwrap();
-                    resp_body.clear();
-                    resp_body.extend_from_slice(&bytes);
-                    StatusCode::OK
-                })
+            path!("upload").and(body::bytes()).map(move |bytes: Bytes| {
+                let mut resp_body = resp_body.lock().unwrap();
+                resp_body.clear();
+                resp_body.extend_from_slice(&bytes);
+                StatusCode::OK
+            })
         };
         starts_with_server!(addr, routes, {
             let req_body = generate_buffer(1 << 20);
