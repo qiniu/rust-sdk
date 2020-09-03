@@ -1,5 +1,5 @@
 use super::context::Context;
-use curl::easy::Easy2;
+use curl::{easy::Easy2, init as curl_init};
 use object_pool::Pool;
 use once_cell::sync::Lazy;
 use std::{
@@ -17,6 +17,7 @@ pub(super) struct Easy2ContextRef([u8; size_of::<*mut Easy2<Context<'static>>>()
 
 impl Default for Easy2ContextRef {
     fn default() -> Self {
+        curl_init();
         Box::new(Easy2::new(Context::default())).into()
     }
 }
