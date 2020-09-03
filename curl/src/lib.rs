@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "docs", feature(doc_cfg))]
+
 use qiniu_http::{HTTPCaller, Request, ResponseResult};
 use std::{
     any::Any,

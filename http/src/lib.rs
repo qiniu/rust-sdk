@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "docs", feature(doc_cfg))]
+
 mod error;
 mod request;
 mod response;

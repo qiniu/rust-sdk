@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "docs", feature(doc_cfg))]
+
 mod file_type;
 mod upload_policy;
 mod upload_token;

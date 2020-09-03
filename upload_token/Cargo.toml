@@ -28,5 +28,5 @@ async = ["futures", "qiniu-credential/async"]
 docs = []
 
 [package.metadata.docs.rs]
-features = ["docs", "features"]
+features = ["docs", "async"]
 rustdoc-args = ["--cfg", "feature=\"docs\""]

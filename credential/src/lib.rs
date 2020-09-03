@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "docs", feature(doc_cfg))]
+
 use hmac::{Hmac, Mac, NewMac};
 use once_cell::sync::Lazy;
 use qiniu_utils::{
