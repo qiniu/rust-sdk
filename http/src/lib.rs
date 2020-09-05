@@ -30,7 +30,7 @@ pub trait HTTPCaller: Any + Send + Sync {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_call<'a>(&'a self, request: &'a Request) -> BoxFuture<'a, ResponseResult> {
+    fn async_call(&self, request: &'static Request) -> BoxFuture<ResponseResult> {
         Box::pin(async move { self.call(request) })
     }
 
