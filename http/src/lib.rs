@@ -23,7 +23,9 @@ pub type SyncResponseResult = ResponseResult<ResponseBody>;
 
 #[cfg(feature = "async")]
 mod async_response {
-    pub use response::AsyncBody as AsyncResponseBody;
+    pub use super::response::{
+        AsyncBody as AsyncResponseBody, Response, ResponseBuilder, Result as ResponseResult,
+    };
 
     /// 异步 HTTP 响应
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
