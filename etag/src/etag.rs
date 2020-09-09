@@ -122,7 +122,7 @@ pub fn etag_with_parts_to_buf(
     Ok(())
 }
 
-fn can_use_etag_v1(parts: &[usize]) -> bool {
+pub(super) fn can_use_etag_v1(parts: &[usize]) -> bool {
     !parts.iter().enumerate().any(|(i, &part)| {
         i != parts.len() - 1 && part != DEFAULT_BLOCK_SIZE || part > DEFAULT_BLOCK_SIZE
     })

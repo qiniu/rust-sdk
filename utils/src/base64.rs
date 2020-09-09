@@ -1,3 +1,5 @@
+//! Base64 计算库
+
 pub use base64::DecodeError;
 use std::result::Result;
 

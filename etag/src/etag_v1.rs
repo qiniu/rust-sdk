@@ -38,13 +38,44 @@ impl Update for EtagV1 {
 }
 
 impl Write for EtagV1 {
+    #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.update(buf);
         Ok(buf.len())
     }
 
+    #[inline]
     fn flush(&mut self) -> Result<()> {
         Ok(())
+    }
+}
+
+#[cfg(feature = "async")]
+use {
+    futures::io::AsyncWrite,
+    std::{
+        pin::Pin,
+        task::{Context, Poll},
+    },
+};
+
+#[cfg(feature = "async")]
+#[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+impl AsyncWrite for EtagV1 {
+    #[inline]
+    fn poll_write(mut self: Pin<&mut Self>, _cx: &mut Context, buf: &[u8]) -> Poll<Result<usize>> {
+        self.update(buf);
+        Poll::Ready(Ok(buf.len()))
+    }
+
+    #[inline]
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+
+    #[inline]
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<()>> {
+        Poll::Ready(Ok(()))
     }
 }
 
@@ -52,11 +83,13 @@ impl FixedOutput for EtagV1 {
     type OutputSize = U28;
 
     /// 计算 Etag V1，生成结果
+    #[inline]
     fn finalize_into(mut self, out: &mut GenericArray<u8, Self::OutputSize>) {
         self.finalize_into_without_reset(out);
     }
 
     /// 计算 Etag V1，生成结果，然后重置该实例
+    #[inline]
     fn finalize_into_reset(&mut self, out: &mut GenericArray<u8, Self::OutputSize>) {
         self.finalize_into_without_reset(out);
         self.reset();
@@ -65,6 +98,7 @@ impl FixedOutput for EtagV1 {
 
 impl Reset for EtagV1 {
     /// 重置 Etag V1 计算器
+    #[inline]
     fn reset(&mut self) {
         self.buffer.clear();
         self.sha1s.clear();
@@ -72,11 +106,13 @@ impl Reset for EtagV1 {
 }
 
 impl EtagV1 {
+    #[inline]
     fn finalize_into_without_reset(&mut self, out: &mut GenericArray<u8, U28>) {
         self.finish();
         self.calculate(out);
     }
 
+    #[inline]
     pub(super) fn finish(&mut self) {
         if !self.buffer.is_empty() {
             self.sha1s.push(sha1(&self.buffer));
@@ -84,6 +120,7 @@ impl EtagV1 {
         }
     }
 
+    #[inline]
     fn calculate(&mut self, out: &mut GenericArray<u8, U28>) {
         base64::urlsafe_slice(&hash_sha1s(&self.sha1s), out);
     }

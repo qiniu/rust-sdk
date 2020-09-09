@@ -34,6 +34,7 @@ impl Update for EtagV2 {
 
 impl Reset for EtagV2 {
     /// 重置 Etag V2 计算器
+    #[inline]
     fn reset(&mut self) {
         self.buffer.clear();
     }
@@ -43,11 +44,13 @@ impl FixedOutput for EtagV2 {
     type OutputSize = U28;
 
     /// 计算 Etag V2，生成结果
+    #[inline]
     fn finalize_into(mut self, out: &mut GenericArray<u8, Self::OutputSize>) {
         self.finalize_into_without_reset(out);
     }
 
     /// 计算 Etag V2，生成结果，然后重置该实例
+    #[inline]
     fn finalize_into_reset(&mut self, out: &mut GenericArray<u8, Self::OutputSize>) {
         self.finalize_into_without_reset(out);
         self.reset();

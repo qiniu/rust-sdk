@@ -13,5 +13,18 @@ keywords = ["qiniu", "storage"]
 [dependencies]
 sha-1 = "0.9.1"
 digest = "0.9.0"
+futures = { version = "0.3.5", optional = true }
 
 qiniu-utils = { version = "0.0.4", path = "../utils" }
+
+[dev-dependencies]
+async-std = { version = "1.6.3", features = ["attributes"] }
+
+[features]
+default = []
+async = ["futures"]
+docs = []
+
+[package.metadata.docs.rs]
+features = ["docs", "async"]
+rustdoc-args = ["--cfg", "feature=\"docs\""]
