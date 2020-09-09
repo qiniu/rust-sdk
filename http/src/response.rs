@@ -103,11 +103,9 @@ mod async_body {
 }
 
 #[cfg(feature = "async")]
-pub use {
-    async_body::*,
-    async_fs::File as AsyncFile,
-    futures::io::{AsyncRead, Cursor as AsyncCursor},
-};
+use futures::io::{AsyncRead, Cursor as AsyncCursor};
+#[cfg(feature = "async")]
+pub use {async_body::*, async_fs::File as AsyncFile};
 
 /// HTTP 响应
 ///
@@ -342,12 +340,12 @@ impl ResponseBuilder<AsyncBody> {
 
     /// 设置文件为 HTTP 响应体
     #[inline]
-    pub async fn file_as_body(mut self, body: File) -> IOResult<Self> {
+    pub async fn file_as_body(mut self, file: impl Into<AsyncFile>) -> IOResult<Self> {
         use futures::io::{AsyncSeekExt, SeekFrom};
 
-        let mut body = AsyncFile::from(body);
-        body.seek(SeekFrom::Start(0)).await?;
-        self.inner.body = AsyncBody(AsyncBodyInner::File(body));
+        let mut file = file.into();
+        file.seek(SeekFrom::Start(0)).await?;
+        self.inner.body = AsyncBody(AsyncBodyInner::File(file));
         Ok(self)
     }
 }

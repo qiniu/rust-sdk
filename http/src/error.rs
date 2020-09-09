@@ -40,7 +40,7 @@ pub enum ErrorKind {
     UnknownError,
 
     /// 用户取消
-    UserCancelled,
+    UserCanceled,
 }
 
 /// HTTP 响应错误

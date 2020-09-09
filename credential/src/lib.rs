@@ -463,7 +463,7 @@ impl CredentialProvider for ChainCredentialsProvider {
     fn async_get(&self) -> BoxFuture<Result<Credential>> {
         Box::pin(async move {
             for provider in self.credentials.iter() {
-                if let Some(credential) = provider.async_get().await.ok() {
+                if let Ok(credential) = provider.async_get().await {
                     return Ok(credential);
                 }
             }

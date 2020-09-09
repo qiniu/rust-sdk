@@ -1,7 +1,12 @@
-use super::CurlHTTPCaller;
+use super::{
+    super::{
+        http::{HeaderName, HeaderValue, HeadersOwned, Method, Request, StatusCode},
+        utils::header,
+    },
+    CurlHTTPCaller,
+};
 use curl::easy::{Handler, ReadError, SeekResult, WriteError};
 use once_cell::sync::Lazy;
-use qiniu_http::{HeaderName, HeaderValue, HeadersOwned, Method, Request, StatusCode};
 use std::{
     env::temp_dir,
     fs::File,
@@ -57,6 +62,7 @@ pub(super) struct Context<'r> {
     on_receive_response_status: OnStatusCode<'r>,
     on_receive_response_body: OnBody<'r>,
     on_receive_response_header: OnHeader<'r>,
+    canceled: bool,
 }
 
 impl Default for Context<'_> {
@@ -75,27 +81,31 @@ impl Default for Context<'_> {
             on_receive_response_status: Default::default(),
             on_receive_response_body: Default::default(),
             on_receive_response_header: Default::default(),
+            canceled: false,
         }
     }
 }
 
 impl<'ctx> Context<'ctx> {
+    #[inline]
     pub(super) fn take_response_headers(&mut self) -> HeadersOwned {
         take(&mut self.response_headers)
     }
 
+    #[inline]
     pub(super) fn take_response_body(&mut self) -> ResponseBody {
         take(&mut self.response_body)
+    }
+
+    #[inline]
+    pub(super) fn canceled(&self) -> bool {
+        self.canceled
     }
 
     pub(super) fn reset<'r: 'ctx>(&mut self, client: &'r CurlHTTPCaller, request: &'r Request<'r>) {
         *self = Default::default();
         self.buffer_size = client.buffer_size();
-        self.temp_dir = client
-            .temp_dir
-            .as_ref()
-            .map(|dir| dir.as_path())
-            .unwrap_or_else(|| &TEMP_DIR);
+        self.temp_dir = client.temp_dir.as_deref().unwrap_or_else(|| &TEMP_DIR);
         self.request_body = Cursor::new(request.body());
         if request.method() != Method::HEAD {
             self.response_body = ResponseBody::Bytes(Vec::with_capacity(self.buffer_size));
@@ -106,12 +116,13 @@ impl<'ctx> Context<'ctx> {
         self.on_receive_response_status = request.on_receive_response_status();
         self.on_receive_response_body = request.on_receive_response_body();
         self.on_receive_response_header = request.on_receive_response_header();
+        self.canceled = false;
     }
 }
 
 impl Handler for Context<'_> {
     fn write(&mut self, data: &[u8]) -> Result<usize, WriteError> {
-        if data.len() == 0 {
+        if data.is_empty() || self.canceled {
             return Ok(0);
         }
         return _write(self, data).or(Ok(0));
@@ -128,36 +139,33 @@ impl Handler for Context<'_> {
                     } else {
                         bytes.extend_from_slice(data);
                     }
-                    if !context.on_receive_response_body.map_or(true, |f| f(data)) {
-                        return Err(WriteError::Pause);
-                    }
-                    Ok(data.len())
                 }
-                ResponseBody::File(file) => file
-                    .write(data)
-                    .map_err(|_| WriteError::Pause)
-                    .and_then(|len| {
-                        if !context
-                            .on_receive_response_body
-                            .map_or(true, |f| f(data.get(0..len).unwrap()))
-                        {
-                            return Err(WriteError::Pause);
-                        }
-                        Ok(len)
-                    }),
+                ResponseBody::File(file) => {
+                    file.write_all(data).map_err(|_| WriteError::Pause)?;
+                }
             }
+            if !context.on_receive_response_body.map_or(true, |f| f(data)) {
+                context.canceled = true;
+                return Err(WriteError::Pause);
+            }
+            Ok(data.len())
         }
     }
 
     fn read(&mut self, data: &mut [u8]) -> Result<usize, ReadError> {
+        if self.canceled {
+            return Err(ReadError::Abort);
+        }
+
         self.request_body
             .read(data)
             .map_err(|_| ReadError::Abort)
             .and_then(|len| {
                 if !self
                     .on_send_request_body
-                    .map_or(true, |f| f(data.get(0..len).unwrap()))
+                    .map_or(true, |f| f(data.get(..len).unwrap()))
                 {
+                    self.canceled = true;
                     return Err(ReadError::Abort);
                 }
                 Ok(len)
@@ -165,51 +173,39 @@ impl Handler for Context<'_> {
     }
 
     fn seek(&mut self, whence: SeekFrom) -> SeekResult {
+        if self.canceled {
+            return SeekResult::Fail;
+        }
+
         self.request_body
             .seek(whence)
             .map_or_else(|_| SeekResult::Fail, |_| SeekResult::Ok)
     }
 
-    fn header(&mut self, data: &[u8]) -> bool {
-        let header = match String::from_utf8(data.to_vec()) {
-            Ok(header) => header,
-            Err(_) => {
-                return false;
-            }
-        };
-        if header == "\r\n" {
-            return true;
-        } else if header.starts_with("HTTP/") {
-            if let Some(on_receive_response_status) = self.on_receive_response_status {
-                if !header
-                    .split_whitespace()
-                    .take(2)
-                    .nth(1)
-                    .and_then(|code| code.parse::<StatusCode>().ok())
-                    .map_or(false, on_receive_response_status)
-                {
+    fn header(&mut self, line: &[u8]) -> bool {
+        if self.canceled {
+            false
+        } else if header::is_ended_line(line) {
+            true
+        } else if header::is_status_line(line) {
+            if let (Some(on_receive_response_status), Some(status_code)) = (
+                self.on_receive_response_status,
+                header::parse_status_line(line),
+            ) {
+                if !on_receive_response_status(status_code) {
+                    self.canceled = true;
                     return false;
                 }
             }
             self.response_headers.clear();
-            return true;
-        }
-        let (header_name, header_value) = {
-            let mut iter = header
-                .trim_matches(char::is_whitespace)
-                .splitn(2, ':')
-                .take(2)
-                .map(|s| s.trim_matches(char::is_whitespace));
-            (iter.next(), iter.next())
-        };
-        if let (Some(header_name), Some(header_value)) = (header_name, header_value) {
-            let header_name = header_name.to_string();
-            let header_value = header_value.to_string();
-            if let Some(on_receive_response_header) = self.on_receive_response_header {
-                on_receive_response_header(
-                    &header_name.as_str().into(),
-                    &header_value.as_str().into(),
-                );
+            true
+        } else if let Some((header_name, header_value)) = header::parse_header_line(line) {
+            if !self
+                .on_receive_response_header
+                .map_or(true, |f| f(&header_name, &header_value))
+            {
+                self.canceled = true;
+                return false;
             }
             self.response_headers
                 .insert(header_name.into(), header_value.into());
@@ -220,6 +216,10 @@ impl Handler for Context<'_> {
     }
 
     fn progress(&mut self, dltotal: f64, dlnow: f64, ultotal: f64, ulnow: f64) -> bool {
+        if self.canceled {
+            return false;
+        }
+
         let dltotal = dltotal as u64;
         let dlnow = dlnow as u64;
         let ultotal = ultotal as u64;
@@ -269,6 +269,11 @@ impl Handler for Context<'_> {
             }
             _ => {}
         }
+
+        if !result {
+            self.canceled = true;
+        }
+
         result
     }
 }

@@ -16,4 +16,4 @@ test:
 clean:
 	cargo clean
 clippy:
-	cargo clippy
+	cargo clippy --features async

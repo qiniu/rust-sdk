@@ -24,7 +24,8 @@ pub type SyncResponseResult = ResponseResult<ResponseBody>;
 #[cfg(feature = "async")]
 mod async_response {
     pub use super::response::{
-        AsyncBody as AsyncResponseBody, Response, ResponseBuilder, Result as ResponseResult,
+        AsyncBody as AsyncResponseBody, AsyncFile, Response, ResponseBuilder,
+        Result as ResponseResult,
     };
 
     /// 异步 HTTP 响应
@@ -57,7 +58,7 @@ pub trait HTTPCaller: Any + Send + Sync {
     /// 异步发送 HTTP 请求
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_call(&self, request: &'static Request) -> BoxFuture<AsyncResponseResult>;
+    fn async_call<'a>(&'a self, request: &'a Request<'_>) -> BoxFuture<'a, AsyncResponseResult>;
 
     fn as_http_caller(&self) -> &dyn HTTPCaller;
     fn as_any(&self) -> &dyn Any;
