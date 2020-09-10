@@ -29,7 +29,7 @@ pub(super) struct Handler {
     join_handle: Mutex<Option<JoinHandle<AgentResult<()>>>>,
 }
 
-pub(super) fn spawn<'c, 'h>(client: &'c CurlHTTPCaller) -> IOResult<Arc<Handler>> {
+pub(super) fn spawn(client: &CurlHTTPCaller) -> IOResult<Arc<Handler>> {
     let multi_options = client.clone_multi_options();
     let mut cache = GLOBAL_HANDLERS.lock().unwrap();
     if let Some(handler) = cache.get(&multi_options).cloned() {

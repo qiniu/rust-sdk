@@ -475,7 +475,7 @@ struct AsyncResponseBodyReader {
     statuses: Arc<Statuses>,
 }
 
-const USER_CANCELED_MESSAGE: &'static str = "User Canceled";
+const USER_CANCELED_MESSAGE: &str = "User Canceled";
 
 impl AsyncRead for AsyncResponseBodyReader {
     fn poll_read(

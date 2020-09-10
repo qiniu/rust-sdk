@@ -89,7 +89,7 @@ mod tests {
             {
                 let mut bytes = Vec::new();
                 response.body_mut().read_to_end(&mut bytes).await?;
-                assert!(&bytes == &buffer);
+                assert!(bytes == buffer);
             }
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
@@ -131,7 +131,7 @@ mod tests {
             {
                 let mut bytes = Vec::with_capacity(buffer.len());
                 response.body_mut().read_to_end(&mut bytes).await?;
-                assert!(&bytes == &buffer);
+                assert!(bytes == buffer);
             }
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
@@ -143,7 +143,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_contents() -> Result<()> {
         let buffers = Arc::new(
-            (0..100)
+            (0..20)
                 .map(|_| generate_buffer(1 << 20))
                 .collect::<Vec<_>>(),
         );
@@ -154,11 +154,13 @@ mod tests {
         };
 
         starts_with_server!(addr, routes, {
-            let futures = (0..100).map(|i| async move {
+            let futures = (0..20).map(|i| async move {
                 async_http_call(
                     &CurlHTTPCaller::default(),
                     &Request::builder()
                         .url(format!("http://{}/file/{}", addr, i))
+                        .connect_timeout(Duration::from_secs(60))
+                        .request_timeout(Duration::from_secs(600))
                         .build(),
                 )
                 .await
@@ -168,7 +170,7 @@ mod tests {
                 {
                     let mut bytes = Vec::new();
                     response.body_mut().read_to_end(&mut bytes).await?;
-                    assert!(&bytes == &buffers[i]);
+                    assert!(bytes == buffers[i]);
                 }
                 assert_eq!(response.server_ip(), Some(addr.ip()));
                 assert_eq!(response.server_port(), addr.port());
@@ -243,7 +245,7 @@ mod tests {
             {
                 let mut bytes = Vec::new();
                 response.body_mut().read_to_end(&mut bytes).await?;
-                assert!(&bytes == &buffer);
+                assert!(bytes == buffer);
             }
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
@@ -319,7 +321,7 @@ mod tests {
                 .await?
             };
             assert_eq!(response.status_code(), StatusCode::OK);
-            assert!(&req_body == &*recv_req_body.lock().unwrap());
+            assert!(req_body == *recv_req_body.lock().unwrap());
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
             assert_eq!(req_body_size_cnt.load(Relaxed), 1 << 20);
@@ -329,8 +331,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_upload_contents() -> Result<()> {
-        let recv_req_bodies =
-            Arc::new((0..100).map(|_| Mutex::new(Vec::new())).collect::<Vec<_>>());
+        let recv_req_bodies = Arc::new((0..20).map(|_| Mutex::new(Vec::new())).collect::<Vec<_>>());
         let routes = {
             let recv_req_bodies = recv_req_bodies.to_owned();
             path!("upload" / usize)
@@ -344,11 +345,11 @@ mod tests {
         };
         starts_with_server!(addr, routes, {
             let req_bodies = Arc::new(
-                (0..100)
+                (0..20)
                     .map(|_| generate_buffer(1 << 20))
                     .collect::<Vec<_>>(),
             );
-            let futures = (0..100).map(|i| {
+            let futures = (0..20).map(|i| {
                 let req_body = req_bodies.get(i).unwrap().to_owned();
                 async move {
                     async_http_call(

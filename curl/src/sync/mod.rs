@@ -133,7 +133,7 @@ mod tests {
             {
                 let mut bytes = Vec::new();
                 response.body_mut().read_to_end(&mut bytes)?;
-                assert!(&bytes == &buffer);
+                assert!(bytes == buffer);
             }
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
@@ -177,7 +177,7 @@ mod tests {
             {
                 let mut bytes = Vec::with_capacity(buffer.len());
                 response.body_mut().read_to_end(&mut bytes)?;
-                assert!(&bytes == &buffer);
+                assert!(bytes == buffer);
             }
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
@@ -258,7 +258,7 @@ mod tests {
             {
                 let mut bytes = Vec::new();
                 response.body_mut().read_to_end(&mut bytes)?;
-                assert!(&bytes == &buffer);
+                assert!(bytes == buffer);
             }
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
@@ -341,7 +341,7 @@ mod tests {
                 .await??
             };
             assert_eq!(response.status_code(), StatusCode::OK);
-            assert!(&req_body == &*recv_req_body.lock().unwrap());
+            assert!(req_body == *recv_req_body.lock().unwrap());
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
             assert_eq!(req_body_size_cnt.load(Relaxed), 1 << 20);

@@ -11,7 +11,7 @@ matrix:
       script:
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-              travis_wait 50 make build test doc
+              make build test doc
             fi
     - os: osx
       rust:
@@ -23,7 +23,7 @@ matrix:
       script:
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-              travis_wait 50 make build test doc
+              make build test doc
             fi
     - os: windows
       rust:
@@ -34,5 +34,5 @@ matrix:
       script:
         - |
             if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
-              travis_wait 50 make build test doc
+              make build test doc
             fi

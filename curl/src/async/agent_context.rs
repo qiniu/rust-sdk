@@ -187,11 +187,8 @@ impl<'ctx> AgentContext<'ctx> {
             }
         });
 
-        loop {
-            match rx.recv() {
-                Ok(multi_message) => self.complete_request(multi_message)?,
-                Err(_) => break,
-            }
+        while let Ok(multi_message) = rx.recv() {
+            self.complete_request(multi_message)?;
         }
 
         Ok(())
