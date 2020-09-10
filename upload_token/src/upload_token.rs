@@ -6,7 +6,7 @@ use std::{
     any::Any,
     borrow::Cow,
     fmt::{self, Debug},
-    io::Error as IOError,
+    io::{Error as IOError, Result as IOResult},
     time::Duration,
 };
 use thiserror::Error;
@@ -41,13 +41,13 @@ pub trait UploadTokenProvider: Any + Debug + Sync + Send {
     }
 
     /// 生成字符串
-    fn to_string(&self) -> GenerateResult<Cow<str>>;
+    fn to_string(&self) -> IOResult<Cow<str>>;
 
     /// 异步生成字符串
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_to_string(&self) -> BoxFuture<GenerateResult<Cow<str>>> {
+    fn async_to_string(&self) -> BoxFuture<IOResult<Cow<str>>> {
         Box::pin(async move { self.to_string() })
     }
 
@@ -115,7 +115,7 @@ impl UploadTokenProvider for StaticUploadTokenProvider {
     }
 
     #[inline]
-    fn to_string(&self) -> GenerateResult<Cow<str>> {
+    fn to_string(&self) -> IOResult<Cow<str>> {
         Ok(Cow::Borrowed(&self.upload_token))
     }
 
@@ -174,7 +174,7 @@ impl UploadTokenProvider for FromUploadPolicy {
         Ok(Cow::Borrowed(&self.upload_policy))
     }
 
-    fn to_string(&self) -> GenerateResult<Cow<str>> {
+    fn to_string(&self) -> IOResult<Cow<str>> {
         let upload_token = self.upload_token.get_or_try_init::<_, IOError>(|| {
             Ok(self
                 .credential
@@ -245,7 +245,7 @@ impl UploadTokenProvider for BucketUploadTokenProvider {
         .into())
     }
 
-    fn to_string(&self) -> GenerateResult<Cow<str>> {
+    fn to_string(&self) -> IOResult<Cow<str>> {
         let upload_token = self.credential.get()?.sign_with_data(
             UploadPolicyBuilder::new_policy_for_bucket(
                 self.bucket.to_string(),
@@ -288,17 +288,6 @@ pub enum ParseError {
 
 /// 上传凭证解析结果
 pub type ParseResult<T> = Result<T, ParseError>;
-
-/// 上传凭证生成错误
-#[derive(Error, Debug)]
-pub enum GenerateError {
-    /// 上传凭证获取认证信息错误
-    #[error("Credential get error: {0}")]
-    CredentialGetError(#[from] IOError),
-}
-
-/// 上传凭证解析结果
-pub type GenerateResult<T> = Result<T, GenerateError>;
 
 #[cfg(test)]
 mod tests {

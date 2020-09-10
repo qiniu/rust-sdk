@@ -82,7 +82,8 @@ mod tests {
                 &CurlHTTPCaller::default(),
                 &Request::builder()
                     .url(format!("http://{}/file/content", addr))
-                    .build(),
+                    .async_build()
+                    .await?,
             )
             .await?;
             assert_eq!(response.status_code(), StatusCode::OK);
@@ -123,7 +124,8 @@ mod tests {
                             response_body_size_cnt.fetch_add(data.len(), Relaxed);
                             true
                         }))
-                        .build(),
+                        .async_build()
+                        .await?,
                 )
                 .await?
             };
@@ -161,7 +163,8 @@ mod tests {
                         .url(format!("http://{}/file/{}", addr, i))
                         .connect_timeout(Duration::from_secs(60))
                         .request_timeout(Duration::from_secs(600))
-                        .build(),
+                        .async_build()
+                        .await?,
                 )
                 .await
             });
@@ -192,7 +195,8 @@ mod tests {
                 &Request::builder()
                     .url(format!("http://{}/file/content", addr))
                     .on_downloading_progress(Some(&|_downloaded, _total| false))
-                    .build(),
+                    .async_build()
+                    .await?,
             )
             .await
             .unwrap_err();
@@ -203,7 +207,8 @@ mod tests {
                 &Request::builder()
                     .url(format!("http://{}/file/content", addr))
                     .on_receive_response_body(Some(&|_body| false))
-                    .build(),
+                    .async_build()
+                    .await?,
             )
             .await
             .unwrap_err();
@@ -237,7 +242,8 @@ mod tests {
                             block_on(async { status_codes.lock().await }).push(status);
                             true
                         }))
-                        .build(),
+                        .async_build()
+                        .await?,
                 )
                 .await?
             };
@@ -273,7 +279,8 @@ mod tests {
                 &Request::builder()
                     .url(format!("http://{}/redirect/1", addr))
                     .follow_redirection(true)
-                    .build(),
+                    .async_build()
+                    .await?,
             )
             .await
             .unwrap_err();
@@ -316,7 +323,8 @@ mod tests {
                             req_body_size_cnt.fetch_add(data.len(), Relaxed);
                             true
                         }))
-                        .build(),
+                        .async_build()
+                        .await?,
                 )
                 .await?
             };
@@ -358,7 +366,8 @@ mod tests {
                             .method(Method::PUT)
                             .url(format!("http://{}/upload/{}", addr, i))
                             .body(req_body)
-                            .build(),
+                            .async_build()
+                            .await?,
                     )
                     .await
                 }
@@ -393,7 +402,8 @@ mod tests {
                         .url(format!("http://{}/upload", addr))
                         .body(&req_body)
                         .on_uploading_progress(Some(&|_downloaded, _total| false))
-                        .build(),
+                        .async_build()
+                        .await?,
                 )
                 .await
                 .unwrap_err()
@@ -408,7 +418,8 @@ mod tests {
                         .url(format!("http://{}/upload", addr))
                         .body(&req_body)
                         .on_send_request_body(Some(&|_body| false))
-                        .build(),
+                        .async_build()
+                        .await?,
                 )
                 .await
                 .unwrap_err()
@@ -428,7 +439,8 @@ mod tests {
                 &Request::builder()
                     .url(format!("http://qiniu.com:{}/file/content", addr.port()))
                     .resolved_ip_addrs([addr.ip()].as_ref())
-                    .build(),
+                    .async_build()
+                    .await?,
             )
             .await?;
             assert_eq!(response.status_code(), StatusCode::OK);
@@ -456,7 +468,8 @@ mod tests {
                 &Request::builder()
                     .url(format!("http://{}/no/response", addr))
                     .request_timeout(Duration::from_secs(3))
-                    .build(),
+                    .async_build()
+                    .await?,
             )
             .await
             .unwrap_err();
@@ -483,7 +496,8 @@ mod tests {
                 &CurlHTTPCaller::default(),
                 &Request::builder()
                     .url(format!("http://{}/get/useragent", addr))
-                    .build(),
+                    .async_build()
+                    .await?,
             )
             .await?;
             assert_eq!(response.status_code(), StatusCode::OK);
@@ -499,7 +513,8 @@ mod tests {
                     .url(format!("http://{}/get/useragent", addr))
                     .request_timeout(Duration::from_secs(3))
                     .appended_user_agent("/user-agent-test")
-                    .build(),
+                    .async_build()
+                    .await?,
             )
             .await?;
             assert_eq!(response.status_code(), StatusCode::OK);

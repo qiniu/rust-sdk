@@ -8,6 +8,6 @@ pub use serde_json;
 pub use upload_policy::{UploadPolicy, UploadPolicyBuilder};
 use upload_token::FromUploadPolicy;
 pub use upload_token::{
-    BucketUploadTokenProvider, GenerateError, GenerateResult, ParseError, ParseResult,
-    StaticUploadTokenProvider, UploadTokenProvider,
+    BucketUploadTokenProvider, ParseError, ParseResult, StaticUploadTokenProvider,
+    UploadTokenProvider,
 };

@@ -1,3 +1,4 @@
+use super::{AuthorizationError, RequestBuildError};
 use std::{error, fmt};
 
 /// HTTP 响应错误类型
@@ -77,5 +78,19 @@ impl error::Error for Error {
     #[inline]
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         Some(self.error.as_ref())
+    }
+}
+
+impl From<RequestBuildError> for Error {
+    #[inline]
+    fn from(err: RequestBuildError) -> Self {
+        match err {
+            RequestBuildError::AuthorizationError(AuthorizationError::IOError(err)) => {
+                Error::new(ErrorKind::LocalIOError, err)
+            }
+            RequestBuildError::AuthorizationError(AuthorizationError::UrlParseError(err)) => {
+                Error::new(ErrorKind::InvalidURLError, err)
+            }
+        }
     }
 }
