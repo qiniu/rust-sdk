@@ -17,7 +17,7 @@ use anyhow::Result;
 use clap::Clap;
 use qiniu_credential::StaticCredentialProvider;
 use qiniu_upload_token::{UploadPolicyBuilder, UploadTokenProvider};
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 #[derive(Debug, Clap)]
 #[clap(version = "1.0", author = "Rong Zhou <zhourong@qiniu.com>")]
@@ -41,7 +41,7 @@ fn main() -> Result<()> {
         Duration::from_secs(24 * 3600),
     )
     .build();
-    let upload_token = upload_policy.into_upload_token_provider(Arc::new(
+    let upload_token = upload_policy.into_upload_token_provider(Box::new(
         StaticCredentialProvider::new(params.access_key, params.secret_key),
     ));
     println!("{}", upload_token.to_string()?);

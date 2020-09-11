@@ -1,20 +1,15 @@
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
 
-mod authorization;
 mod error;
 mod request;
 mod response;
 
-pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
 pub use error::{Error as ResponseError, ErrorKind as ResponseErrorKind};
 pub use qiniu_utils::http::{
     header::{HeaderName, HeaderNameOwned, HeaderValue, HeaderValueOwned, Headers, HeadersOwned},
     method::{InvalidMethod, Method},
 };
-pub use request::{
-    Body as RequestBody, BuildError as RequestBuildError, BuildResult as RequestBuildResult,
-    Request, RequestBuilder, URL,
-};
+pub use request::{Body as RequestBody, Request, RequestBuilder, URL};
 pub use response::{
     Body as ResponseBody, CachedBody as CachedResponseBody, Response, ResponseBuilder,
     Result as ResponseResult, StatusCode,

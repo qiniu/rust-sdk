@@ -2,9 +2,9 @@
 
 all: build doc
 build:
-	cargo build
+	cargo build --features async
 build_release:
-	cargo build --release
+	cargo build --release --features async
 build_test:
 	cargo test --no-run
 doc:

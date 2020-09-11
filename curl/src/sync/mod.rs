@@ -137,7 +137,7 @@ mod tests {
                     &CurlHTTPCaller::default(),
                     &Request::builder()
                         .url(format!("http://{}/file/content", addr))
-                        .build()?,
+                        .build(),
                 )
             })
             .await??;
@@ -180,7 +180,7 @@ mod tests {
                                 response_body_size_cnt.fetch_add(data.len(), Relaxed);
                                 true
                             }))
-                            .build()?,
+                            .build(),
                     )
                 })
                 .await??
@@ -212,7 +212,7 @@ mod tests {
                     &Request::builder()
                         .url(format!("http://{}/file/content", addr))
                         .on_downloading_progress(Some(&|_downloaded, _total| false))
-                        .build()?,
+                        .build(),
                 )
             })
             .await?
@@ -225,7 +225,7 @@ mod tests {
                     &Request::builder()
                         .url(format!("http://{}/file/content", addr))
                         .on_receive_response_body(Some(&|_body| false))
-                        .build()?,
+                        .build(),
                 )
             })
             .await?
@@ -260,7 +260,7 @@ mod tests {
                                 status_codes.lock().unwrap().push(status);
                                 true
                             }))
-                            .build()?,
+                            .build(),
                     )
                 })
                 .await??
@@ -322,7 +322,7 @@ mod tests {
                     &Request::builder()
                         .url(format!("http://{}/redirect/1", addr))
                         .follow_redirection(true)
-                        .build()?,
+                        .build(),
                 )
             })
             .await?
@@ -367,7 +367,7 @@ mod tests {
                                 req_body_size_cnt.fetch_add(data.len(), Relaxed);
                                 true
                             }))
-                            .build()?,
+                            .build(),
                     )
                 })
                 .await??
@@ -396,8 +396,8 @@ mod tests {
                             .method(Method::POST)
                             .url(format!("http://{}/upload", addr))
                             .body(&req_body)
-                            .on_uploading_progress(Some(&|_downloaded, _total| false))
-                            .build()?,
+                            .on_uploading_progress(Some(&|_uploaded, _total| false))
+                            .build(),
                     )
                 })
                 .await?
@@ -414,7 +414,7 @@ mod tests {
                             .url(format!("http://{}/upload", addr))
                             .body(&req_body)
                             .on_send_request_body(Some(&|_body| false))
-                            .build()?,
+                            .build(),
                     )
                 })
                 .await?
@@ -436,7 +436,7 @@ mod tests {
                     &Request::builder()
                         .url(format!("http://qiniu.com:{}/file/content", addr.port()))
                         .resolved_ip_addrs([addr.ip()].as_ref())
-                        .build()?,
+                        .build(),
                 )
             })
             .await??;
@@ -466,7 +466,7 @@ mod tests {
                     &Request::builder()
                         .url(format!("http://{}/no/response", addr))
                         .request_timeout(Duration::from_secs(3))
-                        .build()?,
+                        .build(),
                 )
             })
             .await?
@@ -495,7 +495,7 @@ mod tests {
                     &CurlHTTPCaller::default(),
                     &Request::builder()
                         .url(format!("http://{}/get/useragent", addr))
-                        .build()?,
+                        .build(),
                 )
             })
             .await??;
@@ -512,7 +512,7 @@ mod tests {
                     &Request::builder()
                         .url(format!("http://{}/get/useragent", addr))
                         .appended_user_agent("/user-agent-test")
-                        .build()?,
+                        .build(),
                 )
             })
             .await??;

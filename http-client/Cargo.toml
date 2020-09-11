@@ -1,26 +1,31 @@
 [package]
-name = "qiniu-apis"
+name = "qiniu-http-client"
 version = "0.0.4"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"
 license = "Apache-2.0"
 homepage = "https://www.qiniu.com"
-description = "Qiniu APIs SDK for Rust"
+description = "Qiniu HTTP Client for Rust"
 keywords = ["qiniu", "storage"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+thiserror = "1.0.20"
 futures = { version = "0.3.5", optional = true }
 
 qiniu-http = { version = "0.0.4", path = "../http" }
+qiniu-credential = { version = "0.0.4", path = "../credential" }
+qiniu-upload-token = { version = "0.0.4", path = "../upload_token" }
+qiniu-curl = { version = "0.0.4", path = "../curl", optional = true }
 
 [dev-dependencies]
 async-std = { version = "1.6.3", features = ["attributes"] }
 
 [features]
-default = []
-async = ["futures", "qiniu-http/async"]
+default = ["curl"]
+curl = ["qiniu-curl"]
+async = ["futures", "qiniu-http/async", "qiniu-credential/async", "qiniu-upload-token/async", "qiniu-curl/async"]
 docs = []
 
 [package.metadata.docs.rs]

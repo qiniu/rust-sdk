@@ -7,7 +7,7 @@ members = [
     "upload_token",
     "http",
     "curl",
-    "apis",
+    "http-client",
 ]
 
 [profile.release]

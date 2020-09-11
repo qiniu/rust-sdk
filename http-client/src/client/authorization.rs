@@ -1,5 +1,5 @@
-use super::Request;
 use qiniu_credential::{Credential, CredentialProvider, Url, UrlParseError};
+use qiniu_http::Request;
 use qiniu_upload_token::UploadTokenProvider;
 use std::{fmt, io::Error as IOError, result::Result, sync::Arc};
 use thiserror::Error;

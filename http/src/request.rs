@@ -1,12 +1,7 @@
-use super::{
-    Authorization, AuthorizationError, HeaderName, HeaderValue, Headers, Method, StatusCode,
-};
+use super::{HeaderName, HeaderValue, Headers, Method, StatusCode};
 use assert_impl::assert_impl;
 use once_cell::sync::Lazy;
-use qiniu_credential::CredentialProvider;
-use qiniu_upload_token::UploadTokenProvider;
-use std::{borrow::Cow, fmt, mem::take, net::IpAddr, sync::Arc, time::Duration};
-use thiserror::Error;
+use std::{borrow::Cow, fmt, mem::take, net::IpAddr, time::Duration};
 
 static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
     format!(
@@ -367,7 +362,6 @@ impl fmt::Debug for Request<'_> {
 #[derive(Default, Debug, Clone)]
 pub struct RequestBuilder<'r> {
     inner: Request<'r>,
-    authorization: Option<Authorization>,
 }
 
 impl<'r> RequestBuilder<'r> {
@@ -403,27 +397,6 @@ impl<'r> RequestBuilder<'r> {
     #[inline]
     pub fn appended_user_agent(&mut self, user_agent: impl Into<Cow<'r, str>>) -> &mut Self {
         self.inner.appended_user_agent = user_agent.into();
-        self
-    }
-
-    /// 使用上传凭证对 HTTP 请求进行签名
-    #[inline]
-    pub fn upload_token(&mut self, upload_token: Arc<dyn UploadTokenProvider>) -> &mut Self {
-        self.authorization = Some(Authorization::uptoken(upload_token));
-        self
-    }
-
-    /// 使用七牛签名算法 V1 对 HTTP 请求进行签名
-    #[inline]
-    pub fn v1(&mut self, credential: Arc<dyn CredentialProvider>) -> &mut Self {
-        self.authorization = Some(Authorization::v1(credential));
-        self
-    }
-
-    /// 使用七牛签名算法 V2 对 HTTP 请求进行签名
-    #[inline]
-    pub fn v2(&mut self, credential: Arc<dyn CredentialProvider>) -> &mut Self {
-        self.authorization = Some(Authorization::v2(credential));
         self
     }
 
@@ -533,22 +506,8 @@ impl<'r> RequestBuilder<'r> {
 
     /// 构建 HTTP 请求，同时构建器被重置
     #[inline]
-    pub fn build(&mut self) -> BuildResult<Request<'r>> {
-        if let Some(authorization) = self.authorization.take() {
-            authorization.sign(&mut self.inner)?;
-        }
-        Ok(take(&mut self.inner))
-    }
-
-    /// 异步构建 HTTP 请求，同时构建器被重置
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    #[inline]
-    pub async fn async_build(&mut self) -> BuildResult<Request<'r>> {
-        if let Some(authorization) = self.authorization.take() {
-            authorization.async_sign(&mut self.inner).await?;
-        }
-        Ok(take(&mut self.inner))
+    pub fn build(&mut self) -> Request<'r> {
+        take(&mut self.inner)
     }
 
     /// 重置构建器
@@ -557,13 +516,3 @@ impl<'r> RequestBuilder<'r> {
         self.inner = Default::default();
     }
 }
-
-/// 构建请求错误
-#[derive(Error, Debug)]
-pub enum BuildError {
-    /// API 鉴权错误
-    #[error("API Authorization error: {0}")]
-    AuthorizationError(#[from] AuthorizationError),
-}
-/// 构建请求结果
-pub type BuildResult<T> = Result<T, BuildError>;

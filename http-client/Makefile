@@ -2,9 +2,11 @@
 
 all: build doc
 build:
-	cargo build
+	cargo build --features async
+	cargo build --features curl
 build_release:
-	cargo build --release
+	cargo build --release --features async
+	cargo build --release --features curl
 build_test:
 	cargo test --no-run
 doc:
@@ -13,6 +15,7 @@ doc:
 test:
 	cargo test -- --test-threads=1
 	cargo test --features async -- --test-threads=1
+	cargo test --features curl -- --test-threads=1
 clean:
 	cargo clean
 clippy:
