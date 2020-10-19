@@ -13,5 +13,4 @@ pub use resolver::{
     SimpleResolver,
 };
 
-// TODO: 提供能力：ClientBuilder
 // TODO: 提供能力：Request

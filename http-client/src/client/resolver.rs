@@ -1,4 +1,5 @@
 use chashmap::CHashMap;
+use dns_lookup::lookup_host;
 use serde::{Deserialize, Serialize};
 use serde_json::Error as JSONError;
 use std::{
@@ -19,13 +20,13 @@ use thiserror::Error;
 use futures::future::BoxFuture;
 
 pub trait Resolver: Any + Debug + Sync + Send {
-    fn resolve(&self, domain: &str, port: u16) -> ResolveResult;
+    fn resolve(&self, domain: &str) -> ResolveResult;
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_retry<'a>(&'a self, domain: &'a str, port: u16) -> BoxFuture<'a, ResolveResult> {
-        Box::pin(async move { self.resolve(domain, port) })
+    fn async_retry<'a>(&'a self, domain: &'a str) -> BoxFuture<'a, ResolveResult> {
+        Box::pin(async move { self.resolve(domain) })
     }
 
     fn as_any(&self) -> &dyn Any;
@@ -44,12 +45,9 @@ pub struct SimpleResolver;
 
 impl Resolver for SimpleResolver {
     #[inline]
-    fn resolve(&self, domain: &str, port: u16) -> ResolveResult {
-        use std::net::ToSocketAddrs;
-        Ok((domain, port)
-            .to_socket_addrs()?
-            .map(|socket_addr| socket_addr.ip())
-            .collect())
+    fn resolve(&self, domain: &str) -> ResolveResult {
+        let ip_addrs = lookup_host(domain).map(|ips| ips.into_boxed_slice())?;
+        Ok(ip_addrs)
     }
 
     #[inline]
@@ -66,7 +64,7 @@ impl Resolver for SimpleResolver {
 #[derive(Debug)]
 pub struct CachedResolver<R: Resolver> {
     backend: R,
-    cache: CHashMap<CachedResolverKey, CachedResolverValue>,
+    cache: CHashMap<Box<str>, CachedResolverValue>,
     lifetime: Duration,
     persistent: Option<PersistentFile>,
 }
@@ -75,12 +73,6 @@ pub struct CachedResolver<R: Resolver> {
 struct PersistentFile {
     path: PathBuf,
     auto_persistent: bool,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-struct CachedResolverKey {
-    domain: Box<str>,
-    port: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -97,7 +89,7 @@ struct PersistentCache {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PersistentCacheEntry {
-    key: CachedResolverKey,
+    key: Box<str>,
     ip_addrs: Box<[IpAddr]>,
     deadline: SystemTime,
 }
@@ -217,11 +209,8 @@ impl Default for CachedResolver<SimpleResolver> {
 
 impl<R: Resolver> Resolver for CachedResolver<R> {
     #[inline]
-    fn resolve(&self, domain: &str, port: u16) -> ResolveResult {
-        let cache_key = CachedResolverKey {
-            domain: domain.to_owned().into(),
-            port,
-        };
+    fn resolve(&self, domain: &str) -> ResolveResult {
+        let cache_key = domain.to_owned().into_boxed_str();
         if let Some(cache_entry) = self.cache.get(&cache_key) {
             if cache_entry.deadline > SystemTime::now() {
                 return Ok(cache_entry.ip_addrs.to_owned());
@@ -229,6 +218,7 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
         }
         let mut resolve_result: Option<ResolveResult> = None;
         let mut need_to_persistent = false;
+        // TODO: 这里我们使用 chashmap 保护 Hashmap 的线程安全性，该库对 async 模式不是非常友好，可以考虑替换更适合的库
         self.cache.alter(cache_key, |may_be_cache| {
             if let Some(cache) = &may_be_cache {
                 if cache.deadline > SystemTime::now() {
@@ -236,7 +226,7 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
                     return may_be_cache;
                 }
             }
-            match self.backend.resolve(domain, port) {
+            match self.backend.resolve(domain) {
                 Ok(ip_addrs) => {
                     resolve_result = Some(Ok(ip_addrs.to_owned()));
                     if let Some(persistent) = &self.persistent {
@@ -285,9 +275,7 @@ pub enum PersistentError {
 pub type PersistentResult<T> = Result<T, PersistentError>;
 
 impl PersistentCache {
-    fn into_cache_and_lifetime(
-        self,
-    ) -> (CHashMap<CachedResolverKey, CachedResolverValue>, Duration) {
+    fn into_cache_and_lifetime(self) -> (CHashMap<Box<str>, CachedResolverValue>, Duration) {
         let cache = CHashMap::from_iter(self.cache_entries.into_iter().map(|entry| {
             (
                 entry.key,
@@ -301,7 +289,7 @@ impl PersistentCache {
     }
 
     fn from_cache_and_lifetime(
-        cache: CHashMap<CachedResolverKey, CachedResolverValue>,
+        cache: CHashMap<Box<str>, CachedResolverValue>,
         lifetime: Duration,
     ) -> Self {
         PersistentCache {
@@ -335,38 +323,25 @@ mod tests {
 
     #[derive(Debug, Clone, Default)]
     struct ResolverFromTable {
-        table: HashMap<CachedResolverKey, Box<[IpAddr]>>,
-        resolved: CHashMap<CachedResolverKey, usize>,
+        table: HashMap<Box<str>, Box<[IpAddr]>>,
+        resolved: CHashMap<Box<str>, usize>,
     }
 
     impl ResolverFromTable {
-        fn add(&mut self, domain: impl Into<String>, port: u16, ip_addrs: Vec<IpAddr>) {
-            self.table.insert(
-                CachedResolverKey {
-                    domain: domain.into().into_boxed_str(),
-                    port,
-                },
-                ip_addrs.into_boxed_slice(),
-            );
+        fn add(&mut self, domain: impl Into<String>, ip_addrs: Vec<IpAddr>) {
+            self.table
+                .insert(domain.into().into_boxed_str(), ip_addrs.into_boxed_slice());
         }
 
-        fn resolved(&self, domain: impl Into<String>, port: u16) -> Option<usize> {
-            self.resolved
-                .get(&CachedResolverKey {
-                    domain: domain.into().into_boxed_str(),
-                    port,
-                })
-                .map(|v| *v)
+        fn resolved(&self, domain: impl AsRef<str>) -> Option<usize> {
+            self.resolved.get(domain.as_ref()).map(|v| *v)
         }
     }
 
     impl Resolver for ResolverFromTable {
         #[inline]
-        fn resolve(&self, domain: &str, port: u16) -> ResolveResult {
-            let key = CachedResolverKey {
-                domain: domain.to_owned().into_boxed_str(),
-                port,
-            };
+        fn resolve(&self, domain: &str) -> ResolveResult {
+            let key = domain.to_owned().into_boxed_str();
             Ok(self
                 .table
                 .get(&key)
@@ -399,17 +374,14 @@ mod tests {
         let mut backend = ResolverFromTable::default();
         backend.add(
             "test_domain_1.com",
-            80,
             vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))],
         );
         backend.add(
             "test_domain_2.com",
-            80,
             vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))],
         );
         backend.add(
             "test_domain_3.com",
-            80,
             vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))],
         );
         let resolver = Arc::new(CachedResolver::new(backend, Duration::from_secs(5)));
@@ -417,7 +389,7 @@ mod tests {
             .map(|_| {
                 let resolver = resolver.to_owned();
                 spawn(move || {
-                    let result = resolver.resolve("test_domain_1.com", 80).unwrap();
+                    let result = resolver.resolve("test_domain_1.com").unwrap();
                     assert_eq!(
                         result,
                         vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))].into_boxed_slice()
@@ -429,7 +401,7 @@ mod tests {
             .map(|_| {
                 let resolver = resolver.to_owned();
                 spawn(move || {
-                    let result = resolver.resolve("test_domain_2.com", 80).unwrap();
+                    let result = resolver.resolve("test_domain_2.com").unwrap();
                     assert_eq!(
                         result,
                         vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))].into_boxed_slice()
@@ -441,7 +413,7 @@ mod tests {
             .map(|_| {
                 let resolver = resolver.to_owned();
                 spawn(move || {
-                    let result = resolver.resolve("test_domain_3.com", 80).unwrap();
+                    let result = resolver.resolve("test_domain_3.com").unwrap();
                     assert_eq!(
                         result,
                         vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))].into_boxed_slice()
@@ -456,9 +428,9 @@ mod tests {
             .try_for_each(|thread| thread.join())
             .unwrap();
         let backend = Arc::try_unwrap(resolver).unwrap().into_backend();
-        assert_eq!(backend.resolved("test_domain_1.com", 80), Some(1));
-        assert_eq!(backend.resolved("test_domain_2.com", 80), Some(1));
-        assert_eq!(backend.resolved("test_domain_3.com", 80), Some(1));
+        assert_eq!(backend.resolved("test_domain_1.com"), Some(1));
+        assert_eq!(backend.resolved("test_domain_2.com"), Some(1));
+        assert_eq!(backend.resolved("test_domain_3.com"), Some(1));
         Ok(())
     }
 
@@ -467,13 +439,12 @@ mod tests {
         let mut backend = ResolverFromTable::default();
         backend.add(
             "test_domain_1.com",
-            80,
             vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))],
         );
         let resolver = CachedResolver::new(backend, Duration::from_secs(1));
 
         for _ in 0..5 {
-            let result = resolver.resolve("test_domain_1.com", 80).unwrap();
+            let result = resolver.resolve("test_domain_1.com").unwrap();
             assert_eq!(
                 result,
                 vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))].into_boxed_slice()
@@ -483,7 +454,7 @@ mod tests {
         sleep(Duration::from_secs(1));
 
         for _ in 0..5 {
-            let result = resolver.resolve("test_domain_1.com", 80).unwrap();
+            let result = resolver.resolve("test_domain_1.com").unwrap();
             assert_eq!(
                 result,
                 vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))].into_boxed_slice()
@@ -491,7 +462,7 @@ mod tests {
         }
 
         let backend = resolver.into_backend();
-        assert_eq!(backend.resolved("test_domain_1.com", 80), Some(2));
+        assert_eq!(backend.resolved("test_domain_1.com"), Some(2));
 
         Ok(())
     }
@@ -501,17 +472,14 @@ mod tests {
         let mut backend = ResolverFromTable::default();
         backend.add(
             "test_domain_1.com",
-            80,
             vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))],
         );
         backend.add(
             "test_domain_2.com",
-            80,
             vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))],
         );
         backend.add(
             "test_domain_3.com",
-            80,
             vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))],
         );
 
@@ -529,14 +497,14 @@ mod tests {
                 assert_eq!(err.kind(), IOErrorKind::NotFound);
             }
             {
-                let result = resolver.resolve("test_domain_1.com", 80).unwrap();
+                let result = resolver.resolve("test_domain_1.com").unwrap();
                 assert_eq!(
                     result,
                     vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))].into_boxed_slice()
                 );
             }
             {
-                let result = resolver.resolve("test_domain_2.com", 80).unwrap();
+                let result = resolver.resolve("test_domain_2.com").unwrap();
                 assert_eq!(
                     result,
                     vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))].into_boxed_slice()
@@ -545,7 +513,7 @@ mod tests {
             resolver.persistent()?;
             File::open(resolver.persistent_path().unwrap())?;
             {
-                let result = resolver.resolve("test_domain_3.com", 80).unwrap();
+                let result = resolver.resolve("test_domain_3.com").unwrap();
                 assert_eq!(
                     result,
                     vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))].into_boxed_slice()
@@ -556,58 +524,58 @@ mod tests {
             let resolver =
                 CachedResolver::load_or_create_from(&tempfile_path, true, backend.to_owned());
             {
-                let result = resolver.resolve("test_domain_1.com", 80).unwrap();
+                let result = resolver.resolve("test_domain_1.com").unwrap();
                 assert_eq!(
                     result,
                     vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))].into_boxed_slice()
                 );
             }
             {
-                let result = resolver.resolve("test_domain_2.com", 80).unwrap();
+                let result = resolver.resolve("test_domain_2.com").unwrap();
                 assert_eq!(
                     result,
                     vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))].into_boxed_slice()
                 );
             }
             {
-                let result = resolver.resolve("test_domain_3.com", 80).unwrap();
+                let result = resolver.resolve("test_domain_3.com").unwrap();
                 assert_eq!(
                     result,
                     vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))].into_boxed_slice()
                 );
             }
             let backend = resolver.into_backend();
-            assert_eq!(backend.resolved("test_domain_1.com", 80), None);
-            assert_eq!(backend.resolved("test_domain_2.com", 80), None);
-            assert_eq!(backend.resolved("test_domain_3.com", 80), Some(1));
+            assert_eq!(backend.resolved("test_domain_1.com"), None);
+            assert_eq!(backend.resolved("test_domain_2.com"), None);
+            assert_eq!(backend.resolved("test_domain_3.com"), Some(1));
         }
         {
             let resolver = CachedResolver::load_or_create_from(&tempfile_path, true, backend);
             {
-                let result = resolver.resolve("test_domain_1.com", 80).unwrap();
+                let result = resolver.resolve("test_domain_1.com").unwrap();
                 assert_eq!(
                     result,
                     vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))].into_boxed_slice()
                 );
             }
             {
-                let result = resolver.resolve("test_domain_2.com", 80).unwrap();
+                let result = resolver.resolve("test_domain_2.com").unwrap();
                 assert_eq!(
                     result,
                     vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))].into_boxed_slice()
                 );
             }
             {
-                let result = resolver.resolve("test_domain_3.com", 80).unwrap();
+                let result = resolver.resolve("test_domain_3.com").unwrap();
                 assert_eq!(
                     result,
                     vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))].into_boxed_slice()
                 );
             }
             let backend = resolver.into_backend();
-            assert_eq!(backend.resolved("test_domain_1.com", 80), None);
-            assert_eq!(backend.resolved("test_domain_2.com", 80), None);
-            assert_eq!(backend.resolved("test_domain_3.com", 80), None);
+            assert_eq!(backend.resolved("test_domain_1.com"), None);
+            assert_eq!(backend.resolved("test_domain_2.com"), None);
+            assert_eq!(backend.resolved("test_domain_3.com"), None);
         }
 
         Ok(())

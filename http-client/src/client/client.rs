@@ -9,7 +9,7 @@ use std::{sync::Arc, time::Duration};
 pub struct Client {
     use_https: bool,
     appended_user_agent: Box<str>,
-    http_caller: Arc<dyn HTTPCaller>, // TODO: 默认值与 是否启用 curl 相关
+    http_caller: Arc<dyn HTTPCaller>,
     request_retrier: Arc<dyn RequestRetrier>,
     resolver: Arc<dyn Resolver>,
     callbacks: Callbacks,
