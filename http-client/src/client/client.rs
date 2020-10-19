@@ -1,6 +1,7 @@
 use super::{
     callbacks::{OnBody, OnError, OnHeader, OnProgress, OnRequest, OnRetry, OnStatusCode},
-    Callbacks, CallbacksBuilder, NeverRetry, RequestRetrier,
+    CachedResolver, Callbacks, CallbacksBuilder, NeverRetry, RequestRetrier, Resolver,
+    SimpleResolver,
 };
 use qiniu_http::HTTPCaller;
 use std::{sync::Arc, time::Duration};
@@ -10,6 +11,7 @@ pub struct Client {
     appended_user_agent: Box<str>,
     http_caller: Arc<dyn HTTPCaller>, // TODO: 默认值与 是否启用 curl 相关
     request_retrier: Arc<dyn RequestRetrier>,
+    resolver: Arc<dyn Resolver>,
     callbacks: Callbacks,
     connect_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
@@ -36,9 +38,18 @@ pub struct ClientBuilder {
     appended_user_agent: Box<str>,
     http_caller: Arc<dyn HTTPCaller>, // TODO: 默认值与 是否启用 curl 相关
     request_retrier: Arc<dyn RequestRetrier>,
+    resolver: Arc<dyn Resolver>,
     callbacks: CallbacksBuilder,
     connect_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
+}
+
+#[cfg(feature = "curl")]
+impl Default for ClientBuilder {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ClientBuilder {
@@ -62,6 +73,7 @@ impl ClientBuilder {
             use_https: true,
             appended_user_agent: Default::default(),
             request_retrier: Arc::new(NeverRetry), // TODO: 改成 DefaultRequestRetrier
+            resolver: Arc::new(CachedResolver::<SimpleResolver>::default()),
             callbacks: Default::default(),
             connect_timeout: Default::default(),
             request_timeout: Default::default(),
@@ -89,6 +101,12 @@ impl ClientBuilder {
     #[inline]
     pub fn request_retrier(mut self, request_retrier: impl Into<Arc<dyn RequestRetrier>>) -> Self {
         self.request_retrier = request_retrier.into();
+        self
+    }
+
+    #[inline]
+    pub fn resolver(mut self, resolver: impl Into<Arc<dyn Resolver>>) -> Self {
+        self.resolver = resolver.into();
         self
     }
 
@@ -165,6 +183,7 @@ impl ClientBuilder {
             appended_user_agent: self.appended_user_agent,
             http_caller: self.http_caller,
             request_retrier: self.request_retrier,
+            resolver: self.resolver,
             callbacks: self.callbacks.build(),
             connect_timeout: self.connect_timeout,
             request_timeout: self.request_timeout,

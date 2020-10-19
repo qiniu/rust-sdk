@@ -116,7 +116,7 @@ impl Region {
 
     /// 创建新的区域
     #[inline]
-    pub fn new(region_id: String) -> RegionBuilder {
+    pub fn builder(region_id: String) -> RegionBuilder {
         RegionBuilder::new(region_id)
     }
 
