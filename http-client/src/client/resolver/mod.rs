@@ -13,7 +13,7 @@ pub trait Resolver: Any + Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_retry<'a>(&'a self, domain: &'a str) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move { self.resolve(domain) })
     }
 
