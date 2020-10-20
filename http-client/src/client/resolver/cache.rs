@@ -1,5 +1,5 @@
+use super::{ResolveResult, Resolver, SimpleResolver};
 use chashmap::CHashMap;
-use dns_lookup::lookup_host;
 use serde::{Deserialize, Serialize};
 use serde_json::Error as JSONError;
 use std::{
@@ -15,51 +15,6 @@ use std::{
     time::{Duration, SystemTime},
 };
 use thiserror::Error;
-
-#[cfg(feature = "async")]
-use futures::future::BoxFuture;
-
-pub trait Resolver: Any + Debug + Sync + Send {
-    fn resolve(&self, domain: &str) -> ResolveResult;
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_retry<'a>(&'a self, domain: &'a str) -> BoxFuture<'a, ResolveResult> {
-        Box::pin(async move { self.resolve(domain) })
-    }
-
-    fn as_any(&self) -> &dyn Any;
-    fn as_resolver(&self) -> &dyn Resolver;
-}
-
-#[derive(Error, Debug)]
-pub enum ResolveError {
-    #[error("Resolve domain name error: {0}")]
-    IOError(#[from] IOError),
-}
-pub type ResolveResult = Result<Box<[IpAddr]>, ResolveError>;
-
-#[derive(Debug)]
-pub struct SimpleResolver;
-
-impl Resolver for SimpleResolver {
-    #[inline]
-    fn resolve(&self, domain: &str) -> ResolveResult {
-        let ip_addrs = lookup_host(domain).map(|ips| ips.into_boxed_slice())?;
-        Ok(ip_addrs)
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_resolver(&self) -> &dyn Resolver {
-        self
-    }
-}
 
 #[derive(Debug)]
 pub struct CachedResolver<R: Resolver> {
