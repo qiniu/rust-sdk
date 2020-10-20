@@ -1,4 +1,4 @@
-use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
+use qiniu_http::{ResponseErrorKind as HTTPResponseErrorKind, StatusCode as HTTPStatusCode};
 use std::{error, fmt};
 
 /// HTTP 响应错误类型
@@ -6,6 +6,9 @@ use std::{error, fmt};
 pub enum ErrorKind {
     /// HTTP 客户端错误
     HTTPError(HTTPResponseErrorKind),
+
+    /// 响应状态码错误
+    StatusCodeError(HTTPStatusCode),
 
     /// 解析响应体错误
     ParseResponseError,
