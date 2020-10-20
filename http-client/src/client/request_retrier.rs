@@ -1,5 +1,7 @@
-use qiniu_http::{Request, SyncResponseResult};
+use qiniu_http::SyncResponseResult;
 use std::{any::Any, fmt::Debug};
+
+type Request<'r> = qiniu_http::Request<'r>;
 
 #[cfg(feature = "async")]
 use {futures::future::BoxFuture, qiniu_http::AsyncResponseResult};
@@ -66,4 +68,4 @@ impl RequestRetrier for NeverRetry {
     }
 }
 
-// TODO: Default RequestRetier
+// TODO: 提供一个 Default RequestRetrier

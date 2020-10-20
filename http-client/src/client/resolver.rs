@@ -306,6 +306,9 @@ impl PersistentCache {
     }
 }
 
+// TODO: 提供一个对 Async 更有好的 Resolver
+// TODO: 提供自动异步刷新和自动异步持久化的 Resolver
+
 #[cfg(test)]
 mod tests {
     use super::*;

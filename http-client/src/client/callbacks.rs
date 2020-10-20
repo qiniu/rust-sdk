@@ -37,93 +37,100 @@ pub struct CallbacksBuilder {
 
 impl Callbacks {
     #[inline]
-    pub fn call_uploading_progress_callbacks(
+    pub(super) fn call_uploading_progress_callbacks(
         &self,
         request: &Request,
         uploaded: u64,
         total: u64,
     ) -> bool {
         !self
-            .on_uploading_progress
+            .on_uploading_progress_callbacks()
             .iter()
             .any(|callback| !callback(request, uploaded, total))
     }
 
     #[inline]
-    pub fn call_downloading_progress_callbacks(
+    pub(super) fn call_downloading_progress_callbacks(
         &self,
         request: &Request,
         downloaded: u64,
         total: u64,
     ) -> bool {
         !self
-            .on_downloading_progress
+            .on_downloading_progress_callbacks()
             .iter()
             .any(|callback| !callback(request, downloaded, total))
     }
 
     #[inline]
-    pub fn call_request_callbacks(&self, request: &Request) -> bool {
-        !self.on_request.iter().any(|callback| !callback(request))
+    pub(super) fn call_request_callbacks(&self, request: &Request) -> bool {
+        !self
+            .on_request_callbacks()
+            .iter()
+            .any(|callback| !callback(request))
     }
 
     #[inline]
-    pub fn call_send_request_body_callbacks(&self, request: &Request, request_body: &[u8]) -> bool {
+    pub(super) fn call_send_request_body_callbacks(
+        &self,
+        request: &Request,
+        request_body: &[u8],
+    ) -> bool {
         !self
-            .on_send_request_body
+            .on_send_request_body_callbacks()
             .iter()
             .any(|callback| !callback(request, request_body))
     }
 
     #[inline]
-    pub fn call_receive_response_status_callbacks(
+    pub(super) fn call_receive_response_status_callbacks(
         &self,
         request: &Request,
         status_code: StatusCode,
     ) -> bool {
         !self
-            .on_receive_response_status
+            .on_receive_response_status_callbacks()
             .iter()
             .any(|callback| !callback(request, status_code))
     }
 
     #[inline]
-    pub fn call_receive_response_body_callbacks(
+    pub(super) fn call_receive_response_body_callbacks(
         &self,
         request: &Request,
         response_body: &[u8],
     ) -> bool {
         !self
-            .on_receive_response_body
+            .on_receive_response_body_callbacks()
             .iter()
             .any(|callback| !callback(request, response_body))
     }
 
     #[inline]
-    pub fn call_receive_response_header_callbacks(
+    pub(super) fn call_receive_response_header_callbacks(
         &self,
         request: &Request,
         header_name: &HeaderName,
         header_value: &HeaderValue,
     ) -> bool {
         !self
-            .on_receive_response_header
+            .on_receive_response_header_callbacks()
             .iter()
             .any(|callback| !callback(request, header_name, header_value))
     }
 
     #[inline]
-    pub fn call_error_callbacks(&self, request: &Request, error: &ResponseError) -> bool {
+    pub(super) fn call_error_callbacks(&self, request: &Request, error: &ResponseError) -> bool {
         !self
-            .on_error
+            .on_error_callbacks()
             .iter()
             .any(|callback| !callback(request, error))
     }
 
     #[inline]
-    pub fn call_retry_callbacks(&self, request: &Request, retried: usize) -> bool {
+    pub(super) fn call_retry_callbacks(&self, request: &Request, retried: usize) -> bool {
         !self
-            .on_retry
+            .on_retry_callbacks()
             .iter()
             .any(|callback| !callback(request, retried))
     }
@@ -131,6 +138,51 @@ impl Callbacks {
     #[inline]
     pub fn builder() -> CallbacksBuilder {
         CallbacksBuilder::default()
+    }
+
+    #[inline]
+    pub fn on_uploading_progress_callbacks(&self) -> &[OnProgress] {
+        &self.on_uploading_progress
+    }
+
+    #[inline]
+    pub fn on_downloading_progress_callbacks(&self) -> &[OnProgress] {
+        &self.on_downloading_progress
+    }
+
+    #[inline]
+    pub fn on_request_callbacks(&self) -> &[OnRequest] {
+        &self.on_request
+    }
+
+    #[inline]
+    pub fn on_send_request_body_callbacks(&self) -> &[OnBody] {
+        &self.on_send_request_body
+    }
+
+    #[inline]
+    pub fn on_receive_response_status_callbacks(&self) -> &[OnStatusCode] {
+        &self.on_receive_response_status
+    }
+
+    #[inline]
+    pub fn on_receive_response_body_callbacks(&self) -> &[OnBody] {
+        &self.on_receive_response_body
+    }
+
+    #[inline]
+    pub fn on_receive_response_header_callbacks(&self) -> &[OnHeader] {
+        &self.on_receive_response_header
+    }
+
+    #[inline]
+    pub fn on_error_callbacks(&self) -> &[OnError] {
+        &self.on_error
+    }
+
+    #[inline]
+    pub fn on_retry_callbacks(&self) -> &[OnRetry] {
+        &self.on_retry
     }
 }
 

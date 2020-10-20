@@ -1,6 +1,7 @@
 mod authorization;
 mod callbacks;
 mod client;
+mod request;
 mod request_retrier;
 mod resolver;
 

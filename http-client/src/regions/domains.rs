@@ -80,6 +80,7 @@ impl From<Vec<String>> for Domains {
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum IntoDomains<'r> {
     Domains(Vec<String>),
     Region(&'r Region),

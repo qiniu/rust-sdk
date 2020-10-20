@@ -31,6 +31,31 @@ impl Client {
     pub fn new(http_caller: Arc<dyn HTTPCaller>) -> Self {
         ClientBuilder::new(http_caller).build()
     }
+
+    #[inline]
+    pub(super) fn use_https(&self) -> bool {
+        self.use_https
+    }
+
+    #[inline]
+    pub(super) fn appended_user_agent(&self) -> &str {
+        &self.appended_user_agent
+    }
+
+    #[inline]
+    pub(super) fn connect_timeout(&self) -> Option<Duration> {
+        self.connect_timeout
+    }
+
+    #[inline]
+    pub(super) fn request_timeout(&self) -> Option<Duration> {
+        self.request_timeout
+    }
+
+    #[inline]
+    pub(super) fn callbacks(&self) -> &Callbacks {
+        &self.callbacks
+    }
 }
 
 pub struct ClientBuilder {
