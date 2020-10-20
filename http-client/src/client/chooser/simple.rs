@@ -1,8 +1,7 @@
 use super::{
-    super::{CachedResolver, Resolver, SimpleResolver},
+    super::{CachedResolver, Resolver, ResponseError, SimpleResolver},
     Chooser, ChosenResult,
 };
-use qiniu_http::ResponseError;
 use std::{any::Any, net::IpAddr};
 
 #[derive(Debug)]

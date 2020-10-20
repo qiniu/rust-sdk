@@ -1,4 +1,5 @@
-use qiniu_http::{HeaderName, HeaderValue, Request, ResponseError, StatusCode};
+use super::ResponseError;
+use qiniu_http::{HeaderName, HeaderValue, Headers, Request, StatusCode};
 use std::fmt;
 
 pub(super) type OnProgress = Box<dyn Fn(&Request, u64, u64) -> bool + Send + Sync>;
@@ -7,6 +8,7 @@ pub(super) type OnRequest = Box<dyn Fn(&Request) -> bool + Send + Sync>;
 pub(super) type OnRetry = Box<dyn Fn(&Request, usize) -> bool + Send + Sync>;
 pub(super) type OnStatusCode = Box<dyn Fn(&Request, StatusCode) -> bool + Send + Sync>;
 pub(super) type OnHeader = Box<dyn Fn(&Request, &HeaderName, &HeaderValue) -> bool + Send + Sync>;
+pub(super) type OnSuccess = Box<dyn Fn(&Request, StatusCode, &Headers) -> bool + Send + Sync>;
 pub(super) type OnError = Box<dyn Fn(&Request, &ResponseError) -> bool + Send + Sync>;
 
 #[derive(Default)]
@@ -18,6 +20,7 @@ pub struct Callbacks {
     on_receive_response_status: Box<[OnStatusCode]>,
     on_receive_response_body: Box<[OnBody]>,
     on_receive_response_header: Box<[OnHeader]>,
+    on_success: Box<[OnSuccess]>,
     on_error: Box<[OnError]>,
     on_retry: Box<[OnRetry]>,
 }
@@ -31,6 +34,7 @@ pub struct CallbacksBuilder {
     on_receive_response_status: Vec<OnStatusCode>,
     on_receive_response_body: Vec<OnBody>,
     on_receive_response_header: Vec<OnHeader>,
+    on_success: Vec<OnSuccess>,
     on_error: Vec<OnError>,
     on_retry: Vec<OnRetry>,
 }
@@ -120,6 +124,19 @@ impl Callbacks {
     }
 
     #[inline]
+    pub(super) fn call_success_callbacks(
+        &self,
+        request: &Request,
+        status_code: StatusCode,
+        headers: &Headers,
+    ) -> bool {
+        !self
+            .on_success_callbacks()
+            .iter()
+            .any(|callback| !callback(request, status_code, headers))
+    }
+
+    #[inline]
     pub(super) fn call_error_callbacks(&self, request: &Request, error: &ResponseError) -> bool {
         !self
             .on_error_callbacks()
@@ -173,6 +190,11 @@ impl Callbacks {
     #[inline]
     pub fn on_receive_response_header_callbacks(&self) -> &[OnHeader] {
         &self.on_receive_response_header
+    }
+
+    #[inline]
+    pub fn on_success_callbacks(&self) -> &[OnSuccess] {
+        &self.on_success
     }
 
     #[inline]
@@ -230,6 +252,12 @@ impl CallbacksBuilder {
     }
 
     #[inline]
+    pub fn on_success(mut self, callback: impl Into<OnSuccess>) -> Self {
+        self.on_success.push(callback.into());
+        self
+    }
+
+    #[inline]
     pub fn on_error(mut self, callback: impl Into<OnError>) -> Self {
         self.on_error.push(callback.into());
         self
@@ -251,6 +279,7 @@ impl CallbacksBuilder {
             on_receive_response_status: self.on_receive_response_status.into(),
             on_receive_response_body: self.on_receive_response_body.into(),
             on_receive_response_header: self.on_receive_response_header.into(),
+            on_success: self.on_success.into(),
             on_error: self.on_error.into(),
             on_retry: self.on_retry.into(),
         }
@@ -272,6 +301,7 @@ impl fmt::Debug for Callbacks {
         field!(s, on_receive_response_status);
         field!(s, on_receive_response_body);
         field!(s, on_receive_response_header);
+        field!(s, on_success);
         field!(s, on_error);
         field!(s, on_retry);
         s.finish()
@@ -293,6 +323,7 @@ impl fmt::Debug for CallbacksBuilder {
         field!(s, on_receive_response_status);
         field!(s, on_receive_response_body);
         field!(s, on_receive_response_header);
+        field!(s, on_success);
         field!(s, on_error);
         field!(s, on_retry);
         s.finish()

@@ -1,11 +1,9 @@
 use super::{
-    super::{super::regions::IntoDomains, Authorization, Callbacks, Client},
+    super::{super::regions::IntoDomains, Authorization, Callbacks, Client, ResponseError},
     request_data::RequestData,
     Idempotent, Queries,
 };
-use qiniu_http::{
-    HeaderName, HeaderValue, Headers, Method, Request as HTTPRequest, ResponseError, StatusCode,
-};
+use qiniu_http::{HeaderName, HeaderValue, Headers, Method, Request as HTTPRequest, StatusCode};
 use std::{fmt, time::Duration};
 
 pub struct Request<'r> {
@@ -211,6 +209,21 @@ impl<'r> Request<'r> {
                 .client
                 .callbacks()
                 .call_receive_response_header_callbacks(request, header_name, header_value)
+    }
+
+    #[inline]
+    pub(in super::super) fn call_success_callbacks(
+        &self,
+        request: &HTTPRequest,
+        status_code: StatusCode,
+        headers: &Headers,
+    ) -> bool {
+        self.callbacks
+            .call_success_callbacks(request, status_code, headers)
+            && self
+                .client
+                .callbacks()
+                .call_success_callbacks(request, status_code, headers)
     }
 
     #[inline]

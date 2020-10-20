@@ -1,5 +1,5 @@
-use super::{RequestRetrier, RetryResult};
-use qiniu_http::{Request, ResponseError};
+use super::{super::ResponseError, RequestRetrier, RetryResult};
+use qiniu_http::Request;
 use std::any::Any;
 
 #[derive(Copy, Clone, Debug)]

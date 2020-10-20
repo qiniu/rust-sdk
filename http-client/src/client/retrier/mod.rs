@@ -1,6 +1,7 @@
 mod never;
 
-use qiniu_http::{Request, ResponseError};
+use super::ResponseError;
+use qiniu_http::Request;
 use std::{any::Any, fmt::Debug};
 
 pub trait RequestRetrier: Any + Debug + Sync + Send {

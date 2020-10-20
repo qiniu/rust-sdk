@@ -1,7 +1,6 @@
 mod simple;
 
-use super::Resolver;
-use qiniu_http::ResponseError;
+use super::{Resolver, ResponseError};
 use std::{any::Any, fmt::Debug, net::IpAddr};
 
 #[cfg(feature = "async")]

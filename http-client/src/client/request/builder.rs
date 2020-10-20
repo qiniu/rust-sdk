@@ -1,7 +1,9 @@
 use super::{
     super::{
         super::regions::IntoDomains,
-        callbacks::{OnBody, OnError, OnHeader, OnProgress, OnRequest, OnRetry, OnStatusCode},
+        callbacks::{
+            OnBody, OnError, OnHeader, OnProgress, OnRequest, OnRetry, OnStatusCode, OnSuccess,
+        },
         Authorization, CallbacksBuilder, Client,
     },
     request_data::RequestData,
@@ -220,6 +222,12 @@ impl<'r> RequestBuilder<'r> {
     #[inline]
     pub fn on_receive_response_header(mut self, callback: impl Into<OnHeader>) -> Self {
         self.callbacks = self.callbacks.on_receive_response_header(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_success(mut self, callback: impl Into<OnSuccess>) -> Self {
+        self.callbacks = self.callbacks.on_success(callback);
         self
     }
 
