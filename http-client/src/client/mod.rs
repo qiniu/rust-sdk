@@ -4,6 +4,7 @@ mod chooser;
 mod client;
 mod request;
 mod resolver;
+mod response;
 mod retrier;
 
 pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
@@ -15,6 +16,7 @@ pub use resolver::{
     CachedResolver, PersistentError, PersistentResult, ResolveError, ResolveResult, Resolver,
     SimpleResolver,
 };
+pub use response::{
+    APIResult, Response, ResponseBody, ResponseBuilder, ResponseError, ResponseErrorKind,
+};
 pub use retrier::{NeverRetry, RequestRetrier, RetryResult};
-
-// TODO: 提供能力：Response
