@@ -2,7 +2,7 @@ use super::{ResolveResult, Resolver};
 use dns_lookup::lookup_host;
 use std::any::Any;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct SimpleResolver;
 
 impl Resolver for SimpleResolver {

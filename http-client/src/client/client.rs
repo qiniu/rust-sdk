@@ -1,7 +1,7 @@
 use super::{
     callbacks::{OnBody, OnError, OnHeader, OnProgress, OnRequest, OnRetry, OnStatusCode},
-    CachedResolver, Callbacks, CallbacksBuilder, NeverRetry, RequestRetrier, Resolver,
-    SimpleResolver,
+    CachedResolver, Callbacks, CallbacksBuilder, Chooser, NeverRetry, RequestRetrier,
+    SimpleChooser, SimpleResolver,
 };
 use qiniu_http::HTTPCaller;
 use std::{sync::Arc, time::Duration};
@@ -11,7 +11,7 @@ pub struct Client {
     appended_user_agent: Box<str>,
     http_caller: Arc<dyn HTTPCaller>,
     request_retrier: Arc<dyn RequestRetrier>,
-    resolver: Arc<dyn Resolver>,
+    chooser: Arc<dyn Chooser>,
     callbacks: Callbacks,
     connect_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
@@ -63,7 +63,7 @@ pub struct ClientBuilder {
     appended_user_agent: Box<str>,
     http_caller: Arc<dyn HTTPCaller>, // TODO: 默认值与 是否启用 curl 相关
     request_retrier: Arc<dyn RequestRetrier>,
-    resolver: Arc<dyn Resolver>,
+    chooser: Arc<dyn Chooser>,
     callbacks: CallbacksBuilder,
     connect_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
@@ -98,7 +98,7 @@ impl ClientBuilder {
             use_https: true,
             appended_user_agent: Default::default(),
             request_retrier: Arc::new(NeverRetry), // TODO: 改成 DefaultRequestRetrier
-            resolver: Arc::new(CachedResolver::<SimpleResolver>::default()),
+            chooser: Arc::new(SimpleChooser::<CachedResolver<SimpleResolver>>::default()),
             callbacks: Default::default(),
             connect_timeout: Default::default(),
             request_timeout: Default::default(),
@@ -130,8 +130,8 @@ impl ClientBuilder {
     }
 
     #[inline]
-    pub fn resolver(mut self, resolver: impl Into<Arc<dyn Resolver>>) -> Self {
-        self.resolver = resolver.into();
+    pub fn chooser(mut self, chooser: impl Into<Arc<dyn Chooser>>) -> Self {
+        self.chooser = chooser.into();
         self
     }
 
@@ -208,7 +208,7 @@ impl ClientBuilder {
             appended_user_agent: self.appended_user_agent,
             http_caller: self.http_caller,
             request_retrier: self.request_retrier,
-            resolver: self.resolver,
+            chooser: self.chooser,
             callbacks: self.callbacks.build(),
             connect_timeout: self.connect_timeout,
             request_timeout: self.request_timeout,

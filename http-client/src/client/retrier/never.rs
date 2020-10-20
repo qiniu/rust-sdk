@@ -1,4 +1,6 @@
-use qiniu_http::ResponseError;
+use super::{RequestRetrier, RetryResult};
+use qiniu_http::{Request, ResponseError};
+use std::any::Any;
 
 #[derive(Copy, Clone, Debug)]
 pub struct NeverRetry;

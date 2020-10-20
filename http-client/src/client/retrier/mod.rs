@@ -1,9 +1,7 @@
 mod never;
 
-use qiniu_http::ResponseError;
+use qiniu_http::{Request, ResponseError};
 use std::{any::Any, fmt::Debug};
-
-type Request<'r> = qiniu_http::Request<'r>;
 
 pub trait RequestRetrier: Any + Debug + Sync + Send {
     fn retry(
@@ -24,5 +22,5 @@ pub enum RetryResult {
     RetryRequest,
 }
 
-pub use NeverRetry;
+pub use never::NeverRetry;
 // TODO: 提供一个 Default RequestRetrier
