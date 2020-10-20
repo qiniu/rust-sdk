@@ -1,5 +1,5 @@
 use super::{ResolveResult, Resolver, SimpleResolver};
-use chashmap::CHashMap;
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Error as JSONError;
 use std::{
@@ -19,7 +19,7 @@ use thiserror::Error;
 #[derive(Debug)]
 pub struct CachedResolver<R: Resolver> {
     backend: R,
-    cache: CHashMap<Box<str>, CachedResolverValue>,
+    cache: DashMap<Box<str>, CachedResolverValue>,
     lifetime: Duration,
     persistent: Option<PersistentFile>,
 }
@@ -173,33 +173,43 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
         }
         let mut resolve_result: Option<ResolveResult> = None;
         let mut need_to_persistent = false;
-        // TODO: 这里我们使用 chashmap 保护 Hashmap 的线程安全性，该库对 async 模式不是非常友好，可以考虑替换更适合的库
-        self.cache.alter(cache_key, |may_be_cache| {
-            if let Some(cache) = &may_be_cache {
-                if cache.deadline > SystemTime::now() {
-                    resolve_result = Some(Ok(cache.ip_addrs.to_owned()));
-                    return may_be_cache;
-                }
-            }
-            match self.backend.resolve(domain) {
-                Ok(ip_addrs) => {
-                    resolve_result = Some(Ok(ip_addrs.to_owned()));
-                    if let Some(persistent) = &self.persistent {
-                        if persistent.auto_persistent {
-                            need_to_persistent = true;
+        macro_rules! resolve_domain {
+            () => {
+                match self.backend.resolve(domain) {
+                    Ok(ip_addrs) => {
+                        resolve_result = Some(Ok(ip_addrs.to_owned()));
+                        if let Some(persistent) = &self.persistent {
+                            if persistent.auto_persistent {
+                                need_to_persistent = true;
+                            }
                         }
+                        Ok(CachedResolverValue {
+                            ip_addrs,
+                            deadline: SystemTime::now() + self.lifetime,
+                        })
                     }
-                    Some(CachedResolverValue {
-                        ip_addrs,
-                        deadline: SystemTime::now() + self.lifetime,
-                    })
+                    Err(err) => {
+                        resolve_result = Some(Err(err));
+                        Err(())
+                    }
                 }
-                Err(err) => {
-                    resolve_result = Some(Err(err));
-                    None
+            };
+        }
+
+        self.cache
+            .entry(cache_key)
+            .and_modify(|cache| {
+                if cache.deadline >= SystemTime::now() {
+                    resolve_result = Some(Ok(cache.ip_addrs.to_owned()));
+                } else if let Ok(value) = resolve_domain!() {
+                    *cache = value;
+                } else {
+                    // If failed to resolve, then use previous cache directly
+                    resolve_result = Some(Ok(cache.ip_addrs.to_owned()));
                 }
-            }
-        });
+            })
+            .or_try_insert_with(|| resolve_domain!())
+            .ok();
 
         if need_to_persistent {
             self.save_cache_into_persistent_file().ok();
@@ -230,8 +240,8 @@ pub enum PersistentError {
 pub type PersistentResult<T> = Result<T, PersistentError>;
 
 impl PersistentCache {
-    fn into_cache_and_lifetime(self) -> (CHashMap<Box<str>, CachedResolverValue>, Duration) {
-        let cache = CHashMap::from_iter(self.cache_entries.into_iter().map(|entry| {
+    fn into_cache_and_lifetime(self) -> (DashMap<Box<str>, CachedResolverValue>, Duration) {
+        let cache = DashMap::from_iter(self.cache_entries.into_iter().map(|entry| {
             (
                 entry.key,
                 CachedResolverValue {
@@ -244,7 +254,7 @@ impl PersistentCache {
     }
 
     fn from_cache_and_lifetime(
-        cache: CHashMap<Box<str>, CachedResolverValue>,
+        cache: DashMap<Box<str>, CachedResolverValue>,
         lifetime: Duration,
     ) -> Self {
         PersistentCache {
@@ -282,7 +292,7 @@ mod tests {
     #[derive(Debug, Clone, Default)]
     struct ResolverFromTable {
         table: HashMap<Box<str>, Box<[IpAddr]>>,
-        resolved: CHashMap<Box<str>, usize>,
+        resolved: DashMap<Box<str>, usize>,
     }
 
     impl ResolverFromTable {
@@ -304,13 +314,10 @@ mod tests {
                 .table
                 .get(&key)
                 .tap_some(|_| {
-                    self.resolved.alter(key, |resolved| {
-                        if let Some(resolved) = resolved {
-                            Some(resolved + 1)
-                        } else {
-                            Some(1)
-                        }
-                    });
+                    self.resolved
+                        .entry(key)
+                        .and_modify(|resolved| *resolved = *resolved + 1)
+                        .or_insert(1);
                 })
                 .cloned()
                 .unwrap_or(vec![].into_boxed_slice()))

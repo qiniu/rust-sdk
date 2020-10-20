@@ -12,18 +12,18 @@ keywords = ["qiniu", "storage"]
 
 [dependencies]
 thiserror = "1.0.20"
-chashmap = "2.2.2"
+dashmap = "3.11.10"
 futures = { version = "0.3.5", optional = true }
-
-qiniu-http = { version = "0.0.4", path = "../http" }
-qiniu-credential = { version = "0.0.4", path = "../credential" }
-qiniu-upload-token = { version = "0.0.4", path = "../upload_token" }
-qiniu-curl = { version = "0.0.4", path = "../curl", optional = true }
 serde = { version ="1.0.117", features = ["derive"] }
 serde_json = "1.0.59"
 dirs = "3.0.1"
 dns-lookup = "1.0.4"
 mime = "0.3.16"
+
+qiniu-http = { version = "0.0.4", path = "../http" }
+qiniu-credential = { version = "0.0.4", path = "../credential" }
+qiniu-upload-token = { version = "0.0.4", path = "../upload_token" }
+qiniu-curl = { version = "0.0.4", path = "../curl", optional = true }
 
 [dev-dependencies]
 async-std = { version = "1.6.3", features = ["attributes"] }
