@@ -1,17 +1,18 @@
 use super::{
     callbacks::{OnBody, OnError, OnHeader, OnProgress, OnRequest, OnRetry, OnStatusCode},
-    CachedResolver, Callbacks, CallbacksBuilder, Chooser, DefaultRetrier, RequestRetrier,
-    SimpleChooser, SimpleResolver,
+    CachedResolver, Callbacks, CallbacksBuilder, Chooser, DefaultRetrier,
+    ExponentialRetryDelayPolicy, RequestRetrier, RetryDelayPolicy, SimpleChooser, SimpleResolver,
 };
 use qiniu_http::HTTPCaller;
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 pub struct Client {
     use_https: bool,
     appended_user_agent: Box<str>,
-    http_caller: Arc<dyn HTTPCaller>,
-    request_retrier: Arc<dyn RequestRetrier>,
-    chooser: Arc<dyn Chooser>,
+    http_caller: Box<dyn HTTPCaller>,
+    request_retrier: Box<dyn RequestRetrier>,
+    retry_delay_policy: Box<dyn RetryDelayPolicy>,
+    chooser: Box<dyn Chooser>,
     callbacks: Callbacks,
     connect_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
@@ -28,7 +29,7 @@ impl Default for Client {
 impl Client {
     #[inline]
     #[cfg(not(any(feature = "curl")))]
-    pub fn new(http_caller: Arc<dyn HTTPCaller>) -> Self {
+    pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
         ClientBuilder::new(http_caller).build()
     }
 
@@ -61,9 +62,10 @@ impl Client {
 pub struct ClientBuilder {
     use_https: bool,
     appended_user_agent: Box<str>,
-    http_caller: Arc<dyn HTTPCaller>, // TODO: 默认值与 是否启用 curl 相关
-    request_retrier: Arc<dyn RequestRetrier>,
-    chooser: Arc<dyn Chooser>,
+    http_caller: Box<dyn HTTPCaller>,
+    request_retrier: Box<dyn RequestRetrier>,
+    retry_delay_policy: Box<dyn RetryDelayPolicy>,
+    chooser: Box<dyn Chooser>,
     callbacks: CallbacksBuilder,
     connect_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
@@ -82,23 +84,24 @@ impl ClientBuilder {
     #[cfg(feature = "curl")]
     pub fn new() -> Self {
         use qiniu_curl::CurlHTTPCaller;
-        Self::_new(Arc::new(CurlHTTPCaller::default()))
+        Self::_new(Box::new(CurlHTTPCaller::default()))
     }
 
     #[inline]
     #[cfg(not(any(feature = "curl")))]
-    pub fn new(http_caller: Arc<dyn HTTPCaller>) -> Self {
+    pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
         Self::_new(http_caller)
     }
 
     #[inline]
-    fn _new(http_caller: Arc<dyn HTTPCaller>) -> Self {
+    fn _new(http_caller: Box<dyn HTTPCaller>) -> Self {
         ClientBuilder {
             http_caller,
             use_https: true,
             appended_user_agent: Default::default(),
-            request_retrier: Arc::new(DefaultRetrier::default()),
-            chooser: Arc::new(SimpleChooser::<CachedResolver<SimpleResolver>>::default()),
+            request_retrier: Box::new(DefaultRetrier::default()),
+            retry_delay_policy: Box::new(ExponentialRetryDelayPolicy::default()),
+            chooser: Box::new(SimpleChooser::<CachedResolver<SimpleResolver>>::default()),
             callbacks: Default::default(),
             connect_timeout: Default::default(),
             request_timeout: Default::default(),
@@ -118,19 +121,28 @@ impl ClientBuilder {
     }
 
     #[inline]
-    pub fn http_caller(mut self, http_caller: impl Into<Arc<dyn HTTPCaller>>) -> Self {
+    pub fn http_caller(mut self, http_caller: impl Into<Box<dyn HTTPCaller>>) -> Self {
         self.http_caller = http_caller.into();
         self
     }
 
     #[inline]
-    pub fn request_retrier(mut self, request_retrier: impl Into<Arc<dyn RequestRetrier>>) -> Self {
+    pub fn request_retrier(mut self, request_retrier: impl Into<Box<dyn RequestRetrier>>) -> Self {
         self.request_retrier = request_retrier.into();
         self
     }
 
     #[inline]
-    pub fn chooser(mut self, chooser: impl Into<Arc<dyn Chooser>>) -> Self {
+    pub fn retry_delay_policy(
+        mut self,
+        retry_delay_policy: impl Into<Box<dyn RetryDelayPolicy>>,
+    ) -> Self {
+        self.retry_delay_policy = retry_delay_policy.into();
+        self
+    }
+
+    #[inline]
+    pub fn chooser(mut self, chooser: impl Into<Box<dyn Chooser>>) -> Self {
         self.chooser = chooser.into();
         self
     }
@@ -208,6 +220,7 @@ impl ClientBuilder {
             appended_user_agent: self.appended_user_agent,
             http_caller: self.http_caller,
             request_retrier: self.request_retrier,
+            retry_delay_policy: self.retry_delay_policy,
             chooser: self.chooser,
             callbacks: self.callbacks.build(),
             connect_timeout: self.connect_timeout,

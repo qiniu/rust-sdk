@@ -6,6 +6,7 @@ mod request;
 mod resolver;
 mod response;
 mod retrier;
+mod retry_delay_policy;
 
 pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
 pub use callbacks::{Callbacks, CallbacksBuilder};
@@ -21,4 +22,7 @@ pub use response::{
 };
 pub use retrier::{
     DefaultRetrier, DefaultRetrierBuilder, NeverRetrier, RequestRetrier, RetryResult,
+};
+pub use retry_delay_policy::{
+    ExponentialRetryDelayPolicy, FixedRetryDelayPolicy, RetryDelayPolicy, NO_DELAY_POLICY,
 };
