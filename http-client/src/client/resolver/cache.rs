@@ -1,5 +1,6 @@
 use super::{ResolveResult, Resolver, SimpleResolver};
 use dashmap::DashMap;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Error as JSONError;
 use std::{
@@ -12,19 +13,39 @@ use std::{
     net::IpAddr,
     path::{Path, PathBuf},
     result::Result,
-    time::{Duration, SystemTime},
+    sync::{Arc, Mutex},
+    thread::Builder as ThreadBuilder,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use thiserror::Error;
 
+const CACHE_SIZE_TO_SHRINK: usize = 100;
+const MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
+const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(120);
+
 #[derive(Debug)]
 pub struct CachedResolver<R: Resolver> {
-    backend: R,
-    cache: DashMap<Box<str>, CachedResolverValue>,
+    inner: Arc<CachedResolverInner<R>>,
     lifetime: Duration,
     persistent: Option<PersistentFile>,
 }
 
+type Cache = DashMap<Box<str>, CachedResolverValue>;
+
 #[derive(Debug)]
+struct CachedResolverInner<R: Resolver> {
+    backend: R,
+    cache: Cache,
+    thread_lock: Mutex<CachedResolverInnerLockedData>,
+}
+
+#[derive(Debug)]
+struct CachedResolverInnerLockedData {
+    last_shrink_timestamp: SystemTime,
+    last_refresh_timestamp: SystemTime,
+}
+
+#[derive(Debug, Clone)]
 struct PersistentFile {
     path: PathBuf,
     auto_persistent: bool,
@@ -53,9 +74,12 @@ impl<R: Resolver> CachedResolver<R> {
     #[inline]
     pub fn new(backend: R, lifetime: Duration) -> Self {
         Self {
-            backend,
+            inner: Arc::new(CachedResolverInner {
+                backend,
+                cache: Default::default(),
+                thread_lock: Default::default(),
+            }),
             lifetime,
-            cache: Default::default(),
             persistent: None,
         }
     }
@@ -69,9 +93,12 @@ impl<R: Resolver> CachedResolver<R> {
         let (cache, lifetime) = Self::load_cache_from_persistent_file(&path)
             .map(|cache| cache.into_cache_and_lifetime())?;
         Ok(Self {
-            backend,
+            inner: Arc::new(CachedResolverInner {
+                backend,
+                cache,
+                thread_lock: Default::default(),
+            }),
             lifetime,
-            cache,
             persistent: Some(PersistentFile {
                 path,
                 auto_persistent,
@@ -87,11 +114,14 @@ impl<R: Resolver> CachedResolver<R> {
         let path = path.into();
         let (cache, lifetime) = Self::load_cache_from_persistent_file(&path)
             .map(|cache| cache.into_cache_and_lifetime())
-            .unwrap_or_else(|_| (Default::default(), Duration::from_secs(120)));
+            .unwrap_or_else(|_| (Default::default(), DEFAULT_CACHE_LIFETIME));
         Self {
-            backend,
+            inner: Arc::new(CachedResolverInner {
+                backend,
+                cache,
+                thread_lock: Default::default(),
+            }),
             lifetime,
-            cache,
             persistent: Some(PersistentFile {
                 path,
                 auto_persistent,
@@ -110,11 +140,7 @@ impl<R: Resolver> CachedResolver<R> {
     }
 
     pub fn as_backend(&self) -> &R {
-        &self.backend
-    }
-
-    pub fn into_backend(self) -> R {
-        self.backend
+        &self.inner.backend
     }
 
     fn load_cache_from_persistent_file(path: &Path) -> PersistentResult<PersistentCache> {
@@ -125,34 +151,49 @@ impl<R: Resolver> CachedResolver<R> {
 
     fn save_cache_into_persistent_file(&self) -> PersistentResult<()> {
         if let Some(persistent) = &self.persistent {
-            if let Some(parent_dir) = persistent.path.parent() {
-                create_dir_all(parent_dir)?;
-            }
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(&persistent.path)?;
-            serde_json::to_writer(
-                &mut file,
-                &PersistentCache::from_cache_and_lifetime(self.cache.to_owned(), self.lifetime),
+            _save_cache_into_persistent_file(
+                self.inner.cache.to_owned(),
+                &persistent.path,
+                self.lifetime,
             )?;
         }
         Ok(())
     }
 
+    #[inline]
     pub fn persistent_path(&self) -> Option<&Path> {
         self.persistent
             .as_ref()
             .map(|persistent| persistent.path.as_path())
     }
 
+    #[inline]
     pub fn default_persistent_path() -> PathBuf {
         let mut path = dirs::cache_dir().unwrap_or_else(temp_dir);
         path.push(".qiniu-rust-sdk");
         path.push("resolver-cache.json");
         path
     }
+}
+
+fn _save_cache_into_persistent_file(
+    cache: Cache,
+    persistent_path: &Path,
+    lifetime: Duration,
+) -> PersistentResult<()> {
+    if let Some(parent_dir) = persistent_path.parent() {
+        create_dir_all(parent_dir)?;
+    }
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(persistent_path)?;
+    serde_json::to_writer(
+        &mut file,
+        &PersistentCache::from_cache_and_lifetime(cache, lifetime),
+    )?;
+    Ok(())
 }
 
 impl Default for CachedResolver<SimpleResolver> {
@@ -166,16 +207,16 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
     #[inline]
     fn resolve(&self, domain: &str) -> ResolveResult {
         let cache_key = domain.to_owned().into_boxed_str();
-        if let Some(cache_entry) = self.cache.get(&cache_key) {
+        if let Some(cache_entry) = self.inner.cache.get(&cache_key) {
             if cache_entry.deadline > SystemTime::now() {
                 return Ok(cache_entry.ip_addrs.to_owned());
             }
         }
         let mut resolve_result: Option<ResolveResult> = None;
-        let mut need_to_persistent = false;
+        let (mut need_to_persistent, mut need_to_refresh) = (false, false);
         macro_rules! resolve_domain {
             () => {
-                match self.backend.resolve(domain) {
+                match self.inner.backend.resolve(domain) {
                     Ok(ip_addrs) => {
                         resolve_result = Some(Ok(ip_addrs.to_owned()));
                         if let Some(persistent) = &self.persistent {
@@ -183,10 +224,7 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
                                 need_to_persistent = true;
                             }
                         }
-                        Ok(CachedResolverValue {
-                            ip_addrs,
-                            deadline: SystemTime::now() + self.lifetime,
-                        })
+                        Ok(CachedResolverValue::new(ip_addrs, self.lifetime))
                     }
                     Err(err) => {
                         resolve_result = Some(Err(err));
@@ -196,25 +234,23 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
             };
         }
 
-        self.cache
+        self.inner
+            .cache
             .entry(cache_key)
             .and_modify(|cache| {
-                if cache.deadline >= SystemTime::now() {
-                    resolve_result = Some(Ok(cache.ip_addrs.to_owned()));
-                } else if let Ok(value) = resolve_domain!() {
-                    *cache = value;
-                } else {
-                    // If failed to resolve, then use previous cache directly
-                    resolve_result = Some(Ok(cache.ip_addrs.to_owned()));
+                resolve_result = Some(Ok(cache.ip_addrs.to_owned()));
+                if cache.deadline < SystemTime::now() {
+                    need_to_refresh = true;
                 }
             })
             .or_try_insert_with(|| resolve_domain!())
             .ok();
 
-        if need_to_persistent {
-            self.save_cache_into_persistent_file().ok();
-        }
-
+        self.do_some_work_async(
+            need_to_persistent,
+            need_to_refresh,
+            self.persistent.as_ref().map(|p| p.path.as_ref()),
+        );
         resolve_result.unwrap()
     }
 
@@ -229,9 +265,131 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
     }
 }
 
+impl<R: Resolver> CachedResolver<R> {
+    fn do_some_work_async(
+        &self,
+        need_to_persistent: bool,
+        need_to_refresh: bool,
+        persistent_path: Option<&Path>,
+    ) {
+        if need_to_persistent || need_to_refresh {
+            let inner = self.inner.to_owned();
+            if inner.thread_lock.try_lock().is_err() {
+                // Looks like some work is being done, we don't want to spawn another thread
+                info!("Resolver cache has hired someone to do the housework, so we don't hire another now");
+                return;
+            }
+            let persistent_path = persistent_path.map(|path| path.to_path_buf());
+            let lifetime = self.lifetime;
+            ThreadBuilder::new()
+                .name("qiniu.rust-sdk.http-client.CachedResolver".into())
+                .spawn(move || {
+                    if let Ok(mut locked_data) = inner.thread_lock.try_lock() {
+                        info!("Resolver cache spawns thread to do some housework");
+
+                        do_some_work_in_thread(
+                            &inner,
+                            need_to_persistent,
+                            need_to_refresh,
+                            persistent_path,
+                            lifetime,
+                            &mut *locked_data,
+                        );
+                    }
+                })
+                .ok();
+        }
+
+        fn do_some_work_in_thread(
+            inner: &CachedResolverInner<impl Resolver>,
+            need_to_persistent: bool,
+            need_to_refresh: bool,
+            persistent_path: Option<PathBuf>,
+            lifetime: Duration,
+            locked_data: &mut CachedResolverInnerLockedData,
+        ) {
+            if need_to_refresh {
+                refresh_domains(inner, lifetime);
+            }
+            if need_to_persistent {
+                if is_time_to_shrink(inner, locked_data) {
+                    shrink_cache(inner);
+                }
+                if let Some(path) = persistent_path.as_ref() {
+                    save_cache_into_persistent_file(inner, path, lifetime);
+                }
+            }
+        }
+
+        fn is_time_to_shrink(
+            inner: &CachedResolverInner<impl Resolver>,
+            locked_data: &mut CachedResolverInnerLockedData,
+        ) -> bool {
+            if locked_data.last_shrink_timestamp + MIN_SHRINK_INTERVAL < SystemTime::now()
+                && inner.cache.len() >= CACHE_SIZE_TO_SHRINK
+            {
+                locked_data.last_shrink_timestamp = SystemTime::now();
+                return true;
+            }
+            false
+        }
+
+        fn shrink_cache(inner: &CachedResolverInner<impl Resolver>) {
+            inner
+                .cache
+                .retain(|_, cache| cache.deadline >= SystemTime::now());
+            info!("Resolver cache is shrink");
+        }
+
+        fn refresh_domains(inner: &CachedResolverInner<impl Resolver>, lifetime: Duration) {
+            inner.cache.alter_all(|domain, cache| {
+                if cache.deadline < SystemTime::now() {
+                    if let Ok(ip_addrs) = inner.backend.resolve(domain) {
+                        return CachedResolverValue::new(ip_addrs, lifetime);
+                    }
+                }
+                cache
+            });
+            info!("Expired resolver cache entries are refreshed");
+        }
+
+        fn save_cache_into_persistent_file(
+            inner: &CachedResolverInner<impl Resolver>,
+            persistent_path: &Path,
+            lifetime: Duration,
+        ) {
+            let cache = inner.cache.to_owned();
+            match _save_cache_into_persistent_file(cache, persistent_path, lifetime) {
+                Ok(_) => info!("Resolver cache is persisted automatically"),
+                Err(err) => warn!("Resolver cache persist error: {}", err),
+            }
+        }
+    }
+}
+
+impl Default for CachedResolverInnerLockedData {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            last_shrink_timestamp: UNIX_EPOCH,
+            last_refresh_timestamp: UNIX_EPOCH,
+        }
+    }
+}
+
+impl CachedResolverValue {
+    #[inline]
+    fn new(ip_addrs: Box<[IpAddr]>, lifetime: Duration) -> Self {
+        CachedResolverValue {
+            ip_addrs,
+            deadline: SystemTime::now() + lifetime,
+        }
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum PersistentError {
-    #[error("i/o error: {0}")]
+    #[error("I/O error: {0}")]
     IOError(#[from] IOError),
 
     #[error("JSON serialize/deserialize error: {0}")]
@@ -240,7 +398,7 @@ pub enum PersistentError {
 pub type PersistentResult<T> = Result<T, PersistentError>;
 
 impl PersistentCache {
-    fn into_cache_and_lifetime(self) -> (DashMap<Box<str>, CachedResolverValue>, Duration) {
+    fn into_cache_and_lifetime(self) -> (Cache, Duration) {
         let cache = DashMap::from_iter(self.cache_entries.into_iter().map(|entry| {
             (
                 entry.key,
@@ -253,10 +411,7 @@ impl PersistentCache {
         (cache, self.lifetime)
     }
 
-    fn from_cache_and_lifetime(
-        cache: DashMap<Box<str>, CachedResolverValue>,
-        lifetime: Duration,
-    ) -> Self {
+    fn from_cache_and_lifetime(cache: Cache, lifetime: Duration) -> Self {
         PersistentCache {
             cache_entries: cache
                 .into_iter()
@@ -271,23 +426,32 @@ impl PersistentCache {
     }
 }
 
-// TODO: 提供一个对 Async 更有好的 Resolver
-// TODO: 提供自动异步刷新和自动异步持久化的 Resolver
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use once_cell::sync::Lazy;
     use std::{
         collections::HashMap,
         error::Error,
         fs::File,
-        io::ErrorKind as IOErrorKind,
+        io::{BufRead, ErrorKind as IOErrorKind},
         net::Ipv4Addr,
         sync::Arc,
         thread::{sleep, spawn},
     };
     use tap::tap::TapOptional;
     use tempfile::tempdir;
+
+    static LOG_READER: Lazy<Mutex<pipe::PipeReader>> = Lazy::new(|| {
+        let (r, w) = pipe::pipe();
+        simplelog::WriteLogger::init(
+            simplelog::LevelFilter::Info,
+            simplelog::Config::default(),
+            w,
+        )
+        .unwrap();
+        Mutex::new(r)
+    });
 
     #[derive(Debug, Clone, Default)]
     struct ResolverFromTable {
@@ -392,15 +556,17 @@ mod tests {
             .chain(threads_3.into_iter())
             .try_for_each(|thread| thread.join())
             .unwrap();
-        let backend = Arc::try_unwrap(resolver).unwrap().into_backend();
-        assert_eq!(backend.resolved("test_domain_1.com"), Some(1));
-        assert_eq!(backend.resolved("test_domain_2.com"), Some(1));
-        assert_eq!(backend.resolved("test_domain_3.com"), Some(1));
+        let resolver = Arc::try_unwrap(resolver).unwrap();
+        assert_eq!(resolver.as_backend().resolved("test_domain_1.com"), Some(1));
+        assert_eq!(resolver.as_backend().resolved("test_domain_2.com"), Some(1));
+        assert_eq!(resolver.as_backend().resolved("test_domain_3.com"), Some(1));
         Ok(())
     }
 
     #[test]
     fn test_resolver_cache() -> Result<(), Box<dyn Error>> {
+        Lazy::force(&LOG_READER);
+
         let mut backend = ResolverFromTable::default();
         backend.add(
             "test_domain_1.com",
@@ -418,6 +584,20 @@ mod tests {
 
         sleep(Duration::from_secs(1));
 
+        let result = resolver.resolve("test_domain_1.com").unwrap();
+        assert_eq!(
+            result,
+            vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))].into_boxed_slice()
+        );
+
+        loop {
+            let mut line = String::new();
+            LOG_READER.lock().unwrap().read_line(&mut line)?;
+            if line.contains("Expired resolver cache entries are refreshed") {
+                break;
+            }
+        }
+
         for _ in 0..5 {
             let result = resolver.resolve("test_domain_1.com").unwrap();
             assert_eq!(
@@ -426,14 +606,14 @@ mod tests {
             );
         }
 
-        let backend = resolver.into_backend();
-        assert_eq!(backend.resolved("test_domain_1.com"), Some(2));
-
+        assert_eq!(resolver.as_backend().resolved("test_domain_1.com"), Some(2));
         Ok(())
     }
 
     #[test]
     fn test_persistent_resolver() -> Result<(), Box<dyn Error>> {
+        Lazy::force(&LOG_READER);
+
         let mut backend = ResolverFromTable::default();
         backend.add(
             "test_domain_1.com",
@@ -485,6 +665,7 @@ mod tests {
                 );
             }
         }
+
         {
             let resolver =
                 CachedResolver::load_or_create_from(&tempfile_path, true, backend.to_owned());
@@ -509,10 +690,16 @@ mod tests {
                     vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))].into_boxed_slice()
                 );
             }
-            let backend = resolver.into_backend();
-            assert_eq!(backend.resolved("test_domain_1.com"), None);
-            assert_eq!(backend.resolved("test_domain_2.com"), None);
-            assert_eq!(backend.resolved("test_domain_3.com"), Some(1));
+            assert_eq!(resolver.as_backend().resolved("test_domain_1.com"), None);
+            assert_eq!(resolver.as_backend().resolved("test_domain_2.com"), None);
+            assert_eq!(resolver.as_backend().resolved("test_domain_3.com"), Some(1));
+            loop {
+                let mut line = String::new();
+                LOG_READER.lock().unwrap().read_line(&mut line)?;
+                if line.contains("Resolver cache is persisted automatically") {
+                    break;
+                }
+            }
         }
         {
             let resolver = CachedResolver::load_or_create_from(&tempfile_path, true, backend);
@@ -537,10 +724,9 @@ mod tests {
                     vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))].into_boxed_slice()
                 );
             }
-            let backend = resolver.into_backend();
-            assert_eq!(backend.resolved("test_domain_1.com"), None);
-            assert_eq!(backend.resolved("test_domain_2.com"), None);
-            assert_eq!(backend.resolved("test_domain_3.com"), None);
+            assert_eq!(resolver.as_backend().resolved("test_domain_1.com"), None);
+            assert_eq!(resolver.as_backend().resolved("test_domain_2.com"), None);
+            assert_eq!(resolver.as_backend().resolved("test_domain_3.com"), None);
         }
 
         Ok(())
