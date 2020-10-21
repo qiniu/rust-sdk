@@ -30,3 +30,9 @@ pub type ResolveResult = Result<Box<[IpAddr]>, ResolveError>;
 
 pub use cache::{CachedResolver, PersistentError, PersistentResult};
 pub use simple::SimpleResolver;
+
+#[cfg(any(feature = "c_ares"))]
+mod c_ares_impl;
+
+#[cfg(any(feature = "c_ares"))]
+pub use c_ares_impl::{c_ares, c_ares_resolver, CAresResolver};

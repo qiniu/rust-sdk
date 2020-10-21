@@ -26,3 +26,6 @@ pub use retrier::{
 pub use retry_delay_policy::{
     ExponentialRetryDelayPolicy, FixedRetryDelayPolicy, RetryDelayPolicy, NO_DELAY_POLICY,
 };
+
+#[cfg(any(feature = "c_ares"))]
+pub use resolver::{c_ares, c_ares_resolver, CAresResolver};

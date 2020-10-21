@@ -11,3 +11,6 @@ pub use client::{
     SimpleChooser, SimpleResolver, NO_DELAY_POLICY,
 };
 pub use regions::{Region, RegionBuilder, RegionProvider};
+
+#[cfg(any(feature = "c_ares"))]
+pub use client::{c_ares, c_ares_resolver, CAresResolver};
