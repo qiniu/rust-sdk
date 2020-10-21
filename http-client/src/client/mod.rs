@@ -19,4 +19,6 @@ pub use resolver::{
 pub use response::{
     APIResult, Response, ResponseBody, ResponseBuilder, ResponseError, ResponseErrorKind,
 };
-pub use retrier::{NeverRetry, RequestRetrier, RetryResult};
+pub use retrier::{
+    DefaultRetrier, DefaultRetrierBuilder, NeverRetrier, RequestRetrier, RetryResult,
+};

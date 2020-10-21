@@ -1,14 +1,15 @@
+mod default;
 mod never;
 
 use super::ResponseError;
-use qiniu_http::Request;
+use qiniu_http::Request as HTTPRequest;
 use std::{any::Any, fmt::Debug};
 
 pub trait RequestRetrier: Any + Debug + Sync + Send {
     fn retry(
         &self,
-        request: &mut Request,
-        response_error: ResponseError,
+        request: &mut HTTPRequest,
+        response_error: &ResponseError,
         retried: usize,
     ) -> RetryResult;
 
@@ -16,12 +17,12 @@ pub trait RequestRetrier: Any + Debug + Sync + Send {
     fn as_request_retrier(&self) -> &dyn RequestRetrier;
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum RetryResult {
     DontRetry,
     TryNextServer,
     RetryRequest,
 }
 
-pub use never::NeverRetry;
-// TODO: 提供一个 Default RequestRetrier
+pub use default::{DefaultRetrier, DefaultRetrierBuilder};
+pub use never::NeverRetrier;

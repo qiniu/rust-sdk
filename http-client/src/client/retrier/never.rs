@@ -1,16 +1,16 @@
 use super::{super::ResponseError, RequestRetrier, RetryResult};
-use qiniu_http::Request;
+use qiniu_http::Request as HTTPRequest;
 use std::any::Any;
 
-#[derive(Copy, Clone, Debug)]
-pub struct NeverRetry;
+#[derive(Default, Copy, Clone, Debug)]
+pub struct NeverRetrier;
 
-impl RequestRetrier for NeverRetry {
+impl RequestRetrier for NeverRetrier {
     #[inline]
     fn retry(
         &self,
-        _request: &mut Request,
-        _response_error: ResponseError,
+        _request: &mut HTTPRequest,
+        _response_error: &ResponseError,
         _retried: usize,
     ) -> RetryResult {
         RetryResult::DontRetry

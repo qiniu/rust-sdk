@@ -1,6 +1,6 @@
 use super::{
     callbacks::{OnBody, OnError, OnHeader, OnProgress, OnRequest, OnRetry, OnStatusCode},
-    CachedResolver, Callbacks, CallbacksBuilder, Chooser, NeverRetry, RequestRetrier,
+    CachedResolver, Callbacks, CallbacksBuilder, Chooser, DefaultRetrier, RequestRetrier,
     SimpleChooser, SimpleResolver,
 };
 use qiniu_http::HTTPCaller;
@@ -97,7 +97,7 @@ impl ClientBuilder {
             http_caller,
             use_https: true,
             appended_user_agent: Default::default(),
-            request_retrier: Arc::new(NeverRetry), // TODO: 改成 DefaultRequestRetrier
+            request_retrier: Arc::new(DefaultRetrier::default()),
             chooser: Arc::new(SimpleChooser::<CachedResolver<SimpleResolver>>::default()),
             callbacks: Default::default(),
             connect_timeout: Default::default(),
