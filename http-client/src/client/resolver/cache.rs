@@ -1,4 +1,4 @@
-use super::{ResolveResult, Resolver, SimpleResolver};
+use super::{ResolveResult, Resolver};
 use dashmap::DashMap;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -196,10 +196,10 @@ fn _save_cache_into_persistent_file(
     Ok(())
 }
 
-impl Default for CachedResolver<SimpleResolver> {
+impl<R: Resolver + Default> Default for CachedResolver<R> {
     #[inline]
     fn default() -> Self {
-        Self::load_or_create_from(Self::default_persistent_path(), true, SimpleResolver)
+        Self::load_or_create_from(Self::default_persistent_path(), true, R::default())
     }
 }
 
@@ -282,7 +282,7 @@ impl<R: Resolver> CachedResolver<R> {
             let persistent_path = persistent_path.map(|path| path.to_path_buf());
             let lifetime = self.lifetime;
             ThreadBuilder::new()
-                .name("qiniu.rust-sdk.http-client.CachedResolver".into())
+                .name("qiniu.rust-sdk.http-client.resolver.CachedResolver".into())
                 .spawn(move || {
                     if let Ok(mut locked_data) = inner.thread_lock.try_lock() {
                         info!("Resolver cache spawns thread to do some housework");
@@ -338,7 +338,7 @@ impl<R: Resolver> CachedResolver<R> {
             inner
                 .cache
                 .retain(|_, cache| cache.deadline >= SystemTime::now());
-            info!("Resolver cache is shrink");
+            info!("Resolver cache is shrunken");
         }
 
         fn refresh_domains(inner: &CachedResolverInner<impl Resolver>, lifetime: Duration) {
