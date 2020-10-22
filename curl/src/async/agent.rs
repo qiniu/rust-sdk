@@ -7,10 +7,11 @@ use super::{
 use crossbeam_channel::{unbounded, Sender};
 use crossbeam_utils::sync::WaitGroup;
 use curl::{easy::Easy2, init as curl_init, multi::Multi, MultiError};
+use dashmap::DashMap;
 use futures::task::waker;
+use log::{error, info};
 use once_cell::sync::Lazy;
 use std::{
-    collections::HashMap,
     io::Result as IOResult,
     mem::{drop, transmute},
     net::{Ipv4Addr, UdpSocket},
@@ -19,9 +20,9 @@ use std::{
     task::Waker,
     thread::{Builder as ThreadBuilder, JoinHandle},
 };
+use tap::tap::TapFallible;
 
-static GLOBAL_HANDLERS: Lazy<Mutex<HashMap<MultiOptions, Arc<Handler>>>> =
-    Lazy::new(Default::default);
+static GLOBAL_HANDLERS: Lazy<DashMap<MultiOptions, Arc<Handler>>> = Lazy::new(Default::default);
 
 pub(super) struct Handler {
     tx: Sender<Message>,
@@ -31,14 +32,11 @@ pub(super) struct Handler {
 
 pub(super) fn spawn(client: &CurlHTTPCaller) -> IOResult<Arc<Handler>> {
     let multi_options = client.clone_multi_options();
-    let mut cache = GLOBAL_HANDLERS.lock().unwrap();
-    if let Some(handler) = cache.get(&multi_options).cloned() {
-        Ok(handler)
-    } else {
-        let handler = spawn_new(client)?;
-        cache.insert(multi_options, handler.to_owned());
-        Ok(handler)
-    }
+    let handler = GLOBAL_HANDLERS
+        .entry(multi_options)
+        .or_try_insert_with(|| spawn_new(client))?
+        .to_owned();
+    Ok(handler)
 }
 
 fn spawn_new(client: &CurlHTTPCaller) -> IOResult<Arc<Handler>> {
@@ -60,13 +58,18 @@ fn spawn_new(client: &CurlHTTPCaller) -> IOResult<Arc<Handler>> {
         join_handle: Mutex::new(Some({
             let wait_group = WaitGroup::new();
             ThreadBuilder::new()
-                .name(format!("qiniu-curl/{}", port))
+                .name(format!("qiniu.rust-sdk.curl.async.Handler/{}", port))
                 .spawn(move || {
                     let mut multi = Multi::new();
-                    set_multi_options(&mut multi, &multi_options)?;
+                    set_multi_options(&mut multi, &multi_options).tap_err(|err| {
+                        error!("Failed to set multi_options: {}", err);
+                    })?;
+                    info!("A new AgentContext started");
                     let agent = AgentContext::new(multi, tx, rx, wake_socket, waker);
                     drop(wait_group);
-                    agent.run()
+                    agent.run().tap_err(|err| {
+                        error!("AgentContext is quit because of error: {}", err);
+                    })
                 })?
         })),
     });

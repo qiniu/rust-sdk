@@ -9,12 +9,19 @@ use curl::{
     multi::{Easy2Handle, Multi, WaitFd},
     Error as CurlError, MultiError,
 };
+use log::info;
 use slab::Slab;
-use std::{net::UdpSocket, result::Result, task::Waker, time::Duration};
+use std::{fmt, net::UdpSocket, result::Result, task::Waker, time::Duration};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct RequestID(usize);
+
+impl fmt::Display for RequestID {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 impl From<usize> for RequestID {
     #[inline]
@@ -133,7 +140,8 @@ impl<'ctx> AgentContext<'ctx> {
             if self.requests.is_empty() {
                 match self.rx.recv() {
                     Ok(message) => self.handle_message(message)?,
-                    Err(_) => {
+                    Err(err) => {
+                        info!("AgentContext is failed to poll messages: {}", err);
                         self.close_requested = true;
                         break;
                     }
@@ -142,7 +150,8 @@ impl<'ctx> AgentContext<'ctx> {
                 match self.rx.try_recv() {
                     Ok(message) => self.handle_message(message)?,
                     Err(TryRecvError::Empty) => break,
-                    Err(TryRecvError::Disconnected) => {
+                    Err(err) => {
+                        info!("AgentContext is failed to try to poll messages: {}", err);
                         self.close_requested = true;
                         break;
                     }
@@ -160,11 +169,13 @@ impl<'ctx> AgentContext<'ctx> {
             }
             Message::UnpauseRead(request_id) => {
                 if let Some(request) = self.requests.get(request_id.into()) {
+                    info!("Request {} unpause read", request_id);
                     request.unpause_read()?;
                 }
             }
             Message::UnpauseWrite(request_id) => {
                 if let Some(request) = self.requests.get(request_id.into()) {
+                    info!("Request {} unpause write", request_id);
                     request.unpause_write()?;
                 }
             }
@@ -219,10 +230,12 @@ impl<'ctx> AgentContext<'ctx> {
         let mut request = self.multi.add2(request)?;
         request.set_token(id.into())?;
         entry.insert(request);
+        info!("Begin request, new request id: {}", id);
         Ok(())
     }
 
     fn complete_request(&mut self, message: MultiMessage) -> AgentResult<()> {
+        info!("Request is completed, to remove request id: {}", message.id);
         let handle = self.requests.remove(message.id.into());
         let mut handle = self.multi.remove2(handle)?;
         handle_response(&mut handle, message.error);

@@ -23,6 +23,9 @@ crossbeam-utils = { version = "0.7.2", optional = true }
 slab = { version = "0.4.2", optional = true }
 thiserror = { version = "1.0", optional = true }
 sluice = { version = "0.5.2", optional = true }
+dashmap = { version = "3.11.10", optional = true }
+log = { version = "0.4.11", optional = true }
+tap = { version = "1.0.0", optional = true }
 
 qiniu-http = { version = "0.0.4", path = "../http", optional = true }
 
@@ -42,7 +45,7 @@ static-ssl = ["curl/static-ssl"]
 curl-ssl = ["curl/ssl"]
 curl-mesalink = ["curl/mesalink"]
 curl-spnego = ["curl/spnego"]
-async = ["qiniu-http/async", "futures", "slab", "thiserror", "crossbeam-channel", "crossbeam-utils", "sluice"]
+async = ["qiniu-http/async", "futures", "slab", "thiserror", "crossbeam-channel", "crossbeam-utils", "dashmap", "log", "tap", "sluice"]
 docs = []
 
 [package.metadata.docs.rs]
