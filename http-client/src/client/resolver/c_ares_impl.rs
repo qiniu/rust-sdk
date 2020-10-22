@@ -10,6 +10,7 @@ use c_ares_resolver::{
     Error as CAresResolverError, HostResults as CAresResolverHostResults,
     Options as CAresResolverOptions, Resolver as CallbackResolver,
 };
+use cfg_if::cfg_if;
 use std::{
     any::Any,
     fmt,
@@ -37,7 +38,7 @@ pub struct CAresResolver {
 impl CAresResolver {
     #[inline]
     #[cfg(not(feature = "async"))]
-    pub fn new(options: CAresResolverOptions) -> CAresResolverResult<Self> {
+    pub fn new_with_options(options: CAresResolverOptions) -> CAresResolverResult<Self> {
         Ok(Self {
             callback_resolver: CallbackResolver::with_options(options)?,
         })
@@ -45,7 +46,7 @@ impl CAresResolver {
 
     #[inline]
     #[cfg(any(feature = "async"))]
-    pub fn new(
+    pub fn new_with_options(
         sync_options: CAresResolverOptions,
         async_options: CAresResolverOptions,
     ) -> CAresResolverResult<Self> {
@@ -53,6 +54,17 @@ impl CAresResolver {
             callback_resolver: CallbackResolver::with_options(sync_options)?,
             future_resolver: FutureResolver::with_options(async_options)?,
         })
+    }
+
+    #[inline]
+    pub fn new() -> CAresResolverResult<Self> {
+        cfg_if! {
+            if #[cfg(any(feature = "async"))] {
+                Self::new_with_options(CAresResolverOptions::new(), CAresResolverOptions::new())
+            } else {
+                Self::new_with_options(CAresResolverOptions::new())
+            }
+        }
     }
 }
 

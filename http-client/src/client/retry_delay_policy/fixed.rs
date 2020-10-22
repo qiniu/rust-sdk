@@ -38,3 +38,10 @@ impl RetryDelayPolicy for FixedRetryDelayPolicy {
         self
     }
 }
+
+impl Default for FixedRetryDelayPolicy {
+    #[inline]
+    fn default() -> Self {
+        FixedRetryDelayPolicy::new(Duration::from_millis(100))
+    }
+}
