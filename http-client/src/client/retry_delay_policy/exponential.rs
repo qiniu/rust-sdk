@@ -1,4 +1,4 @@
-use super::{ResponseError, RetryDelayPolicy};
+use super::{ResponseError, RetriedStatsInfo, RetryDelayPolicy, RetryResult};
 use qiniu_http::Request as HTTPRequest;
 use std::{any::Any, time::Duration};
 
@@ -19,10 +19,16 @@ impl RetryDelayPolicy for ExponentialRetryDelayPolicy {
     fn delay_before_next_retry(
         &self,
         _request: &mut HTTPRequest,
+        retry_result: RetryResult,
         _response_error: &ResponseError,
-        retried: usize,
+        retried: &RetriedStatsInfo,
     ) -> Duration {
-        self.base_delay * 2_u32.pow(retried as u32)
+        let retried_count = if retry_result == RetryResult::Throttled {
+            retried.retried_total()
+        } else {
+            retried.retried_on_current_endpoint()
+        };
+        self.base_delay * 2_u32.pow(retried_count as u32)
     }
 
     #[inline]

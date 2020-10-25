@@ -1,4 +1,5 @@
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
+#![deny(unsafe_code)]
 
 use hmac::{Hmac, Mac, NewMac};
 use once_cell::sync::Lazy;

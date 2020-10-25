@@ -388,6 +388,7 @@ impl CachedResolverValue {
 }
 
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum PersistentError {
     #[error("I/O error: {0}")]
     IOError(#[from] IOError),

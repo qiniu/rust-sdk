@@ -1,13 +1,15 @@
 mod builder;
 mod built;
 mod request_data;
-use std::{borrow::Cow, collections::HashMap};
+mod request_id;
+use std::borrow::Cow;
 
-pub type QueryKey<'q> = Cow<'q, str>;
-pub type QueryValue<'q> = Cow<'q, str>;
-pub type Queries<'q> = HashMap<QueryKey<'q>, QueryValue<'q>>;
+pub type QueryPairKey<'q> = Cow<'q, str>;
+pub type QueryPairValue<'q> = Cow<'q, str>;
+pub type QueryPairs<'q> = Vec<(QueryPairKey<'q>, QueryPairValue<'q>)>;
 
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub enum Idempotent {
     Always,
     Default,
@@ -22,4 +24,4 @@ impl Default for Idempotent {
 }
 
 pub use builder::RequestBuilder;
-pub use built::Request;
+pub(super) use built::{Request, RequestWithoutEndpoints};

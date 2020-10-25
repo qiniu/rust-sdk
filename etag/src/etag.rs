@@ -9,6 +9,7 @@ use std::io::{copy, Read, Result};
 pub const ETAG_SIZE: usize = 28;
 
 /// 通用 Etag 计算器
+#[non_exhaustive]
 pub enum Etag {
     V1(EtagV1),
     V2(EtagV2),

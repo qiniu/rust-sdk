@@ -1,11 +1,13 @@
-use super::{super::authorization::Authorization, Idempotent, Queries};
+use super::{super::authorization::Authorization, Idempotent, QueryPairs};
 use qiniu_http::{Headers, Method, RequestBody};
-use std::{fmt, time::Duration};
+use std::{borrow::Cow, fmt, time::Duration};
 
 pub(super) struct RequestData<'r> {
     pub(super) use_https: Option<bool>,
     pub(super) method: Method,
-    pub(super) queries: Queries<'r>,
+    pub(super) path: Cow<'r, str>,
+    pub(super) query: Cow<'r, str>,
+    pub(super) query_pairs: QueryPairs<'r>,
     pub(super) headers: Headers<'r>,
     pub(super) body: RequestBody<'r>,
     pub(super) authorization: Option<Authorization>,
@@ -30,7 +32,8 @@ impl fmt::Debug for RequestData<'_> {
         let s = &mut f.debug_struct("RequestData");
         field!(s, use_https);
         field!(s, method);
-        field!(s, queries);
+        field!(s, path);
+        field!(s, query_pairs);
         field!(s, headers);
         field!(s, body);
         field!(s, authorization);

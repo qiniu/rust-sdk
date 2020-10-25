@@ -1,4 +1,7 @@
-use super::{super::ResponseError, RequestRetrier, RetryResult};
+use super::{
+    super::{Idempotent, ResponseError, RetriedStatsInfo},
+    RequestRetrier, RetryResult,
+};
 use qiniu_http::Request as HTTPRequest;
 use std::any::Any;
 
@@ -10,8 +13,9 @@ impl RequestRetrier for NeverRetrier {
     fn retry(
         &self,
         _request: &mut HTTPRequest,
+        _idempotent: Idempotent,
         _response_error: &ResponseError,
-        _retried: usize,
+        _retried: &RetriedStatsInfo,
     ) -> RetryResult {
         RetryResult::DontRetry
     }

@@ -1,39 +1,50 @@
 use super::{
     super::{
-        super::regions::IntoDomains,
+        super::{IntoEndpoints, ServiceName},
         callbacks::{
-            OnBody, OnError, OnHeader, OnProgress, OnRequest, OnRetry, OnStatusCode, OnSuccess,
+            OnBody, OnDomainChosen, OnError, OnHeader, OnProgress, OnRequest, OnRetry,
+            OnStatusCode, OnSuccess, OnToChooseDomain,
         },
-        Authorization, CallbacksBuilder, Client,
+        request_call, APIResult, Authorization, CallbacksBuilder, Client, ResponseError,
+        ResponseErrorKind, SyncResponse,
     },
     request_data::RequestData,
-    Idempotent, Queries, QueryKey, QueryValue, Request,
+    Idempotent, QueryPairKey, QueryPairValue, QueryPairs, Request,
 };
 use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM};
 use qiniu_http::{HeaderName, HeaderValue, Headers, Method, RequestBody};
-use serde::Serialize;
-use serde_json::Result as JSONResult;
+use serde::{de::DeserializeOwned, Serialize};
+use serde_json::{from_reader as parse_json_from_reader, Result as JSONResult};
 use std::{borrow::Cow, fmt, time::Duration};
 
 pub struct RequestBuilder<'r> {
     client: &'r Client,
-    into_domains: IntoDomains<'r>,
+    service_name: ServiceName,
+    into_endpoints: IntoEndpoints<'r>,
     callbacks: CallbacksBuilder,
     data: RequestData<'r>,
     appended_user_agent: Cow<'r, str>,
 }
 
 impl<'r> RequestBuilder<'r> {
-    pub(super) fn new(client: &'r Client, method: Method, into_domains: IntoDomains<'r>) -> Self {
+    pub(in super::super) fn new(
+        client: &'r Client,
+        method: Method,
+        into_endpoints: IntoEndpoints<'r>,
+        service_name: ServiceName,
+    ) -> Self {
         Self {
             client,
-            into_domains,
+            service_name,
+            into_endpoints,
             callbacks: Default::default(),
             appended_user_agent: Default::default(),
             data: RequestData {
                 method,
                 use_https: None,
-                queries: Default::default(),
+                path: Default::default(),
+                query: Default::default(),
+                query_pairs: Default::default(),
                 headers: Default::default(),
                 body: Default::default(),
                 authorization: None,
@@ -53,6 +64,12 @@ impl<'r> RequestBuilder<'r> {
     #[inline]
     pub fn use_https(mut self, use_https: bool) -> Self {
         self.data.use_https = Some(use_https);
+        self
+    }
+
+    #[inline]
+    pub fn path(mut self, path: impl Into<Cow<'r, str>>) -> Self {
+        self.data.path = path.into();
         self
     }
 
@@ -97,20 +114,26 @@ impl<'r> RequestBuilder<'r> {
     }
 
     #[inline]
-    pub fn queries(mut self, queries: Queries<'r>) -> Self {
-        self.data.queries = queries;
+    pub fn query(mut self, query: impl Into<Cow<'r, str>>) -> Self {
+        self.data.query = query.into();
         self
     }
 
     #[inline]
-    pub fn set_query(
+    pub fn query_pairs(mut self, query_pairs: QueryPairs<'r>) -> Self {
+        self.data.query_pairs = query_pairs;
+        self
+    }
+
+    #[inline]
+    pub fn append_query_pair(
         mut self,
-        query_key: impl Into<QueryKey<'r>>,
-        query_value: impl Into<QueryValue<'r>>,
+        query_pair_key: impl Into<QueryPairKey<'r>>,
+        query_pair_value: impl Into<QueryPairValue<'r>>,
     ) -> Self {
         self.data
-            .queries
-            .insert(query_key.into(), query_value.into());
+            .query_pairs
+            .push((query_pair_key.into(), query_pair_value.into()));
         self
     }
 
@@ -129,15 +152,6 @@ impl<'r> RequestBuilder<'r> {
     #[inline]
     pub fn idempotent(mut self, idempotent: Idempotent) -> Self {
         self.data.idempotent = idempotent;
-        self
-    }
-
-    #[inline]
-    pub fn accept_json(mut self) -> Self {
-        self.data.read_body = true;
-        self.data
-            .headers
-            .insert("Accept".into(), APPLICATION_JSON.to_string().into());
         self
     }
 
@@ -184,72 +198,113 @@ impl<'r> RequestBuilder<'r> {
     }
 
     #[inline]
-    pub fn on_uploading_progress(mut self, callback: impl Into<OnProgress>) -> Self {
+    pub fn on_uploading_progress(mut self, callback: OnProgress) -> Self {
         self.callbacks = self.callbacks.on_uploading_progress(callback);
         self
     }
 
     #[inline]
-    pub fn on_downloading_progress(mut self, callback: impl Into<OnProgress>) -> Self {
+    pub fn on_downloading_progress(mut self, callback: OnProgress) -> Self {
         self.callbacks = self.callbacks.on_downloading_progress(callback);
         self
     }
 
     #[inline]
-    pub fn on_request(mut self, callback: impl Into<OnRequest>) -> Self {
-        self.callbacks = self.callbacks.on_request(callback);
-        self
-    }
-
-    #[inline]
-    pub fn on_send_request_body(mut self, callback: impl Into<OnBody>) -> Self {
+    pub fn on_send_request_body(mut self, callback: OnBody) -> Self {
         self.callbacks = self.callbacks.on_send_request_body(callback);
         self
     }
 
     #[inline]
-    pub fn on_receive_response_status(mut self, callback: impl Into<OnStatusCode>) -> Self {
+    pub fn on_receive_response_status(mut self, callback: OnStatusCode) -> Self {
         self.callbacks = self.callbacks.on_receive_response_status(callback);
         self
     }
 
     #[inline]
-    pub fn on_receive_response_body(mut self, callback: impl Into<OnBody>) -> Self {
+    pub fn on_receive_response_body(mut self, callback: OnBody) -> Self {
         self.callbacks = self.callbacks.on_receive_response_body(callback);
         self
     }
 
     #[inline]
-    pub fn on_receive_response_header(mut self, callback: impl Into<OnHeader>) -> Self {
+    pub fn on_receive_response_header(mut self, callback: OnHeader) -> Self {
         self.callbacks = self.callbacks.on_receive_response_header(callback);
         self
     }
 
     #[inline]
-    pub fn on_success(mut self, callback: impl Into<OnSuccess>) -> Self {
+    pub fn on_to_choose_domain(mut self, callback: OnToChooseDomain) -> Self {
+        self.callbacks = self.callbacks.on_to_choose_domain(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_domain_chosen(mut self, callback: OnDomainChosen) -> Self {
+        self.callbacks = self.callbacks.on_domain_chosen(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_before_request_signed(mut self, callback: OnRequest) -> Self {
+        self.callbacks = self.callbacks.on_before_request_signed(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_after_request_signed(mut self, callback: OnRequest) -> Self {
+        self.callbacks = self.callbacks.on_after_request_signed(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_success(mut self, callback: OnSuccess) -> Self {
         self.callbacks = self.callbacks.on_success(callback);
         self
     }
 
     #[inline]
-    pub fn on_error(mut self, callback: impl Into<OnError>) -> Self {
+    pub fn on_error(mut self, callback: OnError) -> Self {
         self.callbacks = self.callbacks.on_error(callback);
         self
     }
 
     #[inline]
-    pub fn on_retry(mut self, callback: impl Into<OnRetry>) -> Self {
-        self.callbacks = self.callbacks.on_retry(callback);
+    pub fn on_before_retry_delay(mut self, callback: OnRetry) -> Self {
+        self.callbacks = self.callbacks.on_before_retry_delay(callback);
         self
     }
 
     #[inline]
-    pub fn build(self) -> Request<'r> {
+    pub fn on_after_retry_delay(mut self, callback: OnRetry) -> Self {
+        self.callbacks = self.callbacks.on_after_retry_delay(callback);
+        self
+    }
+
+    #[inline]
+    pub fn call(self) -> APIResult<SyncResponse> {
+        request_call(self.build())
+    }
+
+    pub fn parse_json<T: DeserializeOwned>(mut self) -> APIResult<T> {
+        self.data.read_body = true;
+        self.data
+            .headers
+            .insert("Accept".into(), APPLICATION_JSON.to_string().into());
+        let mut response = request_call(self.build())?;
+        let body = parse_json_from_reader(response.body_mut())
+            .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))?;
+        Ok(body)
+    }
+
+    #[inline]
+    pub(in super::super) fn build(self) -> Request<'r> {
         let appended_user_agent =
             self.client.appended_user_agent().to_owned() + &self.appended_user_agent;
         Request::new(
             self.client,
-            self.into_domains,
+            self.service_name,
+            self.into_endpoints,
             self.callbacks.build(),
             self.data,
             appended_user_agent.into_boxed_str(),
@@ -260,7 +315,8 @@ impl<'r> RequestBuilder<'r> {
 impl fmt::Debug for RequestBuilder<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RequestBuilder")
-            .field("into_domains", &self.into_domains)
+            .field("service_name", &self.service_name)
+            .field("into_endpoints", &self.into_endpoints)
             .field("callbacks", &self.callbacks)
             .field("data", &self.data)
             .field("appended_user_agent", &self.appended_user_agent)

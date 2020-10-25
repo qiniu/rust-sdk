@@ -96,7 +96,7 @@ impl CachedBody {
 mod async_body {
     use async_fs::File;
     use futures::{
-        io::{AsyncRead, Cursor, Result as IOResult},
+        io::{AsyncRead, AsyncReadExt, Cursor, Result as IOResult},
         pin_mut,
     };
     use std::{

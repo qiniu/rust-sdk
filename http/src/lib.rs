@@ -1,4 +1,5 @@
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
+#![deny(unsafe_code)]
 
 mod error;
 mod request;
@@ -63,7 +64,7 @@ mod async_response {
 #[cfg(feature = "async")]
 pub use async_response::*;
 
-use std::any::Any;
+use std::{any::Any, fmt::Debug};
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
@@ -71,7 +72,7 @@ use futures::future::BoxFuture;
 /// HTTP 请求处理函数
 ///
 /// 实现该接口，即可处理所有七牛 SDK 发送的 HTTP 请求
-pub trait HTTPCaller: Any + Send + Sync {
+pub trait HTTPCaller: Any + Debug + Send + Sync {
     /// 同步发送 HTTP 请求
     fn call(&self, request: &Request) -> SyncResponseResult;
 

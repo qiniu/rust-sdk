@@ -4,6 +4,7 @@ use std::{convert::TryFrom, error::Error, fmt, str::FromStr};
 ///
 /// 这里的 HTTP 方法并不完整，但已经满足了七牛 SDK 的需要
 #[derive(Copy, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Method {
     /// GET 方法
     GET,

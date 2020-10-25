@@ -1,4 +1,4 @@
-use super::{ResponseError, RetryDelayPolicy};
+use super::{ResponseError, RetriedStatsInfo, RetryDelayPolicy, RetryResult};
 use qiniu_http::Request as HTTPRequest;
 use std::{any::Any, time::Duration};
 
@@ -22,8 +22,9 @@ impl RetryDelayPolicy for FixedRetryDelayPolicy {
     fn delay_before_next_retry(
         &self,
         _request: &mut HTTPRequest,
+        _retry_result: RetryResult,
         _response_error: &ResponseError,
-        _retried: usize,
+        _retried: &RetriedStatsInfo,
     ) -> Duration {
         self.delay
     }

@@ -1,8 +1,9 @@
 mod cache;
+mod shuffled;
 mod simple;
 
-use std::{any::Any, fmt::Debug, io::Error as IOError, net::IpAddr, result::Result};
-use thiserror::Error;
+use super::APIResult;
+use std::{any::Any, fmt::Debug, net::IpAddr};
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
@@ -21,14 +22,10 @@ pub trait Resolver: Any + Debug + Sync + Send {
     fn as_resolver(&self) -> &dyn Resolver;
 }
 
-#[derive(Error, Debug)]
-pub enum ResolveError {
-    #[error("Resolve domain name error: {0}")]
-    IOError(#[from] IOError),
-}
-pub type ResolveResult = Result<Box<[IpAddr]>, ResolveError>;
+pub type ResolveResult = APIResult<Box<[IpAddr]>>;
 
 pub use cache::{CachedResolver, PersistentError, PersistentResult};
+pub use shuffled::ShuffledResolver;
 pub use simple::SimpleResolver;
 
 #[cfg(any(feature = "c_ares"))]

@@ -2,6 +2,7 @@ use std::{error, fmt};
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ErrorKind {
     /// 协议错误，该协议不能支持
     ProtocolError,
@@ -14,6 +15,9 @@ pub enum ErrorKind {
 
     /// 代理连接失败
     ProxyError,
+
+    /// DNS 服务器连接失败
+    DNSServerError,
 
     /// 域名解析失败
     UnknownHostError,
@@ -64,6 +68,11 @@ impl Error {
     #[inline]
     pub fn kind(&self) -> ErrorKind {
         self.kind
+    }
+
+    #[inline]
+    pub fn into_inner(self) -> Box<dyn error::Error + Send + Sync> {
+        self.error
     }
 }
 

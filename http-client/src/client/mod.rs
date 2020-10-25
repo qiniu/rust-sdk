@@ -1,31 +1,41 @@
 mod authorization;
+mod call;
 mod callbacks;
 mod chooser;
 mod client;
 mod request;
 mod resolver;
 mod response;
+mod retried;
 mod retrier;
 mod retry_delay_policy;
 
 pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
-pub use callbacks::{Callbacks, CallbacksBuilder};
+pub use callbacks::{CallbackContext, Callbacks, CallbacksBuilder, RequestInfo, ResponseInfo};
 pub use chooser::{Chooser, ChosenResult, SimpleChooser};
 pub use client::{Client, ClientBuilder};
-pub use request::{Idempotent, Queries, QueryKey, QueryValue, Request, RequestBuilder};
+pub use request::{Idempotent, QueryPairKey, QueryPairValue, QueryPairs, RequestBuilder};
 pub use resolver::{
-    CachedResolver, PersistentError, PersistentResult, ResolveError, ResolveResult, Resolver,
+    CachedResolver, PersistentError, PersistentResult, ResolveResult, Resolver, ShuffledResolver,
     SimpleResolver,
 };
 pub use response::{
-    APIResult, Response, ResponseBody, ResponseBuilder, ResponseError, ResponseErrorKind,
+    APIResult, ResponseError, ResponseErrorKind, SyncResponse, SyncResponseBuilder,
 };
+pub use retried::RetriedStatsInfo;
 pub use retrier::{
     DefaultRetrier, DefaultRetrierBuilder, NeverRetrier, RequestRetrier, RetryResult,
 };
 pub use retry_delay_policy::{
-    ExponentialRetryDelayPolicy, FixedRetryDelayPolicy, RetryDelayPolicy, NO_DELAY_POLICY,
+    ExponentialRetryDelayPolicy, FixedRetryDelayPolicy, RandomizedRetryDelayPolicy, Ratio,
+    RetryDelayPolicy, NO_DELAY_POLICY,
 };
 
 #[cfg(any(feature = "c_ares"))]
 pub use resolver::{c_ares, c_ares_resolver, CAresResolver};
+
+#[cfg(any(feature = "async"))]
+pub use response::{AsyncResponse, AsyncResponseBuilder};
+
+use call::request_call;
+use request::{Request, RequestWithoutEndpoints};

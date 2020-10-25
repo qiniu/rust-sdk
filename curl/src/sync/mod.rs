@@ -281,7 +281,7 @@ mod tests {
                                 status_codes.lock().unwrap().push(status);
                                 true
                             }))
-                            .build()?,
+                            .build(),
                     )
                 })
                 .await??

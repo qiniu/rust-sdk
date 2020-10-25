@@ -1,4 +1,5 @@
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
+#![deny(unsafe_code)]
 
 pub use digest::{
     generic_array::{typenum::U28, GenericArray},

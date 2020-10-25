@@ -319,14 +319,14 @@ impl Default for Request<'_> {
 impl fmt::Debug for Request<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         macro_rules! field {
-            ($ctx:ident,$method:ident) => {
-                $ctx.field("$method", &self.$method)
+            ($ctx:ident, $method_name:expr, $method:ident) => {
+                $ctx.field($method_name, &self.$method)
             };
         }
         macro_rules! closure_field {
-            ($ctx:ident,$method:ident) => {
+            ($ctx:ident, $method_name:expr, $method:ident) => {
                 $ctx.field(
-                    "$method",
+                    $method_name,
                     &self.$method.map_or_else(
                         || Cow::Borrowed("Uninstalled"),
                         |_| Cow::Borrowed("Installed"),
@@ -335,25 +335,29 @@ impl fmt::Debug for Request<'_> {
             };
         }
         let s = &mut f.debug_struct("Request");
-        field!(s, url);
-        field!(s, method);
-        field!(s, headers);
-        field!(s, body);
-        field!(s, appended_user_agent);
-        field!(s, follow_redirection);
-        field!(s, resolved_ip_addrs);
-        field!(s, connect_timeout);
-        field!(s, request_timeout);
-        field!(s, tcp_keepalive_idle_timeout);
-        field!(s, tcp_keepalive_probe_interval);
-        field!(s, low_transfer_speed);
-        field!(s, low_transfer_speed_timeout);
-        closure_field!(s, on_uploading_progress);
-        closure_field!(s, on_downloading_progress);
-        closure_field!(s, on_send_request_body);
-        closure_field!(s, on_receive_response_status);
-        closure_field!(s, on_receive_response_body);
-        closure_field!(s, on_receive_response_header);
+        field!(s, "url", url);
+        field!(s, "method", method);
+        field!(s, "headers", headers);
+        field!(s, "body", body);
+        field!(s, "appended_user_agent", appended_user_agent);
+        field!(s, "follow_redirection", follow_redirection);
+        field!(s, "resolved_ip_addrs", resolved_ip_addrs);
+        field!(s, "connect_timeout", connect_timeout);
+        field!(s, "request_timeout", request_timeout);
+        field!(s, "tcp_keepalive_idle_timeout", tcp_keepalive_idle_timeout);
+        field!(
+            s,
+            "tcp_keepalive_probe_interval",
+            tcp_keepalive_probe_interval
+        );
+        field!(s, "low_transfer_speed", low_transfer_speed);
+        field!(s, "low_transfer_speed_timeout", low_transfer_speed_timeout);
+        closure_field!(s, "on_uploading_progress", on_uploading_progress);
+        closure_field!(s, "on_downloading_progress", on_downloading_progress);
+        closure_field!(s, "on_send_request_body", on_send_request_body);
+        closure_field!(s, "on_receive_response_status", on_receive_response_status);
+        closure_field!(s, "on_receive_response_body", on_receive_response_body);
+        closure_field!(s, "on_receive_response_header", on_receive_response_header);
         s.finish()
     }
 }

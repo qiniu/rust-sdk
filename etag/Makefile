@@ -7,6 +7,7 @@ build_release:
 	cargo build --release
 build_test:
 	cargo test --no-run
+	cargo test --features async --no-run
 doc:
 	cargo test --doc --features async
 	cargo doc --lib --release --no-deps --features async

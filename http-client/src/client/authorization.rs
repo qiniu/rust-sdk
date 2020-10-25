@@ -19,21 +19,21 @@ enum AuthorizationInner {
 
 impl Authorization {
     #[inline]
-    pub(super) fn uptoken(provider: Arc<dyn UploadTokenProvider>) -> Self {
+    pub fn uptoken(provider: Arc<dyn UploadTokenProvider>) -> Self {
         Self {
             inner: AuthorizationInner::UpToken(provider),
         }
     }
 
     #[inline]
-    pub(super) fn v1(provider: Arc<dyn CredentialProvider>) -> Self {
+    pub fn v1(provider: Arc<dyn CredentialProvider>) -> Self {
         Self {
             inner: AuthorizationInner::V1(provider),
         }
     }
 
     #[inline]
-    pub(super) fn v2(provider: Arc<dyn CredentialProvider>) -> Self {
+    pub fn v2(provider: Arc<dyn CredentialProvider>) -> Self {
         Self {
             inner: AuthorizationInner::V2(provider),
         }
@@ -130,6 +130,7 @@ impl From<Arc<dyn CredentialProvider>> for Authorization {
 
 /// API 鉴权错误
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum AuthorizationError {
     /// 获取认证信息或上传凭证错误
     #[error("Get Upload Token or Credential error: {0}")]

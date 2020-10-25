@@ -16,6 +16,7 @@ pub(crate) fn set_method<H: Handler>(
         Method::HEAD => handle(easy.nobody(true)),
         Method::POST => handle(easy.post(true)),
         Method::PUT => handle(easy.upload(true)),
+        method => handle(easy.custom_request(method.as_str())),
     }
 }
 

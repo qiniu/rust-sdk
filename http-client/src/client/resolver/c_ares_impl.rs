@@ -1,24 +1,19 @@
+#[cfg_attr(feature = "docs", doc(cfg(r#c_ares)))]
 pub extern crate c_ares;
+#[cfg_attr(feature = "docs", doc(cfg(r#c_ares)))]
 pub extern crate c_ares_resolver;
 
-use super::{ResolveError, ResolveResult, Resolver};
+use super::{super::ResponseError, ResolveResult, Resolver};
 use c_ares::{
     AddressFamily::{INET, INET6},
     Error as CAresError, HostResults as CAresHostResults,
 };
 use c_ares_resolver::{
-    Error as CAresResolverError, HostResults as CAresResolverHostResults,
-    Options as CAresResolverOptions, Resolver as CallbackResolver,
+    Error as CAresResolverError, Options as CAresResolverOptions, Resolver as CallbackResolver,
 };
 use cfg_if::cfg_if;
-use std::{
-    any::Any,
-    fmt,
-    io::{Error as IOError, ErrorKind as IOErrorKind},
-    net::IpAddr,
-    result,
-    sync::mpsc,
-};
+use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
+use std::{any::Any, fmt, net::IpAddr, result, sync::mpsc, sync::Arc};
 
 #[cfg(feature = "async")]
 use {
@@ -28,7 +23,13 @@ use {
 
 type CAresResolverResult<T> = result::Result<T, CAresResolverError>;
 
+#[cfg_attr(feature = "docs", doc(cfg(r#c_ares)))]
+#[derive(Clone)]
 pub struct CAresResolver {
+    inner: Arc<CAresResolverInner>,
+}
+
+struct CAresResolverInner {
     callback_resolver: CallbackResolver,
 
     #[cfg(feature = "async")]
@@ -40,7 +41,9 @@ impl CAresResolver {
     #[cfg(not(feature = "async"))]
     pub fn new_with_options(options: CAresResolverOptions) -> CAresResolverResult<Self> {
         Ok(Self {
-            callback_resolver: CallbackResolver::with_options(options)?,
+            inner: Arc::new(CAresResolverInner {
+                callback_resolver: CallbackResolver::with_options(options)?,
+            }),
         })
     }
 
@@ -51,8 +54,10 @@ impl CAresResolver {
         async_options: CAresResolverOptions,
     ) -> CAresResolverResult<Self> {
         Ok(Self {
-            callback_resolver: CallbackResolver::with_options(sync_options)?,
-            future_resolver: FutureResolver::with_options(async_options)?,
+            inner: Arc::new(CAresResolverInner {
+                callback_resolver: CallbackResolver::with_options(sync_options)?,
+                future_resolver: FutureResolver::with_options(async_options)?,
+            }),
         })
     }
 
@@ -80,20 +85,22 @@ impl Resolver for CAresResolver {
         let (tx, rx) = mpsc::channel();
         let tx2 = tx.to_owned();
 
-        self.callback_resolver
+        self.inner
+            .callback_resolver
             .get_host_by_name(domain, INET, move |results| {
                 tx.send(
                     results
-                        .map_err(convert_c_ares_error_to_resolve_error)
+                        .map_err(convert_c_ares_error_to_response_error)
                         .map(convert_hosts_to_ip_addrs),
                 )
                 .unwrap();
             });
-        self.callback_resolver
+        self.inner
+            .callback_resolver
             .get_host_by_name(domain, INET6, move |results| {
                 tx2.send(
                     results
-                        .map_err(convert_c_ares_error_to_resolve_error)
+                        .map_err(convert_c_ares_error_to_response_error)
                         .map(convert_hosts_to_ip_addrs),
                 )
                 .unwrap();
@@ -116,15 +123,15 @@ impl Resolver for CAresResolver {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_resolve<'a>(&'a self, domain: &'a str) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
-            let task1 = self.future_resolver.get_host_by_name(domain, INET);
-            let task2 = self.future_resolver.get_host_by_name(domain, INET6);
+            let task1 = self.inner.future_resolver.get_host_by_name(domain, INET);
+            let task2 = self.inner.future_resolver.get_host_by_name(domain, INET6);
             let (results1, results2) = join(task1, task2).await;
             match (
                 results1
-                    .map_err(convert_c_ares_error_to_resolve_error)
+                    .map_err(convert_c_ares_error_to_response_error)
                     .map(convert_resolver_hosts_to_ip_addrs),
                 results2
-                    .map_err(convert_c_ares_error_to_resolve_error)
+                    .map_err(convert_c_ares_error_to_response_error)
                     .map(convert_resolver_hosts_to_ip_addrs),
             ) {
                 (Ok(ip_addrs_1), Ok(ip_addrs_2)) => {
@@ -155,12 +162,16 @@ fn convert_hosts_to_ip_addrs(results: CAresHostResults) -> Box<[IpAddr]> {
     results.addresses().collect()
 }
 
+#[cfg(feature = "async")]
+use c_ares_resolver::HostResults as CAresResolverHostResults;
+
 #[inline]
+#[cfg(feature = "async")]
 fn convert_resolver_hosts_to_ip_addrs(results: CAresResolverHostResults) -> Box<[IpAddr]> {
     results.addresses.into_boxed_slice()
 }
 
 #[inline]
-fn convert_c_ares_error_to_resolve_error(err: CAresError) -> ResolveError {
-    IOError::new(IOErrorKind::Other, err).into()
+fn convert_c_ares_error_to_response_error(err: CAresError) -> ResponseError {
+    ResponseError::new(HTTPResponseErrorKind::DNSServerError.into(), err)
 }

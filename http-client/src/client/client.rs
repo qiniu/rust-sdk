@@ -1,11 +1,17 @@
 use super::{
-    callbacks::{OnBody, OnError, OnHeader, OnProgress, OnRequest, OnRetry, OnStatusCode},
+    super::{IntoEndpoints, ServiceName},
+    callbacks::{
+        OnBody, OnDomainChosen, OnError, OnHeader, OnProgress, OnRequest, OnRetry, OnStatusCode,
+        OnToChooseDomain,
+    },
     CachedResolver, Callbacks, CallbacksBuilder, Chooser, DefaultRetrier,
-    ExponentialRetryDelayPolicy, RequestRetrier, RetryDelayPolicy, SimpleChooser, SimpleResolver,
+    ExponentialRetryDelayPolicy, RandomizedRetryDelayPolicy, RequestBuilder, RequestRetrier,
+    RetryDelayPolicy, ShuffledResolver, SimpleChooser, SimpleResolver,
 };
-use qiniu_http::HTTPCaller;
+use qiniu_http::{HTTPCaller, Method};
 use std::time::Duration;
 
+#[derive(Debug)]
 pub struct Client {
     use_https: bool,
     appended_user_agent: Box<str>,
@@ -28,9 +34,62 @@ impl Default for Client {
 
 impl Client {
     #[inline]
+    #[cfg(any(feature = "curl"))]
+    pub fn builder() -> ClientBuilder {
+        ClientBuilder::new()
+    }
+
+    #[inline]
     #[cfg(not(any(feature = "curl")))]
     pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
         ClientBuilder::new(http_caller).build()
+    }
+
+    #[inline]
+    #[cfg(not(any(feature = "curl")))]
+    pub fn builder(http_caller: Box<dyn HTTPCaller>) -> ClientBuilder {
+        ClientBuilder::new(http_caller)
+    }
+
+    pub fn get<'r>(
+        &'r self,
+        service_name: ServiceName,
+        into_endpoints: impl Into<IntoEndpoints<'r>>,
+    ) -> RequestBuilder<'r> {
+        self.new_request(Method::GET, service_name, into_endpoints.into())
+    }
+
+    pub fn head<'r>(
+        &'r self,
+        service_name: ServiceName,
+        into_endpoints: impl Into<IntoEndpoints<'r>>,
+    ) -> RequestBuilder<'r> {
+        self.new_request(Method::HEAD, service_name, into_endpoints.into())
+    }
+
+    pub fn post<'r>(
+        &'r self,
+        service_name: ServiceName,
+        into_endpoints: impl Into<IntoEndpoints<'r>>,
+    ) -> RequestBuilder<'r> {
+        self.new_request(Method::POST, service_name, into_endpoints.into())
+    }
+
+    pub fn put<'r>(
+        &'r self,
+        service_name: ServiceName,
+        into_endpoints: impl Into<IntoEndpoints<'r>>,
+    ) -> RequestBuilder<'r> {
+        self.new_request(Method::PUT, service_name, into_endpoints.into())
+    }
+
+    fn new_request<'r>(
+        &'r self,
+        method: Method,
+        service_name: ServiceName,
+        into_endpoints: IntoEndpoints<'r>,
+    ) -> RequestBuilder<'r> {
+        RequestBuilder::new(self, method, into_endpoints, service_name)
     }
 
     #[inline]
@@ -57,8 +116,29 @@ impl Client {
     pub(super) fn callbacks(&self) -> &Callbacks {
         &self.callbacks
     }
+
+    #[inline]
+    pub(super) fn http_caller(&self) -> &dyn HTTPCaller {
+        self.http_caller.as_ref()
+    }
+
+    #[inline]
+    pub(super) fn request_retrier(&self) -> &dyn RequestRetrier {
+        self.request_retrier.as_ref()
+    }
+
+    #[inline]
+    pub(super) fn retry_delay_policy(&self) -> &dyn RetryDelayPolicy {
+        self.retry_delay_policy.as_ref()
+    }
+
+    #[inline]
+    pub(super) fn chooser(&self) -> &dyn Chooser {
+        self.chooser.as_ref()
+    }
 }
 
+#[derive(Debug)]
 pub struct ClientBuilder {
     use_https: bool,
     appended_user_agent: Box<str>,
@@ -95,13 +175,16 @@ impl ClientBuilder {
 
     #[inline]
     fn _new(http_caller: Box<dyn HTTPCaller>) -> Self {
+        type DefaultResolver = CachedResolver<ShuffledResolver<SimpleResolver>>;
+        type DefaultRetryDelayPolicy = RandomizedRetryDelayPolicy<ExponentialRetryDelayPolicy>;
+
         ClientBuilder {
             http_caller,
             use_https: true,
             appended_user_agent: Default::default(),
             request_retrier: Box::new(DefaultRetrier::default()),
-            retry_delay_policy: Box::new(ExponentialRetryDelayPolicy::default()),
-            chooser: Box::new(SimpleChooser::<CachedResolver<SimpleResolver>>::default()),
+            retry_delay_policy: Box::new(DefaultRetryDelayPolicy::default()),
+            chooser: Box::new(SimpleChooser::<DefaultResolver>::default()),
             callbacks: Default::default(),
             connect_timeout: Default::default(),
             request_timeout: Default::default(),
@@ -121,83 +204,104 @@ impl ClientBuilder {
     }
 
     #[inline]
-    pub fn http_caller(mut self, http_caller: impl Into<Box<dyn HTTPCaller>>) -> Self {
+    pub fn http_caller(mut self, http_caller: Box<dyn HTTPCaller>) -> Self {
         self.http_caller = http_caller.into();
         self
     }
 
     #[inline]
-    pub fn request_retrier(mut self, request_retrier: impl Into<Box<dyn RequestRetrier>>) -> Self {
+    pub fn request_retrier(mut self, request_retrier: Box<dyn RequestRetrier>) -> Self {
         self.request_retrier = request_retrier.into();
         self
     }
 
     #[inline]
-    pub fn retry_delay_policy(
-        mut self,
-        retry_delay_policy: impl Into<Box<dyn RetryDelayPolicy>>,
-    ) -> Self {
+    pub fn retry_delay_policy(mut self, retry_delay_policy: Box<dyn RetryDelayPolicy>) -> Self {
         self.retry_delay_policy = retry_delay_policy.into();
         self
     }
 
     #[inline]
-    pub fn chooser(mut self, chooser: impl Into<Box<dyn Chooser>>) -> Self {
+    pub fn chooser(mut self, chooser: Box<dyn Chooser>) -> Self {
         self.chooser = chooser.into();
         self
     }
 
     #[inline]
-    pub fn on_uploading_progress(mut self, callback: impl Into<OnProgress>) -> Self {
+    pub fn on_uploading_progress(mut self, callback: OnProgress) -> Self {
         self.callbacks = self.callbacks.on_uploading_progress(callback);
         self
     }
 
     #[inline]
-    pub fn on_downloading_progress(mut self, callback: impl Into<OnProgress>) -> Self {
+    pub fn on_downloading_progress(mut self, callback: OnProgress) -> Self {
         self.callbacks = self.callbacks.on_downloading_progress(callback);
         self
     }
 
     #[inline]
-    pub fn on_request(mut self, callback: impl Into<OnRequest>) -> Self {
-        self.callbacks = self.callbacks.on_request(callback);
-        self
-    }
-
-    #[inline]
-    pub fn on_send_request_body(mut self, callback: impl Into<OnBody>) -> Self {
+    pub fn on_send_request_body(mut self, callback: OnBody) -> Self {
         self.callbacks = self.callbacks.on_send_request_body(callback);
         self
     }
 
     #[inline]
-    pub fn on_receive_response_status(mut self, callback: impl Into<OnStatusCode>) -> Self {
+    pub fn on_receive_response_status(mut self, callback: OnStatusCode) -> Self {
         self.callbacks = self.callbacks.on_receive_response_status(callback);
         self
     }
 
     #[inline]
-    pub fn on_receive_response_body(mut self, callback: impl Into<OnBody>) -> Self {
+    pub fn on_receive_response_body(mut self, callback: OnBody) -> Self {
         self.callbacks = self.callbacks.on_receive_response_body(callback);
         self
     }
 
     #[inline]
-    pub fn on_receive_response_header(mut self, callback: impl Into<OnHeader>) -> Self {
+    pub fn on_receive_response_header(mut self, callback: OnHeader) -> Self {
         self.callbacks = self.callbacks.on_receive_response_header(callback);
         self
     }
 
     #[inline]
-    pub fn on_error(mut self, callback: impl Into<OnError>) -> Self {
+    pub fn on_to_choose_domain(mut self, callback: OnToChooseDomain) -> Self {
+        self.callbacks = self.callbacks.on_to_choose_domain(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_domain_chosen(mut self, callback: OnDomainChosen) -> Self {
+        self.callbacks = self.callbacks.on_domain_chosen(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_before_request_signed(mut self, callback: OnRequest) -> Self {
+        self.callbacks = self.callbacks.on_before_request_signed(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_after_request_signed(mut self, callback: OnRequest) -> Self {
+        self.callbacks = self.callbacks.on_after_request_signed(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_error(mut self, callback: OnError) -> Self {
         self.callbacks = self.callbacks.on_error(callback);
         self
     }
 
     #[inline]
-    pub fn on_retry(mut self, callback: impl Into<OnRetry>) -> Self {
-        self.callbacks = self.callbacks.on_retry(callback);
+    pub fn on_before_retry_delay(mut self, callback: OnRetry) -> Self {
+        self.callbacks = self.callbacks.on_before_retry_delay(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_after_retry_delay(mut self, callback: OnRetry) -> Self {
+        self.callbacks = self.callbacks.on_after_retry_delay(callback);
         self
     }
 

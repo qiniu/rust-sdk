@@ -1,4 +1,4 @@
-SUBDIRS := credential utils etag upload_token http curl
+SUBDIRS := credential utils etag upload_token http http-client curl
 
 all: 
 	set -e; \

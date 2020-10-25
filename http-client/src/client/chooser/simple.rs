@@ -1,12 +1,14 @@
 use super::{
-    super::{Resolver, ResponseError},
+    super::{
+        super::regions::{DomainWithPort, Endpoint, IpAddrWithPort},
+        Resolver, ResponseError,
+    },
     Chooser, ChosenResult,
 };
 use dashmap::DashMap;
 use log::info;
 use std::{
     any::Any,
-    net::IpAddr,
     sync::{Arc, Mutex},
     thread::Builder as ThreadBuilder,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -15,11 +17,8 @@ use std::{
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum BlacklistKey {
-    Domain(Box<str>),
-    IpAddr(IpAddr),
-}
+type BlacklistKey = Endpoint;
+
 #[derive(Debug, Clone)]
 struct BlacklistValue {
     block_until: SystemTime,
@@ -66,18 +65,19 @@ impl<R: Resolver + Default> Default for SimpleChooser<R> {
     }
 }
 macro_rules! choose {
-    ($inner:expr, $domain:ident, $ignore_frozen:expr, $resolve:block) => {{
+    ($self:expr, $domain:expr, $ignore_frozen:expr, $resolve:block) => {{
         if $ignore_frozen {
             return $resolve.map_or_else(
                 |_| ChosenResult::UseThisDomainDirectly,
-                |ips| ChosenResult::IPs(ips.into()),
+                |ips| ChosenResult::IPs(ips.to_vec().into_iter().map(|ip| ip.into()).collect()),
             );
         }
 
         let mut need_to_shrink = false;
-        let chosen_result = if $inner
+        let chosen_result = if $self
+            .inner
             .blacklist
-            .get(&BlacklistKey::Domain($domain.into()))
+            .get(&BlacklistKey::from($domain.to_owned()))
             .map_or(false, |r| {
                 if r.value().block_until >= SystemTime::now() {
                     true
@@ -92,45 +92,36 @@ macro_rules! choose {
                 |_| ChosenResult::UseThisDomainDirectly,
                 |ips| {
                     if ips.is_empty() {
-                        return ChosenResult::UseThisDomainDirectly;
+                        ChosenResult::UseThisDomainDirectly
                     } else {
-                        let filtered_ips: Vec<_> = ips
-                            .to_vec()
-                            .into_iter()
-                            .filter(|&ip| {
-                                $inner
-                                    .blacklist
-                                    .get(&BlacklistKey::IpAddr(ip))
-                                    .map_or(true, |r| {
-                                        if r.value().block_until < SystemTime::now() {
-                                            need_to_shrink = true;
-                                            true
-                                        } else {
-                                            false
-                                        }
-                                    })
-                            })
-                            .collect();
-                        if filtered_ips.is_empty() {
-                            ChosenResult::TryAnotherDomain
-                        } else {
-                            ChosenResult::IPs(filtered_ips)
-                        }
+                        let (chosen_result, _need_to_shrink) = $self._choose_ips(
+                            &ips.to_vec()
+                                .into_iter()
+                                .map(|ip| {
+                                    IpAddrWithPort::new_with_port(
+                                        ip,
+                                        $domain.port().map_or(0, |port| port.get()),
+                                    )
+                                })
+                                .collect::<Box<[_]>>(),
+                        );
+                        need_to_shrink = _need_to_shrink;
+                        chosen_result
                     }
                 },
             )
         };
 
-        do_some_work_async(&$inner, need_to_shrink);
+        do_some_work_async(&$self.inner, need_to_shrink);
 
         chosen_result
     }};
 }
 
 impl<R: Resolver> Chooser for SimpleChooser<R> {
-    fn choose(&self, domain: &str, ignore_frozen: bool) -> ChosenResult {
-        choose!(self.inner, domain, ignore_frozen, {
-            self.resolver.resolve(domain)
+    fn choose(&self, domain: &DomainWithPort, ignore_frozen: bool) -> ChosenResult {
+        choose!(self, domain, ignore_frozen, {
+            self.resolver.resolve(domain.domain())
         })
     }
 
@@ -139,38 +130,48 @@ impl<R: Resolver> Chooser for SimpleChooser<R> {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_choose<'a>(
         &'a self,
-        domain: &'a str,
+        domain: &'a DomainWithPort,
         ignore_frozen: bool,
     ) -> BoxFuture<'a, ChosenResult> {
         Box::pin(async move {
-            choose!(self.inner, domain, ignore_frozen, {
-                self.resolver.async_resolve(domain).await
+            choose!(self, domain, ignore_frozen, {
+                self.resolver.async_resolve(domain.domain()).await
             })
         })
     }
 
-    fn freeze(&self, domain: &str, ips: &[IpAddr], _error: ResponseError) {
+    #[inline]
+    fn choose_ips(&self, ips: &[IpAddrWithPort]) -> ChosenResult {
+        let (chosen_result, _) = self._choose_ips(ips);
+        chosen_result
+    }
+
+    fn freeze_domain(&self, domain: &DomainWithPort, _error: &ResponseError) {
         let block_until = SystemTime::now() + self.block_duration;
-        if ips.is_empty() {
-            self.inner.blacklist.insert(
-                BlacklistKey::Domain(domain.into()),
-                BlacklistValue { block_until },
-            );
-        } else {
-            for &ip in ips.iter() {
-                self.inner
-                    .blacklist
-                    .insert(BlacklistKey::IpAddr(ip), BlacklistValue { block_until });
-            }
+        self.inner.blacklist.insert(
+            BlacklistKey::from(domain.to_owned()),
+            BlacklistValue { block_until },
+        );
+    }
+
+    fn freeze_ips(&self, ips: &[IpAddrWithPort], _error: &ResponseError) {
+        let block_until = SystemTime::now() + self.block_duration;
+        for &ip in ips.iter() {
+            self.inner
+                .blacklist
+                .insert(BlacklistKey::from(ip), BlacklistValue { block_until });
         }
     }
 
-    fn unfreeze(&self, domain: &str, ips: &[IpAddr]) {
+    fn unfreeze_domain(&self, domain: &DomainWithPort) {
         self.inner
             .blacklist
-            .remove(&BlacklistKey::Domain(domain.into()));
+            .remove(&BlacklistKey::from(domain.to_owned()));
+    }
+
+    fn unfreeze_ips(&self, ips: &[IpAddrWithPort]) {
         for &ip in ips.iter() {
-            self.inner.blacklist.remove(&BlacklistKey::IpAddr(ip));
+            self.inner.blacklist.remove(&BlacklistKey::from(ip));
         }
     }
 
@@ -192,6 +193,35 @@ impl<R: Resolver> Chooser for SimpleChooser<R> {
     #[inline]
     fn as_chooser(&self) -> &dyn Chooser {
         self
+    }
+}
+
+impl<R: Resolver> SimpleChooser<R> {
+    fn _choose_ips(&self, ips: &[IpAddrWithPort]) -> (ChosenResult, bool) {
+        let mut need_to_shrink = false;
+        let filtered_ips: Vec<_> = ips
+            .to_vec()
+            .into_iter()
+            .filter(|&ip| {
+                self.inner
+                    .blacklist
+                    .get(&BlacklistKey::from(ip))
+                    .map_or(true, |r| {
+                        if r.value().block_until < SystemTime::now() {
+                            need_to_shrink = true;
+                            true
+                        } else {
+                            false
+                        }
+                    })
+            })
+            .collect();
+        let chosen_result = if filtered_ips.is_empty() {
+            ChosenResult::TryAnotherDomain
+        } else {
+            ChosenResult::IPs(filtered_ips)
+        };
+        (chosen_result, need_to_shrink)
     }
 }
 
@@ -257,7 +287,13 @@ mod tests {
         super::super::{ResolveResult, ResponseErrorKind},
         *,
     };
-    use std::{collections::HashMap, error::Error, net::Ipv4Addr, result::Result, thread::sleep};
+    use std::{
+        collections::HashMap,
+        error::Error,
+        net::{IpAddr, Ipv4Addr},
+        result::Result,
+        thread::sleep,
+    };
 
     #[derive(Debug, Clone, Default)]
     struct ResolverFromTable {
@@ -315,60 +351,57 @@ mod tests {
         let chooser = SimpleChooser::new(backend, Duration::from_secs(30));
 
         assert_eq!(
-            chooser.choose("test_domain_1.com", false),
+            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::IPs(vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
             ])
         );
 
-        chooser.freeze(
-            "test_domain_1.com",
-            &[IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3))],
-            ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
+        chooser.freeze_ips(
+            &[IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into()],
+            &ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
         );
         assert_eq!(
-            chooser.choose("test_domain_1.com", false),
+            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::IPs(vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
             ])
         );
         assert_eq!(
-            chooser.choose("test_domain_1.com", true),
+            chooser.choose(&DomainWithPort::new("test_domain_1.com"), true),
             ChosenResult::IPs(vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
             ])
         );
 
-        chooser.freeze(
-            "test_domain_1.com",
+        chooser.freeze_ips(
             &[
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
             ],
-            ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
+            &ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
         );
         assert_eq!(
-            chooser.choose("test_domain_1.com", false),
+            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::TryAnotherDomain,
         );
 
-        chooser.freeze(
-            "test_domain_2.com",
-            &[],
-            ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
+        chooser.freeze_domain(
+            &DomainWithPort::new("test_domain_2.com"),
+            &ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
         );
         assert_eq!(
-            chooser.choose("test_domain_2.com", false),
+            chooser.choose(&DomainWithPort::new("test_domain_2.com"), false),
             ChosenResult::TryAnotherDomain,
         );
 
         assert_eq!(
-            chooser.choose("test_domain_3.com", false),
+            chooser.choose(&DomainWithPort::new("test_domain_3.com"), false),
             ChosenResult::UseThisDomainDirectly,
         );
 
@@ -388,65 +421,60 @@ mod tests {
         );
         let chooser = SimpleChooser::new(backend, Duration::from_secs(1));
         assert_eq!(
-            chooser.choose("test_domain_1.com", false),
+            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::IPs(vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
             ])
         );
 
-        chooser.freeze(
-            "test_domain_1.com",
+        chooser.freeze_ips(
             &[
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
             ],
-            ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
+            &ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
         );
         assert_eq!(
-            chooser.choose("test_domain_1.com", false),
+            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::TryAnotherDomain,
         );
 
         sleep(Duration::from_secs(1));
 
         assert_eq!(
-            chooser.choose("test_domain_1.com", false),
+            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::IPs(vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
             ])
         );
 
-        chooser.freeze(
-            "test_domain_1.com",
+        chooser.freeze_ips(
             &[
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
             ],
-            ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
+            &ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
         );
         assert_eq!(
-            chooser.choose("test_domain_1.com", false),
+            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::TryAnotherDomain,
         );
 
-        chooser.unfreeze(
-            "test_domain_1.com",
-            &[
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
-            ],
-        );
+        chooser.unfreeze_ips(&[
+            IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+            IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
+        ]);
         assert_eq!(
-            chooser.choose("test_domain_1.com", false),
+            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::IPs(vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
             ])
         );
 

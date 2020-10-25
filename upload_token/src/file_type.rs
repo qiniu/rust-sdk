@@ -3,6 +3,7 @@ use std::{convert::TryFrom, error::Error, fmt};
 
 /// 文件存储类型
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum FileType {
     /// 标准存储
     Normal,
