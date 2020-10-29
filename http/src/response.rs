@@ -7,6 +7,7 @@ use std::{
     io::{Cursor, Read, Result as IOResult},
     net::IpAddr,
     result,
+    time::Duration,
 };
 
 /// HTTP 响应状态码
@@ -117,6 +118,15 @@ pub struct Response<B> {
     body: B,
     server_ip: Option<IpAddr>,
     server_port: u16,
+    // TODO: 实现这些 Metrics
+    total_duration: Option<Duration>,
+    name_lookup_duration: Option<Duration>,
+    connect_duration: Option<Duration>,
+    secure_connect_duration: Option<Duration>,
+    redirect_duration: Option<Duration>,
+    request_duration: Option<Duration>,
+    server_wait_duration: Option<Duration>,
+    response_duration: Option<Duration>,
 }
 
 impl<B: Default> Default for Response<B> {
@@ -128,6 +138,14 @@ impl<B: Default> Default for Response<B> {
             body: Default::default(),
             server_ip: None,
             server_port: 80,
+            total_duration: None,
+            name_lookup_duration: None,
+            connect_duration: None,
+            secure_connect_duration: None,
+            redirect_duration: None,
+            request_duration: None,
+            server_wait_duration: None,
+            response_duration: None,
         }
     }
 }
@@ -193,6 +211,86 @@ impl<B> Response<B> {
     #[inline]
     pub fn header(&self, header_name: impl Into<HeaderNameOwned>) -> Option<&HeaderValueOwned> {
         self.headers.get(&header_name.into())
+    }
+
+    #[inline]
+    pub fn total_duration(&self) -> Option<Duration> {
+        self.total_duration
+    }
+
+    #[inline]
+    pub fn name_lookup_duration(&self) -> Option<Duration> {
+        self.name_lookup_duration
+    }
+
+    #[inline]
+    pub fn connect_duration(&self) -> Option<Duration> {
+        self.connect_duration
+    }
+
+    #[inline]
+    pub fn secure_connect_duration(&self) -> Option<Duration> {
+        self.secure_connect_duration
+    }
+
+    #[inline]
+    pub fn redirect_duration(&self) -> Option<Duration> {
+        self.redirect_duration
+    }
+
+    #[inline]
+    pub fn request_duration(&self) -> Option<Duration> {
+        self.request_duration
+    }
+
+    #[inline]
+    pub fn server_wait_duration(&self) -> Option<Duration> {
+        self.server_wait_duration
+    }
+
+    #[inline]
+    pub fn response_duration(&self) -> Option<Duration> {
+        self.response_duration
+    }
+
+    #[inline]
+    pub fn total_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.total_duration
+    }
+
+    #[inline]
+    pub fn name_lookup_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.name_lookup_duration
+    }
+
+    #[inline]
+    pub fn connect_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.connect_duration
+    }
+
+    #[inline]
+    pub fn secure_connect_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.secure_connect_duration
+    }
+
+    #[inline]
+    pub fn redirect_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.redirect_duration
+    }
+
+    #[inline]
+    pub fn request_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.request_duration
+    }
+
+    #[inline]
+    pub fn server_wait_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.server_wait_duration
+    }
+
+    #[inline]
+    pub fn response_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.response_duration
     }
 }
 
@@ -283,6 +381,54 @@ impl<B> ResponseBuilder<B> {
         self.inner
             .headers
             .insert(header_name.into(), header_value.into());
+        self
+    }
+
+    #[inline]
+    pub fn total_duration(mut self, duration: Duration) -> Self {
+        self.inner.total_duration = Some(duration);
+        self
+    }
+
+    #[inline]
+    pub fn name_lookup_duration(mut self, duration: Duration) -> Self {
+        self.inner.name_lookup_duration = Some(duration);
+        self
+    }
+
+    #[inline]
+    pub fn connect_duration(mut self, duration: Duration) -> Self {
+        self.inner.connect_duration = Some(duration);
+        self
+    }
+
+    #[inline]
+    pub fn secure_connect_duration(mut self, duration: Duration) -> Self {
+        self.inner.secure_connect_duration = Some(duration);
+        self
+    }
+
+    #[inline]
+    pub fn redirect_duration(mut self, duration: Duration) -> Self {
+        self.inner.redirect_duration = Some(duration);
+        self
+    }
+
+    #[inline]
+    pub fn request_duration(mut self, duration: Duration) -> Self {
+        self.inner.request_duration = Some(duration);
+        self
+    }
+
+    #[inline]
+    pub fn server_wait_duration(mut self, duration: Duration) -> Self {
+        self.inner.server_wait_duration = Some(duration);
+        self
+    }
+
+    #[inline]
+    pub fn response_duration(mut self, duration: Duration) -> Self {
+        self.inner.response_duration = Some(duration);
         self
     }
 
