@@ -12,6 +12,7 @@ use curl::{
     easy::{Easy2, Handler, ReadError, SeekResult, WriteError},
     Error as CurlError,
 };
+use curl_sys::CURL;
 use futures::{
     channel::oneshot::{channel, Sender},
     executor::block_on,
@@ -63,6 +64,7 @@ type OnProgress<'a> = Option<&'a (dyn Fn(u64, u64) -> bool + Send + Sync)>;
 type OnBody<'a> = Option<&'a (dyn Fn(&[u8]) -> bool + Send + Sync)>;
 type OnStatusCode<'a> = Option<&'a (dyn Fn(StatusCode) -> bool + Send + Sync)>;
 type OnHeader<'a> = Option<&'a (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync)>;
+type OnAfterPerform = Box<dyn Fn(*mut CURL) -> Result<(), ResponseError> + Sync + Send>;
 
 pub(super) struct SingleRequestContext<'ctx> {
     sender: Option<Sender<Result<AsyncResponseBuilder, ResponseError>>>,
@@ -80,7 +82,8 @@ pub(super) struct SingleRequestContext<'ctx> {
     on_receive_response_status: OnStatusCode<'ctx>,
     on_receive_response_body: OnBody<'ctx>,
     on_receive_response_header: OnHeader<'ctx>,
-    raw: *mut curl_sys::CURL,
+    on_after_perform: Arc<[OnAfterPerform]>,
+    raw: *mut CURL,
 }
 
 unsafe impl Send for SingleRequestContext<'_> {}
@@ -113,6 +116,7 @@ impl<'ctx> SingleRequestContext<'ctx> {
             on_receive_response_status: request.on_receive_response_status(),
             on_receive_response_body: request.on_receive_response_body(),
             on_receive_response_header: request.on_receive_response_header(),
+            on_after_perform: http_client.clone_after_perform_callbacks(),
             raw: null_mut(),
         };
         let mut easy = Easy2::new(context);
@@ -166,7 +170,11 @@ pub(super) fn handle_response(easy: &mut Easy2<SingleRequestContext>, error: Opt
 
 fn build_response(ctx: &mut SingleRequestContext) {
     if ctx.sender.is_some() {
-        let result = _build_response(ctx);
+        let result = ctx
+            .on_after_perform
+            .iter()
+            .try_for_each(|callback| callback(ctx.raw))
+            .and_then(|_| _build_response(ctx));
         return complete_response(ctx, result);
     }
 
@@ -185,22 +193,22 @@ fn build_response(ctx: &mut SingleRequestContext) {
     }
 
     #[inline]
-    fn get_response_code(raw: *mut curl_sys::CURL) -> Result<StatusCode, CurlError> {
+    fn get_response_code(raw: *mut CURL) -> Result<StatusCode, CurlError> {
         getopt_long(raw, curl_sys::CURLINFO_RESPONSE_CODE).map(|c| c as StatusCode)
     }
 
     #[inline]
-    fn get_primary_ip<'a>(raw: *mut curl_sys::CURL) -> Result<Option<&'a str>, CurlError> {
+    fn get_primary_ip<'a>(raw: *mut CURL) -> Result<Option<&'a str>, CurlError> {
         getopt_str(raw, curl_sys::CURLINFO_PRIMARY_IP)
     }
 
     #[inline]
-    fn get_primary_port(raw: *mut curl_sys::CURL) -> Result<u16, CurlError> {
+    fn get_primary_port(raw: *mut CURL) -> Result<u16, CurlError> {
         getopt_long(raw, curl_sys::CURLINFO_PRIMARY_PORT).map(|c| c as u16)
     }
 
     #[inline]
-    fn getopt_long(raw: *mut curl_sys::CURL, opt: curl_sys::CURLINFO) -> Result<c_long, CurlError> {
+    fn getopt_long(raw: *mut CURL, opt: curl_sys::CURLINFO) -> Result<c_long, CurlError> {
         let mut p = 0;
         verify_code(unsafe { curl_sys::curl_easy_getinfo(raw, opt, &mut p) })?;
         Ok(p)
@@ -208,7 +216,7 @@ fn build_response(ctx: &mut SingleRequestContext) {
 
     #[inline]
     fn getopt_str<'a>(
-        raw: *mut curl_sys::CURL,
+        raw: *mut CURL,
         opt: curl_sys::CURLINFO,
     ) -> Result<Option<&'a str>, CurlError> {
         match getopt_bytes(raw, opt) {
@@ -223,7 +231,7 @@ fn build_response(ctx: &mut SingleRequestContext) {
 
     #[inline]
     fn getopt_bytes<'b>(
-        raw: *mut curl_sys::CURL,
+        raw: *mut CURL,
         opt: curl_sys::CURLINFO,
     ) -> Result<Option<&'b [u8]>, CurlError> {
         let p = getopt_ptr(raw, opt)?;
@@ -235,10 +243,7 @@ fn build_response(ctx: &mut SingleRequestContext) {
     }
 
     #[inline]
-    fn getopt_ptr(
-        raw: *mut curl_sys::CURL,
-        opt: curl_sys::CURLINFO,
-    ) -> Result<*const c_char, CurlError> {
+    fn getopt_ptr(raw: *mut CURL, opt: curl_sys::CURLINFO) -> Result<*const c_char, CurlError> {
         let mut p: *const c_char = null();
         verify_code(unsafe { curl_sys::curl_easy_getinfo(raw, opt, &mut p) })?;
         Ok(p)

@@ -23,16 +23,28 @@ pub(super) fn sync_http_call(
     easy.reset();
     easy.get_mut().reset(http_client, request);
 
-    perform(easy, request)
+    perform(http_client, easy, request)
 }
 
-fn perform(easy: &mut Easy2<Context>, request: &Request) -> SyncResponseResult {
+fn perform(
+    http_client: &CurlHTTPCaller,
+    easy: &mut Easy2<Context>,
+    request: &Request,
+) -> SyncResponseResult {
     set_method(easy, request)?;
     set_url(easy, request)?;
     set_headers(easy, request)?;
     set_body(easy, request)?;
     set_options(easy, request)?;
+    http_client
+        .before_perform_callbacks()
+        .iter()
+        .try_for_each(|callback| callback(easy.raw()))?;
     check_perform_result(easy, easy.perform())?;
+    http_client
+        .after_perform_callbacks()
+        .iter()
+        .try_for_each(|callback| callback(easy.raw()))?;
     build_response(easy)
 }
 

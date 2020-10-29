@@ -12,8 +12,8 @@ keywords = ["qiniu", "storage"]
 
 [dependencies]
 once_cell = "1.4.1"
-curl = { version = "0.4.33", optional = true }
-curl-sys = { version = "0.4.36", optional = true }
+curl = { version = "0.4.33" }
+curl-sys = { version = "0.4.36" }
 tempfile = "3.1.0"
 object-pool = "0.5.3"
 url = "2.1.0"
@@ -42,7 +42,7 @@ static-ssl = ["curl/static-ssl"]
 curl-ssl = ["curl/ssl"]
 curl-mesalink = ["curl/mesalink"]
 curl-spnego = ["curl/spnego"]
-async = ["qiniu-http/async", "curl-sys", "futures", "slab", "thiserror", "crossbeam-channel", "crossbeam-utils", "sluice"]
+async = ["qiniu-http/async", "futures", "slab", "thiserror", "crossbeam-channel", "crossbeam-utils", "sluice"]
 docs = []
 
 [package.metadata.docs.rs]

@@ -105,7 +105,7 @@ impl<'ctx> Context<'ctx> {
     pub(super) fn reset<'r: 'ctx>(&mut self, client: &'r CurlHTTPCaller, request: &'r Request<'r>) {
         *self = Default::default();
         self.buffer_size = client.buffer_size();
-        self.temp_dir = client.temp_dir.as_deref().unwrap_or_else(|| &TEMP_DIR);
+        self.temp_dir = client.temp_dir().unwrap_or_else(|| &TEMP_DIR);
         self.request_body = Cursor::new(request.body());
         if request.method() != Method::HEAD {
             self.response_body = ResponseBody::Bytes(Vec::with_capacity(self.buffer_size));

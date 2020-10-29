@@ -1,9 +1,17 @@
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
 
-pub use qiniu_http::{self as http, HTTPCaller, Request, SyncResponseResult};
+pub extern crate curl;
+pub extern crate curl_sys;
+pub extern crate qiniu_http as http;
+
+pub use curl_sys::CURL;
+pub use qiniu_http::{HTTPCaller, Request, ResponseError, SyncResponseResult};
 use std::{
     any::Any,
+    fmt,
     path::{Path, PathBuf},
+    result::Result,
+    sync::Arc,
 };
 
 mod sync;
@@ -26,9 +34,22 @@ struct MultiOptions {
     connection_cache_size: usize,
 }
 
-/// 基于 Curl 的 HTTP 客户端实现
+#[cfg(feature = "async")]
+impl Default for MultiOptions {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            http_1_pipelining_length: 5,
+            http_2_multiplexing: true,
+            max_connections: 0,
+            max_connections_per_host: 0,
+            connection_cache_size: 0,
+        }
+    }
+}
+
 #[derive(Debug)]
-pub struct CurlHTTPCaller {
+struct CurlHTTPCallerOptions {
     buffer_size: usize,
     temp_dir: Option<PathBuf>,
 
@@ -36,17 +57,62 @@ pub struct CurlHTTPCaller {
     multi_options: MultiOptions,
 }
 
+impl Default for CurlHTTPCallerOptions {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            buffer_size: 1 << 22,
+            temp_dir: None,
+
+            #[cfg(feature = "async")]
+            multi_options: Default::default(),
+        }
+    }
+}
+
+type OnBeforePerform = Box<dyn Fn(*mut CURL) -> Result<(), ResponseError> + Sync + Send>;
+type OnAfterPerform = Box<dyn Fn(*mut CURL) -> Result<(), ResponseError> + Sync + Send>;
+
+/// 基于 Curl 的 HTTP 客户端实现
+pub struct CurlHTTPCaller {
+    options: CurlHTTPCallerOptions,
+    before_perform_callbacks: Arc<[OnBeforePerform]>,
+    after_perform_callbacks: Arc<[OnAfterPerform]>,
+}
+
 impl CurlHTTPCaller {
     /// 获取内存缓存区大小
     #[inline]
     pub fn buffer_size(&self) -> usize {
-        self.buffer_size
+        self.options.buffer_size
     }
 
     /// 获取临时文件目录路径
     #[inline]
     pub fn temp_dir(&self) -> Option<&Path> {
-        self.temp_dir.as_deref()
+        self.options.temp_dir.as_deref()
+    }
+
+    #[inline]
+    pub(crate) fn before_perform_callbacks(&self) -> &[OnBeforePerform] {
+        &self.before_perform_callbacks
+    }
+
+    #[inline]
+    pub(crate) fn after_perform_callbacks(&self) -> &[OnAfterPerform] {
+        &self.after_perform_callbacks
+    }
+
+    #[inline]
+    #[allow(dead_code)]
+    pub(crate) fn clone_before_perform_callbacks(&self) -> Arc<[OnBeforePerform]> {
+        self.before_perform_callbacks.to_owned()
+    }
+
+    #[inline]
+    #[allow(dead_code)]
+    pub(crate) fn clone_after_perform_callbacks(&self) -> Arc<[OnAfterPerform]> {
+        self.after_perform_callbacks.to_owned()
     }
 
     /// 获取 HTTP/1.1 最大管线化连接数
@@ -54,7 +120,7 @@ impl CurlHTTPCaller {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     #[inline]
     pub fn http_1_pipelining_length(&self) -> usize {
-        self.multi_options.http_1_pipelining_length
+        self.options.multi_options.http_1_pipelining_length
     }
 
     /// 获取 HTTP/1.1 最大管线化连接数
@@ -62,7 +128,7 @@ impl CurlHTTPCaller {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     #[inline]
     pub fn http_2_multiplexing(&self) -> bool {
-        self.multi_options.http_2_multiplexing
+        self.options.multi_options.http_2_multiplexing
     }
 
     /// 获取连接数最大值
@@ -70,7 +136,7 @@ impl CurlHTTPCaller {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     #[inline]
     pub fn max_connections(&self) -> usize {
-        self.multi_options.max_connections
+        self.options.multi_options.max_connections
     }
 
     /// 获取连接单个主机的连接数最大值
@@ -78,7 +144,7 @@ impl CurlHTTPCaller {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     #[inline]
     pub fn max_connections_per_host(&self) -> usize {
-        self.multi_options.max_connections_per_host
+        self.options.multi_options.max_connections_per_host
     }
 
     /// 获取连接池最大值
@@ -86,7 +152,7 @@ impl CurlHTTPCaller {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     #[inline]
     pub fn connection_cache_size(&self) -> usize {
-        self.multi_options.connection_cache_size
+        self.options.multi_options.connection_cache_size
     }
 
     /// 创建基于 Curl 的 HTTP 客户端构建器
@@ -98,7 +164,7 @@ impl CurlHTTPCaller {
     #[cfg(feature = "async")]
     #[inline]
     fn clone_multi_options(&self) -> MultiOptions {
-        self.multi_options.to_owned()
+        self.options.multi_options.to_owned()
     }
 }
 
@@ -106,39 +172,52 @@ impl Default for CurlHTTPCaller {
     #[inline]
     fn default() -> Self {
         Self {
-            buffer_size: 1 << 22,
-            temp_dir: None,
-
-            #[cfg(feature = "async")]
-            multi_options: MultiOptions {
-                http_1_pipelining_length: 5,
-                http_2_multiplexing: true,
-                max_connections: 0,
-                max_connections_per_host: 0,
-                connection_cache_size: 0,
-            },
+            options: Default::default(),
+            before_perform_callbacks: Vec::new().into(),
+            after_perform_callbacks: Vec::new().into(),
         }
+    }
+}
+
+impl fmt::Debug for CurlHTTPCaller {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.options.fmt(f)
     }
 }
 
 /// 基于 Curl 的 HTTP 客户端构建器
 #[derive(Default)]
 pub struct CurlHTTPCallerBuilder {
-    inner: CurlHTTPCaller,
+    options: CurlHTTPCallerOptions,
+    before_perform_callbacks: Vec<OnBeforePerform>,
+    after_perform_callbacks: Vec<OnAfterPerform>,
 }
 
 impl CurlHTTPCallerBuilder {
     /// 设置内存缓存区大小，默认为 4 MB
     #[inline]
     pub fn buffer_size(mut self, buffer_size: usize) -> Self {
-        self.inner.buffer_size = buffer_size;
+        self.options.buffer_size = buffer_size;
         self
     }
 
     /// 设置临时文件目录路径，用于缓存尺寸大于 `buffer_size` 的 HTTP 响应体，默认为系统临时目录
     #[inline]
     pub fn temp_dir(mut self, temp_dir: Option<PathBuf>) -> Self {
-        self.inner.temp_dir = temp_dir;
+        self.options.temp_dir = temp_dir;
+        self
+    }
+
+    #[inline]
+    pub fn on_before_perform_callbacks(mut self, callback: OnBeforePerform) -> Self {
+        self.before_perform_callbacks.push(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_after_perform_callbacks(mut self, callback: OnAfterPerform) -> Self {
+        self.before_perform_callbacks.push(callback);
         self
     }
 
@@ -147,7 +226,7 @@ impl CurlHTTPCallerBuilder {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     #[inline]
     pub fn http_1_pipelining_length(mut self, length: usize) -> Self {
-        self.inner.multi_options.http_1_pipelining_length = length;
+        self.options.multi_options.http_1_pipelining_length = length;
         self
     }
 
@@ -156,7 +235,7 @@ impl CurlHTTPCallerBuilder {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     #[inline]
     pub fn http_2_multiplexing(mut self, multiplexing: bool) -> Self {
-        self.inner.multi_options.http_2_multiplexing = multiplexing;
+        self.options.multi_options.http_2_multiplexing = multiplexing;
         self
     }
 
@@ -165,7 +244,7 @@ impl CurlHTTPCallerBuilder {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     #[inline]
     pub fn max_connections(mut self, connections: usize) -> Self {
-        self.inner.multi_options.max_connections = connections;
+        self.options.multi_options.max_connections = connections;
         self
     }
 
@@ -174,7 +253,7 @@ impl CurlHTTPCallerBuilder {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     #[inline]
     pub fn max_connections_per_host(mut self, connections: usize) -> Self {
-        self.inner.multi_options.max_connections_per_host = connections;
+        self.options.multi_options.max_connections_per_host = connections;
         self
     }
 
@@ -183,14 +262,18 @@ impl CurlHTTPCallerBuilder {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     #[inline]
     pub fn connection_cache_size(mut self, size: usize) -> Self {
-        self.inner.multi_options.connection_cache_size = size;
+        self.options.multi_options.connection_cache_size = size;
         self
     }
 
     /// 构建基于 Curl 的 HTTP 客户端
     #[inline]
     pub fn build(self) -> CurlHTTPCaller {
-        self.inner
+        CurlHTTPCaller {
+            options: self.options,
+            before_perform_callbacks: self.before_perform_callbacks.into(),
+            after_perform_callbacks: self.after_perform_callbacks.into(),
+        }
     }
 }
 

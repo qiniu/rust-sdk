@@ -20,6 +20,10 @@ pub(super) async fn async_http_call(
     set_headers(&mut easy, request)?;
     set_body(&mut easy, request)?;
     set_options(&mut easy, request)?;
+    http_client
+        .before_perform_callbacks()
+        .iter()
+        .try_for_each(|callback| callback(easy.raw()))?;
 
     let agent = spawn(http_client)
         .map_err(|err| ResponseError::new(ResponseErrorKind::LocalIOError, err))?;
