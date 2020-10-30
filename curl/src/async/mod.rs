@@ -241,6 +241,25 @@ mod tests {
                     &CurlHTTPCaller::default(),
                     &Request::builder()
                         .url(format!("http://{}/redirect/1", addr))
+                        .on_receive_response_status(Some(&|status| {
+                            block_on(async { status_codes.lock().await }).push(status);
+                            true
+                        }))
+                        .async_build()
+                        .await?,
+                )
+                .await?
+            };
+            assert_eq!(response.status_code(), StatusCode::MOVED_PERMANENTLY);
+            assert_eq!(status_codes.lock().await.as_slice(), &[301]);
+            status_codes.lock().await.clear();
+
+            response = {
+                let status_codes = status_codes.clone();
+                async_http_call(
+                    &CurlHTTPCaller::default(),
+                    &Request::builder()
+                        .url(format!("http://{}/redirect/1", addr))
                         .follow_redirection(true)
                         .on_receive_response_status(Some(&|status| {
                             block_on(async { status_codes.lock().await }).push(status);
