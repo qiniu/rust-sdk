@@ -55,328 +55,331 @@ macro_rules! install_callbacks {
     };
 }
 
-pub(super) fn request_call(request: Request) -> APIResult<SyncResponse> {
-    let (request, into_endpoints, service_name) = request.split();
-    let endpoints = into_endpoints.into_endpoints(service_name)?;
-    let mut retried = RetriedStatsInfo::default();
+macro_rules! create_request_call_fn {
+    ($method_name:ident, $return_type:ident, $sign_method:ident, $call_method:ident, $choose_method:ident, $sleep_method:path, $new_response_info:path, $block:ident, $blocking_block:ident $(, $async:ident)?) => {
+        pub(super) $($async)? fn $method_name(request: Request<'_>) -> APIResult<$return_type> {
+            let (request, into_endpoints, service_name) = request.split();
+            let endpoints = into_endpoints.into_endpoints(service_name)?;
+            let mut retried = RetriedStatsInfo::default();
 
-    return match try_new_endpoints(endpoints.endpoints(), &request, &mut retried) {
-        Ok(response) => Ok(response),
-        Err(err)
-            if err.retry_result() == RetryResult::TryOldEndpoints
-                && !endpoints.old_endpoints().is_empty() =>
-        {
-            retried.switch_to_old_endpoints();
-            try_old_endpoints(endpoints.old_endpoints(), &request, &mut retried)
-        }
-        Err(err) => Err(err.into_response_error()),
-    };
-
-    type TryResult = Result<SyncResponse, TryError>;
-
-    #[inline]
-    fn try_new_endpoints(
-        endpoints: &[Endpoint],
-        request: &RequestWithoutEndpoints,
-        retried: &mut RetriedStatsInfo,
-    ) -> TryResult {
-        try_endpoints(endpoints, request, retried, true)
-    }
-
-    #[inline]
-    fn try_old_endpoints(
-        endpoints: &[Endpoint],
-        request: &RequestWithoutEndpoints,
-        retried: &mut RetriedStatsInfo,
-    ) -> APIResult<SyncResponse> {
-        try_endpoints(endpoints, request, retried, false).map_err(|err| err.into_response_error())
-    }
-
-    fn try_endpoints(
-        endpoints: &[Endpoint],
-        request: &RequestWithoutEndpoints,
-        retried: &mut RetriedStatsInfo,
-        is_endpoints_old: bool,
-    ) -> TryResult {
-        let mut last_error: Option<TryError> = None;
-        macro_rules! try_endpoint {
-            ($endpoint:expr, $request:expr, $retried:expr, $is_endpoint_old:expr) => {
-                match try_endpoint($endpoint, $request, $retried) {
-                    Ok(response) => return Ok(response),
-                    Err(err) => match err.retry_result() {
-                        RetryResult::TryOldEndpoints if $is_endpoint_old => return Err(err),
-                        RetryResult::DontRetry => {
-                            retried.increase_abandoned_ips_of_current_endpoint();
-                            return Err(err);
-                        }
-                        _ => {
-                            retried.increase_abandoned_ips_of_current_endpoint();
-                            last_error = Some(err);
-                        }
-                    },
+            return match $block!({ try_new_endpoints(endpoints.endpoints(), &request, &mut retried) }) {
+                Ok(response) => Ok(response),
+                Err(err)
+                    if err.retry_result() == RetryResult::TryOldEndpoints
+                        && !endpoints.old_endpoints().is_empty() =>
+                {
+                    retried.switch_to_old_endpoints();
+                    $block!({ try_old_endpoints(endpoints.old_endpoints(), &request, &mut retried) })
                 }
+                Err(err) => Err(err.into_response_error()),
             };
-        }
 
-        let mut tried_count = 0usize;
-        for domain_with_port in find_domains_with_port(endpoints) {
-            retried.switch_endpoint();
-            'within_domain: loop {
-                retried.switch_ips();
-                match choose_domain(request,domain_with_port, false)? {
-                    ChosenResult::IPs(ips) if !ips.is_empty() => {
-                        tried_count += 1;
-                        let domain =
-                            DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), ips);
-                        try_endpoint!(&domain, request, retried, is_endpoints_old);
-                        request.client().chooser().freeze_ips(
-                            domain.as_domain().unwrap().resolved_ips(),
-                            last_error.as_ref().unwrap().response_error());
-                    }
-                    ChosenResult::TryAnotherDomain => {
-                        retried.increase_abandoned_endpoints();
-                        break 'within_domain;
-                    }
-                    _ /* ChosenResult::UseThisDomainDirectly or ChosenResult::IPs([]) */ => {
-                        tried_count += 1;
-                        let domain =
-                            DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), vec![]);
-                        try_endpoint!(&domain, request, retried, is_endpoints_old);
-                        request.client().chooser().freeze_domain(
-                            domain.as_domain().unwrap().domain_with_port(),
-                            last_error.as_ref().unwrap().response_error());
-                    }
-                }
+            type TryResult = Result<$return_type, TryError>;
+
+            #[inline]
+            $($async)? fn try_new_endpoints(
+                endpoints: &[Endpoint],
+                request: &RequestWithoutEndpoints<'_>,
+                retried: &mut RetriedStatsInfo,
+            ) -> TryResult {
+                $block!({ try_endpoints(endpoints, request, retried, true) })
             }
-        }
 
-        let ips_with_port = find_ip_addr_with_port(endpoints)
-            .cloned()
-            .collect::<Vec<_>>();
-        if !ips_with_port.is_empty() {
-            'within_ips: loop {
-                match request.client().chooser().choose_ips(&ips_with_port) {
-                    ChosenResult::IPs(ips) if !ips.is_empty() => {
-                        for ip in ips.into_iter() {
-                            retried.switch_endpoint();
-                            retried.switch_ips();
-                            tried_count += 1;
-                            try_endpoint!(
-                                &DomainOrIpAddr::from(ip),
-                                request,
-                                retried,
-                                is_endpoints_old
-                            );
-                            request
-                                .client()
-                                .chooser()
-                                .freeze_ips(&[ip], last_error.as_ref().unwrap().response_error());
-                        }
-                    }
-                    ChosenResult::UseThisDomainDirectly => {
-                        panic!("choose_ips() must not returns ChosenResult::UseThisDomainDirectly")
-                    }
-                    _ => {
-                        retried.increase_abandoned_endpoints();
-                        break 'within_ips;
-                    }
-                }
+            #[inline]
+            $($async)? fn try_old_endpoints(
+                endpoints: &[Endpoint],
+                request: &RequestWithoutEndpoints<'_>,
+                retried: &mut RetriedStatsInfo,
+            ) -> APIResult<$return_type> {
+                $block!({ try_endpoints(endpoints, request, retried, false) }).map_err(|err| err.into_response_error())
             }
-        }
 
-        if tried_count == 0 {
-            'out_of_domains: for domain_with_port in find_domains_with_port(endpoints) {
-                retried.switch_endpoint();
-                'within_domain_2: loop {
-                    retried.switch_ips();
-                    match choose_domain(request, domain_with_port, true)? {
-                        ChosenResult::IPs(ips) if !ips.is_empty() => {
-                            tried_count += 1;
-                            let domain =
-                                DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), ips);
-                            try_endpoint!(&domain, request, retried, is_endpoints_old);
-                            request.client().chooser().freeze_ips(
-                                domain.as_domain().unwrap().resolved_ips(),
-                                last_error.as_ref().unwrap().response_error());
-                            break 'out_of_domains;
+            $($async)? fn try_endpoints(
+                endpoints: &[Endpoint],
+                request: &RequestWithoutEndpoints<'_>,
+                retried: &mut RetriedStatsInfo,
+                is_endpoints_old: bool,
+            ) -> TryResult {
+                let mut last_error: Option<TryError> = None;
+                macro_rules! try_endpoint {
+                    ($endpoint:expr, $request:expr, $retried:expr, $is_endpoint_old:expr) => {
+                        match $block!({ try_endpoint($endpoint, $request, $retried) }) {
+                            Ok(response) => return Ok(response),
+                            Err(err) => match err.retry_result() {
+                                RetryResult::TryOldEndpoints if $is_endpoint_old => return Err(err),
+                                RetryResult::DontRetry => {
+                                    retried.increase_abandoned_ips_of_current_endpoint();
+                                    return Err(err);
+                                }
+                                _ => {
+                                    retried.increase_abandoned_ips_of_current_endpoint();
+                                    last_error = Some(err);
+                                }
+                            },
                         }
-                        ChosenResult::TryAnotherDomain => {
-                            retried.increase_abandoned_endpoints();
-                            break 'within_domain_2;
-                        }
-                        _ /* ChosenResult::UseThisDomainDirectly or ChosenResult::IPs([]) */ => {
-                            tried_count += 1;
-                            let domain =
-                                DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), vec![]);
-                            try_endpoint!(&domain, request, retried, is_endpoints_old);
-                            request.client().chooser().freeze_domain(
-                                domain.as_domain().unwrap().domain_with_port(),
-                                last_error.as_ref().unwrap().response_error());
-                            break 'out_of_domains;
-                        }
-                    }
+                    };
                 }
-            }
-        }
 
-        if tried_count == 0 && !ips_with_port.is_empty() {
-            'within_ips_2: for ip in ips_with_port.into_iter() {
-                retried.switch_endpoint();
-                retried.switch_ips();
-                try_endpoint!(
-                    &DomainOrIpAddr::from(ip),
-                    request,
-                    retried,
-                    is_endpoints_old
-                );
-                request
-                    .client()
-                    .chooser()
-                    .freeze_ips(&[ip], last_error.as_ref().unwrap().response_error());
-                break 'within_ips_2;
-            }
-        }
-
-        return Err(last_error.expect("No domains or IPs can be retried"));
-    }
-
-    fn try_endpoint(
-        domain_or_ip: &DomainOrIpAddr,
-        request: &RequestWithoutEndpoints,
-        retried: &mut RetriedStatsInfo,
-    ) -> TryResult {
-        let (url, resolved_ips) = make_url(domain_or_ip, request)?;
-        let mut built_request = make_request(&url, request, &resolved_ips);
-        call_before_request_signed_callbacks(request, &mut built_request, retried)?;
-        sign_request(&mut built_request, request.authorization())?;
-        let request_info = RequestInfo::new(&built_request);
-        install_callbacks!(request, request_info, built_request);
-        call_after_request_signed_callbacks(request, &mut built_request, retried)?;
-        do_request(request, &mut built_request, retried)
-    }
-
-    fn do_request(
-        request: &RequestWithoutEndpoints,
-        built_request: &mut HTTPRequest,
-        retried: &mut RetriedStatsInfo,
-    ) -> TryResult {
-        loop {
-            let response = request
-                .client()
-                .http_caller()
-                .call(&built_request)
-                .map_err(ResponseError::from)
-                .and_then(judge)
-                .map_err(|response_error| {
-                    let retry_result = request.client().request_retrier().retry(
-                        built_request,
-                        request.idempotent(),
-                        &response_error,
-                        retried,
-                    );
-                    retried.increase();
-                    TryError::new(response_error, retry_result)
-                });
-            match response {
-                Ok(response) => {
-                    call_success_callbacks(
-                        request,
-                        built_request,
-                        retried,
-                        &ResponseInfo::new_from_sync(&response),
-                    )?;
-                    return Ok(response);
-                }
-                Err(err) => {
-                    call_error_callbacks(request, built_request, retried, err.response_error())?;
-                    match err.retry_result() {
-                        retry_result @ RetryResult::RetryRequest
-                        | retry_result @ RetryResult::Throttled
-                        | retry_result @ RetryResult::TryNextServer => {
-                            let delay = request
-                                .client()
-                                .retry_delay_policy()
-                                .delay_before_next_retry(
-                                    built_request,
-                                    err.retry_result(),
-                                    err.response_error(),
-                                    retried,
-                                );
-                            call_before_retry_delay_callbacks(
-                                request,
-                                built_request,
-                                retried,
-                                delay,
-                            )?;
-                            if delay > Duration::new(0, 0) {
-                                sleep(delay);
+                let mut tried_count = 0usize;
+                for domain_with_port in find_domains_with_port(endpoints) {
+                    retried.switch_endpoint();
+                    'within_domain: loop {
+                        retried.switch_ips();
+                        match $block!({ choose_domain(request,domain_with_port, false) })? {
+                            ChosenResult::IPs(ips) if !ips.is_empty() => {
+                                tried_count += 1;
+                                let domain =
+                                    DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), ips);
+                                try_endpoint!(&domain, request, retried, is_endpoints_old);
+                                request.client().chooser().freeze_ips(
+                                    domain.as_domain().unwrap().resolved_ips(),
+                                    last_error.as_ref().unwrap().response_error());
                             }
-                            call_after_retry_delay_callbacks(
+                            ChosenResult::TryAnotherDomain => {
+                                retried.increase_abandoned_endpoints();
+                                break 'within_domain;
+                            }
+                            _ /* ChosenResult::UseThisDomainDirectly or ChosenResult::IPs([]) */ => {
+                                tried_count += 1;
+                                let domain =
+                                    DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), vec![]);
+                                try_endpoint!(&domain, request, retried, is_endpoints_old);
+                                request.client().chooser().freeze_domain(
+                                    domain.as_domain().unwrap().domain_with_port(),
+                                    last_error.as_ref().unwrap().response_error());
+                            }
+                        }
+                    }
+                }
+
+                let ips_with_port = find_ip_addr_with_port(endpoints)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                if !ips_with_port.is_empty() {
+                    'within_ips: loop {
+                        match request.client().chooser().choose_ips(&ips_with_port) {
+                            ChosenResult::IPs(ips) if !ips.is_empty() => {
+                                for ip in ips.into_iter() {
+                                    retried.switch_endpoint();
+                                    retried.switch_ips();
+                                    tried_count += 1;
+                                    try_endpoint!(
+                                        &DomainOrIpAddr::from(ip),
+                                        request,
+                                        retried,
+                                        is_endpoints_old
+                                    );
+                                    request
+                                        .client()
+                                        .chooser()
+                                        .freeze_ips(&[ip], last_error.as_ref().unwrap().response_error());
+                                }
+                            }
+                            ChosenResult::UseThisDomainDirectly => {
+                                panic!("choose_ips() must not returns ChosenResult::UseThisDomainDirectly")
+                            }
+                            _ => {
+                                retried.increase_abandoned_endpoints();
+                                break 'within_ips;
+                            }
+                        }
+                    }
+                }
+
+                if tried_count == 0 {
+                    'out_of_domains: for domain_with_port in find_domains_with_port(endpoints) {
+                        retried.switch_endpoint();
+                        'within_domain_2: loop {
+                            retried.switch_ips();
+                            match $block!({ choose_domain(request, domain_with_port, true) })? {
+                                ChosenResult::IPs(ips) if !ips.is_empty() => {
+                                    tried_count += 1;
+                                    let domain =
+                                        DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), ips);
+                                    try_endpoint!(&domain, request, retried, is_endpoints_old);
+                                    request.client().chooser().freeze_ips(
+                                        domain.as_domain().unwrap().resolved_ips(),
+                                        last_error.as_ref().unwrap().response_error());
+                                    break 'out_of_domains;
+                                }
+                                ChosenResult::TryAnotherDomain => {
+                                    retried.increase_abandoned_endpoints();
+                                    break 'within_domain_2;
+                                }
+                                _ /* ChosenResult::UseThisDomainDirectly or ChosenResult::IPs([]) */ => {
+                                    tried_count += 1;
+                                    let domain =
+                                        DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), vec![]);
+                                    try_endpoint!(&domain, request, retried, is_endpoints_old);
+                                    request.client().chooser().freeze_domain(
+                                        domain.as_domain().unwrap().domain_with_port(),
+                                        last_error.as_ref().unwrap().response_error());
+                                    break 'out_of_domains;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if tried_count == 0 && !ips_with_port.is_empty() {
+                    'within_ips_2: for ip in ips_with_port.into_iter() {
+                        retried.switch_endpoint();
+                        retried.switch_ips();
+                        try_endpoint!(
+                            &DomainOrIpAddr::from(ip),
+                            request,
+                            retried,
+                            is_endpoints_old
+                        );
+                        request
+                            .client()
+                            .chooser()
+                            .freeze_ips(&[ip], last_error.as_ref().unwrap().response_error());
+                        break 'within_ips_2;
+                    }
+                }
+
+                return Err(last_error.expect("No domains or IPs can be retried"));
+            }
+
+            $($async)? fn try_endpoint(
+                domain_or_ip: &DomainOrIpAddr,
+                request: &RequestWithoutEndpoints<'_>,
+                retried: &mut RetriedStatsInfo,
+            ) -> TryResult {
+                let (url, resolved_ips) = make_url(domain_or_ip, request)?;
+                let mut built_request = make_request(&url, request, &resolved_ips);
+                call_before_request_signed_callbacks(request, &mut built_request, retried)?;
+                $block!({ sign_request(&mut built_request, request.authorization()) })?;
+                let request_info = RequestInfo::new(&built_request);
+                install_callbacks!(request, request_info, built_request);
+                call_after_request_signed_callbacks(request, &mut built_request, retried)?;
+                $block!({ do_request(request, &mut built_request, retried) })
+            }
+
+            $($async)? fn do_request(
+                request: &RequestWithoutEndpoints<'_>,
+                built_request: &mut HTTPRequest<'_>,
+                retried: &mut RetriedStatsInfo,
+            ) -> TryResult {
+                loop {
+                    let response = $block!({
+                        request
+                            .client()
+                            .http_caller()
+                            .$call_method(&built_request)
+                        })
+                        .map_err(ResponseError::from)
+                        .and_then(|response| $blocking_block!({ judge(response) }) )
+                        .map_err(|response_error| {
+                            let retry_result = request.client().request_retrier().retry(
+                                built_request,
+                                request.idempotent(),
+                                &response_error,
+                                retried,
+                            );
+                            retried.increase();
+                            TryError::new(response_error, retry_result)
+                        });
+                    match response {
+                        Ok(response) => {
+                            call_success_callbacks(
                                 request,
                                 built_request,
                                 retried,
-                                delay,
+                                &$new_response_info(&response),
                             )?;
-                            match retry_result {
-                                RetryResult::RetryRequest | RetryResult::Throttled => continue,
+                            return Ok(response);
+                        }
+                        Err(err) => {
+                            call_error_callbacks(request, built_request, retried, err.response_error())?;
+                            match err.retry_result() {
+                                retry_result @ RetryResult::RetryRequest
+                                | retry_result @ RetryResult::Throttled
+                                | retry_result @ RetryResult::TryNextServer => {
+                                    let delay = request
+                                        .client()
+                                        .retry_delay_policy()
+                                        .delay_before_next_retry(
+                                            built_request,
+                                            err.retry_result(),
+                                            err.response_error(),
+                                            retried,
+                                        );
+                                    call_before_retry_delay_callbacks(
+                                        request,
+                                        built_request,
+                                        retried,
+                                        delay,
+                                    )?;
+                                    if delay > Duration::new(0, 0) {
+                                        $block!({ $sleep_method(delay) });
+                                    }
+                                    call_after_retry_delay_callbacks(
+                                        request,
+                                        built_request,
+                                        retried,
+                                        delay,
+                                    )?;
+                                    match retry_result {
+                                        RetryResult::RetryRequest | RetryResult::Throttled => continue,
+                                        _ => return Err(err),
+                                    }
+                                }
                                 _ => return Err(err),
                             }
                         }
-                        _ => return Err(err),
                     }
                 }
             }
-        }
-    }
 
-    fn sign_request(
-        request: &mut HTTPRequest,
-        authorization: Option<&Authorization>,
-    ) -> Result<(), TryError> {
-        if let Some(authorization) = authorization {
-            authorization.sign(request).map_err(|err| match err {
-                AuthorizationError::IOError(err) => TryError::new(
-                    ResponseError::new(
-                        ResponseErrorKind::HTTPError(HTTPResponseErrorKind::LocalIOError),
-                        err,
-                    ),
-                    RetryResult::DontRetry,
-                ),
-                AuthorizationError::UrlParseError(err) => TryError::new(
-                    ResponseError::new(
-                        ResponseErrorKind::HTTPError(HTTPResponseErrorKind::InvalidURLError),
-                        err,
-                    ),
-                    RetryResult::TryNextServer,
-                ),
-            })?;
-        }
-        Ok(())
-    }
+            $($async)? fn sign_request(
+                request: &mut HTTPRequest<'_>,
+                authorization: Option<&Authorization>,
+            ) -> Result<(), TryError> {
+                if let Some(authorization) = authorization {
+                    $block!({ authorization.$sign_method(request) }).map_err(|err| match err {
+                        AuthorizationError::IOError(err) => TryError::new(
+                            ResponseError::new(
+                                ResponseErrorKind::HTTPError(HTTPResponseErrorKind::LocalIOError),
+                                err,
+                            ),
+                            RetryResult::DontRetry,
+                        ),
+                        AuthorizationError::UrlParseError(err) => TryError::new(
+                            ResponseError::new(
+                                ResponseErrorKind::HTTPError(HTTPResponseErrorKind::InvalidURLError),
+                                err,
+                            ),
+                            RetryResult::TryNextServer,
+                        ),
+                    })?;
+                }
+                Ok(())
+            }
 
-    fn judge(response: SyncResponse) -> APIResult<SyncResponse> {
-        if response
-            .headers()
-            .get(&X_REQ_ID_HEADER_NAME.into())
-            .is_none()
-        {
-            return Err(ResponseError::new(
-                ResponseErrorKind::MaliciousResponse,
-                format!(
-                    "cannot find {} header from response, might be malicious response",
-                    X_REQ_ID_HEADER_NAME
-                ),
-            ));
-        }
-        match response.status_code() {
-            0..=199 | 300..=399 => Err(ResponseError::new(
-                ResponseErrorKind::UnexpectedStatusCode(response.status_code()),
-                format!("status code {} is unexpected", response.status_code()),
-            )),
-            200..=299 => Ok(response),
+            $($async)? fn judge(response: $return_type) -> APIResult<$return_type> {
+                if response
+                    .headers()
+                    .get(&X_REQ_ID_HEADER_NAME.into())
+                    .is_none()
+                {
+                    return Err(ResponseError::new(
+                        ResponseErrorKind::MaliciousResponse,
+                        format!(
+                            "cannot find {} header from response, might be malicious response",
+                            X_REQ_ID_HEADER_NAME
+                        ),
+                    ));
+                }
+                match response.status_code() {
+                    0..=199 | 300..=399 => Err(ResponseError::new(
+                        ResponseErrorKind::UnexpectedStatusCode(response.status_code()),
+                        format!("status code {} is unexpected", response.status_code()),
+                    )),
+                    200..=299 => Ok(response),
             status_code => {
-                let error_response_body: Vec<u8> = response
-                    .fulfill()
+                let error_response_body: Vec<u8> = $block!({ response.fulfill() })
                     .map_err(|err| {
                         ResponseError::new(HTTPResponseErrorKind::LocalIOError.into(), err)
                     })?
@@ -390,24 +393,82 @@ pub(super) fn request_call(request: Request) -> APIResult<SyncResponse> {
                     ResponseErrorKind::StatusCodeError(status_code),
                     error_response_body.into_error(),
                 ))
+                }
+            }
+            }
+
+            $($async)? fn choose_domain(
+                request: &RequestWithoutEndpoints<'_>,
+                domain_with_port: &DomainWithPort,
+                ignore_frozen: bool,
+            ) -> Result<ChosenResult, TryError> {
+                call_to_choose_domain_callbacks(request, domain_with_port.domain())?;
+                let result = $block!({
+                    request
+                        .client()
+                        .chooser()
+                        .$choose_method(domain_with_port, ignore_frozen)
+                });
+                call_domain_chosen_callbacks(request, domain_with_port.domain(), &result)?;
+                Ok(result)
             }
         }
-    }
-
-    fn choose_domain(
-        request: &RequestWithoutEndpoints,
-        domain_with_port: &DomainWithPort,
-        ignore_frozen: bool,
-    ) -> Result<ChosenResult, TryError> {
-        call_to_choose_domain_callbacks(request, domain_with_port.domain())?;
-        let result = request
-            .client()
-            .chooser()
-            .choose(domain_with_port, ignore_frozen);
-        call_domain_chosen_callbacks(request, domain_with_port.domain(), &result)?;
-        Ok(result)
-    }
+    };
 }
+
+macro_rules! sync_block {
+    ($block:block) => {{
+        $block
+    }};
+}
+
+#[cfg(feature = "async")]
+macro_rules! async_block {
+    ($block:block) => {
+        $block.await
+    };
+}
+
+#[cfg(feature = "async")]
+macro_rules! blocking_async_block {
+    ($block:block) => {
+        futures::executor::block_on(async { $block.await })
+    };
+}
+
+create_request_call_fn!(
+    request_call,
+    SyncResponse,
+    sign,
+    call,
+    choose,
+    sleep,
+    ResponseInfo::new_from_sync,
+    sync_block,
+    sync_block
+);
+
+#[cfg(feature = "async")]
+use {super::AsyncResponse, futures_timer::Delay as AsyncDelay};
+
+#[cfg(feature = "async")]
+async fn async_sleep(dur: Duration) {
+    AsyncDelay::new(dur).await
+}
+
+#[cfg(feature = "async")]
+create_request_call_fn!(
+    async_request_call,
+    AsyncResponse,
+    async_sign,
+    async_call,
+    async_choose,
+    async_sleep,
+    ResponseInfo::new_from_async,
+    async_block,
+    blocking_async_block,
+    async
+);
 
 #[cfg(test)]
 mod tests {
