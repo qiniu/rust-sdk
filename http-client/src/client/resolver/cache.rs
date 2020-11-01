@@ -13,7 +13,10 @@ use std::{
     net::IpAddr,
     path::{Path, PathBuf},
     result::Result,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering::Relaxed},
+        Arc, Mutex,
+    },
     thread::Builder as ThreadBuilder,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -23,11 +26,9 @@ const CACHE_SIZE_TO_SHRINK: usize = 100;
 const MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(120);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CachedResolver<R: Resolver> {
     inner: Arc<CachedResolverInner<R>>,
-    lifetime: Duration,
-    persistent: Option<PersistentFile>,
 }
 
 type Cache = DashMap<Box<str>, CachedResolverValue>;
@@ -37,6 +38,8 @@ struct CachedResolverInner<R: Resolver> {
     backend: R,
     cache: Cache,
     thread_lock: Mutex<CachedResolverInnerLockedData>,
+    lifetime: Duration,
+    persistent: Option<PersistentFile>,
 }
 
 #[derive(Debug)]
@@ -45,10 +48,10 @@ struct CachedResolverInnerLockedData {
     last_refresh_timestamp: SystemTime,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct PersistentFile {
     path: PathBuf,
-    auto_persistent: bool,
+    auto_persistent: AtomicBool,
 }
 
 #[derive(Debug, Clone)]
@@ -78,9 +81,9 @@ impl<R: Resolver> CachedResolver<R> {
                 backend,
                 cache: Default::default(),
                 thread_lock: Default::default(),
+                lifetime,
+                persistent: None,
             }),
-            lifetime,
-            persistent: None,
         }
     }
 
@@ -96,12 +99,12 @@ impl<R: Resolver> CachedResolver<R> {
             inner: Arc::new(CachedResolverInner {
                 backend,
                 cache,
+                lifetime,
+                persistent: Some(PersistentFile {
+                    path,
+                    auto_persistent: auto_persistent.into(),
+                }),
                 thread_lock: Default::default(),
-            }),
-            lifetime,
-            persistent: Some(PersistentFile {
-                path,
-                auto_persistent,
             }),
         })
     }
@@ -119,12 +122,12 @@ impl<R: Resolver> CachedResolver<R> {
             inner: Arc::new(CachedResolverInner {
                 backend,
                 cache,
+                lifetime,
+                persistent: Some(PersistentFile {
+                    path,
+                    auto_persistent: auto_persistent.into(),
+                }),
                 thread_lock: Default::default(),
-            }),
-            lifetime,
-            persistent: Some(PersistentFile {
-                path,
-                auto_persistent,
             }),
         }
     }
@@ -134,8 +137,8 @@ impl<R: Resolver> CachedResolver<R> {
     }
 
     pub fn set_auto_persistent(&mut self, auto_persistent: bool) {
-        if let Some(persistent) = &mut self.persistent {
-            persistent.auto_persistent = auto_persistent;
+        if let Some(persistent) = &self.inner.persistent {
+            persistent.auto_persistent.store(auto_persistent, Relaxed);
         }
     }
 
@@ -150,11 +153,11 @@ impl<R: Resolver> CachedResolver<R> {
     }
 
     fn save_cache_into_persistent_file(&self) -> PersistentResult<()> {
-        if let Some(persistent) = &self.persistent {
+        if let Some(persistent) = &self.inner.persistent {
             _save_cache_into_persistent_file(
                 self.inner.cache.to_owned(),
                 &persistent.path,
-                self.lifetime,
+                self.inner.lifetime,
             )?;
         }
         Ok(())
@@ -162,7 +165,8 @@ impl<R: Resolver> CachedResolver<R> {
 
     #[inline]
     pub fn persistent_path(&self) -> Option<&Path> {
-        self.persistent
+        self.inner
+            .persistent
             .as_ref()
             .map(|persistent| persistent.path.as_path())
     }
@@ -219,12 +223,12 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
                 match self.inner.backend.resolve(domain) {
                     Ok(ip_addrs) => {
                         resolve_result = Some(Ok(ip_addrs.to_owned()));
-                        if let Some(persistent) = &self.persistent {
-                            if persistent.auto_persistent {
+                        if let Some(persistent) = &self.inner.persistent {
+                            if persistent.auto_persistent.load(Relaxed) {
                                 need_to_persistent = true;
                             }
                         }
-                        Ok(CachedResolverValue::new(ip_addrs, self.lifetime))
+                        Ok(CachedResolverValue::new(ip_addrs, self.inner.lifetime))
                     }
                     Err(err) => {
                         resolve_result = Some(Err(err));
@@ -249,7 +253,7 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
         self.do_some_work_async(
             need_to_persistent,
             need_to_refresh,
-            self.persistent.as_ref().map(|p| p.path.as_ref()),
+            self.inner.persistent.as_ref().map(|p| p.path.as_ref()),
         );
         resolve_result.unwrap()
     }
@@ -280,7 +284,7 @@ impl<R: Resolver> CachedResolver<R> {
                 return;
             }
             let persistent_path = persistent_path.map(|path| path.to_path_buf());
-            let lifetime = self.lifetime;
+            let lifetime = self.inner.lifetime;
             ThreadBuilder::new()
                 .name("qiniu.rust-sdk.http-client.resolver.CachedResolver".into())
                 .spawn(move || {
