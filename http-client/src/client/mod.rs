@@ -20,7 +20,8 @@ pub use resolver::{
     SimpleResolver,
 };
 pub use response::{
-    APIResult, ResponseError, ResponseErrorKind, SyncResponse, SyncResponseBuilder,
+    APIResult, ResponseError, ResponseErrorKind, SyncCachedResponse, SyncCachedResponseBuilder,
+    SyncResponse, SyncResponseBuilder,
 };
 pub use retried::RetriedStatsInfo;
 pub use retrier::{
@@ -35,7 +36,9 @@ pub use retry_delay_policy::{
 pub use resolver::{c_ares, c_ares_resolver, CAresResolver};
 
 #[cfg(any(feature = "async"))]
-pub use response::{AsyncResponse, AsyncResponseBuilder};
+pub use response::{
+    AsyncCachedResponse, AsyncCachedResponseBuilder, AsyncResponse, AsyncResponseBuilder,
+};
 
 use call::request_call;
 use request::{Request, RequestWithoutEndpoints};

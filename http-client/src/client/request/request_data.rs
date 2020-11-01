@@ -12,7 +12,6 @@ pub(super) struct RequestData<'r> {
     pub(super) body: RequestBody<'r>,
     pub(super) authorization: Option<Authorization>,
     pub(super) idempotent: Idempotent,
-    pub(super) read_body: bool,
     pub(super) follow_redirection: bool,
     pub(super) connect_timeout: Option<Duration>,
     pub(super) request_timeout: Option<Duration>,
@@ -38,7 +37,6 @@ impl fmt::Debug for RequestData<'_> {
         field!(s, body);
         field!(s, authorization);
         field!(s, idempotent);
-        field!(s, read_body);
         field!(s, follow_redirection);
         field!(s, connect_timeout);
         field!(s, request_timeout);

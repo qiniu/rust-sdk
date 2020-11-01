@@ -130,11 +130,6 @@ impl<'r> RequestWithoutEndpoints<'r> {
     }
 
     #[inline]
-    pub(in super::super) fn read_body(&self) -> bool {
-        self.data.read_body
-    }
-
-    #[inline]
     pub(in super::super) fn follow_redirection(&self) -> bool {
         self.data.follow_redirection
     }

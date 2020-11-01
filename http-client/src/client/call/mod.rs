@@ -14,7 +14,7 @@ use qiniu_http::{
     HeaderName, HeaderValue, Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind,
     StatusCode,
 };
-use serde_json::from_reader as parse_json_from_reader;
+use serde_json::from_slice as parse_json_from_slice;
 use std::{result::Result, thread::sleep, time::Duration};
 use utils::{
     call_after_request_signed_callbacks, call_after_retry_delay_callbacks,
@@ -267,7 +267,6 @@ pub(super) fn request_call(request: Request) -> APIResult<SyncResponse> {
                 .call(&built_request)
                 .map_err(ResponseError::from)
                 .and_then(judge)
-                .and_then(|response| fulfill_body(request, response))
                 .map_err(|response_error| {
                     let retry_result = request.client().request_retrier().retry(
                         built_request,
@@ -355,7 +354,7 @@ pub(super) fn request_call(request: Request) -> APIResult<SyncResponse> {
         Ok(())
     }
 
-    fn judge(mut response: SyncResponse) -> APIResult<SyncResponse> {
+    fn judge(response: SyncResponse) -> APIResult<SyncResponse> {
         if response
             .headers()
             .get(&X_REQ_ID_HEADER_NAME.into())
@@ -375,30 +374,24 @@ pub(super) fn request_call(request: Request) -> APIResult<SyncResponse> {
                 format!("status code {} is unexpected", response.status_code()),
             )),
             200..=299 => Ok(response),
-            _ => {
+            status_code => {
+                let error_response_body: Vec<u8> = response
+                    .fulfill()
+                    .map_err(|err| {
+                        ResponseError::new(HTTPResponseErrorKind::LocalIOError.into(), err)
+                    })?
+                    .into_body()
+                    .into_bytes();
                 let error_response_body: ErrorResponseBody =
-                    parse_json_from_reader(response.body_mut()).map_err(|err| {
+                    parse_json_from_slice(&error_response_body).map_err(|err| {
                         ResponseError::new(ResponseErrorKind::ParseResponseError, err)
                     })?;
                 Err(ResponseError::new(
-                    ResponseErrorKind::StatusCodeError(response.status_code()),
+                    ResponseErrorKind::StatusCodeError(status_code),
                     error_response_body.into_error(),
                 ))
             }
         }
-    }
-
-    fn fulfill_body(
-        request: &RequestWithoutEndpoints,
-        mut response: SyncResponse,
-    ) -> APIResult<SyncResponse> {
-        if request.read_body() {
-            response
-                .body_mut()
-                .fulfill()
-                .map_err(|err| ResponseError::new(ResponseErrorKind::UnexpectedEof, err))?;
-        }
-        Ok(response)
     }
 
     fn choose_domain(

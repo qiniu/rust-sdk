@@ -12,9 +12,12 @@ use super::{
     Idempotent, QueryPairKey, QueryPairValue, QueryPairs, Request,
 };
 use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM};
-use qiniu_http::{HeaderName, HeaderValue, Headers, Method, RequestBody};
+use qiniu_http::{
+    HeaderName, HeaderValue, Headers, Method, RequestBody,
+    ResponseErrorKind as HTTPResponseErrorKind,
+};
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::{from_reader as parse_json_from_reader, Result as JSONResult};
+use serde_json::{from_slice as parse_json_from_slice, Result as JSONResult};
 use std::{borrow::Cow, fmt, time::Duration};
 
 pub struct RequestBuilder<'r> {
@@ -49,7 +52,6 @@ impl<'r> RequestBuilder<'r> {
                 body: Default::default(),
                 authorization: None,
                 idempotent: Default::default(),
-                read_body: false,
                 follow_redirection: false,
                 connect_timeout: None,
                 request_timeout: None,
@@ -287,12 +289,15 @@ impl<'r> RequestBuilder<'r> {
     }
 
     pub fn parse_json<T: DeserializeOwned>(mut self) -> APIResult<T> {
-        self.data.read_body = true;
         self.data
             .headers
             .insert("Accept".into(), APPLICATION_JSON.to_string().into());
-        let mut response = request_call(self.build())?;
-        let body = parse_json_from_reader(response.body_mut())
+        let response_body = request_call(self.build())?
+            .fulfill()
+            .map_err(|err| ResponseError::new(HTTPResponseErrorKind::LocalIOError.into(), err))?
+            .into_body()
+            .into_bytes();
+        let body = parse_json_from_slice(&response_body)
             .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))?;
         Ok(body)
     }
