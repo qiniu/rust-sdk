@@ -16,7 +16,8 @@ pub use request::{
     Request, RequestBuilder, URL,
 };
 pub use response::{
-    Body as ResponseBody, Response, ResponseBuilder, Result as ResponseResult, StatusCode,
+    Body as ResponseBody, CachedBody as CachedResponseBody, Response, ResponseBuilder,
+    Result as ResponseResult, StatusCode,
 };
 
 /// 同步 HTTP 响应
@@ -26,11 +27,18 @@ pub type SyncResponseBuilder = ResponseBuilder<ResponseBody>;
 /// 同步 HTTP 响应结果
 pub type SyncResponseResult = ResponseResult<ResponseBody>;
 
+/// 同步经过缓存的 HTTP 响应
+pub type SyncCachedResponse = Response<CachedResponseBody>;
+/// 同步经过缓存的 HTTP 响应构建器
+pub type SyncCachedResponseBuilder = ResponseBuilder<CachedResponseBody>;
+/// 同步经过缓存的 HTTP 响应结果
+pub type SyncCachedResponseResult = ResponseResult<CachedResponseBody>;
+
 #[cfg(feature = "async")]
 mod async_response {
     pub use super::response::{
-        AsyncBody as AsyncResponseBody, AsyncFile, Response, ResponseBuilder,
-        Result as ResponseResult,
+        AsyncBody as AsyncResponseBody, AsyncCachedBody as AsyncCachedResponseBody, AsyncFile,
+        Response, ResponseBuilder, Result as ResponseResult,
     };
 
     /// 异步 HTTP 响应
@@ -44,6 +52,18 @@ mod async_response {
     /// 异步 HTTP 响应结果
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     pub type AsyncResponseResult = ResponseResult<AsyncResponseBody>;
+
+    /// 异步经过缓存的 HTTP 响应
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub type AsyncCachedResponse = Response<AsyncCachedResponseBody>;
+
+    /// 异步经过缓存的 HTTP 响应构建器
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub type AsyncCachedResponseBuilder = ResponseBuilder<AsyncCachedResponseBody>;
+
+    /// 异步经过缓存的 HTTP 响应结果
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub type AsyncCachedResponseResult = ResponseResult<AsyncCachedResponseBody>;
 }
 #[cfg(feature = "async")]
 pub use async_response::*;

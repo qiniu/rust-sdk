@@ -44,6 +44,54 @@ impl Read for Body {
     }
 }
 
+impl Body {
+    pub fn fulfill(self) -> IOResult<CachedBody> {
+        match self.0 {
+            BodyInner::Reader(mut r) => {
+                let mut bytes = Vec::new();
+                r.read_to_end(&mut bytes)?;
+                Ok(CachedBody(Cursor::new(bytes)))
+            }
+            BodyInner::File(mut r) => {
+                let mut bytes = Vec::new();
+                r.read_to_end(&mut bytes)?;
+                Ok(CachedBody(Cursor::new(bytes)))
+            }
+            BodyInner::Bytes(b) => Ok(CachedBody(b)),
+        }
+    }
+}
+
+/// 经过缓存的 HTTP 响应体
+#[derive(Debug)]
+pub struct CachedBody(Cursor<Vec<u8>>);
+
+impl Default for CachedBody {
+    #[inline]
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl Read for CachedBody {
+    #[inline]
+    fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+        self.0.read(buf)
+    }
+}
+
+impl CachedBody {
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.get_ref()
+    }
+
+    #[inline]
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0.into_inner()
+    }
+}
+
 #[cfg(feature = "async")]
 mod async_body {
     use async_fs::File;
@@ -99,6 +147,65 @@ mod async_body {
                     bytes.poll_read(cx, buf)
                 }
             }
+        }
+    }
+
+    impl AsyncBody {
+        pub async fn fulfill(self) -> IOResult<AsyncCachedBody> {
+            match self.0 {
+                AsyncBodyInner::Reader(mut r) => {
+                    let mut bytes = Vec::new();
+                    r.read_to_end(&mut bytes).await?;
+                    Ok(AsyncCachedBody(Cursor::new(bytes)))
+                }
+                AsyncBodyInner::File(mut r) => {
+                    let mut bytes = Vec::new();
+                    r.read_to_end(&mut bytes).await?;
+                    Ok(AsyncCachedBody(Cursor::new(bytes)))
+                }
+                AsyncBodyInner::Bytes(b) => Ok(AsyncCachedBody(b)),
+            }
+        }
+    }
+
+    /// 经过缓存的异步 HTTP 响应体
+    #[derive(Debug)]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub struct AsyncCachedBody(Cursor<Vec<u8>>);
+
+    impl Default for AsyncCachedBody {
+        #[inline]
+        fn default() -> Self {
+            Self(Default::default())
+        }
+    }
+
+    impl AsyncRead for AsyncCachedBody {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context,
+            buf: &mut [u8],
+        ) -> Poll<IOResult<usize>> {
+            let bytes = &mut self.as_mut().0;
+            pin_mut!(bytes);
+            bytes.poll_read(cx, buf)
+        }
+    }
+
+    impl AsyncCachedBody {
+        #[inline]
+        pub(super) fn new(bytes: Cursor<Vec<u8>>) -> Self {
+            Self(bytes)
+        }
+
+        #[inline]
+        pub fn as_bytes(&self) -> &[u8] {
+            self.0.get_ref()
+        }
+
+        #[inline]
+        pub fn into_bytes(self) -> Vec<u8> {
+            self.0.into_inner()
         }
     }
 }
@@ -294,16 +401,22 @@ impl<B> Response<B> {
     }
 }
 
-impl Response<Body> {
+impl<B: Send + Sync> Response<B> {
     /// HTTP 响应体
     #[inline]
-    pub fn body(&self) -> &Body {
+    pub fn body(&self) -> &B {
         &self.body
+    }
+
+    /// 直接获取 HTTP 响应体
+    #[inline]
+    pub fn into_body(self) -> B {
+        self.body
     }
 
     /// 修改 HTTP 响应体
     #[inline]
-    pub fn body_mut(&mut self) -> &mut Body {
+    pub fn body_mut(&mut self) -> &mut B {
         &mut self.body
     }
 
@@ -314,25 +427,78 @@ impl Response<Body> {
     }
 }
 
+impl Response<Body> {
+    pub fn fulfill(self) -> IOResult<Response<CachedBody>> {
+        let Response {
+            status_code,
+            headers,
+            body,
+            server_ip,
+            server_port,
+            total_duration,
+            name_lookup_duration,
+            connect_duration,
+            secure_connect_duration,
+            redirect_duration,
+            request_duration,
+            server_wait_duration,
+            response_duration,
+        } = self;
+        let body = body.fulfill()?;
+
+        Ok(Response {
+            status_code,
+            headers,
+            body,
+            server_ip,
+            server_port,
+            total_duration,
+            name_lookup_duration,
+            connect_duration,
+            secure_connect_duration,
+            redirect_duration,
+            request_duration,
+            server_wait_duration,
+            response_duration,
+        })
+    }
+}
+
 #[cfg(feature = "async")]
 impl Response<AsyncBody> {
-    /// HTTP 响应体
-    #[inline]
-    pub fn body(&self) -> &AsyncBody {
-        &self.body
-    }
+    pub async fn fulfill(self) -> IOResult<Response<AsyncCachedBody>> {
+        let Response {
+            status_code,
+            headers,
+            body,
+            server_ip,
+            server_port,
+            total_duration,
+            name_lookup_duration,
+            connect_duration,
+            secure_connect_duration,
+            redirect_duration,
+            request_duration,
+            server_wait_duration,
+            response_duration,
+        } = self;
+        let body = body.fulfill().await?;
 
-    /// 修改 HTTP 响应体
-    #[inline]
-    pub fn body_mut(&mut self) -> &mut AsyncBody {
-        &mut self.body
-    }
-
-    #[allow(dead_code)]
-    fn ignore() {
-        assert_impl!(Send: Self);
-        assert_impl!(Sync: Self);
-        assert_impl!(Unpin: Self);
+        Ok(Response {
+            status_code,
+            headers,
+            body,
+            server_ip,
+            server_port,
+            total_duration,
+            name_lookup_duration,
+            connect_duration,
+            secure_connect_duration,
+            redirect_duration,
+            request_duration,
+            server_wait_duration,
+            response_duration,
+        })
     }
 }
 
@@ -465,6 +631,15 @@ impl ResponseBuilder<Body> {
     }
 }
 
+impl ResponseBuilder<CachedBody> {
+    /// 设置二进制字节数组为 HTTP 响应体
+    #[inline]
+    pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
+        self.inner.body = CachedBody(Cursor::new(body.into()));
+        self
+    }
+}
+
 #[cfg(feature = "async")]
 impl ResponseBuilder<AsyncBody> {
     /// 设置数据流为 HTTP 响应体
@@ -493,6 +668,16 @@ impl ResponseBuilder<AsyncBody> {
         file.seek(SeekFrom::Start(0)).await?;
         self.inner.body = AsyncBody(AsyncBodyInner::File(file));
         Ok(self)
+    }
+}
+
+#[cfg(feature = "async")]
+impl ResponseBuilder<AsyncCachedBody> {
+    /// 设置二进制字节数组为 HTTP 响应体
+    #[inline]
+    pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
+        self.inner.body = AsyncCachedBody::new(AsyncCursor::new(body.into()));
+        self
     }
 }
 
