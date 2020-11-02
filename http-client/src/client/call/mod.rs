@@ -6,13 +6,13 @@ use super::{
     super::{DomainWithPort, Endpoint},
     APIResult, Authorization, AuthorizationError, ChosenResult, Request, RequestInfo,
     RequestWithoutEndpoints, ResponseError, ResponseErrorKind, ResponseInfo, RetriedStatsInfo,
-    RetryResult, SyncResponse,
+    RetryResult,
 };
 use domain_or_ip_addr::DomainOrIpAddr;
 use error::{ErrorResponseBody, TryError};
 use qiniu_http::{
     HeaderName, HeaderValue, Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind,
-    StatusCode,
+    StatusCode, SyncResponse as SyncHTTPResponse,
 };
 use serde_json::from_slice as parse_json_from_slice;
 use std::{result::Result, thread::sleep, time::Duration};
@@ -23,6 +23,12 @@ use utils::{
     call_to_choose_domain_callbacks, find_domains_with_port, find_ip_addr_with_port, make_request,
     make_url,
 };
+
+#[cfg(feature = "async")]
+use futures_timer::Delay as AsyncDelay;
+
+#[cfg(feature = "async")]
+use qiniu_http::AsyncResponse as AsyncHTTPResponse;
 
 const X_REQ_ID_HEADER_NAME: &str = "X-Reqid";
 
@@ -438,7 +444,7 @@ macro_rules! blocking_async_block {
 
 create_request_call_fn!(
     request_call,
-    SyncResponse,
+    SyncHTTPResponse,
     sign,
     call,
     choose,
@@ -449,9 +455,6 @@ create_request_call_fn!(
 );
 
 #[cfg(feature = "async")]
-use {super::AsyncResponse, futures_timer::Delay as AsyncDelay};
-
-#[cfg(feature = "async")]
 async fn async_sleep(dur: Duration) {
     AsyncDelay::new(dur).await
 }
@@ -459,7 +462,7 @@ async fn async_sleep(dur: Duration) {
 #[cfg(feature = "async")]
 create_request_call_fn!(
     async_request_call,
-    AsyncResponse,
+    AsyncHTTPResponse,
     async_sign,
     async_call,
     async_choose,

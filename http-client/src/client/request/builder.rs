@@ -288,13 +288,15 @@ impl<'r> RequestBuilder<'r> {
 
     #[inline]
     pub fn call(self) -> APIResult<SyncResponse> {
-        request_call(self.build())
+        let response = request_call(self.build())?;
+        Ok(SyncResponse::new(response))
     }
 
     #[inline]
     #[cfg(feature = "async")]
     pub async fn async_call(self) -> APIResult<AsyncResponse> {
-        async_request_call(self.build()).await
+        let response = async_request_call(self.build()).await?;
+        Ok(AsyncResponse::new(response))
     }
 
     pub fn parse_json<T: DeserializeOwned>(mut self) -> APIResult<T> {

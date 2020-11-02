@@ -19,10 +19,7 @@ pub use resolver::{
     CachedResolver, PersistentError, PersistentResult, ResolveResult, Resolver, ShuffledResolver,
     SimpleResolver,
 };
-pub use response::{
-    APIResult, ResponseError, ResponseErrorKind, SyncCachedResponse, SyncCachedResponseBuilder,
-    SyncResponse, SyncResponseBuilder,
-};
+pub use response::{APIResult, ResponseError, ResponseErrorKind, SyncResponse};
 pub use retried::RetriedStatsInfo;
 pub use retrier::{
     DefaultRetrier, DefaultRetrierBuilder, NeverRetrier, RequestRetrier, RetryResult,
@@ -36,9 +33,7 @@ pub use retry_delay_policy::{
 pub use resolver::{c_ares, c_ares_resolver, CAresResolver};
 
 #[cfg(any(feature = "async"))]
-pub use response::{
-    AsyncCachedResponse, AsyncCachedResponseBuilder, AsyncResponse, AsyncResponseBuilder,
-};
+pub use response::AsyncResponse;
 
 use call::request_call;
 

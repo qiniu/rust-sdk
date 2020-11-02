@@ -18,8 +18,7 @@ pub use client::{
     Idempotent, NeverRetrier, PersistentError, PersistentResult, QueryPairKey, QueryPairValue,
     QueryPairs, RandomizedRetryDelayPolicy, Ratio, RequestBuilder, RequestInfo, RequestRetrier,
     ResolveResult, Resolver, ResponseError, ResponseErrorKind, RetryDelayPolicy, RetryResult,
-    ShuffledResolver, SimpleChooser, SimpleResolver, SyncResponse, SyncResponseBuilder,
-    NO_DELAY_POLICY,
+    ShuffledResolver, SimpleChooser, SimpleResolver, SyncResponse, NO_DELAY_POLICY,
 };
 pub use regions::{
     DomainWithPort, Endpoint, IntoEndpoints, IpAddrWithPort, Region, RegionBuilder, RegionProvider,
@@ -30,4 +29,4 @@ pub use regions::{
 pub use client::{c_ares, c_ares_resolver, CAresResolver};
 
 #[cfg(any(feature = "async"))]
-pub use client::{AsyncResponse, AsyncResponseBuilder};
+pub use client::AsyncResponse;
