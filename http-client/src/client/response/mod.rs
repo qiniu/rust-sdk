@@ -19,6 +19,16 @@ impl<B> Response<B> {
     pub(super) fn new(inner: HTTPResponse<B>) -> Self {
         Self { inner }
     }
+
+    #[inline]
+    pub fn x_req_id(&self) -> Option<&str> {
+        self.header("X-Reqid").map(|v| v.as_str())
+    }
+
+    #[inline]
+    pub fn x_log(&self) -> Option<&str> {
+        self.header("X-Log").map(|v| v.as_str())
+    }
 }
 
 impl<B> Deref for Response<B> {
