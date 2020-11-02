@@ -374,9 +374,7 @@ impl<B> Response<B> {
     pub fn transfer_duration_mut(&mut self) -> &mut Option<Duration> {
         &mut self.metrics.transfer_duration
     }
-}
 
-impl<B> Response<B> {
     /// HTTP 响应体
     #[inline]
     pub fn body(&self) -> &B {

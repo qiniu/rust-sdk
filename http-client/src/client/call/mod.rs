@@ -6,13 +6,13 @@ use super::{
     super::{DomainWithPort, Endpoint},
     APIResult, Authorization, AuthorizationError, ChosenResult, Request, RequestInfo,
     RequestWithoutEndpoints, ResponseError, ResponseErrorKind, ResponseInfo, RetriedStatsInfo,
-    RetryResult,
+    RetryResult, SyncResponse,
 };
 use domain_or_ip_addr::DomainOrIpAddr;
 use error::{ErrorResponseBody, TryError};
 use qiniu_http::{
     HeaderName, HeaderValue, Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind,
-    StatusCode, SyncResponse as SyncHTTPResponse,
+    StatusCode,
 };
 use serde_json::from_slice as parse_json_from_slice;
 use std::{result::Result, thread::sleep, time::Duration};
@@ -25,10 +25,7 @@ use utils::{
 };
 
 #[cfg(feature = "async")]
-use futures_timer::Delay as AsyncDelay;
-
-#[cfg(feature = "async")]
-use qiniu_http::AsyncResponse as AsyncHTTPResponse;
+use {super::AsyncResponse, futures_timer::Delay as AsyncDelay};
 
 const X_REQ_ID_HEADER_NAME: &str = "X-Reqid";
 
@@ -276,6 +273,7 @@ macro_rules! create_request_call_fn {
                             .$call_method(&built_request)
                         })
                         .map_err(ResponseError::from)
+                        .map($return_type::new)
                         .and_then(|response| $blocking_block!({ judge(response) }) )
                         .map_err(|response_error| {
                             let retry_result = request.client().request_retrier().retry(
@@ -444,7 +442,7 @@ macro_rules! blocking_async_block {
 
 create_request_call_fn!(
     request_call,
-    SyncHTTPResponse,
+    SyncResponse,
     sign,
     call,
     choose,
@@ -462,7 +460,7 @@ async fn async_sleep(dur: Duration) {
 #[cfg(feature = "async")]
 create_request_call_fn!(
     async_request_call,
-    AsyncHTTPResponse,
+    AsyncResponse,
     async_sign,
     async_call,
     async_choose,

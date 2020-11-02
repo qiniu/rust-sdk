@@ -5,19 +5,15 @@ use super::{
             OnBody, OnDomainChosen, OnError, OnHeader, OnProgress, OnRequest, OnRetry,
             OnStatusCode, OnSuccess, OnToChooseDomain,
         },
-        request_call, APIResult, Authorization, CallbacksBuilder, Client, ResponseError,
-        ResponseErrorKind, SyncResponse,
+        request_call, APIResult, Authorization, CallbacksBuilder, Client, SyncResponse,
     },
     request_data::RequestData,
     Idempotent, QueryPairKey, QueryPairValue, QueryPairs, Request,
 };
 use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM};
-use qiniu_http::{
-    HeaderName, HeaderValue, Headers, Method, RequestBody,
-    ResponseErrorKind as HTTPResponseErrorKind,
-};
-use serde::{de::DeserializeOwned, Serialize};
-use serde_json::{from_slice as parse_json_from_slice, Result as JSONResult};
+use qiniu_http::{HeaderName, HeaderValue, Headers, Method, RequestBody};
+use serde::Serialize;
+use serde_json::Result as JSONResult;
 use std::{borrow::Cow, fmt, time::Duration};
 
 #[cfg(feature = "async")]
@@ -99,23 +95,21 @@ impl<'r> RequestBuilder<'r> {
     #[inline]
     pub fn body(mut self, body: impl Into<RequestBody<'r>>, content_type: Option<Mime>) -> Self {
         self.data.body = body.into();
-        self.data.headers.insert(
-            "Content-Type".into(),
-            content_type
-                .unwrap_or(APPLICATION_OCTET_STREAM)
-                .to_string()
-                .into(),
-        );
-        self
+        self.set_header(
+            "Content-Type",
+            content_type.unwrap_or(APPLICATION_OCTET_STREAM).to_string(),
+        )
     }
 
     #[inline]
     pub fn json(mut self, body: impl Serialize) -> JSONResult<Self> {
         self.data.body = serde_json::to_vec(&body)?.into();
-        self.data
-            .headers
-            .insert("Content-Type".into(), APPLICATION_JSON.to_string().into());
-        Ok(self)
+        Ok(self.set_header("Content-Type", APPLICATION_JSON.to_string()))
+    }
+
+    #[inline]
+    pub fn accept_json(self) -> Self {
+        self.set_header("Accept", APPLICATION_JSON.to_string())
     }
 
     #[inline]
@@ -288,46 +282,13 @@ impl<'r> RequestBuilder<'r> {
 
     #[inline]
     pub fn call(self) -> APIResult<SyncResponse> {
-        let response = request_call(self.build())?;
-        Ok(SyncResponse::new(response))
+        request_call(self.build())
     }
 
     #[inline]
     #[cfg(feature = "async")]
     pub async fn async_call(self) -> APIResult<AsyncResponse> {
-        let response = async_request_call(self.build()).await?;
-        Ok(AsyncResponse::new(response))
-    }
-
-    pub fn parse_json<T: DeserializeOwned>(mut self) -> APIResult<T> {
-        self.data
-            .headers
-            .insert("Accept".into(), APPLICATION_JSON.to_string().into());
-        let response_body = request_call(self.build())?
-            .fulfill()
-            .map_err(|err| ResponseError::new(HTTPResponseErrorKind::LocalIOError.into(), err))?
-            .into_body()
-            .into_bytes();
-        let body = parse_json_from_slice(&response_body)
-            .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))?;
-        Ok(body)
-    }
-
-    #[cfg(feature = "async")]
-    pub async fn async_parse_json<T: DeserializeOwned>(mut self) -> APIResult<T> {
-        self.data
-            .headers
-            .insert("Accept".into(), APPLICATION_JSON.to_string().into());
-        let response_body = async_request_call(self.build())
-            .await?
-            .fulfill()
-            .await
-            .map_err(|err| ResponseError::new(HTTPResponseErrorKind::LocalIOError.into(), err))?
-            .into_body()
-            .into_bytes();
-        let body = parse_json_from_slice(&response_body)
-            .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))?;
-        Ok(body)
+        async_request_call(self.build()).await
     }
 
     #[inline]

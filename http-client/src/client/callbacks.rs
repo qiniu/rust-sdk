@@ -1,11 +1,9 @@
-use super::{ChosenResult, ResponseError, RetriedStatsInfo};
-use qiniu_http::{
-    HeaderName, HeaderValue, HeadersOwned, Method, Request, StatusCode, SyncResponse,
-};
+use super::{ChosenResult, ResponseError, RetriedStatsInfo, SyncResponse};
+use qiniu_http::{HeaderName, HeaderValue, HeadersOwned, Method, Request, StatusCode};
 use std::{fmt, iter::FromIterator, net::IpAddr, time::Duration};
 
 #[cfg(any(feature = "async"))]
-pub use qiniu_http::AsyncResponse;
+pub use super::AsyncResponse;
 
 #[derive(Clone, Debug)]
 pub struct RequestInfo {
