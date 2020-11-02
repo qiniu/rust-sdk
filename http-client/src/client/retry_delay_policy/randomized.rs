@@ -1,7 +1,7 @@
 use super::{ResponseError, RetriedStatsInfo, RetryDelayPolicy, RetryResult};
 use qiniu_http::Request as HTTPRequest;
 use rand::{thread_rng, Rng};
-use std::{any::Any, convert::TryInto, time::Duration};
+use std::{any::Any, convert::TryInto, time::Duration, u64};
 
 pub use num_rational::Ratio;
 

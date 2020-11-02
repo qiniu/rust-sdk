@@ -259,8 +259,7 @@ mod tests {
                             block_on(async { status_codes.lock().await }).push(status);
                             true
                         }))
-                        .async_build()
-                        .await?,
+                        .build(),
                 )
                 .await?
             };

@@ -52,10 +52,31 @@ fn build_response(easy: &mut Easy2<Context>) -> SyncResponseResult {
     let status_code = handle(easy.response_code())? as StatusCode;
     let server_ip = handle(easy.primary_ip().map(|s| s.and_then(|s| s.parse().ok())))?;
     let server_port = handle(easy.primary_port())?;
+    let total_duration = handle(easy.total_time())?;
+    let name_lookup_duration = handle(easy.namelookup_time())?;
+    let redirect_duration = handle(easy.redirect_time())?;
+    let connect_duration =
+        handle(easy.connect_time())?.checked_sub(handle(easy.namelookup_time())?);
+    let secure_connect_duration =
+        handle(easy.appconnect_time())?.checked_sub(handle(easy.connect_time())?);
+    let transfer_duration =
+        handle(easy.total_time())?.checked_sub(handle(easy.starttransfer_time())?);
 
     let mut builder = SyncResponseBuilder::default()
         .status_code(status_code)
-        .headers(easy.get_mut().take_response_headers());
+        .headers(easy.get_mut().take_response_headers())
+        .total_duration(total_duration)
+        .name_lookup_duration(name_lookup_duration)
+        .redirect_duration(redirect_duration);
+    if let Some(connect_duration) = connect_duration {
+        builder = builder.connect_duration(connect_duration);
+    }
+    if let Some(secure_connect_duration) = secure_connect_duration {
+        builder = builder.secure_connect_duration(secure_connect_duration);
+    }
+    if let Some(transfer_duration) = transfer_duration {
+        builder = builder.transfer_duration(transfer_duration);
+    }
     builder = match easy.get_mut().take_response_body() {
         ResponseBody::Bytes(bytes) => builder.bytes_as_body(bytes),
         ResponseBody::File(file) => builder
