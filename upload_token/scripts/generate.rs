@@ -8,6 +8,8 @@
 //! qiniu-credential = { version = "*", path = "../../credential" }
 //! ```
 
+// TODO: 转成 Example 来用
+
 extern crate anyhow;
 extern crate clap;
 extern crate qiniu_credential;

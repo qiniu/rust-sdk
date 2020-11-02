@@ -33,3 +33,5 @@ mod c_ares_impl;
 
 #[cfg(any(feature = "c_ares"))]
 pub use c_ares_impl::{c_ares, c_ares_resolver, CAresResolver};
+
+// TODO: 提供一个 Chained Resolver

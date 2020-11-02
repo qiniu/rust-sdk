@@ -1058,4 +1058,93 @@ mod tests {
         );
         Ok(())
     }
+
+    #[cfg(feature = "async")]
+    #[async_std::test]
+    async fn test_async_call_single_endpoint_retry() -> Result<(), Box<dyn Error>> {
+        let always_retry_client = make_error_response_client_builder(
+            HTTPResponseErrorKind::TimeoutError,
+            "Fake Timeout Error",
+        )
+        .chooser(Box::new(SimpleChooser::new(
+            make_error_resolver(
+                HTTPResponseErrorKind::TimeoutError.into(),
+                "Fake Timeout Error",
+            ),
+            Duration::from_secs(10),
+        )))
+        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .request_retrier(Box::new(DefaultRetrier::builder().retries(3).build()))
+        .build();
+
+        let retried = Arc::new(AtomicUsize::new(0));
+        let err = always_retry_client
+            .post(ServiceName::Up, &single_up_domain_region())
+            .on_before_retry_delay({
+                let retried = retried.to_owned();
+                Box::new(move |context, _| {
+                    assert_eq!(
+                        "https://fakedomain.withport.com:8080/",
+                        context.request().url()
+                    );
+                    let retried = retried.fetch_add(1, Relaxed) + 1;
+                    assert_eq!(context.retried().retried_total(), retried);
+                    assert_eq!(context.retried().retried_on_current_endpoint(), retried);
+                    assert_eq!(context.retried().retried_on_current_ips(), retried);
+                    assert_eq!(context.retried().abandoned_endpoints(), 0);
+                    true
+                })
+            })
+            .async_call()
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.kind(),
+            ResponseErrorKind::from(HTTPResponseErrorKind::TimeoutError)
+        );
+
+        let headers = {
+            let mut headers = HeadersOwned::default();
+            headers.insert(X_REQ_ID_HEADER_NAME.into(), "fake_req_id".into());
+            headers
+        };
+        let always_throttled_client = make_fixed_response_client_builder(
+            509,
+            headers.to_owned(),
+            b"{\"error\":\"Fake Throttled Error\"}".to_vec(),
+        )
+        .chooser(Box::new(SimpleChooser::new(
+            make_dumb_resolver(),
+            Duration::from_secs(10),
+        )))
+        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .request_retrier(Box::new(DefaultRetrier::builder().retries(3).build()))
+        .build();
+
+        retried.store(0, Relaxed);
+        let err = always_throttled_client
+            .post(ServiceName::Up, &single_up_domain_region())
+            .on_before_retry_delay({
+                let retried = retried.to_owned();
+                Box::new(move |context, _| {
+                    assert_eq!(
+                        "https://fakedomain.withport.com:8080/",
+                        context.request().url()
+                    );
+                    let retried = retried.fetch_add(1, Relaxed) + 1;
+                    assert_eq!(context.retried().retried_total(), retried);
+                    assert_eq!(context.retried().retried_on_current_endpoint(), retried);
+                    assert_eq!(context.retried().retried_on_current_ips(), retried);
+                    assert_eq!(context.retried().abandoned_endpoints(), 0);
+                    true
+                })
+            })
+            .async_call()
+            .await
+            .unwrap_err();
+        assert_eq!(err.kind(), ResponseErrorKind::StatusCodeError(509));
+        assert_eq!(&err.to_string(), "Fake Throttled Error");
+
+        Ok(())
+    }
 }
