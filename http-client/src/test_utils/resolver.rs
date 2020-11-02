@@ -1,5 +1,5 @@
 use super::super::{ResolveResult, Resolver, ResponseError, ResponseErrorKind};
-use std::any::Any;
+use std::{any::Any, net::IpAddr};
 
 pub(crate) fn make_dumb_resolver() -> impl Resolver {
     #[derive(Debug)]
@@ -23,6 +23,30 @@ pub(crate) fn make_dumb_resolver() -> impl Resolver {
     }
 
     FakeResolver
+}
+
+pub(crate) fn make_static_resolver(ip_addrs: Box<[IpAddr]>) -> impl Resolver {
+    #[derive(Debug)]
+    struct StaticResolver(Box<[IpAddr]>);
+
+    impl Resolver for StaticResolver {
+        #[inline]
+        fn resolve(&self, _domain: &str) -> ResolveResult {
+            Ok(self.0.to_owned())
+        }
+
+        #[inline]
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        #[inline]
+        fn as_resolver(&self) -> &dyn Resolver {
+            self
+        }
+    }
+
+    StaticResolver(ip_addrs)
 }
 
 pub(crate) fn make_error_resolver(
