@@ -476,8 +476,9 @@ mod tests {
     use crate::{
         credential::{CredentialProvider, StaticCredentialProvider},
         test_utils::{
-            chaotic_up_domains_region, make_dumb_resolver, make_error_response_client_builder,
-            make_fixed_response_client_builder, single_up_domain_region,
+            chaotic_up_domains_region, make_dumb_resolver, make_error_resolver,
+            make_error_response_client_builder, make_fixed_response_client_builder,
+            single_up_domain_region,
         },
         Authorization, Chooser, DefaultRetrier, ServiceName, SimpleChooser, NO_DELAY_POLICY,
     };
@@ -609,7 +610,7 @@ mod tests {
         let client =
             make_error_response_client_builder(HTTPResponseErrorKind::SSLError, "Fake SSL Error")
                 .chooser(Box::new(SimpleChooser::new(
-                    make_dumb_resolver(),
+                    make_error_resolver(HTTPResponseErrorKind::SSLError.into(), "Fake SSL Error"),
                     Duration::from_secs(10),
                 )))
                 .retry_delay_policy(Box::new(NO_DELAY_POLICY))
@@ -675,7 +676,10 @@ mod tests {
             "Fake Timeout Error",
         )
         .chooser(Box::new(SimpleChooser::new(
-            make_dumb_resolver(),
+            make_error_resolver(
+                HTTPResponseErrorKind::TimeoutError.into(),
+                "Fake Timeout Error",
+            ),
             Duration::from_secs(10),
         )))
         .retry_delay_policy(Box::new(NO_DELAY_POLICY))
@@ -832,7 +836,7 @@ mod tests {
         let always_retry_client =
             make_error_response_client_builder(HTTPResponseErrorKind::SendError, "Test Send Error")
                 .chooser(Box::new(SimpleChooser::new(
-                    make_dumb_resolver(),
+                    make_error_resolver(HTTPResponseErrorKind::SendError.into(), "Fake Send Error"),
                     Duration::from_secs(10),
                 )))
                 .retry_delay_policy(Box::new(NO_DELAY_POLICY))

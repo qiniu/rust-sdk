@@ -20,6 +20,9 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{from_slice as parse_json_from_slice, Result as JSONResult};
 use std::{borrow::Cow, fmt, time::Duration};
 
+#[cfg(feature = "async")]
+use super::super::{async_request_call, AsyncResponse};
+
 pub struct RequestBuilder<'r> {
     client: &'r Client,
     service_name: ServiceName,
@@ -288,12 +291,35 @@ impl<'r> RequestBuilder<'r> {
         request_call(self.build())
     }
 
+    #[inline]
+    #[cfg(feature = "async")]
+    pub async fn async_call(self) -> APIResult<AsyncResponse> {
+        async_request_call(self.build()).await
+    }
+
     pub fn parse_json<T: DeserializeOwned>(mut self) -> APIResult<T> {
         self.data
             .headers
             .insert("Accept".into(), APPLICATION_JSON.to_string().into());
         let response_body = request_call(self.build())?
             .fulfill()
+            .map_err(|err| ResponseError::new(HTTPResponseErrorKind::LocalIOError.into(), err))?
+            .into_body()
+            .into_bytes();
+        let body = parse_json_from_slice(&response_body)
+            .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))?;
+        Ok(body)
+    }
+
+    #[cfg(feature = "async")]
+    pub async fn async_parse_json<T: DeserializeOwned>(mut self) -> APIResult<T> {
+        self.data
+            .headers
+            .insert("Accept".into(), APPLICATION_JSON.to_string().into());
+        let response_body = async_request_call(self.build())
+            .await?
+            .fulfill()
+            .await
             .map_err(|err| ResponseError::new(HTTPResponseErrorKind::LocalIOError.into(), err))?
             .into_body()
             .into_bytes();

@@ -41,4 +41,8 @@ pub use response::{
 };
 
 use call::request_call;
+
+#[cfg(any(feature = "async"))]
+use call::async_request_call;
+
 use request::{Request, RequestWithoutEndpoints};
