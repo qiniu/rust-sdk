@@ -16,8 +16,8 @@ pub use chooser::{Chooser, ChosenResult, SimpleChooser};
 pub use client::{Client, ClientBuilder};
 pub use request::{Idempotent, QueryPairKey, QueryPairValue, QueryPairs, RequestBuilder};
 pub use resolver::{
-    CachedResolver, PersistentError, PersistentResult, ResolveResult, Resolver, ShuffledResolver,
-    SimpleResolver,
+    CachedResolver, ChainedResolver, ChainedResolverBuilder, PersistentError, PersistentResult,
+    ResolveResult, Resolver, ShuffledResolver, SimpleResolver,
 };
 pub use response::{APIResult, ResponseError, ResponseErrorKind, SyncResponse};
 pub use retried::RetriedStatsInfo;

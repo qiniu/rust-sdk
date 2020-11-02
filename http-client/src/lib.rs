@@ -13,12 +13,13 @@ pub extern crate qiniu_upload_token as upload_token;
 
 pub use client::{
     APIResult, Authorization, AuthorizationError, AuthorizationResult, CachedResolver,
-    CallbackContext, Callbacks, CallbacksBuilder, Chooser, ChosenResult, Client, ClientBuilder,
-    DefaultRetrier, DefaultRetrierBuilder, ExponentialRetryDelayPolicy, FixedRetryDelayPolicy,
-    Idempotent, NeverRetrier, PersistentError, PersistentResult, QueryPairKey, QueryPairValue,
-    QueryPairs, RandomizedRetryDelayPolicy, Ratio, RequestBuilder, RequestInfo, RequestRetrier,
-    ResolveResult, Resolver, ResponseError, ResponseErrorKind, RetryDelayPolicy, RetryResult,
-    ShuffledResolver, SimpleChooser, SimpleResolver, SyncResponse, NO_DELAY_POLICY,
+    CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver, ChainedResolverBuilder, Chooser,
+    ChosenResult, Client, ClientBuilder, DefaultRetrier, DefaultRetrierBuilder,
+    ExponentialRetryDelayPolicy, FixedRetryDelayPolicy, Idempotent, NeverRetrier, PersistentError,
+    PersistentResult, QueryPairKey, QueryPairValue, QueryPairs, RandomizedRetryDelayPolicy, Ratio,
+    RequestBuilder, RequestInfo, RequestRetrier, ResolveResult, Resolver, ResponseError,
+    ResponseErrorKind, RetryDelayPolicy, RetryResult, ShuffledResolver, SimpleChooser,
+    SimpleResolver, SyncResponse, NO_DELAY_POLICY,
 };
 pub use regions::{
     DomainWithPort, Endpoint, IntoEndpoints, IpAddrWithPort, Region, RegionBuilder, RegionProvider,

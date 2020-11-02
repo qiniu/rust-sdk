@@ -22,6 +22,9 @@ use std::{
 };
 use thiserror::Error;
 
+#[cfg(feature = "async")]
+use futures::future::BoxFuture;
+
 const CACHE_SIZE_TO_SHRINK: usize = 100;
 const MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(120);
@@ -207,11 +210,10 @@ impl<R: Resolver + Default> Default for CachedResolver<R> {
     }
 }
 
-impl<R: Resolver> Resolver for CachedResolver<R> {
-    #[inline]
-    fn resolve(&self, domain: &str) -> ResolveResult {
-        let cache_key = domain.to_owned().into_boxed_str();
-        if let Some(cache_entry) = self.inner.cache.get(&cache_key) {
+macro_rules! resolve {
+    ($domain:expr, $ctx:expr, $resolve_method:ident, $do_some_work_async:path, $blocking_block:ident) => {{
+        let cache_key = $domain.to_owned().into_boxed_str();
+        if let Some(cache_entry) = $ctx.cache.get(&cache_key) {
             if cache_entry.deadline > SystemTime::now() {
                 return Ok(cache_entry.ip_addrs.to_owned());
             }
@@ -220,15 +222,15 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
         let (mut need_to_persistent, mut need_to_refresh) = (false, false);
         macro_rules! resolve_domain {
             () => {
-                match self.inner.backend.resolve(domain) {
+                match $blocking_block!({ $ctx.backend.$resolve_method($domain) }) {
                     Ok(ip_addrs) => {
                         resolve_result = Some(Ok(ip_addrs.to_owned()));
-                        if let Some(persistent) = &self.inner.persistent {
+                        if let Some(persistent) = &$ctx.persistent {
                             if persistent.auto_persistent.load(Relaxed) {
                                 need_to_persistent = true;
                             }
                         }
-                        Ok(CachedResolverValue::new(ip_addrs, self.inner.lifetime))
+                        Ok(CachedResolverValue::new(ip_addrs, $ctx.lifetime))
                     }
                     Err(err) => {
                         resolve_result = Some(Err(err));
@@ -238,8 +240,7 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
             };
         }
 
-        self.inner
-            .cache
+        $ctx.cache
             .entry(cache_key)
             .and_modify(|cache| {
                 resolve_result = Some(Ok(cache.ip_addrs.to_owned()));
@@ -250,12 +251,52 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
             .or_try_insert_with(|| resolve_domain!())
             .ok();
 
-        self.do_some_work_async(
+        $do_some_work_async(
+            $ctx,
             need_to_persistent,
             need_to_refresh,
-            self.inner.persistent.as_ref().map(|p| p.path.as_ref()),
+            $ctx.persistent.as_ref().map(|p| p.path.as_ref()),
         );
         resolve_result.unwrap()
+    }};
+}
+
+macro_rules! sync_block {
+    ($block:block) => {{
+        $block
+    }};
+}
+
+#[cfg(feature = "async")]
+macro_rules! blocking_async_block {
+    ($block:block) => {
+        futures::executor::block_on(async { $block.await })
+    };
+}
+
+impl<R: Resolver> Resolver for CachedResolver<R> {
+    fn resolve(&self, domain: &str) -> ResolveResult {
+        resolve!(
+            domain,
+            &self.inner,
+            resolve,
+            Self::do_some_work_async,
+            sync_block
+        )
+    }
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    fn async_resolve<'a>(&'a self, domain: &'a str) -> BoxFuture<'a, ResolveResult> {
+        Box::pin(async move {
+            resolve!(
+                domain,
+                &self.inner,
+                async_resolve,
+                Self::do_some_work_async,
+                blocking_async_block
+            )
+        })
     }
 
     #[inline]
@@ -271,20 +312,20 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
 
 impl<R: Resolver> CachedResolver<R> {
     fn do_some_work_async(
-        &self,
+        inner: &Arc<CachedResolverInner<R>>,
         need_to_persistent: bool,
         need_to_refresh: bool,
         persistent_path: Option<&Path>,
     ) {
         if need_to_persistent || need_to_refresh {
-            let inner = self.inner.to_owned();
+            let inner = inner.to_owned();
             if inner.thread_lock.try_lock().is_err() {
                 // Looks like some work is being done, we don't want to spawn another thread
                 info!("Resolver cache has hired someone to do the housework, so we don't hire another now");
                 return;
             }
             let persistent_path = persistent_path.map(|path| path.to_path_buf());
-            let lifetime = self.inner.lifetime;
+            let lifetime = inner.lifetime;
             ThreadBuilder::new()
                 .name("qiniu.rust-sdk.http-client.resolver.CachedResolver".into())
                 .spawn(move || {

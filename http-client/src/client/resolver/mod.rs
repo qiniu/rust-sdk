@@ -1,4 +1,5 @@
 mod cache;
+mod chained;
 mod shuffled;
 mod simple;
 
@@ -25,6 +26,7 @@ pub trait Resolver: Any + Debug + Sync + Send {
 pub type ResolveResult = APIResult<Box<[IpAddr]>>;
 
 pub use cache::{CachedResolver, PersistentError, PersistentResult};
+pub use chained::{ChainedResolver, ChainedResolverBuilder};
 pub use shuffled::ShuffledResolver;
 pub use simple::SimpleResolver;
 
@@ -33,5 +35,3 @@ mod c_ares_impl;
 
 #[cfg(any(feature = "c_ares"))]
 pub use c_ares_impl::{c_ares, c_ares_resolver, CAresResolver};
-
-// TODO: 提供一个 Chained Resolver
