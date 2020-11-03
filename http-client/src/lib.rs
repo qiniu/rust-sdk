@@ -18,8 +18,8 @@ pub use client::{
     ExponentialRetryDelayPolicy, FixedRetryDelayPolicy, Idempotent, NeverRetrier, PersistentError,
     PersistentResult, QueryPairKey, QueryPairValue, QueryPairs, RandomizedRetryDelayPolicy, Ratio,
     RequestBuilder, RequestInfo, RequestRetrier, ResolveResult, Resolver, ResponseError,
-    ResponseErrorKind, RetryDelayPolicy, RetryResult, ShuffledResolver, SimpleChooser,
-    SimpleResolver, SyncResponse, NO_DELAY_POLICY,
+    ResponseErrorKind, RetryDelayPolicy, RetryResult, ShuffledChooser, ShuffledChooserBuilder,
+    ShuffledResolver, SimpleChooser, SimpleResolver, SyncResponse, NO_DELAY_POLICY,
 };
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder, DomainWithPort,

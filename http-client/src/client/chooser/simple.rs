@@ -35,7 +35,7 @@ const DEFAULT_BLOCK_DURATION: Duration = Duration::from_secs(30);
 const BLACKLIST_SIZE_TO_SHRINK: usize = 100;
 const MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SimpleChooser<R: Resolver> {
     resolver: R,
     inner: Arc<SimpleChooserInner>,
@@ -64,6 +64,7 @@ impl<R: Resolver + Default> Default for SimpleChooser<R> {
         Self::new(R::default(), DEFAULT_BLOCK_DURATION)
     }
 }
+
 macro_rules! choose {
     ($self:expr, $domain:expr, $ignore_frozen:expr, $resolve:block) => {{
         if $ignore_frozen {

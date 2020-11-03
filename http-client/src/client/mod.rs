@@ -12,7 +12,7 @@ mod retry_delay_policy;
 
 pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
 pub use callbacks::{CallbackContext, Callbacks, CallbacksBuilder, RequestInfo, ResponseInfo};
-pub use chooser::{Chooser, ChosenResult, SimpleChooser};
+pub use chooser::{Chooser, ChosenResult, ShuffledChooser, ShuffledChooserBuilder, SimpleChooser};
 pub use client::{Client, ClientBuilder};
 pub use request::{Idempotent, QueryPairKey, QueryPairValue, QueryPairs, RequestBuilder};
 pub use resolver::{

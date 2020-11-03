@@ -1,3 +1,4 @@
+mod shuffled;
 mod simple;
 
 use super::{
@@ -41,6 +42,6 @@ pub trait Chooser: Any + Debug + Sync + Send {
     fn as_chooser(&self) -> &dyn Chooser;
 }
 
+pub use shuffled::{ShuffledChooser, ShuffledChooserBuilder};
 pub use simple::SimpleChooser;
-// TODO: 提供一个 Shuffled Chooser，可以配置自动 Shuffle Resolved IPs 还是 IPs
 // TODO: 提供一个 Default Chooser
