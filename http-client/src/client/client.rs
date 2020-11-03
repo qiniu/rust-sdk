@@ -180,7 +180,7 @@ impl ClientBuilder {
 
     #[inline]
     fn _new(http_caller: Box<dyn HTTPCaller>) -> Self {
-        type DefaultResolver = CachedResolver<ShuffledResolver<SimpleResolver>>;
+        type DefaultResolver = ShuffledResolver<CachedResolver<SimpleResolver>>;
         type DefaultRetryDelayPolicy = RandomizedRetryDelayPolicy<ExponentialRetryDelayPolicy>;
 
         ClientBuilder {

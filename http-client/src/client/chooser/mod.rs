@@ -42,4 +42,5 @@ pub trait Chooser: Any + Debug + Sync + Send {
 }
 
 pub use simple::SimpleChooser;
+// TODO: 提供一个 Shuffled Chooser，可以配置自动 Shuffle Resolved IPs 还是 IPs
 // TODO: 提供一个 Default Chooser

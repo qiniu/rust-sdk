@@ -23,7 +23,7 @@ use std::{
 use thiserror::Error;
 
 #[cfg(feature = "async")]
-use futures::future::BoxFuture;
+use futures::{executor::block_on, future::BoxFuture};
 
 const CACHE_SIZE_TO_SHRINK: usize = 100;
 const MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
@@ -270,7 +270,7 @@ macro_rules! sync_block {
 #[cfg(feature = "async")]
 macro_rules! blocking_async_block {
     ($block:block) => {
-        futures::executor::block_on(async { $block.await })
+        block_on(async { $block.await })
     };
 }
 

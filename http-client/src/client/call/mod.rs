@@ -25,7 +25,7 @@ use utils::{
 };
 
 #[cfg(feature = "async")]
-use {super::AsyncResponse, futures_timer::Delay as AsyncDelay};
+use {super::AsyncResponse, futures::executor::block_on, futures_timer::Delay as AsyncDelay};
 
 const X_REQ_ID_HEADER_NAME: &str = "X-Reqid";
 
@@ -436,7 +436,7 @@ macro_rules! async_block {
 #[cfg(feature = "async")]
 macro_rules! blocking_async_block {
     ($block:block) => {
-        futures::executor::block_on(async { $block.await })
+        block_on(async { $block.await })
     };
 }
 
