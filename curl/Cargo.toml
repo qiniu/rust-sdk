@@ -33,7 +33,6 @@ qiniu-http = { version = "0.0.4", path = "../http", optional = true }
 futures = "0.3.5"
 warp = "0.2.5"
 tokio = { version = "0.2.22", features = ["rt-core", "macros", "blocking"] }
-anyhow = "1.0"
 rand = "0.7.3"
 
 [features]

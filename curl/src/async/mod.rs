@@ -34,7 +34,6 @@ pub(super) async fn async_http_call(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::Result;
     use futures::{
         channel::oneshot::channel, executor::block_on, future::try_join_all, io::AsyncReadExt,
         lock::Mutex as AsyncMutex,
@@ -42,6 +41,8 @@ mod tests {
     use qiniu_http::Method;
     use rand::{thread_rng, RngCore};
     use std::{
+        error::Error,
+        result::Result,
         sync::{
             atomic::{AtomicUsize, Ordering::Relaxed},
             Arc, Mutex,
@@ -74,7 +75,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_content() -> Result<()> {
+    async fn test_get_content() -> Result<(), Box<dyn Error>> {
         let buffer = generate_buffer(1 << 20);
         let routes = {
             let buffer = buffer.to_owned();
@@ -102,7 +103,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_large_content() -> Result<()> {
+    async fn test_get_large_content() -> Result<(), Box<dyn Error>> {
         let buffer = generate_buffer(10 * (1 << 20));
         let routes = {
             let buffer = buffer.to_owned();
@@ -145,7 +146,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_contents() -> Result<()> {
+    async fn test_get_contents() -> Result<(), Box<dyn Error>> {
         let buffers = Arc::new(
             (0..20)
                 .map(|_| generate_buffer(1 << 20))
@@ -184,7 +185,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_abort_downloading() -> Result<()> {
+    async fn test_abort_downloading() -> Result<(), Box<dyn Error>> {
         let routes = {
             let buffer = generate_buffer(1 << 20);
             path!("file" / "content").map(move || Response::new(buffer.to_owned().into()))
@@ -217,7 +218,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_redirection() -> Result<()> {
+    async fn test_redirection() -> Result<(), Box<dyn Error>> {
         let buffer = generate_buffer(1 << 20);
         let routes = {
             let buffer = buffer.to_owned();
@@ -277,7 +278,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_too_many_redirection() -> Result<()> {
+    async fn test_too_many_redirection() -> Result<(), Box<dyn Error>> {
         let buffer = generate_buffer(1 << 20);
         let routes = {
             let buffer = buffer.to_owned();
@@ -305,7 +306,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_upload_content() -> Result<()> {
+    async fn test_upload_content() -> Result<(), Box<dyn Error>> {
         let recv_req_body = Arc::new(Mutex::new(Vec::new()));
         let routes = {
             let recv_req_body = recv_req_body.to_owned();
@@ -352,7 +353,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_upload_contents() -> Result<()> {
+    async fn test_upload_contents() -> Result<(), Box<dyn Error>> {
         let recv_req_bodies = Arc::new((0..20).map(|_| Mutex::new(Vec::new())).collect::<Vec<_>>());
         let routes = {
             let recv_req_bodies = recv_req_bodies.to_owned();
@@ -401,7 +402,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_abort_uploading() -> Result<()> {
+    async fn test_abort_uploading() -> Result<(), Box<dyn Error>> {
         let routes = path!("upload").map(|| StatusCode::OK);
 
         starts_with_server!(addr, routes, {
@@ -441,7 +442,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_resolved_addr() -> Result<()> {
+    async fn test_resolved_addr() -> Result<(), Box<dyn Error>> {
         let routes = path!("file" / "content").map(move || Response::new("hello".into()));
 
         starts_with_server!(addr, routes, {
@@ -466,7 +467,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_timeout() -> Result<()> {
+    async fn test_timeout() -> Result<(), Box<dyn Error>> {
         let routes = path!("no" / "response").map(move || {
             sleep(Duration::from_secs(5));
             StatusCode::OK
@@ -488,7 +489,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_user_agent() -> Result<()> {
+    async fn test_user_agent() -> Result<(), Box<dyn Error>> {
         let user_agent = Arc::new(AsyncMutex::new(String::new()));
         let routes = {
             let user_agent = user_agent.to_owned();
