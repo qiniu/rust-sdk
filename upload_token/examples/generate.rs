@@ -1,25 +1,11 @@
-#!/usr/bin/env run-cargo-script
-
-//! ```cargo
-//! [dependencies]
-//! clap = "3.0.0-beta.1"
-//! anyhow = "1.0.32"
-//! qiniu-upload-token = { version = "*", path = "../" }
-//! qiniu-credential = { version = "*", path = "../../credential" }
-//! ```
-
-// TODO: 转成 Example 来用
-
-extern crate anyhow;
 extern crate clap;
 extern crate qiniu_credential;
 extern crate qiniu_upload_token;
 
-use anyhow::Result;
 use clap::Clap;
 use qiniu_credential::StaticCredentialProvider;
 use qiniu_upload_token::{UploadPolicyBuilder, UploadTokenProvider};
-use std::time::Duration;
+use std::{error::Error, result::Result, time::Duration};
 
 #[derive(Debug, Clap)]
 #[clap(version = "1.0", author = "Rong Zhou <zhourong@qiniu.com>")]
@@ -35,7 +21,7 @@ struct Params {
     bucket_name: String,
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Box<dyn Error>> {
     let params: Params = Params::parse();
 
     let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(
