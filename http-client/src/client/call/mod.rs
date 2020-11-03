@@ -59,10 +59,10 @@ macro_rules! install_callbacks {
 }
 
 macro_rules! create_request_call_fn {
-    ($method_name:ident, $return_type:ident, $sign_method:ident, $call_method:ident, $choose_method:ident, $sleep_method:path, $new_response_info:path, $block:ident, $blocking_block:ident $(, $async:ident)?) => {
+    ($method_name:ident, $return_type:ident, $into_endpoints_method:ident, $sign_method:ident, $call_method:ident, $choose_method:ident, $sleep_method:path, $new_response_info:path, $block:ident, $blocking_block:ident $(, $async:ident)?) => {
         pub(super) $($async)? fn $method_name(request: Request<'_>) -> APIResult<$return_type> {
             let (request, into_endpoints, service_name) = request.split();
-            let endpoints = into_endpoints.into_endpoints(service_name)?;
+            let endpoints = $block!({ into_endpoints.$into_endpoints_method(service_name) })?;
             let mut retried = RetriedStatsInfo::default();
 
             return match $block!({ try_new_endpoints(endpoints.endpoints(), &request, &mut retried) }) {
@@ -443,6 +443,7 @@ macro_rules! blocking_async_block {
 create_request_call_fn!(
     request_call,
     SyncResponse,
+    into_endpoints,
     sign,
     call,
     choose,
@@ -461,6 +462,7 @@ async fn async_sleep(dur: Duration) {
 create_request_call_fn!(
     async_request_call,
     AsyncResponse,
+    async_into_endpoints,
     async_sign,
     async_call,
     async_choose,
