@@ -9,10 +9,15 @@ use super::{
     RetryDelayPolicy, ShuffledResolver, SimpleChooser, SimpleResolver,
 };
 use qiniu_http::{HTTPCaller, Method};
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
+
+#[derive(Debug, Clone)]
+pub struct Client {
+    inner: Arc<ClientInner>,
+}
 
 #[derive(Debug)]
-pub struct Client {
+struct ClientInner {
     use_https: bool,
     appended_user_agent: Box<str>,
     http_caller: Box<dyn HTTPCaller>,
@@ -94,47 +99,47 @@ impl Client {
 
     #[inline]
     pub(super) fn use_https(&self) -> bool {
-        self.use_https
+        self.inner.use_https
     }
 
     #[inline]
     pub(super) fn appended_user_agent(&self) -> &str {
-        &self.appended_user_agent
+        &self.inner.appended_user_agent
     }
 
     #[inline]
     pub(super) fn connect_timeout(&self) -> Option<Duration> {
-        self.connect_timeout
+        self.inner.connect_timeout
     }
 
     #[inline]
     pub(super) fn request_timeout(&self) -> Option<Duration> {
-        self.request_timeout
+        self.inner.request_timeout
     }
 
     #[inline]
     pub(super) fn callbacks(&self) -> &Callbacks {
-        &self.callbacks
+        &self.inner.callbacks
     }
 
     #[inline]
     pub(super) fn http_caller(&self) -> &dyn HTTPCaller {
-        self.http_caller.as_ref()
+        self.inner.http_caller.as_ref()
     }
 
     #[inline]
     pub(super) fn request_retrier(&self) -> &dyn RequestRetrier {
-        self.request_retrier.as_ref()
+        self.inner.request_retrier.as_ref()
     }
 
     #[inline]
     pub(super) fn retry_delay_policy(&self) -> &dyn RetryDelayPolicy {
-        self.retry_delay_policy.as_ref()
+        self.inner.retry_delay_policy.as_ref()
     }
 
     #[inline]
     pub(super) fn chooser(&self) -> &dyn Chooser {
-        self.chooser.as_ref()
+        self.inner.chooser.as_ref()
     }
 }
 
@@ -320,15 +325,17 @@ impl ClientBuilder {
     #[inline]
     pub fn build(self) -> Client {
         Client {
-            use_https: self.use_https,
-            appended_user_agent: self.appended_user_agent,
-            http_caller: self.http_caller,
-            request_retrier: self.request_retrier,
-            retry_delay_policy: self.retry_delay_policy,
-            chooser: self.chooser,
-            callbacks: self.callbacks.build(),
-            connect_timeout: self.connect_timeout,
-            request_timeout: self.request_timeout,
+            inner: Arc::new(ClientInner {
+                use_https: self.use_https,
+                appended_user_agent: self.appended_user_agent,
+                http_caller: self.http_caller,
+                request_retrier: self.request_retrier,
+                retry_delay_policy: self.retry_delay_policy,
+                chooser: self.chooser,
+                callbacks: self.callbacks.build(),
+                connect_timeout: self.connect_timeout,
+                request_timeout: self.request_timeout,
+            }),
         }
     }
 }

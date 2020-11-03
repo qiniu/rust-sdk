@@ -201,6 +201,7 @@ impl FromStr for IpAddrWithPort {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[non_exhaustive]
 pub enum Endpoint {
     DomainWithPort(DomainWithPort),
     IpAddrWithPort(IpAddrWithPort),

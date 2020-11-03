@@ -8,7 +8,9 @@ pub use endpoint::{
     IpAddrWithPortParseError,
 };
 pub use endpoints::{IntoEndpoints, ServiceName};
-pub use provider::RegionProvider;
+pub use provider::{
+    BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder, RegionProvider,
+};
 pub use region::{Region, RegionBuilder};
 
 pub(super) use endpoints::Endpoints;

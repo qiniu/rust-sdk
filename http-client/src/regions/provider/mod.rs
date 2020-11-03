@@ -1,6 +1,11 @@
 use super::{super::APIResult, Region};
 use std::{any::Any, fmt::Debug};
 
+mod bucket_regions_queryer;
+pub use bucket_regions_queryer::{
+    BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
+};
+
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
@@ -38,5 +43,4 @@ pub trait RegionProvider: Any + Debug + Sync + Send {
     fn as_region_provider(&self) -> &dyn RegionProvider;
 }
 
-// TODO: Bucket Region Queryer
 // TODO: Region ID Queryer
