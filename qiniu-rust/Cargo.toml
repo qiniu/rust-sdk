@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-ng"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"
 license = "Apache-2.0"
@@ -44,11 +44,11 @@ fs2 = "0.4.3"
 sys-info = "= 0.5.8"
 matches = "0.1.8"
 
-qiniu-with-libcurl = { version = "=0.0.2", path = "../qiniu-rust-with-libcurl", optional = true }
-qiniu-http = { version = "=0.0.2", path = "../qiniu-rust-http" }
+qiniu-with-libcurl = { version = "=0.0.3", path = "../qiniu-rust-with-libcurl", optional = true }
+qiniu-http = { version = "=0.0.3", path = "../qiniu-rust-http" }
 
 [dev-dependencies]
-qiniu-test-utils = { version = "=0.0.2", path = "../qiniu-rust-test-utils" }
+qiniu-test-utils = { version = "=0.0.3", path = "../qiniu-rust-test-utils" }
 regex = "1"
 clap = "2.33.0"
 rand = "0.7.2"

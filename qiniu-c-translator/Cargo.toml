@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-c-translator"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"
 license = "Apache-2.0"
