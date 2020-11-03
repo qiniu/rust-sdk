@@ -22,8 +22,8 @@ pub use client::{
     SimpleResolver, SyncResponse, NO_DELAY_POLICY,
 };
 pub use regions::{
-    DomainWithPort, Endpoint, IntoEndpoints, IpAddrWithPort, Region, RegionBuilder, RegionProvider,
-    ServiceName,
+    DomainWithPort, DomainWithPortParseError, Endpoint, EndpointParseError, IntoEndpoints,
+    IpAddrWithPort, IpAddrWithPortParseError, Region, RegionBuilder, RegionProvider, ServiceName,
 };
 
 #[cfg(any(feature = "c_ares"))]

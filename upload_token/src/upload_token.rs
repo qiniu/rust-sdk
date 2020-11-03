@@ -271,6 +271,7 @@ impl UploadTokenProvider for BucketUploadTokenProvider {
 
 /// 上传凭证解析错误
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum ParseError {
     /// 上传凭证格式错误
     #[error("Invalid upload token format")]
