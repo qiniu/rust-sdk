@@ -6,7 +6,7 @@ use super::{
     },
     CachedResolver, Callbacks, CallbacksBuilder, Chooser, DefaultRetrier,
     ExponentialRetryDelayPolicy, RandomizedRetryDelayPolicy, RequestBuilder, RequestRetrier,
-    RetryDelayPolicy, ShuffledResolver, SimpleChooser, SimpleResolver,
+    RetryDelayPolicy, ShuffledChooser, ShuffledResolver, SimpleChooser, SimpleResolver,
 };
 use qiniu_http::{HTTPCaller, Method};
 use std::{sync::Arc, time::Duration};
@@ -182,6 +182,7 @@ impl ClientBuilder {
     fn _new(http_caller: Box<dyn HTTPCaller>) -> Self {
         type DefaultResolver = ShuffledResolver<CachedResolver<SimpleResolver>>;
         type DefaultRetryDelayPolicy = RandomizedRetryDelayPolicy<ExponentialRetryDelayPolicy>;
+        type DefaultChooser = ShuffledChooser<SimpleChooser<DefaultResolver>>;
 
         ClientBuilder {
             http_caller,
@@ -189,7 +190,7 @@ impl ClientBuilder {
             appended_user_agent: Default::default(),
             request_retrier: Box::new(DefaultRetrier::default()),
             retry_delay_policy: Box::new(DefaultRetryDelayPolicy::default()),
-            chooser: Box::new(SimpleChooser::<DefaultResolver>::default()),
+            chooser: Box::new(DefaultChooser::default()),
             callbacks: Default::default(),
             connect_timeout: Default::default(),
             request_timeout: Default::default(),
