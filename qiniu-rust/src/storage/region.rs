@@ -415,9 +415,9 @@ impl Region {
         let access_key = access_key.into();
         let (regions, _) = QUERY_CACHE
             .try_get_or_insert(QueryCacheKey::new(&access_key, &bucket), || {
-                let uc_url = config.uc_url().to_owned();
+                let uc_urls = config.uc_urls().to_owned();
                 let result: RegionQueryResults = Client::new(config)
-                    .get("/v3/query", &[&uc_url])
+                    .get("/v3/query", &uc_urls.iter().map(|url| url.as_ref()).collect::<Vec<_>>())
                     .query("ak".into(), access_key)
                     .query("bucket".into(), bucket)
                     .accept_json()

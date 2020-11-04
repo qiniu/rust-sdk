@@ -598,10 +598,9 @@
 //! # use std::{time::Duration, path::Path};
 //! let config = ConfigBuilder::default()
 //!                            .use_https(true) // 设置为使用 HTTPS 协议
-//!                            .uc_host("uc.example.com") // 设置 UC 服务器地址
-//!                            .rs_host("rs.example.com") // 设置 RS 服务器地址
-//!                            .rsf_host("rsf.example.com") // 设置 RSF 服务器地址
-//!                            .api_host("api.example.com") // 设置 API 服务器地址
+//!                            .uc_hosts(["uc.example.com".into()]) // 设置 UC 服务器地址
+//!                            .rs_hosts(["rs.example.com".into()]) // 设置 RS 服务器地址
+//!                            .api_hosts(["api.example.com".into()]) // 设置 API 服务器地址
 //!                            .build();
 //! ```
 

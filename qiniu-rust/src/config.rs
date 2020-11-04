@@ -48,49 +48,37 @@ pub struct ConfigInner {
     ///
     /// 默认将会使用七牛公有云的 UC 服务器地址，仅在使用私有云时才需要配置
     #[get = "pub"]
-    #[builder(default = "default::uc_host()", setter(into))]
-    uc_host: Cow<'static, str>,
+    #[builder(default = "default::uc_hosts()", setter(into))]
+    uc_hosts: Vec<Box<str>>,
 
     #[builder(setter(skip))]
-    uc_http_url: OnceCell<String>,
+    uc_http_urls: OnceCell<Box<[Box<str>]>>,
     #[builder(setter(skip))]
-    uc_https_url: OnceCell<String>,
+    uc_https_urls: OnceCell<Box<[Box<str>]>>,
 
     /// RS 服务器地址（仅需要指定主机地址和端口，无需包含协议）
     ///
     /// 默认将会使用七牛公有云的 RS 服务器地址，仅在使用私有云时才需要配置
     #[get = "pub"]
-    #[builder(default = "default::rs_host()", setter(into))]
-    rs_host: Cow<'static, str>,
+    #[builder(default = "default::rs_hosts()", setter(into))]
+    rs_hosts: Vec<Box<str>>,
 
     #[builder(setter(skip))]
-    rs_http_url: OnceCell<String>,
+    rs_http_urls: OnceCell<Box<[Box<str>]>>,
     #[builder(setter(skip))]
-    rs_https_url: OnceCell<String>,
-
-    /// RSF 服务器地址（仅需要指定主机地址和端口，无需包含协议）
-    ///
-    /// 默认将会使用七牛公有云的 RSF 服务器地址，仅在使用私有云时才需要配置
-    #[get = "pub"]
-    #[builder(default = "default::rsf_host()", setter(into))]
-    rsf_host: Cow<'static, str>,
-
-    #[builder(setter(skip))]
-    rsf_http_url: OnceCell<String>,
-    #[builder(setter(skip))]
-    rsf_https_url: OnceCell<String>,
+    rs_https_urls: OnceCell<Box<[Box<str>]>>,
 
     /// API 服务器地址（仅需要指定主机地址和端口，无需包含协议）
     ///
     /// 默认将会使用七牛公有云的 API 服务器地址，仅在使用私有云时才需要配置
     #[get = "pub"]
-    #[builder(default = "default::api_host()", setter(into))]
-    api_host: Cow<'static, str>,
+    #[builder(default = "default::api_hosts()", setter(into))]
+    api_hosts: Vec<Box<str>>,
 
     #[builder(setter(skip))]
-    api_http_url: OnceCell<String>,
+    api_http_urls: OnceCell<Box<[Box<str>]>>,
     #[builder(setter(skip))]
-    api_https_url: OnceCell<String>,
+    api_https_urls: OnceCell<Box<[Box<str>]>>,
 
     /// UpLog 服务器地址（仅需要指定主机地址和端口，无需包含协议）
     ///
@@ -100,9 +88,9 @@ pub struct ConfigInner {
     uplog_host: Cow<'static, str>,
 
     #[builder(setter(skip))]
-    uplog_http_url: OnceCell<String>,
+    uplog_http_url: OnceCell<Box<str>>,
     #[builder(setter(skip))]
-    uplog_https_url: OnceCell<String>,
+    uplog_https_url: OnceCell<Box<str>>,
 
     /// 上传凭证有效期
     ///
@@ -295,23 +283,18 @@ mod default {
     }
 
     #[inline]
-    pub const fn uc_host() -> Cow<'static, str> {
-        Cow::Borrowed("uc.qbox.me")
+    pub fn uc_hosts() -> Vec<Box<str>> {
+        vec!["uc.qbox.me".into()]
     }
 
     #[inline]
-    pub const fn rs_host() -> Cow<'static, str> {
-        Cow::Borrowed("rs.qbox.me")
+    pub fn rs_hosts() -> Vec<Box<str>> {
+        vec!["rs.qbox.me".into()]
     }
 
     #[inline]
-    pub const fn rsf_host() -> Cow<'static, str> {
-        Cow::Borrowed("rsf.qbox.me")
-    }
-
-    #[inline]
-    pub const fn api_host() -> Cow<'static, str> {
-        Cow::Borrowed("api.qiniu.com")
+    pub fn api_hosts() -> Vec<Box<str>> {
+        vec!["api.qiniu.com".into()]
     }
 
     #[inline]
@@ -402,10 +385,9 @@ impl fmt::Debug for ConfigInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Config")
             .field("use_https", &self.use_https)
-            .field("uc_host", &self.uc_host)
-            .field("rs_host", &self.rs_host)
-            .field("rsf_host", &self.rsf_host)
-            .field("api_host", &self.api_host)
+            .field("uc_hosts", &self.uc_hosts)
+            .field("rs_hosts", &self.rs_hosts)
+            .field("api_hosts", &self.api_hosts)
             .field("uplog_host", &self.uplog_host)
             .field("upload_token_lifetime", &self.upload_token_lifetime)
             .field("batch_max_operation_size", &self.batch_max_operation_size)
@@ -429,46 +411,65 @@ impl ConfigInner {
     }
 
     /// UC 服务器 URL
-    pub fn uc_url(&self) -> &str {
+    pub fn uc_urls(&self) -> &[Box<str>] {
         if self.use_https {
-            self.uc_https_url
-                .get_or_init(|| "https://".to_owned() + self.uc_host.as_ref())
+            self.uc_https_urls.get_or_init(|| {
+                self.uc_hosts
+                    .iter()
+                    .map(|uc_host| "https://".to_owned() + uc_host)
+                    .map(|url| url.into_boxed_str())
+                    .collect()
+            })
         } else {
-            self.uc_http_url
-                .get_or_init(|| "http://".to_owned() + self.uc_host.as_ref())
+            self.uc_http_urls.get_or_init(|| {
+                self.uc_hosts
+                    .iter()
+                    .map(|uc_host| "http://".to_owned() + uc_host)
+                    .map(|url| url.into_boxed_str())
+                    .collect()
+            })
         }
     }
 
     /// RS 服务器 URL
-    pub fn rs_url(&self) -> &str {
+    pub fn rs_urls(&self) -> &[Box<str>] {
         if self.use_https {
-            self.rs_https_url
-                .get_or_init(|| "https://".to_owned() + self.rs_host.as_ref())
+            self.rs_https_urls.get_or_init(|| {
+                self.rs_hosts
+                    .iter()
+                    .map(|rs_host| "https://".to_owned() + rs_host)
+                    .map(|url| url.into_boxed_str())
+                    .collect()
+            })
         } else {
-            self.rs_http_url
-                .get_or_init(|| "http://".to_owned() + self.rs_host.as_ref())
-        }
-    }
-
-    /// RSF 服务器 URL
-    pub fn rsf_url(&self) -> &str {
-        if self.use_https {
-            self.rsf_https_url
-                .get_or_init(|| "https://".to_owned() + self.rsf_host.as_ref())
-        } else {
-            self.rsf_http_url
-                .get_or_init(|| "http://".to_owned() + self.rsf_host.as_ref())
+            self.rs_http_urls.get_or_init(|| {
+                self.rs_hosts
+                    .iter()
+                    .map(|rs_host| "http://".to_owned() + rs_host)
+                    .map(|url| url.into_boxed_str())
+                    .collect()
+            })
         }
     }
 
     /// API 服务器 URL
-    pub fn api_url(&self) -> &str {
+    pub fn api_urls(&self) -> &[Box<str>] {
         if self.use_https {
-            self.api_https_url
-                .get_or_init(|| "https://".to_owned() + self.api_host.as_ref())
+            self.api_https_urls.get_or_init(|| {
+                self.api_hosts
+                    .iter()
+                    .map(|api_host| "https://".to_owned() + api_host)
+                    .map(|url| url.into_boxed_str())
+                    .collect()
+            })
         } else {
-            self.api_http_url
-                .get_or_init(|| "http://".to_owned() + self.api_host.as_ref())
+            self.api_http_urls.get_or_init(|| {
+                self.api_hosts
+                    .iter()
+                    .map(|api_host| "http://".to_owned() + api_host)
+                    .map(|url| url.into_boxed_str())
+                    .collect()
+            })
         }
     }
 
@@ -476,10 +477,10 @@ impl ConfigInner {
     pub fn uplog_url(&self) -> &str {
         if self.use_https {
             self.uplog_https_url
-                .get_or_init(|| "https://".to_owned() + self.uplog_host.as_ref())
+                .get_or_init(|| ("https://".to_owned() + self.uplog_host.as_ref()).into_boxed_str())
         } else {
             self.uplog_http_url
-                .get_or_init(|| "http://".to_owned() + self.uplog_host.as_ref())
+                .get_or_init(|| ("http://".to_owned() + self.uplog_host.as_ref()).into_boxed_str())
         }
     }
 }

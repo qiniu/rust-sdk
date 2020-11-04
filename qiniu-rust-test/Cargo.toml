@@ -10,7 +10,7 @@ keywords = ["qiniu", "storage", "testing"]
 
 [dev-dependencies]
 chrono = "0.4.8"
-qiniu-ng = { version = "=0.0.3", path = "../qiniu-rust" }
+qiniu-ng = { version = "=0.0.4", path = "../qiniu-rust" }
 qiniu-http = { version = "=0.0.3", path = "../qiniu-rust-http" }
 qiniu-test-utils = { version = "=0.0.3", path = "../qiniu-rust-test-utils" }
 mime = "0.3.14"

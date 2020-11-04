@@ -337,7 +337,17 @@ impl Bucket {
             let bucket_info: BucketInfo = self
                 .0
                 .http_client
-                .get("/v2/bucketInfo", &[&self.0.http_client.config().uc_url()])
+                .get(
+                    "/v2/bucketInfo",
+                    &self
+                        .0
+                        .http_client
+                        .config()
+                        .uc_urls()
+                        .iter()
+                        .map(|url| url.as_ref())
+                        .collect::<Vec<_>>(),
+                )
                 .query("bucket".into(), self.name().into())
                 .token(TokenVersion::V2, self.0.credential.borrow().into())
                 .no_body()
@@ -361,7 +371,10 @@ impl Bucket {
                             .collect::<Vec<_>>()
                     })
                     .unwrap_or_default();
-                rs_urls.push(self.config().rs_url().to_owned());
+                self.config()
+                    .rs_urls()
+                    .iter()
+                    .for_each(|url| rs_urls.push(url.to_string()));
                 rs_urls.into_boxed_slice()
             })
             .iter()
@@ -456,7 +469,15 @@ mod domain {
         let (domains, _) = QUERY_CACHE
             .try_get_or_insert(QueryCacheKey::new(credential, bucket_name), || {
                 let results = http_client
-                    .get("/v6/domain/list", &[&http_client.config().api_url()])
+                    .get(
+                        "/v6/domain/list",
+                        &http_client
+                            .config()
+                            .api_urls()
+                            .iter()
+                            .map(|url| url.as_ref())
+                            .collect::<Vec<_>>(),
+                    )
                     .query("tbl".into(), bucket_name.into())
                     .token(TokenVersion::V2, credential.borrow().into())
                     .no_body()
