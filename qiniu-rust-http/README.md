@@ -9,7 +9,7 @@
 
 ## 接口文档
 
-[点击进入](https://bachue.github.io/rust-sdk/doc/qiniu_http)
+[点击进入](https://bachue.github.io/rust-sdk/qiniu_http/)
 
 ## 构建指南
 

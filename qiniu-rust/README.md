@@ -22,7 +22,7 @@
 
 ## 接口文档
 
-[点击进入](https://bachue.github.io/rust-sdk/doc/qiniu_ng/)
+[点击进入](https://bachue.github.io/rust-sdk/qiniu_ng/)
 
 ## 设计文档
 
