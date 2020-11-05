@@ -14,11 +14,12 @@ use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM};
 use qiniu_http::{HeaderName, HeaderValue, Headers, Method, RequestBody};
 use serde::Serialize;
 use serde_json::Result as JSONResult;
-use std::{borrow::Cow, fmt, time::Duration};
+use std::{borrow::Cow, time::Duration};
 
 #[cfg(feature = "async")]
 use super::super::{async_request_call, AsyncResponse};
 
+#[derive(Debug)]
 pub struct RequestBuilder<'r> {
     client: &'r Client,
     service_name: ServiceName,
@@ -287,6 +288,7 @@ impl<'r> RequestBuilder<'r> {
 
     #[inline]
     #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     pub async fn async_call(self) -> APIResult<AsyncResponse> {
         async_request_call(self.build()).await
     }
@@ -303,17 +305,5 @@ impl<'r> RequestBuilder<'r> {
             self.data,
             appended_user_agent.into_boxed_str(),
         )
-    }
-}
-
-impl fmt::Debug for RequestBuilder<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RequestBuilder")
-            .field("service_name", &self.service_name)
-            .field("into_endpoints", &self.into_endpoints)
-            .field("callbacks", &self.callbacks)
-            .field("data", &self.data)
-            .field("appended_user_agent", &self.appended_user_agent)
-            .finish()
     }
 }

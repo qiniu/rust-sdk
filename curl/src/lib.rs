@@ -286,6 +286,7 @@ impl HTTPCaller for CurlHTTPCaller {
         sync_http_call(self, request)
     }
 
+    #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_call<'a>(&'a self, request: &'a Request) -> BoxFuture<'a, AsyncResponseResult> {

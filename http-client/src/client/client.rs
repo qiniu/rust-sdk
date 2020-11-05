@@ -211,25 +211,25 @@ impl ClientBuilder {
 
     #[inline]
     pub fn http_caller(mut self, http_caller: Box<dyn HTTPCaller>) -> Self {
-        self.http_caller = http_caller.into();
+        self.http_caller = http_caller;
         self
     }
 
     #[inline]
     pub fn request_retrier(mut self, request_retrier: Box<dyn RequestRetrier>) -> Self {
-        self.request_retrier = request_retrier.into();
+        self.request_retrier = request_retrier;
         self
     }
 
     #[inline]
     pub fn retry_delay_policy(mut self, retry_delay_policy: Box<dyn RetryDelayPolicy>) -> Self {
-        self.retry_delay_policy = retry_delay_policy.into();
+        self.retry_delay_policy = retry_delay_policy;
         self
     }
 
     #[inline]
     pub fn chooser(mut self, chooser: Box<dyn Chooser>) -> Self {
-        self.chooser = chooser.into();
+        self.chooser = chooser;
         self
     }
 

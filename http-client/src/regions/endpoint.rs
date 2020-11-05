@@ -99,7 +99,7 @@ impl FromStr for DomainWithPort {
                 }
             }
             (Some(domain), Some(port)) => {
-                if &format!("{}:{}", domain, port) == s {
+                if format!("{}:{}", domain, port) == s {
                     return Ok(DomainWithPort::new_with_port(domain, port));
                 }
             }
@@ -227,7 +227,7 @@ impl Endpoint {
     #[inline]
     pub fn new_from_ip_addr(ip_addr: IpAddr) -> Self {
         Self::IpAddrWithPort(IpAddrWithPort {
-            ip_addr: ip_addr.into(),
+            ip_addr,
             port: None,
         })
     }
