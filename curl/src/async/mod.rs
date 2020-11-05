@@ -26,6 +26,7 @@ pub(super) async fn async_http_call(
         .try_for_each(|callback| callback(easy.raw()))?;
 
     let agent = spawn(http_client)
+        .await
         .map_err(|err| ResponseError::new(ResponseErrorKind::LocalIOError, err))?;
     agent.submit_request(easy);
     future.await

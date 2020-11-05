@@ -1,13 +1,14 @@
 use super::{
     super::{
         http::{
-            AsyncFile, AsyncResponseBuilder, AsyncResponseResult, HeaderName, HeaderValue,
-            HeadersOwned, Request, RequestBody, ResponseError, ResponseErrorKind, StatusCode,
+            AsyncResponseBuilder, AsyncResponseResult, HeaderName, HeaderValue, HeadersOwned,
+            Request, RequestBody, ResponseError, ResponseErrorKind, StatusCode,
         },
         utils::{easy::handle, header},
     },
     CurlHTTPCaller,
 };
+use async_std::{fs::File as AsyncFile, task::block_on};
 use curl::{
     easy::{Easy2, Handler, ReadError, SeekResult, WriteError},
     Error as CurlError,
@@ -15,7 +16,6 @@ use curl::{
 use curl_sys::CURL;
 use futures::{
     channel::oneshot::{channel, Sender},
-    executor::block_on,
     future::BoxFuture,
     io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt, Cursor as AsyncCursor},
     pin_mut,
@@ -532,7 +532,7 @@ impl AsyncResponseBodyReader {
         match self.get_response_body().await {
             Ok(response_body) => match response_body {
                 ResponseBody::Bytes(bytes) => Ok(builder.bytes_as_body(bytes)),
-                ResponseBody::File(file) => builder.file_as_body(file).await,
+                ResponseBody::File(file) => builder.seekable_stream_as_body(file).await,
             },
             Err(err) => Err(err),
         }

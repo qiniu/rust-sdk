@@ -4,6 +4,7 @@ use super::{
     single_request_context::SingleRequestContext,
     waker::UdpWaker,
 };
+use async_std::task::spawn_blocking;
 use crossbeam_channel::{unbounded, Sender};
 use crossbeam_utils::sync::WaitGroup;
 use curl::{easy::Easy2, init as curl_init, multi::Multi, MultiError};
@@ -30,19 +31,22 @@ pub(super) struct Handler {
     join_handle: Mutex<Option<JoinHandle<AgentResult<()>>>>,
 }
 
-pub(super) fn spawn(client: &CurlHTTPCaller) -> IOResult<Arc<Handler>> {
+pub(super) async fn spawn(client: &CurlHTTPCaller) -> IOResult<Arc<Handler>> {
     let multi_options = client.clone_multi_options();
-    let handler = GLOBAL_HANDLERS
-        .entry(multi_options)
-        .or_try_insert_with(|| spawn_new(client))?
-        .to_owned();
+    let handler = spawn_blocking::<_, IOResult<Arc<Handler>>>(move || {
+        let handler = GLOBAL_HANDLERS
+            .entry(multi_options.to_owned())
+            .or_try_insert_with(|| spawn_new(multi_options))?
+            .to_owned();
+        Ok(handler)
+    })
+    .await?;
     Ok(handler)
 }
 
-fn spawn_new(client: &CurlHTTPCaller) -> IOResult<Arc<Handler>> {
+fn spawn_new(multi_options: MultiOptions) -> IOResult<Arc<Handler>> {
     curl_init();
 
-    let multi_options = client.clone_multi_options();
     let wake_socket = UdpSocket::bind((Ipv4Addr::new(127, 0, 0, 1), 0))?;
     wake_socket.set_nonblocking(true)?;
     let wake_addr = wake_socket.local_addr()?;
@@ -56,7 +60,7 @@ fn spawn_new(client: &CurlHTTPCaller) -> IOResult<Arc<Handler>> {
         tx: tx.to_owned(),
         waker: waker.to_owned(),
         join_handle: Mutex::new(Some({
-            let wait_group = WaitGroup::new();
+            let wait_group = wait_group.to_owned();
             ThreadBuilder::new()
                 .name(format!("qiniu.rust-sdk.curl.async.Handler/{}", port))
                 .spawn(move || {
