@@ -16,7 +16,7 @@ use std::{
 };
 
 #[cfg(feature = "async")]
-use futures::{executor::block_on, future::BoxFuture};
+use {async_std::task::block_on, futures::future::BoxFuture};
 
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 

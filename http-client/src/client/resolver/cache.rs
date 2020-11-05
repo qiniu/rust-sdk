@@ -23,7 +23,7 @@ use std::{
 use thiserror::Error;
 
 #[cfg(feature = "async")]
-use futures::{executor::block_on, future::BoxFuture};
+use {async_std::task::block_on, futures::future::BoxFuture};
 
 const CACHE_SIZE_TO_SHRINK: usize = 100;
 const MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);

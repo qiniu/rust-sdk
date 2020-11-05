@@ -25,7 +25,7 @@ use utils::{
 };
 
 #[cfg(feature = "async")]
-use {super::AsyncResponse, futures::executor::block_on, futures_timer::Delay as AsyncDelay};
+use {super::AsyncResponse, async_std::task::block_on, futures_timer::Delay as AsyncDelay};
 
 const X_REQ_ID_HEADER_NAME: &str = "X-Reqid";
 
@@ -1062,8 +1062,8 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
     #[cfg(feature = "async")]
-    #[async_std::test]
     async fn test_async_call_single_endpoint_retry() -> Result<(), Box<dyn Error>> {
         let always_retry_client = make_error_response_client_builder(
             HTTPResponseErrorKind::TimeoutError,
