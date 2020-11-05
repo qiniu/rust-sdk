@@ -33,8 +33,8 @@ pub type SyncCachedResponseResult = ResponseResult<CachedResponseBody>;
 #[cfg(feature = "async")]
 mod async_response {
     pub use super::response::{
-        AsyncBody as AsyncResponseBody, AsyncCachedBody as AsyncCachedResponseBody, AsyncFile,
-        Response, ResponseBuilder, Result as ResponseResult,
+        AsyncBody as AsyncResponseBody, AsyncCachedBody as AsyncCachedResponseBody, Response,
+        ResponseBuilder, Result as ResponseResult,
     };
 
     /// 异步 HTTP 响应
