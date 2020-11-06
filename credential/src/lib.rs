@@ -227,7 +227,10 @@ fn will_push_body_v2(content_type: &str) -> bool {
 }
 
 #[cfg(feature = "async")]
-use futures::future::BoxFuture;
+use std::{future::Future, pin::Pin};
+
+#[cfg(feature = "async")]
+type AsyncResult<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a + Send>>;
 
 /// 认证信息提供者
 ///
@@ -240,7 +243,7 @@ pub trait CredentialProvider: Any + Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_get(&self) -> BoxFuture<Result<Credential>> {
+    fn async_get(&self) -> AsyncResult<Credential> {
         Box::pin(async move { self.get() })
     }
 
@@ -461,7 +464,7 @@ impl CredentialProvider for ChainCredentialsProvider {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_get(&self) -> BoxFuture<Result<Credential>> {
+    fn async_get(&self) -> AsyncResult<Credential> {
         Box::pin(async move {
             for provider in self.credentials.iter() {
                 if let Ok(credential) = provider.async_get().await {

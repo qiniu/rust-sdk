@@ -12,7 +12,13 @@ use std::{
 use thiserror::Error;
 
 #[cfg(feature = "async")]
-use futures::future::BoxFuture;
+use std::{future::Future, pin::Pin};
+
+#[cfg(feature = "async")]
+type AsyncParseResult<'a, T> = Pin<Box<dyn Future<Output = ParseResult<T>> + 'a + Send>>;
+
+#[cfg(feature = "async")]
+type AsyncIOResult<'a, T> = Pin<Box<dyn Future<Output = IOResult<T>> + 'a + Send>>;
 
 /// 上传凭证提供者
 ///
@@ -25,7 +31,7 @@ pub trait UploadTokenProvider: Any + Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_access_key(&self) -> BoxFuture<ParseResult<Cow<str>>> {
+    fn async_access_key(&self) -> AsyncParseResult<Cow<str>> {
         Box::pin(async move { self.access_key() })
     }
 
@@ -36,7 +42,7 @@ pub trait UploadTokenProvider: Any + Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_policy(&self) -> BoxFuture<ParseResult<Cow<UploadPolicy>>> {
+    fn async_policy(&self) -> AsyncParseResult<Cow<UploadPolicy>> {
         Box::pin(async move { self.policy() })
     }
 
@@ -47,7 +53,7 @@ pub trait UploadTokenProvider: Any + Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_to_string(&self) -> BoxFuture<IOResult<Cow<str>>> {
+    fn async_to_string(&self) -> AsyncIOResult<Cow<str>> {
         Box::pin(async move { self.to_string() })
     }
 

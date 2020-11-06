@@ -14,7 +14,7 @@ keywords = ["qiniu", "storage"]
 rustc_version_runtime = "0.1.5"
 assert-impl = "0.1.3"
 once_cell = "1.4.1"
-futures = { version = "0.3.5", optional = true }
+futures-lite = { version = "1.11.2", optional = true }
 
 qiniu-utils = { version = "0.0.4", path = "../utils" }
 
@@ -23,7 +23,7 @@ async-std = { version = "1.6.3", features = ["attributes"] }
 
 [features]
 default = []
-async = ["futures"]
+async = ["futures-lite"]
 docs = []
 
 [package.metadata.docs.rs]

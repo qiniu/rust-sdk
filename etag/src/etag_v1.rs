@@ -52,7 +52,7 @@ impl Write for EtagV1 {
 
 #[cfg(feature = "async")]
 use {
-    futures::io::AsyncWrite,
+    futures_lite::io::AsyncWrite,
     std::{
         pin::Pin,
         task::{Context, Poll},

@@ -67,7 +67,10 @@ pub use async_response::*;
 use std::{any::Any, fmt::Debug};
 
 #[cfg(feature = "async")]
-use futures::future::BoxFuture;
+use std::{future::Future, pin::Pin};
+
+#[cfg(feature = "async")]
+type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 
 /// HTTP 请求处理函数
 ///

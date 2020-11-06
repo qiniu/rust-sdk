@@ -94,9 +94,9 @@ impl CachedBody {
 
 #[cfg(feature = "async")]
 mod async_body {
-    use futures::{
+    use futures_lite::{
         io::{AsyncRead, AsyncReadExt, AsyncSeek, Cursor, Result as IOResult},
-        pin_mut,
+        pin,
     };
     use std::{
         fmt::Debug,
@@ -137,15 +137,15 @@ mod async_body {
         ) -> Poll<IOResult<usize>> {
             match &mut self.as_mut().0 {
                 AsyncBodyInner::Reader(reader) => {
-                    pin_mut!(reader);
+                    pin!(reader);
                     reader.poll_read(cx, buf)
                 }
                 AsyncBodyInner::SeekableReader(reader) => {
-                    pin_mut!(reader);
+                    pin!(reader);
                     reader.poll_read(cx, buf)
                 }
                 AsyncBodyInner::Bytes(bytes) => {
-                    pin_mut!(bytes);
+                    pin!(bytes);
                     bytes.poll_read(cx, buf)
                 }
             }
@@ -189,7 +189,7 @@ mod async_body {
             buf: &mut [u8],
         ) -> Poll<IOResult<usize>> {
             let bytes = &mut self.as_mut().0;
-            pin_mut!(bytes);
+            pin!(bytes);
             bytes.poll_read(cx, buf)
         }
     }
@@ -215,7 +215,7 @@ mod async_body {
 #[cfg(feature = "async")]
 pub use async_body::*;
 #[cfg(feature = "async")]
-use futures::io::{AsyncRead, AsyncSeek, AsyncSeekExt, Cursor as AsyncCursor};
+use futures_lite::io::{AsyncRead, AsyncSeek, AsyncSeekExt, Cursor as AsyncCursor};
 
 /// HTTP 响应
 ///

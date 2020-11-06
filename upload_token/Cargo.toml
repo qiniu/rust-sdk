@@ -14,7 +14,6 @@ assert-impl = "0.1.3"
 once_cell = "1.4.1"
 thiserror = "1.0"
 duplicate = "0.2.7"
-futures = { version = "0.3.5", optional = true }
 
 qiniu-credential = { version = "0.0.4", path = "../credential", optional = true }
 qiniu-utils = { version = "0.0.4", path = "../utils" }
@@ -25,7 +24,7 @@ clap = "3.0.0-beta.1"
 
 [features]
 default = ["qiniu-credential"]
-async = ["futures", "qiniu-credential/async"]
+async = ["qiniu-credential/async"]
 docs = []
 
 [package.metadata.docs.rs]

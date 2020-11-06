@@ -13,7 +13,7 @@ keywords = ["qiniu", "storage"]
 [dependencies]
 sha-1 = "0.9.1"
 digest = "0.9.0"
-futures = { version = "0.3.5", optional = true }
+futures-lite = { version = "1.11.2", optional = true }
 
 qiniu-utils = { version = "0.0.4", path = "../utils" }
 
@@ -22,7 +22,7 @@ async-std = { version = "1.6.3", features = ["attributes"] }
 
 [features]
 default = []
-async = ["futures"]
+async = ["futures-lite"]
 docs = []
 
 [package.metadata.docs.rs]

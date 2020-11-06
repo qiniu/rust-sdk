@@ -3,7 +3,7 @@ use digest::{
     generic_array::{typenum::U28, GenericArray},
     FixedOutput, Update,
 };
-use futures::io::{copy, AsyncRead, AsyncReadExt, Result};
+use futures_lite::io::{copy, AsyncRead, AsyncReadExt, Result};
 
 async fn _etag_of_reader(
     mut reader: impl AsyncRead + Unpin,
@@ -75,7 +75,7 @@ pub async fn etag_with_parts_to_buf(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures::io::Cursor;
+    use futures_lite::io::Cursor;
     use std::{error::Error, result::Result};
 
     #[async_std::test]
