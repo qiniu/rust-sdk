@@ -1,12 +1,12 @@
 use super::{
     super::{
         super::{APIResult, Client, ResponseError, ResponseErrorKind},
-        Endpoint, EndpointParseError, ServiceName,
+        Endpoint, ServiceName,
     },
+    structs::{ResponseBody, DEFAULT_CACHE_LIFETIME},
     Region, RegionProvider,
 };
 use dashmap::DashMap;
-use serde::Deserialize;
 use std::{
     any::Any,
     convert::TryFrom,
@@ -18,72 +18,6 @@ use std::{
 #[cfg(feature = "async")]
 use {async_std::task::spawn_blocking, futures::future::BoxFuture};
 
-const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
-
-#[derive(Debug, Clone, Deserialize)]
-struct ResponseBody {
-    hosts: Vec<RegionResponseBody>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct RegionResponseBody {
-    region: Box<str>,
-    io: DomainsResponseBody,
-    up: DomainsResponseBody,
-    uc: DomainsResponseBody,
-    rs: DomainsResponseBody,
-    rsf: DomainsResponseBody,
-    api: DomainsResponseBody,
-    s3: DomainsResponseBody,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct DomainsResponseBody {
-    domains: Box<[Box<str>]>,
-    old: Option<Box<[Box<str>]>>,
-}
-
-impl TryFrom<RegionResponseBody> for Region {
-    type Error = EndpointParseError;
-    fn try_from(body: RegionResponseBody) -> Result<Self, Self::Error> {
-        let RegionResponseBody {
-            region,
-            io,
-            up,
-            uc,
-            rs,
-            rsf,
-            api,
-            s3,
-        } = body;
-        let mut builder = Self::builder(region);
-
-        macro_rules! push_to_builder {
-            ($service_name:expr, $push_to_endpoint:ident, $push_to_old_endpoint:ident) => {
-                for domain in $service_name.domains.iter() {
-                    let endpoint: Endpoint = domain.as_ref().parse()?;
-                    builder = builder.$push_to_endpoint(endpoint);
-                }
-                if let Some(old_domains) = &$service_name.old {
-                    for old_domain in old_domains.iter() {
-                        let endpoint: Endpoint = old_domain.as_ref().parse()?;
-                        builder = builder.$push_to_old_endpoint(endpoint);
-                    }
-                }
-            };
-        }
-        push_to_builder!(io, push_io_endpoint, push_io_old_endpoint);
-        push_to_builder!(up, push_up_endpoint, push_up_old_endpoint);
-        push_to_builder!(uc, push_uc_endpoint, push_uc_old_endpoint);
-        push_to_builder!(rs, push_rs_endpoint, push_rs_old_endpoint);
-        push_to_builder!(rsf, push_rsf_endpoint, push_rsf_old_endpoint);
-        push_to_builder!(api, push_api_endpoint, push_api_old_endpoint);
-        push_to_builder!(s3, push_s3_endpoint, push_s3_old_endpoint);
-
-        Ok(builder.build())
-    }
-}
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct CacheKey {
     bucket_name: Box<str>,
@@ -92,7 +26,7 @@ struct CacheKey {
 
 #[derive(Debug, Clone)]
 struct CacheValue {
-    body: ResponseBody,
+    body: Vec<Region>,
     cached_at: Instant,
 }
 
@@ -109,6 +43,7 @@ struct BucketRegionsQueryerInner {
     cache: DashMap<CacheKey, CacheValue>,
 }
 
+#[derive(Debug)]
 pub struct BucketRegionsQueryerBuilder {
     http_client: Client,
     uc_endpoints: Vec<Endpoint>,
@@ -139,11 +74,11 @@ impl BucketRegionsQueryer {
         }
     }
 
-    fn do_sync_query(&self, access_key: &str, bucket_name: &str) -> APIResult<ResponseBody> {
+    fn do_sync_query(&self, access_key: &str, bucket_name: &str) -> APIResult<Vec<Region>> {
         let cache_result: APIResult<_> = self
             .inner
             .cache
-            .entry(Self::cache_key(access_key, bucket_name))
+            .entry(cache_key(access_key, bucket_name))
             .and_modify(|cache_value| {
                 if cache_value.cached_at.elapsed() > self.inner.cache_lifetime {
                     if let Ok(body) = self._do_sync_query(access_key, bucket_name) {
@@ -158,11 +93,20 @@ impl BucketRegionsQueryer {
                 Ok(CacheValue { body, cached_at })
             });
         let cache_value = cache_result?;
-        Ok(cache_value.value().body.to_owned())
+        return Ok(cache_value.value().body.to_owned());
+
+        #[inline]
+        fn cache_key(access_key: &str, bucket_name: &str) -> CacheKey {
+            CacheKey {
+                access_key: access_key.into(),
+                bucket_name: bucket_name.into(),
+            }
+        }
     }
 
-    fn _do_sync_query(&self, access_key: &str, bucket_name: &str) -> APIResult<ResponseBody> {
-        self.inner
+    fn _do_sync_query(&self, access_key: &str, bucket_name: &str) -> APIResult<Vec<Region>> {
+        let body: ResponseBody = self
+            .inner
             .http_client
             .get(ServiceName::Uc, self.inner.uc_endpoints.to_owned())
             .path("/v4/query")
@@ -170,44 +114,23 @@ impl BucketRegionsQueryer {
             .append_query_pair("bucket", bucket_name)
             .accept_json()
             .call()?
-            .parse_json()
+            .parse_json()?;
+        body.into_hosts()
+            .into_iter()
+            .map(|host| {
+                Region::try_from(host)
+                    .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))
+            })
+            .collect()
     }
 
     #[cfg(feature = "async")]
-    async fn do_async_query(&self, access_key: &str, bucket_name: &str) -> APIResult<ResponseBody> {
+    async fn do_async_query(&self, access_key: &str, bucket_name: &str) -> APIResult<Vec<Region>> {
         let ctx = self.to_owned();
-        let cache_key = Self::cache_key(access_key, bucket_name);
         let access_key = access_key.to_owned();
         let bucket_name = bucket_name.to_owned();
 
-        spawn_blocking(move || {
-            ctx.inner
-                .cache
-                .entry(cache_key)
-                .and_modify(|cache_value| {
-                    if cache_value.cached_at.elapsed() > ctx.inner.cache_lifetime {
-                        if let Ok(body) = ctx._do_sync_query(&access_key, &bucket_name) {
-                            let cached_at = Instant::now();
-                            *cache_value = CacheValue { body, cached_at };
-                        }
-                    }
-                })
-                .or_try_insert_with(|| {
-                    let body = ctx._do_sync_query(&access_key, &bucket_name)?;
-                    let cached_at = Instant::now();
-                    Ok(CacheValue { body, cached_at })
-                })
-                .map(|value| value.to_owned().body)
-        })
-        .await
-    }
-
-    #[inline]
-    fn cache_key(access_key: &str, bucket_name: &str) -> CacheKey {
-        CacheKey {
-            access_key: access_key.into(),
-            bucket_name: bucket_name.into(),
-        }
+        spawn_blocking(move || ctx.do_sync_query(&access_key, &bucket_name)).await
     }
 }
 
@@ -265,16 +188,6 @@ impl RegionProvider for BucketRegionsProvider {
         self.inner
             .queryer
             .do_sync_query(&self.inner.access_key, &self.inner.bucket_name)
-            .and_then(|body| {
-                body.hosts
-                    .into_iter()
-                    .map(|host| {
-                        Region::try_from(host).map_err(|err| {
-                            ResponseError::new(ResponseErrorKind::ParseResponseError, err)
-                        })
-                    })
-                    .collect()
-            })
     }
 
     /// 异步返回七牛区域信息
@@ -302,16 +215,6 @@ impl RegionProvider for BucketRegionsProvider {
                 .queryer
                 .do_async_query(&self.inner.access_key, &self.inner.bucket_name)
                 .await
-                .and_then(|body| {
-                    body.hosts
-                        .into_iter()
-                        .map(|host| {
-                            Region::try_from(host).map_err(|err| {
-                                ResponseError::new(ResponseErrorKind::ParseResponseError, err)
-                            })
-                        })
-                        .collect()
-                })
         })
     }
 

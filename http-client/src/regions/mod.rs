@@ -10,6 +10,7 @@ pub use endpoint::{
 pub use endpoints::{IntoEndpoints, ServiceName};
 pub use provider::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder, RegionProvider,
+    RegionsProvider, RegionsProviderBuilder,
 };
 pub use region::{Region, RegionBuilder};
 

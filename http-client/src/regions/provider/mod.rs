@@ -5,6 +5,9 @@ mod bucket_regions_queryer;
 pub use bucket_regions_queryer::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
 };
+mod regions_provider;
+pub use regions_provider::{RegionsProvider, RegionsProviderBuilder};
+mod structs;
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
@@ -42,5 +45,3 @@ pub trait RegionProvider: Any + Debug + Sync + Send {
     fn as_any(&self) -> &dyn Any;
     fn as_region_provider(&self) -> &dyn RegionProvider;
 }
-
-// TODO: Region ID Queryer

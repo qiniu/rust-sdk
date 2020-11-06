@@ -8,7 +8,10 @@ use super::{
     },
     CurlHTTPCaller,
 };
-use async_std::{fs::File as AsyncFile, task::block_on};
+use async_std::{
+    fs::File as AsyncFile,
+    task::{block_on, spawn_blocking},
+};
 use curl::{
     easy::{Easy2, Handler, ReadError, SeekResult, WriteError},
     Error as CurlError,
@@ -550,8 +553,11 @@ impl AsyncResponseBodyReader {
                 Ok(len) => match &mut response_body {
                     ResponseBody::Bytes(bytes) => {
                         if bytes.len() + len > buffer.capacity() {
-                            let mut tmpfile =
-                                AsyncFile::from(tempfile_in(self.statuses.temp_dir.as_ref())?);
+                            let statuses = self.statuses.to_owned();
+                            let mut tmpfile = AsyncFile::from(
+                                spawn_blocking(move || tempfile_in(statuses.temp_dir.as_ref()))
+                                    .await?,
+                            );
                             tmpfile.write_all(bytes).await?;
                             tmpfile.write_all(&buffer[..len]).await?;
                             response_body = ResponseBody::File(tmpfile);
