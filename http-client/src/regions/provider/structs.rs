@@ -9,6 +9,7 @@ pub(super) const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 
 #[derive(Debug, Clone, Deserialize)]
 pub(super) struct ResponseBody {
+    #[serde(alias = "regions")]
     hosts: Vec<RegionResponseBody>,
 }
 
@@ -21,6 +22,7 @@ impl ResponseBody {
 
 #[derive(Debug, Clone, Deserialize)]
 pub(super) struct RegionResponseBody {
+    #[serde(alias = "id")]
     region: Box<str>,
     io: DomainsResponseBody,
     up: DomainsResponseBody,

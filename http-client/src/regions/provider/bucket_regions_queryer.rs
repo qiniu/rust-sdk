@@ -230,7 +230,7 @@ impl RegionProvider for BucketRegionsProvider {
 mod tests {
     use super::*;
     use futures::channel::oneshot::channel;
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
     use serde_json::{json, Value as JSONValue};
     use std::{error::Error, result::Result, str::FromStr};
     use tokio::task::spawn;
@@ -257,7 +257,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_all_regions() -> Result<(), Box<dyn Error>> {
+    async fn test_query_regions_of_bucket() -> Result<(), Box<dyn Error>> {
         const ACCESS_KEY: &str = "0123456789001234567890";
         const BUCKET_NAME: &str = "test-bucket";
 
