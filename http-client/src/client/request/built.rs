@@ -8,6 +8,7 @@ use super::{
     request_id::RequestId,
     Idempotent, QueryPairs,
 };
+use once_cell::sync::Lazy;
 use qiniu_http::{HeaderName, HeaderValue, Headers, Method, StatusCode};
 use std::{fmt, time::Duration};
 
@@ -50,7 +51,7 @@ impl<'r> Request<'r> {
                 callbacks: self.callbacks,
                 data: self.data,
                 appended_user_agent: self.appended_user_agent,
-                request_id: RequestId::new(),
+                request_id: Lazy::new(RequestId::new),
             },
             self.into_endpoints,
             self.service_name,
@@ -58,12 +59,13 @@ impl<'r> Request<'r> {
     }
 }
 
+#[derive(Debug)]
 pub(in super::super) struct RequestWithoutEndpoints<'r> {
     client: &'r Client,
     callbacks: Callbacks,
     data: RequestData<'r>,
     appended_user_agent: Box<str>,
-    request_id: RequestId,
+    request_id: Lazy<RequestId>,
 }
 
 impl<'r> RequestWithoutEndpoints<'r> {

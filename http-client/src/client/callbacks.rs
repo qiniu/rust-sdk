@@ -1,4 +1,4 @@
-use super::{ChosenResult, ResponseError, RetriedStatsInfo, SyncResponse};
+use super::{ChosenResult, RequestWithoutEndpoints, ResponseError, RetriedStatsInfo, SyncResponse};
 use qiniu_http::{HeaderName, HeaderValue, HeadersOwned, Method, Request, StatusCode};
 use std::{fmt, iter::FromIterator, net::IpAddr, time::Duration};
 
@@ -99,38 +99,40 @@ impl<'r> ResponseInfo<'r> {
 }
 
 #[derive(Debug)]
-pub struct CallbackContext<'reqref, 'retried, 'req> {
-    id: usize,
-    request: &'reqref mut Request<'req>,
+pub struct CallbackContext<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> {
+    request: &'reqref RequestWithoutEndpoints<'req>,
+    http_request: &'httpreqref mut Request<'httpreq>,
     retried: &'retried RetriedStatsInfo,
 }
 
-impl<'reqref, 'retried, 'req> CallbackContext<'reqref, 'retried, 'req> {
+impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
+    CallbackContext<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
+{
     pub(super) fn new(
-        id: usize,
-        request: &'reqref mut Request<'req>,
+        request: &'reqref RequestWithoutEndpoints<'req>,
+        http_request: &'httpreqref mut Request<'httpreq>,
         retried: &'retried RetriedStatsInfo,
     ) -> Self {
         Self {
-            id,
             request,
+            http_request,
             retried,
         }
     }
 
     #[inline]
     pub fn id(&self) -> usize {
-        self.id
+        self.request.request_id()
     }
 
     #[inline]
     pub fn request(&self) -> &Request {
-        self.request
+        self.http_request
     }
 
     #[inline]
-    pub fn request_mut(&mut self) -> &mut Request<'req> {
-        self.request
+    pub fn request_mut(&mut self) -> &mut Request<'httpreq> {
+        self.http_request
     }
 
     #[inline]

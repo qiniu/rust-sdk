@@ -112,7 +112,7 @@ pub(super) fn call_before_retry_delay_callbacks(
     delay: Duration,
 ) -> Result<(), TryError> {
     if !request.call_before_retry_delay_callbacks(
-        &mut CallbackContext::new(request.request_id(), built_request, retried),
+        &mut CallbackContext::new(request, built_request, retried),
         delay,
     ) {
         return Err(TryError::new(
@@ -134,7 +134,7 @@ pub(super) fn call_after_retry_delay_callbacks(
     delay: Duration,
 ) -> Result<(), TryError> {
     if !request.call_after_retry_delay_callbacks(
-        &mut CallbackContext::new(request.request_id(), built_request, retried),
+        &mut CallbackContext::new(request, built_request, retried),
         delay,
     ) {
         return Err(TryError::new(
@@ -190,7 +190,7 @@ pub(super) fn call_before_request_signed_callbacks(
     retried: &mut RetriedStatsInfo,
 ) -> Result<(), TryError> {
     if !request.call_before_request_signed_callbacks(&mut CallbackContext::new(
-        request.request_id(),
+        request,
         built_request,
         retried,
     )) {
@@ -212,7 +212,7 @@ pub(super) fn call_after_request_signed_callbacks(
     retried: &mut RetriedStatsInfo,
 ) -> Result<(), TryError> {
     if !request.call_after_request_signed_callbacks(&mut CallbackContext::new(
-        request.request_id(),
+        request,
         built_request,
         retried,
     )) {
@@ -235,7 +235,7 @@ pub(super) fn call_success_callbacks(
     response: &ResponseInfo,
 ) -> Result<(), TryError> {
     if !request.call_success_callbacks(
-        &mut CallbackContext::new(request.request_id(), built_request, retried),
+        &mut CallbackContext::new(request, built_request, retried),
         response,
     ) {
         return Err(TryError::new(
@@ -257,7 +257,7 @@ pub(super) fn call_error_callbacks(
     response_error: &ResponseError,
 ) -> Result<(), TryError> {
     if !request.call_error_callbacks(
-        &mut CallbackContext::new(request.request_id(), built_request, retried),
+        &mut CallbackContext::new(request, built_request, retried),
         response_error,
     ) {
         return Err(TryError::new(
