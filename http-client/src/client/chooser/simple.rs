@@ -1,9 +1,9 @@
 use super::{
     super::{
         super::regions::{DomainWithPort, Endpoint, IpAddrWithPort},
-        Resolver, ResponseError,
+        DomainOrIpAddr, Resolver,
     },
-    Chooser, ChosenResult,
+    Chooser, ChooserFeedback, ChosenResult,
 };
 use dashmap::DashMap;
 use log::info;
@@ -78,7 +78,7 @@ macro_rules! choose {
         let chosen_result = if $self
             .inner
             .blacklist
-            .get(&BlacklistKey::from($domain.to_owned()))
+            .get(&BlacklistKey::DomainWithPort($domain.to_owned()))
             .map_or(false, |r| {
                 if r.value().block_until >= SystemTime::now() {
                     true
@@ -147,32 +147,59 @@ impl<R: Resolver> Chooser for SimpleChooser<R> {
         chosen_result
     }
 
-    fn freeze_domain(&self, domain: &DomainWithPort, _error: &ResponseError) {
-        let block_until = SystemTime::now() + self.block_duration;
-        self.inner.blacklist.insert(
-            BlacklistKey::from(domain.to_owned()),
-            BlacklistValue { block_until },
-        );
-    }
-
-    fn freeze_ips(&self, ips: &[IpAddrWithPort], _error: &ResponseError) {
-        let block_until = SystemTime::now() + self.block_duration;
-        for &ip in ips.iter() {
-            self.inner
-                .blacklist
-                .insert(BlacklistKey::from(ip), BlacklistValue { block_until });
-        }
-    }
-
-    fn unfreeze_domain(&self, domain: &DomainWithPort) {
-        self.inner
-            .blacklist
-            .remove(&BlacklistKey::from(domain.to_owned()));
-    }
-
-    fn unfreeze_ips(&self, ips: &[IpAddrWithPort]) {
-        for &ip in ips.iter() {
-            self.inner.blacklist.remove(&BlacklistKey::from(ip));
+    fn feedback(&self, feedback: ChooserFeedback) {
+        if feedback.error().is_some() {
+            let block_until = SystemTime::now() + self.block_duration;
+            match feedback.domain_or_ip_addr() {
+                DomainOrIpAddr::Domain {
+                    domain_with_port,
+                    resolved_ips,
+                } => {
+                    if resolved_ips.is_empty() {
+                        self.inner.blacklist.insert(
+                            BlacklistKey::from(domain_with_port.to_owned()),
+                            BlacklistValue { block_until },
+                        );
+                    } else {
+                        for ip in resolved_ips.iter() {
+                            self.inner.blacklist.insert(
+                                BlacklistKey::from(ip.to_owned()),
+                                BlacklistValue { block_until },
+                            );
+                        }
+                    }
+                }
+                DomainOrIpAddr::IpAddr(ip_addr_with_port) => {
+                    self.inner.blacklist.insert(
+                        BlacklistKey::from(ip_addr_with_port.to_owned()),
+                        BlacklistValue { block_until },
+                    );
+                }
+            }
+        } else {
+            match feedback.domain_or_ip_addr() {
+                DomainOrIpAddr::Domain {
+                    domain_with_port,
+                    resolved_ips,
+                } => {
+                    if resolved_ips.is_empty() {
+                        self.inner
+                            .blacklist
+                            .remove(&BlacklistKey::from(domain_with_port.to_owned()));
+                    } else {
+                        for ip in resolved_ips.iter() {
+                            self.inner
+                                .blacklist
+                                .remove(&BlacklistKey::from(ip.to_owned()));
+                        }
+                    }
+                }
+                DomainOrIpAddr::IpAddr(ip_addr_with_port) => {
+                    self.inner
+                        .blacklist
+                        .remove(&BlacklistKey::from(ip_addr_with_port.to_owned()));
+                }
+            }
         }
     }
 
@@ -285,7 +312,7 @@ impl Default for LockedData {
 #[cfg(test)]
 mod tests {
     use super::{
-        super::super::{ResolveResult, ResponseErrorKind},
+        super::super::{ResolveResult, ResponseError, ResponseErrorKind, RetriedStatsInfo},
         *,
     };
     use std::{
@@ -360,10 +387,17 @@ mod tests {
             ])
         );
 
-        chooser.freeze_ips(
-            &[IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into()],
-            &ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
-        );
+        chooser.feedback(ChooserFeedback::new(
+            &DomainOrIpAddr::new_from_domain(
+                DomainWithPort::new("test_domain_1.com"),
+                vec![Ipv4Addr::new(192, 168, 1, 3).into()],
+            ),
+            &RetriedStatsInfo::default(),
+            Some(&ResponseError::new(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
+        ));
         assert_eq!(
             chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::IPs(vec![
@@ -380,22 +414,33 @@ mod tests {
             ])
         );
 
-        chooser.freeze_ips(
-            &[
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-            ],
-            &ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
-        );
+        chooser.feedback(ChooserFeedback::new(
+            &DomainOrIpAddr::new_from_domain(
+                DomainWithPort::new("test_domain_1.com"),
+                vec![
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
+                ],
+            ),
+            &RetriedStatsInfo::default(),
+            Some(&ResponseError::new(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
+        ));
         assert_eq!(
             chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::TryAnotherDomain,
         );
 
-        chooser.freeze_domain(
-            &DomainWithPort::new("test_domain_2.com"),
-            &ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
-        );
+        chooser.feedback(ChooserFeedback::new(
+            &DomainOrIpAddr::new_from_domain(DomainWithPort::new("test_domain_2.com"), vec![]),
+            &RetriedStatsInfo::default(),
+            Some(&ResponseError::new(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
+        ));
         assert_eq!(
             chooser.choose(&DomainWithPort::new("test_domain_2.com"), false),
             ChosenResult::TryAnotherDomain,
@@ -430,14 +475,21 @@ mod tests {
             ])
         );
 
-        chooser.freeze_ips(
-            &[
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
-            ],
-            &ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
-        );
+        chooser.feedback(ChooserFeedback::new(
+            &DomainOrIpAddr::new_from_domain(
+                DomainWithPort::new("test_domain_1.com"),
+                vec![
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
+                ],
+            ),
+            &RetriedStatsInfo::default(),
+            Some(&ResponseError::new(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
+        ));
         assert_eq!(
             chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::TryAnotherDomain,
@@ -454,23 +506,37 @@ mod tests {
             ])
         );
 
-        chooser.freeze_ips(
-            &[
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
-            ],
-            &ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error"),
-        );
+        chooser.feedback(ChooserFeedback::new(
+            &DomainOrIpAddr::new_from_domain(
+                DomainWithPort::new("test_domain_1.com"),
+                vec![
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
+                ],
+            ),
+            &RetriedStatsInfo::default(),
+            Some(&ResponseError::new(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
+        ));
         assert_eq!(
             chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::TryAnotherDomain,
         );
 
-        chooser.unfreeze_ips(&[
-            IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-            IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-        ]);
+        chooser.feedback(ChooserFeedback::new(
+            &DomainOrIpAddr::new_from_domain(
+                DomainWithPort::new("test_domain_1.com"),
+                vec![
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
+                ],
+            ),
+            &RetriedStatsInfo::default(),
+            None,
+        ));
         assert_eq!(
             chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::IPs(vec![

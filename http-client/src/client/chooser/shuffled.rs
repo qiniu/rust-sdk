@@ -1,9 +1,9 @@
 use super::{
     super::{
         super::regions::{DomainWithPort, IpAddrWithPort},
-        Resolver, ResponseError,
+        Resolver,
     },
-    Chooser, ChosenResult,
+    Chooser, ChooserFeedback, ChosenResult,
 };
 use rand::{seq::SliceRandom, thread_rng};
 use std::any::Any;
@@ -56,7 +56,6 @@ impl<C: Chooser> Chooser for ShuffledChooser<C> {
         }
     }
 
-    #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_choose<'a>(
@@ -77,7 +76,6 @@ impl<C: Chooser> Chooser for ShuffledChooser<C> {
         })
     }
 
-    #[inline]
     fn choose_ips(&self, ips: &[IpAddrWithPort]) -> ChosenResult {
         match self.chooser.choose_ips(ips) {
             ChosenResult::IPs(mut ips) => {
@@ -90,24 +88,32 @@ impl<C: Chooser> Chooser for ShuffledChooser<C> {
         }
     }
 
-    #[inline]
-    fn freeze_domain(&self, domain: &DomainWithPort, error: &ResponseError) {
-        self.chooser.freeze_domain(domain, error)
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    fn async_choose_ips<'a>(&'a self, ips: &'a [IpAddrWithPort]) -> BoxFuture<'a, ChosenResult> {
+        Box::pin(async move {
+            match self.chooser.async_choose_ips(ips).await {
+                ChosenResult::IPs(mut ips) => {
+                    if self.shuffle_given_ips {
+                        ips.shuffle(&mut thread_rng());
+                    }
+                    ChosenResult::IPs(ips)
+                }
+                result => result,
+            }
+        })
     }
 
     #[inline]
-    fn freeze_ips(&self, ips: &[IpAddrWithPort], error: &ResponseError) {
-        self.chooser.freeze_ips(ips, error)
+    fn feedback(&self, feedback: ChooserFeedback) {
+        self.chooser.feedback(feedback)
     }
 
     #[inline]
-    fn unfreeze_domain(&self, domain: &DomainWithPort) {
-        self.chooser.unfreeze_domain(domain)
-    }
-
-    #[inline]
-    fn unfreeze_ips(&self, ips: &[IpAddrWithPort]) {
-        self.chooser.unfreeze_ips(ips)
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    fn async_feedback<'a>(&'a self, feedback: ChooserFeedback<'a>) -> BoxFuture<'a, ()> {
+        Box::pin(async move { self.chooser.async_feedback(feedback).await })
     }
 
     #[inline]

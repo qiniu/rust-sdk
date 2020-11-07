@@ -62,15 +62,16 @@ pub(super) fn make_url(
         request: &RequestWithoutEndpoints,
     ) -> Result<(String, Vec<IpAddr>), UrlParseError> {
         let mut url = Url::parse("https://example.org/")?;
-        let mut resolved_ips = Vec::new();
+        let mut resolved_ip_addrs = Vec::new();
         match domain_or_ip {
-            DomainOrIpAddr::Domain(domain) => {
-                resolved_ips = domain
-                    .resolved_ips()
+            DomainOrIpAddr::Domain {
+                domain_with_port,
+                resolved_ips,
+            } => {
+                resolved_ip_addrs = resolved_ips
                     .iter()
                     .map(|resolved| resolved.ip_addr())
                     .collect();
-                let domain_with_port = domain.domain_with_port();
                 url.set_host(Some(domain_with_port.domain()))?;
                 if let Some(port) = domain_with_port.port() {
                     url.set_port(Some(port.get())).ok();
@@ -99,7 +100,7 @@ pub(super) fn make_url(
             url.query_pairs_mut()
                 .extend_pairs(request.query_pairs().iter());
         }
-        Ok((url.to_string(), resolved_ips))
+        Ok((url.to_string(), resolved_ip_addrs))
     }
 }
 

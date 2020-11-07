@@ -4,11 +4,11 @@ mod utils;
 
 use super::{
     super::{DomainWithPort, Endpoint},
-    APIResult, Authorization, AuthorizationError, ChosenResult, Request, RequestInfo,
-    RequestWithoutEndpoints, ResponseError, ResponseErrorKind, ResponseInfo, RetriedStatsInfo,
-    RetryResult, SyncResponse,
+    APIResult, Authorization, AuthorizationError, ChooserFeedback, ChosenResult, Request,
+    RequestInfo, RequestWithoutEndpoints, ResponseError, ResponseErrorKind, ResponseInfo,
+    RetriedStatsInfo, RetryResult, SyncResponse,
 };
-use domain_or_ip_addr::DomainOrIpAddr;
+pub use domain_or_ip_addr::DomainOrIpAddr;
 use error::{ErrorResponseBody, TryError};
 use qiniu_http::{
     HeaderName, HeaderValue, Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind,
@@ -59,7 +59,7 @@ macro_rules! install_callbacks {
 }
 
 macro_rules! create_request_call_fn {
-    ($method_name:ident, $return_type:ident, $into_endpoints_method:ident, $sign_method:ident, $call_method:ident, $choose_method:ident, $sleep_method:path, $new_response_info:path, $block:ident, $blocking_block:ident $(, $async:ident)?) => {
+    ($method_name:ident, $return_type:ident, $into_endpoints_method:ident, $sign_method:ident, $call_method:ident, $choose_method:ident, $choose_ips_method:ident, $feedback_method:ident, $sleep_method:path, $new_response_info:path, $block:ident, $blocking_block:ident $(, $async:ident)?) => {
         pub(super) $($async)? fn $method_name(request: Request<'_>) -> APIResult<$return_type> {
             let (request, into_endpoints, service_name) = request.split();
             let endpoints = $block!({ into_endpoints.$into_endpoints_method(service_name) })?;
@@ -128,15 +128,12 @@ macro_rules! create_request_call_fn {
                     retried.switch_endpoint();
                     'within_domain: loop {
                         retried.switch_ips();
-                        match $block!({ choose_domain(request,domain_with_port, false) })? {
+                        match $block!({ choose_domain(request, domain_with_port, false) })? {
                             ChosenResult::IPs(ips) if !ips.is_empty() => {
                                 tried_count += 1;
                                 let domain =
                                     DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), ips);
                                 try_endpoint!(&domain, request, retried, is_endpoints_old);
-                                request.client().chooser().freeze_ips(
-                                    domain.as_domain().unwrap().resolved_ips(),
-                                    last_error.as_ref().unwrap().response_error());
                             }
                             ChosenResult::TryAnotherDomain => {
                                 retried.increase_abandoned_endpoints();
@@ -147,9 +144,6 @@ macro_rules! create_request_call_fn {
                                 let domain =
                                     DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), vec![]);
                                 try_endpoint!(&domain, request, retried, is_endpoints_old);
-                                request.client().chooser().freeze_domain(
-                                    domain.as_domain().unwrap().domain_with_port(),
-                                    last_error.as_ref().unwrap().response_error());
                             }
                         }
                     }
@@ -160,22 +154,19 @@ macro_rules! create_request_call_fn {
                     .collect::<Vec<_>>();
                 if !ips_with_port.is_empty() {
                     'within_ips: loop {
-                        match request.client().chooser().choose_ips(&ips_with_port) {
+                        match $block!({ request.client().chooser().$choose_ips_method(&ips_with_port) }) {
                             ChosenResult::IPs(ips) if !ips.is_empty() => {
                                 for ip in ips.into_iter() {
                                     retried.switch_endpoint();
                                     retried.switch_ips();
                                     tried_count += 1;
+                                    let ip_addr = DomainOrIpAddr::from(ip);
                                     try_endpoint!(
-                                        &DomainOrIpAddr::from(ip),
+                                        &ip_addr,
                                         request,
                                         retried,
                                         is_endpoints_old
                                     );
-                                    request
-                                        .client()
-                                        .chooser()
-                                        .freeze_ips(&[ip], last_error.as_ref().unwrap().response_error());
                                 }
                             }
                             ChosenResult::UseThisDomainDirectly => {
@@ -200,9 +191,6 @@ macro_rules! create_request_call_fn {
                                     let domain =
                                         DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), ips);
                                     try_endpoint!(&domain, request, retried, is_endpoints_old);
-                                    request.client().chooser().freeze_ips(
-                                        domain.as_domain().unwrap().resolved_ips(),
-                                        last_error.as_ref().unwrap().response_error());
                                     break 'out_of_domains;
                                 }
                                 ChosenResult::TryAnotherDomain => {
@@ -214,9 +202,6 @@ macro_rules! create_request_call_fn {
                                     let domain =
                                         DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), vec![]);
                                     try_endpoint!(&domain, request, retried, is_endpoints_old);
-                                    request.client().chooser().freeze_domain(
-                                        domain.as_domain().unwrap().domain_with_port(),
-                                        last_error.as_ref().unwrap().response_error());
                                     break 'out_of_domains;
                                 }
                             }
@@ -234,10 +219,6 @@ macro_rules! create_request_call_fn {
                             retried,
                             is_endpoints_old
                         );
-                        request
-                            .client()
-                            .chooser()
-                            .freeze_ips(&[ip], last_error.as_ref().unwrap().response_error());
                         break 'within_ips_2;
                     }
                 }
@@ -257,7 +238,18 @@ macro_rules! create_request_call_fn {
                 let request_info = RequestInfo::new(&built_request);
                 install_callbacks!(request, request_info, built_request);
                 call_after_request_signed_callbacks(request, &mut built_request, retried)?;
-                $block!({ do_request(request, &mut built_request, retried) })
+                match $block!({ do_request(request, &mut built_request, retried) }) {
+                    Ok(response) => {
+                        let feedback = ChooserFeedback::new(&domain_or_ip, retried, None);
+                        $block!({ request.client().chooser().$feedback_method(feedback) });
+                        Ok(response)
+                    },
+                    Err(err) => {
+                        let feedback = ChooserFeedback::new(&domain_or_ip, retried, Some(err.response_error()));
+                        $block!({ request.client().chooser().$feedback_method(feedback) });
+                        Err(err)
+                    }
+                }
             }
 
             $($async)? fn do_request(
@@ -447,6 +439,8 @@ create_request_call_fn!(
     sign,
     call,
     choose,
+    choose_ips,
+    feedback,
     sleep,
     ResponseInfo::new_from_sync,
     sync_block,
@@ -466,6 +460,8 @@ create_request_call_fn!(
     async_sign,
     async_call,
     async_choose,
+    async_choose_ips,
+    async_feedback,
     async_sleep,
     ResponseInfo::new_from_async,
     async_block,
@@ -553,23 +549,33 @@ mod tests {
             "Fake Connect Error",
         );
         let chooser = SimpleChooser::new(make_dumb_resolver(), Duration::from_secs(10));
-        chooser.freeze_domain(&"fakedomain.withoutport.com".to_owned().into(), &err);
-        chooser.freeze_domain(&("fakedomain.withport.com".to_owned(), 8080).into(), &err);
-        chooser.freeze_ips(
-            &[
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff)).into(),
-                SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 1, 2), 8080)).into(),
-                SocketAddr::V6(SocketAddrV6::new(
-                    Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00b, 0x2ff),
-                    8081,
-                    0,
-                    0,
-                ))
-                .into(),
-            ],
-            &err,
-        );
+        chooser.feedback(ChooserFeedback::new(
+            &DomainOrIpAddr::new_from_domain(
+                DomainWithPort::new_with_port("fakedomain.withport.com", 8080),
+                vec![],
+            ),
+            &RetriedStatsInfo::default(),
+            Some(&err),
+        ));
+        chooser.feedback(ChooserFeedback::new(
+            &DomainOrIpAddr::new_from_domain(
+                DomainWithPort::new_with_port("fakedomain.withport.com", 8080),
+                vec![
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                    IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff)).into(),
+                    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 1, 2), 8080)).into(),
+                    SocketAddr::V6(SocketAddrV6::new(
+                        Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00b, 0x2ff),
+                        8081,
+                        0,
+                        0,
+                    ))
+                    .into(),
+                ],
+            ),
+            &RetriedStatsInfo::default(),
+            Some(&err),
+        ));
 
         let client = make_error_response_client_builder(
             HTTPResponseErrorKind::ConnectError,

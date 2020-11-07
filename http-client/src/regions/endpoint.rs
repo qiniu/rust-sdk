@@ -1,5 +1,5 @@
 use std::{
-    net::{AddrParseError, IpAddr, SocketAddr},
+    net::{AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     num::NonZeroU16,
     str::FromStr,
 };
@@ -150,6 +150,20 @@ impl From<IpAddr> for IpAddrWithPort {
     }
 }
 
+impl From<Ipv4Addr> for IpAddrWithPort {
+    #[inline]
+    fn from(ip_addr: Ipv4Addr) -> Self {
+        Self::new(IpAddr::from(ip_addr))
+    }
+}
+
+impl From<Ipv6Addr> for IpAddrWithPort {
+    #[inline]
+    fn from(ip_addr: Ipv6Addr) -> Self {
+        Self::new(IpAddr::from(ip_addr))
+    }
+}
+
 impl From<IpAddrWithPort> for IpAddr {
     #[inline]
     fn from(ip_addr_with_port: IpAddrWithPort) -> Self {
@@ -161,6 +175,20 @@ impl From<SocketAddr> for IpAddrWithPort {
     #[inline]
     fn from(socket_addr: SocketAddr) -> Self {
         Self::new_with_port(socket_addr.ip(), socket_addr.port())
+    }
+}
+
+impl From<SocketAddrV4> for IpAddrWithPort {
+    #[inline]
+    fn from(socket_addr: SocketAddrV4) -> Self {
+        SocketAddr::from(socket_addr).into()
+    }
+}
+
+impl From<SocketAddrV6> for IpAddrWithPort {
+    #[inline]
+    fn from(socket_addr: SocketAddrV6) -> Self {
+        SocketAddr::from(socket_addr).into()
     }
 }
 
@@ -314,10 +342,38 @@ impl From<IpAddr> for Endpoint {
     }
 }
 
+impl From<Ipv4Addr> for Endpoint {
+    #[inline]
+    fn from(ip_addr: Ipv4Addr) -> Self {
+        IpAddr::from(ip_addr).into()
+    }
+}
+
+impl From<Ipv6Addr> for Endpoint {
+    #[inline]
+    fn from(ip_addr: Ipv6Addr) -> Self {
+        IpAddr::from(ip_addr).into()
+    }
+}
+
 impl From<SocketAddr> for Endpoint {
     #[inline]
     fn from(socket_addr: SocketAddr) -> Self {
         IpAddrWithPort::new_with_port(socket_addr.ip(), socket_addr.port()).into()
+    }
+}
+
+impl From<SocketAddrV4> for Endpoint {
+    #[inline]
+    fn from(socket_addr: SocketAddrV4) -> Self {
+        SocketAddr::from(socket_addr).into()
+    }
+}
+
+impl From<SocketAddrV6> for Endpoint {
+    #[inline]
+    fn from(socket_addr: SocketAddrV6) -> Self {
+        SocketAddr::from(socket_addr).into()
     }
 }
 

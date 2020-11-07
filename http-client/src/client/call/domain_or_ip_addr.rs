@@ -1,34 +1,23 @@
-use super::super::super::{DomainWithPort, IpAddrWithPort};
+use super::super::super::{DomainWithPort, Endpoint, IpAddrWithPort};
 
 #[derive(Debug, Clone)]
-pub(super) enum DomainOrIpAddr {
-    Domain(DomainInfo),
+pub enum DomainOrIpAddr {
+    Domain {
+        domain_with_port: DomainWithPort,
+        resolved_ips: Vec<IpAddrWithPort>,
+    },
     IpAddr(IpAddrWithPort),
-}
-
-#[derive(Debug, Clone)]
-pub(super) struct DomainInfo {
-    domain_with_port: DomainWithPort,
-    resolved_ips: Vec<IpAddrWithPort>,
 }
 
 impl DomainOrIpAddr {
     #[inline]
-    pub(super) fn new_from_domain(
+    pub fn new_from_domain(
         domain_with_port: DomainWithPort,
         resolved_ips: Vec<IpAddrWithPort>,
     ) -> Self {
-        Self::Domain(DomainInfo {
+        Self::Domain {
             domain_with_port,
             resolved_ips,
-        })
-    }
-
-    #[inline]
-    pub(super) fn as_domain(&self) -> Option<&DomainInfo> {
-        match self {
-            Self::Domain(domain) => Some(domain),
-            _ => None,
         }
     }
 }
@@ -40,14 +29,16 @@ impl From<IpAddrWithPort> for DomainOrIpAddr {
     }
 }
 
-impl DomainInfo {
+impl From<DomainOrIpAddr> for Endpoint {
     #[inline]
-    pub(super) fn domain_with_port(&self) -> &DomainWithPort {
-        &self.domain_with_port
-    }
-
-    #[inline]
-    pub(super) fn resolved_ips(&self) -> &[IpAddrWithPort] {
-        &self.resolved_ips
+    fn from(domain_or_ip_addr: DomainOrIpAddr) -> Self {
+        match domain_or_ip_addr {
+            DomainOrIpAddr::Domain {
+                domain_with_port, ..
+            } => Endpoint::DomainWithPort(domain_with_port),
+            DomainOrIpAddr::IpAddr(ip_addr_with_port) => {
+                Endpoint::IpAddrWithPort(ip_addr_with_port)
+            }
+        }
     }
 }
