@@ -12,7 +12,7 @@ pub use qiniu_utils::http::{
 };
 pub use request::{Body as RequestBody, Request, RequestBuilder, URL};
 pub use response::{
-    Body as ResponseBody, CachedBody as CachedResponseBody, Response, ResponseBuilder,
+    Body as ResponseBody, CachedBody as CachedResponseBody, ReadDebug, Response, ResponseBuilder,
     Result as ResponseResult, StatusCode,
 };
 
@@ -33,8 +33,8 @@ pub type SyncCachedResponseResult = ResponseResult<CachedResponseBody>;
 #[cfg(feature = "async")]
 mod async_response {
     pub use super::response::{
-        AsyncBody as AsyncResponseBody, AsyncCachedBody as AsyncCachedResponseBody, Response,
-        ResponseBuilder, Result as ResponseResult,
+        AsyncBody as AsyncResponseBody, AsyncCachedBody as AsyncCachedResponseBody, AsyncReadDebug,
+        AsyncReadSeekDebug, Response, ResponseBuilder, Result as ResponseResult,
     };
 
     /// 异步 HTTP 响应

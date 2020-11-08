@@ -1,7 +1,7 @@
 use super::{HeaderName, HeaderValue, Headers, Method, StatusCode};
 use assert_impl::assert_impl;
 use once_cell::sync::Lazy;
-use std::{borrow::Cow, fmt, mem::take, net::IpAddr, time::Duration};
+use std::{borrow::Cow, fmt, mem::take, net::IpAddr, path::Path, time::Duration};
 
 static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
     format!(
@@ -26,7 +26,6 @@ type OnHeader<'r> = Option<&'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send
 /// HTTP 请求
 ///
 /// 封装 HTTP 请求相关字段
-#[derive(Clone)]
 pub struct Request<'r> {
     url: URL<'r>,
     method: Method,
@@ -34,6 +33,7 @@ pub struct Request<'r> {
     body: Body<'r>,
 
     // 请求配置属性
+    response_body_buffer_path: Option<Cow<'r, Path>>,
     appended_user_agent: Cow<'r, str>,
     follow_redirection: bool,
     resolved_ip_addrs: Cow<'r, [IpAddr]>,
@@ -104,6 +104,18 @@ impl<'r> Request<'r> {
     #[inline]
     pub fn body_mut(&mut self) -> &mut Body<'r> {
         &mut self.body
+    }
+
+    /// 请求体
+    #[inline]
+    pub fn response_body_buffer_path(&self) -> Option<&Path> {
+        self.response_body_buffer_path.as_deref()
+    }
+
+    /// 修改请求体
+    #[inline]
+    pub fn response_body_buffer_path_mut(&mut self) -> &mut Option<Cow<'r, Path>> {
+        &mut self.response_body_buffer_path
     }
 
     /// 用户代理
@@ -297,6 +309,7 @@ impl Default for Request<'_> {
             method: Method::GET,
             headers: Default::default(),
             body: Default::default(),
+            response_body_buffer_path: Default::default(),
             appended_user_agent: Default::default(),
             follow_redirection: false,
             resolved_ip_addrs: Default::default(),
@@ -363,7 +376,7 @@ impl fmt::Debug for Request<'_> {
 }
 
 /// HTTP 请求生成器
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug)]
 pub struct RequestBuilder<'r> {
     inner: Request<'r>,
 }
@@ -394,6 +407,13 @@ impl<'r> RequestBuilder<'r> {
     #[inline]
     pub fn body(&mut self, body: impl Into<Body<'r>>) -> &mut Self {
         self.inner.body = body.into();
+        self
+    }
+
+    /// 请求体
+    #[inline]
+    pub fn response_body_buffer_path(&mut self, path: impl Into<Cow<'r, Path>>) -> &mut Self {
+        self.inner.response_body_buffer_path = Some(path.into());
         self
     }
 

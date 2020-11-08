@@ -21,7 +21,9 @@ pub(super) fn sync_http_call(
     let easy: &mut Easy2<Context> = unsafe { transmute(r) };
 
     easy.reset();
-    easy.get_mut().reset(http_client, request);
+    easy.get_mut()
+        .reset(http_client, request)
+        .map_err(|err| ResponseError::new(ResponseErrorKind::LocalIOError, err))?;
 
     perform(http_client, easy, request)
 }
@@ -121,6 +123,7 @@ mod tests {
         thread::sleep,
         time::Duration,
     };
+    use tempfile::NamedTempFile;
     use tokio::task::{spawn, spawn_blocking};
     use warp::{
         body, header,
@@ -216,6 +219,47 @@ mod tests {
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
             assert_eq!(response_body_size_cnt.load(Relaxed), 10 * (1 << 20));
+
+            response_body_size_cnt.store(0, Relaxed);
+            let mut tempfile = NamedTempFile::new()?;
+            let mut response = {
+                let response_body_size_cnt = response_body_size_cnt.to_owned();
+                let tempfile_path = tempfile.path().to_owned();
+                spawn_blocking(move || {
+                    sync_http_call(
+                        &CurlHTTPCaller::default(),
+                        &Request::builder()
+                            .url(format!("http://{}/file/content", addr))
+                            .response_body_buffer_path(tempfile_path)
+                            .on_uploading_progress(Some(&|_uploaded, _total| unreachable!()))
+                            .on_downloading_progress(Some(&|downloaded, total| {
+                                assert_eq!(total, 10 * (1 << 20));
+                                assert!(downloaded <= total);
+                                true
+                            }))
+                            .on_receive_response_body(Some(&|data| {
+                                response_body_size_cnt.fetch_add(data.len(), Relaxed);
+                                true
+                            }))
+                            .build(),
+                    )
+                })
+                .await??
+            };
+            assert_eq!(response.status_code(), StatusCode::OK);
+            {
+                let mut bytes = Vec::with_capacity(buffer.len());
+                response.body_mut().read_to_end(&mut bytes)?;
+                assert!(bytes == buffer);
+            }
+            assert_eq!(response.server_ip(), Some(addr.ip()));
+            assert_eq!(response.server_port(), addr.port());
+            assert_eq!(response_body_size_cnt.load(Relaxed), 10 * (1 << 20));
+            {
+                let mut bytes = Vec::with_capacity(buffer.len());
+                tempfile.as_file_mut().read_to_end(&mut bytes)?;
+                assert!(bytes == buffer);
+            }
         });
         Ok(())
     }

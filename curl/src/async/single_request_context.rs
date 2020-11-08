@@ -9,7 +9,7 @@ use super::{
     CurlHTTPCaller,
 };
 use async_std::{
-    fs::File as AsyncFile,
+    fs::{File as AsyncFile, OpenOptions as AsyncOpenOptions},
     task::{block_on, spawn_blocking},
 };
 use curl::{
@@ -101,7 +101,8 @@ impl<'ctx> SingleRequestContext<'ctx> {
         let (response_body_reader, response_body_writer) = pipe();
         let statuses: Arc<Statuses> = Arc::new(Statuses::new(
             http_client.buffer_size(),
-            http_client.temp_dir().map(|s| s.to_owned()).map(Cow::Owned),
+            http_client.temp_dir().map(|p| p.to_owned()).map(Cow::Owned),
+            request.response_body_buffer_path().map(|p| p.to_owned()),
         ));
         let context = Self {
             sender: Some(sender),
@@ -447,6 +448,7 @@ impl<'ctx> Handler for SingleRequestContext<'ctx> {
 struct Statuses {
     buffer_size: usize,
     temp_dir: Cow<'static, Path>,
+    response_body_buf_path: Option<PathBuf>,
     completed: AtomicBool,
     canceled: AtomicBool,
     dropped: AtomicBool,
@@ -454,9 +456,14 @@ struct Statuses {
 
 impl Statuses {
     #[inline]
-    fn new(buffer_size: usize, temp_dir: Option<Cow<'static, Path>>) -> Self {
+    fn new(
+        buffer_size: usize,
+        temp_dir: Option<Cow<'static, Path>>,
+        response_body_buf_path: Option<PathBuf>,
+    ) -> Self {
         let mut statuses = Self::default();
         statuses.buffer_size = buffer_size;
+        statuses.response_body_buf_path = response_body_buf_path;
         if let Some(temp_dir) = temp_dir {
             statuses.temp_dir = temp_dir;
         }
@@ -470,6 +477,7 @@ impl Default for Statuses {
         Self {
             buffer_size: 1 << 22,
             temp_dir: Cow::Borrowed(TEMP_DIR.as_ref()),
+            response_body_buf_path: None,
             completed: AtomicBool::new(false),
             canceled: AtomicBool::new(false),
             dropped: AtomicBool::new(false),
@@ -535,14 +543,27 @@ impl AsyncResponseBodyReader {
         match self.get_response_body().await {
             Ok(response_body) => match response_body {
                 ResponseBody::Bytes(bytes) => Ok(builder.bytes_as_body(bytes)),
-                ResponseBody::File(file) => builder.seekable_stream_as_body(file).await,
+                ResponseBody::File(file) => builder.seekable_stream_as_body(Box::new(file)).await,
             },
             Err(err) => Err(err),
         }
     }
 
     async fn get_response_body(&mut self) -> IOResult<ResponseBody> {
-        let mut response_body = ResponseBody::default();
+        let mut response_body =
+            if let Some(response_body_buf_path) = self.statuses.response_body_buf_path.as_deref() {
+                ResponseBody::File(
+                    AsyncOpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(response_body_buf_path)
+                        .await?,
+                )
+            } else {
+                ResponseBody::Bytes(Vec::with_capacity(self.statuses.buffer_size))
+            };
         let mut buffer = vec![0; self.statuses.buffer_size];
 
         loop {
@@ -578,13 +599,6 @@ impl AsyncResponseBodyReader {
 enum ResponseBody {
     Bytes(Vec<u8>),
     File(AsyncFile),
-}
-
-impl Default for ResponseBody {
-    #[inline]
-    fn default() -> Self {
-        Self::Bytes(Vec::new())
-    }
 }
 
 impl Drop for AsyncResponseBodyReader {

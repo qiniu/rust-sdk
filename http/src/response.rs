@@ -13,7 +13,7 @@ use std::{
 /// HTTP 响应状态码
 pub type StatusCode = u16;
 
-trait ReadDebug: Read + Debug + Send + Sync {}
+pub trait ReadDebug: Read + Debug + Send + Sync {}
 impl<T: Read + Debug + Send + Sync> ReadDebug for T {}
 
 /// HTTP 响应体
@@ -104,10 +104,10 @@ mod async_body {
         task::{Context, Poll},
     };
 
-    pub(super) trait AsyncReadDebug: AsyncRead + Unpin + Debug + Send + Sync {}
+    pub trait AsyncReadDebug: AsyncRead + Unpin + Debug + Send + Sync {}
     impl<T: AsyncRead + Unpin + Debug + Send + Sync> AsyncReadDebug for T {}
 
-    pub(super) trait AsyncReadSeekDebug: AsyncSeek + AsyncReadDebug {}
+    pub trait AsyncReadSeekDebug: AsyncSeek + AsyncReadDebug {}
     impl<T: AsyncSeek + AsyncReadDebug> AsyncReadSeekDebug for T {}
 
     /// 异步 HTTP 响应体
@@ -215,7 +215,7 @@ mod async_body {
 #[cfg(feature = "async")]
 pub use async_body::*;
 #[cfg(feature = "async")]
-use futures_lite::io::{AsyncRead, AsyncSeek, AsyncSeekExt, Cursor as AsyncCursor};
+use futures_lite::io::{AsyncSeekExt, Cursor as AsyncCursor};
 
 /// HTTP 响应
 ///
@@ -545,8 +545,8 @@ impl<B> ResponseBuilder<B> {
 impl ResponseBuilder<Body> {
     /// 设置数据流为 HTTP 响应体
     #[inline]
-    pub fn stream_as_body(mut self, body: impl Read + Debug + Send + Sync + 'static) -> Self {
-        self.inner.body = Body(BodyInner::Reader(Box::new(body)));
+    pub fn stream_as_body(mut self, body: Box<dyn ReadDebug>) -> Self {
+        self.inner.body = Body(BodyInner::Reader(body));
         self
     }
 
@@ -579,11 +579,8 @@ impl ResponseBuilder<CachedBody> {
 impl ResponseBuilder<AsyncBody> {
     /// 设置数据流为 HTTP 响应体
     #[inline]
-    pub fn stream_as_body(
-        mut self,
-        body: impl AsyncRead + Unpin + Debug + Send + Sync + 'static,
-    ) -> Self {
-        self.inner.body = AsyncBody(AsyncBodyInner::Reader(Box::new(body)));
+    pub fn stream_as_body(mut self, body: Box<dyn AsyncReadDebug>) -> Self {
+        self.inner.body = AsyncBody(AsyncBodyInner::Reader(body));
         self
     }
 
@@ -598,10 +595,10 @@ impl ResponseBuilder<AsyncBody> {
     #[inline]
     pub async fn seekable_stream_as_body(
         mut self,
-        mut body: impl AsyncRead + AsyncSeek + Unpin + Debug + Send + Sync + 'static,
+        mut body: Box<dyn AsyncReadSeekDebug>,
     ) -> IOResult<Self> {
         body.seek(SeekFrom::Start(0)).await?;
-        self.inner.body = AsyncBody(AsyncBodyInner::SeekableReader(Box::new(body)));
+        self.inner.body = AsyncBody(AsyncBodyInner::SeekableReader(body));
         Ok(self)
     }
 }

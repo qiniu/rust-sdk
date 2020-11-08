@@ -43,6 +43,7 @@ mod tests {
     use rand::{thread_rng, RngCore};
     use std::{
         error::Error,
+        io::Read,
         result::Result,
         sync::{
             atomic::{AtomicUsize, Ordering::Relaxed},
@@ -51,7 +52,8 @@ mod tests {
         thread::sleep,
         time::Duration,
     };
-    use tokio::task::spawn;
+    use tempfile::NamedTempFile;
+    use tokio::task::{spawn, spawn_blocking};
     use warp::{
         body, header,
         http::{HeaderValue, StatusCode, Uri},
@@ -142,7 +144,53 @@ mod tests {
             assert_eq!(response.server_ip(), Some(addr.ip()));
             assert_eq!(response.server_port(), addr.port());
             assert_eq!(response_body_size_cnt.load(Relaxed), 10 * (1 << 20));
+
+            response_body_size_cnt.store(0, Relaxed);
+            let mut tempfile = spawn_blocking(|| NamedTempFile::new()).await??;
+            response = {
+                let response_body_size_cnt = response_body_size_cnt.to_owned();
+                async_http_call(
+                    &CurlHTTPCaller::default(),
+                    &Request::builder()
+                        .url(format!("http://{}/file/content", addr))
+                        .response_body_buffer_path(tempfile.path())
+                        .on_uploading_progress(Some(&|_uploaded, _total| unreachable!()))
+                        .on_downloading_progress(Some(&|downloaded, total| {
+                            assert_eq!(total, 10 * (1 << 20));
+                            assert!(downloaded <= total);
+                            true
+                        }))
+                        .on_receive_response_body(Some(&|data| {
+                            response_body_size_cnt.fetch_add(data.len(), Relaxed);
+                            true
+                        }))
+                        .build(),
+                )
+                .await?
+            };
+            assert_eq!(response.status_code(), StatusCode::OK);
+            {
+                let mut bytes = Vec::with_capacity(buffer.len());
+                response.body_mut().read_to_end(&mut bytes).await?;
+                assert!(bytes == buffer);
+            }
+            assert_eq!(response.server_ip(), Some(addr.ip()));
+            assert_eq!(response.server_port(), addr.port());
+            assert_eq!(response_body_size_cnt.load(Relaxed), 10 * (1 << 20));
+            {
+                let buffer_len = buffer.len();
+                let bytes = spawn_blocking(move || {
+                    let mut bytes = Vec::with_capacity(buffer_len);
+                    tempfile
+                        .as_file_mut()
+                        .read_to_end(&mut bytes)
+                        .map(|_| bytes)
+                })
+                .await??;
+                assert!(bytes == buffer);
+            }
         });
+
         Ok(())
     }
 

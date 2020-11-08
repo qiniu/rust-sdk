@@ -9,8 +9,8 @@ use curl::easy::{Handler, ReadError, SeekResult, WriteError};
 use once_cell::sync::Lazy;
 use std::{
     env::temp_dir,
-    fs::File,
-    io::{Cursor, Read, Seek, SeekFrom, Write},
+    fs::{File, OpenOptions},
+    io::{Cursor, Read, Result as IOResult, Seek, SeekFrom, Write},
     mem::take,
     path::{Path, PathBuf},
 };
@@ -102,12 +102,27 @@ impl<'ctx> Context<'ctx> {
         self.canceled
     }
 
-    pub(super) fn reset<'r: 'ctx>(&mut self, client: &'r CurlHTTPCaller, request: &'r Request<'r>) {
+    pub(super) fn reset<'r: 'ctx>(
+        &mut self,
+        client: &'r CurlHTTPCaller,
+        request: &'r Request<'r>,
+    ) -> IOResult<()> {
         *self = Default::default();
         self.buffer_size = client.buffer_size();
         self.temp_dir = client.temp_dir().unwrap_or_else(|| &TEMP_DIR);
         self.request_body = Cursor::new(request.body());
-        if request.method() != Method::HEAD {
+        if let Some(response_body_buffer_path) = request.response_body_buffer_path() {
+            self.response_body = ResponseBody::File(
+                OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .truncate(true)
+                    .create(true)
+                    .open(response_body_buffer_path)?,
+            );
+        } else if request.method() == Method::HEAD {
+            self.response_body = ResponseBody::Bytes(Vec::new());
+        } else {
             self.response_body = ResponseBody::Bytes(Vec::with_capacity(self.buffer_size));
         }
         self.on_uploading_progress = request.on_uploading_progress();
@@ -117,6 +132,7 @@ impl<'ctx> Context<'ctx> {
         self.on_receive_response_body = request.on_receive_response_body();
         self.on_receive_response_header = request.on_receive_response_header();
         self.canceled = false;
+        Ok(())
     }
 }
 
