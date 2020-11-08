@@ -6,7 +6,7 @@ use super::{
     super::regions::{DomainWithPort, IpAddrWithPort},
     Resolver,
 };
-pub use feedback::ChooserFeedback;
+pub use feedback::{ChooserFeedback, ResponseMetrics};
 use std::{any::Any, fmt::Debug};
 
 #[cfg(feature = "async")]

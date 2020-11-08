@@ -6,7 +6,7 @@ use super::{
     super::{DomainWithPort, Endpoint},
     APIResult, Authorization, AuthorizationError, ChooserFeedback, ChosenResult, Request,
     RequestInfo, RequestWithoutEndpoints, ResponseError, ResponseErrorKind, ResponseInfo,
-    RetriedStatsInfo, RetryResult, SyncResponse,
+    ResponseMetrics, RetriedStatsInfo, RetryResult, SyncResponse,
 };
 pub use domain_or_ip_addr::DomainOrIpAddr;
 use error::{ErrorResponseBody, TryError};
@@ -240,12 +240,12 @@ macro_rules! create_request_call_fn {
                 call_after_request_signed_callbacks(request, &mut built_request, retried)?;
                 match $block!({ do_request(request, &mut built_request, retried) }) {
                     Ok(response) => {
-                        let feedback = ChooserFeedback::new(&domain_or_ip, retried, None);
+                        let feedback = ChooserFeedback::new(&domain_or_ip, retried, Ok(ResponseMetrics::new_from_response(&response)));
                         $block!({ request.client().chooser().$feedback_method(feedback) });
                         Ok(response)
                     },
                     Err(err) => {
-                        let feedback = ChooserFeedback::new(&domain_or_ip, retried, Some(err.response_error()));
+                        let feedback = ChooserFeedback::new(&domain_or_ip, retried, Err(err.response_error()));
                         $block!({ request.client().chooser().$feedback_method(feedback) });
                         Err(err)
                     }
@@ -555,7 +555,7 @@ mod tests {
                 vec![],
             ),
             &RetriedStatsInfo::default(),
-            Some(&err),
+            Err(&err),
         ));
         chooser.feedback(ChooserFeedback::new(
             &DomainOrIpAddr::new_from_domain(
@@ -574,7 +574,7 @@ mod tests {
                 ],
             ),
             &RetriedStatsInfo::default(),
-            Some(&err),
+            Err(&err),
         ));
 
         let client = make_error_response_client_builder(

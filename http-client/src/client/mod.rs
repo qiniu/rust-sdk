@@ -14,7 +14,8 @@ pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
 pub use call::DomainOrIpAddr;
 pub use callbacks::{CallbackContext, Callbacks, CallbacksBuilder, RequestInfo, ResponseInfo};
 pub use chooser::{
-    Chooser, ChooserFeedback, ChosenResult, ShuffledChooser, ShuffledChooserBuilder, SimpleChooser,
+    Chooser, ChooserFeedback, ChosenResult, ResponseMetrics, ShuffledChooser,
+    ShuffledChooserBuilder, SimpleChooser,
 };
 pub use client::{Client, ClientBuilder};
 pub use request::{Idempotent, QueryPairKey, QueryPairValue, QueryPairs, RequestBuilder};
@@ -22,7 +23,7 @@ pub use resolver::{
     CachedResolver, ChainedResolver, ChainedResolverBuilder, PersistentError, PersistentResult,
     ResolveResult, Resolver, ShuffledResolver, SimpleResolver,
 };
-pub use response::{APIResult, ResponseError, ResponseErrorKind, SyncResponse};
+pub use response::{APIResult, Response, ResponseError, ResponseErrorKind, SyncResponse};
 pub use retried::RetriedStatsInfo;
 pub use retrier::{
     DefaultRetrier, DefaultRetrierBuilder, NeverRetrier, RequestRetrier, RetryResult,

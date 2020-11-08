@@ -148,7 +148,7 @@ impl<R: Resolver> Chooser for SimpleChooser<R> {
     }
 
     fn feedback(&self, feedback: ChooserFeedback) {
-        if feedback.error().is_some() {
+        if feedback.result().is_err() {
             let block_until = SystemTime::now() + self.block_duration;
             match feedback.domain_or_ip_addr() {
                 DomainOrIpAddr::Domain {
@@ -393,7 +393,7 @@ mod tests {
                 vec![Ipv4Addr::new(192, 168, 1, 3).into()],
             ),
             &RetriedStatsInfo::default(),
-            Some(&ResponseError::new(
+            Err(&ResponseError::new(
                 ResponseErrorKind::ParseResponseError,
                 "Test Error",
             )),
@@ -423,7 +423,7 @@ mod tests {
                 ],
             ),
             &RetriedStatsInfo::default(),
-            Some(&ResponseError::new(
+            Err(&ResponseError::new(
                 ResponseErrorKind::ParseResponseError,
                 "Test Error",
             )),
@@ -436,7 +436,7 @@ mod tests {
         chooser.feedback(ChooserFeedback::new(
             &DomainOrIpAddr::new_from_domain(DomainWithPort::new("test_domain_2.com"), vec![]),
             &RetriedStatsInfo::default(),
-            Some(&ResponseError::new(
+            Err(&ResponseError::new(
                 ResponseErrorKind::ParseResponseError,
                 "Test Error",
             )),
@@ -485,7 +485,7 @@ mod tests {
                 ],
             ),
             &RetriedStatsInfo::default(),
-            Some(&ResponseError::new(
+            Err(&ResponseError::new(
                 ResponseErrorKind::ParseResponseError,
                 "Test Error",
             )),
@@ -516,7 +516,7 @@ mod tests {
                 ],
             ),
             &RetriedStatsInfo::default(),
-            Some(&ResponseError::new(
+            Err(&ResponseError::new(
                 ResponseErrorKind::ParseResponseError,
                 "Test Error",
             )),
@@ -535,7 +535,7 @@ mod tests {
                 ],
             ),
             &RetriedStatsInfo::default(),
-            None,
+            Ok(Default::default()),
         ));
         assert_eq!(
             chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
