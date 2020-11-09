@@ -24,7 +24,7 @@ pub enum ServiceName {
     S3,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InvalidServiceName(Box<str>);
 
 impl FromStr for ServiceName {

@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, error::Error, fmt, str::FromStr};
+use std::{error::Error, fmt, str::FromStr};
 
 /// HTTP 方法
 ///
@@ -38,34 +38,6 @@ impl Method {
     }
 }
 
-impl TryFrom<&str> for Method {
-    type Error = InvalidMethod;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            "GET" => Ok(Method::GET),
-            "HEAD" => Ok(Method::HEAD),
-            "POST" => Ok(Method::POST),
-            "PUT" => Ok(Method::PUT),
-            _ => Err(InvalidMethod),
-        }
-    }
-}
-
-impl TryFrom<&[u8]> for Method {
-    type Error = InvalidMethod;
-
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        match value {
-            b"GET" => Ok(Method::GET),
-            b"HEAD" => Ok(Method::HEAD),
-            b"POST" => Ok(Method::POST),
-            b"PUT" => Ok(Method::PUT),
-            _ => Err(InvalidMethod),
-        }
-    }
-}
-
 impl FromStr for Method {
     type Err = InvalidMethod;
 
@@ -75,7 +47,7 @@ impl FromStr for Method {
             "HEAD" => Ok(Method::HEAD),
             "POST" => Ok(Method::POST),
             "PUT" => Ok(Method::PUT),
-            _ => Err(InvalidMethod),
+            method => Err(InvalidMethod(method.into())),
         }
     }
 }
@@ -155,8 +127,8 @@ impl<'a> From<&'a Method> for Method {
 }
 
 /// 非法的 HTTP 方法错误
-#[derive(Debug)]
-pub struct InvalidMethod;
+#[derive(Clone, Debug)]
+pub struct InvalidMethod(Box<str>);
 
 impl fmt::Display for InvalidMethod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -164,8 +136,4 @@ impl fmt::Display for InvalidMethod {
     }
 }
 
-impl Error for InvalidMethod {
-    fn description(&self) -> &str {
-        "Invalid HTTP method"
-    }
-}
+impl Error for InvalidMethod {}
