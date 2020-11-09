@@ -14,6 +14,12 @@ pub use error::{Error as ResponseError, ErrorKind as ResponseErrorKind};
 
 pub type APIResult<T> = result::Result<T, ResponseError>;
 
+#[cfg(feature = "async")]
+use std::{future::Future, pin::Pin};
+
+#[cfg(feature = "async")]
+type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+
 #[derive(Default, Debug)]
 pub struct Response<B> {
     inner: HTTPResponse<B>,
@@ -164,6 +170,44 @@ impl<B> Response<B> {
     #[inline]
     pub fn x_log(&self) -> Option<&str> {
         self.header("X-Log").map(|v| v.as_str())
+    }
+
+    #[inline]
+    pub fn map_body<B2>(self, f: impl FnOnce(B) -> B2) -> Response<B2> {
+        Response {
+            inner: self.inner.map_body(f),
+        }
+    }
+
+    #[inline]
+    pub fn try_map_body<B2, E>(
+        self,
+        f: impl FnOnce(B) -> result::Result<B2, E>,
+    ) -> result::Result<Response<B2>, E> {
+        Ok(Response {
+            inner: self.inner.try_map_body(f)?,
+        })
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub async fn async_map_body<B2>(self, f: impl FnOnce(B) -> BoxFuture<B2>) -> Response<B2> {
+        Response {
+            inner: self.inner.async_map_body(f).await,
+        }
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub async fn async_try_map_body<B2, E>(
+        self,
+        f: impl FnOnce(B) -> BoxFuture<result::Result<B2, E>>,
+    ) -> result::Result<Response<B2>, E> {
+        Ok(Response {
+            inner: self.inner.async_try_map_body(f).await?,
+        })
     }
 }
 

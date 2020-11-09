@@ -394,18 +394,8 @@ impl<B> Response<B> {
     pub fn body_mut(&mut self) -> &mut B {
         &mut self.body
     }
-}
 
-impl<B: Send + Sync> Response<B> {
-    #[allow(dead_code)]
-    fn ignore() {
-        assert_impl!(Send: Self);
-        assert_impl!(Sync: Self);
-    }
-}
-
-impl Response<Body> {
-    pub fn fulfill(self) -> IOResult<Response<CachedBody>> {
+    pub fn map_body<B2>(self, f: impl FnOnce(B) -> B2) -> Response<B2> {
         let Response {
             status_code,
             headers,
@@ -414,8 +404,30 @@ impl Response<Body> {
             server_port,
             metrics,
         } = self;
-        let body = body.fulfill()?;
+        let body = f(body);
+        Response {
+            status_code,
+            headers,
+            body,
+            server_ip,
+            server_port,
+            metrics,
+        }
+    }
 
+    pub fn try_map_body<B2, E>(
+        self,
+        f: impl FnOnce(B) -> result::Result<B2, E>,
+    ) -> result::Result<Response<B2>, E> {
+        let Response {
+            status_code,
+            headers,
+            body,
+            server_ip,
+            server_port,
+            metrics,
+        } = self;
+        let body = f(body)?;
         Ok(Response {
             status_code,
             headers,
@@ -428,8 +440,15 @@ impl Response<Body> {
 }
 
 #[cfg(feature = "async")]
-impl Response<AsyncBody> {
-    pub async fn fulfill(self) -> IOResult<Response<AsyncCachedBody>> {
+use std::{future::Future, pin::Pin};
+
+#[cfg(feature = "async")]
+type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+
+impl<B> Response<B> {
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub async fn async_map_body<B2>(self, f: impl FnOnce(B) -> BoxFuture<B2>) -> Response<B2> {
         let Response {
             status_code,
             headers,
@@ -438,8 +457,32 @@ impl Response<AsyncBody> {
             server_port,
             metrics,
         } = self;
-        let body = body.fulfill().await?;
+        let body = f(body).await;
+        Response {
+            status_code,
+            headers,
+            body,
+            server_ip,
+            server_port,
+            metrics,
+        }
+    }
 
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub async fn async_try_map_body<B2, E>(
+        self,
+        f: impl FnOnce(B) -> BoxFuture<result::Result<B2, E>>,
+    ) -> result::Result<Response<B2>, E> {
+        let Response {
+            status_code,
+            headers,
+            body,
+            server_ip,
+            server_port,
+            metrics,
+        } = self;
+        let body = f(body).await?;
         Ok(Response {
             status_code,
             headers,
@@ -448,6 +491,29 @@ impl Response<AsyncBody> {
             server_port,
             metrics,
         })
+    }
+}
+
+impl<B: Send + Sync> Response<B> {
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
+}
+
+impl Response<Body> {
+    #[inline]
+    pub fn fulfill(self) -> IOResult<Response<CachedBody>> {
+        self.try_map_body(|b| b.fulfill())
+    }
+}
+
+#[cfg(feature = "async")]
+impl Response<AsyncBody> {
+    pub async fn fulfill(self) -> IOResult<Response<AsyncCachedBody>> {
+        self.async_try_map_body(|b| Box::pin(async { b.fulfill().await }))
+            .await
     }
 }
 
