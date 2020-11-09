@@ -1,7 +1,7 @@
 use super::{
     super::{
         super::{IntoEndpoints, ServiceName},
-        Authorization, CallbackContext, Callbacks, ChosenResult, Client, RequestInfo,
+        Authorization, CallbackContext, Callbacks, ChosenResult, HTTPClient, RequestInfo,
         ResponseError, ResponseInfo,
     },
     request_data::RequestData,
@@ -13,7 +13,7 @@ use qiniu_http::{HeaderName, HeaderValue, Headers, Method, StatusCode};
 use std::{fmt, time::Duration};
 
 pub(in super::super) struct Request<'r> {
-    client: &'r Client,
+    http_client: &'r HTTPClient,
     service_name: ServiceName,
     into_endpoints: IntoEndpoints<'r>,
     callbacks: Callbacks,
@@ -24,7 +24,7 @@ pub(in super::super) struct Request<'r> {
 impl<'r> Request<'r> {
     #[inline]
     pub(super) fn new(
-        client: &'r Client,
+        http_client: &'r HTTPClient,
         service_name: ServiceName,
         into_endpoints: IntoEndpoints<'r>,
         callbacks: Callbacks,
@@ -32,7 +32,7 @@ impl<'r> Request<'r> {
         appended_user_agent: Box<str>,
     ) -> Self {
         Self {
-            client,
+            http_client,
             service_name,
             into_endpoints,
             callbacks,
@@ -47,7 +47,7 @@ impl<'r> Request<'r> {
     ) -> (RequestWithoutEndpoints<'r>, IntoEndpoints<'r>, ServiceName) {
         (
             RequestWithoutEndpoints {
-                client: self.client,
+                http_client: self.http_client,
                 callbacks: self.callbacks,
                 data: self.data,
                 appended_user_agent: self.appended_user_agent,
@@ -61,7 +61,7 @@ impl<'r> Request<'r> {
 
 #[derive(Debug)]
 pub(in super::super) struct RequestWithoutEndpoints<'r> {
-    client: &'r Client,
+    http_client: &'r HTTPClient,
     callbacks: Callbacks,
     data: RequestData<'r>,
     appended_user_agent: Box<str>,
@@ -75,15 +75,15 @@ impl<'r> RequestWithoutEndpoints<'r> {
     }
 
     #[inline]
-    pub(in super::super) fn client(&self) -> &Client {
-        &self.client
+    pub(in super::super) fn http_client(&self) -> &HTTPClient {
+        &self.http_client
     }
 
     #[inline]
     pub(in super::super) fn use_https(&self) -> bool {
         self.data
             .use_https
-            .unwrap_or_else(|| self.client.use_https())
+            .unwrap_or_else(|| self.http_client.use_https())
     }
 
     #[inline]
@@ -140,14 +140,14 @@ impl<'r> RequestWithoutEndpoints<'r> {
     pub(in super::super) fn connect_timeout(&self) -> Option<Duration> {
         self.data
             .connect_timeout
-            .or_else(|| self.client.connect_timeout())
+            .or_else(|| self.http_client.connect_timeout())
     }
 
     #[inline]
     pub(in super::super) fn request_timeout(&self) -> Option<Duration> {
         self.data
             .request_timeout
-            .or_else(|| self.client.request_timeout())
+            .or_else(|| self.http_client.request_timeout())
     }
 
     #[inline]
@@ -180,7 +180,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
         self.callbacks
             .call_uploading_progress_callbacks(request, uploaded, total)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_uploading_progress_callbacks(request, uploaded, total)
     }
@@ -195,7 +195,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
         self.callbacks
             .call_downloading_progress_callbacks(request, downloaded, total)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_downloading_progress_callbacks(request, downloaded, total)
     }
@@ -209,7 +209,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
         self.callbacks
             .call_send_request_body_callbacks(request, request_body)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_send_request_body_callbacks(request, request_body)
     }
@@ -223,7 +223,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
         self.callbacks
             .call_receive_response_status_callbacks(request, status_code)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_receive_response_status_callbacks(request, status_code)
     }
@@ -237,7 +237,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
         self.callbacks
             .call_receive_response_body_callbacks(request, response_body)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_receive_response_body_callbacks(request, response_body)
     }
@@ -252,7 +252,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
         self.callbacks
             .call_receive_response_header_callbacks(request, header_name, header_value)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_receive_response_header_callbacks(request, header_name, header_value)
     }
@@ -261,7 +261,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
     pub(in super::super) fn call_to_choose_domain_callbacks(&self, domain: &str) -> bool {
         self.callbacks.call_to_choose_domain_callbacks(domain)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_to_choose_domain_callbacks(domain)
     }
@@ -274,7 +274,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
     ) -> bool {
         self.callbacks.call_domain_chosen_callbacks(domain, result)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_domain_chosen_callbacks(domain, result)
     }
@@ -286,7 +286,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
     ) -> bool {
         self.callbacks.call_before_request_signed_callbacks(context)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_before_request_signed_callbacks(context)
     }
@@ -298,7 +298,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
     ) -> bool {
         self.callbacks.call_after_request_signed_callbacks(context)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_after_request_signed_callbacks(context)
     }
@@ -311,7 +311,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
     ) -> bool {
         self.callbacks.call_success_callbacks(context, response)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_success_callbacks(context, response)
     }
@@ -323,7 +323,10 @@ impl<'r> RequestWithoutEndpoints<'r> {
         error: &ResponseError,
     ) -> bool {
         self.callbacks.call_error_callbacks(context, error)
-            && self.client.callbacks().call_error_callbacks(context, error)
+            && self
+                .http_client
+                .callbacks()
+                .call_error_callbacks(context, error)
     }
 
     #[inline]
@@ -335,7 +338,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
         self.callbacks
             .call_before_retry_delay_callbacks(context, delay)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_before_retry_delay_callbacks(context, delay)
     }
@@ -349,7 +352,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
         self.callbacks
             .call_after_retry_delay_callbacks(context, delay)
             && self
-                .client
+                .http_client
                 .callbacks()
                 .call_after_retry_delay_callbacks(context, delay)
     }
@@ -358,7 +361,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
 impl fmt::Debug for Request<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Request")
-            .field("client", &self.client)
+            .field("http_client", &self.http_client)
             .field("service_name", &self.service_name)
             .field("into_endpoints", &self.into_endpoints)
             .field("callbacks", &self.callbacks)

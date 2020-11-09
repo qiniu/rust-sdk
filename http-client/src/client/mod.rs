@@ -2,7 +2,7 @@ mod authorization;
 mod call;
 mod callbacks;
 mod chooser;
-mod client;
+mod http_client;
 mod request;
 mod resolver;
 mod response;
@@ -17,7 +17,7 @@ pub use chooser::{
     Chooser, ChooserFeedback, ChosenResult, ResponseMetrics, ShuffledChooser,
     ShuffledChooserBuilder, SimpleChooser,
 };
-pub use client::{Client, ClientBuilder};
+pub use http_client::{HTTPClient, HTTPClientBuilder};
 pub use request::{Idempotent, QueryPairKey, QueryPairValue, QueryPairs, RequestBuilder};
 pub use resolver::{
     CachedResolver, ChainedResolver, ChainedResolverBuilder, PersistentError, PersistentResult,

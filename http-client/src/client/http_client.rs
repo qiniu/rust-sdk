@@ -12,12 +12,12 @@ use qiniu_http::{HTTPCaller, Method};
 use std::{sync::Arc, time::Duration};
 
 #[derive(Debug, Clone)]
-pub struct Client {
-    inner: Arc<ClientInner>,
+pub struct HTTPClient {
+    inner: Arc<HTTPClientInner>,
 }
 
 #[derive(Debug)]
-struct ClientInner {
+struct HTTPClientInner {
     use_https: bool,
     appended_user_agent: Box<str>,
     http_caller: Arc<dyn HTTPCaller>,
@@ -30,30 +30,30 @@ struct ClientInner {
 }
 
 #[cfg(any(feature = "curl"))]
-impl Default for Client {
+impl Default for HTTPClient {
     #[inline]
     fn default() -> Self {
-        ClientBuilder::new().build()
+        HTTPClientBuilder::new().build()
     }
 }
 
-impl Client {
+impl HTTPClient {
     #[inline]
     #[cfg(any(feature = "curl"))]
-    pub fn builder() -> ClientBuilder {
-        ClientBuilder::new()
+    pub fn builder() -> HTTPClientBuilder {
+        HTTPClientBuilder::new()
     }
 
     #[inline]
     #[cfg(not(any(feature = "curl")))]
     pub fn new(http_caller: Arc<dyn HTTPCaller>) -> Self {
-        ClientBuilder::new(http_caller).build()
+        HTTPClientBuilder::new(http_caller).build()
     }
 
     #[inline]
     #[cfg(not(any(feature = "curl")))]
-    pub fn builder(http_caller: Arc<dyn HTTPCaller>) -> ClientBuilder {
-        ClientBuilder::new(http_caller)
+    pub fn builder(http_caller: Arc<dyn HTTPCaller>) -> HTTPClientBuilder {
+        HTTPClientBuilder::new(http_caller)
     }
 
     pub fn get<'r>(
@@ -144,7 +144,7 @@ impl Client {
 }
 
 #[derive(Debug)]
-pub struct ClientBuilder {
+pub struct HTTPClientBuilder {
     use_https: bool,
     appended_user_agent: Box<str>,
     http_caller: Arc<dyn HTTPCaller>,
@@ -157,14 +157,14 @@ pub struct ClientBuilder {
 }
 
 #[cfg(feature = "curl")]
-impl Default for ClientBuilder {
+impl Default for HTTPClientBuilder {
     #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ClientBuilder {
+impl HTTPClientBuilder {
     #[inline]
     #[cfg(feature = "curl")]
     pub fn new() -> Self {
@@ -184,7 +184,7 @@ impl ClientBuilder {
         type DefaultRetryDelayPolicy = RandomizedRetryDelayPolicy<ExponentialRetryDelayPolicy>;
         type DefaultChooser = ShuffledChooser<SimpleChooser<DefaultResolver>>;
 
-        ClientBuilder {
+        HTTPClientBuilder {
             http_caller,
             use_https: true,
             appended_user_agent: Default::default(),
@@ -324,9 +324,9 @@ impl ClientBuilder {
     }
 
     #[inline]
-    pub fn build(self) -> Client {
-        Client {
-            inner: Arc::new(ClientInner {
+    pub fn build(self) -> HTTPClient {
+        HTTPClient {
+            inner: Arc::new(HTTPClientInner {
                 use_https: self.use_https,
                 appended_user_agent: self.appended_user_agent,
                 http_caller: self.http_caller,

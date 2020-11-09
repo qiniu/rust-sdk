@@ -5,7 +5,7 @@ use super::{
             OnBody, OnDomainChosen, OnError, OnHeader, OnProgress, OnRequest, OnRetry,
             OnStatusCode, OnSuccess, OnToChooseDomain,
         },
-        request_call, APIResult, Authorization, CallbacksBuilder, Client, SyncResponse,
+        request_call, APIResult, Authorization, CallbacksBuilder, HTTPClient, SyncResponse,
     },
     request_data::RequestData,
     Idempotent, QueryPairKey, QueryPairValue, QueryPairs, Request,
@@ -21,7 +21,7 @@ use super::super::{async_request_call, AsyncResponse};
 
 #[derive(Debug)]
 pub struct RequestBuilder<'r> {
-    client: &'r Client,
+    http_client: &'r HTTPClient,
     service_name: ServiceName,
     into_endpoints: IntoEndpoints<'r>,
     callbacks: CallbacksBuilder,
@@ -31,13 +31,13 @@ pub struct RequestBuilder<'r> {
 
 impl<'r> RequestBuilder<'r> {
     pub(in super::super) fn new(
-        client: &'r Client,
+        http_client: &'r HTTPClient,
         method: Method,
         into_endpoints: IntoEndpoints<'r>,
         service_name: ServiceName,
     ) -> Self {
         Self {
-            client,
+            http_client,
             service_name,
             into_endpoints,
             callbacks: Default::default(),
@@ -296,9 +296,9 @@ impl<'r> RequestBuilder<'r> {
     #[inline]
     pub(in super::super) fn build(self) -> Request<'r> {
         let appended_user_agent =
-            self.client.appended_user_agent().to_owned() + &self.appended_user_agent;
+            self.http_client.appended_user_agent().to_owned() + &self.appended_user_agent;
         Request::new(
-            self.client,
+            self.http_client,
             self.service_name,
             self.into_endpoints,
             self.callbacks.build(),

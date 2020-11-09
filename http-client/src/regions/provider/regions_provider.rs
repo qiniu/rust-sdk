@@ -1,6 +1,6 @@
 use super::{
     super::{
-        super::{APIResult, Authorization, Client, ResponseError, ResponseErrorKind},
+        super::{APIResult, Authorization, HTTPClient, ResponseError, ResponseErrorKind},
         Endpoint, ServiceName,
     },
     structs::{ResponseBody, DEFAULT_CACHE_LIFETIME},
@@ -27,7 +27,7 @@ pub struct RegionsProvider {
 #[derive(Debug)]
 struct RegionsProviderInner {
     credential_provider: Arc<dyn CredentialProvider>,
-    http_client: Client,
+    http_client: HTTPClient,
     uc_endpoints: Box<[Endpoint]>,
     cache_lifetime: Duration,
     cache: RwLock<Option<Cache>>,
@@ -42,7 +42,7 @@ struct Cache {
 impl RegionsProvider {
     #[inline]
     pub fn builder(
-        http_client: Client,
+        http_client: HTTPClient,
         uc_endpoints: impl Into<Vec<Endpoint>>,
         credential_provider: Arc<dyn CredentialProvider>,
     ) -> RegionsProviderBuilder {
@@ -162,7 +162,7 @@ impl RegionProvider for RegionsProvider {
 #[derive(Debug)]
 pub struct RegionsProviderBuilder {
     credential_provider: Arc<dyn CredentialProvider>,
-    http_client: Client,
+    http_client: HTTPClient,
     uc_endpoints: Vec<Endpoint>,
     cache_lifetime: Duration,
 }
@@ -170,7 +170,7 @@ pub struct RegionsProviderBuilder {
 impl RegionsProviderBuilder {
     #[inline]
     pub fn new(
-        http_client: Client,
+        http_client: HTTPClient,
         uc_endpoints: impl Into<Vec<Endpoint>>,
         credential_provider: Arc<dyn CredentialProvider>,
     ) -> Self {
@@ -245,7 +245,7 @@ mod tests {
 
         starts_with_server!(addr, routes, {
             let provider = RegionsProvider::builder(
-                Client::builder().use_https(false).build(),
+                HTTPClient::builder().use_https(false).build(),
                 vec![Endpoint::from(addr)],
                 Arc::new(StaticCredentialProvider::new(ACCESS_KEY, SECRET_KEY)),
             )

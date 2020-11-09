@@ -154,7 +154,7 @@ macro_rules! create_request_call_fn {
                     .collect::<Vec<_>>();
                 if !ips_with_port.is_empty() {
                     'within_ips: loop {
-                        match $block!({ request.client().chooser().$choose_ips_method(&ips_with_port) }) {
+                        match $block!({ request.http_client().chooser().$choose_ips_method(&ips_with_port) }) {
                             ChosenResult::IPs(ips) if !ips.is_empty() => {
                                 for ip in ips.into_iter() {
                                     retried.switch_endpoint();
@@ -241,12 +241,12 @@ macro_rules! create_request_call_fn {
                 match $block!({ do_request(request, &mut built_request, retried) }) {
                     Ok(response) => {
                         let feedback = ChooserFeedback::new(&domain_or_ip, retried, Ok(ResponseMetrics::new_from_response(&response)));
-                        $block!({ request.client().chooser().$feedback_method(feedback) });
+                        $block!({ request.http_client().chooser().$feedback_method(feedback) });
                         Ok(response)
                     },
                     Err(err) => {
                         let feedback = ChooserFeedback::new(&domain_or_ip, retried, Err(err.response_error()));
-                        $block!({ request.client().chooser().$feedback_method(feedback) });
+                        $block!({ request.http_client().chooser().$feedback_method(feedback) });
                         Err(err)
                     }
                 }
@@ -260,7 +260,7 @@ macro_rules! create_request_call_fn {
                 loop {
                     let response = $block!({
                         request
-                            .client()
+                            .http_client()
                             .http_caller()
                             .$call_method(&built_request)
                         })
@@ -268,7 +268,7 @@ macro_rules! create_request_call_fn {
                         .map($return_type::new)
                         .and_then(|response| $blocking_block!({ judge(response) }) )
                         .map_err(|response_error| {
-                            let retry_result = request.client().request_retrier().retry(
+                            let retry_result = request.http_client().request_retrier().retry(
                                 built_request,
                                 request.idempotent(),
                                 &response_error,
@@ -294,7 +294,7 @@ macro_rules! create_request_call_fn {
                                 | retry_result @ RetryResult::Throttled
                                 | retry_result @ RetryResult::TryNextServer => {
                                     let delay = request
-                                        .client()
+                                        .http_client()
                                         .retry_delay_policy()
                                         .delay_before_next_retry(
                                             built_request,
@@ -401,7 +401,7 @@ macro_rules! create_request_call_fn {
                 call_to_choose_domain_callbacks(request, domain_with_port.domain())?;
                 let result = $block!({
                     request
-                        .client()
+                        .http_client()
                         .chooser()
                         .$choose_method(domain_with_port, ignore_frozen)
                 });

@@ -1,4 +1,4 @@
-use super::super::{Client, ClientBuilder};
+use super::super::{HTTPClient, HTTPClientBuilder};
 use qiniu_http::{
     HTTPCaller, HeadersOwned, Request as HTTPRequest, ResponseError, ResponseErrorKind, StatusCode,
     SyncResponse, SyncResponseResult,
@@ -11,7 +11,7 @@ use {
     qiniu_http::{AsyncResponse, AsyncResponseResult},
 };
 
-pub(crate) fn make_dumb_client_builder() -> ClientBuilder {
+pub(crate) fn make_dumb_client_builder() -> HTTPClientBuilder {
     #[derive(Debug, Default)]
     struct FakeHTTPCaller;
 
@@ -44,17 +44,17 @@ pub(crate) fn make_dumb_client_builder() -> ClientBuilder {
     let http_caller = Arc::new(FakeHTTPCaller);
 
     #[cfg(any(feature = "curl"))]
-    return Client::builder().http_caller(http_caller);
+    return HTTPClient::builder().http_caller(http_caller);
 
     #[cfg(not(any(feature = "curl")))]
-    return Client::builder(http_caller);
+    return HTTPClient::builder(http_caller);
 }
 
 pub(crate) fn make_fixed_response_client_builder(
     status_code: StatusCode,
     headers: HeadersOwned,
     body: Vec<u8>,
-) -> ClientBuilder {
+) -> HTTPClientBuilder {
     #[derive(Debug)]
     struct RedirectHTTPCaller {
         status_code: StatusCode,
@@ -104,16 +104,16 @@ pub(crate) fn make_fixed_response_client_builder(
     });
 
     #[cfg(any(feature = "curl"))]
-    return Client::builder().http_caller(http_caller);
+    return HTTPClient::builder().http_caller(http_caller);
 
     #[cfg(not(any(feature = "curl")))]
-    return Client::builder(http_caller);
+    return HTTPClient::builder(http_caller);
 }
 
 pub(crate) fn make_error_response_client_builder(
     error_kind: ResponseErrorKind,
     message: impl Into<String>,
-) -> ClientBuilder {
+) -> HTTPClientBuilder {
     #[derive(Debug)]
     struct ErrorHTTPCaller {
         error_kind: ResponseErrorKind,
@@ -153,8 +153,8 @@ pub(crate) fn make_error_response_client_builder(
     });
 
     #[cfg(any(feature = "curl"))]
-    return Client::builder().http_caller(http_caller);
+    return HTTPClient::builder().http_caller(http_caller);
 
     #[cfg(not(any(feature = "curl")))]
-    return Client::builder(http_caller);
+    return HTTPClient::builder(http_caller);
 }

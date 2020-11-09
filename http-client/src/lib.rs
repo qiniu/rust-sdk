@@ -14,9 +14,9 @@ pub extern crate qiniu_upload_token as upload_token;
 pub use client::{
     APIResult, Authorization, AuthorizationError, AuthorizationResult, CachedResolver,
     CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver, ChainedResolverBuilder, Chooser,
-    ChooserFeedback, ChosenResult, Client, ClientBuilder, DefaultRetrier, DefaultRetrierBuilder,
-    DomainOrIpAddr, ExponentialRetryDelayPolicy, FixedRetryDelayPolicy, Idempotent, NeverRetrier,
-    PersistentError, PersistentResult, QueryPairKey, QueryPairValue, QueryPairs,
+    ChooserFeedback, ChosenResult, DefaultRetrier, DefaultRetrierBuilder, DomainOrIpAddr,
+    ExponentialRetryDelayPolicy, FixedRetryDelayPolicy, HTTPClient, HTTPClientBuilder, Idempotent,
+    NeverRetrier, PersistentError, PersistentResult, QueryPairKey, QueryPairValue, QueryPairs,
     RandomizedRetryDelayPolicy, Ratio, RequestBuilder, RequestInfo, RequestRetrier, ResolveResult,
     Resolver, ResponseError, ResponseErrorKind, ResponseMetrics, RetryDelayPolicy, RetryResult,
     ShuffledChooser, ShuffledChooserBuilder, ShuffledResolver, SimpleChooser, SimpleResolver,

@@ -1,6 +1,6 @@
 use super::{
     super::{
-        super::{APIResult, Client, ResponseError, ResponseErrorKind},
+        super::{APIResult, HTTPClient, ResponseError, ResponseErrorKind},
         Endpoint, ServiceName,
     },
     structs::{ResponseBody, DEFAULT_CACHE_LIFETIME},
@@ -37,7 +37,7 @@ pub struct BucketRegionsQueryer {
 
 #[derive(Debug)]
 struct BucketRegionsQueryerInner {
-    http_client: Client,
+    http_client: HTTPClient,
     uc_endpoints: Box<[Endpoint]>,
     cache_lifetime: Duration,
     cache: DashMap<CacheKey, CacheValue>,
@@ -45,7 +45,7 @@ struct BucketRegionsQueryerInner {
 
 #[derive(Debug)]
 pub struct BucketRegionsQueryerBuilder {
-    http_client: Client,
+    http_client: HTTPClient,
     uc_endpoints: Vec<Endpoint>,
     cache_lifetime: Duration,
 }
@@ -53,7 +53,7 @@ pub struct BucketRegionsQueryerBuilder {
 impl BucketRegionsQueryer {
     #[inline]
     pub fn builder(
-        http_client: Client,
+        http_client: HTTPClient,
         uc_endpoints: impl Into<Vec<Endpoint>>,
     ) -> BucketRegionsQueryerBuilder {
         BucketRegionsQueryerBuilder::new(http_client, uc_endpoints)
@@ -136,7 +136,7 @@ impl BucketRegionsQueryer {
 
 impl BucketRegionsQueryerBuilder {
     #[inline]
-    pub fn new(http_client: Client, uc_endpoints: impl Into<Vec<Endpoint>>) -> Self {
+    pub fn new(http_client: HTTPClient, uc_endpoints: impl Into<Vec<Endpoint>>) -> Self {
         Self {
             http_client,
             uc_endpoints: uc_endpoints.into(),
@@ -276,7 +276,7 @@ mod tests {
 
         starts_with_server!(addr, routes, {
             let queryer = BucketRegionsQueryer::builder(
-                Client::builder().use_https(false).build(),
+                HTTPClient::builder().use_https(false).build(),
                 vec![Endpoint::from(addr)],
             )
             .build();
