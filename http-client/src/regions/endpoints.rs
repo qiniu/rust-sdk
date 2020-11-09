@@ -1,5 +1,10 @@
 use super::{super::APIResult, Endpoint, Region, RegionProvider};
-use std::net::{IpAddr, SocketAddr};
+use std::{
+    error::Error,
+    fmt,
+    net::{IpAddr, SocketAddr},
+    str::FromStr,
+};
 
 #[derive(Default, Clone, Debug)]
 pub(in super::super) struct Endpoints {
@@ -18,6 +23,34 @@ pub enum ServiceName {
     Api,
     S3,
 }
+
+#[derive(Debug)]
+pub struct InvalidServiceName(Box<str>);
+
+impl FromStr for ServiceName {
+    type Err = InvalidServiceName;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "up" => Ok(Self::Up),
+            "io" => Ok(Self::Io),
+            "uc" => Ok(Self::Uc),
+            "rs" => Ok(Self::Rs),
+            "rsf" => Ok(Self::Rsf),
+            "api" => Ok(Self::Api),
+            "s3" => Ok(Self::S3),
+            service_name => Err(InvalidServiceName(service_name.into())),
+        }
+    }
+}
+
+impl fmt::Display for InvalidServiceName {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "invalid service name: {}", self.0)
+    }
+}
+
+impl Error for InvalidServiceName {}
 
 impl Endpoints {
     #[inline]
