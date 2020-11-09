@@ -20,10 +20,10 @@ pub struct Client {
 struct ClientInner {
     use_https: bool,
     appended_user_agent: Box<str>,
-    http_caller: Box<dyn HTTPCaller>,
-    request_retrier: Box<dyn RequestRetrier>,
-    retry_delay_policy: Box<dyn RetryDelayPolicy>,
-    chooser: Box<dyn Chooser>,
+    http_caller: Arc<dyn HTTPCaller>,
+    request_retrier: Arc<dyn RequestRetrier>,
+    retry_delay_policy: Arc<dyn RetryDelayPolicy>,
+    chooser: Arc<dyn Chooser>,
     callbacks: Callbacks,
     connect_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
@@ -46,13 +46,13 @@ impl Client {
 
     #[inline]
     #[cfg(not(any(feature = "curl")))]
-    pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
+    pub fn new(http_caller: Arc<dyn HTTPCaller>) -> Self {
         ClientBuilder::new(http_caller).build()
     }
 
     #[inline]
     #[cfg(not(any(feature = "curl")))]
-    pub fn builder(http_caller: Box<dyn HTTPCaller>) -> ClientBuilder {
+    pub fn builder(http_caller: Arc<dyn HTTPCaller>) -> ClientBuilder {
         ClientBuilder::new(http_caller)
     }
 
@@ -147,10 +147,10 @@ impl Client {
 pub struct ClientBuilder {
     use_https: bool,
     appended_user_agent: Box<str>,
-    http_caller: Box<dyn HTTPCaller>,
-    request_retrier: Box<dyn RequestRetrier>,
-    retry_delay_policy: Box<dyn RetryDelayPolicy>,
-    chooser: Box<dyn Chooser>,
+    http_caller: Arc<dyn HTTPCaller>,
+    request_retrier: Arc<dyn RequestRetrier>,
+    retry_delay_policy: Arc<dyn RetryDelayPolicy>,
+    chooser: Arc<dyn Chooser>,
     callbacks: CallbacksBuilder,
     connect_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
@@ -169,17 +169,17 @@ impl ClientBuilder {
     #[cfg(feature = "curl")]
     pub fn new() -> Self {
         use qiniu_curl::CurlHTTPCaller;
-        Self::_new(Box::new(CurlHTTPCaller::default()))
+        Self::_new(Arc::new(CurlHTTPCaller::default()))
     }
 
     #[inline]
     #[cfg(not(any(feature = "curl")))]
-    pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
+    pub fn new(http_caller: Arc<dyn HTTPCaller>) -> Self {
         Self::_new(http_caller)
     }
 
     #[inline]
-    fn _new(http_caller: Box<dyn HTTPCaller>) -> Self {
+    fn _new(http_caller: Arc<dyn HTTPCaller>) -> Self {
         type DefaultResolver = ShuffledResolver<CachedResolver<SimpleResolver>>;
         type DefaultRetryDelayPolicy = RandomizedRetryDelayPolicy<ExponentialRetryDelayPolicy>;
         type DefaultChooser = ShuffledChooser<SimpleChooser<DefaultResolver>>;
@@ -188,9 +188,9 @@ impl ClientBuilder {
             http_caller,
             use_https: true,
             appended_user_agent: Default::default(),
-            request_retrier: Box::new(DefaultRetrier::default()),
-            retry_delay_policy: Box::new(DefaultRetryDelayPolicy::default()),
-            chooser: Box::new(DefaultChooser::default()),
+            request_retrier: Arc::new(DefaultRetrier::default()),
+            retry_delay_policy: Arc::new(DefaultRetryDelayPolicy::default()),
+            chooser: Arc::new(DefaultChooser::default()),
             callbacks: Default::default(),
             connect_timeout: Default::default(),
             request_timeout: Default::default(),
@@ -210,25 +210,25 @@ impl ClientBuilder {
     }
 
     #[inline]
-    pub fn http_caller(mut self, http_caller: Box<dyn HTTPCaller>) -> Self {
+    pub fn http_caller(mut self, http_caller: Arc<dyn HTTPCaller>) -> Self {
         self.http_caller = http_caller;
         self
     }
 
     #[inline]
-    pub fn request_retrier(mut self, request_retrier: Box<dyn RequestRetrier>) -> Self {
+    pub fn request_retrier(mut self, request_retrier: Arc<dyn RequestRetrier>) -> Self {
         self.request_retrier = request_retrier;
         self
     }
 
     #[inline]
-    pub fn retry_delay_policy(mut self, retry_delay_policy: Box<dyn RetryDelayPolicy>) -> Self {
+    pub fn retry_delay_policy(mut self, retry_delay_policy: Arc<dyn RetryDelayPolicy>) -> Self {
         self.retry_delay_policy = retry_delay_policy;
         self
     }
 
     #[inline]
-    pub fn chooser(mut self, chooser: Box<dyn Chooser>) -> Self {
+    pub fn chooser(mut self, chooser: Arc<dyn Chooser>) -> Self {
         self.chooser = chooser;
         self
     }

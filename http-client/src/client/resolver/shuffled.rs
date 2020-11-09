@@ -5,7 +5,7 @@ use std::any::Any;
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 pub struct ShuffledResolver<R: Resolver> {
     base_resolver: R,
 }

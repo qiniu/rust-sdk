@@ -5,7 +5,7 @@ use std::{any::Any, convert::TryInto, time::Duration, u64};
 
 pub use num_rational::Ratio;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct RandomizedRetryDelayPolicy<P: RetryDelayPolicy> {
     base_policy: P,
     minification: Ratio<u8>,

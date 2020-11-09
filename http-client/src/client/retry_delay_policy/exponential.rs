@@ -2,7 +2,7 @@ use super::{ResponseError, RetriedStatsInfo, RetryDelayPolicy, RetryResult};
 use qiniu_http::Request as HTTPRequest;
 use std::{any::Any, time::Duration};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExponentialRetryDelayPolicy {
     base_delay: Duration,
 }

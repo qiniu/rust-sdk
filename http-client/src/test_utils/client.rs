@@ -3,7 +3,7 @@ use qiniu_http::{
     HTTPCaller, HeadersOwned, Request as HTTPRequest, ResponseError, ResponseErrorKind, StatusCode,
     SyncResponse, SyncResponseResult,
 };
-use std::any::Any;
+use std::{any::Any, sync::Arc};
 
 #[cfg(feature = "async")]
 use {
@@ -41,7 +41,7 @@ pub(crate) fn make_dumb_client_builder() -> ClientBuilder {
         }
     }
 
-    let http_caller = Box::new(FakeHTTPCaller);
+    let http_caller = Arc::new(FakeHTTPCaller);
 
     #[cfg(any(feature = "curl"))]
     return Client::builder().http_caller(http_caller);
@@ -97,7 +97,7 @@ pub(crate) fn make_fixed_response_client_builder(
         }
     }
 
-    let http_caller = Box::new(RedirectHTTPCaller {
+    let http_caller = Arc::new(RedirectHTTPCaller {
         status_code,
         headers,
         body,
@@ -147,7 +147,7 @@ pub(crate) fn make_error_response_client_builder(
         }
     }
 
-    let http_caller = Box::new(ErrorHTTPCaller {
+    let http_caller = Arc::new(ErrorHTTPCaller {
         error_kind,
         message: message.into(),
     });

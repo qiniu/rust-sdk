@@ -13,7 +13,7 @@ use c_ares_resolver::{
 };
 use cfg_if::cfg_if;
 use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
-use std::{any::Any, fmt, net::IpAddr, result, sync::mpsc, sync::Arc};
+use std::{any::Any, fmt, net::IpAddr, result, sync::mpsc};
 
 #[cfg(feature = "async")]
 use {
@@ -24,12 +24,7 @@ use {
 type CAresResolverResult<T> = result::Result<T, CAresResolverError>;
 
 #[cfg_attr(feature = "docs", doc(cfg(r#c_ares)))]
-#[derive(Clone)]
 pub struct CAresResolver {
-    inner: Arc<CAresResolverInner>,
-}
-
-struct CAresResolverInner {
     callback_resolver: CallbackResolver,
 
     #[cfg(feature = "async")]
@@ -41,9 +36,7 @@ impl CAresResolver {
     #[cfg(not(feature = "async"))]
     pub fn new_with_options(options: CAresResolverOptions) -> CAresResolverResult<Self> {
         Ok(Self {
-            inner: Arc::new(CAresResolverInner {
-                callback_resolver: CallbackResolver::with_options(options)?,
-            }),
+            callback_resolver: CallbackResolver::with_options(options)?,
         })
     }
 
@@ -54,10 +47,8 @@ impl CAresResolver {
         async_options: CAresResolverOptions,
     ) -> CAresResolverResult<Self> {
         Ok(Self {
-            inner: Arc::new(CAresResolverInner {
-                callback_resolver: CallbackResolver::with_options(sync_options)?,
-                future_resolver: FutureResolver::with_options(async_options)?,
-            }),
+            callback_resolver: CallbackResolver::with_options(sync_options)?,
+            future_resolver: FutureResolver::with_options(async_options)?,
         })
     }
 
@@ -85,8 +76,7 @@ impl Resolver for CAresResolver {
         let (tx, rx) = mpsc::channel();
         let tx2 = tx.to_owned();
 
-        self.inner
-            .callback_resolver
+        self.callback_resolver
             .get_host_by_name(domain, INET, move |results| {
                 tx.send(
                     results
@@ -95,8 +85,7 @@ impl Resolver for CAresResolver {
                 )
                 .unwrap();
             });
-        self.inner
-            .callback_resolver
+        self.callback_resolver
             .get_host_by_name(domain, INET6, move |results| {
                 tx2.send(
                     results
@@ -123,8 +112,8 @@ impl Resolver for CAresResolver {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_resolve<'a>(&'a self, domain: &'a str) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
-            let task1 = self.inner.future_resolver.get_host_by_name(domain, INET);
-            let task2 = self.inner.future_resolver.get_host_by_name(domain, INET6);
+            let task1 = self.future_resolver.get_host_by_name(domain, INET);
+            let task2 = self.future_resolver.get_host_by_name(domain, INET6);
             let (results1, results2) = join(task1, task2).await;
             match (
                 results1

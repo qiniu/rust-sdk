@@ -5,7 +5,7 @@ use std::{any::Any, time::Duration};
 pub const NO_DELAY_POLICY: FixedRetryDelayPolicy =
     FixedRetryDelayPolicy::new(Duration::from_nanos(0));
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixedRetryDelayPolicy {
     delay: Duration,
 }

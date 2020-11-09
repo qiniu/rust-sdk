@@ -7,7 +7,7 @@ use qiniu_http::{
 };
 use std::any::Any;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct DefaultRetrier {
     retries: usize,
 }
@@ -122,7 +122,7 @@ impl RequestRetrier for DefaultRetrier {
     }
 }
 
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct DefaultRetrierBuilder {
     inner: DefaultRetrier,
 }

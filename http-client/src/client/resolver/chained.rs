@@ -6,12 +6,12 @@ use futures::future::BoxFuture;
 
 #[derive(Debug, Clone)]
 pub struct ChainedResolver {
-    resolvers: Arc<[Box<dyn Resolver>]>,
+    resolvers: Box<[Arc<dyn Resolver>]>,
 }
 
 impl ChainedResolver {
     #[inline]
-    pub fn builder(first_resolver: Box<dyn Resolver>) -> ChainedResolverBuilder {
+    pub fn builder(first_resolver: Arc<dyn Resolver>) -> ChainedResolverBuilder {
         ChainedResolverBuilder::new(first_resolver)
     }
 }
@@ -58,25 +58,25 @@ impl Resolver for ChainedResolver {
 
 #[derive(Debug)]
 pub struct ChainedResolverBuilder {
-    resolvers: VecDeque<Box<dyn Resolver>>,
+    resolvers: VecDeque<Arc<dyn Resolver>>,
 }
 
 impl ChainedResolverBuilder {
     #[inline]
-    pub fn new(first_resolver: Box<dyn Resolver>) -> Self {
+    pub fn new(first_resolver: Arc<dyn Resolver>) -> Self {
         Self {
             resolvers: vec![first_resolver].into(),
         }
     }
 
     #[inline]
-    pub fn append_resolver(mut self, resolver: Box<dyn Resolver>) -> Self {
+    pub fn append_resolver(mut self, resolver: Arc<dyn Resolver>) -> Self {
         self.resolvers.push_back(resolver);
         self
     }
 
     #[inline]
-    pub fn prepend_resolver(mut self, resolver: Box<dyn Resolver>) -> Self {
+    pub fn prepend_resolver(mut self, resolver: Arc<dyn Resolver>) -> Self {
         self.resolvers.push_front(resolver);
         self
     }
@@ -102,15 +102,15 @@ mod tests {
 
     #[test]
     fn test_chained_resolver() -> Result<(), Box<dyn Error>> {
-        let resolver = ChainedResolver::builder(Box::new(make_static_resolver(
+        let resolver = ChainedResolver::builder(Arc::new(make_static_resolver(
             vec![
                 IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
                 IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2)),
             ]
             .into(),
         )))
-        .prepend_resolver(Box::new(make_dumb_resolver()))
-        .prepend_resolver(Box::new(make_error_resolver(
+        .prepend_resolver(Arc::new(make_dumb_resolver()))
+        .prepend_resolver(Arc::new(make_error_resolver(
             ResponseErrorKind::LocalIOError.into(),
             "Test Local IO Error",
         )))

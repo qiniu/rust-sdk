@@ -499,12 +499,12 @@ mod tests {
             HTTPResponseErrorKind::ConnectError,
             "Fake Connect Error",
         )
-        .chooser(Box::new(SimpleChooser::new(
+        .chooser(Arc::new(SimpleChooser::new(
             make_dumb_resolver(),
             Duration::from_secs(10),
         )))
-        .request_retrier(Box::new(DefaultRetrier::builder().retries(0).build()))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .request_retrier(Arc::new(DefaultRetrier::builder().retries(0).build()))
+        .retry_delay_policy(Arc::new(NO_DELAY_POLICY))
         .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
@@ -581,9 +581,9 @@ mod tests {
             HTTPResponseErrorKind::ConnectError,
             "Fake Connect Error",
         )
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
-        .chooser(Box::new(chooser))
-        .request_retrier(Box::new(DefaultRetrier::builder().retries(0).build()))
+        .retry_delay_policy(Arc::new(NO_DELAY_POLICY))
+        .chooser(Arc::new(chooser))
+        .request_retrier(Arc::new(DefaultRetrier::builder().retries(0).build()))
         .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
@@ -618,12 +618,12 @@ mod tests {
     fn test_call_switch_to_old_endpoints() -> Result<(), Box<dyn Error>> {
         let client =
             make_error_response_client_builder(HTTPResponseErrorKind::SSLError, "Fake SSL Error")
-                .chooser(Box::new(SimpleChooser::new(
+                .chooser(Arc::new(SimpleChooser::new(
                     make_error_resolver(HTTPResponseErrorKind::SSLError.into(), "Fake SSL Error"),
                     Duration::from_secs(10),
                 )))
-                .retry_delay_policy(Box::new(NO_DELAY_POLICY))
-                .request_retrier(Box::new(DefaultRetrier::builder().retries(0).build()))
+                .retry_delay_policy(Arc::new(NO_DELAY_POLICY))
+                .request_retrier(Arc::new(DefaultRetrier::builder().retries(0).build()))
                 .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
@@ -684,15 +684,15 @@ mod tests {
             HTTPResponseErrorKind::TimeoutError,
             "Fake Timeout Error",
         )
-        .chooser(Box::new(SimpleChooser::new(
+        .chooser(Arc::new(SimpleChooser::new(
             make_error_resolver(
                 HTTPResponseErrorKind::TimeoutError.into(),
                 "Fake Timeout Error",
             ),
             Duration::from_secs(10),
         )))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
-        .request_retrier(Box::new(DefaultRetrier::builder().retries(3).build()))
+        .retry_delay_policy(Arc::new(NO_DELAY_POLICY))
+        .request_retrier(Arc::new(DefaultRetrier::builder().retries(3).build()))
         .build();
 
         let retried = Arc::new(AtomicUsize::new(0));
@@ -730,12 +730,12 @@ mod tests {
             headers.to_owned(),
             b"{\"error\":\"Fake Throttled Error\"}".to_vec(),
         )
-        .chooser(Box::new(SimpleChooser::new(
+        .chooser(Arc::new(SimpleChooser::new(
             make_dumb_resolver(),
             Duration::from_secs(10),
         )))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
-        .request_retrier(Box::new(DefaultRetrier::builder().retries(3).build()))
+        .retry_delay_policy(Arc::new(NO_DELAY_POLICY))
+        .request_retrier(Arc::new(DefaultRetrier::builder().retries(3).build()))
         .build();
 
         retried.store(0, Relaxed);
@@ -770,12 +770,12 @@ mod tests {
             HTTPResponseErrorKind::UnknownHostError,
             "Test Unknown Host Error",
         )
-        .chooser(Box::new(SimpleChooser::new(
+        .chooser(Arc::new(SimpleChooser::new(
             make_dumb_resolver(),
             Duration::from_secs(10),
         )))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
-        .request_retrier(Box::new(DefaultRetrier::builder().retries(3).build()))
+        .retry_delay_policy(Arc::new(NO_DELAY_POLICY))
+        .request_retrier(Arc::new(DefaultRetrier::builder().retries(3).build()))
         .build();
 
         let retried = Arc::new(AtomicUsize::new(0));
@@ -844,12 +844,12 @@ mod tests {
     fn test_call_request_signature() -> Result<(), Box<dyn Error>> {
         let always_retry_client =
             make_error_response_client_builder(HTTPResponseErrorKind::SendError, "Test Send Error")
-                .chooser(Box::new(SimpleChooser::new(
+                .chooser(Arc::new(SimpleChooser::new(
                     make_error_resolver(HTTPResponseErrorKind::SendError.into(), "Fake Send Error"),
                     Duration::from_secs(10),
                 )))
-                .retry_delay_policy(Box::new(NO_DELAY_POLICY))
-                .request_retrier(Box::new(DefaultRetrier::builder().retries(0).build()))
+                .retry_delay_policy(Arc::new(NO_DELAY_POLICY))
+                .request_retrier(Arc::new(DefaultRetrier::builder().retries(0).build()))
                 .build();
         let credential: Arc<dyn CredentialProvider> = Arc::new(StaticCredentialProvider::new(
             "abcdefghklmnopq",
@@ -940,12 +940,12 @@ mod tests {
             Default::default(),
             b"<p>Hello world!</p>".to_vec(),
         )
-        .chooser(Box::new(SimpleChooser::new(
+        .chooser(Arc::new(SimpleChooser::new(
             make_dumb_resolver(),
             Duration::from_secs(10),
         )))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
-        .request_retrier(Box::new(DefaultRetrier::builder().retries(3).build()))
+        .retry_delay_policy(Arc::new(NO_DELAY_POLICY))
+        .request_retrier(Arc::new(DefaultRetrier::builder().retries(3).build()))
         .build();
 
         let retried_times = Arc::new(Mutex::new(HashMap::<String, AtomicUsize>::new()));
@@ -1001,12 +1001,12 @@ mod tests {
         };
         let always_redirected_client =
             make_fixed_response_client_builder(301, headers, b"<p>Hello world!</p>".to_vec())
-                .chooser(Box::new(SimpleChooser::new(
+                .chooser(Arc::new(SimpleChooser::new(
                     make_dumb_resolver(),
                     Duration::from_secs(10),
                 )))
-                .retry_delay_policy(Box::new(NO_DELAY_POLICY))
-                .request_retrier(Box::new(DefaultRetrier::builder().retries(3).build()))
+                .retry_delay_policy(Arc::new(NO_DELAY_POLICY))
+                .request_retrier(Arc::new(DefaultRetrier::builder().retries(3).build()))
                 .build();
 
         let err = always_redirected_client
@@ -1025,12 +1025,12 @@ mod tests {
             HTTPResponseErrorKind::ConnectError,
             "Fake Connect Error",
         )
-        .chooser(Box::new(SimpleChooser::new(
+        .chooser(Arc::new(SimpleChooser::new(
             make_dumb_resolver(),
             Duration::from_secs(10),
         )))
-        .request_retrier(Box::new(DefaultRetrier::builder().retries(0).build()))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .request_retrier(Arc::new(DefaultRetrier::builder().retries(0).build()))
+        .retry_delay_policy(Arc::new(NO_DELAY_POLICY))
         .build();
 
         let err = client
@@ -1075,15 +1075,15 @@ mod tests {
             HTTPResponseErrorKind::TimeoutError,
             "Fake Timeout Error",
         )
-        .chooser(Box::new(SimpleChooser::new(
+        .chooser(Arc::new(SimpleChooser::new(
             make_error_resolver(
                 HTTPResponseErrorKind::TimeoutError.into(),
                 "Fake Timeout Error",
             ),
             Duration::from_secs(10),
         )))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
-        .request_retrier(Box::new(DefaultRetrier::builder().retries(3).build()))
+        .retry_delay_policy(Arc::new(NO_DELAY_POLICY))
+        .request_retrier(Arc::new(DefaultRetrier::builder().retries(3).build()))
         .build();
 
         let retried = Arc::new(AtomicUsize::new(0));
@@ -1122,12 +1122,12 @@ mod tests {
             headers.to_owned(),
             b"{\"error\":\"Fake Throttled Error\"}".to_vec(),
         )
-        .chooser(Box::new(SimpleChooser::new(
+        .chooser(Arc::new(SimpleChooser::new(
             make_dumb_resolver(),
             Duration::from_secs(10),
         )))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
-        .request_retrier(Box::new(DefaultRetrier::builder().retries(3).build()))
+        .retry_delay_policy(Arc::new(NO_DELAY_POLICY))
+        .request_retrier(Arc::new(DefaultRetrier::builder().retries(3).build()))
         .build();
 
         retried.store(0, Relaxed);
