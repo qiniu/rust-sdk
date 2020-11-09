@@ -87,3 +87,11 @@ pub trait HTTPCaller: Any + Debug + Send + Sync {
     fn as_http_caller(&self) -> &dyn HTTPCaller;
     fn as_any(&self) -> &dyn Any;
 }
+
+pub mod preclude {
+    pub use super::{HTTPCaller, ReadDebug};
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub use super::{AsyncReadDebug, AsyncReadSeekDebug};
+}

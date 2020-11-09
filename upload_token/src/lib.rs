@@ -12,3 +12,7 @@ pub use upload_token::{
     BucketUploadTokenProvider, ParseError, ParseResult, StaticUploadTokenProvider,
     UploadTokenProvider,
 };
+
+pub mod preclude {
+    pub use super::UploadTokenProvider;
+}

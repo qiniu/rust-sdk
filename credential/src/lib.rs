@@ -23,6 +23,10 @@ use std::{
 };
 pub use url::{ParseError as UrlParseError, Url};
 
+pub mod preclude {
+    pub use super::CredentialProvider;
+}
+
 /// 认证信息
 ///
 /// 返回认证信息的 AccessKey 和 SecretKey

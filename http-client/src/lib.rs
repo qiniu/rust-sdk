@@ -34,3 +34,17 @@ pub use client::{c_ares, c_ares_resolver, CAresResolver};
 
 #[cfg(any(feature = "async"))]
 pub use client::AsyncResponse;
+
+pub mod preclude {
+    pub use super::{
+        client::{Chooser, RequestRetrier, Resolver, RetryDelayPolicy},
+        credential::CredentialProvider,
+        http::{HTTPCaller, ReadDebug},
+        regions::RegionProvider,
+        upload_token::UploadTokenProvider,
+    };
+
+    #[cfg(any(feature = "async"))]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub use super::http::{AsyncReadDebug, AsyncReadSeekDebug};
+}
