@@ -63,10 +63,10 @@ impl Default for ProgressStatus {
     }
 }
 
-type OnProgress<'a> = Option<&'a (dyn Fn(u64, u64) -> bool + Send + Sync)>;
-type OnBody<'a> = Option<&'a (dyn Fn(&[u8]) -> bool + Send + Sync)>;
-type OnStatusCode<'a> = Option<&'a (dyn Fn(StatusCode) -> bool + Send + Sync)>;
-type OnHeader<'a> = Option<&'a (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync)>;
+type OnProgress<'a> = &'a (dyn Fn(u64, u64) -> bool + Send + Sync);
+type OnBody<'a> = &'a (dyn Fn(&[u8]) -> bool + Send + Sync);
+type OnStatusCode<'a> = &'a (dyn Fn(StatusCode) -> bool + Send + Sync);
+type OnHeader<'a> = &'a (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync);
 type OnAfterPerform = Box<dyn Fn(*mut CURL) -> Result<(), ResponseError> + Sync + Send>;
 
 pub(super) struct SingleRequestContext<'ctx> {
@@ -79,12 +79,12 @@ pub(super) struct SingleRequestContext<'ctx> {
     response_body_writer: Option<PipeWriter>,
     response_headers: HeadersOwned,
     progress_status: ProgressStatus,
-    on_uploading_progress: OnProgress<'ctx>,
-    on_downloading_progress: OnProgress<'ctx>,
-    on_send_request_body: OnBody<'ctx>,
-    on_receive_response_status: OnStatusCode<'ctx>,
-    on_receive_response_body: OnBody<'ctx>,
-    on_receive_response_header: OnHeader<'ctx>,
+    on_uploading_progress: Option<OnProgress<'ctx>>,
+    on_downloading_progress: Option<OnProgress<'ctx>>,
+    on_send_request_body: Option<OnBody<'ctx>>,
+    on_receive_response_status: Option<OnStatusCode<'ctx>>,
+    on_receive_response_body: Option<OnBody<'ctx>>,
+    on_receive_response_header: Option<OnHeader<'ctx>>,
     on_after_perform: Arc<[OnAfterPerform]>,
     raw: *mut CURL,
 }

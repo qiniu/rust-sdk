@@ -44,10 +44,10 @@ impl Default for ProgressStatus {
     }
 }
 
-type OnProgress<'r> = Option<&'r (dyn Fn(u64, u64) -> bool + Send + Sync)>;
-type OnBody<'r> = Option<&'r (dyn Fn(&[u8]) -> bool + Send + Sync)>;
-type OnStatusCode<'r> = Option<&'r (dyn Fn(StatusCode) -> bool + Send + Sync)>;
-type OnHeader<'r> = Option<&'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync)>;
+type OnProgress<'r> = &'r (dyn Fn(u64, u64) -> bool + Send + Sync);
+type OnBody<'r> = &'r (dyn Fn(&[u8]) -> bool + Send + Sync);
+type OnStatusCode<'r> = &'r (dyn Fn(StatusCode) -> bool + Send + Sync);
+type OnHeader<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync);
 
 pub(super) struct Context<'r> {
     request_body: Cursor<&'r [u8]>,
@@ -56,12 +56,12 @@ pub(super) struct Context<'r> {
     buffer_size: usize,
     temp_dir: &'r Path,
     progress_status: ProgressStatus,
-    on_uploading_progress: OnProgress<'r>,
-    on_downloading_progress: OnProgress<'r>,
-    on_send_request_body: OnBody<'r>,
-    on_receive_response_status: OnStatusCode<'r>,
-    on_receive_response_body: OnBody<'r>,
-    on_receive_response_header: OnHeader<'r>,
+    on_uploading_progress: Option<OnProgress<'r>>,
+    on_downloading_progress: Option<OnProgress<'r>>,
+    on_send_request_body: Option<OnBody<'r>>,
+    on_receive_response_status: Option<OnStatusCode<'r>>,
+    on_receive_response_body: Option<OnBody<'r>>,
+    on_receive_response_header: Option<OnHeader<'r>>,
     canceled: bool,
 }
 

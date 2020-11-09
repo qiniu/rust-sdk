@@ -195,16 +195,16 @@ mod tests {
                         &CurlHTTPCaller::default(),
                         &Request::builder()
                             .url(format!("http://{}/file/content", addr))
-                            .on_uploading_progress(Some(&|_uploaded, _total| unreachable!()))
-                            .on_downloading_progress(Some(&|downloaded, total| {
+                            .on_uploading_progress(&|_uploaded, _total| unreachable!())
+                            .on_downloading_progress(&|downloaded, total| {
                                 assert_eq!(total, 10 * (1 << 20));
                                 assert!(downloaded <= total);
                                 true
-                            }))
-                            .on_receive_response_body(Some(&|data| {
+                            })
+                            .on_receive_response_body(&|data| {
                                 response_body_size_cnt.fetch_add(data.len(), Relaxed);
                                 true
-                            }))
+                            })
                             .build(),
                     )
                 })
@@ -231,16 +231,16 @@ mod tests {
                         &Request::builder()
                             .url(format!("http://{}/file/content", addr))
                             .response_body_buffer_path(tempfile_path)
-                            .on_uploading_progress(Some(&|_uploaded, _total| unreachable!()))
-                            .on_downloading_progress(Some(&|downloaded, total| {
+                            .on_uploading_progress(&|_uploaded, _total| unreachable!())
+                            .on_downloading_progress(&|downloaded, total| {
                                 assert_eq!(total, 10 * (1 << 20));
                                 assert!(downloaded <= total);
                                 true
-                            }))
-                            .on_receive_response_body(Some(&|data| {
+                            })
+                            .on_receive_response_body(&|data| {
                                 response_body_size_cnt.fetch_add(data.len(), Relaxed);
                                 true
-                            }))
+                            })
                             .build(),
                     )
                 })
@@ -277,7 +277,7 @@ mod tests {
                     &CurlHTTPCaller::default(),
                     &Request::builder()
                         .url(format!("http://{}/file/content", addr))
-                        .on_downloading_progress(Some(&|_downloaded, _total| false))
+                        .on_downloading_progress(&|_downloaded, _total| false)
                         .build(),
                 )
             })
@@ -290,7 +290,7 @@ mod tests {
                     &CurlHTTPCaller::default(),
                     &Request::builder()
                         .url(format!("http://{}/file/content", addr))
-                        .on_receive_response_body(Some(&|_body| false))
+                        .on_receive_response_body(&|_body| false)
                         .build(),
                 )
             })
@@ -322,10 +322,10 @@ mod tests {
                         &CurlHTTPCaller::default(),
                         &Request::builder()
                             .url(format!("http://{}/redirect/1", addr))
-                            .on_receive_response_status(Some(&|status| {
+                            .on_receive_response_status(&|status| {
                                 status_codes.lock().unwrap().push(status);
                                 true
-                            }))
+                            })
                             .build(),
                     )
                 })
@@ -343,10 +343,10 @@ mod tests {
                         &Request::builder()
                             .url(format!("http://{}/redirect/1", addr))
                             .follow_redirection(true)
-                            .on_receive_response_status(Some(&|status| {
+                            .on_receive_response_status(&|status| {
                                 status_codes.lock().unwrap().push(status);
                                 true
-                            }))
+                            })
                             .build(),
                     )
                 })
@@ -423,16 +423,16 @@ mod tests {
                             .method(Method::PUT)
                             .url(format!("http://{}/upload", addr))
                             .body(&req_body)
-                            .on_uploading_progress(Some(&|uploaded, total| {
+                            .on_uploading_progress(&|uploaded, total| {
                                 assert_eq!(total, 1 << 20);
                                 assert!(uploaded <= total);
                                 true
-                            }))
-                            .on_downloading_progress(Some(&|_downloaded, _total| unreachable!()))
-                            .on_send_request_body(Some(&|data| {
+                            })
+                            .on_downloading_progress(&|_downloaded, _total| unreachable!())
+                            .on_send_request_body(&|data| {
                                 req_body_size_cnt.fetch_add(data.len(), Relaxed);
                                 true
-                            }))
+                            })
                             .build(),
                     )
                 })
@@ -462,7 +462,7 @@ mod tests {
                             .method(Method::POST)
                             .url(format!("http://{}/upload", addr))
                             .body(&req_body)
-                            .on_uploading_progress(Some(&|_uploaded, _total| false))
+                            .on_uploading_progress(&|_uploaded, _total| false)
                             .build(),
                     )
                 })
@@ -479,7 +479,7 @@ mod tests {
                         &Request::builder()
                             .url(format!("http://{}/upload", addr))
                             .body(&req_body)
-                            .on_send_request_body(Some(&|_body| false))
+                            .on_send_request_body(&|_body| false)
                             .build(),
                     )
                 })

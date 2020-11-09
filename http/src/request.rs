@@ -18,10 +18,10 @@ pub type URL<'s> = Cow<'s, str>;
 /// 请求体
 pub type Body<'b> = Cow<'b, [u8]>;
 
-type OnProgress<'r> = Option<&'r (dyn Fn(u64, u64) -> bool + Send + Sync)>;
-type OnBody<'r> = Option<&'r (dyn Fn(&[u8]) -> bool + Send + Sync)>;
-type OnStatusCode<'r> = Option<&'r (dyn Fn(StatusCode) -> bool + Send + Sync)>;
-type OnHeader<'r> = Option<&'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync)>;
+type OnProgress<'r> = &'r (dyn Fn(u64, u64) -> bool + Send + Sync);
+type OnBody<'r> = &'r (dyn Fn(&[u8]) -> bool + Send + Sync);
+type OnStatusCode<'r> = &'r (dyn Fn(StatusCode) -> bool + Send + Sync);
+type OnHeader<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync);
 
 /// HTTP 请求
 ///
@@ -37,12 +37,12 @@ pub struct Request<'r> {
     appended_user_agent: Cow<'r, str>,
     follow_redirection: bool,
     resolved_ip_addrs: Cow<'r, [IpAddr]>,
-    on_uploading_progress: OnProgress<'r>,
-    on_downloading_progress: OnProgress<'r>,
-    on_send_request_body: OnBody<'r>,
-    on_receive_response_status: OnStatusCode<'r>,
-    on_receive_response_body: OnBody<'r>,
-    on_receive_response_header: OnHeader<'r>,
+    on_uploading_progress: Option<OnProgress<'r>>,
+    on_downloading_progress: Option<OnProgress<'r>>,
+    on_send_request_body: Option<OnBody<'r>>,
+    on_receive_response_status: Option<OnStatusCode<'r>>,
+    on_receive_response_body: Option<OnBody<'r>>,
+    on_receive_response_header: Option<OnHeader<'r>>,
     connect_timeout: Duration,
     request_timeout: Duration,
     tcp_keepalive_idle_timeout: Duration,
@@ -162,73 +162,73 @@ impl<'r> Request<'r> {
 
     /// 上传进度回调
     #[inline]
-    pub fn on_uploading_progress(&self) -> OnProgress {
+    pub fn on_uploading_progress(&self) -> Option<OnProgress> {
         self.on_uploading_progress
     }
 
     /// 修改上传进度回调
     #[inline]
-    pub fn on_uploading_progress_mut(&mut self) -> &mut OnProgress<'r> {
+    pub fn on_uploading_progress_mut(&mut self) -> &mut Option<OnProgress<'r>> {
         &mut self.on_uploading_progress
     }
 
     /// 下载进度回调
     #[inline]
-    pub fn on_downloading_progress(&self) -> OnProgress {
+    pub fn on_downloading_progress(&self) -> Option<OnProgress> {
         self.on_downloading_progress
     }
 
     /// 修改下载进度回调
     #[inline]
-    pub fn on_downloading_progress_mut(&mut self) -> &mut OnProgress<'r> {
+    pub fn on_downloading_progress_mut(&mut self) -> &mut Option<OnProgress<'r>> {
         &mut self.on_downloading_progress
     }
 
     /// 发送请求体回调
     #[inline]
-    pub fn on_send_request_body(&self) -> OnBody {
+    pub fn on_send_request_body(&self) -> Option<OnBody> {
         self.on_send_request_body
     }
 
     /// 修改发送请求体回调
     #[inline]
-    pub fn on_send_request_body_mut(&mut self) -> &mut OnBody<'r> {
+    pub fn on_send_request_body_mut(&mut self) -> &mut Option<OnBody<'r>> {
         &mut self.on_send_request_body
     }
 
     /// 接受到响应状态回调
     #[inline]
-    pub fn on_receive_response_status(&self) -> OnStatusCode {
+    pub fn on_receive_response_status(&self) -> Option<OnStatusCode> {
         self.on_receive_response_status
     }
 
     /// 修改接受到响应状态回调
     #[inline]
-    pub fn on_receive_response_status_mut(&mut self) -> &mut OnStatusCode<'r> {
+    pub fn on_receive_response_status_mut(&mut self) -> &mut Option<OnStatusCode<'r>> {
         &mut self.on_receive_response_status
     }
 
     /// 接受到响应体回调
     #[inline]
-    pub fn on_receive_response_body(&self) -> OnBody {
+    pub fn on_receive_response_body(&self) -> Option<OnBody> {
         self.on_receive_response_body
     }
 
     /// 修改接受到响应体回调
     #[inline]
-    pub fn on_receive_response_body_mut(&mut self) -> &mut OnBody<'r> {
+    pub fn on_receive_response_body_mut(&mut self) -> &mut Option<OnBody<'r>> {
         &mut self.on_receive_response_body
     }
 
     /// 接受到响应 Header 回调
     #[inline]
-    pub fn on_receive_response_header(&self) -> OnHeader {
+    pub fn on_receive_response_header(&self) -> Option<OnHeader> {
         self.on_receive_response_header
     }
 
     /// 修改接受到响应 Header 回调
     #[inline]
-    pub fn on_receive_response_header_mut(&mut self) -> &mut OnHeader<'r> {
+    pub fn on_receive_response_header_mut(&mut self) -> &mut Option<OnHeader<'r>> {
         &mut self.on_receive_response_header
     }
 
@@ -444,42 +444,42 @@ impl<'r> RequestBuilder<'r> {
     /// 设置上传进度回调
     #[inline]
     pub fn on_uploading_progress(&mut self, f: OnProgress<'r>) -> &mut Self {
-        self.inner.on_uploading_progress = f;
+        self.inner.on_uploading_progress = Some(f);
         self
     }
 
     /// 设置下载进度回调
     #[inline]
     pub fn on_downloading_progress(&mut self, f: OnProgress<'r>) -> &mut Self {
-        self.inner.on_downloading_progress = f;
+        self.inner.on_downloading_progress = Some(f);
         self
     }
 
     /// 发送请求体回调
     #[inline]
     pub fn on_send_request_body(&mut self, f: OnBody<'r>) -> &mut Self {
-        self.inner.on_send_request_body = f;
+        self.inner.on_send_request_body = Some(f);
         self
     }
 
     /// 接受到响应状态回调
     #[inline]
     pub fn on_receive_response_status(&mut self, f: OnStatusCode<'r>) -> &mut Self {
-        self.inner.on_receive_response_status = f;
+        self.inner.on_receive_response_status = Some(f);
         self
     }
 
     /// 接受到响应体回调
     #[inline]
     pub fn on_receive_response_body(&mut self, f: OnBody<'r>) -> &mut Self {
-        self.inner.on_receive_response_body = f;
+        self.inner.on_receive_response_body = Some(f);
         self
     }
 
     /// 接受到响应 Header 回调
     #[inline]
     pub fn on_receive_response_header(&mut self, f: OnHeader<'r>) -> &mut Self {
-        self.inner.on_receive_response_header = f;
+        self.inner.on_receive_response_header = Some(f);
         self
     }
 
