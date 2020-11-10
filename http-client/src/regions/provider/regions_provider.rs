@@ -94,7 +94,8 @@ impl RegionsProvider {
                 .authorization(Authorization::v2(inner.credential_provider.to_owned()))
                 .accept_json()
                 .call()?
-                .parse_json()?;
+                .parse_json()?
+                .into_body();
             body.into_hosts()
                 .into_iter()
                 .map(|host| {

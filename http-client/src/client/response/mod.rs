@@ -212,15 +212,13 @@ impl<B> Response<B> {
 }
 
 impl Response<ResponseBody> {
-    pub fn parse_json<T: DeserializeOwned>(self) -> APIResult<T> {
-        let body = self
+    pub fn parse_json<T: DeserializeOwned>(self) -> APIResult<Response<T>> {
+        let json_response = self
             .fulfill()
             .map_err(|err| ResponseError::new(HTTPResponseErrorKind::LocalIOError.into(), err))?
-            .into_body()
-            .into_bytes();
-        let body = parse_json_from_slice(&body)
+            .try_map_body(|body| parse_json_from_slice(body.as_bytes()))
             .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))?;
-        Ok(body)
+        Ok(json_response)
     }
 
     #[inline]
@@ -231,16 +229,14 @@ impl Response<ResponseBody> {
 
 #[cfg(feature = "async")]
 impl Response<AsyncResponseBody> {
-    pub async fn parse_json<T: DeserializeOwned>(self) -> APIResult<T> {
-        let body = self
+    pub async fn parse_json<T: DeserializeOwned>(self) -> APIResult<Response<T>> {
+        let json_response = self
             .fulfill()
             .await
             .map_err(|err| ResponseError::new(HTTPResponseErrorKind::LocalIOError.into(), err))?
-            .into_body()
-            .into_bytes();
-        let body = parse_json_from_slice(&body)
+            .try_map_body(|body| parse_json_from_slice(body.as_bytes()))
             .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))?;
-        Ok(body)
+        Ok(json_response)
     }
 
     #[inline]

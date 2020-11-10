@@ -114,7 +114,8 @@ impl BucketRegionsQueryer {
             .append_query_pair("bucket", bucket_name)
             .accept_json()
             .call()?
-            .parse_json()?;
+            .parse_json()?
+            .into_body();
         body.into_hosts()
             .into_iter()
             .map(|host| {
