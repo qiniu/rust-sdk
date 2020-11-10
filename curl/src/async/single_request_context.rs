@@ -10,7 +10,7 @@ use super::{
 };
 use async_std::{
     fs::{File as AsyncFile, OpenOptions as AsyncOpenOptions},
-    task::{block_on, spawn_blocking},
+    task::{block_on, spawn as async_spawn},
 };
 use curl::{
     easy::{Easy2, Handler, ReadError, SeekResult, WriteError},
@@ -124,8 +124,7 @@ impl<'ctx> SingleRequestContext<'ctx> {
             raw: null_mut(),
         };
         let mut easy = Easy2::new(context);
-        let raw = easy.raw();
-        easy.get_mut().raw = raw;
+        easy.get_mut().raw = easy.raw();
         let future = async move {
             let response_builder = receiver
                 .await
@@ -576,7 +575,7 @@ impl AsyncResponseBodyReader {
                         if bytes.len() + len > buffer.capacity() {
                             let statuses = self.statuses.to_owned();
                             let mut tmpfile = AsyncFile::from(
-                                spawn_blocking(move || tempfile_in(statuses.temp_dir.as_ref()))
+                                async_spawn(async move { tempfile_in(statuses.temp_dir.as_ref()) })
                                     .await?,
                             );
                             tmpfile.write_all(bytes).await?;

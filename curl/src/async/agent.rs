@@ -4,7 +4,7 @@ use super::{
     single_request_context::SingleRequestContext,
     waker::UdpWaker,
 };
-use async_std::task::spawn_blocking;
+use async_std::task::spawn as async_spawn;
 use crossbeam_channel::{unbounded, Sender};
 use crossbeam_utils::sync::WaitGroup;
 use curl::{easy::Easy2, init as curl_init, multi::Multi, MultiError};
@@ -33,7 +33,7 @@ pub(super) struct Handler {
 
 pub(super) async fn spawn(client: &CurlHTTPCaller) -> IOResult<Arc<Handler>> {
     let multi_options = client.clone_multi_options();
-    let handler = spawn_blocking::<_, IOResult<Arc<Handler>>>(move || {
+    let handler = async_spawn::<_, IOResult<Arc<Handler>>>(async move {
         let handler = GLOBAL_HANDLERS
             .entry(multi_options.to_owned())
             .or_try_insert_with(|| spawn_new(multi_options))?

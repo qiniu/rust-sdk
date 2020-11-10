@@ -16,7 +16,7 @@ use std::{
 };
 
 #[cfg(feature = "async")]
-use {async_std::task::spawn_blocking, futures::future::BoxFuture};
+use {async_std::task::spawn, futures::future::BoxFuture};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct CacheKey {
@@ -131,7 +131,7 @@ impl BucketRegionsQueryer {
         let access_key = access_key.to_owned();
         let bucket_name = bucket_name.to_owned();
 
-        spawn_blocking(move || ctx.do_sync_query(&access_key, &bucket_name)).await
+        spawn(async move { ctx.do_sync_query(&access_key, &bucket_name) }).await
     }
 }
 

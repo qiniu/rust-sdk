@@ -17,7 +17,7 @@ use std::{
 };
 
 #[cfg(feature = "async")]
-use {async_std::task::spawn_blocking, futures::future::BoxFuture};
+use {async_std::task::spawn, futures::future::BoxFuture};
 
 #[derive(Debug, Clone)]
 pub struct RegionsProvider {
@@ -111,7 +111,7 @@ impl RegionsProvider {
     async fn do_async_query(&self) -> APIResult<Vec<Region>> {
         let ctx = self.to_owned();
 
-        spawn_blocking(move || ctx.do_sync_query()).await
+        spawn(async move { ctx.do_sync_query() }).await
     }
 }
 impl RegionProvider for RegionsProvider {
