@@ -66,8 +66,8 @@ impl<R: Resolver + Default> Default for SimpleChooser<R> {
 }
 
 macro_rules! choose {
-    ($self:expr, $domain:expr, $ignore_frozen:expr, $resolve:block) => {{
-        if $ignore_frozen {
+    ($self:expr, $domain:expr, $last_round:expr, $resolve:block) => {{
+        if $last_round {
             return $resolve.map_or_else(
                 |_| ChosenResult::UseThisDomainDirectly,
                 |ips| ChosenResult::IPs(ips.to_vec().into_iter().map(|ip| ip.into()).collect()),
@@ -120,8 +120,8 @@ macro_rules! choose {
 }
 
 impl<R: Resolver> Chooser for SimpleChooser<R> {
-    fn choose(&self, domain: &DomainWithPort, ignore_frozen: bool) -> ChosenResult {
-        choose!(self, domain, ignore_frozen, {
+    fn choose(&self, domain: &DomainWithPort, last_round: bool) -> ChosenResult {
+        choose!(self, domain, last_round, {
             self.resolver.resolve(domain.domain())
         })
     }
@@ -132,10 +132,10 @@ impl<R: Resolver> Chooser for SimpleChooser<R> {
     fn async_choose<'a>(
         &'a self,
         domain: &'a DomainWithPort,
-        ignore_frozen: bool,
+        last_round: bool,
     ) -> BoxFuture<'a, ChosenResult> {
         Box::pin(async move {
-            choose!(self, domain, ignore_frozen, {
+            choose!(self, domain, last_round, {
                 self.resolver.async_resolve(domain.domain()).await
             })
         })

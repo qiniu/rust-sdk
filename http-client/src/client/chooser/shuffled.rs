@@ -44,8 +44,8 @@ impl<C: Chooser + Default> Default for ShuffledChooser<C> {
 }
 
 impl<C: Chooser> Chooser for ShuffledChooser<C> {
-    fn choose(&self, domain: &DomainWithPort, ignore_frozen: bool) -> ChosenResult {
-        match self.chooser.choose(domain, ignore_frozen) {
+    fn choose(&self, domain: &DomainWithPort, last_round: bool) -> ChosenResult {
+        match self.chooser.choose(domain, last_round) {
             ChosenResult::IPs(mut ips) => {
                 if self.shuffle_resolved_ips {
                     ips.shuffle(&mut thread_rng());
@@ -61,10 +61,10 @@ impl<C: Chooser> Chooser for ShuffledChooser<C> {
     fn async_choose<'a>(
         &'a self,
         domain: &'a DomainWithPort,
-        ignore_frozen: bool,
+        last_round: bool,
     ) -> BoxFuture<'a, ChosenResult> {
         Box::pin(async move {
-            match self.chooser.async_choose(domain, ignore_frozen).await {
+            match self.chooser.async_choose(domain, last_round).await {
                 ChosenResult::IPs(mut ips) => {
                     if self.shuffle_resolved_ips {
                         ips.shuffle(&mut thread_rng());

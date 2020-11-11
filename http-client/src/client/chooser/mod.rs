@@ -13,7 +13,7 @@ use std::{any::Any, fmt::Debug};
 use futures::future::BoxFuture;
 
 pub trait Chooser: Any + Debug + Sync + Send {
-    fn choose(&self, domain: &DomainWithPort, ignore_frozen: bool) -> ChosenResult;
+    fn choose(&self, domain: &DomainWithPort, last_round: bool) -> ChosenResult;
     fn choose_ips(&self, ips: &[IpAddrWithPort]) -> ChosenResult;
     fn feedback(&self, feedback: ChooserFeedback);
 
@@ -23,9 +23,9 @@ pub trait Chooser: Any + Debug + Sync + Send {
     fn async_choose<'a>(
         &'a self,
         domain: &'a DomainWithPort,
-        ignore_frozen: bool,
+        last_round: bool,
     ) -> BoxFuture<'a, ChosenResult> {
-        Box::pin(async move { self.choose(domain, ignore_frozen) })
+        Box::pin(async move { self.choose(domain, last_round) })
     }
 
     #[inline]

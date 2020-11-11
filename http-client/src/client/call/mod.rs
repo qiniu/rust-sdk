@@ -396,14 +396,14 @@ macro_rules! create_request_call_fn {
             $($async)? fn choose_domain(
                 request: &RequestWithoutEndpoints<'_>,
                 domain_with_port: &DomainWithPort,
-                ignore_frozen: bool,
+                last_round: bool,
             ) -> Result<ChosenResult, TryError> {
                 call_to_choose_domain_callbacks(request, domain_with_port.domain())?;
                 let result = $block!({
                     request
                         .http_client()
                         .chooser()
-                        .$choose_method(domain_with_port, ignore_frozen)
+                        .$choose_method(domain_with_port, last_round)
                 });
                 call_domain_chosen_callbacks(request, domain_with_port.domain(), &result)?;
                 Ok(result)
