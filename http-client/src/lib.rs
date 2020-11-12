@@ -26,7 +26,7 @@ pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder, DomainWithPort,
     DomainWithPortParseError, Endpoint, EndpointParseError, IntoEndpoints, InvalidServiceName,
     IpAddrWithPort, IpAddrWithPortParseError, Region, RegionBuilder, RegionProvider,
-    RegionsProvider, RegionsProviderBuilder, ServiceName,
+    RegionsProvider, RegionsProviderBuilder, ServiceName, StaticRegionProvider,
 };
 
 #[cfg(any(feature = "c_ares"))]

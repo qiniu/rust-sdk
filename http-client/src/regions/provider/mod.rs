@@ -5,8 +5,13 @@ mod bucket_regions_queryer;
 pub use bucket_regions_queryer::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
 };
+
 mod regions_provider;
 pub use regions_provider::{RegionsProvider, RegionsProviderBuilder};
+
+mod static_region_provider;
+pub use static_region_provider::StaticRegionProvider;
+
 mod structs;
 
 #[cfg(feature = "async")]
