@@ -168,8 +168,7 @@ impl HTTPClientBuilder {
     #[inline]
     #[cfg(feature = "curl")]
     pub fn new() -> Self {
-        use qiniu_curl::CurlHTTPCaller;
-        Self::_new(Arc::new(CurlHTTPCaller::default()))
+        Self::_new(Arc::new(qiniu_curl::CurlHTTPCaller::default()))
     }
 
     #[inline]

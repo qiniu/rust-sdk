@@ -81,7 +81,7 @@ impl StaticUploadTokenProvider {
     }
 }
 
-impl fmt::Debug for StaticUploadTokenProvider {
+impl Debug for StaticUploadTokenProvider {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("StaticUploadTokenProvider")
@@ -151,7 +151,10 @@ pub(super) struct FromUploadPolicy {
 
 impl FromUploadPolicy {
     /// 基于上传策略和认证信息生成上传凭证实例
-    pub fn new(upload_policy: UploadPolicy, credential: Box<dyn CredentialProvider>) -> Self {
+    pub(super) fn new(
+        upload_policy: UploadPolicy,
+        credential: Box<dyn CredentialProvider>,
+    ) -> Self {
         Self {
             upload_policy,
             credential,
@@ -160,7 +163,7 @@ impl FromUploadPolicy {
     }
 }
 
-impl fmt::Debug for FromUploadPolicy {
+impl Debug for FromUploadPolicy {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("FromUploadPolicy")
@@ -226,7 +229,7 @@ impl BucketUploadTokenProvider {
     }
 }
 
-impl fmt::Debug for BucketUploadTokenProvider {
+impl Debug for BucketUploadTokenProvider {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BucketUploadTokenProvider")

@@ -1,7 +1,7 @@
 #[cfg_attr(feature = "docs", doc(cfg(r#c_ares)))]
-pub extern crate c_ares;
+pub use c_ares;
 #[cfg_attr(feature = "docs", doc(cfg(r#c_ares)))]
-pub extern crate c_ares_resolver;
+pub use c_ares_resolver;
 
 use super::{super::ResponseError, ResolveResult, Resolver};
 use c_ares::{
@@ -13,7 +13,7 @@ use c_ares_resolver::{
 };
 use cfg_if::cfg_if;
 use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
-use std::{any::Any, fmt, net::IpAddr, result, sync::mpsc};
+use std::{any::Any, fmt, net::IpAddr, sync::mpsc};
 
 #[cfg(feature = "async")]
 use {
@@ -21,7 +21,7 @@ use {
     futures::future::{join, BoxFuture},
 };
 
-type CAresResolverResult<T> = result::Result<T, CAresResolverError>;
+type CAresResolverResult<T> = Result<T, CAresResolverError>;
 
 #[cfg_attr(feature = "docs", doc(cfg(r#c_ares)))]
 pub struct CAresResolver {

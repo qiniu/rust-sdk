@@ -1,8 +1,27 @@
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
+#![deny(
+    absolute_paths_not_starting_with_crate,
+    anonymous_parameters,
+    explicit_outlives_requirements,
+    keyword_idents,
+    macro_use_extern_crate,
+    meta_variable_misuse,
+    non_ascii_idents,
+    indirect_structural_match,
+    trivial_casts,
+    trivial_numeric_casts,
+    unreachable_pub,
+    unstable_features,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_lifetimes,
+    unused_qualifications
+)]
 
-pub extern crate curl;
-pub extern crate curl_sys;
-pub extern crate qiniu_http as http;
+pub use curl;
+pub use curl_sys;
+pub use qiniu_http as http;
 
 pub use curl_sys::CURL;
 pub use qiniu_http::{HTTPCaller, Request, ResponseError, SyncResponseResult};

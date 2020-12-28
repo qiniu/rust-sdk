@@ -4,7 +4,7 @@ use qiniu_http::{
 };
 use serde::de::DeserializeOwned;
 use serde_json::from_slice as parse_json_from_slice;
-use std::{io::Result as IOResult, net::IpAddr, result, time::Duration};
+use std::{io::Result as IOResult, net::IpAddr, time::Duration};
 
 #[cfg(feature = "async")]
 pub use qiniu_http::{AsyncCachedResponseBody, AsyncResponseBody};
@@ -12,7 +12,7 @@ pub use qiniu_http::{AsyncCachedResponseBody, AsyncResponseBody};
 mod error;
 pub use error::{Error as ResponseError, ErrorKind as ResponseErrorKind};
 
-pub type APIResult<T> = result::Result<T, ResponseError>;
+pub type APIResult<T> = Result<T, ResponseError>;
 
 #[cfg(feature = "async")]
 use std::{future::Future, pin::Pin};
@@ -182,8 +182,8 @@ impl<B> Response<B> {
     #[inline]
     pub fn try_map_body<B2, E>(
         self,
-        f: impl FnOnce(B) -> result::Result<B2, E>,
-    ) -> result::Result<Response<B2>, E> {
+        f: impl FnOnce(B) -> Result<B2, E>,
+    ) -> Result<Response<B2>, E> {
         Ok(Response {
             inner: self.inner.try_map_body(f)?,
         })
@@ -203,8 +203,8 @@ impl<B> Response<B> {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     pub async fn async_try_map_body<B2, E>(
         self,
-        f: impl FnOnce(B) -> BoxFuture<result::Result<B2, E>>,
-    ) -> result::Result<Response<B2>, E> {
+        f: impl FnOnce(B) -> BoxFuture<Result<B2, E>>,
+    ) -> Result<Response<B2>, E> {
         Ok(Response {
             inner: self.inner.async_try_map_body(f).await?,
         })

@@ -1,5 +1,24 @@
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
-#![deny(unsafe_code)]
+#![deny(
+    absolute_paths_not_starting_with_crate,
+    anonymous_parameters,
+    explicit_outlives_requirements,
+    keyword_idents,
+    macro_use_extern_crate,
+    meta_variable_misuse,
+    non_ascii_idents,
+    indirect_structural_match,
+    trivial_casts,
+    trivial_numeric_casts,
+    unreachable_pub,
+    unsafe_code,
+    unstable_features,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_lifetimes,
+    unused_qualifications
+)]
 
 use hmac::{Hmac, Mac, NewMac};
 use once_cell::sync::Lazy;
@@ -313,7 +332,7 @@ impl AsRef<dyn CredentialProvider> for StaticCredentialProvider {
     }
 }
 
-impl fmt::Debug for StaticCredentialProvider {
+impl Debug for StaticCredentialProvider {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
             "StaticCredentialProvider {{ access_key: {:?}, secret_key: CENSORED }}",
@@ -369,7 +388,7 @@ impl CredentialProvider for GlobalCredentialProvider {
     }
 }
 
-impl fmt::Debug for GlobalCredentialProvider {
+impl Debug for GlobalCredentialProvider {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(credential) = GLOBAL_CREDENTIAL.read().unwrap().as_ref() {
             f.write_fmt(format_args!(
@@ -431,7 +450,7 @@ impl CredentialProvider for EnvCredentialProvider {
     }
 }
 
-impl fmt::Debug for EnvCredentialProvider {
+impl Debug for EnvCredentialProvider {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match (
             env::var_os(QINIU_ACCESS_KEY_ENV_KEY),
