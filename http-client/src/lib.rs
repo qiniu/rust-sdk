@@ -23,6 +23,9 @@ mod regions;
 #[cfg(test)]
 mod test_utils;
 
+#[cfg(any(feature = "curl"))]
+pub extern crate qiniu_curl as curl;
+
 pub extern crate qiniu_credential as credential;
 pub extern crate qiniu_http as http;
 pub extern crate qiniu_upload_token as upload_token;
