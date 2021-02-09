@@ -19,7 +19,7 @@ pub(super) async fn async_http_call(
     set_url(&mut easy, request)?;
     set_headers(&mut easy, request)?;
     set_body(&mut easy, request)?;
-    set_options(&mut easy, request)?;
+    set_options(&mut easy, request, http_client)?;
 
     http_client
         .before_perform_callbacks()

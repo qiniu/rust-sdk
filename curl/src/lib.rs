@@ -70,6 +70,8 @@ impl Default for MultiOptions {
 #[derive(Debug)]
 struct CurlHTTPCallerOptions {
     buffer_size: usize,
+    verify_host: Option<bool>,
+    verify_peer: Option<bool>,
     temp_dir: Option<PathBuf>,
 
     #[cfg(feature = "async")]
@@ -82,6 +84,8 @@ impl Default for CurlHTTPCallerOptions {
         Self {
             buffer_size: 1 << 22,
             temp_dir: None,
+            verify_host: None,
+            verify_peer: None,
 
             #[cfg(feature = "async")]
             multi_options: Default::default(),
@@ -110,6 +114,18 @@ impl CurlHTTPCaller {
     #[inline]
     pub fn temp_dir(&self) -> Option<&Path> {
         self.options.temp_dir.as_deref()
+    }
+
+    /// 是否校验主机名是否匹配，仅在使用 HTTPS 时才有效
+    #[inline]
+    pub fn verify_host(&self) -> Option<bool> {
+        self.options.verify_host
+    }
+
+    /// 是否校验证书是否有效，仅在使用 HTTPS 时才有效
+    #[inline]
+    pub fn verify_peer(&self) -> Option<bool> {
+        self.options.verify_peer
     }
 
     #[inline]
@@ -225,6 +241,20 @@ impl CurlHTTPCallerBuilder {
     #[inline]
     pub fn temp_dir(mut self, temp_dir: Option<PathBuf>) -> Self {
         self.options.temp_dir = temp_dir;
+        self
+    }
+
+    /// 设置是否校验证书，仅在使用 HTTPS 时才有效
+    #[inline]
+    pub fn verify_peer(mut self, verify_peer: Option<bool>) -> Self {
+        self.options.verify_peer = verify_peer;
+        self
+    }
+
+    /// 设置是否校验主机名是否匹配，仅在使用 HTTPS 时才有效
+    #[inline]
+    pub fn verify_host(mut self, verify_host: Option<bool>) -> Self {
+        self.options.verify_host = verify_host;
         self
     }
 

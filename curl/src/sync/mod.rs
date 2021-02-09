@@ -37,7 +37,7 @@ fn perform(
     set_url(easy, request)?;
     set_headers(easy, request)?;
     set_body(easy, request)?;
-    set_options(easy, request)?;
+    set_options(easy, request, http_client)?;
     http_client
         .before_perform_callbacks()
         .iter()

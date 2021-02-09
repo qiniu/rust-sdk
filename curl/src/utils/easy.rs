@@ -1,4 +1,7 @@
-use super::super::http::{Method, Request, ResponseError, ResponseErrorKind};
+use super::super::{
+    http::{Method, Request, ResponseError, ResponseErrorKind},
+    CurlHTTPCaller,
+};
 use curl::{
     easy::{Easy2, Handler, HttpVersion, List},
     Error as CurlError, Version,
@@ -60,6 +63,7 @@ pub(crate) fn set_body<H: Handler>(
 pub(crate) fn set_options<H: Handler>(
     easy: &mut Easy2<H>,
     request: &Request,
+    http_client: &CurlHTTPCaller,
 ) -> Result<(), ResponseError> {
     set_preresolved_socket_addrs(easy, request)?;
     handle(easy.useragent(&(request.user_agent() + "/libcurl-" + Version::get().version())))?;
@@ -78,6 +82,12 @@ pub(crate) fn set_options<H: Handler>(
         let need_progress = request.on_uploading_progress().is_some()
             || request.on_downloading_progress().is_some();
         handle(easy.progress(need_progress))?;
+    }
+    if let Some(verify_host) = http_client.verify_host() {
+        handle(easy.ssl_verify_host(verify_host))?;
+    }
+    if let Some(verify_peer) = http_client.verify_peer() {
+        handle(easy.ssl_verify_peer(verify_peer))?;
     }
     handle(easy.transfer_encoding(true))?;
     handle(easy.follow_location(request.follow_redirection()))?;
