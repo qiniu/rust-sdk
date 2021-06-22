@@ -1,5 +1,10 @@
-use super::{HeaderNameOwned, HeaderValueOwned, HeadersOwned, ResponseError};
+use super::ResponseError;
 use assert_impl::assert_impl;
+use http::{
+    header::{HeaderMap, HeaderName, HeaderValue},
+    response::Response as HTTPResponse,
+    status::StatusCode,
+};
 use std::{
     default::Default,
     fmt::Debug,
@@ -9,9 +14,6 @@ use std::{
     result,
     time::Duration,
 };
-
-/// HTTP 响应状态码
-pub type StatusCode = u16;
 
 pub trait ReadDebug: Read + Debug + Send + Sync {}
 impl<T: Read + Debug + Send + Sync> ReadDebug for T {}
@@ -222,9 +224,7 @@ use futures_lite::io::{AsyncSeekExt, Cursor as AsyncCursor};
 /// 封装 HTTP 响应相关字段
 #[derive(Debug)]
 pub struct Response<B> {
-    status_code: StatusCode,
-    headers: HeadersOwned,
-    body: B,
+    inner: HTTPResponse<B>,
     server_ip: Option<IpAddr>,
     server_port: u16,
     metrics: Metrics,
@@ -244,9 +244,7 @@ impl<B: Default> Default for Response<B> {
     #[inline]
     fn default() -> Self {
         Self {
-            status_code: 200,
-            headers: Default::default(),
-            body: Default::default(),
+            inner: Default::default(),
             server_ip: None,
             server_port: 80,
             metrics: Default::default(),
@@ -263,28 +261,40 @@ impl<B: Default> Response<B> {
 }
 
 impl<B> Response<B> {
+    /// 获取 HTTP 请求
+    #[inline]
+    pub fn http(&self) -> &HTTPResponse<B> {
+        &self.inner
+    }
+
+    /// 修改 HTTP 请求
+    #[inline]
+    pub fn http_mut(&mut self) -> &mut HTTPResponse<B> {
+        &mut self.inner
+    }
+
     /// HTTP 状态码
     #[inline]
     pub fn status_code(&self) -> StatusCode {
-        self.status_code
+        self.inner.status()
     }
 
     /// 修改 HTTP 状态码
     #[inline]
     pub fn status_code_mut(&mut self) -> &mut StatusCode {
-        &mut self.status_code
+        self.inner.status_mut()
     }
 
     /// HTTP Headers
     #[inline]
-    pub fn headers(&self) -> &HeadersOwned {
-        &self.headers
+    pub fn headers(&self) -> &HeaderMap {
+        self.inner.headers()
     }
 
     /// 修改 HTTP Headers
     #[inline]
-    pub fn headers_mut(&mut self) -> &mut HeadersOwned {
-        &mut self.headers
+    pub fn headers_mut(&mut self) -> &mut HeaderMap {
+        self.inner.headers_mut()
     }
 
     /// HTTP 服务器 IP 地址
@@ -313,8 +323,8 @@ impl<B> Response<B> {
 
     /// 获取 HTTP 响应 Header
     #[inline]
-    pub fn header(&self, header_name: impl Into<HeaderNameOwned>) -> Option<&HeaderValueOwned> {
-        self.headers.get(&header_name.into())
+    pub fn header(&self, header_name: HeaderName) -> Option<&HeaderValue> {
+        self.headers().get(&header_name)
     }
 
     #[inline]
@@ -380,35 +390,31 @@ impl<B> Response<B> {
     /// HTTP 响应体
     #[inline]
     pub fn body(&self) -> &B {
-        &self.body
+        &self.inner.body()
     }
 
     /// 直接获取 HTTP 响应体
     #[inline]
     pub fn into_body(self) -> B {
-        self.body
+        self.inner.into_body()
     }
 
     /// 修改 HTTP 响应体
     #[inline]
     pub fn body_mut(&mut self) -> &mut B {
-        &mut self.body
+        self.inner.body_mut()
     }
 
     pub fn map_body<B2>(self, f: impl FnOnce(B) -> B2) -> Response<B2> {
         let Response {
-            status_code,
-            headers,
-            body,
+            inner,
             server_ip,
             server_port,
             metrics,
         } = self;
-        let body = f(body);
+        let inner = inner.map(f);
         Response {
-            status_code,
-            headers,
-            body,
+            inner,
             server_ip,
             server_port,
             metrics,
@@ -420,18 +426,15 @@ impl<B> Response<B> {
         f: impl FnOnce(B) -> result::Result<B2, E>,
     ) -> result::Result<Response<B2>, E> {
         let Response {
-            status_code,
-            headers,
-            body,
+            inner,
             server_ip,
             server_port,
             metrics,
         } = self;
+        let (parts, body) = inner.into_parts();
         let body = f(body)?;
         Ok(Response {
-            status_code,
-            headers,
-            body,
+            inner: HTTPResponse::from_parts(parts, body),
             server_ip,
             server_port,
             metrics,
@@ -450,18 +453,15 @@ impl<B> Response<B> {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     pub async fn async_map_body<B2>(self, f: impl FnOnce(B) -> BoxFuture<B2>) -> Response<B2> {
         let Response {
-            status_code,
-            headers,
-            body,
+            inner,
             server_ip,
             server_port,
             metrics,
         } = self;
+        let (parts, body) = inner.into_parts();
         let body = f(body).await;
         Response {
-            status_code,
-            headers,
-            body,
+            inner: HTTPResponse::from_parts(parts, body),
             server_ip,
             server_port,
             metrics,
@@ -475,18 +475,15 @@ impl<B> Response<B> {
         f: impl FnOnce(B) -> BoxFuture<result::Result<B2, E>>,
     ) -> result::Result<Response<B2>, E> {
         let Response {
-            status_code,
-            headers,
-            body,
+            inner,
             server_ip,
             server_port,
             metrics,
         } = self;
+        let (parts, body) = inner.into_parts();
         let body = f(body).await?;
         Ok(Response {
-            status_code,
-            headers,
-            body,
+            inner: HTTPResponse::from_parts(parts, body),
             server_ip,
             server_port,
             metrics,
@@ -524,17 +521,24 @@ pub struct ResponseBuilder<B> {
 }
 
 impl<B> ResponseBuilder<B> {
+    /// 设置 HTTP 请求
+    #[inline]
+    pub fn http(&mut self, response: HTTPResponse<B>) -> &mut Self {
+        self.inner.inner = response;
+        self
+    }
+
     /// 设置 HTTP 状态码
     #[inline]
     pub fn status_code(mut self, status_code: StatusCode) -> Self {
-        self.inner.status_code = status_code;
+        *self.inner.status_code_mut() = status_code;
         self
     }
 
     /// 设置 HTTP Headers
     #[inline]
-    pub fn headers(mut self, headers: HeadersOwned) -> Self {
-        self.inner.headers = headers;
+    pub fn headers(mut self, headers: HeaderMap) -> Self {
+        *self.inner.headers_mut() = headers;
         self
     }
 
@@ -554,14 +558,8 @@ impl<B> ResponseBuilder<B> {
 
     /// 添加 HTTP Header
     #[inline]
-    pub fn header(
-        mut self,
-        header_name: impl Into<HeaderNameOwned>,
-        header_value: impl Into<HeaderValueOwned>,
-    ) -> Self {
-        self.inner
-            .headers
-            .insert(header_name.into(), header_value.into());
+    pub fn header(mut self, header_name: HeaderName, header_value: HeaderValue) -> Self {
+        self.inner.headers_mut().insert(header_name, header_value);
         self
     }
 
@@ -612,14 +610,14 @@ impl ResponseBuilder<Body> {
     /// 设置数据流为 HTTP 响应体
     #[inline]
     pub fn stream_as_body(mut self, body: Box<dyn ReadDebug>) -> Self {
-        self.inner.body = Body(BodyInner::Reader(body));
+        *self.inner.body_mut() = Body(BodyInner::Reader(body));
         self
     }
 
     /// 设置二进制字节数组为 HTTP 响应体
     #[inline]
     pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
-        self.inner.body = Body(BodyInner::Bytes(Cursor::new(body.into())));
+        *self.inner.body_mut() = Body(BodyInner::Bytes(Cursor::new(body.into())));
         self
     }
 
@@ -627,7 +625,7 @@ impl ResponseBuilder<Body> {
     #[inline]
     pub fn file_as_body(mut self, mut body: File) -> IOResult<Self> {
         body.seek(SeekFrom::Start(0))?;
-        self.inner.body = Body(BodyInner::File(body));
+        *self.inner.body_mut() = Body(BodyInner::File(body));
         Ok(self)
     }
 }
@@ -636,7 +634,7 @@ impl ResponseBuilder<CachedBody> {
     /// 设置二进制字节数组为 HTTP 响应体
     #[inline]
     pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
-        self.inner.body = CachedBody(Cursor::new(body.into()));
+        *self.inner.body_mut() = CachedBody(Cursor::new(body.into()));
         self
     }
 }
@@ -646,14 +644,14 @@ impl ResponseBuilder<AsyncBody> {
     /// 设置数据流为 HTTP 响应体
     #[inline]
     pub fn stream_as_body(mut self, body: Box<dyn AsyncReadDebug>) -> Self {
-        self.inner.body = AsyncBody(AsyncBodyInner::Reader(body));
+        *self.inner.body_mut() = AsyncBody(AsyncBodyInner::Reader(body));
         self
     }
 
     /// 设置二进制字节数组为 HTTP 响应体
     #[inline]
     pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
-        self.inner.body = AsyncBody(AsyncBodyInner::Bytes(AsyncCursor::new(body.into())));
+        *self.inner.body_mut() = AsyncBody(AsyncBodyInner::Bytes(AsyncCursor::new(body.into())));
         self
     }
 
@@ -664,7 +662,7 @@ impl ResponseBuilder<AsyncBody> {
         mut body: Box<dyn AsyncReadSeekDebug>,
     ) -> IOResult<Self> {
         body.seek(SeekFrom::Start(0)).await?;
-        self.inner.body = AsyncBody(AsyncBodyInner::SeekableReader(body));
+        *self.inner.body_mut() = AsyncBody(AsyncBodyInner::SeekableReader(body));
         Ok(self)
     }
 }
@@ -674,7 +672,7 @@ impl ResponseBuilder<AsyncCachedBody> {
     /// 设置二进制字节数组为 HTTP 响应体
     #[inline]
     pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
-        self.inner.body = AsyncCachedBody::new(AsyncCursor::new(body.into()));
+        *self.inner.body_mut() = AsyncCachedBody::new(AsyncCursor::new(body.into()));
         self
     }
 }

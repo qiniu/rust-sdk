@@ -9,5 +9,4 @@ description = "Qiniu SDK Utilities for Rust"
 keywords = ["qiniu", "storage"]
 
 [dependencies]
-base64 = "0.10.1"
-once_cell = "1.4.1"
+base64 = "0.13.0"

@@ -7,8 +7,8 @@ pub enum ErrorKind {
     /// 协议错误，该协议不能支持
     ProtocolError,
 
-    /// 非法的 URL 错误
-    InvalidURLError,
+    /// 非法的请求 / 响应错误
+    InvalidRequestResponse,
 
     /// 网络连接失败
     ConnectError,

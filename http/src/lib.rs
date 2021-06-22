@@ -24,14 +24,17 @@ mod request;
 mod response;
 
 pub use error::{Error as ResponseError, ErrorKind as ResponseErrorKind};
-pub use qiniu_utils::http::{
-    header::{HeaderName, HeaderNameOwned, HeaderValue, HeaderValueOwned, Headers, HeadersOwned},
-    method::{InvalidMethod, Method},
+pub use http::{
+    header::{HeaderMap, HeaderName, HeaderValue},
+    method::Method,
+    request::Request as HTTPRequest,
+    status::StatusCode,
+    uri::Uri,
 };
-pub use request::{Body as RequestBody, Request, RequestBuilder, URL};
+pub use request::{Body as RequestBody, Request, RequestBuilder};
 pub use response::{
     Body as ResponseBody, CachedBody as CachedResponseBody, ReadDebug, Response, ResponseBuilder,
-    Result as ResponseResult, StatusCode,
+    Result as ResponseResult,
 };
 
 /// 同步 HTTP 响应

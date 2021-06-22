@@ -234,7 +234,7 @@ fn sign_request_v2(
 }
 
 fn base64ed_hmac_digest(secret_key: &str, data: &[u8]) -> String {
-    let mut hmac = Hmac::<Sha1>::new_varkey(secret_key.as_bytes()).unwrap();
+    let mut hmac = Hmac::<Sha1>::new_from_slice(secret_key.as_bytes()).unwrap();
     hmac.update(data);
     base64::urlsafe(&hmac.finalize().into_bytes())
 }
@@ -563,6 +563,7 @@ impl ChainCredentialsProviderBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_std as _;
     use std::{boxed::Box, error::Error, result::Result, sync::Arc, thread, time::Duration};
 
     #[test]
@@ -858,7 +859,7 @@ mod tests {
             .unwrap()
             .sign_download_url(&mut url, Duration::from_secs(1_234_567_890 + 3600));
         assert_eq!(
-                url.into_string(),
+                url.to_string(),
                 "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq%3AKjQtlGAkEOhSwtFjJfYtYa2-reE%3D",
             );
         Ok(())

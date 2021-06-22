@@ -1,7 +1,13 @@
-use super::{HeaderName, HeaderValue, Headers, Method, StatusCode};
 use assert_impl::assert_impl;
+use http::{
+    header::{HeaderMap, HeaderName, HeaderValue},
+    method::Method,
+    request::Request as HTTPRequest,
+    status::StatusCode,
+    uri::Uri,
+};
 use once_cell::sync::Lazy;
-use std::{borrow::Cow, fmt, mem::take, net::IpAddr, path::Path, time::Duration};
+use std::{borrow::Cow, fmt, mem::take, net::IpAddr, time::Duration};
 
 static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
     format!(
@@ -11,9 +17,6 @@ static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
     )
     .into()
 });
-
-/// 请求 URL
-pub type URL<'s> = Cow<'s, str>;
 
 /// 请求体
 pub type Body<'b> = Cow<'b, [u8]>;
@@ -27,13 +30,9 @@ type OnHeader<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync
 ///
 /// 封装 HTTP 请求相关字段
 pub struct Request<'r> {
-    url: URL<'r>,
-    method: Method,
-    headers: Headers<'r>,
-    body: Body<'r>,
+    inner: HTTPRequest<Body<'r>>,
 
     // 请求配置属性
-    response_body_buffer_path: Option<Cow<'r, Path>>,
     appended_user_agent: Cow<'r, str>,
     follow_redirection: bool,
     resolved_ip_addrs: Cow<'r, [IpAddr]>,
@@ -58,64 +57,64 @@ impl<'r> Request<'r> {
         RequestBuilder::default()
     }
 
+    /// 获取 HTTP 请求
+    #[inline]
+    pub fn http(&self) -> &HTTPRequest<Body<'r>> {
+        &self.inner
+    }
+
+    /// 修改 HTTP 请求
+    #[inline]
+    pub fn http_mut(&mut self) -> &mut HTTPRequest<Body<'r>> {
+        &mut self.inner
+    }
+
     /// 请求 URL
     #[inline]
-    pub fn url(&self) -> &str {
-        &self.url
+    pub fn url(&self) -> &Uri {
+        self.inner.uri()
     }
 
     /// 修改请求 URL
     #[inline]
-    pub fn url_mut(&mut self) -> &mut URL<'r> {
-        &mut self.url
+    pub fn url_mut(&mut self) -> &mut Uri {
+        self.inner.uri_mut()
     }
 
     /// 请求 HTTP 方法
     #[inline]
-    pub fn method(&self) -> Method {
-        self.method
+    pub fn method(&self) -> &Method {
+        self.inner.method()
     }
 
     /// 修改请求 HTTP 方法
     #[inline]
     pub fn method_mut(&mut self) -> &mut Method {
-        &mut self.method
+        self.inner.method_mut()
     }
 
     /// 请求 HTTP Headers
     #[inline]
-    pub fn headers(&self) -> &Headers {
-        &self.headers
+    pub fn headers(&self) -> &HeaderMap {
+        &self.inner.headers()
     }
 
     /// 修改请求 HTTP Headers
     #[inline]
-    pub fn headers_mut(&mut self) -> &mut Headers<'r> {
-        &mut self.headers
+    pub fn headers_mut(&mut self) -> &mut HeaderMap {
+        self.inner.headers_mut()
     }
 
     /// 请求体
     #[inline]
     pub fn body(&self) -> &[u8] {
-        &self.body
+        &self.inner.body()
     }
 
     /// 修改请求体
     #[inline]
     pub fn body_mut(&mut self) -> &mut Body<'r> {
-        &mut self.body
-    }
-
-    /// 请求体
-    #[inline]
-    pub fn response_body_buffer_path(&self) -> Option<&Path> {
-        self.response_body_buffer_path.as_deref()
-    }
-
-    /// 修改请求体
-    #[inline]
-    pub fn response_body_buffer_path_mut(&mut self) -> &mut Option<Cow<'r, Path>> {
-        &mut self.response_body_buffer_path
+        self.inner.body_mut()
     }
 
     /// 用户代理
@@ -305,11 +304,7 @@ impl<'r> Request<'r> {
 impl Default for Request<'_> {
     fn default() -> Self {
         Self {
-            url: "http://localhost".into(),
-            method: Method::GET,
-            headers: Default::default(),
-            body: Default::default(),
-            response_body_buffer_path: Default::default(),
+            inner: Default::default(),
             appended_user_agent: Default::default(),
             follow_redirection: false,
             resolved_ip_addrs: Default::default(),
@@ -348,10 +343,7 @@ impl fmt::Debug for Request<'_> {
             };
         }
         let s = &mut f.debug_struct("Request");
-        field!(s, "url", url);
-        field!(s, "method", method);
-        field!(s, "headers", headers);
-        field!(s, "body", body);
+        field!(s, "http", inner);
         field!(s, "appended_user_agent", appended_user_agent);
         field!(s, "follow_redirection", follow_redirection);
         field!(s, "resolved_ip_addrs", resolved_ip_addrs);
@@ -382,38 +374,38 @@ pub struct RequestBuilder<'r> {
 }
 
 impl<'r> RequestBuilder<'r> {
+    /// 设置 HTTP 请求
+    #[inline]
+    pub fn http(&mut self, request: HTTPRequest<Body<'r>>) -> &mut Self {
+        self.inner.inner = request;
+        self
+    }
+
     /// 设置请求 URL
     #[inline]
-    pub fn url(&mut self, url: impl Into<URL<'r>>) -> &mut Self {
-        self.inner.url = url.into();
+    pub fn url(&mut self, url: Uri) -> &mut Self {
+        *self.inner.url_mut() = url;
         self
     }
 
     /// 设置请求 HTTP 方法
     #[inline]
     pub fn method(&mut self, method: Method) -> &mut Self {
-        self.inner.method = method;
+        *self.inner.method_mut() = method;
         self
     }
 
     /// 设置请求 HTTP Headers
     #[inline]
-    pub fn headers(&mut self, headers: Headers<'r>) -> &mut Self {
-        self.inner.headers = headers;
+    pub fn headers(&mut self, headers: HeaderMap) -> &mut Self {
+        *self.inner.headers_mut() = headers;
         self
     }
 
     /// 设置请求体
     #[inline]
     pub fn body(&mut self, body: impl Into<Body<'r>>) -> &mut Self {
-        self.inner.body = body.into();
-        self
-    }
-
-    /// 请求体
-    #[inline]
-    pub fn response_body_buffer_path(&mut self, path: impl Into<Cow<'r, Path>>) -> &mut Self {
-        self.inner.response_body_buffer_path = Some(path.into());
+        *self.inner.body_mut() = body.into();
         self
     }
 
