@@ -33,8 +33,7 @@ pub use http::{
 };
 pub use request::{Body as RequestBody, Request, RequestBuilder};
 pub use response::{
-    Body as ResponseBody, CachedBody as CachedResponseBody, ReadDebug, Response, ResponseBuilder,
-    Result as ResponseResult,
+    Body as ResponseBody, ReadDebug, Response, ResponseBuilder, Result as ResponseResult,
 };
 
 /// 同步 HTTP 响应
@@ -44,18 +43,11 @@ pub type SyncResponseBuilder = ResponseBuilder<ResponseBody>;
 /// 同步 HTTP 响应结果
 pub type SyncResponseResult = ResponseResult<ResponseBody>;
 
-/// 同步经过缓存的 HTTP 响应
-pub type SyncCachedResponse = Response<CachedResponseBody>;
-/// 同步经过缓存的 HTTP 响应构建器
-pub type SyncCachedResponseBuilder = ResponseBuilder<CachedResponseBody>;
-/// 同步经过缓存的 HTTP 响应结果
-pub type SyncCachedResponseResult = ResponseResult<CachedResponseBody>;
-
 #[cfg(feature = "async")]
 mod async_response {
     pub use super::response::{
-        AsyncBody as AsyncResponseBody, AsyncCachedBody as AsyncCachedResponseBody, AsyncReadDebug,
-        AsyncReadSeekDebug, Response, ResponseBuilder, Result as ResponseResult,
+        AsyncBody as AsyncResponseBody, AsyncReadDebug, AsyncReadSeekDebug, Response,
+        ResponseBuilder, Result as ResponseResult,
     };
 
     /// 异步 HTTP 响应
@@ -69,18 +61,6 @@ mod async_response {
     /// 异步 HTTP 响应结果
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     pub type AsyncResponseResult = ResponseResult<AsyncResponseBody>;
-
-    /// 异步经过缓存的 HTTP 响应
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub type AsyncCachedResponse = Response<AsyncCachedResponseBody>;
-
-    /// 异步经过缓存的 HTTP 响应构建器
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub type AsyncCachedResponseBuilder = ResponseBuilder<AsyncCachedResponseBody>;
-
-    /// 异步经过缓存的 HTTP 响应结果
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub type AsyncCachedResponseResult = ResponseResult<AsyncCachedResponseBody>;
 }
 #[cfg(feature = "async")]
 pub use async_response::*;
@@ -104,6 +84,36 @@ pub trait HTTPCaller: Any + Debug + Send + Sync {
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_call<'a>(&'a self, request: &'a Request<'_>) -> BoxFuture<'a, AsyncResponseResult>;
+
+    #[inline]
+    fn is_resolved_ip_addrs_supported(&self) -> bool {
+        false
+    }
+
+    #[inline]
+    fn is_uploading_progress_supported(&self) -> bool {
+        false
+    }
+
+    #[inline]
+    fn is_downloading_progress_supported(&self) -> bool {
+        false
+    }
+
+    #[inline]
+    fn is_send_request_body_callback_supported(&self) -> bool {
+        false
+    }
+
+    #[inline]
+    fn is_receive_response_body_callback_supported(&self) -> bool {
+        false
+    }
+
+    #[inline]
+    fn is_response_metrics_supported(&self) -> bool {
+        false
+    }
 
     fn as_http_caller(&self) -> &dyn HTTPCaller;
     fn as_any(&self) -> &dyn Any;

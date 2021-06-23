@@ -1,6 +1,7 @@
+.PHONY: all build build_release build_test doc test clean clippy
 SUBDIRS := credential utils etag upload_token http http-client curl
 
-all: 
+all:
 	set -e; \
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir; \

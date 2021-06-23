@@ -45,59 +45,10 @@ impl Read for Body {
         }
     }
 }
-
-impl Body {
-    pub fn fulfill(self) -> IOResult<CachedBody> {
-        match self.0 {
-            BodyInner::Reader(mut r) => {
-                let mut bytes = Vec::new();
-                r.read_to_end(&mut bytes)?;
-                Ok(CachedBody(Cursor::new(bytes)))
-            }
-            BodyInner::File(mut r) => {
-                let mut bytes = Vec::new();
-                r.read_to_end(&mut bytes)?;
-                Ok(CachedBody(Cursor::new(bytes)))
-            }
-            BodyInner::Bytes(b) => Ok(CachedBody(b)),
-        }
-    }
-}
-
-/// 经过缓存的 HTTP 响应体
-#[derive(Debug)]
-pub struct CachedBody(Cursor<Vec<u8>>);
-
-impl Default for CachedBody {
-    #[inline]
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-impl Read for CachedBody {
-    #[inline]
-    fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
-        self.0.read(buf)
-    }
-}
-
-impl CachedBody {
-    #[inline]
-    pub fn as_bytes(&self) -> &[u8] {
-        self.0.get_ref()
-    }
-
-    #[inline]
-    pub fn into_bytes(self) -> Vec<u8> {
-        self.0.into_inner()
-    }
-}
-
 #[cfg(feature = "async")]
 mod async_body {
     use futures_lite::{
-        io::{AsyncRead, AsyncReadExt, AsyncSeek, Cursor, Result as IOResult},
+        io::{AsyncRead, AsyncSeek, Cursor, Result as IOResult},
         pin,
     };
     use std::{
@@ -151,65 +102,6 @@ mod async_body {
                     bytes.poll_read(cx, buf)
                 }
             }
-        }
-    }
-
-    impl AsyncBody {
-        pub async fn fulfill(self) -> IOResult<AsyncCachedBody> {
-            match self.0 {
-                AsyncBodyInner::Reader(mut r) => {
-                    let mut bytes = Vec::new();
-                    r.read_to_end(&mut bytes).await?;
-                    Ok(AsyncCachedBody(Cursor::new(bytes)))
-                }
-                AsyncBodyInner::SeekableReader(mut r) => {
-                    let mut bytes = Vec::new();
-                    r.read_to_end(&mut bytes).await?;
-                    Ok(AsyncCachedBody(Cursor::new(bytes)))
-                }
-                AsyncBodyInner::Bytes(b) => Ok(AsyncCachedBody(b)),
-            }
-        }
-    }
-
-    /// 经过缓存的异步 HTTP 响应体
-    #[derive(Debug)]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub struct AsyncCachedBody(Cursor<Vec<u8>>);
-
-    impl Default for AsyncCachedBody {
-        #[inline]
-        fn default() -> Self {
-            Self(Default::default())
-        }
-    }
-
-    impl AsyncRead for AsyncCachedBody {
-        fn poll_read(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context,
-            buf: &mut [u8],
-        ) -> Poll<IOResult<usize>> {
-            let bytes = &mut self.as_mut().0;
-            pin!(bytes);
-            bytes.poll_read(cx, buf)
-        }
-    }
-
-    impl AsyncCachedBody {
-        #[inline]
-        pub(super) fn new(bytes: Cursor<Vec<u8>>) -> Self {
-            Self(bytes)
-        }
-
-        #[inline]
-        pub fn as_bytes(&self) -> &[u8] {
-            self.0.get_ref()
-        }
-
-        #[inline]
-        pub fn into_bytes(self) -> Vec<u8> {
-            self.0.into_inner()
         }
     }
 }
@@ -404,91 +296,6 @@ impl<B> Response<B> {
     pub fn body_mut(&mut self) -> &mut B {
         self.inner.body_mut()
     }
-
-    pub fn map_body<B2>(self, f: impl FnOnce(B) -> B2) -> Response<B2> {
-        let Response {
-            inner,
-            server_ip,
-            server_port,
-            metrics,
-        } = self;
-        let inner = inner.map(f);
-        Response {
-            inner,
-            server_ip,
-            server_port,
-            metrics,
-        }
-    }
-
-    pub fn try_map_body<B2, E>(
-        self,
-        f: impl FnOnce(B) -> result::Result<B2, E>,
-    ) -> result::Result<Response<B2>, E> {
-        let Response {
-            inner,
-            server_ip,
-            server_port,
-            metrics,
-        } = self;
-        let (parts, body) = inner.into_parts();
-        let body = f(body)?;
-        Ok(Response {
-            inner: HTTPResponse::from_parts(parts, body),
-            server_ip,
-            server_port,
-            metrics,
-        })
-    }
-}
-
-#[cfg(feature = "async")]
-use std::{future::Future, pin::Pin};
-
-#[cfg(feature = "async")]
-type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
-
-impl<B> Response<B> {
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub async fn async_map_body<B2>(self, f: impl FnOnce(B) -> BoxFuture<B2>) -> Response<B2> {
-        let Response {
-            inner,
-            server_ip,
-            server_port,
-            metrics,
-        } = self;
-        let (parts, body) = inner.into_parts();
-        let body = f(body).await;
-        Response {
-            inner: HTTPResponse::from_parts(parts, body),
-            server_ip,
-            server_port,
-            metrics,
-        }
-    }
-
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub async fn async_try_map_body<B2, E>(
-        self,
-        f: impl FnOnce(B) -> BoxFuture<result::Result<B2, E>>,
-    ) -> result::Result<Response<B2>, E> {
-        let Response {
-            inner,
-            server_ip,
-            server_port,
-            metrics,
-        } = self;
-        let (parts, body) = inner.into_parts();
-        let body = f(body).await?;
-        Ok(Response {
-            inner: HTTPResponse::from_parts(parts, body),
-            server_ip,
-            server_port,
-            metrics,
-        })
-    }
 }
 
 impl<B: Send + Sync> Response<B> {
@@ -496,21 +303,6 @@ impl<B: Send + Sync> Response<B> {
     fn ignore() {
         assert_impl!(Send: Self);
         assert_impl!(Sync: Self);
-    }
-}
-
-impl Response<Body> {
-    #[inline]
-    pub fn fulfill(self) -> IOResult<Response<CachedBody>> {
-        self.try_map_body(|b| b.fulfill())
-    }
-}
-
-#[cfg(feature = "async")]
-impl Response<AsyncBody> {
-    pub async fn fulfill(self) -> IOResult<Response<AsyncCachedBody>> {
-        self.async_try_map_body(|b| Box::pin(async { b.fulfill().await }))
-            .await
     }
 }
 
@@ -544,8 +336,8 @@ impl<B> ResponseBuilder<B> {
 
     /// 设置 HTTP 服务器 IP 地址
     #[inline]
-    pub fn server_ip(mut self, server_ip: Option<IpAddr>) -> Self {
-        self.inner.server_ip = server_ip;
+    pub fn server_ip(mut self, server_ip: IpAddr) -> Self {
+        self.inner.server_ip = Some(server_ip);
         self
     }
 
@@ -630,15 +422,6 @@ impl ResponseBuilder<Body> {
     }
 }
 
-impl ResponseBuilder<CachedBody> {
-    /// 设置二进制字节数组为 HTTP 响应体
-    #[inline]
-    pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
-        *self.inner.body_mut() = CachedBody(Cursor::new(body.into()));
-        self
-    }
-}
-
 #[cfg(feature = "async")]
 impl ResponseBuilder<AsyncBody> {
     /// 设置数据流为 HTTP 响应体
@@ -664,16 +447,6 @@ impl ResponseBuilder<AsyncBody> {
         body.seek(SeekFrom::Start(0)).await?;
         *self.inner.body_mut() = AsyncBody(AsyncBodyInner::SeekableReader(body));
         Ok(self)
-    }
-}
-
-#[cfg(feature = "async")]
-impl ResponseBuilder<AsyncCachedBody> {
-    /// 设置二进制字节数组为 HTTP 响应体
-    #[inline]
-    pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
-        *self.inner.body_mut() = AsyncCachedBody::new(AsyncCursor::new(body.into()));
-        self
     }
 }
 

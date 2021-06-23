@@ -5,9 +5,10 @@ use http::{
     request::Request as HTTPRequest,
     status::StatusCode,
     uri::Uri,
+    Extensions,
 };
 use once_cell::sync::Lazy;
-use std::{borrow::Cow, fmt, mem::take, net::IpAddr, time::Duration};
+use std::{borrow::Cow, fmt, mem::take, net::IpAddr};
 
 static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
     format!(
@@ -34,20 +35,11 @@ pub struct Request<'r> {
 
     // 请求配置属性
     appended_user_agent: Cow<'r, str>,
-    follow_redirection: bool,
     resolved_ip_addrs: Cow<'r, [IpAddr]>,
     on_uploading_progress: Option<OnProgress<'r>>,
-    on_downloading_progress: Option<OnProgress<'r>>,
     on_send_request_body: Option<OnBody<'r>>,
     on_receive_response_status: Option<OnStatusCode<'r>>,
-    on_receive_response_body: Option<OnBody<'r>>,
     on_receive_response_header: Option<OnHeader<'r>>,
-    connect_timeout: Duration,
-    request_timeout: Duration,
-    tcp_keepalive_idle_timeout: Duration,
-    tcp_keepalive_probe_interval: Duration,
-    low_transfer_speed: u32,
-    low_transfer_speed_timeout: Duration,
 }
 
 impl<'r> Request<'r> {
@@ -117,6 +109,18 @@ impl<'r> Request<'r> {
         self.inner.body_mut()
     }
 
+    /// 扩展字段
+    #[inline]
+    pub fn extensions(&self) -> &Extensions {
+        &self.inner.extensions()
+    }
+
+    /// 修改扩展字段
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        self.inner.extensions_mut()
+    }
+
     /// 用户代理
     #[inline]
     pub fn user_agent(&self) -> String {
@@ -133,18 +137,6 @@ impl<'r> Request<'r> {
     #[inline]
     pub fn appended_user_agent_mut(&mut self) -> &mut Cow<'r, str> {
         &mut self.appended_user_agent
-    }
-
-    /// 是否自动跟踪重定向
-    #[inline]
-    pub fn follow_redirection(&self) -> bool {
-        self.follow_redirection
-    }
-
-    /// 修改自动跟踪重定向
-    #[inline]
-    pub fn follow_redirection_mut(&mut self) -> &mut bool {
-        &mut self.follow_redirection
     }
 
     /// 预解析的服务器套接字地址
@@ -171,18 +163,6 @@ impl<'r> Request<'r> {
         &mut self.on_uploading_progress
     }
 
-    /// 下载进度回调
-    #[inline]
-    pub fn on_downloading_progress(&self) -> Option<OnProgress> {
-        self.on_downloading_progress
-    }
-
-    /// 修改下载进度回调
-    #[inline]
-    pub fn on_downloading_progress_mut(&mut self) -> &mut Option<OnProgress<'r>> {
-        &mut self.on_downloading_progress
-    }
-
     /// 发送请求体回调
     #[inline]
     pub fn on_send_request_body(&self) -> Option<OnBody> {
@@ -207,18 +187,6 @@ impl<'r> Request<'r> {
         &mut self.on_receive_response_status
     }
 
-    /// 接受到响应体回调
-    #[inline]
-    pub fn on_receive_response_body(&self) -> Option<OnBody> {
-        self.on_receive_response_body
-    }
-
-    /// 修改接受到响应体回调
-    #[inline]
-    pub fn on_receive_response_body_mut(&mut self) -> &mut Option<OnBody<'r>> {
-        &mut self.on_receive_response_body
-    }
-
     /// 接受到响应 Header 回调
     #[inline]
     pub fn on_receive_response_header(&self) -> Option<OnHeader> {
@@ -229,69 +197,6 @@ impl<'r> Request<'r> {
     #[inline]
     pub fn on_receive_response_header_mut(&mut self) -> &mut Option<OnHeader<'r>> {
         &mut self.on_receive_response_header
-    }
-
-    /// 连接超时时长
-    #[inline]
-    pub fn connect_timeout(&self) -> Duration {
-        self.connect_timeout
-    }
-
-    /// 修改连接超时时长
-    #[inline]
-    pub fn connect_timeout_mut(&mut self) -> &mut Duration {
-        &mut self.connect_timeout
-    }
-
-    /// 请求超时时长
-    #[inline]
-    pub fn request_timeout(&self) -> Duration {
-        self.request_timeout
-    }
-
-    /// 修改请求超时时长
-    #[inline]
-    pub fn request_timeout_mut(&mut self) -> &mut Duration {
-        &mut self.request_timeout
-    }
-
-    /// TCP KeepAlive 空闲时长
-    #[inline]
-    pub fn tcp_keepalive_idle_timeout(&self) -> Duration {
-        self.tcp_keepalive_idle_timeout
-    }
-
-    /// 修改 TCP KeepAlive 空闲时长
-    #[inline]
-    pub fn tcp_keepalive_idle_timeout_mut(&mut self) -> &mut Duration {
-        &mut self.tcp_keepalive_idle_timeout
-    }
-
-    /// TCP KeepAlive 探测包的发送间隔
-    #[inline]
-    pub fn tcp_keepalive_probe_interval(&self) -> Duration {
-        self.tcp_keepalive_probe_interval
-    }
-
-    /// 修改 TCP KeepAlive 探测包的发送间隔
-    #[inline]
-    pub fn tcp_keepalive_probe_interval_mut(&mut self) -> &mut Duration {
-        &mut self.tcp_keepalive_probe_interval
-    }
-
-    /// 最低传输速度和维持时长
-    #[inline]
-    pub fn low_transfer_speed(&self) -> (u32, Duration) {
-        (self.low_transfer_speed, self.low_transfer_speed_timeout)
-    }
-
-    /// 修改最低传输速度和维持时长
-    #[inline]
-    pub fn low_transfer_speed_mut(&mut self) -> (&mut u32, &mut Duration) {
-        (
-            &mut self.low_transfer_speed,
-            &mut self.low_transfer_speed_timeout,
-        )
     }
 
     #[allow(dead_code)]
@@ -306,20 +211,11 @@ impl Default for Request<'_> {
         Self {
             inner: Default::default(),
             appended_user_agent: Default::default(),
-            follow_redirection: false,
             resolved_ip_addrs: Default::default(),
             on_uploading_progress: None,
-            on_downloading_progress: None,
             on_send_request_body: None,
             on_receive_response_status: None,
-            on_receive_response_body: None,
             on_receive_response_header: None,
-            connect_timeout: Duration::from_secs(30),
-            request_timeout: Duration::from_secs(300),
-            tcp_keepalive_idle_timeout: Duration::from_secs(300),
-            tcp_keepalive_probe_interval: Duration::from_secs(5),
-            low_transfer_speed: Default::default(),
-            low_transfer_speed_timeout: Default::default(),
         }
     }
 }
@@ -345,23 +241,10 @@ impl fmt::Debug for Request<'_> {
         let s = &mut f.debug_struct("Request");
         field!(s, "http", inner);
         field!(s, "appended_user_agent", appended_user_agent);
-        field!(s, "follow_redirection", follow_redirection);
         field!(s, "resolved_ip_addrs", resolved_ip_addrs);
-        field!(s, "connect_timeout", connect_timeout);
-        field!(s, "request_timeout", request_timeout);
-        field!(s, "tcp_keepalive_idle_timeout", tcp_keepalive_idle_timeout);
-        field!(
-            s,
-            "tcp_keepalive_probe_interval",
-            tcp_keepalive_probe_interval
-        );
-        field!(s, "low_transfer_speed", low_transfer_speed);
-        field!(s, "low_transfer_speed_timeout", low_transfer_speed_timeout);
         closure_field!(s, "on_uploading_progress", on_uploading_progress);
-        closure_field!(s, "on_downloading_progress", on_downloading_progress);
         closure_field!(s, "on_send_request_body", on_send_request_body);
         closure_field!(s, "on_receive_response_status", on_receive_response_status);
-        closure_field!(s, "on_receive_response_body", on_receive_response_body);
         closure_field!(s, "on_receive_response_header", on_receive_response_header);
         s.finish()
     }
@@ -416,13 +299,6 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    /// 设置是否自动跟踪重定向
-    #[inline]
-    pub fn follow_redirection(&mut self, follow_redirection: bool) -> &mut Self {
-        self.inner.follow_redirection = follow_redirection;
-        self
-    }
-
     /// 设置预解析的服务器套接字地址
     #[inline]
     pub fn resolved_ip_addrs(
@@ -440,13 +316,6 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    /// 设置下载进度回调
-    #[inline]
-    pub fn on_downloading_progress(&mut self, f: OnProgress<'r>) -> &mut Self {
-        self.inner.on_downloading_progress = Some(f);
-        self
-    }
-
     /// 发送请求体回调
     #[inline]
     pub fn on_send_request_body(&mut self, f: OnBody<'r>) -> &mut Self {
@@ -461,62 +330,10 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    /// 接受到响应体回调
-    #[inline]
-    pub fn on_receive_response_body(&mut self, f: OnBody<'r>) -> &mut Self {
-        self.inner.on_receive_response_body = Some(f);
-        self
-    }
-
     /// 接受到响应 Header 回调
     #[inline]
     pub fn on_receive_response_header(&mut self, f: OnHeader<'r>) -> &mut Self {
         self.inner.on_receive_response_header = Some(f);
-        self
-    }
-
-    /// 设置连接超时时长
-    #[inline]
-    pub fn connect_timeout(&mut self, connect_timeout: Duration) -> &mut Self {
-        self.inner.connect_timeout = connect_timeout;
-        self
-    }
-
-    /// 设置请求超时时长
-    #[inline]
-    pub fn request_timeout(&mut self, request_timeout: Duration) -> &mut Self {
-        self.inner.request_timeout = request_timeout;
-        self
-    }
-
-    /// 设置 TCP KeepAlive 空闲时长
-    #[inline]
-    pub fn tcp_keepalive_idle_timeout(
-        &mut self,
-        tcp_keepalive_idle_timeout: Duration,
-    ) -> &mut Self {
-        self.inner.tcp_keepalive_idle_timeout = tcp_keepalive_idle_timeout;
-        self
-    }
-
-    /// 设置 TCP KeepAlive 探测包的发送间隔
-    #[inline]
-    pub fn tcp_keepalive_probe_interval(
-        &mut self,
-        tcp_keepalive_probe_interval: Duration,
-    ) -> &mut Self {
-        self.inner.tcp_keepalive_probe_interval = tcp_keepalive_probe_interval;
-        self
-    }
-
-    /// 设置最低传输速度和维持时长
-    ///
-    /// 当 HTTP 传输速度低于最低传输速度 `low_transfer_speed_timeout` 并维持超过 `low_transfer_speed` 的时长，则出错。
-    /// SDK 应该重试，或出错退出
-    #[inline]
-    pub fn low_transfer_speed(&mut self, low_transfer_speed: u32, timeout: Duration) -> &mut Self {
-        self.inner.low_transfer_speed = low_transfer_speed;
-        self.inner.low_transfer_speed_timeout = timeout;
         self
     }
 

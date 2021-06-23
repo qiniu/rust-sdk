@@ -33,7 +33,7 @@ async-std = { version = "1.7.0", optional = true }
 qiniu-http = { version = "0.0.4", path = "../http" }
 qiniu-credential = { version = "0.0.4", path = "../credential" }
 qiniu-upload-token = { version = "0.0.4", path = "../upload_token" }
-qiniu-curl = { version = "0.0.4", path = "../curl", optional = true }
+qiniu-reqwest = { version = "0.0.4", path = "../reqwest", optional = true }
 
 [dev-dependencies]
 tokio = { version = "0.2.22", features = ["rt-core", "macros", "blocking"] }
@@ -46,14 +46,14 @@ warp = "0.2.5"
 futures = "0.3.5"
 
 [features]
-default = ["curl"]
+default = ["reqwest"]
 c_ares = ["c-ares", "c-ares-resolver", "cfg-if"]
-curl = ["qiniu-curl"]
-async = ["async-std", "futures", "futures-timer", "qiniu-http/async", "qiniu-credential/async", "qiniu-upload-token/async", "qiniu-curl/async"]
+reqwest = ["qiniu-reqwest"]
+async = ["async-std", "futures", "futures-timer", "qiniu-http/async", "qiniu-credential/async", "qiniu-upload-token/async", "qiniu-reqwest/async"]
 tokio02 = ["async", "async-std/tokio02"]
 tokio03 = ["async", "async-std/tokio03"]
 docs = []
 
 [package.metadata.docs.rs]
-features = ["docs", "async", "c_ares"]
+all-features = true
 rustdoc-args = ["--cfg", "feature=\"docs\""]

@@ -10,6 +10,12 @@ pub enum ErrorKind {
     /// 非法的请求 / 响应错误
     InvalidRequestResponse,
 
+    /// 非法的 URL
+    InvalidURL,
+
+    /// 非法的 HTTP 头
+    InvalidHeader,
+
     /// 网络连接失败
     ConnectError,
 

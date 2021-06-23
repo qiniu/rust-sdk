@@ -1,4 +1,4 @@
-.PHONY: all build test clean clippy
+.PHONY: all build build_release build_test doc test clean clippy
 
 all: build doc
 build:
