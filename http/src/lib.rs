@@ -33,7 +33,7 @@ pub use http::{
 };
 pub use request::{Body as RequestBody, Request, RequestBuilder};
 pub use response::{
-    Body as ResponseBody, ReadDebug, Response, ResponseBuilder, Result as ResponseResult,
+    Body as ResponseBody, Metrics, ReadDebug, Response, ResponseBuilder, Result as ResponseResult,
 };
 
 /// 同步 HTTP 响应
@@ -86,27 +86,7 @@ pub trait HTTPCaller: Any + Debug + Send + Sync {
     fn async_call<'a>(&'a self, request: &'a Request<'_>) -> BoxFuture<'a, AsyncResponseResult>;
 
     #[inline]
-    fn is_resolved_ip_addrs_supported(&self) -> bool {
-        false
-    }
-
-    #[inline]
-    fn is_uploading_progress_supported(&self) -> bool {
-        false
-    }
-
-    #[inline]
-    fn is_downloading_progress_supported(&self) -> bool {
-        false
-    }
-
-    #[inline]
-    fn is_send_request_body_callback_supported(&self) -> bool {
-        false
-    }
-
-    #[inline]
-    fn is_receive_response_body_callback_supported(&self) -> bool {
+    fn is_resolved_ip_addr_supported(&self) -> bool {
         false
     }
 

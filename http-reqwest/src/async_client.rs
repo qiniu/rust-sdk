@@ -1,23 +1,25 @@
 use super::{
     builder::ReqwestHTTPCallerBuilder,
-    sync_client::{call_callbacks, from_reqwest_error, make_user_agent},
+    extensions::TimeoutExtension,
+    sync_client::{call_response_callbacks, from_reqwest_error, make_user_agent},
     BoxFuture,
 };
 use bytes::Bytes;
-use futures_lite::{AsyncRead, Stream};
+use futures::{io::Cursor, ready, AsyncRead, Stream};
 use qiniu_http::{
     AsyncResponse, AsyncResponseResult, HTTPCaller, Request, ResponseError, ResponseErrorKind,
     SyncResponseResult,
 };
 use reqwest::{
-    header::USER_AGENT, Client as AsyncReqwestClient, Request as AsyncReqwestRequest,
-    Response as AsyncReqwestResponse, Result as ReqwestResult, Url,
+    header::USER_AGENT, Body as AsyncBody, Client as AsyncReqwestClient,
+    Request as AsyncReqwestRequest, Response as AsyncReqwestResponse, Result as ReqwestResult, Url,
 };
 use std::{
     any::Any,
+    error::Error,
     fmt,
     io::{Error as IOError, ErrorKind as IOErrorKind, Result as IOResult},
-    mem::take,
+    mem::{take, transmute},
     pin::Pin,
     task::{Context, Poll},
 };
@@ -51,13 +53,12 @@ impl HTTPCaller for AsyncReqwestHTTPCaller {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_call<'a>(&'a self, request: &'a Request) -> BoxFuture<'a, AsyncResponseResult> {
         Box::pin(async move {
-            let reqwest_request = make_async_reqwest_request(request)?;
-            let reqwest_response = self
-                .async_client
-                .execute(reqwest_request)
-                .await
-                .map_err(from_reqwest_error)?;
-            from_async_response(reqwest_response, request)
+            let mut user_cancelled_error: Option<ResponseError> = None;
+            let reqwest_request = make_async_reqwest_request(request, &mut user_cancelled_error)?;
+            match self.async_client.execute(reqwest_request).await {
+                Ok(reqwest_response) => from_async_response(reqwest_response, request),
+                Err(err) => user_cancelled_error.map_or_else(|| Err(from_reqwest_error(err)), Err),
+            }
         })
     }
 
@@ -72,76 +73,10 @@ impl HTTPCaller for AsyncReqwestHTTPCaller {
     }
 }
 
-struct AsyncReqwestResponseReadWrapper<S: Stream<Item = ReqwestResult<Bytes>>> {
-    stream: S,
-    buffer: Vec<u8>,
-    used: usize,
-}
-
-impl<S: Stream<Item = ReqwestResult<Bytes>>> AsyncReqwestResponseReadWrapper<S> {
-    #[inline]
-    fn new(stream: S) -> Self {
-        AsyncReqwestResponseReadWrapper {
-            stream,
-            buffer: Default::default(),
-            used: 0,
-        }
-    }
-}
-
-impl<S: Stream<Item = ReqwestResult<Bytes>>> fmt::Debug for AsyncReqwestResponseReadWrapper<S> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("AsyncReqwestResponseReadWrapper")
-            .field("buffer_len", &self.buffer.len())
-            .field("buffer_cap", &self.buffer.capacity())
-            .field("used", &self.used)
-            .finish()
-    }
-}
-
-impl<S: Stream<Item = ReqwestResult<Bytes>>> AsyncRead for AsyncReqwestResponseReadWrapper<S> {
-    fn poll_read(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<IOResult<usize>> {
-        let oriself = unsafe { self.get_unchecked_mut() };
-        let buffer_rested = oriself.buffer.len() - oriself.used;
-        if oriself.buffer.is_empty() {
-            let stream = unsafe { Pin::new_unchecked(&mut oriself.stream) };
-            match stream.poll_next(cx) {
-                Poll::Pending => Poll::Pending,
-                Poll::Ready(None) => Poll::Ready(Ok(0)),
-                Poll::Ready(Some(Err(err))) => {
-                    Poll::Ready(Err(IOError::new(IOErrorKind::Other, err)))
-                }
-                Poll::Ready(Some(Ok(data))) => {
-                    if data.len() <= buf.len() {
-                        buf[..data.len()].copy_from_slice(&data);
-                        Poll::Ready(Ok(data.len()))
-                    } else {
-                        buf.copy_from_slice(&data[..buf.len()]);
-                        oriself.buffer.extend_from_slice(&data[buf.len()..]);
-                        oriself.used = 0;
-                        Poll::Ready(Ok(buf.len()))
-                    }
-                }
-            }
-        } else if buf.len() >= buffer_rested {
-            buf[..buffer_rested].copy_from_slice(&oriself.buffer[oriself.used..]);
-            oriself.buffer.truncate(0);
-            oriself.used = 0;
-            Poll::Ready(Ok(buffer_rested))
-        } else {
-            buf.copy_from_slice(&oriself.buffer[oriself.used..(oriself.used + buf.len())]);
-            oriself.used += buf.len();
-            Poll::Ready(Ok(buf.len()))
-        }
-    }
-}
-
-fn make_async_reqwest_request(request: &Request) -> Result<AsyncReqwestRequest, ResponseError> {
+fn make_async_reqwest_request(
+    request: &Request,
+    user_cancelled_error: &mut Option<ResponseError>,
+) -> Result<AsyncReqwestRequest, ResponseError> {
     let url = Url::parse(&request.url().to_string())
         .map_err(|err| ResponseError::new(ResponseErrorKind::InvalidURL, err))?;
     let mut reqwest_request = AsyncReqwestRequest::new(request.method().to_owned(), url);
@@ -153,17 +88,104 @@ fn make_async_reqwest_request(request: &Request) -> Result<AsyncReqwestRequest, 
     reqwest_request
         .headers_mut()
         .insert(USER_AGENT, make_user_agent(request, "async")?);
-    *reqwest_request.body_mut() = Some(request.body().to_vec().into());
-    Ok(reqwest_request)
+    *reqwest_request.body_mut() = Some(AsyncBody::wrap_stream(RequestBodyWithCallbacks::new(
+        request.body(),
+        request.on_uploading_progress(),
+        request.on_send_request_body(),
+        user_cancelled_error,
+    )));
+    if let Some(timeout) = request.extensions().get::<TimeoutExtension>() {
+        *reqwest_request.timeout_mut() = Some(timeout.get());
+    }
+    return Ok(reqwest_request);
+
+    type OnProgress<'r> = &'r (dyn Fn(u64, u64) -> bool + Send + Sync);
+    type OnBody<'r> = &'r (dyn Fn(&[u8]) -> bool + Send + Sync);
+
+    struct RequestBodyWithCallbacks {
+        body: Cursor<&'static [u8]>,
+        size: usize,
+        on_uploading_progress: Option<OnProgress<'static>>,
+        on_send_request_body: Option<OnBody<'static>>,
+        user_cancelled_error: &'static mut Option<ResponseError>,
+    }
+
+    impl RequestBodyWithCallbacks {
+        fn new(
+            body: &[u8],
+            on_uploading_progress: Option<OnProgress>,
+            on_send_request_body: Option<OnBody>,
+            user_cancelled_error: &mut Option<ResponseError>,
+        ) -> Self {
+            Self {
+                size: body.len(),
+                body: Cursor::new(unsafe { transmute(body) }),
+                on_uploading_progress: on_uploading_progress
+                    .map(|callback| unsafe { transmute(callback) }),
+                on_send_request_body: on_send_request_body
+                    .map(|callback| unsafe { transmute(callback) }),
+                user_cancelled_error: unsafe { transmute(user_cancelled_error) },
+            }
+        }
+    }
+
+    impl Stream for RequestBodyWithCallbacks {
+        type Item = Result<Vec<u8>, Box<dyn Error + Send + Sync>>;
+
+        fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            const BUF_LEN: usize = 32 * 1024;
+            let mut buf = [0u8; BUF_LEN];
+            match ready!(Pin::new(&mut self.as_mut().body).poll_read(cx, &mut buf)) {
+                Err(err) => Poll::Ready(Some(Err(Box::new(err)))),
+                Ok(0) => Poll::Ready(None),
+                Ok(n) => {
+                    let buf = &buf[..n];
+                    if let Some(on_uploading_progress) = self.on_uploading_progress {
+                        if !on_uploading_progress(self.body.position(), self.size as u64) {
+                            const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
+                            *self.user_cancelled_error = Some(ResponseError::new(
+                                ResponseErrorKind::UserCanceled,
+                                ERROR_MESSAGE,
+                            ));
+                            return Poll::Ready(Some(Err(Box::new(IOError::new(
+                                IOErrorKind::Other,
+                                ERROR_MESSAGE,
+                            )))));
+                        }
+                    }
+                    if let Some(on_send_request_body) = self.on_send_request_body {
+                        if !on_send_request_body(buf) {
+                            const ERROR_MESSAGE: &str = "on_send_request_body() returns false";
+                            *self.user_cancelled_error = Some(ResponseError::new(
+                                ResponseErrorKind::UserCanceled,
+                                ERROR_MESSAGE,
+                            ));
+                            return Poll::Ready(Some(Err(Box::new(IOError::new(
+                                IOErrorKind::Other,
+                                ERROR_MESSAGE,
+                            )))));
+                        }
+                    }
+                    Poll::Ready(Some(Ok(buf.to_vec())))
+                }
+            }
+        }
+
+        #[inline]
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            (self.body.position() as usize, Some(self.size))
+        }
+    }
 }
 
 fn from_async_response(
     mut response: AsyncReqwestResponse,
     request: &Request,
 ) -> AsyncResponseResult {
-    call_callbacks(request, response.status(), response.headers())?;
+    call_response_callbacks(request, response.status(), response.headers())?;
     let mut response_builder = AsyncResponse::builder()
         .status_code(response.status())
+        .version(response.version())
         .headers(take(response.headers_mut()));
     if let Some(port) = response.url().port_or_known_default() {
         response_builder = response_builder.server_port(port);
@@ -176,5 +198,71 @@ fn from_async_response(
     response_builder = response_builder.stream_as_body(Box::new(
         AsyncReqwestResponseReadWrapper::new(response.bytes_stream()),
     ));
-    Ok(response_builder.build())
+    return Ok(response_builder.build());
+
+    struct AsyncReqwestResponseReadWrapper<S: Stream<Item = ReqwestResult<Bytes>>> {
+        stream: S,
+        buffer: Vec<u8>,
+        used: usize,
+    }
+
+    impl<S: Stream<Item = ReqwestResult<Bytes>>> AsyncReqwestResponseReadWrapper<S> {
+        #[inline]
+        fn new(stream: S) -> Self {
+            AsyncReqwestResponseReadWrapper {
+                stream,
+                buffer: Default::default(),
+                used: 0,
+            }
+        }
+    }
+
+    impl<S: Stream<Item = ReqwestResult<Bytes>>> fmt::Debug for AsyncReqwestResponseReadWrapper<S> {
+        #[inline]
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.debug_struct("AsyncReqwestResponseReadWrapper")
+                .field("buffer_len", &self.buffer.len())
+                .field("buffer_cap", &self.buffer.capacity())
+                .field("used", &self.used)
+                .finish()
+        }
+    }
+
+    impl<S: Stream<Item = ReqwestResult<Bytes>>> AsyncRead for AsyncReqwestResponseReadWrapper<S> {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &mut [u8],
+        ) -> Poll<IOResult<usize>> {
+            let oriself = unsafe { self.get_unchecked_mut() };
+            let buffer_rested = oriself.buffer.len() - oriself.used;
+            if oriself.buffer.is_empty() {
+                let stream = unsafe { Pin::new_unchecked(&mut oriself.stream) };
+                match ready!(stream.poll_next(cx)) {
+                    None => Poll::Ready(Ok(0)),
+                    Some(Err(err)) => Poll::Ready(Err(IOError::new(IOErrorKind::Other, err))),
+                    Some(Ok(data)) => {
+                        if data.len() <= buf.len() {
+                            buf[..data.len()].copy_from_slice(&data);
+                            Poll::Ready(Ok(data.len()))
+                        } else {
+                            buf.copy_from_slice(&data[..buf.len()]);
+                            oriself.buffer.extend_from_slice(&data[buf.len()..]);
+                            oriself.used = 0;
+                            Poll::Ready(Ok(buf.len()))
+                        }
+                    }
+                }
+            } else if buf.len() >= buffer_rested {
+                buf[..buffer_rested].copy_from_slice(&oriself.buffer[oriself.used..]);
+                oriself.buffer.truncate(0);
+                oriself.used = 0;
+                Poll::Ready(Ok(buffer_rested))
+            } else {
+                buf.copy_from_slice(&oriself.buffer[oriself.used..(oriself.used + buf.len())]);
+                oriself.used += buf.len();
+                Poll::Ready(Ok(buf.len()))
+            }
+        }
+    }
 }

@@ -20,21 +20,16 @@
 )]
 
 mod builder;
+mod client;
 mod extensions;
-mod sync_client;
 
-#[cfg(feature = "async")]
-mod async_client;
-
-pub use builder::ReqwestHTTPCallerBuilder;
+pub use builder::ClientBuilder;
+pub use client::Client;
 pub use extensions::*;
+
+pub use isahc;
 pub use qiniu_http as http;
 pub use qiniu_http::{HTTPCaller, Request, ResponseError, SyncResponseResult};
-pub use reqwest;
-pub use sync_client::SyncReqwestHTTPCaller;
-
-#[cfg(feature = "async")]
-pub use async_client::AsyncReqwestHTTPCaller;
 
 #[cfg(feature = "async")]
 pub use qiniu_http::AsyncResponseResult;
@@ -50,10 +45,10 @@ mod tests {
     use super::*;
     use bytes::Bytes;
     use futures::channel::oneshot::channel;
+    use isahc::http::header::{CONTENT_LENGTH, USER_AGENT};
     use md5::{Digest, Md5};
     use qiniu_http::Method;
     use rand::{thread_rng, RngCore};
-    use reqwest::header::{CONTENT_LENGTH, USER_AGENT};
     use std::{
         io::{copy as io_copy, Read},
         sync::{
@@ -107,8 +102,8 @@ mod tests {
                     assert_eq!(hasher.finalize().as_slice(), &req_body[BUF_LEN..]);
                 }
 
-                assert!(user_agent.as_bytes().starts_with(b"QiniuRust/"));
-                assert!(user_agent.as_bytes().ends_with(b"/sync"));
+                assert!(user_agent.to_str().unwrap().starts_with("QiniuRust/"));
+                assert!(user_agent.to_str().unwrap().contains("/qiniu-http-isahc/"));
 
                 let mut resp_body = vec![0u8; BUF_LEN + MD5_LEN];
                 thread_rng().fill_bytes(&mut resp_body[..BUF_LEN]);
@@ -134,15 +129,16 @@ mod tests {
                 let mut response = {
                     let last_uploaded = last_uploaded.to_owned();
                     let last_total = last_total.to_owned();
-                    SyncReqwestHTTPCaller::default().call(
+                    Client::default_client()?.call(
                         &Request::builder()
                             .method(Method::POST)
                             .url(
-                                format!("http://{}/dir1/dir2/file", addr)
+                                format!("http://fakehost:{}/dir1/dir2/file", addr.port())
                                     .parse()
                                     .expect("invalid uri"),
                             )
                             .body(&request_body)
+                            .resolved_ip_addr(addr.ip())
                             .on_uploading_progress(&|uploaded, total| {
                                 last_uploaded.store(uploaded, Relaxed);
                                 last_total.store(total, Relaxed);
@@ -206,8 +202,8 @@ mod tests {
                     assert_eq!(hasher.finalize().as_slice(), &req_body[BUF_LEN..]);
                 }
 
-                assert!(user_agent.as_bytes().starts_with(b"QiniuRust/"));
-                assert!(user_agent.as_bytes().ends_with(b"/async"));
+                assert!(user_agent.to_str().unwrap().starts_with("QiniuRust/"));
+                assert!(user_agent.to_str().unwrap().contains("/qiniu-http-isahc/"));
 
                 let mut resp_body = vec![0u8; BUF_LEN + MD5_LEN];
                 thread_rng().fill_bytes(&mut resp_body[..BUF_LEN]);
@@ -232,16 +228,17 @@ mod tests {
             let mut response = {
                 let last_uploaded = last_uploaded.to_owned();
                 let last_total = last_total.to_owned();
-                AsyncReqwestHTTPCaller::default()
+                Client::default_client()?
                     .async_call(
                         &Request::builder()
                             .method(Method::POST)
                             .url(
-                                format!("http://{}/dir1/dir2/file", addr)
+                                format!("http://fakehost:{}/dir1/dir2/file", addr.port())
                                     .parse()
                                     .expect("invalid uri"),
                             )
                             .body(&request_body)
+                            .resolved_ip_addr(addr.ip())
                             .on_uploading_progress(&|uploaded, total| {
                                 last_uploaded.store(uploaded, Relaxed);
                                 last_total.store(total, Relaxed);

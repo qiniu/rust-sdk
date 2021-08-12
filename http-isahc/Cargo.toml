@@ -1,31 +1,28 @@
 [package]
-name = "qiniu-reqwest"
+name = "http-isahc"
 version = "0.0.4"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"
 license = "Apache-2.0"
 homepage = "https://www.qiniu.com"
-description = "Qiniu Reqwest based HTTP Interface Implementation for Rust"
+description = "Qiniu Isahc based HTTP Interface Implementation for Rust"
 keywords = ["qiniu", "storage"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reqwest = { version = "0.11.4", features = ["blocking", "stream"] }
+isahc = { version = "1.4.0" }
 qiniu-http = { version = "0.0.4", path = "../http" }
-bytes = { version = "1.0.1", optional = true }
 futures = { version = "0.3.16", optional = true }
 
 [features]
-default = ["gzip", "brotli", "deflate", "default-tls"]
-async = ["qiniu-http/async", "futures", "bytes"]
-gzip = ["reqwest/gzip"]
-brotli = ["reqwest/brotli"]
-deflate = ["reqwest/deflate"]
-default-tls = ["reqwest/default-tls"]
-native-tls = ["reqwest/native-tls"]
-rustls-tls = ["reqwest/rustls-tls"]
-trust-dns = ["reqwest/trust-dns"]
+async = ["qiniu-http/async", "futures"]
+http2 = ["isahc/http2"]
+psl = ["isahc/psl"]
+spnego = ["isahc/spnego"]
+static-curl = ["isahc/static-curl"]
+static-ssl = ["isahc/static-ssl"]
+text-decoding = ["isahc/text-decoding"]
 docs = []
 
 [dev-dependencies]

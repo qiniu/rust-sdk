@@ -1,16 +1,22 @@
-use super::builder::ReqwestHTTPCallerBuilder;
+use super::{builder::ReqwestHTTPCallerBuilder, extensions::TimeoutExtension};
 use qiniu_http::{
     HTTPCaller, HeaderMap, HeaderValue, Request, ResponseError, ResponseErrorKind, StatusCode,
     SyncResponse, SyncResponseResult,
 };
 use reqwest::{
     blocking::{
-        Client as SyncReqwestClient, Request as SyncReqwestRequest, Response as SyncReqwestResponse,
+        Body as SyncBody, Client as SyncReqwestClient, Request as SyncReqwestRequest,
+        Response as SyncReqwestResponse,
     },
     header::USER_AGENT,
     Error as ReqwestError, Result as ReqwestResult, Url,
 };
-use std::{any::Any, mem::take};
+use std::{
+    any::Any,
+    io::{Cursor, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
+    mem::take,
+    mem::transmute,
+};
 
 #[cfg(feature = "async")]
 use {super::BoxFuture, qiniu_http::AsyncResponseResult};
@@ -37,12 +43,12 @@ impl SyncReqwestHTTPCaller {
 impl HTTPCaller for SyncReqwestHTTPCaller {
     #[inline]
     fn call(&self, request: &Request) -> SyncResponseResult {
-        let reqwest_request = make_sync_reqwest_request(request)?;
-        let reqwest_response = self
-            .sync_client
-            .execute(reqwest_request)
-            .map_err(from_reqwest_error)?;
-        from_sync_response(reqwest_response, request)
+        let mut user_cancelled_error: Option<ResponseError> = None;
+        let reqwest_request = make_sync_reqwest_request(request, &mut user_cancelled_error)?;
+        match self.sync_client.execute(reqwest_request) {
+            Ok(reqwest_response) => from_sync_response(reqwest_response, request),
+            Err(err) => user_cancelled_error.map_or_else(|| Err(from_reqwest_error(err)), Err),
+        }
     }
 
     #[inline]
@@ -63,7 +69,10 @@ impl HTTPCaller for SyncReqwestHTTPCaller {
     }
 }
 
-fn make_sync_reqwest_request(request: &Request) -> Result<SyncReqwestRequest, ResponseError> {
+fn make_sync_reqwest_request(
+    request: &Request,
+    user_cancelled_error: &mut Option<ResponseError>,
+) -> Result<SyncReqwestRequest, ResponseError> {
     let url = Url::parse(&request.url().to_string())
         .map_err(|err| ResponseError::new(ResponseErrorKind::InvalidURL, err))?;
     let mut reqwest_request = SyncReqwestRequest::new(request.method().to_owned(), url);
@@ -75,8 +84,84 @@ fn make_sync_reqwest_request(request: &Request) -> Result<SyncReqwestRequest, Re
     reqwest_request
         .headers_mut()
         .insert(USER_AGENT, make_user_agent(request, "sync")?);
-    *reqwest_request.body_mut() = Some(request.body().to_vec().into());
-    Ok(reqwest_request)
+    *reqwest_request.body_mut() = Some(SyncBody::sized(
+        RequestBodyWithCallbacks::new(
+            request.body(),
+            request.on_uploading_progress(),
+            request.on_send_request_body(),
+            user_cancelled_error,
+        ),
+        request.body().len() as u64,
+    ));
+
+    if let Some(timeout) = request.extensions().get::<TimeoutExtension>() {
+        *reqwest_request.timeout_mut() = Some(timeout.get());
+    }
+
+    return Ok(reqwest_request);
+
+    type OnProgress<'r> = &'r (dyn Fn(u64, u64) -> bool + Send + Sync);
+    type OnBody<'r> = &'r (dyn Fn(&[u8]) -> bool + Send + Sync);
+
+    struct RequestBodyWithCallbacks {
+        body: Cursor<&'static [u8]>,
+        size: u64,
+        on_uploading_progress: Option<OnProgress<'static>>,
+        on_send_request_body: Option<OnBody<'static>>,
+        user_cancelled_error: &'static mut Option<ResponseError>,
+    }
+
+    impl RequestBodyWithCallbacks {
+        fn new(
+            body: &[u8],
+            on_uploading_progress: Option<OnProgress>,
+            on_send_request_body: Option<OnBody>,
+            user_cancelled_error: &mut Option<ResponseError>,
+        ) -> Self {
+            Self {
+                size: body.len() as u64,
+                body: Cursor::new(unsafe { transmute(body) }),
+                on_uploading_progress: on_uploading_progress
+                    .map(|callback| unsafe { transmute(callback) }),
+                on_send_request_body: on_send_request_body
+                    .map(|callback| unsafe { transmute(callback) }),
+                user_cancelled_error: unsafe { transmute(user_cancelled_error) },
+            }
+        }
+    }
+
+    impl Read for RequestBodyWithCallbacks {
+        fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+            match self.body.read(buf) {
+                Err(err) => Err(err),
+                Ok(0) => Ok(0),
+                Ok(n) => {
+                    let buf = &buf[..n];
+                    if let Some(on_uploading_progress) = self.on_uploading_progress {
+                        if !on_uploading_progress(self.body.position(), self.size) {
+                            const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
+                            *self.user_cancelled_error = Some(ResponseError::new(
+                                ResponseErrorKind::UserCanceled,
+                                ERROR_MESSAGE,
+                            ));
+                            return Err(IOError::new(IOErrorKind::Other, ERROR_MESSAGE));
+                        }
+                    }
+                    if let Some(on_send_request_body) = self.on_send_request_body {
+                        if !on_send_request_body(buf) {
+                            const ERROR_MESSAGE: &str = "on_send_request_body() returns false";
+                            *self.user_cancelled_error = Some(ResponseError::new(
+                                ResponseErrorKind::UserCanceled,
+                                ERROR_MESSAGE,
+                            ));
+                            return Err(IOError::new(IOErrorKind::Other, ERROR_MESSAGE));
+                        }
+                    }
+                    Ok(n)
+                }
+            }
+        }
+    }
 }
 
 #[inline]
@@ -94,9 +179,10 @@ pub(super) fn make_user_agent(
 }
 
 fn from_sync_response(mut response: SyncReqwestResponse, request: &Request) -> SyncResponseResult {
-    call_callbacks(request, response.status(), response.headers())?;
+    call_response_callbacks(request, response.status(), response.headers())?;
     let mut response_builder = SyncResponse::builder()
         .status_code(response.status())
+        .version(response.version())
         .headers(take(response.headers_mut()));
     if let Some(port) = response.url().port_or_known_default() {
         response_builder = response_builder.server_port(port);
@@ -127,13 +213,13 @@ pub(super) fn from_reqwest_error(err: ReqwestError) -> ResponseError {
 }
 
 #[inline]
-pub(super) fn call_callbacks(
+pub(super) fn call_response_callbacks(
     request: &Request,
-    status: StatusCode,
+    status_code: StatusCode,
     headers: &HeaderMap,
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
-        if !on_receive_response_status(status) {
+        if !on_receive_response_status(status_code) {
             return Err(ResponseError::new(
                 ResponseErrorKind::UserCanceled,
                 "on_receive_response_status() returns false",

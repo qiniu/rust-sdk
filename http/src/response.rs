@@ -4,6 +4,7 @@ use http::{
     header::{HeaderMap, HeaderName, HeaderValue},
     response::Response as HTTPResponse,
     status::StatusCode,
+    Extensions, Version,
 };
 use std::{
     default::Default,
@@ -119,17 +120,16 @@ pub struct Response<B> {
     inner: HTTPResponse<B>,
     server_ip: Option<IpAddr>,
     server_port: u16,
-    metrics: Metrics,
+    metrics: Option<Box<dyn Metrics>>,
 }
 
-#[derive(Debug, Clone, Default)]
-struct Metrics {
-    total_duration: Option<Duration>,
-    name_lookup_duration: Option<Duration>,
-    connect_duration: Option<Duration>,
-    secure_connect_duration: Option<Duration>,
-    redirect_duration: Option<Duration>,
-    transfer_duration: Option<Duration>,
+pub trait Metrics: Debug + Send + Sync {
+    fn total_duration(&self) -> Option<Duration>;
+    fn name_lookup_duration(&self) -> Option<Duration>;
+    fn connect_duration(&self) -> Option<Duration>;
+    fn secure_connect_duration(&self) -> Option<Duration>;
+    fn redirect_duration(&self) -> Option<Duration>;
+    fn transfer_duration(&self) -> Option<Duration>;
 }
 
 impl<B: Default> Default for Response<B> {
@@ -189,6 +189,18 @@ impl<B> Response<B> {
         self.inner.headers_mut()
     }
 
+    /// HTTP 版本
+    #[inline]
+    pub fn version(&self) -> Version {
+        self.inner.version()
+    }
+
+    /// 修改 HTTP 版本
+    #[inline]
+    pub fn version_mut(&mut self) -> &mut Version {
+        self.inner.version_mut()
+    }
+
     /// HTTP 服务器 IP 地址
     #[inline]
     pub fn server_ip(&self) -> Option<IpAddr> {
@@ -213,6 +225,18 @@ impl<B> Response<B> {
         &mut self.server_port
     }
 
+    /// 扩展字段
+    #[inline]
+    pub fn extensions(&self) -> &Extensions {
+        &self.inner.extensions()
+    }
+
+    /// 修改扩展字段
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        self.inner.extensions_mut()
+    }
+
     /// 获取 HTTP 响应 Header
     #[inline]
     pub fn header(&self, header_name: HeaderName) -> Option<&HeaderValue> {
@@ -220,63 +244,55 @@ impl<B> Response<B> {
     }
 
     #[inline]
+    pub fn metrics(&mut self) -> Option<&dyn Metrics> {
+        self.metrics.as_deref()
+    }
+
+    #[inline]
+    pub fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
+        &mut self.metrics
+    }
+
+    #[inline]
     pub fn total_duration(&self) -> Option<Duration> {
-        self.metrics.total_duration
+        self.metrics
+            .as_ref()
+            .and_then(|metrics| metrics.total_duration())
     }
 
     #[inline]
     pub fn name_lookup_duration(&self) -> Option<Duration> {
-        self.metrics.name_lookup_duration
+        self.metrics
+            .as_ref()
+            .and_then(|metrics| metrics.name_lookup_duration())
     }
 
     #[inline]
     pub fn connect_duration(&self) -> Option<Duration> {
-        self.metrics.connect_duration
+        self.metrics
+            .as_ref()
+            .and_then(|metrics| metrics.connect_duration())
     }
 
     #[inline]
     pub fn secure_connect_duration(&self) -> Option<Duration> {
-        self.metrics.secure_connect_duration
+        self.metrics
+            .as_ref()
+            .and_then(|metrics| metrics.secure_connect_duration())
     }
 
     #[inline]
     pub fn redirect_duration(&self) -> Option<Duration> {
-        self.metrics.redirect_duration
+        self.metrics
+            .as_ref()
+            .and_then(|metrics| metrics.redirect_duration())
     }
 
     #[inline]
     pub fn transfer_duration(&self) -> Option<Duration> {
-        self.metrics.transfer_duration
-    }
-
-    #[inline]
-    pub fn total_duration_mut(&mut self) -> &mut Option<Duration> {
-        &mut self.metrics.total_duration
-    }
-
-    #[inline]
-    pub fn name_lookup_duration_mut(&mut self) -> &mut Option<Duration> {
-        &mut self.metrics.name_lookup_duration
-    }
-
-    #[inline]
-    pub fn connect_duration_mut(&mut self) -> &mut Option<Duration> {
-        &mut self.metrics.connect_duration
-    }
-
-    #[inline]
-    pub fn secure_connect_duration_mut(&mut self) -> &mut Option<Duration> {
-        &mut self.metrics.secure_connect_duration
-    }
-
-    #[inline]
-    pub fn redirect_duration_mut(&mut self) -> &mut Option<Duration> {
-        &mut self.metrics.redirect_duration
-    }
-
-    #[inline]
-    pub fn transfer_duration_mut(&mut self) -> &mut Option<Duration> {
-        &mut self.metrics.transfer_duration
+        self.metrics
+            .as_ref()
+            .and_then(|metrics| metrics.transfer_duration())
     }
 
     /// HTTP 响应体
@@ -334,6 +350,13 @@ impl<B> ResponseBuilder<B> {
         self
     }
 
+    /// 设置 HTTP 版本
+    #[inline]
+    pub fn version(mut self, version: Version) -> Self {
+        *self.inner.version_mut() = version;
+        self
+    }
+
     /// 设置 HTTP 服务器 IP 地址
     #[inline]
     pub fn server_ip(mut self, server_ip: IpAddr) -> Self {
@@ -348,6 +371,13 @@ impl<B> ResponseBuilder<B> {
         self
     }
 
+    /// 设置扩展字段
+    #[inline]
+    pub fn extensions(mut self, extensions: Extensions) -> Self {
+        *self.inner.extensions_mut() = extensions;
+        self
+    }
+
     /// 添加 HTTP Header
     #[inline]
     pub fn header(mut self, header_name: HeaderName, header_value: HeaderValue) -> Self {
@@ -356,38 +386,8 @@ impl<B> ResponseBuilder<B> {
     }
 
     #[inline]
-    pub fn total_duration(mut self, duration: Duration) -> Self {
-        self.inner.metrics.total_duration = Some(duration);
-        self
-    }
-
-    #[inline]
-    pub fn name_lookup_duration(mut self, duration: Duration) -> Self {
-        self.inner.metrics.name_lookup_duration = Some(duration);
-        self
-    }
-
-    #[inline]
-    pub fn connect_duration(mut self, duration: Duration) -> Self {
-        self.inner.metrics.connect_duration = Some(duration);
-        self
-    }
-
-    #[inline]
-    pub fn secure_connect_duration(mut self, duration: Duration) -> Self {
-        self.inner.metrics.secure_connect_duration = Some(duration);
-        self
-    }
-
-    #[inline]
-    pub fn redirect_duration(mut self, duration: Duration) -> Self {
-        self.inner.metrics.redirect_duration = Some(duration);
-        self
-    }
-
-    #[inline]
-    pub fn transfer_duration(mut self, duration: Duration) -> Self {
-        self.inner.metrics.transfer_duration = Some(duration);
+    pub fn metrics(mut self, metrics: Box<dyn Metrics>) -> Self {
+        self.inner.metrics = Some(metrics);
         self
     }
 

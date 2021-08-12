@@ -35,7 +35,7 @@ pub struct Request<'r> {
 
     // 请求配置属性
     appended_user_agent: Cow<'r, str>,
-    resolved_ip_addrs: Cow<'r, [IpAddr]>,
+    resolved_ip_addr: Option<IpAddr>,
     on_uploading_progress: Option<OnProgress<'r>>,
     on_send_request_body: Option<OnBody<'r>>,
     on_receive_response_status: Option<OnStatusCode<'r>>,
@@ -141,14 +141,14 @@ impl<'r> Request<'r> {
 
     /// 预解析的服务器套接字地址
     #[inline]
-    pub fn resolved_ip_addrs(&self) -> &[IpAddr] {
-        &self.resolved_ip_addrs
+    pub fn resolved_ip_addr(&self) -> Option<IpAddr> {
+        self.resolved_ip_addr
     }
 
     /// 修改预解析的服务器套接字地址
     #[inline]
-    pub fn resolved_ip_addrs_mut(&mut self) -> &mut Cow<'r, [IpAddr]> {
-        &mut self.resolved_ip_addrs
+    pub fn resolved_ip_addr_mut(&mut self) -> &mut Option<IpAddr> {
+        &mut self.resolved_ip_addr
     }
 
     /// 上传进度回调
@@ -211,7 +211,7 @@ impl Default for Request<'_> {
         Self {
             inner: Default::default(),
             appended_user_agent: Default::default(),
-            resolved_ip_addrs: Default::default(),
+            resolved_ip_addr: Default::default(),
             on_uploading_progress: None,
             on_send_request_body: None,
             on_receive_response_status: None,
@@ -241,7 +241,7 @@ impl fmt::Debug for Request<'_> {
         let s = &mut f.debug_struct("Request");
         field!(s, "http", inner);
         field!(s, "appended_user_agent", appended_user_agent);
-        field!(s, "resolved_ip_addrs", resolved_ip_addrs);
+        field!(s, "resolved_ip_addr", resolved_ip_addr);
         closure_field!(s, "on_uploading_progress", on_uploading_progress);
         closure_field!(s, "on_send_request_body", on_send_request_body);
         closure_field!(s, "on_receive_response_status", on_receive_response_status);
@@ -301,11 +301,8 @@ impl<'r> RequestBuilder<'r> {
 
     /// 设置预解析的服务器套接字地址
     #[inline]
-    pub fn resolved_ip_addrs(
-        &mut self,
-        resolved_ip_addrs: impl Into<Cow<'r, [IpAddr]>>,
-    ) -> &mut Self {
-        self.inner.resolved_ip_addrs = resolved_ip_addrs.into();
+    pub fn resolved_ip_addr(&mut self, resolved_ip_addr: impl Into<IpAddr>) -> &mut Self {
+        self.inner.resolved_ip_addr = Some(resolved_ip_addr.into());
         self
     }
 
