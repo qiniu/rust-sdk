@@ -21,12 +21,14 @@
 )]
 
 use hmac::{Hmac, Mac, NewMac};
-use once_cell::sync::Lazy;
-use qiniu_utils::{
-    base64,
-    http::{header::Headers, method::Method},
-    mime,
+use http::{
+    header::{HeaderMap, CONTENT_TYPE},
+    method::Method,
+    HeaderValue,
 };
+use mime::{APPLICATION_OCTET_STREAM, APPLICATION_WWW_FORM_URLENCODED};
+use once_cell::sync::Lazy;
+use qiniu_utils::base64;
 use sha1::Sha1;
 use std::{
     any::Any,
@@ -117,7 +119,7 @@ impl Credential<'_> {
     pub fn authorization_v1_for_request(
         &self,
         url: &Url,
-        content_type: &str,
+        content_type: &HeaderValue,
         body: &[u8],
     ) -> String {
         let authorization_token = sign_request_v1(self, url, content_type, body);
@@ -129,7 +131,7 @@ impl Credential<'_> {
         &self,
         method: Method,
         url: &Url,
-        headers: &Headers,
+        headers: &HeaderMap,
         body: &[u8],
     ) -> String {
         let authorization_token = sign_request_v2(self, method, url, headers, body);
@@ -154,7 +156,12 @@ impl Credential<'_> {
     }
 }
 
-fn sign_request_v1(cred: &Credential, url: &Url, content_type: &str, body: &[u8]) -> String {
+fn sign_request_v1(
+    cred: &Credential,
+    url: &Url,
+    content_type: &HeaderValue,
+    body: &[u8],
+) -> String {
     let mut data_to_sign = Vec::with_capacity(1024);
     data_to_sign.extend_from_slice(url.path().as_bytes());
     if let Some(query) = url.query() {
@@ -174,11 +181,11 @@ fn sign_request_v2(
     cred: &Credential,
     method: Method,
     url: &Url,
-    headers: &Headers,
+    headers: &HeaderMap,
     body: &[u8],
 ) -> String {
     let mut data_to_sign = Vec::with_capacity(1024);
-    data_to_sign.extend_from_slice(method.as_bytes());
+    data_to_sign.extend_from_slice(method.as_str().as_bytes());
     data_to_sign.extend_from_slice(b" ");
     data_to_sign.extend_from_slice(url.path().as_bytes());
     if let Some(query) = url.query() {
@@ -199,9 +206,9 @@ fn sign_request_v2(
     }
     data_to_sign.extend_from_slice(b"\n");
 
-    if let Some(content_type) = headers.get(&"Content-Type".into()) {
+    if let Some(content_type) = headers.get(CONTENT_TYPE) {
         data_to_sign.extend_from_slice(b"Content-Type: ");
-        data_to_sign.extend_from_slice(content_type.as_ref().as_bytes());
+        data_to_sign.extend_from_slice(content_type.as_bytes());
         data_to_sign.extend_from_slice(b"\n");
         sign_data_for_x_qiniu_headers(&mut data_to_sign, headers);
         data_to_sign.extend_from_slice(b"\n");
@@ -214,11 +221,12 @@ fn sign_request_v2(
     }
     return cred.sign(&data_to_sign);
 
-    fn sign_data_for_x_qiniu_headers(data_to_sign: &mut Vec<u8>, headers: &Headers) {
+    fn sign_data_for_x_qiniu_headers(data_to_sign: &mut Vec<u8>, headers: &HeaderMap) {
         let mut x_qiniu_headers = headers
             .iter()
-            .filter(|(key, _)| key.len() > "X-Qiniu-".len())
-            .filter(|(key, _)| key.starts_with("X-Qiniu-"))
+            .filter(|(key, _)| key.as_str().len() > "X-Qiniu-".len())
+            .filter(|(key, _)| key.as_str().starts_with("X-Qiniu-"))
+            .map(|(key, value)| (key.as_str(), value.as_bytes()))
             .collect::<Vec<_>>();
         if x_qiniu_headers.is_empty() {
             return;
@@ -227,7 +235,7 @@ fn sign_request_v2(
         for (header_key, header_value) in x_qiniu_headers {
             data_to_sign.extend_from_slice(header_key.as_bytes());
             data_to_sign.extend_from_slice(b": ");
-            data_to_sign.extend_from_slice(header_value.as_bytes());
+            data_to_sign.extend_from_slice(header_value);
             data_to_sign.extend_from_slice(b"\n");
         }
     }
@@ -240,13 +248,13 @@ fn base64ed_hmac_digest(secret_key: &str, data: &[u8]) -> String {
 }
 
 #[inline]
-fn will_push_body_v1(content_type: &str) -> bool {
-    mime::FORM_MIME.eq_ignore_ascii_case(content_type)
+fn will_push_body_v1(content_type: &HeaderValue) -> bool {
+    APPLICATION_WWW_FORM_URLENCODED.as_ref() == content_type
 }
 
 #[inline]
-fn will_push_body_v2(content_type: &str) -> bool {
-    !mime::BINARY_MIME.eq_ignore_ascii_case(content_type)
+fn will_push_body_v2(content_type: &HeaderValue) -> bool {
+    APPLICATION_OCTET_STREAM.as_ref() != content_type
 }
 
 #[cfg(feature = "async")]
@@ -660,7 +668,7 @@ mod tests {
         assert_eq!(
             credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/")?,
-                mime::FORM_MIME,
+                APPLICATION_WWW_FORM_URLENCODED,
                 b"name=test&language=go"
             ),
             "QBox ".to_owned() + &credential.get().unwrap().sign(b"/\nname=test&language=go")
@@ -668,7 +676,7 @@ mod tests {
         assert_eq!(
             credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/?v=2")?,
-                mime::FORM_MIME,
+                APPLICATION_WWW_FORM_URLENCODED,
                 b"name=test&language=go"
             ),
             "QBox ".to_owned()
@@ -680,7 +688,7 @@ mod tests {
         assert_eq!(
             credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/find/sdk?v=2")?,
-                mime::FORM_MIME,
+                APPLICATION_WWW_FORM_URLENCODED,
                 b"name=test&language=go"
             ),
             "QBox ".to_owned()
@@ -696,12 +704,12 @@ mod tests {
     fn test_authorization_v2() -> Result<(), Box<dyn Error>> {
         let credential = get_global_credential();
         let empty_headers = {
-            let mut headers = Headers::new();
+            let mut headers = HeaderMap::new();
             headers.insert("X-Qbox-Meta".into(), "value".into());
             headers
         };
         let json_headers = {
-            let mut headers = Headers::new();
+            let mut headers = HeaderMap::new();
             headers.insert("Content-Type".into(), mime::JSON_MIME.into());
             headers.insert("X-Qbox-Meta".into(), "value".into());
             headers.insert("X-Qiniu-Cxxxx".into(), "valuec".into());
@@ -713,8 +721,11 @@ mod tests {
             headers
         };
         let form_headers = {
-            let mut headers = Headers::new();
-            headers.insert("Content-Type".into(), mime::FORM_MIME.into());
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                "Content-Type".into(),
+                APPLICATION_WWW_FORM_URLENCODED.into(),
+            );
             headers.insert("X-Qbox-Meta".into(), "value".into());
             headers.insert("X-Qiniu-Cxxxx".into(), "valuec".into());
             headers.insert("X-Qiniu-Bxxxx".into(), "valueb".into());
