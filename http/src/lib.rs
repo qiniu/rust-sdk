@@ -31,7 +31,7 @@ pub use http::{
     status::StatusCode,
     uri::Uri,
 };
-pub use request::{Body as RequestBody, Request, RequestBuilder};
+pub use request::{Body as RequestBody, Request, RequestBuilder, UploadProgressInfo};
 pub use response::{
     Body as ResponseBody, Metrics, ReadDebug, Response, ResponseBuilder, Result as ResponseResult,
 };

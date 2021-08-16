@@ -143,9 +143,9 @@ mod tests {
                                     .expect("invalid uri"),
                             )
                             .body(&request_body)
-                            .on_uploading_progress(&|uploaded, total| {
-                                last_uploaded.store(uploaded, Relaxed);
-                                last_total.store(total, Relaxed);
+                            .on_uploading_progress(&|info| {
+                                last_uploaded.store(info.uploaded(), Relaxed);
+                                last_total.store(info.total(), Relaxed);
                                 true
                             })
                             .build(),
@@ -242,9 +242,9 @@ mod tests {
                                     .expect("invalid uri"),
                             )
                             .body(&request_body)
-                            .on_uploading_progress(&|uploaded, total| {
-                                last_uploaded.store(uploaded, Relaxed);
-                                last_total.store(total, Relaxed);
+                            .on_uploading_progress(&|info| {
+                                last_uploaded.store(info.uploaded(), Relaxed);
+                                last_total.store(info.total(), Relaxed);
                                 true
                             })
                             .build(),

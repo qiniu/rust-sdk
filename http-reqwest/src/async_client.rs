@@ -8,7 +8,7 @@ use bytes::Bytes;
 use futures::{io::Cursor, ready, AsyncRead, Stream};
 use qiniu_http::{
     AsyncResponse, AsyncResponseResult, HTTPCaller, Request, ResponseError, ResponseErrorKind,
-    SyncResponseResult,
+    SyncResponseResult, UploadProgressInfo,
 };
 use reqwest::{
     header::USER_AGENT, Body as AsyncBody, Client as AsyncReqwestClient,
@@ -91,7 +91,6 @@ fn make_async_reqwest_request(
     *reqwest_request.body_mut() = Some(AsyncBody::wrap_stream(RequestBodyWithCallbacks::new(
         request.body(),
         request.on_uploading_progress(),
-        request.on_send_request_body(),
         user_cancelled_error,
     )));
     if let Some(timeout) = request.extensions().get::<TimeoutExtension>() {
@@ -99,14 +98,12 @@ fn make_async_reqwest_request(
     }
     return Ok(reqwest_request);
 
-    type OnProgress<'r> = &'r (dyn Fn(u64, u64) -> bool + Send + Sync);
-    type OnBody<'r> = &'r (dyn Fn(&[u8]) -> bool + Send + Sync);
+    type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
 
     struct RequestBodyWithCallbacks {
         body: Cursor<&'static [u8]>,
         size: usize,
         on_uploading_progress: Option<OnProgress<'static>>,
-        on_send_request_body: Option<OnBody<'static>>,
         user_cancelled_error: &'static mut Option<ResponseError>,
     }
 
@@ -114,15 +111,12 @@ fn make_async_reqwest_request(
         fn new(
             body: &[u8],
             on_uploading_progress: Option<OnProgress>,
-            on_send_request_body: Option<OnBody>,
             user_cancelled_error: &mut Option<ResponseError>,
         ) -> Self {
             Self {
                 size: body.len(),
                 body: Cursor::new(unsafe { transmute(body) }),
                 on_uploading_progress: on_uploading_progress
-                    .map(|callback| unsafe { transmute(callback) }),
-                on_send_request_body: on_send_request_body
                     .map(|callback| unsafe { transmute(callback) }),
                 user_cancelled_error: unsafe { transmute(user_cancelled_error) },
             }
@@ -141,21 +135,12 @@ fn make_async_reqwest_request(
                 Ok(n) => {
                     let buf = &buf[..n];
                     if let Some(on_uploading_progress) = self.on_uploading_progress {
-                        if !on_uploading_progress(self.body.position(), self.size as u64) {
+                        if !on_uploading_progress(&UploadProgressInfo::new(
+                            self.body.position(),
+                            self.size as u64,
+                            buf,
+                        )) {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
-                            *self.user_cancelled_error = Some(ResponseError::new(
-                                ResponseErrorKind::UserCanceled,
-                                ERROR_MESSAGE,
-                            ));
-                            return Poll::Ready(Some(Err(Box::new(IOError::new(
-                                IOErrorKind::Other,
-                                ERROR_MESSAGE,
-                            )))));
-                        }
-                    }
-                    if let Some(on_send_request_body) = self.on_send_request_body {
-                        if !on_send_request_body(buf) {
-                            const ERROR_MESSAGE: &str = "on_send_request_body() returns false";
                             *self.user_cancelled_error = Some(ResponseError::new(
                                 ResponseErrorKind::UserCanceled,
                                 ERROR_MESSAGE,

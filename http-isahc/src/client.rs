@@ -7,7 +7,7 @@ use isahc::{
 };
 use qiniu_http::{
     HTTPCaller, HeaderValue, Metrics, Request, ResponseError, ResponseErrorKind, SyncResponse,
-    SyncResponseResult, Uri,
+    SyncResponseResult, UploadProgressInfo, Uri,
 };
 use std::{
     io::{Cursor, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
@@ -234,7 +234,6 @@ fn make_sync_isahc_request(
             RequestBodyWithCallbacks::new(
                 request.body(),
                 request.on_uploading_progress(),
-                request.on_send_request_body(),
                 user_cancelled_error,
             ),
             request.body().len() as u64,
@@ -242,14 +241,12 @@ fn make_sync_isahc_request(
         .map_err(|err| ResponseError::new(ResponseErrorKind::InvalidRequestResponse, err))?;
     return Ok(isahc_request);
 
-    type OnProgress<'r> = &'r (dyn Fn(u64, u64) -> bool + Send + Sync);
-    type OnBody<'r> = &'r (dyn Fn(&[u8]) -> bool + Send + Sync);
+    type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
 
     struct RequestBodyWithCallbacks {
         body: Cursor<&'static [u8]>,
         size: u64,
         on_uploading_progress: Option<OnProgress<'static>>,
-        on_send_request_body: Option<OnBody<'static>>,
         user_cancelled_error: &'static mut Option<ResponseError>,
     }
 
@@ -257,15 +254,12 @@ fn make_sync_isahc_request(
         fn new(
             body: &[u8],
             on_uploading_progress: Option<OnProgress>,
-            on_send_request_body: Option<OnBody>,
             user_cancelled_error: &mut Option<ResponseError>,
         ) -> Self {
             Self {
                 size: body.len() as u64,
                 body: Cursor::new(unsafe { transmute(body) }),
                 on_uploading_progress: on_uploading_progress
-                    .map(|callback| unsafe { transmute(callback) }),
-                on_send_request_body: on_send_request_body
                     .map(|callback| unsafe { transmute(callback) }),
                 user_cancelled_error: unsafe { transmute(user_cancelled_error) },
             }
@@ -280,18 +274,12 @@ fn make_sync_isahc_request(
                 Ok(n) => {
                     let buf = &buf[..n];
                     if let Some(on_uploading_progress) = self.on_uploading_progress {
-                        if !on_uploading_progress(self.body.position(), self.size) {
+                        if !on_uploading_progress(&UploadProgressInfo::new(
+                            self.body.position(),
+                            self.size,
+                            buf,
+                        )) {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
-                            *self.user_cancelled_error = Some(ResponseError::new(
-                                ResponseErrorKind::UserCanceled,
-                                ERROR_MESSAGE,
-                            ));
-                            return Err(IOError::new(IOErrorKind::Other, ERROR_MESSAGE));
-                        }
-                    }
-                    if let Some(on_send_request_body) = self.on_send_request_body {
-                        if !on_send_request_body(buf) {
-                            const ERROR_MESSAGE: &str = "on_send_request_body() returns false";
                             *self.user_cancelled_error = Some(ResponseError::new(
                                 ResponseErrorKind::UserCanceled,
                                 ERROR_MESSAGE,
@@ -328,7 +316,6 @@ fn make_async_reqwest_request(
             RequestBodyWithCallbacks::new(
                 request.body(),
                 request.on_uploading_progress(),
-                request.on_send_request_body(),
                 user_cancelled_error,
             ),
             request.body().len() as u64,
@@ -336,14 +323,12 @@ fn make_async_reqwest_request(
         .map_err(|err| ResponseError::new(ResponseErrorKind::InvalidRequestResponse, err))?;
     return Ok(isahc_request);
 
-    type OnProgress<'r> = &'r (dyn Fn(u64, u64) -> bool + Send + Sync);
-    type OnBody<'r> = &'r (dyn Fn(&[u8]) -> bool + Send + Sync);
+    type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
 
     struct RequestBodyWithCallbacks {
         body: AsyncCursor<&'static [u8]>,
         size: u64,
         on_uploading_progress: Option<OnProgress<'static>>,
-        on_send_request_body: Option<OnBody<'static>>,
         user_cancelled_error: &'static mut Option<ResponseError>,
     }
 
@@ -351,15 +336,12 @@ fn make_async_reqwest_request(
         fn new(
             body: &[u8],
             on_uploading_progress: Option<OnProgress>,
-            on_send_request_body: Option<OnBody>,
             user_cancelled_error: &mut Option<ResponseError>,
         ) -> Self {
             Self {
                 size: body.len() as u64,
                 body: AsyncCursor::new(unsafe { transmute(body) }),
                 on_uploading_progress: on_uploading_progress
-                    .map(|callback| unsafe { transmute(callback) }),
-                on_send_request_body: on_send_request_body
                     .map(|callback| unsafe { transmute(callback) }),
                 user_cancelled_error: unsafe { transmute(user_cancelled_error) },
             }
@@ -380,21 +362,12 @@ fn make_async_reqwest_request(
                 Ok(n) => {
                     let buf = &buf[..n];
                     if let Some(on_uploading_progress) = self.on_uploading_progress {
-                        if !on_uploading_progress(self.body.position(), self.size) {
+                        if !on_uploading_progress(&UploadProgressInfo::new(
+                            self.body.position(),
+                            self.size,
+                            buf,
+                        )) {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
-                            *self.user_cancelled_error = Some(ResponseError::new(
-                                ResponseErrorKind::UserCanceled,
-                                ERROR_MESSAGE,
-                            ));
-                            return Poll::Ready(Err(IOError::new(
-                                IOErrorKind::Other,
-                                ERROR_MESSAGE,
-                            )));
-                        }
-                    }
-                    if let Some(on_send_request_body) = self.on_send_request_body {
-                        if !on_send_request_body(buf) {
-                            const ERROR_MESSAGE: &str = "on_send_request_body() returns false";
                             *self.user_cancelled_error = Some(ResponseError::new(
                                 ResponseErrorKind::UserCanceled,
                                 ERROR_MESSAGE,

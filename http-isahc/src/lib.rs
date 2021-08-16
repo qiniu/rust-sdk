@@ -139,9 +139,9 @@ mod tests {
                             )
                             .body(&request_body)
                             .resolved_ip_addr(addr.ip())
-                            .on_uploading_progress(&|uploaded, total| {
-                                last_uploaded.store(uploaded, Relaxed);
-                                last_total.store(total, Relaxed);
+                            .on_uploading_progress(&|info| {
+                                last_uploaded.store(info.uploaded(), Relaxed);
+                                last_total.store(info.total(), Relaxed);
                                 true
                             })
                             .build(),
@@ -239,9 +239,9 @@ mod tests {
                             )
                             .body(&request_body)
                             .resolved_ip_addr(addr.ip())
-                            .on_uploading_progress(&|uploaded, total| {
-                                last_uploaded.store(uploaded, Relaxed);
-                                last_total.store(total, Relaxed);
+                            .on_uploading_progress(&|info| {
+                                last_uploaded.store(info.uploaded(), Relaxed);
+                                last_total.store(info.total(), Relaxed);
                                 true
                             })
                             .build(),

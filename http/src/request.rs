@@ -22,8 +22,7 @@ static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
 /// 请求体
 pub type Body<'b> = Cow<'b, [u8]>;
 
-type OnProgress<'r> = &'r (dyn Fn(u64, u64) -> bool + Send + Sync);
-type OnBody<'r> = &'r (dyn Fn(&[u8]) -> bool + Send + Sync);
+type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
 type OnStatusCode<'r> = &'r (dyn Fn(StatusCode) -> bool + Send + Sync);
 type OnHeader<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync);
 
@@ -37,7 +36,6 @@ pub struct Request<'r> {
     appended_user_agent: Cow<'r, str>,
     resolved_ip_addr: Option<IpAddr>,
     on_uploading_progress: Option<OnProgress<'r>>,
-    on_send_request_body: Option<OnBody<'r>>,
     on_receive_response_status: Option<OnStatusCode<'r>>,
     on_receive_response_header: Option<OnHeader<'r>>,
 }
@@ -153,7 +151,7 @@ impl<'r> Request<'r> {
 
     /// 上传进度回调
     #[inline]
-    pub fn on_uploading_progress(&self) -> Option<OnProgress> {
+    pub fn on_uploading_progress(&self) -> Option<OnProgress<'r>> {
         self.on_uploading_progress
     }
 
@@ -161,18 +159,6 @@ impl<'r> Request<'r> {
     #[inline]
     pub fn on_uploading_progress_mut(&mut self) -> &mut Option<OnProgress<'r>> {
         &mut self.on_uploading_progress
-    }
-
-    /// 发送请求体回调
-    #[inline]
-    pub fn on_send_request_body(&self) -> Option<OnBody> {
-        self.on_send_request_body
-    }
-
-    /// 修改发送请求体回调
-    #[inline]
-    pub fn on_send_request_body_mut(&mut self) -> &mut Option<OnBody<'r>> {
-        &mut self.on_send_request_body
     }
 
     /// 接受到响应状态回调
@@ -213,7 +199,6 @@ impl Default for Request<'_> {
             appended_user_agent: Default::default(),
             resolved_ip_addr: Default::default(),
             on_uploading_progress: None,
-            on_send_request_body: None,
             on_receive_response_status: None,
             on_receive_response_header: None,
         }
@@ -243,7 +228,6 @@ impl fmt::Debug for Request<'_> {
         field!(s, "appended_user_agent", appended_user_agent);
         field!(s, "resolved_ip_addr", resolved_ip_addr);
         closure_field!(s, "on_uploading_progress", on_uploading_progress);
-        closure_field!(s, "on_send_request_body", on_send_request_body);
         closure_field!(s, "on_receive_response_status", on_receive_response_status);
         closure_field!(s, "on_receive_response_header", on_receive_response_header);
         s.finish()
@@ -313,13 +297,6 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    /// 发送请求体回调
-    #[inline]
-    pub fn on_send_request_body(&mut self, f: OnBody<'r>) -> &mut Self {
-        self.inner.on_send_request_body = Some(f);
-        self
-    }
-
     /// 接受到响应状态回调
     #[inline]
     pub fn on_receive_response_status(&mut self, f: OnStatusCode<'r>) -> &mut Self {
@@ -344,5 +321,38 @@ impl<'r> RequestBuilder<'r> {
     #[inline]
     pub fn reset(&mut self) {
         self.inner = Default::default();
+    }
+}
+
+/// 上传进度信息
+pub struct UploadProgressInfo<'b> {
+    uploaded: u64,
+    total: u64,
+    uploaded_body: &'b [u8],
+}
+
+impl<'b> UploadProgressInfo<'b> {
+    #[inline]
+    pub fn new(uploaded: u64, total: u64, uploaded_body: &'b [u8]) -> Self {
+        Self {
+            uploaded,
+            total,
+            uploaded_body,
+        }
+    }
+
+    #[inline]
+    pub fn uploaded(&self) -> u64 {
+        self.uploaded
+    }
+
+    #[inline]
+    pub fn total(&self) -> u64 {
+        self.total
+    }
+
+    #[inline]
+    pub fn uploaded_body(&self) -> &[u8] {
+        self.uploaded_body
     }
 }
