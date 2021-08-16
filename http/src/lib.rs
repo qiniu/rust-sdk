@@ -86,7 +86,7 @@ pub trait HTTPCaller: Any + Debug + Send + Sync {
     fn async_call<'a>(&'a self, request: &'a Request<'_>) -> BoxFuture<'a, AsyncResponseResult>;
 
     #[inline]
-    fn is_resolved_ip_addr_supported(&self) -> bool {
+    fn is_resolved_ip_addrs_supported(&self) -> bool {
         false
     }
 

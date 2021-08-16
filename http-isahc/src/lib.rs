@@ -138,7 +138,7 @@ mod tests {
                                     .expect("invalid uri"),
                             )
                             .body(&request_body)
-                            .resolved_ip_addr(addr.ip())
+                            .resolved_ip_addrs([addr.ip()].as_ref())
                             .on_uploading_progress(&|info| {
                                 last_uploaded.store(info.uploaded(), Relaxed);
                                 last_total.store(info.total(), Relaxed);
@@ -238,7 +238,7 @@ mod tests {
                                     .expect("invalid uri"),
                             )
                             .body(&request_body)
-                            .resolved_ip_addr(addr.ip())
+                            .resolved_ip_addrs([addr.ip()].as_ref())
                             .on_uploading_progress(&|info| {
                                 last_uploaded.store(info.uploaded(), Relaxed);
                                 last_total.store(info.total(), Relaxed);

@@ -91,7 +91,7 @@ impl HTTPCaller for Client {
     }
 
     #[inline]
-    fn is_resolved_ip_addr_supported(&self) -> bool {
+    fn is_resolved_ip_addrs_supported(&self) -> bool {
         true
     }
 
@@ -455,7 +455,7 @@ fn add_extensions_to_isahc_request_builder(
 
     if let Some(extension) = request.extensions().get::<DialRequestExtension>() {
         isahc_request_builder = isahc_request_builder.dial(extension.get().to_owned());
-    } else if let Some(ip) = request.resolved_ip_addr() {
+    } else if let Some(&ip) = request.resolved_ip_addrs().and_then(|ips| ips.first()) {
         isahc_request_builder = isahc_request_builder.dial(Dialer::ip_socket(SocketAddr::new(
             ip,
             extract_port_for_uri(request.url())?,
