@@ -205,41 +205,46 @@ impl UploadTokenProvider for FromUploadPolicy {
     }
 }
 
-/// 基于存储空间动态生成
+/// 基于对象的动态生成
 ///
-/// 根据存储空间快速生成上传凭证实例
-pub struct BucketUploadTokenProvider {
+/// 根据对象的快速生成上传凭证实例
+pub struct ObjectUploadTokenProvider {
     bucket: Cow<'static, str>,
+    object: Cow<'static, str>,
     upload_token_lifetime: Duration,
     credential: Box<dyn CredentialProvider>,
 }
 
-impl BucketUploadTokenProvider {
-    /// 基于存储空间名称和认证信息动态生成上传凭证实例
+impl ObjectUploadTokenProvider {
+    /// 基于存储空间和对象名称和认证信息动态生成上传凭证实例
+    #[inline]
     pub fn new(
         bucket: impl Into<Cow<'static, str>>,
+        object: impl Into<Cow<'static, str>>,
         upload_token_lifetime: Duration,
         credential: Box<dyn CredentialProvider>,
     ) -> Self {
         Self {
             bucket: bucket.into(),
+            object: object.into(),
             upload_token_lifetime,
             credential,
         }
     }
 }
 
-impl Debug for BucketUploadTokenProvider {
+impl Debug for ObjectUploadTokenProvider {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("BucketUploadTokenProvider")
+        f.debug_struct("ObjectUploadTokenProvider")
             .field("bucket", &self.bucket)
+            .field("object", &self.object)
             .field("upload_token_lifetime", &self.upload_token_lifetime)
             .finish()
     }
 }
 
-impl UploadTokenProvider for BucketUploadTokenProvider {
+impl UploadTokenProvider for ObjectUploadTokenProvider {
     #[inline]
     fn access_key(&self) -> ParseResult<Cow<str>> {
         Ok(self.credential.get()?.into_pair().0)
@@ -256,8 +261,9 @@ impl UploadTokenProvider for BucketUploadTokenProvider {
 
     fn to_string(&self) -> IOResult<Cow<str>> {
         let upload_token = self.credential.get()?.sign_with_data(
-            UploadPolicyBuilder::new_policy_for_bucket(
+            UploadPolicyBuilder::new_policy_for_object(
                 self.bucket.to_string(),
+                self.object.to_string(),
                 self.upload_token_lifetime,
             )
             .build()
@@ -302,6 +308,8 @@ pub type ParseResult<T> = Result<T, ParseError>;
 #[cfg(test)]
 mod tests {
     use super::{super::UploadPolicyBuilder, *};
+    use async_std as _;
+    use clap as _;
     use qiniu_credential::StaticCredentialProvider;
     use std::{boxed::Box, error::Error, result::Result};
 

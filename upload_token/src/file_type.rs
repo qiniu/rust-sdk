@@ -6,13 +6,13 @@ use std::{convert::TryFrom, error::Error, fmt};
 #[non_exhaustive]
 pub enum FileType {
     /// 标准存储
-    Normal,
+    Normal = 0,
 
     /// 低频存储
-    InfrequentAccess,
+    InfrequentAccess = 1,
 
     /// 归档存储
-    Glacial,
+    Glacial = 2,
 }
 
 impl Default for FileType {
@@ -38,11 +38,7 @@ impl Default for FileType {
 impl From<FileType> for ty {
     #[inline]
     fn from(file_type: FileType) -> Self {
-        match file_type {
-            FileType::Normal => 0 as ty,
-            FileType::InfrequentAccess => 1 as ty,
-            FileType::Glacial => 2 as ty,
-        }
+        file_type as ty
     }
 }
 

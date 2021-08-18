@@ -607,7 +607,7 @@ impl From<UploadPolicy> for Cow<'_, UploadPolicy> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use qiniu_utils::mime;
+    use mime::APPLICATION_WWW_FORM_URLENCODED;
     use serde_json::json;
     use std::{boxed::Box, error::Error, result::Result};
 
@@ -869,7 +869,7 @@ mod tests {
                     &["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"],
                     "www.qiniu.com",
                     "a=b&c=d",
-                    mime::FORM_MIME,
+                    APPLICATION_WWW_FORM_URLENCODED.as_ref(),
                 )
                 .build();
         assert_eq!(
@@ -884,7 +884,10 @@ mod tests {
         );
         assert_eq!(policy.callback_host(), Some("www.qiniu.com"));
         assert_eq!(policy.callback_body(), Some("a=b&c=d"));
-        assert_eq!(policy.callback_body_type(), Some(mime::FORM_MIME));
+        assert_eq!(
+            policy.callback_body_type(),
+            Some(APPLICATION_WWW_FORM_URLENCODED.as_ref())
+        );
         assert_eq!(
             policy.get("callbackUrl"),
             Some(&json!("https://1.1.1.1;https://2.2.2.2;https://3.3.3.3"))
@@ -893,7 +896,7 @@ mod tests {
         assert_eq!(policy.get("callbackBody"), Some(&json!("a=b&c=d")));
         assert_eq!(
             policy.get("callbackBodyType"),
-            Some(&json!(mime::FORM_MIME))
+            Some(&json!(APPLICATION_WWW_FORM_URLENCODED.as_ref()))
         );
         Ok(())
     }
