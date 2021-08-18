@@ -44,6 +44,9 @@ use std::{
 };
 pub use url::{ParseError as UrlParseError, Url};
 
+mod header_name;
+use header_name::make_header_name;
+
 pub mod preclude {
     pub use super::CredentialProvider;
 }
@@ -119,7 +122,7 @@ impl Credential<'_> {
     pub fn authorization_v1_for_request(
         &self,
         url: &Url,
-        content_type: &HeaderValue,
+        content_type: Option<&HeaderValue>,
         body: &[u8],
     ) -> String {
         let authorization_token = sign_request_v1(self, url, content_type, body);
@@ -159,7 +162,7 @@ impl Credential<'_> {
 fn sign_request_v1(
     cred: &Credential,
     url: &Url,
-    content_type: &HeaderValue,
+    content_type: Option<&HeaderValue>,
     body: &[u8],
 ) -> String {
     let mut data_to_sign = Vec::with_capacity(1024);
@@ -171,8 +174,10 @@ fn sign_request_v1(
         }
     }
     data_to_sign.extend_from_slice(b"\n");
-    if !content_type.is_empty() && !body.is_empty() && will_push_body_v1(content_type) {
-        data_to_sign.extend_from_slice(body);
+    if let Some(content_type) = content_type {
+        if !body.is_empty() && will_push_body_v1(content_type) {
+            data_to_sign.extend_from_slice(body);
+        }
     }
     cred.sign(&data_to_sign)
 }
@@ -224,9 +229,9 @@ fn sign_request_v2(
     fn sign_data_for_x_qiniu_headers(data_to_sign: &mut Vec<u8>, headers: &HeaderMap) {
         let mut x_qiniu_headers = headers
             .iter()
-            .filter(|(key, _)| key.as_str().len() > "X-Qiniu-".len())
-            .filter(|(key, _)| key.as_str().starts_with("X-Qiniu-"))
-            .map(|(key, value)| (key.as_str(), value.as_bytes()))
+            .map(|(key, value)| (make_header_name(key.as_str().into()), value.as_bytes()))
+            .filter(|(key, _)| key.len() > "X-Qiniu-".len())
+            .filter(|(key, _)| key.starts_with("X-Qiniu-"))
             .collect::<Vec<_>>();
         if x_qiniu_headers.is_empty() {
             return;
@@ -572,6 +577,8 @@ impl ChainCredentialsProviderBuilder {
 mod tests {
     use super::*;
     use async_std as _;
+    use http::header::HeaderName;
+    use mime::APPLICATION_JSON;
     use std::{boxed::Box, error::Error, result::Result, sync::Arc, thread, time::Duration};
 
     #[test]
@@ -652,7 +659,7 @@ mod tests {
         assert_eq!(
             credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/")?,
-                "",
+                None,
                 b"{\"name\":\"test\"}"
             ),
             "QBox ".to_owned() + &credential.get().unwrap().sign(b"/\n")
@@ -660,7 +667,7 @@ mod tests {
         assert_eq!(
             credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/")?,
-                mime::JSON_MIME,
+                Some(&HeaderValue::from_str(APPLICATION_JSON.as_ref())?),
                 b"{\"name\":\"test\"}"
             ),
             "QBox ".to_owned() + &credential.get().unwrap().sign(b"/\n")
@@ -668,7 +675,9 @@ mod tests {
         assert_eq!(
             credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/")?,
-                APPLICATION_WWW_FORM_URLENCODED,
+                Some(&HeaderValue::from_str(
+                    APPLICATION_WWW_FORM_URLENCODED.as_ref()
+                )?),
                 b"name=test&language=go"
             ),
             "QBox ".to_owned() + &credential.get().unwrap().sign(b"/\nname=test&language=go")
@@ -676,7 +685,9 @@ mod tests {
         assert_eq!(
             credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/?v=2")?,
-                APPLICATION_WWW_FORM_URLENCODED,
+                Some(&HeaderValue::from_str(
+                    APPLICATION_WWW_FORM_URLENCODED.as_ref()
+                )?),
                 b"name=test&language=go"
             ),
             "QBox ".to_owned()
@@ -688,7 +699,9 @@ mod tests {
         assert_eq!(
             credential.get().unwrap().authorization_v1_for_request(
                 &Url::parse("http://upload.qiniup.com/find/sdk?v=2")?,
-                APPLICATION_WWW_FORM_URLENCODED,
+                Some(&HeaderValue::from_str(
+                    APPLICATION_WWW_FORM_URLENCODED.as_ref()
+                )?),
                 b"name=test&language=go"
             ),
             "QBox ".to_owned()
@@ -705,34 +718,82 @@ mod tests {
         let credential = get_global_credential();
         let empty_headers = {
             let mut headers = HeaderMap::new();
-            headers.insert("X-Qbox-Meta".into(), "value".into());
+            headers.insert(
+                HeaderName::from_static("x-qbox-meta"),
+                HeaderValue::from_str("value")?,
+            );
             headers
         };
         let json_headers = {
             let mut headers = HeaderMap::new();
-            headers.insert("Content-Type".into(), mime::JSON_MIME.into());
-            headers.insert("X-Qbox-Meta".into(), "value".into());
-            headers.insert("X-Qiniu-Cxxxx".into(), "valuec".into());
-            headers.insert("X-Qiniu-Bxxxx".into(), "valueb".into());
-            headers.insert("X-Qiniu-axxxx".into(), "valuea".into());
-            headers.insert("X-Qiniu-e".into(), "value".into());
-            headers.insert("X-Qiniu-".into(), "value".into());
-            headers.insert("X-Qiniu".into(), "value".into());
+            headers.insert(
+                CONTENT_TYPE,
+                HeaderValue::from_str(APPLICATION_JSON.as_ref())?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qbox-meta"),
+                HeaderValue::from_str("value")?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qiniu-cxxxx"),
+                HeaderValue::from_str("valuec")?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qiniu-bxxxx"),
+                HeaderValue::from_str("valueb")?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qiniu-axxxx"),
+                HeaderValue::from_str("valuea")?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qiniu-e"),
+                HeaderValue::from_str("value")?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qiniu-"),
+                HeaderValue::from_str("value")?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qiniu"),
+                HeaderValue::from_str("value")?,
+            );
             headers
         };
         let form_headers = {
             let mut headers = HeaderMap::new();
             headers.insert(
-                "Content-Type".into(),
-                APPLICATION_WWW_FORM_URLENCODED.into(),
+                CONTENT_TYPE,
+                HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?,
             );
-            headers.insert("X-Qbox-Meta".into(), "value".into());
-            headers.insert("X-Qiniu-Cxxxx".into(), "valuec".into());
-            headers.insert("X-Qiniu-Bxxxx".into(), "valueb".into());
-            headers.insert("X-Qiniu-axxxx".into(), "valuea".into());
-            headers.insert("X-Qiniu-e".into(), "value".into());
-            headers.insert("X-Qiniu-".into(), "value".into());
-            headers.insert("X-Qiniu".into(), "value".into());
+            headers.insert(
+                HeaderName::from_static("x-qbox-meta"),
+                HeaderValue::from_str("value")?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qiniu-cxxxx"),
+                HeaderValue::from_str("valuec")?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qiniu-bxxxx"),
+                HeaderValue::from_str("valueb")?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qiniu-axxxx"),
+                HeaderValue::from_str("valuea")?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qiniu-e"),
+                HeaderValue::from_str("value")?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qiniu-"),
+                HeaderValue::from_str("value")?,
+            );
+            headers.insert(
+                HeaderName::from_static("x-qiniu"),
+                HeaderValue::from_str("value")?,
+            );
             headers
         };
         assert_eq!(
@@ -923,7 +984,7 @@ mod tests {
                 .unwrap()
                 .sign_download_url(&mut url, Duration::from_secs(1_234_567_890 + 3600));
             assert_eq!(
-                url.into_string(),
+                url.to_string(),
                 "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq%3AKjQtlGAkEOhSwtFjJfYtYa2-reE%3D",
             );
             Ok(())

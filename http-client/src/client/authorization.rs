@@ -1,5 +1,8 @@
 use qiniu_credential::{Credential, CredentialProvider, Url, UrlParseError};
-use qiniu_http::Request;
+use qiniu_http::{
+    header::{AUTHORIZATION, CONTENT_TYPE},
+    Request,
+};
 use qiniu_upload_token::UploadTokenProvider;
 use std::{fmt, io::Error as IOError, result::Result, sync::Arc};
 use thiserror::Error;
@@ -78,7 +81,7 @@ impl Authorization {
 fn set_authorization(request: &mut Request, authorization: String) {
     request
         .headers_mut()
-        .insert("Authorization".into(), authorization.into());
+        .insert(AUTHORIZATION, authorization.into());
 }
 
 #[inline]
@@ -93,10 +96,7 @@ fn authorization_v1_for_request(
 ) -> AuthorizationResult<String> {
     Ok(credential.authorization_v1_for_request(
         &Url::parse(request.url())?,
-        request
-            .headers()
-            .get(&"Content-Type".into())
-            .unwrap_or(&"".into()),
+        request.headers().get(CONTENT_TYPE).unwrap_or_default(),
         request.body(),
     ))
 }
