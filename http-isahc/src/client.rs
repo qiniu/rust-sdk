@@ -6,8 +6,8 @@ use isahc::{
     Response as IsahcResponse, ResponseExt,
 };
 use qiniu_http::{
-    HTTPCaller, HeaderValue, Metrics, Request, ResponseError, ResponseErrorKind, SyncResponse,
-    SyncResponseResult, UploadProgressInfo, Uri,
+    HTTPCaller, HeaderValue, Metrics, Request, ResponseError, ResponseErrorBuilder,
+    ResponseErrorKind, SyncResponse, SyncResponseResult, UploadProgressInfo, Uri,
 };
 use std::{
     io::{Cursor, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
@@ -63,7 +63,9 @@ impl HTTPCaller for Client {
         let isahc_request = make_sync_isahc_request(request, &mut user_cancelled_error)?;
         match self.isahc_client.send(isahc_request) {
             Ok(isahc_response) => make_sync_response(isahc_response, request),
-            Err(err) => user_cancelled_error.map_or_else(|| Err(from_isahc_error(err)), Err),
+            Err(err) => {
+                user_cancelled_error.map_or_else(|| Err(from_isahc_error(err, request)), Err)
+            }
         }
     }
 
@@ -75,7 +77,9 @@ impl HTTPCaller for Client {
             let reqwest_request = make_async_reqwest_request(request, &mut user_cancelled_error)?;
             match self.isahc_client.send_async(reqwest_request).await {
                 Ok(reqwest_response) => make_async_response(reqwest_response, request),
-                Err(err) => user_cancelled_error.map_or_else(|| Err(from_isahc_error(err)), Err),
+                Err(err) => {
+                    user_cancelled_error.map_or_else(|| Err(from_isahc_error(err, request)), Err)
+                }
             }
         })
     }
@@ -108,7 +112,11 @@ fn make_user_agent(request: &Request) -> Result<HeaderValue, ResponseError> {
         request.user_agent(),
         isahc::version(),
     ))
-    .map_err(|err| ResponseError::new(ResponseErrorKind::InvalidHeader, err))
+    .map_err(|err| {
+        ResponseErrorBuilder::new(ResponseErrorKind::InvalidHeader, err)
+            .uri(request.url())
+            .build()
+    })
 }
 
 fn make_sync_response(mut response: IsahcSyncResponse, request: &Request) -> SyncResponseResult {
@@ -161,19 +169,23 @@ fn call_response_callbacks<B>(
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
         if !on_receive_response_status(response.status()) {
-            return Err(ResponseError::new(
+            return Err(ResponseErrorBuilder::new(
                 ResponseErrorKind::UserCanceled,
                 "on_receive_response_status() returns false",
-            ));
+            )
+            .uri(request.url())
+            .build());
         }
     }
     if let Some(on_receive_response_header) = request.on_receive_response_header() {
         for (header_name, header_value) in response.headers().iter() {
             if !on_receive_response_header(header_name, header_value) {
-                return Err(ResponseError::new(
+                return Err(ResponseErrorBuilder::new(
                     ResponseErrorKind::UserCanceled,
                     "on_receive_response_header() returns false",
-                ));
+                )
+                .uri(request.url())
+                .build());
             }
         }
     }
@@ -232,18 +244,24 @@ fn make_sync_isahc_request(
     let isahc_request = isahc_request_builder
         .body(IsahcBody::from_reader_sized(
             RequestBodyWithCallbacks::new(
+                request.url(),
                 request.body(),
                 request.on_uploading_progress(),
                 user_cancelled_error,
             ),
             request.body().len() as u64,
         ))
-        .map_err(|err| ResponseError::new(ResponseErrorKind::InvalidRequestResponse, err))?;
+        .map_err(|err| {
+            ResponseErrorBuilder::new(ResponseErrorKind::InvalidRequestResponse, err)
+                .uri(request.url())
+                .build()
+        })?;
     return Ok(isahc_request);
 
     type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
 
     struct RequestBodyWithCallbacks {
+        request_uri: &'static Uri,
         body: Cursor<&'static [u8]>,
         size: u64,
         on_uploading_progress: Option<OnProgress<'static>>,
@@ -252,6 +270,7 @@ fn make_sync_isahc_request(
 
     impl RequestBodyWithCallbacks {
         fn new(
+            request_uri: &Uri,
             body: &[u8],
             on_uploading_progress: Option<OnProgress>,
             user_cancelled_error: &mut Option<ResponseError>,
@@ -262,6 +281,7 @@ fn make_sync_isahc_request(
                 on_uploading_progress: on_uploading_progress
                     .map(|callback| unsafe { transmute(callback) }),
                 user_cancelled_error: unsafe { transmute(user_cancelled_error) },
+                request_uri: unsafe { transmute(request_uri) },
             }
         }
     }
@@ -280,10 +300,14 @@ fn make_sync_isahc_request(
                             buf,
                         )) {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
-                            *self.user_cancelled_error = Some(ResponseError::new(
-                                ResponseErrorKind::UserCanceled,
-                                ERROR_MESSAGE,
-                            ));
+                            *self.user_cancelled_error = Some(
+                                ResponseErrorBuilder::new(
+                                    ResponseErrorKind::UserCanceled,
+                                    ERROR_MESSAGE,
+                                )
+                                .uri(self.request_uri)
+                                .build(),
+                            );
                             return Err(IOError::new(IOErrorKind::Other, ERROR_MESSAGE));
                         }
                     }
@@ -314,18 +338,24 @@ fn make_async_reqwest_request(
     let isahc_request = isahc_request_builder
         .body(IsahcAsyncBody::from_reader_sized(
             RequestBodyWithCallbacks::new(
+                request.url(),
                 request.body(),
                 request.on_uploading_progress(),
                 user_cancelled_error,
             ),
             request.body().len() as u64,
         ))
-        .map_err(|err| ResponseError::new(ResponseErrorKind::InvalidRequestResponse, err))?;
+        .map_err(|err| {
+            ResponseErrorBuilder::new(ResponseErrorKind::InvalidRequestResponse, err)
+                .uri(request.url())
+                .build()
+        })?;
     return Ok(isahc_request);
 
     type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
 
     struct RequestBodyWithCallbacks {
+        request_uri: &'static Uri,
         body: AsyncCursor<&'static [u8]>,
         size: u64,
         on_uploading_progress: Option<OnProgress<'static>>,
@@ -334,6 +364,7 @@ fn make_async_reqwest_request(
 
     impl RequestBodyWithCallbacks {
         fn new(
+            request_uri: &Uri,
             body: &[u8],
             on_uploading_progress: Option<OnProgress>,
             user_cancelled_error: &mut Option<ResponseError>,
@@ -344,6 +375,7 @@ fn make_async_reqwest_request(
                 on_uploading_progress: on_uploading_progress
                     .map(|callback| unsafe { transmute(callback) }),
                 user_cancelled_error: unsafe { transmute(user_cancelled_error) },
+                request_uri: unsafe { transmute(request_uri) },
             }
         }
     }
@@ -368,10 +400,14 @@ fn make_async_reqwest_request(
                             buf,
                         )) {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
-                            *self.user_cancelled_error = Some(ResponseError::new(
-                                ResponseErrorKind::UserCanceled,
-                                ERROR_MESSAGE,
-                            ));
+                            *self.user_cancelled_error = Some(
+                                ResponseErrorBuilder::new(
+                                    ResponseErrorKind::UserCanceled,
+                                    ERROR_MESSAGE,
+                                )
+                                .uri(self.request_uri)
+                                .build(),
+                            );
                             return Poll::Ready(Err(IOError::new(
                                 IOErrorKind::Other,
                                 ERROR_MESSAGE,
@@ -540,55 +576,60 @@ fn add_extensions_to_isahc_request_builder(
                 } else if scheme == &Scheme::HTTPS {
                     Ok(443)
                 } else {
-                    Err(ResponseError::new(
+                    Err(ResponseErrorBuilder::new(
                         ResponseErrorKind::InvalidURL,
                         "unknown port for url",
-                    ))
+                    )
+                    .build())
                 }
             } else {
-                Err(ResponseError::new(
+                Err(ResponseErrorBuilder::new(
                     ResponseErrorKind::InvalidURL,
                     "empty scheme for url",
-                ))
+                )
+                .build())
             }
         })
     }
 }
 
 #[inline]
-fn from_isahc_error(err: IsahcError) -> ResponseError {
-    match err.kind() {
+fn from_isahc_error(err: IsahcError, request: &Request) -> ResponseError {
+    let error_builder = match err.kind() {
         IsahcErrorKind::BadClientCertificate => {
-            ResponseError::new(ResponseErrorKind::SSLError, err)
+            ResponseErrorBuilder::new(ResponseErrorKind::SSLError, err)
         }
         IsahcErrorKind::BadServerCertificate => {
-            ResponseError::new(ResponseErrorKind::SSLError, err)
+            ResponseErrorBuilder::new(ResponseErrorKind::SSLError, err)
         }
         IsahcErrorKind::ClientInitialization => {
-            ResponseError::new(ResponseErrorKind::LocalIOError, err)
+            ResponseErrorBuilder::new(ResponseErrorKind::LocalIOError, err)
         }
         IsahcErrorKind::ConnectionFailed => {
-            ResponseError::new(ResponseErrorKind::ConnectError, err)
+            ResponseErrorBuilder::new(ResponseErrorKind::ConnectError, err)
         }
         IsahcErrorKind::InvalidContentEncoding => {
-            ResponseError::new(ResponseErrorKind::InvalidHeader, err)
+            ResponseErrorBuilder::new(ResponseErrorKind::InvalidHeader, err)
         }
         IsahcErrorKind::InvalidCredentials => {
-            ResponseError::new(ResponseErrorKind::InvalidHeader, err)
+            ResponseErrorBuilder::new(ResponseErrorKind::InvalidHeader, err)
         }
         IsahcErrorKind::InvalidRequest => {
-            ResponseError::new(ResponseErrorKind::InvalidRequestResponse, err)
+            ResponseErrorBuilder::new(ResponseErrorKind::InvalidRequestResponse, err)
         }
-        IsahcErrorKind::Io => ResponseError::new(ResponseErrorKind::SendError, err),
-        IsahcErrorKind::NameResolution => ResponseError::new(ResponseErrorKind::LocalIOError, err),
+        IsahcErrorKind::Io => ResponseErrorBuilder::new(ResponseErrorKind::SendError, err),
+        IsahcErrorKind::NameResolution => {
+            ResponseErrorBuilder::new(ResponseErrorKind::LocalIOError, err)
+        }
         IsahcErrorKind::ProtocolViolation => {
-            ResponseError::new(ResponseErrorKind::InvalidRequestResponse, err)
+            ResponseErrorBuilder::new(ResponseErrorKind::InvalidRequestResponse, err)
         }
-        IsahcErrorKind::Timeout => ResponseError::new(ResponseErrorKind::TimeoutError, err),
-        IsahcErrorKind::TlsEngine => ResponseError::new(ResponseErrorKind::SSLError, err),
+        IsahcErrorKind::Timeout => ResponseErrorBuilder::new(ResponseErrorKind::TimeoutError, err),
+        IsahcErrorKind::TlsEngine => ResponseErrorBuilder::new(ResponseErrorKind::SSLError, err),
         IsahcErrorKind::TooManyRedirects => {
-            ResponseError::new(ResponseErrorKind::TooManyRedirect, err)
+            ResponseErrorBuilder::new(ResponseErrorKind::TooManyRedirect, err)
         }
-        _ => ResponseError::new(ResponseErrorKind::UnknownError, err),
-    }
+        _ => ResponseErrorBuilder::new(ResponseErrorKind::UnknownError, err),
+    };
+    error_builder.uri(request.url()).build()
 }

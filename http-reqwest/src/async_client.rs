@@ -7,8 +7,8 @@ use super::{
 use bytes::Bytes;
 use futures::{io::Cursor, ready, AsyncRead, Stream};
 use qiniu_http::{
-    AsyncResponse, AsyncResponseResult, HTTPCaller, Request, ResponseError, ResponseErrorKind,
-    SyncResponseResult, UploadProgressInfo,
+    AsyncResponse, AsyncResponseResult, HTTPCaller, Request, ResponseError, ResponseErrorBuilder,
+    ResponseErrorKind, SyncResponseResult, UploadProgressInfo, Uri,
 };
 use reqwest::{
     header::USER_AGENT, Body as AsyncBody, Client as AsyncReqwestClient,
@@ -57,7 +57,9 @@ impl HTTPCaller for AsyncReqwestHTTPCaller {
             let reqwest_request = make_async_reqwest_request(request, &mut user_cancelled_error)?;
             match self.async_client.execute(reqwest_request).await {
                 Ok(reqwest_response) => from_async_response(reqwest_response, request),
-                Err(err) => user_cancelled_error.map_or_else(|| Err(from_reqwest_error(err)), Err),
+                Err(err) => {
+                    user_cancelled_error.map_or_else(|| Err(from_reqwest_error(err, request)), Err)
+                }
             }
         })
     }
@@ -77,8 +79,11 @@ fn make_async_reqwest_request(
     request: &Request,
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<AsyncReqwestRequest, ResponseError> {
-    let url = Url::parse(&request.url().to_string())
-        .map_err(|err| ResponseError::new(ResponseErrorKind::InvalidURL, err))?;
+    let url = Url::parse(&request.url().to_string()).map_err(|err| {
+        ResponseErrorBuilder::new(ResponseErrorKind::InvalidURL, err)
+            .uri(request.url())
+            .build()
+    })?;
     let mut reqwest_request = AsyncReqwestRequest::new(request.method().to_owned(), url);
     for (header_name, header_value) in request.headers() {
         reqwest_request
@@ -89,6 +94,7 @@ fn make_async_reqwest_request(
         .headers_mut()
         .insert(USER_AGENT, make_user_agent(request, "async")?);
     *reqwest_request.body_mut() = Some(AsyncBody::wrap_stream(RequestBodyWithCallbacks::new(
+        request.url(),
         request.body(),
         request.on_uploading_progress(),
         user_cancelled_error,
@@ -101,6 +107,7 @@ fn make_async_reqwest_request(
     type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
 
     struct RequestBodyWithCallbacks {
+        request_uri: &'static Uri,
         body: Cursor<&'static [u8]>,
         size: usize,
         on_uploading_progress: Option<OnProgress<'static>>,
@@ -109,6 +116,7 @@ fn make_async_reqwest_request(
 
     impl RequestBodyWithCallbacks {
         fn new(
+            request_uri: &Uri,
             body: &[u8],
             on_uploading_progress: Option<OnProgress>,
             user_cancelled_error: &mut Option<ResponseError>,
@@ -119,6 +127,7 @@ fn make_async_reqwest_request(
                 on_uploading_progress: on_uploading_progress
                     .map(|callback| unsafe { transmute(callback) }),
                 user_cancelled_error: unsafe { transmute(user_cancelled_error) },
+                request_uri: unsafe { transmute(request_uri) },
             }
         }
     }
@@ -141,10 +150,14 @@ fn make_async_reqwest_request(
                             buf,
                         )) {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
-                            *self.user_cancelled_error = Some(ResponseError::new(
-                                ResponseErrorKind::UserCanceled,
-                                ERROR_MESSAGE,
-                            ));
+                            *self.user_cancelled_error = Some(
+                                ResponseErrorBuilder::new(
+                                    ResponseErrorKind::UserCanceled,
+                                    ERROR_MESSAGE,
+                                )
+                                .uri(self.request_uri)
+                                .build(),
+                            );
                             return Poll::Ready(Some(Err(Box::new(IOError::new(
                                 IOErrorKind::Other,
                                 ERROR_MESSAGE,

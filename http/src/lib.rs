@@ -23,7 +23,9 @@ mod error;
 mod request;
 mod response;
 
-pub use error::{Error as ResponseError, ErrorKind as ResponseErrorKind};
+pub use error::{
+    Error as ResponseError, ErrorBuilder as ResponseErrorBuilder, ErrorKind as ResponseErrorKind,
+};
 pub use http::{
     header::{HeaderMap, HeaderName, HeaderValue},
     method::Method,

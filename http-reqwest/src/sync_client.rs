@@ -1,7 +1,7 @@
 use super::{builder::ReqwestHTTPCallerBuilder, extensions::TimeoutExtension};
 use qiniu_http::{
-    HTTPCaller, HeaderMap, HeaderValue, Request, ResponseError, ResponseErrorKind, StatusCode,
-    SyncResponse, SyncResponseResult, UploadProgressInfo,
+    HTTPCaller, HeaderMap, HeaderValue, Request, ResponseError, ResponseErrorBuilder,
+    ResponseErrorKind, StatusCode, SyncResponse, SyncResponseResult, UploadProgressInfo, Uri,
 };
 use reqwest::{
     blocking::{
@@ -47,7 +47,9 @@ impl HTTPCaller for SyncReqwestHTTPCaller {
         let reqwest_request = make_sync_reqwest_request(request, &mut user_cancelled_error)?;
         match self.sync_client.execute(reqwest_request) {
             Ok(reqwest_response) => from_sync_response(reqwest_response, request),
-            Err(err) => user_cancelled_error.map_or_else(|| Err(from_reqwest_error(err)), Err),
+            Err(err) => {
+                user_cancelled_error.map_or_else(|| Err(from_reqwest_error(err, request)), Err)
+            }
         }
     }
 
@@ -73,8 +75,11 @@ fn make_sync_reqwest_request(
     request: &Request,
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<SyncReqwestRequest, ResponseError> {
-    let url = Url::parse(&request.url().to_string())
-        .map_err(|err| ResponseError::new(ResponseErrorKind::InvalidURL, err))?;
+    let url = Url::parse(&request.url().to_string()).map_err(|err| {
+        ResponseErrorBuilder::new(ResponseErrorKind::InvalidURL, err)
+            .uri(request.url())
+            .build()
+    })?;
     let mut reqwest_request = SyncReqwestRequest::new(request.method().to_owned(), url);
     for (header_name, header_value) in request.headers() {
         reqwest_request
@@ -86,6 +91,7 @@ fn make_sync_reqwest_request(
         .insert(USER_AGENT, make_user_agent(request, "sync")?);
     *reqwest_request.body_mut() = Some(SyncBody::sized(
         RequestBodyWithCallbacks::new(
+            request.url(),
             request.body(),
             request.on_uploading_progress(),
             user_cancelled_error,
@@ -102,6 +108,7 @@ fn make_sync_reqwest_request(
     type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
 
     struct RequestBodyWithCallbacks {
+        request_uri: &'static Uri,
         body: Cursor<&'static [u8]>,
         size: u64,
         on_uploading_progress: Option<OnProgress<'static>>,
@@ -110,6 +117,7 @@ fn make_sync_reqwest_request(
 
     impl RequestBodyWithCallbacks {
         fn new(
+            request_uri: &Uri,
             body: &[u8],
             on_uploading_progress: Option<OnProgress>,
             user_cancelled_error: &mut Option<ResponseError>,
@@ -120,6 +128,7 @@ fn make_sync_reqwest_request(
                 on_uploading_progress: on_uploading_progress
                     .map(|callback| unsafe { transmute(callback) }),
                 user_cancelled_error: unsafe { transmute(user_cancelled_error) },
+                request_uri: unsafe { transmute(request_uri) },
             }
         }
     }
@@ -138,10 +147,14 @@ fn make_sync_reqwest_request(
                             buf,
                         )) {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
-                            *self.user_cancelled_error = Some(ResponseError::new(
-                                ResponseErrorKind::UserCanceled,
-                                ERROR_MESSAGE,
-                            ));
+                            *self.user_cancelled_error = Some(
+                                ResponseErrorBuilder::new(
+                                    ResponseErrorKind::UserCanceled,
+                                    ERROR_MESSAGE,
+                                )
+                                .uri(self.request_uri)
+                                .build(),
+                            );
                             return Err(IOError::new(IOErrorKind::Other, ERROR_MESSAGE));
                         }
                     }
@@ -163,7 +176,11 @@ pub(super) fn make_user_agent(
         env!("CARGO_PKG_VERSION"),
         suffix
     ))
-    .map_err(|err| ResponseError::new(ResponseErrorKind::InvalidHeader, err))
+    .map_err(|err| {
+        ResponseErrorBuilder::new(ResponseErrorKind::InvalidHeader, err)
+            .uri(request.url())
+            .build()
+    })
 }
 
 fn from_sync_response(mut response: SyncReqwestResponse, request: &Request) -> SyncResponseResult {
@@ -184,19 +201,31 @@ fn from_sync_response(mut response: SyncReqwestResponse, request: &Request) -> S
     Ok(response_builder.build())
 }
 
-pub(super) fn from_reqwest_error(err: ReqwestError) -> ResponseError {
+pub(super) fn from_reqwest_error(err: ReqwestError, request: &Request) -> ResponseError {
     if err.url().is_some() {
-        ResponseError::new(ResponseErrorKind::InvalidURL, err)
+        ResponseErrorBuilder::new(ResponseErrorKind::InvalidURL, err)
+            .uri(request.url())
+            .build()
     } else if err.is_redirect() {
-        ResponseError::new(ResponseErrorKind::TooManyRedirect, err)
+        ResponseErrorBuilder::new(ResponseErrorKind::TooManyRedirect, err)
+            .uri(request.url())
+            .build()
     } else if err.is_timeout() {
-        ResponseError::new(ResponseErrorKind::TimeoutError, err)
+        ResponseErrorBuilder::new(ResponseErrorKind::TimeoutError, err)
+            .uri(request.url())
+            .build()
     } else if err.is_request() {
-        ResponseError::new(ResponseErrorKind::InvalidRequestResponse, err)
+        ResponseErrorBuilder::new(ResponseErrorKind::InvalidRequestResponse, err)
+            .uri(request.url())
+            .build()
     } else if err.is_connect() {
-        ResponseError::new(ResponseErrorKind::ConnectError, err)
+        ResponseErrorBuilder::new(ResponseErrorKind::ConnectError, err)
+            .uri(request.url())
+            .build()
     } else {
-        ResponseError::new(ResponseErrorKind::UnknownError, err)
+        ResponseErrorBuilder::new(ResponseErrorKind::UnknownError, err)
+            .uri(request.url())
+            .build()
     }
 }
 
@@ -208,19 +237,23 @@ pub(super) fn call_response_callbacks(
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
         if !on_receive_response_status(status_code) {
-            return Err(ResponseError::new(
+            return Err(ResponseErrorBuilder::new(
                 ResponseErrorKind::UserCanceled,
                 "on_receive_response_status() returns false",
-            ));
+            )
+            .uri(request.url())
+            .build());
         }
     }
     if let Some(on_receive_response_header) = request.on_receive_response_header() {
         for (header_name, header_value) in headers.iter() {
             if !on_receive_response_header(header_name, header_value) {
-                return Err(ResponseError::new(
+                return Err(ResponseErrorBuilder::new(
                     ResponseErrorKind::UserCanceled,
                     "on_receive_response_header() returns false",
-                ));
+                )
+                .uri(request.url())
+                .build());
             }
         }
     }

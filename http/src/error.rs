@@ -1,4 +1,6 @@
-use std::{error, fmt};
+use super::response::{Metrics, ResponseInfo};
+use http::uri::{Scheme, Uri};
+use std::{error, fmt, net::IpAddr};
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -58,18 +60,10 @@ pub enum ErrorKind {
 pub struct Error {
     kind: ErrorKind,
     error: Box<dyn error::Error + Send + Sync>,
+    response_info: ResponseInfo,
 }
 
 impl Error {
-    /// 创建 HTTP 响应错误
-    #[inline]
-    pub fn new(kind: ErrorKind, err: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
-        Error {
-            kind,
-            error: err.into(),
-        }
-    }
-
     /// 获取 HTTP 响应错误类型
     #[inline]
     pub fn kind(&self) -> ErrorKind {
@@ -79,6 +73,21 @@ impl Error {
     #[inline]
     pub fn into_inner(self) -> Box<dyn error::Error + Send + Sync> {
         self.error
+    }
+
+    #[inline]
+    pub fn server_ip(&self) -> Option<IpAddr> {
+        self.response_info.server_ip()
+    }
+
+    #[inline]
+    pub fn server_port(&self) -> u16 {
+        self.response_info.server_port()
+    }
+
+    #[inline]
+    pub fn metrics(&self) -> Option<&dyn Metrics> {
+        self.response_info.metrics()
     }
 }
 
@@ -92,5 +101,66 @@ impl error::Error for Error {
     #[inline]
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         Some(self.error.as_ref())
+    }
+}
+
+#[derive(Debug)]
+pub struct ErrorBuilder {
+    inner: Error,
+}
+
+impl ErrorBuilder {
+    /// 创建 HTTP 响应错误
+    #[inline]
+    pub fn new(kind: ErrorKind, err: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
+        Self {
+            inner: Error {
+                kind,
+                error: err.into(),
+                response_info: Default::default(),
+            },
+        }
+    }
+
+    #[inline]
+    pub fn build(self) -> Error {
+        self.inner
+    }
+
+    #[inline]
+    pub fn uri(mut self, uri: &Uri) -> Self {
+        if let Some(host) = uri.host() {
+            if let Ok(ip_addr) = host.parse::<IpAddr>() {
+                *self.inner.response_info.server_ip_mut() = Some(ip_addr);
+            }
+        }
+        if let Some(port) = uri.port_u16() {
+            *self.inner.response_info.server_port_mut() = port;
+        } else if let Some(scheme) = uri.scheme() {
+            if scheme == &Scheme::HTTP {
+                *self.inner.response_info.server_port_mut() = 80;
+            } else if scheme == &Scheme::HTTPS {
+                *self.inner.response_info.server_port_mut() = 443;
+            }
+        }
+        self
+    }
+
+    #[inline]
+    pub fn server_ip(mut self, server_ip: IpAddr) -> Self {
+        *self.inner.response_info.server_ip_mut() = Some(server_ip);
+        self
+    }
+
+    #[inline]
+    pub fn server_port(mut self, server_port: u16) -> Self {
+        *self.inner.response_info.server_port_mut() = server_port;
+        self
+    }
+
+    #[inline]
+    pub fn metrics(mut self, metrics: Box<dyn Metrics>) -> Self {
+        *self.inner.response_info.metrics_mut() = Some(metrics);
+        self
     }
 }

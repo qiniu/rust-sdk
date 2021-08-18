@@ -112,17 +112,6 @@ pub use async_body::*;
 #[cfg(feature = "async")]
 use futures_lite::io::{AsyncSeekExt, Cursor as AsyncCursor};
 
-/// HTTP 响应
-///
-/// 封装 HTTP 响应相关字段
-#[derive(Debug)]
-pub struct Response<B> {
-    inner: HTTPResponse<B>,
-    server_ip: Option<IpAddr>,
-    server_port: u16,
-    metrics: Option<Box<dyn Metrics>>,
-}
-
 pub trait Metrics: Debug + Send + Sync {
     fn total_duration(&self) -> Option<Duration>;
     fn name_lookup_duration(&self) -> Option<Duration>;
@@ -132,16 +121,63 @@ pub trait Metrics: Debug + Send + Sync {
     fn transfer_duration(&self) -> Option<Duration>;
 }
 
-impl<B: Default> Default for Response<B> {
+#[derive(Debug)]
+pub(super) struct ResponseInfo {
+    server_ip: Option<IpAddr>,
+    server_port: u16,
+    metrics: Option<Box<dyn Metrics>>,
+}
+
+impl Default for ResponseInfo {
     #[inline]
     fn default() -> Self {
         Self {
-            inner: Default::default(),
-            server_ip: None,
+            server_ip: Default::default(),
             server_port: 80,
             metrics: Default::default(),
         }
     }
+}
+
+impl ResponseInfo {
+    #[inline]
+    pub(super) fn server_ip(&self) -> Option<IpAddr> {
+        self.server_ip
+    }
+
+    #[inline]
+    pub(super) fn server_port(&self) -> u16 {
+        self.server_port
+    }
+
+    #[inline]
+    pub(super) fn metrics(&self) -> Option<&dyn Metrics> {
+        self.metrics.as_deref()
+    }
+
+    #[inline]
+    pub(super) fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
+        &mut self.server_ip
+    }
+
+    #[inline]
+    pub(super) fn server_port_mut(&mut self) -> &mut u16 {
+        &mut self.server_port
+    }
+
+    #[inline]
+    pub(super) fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
+        &mut self.metrics
+    }
+}
+
+/// HTTP 响应
+///
+/// 封装 HTTP 响应相关字段
+#[derive(Debug, Default)]
+pub struct Response<B> {
+    inner: HTTPResponse<B>,
+    info: ResponseInfo,
 }
 
 impl<B: Default> Response<B> {
@@ -204,31 +240,31 @@ impl<B> Response<B> {
     /// HTTP 服务器 IP 地址
     #[inline]
     pub fn server_ip(&self) -> Option<IpAddr> {
-        self.server_ip
+        self.info.server_ip()
     }
 
     /// 修改 HTTP 服务器 IP 地址
     #[inline]
     pub fn server_ip_mut(&mut self) -> Option<&mut IpAddr> {
-        self.server_ip.as_mut()
+        self.info.server_ip.as_mut()
     }
 
     /// HTTP 服务器端口号
     #[inline]
     pub fn server_port(&self) -> u16 {
-        self.server_port
+        self.info.server_port()
     }
 
     /// 修改 HTTP 服务器端口号
     #[inline]
     pub fn server_port_mut(&mut self) -> &mut u16 {
-        &mut self.server_port
+        self.info.server_port_mut()
     }
 
     /// 扩展字段
     #[inline]
     pub fn extensions(&self) -> &Extensions {
-        &self.inner.extensions()
+        self.inner.extensions()
     }
 
     /// 修改扩展字段
@@ -245,52 +281,58 @@ impl<B> Response<B> {
 
     #[inline]
     pub fn metrics(&mut self) -> Option<&dyn Metrics> {
-        self.metrics.as_deref()
+        self.info.metrics()
     }
 
     #[inline]
     pub fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
-        &mut self.metrics
+        self.info.metrics_mut()
     }
 
     #[inline]
     pub fn total_duration(&self) -> Option<Duration> {
-        self.metrics
+        self.info
+            .metrics
             .as_ref()
             .and_then(|metrics| metrics.total_duration())
     }
 
     #[inline]
     pub fn name_lookup_duration(&self) -> Option<Duration> {
-        self.metrics
+        self.info
+            .metrics
             .as_ref()
             .and_then(|metrics| metrics.name_lookup_duration())
     }
 
     #[inline]
     pub fn connect_duration(&self) -> Option<Duration> {
-        self.metrics
+        self.info
+            .metrics
             .as_ref()
             .and_then(|metrics| metrics.connect_duration())
     }
 
     #[inline]
     pub fn secure_connect_duration(&self) -> Option<Duration> {
-        self.metrics
+        self.info
+            .metrics
             .as_ref()
             .and_then(|metrics| metrics.secure_connect_duration())
     }
 
     #[inline]
     pub fn redirect_duration(&self) -> Option<Duration> {
-        self.metrics
+        self.info
+            .metrics
             .as_ref()
             .and_then(|metrics| metrics.redirect_duration())
     }
 
     #[inline]
     pub fn transfer_duration(&self) -> Option<Duration> {
-        self.metrics
+        self.info
+            .metrics
             .as_ref()
             .and_then(|metrics| metrics.transfer_duration())
     }
@@ -360,14 +402,14 @@ impl<B> ResponseBuilder<B> {
     /// 设置 HTTP 服务器 IP 地址
     #[inline]
     pub fn server_ip(mut self, server_ip: IpAddr) -> Self {
-        self.inner.server_ip = Some(server_ip);
+        *self.inner.info.server_ip_mut() = Some(server_ip);
         self
     }
 
     /// 设置 HTTP 服务器端口号
     #[inline]
     pub fn server_port(mut self, server_port: u16) -> Self {
-        self.inner.server_port = server_port;
+        *self.inner.info.server_port_mut() = server_port;
         self
     }
 
@@ -387,7 +429,7 @@ impl<B> ResponseBuilder<B> {
 
     #[inline]
     pub fn metrics(mut self, metrics: Box<dyn Metrics>) -> Self {
-        self.inner.metrics = Some(metrics);
+        *self.inner.info.metrics_mut() = Some(metrics);
         self
     }
 
