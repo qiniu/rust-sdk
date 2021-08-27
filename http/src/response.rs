@@ -16,6 +16,9 @@ use std::{
     time::Duration,
 };
 
+#[cfg(feature = "async")]
+use futures_lite::Future;
+
 pub trait ReadDebug: Read + Debug + Send + Sync {}
 impl<T: Read + Debug + Send + Sync> ReadDebug for T {}
 
@@ -353,6 +356,44 @@ impl<B> Response<B> {
     #[inline]
     pub fn body_mut(&mut self) -> &mut B {
         self.inner.body_mut()
+    }
+
+    /// 对 HTTP 响应体进行映射
+    #[inline]
+    pub fn map_body<B2>(self, f: impl FnOnce(B) -> B2) -> Response<B2> {
+        let Self { inner, info } = self;
+        let (parts, body) = inner.into_parts();
+        let body = f(body);
+        let inner = HTTPResponse::from_parts(parts, body);
+        Response { inner, info }
+    }
+
+    /// 尝试对 HTTP 响应体进行映射
+    #[inline]
+    pub fn try_map_body<B2, E>(
+        self,
+        f: impl FnOnce(B) -> result::Result<B2, E>,
+    ) -> result::Result<Response<B2>, E> {
+        let Self { inner, info } = self;
+        let (parts, body) = inner.into_parts();
+        let body = f(body)?;
+        let inner = HTTPResponse::from_parts(parts, body);
+        Ok(Response { inner, info })
+    }
+
+    /// 尝试对 HTTP 响应体进行异步映射
+    #[inline]
+    #[cfg(feature = "async")]
+    pub async fn try_async_map_body<B2, E, F, Fut>(self, f: F) -> result::Result<Response<B2>, E>
+    where
+        F: FnOnce(B) -> Fut,
+        Fut: Future<Output = result::Result<B2, E>>,
+    {
+        let Self { inner, info } = self;
+        let (parts, body) = inner.into_parts();
+        let body = f(body).await?;
+        let inner = HTTPResponse::from_parts(parts, body);
+        Ok(Response { inner, info })
     }
 }
 

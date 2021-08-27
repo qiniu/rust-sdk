@@ -1,5 +1,5 @@
 [package]
-name = "http-isahc"
+name = "qiniu-isahc"
 version = "0.0.4"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2018"

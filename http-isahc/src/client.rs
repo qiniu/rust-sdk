@@ -7,12 +7,12 @@ use isahc::{
 };
 use qiniu_http::{
     HTTPCaller, HeaderValue, Metrics, Request, ResponseError, ResponseErrorBuilder,
-    ResponseErrorKind, SyncResponse, SyncResponseResult, UploadProgressInfo, Uri,
+    ResponseErrorKind, SyncResponse, SyncResponseResult, TransferProgressInfo, Uri,
 };
 use std::{
     io::{Cursor, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
     mem::{take, transmute},
-    net::SocketAddr,
+    net::{IpAddr, SocketAddr},
     time::Duration,
 };
 
@@ -60,12 +60,45 @@ impl Client {
 impl HTTPCaller for Client {
     fn call(&self, request: &Request) -> SyncResponseResult {
         let mut user_cancelled_error: Option<ResponseError> = None;
-        let isahc_request = make_sync_isahc_request(request, &mut user_cancelled_error)?;
-        match self.isahc_client.send(isahc_request) {
-            Ok(isahc_response) => make_sync_response(isahc_response, request),
-            Err(err) => {
-                user_cancelled_error.map_or_else(|| Err(from_isahc_error(err, request)), Err)
+
+        let isahc_result = match request.resolved_ip_addrs() {
+            Some(ips) if !ips.is_empty() => {
+                let mut last_error: Option<IsahcError> = None;
+                ips.iter()
+                    .find_map(|&ip| {
+                        let isahc_request = match make_sync_isahc_request(
+                            request,
+                            Some(ip),
+                            &mut user_cancelled_error,
+                        ) {
+                            Ok(request) => request,
+                            Err(err) => {
+                                return Some(Err(err));
+                            }
+                        };
+                        match self.isahc_client.send(isahc_request) {
+                            Ok(isahc_response) => Some(Ok(isahc_response)),
+                            Err(err) if should_retry(&err) => {
+                                last_error = Some(err);
+                                None
+                            }
+                            Err(err) => Some(Err(from_isahc_error(err, request))),
+                        }
+                    })
+                    .unwrap_or_else(|| Err(from_isahc_error(last_error.unwrap(), request)))
             }
+            _ => {
+                let isahc_request =
+                    make_sync_isahc_request(request, None, &mut user_cancelled_error)?;
+                self.isahc_client
+                    .send(isahc_request)
+                    .map_err(|err| from_isahc_error(err, request))
+            }
+        };
+
+        match isahc_result {
+            Ok(isahc_response) => make_sync_response(isahc_response, request),
+            Err(err) => user_cancelled_error.map_or(Err(err), Err),
         }
     }
 
@@ -74,12 +107,51 @@ impl HTTPCaller for Client {
     fn async_call<'a>(&'a self, request: &'a Request<'_>) -> BoxFuture<'a, AsyncResponseResult> {
         Box::pin(async move {
             let mut user_cancelled_error: Option<ResponseError> = None;
-            let reqwest_request = make_async_reqwest_request(request, &mut user_cancelled_error)?;
-            match self.isahc_client.send_async(reqwest_request).await {
-                Ok(reqwest_response) => make_async_response(reqwest_response, request),
-                Err(err) => {
-                    user_cancelled_error.map_or_else(|| Err(from_isahc_error(err, request)), Err)
+
+            let isahc_result = match request.resolved_ip_addrs() {
+                Some(ips) if !ips.is_empty() => {
+                    let mut last_result = None;
+                    for &ip in ips {
+                        let isahc_request = match make_async_isahc_request(
+                            request,
+                            Some(ip),
+                            &mut user_cancelled_error,
+                        ) {
+                            Ok(request) => request,
+                            Err(err) => {
+                                last_result = Some(Err(err));
+                                break;
+                            }
+                        };
+                        match self.isahc_client.send_async(isahc_request).await {
+                            Ok(isahc_response) => {
+                                last_result = Some(Ok(isahc_response));
+                                break;
+                            }
+                            Err(err) => {
+                                let should_retry = should_retry(&err);
+                                last_result = Some(Err(from_isahc_error(err, request)));
+                                if !should_retry {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    last_result.unwrap()
                 }
+                _ => {
+                    let isahc_request =
+                        make_async_isahc_request(request, None, &mut user_cancelled_error)?;
+                    self.isahc_client
+                        .send_async(isahc_request)
+                        .await
+                        .map_err(|err| from_isahc_error(err, request))
+                }
+            };
+
+            match isahc_result {
+                Ok(isahc_response) => make_async_response(isahc_response, request),
+                Err(err) => user_cancelled_error.map_or(Err(err), Err),
             }
         })
     }
@@ -192,6 +264,13 @@ fn call_response_callbacks<B>(
     Ok(())
 }
 
+#[inline]
+fn should_retry(err: &IsahcError) -> bool {
+    err.kind() == IsahcErrorKind::ConnectionFailed
+        || err.kind() == IsahcErrorKind::BadClientCertificate
+        || err.kind() == IsahcErrorKind::BadServerCertificate
+}
+
 #[derive(Debug)]
 struct IsahcBasedMetrics(IsahcMetrics);
 
@@ -229,6 +308,7 @@ impl Metrics for IsahcBasedMetrics {
 
 fn make_sync_isahc_request(
     request: &Request,
+    ip_addr: Option<IpAddr>,
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<IsahcSyncRequest, ResponseError> {
     let mut isahc_request_builder = isahc::Request::builder()
@@ -238,7 +318,8 @@ fn make_sync_isahc_request(
         isahc_request_builder = isahc_request_builder.header(header_name, header_value);
     }
     isahc_request_builder =
-        add_extensions_to_isahc_request_builder(request, isahc_request_builder)?;
+        add_extensions_to_isahc_request_builder(request, ip_addr, isahc_request_builder)?;
+
     isahc_request_builder = isahc_request_builder.header(USER_AGENT, make_user_agent(request)?);
 
     let isahc_request = isahc_request_builder
@@ -258,7 +339,7 @@ fn make_sync_isahc_request(
         })?;
     return Ok(isahc_request);
 
-    type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
+    type OnProgress<'r> = &'r (dyn Fn(&TransferProgressInfo) -> bool + Send + Sync);
 
     struct RequestBodyWithCallbacks {
         request_uri: &'static Uri,
@@ -294,7 +375,7 @@ fn make_sync_isahc_request(
                 Ok(n) => {
                     let buf = &buf[..n];
                     if let Some(on_uploading_progress) = self.on_uploading_progress {
-                        if !on_uploading_progress(&UploadProgressInfo::new(
+                        if !on_uploading_progress(&TransferProgressInfo::new(
                             self.body.position(),
                             self.size,
                             buf,
@@ -319,8 +400,9 @@ fn make_sync_isahc_request(
 }
 
 #[cfg(feature = "async")]
-fn make_async_reqwest_request(
+fn make_async_isahc_request(
     request: &Request,
+    ip_addr: Option<IpAddr>,
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<IsahcAsyncRequest, ResponseError> {
     use futures::pin_mut;
@@ -332,7 +414,7 @@ fn make_async_reqwest_request(
         isahc_request_builder = isahc_request_builder.header(header_name, header_value);
     }
     isahc_request_builder =
-        add_extensions_to_isahc_request_builder(request, isahc_request_builder)?;
+        add_extensions_to_isahc_request_builder(request, ip_addr, isahc_request_builder)?;
     isahc_request_builder = isahc_request_builder.header(USER_AGENT, make_user_agent(request)?);
 
     let isahc_request = isahc_request_builder
@@ -352,7 +434,7 @@ fn make_async_reqwest_request(
         })?;
     return Ok(isahc_request);
 
-    type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
+    type OnProgress<'r> = &'r (dyn Fn(&TransferProgressInfo) -> bool + Send + Sync);
 
     struct RequestBodyWithCallbacks {
         request_uri: &'static Uri,
@@ -394,7 +476,7 @@ fn make_async_reqwest_request(
                 Ok(n) => {
                     let buf = &buf[..n];
                     if let Some(on_uploading_progress) = self.on_uploading_progress {
-                        if !on_uploading_progress(&UploadProgressInfo::new(
+                        if !on_uploading_progress(&TransferProgressInfo::new(
                             self.body.position(),
                             self.size,
                             buf,
@@ -424,6 +506,7 @@ fn make_async_reqwest_request(
 #[inline]
 fn add_extensions_to_isahc_request_builder(
     request: &Request,
+    ip_addr: Option<IpAddr>,
     mut isahc_request_builder: IsahcRequestBuilder,
 ) -> Result<IsahcRequestBuilder, ResponseError> {
     use super::extensions::*;
@@ -491,9 +574,9 @@ fn add_extensions_to_isahc_request_builder(
 
     if let Some(extension) = request.extensions().get::<DialRequestExtension>() {
         isahc_request_builder = isahc_request_builder.dial(extension.get().to_owned());
-    } else if let Some(&ip) = request.resolved_ip_addrs().and_then(|ips| ips.first()) {
+    } else if let Some(ip_addr) = ip_addr {
         isahc_request_builder = isahc_request_builder.dial(Dialer::ip_socket(SocketAddr::new(
-            ip,
+            ip_addr,
             extract_port_for_uri(request.url())?,
         )));
     }

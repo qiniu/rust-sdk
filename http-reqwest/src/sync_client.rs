@@ -1,7 +1,7 @@
 use super::{builder::ReqwestHTTPCallerBuilder, extensions::TimeoutExtension};
 use qiniu_http::{
     HTTPCaller, HeaderMap, HeaderValue, Request, ResponseError, ResponseErrorBuilder,
-    ResponseErrorKind, StatusCode, SyncResponse, SyncResponseResult, UploadProgressInfo, Uri,
+    ResponseErrorKind, StatusCode, SyncResponse, SyncResponseResult, TransferProgressInfo, Uri,
 };
 use reqwest::{
     blocking::{
@@ -105,7 +105,7 @@ fn make_sync_reqwest_request(
 
     return Ok(reqwest_request);
 
-    type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
+    type OnProgress<'r> = &'r (dyn Fn(&TransferProgressInfo) -> bool + Send + Sync);
 
     struct RequestBodyWithCallbacks {
         request_uri: &'static Uri,
@@ -141,7 +141,7 @@ fn make_sync_reqwest_request(
                 Ok(n) => {
                     let buf = &buf[..n];
                     if let Some(on_uploading_progress) = self.on_uploading_progress {
-                        if !on_uploading_progress(&UploadProgressInfo::new(
+                        if !on_uploading_progress(&TransferProgressInfo::new(
                             self.body.position(),
                             self.size,
                             buf,

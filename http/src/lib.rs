@@ -27,13 +27,14 @@ pub use error::{
     Error as ResponseError, ErrorBuilder as ResponseErrorBuilder, ErrorKind as ResponseErrorKind,
 };
 pub use http::{
-    header::{HeaderMap, HeaderName, HeaderValue},
+    header::{self, HeaderMap, HeaderName, HeaderValue},
     method::Method,
     request::Request as HTTPRequest,
     status::StatusCode,
-    uri::Uri,
+    uri::{self, Uri},
+    Extensions, Version,
 };
-pub use request::{Body as RequestBody, Request, RequestBuilder, UploadProgressInfo};
+pub use request::{Body as RequestBody, Request, RequestBuilder, TransferProgressInfo};
 pub use response::{
     Body as ResponseBody, Metrics, ReadDebug, Response, ResponseBuilder, Result as ResponseResult,
 };

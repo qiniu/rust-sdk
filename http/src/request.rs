@@ -5,7 +5,7 @@ use http::{
     request::Request as HTTPRequest,
     status::StatusCode,
     uri::Uri,
-    Extensions,
+    Extensions, Version,
 };
 use once_cell::sync::Lazy;
 use std::{borrow::Cow, fmt, mem::take, net::IpAddr};
@@ -22,7 +22,7 @@ static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
 /// 请求体
 pub type Body<'b> = Cow<'b, [u8]>;
 
-type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
+type OnProgress<'r> = &'r (dyn Fn(&TransferProgressInfo) -> bool + Send + Sync);
 type OnStatusCode<'r> = &'r (dyn Fn(StatusCode) -> bool + Send + Sync);
 type OnHeader<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync);
 
@@ -69,6 +69,18 @@ impl<'r> Request<'r> {
     #[inline]
     pub fn url_mut(&mut self) -> &mut Uri {
         self.inner.uri_mut()
+    }
+
+    /// 请求 HTTP 版本
+    #[inline]
+    pub fn version(&self) -> Version {
+        self.inner.version()
+    }
+
+    /// 修改请求 HTTP 版本
+    #[inline]
+    pub fn version_mut(&mut self) -> &mut Version {
+        self.inner.version_mut()
     }
 
     /// 请求 HTTP 方法
@@ -262,6 +274,13 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
+    /// 设置请求 HTTP 版本
+    #[inline]
+    pub fn version(&mut self, version: Version) -> &mut Self {
+        *self.inner.version_mut() = version;
+        self
+    }
+
     /// 设置请求 HTTP Headers
     #[inline]
     pub fn headers(&mut self, headers: HeaderMap) -> &mut Self {
@@ -328,34 +347,34 @@ impl<'r> RequestBuilder<'r> {
 }
 
 /// 上传进度信息
-pub struct UploadProgressInfo<'b> {
-    uploaded: u64,
-    total: u64,
-    uploaded_body: &'b [u8],
+pub struct TransferProgressInfo<'b> {
+    transferred_bytes: u64,
+    total_bytes: u64,
+    body: &'b [u8],
 }
 
-impl<'b> UploadProgressInfo<'b> {
+impl<'b> TransferProgressInfo<'b> {
     #[inline]
-    pub fn new(uploaded: u64, total: u64, uploaded_body: &'b [u8]) -> Self {
+    pub fn new(transferred_bytes: u64, total_bytes: u64, body: &'b [u8]) -> Self {
         Self {
-            uploaded,
-            total,
-            uploaded_body,
+            transferred_bytes,
+            total_bytes,
+            body,
         }
     }
 
     #[inline]
-    pub fn uploaded(&self) -> u64 {
-        self.uploaded
+    pub fn transferred_bytes(&self) -> u64 {
+        self.transferred_bytes
     }
 
     #[inline]
-    pub fn total(&self) -> u64 {
-        self.total
+    pub fn total_bytes(&self) -> u64 {
+        self.total_bytes
     }
 
     #[inline]
-    pub fn uploaded_body(&self) -> &[u8] {
-        self.uploaded_body
+    pub fn body(&self) -> &[u8] {
+        self.body
     }
 }

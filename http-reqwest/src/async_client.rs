@@ -8,7 +8,7 @@ use bytes::Bytes;
 use futures::{io::Cursor, ready, AsyncRead, Stream};
 use qiniu_http::{
     AsyncResponse, AsyncResponseResult, HTTPCaller, Request, ResponseError, ResponseErrorBuilder,
-    ResponseErrorKind, SyncResponseResult, UploadProgressInfo, Uri,
+    ResponseErrorKind, SyncResponseResult, TransferProgressInfo, Uri,
 };
 use reqwest::{
     header::USER_AGENT, Body as AsyncBody, Client as AsyncReqwestClient,
@@ -104,7 +104,7 @@ fn make_async_reqwest_request(
     }
     return Ok(reqwest_request);
 
-    type OnProgress<'r> = &'r (dyn Fn(&UploadProgressInfo) -> bool + Send + Sync);
+    type OnProgress<'r> = &'r (dyn Fn(&TransferProgressInfo) -> bool + Send + Sync);
 
     struct RequestBodyWithCallbacks {
         request_uri: &'static Uri,
@@ -144,7 +144,7 @@ fn make_async_reqwest_request(
                 Ok(n) => {
                     let buf = &buf[..n];
                     if let Some(on_uploading_progress) = self.on_uploading_progress {
-                        if !on_uploading_progress(&UploadProgressInfo::new(
+                        if !on_uploading_progress(&TransferProgressInfo::new(
                             self.body.position(),
                             self.size as u64,
                             buf,

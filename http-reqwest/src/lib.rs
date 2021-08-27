@@ -144,8 +144,8 @@ mod tests {
                             )
                             .body(&request_body)
                             .on_uploading_progress(&|info| {
-                                last_uploaded.store(info.uploaded(), Relaxed);
-                                last_total.store(info.total(), Relaxed);
+                                last_uploaded.store(info.transferred_bytes(), Relaxed);
+                                last_total.store(info.total_bytes(), Relaxed);
                                 true
                             })
                             .build(),
@@ -243,8 +243,8 @@ mod tests {
                             )
                             .body(&request_body)
                             .on_uploading_progress(&|info| {
-                                last_uploaded.store(info.uploaded(), Relaxed);
-                                last_total.store(info.total(), Relaxed);
+                                last_uploaded.store(info.transferred_bytes(), Relaxed);
+                                last_total.store(info.total_bytes(), Relaxed);
                                 true
                             })
                             .build(),
