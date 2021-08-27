@@ -371,6 +371,7 @@ macro_rules! sync_method {
     }};
 }
 
+#[cfg(feature = "async")]
 macro_rules! async_method {
     ($provider:expr, $cache_field:ident, $method_name:ident) => {{
         Box::pin(async move {

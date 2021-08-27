@@ -1,6 +1,6 @@
 use super::response::{Metrics, ResponseInfo};
 use http::uri::{Scheme, Uri};
-use std::{error, fmt, net::IpAddr};
+use std::{error, fmt, net::IpAddr, num::NonZeroU16};
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -81,7 +81,7 @@ impl Error {
     }
 
     #[inline]
-    pub fn server_port(&self) -> u16 {
+    pub fn server_port(&self) -> Option<NonZeroU16> {
         self.response_info.server_port()
     }
 
@@ -135,12 +135,12 @@ impl ErrorBuilder {
             }
         }
         if let Some(port) = uri.port_u16() {
-            *self.inner.response_info.server_port_mut() = port;
+            *self.inner.response_info.server_port_mut() = NonZeroU16::new(port);
         } else if let Some(scheme) = uri.scheme() {
             if scheme == &Scheme::HTTP {
-                *self.inner.response_info.server_port_mut() = 80;
+                *self.inner.response_info.server_port_mut() = NonZeroU16::new(80);
             } else if scheme == &Scheme::HTTPS {
-                *self.inner.response_info.server_port_mut() = 443;
+                *self.inner.response_info.server_port_mut() = NonZeroU16::new(443);
             }
         }
         self
@@ -153,8 +153,8 @@ impl ErrorBuilder {
     }
 
     #[inline]
-    pub fn server_port(mut self, server_port: u16) -> Self {
-        *self.inner.response_info.server_port_mut() = server_port;
+    pub fn server_port(mut self, server_port: NonZeroU16) -> Self {
+        *self.inner.response_info.server_port_mut() = Some(server_port);
         self
     }
 

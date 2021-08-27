@@ -20,6 +20,7 @@ use std::{
     fmt,
     io::{Error as IOError, ErrorKind as IOErrorKind, Result as IOResult},
     mem::{take, transmute},
+    num::NonZeroU16,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -185,13 +186,18 @@ fn from_async_response(
         .status_code(response.status())
         .version(response.version())
         .headers(take(response.headers_mut()));
-    if let Some(port) = response.url().port_or_known_default() {
+    if let Some(port) = response
+        .url()
+        .port_or_known_default()
+        .and_then(NonZeroU16::new)
+    {
         response_builder = response_builder.server_port(port);
     }
     if let Some(remote_addr) = response.remote_addr() {
-        response_builder = response_builder
-            .server_ip(remote_addr.ip())
-            .server_port(remote_addr.port());
+        response_builder = response_builder.server_ip(remote_addr.ip());
+        if let Some(port) = NonZeroU16::new(remote_addr.port()) {
+            response_builder = response_builder.server_port(port);
+        }
     }
     response_builder = response_builder.stream_as_body(Box::new(
         AsyncReqwestResponseReadWrapper::new(response.bytes_stream()),

@@ -13,6 +13,7 @@ use std::{
     io::{Cursor, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
     mem::{take, transmute},
     net::{IpAddr, SocketAddr},
+    num::NonZeroU16,
     time::Duration,
 };
 
@@ -200,9 +201,10 @@ fn make_sync_response(mut response: IsahcSyncResponse, request: &Request) -> Syn
         .headers(take(response.headers_mut()))
         .extensions(take(response.extensions_mut()));
     if let Some(remote_addr) = response.remote_addr() {
-        response_builder = response_builder
-            .server_ip(remote_addr.ip())
-            .server_port(remote_addr.port());
+        response_builder = response_builder.server_ip(remote_addr.ip());
+        if let Some(port) = NonZeroU16::new(remote_addr.port()) {
+            response_builder = response_builder.server_port(port);
+        }
     }
     if let Some(metrics) = response.metrics() {
         response_builder =
@@ -222,9 +224,10 @@ fn make_async_response(mut response: IsahcAsyncResponse, request: &Request) -> A
         .headers(take(response.headers_mut()))
         .extensions(take(response.extensions_mut()));
     if let Some(remote_addr) = response.remote_addr() {
-        response_builder = response_builder
-            .server_ip(remote_addr.ip())
-            .server_port(remote_addr.port());
+        response_builder = response_builder.server_ip(remote_addr.ip());
+        if let Some(port) = NonZeroU16::new(remote_addr.port()) {
+            response_builder = response_builder.server_port(port);
+        }
     }
     if let Some(metrics) = response.metrics() {
         response_builder =

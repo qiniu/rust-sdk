@@ -16,6 +16,7 @@ use std::{
     io::{Cursor, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
     mem::take,
     mem::transmute,
+    num::NonZeroU16,
 };
 
 #[cfg(feature = "async")]
@@ -189,13 +190,18 @@ fn from_sync_response(mut response: SyncReqwestResponse, request: &Request) -> S
         .status_code(response.status())
         .version(response.version())
         .headers(take(response.headers_mut()));
-    if let Some(port) = response.url().port_or_known_default() {
+    if let Some(port) = response
+        .url()
+        .port_or_known_default()
+        .and_then(NonZeroU16::new)
+    {
         response_builder = response_builder.server_port(port);
     }
     if let Some(remote_addr) = response.remote_addr() {
-        response_builder = response_builder
-            .server_ip(remote_addr.ip())
-            .server_port(remote_addr.port());
+        response_builder = response_builder.server_ip(remote_addr.ip());
+        if let Some(port) = NonZeroU16::new(remote_addr.port()) {
+            response_builder = response_builder.server_port(port);
+        }
     }
     response_builder = response_builder.stream_as_body(Box::new(response));
     Ok(response_builder.build())

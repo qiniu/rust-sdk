@@ -12,6 +12,7 @@ use std::{
     fs::File,
     io::{Cursor, Read, Result as IOResult, Seek, SeekFrom},
     net::IpAddr,
+    num::NonZeroU16,
     result,
     time::Duration,
 };
@@ -124,22 +125,11 @@ pub trait Metrics: Debug + Send + Sync {
     fn transfer_duration(&self) -> Option<Duration>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(super) struct ResponseInfo {
     server_ip: Option<IpAddr>,
-    server_port: u16,
+    server_port: Option<NonZeroU16>,
     metrics: Option<Box<dyn Metrics>>,
-}
-
-impl Default for ResponseInfo {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            server_ip: Default::default(),
-            server_port: 80,
-            metrics: Default::default(),
-        }
-    }
 }
 
 impl ResponseInfo {
@@ -149,7 +139,7 @@ impl ResponseInfo {
     }
 
     #[inline]
-    pub(super) fn server_port(&self) -> u16 {
+    pub(super) fn server_port(&self) -> Option<NonZeroU16> {
         self.server_port
     }
 
@@ -164,7 +154,7 @@ impl ResponseInfo {
     }
 
     #[inline]
-    pub(super) fn server_port_mut(&mut self) -> &mut u16 {
+    pub(super) fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
         &mut self.server_port
     }
 
@@ -254,13 +244,13 @@ impl<B> Response<B> {
 
     /// HTTP 服务器端口号
     #[inline]
-    pub fn server_port(&self) -> u16 {
+    pub fn server_port(&self) -> Option<NonZeroU16> {
         self.info.server_port()
     }
 
     /// 修改 HTTP 服务器端口号
     #[inline]
-    pub fn server_port_mut(&mut self) -> &mut u16 {
+    pub fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
         self.info.server_port_mut()
     }
 
@@ -449,8 +439,8 @@ impl<B> ResponseBuilder<B> {
 
     /// 设置 HTTP 服务器端口号
     #[inline]
-    pub fn server_port(mut self, server_port: u16) -> Self {
-        *self.inner.info.server_port_mut() = server_port;
+    pub fn server_port(mut self, server_port: NonZeroU16) -> Self {
+        *self.inner.info.server_port_mut() = Some(server_port);
         self
     }
 
