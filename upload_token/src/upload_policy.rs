@@ -604,6 +604,16 @@ impl From<UploadPolicy> for Cow<'_, UploadPolicy> {
     }
 }
 
+impl<'p> From<Cow<'p, UploadPolicy>> for UploadPolicy {
+    #[inline]
+    fn from(policy: Cow<'p, UploadPolicy>) -> Self {
+        match policy {
+            Cow::Borrowed(policy) => policy.to_owned(),
+            Cow::Owned(policy) => policy,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

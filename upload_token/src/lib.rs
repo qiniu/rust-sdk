@@ -27,8 +27,8 @@ pub use serde_json;
 pub use upload_policy::{UploadPolicy, UploadPolicyBuilder};
 use upload_token::FromUploadPolicy;
 pub use upload_token::{
-    ObjectUploadTokenProvider, ParseError, ParseResult, StaticUploadTokenProvider,
-    UploadTokenProvider,
+    CachedUploadTokenProvider, ObjectUploadTokenProvider, ParseError, ParseResult,
+    StaticUploadTokenProvider, UploadTokenProvider,
 };
 
 pub mod preclude {

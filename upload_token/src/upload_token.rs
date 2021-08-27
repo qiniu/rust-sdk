@@ -7,12 +7,16 @@ use std::{
     borrow::Cow,
     fmt::{self, Debug},
     io::{Error as IOError, Result as IOResult},
-    time::Duration,
+    sync::RwLock,
+    time::{Duration, Instant},
 };
 use thiserror::Error;
 
 #[cfg(feature = "async")]
-use std::{future::Future, pin::Pin};
+use {
+    futures::lock::Mutex as AsyncMutex,
+    std::{future::Future, pin::Pin},
+};
 
 #[cfg(feature = "async")]
 type AsyncParseResult<'a, T> = Pin<Box<dyn Future<Output = ParseResult<T>> + 'a + Send>>;
@@ -271,6 +275,154 @@ impl UploadTokenProvider for ObjectUploadTokenProvider {
             .as_bytes(),
         );
         Ok(upload_token.into())
+    }
+
+    #[inline]
+    fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider {
+        self
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+#[derive(Debug)]
+struct Cache<T> {
+    cached_at: Instant,
+    value: T,
+}
+
+#[derive(Debug, Default)]
+struct SyncCache {
+    access_key: RwLock<Option<Cache<String>>>,
+    upload_policy: RwLock<Option<Cache<UploadPolicy>>>,
+    upload_token: RwLock<Option<Cache<String>>>,
+}
+
+#[cfg(feature = "async")]
+#[derive(Debug, Default)]
+struct AsyncCache {
+    access_key: AsyncMutex<Option<Cache<String>>>,
+    upload_policy: AsyncMutex<Option<Cache<UploadPolicy>>>,
+    upload_token: AsyncMutex<Option<Cache<String>>>,
+}
+
+#[derive(Debug)]
+pub struct CachedUploadTokenProvider<P: UploadTokenProvider> {
+    inner_provider: P,
+    cache_lifetime: Duration,
+    sync_cache: SyncCache,
+
+    #[cfg(feature = "async")]
+    async_cache: AsyncCache,
+}
+
+impl<P: UploadTokenProvider> CachedUploadTokenProvider<P> {
+    #[inline]
+    pub fn new(inner_provider: P, cache_lifetime: Duration) -> Self {
+        Self {
+            inner_provider,
+            cache_lifetime,
+            sync_cache: Default::default(),
+
+            #[cfg(feature = "async")]
+            async_cache: Default::default(),
+        }
+    }
+}
+
+macro_rules! sync_method {
+    ($provider:expr, $cache_field:ident, $method_name:ident, $return_type:ty) => {{
+        let cache = $provider.sync_cache.$cache_field.read().unwrap();
+        return if let Some(cache) = &*cache {
+            if cache.cached_at.elapsed() < $provider.cache_lifetime {
+                Ok(cache.value.to_owned().into())
+            } else {
+                drop(cache);
+                update_cache(&$provider)
+            }
+        } else {
+            drop(cache);
+            update_cache(&$provider)
+        };
+
+        fn update_cache(
+            provider: &CachedUploadTokenProvider<impl UploadTokenProvider>,
+        ) -> $return_type {
+            let mut cache = provider.sync_cache.$cache_field.write().unwrap();
+            if let Some(cache) = &*cache {
+                if cache.cached_at.elapsed() < provider.cache_lifetime {
+                    return Ok(cache.value.to_owned().into());
+                }
+            }
+            match provider.inner_provider.$method_name() {
+                Ok(value) => {
+                    *cache = Some(Cache {
+                        cached_at: Instant::now(),
+                        value: value.to_owned().into(),
+                    });
+                    Ok(value)
+                }
+                Err(err) => Err(err),
+            }
+        }
+    }};
+}
+
+macro_rules! async_method {
+    ($provider:expr, $cache_field:ident, $method_name:ident) => {{
+        Box::pin(async move {
+            let mut cache = $provider.async_cache.$cache_field.lock().await;
+            if let Some(cache) = &*cache {
+                if cache.cached_at.elapsed() < $provider.cache_lifetime {
+                    return Ok(cache.value.to_owned().into());
+                }
+            }
+            match $provider.inner_provider.$method_name().await {
+                Ok(value) => {
+                    *cache = Some(Cache {
+                        cached_at: Instant::now(),
+                        value: value.to_owned().into(),
+                    });
+                    Ok(value)
+                }
+                Err(err) => Err(err),
+            }
+        })
+    }};
+}
+
+impl<P: UploadTokenProvider> UploadTokenProvider for CachedUploadTokenProvider<P> {
+    fn access_key(&self) -> ParseResult<Cow<str>> {
+        sync_method!(self, access_key, access_key, ParseResult<Cow<str>>)
+    }
+
+    fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
+        sync_method!(self, upload_policy, policy, ParseResult<Cow<UploadPolicy>>)
+    }
+
+    fn to_string(&self) -> IOResult<Cow<str>> {
+        sync_method!(self, upload_token, to_string, IOResult<Cow<str>>)
+    }
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    fn async_access_key(&self) -> AsyncParseResult<Cow<str>> {
+        async_method!(self, access_key, async_access_key)
+    }
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    fn async_policy(&self) -> AsyncParseResult<Cow<UploadPolicy>> {
+        async_method!(self, upload_policy, async_policy)
+    }
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    fn async_to_string(&self) -> AsyncIOResult<Cow<str>> {
+        async_method!(self, upload_token, async_to_string)
     }
 
     #[inline]
