@@ -81,13 +81,28 @@ impl Error {
     }
 
     #[inline]
+    pub fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
+        self.response_info.server_ip_mut()
+    }
+
+    #[inline]
     pub fn server_port(&self) -> Option<NonZeroU16> {
         self.response_info.server_port()
     }
 
     #[inline]
+    pub fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
+        self.response_info.server_port_mut()
+    }
+
+    #[inline]
     pub fn metrics(&self) -> Option<&dyn Metrics> {
         self.response_info.metrics()
+    }
+
+    #[inline]
+    pub fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
+        self.response_info.metrics_mut()
     }
 }
 
