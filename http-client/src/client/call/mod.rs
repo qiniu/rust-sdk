@@ -1,56 +1,46 @@
 mod domain_or_ip_addr;
 mod error;
+mod ip_addrs_set;
 mod utils;
 
 use super::{
-    super::{DomainWithPort, Endpoint},
-    APIResult, Authorization, AuthorizationError, ChooserFeedback, ChosenResult, Request,
-    RequestInfo, RequestWithoutEndpoints, ResponseError, ResponseErrorKind, ResponseInfo,
-    ResponseMetrics, RetriedStatsInfo, RetryResult, SyncResponse,
+    super::{DomainWithPort, Endpoint, IpAddrWithPort},
+    APIResult, Authorization, AuthorizationError, ChooserFeedback, Request, RequestInfo,
+    RequestWithoutEndpoints, ResponseError, ResponseErrorKind, ResponseInfo, RetriedStatsInfo,
+    RetryResult, SyncResponse,
 };
 pub use domain_or_ip_addr::DomainOrIpAddr;
-use error::{ErrorResponseBody, TryError};
+use error::{ErrorResponseBody, TryError, TryErrorWithExtensions};
+use ip_addrs_set::IpAddrsSet;
 use qiniu_http::{
-    HeaderName, HeaderValue, Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind,
-    StatusCode,
+    Extensions, HeaderName, HeaderValue, Request as HTTPRequest,
+    ResponseErrorKind as HTTPResponseErrorKind, StatusCode, TransferProgressInfo,
 };
 use serde_json::from_slice as parse_json_from_slice;
-use std::{result::Result, thread::sleep, time::Duration};
+use std::{mem::take, result::Result, thread::sleep, time::Duration};
 use utils::{
     call_after_request_signed_callbacks, call_after_retry_delay_callbacks,
     call_before_request_signed_callbacks, call_before_retry_delay_callbacks,
-    call_domain_chosen_callbacks, call_error_callbacks, call_success_callbacks,
-    call_to_choose_domain_callbacks, find_domains_with_port, find_ip_addr_with_port, make_request,
-    make_url,
+    call_domain_resolved_callbacks, call_error_callbacks, call_ips_chosen_callbacks,
+    call_success_callbacks, call_to_choose_ips_callbacks, call_to_resolve_domain_callbacks,
+    extract_ips_from, find_domains_with_port, find_ip_addr_with_port, make_request, make_url,
 };
 
 #[cfg(feature = "async")]
 use {super::AsyncResponse, async_std::task::block_on, futures_timer::Delay as AsyncDelay};
 
-const X_REQ_ID_HEADER_NAME: &str = "X-Reqid";
+const X_REQ_ID_HEADER_NAME: &str = "x-reqid";
 
 macro_rules! install_callbacks {
     ($request:expr, $request_info:expr, $built_request:ident) => {
-        let on_uploading_progress = |uploaded: u64, total: u64| -> bool {
-            $request.call_uploading_progress_callbacks(&$request_info, uploaded, total)
+        let on_uploading_progress = |info: &TransferProgressInfo| -> bool {
+            $request.call_uploading_progress_callbacks(&$request_info, info)
         };
         *$built_request.on_uploading_progress_mut() = Some(&on_uploading_progress);
-        let on_downloading_progress = |downloaded: u64, total: u64| -> bool {
-            $request.call_downloading_progress_callbacks(&$request_info, downloaded, total)
-        };
-        *$built_request.on_downloading_progress_mut() = Some(&on_downloading_progress);
-        let on_send_request_body = |chunk: &[u8]| -> bool {
-            $request.call_send_request_body_callbacks(&$request_info, chunk)
-        };
-        *$built_request.on_send_request_body_mut() = Some(&on_send_request_body);
         let on_receive_response_status = |status_code: StatusCode| -> bool {
             $request.call_receive_response_status_callbacks(&$request_info, status_code)
         };
         *$built_request.on_receive_response_status_mut() = Some(&on_receive_response_status);
-        let on_receive_response_body = |chunk: &[u8]| -> bool {
-            $request.call_receive_response_body_callbacks(&$request_info, chunk)
-        };
-        *$built_request.on_receive_response_body_mut() = Some(&on_receive_response_body);
         let on_receive_response_header = |name: &HeaderName, value: &HeaderValue| -> bool {
             $request.call_receive_response_header_callbacks(&$request_info, name, value)
         };
@@ -59,195 +49,159 @@ macro_rules! install_callbacks {
 }
 
 macro_rules! create_request_call_fn {
-    ($method_name:ident, $return_type:ident, $into_endpoints_method:ident, $sign_method:ident, $call_method:ident, $choose_method:ident, $choose_ips_method:ident, $feedback_method:ident, $sleep_method:path, $new_response_info:path, $block:ident, $blocking_block:ident $(, $async:ident)?) => {
+    ($method_name:ident, $return_type:ident, $into_endpoints_method:ident, $sign_method:ident, $call_method:ident, $resolve_method:ident, $choose_method:ident, $feedback_method:ident, $sleep_method:path, $new_response_info:path, $block:ident, $blocking_block:ident $(, $async:ident)?) => {
         pub(super) $($async)? fn $method_name(request: Request<'_>) -> APIResult<$return_type> {
-            let (request, into_endpoints, service_name) = request.split();
+            let (mut request, into_endpoints, service_name) = request.split();
             let endpoints = $block!({ into_endpoints.$into_endpoints_method(service_name) })?;
+            let extensions = take(request.extensions_mut());
             let mut retried = RetriedStatsInfo::default();
 
-            return match $block!({ try_new_endpoints(endpoints.endpoints(), &request, &mut retried) }) {
+            return match $block!({ try_new_endpoints(endpoints.endpoints(), &request, extensions, &mut retried) }) {
                 Ok(response) => Ok(response),
                 Err(err)
                     if err.retry_result() == RetryResult::TryOldEndpoints
                         && !endpoints.old_endpoints().is_empty() =>
                 {
+                    let (_, extensions) = err.split();
                     retried.switch_to_old_endpoints();
-                    $block!({ try_old_endpoints(endpoints.old_endpoints(), &request, &mut retried) })
+                    $block!({ try_old_endpoints(endpoints.old_endpoints(), &request, extensions, &mut retried) })
                 }
                 Err(err) => Err(err.into_response_error()),
             };
 
-            type TryResult = Result<$return_type, TryError>;
+            type TryResult = Result<$return_type, TryErrorWithExtensions>;
+            type _TryResult = Result<$return_type, TryError>;
 
             #[inline]
             $($async)? fn try_new_endpoints(
                 endpoints: &[Endpoint],
                 request: &RequestWithoutEndpoints<'_>,
+                extensions: Extensions,
                 retried: &mut RetriedStatsInfo,
             ) -> TryResult {
-                $block!({ try_endpoints(endpoints, request, retried, true) })
+                $block!({ try_endpoints(endpoints, request, extensions, retried, true) })
             }
 
             #[inline]
             $($async)? fn try_old_endpoints(
                 endpoints: &[Endpoint],
                 request: &RequestWithoutEndpoints<'_>,
+                extensions: Extensions,
                 retried: &mut RetriedStatsInfo,
             ) -> APIResult<$return_type> {
-                $block!({ try_endpoints(endpoints, request, retried, false) }).map_err(|err| err.into_response_error())
+                $block!({ try_endpoints(endpoints, request, extensions, retried, false) }).map_err(|err| err.into_response_error())
             }
 
             $($async)? fn try_endpoints(
                 endpoints: &[Endpoint],
                 request: &RequestWithoutEndpoints<'_>,
+                mut extensions: Extensions,
                 retried: &mut RetriedStatsInfo,
                 is_endpoints_old: bool,
             ) -> TryResult {
                 let mut last_error: Option<TryError> = None;
                 macro_rules! try_endpoint {
-                    ($endpoint:expr, $request:expr, $retried:expr, $is_endpoint_old:expr) => {
-                        match $block!({ try_endpoint($endpoint, $request, $retried) }) {
+                    ($endpoint:expr) => {
+                        let ext = take(&mut extensions);
+                        match $block!({ try_endpoint($endpoint, request, ext, retried) }) {
                             Ok(response) => return Ok(response),
-                            Err(err) => match err.retry_result() {
-                                RetryResult::TryOldEndpoints if $is_endpoint_old => return Err(err),
-                                RetryResult::DontRetry => {
-                                    retried.increase_abandoned_ips_of_current_endpoint();
-                                    return Err(err);
-                                }
-                                _ => {
-                                    retried.increase_abandoned_ips_of_current_endpoint();
-                                    last_error = Some(err);
+                            Err(err) => {
+                                match err.retry_result() {
+                                    RetryResult::TryOldEndpoints if is_endpoints_old => return Err(err),
+                                    RetryResult::DontRetry => {
+                                        retried.increase_abandoned_ips_of_current_endpoint();
+                                        return Err(err);
+                                    }
+                                    _ => {
+                                        retried.increase_abandoned_ips_of_current_endpoint();
+                                        let (err, ext) = err.split();
+                                        extensions = ext;
+                                        last_error = Some(err);
+                                    }
                                 }
                             },
                         }
                     };
                 }
 
-                let mut tried_count = 0usize;
                 for domain_with_port in find_domains_with_port(endpoints) {
                     retried.switch_endpoint();
-                    'within_domain: loop {
-                        retried.switch_ips();
-                        match $block!({ choose_domain(request, domain_with_port, false) })? {
-                            ChosenResult::IPs(ips) if !ips.is_empty() => {
-                                tried_count += 1;
+                    let ips = $block!({ resolve_domain(request, domain_with_port) })
+                        .map_err(|err| err.with_extensions(take(&mut extensions)))?;
+                    if ips.is_empty() {
+                        retried.increase_abandoned_endpoints();
+                    } else {
+                        let mut remaining_ips = IpAddrsSet::new(&ips);
+                        loop {
+                            let chosen_ips = $block!({ choose(request, &remaining_ips.remains()) })
+                                .map_err(|err| err.with_extensions(take(&mut extensions)))?;
+                            if chosen_ips.is_empty() {
+                                break;
+                            } else {
+                                remaining_ips.difference(&chosen_ips);
+                                retried.switch_ips();
                                 let domain =
-                                    DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), ips);
-                                try_endpoint!(&domain, request, retried, is_endpoints_old);
-                            }
-                            ChosenResult::TryAnotherDomain => {
-                                retried.increase_abandoned_endpoints();
-                                break 'within_domain;
-                            }
-                            _ /* ChosenResult::UseThisDomainDirectly or ChosenResult::IPs([]) */ => {
-                                tried_count += 1;
-                                let domain =
-                                    DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), vec![]);
-                                try_endpoint!(&domain, request, retried, is_endpoints_old);
+                                    DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), chosen_ips);
+                                try_endpoint!(&domain);
                             }
                         }
                     }
                 }
 
-                let ips_with_port = find_ip_addr_with_port(endpoints)
+                let ips = find_ip_addr_with_port(endpoints)
                     .cloned()
                     .collect::<Vec<_>>();
-                if !ips_with_port.is_empty() {
-                    'within_ips: loop {
-                        match $block!({ request.http_client().chooser().$choose_ips_method(&ips_with_port) }) {
-                            ChosenResult::IPs(ips) if !ips.is_empty() => {
-                                for ip in ips.into_iter() {
-                                    retried.switch_endpoint();
-                                    retried.switch_ips();
-                                    tried_count += 1;
-                                    let ip_addr = DomainOrIpAddr::from(ip);
-                                    try_endpoint!(
-                                        &ip_addr,
-                                        request,
-                                        retried,
-                                        is_endpoints_old
-                                    );
-                                }
-                            }
-                            ChosenResult::UseThisDomainDirectly => {
-                                panic!("choose_ips() must not returns ChosenResult::UseThisDomainDirectly")
-                            }
-                            _ => {
+                if !ips.is_empty() {
+                    let mut remaining_ips = IpAddrsSet::new(&ips);
+                    loop {
+                        let chosen_ips = $block!({ choose(request, &remaining_ips.remains()) })
+                            .map_err(|err| err.with_extensions(take(&mut extensions)))?;
+                        if chosen_ips.is_empty() {
+                            break;
+                        } else {
+                            remaining_ips.difference(&chosen_ips);
+                            for chosen_ip in chosen_ips.into_iter() {
+                                retried.switch_endpoint();
+                                retried.switch_ips();
+                                let ip_addr = DomainOrIpAddr::from(chosen_ip);
+                                try_endpoint!(&ip_addr);
                                 retried.increase_abandoned_endpoints();
-                                break 'within_ips;
                             }
                         }
                     }
                 }
 
-                if tried_count == 0 {
-                    'out_of_domains: for domain_with_port in find_domains_with_port(endpoints) {
-                        retried.switch_endpoint();
-                        'within_domain_2: loop {
-                            retried.switch_ips();
-                            match $block!({ choose_domain(request, domain_with_port, true) })? {
-                                ChosenResult::IPs(ips) if !ips.is_empty() => {
-                                    tried_count += 1;
-                                    let domain =
-                                        DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), ips);
-                                    try_endpoint!(&domain, request, retried, is_endpoints_old);
-                                    break 'out_of_domains;
-                                }
-                                ChosenResult::TryAnotherDomain => {
-                                    retried.increase_abandoned_endpoints();
-                                    break 'within_domain_2;
-                                }
-                                _ /* ChosenResult::UseThisDomainDirectly or ChosenResult::IPs([]) */ => {
-                                    tried_count += 1;
-                                    let domain =
-                                        DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), vec![]);
-                                    try_endpoint!(&domain, request, retried, is_endpoints_old);
-                                    break 'out_of_domains;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if tried_count == 0 && !ips_with_port.is_empty() {
-                    'within_ips_2: for ip in ips_with_port.into_iter() {
-                        retried.switch_endpoint();
-                        retried.switch_ips();
-                        try_endpoint!(
-                            &DomainOrIpAddr::from(ip),
-                            request,
-                            retried,
-                            is_endpoints_old
-                        );
-                        break 'within_ips_2;
-                    }
-                }
-
-                return Err(last_error.expect("No domains or IPs can be retried"));
+                return Err(last_error.expect("No domains or IPs can be retried").with_extensions(extensions));
             }
 
             $($async)? fn try_endpoint(
                 domain_or_ip: &DomainOrIpAddr,
                 request: &RequestWithoutEndpoints<'_>,
+                mut extensions: Extensions,
                 retried: &mut RetriedStatsInfo,
             ) -> TryResult {
-                let (url, resolved_ips) = make_url(domain_or_ip, request)?;
-                let mut built_request = make_request(&url, request, &resolved_ips);
-                call_before_request_signed_callbacks(request, &mut built_request, retried)?;
-                $block!({ sign_request(&mut built_request, request.authorization()) })?;
+                let (url, resolved_ips) = make_url(domain_or_ip, request)
+                    .map_err(|err| err.with_extensions(take(&mut extensions)))?;
+                let mut built_request = make_request(url, request, extensions, &resolved_ips);
+                call_before_request_signed_callbacks(request, &mut built_request, retried)
+                    .map_err(|err| err.with_request(&mut built_request))?;
+                $block!({ sign_request(&mut built_request, request.authorization()) })
+                    .map_err(|err| err.with_request(&mut built_request))?;
                 let request_info = RequestInfo::new(&built_request);
                 install_callbacks!(request, request_info, built_request);
-                call_after_request_signed_callbacks(request, &mut built_request, retried)?;
+                call_after_request_signed_callbacks(request, &mut built_request, retried)
+                    .map_err(|err| err.with_request(&mut built_request))?;
+                let extracted_ips = extract_ips_from(&domain_or_ip);
                 match $block!({ do_request(request, &mut built_request, retried) }) {
                     Ok(response) => {
-                        let feedback = ChooserFeedback::new(&domain_or_ip, retried, Ok(ResponseMetrics::new_from_response(&response)));
+                        let feedback = ChooserFeedback::new(&extracted_ips, retried, response.metrics(), None);
                         $block!({ request.http_client().chooser().$feedback_method(feedback) });
                         Ok(response)
                     },
                     Err(err) => {
-                        let feedback = ChooserFeedback::new(&domain_or_ip, retried, Err(err.response_error()));
+                        let feedback = ChooserFeedback::new(&extracted_ips, retried, err.response_error().metrics(), Some(err.response_error()));
                         $block!({ request.http_client().chooser().$feedback_method(feedback) });
-                        Err(err)
+                        Err(err.with_request(&mut built_request))
                     }
                 }
             }
@@ -256,7 +210,7 @@ macro_rules! create_request_call_fn {
                 request: &RequestWithoutEndpoints<'_>,
                 built_request: &mut HTTPRequest<'_>,
                 retried: &mut RetriedStatsInfo,
-            ) -> TryResult {
+            ) -> _TryResult {
                 loop {
                     let response = $block!({
                         request
@@ -344,7 +298,7 @@ macro_rules! create_request_call_fn {
                         ),
                         AuthorizationError::UrlParseError(err) => TryError::new(
                             ResponseError::new(
-                                ResponseErrorKind::HTTPError(HTTPResponseErrorKind::InvalidURLError),
+                                ResponseErrorKind::HTTPError(HTTPResponseErrorKind::InvalidURL),
                                 err,
                             ),
                             RetryResult::TryNextServer,
@@ -357,7 +311,7 @@ macro_rules! create_request_call_fn {
             $($async)? fn judge(response: $return_type) -> APIResult<$return_type> {
                 if response
                     .headers()
-                    .get(&X_REQ_ID_HEADER_NAME.into())
+                    .get(&HeaderName::from_static(X_REQ_ID_HEADER_NAME))
                     .is_none()
                 {
                     return Err(ResponseError::new(
@@ -368,45 +322,56 @@ macro_rules! create_request_call_fn {
                         ),
                     ));
                 }
-                match response.status_code() {
+                match response.status_code().as_u16() {
                     0..=199 | 300..=399 => Err(ResponseError::new(
                         ResponseErrorKind::UnexpectedStatusCode(response.status_code()),
                         format!("status code {} is unexpected", response.status_code()),
                     )),
                     200..=299 => Ok(response),
-            status_code => {
-                let error_response_body: Vec<u8> = $block!({ response.fulfill() })
-                    .map_err(|err| {
-                        ResponseError::new(HTTPResponseErrorKind::LocalIOError.into(), err)
-                    })?
-                    .into_body()
-                    .into_bytes();
-                let error_response_body: ErrorResponseBody =
-                    parse_json_from_slice(&error_response_body).map_err(|err| {
-                        ResponseError::new(ResponseErrorKind::ParseResponseError, err)
-                    })?;
-                Err(ResponseError::new(
-                    ResponseErrorKind::StatusCodeError(status_code),
-                    error_response_body.into_error(),
-                ))
+                    _ => {
+                        let status_code = response.status_code();
+                        let error_response_body: Vec<u8> = $block!({ response.fulfill() })?
+                            .into_body();
+                        let error_response_body: ErrorResponseBody =
+                            parse_json_from_slice(&error_response_body).map_err(|err| {
+                                ResponseError::new(ResponseErrorKind::ParseResponseError, err)
+                            })?;
+                        Err(ResponseError::new(
+                            ResponseErrorKind::StatusCodeError(status_code),
+                            error_response_body.into_error(),
+                        ))
+                    }
                 }
             }
-            }
 
-            $($async)? fn choose_domain(
+            $($async)? fn resolve_domain(
                 request: &RequestWithoutEndpoints<'_>,
                 domain_with_port: &DomainWithPort,
-                last_round: bool,
-            ) -> Result<ChosenResult, TryError> {
-                call_to_choose_domain_callbacks(request, domain_with_port.domain())?;
-                let result = $block!({
+            ) -> Result<Vec<IpAddrWithPort>, TryError> {
+                call_to_resolve_domain_callbacks(request, domain_with_port.domain())?;
+                let answers = $block!({
+                    request
+                        .http_client()
+                        .resolver()
+                        .$resolve_method(domain_with_port.domain())
+                }).map_err(|err| TryError::new(err, RetryResult::TryNextServer))?;
+                call_domain_resolved_callbacks(request, domain_with_port.domain(), &answers)?;
+                Ok(answers.into_ip_addrs().into_iter().map(|&ip| IpAddrWithPort::new_with_port(ip,domain_with_port.port() ) ).collect())
+            }
+
+            $($async)? fn choose(
+                request: &RequestWithoutEndpoints<'_>,
+                ips: &[IpAddrWithPort],
+            ) -> Result<Vec<IpAddrWithPort>, TryError> {
+                call_to_choose_ips_callbacks(request, ips)?;
+                let chosen_ips = $block!({
                     request
                         .http_client()
                         .chooser()
-                        .$choose_method(domain_with_port, last_round)
+                        .$choose_method(ips)
                 });
-                call_domain_chosen_callbacks(request, domain_with_port.domain(), &result)?;
-                Ok(result)
+                call_ips_chosen_callbacks(request, ips, &chosen_ips)?;
+                Ok(chosen_ips)
             }
         }
     };
@@ -438,8 +403,8 @@ create_request_call_fn!(
     into_endpoints,
     sign,
     call,
+    resolve,
     choose,
-    choose_ips,
     feedback,
     sleep,
     ResponseInfo::new_from_sync,
@@ -459,8 +424,8 @@ create_request_call_fn!(
     async_into_endpoints,
     async_sign,
     async_call,
+    async_resolve,
     async_choose,
-    async_choose_ips,
     async_feedback,
     async_sleep,
     ResponseInfo::new_from_async,
@@ -481,7 +446,7 @@ mod tests {
         },
         Authorization, Chooser, DefaultRetrier, ServiceName, SimpleChooser, NO_DELAY_POLICY,
     };
-    use qiniu_http::HeadersOwned;
+    use qiniu_http::HeaderMap;
     use std::{
         collections::{HashMap, HashSet},
         error::Error,
@@ -721,8 +686,11 @@ mod tests {
         );
 
         let headers = {
-            let mut headers = HeadersOwned::default();
-            headers.insert(X_REQ_ID_HEADER_NAME.into(), "fake_req_id".into());
+            let mut headers = HeaderMap::default();
+            headers.insert(
+                HeaderName::from_static(X_REQ_ID_HEADER_NAME),
+                "fake_req_id".into(),
+            );
             headers
         };
         let always_throttled_client = make_fixed_response_client_builder(
@@ -991,12 +959,15 @@ mod tests {
     #[test]
     fn test_call_unexpected_redirection() -> Result<(), Box<dyn Error>> {
         let headers = {
-            let mut headers = HeadersOwned::new();
+            let mut headers = HeaderMap::new();
             headers.insert(
                 "Location".into(),
                 "https://another-fakedomain.withoutport.com/".into(),
             );
-            headers.insert(X_REQ_ID_HEADER_NAME.into(), "fake_req_id".into());
+            headers.insert(
+                HeaderName::from_static(X_REQ_ID_HEADER_NAME),
+                "fake_req_id".into(),
+            );
             headers
         };
         let always_redirected_client =
@@ -1113,8 +1084,11 @@ mod tests {
         );
 
         let headers = {
-            let mut headers = HeadersOwned::default();
-            headers.insert(X_REQ_ID_HEADER_NAME.into(), "fake_req_id".into());
+            let mut headers = HeaderMap::default();
+            headers.insert(
+                HeaderName::from_static(X_REQ_ID_HEADER_NAME),
+                "fake_req_id".into(),
+            );
             headers
         };
         let always_throttled_client = make_fixed_response_client_builder(

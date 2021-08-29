@@ -1,4 +1,4 @@
-use super::{super::ResponseError, ResolveResult, Resolver};
+use super::{super::ResponseError, ResolveAnswers, ResolveResult, Resolver};
 use dns_lookup::lookup_host;
 use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
 use std::any::Any;
@@ -12,7 +12,7 @@ impl Resolver for SimpleResolver {
         let ip_addrs = lookup_host(domain)
             .map(|ips| ips.into_boxed_slice())
             .map_err(|err| ResponseError::new(HTTPResponseErrorKind::DNSServerError.into(), err))?;
-        Ok(ip_addrs)
+        Ok(ResolveAnswers::new(ip_addrs))
     }
 
     #[inline]

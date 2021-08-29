@@ -22,7 +22,7 @@ impl Resolver for ChainedResolver {
         let mut last_result: Option<ResolveResult> = None;
         for resolver in self.resolvers.iter() {
             match resolver.resolve(domain) {
-                Ok(ips) if !ips.is_empty() => return Ok(ips),
+                Ok(answers) if !answers.ip_addrs().is_empty() => return Ok(answers),
                 result => last_result = Some(result),
             }
         }
@@ -37,7 +37,7 @@ impl Resolver for ChainedResolver {
             let mut last_result: Option<ResolveResult> = None;
             for resolver in self.resolvers.iter() {
                 match resolver.async_resolve(domain).await {
-                    Ok(ips) if !ips.is_empty() => return Ok(ips),
+                    Ok(answers) if !answers.ip_addrs().is_empty() => return Ok(answers),
                     result => last_result = Some(result),
                 }
             }

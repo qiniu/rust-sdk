@@ -1,5 +1,5 @@
 use super::{ResolveResult, Resolver};
-use rand::{seq::SliceRandom, thread_rng};
+use rand::{prelude::*, thread_rng};
 use std::any::Any;
 
 #[cfg(feature = "async")]
@@ -25,9 +25,9 @@ impl<R: Resolver> ShuffledResolver<R> {
 impl<R: Resolver> Resolver for ShuffledResolver<R> {
     #[inline]
     fn resolve(&self, domain: &str) -> ResolveResult {
-        let mut chosen_ips = self.base_resolver().resolve(domain)?;
-        chosen_ips.shuffle(&mut thread_rng());
-        Ok(chosen_ips)
+        let mut answers = self.base_resolver().resolve(domain)?;
+        answers.ip_addrs_mut().shuffle(&mut thread_rng());
+        Ok(answers)
     }
 
     #[inline]
@@ -35,9 +35,9 @@ impl<R: Resolver> Resolver for ShuffledResolver<R> {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_resolve<'a>(&'a self, domain: &'a str) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
-            let mut chosen_ips = self.base_resolver().async_resolve(domain).await?;
-            chosen_ips.shuffle(&mut thread_rng());
-            Ok(chosen_ips)
+            let mut answers = self.base_resolver().async_resolve(domain).await?;
+            answers.ip_addrs_mut().shuffle(&mut thread_rng());
+            Ok(answers)
         })
     }
 

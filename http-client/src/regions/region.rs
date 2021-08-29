@@ -6,112 +6,117 @@ use std::sync::Arc;
 /// 提供七牛不同区域的域名
 #[derive(Clone, Debug)]
 pub struct Region {
+    inner: Arc<RegionInner>,
+}
+
+#[derive(Debug)]
+struct RegionInner {
     region_id: Box<str>,
     s3_region_id: Box<str>,
-    up: Arc<Endpoints>,
-    io: Arc<Endpoints>,
-    uc: Arc<Endpoints>,
-    rs: Arc<Endpoints>,
-    rsf: Arc<Endpoints>,
-    api: Arc<Endpoints>,
-    s3: Arc<Endpoints>,
+    up: Endpoints,
+    io: Endpoints,
+    uc: Endpoints,
+    rs: Endpoints,
+    rsf: Endpoints,
+    api: Endpoints,
+    s3: Endpoints,
 }
 
 impl Region {
     /// 获取区域 ID
     #[inline]
     pub fn region_id(&self) -> &str {
-        &self.region_id
+        &self.inner.region_id
     }
 
     /// 获取 S3 区域 ID
     #[inline]
     pub fn s3_region_id(&self) -> &str {
-        &self.s3_region_id
+        &self.inner.s3_region_id
     }
 
     /// 获取上传域名列表
     #[inline]
     pub fn up_endpoints(&self) -> &[Endpoint] {
-        &self.up.endpoints()
+        &self.up().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn up_old_endpoints(&self) -> &[Endpoint] {
-        &self.up.old_endpoints()
+        &self.up().old_endpoints()
     }
 
     /// 获取下载域名列表
     #[inline]
     pub fn io_endpoints(&self) -> &[Endpoint] {
-        &self.io.endpoints()
+        &self.io().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn io_old_endpoints(&self) -> &[Endpoint] {
-        &self.io.old_endpoints()
+        &self.io().old_endpoints()
     }
 
     /// 获取 UC 域名列表
     #[inline]
     pub fn uc_endpoints(&self) -> &[Endpoint] {
-        &self.uc.endpoints()
+        &self.uc().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn uc_old_endpoints(&self) -> &[Endpoint] {
-        &self.uc.old_endpoints()
+        &self.uc().old_endpoints()
     }
 
     /// 获取 RS 域名列表
     #[inline]
     pub fn rs_endpoints(&self) -> &[Endpoint] {
-        &self.rs.endpoints()
+        &self.rs().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn rs_old_endpoints(&self) -> &[Endpoint] {
-        &self.rs.old_endpoints()
+        &self.rs().old_endpoints()
     }
 
     /// 获取 RSF 域名列表
     #[inline]
     pub fn rsf_endpoints(&self) -> &[Endpoint] {
-        &self.rsf.endpoints()
+        &self.rsf().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn rsf_old_endpoints(&self) -> &[Endpoint] {
-        &self.rsf.old_endpoints()
+        &self.rsf().old_endpoints()
     }
 
     /// 获取 API 域名列表
     #[inline]
     pub fn api_endpoints(&self) -> &[Endpoint] {
-        &self.api.endpoints()
+        &self.api().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn api_old_endpoints(&self) -> &[Endpoint] {
-        &self.api.old_endpoints()
+        &self.api().old_endpoints()
     }
 
     /// 获取 S3 域名列表
     #[inline]
     pub fn s3_endpoints(&self) -> &[Endpoint] {
-        &self.s3.endpoints()
+        &self.s3().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn s3_old_endpoints(&self) -> &[Endpoint] {
-        &self.s3.old_endpoints()
+        &self.s3().old_endpoints()
     }
 
     /// 创建新的区域
@@ -122,37 +127,37 @@ impl Region {
 
     #[inline]
     pub(super) fn up(&self) -> &Endpoints {
-        &self.up
+        &self.inner.up
     }
 
     #[inline]
     pub(super) fn io(&self) -> &Endpoints {
-        &self.io
+        &self.inner.io
     }
 
     #[inline]
     pub(super) fn uc(&self) -> &Endpoints {
-        &self.uc
+        &self.inner.uc
     }
 
     #[inline]
     pub(super) fn rs(&self) -> &Endpoints {
-        &self.rs
+        &self.inner.rs
     }
 
     #[inline]
     pub(super) fn rsf(&self) -> &Endpoints {
-        &self.rsf
+        &self.inner.rsf
     }
 
     #[inline]
     pub(super) fn api(&self) -> &Endpoints {
-        &self.api
+        &self.inner.api
     }
 
     #[inline]
     pub(super) fn s3(&self) -> &Endpoints {
-        &self.s3
+        &self.inner.s3
     }
 }
 
@@ -305,15 +310,17 @@ impl RegionBuilder {
     /// 构建区域
     pub fn build(self) -> Region {
         Region {
-            region_id: self.region_id.into_boxed_str(),
-            s3_region_id: self.s3_region_id.into_boxed_str(),
-            up: Arc::new((self.up, self.up_old).into()),
-            io: Arc::new((self.io, self.io_old).into()),
-            uc: Arc::new((self.uc, self.uc_old).into()),
-            rs: Arc::new((self.rs, self.rs_old).into()),
-            rsf: Arc::new((self.rsf, self.rsf_old).into()),
-            api: Arc::new((self.api, self.api_old).into()),
-            s3: Arc::new((self.s3, self.s3_old).into()),
+            inner: Arc::new(RegionInner {
+                region_id: self.region_id.into_boxed_str(),
+                s3_region_id: self.s3_region_id.into_boxed_str(),
+                up: (self.up, self.up_old).into(),
+                io: (self.io, self.io_old).into(),
+                uc: (self.uc, self.uc_old).into(),
+                rs: (self.rs, self.rs_old).into(),
+                rsf: (self.rsf, self.rsf_old).into(),
+                api: (self.api, self.api_old).into(),
+                s3: (self.s3, self.s3_old).into(),
+            }),
         }
     }
 }

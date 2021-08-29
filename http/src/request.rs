@@ -295,6 +295,13 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
+    /// 扩展字段
+    #[inline]
+    pub fn extensions(&mut self, extensions: Extensions) -> &mut Self {
+        *self.inner.extensions_mut() = extensions;
+        self
+    }
+
     /// 设置用户代理
     #[inline]
     pub fn appended_user_agent(&mut self, user_agent: impl Into<Cow<'r, str>>) -> &mut Self {

@@ -1,13 +1,11 @@
 use qiniu_http::{
-    CachedResponseBody, HeaderNameOwned, HeaderValueOwned, HeadersOwned, Response as HTTPResponse,
-    ResponseBody, ResponseErrorKind as HTTPResponseErrorKind, StatusCode,
+    Extensions, HeaderMap, HeaderName, HeaderValue, Metrics, Response as HTTPResponse,
+    ResponseBody, ResponseErrorKind as HTTPResponseErrorKind, ResponseResult as HTTPResponseResult,
+    StatusCode, Version,
 };
 use serde::de::DeserializeOwned;
 use serde_json::from_slice as parse_json_from_slice;
-use std::{io::Result as IOResult, net::IpAddr, time::Duration};
-
-#[cfg(feature = "async")]
-pub use qiniu_http::{AsyncCachedResponseBody, AsyncResponseBody};
+use std::{io::copy as io_copy, net::IpAddr, num::NonZeroU16};
 
 mod error;
 pub use error::{Error as ResponseError, ErrorKind as ResponseErrorKind};
@@ -15,10 +13,7 @@ pub use error::{Error as ResponseError, ErrorKind as ResponseErrorKind};
 pub type APIResult<T> = Result<T, ResponseError>;
 
 #[cfg(feature = "async")]
-use std::{future::Future, pin::Pin};
-
-#[cfg(feature = "async")]
-type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+use {futures::io::copy as async_io_copy, qiniu_http::AsyncResponseBody};
 
 #[derive(Default, Debug)]
 pub struct Response<B> {
@@ -30,6 +25,7 @@ impl<B> Response<B> {
     pub(super) fn new(inner: HTTPResponse<B>) -> Self {
         Self { inner }
     }
+
     /// HTTP 状态码
     #[inline]
     pub fn status_code(&self) -> StatusCode {
@@ -44,14 +40,26 @@ impl<B> Response<B> {
 
     /// HTTP Headers
     #[inline]
-    pub fn headers(&self) -> &HeadersOwned {
+    pub fn headers(&self) -> &HeaderMap {
         self.inner.headers()
     }
 
     /// 修改 HTTP Headers
     #[inline]
-    pub fn headers_mut(&mut self) -> &mut HeadersOwned {
+    pub fn headers_mut(&mut self) -> &mut HeaderMap {
         self.inner.headers_mut()
+    }
+
+    /// HTTP 版本
+    #[inline]
+    pub fn version(&self) -> Version {
+        self.inner.version()
+    }
+
+    /// 修改 HTTP 版本
+    #[inline]
+    pub fn version_mut(&mut self) -> &mut Version {
+        self.inner.version_mut()
     }
 
     /// HTTP 服务器 IP 地址
@@ -68,80 +76,42 @@ impl<B> Response<B> {
 
     /// HTTP 服务器端口号
     #[inline]
-    pub fn server_port(&self) -> u16 {
+    pub fn server_port(&self) -> Option<NonZeroU16> {
         self.inner.server_port()
     }
 
     /// 修改 HTTP 服务器端口号
     #[inline]
-    pub fn server_port_mut(&mut self) -> &mut u16 {
+    pub fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
         self.inner.server_port_mut()
     }
 
     /// 获取 HTTP 响应 Header
     #[inline]
-    pub fn header(&self, header_name: impl Into<HeaderNameOwned>) -> Option<&HeaderValueOwned> {
+    pub fn header(&self, header_name: HeaderName) -> Option<&HeaderValue> {
         self.inner.header(header_name)
     }
 
+    /// 扩展字段
     #[inline]
-    pub fn total_duration(&self) -> Option<Duration> {
-        self.inner.total_duration()
+    pub fn extensions(&self) -> &Extensions {
+        self.inner.extensions()
+    }
+
+    /// 修改扩展字段
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        self.inner.extensions_mut()
     }
 
     #[inline]
-    pub fn name_lookup_duration(&self) -> Option<Duration> {
-        self.inner.name_lookup_duration()
+    pub fn metrics(&self) -> Option<&dyn Metrics> {
+        self.inner.metrics()
     }
 
     #[inline]
-    pub fn connect_duration(&self) -> Option<Duration> {
-        self.inner.connect_duration()
-    }
-
-    #[inline]
-    pub fn secure_connect_duration(&self) -> Option<Duration> {
-        self.inner.secure_connect_duration()
-    }
-
-    #[inline]
-    pub fn redirect_duration(&self) -> Option<Duration> {
-        self.inner.redirect_duration()
-    }
-
-    #[inline]
-    pub fn transfer_duration(&self) -> Option<Duration> {
-        self.inner.transfer_duration()
-    }
-
-    #[inline]
-    pub fn total_duration_mut(&mut self) -> &mut Option<Duration> {
-        self.inner.total_duration_mut()
-    }
-
-    #[inline]
-    pub fn name_lookup_duration_mut(&mut self) -> &mut Option<Duration> {
-        self.inner.name_lookup_duration_mut()
-    }
-
-    #[inline]
-    pub fn connect_duration_mut(&mut self) -> &mut Option<Duration> {
-        self.inner.connect_duration_mut()
-    }
-
-    #[inline]
-    pub fn secure_connect_duration_mut(&mut self) -> &mut Option<Duration> {
-        self.inner.secure_connect_duration_mut()
-    }
-
-    #[inline]
-    pub fn redirect_duration_mut(&mut self) -> &mut Option<Duration> {
-        self.inner.redirect_duration_mut()
-    }
-
-    #[inline]
-    pub fn transfer_duration_mut(&mut self) -> &mut Option<Duration> {
-        self.inner.transfer_duration_mut()
+    pub fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
+        self.inner.metrics_mut()
     }
 
     /// HTTP 响应体
@@ -164,66 +134,39 @@ impl<B> Response<B> {
 
     #[inline]
     pub fn x_req_id(&self) -> Option<&str> {
-        self.header("X-Reqid").map(|v| v.as_str())
+        self.header(HeaderName::from_static("x-reqid"))
+            .and_then(|v| v.to_str().ok())
     }
 
     #[inline]
     pub fn x_log(&self) -> Option<&str> {
-        self.header("X-Log").map(|v| v.as_str())
-    }
-
-    #[inline]
-    pub fn map_body<B2>(self, f: impl FnOnce(B) -> B2) -> Response<B2> {
-        Response {
-            inner: self.inner.map_body(f),
-        }
-    }
-
-    #[inline]
-    pub fn try_map_body<B2, E>(
-        self,
-        f: impl FnOnce(B) -> Result<B2, E>,
-    ) -> Result<Response<B2>, E> {
-        Ok(Response {
-            inner: self.inner.try_map_body(f)?,
-        })
-    }
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub async fn async_map_body<B2>(self, f: impl FnOnce(B) -> BoxFuture<B2>) -> Response<B2> {
-        Response {
-            inner: self.inner.async_map_body(f).await,
-        }
-    }
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub async fn async_try_map_body<B2, E>(
-        self,
-        f: impl FnOnce(B) -> BoxFuture<Result<B2, E>>,
-    ) -> Result<Response<B2>, E> {
-        Ok(Response {
-            inner: self.inner.async_try_map_body(f).await?,
-        })
+        self.header(HeaderName::from_static("x-log"))
+            .and_then(|v| v.to_str().ok())
     }
 }
 
 impl Response<ResponseBody> {
     pub fn parse_json<T: DeserializeOwned>(self) -> APIResult<Response<T>> {
         let json_response = self
-            .fulfill()
-            .map_err(|err| ResponseError::new(HTTPResponseErrorKind::LocalIOError.into(), err))?
-            .try_map_body(|body| parse_json_from_slice(body.as_bytes()))
-            .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))?;
-        Ok(json_response)
+            .fulfill()?
+            .try_map_body(|body| parse_json_from_slice(&body))
+            .map_err(|err| {
+                ResponseError::from_http_response_error(
+                    ResponseErrorKind::ParseResponseError,
+                    err.into_response_error(HTTPResponseErrorKind::ReceiveError),
+                )
+            })?;
+        Ok(Response::new(json_response))
     }
 
     #[inline]
-    pub(super) fn fulfill(self) -> IOResult<Response<CachedResponseBody>> {
-        Ok(Response::new(self.inner.fulfill()?))
+    pub(super) fn fulfill(self) -> HTTPResponseResult<Vec<u8>> {
+        self.inner
+            .try_map_body(|mut body| {
+                let mut buf = Vec::new();
+                io_copy(&mut body, &mut buf).map(|_| buf)
+            })
+            .map_err(|err| err.into_response_error(HTTPResponseErrorKind::LocalIOError))
     }
 }
 
@@ -232,16 +175,26 @@ impl Response<AsyncResponseBody> {
     pub async fn parse_json<T: DeserializeOwned>(self) -> APIResult<Response<T>> {
         let json_response = self
             .fulfill()
-            .await
-            .map_err(|err| ResponseError::new(HTTPResponseErrorKind::LocalIOError.into(), err))?
-            .try_map_body(|body| parse_json_from_slice(body.as_bytes()))
-            .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))?;
-        Ok(json_response)
+            .await?
+            .try_map_body(|body| parse_json_from_slice(&body))
+            .map_err(|err| {
+                ResponseError::from_http_response_error(
+                    ResponseErrorKind::ParseResponseError,
+                    err.into_response_error(HTTPResponseErrorKind::ReceiveError),
+                )
+            })?;
+        Ok(Response::new(json_response))
     }
 
     #[inline]
-    pub(super) async fn fulfill(self) -> IOResult<Response<AsyncCachedResponseBody>> {
-        Ok(Response::new(self.inner.fulfill().await?))
+    pub(super) async fn fulfill(self) -> HTTPResponseResult<Vec<u8>> {
+        self.inner
+            .try_async_map_body(|mut body| async move {
+                let mut buf = Vec::new();
+                async_io_copy(&mut body, &mut buf).await.map(|_| buf)
+            })
+            .await
+            .map_err(|err| err.into_response_error(HTTPResponseErrorKind::LocalIOError))
     }
 }
 

@@ -1,4 +1,4 @@
-use super::{ResolveResult, Resolver};
+use super::{ResolveAnswers, ResolveResult, Resolver};
 use dashmap::DashMap;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -215,7 +215,7 @@ macro_rules! resolve {
         let cache_key = $domain.to_owned().into_boxed_str();
         if let Some(cache_entry) = $ctx.cache.get(&cache_key) {
             if cache_entry.deadline > SystemTime::now() {
-                return Ok(cache_entry.ip_addrs.to_owned());
+                return Ok(ResolveAnswers::new(cache_entry.ip_addrs.to_owned()));
             }
         }
         let mut resolve_result: Option<ResolveResult> = None;
@@ -223,14 +223,17 @@ macro_rules! resolve {
         macro_rules! resolve_domain {
             () => {
                 match $blocking_block!({ $ctx.backend.$resolve_method($domain) }) {
-                    Ok(ip_addrs) => {
-                        resolve_result = Some(Ok(ip_addrs.to_owned()));
+                    Ok(answers) => {
+                        resolve_result = Some(Ok(answers.to_owned()));
                         if let Some(persistent) = &$ctx.persistent {
                             if persistent.auto_persistent.load(Relaxed) {
                                 need_to_persistent = true;
                             }
                         }
-                        Ok(CachedResolverValue::new(ip_addrs, $ctx.lifetime))
+                        Ok(CachedResolverValue::new(
+                            answers.into_ip_addrs(),
+                            $ctx.lifetime,
+                        ))
                     }
                     Err(err) => {
                         resolve_result = Some(Err(err));
@@ -243,7 +246,7 @@ macro_rules! resolve {
         $ctx.cache
             .entry(cache_key)
             .and_modify(|cache| {
-                resolve_result = Some(Ok(cache.ip_addrs.to_owned()));
+                resolve_result = Some(Ok(ResolveAnswers::new(cache.ip_addrs.to_owned())));
                 if cache.deadline < SystemTime::now() {
                     need_to_refresh = true;
                 }
@@ -389,8 +392,8 @@ impl<R: Resolver> CachedResolver<R> {
         fn refresh_domains(inner: &CachedResolverInner<impl Resolver>, lifetime: Duration) {
             inner.cache.alter_all(|domain, cache| {
                 if cache.deadline < SystemTime::now() {
-                    if let Ok(ip_addrs) = inner.backend.resolve(domain) {
-                        return CachedResolverValue::new(ip_addrs, lifetime);
+                    if let Ok(answers) = inner.backend.resolve(domain) {
+                        return CachedResolverValue::new(answers.into_ip_addrs(), lifetime);
                     }
                 }
                 cache

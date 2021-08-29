@@ -1,4 +1,5 @@
-mod default;
+mod error;
+mod limited;
 mod never;
 
 use super::{Idempotent, ResponseError, RetriedStatsInfo};
@@ -28,5 +29,6 @@ pub enum RetryResult {
     Throttled,
 }
 
-pub use default::{DefaultRetrier, DefaultRetrierBuilder};
+pub use error::ErrorRetrier;
+pub use limited::LimitedRetrier;
 pub use never::NeverRetrier;

@@ -1,8 +1,8 @@
 use qiniu_http::{
-    ResponseError as HTTPResponseError, ResponseErrorKind as HTTPResponseErrorKind,
+    Metrics, ResponseError as HTTPResponseError, ResponseErrorKind as HTTPResponseErrorKind,
     StatusCode as HTTPStatusCode,
 };
-use std::{error, fmt};
+use std::{error, fmt, mem::take, net::IpAddr, num::NonZeroU16};
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -32,6 +32,9 @@ pub enum ErrorKind {
 pub struct Error {
     kind: ErrorKind,
     error: Box<dyn error::Error + Send + Sync>,
+    server_ip: Option<IpAddr>,
+    server_port: Option<NonZeroU16>,
+    metrics: Option<Box<dyn Metrics>>,
 }
 
 impl Error {
@@ -41,6 +44,9 @@ impl Error {
         Error {
             kind,
             error: err.into(),
+            server_ip: Default::default(),
+            server_port: Default::default(),
+            metrics: Default::default(),
         }
     }
 
@@ -49,9 +55,36 @@ impl Error {
     pub fn kind(&self) -> ErrorKind {
         self.kind
     }
+
+    #[inline]
+    pub fn server_ip(&self) -> Option<IpAddr> {
+        self.server_ip
+    }
+
+    #[inline]
+    pub fn server_port(&self) -> Option<NonZeroU16> {
+        self.server_port
+    }
+
+    #[inline]
+    pub fn metrics(&self) -> Option<&dyn Metrics> {
+        self.metrics.as_deref()
+    }
+
+    #[inline]
+    pub(super) fn from_http_response_error(kind: ErrorKind, mut err: HTTPResponseError) -> Self {
+        Self {
+            kind,
+            server_ip: err.server_ip(),
+            server_port: err.server_port(),
+            metrics: take(err.metrics_mut()),
+            error: err.into_inner(),
+        }
+    }
 }
 
 impl fmt::Display for Error {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.error.fmt(f)
     }
@@ -67,7 +100,7 @@ impl error::Error for Error {
 impl From<HTTPResponseError> for Error {
     #[inline]
     fn from(error: HTTPResponseError) -> Self {
-        Self::new(error.kind().into(), error.into_inner())
+        Self::from_http_response_error(error.kind().into(), error)
     }
 }
 

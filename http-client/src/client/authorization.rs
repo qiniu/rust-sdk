@@ -1,11 +1,12 @@
-use qiniu_credential::{Credential, CredentialProvider, Url, UrlParseError};
+use qiniu_credential::{Credential, CredentialProvider};
 use qiniu_http::{
     header::{AUTHORIZATION, CONTENT_TYPE},
-    Request,
+    HeaderValue, Request,
 };
 use qiniu_upload_token::UploadTokenProvider;
 use std::{fmt, io::Error as IOError, result::Result, sync::Arc};
 use thiserror::Error;
+use url::ParseError as UrlParseError;
 
 /// API 鉴权方式
 #[derive(Clone)]
@@ -53,7 +54,7 @@ impl Authorization {
                 authorization_v2_for_request(&provider.get()?, request)?
             }
         };
-        set_authorization(request, authorization);
+        set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
         Ok(())
     }
 
@@ -72,16 +73,14 @@ impl Authorization {
                 authorization_v2_for_request(&provider.async_get().await?, request)?
             }
         };
-        set_authorization(request, authorization);
+        set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
         Ok(())
     }
 }
 
 #[inline]
-fn set_authorization(request: &mut Request, authorization: String) {
-    request
-        .headers_mut()
-        .insert(AUTHORIZATION, authorization.into());
+fn set_authorization(request: &mut Request, authorization: HeaderValue) {
+    request.headers_mut().insert(AUTHORIZATION, authorization);
 }
 
 #[inline]
@@ -95,8 +94,8 @@ fn authorization_v1_for_request(
     request: &Request,
 ) -> AuthorizationResult<String> {
     Ok(credential.authorization_v1_for_request(
-        &Url::parse(request.url())?,
-        request.headers().get(CONTENT_TYPE).unwrap_or_default(),
+        request.url(),
+        request.headers().get(CONTENT_TYPE),
         request.body(),
     ))
 }
@@ -108,7 +107,7 @@ fn authorization_v2_for_request(
 ) -> AuthorizationResult<String> {
     Ok(credential.authorization_v2_for_request(
         request.method(),
-        &Url::parse(request.url())?,
+        request.url(),
         request.headers(),
         request.body(),
     ))

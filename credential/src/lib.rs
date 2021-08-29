@@ -135,7 +135,7 @@ impl Credential<'_> {
     #[inline]
     pub fn authorization_v2_for_request(
         &self,
-        method: Method,
+        method: &Method,
         url: &Uri,
         headers: &HeaderMap,
         body: &[u8],
@@ -204,7 +204,7 @@ fn sign_request_v1(
 
 fn sign_request_v2(
     cred: &Credential,
-    method: Method,
+    method: &Method,
     url: &Uri,
     headers: &HeaderMap,
     body: &[u8],
@@ -821,7 +821,7 @@ mod tests {
         };
         assert_eq!(
             credential.get().unwrap().authorization_v2_for_request(
-                Method::GET,
+                &Method::GET,
                 &"http://upload.qiniup.com/".parse()?,
                 &json_headers,
                 b"{\"name\":\"test\"}"
@@ -843,7 +843,7 @@ mod tests {
         );
         assert_eq!(
             credential.get().unwrap().authorization_v2_for_request(
-                Method::GET,
+                &Method::GET,
                 &"http://upload.qiniup.com/".parse()?,
                 &empty_headers,
                 b"{\"name\":\"test\"}"
@@ -856,7 +856,7 @@ mod tests {
         );
         assert_eq!(
             credential.get().unwrap().authorization_v2_for_request(
-                Method::POST,
+                &Method::POST,
                 &"http://upload.qiniup.com/".parse()?,
                 &json_headers,
                 b"{\"name\":\"test\"}"
@@ -878,7 +878,7 @@ mod tests {
         );
         assert_eq!(
             credential.get().unwrap().authorization_v2_for_request(
-                Method::GET,
+                &Method::GET,
                 &"http://upload.qiniup.com/".parse()?,
                 &form_headers,
                 b"name=test&language=go"
@@ -900,7 +900,7 @@ mod tests {
         );
         assert_eq!(
             credential.get().unwrap().authorization_v2_for_request(
-                Method::GET,
+                &Method::GET,
                 &"http://upload.qiniup.com/?v=2".parse()?,
                 &form_headers,
                 b"name=test&language=go"
@@ -922,7 +922,7 @@ mod tests {
         );
         assert_eq!(
             credential.get().unwrap().authorization_v2_for_request(
-                Method::GET,
+                &Method::GET,
                 &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
                 &form_headers,
                 b"name=test&language=go"

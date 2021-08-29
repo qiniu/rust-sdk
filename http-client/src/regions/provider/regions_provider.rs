@@ -1,20 +1,13 @@
 use super::{
     super::{
         super::{APIResult, Authorization, HTTPClient, ResponseError, ResponseErrorKind},
-        Endpoint, ServiceName,
+        Endpoints, ServiceName,
     },
-    structs::{ResponseBody, DEFAULT_CACHE_LIFETIME},
+    structs::ResponseBody,
     Region, RegionProvider,
 };
 use qiniu_credential::CredentialProvider;
-use std::{
-    any::Any,
-    convert::TryFrom,
-    fmt::Debug,
-    mem::drop,
-    sync::{Arc, RwLock},
-    time::{Duration, Instant},
-};
+use std::{any::Any, convert::TryFrom, fmt::Debug, sync::Arc};
 
 #[cfg(feature = "async")]
 use {async_std::task::spawn, futures::future::BoxFuture};
@@ -28,83 +21,43 @@ pub struct RegionsProvider {
 struct RegionsProviderInner {
     credential_provider: Arc<dyn CredentialProvider>,
     http_client: HTTPClient,
-    uc_endpoints: Box<[Endpoint]>,
-    cache_lifetime: Duration,
-    cache: RwLock<Option<Cache>>,
-}
-
-#[derive(Debug)]
-struct Cache {
-    body: Vec<Region>,
-    cached_at: Instant,
+    uc_endpoints: Endpoints,
 }
 
 impl RegionsProvider {
     #[inline]
-    pub fn builder(
+    pub fn new(
         http_client: HTTPClient,
-        uc_endpoints: impl Into<Vec<Endpoint>>,
+        uc_endpoints: impl Into<Endpoints>,
         credential_provider: Arc<dyn CredentialProvider>,
-    ) -> RegionsProviderBuilder {
-        RegionsProviderBuilder::new(http_client, uc_endpoints, credential_provider)
+    ) -> Self {
+        Self {
+            inner: Arc::new(RegionsProviderInner {
+                http_client,
+                credential_provider,
+                uc_endpoints: uc_endpoints.into(),
+            }),
+        }
     }
 
     fn do_sync_query(&self) -> APIResult<Vec<Region>> {
-        let rlock = self.inner.cache.read().unwrap();
-        return if let Some(cache) = &*rlock {
-            if cache.cached_at.elapsed() > self.inner.cache_lifetime {
-                drop(rlock);
-                do_sync_query_with_wlock(&self.inner)
-            } else {
-                Ok(cache.body.to_owned())
-            }
-        } else {
-            drop(rlock);
-            do_sync_query_with_wlock(&self.inner)
-        };
-
-        fn do_sync_query_with_wlock(inner: &RegionsProviderInner) -> APIResult<Vec<Region>> {
-            let mut wlock = inner.cache.write().unwrap();
-            if let Some(cache) = &mut *wlock {
-                if cache.cached_at.elapsed() > inner.cache_lifetime {
-                    let body = _do_sync_query(&inner)?;
-                    *cache = Cache {
-                        body: body.to_owned(),
-                        cached_at: Instant::now(),
-                    };
-                    Ok(body)
-                } else {
-                    Ok(cache.body.to_owned())
-                }
-            } else {
-                let body = _do_sync_query(&inner)?;
-                *wlock = Some(Cache {
-                    body: body.to_owned(),
-                    cached_at: Instant::now(),
-                });
-                Ok(body)
-            }
-        }
-
-        fn _do_sync_query(inner: &RegionsProviderInner) -> APIResult<Vec<Region>> {
-            let body: ResponseBody = inner
-                .http_client
-                .get(ServiceName::Uc, inner.uc_endpoints.to_owned())
-                .path("/regions")
-                .authorization(Authorization::v2(inner.credential_provider.to_owned()))
-                .accept_json()
-                .call()?
-                .parse_json()?
-                .into_body();
-            body.into_hosts()
-                .into_iter()
-                .map(|host| {
-                    Region::try_from(host).map_err(|err| {
-                        ResponseError::new(ResponseErrorKind::ParseResponseError, err)
-                    })
-                })
-                .collect()
-        }
+        let body: ResponseBody = self
+            .inner
+            .http_client
+            .get(ServiceName::Uc, self.inner.uc_endpoints.to_owned())
+            .path("/regions")
+            .authorization(Authorization::v2(self.inner.credential_provider.to_owned()))
+            .accept_json()
+            .call()?
+            .parse_json()?
+            .into_body();
+        body.into_hosts()
+            .into_iter()
+            .map(|host| {
+                Region::try_from(host)
+                    .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))
+            })
+            .collect()
     }
 
     #[cfg(feature = "async")]
@@ -114,6 +67,7 @@ impl RegionsProvider {
         spawn(async move { ctx.do_sync_query() }).await
     }
 }
+
 impl RegionProvider for RegionsProvider {
     fn get(&self) -> APIResult<Region> {
         self.get_all().map(|regions| {
@@ -152,52 +106,14 @@ impl RegionProvider for RegionsProvider {
         Box::pin(async move { self.do_async_query().await })
     }
 
+    #[inline]
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    #[inline]
     fn as_region_provider(&self) -> &dyn RegionProvider {
         self
-    }
-}
-
-#[derive(Debug)]
-pub struct RegionsProviderBuilder {
-    credential_provider: Arc<dyn CredentialProvider>,
-    http_client: HTTPClient,
-    uc_endpoints: Vec<Endpoint>,
-    cache_lifetime: Duration,
-}
-
-impl RegionsProviderBuilder {
-    #[inline]
-    pub fn new(
-        http_client: HTTPClient,
-        uc_endpoints: impl Into<Vec<Endpoint>>,
-        credential_provider: Arc<dyn CredentialProvider>,
-    ) -> Self {
-        Self {
-            http_client,
-            credential_provider,
-            uc_endpoints: uc_endpoints.into(),
-            cache_lifetime: DEFAULT_CACHE_LIFETIME,
-        }
-    }
-
-    pub fn cache_lifetime(mut self, cache_lifetime: Duration) -> Self {
-        self.cache_lifetime = cache_lifetime;
-        self
-    }
-
-    pub fn build(self) -> RegionsProvider {
-        RegionsProvider {
-            inner: Arc::new(RegionsProviderInner {
-                http_client: self.http_client,
-                credential_provider: self.credential_provider,
-                uc_endpoints: self.uc_endpoints.into_boxed_slice(),
-                cache: Default::default(),
-                cache_lifetime: self.cache_lifetime,
-            }),
-        }
     }
 }
 

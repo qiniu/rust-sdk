@@ -7,40 +7,29 @@ use qiniu_http::{
 };
 use std::any::Any;
 
-#[derive(Clone, Debug)]
-pub struct DefaultRetrier {
-    retries: usize,
-}
+#[derive(Copy, Clone, Debug, Default)]
+pub struct ErrorRetrier;
 
-impl Default for DefaultRetrier {
-    fn default() -> Self {
-        Self { retries: 2 }
-    }
-}
-
-impl DefaultRetrier {
+impl RequestRetrier for ErrorRetrier {
     #[inline]
-    pub fn builder() -> DefaultRetrierBuilder {
-        DefaultRetrierBuilder::default()
-    }
-
-    fn _retry(
+    fn retry(
         &self,
         request: &mut HTTPRequest,
         idempotent: Idempotent,
         response_error: &ResponseError,
+        _retried: &RetriedStatsInfo,
     ) -> RetryResult {
-        match response_error.kind() {
+        return match response_error.kind() {
             ResponseErrorKind::HTTPError(http_err_kind) => match http_err_kind {
                 HTTPResponseErrorKind::ProtocolError => RetryResult::RetryRequest,
-                HTTPResponseErrorKind::InvalidURLError => RetryResult::TryNextServer,
+                HTTPResponseErrorKind::InvalidURL => RetryResult::TryNextServer,
                 HTTPResponseErrorKind::ConnectError => RetryResult::TryNextServer,
                 HTTPResponseErrorKind::ProxyError => RetryResult::RetryRequest,
                 HTTPResponseErrorKind::DNSServerError => RetryResult::RetryRequest,
                 HTTPResponseErrorKind::UnknownHostError => RetryResult::TryNextServer,
                 HTTPResponseErrorKind::SendError => RetryResult::RetryRequest,
                 HTTPResponseErrorKind::ReceiveError | HTTPResponseErrorKind::UnknownError => {
-                    if self.is_idempotent(request, idempotent) {
+                    if is_idempotent(request, idempotent) {
                         RetryResult::RetryRequest
                     } else {
                         RetryResult::DontRetry
@@ -54,7 +43,7 @@ impl DefaultRetrier {
                 _ => RetryResult::RetryRequest,
             },
             ResponseErrorKind::UnexpectedStatusCode(_) => RetryResult::DontRetry,
-            ResponseErrorKind::StatusCodeError(status_code) => match status_code {
+            ResponseErrorKind::StatusCodeError(status_code) => match status_code.as_u16() {
                 0..=399 => panic!("Should not arrive here"),
                 400..=501
                 | 579
@@ -73,41 +62,22 @@ impl DefaultRetrier {
                 _ => RetryResult::TryNextServer,
             },
             ResponseErrorKind::ParseResponseError | ResponseErrorKind::UnexpectedEof => {
-                if self.is_idempotent(request, idempotent) {
+                if is_idempotent(request, idempotent) {
                     RetryResult::RetryRequest
                 } else {
                     RetryResult::DontRetry
                 }
             }
             ResponseErrorKind::MaliciousResponse => RetryResult::RetryRequest,
-        }
-    }
+        };
 
-    fn is_idempotent(&self, request: &HTTPRequest, idempotent: Idempotent) -> bool {
-        match idempotent {
-            Idempotent::Always => true,
-            Idempotent::Default => request.method() != HTTPMethod::POST,
-            Idempotent::Never => false,
-        }
-    }
-}
-
-impl RequestRetrier for DefaultRetrier {
-    #[inline]
-    fn retry(
-        &self,
-        request: &mut HTTPRequest,
-        idempotent: Idempotent,
-        response_error: &ResponseError,
-        retried: &RetriedStatsInfo,
-    ) -> RetryResult {
-        match self._retry(request, idempotent, response_error) {
-            RetryResult::RetryRequest | RetryResult::Throttled
-                if retried.retried_on_current_endpoint() >= self.retries =>
-            {
-                RetryResult::TryNextServer
+        #[inline]
+        fn is_idempotent(request: &HTTPRequest, idempotent: Idempotent) -> bool {
+            match idempotent {
+                Idempotent::Always => true,
+                Idempotent::Default => request.method() != HTTPMethod::POST,
+                Idempotent::Never => false,
             }
-            result => result,
         }
     }
 
@@ -119,24 +89,6 @@ impl RequestRetrier for DefaultRetrier {
     #[inline]
     fn as_request_retrier(&self) -> &dyn RequestRetrier {
         self
-    }
-}
-
-#[derive(Default, Clone, Debug)]
-pub struct DefaultRetrierBuilder {
-    inner: DefaultRetrier,
-}
-
-impl DefaultRetrierBuilder {
-    #[inline]
-    pub fn retries(&mut self, retries: usize) -> &mut Self {
-        self.inner.retries = retries;
-        self
-    }
-
-    #[inline]
-    pub fn build(&self) -> DefaultRetrier {
-        self.inner.to_owned()
     }
 }
 

@@ -1,7 +1,7 @@
 use super::{
     super::{
         super::{APIResult, HTTPClient, ResponseError, ResponseErrorKind},
-        Endpoint, ServiceName,
+        Endpoints, ServiceName,
     },
     structs::{ResponseBody, DEFAULT_CACHE_LIFETIME},
     Region, RegionProvider,
@@ -38,7 +38,7 @@ pub struct BucketRegionsQueryer {
 #[derive(Debug)]
 struct BucketRegionsQueryerInner {
     http_client: HTTPClient,
-    uc_endpoints: Box<[Endpoint]>,
+    uc_endpoints: Endpoints,
     cache_lifetime: Duration,
     cache: DashMap<CacheKey, CacheValue>,
 }
@@ -46,7 +46,7 @@ struct BucketRegionsQueryerInner {
 #[derive(Debug)]
 pub struct BucketRegionsQueryerBuilder {
     http_client: HTTPClient,
-    uc_endpoints: Vec<Endpoint>,
+    uc_endpoints: Endpoints,
     cache_lifetime: Duration,
 }
 
@@ -54,9 +54,9 @@ impl BucketRegionsQueryer {
     #[inline]
     pub fn builder(
         http_client: HTTPClient,
-        uc_endpoints: impl Into<Vec<Endpoint>>,
+        uc_endpoints: impl Into<Endpoints>,
     ) -> BucketRegionsQueryerBuilder {
-        BucketRegionsQueryerBuilder::new(http_client, uc_endpoints)
+        BucketRegionsQueryerBuilder::new(http_client, uc_endpoints.into())
     }
 
     #[inline]
@@ -137,7 +137,7 @@ impl BucketRegionsQueryer {
 
 impl BucketRegionsQueryerBuilder {
     #[inline]
-    pub fn new(http_client: HTTPClient, uc_endpoints: impl Into<Vec<Endpoint>>) -> Self {
+    pub fn new(http_client: HTTPClient, uc_endpoints: impl Into<Endpoints>) -> Self {
         Self {
             http_client,
             uc_endpoints: uc_endpoints.into(),
@@ -145,16 +145,18 @@ impl BucketRegionsQueryerBuilder {
         }
     }
 
+    #[inline]
     pub fn cache_lifetime(mut self, cache_lifetime: Duration) -> Self {
         self.cache_lifetime = cache_lifetime;
         self
     }
 
+    #[inline]
     pub fn build(self) -> BucketRegionsQueryer {
         BucketRegionsQueryer {
             inner: Arc::new(BucketRegionsQueryerInner {
                 http_client: self.http_client,
-                uc_endpoints: self.uc_endpoints.into_boxed_slice(),
+                uc_endpoints: self.uc_endpoints,
                 cache: Default::default(),
                 cache_lifetime: self.cache_lifetime,
             }),
@@ -219,9 +221,12 @@ impl RegionProvider for BucketRegionsProvider {
         })
     }
 
+    #[inline]
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    #[inline]
     fn as_region_provider(&self) -> &dyn RegionProvider {
         self
     }

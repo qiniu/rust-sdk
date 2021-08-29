@@ -7,11 +7,9 @@ pub use endpoint::{
     DomainWithPort, DomainWithPortParseError, Endpoint, EndpointParseError, IpAddrWithPort,
     IpAddrWithPortParseError,
 };
-pub use endpoints::{IntoEndpoints, InvalidServiceName, ServiceName};
+pub use endpoints::{Endpoints, EndpointsBuilder, IntoEndpoints, InvalidServiceName, ServiceName};
 pub use provider::{
-    BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder, RegionProvider,
-    RegionsProvider, RegionsProviderBuilder, StaticRegionProvider,
+    BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
+    CachedRegionsProvider, RegionProvider, RegionsProvider, StaticRegionProvider,
 };
 pub use region::{Region, RegionBuilder};
-
-pub(super) use endpoints::Endpoints;

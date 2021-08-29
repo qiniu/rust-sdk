@@ -7,10 +7,13 @@ pub use bucket_regions_queryer::{
 };
 
 mod regions_provider;
-pub use regions_provider::{RegionsProvider, RegionsProviderBuilder};
+pub use regions_provider::RegionsProvider;
 
 mod static_region_provider;
 pub use static_region_provider::StaticRegionProvider;
+
+mod cached_regions_provider;
+pub use cached_regions_provider::CachedRegionsProvider;
 
 mod structs;
 

@@ -1,34 +1,34 @@
-use super::{
-    super::{
-        super::regions::{DomainWithPort, Endpoint, IpAddrWithPort},
-        DomainOrIpAddr, Resolver,
-    },
-    Chooser, ChooserFeedback, ChosenResult,
-};
+use super::{super::super::regions::IpAddrWithPort, Chooser, ChooserFeedback};
 use dashmap::DashMap;
-use log::info;
+use log::{info, warn};
 use std::{
     any::Any,
     sync::{Arc, Mutex},
     thread::Builder as ThreadBuilder,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
-#[cfg(feature = "async")]
-use futures::future::BoxFuture;
-
-type BlacklistKey = Endpoint;
+type BlacklistKey = IpAddrWithPort;
 
 #[derive(Debug, Clone)]
 struct BlacklistValue {
-    block_until: SystemTime,
+    blocked_at: Instant,
 }
 
 type Blacklist = DashMap<BlacklistKey, BlacklistValue>;
 
 #[derive(Debug, Clone)]
 struct LockedData {
-    last_shrink_timestamp: SystemTime,
+    last_shrink_at: Instant,
+}
+
+impl Default for LockedData {
+    #[inline]
+    fn default() -> Self {
+        LockedData {
+            last_shrink_at: Instant::now(),
+        }
+    }
 }
 
 const DEFAULT_BLOCK_DURATION: Duration = Duration::from_secs(30);
@@ -36,181 +36,77 @@ const BLACKLIST_SIZE_TO_SHRINK: usize = 100;
 const MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
 
 #[derive(Debug, Clone)]
-pub struct SimpleChooser<R: Resolver> {
-    resolver: R,
+pub struct SimpleChooser {
     inner: Arc<SimpleChooserInner>,
-    block_duration: Duration,
 }
 
 #[derive(Debug, Default)]
 struct SimpleChooserInner {
     blacklist: Blacklist,
     lock: Mutex<LockedData>,
+    block_duration: Duration,
 }
 
-impl<R: Resolver> SimpleChooser<R> {
+impl SimpleChooser {
     #[inline]
-    pub fn new(resolver: R, block_duration: Duration) -> Self {
+    pub fn new(block_duration: Duration) -> Self {
         Self {
-            resolver,
-            block_duration,
-            inner: Default::default(),
+            inner: Arc::new(SimpleChooserInner {
+                block_duration,
+                blacklist: Default::default(),
+                lock: Default::default(),
+            }),
         }
     }
 }
 
-impl<R: Resolver + Default> Default for SimpleChooser<R> {
+impl Default for SimpleChooser {
+    #[inline]
     fn default() -> Self {
-        Self::new(R::default(), DEFAULT_BLOCK_DURATION)
+        Self::new(DEFAULT_BLOCK_DURATION)
     }
 }
 
-macro_rules! choose {
-    ($self:expr, $domain:expr, $last_round:expr, $resolve:block) => {{
-        if $last_round {
-            return $resolve.map_or_else(
-                |_| ChosenResult::UseThisDomainDirectly,
-                |ips| ChosenResult::IPs(ips.to_vec().into_iter().map(|ip| ip.into()).collect()),
-            );
-        }
-
+impl Chooser for SimpleChooser {
+    #[inline]
+    fn choose(&self, ips: &[IpAddrWithPort]) -> Vec<IpAddrWithPort> {
         let mut need_to_shrink = false;
-        let chosen_result = if $self
-            .inner
-            .blacklist
-            .get(&BlacklistKey::DomainWithPort($domain.to_owned()))
-            .map_or(false, |r| {
-                if r.value().block_until >= SystemTime::now() {
-                    true
-                } else {
-                    need_to_shrink = true;
-                    false
-                }
-            }) {
-            ChosenResult::TryAnotherDomain
-        } else {
-            $resolve.map_or_else(
-                |_| ChosenResult::UseThisDomainDirectly,
-                |ips| {
-                    if ips.is_empty() {
-                        ChosenResult::UseThisDomainDirectly
-                    } else {
-                        let (chosen_result, _need_to_shrink) = $self._choose_ips(
-                            &ips.to_vec()
-                                .into_iter()
-                                .map(|ip| {
-                                    IpAddrWithPort::new_with_port(
-                                        ip,
-                                        $domain.port().map_or(0, |port| port.get()),
-                                    )
-                                })
-                                .collect::<Box<[_]>>(),
-                        );
-                        need_to_shrink = _need_to_shrink;
-                        chosen_result
-                    }
-                },
-            )
-        };
-
-        do_some_work_async(&$self.inner, need_to_shrink);
-
-        chosen_result
-    }};
-}
-
-impl<R: Resolver> Chooser for SimpleChooser<R> {
-    fn choose(&self, domain: &DomainWithPort, last_round: bool) -> ChosenResult {
-        choose!(self, domain, last_round, {
-            self.resolver.resolve(domain.domain())
-        })
-    }
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_choose<'a>(
-        &'a self,
-        domain: &'a DomainWithPort,
-        last_round: bool,
-    ) -> BoxFuture<'a, ChosenResult> {
-        Box::pin(async move {
-            choose!(self, domain, last_round, {
-                self.resolver.async_resolve(domain.domain()).await
+        let filtered_ips: Vec<_> = ips
+            .to_vec()
+            .into_iter()
+            .filter(|&ip| {
+                self.inner
+                    .blacklist
+                    .get(&BlacklistKey::from(ip))
+                    .map_or(true, |r| {
+                        if r.value().blocked_at.elapsed() < self.inner.block_duration {
+                            false
+                        } else {
+                            need_to_shrink = true;
+                            true
+                        }
+                    })
             })
-        })
-    }
-
-    #[inline]
-    fn choose_ips(&self, ips: &[IpAddrWithPort]) -> ChosenResult {
-        let (chosen_result, _) = self._choose_ips(ips);
-        chosen_result
+            .collect();
+        do_some_work_async(&self.inner, need_to_shrink);
+        filtered_ips
     }
 
     fn feedback(&self, feedback: ChooserFeedback) {
-        if feedback.result().is_err() {
-            let block_until = SystemTime::now() + self.block_duration;
-            match feedback.domain_or_ip_addr() {
-                DomainOrIpAddr::Domain {
-                    domain_with_port,
-                    resolved_ips,
-                } => {
-                    if resolved_ips.is_empty() {
-                        self.inner.blacklist.insert(
-                            BlacklistKey::from(domain_with_port.to_owned()),
-                            BlacklistValue { block_until },
-                        );
-                    } else {
-                        for ip in resolved_ips.iter() {
-                            self.inner.blacklist.insert(
-                                BlacklistKey::from(ip.to_owned()),
-                                BlacklistValue { block_until },
-                            );
-                        }
-                    }
-                }
-                DomainOrIpAddr::IpAddr(ip_addr_with_port) => {
-                    self.inner.blacklist.insert(
-                        BlacklistKey::from(ip_addr_with_port.to_owned()),
-                        BlacklistValue { block_until },
-                    );
-                }
+        if feedback.error().is_some() {
+            for &ip in feedback.ips().iter() {
+                self.inner.blacklist.insert(
+                    ip,
+                    BlacklistValue {
+                        blocked_at: Instant::now(),
+                    },
+                );
             }
         } else {
-            match feedback.domain_or_ip_addr() {
-                DomainOrIpAddr::Domain {
-                    domain_with_port,
-                    resolved_ips,
-                } => {
-                    if resolved_ips.is_empty() {
-                        self.inner
-                            .blacklist
-                            .remove(&BlacklistKey::from(domain_with_port.to_owned()));
-                    } else {
-                        for ip in resolved_ips.iter() {
-                            self.inner
-                                .blacklist
-                                .remove(&BlacklistKey::from(ip.to_owned()));
-                        }
-                    }
-                }
-                DomainOrIpAddr::IpAddr(ip_addr_with_port) => {
-                    self.inner
-                        .blacklist
-                        .remove(&BlacklistKey::from(ip_addr_with_port.to_owned()));
-                }
+            for ip in feedback.ips().iter() {
+                self.inner.blacklist.remove(ip);
             }
         }
-    }
-
-    #[inline]
-    fn resolver(&self) -> &dyn Resolver {
-        &self.resolver
-    }
-
-    #[inline]
-    fn resolver_mut(&mut self) -> &mut dyn Resolver {
-        &mut self.resolver
     }
 
     #[inline]
@@ -224,63 +120,41 @@ impl<R: Resolver> Chooser for SimpleChooser<R> {
     }
 }
 
-impl<R: Resolver> SimpleChooser<R> {
-    fn _choose_ips(&self, ips: &[IpAddrWithPort]) -> (ChosenResult, bool) {
-        let mut need_to_shrink = false;
-        let filtered_ips: Vec<_> = ips
-            .to_vec()
-            .into_iter()
-            .filter(|&ip| {
-                self.inner
-                    .blacklist
-                    .get(&BlacklistKey::from(ip))
-                    .map_or(true, |r| {
-                        if r.value().block_until < SystemTime::now() {
-                            need_to_shrink = true;
-                            true
-                        } else {
-                            false
-                        }
-                    })
-            })
-            .collect();
-        let chosen_result = if filtered_ips.is_empty() {
-            ChosenResult::TryAnotherDomain
-        } else {
-            ChosenResult::IPs(filtered_ips)
-        };
-        (chosen_result, need_to_shrink)
-    }
-}
-
 fn do_some_work_async(inner: &Arc<SimpleChooserInner>, need_to_shrink: bool) {
     if need_to_shrink && is_time_to_shrink(&inner.blacklist, &inner.lock) {
         let cloned = inner.to_owned();
-        ThreadBuilder::new()
+        if let Err(err) = ThreadBuilder::new()
             .name("qiniu.rust-sdk.http-client.chooser.SimpleChooser".into())
             .spawn(move || {
                 if is_time_to_shrink_mut(&cloned.blacklist, &cloned.lock) {
                     info!("Simple Chooser spawns thread to do some housework");
-                    shrink_cache(&cloned.blacklist);
+                    shrink_cache(&cloned.blacklist, cloned.block_duration);
                 }
             })
-            .ok();
+        {
+            warn!(
+                "Simple Chooser was failed to spawn thread to do some housework: {}",
+                err
+            );
+        }
     }
 
     return;
 
+    #[inline]
     fn is_time_to_shrink(blacklist: &Blacklist, locked_data: &Mutex<LockedData>) -> bool {
         if let Ok(locked_data) = locked_data.try_lock() {
-            _is_time_to_shrink_mut(blacklist, &*locked_data)
+            _is_time_to_shrink(blacklist, &*locked_data)
         } else {
             false
         }
     }
 
+    #[inline]
     fn is_time_to_shrink_mut(blacklist: &Blacklist, locked_data: &Mutex<LockedData>) -> bool {
         if let Ok(mut locked_data) = locked_data.try_lock() {
-            if _is_time_to_shrink_mut(blacklist, &*locked_data) {
-                locked_data.last_shrink_timestamp = SystemTime::now();
+            if _is_time_to_shrink(blacklist, &*locked_data) {
+                locked_data.last_shrink_at = Instant::now();
                 return true;
             }
         }
@@ -288,24 +162,20 @@ fn do_some_work_async(inner: &Arc<SimpleChooserInner>, need_to_shrink: bool) {
     }
 
     #[inline]
-    fn _is_time_to_shrink_mut(blacklist: &Blacklist, locked_data: &LockedData) -> bool {
-        locked_data.last_shrink_timestamp + MIN_SHRINK_INTERVAL < SystemTime::now()
+    fn _is_time_to_shrink(blacklist: &Blacklist, locked_data: &LockedData) -> bool {
+        locked_data.last_shrink_at.elapsed() >= MIN_SHRINK_INTERVAL
             && blacklist.len() >= BLACKLIST_SIZE_TO_SHRINK
     }
 
     #[inline]
-    fn shrink_cache(blacklist: &Blacklist) {
-        blacklist.retain(|_, value| value.block_until >= SystemTime::now());
-        info!("Blacklist is shrunken");
-    }
-}
-
-impl Default for LockedData {
-    #[inline]
-    fn default() -> Self {
-        LockedData {
-            last_shrink_timestamp: UNIX_EPOCH,
-        }
+    fn shrink_cache(blacklist: &Blacklist, block_duration: Duration) {
+        let old_size = blacklist.len();
+        blacklist.retain(|_, value| value.blocked_at.elapsed() >= block_duration);
+        let new_size = blacklist.len();
+        info!(
+            "Blacklist is shrunken, from {} to {} entries",
+            old_size, new_size
+        );
     }
 }
 

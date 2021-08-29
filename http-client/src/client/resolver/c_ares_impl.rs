@@ -1,9 +1,9 @@
-#[cfg_attr(feature = "docs", doc(cfg(r#c_ares)))]
+#[cfg_attr(feature = "docs", doc(cfg(c_ares)))]
 pub use c_ares;
-#[cfg_attr(feature = "docs", doc(cfg(r#c_ares)))]
+#[cfg_attr(feature = "docs", doc(cfg(c_ares)))]
 pub use c_ares_resolver;
 
-use super::{super::ResponseError, ResolveResult, Resolver};
+use super::{super::ResponseError, ResolveAnswers, ResolveResult, Resolver};
 use c_ares::{
     AddressFamily::{INET, INET6},
     Error as CAresError, HostResults as CAresHostResults,
@@ -23,7 +23,7 @@ use {
 
 type CAresResolverResult<T> = Result<T, CAresResolverError>;
 
-#[cfg_attr(feature = "docs", doc(cfg(r#c_ares)))]
+#[cfg_attr(feature = "docs", doc(cfg(c_ares)))]
 pub struct CAresResolver {
     callback_resolver: CallbackResolver,
 
@@ -99,10 +99,10 @@ impl Resolver for CAresResolver {
             (Ok(ip_addrs_1), Ok(ip_addrs_2)) => {
                 let mut ip_addrs = ip_addrs_1.to_vec();
                 ip_addrs.extend_from_slice(&ip_addrs_2);
-                Ok(ip_addrs.into_boxed_slice())
+                Ok(ResolveAnswers::new(ip_addrs.into_boxed_slice()))
             }
-            (Ok(ip_addrs), _) => Ok(ip_addrs),
-            (_, Ok(ip_addrs)) => Ok(ip_addrs),
+            (Ok(ip_addrs), _) => Ok(ResolveAnswers::new(ip_addrs)),
+            (_, Ok(ip_addrs)) => Ok(ResolveAnswers::new(ip_addrs)),
             (Err(err), _) => Err(err),
         }
     }
@@ -126,10 +126,10 @@ impl Resolver for CAresResolver {
                 (Ok(ip_addrs_1), Ok(ip_addrs_2)) => {
                     let mut ip_addrs = ip_addrs_1.to_vec();
                     ip_addrs.extend_from_slice(&ip_addrs_2);
-                    Ok(ip_addrs.into_boxed_slice())
+                    Ok(ResolveAnswers::new(ip_addrs.into_boxed_slice()))
                 }
-                (Ok(ip_addrs), _) => Ok(ip_addrs),
-                (_, Ok(ip_addrs)) => Ok(ip_addrs),
+                (Ok(ip_addrs), _) => Ok(ResolveAnswers::new(ip_addrs)),
+                (_, Ok(ip_addrs)) => Ok(ResolveAnswers::new(ip_addrs)),
                 (Err(err), _) => Err(err),
             }
         })

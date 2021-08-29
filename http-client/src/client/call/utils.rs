@@ -1,58 +1,51 @@
 use super::{
     super::{
         super::{DomainWithPort, Endpoint, IpAddrWithPort},
-        CallbackContext, ChosenResult, RequestWithoutEndpoints, ResponseError, ResponseInfo,
+        CallbackContext, RequestWithoutEndpoints, ResolveAnswers, ResponseError, ResponseInfo,
         RetriedStatsInfo, RetryResult,
     },
     domain_or_ip_addr::DomainOrIpAddr,
     error::TryError,
 };
-use qiniu_http::{Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind};
-use std::{net::IpAddr, time::Duration};
-use url::{ParseError as UrlParseError, Url};
+use qiniu_http::{
+    uri::{Authority, InvalidUri, PathAndQuery, Scheme, Uri},
+    Extensions, Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind,
+};
+use std::{borrow::Cow, net::IpAddr, time::Duration};
 
 pub(super) fn make_request<'r>(
-    url: &'r str,
+    url: Uri,
     request: &'r RequestWithoutEndpoints,
+    extensions: Extensions,
     resolved_ips: &'r [IpAddr],
 ) -> HTTPRequest<'r> {
     let mut request_builder = HTTPRequest::builder();
     request_builder
         .url(url)
-        .method(request.method())
+        .method(request.method().to_owned())
+        .version(request.version())
         .headers(request.headers().to_owned())
         .body(request.body())
         .appended_user_agent(request.appended_user_agent())
-        .follow_redirection(request.follow_redirection())
-        .resolved_ip_addrs(resolved_ips);
-    if let Some(timeout) = request.connect_timeout() {
-        request_builder.connect_timeout(timeout);
+        .resolved_ip_addrs(resolved_ips)
+        .extensions(extensions)
+        .build()
+}
+
+pub(super) fn extract_ips_from(domain_or_ip: &DomainOrIpAddr) -> Cow<[IpAddrWithPort]> {
+    match domain_or_ip {
+        DomainOrIpAddr::Domain { resolved_ips, .. } => Cow::Borrowed(resolved_ips),
+        &DomainOrIpAddr::IpAddr(ip_addr) => Cow::Owned(vec![ip_addr]),
     }
-    if let Some(timeout) = request.request_timeout() {
-        request_builder.request_timeout(timeout);
-    }
-    if let Some(timeout) = request.tcp_keepalive_idle_timeout() {
-        request_builder.tcp_keepalive_idle_timeout(timeout);
-    }
-    if let Some(interval) = request.tcp_keepalive_probe_interval() {
-        request_builder.tcp_keepalive_probe_interval(interval);
-    }
-    if let (Some(speed), Some(timeout)) = (
-        request.low_transfer_speed(),
-        request.low_transfer_speed_timeout(),
-    ) {
-        request_builder.low_transfer_speed(speed, timeout);
-    }
-    request_builder.build()
 }
 
 pub(super) fn make_url(
     domain_or_ip: &DomainOrIpAddr,
     request: &RequestWithoutEndpoints,
-) -> Result<(String, Vec<IpAddr>), TryError> {
+) -> Result<(Uri, Vec<IpAddr>), TryError> {
     return _make_url(domain_or_ip, request).map_err(|err| {
         TryError::new(
-            ResponseError::new(HTTPResponseErrorKind::InvalidURLError.into(), err),
+            ResponseError::new(HTTPResponseErrorKind::InvalidURL.into(), err),
             RetryResult::TryNextServer,
         )
     });
@@ -60,10 +53,15 @@ pub(super) fn make_url(
     fn _make_url(
         domain_or_ip: &DomainOrIpAddr,
         request: &RequestWithoutEndpoints,
-    ) -> Result<(String, Vec<IpAddr>), UrlParseError> {
-        let mut url = Url::parse("https://example.org/")?;
+    ) -> Result<(Uri, Vec<IpAddr>), InvalidUri> {
         let mut resolved_ip_addrs = Vec::new();
-        match domain_or_ip {
+        let scheme = if request.use_https() {
+            Scheme::HTTPS
+        } else {
+            Scheme::HTTP
+        };
+
+        let authority: Authority = match domain_or_ip {
             DomainOrIpAddr::Domain {
                 domain_with_port,
                 resolved_ips,
@@ -72,35 +70,43 @@ pub(super) fn make_url(
                     .iter()
                     .map(|resolved| resolved.ip_addr())
                     .collect();
-                url.set_host(Some(domain_with_port.domain()))?;
+                let mut authority = domain_with_port.domain().to_owned();
                 if let Some(port) = domain_with_port.port() {
-                    url.set_port(Some(port.get())).ok();
+                    authority.push_str(":");
+                    authority.push_str(&port.get().to_string());
                 }
+                authority.parse()?
             }
             DomainOrIpAddr::IpAddr(ip_addr_with_port) => {
-                url.set_ip_host(ip_addr_with_port.ip_addr()).ok();
+                let mut authority = ip_addr_with_port.ip_addr().to_string();
                 if let Some(port) = ip_addr_with_port.port() {
-                    url.set_port(Some(port.get())).ok();
+                    authority.push_str(":");
+                    authority.push_str(&port.get().to_string());
                 }
+                authority.parse()?
             }
-        }
-        if request.use_https() {
-            url.set_scheme("https").ok();
-        } else {
-            url.set_scheme("http").ok();
         };
-        if !request.path().is_empty() {
-            url.set_path(request.path());
+        let mut path_and_query = request.path().to_owned();
+        if !request.query().is_empty() || !request.query_pairs().is_empty() {
+            let path_len = path_and_query.len();
+            path_and_query.push_str("?");
+            if !request.query().is_empty() {
+                path_and_query.push_str(request.query());
+            }
+            let mut serializer =
+                form_urlencoded::Serializer::for_suffix(&mut path_and_query, path_len);
+            serializer.extend_pairs(request.query_pairs().iter());
+            serializer.finish();
         }
-        if !request.query().is_empty() {
-            url.set_query(Some(request.query()));
-        }
+        let path_and_query: PathAndQuery = path_and_query.parse()?;
 
-        if !request.query_pairs().is_empty() {
-            url.query_pairs_mut()
-                .extend_pairs(request.query_pairs().iter());
-        }
-        Ok((url.to_string(), resolved_ip_addrs))
+        let url = Uri::builder()
+            .scheme(scheme)
+            .authority(authority)
+            .path_and_query(path_and_query)
+            .build()
+            .unwrap();
+        Ok((url, resolved_ip_addrs))
     }
 }
 
@@ -149,15 +155,15 @@ pub(super) fn call_after_retry_delay_callbacks(
 }
 
 #[inline]
-pub(super) fn call_to_choose_domain_callbacks(
+pub(super) fn call_to_resolve_domain_callbacks(
     request: &RequestWithoutEndpoints,
     domain: &str,
 ) -> Result<(), TryError> {
-    if !request.call_to_choose_domain_callbacks(domain) {
+    if !request.call_to_resolve_domain_callbacks(domain) {
         return Err(TryError::new(
             ResponseError::new(
                 HTTPResponseErrorKind::UserCanceled.into(),
-                "on_to_choose_domain_callbacks() callback returns false",
+                "on_to_resolve_domain_callbacks() callback returns false",
             ),
             RetryResult::DontRetry,
         ));
@@ -166,16 +172,51 @@ pub(super) fn call_to_choose_domain_callbacks(
 }
 
 #[inline]
-pub(super) fn call_domain_chosen_callbacks(
+pub(super) fn call_domain_resolved_callbacks(
     request: &RequestWithoutEndpoints,
     domain: &str,
-    result: &ChosenResult,
+    answers: &ResolveAnswers,
 ) -> Result<(), TryError> {
-    if !request.call_domain_chosen_callbacks(domain, result) {
+    if !request.call_domain_resolved_callbacks(domain, answers) {
         return Err(TryError::new(
             ResponseError::new(
                 HTTPResponseErrorKind::UserCanceled.into(),
-                "on_domain_chosen_callbacks() callback returns false",
+                "on_domain_resolved_callbacks() callback returns false",
+            ),
+            RetryResult::DontRetry,
+        ));
+    }
+    Ok(())
+}
+
+#[inline]
+pub(super) fn call_to_choose_ips_callbacks(
+    request: &RequestWithoutEndpoints,
+    ips: &[IpAddrWithPort],
+) -> Result<(), TryError> {
+    if !request.call_to_choose_ips_callbacks(ips) {
+        return Err(TryError::new(
+            ResponseError::new(
+                HTTPResponseErrorKind::UserCanceled.into(),
+                "on_to_choose_ips_callbacks() callback returns false",
+            ),
+            RetryResult::DontRetry,
+        ));
+    }
+    Ok(())
+}
+
+#[inline]
+pub(super) fn call_ips_chosen_callbacks(
+    request: &RequestWithoutEndpoints,
+    ips: &[IpAddrWithPort],
+    chosen: &[IpAddrWithPort],
+) -> Result<(), TryError> {
+    if !request.call_ips_chosen_callbacks(ips, chosen) {
+        return Err(TryError::new(
+            ResponseError::new(
+                HTTPResponseErrorKind::UserCanceled.into(),
+                "on_ips_chosen_callbacks() callback returns false",
             ),
             RetryResult::DontRetry,
         ));

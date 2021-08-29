@@ -1,15 +1,16 @@
 use super::{
     super::{IntoEndpoints, ServiceName},
     callbacks::{
-        OnBody, OnDomainChosen, OnError, OnHeader, OnProgress, OnRequest, OnRetry, OnStatusCode,
-        OnToChooseDomain,
+        OnDomainResolved, OnError, OnHeader, OnIPsChosen, OnProgress, OnRequest, OnRetry,
+        OnStatusCode, OnToChooseIPs, OnToResolveDomain,
     },
-    CachedResolver, Callbacks, CallbacksBuilder, Chooser, DefaultRetrier,
-    ExponentialRetryDelayPolicy, RandomizedRetryDelayPolicy, RequestBuilder, RequestRetrier,
-    RetryDelayPolicy, ShuffledChooser, ShuffledResolver, SimpleChooser, SimpleResolver,
+    CachedResolver, Callbacks, CallbacksBuilder, Chooser, DefaultChooser, ErrorRetrier,
+    ExponentialRetryDelayPolicy, LimitedRetrier, NeverChooseNoneChooser,
+    RandomizedRetryDelayPolicy, RequestBuilder, RequestRetrier, Resolver, RetryDelayPolicy,
+    ShuffledChooser, ShuffledResolver, SimpleResolver,
 };
 use qiniu_http::{HTTPCaller, Method};
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct HTTPClient {
@@ -20,13 +21,12 @@ pub struct HTTPClient {
 struct HTTPClientInner {
     use_https: bool,
     appended_user_agent: Box<str>,
-    http_caller: Arc<dyn HTTPCaller>,
-    request_retrier: Arc<dyn RequestRetrier>,
-    retry_delay_policy: Arc<dyn RetryDelayPolicy>,
-    chooser: Arc<dyn Chooser>,
+    http_caller: Box<dyn HTTPCaller>,
+    request_retrier: Box<dyn RequestRetrier>,
+    retry_delay_policy: Box<dyn RetryDelayPolicy>,
+    chooser: Box<dyn Chooser>,
+    resolver: Box<dyn Resolver>,
     callbacks: Callbacks,
-    connect_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
 }
 
 #[cfg(any(feature = "curl"))]
@@ -46,13 +46,13 @@ impl HTTPClient {
 
     #[inline]
     #[cfg(not(any(feature = "curl")))]
-    pub fn new(http_caller: Arc<dyn HTTPCaller>) -> Self {
+    pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
         HTTPClientBuilder::new(http_caller).build()
     }
 
     #[inline]
     #[cfg(not(any(feature = "curl")))]
-    pub fn builder(http_caller: Arc<dyn HTTPCaller>) -> HTTPClientBuilder {
+    pub fn builder(http_caller: Box<dyn HTTPCaller>) -> HTTPClientBuilder {
         HTTPClientBuilder::new(http_caller)
     }
 
@@ -108,16 +108,6 @@ impl HTTPClient {
     }
 
     #[inline]
-    pub(super) fn connect_timeout(&self) -> Option<Duration> {
-        self.inner.connect_timeout
-    }
-
-    #[inline]
-    pub(super) fn request_timeout(&self) -> Option<Duration> {
-        self.inner.request_timeout
-    }
-
-    #[inline]
     pub(super) fn callbacks(&self) -> &Callbacks {
         &self.inner.callbacks
     }
@@ -141,19 +131,23 @@ impl HTTPClient {
     pub(super) fn chooser(&self) -> &dyn Chooser {
         self.inner.chooser.as_ref()
     }
+
+    #[inline]
+    pub(super) fn resolver(&self) -> &dyn Resolver {
+        self.inner.resolver.as_ref()
+    }
 }
 
 #[derive(Debug)]
 pub struct HTTPClientBuilder {
     use_https: bool,
     appended_user_agent: Box<str>,
-    http_caller: Arc<dyn HTTPCaller>,
-    request_retrier: Arc<dyn RequestRetrier>,
-    retry_delay_policy: Arc<dyn RetryDelayPolicy>,
-    chooser: Arc<dyn Chooser>,
+    http_caller: Box<dyn HTTPCaller>,
+    request_retrier: Box<dyn RequestRetrier>,
+    retry_delay_policy: Box<dyn RetryDelayPolicy>,
+    chooser: Box<dyn Chooser>,
+    resolver: Box<dyn Resolver>,
     callbacks: CallbacksBuilder,
-    connect_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
 }
 
 #[cfg(feature = "curl")]
@@ -168,31 +162,31 @@ impl HTTPClientBuilder {
     #[inline]
     #[cfg(feature = "curl")]
     pub fn new() -> Self {
-        Self::_new(Arc::new(qiniu_curl::CurlHTTPCaller::default()))
+        Self::_new(Box::new(qiniu_curl::CurlHTTPCaller::default()))
     }
 
     #[inline]
     #[cfg(not(any(feature = "curl")))]
-    pub fn new(http_caller: Arc<dyn HTTPCaller>) -> Self {
+    pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
         Self::_new(http_caller)
     }
 
     #[inline]
-    fn _new(http_caller: Arc<dyn HTTPCaller>) -> Self {
+    fn _new(http_caller: Box<dyn HTTPCaller>) -> Self {
+        type DefaultRetrier = LimitedRetrier<ErrorRetrier>;
         type DefaultResolver = ShuffledResolver<CachedResolver<SimpleResolver>>;
         type DefaultRetryDelayPolicy = RandomizedRetryDelayPolicy<ExponentialRetryDelayPolicy>;
-        type DefaultChooser = ShuffledChooser<SimpleChooser<DefaultResolver>>;
+        type DefaultShuffledChooser = NeverChooseNoneChooser<ShuffledChooser<DefaultChooser>>;
 
         HTTPClientBuilder {
             http_caller,
             use_https: true,
             appended_user_agent: Default::default(),
-            request_retrier: Arc::new(DefaultRetrier::default()),
-            retry_delay_policy: Arc::new(DefaultRetryDelayPolicy::default()),
-            chooser: Arc::new(DefaultChooser::default()),
+            request_retrier: Box::new(DefaultRetrier::default()),
+            retry_delay_policy: Box::new(DefaultRetryDelayPolicy::default()),
+            chooser: Box::new(DefaultShuffledChooser::default()),
+            resolver: Box::new(DefaultResolver::default()),
             callbacks: Default::default(),
-            connect_timeout: Default::default(),
-            request_timeout: Default::default(),
         }
     }
 
@@ -209,26 +203,32 @@ impl HTTPClientBuilder {
     }
 
     #[inline]
-    pub fn http_caller(mut self, http_caller: Arc<dyn HTTPCaller>) -> Self {
+    pub fn http_caller(mut self, http_caller: Box<dyn HTTPCaller>) -> Self {
         self.http_caller = http_caller;
         self
     }
 
     #[inline]
-    pub fn request_retrier(mut self, request_retrier: Arc<dyn RequestRetrier>) -> Self {
+    pub fn request_retrier(mut self, request_retrier: Box<dyn RequestRetrier>) -> Self {
         self.request_retrier = request_retrier;
         self
     }
 
     #[inline]
-    pub fn retry_delay_policy(mut self, retry_delay_policy: Arc<dyn RetryDelayPolicy>) -> Self {
+    pub fn retry_delay_policy(mut self, retry_delay_policy: Box<dyn RetryDelayPolicy>) -> Self {
         self.retry_delay_policy = retry_delay_policy;
         self
     }
 
     #[inline]
-    pub fn chooser(mut self, chooser: Arc<dyn Chooser>) -> Self {
+    pub fn chooser(mut self, chooser: Box<dyn Chooser>) -> Self {
         self.chooser = chooser;
+        self
+    }
+
+    #[inline]
+    pub fn resolver(mut self, resolver: Box<dyn Resolver>) -> Self {
+        self.resolver = resolver;
         self
     }
 
@@ -239,26 +239,8 @@ impl HTTPClientBuilder {
     }
 
     #[inline]
-    pub fn on_downloading_progress(mut self, callback: OnProgress) -> Self {
-        self.callbacks = self.callbacks.on_downloading_progress(callback);
-        self
-    }
-
-    #[inline]
-    pub fn on_send_request_body(mut self, callback: OnBody) -> Self {
-        self.callbacks = self.callbacks.on_send_request_body(callback);
-        self
-    }
-
-    #[inline]
     pub fn on_receive_response_status(mut self, callback: OnStatusCode) -> Self {
         self.callbacks = self.callbacks.on_receive_response_status(callback);
-        self
-    }
-
-    #[inline]
-    pub fn on_receive_response_body(mut self, callback: OnBody) -> Self {
-        self.callbacks = self.callbacks.on_receive_response_body(callback);
         self
     }
 
@@ -269,14 +251,26 @@ impl HTTPClientBuilder {
     }
 
     #[inline]
-    pub fn on_to_choose_domain(mut self, callback: OnToChooseDomain) -> Self {
-        self.callbacks = self.callbacks.on_to_choose_domain(callback);
+    pub fn on_to_resolve_domain(mut self, callback: OnToResolveDomain) -> Self {
+        self.callbacks = self.callbacks.on_to_resolve_domain(callback);
         self
     }
 
     #[inline]
-    pub fn on_domain_chosen(mut self, callback: OnDomainChosen) -> Self {
-        self.callbacks = self.callbacks.on_domain_chosen(callback);
+    pub fn on_domain_resolved(mut self, callback: OnDomainResolved) -> Self {
+        self.callbacks = self.callbacks.on_domain_resolved(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_to_choose_ips(mut self, callback: OnToChooseIPs) -> Self {
+        self.callbacks = self.callbacks.on_to_choose_ips(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_ips_chosen(mut self, callback: OnIPsChosen) -> Self {
+        self.callbacks = self.callbacks.on_ips_chosen(callback);
         self
     }
 
@@ -311,18 +305,6 @@ impl HTTPClientBuilder {
     }
 
     #[inline]
-    pub fn connect_timeout(mut self, connect_timeout: Duration) -> Self {
-        self.connect_timeout = Some(connect_timeout);
-        self
-    }
-
-    #[inline]
-    pub fn request_timeout(mut self, request_timeout: Duration) -> Self {
-        self.request_timeout = Some(request_timeout);
-        self
-    }
-
-    #[inline]
     pub fn build(self) -> HTTPClient {
         HTTPClient {
             inner: Arc::new(HTTPClientInner {
@@ -332,9 +314,8 @@ impl HTTPClientBuilder {
                 request_retrier: self.request_retrier,
                 retry_delay_policy: self.retry_delay_policy,
                 chooser: self.chooser,
+                resolver: self.resolver,
                 callbacks: self.callbacks.build(),
-                connect_timeout: self.connect_timeout,
-                request_timeout: self.request_timeout,
             }),
         }
     }

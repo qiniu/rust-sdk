@@ -1,6 +1,6 @@
 use super::super::{HTTPClient, HTTPClientBuilder};
 use qiniu_http::{
-    HTTPCaller, HeadersOwned, Request as HTTPRequest, ResponseError, ResponseErrorKind, StatusCode,
+    HTTPCaller, HeaderMap, Request as HTTPRequest, ResponseError, ResponseErrorKind, StatusCode,
     SyncResponse, SyncResponseResult,
 };
 use std::{any::Any, sync::Arc};
@@ -52,13 +52,13 @@ pub(crate) fn make_dumb_client_builder() -> HTTPClientBuilder {
 
 pub(crate) fn make_fixed_response_client_builder(
     status_code: StatusCode,
-    headers: HeadersOwned,
+    headers: HeaderMap,
     body: Vec<u8>,
 ) -> HTTPClientBuilder {
     #[derive(Debug)]
     struct RedirectHTTPCaller {
         status_code: StatusCode,
-        headers: HeadersOwned,
+        headers: HeaderMap,
         body: Vec<u8>,
     }
 

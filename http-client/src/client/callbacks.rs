@@ -1,6 +1,11 @@
-use super::{ChosenResult, RequestWithoutEndpoints, ResponseError, RetriedStatsInfo, SyncResponse};
-use qiniu_http::{HeaderName, HeaderValue, HeadersOwned, Method, Request, StatusCode};
-use std::{fmt, iter::FromIterator, net::IpAddr, time::Duration};
+use super::{
+    super::regions::IpAddrWithPort, RequestWithoutEndpoints, ResolveAnswers, ResponseError,
+    RetriedStatsInfo, SyncResponse,
+};
+use qiniu_http::{
+    HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode, TransferProgressInfo, Uri,
+};
+use std::{fmt, net::IpAddr, num::NonZeroU16, time::Duration};
 
 #[cfg(any(feature = "async"))]
 pub use super::AsyncResponse;
@@ -8,38 +13,33 @@ pub use super::AsyncResponse;
 #[derive(Clone, Debug)]
 pub struct RequestInfo {
     method: Method,
-    url: Box<str>,
-    headers: HeadersOwned,
+    url: Uri,
+    headers: HeaderMap,
     body: Box<[u8]>,
 }
 
 impl RequestInfo {
     pub(super) fn new(request: &Request) -> Self {
         Self {
-            method: request.method(),
-            url: request.url().to_owned().into_boxed_str(),
-            headers: HeadersOwned::from_iter(
-                request
-                    .headers()
-                    .iter()
-                    .map(|(name, value)| (name.to_owned().into(), value.to_owned().into_owned())),
-            ),
+            method: request.method().to_owned(),
+            url: request.url().to_owned(),
+            headers: request.headers().to_owned(),
             body: request.body().to_owned().into_boxed_slice(),
         }
     }
 
     #[inline]
-    pub fn method(&self) -> Method {
-        self.method
+    pub fn method(&self) -> &Method {
+        &self.method
     }
 
     #[inline]
-    pub fn url(&self) -> &str {
+    pub fn url(&self) -> &Uri {
         &self.url
     }
 
     #[inline]
-    pub fn headers(&self) -> &HeadersOwned {
+    pub fn headers(&self) -> &HeaderMap {
         &self.headers
     }
 
@@ -52,9 +52,9 @@ impl RequestInfo {
 #[derive(Clone, Debug)]
 pub struct ResponseInfo<'r> {
     status_code: StatusCode,
-    headers: &'r HeadersOwned,
+    headers: &'r HeaderMap,
     server_ip: Option<IpAddr>,
-    server_port: u16,
+    server_port: Option<NonZeroU16>,
 }
 
 impl<'r> ResponseInfo<'r> {
@@ -83,7 +83,7 @@ impl<'r> ResponseInfo<'r> {
     }
 
     #[inline]
-    pub fn headers(&self) -> &'r HeadersOwned {
+    pub fn headers(&self) -> &'r HeaderMap {
         self.headers
     }
 
@@ -93,7 +93,7 @@ impl<'r> ResponseInfo<'r> {
     }
 
     #[inline]
-    pub fn server_port(&self) -> u16 {
+    pub fn server_port(&self) -> Option<NonZeroU16> {
         self.server_port
     }
 }
@@ -121,11 +121,6 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
     }
 
     #[inline]
-    pub fn id(&self) -> usize {
-        self.request.request_id()
-    }
-
-    #[inline]
     pub fn request(&self) -> &Request {
         self.http_request
     }
@@ -141,14 +136,16 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
     }
 }
 
-pub(super) type OnProgress = Box<dyn Fn(&RequestInfo, u64, u64) -> bool + Send + Sync>;
-pub(super) type OnBody = Box<dyn Fn(&RequestInfo, &[u8]) -> bool + Send + Sync>;
+pub(super) type OnProgress = Box<dyn Fn(&RequestInfo, &TransferProgressInfo) -> bool + Send + Sync>;
 pub(super) type OnStatusCode = Box<dyn Fn(&RequestInfo, StatusCode) -> bool + Send + Sync>;
 pub(super) type OnHeader =
     Box<dyn Fn(&RequestInfo, &HeaderName, &HeaderValue) -> bool + Send + Sync>;
 
-pub(super) type OnToChooseDomain = Box<dyn Fn(&str) -> bool + Send + Sync>;
-pub(super) type OnDomainChosen = Box<dyn Fn(&str, &ChosenResult) -> bool + Send + Sync>;
+pub(super) type OnToResolveDomain = Box<dyn Fn(&str) -> bool + Send + Sync>;
+pub(super) type OnDomainResolved = Box<dyn Fn(&str, &ResolveAnswers) -> bool + Send + Sync>;
+pub(super) type OnToChooseIPs = Box<dyn Fn(&[IpAddrWithPort]) -> bool + Send + Sync>;
+pub(super) type OnIPsChosen =
+    Box<dyn Fn(&[IpAddrWithPort], &[IpAddrWithPort]) -> bool + Send + Sync>;
 pub(super) type OnRequest = Box<dyn Fn(&mut CallbackContext) -> bool + Send + Sync>;
 pub(super) type OnRetry = Box<dyn Fn(&mut CallbackContext, Duration) -> bool + Send + Sync>;
 pub(super) type OnSuccess = Box<dyn Fn(&mut CallbackContext, &ResponseInfo) -> bool + Send + Sync>;
@@ -157,13 +154,12 @@ pub(super) type OnError = Box<dyn Fn(&mut CallbackContext, &ResponseError) -> bo
 #[derive(Default)]
 pub struct Callbacks {
     on_uploading_progress: Box<[OnProgress]>,
-    on_downloading_progress: Box<[OnProgress]>,
-    on_send_request_body: Box<[OnBody]>,
     on_receive_response_status: Box<[OnStatusCode]>,
-    on_receive_response_body: Box<[OnBody]>,
     on_receive_response_header: Box<[OnHeader]>,
-    on_to_choose_domain: Box<[OnToChooseDomain]>,
-    on_domain_chosen: Box<[OnDomainChosen]>,
+    on_to_resolve_domain: Box<[OnToResolveDomain]>,
+    on_domain_resolved: Box<[OnDomainResolved]>,
+    on_to_choose_ips: Box<[OnToChooseIPs]>,
+    on_ips_chosen: Box<[OnIPsChosen]>,
     on_before_request_signed: Box<[OnRequest]>,
     on_after_request_signed: Box<[OnRequest]>,
     on_success: Box<[OnSuccess]>,
@@ -175,13 +171,12 @@ pub struct Callbacks {
 #[derive(Default)]
 pub struct CallbacksBuilder {
     on_uploading_progress: Vec<OnProgress>,
-    on_downloading_progress: Vec<OnProgress>,
-    on_send_request_body: Vec<OnBody>,
     on_receive_response_status: Vec<OnStatusCode>,
-    on_receive_response_body: Vec<OnBody>,
     on_receive_response_header: Vec<OnHeader>,
-    on_to_choose_domain: Vec<OnToChooseDomain>,
-    on_domain_chosen: Vec<OnDomainChosen>,
+    on_to_resolve_domain: Vec<OnToResolveDomain>,
+    on_domain_resolved: Vec<OnDomainResolved>,
+    on_to_choose_ips: Vec<OnToChooseIPs>,
+    on_ips_chosen: Vec<OnIPsChosen>,
     on_before_request_signed: Vec<OnRequest>,
     on_after_request_signed: Vec<OnRequest>,
     on_success: Vec<OnSuccess>,
@@ -195,38 +190,12 @@ impl Callbacks {
     pub(super) fn call_uploading_progress_callbacks(
         &self,
         request: &RequestInfo,
-        uploaded: u64,
-        total: u64,
+        progress_info: &TransferProgressInfo,
     ) -> bool {
         !self
             .on_uploading_progress_callbacks()
             .iter()
-            .any(|callback| !callback(request, uploaded, total))
-    }
-
-    #[inline]
-    pub(super) fn call_downloading_progress_callbacks(
-        &self,
-        request: &RequestInfo,
-        downloaded: u64,
-        total: u64,
-    ) -> bool {
-        !self
-            .on_downloading_progress_callbacks()
-            .iter()
-            .any(|callback| !callback(request, downloaded, total))
-    }
-
-    #[inline]
-    pub(super) fn call_send_request_body_callbacks(
-        &self,
-        request: &RequestInfo,
-        request_body: &[u8],
-    ) -> bool {
-        !self
-            .on_send_request_body_callbacks()
-            .iter()
-            .any(|callback| !callback(request, request_body))
+            .any(|callback| !callback(request, progress_info))
     }
 
     #[inline]
@@ -239,18 +208,6 @@ impl Callbacks {
             .on_receive_response_status_callbacks()
             .iter()
             .any(|callback| !callback(request, status_code))
-    }
-
-    #[inline]
-    pub(super) fn call_receive_response_body_callbacks(
-        &self,
-        request: &RequestInfo,
-        response_body: &[u8],
-    ) -> bool {
-        !self
-            .on_receive_response_body_callbacks()
-            .iter()
-            .any(|callback| !callback(request, response_body))
     }
 
     #[inline]
@@ -267,19 +224,43 @@ impl Callbacks {
     }
 
     #[inline]
-    pub(super) fn call_to_choose_domain_callbacks(&self, domain: &str) -> bool {
+    pub(super) fn call_to_resolve_domain_callbacks(&self, domain: &str) -> bool {
         !self
-            .on_to_choose_domain_callbacks()
+            .on_to_resolve_domain_callbacks()
             .iter()
             .any(|callback| !callback(domain))
     }
 
     #[inline]
-    pub(super) fn call_domain_chosen_callbacks(&self, domain: &str, result: &ChosenResult) -> bool {
+    pub(super) fn call_domain_resolved_callbacks(
+        &self,
+        domain: &str,
+        answers: &ResolveAnswers,
+    ) -> bool {
         !self
-            .on_domain_chosen_callbacks()
+            .on_domain_resolved_callbacks()
             .iter()
-            .any(|callback| !callback(domain, result))
+            .any(|callback| !callback(domain, answers))
+    }
+
+    #[inline]
+    pub(super) fn call_to_choose_ips_callbacks(&self, ips: &[IpAddrWithPort]) -> bool {
+        !self
+            .on_to_choose_ips_callbacks()
+            .iter()
+            .any(|callback| !callback(ips))
+    }
+
+    #[inline]
+    pub(super) fn call_ips_chosen_callbacks(
+        &self,
+        ips: &[IpAddrWithPort],
+        chosen: &[IpAddrWithPort],
+    ) -> bool {
+        !self
+            .on_ips_chosen_callbacks()
+            .iter()
+            .any(|callback| !callback(ips, chosen))
     }
 
     #[inline]
@@ -363,23 +344,8 @@ impl Callbacks {
     }
 
     #[inline]
-    pub fn on_downloading_progress_callbacks(&self) -> &[OnProgress] {
-        &self.on_downloading_progress
-    }
-
-    #[inline]
-    pub fn on_send_request_body_callbacks(&self) -> &[OnBody] {
-        &self.on_send_request_body
-    }
-
-    #[inline]
     pub fn on_receive_response_status_callbacks(&self) -> &[OnStatusCode] {
         &self.on_receive_response_status
-    }
-
-    #[inline]
-    pub fn on_receive_response_body_callbacks(&self) -> &[OnBody] {
-        &self.on_receive_response_body
     }
 
     #[inline]
@@ -388,13 +354,23 @@ impl Callbacks {
     }
 
     #[inline]
-    pub fn on_to_choose_domain_callbacks(&self) -> &[OnToChooseDomain] {
-        &self.on_to_choose_domain
+    pub fn on_to_resolve_domain_callbacks(&self) -> &[OnToResolveDomain] {
+        &self.on_to_resolve_domain
     }
 
     #[inline]
-    pub fn on_domain_chosen_callbacks(&self) -> &[OnDomainChosen] {
-        &self.on_domain_chosen
+    pub fn on_domain_resolved_callbacks(&self) -> &[OnDomainResolved] {
+        &self.on_domain_resolved
+    }
+
+    #[inline]
+    pub fn on_to_choose_ips_callbacks(&self) -> &[OnToChooseIPs] {
+        &self.on_to_choose_ips
+    }
+
+    #[inline]
+    pub fn on_ips_chosen_callbacks(&self) -> &[OnIPsChosen] {
+        &self.on_ips_chosen
     }
 
     #[inline]
@@ -436,26 +412,8 @@ impl CallbacksBuilder {
     }
 
     #[inline]
-    pub fn on_downloading_progress(mut self, callback: OnProgress) -> Self {
-        self.on_downloading_progress.push(callback);
-        self
-    }
-
-    #[inline]
-    pub fn on_send_request_body(mut self, callback: OnBody) -> Self {
-        self.on_send_request_body.push(callback);
-        self
-    }
-
-    #[inline]
     pub fn on_receive_response_status(mut self, callback: OnStatusCode) -> Self {
         self.on_receive_response_status.push(callback);
-        self
-    }
-
-    #[inline]
-    pub fn on_receive_response_body(mut self, callback: OnBody) -> Self {
-        self.on_receive_response_body.push(callback);
         self
     }
 
@@ -466,14 +424,26 @@ impl CallbacksBuilder {
     }
 
     #[inline]
-    pub fn on_to_choose_domain(mut self, callback: OnToChooseDomain) -> Self {
-        self.on_to_choose_domain.push(callback);
+    pub fn on_to_resolve_domain(mut self, callback: OnToResolveDomain) -> Self {
+        self.on_to_resolve_domain.push(callback);
         self
     }
 
     #[inline]
-    pub fn on_domain_chosen(mut self, callback: OnDomainChosen) -> Self {
-        self.on_domain_chosen.push(callback);
+    pub fn on_domain_resolved(mut self, callback: OnDomainResolved) -> Self {
+        self.on_domain_resolved.push(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_to_choose_ips(mut self, callback: OnToChooseIPs) -> Self {
+        self.on_to_choose_ips.push(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_ips_chosen(mut self, callback: OnIPsChosen) -> Self {
+        self.on_ips_chosen.push(callback);
         self
     }
 
@@ -517,13 +487,12 @@ impl CallbacksBuilder {
     pub fn build(self) -> Callbacks {
         Callbacks {
             on_uploading_progress: self.on_uploading_progress.into(),
-            on_downloading_progress: self.on_downloading_progress.into(),
-            on_send_request_body: self.on_send_request_body.into(),
             on_receive_response_status: self.on_receive_response_status.into(),
-            on_receive_response_body: self.on_receive_response_body.into(),
             on_receive_response_header: self.on_receive_response_header.into(),
-            on_to_choose_domain: self.on_to_choose_domain.into(),
-            on_domain_chosen: self.on_domain_chosen.into(),
+            on_to_resolve_domain: self.on_to_resolve_domain.into(),
+            on_domain_resolved: self.on_domain_resolved.into(),
+            on_to_choose_ips: self.on_to_choose_ips.into(),
+            on_ips_chosen: self.on_ips_chosen.into(),
             on_before_request_signed: self.on_before_request_signed.into(),
             on_after_request_signed: self.on_after_request_signed.into(),
             on_success: self.on_success.into(),
@@ -543,13 +512,12 @@ impl fmt::Debug for Callbacks {
         }
         let s = &mut f.debug_struct("Callbacks");
         field!(s, "on_uploading_progress", on_uploading_progress);
-        field!(s, "on_downloading_progress", on_downloading_progress);
-        field!(s, "on_send_request_body", on_send_request_body);
         field!(s, "on_receive_response_status", on_receive_response_status);
-        field!(s, "on_receive_response_body", on_receive_response_body);
         field!(s, "on_receive_response_header", on_receive_response_header);
-        field!(s, "on_to_choose_domain", on_to_choose_domain);
-        field!(s, "on_domain_chosen", on_domain_chosen);
+        field!(s, "on_to_resolve_domain", on_to_resolve_domain);
+        field!(s, "on_domain_resolved", on_domain_resolved);
+        field!(s, "on_to_choose_ips", on_to_choose_ips);
+        field!(s, "on_ips_chosen", on_ips_chosen);
         field!(s, "on_before_request_signed", on_before_request_signed);
         field!(s, "on_after_request_signed", on_after_request_signed);
         field!(s, "on_success", on_success);
@@ -569,13 +537,12 @@ impl fmt::Debug for CallbacksBuilder {
         }
         let s = &mut f.debug_struct("CallbacksBuilder");
         field!(s, "on_uploading_progress", on_uploading_progress);
-        field!(s, "on_downloading_progress", on_downloading_progress);
-        field!(s, "on_send_request_body", on_send_request_body);
         field!(s, "on_receive_response_status", on_receive_response_status);
-        field!(s, "on_receive_response_body", on_receive_response_body);
         field!(s, "on_receive_response_header", on_receive_response_header);
-        field!(s, "on_to_choose_domain", on_to_choose_domain);
-        field!(s, "on_domain_chosen", on_domain_chosen);
+        field!(s, "on_to_resolve_domain", on_to_resolve_domain);
+        field!(s, "on_domain_resolved", on_domain_resolved);
+        field!(s, "on_to_choose_ips", on_to_choose_ips);
+        field!(s, "on_ips_chosen", on_ips_chosen);
         field!(s, "on_before_request_signed", on_before_request_signed);
         field!(s, "on_after_request_signed", on_after_request_signed);
         field!(s, "on_success", on_success);

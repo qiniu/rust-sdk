@@ -2,8 +2,8 @@ use super::{
     super::{
         super::{IntoEndpoints, ServiceName},
         callbacks::{
-            OnBody, OnDomainChosen, OnError, OnHeader, OnProgress, OnRequest, OnRetry,
-            OnStatusCode, OnSuccess, OnToChooseDomain,
+            OnDomainResolved, OnError, OnHeader, OnIPsChosen, OnProgress, OnRequest, OnRetry,
+            OnStatusCode, OnSuccess, OnToChooseIPs, OnToResolveDomain,
         },
         request_call, APIResult, Authorization, CallbacksBuilder, HTTPClient, SyncResponse,
     },
@@ -11,10 +11,13 @@ use super::{
     Idempotent, QueryPairKey, QueryPairValue, QueryPairs, Request,
 };
 use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM};
-use qiniu_http::{HeaderName, HeaderValue, Headers, Method, RequestBody};
+use qiniu_http::{
+    header::{ACCEPT, CONTENT_TYPE},
+    Extensions, HeaderMap, HeaderName, HeaderValue, Method, RequestBody, Version,
+};
 use serde::Serialize;
 use serde_json::Result as JSONResult;
-use std::{borrow::Cow, time::Duration};
+use std::borrow::Cow;
 
 #[cfg(feature = "async")]
 use super::super::{async_request_call, AsyncResponse};
@@ -45,6 +48,7 @@ impl<'r> RequestBuilder<'r> {
             data: RequestData {
                 method,
                 use_https: None,
+                version: Default::default(),
                 path: Default::default(),
                 query: Default::default(),
                 query_pairs: Default::default(),
@@ -52,13 +56,7 @@ impl<'r> RequestBuilder<'r> {
                 body: Default::default(),
                 authorization: None,
                 idempotent: Default::default(),
-                follow_redirection: false,
-                connect_timeout: None,
-                request_timeout: None,
-                tcp_keepalive_idle_timeout: None,
-                tcp_keepalive_probe_interval: None,
-                low_transfer_speed: None,
-                low_transfer_speed_timeout: None,
+                extensions: Default::default(),
             },
         }
     }
@@ -70,25 +68,32 @@ impl<'r> RequestBuilder<'r> {
     }
 
     #[inline]
+    pub fn version(mut self, version: Version) -> Self {
+        self.data.version = version.into();
+        self
+    }
+
+    #[inline]
     pub fn path(mut self, path: impl Into<Cow<'r, str>>) -> Self {
         self.data.path = path.into();
         self
     }
 
     #[inline]
-    pub fn headers(mut self, headers: Headers<'r>) -> Self {
-        self.data.headers = headers;
+    pub fn headers(mut self, headers: impl Into<Cow<'r, HeaderMap>>) -> Self {
+        self.data.headers = headers.into();
         self
     }
 
     #[inline]
     pub fn set_header(
         mut self,
-        header_name: impl Into<HeaderName<'r>>,
-        header_value: impl Into<HeaderValue<'r>>,
+        header_name: impl Into<HeaderName>,
+        header_value: impl Into<HeaderValue>,
     ) -> Self {
         self.data
             .headers
+            .to_mut()
             .insert(header_name.into(), header_value.into());
         self
     }
@@ -97,20 +102,27 @@ impl<'r> RequestBuilder<'r> {
     pub fn body(mut self, body: impl Into<RequestBody<'r>>, content_type: Option<Mime>) -> Self {
         self.data.body = body.into();
         self.set_header(
-            "Content-Type",
-            content_type.unwrap_or(APPLICATION_OCTET_STREAM).to_string(),
+            CONTENT_TYPE,
+            HeaderValue::from_str(content_type.unwrap_or(APPLICATION_OCTET_STREAM).as_ref())
+                .unwrap(),
         )
     }
 
     #[inline]
     pub fn json(mut self, body: impl Serialize) -> JSONResult<Self> {
         self.data.body = serde_json::to_vec(&body)?.into();
-        Ok(self.set_header("Content-Type", APPLICATION_JSON.to_string()))
+        Ok(self.set_header(
+            CONTENT_TYPE,
+            HeaderValue::from_str(APPLICATION_JSON.as_ref()).unwrap(),
+        ))
     }
 
     #[inline]
     pub fn accept_json(self) -> Self {
-        self.set_header("Accept", APPLICATION_JSON.to_string())
+        self.set_header(
+            ACCEPT,
+            HeaderValue::from_str(APPLICATION_JSON.as_ref()).unwrap(),
+        )
     }
 
     #[inline]
@@ -156,44 +168,14 @@ impl<'r> RequestBuilder<'r> {
     }
 
     #[inline]
-    pub fn follow_redirection(mut self, follow_redirection: bool) -> Self {
-        self.data.follow_redirection = follow_redirection;
+    pub fn extensions(mut self, extensions: Extensions) -> Self {
+        self.data.extensions = extensions;
         self
     }
 
     #[inline]
-    pub fn connect_timeout(mut self, timeout: Duration) -> Self {
-        self.data.connect_timeout = Some(timeout);
-        self
-    }
-
-    #[inline]
-    pub fn request_timeout(mut self, timeout: Duration) -> Self {
-        self.data.request_timeout = Some(timeout);
-        self
-    }
-
-    #[inline]
-    pub fn tcp_keepalive_idle_timeout(mut self, timeout: Duration) -> Self {
-        self.data.tcp_keepalive_idle_timeout = Some(timeout);
-        self
-    }
-
-    #[inline]
-    pub fn tcp_keepalive_probe_interval(mut self, interval: Duration) -> Self {
-        self.data.tcp_keepalive_probe_interval = Some(interval);
-        self
-    }
-
-    #[inline]
-    pub fn low_transfer_speed(mut self, speed: u32) -> Self {
-        self.data.low_transfer_speed = Some(speed);
-        self
-    }
-
-    #[inline]
-    pub fn low_transfer_speed_timeout(mut self, timeout: Duration) -> Self {
-        self.data.low_transfer_speed_timeout = Some(timeout);
+    pub fn add_extension<T: Send + Sync + 'static>(mut self, val: T) -> Self {
+        self.data.extensions.insert(val);
         self
     }
 
@@ -204,26 +186,8 @@ impl<'r> RequestBuilder<'r> {
     }
 
     #[inline]
-    pub fn on_downloading_progress(mut self, callback: OnProgress) -> Self {
-        self.callbacks = self.callbacks.on_downloading_progress(callback);
-        self
-    }
-
-    #[inline]
-    pub fn on_send_request_body(mut self, callback: OnBody) -> Self {
-        self.callbacks = self.callbacks.on_send_request_body(callback);
-        self
-    }
-
-    #[inline]
     pub fn on_receive_response_status(mut self, callback: OnStatusCode) -> Self {
         self.callbacks = self.callbacks.on_receive_response_status(callback);
-        self
-    }
-
-    #[inline]
-    pub fn on_receive_response_body(mut self, callback: OnBody) -> Self {
-        self.callbacks = self.callbacks.on_receive_response_body(callback);
         self
     }
 
@@ -234,14 +198,26 @@ impl<'r> RequestBuilder<'r> {
     }
 
     #[inline]
-    pub fn on_to_choose_domain(mut self, callback: OnToChooseDomain) -> Self {
-        self.callbacks = self.callbacks.on_to_choose_domain(callback);
+    pub fn on_to_resolve_domain(mut self, callback: OnToResolveDomain) -> Self {
+        self.callbacks = self.callbacks.on_to_resolve_domain(callback);
         self
     }
 
     #[inline]
-    pub fn on_domain_chosen(mut self, callback: OnDomainChosen) -> Self {
-        self.callbacks = self.callbacks.on_domain_chosen(callback);
+    pub fn on_domain_resolved(mut self, callback: OnDomainResolved) -> Self {
+        self.callbacks = self.callbacks.on_domain_resolved(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_to_choose_ips(mut self, callback: OnToChooseIPs) -> Self {
+        self.callbacks = self.callbacks.on_to_choose_ips(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_ips_chosen(mut self, callback: OnIPsChosen) -> Self {
+        self.callbacks = self.callbacks.on_ips_chosen(callback);
         self
     }
 

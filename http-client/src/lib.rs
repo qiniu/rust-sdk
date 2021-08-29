@@ -33,23 +33,26 @@ pub extern crate qiniu_upload_token as upload_token;
 pub use client::{
     APIResult, Authorization, AuthorizationError, AuthorizationResult, CachedResolver,
     CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver, ChainedResolverBuilder, Chooser,
-    ChooserFeedback, ChosenResult, DefaultRetrier, DefaultRetrierBuilder, DomainOrIpAddr,
-    ExponentialRetryDelayPolicy, FixedRetryDelayPolicy, HTTPClient, HTTPClientBuilder, Idempotent,
-    NeverRetrier, PersistentError, PersistentResult, QueryPairKey, QueryPairValue, QueryPairs,
-    RandomizedRetryDelayPolicy, Ratio, RequestBuilder, RequestInfo, RequestRetrier, ResolveResult,
-    Resolver, ResponseError, ResponseErrorKind, ResponseMetrics, RetryDelayPolicy, RetryResult,
-    ShuffledChooser, ShuffledChooserBuilder, ShuffledResolver, SimpleChooser, SimpleResolver,
-    SyncResponse, NO_DELAY_POLICY,
+    ChooserFeedback, DefaultChooser, DomainOrIpAddr, ErrorRetrier, ExponentialRetryDelayPolicy,
+    FixedRetryDelayPolicy, HTTPClient, HTTPClientBuilder, Idempotent, LimitedRetrier, NeverRetrier,
+    PersistentError, PersistentResult, QueryPairKey, QueryPairValue, QueryPairs,
+    RandomizedRetryDelayPolicy, Ratio, RequestBuilder, RequestInfo, RequestRetrier, ResolveAnswers,
+    ResolveResult, Resolver, ResponseError, ResponseErrorKind, RetryDelayPolicy, RetryResult,
+    ShuffledChooser, ShuffledResolver, SimpleChooser, SimpleResolver, SyncResponse,
+    DEFAULT_IPV4_NETMASK_PREFIX_LENGTH, DEFAULT_IPV6_NETMASK_PREFIX_LENGTH, NO_DELAY_POLICY,
 };
 pub use regions::{
-    BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder, DomainWithPort,
-    DomainWithPortParseError, Endpoint, EndpointParseError, IntoEndpoints, InvalidServiceName,
-    IpAddrWithPort, IpAddrWithPortParseError, Region, RegionBuilder, RegionProvider,
-    RegionsProvider, RegionsProviderBuilder, ServiceName, StaticRegionProvider,
+    BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
+    CachedRegionsProvider, DomainWithPort, DomainWithPortParseError, Endpoint, EndpointParseError,
+    EndpointsBuilder, IntoEndpoints, InvalidServiceName, IpAddrWithPort, IpAddrWithPortParseError,
+    Region, RegionBuilder, RegionProvider, RegionsProvider, ServiceName, StaticRegionProvider,
 };
 
 #[cfg(any(feature = "c_ares"))]
 pub use client::{c_ares, c_ares_resolver, CAresResolver};
+
+#[cfg(all(feature = "trust_dns", feature = "async"))]
+pub use client::{trust_dns_resolver, TrustDnsResolver};
 
 #[cfg(any(feature = "async"))]
 pub use client::AsyncResponse;

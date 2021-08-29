@@ -273,7 +273,7 @@ impl<B> Response<B> {
     }
 
     #[inline]
-    pub fn metrics(&mut self) -> Option<&dyn Metrics> {
+    pub fn metrics(&self) -> Option<&dyn Metrics> {
         self.info.metrics()
     }
 

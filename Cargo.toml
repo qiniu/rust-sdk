@@ -8,7 +8,7 @@ members = [
     "http",
     "http-reqwest",
     "http-isahc",
-    # "http-client",
+    "http-client",
 ]
 
 [profile.release]

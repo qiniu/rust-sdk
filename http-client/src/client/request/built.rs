@@ -1,15 +1,16 @@
 use super::{
     super::{
-        super::{IntoEndpoints, ServiceName},
-        Authorization, CallbackContext, Callbacks, ChosenResult, HTTPClient, RequestInfo,
+        super::{IntoEndpoints, IpAddrWithPort, ServiceName},
+        Authorization, CallbackContext, Callbacks, HTTPClient, RequestInfo, ResolveAnswers,
         ResponseError, ResponseInfo,
     },
     request_data::RequestData,
-    request_id::RequestId,
     Idempotent, QueryPairs,
 };
-use once_cell::sync::Lazy;
-use qiniu_http::{HeaderName, HeaderValue, Headers, Method, StatusCode};
+use qiniu_http::{
+    Extensions, HeaderMap, HeaderName, HeaderValue, Method, StatusCode, TransferProgressInfo,
+    Version,
+};
 use std::{fmt, time::Duration};
 
 pub(in super::super) struct Request<'r> {
@@ -51,7 +52,6 @@ impl<'r> Request<'r> {
                 callbacks: self.callbacks,
                 data: self.data,
                 appended_user_agent: self.appended_user_agent,
-                request_id: Lazy::new(RequestId::new),
             },
             self.into_endpoints,
             self.service_name,
@@ -65,15 +65,9 @@ pub(in super::super) struct RequestWithoutEndpoints<'r> {
     callbacks: Callbacks,
     data: RequestData<'r>,
     appended_user_agent: Box<str>,
-    request_id: Lazy<RequestId>,
 }
 
 impl<'r> RequestWithoutEndpoints<'r> {
-    #[inline]
-    pub(in super::super) fn request_id(&self) -> usize {
-        self.request_id.get()
-    }
-
     #[inline]
     pub(in super::super) fn http_client(&self) -> &HTTPClient {
         &self.http_client
@@ -87,8 +81,13 @@ impl<'r> RequestWithoutEndpoints<'r> {
     }
 
     #[inline]
-    pub(in super::super) fn method(&self) -> Method {
-        self.data.method
+    pub(in super::super) fn method(&self) -> &Method {
+        &self.data.method
+    }
+
+    #[inline]
+    pub(in super::super) fn version(&self) -> Version {
+        self.data.version
     }
 
     #[inline]
@@ -107,7 +106,7 @@ impl<'r> RequestWithoutEndpoints<'r> {
     }
 
     #[inline]
-    pub(in super::super) fn headers(&self) -> &Headers {
+    pub(in super::super) fn headers(&self) -> &HeaderMap {
         &self.data.headers
     }
 
@@ -132,86 +131,28 @@ impl<'r> RequestWithoutEndpoints<'r> {
     }
 
     #[inline]
-    pub(in super::super) fn follow_redirection(&self) -> bool {
-        self.data.follow_redirection
+    #[allow(dead_code)]
+    pub(in super::super) fn extensions(&self) -> &Extensions {
+        &self.data.extensions
     }
 
     #[inline]
-    pub(in super::super) fn connect_timeout(&self) -> Option<Duration> {
-        self.data
-            .connect_timeout
-            .or_else(|| self.http_client.connect_timeout())
-    }
-
-    #[inline]
-    pub(in super::super) fn request_timeout(&self) -> Option<Duration> {
-        self.data
-            .request_timeout
-            .or_else(|| self.http_client.request_timeout())
-    }
-
-    #[inline]
-    pub(in super::super) fn tcp_keepalive_idle_timeout(&self) -> Option<Duration> {
-        self.data.tcp_keepalive_idle_timeout
-    }
-
-    #[inline]
-    pub(in super::super) fn tcp_keepalive_probe_interval(&self) -> Option<Duration> {
-        self.data.tcp_keepalive_probe_interval
-    }
-
-    #[inline]
-    pub(in super::super) fn low_transfer_speed(&self) -> Option<u32> {
-        self.data.low_transfer_speed
-    }
-
-    #[inline]
-    pub(in super::super) fn low_transfer_speed_timeout(&self) -> Option<Duration> {
-        self.data.low_transfer_speed_timeout
+    pub(in super::super) fn extensions_mut(&mut self) -> &mut Extensions {
+        &mut self.data.extensions
     }
 
     #[inline]
     pub(in super::super) fn call_uploading_progress_callbacks(
         &self,
         request: &RequestInfo,
-        uploaded: u64,
-        total: u64,
+        progress_info: &TransferProgressInfo,
     ) -> bool {
         self.callbacks
-            .call_uploading_progress_callbacks(request, uploaded, total)
+            .call_uploading_progress_callbacks(request, progress_info)
             && self
                 .http_client
                 .callbacks()
-                .call_uploading_progress_callbacks(request, uploaded, total)
-    }
-
-    #[inline]
-    pub(in super::super) fn call_downloading_progress_callbacks(
-        &self,
-        request: &RequestInfo,
-        downloaded: u64,
-        total: u64,
-    ) -> bool {
-        self.callbacks
-            .call_downloading_progress_callbacks(request, downloaded, total)
-            && self
-                .http_client
-                .callbacks()
-                .call_downloading_progress_callbacks(request, downloaded, total)
-    }
-
-    #[inline]
-    pub(in super::super) fn call_send_request_body_callbacks(
-        &self,
-        request: &RequestInfo,
-        request_body: &[u8],
-    ) -> bool {
-        self.callbacks
-            .call_send_request_body_callbacks(request, request_body)
-            && self
-                .http_client
-                .callbacks()
-                .call_send_request_body_callbacks(request, request_body)
+                .call_uploading_progress_callbacks(request, progress_info)
     }
 
     #[inline]
@@ -226,20 +167,6 @@ impl<'r> RequestWithoutEndpoints<'r> {
                 .http_client
                 .callbacks()
                 .call_receive_response_status_callbacks(request, status_code)
-    }
-
-    #[inline]
-    pub(in super::super) fn call_receive_response_body_callbacks(
-        &self,
-        request: &RequestInfo,
-        response_body: &[u8],
-    ) -> bool {
-        self.callbacks
-            .call_receive_response_body_callbacks(request, response_body)
-            && self
-                .http_client
-                .callbacks()
-                .call_receive_response_body_callbacks(request, response_body)
     }
 
     #[inline]
@@ -258,25 +185,48 @@ impl<'r> RequestWithoutEndpoints<'r> {
     }
 
     #[inline]
-    pub(in super::super) fn call_to_choose_domain_callbacks(&self, domain: &str) -> bool {
-        self.callbacks.call_to_choose_domain_callbacks(domain)
+    pub(in super::super) fn call_to_resolve_domain_callbacks(&self, domain: &str) -> bool {
+        self.callbacks.call_to_resolve_domain_callbacks(domain)
             && self
                 .http_client
                 .callbacks()
-                .call_to_choose_domain_callbacks(domain)
+                .call_to_resolve_domain_callbacks(domain)
     }
 
     #[inline]
-    pub(in super::super) fn call_domain_chosen_callbacks(
+    pub(in super::super) fn call_domain_resolved_callbacks(
         &self,
         domain: &str,
-        result: &ChosenResult,
+        answers: &ResolveAnswers,
     ) -> bool {
-        self.callbacks.call_domain_chosen_callbacks(domain, result)
+        self.callbacks
+            .call_domain_resolved_callbacks(domain, answers)
             && self
                 .http_client
                 .callbacks()
-                .call_domain_chosen_callbacks(domain, result)
+                .call_domain_resolved_callbacks(domain, answers)
+    }
+
+    #[inline]
+    pub(in super::super) fn call_to_choose_ips_callbacks(&self, ips: &[IpAddrWithPort]) -> bool {
+        self.callbacks.call_to_choose_ips_callbacks(ips)
+            && self
+                .http_client
+                .callbacks()
+                .call_to_choose_ips_callbacks(ips)
+    }
+
+    #[inline]
+    pub(in super::super) fn call_ips_chosen_callbacks(
+        &self,
+        ips: &[IpAddrWithPort],
+        chosen: &[IpAddrWithPort],
+    ) -> bool {
+        self.callbacks.call_ips_chosen_callbacks(ips, chosen)
+            && self
+                .http_client
+                .callbacks()
+                .call_ips_chosen_callbacks(ips, chosen)
     }
 
     #[inline]

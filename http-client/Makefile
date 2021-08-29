@@ -2,31 +2,35 @@
 
 all: build doc
 build:
-	cargo build --no-default-features --features curl
-	cargo build --no-default-features --features c_ares
-	cargo build --no-default-features --features 'async c_ares'
-	cargo build --no-default-features --features 'curl async'
+	cargo build --no-default-features --features isahc
+	cargo build --no-default-features --features reqwest
+	cargo build --no-default-features --features 'async isahc'
+	cargo build --no-default-features --features 'async reqwest'
+	cargo build --no-default-features --features 'async c_ares trust_dns'
 build_release:
-	cargo build --no-default-features --release --features curl
-	cargo build --no-default-features --release --features c_ares
-	cargo build --no-default-features --release --features 'async c_ares'
-	cargo build --no-default-features --release --features 'curl async'
+	cargo build --no-default-features --release --features isahc
+	cargo build --no-default-features --release --features reqwest
+	cargo build --no-default-features --release --features 'async isahc'
+	cargo build --no-default-features --release --features 'async reqwest'
+	cargo build --no-default-features --release --features 'async c_ares trust_dns'
 build_test:
 	cargo test --no-run
-	cargo test --no-run --no-default-features --features curl
-	cargo test --no-run --no-default-features --features c_ares
-	cargo test --no-run --no-default-features --features 'async c_ares'
-	cargo test --no-run --no-default-features --features 'curl async'
+	cargo test --no-run --no-default-features --features isahc
+	cargo test --no-run --no-default-features --features reqwest
+	cargo test --no-run --no-default-features --features 'async isahc'
+	cargo test --no-run --no-default-features --features 'async reqwest'
+	cargo test --no-run --no-default-features --features 'async c_ares trust_dns'
 doc:
-	cargo test --doc --features 'async c_ares'
-	cargo doc --lib --release --no-deps --features 'async c_ares'
+	cargo test --doc --features 'async c_ares trust_dns'
+	cargo doc --lib --release --no-deps --features 'async c_ares trust_dns'
 test:
 	cargo test --no-default-features -- --test-threads=1
-	cargo test --no-default-features --features curl -- --test-threads=1
-	cargo test --no-default-features --features c_ares -- --test-threads=1
-	cargo test --no-default-features --features 'async c_ares' -- --test-threads=1
-	cargo test --no-default-features --features 'curl async' -- --test-threads=1
+	cargo test --no-default-features --features isahc -- --test-threads=1
+	cargo test --no-default-features --features reqwest -- --test-threads=1
+	cargo test --no-default-features --features 'async isahc' -- --test-threads=1
+	cargo test --no-default-features --features 'async reqwest' -- --test-threads=1
+	cargo test --no-default-features --features 'async c_ares trust_dns' -- --test-threads=1
 clean:
 	cargo clean
 clippy:
-	cargo clippy --features 'async c_ares'
+	cargo clippy --features 'async c_ares trust_dns'
