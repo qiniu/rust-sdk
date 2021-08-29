@@ -1,4 +1,4 @@
-use super::ResponseError;
+use super::{MapError, ResponseError};
 use assert_impl::assert_impl;
 use http::{
     header::{HeaderMap, HeaderName, HeaderValue},
@@ -282,54 +282,6 @@ impl<B> Response<B> {
         self.info.metrics_mut()
     }
 
-    #[inline]
-    pub fn total_duration(&self) -> Option<Duration> {
-        self.info
-            .metrics
-            .as_ref()
-            .and_then(|metrics| metrics.total_duration())
-    }
-
-    #[inline]
-    pub fn name_lookup_duration(&self) -> Option<Duration> {
-        self.info
-            .metrics
-            .as_ref()
-            .and_then(|metrics| metrics.name_lookup_duration())
-    }
-
-    #[inline]
-    pub fn connect_duration(&self) -> Option<Duration> {
-        self.info
-            .metrics
-            .as_ref()
-            .and_then(|metrics| metrics.connect_duration())
-    }
-
-    #[inline]
-    pub fn secure_connect_duration(&self) -> Option<Duration> {
-        self.info
-            .metrics
-            .as_ref()
-            .and_then(|metrics| metrics.secure_connect_duration())
-    }
-
-    #[inline]
-    pub fn redirect_duration(&self) -> Option<Duration> {
-        self.info
-            .metrics
-            .as_ref()
-            .and_then(|metrics| metrics.redirect_duration())
-    }
-
-    #[inline]
-    pub fn transfer_duration(&self) -> Option<Duration> {
-        self.info
-            .metrics
-            .as_ref()
-            .and_then(|metrics| metrics.transfer_duration())
-    }
-
     /// HTTP 响应体
     #[inline]
     pub fn body(&self) -> &B {
@@ -363,27 +315,38 @@ impl<B> Response<B> {
     pub fn try_map_body<B2, E>(
         self,
         f: impl FnOnce(B) -> result::Result<B2, E>,
-    ) -> result::Result<Response<B2>, E> {
+    ) -> result::Result<Response<B2>, MapError<E>> {
         let Self { inner, info } = self;
         let (parts, body) = inner.into_parts();
-        let body = f(body)?;
-        let inner = HTTPResponse::from_parts(parts, body);
-        Ok(Response { inner, info })
+        match f(body) {
+            Ok(body) => {
+                let inner = HTTPResponse::from_parts(parts, body);
+                Ok(Response { inner, info })
+            }
+            Err(err) => Err(MapError::new(err, info)),
+        }
     }
 
     /// 尝试对 HTTP 响应体进行异步映射
     #[inline]
     #[cfg(feature = "async")]
-    pub async fn try_async_map_body<B2, E, F, Fut>(self, f: F) -> result::Result<Response<B2>, E>
+    pub async fn try_async_map_body<B2, E, F, Fut>(
+        self,
+        f: F,
+    ) -> result::Result<Response<B2>, MapError<E>>
     where
         F: FnOnce(B) -> Fut,
         Fut: Future<Output = result::Result<B2, E>>,
     {
         let Self { inner, info } = self;
         let (parts, body) = inner.into_parts();
-        let body = f(body).await?;
-        let inner = HTTPResponse::from_parts(parts, body);
-        Ok(Response { inner, info })
+        match f(body).await {
+            Ok(body) => {
+                let inner = HTTPResponse::from_parts(parts, body);
+                Ok(Response { inner, info })
+            }
+            Err(err) => Err(MapError::new(err, info)),
+        }
     }
 }
 

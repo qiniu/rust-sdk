@@ -1,6 +1,6 @@
 use super::response::{Metrics, ResponseInfo};
 use http::uri::{Scheme, Uri};
-use std::{error, fmt, net::IpAddr, num::NonZeroU16};
+use std::{error::Error as StdError, fmt, net::IpAddr, num::NonZeroU16};
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -59,7 +59,7 @@ pub enum ErrorKind {
 #[derive(Debug)]
 pub struct Error {
     kind: ErrorKind,
-    error: Box<dyn error::Error + Send + Sync>,
+    error: Box<dyn StdError + Send + Sync>,
     response_info: ResponseInfo,
 }
 
@@ -71,7 +71,7 @@ impl Error {
     }
 
     #[inline]
-    pub fn into_inner(self) -> Box<dyn error::Error + Send + Sync> {
+    pub fn into_inner(self) -> Box<dyn StdError + Send + Sync> {
         self.error
     }
 
@@ -112,9 +112,9 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {
+impl StdError for Error {
     #[inline]
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         Some(self.error.as_ref())
     }
 }
@@ -127,7 +127,7 @@ pub struct ErrorBuilder {
 impl ErrorBuilder {
     /// 创建 HTTP 响应错误
     #[inline]
-    pub fn new(kind: ErrorKind, err: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
+    pub fn new(kind: ErrorKind, err: impl Into<Box<dyn StdError + Send + Sync>>) -> Self {
         Self {
             inner: Error {
                 kind,
@@ -177,5 +177,32 @@ impl ErrorBuilder {
     pub fn metrics(mut self, metrics: Box<dyn Metrics>) -> Self {
         *self.inner.response_info.metrics_mut() = Some(metrics);
         self
+    }
+}
+
+pub struct MapError<E> {
+    error: E,
+    info: ResponseInfo,
+}
+
+impl<E> MapError<E> {
+    #[inline]
+    pub(super) fn new(error: E, info: ResponseInfo) -> Self {
+        Self { error, info }
+    }
+
+    #[inline]
+    pub fn into_inner(self) -> E {
+        self.error
+    }
+}
+
+impl<E: StdError + Sync + Send + 'static> MapError<E> {
+    pub fn into_response_error(self, kind: ErrorKind) -> Error {
+        Error {
+            kind,
+            error: Box::new(self.error),
+            response_info: self.info,
+        }
     }
 }

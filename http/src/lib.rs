@@ -25,6 +25,7 @@ mod response;
 
 pub use error::{
     Error as ResponseError, ErrorBuilder as ResponseErrorBuilder, ErrorKind as ResponseErrorKind,
+    MapError,
 };
 pub use http::{
     header::{self, HeaderMap, HeaderName, HeaderValue},
