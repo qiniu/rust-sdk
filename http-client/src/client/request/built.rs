@@ -8,8 +8,7 @@ use super::{
     Idempotent, QueryPairs,
 };
 use qiniu_http::{
-    Extensions, HeaderMap, HeaderName, HeaderValue, Method, StatusCode, TransferProgressInfo,
-    Version,
+    HeaderMap, HeaderName, HeaderValue, Method, StatusCode, TransferProgressInfo, Version,
 };
 use std::{fmt, time::Duration};
 
@@ -128,17 +127,6 @@ impl<'r> RequestWithoutEndpoints<'r> {
     #[inline]
     pub(in super::super) fn idempotent(&self) -> Idempotent {
         self.data.idempotent
-    }
-
-    #[inline]
-    #[allow(dead_code)]
-    pub(in super::super) fn extensions(&self) -> &Extensions {
-        &self.data.extensions
-    }
-
-    #[inline]
-    pub(in super::super) fn extensions_mut(&mut self) -> &mut Extensions {
-        &mut self.data.extensions
     }
 
     #[inline]

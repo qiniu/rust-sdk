@@ -9,6 +9,7 @@ mod response;
 mod retried;
 mod retrier;
 mod retry_delay_policy;
+mod spawn;
 
 pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
 pub use call::DomainOrIpAddr;

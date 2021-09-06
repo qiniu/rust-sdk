@@ -92,7 +92,7 @@ impl RequestRetrier for ErrorRetrier {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, foo))]
 mod tests {
     use super::*;
     use std::{error::Error, result::Result};

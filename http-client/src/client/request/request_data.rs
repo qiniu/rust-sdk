@@ -1,5 +1,5 @@
 use super::{super::authorization::Authorization, Idempotent, QueryPairs};
-use qiniu_http::{Extensions, HeaderMap, Method, RequestBody, Version};
+use qiniu_http::{HeaderMap, Method, RequestBody, Version};
 use std::{borrow::Cow, fmt};
 
 pub(super) struct RequestData<'r> {
@@ -13,7 +13,6 @@ pub(super) struct RequestData<'r> {
     pub(super) body: RequestBody<'r>,
     pub(super) authorization: Option<Authorization>,
     pub(super) idempotent: Idempotent,
-    pub(super) extensions: Extensions,
 }
 
 impl fmt::Debug for RequestData<'_> {
@@ -33,7 +32,6 @@ impl fmt::Debug for RequestData<'_> {
         field!(s, body);
         field!(s, authorization);
         field!(s, idempotent);
-        field!(s, extensions);
         s.finish()
     }
 }

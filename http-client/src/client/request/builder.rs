@@ -30,6 +30,7 @@ pub struct RequestBuilder<'r> {
     callbacks: CallbacksBuilder,
     data: RequestData<'r>,
     appended_user_agent: Cow<'r, str>,
+    extensions: Extensions,
 }
 
 impl<'r> RequestBuilder<'r> {
@@ -45,6 +46,7 @@ impl<'r> RequestBuilder<'r> {
             into_endpoints,
             callbacks: Default::default(),
             appended_user_agent: Default::default(),
+            extensions: Default::default(),
             data: RequestData {
                 method,
                 use_https: None,
@@ -56,7 +58,6 @@ impl<'r> RequestBuilder<'r> {
                 body: Default::default(),
                 authorization: None,
                 idempotent: Default::default(),
-                extensions: Default::default(),
             },
         }
     }
@@ -169,13 +170,13 @@ impl<'r> RequestBuilder<'r> {
 
     #[inline]
     pub fn extensions(mut self, extensions: Extensions) -> Self {
-        self.data.extensions = extensions;
+        self.extensions = extensions;
         self
     }
 
     #[inline]
     pub fn add_extension<T: Send + Sync + 'static>(mut self, val: T) -> Self {
-        self.data.extensions.insert(val);
+        self.extensions.insert(val);
         self
     }
 
@@ -259,27 +260,32 @@ impl<'r> RequestBuilder<'r> {
 
     #[inline]
     pub fn call(self) -> APIResult<SyncResponse> {
-        request_call(self.build())
+        let (request, extensions) = self.build();
+        request_call(request, extensions)
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     pub async fn async_call(self) -> APIResult<AsyncResponse> {
-        async_request_call(self.build()).await
+        let (request, extensions) = self.build();
+        async_request_call(request, extensions).await
     }
 
     #[inline]
-    pub(in super::super) fn build(self) -> Request<'r> {
+    pub(in super::super) fn build(self) -> (Request<'r>, Extensions) {
         let appended_user_agent =
             self.http_client.appended_user_agent().to_owned() + &self.appended_user_agent;
-        Request::new(
-            self.http_client,
-            self.service_name,
-            self.into_endpoints,
-            self.callbacks.build(),
-            self.data,
-            appended_user_agent.into_boxed_str(),
+        (
+            Request::new(
+                self.http_client,
+                self.service_name,
+                self.into_endpoints,
+                self.callbacks.build(),
+                self.data,
+                appended_user_agent.into_boxed_str(),
+            ),
+            self.extensions,
         )
     }
 }

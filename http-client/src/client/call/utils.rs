@@ -332,7 +332,7 @@ pub(super) fn find_ip_addr_with_port(
     })
 }
 
-#[cfg(test)]
+#[cfg(all(test, foo))]
 mod tests {
     use super::*;
     use crate::{test_utils::make_dumb_client_builder, ServiceName};

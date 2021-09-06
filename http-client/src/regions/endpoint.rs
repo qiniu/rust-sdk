@@ -30,12 +30,12 @@ impl DomainWithPort {
     }
 
     #[inline]
-    pub fn domain(&self) -> &str {
+    pub const fn domain(&self) -> &str {
         &self.domain
     }
 
     #[inline]
-    pub fn port(&self) -> Option<NonZeroU16> {
+    pub const fn port(&self) -> Option<NonZeroU16> {
         self.port
     }
 
@@ -131,7 +131,7 @@ pub struct IpAddrWithPort {
 
 impl IpAddrWithPort {
     #[inline]
-    pub fn new(ip_addr: IpAddr) -> Self {
+    pub const fn new(ip_addr: IpAddr) -> Self {
         IpAddrWithPort {
             ip_addr,
             port: None,
@@ -139,17 +139,17 @@ impl IpAddrWithPort {
     }
 
     #[inline]
-    pub fn new_with_port(ip_addr: IpAddr, port: Option<NonZeroU16>) -> Self {
+    pub const fn new_with_port(ip_addr: IpAddr, port: Option<NonZeroU16>) -> Self {
         IpAddrWithPort { ip_addr, port }
     }
 
     #[inline]
-    pub fn ip_addr(&self) -> IpAddr {
+    pub const fn ip_addr(&self) -> IpAddr {
         self.ip_addr
     }
 
     #[inline]
-    pub fn port(&self) -> Option<NonZeroU16> {
+    pub const fn port(&self) -> Option<NonZeroU16> {
         self.port
     }
 }
@@ -261,7 +261,7 @@ impl Endpoint {
     }
 
     #[inline]
-    pub fn new_from_ip_addr(ip_addr: IpAddr) -> Self {
+    pub const fn new_from_ip_addr(ip_addr: IpAddr) -> Self {
         Self::IpAddrWithPort(IpAddrWithPort {
             ip_addr,
             port: None,
@@ -434,7 +434,7 @@ impl FromStr for Endpoint {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, foo))]
 mod tests {
     use super::*;
     use std::{

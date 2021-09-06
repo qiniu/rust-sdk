@@ -92,7 +92,7 @@ impl<P: RetryDelayPolicy + Default> Default for RandomizedRetryDelayPolicy<P> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, foo))]
 mod tests {
     use super::{super::FixedRetryDelayPolicy, *};
     use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;

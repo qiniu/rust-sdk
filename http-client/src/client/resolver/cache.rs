@@ -475,7 +475,7 @@ impl PersistentCache {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, foo))]
 mod tests {
     use super::*;
     use once_cell::sync::Lazy;

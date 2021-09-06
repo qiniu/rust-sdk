@@ -179,7 +179,7 @@ fn do_some_work_async(inner: &Arc<SimpleChooserInner>, need_to_shrink: bool) {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, foo))]
 mod tests {
     use super::{
         super::super::{ResolveResult, ResponseError, ResponseErrorKind, RetriedStatsInfo},

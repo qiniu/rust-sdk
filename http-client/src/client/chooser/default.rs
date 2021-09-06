@@ -1,4 +1,7 @@
-use super::{super::super::regions::IpAddrWithPort, Chooser, ChooserFeedback};
+use super::{
+    super::{super::regions::IpAddrWithPort, spawn::spawn},
+    Chooser, ChooserFeedback,
+};
 use dashmap::DashMap;
 pub use ipnet::PrefixLenError;
 use ipnet::{Ipv4Net, Ipv6Net};
@@ -8,7 +11,6 @@ use std::{
     collections::HashMap,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     sync::{Arc, Mutex},
-    thread::Builder as ThreadBuilder,
     time::{Duration, Instant},
 };
 
@@ -36,8 +38,7 @@ impl Default for LockedData {
 }
 
 const DEFAULT_BLOCK_DURATION: Duration = Duration::from_secs(30);
-const BLACKLIST_SIZE_TO_SHRINK: usize = 100;
-const MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
+const DEFAULT_MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
 pub const DEFAULT_IPV4_NETMASK_PREFIX_LENGTH: u8 = 24;
 pub const DEFAULT_IPV6_NETMASK_PREFIX_LENGTH: u8 = 64;
 
@@ -51,37 +52,40 @@ struct DefaultChooserInner {
     blacklist: Blacklist,
     lock: Mutex<LockedData>,
     block_duration: Duration,
+    min_shrink_interval: Duration,
     ipv4_netmask_prefix_length: u8,
     ipv6_netmask_prefix_length: u8,
-}
-
-impl DefaultChooser {
-    #[inline]
-    pub fn new(
-        block_duration: Duration,
-        ipv4_netmask_prefix_length: u8,
-        ipv6_netmask_prefix_length: u8,
-    ) -> Self {
-        Self {
-            inner: Arc::new(DefaultChooserInner {
-                block_duration,
-                ipv4_netmask_prefix_length,
-                ipv6_netmask_prefix_length,
-                blacklist: Default::default(),
-                lock: Default::default(),
-            }),
-        }
-    }
 }
 
 impl Default for DefaultChooser {
     #[inline]
     fn default() -> Self {
-        Self::new(
-            DEFAULT_BLOCK_DURATION,
-            DEFAULT_IPV4_NETMASK_PREFIX_LENGTH,
-            DEFAULT_IPV6_NETMASK_PREFIX_LENGTH,
-        )
+        Self {
+            inner: Arc::new(DefaultChooserInner {
+                blacklist: Default::default(),
+                lock: Default::default(),
+                block_duration: DEFAULT_BLOCK_DURATION,
+                min_shrink_interval: DEFAULT_MIN_SHRINK_INTERVAL,
+                ipv4_netmask_prefix_length: DEFAULT_IPV4_NETMASK_PREFIX_LENGTH,
+                ipv6_netmask_prefix_length: DEFAULT_IPV6_NETMASK_PREFIX_LENGTH,
+            }),
+        }
+    }
+}
+
+impl DefaultChooser {
+    #[inline]
+    pub fn builder() -> DefaultChooserBuilder {
+        DefaultChooserBuilder {
+            inner: DefaultChooserInner {
+                blacklist: Default::default(),
+                lock: Default::default(),
+                block_duration: DEFAULT_BLOCK_DURATION,
+                min_shrink_interval: DEFAULT_MIN_SHRINK_INTERVAL,
+                ipv4_netmask_prefix_length: DEFAULT_IPV4_NETMASK_PREFIX_LENGTH,
+                ipv6_netmask_prefix_length: DEFAULT_IPV6_NETMASK_PREFIX_LENGTH,
+            },
+        }
     }
 }
 
@@ -171,17 +175,17 @@ impl DefaultChooser {
 }
 
 fn do_some_work_async(inner: &Arc<DefaultChooserInner>, need_to_shrink: bool) {
-    if need_to_shrink && is_time_to_shrink(&inner.blacklist, &inner.lock) {
+    if need_to_shrink && is_time_to_shrink(inner) {
         let cloned = inner.to_owned();
-        if let Err(err) = ThreadBuilder::new()
-            .name("qiniu.rust-sdk.http-client.chooser.DefaultChooser".into())
-            .spawn(move || {
-                if is_time_to_shrink_mut(&cloned.blacklist, &cloned.lock) {
+        if let Err(err) = spawn(
+            "qiniu.rust-sdk.http-client.chooser.DefaultChooser".into(),
+            move || {
+                if is_time_to_shrink_mut(&cloned) {
                     info!("Default Chooser spawns thread to do some housework");
                     shrink_cache(&cloned.blacklist, cloned.block_duration);
                 }
-            })
-        {
+            },
+        ) {
             warn!(
                 "Default Chooser was failed to spawn thread to do some housework: {}",
                 err
@@ -192,18 +196,18 @@ fn do_some_work_async(inner: &Arc<DefaultChooserInner>, need_to_shrink: bool) {
     return;
 
     #[inline]
-    fn is_time_to_shrink(blacklist: &Blacklist, locked_data: &Mutex<LockedData>) -> bool {
-        if let Ok(locked_data) = locked_data.try_lock() {
-            _is_time_to_shrink(blacklist, &*locked_data)
+    fn is_time_to_shrink(inner: &Arc<DefaultChooserInner>) -> bool {
+        if let Ok(locked_data) = inner.lock.try_lock() {
+            _is_time_to_shrink(inner.min_shrink_interval, &*locked_data)
         } else {
             false
         }
     }
 
     #[inline]
-    fn is_time_to_shrink_mut(blacklist: &Blacklist, locked_data: &Mutex<LockedData>) -> bool {
-        if let Ok(mut locked_data) = locked_data.try_lock() {
-            if _is_time_to_shrink(blacklist, &*locked_data) {
+    fn is_time_to_shrink_mut(inner: &Arc<DefaultChooserInner>) -> bool {
+        if let Ok(mut locked_data) = inner.lock.try_lock() {
+            if _is_time_to_shrink(inner.min_shrink_interval, &*locked_data) {
                 locked_data.last_shrink_at = Instant::now();
                 return true;
             }
@@ -212,9 +216,8 @@ fn do_some_work_async(inner: &Arc<DefaultChooserInner>, need_to_shrink: bool) {
     }
 
     #[inline]
-    fn _is_time_to_shrink(blacklist: &Blacklist, locked_data: &LockedData) -> bool {
-        locked_data.last_shrink_at.elapsed() >= MIN_SHRINK_INTERVAL
-            && blacklist.len() >= BLACKLIST_SIZE_TO_SHRINK
+    fn _is_time_to_shrink(min_shrink_interval: Duration, locked_data: &LockedData) -> bool {
+        locked_data.last_shrink_at.elapsed() >= min_shrink_interval
     }
 
     #[inline]
@@ -226,6 +229,44 @@ fn do_some_work_async(inner: &Arc<DefaultChooserInner>, need_to_shrink: bool) {
             "Blacklist is shrunken, from {} to {} entries",
             old_size, new_size
         );
+    }
+}
+
+#[derive(Debug)]
+pub struct DefaultChooserBuilder {
+    inner: DefaultChooserInner,
+}
+
+impl DefaultChooserBuilder {
+    #[inline]
+    pub fn block_duration(mut self, block_duration: Duration) -> Self {
+        self.inner.block_duration = block_duration;
+        self
+    }
+
+    #[inline]
+    pub fn min_shrink_interval(mut self, min_shrink_interval: Duration) -> Self {
+        self.inner.min_shrink_interval = min_shrink_interval;
+        self
+    }
+
+    #[inline]
+    pub fn ipv4_netmask_prefix_length(mut self, ipv4_netmask_prefix_length: u8) -> Self {
+        self.inner.ipv4_netmask_prefix_length = ipv4_netmask_prefix_length;
+        self
+    }
+
+    #[inline]
+    pub fn ipv6_netmask_prefix_length(mut self, ipv6_netmask_prefix_length: u8) -> Self {
+        self.inner.ipv6_netmask_prefix_length = ipv6_netmask_prefix_length;
+        self
+    }
+
+    #[inline]
+    pub fn build(self) -> DefaultChooser {
+        DefaultChooser {
+            inner: Arc::new(self.inner),
+        }
     }
 }
 

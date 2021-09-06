@@ -89,7 +89,7 @@ impl ChainedResolverBuilder {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, foo))]
 mod tests {
     use super::*;
     use crate::test_utils::{make_dumb_resolver, make_error_resolver, make_static_resolver};
