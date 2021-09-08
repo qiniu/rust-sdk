@@ -1,4 +1,4 @@
-use super::super::{ResolveResult, Resolver, ResponseError, ResponseErrorKind};
+use super::super::{ResolveAnswers, ResolveResult, Resolver, ResponseError, ResponseErrorKind};
 use std::{any::Any, net::IpAddr};
 
 pub(crate) fn make_dumb_resolver() -> impl Resolver {
@@ -32,7 +32,7 @@ pub(crate) fn make_static_resolver(ip_addrs: Box<[IpAddr]>) -> impl Resolver {
     impl Resolver for StaticResolver {
         #[inline]
         fn resolve(&self, _domain: &str) -> ResolveResult {
-            Ok(self.0.to_owned())
+            Ok(ResolveAnswers::new(self.0.to_owned()))
         }
 
         #[inline]

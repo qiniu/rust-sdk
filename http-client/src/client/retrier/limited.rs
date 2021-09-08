@@ -59,3 +59,48 @@ impl<R: RequestRetrier> RequestRetrier for LimitedRetrier<R> {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{super::ErrorRetrier, *};
+    use qiniu_http::{
+        Method as HTTPMethod, ResponseErrorKind as HTTPResponseErrorKind, Uri as HTTPUri,
+    };
+    use std::{convert::TryFrom, error::Error, result::Result};
+
+    #[test]
+    fn test_limited_retrier_retries() -> Result<(), Box<dyn Error>> {
+        let uri = HTTPUri::try_from("http://localhost/abc")?;
+
+        let retrier = LimitedRetrier::new(ErrorRetrier, 2);
+        let mut retried = RetriedStatsInfo::default();
+        retried.increase();
+        retried.increase();
+
+        let result = retrier.retry(
+            &mut HTTPRequest::builder()
+                .url(uri.to_owned())
+                .method(HTTPMethod::GET)
+                .build(),
+            Idempotent::Default,
+            &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+            &retried,
+        );
+        assert_eq!(result, RetryResult::TryNextServer);
+
+        retried.switch_endpoint();
+
+        let result = retrier.retry(
+            &mut HTTPRequest::builder()
+                .url(uri.to_owned())
+                .method(HTTPMethod::GET)
+                .build(),
+            Idempotent::Default,
+            &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+            &retried,
+        );
+        assert_eq!(result, RetryResult::RetryRequest);
+
+        Ok(())
+    }
+}

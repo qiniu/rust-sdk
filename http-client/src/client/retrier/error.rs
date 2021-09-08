@@ -2,9 +2,7 @@ use super::{
     super::{Idempotent, ResponseError, ResponseErrorKind, RetriedStatsInfo},
     RequestRetrier, RetryResult,
 };
-use qiniu_http::{
-    Method as HTTPMethod, Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind,
-};
+use qiniu_http::{Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind};
 use std::any::Any;
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -69,13 +67,14 @@ impl RequestRetrier for ErrorRetrier {
                 }
             }
             ResponseErrorKind::MaliciousResponse => RetryResult::RetryRequest,
+            ResponseErrorKind::NoTry => RetryResult::DontRetry,
         };
 
         #[inline]
         fn is_idempotent(request: &HTTPRequest, idempotent: Idempotent) -> bool {
             match idempotent {
                 Idempotent::Always => true,
-                Idempotent::Default => request.method() != HTTPMethod::POST,
+                Idempotent::Default => request.method().is_idempotent(),
                 Idempotent::Never => false,
             }
         }
@@ -92,17 +91,20 @@ impl RequestRetrier for ErrorRetrier {
     }
 }
 
-#[cfg(all(test, foo))]
+#[cfg(test)]
 mod tests {
     use super::*;
-    use std::{error::Error, result::Result};
+    use qiniu_http::{Method as HTTPMethod, Uri as HTTPUri};
+    use std::{convert::TryFrom, error::Error, result::Result};
 
     #[test]
-    fn test_default_retrier_idempotent() -> Result<(), Box<dyn Error>> {
-        let retrier = DefaultRetrierBuilder::default().retries(2).build();
+    fn test_error_retrier_idempotent() -> Result<(), Box<dyn Error>> {
+        let uri = HTTPUri::try_from("http://localhost/abc")?;
+
+        let retrier = ErrorRetrier;
         let result = retrier.retry(
             &mut HTTPRequest::builder()
-                .url("http://localhost/abc")
+                .url(uri.to_owned())
                 .method(HTTPMethod::GET)
                 .build(),
             Idempotent::Default,
@@ -113,7 +115,7 @@ mod tests {
 
         let result = retrier.retry(
             &mut HTTPRequest::builder()
-                .url("http://localhost/abc")
+                .url(uri.to_owned())
                 .method(HTTPMethod::GET)
                 .build(),
             Idempotent::Never,
@@ -124,7 +126,7 @@ mod tests {
 
         let result = retrier.retry(
             &mut HTTPRequest::builder()
-                .url("http://localhost/abc")
+                .url(uri.to_owned())
                 .method(HTTPMethod::POST)
                 .build(),
             Idempotent::Default,
@@ -135,7 +137,7 @@ mod tests {
 
         let result = retrier.retry(
             &mut HTTPRequest::builder()
-                .url("http://localhost/abc")
+                .url(uri.to_owned())
                 .method(HTTPMethod::POST)
                 .build(),
             Idempotent::Always,
@@ -146,11 +148,11 @@ mod tests {
 
         let result = retrier.retry(
             &mut HTTPRequest::builder()
-                .url("http://localhost/abc")
+                .url(uri.to_owned())
                 .method(HTTPMethod::POST)
                 .build(),
             Idempotent::Always,
-            &ResponseError::new(HTTPResponseErrorKind::InvalidURLError.into(), "Test Error"),
+            &ResponseError::new(HTTPResponseErrorKind::InvalidURL.into(), "Test Error"),
             &RetriedStatsInfo::default(),
         );
         assert_eq!(result, RetryResult::TryNextServer);
@@ -159,28 +161,30 @@ mod tests {
     }
 
     #[test]
-    fn test_default_retrier_retries() -> Result<(), Box<dyn Error>> {
-        let retrier = DefaultRetrierBuilder::default().retries(2).build();
+    fn test_error_retrier_retries() -> Result<(), Box<dyn Error>> {
+        let uri = HTTPUri::try_from("http://localhost/abc")?;
+
+        let retrier = ErrorRetrier;
         let mut retried = RetriedStatsInfo::default();
         retried.increase();
         retried.increase();
 
         let result = retrier.retry(
             &mut HTTPRequest::builder()
-                .url("http://localhost/abc")
+                .url(uri.to_owned())
                 .method(HTTPMethod::GET)
                 .build(),
             Idempotent::Default,
             &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
             &retried,
         );
-        assert_eq!(result, RetryResult::TryNextServer);
+        assert_eq!(result, RetryResult::RetryRequest);
 
         retried.switch_endpoint();
 
         let result = retrier.retry(
             &mut HTTPRequest::builder()
-                .url("http://localhost/abc")
+                .url(uri.to_owned())
                 .method(HTTPMethod::GET)
                 .build(),
             Idempotent::Default,

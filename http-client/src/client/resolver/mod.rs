@@ -2,6 +2,7 @@ mod cache;
 mod chained;
 mod shuffled;
 mod simple;
+mod timeout;
 
 use super::APIResult;
 use std::{any::Any, fmt::Debug, net::IpAddr};
@@ -61,6 +62,7 @@ pub use cache::{CachedResolver, PersistentError, PersistentResult};
 pub use chained::{ChainedResolver, ChainedResolverBuilder};
 pub use shuffled::ShuffledResolver;
 pub use simple::SimpleResolver;
+pub use timeout::TimeoutResolver;
 
 #[cfg(any(feature = "c_ares"))]
 mod c_ares_impl;

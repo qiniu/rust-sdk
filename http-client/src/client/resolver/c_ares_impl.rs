@@ -164,3 +164,45 @@ fn convert_resolver_hosts_to_ip_addrs(results: CAresResolverHostResults) -> Box<
 fn convert_c_ares_error_to_response_error(err: CAresError) -> ResponseError {
     ResponseError::new(HTTPResponseErrorKind::DNSServerError.into(), err)
 }
+
+#[cfg(all(test, feature = "async"))]
+mod tests {
+    use super::*;
+    use std::{
+        collections::HashSet,
+        error::Error,
+        net::{IpAddr, Ipv4Addr, Ipv6Addr},
+        result::Result,
+    };
+
+    const DOMAIN: &str = "dns.alidns.com";
+    const IPS: &[IpAddr] = &[
+        IpAddr::V4(Ipv4Addr::new(223, 5, 5, 5)),
+        IpAddr::V4(Ipv4Addr::new(223, 6, 6, 6)),
+        IpAddr::V6(Ipv6Addr::new(0x2400, 0x3200, 0, 0, 0, 0, 0, 1)),
+        IpAddr::V6(Ipv6Addr::new(0x2400, 0x3200, 0xbaba, 0, 0, 0, 0, 1)),
+    ];
+
+    #[test]
+    fn test_c_ares_resolver() -> Result<(), Box<dyn Error>> {
+        let resolver = CAresResolver::new()?;
+        let ips = resolver.resolve(DOMAIN)?;
+        assert_eq!(make_set(ips.ip_addrs()), make_set(IPS));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_async_c_ares_resolver() -> Result<(), Box<dyn Error>> {
+        let resolver = CAresResolver::new()?;
+        let ips = resolver.async_resolve(DOMAIN).await?;
+        assert_eq!(make_set(ips.ip_addrs()), make_set(IPS));
+        Ok(())
+    }
+
+    #[inline]
+    fn make_set(ips: impl AsRef<[IpAddr]>) -> HashSet<IpAddr> {
+        let mut h = HashSet::new();
+        h.extend(ips.as_ref());
+        h
+    }
+}

@@ -355,7 +355,7 @@ macro_rules! create_request_call_fn {
                         .$resolve_method(domain_with_port.domain())
                 }).map_err(|err| TryError::new(err, RetryResult::TryNextServer))?;
                 call_domain_resolved_callbacks(request, domain_with_port.domain(), &answers)?;
-                Ok(answers.into_ip_addrs().into_iter().map(|&ip| IpAddrWithPort::new_with_port(ip,domain_with_port.port() ) ).collect())
+                Ok(answers.into_ip_addrs().into_iter().map(|&ip| IpAddrWithPort::new(ip, domain_with_port.port())).collect())
             }
 
             $($async)? fn choose(

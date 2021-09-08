@@ -14,15 +14,7 @@ pub struct DomainWithPort {
 
 impl DomainWithPort {
     #[inline]
-    pub fn new(domain: impl Into<Box<str>>) -> Self {
-        DomainWithPort {
-            domain: domain.into(),
-            port: None,
-        }
-    }
-
-    #[inline]
-    pub fn new_with_port(domain: impl Into<Box<str>>, port: Option<NonZeroU16>) -> Self {
+    pub fn new(domain: impl Into<Box<str>>, port: Option<NonZeroU16>) -> Self {
         DomainWithPort {
             domain: domain.into(),
             port,
@@ -48,42 +40,42 @@ impl DomainWithPort {
 impl From<Box<str>> for DomainWithPort {
     #[inline]
     fn from(domain: Box<str>) -> Self {
-        Self::new(domain)
+        Self::new(domain, None)
     }
 }
 
 impl From<(Box<str>, u16)> for DomainWithPort {
     #[inline]
     fn from(domain_with_port: (Box<str>, u16)) -> Self {
-        Self::new_with_port(domain_with_port.0, NonZeroU16::new(domain_with_port.1))
+        Self::new(domain_with_port.0, NonZeroU16::new(domain_with_port.1))
     }
 }
 
 impl From<(Box<str>, Option<NonZeroU16>)> for DomainWithPort {
     #[inline]
     fn from(domain_with_port: (Box<str>, Option<NonZeroU16>)) -> Self {
-        Self::new_with_port(domain_with_port.0, domain_with_port.1)
+        Self::new(domain_with_port.0, domain_with_port.1)
     }
 }
 
 impl From<String> for DomainWithPort {
     #[inline]
     fn from(domain: String) -> Self {
-        Self::new(domain)
+        Self::new(domain, None)
     }
 }
 
 impl From<(String, u16)> for DomainWithPort {
     #[inline]
     fn from(domain_with_port: (String, u16)) -> Self {
-        Self::new_with_port(domain_with_port.0, NonZeroU16::new(domain_with_port.1))
+        Self::new(domain_with_port.0, NonZeroU16::new(domain_with_port.1))
     }
 }
 
 impl From<(String, Option<NonZeroU16>)> for DomainWithPort {
     #[inline]
     fn from(domain_with_port: (String, Option<NonZeroU16>)) -> Self {
-        Self::new_with_port(domain_with_port.0, domain_with_port.1)
+        Self::new(domain_with_port.0, domain_with_port.1)
     }
 }
 
@@ -109,12 +101,12 @@ impl FromStr for DomainWithPort {
         match (url.domain(), url.port()) {
             (Some(domain), None) => {
                 if domain == s {
-                    return Ok(DomainWithPort::new(domain));
+                    return Ok(DomainWithPort::new(domain, None));
                 }
             }
             (Some(domain), Some(port)) => {
                 if format!("{}:{}", domain, port) == s {
-                    return Ok(DomainWithPort::new_with_port(domain, NonZeroU16::new(port)));
+                    return Ok(DomainWithPort::new(domain, NonZeroU16::new(port)));
                 }
             }
             _ => {}
@@ -131,15 +123,7 @@ pub struct IpAddrWithPort {
 
 impl IpAddrWithPort {
     #[inline]
-    pub const fn new(ip_addr: IpAddr) -> Self {
-        IpAddrWithPort {
-            ip_addr,
-            port: None,
-        }
-    }
-
-    #[inline]
-    pub const fn new_with_port(ip_addr: IpAddr, port: Option<NonZeroU16>) -> Self {
+    pub const fn new(ip_addr: IpAddr, port: Option<NonZeroU16>) -> Self {
         IpAddrWithPort { ip_addr, port }
     }
 
@@ -157,21 +141,21 @@ impl IpAddrWithPort {
 impl From<IpAddr> for IpAddrWithPort {
     #[inline]
     fn from(ip_addr: IpAddr) -> Self {
-        Self::new(ip_addr)
+        Self::new(ip_addr, None)
     }
 }
 
 impl From<Ipv4Addr> for IpAddrWithPort {
     #[inline]
     fn from(ip_addr: Ipv4Addr) -> Self {
-        Self::new(IpAddr::from(ip_addr))
+        Self::new(IpAddr::from(ip_addr), None)
     }
 }
 
 impl From<Ipv6Addr> for IpAddrWithPort {
     #[inline]
     fn from(ip_addr: Ipv6Addr) -> Self {
-        Self::new(IpAddr::from(ip_addr))
+        Self::new(IpAddr::from(ip_addr), None)
     }
 }
 
@@ -185,7 +169,7 @@ impl From<IpAddrWithPort> for IpAddr {
 impl From<SocketAddr> for IpAddrWithPort {
     #[inline]
     fn from(socket_addr: SocketAddr) -> Self {
-        Self::new_with_port(socket_addr.ip(), NonZeroU16::new(socket_addr.port()))
+        Self::new(socket_addr.ip(), NonZeroU16::new(socket_addr.port()))
     }
 }
 
@@ -206,14 +190,14 @@ impl From<SocketAddrV6> for IpAddrWithPort {
 impl From<(IpAddr, u16)> for IpAddrWithPort {
     #[inline]
     fn from(ip_addr_with_port: (IpAddr, u16)) -> Self {
-        Self::new_with_port(ip_addr_with_port.0, NonZeroU16::new(ip_addr_with_port.1))
+        Self::new(ip_addr_with_port.0, NonZeroU16::new(ip_addr_with_port.1))
     }
 }
 
 impl From<(IpAddr, Option<NonZeroU16>)> for IpAddrWithPort {
     #[inline]
     fn from(ip_addr_with_port: (IpAddr, Option<NonZeroU16>)) -> Self {
-        Self::new_with_port(ip_addr_with_port.0, ip_addr_with_port.1)
+        Self::new(ip_addr_with_port.0, ip_addr_with_port.1)
     }
 }
 
@@ -318,51 +302,49 @@ impl From<IpAddrWithPort> for Endpoint {
 impl From<Box<str>> for Endpoint {
     #[inline]
     fn from(domain: Box<str>) -> Self {
-        DomainWithPort::new(domain).into()
+        DomainWithPort::new(domain, None).into()
     }
 }
 
 impl From<(Box<str>, u16)> for Endpoint {
     #[inline]
     fn from(domain_with_port: (Box<str>, u16)) -> Self {
-        DomainWithPort::new_with_port(domain_with_port.0, NonZeroU16::new(domain_with_port.1))
-            .into()
+        DomainWithPort::new(domain_with_port.0, NonZeroU16::new(domain_with_port.1)).into()
     }
 }
 
 impl From<(Box<str>, NonZeroU16)> for Endpoint {
     #[inline]
     fn from(domain_with_port: (Box<str>, NonZeroU16)) -> Self {
-        DomainWithPort::new_with_port(domain_with_port.0, Some(domain_with_port.1)).into()
+        DomainWithPort::new(domain_with_port.0, Some(domain_with_port.1)).into()
     }
 }
 
 impl From<String> for Endpoint {
     #[inline]
     fn from(domain: String) -> Self {
-        DomainWithPort::new(domain).into()
+        DomainWithPort::new(domain, None).into()
     }
 }
 
 impl From<(String, u16)> for Endpoint {
     #[inline]
     fn from(domain_with_port: (String, u16)) -> Self {
-        DomainWithPort::new_with_port(domain_with_port.0, NonZeroU16::new(domain_with_port.1))
-            .into()
+        DomainWithPort::new(domain_with_port.0, NonZeroU16::new(domain_with_port.1)).into()
     }
 }
 
 impl From<(String, NonZeroU16)> for Endpoint {
     #[inline]
     fn from(domain_with_port: (String, NonZeroU16)) -> Self {
-        DomainWithPort::new_with_port(domain_with_port.0, Some(domain_with_port.1)).into()
+        DomainWithPort::new(domain_with_port.0, Some(domain_with_port.1)).into()
     }
 }
 
 impl From<IpAddr> for Endpoint {
     #[inline]
     fn from(ip_addr: IpAddr) -> Self {
-        IpAddrWithPort::new(ip_addr).into()
+        IpAddrWithPort::new(ip_addr, None).into()
     }
 }
 
@@ -383,7 +365,7 @@ impl From<Ipv6Addr> for Endpoint {
 impl From<SocketAddr> for Endpoint {
     #[inline]
     fn from(socket_addr: SocketAddr) -> Self {
-        IpAddrWithPort::new_with_port(socket_addr.ip(), NonZeroU16::new(socket_addr.port())).into()
+        IpAddrWithPort::new(socket_addr.ip(), NonZeroU16::new(socket_addr.port())).into()
     }
 }
 
@@ -434,7 +416,7 @@ impl FromStr for Endpoint {
     }
 }
 
-#[cfg(all(test, foo))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::{
@@ -497,7 +479,7 @@ mod tests {
         result = "domain:8080".parse();
         assert_eq!(
             result.unwrap(),
-            DomainWithPort::new_with_port("domain", 8080)
+            DomainWithPort::new("domain", NonZeroU16::new(8080))
         );
 
         result = "domain:8080/".parse();
@@ -536,7 +518,10 @@ mod tests {
         result = "127.0.0.1:8080".parse();
         assert_eq!(
             result.unwrap(),
-            IpAddrWithPort::new_with_port(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
+            IpAddrWithPort::new(
+                IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                NonZeroU16::new(8080)
+            ),
         );
 
         result = "127.0.0.1:65536".parse();
@@ -545,19 +530,22 @@ mod tests {
         result = "fe80::e31c:b4e6:5919:728f".parse();
         assert_eq!(
             result.unwrap(),
-            IpAddrWithPort::new(IpAddr::V6(Ipv6Addr::new(
-                0xfe80, 0, 0, 0, 0xe31c, 0xb4e6, 0x5919, 0x728f,
-            ))),
+            IpAddrWithPort::new(
+                IpAddr::V6(Ipv6Addr::new(
+                    0xfe80, 0, 0, 0, 0xe31c, 0xb4e6, 0x5919, 0x728f,
+                )),
+                None
+            ),
         );
 
         result = "[fe80::e31c:b4e6:5919:728f]:8080".parse();
         assert_eq!(
             result.unwrap(),
-            IpAddrWithPort::new_with_port(
+            IpAddrWithPort::new(
                 IpAddr::V6(Ipv6Addr::new(
                     0xfe80, 0, 0, 0, 0xe31c, 0xb4e6, 0x5919, 0x728f,
                 )),
-                8080
+                NonZeroU16::new(8080)
             ),
         );
 
@@ -600,9 +588,9 @@ mod tests {
         result = "127.0.0.1:8080".parse();
         assert_eq!(
             result.unwrap(),
-            Endpoint::IpAddrWithPort(IpAddrWithPort::new_with_port(
+            Endpoint::IpAddrWithPort(IpAddrWithPort::new(
                 IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-                8080
+                NonZeroU16::new(8080)
             ))
         );
 
@@ -639,7 +627,7 @@ mod tests {
         result = "domain:8080".parse();
         assert_eq!(
             result.unwrap(),
-            Endpoint::DomainWithPort(DomainWithPort::new_with_port("domain", 8080))
+            Endpoint::DomainWithPort(DomainWithPort::new("domain", NonZeroU16::new(8080)))
         );
 
         result = "domain:8080/".parse();

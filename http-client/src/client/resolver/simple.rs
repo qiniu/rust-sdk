@@ -25,3 +25,37 @@ impl Resolver for SimpleResolver {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        collections::HashSet,
+        error::Error,
+        net::{IpAddr, Ipv4Addr, Ipv6Addr},
+        result::Result,
+    };
+
+    const DOMAIN: &str = "dns.alidns.com";
+    const IPS: &[IpAddr] = &[
+        IpAddr::V4(Ipv4Addr::new(223, 5, 5, 5)),
+        IpAddr::V4(Ipv4Addr::new(223, 6, 6, 6)),
+        IpAddr::V6(Ipv6Addr::new(0x2400, 0x3200, 0, 0, 0, 0, 0, 1)),
+        IpAddr::V6(Ipv6Addr::new(0x2400, 0x3200, 0xbaba, 0, 0, 0, 0, 1)),
+    ];
+
+    #[test]
+    fn test_simple_resolver() -> Result<(), Box<dyn Error>> {
+        let resolver = SimpleResolver;
+        let ips = resolver.resolve(DOMAIN)?;
+        assert_eq!(make_set(ips.ip_addrs()), make_set(IPS));
+        Ok(())
+    }
+
+    #[inline]
+    fn make_set(ips: impl AsRef<[IpAddr]>) -> HashSet<IpAddr> {
+        let mut h = HashSet::new();
+        h.extend(ips.as_ref());
+        h
+    }
+}

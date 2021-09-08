@@ -65,3 +65,89 @@ impl<C: Chooser> Chooser for ShuffledChooser<C> {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        super::{
+            super::{ResponseError, ResponseErrorKind, RetriedStatsInfo},
+            IpChooser,
+        },
+        *,
+    };
+    use std::{
+        collections::HashSet,
+        net::{IpAddr, Ipv4Addr},
+    };
+
+    const IPS_WITHOUT_PORT: &[IpAddrWithPort] = &[
+        IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
+        IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
+        IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None),
+    ];
+
+    #[test]
+    fn test_shuffled_chooser() {
+        env_logger::builder().is_test(true).try_init().ok();
+
+        let ip_chooser: ShuffledChooser<IpChooser> = Default::default();
+        assert_eq!(
+            make_set(ip_chooser.choose(IPS_WITHOUT_PORT)),
+            make_set(IPS_WITHOUT_PORT)
+        );
+        ip_chooser.feedback(ChooserFeedback::new(
+            &[
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
+            ],
+            &RetriedStatsInfo::default(),
+            None,
+            Some(&ResponseError::new(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
+        ));
+        assert_eq!(
+            make_set(ip_chooser.choose(IPS_WITHOUT_PORT)),
+            make_set(&[IpAddrWithPort::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
+                None
+            )]),
+        );
+
+        ip_chooser.feedback(ChooserFeedback::new(
+            IPS_WITHOUT_PORT,
+            &RetriedStatsInfo::default(),
+            None,
+            Some(&ResponseError::new(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
+        ));
+        assert_eq!(ip_chooser.choose(IPS_WITHOUT_PORT), vec![]);
+
+        ip_chooser.feedback(ChooserFeedback::new(
+            &[
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
+            ],
+            &RetriedStatsInfo::default(),
+            None,
+            None,
+        ));
+        assert_eq!(
+            make_set(ip_chooser.choose(IPS_WITHOUT_PORT)),
+            make_set(&[
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
+            ])
+        );
+    }
+
+    #[inline]
+    fn make_set(ips: impl AsRef<[IpAddrWithPort]>) -> HashSet<IpAddrWithPort> {
+        let mut h = HashSet::new();
+        h.extend(ips.as_ref());
+        h
+    }
+}

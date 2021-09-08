@@ -34,7 +34,7 @@ impl Default for LockedData {
 }
 
 const DEFAULT_BLOCK_DURATION: Duration = Duration::from_secs(30);
-const DEFAULT_MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
+const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
 
 #[derive(Debug, Clone)]
 pub struct IpChooser {
@@ -46,34 +46,20 @@ struct IpChooserInner {
     blacklist: Blacklist,
     lock: Mutex<LockedData>,
     block_duration: Duration,
-    min_shrink_interval: Duration,
+    shrink_interval: Duration,
 }
 
 impl Default for IpChooser {
     #[inline]
     fn default() -> Self {
-        Self {
-            inner: Arc::new(IpChooserInner {
-                blacklist: Default::default(),
-                lock: Default::default(),
-                block_duration: DEFAULT_BLOCK_DURATION,
-                min_shrink_interval: DEFAULT_MIN_SHRINK_INTERVAL,
-            }),
-        }
+        Self::builder().build()
     }
 }
 
 impl IpChooser {
     #[inline]
     pub fn builder() -> IpChooserBuilder {
-        IpChooserBuilder {
-            inner: IpChooserInner {
-                blacklist: Default::default(),
-                lock: Default::default(),
-                block_duration: DEFAULT_BLOCK_DURATION,
-                min_shrink_interval: DEFAULT_MIN_SHRINK_INTERVAL,
-            },
-        }
+        Default::default()
     }
 }
 
@@ -130,6 +116,14 @@ impl Chooser for IpChooser {
     }
 }
 
+impl IpChooser {
+    #[inline]
+    #[allow(dead_code)]
+    fn len(&self) -> usize {
+        self.inner.blacklist.len()
+    }
+}
+
 fn do_some_work_async(inner: &Arc<IpChooserInner>, need_to_shrink: bool) {
     if need_to_shrink && is_time_to_shrink(inner) {
         let cloned = inner.to_owned();
@@ -154,7 +148,7 @@ fn do_some_work_async(inner: &Arc<IpChooserInner>, need_to_shrink: bool) {
     #[inline]
     fn is_time_to_shrink(inner: &Arc<IpChooserInner>) -> bool {
         if let Ok(locked_data) = inner.lock.try_lock() {
-            _is_time_to_shrink(inner.min_shrink_interval, &*locked_data)
+            _is_time_to_shrink(inner.shrink_interval, &*locked_data)
         } else {
             false
         }
@@ -163,7 +157,7 @@ fn do_some_work_async(inner: &Arc<IpChooserInner>, need_to_shrink: bool) {
     #[inline]
     fn is_time_to_shrink_mut(inner: &Arc<IpChooserInner>) -> bool {
         if let Ok(mut locked_data) = inner.lock.try_lock() {
-            if _is_time_to_shrink(inner.min_shrink_interval, &*locked_data) {
+            if _is_time_to_shrink(inner.shrink_interval, &*locked_data) {
                 locked_data.last_shrink_at = Instant::now();
                 return true;
             }
@@ -172,14 +166,14 @@ fn do_some_work_async(inner: &Arc<IpChooserInner>, need_to_shrink: bool) {
     }
 
     #[inline]
-    fn _is_time_to_shrink(min_shrink_interval: Duration, locked_data: &LockedData) -> bool {
-        locked_data.last_shrink_at.elapsed() >= min_shrink_interval
+    fn _is_time_to_shrink(shrink_interval: Duration, locked_data: &LockedData) -> bool {
+        locked_data.last_shrink_at.elapsed() >= shrink_interval
     }
 
     #[inline]
     fn shrink_cache(blacklist: &Blacklist, block_duration: Duration) {
         let old_size = blacklist.len();
-        blacklist.retain(|_, value| value.blocked_at.elapsed() >= block_duration);
+        blacklist.retain(|_, value| value.blocked_at.elapsed() < block_duration);
         let new_size = blacklist.len();
         info!(
             "Blacklist is shrunken, from {} to {} entries",
@@ -193,6 +187,20 @@ pub struct IpChooserBuilder {
     inner: IpChooserInner,
 }
 
+impl Default for IpChooserBuilder {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            inner: IpChooserInner {
+                blacklist: Default::default(),
+                lock: Default::default(),
+                block_duration: DEFAULT_BLOCK_DURATION,
+                shrink_interval: DEFAULT_SHRINK_INTERVAL,
+            },
+        }
+    }
+}
+
 impl IpChooserBuilder {
     #[inline]
     pub fn block_duration(mut self, block_duration: Duration) -> Self {
@@ -201,8 +209,8 @@ impl IpChooserBuilder {
     }
 
     #[inline]
-    pub fn min_shrink_interval(mut self, min_shrink_interval: Duration) -> Self {
-        self.inner.min_shrink_interval = min_shrink_interval;
+    pub fn shrink_interval(mut self, shrink_interval: Duration) -> Self {
+        self.inner.shrink_interval = shrink_interval;
         self
     }
 
@@ -214,242 +222,123 @@ impl IpChooserBuilder {
     }
 }
 
-#[cfg(all(test, foo))]
+#[cfg(test)]
 mod tests {
     use super::{
-        super::super::{ResolveResult, ResponseError, ResponseErrorKind, RetriedStatsInfo},
+        super::super::{ResponseError, ResponseErrorKind, RetriedStatsInfo},
         *,
     };
-    use std::{
-        collections::HashMap,
-        error::Error,
-        net::{IpAddr, Ipv4Addr},
-        result::Result,
-        thread::sleep,
-    };
+    use std::net::{IpAddr, Ipv4Addr};
 
-    #[derive(Debug, Clone, Default)]
-    struct ResolverFromTable {
-        table: HashMap<Box<str>, Box<[IpAddr]>>,
-    }
-
-    impl ResolverFromTable {
-        fn add(&mut self, domain: impl Into<String>, ip_addrs: Vec<IpAddr>) {
-            self.table
-                .insert(domain.into().into_boxed_str(), ip_addrs.into_boxed_slice());
-        }
-    }
-
-    impl Resolver for ResolverFromTable {
-        #[inline]
-        fn resolve(&self, domain: &str) -> ResolveResult {
-            let key = domain.to_owned().into_boxed_str();
-            Ok(self
-                .table
-                .get(&key)
-                .cloned()
-                .unwrap_or(vec![].into_boxed_slice()))
-        }
-
-        #[inline]
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
-
-        #[inline]
-        fn as_resolver(&self) -> &dyn Resolver {
-            self
-        }
-    }
+    const IPS_WITHOUT_PORT: &[IpAddrWithPort] = &[
+        IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
+        IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
+        IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None),
+    ];
 
     #[test]
-    fn test_simple_chooser() -> Result<(), Box<dyn Error>> {
-        let mut backend = ResolverFromTable::default();
-        backend.add(
-            "test_domain_1.com",
-            vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
+    fn test_ip_chooser() {
+        env_logger::builder().is_test(true).try_init().ok();
+
+        let ip_chooser = IpChooser::default();
+        assert_eq!(
+            ip_chooser.choose(IPS_WITHOUT_PORT),
+            IPS_WITHOUT_PORT.to_vec()
+        );
+        ip_chooser.feedback(ChooserFeedback::new(
+            &[
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
+            ],
+            &RetriedStatsInfo::default(),
+            None,
+            Some(&ResponseError::new(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
+        ));
+        assert_eq!(
+            ip_chooser.choose(IPS_WITHOUT_PORT),
+            vec![IpAddrWithPort::new(
                 IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
-            ],
+                None
+            )],
         );
-        backend.add(
-            "test_domain_2.com",
+
+        ip_chooser.feedback(ChooserFeedback::new(
+            IPS_WITHOUT_PORT,
+            &RetriedStatsInfo::default(),
+            None,
+            Some(&ResponseError::new(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
+        ));
+        assert_eq!(ip_chooser.choose(IPS_WITHOUT_PORT), vec![]);
+
+        ip_chooser.feedback(ChooserFeedback::new(
+            &[
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
+            ],
+            &RetriedStatsInfo::default(),
+            None,
+            None,
+        ));
+        assert_eq!(
+            ip_chooser.choose(IPS_WITHOUT_PORT),
             vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 2, 2)),
-            ],
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
+            ]
         );
-        backend.add("test_domain_3.com", vec![]);
-        let chooser = IpChooser::new(backend, Duration::from_secs(30));
-
-        assert_eq!(
-            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
-            ChosenResult::IPs(vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
-            ])
-        );
-
-        chooser.feedback(ChooserFeedback::new(
-            &DomainOrIpAddr::new_from_domain(
-                DomainWithPort::new("test_domain_1.com"),
-                vec![Ipv4Addr::new(192, 168, 1, 3).into()],
-            ),
-            &RetriedStatsInfo::default(),
-            Err(&ResponseError::new(
-                ResponseErrorKind::ParseResponseError,
-                "Test Error",
-            )),
-        ));
-        assert_eq!(
-            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
-            ChosenResult::IPs(vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-            ])
-        );
-        assert_eq!(
-            chooser.choose(&DomainWithPort::new("test_domain_1.com"), true),
-            ChosenResult::IPs(vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
-            ])
-        );
-
-        chooser.feedback(ChooserFeedback::new(
-            &DomainOrIpAddr::new_from_domain(
-                DomainWithPort::new("test_domain_1.com"),
-                vec![
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-                ],
-            ),
-            &RetriedStatsInfo::default(),
-            Err(&ResponseError::new(
-                ResponseErrorKind::ParseResponseError,
-                "Test Error",
-            )),
-        ));
-        assert_eq!(
-            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
-            ChosenResult::TryAnotherDomain,
-        );
-
-        chooser.feedback(ChooserFeedback::new(
-            &DomainOrIpAddr::new_from_domain(DomainWithPort::new("test_domain_2.com"), vec![]),
-            &RetriedStatsInfo::default(),
-            Err(&ResponseError::new(
-                ResponseErrorKind::ParseResponseError,
-                "Test Error",
-            )),
-        ));
-        assert_eq!(
-            chooser.choose(&DomainWithPort::new("test_domain_2.com"), false),
-            ChosenResult::TryAnotherDomain,
-        );
-
-        assert_eq!(
-            chooser.choose(&DomainWithPort::new("test_domain_3.com"), false),
-            ChosenResult::UseThisDomainDirectly,
-        );
-
-        Ok(())
     }
 
-    #[test]
-    fn test_simple_chooser_expiration() -> Result<(), Box<dyn Error>> {
-        let mut backend = ResolverFromTable::default();
-        backend.add(
-            "test_domain_1.com",
-            vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
+    #[cfg(feature = "async")]
+    #[tokio::test]
+    async fn test_ip_chooser_expiration_and_shrink() {
+        use futures_timer::Delay as AsyncDelay;
+
+        env_logger::builder().is_test(true).try_init().ok();
+
+        let ip_chooser = IpChooser::builder()
+            .block_duration(Duration::from_secs(1))
+            .shrink_interval(Duration::from_millis(500))
+            .build();
+
+        assert_eq!(
+            ip_chooser.async_choose(IPS_WITHOUT_PORT).await,
+            IPS_WITHOUT_PORT.to_vec()
+        );
+        ip_chooser
+            .async_feedback(ChooserFeedback::new(
+                &[
+                    IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
+                    IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
+                ],
+                &RetriedStatsInfo::default(),
+                None,
+                Some(&ResponseError::new(
+                    ResponseErrorKind::ParseResponseError,
+                    "Test Error",
+                )),
+            ))
+            .await;
+        assert_eq!(
+            ip_chooser.async_choose(IPS_WITHOUT_PORT).await,
+            vec![IpAddrWithPort::new(
                 IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
-            ],
+                None
+            )],
         );
-        let chooser = IpChooser::new(backend, Duration::from_secs(1));
+
+        AsyncDelay::new(Duration::from_secs(1)).await;
         assert_eq!(
-            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
-            ChosenResult::IPs(vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
-            ])
+            ip_chooser.async_choose(IPS_WITHOUT_PORT).await,
+            IPS_WITHOUT_PORT.to_vec()
         );
 
-        chooser.feedback(ChooserFeedback::new(
-            &DomainOrIpAddr::new_from_domain(
-                DomainWithPort::new("test_domain_1.com"),
-                vec![
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
-                ],
-            ),
-            &RetriedStatsInfo::default(),
-            Err(&ResponseError::new(
-                ResponseErrorKind::ParseResponseError,
-                "Test Error",
-            )),
-        ));
-        assert_eq!(
-            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
-            ChosenResult::TryAnotherDomain,
-        );
-
-        sleep(Duration::from_secs(1));
-
-        assert_eq!(
-            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
-            ChosenResult::IPs(vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
-            ])
-        );
-
-        chooser.feedback(ChooserFeedback::new(
-            &DomainOrIpAddr::new_from_domain(
-                DomainWithPort::new("test_domain_1.com"),
-                vec![
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)).into(),
-                ],
-            ),
-            &RetriedStatsInfo::default(),
-            Err(&ResponseError::new(
-                ResponseErrorKind::ParseResponseError,
-                "Test Error",
-            )),
-        ));
-        assert_eq!(
-            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
-            ChosenResult::TryAnotherDomain,
-        );
-
-        chooser.feedback(ChooserFeedback::new(
-            &DomainOrIpAddr::new_from_domain(
-                DomainWithPort::new("test_domain_1.com"),
-                vec![
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-                ],
-            ),
-            &RetriedStatsInfo::default(),
-            Ok(Default::default()),
-        ));
-        assert_eq!(
-            chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
-            ChosenResult::IPs(vec![
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)).into(),
-            ])
-        );
-
-        Ok(())
+        AsyncDelay::new(Duration::from_millis(500)).await;
+        assert_eq!(ip_chooser.len(), 0);
     }
 }

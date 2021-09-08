@@ -1,17 +1,20 @@
-use super::{ResolveResult, Resolver};
-use std::{any::Any, collections::VecDeque, sync::Arc};
+use super::{
+    super::{ResponseError, ResponseErrorKind},
+    ResolveResult, Resolver,
+};
+use std::{any::Any, collections::VecDeque};
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ChainedResolver {
-    resolvers: Box<[Arc<dyn Resolver>]>,
+    resolvers: Box<[Box<dyn Resolver>]>,
 }
 
 impl ChainedResolver {
     #[inline]
-    pub fn builder(first_resolver: Arc<dyn Resolver>) -> ChainedResolverBuilder {
+    pub fn builder(first_resolver: Box<dyn Resolver>) -> ChainedResolverBuilder {
         ChainedResolverBuilder::new(first_resolver)
     }
 }
@@ -26,7 +29,7 @@ impl Resolver for ChainedResolver {
                 result => last_result = Some(result),
             }
         }
-        last_result.expect("None resolver is tried")
+        last_result.unwrap_or_else(|| Err(no_try_error()))
     }
 
     #[inline]
@@ -41,7 +44,7 @@ impl Resolver for ChainedResolver {
                     result => last_result = Some(result),
                 }
             }
-            last_result.expect("None resolver is tried")
+            last_result.unwrap_or_else(|| Err(no_try_error()))
         })
     }
 
@@ -56,27 +59,32 @@ impl Resolver for ChainedResolver {
     }
 }
 
+#[inline]
+fn no_try_error() -> ResponseError {
+    ResponseError::new(ResponseErrorKind::NoTry, "None resolver is tried")
+}
+
 #[derive(Debug)]
 pub struct ChainedResolverBuilder {
-    resolvers: VecDeque<Arc<dyn Resolver>>,
+    resolvers: VecDeque<Box<dyn Resolver>>,
 }
 
 impl ChainedResolverBuilder {
     #[inline]
-    pub fn new(first_resolver: Arc<dyn Resolver>) -> Self {
+    pub fn new(first_resolver: Box<dyn Resolver>) -> Self {
         Self {
             resolvers: vec![first_resolver].into(),
         }
     }
 
     #[inline]
-    pub fn append_resolver(mut self, resolver: Arc<dyn Resolver>) -> Self {
+    pub fn append_resolver(mut self, resolver: Box<dyn Resolver>) -> Self {
         self.resolvers.push_back(resolver);
         self
     }
 
     #[inline]
-    pub fn prepend_resolver(mut self, resolver: Arc<dyn Resolver>) -> Self {
+    pub fn prepend_resolver(mut self, resolver: Box<dyn Resolver>) -> Self {
         self.resolvers.push_front(resolver);
         self
     }
@@ -89,7 +97,7 @@ impl ChainedResolverBuilder {
     }
 }
 
-#[cfg(all(test, foo))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_utils::{make_dumb_resolver, make_error_resolver, make_static_resolver};
@@ -100,30 +108,46 @@ mod tests {
         result::Result,
     };
 
+    const IPS: &[IpAddr] = &[
+        IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+        IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2)),
+    ];
+
     #[test]
     fn test_chained_resolver() -> Result<(), Box<dyn Error>> {
-        let resolver = ChainedResolver::builder(Arc::new(make_static_resolver(
-            vec![
-                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2)),
-            ]
-            .into(),
-        )))
-        .prepend_resolver(Arc::new(make_dumb_resolver()))
-        .prepend_resolver(Arc::new(make_error_resolver(
+        let resolver =
+            ChainedResolver::builder(Box::new(make_static_resolver(IPS.to_vec().into())))
+                .prepend_resolver(Box::new(make_dumb_resolver()))
+                .prepend_resolver(Box::new(make_error_resolver(
+                    ResponseErrorKind::LocalIOError.into(),
+                    "Test Local IO Error",
+                )))
+                .build();
+
+        let ips = resolver.resolve("testdomain.com")?;
+        assert_eq!(ips.ip_addrs(), IPS);
+
+        let resolver = ChainedResolver::builder(Box::new(make_dumb_resolver()))
+            .prepend_resolver(Box::new(make_static_resolver(IPS.to_vec().into())))
+            .prepend_resolver(Box::new(make_error_resolver(
+                ResponseErrorKind::LocalIOError.into(),
+                "Test Local IO Error",
+            )))
+            .build();
+
+        let ips = resolver.resolve("testdomain.com")?;
+        assert_eq!(ips.ip_addrs(), IPS,);
+
+        let resolver = ChainedResolver::builder(Box::new(make_error_resolver(
             ResponseErrorKind::LocalIOError.into(),
             "Test Local IO Error",
         )))
+        .prepend_resolver(Box::new(make_dumb_resolver()))
+        .prepend_resolver(Box::new(make_static_resolver(IPS.to_vec().into())))
         .build();
 
         let ips = resolver.resolve("testdomain.com")?;
-        assert_eq!(
-            ips.as_ref(),
-            &[
-                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2)),
-            ][..]
-        );
+        assert_eq!(ips.ip_addrs(), IPS,);
 
         Ok(())
     }

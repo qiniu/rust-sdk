@@ -82,3 +82,49 @@ impl fmt::Debug for TrustDnsResolver {
 fn convert_trust_dns_error_to_response_error(err: ResolveError) -> ResponseError {
     ResponseError::new(HTTPResponseErrorKind::DNSServerError.into(), err)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        collections::HashSet,
+        error::Error,
+        net::{IpAddr, Ipv4Addr, Ipv6Addr},
+        result::Result,
+    };
+    use trust_dns_resolver::config::{LookupIpStrategy, NameServerConfigGroup};
+
+    const DOMAIN: &str = "dns.alidns.com";
+    const IPS: &[IpAddr] = &[
+        IpAddr::V4(Ipv4Addr::new(223, 5, 5, 5)),
+        IpAddr::V4(Ipv4Addr::new(223, 6, 6, 6)),
+        IpAddr::V6(Ipv6Addr::new(0x2400, 0x3200, 0, 0, 0, 0, 0, 1)),
+        IpAddr::V6(Ipv6Addr::new(0x2400, 0x3200, 0xbaba, 0, 0, 0, 0, 1)),
+    ];
+
+    #[tokio::test]
+    async fn test_trust_dns_resolver() -> Result<(), Box<dyn Error>> {
+        let resolver = TrustDnsResolver::new(
+            ResolverConfig::from_parts(
+                None,
+                vec![],
+                NameServerConfigGroup::from_ips_clear(IPS, 53, true),
+            ),
+            ResolverOpts {
+                ip_strategy: LookupIpStrategy::Ipv4AndIpv6,
+                ..Default::default()
+            },
+        )
+        .await?;
+        let ips = resolver.async_resolve(DOMAIN).await?;
+        assert_eq!(make_set(ips.ip_addrs()), make_set(IPS));
+        Ok(())
+    }
+
+    #[inline]
+    fn make_set(ips: impl AsRef<[IpAddr]>) -> HashSet<IpAddr> {
+        let mut h = HashSet::new();
+        h.extend(ips.as_ref());
+        h
+    }
+}

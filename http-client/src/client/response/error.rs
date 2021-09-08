@@ -25,6 +25,9 @@ pub enum ErrorKind {
 
     /// 疑似响应被劫持
     MaliciousResponse,
+
+    /// 没有尝试
+    NoTry,
 }
 
 /// HTTP 响应错误

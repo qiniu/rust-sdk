@@ -20,7 +20,7 @@
 mod client;
 mod regions;
 
-#[cfg(all(test, foo))]
+#[cfg(test)]
 mod test_utils;
 
 #[cfg(any(feature = "curl"))]

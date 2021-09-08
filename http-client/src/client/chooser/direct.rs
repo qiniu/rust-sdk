@@ -51,20 +51,20 @@ mod tests {
     };
 
     const IPS_WITHOUT_PORT: &[IpAddrWithPort] = &[
-        IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))),
-        IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2))),
-        IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3))),
+        IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
+        IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
+        IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None),
     ];
     const IPS_WITH_PORT: &[IpAddrWithPort] = &[
-        IpAddrWithPort::new_with_port(
+        IpAddrWithPort::new(
             IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
             NonZeroU16::new(443),
         ),
-        IpAddrWithPort::new_with_port(
+        IpAddrWithPort::new(
             IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
             NonZeroU16::new(443),
         ),
-        IpAddrWithPort::new_with_port(
+        IpAddrWithPort::new(
             IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
             NonZeroU16::new(443),
         ),

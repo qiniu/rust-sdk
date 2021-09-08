@@ -335,7 +335,7 @@ impl Callbacks {
 
     #[inline]
     pub fn builder() -> CallbacksBuilder {
-        CallbacksBuilder::default()
+        Default::default()
     }
 
     #[inline]
