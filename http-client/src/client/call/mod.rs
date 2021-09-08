@@ -443,7 +443,7 @@ mod tests {
             make_error_response_client_builder, make_fixed_response_client_builder,
             single_up_domain_region,
         },
-        Authorization, Chooser, ErrorRetrier, LimitedRetrier, ServiceName, SimpleChooser,
+        Authorization, Chooser, ErrorRetrier, IpChooser, LimitedRetrier, ServiceName,
         NO_DELAY_POLICY,
     };
     use qiniu_http::HeaderMap;

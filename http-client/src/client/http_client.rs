@@ -4,10 +4,10 @@ use super::{
         OnDomainResolved, OnError, OnHeader, OnIPsChosen, OnProgress, OnRequest, OnRetry,
         OnStatusCode, OnToChooseIPs, OnToResolveDomain,
     },
-    CachedResolver, Callbacks, CallbacksBuilder, Chooser, DefaultChooser, ErrorRetrier,
+    CachedResolver, Callbacks, CallbacksBuilder, Chooser, ErrorRetrier,
     ExponentialRetryDelayPolicy, LimitedRetrier, NeverChooseNoneChooser,
     RandomizedRetryDelayPolicy, RequestBuilder, RequestRetrier, Resolver, RetryDelayPolicy,
-    ShuffledChooser, ShuffledResolver, SimpleResolver,
+    ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser,
 };
 use qiniu_http::{HTTPCaller, Method};
 use std::sync::Arc;
@@ -176,7 +176,7 @@ impl HTTPClientBuilder {
         type DefaultRetrier = LimitedRetrier<ErrorRetrier>;
         type DefaultResolver = ShuffledResolver<CachedResolver<SimpleResolver>>;
         type DefaultRetryDelayPolicy = RandomizedRetryDelayPolicy<ExponentialRetryDelayPolicy>;
-        type DefaultShuffledChooser = NeverChooseNoneChooser<ShuffledChooser<DefaultChooser>>;
+        type DefaultShuffledChooser = NeverChooseNoneChooser<ShuffledChooser<SubnetChooser>>;
 
         HTTPClientBuilder {
             http_caller,

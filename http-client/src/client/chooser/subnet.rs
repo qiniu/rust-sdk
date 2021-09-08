@@ -39,16 +39,16 @@ impl Default for LockedData {
 
 const DEFAULT_BLOCK_DURATION: Duration = Duration::from_secs(30);
 const DEFAULT_MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
-pub const DEFAULT_IPV4_NETMASK_PREFIX_LENGTH: u8 = 24;
-pub const DEFAULT_IPV6_NETMASK_PREFIX_LENGTH: u8 = 64;
+const DEFAULT_IPV4_NETMASK_PREFIX_LENGTH: u8 = 24;
+const DEFAULT_IPV6_NETMASK_PREFIX_LENGTH: u8 = 64;
 
 #[derive(Debug, Clone)]
-pub struct DefaultChooser {
-    inner: Arc<DefaultChooserInner>,
+pub struct SubnetChooser {
+    inner: Arc<SubnetChooserInner>,
 }
 
 #[derive(Debug, Default)]
-struct DefaultChooserInner {
+struct SubnetChooserInner {
     blacklist: Blacklist,
     lock: Mutex<LockedData>,
     block_duration: Duration,
@@ -57,11 +57,11 @@ struct DefaultChooserInner {
     ipv6_netmask_prefix_length: u8,
 }
 
-impl Default for DefaultChooser {
+impl Default for SubnetChooser {
     #[inline]
     fn default() -> Self {
         Self {
-            inner: Arc::new(DefaultChooserInner {
+            inner: Arc::new(SubnetChooserInner {
                 blacklist: Default::default(),
                 lock: Default::default(),
                 block_duration: DEFAULT_BLOCK_DURATION,
@@ -73,11 +73,11 @@ impl Default for DefaultChooser {
     }
 }
 
-impl DefaultChooser {
+impl SubnetChooser {
     #[inline]
-    pub fn builder() -> DefaultChooserBuilder {
-        DefaultChooserBuilder {
-            inner: DefaultChooserInner {
+    pub fn builder() -> SubnetChooserBuilder {
+        SubnetChooserBuilder {
+            inner: SubnetChooserInner {
                 blacklist: Default::default(),
                 lock: Default::default(),
                 block_duration: DEFAULT_BLOCK_DURATION,
@@ -89,7 +89,7 @@ impl DefaultChooser {
     }
 }
 
-impl Chooser for DefaultChooser {
+impl Chooser for SubnetChooser {
     #[inline]
     fn choose(&self, ips: &[IpAddrWithPort]) -> Vec<IpAddrWithPort> {
         let mut need_to_shrink = false;
@@ -153,7 +153,7 @@ impl Chooser for DefaultChooser {
     }
 }
 
-impl DefaultChooser {
+impl SubnetChooser {
     fn get_network_address(&self, addr: IpAddrWithPort) -> IpAddrWithPort {
         match addr.ip_addr() {
             IpAddr::V4(ipv4_addr) => {
@@ -174,20 +174,20 @@ impl DefaultChooser {
     }
 }
 
-fn do_some_work_async(inner: &Arc<DefaultChooserInner>, need_to_shrink: bool) {
+fn do_some_work_async(inner: &Arc<SubnetChooserInner>, need_to_shrink: bool) {
     if need_to_shrink && is_time_to_shrink(inner) {
         let cloned = inner.to_owned();
         if let Err(err) = spawn(
-            "qiniu.rust-sdk.http-client.chooser.DefaultChooser".into(),
+            "qiniu.rust-sdk.http-client.chooser.SubnetChooser".into(),
             move || {
                 if is_time_to_shrink_mut(&cloned) {
-                    info!("Default Chooser spawns thread to do some housework");
+                    info!("Subnet Chooser spawns thread to do some housework");
                     shrink_cache(&cloned.blacklist, cloned.block_duration);
                 }
             },
         ) {
             warn!(
-                "Default Chooser was failed to spawn thread to do some housework: {}",
+                "Subnet Chooser was failed to spawn thread to do some housework: {}",
                 err
             );
         }
@@ -196,7 +196,7 @@ fn do_some_work_async(inner: &Arc<DefaultChooserInner>, need_to_shrink: bool) {
     return;
 
     #[inline]
-    fn is_time_to_shrink(inner: &Arc<DefaultChooserInner>) -> bool {
+    fn is_time_to_shrink(inner: &Arc<SubnetChooserInner>) -> bool {
         if let Ok(locked_data) = inner.lock.try_lock() {
             _is_time_to_shrink(inner.min_shrink_interval, &*locked_data)
         } else {
@@ -205,7 +205,7 @@ fn do_some_work_async(inner: &Arc<DefaultChooserInner>, need_to_shrink: bool) {
     }
 
     #[inline]
-    fn is_time_to_shrink_mut(inner: &Arc<DefaultChooserInner>) -> bool {
+    fn is_time_to_shrink_mut(inner: &Arc<SubnetChooserInner>) -> bool {
         if let Ok(mut locked_data) = inner.lock.try_lock() {
             if _is_time_to_shrink(inner.min_shrink_interval, &*locked_data) {
                 locked_data.last_shrink_at = Instant::now();
@@ -233,11 +233,11 @@ fn do_some_work_async(inner: &Arc<DefaultChooserInner>, need_to_shrink: bool) {
 }
 
 #[derive(Debug)]
-pub struct DefaultChooserBuilder {
-    inner: DefaultChooserInner,
+pub struct SubnetChooserBuilder {
+    inner: SubnetChooserInner,
 }
 
-impl DefaultChooserBuilder {
+impl SubnetChooserBuilder {
     #[inline]
     pub fn block_duration(mut self, block_duration: Duration) -> Self {
         self.inner.block_duration = block_duration;
@@ -263,8 +263,8 @@ impl DefaultChooserBuilder {
     }
 
     #[inline]
-    pub fn build(self) -> DefaultChooser {
-        DefaultChooser {
+    pub fn build(self) -> SubnetChooser {
+        SubnetChooser {
             inner: Arc::new(self.inner),
         }
     }

@@ -1,10 +1,12 @@
-use super::{super::super::regions::IpAddrWithPort, Chooser, ChooserFeedback};
+use super::{
+    super::{super::regions::IpAddrWithPort, spawn::spawn},
+    Chooser, ChooserFeedback,
+};
 use dashmap::DashMap;
 use log::{info, warn};
 use std::{
     any::Any,
     sync::{Arc, Mutex},
-    thread::Builder as ThreadBuilder,
     time::{Duration, Instant},
 };
 
@@ -32,42 +34,50 @@ impl Default for LockedData {
 }
 
 const DEFAULT_BLOCK_DURATION: Duration = Duration::from_secs(30);
-const BLACKLIST_SIZE_TO_SHRINK: usize = 100;
-const MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
+const DEFAULT_MIN_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
 
 #[derive(Debug, Clone)]
-pub struct SimpleChooser {
-    inner: Arc<SimpleChooserInner>,
+pub struct IpChooser {
+    inner: Arc<IpChooserInner>,
 }
 
 #[derive(Debug, Default)]
-struct SimpleChooserInner {
+struct IpChooserInner {
     blacklist: Blacklist,
     lock: Mutex<LockedData>,
     block_duration: Duration,
+    min_shrink_interval: Duration,
 }
 
-impl SimpleChooser {
+impl Default for IpChooser {
     #[inline]
-    pub fn new(block_duration: Duration) -> Self {
+    fn default() -> Self {
         Self {
-            inner: Arc::new(SimpleChooserInner {
-                block_duration,
+            inner: Arc::new(IpChooserInner {
                 blacklist: Default::default(),
                 lock: Default::default(),
+                block_duration: DEFAULT_BLOCK_DURATION,
+                min_shrink_interval: DEFAULT_MIN_SHRINK_INTERVAL,
             }),
         }
     }
 }
 
-impl Default for SimpleChooser {
+impl IpChooser {
     #[inline]
-    fn default() -> Self {
-        Self::new(DEFAULT_BLOCK_DURATION)
+    pub fn builder() -> IpChooserBuilder {
+        IpChooserBuilder {
+            inner: IpChooserInner {
+                blacklist: Default::default(),
+                lock: Default::default(),
+                block_duration: DEFAULT_BLOCK_DURATION,
+                min_shrink_interval: DEFAULT_MIN_SHRINK_INTERVAL,
+            },
+        }
     }
 }
 
-impl Chooser for SimpleChooser {
+impl Chooser for IpChooser {
     #[inline]
     fn choose(&self, ips: &[IpAddrWithPort]) -> Vec<IpAddrWithPort> {
         let mut need_to_shrink = false;
@@ -120,20 +130,20 @@ impl Chooser for SimpleChooser {
     }
 }
 
-fn do_some_work_async(inner: &Arc<SimpleChooserInner>, need_to_shrink: bool) {
-    if need_to_shrink && is_time_to_shrink(&inner.blacklist, &inner.lock) {
+fn do_some_work_async(inner: &Arc<IpChooserInner>, need_to_shrink: bool) {
+    if need_to_shrink && is_time_to_shrink(inner) {
         let cloned = inner.to_owned();
-        if let Err(err) = ThreadBuilder::new()
-            .name("qiniu.rust-sdk.http-client.chooser.SimpleChooser".into())
-            .spawn(move || {
-                if is_time_to_shrink_mut(&cloned.blacklist, &cloned.lock) {
-                    info!("Simple Chooser spawns thread to do some housework");
+        if let Err(err) = spawn(
+            "qiniu.rust-sdk.http-client.chooser.IpChooser".into(),
+            move || {
+                if is_time_to_shrink_mut(&cloned) {
+                    info!("Ip Chooser spawns thread to do some housework");
                     shrink_cache(&cloned.blacklist, cloned.block_duration);
                 }
-            })
-        {
+            },
+        ) {
             warn!(
-                "Simple Chooser was failed to spawn thread to do some housework: {}",
+                "Ip Chooser was failed to spawn thread to do some housework: {}",
                 err
             );
         }
@@ -142,18 +152,18 @@ fn do_some_work_async(inner: &Arc<SimpleChooserInner>, need_to_shrink: bool) {
     return;
 
     #[inline]
-    fn is_time_to_shrink(blacklist: &Blacklist, locked_data: &Mutex<LockedData>) -> bool {
-        if let Ok(locked_data) = locked_data.try_lock() {
-            _is_time_to_shrink(blacklist, &*locked_data)
+    fn is_time_to_shrink(inner: &Arc<IpChooserInner>) -> bool {
+        if let Ok(locked_data) = inner.lock.try_lock() {
+            _is_time_to_shrink(inner.min_shrink_interval, &*locked_data)
         } else {
             false
         }
     }
 
     #[inline]
-    fn is_time_to_shrink_mut(blacklist: &Blacklist, locked_data: &Mutex<LockedData>) -> bool {
-        if let Ok(mut locked_data) = locked_data.try_lock() {
-            if _is_time_to_shrink(blacklist, &*locked_data) {
+    fn is_time_to_shrink_mut(inner: &Arc<IpChooserInner>) -> bool {
+        if let Ok(mut locked_data) = inner.lock.try_lock() {
+            if _is_time_to_shrink(inner.min_shrink_interval, &*locked_data) {
                 locked_data.last_shrink_at = Instant::now();
                 return true;
             }
@@ -162,9 +172,8 @@ fn do_some_work_async(inner: &Arc<SimpleChooserInner>, need_to_shrink: bool) {
     }
 
     #[inline]
-    fn _is_time_to_shrink(blacklist: &Blacklist, locked_data: &LockedData) -> bool {
-        locked_data.last_shrink_at.elapsed() >= MIN_SHRINK_INTERVAL
-            && blacklist.len() >= BLACKLIST_SIZE_TO_SHRINK
+    fn _is_time_to_shrink(min_shrink_interval: Duration, locked_data: &LockedData) -> bool {
+        locked_data.last_shrink_at.elapsed() >= min_shrink_interval
     }
 
     #[inline]
@@ -176,6 +185,32 @@ fn do_some_work_async(inner: &Arc<SimpleChooserInner>, need_to_shrink: bool) {
             "Blacklist is shrunken, from {} to {} entries",
             old_size, new_size
         );
+    }
+}
+
+#[derive(Debug)]
+pub struct IpChooserBuilder {
+    inner: IpChooserInner,
+}
+
+impl IpChooserBuilder {
+    #[inline]
+    pub fn block_duration(mut self, block_duration: Duration) -> Self {
+        self.inner.block_duration = block_duration;
+        self
+    }
+
+    #[inline]
+    pub fn min_shrink_interval(mut self, min_shrink_interval: Duration) -> Self {
+        self.inner.min_shrink_interval = min_shrink_interval;
+        self
+    }
+
+    #[inline]
+    pub fn build(self) -> IpChooser {
+        IpChooser {
+            inner: Arc::new(self.inner),
+        }
     }
 }
 
@@ -246,7 +281,7 @@ mod tests {
             ],
         );
         backend.add("test_domain_3.com", vec![]);
-        let chooser = SimpleChooser::new(backend, Duration::from_secs(30));
+        let chooser = IpChooser::new(backend, Duration::from_secs(30));
 
         assert_eq!(
             chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
@@ -335,7 +370,7 @@ mod tests {
                 IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
             ],
         );
-        let chooser = SimpleChooser::new(backend, Duration::from_secs(1));
+        let chooser = IpChooser::new(backend, Duration::from_secs(1));
         assert_eq!(
             chooser.choose(&DomainWithPort::new("test_domain_1.com"), false),
             ChosenResult::IPs(vec![

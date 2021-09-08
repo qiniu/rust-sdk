@@ -1,9 +1,9 @@
-mod default;
 mod direct;
 mod feedback;
+mod ip;
 mod never_choose_none;
 mod shuffled;
-mod simple;
+mod subnet;
 
 use super::super::regions::IpAddrWithPort;
 pub use feedback::ChooserFeedback;
@@ -34,10 +34,8 @@ pub trait Chooser: Any + Debug + Sync + Send {
     fn as_chooser(&self) -> &dyn Chooser;
 }
 
-pub use default::{
-    DefaultChooser, DEFAULT_IPV4_NETMASK_PREFIX_LENGTH, DEFAULT_IPV6_NETMASK_PREFIX_LENGTH,
-};
 pub use direct::DirectChooser;
+pub use ip::{IpChooser, IpChooserBuilder};
 pub use never_choose_none::NeverChooseNoneChooser;
 pub use shuffled::ShuffledChooser;
-pub use simple::SimpleChooser;
+pub use subnet::{SubnetChooser, SubnetChooserBuilder};

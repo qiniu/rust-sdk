@@ -15,8 +15,8 @@ pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
 pub use call::DomainOrIpAddr;
 pub use callbacks::{CallbackContext, Callbacks, CallbacksBuilder, RequestInfo, ResponseInfo};
 pub use chooser::{
-    Chooser, ChooserFeedback, DefaultChooser, NeverChooseNoneChooser, ShuffledChooser,
-    SimpleChooser, DEFAULT_IPV4_NETMASK_PREFIX_LENGTH, DEFAULT_IPV6_NETMASK_PREFIX_LENGTH,
+    Chooser, ChooserFeedback, IpChooser, IpChooserBuilder, NeverChooseNoneChooser, ShuffledChooser,
+    SubnetChooser, SubnetChooserBuilder,
 };
 pub use http_client::{HTTPClient, HTTPClientBuilder};
 pub use request::{Idempotent, QueryPairKey, QueryPairValue, QueryPairs, RequestBuilder};

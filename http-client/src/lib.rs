@@ -33,13 +33,13 @@ pub extern crate qiniu_upload_token as upload_token;
 pub use client::{
     APIResult, Authorization, AuthorizationError, AuthorizationResult, CachedResolver,
     CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver, ChainedResolverBuilder, Chooser,
-    ChooserFeedback, DefaultChooser, DomainOrIpAddr, ErrorRetrier, ExponentialRetryDelayPolicy,
-    FixedRetryDelayPolicy, HTTPClient, HTTPClientBuilder, Idempotent, LimitedRetrier, NeverRetrier,
-    PersistentError, PersistentResult, QueryPairKey, QueryPairValue, QueryPairs,
-    RandomizedRetryDelayPolicy, Ratio, RequestBuilder, RequestInfo, RequestRetrier, ResolveAnswers,
-    ResolveResult, Resolver, ResponseError, ResponseErrorKind, RetryDelayPolicy, RetryResult,
-    ShuffledChooser, ShuffledResolver, SimpleChooser, SimpleResolver, SyncResponse,
-    DEFAULT_IPV4_NETMASK_PREFIX_LENGTH, DEFAULT_IPV6_NETMASK_PREFIX_LENGTH, NO_DELAY_POLICY,
+    ChooserFeedback, DomainOrIpAddr, ErrorRetrier, ExponentialRetryDelayPolicy,
+    FixedRetryDelayPolicy, HTTPClient, HTTPClientBuilder, Idempotent, IpChooser, IpChooserBuilder,
+    LimitedRetrier, NeverRetrier, PersistentError, PersistentResult, QueryPairKey, QueryPairValue,
+    QueryPairs, RandomizedRetryDelayPolicy, Ratio, RequestBuilder, RequestInfo, RequestRetrier,
+    ResolveAnswers, ResolveResult, Resolver, ResponseError, ResponseErrorKind, RetryDelayPolicy,
+    RetryResult, ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser,
+    SubnetChooserBuilder, SyncResponse, NO_DELAY_POLICY,
 };
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
