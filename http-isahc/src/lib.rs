@@ -19,11 +19,9 @@
     unused_qualifications
 )]
 
-mod builder;
 mod client;
 mod extensions;
 
-pub use builder::ClientBuilder;
 pub use client::Client;
 pub use extensions::*;
 

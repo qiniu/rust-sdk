@@ -2,7 +2,7 @@ use isahc::{
     config::{Configurable, Dialer},
     error::{Error as IsahcError, ErrorKind as IsahcErrorKind},
     http::{header::USER_AGENT, request::Builder as IsahcRequestBuilder, uri::Scheme},
-    Body as IsahcBody, HttpClient as IsahcHttpClient, HttpClientBuilder, Metrics as IsahcMetrics,
+    Body as IsahcBody, HttpClient as IsahcHttpClient, Metrics as IsahcMetrics,
     Response as IsahcResponse, ResponseExt,
 };
 use qiniu_http::{
@@ -48,13 +48,13 @@ pub struct Client {
 
 impl Client {
     #[inline]
-    pub(super) fn new(isahc_client: IsahcHttpClient) -> Self {
+    pub fn new(isahc_client: IsahcHttpClient) -> Self {
         Client { isahc_client }
     }
 
     #[inline]
     pub fn default_client() -> Result<Self, IsahcError> {
-        Ok(Self::new(HttpClientBuilder::default().build()?))
+        Ok(Self::new(IsahcHttpClient::new()?))
     }
 }
 
