@@ -1,5 +1,4 @@
 use super::{
-    builder::ReqwestHTTPCallerBuilder,
     extensions::TimeoutExtension,
     sync_client::{call_response_callbacks, from_reqwest_error, make_user_agent},
     BoxFuture,
@@ -33,15 +32,8 @@ pub struct AsyncReqwestHTTPCaller {
 
 impl AsyncReqwestHTTPCaller {
     #[inline]
-    pub fn builder() -> ReqwestHTTPCallerBuilder {
-        Default::default()
-    }
-
-    #[inline]
-    pub(super) fn new(builder: ReqwestHTTPCallerBuilder) -> ReqwestResult<Self> {
-        Ok(Self {
-            async_client: builder.build_async_client_builder().build()?,
-        })
+    pub fn new(async_client: AsyncReqwestClient) -> Self {
+        Self { async_client }
     }
 }
 

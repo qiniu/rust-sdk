@@ -19,14 +19,12 @@
     unused_qualifications
 )]
 
-mod builder;
 mod extensions;
 mod sync_client;
 
 #[cfg(feature = "async")]
 mod async_client;
 
-pub use builder::ReqwestHTTPCallerBuilder;
 pub use extensions::*;
 pub use qiniu_http as http;
 pub use qiniu_http::{HTTPCaller, Request, ResponseError, SyncResponseResult};

@@ -1,4 +1,4 @@
-use super::{builder::ReqwestHTTPCallerBuilder, extensions::TimeoutExtension};
+use super::extensions::TimeoutExtension;
 use qiniu_http::{
     HTTPCaller, HeaderMap, HeaderValue, Request, ResponseError, ResponseErrorBuilder,
     ResponseErrorKind, StatusCode, SyncResponse, SyncResponseResult, TransferProgressInfo, Uri,
@@ -9,7 +9,7 @@ use reqwest::{
         Response as SyncReqwestResponse,
     },
     header::USER_AGENT,
-    Error as ReqwestError, Result as ReqwestResult, Url,
+    Error as ReqwestError, Url,
 };
 use std::{
     any::Any,
@@ -29,15 +29,8 @@ pub struct SyncReqwestHTTPCaller {
 
 impl SyncReqwestHTTPCaller {
     #[inline]
-    pub fn builder() -> ReqwestHTTPCallerBuilder {
-        Default::default()
-    }
-
-    #[inline]
-    pub(super) fn new(builder: ReqwestHTTPCallerBuilder) -> ReqwestResult<Self> {
-        Ok(Self {
-            sync_client: builder.build_sync_client_builder().build()?,
-        })
+    pub fn new(sync_client: SyncReqwestClient) -> Self {
+        Self { sync_client }
     }
 }
 
