@@ -1,7 +1,6 @@
 use super::{super::ResponseError, ResolveAnswers, ResolveResult, Resolver};
 use async_std::task::block_on;
-use async_std_resolver::AsyncStdResolver as AsyncResolver;
-use async_std_resolver::{resolver, resolver_from_system_conf};
+use async_std_resolver::{resolver, resolver_from_system_conf, AsyncStdResolver as AsyncResolver};
 use futures::future::BoxFuture;
 use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
 use std::{any::Any, fmt};

@@ -6,8 +6,8 @@ use super::{
 use bytes::Bytes;
 use futures::{io::Cursor, ready, AsyncRead, Stream};
 use qiniu_http::{
-    AsyncResponse, AsyncResponseResult, HTTPCaller, Request, ResponseError, ResponseErrorBuilder,
-    ResponseErrorKind, SyncResponseResult, TransferProgressInfo, Uri,
+    AsyncResponse, AsyncResponseResult, HTTPCaller, Request, ResponseError, ResponseErrorKind,
+    SyncResponseResult, TransferProgressInfo, Uri,
 };
 use reqwest::{
     header::USER_AGENT, Body as AsyncBody, Client as AsyncReqwestClient,
@@ -73,7 +73,7 @@ fn make_async_reqwest_request(
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<AsyncReqwestRequest, ResponseError> {
     let url = Url::parse(&request.url().to_string()).map_err(|err| {
-        ResponseErrorBuilder::new(ResponseErrorKind::InvalidURL, err)
+        ResponseError::builder(ResponseErrorKind::InvalidURL, err)
             .uri(request.url())
             .build()
     })?;
@@ -144,7 +144,7 @@ fn make_async_reqwest_request(
                         )) {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
                             *self.user_cancelled_error = Some(
-                                ResponseErrorBuilder::new(
+                                ResponseError::builder(
                                     ResponseErrorKind::UserCanceled,
                                     ERROR_MESSAGE,
                                 )

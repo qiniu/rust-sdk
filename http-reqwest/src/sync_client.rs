@@ -1,7 +1,7 @@
 use super::extensions::TimeoutExtension;
 use qiniu_http::{
-    HTTPCaller, HeaderMap, HeaderValue, Request, ResponseError, ResponseErrorBuilder,
-    ResponseErrorKind, StatusCode, SyncResponse, SyncResponseResult, TransferProgressInfo, Uri,
+    HTTPCaller, HeaderMap, HeaderValue, Request, ResponseError, ResponseErrorKind, StatusCode,
+    SyncResponse, SyncResponseResult, TransferProgressInfo, Uri,
 };
 use reqwest::{
     blocking::{
@@ -70,7 +70,7 @@ fn make_sync_reqwest_request(
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<SyncReqwestRequest, ResponseError> {
     let url = Url::parse(&request.url().to_string()).map_err(|err| {
-        ResponseErrorBuilder::new(ResponseErrorKind::InvalidURL, err)
+        ResponseError::builder(ResponseErrorKind::InvalidURL, err)
             .uri(request.url())
             .build()
     })?;
@@ -142,7 +142,7 @@ fn make_sync_reqwest_request(
                         )) {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
                             *self.user_cancelled_error = Some(
-                                ResponseErrorBuilder::new(
+                                ResponseError::builder(
                                     ResponseErrorKind::UserCanceled,
                                     ERROR_MESSAGE,
                                 )
@@ -171,7 +171,7 @@ pub(super) fn make_user_agent(
         suffix
     ))
     .map_err(|err| {
-        ResponseErrorBuilder::new(ResponseErrorKind::InvalidHeader, err)
+        ResponseError::builder(ResponseErrorKind::InvalidHeader, err)
             .uri(request.url())
             .build()
     })
@@ -202,27 +202,27 @@ fn from_sync_response(mut response: SyncReqwestResponse, request: &Request) -> S
 
 pub(super) fn from_reqwest_error(err: ReqwestError, request: &Request) -> ResponseError {
     if err.url().is_some() {
-        ResponseErrorBuilder::new(ResponseErrorKind::InvalidURL, err)
+        ResponseError::builder(ResponseErrorKind::InvalidURL, err)
             .uri(request.url())
             .build()
     } else if err.is_redirect() {
-        ResponseErrorBuilder::new(ResponseErrorKind::TooManyRedirect, err)
+        ResponseError::builder(ResponseErrorKind::TooManyRedirect, err)
             .uri(request.url())
             .build()
     } else if err.is_timeout() {
-        ResponseErrorBuilder::new(ResponseErrorKind::TimeoutError, err)
+        ResponseError::builder(ResponseErrorKind::TimeoutError, err)
             .uri(request.url())
             .build()
     } else if err.is_request() {
-        ResponseErrorBuilder::new(ResponseErrorKind::InvalidRequestResponse, err)
+        ResponseError::builder(ResponseErrorKind::InvalidRequestResponse, err)
             .uri(request.url())
             .build()
     } else if err.is_connect() {
-        ResponseErrorBuilder::new(ResponseErrorKind::ConnectError, err)
+        ResponseError::builder(ResponseErrorKind::ConnectError, err)
             .uri(request.url())
             .build()
     } else {
-        ResponseErrorBuilder::new(ResponseErrorKind::UnknownError, err)
+        ResponseError::builder(ResponseErrorKind::UnknownError, err)
             .uri(request.url())
             .build()
     }
@@ -236,7 +236,7 @@ pub(super) fn call_response_callbacks(
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
         if !on_receive_response_status(status_code) {
-            return Err(ResponseErrorBuilder::new(
+            return Err(ResponseError::builder(
                 ResponseErrorKind::UserCanceled,
                 "on_receive_response_status() returns false",
             )
@@ -247,7 +247,7 @@ pub(super) fn call_response_callbacks(
     if let Some(on_receive_response_header) = request.on_receive_response_header() {
         for (header_name, header_value) in headers.iter() {
             if !on_receive_response_header(header_name, header_value) {
-                return Err(ResponseErrorBuilder::new(
+                return Err(ResponseError::builder(
                     ResponseErrorKind::UserCanceled,
                     "on_receive_response_header() returns false",
                 )

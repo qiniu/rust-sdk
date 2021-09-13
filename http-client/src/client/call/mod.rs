@@ -36,26 +36,33 @@ macro_rules! install_callbacks {
         let on_uploading_progress = |info: &TransferProgressInfo| -> bool {
             $request.call_uploading_progress_callbacks(&$request_info, info)
         };
-        *$built_request.on_uploading_progress_mut() = Some(&on_uploading_progress);
+        if $request.uploading_progress_callbacks_count() > 0 {
+            *$built_request.on_uploading_progress_mut() = Some(&on_uploading_progress);
+        }
         let on_receive_response_status = |status_code: StatusCode| -> bool {
             $request.call_receive_response_status_callbacks(&$request_info, status_code)
         };
-        *$built_request.on_receive_response_status_mut() = Some(&on_receive_response_status);
+        if $request.receive_response_status_callbacks_count() > 0 {
+            *$built_request.on_receive_response_status_mut() = Some(&on_receive_response_status);
+        }
         let on_receive_response_header = |name: &HeaderName, value: &HeaderValue| -> bool {
             $request.call_receive_response_header_callbacks(&$request_info, name, value)
         };
-        *$built_request.on_receive_response_header_mut() = Some(&on_receive_response_header);
+        if $request.receive_response_header_callbacks_count() > 0 {
+            *$built_request.on_receive_response_header_mut() = Some(&on_receive_response_header);
+        }
     };
 }
 
 macro_rules! create_request_call_fn {
     ($method_name:ident, $return_type:ident, $into_endpoints_method:ident, $sign_method:ident, $call_method:ident, $resolve_method:ident, $choose_method:ident, $feedback_method:ident, $sleep_method:path, $new_response_info:path, $block:ident, $blocking_block:ident $(, $async:ident)?) => {
-        pub(super) $($async)? fn $method_name(request: Request<'_>, extensions: Extensions) -> APIResult<$return_type> {
-            let (request, into_endpoints, service_name) = request.split();
+        pub(super) $($async)? fn $method_name(request: Request<'_>) -> APIResult<$return_type> {
+            let (request, into_endpoints, service_name, extensions) = request.split();
             let endpoints = $block!({ into_endpoints.$into_endpoints_method(service_name) })?;
+            let mut tried_ips = IpAddrsSet::default();
             let mut retried = RetriedStatsInfo::default();
 
-            return match $block!({ try_new_endpoints(endpoints.endpoints(), &request, extensions, &mut retried) }) {
+            return match $block!({ try_new_endpoints(endpoints.endpoints(), &request, extensions, &mut tried_ips, &mut retried) }) {
                 Ok(response) => Ok(response),
                 Err(err)
                     if err.retry_result() == RetryResult::TryOldEndpoints
@@ -63,7 +70,7 @@ macro_rules! create_request_call_fn {
                 {
                     let (_, extensions) = err.split();
                     retried.switch_to_old_endpoints();
-                    $block!({ try_old_endpoints(endpoints.old_endpoints(), &request, extensions, &mut retried) })
+                    $block!({ try_old_endpoints(endpoints.old_endpoints(), &request, extensions, &mut tried_ips, &mut retried) })
                 }
                 Err(err) => Err(err.into_response_error()),
             };
@@ -76,9 +83,10 @@ macro_rules! create_request_call_fn {
                 endpoints: &[Endpoint],
                 request: &RequestWithoutEndpoints<'_>,
                 extensions: Extensions,
+                tried_ips: &mut IpAddrsSet,
                 retried: &mut RetriedStatsInfo,
             ) -> TryResult {
-                $block!({ try_endpoints(endpoints, request, extensions, retried, true) })
+                $block!({ try_endpoints(endpoints, request, extensions, tried_ips, retried, true) })
             }
 
             #[inline]
@@ -86,15 +94,17 @@ macro_rules! create_request_call_fn {
                 endpoints: &[Endpoint],
                 request: &RequestWithoutEndpoints<'_>,
                 extensions: Extensions,
+                tried_ips: &mut IpAddrsSet,
                 retried: &mut RetriedStatsInfo,
             ) -> APIResult<$return_type> {
-                $block!({ try_endpoints(endpoints, request, extensions, retried, false) }).map_err(|err| err.into_response_error())
+                $block!({ try_endpoints(endpoints, request, extensions, tried_ips, retried, false) }).map_err(|err| err.into_response_error())
             }
 
             $($async)? fn try_endpoints(
                 endpoints: &[Endpoint],
                 request: &RequestWithoutEndpoints<'_>,
                 mut extensions: Extensions,
+                tried_ips: &mut IpAddrsSet,
                 retried: &mut RetriedStatsInfo,
                 is_endpoints_old: bool,
             ) -> TryResult {
@@ -125,19 +135,24 @@ macro_rules! create_request_call_fn {
 
                 for domain_with_port in find_domains_with_port(endpoints) {
                     retried.switch_endpoint();
-                    let ips = $block!({ resolve_domain(request, domain_with_port) })
+                    let ips = $block!({ resolve_domain(request, domain_with_port, &mut extensions) })
                         .map_err(|err| err.with_extensions(take(&mut extensions)))?;
                     if ips.is_empty() {
                         retried.increase_abandoned_endpoints();
                     } else {
-                        let mut remaining_ips = IpAddrsSet::new(&ips);
+                        let mut remaining_ips = {
+                            let mut ips = IpAddrsSet::new(&ips);
+                            ips.difference_set(tried_ips);
+                            ips
+                        };
                         loop {
-                            let chosen_ips = $block!({ choose(request, &remaining_ips.remains()) })
+                            let chosen_ips = $block!({ choose(request, &remaining_ips.remains(), &mut extensions) })
                                 .map_err(|err| err.with_extensions(take(&mut extensions)))?;
                             if chosen_ips.is_empty() {
                                 break;
                             } else {
-                                remaining_ips.difference(&chosen_ips);
+                                remaining_ips.difference_slice(&chosen_ips);
+                                tried_ips.union_slice(&chosen_ips);
                                 retried.switch_ips();
                                 let domain =
                                     DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), chosen_ips);
@@ -151,14 +166,19 @@ macro_rules! create_request_call_fn {
                     .cloned()
                     .collect::<Vec<_>>();
                 if !ips.is_empty() {
-                    let mut remaining_ips = IpAddrsSet::new(&ips);
+                    let mut remaining_ips = {
+                        let mut ips = IpAddrsSet::new(&ips);
+                        ips.difference_set(tried_ips);
+                        ips
+                    };
                     loop {
-                        let chosen_ips = $block!({ choose(request, &remaining_ips.remains()) })
+                        let chosen_ips = $block!({ choose(request, &remaining_ips.remains(), &mut extensions) })
                             .map_err(|err| err.with_extensions(take(&mut extensions)))?;
                         if chosen_ips.is_empty() {
                             break;
                         } else {
-                            remaining_ips.difference(&chosen_ips);
+                            remaining_ips.difference_slice(&chosen_ips);
+                            tried_ips.union_slice(&chosen_ips);
                             for chosen_ip in chosen_ips.into_iter() {
                                 retried.switch_endpoint();
                                 retried.switch_ips();
@@ -170,7 +190,7 @@ macro_rules! create_request_call_fn {
                     }
                 }
 
-                return Err(last_error.expect("No domains or IPs can be retried").with_extensions(extensions));
+                return Err(last_error.unwrap_or_else(no_try_error).with_extensions(extensions));
             }
 
             $($async)? fn try_endpoint(
@@ -346,30 +366,32 @@ macro_rules! create_request_call_fn {
             $($async)? fn resolve_domain(
                 request: &RequestWithoutEndpoints<'_>,
                 domain_with_port: &DomainWithPort,
+                extensions: &mut Extensions,
             ) -> Result<Vec<IpAddrWithPort>, TryError> {
-                call_to_resolve_domain_callbacks(request, domain_with_port.domain())?;
+                call_to_resolve_domain_callbacks(request, domain_with_port.domain(), extensions)?;
                 let answers = $block!({
                     request
                         .http_client()
                         .resolver()
                         .$resolve_method(domain_with_port.domain())
                 }).map_err(|err| TryError::new(err, RetryResult::TryNextServer))?;
-                call_domain_resolved_callbacks(request, domain_with_port.domain(), &answers)?;
+                call_domain_resolved_callbacks(request, domain_with_port.domain(), &answers, extensions)?;
                 Ok(answers.into_ip_addrs().into_iter().map(|&ip| IpAddrWithPort::new(ip, domain_with_port.port())).collect())
             }
 
             $($async)? fn choose(
                 request: &RequestWithoutEndpoints<'_>,
                 ips: &[IpAddrWithPort],
+                extensions: &mut Extensions,
             ) -> Result<Vec<IpAddrWithPort>, TryError> {
-                call_to_choose_ips_callbacks(request, ips)?;
+                call_to_choose_ips_callbacks(request, ips, extensions)?;
                 let chosen_ips = $block!({
                     request
                         .http_client()
                         .chooser()
                         .$choose_method(ips)
                 });
-                call_ips_chosen_callbacks(request, ips, &chosen_ips)?;
+                call_ips_chosen_callbacks(request, ips, &chosen_ips, extensions)?;
                 Ok(chosen_ips)
             }
         }
@@ -410,6 +432,14 @@ create_request_call_fn!(
     sync_block,
     sync_block
 );
+
+#[inline]
+fn no_try_error() -> TryError {
+    TryError::new(
+        ResponseError::new(ResponseErrorKind::NoTry, "None resolver is tried"),
+        RetryResult::DontRetry,
+    )
+}
 
 #[cfg(feature = "async")]
 async fn async_sleep(dur: Duration) {

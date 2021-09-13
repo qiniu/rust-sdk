@@ -23,8 +23,10 @@ mod regions;
 #[cfg(test)]
 mod test_utils;
 
-#[cfg(any(feature = "curl"))]
-pub extern crate qiniu_curl as curl;
+#[cfg(any(feature = "isahc"))]
+pub extern crate qiniu_isahc as isahc;
+#[cfg(any(feature = "reqwest"))]
+pub extern crate qiniu_reqwest as reqwest;
 
 pub extern crate qiniu_credential as credential;
 pub extern crate qiniu_http as http;
@@ -33,13 +35,14 @@ pub extern crate qiniu_upload_token as upload_token;
 pub use client::{
     APIResult, Authorization, AuthorizationError, AuthorizationResult, CachedResolver,
     CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver, ChainedResolverBuilder, Chooser,
-    ChooserFeedback, DomainOrIpAddr, ErrorRetrier, ExponentialRetryDelayPolicy,
-    FixedRetryDelayPolicy, HTTPClient, HTTPClientBuilder, Idempotent, IpChooser, IpChooserBuilder,
-    LimitedRetrier, NeverRetrier, PersistentError, PersistentResult, QueryPairKey, QueryPairValue,
-    QueryPairs, RandomizedRetryDelayPolicy, Ratio, RequestBuilder, RequestInfo, RequestRetrier,
-    ResolveAnswers, ResolveResult, Resolver, ResponseError, ResponseErrorKind, RetryDelayPolicy,
-    RetryResult, ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser,
-    SubnetChooserBuilder, SyncResponse, NO_DELAY_POLICY,
+    ChooserFeedback, DomainOrIpAddr, EarlyCallbackContext, ErrorRetrier,
+    ExponentialRetryDelayPolicy, FixedRetryDelayPolicy, HTTPClient, HTTPClientBuilder, Idempotent,
+    IpChooser, IpChooserBuilder, LimitedRetrier, NeverRetrier, PersistentError, PersistentResult,
+    QueryPairKey, QueryPairValue, QueryPairs, RandomizedRetryDelayPolicy, Ratio, RequestBuilder,
+    RequestInfo, RequestRetrier, ResolveAnswers, ResolveResult, Resolver, ResponseError,
+    ResponseErrorKind, RetryDelayPolicy, RetryResult, ShuffledChooser, ShuffledResolver,
+    SimpleResolver, SubnetChooser, SubnetChooserBuilder, SyncResponse, TimeoutResolver,
+    NO_DELAY_POLICY,
 };
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,

@@ -1,6 +1,7 @@
 use super::super::super::IpAddrWithPort;
 use std::collections::HashSet;
 
+#[derive(Default)]
 pub(super) struct IpAddrsSet {
     set: HashSet<IpAddrWithPort>,
 }
@@ -14,9 +15,31 @@ impl IpAddrsSet {
     }
 
     #[inline]
-    pub(super) fn difference(&mut self, ips: &[IpAddrWithPort]) {
+    pub(super) fn difference_slice(&mut self, ips: &[IpAddrWithPort]) {
         for ip in ips.iter() {
             self.set.remove(ip);
+        }
+    }
+
+    #[inline]
+    pub(super) fn union_slice(&mut self, ips: &[IpAddrWithPort]) {
+        for &ip in ips.iter() {
+            self.set.insert(ip);
+        }
+    }
+
+    #[inline]
+    pub(super) fn difference_set(&mut self, ips: &Self) {
+        for ip in ips.set.iter() {
+            self.set.remove(ip);
+        }
+    }
+
+    #[inline]
+    #[allow(dead_code)]
+    pub(super) fn union_set(&mut self, ips: &Self) {
+        for &ip in ips.set.iter() {
+            self.set.insert(ip);
         }
     }
 

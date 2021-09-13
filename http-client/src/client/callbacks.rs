@@ -3,7 +3,8 @@ use super::{
     RetriedStatsInfo, SyncResponse,
 };
 use qiniu_http::{
-    HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode, TransferProgressInfo, Uri,
+    Extensions, HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode,
+    TransferProgressInfo, Uri,
 };
 use std::{fmt, net::IpAddr, num::NonZeroU16, time::Duration};
 
@@ -99,6 +100,34 @@ impl<'r> ResponseInfo<'r> {
 }
 
 #[derive(Debug)]
+pub struct EarlyCallbackContext<'reqref, 'req, 'ext> {
+    request: &'reqref RequestWithoutEndpoints<'req>,
+    extensions: &'ext mut Extensions,
+}
+
+impl<'reqref, 'req, 'ext> EarlyCallbackContext<'reqref, 'req, 'ext> {
+    pub(super) fn new(
+        request: &'reqref RequestWithoutEndpoints<'req>,
+        extensions: &'ext mut Extensions,
+    ) -> Self {
+        Self {
+            request,
+            extensions,
+        }
+    }
+
+    #[inline]
+    pub fn extensions(&self) -> &Extensions {
+        self.extensions
+    }
+
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        self.extensions
+    }
+}
+
+#[derive(Debug)]
 pub struct CallbackContext<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> {
     request: &'reqref RequestWithoutEndpoints<'req>,
     http_request: &'httpreqref mut Request<'httpreq>,
@@ -121,7 +150,7 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
     }
 
     #[inline]
-    pub fn request(&self) -> &Request {
+    pub fn request(&self) -> &Request<'httpreq> {
         self.http_request
     }
 
@@ -141,11 +170,15 @@ pub(super) type OnStatusCode = Box<dyn Fn(&RequestInfo, StatusCode) -> bool + Se
 pub(super) type OnHeader =
     Box<dyn Fn(&RequestInfo, &HeaderName, &HeaderValue) -> bool + Send + Sync>;
 
-pub(super) type OnToResolveDomain = Box<dyn Fn(&str) -> bool + Send + Sync>;
-pub(super) type OnDomainResolved = Box<dyn Fn(&str, &ResolveAnswers) -> bool + Send + Sync>;
-pub(super) type OnToChooseIPs = Box<dyn Fn(&[IpAddrWithPort]) -> bool + Send + Sync>;
-pub(super) type OnIPsChosen =
-    Box<dyn Fn(&[IpAddrWithPort], &[IpAddrWithPort]) -> bool + Send + Sync>;
+pub(super) type OnToResolveDomain =
+    Box<dyn Fn(&str, &mut EarlyCallbackContext) -> bool + Send + Sync>;
+pub(super) type OnDomainResolved =
+    Box<dyn Fn(&str, &ResolveAnswers, &mut EarlyCallbackContext) -> bool + Send + Sync>;
+pub(super) type OnToChooseIPs =
+    Box<dyn Fn(&[IpAddrWithPort], &mut EarlyCallbackContext) -> bool + Send + Sync>;
+pub(super) type OnIPsChosen = Box<
+    dyn Fn(&[IpAddrWithPort], &[IpAddrWithPort], &mut EarlyCallbackContext) -> bool + Send + Sync,
+>;
 pub(super) type OnRequest = Box<dyn Fn(&mut CallbackContext) -> bool + Send + Sync>;
 pub(super) type OnRetry = Box<dyn Fn(&mut CallbackContext, Duration) -> bool + Send + Sync>;
 pub(super) type OnSuccess = Box<dyn Fn(&mut CallbackContext, &ResponseInfo) -> bool + Send + Sync>;
@@ -224,11 +257,15 @@ impl Callbacks {
     }
 
     #[inline]
-    pub(super) fn call_to_resolve_domain_callbacks(&self, domain: &str) -> bool {
+    pub(super) fn call_to_resolve_domain_callbacks(
+        &self,
+        domain: &str,
+        context: &mut EarlyCallbackContext,
+    ) -> bool {
         !self
             .on_to_resolve_domain_callbacks()
             .iter()
-            .any(|callback| !callback(domain))
+            .any(|callback| !callback(domain, context))
     }
 
     #[inline]
@@ -236,19 +273,24 @@ impl Callbacks {
         &self,
         domain: &str,
         answers: &ResolveAnswers,
+        context: &mut EarlyCallbackContext,
     ) -> bool {
         !self
             .on_domain_resolved_callbacks()
             .iter()
-            .any(|callback| !callback(domain, answers))
+            .any(|callback| !callback(domain, answers, context))
     }
 
     #[inline]
-    pub(super) fn call_to_choose_ips_callbacks(&self, ips: &[IpAddrWithPort]) -> bool {
+    pub(super) fn call_to_choose_ips_callbacks(
+        &self,
+        ips: &[IpAddrWithPort],
+        context: &mut EarlyCallbackContext,
+    ) -> bool {
         !self
             .on_to_choose_ips_callbacks()
             .iter()
-            .any(|callback| !callback(ips))
+            .any(|callback| !callback(ips, context))
     }
 
     #[inline]
@@ -256,11 +298,12 @@ impl Callbacks {
         &self,
         ips: &[IpAddrWithPort],
         chosen: &[IpAddrWithPort],
+        context: &mut EarlyCallbackContext,
     ) -> bool {
         !self
             .on_ips_chosen_callbacks()
             .iter()
-            .any(|callback| !callback(ips, chosen))
+            .any(|callback| !callback(ips, chosen, context))
     }
 
     #[inline]

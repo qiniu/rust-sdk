@@ -13,7 +13,9 @@ mod spawn;
 
 pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
 pub use call::DomainOrIpAddr;
-pub use callbacks::{CallbackContext, Callbacks, CallbacksBuilder, RequestInfo, ResponseInfo};
+pub use callbacks::{
+    CallbackContext, Callbacks, CallbacksBuilder, EarlyCallbackContext, RequestInfo, ResponseInfo,
+};
 pub use chooser::{
     Chooser, ChooserFeedback, IpChooser, IpChooserBuilder, NeverChooseNoneChooser, ShuffledChooser,
     SubnetChooser, SubnetChooserBuilder,
@@ -22,7 +24,7 @@ pub use http_client::{HTTPClient, HTTPClientBuilder};
 pub use request::{Idempotent, QueryPairKey, QueryPairValue, QueryPairs, RequestBuilder};
 pub use resolver::{
     CachedResolver, ChainedResolver, ChainedResolverBuilder, PersistentError, PersistentResult,
-    ResolveAnswers, ResolveResult, Resolver, ShuffledResolver, SimpleResolver,
+    ResolveAnswers, ResolveResult, Resolver, ShuffledResolver, SimpleResolver, TimeoutResolver,
 };
 pub use response::{APIResult, Response, ResponseError, ResponseErrorKind, SyncResponse};
 pub use retried::RetriedStatsInfo;

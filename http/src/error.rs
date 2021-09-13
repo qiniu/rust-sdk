@@ -64,6 +64,15 @@ pub struct Error {
 }
 
 impl Error {
+    /// 创建 HTTP 响应错误
+    #[inline]
+    pub fn builder(
+        kind: ErrorKind,
+        err: impl Into<Box<dyn StdError + Send + Sync>>,
+    ) -> ErrorBuilder {
+        ErrorBuilder::new(kind, err)
+    }
+
     /// 获取 HTTP 响应错误类型
     #[inline]
     pub fn kind(&self) -> ErrorKind {
@@ -125,9 +134,8 @@ pub struct ErrorBuilder {
 }
 
 impl ErrorBuilder {
-    /// 创建 HTTP 响应错误
     #[inline]
-    pub fn new(kind: ErrorKind, err: impl Into<Box<dyn StdError + Send + Sync>>) -> Self {
+    fn new(kind: ErrorKind, err: impl Into<Box<dyn StdError + Send + Sync>>) -> Self {
         Self {
             inner: Error {
                 kind,

@@ -3,7 +3,7 @@ use qiniu_http::{
     HTTPCaller, HeaderMap, Request as HTTPRequest, ResponseError, ResponseErrorKind, StatusCode,
     SyncResponse, SyncResponseResult,
 };
-use std::{any::Any, sync::Arc};
+use std::any::Any;
 
 #[cfg(feature = "async")]
 use {
@@ -41,12 +41,12 @@ pub(crate) fn make_dumb_client_builder() -> HTTPClientBuilder {
         }
     }
 
-    let http_caller = Arc::new(FakeHTTPCaller);
+    let http_caller = Box::new(FakeHTTPCaller);
 
-    #[cfg(any(feature = "curl"))]
+    #[cfg(any(feature = "isahc"))]
     return HTTPClient::builder().http_caller(http_caller);
 
-    #[cfg(not(any(feature = "curl")))]
+    #[cfg(not(any(feature = "isahc")))]
     return HTTPClient::builder(http_caller);
 }
 
@@ -97,16 +97,16 @@ pub(crate) fn make_fixed_response_client_builder(
         }
     }
 
-    let http_caller = Arc::new(RedirectHTTPCaller {
+    let http_caller = Box::new(RedirectHTTPCaller {
         status_code,
         headers,
         body,
     });
 
-    #[cfg(any(feature = "curl"))]
+    #[cfg(any(feature = "isahc"))]
     return HTTPClient::builder().http_caller(http_caller);
 
-    #[cfg(not(any(feature = "curl")))]
+    #[cfg(not(any(feature = "isahc")))]
     return HTTPClient::builder(http_caller);
 }
 
@@ -123,7 +123,7 @@ pub(crate) fn make_error_response_client_builder(
     impl HTTPCaller for ErrorHTTPCaller {
         #[inline]
         fn call(&self, _request: &HTTPRequest) -> SyncResponseResult {
-            Err(ResponseError::new(self.error_kind, self.message.to_owned()))
+            Err(ResponseError::builder(self.error_kind, self.message.to_owned()).build())
         }
 
         #[cfg(feature = "async")]
@@ -131,9 +131,9 @@ pub(crate) fn make_error_response_client_builder(
             &'a self,
             _request: &'a HTTPRequest<'_>,
         ) -> BoxFuture<'a, AsyncResponseResult> {
-            Box::pin(
-                async move { Err(ResponseError::new(self.error_kind, self.message.to_owned())) },
-            )
+            Box::pin(async move {
+                Err(ResponseError::builder(self.error_kind, self.message.to_owned()).build())
+            })
         }
 
         #[inline]
@@ -147,14 +147,14 @@ pub(crate) fn make_error_response_client_builder(
         }
     }
 
-    let http_caller = Arc::new(ErrorHTTPCaller {
+    let http_caller = Box::new(ErrorHTTPCaller {
         error_kind,
         message: message.into(),
     });
 
-    #[cfg(any(feature = "curl"))]
+    #[cfg(any(feature = "isahc"))]
     return HTTPClient::builder().http_caller(http_caller);
 
-    #[cfg(not(any(feature = "curl")))]
+    #[cfg(not(any(feature = "isahc")))]
     return HTTPClient::builder(http_caller);
 }

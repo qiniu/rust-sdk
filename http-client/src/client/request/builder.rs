@@ -260,31 +260,27 @@ impl<'r> RequestBuilder<'r> {
 
     #[inline]
     pub fn call(self) -> APIResult<SyncResponse> {
-        let (request, extensions) = self.build();
-        request_call(request, extensions)
+        request_call(self.build())
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     pub async fn async_call(self) -> APIResult<AsyncResponse> {
-        let (request, extensions) = self.build();
-        async_request_call(request, extensions).await
+        async_request_call(self.build()).await
     }
 
     #[inline]
-    pub(in super::super) fn build(self) -> (Request<'r>, Extensions) {
+    pub(in super::super) fn build(self) -> Request<'r> {
         let appended_user_agent =
             self.http_client.appended_user_agent().to_owned() + &self.appended_user_agent;
-        (
-            Request::new(
-                self.http_client,
-                self.service_name,
-                self.into_endpoints,
-                self.callbacks.build(),
-                self.data,
-                appended_user_agent.into_boxed_str(),
-            ),
+        Request::new(
+            self.http_client,
+            self.service_name,
+            self.into_endpoints,
+            self.callbacks.build(),
+            self.data,
+            appended_user_agent.into_boxed_str(),
             self.extensions,
         )
     }

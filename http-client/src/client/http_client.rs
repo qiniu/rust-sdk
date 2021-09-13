@@ -4,13 +4,16 @@ use super::{
         OnDomainResolved, OnError, OnHeader, OnIPsChosen, OnProgress, OnRequest, OnRetry,
         OnStatusCode, OnToChooseIPs, OnToResolveDomain,
     },
-    CachedResolver, Callbacks, CallbacksBuilder, Chooser, ErrorRetrier,
+    CachedResolver, Callbacks, CallbacksBuilder, ChainedResolver, Chooser, ErrorRetrier,
     ExponentialRetryDelayPolicy, LimitedRetrier, NeverChooseNoneChooser,
     RandomizedRetryDelayPolicy, RequestBuilder, RequestRetrier, Resolver, RetryDelayPolicy,
-    ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser,
+    ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser, TimeoutResolver,
 };
 use qiniu_http::{HTTPCaller, Method};
 use std::sync::Arc;
+
+#[cfg(feature = "isahc")]
+use qiniu_isahc::isahc::error::Error as IsahcError;
 
 #[derive(Debug, Clone)]
 pub struct HTTPClient {
@@ -29,29 +32,27 @@ struct HTTPClientInner {
     callbacks: Callbacks,
 }
 
-#[cfg(any(feature = "curl"))]
-impl Default for HTTPClient {
-    #[inline]
-    fn default() -> Self {
-        HTTPClientBuilder::new().build()
-    }
-}
-
 impl HTTPClient {
     #[inline]
-    #[cfg(any(feature = "curl"))]
-    pub fn builder() -> HTTPClientBuilder {
+    #[cfg(feature = "isahc")]
+    pub fn new() -> Result<Self, IsahcError> {
+        Ok(HTTPClientBuilder::new()?.build())
+    }
+
+    #[inline]
+    #[cfg(feature = "isahc")]
+    pub fn builder() -> Result<HTTPClientBuilder, IsahcError> {
         HTTPClientBuilder::new()
     }
 
     #[inline]
-    #[cfg(not(any(feature = "curl")))]
+    #[cfg(not(feature = "isahc"))]
     pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
         HTTPClientBuilder::new(http_caller).build()
     }
 
     #[inline]
-    #[cfg(not(any(feature = "curl")))]
+    #[cfg(not(feature = "isahc"))]
     pub fn builder(http_caller: Box<dyn HTTPCaller>) -> HTTPClientBuilder {
         HTTPClientBuilder::new(http_caller)
     }
@@ -150,43 +151,72 @@ pub struct HTTPClientBuilder {
     callbacks: CallbacksBuilder,
 }
 
-#[cfg(feature = "curl")]
-impl Default for HTTPClientBuilder {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl HTTPClientBuilder {
     #[inline]
-    #[cfg(feature = "curl")]
-    pub fn new() -> Self {
-        Self::_new(Box::new(qiniu_curl::CurlHTTPCaller::default()))
+    #[cfg(feature = "isahc")]
+    pub fn new() -> Result<Self, qiniu_isahc::isahc::error::Error> {
+        Ok(Self::_new(Box::new(qiniu_isahc::Client::default_client()?)))
     }
 
     #[inline]
-    #[cfg(not(any(feature = "curl")))]
+    #[cfg(not(any(feature = "isahc")))]
     pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
         Self::_new(http_caller)
     }
 
     #[inline]
     fn _new(http_caller: Box<dyn HTTPCaller>) -> Self {
-        type DefaultRetrier = LimitedRetrier<ErrorRetrier>;
-        type DefaultResolver = ShuffledResolver<CachedResolver<SimpleResolver>>;
-        type DefaultRetryDelayPolicy = RandomizedRetryDelayPolicy<ExponentialRetryDelayPolicy>;
-        type DefaultShuffledChooser = NeverChooseNoneChooser<ShuffledChooser<SubnetChooser>>;
-
-        HTTPClientBuilder {
+        return HTTPClientBuilder {
             http_caller,
             use_https: true,
             appended_user_agent: Default::default(),
-            request_retrier: Box::new(DefaultRetrier::default()),
-            retry_delay_policy: Box::new(DefaultRetryDelayPolicy::default()),
-            chooser: Box::new(DefaultShuffledChooser::default()),
-            resolver: Box::new(DefaultResolver::default()),
+            request_retrier: default_retrier(),
+            retry_delay_policy: default_retry_delay_policy(),
+            chooser: default_chooser(),
+            resolver: default_resolver(),
             callbacks: Default::default(),
+        };
+
+        #[inline]
+        fn default_resolver() -> Box<dyn Resolver> {
+            let chained_resolver = {
+                let base_resolver = Box::new(TimeoutResolver::<SimpleResolver>::default());
+
+                #[allow(unused_mut)]
+                let mut builder = ChainedResolver::builder(base_resolver);
+
+                #[cfg(feature = "c_ares")]
+                if let Ok(resolver) = super::CAresResolver::new() {
+                    builder = builder.prepend_resolver(Box::new(resolver));
+                }
+
+                #[cfg(all(feature = "trust_dns", feature = "async"))]
+                if let Ok(resolver) = async_std::task::block_on(async {
+                    super::TrustDnsResolver::from_system_conf().await
+                }) {
+                    builder = builder.prepend_resolver(Box::new(resolver));
+                }
+
+                builder.build()
+            };
+            let cached_resolver = CachedResolver::default_load_or_create_from(chained_resolver);
+            let shuffled_resolver = ShuffledResolver::new(cached_resolver);
+            Box::new(shuffled_resolver)
+        }
+
+        #[inline]
+        fn default_chooser() -> Box<dyn Chooser> {
+            Box::new(NeverChooseNoneChooser::<ShuffledChooser<SubnetChooser>>::default())
+        }
+
+        #[inline]
+        fn default_retrier() -> Box<dyn RequestRetrier> {
+            Box::new(LimitedRetrier::<ErrorRetrier>::default())
+        }
+
+        #[inline]
+        fn default_retry_delay_policy() -> Box<dyn RetryDelayPolicy> {
+            Box::new(RandomizedRetryDelayPolicy::<ExponentialRetryDelayPolicy>::default())
         }
     }
 

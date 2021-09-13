@@ -139,6 +139,11 @@ pub struct EndpointsBuilder {
 
 impl EndpointsBuilder {
     #[inline]
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    #[inline]
     pub fn add_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
         self.endpoints.push(endpoint.into());
         self

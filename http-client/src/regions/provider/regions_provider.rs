@@ -117,7 +117,7 @@ impl RegionProvider for RegionsProvider {
     }
 }
 
-#[cfg(all(test, feature = "curl", feature = "async"))]
+#[cfg(all(test, feature = "isahc", feature = "async"))]
 mod tests {
     use super::*;
     use futures::channel::oneshot::channel;

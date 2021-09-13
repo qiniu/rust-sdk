@@ -136,6 +136,11 @@ impl<R: Resolver> CachedResolver<R> {
     }
 
     #[inline]
+    pub fn default_load_or_create_from(backend: R) -> Self {
+        Self::load_or_create_from(Self::default_persistent_path(), true, backend)
+    }
+
+    #[inline]
     pub fn persistent(&self) -> PersistentResult<()> {
         self.save_cache_into_persistent_file()
     }
@@ -210,7 +215,7 @@ fn _save_cache_into_persistent_file(
 impl<R: Resolver + Default> Default for CachedResolver<R> {
     #[inline]
     fn default() -> Self {
-        Self::load_or_create_from(Self::default_persistent_path(), true, R::default())
+        Self::default_load_or_create_from(R::default())
     }
 }
 

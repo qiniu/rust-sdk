@@ -1,14 +1,15 @@
 use super::{
     super::{
         super::{IntoEndpoints, IpAddrWithPort, ServiceName},
-        Authorization, CallbackContext, Callbacks, HTTPClient, RequestInfo, ResolveAnswers,
-        ResponseError, ResponseInfo,
+        Authorization, CallbackContext, Callbacks, EarlyCallbackContext, HTTPClient, RequestInfo,
+        ResolveAnswers, ResponseError, ResponseInfo,
     },
     request_data::RequestData,
     Idempotent, QueryPairs,
 };
 use qiniu_http::{
-    HeaderMap, HeaderName, HeaderValue, Method, StatusCode, TransferProgressInfo, Version,
+    Extensions, HeaderMap, HeaderName, HeaderValue, Method, StatusCode, TransferProgressInfo,
+    Version,
 };
 use std::{fmt, time::Duration};
 
@@ -19,6 +20,7 @@ pub(in super::super) struct Request<'r> {
     callbacks: Callbacks,
     data: RequestData<'r>,
     appended_user_agent: Box<str>,
+    extensions: Extensions,
 }
 
 impl<'r> Request<'r> {
@@ -30,6 +32,7 @@ impl<'r> Request<'r> {
         callbacks: Callbacks,
         data: RequestData<'r>,
         appended_user_agent: Box<str>,
+        extensions: Extensions,
     ) -> Self {
         Self {
             http_client,
@@ -38,13 +41,19 @@ impl<'r> Request<'r> {
             callbacks,
             data,
             appended_user_agent,
+            extensions,
         }
     }
 
     #[inline]
     pub(in super::super) fn split(
         self,
-    ) -> (RequestWithoutEndpoints<'r>, IntoEndpoints<'r>, ServiceName) {
+    ) -> (
+        RequestWithoutEndpoints<'r>,
+        IntoEndpoints<'r>,
+        ServiceName,
+        Extensions,
+    ) {
         (
             RequestWithoutEndpoints {
                 http_client: self.http_client,
@@ -54,6 +63,7 @@ impl<'r> Request<'r> {
             },
             self.into_endpoints,
             self.service_name,
+            self.extensions,
         )
     }
 }
@@ -144,6 +154,16 @@ impl<'r> RequestWithoutEndpoints<'r> {
     }
 
     #[inline]
+    pub(in super::super) fn uploading_progress_callbacks_count(&self) -> usize {
+        self.callbacks.on_uploading_progress_callbacks().len()
+            + self
+                .http_client
+                .callbacks()
+                .on_uploading_progress_callbacks()
+                .len()
+    }
+
+    #[inline]
     pub(in super::super) fn call_receive_response_status_callbacks(
         &self,
         request: &RequestInfo,
@@ -155,6 +175,16 @@ impl<'r> RequestWithoutEndpoints<'r> {
                 .http_client
                 .callbacks()
                 .call_receive_response_status_callbacks(request, status_code)
+    }
+
+    #[inline]
+    pub(in super::super) fn receive_response_status_callbacks_count(&self) -> usize {
+        self.callbacks.on_receive_response_status_callbacks().len()
+            + self
+                .http_client
+                .callbacks()
+                .on_receive_response_status_callbacks()
+                .len()
     }
 
     #[inline]
@@ -173,12 +203,27 @@ impl<'r> RequestWithoutEndpoints<'r> {
     }
 
     #[inline]
-    pub(in super::super) fn call_to_resolve_domain_callbacks(&self, domain: &str) -> bool {
-        self.callbacks.call_to_resolve_domain_callbacks(domain)
+    pub(in super::super) fn receive_response_header_callbacks_count(&self) -> usize {
+        self.callbacks.on_receive_response_header_callbacks().len()
+            + self
+                .http_client
+                .callbacks()
+                .on_receive_response_header_callbacks()
+                .len()
+    }
+
+    #[inline]
+    pub(in super::super) fn call_to_resolve_domain_callbacks(
+        &self,
+        domain: &str,
+        context: &mut EarlyCallbackContext,
+    ) -> bool {
+        self.callbacks
+            .call_to_resolve_domain_callbacks(domain, context)
             && self
                 .http_client
                 .callbacks()
-                .call_to_resolve_domain_callbacks(domain)
+                .call_to_resolve_domain_callbacks(domain, context)
     }
 
     #[inline]
@@ -186,22 +231,27 @@ impl<'r> RequestWithoutEndpoints<'r> {
         &self,
         domain: &str,
         answers: &ResolveAnswers,
+        context: &mut EarlyCallbackContext,
     ) -> bool {
         self.callbacks
-            .call_domain_resolved_callbacks(domain, answers)
+            .call_domain_resolved_callbacks(domain, answers, context)
             && self
                 .http_client
                 .callbacks()
-                .call_domain_resolved_callbacks(domain, answers)
+                .call_domain_resolved_callbacks(domain, answers, context)
     }
 
     #[inline]
-    pub(in super::super) fn call_to_choose_ips_callbacks(&self, ips: &[IpAddrWithPort]) -> bool {
-        self.callbacks.call_to_choose_ips_callbacks(ips)
+    pub(in super::super) fn call_to_choose_ips_callbacks(
+        &self,
+        ips: &[IpAddrWithPort],
+        context: &mut EarlyCallbackContext,
+    ) -> bool {
+        self.callbacks.call_to_choose_ips_callbacks(ips, context)
             && self
                 .http_client
                 .callbacks()
-                .call_to_choose_ips_callbacks(ips)
+                .call_to_choose_ips_callbacks(ips, context)
     }
 
     #[inline]
@@ -209,12 +259,14 @@ impl<'r> RequestWithoutEndpoints<'r> {
         &self,
         ips: &[IpAddrWithPort],
         chosen: &[IpAddrWithPort],
+        context: &mut EarlyCallbackContext,
     ) -> bool {
-        self.callbacks.call_ips_chosen_callbacks(ips, chosen)
+        self.callbacks
+            .call_ips_chosen_callbacks(ips, chosen, context)
             && self
                 .http_client
                 .callbacks()
-                .call_ips_chosen_callbacks(ips, chosen)
+                .call_ips_chosen_callbacks(ips, chosen, context)
     }
 
     #[inline]
