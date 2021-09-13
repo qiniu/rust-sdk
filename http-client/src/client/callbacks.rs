@@ -1,188 +1,36 @@
+use crate::SimplifiedCallbackContext;
+
 use super::{
-    super::regions::IpAddrWithPort, RequestWithoutEndpoints, ResolveAnswers, ResponseError,
-    RetriedStatsInfo, SyncResponse,
+    super::regions::IpAddrWithPort,
+    callback::{CallbackContext, ExtendedCallbackContext},
+    ResolveAnswers, ResponseError, ResponseInfo,
 };
-use qiniu_http::{
-    Extensions, HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode,
-    TransferProgressInfo, Uri,
-};
-use std::{fmt, net::IpAddr, num::NonZeroU16, time::Duration};
+use qiniu_http::{HeaderName, HeaderValue, StatusCode, TransferProgressInfo};
+use std::{fmt, time::Duration};
 
-#[cfg(any(feature = "async"))]
-pub use super::AsyncResponse;
-
-#[derive(Clone, Debug)]
-pub struct RequestInfo {
-    method: Method,
-    url: Uri,
-    headers: HeaderMap,
-    body: Box<[u8]>,
-}
-
-impl RequestInfo {
-    pub(super) fn new(request: &Request) -> Self {
-        Self {
-            method: request.method().to_owned(),
-            url: request.url().to_owned(),
-            headers: request.headers().to_owned(),
-            body: request.body().to_owned().into_boxed_slice(),
-        }
-    }
-
-    #[inline]
-    pub fn method(&self) -> &Method {
-        &self.method
-    }
-
-    #[inline]
-    pub fn url(&self) -> &Uri {
-        &self.url
-    }
-
-    #[inline]
-    pub fn headers(&self) -> &HeaderMap {
-        &self.headers
-    }
-
-    #[inline]
-    pub fn body(&self) -> &[u8] {
-        &self.body
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ResponseInfo<'r> {
-    status_code: StatusCode,
-    headers: &'r HeaderMap,
-    server_ip: Option<IpAddr>,
-    server_port: Option<NonZeroU16>,
-}
-
-impl<'r> ResponseInfo<'r> {
-    pub(super) fn new_from_sync(response: &'r SyncResponse) -> Self {
-        Self {
-            status_code: response.status_code(),
-            headers: &response.headers(),
-            server_ip: response.server_ip(),
-            server_port: response.server_port(),
-        }
-    }
-
-    #[cfg(any(feature = "async"))]
-    pub(super) fn new_from_async(response: &'r AsyncResponse) -> Self {
-        Self {
-            status_code: response.status_code(),
-            headers: &response.headers(),
-            server_ip: response.server_ip(),
-            server_port: response.server_port(),
-        }
-    }
-
-    #[inline]
-    pub fn status_code(&self) -> StatusCode {
-        self.status_code
-    }
-
-    #[inline]
-    pub fn headers(&self) -> &'r HeaderMap {
-        self.headers
-    }
-
-    #[inline]
-    pub fn server_ip(&self) -> Option<IpAddr> {
-        self.server_ip
-    }
-
-    #[inline]
-    pub fn server_port(&self) -> Option<NonZeroU16> {
-        self.server_port
-    }
-}
-
-#[derive(Debug)]
-pub struct EarlyCallbackContext<'reqref, 'req, 'ext> {
-    request: &'reqref RequestWithoutEndpoints<'req>,
-    extensions: &'ext mut Extensions,
-}
-
-impl<'reqref, 'req, 'ext> EarlyCallbackContext<'reqref, 'req, 'ext> {
-    pub(super) fn new(
-        request: &'reqref RequestWithoutEndpoints<'req>,
-        extensions: &'ext mut Extensions,
-    ) -> Self {
-        Self {
-            request,
-            extensions,
-        }
-    }
-
-    #[inline]
-    pub fn extensions(&self) -> &Extensions {
-        self.extensions
-    }
-
-    #[inline]
-    pub fn extensions_mut(&mut self) -> &mut Extensions {
-        self.extensions
-    }
-}
-
-#[derive(Debug)]
-pub struct CallbackContext<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> {
-    request: &'reqref RequestWithoutEndpoints<'req>,
-    http_request: &'httpreqref mut Request<'httpreq>,
-    retried: &'retried RetriedStatsInfo,
-}
-
-impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
-    CallbackContext<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
-{
-    pub(super) fn new(
-        request: &'reqref RequestWithoutEndpoints<'req>,
-        http_request: &'httpreqref mut Request<'httpreq>,
-        retried: &'retried RetriedStatsInfo,
-    ) -> Self {
-        Self {
-            request,
-            http_request,
-            retried,
-        }
-    }
-
-    #[inline]
-    pub fn request(&self) -> &Request<'httpreq> {
-        self.http_request
-    }
-
-    #[inline]
-    pub fn request_mut(&mut self) -> &mut Request<'httpreq> {
-        self.http_request
-    }
-
-    #[inline]
-    pub fn retried(&self) -> &RetriedStatsInfo {
-        self.retried
-    }
-}
-
-pub(super) type OnProgress = Box<dyn Fn(&RequestInfo, &TransferProgressInfo) -> bool + Send + Sync>;
-pub(super) type OnStatusCode = Box<dyn Fn(&RequestInfo, StatusCode) -> bool + Send + Sync>;
+pub(super) type OnProgress =
+    Box<dyn Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool + Send + Sync>;
+pub(super) type OnStatusCode =
+    Box<dyn Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync>;
 pub(super) type OnHeader =
-    Box<dyn Fn(&RequestInfo, &HeaderName, &HeaderValue) -> bool + Send + Sync>;
+    Box<dyn Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool + Send + Sync>;
 
 pub(super) type OnToResolveDomain =
-    Box<dyn Fn(&str, &mut EarlyCallbackContext) -> bool + Send + Sync>;
+    Box<dyn Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync>;
 pub(super) type OnDomainResolved =
-    Box<dyn Fn(&str, &ResolveAnswers, &mut EarlyCallbackContext) -> bool + Send + Sync>;
+    Box<dyn Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool + Send + Sync>;
 pub(super) type OnToChooseIPs =
-    Box<dyn Fn(&[IpAddrWithPort], &mut EarlyCallbackContext) -> bool + Send + Sync>;
+    Box<dyn Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync>;
 pub(super) type OnIPsChosen = Box<
-    dyn Fn(&[IpAddrWithPort], &[IpAddrWithPort], &mut EarlyCallbackContext) -> bool + Send + Sync,
+    dyn Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool + Send + Sync,
 >;
-pub(super) type OnRequest = Box<dyn Fn(&mut CallbackContext) -> bool + Send + Sync>;
-pub(super) type OnRetry = Box<dyn Fn(&mut CallbackContext, Duration) -> bool + Send + Sync>;
-pub(super) type OnSuccess = Box<dyn Fn(&mut CallbackContext, &ResponseInfo) -> bool + Send + Sync>;
-pub(super) type OnError = Box<dyn Fn(&mut CallbackContext, &ResponseError) -> bool + Send + Sync>;
+pub(super) type OnRequest = Box<dyn Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync>;
+pub(super) type OnRetry =
+    Box<dyn Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync>;
+pub(super) type OnSuccess =
+    Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseInfo) -> bool + Send + Sync>;
+pub(super) type OnError =
+    Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync>;
 
 #[derive(Default)]
 pub struct Callbacks {
@@ -222,94 +70,94 @@ impl Callbacks {
     #[inline]
     pub(super) fn call_uploading_progress_callbacks(
         &self,
-        request: &RequestInfo,
+        context: &dyn SimplifiedCallbackContext,
         progress_info: &TransferProgressInfo,
     ) -> bool {
         !self
             .on_uploading_progress_callbacks()
             .iter()
-            .any(|callback| !callback(request, progress_info))
+            .any(|callback| !callback(context, progress_info))
     }
 
     #[inline]
     pub(super) fn call_receive_response_status_callbacks(
         &self,
-        request: &RequestInfo,
+        context: &dyn SimplifiedCallbackContext,
         status_code: StatusCode,
     ) -> bool {
         !self
             .on_receive_response_status_callbacks()
             .iter()
-            .any(|callback| !callback(request, status_code))
+            .any(|callback| !callback(context, status_code))
     }
 
     #[inline]
     pub(super) fn call_receive_response_header_callbacks(
         &self,
-        request: &RequestInfo,
+        context: &dyn SimplifiedCallbackContext,
         header_name: &HeaderName,
         header_value: &HeaderValue,
     ) -> bool {
         !self
             .on_receive_response_header_callbacks()
             .iter()
-            .any(|callback| !callback(request, header_name, header_value))
+            .any(|callback| !callback(context, header_name, header_value))
     }
 
     #[inline]
     pub(super) fn call_to_resolve_domain_callbacks(
         &self,
+        context: &mut dyn CallbackContext,
         domain: &str,
-        context: &mut EarlyCallbackContext,
     ) -> bool {
         !self
             .on_to_resolve_domain_callbacks()
             .iter()
-            .any(|callback| !callback(domain, context))
+            .any(|callback| !callback(context, domain))
     }
 
     #[inline]
     pub(super) fn call_domain_resolved_callbacks(
         &self,
+        context: &mut dyn CallbackContext,
         domain: &str,
         answers: &ResolveAnswers,
-        context: &mut EarlyCallbackContext,
     ) -> bool {
         !self
             .on_domain_resolved_callbacks()
             .iter()
-            .any(|callback| !callback(domain, answers, context))
+            .any(|callback| !callback(context, domain, answers))
     }
 
     #[inline]
     pub(super) fn call_to_choose_ips_callbacks(
         &self,
+        context: &mut dyn CallbackContext,
         ips: &[IpAddrWithPort],
-        context: &mut EarlyCallbackContext,
     ) -> bool {
         !self
             .on_to_choose_ips_callbacks()
             .iter()
-            .any(|callback| !callback(ips, context))
+            .any(|callback| !callback(context, ips))
     }
 
     #[inline]
     pub(super) fn call_ips_chosen_callbacks(
         &self,
+        context: &mut dyn CallbackContext,
         ips: &[IpAddrWithPort],
         chosen: &[IpAddrWithPort],
-        context: &mut EarlyCallbackContext,
     ) -> bool {
         !self
             .on_ips_chosen_callbacks()
             .iter()
-            .any(|callback| !callback(ips, chosen, context))
+            .any(|callback| !callback(context, ips, chosen))
     }
 
     #[inline]
     pub(super) fn call_before_request_signed_callbacks(
         &self,
-        context: &mut CallbackContext,
+        context: &mut dyn ExtendedCallbackContext,
     ) -> bool {
         !self
             .on_before_request_signed_callbacks()
@@ -320,7 +168,7 @@ impl Callbacks {
     #[inline]
     pub(super) fn call_after_request_signed_callbacks(
         &self,
-        context: &mut CallbackContext,
+        context: &mut dyn ExtendedCallbackContext,
     ) -> bool {
         !self
             .on_after_request_signed_callbacks()
@@ -331,7 +179,7 @@ impl Callbacks {
     #[inline]
     pub(super) fn call_success_callbacks(
         &self,
-        context: &mut CallbackContext,
+        context: &mut dyn ExtendedCallbackContext,
         response: &ResponseInfo,
     ) -> bool {
         !self
@@ -343,7 +191,7 @@ impl Callbacks {
     #[inline]
     pub(super) fn call_error_callbacks(
         &self,
-        context: &mut CallbackContext,
+        context: &mut dyn ExtendedCallbackContext,
         error: &ResponseError,
     ) -> bool {
         !self
@@ -355,7 +203,7 @@ impl Callbacks {
     #[inline]
     pub(super) fn call_before_retry_delay_callbacks(
         &self,
-        context: &mut CallbackContext,
+        context: &mut dyn ExtendedCallbackContext,
         delay: Duration,
     ) -> bool {
         !self
@@ -367,7 +215,7 @@ impl Callbacks {
     #[inline]
     pub(super) fn call_after_retry_delay_callbacks(
         &self,
-        context: &mut CallbackContext,
+        context: &mut dyn ExtendedCallbackContext,
         delay: Duration,
     ) -> bool {
         !self

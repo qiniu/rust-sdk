@@ -5,9 +5,9 @@ mod utils;
 
 use super::{
     super::{DomainWithPort, Endpoint, IpAddrWithPort},
-    APIResult, Authorization, AuthorizationError, ChooserFeedback, Request, RequestInfo,
+    APIResult, Authorization, AuthorizationError, ChooserFeedback, Request,
     RequestWithoutEndpoints, ResponseError, ResponseErrorKind, ResponseInfo, RetriedStatsInfo,
-    RetryResult, SyncResponse,
+    RetryResult, SimplifiedCallbackContext, SyncResponse,
 };
 pub use domain_or_ip_addr::DomainOrIpAddr;
 use error::{ErrorResponseBody, TryError, TryErrorWithExtensions};
@@ -30,29 +30,6 @@ use utils::{
 use {super::AsyncResponse, async_std::task::block_on, futures_timer::Delay as AsyncDelay};
 
 const X_REQ_ID_HEADER_NAME: &str = "x-reqid";
-
-macro_rules! install_callbacks {
-    ($request:expr, $request_info:expr, $built_request:ident) => {
-        let on_uploading_progress = |info: &TransferProgressInfo| -> bool {
-            $request.call_uploading_progress_callbacks(&$request_info, info)
-        };
-        if $request.uploading_progress_callbacks_count() > 0 {
-            *$built_request.on_uploading_progress_mut() = Some(&on_uploading_progress);
-        }
-        let on_receive_response_status = |status_code: StatusCode| -> bool {
-            $request.call_receive_response_status_callbacks(&$request_info, status_code)
-        };
-        if $request.receive_response_status_callbacks_count() > 0 {
-            *$built_request.on_receive_response_status_mut() = Some(&on_receive_response_status);
-        }
-        let on_receive_response_header = |name: &HeaderName, value: &HeaderValue| -> bool {
-            $request.call_receive_response_header_callbacks(&$request_info, name, value)
-        };
-        if $request.receive_response_header_callbacks_count() > 0 {
-            *$built_request.on_receive_response_header_mut() = Some(&on_receive_response_header);
-        }
-    };
-}
 
 macro_rules! create_request_call_fn {
     ($method_name:ident, $return_type:ident, $into_endpoints_method:ident, $sign_method:ident, $call_method:ident, $resolve_method:ident, $choose_method:ident, $feedback_method:ident, $sleep_method:path, $new_response_info:path, $block:ident, $blocking_block:ident $(, $async:ident)?) => {
@@ -206,10 +183,28 @@ macro_rules! create_request_call_fn {
                     .map_err(|err| err.with_request(&mut built_request))?;
                 $block!({ sign_request(&mut built_request, request.authorization()) })
                     .map_err(|err| err.with_request(&mut built_request))?;
-                let request_info = RequestInfo::new(&built_request);
-                install_callbacks!(request, request_info, built_request);
                 call_after_request_signed_callbacks(request, &mut built_request, retried)
                     .map_err(|err| err.with_request(&mut built_request))?;
+
+                let on_uploading_progress = |info: &TransferProgressInfo| -> bool {
+                    request.call_uploading_progress_callbacks(request, info)
+                };
+                if request.uploading_progress_callbacks_count() > 0 {
+                    *built_request.on_uploading_progress_mut() = Some(&on_uploading_progress);
+                }
+                let on_receive_response_status = |status_code: StatusCode| -> bool {
+                    request.call_receive_response_status_callbacks(request, status_code)
+                };
+                if request.receive_response_status_callbacks_count() > 0 {
+                    *built_request.on_receive_response_status_mut() = Some(&on_receive_response_status);
+                }
+                let on_receive_response_header = |name: &HeaderName, value: &HeaderValue| -> bool {
+                    request.call_receive_response_header_callbacks(request, name, value)
+                };
+                if request.receive_response_header_callbacks_count() > 0 {
+                    *built_request.on_receive_response_header_mut() = Some(&on_receive_response_header);
+                }
+
                 let extracted_ips = extract_ips_from(&domain_or_ip);
                 match $block!({ do_request(request, &mut built_request, retried) }) {
                     Ok(response) => {

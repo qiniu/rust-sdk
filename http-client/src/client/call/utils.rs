@@ -1,10 +1,8 @@
-use crate::EarlyCallbackContext;
-
 use super::{
     super::{
         super::{DomainWithPort, Endpoint, IpAddrWithPort},
-        CallbackContext, RequestWithoutEndpoints, ResolveAnswers, ResponseError, ResponseInfo,
-        RetriedStatsInfo, RetryResult,
+        CallbackContextImpl, ExtendedCallbackContextImpl, RequestWithoutEndpoints, ResolveAnswers,
+        ResponseError, ResponseInfo, RetriedStatsInfo, RetryResult, SimplifiedCallbackContext,
     },
     domain_or_ip_addr::DomainOrIpAddr,
     error::TryError,
@@ -132,7 +130,7 @@ pub(super) fn call_before_retry_delay_callbacks(
     delay: Duration,
 ) -> Result<(), TryError> {
     if !request.call_before_retry_delay_callbacks(
-        &mut CallbackContext::new(request, built_request, retried),
+        &mut ExtendedCallbackContextImpl::new(request, built_request, retried),
         delay,
     ) {
         return Err(TryError::new(
@@ -154,7 +152,7 @@ pub(super) fn call_after_retry_delay_callbacks(
     delay: Duration,
 ) -> Result<(), TryError> {
     if !request.call_after_retry_delay_callbacks(
-        &mut CallbackContext::new(request, built_request, retried),
+        &mut ExtendedCallbackContextImpl::new(request, built_request, retried),
         delay,
     ) {
         return Err(TryError::new(
@@ -174,8 +172,8 @@ pub(super) fn call_to_resolve_domain_callbacks(
     domain: &str,
     extensions: &mut Extensions,
 ) -> Result<(), TryError> {
-    let mut context = EarlyCallbackContext::new(request, extensions);
-    if !request.call_to_resolve_domain_callbacks(domain, &mut context) {
+    let mut context = CallbackContextImpl::new(request, extensions);
+    if !request.call_to_resolve_domain_callbacks(&mut context, domain) {
         return Err(TryError::new(
             ResponseError::new(
                 HTTPResponseErrorKind::UserCanceled.into(),
@@ -194,8 +192,8 @@ pub(super) fn call_domain_resolved_callbacks(
     answers: &ResolveAnswers,
     extensions: &mut Extensions,
 ) -> Result<(), TryError> {
-    let mut context = EarlyCallbackContext::new(request, extensions);
-    if !request.call_domain_resolved_callbacks(domain, answers, &mut context) {
+    let mut context = CallbackContextImpl::new(request, extensions);
+    if !request.call_domain_resolved_callbacks(&mut context, domain, answers) {
         return Err(TryError::new(
             ResponseError::new(
                 HTTPResponseErrorKind::UserCanceled.into(),
@@ -213,8 +211,8 @@ pub(super) fn call_to_choose_ips_callbacks(
     ips: &[IpAddrWithPort],
     extensions: &mut Extensions,
 ) -> Result<(), TryError> {
-    let mut context = EarlyCallbackContext::new(request, extensions);
-    if !request.call_to_choose_ips_callbacks(ips, &mut context) {
+    let mut context = CallbackContextImpl::new(request, extensions);
+    if !request.call_to_choose_ips_callbacks(&mut context, ips) {
         return Err(TryError::new(
             ResponseError::new(
                 HTTPResponseErrorKind::UserCanceled.into(),
@@ -233,8 +231,8 @@ pub(super) fn call_ips_chosen_callbacks(
     chosen: &[IpAddrWithPort],
     extensions: &mut Extensions,
 ) -> Result<(), TryError> {
-    let mut context = EarlyCallbackContext::new(request, extensions);
-    if !request.call_ips_chosen_callbacks(ips, chosen, &mut context) {
+    let mut context = CallbackContextImpl::new(request, extensions);
+    if !request.call_ips_chosen_callbacks(&mut context, ips, chosen) {
         return Err(TryError::new(
             ResponseError::new(
                 HTTPResponseErrorKind::UserCanceled.into(),
@@ -252,7 +250,7 @@ pub(super) fn call_before_request_signed_callbacks(
     built_request: &mut HTTPRequest,
     retried: &mut RetriedStatsInfo,
 ) -> Result<(), TryError> {
-    let mut context = CallbackContext::new(request, built_request, retried);
+    let mut context = ExtendedCallbackContextImpl::new(request, built_request, retried);
     if !request.call_before_request_signed_callbacks(&mut context) {
         return Err(TryError::new(
             ResponseError::new(
@@ -271,7 +269,7 @@ pub(super) fn call_after_request_signed_callbacks(
     built_request: &mut HTTPRequest,
     retried: &mut RetriedStatsInfo,
 ) -> Result<(), TryError> {
-    let mut context = CallbackContext::new(request, built_request, retried);
+    let mut context = ExtendedCallbackContextImpl::new(request, built_request, retried);
     if !request.call_after_request_signed_callbacks(&mut context) {
         return Err(TryError::new(
             ResponseError::new(
@@ -291,7 +289,7 @@ pub(super) fn call_success_callbacks(
     retried: &RetriedStatsInfo,
     response: &ResponseInfo,
 ) -> Result<(), TryError> {
-    let mut context = CallbackContext::new(request, built_request, retried);
+    let mut context = ExtendedCallbackContextImpl::new(request, built_request, retried);
     if !request.call_success_callbacks(&mut context, response) {
         return Err(TryError::new(
             ResponseError::new(
@@ -311,7 +309,7 @@ pub(super) fn call_error_callbacks(
     retried: &RetriedStatsInfo,
     response_error: &ResponseError,
 ) -> Result<(), TryError> {
-    let mut context = CallbackContext::new(request, built_request, retried);
+    let mut context = ExtendedCallbackContextImpl::new(request, built_request, retried);
     if !request.call_error_callbacks(&mut context, response_error) {
         return Err(TryError::new(
             ResponseError::new(

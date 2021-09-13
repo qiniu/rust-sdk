@@ -1,5 +1,6 @@
 mod authorization;
 mod call;
+mod callback;
 mod callbacks;
 mod chooser;
 mod http_client;
@@ -13,9 +14,10 @@ mod spawn;
 
 pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
 pub use call::DomainOrIpAddr;
-pub use callbacks::{
-    CallbackContext, Callbacks, CallbacksBuilder, EarlyCallbackContext, RequestInfo, ResponseInfo,
+pub use callback::{
+    CallbackContext, ExtendedCallbackContext, ResponseInfo, SimplifiedCallbackContext,
 };
+pub use callbacks::{Callbacks, CallbacksBuilder};
 pub use chooser::{
     Chooser, ChooserFeedback, IpChooser, IpChooserBuilder, NeverChooseNoneChooser, ShuffledChooser,
     SubnetChooser, SubnetChooserBuilder,
@@ -48,4 +50,5 @@ use call::request_call;
 #[cfg(any(feature = "async"))]
 use call::async_request_call;
 
+use callback::{CallbackContextImpl, ExtendedCallbackContextImpl};
 use request::{Request, RequestWithoutEndpoints};
