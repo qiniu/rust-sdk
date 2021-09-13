@@ -35,24 +35,22 @@ struct HTTPClientInner {
 impl HTTPClient {
     #[inline]
     #[cfg(feature = "isahc")]
-    pub fn new() -> Result<Self, IsahcError> {
-        Ok(HTTPClientBuilder::new()?.build())
+    pub fn isahc() -> Result<Self, IsahcError> {
+        Ok(HTTPClientBuilder::isahc()?.build())
     }
 
     #[inline]
     #[cfg(feature = "isahc")]
-    pub fn builder() -> Result<HTTPClientBuilder, IsahcError> {
-        HTTPClientBuilder::new()
+    pub fn build_isahc() -> Result<HTTPClientBuilder, IsahcError> {
+        HTTPClientBuilder::isahc()
     }
 
     #[inline]
-    #[cfg(not(feature = "isahc"))]
     pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
         HTTPClientBuilder::new(http_caller).build()
     }
 
     #[inline]
-    #[cfg(not(feature = "isahc"))]
     pub fn builder(http_caller: Box<dyn HTTPCaller>) -> HTTPClientBuilder {
         HTTPClientBuilder::new(http_caller)
     }
@@ -154,12 +152,11 @@ pub struct HTTPClientBuilder {
 impl HTTPClientBuilder {
     #[inline]
     #[cfg(feature = "isahc")]
-    pub fn new() -> Result<Self, qiniu_isahc::isahc::error::Error> {
+    pub fn isahc() -> Result<Self, IsahcError> {
         Ok(Self::_new(Box::new(qiniu_isahc::Client::default_client()?)))
     }
 
     #[inline]
-    #[cfg(not(any(feature = "isahc")))]
     pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
         Self::_new(http_caller)
     }

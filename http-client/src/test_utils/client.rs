@@ -41,13 +41,7 @@ pub(crate) fn make_dumb_client_builder() -> HTTPClientBuilder {
         }
     }
 
-    let http_caller = Box::new(FakeHTTPCaller);
-
-    #[cfg(any(feature = "isahc"))]
-    return HTTPClient::builder().http_caller(http_caller);
-
-    #[cfg(not(any(feature = "isahc")))]
-    return HTTPClient::builder(http_caller);
+    HTTPClient::builder(Box::new(FakeHTTPCaller))
 }
 
 pub(crate) fn make_fixed_response_client_builder(
@@ -103,11 +97,7 @@ pub(crate) fn make_fixed_response_client_builder(
         body,
     });
 
-    #[cfg(any(feature = "isahc"))]
-    return HTTPClient::builder().http_caller(http_caller);
-
-    #[cfg(not(any(feature = "isahc")))]
-    return HTTPClient::builder(http_caller);
+    HTTPClient::builder(http_caller)
 }
 
 pub(crate) fn make_error_response_client_builder(
@@ -152,9 +142,5 @@ pub(crate) fn make_error_response_client_builder(
         message: message.into(),
     });
 
-    #[cfg(any(feature = "isahc"))]
-    return HTTPClient::builder().http_caller(http_caller);
-
-    #[cfg(not(any(feature = "isahc")))]
-    return HTTPClient::builder(http_caller);
+    HTTPClient::builder(http_caller)
 }

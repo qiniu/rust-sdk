@@ -47,8 +47,9 @@ pub use client::{
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
     CachedRegionsProvider, DomainWithPort, DomainWithPortParseError, Endpoint, EndpointParseError,
-    EndpointsBuilder, IntoEndpoints, InvalidServiceName, IpAddrWithPort, IpAddrWithPortParseError,
-    Region, RegionBuilder, RegionProvider, RegionsProvider, ServiceName, StaticRegionProvider,
+    Endpoints, EndpointsBuilder, IntoEndpoints, InvalidServiceName, IpAddrWithPort,
+    IpAddrWithPortParseError, Region, RegionBuilder, RegionProvider, RegionsProvider, ServiceName,
+    StaticRegionProvider,
 };
 
 #[cfg(any(feature = "c_ares"))]

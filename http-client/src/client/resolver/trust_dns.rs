@@ -10,7 +10,10 @@ use trust_dns_resolver::{
     error::ResolveError,
 };
 
-#[cfg_attr(feature = "docs", doc(all(cfg(trust_dns), cfg(r#async))))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(all(feature = "trust_dns", feature = "async")))
+)]
 pub struct TrustDnsResolver {
     #[cfg(feature = "async")]
     resolver: AsyncResolver,

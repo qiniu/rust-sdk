@@ -41,13 +41,26 @@ impl fmt::Display for InvalidServiceName {
 
 impl Error for InvalidServiceName {}
 
-#[derive(Default, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Endpoints {
     endpoints: Box<[Endpoint]>,
     old_endpoints: Box<[Endpoint]>,
 }
 
 impl Endpoints {
+    #[inline]
+    pub fn builder(endpoint: impl Into<Endpoint>) -> EndpointsBuilder {
+        EndpointsBuilder {
+            endpoints: vec![endpoint.into()],
+            old_endpoints: vec![],
+        }
+    }
+
+    #[inline]
+    pub fn new(endpoint: impl Into<Endpoint>) -> Self {
+        Self::builder(endpoint).build()
+    }
+
     #[inline]
     pub fn endpoints(&self) -> &[Endpoint] {
         &self.endpoints
@@ -131,18 +144,13 @@ impl From<(Vec<Endpoint>, Vec<Endpoint>)> for Endpoints {
     }
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct EndpointsBuilder {
     endpoints: Vec<Endpoint>,
     old_endpoints: Vec<Endpoint>,
 }
 
 impl EndpointsBuilder {
-    #[inline]
-    pub fn new() -> Self {
-        Default::default()
-    }
-
     #[inline]
     pub fn add_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
         self.endpoints.push(endpoint.into());
