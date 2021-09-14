@@ -18,20 +18,20 @@ pub(super) struct RequestData<'r> {
 impl fmt::Debug for RequestData<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         macro_rules! field {
-            ($ctx:ident,$method:ident) => {
-                $ctx.field("$method", &self.$method)
+            ($ctx:ident, $method_name:expr, $method:ident) => {
+                $ctx.field($method_name, &self.$method)
             };
         }
         let s = &mut f.debug_struct("RequestData");
-        field!(s, use_https);
-        field!(s, method);
-        field!(s, version);
-        field!(s, path);
-        field!(s, query_pairs);
-        field!(s, headers);
-        field!(s, body);
-        field!(s, authorization);
-        field!(s, idempotent);
+        field!(s, "use_https", use_https);
+        field!(s, "method", method);
+        field!(s, "version", version);
+        field!(s, "path", path);
+        field!(s, "query_pairs", query_pairs);
+        field!(s, "headers", headers);
+        field!(s, "body", body);
+        field!(s, "authorization", authorization);
+        field!(s, "idempotent", idempotent);
         s.finish()
     }
 }

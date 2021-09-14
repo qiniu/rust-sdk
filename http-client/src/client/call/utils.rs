@@ -90,7 +90,6 @@ pub(super) fn make_url(
                         IpAddr::V6(ip) => "[".to_owned() + &ip.to_string() + "]",
                     }
                 };
-                log::info!("authority: {:?}", authority);
                 authority.parse()?
             }
         };

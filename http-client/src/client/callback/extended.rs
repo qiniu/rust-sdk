@@ -3,7 +3,9 @@ use super::{
     context::CallbackContext,
     simplified::SimplifiedCallbackContext,
 };
-use qiniu_http::{Extensions, HeaderMap, Method, Request as HTTPRequest, Uri, Version};
+use qiniu_http::{
+    uri::Scheme, Extensions, HeaderMap, Method, Request as HTTPRequest, Uri, Version,
+};
 use std::{borrow::Cow, net::IpAddr};
 
 pub trait ExtendedCallbackContext: CallbackContext {
@@ -52,22 +54,22 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> SimplifiedCallbackContext
 {
     #[inline]
     fn use_https(&self) -> bool {
-        self.request.use_https()
+        self.http_request.url().scheme() == Some(&Scheme::HTTPS)
     }
 
     #[inline]
     fn method(&self) -> &Method {
-        self.request.method()
+        self.http_request.method()
     }
 
     #[inline]
     fn version(&self) -> Version {
-        self.request.version()
+        self.http_request.version()
     }
 
     #[inline]
     fn path(&self) -> &str {
-        self.request.path()
+        self.http_request.url().path()
     }
 
     #[inline]
@@ -82,17 +84,17 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> SimplifiedCallbackContext
 
     #[inline]
     fn headers(&self) -> &HeaderMap {
-        self.request.headers()
+        self.http_request.headers()
     }
 
     #[inline]
     fn body(&self) -> &[u8] {
-        self.request.body()
+        self.http_request.body()
     }
 
     #[inline]
     fn appended_user_agent(&self) -> &str {
-        self.request.appended_user_agent()
+        self.http_request.appended_user_agent()
     }
 
     #[inline]

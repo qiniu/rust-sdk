@@ -4,6 +4,7 @@ use std::collections::HashSet;
 #[derive(Default)]
 pub(super) struct IpAddrsSet {
     set: HashSet<IpAddrWithPort>,
+    ordered: Vec<IpAddrWithPort>,
 }
 
 impl IpAddrsSet {
@@ -11,6 +12,7 @@ impl IpAddrsSet {
     pub(super) fn new(ips: &[IpAddrWithPort]) -> Self {
         Self {
             set: ips.iter().cloned().collect(),
+            ordered: ips.iter().cloned().collect(),
         }
     }
 
@@ -25,6 +27,7 @@ impl IpAddrsSet {
     pub(super) fn union_slice(&mut self, ips: &[IpAddrWithPort]) {
         for &ip in ips.iter() {
             self.set.insert(ip);
+            self.ordered.push(ip);
         }
     }
 
@@ -40,11 +43,16 @@ impl IpAddrsSet {
     pub(super) fn union_set(&mut self, ips: &Self) {
         for &ip in ips.set.iter() {
             self.set.insert(ip);
+            self.ordered.push(ip);
         }
     }
 
     #[inline]
     pub(super) fn remains(&self) -> Vec<IpAddrWithPort> {
-        self.set.iter().cloned().collect()
+        self.ordered
+            .iter()
+            .cloned()
+            .filter(|ip| self.set.contains(ip))
+            .collect()
     }
 }

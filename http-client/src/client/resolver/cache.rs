@@ -692,7 +692,7 @@ mod tests {
             vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))],
         );
         let resolver = CachedResolver::builder(backend)
-            .lifetime(Duration::from_secs(1))
+            .lifetime(Duration::from_millis(500))
             .build();
 
         for _ in 0..5 {
@@ -705,18 +705,13 @@ mod tests {
 
         sleep(Duration::from_secs(1));
 
-        let result = resolver.resolve("test_domain_1.com").unwrap();
-        assert_eq!(
-            result.ip_addrs(),
-            &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))]
-        );
-
         for _ in 0..5 {
             let result = resolver.resolve("test_domain_1.com").unwrap();
             assert_eq!(
                 result.ip_addrs(),
                 &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))]
             );
+            sleep(Duration::from_millis(50));
         }
 
         assert_eq!(

@@ -123,9 +123,15 @@ macro_rules! create_request_call_fn {
                             ips
                         };
                         loop {
-                            let chosen_ips = $block!({ choose(request, &remaining_ips.remains(), &mut extensions) })
-                                .map_err(|err| err.with_extensions(take(&mut extensions)))?;
+                            let chosen_ips = match remaining_ips.remains() {
+                                ips if !ips.is_empty() => {
+                                    $block!({ choose(request, &ips, &mut extensions) })
+                                        .map_err(|err| err.with_extensions(take(&mut extensions)))?
+                                },
+                                _ => vec![],
+                            };
                             if chosen_ips.is_empty() {
+                                retried.increase_abandoned_endpoints();
                                 break;
                             } else {
                                 remaining_ips.difference_slice(&chosen_ips);
@@ -149,9 +155,15 @@ macro_rules! create_request_call_fn {
                         ips
                     };
                     loop {
-                        let chosen_ips = $block!({ choose(request, &remaining_ips.remains(), &mut extensions) })
-                            .map_err(|err| err.with_extensions(take(&mut extensions)))?;
+                        let chosen_ips = match remaining_ips.remains() {
+                            ips if !ips.is_empty() => {
+                                $block!({ choose(request, &remaining_ips.remains(), &mut extensions) })
+                                    .map_err(|err| err.with_extensions(take(&mut extensions)))?
+                            },
+                            _ => vec![],
+                        };
                         if chosen_ips.is_empty() {
+                            retried.increase_abandoned_endpoints();
                             break;
                         } else {
                             remaining_ips.difference_slice(&chosen_ips);
@@ -458,15 +470,15 @@ create_request_call_fn!(
     async
 );
 
-#[cfg(all(test, foo))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
+        client::chooser::DirectChooser,
         credential::{CredentialProvider, StaticCredentialProvider},
         test_utils::{
-            chaotic_up_domains_region, make_dumb_resolver, make_error_resolver,
-            make_error_response_client_builder, make_fixed_response_client_builder,
-            single_up_domain_region,
+            chaotic_up_domains_region, make_dumb_resolver, make_error_response_client_builder,
+            make_fixed_response_client_builder, make_random_resolver, single_up_domain_region,
         },
         Authorization, Chooser, ErrorRetrier, IpChooser, LimitedRetrier, ServiceName,
         NO_DELAY_POLICY,
@@ -485,29 +497,33 @@ mod tests {
 
     #[test]
     fn test_call_endpoints_selection() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
         let client = make_error_response_client_builder(
             HTTPResponseErrorKind::ConnectError,
             "Fake Connect Error",
         )
-        .chooser(Box::new(SimpleChooser::new(
-            make_dumb_resolver(),
-            Duration::from_secs(10),
-        )))
+        .chooser(Box::new(DirectChooser))
+        .resolver(Box::new(make_random_resolver()))
         .request_retrier(Box::new(ErrorRetrier))
         .retry_delay_policy(Box::new(NO_DELAY_POLICY))
         .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
-
+        let domain_resolved = Arc::new(Mutex::new(Vec::new()));
         let err = client
             .post(ServiceName::Up, &chaotic_up_domains_region())
+            .on_to_resolve_domain(Box::new({
+                let domain_resolved = domain_resolved.to_owned();
+                move |_, domain| {
+                    domain_resolved.lock().unwrap().push(domain.to_owned());
+                    true
+                }
+            }))
             .on_after_request_signed(Box::new({
                 let urls_visited = urls_visited.to_owned();
                 move |context| {
-                    urls_visited
-                        .lock()
-                        .unwrap()
-                        .push(context.request().url().to_owned());
+                    urls_visited.lock().unwrap().push(context.url().to_string());
                     true
                 }
             }))
@@ -516,6 +532,17 @@ mod tests {
         assert_eq!(
             err.kind(),
             ResponseErrorKind::from(HTTPResponseErrorKind::ConnectError)
+        );
+        let domain_resolved = Arc::try_unwrap(domain_resolved)
+            .unwrap()
+            .into_inner()
+            .unwrap();
+        assert_eq!(
+            &domain_resolved,
+            &[
+                "fakedomain.withoutport.com".to_owned(),
+                "fakedomain.withport.com".to_owned()
+            ]
         );
         let urls_visited = Arc::try_unwrap(urls_visited).unwrap().into_inner().unwrap();
         assert_eq!(
@@ -524,8 +551,8 @@ mod tests {
                 "https://fakedomain.withoutport.com/".to_owned(),
                 "https://fakedomain.withport.com:8080/".to_owned(),
                 "https://192.168.1.1/".to_owned(),
-                "https://[::ffff:c00a:2ff]/".to_owned(),
-                "https://[::ffff:c00b:2ff]:8081/".to_owned(),
+                "https://[::ffff:192.10.2.255]/".to_owned(),
+                "https://[::ffff:192.11.2.255]:8081/".to_owned(),
                 "https://192.168.1.2:8080/".to_owned(),
             ]
         );
@@ -533,38 +560,30 @@ mod tests {
     }
 
     #[test]
-    fn test_call_frozen_endpoints_selection() -> Result<(), Box<dyn Error>> {
+    fn test_call_all_frozen_endpoints_selection() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
         let err = ResponseError::new(
             HTTPResponseErrorKind::ConnectError.into(),
             "Fake Connect Error",
         );
-        let chooser = SimpleChooser::new(make_dumb_resolver(), Duration::from_secs(10));
+        let chooser = IpChooser::default();
         chooser.feedback(ChooserFeedback::new(
-            &DomainOrIpAddr::new_from_domain(
-                DomainWithPort::new_with_port("fakedomain.withport.com", 8080),
-                vec![],
-            ),
+            &[
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
+                IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff)).into(),
+                SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 1, 2), 8080)).into(),
+                SocketAddr::V6(SocketAddrV6::new(
+                    Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00b, 0x2ff),
+                    8081,
+                    0,
+                    0,
+                ))
+                .into(),
+            ],
             &RetriedStatsInfo::default(),
-            Err(&err),
-        ));
-        chooser.feedback(ChooserFeedback::new(
-            &DomainOrIpAddr::new_from_domain(
-                DomainWithPort::new_with_port("fakedomain.withport.com", 8080),
-                vec![
-                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
-                    IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff)).into(),
-                    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 1, 2), 8080)).into(),
-                    SocketAddr::V6(SocketAddrV6::new(
-                        Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00b, 0x2ff),
-                        8081,
-                        0,
-                        0,
-                    ))
-                    .into(),
-                ],
-            ),
-            &RetriedStatsInfo::default(),
-            Err(&err),
+            None,
+            Some(&err),
         ));
 
         let client = make_error_response_client_builder(
@@ -572,21 +591,26 @@ mod tests {
             "Fake Connect Error",
         )
         .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(chooser))
         .request_retrier(Box::new(ErrorRetrier))
         .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
-
+        let domain_resolved = Arc::new(Mutex::new(Vec::new()));
         let err = client
             .post(ServiceName::Up, &chaotic_up_domains_region())
+            .on_to_resolve_domain(Box::new({
+                let domain_resolved = domain_resolved.to_owned();
+                move |_, domain| {
+                    domain_resolved.lock().unwrap().push(domain.to_owned());
+                    true
+                }
+            }))
             .on_after_request_signed(Box::new({
                 let urls_visited = urls_visited.to_owned();
                 move |context| {
-                    urls_visited
-                        .lock()
-                        .unwrap()
-                        .push(context.request().url().to_owned());
+                    urls_visited.lock().unwrap().push(context.url().to_string());
                     true
                 }
             }))
@@ -594,49 +618,67 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::from(HTTPResponseErrorKind::ConnectError)
+            ResponseErrorKind::HTTPError(HTTPResponseErrorKind::ConnectError)
+        );
+        let domain_resolved = Arc::try_unwrap(domain_resolved)
+            .unwrap()
+            .into_inner()
+            .unwrap();
+        assert_eq!(
+            &domain_resolved,
+            &[
+                "fakedomain.withoutport.com".to_owned(),
+                "fakedomain.withport.com".to_owned()
+            ]
         );
         let urls_visited = Arc::try_unwrap(urls_visited).unwrap().into_inner().unwrap();
         assert_eq!(
             &urls_visited,
-            &["https://fakedomain.withoutport.com/".to_owned(),]
+            &[
+                "https://fakedomain.withoutport.com/".to_owned(),
+                "https://fakedomain.withport.com:8080/".to_owned(),
+            ]
         );
         Ok(())
     }
 
     #[test]
     fn test_call_switch_to_old_endpoints() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
         let client =
             make_error_response_client_builder(HTTPResponseErrorKind::SSLError, "Fake SSL Error")
-                .chooser(Box::new(SimpleChooser::new(
-                    make_error_resolver(HTTPResponseErrorKind::SSLError.into(), "Fake SSL Error"),
-                    Duration::from_secs(10),
-                )))
+                .resolver(Box::new(make_random_resolver()))
+                .chooser(Box::new(DirectChooser))
                 .retry_delay_policy(Box::new(NO_DELAY_POLICY))
                 .request_retrier(Box::new(ErrorRetrier))
                 .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
+        let domain_resolved = Arc::new(Mutex::new(Vec::new()));
         let retried = Arc::new(AtomicUsize::new(0));
-
         let err = client
             .post(ServiceName::Up, &chaotic_up_domains_region())
             .on_before_retry_delay(Box::new(|_, _| panic!("Should not retry")))
+            .on_to_resolve_domain(Box::new({
+                let domain_resolved = domain_resolved.to_owned();
+                move |_, domain| {
+                    domain_resolved.lock().unwrap().push(domain.to_owned());
+                    true
+                }
+            }))
             .on_after_request_signed(Box::new({
                 let urls_visited = urls_visited.to_owned();
                 let retried = retried.to_owned();
                 move |context| {
                     let retried = retried.fetch_add(1, Relaxed);
-                    urls_visited
-                        .lock()
-                        .unwrap()
-                        .push(context.request().url().to_owned());
+                    urls_visited.lock().unwrap().push(context.url().to_string());
                     assert_eq!(context.retried().retried_total(), retried);
                     assert_eq!(context.retried().retried_on_current_endpoint(), 0);
                     assert_eq!(context.retried().retried_on_current_ips(), 0);
                     assert_eq!(
                         context.retried().abandoned_endpoints(),
-                        retried.saturating_sub(1).min(2)
+                        retried.saturating_sub(1)
                     );
                     if retried > 0 {
                         assert!(context.retried().switched_to_old_endpoints());
@@ -652,6 +694,18 @@ mod tests {
             err.kind(),
             ResponseErrorKind::from(HTTPResponseErrorKind::SSLError)
         );
+        let domain_resolved = Arc::try_unwrap(domain_resolved)
+            .unwrap()
+            .into_inner()
+            .unwrap();
+        assert_eq!(
+            &domain_resolved,
+            &[
+                "fakedomain.withoutport.com".to_owned(),
+                "old_fakedomain.withoutport.com".to_owned(),
+                "old_fakedomain.withport.com".to_owned(),
+            ]
+        );
         let urls_visited = Arc::try_unwrap(urls_visited).unwrap().into_inner().unwrap();
         assert_eq!(
             &urls_visited,
@@ -660,8 +714,8 @@ mod tests {
                 "https://old_fakedomain.withoutport.com/".to_owned(),
                 "https://old_fakedomain.withport.com:8080/".to_owned(),
                 "https://192.168.2.1/".to_owned(),
-                "https://[::ffff:d00a:2ff]/".to_owned(),
-                "https://[::ffff:d00b:2ff]:8081/".to_owned(),
+                "https://[::ffff:208.10.2.255]/".to_owned(),
+                "https://[::ffff:208.11.2.255]:8081/".to_owned(),
                 "https://192.168.2.2:8080/".to_owned(),
             ]
         );
@@ -670,17 +724,14 @@ mod tests {
 
     #[test]
     fn test_call_single_endpoint_retry() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
         let always_retry_client = make_error_response_client_builder(
             HTTPResponseErrorKind::TimeoutError,
             "Fake Timeout Error",
         )
-        .chooser(Box::new(SimpleChooser::new(
-            make_error_resolver(
-                HTTPResponseErrorKind::TimeoutError.into(),
-                "Fake Timeout Error",
-            ),
-            Duration::from_secs(10),
-        )))
+        .resolver(Box::new(make_random_resolver()))
+        .chooser(Box::new(DirectChooser))
         .retry_delay_policy(Box::new(NO_DELAY_POLICY))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
@@ -693,7 +744,7 @@ mod tests {
                 Box::new(move |context, _| {
                     assert_eq!(
                         "https://fakedomain.withport.com:8080/",
-                        context.request().url()
+                        &context.url().to_string(),
                     );
                     let retried = retried.fetch_add(1, Relaxed) + 1;
                     assert_eq!(context.retried().retried_total(), retried);
@@ -714,19 +765,17 @@ mod tests {
             let mut headers = HeaderMap::default();
             headers.insert(
                 HeaderName::from_static(X_REQ_ID_HEADER_NAME),
-                "fake_req_id".into(),
+                HeaderValue::from_static("fake_req_id"),
             );
             headers
         };
         let always_throttled_client = make_fixed_response_client_builder(
-            509,
+            StatusCode::from_u16(509)?,
             headers.to_owned(),
             b"{\"error\":\"Fake Throttled Error\"}".to_vec(),
         )
-        .chooser(Box::new(SimpleChooser::new(
-            make_dumb_resolver(),
-            Duration::from_secs(10),
-        )))
+        .resolver(Box::new(make_random_resolver()))
+        .chooser(Box::new(DirectChooser))
         .retry_delay_policy(Box::new(NO_DELAY_POLICY))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
@@ -739,7 +788,7 @@ mod tests {
                 Box::new(move |context, _| {
                     assert_eq!(
                         "https://fakedomain.withport.com:8080/",
-                        context.request().url()
+                        &context.url().to_string(),
                     );
                     let retried = retried.fetch_add(1, Relaxed) + 1;
                     assert_eq!(context.retried().retried_total(), retried);
@@ -751,7 +800,10 @@ mod tests {
             })
             .call()
             .unwrap_err();
-        assert_eq!(err.kind(), ResponseErrorKind::StatusCodeError(509));
+        assert_eq!(
+            err.kind(),
+            ResponseErrorKind::StatusCodeError(StatusCode::from_u16(509)?)
+        );
         assert_eq!(&err.to_string(), "Fake Throttled Error");
 
         Ok(())
@@ -759,14 +811,14 @@ mod tests {
 
     #[test]
     fn test_call_retry_next() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
         let always_try_next_client = make_error_response_client_builder(
             HTTPResponseErrorKind::UnknownHostError,
             "Test Unknown Host Error",
         )
-        .chooser(Box::new(SimpleChooser::new(
-            make_dumb_resolver(),
-            Duration::from_secs(10),
-        )))
+        .resolver(Box::new(make_random_resolver()))
+        .chooser(Box::new(DirectChooser))
         .retry_delay_policy(Box::new(NO_DELAY_POLICY))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
@@ -776,8 +828,8 @@ mod tests {
             "https://fakedomain.withoutport.com/".to_owned(),
             "https://fakedomain.withport.com:8080/".to_owned(),
             "https://192.168.1.1/".to_owned(),
-            "https://[::ffff:c00a:2ff]/".to_owned(),
-            "https://[::ffff:c00b:2ff]:8081/".to_owned(),
+            "https://[::ffff:192.10.2.255]/".to_owned(),
+            "https://[::ffff:192.11.2.255]:8081/".to_owned(),
             "https://192.168.1.2:8080/".to_owned(),
         ];
         let err = always_try_next_client
@@ -786,11 +838,11 @@ mod tests {
                 let retried = retried.to_owned();
                 Box::new(move |context, _| {
                     let retried = retried.fetch_add(1, Relaxed);
-                    assert_eq!(context.request().url(), retry_urls.get(retried).unwrap());
+                    assert_eq!(&context.url().to_string(), retry_urls.get(retried).unwrap());
                     assert_eq!(context.retried().retried_total(), retried + 1);
                     assert_eq!(context.retried().retried_on_current_endpoint(), 1);
                     assert_eq!(context.retried().retried_on_current_ips(), 1);
-                    assert_eq!(context.retried().abandoned_endpoints(), retried.min(2));
+                    assert_eq!(context.retried().abandoned_endpoints(), retried);
                     true
                 })
             })
@@ -806,10 +858,14 @@ mod tests {
 
     #[test]
     fn test_call_dont_retry() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
         let always_dont_retry_client = make_error_response_client_builder(
             HTTPResponseErrorKind::LocalIOError,
             "Test Local IO Error",
         )
+        .resolver(Box::new(make_random_resolver()))
+        .chooser(Box::new(DirectChooser))
         .build();
 
         let err = always_dont_retry_client
@@ -817,7 +873,7 @@ mod tests {
             .on_before_retry_delay(Box::new(|_, _| panic!("Should never retry")))
             .on_after_request_signed(Box::new(|context| {
                 assert_eq!(
-                    context.request().url(),
+                    &context.url().to_string(),
                     "https://fakedomain.withoutport.com/"
                 );
                 assert_eq!(context.retried().retried_total(), 0);
@@ -835,14 +891,14 @@ mod tests {
 
     #[test]
     fn test_call_request_signature() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
         let always_retry_client =
             make_error_response_client_builder(HTTPResponseErrorKind::SendError, "Test Send Error")
-                .chooser(Box::new(SimpleChooser::new(
-                    make_error_resolver(HTTPResponseErrorKind::SendError.into(), "Fake Send Error"),
-                    Duration::from_secs(10),
-                )))
+                .resolver(Box::new(make_random_resolver()))
+                .chooser(Box::new(DirectChooser))
                 .retry_delay_policy(Box::new(NO_DELAY_POLICY))
-                .request_retrier(Box::new(ErrorRetrier))
+                .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
                 .build();
         let credential: Arc<dyn CredentialProvider> = Arc::new(StaticCredentialProvider::new(
             "abcdefghklmnopq",
@@ -856,9 +912,8 @@ mod tests {
                 .authorization(Authorization::v2(credential.to_owned()))
                 .on_before_request_signed(Box::new(|context| {
                     assert!(context
-                        .request()
                         .headers()
-                        .get(&"Authorization".into())
+                        .get(&HeaderName::from_static("authorization"))
                         .is_none());
                     true
                 }))
@@ -868,11 +923,12 @@ mod tests {
                         signed_urls
                             .lock()
                             .unwrap()
-                            .insert(context.request().url().to_owned());
+                            .insert(context.url().to_string());
                         assert!(context
-                            .request()
                             .headers()
-                            .get(&"Authorization".into())
+                            .get(&HeaderName::from_static("authorization"))
+                            .unwrap()
+                            .to_str()
                             .unwrap()
                             .starts_with("Qiniu "));
                         true
@@ -893,9 +949,8 @@ mod tests {
                 .authorization(Authorization::v1(credential))
                 .on_before_request_signed(Box::new(|context| {
                     assert!(context
-                        .request()
                         .headers()
-                        .get(&"Authorization".into())
+                        .get(&HeaderName::from_static("authorization"))
                         .is_none());
                     true
                 }))
@@ -905,11 +960,12 @@ mod tests {
                         signed_urls
                             .lock()
                             .unwrap()
-                            .insert(context.request().url().to_owned());
+                            .insert(context.url().to_string());
                         assert!(context
-                            .request()
                             .headers()
-                            .get(&"Authorization".into())
+                            .get(&HeaderName::from_static("authorization"))
+                            .unwrap()
+                            .to_str()
                             .unwrap()
                             .starts_with("QBox "));
                         true
@@ -928,15 +984,15 @@ mod tests {
 
     #[test]
     fn test_call_malicious_response() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
         let always_malicious_client = make_fixed_response_client_builder(
-            200,
+            StatusCode::from_u16(200)?,
             Default::default(),
             b"<p>Hello world!</p>".to_vec(),
         )
-        .chooser(Box::new(SimpleChooser::new(
-            make_dumb_resolver(),
-            Duration::from_secs(10),
-        )))
+        .resolver(Box::new(make_random_resolver()))
+        .chooser(Box::new(DirectChooser))
         .retry_delay_policy(Box::new(NO_DELAY_POLICY))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
@@ -950,7 +1006,7 @@ mod tests {
                     retried_times
                         .lock()
                         .unwrap()
-                        .entry(context.request().url().to_owned())
+                        .entry(context.url().to_string())
                         .and_modify(|t| {
                             t.fetch_add(1, Relaxed);
                         })
@@ -966,8 +1022,8 @@ mod tests {
             "https://fakedomain.withoutport.com/",
             "https://fakedomain.withport.com:8080/",
             "https://192.168.1.1/",
-            "https://[::ffff:c00a:2ff]/",
-            "https://[::ffff:c00b:2ff]:8081/",
+            "https://[::ffff:192.10.2.255]/",
+            "https://[::ffff:192.11.2.255]:8081/",
             "https://192.168.1.2:8080/",
         ];
         let retried_times = Arc::try_unwrap(retried_times)
@@ -983,48 +1039,54 @@ mod tests {
 
     #[test]
     fn test_call_unexpected_redirection() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
         let headers = {
             let mut headers = HeaderMap::new();
             headers.insert(
-                "Location".into(),
-                "https://another-fakedomain.withoutport.com/".into(),
+                HeaderName::from_static("location"),
+                HeaderValue::from_static("https://another-fakedomain.withoutport.com/"),
             );
             headers.insert(
                 HeaderName::from_static(X_REQ_ID_HEADER_NAME),
-                "fake_req_id".into(),
+                HeaderValue::from_static("fake_req_id"),
             );
             headers
         };
-        let always_redirected_client =
-            make_fixed_response_client_builder(301, headers, b"<p>Hello world!</p>".to_vec())
-                .chooser(Box::new(SimpleChooser::new(
-                    make_dumb_resolver(),
-                    Duration::from_secs(10),
-                )))
-                .retry_delay_policy(Box::new(NO_DELAY_POLICY))
-                .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
-                .build();
+        let always_redirected_client = make_fixed_response_client_builder(
+            StatusCode::from_u16(301)?,
+            headers,
+            b"<p>Hello world!</p>".to_vec(),
+        )
+        .resolver(Box::new(make_random_resolver()))
+        .chooser(Box::new(DirectChooser))
+        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .build();
 
         let err = always_redirected_client
             .post(ServiceName::Up, &chaotic_up_domains_region())
             .on_before_retry_delay(Box::new(|_, _| panic!("Should never retry")))
             .call()
             .unwrap_err();
-        assert_eq!(err.kind(), ResponseErrorKind::UnexpectedStatusCode(301),);
+        assert_eq!(
+            err.kind(),
+            ResponseErrorKind::UnexpectedStatusCode(StatusCode::from_u16(301)?)
+        );
 
         Ok(())
     }
 
     #[test]
     fn test_call_callbacks() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
         let client = make_error_response_client_builder(
             HTTPResponseErrorKind::ConnectError,
             "Fake Connect Error",
         )
-        .chooser(Box::new(SimpleChooser::new(
-            make_dumb_resolver(),
-            Duration::from_secs(10),
-        )))
+        .resolver(Box::new(make_dumb_resolver()))
+        .chooser(Box::new(DirectChooser))
         .request_retrier(Box::new(ErrorRetrier))
         .retry_delay_policy(Box::new(NO_DELAY_POLICY))
         .build();
@@ -1067,17 +1129,14 @@ mod tests {
     #[tokio::test]
     #[cfg(feature = "async")]
     async fn test_async_call_single_endpoint_retry() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
         let always_retry_client = make_error_response_client_builder(
             HTTPResponseErrorKind::TimeoutError,
             "Fake Timeout Error",
         )
-        .chooser(Box::new(SimpleChooser::new(
-            make_error_resolver(
-                HTTPResponseErrorKind::TimeoutError.into(),
-                "Fake Timeout Error",
-            ),
-            Duration::from_secs(10),
-        )))
+        .resolver(Box::new(make_random_resolver()))
+        .chooser(Box::new(DirectChooser))
         .retry_delay_policy(Box::new(NO_DELAY_POLICY))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
@@ -1090,7 +1149,7 @@ mod tests {
                 Box::new(move |context, _| {
                     assert_eq!(
                         "https://fakedomain.withport.com:8080/",
-                        context.request().url()
+                        &context.url().to_string()
                     );
                     let retried = retried.fetch_add(1, Relaxed) + 1;
                     assert_eq!(context.retried().retried_total(), retried);
@@ -1112,19 +1171,17 @@ mod tests {
             let mut headers = HeaderMap::default();
             headers.insert(
                 HeaderName::from_static(X_REQ_ID_HEADER_NAME),
-                "fake_req_id".into(),
+                HeaderValue::from_static("fake_req_id"),
             );
             headers
         };
         let always_throttled_client = make_fixed_response_client_builder(
-            509,
+            StatusCode::from_u16(509)?,
             headers.to_owned(),
             b"{\"error\":\"Fake Throttled Error\"}".to_vec(),
         )
-        .chooser(Box::new(SimpleChooser::new(
-            make_dumb_resolver(),
-            Duration::from_secs(10),
-        )))
+        .resolver(Box::new(make_random_resolver()))
+        .chooser(Box::new(DirectChooser))
         .retry_delay_policy(Box::new(NO_DELAY_POLICY))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
@@ -1137,7 +1194,7 @@ mod tests {
                 Box::new(move |context, _| {
                     assert_eq!(
                         "https://fakedomain.withport.com:8080/",
-                        context.request().url()
+                        &context.url().to_string(),
                     );
                     let retried = retried.fetch_add(1, Relaxed) + 1;
                     assert_eq!(context.retried().retried_total(), retried);
@@ -1150,7 +1207,10 @@ mod tests {
             .async_call()
             .await
             .unwrap_err();
-        assert_eq!(err.kind(), ResponseErrorKind::StatusCodeError(509));
+        assert_eq!(
+            err.kind(),
+            ResponseErrorKind::StatusCodeError(StatusCode::from_u16(509)?)
+        );
         assert_eq!(&err.to_string(), "Fake Throttled Error");
 
         Ok(())

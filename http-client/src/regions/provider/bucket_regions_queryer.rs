@@ -234,7 +234,7 @@ impl RegionProvider for BucketRegionsProvider {
 
 #[cfg(all(test, feature = "isahc", feature = "async"))]
 mod tests {
-    use super::*;
+    use super::{super::super::Endpoint, *};
     use futures::channel::oneshot::channel;
     use serde::{Deserialize, Serialize};
     use serde_json::{json, Value as JSONValue};
@@ -282,7 +282,7 @@ mod tests {
 
         starts_with_server!(addr, routes, {
             let queryer = BucketRegionsQueryer::builder(
-                HTTPClient::builder().use_https(false).build(),
+                HTTPClient::build_isahc()?.use_https(false).build(),
                 vec![Endpoint::from(addr)],
             )
             .build();

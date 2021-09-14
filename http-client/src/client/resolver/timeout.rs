@@ -61,7 +61,9 @@ impl<R: Resolver> Resolver for TimeoutResolver<R> {
                 let domain = domain.to_owned();
                 if let Err(err) = spawn(
                     "qiniu.rust-sdk.http-client.resolver.TimeoutResolver.resolve".into(),
-                    move || sender.send(inner.resolver.resolve(&domain)).unwrap(),
+                    move || {
+                        sender.send(inner.resolver.resolve(&domain)).ok();
+                    },
                 ) {
                     warn!(
                         "Timeout Resolver was failed to spawn thread to resolve domain: {}",

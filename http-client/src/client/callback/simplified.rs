@@ -1,7 +1,8 @@
 use super::super::{Authorization, Idempotent, QueryPairs};
 use qiniu_http::{HeaderMap, Method, Version};
+use std::fmt::Debug;
 
-pub trait SimplifiedCallbackContext: Sync + Send {
+pub trait SimplifiedCallbackContext: Sync + Send + Debug {
     fn use_https(&self) -> bool;
     fn method(&self) -> &Method;
     fn version(&self) -> Version;

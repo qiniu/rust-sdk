@@ -119,7 +119,9 @@ impl RegionProvider for RegionsProvider {
 
 #[cfg(all(test, feature = "isahc", feature = "async"))]
 mod tests {
-    use super::*;
+    use crate::HTTPClient;
+
+    use super::{super::super::Endpoint, *};
     use futures::channel::oneshot::channel;
     use qiniu_credential::StaticCredentialProvider;
     use serde_json::{json, Value as JSONValue};
@@ -161,12 +163,11 @@ mod tests {
             });
 
         starts_with_server!(addr, routes, {
-            let provider = RegionsProvider::builder(
-                HTTPClient::builder().use_https(false).build(),
+            let provider = RegionsProvider::new(
+                HTTPClient::build_isahc()?.use_https(false).build(),
                 vec![Endpoint::from(addr)],
                 Arc::new(StaticCredentialProvider::new(ACCESS_KEY, SECRET_KEY)),
-            )
-            .build();
+            );
 
             let regions = provider.async_get_all().await?;
             assert_eq!(regions.len(), 5);
