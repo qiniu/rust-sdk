@@ -11,7 +11,6 @@
     trivial_casts,
     trivial_numeric_casts,
     unreachable_pub,
-    unstable_features,
     unused_crate_dependencies,
     unused_extern_crates,
     unused_import_braces,
@@ -173,7 +172,7 @@ mod tests {
 
                     let mut hasher = Md5::new();
                     hasher.update(&body_part);
-                    assert_eq!(hasher.finalize().as_slice(), &checksum_part);
+                    assert_eq!(hasher.finalize().as_slice(), checksum_part.as_slice());
                 }
                 Ok::<_, anyhow::Error>(())
             })
@@ -276,7 +275,7 @@ mod tests {
 
                 let mut hasher = Md5::new();
                 hasher.update(&body_part);
-                assert_eq!(hasher.finalize().as_slice(), &checksum_part);
+                assert_eq!(hasher.finalize().as_slice(), checksum_part.as_slice());
             }
             Ok::<_, anyhow::Error>(())
         });

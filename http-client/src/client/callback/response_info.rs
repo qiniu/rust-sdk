@@ -17,7 +17,7 @@ impl<'r> ResponseInfo<'r> {
     pub(in super::super) fn new_from_sync(response: &'r SyncResponse) -> Self {
         Self {
             status_code: response.status_code(),
-            headers: &response.headers(),
+            headers: response.headers(),
             server_ip: response.server_ip(),
             server_port: response.server_port(),
         }
@@ -27,7 +27,7 @@ impl<'r> ResponseInfo<'r> {
     pub(in super::super) fn new_from_async(response: &'r AsyncResponse) -> Self {
         Self {
             status_code: response.status_code(),
-            headers: &response.headers(),
+            headers: response.headers(),
             server_ip: response.server_ip(),
             server_port: response.server_port(),
         }

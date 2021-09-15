@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use std::{borrow::Cow, collections::HashSet};
 
-pub(super) fn make_header_name<'a>(header_name: Cow<'a, str>) -> Cow<'a, str> {
+pub(super) fn make_header_name(header_name: Cow<str>) -> Cow<str> {
     let mut need_not_clone = header_name
         .chars()
         .any(|header_char| !HEADER_NAME_TOKEN.contains(&header_char));

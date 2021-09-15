@@ -12,12 +12,6 @@ macro_rules! make_request_extension {
     ($extension_name:ident) => {
         #[derive(Copy, Clone, Debug)]
         pub struct $extension_name;
-        impl $extension_name {
-            #[inline]
-            pub fn new() -> Self {
-                Self
-            }
-        }
     };
     ($extension_name:ident, $type:ty) => {
         #[derive(Clone, Debug)]

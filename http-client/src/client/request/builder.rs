@@ -70,7 +70,7 @@ impl<'r> RequestBuilder<'r> {
 
     #[inline]
     pub fn version(mut self, version: Version) -> Self {
-        self.data.version = version.into();
+        self.data.version = version;
         self
     }
 

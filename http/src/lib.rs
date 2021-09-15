@@ -11,7 +11,6 @@
     trivial_casts,
     trivial_numeric_casts,
     unsafe_code,
-    unstable_features,
     unused_crate_dependencies,
     unused_extern_crates,
     unused_import_braces,
@@ -104,7 +103,7 @@ pub trait HTTPCaller: Any + Debug + Send + Sync {
 }
 
 pub mod preclude {
-    pub use super::{HTTPCaller, ReadDebug};
+    pub use super::{HTTPCaller, Metrics, ReadDebug};
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]

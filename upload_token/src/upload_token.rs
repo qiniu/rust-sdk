@@ -101,7 +101,7 @@ impl UploadTokenProvider for StaticUploadTokenProvider {
                 self.upload_token
                     .find(':')
                     .map(|i| self.upload_token.split_at(i).0.to_owned().into())
-                    .ok_or_else(|| ParseError::InvalidUploadTokenFormat)
+                    .ok_or(ParseError::InvalidUploadTokenFormat)
             })
             .map(|access_key| access_key.as_ref().into())
     }
@@ -116,10 +116,7 @@ impl UploadTokenProvider for StaticUploadTokenProvider {
                     .ok_or(ParseError::InvalidUploadTokenFormat)?;
                 let decoded_policy = base64::decode(encoded_policy.as_bytes())
                     .map_err(ParseError::Base64DecodeError)?;
-                Ok(
-                    UploadPolicy::from_json(&decoded_policy)
-                        .map_err(ParseError::JSONDecodeError)?,
-                )
+                UploadPolicy::from_json(&decoded_policy).map_err(ParseError::JSONDecodeError)
             })
             .map(|policy| policy.into())
     }
@@ -335,31 +332,31 @@ impl<P: UploadTokenProvider> CachedUploadTokenProvider<P> {
 
 macro_rules! sync_method {
     ($provider:expr, $cache_field:ident, $method_name:ident, $return_type:ty) => {{
-        let cache = $provider.sync_cache.$cache_field.read().unwrap();
-        return if let Some(cache) = &*cache {
+        let guard = $provider.sync_cache.$cache_field.read().unwrap();
+        return if let Some(cache) = &*guard {
             if cache.cached_at.elapsed() < $provider.cache_lifetime {
                 Ok(cache.value.to_owned().into())
             } else {
-                drop(cache);
+                drop(guard);
                 update_cache(&$provider)
             }
         } else {
-            drop(cache);
+            drop(guard);
             update_cache(&$provider)
         };
 
         fn update_cache(
             provider: &CachedUploadTokenProvider<impl UploadTokenProvider>,
         ) -> $return_type {
-            let mut cache = provider.sync_cache.$cache_field.write().unwrap();
-            if let Some(cache) = &*cache {
+            let mut guard = provider.sync_cache.$cache_field.write().unwrap();
+            if let Some(cache) = &*guard {
                 if cache.cached_at.elapsed() < provider.cache_lifetime {
                     return Ok(cache.value.to_owned().into());
                 }
             }
             match provider.inner_provider.$method_name() {
                 Ok(value) => {
-                    *cache = Some(Cache {
+                    *guard = Some(Cache {
                         cached_at: Instant::now(),
                         value: value.to_owned().into(),
                     });
@@ -462,9 +459,9 @@ pub type ParseResult<T> = Result<T, ParseError>;
 mod tests {
     use super::{super::UploadPolicyBuilder, *};
     use async_std as _;
-    use clap as _;
     use qiniu_credential::StaticCredentialProvider;
     use std::{boxed::Box, error::Error, result::Result};
+    use structopt as _;
 
     #[test]
     fn test_build_upload_token_from_upload_policy() -> Result<(), Box<dyn Error>> {

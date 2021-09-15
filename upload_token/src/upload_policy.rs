@@ -774,7 +774,7 @@ mod tests {
         )
         .insert_only()
         .build();
-        assert_eq!(policy.is_insert_only(), true);
+        assert!(policy.is_insert_only());
         assert_eq!(policy.get("insertOnly"), Some(&json!(1)));
         Ok(())
     }
@@ -785,7 +785,7 @@ mod tests {
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .enable_mime_detection()
                 .build();
-        assert_eq!(policy.mime_detection_enabled(), true);
+        assert!(policy.mime_detection_enabled());
         assert_eq!(policy.get("detectMime"), Some(&json!(1)));
         Ok(())
     }
@@ -918,7 +918,7 @@ mod tests {
                 .save_as("target_file", false)
                 .build();
         assert_eq!(policy.save_key(), Some("target_file"));
-        assert_eq!(policy.is_save_key_forced(), false);
+        assert!(!policy.is_save_key_forced());
         assert_eq!(policy.get("saveKey"), Some(&json!("target_file")));
         assert!(policy.get("forceSaveKey").is_none());
         Ok(())
@@ -931,7 +931,7 @@ mod tests {
                 .save_as("target_file", true)
                 .build();
         assert_eq!(policy.save_key(), Some("target_file"));
-        assert_eq!(policy.is_save_key_forced(), true);
+        assert!(policy.is_save_key_forced());
         assert_eq!(policy.get("saveKey"), Some(&json!("target_file")));
         assert_eq!(policy.get("forceSaveKey"), Some(&json!(true)));
         Ok(())

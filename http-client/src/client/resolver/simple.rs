@@ -32,7 +32,7 @@ mod tests {
     use std::{
         collections::HashSet,
         error::Error,
-        net::{IpAddr, Ipv4Addr, Ipv6Addr},
+        net::{IpAddr, Ipv4Addr},
         result::Result,
     };
 
@@ -40,15 +40,13 @@ mod tests {
     const IPS: &[IpAddr] = &[
         IpAddr::V4(Ipv4Addr::new(223, 5, 5, 5)),
         IpAddr::V4(Ipv4Addr::new(223, 6, 6, 6)),
-        IpAddr::V6(Ipv6Addr::new(0x2400, 0x3200, 0, 0, 0, 0, 0, 1)),
-        IpAddr::V6(Ipv6Addr::new(0x2400, 0x3200, 0xbaba, 0, 0, 0, 0, 1)),
     ];
 
     #[test]
     fn test_simple_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = SimpleResolver;
         let ips = resolver.resolve(DOMAIN)?;
-        assert_eq!(make_set(ips.ip_addrs()), make_set(IPS));
+        assert!(is_subset_of(IPS, ips.ip_addrs()));
         Ok(())
     }
 
@@ -57,5 +55,10 @@ mod tests {
         let mut h = HashSet::new();
         h.extend(ips.as_ref());
         h
+    }
+
+    #[inline]
+    fn is_subset_of(ips1: impl AsRef<[IpAddr]>, ips2: impl AsRef<[IpAddr]>) -> bool {
+        make_set(ips1).is_subset(&make_set(ips2))
     }
 }

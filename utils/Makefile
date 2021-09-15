@@ -9,10 +9,10 @@ build_test:
 	cargo test --no-run
 doc:
 	cargo test --doc
-	cargo doc --lib --release --no-deps
+	cargo +nightly doc --lib --release --no-deps --all-features
 test:
 	cargo test -- --test-threads=1
 clean:
 	cargo clean
 clippy:
-	cargo clippy --tests
+	cargo +nightly clippy --tests --all-features -- -D warnings --no-deps

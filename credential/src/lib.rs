@@ -12,7 +12,6 @@
     trivial_numeric_casts,
     unreachable_pub,
     unsafe_code,
-    unstable_features,
     unused_crate_dependencies,
     unused_extern_crates,
     unused_import_braces,
@@ -163,7 +162,7 @@ impl Credential<'_> {
             let query_string = serializer.finish();
             let mut path_and_query = path_string;
             if !query_string.is_empty() {
-                path_and_query.push_str("?");
+                path_and_query.push('?');
                 path_and_query.push_str(&query_string);
             }
             let parts = url.into_parts();
@@ -239,7 +238,7 @@ fn sign_request_v2(
             data_to_sign.extend_from_slice(body);
         }
     } else {
-        sign_data_for_x_qiniu_headers(&mut data_to_sign, &headers);
+        sign_data_for_x_qiniu_headers(&mut data_to_sign, headers);
         data_to_sign.extend_from_slice(b"\n");
     }
     return cred.sign(&data_to_sign);

@@ -1,5 +1,5 @@
 .PHONY: all build build_release build_test doc test clean clippy
-SUBDIRS := credential utils etag upload_token http http-client curl
+SUBDIRS := credential utils etag upload_token http http-client http-isahc http-reqwest
 
 all:
 	set -e; \

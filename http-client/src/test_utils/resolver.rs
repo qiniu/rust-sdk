@@ -92,10 +92,7 @@ pub(crate) fn make_error_resolver(
     impl Resolver for ErrorResolver {
         #[inline]
         fn resolve(&self, _domain: &str) -> ResolveResult {
-            Err(ResponseError::new(
-                self.error_kind.into(),
-                self.message.to_owned(),
-            ))
+            Err(ResponseError::new(self.error_kind, self.message.to_owned()))
         }
 
         #[inline]

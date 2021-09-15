@@ -656,7 +656,6 @@ mod tests {
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
         let domain_resolved = Arc::new(Mutex::new(Vec::new()));
-        let retried = Arc::new(AtomicUsize::new(0));
         let err = client
             .post(ServiceName::Up, &chaotic_up_domains_region())
             .on_before_retry_delay(Box::new(|_, _| panic!("Should not retry")))
@@ -669,7 +668,7 @@ mod tests {
             }))
             .on_after_request_signed(Box::new({
                 let urls_visited = urls_visited.to_owned();
-                let retried = retried.to_owned();
+                let retried = Arc::new(AtomicUsize::new(0));
                 move |context| {
                     let retried = retried.fetch_add(1, Relaxed);
                     urls_visited.lock().unwrap().push(context.url().to_string());
@@ -771,7 +770,7 @@ mod tests {
         };
         let always_throttled_client = make_fixed_response_client_builder(
             StatusCode::from_u16(509)?,
-            headers.to_owned(),
+            headers,
             b"{\"error\":\"Fake Throttled Error\"}".to_vec(),
         )
         .resolver(Box::new(make_random_resolver()))
@@ -780,11 +779,10 @@ mod tests {
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
 
-        retried.store(0, Relaxed);
         let err = always_throttled_client
             .post(ServiceName::Up, &single_up_domain_region())
             .on_before_retry_delay({
-                let retried = retried.to_owned();
+                retried.store(0, Relaxed);
                 Box::new(move |context, _| {
                     assert_eq!(
                         "https://fakedomain.withport.com:8080/",
@@ -823,7 +821,6 @@ mod tests {
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
 
-        let retried = Arc::new(AtomicUsize::new(0));
         let retry_urls = [
             "https://fakedomain.withoutport.com/".to_owned(),
             "https://fakedomain.withport.com:8080/".to_owned(),
@@ -835,7 +832,7 @@ mod tests {
         let err = always_try_next_client
             .post(ServiceName::Up, &chaotic_up_domains_region())
             .on_before_retry_delay({
-                let retried = retried.to_owned();
+                let retried = Arc::new(AtomicUsize::new(0));
                 Box::new(move |context, _| {
                     let retried = retried.fetch_add(1, Relaxed);
                     assert_eq!(&context.url().to_string(), retry_urls.get(retried).unwrap());
@@ -955,7 +952,6 @@ mod tests {
                     true
                 }))
                 .on_after_request_signed(Box::new({
-                    let signed_urls = signed_urls.to_owned();
                     move |context| {
                         signed_urls
                             .lock()
@@ -1010,7 +1006,7 @@ mod tests {
                         .and_modify(|t| {
                             t.fetch_add(1, Relaxed);
                         })
-                        .or_insert(AtomicUsize::new(1));
+                        .or_insert_with(|| AtomicUsize::new(1));
                     true
                 }
             }))

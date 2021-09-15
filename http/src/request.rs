@@ -29,6 +29,7 @@ type OnHeader<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync
 /// HTTP 请求
 ///
 /// 封装 HTTP 请求相关字段
+#[derive(Default)]
 pub struct Request<'r> {
     inner: HTTPRequest<Body<'r>>,
 
@@ -98,7 +99,7 @@ impl<'r> Request<'r> {
     /// 请求 HTTP Headers
     #[inline]
     pub fn headers(&self) -> &HeaderMap {
-        &self.inner.headers()
+        self.inner.headers()
     }
 
     /// 修改请求 HTTP Headers
@@ -110,7 +111,7 @@ impl<'r> Request<'r> {
     /// 请求体
     #[inline]
     pub fn body(&self) -> &[u8] {
-        &self.inner.body()
+        self.inner.body()
     }
 
     /// 修改请求体
@@ -122,7 +123,7 @@ impl<'r> Request<'r> {
     /// 扩展字段
     #[inline]
     pub fn extensions(&self) -> &Extensions {
-        &self.inner.extensions()
+        self.inner.extensions()
     }
 
     /// 修改扩展字段
@@ -201,19 +202,6 @@ impl<'r> Request<'r> {
     fn ignore() {
         assert_impl!(Send: Self);
         assert_impl!(Sync: Self);
-    }
-}
-
-impl Default for Request<'_> {
-    fn default() -> Self {
-        Self {
-            inner: Default::default(),
-            appended_user_agent: Default::default(),
-            resolved_ip_addrs: Default::default(),
-            on_uploading_progress: None,
-            on_receive_response_status: None,
-            on_receive_response_header: None,
-        }
     }
 }
 

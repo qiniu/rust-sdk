@@ -148,7 +148,7 @@ mod tests {
 
         let result = retrier.retry(
             &mut HTTPRequest::builder()
-                .url(uri.to_owned())
+                .url(uri)
                 .method(HTTPMethod::POST)
                 .build(),
             Idempotent::Always,
@@ -184,7 +184,7 @@ mod tests {
 
         let result = retrier.retry(
             &mut HTTPRequest::builder()
-                .url(uri.to_owned())
+                .url(uri)
                 .method(HTTPMethod::GET)
                 .build(),
             Idempotent::Default,

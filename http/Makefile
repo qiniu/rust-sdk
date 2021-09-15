@@ -10,11 +10,11 @@ build_test:
 	cargo test --features async --no-run
 doc:
 	cargo test --doc --features async
-	cargo doc --lib --release --no-deps --features async
+	cargo +nightly doc --lib --release --no-deps --all-features
 test:
 	cargo test -- --test-threads=1
 	cargo test --features async -- --test-threads=1
 clean:
 	cargo clean
 clippy:
-	cargo clippy --tests --features async
+	cargo +nightly clippy --tests --all-features -- -D warnings --no-deps

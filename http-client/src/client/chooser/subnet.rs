@@ -77,7 +77,7 @@ impl Chooser for SubnetChooser {
         let mut need_to_shrink = false;
         let mut ip_network_map: HashMap<IpAddrWithPort, Vec<IpAddrWithPort>> = Default::default();
         for &ip in ips.iter() {
-            let black_key = BlacklistKey::from(self.get_network_address(ip));
+            let black_key = self.get_network_address(ip);
             let is_blocked = self.inner.blacklist.get(&black_key).map_or(false, |r| {
                 if r.value().blocked_at.elapsed() < self.inner.block_duration {
                     true
@@ -123,9 +123,8 @@ impl Chooser for SubnetChooser {
     fn feedback(&self, feedback: ChooserFeedback) {
         if feedback.error().is_some() {
             for &ip in feedback.ips().iter() {
-                let black_key = BlacklistKey::from(self.get_network_address(ip));
                 self.inner.blacklist.insert(
-                    black_key,
+                    self.get_network_address(ip),
                     BlacklistValue {
                         blocked_at: Instant::now(),
                     },
@@ -133,8 +132,7 @@ impl Chooser for SubnetChooser {
             }
         } else {
             for &ip in feedback.ips().iter() {
-                let black_key = BlacklistKey::from(self.get_network_address(ip));
-                self.inner.blacklist.remove(&black_key);
+                self.inner.blacklist.remove(&self.get_network_address(ip));
             }
         }
     }

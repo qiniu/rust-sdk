@@ -12,7 +12,6 @@
     trivial_numeric_casts,
     unreachable_pub,
     unsafe_code,
-    unstable_features,
     unused_crate_dependencies,
     unused_extern_crates,
     unused_import_braces,

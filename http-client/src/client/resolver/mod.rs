@@ -25,11 +25,6 @@ pub trait Resolver: Any + Debug + Sync + Send {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct ResolveRequest<'a> {
-    domain: &'a str,
-}
-
-#[derive(Debug, Clone, Default)]
 pub struct ResolveAnswers {
     ip_addrs: Box<[IpAddr]>,
 }

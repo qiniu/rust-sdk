@@ -285,7 +285,7 @@ impl<B> Response<B> {
     /// HTTP 响应体
     #[inline]
     pub fn body(&self) -> &B {
-        &self.inner.body()
+        self.inner.body()
     }
 
     /// 直接获取 HTTP 响应体

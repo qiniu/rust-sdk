@@ -1,36 +1,35 @@
-extern crate clap;
-extern crate qiniu_credential;
-extern crate qiniu_upload_token;
-
-use clap::Clap;
 use qiniu_credential::StaticCredentialProvider;
 use qiniu_upload_token::{UploadPolicyBuilder, UploadTokenProvider};
 use std::{error::Error, result::Result, time::Duration};
+use structopt::StructOpt;
 
-#[derive(Debug, Clap)]
-#[clap(version = "1.0", author = "Rong Zhou <zhourong@qiniu.com>")]
-struct Params {
+#[derive(Debug, StructOpt)]
+#[structopt(name = "generate-upload-token")]
+struct Opt {
     /// Qiniu Access Key
-    #[clap(short, long)]
+    #[structopt(short, long)]
     access_key: String,
     /// Qiniu Secret Key
-    #[clap(short, long)]
+    #[structopt(short, long)]
     secret_key: String,
     /// Qiniu Bucket Name
-    #[clap(short, long)]
+    #[structopt(short, long)]
     bucket_name: String,
+    /// Upload Token Lifetime
+    #[structopt(short, long, default_value = "86400")]
+    lifetime: u64,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let params: Params = Params::parse();
+    let opt: Opt = Opt::from_args();
 
     let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(
-        &params.bucket_name,
-        Duration::from_secs(24 * 3600),
+        &opt.bucket_name,
+        Duration::from_secs(opt.lifetime),
     )
     .build();
     let upload_token = upload_policy.into_upload_token_provider(Box::new(
-        StaticCredentialProvider::new(params.access_key, params.secret_key),
+        StaticCredentialProvider::new(opt.access_key, opt.secret_key),
     ));
     println!("{}", upload_token.to_string()?);
     Ok(())

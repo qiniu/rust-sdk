@@ -71,17 +71,14 @@ impl Chooser for IpChooser {
             .to_vec()
             .into_iter()
             .filter(|&ip| {
-                self.inner
-                    .blacklist
-                    .get(&BlacklistKey::from(ip))
-                    .map_or(true, |r| {
-                        if r.value().blocked_at.elapsed() < self.inner.block_duration {
-                            false
-                        } else {
-                            need_to_shrink = true;
-                            true
-                        }
-                    })
+                self.inner.blacklist.get(&ip).map_or(true, |r| {
+                    if r.value().blocked_at.elapsed() < self.inner.block_duration {
+                        false
+                    } else {
+                        need_to_shrink = true;
+                        true
+                    }
+                })
             })
             .collect();
         do_some_work_async(&self.inner, need_to_shrink);

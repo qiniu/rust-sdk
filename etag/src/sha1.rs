@@ -21,7 +21,7 @@ pub(super) fn hash_sha1s(sha1s: &[Vec<u8>]) -> Vec<u8> {
         _ => {
             let mut buf = Vec::with_capacity(sha1s.iter().map(|s| s.len()).sum());
             for sha1 in sha1s.iter() {
-                buf.extend_from_slice(&sha1);
+                buf.extend_from_slice(sha1);
             }
             let sha1 = sha1(&buf);
             buf.clear();

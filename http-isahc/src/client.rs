@@ -544,7 +544,11 @@ fn add_extensions_to_isahc_request_builder(
         isahc_request_builder = isahc_request_builder.redirect_policy(extension.get().to_owned());
     }
 
-    if let Some(_) = request.extensions().get::<AutoRefererRequestExtension>() {
+    if request
+        .extensions()
+        .get::<AutoRefererRequestExtension>()
+        .is_some()
+    {
         isahc_request_builder = isahc_request_builder.auto_referer();
     }
 
@@ -560,7 +564,11 @@ fn add_extensions_to_isahc_request_builder(
         isahc_request_builder = isahc_request_builder.tcp_keepalive(extension.get().to_owned());
     }
 
-    if let Some(_) = request.extensions().get::<TcpNodelayRequestExtension>() {
+    if request
+        .extensions()
+        .get::<TcpNodelayRequestExtension>()
+        .is_some()
+    {
         isahc_request_builder = isahc_request_builder.tcp_nodelay();
     }
 

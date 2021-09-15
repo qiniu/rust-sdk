@@ -160,16 +160,16 @@ mod tests {
     #[test]
     fn test_timeout_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = TimeoutResolver::new(
-            WaitResolver(Duration::from_millis(100)),
-            Duration::from_millis(200),
+            WaitResolver(Duration::from_secs(1)),
+            Duration::from_secs(2),
         );
 
         let answers = resolver.resolve("fake.domain")?;
         assert_eq!(answers.ip_addrs(), IPS);
 
         let resolver = TimeoutResolver::new(
-            WaitResolver(Duration::from_millis(200)),
-            Duration::from_millis(100),
+            WaitResolver(Duration::from_secs(2)),
+            Duration::from_secs(1),
         );
         resolver.resolve("fake.domain").unwrap_err();
 

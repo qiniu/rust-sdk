@@ -18,7 +18,7 @@ build_test:
 	cargo test --features async,rustls-tls --no-run
 doc:
 	cargo test --doc --features async
-	cargo doc --lib --release --no-deps --features async,native-tls,rustls-tls
+	cargo +nightly doc --lib --release --no-deps --all-features
 test:
 	cargo test -- --test-threads=1 --nocapture
 	cargo test --features async -- --test-threads=1 --nocapture
@@ -27,4 +27,4 @@ test:
 clean:
 	cargo clean
 clippy:
-	cargo clippy --tests --features 'async'
+	cargo +nightly clippy --tests --all-features -- -D warnings --no-deps

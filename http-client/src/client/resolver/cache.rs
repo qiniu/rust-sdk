@@ -47,7 +47,6 @@ struct CachedResolverInner<R: Resolver> {
 #[derive(Debug)]
 struct CachedResolverInnerLockedData {
     last_shrink_timestamp: SystemTime,
-    last_refresh_timestamp: SystemTime,
 }
 
 #[derive(Debug)]
@@ -439,7 +438,6 @@ impl Default for CachedResolverInnerLockedData {
     fn default() -> Self {
         Self {
             last_shrink_timestamp: UNIX_EPOCH,
-            last_refresh_timestamp: UNIX_EPOCH,
         }
     }
 }
@@ -583,7 +581,7 @@ mod tests {
                 .tap_some(|_| {
                     self.resolved
                         .entry(key)
-                        .and_modify(|resolved| *resolved = *resolved + 1)
+                        .and_modify(|resolved| *resolved += 1)
                         .or_insert(1);
                 })
                 .cloned()
@@ -624,42 +622,36 @@ mod tests {
                 .lifetime(Duration::from_secs(5))
                 .build(),
         );
-        let threads_1: Vec<_> = (0..3)
-            .map(|_| {
-                let resolver = resolver.to_owned();
-                spawn(move || {
-                    let result = resolver.resolve("test_domain_1.com").unwrap();
-                    assert_eq!(
-                        result.ip_addrs(),
-                        &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))]
-                    );
-                })
+        let threads_1 = (0..3).map(|_| {
+            let resolver = resolver.to_owned();
+            spawn(move || {
+                let result = resolver.resolve("test_domain_1.com").unwrap();
+                assert_eq!(
+                    result.ip_addrs(),
+                    &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))]
+                );
             })
-            .collect();
-        let threads_2: Vec<_> = (0..5)
-            .map(|_| {
-                let resolver = resolver.to_owned();
-                spawn(move || {
-                    let result = resolver.resolve("test_domain_2.com").unwrap();
-                    assert_eq!(
-                        result.ip_addrs(),
-                        &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))]
-                    );
-                })
+        });
+        let threads_2 = (0..5).map(|_| {
+            let resolver = resolver.to_owned();
+            spawn(move || {
+                let result = resolver.resolve("test_domain_2.com").unwrap();
+                assert_eq!(
+                    result.ip_addrs(),
+                    &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))]
+                );
             })
-            .collect();
-        let threads_3: Vec<_> = (0..7)
-            .map(|_| {
-                let resolver = resolver.to_owned();
-                spawn(move || {
-                    let result = resolver.resolve("test_domain_3.com").unwrap();
-                    assert_eq!(
-                        result.ip_addrs(),
-                        &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))]
-                    );
-                })
+        });
+        let threads_3 = (0..7).map(|_| {
+            let resolver = resolver.to_owned();
+            spawn(move || {
+                let result = resolver.resolve("test_domain_3.com").unwrap();
+                assert_eq!(
+                    result.ip_addrs(),
+                    &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))]
+                );
             })
-            .collect();
+        });
         threads_1
             .into_iter()
             .chain(threads_2.into_iter())
@@ -692,7 +684,7 @@ mod tests {
             vec![IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))],
         );
         let resolver = CachedResolver::builder(backend)
-            .lifetime(Duration::from_millis(500))
+            .lifetime(Duration::from_secs(1))
             .build();
 
         for _ in 0..5 {
@@ -703,7 +695,12 @@ mod tests {
             );
         }
 
-        sleep(Duration::from_secs(1));
+        assert_eq!(
+            resolver.inner.backend.resolved("test_domain_1.com"),
+            Some(1)
+        );
+
+        sleep(Duration::from_secs(2));
 
         for _ in 0..5 {
             let result = resolver.resolve("test_domain_1.com").unwrap();

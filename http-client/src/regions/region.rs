@@ -38,85 +38,85 @@ impl Region {
     /// 获取上传域名列表
     #[inline]
     pub fn up_endpoints(&self) -> &[Endpoint] {
-        &self.up().endpoints()
+        self.up().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn up_old_endpoints(&self) -> &[Endpoint] {
-        &self.up().old_endpoints()
+        self.up().old_endpoints()
     }
 
     /// 获取下载域名列表
     #[inline]
     pub fn io_endpoints(&self) -> &[Endpoint] {
-        &self.io().endpoints()
+        self.io().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn io_old_endpoints(&self) -> &[Endpoint] {
-        &self.io().old_endpoints()
+        self.io().old_endpoints()
     }
 
     /// 获取 UC 域名列表
     #[inline]
     pub fn uc_endpoints(&self) -> &[Endpoint] {
-        &self.uc().endpoints()
+        self.uc().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn uc_old_endpoints(&self) -> &[Endpoint] {
-        &self.uc().old_endpoints()
+        self.uc().old_endpoints()
     }
 
     /// 获取 RS 域名列表
     #[inline]
     pub fn rs_endpoints(&self) -> &[Endpoint] {
-        &self.rs().endpoints()
+        self.rs().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn rs_old_endpoints(&self) -> &[Endpoint] {
-        &self.rs().old_endpoints()
+        self.rs().old_endpoints()
     }
 
     /// 获取 RSF 域名列表
     #[inline]
     pub fn rsf_endpoints(&self) -> &[Endpoint] {
-        &self.rsf().endpoints()
+        self.rsf().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn rsf_old_endpoints(&self) -> &[Endpoint] {
-        &self.rsf().old_endpoints()
+        self.rsf().old_endpoints()
     }
 
     /// 获取 API 域名列表
     #[inline]
     pub fn api_endpoints(&self) -> &[Endpoint] {
-        &self.api().endpoints()
+        self.api().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn api_old_endpoints(&self) -> &[Endpoint] {
-        &self.api().old_endpoints()
+        self.api().old_endpoints()
     }
 
     /// 获取 S3 域名列表
     #[inline]
     pub fn s3_endpoints(&self) -> &[Endpoint] {
-        &self.s3().endpoints()
+        self.s3().endpoints()
     }
 
     #[inline]
     #[doc(hidden)]
     pub fn s3_old_endpoints(&self) -> &[Endpoint] {
-        &self.s3().old_endpoints()
+        self.s3().old_endpoints()
     }
 
     /// 创建新的区域

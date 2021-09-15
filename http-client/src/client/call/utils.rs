@@ -76,7 +76,7 @@ pub(super) fn make_url(
                     .collect();
                 let mut authority = domain_with_port.domain().to_owned();
                 if let Some(port) = domain_with_port.port() {
-                    authority.push_str(":");
+                    authority.push(':');
                     authority.push_str(&port.get().to_string());
                 }
                 authority.parse()?
@@ -93,13 +93,13 @@ pub(super) fn make_url(
                 authority.parse()?
             }
         };
-        let mut path_and_query = if request.path().starts_with("/") {
+        let mut path_and_query = if request.path().starts_with('/') {
             request.path().to_owned()
         } else {
             "/".to_owned() + request.path()
         };
         if !request.query().is_empty() || !request.query_pairs().is_empty() {
-            path_and_query.push_str("?");
+            path_and_query.push('?');
             let path_len = path_and_query.len();
             if !request.query().is_empty() {
                 path_and_query.push_str(request.query());

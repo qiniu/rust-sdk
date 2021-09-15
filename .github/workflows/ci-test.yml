@@ -1,0 +1,95 @@
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+name: Run Test Cases
+jobs:
+  linux:
+    name: CI Test On Linux
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - 1.46.0
+          - stable
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        run: sudo apt install -yqq libkrb5-dev
+      - name: Install Rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: clippy
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          default: true
+          override: true
+      - name: Test
+        run: |
+          make build clippy test doc
+  macos:
+    name: CI Test On macOS
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        rust:
+          - 1.46.0
+          - stable
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        run: |
+          brew install make
+      - name: Install Rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: clippy
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          default: true
+          override: true
+      - name: Test
+        run: |
+          make build clippy test doc
+  windows:
+    name: CI Test On Windows
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        rust:
+          - 1.46.0
+          - stable
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install Rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: clippy
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          default: true
+          override: true
+      - name: Test
+        run: |
+          make build clippy test doc

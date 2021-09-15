@@ -11,7 +11,6 @@
     trivial_casts,
     trivial_numeric_casts,
     unsafe_code,
-    unstable_features,
     unused_extern_crates,
     unused_import_braces,
     unused_qualifications
@@ -63,9 +62,12 @@ pub use client::AsyncResponse;
 
 pub mod preclude {
     pub use super::{
-        client::{Chooser, RequestRetrier, Resolver, RetryDelayPolicy},
+        client::{
+            CallbackContext, Chooser, ExtendedCallbackContext, RequestRetrier, Resolver,
+            RetryDelayPolicy, SimplifiedCallbackContext,
+        },
         credential::CredentialProvider,
-        http::{HTTPCaller, ReadDebug},
+        http::{HTTPCaller, Metrics, ReadDebug},
         regions::RegionProvider,
         upload_token::UploadTokenProvider,
     };

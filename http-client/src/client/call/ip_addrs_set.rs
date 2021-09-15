@@ -12,7 +12,7 @@ impl IpAddrsSet {
     pub(super) fn new(ips: &[IpAddrWithPort]) -> Self {
         Self {
             set: ips.iter().cloned().collect(),
-            ordered: ips.iter().cloned().collect(),
+            ordered: ips.to_vec(),
         }
     }
 

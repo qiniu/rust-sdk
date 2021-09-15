@@ -138,7 +138,7 @@ impl<'r> SimplifiedCallbackContext for RequestWithoutEndpoints<'r> {
 impl<'r> RequestWithoutEndpoints<'r> {
     #[inline]
     pub(in super::super) fn http_client(&self) -> &HTTPClient {
-        &self.http_client
+        self.http_client
     }
 
     #[inline]

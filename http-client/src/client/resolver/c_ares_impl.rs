@@ -187,7 +187,7 @@ mod tests {
     fn test_c_ares_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = CAresResolver::new()?;
         let ips = resolver.resolve(DOMAIN)?;
-        assert_eq!(make_set(ips.ip_addrs()), make_set(IPS));
+        assert!(is_subset_of(IPS, ips.ip_addrs()));
         Ok(())
     }
 
@@ -195,7 +195,7 @@ mod tests {
     async fn test_async_c_ares_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = CAresResolver::new()?;
         let ips = resolver.async_resolve(DOMAIN).await?;
-        assert_eq!(make_set(ips.ip_addrs()), make_set(IPS));
+        assert!(is_subset_of(IPS, ips.ip_addrs()));
         Ok(())
     }
 
@@ -204,5 +204,10 @@ mod tests {
         let mut h = HashSet::new();
         h.extend(ips.as_ref());
         h
+    }
+
+    #[inline]
+    fn is_subset_of(ips1: impl AsRef<[IpAddr]>, ips2: impl AsRef<[IpAddr]>) -> bool {
+        make_set(ips1).is_subset(&make_set(ips2))
     }
 }

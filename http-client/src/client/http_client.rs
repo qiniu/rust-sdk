@@ -15,6 +15,12 @@ use std::sync::Arc;
 #[cfg(feature = "isahc")]
 use qiniu_isahc::isahc::error::Error as IsahcError;
 
+#[cfg(feature = "isahc")]
+pub use qiniu_isahc;
+
+#[cfg(feature = "reqwest")]
+pub use qiniu_reqwest;
+
 #[derive(Debug, Clone)]
 pub struct HTTPClient {
     inner: Arc<HTTPClientInner>,
@@ -36,13 +42,37 @@ impl HTTPClient {
     #[inline]
     #[cfg(feature = "isahc")]
     pub fn isahc() -> Result<Self, IsahcError> {
-        Ok(HTTPClientBuilder::isahc()?.build())
+        Ok(Self::build_isahc()?.build())
+    }
+
+    #[inline]
+    #[cfg(feature = "reqwest")]
+    pub fn reqwest_sync() -> Self {
+        Self::build_reqwest_sync().build()
+    }
+
+    #[inline]
+    #[cfg(all(feature = "reqwest", feature = "async"))]
+    pub fn reqwest_async() -> Self {
+        Self::build_reqwest_async().build()
     }
 
     #[inline]
     #[cfg(feature = "isahc")]
     pub fn build_isahc() -> Result<HTTPClientBuilder, IsahcError> {
         HTTPClientBuilder::isahc()
+    }
+
+    #[inline]
+    #[cfg(feature = "reqwest")]
+    pub fn build_reqwest_sync() -> HTTPClientBuilder {
+        HTTPClientBuilder::reqwest_sync()
+    }
+
+    #[inline]
+    #[cfg(all(feature = "reqwest", feature = "async"))]
+    pub fn build_reqwest_async() -> HTTPClientBuilder {
+        HTTPClientBuilder::reqwest_async()
     }
 
     #[inline]
@@ -154,6 +184,18 @@ impl HTTPClientBuilder {
     #[cfg(feature = "isahc")]
     pub fn isahc() -> Result<Self, IsahcError> {
         Ok(Self::_new(Box::new(qiniu_isahc::Client::default_client()?)))
+    }
+
+    #[inline]
+    #[cfg(feature = "reqwest")]
+    pub fn reqwest_sync() -> Self {
+        Self::_new(Box::new(qiniu_reqwest::SyncReqwestHTTPCaller::default()))
+    }
+
+    #[inline]
+    #[cfg(all(feature = "reqwest", feature = "async"))]
+    pub fn reqwest_async() -> Self {
+        Self::_new(Box::new(qiniu_reqwest::AsyncReqwestHTTPCaller::default()))
     }
 
     #[inline]
