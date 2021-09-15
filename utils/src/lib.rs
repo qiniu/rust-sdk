@@ -21,3 +21,5 @@
 #![warn(missing_crate_level_docs)]
 
 pub mod base64;
+mod name;
+pub use name::{BucketName, ObjectName};

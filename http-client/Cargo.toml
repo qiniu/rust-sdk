@@ -40,6 +40,7 @@ qiniu-credential = { version = "0.0.4", path = "../credential" }
 qiniu-upload-token = { version = "0.0.4", path = "../upload_token" }
 qiniu-reqwest = { version = "0.0.4", path = "../http-reqwest", optional = true }
 qiniu-isahc = { version = "0.0.4", path = "../http-isahc", optional = true }
+qiniu-utils = { version = "0.0.4", path = "../utils" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

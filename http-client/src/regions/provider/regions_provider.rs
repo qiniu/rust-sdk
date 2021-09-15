@@ -123,7 +123,7 @@ mod tests {
 
     use super::{super::super::Endpoint, *};
     use futures::channel::oneshot::channel;
-    use qiniu_credential::StaticCredentialProvider;
+    use qiniu_credential::{Credential, StaticCredentialProvider};
     use serde_json::{json, Value as JSONValue};
     use std::{error::Error, result::Result};
     use tokio::task::spawn;
@@ -166,7 +166,9 @@ mod tests {
             let provider = RegionsProvider::new(
                 HTTPClient::build_isahc()?.use_https(false).build(),
                 vec![Endpoint::from(addr)],
-                Arc::new(StaticCredentialProvider::new(ACCESS_KEY, SECRET_KEY)),
+                Arc::new(StaticCredentialProvider::new(Credential::new(
+                    ACCESS_KEY, SECRET_KEY,
+                ))),
             );
 
             let regions = provider.async_get_all().await?;

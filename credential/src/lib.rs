@@ -31,19 +31,20 @@ use qiniu_utils::base64;
 use sha1::Sha1;
 use std::{
     any::Any,
-    borrow::Cow,
     collections::VecDeque,
     convert::TryFrom,
     env,
-    ffi::OsStr,
     fmt::{self, Debug},
     io::{Error, ErrorKind, Result},
-    sync::{Arc, RwLock},
+    sync::RwLock,
     time::Duration,
 };
 
 mod header_name;
 use header_name::make_header_name;
+
+mod key;
+pub use key::{AccessKey, SecretKey};
 
 pub mod preclude {
     pub use super::CredentialProvider;
@@ -52,16 +53,16 @@ pub mod preclude {
 /// 认证信息
 ///
 /// 返回认证信息的 AccessKey 和 SecretKey
-#[derive(Clone, Debug)]
-pub struct Credential<'a> {
-    access_key: Cow<'a, str>,
-    secret_key: Cow<'a, str>,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Credential {
+    access_key: AccessKey,
+    secret_key: SecretKey,
 }
 
-impl<'a> Credential<'a> {
+impl Credential {
     /// 创建认证信息
     #[inline]
-    pub fn new(access_key: impl Into<Cow<'a, str>>, secret_key: impl Into<Cow<'a, str>>) -> Self {
+    pub fn new(access_key: impl Into<AccessKey>, secret_key: impl Into<SecretKey>) -> Self {
         Self {
             access_key: access_key.into(),
             secret_key: secret_key.into(),
@@ -70,43 +71,30 @@ impl<'a> Credential<'a> {
 
     /// 获取认证信息的 AccessKey
     #[inline]
-    pub fn access_key(&self) -> &str {
-        self.access_key.as_ref()
+    pub fn access_key(&self) -> &AccessKey {
+        &self.access_key
     }
 
     /// 获取认证信息的 SecretKey
     #[inline]
-    pub fn secret_key(&self) -> &str {
-        self.secret_key.as_ref()
+    pub fn secret_key(&self) -> &SecretKey {
+        &self.secret_key
     }
 
     /// 同时返回认证信息的 AccessKey 和 SecretKey
     #[inline]
-    pub fn into_pair(self) -> (Cow<'a, str>, Cow<'a, str>) {
+    pub fn into_pair(self) -> (AccessKey, SecretKey) {
         (self.access_key, self.secret_key)
-    }
-
-    /// 修改认证信息的 AccessKey
-    #[inline]
-    pub fn access_key_mut(&mut self) -> &mut Cow<'a, str> {
-        &mut self.access_key
-    }
-    /// 修改认证信息的 SecretKey
-    #[inline]
-    pub fn secret_key_mut(&mut self) -> &mut Cow<'a, str> {
-        &mut self.secret_key
     }
 }
 
-impl Credential<'_> {
+impl Credential {
     /// 使用七牛签名算法对数据进行签名
     ///
     /// 参考[管理凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1201/access-token)
     #[inline]
     pub fn sign(&self, data: &[u8]) -> String {
-        self.access_key.to_owned().into_owned()
-            + ":"
-            + &base64ed_hmac_digest(self.secret_key.as_ref(), data)
+        self.access_key.to_string() + ":" + &base64ed_hmac_digest(self.secret_key.as_ref(), data)
     }
 
     /// 使用七牛签名算法对数据进行签名，并同时给出签名和原数据
@@ -305,33 +293,23 @@ pub trait CredentialProvider: Any + Debug + Sync + Send {
     fn as_credential_provider(&self) -> &dyn CredentialProvider;
 }
 
-/// 静态认证信息提供者，包含一个静态的 AccessKey 和 SecretKey，一旦创建则不可修改
-#[derive(Clone, Eq, PartialEq)]
+/// 静态认证信息提供者，包含一个静态的认证信息，一旦创建则不可修改
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StaticCredentialProvider {
-    access_key: Cow<'static, str>,
-    secret_key: Cow<'static, str>,
+    credential: Credential,
 }
 
 impl StaticCredentialProvider {
-    /// 构建一个静态认证信息提供者，只需要传入静态的 AccessKey 和 SecretKey 即可
-    pub fn new(
-        access_key: impl Into<Cow<'static, str>>,
-        secret_key: impl Into<Cow<'static, str>>,
-    ) -> Self {
-        Self {
-            access_key: access_key.into(),
-            secret_key: secret_key.into(),
-        }
+    /// 构建一个静态认证信息提供者，只需要传入静态的认证信息即可
+    pub fn new(credential: Credential) -> Self {
+        Self { credential }
     }
 }
 
 impl CredentialProvider for StaticCredentialProvider {
     #[inline]
     fn get(&self) -> Result<Credential> {
-        Ok(Credential::new(
-            Cow::Borrowed(self.access_key.as_ref()),
-            Cow::Borrowed(self.secret_key.as_ref()),
-        ))
+        Ok(self.credential.to_owned())
     }
 
     #[inline]
@@ -349,10 +327,7 @@ impl TryFrom<&dyn CredentialProvider> for StaticCredentialProvider {
     type Error = Error;
     fn try_from(cred: &dyn CredentialProvider) -> Result<Self> {
         let value = cred.get()?;
-        Ok(StaticCredentialProvider::new(
-            value.access_key.into_owned(),
-            value.secret_key.into_owned(),
-        ))
+        Ok(StaticCredentialProvider::new(value))
     }
 }
 
@@ -363,31 +338,18 @@ impl AsRef<dyn CredentialProvider> for StaticCredentialProvider {
     }
 }
 
-impl Debug for StaticCredentialProvider {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_fmt(format_args!(
-            "StaticCredentialProvider {{ access_key: {:?}, secret_key: CENSORED }}",
-            self.access_key,
-        ))
-    }
-}
-
 /// 全局认证信息提供者，可以将认证信息配置在全局变量中。任何全局认证信息提供者实例都可以设置和访问全局认证信息。
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct GlobalCredentialProvider;
 
-static GLOBAL_CREDENTIAL: Lazy<RwLock<Option<Credential<'static>>>> =
-    Lazy::new(|| RwLock::new(None));
+static GLOBAL_CREDENTIAL: Lazy<RwLock<Option<Credential>>> = Lazy::new(|| RwLock::new(None));
 
 impl GlobalCredentialProvider {
     /// 配置全局认证信息
     #[inline]
-    pub fn setup(
-        access_key: impl Into<Cow<'static, str>>,
-        secret_key: impl Into<Cow<'static, str>>,
-    ) {
+    pub fn setup(credential: Credential) {
         let mut global_credential = GLOBAL_CREDENTIAL.write().unwrap();
-        *global_credential = Some(Credential::new(access_key, secret_key));
+        *global_credential = Some(credential);
     }
 
     /// 清空全局认证信息
@@ -402,7 +364,7 @@ impl CredentialProvider for GlobalCredentialProvider {
     #[inline]
     fn get(&self) -> Result<Credential> {
         if let Some(credential) = GLOBAL_CREDENTIAL.read().unwrap().as_ref() {
-            Ok(credential.clone())
+            Ok(credential.to_owned())
         } else {
             Err(Error::new(
                 ErrorKind::Other,
@@ -425,14 +387,11 @@ impl CredentialProvider for GlobalCredentialProvider {
 impl Debug for GlobalCredentialProvider {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut d = f.debug_struct("GlobalCredentialProvider");
         if let Some(credential) = GLOBAL_CREDENTIAL.read().unwrap().as_ref() {
-            f.write_fmt(format_args!(
-                "GlobalCredentialProvider {{ access_key: {:?}, secret_key: CENSORED }}",
-                credential.access_key,
-            ))
-        } else {
-            write!(f, "GlobalCredentialProvider {{ None }}")
+            d.field("credential", credential);
         }
+        d.finish()
     }
 }
 
@@ -448,9 +407,9 @@ pub const QINIU_SECRET_KEY_ENV_KEY: &str = "QINIU_SECRET_KEY";
 impl EnvCredentialProvider {
     /// 配置环境变量认证信息提供者
     #[inline]
-    pub fn setup(access_key: impl AsRef<OsStr>, secret_key: impl AsRef<OsStr>) {
-        env::set_var(QINIU_ACCESS_KEY_ENV_KEY, access_key);
-        env::set_var(QINIU_SECRET_KEY_ENV_KEY, secret_key);
+    pub fn setup(credential: &Credential) {
+        env::set_var(QINIU_ACCESS_KEY_ENV_KEY, credential.access_key().as_str());
+        env::set_var(QINIU_SECRET_KEY_ENV_KEY, credential.secret_key().as_str());
     }
 }
 
@@ -487,25 +446,31 @@ impl CredentialProvider for EnvCredentialProvider {
 
 impl Debug for EnvCredentialProvider {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match (
+        let mut d = f.debug_struct("EnvCredentialProvider");
+        if let (Some(access_key), Some(secret_key)) = (
             env::var_os(QINIU_ACCESS_KEY_ENV_KEY),
             env::var_os(QINIU_SECRET_KEY_ENV_KEY),
         ) {
-            (Some(access_key), Some(_)) => f.write_fmt(format_args!(
-                "EnvCredentialProvider {{ access_key: {:?}, secret_key: CENSORED }}",
-                access_key,
-            )),
-            _ => write!(f, "EnvCredentialProvider {{ None }}"),
+            d.field("access_key", &access_key)
+                .field("secret_key", &secret_key);
         }
+        d.finish()
     }
 }
 
 /// 认证信息串提供者
 ///
 /// 将多个认证信息串联，遍历并找寻第一个可用认证信息
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ChainCredentialsProvider {
-    credentials: Arc<[Box<dyn CredentialProvider>]>,
+    credentials: Box<[Box<dyn CredentialProvider>]>,
+}
+
+impl ChainCredentialsProvider {
+    #[inline]
+    pub fn builder(credential: Box<dyn CredentialProvider>) -> ChainCredentialsProviderBuilder {
+        ChainCredentialsProviderBuilder::new(credential)
+    }
 }
 
 impl CredentialProvider for ChainCredentialsProvider {
@@ -550,8 +515,7 @@ impl CredentialProvider for ChainCredentialsProvider {
 impl Default for ChainCredentialsProvider {
     #[inline]
     fn default() -> Self {
-        ChainCredentialsProviderBuilder::default()
-            .append_credential(Box::new(GlobalCredentialProvider))
+        ChainCredentialsProviderBuilder::new(Box::new(GlobalCredentialProvider))
             .append_credential(Box::new(EnvCredentialProvider))
             .build()
     }
@@ -560,7 +524,6 @@ impl Default for ChainCredentialsProvider {
 /// 串联认证信息构建器
 ///
 /// 接受多个认证信息提供者并将他们串联成串联认证信息
-#[derive(Default)]
 pub struct ChainCredentialsProviderBuilder {
     credentials: VecDeque<Box<dyn CredentialProvider>>,
 }
@@ -568,8 +531,10 @@ pub struct ChainCredentialsProviderBuilder {
 impl ChainCredentialsProviderBuilder {
     /// 构建新的串联认证信息构建器
     #[inline]
-    pub fn new() -> ChainCredentialsProviderBuilder {
-        Default::default()
+    pub fn new(credential: Box<dyn CredentialProvider>) -> ChainCredentialsProviderBuilder {
+        let mut credentials = VecDeque::with_capacity(1);
+        credentials.push_back(credential);
+        Self { credentials }
     }
 
     /// 将认证信息提供者推送到认证串末端
@@ -967,22 +932,22 @@ mod tests {
         env::set_var(QINIU_SECRET_KEY_ENV_KEY, "test2");
         {
             let cred = chain_credentials.get()?;
-            assert_eq!(cred.access_key(), "TEST2");
+            assert_eq!(cred.access_key().as_str(), "TEST2");
         }
-        GlobalCredentialProvider::setup("TEST1", "test1");
+        GlobalCredentialProvider::setup(Credential::new("TEST1", "test1"));
         {
             let cred = chain_credentials.get()?;
-            assert_eq!(cred.access_key(), "TEST1");
+            assert_eq!(cred.access_key().as_str(), "TEST1");
         }
         Ok(())
     }
 
     fn get_static_credential() -> impl CredentialProvider {
-        StaticCredentialProvider::new("abcdefghklmnopq", "1234567890")
+        StaticCredentialProvider::new(Credential::new("abcdefghklmnopq", "1234567890"))
     }
 
     fn get_global_credential() -> impl CredentialProvider {
-        GlobalCredentialProvider::setup("abcdefghklmnopq", "1234567890");
+        GlobalCredentialProvider::setup(Credential::new("abcdefghklmnopq", "1234567890"));
         GlobalCredentialProvider
     }
 
@@ -1020,12 +985,12 @@ mod tests {
             env::set_var(QINIU_SECRET_KEY_ENV_KEY, "test2");
             {
                 let cred = chain_credentials.async_get().await?;
-                assert_eq!(cred.access_key(), "TEST2");
+                assert_eq!(cred.access_key().as_str(), "TEST2");
             }
-            GlobalCredentialProvider::setup("TEST1", "test1");
+            GlobalCredentialProvider::setup(Credential::new("TEST1", "test1"));
             {
                 let cred = chain_credentials.async_get().await?;
-                assert_eq!(cred.access_key(), "TEST1");
+                assert_eq!(cred.access_key().as_str(), "TEST1");
             }
             Ok(())
         }

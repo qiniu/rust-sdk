@@ -7,6 +7,8 @@ use super::{
     Region, RegionProvider,
 };
 use dashmap::DashMap;
+use qiniu_credential::AccessKey;
+use qiniu_utils::BucketName;
 use std::{
     any::Any,
     convert::TryFrom,
@@ -20,8 +22,8 @@ use {async_std::task::spawn, futures::future::BoxFuture};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct CacheKey {
-    bucket_name: Box<str>,
-    access_key: Box<str>,
+    bucket_name: BucketName,
+    access_key: AccessKey,
 }
 
 #[derive(Debug, Clone)]
@@ -62,23 +64,27 @@ impl BucketRegionsQueryer {
     #[inline]
     pub fn query(
         &self,
-        access_key: impl Into<String>,
-        bucket_name: impl Into<String>,
+        access_key: impl Into<AccessKey>,
+        bucket_name: impl Into<BucketName>,
     ) -> BucketRegionsProvider {
         BucketRegionsProvider {
             inner: Arc::new(BucketRegionsProviderInner {
                 queryer: self.to_owned(),
-                access_key: access_key.into().into_boxed_str(),
-                bucket_name: bucket_name.into().into_boxed_str(),
+                access_key: access_key.into(),
+                bucket_name: bucket_name.into(),
             }),
         }
     }
 
-    fn do_sync_query(&self, access_key: &str, bucket_name: &str) -> APIResult<Vec<Region>> {
+    fn do_sync_query(
+        &self,
+        access_key: &AccessKey,
+        bucket_name: &BucketName,
+    ) -> APIResult<Vec<Region>> {
         let cache_result: APIResult<_> = self
             .inner
             .cache
-            .entry(cache_key(access_key, bucket_name))
+            .entry(cache_key(access_key.to_owned(), bucket_name.to_owned()))
             .and_modify(|cache_value| {
                 if cache_value.cached_at.elapsed() > self.inner.cache_lifetime {
                     if let Ok(body) = self._do_sync_query(access_key, bucket_name) {
@@ -96,22 +102,26 @@ impl BucketRegionsQueryer {
         return Ok(cache_value.value().body.to_owned());
 
         #[inline]
-        fn cache_key(access_key: &str, bucket_name: &str) -> CacheKey {
+        fn cache_key(access_key: AccessKey, bucket_name: BucketName) -> CacheKey {
             CacheKey {
-                access_key: access_key.into(),
-                bucket_name: bucket_name.into(),
+                access_key,
+                bucket_name,
             }
         }
     }
 
-    fn _do_sync_query(&self, access_key: &str, bucket_name: &str) -> APIResult<Vec<Region>> {
+    fn _do_sync_query(
+        &self,
+        access_key: &AccessKey,
+        bucket_name: &BucketName,
+    ) -> APIResult<Vec<Region>> {
         let body: ResponseBody = self
             .inner
             .http_client
             .get(ServiceName::Uc, self.inner.uc_endpoints.to_owned())
             .path("/v4/query")
-            .append_query_pair("ak", access_key)
-            .append_query_pair("bucket", bucket_name)
+            .append_query_pair("ak", access_key.as_str())
+            .append_query_pair("bucket", bucket_name.as_str())
             .accept_json()
             .call()?
             .parse_json()?
@@ -126,7 +136,11 @@ impl BucketRegionsQueryer {
     }
 
     #[cfg(feature = "async")]
-    async fn do_async_query(&self, access_key: &str, bucket_name: &str) -> APIResult<Vec<Region>> {
+    async fn do_async_query(
+        &self,
+        access_key: &AccessKey,
+        bucket_name: &BucketName,
+    ) -> APIResult<Vec<Region>> {
         let ctx = self.to_owned();
         let access_key = access_key.to_owned();
         let bucket_name = bucket_name.to_owned();
@@ -172,8 +186,8 @@ pub struct BucketRegionsProvider {
 #[derive(Debug)]
 struct BucketRegionsProviderInner {
     queryer: BucketRegionsQueryer,
-    access_key: Box<str>,
-    bucket_name: Box<str>,
+    access_key: AccessKey,
+    bucket_name: BucketName,
 }
 
 impl RegionProvider for BucketRegionsProvider {

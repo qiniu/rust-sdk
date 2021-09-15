@@ -475,7 +475,7 @@ mod tests {
     use super::*;
     use crate::{
         client::chooser::DirectChooser,
-        credential::{CredentialProvider, StaticCredentialProvider},
+        credential::{Credential, CredentialProvider, StaticCredentialProvider},
         test_utils::{
             chaotic_up_domains_region, make_dumb_resolver, make_error_response_client_builder,
             make_fixed_response_client_builder, make_random_resolver, single_up_domain_region,
@@ -898,8 +898,7 @@ mod tests {
                 .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
                 .build();
         let credential: Arc<dyn CredentialProvider> = Arc::new(StaticCredentialProvider::new(
-            "abcdefghklmnopq",
-            "012345678901234567890",
+            Credential::new("abcdefghklmnopq", "012345678901234567890"),
         ));
         let signed_urls = Arc::new(Mutex::new(HashSet::new()));
 

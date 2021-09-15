@@ -22,14 +22,17 @@ mod regions;
 #[cfg(test)]
 mod test_utils;
 
-#[cfg(any(feature = "isahc"))]
-pub extern crate qiniu_isahc as isahc;
-#[cfg(any(feature = "reqwest"))]
-pub extern crate qiniu_reqwest as reqwest;
+#[cfg(feature = "isahc")]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "isahc")))]
+pub use qiniu_isahc as isahc;
 
-pub extern crate qiniu_credential as credential;
-pub extern crate qiniu_http as http;
-pub extern crate qiniu_upload_token as upload_token;
+#[cfg(feature = "reqwest")]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "reqwest")))]
+pub use qiniu_reqwest as reqwest;
+
+pub use qiniu_credential as credential;
+pub use qiniu_http as http;
+pub use qiniu_upload_token as upload_token;
 
 pub use client::{
     APIResult, Authorization, AuthorizationError, AuthorizationResult, CachedResolver,
@@ -51,13 +54,18 @@ pub use regions::{
     StaticRegionProvider,
 };
 
-#[cfg(any(feature = "c_ares"))]
+#[cfg(feature = "c_ares")]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "c_ares")))]
 pub use client::{c_ares, c_ares_resolver, CAresResolver};
 
 #[cfg(all(feature = "trust_dns", feature = "async"))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(all(feature = "trust_dns", feature = "async")))
+)]
 pub use client::{trust_dns_resolver, TrustDnsResolver};
 
-#[cfg(any(feature = "async"))]
+#[cfg(feature = "async")]
 pub use client::AsyncResponse;
 
 pub mod preclude {

@@ -1,4 +1,4 @@
-use qiniu_credential::StaticCredentialProvider;
+use qiniu_credential::{Credential, StaticCredentialProvider};
 use qiniu_upload_token::{UploadPolicyBuilder, UploadTokenProvider};
 use std::{error::Error, result::Result, time::Duration};
 use structopt::StructOpt;
@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     )
     .build();
     let upload_token = upload_policy.into_upload_token_provider(Box::new(
-        StaticCredentialProvider::new(opt.access_key, opt.secret_key),
+        StaticCredentialProvider::new(Credential::new(opt.access_key, opt.secret_key)),
     ));
     println!("{}", upload_token.to_string()?);
     Ok(())

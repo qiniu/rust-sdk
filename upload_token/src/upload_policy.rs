@@ -1,6 +1,7 @@
 use super::{FileType, FromUploadPolicy, InvalidFileType, UploadTokenProvider};
 use assert_impl::assert_impl;
 use qiniu_credential::CredentialProvider;
+use qiniu_utils::{BucketName, ObjectName};
 use serde_json::{
     json,
     map::{Keys as JSONMapKeys, Values as JSONMapValues},
@@ -52,7 +53,7 @@ impl UploadPolicy {
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
     #[inline]
     pub fn new_for_bucket(
-        bucket: impl Into<String>,
+        bucket: impl Into<BucketName>,
         upload_token_lifetime: Duration,
     ) -> UploadPolicyBuilder {
         UploadPolicyBuilder::new_policy_for_bucket(bucket, upload_token_lifetime)
@@ -66,11 +67,11 @@ impl UploadPolicy {
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
     #[inline]
     pub fn new_for_object(
-        bucket: impl Into<String>,
-        key: impl AsRef<str>,
+        bucket: impl Into<BucketName>,
+        object: impl Into<ObjectName>,
         upload_token_lifetime: Duration,
     ) -> UploadPolicyBuilder {
-        UploadPolicyBuilder::new_policy_for_object(bucket, key, upload_token_lifetime)
+        UploadPolicyBuilder::new_policy_for_object(bucket, object, upload_token_lifetime)
     }
 
     /// 为指定的存储空间和对象名称前缀生成的上传策略
@@ -81,7 +82,7 @@ impl UploadPolicy {
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
     #[inline]
     pub fn new_for_objects_with_prefix(
-        bucket: impl Into<String>,
+        bucket: impl Into<BucketName>,
         prefix: impl AsRef<str>,
         upload_token_lifetime: Duration,
     ) -> UploadPolicyBuilder {
@@ -296,12 +297,12 @@ impl UploadPolicyBuilder {
     ///
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
     pub fn new_policy_for_bucket(
-        bucket: impl Into<String>,
+        bucket: impl Into<BucketName>,
         upload_token_lifetime: Duration,
     ) -> Self {
         let mut policy = Self {
             inner: json!({
-                SCOPE_KEY: bucket.into().into_boxed_str(),
+                SCOPE_KEY: bucket.into().to_string(),
             }),
         };
         policy.token_lifetime(upload_token_lifetime);
@@ -315,13 +316,13 @@ impl UploadPolicyBuilder {
     ///
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
     pub fn new_policy_for_object(
-        bucket: impl Into<String>,
-        key: impl AsRef<str>,
+        bucket: impl Into<BucketName>,
+        object: impl Into<ObjectName>,
         upload_token_lifetime: Duration,
     ) -> Self {
         let mut policy = Self {
             inner: json!({
-                SCOPE_KEY: bucket.into() + ":" + key.as_ref(),
+                SCOPE_KEY: bucket.into().to_string() + ":" + object.into().as_str(),
             }),
         };
         policy.token_lifetime(upload_token_lifetime);
@@ -335,13 +336,13 @@ impl UploadPolicyBuilder {
     ///
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
     pub fn new_policy_for_objects_with_prefix(
-        bucket: impl Into<String>,
+        bucket: impl Into<BucketName>,
         prefix: impl AsRef<str>,
         upload_token_lifetime: Duration,
     ) -> Self {
         let mut policy = Self {
             inner: json!({
-                SCOPE_KEY: bucket.into() + ":" + prefix.as_ref(),
+                SCOPE_KEY: bucket.into().to_string() + ":" + prefix.as_ref(),
                 IS_PREFIXAL_SCOPE_KEY: 1,
             }),
         };

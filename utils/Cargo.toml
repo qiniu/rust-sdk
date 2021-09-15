@@ -10,3 +10,5 @@ keywords = ["qiniu", "storage"]
 
 [dependencies]
 base64 = "0.13.0"
+smallstr = { version = "0.2.0", features = ["serde"] }
+serde = "1.0.130"

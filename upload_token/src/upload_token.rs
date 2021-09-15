@@ -1,7 +1,7 @@
 use super::{UploadPolicy, UploadPolicyBuilder};
 use once_cell::sync::OnceCell;
-use qiniu_credential::CredentialProvider;
-use qiniu_utils::base64;
+use qiniu_credential::{AccessKey, CredentialProvider};
+use qiniu_utils::{BucketName, ObjectName, base64};
 use std::{
     any::Any,
     borrow::Cow,
@@ -29,13 +29,13 @@ type AsyncIOResult<'a, T> = Pin<Box<dyn Future<Output = IOResult<T>> + 'a + Send
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1208/upload-token)了解七牛安全机制。
 pub trait UploadTokenProvider: Any + Debug + Sync + Send {
     /// 从上传凭证内获取 AccessKey
-    fn access_key(&self) -> ParseResult<Cow<str>>;
+    fn access_key(&self) -> ParseResult<AccessKey>;
 
     /// 异步从上传凭证内获取 AccessKey
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_access_key(&self) -> AsyncParseResult<Cow<str>> {
+    fn async_access_key(&self) -> AsyncParseResult<AccessKey> {
         Box::pin(async move { self.access_key() })
     }
 
@@ -95,7 +95,7 @@ impl Debug for StaticUploadTokenProvider {
 }
 
 impl UploadTokenProvider for StaticUploadTokenProvider {
-    fn access_key(&self) -> ParseResult<Cow<str>> {
+    fn access_key(&self) -> ParseResult<AccessKey> {
         self.access_key
             .get_or_try_init(|| {
                 self.upload_token
@@ -175,7 +175,7 @@ impl Debug for FromUploadPolicy {
 
 impl UploadTokenProvider for FromUploadPolicy {
     #[inline]
-    fn access_key(&self) -> ParseResult<Cow<str>> {
+    fn access_key(&self) -> ParseResult<AccessKey> {
         Ok(self.credential.get()?.into_pair().0)
     }
 
@@ -210,8 +210,8 @@ impl UploadTokenProvider for FromUploadPolicy {
 ///
 /// 根据对象的快速生成上传凭证实例
 pub struct ObjectUploadTokenProvider {
-    bucket: Cow<'static, str>,
-    object: Cow<'static, str>,
+    bucket: BucketName,
+    object: ObjectName,
     upload_token_lifetime: Duration,
     credential: Box<dyn CredentialProvider>,
 }
@@ -220,8 +220,8 @@ impl ObjectUploadTokenProvider {
     /// 基于存储空间和对象名称和认证信息动态生成上传凭证实例
     #[inline]
     pub fn new(
-        bucket: impl Into<Cow<'static, str>>,
-        object: impl Into<Cow<'static, str>>,
+        bucket: impl Into<BucketName>,
+        object: impl Into<ObjectName>,
         upload_token_lifetime: Duration,
         credential: Box<dyn CredentialProvider>,
     ) -> Self {
@@ -247,7 +247,7 @@ impl Debug for ObjectUploadTokenProvider {
 
 impl UploadTokenProvider for ObjectUploadTokenProvider {
     #[inline]
-    fn access_key(&self) -> ParseResult<Cow<str>> {
+    fn access_key(&self) -> ParseResult<AccessKey> {
         Ok(self.credential.get()?.into_pair().0)
     }
 
@@ -293,7 +293,7 @@ struct Cache<T> {
 
 #[derive(Debug, Default)]
 struct SyncCache {
-    access_key: RwLock<Option<Cache<String>>>,
+    access_key: RwLock<Option<Cache<AccessKey>>>,
     upload_policy: RwLock<Option<Cache<UploadPolicy>>>,
     upload_token: RwLock<Option<Cache<String>>>,
 }
@@ -301,7 +301,7 @@ struct SyncCache {
 #[cfg(feature = "async")]
 #[derive(Debug, Default)]
 struct AsyncCache {
-    access_key: AsyncMutex<Option<Cache<String>>>,
+    access_key: AsyncMutex<Option<Cache<AccessKey>>>,
     upload_policy: AsyncMutex<Option<Cache<UploadPolicy>>>,
     upload_token: AsyncMutex<Option<Cache<String>>>,
 }
@@ -393,8 +393,8 @@ macro_rules! async_method {
 }
 
 impl<P: UploadTokenProvider> UploadTokenProvider for CachedUploadTokenProvider<P> {
-    fn access_key(&self) -> ParseResult<Cow<str>> {
-        sync_method!(self, access_key, access_key, ParseResult<Cow<str>>)
+    fn access_key(&self) -> ParseResult<AccessKey> {
+        sync_method!(self, access_key, access_key, ParseResult<AccessKey>)
     }
 
     fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
@@ -407,7 +407,7 @@ impl<P: UploadTokenProvider> UploadTokenProvider for CachedUploadTokenProvider<P
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_access_key(&self) -> AsyncParseResult<Cow<str>> {
+    fn async_access_key(&self) -> AsyncParseResult<AccessKey> {
         async_method!(self, access_key, async_access_key)
     }
 
@@ -459,7 +459,7 @@ pub type ParseResult<T> = Result<T, ParseError>;
 mod tests {
     use super::{super::UploadPolicyBuilder, *};
     use async_std as _;
-    use qiniu_credential::StaticCredentialProvider;
+    use qiniu_credential::{Credential, StaticCredentialProvider};
     use std::{boxed::Box, error::Error, result::Result};
     use structopt as _;
 
@@ -474,7 +474,7 @@ mod tests {
         let token = FromUploadPolicy::new(policy, get_credential())
             .to_string()?
             .into_owned();
-        assert!(token.starts_with(get_credential().get()?.access_key()));
+        assert!(token.starts_with(get_credential().get()?.access_key().as_str()));
         let token = StaticUploadTokenProvider::from(token);
         let policy = token.policy()?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
@@ -498,7 +498,7 @@ mod tests {
                 .async_to_string()
                 .await?
                 .into_owned();
-            assert!(token.starts_with(get_credential().async_get().await?.access_key()));
+            assert!(token.starts_with(get_credential().async_get().await?.access_key().as_str()));
             let token = StaticUploadTokenProvider::from(token);
             let policy = token.async_policy().await?;
             assert_eq!(policy.bucket(), Some("test_bucket"));
@@ -508,9 +508,9 @@ mod tests {
     }
 
     fn get_credential() -> Box<dyn CredentialProvider> {
-        Box::new(StaticCredentialProvider::new(
+        Box::new(StaticCredentialProvider::new(Credential::new(
             "abcdefghklmnopq",
             "1234567890",
-        ))
+        )))
     }
 }
