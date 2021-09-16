@@ -15,12 +15,6 @@ use std::sync::Arc;
 #[cfg(feature = "isahc")]
 use qiniu_isahc::isahc::error::Error as IsahcError;
 
-#[cfg(feature = "isahc")]
-pub use qiniu_isahc;
-
-#[cfg(feature = "reqwest")]
-pub use qiniu_reqwest;
-
 #[derive(Debug, Clone)]
 pub struct HTTPClient {
     inner: Arc<HTTPClientInner>,
@@ -40,6 +34,12 @@ struct HTTPClientInner {
 
 impl HTTPClient {
     #[inline]
+    #[cfg(feature = "ureq")]
+    pub fn ureq() -> Self {
+        Self::build_ureq().build()
+    }
+
+    #[inline]
     #[cfg(feature = "isahc")]
     pub fn isahc() -> Result<Self, IsahcError> {
         Ok(Self::build_isahc()?.build())
@@ -55,6 +55,12 @@ impl HTTPClient {
     #[cfg(all(feature = "reqwest", feature = "async"))]
     pub fn reqwest_async() -> Self {
         Self::build_reqwest_async().build()
+    }
+
+    #[inline]
+    #[cfg(feature = "ureq")]
+    pub fn build_ureq() -> HTTPClientBuilder {
+        HTTPClientBuilder::ureq()
     }
 
     #[inline]
@@ -180,6 +186,12 @@ pub struct HTTPClientBuilder {
 }
 
 impl HTTPClientBuilder {
+    #[inline]
+    #[cfg(feature = "ureq")]
+    pub fn ureq() -> Self {
+        Self::_new(Box::new(qiniu_ureq::Client::default()))
+    }
+
     #[inline]
     #[cfg(feature = "isahc")]
     pub fn isahc() -> Result<Self, IsahcError> {

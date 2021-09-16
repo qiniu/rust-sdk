@@ -22,6 +22,10 @@ mod regions;
 #[cfg(test)]
 mod test_utils;
 
+#[cfg(feature = "ureq")]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "ureq")))]
+pub use qiniu_ureq as ureq;
+
 #[cfg(feature = "isahc")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "isahc")))]
 pub use qiniu_isahc as isahc;

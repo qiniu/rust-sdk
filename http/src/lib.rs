@@ -27,10 +27,10 @@ pub use error::{
     MapError,
 };
 pub use http::{
-    header::{self, HeaderMap, HeaderName, HeaderValue},
+    header::{self, HeaderMap, HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue},
     method::Method,
     request::Request as HTTPRequest,
-    status::StatusCode,
+    status::{InvalidStatusCode, StatusCode},
     uri::{self, Uri},
     Extensions, Version,
 };

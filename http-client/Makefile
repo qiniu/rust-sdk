@@ -2,12 +2,14 @@
 
 all: build doc
 build:
+	cargo build --no-default-features --features ureq
 	cargo build --no-default-features --features isahc
 	cargo build --no-default-features --features reqwest
 	cargo build --no-default-features --features 'async isahc'
 	cargo build --no-default-features --features 'async reqwest'
 	cargo build --no-default-features --features 'async c_ares trust_dns'
 build_release:
+	cargo build --no-default-features --release --features ureq
 	cargo build --no-default-features --release --features isahc
 	cargo build --no-default-features --release --features reqwest
 	cargo build --no-default-features --release --features 'async isahc'
@@ -24,7 +26,7 @@ doc:
 	cargo test --doc --features 'async c_ares trust_dns'
 	cargo +nightly doc --lib --release --no-deps --all-features
 test:
-	cargo test --no-default-features -- --test-threads=1
+	cargo test --no-default-features --features ureq -- --test-threads=1
 	cargo test --no-default-features --features isahc -- --test-threads=1
 	cargo test --no-default-features --features reqwest -- --test-threads=1
 	cargo test --no-default-features --features 'async isahc' -- --test-threads=1

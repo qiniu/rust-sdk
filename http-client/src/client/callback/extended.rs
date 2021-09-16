@@ -10,7 +10,6 @@ use std::{borrow::Cow, net::IpAddr};
 
 pub trait ExtendedCallbackContext: CallbackContext {
     fn url(&self) -> &Uri;
-    fn url_mut(&mut self) -> &mut Uri;
     fn version_mut(&mut self) -> &mut Version;
     fn headers_mut(&mut self) -> &mut HeaderMap;
     fn user_agent(&self) -> String;
@@ -69,7 +68,7 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> SimplifiedCallbackContext
 
     #[inline]
     fn path(&self) -> &str {
-        self.http_request.url().path()
+        self.request.path()
     }
 
     #[inline]
@@ -128,11 +127,6 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> ExtendedCallbackContext
     #[inline]
     fn url(&self) -> &Uri {
         self.http_request.url()
-    }
-
-    #[inline]
-    fn url_mut(&mut self) -> &mut Uri {
-        self.http_request.url_mut()
     }
 
     #[inline]

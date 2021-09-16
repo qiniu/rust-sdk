@@ -1,0 +1,38 @@
+[package]
+name = "qiniu-ureq"
+version = "0.0.4"
+authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
+edition = "2018"
+license = "Apache-2.0"
+homepage = "https://www.qiniu.com"
+description = "Qiniu Ureq based HTTP Interface Implementation for Rust"
+keywords = ["qiniu", "storage"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ureq = { version = "2.2.0" }
+qiniu-http = { version = "0.0.4", path = "../http" }
+
+[features]
+async = ["qiniu-http/async"]
+tls = ["ureq/tls"]
+charset = ["ureq/charset"]
+native-certs = ["ureq/native-certs"]
+cookies = ["ureq/cookies"]
+socks-proxy = ["ureq/socks-proxy"]
+docs = []
+
+[dev-dependencies]
+anyhow = "1.0.41"
+bytes = "1.0.1"
+env_logger = "0.8.4"
+md-5 = "0.9.1"
+rand = "0.8.4"
+tokio = { version = "1", features = ["full"] }
+warp = "0.3.1"
+futures = "0.3.16"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "feature=\"docs\""]

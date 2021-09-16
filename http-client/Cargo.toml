@@ -40,6 +40,7 @@ qiniu-credential = { version = "0.0.4", path = "../credential" }
 qiniu-upload-token = { version = "0.0.4", path = "../upload_token" }
 qiniu-reqwest = { version = "0.0.4", path = "../http-reqwest", optional = true }
 qiniu-isahc = { version = "0.0.4", path = "../http-isahc", optional = true }
+qiniu-ureq = { version = "0.0.4", path = "../http-ureq", optional = true }
 qiniu-utils = { version = "0.0.4", path = "../utils" }
 
 [dev-dependencies]
@@ -52,12 +53,13 @@ env_logger = "0.9.0"
 once_cell = "1.8.0"
 
 [features]
-default = ["isahc"]
+default = ["ureq"]
 c_ares = ["c-ares", "c-ares-resolver", "cfg-if"]
 trust_dns = ["trust-dns-resolver", "async-std-resolver"]
 reqwest = ["qiniu-reqwest"]
 isahc = ["qiniu-isahc"]
-async = ["async-std", "futures", "futures-timer", "qiniu-http/async", "qiniu-credential/async", "qiniu-upload-token/async", "qiniu-reqwest/async", "qiniu-isahc/async"]
+ureq = ["qiniu-ureq"]
+async = ["async-std", "futures", "futures-timer", "qiniu-http/async", "qiniu-credential/async", "qiniu-upload-token/async", "qiniu-reqwest/async", "qiniu-isahc/async", "qiniu-ureq/async"]
 tokio1 = ["async", "async-std/tokio1"]
 tokio02 = ["async", "async-std/tokio02"]
 tokio03 = ["async", "async-std/tokio03"]

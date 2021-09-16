@@ -93,3 +93,6 @@ jobs:
       - name: Test
         run: |
           make build clippy test doc
+        env:
+          RUST_LOG: "debug"
+          RUST_BACKTRACE: "1"

@@ -20,8 +20,8 @@ use std::{
 #[cfg(feature = "async")]
 use futures_lite::Future;
 
-pub trait ReadDebug: Read + Debug + Send + Sync {}
-impl<T: Read + Debug + Send + Sync> ReadDebug for T {}
+pub trait ReadDebug: Read + Debug + Send {}
+impl<T: Read + Debug + Send> ReadDebug for T {}
 
 /// HTTP 响应体
 #[derive(Debug)]
