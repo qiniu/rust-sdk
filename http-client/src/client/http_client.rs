@@ -4,10 +4,10 @@ use super::{
         OnDomainResolved, OnError, OnHeader, OnIPsChosen, OnProgress, OnRequest, OnRetry,
         OnStatusCode, OnToChooseIPs, OnToResolveDomain,
     },
-    CachedResolver, Callbacks, CallbacksBuilder, ChainedResolver, Chooser, ErrorRetrier,
-    ExponentialRetryDelayPolicy, LimitedRetrier, NeverChooseNoneChooser,
-    RandomizedRetryDelayPolicy, RequestBuilder, RequestRetrier, Resolver, RetryDelayPolicy,
-    ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser, TimeoutResolver,
+    Backoff, CachedResolver, Callbacks, CallbacksBuilder, ChainedResolver, Chooser, ErrorRetrier,
+    ExponentialBackoff, LimitedRetrier, NeverChooseNoneChooser, RandomizedBackoff, RequestBuilder,
+    RequestRetrier, Resolver, ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser,
+    TimeoutResolver,
 };
 use qiniu_http::{HTTPCaller, Method};
 use std::sync::Arc;
@@ -26,7 +26,7 @@ struct HTTPClientInner {
     appended_user_agent: Box<str>,
     http_caller: Box<dyn HTTPCaller>,
     request_retrier: Box<dyn RequestRetrier>,
-    retry_delay_policy: Box<dyn RetryDelayPolicy>,
+    backoff: Box<dyn Backoff>,
     chooser: Box<dyn Chooser>,
     resolver: Box<dyn Resolver>,
     callbacks: Callbacks,
@@ -158,8 +158,8 @@ impl HTTPClient {
     }
 
     #[inline]
-    pub(super) fn retry_delay_policy(&self) -> &dyn RetryDelayPolicy {
-        self.inner.retry_delay_policy.as_ref()
+    pub(super) fn backoff(&self) -> &dyn Backoff {
+        self.inner.backoff.as_ref()
     }
 
     #[inline]
@@ -179,7 +179,7 @@ pub struct HTTPClientBuilder {
     appended_user_agent: Box<str>,
     http_caller: Box<dyn HTTPCaller>,
     request_retrier: Box<dyn RequestRetrier>,
-    retry_delay_policy: Box<dyn RetryDelayPolicy>,
+    backoff: Box<dyn Backoff>,
     chooser: Box<dyn Chooser>,
     resolver: Box<dyn Resolver>,
     callbacks: CallbacksBuilder,
@@ -222,7 +222,7 @@ impl HTTPClientBuilder {
             use_https: true,
             appended_user_agent: Default::default(),
             request_retrier: default_retrier(),
-            retry_delay_policy: default_retry_delay_policy(),
+            backoff: default_backoff(),
             chooser: default_chooser(),
             resolver: default_resolver(),
             callbacks: Default::default(),
@@ -266,8 +266,8 @@ impl HTTPClientBuilder {
         }
 
         #[inline]
-        fn default_retry_delay_policy() -> Box<dyn RetryDelayPolicy> {
-            Box::new(RandomizedRetryDelayPolicy::<ExponentialRetryDelayPolicy>::default())
+        fn default_backoff() -> Box<dyn Backoff> {
+            Box::new(RandomizedBackoff::<ExponentialBackoff>::default())
         }
     }
 
@@ -296,8 +296,8 @@ impl HTTPClientBuilder {
     }
 
     #[inline]
-    pub fn retry_delay_policy(mut self, retry_delay_policy: Box<dyn RetryDelayPolicy>) -> Self {
-        self.retry_delay_policy = retry_delay_policy;
+    pub fn backoff(mut self, backoff: Box<dyn Backoff>) -> Self {
+        self.backoff = backoff;
         self
     }
 
@@ -374,14 +374,14 @@ impl HTTPClientBuilder {
     }
 
     #[inline]
-    pub fn on_before_retry_delay(mut self, callback: OnRetry) -> Self {
-        self.callbacks = self.callbacks.on_before_retry_delay(callback);
+    pub fn on_before_backoff(mut self, callback: OnRetry) -> Self {
+        self.callbacks = self.callbacks.on_before_backoff(callback);
         self
     }
 
     #[inline]
-    pub fn on_after_retry_delay(mut self, callback: OnRetry) -> Self {
-        self.callbacks = self.callbacks.on_after_retry_delay(callback);
+    pub fn on_after_backoff(mut self, callback: OnRetry) -> Self {
+        self.callbacks = self.callbacks.on_after_backoff(callback);
         self
     }
 
@@ -393,7 +393,7 @@ impl HTTPClientBuilder {
                 appended_user_agent: self.appended_user_agent,
                 http_caller: self.http_caller,
                 request_retrier: self.request_retrier,
-                retry_delay_policy: self.retry_delay_policy,
+                backoff: self.backoff,
                 chooser: self.chooser,
                 resolver: self.resolver,
                 callbacks: self.callbacks.build(),

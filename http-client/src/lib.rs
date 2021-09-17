@@ -39,16 +39,15 @@ pub use qiniu_http as http;
 pub use qiniu_upload_token as upload_token;
 
 pub use client::{
-    APIResult, Authorization, AuthorizationError, AuthorizationResult, CachedResolver,
+    APIResult, Authorization, AuthorizationError, AuthorizationResult, Backoff, CachedResolver,
     CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver, ChainedResolverBuilder, Chooser,
-    ChooserFeedback, DomainOrIpAddr, ErrorRetrier, ExponentialRetryDelayPolicy,
-    ExtendedCallbackContext, FixedRetryDelayPolicy, HTTPClient, HTTPClientBuilder, Idempotent,
-    IpChooser, IpChooserBuilder, LimitedRetrier, NeverRetrier, PersistentError, PersistentResult,
-    QueryPairKey, QueryPairValue, QueryPairs, RandomizedRetryDelayPolicy, Ratio, RequestBuilder,
-    RequestRetrier, ResolveAnswers, ResolveResult, Resolver, ResponseError, ResponseErrorKind,
-    ResponseInfo, RetryDelayPolicy, RetryResult, ShuffledChooser, ShuffledResolver, SimpleResolver,
-    SimplifiedCallbackContext, SubnetChooser, SubnetChooserBuilder, SyncResponse, TimeoutResolver,
-    NO_DELAY_POLICY,
+    ChooserFeedback, DomainOrIpAddr, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext,
+    FixedBackoff, HTTPClient, HTTPClientBuilder, Idempotent, IpChooser, IpChooserBuilder,
+    LimitedRetrier, NeverRetrier, PersistentError, PersistentResult, QueryPairKey, QueryPairValue,
+    QueryPairs, RandomizedBackoff, Ratio, RequestBuilder, RequestRetrier, ResolveAnswers,
+    ResolveResult, Resolver, ResponseError, ResponseErrorKind, ResponseInfo, RetryResult,
+    ShuffledChooser, ShuffledResolver, SimpleResolver, SimplifiedCallbackContext, SubnetChooser,
+    SubnetChooserBuilder, SyncResponse, TimeoutResolver, NO_BACKOFF,
 };
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
@@ -75,8 +74,8 @@ pub use client::AsyncResponse;
 pub mod preclude {
     pub use super::{
         client::{
-            CallbackContext, Chooser, ExtendedCallbackContext, RequestRetrier, Resolver,
-            RetryDelayPolicy, SimplifiedCallbackContext,
+            Backoff, CallbackContext, Chooser, ExtendedCallbackContext, RequestRetrier, Resolver,
+            SimplifiedCallbackContext,
         },
         credential::CredentialProvider,
         http::{HTTPCaller, Metrics, ReadDebug},

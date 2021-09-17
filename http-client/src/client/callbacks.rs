@@ -45,8 +45,8 @@ pub struct Callbacks {
     on_after_request_signed: Box<[OnRequest]>,
     on_success: Box<[OnSuccess]>,
     on_error: Box<[OnError]>,
-    on_before_retry_delay: Box<[OnRetry]>,
-    on_after_retry_delay: Box<[OnRetry]>,
+    on_before_backoff: Box<[OnRetry]>,
+    on_after_backoff: Box<[OnRetry]>,
 }
 
 #[derive(Default)]
@@ -62,8 +62,8 @@ pub struct CallbacksBuilder {
     on_after_request_signed: Vec<OnRequest>,
     on_success: Vec<OnSuccess>,
     on_error: Vec<OnError>,
-    on_before_retry_delay: Vec<OnRetry>,
-    on_after_retry_delay: Vec<OnRetry>,
+    on_before_backoff: Vec<OnRetry>,
+    on_after_backoff: Vec<OnRetry>,
 }
 
 impl Callbacks {
@@ -201,25 +201,25 @@ impl Callbacks {
     }
 
     #[inline]
-    pub(super) fn call_before_retry_delay_callbacks(
+    pub(super) fn call_before_backoff_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
         delay: Duration,
     ) -> bool {
         !self
-            .on_before_retry_delay_callbacks()
+            .on_before_backoff_callbacks()
             .iter()
             .any(|callback| !callback(context, delay))
     }
 
     #[inline]
-    pub(super) fn call_after_retry_delay_callbacks(
+    pub(super) fn call_after_backoff_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
         delay: Duration,
     ) -> bool {
         !self
-            .on_after_retry_delay_callbacks()
+            .on_after_backoff_callbacks()
             .iter()
             .any(|callback| !callback(context, delay))
     }
@@ -285,13 +285,13 @@ impl Callbacks {
     }
 
     #[inline]
-    pub fn on_before_retry_delay_callbacks(&self) -> &[OnRetry] {
-        &self.on_before_retry_delay
+    pub fn on_before_backoff_callbacks(&self) -> &[OnRetry] {
+        &self.on_before_backoff
     }
 
     #[inline]
-    pub fn on_after_retry_delay_callbacks(&self) -> &[OnRetry] {
-        &self.on_after_retry_delay
+    pub fn on_after_backoff_callbacks(&self) -> &[OnRetry] {
+        &self.on_after_backoff
     }
 }
 
@@ -363,14 +363,14 @@ impl CallbacksBuilder {
     }
 
     #[inline]
-    pub fn on_before_retry_delay(mut self, callback: OnRetry) -> Self {
-        self.on_before_retry_delay.push(callback);
+    pub fn on_before_backoff(mut self, callback: OnRetry) -> Self {
+        self.on_before_backoff.push(callback);
         self
     }
 
     #[inline]
-    pub fn on_after_retry_delay(mut self, callback: OnRetry) -> Self {
-        self.on_after_retry_delay.push(callback);
+    pub fn on_after_backoff(mut self, callback: OnRetry) -> Self {
+        self.on_after_backoff.push(callback);
         self
     }
 
@@ -388,8 +388,8 @@ impl CallbacksBuilder {
             on_after_request_signed: self.on_after_request_signed.into(),
             on_success: self.on_success.into(),
             on_error: self.on_error.into(),
-            on_before_retry_delay: self.on_before_retry_delay.into(),
-            on_after_retry_delay: self.on_after_retry_delay.into(),
+            on_before_backoff: self.on_before_backoff.into(),
+            on_after_backoff: self.on_after_backoff.into(),
         }
     }
 }
@@ -413,8 +413,8 @@ impl fmt::Debug for Callbacks {
         field!(s, "on_after_request_signed", on_after_request_signed);
         field!(s, "on_success", on_success);
         field!(s, "on_error", on_error);
-        field!(s, "on_before_retry_delay", on_before_retry_delay);
-        field!(s, "on_after_retry_delay", on_after_retry_delay);
+        field!(s, "on_before_backoff", on_before_backoff);
+        field!(s, "on_after_backoff", on_after_backoff);
         s.finish()
     }
 }
@@ -438,8 +438,8 @@ impl fmt::Debug for CallbacksBuilder {
         field!(s, "on_after_request_signed", on_after_request_signed);
         field!(s, "on_success", on_success);
         field!(s, "on_error", on_error);
-        field!(s, "on_before_retry_delay", on_before_retry_delay);
-        field!(s, "on_after_retry_delay", on_after_retry_delay);
+        field!(s, "on_before_backoff", on_before_backoff);
+        field!(s, "on_after_backoff", on_after_backoff);
         s.finish()
     }
 }

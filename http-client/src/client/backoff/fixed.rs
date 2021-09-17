@@ -1,25 +1,24 @@
-use super::{ResponseError, RetriedStatsInfo, RetryDelayPolicy, RetryResult};
+use super::{Backoff, ResponseError, RetriedStatsInfo, RetryResult};
 use qiniu_http::Request as HTTPRequest;
 use std::{any::Any, time::Duration};
 
-pub const NO_DELAY_POLICY: FixedRetryDelayPolicy =
-    FixedRetryDelayPolicy::new(Duration::from_nanos(0));
+pub const NO_BACKOFF: FixedBackoff = FixedBackoff::new(Duration::from_nanos(0));
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FixedRetryDelayPolicy {
+pub struct FixedBackoff {
     delay: Duration,
 }
 
-impl FixedRetryDelayPolicy {
+impl FixedBackoff {
     #[inline]
     pub const fn new(delay: Duration) -> Self {
         Self { delay }
     }
 }
 
-impl RetryDelayPolicy for FixedRetryDelayPolicy {
+impl Backoff for FixedBackoff {
     #[inline]
-    fn delay_before_next_retry(
+    fn time(
         &self,
         _request: &mut HTTPRequest,
         _retry_result: RetryResult,
@@ -35,14 +34,14 @@ impl RetryDelayPolicy for FixedRetryDelayPolicy {
     }
 
     #[inline]
-    fn as_retry_delay_policy(&self) -> &dyn RetryDelayPolicy {
+    fn as_backoff(&self) -> &dyn Backoff {
         self
     }
 }
 
-impl Default for FixedRetryDelayPolicy {
+impl Default for FixedBackoff {
     #[inline]
     fn default() -> Self {
-        FixedRetryDelayPolicy::new(Duration::from_millis(100))
+        FixedBackoff::new(Duration::from_millis(100))
     }
 }

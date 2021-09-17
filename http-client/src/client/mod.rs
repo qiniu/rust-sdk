@@ -1,4 +1,5 @@
 mod authorization;
+mod backoff;
 mod call;
 mod callback;
 mod callbacks;
@@ -9,10 +10,12 @@ mod resolver;
 mod response;
 mod retried;
 mod retrier;
-mod retry_delay_policy;
 mod spawn;
 
 pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
+pub use backoff::{
+    Backoff, ExponentialBackoff, FixedBackoff, RandomizedBackoff, Ratio, NO_BACKOFF,
+};
 pub use call::DomainOrIpAddr;
 pub use callback::{
     CallbackContext, ExtendedCallbackContext, ResponseInfo, SimplifiedCallbackContext,
@@ -31,10 +34,6 @@ pub use resolver::{
 pub use response::{APIResult, Response, ResponseError, ResponseErrorKind, SyncResponse};
 pub use retried::RetriedStatsInfo;
 pub use retrier::{ErrorRetrier, LimitedRetrier, NeverRetrier, RequestRetrier, RetryResult};
-pub use retry_delay_policy::{
-    ExponentialRetryDelayPolicy, FixedRetryDelayPolicy, RandomizedRetryDelayPolicy, Ratio,
-    RetryDelayPolicy, NO_DELAY_POLICY,
-};
 
 #[cfg(any(feature = "c_ares"))]
 pub use resolver::{c_ares, c_ares_resolver, CAresResolver};

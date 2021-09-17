@@ -247,14 +247,14 @@ impl<'r> RequestBuilder<'r> {
     }
 
     #[inline]
-    pub fn on_before_retry_delay(mut self, callback: OnRetry) -> Self {
-        self.callbacks = self.callbacks.on_before_retry_delay(callback);
+    pub fn on_before_backoff(mut self, callback: OnRetry) -> Self {
+        self.callbacks = self.callbacks.on_before_backoff(callback);
         self
     }
 
     #[inline]
-    pub fn on_after_retry_delay(mut self, callback: OnRetry) -> Self {
-        self.callbacks = self.callbacks.on_after_retry_delay(callback);
+    pub fn on_after_backoff(mut self, callback: OnRetry) -> Self {
+        self.callbacks = self.callbacks.on_after_backoff(callback);
         self
     }
 

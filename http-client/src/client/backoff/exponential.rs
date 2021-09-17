@@ -1,22 +1,22 @@
-use super::{ResponseError, RetriedStatsInfo, RetryDelayPolicy, RetryResult};
+use super::{Backoff, ResponseError, RetriedStatsInfo, RetryResult};
 use qiniu_http::Request as HTTPRequest;
 use std::{any::Any, time::Duration};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExponentialRetryDelayPolicy {
+pub struct ExponentialBackoff {
     base_delay: Duration,
 }
 
-impl ExponentialRetryDelayPolicy {
+impl ExponentialBackoff {
     #[inline]
     pub const fn new(base_delay: Duration) -> Self {
         Self { base_delay }
     }
 }
 
-impl RetryDelayPolicy for ExponentialRetryDelayPolicy {
+impl Backoff for ExponentialBackoff {
     #[inline]
-    fn delay_before_next_retry(
+    fn time(
         &self,
         _request: &mut HTTPRequest,
         retry_result: RetryResult,
@@ -37,14 +37,14 @@ impl RetryDelayPolicy for ExponentialRetryDelayPolicy {
     }
 
     #[inline]
-    fn as_retry_delay_policy(&self) -> &dyn RetryDelayPolicy {
+    fn as_backoff(&self) -> &dyn Backoff {
         self
     }
 }
 
-impl Default for ExponentialRetryDelayPolicy {
+impl Default for ExponentialBackoff {
     #[inline]
     fn default() -> Self {
-        ExponentialRetryDelayPolicy::new(Duration::from_millis(100))
+        ExponentialBackoff::new(Duration::from_millis(100))
     }
 }

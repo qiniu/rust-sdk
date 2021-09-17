@@ -122,20 +122,20 @@ pub(super) fn make_url(
 }
 
 #[inline]
-pub(super) fn call_before_retry_delay_callbacks(
+pub(super) fn call_before_backoff_callbacks(
     request: &RequestWithoutEndpoints,
     built_request: &mut HTTPRequest,
     retried: &RetriedStatsInfo,
     delay: Duration,
 ) -> Result<(), TryError> {
-    if !request.call_before_retry_delay_callbacks(
+    if !request.call_before_backoff_callbacks(
         &mut ExtendedCallbackContextImpl::new(request, built_request, retried),
         delay,
     ) {
         return Err(TryError::new(
             ResponseError::new(
                 HTTPResponseErrorKind::UserCanceled.into(),
-                "on_before_retry_delay() callback returns false",
+                "on_before_backoff() callback returns false",
             ),
             RetryResult::DontRetry,
         ));
@@ -144,20 +144,20 @@ pub(super) fn call_before_retry_delay_callbacks(
 }
 
 #[inline]
-pub(super) fn call_after_retry_delay_callbacks(
+pub(super) fn call_after_backoff_callbacks(
     request: &RequestWithoutEndpoints,
     built_request: &mut HTTPRequest,
     retried: &RetriedStatsInfo,
     delay: Duration,
 ) -> Result<(), TryError> {
-    if !request.call_after_retry_delay_callbacks(
+    if !request.call_after_backoff_callbacks(
         &mut ExtendedCallbackContextImpl::new(request, built_request, retried),
         delay,
     ) {
         return Err(TryError::new(
             ResponseError::new(
                 HTTPResponseErrorKind::UserCanceled.into(),
-                "on_after_retry_delay() callback returns false",
+                "on_after_backoff() callback returns false",
             ),
             RetryResult::DontRetry,
         ));

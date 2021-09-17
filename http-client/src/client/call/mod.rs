@@ -19,8 +19,8 @@ use qiniu_http::{
 use serde_json::from_slice as parse_json_from_slice;
 use std::{mem::take, result::Result, thread::sleep, time::Duration};
 use utils::{
-    call_after_request_signed_callbacks, call_after_retry_delay_callbacks,
-    call_before_request_signed_callbacks, call_before_retry_delay_callbacks,
+    call_after_backoff_callbacks, call_after_request_signed_callbacks,
+    call_before_backoff_callbacks, call_before_request_signed_callbacks,
     call_domain_resolved_callbacks, call_error_callbacks, call_ips_chosen_callbacks,
     call_success_callbacks, call_to_choose_ips_callbacks, call_to_resolve_domain_callbacks,
     extract_ips_from, find_domains_with_port, find_ip_addr_with_port, make_request, make_url,
@@ -275,14 +275,14 @@ macro_rules! create_request_call_fn {
                                 | retry_result @ RetryResult::TryNextServer => {
                                     let delay = request
                                         .http_client()
-                                        .retry_delay_policy()
-                                        .delay_before_next_retry(
+                                        .backoff()
+                                        .time(
                                             built_request,
                                             err.retry_result(),
                                             err.response_error(),
                                             retried,
                                         );
-                                    call_before_retry_delay_callbacks(
+                                    call_before_backoff_callbacks(
                                         request,
                                         built_request,
                                         retried,
@@ -291,7 +291,7 @@ macro_rules! create_request_call_fn {
                                     if delay > Duration::new(0, 0) {
                                         $block!({ $sleep_method(delay) });
                                     }
-                                    call_after_retry_delay_callbacks(
+                                    call_after_backoff_callbacks(
                                         request,
                                         built_request,
                                         retried,
@@ -480,8 +480,7 @@ mod tests {
             chaotic_up_domains_region, make_dumb_resolver, make_error_response_client_builder,
             make_fixed_response_client_builder, make_random_resolver, single_up_domain_region,
         },
-        Authorization, Chooser, ErrorRetrier, IpChooser, LimitedRetrier, ServiceName,
-        NO_DELAY_POLICY,
+        Authorization, Chooser, ErrorRetrier, IpChooser, LimitedRetrier, ServiceName, NO_BACKOFF,
     };
     use qiniu_http::HeaderMap;
     use std::{
@@ -506,7 +505,7 @@ mod tests {
         .chooser(Box::new(DirectChooser))
         .resolver(Box::new(make_random_resolver()))
         .request_retrier(Box::new(ErrorRetrier))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .backoff(Box::new(NO_BACKOFF))
         .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
@@ -590,7 +589,7 @@ mod tests {
             HTTPResponseErrorKind::ConnectError,
             "Fake Connect Error",
         )
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .backoff(Box::new(NO_BACKOFF))
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(chooser))
         .request_retrier(Box::new(ErrorRetrier))
@@ -650,7 +649,7 @@ mod tests {
             make_error_response_client_builder(HTTPResponseErrorKind::SSLError, "Fake SSL Error")
                 .resolver(Box::new(make_random_resolver()))
                 .chooser(Box::new(DirectChooser))
-                .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+                .backoff(Box::new(NO_BACKOFF))
                 .request_retrier(Box::new(ErrorRetrier))
                 .build();
 
@@ -658,7 +657,7 @@ mod tests {
         let domain_resolved = Arc::new(Mutex::new(Vec::new()));
         let err = client
             .post(ServiceName::Up, &chaotic_up_domains_region())
-            .on_before_retry_delay(Box::new(|_, _| panic!("Should not retry")))
+            .on_before_backoff(Box::new(|_, _| panic!("Should not retry")))
             .on_to_resolve_domain(Box::new({
                 let domain_resolved = domain_resolved.to_owned();
                 move |_, domain| {
@@ -731,14 +730,14 @@ mod tests {
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .backoff(Box::new(NO_BACKOFF))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
 
         let retried = Arc::new(AtomicUsize::new(0));
         let err = always_retry_client
             .post(ServiceName::Up, &single_up_domain_region())
-            .on_before_retry_delay({
+            .on_before_backoff({
                 let retried = retried.to_owned();
                 Box::new(move |context, _| {
                     assert_eq!(
@@ -775,13 +774,13 @@ mod tests {
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .backoff(Box::new(NO_BACKOFF))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
 
         let err = always_throttled_client
             .post(ServiceName::Up, &single_up_domain_region())
-            .on_before_retry_delay({
+            .on_before_backoff({
                 retried.store(0, Relaxed);
                 Box::new(move |context, _| {
                     assert_eq!(
@@ -817,7 +816,7 @@ mod tests {
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .backoff(Box::new(NO_BACKOFF))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
 
@@ -831,7 +830,7 @@ mod tests {
         ];
         let err = always_try_next_client
             .post(ServiceName::Up, &chaotic_up_domains_region())
-            .on_before_retry_delay({
+            .on_before_backoff({
                 let retried = Arc::new(AtomicUsize::new(0));
                 Box::new(move |context, _| {
                     let retried = retried.fetch_add(1, Relaxed);
@@ -867,7 +866,7 @@ mod tests {
 
         let err = always_dont_retry_client
             .post(ServiceName::Up, &chaotic_up_domains_region())
-            .on_before_retry_delay(Box::new(|_, _| panic!("Should never retry")))
+            .on_before_backoff(Box::new(|_, _| panic!("Should never retry")))
             .on_after_request_signed(Box::new(|context| {
                 assert_eq!(
                     &context.url().to_string(),
@@ -894,7 +893,7 @@ mod tests {
             make_error_response_client_builder(HTTPResponseErrorKind::SendError, "Test Send Error")
                 .resolver(Box::new(make_random_resolver()))
                 .chooser(Box::new(DirectChooser))
-                .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+                .backoff(Box::new(NO_BACKOFF))
                 .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
                 .build();
         let credential: Arc<dyn CredentialProvider> = Arc::new(StaticCredentialProvider::new(
@@ -988,14 +987,14 @@ mod tests {
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .backoff(Box::new(NO_BACKOFF))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
 
         let retried_times = Arc::new(Mutex::new(HashMap::<String, AtomicUsize>::new()));
         let err = always_malicious_client
             .post(ServiceName::Up, &chaotic_up_domains_region())
-            .on_before_retry_delay(Box::new({
+            .on_before_backoff(Box::new({
                 let retried_times = retried_times.to_owned();
                 move |context, _| {
                     retried_times
@@ -1055,13 +1054,13 @@ mod tests {
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .backoff(Box::new(NO_BACKOFF))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
 
         let err = always_redirected_client
             .post(ServiceName::Up, &chaotic_up_domains_region())
-            .on_before_retry_delay(Box::new(|_, _| panic!("Should never retry")))
+            .on_before_backoff(Box::new(|_, _| panic!("Should never retry")))
             .call()
             .unwrap_err();
         assert_eq!(
@@ -1083,13 +1082,13 @@ mod tests {
         .resolver(Box::new(make_dumb_resolver()))
         .chooser(Box::new(DirectChooser))
         .request_retrier(Box::new(ErrorRetrier))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .backoff(Box::new(NO_BACKOFF))
         .build();
 
         let err = client
             .post(ServiceName::Up, &chaotic_up_domains_region())
             .on_before_request_signed(Box::new(|_| false))
-            .on_before_retry_delay(Box::new(|_, _| panic!("Should not retry")))
+            .on_before_backoff(Box::new(|_, _| panic!("Should not retry")))
             .call()
             .unwrap_err();
         assert_eq!(
@@ -1100,7 +1099,7 @@ mod tests {
         let err = client
             .post(ServiceName::Up, &chaotic_up_domains_region())
             .on_after_request_signed(Box::new(|_| false))
-            .on_before_retry_delay(Box::new(|_, _| panic!("Should not retry")))
+            .on_before_backoff(Box::new(|_, _| panic!("Should not retry")))
             .call()
             .unwrap_err();
         assert_eq!(
@@ -1110,8 +1109,8 @@ mod tests {
 
         let err = client
             .post(ServiceName::Up, &chaotic_up_domains_region())
-            .on_before_retry_delay(Box::new(|_, _| false))
-            .on_after_retry_delay(Box::new(|_, _| panic!("Should not retry")))
+            .on_before_backoff(Box::new(|_, _| false))
+            .on_after_backoff(Box::new(|_, _| panic!("Should not retry")))
             .call()
             .unwrap_err();
         assert_eq!(
@@ -1132,14 +1131,14 @@ mod tests {
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .backoff(Box::new(NO_BACKOFF))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
 
         let retried = Arc::new(AtomicUsize::new(0));
         let err = always_retry_client
             .post(ServiceName::Up, &single_up_domain_region())
-            .on_before_retry_delay({
+            .on_before_backoff({
                 let retried = retried.to_owned();
                 Box::new(move |context, _| {
                     assert_eq!(
@@ -1177,14 +1176,14 @@ mod tests {
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
-        .retry_delay_policy(Box::new(NO_DELAY_POLICY))
+        .backoff(Box::new(NO_BACKOFF))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
 
         retried.store(0, Relaxed);
         let err = always_throttled_client
             .post(ServiceName::Up, &single_up_domain_region())
-            .on_before_retry_delay({
+            .on_before_backoff({
                 let retried = retried.to_owned();
                 Box::new(move |context, _| {
                     assert_eq!(

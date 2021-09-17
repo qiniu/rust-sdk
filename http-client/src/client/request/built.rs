@@ -322,31 +322,29 @@ impl<'r> RequestWithoutEndpoints<'r> {
     }
 
     #[inline]
-    pub(in super::super) fn call_before_retry_delay_callbacks(
+    pub(in super::super) fn call_before_backoff_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
         delay: Duration,
     ) -> bool {
-        self.callbacks
-            .call_before_retry_delay_callbacks(context, delay)
+        self.callbacks.call_before_backoff_callbacks(context, delay)
             && self
                 .http_client
                 .callbacks()
-                .call_before_retry_delay_callbacks(context, delay)
+                .call_before_backoff_callbacks(context, delay)
     }
 
     #[inline]
-    pub(in super::super) fn call_after_retry_delay_callbacks(
+    pub(in super::super) fn call_after_backoff_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
         delay: Duration,
     ) -> bool {
-        self.callbacks
-            .call_after_retry_delay_callbacks(context, delay)
+        self.callbacks.call_after_backoff_callbacks(context, delay)
             && self
                 .http_client
                 .callbacks()
-                .call_after_retry_delay_callbacks(context, delay)
+                .call_after_backoff_callbacks(context, delay)
     }
 }
 

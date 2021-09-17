@@ -1,4 +1,4 @@
-use super::{ResponseError, RetriedStatsInfo, RetryDelayPolicy, RetryResult};
+use super::{Backoff, ResponseError, RetriedStatsInfo, RetryResult};
 use qiniu_http::Request as HTTPRequest;
 use rand::{thread_rng, Rng};
 use std::{any::Any, convert::TryInto, time::Duration, u64};
@@ -6,25 +6,25 @@ use std::{any::Any, convert::TryInto, time::Duration, u64};
 pub use num_rational::Ratio;
 
 #[derive(Debug, Clone)]
-pub struct RandomizedRetryDelayPolicy<P: RetryDelayPolicy> {
-    base_policy: P,
+pub struct RandomizedBackoff<P: Backoff> {
+    base_backoff: P,
     minification: Ratio<u8>,
     magnification: Ratio<u8>,
 }
 
-impl<P: RetryDelayPolicy> RandomizedRetryDelayPolicy<P> {
+impl<P: Backoff> RandomizedBackoff<P> {
     #[inline]
-    pub fn new(base_policy: P, minification: Ratio<u8>, magnification: Ratio<u8>) -> Self {
+    pub fn new(base_backoff: P, minification: Ratio<u8>, magnification: Ratio<u8>) -> Self {
         Self {
-            base_policy,
+            base_backoff,
             minification,
             magnification,
         }
     }
 
     #[inline]
-    pub fn base_policy(&self) -> &P {
-        &self.base_policy
+    pub fn base_backoff(&self) -> &P {
+        &self.base_backoff
     }
 
     #[inline]
@@ -38,21 +38,18 @@ impl<P: RetryDelayPolicy> RandomizedRetryDelayPolicy<P> {
     }
 }
 
-impl<P: RetryDelayPolicy> RetryDelayPolicy for RandomizedRetryDelayPolicy<P> {
+impl<P: Backoff> Backoff for RandomizedBackoff<P> {
     #[inline]
-    fn delay_before_next_retry(
+    fn time(
         &self,
         request: &mut HTTPRequest,
         retry_result: RetryResult,
         response_error: &ResponseError,
         retried: &RetriedStatsInfo,
     ) -> Duration {
-        let duration = self.base_policy().delay_before_next_retry(
-            request,
-            retry_result,
-            response_error,
-            retried,
-        );
+        let duration = self
+            .base_backoff()
+            .time(request, retry_result, response_error, retried);
         let minification: Ratio<u128> = Ratio::new_raw(
             self.minification().numer().to_owned().into(),
             self.minification().denom().to_owned().into(),
@@ -80,32 +77,31 @@ impl<P: RetryDelayPolicy> RetryDelayPolicy for RandomizedRetryDelayPolicy<P> {
     }
 
     #[inline]
-    fn as_retry_delay_policy(&self) -> &dyn RetryDelayPolicy {
+    fn as_backoff(&self) -> &dyn Backoff {
         self
     }
 }
 
-impl<P: RetryDelayPolicy + Default> Default for RandomizedRetryDelayPolicy<P> {
+impl<P: Backoff + Default> Default for RandomizedBackoff<P> {
     #[inline]
     fn default() -> Self {
-        RandomizedRetryDelayPolicy::new(P::default(), Ratio::new_raw(1, 2), Ratio::new_raw(3, 2))
+        RandomizedBackoff::new(P::default(), Ratio::new_raw(1, 2), Ratio::new_raw(3, 2))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{super::FixedRetryDelayPolicy, *};
+    use super::{super::FixedBackoff, *};
     use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
     use std::{error::Error, result::Result};
 
     #[test]
-    fn test_randomized_retry_delay_policy() -> Result<(), Box<dyn Error>> {
-        let fixed = FixedRetryDelayPolicy::new(Duration::from_secs(1));
-        let randomized =
-            RandomizedRetryDelayPolicy::new(fixed, Ratio::new_raw(1, 2), Ratio::new_raw(3, 2));
+    fn test_randomized_backoff() -> Result<(), Box<dyn Error>> {
+        let fixed = FixedBackoff::new(Duration::from_secs(1));
+        let randomized = RandomizedBackoff::new(fixed, Ratio::new_raw(1, 2), Ratio::new_raw(3, 2));
 
         for _ in 0..10000 {
-            let delay = randomized.delay_before_next_retry(
+            let delay = randomized.time(
                 &mut HTTPRequest::builder().build(),
                 RetryResult::RetryRequest,
                 &ResponseError::new(HTTPResponseErrorKind::TimeoutError.into(), "Test Error"),
