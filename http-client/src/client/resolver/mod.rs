@@ -4,7 +4,8 @@ mod shuffled;
 mod simple;
 mod timeout;
 
-use super::APIResult;
+use super::{super::CacheController, APIResult};
+use serde::{Deserialize, Serialize};
 use std::{any::Any, fmt::Debug, net::IpAddr};
 
 #[cfg(feature = "async")]
@@ -22,9 +23,12 @@ pub trait Resolver: Any + Debug + Sync + Send {
 
     fn as_any(&self) -> &dyn Any;
     fn as_resolver(&self) -> &dyn Resolver;
+    fn cache_controller(&self) -> Option<&dyn CacheController> {
+        None
+    }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ResolveAnswers {
     ip_addrs: Box<[IpAddr]>,
 }
@@ -53,7 +57,7 @@ impl ResolveAnswers {
 
 pub type ResolveResult = APIResult<ResolveAnswers>;
 
-pub use cache::{CachedResolver, PersistentError, PersistentResult};
+pub use cache::CachedResolver;
 pub use chained::{ChainedResolver, ChainedResolverBuilder};
 pub use shuffled::ShuffledResolver;
 pub use simple::SimpleResolver;

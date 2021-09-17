@@ -11,11 +11,7 @@ use qiniu_http::{
     uri::{Authority, InvalidUri, PathAndQuery, Scheme, Uri},
     Extensions, Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind,
 };
-use std::{
-    borrow::Cow,
-    net::{IpAddr, SocketAddr},
-    time::Duration,
-};
+use std::{borrow::Cow, net::IpAddr, time::Duration};
 
 pub(super) fn make_request<'r>(
     url: Uri,
@@ -81,17 +77,7 @@ pub(super) fn make_url(
                 }
                 authority.parse()?
             }
-            DomainOrIpAddr::IpAddr(ip_addr_with_port) => {
-                let authority = if let Some(port) = ip_addr_with_port.port() {
-                    SocketAddr::new(ip_addr_with_port.ip_addr(), port.get()).to_string()
-                } else {
-                    match ip_addr_with_port.ip_addr() {
-                        IpAddr::V4(ip) => ip.to_string(),
-                        IpAddr::V6(ip) => "[".to_owned() + &ip.to_string() + "]",
-                    }
-                };
-                authority.parse()?
-            }
+            DomainOrIpAddr::IpAddr(ip_addr_with_port) => ip_addr_with_port.to_string().parse()?,
         };
         let mut path_and_query = if request.path().starts_with('/') {
             request.path().to_owned()

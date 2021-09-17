@@ -1,4 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::{
+    fmt::{self, Display},
     net::{AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     num::NonZeroU16,
     str::FromStr,
@@ -6,7 +8,7 @@ use std::{
 use thiserror::Error;
 use url::{ParseError as UrlParseError, Url};
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DomainWithPort {
     domain: Box<str>,
     port: Option<NonZeroU16>,
@@ -34,6 +36,17 @@ impl DomainWithPort {
     #[inline]
     pub fn into_domain_and_port(self) -> (String, Option<NonZeroU16>) {
         (self.domain.into(), self.port)
+    }
+}
+
+impl Display for DomainWithPort {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(port) = self.port() {
+            write!(f, "{}:{}", self.domain(), port.get())
+        } else {
+            write!(f, "{}", self.domain())
+        }
     }
 }
 
@@ -115,7 +128,7 @@ impl FromStr for DomainWithPort {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct IpAddrWithPort {
     ip_addr: IpAddr,
     port: Option<NonZeroU16>,
@@ -135,6 +148,20 @@ impl IpAddrWithPort {
     #[inline]
     pub const fn port(&self) -> Option<NonZeroU16> {
         self.port
+    }
+}
+
+impl Display for IpAddrWithPort {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(port) = self.port() {
+            SocketAddr::new(self.ip_addr(), port.get()).fmt(f)
+        } else {
+            match self.ip_addr() {
+                IpAddr::V4(ip) => ip.fmt(f),
+                IpAddr::V6(ip) => write!(f, "[{}]", ip),
+            }
+        }
     }
 }
 
@@ -220,7 +247,7 @@ impl FromStr for IpAddrWithPort {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum Endpoint {
     DomainWithPort(DomainWithPort),
@@ -281,6 +308,15 @@ impl Endpoint {
         match self {
             Self::DomainWithPort(domain_with_port) => domain_with_port.port(),
             Self::IpAddrWithPort(ip_addr_with_port) => ip_addr_with_port.port(),
+        }
+    }
+}
+
+impl Display for Endpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DomainWithPort(domain) => write!(f, "{}", domain),
+            Self::IpAddrWithPort(ip_addr) => write!(f, "{}", ip_addr),
         }
     }
 }

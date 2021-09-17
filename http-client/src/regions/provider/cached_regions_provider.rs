@@ -1,31 +1,47 @@
-use super::{super::super::APIResult, structs::DEFAULT_CACHE_LIFETIME, Region, RegionProvider};
-use std::{
-    sync::{Arc, RwLock},
-    time::{Duration, Instant},
+use super::{
+    super::super::{APIResult, CacheController, Endpoints, HTTPClient, PersistentResult},
+    regions_cache::{CacheKey, RegionsCache},
+    regions_provider::RegionsProvider,
+    Region, RegionProvider,
 };
+use qiniu_credential::CredentialProvider;
+use std::{any::Any, fmt, path::Path, sync::Arc, time::Duration};
 
 #[cfg(feature = "async")]
 use {async_std::task::spawn, futures::future::BoxFuture};
 
-#[derive(Debug)]
-struct Cache {
-    body: Vec<Region>,
-    cached_at: Instant,
+const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(86400);
+const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
+
+#[derive(Clone)]
+pub struct CachedRegionsProvider {
+    inner: Arc<CachedRegionsProviderInner>,
 }
 
-#[derive(Debug, Clone)]
-pub struct CachedRegionsProvider<P: RegionProvider> {
-    inner: Arc<CachedRegionsProviderInner<P>>,
+struct CachedRegionsProviderInner {
+    cache_key: CacheKey,
+    provider: RegionsProvider,
+    cache: RegionsCache,
 }
 
-#[derive(Debug)]
-struct CachedRegionsProviderInner<P: RegionProvider> {
-    provider: P,
-    cache_lifetime: Duration,
-    cache: RwLock<Option<Cache>>,
+impl CachedRegionsProvider {
+    #[inline]
+    pub fn builder(
+        http_client: HTTPClient,
+        uc_endpoints: impl Into<Endpoints>,
+        credential_provider: Arc<dyn CredentialProvider>,
+    ) -> CachedRegionsProviderBuilder {
+        let uc_endpoints = uc_endpoints.into();
+        CachedRegionsProviderBuilder {
+            cache_key: CacheKey::new_from_endpoint(&uc_endpoints, None),
+            provider: RegionsProvider::new(http_client, uc_endpoints, credential_provider),
+            cache_lifetime: DEFAULT_CACHE_LIFETIME,
+            shrink_interval: DEFAULT_SHRINK_INTERVAL,
+        }
+    }
 }
 
-impl<P: RegionProvider> RegionProvider for CachedRegionsProvider<P> {
+impl RegionProvider for CachedRegionsProvider {
     fn get(&self) -> APIResult<Region> {
         self.get_all().map(|regions| {
             regions
@@ -37,7 +53,10 @@ impl<P: RegionProvider> RegionProvider for CachedRegionsProvider<P> {
 
     #[inline]
     fn get_all(&self) -> APIResult<Vec<Region>> {
-        self.do_sync_query()
+        let provider = self.to_owned();
+        self.inner.cache.get(&self.inner.cache_key, move || {
+            provider.inner.provider.get_all()
+        })
     }
 
     /// 异步返回七牛区域信息
@@ -45,14 +64,8 @@ impl<P: RegionProvider> RegionProvider for CachedRegionsProvider<P> {
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_get(&self) -> BoxFuture<APIResult<Region>> {
-        Box::pin(async move {
-            self.async_get_all().await.map(|regions| {
-                regions
-                    .into_iter()
-                    .next()
-                    .expect("Regions API returns empty regions")
-            })
-        })
+        let provider = self.to_owned();
+        Box::pin(async move { spawn(async move { provider.get() }).await })
     }
 
     /// 异步返回多个七牛区域信息
@@ -60,11 +73,17 @@ impl<P: RegionProvider> RegionProvider for CachedRegionsProvider<P> {
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_get_all(&self) -> BoxFuture<APIResult<Vec<Region>>> {
-        Box::pin(async move { self.do_async_query().await })
+        let provider = self.to_owned();
+        Box::pin(async move { spawn(async move { provider.get_all() }).await })
     }
 
     #[inline]
-    fn as_any(&self) -> &dyn std::any::Any {
+    fn cache_controller(&self) -> Option<&dyn CacheController> {
+        Some(&self.inner.cache)
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
         self
     }
 
@@ -74,69 +93,92 @@ impl<P: RegionProvider> RegionProvider for CachedRegionsProvider<P> {
     }
 }
 
-impl<P: RegionProvider> CachedRegionsProvider<P> {
+impl fmt::Debug for CachedRegionsProvider {
     #[inline]
-    pub fn cache_for(cache_lifetime: Duration, provider: P) -> Self {
-        Self {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CachedRegionsProvider")
+            .field("provider", &self.inner.provider)
+            .finish()
+    }
+}
+
+pub struct CachedRegionsProviderBuilder {
+    provider: RegionsProvider,
+    cache_key: CacheKey,
+    cache_lifetime: Duration,
+    shrink_interval: Duration,
+}
+
+impl fmt::Debug for CachedRegionsProviderBuilder {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CachedRegionsProviderBuilder")
+            .field("provider", &self.provider)
+            .field("cache_lifetime", &self.cache_lifetime)
+            .field("shrink_interval", &self.shrink_interval)
+            .finish()
+    }
+}
+
+impl CachedRegionsProviderBuilder {
+    #[inline]
+    pub fn cache_lifetime(mut self, cache_lifetime: Duration) -> Self {
+        self.cache_lifetime = cache_lifetime;
+        self
+    }
+
+    #[inline]
+    pub fn shrink_interval(mut self, shrink_interval: Duration) -> Self {
+        self.shrink_interval = shrink_interval;
+        self
+    }
+
+    #[inline]
+    pub fn load_or_create_from(
+        self,
+        path: impl AsRef<Path>,
+        auto_persistent: bool,
+    ) -> PersistentResult<CachedRegionsProvider> {
+        Ok(CachedRegionsProvider {
             inner: Arc::new(CachedRegionsProviderInner {
-                provider,
-                cache_lifetime,
-                cache: Default::default(),
+                provider: self.provider,
+                cache_key: self.cache_key,
+                cache: RegionsCache::load_or_create_from(
+                    path.as_ref(),
+                    auto_persistent,
+                    self.cache_lifetime,
+                    self.shrink_interval,
+                )?,
+            }),
+        })
+    }
+
+    #[inline]
+    pub fn default_load_or_create_from(
+        self,
+        auto_persistent: bool,
+    ) -> PersistentResult<CachedRegionsProvider> {
+        Ok(CachedRegionsProvider {
+            inner: Arc::new(CachedRegionsProviderInner {
+                provider: self.provider,
+                cache_key: self.cache_key,
+                cache: RegionsCache::default_load_or_create_from(
+                    auto_persistent,
+                    self.cache_lifetime,
+                    self.shrink_interval,
+                )?,
+            }),
+        })
+    }
+
+    #[inline]
+    pub fn in_memory(self) -> CachedRegionsProvider {
+        CachedRegionsProvider {
+            inner: Arc::new(CachedRegionsProviderInner {
+                provider: self.provider,
+                cache_key: self.cache_key,
+                cache: RegionsCache::in_memory(self.cache_lifetime, self.shrink_interval),
             }),
         }
-    }
-
-    #[inline]
-    pub fn cache(provider: P) -> Self {
-        Self::cache_for(DEFAULT_CACHE_LIFETIME, provider)
-    }
-
-    fn do_sync_query(&self) -> APIResult<Vec<Region>> {
-        let rlock = self.inner.cache.read().unwrap();
-        return if let Some(cache) = &*rlock {
-            if cache.cached_at.elapsed() > self.inner.cache_lifetime {
-                drop(rlock);
-                do_sync_query_with_wlock(&self.inner)
-            } else {
-                Ok(cache.body.to_owned())
-            }
-        } else {
-            drop(rlock);
-            do_sync_query_with_wlock(&self.inner)
-        };
-
-        fn do_sync_query_with_wlock<P: RegionProvider>(
-            inner: &CachedRegionsProviderInner<P>,
-        ) -> APIResult<Vec<Region>> {
-            let mut wlock = inner.cache.write().unwrap();
-            if let Some(cache) = &mut *wlock {
-                if cache.cached_at.elapsed() > inner.cache_lifetime {
-                    let body = inner.provider.get_all()?;
-                    *cache = Cache {
-                        body: body.to_owned(),
-                        cached_at: Instant::now(),
-                    };
-                    Ok(body)
-                } else {
-                    Ok(cache.body.to_owned())
-                }
-            } else {
-                let body = inner.provider.get_all()?;
-                *wlock = Some(Cache {
-                    body: body.to_owned(),
-                    cached_at: Instant::now(),
-                });
-                Ok(body)
-            }
-        }
-    }
-
-    #[inline]
-    #[cfg(feature = "async")]
-    async fn do_async_query(&self) -> APIResult<Vec<Region>> {
-        let ctx = Self {
-            inner: self.inner.to_owned(),
-        };
-        spawn(async move { ctx.do_sync_query() }).await
     }
 }

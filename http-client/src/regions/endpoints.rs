@@ -1,4 +1,5 @@
 use super::{super::APIResult, Endpoint, Region, RegionProvider};
+use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt, str::FromStr};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -41,7 +42,7 @@ impl fmt::Display for InvalidServiceName {
 
 impl Error for InvalidServiceName {}
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Endpoints {
     endpoints: Box<[Endpoint]>,
     old_endpoints: Box<[Endpoint]>,

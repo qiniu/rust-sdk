@@ -10,15 +10,10 @@ use qiniu_credential::CredentialProvider;
 use std::{any::Any, convert::TryFrom, fmt::Debug, sync::Arc};
 
 #[cfg(feature = "async")]
-use {async_std::task::spawn, futures::future::BoxFuture};
-
-#[derive(Debug, Clone)]
-pub struct RegionsProvider {
-    inner: Arc<RegionsProviderInner>,
-}
+use futures::future::BoxFuture;
 
 #[derive(Debug)]
-struct RegionsProviderInner {
+pub struct RegionsProvider {
     credential_provider: Arc<dyn CredentialProvider>,
     http_client: HTTPClient,
     uc_endpoints: Endpoints,
@@ -32,21 +27,18 @@ impl RegionsProvider {
         credential_provider: Arc<dyn CredentialProvider>,
     ) -> Self {
         Self {
-            inner: Arc::new(RegionsProviderInner {
-                http_client,
-                credential_provider,
-                uc_endpoints: uc_endpoints.into(),
-            }),
+            http_client,
+            credential_provider,
+            uc_endpoints: uc_endpoints.into(),
         }
     }
 
     fn do_sync_query(&self) -> APIResult<Vec<Region>> {
         let body: ResponseBody = self
-            .inner
             .http_client
-            .get(ServiceName::Uc, self.inner.uc_endpoints.to_owned())
+            .get(ServiceName::Uc, self.uc_endpoints.to_owned())
             .path("/regions")
-            .authorization(Authorization::v2(self.inner.credential_provider.to_owned()))
+            .authorization(Authorization::v2(self.credential_provider.to_owned()))
             .accept_json()
             .call()?
             .parse_json()?
@@ -62,9 +54,24 @@ impl RegionsProvider {
 
     #[cfg(feature = "async")]
     async fn do_async_query(&self) -> APIResult<Vec<Region>> {
-        let ctx = self.to_owned();
-
-        spawn(async move { ctx.do_sync_query() }).await
+        let body: ResponseBody = self
+            .http_client
+            .get(ServiceName::Uc, self.uc_endpoints.to_owned())
+            .path("/regions")
+            .authorization(Authorization::v2(self.credential_provider.to_owned()))
+            .accept_json()
+            .async_call()
+            .await?
+            .parse_json()
+            .await?
+            .into_body();
+        body.into_hosts()
+            .into_iter()
+            .map(|host| {
+                Region::try_from(host)
+                    .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))
+            })
+            .collect()
     }
 }
 

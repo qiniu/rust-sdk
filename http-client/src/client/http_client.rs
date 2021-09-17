@@ -250,7 +250,7 @@ impl HTTPClientBuilder {
 
                 builder.build()
             };
-            let cached_resolver = CachedResolver::default_load_or_create_from(chained_resolver);
+            let cached_resolver = CachedResolver::builder(chained_resolver).in_memory();
             let shuffled_resolver = ShuffledResolver::new(cached_resolver);
             Box::new(shuffled_resolver)
         }

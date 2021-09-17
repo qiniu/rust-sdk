@@ -3,9 +3,7 @@ use super::{
     Region,
 };
 use serde::Deserialize;
-use std::{convert::TryFrom, fmt::Debug, time::Duration};
-
-pub(super) const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
+use std::{convert::TryFrom, fmt::Debug};
 
 #[derive(Debug, Clone, Deserialize)]
 pub(super) struct ResponseBody {

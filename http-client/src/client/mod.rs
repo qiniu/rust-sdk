@@ -10,7 +10,6 @@ mod resolver;
 mod response;
 mod retried;
 mod retrier;
-mod spawn;
 
 pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
 pub use backoff::{
@@ -28,8 +27,8 @@ pub use chooser::{
 pub use http_client::{HTTPClient, HTTPClientBuilder};
 pub use request::{Idempotent, QueryPairKey, QueryPairValue, QueryPairs, RequestBuilder};
 pub use resolver::{
-    CachedResolver, ChainedResolver, ChainedResolverBuilder, PersistentError, PersistentResult,
-    ResolveAnswers, ResolveResult, Resolver, ShuffledResolver, SimpleResolver, TimeoutResolver,
+    CachedResolver, ChainedResolver, ChainedResolverBuilder, ResolveAnswers, ResolveResult,
+    Resolver, ShuffledResolver, SimpleResolver, TimeoutResolver,
 };
 pub use response::{APIResult, Response, ResponseError, ResponseErrorKind, SyncResponse};
 pub use retried::RetriedStatsInfo;

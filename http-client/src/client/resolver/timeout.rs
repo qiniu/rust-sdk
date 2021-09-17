@@ -1,4 +1,7 @@
-use super::{super::ResponseError, ResolveResult, Resolver};
+use super::{
+    super::{super::CacheController, ResponseError},
+    ResolveResult, Resolver,
+};
 use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
 use std::{any::Any, sync::Arc, time::Duration};
 
@@ -51,7 +54,7 @@ impl<R: Resolver> Resolver for TimeoutResolver<R> {
         #[inline]
         #[cfg(not(feature = "async"))]
         fn _resolve<R: Resolver>(resolver: &TimeoutResolver<R>, domain: &str) -> ResolveResult {
-            use super::super::spawn::spawn;
+            use super::super::super::spawn::spawn;
             use crossbeam_channel::{bounded, Select};
             use log::warn;
 
@@ -114,6 +117,11 @@ impl<R: Resolver> Resolver for TimeoutResolver<R> {
     fn as_resolver(&self) -> &dyn Resolver {
         self
     }
+
+    #[inline]
+    fn cache_controller(&self) -> Option<&dyn CacheController> {
+        self.inner.resolver.cache_controller()
+    }
 }
 
 #[cfg(test)]
@@ -159,18 +167,14 @@ mod tests {
 
     #[test]
     fn test_timeout_resolver() -> Result<(), Box<dyn Error>> {
-        let resolver = TimeoutResolver::new(
-            WaitResolver(Duration::from_secs(1)),
-            Duration::from_secs(2),
-        );
+        let resolver =
+            TimeoutResolver::new(WaitResolver(Duration::from_secs(1)), Duration::from_secs(2));
 
         let answers = resolver.resolve("fake.domain")?;
         assert_eq!(answers.ip_addrs(), IPS);
 
-        let resolver = TimeoutResolver::new(
-            WaitResolver(Duration::from_secs(2)),
-            Duration::from_secs(1),
-        );
+        let resolver =
+            TimeoutResolver::new(WaitResolver(Duration::from_secs(2)), Duration::from_secs(1));
         resolver.resolve("fake.domain").unwrap_err();
 
         Ok(())

@@ -1,15 +1,16 @@
 use super::{Endpoint, Endpoints};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// 七牛存储区域
 ///
 /// 提供七牛不同区域的域名
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Region {
     inner: Arc<RegionInner>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct RegionInner {
     region_id: Box<str>,
     s3_region_id: Box<str>,

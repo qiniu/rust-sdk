@@ -1,5 +1,10 @@
-use super::{super::APIResult, Region};
+use super::{
+    super::{APIResult, CacheController},
+    Region,
+};
 use std::{any::Any, fmt::Debug};
+
+mod regions_cache;
 
 mod bucket_regions_queryer;
 pub use bucket_regions_queryer::{
@@ -48,6 +53,11 @@ pub trait RegionProvider: Any + Debug + Sync + Send {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_get_all(&self) -> BoxFuture<APIResult<Vec<Region>>> {
         Box::pin(async move { self.get_all() })
+    }
+
+    #[inline]
+    fn cache_controller(&self) -> Option<&dyn CacheController> {
+        None
     }
 
     fn as_any(&self) -> &dyn Any;

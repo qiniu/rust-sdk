@@ -16,8 +16,10 @@
     unused_qualifications
 )]
 
+mod cache;
 mod client;
 mod regions;
+mod spawn;
 
 #[cfg(test)]
 mod test_utils;
@@ -38,16 +40,17 @@ pub use qiniu_credential as credential;
 pub use qiniu_http as http;
 pub use qiniu_upload_token as upload_token;
 
+pub use cache::{CacheController, PersistentError, PersistentResult};
 pub use client::{
     APIResult, Authorization, AuthorizationError, AuthorizationResult, Backoff, CachedResolver,
     CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver, ChainedResolverBuilder, Chooser,
     ChooserFeedback, DomainOrIpAddr, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext,
     FixedBackoff, HTTPClient, HTTPClientBuilder, Idempotent, IpChooser, IpChooserBuilder,
-    LimitedRetrier, NeverRetrier, PersistentError, PersistentResult, QueryPairKey, QueryPairValue,
-    QueryPairs, RandomizedBackoff, Ratio, RequestBuilder, RequestRetrier, ResolveAnswers,
-    ResolveResult, Resolver, ResponseError, ResponseErrorKind, ResponseInfo, RetryResult,
-    ShuffledChooser, ShuffledResolver, SimpleResolver, SimplifiedCallbackContext, SubnetChooser,
-    SubnetChooserBuilder, SyncResponse, TimeoutResolver, NO_BACKOFF,
+    LimitedRetrier, NeverRetrier, QueryPairKey, QueryPairValue, QueryPairs, RandomizedBackoff,
+    Ratio, RequestBuilder, RequestRetrier, ResolveAnswers, ResolveResult, Resolver, ResponseError,
+    ResponseErrorKind, ResponseInfo, RetryResult, ShuffledChooser, ShuffledResolver,
+    SimpleResolver, SimplifiedCallbackContext, SubnetChooser, SubnetChooserBuilder, SyncResponse,
+    TimeoutResolver, NO_BACKOFF,
 };
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
@@ -56,6 +59,7 @@ pub use regions::{
     IpAddrWithPortParseError, Region, RegionBuilder, RegionProvider, RegionsProvider, ServiceName,
     StaticRegionProvider,
 };
+pub use upload_token::{BucketName, ObjectName};
 
 #[cfg(feature = "c_ares")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "c_ares")))]

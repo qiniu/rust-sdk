@@ -1,4 +1,4 @@
-use super::{ResolveResult, Resolver};
+use super::{super::super::CacheController, ResolveResult, Resolver};
 use rand::{prelude::*, thread_rng};
 use std::any::Any;
 
@@ -44,6 +44,11 @@ impl<R: Resolver> Resolver for ShuffledResolver<R> {
     #[inline]
     fn as_resolver(&self) -> &dyn Resolver {
         self
+    }
+
+    #[inline]
+    fn cache_controller(&self) -> Option<&dyn CacheController> {
+        self.base_resolver.cache_controller()
     }
 }
 
