@@ -10,14 +10,14 @@ use super::{
     request_data::RequestData,
     Idempotent, QueryPairKey, QueryPairValue, QueryPairs, Request,
 };
-use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM};
+use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM, APPLICATION_WWW_FORM_URLENCODED};
 use qiniu_http::{
     header::{ACCEPT, CONTENT_TYPE},
     Extensions, HeaderMap, HeaderName, HeaderValue, Method, RequestBody, Version,
 };
 use serde::Serialize;
 use serde_json::Result as JSONResult;
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 
 #[cfg(feature = "async")]
 use super::super::{async_request_call, AsyncResponse};
@@ -115,6 +115,30 @@ impl<'r> RequestBuilder<'r> {
         Ok(self.set_header(
             CONTENT_TYPE,
             HeaderValue::from_str(APPLICATION_JSON.as_ref()).unwrap(),
+        ))
+    }
+
+    #[inline]
+    pub fn post_form<I, K, V>(mut self, iter: I) -> JSONResult<Self>
+    where
+        I: IntoIterator,
+        I::Item: Borrow<(K, Option<V>)>,
+        K: AsRef<str>,
+        V: AsRef<str>,
+    {
+        let mut form = form_urlencoded::Serializer::new(String::new());
+        for pair in iter {
+            let (k, v) = pair.borrow();
+            if let Some(v) = v {
+                form.append_pair(k.as_ref(), v.as_ref());
+            } else {
+                form.append_key_only(k.as_ref());
+            }
+        }
+        self.data.body = form.finish().into_bytes().into();
+        Ok(self.set_header(
+            CONTENT_TYPE,
+            HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref()).unwrap(),
         ))
     }
 
