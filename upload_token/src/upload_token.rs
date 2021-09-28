@@ -1,7 +1,7 @@
 use super::{UploadPolicy, UploadPolicyBuilder};
 use once_cell::sync::OnceCell;
 use qiniu_credential::{AccessKey, CredentialProvider};
-use qiniu_utils::{BucketName, ObjectName, base64};
+use qiniu_utils::{base64, BucketName, ObjectName};
 use std::{
     any::Any,
     borrow::Cow,
@@ -144,10 +144,10 @@ impl<T: Into<String>> From<T> for StaticUploadTokenProvider {
     }
 }
 
+#[derive(Debug)]
 pub(super) struct FromUploadPolicy {
     upload_policy: UploadPolicy,
     credential: Box<dyn CredentialProvider>,
-    upload_token: OnceCell<Box<str>>,
 }
 
 impl FromUploadPolicy {
@@ -159,17 +159,7 @@ impl FromUploadPolicy {
         Self {
             upload_policy,
             credential,
-            upload_token: OnceCell::new(),
         }
-    }
-}
-
-impl Debug for FromUploadPolicy {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("FromUploadPolicy")
-            .field("upload_policy", &self.upload_policy)
-            .finish()
     }
 }
 
@@ -185,14 +175,11 @@ impl UploadTokenProvider for FromUploadPolicy {
     }
 
     fn to_string(&self) -> IOResult<Cow<str>> {
-        let upload_token = self.upload_token.get_or_try_init::<_, IOError>(|| {
-            Ok(self
-                .credential
+        Ok(Cow::Owned(
+            self.credential
                 .get()?
-                .sign_with_data(self.upload_policy.as_json().as_bytes())
-                .into_boxed_str())
-        })?;
-        Ok(Cow::Borrowed(upload_token))
+                .sign_with_data(self.upload_policy.as_json().as_bytes()),
+        ))
     }
 
     #[inline]
