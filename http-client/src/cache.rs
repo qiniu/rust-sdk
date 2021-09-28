@@ -92,15 +92,11 @@ impl<
             shrink_interval,
         ) {
             Ok(Some(cache)) => Ok(cache),
-            _ => {
-                let cache = Self::new(
-                    cache_lifetime,
-                    shrink_interval,
-                    Some(PersistentFile::new(path.to_owned(), auto_persistent)),
-                );
-                cache.persistent_all_cache_entries_to_file()?;
-                Ok(cache)
-            }
+            _ => Ok(Self::new(
+                cache_lifetime,
+                shrink_interval,
+                Some(PersistentFile::new(path.to_owned(), auto_persistent)),
+            )),
         }
     }
 
@@ -271,47 +267,6 @@ impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize>
         get_cmd: impl FnOnce() -> PersistentCacheCommand<K, V>,
     ) {
         self.inner.push_command_if_persistent_enabled(get_cmd);
-    }
-
-    #[inline]
-    fn persistent_all_cache_entries_to_file(&self) -> PersistentResult<()> {
-        if let Some(persistent) = &self.inner.persistent {
-            _persistent_all_cache_entries_to_file(
-                &self.inner.cache,
-                &persistent.path,
-                self.inner.cache_lifetime,
-            )?;
-        }
-        return Ok(());
-
-        fn _persistent_all_cache_entries_to_file<
-            K: Eq + PartialEq + Hash + Clone + Serialize,
-            V: Clone + Serialize,
-        >(
-            cache: &DashMap<K, CacheValue<V>>,
-            persistent_path: &Path,
-            cache_lifetime: Duration,
-        ) -> PersistentResult<()> {
-            if let Some(parent_dir) = persistent_path.parent() {
-                create_dir_all(parent_dir)?;
-            }
-            let mut file = OpenOptions::new()
-                .create(true)
-                .write(true)
-                .truncate(true)
-                .open(persistent_path)?;
-            for pair in cache.iter() {
-                let (key, value) = pair.pair();
-                if value.cached_at + cache_lifetime >= SystemTime::now() {
-                    let line = serde_json::to_string(&PersistentCacheEntry {
-                        key: key.to_owned(),
-                        value: Some(value.to_owned()),
-                    })?;
-                    writeln!(file, "{}", line)?;
-                }
-            }
-            Ok(())
-        }
     }
 }
 
@@ -505,6 +460,9 @@ fn do_some_work_with_locked_data<
         cache_lifetime: Duration,
     ) -> PersistentResult<()> {
         if !commands.is_empty() {
+            if let Some(parent_dir) = path.parent() {
+                create_dir_all(parent_dir)?;
+            }
             let mut file = OpenOptions::new()
                 .create(true)
                 .write(true)
