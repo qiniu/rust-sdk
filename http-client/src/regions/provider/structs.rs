@@ -33,8 +33,10 @@ pub(super) struct RegionResponseBody {
 
 #[derive(Debug, Clone, Deserialize)]
 struct DomainsResponseBody {
-    domains: Box<[Box<str>]>,
-    old: Option<Box<[Box<str>]>>,
+    #[serde(rename = "domains")]
+    preferred: Box<[Box<str>]>,
+    #[serde(rename = "old")]
+    alternative: Option<Box<[Box<str>]>>,
 }
 
 impl TryFrom<RegionResponseBody> for Region {
@@ -53,26 +55,34 @@ impl TryFrom<RegionResponseBody> for Region {
         let mut builder = Self::builder(region);
 
         macro_rules! push_to_builder {
-            ($service_name:expr, $push_to_endpoint:ident, $push_to_old_endpoint:ident) => {
-                for domain in $service_name.domains.iter() {
-                    let endpoint: Endpoint = domain.as_ref().parse()?;
-                    builder = builder.$push_to_endpoint(endpoint);
+            ($service_name:expr, $push_to_preferred_endpoint:ident, $push_to_alternative_endpoint:ident) => {
+                for preferred_domain in $service_name.preferred.iter() {
+                    let endpoint: Endpoint = preferred_domain.as_ref().parse()?;
+                    builder = builder.$push_to_preferred_endpoint(endpoint);
                 }
-                if let Some(old_domains) = &$service_name.old {
-                    for old_domain in old_domains.iter() {
-                        let endpoint: Endpoint = old_domain.as_ref().parse()?;
-                        builder = builder.$push_to_old_endpoint(endpoint);
+                if let Some(alternative_domains) = &$service_name.alternative {
+                    for alternative_domain in alternative_domains.iter() {
+                        let endpoint: Endpoint = alternative_domain.as_ref().parse()?;
+                        builder = builder.$push_to_alternative_endpoint(endpoint);
                     }
                 }
             };
         }
-        push_to_builder!(io, push_io_endpoint, push_io_old_endpoint);
-        push_to_builder!(up, push_up_endpoint, push_up_old_endpoint);
-        push_to_builder!(uc, push_uc_endpoint, push_uc_old_endpoint);
-        push_to_builder!(rs, push_rs_endpoint, push_rs_old_endpoint);
-        push_to_builder!(rsf, push_rsf_endpoint, push_rsf_old_endpoint);
-        push_to_builder!(api, push_api_endpoint, push_api_old_endpoint);
-        push_to_builder!(s3, push_s3_endpoint, push_s3_old_endpoint);
+        push_to_builder!(io, push_io_preferred_endpoint, push_io_alternative_endpoint);
+        push_to_builder!(up, push_up_preferred_endpoint, push_up_alternative_endpoint);
+        push_to_builder!(uc, push_uc_preferred_endpoint, push_uc_alternative_endpoint);
+        push_to_builder!(rs, push_rs_preferred_endpoint, push_rs_alternative_endpoint);
+        push_to_builder!(
+            rsf,
+            push_rsf_preferred_endpoint,
+            push_rsf_alternative_endpoint
+        );
+        push_to_builder!(
+            api,
+            push_api_preferred_endpoint,
+            push_api_alternative_endpoint
+        );
+        push_to_builder!(s3, push_s3_preferred_endpoint, push_s3_alternative_endpoint);
 
         Ok(builder.build())
     }

@@ -317,96 +317,96 @@ mod tests {
                 assert_eq!(region.region_id(), "z0");
                 assert!(region.s3_region_id().is_empty());
                 assert_eq!(
-                    region.up_endpoints(),
+                    region.up_preferred_endpoints(),
                     &[
                         Endpoint::from_str("upload.qiniup.com").unwrap(),
                         Endpoint::from_str("up.qiniup.com").unwrap()
                     ]
                 );
                 assert_eq!(
-                    region.up_old_endpoints(),
+                    region.up_alternative_endpoints(),
                     &[
                         Endpoint::from_str("upload.qbox.me").unwrap(),
                         Endpoint::from_str("up.qbox.me").unwrap()
                     ]
                 );
                 assert_eq!(
-                    region.io_endpoints(),
+                    region.io_preferred_endpoints(),
                     &[Endpoint::from_str("iovip.qbox.me").unwrap(),]
                 );
-                assert!(region.io_old_endpoints().is_empty());
+                assert!(region.io_alternative_endpoints().is_empty());
                 assert_eq!(
-                    region.uc_endpoints(),
+                    region.uc_preferred_endpoints(),
                     &[Endpoint::from_str("uc.qbox.me").unwrap(),]
                 );
-                assert!(region.uc_old_endpoints().is_empty());
+                assert!(region.uc_alternative_endpoints().is_empty());
                 assert_eq!(
-                    region.rs_endpoints(),
+                    region.rs_preferred_endpoints(),
                     &[Endpoint::from_str("rs-z0.qbox.me").unwrap(),]
                 );
-                assert!(region.rs_old_endpoints().is_empty());
+                assert!(region.rs_alternative_endpoints().is_empty());
                 assert_eq!(
-                    region.rsf_endpoints(),
+                    region.rsf_preferred_endpoints(),
                     &[Endpoint::from_str("rsf-z0.qbox.me").unwrap(),]
                 );
-                assert!(region.rsf_old_endpoints().is_empty());
+                assert!(region.rsf_alternative_endpoints().is_empty());
                 assert_eq!(
-                    region.api_endpoints(),
+                    region.api_preferred_endpoints(),
                     &[Endpoint::from_str("api.qiniu.com").unwrap(),]
                 );
-                assert!(region.api_old_endpoints().is_empty());
+                assert!(region.api_alternative_endpoints().is_empty());
                 assert_eq!(
-                    region.s3_endpoints(),
+                    region.s3_preferred_endpoints(),
                     &[Endpoint::from_str("s3-cn-east-1.qiniucs.com").unwrap(),]
                 );
-                assert!(region.s3_old_endpoints().is_empty());
+                assert!(region.s3_alternative_endpoints().is_empty());
                 let region = regions.next().unwrap();
                 assert_eq!(region.region_id(), "z1");
                 assert!(region.s3_region_id().is_empty());
                 assert_eq!(
-                    region.up_endpoints(),
+                    region.up_preferred_endpoints(),
                     &[
                         Endpoint::from_str("upload-z1.qiniup.com").unwrap(),
                         Endpoint::from_str("up-z1.qiniup.com").unwrap()
                     ]
                 );
                 assert_eq!(
-                    region.up_old_endpoints(),
+                    region.up_alternative_endpoints(),
                     &[
                         Endpoint::from_str("upload-z1.qbox.me").unwrap(),
                         Endpoint::from_str("up-z1.qbox.me").unwrap()
                     ]
                 );
                 assert_eq!(
-                    region.io_endpoints(),
+                    region.io_preferred_endpoints(),
                     &[Endpoint::from_str("iovip-z1.qbox.me").unwrap(),]
                 );
-                assert!(region.io_old_endpoints().is_empty());
+                assert!(region.io_alternative_endpoints().is_empty());
                 assert_eq!(
-                    region.uc_endpoints(),
+                    region.uc_preferred_endpoints(),
                     &[Endpoint::from_str("uc.qbox.me").unwrap(),]
                 );
-                assert!(region.uc_old_endpoints().is_empty());
+                assert!(region.uc_alternative_endpoints().is_empty());
                 assert_eq!(
-                    region.rs_endpoints(),
+                    region.rs_preferred_endpoints(),
                     &[Endpoint::from_str("rs-z1.qbox.me").unwrap(),]
                 );
-                assert!(region.rs_old_endpoints().is_empty());
+                assert!(region.rs_alternative_endpoints().is_empty());
                 assert_eq!(
-                    region.rsf_endpoints(),
+                    region.rsf_preferred_endpoints(),
                     &[Endpoint::from_str("rsf-z1.qbox.me").unwrap(),]
                 );
-                assert!(region.rsf_old_endpoints().is_empty());
+                assert!(region.rsf_alternative_endpoints().is_empty());
                 assert_eq!(
-                    region.api_endpoints(),
+                    region.api_preferred_endpoints(),
                     &[Endpoint::from_str("api.qiniu.com").unwrap(),]
                 );
-                assert!(region.api_old_endpoints().is_empty());
+                assert!(region.api_alternative_endpoints().is_empty());
                 assert_eq!(
-                    region.s3_endpoints(),
+                    region.s3_preferred_endpoints(),
                     &[Endpoint::from_str("s3-cn-north-1.qiniucs.com").unwrap(),]
                 );
-                assert!(region.s3_old_endpoints().is_empty());
+                assert!(region.s3_alternative_endpoints().is_empty());
             }
 
             assert_eq!(called.load(Relaxed), 1);

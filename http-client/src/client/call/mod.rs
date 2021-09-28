@@ -39,15 +39,15 @@ macro_rules! create_request_call_fn {
             let mut tried_ips = IpAddrsSet::default();
             let mut retried = RetriedStatsInfo::default();
 
-            return match $block!({ try_new_endpoints(endpoints.endpoints(), &request, extensions, &mut tried_ips, &mut retried) }) {
+            return match $block!({ try_preferred_endpoints(endpoints.preferred(), &request, extensions, &mut tried_ips, &mut retried) }) {
                 Ok(response) => Ok(response),
                 Err(err)
-                    if err.retry_result() == RetryResult::TryOldEndpoints
-                        && !endpoints.old_endpoints().is_empty() =>
+                    if err.retry_result() == RetryResult::TryAlternativeEndpoints
+                        && !endpoints.alternative().is_empty() =>
                 {
                     let (_, extensions) = err.split();
-                    retried.switch_to_old_endpoints();
-                    $block!({ try_old_endpoints(endpoints.old_endpoints(), &request, extensions, &mut tried_ips, &mut retried) })
+                    retried.switch_to_alternative_endpoints();
+                    $block!({ try_alternative_endpoints(endpoints.alternative(), &request, extensions, &mut tried_ips, &mut retried) })
                 }
                 Err(err) => Err(err.into_response_error()),
             };
@@ -56,7 +56,7 @@ macro_rules! create_request_call_fn {
             type _TryResult = Result<$return_type, TryError>;
 
             #[inline]
-            $($async)? fn try_new_endpoints(
+            $($async)? fn try_preferred_endpoints(
                 endpoints: &[Endpoint],
                 request: &RequestWithoutEndpoints<'_>,
                 extensions: Extensions,
@@ -67,7 +67,7 @@ macro_rules! create_request_call_fn {
             }
 
             #[inline]
-            $($async)? fn try_old_endpoints(
+            $($async)? fn try_alternative_endpoints(
                 endpoints: &[Endpoint],
                 request: &RequestWithoutEndpoints<'_>,
                 extensions: Extensions,
@@ -83,7 +83,7 @@ macro_rules! create_request_call_fn {
                 mut extensions: Extensions,
                 tried_ips: &mut IpAddrsSet,
                 retried: &mut RetriedStatsInfo,
-                is_endpoints_old: bool,
+                is_endpoints_alternative: bool,
             ) -> TryResult {
                 let mut last_error: Option<TryError> = None;
                 macro_rules! try_endpoint {
@@ -93,7 +93,7 @@ macro_rules! create_request_call_fn {
                             Ok(response) => return Ok(response),
                             Err(err) => {
                                 match err.retry_result() {
-                                    RetryResult::TryOldEndpoints if is_endpoints_old => return Err(err),
+                                    RetryResult::TryAlternativeEndpoints if is_endpoints_alternative => return Err(err),
                                     RetryResult::DontRetry => {
                                         retried.increase_abandoned_ips_of_current_endpoint();
                                         return Err(err);
@@ -642,7 +642,7 @@ mod tests {
     }
 
     #[test]
-    fn test_call_switch_to_old_endpoints() -> Result<(), Box<dyn Error>> {
+    fn test_call_switch_to_alternative_endpoints() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
         let client =
@@ -679,9 +679,9 @@ mod tests {
                         retried.saturating_sub(1)
                     );
                     if retried > 0 {
-                        assert!(context.retried().switched_to_old_endpoints());
+                        assert!(context.retried().switched_to_alternative_endpoints());
                     } else {
-                        assert!(!context.retried().switched_to_old_endpoints());
+                        assert!(!context.retried().switched_to_alternative_endpoints());
                     }
                     true
                 }
@@ -700,8 +700,8 @@ mod tests {
             &domain_resolved,
             &[
                 "fakedomain.withoutport.com".to_owned(),
-                "old_fakedomain.withoutport.com".to_owned(),
-                "old_fakedomain.withport.com".to_owned(),
+                "alternative_fakedomain.withoutport.com".to_owned(),
+                "alternative_fakedomain.withport.com".to_owned(),
             ]
         );
         let urls_visited = Arc::try_unwrap(urls_visited).unwrap().into_inner().unwrap();
@@ -709,8 +709,8 @@ mod tests {
             &urls_visited,
             &[
                 "https://fakedomain.withoutport.com/".to_owned(),
-                "https://old_fakedomain.withoutport.com/".to_owned(),
-                "https://old_fakedomain.withport.com:8080/".to_owned(),
+                "https://alternative_fakedomain.withoutport.com/".to_owned(),
+                "https://alternative_fakedomain.withport.com:8080/".to_owned(),
                 "https://192.168.2.1/".to_owned(),
                 "https://[::ffff:208.10.2.255]/".to_owned(),
                 "https://[::ffff:208.11.2.255]:8081/".to_owned(),

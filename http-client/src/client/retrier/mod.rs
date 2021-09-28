@@ -24,7 +24,7 @@ pub trait RequestRetrier: Any + Debug + Sync + Send {
 pub enum RetryResult {
     DontRetry,
     TryNextServer,
-    TryOldEndpoints,
+    TryAlternativeEndpoints,
     RetryRequest,
     Throttled,
 }

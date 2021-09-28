@@ -38,86 +38,86 @@ impl Region {
 
     /// 获取上传域名列表
     #[inline]
-    pub fn up_endpoints(&self) -> &[Endpoint] {
-        self.up().endpoints()
+    pub fn up_preferred_endpoints(&self) -> &[Endpoint] {
+        self.up().preferred()
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn up_old_endpoints(&self) -> &[Endpoint] {
-        self.up().old_endpoints()
+    pub fn up_alternative_endpoints(&self) -> &[Endpoint] {
+        self.up().alternative()
     }
 
     /// 获取下载域名列表
     #[inline]
-    pub fn io_endpoints(&self) -> &[Endpoint] {
-        self.io().endpoints()
+    pub fn io_preferred_endpoints(&self) -> &[Endpoint] {
+        self.io().preferred()
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn io_old_endpoints(&self) -> &[Endpoint] {
-        self.io().old_endpoints()
+    pub fn io_alternative_endpoints(&self) -> &[Endpoint] {
+        self.io().alternative()
     }
 
     /// 获取 UC 域名列表
     #[inline]
-    pub fn uc_endpoints(&self) -> &[Endpoint] {
-        self.uc().endpoints()
+    pub fn uc_preferred_endpoints(&self) -> &[Endpoint] {
+        self.uc().preferred()
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn uc_old_endpoints(&self) -> &[Endpoint] {
-        self.uc().old_endpoints()
+    pub fn uc_alternative_endpoints(&self) -> &[Endpoint] {
+        self.uc().alternative()
     }
 
     /// 获取 RS 域名列表
     #[inline]
-    pub fn rs_endpoints(&self) -> &[Endpoint] {
-        self.rs().endpoints()
+    pub fn rs_preferred_endpoints(&self) -> &[Endpoint] {
+        self.rs().preferred()
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn rs_old_endpoints(&self) -> &[Endpoint] {
-        self.rs().old_endpoints()
+    pub fn rs_alternative_endpoints(&self) -> &[Endpoint] {
+        self.rs().alternative()
     }
 
     /// 获取 RSF 域名列表
     #[inline]
-    pub fn rsf_endpoints(&self) -> &[Endpoint] {
-        self.rsf().endpoints()
+    pub fn rsf_preferred_endpoints(&self) -> &[Endpoint] {
+        self.rsf().preferred()
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn rsf_old_endpoints(&self) -> &[Endpoint] {
-        self.rsf().old_endpoints()
+    pub fn rsf_alternative_endpoints(&self) -> &[Endpoint] {
+        self.rsf().alternative()
     }
 
     /// 获取 API 域名列表
     #[inline]
-    pub fn api_endpoints(&self) -> &[Endpoint] {
-        self.api().endpoints()
+    pub fn api_preferred_endpoints(&self) -> &[Endpoint] {
+        self.api().preferred()
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn api_old_endpoints(&self) -> &[Endpoint] {
-        self.api().old_endpoints()
+    pub fn api_alternative_endpoints(&self) -> &[Endpoint] {
+        self.api().alternative()
     }
 
     /// 获取 S3 域名列表
     #[inline]
-    pub fn s3_endpoints(&self) -> &[Endpoint] {
-        self.s3().endpoints()
+    pub fn s3_preferred_endpoints(&self) -> &[Endpoint] {
+        self.s3().preferred()
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn s3_old_endpoints(&self) -> &[Endpoint] {
-        self.s3().old_endpoints()
+    pub fn s3_alternative_endpoints(&self) -> &[Endpoint] {
+        self.s3().alternative()
     }
 
     /// 创建新的区域
@@ -165,20 +165,20 @@ impl Region {
 pub struct RegionBuilder {
     region_id: String,
     s3_region_id: String,
-    up: Vec<Endpoint>,
-    up_old: Vec<Endpoint>,
-    io: Vec<Endpoint>,
-    io_old: Vec<Endpoint>,
-    uc: Vec<Endpoint>,
-    uc_old: Vec<Endpoint>,
-    rs: Vec<Endpoint>,
-    rs_old: Vec<Endpoint>,
-    rsf: Vec<Endpoint>,
-    rsf_old: Vec<Endpoint>,
-    api: Vec<Endpoint>,
-    api_old: Vec<Endpoint>,
-    s3: Vec<Endpoint>,
-    s3_old: Vec<Endpoint>,
+    up_preferred: Vec<Endpoint>,
+    up_alternative: Vec<Endpoint>,
+    io_preferred: Vec<Endpoint>,
+    io_alternative: Vec<Endpoint>,
+    uc_preferred: Vec<Endpoint>,
+    uc_alternative: Vec<Endpoint>,
+    rs_preferred: Vec<Endpoint>,
+    rs_alternative: Vec<Endpoint>,
+    rsf_preferred: Vec<Endpoint>,
+    rsf_alternative: Vec<Endpoint>,
+    api_preferred: Vec<Endpoint>,
+    api_alternative: Vec<Endpoint>,
+    s3_preferred: Vec<Endpoint>,
+    s3_alternative: Vec<Endpoint>,
 }
 
 impl RegionBuilder {
@@ -187,20 +187,20 @@ impl RegionBuilder {
         Self {
             region_id: region_id.into(),
             s3_region_id: Default::default(),
-            up: Default::default(),
-            up_old: Default::default(),
-            io: Default::default(),
-            io_old: Default::default(),
-            uc: Default::default(),
-            uc_old: Default::default(),
-            rs: Default::default(),
-            rs_old: Default::default(),
-            rsf: Default::default(),
-            rsf_old: Default::default(),
-            api: Default::default(),
-            api_old: Default::default(),
-            s3: Default::default(),
-            s3_old: Default::default(),
+            up_preferred: Default::default(),
+            up_alternative: Default::default(),
+            io_preferred: Default::default(),
+            io_alternative: Default::default(),
+            uc_preferred: Default::default(),
+            uc_alternative: Default::default(),
+            rs_preferred: Default::default(),
+            rs_alternative: Default::default(),
+            rsf_preferred: Default::default(),
+            rsf_alternative: Default::default(),
+            api_preferred: Default::default(),
+            api_alternative: Default::default(),
+            s3_preferred: Default::default(),
+            s3_alternative: Default::default(),
         }
     }
 
@@ -213,99 +213,99 @@ impl RegionBuilder {
 
     /// 追加访问地址到上传访问地址列表
     #[inline]
-    pub fn push_up_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.up.push(endpoint.into());
+    pub fn push_up_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.up_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_up_old_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.up_old.push(endpoint.into());
+    pub fn push_up_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.up_alternative.push(endpoint.into());
         self
     }
 
     /// 追加访问地址到下载访问地址列表
     #[inline]
-    pub fn push_io_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.io.push(endpoint.into());
+    pub fn push_io_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.io_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_io_old_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.io_old.push(endpoint.into());
+    pub fn push_io_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.io_alternative.push(endpoint.into());
         self
     }
 
     /// 追加访问地址到 UC 访问地址列表
     #[inline]
-    pub fn push_uc_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.uc.push(endpoint.into());
+    pub fn push_uc_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.uc_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_uc_old_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.uc_old.push(endpoint.into());
+    pub fn push_uc_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.uc_alternative.push(endpoint.into());
         self
     }
 
     /// 追加访问地址到 RS 访问地址列表
     #[inline]
-    pub fn push_rs_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.rs.push(endpoint.into());
+    pub fn push_rs_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.rs_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_rs_old_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.rs_old.push(endpoint.into());
+    pub fn push_rs_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.rs_alternative.push(endpoint.into());
         self
     }
 
     /// 追加访问地址到 RSF 访问地址列表
     #[inline]
-    pub fn push_rsf_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.rsf.push(endpoint.into());
+    pub fn push_rsf_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.rsf_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_rsf_old_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.rsf_old.push(endpoint.into());
+    pub fn push_rsf_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.rsf_alternative.push(endpoint.into());
         self
     }
 
     /// 追加访问地址到 API 访问地址列表
     #[inline]
-    pub fn push_api_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.api.push(endpoint.into());
+    pub fn push_api_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.api_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_api_old_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.api_old.push(endpoint.into());
+    pub fn push_api_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.api_alternative.push(endpoint.into());
         self
     }
 
     /// 追加访问地址到 S3 访问地址列表
     #[inline]
-    pub fn push_s3_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.s3.push(endpoint.into());
+    pub fn push_s3_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.s3_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_s3_old_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.s3_old.push(endpoint.into());
+    pub fn push_s3_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.s3_alternative.push(endpoint.into());
         self
     }
     /// 构建区域
@@ -314,13 +314,13 @@ impl RegionBuilder {
             inner: Arc::new(RegionInner {
                 region_id: self.region_id.into_boxed_str(),
                 s3_region_id: self.s3_region_id.into_boxed_str(),
-                up: (self.up, self.up_old).into(),
-                io: (self.io, self.io_old).into(),
-                uc: (self.uc, self.uc_old).into(),
-                rs: (self.rs, self.rs_old).into(),
-                rsf: (self.rsf, self.rsf_old).into(),
-                api: (self.api, self.api_old).into(),
-                s3: (self.s3, self.s3_old).into(),
+                up: (self.up_preferred, self.up_alternative).into(),
+                io: (self.io_preferred, self.io_alternative).into(),
+                uc: (self.uc_preferred, self.uc_alternative).into(),
+                rs: (self.rs_preferred, self.rs_alternative).into(),
+                rsf: (self.rsf_preferred, self.rsf_alternative).into(),
+                api: (self.api_preferred, self.api_alternative).into(),
+                s3: (self.s3_preferred, self.s3_alternative).into(),
             }),
         }
     }

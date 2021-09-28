@@ -5,7 +5,7 @@ pub struct RetriedStatsInfo {
     retried_on_current_ips: usize,
     abandoned_endpoints: usize,
     abandoned_ips_of_current_endpoint: usize,
-    switched_to_old_endpoints: bool,
+    switched_to_alternative_endpoints: bool,
 }
 
 impl RetriedStatsInfo {
@@ -27,8 +27,8 @@ impl RetriedStatsInfo {
     }
 
     #[inline]
-    pub(super) fn switch_to_old_endpoints(&mut self) {
-        self.switched_to_old_endpoints = true;
+    pub(super) fn switch_to_alternative_endpoints(&mut self) {
+        self.switched_to_alternative_endpoints = true;
         self.switch_endpoint();
     }
 
@@ -70,7 +70,7 @@ impl RetriedStatsInfo {
     }
 
     #[inline]
-    pub fn switched_to_old_endpoints(&self) -> bool {
-        self.switched_to_old_endpoints
+    pub fn switched_to_alternative_endpoints(&self) -> bool {
+        self.switched_to_alternative_endpoints
     }
 }

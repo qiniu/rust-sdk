@@ -35,7 +35,7 @@ impl RequestRetrier for ErrorRetrier {
                 }
                 HTTPResponseErrorKind::LocalIOError => RetryResult::DontRetry,
                 HTTPResponseErrorKind::TimeoutError => RetryResult::RetryRequest,
-                HTTPResponseErrorKind::SSLError => RetryResult::TryOldEndpoints,
+                HTTPResponseErrorKind::SSLError => RetryResult::TryAlternativeEndpoints,
                 HTTPResponseErrorKind::TooManyRedirect => RetryResult::DontRetry,
                 HTTPResponseErrorKind::UserCanceled => RetryResult::DontRetry,
                 _ => RetryResult::RetryRequest,

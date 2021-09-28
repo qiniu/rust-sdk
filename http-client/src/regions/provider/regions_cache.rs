@@ -45,7 +45,7 @@ impl CacheKey {
     ) -> Self {
         Self::new(
             uc_endpoints
-                .endpoints()
+                .preferred()
                 .first()
                 .map(|e| e.to_string())
                 .unwrap_or_default()
@@ -236,7 +236,7 @@ mod tests {
         );
 
         let regions_1 = vec![Region::builder("test")
-            .push_up_endpoint("fakedomain_1.withport.com".to_owned())
+            .push_up_preferred_endpoint("fakedomain_1.withport.com".to_owned())
             .build()];
         assert_eq!(
             cache
@@ -250,7 +250,7 @@ mod tests {
         assert!(cache.inner.exists(&cache_key_1));
 
         let regions_2 = vec![Region::builder("test")
-            .push_up_endpoint("fakedomain_2.withport.com".to_owned())
+            .push_up_preferred_endpoint("fakedomain_2.withport.com".to_owned())
             .build()];
         cache.set(cache_key_1.to_owned(), regions_2.to_owned());
         assert!(cache.inner.exists(&cache_key_1));
@@ -360,7 +360,7 @@ mod tests {
             Some(("fakebucket".into(), "fakeaccesskey".into())),
         );
         let regions = vec![Region::builder("test")
-            .push_up_endpoint("fakedomain_1.withport.com".to_owned())
+            .push_up_preferred_endpoint("fakedomain_1.withport.com".to_owned())
             .build()];
         assert_eq!(
             cache.get(&cache_key, move || Ok(regions.to_owned()))?.len(),

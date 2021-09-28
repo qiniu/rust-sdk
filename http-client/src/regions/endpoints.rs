@@ -44,16 +44,16 @@ impl Error for InvalidServiceName {}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Endpoints {
-    endpoints: Box<[Endpoint]>,
-    old_endpoints: Box<[Endpoint]>,
+    preferred: Box<[Endpoint]>,
+    alternative: Box<[Endpoint]>,
 }
 
 impl Endpoints {
     #[inline]
     pub fn builder(endpoint: impl Into<Endpoint>) -> EndpointsBuilder {
         EndpointsBuilder {
-            endpoints: vec![endpoint.into()],
-            old_endpoints: vec![],
+            preferred: vec![endpoint.into()],
+            alternative: vec![],
         }
     }
 
@@ -63,19 +63,19 @@ impl Endpoints {
     }
 
     #[inline]
-    pub fn endpoints(&self) -> &[Endpoint] {
-        &self.endpoints
+    pub fn preferred(&self) -> &[Endpoint] {
+        &self.preferred
     }
 
     #[inline]
-    pub fn old_endpoints(&self) -> &[Endpoint] {
-        &self.old_endpoints
+    pub fn alternative(&self) -> &[Endpoint] {
+        &self.alternative
     }
 
     fn from_region(region: &Region, services: &[ServiceName]) -> Self {
         let mut builder = EndpointsBuilder {
-            endpoints: vec![],
-            old_endpoints: vec![],
+            preferred: vec![],
+            alternative: vec![],
         };
 
         for service in services {
@@ -88,8 +88,8 @@ impl Endpoints {
                 ServiceName::Api => region.api(),
                 ServiceName::S3 => region.s3(),
             };
-            builder.endpoints.extend_from_slice(e.endpoints());
-            builder.old_endpoints.extend_from_slice(e.old_endpoints());
+            builder.preferred.extend_from_slice(e.preferred());
+            builder.alternative.extend_from_slice(e.alternative());
         }
         builder.build()
     }
@@ -119,8 +119,8 @@ impl From<Box<[Endpoint]>> for Endpoints {
     #[inline]
     fn from(endpoints: Box<[Endpoint]>) -> Self {
         Self {
-            endpoints,
-            old_endpoints: Default::default(),
+            preferred: endpoints,
+            alternative: Default::default(),
         }
     }
 }
@@ -129,8 +129,8 @@ impl From<(Box<[Endpoint]>, Box<[Endpoint]>)> for Endpoints {
     #[inline]
     fn from(endpoints: (Box<[Endpoint]>, Box<[Endpoint]>)) -> Self {
         Self {
-            endpoints: endpoints.0,
-            old_endpoints: endpoints.1,
+            preferred: endpoints.0,
+            alternative: endpoints.1,
         }
     }
 }
@@ -139,8 +139,8 @@ impl From<Vec<Endpoint>> for Endpoints {
     #[inline]
     fn from(endpoints: Vec<Endpoint>) -> Self {
         Self {
-            endpoints: endpoints.into_boxed_slice(),
-            old_endpoints: Default::default(),
+            preferred: endpoints.into_boxed_slice(),
+            alternative: Default::default(),
         }
     }
 }
@@ -149,36 +149,36 @@ impl From<(Vec<Endpoint>, Vec<Endpoint>)> for Endpoints {
     #[inline]
     fn from(endpoints: (Vec<Endpoint>, Vec<Endpoint>)) -> Self {
         Self {
-            endpoints: endpoints.0.into_boxed_slice(),
-            old_endpoints: endpoints.1.into_boxed_slice(),
+            preferred: endpoints.0.into_boxed_slice(),
+            alternative: endpoints.1.into_boxed_slice(),
         }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct EndpointsBuilder {
-    endpoints: Vec<Endpoint>,
-    old_endpoints: Vec<Endpoint>,
+    preferred: Vec<Endpoint>,
+    alternative: Vec<Endpoint>,
 }
 
 impl EndpointsBuilder {
     #[inline]
-    pub fn add_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.endpoints.push(endpoint.into());
+    pub fn add_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.preferred.push(endpoint.into());
         self
     }
 
     #[inline]
-    pub fn add_old_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
-        self.old_endpoints.push(endpoint.into());
+    pub fn add_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+        self.alternative.push(endpoint.into());
         self
     }
 
     #[inline]
     pub fn build(self) -> Endpoints {
         Endpoints {
-            endpoints: self.endpoints.into_boxed_slice(),
-            old_endpoints: self.old_endpoints.into_boxed_slice(),
+            preferred: self.preferred.into_boxed_slice(),
+            alternative: self.alternative.into_boxed_slice(),
         }
     }
 }
