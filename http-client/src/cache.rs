@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Error as JSONError;
 use std::{
     borrow::Borrow,
-    fmt,
+    fmt::{self, Debug},
     fs::{create_dir_all, File, OpenOptions},
     hash::Hash,
     io::{BufRead, BufReader, Error as IOError, Write},
@@ -30,7 +30,8 @@ struct CacheValue<V> {
 }
 
 #[derive(Clone)]
-pub(super) struct Cache<K: Eq + PartialEq + Hash + Clone + Serialize, V: Clone + Serialize> {
+pub(super) struct Cache<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize>
+{
     inner: Arc<CacheInner<K, V>>,
 }
 
@@ -73,7 +74,7 @@ impl<K, V> PersistentFile<K, V> {
 }
 
 impl<
-        K: Eq + PartialEq + Hash + Clone + Serialize + for<'de> Deserialize<'de>,
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + for<'de> Deserialize<'de>,
         V: Clone + Serialize + for<'de> Deserialize<'de>,
     > Cache<K, V>
 {
@@ -134,7 +135,7 @@ impl<
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Serialize, V: Clone + Serialize> Cache<K, V> {
+impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> Cache<K, V> {
     #[inline]
     pub(super) fn in_memory(cache_lifetime: Duration, shrink_interval: Duration) -> Self {
         Self::new(cache_lifetime, shrink_interval, None)
@@ -170,7 +171,7 @@ impl<K: Eq + PartialEq + Hash + Clone + Serialize, V: Clone + Serialize> Cache<K
 }
 
 impl<
-        K: Eq + PartialEq + Hash + Clone + Serialize + Sync + Send + 'static,
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Sync + Send + 'static,
         V: Clone + Sync + Send + Serialize + 'static,
     > Cache<K, V>
 {
@@ -246,8 +247,8 @@ impl<
 }
 
 impl<
-        K: Eq + PartialEq + Hash + Clone + Serialize + Sync + Send + 'static,
-        V: Clone + Sync + Send + Serialize + 'static,
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Sync + Send + 'static,
+        V: Clone + Serialize + Sync + Send + 'static,
     > CacheController for Cache<K, V>
 {
     #[inline]
@@ -263,7 +264,7 @@ impl<
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Serialize, V: Clone + Serialize> Cache<K, V> {
+impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> Cache<K, V> {
     #[inline]
     fn push_command_if_persistent_enabled(
         &self,
@@ -314,7 +315,7 @@ impl<K: Eq + PartialEq + Hash + Clone + Serialize, V: Clone + Serialize> Cache<K
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Serialize, V: Clone + Serialize> fmt::Debug
+impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> Debug
     for Cache<K, V>
 {
     #[inline]
@@ -323,7 +324,9 @@ impl<K: Eq + PartialEq + Hash + Clone + Serialize, V: Clone + Serialize> fmt::De
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Serialize, V: Clone + Serialize> Drop for Cache<K, V> {
+impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> Drop
+    for Cache<K, V>
+{
     #[inline]
     fn drop(&mut self) {
         if let Ok(mut locked_data) = self.inner.thread_lock.lock() {
@@ -332,7 +335,7 @@ impl<K: Eq + PartialEq + Hash + Clone + Serialize, V: Clone + Serialize> Drop fo
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Serialize, V: Clone + Serialize> CacheInner<K, V> {
+impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> CacheInner<K, V> {
     #[inline]
     fn push_command_if_persistent_enabled(
         &self,
@@ -379,7 +382,7 @@ pub type PersistentResult<T> = Result<T, PersistentError>;
 
 #[inline]
 fn do_some_work_async<
-    K: Eq + PartialEq + Hash + Clone + Serialize + Sync + Send + 'static,
+    K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Sync + Send + 'static,
     V: Clone + Serialize + Sync + Send + 'static,
 >(
     inner: &Arc<CacheInner<K, V>>,
@@ -421,7 +424,7 @@ fn do_some_work_async<
 
 #[inline]
 fn do_some_work_with_locked_data<
-    K: Eq + PartialEq + Hash + Clone + Serialize,
+    K: Eq + PartialEq + Hash + Clone + Debug + Serialize,
     V: Clone + Serialize,
 >(
     inner: &CacheInner<K, V>,
@@ -437,7 +440,7 @@ fn do_some_work_with_locked_data<
     return;
 
     #[inline]
-    fn refresh_cache<K: Eq + PartialEq + Hash + Clone + Serialize, V: Clone + Serialize>(
+    fn refresh_cache<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize>(
         inner: &CacheInner<K, V>,
     ) {
         inner.refreshes.retain(|key, f| {
@@ -451,10 +454,11 @@ fn do_some_work_with_locked_data<
                             value: Some(cache_value.to_owned()),
                         })
                     });
+                    info!("Refresh cache {:?} succeed", key);
                     inner.cache.insert(key.to_owned(), cache_value);
                 }
                 Err(err) => {
-                    warn!("Failed to refresh cache: {}", err);
+                    warn!("Failed to refresh cache {:?}: {}", key, err);
                 }
             }
             false
@@ -488,6 +492,8 @@ fn do_some_work_with_locked_data<
                     "Cache was failed to persist to file {:?}: {}",
                     &persistent.path, err
                 );
+            } else {
+                info!("Cache was persisted to file {:?}", &persistent.path)
             }
         }
     }
