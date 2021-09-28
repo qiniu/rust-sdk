@@ -25,7 +25,7 @@ use super::super::{async_request_call, AsyncResponse};
 #[derive(Debug)]
 pub struct RequestBuilder<'r> {
     http_client: &'r HTTPClient,
-    service_name: ServiceName,
+    service_names: &'r [ServiceName],
     into_endpoints: IntoEndpoints<'r>,
     callbacks: CallbacksBuilder,
     data: RequestData<'r>,
@@ -38,11 +38,11 @@ impl<'r> RequestBuilder<'r> {
         http_client: &'r HTTPClient,
         method: Method,
         into_endpoints: IntoEndpoints<'r>,
-        service_name: ServiceName,
+        service_names: &'r [ServiceName],
     ) -> Self {
         Self {
             http_client,
-            service_name,
+            service_names,
             into_endpoints,
             callbacks: Default::default(),
             appended_user_agent: Default::default(),
@@ -300,7 +300,7 @@ impl<'r> RequestBuilder<'r> {
             self.http_client.appended_user_agent().to_owned() + &self.appended_user_agent;
         Request::new(
             self.http_client,
-            self.service_name,
+            self.service_names,
             self.into_endpoints,
             self.callbacks.build(),
             self.data,

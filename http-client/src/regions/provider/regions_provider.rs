@@ -36,7 +36,7 @@ impl RegionsProvider {
     fn do_sync_query(&self) -> APIResult<Vec<Region>> {
         let body: ResponseBody = self
             .http_client
-            .get(ServiceName::Uc, self.uc_endpoints.to_owned())
+            .get(&[ServiceName::Uc], self.uc_endpoints.to_owned())
             .path("/regions")
             .authorization(Authorization::v2(self.credential_provider.to_owned()))
             .accept_json()
@@ -56,7 +56,7 @@ impl RegionsProvider {
     async fn do_async_query(&self) -> APIResult<Vec<Region>> {
         let body: ResponseBody = self
             .http_client
-            .get(ServiceName::Uc, self.uc_endpoints.to_owned())
+            .get(&[ServiceName::Uc], self.uc_endpoints.to_owned())
             .path("/regions")
             .authorization(Authorization::v2(self.credential_provider.to_owned()))
             .accept_json()

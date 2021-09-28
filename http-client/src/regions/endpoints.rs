@@ -72,35 +72,45 @@ impl Endpoints {
         &self.old_endpoints
     }
 
-    fn from_region(region: &Region, service: ServiceName) -> Self {
-        match service {
-            ServiceName::Up => region.up().to_owned(),
-            ServiceName::Io => region.io().to_owned(),
-            ServiceName::Uc => region.uc().to_owned(),
-            ServiceName::Rs => region.rs().to_owned(),
-            ServiceName::Rsf => region.rsf().to_owned(),
-            ServiceName::Api => region.api().to_owned(),
-            ServiceName::S3 => region.s3().to_owned(),
+    fn from_region(region: &Region, services: &[ServiceName]) -> Self {
+        let mut builder = EndpointsBuilder {
+            endpoints: vec![],
+            old_endpoints: vec![],
+        };
+
+        for service in services {
+            let e = match service {
+                ServiceName::Up => region.up(),
+                ServiceName::Io => region.io(),
+                ServiceName::Uc => region.uc(),
+                ServiceName::Rs => region.rs(),
+                ServiceName::Rsf => region.rsf(),
+                ServiceName::Api => region.api(),
+                ServiceName::S3 => region.s3(),
+            };
+            builder.endpoints.extend_from_slice(e.endpoints());
+            builder.old_endpoints.extend_from_slice(e.old_endpoints());
         }
+        builder.build()
     }
 
     #[inline]
     fn from_region_provider(
         region_provider: &dyn RegionProvider,
-        service: ServiceName,
+        services: &[ServiceName],
     ) -> APIResult<Self> {
-        Ok(Self::from_region(&region_provider.get()?, service))
+        Ok(Self::from_region(&region_provider.get()?, services))
     }
 
     #[cfg(feature = "async")]
     #[inline]
     async fn async_from_region_provider(
         region_provider: &dyn RegionProvider,
-        service: ServiceName,
+        services: &[ServiceName],
     ) -> APIResult<Self> {
         Ok(Self::from_region(
             &region_provider.async_get().await?,
-            service,
+            services,
         ))
     }
 }
@@ -212,11 +222,11 @@ impl<'r> From<&'r dyn RegionProvider> for IntoEndpoints<'r> {
 }
 
 impl IntoEndpoints<'_> {
-    pub(in super::super) fn into_endpoints(self, service: ServiceName) -> APIResult<Endpoints> {
+    pub(in super::super) fn into_endpoints(self, services: &[ServiceName]) -> APIResult<Endpoints> {
         let endpoints = match self.inner {
             Inner::Endpoints(endpoints) => endpoints,
-            Inner::Region(region) => Endpoints::from_region(region, service),
-            Inner::Provider(provider) => Endpoints::from_region_provider(provider, service)?,
+            Inner::Region(region) => Endpoints::from_region(region, services),
+            Inner::Provider(provider) => Endpoints::from_region_provider(provider, services)?,
         };
         Ok(endpoints)
     }
@@ -224,13 +234,13 @@ impl IntoEndpoints<'_> {
     #[cfg(feature = "async")]
     pub(in super::super) async fn async_into_endpoints(
         self,
-        service: ServiceName,
+        services: &[ServiceName],
     ) -> APIResult<Endpoints> {
         let endpoints = match self.inner {
             Inner::Endpoints(endpoints) => endpoints,
-            Inner::Region(region) => Endpoints::from_region(region, service),
+            Inner::Region(region) => Endpoints::from_region(region, services),
             Inner::Provider(provider) => {
-                Endpoints::async_from_region_provider(provider, service).await?
+                Endpoints::async_from_region_provider(provider, services).await?
             }
         };
         Ok(endpoints)

@@ -511,7 +511,7 @@ mod tests {
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
         let domain_resolved = Arc::new(Mutex::new(Vec::new()));
         let err = client
-            .post(ServiceName::Up, &chaotic_up_domains_region())
+            .post(&[ServiceName::Up], &chaotic_up_domains_region())
             .on_to_resolve_domain(Box::new({
                 let domain_resolved = domain_resolved.to_owned();
                 move |_, domain| {
@@ -598,7 +598,7 @@ mod tests {
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
         let domain_resolved = Arc::new(Mutex::new(Vec::new()));
         let err = client
-            .post(ServiceName::Up, &chaotic_up_domains_region())
+            .post(&[ServiceName::Up], &chaotic_up_domains_region())
             .on_to_resolve_domain(Box::new({
                 let domain_resolved = domain_resolved.to_owned();
                 move |_, domain| {
@@ -656,7 +656,7 @@ mod tests {
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
         let domain_resolved = Arc::new(Mutex::new(Vec::new()));
         let err = client
-            .post(ServiceName::Up, &chaotic_up_domains_region())
+            .post(&[ServiceName::Up], &chaotic_up_domains_region())
             .on_before_backoff(Box::new(|_, _| panic!("Should not retry")))
             .on_to_resolve_domain(Box::new({
                 let domain_resolved = domain_resolved.to_owned();
@@ -736,7 +736,7 @@ mod tests {
 
         let retried = Arc::new(AtomicUsize::new(0));
         let err = always_retry_client
-            .post(ServiceName::Up, &single_up_domain_region())
+            .post(&[ServiceName::Up], &single_up_domain_region())
             .on_before_backoff({
                 let retried = retried.to_owned();
                 Box::new(move |context, _| {
@@ -779,7 +779,7 @@ mod tests {
         .build();
 
         let err = always_throttled_client
-            .post(ServiceName::Up, &single_up_domain_region())
+            .post(&[ServiceName::Up], &single_up_domain_region())
             .on_before_backoff({
                 retried.store(0, Relaxed);
                 Box::new(move |context, _| {
@@ -829,7 +829,7 @@ mod tests {
             "https://192.168.1.2:8080/".to_owned(),
         ];
         let err = always_try_next_client
-            .post(ServiceName::Up, &chaotic_up_domains_region())
+            .post(&[ServiceName::Up], &chaotic_up_domains_region())
             .on_before_backoff({
                 let retried = Arc::new(AtomicUsize::new(0));
                 Box::new(move |context, _| {
@@ -865,7 +865,7 @@ mod tests {
         .build();
 
         let err = always_dont_retry_client
-            .post(ServiceName::Up, &chaotic_up_domains_region())
+            .post(&[ServiceName::Up], &chaotic_up_domains_region())
             .on_before_backoff(Box::new(|_, _| panic!("Should never retry")))
             .on_after_request_signed(Box::new(|context| {
                 assert_eq!(
@@ -903,7 +903,7 @@ mod tests {
 
         {
             let err = always_retry_client
-                .post(ServiceName::Up, &chaotic_up_domains_region())
+                .post(&[ServiceName::Up], &chaotic_up_domains_region())
                 .authorization(Authorization::v2(credential.to_owned()))
                 .on_before_request_signed(Box::new(|context| {
                     assert!(context
@@ -940,7 +940,7 @@ mod tests {
         {
             signed_urls.lock().unwrap().clear();
             let err = always_retry_client
-                .post(ServiceName::Up, &chaotic_up_domains_region())
+                .post(&[ServiceName::Up], &chaotic_up_domains_region())
                 .authorization(Authorization::v1(credential))
                 .on_before_request_signed(Box::new(|context| {
                     assert!(context
@@ -993,7 +993,7 @@ mod tests {
 
         let retried_times = Arc::new(Mutex::new(HashMap::<String, AtomicUsize>::new()));
         let err = always_malicious_client
-            .post(ServiceName::Up, &chaotic_up_domains_region())
+            .post(&[ServiceName::Up], &chaotic_up_domains_region())
             .on_before_backoff(Box::new({
                 let retried_times = retried_times.to_owned();
                 move |context, _| {
@@ -1059,7 +1059,7 @@ mod tests {
         .build();
 
         let err = always_redirected_client
-            .post(ServiceName::Up, &chaotic_up_domains_region())
+            .post(&[ServiceName::Up], &chaotic_up_domains_region())
             .on_before_backoff(Box::new(|_, _| panic!("Should never retry")))
             .call()
             .unwrap_err();
@@ -1086,7 +1086,7 @@ mod tests {
         .build();
 
         let err = client
-            .post(ServiceName::Up, &chaotic_up_domains_region())
+            .post(&[ServiceName::Up], &chaotic_up_domains_region())
             .on_before_request_signed(Box::new(|_| false))
             .on_before_backoff(Box::new(|_, _| panic!("Should not retry")))
             .call()
@@ -1097,7 +1097,7 @@ mod tests {
         );
 
         let err = client
-            .post(ServiceName::Up, &chaotic_up_domains_region())
+            .post(&[ServiceName::Up], &chaotic_up_domains_region())
             .on_after_request_signed(Box::new(|_| false))
             .on_before_backoff(Box::new(|_, _| panic!("Should not retry")))
             .call()
@@ -1108,7 +1108,7 @@ mod tests {
         );
 
         let err = client
-            .post(ServiceName::Up, &chaotic_up_domains_region())
+            .post(&[ServiceName::Up], &chaotic_up_domains_region())
             .on_before_backoff(Box::new(|_, _| false))
             .on_after_backoff(Box::new(|_, _| panic!("Should not retry")))
             .call()
@@ -1137,7 +1137,7 @@ mod tests {
 
         let retried = Arc::new(AtomicUsize::new(0));
         let err = always_retry_client
-            .post(ServiceName::Up, &single_up_domain_region())
+            .post(&[ServiceName::Up], &single_up_domain_region())
             .on_before_backoff({
                 let retried = retried.to_owned();
                 Box::new(move |context, _| {
@@ -1182,7 +1182,7 @@ mod tests {
 
         retried.store(0, Relaxed);
         let err = always_throttled_client
-            .post(ServiceName::Up, &single_up_domain_region())
+            .post(&[ServiceName::Up], &single_up_domain_region())
             .on_before_backoff({
                 let retried = retried.to_owned();
                 Box::new(move |context, _| {

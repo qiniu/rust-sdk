@@ -15,7 +15,7 @@ use std::{fmt, time::Duration};
 
 pub(in super::super) struct Request<'r> {
     http_client: &'r HTTPClient,
-    service_name: ServiceName,
+    service_names: &'r [ServiceName],
     into_endpoints: IntoEndpoints<'r>,
     callbacks: Callbacks,
     data: RequestData<'r>,
@@ -27,7 +27,7 @@ impl<'r> Request<'r> {
     #[inline]
     pub(super) fn new(
         http_client: &'r HTTPClient,
-        service_name: ServiceName,
+        service_names: &'r [ServiceName],
         into_endpoints: IntoEndpoints<'r>,
         callbacks: Callbacks,
         data: RequestData<'r>,
@@ -36,7 +36,7 @@ impl<'r> Request<'r> {
     ) -> Self {
         Self {
             http_client,
-            service_name,
+            service_names,
             into_endpoints,
             callbacks,
             data,
@@ -51,7 +51,7 @@ impl<'r> Request<'r> {
     ) -> (
         RequestWithoutEndpoints<'r>,
         IntoEndpoints<'r>,
-        ServiceName,
+        &'r [ServiceName],
         Extensions,
     ) {
         (
@@ -62,7 +62,7 @@ impl<'r> Request<'r> {
                 appended_user_agent: self.appended_user_agent,
             },
             self.into_endpoints,
-            self.service_name,
+            self.service_names,
             self.extensions,
         )
     }
@@ -352,7 +352,7 @@ impl fmt::Debug for Request<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Request")
             .field("http_client", &self.http_client)
-            .field("service_name", &self.service_name)
+            .field("service_names", &self.service_names)
             .field("into_endpoints", &self.into_endpoints)
             .field("callbacks", &self.callbacks)
             .field("data", &self.data)

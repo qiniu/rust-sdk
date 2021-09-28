@@ -222,7 +222,7 @@ impl BucketRegionsProvider {
             .inner
             .http_client
             .get(
-                ServiceName::Uc,
+                &[ServiceName::Uc, ServiceName::Api],
                 self.inner.queryer.inner.uc_endpoints.to_owned(),
             )
             .path("/v4/query")

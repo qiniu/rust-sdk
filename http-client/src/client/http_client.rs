@@ -93,43 +93,43 @@ impl HTTPClient {
 
     pub fn get<'r>(
         &'r self,
-        service_name: ServiceName,
+        service_names: &'r [ServiceName],
         into_endpoints: impl Into<IntoEndpoints<'r>>,
     ) -> RequestBuilder<'r> {
-        self.new_request(Method::GET, service_name, into_endpoints.into())
+        self.new_request(Method::GET, service_names, into_endpoints.into())
     }
 
     pub fn head<'r>(
         &'r self,
-        service_name: ServiceName,
+        service_names: &'r [ServiceName],
         into_endpoints: impl Into<IntoEndpoints<'r>>,
     ) -> RequestBuilder<'r> {
-        self.new_request(Method::HEAD, service_name, into_endpoints.into())
+        self.new_request(Method::HEAD, service_names, into_endpoints.into())
     }
 
     pub fn post<'r>(
         &'r self,
-        service_name: ServiceName,
+        service_names: &'r [ServiceName],
         into_endpoints: impl Into<IntoEndpoints<'r>>,
     ) -> RequestBuilder<'r> {
-        self.new_request(Method::POST, service_name, into_endpoints.into())
+        self.new_request(Method::POST, service_names, into_endpoints.into())
     }
 
     pub fn put<'r>(
         &'r self,
-        service_name: ServiceName,
+        service_names: &'r [ServiceName],
         into_endpoints: impl Into<IntoEndpoints<'r>>,
     ) -> RequestBuilder<'r> {
-        self.new_request(Method::PUT, service_name, into_endpoints.into())
+        self.new_request(Method::PUT, service_names, into_endpoints.into())
     }
 
     fn new_request<'r>(
         &'r self,
         method: Method,
-        service_name: ServiceName,
+        service_names: &'r [ServiceName],
         into_endpoints: IntoEndpoints<'r>,
     ) -> RequestBuilder<'r> {
-        RequestBuilder::new(self, method, into_endpoints, service_name)
+        RequestBuilder::new(self, method, into_endpoints, service_names)
     }
 
     #[inline]
