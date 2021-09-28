@@ -224,6 +224,36 @@ mod tests {
                 b"nt82yvMNHlNgZ4H8_A_4de84mr2f"
             );
         }
+        {
+            let mut etag_v1 = EtagV1::new();
+            let mut etag_v2 = EtagV2::new();
+            etag_v1.update(&utils::data_of_size(1 << 22));
+            etag_v2.update(&utils::data_of_size(1 << 22));
+            etag_v1.update(&utils::data_of_size(1 << 22));
+            etag_v2.update(&utils::data_of_size(1 << 22));
+            etag_v1.update(&utils::data_of_size(1 << 20));
+            etag_v2.update(&utils::data_of_size(1 << 20));
+            assert_eq!(
+                etag_v1.finalize_fixed().as_slice(),
+                etag_v2.finalize_fixed().as_slice(),
+            );
+        }
+        {
+            let mut etag_v1 = EtagV1::new();
+            let mut etag_v2 = EtagV2::new();
+            etag_v1.update(&utils::data_of_size(1 << 22));
+            etag_v2.update(&utils::data_of_size(1 << 22));
+            etag_v1.update(&utils::data_of_size(1 << 22));
+            etag_v2.update(&utils::data_of_size(1 << 22));
+            etag_v1.update(&utils::data_of_size(1 << 20));
+            etag_v2.update(&utils::data_of_size(1 << 20));
+            etag_v1.update(&utils::data_of_size(1 << 22));
+            etag_v2.update(&utils::data_of_size(1 << 22));
+            assert_ne!(
+                etag_v1.finalize_fixed().as_slice(),
+                etag_v2.finalize_fixed().as_slice(),
+            );
+        }
         Ok(())
     }
 

@@ -107,7 +107,7 @@ impl Reset for EtagV1 {
 
 impl EtagV1 {
     #[inline]
-    fn finalize_into_without_reset(&mut self, out: &mut GenericArray<u8, U28>) {
+    pub(super) fn finalize_into_without_reset(&mut self, out: &mut GenericArray<u8, U28>) {
         self.finish();
         self.calculate(out);
     }
