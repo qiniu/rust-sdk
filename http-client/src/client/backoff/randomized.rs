@@ -6,13 +6,13 @@ use std::{any::Any, convert::TryInto, time::Duration, u64};
 pub use num_rational::Ratio;
 
 #[derive(Debug, Clone)]
-pub struct RandomizedBackoff<P: Backoff> {
+pub struct RandomizedBackoff<P> {
     base_backoff: P,
     minification: Ratio<u8>,
     magnification: Ratio<u8>,
 }
 
-impl<P: Backoff> RandomizedBackoff<P> {
+impl<P> RandomizedBackoff<P> {
     #[inline]
     pub fn new(base_backoff: P, minification: Ratio<u8>, magnification: Ratio<u8>) -> Self {
         Self {
@@ -82,7 +82,7 @@ impl<P: Backoff> Backoff for RandomizedBackoff<P> {
     }
 }
 
-impl<P: Backoff + Default> Default for RandomizedBackoff<P> {
+impl<P: Default> Default for RandomizedBackoff<P> {
     #[inline]
     fn default() -> Self {
         RandomizedBackoff::new(P::default(), Ratio::new_raw(1, 2), Ratio::new_raw(3, 2))

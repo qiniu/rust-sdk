@@ -6,11 +6,11 @@ use std::any::Any;
 use futures::future::BoxFuture;
 
 #[derive(Debug, Default, Clone)]
-pub struct ShuffledResolver<R: Resolver> {
+pub struct ShuffledResolver<R> {
     base_resolver: R,
 }
 
-impl<R: Resolver> ShuffledResolver<R> {
+impl<R> ShuffledResolver<R> {
     #[inline]
     pub fn new(base_resolver: R) -> Self {
         Self { base_resolver }

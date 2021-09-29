@@ -8,19 +8,19 @@ use std::any::Any;
 const DEFAULT_RETIES: usize = 2;
 
 #[derive(Clone, Debug)]
-pub struct LimitedRetrier<R: RequestRetrier> {
+pub struct LimitedRetrier<R> {
     retrier: R,
     retries: usize,
 }
 
-impl<R: RequestRetrier> LimitedRetrier<R> {
+impl<R> LimitedRetrier<R> {
     #[inline]
     pub fn new(retrier: R, retries: usize) -> Self {
         Self { retrier, retries }
     }
 }
 
-impl<R: Default + RequestRetrier> Default for LimitedRetrier<R> {
+impl<R: Default> Default for LimitedRetrier<R> {
     #[inline]
     fn default() -> Self {
         Self::new(R::default(), DEFAULT_RETIES)

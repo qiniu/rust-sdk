@@ -5,7 +5,7 @@ use super::{
         OnStatusCode, OnToChooseIPs, OnToResolveDomain,
     },
     Backoff, CachedResolver, Callbacks, CallbacksBuilder, ChainedResolver, Chooser, ErrorRetrier,
-    ExponentialBackoff, LimitedRetrier, NeverChooseNoneChooser, RandomizedBackoff, RequestBuilder,
+    ExponentialBackoff, LimitedRetrier, NeverEmptyHandedChooser, RandomizedBackoff, RequestBuilder,
     RequestRetrier, Resolver, ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser,
     TimeoutResolver,
 };
@@ -257,7 +257,7 @@ impl HTTPClientBuilder {
 
         #[inline]
         fn default_chooser() -> Box<dyn Chooser> {
-            Box::new(NeverChooseNoneChooser::<ShuffledChooser<SubnetChooser>>::default())
+            Box::new(NeverEmptyHandedChooser::<ShuffledChooser<SubnetChooser>>::default())
         }
 
         #[inline]

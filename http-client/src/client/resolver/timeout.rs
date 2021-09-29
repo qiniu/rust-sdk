@@ -14,17 +14,17 @@ use {
 const DEFAULT_RESOLVE_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone)]
-pub struct TimeoutResolver<R: Resolver> {
+pub struct TimeoutResolver<R> {
     inner: Arc<TimeoutResolverInner<R>>,
 }
 
 #[derive(Debug)]
-struct TimeoutResolverInner<R: Resolver> {
+struct TimeoutResolverInner<R> {
     resolver: R,
     timeout: Duration,
 }
 
-impl<R: Resolver> TimeoutResolver<R> {
+impl<R> TimeoutResolver<R> {
     #[inline]
     pub fn new(resolver: R, timeout: Duration) -> Self {
         Self {
@@ -33,7 +33,7 @@ impl<R: Resolver> TimeoutResolver<R> {
     }
 }
 
-impl<R: Resolver + Default> Default for TimeoutResolver<R> {
+impl<R: Default> Default for TimeoutResolver<R> {
     #[inline]
     fn default() -> Self {
         Self::new(Default::default(), DEFAULT_RESOLVE_TIMEOUT)

@@ -9,12 +9,12 @@ use futures::future::BoxFuture;
 const DEFAULT_RANDOM_CHOOSE_RATIO: Ratio<usize> = Ratio::new_raw(1, 2);
 
 #[derive(Debug, Clone)]
-pub struct NeverChooseNoneChooser<C: Chooser> {
+pub struct NeverEmptyHandedChooser<C> {
     inner_chooser: C,
     random_choose_ratio: Ratio<usize>,
 }
 
-impl<C: Chooser> NeverChooseNoneChooser<C> {
+impl<C> NeverEmptyHandedChooser<C> {
     #[inline]
     pub fn new(chooser: C, random_choose_ratio: Ratio<usize>) -> Self {
         Self {
@@ -24,14 +24,14 @@ impl<C: Chooser> NeverChooseNoneChooser<C> {
     }
 }
 
-impl<C: Chooser + Default> Default for NeverChooseNoneChooser<C> {
+impl<C: Default> Default for NeverEmptyHandedChooser<C> {
     #[inline]
     fn default() -> Self {
         Self::new(Default::default(), DEFAULT_RANDOM_CHOOSE_RATIO)
     }
 }
 
-impl<C: Chooser> Chooser for NeverChooseNoneChooser<C> {
+impl<C: Chooser> Chooser for NeverEmptyHandedChooser<C> {
     #[inline]
     fn choose(&self, ips: &[IpAddrWithPort]) -> Vec<IpAddrWithPort> {
         let chosen = self.inner_chooser.choose(ips);
@@ -79,7 +79,7 @@ impl<C: Chooser> Chooser for NeverChooseNoneChooser<C> {
     }
 }
 
-impl<C: Chooser> NeverChooseNoneChooser<C> {
+impl<C> NeverEmptyHandedChooser<C> {
     #[inline]
     fn random_choose(&self, ips: &[IpAddrWithPort]) -> Vec<IpAddrWithPort> {
         let chosen_len = (self.random_choose_ratio * ips.len()).ceil().to_integer();
@@ -107,10 +107,10 @@ mod tests {
     ];
 
     #[test]
-    fn test_never_choose_none_chooser() {
+    fn test_never_empty_handed_chooser() {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let ip_chooser: NeverChooseNoneChooser<IpChooser> = Default::default();
+        let ip_chooser: NeverEmptyHandedChooser<IpChooser> = Default::default();
         assert_eq!(
             ip_chooser.choose(IPS_WITHOUT_PORT),
             IPS_WITHOUT_PORT.to_vec()

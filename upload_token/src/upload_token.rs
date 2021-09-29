@@ -294,7 +294,7 @@ struct AsyncCache {
 }
 
 #[derive(Debug)]
-pub struct CachedUploadTokenProvider<P: UploadTokenProvider> {
+pub struct CachedUploadTokenProvider<P> {
     inner_provider: P,
     cache_lifetime: Duration,
     sync_cache: SyncCache,
@@ -303,7 +303,7 @@ pub struct CachedUploadTokenProvider<P: UploadTokenProvider> {
     async_cache: AsyncCache,
 }
 
-impl<P: UploadTokenProvider> CachedUploadTokenProvider<P> {
+impl<P> CachedUploadTokenProvider<P> {
     #[inline]
     pub fn new(inner_provider: P, cache_lifetime: Duration) -> Self {
         Self {

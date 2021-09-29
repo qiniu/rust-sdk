@@ -6,18 +6,18 @@ use std::any::Any;
 use futures::future::BoxFuture;
 
 #[derive(Debug, Clone)]
-pub struct ShuffledChooser<C: Chooser> {
+pub struct ShuffledChooser<C> {
     chooser: C,
 }
 
-impl<C: Chooser> ShuffledChooser<C> {
+impl<C> ShuffledChooser<C> {
     #[inline]
     pub fn new(chooser: C) -> Self {
         Self { chooser }
     }
 }
 
-impl<C: Chooser + Default> Default for ShuffledChooser<C> {
+impl<C: Default> Default for ShuffledChooser<C> {
     #[inline]
     fn default() -> Self {
         Self::new(C::default())

@@ -21,8 +21,8 @@ pub use callback::{
 };
 pub use callbacks::{Callbacks, CallbacksBuilder};
 pub use chooser::{
-    Chooser, ChooserFeedback, IpChooser, IpChooserBuilder, NeverChooseNoneChooser, ShuffledChooser,
-    SubnetChooser, SubnetChooserBuilder,
+    Chooser, ChooserFeedback, IpChooser, IpChooserBuilder, NeverEmptyHandedChooser,
+    ShuffledChooser, SubnetChooser, SubnetChooserBuilder,
 };
 pub use http_client::{HTTPClient, HTTPClientBuilder};
 pub use request::{Idempotent, QueryPairKey, QueryPairValue, QueryPairs, RequestBuilder};

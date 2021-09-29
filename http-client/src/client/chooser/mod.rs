@@ -1,7 +1,7 @@
 mod direct;
 mod feedback;
 mod ip;
-mod never_choose_none;
+mod never_empty_handed;
 mod shuffled;
 mod subnet;
 
@@ -36,6 +36,6 @@ pub trait Chooser: Any + Debug + Sync + Send {
 
 pub use direct::DirectChooser;
 pub use ip::{IpChooser, IpChooserBuilder};
-pub use never_choose_none::NeverChooseNoneChooser;
+pub use never_empty_handed::NeverEmptyHandedChooser;
 pub use shuffled::ShuffledChooser;
 pub use subnet::{SubnetChooser, SubnetChooserBuilder};
