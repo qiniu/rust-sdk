@@ -1,6 +1,7 @@
 use super::{spawn::spawn, APIResult};
 use crossbeam_queue::SegQueue;
 use dashmap::DashMap;
+use fs2::FileExt;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Error as JSONError;
@@ -9,7 +10,7 @@ use std::{
     fmt::{self, Debug},
     fs::{create_dir_all, File, OpenOptions},
     hash::Hash,
-    io::{BufRead, BufReader, Error as IOError, Write},
+    io::{BufRead, BufReader, BufWriter, Error as IOError, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering::Relaxed},
@@ -463,24 +464,37 @@ fn do_some_work_with_locked_data<
             if let Some(parent_dir) = path.parent() {
                 create_dir_all(parent_dir)?;
             }
-            let mut file = OpenOptions::new()
-                .create(true)
-                .write(true)
-                .append(true)
-                .open(path)?;
-            while let Some(command) = commands.pop() {
-                match command {
-                    PersistentCacheCommand::Append(entry) => {
-                        _append_cache_entry_to_file(
-                            &mut file,
-                            entry.key,
-                            entry.value,
-                            cache_lifetime,
-                        )?;
-                    }
-                    PersistentCacheCommand::ClearAll => {
-                        file.set_len(0)?;
-                    }
+            let mut file = OpenOptions::new().create(true).write(true).open(path)?;
+            file.lock_exclusive()?;
+            file.seek(SeekFrom::End(0))?;
+            let mut writer = BufWriter::new(file);
+            let result = _execute_commands(commands, &mut writer, cache_lifetime);
+            writer.flush()?;
+            writer.get_mut().unlock()?;
+            let _ = result?;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    fn _execute_commands<K: Serialize, V: Serialize>(
+        commands: &SegQueue<PersistentCacheCommand<K, V>>,
+        mut writer: &mut BufWriter<File>,
+        cache_lifetime: Duration,
+    ) -> PersistentResult<()> {
+        while let Some(command) = commands.pop() {
+            match command {
+                PersistentCacheCommand::Append(entry) => {
+                    _append_cache_entry_to_file(
+                        &mut writer,
+                        entry.key,
+                        entry.value,
+                        cache_lifetime,
+                    )?;
+                }
+                PersistentCacheCommand::ClearAll => {
+                    writer.flush()?;
+                    writer.get_mut().set_len(0)?;
                 }
             }
         }
@@ -489,7 +503,7 @@ fn do_some_work_with_locked_data<
 
     #[inline]
     fn _append_cache_entry_to_file<K: Serialize, V: Serialize>(
-        file: &mut File,
+        mut writer: impl Write,
         key: K,
         value: Option<CacheValue<V>>,
         cache_lifetime: Duration,
@@ -500,11 +514,11 @@ fn do_some_work_with_locked_data<
                     key,
                     value: Some(value),
                 })?;
-                writeln!(file, "{}", line)?;
+                writeln!(writer, "{}", line)?;
             }
         } else {
             let line = serde_json::to_string(&PersistentCacheEntry::<K, V> { key, value: None })?;
-            writeln!(file, "{}", line)?;
+            writeln!(writer, "{}", line)?;
         }
         Ok(())
     }
