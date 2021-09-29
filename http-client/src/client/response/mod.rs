@@ -20,6 +20,8 @@ use futures::io::copy as async_io_copy;
 #[cfg(feature = "async")]
 pub use qiniu_http::AsyncResponseBody;
 
+// TODO: 在 Debug 中额外列出 x-reqid
+
 #[derive(Default, Debug)]
 pub struct Response<B> {
     inner: HttpResponse<B>,
@@ -140,12 +142,6 @@ impl<B> Response<B> {
     #[inline]
     pub fn x_req_id(&self) -> Option<&str> {
         self.header(HeaderName::from_static("x-reqid"))
-            .and_then(|v| v.to_str().ok())
-    }
-
-    #[inline]
-    pub fn x_log(&self) -> Option<&str> {
-        self.header(HeaderName::from_static("x-log"))
             .and_then(|v| v.to_str().ok())
     }
 }

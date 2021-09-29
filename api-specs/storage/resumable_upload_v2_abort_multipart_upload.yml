@@ -1,0 +1,21 @@
+method: delete
+service_names:
+  - up
+base_path: /buckets
+documentation: 根据 UploadId 终止 Multipart Upload
+request:
+  authorization: upload_token
+  path_params:
+    named:
+      - field_name: bucket_name
+        type: string
+        documentation: 存储空间名称
+      - field_name: object_name
+        path_segment: objects
+        type: string
+        documentation: 对象名称
+        encode: url_safe_base64_or_none
+      - field_name: upload_id
+        path_segment: uploads
+        type: string
+        documentation: 在服务端申请的 Multipart Upload 任务 id

@@ -1,0 +1,12 @@
+method: delete
+service_names:
+  - uc
+base_path: /bucketTagging
+documentation: 一键删除指定存储空间的所有标签
+request:
+  authorization: credential
+  query_names:
+    - field_name: bucket_name
+      query_name: bucket
+      query_type: string
+      documentation: 空间名称

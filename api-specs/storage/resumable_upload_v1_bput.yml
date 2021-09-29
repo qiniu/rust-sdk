@@ -1,0 +1,47 @@
+method: post
+service_names:
+  - up
+base_path: /bput
+documentation: 上传指定块的一片数据，具体数据量可根据现场环境调整，同一块的每片数据必须串行上传
+request:
+  authorization: upload_token
+  path_params:
+    named:
+      - field_name: ctx
+        type: string
+        documentation: 前一次上传返回的块级上传控制信息
+      - field_name: chunk_offset
+        type: integer
+        documentation: 当前片在整个块中的起始偏移
+  body: binary_data
+response:
+  body:
+    json:
+      struct:
+        fields:
+          - field_name: ctx
+            key: ctx
+            type: string
+            documentation: 本次上传成功后的块级上传控制信息，用于后续上传片（bput）及创建文件（mkfile）
+          - field_name: checksum
+            key: checksum
+            type: string
+            documentation: 上传块 SHA1 值，使用 URL 安全的 Base64 编码
+          - field_name: crc32
+            key: crc32
+            type: integer
+            documentation: 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验
+          - field_name: offset
+            key: offset
+            type: integer
+            documentation: 下一个上传块在切割块中的偏移
+          - field_name: host
+            key: host
+            type: string
+            documentation: 后续上传接收地址
+          - field_name: expired_at
+            key: expired_at
+            type: string
+            documentation: "`ctx` 过期时间"
+        documentation: 返回下一片数据的上传信息
+

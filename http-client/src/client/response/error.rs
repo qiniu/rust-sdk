@@ -38,6 +38,7 @@ pub struct Error {
     server_ip: Option<IpAddr>,
     server_port: Option<NonZeroU16>,
     metrics: Option<Box<dyn Metrics>>,
+    // TODO: 增加 x-log 作为可选错误信息
 }
 
 impl Error {

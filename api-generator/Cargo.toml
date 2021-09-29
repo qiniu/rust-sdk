@@ -1,0 +1,18 @@
+[package]
+name = "qiniu-api-generator"
+version = "0.0.4"
+authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
+edition = "2018"
+license = "Apache-2.0"
+homepage = "https://www.qiniu.com"
+description = "Qiniu Credential SDK for Rust"
+keywords = ["qiniu", "storage"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.44"
+serde = { version = "1.0.130", features = ["derive"] }
+serde_yaml = "0.8.21"
+smart-default = "0.6.0"
+walkdir = "2.3.2"

@@ -1,0 +1,12 @@
+method: post
+service_names:
+  - uc
+base_path: /drop
+documentation: 删除指定的存储空间
+request:
+  authorization: credential
+  path_params:
+    named:
+      - field_name: bucket
+        type: string
+        documentation: 需要删除的目标空间名

@@ -10,6 +10,7 @@ members = [
     "http-isahc",
     "http-ureq",
     "http-client",
+    "api-generator",
 ]
 
 [profile.release]

@@ -1,0 +1,21 @@
+method: post
+service_names:
+  - rs
+base_path: /copy
+documentation: 将源空间的指定对象复制到目标空间
+request:
+  authorization: credential
+  path_params:
+    named:
+      - field_name: src_entry
+        type: string
+        documentation: 指定源对象空间与源对象名称
+        encode: url_safe_base64
+      - field_name: dest_entry
+        type: string
+        documentation: 指定目标对象空间与目标对象名称
+        encode: url_safe_base64
+      - path_segment: force
+        field_name: is_force
+        type: boolean
+        documentation: 如果目标对象名已被占用，则返回错误码 614，且不做任何覆盖操作；如果指定为 true，会强制覆盖目标对象

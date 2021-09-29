@@ -1,0 +1,17 @@
+method: post
+service_names:
+  - rs
+base_path: /chtype
+documentation: 修改文件的存储类型信息，可以实现标准存储、低频存储和归档存储之间的互相转换
+request:
+  authorization: credential
+  path_params:
+    named:
+      - field_name: entry
+        type: string
+        documentation: 指定目标对象空间与目标对象名称
+        encode: url_safe_base64
+      - path_segment: type
+        field_name: type
+        type: integer
+        documentation: "`0` 表示标准存储；`1` 表示低频存储；`2` 表示归档存储"

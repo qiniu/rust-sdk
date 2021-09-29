@@ -1,0 +1,17 @@
+method: post
+service_names:
+  - rs
+base_path: /chstatus
+documentation: 修改文件的存储状态，即禁用状态和启用状态间的的互相转换
+request:
+  authorization: credential
+  path_params:
+    named:
+      - field_name: entry
+        type: string
+        documentation: 指定目标对象空间与目标对象名称
+        encode: url_safe_base64
+      - path_segment: status
+        field_name: status
+        type: integer
+        documentation: "`0` 表示启用；`1` 表示禁用"

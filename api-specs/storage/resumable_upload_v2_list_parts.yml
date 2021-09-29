@@ -1,0 +1,75 @@
+method: get
+service_names:
+  - up
+base_path: /buckets
+documentation: 列举出指定 UploadId 所属任务所有已经上传成功的分片
+request:
+  authorization: upload_token
+  path_params:
+    named:
+      - field_name: bucket_name
+        type: string
+        documentation: 存储空间名称
+      - field_name: object_name
+        path_segment: objects
+        type: string
+        documentation: 对象名称
+        encode: url_safe_base64_or_none
+      - field_name: upload_id
+        path_segment: uploads
+        type: string
+        documentation: 在服务端申请的 Multipart Upload 任务 id
+  query_names:
+    - field_name: max_parts
+      query_name: max-parts
+      query_type: integer
+      documentation: 响应中的最大分片数目。默认值：1000，最大值：1000
+      optional: true
+    - field_name: part_number_marker
+      query_name: part-number_marker
+      query_type: integer
+      documentation: 指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出
+      optional: true
+response:
+  body:
+    json:
+      struct:
+        fields:
+          - field_name: uploadId
+            key: uploadId
+            type: string
+            documentation: 在服务端申请的 Multipart Upload 任务 id
+          - field_name: expired_at
+            key: expireAt
+            type: integer
+            documentation: UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用
+          - field_name: part_number_marker
+            key: partNumberMarker
+            type: integer
+            documentation: 下次继续列举的起始位置，0 表示列举结束，没有更多分片
+          - field_name: parts
+            key: parts
+            type:
+              array:
+                type:
+                  struct:
+                    fields:
+                      - field_name: size
+                        key: size
+                        type: integer
+                        documentation: 分片大小
+                      - field_name: etag
+                        key: etag
+                        type: string
+                        documentation: 分片内容的 etag
+                      - field_name: part_number
+                        key: partNumber
+                        type: integer
+                        documentation: 每一个上传的分片都有一个标识它的号码
+                      - field_name: putTime
+                        key: put_time
+                        type: integer
+                        documentation: 分片上传时间 UNIX 时间戳
+                    documentation: 单个已经上传的分片信息
+            documentation: 已经上传的分片列表
+        documentation: 返回所有已经上传成功的分片信息

@@ -1,0 +1,17 @@
+method: post
+service_names:
+  - uc
+base_path: /mkbucketv3
+documentation: 创建一个新的存储空间
+request:
+  authorization: credential
+  path_params:
+    named:
+      - field_name: bucket
+        type: string
+        documentation: 空间名称，要求在对象存储系统范围内唯一，由 3～63 个字符组成，支持小写字母、短划线-和数字，且必须以小写字母或数字开头和结尾
+      - path_segment: region
+        field_name: region
+        type: string
+        documentation: 存储区域 ID，默认 z0
+        optional: true

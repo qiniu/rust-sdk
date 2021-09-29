@@ -1,0 +1,30 @@
+method: post
+service_names:
+  - rs
+base_path: /chgm
+documentation: 修改文件元信息
+request:
+  authorization: credential
+  path_params:
+    named:
+      - field_name: entry
+        type: string
+        documentation: 指定目标对象空间与目标对象名称
+        encode: url_safe_base64
+      - path_segment: mime
+        field_name: mime_type
+        type: string
+        documentation: 新的 MIME 类型
+        encode: url_safe_base64
+        optional: true
+      - path_segment: cond
+        field_name: condition
+        type: string
+        documentation: 条件匹配，当前支持设置 hash、mime、fsize、putTime 条件，只有条件匹配才会执行修改操作，格式为 condKey1=condVal1&condKey2=condVal2
+        encode: url_safe_base64
+        optional: true
+    free:
+      field_name: meta_data
+      type: string
+      documentation: 对象存储元信息，键可以自定义，它可以由字母、数字、下划线、减号组成，必须以 x-qn-meta- 为前缀，且长度小于等于 50，单个文件键和值总和大小不能超过 1024 字节，可以同时修改多个键
+      encode_param_value: url_safe_base64

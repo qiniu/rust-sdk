@@ -1,0 +1,32 @@
+method: post
+service_names:
+  - up
+base_path: /buckets
+path_suffix: /uploads
+documentation: 使用 Multipart Upload 方式上传数据前，必须先调用 API 来获取一个全局唯一的 UploadId，后续的块数据通过 uploadPart API 上传，整个文件完成 completeMultipartUpload API，已经上传块的删除 abortMultipartUpload API 都依赖该 UploadId
+request:
+  authorization: upload_token
+  path_params:
+    named:
+      - field_name: bucket_name
+        type: string
+        documentation: 存储空间名称
+      - field_name: object_name
+        path_segment: objects
+        type: string
+        documentation: 对象名称
+        encode: url_safe_base64_or_none
+response:
+  body:
+    json:
+      struct:
+        fields:
+          - field_name: upload_id
+            key: uploadId
+            type: string
+            documentation: 初始化文件生成的 id
+          - field_name: expired_at
+            key: expireAt
+            type: integer
+            documentation: UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用
+        documentation: 返回本次 MultipartUpload 相关信息

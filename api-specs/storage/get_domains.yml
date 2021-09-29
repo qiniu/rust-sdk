@@ -1,0 +1,17 @@
+method: get
+service_names:
+  - uc
+base_path: /v2/domains
+documentation: 获取存储空间的域名列表
+request:
+  authorization: credential
+  query_names:
+    - field_name: bucket_name
+      query_name: tbl
+      query_type: string
+      documentation: 要获取域名列表的目标空间名称
+response:
+  body:
+    json:
+      array:
+        type: string

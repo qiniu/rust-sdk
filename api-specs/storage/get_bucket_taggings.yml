@@ -1,0 +1,35 @@
+method: get
+service_names:
+  - uc
+base_path: /bucketTagging
+documentation: 查询指定的存储空间已设置的标签信息
+request:
+  authorization: credential
+  query_names:
+    - field_name: bucket_name
+      query_name: bucket
+      query_type: string
+      documentation: 空间名称
+response:
+  body:
+    json:
+      struct:
+        fields:
+          - field_name: tags
+            key: Tags
+            type:
+              array:
+                type:
+                  struct:
+                    fields:
+                      - field_name: key
+                        key: Key
+                        type: string
+                        documentation: "标签名称，最大 64 Byte，不能为空且大小写敏感，不能以 kodo 为前缀(预留), 不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"
+                      - field_name: value
+                        key: Value
+                        type: string
+                        documentation: "标签值，最大 128 Byte，不能为空且大小写敏感，不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"
+                    documentation: 标签键值对
+            documentation: 标签列表
+        documentation: 存储空间标签信息
