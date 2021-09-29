@@ -112,36 +112,43 @@ macro_rules! create_request_call_fn {
 
                 for domain_with_port in find_domains_with_port(endpoints) {
                     retried.switch_endpoint();
-                    let ips = $block!({ resolve_domain(request, domain_with_port, &mut extensions) })
-                        .map_err(|err| err.with_extensions(take(&mut extensions)))?;
-                    if ips.is_empty() {
-                        retried.increase_abandoned_endpoints();
-                    } else {
-                        let mut remaining_ips = {
-                            let mut ips = IpAddrsSet::new(&ips);
-                            ips.difference_set(tried_ips);
-                            ips
-                        };
-                        loop {
-                            let chosen_ips = match remaining_ips.remains() {
-                                ips if !ips.is_empty() => {
-                                    $block!({ choose(request, &ips, &mut extensions) })
-                                        .map_err(|err| err.with_extensions(take(&mut extensions)))?
-                                },
-                                _ => vec![],
+                    if request.http_client().http_caller().is_resolved_ip_addrs_supported() {
+                        let ips = $block!({ resolve_domain(request, domain_with_port, &mut extensions) })
+                            .map_err(|err| err.with_extensions(take(&mut extensions)))?;
+                        if ips.is_empty() {
+                            retried.increase_abandoned_endpoints();
+                        } else {
+                            let mut remaining_ips = {
+                                let mut ips = IpAddrsSet::new(&ips);
+                                ips.difference_set(tried_ips);
+                                ips
                             };
-                            if chosen_ips.is_empty() {
-                                retried.increase_abandoned_endpoints();
-                                break;
-                            } else {
-                                remaining_ips.difference_slice(&chosen_ips);
-                                tried_ips.union_slice(&chosen_ips);
-                                retried.switch_ips();
-                                let domain =
-                                    DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), chosen_ips);
-                                try_endpoint!(&domain);
+                            loop {
+                                let chosen_ips = match remaining_ips.remains() {
+                                    ips if !ips.is_empty() => {
+                                        $block!({ choose(request, &ips, &mut extensions) })
+                                            .map_err(|err| err.with_extensions(take(&mut extensions)))?
+                                    },
+                                    _ => vec![],
+                                };
+                                if chosen_ips.is_empty() {
+                                    retried.increase_abandoned_endpoints();
+                                    break;
+                                } else {
+                                    remaining_ips.difference_slice(&chosen_ips);
+                                    tried_ips.union_slice(&chosen_ips);
+                                    retried.switch_ips();
+                                    let domain =
+                                        DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), chosen_ips);
+                                    try_endpoint!(&domain);
+                                }
                             }
                         }
+                    } else {
+                        let domain =
+                            DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), vec![]);
+                        try_endpoint!(&domain);
+                        retried.increase_abandoned_endpoints();
                     }
                 }
 
@@ -220,13 +227,17 @@ macro_rules! create_request_call_fn {
                 let extracted_ips = extract_ips_from(&domain_or_ip);
                 match $block!({ do_request(request, &mut built_request, retried) }) {
                     Ok(response) => {
-                        let feedback = ChooserFeedback::new(&extracted_ips, retried, response.metrics(), None);
-                        $block!({ request.http_client().chooser().$feedback_method(feedback) });
+                        if !extracted_ips.is_empty() {
+                            let feedback = ChooserFeedback::new(&extracted_ips, retried, response.metrics(), None);
+                            $block!({ request.http_client().chooser().$feedback_method(feedback) });
+                        }
                         Ok(response)
                     },
                     Err(err) => {
-                        let feedback = ChooserFeedback::new(&extracted_ips, retried, err.response_error().metrics(), Some(err.response_error()));
-                        $block!({ request.http_client().chooser().$feedback_method(feedback) });
+                        if !extracted_ips.is_empty() {
+                            let feedback = ChooserFeedback::new(&extracted_ips, retried, err.response_error().metrics(), err.feedback_response_error());
+                            $block!({ request.http_client().chooser().$feedback_method(feedback) });
+                        }
                         Err(err.with_request(&mut built_request))
                     }
                 }
@@ -501,6 +512,7 @@ mod tests {
         let client = make_error_response_client_builder(
             HTTPResponseErrorKind::ConnectError,
             "Fake Connect Error",
+            true,
         )
         .chooser(Box::new(DirectChooser))
         .resolver(Box::new(make_random_resolver()))
@@ -559,6 +571,54 @@ mod tests {
     }
 
     #[test]
+    fn test_call_endpoints_selection_without_resolver() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
+        let client = make_error_response_client_builder(
+            HTTPResponseErrorKind::ConnectError,
+            "Fake Connect Error",
+            false,
+        )
+        .chooser(Box::new(DirectChooser))
+        .resolver(Box::new(make_dumb_resolver()))
+        .request_retrier(Box::new(ErrorRetrier))
+        .backoff(Box::new(NO_BACKOFF))
+        .build();
+
+        let urls_visited = Arc::new(Mutex::new(Vec::new()));
+        let err = client
+            .post(&[ServiceName::Up], &chaotic_up_domains_region())
+            .on_to_resolve_domain(Box::new(|_, _| unreachable!()))
+            .on_domain_resolved(Box::new(|_, _, _| unreachable!()))
+            .on_after_request_signed(Box::new({
+                let urls_visited = urls_visited.to_owned();
+                move |context| {
+                    urls_visited.lock().unwrap().push(context.url().to_string());
+                    true
+                }
+            }))
+            .call()
+            .unwrap_err();
+        assert_eq!(
+            err.kind(),
+            ResponseErrorKind::from(HTTPResponseErrorKind::ConnectError)
+        );
+        let urls_visited = Arc::try_unwrap(urls_visited).unwrap().into_inner().unwrap();
+        assert_eq!(
+            &urls_visited,
+            &[
+                "https://fakedomain.withoutport.com/".to_owned(),
+                "https://fakedomain.withport.com:8080/".to_owned(),
+                "https://192.168.1.1/".to_owned(),
+                "https://[::ffff:192.10.2.255]/".to_owned(),
+                "https://[::ffff:192.11.2.255]:8081/".to_owned(),
+                "https://192.168.1.2:8080/".to_owned(),
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_call_all_frozen_endpoints_selection() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -588,6 +648,7 @@ mod tests {
         let client = make_error_response_client_builder(
             HTTPResponseErrorKind::ConnectError,
             "Fake Connect Error",
+            true,
         )
         .backoff(Box::new(NO_BACKOFF))
         .resolver(Box::new(make_random_resolver()))
@@ -645,13 +706,16 @@ mod tests {
     fn test_call_switch_to_alternative_endpoints() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let client =
-            make_error_response_client_builder(HTTPResponseErrorKind::SSLError, "Fake SSL Error")
-                .resolver(Box::new(make_random_resolver()))
-                .chooser(Box::new(DirectChooser))
-                .backoff(Box::new(NO_BACKOFF))
-                .request_retrier(Box::new(ErrorRetrier))
-                .build();
+        let client = make_error_response_client_builder(
+            HTTPResponseErrorKind::SSLError,
+            "Fake SSL Error",
+            true,
+        )
+        .resolver(Box::new(make_random_resolver()))
+        .chooser(Box::new(DirectChooser))
+        .backoff(Box::new(NO_BACKOFF))
+        .request_retrier(Box::new(ErrorRetrier))
+        .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
         let domain_resolved = Arc::new(Mutex::new(Vec::new()));
@@ -727,6 +791,7 @@ mod tests {
         let always_retry_client = make_error_response_client_builder(
             HTTPResponseErrorKind::TimeoutError,
             "Fake Timeout Error",
+            true,
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
@@ -771,6 +836,7 @@ mod tests {
             StatusCode::from_u16(509)?,
             headers,
             b"{\"error\":\"Fake Throttled Error\"}".to_vec(),
+            true,
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
@@ -813,6 +879,7 @@ mod tests {
         let always_try_next_client = make_error_response_client_builder(
             HTTPResponseErrorKind::UnknownHostError,
             "Test Unknown Host Error",
+            true,
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
@@ -859,6 +926,7 @@ mod tests {
         let always_dont_retry_client = make_error_response_client_builder(
             HTTPResponseErrorKind::LocalIOError,
             "Test Local IO Error",
+            true,
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
@@ -889,13 +957,16 @@ mod tests {
     fn test_call_request_signature() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let always_retry_client =
-            make_error_response_client_builder(HTTPResponseErrorKind::SendError, "Test Send Error")
-                .resolver(Box::new(make_random_resolver()))
-                .chooser(Box::new(DirectChooser))
-                .backoff(Box::new(NO_BACKOFF))
-                .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
-                .build();
+        let always_retry_client = make_error_response_client_builder(
+            HTTPResponseErrorKind::SendError,
+            "Test Send Error",
+            true,
+        )
+        .resolver(Box::new(make_random_resolver()))
+        .chooser(Box::new(DirectChooser))
+        .backoff(Box::new(NO_BACKOFF))
+        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .build();
         let credential: Arc<dyn CredentialProvider> = Arc::new(StaticCredentialProvider::new(
             Credential::new("abcdefghklmnopq", "012345678901234567890"),
         ));
@@ -984,6 +1055,7 @@ mod tests {
             StatusCode::from_u16(200)?,
             Default::default(),
             b"<p>Hello world!</p>".to_vec(),
+            true,
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
@@ -1051,6 +1123,7 @@ mod tests {
             StatusCode::from_u16(301)?,
             headers,
             b"<p>Hello world!</p>".to_vec(),
+            true,
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
@@ -1078,6 +1151,7 @@ mod tests {
         let client = make_error_response_client_builder(
             HTTPResponseErrorKind::ConnectError,
             "Fake Connect Error",
+            true,
         )
         .resolver(Box::new(make_dumb_resolver()))
         .chooser(Box::new(DirectChooser))
@@ -1128,6 +1202,7 @@ mod tests {
         let always_retry_client = make_error_response_client_builder(
             HTTPResponseErrorKind::TimeoutError,
             "Fake Timeout Error",
+            true,
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))
@@ -1173,6 +1248,7 @@ mod tests {
             StatusCode::from_u16(509)?,
             headers.to_owned(),
             b"{\"error\":\"Fake Throttled Error\"}".to_vec(),
+            true,
         )
         .resolver(Box::new(make_random_resolver()))
         .chooser(Box::new(DirectChooser))

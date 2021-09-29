@@ -48,12 +48,14 @@ pub(crate) fn make_fixed_response_client_builder(
     status_code: StatusCode,
     headers: HeaderMap,
     body: Vec<u8>,
+    is_resolved_ip_addrs_supported: bool,
 ) -> HTTPClientBuilder {
     #[derive(Debug)]
     struct RedirectHTTPCaller {
         status_code: StatusCode,
         headers: HeaderMap,
         body: Vec<u8>,
+        is_resolved_ip_addrs_supported: bool,
     }
 
     impl HTTPCaller for RedirectHTTPCaller {
@@ -81,6 +83,11 @@ pub(crate) fn make_fixed_response_client_builder(
         }
 
         #[inline]
+        fn is_resolved_ip_addrs_supported(&self) -> bool {
+            self.is_resolved_ip_addrs_supported
+        }
+
+        #[inline]
         fn as_http_caller(&self) -> &dyn HTTPCaller {
             self
         }
@@ -95,6 +102,7 @@ pub(crate) fn make_fixed_response_client_builder(
         status_code,
         headers,
         body,
+        is_resolved_ip_addrs_supported,
     });
 
     HTTPClient::builder(http_caller)
@@ -103,11 +111,13 @@ pub(crate) fn make_fixed_response_client_builder(
 pub(crate) fn make_error_response_client_builder(
     error_kind: ResponseErrorKind,
     message: impl Into<String>,
+    is_resolved_ip_addrs_supported: bool,
 ) -> HTTPClientBuilder {
     #[derive(Debug)]
     struct ErrorHTTPCaller {
         error_kind: ResponseErrorKind,
         message: String,
+        is_resolved_ip_addrs_supported: bool,
     }
 
     impl HTTPCaller for ErrorHTTPCaller {
@@ -127,6 +137,11 @@ pub(crate) fn make_error_response_client_builder(
         }
 
         #[inline]
+        fn is_resolved_ip_addrs_supported(&self) -> bool {
+            self.is_resolved_ip_addrs_supported
+        }
+
+        #[inline]
         fn as_http_caller(&self) -> &dyn HTTPCaller {
             self
         }
@@ -139,6 +154,7 @@ pub(crate) fn make_error_response_client_builder(
 
     let http_caller = Box::new(ErrorHTTPCaller {
         error_kind,
+        is_resolved_ip_addrs_supported,
         message: message.into(),
     });
 

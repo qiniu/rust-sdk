@@ -1,5 +1,5 @@
-use super::super::{ResponseError, RetryResult};
-use qiniu_http::{Extensions, Request as HTTPRequest};
+use super::super::{ResponseError, ResponseErrorKind, RetryResult};
+use qiniu_http::{Extensions, Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind};
 use serde::Deserialize;
 use std::mem::take;
 
@@ -19,19 +19,40 @@ impl TryError {
     }
 
     #[inline]
-    #[allow(dead_code)]
     pub(super) fn response_error(&self) -> &ResponseError {
         &self.response_error
     }
 
     #[inline]
-    #[allow(dead_code)]
+    pub(super) fn feedback_response_error(&self) -> Option<&ResponseError> {
+        match &self.response_error.kind() {
+            ResponseErrorKind::HTTPError(error_kind) => match error_kind {
+                HTTPResponseErrorKind::ConnectError
+                | HTTPResponseErrorKind::ProxyError
+                | HTTPResponseErrorKind::DNSServerError
+                | HTTPResponseErrorKind::UnknownHostError
+                | HTTPResponseErrorKind::SendError
+                | HTTPResponseErrorKind::ReceiveError
+                | HTTPResponseErrorKind::UserCanceled => Some(self.response_error()),
+                _ => None,
+            },
+            ResponseErrorKind::StatusCodeError(status_code) => match status_code.as_u16() {
+                500..=599 => Some(self.response_error()),
+                _ => None,
+            },
+            ResponseErrorKind::UnexpectedEof
+            | ResponseErrorKind::ParseResponseError
+            | ResponseErrorKind::MaliciousResponse => Some(self.response_error()),
+            ResponseErrorKind::UnexpectedStatusCode(_) | ResponseErrorKind::NoTry => None,
+        }
+    }
+
+    #[inline]
     pub(super) fn into_response_error(self) -> ResponseError {
         self.response_error
     }
 
     #[inline]
-    #[allow(dead_code)]
     pub(super) fn retry_result(&self) -> RetryResult {
         self.retry_result
     }
@@ -58,21 +79,13 @@ pub(super) struct TryErrorWithExtensions {
 
 impl TryErrorWithExtensions {
     #[inline]
-    #[allow(dead_code)]
-    pub(super) fn response_error(&self) -> &ResponseError {
-        &self.inner.response_error
-    }
-
-    #[inline]
-    #[allow(dead_code)]
     pub(super) fn into_response_error(self) -> ResponseError {
-        self.inner.response_error
+        self.inner.into_response_error()
     }
 
     #[inline]
-    #[allow(dead_code)]
     pub(super) fn retry_result(&self) -> RetryResult {
-        self.inner.retry_result
+        self.inner.retry_result()
     }
 
     #[inline]
