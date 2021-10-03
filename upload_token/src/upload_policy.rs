@@ -256,7 +256,7 @@ impl UploadPolicy {
     #[inline]
     pub fn into_upload_token_provider(
         self,
-        credential: Box<dyn CredentialProvider>,
+        credential: impl CredentialProvider,
     ) -> impl UploadTokenProvider {
         FromUploadPolicy::new(self, credential)
     }

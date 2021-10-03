@@ -10,6 +10,7 @@ use std::{
     sync::RwLock,
     time::{Duration, Instant},
 };
+use tap::Tap;
 use thiserror::Error;
 
 #[cfg(feature = "async")]
@@ -145,17 +146,14 @@ impl<T: Into<String>> From<T> for StaticUploadTokenProvider {
 }
 
 #[derive(Debug)]
-pub(super) struct FromUploadPolicy {
+pub(super) struct FromUploadPolicy<C> {
     upload_policy: UploadPolicy,
-    credential: Box<dyn CredentialProvider>,
+    credential: C,
 }
 
-impl FromUploadPolicy {
+impl<C> FromUploadPolicy<C> {
     /// 基于上传策略和认证信息生成上传凭证实例
-    pub(super) fn new(
-        upload_policy: UploadPolicy,
-        credential: Box<dyn CredentialProvider>,
-    ) -> Self {
+    pub(super) fn new(upload_policy: UploadPolicy, credential: C) -> Self {
         Self {
             upload_policy,
             credential,
@@ -163,7 +161,7 @@ impl FromUploadPolicy {
     }
 }
 
-impl UploadTokenProvider for FromUploadPolicy {
+impl<C: CredentialProvider> UploadTokenProvider for FromUploadPolicy<C> {
     #[inline]
     fn access_key(&self) -> ParseResult<AccessKey> {
         Ok(self.credential.get()?.into_pair().0)
@@ -193,71 +191,85 @@ impl UploadTokenProvider for FromUploadPolicy {
     }
 }
 
-/// 基于对象的动态生成
+pub type OnPolicyGeneratedCallback = Box<dyn Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static>;
+
+/// 基于存储空间的动态生成
 ///
-/// 根据对象的快速生成上传凭证实例
-pub struct ObjectUploadTokenProvider {
+/// 根据存储空间的快速生成上传凭证实例
+pub struct BucketUploadTokenProvider<C> {
     bucket: BucketName,
-    object: ObjectName,
     upload_token_lifetime: Duration,
-    credential: Box<dyn CredentialProvider>,
+    credential: C,
+    on_policy_generated: Option<OnPolicyGeneratedCallback>,
 }
 
-impl ObjectUploadTokenProvider {
-    /// 基于存储空间和对象名称和认证信息动态生成上传凭证实例
+impl<C> BucketUploadTokenProvider<C> {
+    /// 基于存储空间和认证信息动态生成上传凭证实例
     #[inline]
     pub fn new(
         bucket: impl Into<BucketName>,
-        object: impl Into<ObjectName>,
         upload_token_lifetime: Duration,
-        credential: Box<dyn CredentialProvider>,
+        credential: C,
     ) -> Self {
-        Self {
-            bucket: bucket.into(),
-            object: object.into(),
-            upload_token_lifetime,
-            credential,
+        Self::builder(bucket, upload_token_lifetime, credential).build()
+    }
+
+    #[inline]
+    pub fn builder(
+        bucket: impl Into<BucketName>,
+        upload_token_lifetime: Duration,
+        credential: C,
+    ) -> BucketUploadTokenProviderBuilder<C> {
+        BucketUploadTokenProviderBuilder {
+            inner: Self {
+                bucket: bucket.into(),
+                upload_token_lifetime,
+                credential,
+                on_policy_generated: None,
+            },
         }
+    }
+
+    #[inline]
+    fn make_policy(&self) -> UploadPolicy {
+        UploadPolicyBuilder::new_policy_for_bucket(
+            self.bucket.to_string(),
+            self.upload_token_lifetime,
+        )
+        .tap_mut(|policy| {
+            if let Some(on_policy_generated) = self.on_policy_generated.as_ref() {
+                on_policy_generated(policy);
+            }
+        })
+        .build()
     }
 }
 
-impl Debug for ObjectUploadTokenProvider {
+impl<C> Debug for BucketUploadTokenProvider<C> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("ObjectUploadTokenProvider")
+        f.debug_struct("BucketUploadTokenProvider")
             .field("bucket", &self.bucket)
-            .field("object", &self.object)
             .field("upload_token_lifetime", &self.upload_token_lifetime)
             .finish()
     }
 }
 
-impl UploadTokenProvider for ObjectUploadTokenProvider {
+impl<C: CredentialProvider> UploadTokenProvider for BucketUploadTokenProvider<C> {
     #[inline]
     fn access_key(&self) -> ParseResult<AccessKey> {
         Ok(self.credential.get()?.into_pair().0)
     }
 
     fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
-        Ok(UploadPolicyBuilder::new_policy_for_bucket(
-            self.bucket.to_string(),
-            self.upload_token_lifetime,
-        )
-        .build()
-        .into())
+        Ok(self.make_policy().into())
     }
 
     fn to_string(&self) -> IOResult<Cow<str>> {
-        let upload_token = self.credential.get()?.sign_with_data(
-            UploadPolicyBuilder::new_policy_for_object(
-                self.bucket.to_string(),
-                self.object.to_string(),
-                self.upload_token_lifetime,
-            )
-            .build()
-            .as_json()
-            .as_bytes(),
-        );
+        let upload_token = self
+            .credential
+            .get()?
+            .sign_with_data(self.make_policy().as_json().as_bytes());
         Ok(upload_token.into())
     }
 
@@ -269,6 +281,158 @@ impl UploadTokenProvider for ObjectUploadTokenProvider {
     #[inline]
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+pub struct BucketUploadTokenProviderBuilder<C> {
+    inner: BucketUploadTokenProvider<C>,
+}
+
+impl<C> BucketUploadTokenProviderBuilder<C> {
+    #[inline]
+    pub fn on_policy_generated(mut self, callback: OnPolicyGeneratedCallback) -> Self {
+        self.inner.on_policy_generated = Some(callback);
+        self
+    }
+
+    #[inline]
+    pub fn build(self) -> BucketUploadTokenProvider<C> {
+        self.inner
+    }
+}
+
+impl<C> Debug for BucketUploadTokenProviderBuilder<C> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("BucketUploadTokenProviderBuilder")
+            .field("bucket", &self.inner.bucket)
+            .field("upload_token_lifetime", &self.inner.upload_token_lifetime)
+            .finish()
+    }
+}
+
+/// 基于对象的动态生成
+///
+/// 根据对象的快速生成上传凭证实例
+pub struct ObjectUploadTokenProvider<C> {
+    bucket: BucketName,
+    object: ObjectName,
+    upload_token_lifetime: Duration,
+    credential: C,
+    on_policy_generated: Option<OnPolicyGeneratedCallback>,
+}
+
+impl<C> ObjectUploadTokenProvider<C> {
+    /// 基于存储空间和对象名称和认证信息动态生成上传凭证实例
+    #[inline]
+    pub fn new(
+        bucket: impl Into<BucketName>,
+        object: impl Into<ObjectName>,
+        upload_token_lifetime: Duration,
+        credential: C,
+    ) -> Self {
+        Self::builder(bucket, object, upload_token_lifetime, credential).build()
+    }
+
+    #[inline]
+    pub fn builder(
+        bucket: impl Into<BucketName>,
+        object: impl Into<ObjectName>,
+        upload_token_lifetime: Duration,
+        credential: C,
+    ) -> ObjectUploadTokenProviderBuilder<C> {
+        ObjectUploadTokenProviderBuilder {
+            inner: Self {
+                bucket: bucket.into(),
+                object: object.into(),
+                upload_token_lifetime,
+                credential,
+                on_policy_generated: None,
+            },
+        }
+    }
+
+    #[inline]
+    fn make_policy(&self) -> UploadPolicy {
+        UploadPolicyBuilder::new_policy_for_object(
+            self.bucket.to_string(),
+            self.object.to_string(),
+            self.upload_token_lifetime,
+        )
+        .tap_mut(|policy| {
+            if let Some(on_policy_generated) = self.on_policy_generated.as_ref() {
+                on_policy_generated(policy);
+            }
+        })
+        .build()
+    }
+}
+
+impl<C> Debug for ObjectUploadTokenProvider<C> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("ObjectUploadTokenProvider")
+            .field("bucket", &self.bucket)
+            .field("object", &self.object)
+            .field("upload_token_lifetime", &self.upload_token_lifetime)
+            .finish()
+    }
+}
+
+impl<C: CredentialProvider> UploadTokenProvider for ObjectUploadTokenProvider<C> {
+    #[inline]
+    fn access_key(&self) -> ParseResult<AccessKey> {
+        Ok(self.credential.get()?.into_pair().0)
+    }
+
+    fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
+        Ok(self.make_policy().into())
+    }
+
+    fn to_string(&self) -> IOResult<Cow<str>> {
+        let upload_token = self
+            .credential
+            .get()?
+            .sign_with_data(self.make_policy().as_json().as_bytes());
+        Ok(upload_token.into())
+    }
+
+    #[inline]
+    fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider {
+        self
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+pub struct ObjectUploadTokenProviderBuilder<C> {
+    inner: ObjectUploadTokenProvider<C>,
+}
+
+impl<C> ObjectUploadTokenProviderBuilder<C> {
+    #[inline]
+    pub fn on_policy_generated(mut self, callback: OnPolicyGeneratedCallback) -> Self {
+        self.inner.on_policy_generated = Some(callback);
+        self
+    }
+
+    #[inline]
+    pub fn build(self) -> ObjectUploadTokenProvider<C> {
+        self.inner
+    }
+}
+
+impl<C> Debug for ObjectUploadTokenProviderBuilder<C> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("ObjectUploadTokenProviderBuilder")
+            .field("bucket", &self.inner.bucket)
+            .field("object", &self.inner.object)
+            .field("upload_token_lifetime", &self.inner.upload_token_lifetime)
+            .finish()
     }
 }
 
@@ -469,6 +633,29 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_build_upload_token_for_bucket() -> Result<(), Box<dyn Error>> {
+        let provider = BucketUploadTokenProvider::builder(
+            "test_bucket",
+            Duration::from_secs(3600),
+            get_credential(),
+        )
+        .on_policy_generated(Box::new(|policy| {
+            policy.return_body("{\"key\":$(key)}");
+        }))
+        .build();
+
+        let token = provider.to_string()?.into_owned();
+        assert!(token.starts_with(get_credential().get()?.access_key().as_str()));
+
+        let policy = provider.policy()?;
+        assert_eq!(policy.bucket(), Some("test_bucket"));
+        assert_eq!(policy.key(), None);
+        assert_eq!(policy.return_body(), Some("{\"key\":$(key)}"));
+
+        Ok(())
+    }
+
     #[cfg(feature = "async")]
     mod async_test {
         use super::*;
@@ -494,10 +681,7 @@ mod tests {
         }
     }
 
-    fn get_credential() -> Box<dyn CredentialProvider> {
-        Box::new(StaticCredentialProvider::new(Credential::new(
-            "abcdefghklmnopq",
-            "1234567890",
-        )))
+    fn get_credential() -> impl CredentialProvider {
+        StaticCredentialProvider::new(Credential::new("abcdefghklmnopq", "1234567890"))
     }
 }

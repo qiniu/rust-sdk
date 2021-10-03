@@ -28,8 +28,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Duration::from_secs(opt.lifetime),
     )
     .build();
-    let upload_token = upload_policy.into_upload_token_provider(Box::new(
-        StaticCredentialProvider::new(Credential::new(opt.access_key, opt.secret_key)),
+    let upload_token = upload_policy.into_upload_token_provider(StaticCredentialProvider::new(
+        Credential::new(opt.access_key, opt.secret_key),
     ));
     println!("{}", upload_token.to_string()?);
     Ok(())
