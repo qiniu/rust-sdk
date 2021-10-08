@@ -8,7 +8,6 @@
     meta_variable_misuse,
     non_ascii_idents,
     indirect_structural_match,
-    trivial_casts,
     trivial_numeric_casts,
     unsafe_code,
     unused_extern_crates,
@@ -40,17 +39,22 @@ pub use qiniu_credential as credential;
 pub use qiniu_http as http;
 pub use qiniu_upload_token as upload_token;
 
+#[cfg(feature = "async")]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+pub use futures::io::AsyncRead;
+
 pub use cache::{CacheController, PersistentError, PersistentResult};
 pub use client::{
     APIResult, Authorization, AuthorizationError, AuthorizationResult, Backoff, CachedResolver,
     CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver, ChainedResolverBuilder, Chooser,
     ChooserFeedback, DomainOrIpAddr, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext,
-    FixedBackoff, HTTPClient, HTTPClientBuilder, Idempotent, IpChooser, IpChooserBuilder,
-    LimitedRetrier, NeverRetrier, QueryPairKey, QueryPairValue, QueryPairs, RandomizedBackoff,
-    Ratio, RequestBuilder, RequestRetrier, ResolveAnswers, ResolveResult, Resolver, ResponseError,
-    ResponseErrorKind, ResponseInfo, RetryResult, ShuffledChooser, ShuffledResolver,
-    SimpleResolver, SimplifiedCallbackContext, SubnetChooser, SubnetChooserBuilder, SyncResponse,
-    TimeoutResolver, NO_BACKOFF,
+    FieldName, FileName, FixedBackoff, HTTPClient, HTTPClientBuilder, Idempotent, IpChooser,
+    IpChooserBuilder, LimitedRetrier, Multipart, NeverRetrier, Part, QueryPairKey, QueryPairValue,
+    QueryPairs, RandomizedBackoff, Ratio, RequestBuilder, RequestRetrier, ResolveAnswers,
+    ResolveResult, Resolver, ResponseError, ResponseErrorKind, ResponseInfo, RetryResult,
+    ShuffledChooser, ShuffledResolver, SimpleResolver, SimplifiedCallbackContext, SubnetChooser,
+    SubnetChooserBuilder, SyncBody, SyncMultipart, SyncPart, SyncResponse, TimeoutResolver,
+    NO_BACKOFF,
 };
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
@@ -73,7 +77,7 @@ pub use client::{c_ares, c_ares_resolver, CAresResolver};
 pub use client::{trust_dns_resolver, TrustDnsResolver};
 
 #[cfg(feature = "async")]
-pub use client::AsyncResponse;
+pub use client::{AsyncBody, AsyncMultipart, AsyncPart, AsyncResponse};
 
 pub mod preclude {
     pub use super::{

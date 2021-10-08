@@ -21,7 +21,11 @@ impl StaticRegionProvider {
 impl RegionProvider for StaticRegionProvider {
     #[inline]
     fn get(&self) -> APIResult<Region> {
-        Ok(self.regions.first().unwrap().to_owned())
+        Ok(self
+            .regions
+            .first()
+            .expect("regions must not be empty")
+            .to_owned())
     }
 
     #[inline]

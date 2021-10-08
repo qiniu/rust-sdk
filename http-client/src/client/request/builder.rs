@@ -7,20 +7,30 @@ use super::{
         },
         request_call, APIResult, Authorization, CallbacksBuilder, HTTPClient, SyncResponse,
     },
+    multipart::SyncMultipart,
     request_data::RequestData,
     Idempotent, QueryPairKey, QueryPairValue, QueryPairs, Request,
 };
-use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM, APPLICATION_WWW_FORM_URLENCODED};
+use mime::{
+    Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM, APPLICATION_WWW_FORM_URLENCODED,
+    MULTIPART_FORM_DATA,
+};
 use qiniu_http::{
     header::{ACCEPT, CONTENT_TYPE},
     Extensions, HeaderMap, HeaderName, HeaderValue, Method, RequestBody, Version,
 };
 use serde::Serialize;
 use serde_json::Result as JSONResult;
-use std::borrow::{Borrow, Cow};
+use std::{
+    borrow::{Borrow, Cow},
+    io::Result as IOResult,
+};
 
 #[cfg(feature = "async")]
-use super::super::{async_request_call, AsyncResponse};
+use super::{
+    super::{async_request_call, AsyncResponse},
+    multipart::AsyncMultipart,
+};
 
 #[derive(Debug)]
 pub struct RequestBuilder<'r> {
@@ -139,6 +149,35 @@ impl<'r> RequestBuilder<'r> {
         Ok(self.set_header(
             CONTENT_TYPE,
             HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref()).unwrap(),
+        ))
+    }
+
+    #[inline]
+    pub fn multipart(mut self, multipart: SyncMultipart) -> IOResult<Self> {
+        let mut buf = Vec::new();
+        multipart.into_read().read_to_end(&mut buf)?;
+        self.data.body = buf.into();
+        Ok(self.set_header(
+            CONTENT_TYPE,
+            HeaderValue::from_str(MULTIPART_FORM_DATA.as_ref()).unwrap(),
+        ))
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub async fn async_multipart(
+        mut self,
+        multipart: AsyncMultipart,
+    ) -> IOResult<RequestBuilder<'r>> {
+        use futures::AsyncReadExt;
+
+        let mut buf = Vec::new();
+        multipart.into_async_read().read_to_end(&mut buf).await?;
+        self.data.body = buf.into();
+        Ok(self.set_header(
+            CONTENT_TYPE,
+            HeaderValue::from_str(MULTIPART_FORM_DATA.as_ref()).unwrap(),
         ))
     }
 

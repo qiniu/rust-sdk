@@ -1,5 +1,6 @@
 mod builder;
 mod built;
+mod multipart;
 mod request_data;
 
 use std::borrow::Cow;
@@ -25,3 +26,7 @@ impl Default for Idempotent {
 
 pub use builder::RequestBuilder;
 pub(super) use built::{Request, RequestWithoutEndpoints};
+pub use multipart::{FieldName, FileName, Multipart, Part, SyncBody, SyncMultipart, SyncPart};
+
+#[cfg(feature = "async")]
+pub use multipart::{AsyncBody, AsyncMultipart, AsyncPart};

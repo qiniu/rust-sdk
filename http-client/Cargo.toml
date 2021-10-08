@@ -27,6 +27,11 @@ anyhow = "1.0.43"
 fs2 = "0.4.3"
 crossbeam-channel = "0.5.1"
 crossbeam-queue = "0.3.2"
+bytes = "1.1.0"
+percent-encoding = "2.1.0"
+regex = "1.5.4"
+lazy_static = "1.4.0"
+mime_guess = "2.0.3"
 num-rational = { version = "0.3.0", default-features = false }
 cfg-if = { version = "1.0.0", optional = true }
 c-ares = { version ="7.2.0", optional = true }
@@ -43,8 +48,10 @@ qiniu-upload-token = { version = "0.0.4", path = "../upload_token" }
 qiniu-reqwest = { version = "0.0.4", path = "../http-reqwest", optional = true }
 qiniu-isahc = { version = "0.0.4", path = "../http-isahc", optional = true }
 qiniu-ureq = { version = "0.0.4", path = "../http-ureq", optional = true }
+qiniu-utils = { version = "0.0.4", path = "../utils" }
 
 [dev-dependencies]
+async-std = { version = "1.9.0", features = ["attributes"] }
 tokio = { version = "1", features = ["full"] }
 tap = "1.0.0"
 tempfile = "3.1.0"

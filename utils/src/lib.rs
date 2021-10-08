@@ -10,7 +10,6 @@
     trivial_casts,
     trivial_numeric_casts,
     unreachable_pub,
-    unsafe_code,
     unstable_features,
     unused_crate_dependencies,
     unused_extern_crates,
@@ -21,5 +20,7 @@
 #![warn(missing_crate_level_docs)]
 
 pub mod base64;
+pub mod smallstr;
+
 mod name;
 pub use name::{BucketName, ObjectName};

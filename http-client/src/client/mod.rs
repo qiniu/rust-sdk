@@ -25,7 +25,10 @@ pub use chooser::{
     ShuffledChooser, SubnetChooser, SubnetChooserBuilder,
 };
 pub use http_client::{HTTPClient, HTTPClientBuilder};
-pub use request::{Idempotent, QueryPairKey, QueryPairValue, QueryPairs, RequestBuilder};
+pub use request::{
+    FieldName, FileName, Idempotent, Multipart, Part, QueryPairKey, QueryPairValue, QueryPairs,
+    RequestBuilder, SyncBody, SyncMultipart, SyncPart,
+};
 pub use resolver::{
     CachedResolver, ChainedResolver, ChainedResolverBuilder, ResolveAnswers, ResolveResult,
     Resolver, ShuffledResolver, SimpleResolver, TimeoutResolver,
@@ -34,18 +37,21 @@ pub use response::{APIResult, Response, ResponseError, ResponseErrorKind, SyncRe
 pub use retried::RetriedStatsInfo;
 pub use retrier::{ErrorRetrier, LimitedRetrier, NeverRetrier, RequestRetrier, RetryResult};
 
-#[cfg(any(feature = "c_ares"))]
+#[cfg(feature = "c_ares")]
 pub use resolver::{c_ares, c_ares_resolver, CAresResolver};
 
 #[cfg(all(feature = "trust_dns", feature = "async"))]
 pub use resolver::{trust_dns_resolver, TrustDnsResolver};
 
-#[cfg(any(feature = "async"))]
-pub use response::AsyncResponse;
+#[cfg(feature = "async")]
+pub use {
+    request::{AsyncBody, AsyncMultipart, AsyncPart},
+    response::AsyncResponse,
+};
 
 use call::request_call;
 
-#[cfg(any(feature = "async"))]
+#[cfg(feature = "async")]
 use call::async_request_call;
 
 use callback::{CallbackContextImpl, ExtendedCallbackContextImpl};
