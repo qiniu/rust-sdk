@@ -1,4 +1,4 @@
-use super::{MapError, ResponseError};
+use super::{MapError, ResponseError, SyncBody};
 use assert_impl::assert_impl;
 use http::{
     header::{HeaderMap, HeaderName, HeaderValue},
@@ -7,103 +7,11 @@ use http::{
     Extensions, Version,
 };
 use std::{
-    default::Default,
-    fmt::Debug,
-    io::{Cursor, Read, Result as IOResult},
-    net::IpAddr,
-    num::NonZeroU16,
-    result,
-    time::Duration,
+    default::Default, fmt::Debug, io::Read, net::IpAddr, num::NonZeroU16, result, time::Duration,
 };
 
 #[cfg(feature = "async")]
-use futures_lite::Future;
-
-trait ReadDebug: Read + Debug + Send {}
-impl<T: Read + Debug + Send> ReadDebug for T {}
-
-/// HTTP 响应体
-#[derive(Debug)]
-pub struct Body(BodyInner);
-
-#[derive(Debug)]
-enum BodyInner {
-    Reader(Box<dyn ReadDebug>),
-    Bytes(Cursor<Vec<u8>>),
-}
-
-impl Default for Body {
-    #[inline]
-    fn default() -> Self {
-        Self(BodyInner::Bytes(Default::default()))
-    }
-}
-
-impl Read for Body {
-    fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
-        match &mut self.0 {
-            BodyInner::Reader(reader) => reader.read(buf),
-            BodyInner::Bytes(bytes) => bytes.read(buf),
-        }
-    }
-}
-#[cfg(feature = "async")]
-mod async_body {
-    use futures_lite::{
-        io::{AsyncRead, Cursor, Result as IOResult},
-        pin,
-    };
-    use std::{
-        fmt::Debug,
-        pin::Pin,
-        task::{Context, Poll},
-    };
-
-    pub(super) trait AsyncReadDebug: AsyncRead + Unpin + Debug + Send + Sync {}
-    impl<T: AsyncRead + Unpin + Debug + Send + Sync> AsyncReadDebug for T {}
-
-    /// 异步 HTTP 响应体
-    #[derive(Debug)]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub struct AsyncBody(pub(super) AsyncBodyInner);
-
-    #[derive(Debug)]
-    pub(super) enum AsyncBodyInner {
-        Reader(Box<dyn AsyncReadDebug>),
-        Bytes(Cursor<Vec<u8>>),
-    }
-
-    impl Default for AsyncBody {
-        #[inline]
-        fn default() -> Self {
-            Self(AsyncBodyInner::Bytes(Default::default()))
-        }
-    }
-
-    impl AsyncRead for AsyncBody {
-        fn poll_read(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context,
-            buf: &mut [u8],
-        ) -> Poll<IOResult<usize>> {
-            match &mut self.as_mut().0 {
-                AsyncBodyInner::Reader(reader) => {
-                    pin!(reader);
-                    reader.poll_read(cx, buf)
-                }
-                AsyncBodyInner::Bytes(bytes) => {
-                    pin!(bytes);
-                    bytes.poll_read(cx, buf)
-                }
-            }
-        }
-    }
-}
-
-#[cfg(feature = "async")]
-pub use async_body::*;
-#[cfg(feature = "async")]
-use futures_lite::io::Cursor as AsyncCursor;
+use {super::AsyncBody, futures_lite::Future};
 
 pub trait Metrics: Debug + Send + Sync {
     fn total_duration(&self) -> Option<Duration>;
@@ -423,18 +331,18 @@ impl<B> ResponseBuilder<B> {
     }
 }
 
-impl ResponseBuilder<Body> {
+impl ResponseBuilder<SyncBody> {
     /// 设置数据流为 HTTP 响应体
     #[inline]
     pub fn stream_as_body(mut self, body: impl Read + Debug + Send + 'static) -> Self {
-        *self.inner.body_mut() = Body(BodyInner::Reader(Box::new(body)));
+        *self.inner.body_mut() = SyncBody::from_reader(body);
         self
     }
 
     /// 设置二进制字节数组为 HTTP 响应体
     #[inline]
     pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
-        *self.inner.body_mut() = Body(BodyInner::Bytes(Cursor::new(body.into())));
+        *self.inner.body_mut() = SyncBody::from_bytes(body.into());
         self
     }
 }
@@ -450,14 +358,14 @@ impl ResponseBuilder<AsyncBody> {
         mut self,
         body: impl AsyncRead + Unpin + Debug + Send + Sync + 'static,
     ) -> Self {
-        *self.inner.body_mut() = AsyncBody(AsyncBodyInner::Reader(Box::new(body)));
+        *self.inner.body_mut() = AsyncBody::from_reader(body);
         self
     }
 
     /// 设置二进制字节数组为 HTTP 响应体
     #[inline]
     pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
-        *self.inner.body_mut() = AsyncBody(AsyncBodyInner::Bytes(AsyncCursor::new(body.into())));
+        *self.inner.body_mut() = AsyncBody::from_bytes(body.into());
         self
     }
 }

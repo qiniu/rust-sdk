@@ -18,10 +18,12 @@
     unused_qualifications
 )]
 
+mod body;
 mod error;
 mod request;
 mod response;
 
+pub use body::Body as SyncBody;
 pub use error::{
     Error as ResponseError, ErrorBuilder as ResponseErrorBuilder, ErrorKind as ResponseErrorKind,
     MapError,
@@ -35,40 +37,38 @@ pub use http::{
     Extensions, Version,
 };
 pub use request::{Body as RequestBody, Request, RequestBuilder, TransferProgressInfo, UserAgent};
-pub use response::{
-    Body as ResponseBody, Metrics, Response, ResponseBuilder, Result as ResponseResult,
-};
+pub use response::{Metrics, Response, ResponseBuilder, Result as ResponseResult};
 
 /// 同步 HTTP 响应
-pub type SyncResponse = Response<ResponseBody>;
+pub type SyncResponse = Response<SyncBody>;
 /// 同步 HTTP 响应构建器
-pub type SyncResponseBuilder = ResponseBuilder<ResponseBody>;
+pub type SyncResponseBuilder = ResponseBuilder<SyncBody>;
 /// 同步 HTTP 响应结果
-pub type SyncResponseResult = ResponseResult<ResponseBody>;
-
-#[cfg(feature = "async")]
-pub use futures_lite::AsyncRead;
+pub type SyncResponseResult = ResponseResult<SyncBody>;
 
 #[cfg(feature = "async")]
 mod async_response {
-    pub use super::response::{
-        AsyncBody as AsyncResponseBody, Response, ResponseBuilder, Result as ResponseResult,
-    };
+    pub use super::body::AsyncBody;
+    use super::response::{Response, ResponseBuilder, Result as ResponseResult};
 
     /// 异步 HTTP 响应
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub type AsyncResponse = Response<AsyncResponseBody>;
+    pub type AsyncResponse = Response<AsyncBody>;
 
     /// 异步 HTTP 响应构建器
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub type AsyncResponseBuilder = ResponseBuilder<AsyncResponseBody>;
+    pub type AsyncResponseBuilder = ResponseBuilder<AsyncBody>;
 
     /// 异步 HTTP 响应结果
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub type AsyncResponseResult = ResponseResult<AsyncResponseBody>;
+    pub type AsyncResponseResult = ResponseResult<AsyncBody>;
 }
+
 #[cfg(feature = "async")]
-pub use async_response::*;
+pub use {
+    async_response::{AsyncBody, AsyncResponse, AsyncResponseBuilder, AsyncResponseResult},
+    futures_lite::AsyncRead,
+};
 
 use std::fmt::Debug;
 
