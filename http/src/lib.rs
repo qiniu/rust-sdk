@@ -36,7 +36,7 @@ pub use http::{
 };
 pub use request::{Body as RequestBody, Request, RequestBuilder, TransferProgressInfo};
 pub use response::{
-    Body as ResponseBody, Metrics, ReadDebug, Response, ResponseBuilder, Result as ResponseResult,
+    Body as ResponseBody, Metrics, Response, ResponseBuilder, Result as ResponseResult,
 };
 
 /// 同步 HTTP 响应
@@ -47,10 +47,12 @@ pub type SyncResponseBuilder = ResponseBuilder<ResponseBody>;
 pub type SyncResponseResult = ResponseResult<ResponseBody>;
 
 #[cfg(feature = "async")]
+pub use futures_lite::AsyncRead;
+
+#[cfg(feature = "async")]
 mod async_response {
     pub use super::response::{
-        AsyncBody as AsyncResponseBody, AsyncReadDebug, AsyncReadSeekDebug, Response,
-        ResponseBuilder, Result as ResponseResult,
+        AsyncBody as AsyncResponseBody, Response, ResponseBuilder, Result as ResponseResult,
     };
 
     /// 异步 HTTP 响应
@@ -103,9 +105,5 @@ pub trait HTTPCaller: Any + Debug + Send + Sync {
 }
 
 pub mod preclude {
-    pub use super::{HTTPCaller, Metrics, ReadDebug};
-
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub use super::{AsyncReadDebug, AsyncReadSeekDebug};
+    pub use super::{HTTPCaller, Metrics};
 }

@@ -86,12 +86,8 @@ pub mod preclude {
             SimplifiedCallbackContext,
         },
         credential::CredentialProvider,
-        http::{HTTPCaller, Metrics, ReadDebug},
+        http::{HTTPCaller, Metrics},
         regions::RegionProvider,
         upload_token::UploadTokenProvider,
     };
-
-    #[cfg(any(feature = "async"))]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub use super::http::{AsyncReadDebug, AsyncReadSeekDebug};
 }

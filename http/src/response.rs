@@ -9,8 +9,7 @@ use http::{
 use std::{
     default::Default,
     fmt::Debug,
-    fs::File,
-    io::{Cursor, Read, Result as IOResult, Seek, SeekFrom},
+    io::{Cursor, Read, Result as IOResult},
     net::IpAddr,
     num::NonZeroU16,
     result,
@@ -20,7 +19,7 @@ use std::{
 #[cfg(feature = "async")]
 use futures_lite::Future;
 
-pub trait ReadDebug: Read + Debug + Send {}
+trait ReadDebug: Read + Debug + Send {}
 impl<T: Read + Debug + Send> ReadDebug for T {}
 
 /// HTTP 响应体
@@ -30,7 +29,6 @@ pub struct Body(BodyInner);
 #[derive(Debug)]
 enum BodyInner {
     Reader(Box<dyn ReadDebug>),
-    File(File),
     Bytes(Cursor<Vec<u8>>),
 }
 
@@ -45,7 +43,6 @@ impl Read for Body {
     fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
         match &mut self.0 {
             BodyInner::Reader(reader) => reader.read(buf),
-            BodyInner::File(file) => file.read(buf),
             BodyInner::Bytes(bytes) => bytes.read(buf),
         }
     }
@@ -53,7 +50,7 @@ impl Read for Body {
 #[cfg(feature = "async")]
 mod async_body {
     use futures_lite::{
-        io::{AsyncRead, AsyncSeek, Cursor, Result as IOResult},
+        io::{AsyncRead, Cursor, Result as IOResult},
         pin,
     };
     use std::{
@@ -62,11 +59,8 @@ mod async_body {
         task::{Context, Poll},
     };
 
-    pub trait AsyncReadDebug: AsyncRead + Unpin + Debug + Send + Sync {}
+    pub(super) trait AsyncReadDebug: AsyncRead + Unpin + Debug + Send + Sync {}
     impl<T: AsyncRead + Unpin + Debug + Send + Sync> AsyncReadDebug for T {}
-
-    pub trait AsyncReadSeekDebug: AsyncSeek + AsyncReadDebug {}
-    impl<T: AsyncSeek + AsyncReadDebug> AsyncReadSeekDebug for T {}
 
     /// 异步 HTTP 响应体
     #[derive(Debug)]
@@ -76,7 +70,6 @@ mod async_body {
     #[derive(Debug)]
     pub(super) enum AsyncBodyInner {
         Reader(Box<dyn AsyncReadDebug>),
-        SeekableReader(Box<dyn AsyncReadSeekDebug>),
         Bytes(Cursor<Vec<u8>>),
     }
 
@@ -98,10 +91,6 @@ mod async_body {
                     pin!(reader);
                     reader.poll_read(cx, buf)
                 }
-                AsyncBodyInner::SeekableReader(reader) => {
-                    pin!(reader);
-                    reader.poll_read(cx, buf)
-                }
                 AsyncBodyInner::Bytes(bytes) => {
                     pin!(bytes);
                     bytes.poll_read(cx, buf)
@@ -114,7 +103,7 @@ mod async_body {
 #[cfg(feature = "async")]
 pub use async_body::*;
 #[cfg(feature = "async")]
-use futures_lite::io::{AsyncSeekExt, Cursor as AsyncCursor};
+use futures_lite::io::Cursor as AsyncCursor;
 
 pub trait Metrics: Debug + Send + Sync {
     fn total_duration(&self) -> Option<Duration>;
@@ -437,8 +426,8 @@ impl<B> ResponseBuilder<B> {
 impl ResponseBuilder<Body> {
     /// 设置数据流为 HTTP 响应体
     #[inline]
-    pub fn stream_as_body(mut self, body: Box<dyn ReadDebug>) -> Self {
-        *self.inner.body_mut() = Body(BodyInner::Reader(body));
+    pub fn stream_as_body(mut self, body: impl Read + Debug + Send + 'static) -> Self {
+        *self.inner.body_mut() = Body(BodyInner::Reader(Box::new(body)));
         self
     }
 
@@ -448,22 +437,20 @@ impl ResponseBuilder<Body> {
         *self.inner.body_mut() = Body(BodyInner::Bytes(Cursor::new(body.into())));
         self
     }
-
-    /// 设置文件为 HTTP 响应体
-    #[inline]
-    pub fn file_as_body(mut self, mut body: File) -> IOResult<Self> {
-        body.seek(SeekFrom::Start(0))?;
-        *self.inner.body_mut() = Body(BodyInner::File(body));
-        Ok(self)
-    }
 }
+
+#[cfg(feature = "async")]
+use futures_lite::io::AsyncRead;
 
 #[cfg(feature = "async")]
 impl ResponseBuilder<AsyncBody> {
     /// 设置数据流为 HTTP 响应体
     #[inline]
-    pub fn stream_as_body(mut self, body: Box<dyn AsyncReadDebug>) -> Self {
-        *self.inner.body_mut() = AsyncBody(AsyncBodyInner::Reader(body));
+    pub fn stream_as_body(
+        mut self,
+        body: impl AsyncRead + Unpin + Debug + Send + Sync + 'static,
+    ) -> Self {
+        *self.inner.body_mut() = AsyncBody(AsyncBodyInner::Reader(Box::new(body)));
         self
     }
 
@@ -472,17 +459,6 @@ impl ResponseBuilder<AsyncBody> {
     pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
         *self.inner.body_mut() = AsyncBody(AsyncBodyInner::Bytes(AsyncCursor::new(body.into())));
         self
-    }
-
-    /// 设置可定位的数据流（例如：文件）为 HTTP 响应体
-    #[inline]
-    pub async fn seekable_stream_as_body(
-        mut self,
-        mut body: Box<dyn AsyncReadSeekDebug>,
-    ) -> IOResult<Self> {
-        body.seek(SeekFrom::Start(0)).await?;
-        *self.inner.body_mut() = AsyncBody(AsyncBodyInner::SeekableReader(body));
-        Ok(self)
     }
 }
 
