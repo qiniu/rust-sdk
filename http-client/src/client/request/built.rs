@@ -9,7 +9,7 @@ use super::{
 };
 use qiniu_http::{
     Extensions, HeaderMap, HeaderName, HeaderValue, Method, StatusCode, TransferProgressInfo,
-    Version,
+    UserAgent, Version,
 };
 use std::{fmt, time::Duration};
 
@@ -19,7 +19,7 @@ pub(in super::super) struct Request<'r> {
     into_endpoints: IntoEndpoints<'r>,
     callbacks: Callbacks,
     data: RequestData<'r>,
-    appended_user_agent: Box<str>,
+    appended_user_agent: UserAgent,
     extensions: Extensions,
 }
 
@@ -31,7 +31,7 @@ impl<'r> Request<'r> {
         into_endpoints: IntoEndpoints<'r>,
         callbacks: Callbacks,
         data: RequestData<'r>,
-        appended_user_agent: Box<str>,
+        appended_user_agent: UserAgent,
         extensions: Extensions,
     ) -> Self {
         Self {
@@ -73,7 +73,7 @@ pub(in super::super) struct RequestWithoutEndpoints<'r> {
     http_client: &'r HTTPClient,
     callbacks: Callbacks,
     data: RequestData<'r>,
-    appended_user_agent: Box<str>,
+    appended_user_agent: UserAgent,
 }
 
 impl<'r> SimplifiedCallbackContext for RequestWithoutEndpoints<'r> {
@@ -120,7 +120,7 @@ impl<'r> SimplifiedCallbackContext for RequestWithoutEndpoints<'r> {
     }
 
     #[inline]
-    fn appended_user_agent(&self) -> &str {
+    fn appended_user_agent(&self) -> &UserAgent {
         &self.appended_user_agent
     }
 

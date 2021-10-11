@@ -4,7 +4,7 @@ use super::{
     simplified::SimplifiedCallbackContext,
 };
 use qiniu_http::{
-    uri::Scheme, Extensions, HeaderMap, Method, Request as HTTPRequest, Uri, Version,
+    uri::Scheme, Extensions, HeaderMap, Method, Request as HTTPRequest, Uri, UserAgent, Version,
 };
 use std::{borrow::Cow, net::IpAddr};
 
@@ -12,8 +12,8 @@ pub trait ExtendedCallbackContext: CallbackContext {
     fn url(&self) -> &Uri;
     fn version_mut(&mut self) -> &mut Version;
     fn headers_mut(&mut self) -> &mut HeaderMap;
-    fn user_agent(&self) -> String;
-    fn set_appended_user_agent(&mut self, appended_user_agent: String);
+    fn user_agent(&self) -> UserAgent;
+    fn set_appended_user_agent(&mut self, appended_user_agent: UserAgent);
     fn resolved_ip_addrs(&self) -> Option<&[IpAddr]>;
     fn set_resolved_ip_addrs(&mut self, resolved_ip_addrs: Vec<IpAddr>);
     fn retried(&self) -> &RetriedStatsInfo;
@@ -92,7 +92,7 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> SimplifiedCallbackContext
     }
 
     #[inline]
-    fn appended_user_agent(&self) -> &str {
+    fn appended_user_agent(&self) -> &UserAgent {
         self.http_request.appended_user_agent()
     }
 
@@ -140,13 +140,13 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> ExtendedCallbackContext
     }
 
     #[inline]
-    fn user_agent(&self) -> String {
+    fn user_agent(&self) -> UserAgent {
         self.http_request.user_agent()
     }
 
     #[inline]
-    fn set_appended_user_agent(&mut self, appended_user_agent: String) {
-        *self.http_request.appended_user_agent_mut() = Cow::Owned(appended_user_agent);
+    fn set_appended_user_agent(&mut self, appended_user_agent: UserAgent) {
+        *self.http_request.appended_user_agent_mut() = appended_user_agent;
     }
 
     #[inline]

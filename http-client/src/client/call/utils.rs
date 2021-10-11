@@ -26,7 +26,7 @@ pub(super) fn make_request<'r>(
         .version(request.version())
         .headers(request.headers().to_owned())
         .body(request.body())
-        .appended_user_agent(request.appended_user_agent())
+        .appended_user_agent(request.appended_user_agent().to_owned())
         .resolved_ip_addrs(resolved_ips)
         .extensions(extensions)
         .build()

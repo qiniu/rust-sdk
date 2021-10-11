@@ -9,7 +9,7 @@ use super::{
     RequestRetrier, Resolver, ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser,
     TimeoutResolver,
 };
-use qiniu_http::{HTTPCaller, Method};
+use qiniu_http::{HTTPCaller, Method, UserAgent};
 use std::sync::Arc;
 
 #[cfg(feature = "isahc")]
@@ -23,7 +23,7 @@ pub struct HTTPClient {
 #[derive(Debug)]
 struct HTTPClientInner {
     use_https: bool,
-    appended_user_agent: Box<str>,
+    appended_user_agent: UserAgent,
     http_caller: Box<dyn HTTPCaller>,
     request_retrier: Box<dyn RequestRetrier>,
     backoff: Box<dyn Backoff>,
@@ -138,7 +138,7 @@ impl HTTPClient {
     }
 
     #[inline]
-    pub(super) fn appended_user_agent(&self) -> &str {
+    pub(super) fn appended_user_agent(&self) -> &UserAgent {
         &self.inner.appended_user_agent
     }
 
@@ -176,7 +176,7 @@ impl HTTPClient {
 #[derive(Debug)]
 pub struct HTTPClientBuilder {
     use_https: bool,
-    appended_user_agent: Box<str>,
+    appended_user_agent: UserAgent,
     http_caller: Box<dyn HTTPCaller>,
     request_retrier: Box<dyn RequestRetrier>,
     backoff: Box<dyn Backoff>,
@@ -278,7 +278,7 @@ impl HTTPClientBuilder {
     }
 
     #[inline]
-    pub fn appended_user_agent(mut self, appended_user_agent: impl Into<Box<str>>) -> Self {
+    pub fn appended_user_agent(mut self, appended_user_agent: impl Into<UserAgent>) -> Self {
         self.appended_user_agent = appended_user_agent.into();
         self
     }

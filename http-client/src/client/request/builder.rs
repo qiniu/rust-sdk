@@ -17,7 +17,7 @@ use mime::{
 };
 use qiniu_http::{
     header::{ACCEPT, CONTENT_TYPE},
-    Extensions, HeaderMap, HeaderName, HeaderValue, Method, RequestBody, Version,
+    Extensions, HeaderMap, HeaderName, HeaderValue, Method, RequestBody, UserAgent, Version,
 };
 use serde::Serialize;
 use serde_json::Result as JSONResult;
@@ -39,7 +39,7 @@ pub struct RequestBuilder<'r> {
     into_endpoints: IntoEndpoints<'r>,
     callbacks: CallbacksBuilder,
     data: RequestData<'r>,
-    appended_user_agent: Cow<'r, str>,
+    appended_user_agent: UserAgent,
     extensions: Extensions,
 }
 
@@ -214,7 +214,7 @@ impl<'r> RequestBuilder<'r> {
     }
 
     #[inline]
-    pub fn appended_user_agent(mut self, user_agent: impl Into<Cow<'r, str>>) -> Self {
+    pub fn appended_user_agent(mut self, user_agent: impl Into<UserAgent>) -> Self {
         self.appended_user_agent = user_agent.into();
         self
     }
@@ -335,15 +335,15 @@ impl<'r> RequestBuilder<'r> {
 
     #[inline]
     pub(in super::super) fn build(self) -> Request<'r> {
-        let appended_user_agent =
-            self.http_client.appended_user_agent().to_owned() + &self.appended_user_agent;
+        let mut appended_user_agent = self.http_client.appended_user_agent().to_owned();
+        appended_user_agent.push_str(self.appended_user_agent.as_str());
         Request::new(
             self.http_client,
             self.service_names,
             self.into_endpoints,
             self.callbacks.build(),
             self.data,
-            appended_user_agent.into_boxed_str(),
+            appended_user_agent,
             self.extensions,
         )
     }

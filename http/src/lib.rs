@@ -34,7 +34,7 @@ pub use http::{
     uri::{self, Uri},
     Extensions, Version,
 };
-pub use request::{Body as RequestBody, Request, RequestBuilder, TransferProgressInfo};
+pub use request::{Body as RequestBody, Request, RequestBuilder, TransferProgressInfo, UserAgent};
 pub use response::{
     Body as ResponseBody, Metrics, Response, ResponseBuilder, Result as ResponseResult,
 };

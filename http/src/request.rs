@@ -8,7 +8,25 @@ use http::{
     Extensions, Version,
 };
 use once_cell::sync::Lazy;
-use std::{borrow::Cow, fmt, mem::take, net::IpAddr};
+use qiniu_utils::{smallstr::SmallString, wrap_smallstr};
+use serde::{
+    de::{Deserialize, Deserializer, Error, Visitor},
+    ser::{Serialize, Serializer},
+};
+use std::{
+    borrow::{Borrow, BorrowMut, Cow},
+    fmt,
+    iter::FromIterator,
+    mem::take,
+    net::IpAddr,
+    ops::{Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo},
+};
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct UserAgent {
+    inner: SmallString<[u8; 256]>,
+}
+wrap_smallstr!(UserAgent);
 
 static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
     format!(
@@ -34,7 +52,7 @@ pub struct Request<'r> {
     inner: HTTPRequest<Body<'r>>,
 
     // 请求配置属性
-    appended_user_agent: Cow<'r, str>,
+    appended_user_agent: UserAgent,
     resolved_ip_addrs: Option<Cow<'r, [IpAddr]>>,
     on_uploading_progress: Option<OnProgress<'r>>,
     on_receive_response_status: Option<OnStatusCode<'r>>,
@@ -134,19 +152,21 @@ impl<'r> Request<'r> {
 
     /// 用户代理
     #[inline]
-    pub fn user_agent(&self) -> String {
-        FULL_USER_AGENT.to_string() + self.appended_user_agent()
+    pub fn user_agent(&self) -> UserAgent {
+        let mut user_agent = UserAgent::from(FULL_USER_AGENT.as_ref());
+        user_agent.push_str(self.appended_user_agent().as_str());
+        user_agent
     }
 
     /// 追加的用户代理
     #[inline]
-    pub fn appended_user_agent(&self) -> &str {
+    pub fn appended_user_agent(&self) -> &UserAgent {
         &self.appended_user_agent
     }
 
     /// 修改追加的用户代理
     #[inline]
-    pub fn appended_user_agent_mut(&mut self) -> &mut Cow<'r, str> {
+    pub fn appended_user_agent_mut(&mut self) -> &mut UserAgent {
         &mut self.appended_user_agent
     }
 
@@ -292,7 +312,7 @@ impl<'r> RequestBuilder<'r> {
 
     /// 设置用户代理
     #[inline]
-    pub fn appended_user_agent(&mut self, user_agent: impl Into<Cow<'r, str>>) -> &mut Self {
+    pub fn appended_user_agent(&mut self, user_agent: impl Into<UserAgent>) -> &mut Self {
         self.inner.appended_user_agent = user_agent.into();
         self
     }

@@ -1,5 +1,5 @@
 use super::super::{Authorization, Idempotent, QueryPairs};
-use qiniu_http::{HeaderMap, Method, Version};
+use qiniu_http::{HeaderMap, Method, UserAgent, Version};
 use std::fmt::Debug;
 
 pub trait SimplifiedCallbackContext: Sync + Send + Debug {
@@ -11,7 +11,7 @@ pub trait SimplifiedCallbackContext: Sync + Send + Debug {
     fn query_pairs(&self) -> &QueryPairs;
     fn headers(&self) -> &HeaderMap;
     fn body(&self) -> &[u8];
-    fn appended_user_agent(&self) -> &str;
+    fn appended_user_agent(&self) -> &UserAgent;
     fn authorization(&self) -> Option<&Authorization>;
     fn idempotent(&self) -> Idempotent;
 }

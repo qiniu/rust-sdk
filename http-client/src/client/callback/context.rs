@@ -2,7 +2,7 @@ use super::{
     super::{Authorization, Idempotent, QueryPairs, RequestWithoutEndpoints},
     simplified::SimplifiedCallbackContext,
 };
-use qiniu_http::{Extensions, HeaderMap, Method, Version};
+use qiniu_http::{Extensions, HeaderMap, Method, UserAgent, Version};
 
 pub trait CallbackContext: SimplifiedCallbackContext {
     fn extensions(&self) -> &Extensions;
@@ -69,7 +69,7 @@ impl<'reqref, 'req, 'ext> SimplifiedCallbackContext for CallbackContextImpl<'req
     }
 
     #[inline]
-    fn appended_user_agent(&self) -> &str {
+    fn appended_user_agent(&self) -> &UserAgent {
         self.request.appended_user_agent()
     }
 
