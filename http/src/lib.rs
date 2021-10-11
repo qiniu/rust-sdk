@@ -23,7 +23,7 @@ mod error;
 mod request;
 mod response;
 
-pub use body::Body as SyncBody;
+pub use body::{Body as SyncBody, MaybeOwnedBody as MaybeOwnedSyncBody};
 pub use error::{
     Error as ResponseError, ErrorBuilder as ResponseErrorBuilder, ErrorKind as ResponseErrorKind,
     MapError,
@@ -48,7 +48,7 @@ pub type SyncResponseResult = ResponseResult<SyncBody>;
 
 #[cfg(feature = "async")]
 mod async_response {
-    pub use super::body::AsyncBody;
+    pub use super::body::{AsyncBody, MaybeOwnedAsyncBody};
     use super::response::{Response, ResponseBuilder, Result as ResponseResult};
 
     /// 异步 HTTP 响应
