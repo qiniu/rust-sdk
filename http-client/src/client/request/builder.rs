@@ -112,24 +112,17 @@ impl<'r> RequestBuilder<'r> {
     #[inline]
     pub fn body(mut self, body: impl Into<RequestBody<'r>>, content_type: Option<Mime>) -> Self {
         self.data.body = body.into();
-        self.set_header(
-            CONTENT_TYPE,
-            HeaderValue::from_str(content_type.unwrap_or(APPLICATION_OCTET_STREAM).as_ref())
-                .unwrap(),
-        )
+        self.set_content_type(content_type)
     }
 
     #[inline]
     pub fn json(mut self, body: impl Serialize) -> JSONResult<Self> {
         self.data.body = serde_json::to_vec(&body)?.into();
-        Ok(self.set_header(
-            CONTENT_TYPE,
-            HeaderValue::from_str(APPLICATION_JSON.as_ref()).unwrap(),
-        ))
+        Ok(self.set_content_type(Some(APPLICATION_JSON)))
     }
 
     #[inline]
-    pub fn post_form<I, K, V>(mut self, iter: I) -> JSONResult<Self>
+    pub fn post_form<I, K, V>(mut self, iter: I) -> Self
     where
         I: IntoIterator,
         I::Item: Borrow<(K, Option<V>)>,
@@ -146,10 +139,7 @@ impl<'r> RequestBuilder<'r> {
             }
         }
         self.data.body = form.finish().into_bytes().into();
-        Ok(self.set_header(
-            CONTENT_TYPE,
-            HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref()).unwrap(),
-        ))
+        self.set_content_type(Some(APPLICATION_WWW_FORM_URLENCODED))
     }
 
     #[inline]
@@ -157,10 +147,7 @@ impl<'r> RequestBuilder<'r> {
         let mut buf = Vec::new();
         multipart.into_read().read_to_end(&mut buf)?;
         self.data.body = buf.into();
-        Ok(self.set_header(
-            CONTENT_TYPE,
-            HeaderValue::from_str(MULTIPART_FORM_DATA.as_ref()).unwrap(),
-        ))
+        Ok(self.set_content_type(Some(MULTIPART_FORM_DATA)))
     }
 
     #[inline]
@@ -175,18 +162,36 @@ impl<'r> RequestBuilder<'r> {
         let mut buf = Vec::new();
         multipart.into_async_read().read_to_end(&mut buf).await?;
         self.data.body = buf.into();
-        Ok(self.set_header(
+        Ok(self.set_content_type(Some(MULTIPART_FORM_DATA)))
+    }
+
+    #[inline]
+    fn set_content_type(self, content_type: Option<Mime>) -> Self {
+        self.set_header(
             CONTENT_TYPE,
-            HeaderValue::from_str(MULTIPART_FORM_DATA.as_ref()).unwrap(),
-        ))
+            HeaderValue::from_str(
+                content_type
+                    .as_ref()
+                    .unwrap_or(&APPLICATION_OCTET_STREAM)
+                    .as_ref(),
+            )
+            .unwrap(),
+        )
     }
 
     #[inline]
     pub fn accept_json(self) -> Self {
-        self.set_header(
-            ACCEPT,
-            HeaderValue::from_str(APPLICATION_JSON.as_ref()).unwrap(),
-        )
+        self.set_accept(APPLICATION_JSON)
+    }
+
+    #[inline]
+    pub fn accept_application_octet_stream(self) -> Self {
+        self.set_accept(APPLICATION_OCTET_STREAM)
+    }
+
+    #[inline]
+    fn set_accept(self, accept: Mime) -> Self {
+        self.set_header(ACCEPT, HeaderValue::from_str(accept.as_ref()).unwrap())
     }
 
     #[inline]
