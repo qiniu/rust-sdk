@@ -1,4 +1,4 @@
-use super::{MapError, ResponseError, SyncBody};
+use super::{MapError, ResponseError};
 use assert_impl::assert_impl;
 use http::{
     header::{HeaderMap, HeaderName, HeaderValue},
@@ -6,12 +6,10 @@ use http::{
     status::StatusCode,
     Extensions, Version,
 };
-use std::{
-    default::Default, fmt::Debug, io::Read, net::IpAddr, num::NonZeroU16, result, time::Duration,
-};
+use std::{default::Default, fmt::Debug, net::IpAddr, num::NonZeroU16, result, time::Duration};
 
 #[cfg(feature = "async")]
-use {super::AsyncBody, futures_lite::Future};
+use futures_lite::Future;
 
 pub trait Metrics: Debug + Send + Sync {
     fn total_duration(&self) -> Option<Duration>;
@@ -318,6 +316,13 @@ impl<B> ResponseBuilder<B> {
         self
     }
 
+    /// 添加 HTTP 响应体
+    #[inline]
+    pub fn body(mut self, body: B) -> Self {
+        *self.inner.body_mut() = body;
+        self
+    }
+
     #[inline]
     pub fn metrics(mut self, metrics: Box<dyn Metrics>) -> Self {
         *self.inner.info.metrics_mut() = Some(metrics);
@@ -331,44 +336,129 @@ impl<B> ResponseBuilder<B> {
     }
 }
 
-impl ResponseBuilder<SyncBody> {
-    /// 设置数据流为 HTTP 响应体
-    #[inline]
-    pub fn stream_as_body(mut self, body: impl Read + Debug + Send + 'static) -> Self {
-        *self.inner.body_mut() = SyncBody::from_reader(body);
-        self
+mod body {
+    use std::{
+        default::Default,
+        fmt::Debug,
+        io::{Cursor, Read, Result as IOResult},
+    };
+
+    trait ReadDebug: Read + Debug + Send {}
+    impl<T: Read + Debug + Send> ReadDebug for T {}
+
+    /// HTTP 响应体
+    #[derive(Debug)]
+    pub struct ResponseBody(ResponseBodyInner);
+
+    #[derive(Debug)]
+    enum ResponseBodyInner {
+        Reader(Box<dyn ReadDebug>),
+        Bytes(Cursor<Vec<u8>>),
     }
 
-    /// 设置二进制字节数组为 HTTP 响应体
-    #[inline]
-    pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
-        *self.inner.body_mut() = SyncBody::from_bytes(body.into());
-        self
+    impl ResponseBody {
+        #[inline]
+        pub fn from_reader(reader: impl Read + Debug + Send + 'static) -> Self {
+            Self(ResponseBodyInner::Reader(Box::new(reader)))
+        }
+
+        #[inline]
+        pub fn from_bytes(bytes: Vec<u8>) -> Self {
+            Self(ResponseBodyInner::Bytes(Cursor::new(bytes)))
+        }
     }
+
+    impl Default for ResponseBody {
+        #[inline]
+        fn default() -> Self {
+            Self::from_bytes(Default::default())
+        }
+    }
+
+    impl Read for ResponseBody {
+        fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+            match &mut self.0 {
+                ResponseBodyInner::Reader(reader) => reader.read(buf),
+                ResponseBodyInner::Bytes(bytes) => bytes.read(buf),
+            }
+        }
+    }
+
+    #[cfg(feature = "async")]
+    mod async_body {
+        use futures_lite::{
+            io::{AsyncRead, Cursor, Result as IOResult},
+            pin,
+        };
+        use std::{
+            fmt::Debug,
+            pin::Pin,
+            task::{Context, Poll},
+        };
+
+        trait AsyncReadDebug: AsyncRead + Unpin + Debug + Send + Sync {}
+        impl<T: AsyncRead + Unpin + Debug + Send + Sync> AsyncReadDebug for T {}
+
+        /// 异步 HTTP 响应体
+        #[derive(Debug)]
+        #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+        pub struct AsyncResponseBody(AsyncResponseBodyInner);
+
+        #[derive(Debug)]
+        enum AsyncResponseBodyInner {
+            Reader(Box<dyn AsyncReadDebug>),
+            Bytes(Cursor<Vec<u8>>),
+        }
+
+        impl AsyncResponseBody {
+            #[inline]
+            pub fn from_reader(
+                reader: impl AsyncRead + Unpin + Debug + Send + Sync + 'static,
+            ) -> Self {
+                Self(AsyncResponseBodyInner::Reader(Box::new(reader)))
+            }
+
+            #[inline]
+            pub fn from_bytes(bytes: Vec<u8>) -> Self {
+                Self(AsyncResponseBodyInner::Bytes(Cursor::new(bytes)))
+            }
+        }
+
+        impl Default for AsyncResponseBody {
+            #[inline]
+            fn default() -> Self {
+                Self::from_bytes(Default::default())
+            }
+        }
+
+        impl AsyncRead for AsyncResponseBody {
+            fn poll_read(
+                mut self: Pin<&mut Self>,
+                cx: &mut Context,
+                buf: &mut [u8],
+            ) -> Poll<IOResult<usize>> {
+                match &mut self.as_mut().0 {
+                    AsyncResponseBodyInner::Reader(reader) => {
+                        pin!(reader);
+                        reader.poll_read(cx, buf)
+                    }
+                    AsyncResponseBodyInner::Bytes(bytes) => {
+                        pin!(bytes);
+                        bytes.poll_read(cx, buf)
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "async")]
+    pub use async_body::*;
 }
 
-#[cfg(feature = "async")]
-use futures_lite::io::AsyncRead;
+pub use body::ResponseBody;
 
 #[cfg(feature = "async")]
-impl ResponseBuilder<AsyncBody> {
-    /// 设置数据流为 HTTP 响应体
-    #[inline]
-    pub fn stream_as_body(
-        mut self,
-        body: impl AsyncRead + Unpin + Debug + Send + Sync + 'static,
-    ) -> Self {
-        *self.inner.body_mut() = AsyncBody::from_reader(body);
-        self
-    }
-
-    /// 设置二进制字节数组为 HTTP 响应体
-    #[inline]
-    pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>) -> Self {
-        *self.inner.body_mut() = AsyncBody::from_bytes(body.into());
-        self
-    }
-}
+pub use body::AsyncResponseBody;
 
 /// HTTP 响应结果
 pub type Result<B> = result::Result<Response<B>, ResponseError>;

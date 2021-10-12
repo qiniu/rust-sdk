@@ -18,12 +18,10 @@
     unused_qualifications
 )]
 
-mod body;
 mod error;
 mod request;
 mod response;
 
-pub use body::{Body as SyncBody, MaybeOwnedBody as MaybeOwnedSyncBody};
 pub use error::{
     Error as ResponseError, ErrorBuilder as ResponseErrorBuilder, ErrorKind as ResponseErrorKind,
     MapError,
@@ -36,41 +34,63 @@ pub use http::{
     uri::{self, Uri},
     Extensions, Version,
 };
-pub use request::{Body as RequestBody, Request, RequestBuilder, TransferProgressInfo, UserAgent};
-pub use response::{Metrics, Response, ResponseBuilder, Result as ResponseResult};
+pub use request::{
+    Request, RequestBody as SyncRequestBody, RequestBuilder, TransferProgressInfo, UserAgent,
+};
+pub use response::{
+    Metrics, Response, ResponseBody as SyncResponseBody, ResponseBuilder, Result as ResponseResult,
+};
+use std::{
+    fmt::Debug,
+    io::{Result as IOResult, Seek, SeekFrom},
+};
 
 /// 同步 HTTP 响应
-pub type SyncResponse = Response<SyncBody>;
+pub type SyncRequest<'r> = Request<'r, SyncRequestBody<'r>>;
 /// 同步 HTTP 响应构建器
-pub type SyncResponseBuilder = ResponseBuilder<SyncBody>;
+pub type SyncRequestBuilder<'r> = RequestBuilder<'r, SyncRequestBody<'r>>;
+
+/// 同步 HTTP 响应
+pub type SyncResponse = Response<SyncResponseBody>;
+/// 同步 HTTP 响应构建器
+pub type SyncResponseBuilder = ResponseBuilder<SyncResponseBody>;
 /// 同步 HTTP 响应结果
-pub type SyncResponseResult = ResponseResult<SyncBody>;
+pub type SyncResponseResult = ResponseResult<SyncResponseBody>;
 
 #[cfg(feature = "async")]
-mod async_response {
-    pub use super::body::{AsyncBody, MaybeOwnedAsyncBody};
-    use super::response::{Response, ResponseBuilder, Result as ResponseResult};
+mod async_req_resp {
+    pub use super::{request::AsyncRequestBody, response::AsyncResponseBody};
+    use super::{
+        request::{Request, RequestBuilder},
+        response::{Response, ResponseBuilder, Result as ResponseResult},
+    };
+
+    /// 异步 HTTP 响应
+    pub type AsyncRequest<'r> = Request<'r, AsyncRequestBody<'r>>;
+    /// 异步 HTTP 响应构建器
+    pub type AsyncRequestBuilder<'r> = RequestBuilder<'r, AsyncRequestBody<'r>>;
 
     /// 异步 HTTP 响应
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub type AsyncResponse = Response<AsyncBody>;
+    pub type AsyncResponse = Response<AsyncResponseBody>;
 
     /// 异步 HTTP 响应构建器
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub type AsyncResponseBuilder = ResponseBuilder<AsyncBody>;
+    pub type AsyncResponseBuilder = ResponseBuilder<AsyncResponseBody>;
 
     /// 异步 HTTP 响应结果
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub type AsyncResponseResult = ResponseResult<AsyncBody>;
+    pub type AsyncResponseResult = ResponseResult<AsyncResponseBody>;
 }
 
 #[cfg(feature = "async")]
 pub use {
-    async_response::{AsyncBody, AsyncResponse, AsyncResponseBuilder, AsyncResponseResult},
-    futures_lite::AsyncRead,
+    async_req_resp::{
+        AsyncRequest, AsyncRequestBody, AsyncRequestBuilder, AsyncResponse, AsyncResponseBody,
+        AsyncResponseBuilder, AsyncResponseResult,
+    },
+    futures_lite::{AsyncRead, AsyncSeek},
 };
-
-use std::fmt::Debug;
 
 #[cfg(feature = "async")]
 use std::{future::Future, pin::Pin};
@@ -83,12 +103,15 @@ type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 /// 实现该接口，即可处理所有七牛 SDK 发送的 HTTP 请求
 pub trait HTTPCaller: Debug + Send + Sync {
     /// 同步发送 HTTP 请求
-    fn call(&self, request: &Request) -> SyncResponseResult;
+    fn call<'a>(&self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult;
 
     /// 异步发送 HTTP 请求
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_call<'a>(&'a self, request: &'a Request<'_>) -> BoxFuture<'a, AsyncResponseResult>;
+    fn async_call<'a>(
+        &'a self,
+        request: &'a mut AsyncRequest<'_>,
+    ) -> BoxFuture<'a, AsyncResponseResult>;
 
     #[inline]
     fn is_resolved_ip_addrs_supported(&self) -> bool {
@@ -101,6 +124,40 @@ pub trait HTTPCaller: Debug + Send + Sync {
     }
 }
 
+pub trait Reset {
+    fn reset(&mut self) -> IOResult<()>;
+}
+
+impl<T: Seek> Reset for T {
+    #[inline]
+    fn reset(&mut self) -> IOResult<()> {
+        self.seek(SeekFrom::Start(0))?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "async")]
+#[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+pub trait AsyncReset {
+    fn reset(&mut self) -> BoxFuture<IOResult<()>>;
+}
+
+#[cfg(feature = "async")]
+impl<T: AsyncSeek + Unpin + Send + Sync> AsyncReset for T {
+    #[inline]
+    fn reset(&mut self) -> BoxFuture<IOResult<()>> {
+        use futures_lite::io::AsyncSeekExt;
+
+        Box::pin(async move {
+            self.seek(SeekFrom::Start(0)).await?;
+            Ok(())
+        })
+    }
+}
+
 pub mod preclude {
-    pub use super::{HTTPCaller, Metrics};
+    pub use super::{HTTPCaller, Metrics, Reset};
+
+    #[cfg(feature = "async")]
+    pub use super::AsyncReset;
 }

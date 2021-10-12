@@ -15,7 +15,7 @@ use serde::{
 };
 use std::{
     borrow::{Borrow, BorrowMut, Cow},
-    fmt,
+    fmt::{self, Debug},
     iter::FromIterator,
     mem::take,
     net::IpAddr,
@@ -37,9 +37,6 @@ static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
     .into()
 });
 
-/// 请求体
-pub type Body<'b> = Cow<'b, [u8]>;
-
 type OnProgress<'r> = &'r (dyn Fn(&TransferProgressInfo) -> bool + Send + Sync);
 type OnStatusCode<'r> = &'r (dyn Fn(StatusCode) -> bool + Send + Sync);
 type OnHeader<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync);
@@ -48,8 +45,8 @@ type OnHeader<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync
 ///
 /// 封装 HTTP 请求相关字段
 #[derive(Default)]
-pub struct Request<'r> {
-    inner: HTTPRequest<Body<'r>>,
+pub struct Request<'r, B: 'r> {
+    inner: HTTPRequest<B>,
 
     // 请求配置属性
     appended_user_agent: UserAgent,
@@ -59,22 +56,24 @@ pub struct Request<'r> {
     on_receive_response_header: Option<OnHeader<'r>>,
 }
 
-impl<'r> Request<'r> {
+impl<'r, B: Default + 'r> Request<'r, B> {
     // 返回 HTTP 响应构建器
     #[inline]
-    pub fn builder() -> RequestBuilder<'r> {
+    pub fn builder() -> RequestBuilder<'r, B> {
         RequestBuilder::default()
     }
+}
 
+impl<'r, B: 'r> Request<'r, B> {
     /// 获取 HTTP 请求
     #[inline]
-    pub fn http(&self) -> &HTTPRequest<Body<'r>> {
+    pub fn http(&self) -> &HTTPRequest<B> {
         &self.inner
     }
 
     /// 修改 HTTP 请求
     #[inline]
-    pub fn http_mut(&mut self) -> &mut HTTPRequest<Body<'r>> {
+    pub fn http_mut(&mut self) -> &mut HTTPRequest<B> {
         &mut self.inner
     }
 
@@ -128,13 +127,13 @@ impl<'r> Request<'r> {
 
     /// 请求体
     #[inline]
-    pub fn body(&self) -> &[u8] {
+    pub fn body(&self) -> &B {
         self.inner.body()
     }
 
     /// 修改请求体
     #[inline]
-    pub fn body_mut(&mut self) -> &mut Body<'r> {
+    pub fn body_mut(&mut self) -> &mut B {
         self.inner.body_mut()
     }
 
@@ -217,7 +216,9 @@ impl<'r> Request<'r> {
     pub fn on_receive_response_header_mut(&mut self) -> &mut Option<OnHeader<'r>> {
         &mut self.on_receive_response_header
     }
+}
 
+impl<'r, B: Send + Sync + 'r> Request<'r, B> {
     #[allow(dead_code)]
     fn ignore() {
         assert_impl!(Send: Self);
@@ -225,7 +226,7 @@ impl<'r> Request<'r> {
     }
 }
 
-impl fmt::Debug for Request<'_> {
+impl<'r, B: Debug + 'r> Debug for Request<'r, B> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         macro_rules! field {
             ($ctx:ident, $method_name:expr, $method:ident) => {
@@ -256,14 +257,14 @@ impl fmt::Debug for Request<'_> {
 
 /// HTTP 请求生成器
 #[derive(Default, Debug)]
-pub struct RequestBuilder<'r> {
-    inner: Request<'r>,
+pub struct RequestBuilder<'r, B> {
+    inner: Request<'r, B>,
 }
 
-impl<'r> RequestBuilder<'r> {
+impl<'r, B: 'r> RequestBuilder<'r, B> {
     /// 设置 HTTP 请求
     #[inline]
-    pub fn http(&mut self, request: HTTPRequest<Body<'r>>) -> &mut Self {
+    pub fn http(&mut self, request: HTTPRequest<B>) -> &mut Self {
         self.inner.inner = request;
         self
     }
@@ -296,10 +297,9 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
-    /// 设置请求体
     #[inline]
-    pub fn body(&mut self, body: impl Into<Body<'r>>) -> &mut Self {
-        *self.inner.body_mut() = body.into();
+    pub fn body(&mut self, body: B) -> &mut Self {
+        *self.inner.body_mut() = body;
         self
     }
 
@@ -347,10 +347,12 @@ impl<'r> RequestBuilder<'r> {
         self.inner.on_receive_response_header = Some(f);
         self
     }
+}
 
+impl<'r, B: Default + 'r> RequestBuilder<'r, B> {
     /// 构建 HTTP 请求，同时构建器被重置
     #[inline]
-    pub fn build(&mut self) -> Request<'r> {
+    pub fn build(&mut self) -> Request<'r, B> {
         take(&mut self.inner)
     }
 
@@ -360,6 +362,367 @@ impl<'r> RequestBuilder<'r> {
         self.inner = Default::default();
     }
 }
+
+mod body {
+    use super::super::Reset;
+    use std::{
+        default::Default,
+        fmt::Debug,
+        io::{Cursor, Read, Result as IOResult},
+    };
+
+    trait ReadDebug: Read + Reset + Debug + Send + Sync {}
+    impl<T: Read + Reset + Debug + Send + Sync> ReadDebug for T {}
+
+    #[derive(Debug)]
+    struct OwnedRequestBody(OwnedRequestBodyInner);
+
+    #[derive(Debug)]
+    enum OwnedRequestBodyInner {
+        Reader {
+            reader: Box<dyn ReadDebug>,
+            size: u64,
+        },
+        Bytes(Cursor<Vec<u8>>),
+    }
+
+    impl OwnedRequestBody {
+        #[inline]
+        fn from_reader(
+            reader: impl Read + Reset + Debug + Send + Sync + 'static,
+            size: u64,
+        ) -> Self {
+            Self(OwnedRequestBodyInner::Reader {
+                reader: Box::new(reader),
+                size,
+            })
+        }
+
+        #[inline]
+        fn from_bytes(bytes: Vec<u8>) -> Self {
+            Self(OwnedRequestBodyInner::Bytes(Cursor::new(bytes)))
+        }
+
+        #[inline]
+        fn size(&self) -> u64 {
+            match &self.0 {
+                OwnedRequestBodyInner::Reader { size, .. } => *size,
+                OwnedRequestBodyInner::Bytes(bytes) => bytes.get_ref().len() as u64,
+            }
+        }
+    }
+
+    impl Default for OwnedRequestBody {
+        #[inline]
+        fn default() -> Self {
+            Self::from_bytes(Default::default())
+        }
+    }
+
+    impl Read for OwnedRequestBody {
+        fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+            match &mut self.0 {
+                OwnedRequestBodyInner::Reader { reader, .. } => reader.read(buf),
+                OwnedRequestBodyInner::Bytes(bytes) => bytes.read(buf),
+            }
+        }
+    }
+
+    impl Reset for OwnedRequestBody {
+        #[inline]
+        fn reset(&mut self) -> IOResult<()> {
+            match &mut self.0 {
+                OwnedRequestBodyInner::Reader { reader, .. } => reader.reset(),
+                OwnedRequestBodyInner::Bytes(bytes) => bytes.reset(),
+            }
+        }
+    }
+
+    /// HTTP 请求体
+    #[derive(Debug)]
+    pub struct RequestBody<'a>(RequestBodyInner<'a>);
+
+    #[derive(Debug)]
+    enum RequestBodyInner<'a> {
+        ReaderRef {
+            reader: &'a mut dyn ReadDebug,
+            size: u64,
+        },
+        BytesRef(Cursor<&'a [u8]>),
+        Owned(OwnedRequestBody),
+    }
+
+    impl<'a> RequestBody<'a> {
+        #[inline]
+        pub fn from_referenced_reader<T: Read + Reset + Debug + Send + Sync>(
+            reader: &'a mut T,
+            size: u64,
+        ) -> Self {
+            Self(RequestBodyInner::ReaderRef { reader, size })
+        }
+
+        #[inline]
+        pub fn from_referenced_bytes(bytes: &'a [u8]) -> Self {
+            Self(RequestBodyInner::BytesRef(Cursor::new(bytes)))
+        }
+
+        #[inline]
+        pub fn from_reader(
+            reader: impl Read + Reset + Debug + Send + Sync + 'static,
+            size: u64,
+        ) -> Self {
+            Self(RequestBodyInner::Owned(OwnedRequestBody::from_reader(
+                reader, size,
+            )))
+        }
+
+        #[inline]
+        pub fn from_bytes(bytes: Vec<u8>) -> Self {
+            Self(RequestBodyInner::Owned(OwnedRequestBody::from_bytes(bytes)))
+        }
+
+        #[inline]
+        pub fn size(&self) -> u64 {
+            match &self.0 {
+                RequestBodyInner::ReaderRef { size, .. } => *size,
+                RequestBodyInner::BytesRef(bytes) => bytes.get_ref().len() as u64,
+                RequestBodyInner::Owned(owned) => owned.size(),
+            }
+        }
+    }
+
+    impl Default for RequestBody<'_> {
+        #[inline]
+        fn default() -> Self {
+            Self::from_bytes(Default::default())
+        }
+    }
+
+    impl Read for RequestBody<'_> {
+        #[inline]
+        fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+            match &mut self.0 {
+                RequestBodyInner::ReaderRef { reader, .. } => reader.read(buf),
+                RequestBodyInner::BytesRef(bytes) => bytes.read(buf),
+                RequestBodyInner::Owned(owned) => owned.read(buf),
+            }
+        }
+    }
+
+    impl Reset for RequestBody<'_> {
+        #[inline]
+        fn reset(&mut self) -> IOResult<()> {
+            match &mut self.0 {
+                RequestBodyInner::ReaderRef { reader, .. } => reader.reset(),
+                RequestBodyInner::BytesRef(bytes) => bytes.reset(),
+                RequestBodyInner::Owned(owned) => owned.reset(),
+            }
+        }
+    }
+
+    #[cfg(feature = "async")]
+    mod async_body {
+        use super::super::super::{AsyncReset, BoxFuture};
+        use futures_lite::{
+            io::{AsyncRead, Cursor, Result as IOResult},
+            pin,
+        };
+        use std::{
+            fmt::Debug,
+            pin::Pin,
+            task::{Context, Poll},
+        };
+
+        trait AsyncReadDebug: AsyncRead + AsyncReset + Unpin + Debug + Send + Sync {}
+        impl<T: AsyncRead + AsyncReset + Unpin + Debug + Send + Sync> AsyncReadDebug for T {}
+
+        #[derive(Debug)]
+        #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+        struct OwnedAsyncRequestBody(OwnedAsyncRequestBodyInner);
+
+        #[derive(Debug)]
+        enum OwnedAsyncRequestBodyInner {
+            Reader {
+                reader: Box<dyn AsyncReadDebug>,
+                size: u64,
+            },
+            Bytes(Cursor<Vec<u8>>),
+        }
+
+        impl OwnedAsyncRequestBody {
+            #[inline]
+            fn from_reader(
+                reader: impl AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'static,
+                size: u64,
+            ) -> Self {
+                Self(OwnedAsyncRequestBodyInner::Reader {
+                    reader: Box::new(reader),
+                    size,
+                })
+            }
+
+            #[inline]
+            fn from_bytes(bytes: Vec<u8>) -> Self {
+                Self(OwnedAsyncRequestBodyInner::Bytes(Cursor::new(bytes)))
+            }
+
+            #[inline]
+            pub fn size(&self) -> u64 {
+                match &self.0 {
+                    OwnedAsyncRequestBodyInner::Reader { size, .. } => *size,
+                    OwnedAsyncRequestBodyInner::Bytes(bytes) => bytes.get_ref().len() as u64,
+                }
+            }
+        }
+
+        impl Default for OwnedAsyncRequestBody {
+            #[inline]
+            fn default() -> Self {
+                Self::from_bytes(Default::default())
+            }
+        }
+
+        impl AsyncRead for OwnedAsyncRequestBody {
+            fn poll_read(
+                mut self: Pin<&mut Self>,
+                cx: &mut Context,
+                buf: &mut [u8],
+            ) -> Poll<IOResult<usize>> {
+                match &mut self.as_mut().0 {
+                    OwnedAsyncRequestBodyInner::Reader { reader, .. } => {
+                        pin!(reader);
+                        reader.poll_read(cx, buf)
+                    }
+                    OwnedAsyncRequestBodyInner::Bytes(bytes) => {
+                        pin!(bytes);
+                        bytes.poll_read(cx, buf)
+                    }
+                }
+            }
+        }
+
+        impl AsyncReset for OwnedAsyncRequestBody {
+            #[inline]
+            fn reset(&mut self) -> BoxFuture<IOResult<()>> {
+                Box::pin(async move {
+                    match &mut self.0 {
+                        OwnedAsyncRequestBodyInner::Reader { reader, .. } => reader.reset().await,
+                        OwnedAsyncRequestBodyInner::Bytes(bytes) => bytes.reset().await,
+                    }
+                })
+            }
+        }
+
+        /// 异步 HTTP 请求体
+        #[derive(Debug)]
+        #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+        pub struct AsyncRequestBody<'a>(AsyncRequestBodyInner<'a>);
+
+        #[derive(Debug)]
+        enum AsyncRequestBodyInner<'a> {
+            ReaderRef {
+                reader: &'a mut dyn AsyncReadDebug,
+                size: u64,
+            },
+            BytesRef(Cursor<&'a [u8]>),
+            Owned(OwnedAsyncRequestBody),
+        }
+
+        impl<'a> AsyncRequestBody<'a> {
+            #[inline]
+            pub fn from_referenced_reader<
+                T: AsyncRead + AsyncReset + Unpin + Debug + Send + Sync,
+            >(
+                reader: &'a mut T,
+                size: u64,
+            ) -> Self {
+                Self(AsyncRequestBodyInner::ReaderRef { reader, size })
+            }
+
+            #[inline]
+            pub fn from_referenced_bytes(bytes: &'a [u8]) -> Self {
+                Self(AsyncRequestBodyInner::BytesRef(Cursor::new(bytes)))
+            }
+
+            #[inline]
+            pub fn from_reader(
+                reader: impl AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'static,
+                size: u64,
+            ) -> Self {
+                Self(AsyncRequestBodyInner::Owned(
+                    OwnedAsyncRequestBody::from_reader(reader, size),
+                ))
+            }
+
+            #[inline]
+            pub fn from_bytes(bytes: Vec<u8>) -> Self {
+                Self(AsyncRequestBodyInner::Owned(
+                    OwnedAsyncRequestBody::from_bytes(bytes),
+                ))
+            }
+
+            #[inline]
+            pub fn size(&self) -> u64 {
+                match &self.0 {
+                    AsyncRequestBodyInner::ReaderRef { size, .. } => *size,
+                    AsyncRequestBodyInner::BytesRef(bytes) => bytes.get_ref().len() as u64,
+                    AsyncRequestBodyInner::Owned(owned) => owned.size(),
+                }
+            }
+        }
+
+        impl Default for AsyncRequestBody<'_> {
+            #[inline]
+            fn default() -> Self {
+                Self::from_bytes(Default::default())
+            }
+        }
+
+        impl AsyncRead for AsyncRequestBody<'_> {
+            fn poll_read(
+                mut self: Pin<&mut Self>,
+                cx: &mut Context,
+                buf: &mut [u8],
+            ) -> Poll<IOResult<usize>> {
+                match &mut self.as_mut().0 {
+                    AsyncRequestBodyInner::ReaderRef { reader, .. } => {
+                        pin!(reader);
+                        reader.poll_read(cx, buf)
+                    }
+                    AsyncRequestBodyInner::BytesRef(bytes) => {
+                        pin!(bytes);
+                        bytes.poll_read(cx, buf)
+                    }
+                    AsyncRequestBodyInner::Owned(owned) => {
+                        pin!(owned);
+                        owned.poll_read(cx, buf)
+                    }
+                }
+            }
+        }
+
+        impl AsyncReset for AsyncRequestBody<'_> {
+            #[inline]
+            fn reset(&mut self) -> BoxFuture<IOResult<()>> {
+                Box::pin(async move {
+                    match &mut self.0 {
+                        AsyncRequestBodyInner::ReaderRef { reader, .. } => reader.reset().await,
+                        AsyncRequestBodyInner::BytesRef(bytes) => bytes.reset().await,
+                        AsyncRequestBodyInner::Owned(owned) => owned.reset().await,
+                    }
+                })
+            }
+        }
+    }
+
+    #[cfg(feature = "async")]
+    pub use async_body::*;
+}
+
+pub use body::RequestBody;
+
+#[cfg(feature = "async")]
+pub use body::AsyncRequestBody;
 
 /// 上传进度信息
 pub struct TransferProgressInfo<'b> {

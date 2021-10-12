@@ -1072,14 +1072,14 @@ macro_rules! wrap_smallstr {
         impl fmt::Display for $name {
             #[inline]
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                self.inner.fmt(f)
+                fmt::Display::fmt(&self.inner, f)
             }
         }
 
         impl fmt::Debug for $name {
             #[inline]
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                self.inner.fmt(f)
+                fmt::Debug::fmt(&self.inner, f)
             }
         }
 
