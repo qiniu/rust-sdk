@@ -44,7 +44,7 @@ mod tests {
     use futures::channel::oneshot::channel;
     use isahc::http::header::{CONTENT_LENGTH, USER_AGENT};
     use md5::{Digest, Md5};
-    use qiniu_http::Method;
+    use qiniu_http::{Method, SyncRequest, SyncRequestBody};
     use rand::{thread_rng, RngCore};
     use std::{
         io::{copy as io_copy, Read},
@@ -64,7 +64,10 @@ mod tests {
     };
 
     #[cfg(feature = "async")]
-    use futures::io::{copy as async_io_copy, AsyncReadExt};
+    use {
+        futures::io::{copy as async_io_copy, AsyncReadExt},
+        qiniu_http::{AsyncRequest, AsyncRequestBody},
+    };
 
     macro_rules! starts_with_server {
         ($addr:ident, $routes:ident, $code:block) => {{
@@ -127,14 +130,14 @@ mod tests {
                     let last_uploaded = last_uploaded.to_owned();
                     let last_total = last_total.to_owned();
                     Client::default_client()?.call(
-                        &Request::builder()
+                        &mut SyncRequest::builder()
                             .method(Method::POST)
                             .url(
                                 format!("http://fakehost:{}/dir1/dir2/file", addr.port())
                                     .parse()
                                     .expect("invalid uri"),
                             )
-                            .body(&request_body)
+                            .body(SyncRequestBody::from_referenced_bytes(&request_body))
                             .resolved_ip_addrs([addr.ip()].as_ref())
                             .on_uploading_progress(&|info| {
                                 last_uploaded.store(info.transferred_bytes(), Relaxed);
@@ -227,14 +230,14 @@ mod tests {
                 let last_total = last_total.to_owned();
                 Client::default_client()?
                     .async_call(
-                        &Request::builder()
+                        &mut AsyncRequest::builder()
                             .method(Method::POST)
                             .url(
                                 format!("http://fakehost:{}/dir1/dir2/file", addr.port())
                                     .parse()
                                     .expect("invalid uri"),
                             )
-                            .body(&request_body)
+                            .body(AsyncRequestBody::from_referenced_bytes(&request_body))
                             .resolved_ip_addrs([addr.ip()].as_ref())
                             .on_uploading_progress(&|info| {
                                 last_uploaded.store(info.transferred_bytes(), Relaxed);

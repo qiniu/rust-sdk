@@ -6,11 +6,11 @@ use isahc::{
     Response as IsahcResponse, ResponseExt,
 };
 use qiniu_http::{
-    HTTPCaller, HeaderValue, Metrics, Request, ResponseError, ResponseErrorKind, SyncResponse,
-    SyncResponseResult, TransferProgressInfo, Uri,
+    HTTPCaller, HeaderValue, Metrics, Request, ResponseError, ResponseErrorKind, SyncRequest,
+    SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo, Uri,
 };
 use std::{
-    io::{Cursor, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
+    io::{Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
     mem::{take, transmute},
     net::{IpAddr, SocketAddr},
     num::NonZeroU16,
@@ -22,9 +22,9 @@ type IsahcSyncResponse = isahc::Response<IsahcBody>;
 
 #[cfg(feature = "async")]
 use {
-    futures::{io::Cursor as AsyncCursor, ready, AsyncRead},
+    futures::{ready, AsyncRead},
     isahc::AsyncBody as IsahcAsyncBody,
-    qiniu_http::{AsyncResponse, AsyncResponseResult},
+    qiniu_http::{AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult},
     std::{
         future::Future,
         pin::Pin,
@@ -59,34 +59,37 @@ impl Client {
 }
 
 impl HTTPCaller for Client {
-    fn call(&self, request: &Request) -> SyncResponseResult {
+    fn call<'a>(&'a self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
         let mut user_cancelled_error: Option<ResponseError> = None;
 
-        let isahc_result = match request.resolved_ip_addrs() {
+        let isahc_result = match request.resolved_ip_addrs().map(|ips| ips.to_owned()) {
             Some(ips) if !ips.is_empty() => {
-                let mut last_error: Option<IsahcError> = None;
-                ips.iter()
-                    .find_map(|&ip| {
-                        let isahc_request = match make_sync_isahc_request(
-                            request,
-                            Some(ip),
-                            &mut user_cancelled_error,
-                        ) {
+                let mut last_result = None;
+                for ip in ips {
+                    let isahc_request =
+                        match make_sync_isahc_request(request, Some(ip), &mut user_cancelled_error)
+                        {
                             Ok(request) => request,
                             Err(err) => {
-                                return Some(Err(err));
+                                last_result = Some(Err(err));
+                                break;
                             }
                         };
-                        match self.isahc_client.send(isahc_request) {
-                            Ok(isahc_response) => Some(Ok(isahc_response)),
-                            Err(err) if should_retry(&err) => {
-                                last_error = Some(err);
-                                None
-                            }
-                            Err(err) => Some(Err(from_isahc_error(err, request))),
+                    match self.isahc_client.send(isahc_request) {
+                        Ok(isahc_response) => {
+                            last_result = Some(Ok(isahc_response));
+                            break;
                         }
-                    })
-                    .unwrap_or_else(|| Err(from_isahc_error(last_error.unwrap(), request)))
+                        Err(err) => {
+                            let should_retry = should_retry(&err);
+                            last_result = Some(Err(from_isahc_error(err, request)));
+                            if !should_retry {
+                                break;
+                            }
+                        }
+                    }
+                }
+                last_result.unwrap()
             }
             _ => {
                 let isahc_request =
@@ -105,14 +108,17 @@ impl HTTPCaller for Client {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_call<'a>(&'a self, request: &'a Request<'_>) -> BoxFuture<'a, AsyncResponseResult> {
+    fn async_call<'a>(
+        &'a self,
+        request: &'a mut AsyncRequest<'_>,
+    ) -> BoxFuture<'a, AsyncResponseResult> {
         Box::pin(async move {
             let mut user_cancelled_error: Option<ResponseError> = None;
 
-            let isahc_result = match request.resolved_ip_addrs() {
+            let isahc_result = match request.resolved_ip_addrs().map(|ips| ips.to_owned()) {
                 Some(ips) if !ips.is_empty() => {
                     let mut last_result = None;
-                    for &ip in ips {
+                    for ip in ips {
                         let isahc_request = match make_async_isahc_request(
                             request,
                             Some(ip),
@@ -169,7 +175,7 @@ impl HTTPCaller for Client {
 }
 
 #[inline]
-fn make_user_agent(request: &Request) -> Result<HeaderValue, ResponseError> {
+fn make_user_agent<B>(request: &Request<B>) -> Result<HeaderValue, ResponseError> {
     HeaderValue::from_str(&format!(
         "{}/qiniu-http-{}",
         request.user_agent(),
@@ -182,7 +188,10 @@ fn make_user_agent(request: &Request) -> Result<HeaderValue, ResponseError> {
     })
 }
 
-fn make_sync_response(mut response: IsahcSyncResponse, request: &Request) -> SyncResponseResult {
+fn make_sync_response(
+    mut response: IsahcSyncResponse,
+    request: &SyncRequest,
+) -> SyncResponseResult {
     call_response_callbacks(request, &response)?;
 
     let mut response_builder = SyncResponse::builder()
@@ -200,12 +209,15 @@ fn make_sync_response(mut response: IsahcSyncResponse, request: &Request) -> Syn
         response_builder =
             response_builder.metrics(Box::new(IsahcBasedMetrics(metrics.to_owned())));
     }
-    response_builder = response_builder.stream_as_body(Box::new(response.into_body()));
+    response_builder = response_builder.body(SyncResponseBody::from_reader(response.into_body()));
     Ok(response_builder.build())
 }
 
 #[cfg(feature = "async")]
-fn make_async_response(mut response: IsahcAsyncResponse, request: &Request) -> AsyncResponseResult {
+fn make_async_response(
+    mut response: IsahcAsyncResponse,
+    request: &AsyncRequest,
+) -> AsyncResponseResult {
     call_response_callbacks(request, &response)?;
 
     let mut response_builder = AsyncResponse::builder()
@@ -223,14 +235,14 @@ fn make_async_response(mut response: IsahcAsyncResponse, request: &Request) -> A
         response_builder =
             response_builder.metrics(Box::new(IsahcBasedMetrics(metrics.to_owned())));
     }
-    response_builder = response_builder.stream_as_body(Box::new(response.into_body()));
+    response_builder = response_builder.body(AsyncResponseBody::from_reader(response.into_body()));
     Ok(response_builder.build())
 }
 
 #[inline]
-fn call_response_callbacks<B>(
-    request: &Request,
-    response: &IsahcResponse<B>,
+fn call_response_callbacks<ReqBody, RespBody>(
+    request: &Request<ReqBody>,
+    response: &IsahcResponse<RespBody>,
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
         if !on_receive_response_status(response.status()) {
@@ -300,7 +312,7 @@ impl Metrics for IsahcBasedMetrics {
 }
 
 fn make_sync_isahc_request(
-    request: &Request,
+    request: &mut SyncRequest,
     ip_addr: Option<IpAddr>,
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<IsahcSyncRequest, ResponseError> {
@@ -317,13 +329,8 @@ fn make_sync_isahc_request(
 
     let isahc_request = isahc_request_builder
         .body(IsahcBody::from_reader_sized(
-            RequestBodyWithCallbacks::new(
-                request.url(),
-                request.body(),
-                request.on_uploading_progress(),
-                user_cancelled_error,
-            ),
-            request.body().len() as u64,
+            RequestBodyWithCallbacks::new(request, user_cancelled_error),
+            request.body().size(),
         ))
         .map_err(|err| {
             ResponseError::builder(ResponseErrorKind::InvalidRequestResponse, err)
@@ -332,45 +339,37 @@ fn make_sync_isahc_request(
         })?;
     return Ok(isahc_request);
 
-    type OnProgress<'r> = &'r (dyn Fn(&TransferProgressInfo) -> bool + Send + Sync);
-
     struct RequestBodyWithCallbacks {
-        request_uri: &'static Uri,
-        body: Cursor<&'static [u8]>,
-        size: u64,
-        on_uploading_progress: Option<OnProgress<'static>>,
+        request: &'static mut SyncRequest<'static>,
         user_cancelled_error: &'static mut Option<ResponseError>,
+        have_read: u64,
     }
 
     impl RequestBodyWithCallbacks {
         fn new(
-            request_uri: &Uri,
-            body: &[u8],
-            on_uploading_progress: Option<OnProgress>,
+            request: &mut SyncRequest,
             user_cancelled_error: &mut Option<ResponseError>,
         ) -> Self {
             Self {
-                size: body.len() as u64,
-                body: Cursor::new(unsafe { transmute(body) }),
-                on_uploading_progress: on_uploading_progress
-                    .map(|callback| unsafe { transmute(callback) }),
+                have_read: 0,
+                request: unsafe { transmute(request) },
                 user_cancelled_error: unsafe { transmute(user_cancelled_error) },
-                request_uri: unsafe { transmute(request_uri) },
             }
         }
     }
 
     impl Read for RequestBodyWithCallbacks {
         fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
-            match self.body.read(buf) {
+            match self.request.body_mut().read(buf) {
                 Err(err) => Err(err),
                 Ok(0) => Ok(0),
                 Ok(n) => {
                     let buf = &buf[..n];
-                    if let Some(on_uploading_progress) = self.on_uploading_progress {
+                    self.have_read += n as u64;
+                    if let Some(on_uploading_progress) = self.request.on_uploading_progress() {
                         if !on_uploading_progress(&TransferProgressInfo::new(
-                            self.body.position(),
-                            self.size,
+                            self.have_read,
+                            self.request.body().size(),
                             buf,
                         )) {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
@@ -379,7 +378,7 @@ fn make_sync_isahc_request(
                                     ResponseErrorKind::UserCanceled,
                                     ERROR_MESSAGE,
                                 )
-                                .uri(self.request_uri)
+                                .uri(self.request.url())
                                 .build(),
                             );
                             return Err(IOError::new(IOErrorKind::Other, ERROR_MESSAGE));
@@ -394,7 +393,7 @@ fn make_sync_isahc_request(
 
 #[cfg(feature = "async")]
 fn make_async_isahc_request(
-    request: &Request,
+    request: &mut AsyncRequest,
     ip_addr: Option<IpAddr>,
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<IsahcAsyncRequest, ResponseError> {
@@ -412,13 +411,8 @@ fn make_async_isahc_request(
 
     let isahc_request = isahc_request_builder
         .body(IsahcAsyncBody::from_reader_sized(
-            RequestBodyWithCallbacks::new(
-                request.url(),
-                request.body(),
-                request.on_uploading_progress(),
-                user_cancelled_error,
-            ),
-            request.body().len() as u64,
+            RequestBodyWithCallbacks::new(request, user_cancelled_error),
+            request.body().size(),
         ))
         .map_err(|err| {
             ResponseError::builder(ResponseErrorKind::InvalidRequestResponse, err)
@@ -427,30 +421,21 @@ fn make_async_isahc_request(
         })?;
     return Ok(isahc_request);
 
-    type OnProgress<'r> = &'r (dyn Fn(&TransferProgressInfo) -> bool + Send + Sync);
-
     struct RequestBodyWithCallbacks {
-        request_uri: &'static Uri,
-        body: AsyncCursor<&'static [u8]>,
-        size: u64,
-        on_uploading_progress: Option<OnProgress<'static>>,
+        request: &'static mut AsyncRequest<'static>,
         user_cancelled_error: &'static mut Option<ResponseError>,
+        have_read: u64,
     }
 
     impl RequestBodyWithCallbacks {
         fn new(
-            request_uri: &Uri,
-            body: &[u8],
-            on_uploading_progress: Option<OnProgress>,
+            request: &mut AsyncRequest,
             user_cancelled_error: &mut Option<ResponseError>,
         ) -> Self {
             Self {
-                size: body.len() as u64,
-                body: AsyncCursor::new(unsafe { transmute(body) }),
-                on_uploading_progress: on_uploading_progress
-                    .map(|callback| unsafe { transmute(callback) }),
+                have_read: 0,
+                request: unsafe { transmute(request) },
                 user_cancelled_error: unsafe { transmute(user_cancelled_error) },
-                request_uri: unsafe { transmute(request_uri) },
             }
         }
     }
@@ -461,17 +446,21 @@ fn make_async_isahc_request(
             cx: &mut Context,
             buf: &mut [u8],
         ) -> Poll<IOResult<usize>> {
-            let body = &mut self.as_mut().body;
+            let request_mut = &mut self.as_mut().request;
+            let body = request_mut.body_mut();
             pin_mut!(body);
             match ready!(body.poll_read(cx, buf)) {
                 Err(err) => Poll::Ready(Err(err)),
                 Ok(0) => Poll::Ready(Ok(0)),
                 Ok(n) => {
                     let buf = &buf[..n];
-                    if let Some(on_uploading_progress) = self.on_uploading_progress {
+                    self.as_mut().have_read += n as u64;
+                    if let Some(on_uploading_progress) =
+                        self.as_ref().request.on_uploading_progress()
+                    {
                         if !on_uploading_progress(&TransferProgressInfo::new(
-                            self.body.position(),
-                            self.size,
+                            self.as_ref().have_read,
+                            self.as_ref().request.body().size(),
                             buf,
                         )) {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
@@ -480,7 +469,7 @@ fn make_async_isahc_request(
                                     ResponseErrorKind::UserCanceled,
                                     ERROR_MESSAGE,
                                 )
-                                .uri(self.request_uri)
+                                .uri(self.as_ref().request.url())
                                 .build(),
                             );
                             return Poll::Ready(Err(IOError::new(
@@ -497,8 +486,8 @@ fn make_async_isahc_request(
 }
 
 #[inline]
-fn add_extensions_to_isahc_request_builder(
-    request: &Request,
+fn add_extensions_to_isahc_request_builder<B>(
+    request: &Request<B>,
     ip_addr: Option<IpAddr>,
     mut isahc_request_builder: IsahcRequestBuilder,
 ) -> Result<IsahcRequestBuilder, ResponseError> {
@@ -671,7 +660,7 @@ fn add_extensions_to_isahc_request_builder(
 }
 
 #[inline]
-fn from_isahc_error(err: IsahcError, request: &Request) -> ResponseError {
+fn from_isahc_error<B>(err: IsahcError, request: &Request<B>) -> ResponseError {
     let error_builder = match err.kind() {
         IsahcErrorKind::BadClientCertificate => {
             ResponseError::builder(ResponseErrorKind::ClientCertError, err)
