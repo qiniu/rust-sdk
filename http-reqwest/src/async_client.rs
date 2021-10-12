@@ -4,10 +4,10 @@ use super::{
     BoxFuture,
 };
 use bytes::Bytes;
-use futures::{io::Cursor, ready, AsyncRead, Stream};
+use futures::{ready, AsyncRead, Stream};
 use qiniu_http::{
-    AsyncResponse, AsyncResponseResult, HTTPCaller, Request, ResponseError, ResponseErrorKind,
-    SyncResponseResult, TransferProgressInfo, Uri,
+    AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult, HTTPCaller, ResponseError,
+    ResponseErrorKind, SyncRequest, SyncResponseResult, TransferProgressInfo,
 };
 use reqwest::{
     header::USER_AGENT, Body as AsyncBody, Client as AsyncReqwestClient,
@@ -38,12 +38,15 @@ impl AsyncReqwestHTTPCaller {
 
 impl HTTPCaller for AsyncReqwestHTTPCaller {
     #[inline]
-    fn call(&self, _request: &Request) -> SyncResponseResult {
+    fn call<'a>(&'a self, _request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
         unimplemented!("AsyncReqwestHTTPCaller does not support blocking call")
     }
 
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_call<'a>(&'a self, request: &'a Request) -> BoxFuture<'a, AsyncResponseResult> {
+    fn async_call<'a>(
+        &'a self,
+        request: &'a mut AsyncRequest<'_>,
+    ) -> BoxFuture<'a, AsyncResponseResult> {
         Box::pin(async move {
             let mut user_cancelled_error: Option<ResponseError> = None;
             let reqwest_request = make_async_reqwest_request(request, &mut user_cancelled_error)?;
@@ -58,7 +61,7 @@ impl HTTPCaller for AsyncReqwestHTTPCaller {
 }
 
 fn make_async_reqwest_request(
-    request: &Request,
+    request: &mut AsyncRequest,
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<AsyncReqwestRequest, ResponseError> {
     let url = Url::parse(&request.url().to_string()).map_err(|err| {
@@ -76,9 +79,7 @@ fn make_async_reqwest_request(
         .headers_mut()
         .insert(USER_AGENT, make_user_agent(request, "async")?);
     *reqwest_request.body_mut() = Some(AsyncBody::wrap_stream(RequestBodyWithCallbacks::new(
-        request.url(),
-        request.body(),
-        request.on_uploading_progress(),
+        request,
         user_cancelled_error,
     )));
     if let Some(timeout) = request.extensions().get::<TimeoutExtension>() {
@@ -86,30 +87,21 @@ fn make_async_reqwest_request(
     }
     return Ok(reqwest_request);
 
-    type OnProgress<'r> = &'r (dyn Fn(&TransferProgressInfo) -> bool + Send + Sync);
-
     struct RequestBodyWithCallbacks {
-        request_uri: &'static Uri,
-        body: Cursor<&'static [u8]>,
-        size: usize,
-        on_uploading_progress: Option<OnProgress<'static>>,
+        request: &'static mut AsyncRequest<'static>,
+        have_read: u64,
         user_cancelled_error: &'static mut Option<ResponseError>,
     }
 
     impl RequestBodyWithCallbacks {
         fn new(
-            request_uri: &Uri,
-            body: &[u8],
-            on_uploading_progress: Option<OnProgress>,
+            request: &mut AsyncRequest,
             user_cancelled_error: &mut Option<ResponseError>,
         ) -> Self {
             Self {
-                size: body.len(),
-                body: Cursor::new(unsafe { transmute(body) }),
-                on_uploading_progress: on_uploading_progress
-                    .map(|callback| unsafe { transmute(callback) }),
+                have_read: 0,
+                request: unsafe { transmute(request) },
                 user_cancelled_error: unsafe { transmute(user_cancelled_error) },
-                request_uri: unsafe { transmute(request_uri) },
             }
         }
     }
@@ -120,15 +112,18 @@ fn make_async_reqwest_request(
         fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             const BUF_LEN: usize = 32 * 1024;
             let mut buf = [0u8; BUF_LEN];
-            match ready!(Pin::new(&mut self.as_mut().body).poll_read(cx, &mut buf)) {
+            match ready!(Pin::new(&mut self.as_mut().request.body_mut()).poll_read(cx, &mut buf)) {
                 Err(err) => Poll::Ready(Some(Err(Box::new(err)))),
                 Ok(0) => Poll::Ready(None),
                 Ok(n) => {
                     let buf = &buf[..n];
-                    if let Some(on_uploading_progress) = self.on_uploading_progress {
+                    self.as_mut().have_read += n as u64;
+                    if let Some(on_uploading_progress) =
+                        self.as_ref().request.on_uploading_progress()
+                    {
                         if !on_uploading_progress(&TransferProgressInfo::new(
-                            self.body.position(),
-                            self.size as u64,
+                            self.as_mut().have_read,
+                            self.as_ref().request.body().size(),
                             buf,
                         )) {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
@@ -137,7 +132,7 @@ fn make_async_reqwest_request(
                                     ResponseErrorKind::UserCanceled,
                                     ERROR_MESSAGE,
                                 )
-                                .uri(self.request_uri)
+                                .uri(self.as_ref().request.url())
                                 .build(),
                             );
                             return Poll::Ready(Some(Err(Box::new(IOError::new(
@@ -153,14 +148,17 @@ fn make_async_reqwest_request(
 
         #[inline]
         fn size_hint(&self) -> (usize, Option<usize>) {
-            (self.body.position() as usize, Some(self.size))
+            (
+                self.have_read as usize,
+                Some(self.request.body().size() as usize),
+            )
         }
     }
 }
 
 fn from_async_response(
     mut response: AsyncReqwestResponse,
-    request: &Request,
+    request: &AsyncRequest,
 ) -> AsyncResponseResult {
     call_response_callbacks(request, response.status(), response.headers())?;
     let mut response_builder = AsyncResponse::builder()
@@ -180,7 +178,7 @@ fn from_async_response(
             response_builder = response_builder.server_port(port);
         }
     }
-    response_builder = response_builder.stream_as_body(Box::new(
+    response_builder = response_builder.body(AsyncResponseBody::from_reader(
         AsyncReqwestResponseReadWrapper::new(response.bytes_stream()),
     ));
     return Ok(response_builder.build());
