@@ -11,7 +11,6 @@
     trivial_casts,
     trivial_numeric_casts,
     unreachable_pub,
-    unsafe_code,
     unused_crate_dependencies,
     unused_extern_crates,
     unused_import_braces,
@@ -35,7 +34,7 @@ use std::{
     convert::TryFrom,
     env,
     fmt::{self, Debug},
-    io::{Error, ErrorKind, Result},
+    io::{copy, Cursor, Error, ErrorKind, Read, Result},
     sync::RwLock,
     time::Duration,
 };
@@ -97,6 +96,13 @@ impl Credential {
         self.access_key.to_string() + ":" + &base64ed_hmac_digest(self.secret_key.as_ref(), data)
     }
 
+    #[inline]
+    pub fn sign_reader(&self, reader: &mut dyn Read) -> Result<String> {
+        Ok(self.access_key.to_string()
+            + ":"
+            + &base64ed_hmac_digest_reader(self.secret_key.as_ref(), reader)?)
+    }
+
     /// 使用七牛签名算法对数据进行签名，并同时给出签名和原数据
     ///
     /// 参考[上传凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1208/upload-token)
@@ -118,6 +124,17 @@ impl Credential {
         "QBox ".to_owned() + &authorization_token
     }
 
+    #[inline]
+    pub fn authorization_v1_for_request_with_body_reader(
+        &self,
+        url: &Uri,
+        content_type: Option<&HeaderValue>,
+        body: &mut dyn Read,
+    ) -> Result<String> {
+        let authorization_token = sign_request_v1_with_body_reader(self, url, content_type, body)?;
+        Ok("QBox ".to_owned() + &authorization_token)
+    }
+
     /// 使用七牛签名算法 V2 对 HTTP 请求进行签名，返回 Authorization 的值
     #[inline]
     pub fn authorization_v2_for_request(
@@ -129,6 +146,19 @@ impl Credential {
     ) -> String {
         let authorization_token = sign_request_v2(self, method, url, headers, body);
         "Qiniu ".to_owned() + &authorization_token
+    }
+
+    #[inline]
+    pub fn authorization_v2_for_request_with_body_reader(
+        &self,
+        method: &Method,
+        url: &Uri,
+        headers: &HeaderMap,
+        body: &mut dyn Read,
+    ) -> Result<String> {
+        let authorization_token =
+            sign_request_v2_with_body_reader(self, method, url, headers, body)?;
+        Ok("Qiniu ".to_owned() + &authorization_token)
     }
 
     /// 对对象的下载 URL 签名，可以生成私有存储空间的下载地址
@@ -166,12 +196,76 @@ impl Credential {
     }
 }
 
+#[cfg(feature = "async")]
+impl Credential {
+    #[inline]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub async fn sign_async_reader(&self, reader: &mut (dyn AsyncRead + Unpin)) -> Result<String> {
+        Ok(self.access_key.to_string()
+            + ":"
+            + &base64ed_hmac_digest_async_reader(self.secret_key.as_ref(), reader).await?)
+    }
+
+    #[inline]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub async fn authorization_v1_for_request_with_async_body_reader(
+        &self,
+        url: &Uri,
+        content_type: Option<&HeaderValue>,
+        body: &mut (dyn AsyncRead + Unpin),
+    ) -> Result<String> {
+        let authorization_token =
+            sign_request_v1_with_async_body_reader(self, url, content_type, body).await?;
+        Ok("QBox ".to_owned() + &authorization_token)
+    }
+
+    #[inline]
+    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    pub async fn authorization_v2_for_request_with_async_body_reader(
+        &self,
+        method: &Method,
+        url: &Uri,
+        headers: &HeaderMap,
+        body: &mut (dyn AsyncRead + Unpin),
+    ) -> Result<String> {
+        let authorization_token =
+            sign_request_v2_with_async_body_reader(self, method, url, headers, body).await?;
+        Ok("Qiniu ".to_owned() + &authorization_token)
+    }
+}
+
 fn sign_request_v1(
     cred: &Credential,
     url: &Uri,
     content_type: Option<&HeaderValue>,
     body: &[u8],
 ) -> String {
+    let mut data_to_sign = _sign_request_v1_without_body(url);
+    if let Some(content_type) = content_type {
+        if !body.is_empty() && will_push_body_v1(content_type) {
+            data_to_sign.extend_from_slice(body);
+        }
+    }
+    cred.sign(&data_to_sign)
+}
+
+fn sign_request_v1_with_body_reader(
+    cred: &Credential,
+    url: &Uri,
+    content_type: Option<&HeaderValue>,
+    body: &mut dyn Read,
+) -> Result<String> {
+    let data_to_sign = _sign_request_v1_without_body(url);
+    if let Some(content_type) = content_type {
+        if will_push_body_v1(content_type) {
+            return cred.sign_reader(&mut Cursor::new(data_to_sign).chain(body));
+        }
+    }
+    Ok(cred.sign(&data_to_sign))
+}
+
+#[inline]
+fn _sign_request_v1_without_body(url: &Uri) -> Vec<u8> {
     let mut data_to_sign = Vec::with_capacity(1024);
     data_to_sign.extend_from_slice(url.path().as_bytes());
     if let Some(query) = url.query() {
@@ -181,12 +275,7 @@ fn sign_request_v1(
         }
     }
     data_to_sign.extend_from_slice(b"\n");
-    if let Some(content_type) = content_type {
-        if !body.is_empty() && will_push_body_v1(content_type) {
-            data_to_sign.extend_from_slice(body);
-        }
-    }
-    cred.sign(&data_to_sign)
+    data_to_sign
 }
 
 fn sign_request_v2(
@@ -196,6 +285,32 @@ fn sign_request_v2(
     headers: &HeaderMap,
     body: &[u8],
 ) -> String {
+    let mut data_to_sign = _sign_request_v2_without_body(method, url, headers);
+    if let Some(content_type) = headers.get(CONTENT_TYPE) {
+        if will_push_body_v2(content_type) {
+            data_to_sign.extend_from_slice(body);
+        }
+    }
+    cred.sign(&data_to_sign)
+}
+
+fn sign_request_v2_with_body_reader(
+    cred: &Credential,
+    method: &Method,
+    url: &Uri,
+    headers: &HeaderMap,
+    body: &mut dyn Read,
+) -> Result<String> {
+    let data_to_sign = _sign_request_v2_without_body(method, url, headers);
+    if let Some(content_type) = headers.get(CONTENT_TYPE) {
+        if will_push_body_v2(content_type) {
+            return cred.sign_reader(&mut Cursor::new(data_to_sign).chain(body));
+        }
+    }
+    Ok(cred.sign(&data_to_sign))
+}
+
+fn _sign_request_v2_without_body(method: &Method, url: &Uri, headers: &HeaderMap) -> Vec<u8> {
     let mut data_to_sign = Vec::with_capacity(1024);
     data_to_sign.extend_from_slice(method.as_str().as_bytes());
     data_to_sign.extend_from_slice(b" ");
@@ -220,34 +335,34 @@ fn sign_request_v2(
         data_to_sign.extend_from_slice(b"Content-Type: ");
         data_to_sign.extend_from_slice(content_type.as_bytes());
         data_to_sign.extend_from_slice(b"\n");
-        sign_data_for_x_qiniu_headers(&mut data_to_sign, headers);
+        _sign_data_for_x_qiniu_headers(&mut data_to_sign, headers);
         data_to_sign.extend_from_slice(b"\n");
-        if !body.is_empty() && will_push_body_v2(content_type) {
-            data_to_sign.extend_from_slice(body);
-        }
+        // if !body.is_empty() && will_push_body_v2(content_type) {
+        //     data_to_sign.extend_from_slice(body);
+        // }
     } else {
-        sign_data_for_x_qiniu_headers(&mut data_to_sign, headers);
+        _sign_data_for_x_qiniu_headers(&mut data_to_sign, headers);
         data_to_sign.extend_from_slice(b"\n");
     }
-    return cred.sign(&data_to_sign);
+    data_to_sign
+}
 
-    fn sign_data_for_x_qiniu_headers(data_to_sign: &mut Vec<u8>, headers: &HeaderMap) {
-        let mut x_qiniu_headers = headers
-            .iter()
-            .map(|(key, value)| (make_header_name(key.as_str().into()), value.as_bytes()))
-            .filter(|(key, _)| key.len() > "X-Qiniu-".len())
-            .filter(|(key, _)| key.starts_with("X-Qiniu-"))
-            .collect::<Vec<_>>();
-        if x_qiniu_headers.is_empty() {
-            return;
-        }
-        x_qiniu_headers.sort_unstable();
-        for (header_key, header_value) in x_qiniu_headers {
-            data_to_sign.extend_from_slice(header_key.as_bytes());
-            data_to_sign.extend_from_slice(b": ");
-            data_to_sign.extend_from_slice(header_value);
-            data_to_sign.extend_from_slice(b"\n");
-        }
+fn _sign_data_for_x_qiniu_headers(data_to_sign: &mut Vec<u8>, headers: &HeaderMap) {
+    let mut x_qiniu_headers = headers
+        .iter()
+        .map(|(key, value)| (make_header_name(key.as_str().into()), value.as_bytes()))
+        .filter(|(key, _)| key.len() > "X-Qiniu-".len())
+        .filter(|(key, _)| key.starts_with("X-Qiniu-"))
+        .collect::<Vec<_>>();
+    if x_qiniu_headers.is_empty() {
+        return;
+    }
+    x_qiniu_headers.sort_unstable();
+    for (header_key, header_value) in x_qiniu_headers {
+        data_to_sign.extend_from_slice(header_key.as_bytes());
+        data_to_sign.extend_from_slice(b": ");
+        data_to_sign.extend_from_slice(header_value);
+        data_to_sign.extend_from_slice(b"\n");
     }
 }
 
@@ -256,6 +371,13 @@ fn base64ed_hmac_digest(secret_key: &str, data: &[u8]) -> String {
     let mut hmac = Hmac::<Sha1>::new_from_slice(secret_key.as_bytes()).unwrap();
     hmac.update(data);
     base64::urlsafe(&hmac.finalize().into_bytes())
+}
+
+#[inline]
+fn base64ed_hmac_digest_reader(secret_key: &str, reader: &mut dyn Read) -> Result<String> {
+    let mut hmac = Hmac::<Sha1>::new_from_slice(secret_key.as_bytes()).unwrap();
+    copy(reader, &mut hmac)?;
+    Ok(base64::urlsafe(&hmac.finalize().into_bytes()))
 }
 
 #[inline]
@@ -269,7 +391,117 @@ fn will_push_body_v2(content_type: &HeaderValue) -> bool {
 }
 
 #[cfg(feature = "async")]
-use std::{future::Future, pin::Pin};
+mod async_sign {
+    use super::*;
+    use futures_lite::{
+        io::{copy, AsyncRead, AsyncReadExt, Cursor},
+        AsyncWrite,
+    };
+    use hmac::digest::{
+        generic_array::{ArrayLength, GenericArray},
+        BlockInput, FixedOutput, Reset, Update,
+    };
+    use std::task::{Context, Poll};
+
+    pub(super) async fn sign_request_v1_with_async_body_reader(
+        cred: &Credential,
+        url: &Uri,
+        content_type: Option<&HeaderValue>,
+        body: &mut (dyn AsyncRead + Unpin),
+    ) -> Result<String> {
+        let data_to_sign = _sign_request_v1_without_body(url);
+        if let Some(content_type) = content_type {
+            if will_push_body_v1(content_type) {
+                return cred
+                    .sign_async_reader(&mut Cursor::new(data_to_sign).chain(body))
+                    .await;
+            }
+        }
+        Ok(cred.sign(&data_to_sign))
+    }
+
+    pub(super) async fn sign_request_v2_with_async_body_reader(
+        cred: &Credential,
+        method: &Method,
+        url: &Uri,
+        headers: &HeaderMap,
+        body: &mut (dyn AsyncRead + Unpin),
+    ) -> Result<String> {
+        let data_to_sign = _sign_request_v2_without_body(method, url, headers);
+        if let Some(content_type) = headers.get(CONTENT_TYPE) {
+            if will_push_body_v2(content_type) {
+                return cred
+                    .sign_async_reader(&mut Cursor::new(data_to_sign).chain(body))
+                    .await;
+            }
+        }
+        Ok(cred.sign(&data_to_sign))
+    }
+
+    #[inline]
+    pub(super) async fn base64ed_hmac_digest_async_reader(
+        secret_key: &str,
+        reader: &mut (dyn AsyncRead + Unpin),
+    ) -> Result<String> {
+        let mut hmac =
+            AsyncHmacWriter(Hmac::<Sha1>::new_from_slice(secret_key.as_bytes()).unwrap());
+        copy(reader, &mut hmac).await?;
+        return Ok(base64::urlsafe(&hmac.finalize()));
+
+        #[derive(Clone)]
+        struct AsyncHmacWriter<D>(Hmac<D>)
+        where
+            D: Update + BlockInput + FixedOutput + Reset + Default + Clone,
+            D::BlockSize: ArrayLength<u8>;
+
+        impl<D> AsyncWrite for AsyncHmacWriter<D>
+        where
+            D: Update + BlockInput + FixedOutput + Reset + Default + Clone,
+            D::BlockSize: ArrayLength<u8>,
+            D::OutputSize: ArrayLength<u8>,
+        {
+            #[inline]
+            fn poll_write(
+                self: Pin<&mut Self>,
+                _cx: &mut Context<'_>,
+                buf: &[u8],
+            ) -> Poll<Result<usize>> {
+                unsafe { self.get_unchecked_mut() }.0.update(buf);
+                Poll::Ready(Ok(buf.len()))
+            }
+
+            #[inline]
+            fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<()>> {
+                Poll::Ready(Ok(()))
+            }
+
+            #[inline]
+            fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<()>> {
+                Poll::Ready(Ok(()))
+            }
+        }
+
+        impl<D> AsyncHmacWriter<D>
+        where
+            D: Update + BlockInput + FixedOutput + Reset + Default + Clone,
+            D::BlockSize: ArrayLength<u8>,
+        {
+            #[inline]
+            fn finalize(self) -> GenericArray<u8, <D as FixedOutput>::OutputSize> {
+                self.0.finalize().into_bytes()
+            }
+        }
+    }
+}
+
+#[cfg(feature = "async")]
+pub use futures_lite::AsyncRead;
+
+#[cfg(feature = "async")]
+use {
+    async_sign::*,
+    std::{future::Future, pin::Pin},
+};
 
 #[cfg(feature = "async")]
 type AsyncResult<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a + Send>>;
@@ -580,7 +812,11 @@ mod tests {
                     "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0="
                 );
                 assert_eq!(
-                    credential.get().unwrap().sign(b"world"),
+                    credential
+                        .get()
+                        .unwrap()
+                        .sign_reader(&mut Cursor::new(b"world"))
+                        .unwrap(),
                     "abcdefghklmnopq:VjgXt0P_nCxHuaTfiFz-UjDJ1AQ="
                 );
             }));
@@ -593,7 +829,11 @@ mod tests {
                     "abcdefghklmnopq:vYKRLUoXRlNHfpMEQeewG0zylaw="
                 );
                 assert_eq!(
-                    credential.get().unwrap().sign(b"ba#a-"),
+                    credential
+                        .get()
+                        .unwrap()
+                        .sign_reader(&mut Cursor::new(b"ba#a-"))
+                        .unwrap(),
                     "abcdefghklmnopq:2d_Yr6H1GdTKg3RvMtpHOhi047M="
                 );
             }));
@@ -605,7 +845,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sign_data() -> Result<(), Box<dyn Error>> {
+    fn test_sign_with_data() -> Result<(), Box<dyn Error>> {
         let credential: Arc<dyn CredentialProvider> = Arc::new(get_static_credential());
         let mut threads = Vec::new();
         {
@@ -641,67 +881,72 @@ mod tests {
     }
 
     #[test]
-    fn test_authorization_v1() -> Result<(), Box<dyn Error>> {
+    fn test_authorization_v1_with_body_reader() -> Result<(), Box<dyn Error>> {
         let credential = get_static_credential();
         assert_eq!(
-            credential.get().unwrap().authorization_v1_for_request(
-                &"http://upload.qiniup.com/".parse()?,
-                None,
-                b"{\"name\":\"test\"}"
-            ),
-            "QBox ".to_owned() + &credential.get().unwrap().sign(b"/\n")
+            credential
+                .get()?
+                .authorization_v1_for_request_with_body_reader(
+                    &"http://upload.qiniup.com/".parse()?,
+                    None,
+                    &mut Cursor::new(b"{\"name\":\"test\"}")
+                )?,
+            "QBox ".to_owned() + &credential.get()?.sign(b"/\n")
         );
         assert_eq!(
-            credential.get().unwrap().authorization_v1_for_request(
-                &"http://upload.qiniup.com/".parse()?,
-                Some(&HeaderValue::from_str(APPLICATION_JSON.as_ref())?),
-                b"{\"name\":\"test\"}"
-            ),
-            "QBox ".to_owned() + &credential.get().unwrap().sign(b"/\n")
+            credential
+                .get()?
+                .authorization_v1_for_request_with_body_reader(
+                    &"http://upload.qiniup.com/".parse()?,
+                    Some(&HeaderValue::from_str(APPLICATION_JSON.as_ref())?),
+                    &mut Cursor::new(b"{\"name\":\"test\"}")
+                )?,
+            "QBox ".to_owned() + &credential.get()?.sign(b"/\n")
         );
         assert_eq!(
-            credential.get().unwrap().authorization_v1_for_request(
-                &"http://upload.qiniup.com/".parse()?,
-                Some(&HeaderValue::from_str(
-                    APPLICATION_WWW_FORM_URLENCODED.as_ref()
-                )?),
-                b"name=test&language=go"
-            ),
-            "QBox ".to_owned() + &credential.get().unwrap().sign(b"/\nname=test&language=go")
+            credential
+                .get()?
+                .authorization_v1_for_request_with_body_reader(
+                    &"http://upload.qiniup.com/".parse()?,
+                    Some(&HeaderValue::from_str(
+                        APPLICATION_WWW_FORM_URLENCODED.as_ref()
+                    )?),
+                    &mut Cursor::new(b"name=test&language=go")
+                )?,
+            "QBox ".to_owned() + &credential.get()?.sign(b"/\nname=test&language=go")
         );
         assert_eq!(
-            credential.get().unwrap().authorization_v1_for_request(
-                &"http://upload.qiniup.com/?v=2".parse()?,
-                Some(&HeaderValue::from_str(
-                    APPLICATION_WWW_FORM_URLENCODED.as_ref()
-                )?),
-                b"name=test&language=go"
-            ),
+            credential
+                .get()?
+                .authorization_v1_for_request_with_body_reader(
+                    &"http://upload.qiniup.com/?v=2".parse()?,
+                    Some(&HeaderValue::from_str(
+                        APPLICATION_WWW_FORM_URLENCODED.as_ref()
+                    )?),
+                    &mut Cursor::new(b"name=test&language=go")
+                )?,
+            "QBox ".to_owned() + &credential.get()?.sign(b"/?v=2\nname=test&language=go")
+        );
+        assert_eq!(
+            credential
+                .get()?
+                .authorization_v1_for_request_with_body_reader(
+                    &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
+                    Some(&HeaderValue::from_str(
+                        APPLICATION_WWW_FORM_URLENCODED.as_ref()
+                    )?),
+                    &mut Cursor::new(b"name=test&language=go")
+                )?,
             "QBox ".to_owned()
                 + &credential
-                    .get()
-                    .unwrap()
-                    .sign(b"/?v=2\nname=test&language=go")
-        );
-        assert_eq!(
-            credential.get().unwrap().authorization_v1_for_request(
-                &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
-                Some(&HeaderValue::from_str(
-                    APPLICATION_WWW_FORM_URLENCODED.as_ref()
-                )?),
-                b"name=test&language=go"
-            ),
-            "QBox ".to_owned()
-                + &credential
-                    .get()
-                    .unwrap()
+                    .get()?
                     .sign(b"/find/sdk?v=2\nname=test&language=go")
         );
         Ok(())
     }
 
     #[test]
-    fn test_authorization_v2() -> Result<(), Box<dyn Error>> {
+    fn test_authorization_v2_with_body_reader() -> Result<(), Box<dyn Error>> {
         let credential = get_global_credential();
         let empty_headers = {
             let mut headers = HeaderMap::new();
@@ -784,14 +1029,16 @@ mod tests {
             headers
         };
         assert_eq!(
-            credential.get().unwrap().authorization_v2_for_request(
-                &Method::GET,
-                &"http://upload.qiniup.com/".parse()?,
-                &json_headers,
-                b"{\"name\":\"test\"}"
-            ),
+            credential
+                .get()?
+                .authorization_v2_for_request_with_body_reader(
+                    &Method::GET,
+                    &"http://upload.qiniup.com/".parse()?,
+                    &json_headers,
+                    &mut Cursor::new(b"{\"name\":\"test\"}")
+                )?,
             "Qiniu ".to_owned()
-                + &credential.get().unwrap().sign(
+                + &credential.get()?.sign(
                     concat!(
                         "GET /\n",
                         "Host: upload.qiniup.com\n",
@@ -806,27 +1053,30 @@ mod tests {
                 )
         );
         assert_eq!(
-            credential.get().unwrap().authorization_v2_for_request(
-                &Method::GET,
-                &"http://upload.qiniup.com/".parse()?,
-                &empty_headers,
-                b"{\"name\":\"test\"}"
-            ),
+            credential
+                .get()?
+                .authorization_v2_for_request_with_body_reader(
+                    &Method::GET,
+                    &"http://upload.qiniup.com/".parse()?,
+                    &empty_headers,
+                    &mut Cursor::new(b"{\"name\":\"test\"}")
+                )?,
             "Qiniu ".to_owned()
                 + &credential
-                    .get()
-                    .unwrap()
+                    .get()?
                     .sign(concat!("GET /\n", "Host: upload.qiniup.com\n\n").as_bytes())
         );
         assert_eq!(
-            credential.get().unwrap().authorization_v2_for_request(
-                &Method::POST,
-                &"http://upload.qiniup.com/".parse()?,
-                &json_headers,
-                b"{\"name\":\"test\"}"
-            ),
+            credential
+                .get()?
+                .authorization_v2_for_request_with_body_reader(
+                    &Method::POST,
+                    &"http://upload.qiniup.com/".parse()?,
+                    &json_headers,
+                    &mut Cursor::new(b"{\"name\":\"test\"}")
+                )?,
             "Qiniu ".to_owned()
-                + &credential.get().unwrap().sign(
+                + &credential.get()?.sign(
                     concat!(
                         "POST /\n",
                         "Host: upload.qiniup.com\n",
@@ -841,14 +1091,16 @@ mod tests {
                 )
         );
         assert_eq!(
-            credential.get().unwrap().authorization_v2_for_request(
-                &Method::GET,
-                &"http://upload.qiniup.com/".parse()?,
-                &form_headers,
-                b"name=test&language=go"
-            ),
+            credential
+                .get()?
+                .authorization_v2_for_request_with_body_reader(
+                    &Method::GET,
+                    &"http://upload.qiniup.com/".parse()?,
+                    &form_headers,
+                    &mut Cursor::new(b"name=test&language=go")
+                )?,
             "Qiniu ".to_owned()
-                + &credential.get().unwrap().sign(
+                + &credential.get()?.sign(
                     concat!(
                         "GET /\n",
                         "Host: upload.qiniup.com\n",
@@ -863,14 +1115,16 @@ mod tests {
                 )
         );
         assert_eq!(
-            credential.get().unwrap().authorization_v2_for_request(
-                &Method::GET,
-                &"http://upload.qiniup.com/?v=2".parse()?,
-                &form_headers,
-                b"name=test&language=go"
-            ),
+            credential
+                .get()?
+                .authorization_v2_for_request_with_body_reader(
+                    &Method::GET,
+                    &"http://upload.qiniup.com/?v=2".parse()?,
+                    &form_headers,
+                    &mut Cursor::new(b"name=test&language=go")
+                )?,
             "Qiniu ".to_owned()
-                + &credential.get().unwrap().sign(
+                + &credential.get()?.sign(
                     concat!(
                         "GET /?v=2\n",
                         "Host: upload.qiniup.com\n",
@@ -885,14 +1139,16 @@ mod tests {
                 )
         );
         assert_eq!(
-            credential.get().unwrap().authorization_v2_for_request(
-                &Method::GET,
-                &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
-                &form_headers,
-                b"name=test&language=go"
-            ),
+            credential
+                .get()?
+                .authorization_v2_for_request_with_body_reader(
+                    &Method::GET,
+                    &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
+                    &form_headers,
+                    &mut Cursor::new(b"name=test&language=go")
+                )?,
             "Qiniu ".to_owned()
-                + &credential.get().unwrap().sign(
+                + &credential.get()?.sign(
                     concat!(
                         "GET /find/sdk?v=2\n",
                         "Host: upload.qiniup.com\n",
@@ -914,8 +1170,7 @@ mod tests {
         let credential = get_env_credential();
         let url = "http://www.qiniu.com/?go=1".parse()?;
         let url = credential
-            .get()
-            .unwrap()
+            .get()?
             .sign_download_url(url, Duration::from_secs(1_234_567_890 + 3600));
         assert_eq!(
                 url.to_string(),
@@ -960,6 +1215,337 @@ mod tests {
     #[cfg(feature = "async")]
     mod async_test {
         use super::*;
+        use futures_lite::io::Cursor;
+
+        #[async_std::test]
+        async fn test_sign_async_reader() -> Result<(), Box<dyn Error>> {
+            let credential = get_static_credential();
+            assert_eq!(
+                credential
+                    .get()?
+                    .sign_async_reader(&mut Cursor::new(b"hello"))
+                    .await?,
+                "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0="
+            );
+            assert_eq!(
+                credential
+                    .get()?
+                    .sign_async_reader(&mut Cursor::new(b"world"))
+                    .await?,
+                "abcdefghklmnopq:VjgXt0P_nCxHuaTfiFz-UjDJ1AQ="
+            );
+            assert_eq!(
+                credential
+                    .get()?
+                    .sign_async_reader(&mut Cursor::new(b"-test"))
+                    .await?,
+                "abcdefghklmnopq:vYKRLUoXRlNHfpMEQeewG0zylaw="
+            );
+            assert_eq!(
+                credential
+                    .get()?
+                    .sign_async_reader(&mut Cursor::new(b"ba#a-"))
+                    .await?,
+                "abcdefghklmnopq:2d_Yr6H1GdTKg3RvMtpHOhi047M="
+            );
+            Ok(())
+        }
+
+        #[async_std::test]
+        async fn test_async_authorization_v1() -> Result<(), Box<dyn Error>> {
+            let credential = get_static_credential();
+            assert_eq!(
+                credential
+                    .get()?
+                    .authorization_v1_for_request_with_async_body_reader(
+                        &"http://upload.qiniup.com/".parse()?,
+                        None,
+                        &mut Cursor::new(b"{\"name\":\"test\"}")
+                    )
+                    .await?,
+                "QBox ".to_owned() + &credential.get()?.sign(b"/\n")
+            );
+            assert_eq!(
+                credential
+                    .get()?
+                    .authorization_v1_for_request_with_async_body_reader(
+                        &"http://upload.qiniup.com/".parse()?,
+                        Some(&HeaderValue::from_str(APPLICATION_JSON.as_ref())?),
+                        &mut Cursor::new(b"{\"name\":\"test\"}")
+                    )
+                    .await?,
+                "QBox ".to_owned() + &credential.get()?.sign(b"/\n")
+            );
+            assert_eq!(
+                credential
+                    .get()?
+                    .authorization_v1_for_request_with_async_body_reader(
+                        &"http://upload.qiniup.com/".parse()?,
+                        Some(&HeaderValue::from_str(
+                            APPLICATION_WWW_FORM_URLENCODED.as_ref()
+                        )?),
+                        &mut Cursor::new(b"name=test&language=go")
+                    )
+                    .await?,
+                "QBox ".to_owned() + &credential.get()?.sign(b"/\nname=test&language=go")
+            );
+            assert_eq!(
+                credential
+                    .get()?
+                    .authorization_v1_for_request_with_async_body_reader(
+                        &"http://upload.qiniup.com/?v=2".parse()?,
+                        Some(&HeaderValue::from_str(
+                            APPLICATION_WWW_FORM_URLENCODED.as_ref()
+                        )?),
+                        &mut Cursor::new(b"name=test&language=go")
+                    )
+                    .await?,
+                "QBox ".to_owned() + &credential.get()?.sign(b"/?v=2\nname=test&language=go")
+            );
+            assert_eq!(
+                credential
+                    .get()?
+                    .authorization_v1_for_request_with_async_body_reader(
+                        &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
+                        Some(&HeaderValue::from_str(
+                            APPLICATION_WWW_FORM_URLENCODED.as_ref()
+                        )?),
+                        &mut Cursor::new(b"name=test&language=go")
+                    )
+                    .await?,
+                "QBox ".to_owned()
+                    + &credential
+                        .get()?
+                        .sign(b"/find/sdk?v=2\nname=test&language=go")
+            );
+            Ok(())
+        }
+
+        #[async_std::test]
+        async fn test_async_authorization_v2() -> Result<(), Box<dyn Error>> {
+            let credential = get_global_credential();
+            let empty_headers = {
+                let mut headers = HeaderMap::new();
+                headers.insert(
+                    HeaderName::from_static("x-qbox-meta"),
+                    HeaderValue::from_str("value")?,
+                );
+                headers
+            };
+            let json_headers = {
+                let mut headers = HeaderMap::new();
+                headers.insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_str(APPLICATION_JSON.as_ref())?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qbox-meta"),
+                    HeaderValue::from_str("value")?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qiniu-cxxxx"),
+                    HeaderValue::from_str("valuec")?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qiniu-bxxxx"),
+                    HeaderValue::from_str("valueb")?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qiniu-axxxx"),
+                    HeaderValue::from_str("valuea")?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qiniu-e"),
+                    HeaderValue::from_str("value")?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qiniu-"),
+                    HeaderValue::from_str("value")?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qiniu"),
+                    HeaderValue::from_str("value")?,
+                );
+                headers
+            };
+            let form_headers = {
+                let mut headers = HeaderMap::new();
+                headers.insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qbox-meta"),
+                    HeaderValue::from_str("value")?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qiniu-cxxxx"),
+                    HeaderValue::from_str("valuec")?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qiniu-bxxxx"),
+                    HeaderValue::from_str("valueb")?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qiniu-axxxx"),
+                    HeaderValue::from_str("valuea")?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qiniu-e"),
+                    HeaderValue::from_str("value")?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qiniu-"),
+                    HeaderValue::from_str("value")?,
+                );
+                headers.insert(
+                    HeaderName::from_static("x-qiniu"),
+                    HeaderValue::from_str("value")?,
+                );
+                headers
+            };
+            assert_eq!(
+                credential
+                    .get()?
+                    .authorization_v2_for_request_with_async_body_reader(
+                        &Method::GET,
+                        &"http://upload.qiniup.com/".parse()?,
+                        &json_headers,
+                        &mut Cursor::new(b"{\"name\":\"test\"}")
+                    )
+                    .await?,
+                "Qiniu ".to_owned()
+                    + &credential.get()?.sign(
+                        concat!(
+                            "GET /\n",
+                            "Host: upload.qiniup.com\n",
+                            "Content-Type: application/json\n",
+                            "X-Qiniu-Axxxx: valuea\n",
+                            "X-Qiniu-Bxxxx: valueb\n",
+                            "X-Qiniu-Cxxxx: valuec\n",
+                            "X-Qiniu-E: value\n\n",
+                            "{\"name\":\"test\"}"
+                        )
+                        .as_bytes()
+                    )
+            );
+            assert_eq!(
+                credential
+                    .get()?
+                    .authorization_v2_for_request_with_async_body_reader(
+                        &Method::GET,
+                        &"http://upload.qiniup.com/".parse()?,
+                        &empty_headers,
+                        &mut Cursor::new(b"{\"name\":\"test\"}")
+                    )
+                    .await?,
+                "Qiniu ".to_owned()
+                    + &credential
+                        .get()?
+                        .sign(concat!("GET /\n", "Host: upload.qiniup.com\n\n").as_bytes())
+            );
+            assert_eq!(
+                credential
+                    .get()?
+                    .authorization_v2_for_request_with_async_body_reader(
+                        &Method::POST,
+                        &"http://upload.qiniup.com/".parse()?,
+                        &json_headers,
+                        &mut Cursor::new(b"{\"name\":\"test\"}")
+                    )
+                    .await?,
+                "Qiniu ".to_owned()
+                    + &credential.get()?.sign(
+                        concat!(
+                            "POST /\n",
+                            "Host: upload.qiniup.com\n",
+                            "Content-Type: application/json\n",
+                            "X-Qiniu-Axxxx: valuea\n",
+                            "X-Qiniu-Bxxxx: valueb\n",
+                            "X-Qiniu-Cxxxx: valuec\n",
+                            "X-Qiniu-E: value\n\n",
+                            "{\"name\":\"test\"}"
+                        )
+                        .as_bytes()
+                    )
+            );
+            assert_eq!(
+                credential
+                    .get()?
+                    .authorization_v2_for_request_with_async_body_reader(
+                        &Method::GET,
+                        &"http://upload.qiniup.com/".parse()?,
+                        &form_headers,
+                        &mut Cursor::new(b"name=test&language=go")
+                    )
+                    .await?,
+                "Qiniu ".to_owned()
+                    + &credential.get()?.sign(
+                        concat!(
+                            "GET /\n",
+                            "Host: upload.qiniup.com\n",
+                            "Content-Type: application/x-www-form-urlencoded\n",
+                            "X-Qiniu-Axxxx: valuea\n",
+                            "X-Qiniu-Bxxxx: valueb\n",
+                            "X-Qiniu-Cxxxx: valuec\n",
+                            "X-Qiniu-E: value\n\n",
+                            "name=test&language=go"
+                        )
+                        .as_bytes()
+                    )
+            );
+            assert_eq!(
+                credential
+                    .get()?
+                    .authorization_v2_for_request_with_async_body_reader(
+                        &Method::GET,
+                        &"http://upload.qiniup.com/?v=2".parse()?,
+                        &form_headers,
+                        &mut Cursor::new(b"name=test&language=go")
+                    )
+                    .await?,
+                "Qiniu ".to_owned()
+                    + &credential.get()?.sign(
+                        concat!(
+                            "GET /?v=2\n",
+                            "Host: upload.qiniup.com\n",
+                            "Content-Type: application/x-www-form-urlencoded\n",
+                            "X-Qiniu-Axxxx: valuea\n",
+                            "X-Qiniu-Bxxxx: valueb\n",
+                            "X-Qiniu-Cxxxx: valuec\n",
+                            "X-Qiniu-E: value\n\n",
+                            "name=test&language=go"
+                        )
+                        .as_bytes()
+                    )
+            );
+            assert_eq!(
+                credential
+                    .get()?
+                    .authorization_v2_for_request_with_async_body_reader(
+                        &Method::GET,
+                        &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
+                        &form_headers,
+                        &mut Cursor::new(b"name=test&language=go")
+                    )
+                    .await?,
+                "Qiniu ".to_owned()
+                    + &credential.get()?.sign(
+                        concat!(
+                            "GET /find/sdk?v=2\n",
+                            "Host: upload.qiniup.com\n",
+                            "Content-Type: application/x-www-form-urlencoded\n",
+                            "X-Qiniu-Axxxx: valuea\n",
+                            "X-Qiniu-Bxxxx: valueb\n",
+                            "X-Qiniu-Cxxxx: valuec\n",
+                            "X-Qiniu-E: value\n\n",
+                            "name=test&language=go"
+                        )
+                        .as_bytes()
+                    )
+            );
+            Ok(())
+        }
 
         #[async_std::test]
         async fn test_async_sign_download_url() -> Result<(), Box<dyn Error>> {
@@ -967,8 +1553,7 @@ mod tests {
             let url = "http://www.qiniu.com/?go=1".parse()?;
             let url = credential
                 .async_get()
-                .await
-                .unwrap()
+                .await?
                 .sign_download_url(url, Duration::from_secs(1_234_567_890 + 3600));
             assert_eq!(
                 url.to_string(),
