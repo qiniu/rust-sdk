@@ -1,5 +1,5 @@
 use super::{RequestRetrier, RequestRetrierOptions, RetryDecision, RetryResult};
-use qiniu_http::Request as HTTPRequest;
+use qiniu_http::RequestParts as HTTPRequestParts;
 
 const DEFAULT_RETIES: usize = 2;
 
@@ -25,7 +25,7 @@ impl<R: Default> Default for LimitedRetrier<R> {
 
 impl<R: RequestRetrier> RequestRetrier for LimitedRetrier<R> {
     #[inline]
-    fn retry(&self, request: &mut HTTPRequest, opts: &RequestRetrierOptions) -> RetryResult {
+    fn retry(&self, request: &mut HTTPRequestParts, opts: &RequestRetrierOptions) -> RetryResult {
         match self.retrier.retry(request, opts).decision() {
             RetryDecision::RetryRequest | RetryDecision::Throttled
                 if opts.retried().retried_on_current_endpoint() >= self.retries =>
@@ -45,7 +45,8 @@ mod tests {
         *,
     };
     use qiniu_http::{
-        Method as HTTPMethod, ResponseErrorKind as HTTPResponseErrorKind, Uri as HTTPUri,
+        Method as HTTPMethod, Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind,
+        Uri as HTTPUri,
     };
     use std::{convert::TryFrom, error::Error, result::Result};
 
@@ -58,11 +59,14 @@ mod tests {
         retried.increase();
         retried.increase();
 
+        let (mut parts, _) = HTTPRequest::builder()
+            .url(uri.to_owned())
+            .method(HTTPMethod::GET)
+            .body(())
+            .build()
+            .into_parts();
         let result = retrier.retry(
-            &mut HTTPRequest::builder()
-                .url(uri.to_owned())
-                .method(HTTPMethod::GET)
-                .build(),
+            &mut parts,
             &RequestRetrierOptions::new(
                 Idempotent::Default,
                 &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
@@ -74,10 +78,7 @@ mod tests {
         retried.switch_endpoint();
 
         let result = retrier.retry(
-            &mut HTTPRequest::builder()
-                .url(uri)
-                .method(HTTPMethod::GET)
-                .build(),
+            &mut parts,
             &RequestRetrierOptions::new(
                 Idempotent::Default,
                 &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),

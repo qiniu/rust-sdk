@@ -1,6 +1,6 @@
 use super::{
     super::{
-        super::IpAddrWithPort, ChooserFeedback, RequestWithoutEndpoints, RetriedStatsInfo,
+        super::IpAddrWithPort, ChooserFeedback, RequestParts, RetriedStatsInfo,
         SimplifiedCallbackContext, SyncResponse,
     },
     domain_or_ip_addr::DomainOrIpAddr,
@@ -12,29 +12,29 @@ use super::{
     },
 };
 use qiniu_http::{
-    Extensions, HeaderName, HeaderValue, Metrics, Request as HTTPRequest, StatusCode,
-    TransferProgressInfo,
+    Extensions, HeaderName, HeaderValue, Metrics, StatusCode, SyncRequest as SyncHttpRequest,
+    SyncRequestBody, TransferProgressInfo,
 };
 use std::mem::take;
 
 macro_rules! setup_callbacks {
-    ($request_info:ident, $http_request:ident) => {
+    ($parts:ident, $http_request:ident) => {
         let on_uploading_progress = |info: &TransferProgressInfo| -> bool {
-            $request_info.call_uploading_progress_callbacks($request_info, info)
+            $parts.call_uploading_progress_callbacks($parts, info)
         };
-        if $request_info.uploading_progress_callbacks_count() > 0 {
+        if $parts.uploading_progress_callbacks_count() > 0 {
             *$http_request.on_uploading_progress_mut() = Some(&on_uploading_progress);
         }
         let on_receive_response_status = |status_code: StatusCode| -> bool {
-            $request_info.call_receive_response_status_callbacks($request_info, status_code)
+            $parts.call_receive_response_status_callbacks($parts, status_code)
         };
-        if $request_info.receive_response_status_callbacks_count() > 0 {
+        if $parts.receive_response_status_callbacks_count() > 0 {
             *$http_request.on_receive_response_status_mut() = Some(&on_receive_response_status);
         }
         let on_receive_response_header = |name: &HeaderName, value: &HeaderValue| -> bool {
-            $request_info.call_receive_response_header_callbacks($request_info, name, value)
+            $parts.call_receive_response_header_callbacks($parts, name, value)
         };
-        if $request_info.receive_response_header_callbacks_count() > 0 {
+        if $parts.receive_response_header_callbacks_count() > 0 {
             *$http_request.on_receive_response_header_mut() = Some(&on_receive_response_header);
         }
     };
@@ -42,27 +42,34 @@ macro_rules! setup_callbacks {
 
 pub(super) fn try_domain_or_ip_addr(
     domain_or_ip: &DomainOrIpAddr,
-    request_info: &RequestWithoutEndpoints<'_>,
+    parts: &RequestParts<'_>,
+    body: &mut SyncRequestBody<'_>,
     mut extensions: Extensions,
     retried: &mut RetriedStatsInfo,
 ) -> Result<SyncResponse, TryErrorWithExtensions> {
-    let (url, resolved_ips) = make_url(domain_or_ip, request_info)
-        .map_err(|err| err.with_extensions(take(&mut extensions)))?;
-    let mut http_request = make_request(url, request_info, extensions, &resolved_ips);
-    call_before_request_signed_callbacks(request_info, &mut http_request, retried)
+    let (url, resolved_ips) =
+        make_url(domain_or_ip, parts).map_err(|err| err.with_extensions(take(&mut extensions)))?;
+    let mut http_request = make_request(
+        url,
+        parts,
+        SyncRequestBody::from_referenced_reader(body, body.size()),
+        extensions,
+        &resolved_ips,
+    );
+    call_before_request_signed_callbacks(parts, &mut http_request, retried)
         .map_err(|err| err.with_request(&mut http_request))?;
-    sign_request(&mut http_request, request_info.authorization())
+    sign_request(&mut http_request, parts.authorization())
         .map_err(|err| err.with_request(&mut http_request))?;
-    call_after_request_signed_callbacks(request_info, &mut http_request, retried)
+    call_after_request_signed_callbacks(parts, &mut http_request, retried)
         .map_err(|err| err.with_request(&mut http_request))?;
 
-    setup_callbacks!(request_info, http_request);
+    setup_callbacks!(parts, http_request);
 
     let extracted_ips = extract_ips_from(domain_or_ip);
-    match send_http_request(&mut http_request, request_info, retried) {
+    match send_http_request(&mut http_request, parts, retried) {
         Ok(response) => {
             if !extracted_ips.is_empty() {
-                request_info
+                parts
                     .http_client()
                     .chooser()
                     .feedback(make_positive_feedback(
@@ -76,7 +83,7 @@ pub(super) fn try_domain_or_ip_addr(
         }
         Err(err) => {
             if !extracted_ips.is_empty() {
-                request_info
+                parts
                     .http_client()
                     .chooser()
                     .feedback(make_negative_feedback(
@@ -94,7 +101,7 @@ pub(super) fn try_domain_or_ip_addr(
 #[inline]
 fn make_positive_feedback<'f>(
     ips: &'f [IpAddrWithPort],
-    http_request: &'f mut HTTPRequest<'_>,
+    http_request: &'f mut SyncHttpRequest<'_>,
     metrics: Option<&'f dyn Metrics>,
     retried: &'f RetriedStatsInfo,
 ) -> ChooserFeedback<'f> {
@@ -104,7 +111,7 @@ fn make_positive_feedback<'f>(
 #[inline]
 fn make_negative_feedback<'f>(
     ips: &'f [IpAddrWithPort],
-    http_request: &'f mut HTTPRequest<'_>,
+    http_request: &'f mut SyncHttpRequest<'_>,
     err: &'f TryError,
     retried: &'f RetriedStatsInfo,
 ) -> ChooserFeedback<'f> {
@@ -129,7 +136,7 @@ mod async_try {
 
     pub(in super::super) async fn async_try_domain_or_ip_addr(
         domain_or_ip: &DomainOrIpAddr,
-        request_info: &RequestWithoutEndpoints<'_>,
+        request_info: &RequestParts<'_>,
         mut extensions: Extensions,
         retried: &mut RetriedStatsInfo,
     ) -> Result<AsyncResponse, TryErrorWithExtensions> {

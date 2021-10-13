@@ -28,7 +28,7 @@ pub use chooser::{
 pub use http_client::{HTTPClient, HTTPClientBuilder};
 pub use request::{
     FieldName, FileName, Idempotent, Multipart, Part, QueryPairKey, QueryPairValue, QueryPairs,
-    RequestBuilder, SyncBody, SyncMultipart, SyncPart,
+    RequestBuilder, SyncBody, SyncMultipart, SyncPart, SyncRequestBuilder,
 };
 pub use resolver::{
     CachedResolver, ChainedResolver, ChainedResolverBuilder, ResolveAnswers, ResolveOptions,
@@ -49,7 +49,7 @@ pub use resolver::{trust_dns_resolver, TrustDnsResolver};
 
 #[cfg(feature = "async")]
 pub use {
-    request::{AsyncBody, AsyncMultipart, AsyncPart},
+    request::{AsyncBody, AsyncMultipart, AsyncPart, AsyncRequest, AsyncRequestBuilder},
     response::AsyncResponse,
 };
 
@@ -59,4 +59,4 @@ use call::request_call;
 use call::async_request_call;
 
 use callback::{CallbackContextImpl, ExtendedCallbackContextImpl};
-use request::{Request, RequestWithoutEndpoints};
+use request::RequestParts;

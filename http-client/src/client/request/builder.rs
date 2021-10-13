@@ -8,8 +8,8 @@ use super::{
         request_call, APIResult, Authorization, CallbacksBuilder, HTTPClient, SyncResponse,
     },
     multipart::SyncMultipart,
-    request_data::RequestData,
-    Idempotent, QueryPairKey, QueryPairValue, QueryPairs, Request,
+    request_metadata::RequestMetadata,
+    Idempotent, QueryPairKey, QueryPairValue, QueryPairs, SyncRequest,
 };
 use mime::{
     Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM, APPLICATION_WWW_FORM_URLENCODED,
@@ -17,33 +17,40 @@ use mime::{
 };
 use qiniu_http::{
     header::{ACCEPT, CONTENT_TYPE},
-    Extensions, HeaderMap, HeaderName, HeaderValue, Method, RequestBody, UserAgent, Version,
+    Extensions, HeaderMap, HeaderName, HeaderValue, Method, Reset, SyncRequestBody, UserAgent,
+    Version,
 };
 use serde::Serialize;
 use serde_json::Result as JSONResult;
 use std::{
     borrow::{Borrow, Cow},
-    io::Result as IOResult,
+    fmt::Debug,
+    io::{Read, Result as IOResult},
 };
 
 #[cfg(feature = "async")]
-use super::{
-    super::{async_request_call, AsyncResponse},
-    multipart::AsyncMultipart,
+use {
+    super::{
+        super::{async_request_call, AsyncResponse},
+        multipart::AsyncMultipart,
+    },
+    futures::io::AsyncRead,
+    qiniu_http::{AsyncRequestBody, AsyncReset},
 };
 
 #[derive(Debug)]
-pub struct RequestBuilder<'r> {
+pub struct RequestBuilder<'r, B: 'r> {
     http_client: &'r HTTPClient,
     service_names: &'r [ServiceName],
     into_endpoints: IntoEndpoints<'r>,
     callbacks: CallbacksBuilder,
-    data: RequestData<'r>,
+    metadata: RequestMetadata<'r>,
+    body: B,
     appended_user_agent: UserAgent,
     extensions: Extensions,
 }
 
-impl<'r> RequestBuilder<'r> {
+impl<'r, B: Default> RequestBuilder<'r, B> {
     pub(in super::super) fn new(
         http_client: &'r HTTPClient,
         method: Method,
@@ -57,7 +64,8 @@ impl<'r> RequestBuilder<'r> {
             callbacks: Default::default(),
             appended_user_agent: Default::default(),
             extensions: Default::default(),
-            data: RequestData {
+            body: Default::default(),
+            metadata: RequestMetadata {
                 method,
                 use_https: None,
                 version: Default::default(),
@@ -65,34 +73,35 @@ impl<'r> RequestBuilder<'r> {
                 query: Default::default(),
                 query_pairs: Default::default(),
                 headers: Default::default(),
-                body: Default::default(),
                 authorization: None,
                 idempotent: Default::default(),
             },
         }
     }
+}
 
+impl<'r, B> RequestBuilder<'r, B> {
     #[inline]
     pub fn use_https(mut self, use_https: bool) -> Self {
-        self.data.use_https = Some(use_https);
+        self.metadata.use_https = Some(use_https);
         self
     }
 
     #[inline]
     pub fn version(mut self, version: Version) -> Self {
-        self.data.version = version;
+        self.metadata.version = version;
         self
     }
 
     #[inline]
     pub fn path(mut self, path: impl Into<Cow<'r, str>>) -> Self {
-        self.data.path = path.into();
+        self.metadata.path = path.into();
         self
     }
 
     #[inline]
     pub fn headers(mut self, headers: impl Into<Cow<'r, HeaderMap>>) -> Self {
-        self.data.headers = headers.into();
+        self.metadata.headers = headers.into();
         self
     }
 
@@ -102,67 +111,11 @@ impl<'r> RequestBuilder<'r> {
         header_name: impl Into<HeaderName>,
         header_value: impl Into<HeaderValue>,
     ) -> Self {
-        self.data
+        self.metadata
             .headers
             .to_mut()
             .insert(header_name.into(), header_value.into());
         self
-    }
-
-    #[inline]
-    pub fn body(mut self, body: impl Into<RequestBody<'r>>, content_type: Option<Mime>) -> Self {
-        self.data.body = body.into();
-        self.set_content_type(content_type)
-    }
-
-    #[inline]
-    pub fn json(mut self, body: impl Serialize) -> JSONResult<Self> {
-        self.data.body = serde_json::to_vec(&body)?.into();
-        Ok(self.set_content_type(Some(APPLICATION_JSON)))
-    }
-
-    #[inline]
-    pub fn post_form<I, K, V>(mut self, iter: I) -> Self
-    where
-        I: IntoIterator,
-        I::Item: Borrow<(K, Option<V>)>,
-        K: AsRef<str>,
-        V: AsRef<str>,
-    {
-        let mut form = form_urlencoded::Serializer::new(String::new());
-        for pair in iter {
-            let (k, v) = pair.borrow();
-            if let Some(v) = v {
-                form.append_pair(k.as_ref(), v.as_ref());
-            } else {
-                form.append_key_only(k.as_ref());
-            }
-        }
-        self.data.body = form.finish().into_bytes().into();
-        self.set_content_type(Some(APPLICATION_WWW_FORM_URLENCODED))
-    }
-
-    #[inline]
-    pub fn multipart(mut self, multipart: SyncMultipart) -> IOResult<Self> {
-        let mut buf = Vec::new();
-        multipart.into_read().read_to_end(&mut buf)?;
-        self.data.body = buf.into();
-        Ok(self.set_content_type(Some(MULTIPART_FORM_DATA)))
-    }
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub async fn async_multipart(
-        mut self,
-        multipart: AsyncMultipart,
-    ) -> IOResult<RequestBuilder<'r>> {
-        use futures::AsyncReadExt;
-
-        let mut buf = Vec::new();
-        multipart.into_async_read().read_to_end(&mut buf).await?;
-        self.data.body = buf.into();
-        Ok(self.set_content_type(Some(MULTIPART_FORM_DATA)))
     }
 
     #[inline]
@@ -196,13 +149,13 @@ impl<'r> RequestBuilder<'r> {
 
     #[inline]
     pub fn query(mut self, query: impl Into<Cow<'r, str>>) -> Self {
-        self.data.query = query.into();
+        self.metadata.query = query.into();
         self
     }
 
     #[inline]
     pub fn query_pairs(mut self, query_pairs: QueryPairs<'r>) -> Self {
-        self.data.query_pairs = query_pairs;
+        self.metadata.query_pairs = query_pairs;
         self
     }
 
@@ -212,7 +165,7 @@ impl<'r> RequestBuilder<'r> {
         query_pair_key: impl Into<QueryPairKey<'r>>,
         query_pair_value: impl Into<QueryPairValue<'r>>,
     ) -> Self {
-        self.data
+        self.metadata
             .query_pairs
             .push((query_pair_key.into(), query_pair_value.into()));
         self
@@ -226,13 +179,13 @@ impl<'r> RequestBuilder<'r> {
 
     #[inline]
     pub fn authorization(mut self, authorization: Authorization) -> Self {
-        self.data.authorization = Some(authorization);
+        self.metadata.authorization = Some(authorization);
         self
     }
 
     #[inline]
     pub fn idempotent(mut self, idempotent: Idempotent) -> Self {
-        self.data.idempotent = idempotent;
+        self.metadata.idempotent = idempotent;
         self
     }
 
@@ -326,30 +279,185 @@ impl<'r> RequestBuilder<'r> {
         self
     }
 
+    // #[inline]
+    // #[cfg(feature = "async")]
+    // #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    // pub async fn async_call(self) -> APIResult<AsyncResponse> {
+    //     async_request_call(self.build()).await
+    // }
+}
+
+pub type SyncRequestBuilder<'r> = RequestBuilder<'r, SyncRequestBody<'r>>;
+
+impl<'r> SyncRequestBuilder<'r> {
+    #[inline]
+    pub fn stream_as_body(
+        mut self,
+        body: impl Read + Reset + Debug + Send + Sync + 'static,
+        content_length: u64,
+        content_type: Option<Mime>,
+    ) -> Self {
+        self.body = SyncRequestBody::from_reader(body, content_length);
+        self.set_content_type(content_type)
+    }
+
+    #[inline]
+    pub fn referenced_stream_as_body<T: Read + Reset + Debug + Send + Sync>(
+        mut self,
+        body: &'r mut T,
+        content_length: u64,
+        content_type: Option<Mime>,
+    ) -> Self {
+        self.body = SyncRequestBody::from_referenced_reader(body, content_length);
+        self.set_content_type(content_type)
+    }
+
+    #[inline]
+    pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>, content_type: Option<Mime>) -> Self {
+        self.body = SyncRequestBody::from_bytes(body.into());
+        self.set_content_type(content_type)
+    }
+
+    #[inline]
+    pub fn referenced_bytes_as_body(mut self, body: &'r [u8], content_type: Option<Mime>) -> Self {
+        self.body = SyncRequestBody::from_referenced_bytes(body);
+        self.set_content_type(content_type)
+    }
+
+    #[inline]
+    pub fn json(self, body: impl Serialize) -> JSONResult<Self> {
+        Ok(self.bytes_as_body(serde_json::to_vec(&body)?, Some(APPLICATION_JSON)))
+    }
+
+    #[inline]
+    pub fn post_form<I, K, V>(self, iter: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Borrow<(K, Option<V>)>,
+        K: AsRef<str>,
+        V: AsRef<str>,
+    {
+        let mut form = form_urlencoded::Serializer::new(String::new());
+        for pair in iter {
+            let (k, v) = pair.borrow();
+            if let Some(v) = v {
+                form.append_pair(k.as_ref(), v.as_ref());
+            } else {
+                form.append_key_only(k.as_ref());
+            }
+        }
+        self.bytes_as_body(
+            form.finish().into_bytes(),
+            Some(APPLICATION_WWW_FORM_URLENCODED),
+        )
+    }
+
+    #[inline]
+    pub fn multipart(self, multipart: SyncMultipart) -> IOResult<Self> {
+        let mut buf = Vec::new();
+        multipart.into_read().read_to_end(&mut buf)?;
+        Ok(self.bytes_as_body(buf, Some(MULTIPART_FORM_DATA)))
+    }
+
     #[inline]
     pub fn call(self) -> APIResult<SyncResponse> {
         request_call(self.build())
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub async fn async_call(self) -> APIResult<AsyncResponse> {
-        async_request_call(self.build()).await
-    }
+    pub(in super::super) fn build(self) -> SyncRequest<'r> {
+        let user_agent = {
+            let mut appended_user_agent = self.http_client.appended_user_agent().to_owned();
+            appended_user_agent.push_str(self.appended_user_agent.as_str());
+            appended_user_agent
+        };
 
-    #[inline]
-    pub(in super::super) fn build(self) -> Request<'r> {
-        let mut appended_user_agent = self.http_client.appended_user_agent().to_owned();
-        appended_user_agent.push_str(self.appended_user_agent.as_str());
-        Request::new(
+        SyncRequest::new(
             self.http_client,
             self.service_names,
             self.into_endpoints,
             self.callbacks.build(),
-            self.data,
-            appended_user_agent,
+            self.metadata,
+            self.body,
+            user_agent,
             self.extensions,
         )
+    }
+}
+
+#[cfg(feature = "async")]
+pub type AsyncRequestBuilder<'r> = RequestBuilder<'r, AsyncRequestBody<'r>>;
+
+#[cfg(feature = "async")]
+impl<'r> AsyncRequestBuilder<'r> {
+    #[inline]
+    pub fn stream_as_body(
+        mut self,
+        body: impl AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'static,
+        content_length: u64,
+        content_type: Option<Mime>,
+    ) -> Self {
+        self.body = AsyncRequestBody::from_reader(body, content_length);
+        self.set_content_type(content_type)
+    }
+
+    #[inline]
+    pub fn referenced_stream_as_body<T: AsyncRead + AsyncReset + Unpin + Debug + Send + Sync>(
+        mut self,
+        body: &'r mut T,
+        content_length: u64,
+        content_type: Option<Mime>,
+    ) -> Self {
+        self.body = AsyncRequestBody::from_referenced_reader(body, content_length);
+        self.set_content_type(content_type)
+    }
+
+    #[inline]
+    pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>, content_type: Option<Mime>) -> Self {
+        self.body = AsyncRequestBody::from_bytes(body.into());
+        self.set_content_type(content_type)
+    }
+
+    #[inline]
+    pub fn referenced_bytes_as_body(mut self, body: &'r [u8], content_type: Option<Mime>) -> Self {
+        self.body = AsyncRequestBody::from_referenced_bytes(body);
+        self.set_content_type(content_type)
+    }
+
+    #[inline]
+    pub fn json(mut self, body: impl Serialize) -> JSONResult<Self> {
+        Ok(self.bytes_as_body(serde_json::to_vec(&body)?, Some(APPLICATION_JSON)))
+    }
+
+    #[inline]
+    pub fn post_form<I, K, V>(mut self, iter: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Borrow<(K, Option<V>)>,
+        K: AsRef<str>,
+        V: AsRef<str>,
+    {
+        let mut form = form_urlencoded::Serializer::new(String::new());
+        for pair in iter {
+            let (k, v) = pair.borrow();
+            if let Some(v) = v {
+                form.append_pair(k.as_ref(), v.as_ref());
+            } else {
+                form.append_key_only(k.as_ref());
+            }
+        }
+        self.bytes_as_body(
+            form.finish().into_bytes(),
+            Some(APPLICATION_WWW_FORM_URLENCODED),
+        )
+    }
+
+    #[inline]
+    pub async fn multipart(mut self, multipart: AsyncMultipart) -> IOResult<Self> {
+        use futures::AsyncReadExt;
+
+        let mut buf = Vec::new();
+        multipart.into_async_read().read_to_end(&mut buf).await?;
+        Ok(self.bytes_as_body(buf, Some(MULTIPART_FORM_DATA)))
     }
 }

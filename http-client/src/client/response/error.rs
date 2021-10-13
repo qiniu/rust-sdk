@@ -2,7 +2,7 @@ use qiniu_http::{
     Metrics, ResponseError as HTTPResponseError, ResponseErrorKind as HTTPResponseErrorKind,
     StatusCode as HTTPStatusCode,
 };
-use std::{error, fmt, mem::take, net::IpAddr, num::NonZeroU16};
+use std::{error, fmt, io::Error as IOError, mem::take, net::IpAddr, num::NonZeroU16};
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -111,5 +111,12 @@ impl From<HTTPResponseErrorKind> for ErrorKind {
     #[inline]
     fn from(kind: HTTPResponseErrorKind) -> Self {
         ErrorKind::HTTPError(kind)
+    }
+}
+
+impl From<IOError> for Error {
+    #[inline]
+    fn from(error: IOError) -> Self {
+        Self::new(HTTPResponseErrorKind::LocalIOError.into(), error)
     }
 }

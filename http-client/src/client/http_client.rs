@@ -5,8 +5,8 @@ use super::{
         OnStatusCode, OnToChooseIPs, OnToResolveDomain,
     },
     Backoff, CachedResolver, Callbacks, CallbacksBuilder, ChainedResolver, Chooser, ErrorRetrier,
-    ExponentialBackoff, LimitedRetrier, NeverEmptyHandedChooser, RandomizedBackoff, RequestBuilder,
-    RequestRetrier, Resolver, ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser,
+    ExponentialBackoff, LimitedRetrier, NeverEmptyHandedChooser, RandomizedBackoff, RequestRetrier,
+    Resolver, ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser, SyncRequestBuilder,
     TimeoutResolver,
 };
 use cfg_if::cfg_if;
@@ -101,41 +101,41 @@ impl HTTPClient {
         &'r self,
         service_names: &'r [ServiceName],
         into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> RequestBuilder<'r> {
-        self.new_request(Method::GET, service_names, into_endpoints.into())
+    ) -> SyncRequestBuilder<'r> {
+        self.new_sync_request(Method::GET, service_names, into_endpoints.into())
     }
 
     pub fn head<'r>(
         &'r self,
         service_names: &'r [ServiceName],
         into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> RequestBuilder<'r> {
-        self.new_request(Method::HEAD, service_names, into_endpoints.into())
+    ) -> SyncRequestBuilder<'r> {
+        self.new_sync_request(Method::HEAD, service_names, into_endpoints.into())
     }
 
     pub fn post<'r>(
         &'r self,
         service_names: &'r [ServiceName],
         into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> RequestBuilder<'r> {
-        self.new_request(Method::POST, service_names, into_endpoints.into())
+    ) -> SyncRequestBuilder<'r> {
+        self.new_sync_request(Method::POST, service_names, into_endpoints.into())
     }
 
     pub fn put<'r>(
         &'r self,
         service_names: &'r [ServiceName],
         into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> RequestBuilder<'r> {
-        self.new_request(Method::PUT, service_names, into_endpoints.into())
+    ) -> SyncRequestBuilder<'r> {
+        self.new_sync_request(Method::PUT, service_names, into_endpoints.into())
     }
 
-    fn new_request<'r>(
+    fn new_sync_request<'r>(
         &'r self,
         method: Method,
         service_names: &'r [ServiceName],
         into_endpoints: IntoEndpoints<'r>,
-    ) -> RequestBuilder<'r> {
-        RequestBuilder::new(self, method, into_endpoints, service_names)
+    ) -> SyncRequestBuilder<'r> {
+        SyncRequestBuilder::new(self, method, into_endpoints, service_names)
     }
 
     #[inline]

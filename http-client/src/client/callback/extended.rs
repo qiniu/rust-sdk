@@ -1,10 +1,11 @@
 use super::{
-    super::{Authorization, Idempotent, QueryPairs, RequestWithoutEndpoints, RetriedStatsInfo},
+    super::{Authorization, Idempotent, QueryPairs, RequestParts, RetriedStatsInfo},
     context::CallbackContext,
     simplified::SimplifiedCallbackContext,
 };
 use qiniu_http::{
-    uri::Scheme, Extensions, HeaderMap, Method, Request as HTTPRequest, Uri, UserAgent, Version,
+    uri::Scheme, Extensions, HeaderMap, Method, RequestParts as HTTPRequestParts, Uri, UserAgent,
+    Version,
 };
 use std::{borrow::Cow, net::IpAddr};
 
@@ -27,8 +28,8 @@ pub(in super::super) struct ExtendedCallbackContextImpl<
     'httpreqref,
     'httpreq,
 > {
-    request: &'reqref RequestWithoutEndpoints<'req>,
-    http_request: &'httpreqref mut HTTPRequest<'httpreq>,
+    request: &'reqref RequestParts<'req>,
+    http_request: &'httpreqref mut HTTPRequestParts<'httpreq>,
     retried: &'retried RetriedStatsInfo,
 }
 
@@ -36,8 +37,8 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
     ExtendedCallbackContextImpl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
 {
     pub(in super::super) fn new(
-        request: &'reqref RequestWithoutEndpoints<'req>,
-        http_request: &'httpreqref mut HTTPRequest<'httpreq>,
+        request: &'reqref RequestParts<'req>,
+        http_request: &'httpreqref mut HTTPRequestParts<'httpreq>,
         retried: &'retried RetriedStatsInfo,
     ) -> Self {
         Self {
@@ -84,11 +85,6 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> SimplifiedCallbackContext
     #[inline]
     fn headers(&self) -> &HeaderMap {
         self.http_request.headers()
-    }
-
-    #[inline]
-    fn body(&self) -> &[u8] {
-        self.http_request.body()
     }
 
     #[inline]

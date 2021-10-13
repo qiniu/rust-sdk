@@ -10,7 +10,6 @@ pub trait SimplifiedCallbackContext: Sync + Send + Debug {
     fn query(&self) -> &str;
     fn query_pairs(&self) -> &QueryPairs;
     fn headers(&self) -> &HeaderMap;
-    fn body(&self) -> &[u8];
     fn appended_user_agent(&self) -> &UserAgent;
     fn authorization(&self) -> Option<&Authorization>;
     fn idempotent(&self) -> Idempotent;

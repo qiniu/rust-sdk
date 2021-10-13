@@ -1,7 +1,7 @@
 use qiniu_http::{
     Extensions, HeaderMap, HeaderName, HeaderValue, Metrics, Response as HTTPResponse,
-    ResponseBody, ResponseErrorKind as HTTPResponseErrorKind, ResponseResult as HTTPResponseResult,
-    StatusCode, Version,
+    ResponseErrorKind as HTTPResponseErrorKind, ResponseResult as HTTPResponseResult, StatusCode,
+    SyncResponseBody, Version,
 };
 use serde::de::DeserializeOwned;
 use serde_json::from_slice as parse_json_from_slice;
@@ -70,7 +70,7 @@ impl<B> Response<B> {
 
     /// 修改 HTTP 服务器 IP 地址
     #[inline]
-    pub fn server_ip_mut(&mut self) -> Option<&mut IpAddr> {
+    pub fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
         self.inner.server_ip_mut()
     }
 
@@ -145,7 +145,7 @@ impl<B> Response<B> {
     }
 }
 
-impl Response<ResponseBody> {
+impl Response<SyncResponseBody> {
     pub fn parse_json<T: DeserializeOwned>(self) -> APIResult<Response<T>> {
         let json_response = self
             .fulfill()?
@@ -199,7 +199,7 @@ impl Response<AsyncResponseBody> {
 }
 
 /// 同步 HTTP 响应
-pub type SyncResponse = Response<ResponseBody>;
+pub type SyncResponse = Response<SyncResponseBody>;
 
 /// 异步 HTTP 响应
 #[cfg(feature = "async")]

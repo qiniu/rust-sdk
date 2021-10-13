@@ -52,10 +52,10 @@ pub use client::{
     HTTPClientBuilder, Idempotent, IpChooser, IpChooserBuilder, LimitedRetrier, Multipart,
     NeverRetrier, Part, QueryPairKey, QueryPairValue, QueryPairs, RandomizedBackoff, Ratio,
     RequestBuilder, RequestRetrier, RequestRetrierOptions, ResolveAnswers, ResolveOptions,
-    ResolveResult, Resolver, ResponseError, ResponseErrorKind, ResponseInfo, RetryDecision,
-    RetryResult, ShuffledChooser, ShuffledResolver, SimpleResolver, SimplifiedCallbackContext,
-    SubnetChooser, SubnetChooserBuilder, SyncBody, SyncMultipart, SyncPart, SyncResponse,
-    TimeoutResolver, NO_BACKOFF,
+    ResolveResult, Resolver, ResponseError, ResponseErrorKind, ResponseInfo, RetriedStatsInfo,
+    RetryDecision, RetryResult, ShuffledChooser, ShuffledResolver, SimpleResolver,
+    SimplifiedCallbackContext, SubnetChooser, SubnetChooserBuilder, SyncBody, SyncMultipart,
+    SyncPart, SyncRequestBuilder, SyncResponse, TimeoutResolver, NO_BACKOFF,
 };
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
@@ -78,7 +78,9 @@ pub use client::{c_ares, c_ares_resolver, CAresResolver};
 pub use client::{trust_dns_resolver, TrustDnsResolver};
 
 #[cfg(feature = "async")]
-pub use client::{AsyncBody, AsyncMultipart, AsyncPart, AsyncResponse};
+pub use client::{
+    AsyncBody, AsyncMultipart, AsyncPart, AsyncRequest, AsyncRequestBuilder, AsyncResponse,
+};
 
 pub mod preclude {
     pub use super::{

@@ -1,7 +1,7 @@
 use super::{
     super::{
-        BackoffOptions, RequestRetrierOptions, RequestWithoutEndpoints, ResponseError,
-        ResponseInfo, RetriedStatsInfo, RetryDecision, SimplifiedCallbackContext, SyncResponse,
+        BackoffOptions, RequestParts, RequestRetrierOptions, ResponseError, ResponseInfo,
+        RetriedStatsInfo, RetryDecision, SimplifiedCallbackContext, SyncResponse,
     },
     error::TryError,
     utils::{
@@ -9,27 +9,28 @@ use super::{
         call_success_callbacks, judge,
     },
 };
-use qiniu_http::Request as HTTPRequest;
+use log::error;
+use qiniu_http::{Reset, SyncRequest as SyncHttpRequest};
 use std::{result::Result, thread::sleep, time::Duration};
 
 pub(super) fn send_http_request(
-    http_request: &mut HTTPRequest<'_>,
-    request_info: &RequestWithoutEndpoints<'_>,
+    http_request: &mut SyncHttpRequest<'_>,
+    parts: &RequestParts<'_>,
     retried: &mut RetriedStatsInfo,
 ) -> Result<SyncResponse, TryError> {
     loop {
-        let response = request_info
+        let response = parts
             .http_client()
             .http_caller()
             .call(http_request)
             .map_err(ResponseError::from)
             .map(SyncResponse::new)
             .and_then(judge)
-            .map_err(|err| handle_response_error(err, http_request, request_info, retried));
+            .map_err(|err| handle_response_error(err, http_request, parts, retried));
         match response {
             Ok(response) => {
                 call_success_callbacks(
-                    request_info,
+                    parts,
                     http_request,
                     retried,
                     &ResponseInfo::new_from_sync(&response),
@@ -37,13 +38,14 @@ pub(super) fn send_http_request(
                 return Ok(response);
             }
             Err(err) => {
-                call_error_callbacks(request_info, http_request, retried, err.response_error())?;
+                call_error_callbacks(parts, http_request, retried, err.response_error())?;
                 if need_backoff(&err) {
-                    backoff(http_request, request_info, retried, &err)?;
+                    backoff(http_request, parts, retried, &err)?;
                     if need_retry_after_backoff(&err) {
                         continue;
                     }
                 }
+                reset_body(http_request);
                 return Err(err);
             }
         }
@@ -51,12 +53,12 @@ pub(super) fn send_http_request(
 
     #[inline]
     fn backoff(
-        http_request: &mut HTTPRequest<'_>,
-        request_info: &RequestWithoutEndpoints<'_>,
+        http_request: &mut SyncHttpRequest<'_>,
+        parts: &RequestParts<'_>,
         retried: &mut RetriedStatsInfo,
         err: &TryError,
     ) -> Result<(), TryError> {
-        let delay = request_info
+        let delay = parts
             .http_client()
             .backoff()
             .time(
@@ -64,12 +66,19 @@ pub(super) fn send_http_request(
                 &BackoffOptions::new(err.retry_decision(), err.response_error(), retried),
             )
             .duration();
-        call_before_backoff_callbacks(request_info, http_request, retried, delay)?;
+        call_before_backoff_callbacks(parts, http_request, retried, delay)?;
         if delay > Duration::new(0, 0) {
             sleep(delay);
         }
-        call_after_backoff_callbacks(request_info, http_request, retried, delay)?;
+        call_after_backoff_callbacks(parts, http_request, retried, delay)?;
         Ok(())
+    }
+
+    #[inline]
+    fn reset_body(http_request: &mut SyncHttpRequest<'_>) {
+        if let Err(err) = http_request.body_mut().reset() {
+            error!("Failed to reset http request body: {}", err)
+        }
     }
 }
 
@@ -92,20 +101,16 @@ fn need_retry_after_backoff(err: &TryError) -> bool {
 #[inline]
 fn handle_response_error(
     response_error: ResponseError,
-    http_request: &mut HTTPRequest,
-    request_info: &RequestWithoutEndpoints<'_>,
+    http_request: &mut SyncHttpRequest,
+    parts: &RequestParts<'_>,
     retried: &mut RetriedStatsInfo,
 ) -> TryError {
-    let retry_decision = request_info
-        .http_client()
-        .request_retrier()
-        .retry(
-            http_request,
-            &RequestRetrierOptions::new(request_info.idempotent(), &response_error, retried),
-        )
-        .decision();
+    let retry_result = parts.http_client().request_retrier().retry(
+        http_request,
+        &RequestRetrierOptions::new(parts.idempotent(), &response_error, retried),
+    );
     retried.increase();
-    TryError::new(response_error, retry_decision)
+    TryError::new(response_error, retry_result)
 }
 
 #[cfg(feature = "async")]

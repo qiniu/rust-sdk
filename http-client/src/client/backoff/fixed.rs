@@ -1,5 +1,5 @@
 use super::{Backoff, BackoffDuration, BackoffOptions};
-use qiniu_http::Request as HTTPRequest;
+use qiniu_http::RequestParts as HTTPRequestParts;
 use std::time::Duration;
 
 pub const NO_BACKOFF: FixedBackoff = FixedBackoff::new(Duration::from_nanos(0));
@@ -18,7 +18,7 @@ impl FixedBackoff {
 
 impl Backoff for FixedBackoff {
     #[inline]
-    fn time(&self, _request: &mut HTTPRequest, _opts: &BackoffOptions) -> BackoffDuration {
+    fn time(&self, _request: &mut HTTPRequestParts, _opts: &BackoffOptions) -> BackoffDuration {
         self.delay.into()
     }
 }

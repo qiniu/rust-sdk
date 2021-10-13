@@ -4,7 +4,7 @@ use super::{
         Authorization, CallbackContext, Callbacks, ExtendedCallbackContext, HTTPClient,
         ResolveAnswers, ResponseError, ResponseInfo, SimplifiedCallbackContext,
     },
-    request_data::RequestData,
+    request_metadata::RequestMetadata,
     Idempotent, QueryPairs,
 };
 use qiniu_http::{
@@ -13,24 +13,27 @@ use qiniu_http::{
 };
 use std::{fmt, time::Duration};
 
-pub(in super::super) struct Request<'r> {
+pub(in super::super) struct Request<'r, B: 'r> {
     http_client: &'r HTTPClient,
     service_names: &'r [ServiceName],
     into_endpoints: IntoEndpoints<'r>,
     callbacks: Callbacks,
-    data: RequestData<'r>,
+    metadata: RequestMetadata<'r>,
+    body: B,
     appended_user_agent: UserAgent,
     extensions: Extensions,
 }
 
-impl<'r> Request<'r> {
+impl<'r, B: 'r> Request<'r, B> {
     #[inline]
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         http_client: &'r HTTPClient,
         service_names: &'r [ServiceName],
         into_endpoints: IntoEndpoints<'r>,
         callbacks: Callbacks,
-        data: RequestData<'r>,
+        data: RequestMetadata<'r>,
+        body: B,
         appended_user_agent: UserAgent,
         extensions: Extensions,
     ) -> Self {
@@ -39,7 +42,8 @@ impl<'r> Request<'r> {
             service_names,
             into_endpoints,
             callbacks,
-            data,
+            metadata: data,
+            body,
             appended_user_agent,
             extensions,
         }
@@ -49,18 +53,20 @@ impl<'r> Request<'r> {
     pub(in super::super) fn split(
         self,
     ) -> (
-        RequestWithoutEndpoints<'r>,
+        RequestParts<'r>,
+        B,
         IntoEndpoints<'r>,
         &'r [ServiceName],
         Extensions,
     ) {
         (
-            RequestWithoutEndpoints {
+            RequestParts {
                 http_client: self.http_client,
                 callbacks: self.callbacks,
-                data: self.data,
+                data: self.metadata,
                 appended_user_agent: self.appended_user_agent,
             },
+            self.body,
             self.into_endpoints,
             self.service_names,
             self.extensions,
@@ -69,14 +75,14 @@ impl<'r> Request<'r> {
 }
 
 #[derive(Debug)]
-pub(in super::super) struct RequestWithoutEndpoints<'r> {
+pub(in super::super) struct RequestParts<'r> {
     http_client: &'r HTTPClient,
     callbacks: Callbacks,
-    data: RequestData<'r>,
+    data: RequestMetadata<'r>,
     appended_user_agent: UserAgent,
 }
 
-impl<'r> SimplifiedCallbackContext for RequestWithoutEndpoints<'r> {
+impl<'r> SimplifiedCallbackContext for RequestParts<'r> {
     #[inline]
     fn use_https(&self) -> bool {
         self.data
@@ -115,11 +121,6 @@ impl<'r> SimplifiedCallbackContext for RequestWithoutEndpoints<'r> {
     }
 
     #[inline]
-    fn body(&self) -> &[u8] {
-        &self.data.body
-    }
-
-    #[inline]
     fn appended_user_agent(&self) -> &UserAgent {
         &self.appended_user_agent
     }
@@ -135,7 +136,7 @@ impl<'r> SimplifiedCallbackContext for RequestWithoutEndpoints<'r> {
     }
 }
 
-impl<'r> RequestWithoutEndpoints<'r> {
+impl<'r> RequestParts<'r> {
     #[inline]
     pub(in super::super) fn http_client(&self) -> &HTTPClient {
         self.http_client
@@ -348,14 +349,14 @@ impl<'r> RequestWithoutEndpoints<'r> {
     }
 }
 
-impl fmt::Debug for Request<'_> {
+impl<'r, B: 'r> fmt::Debug for Request<'r, B> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Request")
             .field("http_client", &self.http_client)
             .field("service_names", &self.service_names)
             .field("into_endpoints", &self.into_endpoints)
             .field("callbacks", &self.callbacks)
-            .field("data", &self.data)
+            .field("data", &self.metadata)
             .field("appended_user_agent", &self.appended_user_agent)
             .finish()
     }

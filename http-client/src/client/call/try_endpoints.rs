@@ -1,7 +1,7 @@
 use super::{
     super::{
         super::{DomainWithPort, Endpoint, IpAddrWithPort},
-        RequestWithoutEndpoints, ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision,
+        RequestParts, ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision,
         SyncResponse,
     },
     domain_or_ip_addr::DomainOrIpAddr,
@@ -10,13 +10,14 @@ use super::{
     try_domain_or_ip_addr::try_domain_or_ip_addr,
     utils::{choose, find_domains_with_port, find_ip_addr_with_port, resolve},
 };
-use qiniu_http::Extensions;
+use qiniu_http::{Extensions, SyncRequestBody};
 use std::mem::take;
 use tap::TapFallible;
 
 pub(super) fn try_endpoints(
     endpoints: &[Endpoint],
-    request: &RequestWithoutEndpoints<'_>,
+    parts: &RequestParts<'_>,
+    body: &mut SyncRequestBody<'_>,
     mut extensions: Extensions,
     tried_ips: &mut IpAddrsSet,
     retried: &mut RetriedStatsInfo,
@@ -28,7 +29,8 @@ pub(super) fn try_endpoints(
         match try_domain_with_port(
             domain_with_port,
             tried_ips,
-            request,
+            parts,
+            body,
             &mut extensions,
             retried,
             is_endpoints_alternative,
@@ -53,7 +55,8 @@ pub(super) fn try_endpoints(
         match try_ips(
             &ips,
             tried_ips,
-            request,
+            parts,
+            body,
             &mut extensions,
             retried,
             is_endpoints_alternative,
@@ -78,13 +81,14 @@ pub(super) fn try_endpoints(
     fn try_domain_with_port(
         domain_with_port: &DomainWithPort,
         tried_ips: &mut IpAddrsSet,
-        request: &RequestWithoutEndpoints<'_>,
+        parts: &RequestParts<'_>,
+        body: &mut SyncRequestBody<'_>,
         extensions: &mut Extensions,
         retried: &mut RetriedStatsInfo,
         is_endpoints_alternative: bool,
     ) -> Result<SyncResponse, ControlFlow<TryErrorWithExtensions>> {
         retried.switch_endpoint();
-        return if request
+        return if parts
             .http_client()
             .http_caller()
             .is_resolved_ip_addrs_supported()
@@ -92,7 +96,8 @@ pub(super) fn try_endpoints(
             with_resolver(
                 domain_with_port,
                 tried_ips,
-                request,
+                parts,
+                body,
                 extensions,
                 retried,
                 is_endpoints_alternative,
@@ -100,7 +105,8 @@ pub(super) fn try_endpoints(
         } else {
             without_resolver(
                 domain_with_port,
-                request,
+                parts,
+                body,
                 extensions,
                 retried,
                 is_endpoints_alternative,
@@ -111,13 +117,14 @@ pub(super) fn try_endpoints(
         fn with_resolver(
             domain_with_port: &DomainWithPort,
             tried_ips: &mut IpAddrsSet,
-            request: &RequestWithoutEndpoints<'_>,
+            parts: &RequestParts<'_>,
+            body: &mut SyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
             is_endpoints_alternative: bool,
         ) -> Result<SyncResponse, ControlFlow<TryErrorWithExtensions>> {
             let mut last_error: Option<TryError> = None;
-            let ips = resolve(request, domain_with_port, extensions)
+            let ips = resolve(parts, domain_with_port, extensions)
                 .map_err(|err| err.with_extensions(take(extensions)))
                 .map_err(Some)
                 .map_err(ControlFlow::TryNext)?;
@@ -132,7 +139,8 @@ pub(super) fn try_endpoints(
                         domain_with_port,
                         &mut remaining_ips,
                         tried_ips,
-                        request,
+                        parts,
+                        body,
                         extensions,
                         retried,
                         is_endpoints_alternative,
@@ -162,13 +170,14 @@ pub(super) fn try_endpoints(
 
         fn without_resolver(
             domain_with_port: &DomainWithPort,
-            request: &RequestWithoutEndpoints<'_>,
+            parts: &RequestParts<'_>,
+            body: &mut SyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
             is_endpoints_alternative: bool,
         ) -> Result<SyncResponse, ControlFlow<TryErrorWithExtensions>> {
             let domain = DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), vec![]);
-            match try_domain_or_ip_addr(&domain, request, take(extensions), retried) {
+            match try_domain_or_ip_addr(&domain, parts, body, take(extensions), retried) {
                 Ok(response) => Ok(response),
                 Err(err) => match err.retry_decision() {
                     RetryDecision::TryAlternativeEndpoints if is_endpoints_alternative => {
@@ -186,17 +195,19 @@ pub(super) fn try_endpoints(
             }
         }
 
+        #[allow(clippy::too_many_arguments)]
         fn try_domain_with_ips(
             domain_with_port: &DomainWithPort,
             remaining_ips: &mut IpAddrsSet,
             tried_ips: &mut IpAddrsSet,
-            request: &RequestWithoutEndpoints<'_>,
+            parts: &RequestParts<'_>,
+            body: &mut SyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
             is_endpoints_alternative: bool,
         ) -> Result<SyncResponse, TryFlow<TryErrorWithExtensions>> {
             let chosen_ips = match remaining_ips.remains() {
-                ips if !ips.is_empty() => choose(request, &ips, extensions)
+                ips if !ips.is_empty() => choose(parts, &ips, extensions)
                     .map_err(|err| err.with_extensions(take(extensions)))
                     .map_err(TryFlow::TryAgain)?,
                 _ => vec![],
@@ -209,7 +220,8 @@ pub(super) fn try_endpoints(
                 retried.switch_ips();
                 match try_domain_or_single_ip(
                     &DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), chosen_ips),
-                    request,
+                    parts,
+                    body,
                     take(extensions),
                     retried,
                     is_endpoints_alternative,
@@ -225,7 +237,8 @@ pub(super) fn try_endpoints(
     fn try_ips(
         ips: &[IpAddrWithPort],
         tried_ips: &mut IpAddrsSet,
-        request: &RequestWithoutEndpoints<'_>,
+        parts: &RequestParts<'_>,
+        body: &mut SyncRequestBody<'_>,
         extensions: &mut Extensions,
         retried: &mut RetriedStatsInfo,
         is_endpoints_alternative: bool,
@@ -241,7 +254,8 @@ pub(super) fn try_endpoints(
             match try_remaining_ips(
                 &mut remaining_ips,
                 tried_ips,
-                request,
+                parts,
+                body,
                 extensions,
                 retried,
                 is_endpoints_alternative,
@@ -267,14 +281,15 @@ pub(super) fn try_endpoints(
         fn try_remaining_ips(
             remaining_ips: &mut IpAddrsSet,
             tried_ips: &mut IpAddrsSet,
-            request: &RequestWithoutEndpoints<'_>,
+            parts: &RequestParts<'_>,
+            body: &mut SyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
             is_endpoints_alternative: bool,
         ) -> Result<SyncResponse, ControlFlow<TryErrorWithExtensions>> {
             let mut last_error: Option<TryError> = None;
             let chosen_ips = match remaining_ips.remains() {
-                ips if !ips.is_empty() => choose(request, &ips, extensions)
+                ips if !ips.is_empty() => choose(parts, &ips, extensions)
                     .map_err(|err| err.with_extensions(take(extensions)))
                     .map_err(Some)
                     .map_err(ControlFlow::TryNext)?,
@@ -287,7 +302,8 @@ pub(super) fn try_endpoints(
                     retried.switch_endpoint();
                     match try_single_ip(
                         chosen_ip,
-                        request,
+                        parts,
+                        body,
                         extensions,
                         retried,
                         is_endpoints_alternative,
@@ -314,14 +330,16 @@ pub(super) fn try_endpoints(
         #[inline]
         fn try_single_ip(
             ip: IpAddrWithPort,
-            request: &RequestWithoutEndpoints<'_>,
+            parts: &RequestParts<'_>,
+            body: &mut SyncRequestBody,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
             is_endpoints_alternative: bool,
         ) -> Result<SyncResponse, SingleTryFlow<TryErrorWithExtensions>> {
             try_domain_or_single_ip(
                 &DomainOrIpAddr::from(ip),
-                request,
+                parts,
+                body,
                 take(extensions),
                 retried,
                 is_endpoints_alternative,
@@ -331,12 +349,13 @@ pub(super) fn try_endpoints(
 
     fn try_domain_or_single_ip(
         domain: &DomainOrIpAddr,
-        request: &RequestWithoutEndpoints<'_>,
+        parts: &RequestParts<'_>,
+        body: &mut SyncRequestBody<'_>,
         extensions: Extensions,
         retried: &mut RetriedStatsInfo,
         is_endpoints_alternative: bool,
     ) -> Result<SyncResponse, SingleTryFlow<TryErrorWithExtensions>> {
-        match try_domain_or_ip_addr(domain, request, extensions, retried) {
+        match try_domain_or_ip_addr(domain, parts, body, extensions, retried) {
             Ok(response) => Ok(response),
             Err(err) => match err.retry_decision() {
                 RetryDecision::TryAlternativeEndpoints if is_endpoints_alternative => {
@@ -742,6 +761,6 @@ enum SingleTryFlow<E> {
 fn no_try_error() -> TryError {
     TryError::new(
         ResponseError::new(ResponseErrorKind::NoTry, "None resolver is tried"),
-        RetryDecision::DontRetry,
+        RetryDecision::DontRetry.into(),
     )
 }

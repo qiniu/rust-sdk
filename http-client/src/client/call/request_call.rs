@@ -1,23 +1,24 @@
 use super::{
     super::{
-        super::Endpoint, APIResult, Request, RequestWithoutEndpoints, RetriedStatsInfo,
+        super::Endpoint, request::SyncRequest, APIResult, RequestParts, RetriedStatsInfo,
         RetryDecision, SyncResponse,
     },
     error::TryErrorWithExtensions,
     ip_addrs_set::IpAddrsSet,
     try_endpoints::try_endpoints,
 };
-use qiniu_http::Extensions;
+use qiniu_http::{Extensions, SyncRequestBody};
 
-pub(in super::super) fn request_call(request: Request<'_>) -> APIResult<SyncResponse> {
-    let (request, into_endpoints, service_name, extensions) = request.split();
+pub(in super::super) fn request_call(request: SyncRequest<'_>) -> APIResult<SyncResponse> {
+    let (parts, mut body, into_endpoints, service_name, extensions) = request.split();
     let endpoints = into_endpoints.into_endpoints(service_name)?;
     let mut tried_ips = IpAddrsSet::default();
     let mut retried = RetriedStatsInfo::default();
 
     return match try_preferred_endpoints(
         endpoints.preferred(),
-        &request,
+        &parts,
+        &mut body,
         extensions,
         &mut tried_ips,
         &mut retried,
@@ -31,7 +32,8 @@ pub(in super::super) fn request_call(request: Request<'_>) -> APIResult<SyncResp
             retried.switch_to_alternative_endpoints();
             try_alternative_endpoints(
                 endpoints.alternative(),
-                &request,
+                &parts,
+                &mut body,
                 extensions,
                 &mut tried_ips,
                 &mut retried,
@@ -43,24 +45,28 @@ pub(in super::super) fn request_call(request: Request<'_>) -> APIResult<SyncResp
     #[inline]
     fn try_preferred_endpoints(
         endpoints: &[Endpoint],
-        request: &RequestWithoutEndpoints<'_>,
+        parts: &RequestParts<'_>,
+        body: &mut SyncRequestBody<'_>,
         extensions: Extensions,
         tried_ips: &mut IpAddrsSet,
         retried: &mut RetriedStatsInfo,
     ) -> Result<SyncResponse, TryErrorWithExtensions> {
-        try_endpoints(endpoints, request, extensions, tried_ips, retried, true)
+        try_endpoints(endpoints, parts, body, extensions, tried_ips, retried, true)
     }
 
     #[inline]
     fn try_alternative_endpoints(
         endpoints: &[Endpoint],
-        request: &RequestWithoutEndpoints<'_>,
+        parts: &RequestParts<'_>,
+        body: &mut SyncRequestBody<'_>,
         extensions: Extensions,
         tried_ips: &mut IpAddrsSet,
         retried: &mut RetriedStatsInfo,
     ) -> APIResult<SyncResponse> {
-        try_endpoints(endpoints, request, extensions, tried_ips, retried, false)
-            .map_err(|err| err.into_response_error())
+        try_endpoints(
+            endpoints, parts, body, extensions, tried_ips, retried, false,
+        )
+        .map_err(|err| err.into_response_error())
     }
 }
 

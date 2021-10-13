@@ -1,5 +1,5 @@
 use super::{Backoff, BackoffDuration, BackoffOptions};
-use qiniu_http::Request as HTTPRequest;
+use qiniu_http::RequestParts as HTTPRequestParts;
 use rand::{thread_rng, Rng};
 use std::{convert::TryInto, time::Duration, u64};
 
@@ -40,7 +40,7 @@ impl<P> RandomizedBackoff<P> {
 
 impl<P: Backoff> Backoff for RandomizedBackoff<P> {
     #[inline]
-    fn time(&self, request: &mut HTTPRequest, opts: &BackoffOptions) -> BackoffDuration {
+    fn time(&self, request: &mut HTTPRequestParts, opts: &BackoffOptions) -> BackoffDuration {
         let duration = self.base_backoff().time(request, opts).duration();
         let minification: Ratio<u128> = Ratio::new_raw(
             self.minification().numer().to_owned().into(),
@@ -88,7 +88,7 @@ mod tests {
         for _ in 0..10000 {
             let delay = randomized
                 .time(
-                    &mut HTTPRequest::builder().build(),
+                    &mut HTTPRequestParts::default(),
                     &BackoffOptions::new(
                         RetryDecision::RetryRequest,
                         &ResponseError::new(

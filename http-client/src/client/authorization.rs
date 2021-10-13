@@ -1,12 +1,16 @@
 use qiniu_credential::{Credential, CredentialProvider};
 use qiniu_http::{
     header::{AUTHORIZATION, CONTENT_TYPE},
-    HeaderValue, Request,
+    HeaderValue, RequestParts, SyncRequest,
 };
 use qiniu_upload_token::UploadTokenProvider;
-use std::{fmt, io::Error as IOError, result::Result, sync::Arc};
+use std::{fmt, io::Error as IOError, mem::take, result::Result, sync::Arc};
+use tap::Tap;
 use thiserror::Error;
 use url::ParseError as UrlParseError;
+
+#[cfg(feature = "async")]
+use qiniu_http::AsyncRequest;
 
 /// API 鉴权方式
 #[derive(Clone)]
@@ -44,7 +48,7 @@ impl Authorization {
     }
 
     /// 使用指定的鉴权方式对 HTTP 请求进行签名
-    pub fn sign(&self, request: &mut Request) -> AuthorizationResult<()> {
+    pub fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()> {
         let authorization = match &self.inner {
             AuthorizationInner::UpToken(provider) => {
                 uptoken_authorization(&provider.to_token_string(&Default::default())?)
@@ -59,13 +63,50 @@ impl Authorization {
             )?,
         };
         set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
-        Ok(())
+        return Ok(());
+
+        #[inline]
+        fn authorization_v1_for_request(
+            credential: &Credential,
+            request: &mut SyncRequest,
+        ) -> AuthorizationResult<String> {
+            let (parts, mut body) = take(request).into_parts();
+            credential
+                .authorization_v1_for_request_with_body_reader(
+                    parts.url(),
+                    parts.headers().get(CONTENT_TYPE),
+                    &mut body,
+                )
+                .tap(|_| {
+                    *request = SyncRequest::from_parts(parts, body);
+                })
+                .map_err(|err| err.into())
+        }
+
+        #[inline]
+        fn authorization_v2_for_request(
+            credential: &Credential,
+            request: &mut SyncRequest,
+        ) -> AuthorizationResult<String> {
+            let (parts, mut body) = take(request).into_parts();
+            credential
+                .authorization_v2_for_request_with_body_reader(
+                    parts.method(),
+                    parts.url(),
+                    parts.headers(),
+                    &mut body,
+                )
+                .tap(|_| {
+                    *request = SyncRequest::from_parts(parts, body);
+                })
+                .map_err(|err| err.into())
+        }
     }
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     /// 使用指定的鉴权方式对 HTTP 请求进行异步签名
-    pub async fn async_sign(&self, request: &mut Request<'_>) -> AuthorizationResult<()> {
+    pub async fn async_sign(&self, request: &mut AsyncRequest<'_>) -> AuthorizationResult<()> {
         let authorization = match &self.inner {
             AuthorizationInner::UpToken(provider) => {
                 uptoken_authorization(&provider.async_to_token_string(&Default::default()).await?)
@@ -80,43 +121,47 @@ impl Authorization {
             )?,
         };
         set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
-        Ok(())
+        return Ok(());
+
+        #[inline]
+        fn authorization_v1_for_request(
+            credential: &Credential,
+            request: &mut AsyncRequest,
+        ) -> AuthorizationResult<String> {
+            Ok(
+                credential.authorization_v1_for_request_with_async_body_reader(
+                    request.url(),
+                    request.headers().get(CONTENT_TYPE),
+                    request.body_mut(),
+                ),
+            )
+        }
+
+        #[inline]
+        fn authorization_v2_for_request(
+            credential: &Credential,
+            request: &mut AsyncRequest,
+        ) -> AuthorizationResult<String> {
+            Ok(
+                credential.authorization_v2_for_request_with_async_body_reader(
+                    request.method(),
+                    request.url(),
+                    request.headers(),
+                    request.body_mut(),
+                ),
+            )
+        }
     }
 }
 
 #[inline]
-fn set_authorization(request: &mut Request, authorization: HeaderValue) {
+fn set_authorization(request: &mut RequestParts, authorization: HeaderValue) {
     request.headers_mut().insert(AUTHORIZATION, authorization);
 }
 
 #[inline]
 fn uptoken_authorization(upload_token: &str) -> String {
     "UpToken ".to_owned() + upload_token
-}
-
-#[inline]
-fn authorization_v1_for_request(
-    credential: &Credential,
-    request: &Request,
-) -> AuthorizationResult<String> {
-    Ok(credential.authorization_v1_for_request(
-        request.url(),
-        request.headers().get(CONTENT_TYPE),
-        request.body(),
-    ))
-}
-
-#[inline]
-fn authorization_v2_for_request(
-    credential: &Credential,
-    request: &Request,
-) -> AuthorizationResult<String> {
-    Ok(credential.authorization_v2_for_request(
-        request.method(),
-        request.url(),
-        request.headers(),
-        request.body(),
-    ))
 }
 
 impl From<Arc<dyn UploadTokenProvider>> for Authorization {

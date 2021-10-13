@@ -1,5 +1,5 @@
 use super::{
-    super::{Authorization, Idempotent, QueryPairs, RequestWithoutEndpoints},
+    super::{Authorization, Idempotent, QueryPairs, RequestParts},
     simplified::SimplifiedCallbackContext,
 };
 use qiniu_http::{Extensions, HeaderMap, Method, UserAgent, Version};
@@ -11,13 +11,13 @@ pub trait CallbackContext: SimplifiedCallbackContext {
 
 #[derive(Debug)]
 pub(in super::super) struct CallbackContextImpl<'reqref, 'req, 'ext> {
-    request: &'reqref RequestWithoutEndpoints<'req>,
+    request: &'reqref RequestParts<'req>,
     extensions: &'ext mut Extensions,
 }
 
 impl<'reqref, 'req, 'ext> CallbackContextImpl<'reqref, 'req, 'ext> {
     pub(in super::super) fn new(
-        request: &'reqref RequestWithoutEndpoints<'req>,
+        request: &'reqref RequestParts<'req>,
         extensions: &'ext mut Extensions,
     ) -> Self {
         Self {
@@ -61,11 +61,6 @@ impl<'reqref, 'req, 'ext> SimplifiedCallbackContext for CallbackContextImpl<'req
     #[inline]
     fn headers(&self) -> &HeaderMap {
         self.request.headers()
-    }
-
-    #[inline]
-    fn body(&self) -> &[u8] {
-        self.request.body()
     }
 
     #[inline]
