@@ -2,11 +2,19 @@ use super::{MapError, ResponseError};
 use assert_impl::assert_impl;
 use http::{
     header::{HeaderMap, HeaderName, HeaderValue},
-    response::Response as HTTPResponse,
+    response::{Parts as HTTPResponseParts, Response as HTTPResponse},
     status::StatusCode,
     Extensions, Version,
 };
-use std::{default::Default, fmt::Debug, net::IpAddr, num::NonZeroU16, result, time::Duration};
+use std::{
+    default::Default,
+    fmt::Debug,
+    net::IpAddr,
+    num::NonZeroU16,
+    ops::{Deref, DerefMut},
+    result,
+    time::Duration,
+};
 
 #[cfg(feature = "async")]
 use futures_lite::Future;
@@ -21,7 +29,7 @@ pub trait Metrics: Debug + Send + Sync {
 }
 
 #[derive(Debug, Default)]
-pub(super) struct ResponseInfo {
+struct ResponseInfo {
     server_ip: Option<IpAddr>,
     server_port: Option<NonZeroU16>,
     metrics: Option<Box<dyn Metrics>>,
@@ -29,100 +37,77 @@ pub(super) struct ResponseInfo {
 
 impl ResponseInfo {
     #[inline]
-    pub(super) fn server_ip(&self) -> Option<IpAddr> {
+    fn server_ip(&self) -> Option<IpAddr> {
         self.server_ip
     }
 
     #[inline]
-    pub(super) fn server_port(&self) -> Option<NonZeroU16> {
+    fn server_port(&self) -> Option<NonZeroU16> {
         self.server_port
     }
 
     #[inline]
-    pub(super) fn metrics(&self) -> Option<&dyn Metrics> {
+    fn metrics(&self) -> Option<&dyn Metrics> {
         self.metrics.as_deref()
     }
 
     #[inline]
-    pub(super) fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
+    fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
         &mut self.server_ip
     }
 
     #[inline]
-    pub(super) fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
+    fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
         &mut self.server_port
     }
 
     #[inline]
-    pub(super) fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
+    fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
         &mut self.metrics
     }
 }
 
-/// HTTP 响应
-///
-/// 封装 HTTP 响应相关字段
-#[derive(Debug, Default)]
-pub struct Response<B> {
-    inner: HTTPResponse<B>,
+#[derive(Debug)]
+pub struct ResponseParts {
+    inner: HTTPResponseParts,
     info: ResponseInfo,
 }
 
-impl<B: Default> Response<B> {
-    /// 返回 HTTP 响应构建器
-    #[inline]
-    pub fn builder() -> ResponseBuilder<B> {
-        ResponseBuilder::<B>::default()
-    }
-}
-
-impl<B> Response<B> {
-    /// 获取 HTTP 请求
-    #[inline]
-    pub fn http(&self) -> &HTTPResponse<B> {
-        &self.inner
-    }
-
-    /// 修改 HTTP 请求
-    #[inline]
-    pub fn http_mut(&mut self) -> &mut HTTPResponse<B> {
-        &mut self.inner
-    }
-
+impl ResponseParts {
     /// HTTP 状态码
     #[inline]
     pub fn status_code(&self) -> StatusCode {
-        self.inner.status()
+        self.inner.status
     }
 
     /// 修改 HTTP 状态码
     #[inline]
     pub fn status_code_mut(&mut self) -> &mut StatusCode {
-        self.inner.status_mut()
+        &mut self.inner.status
     }
 
     /// HTTP Headers
     #[inline]
     pub fn headers(&self) -> &HeaderMap {
-        self.inner.headers()
+        &self.inner.headers
     }
 
     /// 修改 HTTP Headers
     #[inline]
     pub fn headers_mut(&mut self) -> &mut HeaderMap {
-        self.inner.headers_mut()
+        &mut self.inner.headers
     }
 
     /// HTTP 版本
     #[inline]
     pub fn version(&self) -> Version {
-        self.inner.version()
+        self.inner.version
     }
 
     /// 修改 HTTP 版本
     #[inline]
     pub fn version_mut(&mut self) -> &mut Version {
-        self.inner.version_mut()
+        &mut self.inner.version
     }
 
     /// HTTP 服务器 IP 地址
@@ -133,8 +118,8 @@ impl<B> Response<B> {
 
     /// 修改 HTTP 服务器 IP 地址
     #[inline]
-    pub fn server_ip_mut(&mut self) -> Option<&mut IpAddr> {
-        self.info.server_ip.as_mut()
+    pub fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
+        self.info.server_ip_mut()
     }
 
     /// HTTP 服务器端口号
@@ -152,13 +137,13 @@ impl<B> Response<B> {
     /// 扩展字段
     #[inline]
     pub fn extensions(&self) -> &Extensions {
-        self.inner.extensions()
+        &self.inner.extensions
     }
 
     /// 修改扩展字段
     #[inline]
     pub fn extensions_mut(&mut self) -> &mut Extensions {
-        self.inner.extensions_mut()
+        &mut self.inner.extensions
     }
 
     /// 获取 HTTP 响应 Header
@@ -176,33 +161,72 @@ impl<B> Response<B> {
     pub fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
         self.info.metrics_mut()
     }
+}
 
+impl Default for ResponseParts {
+    #[inline]
+    fn default() -> Self {
+        let (parts, _) = HTTPResponse::new(()).into_parts();
+        Self {
+            inner: parts,
+            info: Default::default(),
+        }
+    }
+}
+
+/// HTTP 响应
+///
+/// 封装 HTTP 响应相关字段
+#[derive(Debug, Default)]
+pub struct Response<B> {
+    parts: ResponseParts,
+    body: B,
+}
+
+impl<B: Default> Response<B> {
+    /// 返回 HTTP 响应构建器
+    #[inline]
+    pub fn builder() -> ResponseBuilder<B> {
+        ResponseBuilder::<B>::default()
+    }
+}
+
+impl<B> Response<B> {
     /// HTTP 响应体
     #[inline]
     pub fn body(&self) -> &B {
-        self.inner.body()
-    }
-
-    /// 直接获取 HTTP 响应体
-    #[inline]
-    pub fn into_body(self) -> B {
-        self.inner.into_body()
+        &self.body
     }
 
     /// 修改 HTTP 响应体
     #[inline]
     pub fn body_mut(&mut self) -> &mut B {
-        self.inner.body_mut()
+        &mut self.body
+    }
+
+    /// 直接获取 HTTP 响应体
+    #[inline]
+    pub fn into_body(self) -> B {
+        self.body
+    }
+
+    #[inline]
+    pub fn into_parts(self) -> (ResponseParts, B) {
+        let Self { parts, body } = self;
+        (parts, body)
+    }
+
+    #[inline]
+    pub fn from_parts(parts: ResponseParts, body: B) -> Self {
+        Response { parts, body }
     }
 
     /// 对 HTTP 响应体进行映射
     #[inline]
     pub fn map_body<B2>(self, f: impl FnOnce(B) -> B2) -> Response<B2> {
-        let Self { inner, info } = self;
-        let (parts, body) = inner.into_parts();
+        let (parts, body) = self.into_parts();
         let body = f(body);
-        let inner = HTTPResponse::from_parts(parts, body);
-        Response { inner, info }
+        Response::from_parts(parts, body)
     }
 
     /// 尝试对 HTTP 响应体进行映射
@@ -211,14 +235,10 @@ impl<B> Response<B> {
         self,
         f: impl FnOnce(B) -> result::Result<B2, E>,
     ) -> result::Result<Response<B2>, MapError<E>> {
-        let Self { inner, info } = self;
-        let (parts, body) = inner.into_parts();
+        let (parts, body) = self.into_parts();
         match f(body) {
-            Ok(body) => {
-                let inner = HTTPResponse::from_parts(parts, body);
-                Ok(Response { inner, info })
-            }
-            Err(err) => Err(MapError::new(err, info)),
+            Ok(body) => Ok(Response::from_parts(parts, body)),
+            Err(err) => Err(MapError::new(err, parts)),
         }
     }
 
@@ -233,15 +253,27 @@ impl<B> Response<B> {
         F: FnOnce(B) -> Fut,
         Fut: Future<Output = result::Result<B2, E>>,
     {
-        let Self { inner, info } = self;
-        let (parts, body) = inner.into_parts();
+        let (parts, body) = self.into_parts();
         match f(body).await {
-            Ok(body) => {
-                let inner = HTTPResponse::from_parts(parts, body);
-                Ok(Response { inner, info })
-            }
-            Err(err) => Err(MapError::new(err, info)),
+            Ok(body) => Ok(Response::from_parts(parts, body)),
+            Err(err) => Err(MapError::new(err, parts)),
         }
+    }
+}
+
+impl<B> Deref for Response<B> {
+    type Target = ResponseParts;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.parts
+    }
+}
+
+impl<B> DerefMut for Response<B> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.parts
     }
 }
 
@@ -260,13 +292,6 @@ pub struct ResponseBuilder<B> {
 }
 
 impl<B> ResponseBuilder<B> {
-    /// 设置 HTTP 请求
-    #[inline]
-    pub fn http(&mut self, response: HTTPResponse<B>) -> &mut Self {
-        self.inner.inner = response;
-        self
-    }
-
     /// 设置 HTTP 状态码
     #[inline]
     pub fn status_code(mut self, status_code: StatusCode) -> Self {
@@ -325,7 +350,7 @@ impl<B> ResponseBuilder<B> {
 
     #[inline]
     pub fn metrics(mut self, metrics: Box<dyn Metrics>) -> Self {
-        *self.inner.info.metrics_mut() = Some(metrics);
+        *self.inner.metrics_mut() = Some(metrics);
         self
     }
 

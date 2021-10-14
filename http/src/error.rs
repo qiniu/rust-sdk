@@ -1,6 +1,15 @@
-use super::response::{Metrics, ResponseInfo};
-use http::uri::{Scheme, Uri};
-use std::{error::Error as StdError, fmt, net::IpAddr, num::NonZeroU16};
+use super::response::{Metrics, ResponseParts};
+use http::{
+    uri::{Scheme, Uri},
+    Extensions, HeaderMap, HeaderValue, StatusCode, Version,
+};
+use std::{
+    error::Error as StdError,
+    fmt,
+    net::IpAddr,
+    num::NonZeroU16,
+    ops::{Deref, DerefMut},
+};
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -66,7 +75,7 @@ pub enum ErrorKind {
 pub struct Error {
     kind: ErrorKind,
     error: Box<dyn StdError + Send + Sync>,
-    response_info: ResponseInfo,
+    parts: ResponseParts,
 }
 
 impl Error {
@@ -89,35 +98,21 @@ impl Error {
     pub fn into_inner(self) -> Box<dyn StdError + Send + Sync> {
         self.error
     }
+}
+
+impl Deref for Error {
+    type Target = ResponseParts;
 
     #[inline]
-    pub fn server_ip(&self) -> Option<IpAddr> {
-        self.response_info.server_ip()
+    fn deref(&self) -> &Self::Target {
+        &self.parts
     }
+}
 
+impl DerefMut for Error {
     #[inline]
-    pub fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
-        self.response_info.server_ip_mut()
-    }
-
-    #[inline]
-    pub fn server_port(&self) -> Option<NonZeroU16> {
-        self.response_info.server_port()
-    }
-
-    #[inline]
-    pub fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
-        self.response_info.server_port_mut()
-    }
-
-    #[inline]
-    pub fn metrics(&self) -> Option<&dyn Metrics> {
-        self.response_info.metrics()
-    }
-
-    #[inline]
-    pub fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
-        self.response_info.metrics_mut()
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.parts
     }
 }
 
@@ -146,7 +141,7 @@ impl ErrorBuilder {
             inner: Error {
                 kind,
                 error: err.into(),
-                response_info: Default::default(),
+                parts: Default::default(),
             },
         }
     }
@@ -157,19 +152,43 @@ impl ErrorBuilder {
     }
 
     #[inline]
+    pub fn status_code(mut self, status_code: StatusCode) -> Self {
+        *self.inner.status_code_mut() = status_code;
+        self
+    }
+
+    #[inline]
+    pub fn version(mut self, version: Version) -> Self {
+        *self.inner.version_mut() = version;
+        self
+    }
+
+    #[inline]
+    pub fn headers(mut self, headers: HeaderMap<HeaderValue>) -> Self {
+        *self.inner.headers_mut() = headers;
+        self
+    }
+
+    #[inline]
+    pub fn extensions(mut self, extensions: Extensions) -> Self {
+        *self.inner.extensions_mut() = extensions;
+        self
+    }
+
+    #[inline]
     pub fn uri(mut self, uri: &Uri) -> Self {
         if let Some(host) = uri.host() {
             if let Ok(ip_addr) = host.parse::<IpAddr>() {
-                *self.inner.response_info.server_ip_mut() = Some(ip_addr);
+                *self.inner.server_ip_mut() = Some(ip_addr);
             }
         }
         if let Some(port) = uri.port_u16() {
-            *self.inner.response_info.server_port_mut() = NonZeroU16::new(port);
+            *self.inner.server_port_mut() = NonZeroU16::new(port);
         } else if let Some(scheme) = uri.scheme() {
             if scheme == &Scheme::HTTP {
-                *self.inner.response_info.server_port_mut() = NonZeroU16::new(80);
+                *self.inner.server_port_mut() = NonZeroU16::new(80);
             } else if scheme == &Scheme::HTTPS {
-                *self.inner.response_info.server_port_mut() = NonZeroU16::new(443);
+                *self.inner.server_port_mut() = NonZeroU16::new(443);
             }
         }
         self
@@ -177,32 +196,32 @@ impl ErrorBuilder {
 
     #[inline]
     pub fn server_ip(mut self, server_ip: IpAddr) -> Self {
-        *self.inner.response_info.server_ip_mut() = Some(server_ip);
+        *self.inner.server_ip_mut() = Some(server_ip);
         self
     }
 
     #[inline]
     pub fn server_port(mut self, server_port: NonZeroU16) -> Self {
-        *self.inner.response_info.server_port_mut() = Some(server_port);
+        *self.inner.server_port_mut() = Some(server_port);
         self
     }
 
     #[inline]
     pub fn metrics(mut self, metrics: Box<dyn Metrics>) -> Self {
-        *self.inner.response_info.metrics_mut() = Some(metrics);
+        *self.inner.metrics_mut() = Some(metrics);
         self
     }
 }
 
 pub struct MapError<E> {
     error: E,
-    info: ResponseInfo,
+    parts: ResponseParts,
 }
 
 impl<E> MapError<E> {
     #[inline]
-    pub(super) fn new(error: E, info: ResponseInfo) -> Self {
-        Self { error, info }
+    pub(super) fn new(error: E, parts: ResponseParts) -> Self {
+        Self { error, parts }
     }
 
     #[inline]
@@ -216,7 +235,7 @@ impl<E: StdError + Sync + Send + 'static> MapError<E> {
         Error {
             kind,
             error: Box::new(self.error),
-            response_info: self.info,
+            parts: self.parts,
         }
     }
 }

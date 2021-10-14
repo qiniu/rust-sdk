@@ -29,16 +29,17 @@ pub use error::{
 pub use http::{
     header::{self, HeaderMap, HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue},
     method::Method,
-    request::Request as HTTPRequest,
     status::{InvalidStatusCode, StatusCode},
     uri::{self, Uri},
     Extensions, Version,
 };
 pub use request::{
-    Request, RequestBody as SyncRequestBody, RequestBuilder, TransferProgressInfo, UserAgent,
+    Request, RequestBody as SyncRequestBody, RequestBuilder, RequestParts, TransferProgressInfo,
+    UserAgent,
 };
 pub use response::{
-    Metrics, Response, ResponseBody as SyncResponseBody, ResponseBuilder, Result as ResponseResult,
+    Metrics, Response, ResponseBody as SyncResponseBody, ResponseBuilder, ResponseParts,
+    Result as ResponseResult,
 };
 use std::{
     fmt::Debug,

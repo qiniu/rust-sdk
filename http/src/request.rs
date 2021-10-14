@@ -2,7 +2,7 @@ use assert_impl::assert_impl;
 use http::{
     header::{HeaderMap, HeaderName, HeaderValue},
     method::Method,
-    request::Request as HTTPRequest,
+    request::{Parts as HTTPRequestParts, Request as HTTPRequest},
     status::StatusCode,
     uri::Uri,
     Extensions, Version,
@@ -41,12 +41,8 @@ type OnProgress<'r> = &'r (dyn Fn(&TransferProgressInfo) -> bool + Send + Sync);
 type OnStatusCode<'r> = &'r (dyn Fn(StatusCode) -> bool + Send + Sync);
 type OnHeader<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync);
 
-/// HTTP 请求
-///
-/// 封装 HTTP 请求相关字段
-#[derive(Default)]
-pub struct Request<'r, B: 'r> {
-    inner: HTTPRequest<B>,
+pub struct RequestParts<'r> {
+    inner: HTTPRequestParts,
 
     // 请求配置属性
     appended_user_agent: UserAgent,
@@ -56,97 +52,65 @@ pub struct Request<'r, B: 'r> {
     on_receive_response_header: Option<OnHeader<'r>>,
 }
 
-impl<'r, B: Default + 'r> Request<'r, B> {
-    // 返回 HTTP 响应构建器
-    #[inline]
-    pub fn builder() -> RequestBuilder<'r, B> {
-        RequestBuilder::default()
-    }
-}
-
-impl<'r, B: 'r> Request<'r, B> {
-    /// 获取 HTTP 请求
-    #[inline]
-    pub fn http(&self) -> &HTTPRequest<B> {
-        &self.inner
-    }
-
-    /// 修改 HTTP 请求
-    #[inline]
-    pub fn http_mut(&mut self) -> &mut HTTPRequest<B> {
-        &mut self.inner
-    }
-
+impl<'r> RequestParts<'r> {
     /// 请求 URL
     #[inline]
     pub fn url(&self) -> &Uri {
-        self.inner.uri()
+        &self.inner.uri
     }
 
     /// 修改请求 URL
     #[inline]
     pub fn url_mut(&mut self) -> &mut Uri {
-        self.inner.uri_mut()
+        &mut self.inner.uri
     }
 
     /// 请求 HTTP 版本
     #[inline]
     pub fn version(&self) -> Version {
-        self.inner.version()
+        self.inner.version
     }
 
     /// 修改请求 HTTP 版本
     #[inline]
     pub fn version_mut(&mut self) -> &mut Version {
-        self.inner.version_mut()
+        &mut self.inner.version
     }
 
     /// 请求 HTTP 方法
     #[inline]
     pub fn method(&self) -> &Method {
-        self.inner.method()
+        &self.inner.method
     }
 
     /// 修改请求 HTTP 方法
     #[inline]
     pub fn method_mut(&mut self) -> &mut Method {
-        self.inner.method_mut()
+        &mut self.inner.method
     }
 
     /// 请求 HTTP Headers
     #[inline]
     pub fn headers(&self) -> &HeaderMap {
-        self.inner.headers()
+        &self.inner.headers
     }
 
     /// 修改请求 HTTP Headers
     #[inline]
     pub fn headers_mut(&mut self) -> &mut HeaderMap {
-        self.inner.headers_mut()
-    }
-
-    /// 请求体
-    #[inline]
-    pub fn body(&self) -> &B {
-        self.inner.body()
-    }
-
-    /// 修改请求体
-    #[inline]
-    pub fn body_mut(&mut self) -> &mut B {
-        self.inner.body_mut()
+        &mut self.inner.headers
     }
 
     /// 扩展字段
     #[inline]
     pub fn extensions(&self) -> &Extensions {
-        self.inner.extensions()
+        &self.inner.extensions
     }
 
     /// 修改扩展字段
     #[inline]
     pub fn extensions_mut(&mut self) -> &mut Extensions {
-        self.inner.extensions_mut()
+        &mut self.inner.extensions
     }
 
     /// 用户代理
@@ -218,16 +182,24 @@ impl<'r, B: 'r> Request<'r, B> {
     }
 }
 
-impl<'r, B: Send + Sync + 'r> Request<'r, B> {
-    #[allow(dead_code)]
-    fn ignore() {
-        assert_impl!(Send: Self);
-        assert_impl!(Sync: Self);
+impl Default for RequestParts<'_> {
+    #[inline]
+    fn default() -> Self {
+        let (parts, _) = HTTPRequest::new(()).into_parts();
+        Self {
+            inner: parts,
+            appended_user_agent: Default::default(),
+            resolved_ip_addrs: Default::default(),
+            on_uploading_progress: Default::default(),
+            on_receive_response_status: Default::default(),
+            on_receive_response_header: Default::default(),
+        }
     }
 }
 
-impl<'r, B: Debug + 'r> Debug for Request<'r, B> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Debug for RequestParts<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         macro_rules! field {
             ($ctx:ident, $method_name:expr, $method:ident) => {
                 $ctx.field($method_name, &self.$method)
@@ -245,13 +217,85 @@ impl<'r, B: Debug + 'r> Debug for Request<'r, B> {
             };
         }
         let s = &mut f.debug_struct("Request");
-        field!(s, "http", inner);
+        field!(s, "inner", inner);
         field!(s, "appended_user_agent", appended_user_agent);
         field!(s, "resolved_ip_addrs", resolved_ip_addrs);
         closure_field!(s, "on_uploading_progress", on_uploading_progress);
         closure_field!(s, "on_receive_response_status", on_receive_response_status);
         closure_field!(s, "on_receive_response_header", on_receive_response_header);
         s.finish()
+    }
+}
+
+/// HTTP 请求
+///
+/// 封装 HTTP 请求相关字段
+#[derive(Default, Debug)]
+pub struct Request<'r, B: 'r> {
+    parts: RequestParts<'r>,
+    body: B,
+}
+
+impl<'r, B: Default + 'r> Request<'r, B> {
+    // 返回 HTTP 响应构建器
+    #[inline]
+    pub fn builder() -> RequestBuilder<'r, B> {
+        RequestBuilder::default()
+    }
+}
+
+impl<'r, B: 'r> Request<'r, B> {
+    /// 请求体
+    #[inline]
+    pub fn body(&self) -> &B {
+        &self.body
+    }
+
+    /// 修改请求体
+    #[inline]
+    pub fn body_mut(&mut self) -> &mut B {
+        &mut self.body
+    }
+
+    /// 直接获取 HTTP 请求体
+    #[inline]
+    pub fn into_body(self) -> B {
+        self.body
+    }
+
+    #[inline]
+    pub fn into_parts(self) -> (RequestParts<'r>, B) {
+        let Self { parts, body } = self;
+        (parts, body)
+    }
+
+    #[inline]
+    pub fn from_parts<B2>(parts: RequestParts<'r>, body: B2) -> Request<'r, B2> {
+        Request { parts, body }
+    }
+}
+
+impl<'r, B: Send + Sync + 'r> Request<'r, B> {
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
+}
+
+impl<'r, B: 'r> Deref for Request<'r, B> {
+    type Target = RequestParts<'r>;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.parts
+    }
+}
+
+impl<'r, B: 'r> DerefMut for Request<'r, B> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.parts
     }
 }
 
@@ -262,13 +306,6 @@ pub struct RequestBuilder<'r, B> {
 }
 
 impl<'r, B: 'r> RequestBuilder<'r, B> {
-    /// 设置 HTTP 请求
-    #[inline]
-    pub fn http(&mut self, request: HTTPRequest<B>) -> &mut Self {
-        self.inner.inner = request;
-        self
-    }
-
     /// 设置请求 URL
     #[inline]
     pub fn url(&mut self, url: Uri) -> &mut Self {
@@ -313,7 +350,7 @@ impl<'r, B: 'r> RequestBuilder<'r, B> {
     /// 设置用户代理
     #[inline]
     pub fn appended_user_agent(&mut self, user_agent: impl Into<UserAgent>) -> &mut Self {
-        self.inner.appended_user_agent = user_agent.into();
+        *self.inner.appended_user_agent_mut() = user_agent.into();
         self
     }
 
@@ -323,28 +360,28 @@ impl<'r, B: 'r> RequestBuilder<'r, B> {
         &mut self,
         resolved_ip_addrs: impl Into<Cow<'r, [IpAddr]>>,
     ) -> &mut Self {
-        self.inner.resolved_ip_addrs = Some(resolved_ip_addrs.into());
+        *self.inner.resolved_ip_addrs_mut() = Some(resolved_ip_addrs.into());
         self
     }
 
     /// 设置上传进度回调
     #[inline]
     pub fn on_uploading_progress(&mut self, f: OnProgress<'r>) -> &mut Self {
-        self.inner.on_uploading_progress = Some(f);
+        *self.inner.on_uploading_progress_mut() = Some(f);
         self
     }
 
     /// 接受到响应状态回调
     #[inline]
     pub fn on_receive_response_status(&mut self, f: OnStatusCode<'r>) -> &mut Self {
-        self.inner.on_receive_response_status = Some(f);
+        *self.inner.on_receive_response_status_mut() = Some(f);
         self
     }
 
     /// 接受到响应 Header 回调
     #[inline]
     pub fn on_receive_response_header(&mut self, f: OnHeader<'r>) -> &mut Self {
-        self.inner.on_receive_response_header = Some(f);
+        *self.inner.on_receive_response_header_mut() = Some(f);
         self
     }
 }
