@@ -1,7 +1,8 @@
 use qiniu_http::{
     header::{CONTENT_LENGTH, USER_AGENT},
-    HTTPCaller, HeaderName, HeaderValue, Request, ResponseError, ResponseErrorKind, StatusCode,
-    SyncRequest, SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo, Version,
+    HTTPCaller, HeaderName, HeaderValue, RequestParts, ResponseError, ResponseErrorKind,
+    StatusCode, SyncRequest, SyncResponse, SyncResponseBody, SyncResponseResult,
+    TransferProgressInfo, Version,
 };
 use std::{
     error::Error,
@@ -73,7 +74,7 @@ impl HTTPCaller for Client {
 }
 
 #[inline]
-fn make_user_agent<B>(request: &Request<B>) -> Result<HeaderValue, ResponseError> {
+fn make_user_agent(request: &RequestParts) -> Result<HeaderValue, ResponseError> {
     let user_agent = format!("{}/qiniu-http-ureq", request.user_agent());
     HeaderValue::from_str(&user_agent)
         .map_err(|err| build_header_value_error(request, &user_agent, err))
@@ -133,8 +134,8 @@ fn make_ureq_sync_response(response: UreqResponse, request: &SyncRequest) -> Syn
     }
 }
 
-fn add_extensions_to_request_builder<B>(
-    request: &Request<B>,
+fn add_extensions_to_request_builder(
+    request: &RequestParts,
     mut request_builder: UreqRequest,
 ) -> UreqRequest {
     use super::extensions::TimeoutExtension;
@@ -146,8 +147,8 @@ fn add_extensions_to_request_builder<B>(
     request_builder
 }
 
-fn call_response_callbacks<B>(
-    request: &Request<B>,
+fn call_response_callbacks(
+    request: &RequestParts,
     response: &UreqResponse,
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
@@ -172,7 +173,7 @@ fn call_response_callbacks<B>(
 }
 
 #[inline]
-fn build_on_receive_response_status_error<B>(request: &Request<B>) -> ResponseError {
+fn build_on_receive_response_status_error(request: &RequestParts) -> ResponseError {
     ResponseError::builder(
         ResponseErrorKind::UserCanceled,
         "on_receive_response_status() returns false",
@@ -182,7 +183,7 @@ fn build_on_receive_response_status_error<B>(request: &Request<B>) -> ResponseEr
 }
 
 #[inline]
-fn build_on_receive_response_header_error<B>(request: &Request<B>) -> ResponseError {
+fn build_on_receive_response_header_error(request: &RequestParts) -> ResponseError {
     ResponseError::builder(
         ResponseErrorKind::UserCanceled,
         "on_receive_response_header() returns false",
@@ -192,7 +193,7 @@ fn build_on_receive_response_header_error<B>(request: &Request<B>) -> ResponseEr
 }
 
 #[inline]
-fn build_status_code_error<B>(request: &Request<B>, code: u16, err: impl Error) -> ResponseError {
+fn build_status_code_error(request: &RequestParts, code: u16, err: impl Error) -> ResponseError {
     ResponseError::builder(
         ResponseErrorKind::InvalidRequestResponse,
         format!("invalid status code({}): {}", code, err),
@@ -202,8 +203,8 @@ fn build_status_code_error<B>(request: &Request<B>, code: u16, err: impl Error) 
 }
 
 #[inline]
-fn build_header_name_error<B>(
-    request: &Request<B>,
+fn build_header_name_error(
+    request: &RequestParts,
     header_name: &str,
     err: impl Error,
 ) -> ResponseError {
@@ -216,8 +217,8 @@ fn build_header_name_error<B>(
 }
 
 #[inline]
-fn build_header_value_error<B>(
-    request: &Request<B>,
+fn build_header_value_error(
+    request: &RequestParts,
     header_value: &str,
     err: impl Error,
 ) -> ResponseError {
@@ -230,8 +231,8 @@ fn build_header_value_error<B>(
 }
 
 #[inline]
-fn convert_header_value_error<B>(
-    request: &Request<B>,
+fn convert_header_value_error(
+    request: &RequestParts,
     header_value: &HeaderValue,
     err: impl Error,
 ) -> ResponseError {
@@ -244,9 +245,9 @@ fn convert_header_value_error<B>(
 }
 
 #[inline]
-fn set_header_for_request_builder<B>(
+fn set_header_for_request_builder(
     request_builder: UreqRequest,
-    request: &Request<B>,
+    request: &RequestParts,
     header_name: &HeaderName,
     header_value: &HeaderValue,
 ) -> Result<UreqRequest, ResponseError> {
@@ -259,16 +260,16 @@ fn set_header_for_request_builder<B>(
 }
 
 #[inline]
-fn status_code_of_response<B>(
+fn status_code_of_response(
     response: &UreqResponse,
-    request: &Request<B>,
+    request: &RequestParts,
 ) -> Result<StatusCode, ResponseError> {
     StatusCode::from_u16(response.status())
         .map_err(|err| build_status_code_error(request, response.status(), err))
 }
 
 #[inline]
-fn parse_http_version<B>(version: &str, request: &Request<B>) -> Result<Version, ResponseError> {
+fn parse_http_version(version: &str, request: &RequestParts) -> Result<Version, ResponseError> {
     match version {
         "HTTP/0.9" => Ok(Version::HTTP_09),
         "HTTP/1.0" => Ok(Version::HTTP_10),
@@ -285,10 +286,10 @@ fn parse_http_version<B>(version: &str, request: &Request<B>) -> Result<Version,
 }
 
 #[inline]
-fn from_ureq_error<B>(
+fn from_ureq_error(
     kind: UreqErrorKind,
     err: impl Error + Send + Sync + 'static,
-    request: &Request<B>,
+    request: &RequestParts,
 ) -> ResponseError {
     let response_error_kind = match kind {
         UreqErrorKind::InvalidUrl => ResponseErrorKind::InvalidURL,

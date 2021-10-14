@@ -1,6 +1,6 @@
 use super::extensions::TimeoutExtension;
 use qiniu_http::{
-    HTTPCaller, HeaderMap, HeaderValue, Request, ResponseError, ResponseErrorKind, StatusCode,
+    HTTPCaller, HeaderMap, HeaderValue, RequestParts, ResponseError, ResponseErrorKind, StatusCode,
     SyncRequest, SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo,
 };
 use reqwest::{
@@ -142,8 +142,8 @@ fn make_sync_reqwest_request(
 }
 
 #[inline]
-pub(super) fn make_user_agent<B>(
-    request: &Request<B>,
+pub(super) fn make_user_agent(
+    request: &RequestParts,
     suffix: &str,
 ) -> Result<HeaderValue, ResponseError> {
     HeaderValue::from_str(&format!(
@@ -185,7 +185,7 @@ fn from_sync_response(
     Ok(response_builder.build())
 }
 
-pub(super) fn from_reqwest_error<B>(err: ReqwestError, request: &Request<B>) -> ResponseError {
+pub(super) fn from_reqwest_error(err: ReqwestError, request: &RequestParts) -> ResponseError {
     if err.url().is_some() {
         ResponseError::builder(ResponseErrorKind::InvalidURL, err)
             .uri(request.url())
@@ -214,8 +214,8 @@ pub(super) fn from_reqwest_error<B>(err: ReqwestError, request: &Request<B>) -> 
 }
 
 #[inline]
-pub(super) fn call_response_callbacks<B>(
-    request: &Request<B>,
+pub(super) fn call_response_callbacks(
+    request: &RequestParts,
     status_code: StatusCode,
     headers: &HeaderMap,
 ) -> Result<(), ResponseError> {

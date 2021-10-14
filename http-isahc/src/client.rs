@@ -6,8 +6,8 @@ use isahc::{
     Response as IsahcResponse, ResponseExt,
 };
 use qiniu_http::{
-    HTTPCaller, HeaderValue, Metrics, Request, ResponseError, ResponseErrorKind, SyncRequest,
-    SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo, Uri,
+    HTTPCaller, HeaderValue, Metrics, Request, RequestParts, ResponseError, ResponseErrorKind,
+    SyncRequest, SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo, Uri,
 };
 use std::{
     io::{Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
@@ -175,7 +175,7 @@ impl HTTPCaller for Client {
 }
 
 #[inline]
-fn make_user_agent<B>(request: &Request<B>) -> Result<HeaderValue, ResponseError> {
+fn make_user_agent(request: &RequestParts) -> Result<HeaderValue, ResponseError> {
     HeaderValue::from_str(&format!(
         "{}/qiniu-http-{}",
         request.user_agent(),
@@ -486,8 +486,8 @@ fn make_async_isahc_request(
 }
 
 #[inline]
-fn add_extensions_to_isahc_request_builder<B>(
-    request: &Request<B>,
+fn add_extensions_to_isahc_request_builder(
+    request: &RequestParts,
     ip_addr: Option<IpAddr>,
     mut isahc_request_builder: IsahcRequestBuilder,
 ) -> Result<IsahcRequestBuilder, ResponseError> {
@@ -660,7 +660,7 @@ fn add_extensions_to_isahc_request_builder<B>(
 }
 
 #[inline]
-fn from_isahc_error<B>(err: IsahcError, request: &Request<B>) -> ResponseError {
+fn from_isahc_error(err: IsahcError, request: &RequestParts) -> ResponseError {
     let error_builder = match err.kind() {
         IsahcErrorKind::BadClientCertificate => {
             ResponseError::builder(ResponseErrorKind::ClientCertError, err)
