@@ -1,16 +1,14 @@
 use super::{
-    regions_cache::{CacheKey, RegionsCache},
-    {
+    super::{
         super::{
-            super::{
-                APIResult, CacheController, HTTPClient, PersistentResult, ResponseError,
-                ResponseErrorKind,
-            },
-            Endpoints, ServiceName,
+            APIResult, CacheController, HTTPClient, PersistentResult, ResponseError,
+            ResponseErrorKind,
         },
-        structs::ResponseBody,
-        Region, RegionProvider,
+        Endpoints, ServiceName,
     },
+    regions_cache::{CacheKey, RegionsCache},
+    structs::ResponseBody,
+    GetOptions, GotRegion, GotRegions, Region, RegionProvider,
 };
 use qiniu_credential::AccessKey;
 use qiniu_upload_token::BucketName;
@@ -161,41 +159,46 @@ struct BucketRegionsProviderInner {
 }
 
 impl RegionProvider for BucketRegionsProvider {
-    fn get(&self) -> APIResult<Region> {
-        self.get_all().map(|regions| {
+    fn get(&self, opts: &GetOptions) -> APIResult<GotRegion> {
+        self.get_all(opts).map(|regions| {
             regions
+                .into_regions()
                 .into_iter()
                 .next()
                 .expect("Regions Query API returns empty regions")
+                .into()
         })
     }
 
     #[inline]
-    fn get_all(&self) -> APIResult<Vec<Region>> {
+    fn get_all(&self, _opts: &GetOptions) -> APIResult<GotRegions> {
         let provider = self.to_owned();
         self.inner
             .queryer
             .inner
             .cache
             .get(&self.inner.cache_key, move || provider.do_sync_query())
+            .map(GotRegions::from)
     }
 
     /// 异步返回七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_get(&self) -> BoxFuture<APIResult<Region>> {
+    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegion>> {
         let provider = self.to_owned();
-        Box::pin(async move { spawn(async move { provider.get() }).await })
+        let opts = opts.to_owned();
+        Box::pin(async move { spawn(async move { provider.get(&opts) }).await })
     }
 
     /// 异步返回多个七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_get_all(&self) -> BoxFuture<APIResult<Vec<Region>>> {
+    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegions>> {
         let provider = self.to_owned();
-        Box::pin(async move { spawn(async move { provider.get_all() }).await })
+        let opts = opts.to_owned();
+        Box::pin(async move { spawn(async move { provider.get_all(&opts) }).await })
     }
 
     #[inline]
@@ -311,7 +314,11 @@ mod tests {
 
             for _ in 0..2 {
                 let provider = queryer.query(ACCESS_KEY, BUCKET_NAME);
-                let mut regions = provider.async_get_all().await?.into_iter();
+                let mut regions = provider
+                    .async_get_all(&Default::default())
+                    .await?
+                    .into_regions()
+                    .into_iter();
                 assert_eq!(regions.len(), 2);
                 let region = regions.next().unwrap();
                 assert_eq!(region.region_id(), "z0");

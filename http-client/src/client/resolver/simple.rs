@@ -1,4 +1,4 @@
-use super::{super::ResponseError, ResolveAnswers, ResolveResult, Resolver};
+use super::{super::ResponseError, ResolveOptions, ResolveResult, Resolver};
 use dns_lookup::lookup_host;
 use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
 use std::any::Any;
@@ -8,11 +8,10 @@ pub struct SimpleResolver;
 
 impl Resolver for SimpleResolver {
     #[inline]
-    fn resolve(&self, domain: &str) -> ResolveResult {
-        let ip_addrs = lookup_host(domain)
-            .map(|ips| ips.into_boxed_slice())
-            .map_err(|err| ResponseError::new(HTTPResponseErrorKind::DNSServerError.into(), err))?;
-        Ok(ResolveAnswers::new(ip_addrs))
+    fn resolve(&self, domain: &str, _opts: &ResolveOptions) -> ResolveResult {
+        lookup_host(domain)
+            .map(|ips| ips.into_boxed_slice().into())
+            .map_err(|err| ResponseError::new(HTTPResponseErrorKind::DNSServerError.into(), err))
     }
 
     #[inline]
@@ -45,7 +44,7 @@ mod tests {
     #[test]
     fn test_simple_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = SimpleResolver;
-        let ips = resolver.resolve(DOMAIN)?;
+        let ips = resolver.resolve(DOMAIN, &Default::default())?;
         assert!(is_subset_of(IPS, ips.ip_addrs()));
         Ok(())
     }

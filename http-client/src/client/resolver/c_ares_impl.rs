@@ -3,7 +3,7 @@ pub use c_ares;
 #[cfg_attr(feature = "docs", doc(cfg(c_ares)))]
 pub use c_ares_resolver;
 
-use super::{super::ResponseError, ResolveAnswers, ResolveResult, Resolver};
+use super::{super::ResponseError, ResolveOptions, ResolveResult, Resolver};
 use c_ares::{
     AddressFamily::{INET, INET6},
     Error as CAresError, HostResults as CAresHostResults,
@@ -72,7 +72,7 @@ impl fmt::Debug for CAresResolver {
 }
 
 impl Resolver for CAresResolver {
-    fn resolve(&self, domain: &str) -> ResolveResult {
+    fn resolve(&self, domain: &str, _opts: &ResolveOptions) -> ResolveResult {
         let (tx, rx) = mpsc::channel();
         let tx2 = tx.to_owned();
 
@@ -99,10 +99,10 @@ impl Resolver for CAresResolver {
             (Ok(ip_addrs_1), Ok(ip_addrs_2)) => {
                 let mut ip_addrs = ip_addrs_1.to_vec();
                 ip_addrs.extend_from_slice(&ip_addrs_2);
-                Ok(ResolveAnswers::new(ip_addrs.into_boxed_slice()))
+                Ok(ip_addrs.into_boxed_slice().into())
             }
-            (Ok(ip_addrs), _) => Ok(ResolveAnswers::new(ip_addrs)),
-            (_, Ok(ip_addrs)) => Ok(ResolveAnswers::new(ip_addrs)),
+            (Ok(ip_addrs), _) => Ok(ip_addrs.into()),
+            (_, Ok(ip_addrs)) => Ok(ip_addrs.into()),
             (Err(err), _) => Err(err),
         }
     }
@@ -110,7 +110,11 @@ impl Resolver for CAresResolver {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_resolve<'a>(&'a self, domain: &'a str) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(
+        &'a self,
+        domain: &'a str,
+        _opts: &'a ResolveOptions,
+    ) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             let task1 = self.future_resolver.get_host_by_name(domain, INET);
             let task2 = self.future_resolver.get_host_by_name(domain, INET6);
@@ -126,10 +130,10 @@ impl Resolver for CAresResolver {
                 (Ok(ip_addrs_1), Ok(ip_addrs_2)) => {
                     let mut ip_addrs = ip_addrs_1.to_vec();
                     ip_addrs.extend_from_slice(&ip_addrs_2);
-                    Ok(ResolveAnswers::new(ip_addrs.into_boxed_slice()))
+                    Ok(ip_addrs.into_boxed_slice().into())
                 }
-                (Ok(ip_addrs), _) => Ok(ResolveAnswers::new(ip_addrs)),
-                (_, Ok(ip_addrs)) => Ok(ResolveAnswers::new(ip_addrs)),
+                (Ok(ip_addrs), _) => Ok(ip_addrs.into()),
+                (_, Ok(ip_addrs)) => Ok(ip_addrs.into()),
                 (Err(err), _) => Err(err),
             }
         })
@@ -186,7 +190,7 @@ mod tests {
     #[test]
     fn test_c_ares_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = CAresResolver::new()?;
-        let ips = resolver.resolve(DOMAIN)?;
+        let ips = resolver.resolve(DOMAIN, &Default::default())?;
         assert!(is_subset_of(IPS, ips.ip_addrs()));
         Ok(())
     }
@@ -194,7 +198,7 @@ mod tests {
     #[tokio::test]
     async fn test_async_c_ares_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = CAresResolver::new()?;
-        let ips = resolver.async_resolve(DOMAIN).await?;
+        let ips = resolver.async_resolve(DOMAIN, &Default::default()).await?;
         assert!(is_subset_of(IPS, ips.ip_addrs()));
         Ok(())
     }

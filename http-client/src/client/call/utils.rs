@@ -2,7 +2,7 @@ use super::{
     super::{
         super::{DomainWithPort, Endpoint, IpAddrWithPort},
         CallbackContextImpl, ExtendedCallbackContextImpl, RequestWithoutEndpoints, ResolveAnswers,
-        ResponseError, ResponseInfo, RetriedStatsInfo, RetryResult, SimplifiedCallbackContext,
+        ResponseError, ResponseInfo, RetriedStatsInfo, RetryDecision, SimplifiedCallbackContext,
     },
     domain_or_ip_addr::DomainOrIpAddr,
     error::TryError,
@@ -46,7 +46,7 @@ pub(super) fn make_url(
     return _make_url(domain_or_ip, request).map_err(|err| {
         TryError::new(
             ResponseError::new(HTTPResponseErrorKind::InvalidURL.into(), err),
-            RetryResult::TryNextServer,
+            RetryDecision::TryNextServer,
         )
     });
 
@@ -123,7 +123,7 @@ pub(super) fn call_before_backoff_callbacks(
                 HTTPResponseErrorKind::UserCanceled.into(),
                 "on_before_backoff() callback returns false",
             ),
-            RetryResult::DontRetry,
+            RetryDecision::DontRetry,
         ));
     }
     Ok(())
@@ -145,7 +145,7 @@ pub(super) fn call_after_backoff_callbacks(
                 HTTPResponseErrorKind::UserCanceled.into(),
                 "on_after_backoff() callback returns false",
             ),
-            RetryResult::DontRetry,
+            RetryDecision::DontRetry,
         ));
     }
     Ok(())
@@ -164,7 +164,7 @@ pub(super) fn call_to_resolve_domain_callbacks(
                 HTTPResponseErrorKind::UserCanceled.into(),
                 "on_to_resolve_domain_callbacks() callback returns false",
             ),
-            RetryResult::DontRetry,
+            RetryDecision::DontRetry,
         ));
     }
     Ok(())
@@ -184,7 +184,7 @@ pub(super) fn call_domain_resolved_callbacks(
                 HTTPResponseErrorKind::UserCanceled.into(),
                 "on_domain_resolved_callbacks() callback returns false",
             ),
-            RetryResult::DontRetry,
+            RetryDecision::DontRetry,
         ));
     }
     Ok(())
@@ -203,7 +203,7 @@ pub(super) fn call_to_choose_ips_callbacks(
                 HTTPResponseErrorKind::UserCanceled.into(),
                 "on_to_choose_ips_callbacks() callback returns false",
             ),
-            RetryResult::DontRetry,
+            RetryDecision::DontRetry,
         ));
     }
     Ok(())
@@ -223,7 +223,7 @@ pub(super) fn call_ips_chosen_callbacks(
                 HTTPResponseErrorKind::UserCanceled.into(),
                 "on_ips_chosen_callbacks() callback returns false",
             ),
-            RetryResult::DontRetry,
+            RetryDecision::DontRetry,
         ));
     }
     Ok(())
@@ -242,7 +242,7 @@ pub(super) fn call_before_request_signed_callbacks(
                 HTTPResponseErrorKind::UserCanceled.into(),
                 "on_before_request_signed() callback returns false",
             ),
-            RetryResult::DontRetry,
+            RetryDecision::DontRetry,
         ));
     }
     Ok(())
@@ -261,7 +261,7 @@ pub(super) fn call_after_request_signed_callbacks(
                 HTTPResponseErrorKind::UserCanceled.into(),
                 "on_after_request_signed() callback returns false",
             ),
-            RetryResult::DontRetry,
+            RetryDecision::DontRetry,
         ));
     }
     Ok(())
@@ -281,7 +281,7 @@ pub(super) fn call_success_callbacks(
                 HTTPResponseErrorKind::UserCanceled.into(),
                 "on_success() callback returns false",
             ),
-            RetryResult::DontRetry,
+            RetryDecision::DontRetry,
         ));
     }
     Ok(())
@@ -301,7 +301,7 @@ pub(super) fn call_error_callbacks(
                 HTTPResponseErrorKind::UserCanceled.into(),
                 "on_error() callback returns false",
             ),
-            RetryResult::DontRetry,
+            RetryDecision::DontRetry,
         ));
     }
     Ok(())

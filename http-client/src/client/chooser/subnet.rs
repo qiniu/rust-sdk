@@ -1,6 +1,6 @@
 use super::{
     super::super::{regions::IpAddrWithPort, spawn::spawn},
-    Chooser, ChooserFeedback,
+    ChooseOptions, Chooser, ChooserFeedback, ChosenResults,
 };
 use dashmap::DashMap;
 pub use ipnet::PrefixLenError;
@@ -73,7 +73,7 @@ impl SubnetChooser {
 
 impl Chooser for SubnetChooser {
     #[inline]
-    fn choose(&self, ips: &[IpAddrWithPort]) -> Vec<IpAddrWithPort> {
+    fn choose(&self, ips: &[IpAddrWithPort], _opts: &ChooseOptions) -> ChosenResults {
         let mut need_to_shrink = false;
         let mut ip_network_map: HashMap<IpAddrWithPort, Vec<IpAddrWithPort>> = Default::default();
         for &ip in ips.iter() {
@@ -97,7 +97,7 @@ impl Chooser for SubnetChooser {
         let chosen_ips =
             choose_group(ip_network_map.into_iter().map(|(_, ips)| ips)).unwrap_or_default();
         do_some_work_async(&self.inner, need_to_shrink);
-        return chosen_ips;
+        return chosen_ips.into();
 
         /// For production, choose any subnet by random
         #[cfg(not(test))]
@@ -324,7 +324,12 @@ mod tests {
         let all_ips = [SUBNET_1, SUBNET_2].concat();
 
         let subnet_chooser = SubnetChooser::default();
-        assert_eq!(subnet_chooser.choose(&all_ips), SUBNET_1.to_vec());
+        assert_eq!(
+            subnet_chooser
+                .choose(&all_ips, &Default::default())
+                .into_ip_addrs(),
+            SUBNET_1.to_vec()
+        );
         subnet_chooser.feedback(ChooserFeedback::new(
             &[IpAddrWithPort::new(
                 IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
@@ -337,7 +342,12 @@ mod tests {
                 "Test Error",
             )),
         ));
-        assert_eq!(subnet_chooser.choose(&all_ips), SUBNET_2.to_vec(),);
+        assert_eq!(
+            subnet_chooser
+                .choose(&all_ips, &Default::default())
+                .into_ip_addrs(),
+            SUBNET_2.to_vec()
+        );
 
         subnet_chooser.feedback(ChooserFeedback::new(
             &[IpAddrWithPort::new(
@@ -351,7 +361,12 @@ mod tests {
                 "Test Error",
             )),
         ));
-        assert_eq!(subnet_chooser.choose(&all_ips), vec![]);
+        assert_eq!(
+            subnet_chooser
+                .choose(&all_ips, &Default::default())
+                .into_ip_addrs(),
+            vec![]
+        );
 
         subnet_chooser.feedback(ChooserFeedback::new(
             &[
@@ -362,7 +377,12 @@ mod tests {
             None,
             None,
         ));
-        assert_eq!(subnet_chooser.choose(&all_ips), SUBNET_1.to_vec(),);
+        assert_eq!(
+            subnet_chooser
+                .choose(&all_ips, &Default::default())
+                .into_ip_addrs(),
+            SUBNET_1.to_vec(),
+        );
     }
 
     #[test]
@@ -375,7 +395,12 @@ mod tests {
             .shrink_interval(Duration::from_millis(500))
             .build();
 
-        assert_eq!(subnet_chooser.choose(&all_ips), SUBNET_1.to_vec());
+        assert_eq!(
+            subnet_chooser
+                .choose(&all_ips, &Default::default())
+                .into_ip_addrs(),
+            SUBNET_1.to_vec()
+        );
         subnet_chooser.feedback(ChooserFeedback::new(
             &[IpAddrWithPort::new(
                 IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
@@ -388,10 +413,20 @@ mod tests {
                 "Test Error",
             )),
         ));
-        assert_eq!(subnet_chooser.choose(&all_ips), SUBNET_2.to_vec(),);
+        assert_eq!(
+            subnet_chooser
+                .choose(&all_ips, &Default::default())
+                .into_ip_addrs(),
+            SUBNET_2.to_vec(),
+        );
 
         sleep(Duration::from_secs(1));
-        assert_eq!(subnet_chooser.choose(&all_ips), SUBNET_1.to_vec());
+        assert_eq!(
+            subnet_chooser
+                .choose(&all_ips, &Default::default())
+                .into_ip_addrs(),
+            SUBNET_1.to_vec()
+        );
 
         sleep(Duration::from_millis(500));
         assert_eq!(subnet_chooser.len(), 0);

@@ -1,4 +1,6 @@
-use super::{super::super::regions::IpAddrWithPort, Chooser, ChooserFeedback};
+use super::{
+    super::super::regions::IpAddrWithPort, ChooseOptions, Chooser, ChooserFeedback, ChosenResults,
+};
 use num_rational::Ratio;
 use rand::{prelude::*, thread_rng};
 use std::any::Any;
@@ -33,10 +35,10 @@ impl<C: Default> Default for NeverEmptyHandedChooser<C> {
 
 impl<C: Chooser> Chooser for NeverEmptyHandedChooser<C> {
     #[inline]
-    fn choose(&self, ips: &[IpAddrWithPort]) -> Vec<IpAddrWithPort> {
-        let chosen = self.inner_chooser.choose(ips);
+    fn choose(&self, ips: &[IpAddrWithPort], opts: &ChooseOptions) -> ChosenResults {
+        let chosen = self.inner_chooser.choose(ips, opts);
         if chosen.is_empty() {
-            self.random_choose(ips)
+            self.random_choose(ips).into()
         } else {
             chosen
         }
@@ -50,11 +52,15 @@ impl<C: Chooser> Chooser for NeverEmptyHandedChooser<C> {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort]) -> BoxFuture<'a, Vec<IpAddrWithPort>> {
+    fn async_choose<'a>(
+        &'a self,
+        ips: &'a [IpAddrWithPort],
+        opts: &'a ChooseOptions,
+    ) -> BoxFuture<'a, ChosenResults> {
         Box::pin(async move {
-            let chosen = self.inner_chooser.async_choose(ips).await;
+            let chosen = self.inner_chooser.async_choose(ips, opts).await;
             if chosen.is_empty() {
-                self.random_choose(ips)
+                self.random_choose(ips).into()
             } else {
                 chosen
             }
@@ -112,7 +118,9 @@ mod tests {
 
         let ip_chooser: NeverEmptyHandedChooser<IpChooser> = Default::default();
         assert_eq!(
-            ip_chooser.choose(IPS_WITHOUT_PORT),
+            ip_chooser
+                .choose(IPS_WITHOUT_PORT, &Default::default())
+                .into_ip_addrs(),
             IPS_WITHOUT_PORT.to_vec()
         );
         ip_chooser.feedback(ChooserFeedback::new(
@@ -128,7 +136,9 @@ mod tests {
             )),
         ));
         assert_eq!(
-            ip_chooser.choose(IPS_WITHOUT_PORT),
+            ip_chooser
+                .choose(IPS_WITHOUT_PORT, &Default::default())
+                .into_ip_addrs(),
             [IpAddrWithPort::new(
                 IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
                 None
@@ -146,6 +156,12 @@ mod tests {
             )),
         ));
 
-        assert_eq!(ip_chooser.choose(IPS_WITHOUT_PORT).len(), 2);
+        assert_eq!(
+            ip_chooser
+                .choose(IPS_WITHOUT_PORT, &Default::default())
+                .into_ip_addrs()
+                .len(),
+            2
+        );
     }
 }

@@ -1,4 +1,4 @@
-use super::{Chooser, ChooserFeedback, IpAddrWithPort};
+use super::{ChooseOptions, Chooser, ChooserFeedback, ChosenResults, IpAddrWithPort};
 use std::any::Any;
 
 #[cfg(feature = "async")]
@@ -9,8 +9,8 @@ pub struct DirectChooser;
 
 impl Chooser for DirectChooser {
     #[inline]
-    fn choose(&self, ips: &[IpAddrWithPort]) -> Vec<IpAddrWithPort> {
-        ips.to_owned()
+    fn choose(&self, ips: &[IpAddrWithPort], _opts: &ChooseOptions) -> ChosenResults {
+        ips.to_owned().into()
     }
 
     #[inline]
@@ -19,8 +19,12 @@ impl Chooser for DirectChooser {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort]) -> BoxFuture<'a, Vec<IpAddrWithPort>> {
-        Box::pin(async move { self.choose(ips) })
+    fn async_choose<'a>(
+        &'a self,
+        ips: &'a [IpAddrWithPort],
+        opts: &'a ChooseOptions,
+    ) -> BoxFuture<'a, ChosenResults> {
+        Box::pin(async move { self.choose(ips, opts) })
     }
 
     #[inline]
@@ -79,8 +83,18 @@ mod tests {
     #[test]
     fn test_direct_chooser() -> Result<()> {
         let chooser = DirectChooser;
-        assert_eq!(chooser.choose(&IPS_WITHOUT_PORT), IPS_WITHOUT_PORT.to_vec(),);
-        assert_eq!(chooser.choose(&IPS_WITH_PORT), IPS_WITH_PORT.to_vec(),);
+        assert_eq!(
+            chooser
+                .choose(&IPS_WITHOUT_PORT, &Default::default())
+                .into_ip_addrs(),
+            IPS_WITHOUT_PORT.to_vec(),
+        );
+        assert_eq!(
+            chooser
+                .choose(&IPS_WITH_PORT, &Default::default())
+                .into_ip_addrs(),
+            IPS_WITH_PORT.to_vec(),
+        );
         Ok(())
     }
 
@@ -89,11 +103,17 @@ mod tests {
     async fn async_test_direct_chooser() -> Result<()> {
         let chooser = DirectChooser;
         assert_eq!(
-            chooser.async_choose(&IPS_WITHOUT_PORT).await,
+            chooser
+                .async_choose(&IPS_WITHOUT_PORT, &Default::default())
+                .await
+                .into_ip_addrs(),
             IPS_WITHOUT_PORT.to_vec(),
         );
         assert_eq!(
-            chooser.async_choose(&IPS_WITH_PORT).await,
+            chooser
+                .async_choose(&IPS_WITH_PORT, &Default::default())
+                .await
+                .into_ip_addrs(),
             IPS_WITH_PORT.to_vec(),
         );
         Ok(())

@@ -46,13 +46,17 @@ impl Authorization {
     /// 使用指定的鉴权方式对 HTTP 请求进行签名
     pub fn sign(&self, request: &mut Request) -> AuthorizationResult<()> {
         let authorization = match &self.inner {
-            AuthorizationInner::UpToken(provider) => uptoken_authorization(&provider.to_string()?),
-            AuthorizationInner::V1(provider) => {
-                authorization_v1_for_request(&provider.get()?, request)?
+            AuthorizationInner::UpToken(provider) => {
+                uptoken_authorization(&provider.to_token_string(&Default::default())?)
             }
-            AuthorizationInner::V2(provider) => {
-                authorization_v2_for_request(&provider.get()?, request)?
-            }
+            AuthorizationInner::V1(provider) => authorization_v1_for_request(
+                provider.get(&Default::default())?.credential(),
+                request,
+            )?,
+            AuthorizationInner::V2(provider) => authorization_v2_for_request(
+                provider.get(&Default::default())?.credential(),
+                request,
+            )?,
         };
         set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
         Ok(())
@@ -64,14 +68,16 @@ impl Authorization {
     pub async fn async_sign(&self, request: &mut Request<'_>) -> AuthorizationResult<()> {
         let authorization = match &self.inner {
             AuthorizationInner::UpToken(provider) => {
-                uptoken_authorization(&provider.async_to_string().await?)
+                uptoken_authorization(&provider.async_to_token_string(&Default::default()).await?)
             }
-            AuthorizationInner::V1(provider) => {
-                authorization_v1_for_request(&provider.async_get().await?, request)?
-            }
-            AuthorizationInner::V2(provider) => {
-                authorization_v2_for_request(&provider.async_get().await?, request)?
-            }
+            AuthorizationInner::V1(provider) => authorization_v1_for_request(
+                provider.async_get(&Default::default()).await?.credential(),
+                request,
+            )?,
+            AuthorizationInner::V2(provider) => authorization_v2_for_request(
+                provider.async_get(&Default::default()).await?.credential(),
+                request,
+            )?,
         };
         set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
         Ok(())

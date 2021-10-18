@@ -6,19 +6,28 @@ mod timeout;
 
 use super::{super::CacheController, APIResult};
 use serde::{Deserialize, Serialize};
-use std::{any::Any, fmt::Debug, net::IpAddr};
+use std::{
+    any::Any,
+    fmt::Debug,
+    net::IpAddr,
+    ops::{Deref, DerefMut},
+};
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
 pub trait Resolver: Any + Debug + Sync + Send {
-    fn resolve(&self, domain: &str) -> ResolveResult;
+    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult;
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_resolve<'a>(&'a self, domain: &'a str) -> BoxFuture<'a, ResolveResult> {
-        Box::pin(async move { self.resolve(domain) })
+    fn async_resolve<'a>(
+        &'a self,
+        domain: &'a str,
+        opts: &'a ResolveOptions,
+    ) -> BoxFuture<'a, ResolveResult> {
+        Box::pin(async move { self.resolve(domain, opts) })
     }
 
     fn as_any(&self) -> &dyn Any;
@@ -28,30 +37,84 @@ pub trait Resolver: Any + Debug + Sync + Send {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct ResolveOptions {}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ResolveAnswers {
-    ip_addrs: Box<[IpAddr]>,
-}
+pub struct ResolveAnswers(Box<[IpAddr]>);
 
 impl ResolveAnswers {
     #[inline]
-    pub fn new(ip_addrs: Box<[IpAddr]>) -> Self {
-        Self { ip_addrs }
-    }
-
-    #[inline]
     pub fn ip_addrs(&self) -> &[IpAddr] {
-        &self.ip_addrs
+        &self.0
     }
 
     #[inline]
     pub fn ip_addrs_mut(&mut self) -> &mut Box<[IpAddr]> {
-        &mut self.ip_addrs
+        &mut self.0
     }
 
     #[inline]
     pub fn into_ip_addrs(self) -> Box<[IpAddr]> {
-        self.ip_addrs
+        self.0
+    }
+}
+
+impl From<Box<[IpAddr]>> for ResolveAnswers {
+    #[inline]
+    fn from(ip_addrs: Box<[IpAddr]>) -> Self {
+        Self(ip_addrs)
+    }
+}
+
+impl From<Vec<IpAddr>> for ResolveAnswers {
+    #[inline]
+    fn from(ip_addrs: Vec<IpAddr>) -> Self {
+        Self(ip_addrs.into_boxed_slice())
+    }
+}
+
+impl From<ResolveAnswers> for Box<[IpAddr]> {
+    #[inline]
+    fn from(answers: ResolveAnswers) -> Self {
+        answers.0
+    }
+}
+
+impl From<ResolveAnswers> for Vec<IpAddr> {
+    #[inline]
+    fn from(answers: ResolveAnswers) -> Self {
+        answers.0.into()
+    }
+}
+
+impl AsRef<[IpAddr]> for ResolveAnswers {
+    #[inline]
+    fn as_ref(&self) -> &[IpAddr] {
+        &self.0
+    }
+}
+
+impl AsMut<[IpAddr]> for ResolveAnswers {
+    #[inline]
+    fn as_mut(&mut self) -> &mut [IpAddr] {
+        &mut self.0
+    }
+}
+
+impl Deref for ResolveAnswers {
+    type Target = [IpAddr];
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for ResolveAnswers {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 

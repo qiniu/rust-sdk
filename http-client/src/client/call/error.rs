@@ -1,4 +1,4 @@
-use super::super::{ResponseError, ResponseErrorKind, RetryResult};
+use super::super::{ResponseError, ResponseErrorKind, RetryDecision};
 use qiniu_http::{Extensions, Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind};
 use serde::Deserialize;
 use std::mem::take;
@@ -6,15 +6,15 @@ use std::mem::take;
 #[derive(Debug)]
 pub(super) struct TryError {
     response_error: ResponseError,
-    retry_result: RetryResult,
+    retry_decision: RetryDecision,
 }
 
 impl TryError {
     #[inline]
-    pub(super) fn new(response_error: ResponseError, retry_result: RetryResult) -> Self {
+    pub(super) fn new(response_error: ResponseError, retry_decision: RetryDecision) -> Self {
         Self {
             response_error,
-            retry_result,
+            retry_decision,
         }
     }
 
@@ -53,8 +53,8 @@ impl TryError {
     }
 
     #[inline]
-    pub(super) fn retry_result(&self) -> RetryResult {
-        self.retry_result
+    pub(super) fn retry_decision(&self) -> RetryDecision {
+        self.retry_decision
     }
 
     #[inline]
@@ -84,8 +84,8 @@ impl TryErrorWithExtensions {
     }
 
     #[inline]
-    pub(super) fn retry_result(&self) -> RetryResult {
-        self.inner.retry_result()
+    pub(super) fn retry_decision(&self) -> RetryDecision {
+        self.inner.retry_decision()
     }
 
     #[inline]

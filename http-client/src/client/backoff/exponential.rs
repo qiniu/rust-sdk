@@ -1,4 +1,4 @@
-use super::{Backoff, ResponseError, RetriedStatsInfo, RetryResult};
+use super::{Backoff, BackoffDuration, BackoffOptions, RetryDecision};
 use qiniu_http::Request as HTTPRequest;
 use std::{any::Any, time::Duration};
 
@@ -16,19 +16,13 @@ impl ExponentialBackoff {
 
 impl Backoff for ExponentialBackoff {
     #[inline]
-    fn time(
-        &self,
-        _request: &mut HTTPRequest,
-        retry_result: RetryResult,
-        _response_error: &ResponseError,
-        retried: &RetriedStatsInfo,
-    ) -> Duration {
-        let retried_count = if retry_result == RetryResult::Throttled {
-            retried.retried_total()
+    fn time(&self, _request: &mut HTTPRequest, opts: &BackoffOptions) -> BackoffDuration {
+        let retried_count = if opts.retry_decision() == RetryDecision::Throttled {
+            opts.retried().retried_total()
         } else {
-            retried.retried_on_current_endpoint()
+            opts.retried().retried_on_current_endpoint()
         };
-        self.base_delay * 2_u32.pow(retried_count as u32)
+        BackoffDuration::from(self.base_delay * 2_u32.pow(retried_count as u32))
     }
 
     #[inline]

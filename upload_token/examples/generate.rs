@@ -31,6 +31,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let upload_token = upload_policy.into_upload_token_provider(StaticCredentialProvider::new(
         Credential::new(opt.access_key, opt.secret_key),
     ));
-    println!("{}", upload_token.to_string()?);
+    println!("{}", upload_token.to_token_string(&Default::default())?);
     Ok(())
 }

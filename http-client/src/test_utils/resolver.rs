@@ -1,4 +1,4 @@
-use super::super::{ResolveAnswers, ResolveResult, Resolver, ResponseError, ResponseErrorKind};
+use super::super::{ResolveOptions, ResolveResult, Resolver, ResponseError, ResponseErrorKind};
 use rand::{prelude::*, thread_rng};
 use std::{
     any::Any,
@@ -11,7 +11,7 @@ pub(crate) fn make_dumb_resolver() -> impl Resolver {
 
     impl Resolver for FakeResolver {
         #[inline]
-        fn resolve(&self, _domain: &str) -> ResolveResult {
+        fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
             Ok(Default::default())
         }
 
@@ -35,8 +35,8 @@ pub(crate) fn make_static_resolver(ip_addrs: Box<[IpAddr]>) -> impl Resolver {
 
     impl Resolver for StaticResolver {
         #[inline]
-        fn resolve(&self, _domain: &str) -> ResolveResult {
-            Ok(ResolveAnswers::new(self.0.to_owned()))
+        fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
+            Ok(self.0.to_owned().into())
         }
 
         #[inline]
@@ -59,10 +59,9 @@ pub(crate) fn make_random_resolver() -> impl Resolver {
 
     impl Resolver for RandomResolver {
         #[inline]
-        fn resolve(&self, _domain: &str) -> ResolveResult {
-            let ips =
-                vec![IpAddr::V4(Ipv4Addr::from(thread_rng().gen::<u32>()))].into_boxed_slice();
-            Ok(ResolveAnswers::new(ips))
+        fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
+            let ips = vec![IpAddr::V4(Ipv4Addr::from(thread_rng().gen::<u32>()))];
+            Ok(ips.into())
         }
 
         #[inline]
@@ -91,7 +90,7 @@ pub(crate) fn make_error_resolver(
 
     impl Resolver for ErrorResolver {
         #[inline]
-        fn resolve(&self, _domain: &str) -> ResolveResult {
+        fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
             Err(ResponseError::new(self.error_kind, self.message.to_owned()))
         }
 

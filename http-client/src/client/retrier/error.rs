@@ -1,6 +1,6 @@
 use super::{
-    super::{Idempotent, ResponseError, ResponseErrorKind, RetriedStatsInfo},
-    RequestRetrier, RetryResult,
+    super::{Idempotent, ResponseErrorKind},
+    RequestRetrier, RequestRetrierOptions, RetryDecision, RetryResult,
 };
 use qiniu_http::{Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind};
 use std::any::Any;
@@ -10,37 +10,31 @@ pub struct ErrorRetrier;
 
 impl RequestRetrier for ErrorRetrier {
     #[inline]
-    fn retry(
-        &self,
-        request: &mut HTTPRequest,
-        idempotent: Idempotent,
-        response_error: &ResponseError,
-        _retried: &RetriedStatsInfo,
-    ) -> RetryResult {
-        return match response_error.kind() {
+    fn retry(&self, request: &mut HTTPRequest, opts: &RequestRetrierOptions) -> RetryResult {
+        return match opts.response_error().kind() {
             ResponseErrorKind::HTTPError(http_err_kind) => match http_err_kind {
-                HTTPResponseErrorKind::ProtocolError => RetryResult::RetryRequest,
-                HTTPResponseErrorKind::InvalidURL => RetryResult::TryNextServer,
-                HTTPResponseErrorKind::ConnectError => RetryResult::TryNextServer,
-                HTTPResponseErrorKind::ProxyError => RetryResult::RetryRequest,
-                HTTPResponseErrorKind::DNSServerError => RetryResult::RetryRequest,
-                HTTPResponseErrorKind::UnknownHostError => RetryResult::TryNextServer,
-                HTTPResponseErrorKind::SendError => RetryResult::RetryRequest,
+                HTTPResponseErrorKind::ProtocolError => RetryDecision::RetryRequest,
+                HTTPResponseErrorKind::InvalidURL => RetryDecision::TryNextServer,
+                HTTPResponseErrorKind::ConnectError => RetryDecision::TryNextServer,
+                HTTPResponseErrorKind::ProxyError => RetryDecision::RetryRequest,
+                HTTPResponseErrorKind::DNSServerError => RetryDecision::RetryRequest,
+                HTTPResponseErrorKind::UnknownHostError => RetryDecision::TryNextServer,
+                HTTPResponseErrorKind::SendError => RetryDecision::RetryRequest,
                 HTTPResponseErrorKind::ReceiveError | HTTPResponseErrorKind::UnknownError => {
-                    if is_idempotent(request, idempotent) {
-                        RetryResult::RetryRequest
+                    if is_idempotent(request, opts.idempotent()) {
+                        RetryDecision::RetryRequest
                     } else {
-                        RetryResult::DontRetry
+                        RetryDecision::DontRetry
                     }
                 }
-                HTTPResponseErrorKind::LocalIOError => RetryResult::DontRetry,
-                HTTPResponseErrorKind::TimeoutError => RetryResult::RetryRequest,
-                HTTPResponseErrorKind::SSLError => RetryResult::TryAlternativeEndpoints,
-                HTTPResponseErrorKind::TooManyRedirect => RetryResult::DontRetry,
-                HTTPResponseErrorKind::UserCanceled => RetryResult::DontRetry,
-                _ => RetryResult::RetryRequest,
+                HTTPResponseErrorKind::LocalIOError => RetryDecision::DontRetry,
+                HTTPResponseErrorKind::TimeoutError => RetryDecision::RetryRequest,
+                HTTPResponseErrorKind::SSLError => RetryDecision::TryAlternativeEndpoints,
+                HTTPResponseErrorKind::TooManyRedirect => RetryDecision::DontRetry,
+                HTTPResponseErrorKind::UserCanceled => RetryDecision::DontRetry,
+                _ => RetryDecision::RetryRequest,
             },
-            ResponseErrorKind::UnexpectedStatusCode(_) => RetryResult::DontRetry,
+            ResponseErrorKind::UnexpectedStatusCode(_) => RetryDecision::DontRetry,
             ResponseErrorKind::StatusCodeError(status_code) => match status_code.as_u16() {
                 0..=399 => panic!("Should not arrive here"),
                 400..=501
@@ -55,20 +49,21 @@ impl RequestRetrier for ErrorRetrier {
                 | 631
                 | 632
                 | 640
-                | 701 => RetryResult::DontRetry,
-                509 | 573 => RetryResult::Throttled,
-                _ => RetryResult::TryNextServer,
+                | 701 => RetryDecision::DontRetry,
+                509 | 573 => RetryDecision::Throttled,
+                _ => RetryDecision::TryNextServer,
             },
             ResponseErrorKind::ParseResponseError | ResponseErrorKind::UnexpectedEof => {
-                if is_idempotent(request, idempotent) {
-                    RetryResult::RetryRequest
+                if is_idempotent(request, opts.idempotent()) {
+                    RetryDecision::RetryRequest
                 } else {
-                    RetryResult::DontRetry
+                    RetryDecision::DontRetry
                 }
             }
-            ResponseErrorKind::MaliciousResponse => RetryResult::RetryRequest,
-            ResponseErrorKind::NoTry => RetryResult::DontRetry,
-        };
+            ResponseErrorKind::MaliciousResponse => RetryDecision::RetryRequest,
+            ResponseErrorKind::NoTry => RetryDecision::DontRetry,
+        }
+        .into();
 
         #[inline]
         fn is_idempotent(request: &HTTPRequest, idempotent: Idempotent) -> bool {
@@ -93,7 +88,10 @@ impl RequestRetrier for ErrorRetrier {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{
+        super::super::{ResponseError, RetriedStatsInfo},
+        *,
+    };
     use qiniu_http::{Method as HTTPMethod, Uri as HTTPUri};
     use std::{convert::TryFrom, error::Error, result::Result};
 
@@ -107,55 +105,65 @@ mod tests {
                 .url(uri.to_owned())
                 .method(HTTPMethod::GET)
                 .build(),
-            Idempotent::Default,
-            &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
-            &RetriedStatsInfo::default(),
+            &RequestRetrierOptions::new(
+                Idempotent::Default,
+                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &RetriedStatsInfo::default(),
+            ),
         );
-        assert_eq!(result, RetryResult::RetryRequest);
+        assert_eq!(result.decision(), RetryDecision::RetryRequest);
 
         let result = retrier.retry(
             &mut HTTPRequest::builder()
                 .url(uri.to_owned())
                 .method(HTTPMethod::GET)
                 .build(),
-            Idempotent::Never,
-            &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
-            &RetriedStatsInfo::default(),
+            &RequestRetrierOptions::new(
+                Idempotent::Never,
+                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &RetriedStatsInfo::default(),
+            ),
         );
-        assert_eq!(result, RetryResult::DontRetry);
+        assert_eq!(result.decision(), RetryDecision::DontRetry);
 
         let result = retrier.retry(
             &mut HTTPRequest::builder()
                 .url(uri.to_owned())
                 .method(HTTPMethod::POST)
                 .build(),
-            Idempotent::Default,
-            &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
-            &RetriedStatsInfo::default(),
+            &RequestRetrierOptions::new(
+                Idempotent::Default,
+                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &RetriedStatsInfo::default(),
+            ),
         );
-        assert_eq!(result, RetryResult::DontRetry);
+        assert_eq!(result.decision(), RetryDecision::DontRetry);
 
         let result = retrier.retry(
             &mut HTTPRequest::builder()
                 .url(uri.to_owned())
                 .method(HTTPMethod::POST)
                 .build(),
-            Idempotent::Always,
-            &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
-            &RetriedStatsInfo::default(),
+            &RequestRetrierOptions::new(
+                Idempotent::Always,
+                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &RetriedStatsInfo::default(),
+            ),
         );
-        assert_eq!(result, RetryResult::RetryRequest);
+        assert_eq!(result.decision(), RetryDecision::RetryRequest);
 
         let result = retrier.retry(
             &mut HTTPRequest::builder()
                 .url(uri)
                 .method(HTTPMethod::POST)
                 .build(),
-            Idempotent::Always,
-            &ResponseError::new(HTTPResponseErrorKind::InvalidURL.into(), "Test Error"),
-            &RetriedStatsInfo::default(),
+            &RequestRetrierOptions::new(
+                Idempotent::Always,
+                &ResponseError::new(HTTPResponseErrorKind::InvalidURL.into(), "Test Error"),
+                &RetriedStatsInfo::default(),
+            ),
         );
-        assert_eq!(result, RetryResult::TryNextServer);
+        assert_eq!(result.decision(), RetryDecision::TryNextServer);
 
         Ok(())
     }
@@ -174,11 +182,13 @@ mod tests {
                 .url(uri.to_owned())
                 .method(HTTPMethod::GET)
                 .build(),
-            Idempotent::Default,
-            &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
-            &retried,
+            &RequestRetrierOptions::new(
+                Idempotent::Default,
+                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &retried,
+            ),
         );
-        assert_eq!(result, RetryResult::RetryRequest);
+        assert_eq!(result.decision(), RetryDecision::RetryRequest);
 
         retried.switch_endpoint();
 
@@ -187,11 +197,13 @@ mod tests {
                 .url(uri)
                 .method(HTTPMethod::GET)
                 .build(),
-            Idempotent::Default,
-            &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
-            &retried,
+            &RequestRetrierOptions::new(
+                Idempotent::Default,
+                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &retried,
+            ),
         );
-        assert_eq!(result, RetryResult::RetryRequest);
+        assert_eq!(result.decision(), RetryDecision::RetryRequest);
 
         Ok(())
     }

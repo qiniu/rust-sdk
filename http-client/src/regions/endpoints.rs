@@ -99,7 +99,10 @@ impl Endpoints {
         region_provider: &dyn RegionProvider,
         services: &[ServiceName],
     ) -> APIResult<Self> {
-        Ok(Self::from_region(&region_provider.get()?, services))
+        Ok(Self::from_region(
+            region_provider.get(&Default::default())?.region(),
+            services,
+        ))
     }
 
     #[cfg(feature = "async")]
@@ -109,7 +112,10 @@ impl Endpoints {
         services: &[ServiceName],
     ) -> APIResult<Self> {
         Ok(Self::from_region(
-            &region_provider.async_get().await?,
+            region_provider
+                .async_get(&Default::default())
+                .await?
+                .region(),
             services,
         ))
     }

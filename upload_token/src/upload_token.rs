@@ -7,6 +7,7 @@ use std::{
     borrow::Cow,
     fmt::{self, Debug},
     io::{Error as IOError, Result as IOResult},
+    ops::{Deref, DerefMut},
     sync::RwLock,
     time::{Duration, Instant},
 };
@@ -30,40 +31,261 @@ type AsyncIOResult<'a, T> = Pin<Box<dyn Future<Output = IOResult<T>> + 'a + Send
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1208/upload-token)了解七牛安全机制。
 pub trait UploadTokenProvider: Any + Debug + Sync + Send {
     /// 从上传凭证内获取 AccessKey
-    fn access_key(&self) -> ParseResult<AccessKey>;
+    fn access_key(&self, opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey>;
 
     /// 异步从上传凭证内获取 AccessKey
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_access_key(&self) -> AsyncParseResult<AccessKey> {
-        Box::pin(async move { self.access_key() })
+    fn async_access_key<'a>(
+        &'a self,
+        opts: &'a GetAccessKeyOptions,
+    ) -> AsyncParseResult<'a, GotAccessKey> {
+        Box::pin(async move { self.access_key(opts) })
     }
 
     /// 从上传凭证内获取上传策略
-    fn policy(&self) -> ParseResult<Cow<UploadPolicy>>;
+    fn policy<'a>(&'a self, opts: &GetPolicyOptions) -> ParseResult<GotUploadPolicy<'a>>;
 
     /// 异步从上传凭证内获取上传策略
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_policy(&self) -> AsyncParseResult<Cow<UploadPolicy>> {
-        Box::pin(async move { self.policy() })
+    fn async_policy<'a>(
+        &'a self,
+        opts: &'a GetPolicyOptions,
+    ) -> AsyncParseResult<'a, GotUploadPolicy<'a>> {
+        Box::pin(async move { self.policy(opts) })
     }
 
     /// 生成字符串
-    fn to_string(&self) -> IOResult<Cow<str>>;
+    fn to_token_string<'a>(&'a self, opts: &ToStringOptions) -> IOResult<GotString<'a>>;
 
     /// 异步生成字符串
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_to_string(&self) -> AsyncIOResult<Cow<str>> {
-        Box::pin(async move { self.to_string() })
+    fn async_to_token_string<'a>(
+        &'a self,
+        opts: &'a ToStringOptions,
+    ) -> AsyncIOResult<'a, GotString<'a>> {
+        Box::pin(async move { self.to_token_string(opts) })
     }
 
     fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider;
     fn as_any(&self) -> &dyn Any;
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct GetAccessKeyOptions {}
+
+#[derive(Clone, Debug, Default)]
+pub struct GetPolicyOptions {}
+
+#[derive(Clone, Debug, Default)]
+pub struct ToStringOptions {}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct GotAccessKey(AccessKey);
+
+impl From<GotAccessKey> for AccessKey {
+    #[inline]
+    fn from(result: GotAccessKey) -> Self {
+        result.0
+    }
+}
+
+impl From<AccessKey> for GotAccessKey {
+    #[inline]
+    fn from(result: AccessKey) -> Self {
+        Self(result)
+    }
+}
+
+impl GotAccessKey {
+    #[inline]
+    pub fn access_key(&self) -> &AccessKey {
+        &self.0
+    }
+
+    #[inline]
+    pub fn access_key_mut(&mut self) -> &mut AccessKey {
+        &mut self.0
+    }
+
+    #[inline]
+    pub fn into_access_key(self) -> AccessKey {
+        self.0
+    }
+}
+
+impl Deref for GotAccessKey {
+    type Target = AccessKey;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for GotAccessKey {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GotUploadPolicy<'a>(Cow<'a, UploadPolicy>);
+
+impl<'a> From<GotUploadPolicy<'a>> for Cow<'a, UploadPolicy> {
+    #[inline]
+    fn from(result: GotUploadPolicy<'a>) -> Self {
+        result.0
+    }
+}
+
+impl From<GotUploadPolicy<'_>> for UploadPolicy {
+    #[inline]
+    fn from(result: GotUploadPolicy<'_>) -> Self {
+        result.into_upload_policy()
+    }
+}
+
+impl<'a> From<Cow<'a, UploadPolicy>> for GotUploadPolicy<'a> {
+    #[inline]
+    fn from(policy: Cow<'a, UploadPolicy>) -> Self {
+        Self(policy)
+    }
+}
+
+impl<'a> From<&'a UploadPolicy> for GotUploadPolicy<'a> {
+    #[inline]
+    fn from(policy: &'a UploadPolicy) -> Self {
+        Self::from(Cow::Borrowed(policy))
+    }
+}
+
+impl From<UploadPolicy> for GotUploadPolicy<'_> {
+    #[inline]
+    fn from(policy: UploadPolicy) -> Self {
+        Self::from(Cow::Owned(policy))
+    }
+}
+
+impl GotUploadPolicy<'_> {
+    #[inline]
+    pub fn upload_policy(&self) -> &UploadPolicy {
+        &self.0
+    }
+
+    #[inline]
+    pub fn upload_policy_mut(&mut self) -> &mut UploadPolicy {
+        self.0.to_mut()
+    }
+
+    #[inline]
+    pub fn into_upload_policy(self) -> UploadPolicy {
+        self.0.into_owned()
+    }
+}
+
+impl Deref for GotUploadPolicy<'_> {
+    type Target = UploadPolicy;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for GotUploadPolicy<'_> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.to_mut()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct GotString<'a>(Cow<'a, str>);
+
+impl<'a> From<GotString<'a>> for Cow<'a, str> {
+    #[inline]
+    fn from(result: GotString<'a>) -> Self {
+        result.0
+    }
+}
+
+impl From<GotString<'_>> for String {
+    #[inline]
+    fn from(result: GotString<'_>) -> Self {
+        result.0.into_owned()
+    }
+}
+
+impl<'a> From<Cow<'a, str>> for GotString<'a> {
+    #[inline]
+    fn from(s: Cow<'a, str>) -> Self {
+        Self(s)
+    }
+}
+
+impl<'a> From<&'a str> for GotString<'a> {
+    #[inline]
+    fn from(s: &'a str) -> Self {
+        Self::from(Cow::Borrowed(s))
+    }
+}
+
+impl From<String> for GotString<'_> {
+    #[inline]
+    fn from(s: String) -> Self {
+        Self::from(Cow::Owned(s))
+    }
+}
+
+impl From<Box<str>> for GotString<'_> {
+    #[inline]
+    fn from(s: Box<str>) -> Self {
+        Self::from(Cow::Owned(s.into_string()))
+    }
+}
+
+impl AsRef<str> for GotString<'_> {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl AsMut<str> for GotString<'_> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut str {
+        self.0.to_mut()
+    }
+}
+
+impl<'a> fmt::Display for GotString<'a> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl<'a> Deref for GotString<'a> {
+    type Target = str;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> DerefMut for GotString<'a> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.to_mut()
+    }
 }
 
 /// 静态上传凭证提供者
@@ -96,7 +318,7 @@ impl Debug for StaticUploadTokenProvider {
 }
 
 impl UploadTokenProvider for StaticUploadTokenProvider {
-    fn access_key(&self) -> ParseResult<AccessKey> {
+    fn access_key(&self, _opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
         self.access_key
             .get_or_try_init(|| {
                 self.upload_token
@@ -104,10 +326,12 @@ impl UploadTokenProvider for StaticUploadTokenProvider {
                     .map(|i| self.upload_token.split_at(i).0.to_owned().into())
                     .ok_or(ParseError::InvalidUploadTokenFormat)
             })
-            .map(|access_key| access_key.as_ref().into())
+            .map(|access_key| access_key.as_ref())
+            .map(AccessKey::from)
+            .map(GotAccessKey::from)
     }
 
-    fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
+    fn policy<'a>(&'a self, _opts: &GetPolicyOptions) -> ParseResult<GotUploadPolicy<'a>> {
         self.policy
             .get_or_try_init(|| {
                 let encoded_policy = self
@@ -119,12 +343,13 @@ impl UploadTokenProvider for StaticUploadTokenProvider {
                     .map_err(ParseError::Base64DecodeError)?;
                 UploadPolicy::from_json(&decoded_policy).map_err(ParseError::JSONDecodeError)
             })
-            .map(|policy| policy.into())
+            .map(Cow::Borrowed)
+            .map(GotUploadPolicy::from)
     }
 
     #[inline]
-    fn to_string(&self) -> IOResult<Cow<str>> {
-        Ok(Cow::Borrowed(&self.upload_token))
+    fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IOResult<GotString<'a>> {
+        Ok(Cow::Borrowed(self.upload_token.as_ref()).into())
     }
 
     #[inline]
@@ -163,21 +388,27 @@ impl<C> FromUploadPolicy<C> {
 
 impl<C: CredentialProvider> UploadTokenProvider for FromUploadPolicy<C> {
     #[inline]
-    fn access_key(&self) -> ParseResult<AccessKey> {
-        Ok(self.credential.get()?.into_pair().0)
+    fn access_key(&self, _opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
+        Ok(self
+            .credential
+            .get(&Default::default())?
+            .into_credential()
+            .into_pair()
+            .0
+            .into())
     }
 
     #[inline]
-    fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
-        Ok(Cow::Borrowed(&self.upload_policy))
+    fn policy<'a>(&'a self, _opts: &GetPolicyOptions) -> ParseResult<GotUploadPolicy<'a>> {
+        Ok(Cow::Borrowed(&self.upload_policy).into())
     }
 
-    fn to_string(&self) -> IOResult<Cow<str>> {
-        Ok(Cow::Owned(
-            self.credential
-                .get()?
-                .sign_with_data(self.upload_policy.as_json().as_bytes()),
-        ))
+    fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IOResult<GotString<'a>> {
+        Ok(self
+            .credential
+            .get(&Default::default())?
+            .sign_with_data(self.upload_policy.as_json().as_bytes())
+            .into())
     }
 
     #[inline]
@@ -257,18 +488,24 @@ impl<C> Debug for BucketUploadTokenProvider<C> {
 
 impl<C: CredentialProvider> UploadTokenProvider for BucketUploadTokenProvider<C> {
     #[inline]
-    fn access_key(&self) -> ParseResult<AccessKey> {
-        Ok(self.credential.get()?.into_pair().0)
+    fn access_key(&self, _opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
+        Ok(self
+            .credential
+            .get(&Default::default())?
+            .into_credential()
+            .into_pair()
+            .0
+            .into())
     }
 
-    fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
+    fn policy<'a>(&'a self, _opts: &GetPolicyOptions) -> ParseResult<GotUploadPolicy<'a>> {
         Ok(self.make_policy().into())
     }
 
-    fn to_string(&self) -> IOResult<Cow<str>> {
+    fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IOResult<GotString<'a>> {
         let upload_token = self
             .credential
-            .get()?
+            .get(&Default::default())?
             .sign_with_data(self.make_policy().as_json().as_bytes());
         Ok(upload_token.into())
     }
@@ -381,18 +618,24 @@ impl<C> Debug for ObjectUploadTokenProvider<C> {
 
 impl<C: CredentialProvider> UploadTokenProvider for ObjectUploadTokenProvider<C> {
     #[inline]
-    fn access_key(&self) -> ParseResult<AccessKey> {
-        Ok(self.credential.get()?.into_pair().0)
+    fn access_key(&self, _opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
+        Ok(self
+            .credential
+            .get(&Default::default())?
+            .into_credential()
+            .into_pair()
+            .0
+            .into())
     }
 
-    fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
+    fn policy<'a>(&'a self, _opts: &GetPolicyOptions) -> ParseResult<GotUploadPolicy<'a>> {
         Ok(self.make_policy().into())
     }
 
-    fn to_string(&self) -> IOResult<Cow<str>> {
+    fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IOResult<GotString<'a>> {
         let upload_token = self
             .credential
-            .get()?
+            .get(&Default::default())?
             .sign_with_data(self.make_policy().as_json().as_bytes());
         Ok(upload_token.into())
     }
@@ -482,22 +725,24 @@ impl<P> CachedUploadTokenProvider<P> {
 }
 
 macro_rules! sync_method {
-    ($provider:expr, $cache_field:ident, $method_name:ident, $return_type:ty) => {{
+    ($provider:expr, $cache_field:ident, $opts_field:ident, $opts_type:ty, $method_name:ident, $return_type:ty) => {{
         let guard = $provider.sync_cache.$cache_field.read().unwrap();
         return if let Some(cache) = &*guard {
             if cache.cached_at.elapsed() < $provider.cache_lifetime {
                 Ok(cache.value.to_owned().into())
             } else {
                 drop(guard);
-                update_cache(&$provider)
+                update_cache(&$provider, $opts_field)
             }
         } else {
             drop(guard);
-            update_cache(&$provider)
+            update_cache(&$provider, $opts_field)
         };
 
-        fn update_cache(
-            provider: &CachedUploadTokenProvider<impl UploadTokenProvider>,
+        #[allow(unused_lifetimes)]
+        fn update_cache<'a>(
+            provider: &'a CachedUploadTokenProvider<impl UploadTokenProvider>,
+            opts: &$opts_type,
         ) -> $return_type {
             let mut guard = provider.sync_cache.$cache_field.write().unwrap();
             if let Some(cache) = &*guard {
@@ -505,7 +750,7 @@ macro_rules! sync_method {
                     return Ok(cache.value.to_owned().into());
                 }
             }
-            match provider.inner_provider.$method_name() {
+            match provider.inner_provider.$method_name(opts) {
                 Ok(value) => {
                     *guard = Some(Cache {
                         cached_at: Instant::now(),
@@ -521,7 +766,7 @@ macro_rules! sync_method {
 
 #[cfg(feature = "async")]
 macro_rules! async_method {
-    ($provider:expr, $cache_field:ident, $method_name:ident) => {{
+    ($provider:expr, $cache_field:ident, $opts_field:ident, $method_name:ident) => {{
         Box::pin(async move {
             let mut cache = $provider.async_cache.$cache_field.lock().await;
             if let Some(cache) = &*cache {
@@ -529,7 +774,7 @@ macro_rules! async_method {
                     return Ok(cache.value.to_owned().into());
                 }
             }
-            match $provider.inner_provider.$method_name().await {
+            match $provider.inner_provider.$method_name($opts_field).await {
                 Ok(value) => {
                     *cache = Some(Cache {
                         cached_at: Instant::now(),
@@ -544,34 +789,64 @@ macro_rules! async_method {
 }
 
 impl<P: UploadTokenProvider> UploadTokenProvider for CachedUploadTokenProvider<P> {
-    fn access_key(&self) -> ParseResult<AccessKey> {
-        sync_method!(self, access_key, access_key, ParseResult<AccessKey>)
+    fn access_key(&self, opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
+        sync_method!(
+            self,
+            access_key,
+            opts,
+            GetAccessKeyOptions,
+            access_key,
+            ParseResult<GotAccessKey>
+        )
     }
 
-    fn policy(&self) -> ParseResult<Cow<UploadPolicy>> {
-        sync_method!(self, upload_policy, policy, ParseResult<Cow<UploadPolicy>>)
+    fn policy<'a>(&'a self, opts: &GetPolicyOptions) -> ParseResult<GotUploadPolicy<'a>> {
+        sync_method!(
+            self,
+            upload_policy,
+            opts,
+            GetPolicyOptions,
+            policy,
+            ParseResult<GotUploadPolicy<'a>>
+        )
     }
 
-    fn to_string(&self) -> IOResult<Cow<str>> {
-        sync_method!(self, upload_token, to_string, IOResult<Cow<str>>)
+    fn to_token_string<'a>(&'a self, opts: &ToStringOptions) -> IOResult<GotString<'a>> {
+        sync_method!(
+            self,
+            upload_token,
+            opts,
+            ToStringOptions,
+            to_token_string,
+            IOResult<GotString<'a>>
+        )
     }
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_access_key(&self) -> AsyncParseResult<AccessKey> {
-        async_method!(self, access_key, async_access_key)
+    fn async_access_key<'a>(
+        &'a self,
+        opts: &'a GetAccessKeyOptions,
+    ) -> AsyncParseResult<'a, GotAccessKey> {
+        async_method!(self, access_key, opts, async_access_key)
     }
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_policy(&self) -> AsyncParseResult<Cow<UploadPolicy>> {
-        async_method!(self, upload_policy, async_policy)
+    fn async_policy<'a>(
+        &'a self,
+        opts: &'a GetPolicyOptions,
+    ) -> AsyncParseResult<'a, GotUploadPolicy<'a>> {
+        async_method!(self, upload_policy, opts, async_policy)
     }
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_to_string(&self) -> AsyncIOResult<Cow<str>> {
-        async_method!(self, upload_token, async_to_string)
+    fn async_to_token_string<'a>(
+        &'a self,
+        opts: &'a ToStringOptions,
+    ) -> AsyncIOResult<'a, GotString<'a>> {
+        async_method!(self, upload_token, opts, async_to_token_string)
     }
 
     #[inline]
@@ -623,11 +898,16 @@ mod tests {
         )
         .build();
         let token = FromUploadPolicy::new(policy, get_credential())
-            .to_string()?
-            .into_owned();
-        assert!(token.starts_with(get_credential().get()?.access_key().as_str()));
+            .to_token_string(&Default::default())?
+            .to_string();
+        assert!(token.starts_with(
+            get_credential()
+                .get(&Default::default())?
+                .access_key()
+                .as_str()
+        ));
         let token = StaticUploadTokenProvider::from(token);
-        let policy = token.policy()?;
+        let policy = token.policy(&Default::default())?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), Some("test:file"));
         Ok(())
@@ -645,10 +925,15 @@ mod tests {
         }))
         .build();
 
-        let token = provider.to_string()?.into_owned();
-        assert!(token.starts_with(get_credential().get()?.access_key().as_str()));
+        let token = provider.to_token_string(&Default::default())?.to_string();
+        assert!(token.starts_with(
+            get_credential()
+                .get(&Default::default())?
+                .access_key()
+                .as_str()
+        ));
 
-        let policy = provider.policy()?;
+        let policy = provider.policy(&Default::default())?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), None);
         assert_eq!(policy.return_body(), Some("{\"key\":$(key)}"));
@@ -669,12 +954,19 @@ mod tests {
             )
             .build();
             let token = FromUploadPolicy::new(policy, get_credential())
-                .async_to_string()
+                .async_to_token_string(&Default::default())
                 .await?
-                .into_owned();
-            assert!(token.starts_with(get_credential().async_get().await?.access_key().as_str()));
+                .to_string();
+            assert!(token.starts_with(
+                get_credential()
+                    .async_get(&Default::default())
+                    .await?
+                    .access_key()
+                    .as_str()
+            ));
             let token = StaticUploadTokenProvider::from(token);
-            let policy = token.async_policy().await?;
+            let get_policy_options = Default::default();
+            let policy = token.async_policy(&get_policy_options).await?;
             assert_eq!(policy.bucket(), Some("test_bucket"));
             assert_eq!(policy.key(), Some("test:file"));
             Ok(())

@@ -5,9 +5,9 @@ mod utils;
 
 use super::{
     super::{DomainWithPort, Endpoint, IpAddrWithPort},
-    APIResult, Authorization, AuthorizationError, ChooserFeedback, Request,
-    RequestWithoutEndpoints, ResponseError, ResponseErrorKind, ResponseInfo, RetriedStatsInfo,
-    RetryResult, SimplifiedCallbackContext, SyncResponse,
+    APIResult, Authorization, AuthorizationError, BackoffOptions, ChooserFeedback, Request,
+    RequestRetrierOptions, RequestWithoutEndpoints, ResponseError, ResponseErrorKind, ResponseInfo,
+    RetriedStatsInfo, RetryDecision, SimplifiedCallbackContext, SyncResponse,
 };
 pub use domain_or_ip_addr::DomainOrIpAddr;
 use error::{ErrorResponseBody, TryError, TryErrorWithExtensions};
@@ -32,7 +32,7 @@ use {super::AsyncResponse, async_std::task::block_on, futures_timer::Delay as As
 const X_REQ_ID_HEADER_NAME: &str = "x-reqid";
 
 macro_rules! create_request_call_fn {
-    ($method_name:ident, $return_type:ident, $into_endpoints_method:ident, $sign_method:ident, $call_method:ident, $resolve_method:ident, $choose_method:ident, $feedback_method:ident, $sleep_method:path, $new_response_info:path, $block:ident, $blocking_block:ident $(, $async:ident)?) => {
+    ($method_name:ident, $return_type:ty, $into_endpoints_method:ident, $sign_method:ident, $call_method:ident, $resolve_method:ident, $choose_method:ident, $feedback_method:ident, $sleep_method:path, $new_response_info:path, $block:ident, $blocking_block:ident $(, $async:ident)?) => {
         pub(super) $($async)? fn $method_name(request: Request<'_>) -> APIResult<$return_type> {
             let (request, into_endpoints, service_name, extensions) = request.split();
             let endpoints = $block!({ into_endpoints.$into_endpoints_method(service_name) })?;
@@ -42,7 +42,7 @@ macro_rules! create_request_call_fn {
             return match $block!({ try_preferred_endpoints(endpoints.preferred(), &request, extensions, &mut tried_ips, &mut retried) }) {
                 Ok(response) => Ok(response),
                 Err(err)
-                    if err.retry_result() == RetryResult::TryAlternativeEndpoints
+                    if err.retry_decision() == RetryDecision::TryAlternativeEndpoints
                         && !endpoints.alternative().is_empty() =>
                 {
                     let (_, extensions) = err.split();
@@ -92,9 +92,9 @@ macro_rules! create_request_call_fn {
                         match $block!({ try_endpoint($endpoint, request, ext, retried) }) {
                             Ok(response) => return Ok(response),
                             Err(err) => {
-                                match err.retry_result() {
-                                    RetryResult::TryAlternativeEndpoints if is_endpoints_alternative => return Err(err),
-                                    RetryResult::DontRetry => {
+                                match err.retry_decision() {
+                                    RetryDecision::TryAlternativeEndpoints if is_endpoints_alternative => return Err(err),
+                                    RetryDecision::DontRetry => {
                                         retried.increase_abandoned_ips_of_current_endpoint();
                                         return Err(err);
                                     }
@@ -256,17 +256,19 @@ macro_rules! create_request_call_fn {
                             .$call_method(&built_request)
                         })
                         .map_err(ResponseError::from)
-                        .map($return_type::new)
+                        .map(<$return_type>::new)
                         .and_then(|response| $blocking_block!({ judge(response) }) )
                         .map_err(|response_error| {
-                            let retry_result = request.http_client().request_retrier().retry(
+                            let retry_decision = request.http_client().request_retrier().retry(
                                 built_request,
-                                request.idempotent(),
-                                &response_error,
-                                retried,
-                            );
+                                &RequestRetrierOptions::new(
+                                    request.idempotent(),
+                                    &response_error,
+                                    retried,
+                                ),
+                            ).decision();
                             retried.increase();
-                            TryError::new(response_error, retry_result)
+                            TryError::new(response_error, retry_decision)
                         });
                     match response {
                         Ok(response) => {
@@ -280,19 +282,21 @@ macro_rules! create_request_call_fn {
                         }
                         Err(err) => {
                             call_error_callbacks(request, built_request, retried, err.response_error())?;
-                            match err.retry_result() {
-                                retry_result @ RetryResult::RetryRequest
-                                | retry_result @ RetryResult::Throttled
-                                | retry_result @ RetryResult::TryNextServer => {
+                            match err.retry_decision() {
+                                retry_decision @ RetryDecision::RetryRequest
+                                | retry_decision @ RetryDecision::Throttled
+                                | retry_decision @ RetryDecision::TryNextServer => {
+                                    let backoff_options = BackoffOptions::new(
+                                        err.retry_decision(),
+                                        err.response_error(),
+                                        retried,
+                                    );
                                     let delay = request
                                         .http_client()
                                         .backoff()
-                                        .time(
-                                            built_request,
-                                            err.retry_result(),
-                                            err.response_error(),
-                                            retried,
-                                        );
+                                        .time(built_request, &backoff_options)
+                                        .duration();
+                                    drop(backoff_options);
                                     call_before_backoff_callbacks(
                                         request,
                                         built_request,
@@ -308,8 +312,8 @@ macro_rules! create_request_call_fn {
                                         retried,
                                         delay,
                                     )?;
-                                    match retry_result {
-                                        RetryResult::RetryRequest | RetryResult::Throttled => continue,
+                                    match retry_decision {
+                                        RetryDecision::RetryRequest | RetryDecision::Throttled => continue,
                                         _ => return Err(err),
                                     }
                                 }
@@ -331,14 +335,14 @@ macro_rules! create_request_call_fn {
                                 ResponseErrorKind::HTTPError(HTTPResponseErrorKind::LocalIOError),
                                 err,
                             ),
-                            RetryResult::DontRetry,
+                            RetryDecision::DontRetry,
                         ),
                         AuthorizationError::UrlParseError(err) => TryError::new(
                             ResponseError::new(
                                 ResponseErrorKind::HTTPError(HTTPResponseErrorKind::InvalidURL),
                                 err,
                             ),
-                            RetryResult::TryNextServer,
+                            RetryDecision::TryNextServer,
                         ),
                     })?;
                 }
@@ -391,8 +395,8 @@ macro_rules! create_request_call_fn {
                     request
                         .http_client()
                         .resolver()
-                        .$resolve_method(domain_with_port.domain())
-                }).map_err(|err| TryError::new(err, RetryResult::TryNextServer))?;
+                        .$resolve_method(domain_with_port.domain(), &Default::default())
+                }).map_err(|err| TryError::new(err, RetryDecision::TryNextServer))?;
                 call_domain_resolved_callbacks(request, domain_with_port.domain(), &answers, extensions)?;
                 Ok(answers.into_ip_addrs().into_iter().map(|&ip| IpAddrWithPort::new(ip, domain_with_port.port())).collect())
             }
@@ -407,8 +411,8 @@ macro_rules! create_request_call_fn {
                     request
                         .http_client()
                         .chooser()
-                        .$choose_method(ips)
-                });
+                        .$choose_method(ips, &Default::default())
+                }).into_ip_addrs();
                 call_ips_chosen_callbacks(request, ips, &chosen_ips, extensions)?;
                 Ok(chosen_ips)
             }
@@ -455,7 +459,7 @@ create_request_call_fn!(
 fn no_try_error() -> TryError {
     TryError::new(
         ResponseError::new(ResponseErrorKind::NoTry, "None resolver is tried"),
-        RetryResult::DontRetry,
+        RetryDecision::DontRetry,
     )
 }
 

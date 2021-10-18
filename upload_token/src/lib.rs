@@ -28,8 +28,9 @@ pub use upload_policy::{UploadPolicy, UploadPolicyBuilder};
 use upload_token::FromUploadPolicy;
 pub use upload_token::{
     BucketUploadTokenProvider, BucketUploadTokenProviderBuilder, CachedUploadTokenProvider,
+    GetAccessKeyOptions, GetPolicyOptions, GotAccessKey, GotString, GotUploadPolicy,
     ObjectUploadTokenProvider, ObjectUploadTokenProviderBuilder, OnPolicyGeneratedCallback,
-    ParseError, ParseResult, StaticUploadTokenProvider, UploadTokenProvider,
+    ParseError, ParseResult, StaticUploadTokenProvider, ToStringOptions, UploadTokenProvider,
 };
 
 pub mod preclude {

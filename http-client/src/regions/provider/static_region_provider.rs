@@ -1,6 +1,6 @@
 use super::{
     super::{super::APIResult, Region},
-    RegionProvider,
+    GetOptions, GotRegion, GotRegions, RegionProvider,
 };
 use std::any::Any;
 
@@ -20,17 +20,18 @@ impl StaticRegionProvider {
 
 impl RegionProvider for StaticRegionProvider {
     #[inline]
-    fn get(&self) -> APIResult<Region> {
+    fn get(&self, _opts: &GetOptions) -> APIResult<GotRegion> {
         Ok(self
             .regions
             .first()
             .expect("regions must not be empty")
-            .to_owned())
+            .to_owned()
+            .into())
     }
 
     #[inline]
-    fn get_all(&self) -> APIResult<Vec<Region>> {
-        Ok(self.regions.to_owned().into_vec())
+    fn get_all(&self, _opts: &GetOptions) -> APIResult<GotRegions> {
+        Ok(self.regions.to_owned().into_vec().into())
     }
 
     #[inline]

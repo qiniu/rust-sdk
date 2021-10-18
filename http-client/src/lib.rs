@@ -45,23 +45,24 @@ pub use futures::io::AsyncRead;
 
 pub use cache::{CacheController, PersistentError, PersistentResult};
 pub use client::{
-    APIResult, Authorization, AuthorizationError, AuthorizationResult, Backoff, CachedResolver,
-    CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver, ChainedResolverBuilder, Chooser,
-    ChooserFeedback, DomainOrIpAddr, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext,
-    FieldName, FileName, FixedBackoff, HTTPClient, HTTPClientBuilder, Idempotent, IpChooser,
-    IpChooserBuilder, LimitedRetrier, Multipart, NeverRetrier, Part, QueryPairKey, QueryPairValue,
-    QueryPairs, RandomizedBackoff, Ratio, RequestBuilder, RequestRetrier, ResolveAnswers,
-    ResolveResult, Resolver, ResponseError, ResponseErrorKind, ResponseInfo, RetryResult,
-    ShuffledChooser, ShuffledResolver, SimpleResolver, SimplifiedCallbackContext, SubnetChooser,
-    SubnetChooserBuilder, SyncBody, SyncMultipart, SyncPart, SyncResponse, TimeoutResolver,
-    NO_BACKOFF,
+    APIResult, Authorization, AuthorizationError, AuthorizationResult, Backoff, BackoffDuration,
+    BackoffOptions, CachedResolver, CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver,
+    ChainedResolverBuilder, Chooser, ChooserFeedback, DomainOrIpAddr, ErrorRetrier,
+    ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName, FixedBackoff, HTTPClient,
+    HTTPClientBuilder, Idempotent, IpChooser, IpChooserBuilder, LimitedRetrier, Multipart,
+    NeverRetrier, Part, QueryPairKey, QueryPairValue, QueryPairs, RandomizedBackoff, Ratio,
+    RequestBuilder, RequestRetrier, RequestRetrierOptions, ResolveAnswers, ResolveOptions,
+    ResolveResult, Resolver, ResponseError, ResponseErrorKind, ResponseInfo, RetryDecision,
+    RetryResult, ShuffledChooser, ShuffledResolver, SimpleResolver, SimplifiedCallbackContext,
+    SubnetChooser, SubnetChooserBuilder, SyncBody, SyncMultipart, SyncPart, SyncResponse,
+    TimeoutResolver, NO_BACKOFF,
 };
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
     CachedRegionsProvider, DomainWithPort, DomainWithPortParseError, Endpoint, EndpointParseError,
-    Endpoints, EndpointsBuilder, IntoEndpoints, InvalidServiceName, IpAddrWithPort,
-    IpAddrWithPortParseError, Region, RegionBuilder, RegionProvider, RegionsProvider, ServiceName,
-    StaticRegionProvider,
+    Endpoints, EndpointsBuilder, GetOptions, GotRegion, GotRegions, IntoEndpoints,
+    InvalidServiceName, IpAddrWithPort, IpAddrWithPortParseError, Region, RegionBuilder,
+    RegionProvider, RegionsProvider, ServiceName, StaticRegionProvider,
 };
 pub use upload_token::{BucketName, ObjectName};
 

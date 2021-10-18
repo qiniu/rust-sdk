@@ -1,4 +1,4 @@
-use super::{super::ResponseError, ResolveAnswers, ResolveResult, Resolver};
+use super::{super::ResponseError, ResolveOptions, ResolveResult, Resolver};
 use async_std::task::block_on;
 use async_std_resolver::{resolver, resolver_from_system_conf, AsyncStdResolver as AsyncResolver};
 use futures::future::BoxFuture;
@@ -45,20 +45,24 @@ impl TrustDnsResolver {
 }
 
 impl Resolver for TrustDnsResolver {
-    fn resolve(&self, domain: &str) -> ResolveResult {
-        block_on(async move { self.async_resolve(domain).await })
+    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
+        block_on(async move { self.async_resolve(domain, opts).await })
     }
 
-    fn async_resolve<'a>(&'a self, domain: &'a str) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(
+        &'a self,
+        domain: &'a str,
+        _opts: &ResolveOptions,
+    ) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
-            Ok(ResolveAnswers::new(
-                self.resolver
-                    .lookup_ip(domain)
-                    .await
-                    .map_err(convert_trust_dns_error_to_response_error)?
-                    .iter()
-                    .collect(),
-            ))
+            Ok(self
+                .resolver
+                .lookup_ip(domain)
+                .await
+                .map_err(convert_trust_dns_error_to_response_error)?
+                .iter()
+                .collect::<Vec<_>>()
+                .into())
         })
     }
 
@@ -118,7 +122,7 @@ mod tests {
             },
         )
         .await?;
-        let ips = resolver.async_resolve(DOMAIN).await?;
+        let ips = resolver.async_resolve(DOMAIN, &Default::default()).await?;
         assert_eq!(make_set(ips.ip_addrs()), make_set(IPS));
         Ok(())
     }

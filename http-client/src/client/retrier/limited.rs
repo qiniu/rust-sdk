@@ -1,7 +1,4 @@
-use super::{
-    super::{Idempotent, ResponseError, RetriedStatsInfo},
-    RequestRetrier, RetryResult,
-};
+use super::{RequestRetrier, RequestRetrierOptions, RetryDecision, RetryResult};
 use qiniu_http::Request as HTTPRequest;
 use std::any::Any;
 
@@ -29,24 +26,16 @@ impl<R: Default> Default for LimitedRetrier<R> {
 
 impl<R: RequestRetrier> RequestRetrier for LimitedRetrier<R> {
     #[inline]
-    fn retry(
-        &self,
-        request: &mut HTTPRequest,
-        idempotent: Idempotent,
-        response_error: &ResponseError,
-        retried: &RetriedStatsInfo,
-    ) -> RetryResult {
-        match self
-            .retrier
-            .retry(request, idempotent, response_error, retried)
-        {
-            RetryResult::RetryRequest | RetryResult::Throttled
-                if retried.retried_on_current_endpoint() >= self.retries =>
+    fn retry(&self, request: &mut HTTPRequest, opts: &RequestRetrierOptions) -> RetryResult {
+        match self.retrier.retry(request, opts).decision() {
+            RetryDecision::RetryRequest | RetryDecision::Throttled
+                if opts.retried().retried_on_current_endpoint() >= self.retries =>
             {
-                RetryResult::TryNextServer
+                RetryDecision::TryNextServer
             }
             result => result,
         }
+        .into()
     }
 
     #[inline]
@@ -62,7 +51,10 @@ impl<R: RequestRetrier> RequestRetrier for LimitedRetrier<R> {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::ErrorRetrier, *};
+    use super::{
+        super::{ErrorRetrier, Idempotent, ResponseError, RetriedStatsInfo},
+        *,
+    };
     use qiniu_http::{
         Method as HTTPMethod, ResponseErrorKind as HTTPResponseErrorKind, Uri as HTTPUri,
     };
@@ -82,11 +74,13 @@ mod tests {
                 .url(uri.to_owned())
                 .method(HTTPMethod::GET)
                 .build(),
-            Idempotent::Default,
-            &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
-            &retried,
+            &RequestRetrierOptions::new(
+                Idempotent::Default,
+                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &retried,
+            ),
         );
-        assert_eq!(result, RetryResult::TryNextServer);
+        assert_eq!(result.decision(), RetryDecision::TryNextServer);
 
         retried.switch_endpoint();
 
@@ -95,11 +89,13 @@ mod tests {
                 .url(uri)
                 .method(HTTPMethod::GET)
                 .build(),
-            Idempotent::Default,
-            &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
-            &retried,
+            &RequestRetrierOptions::new(
+                Idempotent::Default,
+                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &retried,
+            ),
         );
-        assert_eq!(result, RetryResult::RetryRequest);
+        assert_eq!(result.decision(), RetryDecision::RetryRequest);
 
         Ok(())
     }

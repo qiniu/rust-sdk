@@ -2,7 +2,7 @@ use super::{
     super::super::{APIResult, CacheController, Endpoints, HTTPClient, PersistentResult},
     regions_cache::{CacheKey, RegionsCache},
     regions_provider::RegionsProvider,
-    Region, RegionProvider,
+    GetOptions, GotRegion, GotRegions, RegionProvider,
 };
 use qiniu_credential::CredentialProvider;
 use std::{any::Any, fmt, path::Path, sync::Arc, time::Duration};
@@ -42,39 +42,51 @@ impl CachedRegionsProvider {
 }
 
 impl RegionProvider for CachedRegionsProvider {
-    fn get(&self) -> APIResult<Region> {
-        self.get_all().map(|regions| {
+    fn get(&self, opts: &GetOptions) -> APIResult<GotRegion> {
+        self.get_all(opts).map(|regions| {
             regions
+                .into_regions()
                 .into_iter()
                 .next()
                 .expect("Regions API returns empty regions")
+                .into()
         })
     }
 
     #[inline]
-    fn get_all(&self) -> APIResult<Vec<Region>> {
+    fn get_all(&self, opts: &GetOptions) -> APIResult<GotRegions> {
         let provider = self.to_owned();
-        self.inner.cache.get(&self.inner.cache_key, move || {
-            provider.inner.provider.get_all()
-        })
+        let opts = opts.to_owned();
+        self.inner
+            .cache
+            .get(&self.inner.cache_key, move || {
+                provider
+                    .inner
+                    .provider
+                    .get_all(&opts)
+                    .map(|results| results.into_regions())
+            })
+            .map(GotRegions::from)
     }
 
     /// 异步返回七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_get(&self) -> BoxFuture<APIResult<Region>> {
+    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegion>> {
         let provider = self.to_owned();
-        Box::pin(async move { spawn(async move { provider.get() }).await })
+        let opts = opts.to_owned();
+        Box::pin(async move { spawn(async move { provider.get(&opts) }).await })
     }
 
     /// 异步返回多个七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_get_all(&self) -> BoxFuture<APIResult<Vec<Region>>> {
+    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegions>> {
         let provider = self.to_owned();
-        Box::pin(async move { spawn(async move { provider.get_all() }).await })
+        let opts = opts.to_owned();
+        Box::pin(async move { spawn(async move { provider.get_all(&opts) }).await })
     }
 
     #[inline]

@@ -4,7 +4,7 @@ use super::{
         Endpoints, ServiceName,
     },
     structs::ResponseBody,
-    Region, RegionProvider,
+    GetOptions, GotRegion, GotRegions, Region, RegionProvider,
 };
 use qiniu_credential::CredentialProvider;
 use std::{any::Any, convert::TryFrom, fmt::Debug, sync::Arc};
@@ -76,31 +76,35 @@ impl RegionsProvider {
 }
 
 impl RegionProvider for RegionsProvider {
-    fn get(&self) -> APIResult<Region> {
-        self.get_all().map(|regions| {
+    fn get(&self, opts: &GetOptions) -> APIResult<GotRegion> {
+        self.get_all(opts).map(|regions| {
             regions
+                .into_regions()
                 .into_iter()
                 .next()
                 .expect("Regions API returns empty regions")
+                .into()
         })
     }
 
     #[inline]
-    fn get_all(&self) -> APIResult<Vec<Region>> {
-        self.do_sync_query()
+    fn get_all(&self, _opts: &GetOptions) -> APIResult<GotRegions> {
+        self.do_sync_query().map(GotRegions::from)
     }
 
     /// 异步返回七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_get(&self) -> BoxFuture<APIResult<Region>> {
+    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegion>> {
         Box::pin(async move {
-            self.async_get_all().await.map(|regions| {
+            self.async_get_all(opts).await.map(|regions| {
                 regions
+                    .into_regions()
                     .into_iter()
                     .next()
                     .expect("Regions API returns empty regions")
+                    .into()
             })
         })
     }
@@ -109,8 +113,8 @@ impl RegionProvider for RegionsProvider {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_get_all(&self) -> BoxFuture<APIResult<Vec<Region>>> {
-        Box::pin(async move { self.do_async_query().await })
+    fn async_get_all<'a>(&'a self, _opts: &'a GetOptions) -> BoxFuture<APIResult<GotRegions>> {
+        Box::pin(async move { self.do_async_query().await.map(GotRegions::from) })
     }
 
     #[inline]
@@ -178,7 +182,7 @@ mod tests {
                 ))),
             );
 
-            let regions = provider.async_get_all().await?;
+            let regions = provider.async_get_all(&Default::default()).await?;
             assert_eq!(regions.len(), 5);
             assert_eq!(
                 regions

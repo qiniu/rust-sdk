@@ -1,4 +1,4 @@
-use super::{super::super::CacheController, ResolveResult, Resolver};
+use super::{super::super::CacheController, ResolveOptions, ResolveResult, Resolver};
 use rand::{prelude::*, thread_rng};
 use std::any::Any;
 
@@ -19,8 +19,8 @@ impl<R> ShuffledResolver<R> {
 
 impl<R: Resolver> Resolver for ShuffledResolver<R> {
     #[inline]
-    fn resolve(&self, domain: &str) -> ResolveResult {
-        let mut answers = self.base_resolver.resolve(domain)?;
+    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
+        let mut answers = self.base_resolver.resolve(domain, opts)?;
         answers.ip_addrs_mut().shuffle(&mut thread_rng());
         Ok(answers)
     }
@@ -28,9 +28,13 @@ impl<R: Resolver> Resolver for ShuffledResolver<R> {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    fn async_resolve<'a>(&'a self, domain: &'a str) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(
+        &'a self,
+        domain: &'a str,
+        opts: &'a ResolveOptions,
+    ) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
-            let mut answers = self.base_resolver.async_resolve(domain).await?;
+            let mut answers = self.base_resolver.async_resolve(domain, opts).await?;
             answers.ip_addrs_mut().shuffle(&mut thread_rng());
             Ok(answers)
         })
@@ -72,7 +76,7 @@ mod tests {
     #[test]
     fn test_shuffled_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = ShuffledResolver::new(make_static_resolver(IPS.to_vec().into()));
-        let ips = resolver.resolve("testdomain.com")?;
+        let ips = resolver.resolve("testdomain.com", &Default::default())?;
         assert_eq!(make_set(ips.ip_addrs()), make_set(IPS));
         Ok(())
     }

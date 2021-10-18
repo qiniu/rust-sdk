@@ -1,4 +1,4 @@
-use super::{Backoff, ResponseError, RetriedStatsInfo, RetryResult};
+use super::{Backoff, BackoffDuration, BackoffOptions};
 use qiniu_http::Request as HTTPRequest;
 use std::{any::Any, time::Duration};
 
@@ -18,14 +18,8 @@ impl FixedBackoff {
 
 impl Backoff for FixedBackoff {
     #[inline]
-    fn time(
-        &self,
-        _request: &mut HTTPRequest,
-        _retry_result: RetryResult,
-        _response_error: &ResponseError,
-        _retried: &RetriedStatsInfo,
-    ) -> Duration {
-        self.delay
+    fn time(&self, _request: &mut HTTPRequest, _opts: &BackoffOptions) -> BackoffDuration {
+        self.delay.into()
     }
 
     #[inline]

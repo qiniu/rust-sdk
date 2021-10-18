@@ -13,7 +13,8 @@ mod retrier;
 
 pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
 pub use backoff::{
-    Backoff, ExponentialBackoff, FixedBackoff, RandomizedBackoff, Ratio, NO_BACKOFF,
+    Backoff, BackoffDuration, BackoffOptions, ExponentialBackoff, FixedBackoff, RandomizedBackoff,
+    Ratio, NO_BACKOFF,
 };
 pub use call::DomainOrIpAddr;
 pub use callback::{
@@ -30,12 +31,15 @@ pub use request::{
     RequestBuilder, SyncBody, SyncMultipart, SyncPart,
 };
 pub use resolver::{
-    CachedResolver, ChainedResolver, ChainedResolverBuilder, ResolveAnswers, ResolveResult,
-    Resolver, ShuffledResolver, SimpleResolver, TimeoutResolver,
+    CachedResolver, ChainedResolver, ChainedResolverBuilder, ResolveAnswers, ResolveOptions,
+    ResolveResult, Resolver, ShuffledResolver, SimpleResolver, TimeoutResolver,
 };
 pub use response::{APIResult, Response, ResponseError, ResponseErrorKind, SyncResponse};
 pub use retried::RetriedStatsInfo;
-pub use retrier::{ErrorRetrier, LimitedRetrier, NeverRetrier, RequestRetrier, RetryResult};
+pub use retrier::{
+    ErrorRetrier, LimitedRetrier, NeverRetrier, RequestRetrier, RequestRetrierOptions,
+    RetryDecision, RetryResult,
+};
 
 #[cfg(feature = "c_ares")]
 pub use resolver::{c_ares, c_ares_resolver, CAresResolver};
