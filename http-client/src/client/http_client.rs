@@ -9,6 +9,7 @@ use super::{
     RequestRetrier, Resolver, ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser,
     TimeoutResolver,
 };
+use cfg_if::cfg_if;
 use qiniu_http::{HTTPCaller, Method, UserAgent};
 use std::sync::Arc;
 
@@ -55,6 +56,11 @@ impl HTTPClient {
     #[cfg(all(feature = "reqwest", feature = "async"))]
     pub fn reqwest_async() -> Self {
         Self::build_reqwest_async().build()
+    }
+
+    #[inline]
+    pub fn build_default() -> HTTPClientBuilder {
+        HTTPClientBuilder::default()
     }
 
     #[inline]
@@ -227,48 +233,6 @@ impl HTTPClientBuilder {
             resolver: default_resolver(),
             callbacks: Default::default(),
         };
-
-        #[inline]
-        fn default_resolver() -> Box<dyn Resolver> {
-            let chained_resolver = {
-                let base_resolver = Box::new(TimeoutResolver::<SimpleResolver>::default());
-
-                #[allow(unused_mut)]
-                let mut builder = ChainedResolver::builder(base_resolver);
-
-                #[cfg(feature = "c_ares")]
-                if let Ok(resolver) = super::CAresResolver::new() {
-                    builder = builder.prepend_resolver(Box::new(resolver));
-                }
-
-                #[cfg(all(feature = "trust_dns", feature = "async"))]
-                if let Ok(resolver) = async_std::task::block_on(async {
-                    super::TrustDnsResolver::from_system_conf().await
-                }) {
-                    builder = builder.prepend_resolver(Box::new(resolver));
-                }
-
-                builder.build()
-            };
-            let cached_resolver = CachedResolver::builder(chained_resolver).in_memory();
-            let shuffled_resolver = ShuffledResolver::new(cached_resolver);
-            Box::new(shuffled_resolver)
-        }
-
-        #[inline]
-        fn default_chooser() -> Box<dyn Chooser> {
-            Box::new(NeverEmptyHandedChooser::<ShuffledChooser<SubnetChooser>>::default())
-        }
-
-        #[inline]
-        fn default_retrier() -> Box<dyn RequestRetrier> {
-            Box::new(LimitedRetrier::<ErrorRetrier>::default())
-        }
-
-        #[inline]
-        fn default_backoff() -> Box<dyn Backoff> {
-            Box::new(RandomizedBackoff::<ExponentialBackoff>::default())
-        }
     }
 
     #[inline]
@@ -400,4 +364,77 @@ impl HTTPClientBuilder {
             }),
         }
     }
+}
+
+impl Default for HTTPClientBuilder {
+    #[inline]
+    fn default() -> Self {
+        HTTPClientBuilder::_new(default_http_caller())
+    }
+}
+
+impl Default for HTTPClient {
+    #[inline]
+    fn default() -> Self {
+        HTTPClientBuilder::default().build()
+    }
+}
+
+#[inline]
+fn default_http_caller() -> Box<dyn HTTPCaller> {
+    cfg_if! {
+        if #[cfg(all(feature = "ureq", not(feature = "async")))] {
+            Box::new(qiniu_ureq::Client::default())
+        } else if #[cfg(feature = "isahc")] {
+            Box::new(qiniu_isahc::Client::default_client().expect("Failed to initialize isahc"))
+        } else if #[cfg(all(feature = "reqwest", not(feature = "async")))] {
+            Box::new(qiniu_reqwest::SyncReqwestHTTPCaller::default())
+        } else if #[cfg(all(feature = "reqwest", feature = "async"))] {
+            Box::new(qiniu_reqwest::AsyncReqwestHTTPCaller::default())
+        } else {
+            panic!("No http caller available, can you enable feature `isahc` to resolve this problem?")
+        }
+    }
+}
+
+#[inline]
+fn default_resolver() -> Box<dyn Resolver> {
+    let chained_resolver = {
+        let base_resolver = Box::new(TimeoutResolver::<SimpleResolver>::default());
+
+        #[allow(unused_mut)]
+        let mut builder = ChainedResolver::builder(base_resolver);
+
+        #[cfg(feature = "c_ares")]
+        if let Ok(resolver) = super::CAresResolver::new() {
+            builder = builder.prepend_resolver(Box::new(resolver));
+        }
+
+        #[cfg(all(feature = "trust_dns", feature = "async"))]
+        if let Ok(resolver) =
+            async_std::task::block_on(async { super::TrustDnsResolver::from_system_conf().await })
+        {
+            builder = builder.prepend_resolver(Box::new(resolver));
+        }
+
+        builder.build()
+    };
+    let cached_resolver = CachedResolver::builder(chained_resolver).in_memory();
+    let shuffled_resolver = ShuffledResolver::new(cached_resolver);
+    Box::new(shuffled_resolver)
+}
+
+#[inline]
+fn default_chooser() -> Box<dyn Chooser> {
+    Box::new(NeverEmptyHandedChooser::<ShuffledChooser<SubnetChooser>>::default())
+}
+
+#[inline]
+fn default_retrier() -> Box<dyn RequestRetrier> {
+    Box::new(LimitedRetrier::<ErrorRetrier>::default())
+}
+
+#[inline]
+fn default_backoff() -> Box<dyn Backoff> {
+    Box::new(RandomizedBackoff::<ExponentialBackoff>::default())
 }
