@@ -411,14 +411,12 @@ fn format_parameter(name: &str, value: &str) -> HeaderBuffer {
         buf.extend(utf8_percent_encode(value, PATH_SEGMENT_ENCODE_SET));
         buf
     };
-    let mut formatted = HeaderBuffer::new();
+    let mut formatted = HeaderBuffer::from(name);
     if value.len() == legal_value.len() {
-        formatted.push_str(name);
         formatted.push_str("=\"");
         formatted.push_str(value);
         formatted.push_str("\"");
     } else {
-        formatted.push_str(name);
         formatted.push_str("*=utf-8''");
         formatted.push_str(&legal_value);
     };
