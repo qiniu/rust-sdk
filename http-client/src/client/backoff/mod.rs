@@ -55,7 +55,7 @@ impl<'a> BackoffOptions<'a> {
     }
 }
 
-#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct BackoffDuration(Duration);
 
 impl BackoffDuration {

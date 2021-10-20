@@ -220,8 +220,8 @@ mod tests {
                         .or_insert(1);
                 })
                 .cloned()
-                .map(ResolveAnswers::from)
-                .unwrap_or_default())
+                .unwrap_or_default()
+                .into())
         }
 
         #[inline]

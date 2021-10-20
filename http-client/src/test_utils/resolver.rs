@@ -12,7 +12,7 @@ pub(crate) fn make_dumb_resolver() -> impl Resolver {
     impl Resolver for FakeResolver {
         #[inline]
         fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
-            Ok(Default::default())
+            Ok(vec![].into())
         }
 
         #[inline]

@@ -528,7 +528,7 @@ pub trait CredentialProvider: Any + Debug + Sync + Send {
 #[derive(Clone, Debug, Default)]
 pub struct GetOptions {}
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct GotCredential(Credential);
 
 impl From<GotCredential> for Credential {

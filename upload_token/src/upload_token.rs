@@ -85,7 +85,7 @@ pub struct GetPolicyOptions {}
 #[derive(Clone, Debug, Default)]
 pub struct ToStringOptions {}
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug)]
 pub struct GotAccessKey(AccessKey);
 
 impl From<GotAccessKey> for AccessKey {
@@ -135,7 +135,7 @@ impl DerefMut for GotAccessKey {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct GotUploadPolicy<'a>(Cow<'a, UploadPolicy>);
 
 impl<'a> From<GotUploadPolicy<'a>> for Cow<'a, UploadPolicy> {
@@ -206,7 +206,7 @@ impl DerefMut for GotUploadPolicy<'_> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug)]
 pub struct GotString<'a>(Cow<'a, str>);
 
 impl<'a> From<GotString<'a>> for Cow<'a, str> {

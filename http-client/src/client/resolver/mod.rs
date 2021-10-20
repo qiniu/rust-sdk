@@ -40,65 +40,69 @@ pub trait Resolver: Any + Debug + Sync + Send {
 #[derive(Debug, Clone, Default)]
 pub struct ResolveOptions {}
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ResolveAnswers(Box<[IpAddr]>);
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolveAnswers {
+    ip_addrs: Box<[IpAddr]>,
+}
 
 impl ResolveAnswers {
     #[inline]
     pub fn ip_addrs(&self) -> &[IpAddr] {
-        &self.0
+        &self.ip_addrs
     }
 
     #[inline]
     pub fn ip_addrs_mut(&mut self) -> &mut Box<[IpAddr]> {
-        &mut self.0
+        &mut self.ip_addrs
     }
 
     #[inline]
     pub fn into_ip_addrs(self) -> Box<[IpAddr]> {
-        self.0
+        self.ip_addrs
     }
 }
 
 impl From<Box<[IpAddr]>> for ResolveAnswers {
     #[inline]
     fn from(ip_addrs: Box<[IpAddr]>) -> Self {
-        Self(ip_addrs)
+        Self { ip_addrs }
     }
 }
 
 impl From<Vec<IpAddr>> for ResolveAnswers {
     #[inline]
     fn from(ip_addrs: Vec<IpAddr>) -> Self {
-        Self(ip_addrs.into_boxed_slice())
+        Self {
+            ip_addrs: ip_addrs.into_boxed_slice(),
+        }
     }
 }
 
 impl From<ResolveAnswers> for Box<[IpAddr]> {
     #[inline]
     fn from(answers: ResolveAnswers) -> Self {
-        answers.0
+        answers.ip_addrs
     }
 }
 
 impl From<ResolveAnswers> for Vec<IpAddr> {
     #[inline]
     fn from(answers: ResolveAnswers) -> Self {
-        answers.0.into()
+        answers.ip_addrs.into()
     }
 }
 
 impl AsRef<[IpAddr]> for ResolveAnswers {
     #[inline]
     fn as_ref(&self) -> &[IpAddr] {
-        &self.0
+        &self.ip_addrs
     }
 }
 
 impl AsMut<[IpAddr]> for ResolveAnswers {
     #[inline]
     fn as_mut(&mut self) -> &mut [IpAddr] {
-        &mut self.0
+        &mut self.ip_addrs
     }
 }
 
@@ -107,14 +111,14 @@ impl Deref for ResolveAnswers {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.ip_addrs
     }
 }
 
 impl DerefMut for ResolveAnswers {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.ip_addrs
     }
 }
 

@@ -71,7 +71,7 @@ impl<'a> RequestRetrierOptions<'a> {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Clone)]
 pub struct RetryResult(RetryDecision);
 
 impl RetryResult {

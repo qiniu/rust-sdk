@@ -45,7 +45,7 @@ pub trait Chooser: Any + Debug + Sync + Send {
 #[derive(Debug, Clone, Default)]
 pub struct ChooseOptions {}
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug)]
 pub struct ChosenResults(Vec<IpAddrWithPort>);
 
 impl ChosenResults {

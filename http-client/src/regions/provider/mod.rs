@@ -71,7 +71,7 @@ pub trait RegionProvider: Any + Debug + Sync + Send {
 #[derive(Clone, Debug, Default)]
 pub struct GetOptions {}
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct GotRegion(Region);
 
 impl From<GotRegion> for Region {
@@ -121,7 +121,7 @@ impl DerefMut for GotRegion {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct GotRegions(Vec<Region>);
 
 impl From<GotRegions> for Vec<Region> {
