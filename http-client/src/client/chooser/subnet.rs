@@ -303,6 +303,7 @@ mod tests {
         super::super::{ResponseError, ResponseErrorKind, RetriedStatsInfo},
         *,
     };
+    use qiniu_http::Extensions;
     use std::{
         net::{IpAddr, Ipv4Addr},
         thread::sleep,
@@ -336,6 +337,7 @@ mod tests {
                 None,
             )],
             &RetriedStatsInfo::default(),
+            &mut Extensions::default(),
             None,
             Some(&ResponseError::new(
                 ResponseErrorKind::ParseResponseError,
@@ -355,6 +357,7 @@ mod tests {
                 None,
             )],
             &RetriedStatsInfo::default(),
+            &mut Extensions::default(),
             None,
             Some(&ResponseError::new(
                 ResponseErrorKind::ParseResponseError,
@@ -374,6 +377,7 @@ mod tests {
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 2)), None),
             ],
             &RetriedStatsInfo::default(),
+            &mut Extensions::default(),
             None,
             None,
         ));
@@ -407,6 +411,7 @@ mod tests {
                 None,
             )],
             &RetriedStatsInfo::default(),
+            &mut Extensions::default(),
             None,
             Some(&ResponseError::new(
                 ResponseErrorKind::ParseResponseError,

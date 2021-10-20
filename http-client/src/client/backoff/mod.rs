@@ -27,7 +27,7 @@ pub struct BackoffOptions<'a> {
 
 impl<'a> BackoffOptions<'a> {
     #[inline]
-    pub fn new(
+    pub(super) fn new(
         retry_decision: RetryDecision,
         response_error: &'a ResponseError,
         retried: &'a RetriedStatsInfo,

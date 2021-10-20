@@ -81,6 +81,7 @@ mod tests {
         },
         *,
     };
+    use qiniu_http::Extensions;
     use std::{
         collections::HashSet,
         net::{IpAddr, Ipv4Addr},
@@ -107,6 +108,7 @@ mod tests {
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
             ],
             &RetriedStatsInfo::default(),
+            &mut Extensions::default(),
             None,
             Some(&ResponseError::new(
                 ResponseErrorKind::ParseResponseError,
@@ -124,6 +126,7 @@ mod tests {
         ip_chooser.feedback(ChooserFeedback::new(
             IPS_WITHOUT_PORT,
             &RetriedStatsInfo::default(),
+            &mut Extensions::default(),
             None,
             Some(&ResponseError::new(
                 ResponseErrorKind::ParseResponseError,
@@ -143,6 +146,7 @@ mod tests {
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
             ],
             &RetriedStatsInfo::default(),
+            &mut Extensions::default(),
             None,
             None,
         ));

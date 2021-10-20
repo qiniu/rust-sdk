@@ -228,14 +228,26 @@ macro_rules! create_request_call_fn {
                 match $block!({ do_request(request, &mut built_request, retried) }) {
                     Ok(response) => {
                         if !extracted_ips.is_empty() {
-                            let feedback = ChooserFeedback::new(&extracted_ips, retried, response.metrics(), None);
+                            let feedback = ChooserFeedback::new(
+                                &extracted_ips,
+                                retried,
+                                built_request.extensions_mut(),
+                                response.metrics(),
+                                None,
+                            );
                             $block!({ request.http_client().chooser().$feedback_method(feedback) });
                         }
                         Ok(response)
                     },
                     Err(err) => {
                         if !extracted_ips.is_empty() {
-                            let feedback = ChooserFeedback::new(&extracted_ips, retried, err.response_error().metrics(), err.feedback_response_error());
+                            let feedback = ChooserFeedback::new(
+                                &extracted_ips,
+                                retried,
+                                built_request.extensions_mut(),
+                                err.response_error().metrics(),
+                                err.feedback_response_error(),
+                            );
                             $block!({ request.http_client().chooser().$feedback_method(feedback) });
                         }
                         Err(err.with_request(&mut built_request))
@@ -645,6 +657,7 @@ mod tests {
                 .into(),
             ],
             &RetriedStatsInfo::default(),
+            &mut Extensions::default(),
             None,
             Some(&err),
         ));

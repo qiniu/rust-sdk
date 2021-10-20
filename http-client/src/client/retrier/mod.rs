@@ -43,7 +43,7 @@ pub struct RequestRetrierOptions<'a> {
 
 impl<'a> RequestRetrierOptions<'a> {
     #[inline]
-    pub fn new(
+    pub(super) fn new(
         idempotent: Idempotent,
         response_error: &'a ResponseError,
         retried: &'a RetriedStatsInfo,

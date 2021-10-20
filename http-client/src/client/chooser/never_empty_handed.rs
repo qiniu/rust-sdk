@@ -104,6 +104,7 @@ mod tests {
         },
         *,
     };
+    use qiniu_http::Extensions;
     use std::net::{IpAddr, Ipv4Addr};
 
     const IPS_WITHOUT_PORT: &[IpAddrWithPort] = &[
@@ -129,6 +130,7 @@ mod tests {
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
             ],
             &RetriedStatsInfo::default(),
+            &mut Extensions::default(),
             None,
             Some(&ResponseError::new(
                 ResponseErrorKind::ParseResponseError,
@@ -149,6 +151,7 @@ mod tests {
         ip_chooser.feedback(ChooserFeedback::new(
             IPS_WITHOUT_PORT,
             &RetriedStatsInfo::default(),
+            &mut Extensions::default(),
             None,
             Some(&ResponseError::new(
                 ResponseErrorKind::ParseResponseError,
