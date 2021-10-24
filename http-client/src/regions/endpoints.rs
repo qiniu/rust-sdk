@@ -19,6 +19,7 @@ pub struct InvalidServiceName(Box<str>);
 
 impl FromStr for ServiceName {
     type Err = InvalidServiceName;
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         #[allow(clippy::match_str_case_mismatch)]
         match s.to_lowercase().as_str() {

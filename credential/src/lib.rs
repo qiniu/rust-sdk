@@ -335,15 +335,9 @@ fn _sign_request_v2_without_body(method: &Method, url: &Uri, headers: &HeaderMap
         data_to_sign.extend_from_slice(b"Content-Type: ");
         data_to_sign.extend_from_slice(content_type.as_bytes());
         data_to_sign.extend_from_slice(b"\n");
-        _sign_data_for_x_qiniu_headers(&mut data_to_sign, headers);
-        data_to_sign.extend_from_slice(b"\n");
-        // if !body.is_empty() && will_push_body_v2(content_type) {
-        //     data_to_sign.extend_from_slice(body);
-        // }
-    } else {
-        _sign_data_for_x_qiniu_headers(&mut data_to_sign, headers);
-        data_to_sign.extend_from_slice(b"\n");
     }
+    _sign_data_for_x_qiniu_headers(&mut data_to_sign, headers);
+    data_to_sign.extend_from_slice(b"\n");
     data_to_sign
 }
 
