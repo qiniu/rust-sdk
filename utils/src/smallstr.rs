@@ -588,7 +588,7 @@ impl_index_str!(std::ops::RangeFrom<usize>);
 impl_index_str!(std::ops::RangeTo<usize>);
 impl_index_str!(std::ops::RangeFull);
 
-impl<A: Array<Item = u8>> std::iter::FromIterator<char> for SmallString<A> {
+impl<A: Array<Item = u8>> FromIterator<char> for SmallString<A> {
     fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> SmallString<A> {
         let mut s = SmallString::new();
         s.extend(iter);
@@ -596,7 +596,7 @@ impl<A: Array<Item = u8>> std::iter::FromIterator<char> for SmallString<A> {
     }
 }
 
-impl<'a, A: Array<Item = u8>> std::iter::FromIterator<&'a char> for SmallString<A> {
+impl<'a, A: Array<Item = u8>> FromIterator<&'a char> for SmallString<A> {
     fn from_iter<I: IntoIterator<Item = &'a char>>(iter: I) -> SmallString<A> {
         let mut s = SmallString::new();
         s.extend(iter.into_iter().cloned());
@@ -604,9 +604,7 @@ impl<'a, A: Array<Item = u8>> std::iter::FromIterator<&'a char> for SmallString<
     }
 }
 
-impl<'a, A: Array<Item = u8>> std::iter::FromIterator<std::borrow::Cow<'a, str>>
-    for SmallString<A>
-{
+impl<'a, A: Array<Item = u8>> FromIterator<std::borrow::Cow<'a, str>> for SmallString<A> {
     fn from_iter<I: IntoIterator<Item = std::borrow::Cow<'a, str>>>(iter: I) -> SmallString<A> {
         let mut s = SmallString::new();
         s.extend(iter);
@@ -614,7 +612,7 @@ impl<'a, A: Array<Item = u8>> std::iter::FromIterator<std::borrow::Cow<'a, str>>
     }
 }
 
-impl<'a, A: Array<Item = u8>> std::iter::FromIterator<&'a str> for SmallString<A> {
+impl<'a, A: Array<Item = u8>> FromIterator<&'a str> for SmallString<A> {
     fn from_iter<I: IntoIterator<Item = &'a str>>(iter: I) -> SmallString<A> {
         let mut s = SmallString::new();
         s.extend(iter);
@@ -622,7 +620,7 @@ impl<'a, A: Array<Item = u8>> std::iter::FromIterator<&'a str> for SmallString<A
     }
 }
 
-impl<A: Array<Item = u8>> std::iter::FromIterator<String> for SmallString<A> {
+impl<A: Array<Item = u8>> FromIterator<String> for SmallString<A> {
     fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> SmallString<A> {
         let mut s = SmallString::new();
         s.extend(iter);
