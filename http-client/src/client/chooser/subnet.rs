@@ -14,7 +14,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-type BlacklistKey = IpAddrWithPort;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct BlacklistKey(IpAddrWithPort);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct Subnet(IpAddrWithPort);
 
 #[derive(Debug, Clone)]
 struct BlacklistValue {
@@ -75,9 +79,9 @@ impl Chooser for SubnetChooser {
     #[inline]
     fn choose(&self, ips: &[IpAddrWithPort], _opts: &ChooseOptions) -> ChosenResults {
         let mut need_to_shrink = false;
-        let mut ip_network_map: HashMap<IpAddrWithPort, Vec<IpAddrWithPort>> = Default::default();
+        let mut subnets_map: HashMap<Subnet, Vec<IpAddrWithPort>> = Default::default();
         for &ip in ips.iter() {
-            let black_key = self.get_network_address(ip);
+            let black_key = BlacklistKey(ip);
             let is_blocked = self.inner.blacklist.get(&black_key).map_or(false, |r| {
                 if r.value().blocked_at.elapsed() < self.inner.block_duration {
                     true
@@ -87,15 +91,16 @@ impl Chooser for SubnetChooser {
                 }
             });
             if !is_blocked {
-                if let Some(ips) = ip_network_map.get_mut(&black_key) {
+                let subnet = self.get_network_address(ip);
+                if let Some(ips) = subnets_map.get_mut(&subnet) {
                     ips.push(ip);
                 } else {
-                    ip_network_map.insert(black_key, vec![ip]);
+                    subnets_map.insert(subnet, vec![ip]);
                 }
             }
         }
         let chosen_ips =
-            choose_group(ip_network_map.into_iter().map(|(_, ips)| ips)).unwrap_or_default();
+            choose_group(subnets_map.into_iter().map(|(_, ips)| ips)).unwrap_or_default();
         do_some_work_async(&self.inner, need_to_shrink);
         return chosen_ips.into();
 
@@ -124,7 +129,7 @@ impl Chooser for SubnetChooser {
         if feedback.error().is_some() {
             for &ip in feedback.ips().iter() {
                 self.inner.blacklist.insert(
-                    self.get_network_address(ip),
+                    BlacklistKey(ip),
                     BlacklistValue {
                         blocked_at: Instant::now(),
                     },
@@ -132,7 +137,7 @@ impl Chooser for SubnetChooser {
             }
         } else {
             for &ip in feedback.ips().iter() {
-                self.inner.blacklist.remove(&self.get_network_address(ip));
+                self.inner.blacklist.remove(&BlacklistKey(ip));
             }
         }
     }
@@ -149,22 +154,33 @@ impl Chooser for SubnetChooser {
 }
 
 impl SubnetChooser {
-    fn get_network_address(&self, addr: IpAddrWithPort) -> IpAddrWithPort {
-        match addr.ip_addr() {
+    fn get_network_address(&self, addr: IpAddrWithPort) -> Subnet {
+        let subnet = match addr.ip_addr() {
             IpAddr::V4(ipv4_addr) => {
                 let ipv4_network_addr = get_network_address_of_ipv4_addr(
                     ipv4_addr,
                     self.inner.ipv4_netmask_prefix_length,
                 );
-                IpAddrWithPort::new(IpAddr::V4(ipv4_network_addr), addr.port())
+                IpAddr::V4(ipv4_network_addr)
             }
             IpAddr::V6(ipv6_addr) => {
                 let ipv6_network_addr = get_network_address_of_ipv6_addr(
                     ipv6_addr,
                     self.inner.ipv6_netmask_prefix_length,
                 );
-                IpAddrWithPort::new(IpAddr::V6(ipv6_network_addr), addr.port())
+                IpAddr::V6(ipv6_network_addr)
             }
+        };
+        return Subnet(IpAddrWithPort::new(subnet, addr.port()));
+
+        #[inline]
+        fn get_network_address_of_ipv4_addr(addr: Ipv4Addr, prefix: u8) -> Ipv4Addr {
+            Ipv4Net::new(addr, prefix).unwrap().network()
+        }
+
+        #[inline]
+        fn get_network_address_of_ipv6_addr(addr: Ipv6Addr, prefix: u8) -> Ipv6Addr {
+            Ipv6Net::new(addr, prefix).unwrap().network()
         }
     }
 
@@ -287,16 +303,6 @@ impl SubnetChooserBuilder {
     }
 }
 
-#[inline]
-fn get_network_address_of_ipv4_addr(addr: Ipv4Addr, prefix: u8) -> Ipv4Addr {
-    Ipv4Net::new(addr, prefix).unwrap().network()
-}
-
-#[inline]
-fn get_network_address_of_ipv6_addr(addr: Ipv6Addr, prefix: u8) -> Ipv6Addr {
-    Ipv6Net::new(addr, prefix).unwrap().network()
-}
-
 #[cfg(test)]
 mod tests {
     use super::{
@@ -332,10 +338,10 @@ mod tests {
             SUBNET_1.to_vec()
         );
         subnet_chooser.feedback(ChooserFeedback::new(
-            &[IpAddrWithPort::new(
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                None,
-            )],
+            &[
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
+            ],
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
@@ -348,9 +354,47 @@ mod tests {
             subnet_chooser
                 .choose(&all_ips, &Default::default())
                 .into_ip_addrs(),
-            SUBNET_2.to_vec()
+            vec![
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)), None),
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 2)), None),
+            ]
+        );
+        subnet_chooser.feedback(ChooserFeedback::new(
+            &[
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)), None),
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 2)), None),
+            ],
+            &RetriedStatsInfo::default(),
+            &mut Extensions::default(),
+            None,
+            Some(&ResponseError::new(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
+        ));
+        assert_eq!(
+            subnet_chooser
+                .choose(&all_ips, &Default::default())
+                .into_ip_addrs(),
+            vec![IpAddrWithPort::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
+                None
+            )]
         );
 
+        subnet_chooser.feedback(ChooserFeedback::new(
+            &[IpAddrWithPort::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
+                None,
+            )],
+            &RetriedStatsInfo::default(),
+            &mut Extensions::default(),
+            None,
+            Some(&ResponseError::new(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
+        ));
         subnet_chooser.feedback(ChooserFeedback::new(
             &[IpAddrWithPort::new(
                 IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)),
@@ -359,33 +403,16 @@ mod tests {
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
-            Some(&ResponseError::new(
-                ResponseErrorKind::ParseResponseError,
-                "Test Error",
-            )),
-        ));
-        assert_eq!(
-            subnet_chooser
-                .choose(&all_ips, &Default::default())
-                .into_ip_addrs(),
-            vec![]
-        );
-
-        subnet_chooser.feedback(ChooserFeedback::new(
-            &[
-                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
-                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 2)), None),
-            ],
-            &RetriedStatsInfo::default(),
-            &mut Extensions::default(),
-            None,
             None,
         ));
         assert_eq!(
             subnet_chooser
                 .choose(&all_ips, &Default::default())
                 .into_ip_addrs(),
-            SUBNET_1.to_vec(),
+            vec![IpAddrWithPort::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)),
+                None
+            )],
         );
     }
 
@@ -406,10 +433,10 @@ mod tests {
             SUBNET_1.to_vec()
         );
         subnet_chooser.feedback(ChooserFeedback::new(
-            &[IpAddrWithPort::new(
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                None,
-            )],
+            &[
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
+                IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
+            ],
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
