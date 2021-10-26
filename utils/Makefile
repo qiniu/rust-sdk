@@ -11,7 +11,7 @@ doc:
 	cargo test --doc
 	cargo +nightly doc --lib --release --no-deps --all-features
 test:
-	cargo test -- --test-threads=1
+	cargo test -- --test-threads=1 --show-output
 clean:
 	cargo clean
 clippy:

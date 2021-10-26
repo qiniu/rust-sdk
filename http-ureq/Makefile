@@ -14,8 +14,8 @@ doc:
 	cargo test --doc --features async
 	cargo +nightly doc --lib --release --no-deps --all-features
 test:
-	cargo test -- --test-threads=1 --nocapture
-	cargo test --features async -- --test-threads=1 --nocapture
+	cargo test -- --test-threads=1 --show-output
+	cargo test --features async -- --test-threads=1 --show-output
 clean:
 	cargo clean
 clippy:
