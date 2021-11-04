@@ -684,10 +684,10 @@ fn add_extensions_to_isahc_request_builder(
 fn from_isahc_error(err: IsahcError, request: &Request) -> ResponseError {
     let error_builder = match err.kind() {
         IsahcErrorKind::BadClientCertificate => {
-            ResponseError::builder(ResponseErrorKind::SSLError, err)
+            ResponseError::builder(ResponseErrorKind::ClientCertError, err)
         }
         IsahcErrorKind::BadServerCertificate => {
-            ResponseError::builder(ResponseErrorKind::SSLError, err)
+            ResponseError::builder(ResponseErrorKind::ServerCertError, err)
         }
         IsahcErrorKind::ClientInitialization => {
             ResponseError::builder(ResponseErrorKind::LocalIOError, err)

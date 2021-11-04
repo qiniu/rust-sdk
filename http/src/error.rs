@@ -42,6 +42,12 @@ pub enum ErrorKind {
     /// 超时失败
     TimeoutError,
 
+    /// SSL 客户端证书错误
+    ClientCertError,
+
+    /// SSL 服务器端证书错误
+    ServerCertError,
+
     /// SSL 错误
     SSLError,
 

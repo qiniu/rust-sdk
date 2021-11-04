@@ -246,7 +246,7 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let client = make_error_response_client_builder(
-            HTTPResponseErrorKind::SSLError,
+            HTTPResponseErrorKind::ServerCertError,
             "Fake SSL Error",
             true,
         )
@@ -290,7 +290,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::from(HTTPResponseErrorKind::SSLError)
+            ResponseErrorKind::from(HTTPResponseErrorKind::ServerCertError)
         );
         let domain_resolved = Arc::try_unwrap(domain_resolved)
             .unwrap()
