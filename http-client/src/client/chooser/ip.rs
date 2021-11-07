@@ -5,7 +5,6 @@ use super::{
 use dashmap::DashMap;
 use log::{info, warn};
 use std::{
-    any::Any,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -100,16 +99,6 @@ impl Chooser for IpChooser {
                 self.inner.blacklist.remove(ip);
             }
         }
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_chooser(&self) -> &dyn Chooser {
-        self
     }
 }
 

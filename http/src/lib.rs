@@ -70,7 +70,7 @@ mod async_response {
 #[cfg(feature = "async")]
 pub use async_response::*;
 
-use std::{any::Any, fmt::Debug};
+use std::fmt::Debug;
 
 #[cfg(feature = "async")]
 use std::{future::Future, pin::Pin};
@@ -81,7 +81,7 @@ type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 /// HTTP 请求处理函数
 ///
 /// 实现该接口，即可处理所有七牛 SDK 发送的 HTTP 请求
-pub trait HTTPCaller: Any + Debug + Send + Sync {
+pub trait HTTPCaller: Debug + Send + Sync {
     /// 同步发送 HTTP 请求
     fn call(&self, request: &Request) -> SyncResponseResult;
 
@@ -99,9 +99,6 @@ pub trait HTTPCaller: Any + Debug + Send + Sync {
     fn is_response_metrics_supported(&self) -> bool {
         false
     }
-
-    fn as_http_caller(&self) -> &dyn HTTPCaller;
-    fn as_any(&self) -> &dyn Any;
 }
 
 pub mod preclude {

@@ -14,7 +14,6 @@ use reqwest::{
     Request as AsyncReqwestRequest, Response as AsyncReqwestResponse, Result as ReqwestResult, Url,
 };
 use std::{
-    any::Any,
     error::Error,
     fmt,
     io::{Error as IOError, ErrorKind as IOErrorKind, Result as IOResult},
@@ -55,16 +54,6 @@ impl HTTPCaller for AsyncReqwestHTTPCaller {
                 }
             }
         })
-    }
-
-    #[inline]
-    fn as_http_caller(&self) -> &dyn HTTPCaller {
-        self
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
 

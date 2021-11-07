@@ -3,7 +3,6 @@ use super::{
     ResolveAnswers, ResolveOptions, ResolveResult, Resolver,
 };
 use std::{
-    any::Any,
     env::temp_dir,
     fmt::Debug,
     path::{Path, PathBuf},
@@ -67,7 +66,7 @@ impl<R> Clone for CachedResolver<R> {
     }
 }
 
-impl<R: Resolver> Resolver for CachedResolver<R> {
+impl<R: Resolver + 'static> Resolver for CachedResolver<R> {
     #[inline]
     fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
         let resolver = self.resolver.to_owned();
@@ -90,16 +89,6 @@ impl<R: Resolver> Resolver for CachedResolver<R> {
         let domain = domain.to_owned();
         let opts = opts.to_owned();
         Box::pin(async move { spawn(async move { resolver.resolve(&domain, &opts) }).await })
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_resolver(&self) -> &dyn Resolver {
-        self
     }
 }
 
@@ -222,16 +211,6 @@ mod tests {
                 .cloned()
                 .unwrap_or_default()
                 .into())
-        }
-
-        #[inline]
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
-
-        #[inline]
-        fn as_resolver(&self) -> &dyn Resolver {
-            self
         }
     }
 

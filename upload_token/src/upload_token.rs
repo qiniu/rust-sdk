@@ -3,7 +3,6 @@ use once_cell::sync::OnceCell;
 use qiniu_credential::{AccessKey, CredentialProvider};
 use qiniu_utils::{base64, BucketName, ObjectName};
 use std::{
-    any::Any,
     borrow::Cow,
     fmt::{self, Debug},
     io::{Error as IOError, Result as IOResult},
@@ -29,7 +28,7 @@ type AsyncIOResult<'a, T> = Pin<Box<dyn Future<Output = IOResult<T>> + 'a + Send
 /// 上传凭证提供者
 ///
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1208/upload-token)了解七牛安全机制。
-pub trait UploadTokenProvider: Any + Debug + Sync + Send {
+pub trait UploadTokenProvider: Debug + Sync + Send {
     /// 从上传凭证内获取 AccessKey
     fn access_key(&self, opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey>;
 
@@ -71,9 +70,6 @@ pub trait UploadTokenProvider: Any + Debug + Sync + Send {
     ) -> AsyncIOResult<'a, GotString<'a>> {
         Box::pin(async move { self.to_token_string(opts) })
     }
-
-    fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider;
-    fn as_any(&self) -> &dyn Any;
 }
 
 #[derive(Clone, Debug, Default)]
@@ -351,16 +347,6 @@ impl UploadTokenProvider for StaticUploadTokenProvider {
     fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IOResult<GotString<'a>> {
         Ok(Cow::Borrowed(self.upload_token.as_ref()).into())
     }
-
-    #[inline]
-    fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider {
-        self
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 }
 
 impl<T: Into<String>> From<T> for StaticUploadTokenProvider {
@@ -409,16 +395,6 @@ impl<C: CredentialProvider> UploadTokenProvider for FromUploadPolicy<C> {
             .get(&Default::default())?
             .sign_with_data(self.upload_policy.as_json().as_bytes())
             .into())
-    }
-
-    #[inline]
-    fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider {
-        self
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
 
@@ -508,16 +484,6 @@ impl<C: CredentialProvider> UploadTokenProvider for BucketUploadTokenProvider<C>
             .get(&Default::default())?
             .sign_with_data(self.make_policy().as_json().as_bytes());
         Ok(upload_token.into())
-    }
-
-    #[inline]
-    fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider {
-        self
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
 
@@ -638,16 +604,6 @@ impl<C: CredentialProvider> UploadTokenProvider for ObjectUploadTokenProvider<C>
             .get(&Default::default())?
             .sign_with_data(self.make_policy().as_json().as_bytes());
         Ok(upload_token.into())
-    }
-
-    #[inline]
-    fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider {
-        self
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
 
@@ -847,16 +803,6 @@ impl<P: UploadTokenProvider> UploadTokenProvider for CachedUploadTokenProvider<P
         opts: &'a ToStringOptions,
     ) -> AsyncIOResult<'a, GotString<'a>> {
         async_method!(self, upload_token, opts, async_to_token_string)
-    }
-
-    #[inline]
-    fn as_upload_token_provider(&self) -> &dyn UploadTokenProvider {
-        self
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
 

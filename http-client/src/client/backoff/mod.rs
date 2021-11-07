@@ -5,17 +5,13 @@ mod randomized;
 use super::{ResponseError, RetriedStatsInfo, RetryDecision};
 use qiniu_http::Request as HTTPRequest;
 use std::{
-    any::Any,
     fmt::Debug,
     ops::{Deref, DerefMut},
     time::Duration,
 };
 
-pub trait Backoff: Any + Debug + Sync + Send {
+pub trait Backoff: Debug + Sync + Send {
     fn time(&self, request: &mut HTTPRequest, opts: &BackoffOptions) -> BackoffDuration;
-
-    fn as_any(&self) -> &dyn Any;
-    fn as_backoff(&self) -> &dyn Backoff;
 }
 
 #[derive(Debug, Clone)]

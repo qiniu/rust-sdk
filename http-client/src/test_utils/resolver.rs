@@ -1,9 +1,6 @@
 use super::super::{ResolveOptions, ResolveResult, Resolver, ResponseError, ResponseErrorKind};
 use rand::{prelude::*, thread_rng};
-use std::{
-    any::Any,
-    net::{IpAddr, Ipv4Addr},
-};
+use std::net::{IpAddr, Ipv4Addr};
 
 pub(crate) fn make_dumb_resolver() -> impl Resolver {
     #[derive(Debug)]
@@ -13,16 +10,6 @@ pub(crate) fn make_dumb_resolver() -> impl Resolver {
         #[inline]
         fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
             Ok(vec![].into())
-        }
-
-        #[inline]
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
-
-        #[inline]
-        fn as_resolver(&self) -> &dyn Resolver {
-            self
         }
     }
 
@@ -38,16 +25,6 @@ pub(crate) fn make_static_resolver(ip_addrs: Box<[IpAddr]>) -> impl Resolver {
         fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
             Ok(self.0.to_owned().into())
         }
-
-        #[inline]
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
-
-        #[inline]
-        fn as_resolver(&self) -> &dyn Resolver {
-            self
-        }
     }
 
     StaticResolver(ip_addrs)
@@ -62,16 +39,6 @@ pub(crate) fn make_random_resolver() -> impl Resolver {
         fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
             let ips = vec![IpAddr::V4(Ipv4Addr::from(thread_rng().gen::<u32>()))];
             Ok(ips.into())
-        }
-
-        #[inline]
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
-
-        #[inline]
-        fn as_resolver(&self) -> &dyn Resolver {
-            self
         }
     }
 
@@ -92,16 +59,6 @@ pub(crate) fn make_error_resolver(
         #[inline]
         fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
             Err(ResponseError::new(self.error_kind, self.message.to_owned()))
-        }
-
-        #[inline]
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
-
-        #[inline]
-        fn as_resolver(&self) -> &dyn Resolver {
-            self
         }
     }
 

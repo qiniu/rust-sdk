@@ -3,7 +3,6 @@ use super::{
     RequestRetrier, RequestRetrierOptions, RetryDecision, RetryResult,
 };
 use qiniu_http::{Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind};
-use std::any::Any;
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct ErrorRetrier;
@@ -74,16 +73,6 @@ impl RequestRetrier for ErrorRetrier {
                 Idempotent::Never => false,
             }
         }
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_request_retrier(&self) -> &dyn RequestRetrier {
-        self
     }
 }
 

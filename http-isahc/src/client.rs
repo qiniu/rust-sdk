@@ -158,16 +158,6 @@ impl HTTPCaller for Client {
     }
 
     #[inline]
-    fn as_http_caller(&self) -> &dyn HTTPCaller {
-        self
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    #[inline]
     fn is_resolved_ip_addrs_supported(&self) -> bool {
         true
     }

@@ -3,7 +3,6 @@ use super::{
 };
 use num_rational::Ratio;
 use rand::{prelude::*, thread_rng};
-use std::any::Any;
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
@@ -72,16 +71,6 @@ impl<C: Chooser> Chooser for NeverEmptyHandedChooser<C> {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_feedback<'a>(&'a self, feedback: ChooserFeedback<'a>) -> BoxFuture<'a, ()> {
         self.inner_chooser.async_feedback(feedback)
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_chooser(&self) -> &dyn Chooser {
-        self
     }
 }
 

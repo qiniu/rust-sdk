@@ -3,7 +3,7 @@ use super::{
     ResolveOptions, ResolveResult, Resolver,
 };
 use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
-use std::{any::Any, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 #[cfg(feature = "async")]
 use {
@@ -40,14 +40,14 @@ impl<R: Default> Default for TimeoutResolver<R> {
     }
 }
 
-impl<R: Resolver> Resolver for TimeoutResolver<R> {
+impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
     #[inline]
     fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
         return _resolve(self, domain, opts);
 
         #[inline]
         #[cfg(feature = "async")]
-        fn _resolve<R: Resolver>(
+        fn _resolve<R: Resolver + 'static>(
             resolver: &TimeoutResolver<R>,
             domain: &str,
             opts: &ResolveOptions,
@@ -57,7 +57,7 @@ impl<R: Resolver> Resolver for TimeoutResolver<R> {
 
         #[inline]
         #[cfg(not(feature = "async"))]
-        fn _resolve<R: Resolver>(
+        fn _resolve<R: Resolver + 'static>(
             resolver: &TimeoutResolver<R>,
             domain: &str,
             opts: &ResolveOptions,
@@ -122,16 +122,6 @@ impl<R: Resolver> Resolver for TimeoutResolver<R> {
     }
 
     #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_resolver(&self) -> &dyn Resolver {
-        self
-    }
-
-    #[inline]
     fn cache_controller(&self) -> Option<&dyn CacheController> {
         self.inner.resolver.cache_controller()
     }
@@ -169,16 +159,6 @@ mod tests {
                 AsyncDelay::new(self.0).await;
                 Ok(IPS.to_owned().into_boxed_slice().into())
             })
-        }
-
-        #[inline]
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
-
-        #[inline]
-        fn as_resolver(&self) -> &dyn Resolver {
-            self
         }
     }
 

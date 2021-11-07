@@ -66,16 +66,6 @@ impl HTTPCaller for Client {
     fn async_call<'a>(&'a self, _request: &'a Request<'_>) -> BoxFuture<'a, AsyncResponseResult> {
         unimplemented!("http_ureq::Client does not support async call")
     }
-
-    #[inline]
-    fn as_http_caller(&self) -> &dyn HTTPCaller {
-        self
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
 }
 
 #[inline]

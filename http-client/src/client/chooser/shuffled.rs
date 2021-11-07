@@ -2,7 +2,6 @@ use super::{
     super::super::regions::IpAddrWithPort, ChooseOptions, Chooser, ChooserFeedback, ChosenResults,
 };
 use rand::{seq::SliceRandom, thread_rng};
-use std::any::Any;
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
@@ -59,16 +58,6 @@ impl<C: Chooser> Chooser for ShuffledChooser<C> {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_feedback<'a>(&'a self, feedback: ChooserFeedback<'a>) -> BoxFuture<'a, ()> {
         Box::pin(async move { self.chooser.async_feedback(feedback).await })
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_chooser(&self) -> &dyn Chooser {
-        self
     }
 }
 

@@ -2,7 +2,7 @@ use super::{
     super::{ResponseError, ResponseErrorKind},
     ResolveOptions, ResolveResult, Resolver,
 };
-use std::{any::Any, collections::VecDeque};
+use std::collections::VecDeque;
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
@@ -50,16 +50,6 @@ impl Resolver for ChainedResolver {
             }
             last_result.unwrap_or_else(|| Err(no_try_error()))
         })
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_resolver(&self) -> &dyn Resolver {
-        self
     }
 }
 

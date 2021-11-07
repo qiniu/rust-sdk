@@ -13,7 +13,7 @@ use c_ares_resolver::{
 };
 use cfg_if::cfg_if;
 use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
-use std::{any::Any, fmt, net::IpAddr, sync::mpsc};
+use std::{fmt, net::IpAddr, sync::mpsc};
 
 #[cfg(feature = "async")]
 use {
@@ -137,16 +137,6 @@ impl Resolver for CAresResolver {
                 (Err(err), _) => Err(err),
             }
         })
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_resolver(&self) -> &dyn Resolver {
-        self
     }
 }
 

@@ -7,7 +7,7 @@ use super::{
     GetOptions, GotRegion, GotRegions, Region, RegionProvider,
 };
 use qiniu_credential::CredentialProvider;
-use std::{any::Any, convert::TryFrom, fmt::Debug, sync::Arc};
+use std::{convert::TryFrom, fmt::Debug, sync::Arc};
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
@@ -115,16 +115,6 @@ impl RegionProvider for RegionsProvider {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_get_all<'a>(&'a self, _opts: &'a GetOptions) -> BoxFuture<APIResult<GotRegions>> {
         Box::pin(async move { self.do_async_query().await.map(GotRegions::from) })
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_region_provider(&self) -> &dyn RegionProvider {
-        self
     }
 }
 

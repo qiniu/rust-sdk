@@ -5,7 +5,7 @@ use super::{
     GetOptions, GotRegion, GotRegions, RegionProvider,
 };
 use qiniu_credential::CredentialProvider;
-use std::{any::Any, fmt, path::Path, sync::Arc, time::Duration};
+use std::{fmt, path::Path, sync::Arc, time::Duration};
 
 #[cfg(feature = "async")]
 use {async_std::task::spawn, futures::future::BoxFuture};
@@ -92,16 +92,6 @@ impl RegionProvider for CachedRegionsProvider {
     #[inline]
     fn cache_controller(&self) -> Option<&dyn CacheController> {
         Some(&self.inner.cache)
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_region_provider(&self) -> &dyn RegionProvider {
-        self
     }
 }
 

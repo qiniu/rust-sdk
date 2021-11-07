@@ -5,16 +5,12 @@ mod never;
 use super::{Idempotent, ResponseError, RetriedStatsInfo};
 use qiniu_http::Request as HTTPRequest;
 use std::{
-    any::Any,
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
 
-pub trait RequestRetrier: Any + Debug + Sync + Send {
+pub trait RequestRetrier: Debug + Sync + Send {
     fn retry(&self, request: &mut HTTPRequest, opts: &RequestRetrierOptions) -> RetryResult;
-
-    fn as_any(&self) -> &dyn Any;
-    fn as_request_retrier(&self) -> &dyn RequestRetrier;
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

@@ -1,6 +1,6 @@
 use super::{Backoff, BackoffDuration, BackoffOptions, RetryDecision};
 use qiniu_http::Request as HTTPRequest;
-use std::{any::Any, time::Duration};
+use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExponentialBackoff {
@@ -23,16 +23,6 @@ impl Backoff for ExponentialBackoff {
             opts.retried().retried_on_current_endpoint()
         };
         BackoffDuration::from(self.base_delay * 2_u32.pow(retried_count as u32))
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_backoff(&self) -> &dyn Backoff {
-        self
     }
 }
 

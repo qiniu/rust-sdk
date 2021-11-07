@@ -3,7 +3,6 @@ use super::{
     Region,
 };
 use std::{
-    any::Any,
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
@@ -32,7 +31,7 @@ use futures::future::BoxFuture;
 /// 区域信息提供者
 ///
 /// 为区域信息提供者的实现提供接口支持
-pub trait RegionProvider: Any + Debug + Sync + Send {
+pub trait RegionProvider: Debug + Sync + Send {
     /// 返回七牛区域信息
     fn get(&self, opts: &GetOptions) -> APIResult<GotRegion>;
 
@@ -63,9 +62,6 @@ pub trait RegionProvider: Any + Debug + Sync + Send {
     fn cache_controller(&self) -> Option<&dyn CacheController> {
         None
     }
-
-    fn as_any(&self) -> &dyn Any;
-    fn as_region_provider(&self) -> &dyn RegionProvider;
 }
 
 #[derive(Clone, Debug, Default)]

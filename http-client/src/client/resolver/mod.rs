@@ -7,7 +7,6 @@ mod timeout;
 use super::{super::CacheController, APIResult};
 use serde::{Deserialize, Serialize};
 use std::{
-    any::Any,
     fmt::Debug,
     net::IpAddr,
     ops::{Deref, DerefMut},
@@ -16,7 +15,7 @@ use std::{
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
-pub trait Resolver: Any + Debug + Sync + Send {
+pub trait Resolver: Debug + Sync + Send {
     fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult;
 
     #[inline]
@@ -30,8 +29,6 @@ pub trait Resolver: Any + Debug + Sync + Send {
         Box::pin(async move { self.resolve(domain, opts) })
     }
 
-    fn as_any(&self) -> &dyn Any;
-    fn as_resolver(&self) -> &dyn Resolver;
     fn cache_controller(&self) -> Option<&dyn CacheController> {
         None
     }

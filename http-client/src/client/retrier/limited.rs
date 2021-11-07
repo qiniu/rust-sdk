@@ -1,6 +1,5 @@
 use super::{RequestRetrier, RequestRetrierOptions, RetryDecision, RetryResult};
 use qiniu_http::Request as HTTPRequest;
-use std::any::Any;
 
 const DEFAULT_RETIES: usize = 2;
 
@@ -36,16 +35,6 @@ impl<R: RequestRetrier> RequestRetrier for LimitedRetrier<R> {
             result => result,
         }
         .into()
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_request_retrier(&self) -> &dyn RequestRetrier {
-        self
     }
 }
 

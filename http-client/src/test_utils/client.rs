@@ -3,7 +3,6 @@ use qiniu_http::{
     HTTPCaller, HeaderMap, Request as HTTPRequest, ResponseError, ResponseErrorKind, StatusCode,
     SyncResponse, SyncResponseResult,
 };
-use std::any::Any;
 
 #[cfg(feature = "async")]
 use {
@@ -28,16 +27,6 @@ pub(crate) fn make_dumb_client_builder() -> HTTPClientBuilder {
             _request: &'a HTTPRequest<'_>,
         ) -> BoxFuture<'a, AsyncResponseResult> {
             Box::pin(async { Ok(Default::default()) })
-        }
-
-        #[inline]
-        fn as_http_caller(&self) -> &dyn HTTPCaller {
-            self
-        }
-
-        #[inline]
-        fn as_any(&self) -> &dyn Any {
-            self
         }
     }
 
@@ -86,16 +75,6 @@ pub(crate) fn make_fixed_response_client_builder(
         fn is_resolved_ip_addrs_supported(&self) -> bool {
             self.is_resolved_ip_addrs_supported
         }
-
-        #[inline]
-        fn as_http_caller(&self) -> &dyn HTTPCaller {
-            self
-        }
-
-        #[inline]
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
     }
 
     let http_caller = Box::new(RedirectHTTPCaller {
@@ -139,16 +118,6 @@ pub(crate) fn make_error_response_client_builder(
         #[inline]
         fn is_resolved_ip_addrs_supported(&self) -> bool {
             self.is_resolved_ip_addrs_supported
-        }
-
-        #[inline]
-        fn as_http_caller(&self) -> &dyn HTTPCaller {
-            self
-        }
-
-        #[inline]
-        fn as_any(&self) -> &dyn Any {
-            self
         }
     }
 

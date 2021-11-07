@@ -12,7 +12,6 @@ use reqwest::{
     Error as ReqwestError, Url,
 };
 use std::{
-    any::Any,
     io::{Cursor, Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
     mem::take,
     mem::transmute,
@@ -52,16 +51,6 @@ impl HTTPCaller for SyncReqwestHTTPCaller {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_call<'a>(&'a self, _request: &'a Request) -> BoxFuture<'a, AsyncResponseResult> {
         unimplemented!("SyncReqwestHTTPCaller does not support async call")
-    }
-
-    #[inline]
-    fn as_http_caller(&self) -> &dyn HTTPCaller {
-        self
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
 

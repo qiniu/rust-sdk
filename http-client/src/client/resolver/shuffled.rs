@@ -1,6 +1,5 @@
 use super::{super::super::CacheController, ResolveOptions, ResolveResult, Resolver};
 use rand::{prelude::*, thread_rng};
-use std::any::Any;
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
@@ -38,16 +37,6 @@ impl<R: Resolver> Resolver for ShuffledResolver<R> {
             answers.ip_addrs_mut().shuffle(&mut thread_rng());
             Ok(answers)
         })
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_resolver(&self) -> &dyn Resolver {
-        self
     }
 
     #[inline]

@@ -1,5 +1,4 @@
 use super::{ChooseOptions, Chooser, ChooserFeedback, ChosenResults, IpAddrWithPort};
-use std::any::Any;
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
@@ -32,16 +31,6 @@ impl Chooser for DirectChooser {
     #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
     fn async_feedback<'a>(&'a self, feedback: ChooserFeedback<'a>) -> BoxFuture<'a, ()> {
         Box::pin(async move { self.feedback(feedback) })
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_chooser(&self) -> &dyn Chooser {
-        self
     }
 }
 

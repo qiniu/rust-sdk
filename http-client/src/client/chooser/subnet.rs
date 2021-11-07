@@ -7,7 +7,6 @@ pub use ipnet::PrefixLenError;
 use ipnet::{Ipv4Net, Ipv6Net};
 use log::{info, warn};
 use std::{
-    any::Any,
     collections::HashMap,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     sync::{Arc, Mutex},
@@ -140,16 +139,6 @@ impl Chooser for SubnetChooser {
                 self.inner.blacklist.remove(&BlacklistKey(ip));
             }
         }
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_chooser(&self) -> &dyn Chooser {
-        self
     }
 }
 

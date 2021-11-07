@@ -8,7 +8,6 @@ mod subnet;
 use super::super::regions::IpAddrWithPort;
 pub use feedback::ChooserFeedback;
 use std::{
-    any::Any,
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
@@ -16,7 +15,7 @@ use std::{
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
-pub trait Chooser: Any + Debug + Sync + Send {
+pub trait Chooser: Debug + Sync + Send {
     fn choose(&self, ips: &[IpAddrWithPort], opts: &ChooseOptions) -> ChosenResults;
     fn feedback(&self, feedback: ChooserFeedback);
 
@@ -37,9 +36,6 @@ pub trait Chooser: Any + Debug + Sync + Send {
     fn async_feedback<'a>(&'a self, feedback: ChooserFeedback<'a>) -> BoxFuture<'a, ()> {
         Box::pin(async move { self.feedback(feedback) })
     }
-
-    fn as_any(&self) -> &dyn Any;
-    fn as_chooser(&self) -> &dyn Chooser;
 }
 
 #[derive(Debug, Clone, Default)]

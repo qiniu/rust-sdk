@@ -1,7 +1,7 @@
 use super::{Backoff, BackoffDuration, BackoffOptions};
 use qiniu_http::Request as HTTPRequest;
 use rand::{thread_rng, Rng};
-use std::{any::Any, convert::TryInto, time::Duration, u64};
+use std::{convert::TryInto, time::Duration, u64};
 
 pub use num_rational::Ratio;
 
@@ -61,16 +61,6 @@ impl<P: Backoff> Backoff for RandomizedBackoff<P> {
 
         let randomized = thread_rng().gen_range(minified, magnified);
         Duration::from_nanos(randomized).into()
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_backoff(&self) -> &dyn Backoff {
-        self
     }
 }
 

@@ -3,7 +3,7 @@ use async_std::task::block_on;
 use async_std_resolver::{resolver, resolver_from_system_conf, AsyncStdResolver as AsyncResolver};
 use futures::future::BoxFuture;
 use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
-use std::{any::Any, fmt};
+use std::fmt;
 pub use trust_dns_resolver;
 use trust_dns_resolver::{
     config::{ResolverConfig, ResolverOpts},
@@ -64,16 +64,6 @@ impl Resolver for TrustDnsResolver {
                 .collect::<Vec<_>>()
                 .into())
         })
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_resolver(&self) -> &dyn Resolver {
-        self
     }
 }
 

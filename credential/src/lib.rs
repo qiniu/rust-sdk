@@ -29,7 +29,6 @@ use once_cell::sync::Lazy;
 use qiniu_utils::base64;
 use sha1::Sha1;
 use std::{
-    any::Any,
     collections::VecDeque,
     env,
     fmt::{self, Debug},
@@ -503,7 +502,7 @@ type AsyncResult<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a + Send>>;
 /// 认证信息提供者
 ///
 /// 为认证信息提供者的实现提供接口支持
-pub trait CredentialProvider: Any + Debug + Sync + Send {
+pub trait CredentialProvider: Debug + Sync + Send {
     /// 返回七牛认证信息
     fn get(&self, opts: &GetOptions) -> Result<GotCredential>;
 
@@ -514,9 +513,6 @@ pub trait CredentialProvider: Any + Debug + Sync + Send {
     fn async_get<'a>(&'a self, opts: &'a GetOptions) -> AsyncResult<'a, GotCredential> {
         Box::pin(async move { self.get(opts) })
     }
-
-    fn as_any(&self) -> &dyn Any;
-    fn as_credential_provider(&self) -> &dyn CredentialProvider;
 }
 
 #[derive(Clone, Debug, Default)]
@@ -590,16 +586,6 @@ impl CredentialProvider for StaticCredentialProvider {
     fn get(&self, _opts: &GetOptions) -> Result<GotCredential> {
         Ok(self.credential.to_owned().into())
     }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_credential_provider(&self) -> &dyn CredentialProvider {
-        self
-    }
 }
 
 /// 全局认证信息提供者，可以将认证信息配置在全局变量中。任何全局认证信息提供者实例都可以设置和访问全局认证信息。
@@ -635,16 +621,6 @@ impl CredentialProvider for GlobalCredentialProvider {
                 "GlobalCredentialProvider is not setuped, please call GlobalCredentialProvider::setup() to do it",
             ))
         }
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_credential_provider(&self) -> &dyn CredentialProvider {
-        self
     }
 }
 
@@ -693,16 +669,6 @@ impl CredentialProvider for EnvCredentialProvider {
                 Err(Error::new(ErrorKind::Other, ERROR_MESSAGE.as_str()))
             }
         }
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_credential_provider(&self) -> &dyn CredentialProvider {
-        self
     }
 }
 
@@ -761,16 +727,6 @@ impl CredentialProvider for ChainCredentialsProvider {
                 "All credentials are failed to get",
             ))
         })
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_credential_provider(&self) -> &dyn CredentialProvider {
-        self
     }
 }
 
