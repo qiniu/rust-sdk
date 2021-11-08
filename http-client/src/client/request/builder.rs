@@ -33,6 +33,7 @@ use {
     super::{
         super::{async_request_call, AsyncResponse},
         multipart::AsyncMultipart,
+        AsyncRequest,
     },
     futures::io::AsyncRead,
     qiniu_http::{AsyncRequestBody, AsyncReset},
@@ -279,12 +280,12 @@ impl<'r, B> RequestBuilder<'r, B> {
         self
     }
 
-    // #[inline]
-    // #[cfg(feature = "async")]
-    // #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    // pub async fn async_call(self) -> APIResult<AsyncResponse> {
-    //     async_request_call(self.build()).await
-    // }
+    #[inline]
+    fn get_appended_user_agent(&self) -> UserAgent {
+        let mut appended_user_agent = self.http_client.appended_user_agent().to_owned();
+        appended_user_agent.push_str(self.appended_user_agent.as_str());
+        appended_user_agent
+    }
 }
 
 pub type SyncRequestBuilder<'r> = RequestBuilder<'r, SyncRequestBody<'r>>;
@@ -366,12 +367,7 @@ impl<'r> SyncRequestBuilder<'r> {
 
     #[inline]
     pub(in super::super) fn build(self) -> SyncRequest<'r> {
-        let user_agent = {
-            let mut appended_user_agent = self.http_client.appended_user_agent().to_owned();
-            appended_user_agent.push_str(self.appended_user_agent.as_str());
-            appended_user_agent
-        };
-
+        let appended_user_agent = self.get_appended_user_agent();
         SyncRequest::new(
             self.http_client,
             self.service_names,
@@ -379,7 +375,7 @@ impl<'r> SyncRequestBuilder<'r> {
             self.callbacks.build(),
             self.metadata,
             self.body,
-            user_agent,
+            appended_user_agent,
             self.extensions,
         )
     }
@@ -425,12 +421,12 @@ impl<'r> AsyncRequestBuilder<'r> {
     }
 
     #[inline]
-    pub fn json(mut self, body: impl Serialize) -> JSONResult<Self> {
+    pub fn json(self, body: impl Serialize) -> JSONResult<Self> {
         Ok(self.bytes_as_body(serde_json::to_vec(&body)?, Some(APPLICATION_JSON)))
     }
 
     #[inline]
-    pub fn post_form<I, K, V>(mut self, iter: I) -> Self
+    pub fn post_form<I, K, V>(self, iter: I) -> Self
     where
         I: IntoIterator,
         I::Item: Borrow<(K, Option<V>)>,
@@ -453,11 +449,34 @@ impl<'r> AsyncRequestBuilder<'r> {
     }
 
     #[inline]
-    pub async fn multipart(mut self, multipart: AsyncMultipart) -> IOResult<Self> {
+    pub async fn multipart(
+        self,
+        multipart: AsyncMultipart,
+    ) -> IOResult<RequestBuilder<'r, AsyncRequestBody<'r>>> {
         use futures::AsyncReadExt;
 
         let mut buf = Vec::new();
         multipart.into_async_read().read_to_end(&mut buf).await?;
         Ok(self.bytes_as_body(buf, Some(MULTIPART_FORM_DATA)))
+    }
+
+    #[inline]
+    pub async fn call(self) -> APIResult<AsyncResponse> {
+        async_request_call(self.build()).await
+    }
+
+    #[inline]
+    pub(in super::super) fn build(self) -> AsyncRequest<'r> {
+        let appended_user_agent = self.get_appended_user_agent();
+        AsyncRequest::new(
+            self.http_client,
+            self.service_names,
+            self.into_endpoints,
+            self.callbacks.build(),
+            self.metadata,
+            self.body,
+            appended_user_agent,
+            self.extensions,
+        )
     }
 }

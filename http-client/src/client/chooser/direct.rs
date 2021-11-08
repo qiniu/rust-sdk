@@ -17,7 +17,7 @@ impl Chooser for DirectChooser {
 
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_choose<'a>(
         &'a self,
         ips: &'a [IpAddrWithPort],
@@ -28,7 +28,7 @@ impl Chooser for DirectChooser {
 
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_feedback<'a>(&'a self, feedback: ChooserFeedback<'a>) -> BoxFuture<'a, ()> {
         Box::pin(async move { self.feedback(feedback) })
     }

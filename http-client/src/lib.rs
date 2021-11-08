@@ -54,8 +54,8 @@ pub use client::{
     RequestBuilder, RequestRetrier, RequestRetrierOptions, ResolveAnswers, ResolveOptions,
     ResolveResult, Resolver, ResponseError, ResponseErrorKind, ResponseInfo, RetriedStatsInfo,
     RetryDecision, RetryResult, ShuffledChooser, ShuffledResolver, SimpleResolver,
-    SimplifiedCallbackContext, SubnetChooser, SubnetChooserBuilder, SyncBody, SyncMultipart,
-    SyncPart, SyncRequestBuilder, SyncResponse, TimeoutResolver, NO_BACKOFF,
+    SimplifiedCallbackContext, SubnetChooser, SubnetChooserBuilder, SyncMultipart, SyncPart,
+    SyncPartBody, SyncRequestBody, SyncRequestBuilder, SyncResponse, TimeoutResolver, NO_BACKOFF,
 };
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
@@ -79,7 +79,7 @@ pub use client::{trust_dns_resolver, TrustDnsResolver};
 
 #[cfg(feature = "async")]
 pub use client::{
-    AsyncBody, AsyncMultipart, AsyncPart, AsyncRequest, AsyncRequestBuilder, AsyncResponse,
+    AsyncMultipart, AsyncPart, AsyncPartBody, AsyncRequestBody, AsyncRequestBuilder, AsyncResponse,
 };
 
 pub mod preclude {

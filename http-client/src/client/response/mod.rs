@@ -1,7 +1,7 @@
 use qiniu_http::{
     Extensions, HeaderMap, HeaderName, HeaderValue, Metrics, Response as HTTPResponse,
     ResponseErrorKind as HTTPResponseErrorKind, ResponseResult as HTTPResponseResult, StatusCode,
-    SyncResponseBody, Version,
+    Version,
 };
 use serde::de::DeserializeOwned;
 use serde_json::from_slice as parse_json_from_slice;
@@ -12,8 +12,13 @@ pub use error::{Error as ResponseError, ErrorKind as ResponseErrorKind};
 
 pub type APIResult<T> = Result<T, ResponseError>;
 
+pub use qiniu_http::SyncResponseBody;
+
 #[cfg(feature = "async")]
-use {futures::io::copy as async_io_copy, qiniu_http::AsyncResponseBody};
+use futures::io::copy as async_io_copy;
+
+#[cfg(feature = "async")]
+pub use qiniu_http::AsyncResponseBody;
 
 #[derive(Default, Debug)]
 pub struct Response<B> {
@@ -203,5 +208,5 @@ pub type SyncResponse = Response<SyncResponseBody>;
 
 /// 异步 HTTP 响应
 #[cfg(feature = "async")]
-#[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 pub type AsyncResponse = Response<AsyncResponseBody>;

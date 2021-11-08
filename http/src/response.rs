@@ -426,7 +426,7 @@ mod body {
 
         /// 异步 HTTP 响应体
         #[derive(Debug)]
-        #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+        #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
         pub struct AsyncResponseBody(AsyncResponseBodyInner);
 
         #[derive(Debug)]

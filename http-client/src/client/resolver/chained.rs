@@ -34,7 +34,7 @@ impl Resolver for ChainedResolver {
 
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_resolve<'a>(
         &'a self,
         domain: &'a str,

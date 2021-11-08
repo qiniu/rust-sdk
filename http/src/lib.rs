@@ -72,15 +72,15 @@ mod async_req_resp {
     pub type AsyncRequestBuilder<'r> = RequestBuilder<'r, AsyncRequestBody<'r>>;
 
     /// 异步 HTTP 响应
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub type AsyncResponse = Response<AsyncResponseBody>;
 
     /// 异步 HTTP 响应构建器
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub type AsyncResponseBuilder = ResponseBuilder<AsyncResponseBody>;
 
     /// 异步 HTTP 响应结果
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub type AsyncResponseResult = ResponseResult<AsyncResponseBody>;
 }
 
@@ -108,7 +108,7 @@ pub trait HTTPCaller: Debug + Send + Sync {
 
     /// 异步发送 HTTP 请求
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_call<'a>(
         &'a self,
         request: &'a mut AsyncRequest<'_>,
@@ -138,7 +138,7 @@ impl<T: Seek> Reset for T {
 }
 
 #[cfg(feature = "async")]
-#[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 pub trait AsyncReset {
     fn reset(&mut self) -> BoxFuture<IOResult<()>>;
 }

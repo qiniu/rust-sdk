@@ -60,7 +60,7 @@ use {
 };
 
 #[cfg(feature = "async")]
-#[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 impl AsyncWrite for EtagV1 {
     #[inline]
     fn poll_write(mut self: Pin<&mut Self>, _cx: &mut Context, buf: &[u8]) -> Poll<Result<usize>> {

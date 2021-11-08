@@ -557,6 +557,13 @@ mod body {
         }
     }
 
+    impl<'a> From<&'a mut RequestBody<'_>> for RequestBody<'a> {
+        #[inline]
+        fn from(body: &'a mut RequestBody<'_>) -> Self {
+            Self::from_referenced_reader(body, body.size())
+        }
+    }
+
     #[cfg(feature = "async")]
     mod async_body {
         use super::super::super::{AsyncReset, BoxFuture};
@@ -574,7 +581,7 @@ mod body {
         impl<T: AsyncRead + AsyncReset + Unpin + Debug + Send + Sync> AsyncReadDebug for T {}
 
         #[derive(Debug)]
-        #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+        #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
         struct OwnedAsyncRequestBody(OwnedAsyncRequestBodyInner);
 
         #[derive(Debug)]
@@ -652,7 +659,7 @@ mod body {
 
         /// 异步 HTTP 请求体
         #[derive(Debug)]
-        #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+        #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
         pub struct AsyncRequestBody<'a>(AsyncRequestBodyInner<'a>);
 
         #[derive(Debug)]
@@ -748,6 +755,13 @@ mod body {
                         AsyncRequestBodyInner::Owned(owned) => owned.reset().await,
                     }
                 })
+            }
+        }
+
+        impl<'a> From<&'a mut AsyncRequestBody<'_>> for AsyncRequestBody<'a> {
+            #[inline]
+            fn from(body: &'a mut AsyncRequestBody<'_>) -> Self {
+                Self::from_referenced_reader(body, body.size())
             }
         }
     }

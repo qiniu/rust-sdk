@@ -35,7 +35,7 @@ pub trait UploadTokenProvider: Debug + Sync + Send {
     /// 异步从上传凭证内获取 AccessKey
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_access_key<'a>(
         &'a self,
         opts: &'a GetAccessKeyOptions,
@@ -49,7 +49,7 @@ pub trait UploadTokenProvider: Debug + Sync + Send {
     /// 异步从上传凭证内获取上传策略
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_policy<'a>(
         &'a self,
         opts: &'a GetPolicyOptions,
@@ -63,7 +63,7 @@ pub trait UploadTokenProvider: Debug + Sync + Send {
     /// 异步生成字符串
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_to_token_string<'a>(
         &'a self,
         opts: &'a ToStringOptions,
@@ -779,7 +779,7 @@ impl<P: UploadTokenProvider> UploadTokenProvider for CachedUploadTokenProvider<P
     }
 
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_access_key<'a>(
         &'a self,
         opts: &'a GetAccessKeyOptions,
@@ -788,7 +788,7 @@ impl<P: UploadTokenProvider> UploadTokenProvider for CachedUploadTokenProvider<P
     }
 
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_policy<'a>(
         &'a self,
         opts: &'a GetPolicyOptions,
@@ -797,7 +797,7 @@ impl<P: UploadTokenProvider> UploadTokenProvider for CachedUploadTokenProvider<P
     }
 
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_to_token_string<'a>(
         &'a self,
         opts: &'a ToStringOptions,

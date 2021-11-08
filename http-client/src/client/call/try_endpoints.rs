@@ -376,7 +376,7 @@ pub(super) fn try_endpoints(
 
 #[cfg(feature = "async")]
 use super::{
-    super::AsyncResponse,
+    super::{AsyncRequestBody, AsyncResponse},
     try_domain_or_ip_addr::async_try_domain_or_ip_addr,
     utils::{async_choose, async_resolve},
 };
@@ -384,7 +384,8 @@ use super::{
 #[cfg(feature = "async")]
 pub(super) async fn async_try_endpoints(
     endpoints: &[Endpoint],
-    request: &RequestWithoutEndpoints<'_>,
+    parts: &RequestParts<'_>,
+    body: &mut AsyncRequestBody<'_>,
     mut extensions: Extensions,
     tried_ips: &mut IpAddrsSet,
     retried: &mut RetriedStatsInfo,
@@ -396,7 +397,8 @@ pub(super) async fn async_try_endpoints(
         match try_domain_with_port(
             domain_with_port,
             tried_ips,
-            request,
+            parts,
+            body,
             &mut extensions,
             retried,
             is_endpoints_alternative,
@@ -423,7 +425,8 @@ pub(super) async fn async_try_endpoints(
         match try_ips(
             &ips,
             tried_ips,
-            request,
+            parts,
+            body,
             &mut extensions,
             retried,
             is_endpoints_alternative,
@@ -450,13 +453,14 @@ pub(super) async fn async_try_endpoints(
     async fn try_domain_with_port(
         domain_with_port: &DomainWithPort,
         tried_ips: &mut IpAddrsSet,
-        request: &RequestWithoutEndpoints<'_>,
+        parts: &RequestParts<'_>,
+        body: &mut AsyncRequestBody<'_>,
         extensions: &mut Extensions,
         retried: &mut RetriedStatsInfo,
         is_endpoints_alternative: bool,
     ) -> Result<AsyncResponse, ControlFlow<TryErrorWithExtensions>> {
         retried.switch_endpoint();
-        return if request
+        return if parts
             .http_client()
             .http_caller()
             .is_resolved_ip_addrs_supported()
@@ -464,7 +468,8 @@ pub(super) async fn async_try_endpoints(
             with_resolver(
                 domain_with_port,
                 tried_ips,
-                request,
+                parts,
+                body,
                 extensions,
                 retried,
                 is_endpoints_alternative,
@@ -473,7 +478,8 @@ pub(super) async fn async_try_endpoints(
         } else {
             without_resolver(
                 domain_with_port,
-                request,
+                parts,
+                body,
                 extensions,
                 retried,
                 is_endpoints_alternative,
@@ -485,13 +491,14 @@ pub(super) async fn async_try_endpoints(
         async fn with_resolver(
             domain_with_port: &DomainWithPort,
             tried_ips: &mut IpAddrsSet,
-            request: &RequestWithoutEndpoints<'_>,
+            parts: &RequestParts<'_>,
+            body: &mut AsyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
             is_endpoints_alternative: bool,
         ) -> Result<AsyncResponse, ControlFlow<TryErrorWithExtensions>> {
             let mut last_error: Option<TryError> = None;
-            let ips = async_resolve(request, domain_with_port, extensions)
+            let ips = async_resolve(parts, domain_with_port, extensions)
                 .await
                 .map_err(|err| err.with_extensions(take(extensions)))
                 .map_err(Some)
@@ -507,7 +514,8 @@ pub(super) async fn async_try_endpoints(
                         domain_with_port,
                         &mut remaining_ips,
                         tried_ips,
-                        request,
+                        parts,
+                        body,
                         extensions,
                         retried,
                         is_endpoints_alternative,
@@ -539,13 +547,15 @@ pub(super) async fn async_try_endpoints(
 
         async fn without_resolver(
             domain_with_port: &DomainWithPort,
-            request: &RequestWithoutEndpoints<'_>,
+            parts: &RequestParts<'_>,
+            body: &mut AsyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
             is_endpoints_alternative: bool,
         ) -> Result<AsyncResponse, ControlFlow<TryErrorWithExtensions>> {
             let domain = DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), vec![]);
-            match async_try_domain_or_ip_addr(&domain, request, take(extensions), retried).await {
+            match async_try_domain_or_ip_addr(&domain, parts, body, take(extensions), retried).await
+            {
                 Ok(response) => Ok(response),
                 Err(err) => match err.retry_decision() {
                     RetryDecision::TryAlternativeEndpoints if is_endpoints_alternative => {
@@ -563,17 +573,19 @@ pub(super) async fn async_try_endpoints(
             }
         }
 
+        #[allow(clippy::too_many_arguments)]
         async fn try_domain_with_ips(
             domain_with_port: &DomainWithPort,
             remaining_ips: &mut IpAddrsSet,
             tried_ips: &mut IpAddrsSet,
-            request: &RequestWithoutEndpoints<'_>,
+            parts: &RequestParts<'_>,
+            body: &mut AsyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
             is_endpoints_alternative: bool,
         ) -> Result<AsyncResponse, TryFlow<TryErrorWithExtensions>> {
             let chosen_ips = match remaining_ips.remains() {
-                ips if !ips.is_empty() => async_choose(request, &ips, extensions)
+                ips if !ips.is_empty() => async_choose(parts, &ips, extensions)
                     .await
                     .map_err(|err| err.with_extensions(take(extensions)))
                     .map_err(TryFlow::TryAgain)?,
@@ -587,7 +599,8 @@ pub(super) async fn async_try_endpoints(
                 retried.switch_ips();
                 match try_domain_or_single_ip(
                     &DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), chosen_ips),
-                    request,
+                    parts,
+                    body,
                     take(extensions),
                     retried,
                     is_endpoints_alternative,
@@ -605,7 +618,8 @@ pub(super) async fn async_try_endpoints(
     async fn try_ips(
         ips: &[IpAddrWithPort],
         tried_ips: &mut IpAddrsSet,
-        request: &RequestWithoutEndpoints<'_>,
+        parts: &RequestParts<'_>,
+        body: &mut AsyncRequestBody<'_>,
         extensions: &mut Extensions,
         retried: &mut RetriedStatsInfo,
         is_endpoints_alternative: bool,
@@ -621,7 +635,8 @@ pub(super) async fn async_try_endpoints(
             match try_remaining_ips(
                 &mut remaining_ips,
                 tried_ips,
-                request,
+                parts,
+                body,
                 extensions,
                 retried,
                 is_endpoints_alternative,
@@ -649,14 +664,15 @@ pub(super) async fn async_try_endpoints(
         async fn try_remaining_ips(
             remaining_ips: &mut IpAddrsSet,
             tried_ips: &mut IpAddrsSet,
-            request: &RequestWithoutEndpoints<'_>,
+            parts: &RequestParts<'_>,
+            body: &mut AsyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
             is_endpoints_alternative: bool,
         ) -> Result<AsyncResponse, ControlFlow<TryErrorWithExtensions>> {
             let mut last_error: Option<TryError> = None;
             let chosen_ips = match remaining_ips.remains() {
-                ips if !ips.is_empty() => async_choose(request, &ips, extensions)
+                ips if !ips.is_empty() => async_choose(parts, &ips, extensions)
                     .await
                     .map_err(|err| err.with_extensions(take(extensions)))
                     .map_err(Some)
@@ -670,7 +686,8 @@ pub(super) async fn async_try_endpoints(
                     retried.switch_endpoint();
                     match try_single_ip(
                         chosen_ip,
-                        request,
+                        parts,
+                        body,
                         extensions,
                         retried,
                         is_endpoints_alternative,
@@ -699,14 +716,16 @@ pub(super) async fn async_try_endpoints(
         #[inline]
         async fn try_single_ip(
             ip: IpAddrWithPort,
-            request: &RequestWithoutEndpoints<'_>,
+            parts: &RequestParts<'_>,
+            body: &mut AsyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
             is_endpoints_alternative: bool,
         ) -> Result<AsyncResponse, SingleTryFlow<TryErrorWithExtensions>> {
             try_domain_or_single_ip(
                 &DomainOrIpAddr::from(ip),
-                request,
+                parts,
+                body,
                 take(extensions),
                 retried,
                 is_endpoints_alternative,
@@ -717,12 +736,13 @@ pub(super) async fn async_try_endpoints(
 
     async fn try_domain_or_single_ip(
         domain: &DomainOrIpAddr,
-        request: &RequestWithoutEndpoints<'_>,
+        parts: &RequestParts<'_>,
+        body: &mut AsyncRequestBody<'_>,
         extensions: Extensions,
         retried: &mut RetriedStatsInfo,
         is_endpoints_alternative: bool,
     ) -> Result<AsyncResponse, SingleTryFlow<TryErrorWithExtensions>> {
-        match async_try_domain_or_ip_addr(domain, request, extensions, retried).await {
+        match async_try_domain_or_ip_addr(domain, parts, body, extensions, retried).await {
             Ok(response) => Ok(response),
             Err(err) => match err.retry_decision() {
                 RetryDecision::TryAlternativeEndpoints if is_endpoints_alternative => {

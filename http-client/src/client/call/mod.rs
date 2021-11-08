@@ -748,7 +748,7 @@ mod tests {
 
         let retried = Arc::new(AtomicUsize::new(0));
         let err = always_retry_client
-            .post(&[ServiceName::Up], &single_up_domain_region())
+            .async_post(&[ServiceName::Up], &single_up_domain_region())
             .on_before_backoff({
                 let retried = retried.to_owned();
                 Box::new(move |context, _| {
@@ -764,7 +764,7 @@ mod tests {
                     true
                 })
             })
-            .async_call()
+            .call()
             .await
             .unwrap_err();
         assert_eq!(
@@ -794,7 +794,7 @@ mod tests {
 
         retried.store(0, Relaxed);
         let err = always_throttled_client
-            .post(&[ServiceName::Up], &single_up_domain_region())
+            .async_post(&[ServiceName::Up], &single_up_domain_region())
             .on_before_backoff({
                 let retried = retried.to_owned();
                 Box::new(move |context, _| {
@@ -810,7 +810,7 @@ mod tests {
                     true
                 })
             })
-            .async_call()
+            .call()
             .await
             .unwrap_err();
         assert_eq!(

@@ -60,7 +60,7 @@ mod tests {
         retried.increase();
 
         let (mut parts, _) = HTTPRequest::builder()
-            .url(uri.to_owned())
+            .url(uri)
             .method(HTTPMethod::GET)
             .body(())
             .build()

@@ -16,6 +16,9 @@ use std::sync::Arc;
 #[cfg(feature = "isahc")]
 use qiniu_isahc::isahc::error::Error as IsahcError;
 
+#[cfg(feature = "async")]
+use super::AsyncRequestBuilder;
+
 #[derive(Debug, Clone)]
 pub struct HTTPClient {
     inner: Arc<HTTPClientInner>,
@@ -36,24 +39,31 @@ struct HTTPClientInner {
 impl HTTPClient {
     #[inline]
     #[cfg(feature = "ureq")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "ureq")))]
     pub fn ureq() -> Self {
         Self::build_ureq().build()
     }
 
     #[inline]
     #[cfg(feature = "isahc")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "isahc")))]
     pub fn isahc() -> Result<Self, IsahcError> {
         Ok(Self::build_isahc()?.build())
     }
 
     #[inline]
     #[cfg(feature = "reqwest")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "reqwest")))]
     pub fn reqwest_sync() -> Self {
         Self::build_reqwest_sync().build()
     }
 
     #[inline]
     #[cfg(all(feature = "reqwest", feature = "async"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(all(feature = "reqwest", feature = "async")))
+    )]
     pub fn reqwest_async() -> Self {
         Self::build_reqwest_async().build()
     }
@@ -65,24 +75,31 @@ impl HTTPClient {
 
     #[inline]
     #[cfg(feature = "ureq")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "ureq")))]
     pub fn build_ureq() -> HTTPClientBuilder {
         HTTPClientBuilder::ureq()
     }
 
     #[inline]
     #[cfg(feature = "isahc")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "isahc")))]
     pub fn build_isahc() -> Result<HTTPClientBuilder, IsahcError> {
         HTTPClientBuilder::isahc()
     }
 
     #[inline]
     #[cfg(feature = "reqwest")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "reqwest")))]
     pub fn build_reqwest_sync() -> HTTPClientBuilder {
         HTTPClientBuilder::reqwest_sync()
     }
 
     #[inline]
     #[cfg(all(feature = "reqwest", feature = "async"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(all(feature = "reqwest", feature = "async")))
+    )]
     pub fn build_reqwest_async() -> HTTPClientBuilder {
         HTTPClientBuilder::reqwest_async()
     }
@@ -97,6 +114,7 @@ impl HTTPClient {
         HTTPClientBuilder::new(http_caller)
     }
 
+    #[inline]
     pub fn get<'r>(
         &'r self,
         service_names: &'r [ServiceName],
@@ -105,6 +123,7 @@ impl HTTPClient {
         self.new_sync_request(Method::GET, service_names, into_endpoints.into())
     }
 
+    #[inline]
     pub fn head<'r>(
         &'r self,
         service_names: &'r [ServiceName],
@@ -113,6 +132,7 @@ impl HTTPClient {
         self.new_sync_request(Method::HEAD, service_names, into_endpoints.into())
     }
 
+    #[inline]
     pub fn post<'r>(
         &'r self,
         service_names: &'r [ServiceName],
@@ -121,6 +141,7 @@ impl HTTPClient {
         self.new_sync_request(Method::POST, service_names, into_endpoints.into())
     }
 
+    #[inline]
     pub fn put<'r>(
         &'r self,
         service_names: &'r [ServiceName],
@@ -129,6 +150,16 @@ impl HTTPClient {
         self.new_sync_request(Method::PUT, service_names, into_endpoints.into())
     }
 
+    #[inline]
+    pub fn delete<'r>(
+        &'r self,
+        service_names: &'r [ServiceName],
+        into_endpoints: impl Into<IntoEndpoints<'r>>,
+    ) -> SyncRequestBuilder<'r> {
+        self.new_sync_request(Method::DELETE, service_names, into_endpoints.into())
+    }
+
+    #[inline]
     fn new_sync_request<'r>(
         &'r self,
         method: Method,
@@ -136,6 +167,72 @@ impl HTTPClient {
         into_endpoints: IntoEndpoints<'r>,
     ) -> SyncRequestBuilder<'r> {
         SyncRequestBuilder::new(self, method, into_endpoints, service_names)
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    pub fn async_get<'r>(
+        &'r self,
+        service_names: &'r [ServiceName],
+        into_endpoints: impl Into<IntoEndpoints<'r>>,
+    ) -> AsyncRequestBuilder<'r> {
+        self.new_async_request(Method::GET, service_names, into_endpoints.into())
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    pub fn async_head<'r>(
+        &'r self,
+        service_names: &'r [ServiceName],
+        into_endpoints: impl Into<IntoEndpoints<'r>>,
+    ) -> AsyncRequestBuilder<'r> {
+        self.new_async_request(Method::HEAD, service_names, into_endpoints.into())
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    pub fn async_post<'r>(
+        &'r self,
+        service_names: &'r [ServiceName],
+        into_endpoints: impl Into<IntoEndpoints<'r>>,
+    ) -> AsyncRequestBuilder<'r> {
+        self.new_async_request(Method::POST, service_names, into_endpoints.into())
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    pub fn async_put<'r>(
+        &'r self,
+        service_names: &'r [ServiceName],
+        into_endpoints: impl Into<IntoEndpoints<'r>>,
+    ) -> AsyncRequestBuilder<'r> {
+        self.new_async_request(Method::PUT, service_names, into_endpoints.into())
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    pub fn async_delete<'r>(
+        &'r self,
+        service_names: &'r [ServiceName],
+        into_endpoints: impl Into<IntoEndpoints<'r>>,
+    ) -> AsyncRequestBuilder<'r> {
+        self.new_async_request(Method::DELETE, service_names, into_endpoints.into())
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    fn new_async_request<'r>(
+        &'r self,
+        method: Method,
+        service_names: &'r [ServiceName],
+        into_endpoints: IntoEndpoints<'r>,
+    ) -> AsyncRequestBuilder<'r> {
+        AsyncRequestBuilder::new(self, method, into_endpoints, service_names)
     }
 
     #[inline]

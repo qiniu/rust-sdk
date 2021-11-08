@@ -51,7 +51,7 @@ impl HTTPCaller for SyncReqwestHTTPCaller {
 
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_call<'a>(
         &'a self,
         _request: &'a mut AsyncRequest<'_>,

@@ -56,11 +56,11 @@ impl RegionsProvider {
     async fn do_async_query(&self) -> APIResult<Vec<Region>> {
         let body: ResponseBody = self
             .http_client
-            .get(&[ServiceName::Uc], self.uc_endpoints.to_owned())
+            .async_get(&[ServiceName::Uc], self.uc_endpoints.to_owned())
             .path("/regions")
             .authorization(Authorization::v2(self.credential_provider.to_owned()))
             .accept_json()
-            .async_call()
+            .call()
             .await?
             .parse_json()
             .await?
@@ -95,7 +95,7 @@ impl RegionProvider for RegionsProvider {
     /// 异步返回七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegion>> {
         Box::pin(async move {
             self.async_get_all(opts).await.map(|regions| {
@@ -112,7 +112,7 @@ impl RegionProvider for RegionsProvider {
     /// 异步返回多个七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get_all<'a>(&'a self, _opts: &'a GetOptions) -> BoxFuture<APIResult<GotRegions>> {
         Box::pin(async move { self.do_async_query().await.map(GotRegions::from) })
     }

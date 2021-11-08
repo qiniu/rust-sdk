@@ -456,12 +456,16 @@ fn make_unexpected_status_code_error(status_code: StatusCode) -> ResponseError {
 
 #[cfg(feature = "async")]
 mod async_utils {
-    use super::{super::super::AsyncResponse, *};
+    use super::{
+        super::super::{AsyncResponse, RequestParts},
+        *,
+    };
+    use qiniu_http::AsyncRequest as AsyncHttpRequest;
     use std::future::Future;
 
     #[inline]
     pub(in super::super) async fn sign_async_request(
-        request: &mut HTTPRequest<'_>,
+        request: &mut AsyncHttpRequest<'_>,
         authorization: Option<&Authorization>,
     ) -> Result<(), TryError> {
         if let Some(authorization) = authorization {
@@ -475,18 +479,17 @@ mod async_utils {
 
     #[inline]
     pub(in super::super) async fn async_resolve(
-        request: &RequestWithoutEndpoints<'_>,
+        parts: &RequestParts<'_>,
         domain_with_port: &DomainWithPort,
         extensions: &mut Extensions,
     ) -> Result<Vec<IpAddrWithPort>, TryError> {
-        let answers =
-            with_resolve_domain(request, domain_with_port.domain(), extensions, || async {
-                request
-                    .http_client()
-                    .resolver()
-                    .async_resolve(domain_with_port.domain(), &Default::default())
-                    .await
-            });
+        let answers = with_resolve_domain(parts, domain_with_port.domain(), extensions, || async {
+            parts
+                .http_client()
+                .resolver()
+                .async_resolve(domain_with_port.domain(), &Default::default())
+                .await
+        });
         return Ok(answers
             .await?
             .into_ip_addrs()
@@ -496,33 +499,33 @@ mod async_utils {
 
         #[inline]
         async fn with_resolve_domain<F: FnOnce() -> Fu, Fu: Future<Output = ResolveResult>>(
-            request: &RequestWithoutEndpoints<'_>,
+            parts: &RequestParts<'_>,
             domain: &str,
             extensions: &mut Extensions,
             f: F,
         ) -> Result<ResolveAnswers, TryError> {
-            call_to_resolve_domain_callbacks(request, domain, extensions)?;
+            call_to_resolve_domain_callbacks(parts, domain, extensions)?;
             let answers = f()
                 .await
-                .map_err(|err| TryError::new(err, RetryDecision::TryNextServer))?;
-            call_domain_resolved_callbacks(request, domain, &answers, extensions)?;
+                .map_err(|err| TryError::new(err, RetryDecision::TryNextServer.into()))?;
+            call_domain_resolved_callbacks(parts, domain, &answers, extensions)?;
             Ok(answers)
         }
     }
 
     pub(in super::super) async fn async_choose(
-        request: &RequestWithoutEndpoints<'_>,
+        parts: &RequestParts<'_>,
         ips: &[IpAddrWithPort],
         extensions: &mut Extensions,
     ) -> Result<Vec<IpAddrWithPort>, TryError> {
-        call_to_choose_ips_callbacks(request, ips, extensions)?;
-        let chosen_ips = request
+        call_to_choose_ips_callbacks(parts, ips, extensions)?;
+        let chosen_ips = parts
             .http_client()
             .chooser()
             .async_choose(ips, &Default::default())
             .await
             .into_ip_addrs();
-        call_ips_chosen_callbacks(request, ips, &chosen_ips, extensions)?;
+        call_ips_chosen_callbacks(parts, ips, &chosen_ips, extensions)?;
         Ok(chosen_ips)
     }
 

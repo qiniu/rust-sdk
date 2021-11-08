@@ -103,12 +103,12 @@ mod sync_part {
         path::Path,
     };
 
-    enum SyncBodyInner {
+    enum SyncPartBodyInner {
         Bytes(BytesReader<Bytes>),
         Stream(Box<dyn Read>),
     }
-    pub struct SyncBody(SyncBodyInner);
-    pub type SyncPart = Part<SyncBody>;
+    pub struct SyncPartBody(SyncPartBodyInner);
+    pub type SyncPart = Part<SyncPartBody>;
 
     impl SyncPart {
         #[inline]
@@ -120,7 +120,7 @@ mod sync_part {
                 Cow::Owned(string) => Bytes::from(string),
             };
             Self {
-                body: SyncBody(SyncBodyInner::Bytes(bytes.reader())),
+                body: SyncPartBody(SyncPartBodyInner::Bytes(bytes.reader())),
                 meta: Default::default(),
             }
         }
@@ -134,7 +134,7 @@ mod sync_part {
                 Cow::Owned(string) => Bytes::from(string),
             };
             Self {
-                body: SyncBody(SyncBodyInner::Bytes(bytes.reader())),
+                body: SyncPartBody(SyncPartBodyInner::Bytes(bytes.reader())),
                 meta: Default::default(),
             }
         }
@@ -142,7 +142,7 @@ mod sync_part {
         #[inline]
         pub fn stream(value: Box<dyn Read>) -> Self {
             Self {
-                body: SyncBody(SyncBodyInner::Stream(value)),
+                body: SyncPartBody(SyncPartBodyInner::Stream(value)),
                 meta: Default::default(),
             }
         }
@@ -199,17 +199,17 @@ mod sync_part {
         }
     }
 
-    impl Read for SyncBody {
+    impl Read for SyncPartBody {
         #[inline]
         fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
             match &mut self.0 {
-                SyncBodyInner::Bytes(bytes) => bytes.read(buf),
-                SyncBodyInner::Stream(stream) => stream.read(buf),
+                SyncPartBodyInner::Bytes(bytes) => bytes.read(buf),
+                SyncPartBodyInner::Stream(stream) => stream.read(buf),
             }
         }
     }
 }
-pub use sync_part::{SyncBody, SyncMultipart, SyncPart};
+pub use sync_part::{SyncMultipart, SyncPart, SyncPartBody};
 
 #[cfg(feature = "async")]
 mod async_part {
@@ -224,18 +224,18 @@ mod async_part {
         task::{Context, Poll},
     };
 
-    type AsyncStream = Box<dyn AsyncRead + Unpin>;
+    type AsyncStream = Box<dyn AsyncRead + Send + Unpin>;
 
-    enum AsyncBodyInner {
+    enum AsyncPartBodyInner {
         Bytes(Cursor<Bytes>),
         Stream(AsyncStream),
     }
 
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub struct AsyncBody(AsyncBodyInner);
+    pub struct AsyncPartBody(AsyncPartBodyInner);
 
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub type AsyncPart = Part<AsyncBody>;
+    pub type AsyncPart = Part<AsyncPartBody>;
 
     impl AsyncPart {
         #[inline]
@@ -245,7 +245,7 @@ mod async_part {
                 Cow::Owned(string) => Bytes::from(string),
             };
             Self {
-                body: AsyncBody(AsyncBodyInner::Bytes(Cursor::new(bytes))),
+                body: AsyncPartBody(AsyncPartBodyInner::Bytes(Cursor::new(bytes))),
                 meta: Default::default(),
             }
         }
@@ -257,7 +257,7 @@ mod async_part {
                 Cow::Owned(string) => Bytes::from(string),
             };
             Self {
-                body: AsyncBody(AsyncBodyInner::Bytes(Cursor::new(bytes))),
+                body: AsyncPartBody(AsyncPartBodyInner::Bytes(Cursor::new(bytes))),
                 meta: Default::default(),
             }
         }
@@ -265,7 +265,7 @@ mod async_part {
         #[inline]
         pub fn stream(value: AsyncStream) -> Self {
             Self {
-                body: AsyncBody(AsyncBodyInner::Stream(value)),
+                body: AsyncPartBody(AsyncPartBodyInner::Stream(value)),
                 meta: Default::default(),
             }
         }
@@ -291,20 +291,21 @@ mod async_part {
 
     impl AsyncMultipart {
         #[inline]
-        pub(in super::super) fn into_async_read(mut self) -> Box<dyn AsyncRead + Unpin> {
+        pub(in super::super) fn into_async_read(mut self) -> Box<dyn AsyncRead + Send + Unpin> {
             if self.fields.is_empty() {
                 return Box::new(Cursor::new([]));
             }
 
             let (name, part) = self.fields.pop_front().unwrap();
-            let chain = Box::new(self.part_stream(&name, part)) as Box<dyn AsyncRead + Unpin>;
+            let chain =
+                Box::new(self.part_stream(&name, part)) as Box<dyn AsyncRead + Send + Unpin>;
             let fields = take(&mut self.fields);
             Box::new(
                 fields
                     .into_iter()
                     .fold(chain, |readable, (name, part)| {
                         Box::new(readable.chain(self.part_stream(&name, part)))
-                            as Box<dyn AsyncRead + Unpin>
+                            as Box<dyn AsyncRead + Send + Unpin>
                     })
                     .chain(Cursor::new(b"--"))
                     .chain(Cursor::new(self.boundary.to_owned()))
@@ -313,7 +314,7 @@ mod async_part {
         }
 
         #[inline]
-        fn part_stream(&self, name: &str, part: AsyncPart) -> impl AsyncRead + Unpin {
+        fn part_stream(&self, name: &str, part: AsyncPart) -> impl AsyncRead + Send + Unpin {
             Cursor::new(b"--")
                 .chain(Cursor::new(self.boundary.to_owned()))
                 .chain(Cursor::new(b"\r\n"))
@@ -324,7 +325,7 @@ mod async_part {
         }
     }
 
-    impl AsyncRead for AsyncBody {
+    impl AsyncRead for AsyncPartBody {
         #[inline]
         fn poll_read(
             mut self: Pin<&mut Self>,
@@ -332,15 +333,15 @@ mod async_part {
             buf: &mut [u8],
         ) -> Poll<IOResult<usize>> {
             match &mut self.0 {
-                AsyncBodyInner::Bytes(bytes) => Pin::new(bytes).poll_read(cx, buf),
-                AsyncBodyInner::Stream(stream) => Pin::new(stream).poll_read(cx, buf),
+                AsyncPartBodyInner::Bytes(bytes) => Pin::new(bytes).poll_read(cx, buf),
+                AsyncPartBodyInner::Stream(stream) => Pin::new(stream).poll_read(cx, buf),
             }
         }
     }
 }
 
 #[cfg(feature = "async")]
-pub use async_part::{AsyncBody, AsyncMultipart, AsyncPart};
+pub use async_part::{AsyncMultipart, AsyncPart, AsyncPartBody};
 
 #[inline]
 fn gen_boundary() -> Boundary {

@@ -23,7 +23,7 @@ use std::{
     task::{Context, Poll},
 };
 
-#[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 #[derive(Debug, Default)]
 pub struct AsyncReqwestHTTPCaller {
     async_client: AsyncReqwestClient,
@@ -42,7 +42,7 @@ impl HTTPCaller for AsyncReqwestHTTPCaller {
         unimplemented!("AsyncReqwestHTTPCaller does not support blocking call")
     }
 
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_call<'a>(
         &'a self,
         request: &'a mut AsyncRequest<'_>,

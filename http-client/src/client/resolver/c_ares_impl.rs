@@ -1,6 +1,6 @@
-#[cfg_attr(feature = "docs", doc(cfg(c_ares)))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "c_ares")))]
 pub use c_ares;
-#[cfg_attr(feature = "docs", doc(cfg(c_ares)))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "c_ares")))]
 pub use c_ares_resolver;
 
 use super::{super::ResponseError, ResolveOptions, ResolveResult, Resolver};
@@ -23,7 +23,7 @@ use {
 
 type CAresResolverResult<T> = Result<T, CAresResolverError>;
 
-#[cfg_attr(feature = "docs", doc(cfg(c_ares)))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "c_ares")))]
 pub struct CAresResolver {
     callback_resolver: CallbackResolver,
 
@@ -109,7 +109,7 @@ impl Resolver for CAresResolver {
 
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_resolve<'a>(
         &'a self,
         domain: &'a str,

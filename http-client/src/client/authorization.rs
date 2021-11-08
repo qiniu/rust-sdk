@@ -104,52 +104,68 @@ impl Authorization {
     }
 
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     /// 使用指定的鉴权方式对 HTTP 请求进行异步签名
     pub async fn async_sign(&self, request: &mut AsyncRequest<'_>) -> AuthorizationResult<()> {
         let authorization = match &self.inner {
             AuthorizationInner::UpToken(provider) => {
                 uptoken_authorization(&provider.async_to_token_string(&Default::default()).await?)
             }
-            AuthorizationInner::V1(provider) => authorization_v1_for_request(
-                provider.async_get(&Default::default()).await?.credential(),
-                request,
-            )?,
-            AuthorizationInner::V2(provider) => authorization_v2_for_request(
-                provider.async_get(&Default::default()).await?.credential(),
-                request,
-            )?,
+            AuthorizationInner::V1(provider) => {
+                authorization_v1_for_request(
+                    provider.async_get(&Default::default()).await?.credential(),
+                    request,
+                )
+                .await?
+            }
+            AuthorizationInner::V2(provider) => {
+                authorization_v2_for_request(
+                    provider.async_get(&Default::default()).await?.credential(),
+                    request,
+                )
+                .await?
+            }
         };
         set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
         return Ok(());
 
         #[inline]
-        fn authorization_v1_for_request(
+        async fn authorization_v1_for_request(
             credential: &Credential,
-            request: &mut AsyncRequest,
+            request: &mut AsyncRequest<'_>,
         ) -> AuthorizationResult<String> {
-            Ok(
-                credential.authorization_v1_for_request_with_async_body_reader(
-                    request.url(),
-                    request.headers().get(CONTENT_TYPE),
-                    request.body_mut(),
-                ),
-            )
+            let (parts, mut body) = take(request).into_parts();
+            credential
+                .authorization_v1_for_request_with_async_body_reader(
+                    parts.url(),
+                    parts.headers().get(CONTENT_TYPE),
+                    &mut body,
+                )
+                .await
+                .tap(|_| {
+                    *request = AsyncRequest::from_parts(parts, body);
+                })
+                .map_err(|err| err.into())
         }
 
         #[inline]
-        fn authorization_v2_for_request(
+        async fn authorization_v2_for_request(
             credential: &Credential,
-            request: &mut AsyncRequest,
+            request: &mut AsyncRequest<'_>,
         ) -> AuthorizationResult<String> {
-            Ok(
-                credential.authorization_v2_for_request_with_async_body_reader(
-                    request.method(),
-                    request.url(),
-                    request.headers(),
-                    request.body_mut(),
-                ),
-            )
+            let (parts, mut body) = take(request).into_parts();
+            credential
+                .authorization_v2_for_request_with_async_body_reader(
+                    parts.method(),
+                    parts.url(),
+                    parts.headers(),
+                    &mut body,
+                )
+                .await
+                .tap(|_| {
+                    *request = AsyncRequest::from_parts(parts, body);
+                })
+                .map_err(|err| err.into())
         }
     }
 }

@@ -28,7 +28,7 @@ pub use chooser::{
 pub use http_client::{HTTPClient, HTTPClientBuilder};
 pub use request::{
     FieldName, FileName, Idempotent, Multipart, Part, QueryPairKey, QueryPairValue, QueryPairs,
-    RequestBuilder, SyncBody, SyncMultipart, SyncPart, SyncRequestBuilder,
+    RequestBuilder, SyncMultipart, SyncPart, SyncPartBody, SyncRequestBody, SyncRequestBuilder,
 };
 pub use resolver::{
     CachedResolver, ChainedResolver, ChainedResolverBuilder, ResolveAnswers, ResolveOptions,
@@ -49,7 +49,7 @@ pub use resolver::{trust_dns_resolver, TrustDnsResolver};
 
 #[cfg(feature = "async")]
 pub use {
-    request::{AsyncBody, AsyncMultipart, AsyncPart, AsyncRequest, AsyncRequestBuilder},
+    request::{AsyncMultipart, AsyncPart, AsyncPartBody, AsyncRequestBody, AsyncRequestBuilder},
     response::AsyncResponse,
 };
 

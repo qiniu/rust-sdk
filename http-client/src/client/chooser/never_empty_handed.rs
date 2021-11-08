@@ -50,7 +50,7 @@ impl<C: Chooser> Chooser for NeverEmptyHandedChooser<C> {
 
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_choose<'a>(
         &'a self,
         ips: &'a [IpAddrWithPort],
@@ -68,7 +68,7 @@ impl<C: Chooser> Chooser for NeverEmptyHandedChooser<C> {
 
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_feedback<'a>(&'a self, feedback: ChooserFeedback<'a>) -> BoxFuture<'a, ()> {
         self.inner_chooser.async_feedback(feedback)
     }

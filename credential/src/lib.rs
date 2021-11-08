@@ -198,20 +198,23 @@ impl Credential {
 #[cfg(feature = "async")]
 impl Credential {
     #[inline]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
-    pub async fn sign_async_reader(&self, reader: &mut (dyn AsyncRead + Unpin)) -> Result<String> {
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    pub async fn sign_async_reader(
+        &self,
+        reader: &mut (dyn AsyncRead + Send + Unpin),
+    ) -> Result<String> {
         Ok(self.access_key.to_string()
             + ":"
             + &base64ed_hmac_digest_async_reader(self.secret_key.as_ref(), reader).await?)
     }
 
     #[inline]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub async fn authorization_v1_for_request_with_async_body_reader(
         &self,
         url: &Uri,
         content_type: Option<&HeaderValue>,
-        body: &mut (dyn AsyncRead + Unpin),
+        body: &mut (dyn AsyncRead + Send + Unpin),
     ) -> Result<String> {
         let authorization_token =
             sign_request_v1_with_async_body_reader(self, url, content_type, body).await?;
@@ -219,13 +222,13 @@ impl Credential {
     }
 
     #[inline]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub async fn authorization_v2_for_request_with_async_body_reader(
         &self,
         method: &Method,
         url: &Uri,
         headers: &HeaderMap,
-        body: &mut (dyn AsyncRead + Unpin),
+        body: &mut (dyn AsyncRead + Send + Unpin),
     ) -> Result<String> {
         let authorization_token =
             sign_request_v2_with_async_body_reader(self, method, url, headers, body).await?;
@@ -400,7 +403,7 @@ mod async_sign {
         cred: &Credential,
         url: &Uri,
         content_type: Option<&HeaderValue>,
-        body: &mut (dyn AsyncRead + Unpin),
+        body: &mut (dyn AsyncRead + Send + Unpin),
     ) -> Result<String> {
         let data_to_sign = _sign_request_v1_without_body(url);
         if let Some(content_type) = content_type {
@@ -418,7 +421,7 @@ mod async_sign {
         method: &Method,
         url: &Uri,
         headers: &HeaderMap,
-        body: &mut (dyn AsyncRead + Unpin),
+        body: &mut (dyn AsyncRead + Send + Unpin),
     ) -> Result<String> {
         let data_to_sign = _sign_request_v2_without_body(method, url, headers);
         if let Some(content_type) = headers.get(CONTENT_TYPE) {
@@ -434,7 +437,7 @@ mod async_sign {
     #[inline]
     pub(super) async fn base64ed_hmac_digest_async_reader(
         secret_key: &str,
-        reader: &mut (dyn AsyncRead + Unpin),
+        reader: &mut (dyn AsyncRead + Send + Unpin),
     ) -> Result<String> {
         let mut hmac =
             AsyncHmacWriter(Hmac::<Sha1>::new_from_slice(secret_key.as_bytes()).unwrap());
@@ -509,7 +512,7 @@ pub trait CredentialProvider: Debug + Sync + Send {
     /// 异步返回七牛认证信息
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get<'a>(&'a self, opts: &'a GetOptions) -> AsyncResult<'a, GotCredential> {
         Box::pin(async move { self.get(opts) })
     }
@@ -714,7 +717,7 @@ impl CredentialProvider for ChainCredentialsProvider {
     }
 
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get<'a>(&'a self, opts: &'a GetOptions) -> AsyncResult<'a, GotCredential> {
         Box::pin(async move {
             for provider in self.credentials.iter() {

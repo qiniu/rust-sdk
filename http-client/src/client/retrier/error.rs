@@ -117,7 +117,7 @@ mod tests {
         assert_eq!(result.decision(), RetryDecision::DontRetry);
 
         let (mut parts, _) = HTTPRequest::builder()
-            .url(uri.to_owned())
+            .url(uri)
             .method(HTTPMethod::POST)
             .body(())
             .build()
@@ -165,7 +165,7 @@ mod tests {
         retried.increase();
 
         let (mut parts, _) = HTTPRequest::builder()
-            .url(uri.to_owned())
+            .url(uri)
             .method(HTTPMethod::GET)
             .body(())
             .build()

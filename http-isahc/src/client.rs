@@ -107,7 +107,7 @@ impl HTTPCaller for Client {
     }
 
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_call<'a>(
         &'a self,
         request: &'a mut AsyncRequest<'_>,

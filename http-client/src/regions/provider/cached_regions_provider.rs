@@ -72,7 +72,7 @@ impl RegionProvider for CachedRegionsProvider {
     /// 异步返回七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegion>> {
         let provider = self.to_owned();
         let opts = opts.to_owned();
@@ -82,7 +82,7 @@ impl RegionProvider for CachedRegionsProvider {
     /// 异步返回多个七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(r#async)))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegions>> {
         let provider = self.to_owned();
         let opts = opts.to_owned();
