@@ -4,7 +4,7 @@ mod shuffled;
 mod simple;
 mod timeout;
 
-use super::{super::CacheController, APIResult};
+use super::{super::CacheController, ApiResult};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
@@ -119,7 +119,7 @@ impl DerefMut for ResolveAnswers {
     }
 }
 
-pub type ResolveResult = APIResult<ResolveAnswers>;
+pub type ResolveResult = ApiResult<ResolveAnswers>;
 
 pub use cache::CachedResolver;
 pub use chained::{ChainedResolver, ChainedResolverBuilder};

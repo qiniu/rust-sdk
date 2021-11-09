@@ -6,7 +6,7 @@ use super::{
 use bytes::Bytes;
 use futures::{ready, AsyncRead, Stream};
 use qiniu_http::{
-    AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult, HTTPCaller, ResponseError,
+    AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult, HttpCaller, ResponseError,
     ResponseErrorKind, SyncRequest, SyncResponseResult, TransferProgressInfo,
 };
 use reqwest::{
@@ -16,7 +16,7 @@ use reqwest::{
 use std::{
     error::Error,
     fmt,
-    io::{Error as IOError, ErrorKind as IOErrorKind, Result as IOResult},
+    io::{Error as IoError, ErrorKind as IoErrorKind, Result as IoResult},
     mem::{take, transmute},
     num::NonZeroU16,
     pin::Pin,
@@ -25,21 +25,21 @@ use std::{
 
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 #[derive(Debug, Default)]
-pub struct AsyncReqwestHTTPCaller {
+pub struct AsyncReqwestHttpCaller {
     async_client: AsyncReqwestClient,
 }
 
-impl AsyncReqwestHTTPCaller {
+impl AsyncReqwestHttpCaller {
     #[inline]
     pub fn new(async_client: AsyncReqwestClient) -> Self {
         Self { async_client }
     }
 }
 
-impl HTTPCaller for AsyncReqwestHTTPCaller {
+impl HttpCaller for AsyncReqwestHttpCaller {
     #[inline]
     fn call<'a>(&'a self, _request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
-        unimplemented!("AsyncReqwestHTTPCaller does not support blocking call")
+        unimplemented!("AsyncReqwestHttpCaller does not support blocking call")
     }
 
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -65,7 +65,7 @@ fn make_async_reqwest_request(
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<AsyncReqwestRequest, ResponseError> {
     let url = Url::parse(&request.url().to_string()).map_err(|err| {
-        ResponseError::builder(ResponseErrorKind::InvalidURL, err)
+        ResponseError::builder(ResponseErrorKind::InvalidUrl, err)
             .uri(request.url())
             .build()
     })?;
@@ -135,8 +135,8 @@ fn make_async_reqwest_request(
                                 .uri(self.as_ref().request.url())
                                 .build(),
                             );
-                            return Poll::Ready(Some(Err(Box::new(IOError::new(
-                                IOErrorKind::Other,
+                            return Poll::Ready(Some(Err(Box::new(IoError::new(
+                                IoErrorKind::Other,
                                 ERROR_MESSAGE,
                             )))));
                         }
@@ -216,14 +216,14 @@ fn from_async_response(
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,
             buf: &mut [u8],
-        ) -> Poll<IOResult<usize>> {
+        ) -> Poll<IoResult<usize>> {
             let oriself = unsafe { self.get_unchecked_mut() };
             let buffer_rested = oriself.buffer.len() - oriself.used;
             if oriself.buffer.is_empty() {
                 let stream = unsafe { Pin::new_unchecked(&mut oriself.stream) };
                 match ready!(stream.poll_next(cx)) {
                     None => Poll::Ready(Ok(0)),
-                    Some(Err(err)) => Poll::Ready(Err(IOError::new(IOErrorKind::Other, err))),
+                    Some(Err(err)) => Poll::Ready(Err(IoError::new(IoErrorKind::Other, err))),
                     Some(Ok(data)) => {
                         if data.len() <= buf.len() {
                             buf[..data.len()].copy_from_slice(&data);

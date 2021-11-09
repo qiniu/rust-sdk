@@ -1,13 +1,13 @@
 use qiniu_http::{
     header::{CONTENT_LENGTH, USER_AGENT},
-    HTTPCaller, HeaderName, HeaderValue, RequestParts, ResponseError, ResponseErrorKind,
+    HeaderName, HeaderValue, HttpCaller, RequestParts, ResponseError, ResponseErrorKind,
     StatusCode, SyncRequest, SyncResponse, SyncResponseBody, SyncResponseResult,
     TransferProgressInfo, Version,
 };
 use std::{
     error::Error,
     fmt,
-    io::{Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
+    io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult},
 };
 use ureq::{
     Agent, Error as UreqError, ErrorKind as UreqErrorKind, Request as UreqRequest,
@@ -41,7 +41,7 @@ impl Default for Client {
     }
 }
 
-impl HTTPCaller for Client {
+impl HttpCaller for Client {
     fn call<'a>(&self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
         let mut user_cancelled_error: Option<ResponseError> = None;
 
@@ -122,7 +122,7 @@ fn make_ureq_sync_response(response: UreqResponse, request: &SyncRequest) -> Syn
 
     impl<R: Read> Read for ResponseReaderWrapper<R> {
         #[inline]
-        fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+        fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
             self.0.read(buf)
         }
     }
@@ -292,14 +292,14 @@ fn from_ureq_error(
     request: &RequestParts,
 ) -> ResponseError {
     let response_error_kind = match kind {
-        UreqErrorKind::InvalidUrl => ResponseErrorKind::InvalidURL,
-        UreqErrorKind::UnknownScheme => ResponseErrorKind::InvalidURL,
-        UreqErrorKind::Dns => ResponseErrorKind::DNSServerError,
-        UreqErrorKind::ConnectionFailed => ResponseErrorKind::DNSServerError,
+        UreqErrorKind::InvalidUrl => ResponseErrorKind::InvalidUrl,
+        UreqErrorKind::UnknownScheme => ResponseErrorKind::InvalidUrl,
+        UreqErrorKind::Dns => ResponseErrorKind::DnsServerError,
+        UreqErrorKind::ConnectionFailed => ResponseErrorKind::DnsServerError,
         UreqErrorKind::TooManyRedirects => ResponseErrorKind::TooManyRedirect,
         UreqErrorKind::BadStatus => ResponseErrorKind::InvalidRequestResponse,
         UreqErrorKind::BadHeader => ResponseErrorKind::InvalidHeader,
-        UreqErrorKind::Io => ResponseErrorKind::LocalIOError,
+        UreqErrorKind::Io => ResponseErrorKind::LocalIoError,
         UreqErrorKind::InvalidProxyUrl => ResponseErrorKind::ProxyError,
         UreqErrorKind::ProxyConnect => ResponseErrorKind::ProxyError,
         UreqErrorKind::ProxyUnauthorized => ResponseErrorKind::ProxyError,
@@ -330,7 +330,7 @@ impl<'a, 'r> RequestBodyWithCallbacks<'a, 'r> {
 }
 
 impl Read for RequestBodyWithCallbacks<'_, '_> {
-    fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
         match self.request.body_mut().read(buf) {
             Err(err) => Err(err),
             Ok(0) => Ok(0),
@@ -349,7 +349,7 @@ impl Read for RequestBodyWithCallbacks<'_, '_> {
                                 .uri(self.request.url())
                                 .build(),
                         );
-                        return Err(IOError::new(IOErrorKind::Other, ERROR_MESSAGE));
+                        return Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE));
                     }
                 }
                 Ok(n)

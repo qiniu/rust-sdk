@@ -10,7 +10,7 @@ use super::{
     TimeoutResolver,
 };
 use cfg_if::cfg_if;
-use qiniu_http::{HTTPCaller, Method, UserAgent};
+use qiniu_http::{HttpCaller, Method, UserAgent};
 use std::sync::Arc;
 
 #[cfg(feature = "isahc")]
@@ -20,15 +20,15 @@ use qiniu_isahc::isahc::error::Error as IsahcError;
 use super::AsyncRequestBuilder;
 
 #[derive(Debug, Clone)]
-pub struct HTTPClient {
-    inner: Arc<HTTPClientInner>,
+pub struct HttpClient {
+    inner: Arc<HttpClientInner>,
 }
 
 #[derive(Debug)]
-struct HTTPClientInner {
+struct HttpClientInner {
     use_https: bool,
     appended_user_agent: UserAgent,
-    http_caller: Box<dyn HTTPCaller>,
+    http_caller: Box<dyn HttpCaller>,
     request_retrier: Box<dyn RequestRetrier>,
     backoff: Box<dyn Backoff>,
     chooser: Box<dyn Chooser>,
@@ -36,7 +36,7 @@ struct HTTPClientInner {
     callbacks: Callbacks,
 }
 
-impl HTTPClient {
+impl HttpClient {
     #[inline]
     #[cfg(feature = "ureq")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "ureq")))]
@@ -69,29 +69,29 @@ impl HTTPClient {
     }
 
     #[inline]
-    pub fn build_default() -> HTTPClientBuilder {
-        HTTPClientBuilder::default()
+    pub fn build_default() -> HttpClientBuilder {
+        HttpClientBuilder::default()
     }
 
     #[inline]
     #[cfg(feature = "ureq")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "ureq")))]
-    pub fn build_ureq() -> HTTPClientBuilder {
-        HTTPClientBuilder::ureq()
+    pub fn build_ureq() -> HttpClientBuilder {
+        HttpClientBuilder::ureq()
     }
 
     #[inline]
     #[cfg(feature = "isahc")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "isahc")))]
-    pub fn build_isahc() -> Result<HTTPClientBuilder, IsahcError> {
-        HTTPClientBuilder::isahc()
+    pub fn build_isahc() -> Result<HttpClientBuilder, IsahcError> {
+        HttpClientBuilder::isahc()
     }
 
     #[inline]
     #[cfg(feature = "reqwest")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "reqwest")))]
-    pub fn build_reqwest_sync() -> HTTPClientBuilder {
-        HTTPClientBuilder::reqwest_sync()
+    pub fn build_reqwest_sync() -> HttpClientBuilder {
+        HttpClientBuilder::reqwest_sync()
     }
 
     #[inline]
@@ -100,18 +100,18 @@ impl HTTPClient {
         feature = "docs",
         doc(cfg(all(feature = "reqwest", feature = "async")))
     )]
-    pub fn build_reqwest_async() -> HTTPClientBuilder {
-        HTTPClientBuilder::reqwest_async()
+    pub fn build_reqwest_async() -> HttpClientBuilder {
+        HttpClientBuilder::reqwest_async()
     }
 
     #[inline]
-    pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
-        HTTPClientBuilder::new(http_caller).build()
+    pub fn new(http_caller: Box<dyn HttpCaller>) -> Self {
+        HttpClientBuilder::new(http_caller).build()
     }
 
     #[inline]
-    pub fn builder(http_caller: Box<dyn HTTPCaller>) -> HTTPClientBuilder {
-        HTTPClientBuilder::new(http_caller)
+    pub fn builder(http_caller: Box<dyn HttpCaller>) -> HttpClientBuilder {
+        HttpClientBuilder::new(http_caller)
     }
 
     #[inline]
@@ -251,7 +251,7 @@ impl HTTPClient {
     }
 
     #[inline]
-    pub(super) fn http_caller(&self) -> &dyn HTTPCaller {
+    pub(super) fn http_caller(&self) -> &dyn HttpCaller {
         self.inner.http_caller.as_ref()
     }
 
@@ -277,10 +277,10 @@ impl HTTPClient {
 }
 
 #[derive(Debug)]
-pub struct HTTPClientBuilder {
+pub struct HttpClientBuilder {
     use_https: bool,
     appended_user_agent: UserAgent,
-    http_caller: Box<dyn HTTPCaller>,
+    http_caller: Box<dyn HttpCaller>,
     request_retrier: Box<dyn RequestRetrier>,
     backoff: Box<dyn Backoff>,
     chooser: Box<dyn Chooser>,
@@ -288,7 +288,7 @@ pub struct HTTPClientBuilder {
     callbacks: CallbacksBuilder,
 }
 
-impl HTTPClientBuilder {
+impl HttpClientBuilder {
     #[inline]
     #[cfg(feature = "ureq")]
     pub fn ureq() -> Self {
@@ -304,23 +304,23 @@ impl HTTPClientBuilder {
     #[inline]
     #[cfg(feature = "reqwest")]
     pub fn reqwest_sync() -> Self {
-        Self::_new(Box::new(qiniu_reqwest::SyncReqwestHTTPCaller::default()))
+        Self::_new(Box::new(qiniu_reqwest::SyncReqwestHttpCaller::default()))
     }
 
     #[inline]
     #[cfg(all(feature = "reqwest", feature = "async"))]
     pub fn reqwest_async() -> Self {
-        Self::_new(Box::new(qiniu_reqwest::AsyncReqwestHTTPCaller::default()))
+        Self::_new(Box::new(qiniu_reqwest::AsyncReqwestHttpCaller::default()))
     }
 
     #[inline]
-    pub fn new(http_caller: Box<dyn HTTPCaller>) -> Self {
+    pub fn new(http_caller: Box<dyn HttpCaller>) -> Self {
         Self::_new(http_caller)
     }
 
     #[inline]
-    fn _new(http_caller: Box<dyn HTTPCaller>) -> Self {
-        return HTTPClientBuilder {
+    fn _new(http_caller: Box<dyn HttpCaller>) -> Self {
+        return HttpClientBuilder {
             http_caller,
             use_https: true,
             appended_user_agent: Default::default(),
@@ -345,7 +345,7 @@ impl HTTPClientBuilder {
     }
 
     #[inline]
-    pub fn http_caller(mut self, http_caller: Box<dyn HTTPCaller>) -> Self {
+    pub fn http_caller(mut self, http_caller: Box<dyn HttpCaller>) -> Self {
         self.http_caller = http_caller;
         self
     }
@@ -447,9 +447,9 @@ impl HTTPClientBuilder {
     }
 
     #[inline]
-    pub fn build(self) -> HTTPClient {
-        HTTPClient {
-            inner: Arc::new(HTTPClientInner {
+    pub fn build(self) -> HttpClient {
+        HttpClient {
+            inner: Arc::new(HttpClientInner {
                 use_https: self.use_https,
                 appended_user_agent: self.appended_user_agent,
                 http_caller: self.http_caller,
@@ -463,31 +463,31 @@ impl HTTPClientBuilder {
     }
 }
 
-impl Default for HTTPClientBuilder {
+impl Default for HttpClientBuilder {
     #[inline]
     fn default() -> Self {
-        HTTPClientBuilder::_new(default_http_caller())
+        HttpClientBuilder::_new(default_http_caller())
     }
 }
 
-impl Default for HTTPClient {
+impl Default for HttpClient {
     #[inline]
     fn default() -> Self {
-        HTTPClientBuilder::default().build()
+        HttpClientBuilder::default().build()
     }
 }
 
 #[inline]
-fn default_http_caller() -> Box<dyn HTTPCaller> {
+fn default_http_caller() -> Box<dyn HttpCaller> {
     cfg_if! {
         if #[cfg(all(feature = "ureq", not(feature = "async")))] {
             Box::new(qiniu_ureq::Client::default())
         } else if #[cfg(feature = "isahc")] {
             Box::new(qiniu_isahc::Client::default_client().expect("Failed to initialize isahc"))
         } else if #[cfg(all(feature = "reqwest", not(feature = "async")))] {
-            Box::new(qiniu_reqwest::SyncReqwestHTTPCaller::default())
+            Box::new(qiniu_reqwest::SyncReqwestHttpCaller::default())
         } else if #[cfg(all(feature = "reqwest", feature = "async"))] {
-            Box::new(qiniu_reqwest::AsyncReqwestHTTPCaller::default())
+            Box::new(qiniu_reqwest::AsyncReqwestHttpCaller::default())
         } else {
             panic!("No http caller available, can you enable feature `isahc` to resolve this problem?")
         }

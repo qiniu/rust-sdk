@@ -2,7 +2,7 @@ use super::{
     super::{super::CacheController, ResponseError},
     ResolveOptions, ResolveResult, Resolver,
 };
-use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
+use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
 use std::{sync::Arc, time::Duration};
 
 #[cfg(feature = "async")]
@@ -92,7 +92,7 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
                     _ => unreachable!(),
                 },
                 Err(err) => Err(ResponseError::new(
-                    HTTPResponseErrorKind::TimeoutError.into(),
+                    HttpResponseErrorKind::TimeoutError.into(),
                     err,
                 )),
             }
@@ -116,7 +116,7 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
             pin_mut!(timeout_task);
             select! {
                 resolve_result = resolve_task => resolve_result,
-                _ = timeout_task => Err(ResponseError::new(HTTPResponseErrorKind::TimeoutError.into(), format!("Failed to resolve domain in {:?}", self.inner.timeout))),
+                _ = timeout_task => Err(ResponseError::new(HttpResponseErrorKind::TimeoutError.into(), format!("Failed to resolve domain in {:?}", self.inner.timeout))),
             }
         })
     }

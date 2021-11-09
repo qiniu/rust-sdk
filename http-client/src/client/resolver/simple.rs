@@ -1,6 +1,6 @@
 use super::{super::ResponseError, ResolveOptions, ResolveResult, Resolver};
 use dns_lookup::lookup_host;
-use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
+use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct SimpleResolver;
@@ -10,7 +10,7 @@ impl Resolver for SimpleResolver {
     fn resolve(&self, domain: &str, _opts: &ResolveOptions) -> ResolveResult {
         lookup_host(domain)
             .map(|ips| ips.into_boxed_slice().into())
-            .map_err(|err| ResponseError::new(HTTPResponseErrorKind::DNSServerError.into(), err))
+            .map_err(|err| ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err))
     }
 }
 

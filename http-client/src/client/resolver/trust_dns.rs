@@ -2,7 +2,7 @@ use super::{super::ResponseError, ResolveOptions, ResolveResult, Resolver};
 use async_std::task::block_on;
 use async_std_resolver::{resolver, resolver_from_system_conf, AsyncStdResolver as AsyncResolver};
 use futures::future::BoxFuture;
-use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
+use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
 use std::fmt;
 pub use trust_dns_resolver;
 use trust_dns_resolver::{
@@ -76,7 +76,7 @@ impl fmt::Debug for TrustDnsResolver {
 
 #[inline]
 fn convert_trust_dns_error_to_response_error(err: ResolveError) -> ResponseError {
-    ResponseError::new(HTTPResponseErrorKind::DNSServerError.into(), err)
+    ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err)
 }
 
 #[cfg(test)]

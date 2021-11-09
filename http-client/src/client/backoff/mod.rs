@@ -3,7 +3,7 @@ mod fixed;
 mod randomized;
 
 use super::{ResponseError, RetriedStatsInfo, RetryDecision};
-use qiniu_http::RequestParts as HTTPRequestParts;
+use qiniu_http::RequestParts as HttpRequestParts;
 use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
@@ -11,7 +11,7 @@ use std::{
 };
 
 pub trait Backoff: Debug + Sync + Send {
-    fn time(&self, request: &mut HTTPRequestParts, opts: &BackoffOptions) -> BackoffDuration;
+    fn time(&self, request: &mut HttpRequestParts, opts: &BackoffOptions) -> BackoffDuration;
 }
 
 #[derive(Debug, Clone)]

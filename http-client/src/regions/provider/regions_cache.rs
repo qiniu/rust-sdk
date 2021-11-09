@@ -1,7 +1,7 @@
 use super::super::{
     super::{
         cache::{Cache, CacheController, PersistentResult},
-        APIResult,
+        ApiResult,
     },
     Endpoints, Region,
 };
@@ -120,8 +120,8 @@ impl RegionsCache {
     pub(super) fn get(
         &self,
         key: &CacheKey,
-        f: impl FnMut() -> APIResult<Vec<Region>> + Send + Sync + 'static,
-    ) -> APIResult<Vec<Region>> {
+        f: impl FnMut() -> ApiResult<Vec<Region>> + Send + Sync + 'static,
+    ) -> ApiResult<Vec<Region>> {
         self.inner.get(key, f)
     }
 

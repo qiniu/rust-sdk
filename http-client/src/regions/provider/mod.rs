@@ -1,5 +1,5 @@
 use super::{
-    super::{APIResult, CacheController},
+    super::{ApiResult, CacheController},
     Region,
 };
 use std::{
@@ -33,11 +33,11 @@ use futures::future::BoxFuture;
 /// 为区域信息提供者的实现提供接口支持
 pub trait RegionProvider: Debug + Sync + Send {
     /// 返回七牛区域信息
-    fn get(&self, opts: &GetOptions) -> APIResult<GotRegion>;
+    fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion>;
 
     /// 返回多个七牛区域信息
     #[inline]
-    fn get_all(&self, opts: &GetOptions) -> APIResult<GotRegions> {
+    fn get_all(&self, opts: &GetOptions) -> ApiResult<GotRegions> {
         let region = self.get(opts)?.into_region();
         Ok(vec![region].into())
     }
@@ -46,7 +46,7 @@ pub trait RegionProvider: Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegion>> {
+    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
         Box::pin(async move { self.get(opts) })
     }
 
@@ -54,7 +54,7 @@ pub trait RegionProvider: Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegions>> {
+    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegions>> {
         Box::pin(async move { self.get_all(opts) })
     }
 

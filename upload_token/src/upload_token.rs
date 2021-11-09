@@ -5,7 +5,7 @@ use qiniu_utils::{base64, BucketName, ObjectName};
 use std::{
     borrow::Cow,
     fmt::{self, Debug},
-    io::{Error as IOError, Result as IOResult},
+    io::{Error as IoError, Result as IoResult},
     ops::{Deref, DerefMut},
     sync::RwLock,
     time::{Duration, Instant},
@@ -23,7 +23,7 @@ use {
 type AsyncParseResult<'a, T> = Pin<Box<dyn Future<Output = ParseResult<T>> + 'a + Send>>;
 
 #[cfg(feature = "async")]
-type AsyncIOResult<'a, T> = Pin<Box<dyn Future<Output = IOResult<T>> + 'a + Send>>;
+type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send>>;
 
 /// 上传凭证提供者
 ///
@@ -58,7 +58,7 @@ pub trait UploadTokenProvider: Debug + Sync + Send {
     }
 
     /// 生成字符串
-    fn to_token_string<'a>(&'a self, opts: &ToStringOptions) -> IOResult<GotString<'a>>;
+    fn to_token_string<'a>(&'a self, opts: &ToStringOptions) -> IoResult<GotString<'a>>;
 
     /// 异步生成字符串
     #[inline]
@@ -67,7 +67,7 @@ pub trait UploadTokenProvider: Debug + Sync + Send {
     fn async_to_token_string<'a>(
         &'a self,
         opts: &'a ToStringOptions,
-    ) -> AsyncIOResult<'a, GotString<'a>> {
+    ) -> AsyncIoResult<'a, GotString<'a>> {
         Box::pin(async move { self.to_token_string(opts) })
     }
 }
@@ -337,14 +337,14 @@ impl UploadTokenProvider for StaticUploadTokenProvider {
                     .ok_or(ParseError::InvalidUploadTokenFormat)?;
                 let decoded_policy = base64::decode(encoded_policy.as_bytes())
                     .map_err(ParseError::Base64DecodeError)?;
-                UploadPolicy::from_json(&decoded_policy).map_err(ParseError::JSONDecodeError)
+                UploadPolicy::from_json(&decoded_policy).map_err(ParseError::JsonDecodeError)
             })
             .map(Cow::Borrowed)
             .map(GotUploadPolicy::from)
     }
 
     #[inline]
-    fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IOResult<GotString<'a>> {
+    fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IoResult<GotString<'a>> {
         Ok(Cow::Borrowed(self.upload_token.as_ref()).into())
     }
 }
@@ -389,7 +389,7 @@ impl<C: CredentialProvider> UploadTokenProvider for FromUploadPolicy<C> {
         Ok(Cow::Borrowed(&self.upload_policy).into())
     }
 
-    fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IOResult<GotString<'a>> {
+    fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IoResult<GotString<'a>> {
         Ok(self
             .credential
             .get(&Default::default())?
@@ -478,7 +478,7 @@ impl<C: CredentialProvider> UploadTokenProvider for BucketUploadTokenProvider<C>
         Ok(self.make_policy().into())
     }
 
-    fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IOResult<GotString<'a>> {
+    fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IoResult<GotString<'a>> {
         let upload_token = self
             .credential
             .get(&Default::default())?
@@ -598,7 +598,7 @@ impl<C: CredentialProvider> UploadTokenProvider for ObjectUploadTokenProvider<C>
         Ok(self.make_policy().into())
     }
 
-    fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IOResult<GotString<'a>> {
+    fn to_token_string<'a>(&'a self, _opts: &ToStringOptions) -> IoResult<GotString<'a>> {
         let upload_token = self
             .credential
             .get(&Default::default())?
@@ -767,14 +767,14 @@ impl<P: UploadTokenProvider> UploadTokenProvider for CachedUploadTokenProvider<P
         )
     }
 
-    fn to_token_string<'a>(&'a self, opts: &ToStringOptions) -> IOResult<GotString<'a>> {
+    fn to_token_string<'a>(&'a self, opts: &ToStringOptions) -> IoResult<GotString<'a>> {
         sync_method!(
             self,
             upload_token,
             opts,
             ToStringOptions,
             to_token_string,
-            IOResult<GotString<'a>>
+            IoResult<GotString<'a>>
         )
     }
 
@@ -801,7 +801,7 @@ impl<P: UploadTokenProvider> UploadTokenProvider for CachedUploadTokenProvider<P
     fn async_to_token_string<'a>(
         &'a self,
         opts: &'a ToStringOptions,
-    ) -> AsyncIOResult<'a, GotString<'a>> {
+    ) -> AsyncIoResult<'a, GotString<'a>> {
         async_method!(self, upload_token, opts, async_to_token_string)
     }
 }
@@ -818,10 +818,10 @@ pub enum ParseError {
     Base64DecodeError(#[from] base64::DecodeError),
     /// 上传凭证 JSON 解析错误
     #[error("JSON decode error: {0}")]
-    JSONDecodeError(#[from] serde_json::Error),
+    JsonDecodeError(#[from] serde_json::Error),
     /// 上传凭证获取认证信息错误
     #[error("Credential get error: {0}")]
-    CredentialGetError(#[from] IOError),
+    CredentialGetError(#[from] IoError),
 }
 
 /// 上传凭证解析结果

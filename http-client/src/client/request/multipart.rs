@@ -98,7 +98,7 @@ mod sync_part {
     use bytes::{buf::Reader as BytesReader, Bytes};
     use std::{
         fs::File,
-        io::{Cursor, Read, Result as IOResult},
+        io::{Cursor, Read, Result as IoResult},
         mem::take,
         path::Path,
     };
@@ -148,7 +148,7 @@ mod sync_part {
         }
 
         #[inline]
-        pub fn file_path(path: impl AsRef<Path>) -> IOResult<Self> {
+        pub fn file_path(path: impl AsRef<Path>) -> IoResult<Self> {
             let file = File::open(path.as_ref())?;
             let mut part = SyncPart::stream(Box::new(file))
                 .mime(mime_guess::from_path(path.as_ref()).first_or_octet_stream());
@@ -201,7 +201,7 @@ mod sync_part {
 
     impl Read for SyncPartBody {
         #[inline]
-        fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+        fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
             match &mut self.0 {
                 SyncPartBodyInner::Bytes(bytes) => bytes.read(buf),
                 SyncPartBodyInner::Stream(stream) => stream.read(buf),
@@ -218,7 +218,7 @@ mod async_part {
     use bytes::Bytes;
     use futures::io::{AsyncRead, AsyncReadExt, Cursor};
     use std::{
-        io::Result as IOResult,
+        io::Result as IoResult,
         mem::take,
         pin::Pin,
         task::{Context, Poll},
@@ -271,7 +271,7 @@ mod async_part {
         }
 
         #[inline]
-        pub async fn file_path(path: impl AsRef<Path>) -> IOResult<Self> {
+        pub async fn file_path(path: impl AsRef<Path>) -> IoResult<Self> {
             let file = File::open(path.as_ref()).await?;
             let mut part = AsyncPart::stream(Box::new(file))
                 .mime(mime_guess::from_path(path.as_ref()).first_or_octet_stream());
@@ -331,7 +331,7 @@ mod async_part {
             mut self: Pin<&mut Self>,
             cx: &mut Context<'_>,
             buf: &mut [u8],
-        ) -> Poll<IOResult<usize>> {
+        ) -> Poll<IoResult<usize>> {
             match &mut self.0 {
                 AsyncPartBodyInner::Bytes(bytes) => Pin::new(bytes).poll_read(cx, buf),
                 AsyncPartBodyInner::Stream(stream) => Pin::new(stream).poll_read(cx, buf),
@@ -430,7 +430,7 @@ mod tests {
     use mime::{APPLICATION_JSON, IMAGE_BMP};
     use std::{
         fs::File,
-        io::{Cursor, Result as IOResult, Write},
+        io::{Cursor, Result as IoResult, Write},
     };
     use tempfile::tempdir;
 
@@ -460,7 +460,7 @@ mod tests {
     }
 
     #[test]
-    fn test_multipart_into_read() -> IOResult<()> {
+    fn test_multipart_into_read() -> IoResult<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
         let tempdir = tempdir()?;
@@ -510,7 +510,7 @@ mod tests {
 
     #[cfg(feature = "async")]
     #[async_std::test]
-    async fn test_multipart_into_async_read() -> IOResult<()> {
+    async fn test_multipart_into_async_read() -> IoResult<()> {
         use async_std::{
             fs::File,
             io::{Cursor as AsyncCursor, ReadExt, WriteExt},

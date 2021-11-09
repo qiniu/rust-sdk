@@ -25,7 +25,7 @@ pub use client::Client;
 pub use extensions::*;
 
 pub use qiniu_http as http;
-pub use qiniu_http::{HTTPCaller, Request, ResponseError, SyncResponseResult};
+pub use qiniu_http::{HttpCaller, Request, ResponseError, SyncResponseResult};
 pub use ureq;
 
 #[cfg(feature = "async")]

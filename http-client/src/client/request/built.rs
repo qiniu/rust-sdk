@@ -1,7 +1,7 @@
 use super::{
     super::{
         super::{IntoEndpoints, IpAddrWithPort, ServiceName},
-        Authorization, CallbackContext, Callbacks, ExtendedCallbackContext, HTTPClient,
+        Authorization, CallbackContext, Callbacks, ExtendedCallbackContext, HttpClient,
         ResolveAnswers, ResponseError, ResponseInfo, SimplifiedCallbackContext,
     },
     request_metadata::RequestMetadata,
@@ -14,7 +14,7 @@ use qiniu_http::{
 use std::{fmt, time::Duration};
 
 pub(in super::super) struct Request<'r, B: 'r> {
-    http_client: &'r HTTPClient,
+    http_client: &'r HttpClient,
     service_names: &'r [ServiceName],
     into_endpoints: IntoEndpoints<'r>,
     callbacks: Callbacks,
@@ -28,7 +28,7 @@ impl<'r, B: 'r> Request<'r, B> {
     #[inline]
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
-        http_client: &'r HTTPClient,
+        http_client: &'r HttpClient,
         service_names: &'r [ServiceName],
         into_endpoints: IntoEndpoints<'r>,
         callbacks: Callbacks,
@@ -76,7 +76,7 @@ impl<'r, B: 'r> Request<'r, B> {
 
 #[derive(Debug)]
 pub(in super::super) struct RequestParts<'r> {
-    http_client: &'r HTTPClient,
+    http_client: &'r HttpClient,
     callbacks: Callbacks,
     data: RequestMetadata<'r>,
     appended_user_agent: UserAgent,
@@ -138,7 +138,7 @@ impl<'r> SimplifiedCallbackContext for RequestParts<'r> {
 
 impl<'r> RequestParts<'r> {
     #[inline]
-    pub(in super::super) fn http_client(&self) -> &HTTPClient {
+    pub(in super::super) fn http_client(&self) -> &HttpClient {
         self.http_client
     }
 

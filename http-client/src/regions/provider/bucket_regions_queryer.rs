@@ -1,7 +1,7 @@
 use super::{
     super::{
         super::{
-            APIResult, CacheController, HTTPClient, PersistentResult, ResponseError,
+            ApiResult, CacheController, HttpClient, PersistentResult, ResponseError,
             ResponseErrorKind,
         },
         Endpoints, ServiceName,
@@ -27,14 +27,14 @@ pub struct BucketRegionsQueryer {
 
 #[derive(Debug)]
 struct BucketRegionsQueryerInner {
-    http_client: HTTPClient,
+    http_client: HttpClient,
     uc_endpoints: Endpoints,
     cache: RegionsCache,
 }
 
 #[derive(Debug)]
 pub struct BucketRegionsQueryerBuilder {
-    http_client: HTTPClient,
+    http_client: HttpClient,
     uc_endpoints: Endpoints,
     cache_lifetime: Duration,
     shrink_interval: Duration,
@@ -43,7 +43,7 @@ pub struct BucketRegionsQueryerBuilder {
 impl BucketRegionsQueryer {
     #[inline]
     pub fn builder(
-        http_client: HTTPClient,
+        http_client: HttpClient,
         uc_endpoints: impl Into<Endpoints>,
     ) -> BucketRegionsQueryerBuilder {
         BucketRegionsQueryerBuilder::new(http_client, uc_endpoints.into())
@@ -74,7 +74,7 @@ impl BucketRegionsQueryer {
 
 impl BucketRegionsQueryerBuilder {
     #[inline]
-    pub fn new(http_client: HTTPClient, uc_endpoints: impl Into<Endpoints>) -> Self {
+    pub fn new(http_client: HttpClient, uc_endpoints: impl Into<Endpoints>) -> Self {
         Self {
             http_client,
             uc_endpoints: uc_endpoints.into(),
@@ -159,7 +159,7 @@ struct BucketRegionsProviderInner {
 }
 
 impl RegionProvider for BucketRegionsProvider {
-    fn get(&self, opts: &GetOptions) -> APIResult<GotRegion> {
+    fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
         self.get_all(opts).map(|regions| {
             regions
                 .into_regions()
@@ -171,7 +171,7 @@ impl RegionProvider for BucketRegionsProvider {
     }
 
     #[inline]
-    fn get_all(&self, _opts: &GetOptions) -> APIResult<GotRegions> {
+    fn get_all(&self, _opts: &GetOptions) -> ApiResult<GotRegions> {
         let provider = self.to_owned();
         self.inner
             .queryer
@@ -185,7 +185,7 @@ impl RegionProvider for BucketRegionsProvider {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegion>> {
+    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
         let provider = self.to_owned();
         let opts = opts.to_owned();
         Box::pin(async move { spawn(async move { provider.get(&opts) }).await })
@@ -195,7 +195,7 @@ impl RegionProvider for BucketRegionsProvider {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegions>> {
+    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegions>> {
         let provider = self.to_owned();
         let opts = opts.to_owned();
         Box::pin(async move { spawn(async move { provider.get_all(&opts) }).await })
@@ -208,7 +208,7 @@ impl RegionProvider for BucketRegionsProvider {
 }
 
 impl BucketRegionsProvider {
-    fn do_sync_query(&self) -> APIResult<Vec<Region>> {
+    fn do_sync_query(&self) -> ApiResult<Vec<Region>> {
         let body: ResponseBody = self
             .inner
             .queryer
@@ -240,7 +240,7 @@ mod tests {
     use super::{super::super::Endpoint, *};
     use futures::channel::oneshot::channel;
     use serde::{Deserialize, Serialize};
-    use serde_json::{json, Value as JSONValue};
+    use serde_json::{json, Value as JsonValue};
     use std::{
         error::Error,
         result::Result,
@@ -297,7 +297,7 @@ mod tests {
 
         starts_with_server!(addr, routes, {
             let queryer = BucketRegionsQueryer::builder(
-                HTTPClient::build_isahc()?.use_https(false).build(),
+                HttpClient::build_isahc()?.use_https(false).build(),
                 vec![Endpoint::from(addr)],
             )
             .in_memory();
@@ -411,7 +411,7 @@ mod tests {
         Ok(())
     }
 
-    fn get_response_json_body() -> JSONValue {
+    fn get_response_json_body() -> JsonValue {
         json!({
           "hosts": [
             {

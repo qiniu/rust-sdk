@@ -1,6 +1,6 @@
 use super::extensions::TimeoutExtension;
 use qiniu_http::{
-    HTTPCaller, HeaderMap, HeaderValue, RequestParts, ResponseError, ResponseErrorKind, StatusCode,
+    HeaderMap, HeaderValue, HttpCaller, RequestParts, ResponseError, ResponseErrorKind, StatusCode,
     SyncRequest, SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo,
 };
 use reqwest::{
@@ -12,7 +12,7 @@ use reqwest::{
     Error as ReqwestError, Url,
 };
 use std::{
-    io::{Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
+    io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult},
     mem::take,
     mem::transmute,
     num::NonZeroU16,
@@ -25,18 +25,18 @@ use {
 };
 
 #[derive(Debug, Default)]
-pub struct SyncReqwestHTTPCaller {
+pub struct SyncReqwestHttpCaller {
     sync_client: SyncReqwestClient,
 }
 
-impl SyncReqwestHTTPCaller {
+impl SyncReqwestHttpCaller {
     #[inline]
     pub fn new(sync_client: SyncReqwestClient) -> Self {
         Self { sync_client }
     }
 }
 
-impl HTTPCaller for SyncReqwestHTTPCaller {
+impl HttpCaller for SyncReqwestHttpCaller {
     #[inline]
     fn call<'a>(&'a self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
         let mut user_cancelled_error: Option<ResponseError> = None;
@@ -56,7 +56,7 @@ impl HTTPCaller for SyncReqwestHTTPCaller {
         &'a self,
         _request: &'a mut AsyncRequest<'_>,
     ) -> BoxFuture<'a, AsyncResponseResult> {
-        unimplemented!("SyncReqwestHTTPCaller does not support async call")
+        unimplemented!("SyncReqwestHttpCaller does not support async call")
     }
 }
 
@@ -65,7 +65,7 @@ fn make_sync_reqwest_request(
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<SyncReqwestRequest, ResponseError> {
     let url = Url::parse(&request.url().to_string()).map_err(|err| {
-        ResponseError::builder(ResponseErrorKind::InvalidURL, err)
+        ResponseError::builder(ResponseErrorKind::InvalidUrl, err)
             .uri(request.url())
             .build()
     })?;
@@ -109,7 +109,7 @@ fn make_sync_reqwest_request(
     }
 
     impl Read for RequestBodyWithCallbacks {
-        fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+        fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
             match self.request.body_mut().read(buf) {
                 Err(err) => Err(err),
                 Ok(0) => Ok(0),
@@ -131,7 +131,7 @@ fn make_sync_reqwest_request(
                                 .uri(self.request.url())
                                 .build(),
                             );
-                            return Err(IOError::new(IOErrorKind::Other, ERROR_MESSAGE));
+                            return Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE));
                         }
                     }
                     Ok(n)
@@ -187,7 +187,7 @@ fn from_sync_response(
 
 pub(super) fn from_reqwest_error(err: ReqwestError, request: &RequestParts) -> ResponseError {
     if err.url().is_some() {
-        ResponseError::builder(ResponseErrorKind::InvalidURL, err)
+        ResponseError::builder(ResponseErrorKind::InvalidUrl, err)
             .uri(request.url())
             .build()
     } else if err.is_redirect() {

@@ -25,7 +25,7 @@ pub use chooser::{
     Chooser, ChooserFeedback, IpChooser, IpChooserBuilder, NeverEmptyHandedChooser,
     ShuffledChooser, SubnetChooser, SubnetChooserBuilder,
 };
-pub use http_client::{HTTPClient, HTTPClientBuilder};
+pub use http_client::{HttpClient, HttpClientBuilder};
 pub use request::{
     FieldName, FileName, Idempotent, Multipart, Part, QueryPairKey, QueryPairValue, QueryPairs,
     RequestBuilder, SyncMultipart, SyncPart, SyncPartBody, SyncRequestBody, SyncRequestBuilder,
@@ -34,7 +34,7 @@ pub use resolver::{
     CachedResolver, ChainedResolver, ChainedResolverBuilder, ResolveAnswers, ResolveOptions,
     ResolveResult, Resolver, ShuffledResolver, SimpleResolver, TimeoutResolver,
 };
-pub use response::{APIResult, Response, ResponseError, ResponseErrorKind, SyncResponse};
+pub use response::{ApiResult, Response, ResponseError, ResponseErrorKind, SyncResponse};
 pub use retried::RetriedStatsInfo;
 pub use retrier::{
     ErrorRetrier, LimitedRetrier, NeverRetrier, RequestRetrier, RequestRetrierOptions,

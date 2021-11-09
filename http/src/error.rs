@@ -22,7 +22,7 @@ pub enum ErrorKind {
     InvalidRequestResponse,
 
     /// 非法的 URL
-    InvalidURL,
+    InvalidUrl,
 
     /// 非法的 HTTP 头
     InvalidHeader,
@@ -34,7 +34,7 @@ pub enum ErrorKind {
     ProxyError,
 
     /// DNS 服务器连接失败
-    DNSServerError,
+    DnsServerError,
 
     /// 域名解析失败
     UnknownHostError,
@@ -46,7 +46,7 @@ pub enum ErrorKind {
     ReceiveError,
 
     /// 本地 IO 失败
-    LocalIOError,
+    LocalIoError,
 
     /// 超时失败
     TimeoutError,
@@ -58,7 +58,7 @@ pub enum ErrorKind {
     ServerCertError,
 
     /// SSL 错误
-    SSLError,
+    SslError,
 
     /// 重定向次数过多
     TooManyRedirect,

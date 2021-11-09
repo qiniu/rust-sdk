@@ -1,4 +1,4 @@
-use super::{super::APIResult, Endpoint, Region, RegionProvider};
+use super::{super::ApiResult, Endpoint, Region, RegionProvider};
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt, str::FromStr};
 
@@ -99,7 +99,7 @@ impl Endpoints {
     fn from_region_provider(
         region_provider: &dyn RegionProvider,
         services: &[ServiceName],
-    ) -> APIResult<Self> {
+    ) -> ApiResult<Self> {
         Ok(Self::from_region(
             region_provider.get(&Default::default())?.region(),
             services,
@@ -111,7 +111,7 @@ impl Endpoints {
     async fn async_from_region_provider(
         region_provider: &dyn RegionProvider,
         services: &[ServiceName],
-    ) -> APIResult<Self> {
+    ) -> ApiResult<Self> {
         Ok(Self::from_region(
             region_provider
                 .async_get(&Default::default())
@@ -229,7 +229,7 @@ impl<'r> From<&'r dyn RegionProvider> for IntoEndpoints<'r> {
 }
 
 impl IntoEndpoints<'_> {
-    pub(in super::super) fn into_endpoints(self, services: &[ServiceName]) -> APIResult<Endpoints> {
+    pub(in super::super) fn into_endpoints(self, services: &[ServiceName]) -> ApiResult<Endpoints> {
         let endpoints = match self.inner {
             Inner::Endpoints(endpoints) => endpoints,
             Inner::Region(region) => Endpoints::from_region(region, services),
@@ -242,7 +242,7 @@ impl IntoEndpoints<'_> {
     pub(in super::super) async fn async_into_endpoints(
         self,
         services: &[ServiceName],
-    ) -> APIResult<Endpoints> {
+    ) -> ApiResult<Endpoints> {
         let endpoints = match self.inner {
             Inner::Endpoints(endpoints) => endpoints,
             Inner::Region(region) => Endpoints::from_region(region, services),

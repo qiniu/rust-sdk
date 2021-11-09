@@ -1,5 +1,5 @@
 use super::{
-    super::super::{APIResult, CacheController, Endpoints, HTTPClient, PersistentResult},
+    super::super::{ApiResult, CacheController, Endpoints, HttpClient, PersistentResult},
     regions_cache::{CacheKey, RegionsCache},
     regions_provider::RegionsProvider,
     GetOptions, GotRegion, GotRegions, RegionProvider,
@@ -27,7 +27,7 @@ struct CachedRegionsProviderInner {
 impl CachedRegionsProvider {
     #[inline]
     pub fn builder(
-        http_client: HTTPClient,
+        http_client: HttpClient,
         uc_endpoints: impl Into<Endpoints>,
         credential_provider: Arc<dyn CredentialProvider>,
     ) -> CachedRegionsProviderBuilder {
@@ -42,7 +42,7 @@ impl CachedRegionsProvider {
 }
 
 impl RegionProvider for CachedRegionsProvider {
-    fn get(&self, opts: &GetOptions) -> APIResult<GotRegion> {
+    fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
         self.get_all(opts).map(|regions| {
             regions
                 .into_regions()
@@ -54,7 +54,7 @@ impl RegionProvider for CachedRegionsProvider {
     }
 
     #[inline]
-    fn get_all(&self, opts: &GetOptions) -> APIResult<GotRegions> {
+    fn get_all(&self, opts: &GetOptions) -> ApiResult<GotRegions> {
         let provider = self.to_owned();
         let opts = opts.to_owned();
         self.inner
@@ -73,7 +73,7 @@ impl RegionProvider for CachedRegionsProvider {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegion>> {
+    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
         let provider = self.to_owned();
         let opts = opts.to_owned();
         Box::pin(async move { spawn(async move { provider.get(&opts) }).await })
@@ -83,7 +83,7 @@ impl RegionProvider for CachedRegionsProvider {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegions>> {
+    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegions>> {
         let provider = self.to_owned();
         let opts = opts.to_owned();
         Box::pin(async move { spawn(async move { provider.get_all(&opts) }).await })

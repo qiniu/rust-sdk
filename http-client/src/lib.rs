@@ -45,11 +45,11 @@ pub use futures::io::AsyncRead;
 
 pub use cache::{CacheController, PersistentError, PersistentResult};
 pub use client::{
-    APIResult, Authorization, AuthorizationError, AuthorizationResult, Backoff, BackoffDuration,
+    ApiResult, Authorization, AuthorizationError, AuthorizationResult, Backoff, BackoffDuration,
     BackoffOptions, CachedResolver, CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver,
     ChainedResolverBuilder, Chooser, ChooserFeedback, DomainOrIpAddr, ErrorRetrier,
-    ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName, FixedBackoff, HTTPClient,
-    HTTPClientBuilder, Idempotent, IpChooser, IpChooserBuilder, LimitedRetrier, Multipart,
+    ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName, FixedBackoff, HttpClient,
+    HttpClientBuilder, Idempotent, IpChooser, IpChooserBuilder, LimitedRetrier, Multipart,
     NeverRetrier, Part, QueryPairKey, QueryPairValue, QueryPairs, RandomizedBackoff, Ratio,
     RequestBuilder, RequestRetrier, RequestRetrierOptions, ResolveAnswers, ResolveOptions,
     ResolveResult, Resolver, ResponseError, ResponseErrorKind, ResponseInfo, RetriedStatsInfo,
@@ -89,7 +89,7 @@ pub mod preclude {
             SimplifiedCallbackContext,
         },
         credential::CredentialProvider,
-        http::{HTTPCaller, Metrics},
+        http::{HttpCaller, Metrics},
         regions::RegionProvider,
         upload_token::UploadTokenProvider,
     };

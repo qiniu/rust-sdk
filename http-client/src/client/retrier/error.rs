@@ -2,36 +2,36 @@ use super::{
     super::{Idempotent, ResponseErrorKind},
     RequestRetrier, RequestRetrierOptions, RetryDecision, RetryResult,
 };
-use qiniu_http::{RequestParts as HTTPRequestParts, ResponseErrorKind as HTTPResponseErrorKind};
+use qiniu_http::{RequestParts as HttpRequestParts, ResponseErrorKind as HttpResponseErrorKind};
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct ErrorRetrier;
 
 impl RequestRetrier for ErrorRetrier {
     #[inline]
-    fn retry(&self, request: &mut HTTPRequestParts, opts: &RequestRetrierOptions) -> RetryResult {
+    fn retry(&self, request: &mut HttpRequestParts, opts: &RequestRetrierOptions) -> RetryResult {
         return match opts.response_error().kind() {
-            ResponseErrorKind::HTTPError(http_err_kind) => match http_err_kind {
-                HTTPResponseErrorKind::ProtocolError => RetryDecision::RetryRequest,
-                HTTPResponseErrorKind::InvalidURL => RetryDecision::TryNextServer,
-                HTTPResponseErrorKind::ConnectError => RetryDecision::TryNextServer,
-                HTTPResponseErrorKind::ProxyError => RetryDecision::RetryRequest,
-                HTTPResponseErrorKind::DNSServerError => RetryDecision::RetryRequest,
-                HTTPResponseErrorKind::UnknownHostError => RetryDecision::TryNextServer,
-                HTTPResponseErrorKind::SendError => RetryDecision::RetryRequest,
-                HTTPResponseErrorKind::ReceiveError | HTTPResponseErrorKind::UnknownError => {
+            ResponseErrorKind::HttpError(http_err_kind) => match http_err_kind {
+                HttpResponseErrorKind::ProtocolError => RetryDecision::RetryRequest,
+                HttpResponseErrorKind::InvalidUrl => RetryDecision::TryNextServer,
+                HttpResponseErrorKind::ConnectError => RetryDecision::TryNextServer,
+                HttpResponseErrorKind::ProxyError => RetryDecision::RetryRequest,
+                HttpResponseErrorKind::DnsServerError => RetryDecision::RetryRequest,
+                HttpResponseErrorKind::UnknownHostError => RetryDecision::TryNextServer,
+                HttpResponseErrorKind::SendError => RetryDecision::RetryRequest,
+                HttpResponseErrorKind::ReceiveError | HttpResponseErrorKind::UnknownError => {
                     if is_idempotent(request, opts.idempotent()) {
                         RetryDecision::RetryRequest
                     } else {
                         RetryDecision::DontRetry
                     }
                 }
-                HTTPResponseErrorKind::LocalIOError => RetryDecision::DontRetry,
-                HTTPResponseErrorKind::TimeoutError => RetryDecision::RetryRequest,
-                HTTPResponseErrorKind::ServerCertError => RetryDecision::TryAlternativeEndpoints,
-                HTTPResponseErrorKind::ClientCertError => RetryDecision::DontRetry,
-                HTTPResponseErrorKind::TooManyRedirect => RetryDecision::DontRetry,
-                HTTPResponseErrorKind::UserCanceled => RetryDecision::DontRetry,
+                HttpResponseErrorKind::LocalIoError => RetryDecision::DontRetry,
+                HttpResponseErrorKind::TimeoutError => RetryDecision::RetryRequest,
+                HttpResponseErrorKind::ServerCertError => RetryDecision::TryAlternativeEndpoints,
+                HttpResponseErrorKind::ClientCertError => RetryDecision::DontRetry,
+                HttpResponseErrorKind::TooManyRedirect => RetryDecision::DontRetry,
+                HttpResponseErrorKind::UserCanceled => RetryDecision::DontRetry,
                 _ => RetryDecision::RetryRequest,
             },
             ResponseErrorKind::UnexpectedStatusCode(_) => RetryDecision::DontRetry,
@@ -66,7 +66,7 @@ impl RequestRetrier for ErrorRetrier {
         .into();
 
         #[inline]
-        fn is_idempotent(request: &HTTPRequestParts, idempotent: Idempotent) -> bool {
+        fn is_idempotent(request: &HttpRequestParts, idempotent: Idempotent) -> bool {
             match idempotent {
                 Idempotent::Always => true,
                 Idempotent::Default => request.method().is_idempotent(),
@@ -82,17 +82,17 @@ mod tests {
         super::super::{super::RetriedStatsInfo, ResponseError},
         *,
     };
-    use qiniu_http::{Method as HTTPMethod, Request as HTTPRequest, Uri as HTTPUri};
+    use qiniu_http::{Method as HttpMethod, Request as HttpRequest, Uri as HttpUri};
     use std::{convert::TryFrom, error::Error, result::Result};
 
     #[test]
     fn test_error_retrier_idempotent() -> Result<(), Box<dyn Error>> {
-        let uri = HTTPUri::try_from("http://localhost/abc")?;
+        let uri = HttpUri::try_from("http://localhost/abc")?;
 
         let retrier = ErrorRetrier;
-        let (mut parts, _) = HTTPRequest::builder()
+        let (mut parts, _) = HttpRequest::builder()
             .url(uri.to_owned())
-            .method(HTTPMethod::GET)
+            .method(HttpMethod::GET)
             .body(())
             .build()
             .into_parts();
@@ -100,7 +100,7 @@ mod tests {
             &mut parts,
             &RequestRetrierOptions::new(
                 Idempotent::Default,
-                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
             ),
         );
@@ -110,15 +110,15 @@ mod tests {
             &mut parts,
             &RequestRetrierOptions::new(
                 Idempotent::Never,
-                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
             ),
         );
         assert_eq!(result.decision(), RetryDecision::DontRetry);
 
-        let (mut parts, _) = HTTPRequest::builder()
+        let (mut parts, _) = HttpRequest::builder()
             .url(uri)
-            .method(HTTPMethod::POST)
+            .method(HttpMethod::POST)
             .body(())
             .build()
             .into_parts();
@@ -126,7 +126,7 @@ mod tests {
             &mut parts,
             &RequestRetrierOptions::new(
                 Idempotent::Default,
-                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
             ),
         );
@@ -136,7 +136,7 @@ mod tests {
             &mut parts,
             &RequestRetrierOptions::new(
                 Idempotent::Always,
-                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
             ),
         );
@@ -146,7 +146,7 @@ mod tests {
             &mut parts,
             &RequestRetrierOptions::new(
                 Idempotent::Always,
-                &ResponseError::new(HTTPResponseErrorKind::InvalidURL.into(), "Test Error"),
+                &ResponseError::new(HttpResponseErrorKind::InvalidUrl.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
             ),
         );
@@ -157,16 +157,16 @@ mod tests {
 
     #[test]
     fn test_error_retrier_retries() -> Result<(), Box<dyn Error>> {
-        let uri = HTTPUri::try_from("http://localhost/abc")?;
+        let uri = HttpUri::try_from("http://localhost/abc")?;
 
         let retrier = ErrorRetrier;
         let mut retried = RetriedStatsInfo::default();
         retried.increase();
         retried.increase();
 
-        let (mut parts, _) = HTTPRequest::builder()
+        let (mut parts, _) = HttpRequest::builder()
             .url(uri)
-            .method(HTTPMethod::GET)
+            .method(HttpMethod::GET)
             .body(())
             .build()
             .into_parts();
@@ -174,7 +174,7 @@ mod tests {
             &mut parts,
             &RequestRetrierOptions::new(
                 Idempotent::Default,
-                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
             ),
         );
@@ -186,7 +186,7 @@ mod tests {
             &mut parts,
             &RequestRetrierOptions::new(
                 Idempotent::Default,
-                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
             ),
         );

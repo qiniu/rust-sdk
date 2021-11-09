@@ -1,7 +1,7 @@
 use super::{
     super::{
         super::{DomainWithPort, Endpoint, IpAddrWithPort},
-        APIResult, Authorization, AuthorizationError, CallbackContextImpl,
+        ApiResult, Authorization, AuthorizationError, CallbackContextImpl,
         ExtendedCallbackContextImpl, RequestParts, ResolveAnswers, ResolveResult, ResponseError,
         ResponseErrorKind, ResponseInfo, RetriedStatsInfo, RetryDecision,
         SimplifiedCallbackContext, SyncResponse,
@@ -11,8 +11,8 @@ use super::{
 };
 use qiniu_http::{
     uri::{Authority, InvalidUri, PathAndQuery, Scheme, Uri},
-    Extensions, Request as HttpRequest, RequestParts as HTTPRequestParts,
-    ResponseErrorKind as HTTPResponseErrorKind, StatusCode, SyncRequest as SyncHttpRequest,
+    Extensions, Request as HttpRequest, RequestParts as HttpRequestParts,
+    ResponseErrorKind as HttpResponseErrorKind, StatusCode, SyncRequest as SyncHttpRequest,
 };
 use std::{borrow::Cow, net::IpAddr, time::Duration};
 
@@ -51,7 +51,7 @@ pub(super) fn make_url(
 ) -> Result<(Uri, Vec<IpAddr>), TryError> {
     return _make_url(domain_or_ip, request).map_err(|err| {
         TryError::new(
-            ResponseError::new(HTTPResponseErrorKind::InvalidURL.into(), err),
+            ResponseError::new(HttpResponseErrorKind::InvalidUrl.into(), err),
             RetryDecision::TryNextServer.into(),
         )
     });
@@ -116,7 +116,7 @@ pub(super) fn make_url(
 #[inline]
 pub(super) fn call_before_backoff_callbacks(
     request: &RequestParts<'_>,
-    built: &mut HTTPRequestParts<'_>,
+    built: &mut HttpRequestParts<'_>,
     retried: &RetriedStatsInfo,
     delay: Duration,
 ) -> Result<(), TryError> {
@@ -126,7 +126,7 @@ pub(super) fn call_before_backoff_callbacks(
     ) {
         return Err(TryError::new(
             ResponseError::new(
-                HTTPResponseErrorKind::UserCanceled.into(),
+                HttpResponseErrorKind::UserCanceled.into(),
                 "on_before_backoff() callback returns false",
             ),
             RetryDecision::DontRetry.into(),
@@ -138,7 +138,7 @@ pub(super) fn call_before_backoff_callbacks(
 #[inline]
 pub(super) fn call_after_backoff_callbacks(
     request: &RequestParts<'_>,
-    built: &mut HTTPRequestParts<'_>,
+    built: &mut HttpRequestParts<'_>,
     retried: &RetriedStatsInfo,
     delay: Duration,
 ) -> Result<(), TryError> {
@@ -148,7 +148,7 @@ pub(super) fn call_after_backoff_callbacks(
     ) {
         return Err(TryError::new(
             ResponseError::new(
-                HTTPResponseErrorKind::UserCanceled.into(),
+                HttpResponseErrorKind::UserCanceled.into(),
                 "on_after_backoff() callback returns false",
             ),
             RetryDecision::DontRetry.into(),
@@ -167,7 +167,7 @@ fn call_to_resolve_domain_callbacks(
     if !request.call_to_resolve_domain_callbacks(&mut context, domain) {
         return Err(TryError::new(
             ResponseError::new(
-                HTTPResponseErrorKind::UserCanceled.into(),
+                HttpResponseErrorKind::UserCanceled.into(),
                 "on_to_resolve_domain_callbacks() callback returns false",
             ),
             RetryDecision::DontRetry.into(),
@@ -187,7 +187,7 @@ fn call_domain_resolved_callbacks(
     if !request.call_domain_resolved_callbacks(&mut context, domain, answers) {
         return Err(TryError::new(
             ResponseError::new(
-                HTTPResponseErrorKind::UserCanceled.into(),
+                HttpResponseErrorKind::UserCanceled.into(),
                 "on_domain_resolved_callbacks() callback returns false",
             ),
             RetryDecision::DontRetry.into(),
@@ -206,7 +206,7 @@ fn call_to_choose_ips_callbacks(
     if !request.call_to_choose_ips_callbacks(&mut context, ips) {
         return Err(TryError::new(
             ResponseError::new(
-                HTTPResponseErrorKind::UserCanceled.into(),
+                HttpResponseErrorKind::UserCanceled.into(),
                 "on_to_choose_ips_callbacks() callback returns false",
             ),
             RetryDecision::DontRetry.into(),
@@ -226,7 +226,7 @@ fn call_ips_chosen_callbacks(
     if !request.call_ips_chosen_callbacks(&mut context, ips, chosen) {
         return Err(TryError::new(
             ResponseError::new(
-                HTTPResponseErrorKind::UserCanceled.into(),
+                HttpResponseErrorKind::UserCanceled.into(),
                 "on_ips_chosen_callbacks() callback returns false",
             ),
             RetryDecision::DontRetry.into(),
@@ -238,14 +238,14 @@ fn call_ips_chosen_callbacks(
 #[inline]
 pub(super) fn call_before_request_signed_callbacks(
     request: &RequestParts<'_>,
-    built: &mut HTTPRequestParts<'_>,
+    built: &mut HttpRequestParts<'_>,
     retried: &mut RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
     if !request.call_before_request_signed_callbacks(&mut context) {
         return Err(TryError::new(
             ResponseError::new(
-                HTTPResponseErrorKind::UserCanceled.into(),
+                HttpResponseErrorKind::UserCanceled.into(),
                 "on_before_request_signed() callback returns false",
             ),
             RetryDecision::DontRetry.into(),
@@ -257,14 +257,14 @@ pub(super) fn call_before_request_signed_callbacks(
 #[inline]
 pub(super) fn call_after_request_signed_callbacks(
     request: &RequestParts<'_>,
-    built: &mut HTTPRequestParts<'_>,
+    built: &mut HttpRequestParts<'_>,
     retried: &mut RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
     if !request.call_after_request_signed_callbacks(&mut context) {
         return Err(TryError::new(
             ResponseError::new(
-                HTTPResponseErrorKind::UserCanceled.into(),
+                HttpResponseErrorKind::UserCanceled.into(),
                 "on_after_request_signed() callback returns false",
             ),
             RetryDecision::DontRetry.into(),
@@ -276,7 +276,7 @@ pub(super) fn call_after_request_signed_callbacks(
 #[inline]
 pub(super) fn call_success_callbacks(
     request: &RequestParts<'_>,
-    built: &mut HTTPRequestParts<'_>,
+    built: &mut HttpRequestParts<'_>,
     retried: &RetriedStatsInfo,
     response: &ResponseInfo,
 ) -> Result<(), TryError> {
@@ -284,7 +284,7 @@ pub(super) fn call_success_callbacks(
     if !request.call_success_callbacks(&mut context, response) {
         return Err(TryError::new(
             ResponseError::new(
-                HTTPResponseErrorKind::UserCanceled.into(),
+                HttpResponseErrorKind::UserCanceled.into(),
                 "on_success() callback returns false",
             ),
             RetryDecision::DontRetry.into(),
@@ -296,7 +296,7 @@ pub(super) fn call_success_callbacks(
 #[inline]
 pub(super) fn call_error_callbacks(
     request: &RequestParts<'_>,
-    built: &mut HTTPRequestParts<'_>,
+    built: &mut HttpRequestParts<'_>,
     retried: &RetriedStatsInfo,
     response_error: &ResponseError,
 ) -> Result<(), TryError> {
@@ -304,7 +304,7 @@ pub(super) fn call_error_callbacks(
     if !request.call_error_callbacks(&mut context, response_error) {
         return Err(TryError::new(
             ResponseError::new(
-                HTTPResponseErrorKind::UserCanceled.into(),
+                HttpResponseErrorKind::UserCanceled.into(),
                 "on_error() callback returns false",
             ),
             RetryDecision::DontRetry.into(),
@@ -349,16 +349,16 @@ pub(super) fn sign_request(
 #[inline]
 fn handle_sign_request_error(err: AuthorizationError) -> TryError {
     match err {
-        AuthorizationError::IOError(err) => TryError::new(
+        AuthorizationError::IoError(err) => TryError::new(
             ResponseError::new(
-                ResponseErrorKind::HTTPError(HTTPResponseErrorKind::LocalIOError),
+                ResponseErrorKind::HttpError(HttpResponseErrorKind::LocalIoError),
                 err,
             ),
             RetryDecision::DontRetry.into(),
         ),
         AuthorizationError::UrlParseError(err) => TryError::new(
             ResponseError::new(
-                ResponseErrorKind::HTTPError(HTTPResponseErrorKind::InvalidURL),
+                ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl),
                 err,
             ),
             RetryDecision::TryNextServer.into(),
@@ -414,7 +414,7 @@ pub(super) fn choose(
 }
 
 #[inline]
-pub(super) fn judge(response: SyncResponse) -> APIResult<SyncResponse> {
+pub(super) fn judge(response: SyncResponse) -> ApiResult<SyncResponse> {
     check_x_req_id(response.x_req_id())?;
     return match response.status_code().as_u16() {
         0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.status_code())),
@@ -423,7 +423,7 @@ pub(super) fn judge(response: SyncResponse) -> APIResult<SyncResponse> {
     };
 
     #[inline]
-    fn to_status_code_error(response: SyncResponse) -> APIResult<SyncResponse> {
+    fn to_status_code_error(response: SyncResponse) -> ApiResult<SyncResponse> {
         let status_code = response.status_code();
         let error_response_body: ErrorResponseBody = response.parse_json()?.into_body();
         Err(ResponseError::new(
@@ -434,7 +434,7 @@ pub(super) fn judge(response: SyncResponse) -> APIResult<SyncResponse> {
 }
 
 #[inline]
-fn check_x_req_id(req_id: Option<&str>) -> APIResult<()> {
+fn check_x_req_id(req_id: Option<&str>) -> ApiResult<()> {
     req_id.map_or_else(
         || {
             Err(ResponseError::new(
@@ -530,7 +530,7 @@ mod async_utils {
     }
 
     #[inline]
-    pub(in super::super) async fn async_judge(response: AsyncResponse) -> APIResult<AsyncResponse> {
+    pub(in super::super) async fn async_judge(response: AsyncResponse) -> ApiResult<AsyncResponse> {
         check_x_req_id(response.x_req_id())?;
         return match response.status_code().as_u16() {
             0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.status_code())),
@@ -539,7 +539,7 @@ mod async_utils {
         };
 
         #[inline]
-        async fn to_status_code_error(response: AsyncResponse) -> APIResult<AsyncResponse> {
+        async fn to_status_code_error(response: AsyncResponse) -> ApiResult<AsyncResponse> {
             let status_code = response.status_code();
             let error_response_body: ErrorResponseBody = response.parse_json().await?.into_body();
             Err(ResponseError::new(
@@ -923,7 +923,7 @@ mod tests {
             .unwrap_err();
             assert_eq!(
                 err.response_error().kind(),
-                HTTPResponseErrorKind::InvalidURL.into(),
+                HttpResponseErrorKind::InvalidUrl.into(),
             );
         }
         {
@@ -945,7 +945,7 @@ mod tests {
             .unwrap_err();
             assert_eq!(
                 err.response_error().kind(),
-                HTTPResponseErrorKind::InvalidURL.into(),
+                HttpResponseErrorKind::InvalidUrl.into(),
             );
         }
 

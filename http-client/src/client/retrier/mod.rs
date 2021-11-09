@@ -3,14 +3,14 @@ mod limited;
 mod never;
 
 use super::{Idempotent, ResponseError, RetriedStatsInfo};
-use qiniu_http::RequestParts as HTTPRequestParts;
+use qiniu_http::RequestParts as HttpRequestParts;
 use std::{
     fmt::{self, Debug},
     ops::{Deref, DerefMut},
 };
 
 pub trait RequestRetrier: Debug + Sync + Send {
-    fn retry(&self, request: &mut HTTPRequestParts, opts: &RequestRetrierOptions) -> RetryResult;
+    fn retry(&self, request: &mut HttpRequestParts, opts: &RequestRetrierOptions) -> RetryResult;
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

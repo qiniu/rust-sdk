@@ -6,11 +6,11 @@ use isahc::{
     Response as IsahcResponse, ResponseExt,
 };
 use qiniu_http::{
-    HTTPCaller, HeaderValue, Metrics, Request, RequestParts, ResponseError, ResponseErrorKind,
+    HeaderValue, HttpCaller, Metrics, Request, RequestParts, ResponseError, ResponseErrorKind,
     SyncRequest, SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo, Uri,
 };
 use std::{
-    io::{Error as IOError, ErrorKind as IOErrorKind, Read, Result as IOResult},
+    io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult},
     mem::{take, transmute},
     net::{IpAddr, SocketAddr},
     num::NonZeroU16,
@@ -58,7 +58,7 @@ impl Client {
     }
 }
 
-impl HTTPCaller for Client {
+impl HttpCaller for Client {
     fn call<'a>(&'a self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
         let mut user_cancelled_error: Option<ResponseError> = None;
 
@@ -359,7 +359,7 @@ fn make_sync_isahc_request(
     }
 
     impl Read for RequestBodyWithCallbacks {
-        fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+        fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
             match self.request.body_mut().read(buf) {
                 Err(err) => Err(err),
                 Ok(0) => Ok(0),
@@ -381,7 +381,7 @@ fn make_sync_isahc_request(
                                 .uri(self.request.url())
                                 .build(),
                             );
-                            return Err(IOError::new(IOErrorKind::Other, ERROR_MESSAGE));
+                            return Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE));
                         }
                     }
                     Ok(n)
@@ -445,7 +445,7 @@ fn make_async_isahc_request(
             mut self: Pin<&mut Self>,
             cx: &mut Context,
             buf: &mut [u8],
-        ) -> Poll<IOResult<usize>> {
+        ) -> Poll<IoResult<usize>> {
             let request_mut = &mut self.as_mut().request;
             let body = request_mut.body_mut();
             pin_mut!(body);
@@ -472,8 +472,8 @@ fn make_async_isahc_request(
                                 .uri(self.as_ref().request.url())
                                 .build(),
                             );
-                            return Poll::Ready(Err(IOError::new(
-                                IOErrorKind::Other,
+                            return Poll::Ready(Err(IoError::new(
+                                IoErrorKind::Other,
                                 ERROR_MESSAGE,
                             )));
                         }
@@ -642,7 +642,7 @@ fn add_extensions_to_isahc_request_builder(
 
     #[inline]
     fn extract_port_for_uri(uri: &Uri) -> Result<u16, ResponseError> {
-        const INVALID_URL: ResponseErrorKind = ResponseErrorKind::InvalidURL;
+        const INVALID_URL: ResponseErrorKind = ResponseErrorKind::InvalidUrl;
         uri.port_u16().map(Ok).unwrap_or_else(|| {
             if let Some(scheme) = uri.scheme() {
                 if scheme == &Scheme::HTTP {
@@ -669,7 +669,7 @@ fn from_isahc_error(err: IsahcError, request: &RequestParts) -> ResponseError {
             ResponseError::builder(ResponseErrorKind::ServerCertError, err)
         }
         IsahcErrorKind::ClientInitialization => {
-            ResponseError::builder(ResponseErrorKind::LocalIOError, err)
+            ResponseError::builder(ResponseErrorKind::LocalIoError, err)
         }
         IsahcErrorKind::ConnectionFailed => {
             ResponseError::builder(ResponseErrorKind::ConnectError, err)
@@ -685,13 +685,13 @@ fn from_isahc_error(err: IsahcError, request: &RequestParts) -> ResponseError {
         }
         IsahcErrorKind::Io => ResponseError::builder(ResponseErrorKind::SendError, err),
         IsahcErrorKind::NameResolution => {
-            ResponseError::builder(ResponseErrorKind::LocalIOError, err)
+            ResponseError::builder(ResponseErrorKind::LocalIoError, err)
         }
         IsahcErrorKind::ProtocolViolation => {
             ResponseError::builder(ResponseErrorKind::InvalidRequestResponse, err)
         }
         IsahcErrorKind::Timeout => ResponseError::builder(ResponseErrorKind::TimeoutError, err),
-        IsahcErrorKind::TlsEngine => ResponseError::builder(ResponseErrorKind::SSLError, err),
+        IsahcErrorKind::TlsEngine => ResponseError::builder(ResponseErrorKind::SslError, err),
         IsahcErrorKind::TooManyRedirects => {
             ResponseError::builder(ResponseErrorKind::TooManyRedirect, err)
         }

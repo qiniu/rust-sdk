@@ -1,6 +1,6 @@
 use super::{
     super::{
-        super::{APIResult, Authorization, HTTPClient, ResponseError, ResponseErrorKind},
+        super::{ApiResult, Authorization, HttpClient, ResponseError, ResponseErrorKind},
         Endpoints, ServiceName,
     },
     structs::ResponseBody,
@@ -15,14 +15,14 @@ use futures::future::BoxFuture;
 #[derive(Debug)]
 pub struct RegionsProvider {
     credential_provider: Arc<dyn CredentialProvider>,
-    http_client: HTTPClient,
+    http_client: HttpClient,
     uc_endpoints: Endpoints,
 }
 
 impl RegionsProvider {
     #[inline]
     pub fn new(
-        http_client: HTTPClient,
+        http_client: HttpClient,
         uc_endpoints: impl Into<Endpoints>,
         credential_provider: Arc<dyn CredentialProvider>,
     ) -> Self {
@@ -33,7 +33,7 @@ impl RegionsProvider {
         }
     }
 
-    fn do_sync_query(&self) -> APIResult<Vec<Region>> {
+    fn do_sync_query(&self) -> ApiResult<Vec<Region>> {
         let body: ResponseBody = self
             .http_client
             .get(&[ServiceName::Uc], self.uc_endpoints.to_owned())
@@ -53,7 +53,7 @@ impl RegionsProvider {
     }
 
     #[cfg(feature = "async")]
-    async fn do_async_query(&self) -> APIResult<Vec<Region>> {
+    async fn do_async_query(&self) -> ApiResult<Vec<Region>> {
         let body: ResponseBody = self
             .http_client
             .async_get(&[ServiceName::Uc], self.uc_endpoints.to_owned())
@@ -76,7 +76,7 @@ impl RegionsProvider {
 }
 
 impl RegionProvider for RegionsProvider {
-    fn get(&self, opts: &GetOptions) -> APIResult<GotRegion> {
+    fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
         self.get_all(opts).map(|regions| {
             regions
                 .into_regions()
@@ -88,7 +88,7 @@ impl RegionProvider for RegionsProvider {
     }
 
     #[inline]
-    fn get_all(&self, _opts: &GetOptions) -> APIResult<GotRegions> {
+    fn get_all(&self, _opts: &GetOptions) -> ApiResult<GotRegions> {
         self.do_sync_query().map(GotRegions::from)
     }
 
@@ -96,7 +96,7 @@ impl RegionProvider for RegionsProvider {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, APIResult<GotRegion>> {
+    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
         Box::pin(async move {
             self.async_get_all(opts).await.map(|regions| {
                 regions
@@ -113,19 +113,19 @@ impl RegionProvider for RegionsProvider {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_all<'a>(&'a self, _opts: &'a GetOptions) -> BoxFuture<APIResult<GotRegions>> {
+    fn async_get_all<'a>(&'a self, _opts: &'a GetOptions) -> BoxFuture<ApiResult<GotRegions>> {
         Box::pin(async move { self.do_async_query().await.map(GotRegions::from) })
     }
 }
 
 #[cfg(all(test, feature = "isahc", feature = "async"))]
 mod tests {
-    use crate::HTTPClient;
+    use crate::HttpClient;
 
     use super::{super::super::Endpoint, *};
     use futures::channel::oneshot::channel;
     use qiniu_credential::{Credential, StaticCredentialProvider};
-    use serde_json::{json, Value as JSONValue};
+    use serde_json::{json, Value as JsonValue};
     use std::{error::Error, result::Result};
     use tokio::task::spawn;
     use warp::{http::header::HeaderValue, path, reply::Response, Filter};
@@ -165,7 +165,7 @@ mod tests {
 
         starts_with_server!(addr, routes, {
             let provider = RegionsProvider::new(
-                HTTPClient::build_isahc()?.use_https(false).build(),
+                HttpClient::build_isahc()?.use_https(false).build(),
                 vec![Endpoint::from(addr)],
                 Arc::new(StaticCredentialProvider::new(Credential::new(
                     ACCESS_KEY, SECRET_KEY,
@@ -185,7 +185,7 @@ mod tests {
         Ok(())
     }
 
-    fn get_response_json_body() -> JSONValue {
+    fn get_response_json_body() -> JsonValue {
         json!({
             "regions": [
                {

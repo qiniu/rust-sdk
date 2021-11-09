@@ -5,7 +5,7 @@ use super::{
             OnDomainResolved, OnError, OnHeader, OnIPsChosen, OnProgress, OnRequest, OnRetry,
             OnStatusCode, OnSuccess, OnToChooseIPs, OnToResolveDomain,
         },
-        request_call, APIResult, Authorization, CallbacksBuilder, HTTPClient, SyncResponse,
+        request_call, ApiResult, Authorization, CallbacksBuilder, HttpClient, SyncResponse,
     },
     multipart::SyncMultipart,
     request_metadata::RequestMetadata,
@@ -21,11 +21,11 @@ use qiniu_http::{
     Version,
 };
 use serde::Serialize;
-use serde_json::Result as JSONResult;
+use serde_json::Result as JsonResult;
 use std::{
     borrow::{Borrow, Cow},
     fmt::Debug,
-    io::{Read, Result as IOResult},
+    io::{Read, Result as IoResult},
 };
 
 #[cfg(feature = "async")]
@@ -41,7 +41,7 @@ use {
 
 #[derive(Debug)]
 pub struct RequestBuilder<'r, B: 'r> {
-    http_client: &'r HTTPClient,
+    http_client: &'r HttpClient,
     service_names: &'r [ServiceName],
     into_endpoints: IntoEndpoints<'r>,
     callbacks: CallbacksBuilder,
@@ -53,7 +53,7 @@ pub struct RequestBuilder<'r, B: 'r> {
 
 impl<'r, B: Default> RequestBuilder<'r, B> {
     pub(in super::super) fn new(
-        http_client: &'r HTTPClient,
+        http_client: &'r HttpClient,
         method: Method,
         into_endpoints: IntoEndpoints<'r>,
         service_names: &'r [ServiceName],
@@ -326,7 +326,7 @@ impl<'r> SyncRequestBuilder<'r> {
     }
 
     #[inline]
-    pub fn json(self, body: impl Serialize) -> JSONResult<Self> {
+    pub fn json(self, body: impl Serialize) -> JsonResult<Self> {
         Ok(self.bytes_as_body(serde_json::to_vec(&body)?, Some(APPLICATION_JSON)))
     }
 
@@ -354,14 +354,14 @@ impl<'r> SyncRequestBuilder<'r> {
     }
 
     #[inline]
-    pub fn multipart(self, multipart: SyncMultipart) -> IOResult<Self> {
+    pub fn multipart(self, multipart: SyncMultipart) -> IoResult<Self> {
         let mut buf = Vec::new();
         multipart.into_read().read_to_end(&mut buf)?;
         Ok(self.bytes_as_body(buf, Some(MULTIPART_FORM_DATA)))
     }
 
     #[inline]
-    pub fn call(self) -> APIResult<SyncResponse> {
+    pub fn call(self) -> ApiResult<SyncResponse> {
         request_call(self.build())
     }
 
@@ -421,7 +421,7 @@ impl<'r> AsyncRequestBuilder<'r> {
     }
 
     #[inline]
-    pub fn json(self, body: impl Serialize) -> JSONResult<Self> {
+    pub fn json(self, body: impl Serialize) -> JsonResult<Self> {
         Ok(self.bytes_as_body(serde_json::to_vec(&body)?, Some(APPLICATION_JSON)))
     }
 
@@ -452,7 +452,7 @@ impl<'r> AsyncRequestBuilder<'r> {
     pub async fn multipart(
         self,
         multipart: AsyncMultipart,
-    ) -> IOResult<RequestBuilder<'r, AsyncRequestBody<'r>>> {
+    ) -> IoResult<RequestBuilder<'r, AsyncRequestBody<'r>>> {
         use futures::AsyncReadExt;
 
         let mut buf = Vec::new();
@@ -461,7 +461,7 @@ impl<'r> AsyncRequestBuilder<'r> {
     }
 
     #[inline]
-    pub async fn call(self) -> APIResult<AsyncResponse> {
+    pub async fn call(self) -> ApiResult<AsyncResponse> {
         async_request_call(self.build()).await
     }
 

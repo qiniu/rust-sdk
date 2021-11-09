@@ -12,7 +12,7 @@ use c_ares_resolver::{
     Error as CAresResolverError, Options as CAresResolverOptions, Resolver as CallbackResolver,
 };
 use cfg_if::cfg_if;
-use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
+use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
 use std::{fmt, net::IpAddr, sync::mpsc};
 
 #[cfg(feature = "async")]
@@ -156,7 +156,7 @@ fn convert_resolver_hosts_to_ip_addrs(results: CAresResolverHostResults) -> Box<
 
 #[inline]
 fn convert_c_ares_error_to_response_error(err: CAresError) -> ResponseError {
-    ResponseError::new(HTTPResponseErrorKind::DNSServerError.into(), err)
+    ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err)
 }
 
 #[cfg(all(test, feature = "async"))]

@@ -1,5 +1,5 @@
 use super::{
-    super::{super::APIResult, Region},
+    super::{super::ApiResult, Region},
     GetOptions, GotRegion, GotRegions, RegionProvider,
 };
 
@@ -19,7 +19,7 @@ impl StaticRegionProvider {
 
 impl RegionProvider for StaticRegionProvider {
     #[inline]
-    fn get(&self, _opts: &GetOptions) -> APIResult<GotRegion> {
+    fn get(&self, _opts: &GetOptions) -> ApiResult<GotRegion> {
         Ok(self
             .regions
             .first()
@@ -29,7 +29,7 @@ impl RegionProvider for StaticRegionProvider {
     }
 
     #[inline]
-    fn get_all(&self, _opts: &GetOptions) -> APIResult<GotRegions> {
+    fn get_all(&self, _opts: &GetOptions) -> ApiResult<GotRegions> {
         Ok(self.regions.to_owned().into_vec().into())
     }
 }

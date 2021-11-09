@@ -26,7 +26,7 @@ mod tests {
         ResponseError, ResponseErrorKind, ServiceName, NO_BACKOFF,
     };
     use qiniu_http::{
-        Extensions, HeaderMap, HeaderName, HeaderValue, ResponseErrorKind as HTTPResponseErrorKind,
+        Extensions, HeaderMap, HeaderName, HeaderValue, ResponseErrorKind as HttpResponseErrorKind,
         StatusCode,
     };
     use std::{
@@ -48,7 +48,7 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let client = make_error_response_client_builder(
-            HTTPResponseErrorKind::ConnectError,
+            HttpResponseErrorKind::ConnectError,
             "Fake Connect Error",
             true,
         )
@@ -80,7 +80,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::from(HTTPResponseErrorKind::ConnectError)
+            ResponseErrorKind::from(HttpResponseErrorKind::ConnectError)
         );
         let domain_resolved = Arc::try_unwrap(domain_resolved)
             .unwrap()
@@ -113,7 +113,7 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let client = make_error_response_client_builder(
-            HTTPResponseErrorKind::ConnectError,
+            HttpResponseErrorKind::ConnectError,
             "Fake Connect Error",
             false,
         )
@@ -139,7 +139,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::from(HTTPResponseErrorKind::ConnectError)
+            ResponseErrorKind::from(HttpResponseErrorKind::ConnectError)
         );
         let urls_visited = Arc::try_unwrap(urls_visited).unwrap().into_inner().unwrap();
         assert_eq!(
@@ -161,7 +161,7 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let err = ResponseError::new(
-            HTTPResponseErrorKind::ConnectError.into(),
+            HttpResponseErrorKind::ConnectError.into(),
             "Fake Connect Error",
         );
         let chooser = IpChooser::default();
@@ -185,7 +185,7 @@ mod tests {
         ));
 
         let client = make_error_response_client_builder(
-            HTTPResponseErrorKind::ConnectError,
+            HttpResponseErrorKind::ConnectError,
             "Fake Connect Error",
             true,
         )
@@ -217,7 +217,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::HTTPError(HTTPResponseErrorKind::ConnectError)
+            ResponseErrorKind::HttpError(HttpResponseErrorKind::ConnectError)
         );
         let domain_resolved = Arc::try_unwrap(domain_resolved)
             .unwrap()
@@ -246,7 +246,7 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let client = make_error_response_client_builder(
-            HTTPResponseErrorKind::ServerCertError,
+            HttpResponseErrorKind::ServerCertError,
             "Fake SSL Error",
             true,
         )
@@ -290,7 +290,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::from(HTTPResponseErrorKind::ServerCertError)
+            ResponseErrorKind::from(HttpResponseErrorKind::ServerCertError)
         );
         let domain_resolved = Arc::try_unwrap(domain_resolved)
             .unwrap()
@@ -325,7 +325,7 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let always_retry_client = make_error_response_client_builder(
-            HTTPResponseErrorKind::TimeoutError,
+            HttpResponseErrorKind::TimeoutError,
             "Fake Timeout Error",
             true,
         )
@@ -357,7 +357,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::from(HTTPResponseErrorKind::TimeoutError)
+            ResponseErrorKind::from(HttpResponseErrorKind::TimeoutError)
         );
 
         let headers = {
@@ -413,7 +413,7 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let always_try_next_client = make_error_response_client_builder(
-            HTTPResponseErrorKind::UnknownHostError,
+            HttpResponseErrorKind::UnknownHostError,
             "Test Unknown Host Error",
             true,
         )
@@ -449,7 +449,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::from(HTTPResponseErrorKind::UnknownHostError)
+            ResponseErrorKind::from(HttpResponseErrorKind::UnknownHostError)
         );
 
         Ok(())
@@ -460,7 +460,7 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let always_dont_retry_client = make_error_response_client_builder(
-            HTTPResponseErrorKind::LocalIOError,
+            HttpResponseErrorKind::LocalIoError,
             "Test Local IO Error",
             true,
         )
@@ -483,7 +483,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::from(HTTPResponseErrorKind::LocalIOError)
+            ResponseErrorKind::from(HttpResponseErrorKind::LocalIoError)
         );
 
         Ok(())
@@ -494,7 +494,7 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let always_retry_client = make_error_response_client_builder(
-            HTTPResponseErrorKind::SendError,
+            HttpResponseErrorKind::SendError,
             "Test Send Error",
             true,
         )
@@ -540,7 +540,7 @@ mod tests {
                 .unwrap_err();
             assert_eq!(
                 err.kind(),
-                ResponseErrorKind::from(HTTPResponseErrorKind::SendError)
+                ResponseErrorKind::from(HttpResponseErrorKind::SendError)
             );
         }
 
@@ -576,7 +576,7 @@ mod tests {
                 .unwrap_err();
             assert_eq!(
                 err.kind(),
-                ResponseErrorKind::from(HTTPResponseErrorKind::SendError)
+                ResponseErrorKind::from(HttpResponseErrorKind::SendError)
             );
         }
 
@@ -685,7 +685,7 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let client = make_error_response_client_builder(
-            HTTPResponseErrorKind::ConnectError,
+            HttpResponseErrorKind::ConnectError,
             "Fake Connect Error",
             true,
         )
@@ -703,7 +703,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::from(HTTPResponseErrorKind::UserCanceled)
+            ResponseErrorKind::from(HttpResponseErrorKind::UserCanceled)
         );
 
         let err = client
@@ -714,7 +714,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::from(HTTPResponseErrorKind::UserCanceled)
+            ResponseErrorKind::from(HttpResponseErrorKind::UserCanceled)
         );
 
         let err = client
@@ -725,7 +725,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::from(HTTPResponseErrorKind::UserCanceled)
+            ResponseErrorKind::from(HttpResponseErrorKind::UserCanceled)
         );
         Ok(())
     }
@@ -736,7 +736,7 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let always_retry_client = make_error_response_client_builder(
-            HTTPResponseErrorKind::TimeoutError,
+            HttpResponseErrorKind::TimeoutError,
             "Fake Timeout Error",
             true,
         )
@@ -769,7 +769,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.kind(),
-            ResponseErrorKind::from(HTTPResponseErrorKind::TimeoutError)
+            ResponseErrorKind::from(HttpResponseErrorKind::TimeoutError)
         );
 
         let headers = {

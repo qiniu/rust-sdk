@@ -4,7 +4,7 @@ use qiniu_http::{
     HeaderValue, RequestParts, SyncRequest,
 };
 use qiniu_upload_token::UploadTokenProvider;
-use std::{fmt, io::Error as IOError, mem::take, result::Result, sync::Arc};
+use std::{fmt, io::Error as IoError, mem::take, result::Result, sync::Arc};
 use tap::Tap;
 use thiserror::Error;
 use url::ParseError as UrlParseError;
@@ -200,7 +200,7 @@ impl From<Arc<dyn CredentialProvider>> for Authorization {
 pub enum AuthorizationError {
     /// 获取认证信息或上传凭证错误
     #[error("Get Upload Token or Credential error: {0}")]
-    IOError(#[from] IOError),
+    IoError(#[from] IoError),
     /// URL 解析错误
     #[error("Parse URL error: {0}")]
     UrlParseError(#[from] UrlParseError),

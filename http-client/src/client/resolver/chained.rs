@@ -113,7 +113,7 @@ mod tests {
             ChainedResolver::builder(Box::new(make_static_resolver(IPS.to_vec().into())))
                 .prepend_resolver(Box::new(make_dumb_resolver()))
                 .prepend_resolver(Box::new(make_error_resolver(
-                    ResponseErrorKind::LocalIOError.into(),
+                    ResponseErrorKind::LocalIoError.into(),
                     "Test Local IO Error",
                 )))
                 .build();
@@ -124,7 +124,7 @@ mod tests {
         let resolver = ChainedResolver::builder(Box::new(make_dumb_resolver()))
             .prepend_resolver(Box::new(make_static_resolver(IPS.to_vec().into())))
             .prepend_resolver(Box::new(make_error_resolver(
-                ResponseErrorKind::LocalIOError.into(),
+                ResponseErrorKind::LocalIoError.into(),
                 "Test Local IO Error",
             )))
             .build();
@@ -133,7 +133,7 @@ mod tests {
         assert_eq!(ips.ip_addrs(), IPS,);
 
         let resolver = ChainedResolver::builder(Box::new(make_error_resolver(
-            ResponseErrorKind::LocalIOError.into(),
+            ResponseErrorKind::LocalIoError.into(),
             "Test Local IO Error",
         )))
         .prepend_resolver(Box::new(make_dumb_resolver()))

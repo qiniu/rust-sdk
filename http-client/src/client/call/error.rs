@@ -1,6 +1,6 @@
 use super::super::{ResponseError, ResponseErrorKind, RetryDecision, RetryResult};
 use qiniu_http::{
-    Extensions, RequestParts as HTTPRequestParts, ResponseErrorKind as HTTPResponseErrorKind,
+    Extensions, RequestParts as HttpRequestParts, ResponseErrorKind as HttpResponseErrorKind,
 };
 use serde::Deserialize;
 use std::mem::take;
@@ -28,14 +28,14 @@ impl TryError {
     #[inline]
     pub(super) fn feedback_response_error(&self) -> Option<&ResponseError> {
         match &self.response_error.kind() {
-            ResponseErrorKind::HTTPError(error_kind) => match error_kind {
-                HTTPResponseErrorKind::ConnectError
-                | HTTPResponseErrorKind::ProxyError
-                | HTTPResponseErrorKind::DNSServerError
-                | HTTPResponseErrorKind::UnknownHostError
-                | HTTPResponseErrorKind::SendError
-                | HTTPResponseErrorKind::ReceiveError
-                | HTTPResponseErrorKind::UserCanceled => Some(self.response_error()),
+            ResponseErrorKind::HttpError(error_kind) => match error_kind {
+                HttpResponseErrorKind::ConnectError
+                | HttpResponseErrorKind::ProxyError
+                | HttpResponseErrorKind::DnsServerError
+                | HttpResponseErrorKind::UnknownHostError
+                | HttpResponseErrorKind::SendError
+                | HttpResponseErrorKind::ReceiveError
+                | HttpResponseErrorKind::UserCanceled => Some(self.response_error()),
                 _ => None,
             },
             ResponseErrorKind::StatusCodeError(status_code) => match status_code.as_u16() {
@@ -68,7 +68,7 @@ impl TryError {
     }
 
     #[inline]
-    pub(super) fn with_request(self, request: &mut HTTPRequestParts) -> TryErrorWithExtensions {
+    pub(super) fn with_request(self, request: &mut HttpRequestParts) -> TryErrorWithExtensions {
         self.with_extensions(take(request.extensions_mut()))
     }
 }

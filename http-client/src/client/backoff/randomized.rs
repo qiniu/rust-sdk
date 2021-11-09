@@ -1,5 +1,5 @@
 use super::{Backoff, BackoffDuration, BackoffOptions};
-use qiniu_http::RequestParts as HTTPRequestParts;
+use qiniu_http::RequestParts as HttpRequestParts;
 use rand::{thread_rng, Rng};
 use std::{convert::TryInto, time::Duration, u64};
 
@@ -40,7 +40,7 @@ impl<P> RandomizedBackoff<P> {
 
 impl<P: Backoff> Backoff for RandomizedBackoff<P> {
     #[inline]
-    fn time(&self, request: &mut HTTPRequestParts, opts: &BackoffOptions) -> BackoffDuration {
+    fn time(&self, request: &mut HttpRequestParts, opts: &BackoffOptions) -> BackoffDuration {
         let duration = self.base_backoff().time(request, opts).duration();
         let minification: Ratio<u128> = Ratio::new_raw(
             self.minification().numer().to_owned().into(),
@@ -77,7 +77,7 @@ mod tests {
         super::{FixedBackoff, ResponseError, RetriedStatsInfo, RetryDecision},
         *,
     };
-    use qiniu_http::ResponseErrorKind as HTTPResponseErrorKind;
+    use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
     use std::{error::Error, result::Result};
 
     #[test]
@@ -88,11 +88,11 @@ mod tests {
         for _ in 0..10000 {
             let delay = randomized
                 .time(
-                    &mut HTTPRequestParts::default(),
+                    &mut HttpRequestParts::default(),
                     &BackoffOptions::new(
                         RetryDecision::RetryRequest,
                         &ResponseError::new(
-                            HTTPResponseErrorKind::TimeoutError.into(),
+                            HttpResponseErrorKind::TimeoutError.into(),
                             "Test Error",
                         ),
                         &RetriedStatsInfo::default(),

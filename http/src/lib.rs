@@ -43,7 +43,7 @@ pub use response::{
 };
 use std::{
     fmt::Debug,
-    io::{Result as IOResult, Seek, SeekFrom},
+    io::{Result as IoResult, Seek, SeekFrom},
 };
 
 /// 同步 HTTP 响应
@@ -102,7 +102,7 @@ type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 /// HTTP 请求处理函数
 ///
 /// 实现该接口，即可处理所有七牛 SDK 发送的 HTTP 请求
-pub trait HTTPCaller: Debug + Send + Sync {
+pub trait HttpCaller: Debug + Send + Sync {
     /// 同步发送 HTTP 请求
     fn call<'a>(&self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult;
 
@@ -126,12 +126,12 @@ pub trait HTTPCaller: Debug + Send + Sync {
 }
 
 pub trait Reset {
-    fn reset(&mut self) -> IOResult<()>;
+    fn reset(&mut self) -> IoResult<()>;
 }
 
 impl<T: Seek> Reset for T {
     #[inline]
-    fn reset(&mut self) -> IOResult<()> {
+    fn reset(&mut self) -> IoResult<()> {
         self.seek(SeekFrom::Start(0))?;
         Ok(())
     }
@@ -140,13 +140,13 @@ impl<T: Seek> Reset for T {
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 pub trait AsyncReset {
-    fn reset(&mut self) -> BoxFuture<IOResult<()>>;
+    fn reset(&mut self) -> BoxFuture<IoResult<()>>;
 }
 
 #[cfg(feature = "async")]
 impl<T: AsyncSeek + Unpin + Send + Sync> AsyncReset for T {
     #[inline]
-    fn reset(&mut self) -> BoxFuture<IOResult<()>> {
+    fn reset(&mut self) -> BoxFuture<IoResult<()>> {
         use futures_lite::io::AsyncSeekExt;
 
         Box::pin(async move {
@@ -157,7 +157,7 @@ impl<T: AsyncSeek + Unpin + Send + Sync> AsyncReset for T {
 }
 
 pub mod preclude {
-    pub use super::{HTTPCaller, Metrics, Reset};
+    pub use super::{HttpCaller, Metrics, Reset};
 
     #[cfg(feature = "async")]
     pub use super::AsyncReset;

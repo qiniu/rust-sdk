@@ -2,7 +2,7 @@ use assert_impl::assert_impl;
 use http::{
     header::{HeaderMap, HeaderName, HeaderValue},
     method::Method,
-    request::{Parts as HTTPRequestParts, Request as HTTPRequest},
+    request::{Parts as HttpRequestParts, Request as HttpRequest},
     status::StatusCode,
     uri::Uri,
     Extensions, Version,
@@ -42,7 +42,7 @@ type OnStatusCode<'r> = &'r (dyn Fn(StatusCode) -> bool + Send + Sync);
 type OnHeader<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync);
 
 pub struct RequestParts<'r> {
-    inner: HTTPRequestParts,
+    inner: HttpRequestParts,
 
     // 请求配置属性
     appended_user_agent: UserAgent,
@@ -185,7 +185,7 @@ impl<'r> RequestParts<'r> {
 impl Default for RequestParts<'_> {
     #[inline]
     fn default() -> Self {
-        let (parts, _) = HTTPRequest::new(()).into_parts();
+        let (parts, _) = HttpRequest::new(()).into_parts();
         Self {
             inner: parts,
             appended_user_agent: Default::default(),
@@ -405,7 +405,7 @@ mod body {
     use std::{
         default::Default,
         fmt::Debug,
-        io::{Cursor, Read, Result as IOResult},
+        io::{Cursor, Read, Result as IoResult},
     };
 
     trait ReadDebug: Read + Reset + Debug + Send + Sync {}
@@ -457,7 +457,7 @@ mod body {
     }
 
     impl Read for OwnedRequestBody {
-        fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+        fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
             match &mut self.0 {
                 OwnedRequestBodyInner::Reader { reader, .. } => reader.read(buf),
                 OwnedRequestBodyInner::Bytes(bytes) => bytes.read(buf),
@@ -467,7 +467,7 @@ mod body {
 
     impl Reset for OwnedRequestBody {
         #[inline]
-        fn reset(&mut self) -> IOResult<()> {
+        fn reset(&mut self) -> IoResult<()> {
             match &mut self.0 {
                 OwnedRequestBodyInner::Reader { reader, .. } => reader.reset(),
                 OwnedRequestBodyInner::Bytes(bytes) => bytes.reset(),
@@ -537,7 +537,7 @@ mod body {
 
     impl Read for RequestBody<'_> {
         #[inline]
-        fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+        fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
             match &mut self.0 {
                 RequestBodyInner::ReaderRef { reader, .. } => reader.read(buf),
                 RequestBodyInner::BytesRef(bytes) => bytes.read(buf),
@@ -548,7 +548,7 @@ mod body {
 
     impl Reset for RequestBody<'_> {
         #[inline]
-        fn reset(&mut self) -> IOResult<()> {
+        fn reset(&mut self) -> IoResult<()> {
             match &mut self.0 {
                 RequestBodyInner::ReaderRef { reader, .. } => reader.reset(),
                 RequestBodyInner::BytesRef(bytes) => bytes.reset(),
@@ -568,7 +568,7 @@ mod body {
     mod async_body {
         use super::super::super::{AsyncReset, BoxFuture};
         use futures_lite::{
-            io::{AsyncRead, Cursor, Result as IOResult},
+            io::{AsyncRead, Cursor, Result as IoResult},
             pin,
         };
         use std::{
@@ -631,7 +631,7 @@ mod body {
                 mut self: Pin<&mut Self>,
                 cx: &mut Context,
                 buf: &mut [u8],
-            ) -> Poll<IOResult<usize>> {
+            ) -> Poll<IoResult<usize>> {
                 match &mut self.as_mut().0 {
                     OwnedAsyncRequestBodyInner::Reader { reader, .. } => {
                         pin!(reader);
@@ -647,7 +647,7 @@ mod body {
 
         impl AsyncReset for OwnedAsyncRequestBody {
             #[inline]
-            fn reset(&mut self) -> BoxFuture<IOResult<()>> {
+            fn reset(&mut self) -> BoxFuture<IoResult<()>> {
                 Box::pin(async move {
                     match &mut self.0 {
                         OwnedAsyncRequestBodyInner::Reader { reader, .. } => reader.reset().await,
@@ -727,7 +727,7 @@ mod body {
                 mut self: Pin<&mut Self>,
                 cx: &mut Context,
                 buf: &mut [u8],
-            ) -> Poll<IOResult<usize>> {
+            ) -> Poll<IoResult<usize>> {
                 match &mut self.as_mut().0 {
                     AsyncRequestBodyInner::ReaderRef { reader, .. } => {
                         pin!(reader);
@@ -747,7 +747,7 @@ mod body {
 
         impl AsyncReset for AsyncRequestBody<'_> {
             #[inline]
-            fn reset(&mut self) -> BoxFuture<IOResult<()>> {
+            fn reset(&mut self) -> BoxFuture<IoResult<()>> {
                 Box::pin(async move {
                     match &mut self.0 {
                         AsyncRequestBodyInner::ReaderRef { reader, .. } => reader.reset().await,

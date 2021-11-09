@@ -4,7 +4,7 @@ use super::{
     simplified::SimplifiedCallbackContext,
 };
 use qiniu_http::{
-    uri::Scheme, Extensions, HeaderMap, Method, RequestParts as HTTPRequestParts, Uri, UserAgent,
+    uri::Scheme, Extensions, HeaderMap, Method, RequestParts as HttpRequestParts, Uri, UserAgent,
     Version,
 };
 use std::{borrow::Cow, net::IpAddr};
@@ -29,7 +29,7 @@ pub(in super::super) struct ExtendedCallbackContextImpl<
     'httpreq,
 > {
     request: &'reqref RequestParts<'req>,
-    http_request: &'httpreqref mut HTTPRequestParts<'httpreq>,
+    http_request: &'httpreqref mut HttpRequestParts<'httpreq>,
     retried: &'retried RetriedStatsInfo,
 }
 
@@ -38,7 +38,7 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
 {
     pub(in super::super) fn new(
         request: &'reqref RequestParts<'req>,
-        http_request: &'httpreqref mut HTTPRequestParts<'httpreq>,
+        http_request: &'httpreqref mut HttpRequestParts<'httpreq>,
         retried: &'retried RetriedStatsInfo,
     ) -> Self {
         Self {

@@ -4,9 +4,9 @@ use qiniu_credential::CredentialProvider;
 use qiniu_utils::{BucketName, ObjectName};
 use serde_json::{
     json,
-    map::{Keys as JSONMapKeys, Values as JSONMapValues},
-    value::Index as JSONValueIndex,
-    Value as JSONValue,
+    map::{Keys as JsonMapKeys, Values as JsonMapValues},
+    value::Index as JsonValueIndex,
+    Value as JsonValue,
 };
 use std::{
     borrow::{Borrow, Cow},
@@ -42,7 +42,7 @@ const DELETE_AFTER_DAYS_KEY: &str = "deleteAfterDays";
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1206/put-policy)了解七牛安全机制。
 #[derive(Clone, Eq, PartialEq)]
 pub struct UploadPolicy {
-    inner: JSONValue,
+    inner: JsonValue,
 }
 
 impl UploadPolicy {
@@ -236,19 +236,19 @@ impl UploadPolicy {
 
     /// 根据指定的上传策略字段获取相应的值
     #[inline]
-    pub fn get(&self, key: impl JSONValueIndex) -> Option<&JSONValue> {
+    pub fn get(&self, key: impl JsonValueIndex) -> Option<&JsonValue> {
         self.inner.get(key)
     }
 
     /// 获取上传策略的字段迭代器
     #[inline]
-    pub fn keys(&self) -> JSONMapKeys {
+    pub fn keys(&self) -> JsonMapKeys {
         self.inner.as_object().unwrap().keys()
     }
 
     /// 获取上传策略的字段值的迭代器
     #[inline]
-    pub fn values(&self) -> JSONMapValues {
+    pub fn values(&self) -> JsonMapValues {
         self.inner.as_object().unwrap().values()
     }
 
@@ -279,7 +279,7 @@ impl fmt::Debug for UploadPolicy {
 /// 用于生成上传策略，一旦生成完毕，上传策略将无法被修改
 #[derive(Clone)]
 pub struct UploadPolicyBuilder {
-    inner: JSONValue,
+    inner: JsonValue,
 }
 
 impl From<UploadPolicy> for UploadPolicyBuilder {
@@ -354,7 +354,7 @@ impl UploadPolicyBuilder {
     pub fn token_lifetime(&mut self, lifetime: Duration) -> &mut Self {
         self.set(
             DEADLINE_KEY.into(),
-            JSONValue::Number(
+            JsonValue::Number(
                 SystemTime::now()
                     .checked_add(lifetime)
                     .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
@@ -369,7 +369,7 @@ impl UploadPolicyBuilder {
     pub fn token_deadline(&mut self, deadline: SystemTime) -> &mut Self {
         self.set(
             DEADLINE_KEY.into(),
-            JSONValue::Number(
+            JsonValue::Number(
                 deadline
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .ok()
@@ -382,12 +382,12 @@ impl UploadPolicyBuilder {
 
     /// 仅允许创建新的对象，不允许覆盖和修改同名对象
     pub fn insert_only(&mut self) -> &mut Self {
-        self.set(INSERT_ONLY_KEY.into(), JSONValue::Number(1.into()))
+        self.set(INSERT_ONLY_KEY.into(), JsonValue::Number(1.into()))
     }
 
     /// 启用 MIME 类型自动检测
     pub fn enable_mime_detection(&mut self) -> &mut Self {
-        self.set(DETECT_MIME_KEY.into(), JSONValue::Number(1.into()))
+        self.set(DETECT_MIME_KEY.into(), JsonValue::Number(1.into()))
     }
 
     /// 禁用 MIME 类型自动检测
@@ -399,7 +399,7 @@ impl UploadPolicyBuilder {
     pub fn file_type(&mut self, file_type: FileType) -> &mut Self {
         self.set(
             FILE_TYPE_KEY.into(),
-            JSONValue::Number(u8::from(file_type).into()),
+            JsonValue::Number(u8::from(file_type).into()),
         )
     }
 
@@ -410,7 +410,7 @@ impl UploadPolicyBuilder {
     /// `<queryString>` 包含 `return_body()` 内容。
     /// 如不设置 `return_url`，则直接将 `return_body()` 的内容返回给客户端
     pub fn return_url(&mut self, url: impl Into<String>) -> &mut Self {
-        self.set(RETURN_URL_KEY.into(), JSONValue::String(url.into()))
+        self.set(RETURN_URL_KEY.into(), JsonValue::String(url.into()))
     }
 
     /// 上传成功后，自定义七牛云最终返回给上传端（在指定 `return_url()` 时是携带在跳转路径参数中）的数据
@@ -419,7 +419,7 @@ impl UploadPolicyBuilder {
     /// `return_body` 要求是合法的 JSON 文本。
     /// 例如 `{"key": $(key), "hash": $(etag), "w": $(imageInfo.width), "h": $(imageInfo.height)}`
     pub fn return_body(&mut self, body: impl Into<String>) -> &mut Self {
-        self.set(RETURN_BODY_KEY.into(), JSONValue::String(body.into()))
+        self.set(RETURN_BODY_KEY.into(), JsonValue::String(body.into()))
     }
 
     /// 上传成功后，七牛云向业务服务器发送 POST 请求的 URL 列表，`Host`，回调请求的内容以及其 `Content-Type`
@@ -440,17 +440,17 @@ impl UploadPolicyBuilder {
     ) -> &mut Self {
         self.set(
             CALLBACK_URL_KEY.into(),
-            JSONValue::String(urls.as_ref().join(";")),
+            JsonValue::String(urls.as_ref().join(";")),
         );
         {
             let callback_host = host.into();
             if callback_host.is_empty() {
                 self.unset(CALLBACK_HOST_KEY);
             } else {
-                self.set(CALLBACK_HOST_KEY.into(), JSONValue::String(callback_host));
+                self.set(CALLBACK_HOST_KEY.into(), JsonValue::String(callback_host));
             }
         }
-        self.set(CALLBACK_BODY_KEY.into(), JSONValue::String(body.into()));
+        self.set(CALLBACK_BODY_KEY.into(), JsonValue::String(body.into()));
         {
             let callback_body_type = body_type.into();
             if callback_body_type.is_empty() {
@@ -458,7 +458,7 @@ impl UploadPolicyBuilder {
             } else {
                 self.set(
                     CALLBACK_BODY_TYPE_KEY.into(),
-                    JSONValue::String(callback_body_type),
+                    JsonValue::String(callback_body_type),
                 );
             }
         }
@@ -471,9 +471,9 @@ impl UploadPolicyBuilder {
     /// `force` 为 `false` 时，`save_as` 字段仅当用户上传的时候没有主动指定对象名时起作用，
     /// `force` 为 `true` 时，将强制按 `save_as` 字段的内容命名
     pub fn save_as(&mut self, save_as: impl Into<String>, force: bool) -> &mut Self {
-        self.set(SAVE_KEY_KEY.into(), JSONValue::String(save_as.into()));
+        self.set(SAVE_KEY_KEY.into(), JsonValue::String(save_as.into()));
         if force {
-            self.set(FORCE_SAVE_KEY_KEY.into(), JSONValue::Bool(true));
+            self.set(FORCE_SAVE_KEY_KEY.into(), JsonValue::Bool(true));
         } else {
             self.unset(FORCE_SAVE_KEY_KEY);
         }
@@ -486,10 +486,10 @@ impl UploadPolicyBuilder {
     pub fn file_size_limitation(&mut self, size: impl RangeBounds<u64>) -> &mut Self {
         match size.start_bound() {
             Bound::Included(&s) => {
-                self.set(FSIZE_MIN_KEY.into(), JSONValue::Number(s.into()));
+                self.set(FSIZE_MIN_KEY.into(), JsonValue::Number(s.into()));
             }
             Bound::Excluded(&s) => {
-                self.set(FSIZE_MIN_KEY.into(), JSONValue::Number((s + 1).into()));
+                self.set(FSIZE_MIN_KEY.into(), JsonValue::Number((s + 1).into()));
             }
             Bound::Unbounded => {
                 self.unset(FSIZE_MIN_KEY);
@@ -497,10 +497,10 @@ impl UploadPolicyBuilder {
         }
         match size.end_bound() {
             Bound::Included(&s) => {
-                self.set(FSIZE_LIMIT_KEY.into(), JSONValue::Number(s.into()));
+                self.set(FSIZE_LIMIT_KEY.into(), JsonValue::Number(s.into()));
             }
             Bound::Excluded(&s) => {
-                self.set(FSIZE_LIMIT_KEY.into(), JSONValue::Number((s - 1).into()));
+                self.set(FSIZE_LIMIT_KEY.into(), JsonValue::Number((s - 1).into()));
             }
             Bound::Unbounded => {
                 self.unset(FSIZE_LIMIT_KEY);
@@ -516,7 +516,7 @@ impl UploadPolicyBuilder {
     pub fn mime_types<'a>(&mut self, content_types: impl AsRef<[&'a str]>) -> &mut Self {
         self.set(
             MIME_LIMIT_KEY.into(),
-            JSONValue::String(content_types.as_ref().join(";")),
+            JsonValue::String(content_types.as_ref().join(";")),
         )
     }
 
@@ -534,13 +534,13 @@ impl UploadPolicyBuilder {
                 .and_then(|s| s.checked_sub(1))
                 .and_then(|s| s.checked_div(secs_one_day))
                 .and_then(|s| s.try_into().ok())
-                .unwrap_or_else(|| JSONValue::Number(u64::max_value().into())),
+                .unwrap_or_else(|| JsonValue::Number(u64::max_value().into())),
         )
     }
 
     /// 直接设置上传策略的键值对
     #[inline]
-    pub fn set(&mut self, k: String, v: JSONValue) -> &mut Self {
+    pub fn set(&mut self, k: String, v: JsonValue) -> &mut Self {
         self.inner.as_object_mut().unwrap().insert(k, v);
         self
     }
@@ -568,7 +568,7 @@ impl UploadPolicyBuilder {
     /// 重置构建器使得构建器可以被多次复用
     pub fn reset(&mut self) {
         let immutable_keys = [SCOPE_KEY, DEADLINE_KEY, IS_PREFIXAL_SCOPE_KEY];
-        self.inner = JSONValue::Object(
+        self.inner = JsonValue::Object(
             self.inner
                 .as_object()
                 .unwrap()

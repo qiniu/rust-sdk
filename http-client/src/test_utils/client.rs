@@ -1,6 +1,6 @@
-use super::super::{HTTPClient, HTTPClientBuilder};
+use super::super::{HttpClient, HttpClientBuilder};
 use qiniu_http::{
-    HTTPCaller, HeaderMap, ResponseError, ResponseErrorKind, StatusCode,
+    HeaderMap, HttpCaller, ResponseError, ResponseErrorKind, StatusCode,
     SyncRequest as SyncHttpRequest, SyncResponse, SyncResponseBody, SyncResponseResult,
 };
 
@@ -12,11 +12,11 @@ use {
     },
 };
 
-pub(crate) fn make_dumb_client_builder() -> HTTPClientBuilder {
+pub(crate) fn make_dumb_client_builder() -> HttpClientBuilder {
     #[derive(Debug, Default)]
-    struct FakeHTTPCaller;
+    struct FakeHttpCaller;
 
-    impl HTTPCaller for FakeHTTPCaller {
+    impl HttpCaller for FakeHttpCaller {
         #[inline]
         fn call(&self, _request: &mut SyncHttpRequest<'_>) -> SyncResponseResult {
             Ok(Default::default())
@@ -32,7 +32,7 @@ pub(crate) fn make_dumb_client_builder() -> HTTPClientBuilder {
         }
     }
 
-    HTTPClient::builder(Box::new(FakeHTTPCaller))
+    HttpClient::builder(Box::new(FakeHttpCaller))
 }
 
 pub(crate) fn make_fixed_response_client_builder(
@@ -40,16 +40,16 @@ pub(crate) fn make_fixed_response_client_builder(
     headers: HeaderMap,
     body: Vec<u8>,
     is_resolved_ip_addrs_supported: bool,
-) -> HTTPClientBuilder {
+) -> HttpClientBuilder {
     #[derive(Debug)]
-    struct RedirectHTTPCaller {
+    struct RedirectHttpCaller {
         status_code: StatusCode,
         headers: HeaderMap,
         body: Vec<u8>,
         is_resolved_ip_addrs_supported: bool,
     }
 
-    impl HTTPCaller for RedirectHTTPCaller {
+    impl HttpCaller for RedirectHttpCaller {
         #[inline]
         fn call(&self, _request: &mut SyncHttpRequest<'_>) -> SyncResponseResult {
             Ok(SyncResponse::builder()
@@ -79,29 +79,29 @@ pub(crate) fn make_fixed_response_client_builder(
         }
     }
 
-    let http_caller = Box::new(RedirectHTTPCaller {
+    let http_caller = Box::new(RedirectHttpCaller {
         status_code,
         headers,
         body,
         is_resolved_ip_addrs_supported,
     });
 
-    HTTPClient::builder(http_caller)
+    HttpClient::builder(http_caller)
 }
 
 pub(crate) fn make_error_response_client_builder(
     error_kind: ResponseErrorKind,
     message: impl Into<String>,
     is_resolved_ip_addrs_supported: bool,
-) -> HTTPClientBuilder {
+) -> HttpClientBuilder {
     #[derive(Debug)]
-    struct ErrorHTTPCaller {
+    struct ErrorHttpCaller {
         error_kind: ResponseErrorKind,
         message: String,
         is_resolved_ip_addrs_supported: bool,
     }
 
-    impl HTTPCaller for ErrorHTTPCaller {
+    impl HttpCaller for ErrorHttpCaller {
         #[inline]
         fn call(&self, _request: &mut SyncHttpRequest<'_>) -> SyncResponseResult {
             Err(ResponseError::builder(self.error_kind, self.message.to_owned()).build())
@@ -123,11 +123,11 @@ pub(crate) fn make_error_response_client_builder(
         }
     }
 
-    let http_caller = Box::new(ErrorHTTPCaller {
+    let http_caller = Box::new(ErrorHttpCaller {
         error_kind,
         is_resolved_ip_addrs_supported,
         message: message.into(),
     });
 
-    HTTPClient::builder(http_caller)
+    HttpClient::builder(http_caller)
 }

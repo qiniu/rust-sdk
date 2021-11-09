@@ -1,5 +1,5 @@
 use super::{RequestRetrier, RequestRetrierOptions, RetryDecision, RetryResult};
-use qiniu_http::RequestParts as HTTPRequestParts;
+use qiniu_http::RequestParts as HttpRequestParts;
 
 const DEFAULT_RETIES: usize = 2;
 
@@ -25,7 +25,7 @@ impl<R: Default> Default for LimitedRetrier<R> {
 
 impl<R: RequestRetrier> RequestRetrier for LimitedRetrier<R> {
     #[inline]
-    fn retry(&self, request: &mut HTTPRequestParts, opts: &RequestRetrierOptions) -> RetryResult {
+    fn retry(&self, request: &mut HttpRequestParts, opts: &RequestRetrierOptions) -> RetryResult {
         match self.retrier.retry(request, opts).decision() {
             RetryDecision::RetryRequest | RetryDecision::Throttled
                 if opts.retried().retried_on_current_endpoint() >= self.retries =>
@@ -45,23 +45,23 @@ mod tests {
         *,
     };
     use qiniu_http::{
-        Method as HTTPMethod, Request as HTTPRequest, ResponseErrorKind as HTTPResponseErrorKind,
-        Uri as HTTPUri,
+        Method as HttpMethod, Request as HttpRequest, ResponseErrorKind as HttpResponseErrorKind,
+        Uri as HttpUri,
     };
     use std::{convert::TryFrom, error::Error, result::Result};
 
     #[test]
     fn test_limited_retrier_retries() -> Result<(), Box<dyn Error>> {
-        let uri = HTTPUri::try_from("http://localhost/abc")?;
+        let uri = HttpUri::try_from("http://localhost/abc")?;
 
         let retrier = LimitedRetrier::new(ErrorRetrier, 2);
         let mut retried = RetriedStatsInfo::default();
         retried.increase();
         retried.increase();
 
-        let (mut parts, _) = HTTPRequest::builder()
+        let (mut parts, _) = HttpRequest::builder()
             .url(uri)
-            .method(HTTPMethod::GET)
+            .method(HttpMethod::GET)
             .body(())
             .build()
             .into_parts();
@@ -69,7 +69,7 @@ mod tests {
             &mut parts,
             &RequestRetrierOptions::new(
                 Idempotent::Default,
-                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
             ),
         );
@@ -81,7 +81,7 @@ mod tests {
             &mut parts,
             &RequestRetrierOptions::new(
                 Idempotent::Default,
-                &ResponseError::new(HTTPResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
             ),
         );

@@ -1,16 +1,16 @@
-use super::{spawn::spawn, APIResult};
+use super::{spawn::spawn, ApiResult};
 use crossbeam_queue::SegQueue;
 use dashmap::DashMap;
 use fs2::FileExt;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use serde_json::Error as JSONError;
+use serde_json::Error as JsonError;
 use std::{
     borrow::Borrow,
     fmt::{self, Debug},
     fs::{create_dir_all, File, OpenOptions},
     hash::Hash,
-    io::{BufRead, BufReader, BufWriter, Error as IOError, Seek, SeekFrom, Write},
+    io::{BufRead, BufReader, BufWriter, Error as IoError, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering::Relaxed},
@@ -42,7 +42,7 @@ struct CacheInner<K, V> {
     cache: DashMap<K, CacheValue<V>>,
     thread_lock: Mutex<CacheInnerLockedData>,
     persistent: Option<PersistentFile<K, V>>,
-    refreshes: DashMap<K, Box<dyn FnMut() -> APIResult<V> + Send + Sync + 'static>>,
+    refreshes: DashMap<K, Box<dyn FnMut() -> ApiResult<V> + Send + Sync + 'static>>,
 }
 
 struct CacheInnerLockedData {
@@ -176,13 +176,13 @@ impl<
     pub(super) fn get<Q: ?Sized>(
         &self,
         key: &Q,
-        mut f: impl FnMut() -> APIResult<V> + Send + Sync + 'static,
-    ) -> APIResult<V>
+        mut f: impl FnMut() -> ApiResult<V> + Send + Sync + 'static,
+    ) -> ApiResult<V>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ToOwned<Owned = K>,
     {
-        let cache_result: APIResult<_> =
+        let cache_result: ApiResult<_> =
             self.inner
                 .cache
                 .entry(key.to_owned())
@@ -329,10 +329,10 @@ enum PersistentCacheCommand<K, V> {
 #[non_exhaustive]
 pub enum PersistentError {
     #[error("I/O error: {0}")]
-    IOError(#[from] IOError),
+    IoError(#[from] IoError),
 
     #[error("JSON serialize/deserialize error: {0}")]
-    JSONError(#[from] JSONError),
+    JsonError(#[from] JsonError),
 }
 pub type PersistentResult<T> = Result<T, PersistentError>;
 

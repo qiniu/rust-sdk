@@ -2,7 +2,7 @@ use super::{MapError, ResponseError};
 use assert_impl::assert_impl;
 use http::{
     header::{HeaderMap, HeaderName, HeaderValue},
-    response::{Parts as HTTPResponseParts, Response as HTTPResponse},
+    response::{Parts as HttpResponseParts, Response as HttpResponse},
     status::StatusCode,
     Extensions, Version,
 };
@@ -69,7 +69,7 @@ impl ResponseInfo {
 
 #[derive(Debug)]
 pub struct ResponseParts {
-    inner: HTTPResponseParts,
+    inner: HttpResponseParts,
     info: ResponseInfo,
 }
 
@@ -166,7 +166,7 @@ impl ResponseParts {
 impl Default for ResponseParts {
     #[inline]
     fn default() -> Self {
-        let (parts, _) = HTTPResponse::new(()).into_parts();
+        let (parts, _) = HttpResponse::new(()).into_parts();
         Self {
             inner: parts,
             info: Default::default(),
@@ -365,7 +365,7 @@ mod body {
     use std::{
         default::Default,
         fmt::Debug,
-        io::{Cursor, Read, Result as IOResult},
+        io::{Cursor, Read, Result as IoResult},
     };
 
     trait ReadDebug: Read + Debug + Send {}
@@ -401,7 +401,7 @@ mod body {
     }
 
     impl Read for ResponseBody {
-        fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+        fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
             match &mut self.0 {
                 ResponseBodyInner::Reader(reader) => reader.read(buf),
                 ResponseBodyInner::Bytes(bytes) => bytes.read(buf),
@@ -412,7 +412,7 @@ mod body {
     #[cfg(feature = "async")]
     mod async_body {
         use futures_lite::{
-            io::{AsyncRead, Cursor, Result as IOResult},
+            io::{AsyncRead, Cursor, Result as IoResult},
             pin,
         };
         use std::{
@@ -461,7 +461,7 @@ mod body {
                 mut self: Pin<&mut Self>,
                 cx: &mut Context,
                 buf: &mut [u8],
-            ) -> Poll<IOResult<usize>> {
+            ) -> Poll<IoResult<usize>> {
                 match &mut self.as_mut().0 {
                     AsyncResponseBodyInner::Reader(reader) => {
                         pin!(reader);

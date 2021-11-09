@@ -1,21 +1,21 @@
 use qiniu_http::{
-    Metrics, ResponseError as HTTPResponseError, ResponseErrorKind as HTTPResponseErrorKind,
-    StatusCode as HTTPStatusCode,
+    Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
+    StatusCode as HttpStatusCode,
 };
-use std::{error, fmt, io::Error as IOError, mem::take, net::IpAddr, num::NonZeroU16};
+use std::{error, fmt, io::Error as IoError, mem::take, net::IpAddr, num::NonZeroU16};
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ErrorKind {
     /// HTTP 客户端错误
-    HTTPError(HTTPResponseErrorKind),
+    HttpError(HttpResponseErrorKind),
 
     /// 响应状态码错误
-    StatusCodeError(HTTPStatusCode),
+    StatusCodeError(HttpStatusCode),
 
-    /// 未预期的状态码（例如 0 - 199 或 300 - 399，理论上应该由 HTTPCaller 自动处理）
-    UnexpectedStatusCode(HTTPStatusCode),
+    /// 未预期的状态码（例如 0 - 199 或 300 - 399，理论上应该由 HttpCaller 自动处理）
+    UnexpectedStatusCode(HttpStatusCode),
 
     /// 读取响应体时遭遇未预期的 EOF
     UnexpectedEof,
@@ -75,7 +75,7 @@ impl Error {
     }
 
     #[inline]
-    pub(super) fn from_http_response_error(kind: ErrorKind, mut err: HTTPResponseError) -> Self {
+    pub(super) fn from_http_response_error(kind: ErrorKind, mut err: HttpResponseError) -> Self {
         Self {
             kind,
             server_ip: err.server_ip(),
@@ -100,23 +100,23 @@ impl error::Error for Error {
     }
 }
 
-impl From<HTTPResponseError> for Error {
+impl From<HttpResponseError> for Error {
     #[inline]
-    fn from(error: HTTPResponseError) -> Self {
+    fn from(error: HttpResponseError) -> Self {
         Self::from_http_response_error(error.kind().into(), error)
     }
 }
 
-impl From<HTTPResponseErrorKind> for ErrorKind {
+impl From<HttpResponseErrorKind> for ErrorKind {
     #[inline]
-    fn from(kind: HTTPResponseErrorKind) -> Self {
-        ErrorKind::HTTPError(kind)
+    fn from(kind: HttpResponseErrorKind) -> Self {
+        ErrorKind::HttpError(kind)
     }
 }
 
-impl From<IOError> for Error {
+impl From<IoError> for Error {
     #[inline]
-    fn from(error: IOError) -> Self {
-        Self::new(HTTPResponseErrorKind::LocalIOError.into(), error)
+    fn from(error: IoError) -> Self {
+        Self::new(HttpResponseErrorKind::LocalIoError.into(), error)
     }
 }

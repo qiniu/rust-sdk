@@ -26,12 +26,12 @@ mod async_client;
 
 pub use extensions::*;
 pub use qiniu_http as http;
-pub use qiniu_http::{HTTPCaller, Request, ResponseError, SyncResponseResult};
+pub use qiniu_http::{HttpCaller, Request, ResponseError, SyncResponseResult};
 pub use reqwest;
-pub use sync_client::SyncReqwestHTTPCaller;
+pub use sync_client::SyncReqwestHttpCaller;
 
 #[cfg(feature = "async")]
-pub use async_client::AsyncReqwestHTTPCaller;
+pub use async_client::AsyncReqwestHttpCaller;
 
 #[cfg(feature = "async")]
 pub use qiniu_http::AsyncResponseResult;
@@ -134,7 +134,7 @@ mod tests {
                 let mut response = {
                     let last_uploaded = last_uploaded.to_owned();
                     let last_total = last_total.to_owned();
-                    SyncReqwestHTTPCaller::default().call(
+                    SyncReqwestHttpCaller::default().call(
                         &mut SyncRequest::builder()
                             .method(Method::POST)
                             .url(
@@ -232,7 +232,7 @@ mod tests {
             let mut response = {
                 let last_uploaded = last_uploaded.to_owned();
                 let last_total = last_total.to_owned();
-                AsyncReqwestHTTPCaller::default()
+                AsyncReqwestHttpCaller::default()
                     .async_call(
                         &mut AsyncRequest::builder()
                             .method(Method::POST)
