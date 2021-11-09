@@ -14,4 +14,6 @@ response:
   body:
     json:
       array:
+        name: Domains
         type: string
+        documentation: 存储空间的域名列表

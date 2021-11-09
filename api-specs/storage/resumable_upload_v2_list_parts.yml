@@ -70,6 +70,10 @@ response:
                         key: put_time
                         type: integer
                         documentation: 分片上传时间 UNIX 时间戳
+                    name: ListedPartInfo
                     documentation: 单个已经上传的分片信息
-            documentation: 已经上传的分片列表
+                name: ListedParts
+                documentation: 所有已经上传的分片信息
+            documentation: 返回所有已经上传成功的分片信息
+        name: ListedPartsResponse
         documentation: 返回所有已经上传成功的分片信息

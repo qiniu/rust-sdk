@@ -9,4 +9,6 @@ response:
   body:
     json:
       array:
+        name: BucketNames
         type: string
+        documentation: 存储空间列表

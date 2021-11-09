@@ -18,6 +18,7 @@ request:
             key: Tags
             type:
               array:
+                name: Tags
                 type:
                   struct:
                     fields:
@@ -29,6 +30,9 @@ request:
                         key: Value
                         type: string
                         documentation: "标签值，最大 128 Byte，不能为空且大小写敏感，不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"
+                    name: TagInfo
                     documentation: 标签键值对
+                documentation: 标签列表
             documentation: 标签列表
+        name: TagsInfo
         documentation: 存储空间标签信息

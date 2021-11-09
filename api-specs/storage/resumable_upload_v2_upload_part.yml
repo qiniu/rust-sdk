@@ -40,4 +40,5 @@ response:
             key: md5
             type: string
             documentation: 上传块内容的 MD5 值
+        name: NewPartInfo
         documentation: 返回本次上传的分片相关信息

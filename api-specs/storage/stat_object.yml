@@ -66,4 +66,5 @@ response:
             documentation: 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段
             type: integer
             optional: true
+        name: ObjectMetadata
         documentation: 文件元信息

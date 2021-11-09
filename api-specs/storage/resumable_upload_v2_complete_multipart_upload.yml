@@ -36,6 +36,7 @@ request:
                     key: etag
                     type: string
                     documentation: 上传块的 etag
+                name: PartInfo
                 documentation: 单个分片信息
             documentation: 已经上传的分片列表
           - field_name: file_name
@@ -58,6 +59,7 @@ request:
             type: string_map
             documentation: 用户自定义变量
             optional: true
+        name: ObjectInfo
         documentation: 新上传的对象的相关信息
 response:
   body:

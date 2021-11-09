@@ -9,7 +9,7 @@ build_test:
 	cargo test --no-run
 doc:
 test:
-	cargo test -- --test-threads=1
+	cargo test -- --test-threads=1 --show-output
 clean:
 	cargo clean
 clippy:

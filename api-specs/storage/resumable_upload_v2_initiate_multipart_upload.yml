@@ -29,4 +29,5 @@ response:
             key: expireAt
             type: integer
             documentation: UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用
+        name: NewMultipartUpload
         documentation: 返回本次 MultipartUpload 相关信息

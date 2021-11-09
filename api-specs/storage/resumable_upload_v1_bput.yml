@@ -43,5 +43,6 @@ response:
             key: expired_at
             type: string
             documentation: "`ctx` 过期时间"
+        name: ChunkInfo
         documentation: 返回下一片数据的上传信息
 

@@ -1,10 +1,11 @@
+use super::json::JsonType;
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
 
 #[derive(SmartDefault, Clone, Debug, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// HTTP 方法
-pub(crate) enum Method {
+enum Method {
     #[default]
     Get,
     Post,
@@ -15,7 +16,7 @@ pub(crate) enum Method {
 #[derive(SmartDefault, Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// 七牛服务名称
-pub(crate) enum ServiceName {
+enum ServiceName {
     #[default]
     Up,
     Io,
@@ -29,7 +30,7 @@ pub(crate) enum ServiceName {
 #[derive(Clone, Debug, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// 鉴权方式
-pub(crate) enum Authorization {
+enum Authorization {
     /// 使用凭证鉴权
     Credential,
 
@@ -40,7 +41,7 @@ pub(crate) enum Authorization {
 #[derive(Clone, Debug, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// 字符串编码类型
-pub(crate) enum EncodeType {
+enum EncodeType {
     /// 需要进行编码
     UrlSafeBase64,
 
@@ -50,85 +51,8 @@ pub(crate) enum EncodeType {
 
 #[derive(SmartDefault, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-/// JSON 字段类型
-pub(crate) enum JsonType {
-    /// 字符串（默认）
-    #[default]
-    String,
-
-    /// 整型数字
-    Integer,
-
-    /// 浮点型数字
-    Float,
-
-    /// 布尔值
-    Boolean,
-
-    /// 数组
-    Array(Box<JsonArray>),
-
-    /// 结构体
-    Struct(JsonStruct),
-
-    /// 任意数据结构
-    Any,
-
-    /// 任意字符串映射结构
-    StringMap,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// JSON 数组字段信息
-pub(crate) struct JsonArray {
-    /// JSON 数组类型
-    #[serde(rename = "type")]
-    pub(crate) ty: JsonType,
-
-    /// JSON 数组参数是否可选
-    pub(crate) optional: bool,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// JSON 结构体字段
-pub(crate) struct JsonField {
-    /// JSON 字段类型
-    #[serde(rename = "type")]
-    pub(crate) ty: JsonType,
-
-    /// JSON 字段参数名称
-    pub(crate) key: String,
-
-    /// JSON 字段名称
-    pub(crate) field_name: String,
-
-    /// JSON 字段参数文档
-    pub(crate) documentation: String,
-
-    /// JSON 字段参数是否可选
-    pub(crate) optional: bool,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// JSON 结构体
-pub(crate) struct JsonStruct {
-    /// JSON 字段列表
-    pub(crate) fields: Vec<JsonField>,
-
-    /// JSON 结构体参数文档
-    pub(crate) documentation: String,
-
-    /// JSON 结构体参数是否可选
-    pub(crate) optional: bool,
-}
-
-#[derive(SmartDefault, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 /// 复合表单字段请求类型
-pub(crate) enum MultipartFormDataRequestType {
+enum MultipartFormDataRequestType {
     /// 字符串（默认）
     #[default]
     String,
@@ -143,61 +67,61 @@ pub(crate) enum MultipartFormDataRequestType {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 /// 有名复合表单请求字段
-pub(crate) struct NamedMultipartFormDataRequestField {
+struct NamedMultipartFormDataRequestField {
     /// 复合表单字段名称
-    pub(crate) field_name: String,
+    field_name: String,
 
     /// 支持传入复合表单文件名称
-    pub(crate) file_name: bool,
+    file_name: bool,
 
     /// 支持传入复合表单内容 MIME 类型
-    pub(crate) content_type: bool,
+    content_type: bool,
 
     /// 复合表单参数名称
-    pub(crate) key: String,
+    key: String,
 
     /// 复合表单参数文档
-    pub(crate) documentation: String,
+    documentation: String,
 
     /// 复合表单参数类型
     #[serde(rename = "type")]
-    pub(crate) ty: MultipartFormDataRequestType,
+    ty: MultipartFormDataRequestType,
 
     /// 复合表单参数是否可选
-    pub(crate) optional: bool,
+    optional: bool,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 /// 自由复合表单请求字段
-pub(crate) struct FreeMultipartFormDataRequestFields {
+struct FreeMultipartFormDataRequestFields {
     /// 复合表单参数名称
-    pub(crate) field_name: String,
+    field_name: String,
 
     /// 复合表单参数文档
-    pub(crate) documentation: String,
+    documentation: String,
 
     /// 复合表单参数类型
     #[serde(rename = "type")]
-    pub(crate) ty: MultipartFormDataRequestType,
+    ty: MultipartFormDataRequestType,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 /// 复合表单请求结构体
-pub(crate) struct MultipartFormDataRequestStruct {
+struct MultipartFormDataRequestStruct {
     /// 有名复合表单字段列表
-    pub(crate) named_fields: Vec<NamedMultipartFormDataRequestField>,
+    named_fields: Vec<NamedMultipartFormDataRequestField>,
 
     /// 自由复合表单字段列表
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) free_fields: Option<FreeMultipartFormDataRequestFields>,
+    free_fields: Option<FreeMultipartFormDataRequestFields>,
 }
 
 #[derive(SmartDefault, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// 类字符串参数类型
-pub(crate) enum StringLikeType {
+enum StringLikeType {
     /// 字符串（默认）
     #[default]
     String,
@@ -215,39 +139,39 @@ pub(crate) enum StringLikeType {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 /// URL 编码表单请求字段
-pub(crate) struct FormUrlencodedRequestField {
+struct FormUrlencodedRequestField {
     /// URL 编码表单字段名称
-    pub(crate) field_name: String,
+    field_name: String,
 
     /// URL 编码表单参数名称
-    pub(crate) key: String,
+    key: String,
 
     /// URL 编码表单参数文档
-    pub(crate) documentation: String,
+    documentation: String,
 
     /// URL 编码表单参数类型
     #[serde(rename = "type")]
-    pub(crate) ty: StringLikeType,
+    ty: StringLikeType,
 
     /// URL 编码表单参数是否可以有多个值
-    pub(crate) multiple: bool,
+    multiple: bool,
 
     /// URL 编码表单参数是否可选
-    pub(crate) optional: bool,
+    optional: bool,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default, rename_all = "snake_case")]
 /// URL 编码表单请求结构体
-pub(crate) struct FormUrlencodedRequestStruct {
+struct FormUrlencodedRequestStruct {
     /// URL 编码表单字段列表
-    pub(crate) fields: Vec<FormUrlencodedRequestField>,
+    fields: Vec<FormUrlencodedRequestField>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// HTTP 调用请求体
-pub(crate) enum RequestBody {
+enum RequestBody {
     /// JSON 调用
     Json(JsonType),
 
@@ -267,63 +191,63 @@ pub(crate) enum RequestBody {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 /// HTTP URL 路径请求参数列表
-pub(crate) struct PathParams {
+struct PathParams {
     /// HTTP URL 路径有名参数列表
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) named: Vec<NamedPathParam>,
+    named: Vec<NamedPathParam>,
 
     /// HTTP URL 路径自由参数列表
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) free: Option<FreePathParams>,
+    free: Option<FreePathParams>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 /// HTTP URL 路径有名请求参数
-pub(crate) struct NamedPathParam {
+struct NamedPathParam {
     /// HTTP URL 路径段落，如果为 None，则表示参数直接追加在 URL 路径末尾
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) path_segment: Option<String>,
+    path_segment: Option<String>,
 
     /// HTTP URL 路径参数名称
-    pub(crate) field_name: String,
+    field_name: String,
 
     /// HTTP URL 路径参数类型
     #[serde(rename = "type")]
-    pub(crate) ty: StringLikeType,
+    ty: StringLikeType,
 
     /// HTTP URL 路径参数文档
-    pub(crate) documentation: String,
+    documentation: String,
 
     /// HTTP URL 路径参数编码方式，如果为 None，表示直接转码成字符串
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) encode: Option<EncodeType>,
+    encode: Option<EncodeType>,
 
     /// HTTP URL 路径参数是否可选
-    pub(crate) optional: bool,
+    optional: bool,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 /// HTTP URL 路径自由请求参数
-pub(crate) struct FreePathParams {
+struct FreePathParams {
     /// HTTP URL 路径参数名称
-    pub(crate) field_name: String,
+    field_name: String,
 
     /// HTTP URL 路径参数类型
     #[serde(rename = "type")]
-    pub(crate) ty: StringLikeType,
+    ty: StringLikeType,
 
     /// HTTP URL 路径参数文档
-    pub(crate) documentation: String,
+    documentation: String,
 
     /// HTTP URL 路径参数键编码方式，如果为 None，表示直接转码成字符串
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) encode_param_key: Option<EncodeType>,
+    encode_param_key: Option<EncodeType>,
 
     /// HTTP URL 路径参数值编码方式，如果为 None，表示直接转码成字符串
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) encode_param_value: Option<EncodeType>,
+    encode_param_value: Option<EncodeType>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -331,16 +255,16 @@ pub(crate) struct FreePathParams {
 /// HTTP 头参数信息
 pub struct HeaderName {
     /// HTTP 头参数名称
-    pub(crate) field_name: String,
+    field_name: String,
 
     /// HTTP 头名称
-    pub(crate) header_name: String,
+    header_name: String,
 
     /// HTTP 头参数文档
-    pub(crate) documentation: String,
+    documentation: String,
 
     /// HTTP 头参数是否可选
-    pub(crate) optional: bool,
+    optional: bool,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -348,89 +272,89 @@ pub struct HeaderName {
 /// HTTP URL 查询请求参数信息
 pub struct QueryName {
     /// 参数名称
-    pub(crate) field_name: String,
+    field_name: String,
 
     /// HTTP URL 查询参数名称
-    pub(crate) query_name: String,
+    query_name: String,
 
     /// HTTP URL 查询参数文档
-    pub(crate) documentation: String,
+    documentation: String,
 
     /// HTTP URL 查询参数类型
-    pub(crate) query_type: StringLikeType,
+    query_type: StringLikeType,
 
     /// HTTP URL 查询参数是否可选
-    pub(crate) optional: bool,
+    optional: bool,
 }
 
 #[derive(Clone, Debug)]
 /// API 描述，仅在内存中存储
-pub(crate) struct ApiDescription {
+pub(super) struct ApiDescription {
     /// API 名称，通过 YAML 描述文件的文件名称来获取
-    pub(crate) name: String,
+    name: String,
 
     /// API 名字空间，通过 YAML 描述文件所在路径来获取
-    pub(crate) namespace: Vec<String>,
+    namespace: Vec<String>,
 
     /// API 描述信息，通过 YAML 描述文件的内容来获取
-    pub(crate) details: ApiDetailedDescription,
+    details: ApiDetailedDescription,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 /// API 描述信息，可以通过 YAML 描述文件编辑
-pub(crate) struct ApiDetailedDescription {
+pub(super) struct ApiDetailedDescription {
     /// API 调用 HTTP 方法
-    pub(crate) method: Method,
+    method: Method,
 
     /// 七牛服务名称，可以设置多个，表现有多个七牛服务都可以调用该 API
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) service_names: Vec<ServiceName>,
+    service_names: Vec<ServiceName>,
 
     /// API 文档
-    pub(crate) documentation: String,
+    documentation: String,
 
     /// 七牛 API URL 基础路径
-    pub(crate) base_path: String,
+    base_path: String,
 
     /// 七牛 API URL 路径后缀
-    pub(crate) path_suffix: String,
+    path_suffix: String,
 
     /// 七牛 API 调用参数
-    pub(crate) request: ApiRequestDescription,
+    request: ApiRequestDescription,
 
     /// 七牛 API 响应参数
-    pub(crate) response: ApiResponseDescription,
+    response: ApiResponseDescription,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
-pub(crate) struct ApiRequestDescription {
+struct ApiRequestDescription {
     /// 七牛 API 调用 URL 路径参数列表
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) path_params: Option<PathParams>,
+    path_params: Option<PathParams>,
 
     /// 七牛 API 调用 HTTP 头参数列表
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) header_names: Vec<HeaderName>,
+    header_names: Vec<HeaderName>,
 
     /// 七牛 API 调用 URL 查询参数列表
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) query_names: Vec<QueryName>,
+    query_names: Vec<QueryName>,
 
     /// 七牛 API 调用请求体
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) body: Option<RequestBody>,
+    body: Option<RequestBody>,
 
     /// 七牛 API 调用鉴权参数
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) authorization: Option<Authorization>,
+    authorization: Option<Authorization>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// HTTP 响应请求体
-pub(crate) enum ResponseBody {
+enum ResponseBody {
     /// JSON 响应
     Json(JsonType),
 
@@ -440,83 +364,12 @@ pub(crate) enum ResponseBody {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
-/// JSON 响应结构体
-pub(crate) struct JsonResponseStruct {
-    /// JSON 字段列表
-    pub(crate) fields: Vec<JsonResponseField>,
-
-    /// JSON 结构体文档
-    pub(crate) documentation: String,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// JSON 响应字段基础信息
-pub(crate) struct JsonResponseBaseField {
-    /// JSON 字段名称
-    pub(crate) field_name: String,
-
-    /// JSON 字段文档
-    pub(crate) documentation: String,
-
-    /// JSON 字段是否可选
-    pub(crate) optional: bool,
-
-    /// JSON 字段类型
-    #[serde(rename = "type")]
-    pub(crate) ty: JsonResponseType,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// JSON 响应字段
-pub(crate) struct JsonResponseField {
-    /// JSON 字段路径
-    pub(crate) key_path: Vec<String>,
-
-    /// JSON 字段基础信息
-    #[serde(flatten)]
-    pub(crate) info: JsonResponseBaseField,
-}
-
-#[derive(SmartDefault, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-/// JSON 响应类型
-pub(crate) enum JsonResponseType {
-    /// 字符串（默认）
-    #[default]
-    String,
-
-    /// 整型数字
-    Integer,
-
-    /// 浮点型数字
-    Float,
-
-    /// 布尔值
-    Boolean,
-
-    /// 对象
-    Object,
-
-    /// 整型数组
-    IntegerArray,
-
-    /// 字符串数组
-    StringArray,
-
-    /// 对象数组
-    ObjectArray,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-pub(crate) struct ApiResponseDescription {
+struct ApiResponseDescription {
     /// 七牛 API 响应 HTTP 头参数列表
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) header_names: Vec<HeaderName>,
+    header_names: Vec<HeaderName>,
 
     /// 七牛 API 响应请求体
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) body: Option<ResponseBody>,
+    body: Option<ResponseBody>,
 }

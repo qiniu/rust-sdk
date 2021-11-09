@@ -62,6 +62,7 @@ request:
             type: boolean
             documentation: 如果空间中已经存在同名文件则放弃本次抓取（仅对比对象名称，不校验文件内容）
             optional: true
+        name: NewFetchTaskParams
         documentation: 要抓取的资源信息
 response:
   body:
@@ -76,4 +77,5 @@ response:
             field_name: queued_tasks_count
             documentation: 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）
             type: integer
+        name: NewFetchTaskInfo
         documentation: 返回的异步任务信息
