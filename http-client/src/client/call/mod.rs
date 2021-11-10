@@ -409,6 +409,125 @@ mod tests {
     }
 
     #[test]
+    fn test_call_retry_with_extensions() -> Result<(), Box<dyn Error>> {
+        env_logger::builder().is_test(true).try_init().ok();
+
+        #[derive(Clone, Default)]
+        struct ExtensionCounter(Arc<AtomicUsize>);
+
+        impl ExtensionCounter {
+            fn inc(&mut self) -> usize {
+                self.0.fetch_add(1, Relaxed)
+            }
+
+            fn into_inner(self) -> usize {
+                Arc::try_unwrap(self.0).unwrap().into_inner()
+            }
+        }
+
+        let counter = ExtensionCounter::default();
+        let err = make_error_response_client_builder(
+            HttpResponseErrorKind::TimeoutError,
+            "Fake Timeout Error",
+            true,
+        )
+        .resolver(Box::new(make_random_resolver()))
+        .chooser(Box::new(DirectChooser))
+        .backoff(Box::new(NO_BACKOFF))
+        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .build()
+        .post(&[ServiceName::Up], &single_up_domain_region())
+        .add_extension(counter.to_owned())
+        .on_to_resolve_domain(Box::new(move |context, _| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_domain_resolved(Box::new(move |context, _, _| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_to_choose_ips(Box::new(move |context, _| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_ips_chosen(Box::new(move |context, _, _| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_before_request_signed(Box::new(move |context| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_after_request_signed(Box::new(move |context| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_before_backoff(Box::new(move |context, _| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_after_backoff(Box::new(move |context, _| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_error(Box::new(move |context, _| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_success(Box::new(move |_, _| unreachable!()))
+        .call()
+        .unwrap_err();
+        assert_eq!(
+            err.kind(),
+            ResponseErrorKind::from(HttpResponseErrorKind::TimeoutError)
+        );
+        assert_eq!(counter.into_inner(), 18);
+
+        let counter = ExtensionCounter::default();
+        let err = make_error_response_client_builder(
+            HttpResponseErrorKind::ServerCertError,
+            "Fake Server Cert Error",
+            true,
+        )
+        .resolver(Box::new(make_random_resolver()))
+        .chooser(Box::new(DirectChooser))
+        .backoff(Box::new(NO_BACKOFF))
+        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .build()
+        .post(&[ServiceName::Up], &single_up_domain_region())
+        .add_extension(counter.to_owned())
+        .on_to_resolve_domain(Box::new(move |context, _| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_domain_resolved(Box::new(move |context, _, _| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_to_choose_ips(Box::new(move |context, _| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_ips_chosen(Box::new(move |context, _, _| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_before_request_signed(Box::new(move |context| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_after_request_signed(Box::new(move |context| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_before_backoff(Box::new(move |_, _| unreachable!()))
+        .on_after_backoff(Box::new(move |_, _| unreachable!()))
+        .on_error(Box::new(move |context, _| {
+            inc_extensions(context.extensions_mut())
+        }))
+        .on_success(Box::new(move |_, _| unreachable!()))
+        .call()
+        .unwrap_err();
+        assert_eq!(
+            err.kind(),
+            ResponseErrorKind::from(HttpResponseErrorKind::ServerCertError)
+        );
+        assert_eq!(counter.into_inner(), 7);
+
+        return Ok(());
+
+        fn inc_extensions(extensions: &mut Extensions) -> bool {
+            extensions.get_mut::<ExtensionCounter>().unwrap().inc();
+            true
+        }
+    }
+
+    #[test]
     fn test_call_retry_next() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
