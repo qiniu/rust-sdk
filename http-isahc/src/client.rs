@@ -22,18 +22,14 @@ type IsahcSyncResponse = isahc::Response<IsahcBody>;
 
 #[cfg(feature = "async")]
 use {
-    futures::{ready, AsyncRead},
+    futures::{future::BoxFuture, ready, AsyncRead},
     isahc::AsyncBody as IsahcAsyncBody,
     qiniu_http::{AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult},
     std::{
-        future::Future,
         pin::Pin,
         task::{Context, Poll},
     },
 };
-
-#[cfg(feature = "async")]
-type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 
 #[cfg(feature = "async")]
 type IsahcAsyncRequest = isahc::Request<IsahcAsyncBody>;

@@ -1,9 +1,9 @@
 use super::{
     extensions::TimeoutExtension,
     sync_client::{call_response_callbacks, from_reqwest_error, make_user_agent},
-    BoxFuture,
 };
 use bytes::Bytes;
+use futures::future::BoxFuture;
 use futures::{ready, AsyncRead, Stream};
 use qiniu_http::{
     AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult, HttpCaller, ResponseError,

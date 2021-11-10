@@ -20,7 +20,7 @@ use std::{
 
 #[cfg(feature = "async")]
 use {
-    super::BoxFuture,
+    futures::future::BoxFuture,
     qiniu_http::{AsyncRequest, AsyncResponseResult},
 };
 

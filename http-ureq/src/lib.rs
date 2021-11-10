@@ -35,7 +35,7 @@ pub use qiniu_http::AsyncResponseResult;
 use std::{future::Future, pin::Pin};
 
 #[cfg(feature = "async")]
-pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
+type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 
 #[cfg(test)]
 mod tests {

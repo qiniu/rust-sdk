@@ -31,12 +31,6 @@ pub use qiniu_http::{HttpCaller, Request, ResponseError, SyncResponseResult};
 #[cfg(feature = "async")]
 pub use qiniu_http::AsyncResponseResult;
 
-#[cfg(feature = "async")]
-use std::{future::Future, pin::Pin};
-
-#[cfg(feature = "async")]
-pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
-
 #[cfg(test)]
 mod tests {
     use super::*;
