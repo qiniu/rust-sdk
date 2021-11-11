@@ -49,7 +49,7 @@ pub(super) fn try_endpoints(
     }
 
     let ips = find_ip_addr_with_port(endpoints)
-        .cloned()
+        .copied()
         .collect::<Vec<_>>();
     if !ips.is_empty() {
         match try_ips(
@@ -419,7 +419,7 @@ pub(super) async fn async_try_endpoints(
     }
 
     let ips = find_ip_addr_with_port(endpoints)
-        .cloned()
+        .copied()
         .collect::<Vec<_>>();
     if !ips.is_empty() {
         match try_ips(

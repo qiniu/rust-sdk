@@ -79,7 +79,7 @@ impl<C> NeverEmptyHandedChooser<C> {
     fn random_choose(&self, ips: &[IpAddrWithPort]) -> Vec<IpAddrWithPort> {
         let chosen_len = (self.random_choose_ratio * ips.len()).ceil().to_integer();
         ips.choose_multiple(&mut thread_rng(), chosen_len)
-            .cloned()
+            .copied()
             .collect()
     }
 }

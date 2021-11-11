@@ -11,7 +11,7 @@ impl IpAddrsSet {
     #[inline]
     pub(super) fn new(ips: &[IpAddrWithPort]) -> Self {
         Self {
-            set: ips.iter().cloned().collect(),
+            set: ips.iter().copied().collect(),
             ordered: ips.to_vec(),
         }
     }
@@ -51,7 +51,7 @@ impl IpAddrsSet {
     pub(super) fn remains(&self) -> Vec<IpAddrWithPort> {
         self.ordered
             .iter()
-            .cloned()
+            .copied()
             .filter(|ip| self.set.contains(ip))
             .collect()
     }

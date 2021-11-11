@@ -150,8 +150,6 @@ mod tests {
 
     #[inline]
     fn make_set(ips: impl AsRef<[IpAddrWithPort]>) -> HashSet<IpAddrWithPort> {
-        let mut h = HashSet::new();
-        h.extend(ips.as_ref());
-        h
+        HashSet::from_iter(ips.as_ref().iter().copied())
     }
 }
