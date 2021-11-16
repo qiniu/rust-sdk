@@ -87,28 +87,28 @@ impl MultipartFormDataRequestStruct {
     ) -> TokenStream {
         let name = format_ident!("{}", name.to_case(Case::Pascal));
         let struct_definition_token_stream = define_new_struct(&name, documentation, sync_version);
-        let impls_named_fields_token_stream =
-            for_named_fields(&self.named_fields, &name, sync_version);
-        let impls_free_fields_token_stream = if let Some(free_fields) = &self.free_fields {
-            for_free_fields(free_fields, &name, sync_version)
+        let named_fields_methods_token_stream = for_named_fields(&self.named_fields, sync_version);
+        let free_fields_methods_token_stream = if let Some(free_fields) = &self.free_fields {
+            for_free_fields(free_fields, sync_version)
         } else {
             quote! {}
         };
 
         return quote! {
             #struct_definition_token_stream
-            #impls_named_fields_token_stream
-            #impls_free_fields_token_stream
+            impl #name {
+                #named_fields_methods_token_stream
+                #free_fields_methods_token_stream
+            }
         };
 
         fn for_named_fields(
             fields: &[NamedMultipartFormDataRequestField],
-            name: &Ident,
             sync_version: bool,
         ) -> TokenStream {
             let token_streams_for_fields: Vec<_> = fields
                 .iter()
-                .map(|field| for_named_field(field, name, sync_version))
+                .map(|field| for_named_field(field, sync_version))
                 .collect();
             quote! {
                 #(#token_streams_for_fields)*
@@ -117,34 +117,37 @@ impl MultipartFormDataRequestStruct {
 
         fn for_named_field(
             field: &NamedMultipartFormDataRequestField,
-            name: &Ident,
             sync_version: bool,
         ) -> TokenStream {
             let field_name = format_ident!("{}", field.field_name.to_case(Case::Snake));
             let documentation = field.documentation.as_str();
-            let method_token_stream = match &field.ty {
-                MultipartFormDataRequestType::String => for_named_string_field(
-                    &field_name,
-                    documentation,
-                    field.key.as_str(),
-                    sync_version,
-                ),
+            match &field.ty {
+                MultipartFormDataRequestType::String => {
+                    for_named_string_field(&field_name, documentation, field.key.as_str())
+                }
                 MultipartFormDataRequestType::UploadToken => for_named_upload_token_field(
                     &field_name,
                     documentation,
                     field.key.as_str(),
                     sync_version,
                 ),
-                MultipartFormDataRequestType::BinaryData => for_named_binary_field(
-                    &field_name,
-                    documentation,
-                    field.key.as_str(),
-                    sync_version,
-                ),
-            };
-            quote! {
-                impl #name {
-                    #method_token_stream
+                MultipartFormDataRequestType::BinaryData => {
+                    let token_streams = [
+                        for_named_binary_field(
+                            &field_name,
+                            documentation,
+                            field.key.as_str(),
+                            sync_version,
+                        ),
+                        for_named_bytes_field(&field_name, documentation, field.key.as_str()),
+                        for_named_file_path_field(
+                            &field_name,
+                            documentation,
+                            field.key.as_str(),
+                            sync_version,
+                        ),
+                    ];
+                    quote! {#(#token_streams)*}
                 }
             }
         }
@@ -153,13 +156,13 @@ impl MultipartFormDataRequestStruct {
             field_name: &Ident,
             documentation: &str,
             key: &str,
-            _sync_version: bool,
         ) -> TokenStream {
+            let method_name = format_ident!("set_{}", field_name);
             quote! {
                 #[inline]
                 #[doc = #documentation]
-                pub fn #field_name(&mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> &mut Self {
-                    self.parts.push((#key.into(), qiniu_http_client::Part::text(value)));
+                pub fn #method_name(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
+                    self.multipart = self.multipart.add_part(#key, qiniu_http_client::Part::text(value));
                     self
                 }
             }
@@ -171,20 +174,21 @@ impl MultipartFormDataRequestStruct {
             key: &str,
             sync_version: bool,
         ) -> TokenStream {
+            let method_name = format_ident!("set_{}", field_name);
             if sync_version {
                 quote! {
                     #[inline]
                     #[doc = #documentation]
-                    pub fn #field_name(
-                        &mut self,
+                    pub fn #method_name(
+                        mut self,
                         token: &dyn qiniu_upload_token::UploadTokenProvider,
-                    ) -> std::io::Result<&mut Self> {
-                        self.parts.push((
-                            #key.into(),
+                    ) -> std::io::Result<Self> {
+                        self.multipart = self.multipart.add_part(
+                            #key,
                             qiniu_http_client::Part::text(String::from(
                                 token.to_token_string(&Default::default())?,
                             )),
-                        ));
+                        );
                         Ok(self)
                     }
                 }
@@ -192,16 +196,16 @@ impl MultipartFormDataRequestStruct {
                 quote! {
                     #[inline]
                     #[doc = #documentation]
-                    pub async fn #field_name(
-                        &mut self,
+                    pub async fn #method_name(
+                        mut self,
                         token: &dyn qiniu_upload_token::UploadTokenProvider,
-                    ) -> std::io::Result<&mut Self> {
-                        self.parts.push((
-                            #key.into(),
+                    ) -> std::io::Result<Self> {
+                        self.multipart = self.multipart.add_part(
+                            #key,
                             qiniu_http_client::Part::text(String::from(
                                 token.async_to_token_string(&Default::default()).await?,
                             )),
-                        ));
+                        );
                         Ok(self)
                     }
                 }
@@ -214,19 +218,20 @@ impl MultipartFormDataRequestStruct {
             key: &str,
             sync_version: bool,
         ) -> TokenStream {
+            let method_name = format_ident!("set_{}_as_reader", field_name);
             if sync_version {
                 quote! {
                     #[inline]
                     #[doc = #documentation]
-                    pub fn #field_name(
-                        &mut self,
+                    pub fn #method_name(
+                        mut self,
                         reader: Box<dyn std::io::Read>,
                         metadata: qiniu_http_client::PartMetadata,
-                    ) -> &mut Self {
-                        self.parts.push((
-                            #key.into(),
+                    ) -> Self {
+                        self.multipart = self.multipart.add_part(
+                            #key,
                             qiniu_http_client::Part::stream(reader).metadata(metadata),
-                        ));
+                        );
                         self
                     }
                 }
@@ -234,16 +239,79 @@ impl MultipartFormDataRequestStruct {
                 quote! {
                     #[inline]
                     #[doc = #documentation]
-                    pub fn #field_name(
-                        &mut self,
+                    pub fn #method_name(
+                        mut self,
                         reader: Box<dyn futures::io::AsyncRead + Send + Unpin>,
                         metadata: qiniu_http_client::PartMetadata,
-                    ) -> &mut Self {
-                        self.parts.push((
-                            #key.into(),
+                    ) -> Self {
+                        self.multipart = self.multipart.add_part(
+                            #key,
                             qiniu_http_client::Part::stream(reader).metadata(metadata),
-                        ));
+                        );
                         self
+                    }
+                }
+            }
+        }
+
+        fn for_named_bytes_field(
+            field_name: &Ident,
+            documentation: &str,
+            key: &str,
+        ) -> TokenStream {
+            let method_name = format_ident!("set_{}_as_bytes", field_name);
+            quote! {
+                #[inline]
+                #[doc = #documentation]
+                pub fn #method_name(
+                    mut self,
+                    bytes: impl Into<std::borrow::Cow<'static, [u8]>>,
+                    metadata: qiniu_http_client::PartMetadata,
+                ) -> Self {
+                    self.multipart = self.multipart.add_part(
+                        #key,
+                        qiniu_http_client::Part::bytes(bytes).metadata(metadata),
+                    );
+                    self
+                }
+            }
+        }
+
+        fn for_named_file_path_field(
+            field_name: &Ident,
+            documentation: &str,
+            key: &str,
+            sync_version: bool,
+        ) -> TokenStream {
+            let method_name = format_ident!("set_{}_as_file_path", field_name);
+            if sync_version {
+                quote! {
+                    #[inline]
+                    #[doc = #documentation]
+                    pub fn #method_name(
+                        mut self,
+                        path: impl AsRef<std::path::Path>,
+                    ) -> std::io::Result<Self> {
+                        self.multipart = self.multipart.add_part(
+                            #key,
+                            qiniu_http_client::Part::file_path(path)?,
+                        );
+                        Ok(self)
+                    }
+                }
+            } else {
+                quote! {
+                    #[inline]
+                    #[doc = #documentation]
+                    pub async fn #method_name(
+                        mut self,
+                        path: impl AsRef<std::path::Path>,
+                    ) -> std::io::Result<Self> {
+                        self.multipart = self.multipart.add_part(
+                            #key,
+                            qiniu_http_client::Part::file_path(path).await?,
+                        );
+                        Ok(self)
                     }
                 }
             }
@@ -251,56 +319,44 @@ impl MultipartFormDataRequestStruct {
 
         fn for_free_fields(
             fields: &FreeMultipartFormDataRequestFields,
-            name: &Ident,
             _sync_version: bool,
         ) -> TokenStream {
             let field_name = format_ident!("{}", fields.field_name.to_case(Case::Snake));
+            let method_name = format_ident!("append_{}", field_name);
             let documentation = fields.documentation.as_str();
-            let method_token_stream = quote! {
+            quote! {
                 #[inline]
                 #[doc = #documentation]
-                pub fn #field_name(
-                    &mut self,
+                pub fn #method_name(
+                    mut self,
                     key: impl Into<qiniu_http_client::FieldName>,
                     value: impl Into<std::borrow::Cow<'static, str>>,
-                ) -> &mut Self {
-                    self.parts.push((key.into(), qiniu_http_client::Part::text(value)));
+                ) -> Self {
+                    self.multipart = self.multipart.add_part(
+                        key.into(),
+                        qiniu_http_client::Part::text(value),
+                    );
                     self
-                }
-            };
-            quote! {
-                impl #name {
-                    #method_token_stream
                 }
             }
         }
 
         fn define_new_struct(name: &Ident, documentation: &str, sync_version: bool) -> TokenStream {
-            let (part_type, multipart_type) = if sync_version {
-                (
-                    quote!(qiniu_http_client::SyncPart),
-                    quote!(qiniu_http_client::SyncMultipart),
-                )
+            let multipart_type = if sync_version {
+                quote!(qiniu_http_client::SyncMultipart)
             } else {
-                (
-                    quote!(qiniu_http_client::AsyncPart),
-                    quote!(qiniu_http_client::AsyncMultipart),
-                )
+                quote!(qiniu_http_client::AsyncMultipart)
             };
             quote! {
-                #[derive(Debug)]
+                #[derive(Debug, Default)]
                 #[doc = #documentation]
                 pub struct #name {
-                    parts: Vec<(qiniu_http_client::FieldName, #part_type)>,
+                    multipart: #multipart_type
                 }
 
                 impl #name {
-                    pub fn build(&mut self) -> #multipart_type {
-                        let mut multipart: #multipart_type = Default::default();
-                        for (name, part) in std::mem::take(&mut self.parts).into_iter() {
-                            multipart = multipart.add_part(name, part);
-                        }
-                        multipart
+                    pub fn build(self) -> #multipart_type {
+                        self.multipart
                     }
                 }
             }

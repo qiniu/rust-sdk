@@ -15,22 +15,18 @@ request:
         type: string
         documentation: 对象名称
         encode: url_safe_base64
-        optional: true
       - field_name: file_name
         path_segment: fname
         type: string
         documentation: 文件名称，若未指定，则魔法变量中无法使用fname，ext，fprefix
         encode: url_safe_base64
-        optional: true
       - field_name: mime_type
         path_segment: mimeType
         type: string
         documentation: 文件 MIME 类型，若未指定，则根据文件内容自动检测 MIME 类型
         encode: url_safe_base64
-        optional: true
     free:
       field_name: customData
-      type: string
       encode_param_value: url_safe_base64
       documentation: 自定义元数据（需要以 `x-qn-meta-` 作为前缀）或自定义变量（需要以 `x:` 作为前缀）
   body: binary_data

@@ -38,6 +38,7 @@ wrap_smallstr!(Boundary);
 
 type HeaderBuffer = SmallVec<[u8; 256]>;
 
+#[derive(Debug)]
 pub struct Multipart<P> {
     boundary: Boundary,
     fields: VecDeque<(FieldName, P)>,

@@ -1,4 +1,4 @@
-use super::{json::JsonType, multipart::MultipartFormDataRequestStruct};
+use super::{json::JsonType, multipart::MultipartFormDataRequestStruct, path::PathParams};
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
 
@@ -38,21 +38,10 @@ enum Authorization {
     UploadToken,
 }
 
-#[derive(Clone, Debug, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-/// 字符串编码类型
-enum EncodeType {
-    /// 需要进行编码
-    UrlSafeBase64,
-
-    /// 需要可以将 None 编码
-    UrlSafeBase64OrNone,
-}
-
-#[derive(SmartDefault, Clone, Debug, Serialize, Deserialize)]
+#[derive(SmartDefault, Copy, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// 类字符串参数类型
-enum StringLikeType {
+pub(super) enum StringLikeType {
     /// 字符串（默认）
     #[default]
     String,
@@ -117,68 +106,6 @@ enum RequestBody {
 
     /// 文本文件调用
     PlainText,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// HTTP URL 路径请求参数列表
-struct PathParams {
-    /// HTTP URL 路径有名参数列表
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    named: Vec<NamedPathParam>,
-
-    /// HTTP URL 路径自由参数列表
-    #[serde(skip_serializing_if = "Option::is_none")]
-    free: Option<FreePathParams>,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// HTTP URL 路径有名请求参数
-struct NamedPathParam {
-    /// HTTP URL 路径段落，如果为 None，则表示参数直接追加在 URL 路径末尾
-    #[serde(skip_serializing_if = "Option::is_none")]
-    path_segment: Option<String>,
-
-    /// HTTP URL 路径参数名称
-    field_name: String,
-
-    /// HTTP URL 路径参数类型
-    #[serde(rename = "type")]
-    ty: StringLikeType,
-
-    /// HTTP URL 路径参数文档
-    documentation: String,
-
-    /// HTTP URL 路径参数编码方式，如果为 None，表示直接转码成字符串
-    #[serde(skip_serializing_if = "Option::is_none")]
-    encode: Option<EncodeType>,
-
-    /// HTTP URL 路径参数是否可选
-    optional: bool,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// HTTP URL 路径自由请求参数
-struct FreePathParams {
-    /// HTTP URL 路径参数名称
-    field_name: String,
-
-    /// HTTP URL 路径参数类型
-    #[serde(rename = "type")]
-    ty: StringLikeType,
-
-    /// HTTP URL 路径参数文档
-    documentation: String,
-
-    /// HTTP URL 路径参数键编码方式，如果为 None，表示直接转码成字符串
-    #[serde(skip_serializing_if = "Option::is_none")]
-    encode_param_key: Option<EncodeType>,
-
-    /// HTTP URL 路径参数值编码方式，如果为 None，表示直接转码成字符串
-    #[serde(skip_serializing_if = "Option::is_none")]
-    encode_param_value: Option<EncodeType>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

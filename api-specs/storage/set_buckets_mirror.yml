@@ -20,4 +20,3 @@ request:
         type: string
         documentation: 回源时使用的 `Host` 头部值
         encode: url_safe_base64
-        optional: true
