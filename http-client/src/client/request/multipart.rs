@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use mime::Mime;
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
+use qiniu_http::{header::CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 use qiniu_utils::{smallstr::SmallString, wrap_smallstr};
 use rand::random;
 use regex::Regex;
@@ -8,6 +9,7 @@ use serde::{
     de::{Deserialize, Deserializer, Error, Visitor},
     ser::{Serialize, Serializer},
 };
+use smallvec::SmallVec;
 use std::{
     borrow::{Borrow, BorrowMut, Cow},
     collections::VecDeque,
@@ -34,11 +36,7 @@ struct Boundary {
 }
 wrap_smallstr!(Boundary);
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct HeaderBuffer {
-    inner: SmallString<[u8; 256]>,
-}
-wrap_smallstr!(HeaderBuffer);
+type HeaderBuffer = SmallVec<[u8; 256]>;
 
 pub struct Multipart<P> {
     boundary: Boundary,
@@ -52,7 +50,7 @@ pub struct Part<B> {
 
 #[derive(Default, Debug)]
 struct Metadata {
-    mime: Option<Mime>,
+    headers: HeaderMap,
     file_name: Option<FileName>,
 }
 
@@ -81,8 +79,19 @@ impl<P> Multipart<P> {
 
 impl<B> Part<B> {
     #[inline]
-    pub fn mime(mut self, mime: Mime) -> Self {
-        self.meta.mime = Some(mime);
+    pub fn mime(self, mime: Mime) -> Self {
+        self.add_header(CONTENT_TYPE, HeaderValue::from_str(mime.as_ref()).unwrap())
+    }
+
+    #[inline]
+    pub fn add_header(
+        mut self,
+        name: impl Into<HeaderName>,
+        value: impl Into<HeaderValue>,
+    ) -> Self {
+        let mut value = value.into();
+        value.set_sensitive(true);
+        self.meta.headers.insert(name.into(), value);
         self
     }
 
@@ -354,15 +363,17 @@ fn gen_boundary() -> Boundary {
 
 #[inline]
 fn encode_headers(name: &str, field: &Metadata) -> HeaderBuffer {
-    let mut buf = HeaderBuffer::from("Content-Disposition: form-data; ");
-    buf.push_str(&format_parameter("name", name));
+    let mut buf = HeaderBuffer::from_slice(b"content-disposition: form-data; ");
+    buf.extend_from_slice(&format_parameter("name", name));
     if let Some(file_name) = field.file_name.as_ref() {
-        buf.push_str("; ");
-        buf.push_str(&format_file_name(file_name));
+        buf.extend_from_slice(b"; ");
+        buf.extend_from_slice(format_file_name(file_name).as_bytes());
     }
-    if let Some(mime) = field.mime.as_ref() {
-        buf.push_str("\r\nContent-Type: ");
-        buf.push_str(mime.as_ref());
+    for (name, value) in field.headers.iter() {
+        buf.extend_from_slice(b"\r\n");
+        buf.extend_from_slice(name.as_str().as_bytes());
+        buf.extend_from_slice(b": ");
+        buf.extend_from_slice(value.as_bytes());
     }
     buf
 }
@@ -409,17 +420,19 @@ const PATH_SEGMENT_ENCODE_SET: &AsciiSet = &CONTROLS
 fn format_parameter(name: &str, value: &str) -> HeaderBuffer {
     let legal_value = {
         let mut buf = HeaderBuffer::new();
-        buf.extend(utf8_percent_encode(value, PATH_SEGMENT_ENCODE_SET));
+        for chunk in utf8_percent_encode(value, PATH_SEGMENT_ENCODE_SET) {
+            buf.extend_from_slice(chunk.as_bytes());
+        }
         buf
     };
-    let mut formatted = HeaderBuffer::from(name);
+    let mut formatted = HeaderBuffer::from_slice(name.as_bytes());
     if value.len() == legal_value.len() {
-        formatted.push_str("=\"");
-        formatted.push_str(value);
-        formatted.push_str("\"");
+        formatted.extend_from_slice(b"=\"");
+        formatted.extend_from_slice(value.as_bytes());
+        formatted.extend_from_slice(b"\"");
     } else {
-        formatted.push_str("*=utf-8''");
-        formatted.push_str(&legal_value);
+        formatted.extend_from_slice(b"*=utf-8''");
+        formatted.extend_from_slice(&legal_value);
     };
     formatted
 }
@@ -449,13 +462,19 @@ mod tests {
 
         let name = "start%'\"\r\nßend";
         let metadata = Metadata {
-            mime: Some(APPLICATION_JSON),
+            headers: {
+                let mut headers = HeaderMap::default();
+                let mut header_value = HeaderValue::from_str(APPLICATION_JSON.as_ref()).unwrap();
+                header_value.set_sensitive(true);
+                headers.insert(CONTENT_TYPE, header_value);
+                headers
+            },
             file_name: Some(name.into()),
         };
 
         assert_eq!(
-            encode_headers(name, &metadata).as_str(),
-            "Content-Disposition: form-data; name*=utf-8''start%25'%22%0D%0A%C3%9Fend; filename=\"start%'\\\"\\\r\\\nßend\"\r\nContent-Type: application/json"
+            encode_headers(name, &metadata).as_ref(),
+            "content-disposition: form-data; name*=utf-8''start%25'%22%0D%0A%C3%9Fend; filename=\"start%'\\\"\\\r\\\nßend\"\r\ncontent-type: application/json".as_bytes()
         );
     }
 
@@ -481,21 +500,21 @@ mod tests {
         multipart.boundary = "boundary".into();
 
         const EXPECTED: &str = "--boundary\r\n\
-        Content-Disposition: form-data; name=\"bytes1\"\r\n\r\n\
+        content-disposition: form-data; name=\"bytes1\"\r\n\r\n\
         part1\r\n\
         --boundary\r\n\
-        Content-Disposition: form-data; name=\"text1\"\r\n\r\n\
+        content-disposition: form-data; name=\"text1\"\r\n\r\n\
         value1\r\n\
         --boundary\r\n\
-        Content-Disposition: form-data; name=\"text2\"\r\n\
-        Content-Type: image/bmp\r\n\r\n\
+        content-disposition: form-data; name=\"text2\"\r\n\
+        content-type: image/bmp\r\n\r\n\
         value1\r\n\
         --boundary\r\n\
-        Content-Disposition: form-data; name=\"reader1\"\r\n\r\n\
+        content-disposition: form-data; name=\"reader1\"\r\n\r\n\
         value1\r\n\
         --boundary\r\n\
-        Content-Disposition: form-data; name=\"reader2\"; filename=\"fake-file.json\"\r\n\
-        Content-Type: application/json\r\n\r\n\
+        content-disposition: form-data; name=\"reader2\"; filename=\"fake-file.json\"\r\n\
+        content-type: application/json\r\n\r\n\
         {\"a\":\"b\"}\n\r\n\
         --boundary--\
         \r\n";
@@ -537,21 +556,21 @@ mod tests {
         multipart.boundary = "boundary".into();
 
         const EXPECTED: &str = "--boundary\r\n\
-        Content-Disposition: form-data; name=\"bytes1\"\r\n\r\n\
+        content-disposition: form-data; name=\"bytes1\"\r\n\r\n\
         part1\r\n\
         --boundary\r\n\
-        Content-Disposition: form-data; name=\"text1\"\r\n\r\n\
+        content-disposition: form-data; name=\"text1\"\r\n\r\n\
         value1\r\n\
         --boundary\r\n\
-        Content-Disposition: form-data; name=\"text2\"\r\n\
-        Content-Type: image/bmp\r\n\r\n\
+        content-disposition: form-data; name=\"text2\"\r\n\
+        content-type: image/bmp\r\n\r\n\
         value1\r\n\
         --boundary\r\n\
-        Content-Disposition: form-data; name=\"reader1\"\r\n\r\n\
+        content-disposition: form-data; name=\"reader1\"\r\n\r\n\
         value1\r\n\
         --boundary\r\n\
-        Content-Disposition: form-data; name=\"reader2\"; filename=\"fake-file.json\"\r\n\
-        Content-Type: application/json\r\n\r\n\
+        content-disposition: form-data; name=\"reader2\"; filename=\"fake-file.json\"\r\n\
+        content-type: application/json\r\n\r\n\
         {\"a\":\"b\"}\n\r\n\
         --boundary--\
         \r\n";
