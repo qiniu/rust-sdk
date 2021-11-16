@@ -1,5 +1,6 @@
 mod description;
 mod json;
+mod multipart;
 mod traits;
 
 use anyhow::Result;

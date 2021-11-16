@@ -24,3 +24,5 @@ walkdir = "2.3.2"
 
 [dev-dependencies]
 serde_json = "1.0.68"
+qiniu-http-client = { version = "0.0.4", path = "../http-client" }
+qiniu-upload-token = { version = "0.0.4", path = "../upload_token" }

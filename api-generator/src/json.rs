@@ -44,7 +44,7 @@ impl CodeGenerator for JsonType {
 impl JsonType {
     fn to_rust_token_stream_inner(&self, name: &str, documentation: &str) -> TokenStream {
         let name = format_ident!("{}", name.to_case(Case::Pascal));
-        let type_declaration_token_stream = make_new_struct(&name, documentation);
+        let type_declaration_token_stream = define_new_struct(&name, documentation);
         let impls_token_stream = match self {
             Self::String => impls_token_stream_for_string(&name),
             Self::Integer => impls_token_stream_for_int(&name),
@@ -528,7 +528,7 @@ impl JsonType {
                 let struct_name = format_ident!("{}", struct_info.name.to_case(Case::Pascal));
                 let struct_token_stream = {
                     let type_declaration_token_stream =
-                        make_new_struct(&struct_name, &struct_info.documentation);
+                        define_new_struct(&struct_name, &struct_info.documentation);
                     let struct_impls_token_stream =
                         impls_token_stream_for_struct(&struct_name, &struct_info.fields);
                     quote! {
@@ -1325,7 +1325,7 @@ impl JsonType {
                 ) -> TokenStream {
                     let array_name = format_ident!("{}", array_info.name.to_case(Case::Pascal));
                     let type_declaration_token_stream =
-                        make_new_struct(&array_name, &array_info.documentation);
+                        define_new_struct(&array_name, &array_info.documentation);
                     let impls_token_stream = impls_token_stream_for_array(&name, &array_info.ty);
                     let getter_method_token_stream = impl_getter_method_for_struct_field_of_struct(
                         name,
@@ -1362,7 +1362,7 @@ impl JsonType {
                     let struct_name = format_ident!("{}", struct_info.name.to_case(Case::Pascal));
                     let struct_token_stream = {
                         let type_declaration_token_stream =
-                            make_new_struct(&struct_name, &struct_info.documentation);
+                            define_new_struct(&struct_name, &struct_info.documentation);
                         let struct_impls_token_stream =
                             impls_token_stream_for_struct(&struct_name, &struct_info.fields);
                         quote! {
@@ -1484,6 +1484,42 @@ impl JsonType {
     }
 }
 
+fn define_new_struct(name: &Ident, documentation: &str) -> TokenStream {
+    quote! {
+        #[derive(Clone, Debug)]
+        #[doc = #documentation]
+        pub struct #name<'a>(std::borrow::Cow<'a, serde_json::Value>);
+
+        impl<'a> #name<'a> {
+            #[inline]
+            pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+                Self(value)
+            }
+        }
+
+        impl<'a> From<#name<'a>> for serde_json::Value {
+            #[inline]
+            fn from(val: #name<'a>) -> Self {
+                val.0.into_owned()
+            }
+        }
+
+        impl<'a> std::convert::AsRef<serde_json::Value> for #name<'a> {
+            #[inline]
+            fn as_ref(&self) -> &serde_json::Value {
+                self.0.as_ref()
+            }
+        }
+
+        impl<'a> std::convert::AsMut<serde_json::Value> for #name<'a> {
+            #[inline]
+            fn as_mut(&mut self) -> &mut serde_json::Value {
+                self.0.to_mut()
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 /// JSON 数组字段信息
@@ -1536,16 +1572,14 @@ pub(super) struct JsonStruct {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
-
+    use super::*;
     use anyhow::Result;
+    use std::{fs, io::Write};
     use tempfile::{Builder as TempFileBuilder, NamedTempFile};
     use trybuild::TestCases;
 
-    use super::*;
-
     #[test]
-    fn test_json_base_types() -> Result<()> {
+    fn test_json_types() -> Result<()> {
         let test_files = [
             write_token_stream(
                 "TestString",
@@ -1815,144 +1849,18 @@ mod tests {
             .prefix(&format!("{}-", name))
             .suffix(".rs")
             .tempfile()?;
-        let base_types_token_stream = base_types_token_stream();
         let all_token_stream = quote! {
             #token_stream
-            #base_types_token_stream
             fn main() {
             }
         };
-        println!("{}", all_token_stream);
         file.write_all(all_token_stream.to_string().as_bytes())?;
+
+        let base_types_code = format!(
+            "pub mod base_types {{ {} }}",
+            String::from_utf8(fs::read("src/base_types.rs")?)?
+        );
+        file.write_all(base_types_code.as_bytes())?;
         Ok(file)
-    }
-}
-
-fn base_types_token_stream() -> TokenStream {
-    let name = format_ident!("{}", "StringMap");
-    let string_map_type_declaration =
-        make_new_struct(&name, "通用类型，表示字符串 => 字符串的映射结构");
-    let string_map_type_impls_token_stream = impls_token_stream_for_string_map(&name);
-    return quote! {
-        pub mod base_types {
-            #string_map_type_declaration
-            #string_map_type_impls_token_stream
-        }
-    };
-
-    fn impls_token_stream_for_string_map(name: &Ident) -> TokenStream {
-        quote! {
-            impl<'a> #name<'a> {
-                #[inline]
-                #[doc = "根据 Key 获取相应的不可变 String 引用"]
-                pub fn get<Q: ?Sized>(&self, key: &Q) -> Option<&str>
-                where
-                    String: std::borrow::Borrow<Q>,
-                    Q: Ord + Eq + std::hash::Hash,
-                {
-                    self.0
-                        .as_object()
-                        .and_then(|object| object.get(key))
-                        .and_then(|val| val.as_str())
-                }
-
-                #[inline]
-                #[doc = "根据 Key 设置 String 值"]
-                pub fn insert(&mut self, key: String, new: String) -> Option<String> {
-                    self.0.to_mut().as_object_mut().and_then(|object| {
-                        object.insert(key, new.into()).and_then(|old| match old {
-                            serde_json::Value::String(s) => Some(s),
-                            _ => None,
-                        })
-                    })
-                }
-
-                #[inline]
-                #[doc = "根据 Key 获取相应的不可变 String 引用"]
-                pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<String>
-                where
-                    String: std::borrow::Borrow<Q>,
-                    Q: Ord + Eq + std::hash::Hash,
-                {
-                    self.0
-                        .to_mut()
-                        .as_object_mut()
-                        .and_then(|object| object.remove(key))
-                        .and_then(|val| match val {
-                            serde_json::Value::String(s) => Some(s),
-                            _ => None,
-                        })
-                }
-
-                #[inline]
-                pub fn len(&self) -> usize {
-                    self.0
-                        .as_object()
-                        .unwrap()
-                        .len()
-                }
-
-                #[inline]
-                pub fn is_empty(&self) -> bool {
-                    self.0
-                        .as_object()
-                        .unwrap()
-                        .is_empty()
-                }
-            }
-
-            impl<'a, T> From<T> for #name<'a>
-            where
-                T: std::iter::IntoIterator<Item = (String, String)>,
-            {
-                #[inline]
-                fn from(m: T) -> Self {
-                    use std::iter::FromIterator;
-
-                    Self(std::borrow::Cow::Owned(serde_json::Value::Object(
-                        serde_json::Map::from_iter(
-                            m.into_iter()
-                                .map(|(key, value)| (key, serde_json::Value::String(value))),
-                        ),
-                    )))
-                }
-            }
-        }
-    }
-}
-
-fn make_new_struct(name: &Ident, documentation: &str) -> TokenStream {
-    quote! {
-        #[derive(Clone, Debug)]
-        #[doc = #documentation]
-        pub struct #name<'a>(std::borrow::Cow<'a, serde_json::Value>);
-
-        impl<'a> #name<'a> {
-            #[inline]
-            pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
-                Self(value)
-            }
-        }
-
-        impl<'a> From<#name<'a>> for serde_json::Value {
-            #[inline]
-            fn from(val: #name<'a>) -> Self {
-                val.0.into_owned()
-            }
-        }
-
-        impl<'a> std::convert::AsRef<serde_json::Value> for #name<'a> {
-            #[inline]
-            fn as_ref(&self) -> &serde_json::Value {
-                self.0.as_ref()
-            }
-        }
-
-        impl<'a> std::convert::AsMut<serde_json::Value> for #name<'a> {
-            #[inline]
-            fn as_mut(&mut self) -> &mut serde_json::Value {
-                self.0.to_mut()
-            }
-        }
     }
 }

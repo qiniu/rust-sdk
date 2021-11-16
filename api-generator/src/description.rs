@@ -1,4 +1,4 @@
-use super::json::JsonType;
+use super::{json::JsonType, multipart::MultipartFormDataRequestStruct};
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
 
@@ -47,75 +47,6 @@ enum EncodeType {
 
     /// 需要可以将 None 编码
     UrlSafeBase64OrNone,
-}
-
-#[derive(SmartDefault, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-/// 复合表单字段请求类型
-enum MultipartFormDataRequestType {
-    /// 字符串（默认）
-    #[default]
-    String,
-
-    /// 二进制数据
-    BinaryData,
-
-    /// 使用上传凭证鉴权
-    UploadToken,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// 有名复合表单请求字段
-struct NamedMultipartFormDataRequestField {
-    /// 复合表单字段名称
-    field_name: String,
-
-    /// 支持传入复合表单文件名称
-    file_name: bool,
-
-    /// 支持传入复合表单内容 MIME 类型
-    content_type: bool,
-
-    /// 复合表单参数名称
-    key: String,
-
-    /// 复合表单参数文档
-    documentation: String,
-
-    /// 复合表单参数类型
-    #[serde(rename = "type")]
-    ty: MultipartFormDataRequestType,
-
-    /// 复合表单参数是否可选
-    optional: bool,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// 自由复合表单请求字段
-struct FreeMultipartFormDataRequestFields {
-    /// 复合表单参数名称
-    field_name: String,
-
-    /// 复合表单参数文档
-    documentation: String,
-
-    /// 复合表单参数类型
-    #[serde(rename = "type")]
-    ty: MultipartFormDataRequestType,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// 复合表单请求结构体
-struct MultipartFormDataRequestStruct {
-    /// 有名复合表单字段列表
-    named_fields: Vec<NamedMultipartFormDataRequestField>,
-
-    /// 自由复合表单字段列表
-    #[serde(skip_serializing_if = "Option::is_none")]
-    free_fields: Option<FreeMultipartFormDataRequestFields>,
 }
 
 #[derive(SmartDefault, Clone, Debug, Serialize, Deserialize)]
