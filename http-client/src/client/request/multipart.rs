@@ -44,14 +44,15 @@ pub struct Multipart<P> {
 }
 
 pub struct Part<B> {
-    meta: Metadata,
+    meta: PartMetadata,
     body: B,
 }
 
-#[derive(Default, Debug)]
-struct Metadata {
-    headers: HeaderMap,
-    file_name: Option<FileName>,
+impl<B> fmt::Debug for Part<B> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Part").field("meta", &self.meta).finish()
+    }
 }
 
 impl<P> Default for Multipart<P> {
@@ -77,7 +78,13 @@ impl<P> Multipart<P> {
     }
 }
 
-impl<B> Part<B> {
+#[derive(Default, Debug)]
+pub struct PartMetadata {
+    headers: HeaderMap,
+    file_name: Option<FileName>,
+}
+
+impl PartMetadata {
     #[inline]
     pub fn mime(self, mime: Mime) -> Self {
         self.add_header(CONTENT_TYPE, HeaderValue::from_str(mime.as_ref()).unwrap())
@@ -89,15 +96,21 @@ impl<B> Part<B> {
         name: impl Into<HeaderName>,
         value: impl Into<HeaderValue>,
     ) -> Self {
-        let mut value = value.into();
-        value.set_sensitive(true);
-        self.meta.headers.insert(name.into(), value);
+        self.headers.insert(name.into(), value.into());
         self
     }
 
     #[inline]
     pub fn file_name(mut self, file_name: impl Into<FileName>) -> Self {
-        self.meta.file_name = Some(file_name.into());
+        self.file_name = Some(file_name.into());
+        self
+    }
+}
+
+impl<B> Part<B> {
+    #[inline]
+    pub fn metadata(mut self, metadata: PartMetadata) -> Self {
+        self.meta = metadata;
         self
     }
 }
@@ -159,16 +172,16 @@ mod sync_part {
         #[inline]
         pub fn file_path(path: impl AsRef<Path>) -> IoResult<Self> {
             let file = File::open(path.as_ref())?;
-            let mut part = SyncPart::stream(Box::new(file))
+            let mut metadata = PartMetadata::default()
                 .mime(mime_guess::from_path(path.as_ref()).first_or_octet_stream());
             if let Some(file_name) = path.as_ref().file_name() {
                 let file_name = match file_name.to_string_lossy() {
                     Cow::Borrowed(str) => FileName::from(str),
                     Cow::Owned(string) => FileName::from(string),
                 };
-                part = part.file_name(file_name);
+                metadata = metadata.file_name(file_name);
             }
-            Ok(part)
+            Ok(SyncPart::stream(Box::new(file)).metadata(metadata))
         }
     }
 
@@ -282,16 +295,16 @@ mod async_part {
         #[inline]
         pub async fn file_path(path: impl AsRef<Path>) -> IoResult<Self> {
             let file = File::open(path.as_ref()).await?;
-            let mut part = AsyncPart::stream(Box::new(file))
+            let mut metadata = PartMetadata::default()
                 .mime(mime_guess::from_path(path.as_ref()).first_or_octet_stream());
             if let Some(file_name) = path.as_ref().file_name() {
                 let file_name = match file_name.to_string_lossy() {
                     Cow::Borrowed(str) => FileName::from(str),
                     Cow::Owned(string) => FileName::from(string),
                 };
-                part = part.file_name(file_name);
+                metadata = metadata.file_name(file_name);
             }
-            Ok(part)
+            Ok(AsyncPart::stream(Box::new(file)).metadata(metadata))
         }
     }
 
@@ -362,7 +375,7 @@ fn gen_boundary() -> Boundary {
 }
 
 #[inline]
-fn encode_headers(name: &str, field: &Metadata) -> HeaderBuffer {
+fn encode_headers(name: &str, field: &PartMetadata) -> HeaderBuffer {
     let mut buf = HeaderBuffer::from_slice(b"content-disposition: form-data; ");
     buf.extend_from_slice(&format_parameter("name", name));
     if let Some(file_name) = field.file_name.as_ref() {
@@ -461,12 +474,13 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let name = "start%'\"\r\nßend";
-        let metadata = Metadata {
+        let metadata = PartMetadata {
             headers: {
                 let mut headers = HeaderMap::default();
-                let mut header_value = HeaderValue::from_str(APPLICATION_JSON.as_ref()).unwrap();
-                header_value.set_sensitive(true);
-                headers.insert(CONTENT_TYPE, header_value);
+                headers.insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_str(APPLICATION_JSON.as_ref()).unwrap(),
+                );
                 headers
             },
             file_name: Some(name.into()),
@@ -491,7 +505,10 @@ mod tests {
         let mut multipart = SyncMultipart::new()
             .add_part("bytes1", SyncPart::bytes(&b"part1"[..]))
             .add_part("text1", SyncPart::text("value1"))
-            .add_part("text2", SyncPart::text("value1").mime(IMAGE_BMP))
+            .add_part(
+                "text2",
+                SyncPart::text("value1").metadata(PartMetadata::default().mime(IMAGE_BMP)),
+            )
             .add_part(
                 "reader1",
                 SyncPart::stream(Box::new(Cursor::new(b"value1"))),
@@ -547,7 +564,10 @@ mod tests {
         let mut multipart = AsyncMultipart::new()
             .add_part("bytes1", AsyncPart::bytes(&b"part1"[..]))
             .add_part("text1", AsyncPart::text("value1"))
-            .add_part("text2", AsyncPart::text("value1").mime(IMAGE_BMP))
+            .add_part(
+                "text2",
+                AsyncPart::text("value1").metadata(PartMetadata::default().mime(IMAGE_BMP)),
+            )
             .add_part(
                 "reader1",
                 AsyncPart::stream(Box::new(AsyncCursor::new(b"value1"))),

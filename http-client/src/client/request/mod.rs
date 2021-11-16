@@ -30,7 +30,9 @@ impl Default for Idempotent {
 
 pub use builder::{RequestBuilder, SyncRequestBuilder};
 pub(super) use built::{Request, RequestParts};
-pub use multipart::{FieldName, FileName, Multipart, Part, SyncMultipart, SyncPart, SyncPartBody};
+pub use multipart::{
+    FieldName, FileName, Multipart, Part, PartMetadata, SyncMultipart, SyncPart, SyncPartBody,
+};
 
 #[cfg(feature = "async")]
 pub use {
