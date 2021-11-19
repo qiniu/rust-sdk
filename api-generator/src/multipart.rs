@@ -161,9 +161,8 @@ impl MultipartFormDataRequestStruct {
             quote! {
                 #[inline]
                 #[doc = #documentation]
-                pub fn #method_name(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
-                    self.multipart = self.multipart.add_part(#key, qiniu_http_client::Part::text(value));
-                    self
+                pub fn #method_name(self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
+                    self.add_part(#key, qiniu_http_client::Part::text(value))
                 }
             }
         }
@@ -180,16 +179,15 @@ impl MultipartFormDataRequestStruct {
                     #[inline]
                     #[doc = #documentation]
                     pub fn #method_name(
-                        mut self,
+                        self,
                         token: &dyn qiniu_upload_token::UploadTokenProvider,
                     ) -> std::io::Result<Self> {
-                        self.multipart = self.multipart.add_part(
+                        Ok(self.add_part(
                             #key,
                             qiniu_http_client::Part::text(String::from(
                                 token.to_token_string(&Default::default())?,
                             )),
-                        );
-                        Ok(self)
+                        ))
                     }
                 }
             } else {
@@ -197,16 +195,15 @@ impl MultipartFormDataRequestStruct {
                     #[inline]
                     #[doc = #documentation]
                     pub async fn #method_name(
-                        mut self,
+                        self,
                         token: &dyn qiniu_upload_token::UploadTokenProvider,
                     ) -> std::io::Result<Self> {
-                        self.multipart = self.multipart.add_part(
+                        Ok(self.add_part(
                             #key,
                             qiniu_http_client::Part::text(String::from(
                                 token.async_to_token_string(&Default::default()).await?,
                             )),
-                        );
-                        Ok(self)
+                        ))
                     }
                 }
             }
@@ -224,15 +221,14 @@ impl MultipartFormDataRequestStruct {
                     #[inline]
                     #[doc = #documentation]
                     pub fn #method_name(
-                        mut self,
+                        self,
                         reader: Box<dyn std::io::Read>,
                         metadata: qiniu_http_client::PartMetadata,
                     ) -> Self {
-                        self.multipart = self.multipart.add_part(
+                        self.add_part(
                             #key,
                             qiniu_http_client::Part::stream(reader).metadata(metadata),
-                        );
-                        self
+                        )
                     }
                 }
             } else {
@@ -240,15 +236,14 @@ impl MultipartFormDataRequestStruct {
                     #[inline]
                     #[doc = #documentation]
                     pub fn #method_name(
-                        mut self,
+                        self,
                         reader: Box<dyn futures::io::AsyncRead + Send + Unpin>,
                         metadata: qiniu_http_client::PartMetadata,
                     ) -> Self {
-                        self.multipart = self.multipart.add_part(
+                        self.add_part(
                             #key,
                             qiniu_http_client::Part::stream(reader).metadata(metadata),
-                        );
-                        self
+                        )
                     }
                 }
             }
@@ -264,15 +259,14 @@ impl MultipartFormDataRequestStruct {
                 #[inline]
                 #[doc = #documentation]
                 pub fn #method_name(
-                    mut self,
+                    self,
                     bytes: impl Into<std::borrow::Cow<'static, [u8]>>,
                     metadata: qiniu_http_client::PartMetadata,
                 ) -> Self {
-                    self.multipart = self.multipart.add_part(
+                    self.add_part(
                         #key,
                         qiniu_http_client::Part::bytes(bytes).metadata(metadata),
-                    );
-                    self
+                    )
                 }
             }
         }
@@ -289,14 +283,13 @@ impl MultipartFormDataRequestStruct {
                     #[inline]
                     #[doc = #documentation]
                     pub fn #method_name(
-                        mut self,
+                        self,
                         path: impl AsRef<std::path::Path>,
                     ) -> std::io::Result<Self> {
-                        self.multipart = self.multipart.add_part(
+                        Ok(self.add_part(
                             #key,
                             qiniu_http_client::Part::file_path(path)?,
-                        );
-                        Ok(self)
+                        ))
                     }
                 }
             } else {
@@ -304,14 +297,13 @@ impl MultipartFormDataRequestStruct {
                     #[inline]
                     #[doc = #documentation]
                     pub async fn #method_name(
-                        mut self,
+                        self,
                         path: impl AsRef<std::path::Path>,
                     ) -> std::io::Result<Self> {
-                        self.multipart = self.multipart.add_part(
+                        Ok(self.add_part(
                             #key,
                             qiniu_http_client::Part::file_path(path).await?,
-                        );
-                        Ok(self)
+                        ))
                     }
                 }
             }
@@ -328,24 +320,29 @@ impl MultipartFormDataRequestStruct {
                 #[inline]
                 #[doc = #documentation]
                 pub fn #method_name(
-                    mut self,
+                    self,
                     key: impl Into<qiniu_http_client::FieldName>,
                     value: impl Into<std::borrow::Cow<'static, str>>,
                 ) -> Self {
-                    self.multipart = self.multipart.add_part(
-                        key.into(),
+                    self.add_part(
+                        key,
                         qiniu_http_client::Part::text(value),
-                    );
-                    self
+                    )
                 }
             }
         }
 
         fn define_new_struct(name: &Ident, documentation: &str, sync_version: bool) -> TokenStream {
-            let multipart_type = if sync_version {
-                quote!(qiniu_http_client::SyncMultipart)
+            let (multipart_type, part_type) = if sync_version {
+                (
+                    quote!(qiniu_http_client::SyncMultipart),
+                    quote!(qiniu_http_client::SyncPart),
+                )
             } else {
-                quote!(qiniu_http_client::AsyncMultipart)
+                (
+                    quote!(qiniu_http_client::AsyncMultipart),
+                    quote!(qiniu_http_client::AsyncPart),
+                )
             };
             quote! {
                 #[derive(Debug, Default)]
@@ -355,7 +352,18 @@ impl MultipartFormDataRequestStruct {
                 }
 
                 impl #name {
-                    pub fn build(self) -> #multipart_type {
+                    #[inline]
+                    pub fn add_part(
+                        mut self,
+                        name: impl Into<qiniu_http_client::FieldName>,
+                        part: #part_type,
+                    ) -> Self {
+                        self.multipart = self.multipart.add_part(name.into(), part);
+                        self
+                    }
+
+                    #[inline]
+                    fn build(self) -> #multipart_type {
                         self.multipart
                     }
                 }

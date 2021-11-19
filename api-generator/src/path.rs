@@ -102,7 +102,7 @@ impl PathParams {
         ) -> TokenStream {
             let named_fields: Vec<_> = named_path_params
                 .iter()
-                .map(|param| field_name_token_stream(&param.field_name))
+                .map(|param| field_name_to_ident(&param.field_name))
                 .collect();
             let concat_segments: Vec<_> = named_path_params
                 .iter()
@@ -119,7 +119,13 @@ impl PathParams {
 
                 impl #name {
                     #[inline]
-                    pub fn build(self) -> Vec<std::borrow::Cow<'static, str>> {
+                    pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
+                        self.extended_segments.push(segment.into());
+                        self
+                    }
+
+                    #[inline]
+                    fn build(self) -> Vec<std::borrow::Cow<'static, str>> {
                         let mut all_segments: Vec<_> = Default::default();
                         #(#concat_segments)*
                         all_segments.extend(self.extended_segments);
@@ -129,7 +135,7 @@ impl PathParams {
             }
         }
 
-        fn field_name_token_stream(field_name: &str) -> Ident {
+        fn field_name_to_ident(field_name: &str) -> Ident {
             format_ident!("{}", field_name.to_case(Case::Snake))
         }
 
@@ -144,7 +150,7 @@ impl PathParams {
             } else {
                 quote! {}
             };
-            let field_name = field_name_token_stream(&param.field_name);
+            let field_name = field_name_to_ident(&param.field_name);
             match (param.ty, param.encode) {
                 (StringLikeType::String, Some(EncodeType::UrlSafeBase64OrNone)) => {
                     quote! {
@@ -176,15 +182,30 @@ impl PathParams {
         }
 
         fn for_named_path_param(param: &NamedPathParam) -> TokenStream {
-            let field_name = field_name_token_stream(&param.field_name);
+            let field_name = field_name_to_ident(&param.field_name);
             let documentation = param.documentation.as_str();
             match &param.ty {
                 StringLikeType::String => {
                     for_named_string_field(&field_name, documentation, param.encode)
                 }
-                StringLikeType::Integer => for_named_integer_field(&field_name, documentation),
-                StringLikeType::Float => for_named_float_field(&field_name, documentation),
-                StringLikeType::Boolean => for_named_boolean_field(&field_name, documentation),
+                StringLikeType::Integer => for_named_based_field(
+                    &field_name,
+                    documentation,
+                    &[
+                        ("int", &format_ident!("i64")),
+                        ("uint", &format_ident!("u64")),
+                    ],
+                ),
+                StringLikeType::Float => for_named_based_field(
+                    &field_name,
+                    documentation,
+                    &[("float", &format_ident!("f64"))],
+                ),
+                StringLikeType::Boolean => for_named_based_field(
+                    &field_name,
+                    documentation,
+                    &[("bool", &format_ident!("bool"))],
+                ),
             }
         }
 
@@ -212,52 +233,32 @@ impl PathParams {
             }
         }
 
-        fn for_named_integer_field(field_name: &Ident, documentation: &str) -> TokenStream {
-            let methods_token_streams = [
-                (format_ident!("set_{}_as_int", field_name), quote! {i64}),
-                (format_ident!("set_{}_as_uint", field_name), quote! {u64}),
-            ]
-            .map(|(method_name, rust_type)| {
-                quote! {
-                    #[inline]
-                    #[doc = #documentation]
-                    pub fn #method_name(mut self, value: #rust_type) -> Self {
-                        self.#field_name = Some(value.to_string().into());
-                        self
+        fn for_named_based_field(
+            field_name: &Ident,
+            documentation: &str,
+            pairs: &[(&str, &Ident)],
+        ) -> TokenStream {
+            let methods_token_streams: Vec<_> = pairs
+                .iter()
+                .map(|(type_name, rust_type)| {
+                    let method_name = format_ident!("set_{}_as_{}", field_name, type_name);
+                    quote! {
+                        #[inline]
+                        #[doc = #documentation]
+                        pub fn #method_name(mut self, value: #rust_type) -> Self {
+                            self.#field_name = Some(value.to_string().into());
+                            self
+                        }
                     }
-                }
-            });
+                })
+                .collect();
             quote! {
                 #(#methods_token_streams)*
             }
         }
 
-        fn for_named_float_field(field_name: &Ident, documentation: &str) -> TokenStream {
-            let method_name = format_ident!("set_{}_as_float", field_name);
-            quote! {
-                #[inline]
-                #[doc = #documentation]
-                pub fn #method_name(mut self, value: f64) -> Self {
-                    self.#field_name = Some(value.to_string().into());
-                    self
-                }
-            }
-        }
-
-        fn for_named_boolean_field(field_name: &Ident, documentation: &str) -> TokenStream {
-            let method_name = format_ident!("set_{}_as_bool", field_name);
-            quote! {
-                #[inline]
-                #[doc = #documentation]
-                pub fn #method_name(mut self, value: bool) -> Self {
-                    self.#field_name = Some(value.to_string().into());
-                    self
-                }
-            }
-        }
-
         fn for_free_path_params(params: &FreePathParams) -> TokenStream {
-            let field_name = field_name_token_stream(&params.field_name);
+            let field_name = field_name_to_ident(&params.field_name);
             let documentation = params.documentation.as_str();
             let encode_key_token_stream = encode_path_segment_token_stream(
                 &format_ident!("{}", "key"),
@@ -334,7 +335,7 @@ mod tests {
     use trybuild::TestCases;
 
     #[test]
-    fn test_multipart_types() -> Result<()> {
+    fn test_path_param_types() -> Result<()> {
         let test_files = [write_token_stream(
             "TestPath",
             &PathParams {

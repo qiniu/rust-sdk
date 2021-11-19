@@ -1,4 +1,7 @@
-use super::{json::JsonType, multipart::MultipartFormDataRequestStruct, path::PathParams};
+use super::{
+    form::FormUrlencodedRequestStruct, json::JsonType, multipart::MultipartFormDataRequestStruct,
+    path::PathParams,
+};
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
 
@@ -54,38 +57,6 @@ pub(super) enum StringLikeType {
 
     /// 布尔值
     Boolean,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// URL 编码表单请求字段
-struct FormUrlencodedRequestField {
-    /// URL 编码表单字段名称
-    field_name: String,
-
-    /// URL 编码表单参数名称
-    key: String,
-
-    /// URL 编码表单参数文档
-    documentation: String,
-
-    /// URL 编码表单参数类型
-    #[serde(rename = "type")]
-    ty: StringLikeType,
-
-    /// URL 编码表单参数是否可以有多个值
-    multiple: bool,
-
-    /// URL 编码表单参数是否可选
-    optional: bool,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default, rename_all = "snake_case")]
-/// URL 编码表单请求结构体
-struct FormUrlencodedRequestStruct {
-    /// URL 编码表单字段列表
-    fields: Vec<FormUrlencodedRequestField>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
