@@ -330,7 +330,6 @@ mod tests {
             }
         };
         file.write_all(all_token_stream.to_string().as_bytes())?;
-        println!("{}", all_token_stream);
 
         Ok(file)
     }

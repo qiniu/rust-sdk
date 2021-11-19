@@ -2,7 +2,7 @@
 name = "qiniu-api-generator"
 version = "0.0.4"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
-edition = "2018"
+edition = "2021"
 license = "Apache-2.0"
 homepage = "https://www.qiniu.com"
 description = "Qiniu Credential SDK for Rust"

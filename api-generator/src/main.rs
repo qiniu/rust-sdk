@@ -3,6 +3,7 @@ mod form;
 mod json;
 mod multipart;
 mod path;
+mod query;
 mod traits;
 
 use anyhow::Result;

@@ -24,12 +24,10 @@ request:
       query_name: max-parts
       query_type: integer
       documentation: 响应中的最大分片数目。默认值：1000，最大值：1000
-      optional: true
     - field_name: part_number_marker
       query_name: part-number_marker
       query_type: integer
       documentation: 指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出
-      optional: true
 response:
   body:
     json:

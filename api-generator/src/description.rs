@@ -1,6 +1,6 @@
 use super::{
     form::FormUrlencodedRequestStruct, json::JsonType, multipart::MultipartFormDataRequestStruct,
-    path::PathParams,
+    path::PathParams, query::QueryNames,
 };
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
@@ -82,7 +82,7 @@ enum RequestBody {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 /// HTTP 头参数信息
-pub struct HeaderName {
+struct HeaderName {
     /// HTTP 头参数名称
     field_name: String,
 
@@ -93,26 +93,6 @@ pub struct HeaderName {
     documentation: String,
 
     /// HTTP 头参数是否可选
-    optional: bool,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// HTTP URL 查询请求参数信息
-pub struct QueryName {
-    /// 参数名称
-    field_name: String,
-
-    /// HTTP URL 查询参数名称
-    query_name: String,
-
-    /// HTTP URL 查询参数文档
-    documentation: String,
-
-    /// HTTP URL 查询参数类型
-    query_type: StringLikeType,
-
-    /// HTTP URL 查询参数是否可选
     optional: bool,
 }
 
@@ -168,8 +148,8 @@ struct ApiRequestDescription {
     header_names: Vec<HeaderName>,
 
     /// 七牛 API 调用 URL 查询参数列表
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    query_names: Vec<QueryName>,
+    #[serde(skip_serializing_if = "QueryNames::is_empty")]
+    query_names: QueryNames,
 
     /// 七牛 API 调用请求体
     #[serde(skip_serializing_if = "Option::is_none")]
