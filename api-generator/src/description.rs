@@ -1,6 +1,6 @@
 use super::{
-    form::FormUrlencodedRequestStruct, json::JsonType, multipart::MultipartFormDataRequestStruct,
-    path::PathParams, query::QueryNames,
+    form::FormUrlencodedRequestStruct, header::HeaderNames, json::JsonType,
+    multipart::MultipartFormDataRequestStruct, path::PathParams, query::QueryNames,
 };
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
@@ -79,23 +79,6 @@ enum RequestBody {
     PlainText,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
-/// HTTP 头参数信息
-struct HeaderName {
-    /// HTTP 头参数名称
-    field_name: String,
-
-    /// HTTP 头名称
-    header_name: String,
-
-    /// HTTP 头参数文档
-    documentation: String,
-
-    /// HTTP 头参数是否可选
-    optional: bool,
-}
-
 #[derive(Clone, Debug)]
 /// API 描述，仅在内存中存储
 pub(super) struct ApiDescription {
@@ -144,8 +127,8 @@ struct ApiRequestDescription {
     path_params: Option<PathParams>,
 
     /// 七牛 API 调用 HTTP 头参数列表
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    header_names: Vec<HeaderName>,
+    #[serde(skip_serializing_if = "HeaderNames::is_empty")]
+    header_names: HeaderNames,
 
     /// 七牛 API 调用 URL 查询参数列表
     #[serde(skip_serializing_if = "QueryNames::is_empty")]
@@ -175,8 +158,8 @@ enum ResponseBody {
 #[serde(deny_unknown_fields, default)]
 struct ApiResponseDescription {
     /// 七牛 API 响应 HTTP 头参数列表
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    header_names: Vec<HeaderName>,
+    #[serde(skip_serializing_if = "HeaderNames::is_empty")]
+    header_names: HeaderNames,
 
     /// 七牛 API 响应请求体
     #[serde(skip_serializing_if = "Option::is_none")]
