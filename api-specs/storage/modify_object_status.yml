@@ -4,7 +4,8 @@ service_names:
 base_path: /chstatus
 documentation: 修改文件的存储状态，即禁用状态和启用状态间的的互相转换
 request:
-  authorization: credential
+  authorization: qiniu
+  idempotent: always
   path_params:
     named:
       - field_name: entry

@@ -4,7 +4,7 @@ service_names:
 base_path: /bucketTagging
 documentation: 查询指定的存储空间已设置的标签信息
 request:
-  authorization: credential
+  authorization: qiniu
   query_names:
     - field_name: bucket_name
       query_name: bucket

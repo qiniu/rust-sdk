@@ -1,6 +1,6 @@
 use super::{
     super::{
-        super::{ApiResult, Authorization, HttpClient, ResponseError, ResponseErrorKind},
+        super::{ApiResult, Authorization, HttpClient, ResponseError},
         Endpoints, ServiceName,
     },
     structs::ResponseBody,
@@ -34,27 +34,27 @@ impl RegionsProvider {
     }
 
     fn do_sync_query(&self) -> ApiResult<Vec<Region>> {
-        let body: ResponseBody = self
+        let (parts, body) = self
             .http_client
             .get(&[ServiceName::Uc], self.uc_endpoints.to_owned())
             .path("/regions")
             .authorization(Authorization::v2(self.credential_provider.to_owned()))
             .accept_json()
             .call()?
-            .parse_json()?
-            .into_body();
+            .parse_json::<ResponseBody>()?
+            .into_parts();
         body.into_hosts()
             .into_iter()
             .map(|host| {
                 Region::try_from(host)
-                    .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))
+                    .map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts))
             })
             .collect()
     }
 
     #[cfg(feature = "async")]
     async fn do_async_query(&self) -> ApiResult<Vec<Region>> {
-        let body: ResponseBody = self
+        let (parts, body) = self
             .http_client
             .async_get(&[ServiceName::Uc], self.uc_endpoints.to_owned())
             .path("/regions")
@@ -62,14 +62,14 @@ impl RegionsProvider {
             .accept_json()
             .call()
             .await?
-            .parse_json()
+            .parse_json::<ResponseBody>()
             .await?
-            .into_body();
+            .into_parts();
         body.into_hosts()
             .into_iter()
             .map(|host| {
                 Region::try_from(host)
-                    .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))
+                    .map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts))
             })
             .collect()
     }

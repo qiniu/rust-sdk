@@ -69,7 +69,7 @@ impl RequestRetrier for ErrorRetrier {
         fn is_idempotent(request: &HttpRequestParts, idempotent: Idempotent) -> bool {
             match idempotent {
                 Idempotent::Always => true,
-                Idempotent::Default => request.method().is_idempotent(),
+                Idempotent::Default => request.method().is_safe(),
                 Idempotent::Never => false,
             }
         }

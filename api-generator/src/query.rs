@@ -1,4 +1,4 @@
-use super::{description::StringLikeType, traits::CodeGenerator};
+use super::{enums::StringLikeType, traits::CodeGenerator};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
@@ -49,10 +49,8 @@ impl QueryNames {
         };
 
         fn for_query_fields(query_names: &[QueryName]) -> TokenStream {
-            let token_streams_for_fields: Vec<_> = query_names
-                .iter()
-                .map(|field| for_query_field(field))
-                .collect();
+            let token_streams_for_fields: Vec<_> =
+                query_names.iter().map(for_query_field).collect();
             quote! {
                 #(#token_streams_for_fields)*
             }
@@ -158,16 +156,19 @@ impl QueryNames {
                         qiniu_http_client::QueryPairs::from_iter(self.map)
                     }
                 }
+
+                impl<'a> From<#name<'a>> for qiniu_http_client::QueryPairs<'a> {
+                    #[inline]
+                    fn from(map: #name<'a>) -> Self {
+                        map.build()
+                    }
+                }
             }
         }
 
         fn field_name_to_ident(field_name: &str) -> Ident {
             format_ident!("{}", field_name.to_case(Case::Snake))
         }
-    }
-
-    pub(super) fn is_empty(&self) -> bool {
-        self.0.is_empty()
     }
 }
 

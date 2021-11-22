@@ -88,11 +88,10 @@ impl MultipartFormDataRequestStruct {
         let name = format_ident!("{}", name.to_case(Case::Pascal));
         let struct_definition_token_stream = define_new_struct(&name, documentation, sync_version);
         let named_fields_methods_token_stream = for_named_fields(&self.named_fields, sync_version);
-        let free_fields_methods_token_stream = if let Some(free_fields) = &self.free_fields {
-            for_free_fields(free_fields, sync_version)
-        } else {
-            quote! {}
-        };
+        let free_fields_methods_token_stream = self
+            .free_fields
+            .as_ref()
+            .map(|free_fields| for_free_fields(free_fields, sync_version));
 
         return quote! {
             #struct_definition_token_stream
@@ -122,9 +121,12 @@ impl MultipartFormDataRequestStruct {
             let field_name = format_ident!("{}", field.field_name.to_case(Case::Snake));
             let documentation = field.documentation.as_str();
             match &field.ty {
-                MultipartFormDataRequestType::String => {
-                    for_named_string_field(&field_name, documentation, field.key.as_str())
-                }
+                MultipartFormDataRequestType::String => for_named_string_field(
+                    &field_name,
+                    documentation,
+                    field.key.as_str(),
+                    sync_version,
+                ),
                 MultipartFormDataRequestType::UploadToken => for_named_upload_token_field(
                     &field_name,
                     documentation,
@@ -139,7 +141,12 @@ impl MultipartFormDataRequestStruct {
                             field.key.as_str(),
                             sync_version,
                         ),
-                        for_named_bytes_field(&field_name, documentation, field.key.as_str()),
+                        for_named_bytes_field(
+                            &field_name,
+                            documentation,
+                            field.key.as_str(),
+                            sync_version,
+                        ),
                         for_named_file_path_field(
                             &field_name,
                             documentation,
@@ -156,13 +163,19 @@ impl MultipartFormDataRequestStruct {
             field_name: &Ident,
             documentation: &str,
             key: &str,
+            sync_version: bool,
         ) -> TokenStream {
             let method_name = format_ident!("set_{}", field_name);
+            let part_type = if sync_version {
+                quote! {qiniu_http_client::SyncPart}
+            } else {
+                quote! {qiniu_http_client::AsyncPart}
+            };
             quote! {
                 #[inline]
                 #[doc = #documentation]
                 pub fn #method_name(self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
-                    self.add_part(#key, qiniu_http_client::Part::text(value))
+                    self.add_part(#key, #part_type::text(value))
                 }
             }
         }
@@ -180,11 +193,11 @@ impl MultipartFormDataRequestStruct {
                     #[doc = #documentation]
                     pub fn #method_name(
                         self,
-                        token: &dyn qiniu_upload_token::UploadTokenProvider,
+                        token: &dyn qiniu_http_client::upload_token::UploadTokenProvider,
                     ) -> std::io::Result<Self> {
                         Ok(self.add_part(
                             #key,
-                            qiniu_http_client::Part::text(String::from(
+                            qiniu_http_client::SyncPart::text(String::from(
                                 token.to_token_string(&Default::default())?,
                             )),
                         ))
@@ -196,11 +209,11 @@ impl MultipartFormDataRequestStruct {
                     #[doc = #documentation]
                     pub async fn #method_name(
                         self,
-                        token: &dyn qiniu_upload_token::UploadTokenProvider,
+                        token: &dyn qiniu_http_client::upload_token::UploadTokenProvider,
                     ) -> std::io::Result<Self> {
                         Ok(self.add_part(
                             #key,
-                            qiniu_http_client::Part::text(String::from(
+                            qiniu_http_client::AsyncPart::text(String::from(
                                 token.async_to_token_string(&Default::default()).await?,
                             )),
                         ))
@@ -227,7 +240,7 @@ impl MultipartFormDataRequestStruct {
                     ) -> Self {
                         self.add_part(
                             #key,
-                            qiniu_http_client::Part::stream(reader).metadata(metadata),
+                            qiniu_http_client::SyncPart::stream(reader).metadata(metadata),
                         )
                     }
                 }
@@ -242,7 +255,7 @@ impl MultipartFormDataRequestStruct {
                     ) -> Self {
                         self.add_part(
                             #key,
-                            qiniu_http_client::Part::stream(reader).metadata(metadata),
+                            qiniu_http_client::AsyncPart::stream(reader).metadata(metadata),
                         )
                     }
                 }
@@ -253,8 +266,14 @@ impl MultipartFormDataRequestStruct {
             field_name: &Ident,
             documentation: &str,
             key: &str,
+            sync_version: bool,
         ) -> TokenStream {
             let method_name = format_ident!("set_{}_as_bytes", field_name);
+            let part_type = if sync_version {
+                quote! {qiniu_http_client::SyncPart}
+            } else {
+                quote! {qiniu_http_client::AsyncPart}
+            };
             quote! {
                 #[inline]
                 #[doc = #documentation]
@@ -265,7 +284,7 @@ impl MultipartFormDataRequestStruct {
                 ) -> Self {
                     self.add_part(
                         #key,
-                        qiniu_http_client::Part::bytes(bytes).metadata(metadata),
+                        #part_type::bytes(bytes).metadata(metadata),
                     )
                 }
             }
@@ -288,7 +307,7 @@ impl MultipartFormDataRequestStruct {
                     ) -> std::io::Result<Self> {
                         Ok(self.add_part(
                             #key,
-                            qiniu_http_client::Part::file_path(path)?,
+                            qiniu_http_client::SyncPart::file_path(path)?,
                         ))
                     }
                 }
@@ -298,11 +317,11 @@ impl MultipartFormDataRequestStruct {
                     #[doc = #documentation]
                     pub async fn #method_name(
                         self,
-                        path: impl AsRef<std::path::Path>,
+                        path: impl AsRef<async_std::path::Path>,
                     ) -> std::io::Result<Self> {
                         Ok(self.add_part(
                             #key,
-                            qiniu_http_client::Part::file_path(path).await?,
+                            qiniu_http_client::AsyncPart::file_path(path).await?,
                         ))
                     }
                 }
@@ -311,11 +330,16 @@ impl MultipartFormDataRequestStruct {
 
         fn for_free_fields(
             fields: &FreeMultipartFormDataRequestFields,
-            _sync_version: bool,
+            sync_version: bool,
         ) -> TokenStream {
             let field_name = format_ident!("{}", fields.field_name.to_case(Case::Snake));
             let method_name = format_ident!("append_{}", field_name);
             let documentation = fields.documentation.as_str();
+            let part_type = if sync_version {
+                quote! {qiniu_http_client::SyncPart}
+            } else {
+                quote! {qiniu_http_client::AsyncPart}
+            };
             quote! {
                 #[inline]
                 #[doc = #documentation]
@@ -324,10 +348,7 @@ impl MultipartFormDataRequestStruct {
                     key: impl Into<qiniu_http_client::FieldName>,
                     value: impl Into<std::borrow::Cow<'static, str>>,
                 ) -> Self {
-                    self.add_part(
-                        key,
-                        qiniu_http_client::Part::text(value),
-                    )
+                    self.add_part(key, #part_type::text(value))
                 }
             }
         }
@@ -365,6 +386,13 @@ impl MultipartFormDataRequestStruct {
                     #[inline]
                     fn build(self) -> #multipart_type {
                         self.multipart
+                    }
+                }
+
+                impl From<#name> for #multipart_type {
+                    #[inline]
+                    fn from(parts: #name) -> Self {
+                        parts.build()
                     }
                 }
             }

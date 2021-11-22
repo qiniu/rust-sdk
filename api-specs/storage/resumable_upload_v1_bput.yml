@@ -5,6 +5,7 @@ base_path: /bput
 documentation: 上传指定块的一片数据，具体数据量可根据现场环境调整，同一块的每片数据必须串行上传
 request:
   authorization: upload_token
+  idempotent: always
   path_params:
     named:
       - field_name: ctx

@@ -22,6 +22,7 @@ qiniu-credential = { version = "0.0.4", path = "../credential", optional = true 
 qiniu-utils = { version = "0.0.4", path = "../utils" }
 
 [dev-dependencies]
+anyhow = "1.0.44"
 async-std = { version = "1.6.3", features = ["attributes"] }
 mime = "0.3.16"
 structopt = "0.3.23"

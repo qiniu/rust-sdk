@@ -4,7 +4,8 @@ service_names:
 base_path: /lifecycle
 documentation: 修改已上传对象的生命周期
 request:
-  authorization: credential
+  authorization: qiniu
+  idempotent: always
   path_params:
     named:
       - field_name: entry

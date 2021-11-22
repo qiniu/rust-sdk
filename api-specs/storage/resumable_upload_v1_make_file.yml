@@ -2,7 +2,7 @@ method: post
 service_names:
   - up
 base_path: /mkfile
-documentation: 为后续分片上传创建一个新的块，同时上传第一片数据
+documentation: 将上传好的所有数据块按指定顺序合并成一个资源文件
 request:
   authorization: upload_token
   path_params:

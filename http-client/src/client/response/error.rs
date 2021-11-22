@@ -1,8 +1,13 @@
+use super::super::super::EndpointParseError;
 use qiniu_http::{
     Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
-    StatusCode as HttpStatusCode,
+    ResponseParts as HttpResponseParts, StatusCode as HttpStatusCode,
 };
-use std::{error, fmt, io::Error as IoError, mem::take, net::IpAddr, num::NonZeroU16};
+use serde_json::Error as JsonError;
+use std::{
+    error, fmt, io::Error as IoError, mem::take, net::IpAddr, num::NonZeroU16, time::Duration,
+};
+use tap::Tap;
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -115,9 +120,92 @@ impl From<HttpResponseErrorKind> for ErrorKind {
     }
 }
 
+impl Error {
+    #[inline]
+    pub(crate) fn from_endpoint_parse_error(
+        error: EndpointParseError,
+        parts: &HttpResponseParts,
+    ) -> Self {
+        Self::new(ErrorKind::ParseResponseError, error).tap_mut(|err| {
+            err.server_ip = parts.server_ip();
+            err.server_port = parts.server_port();
+            err.metrics = parts
+                .metrics()
+                .map(ClonedMetrics::new)
+                .map(|metrics| Box::new(metrics) as Box<dyn Metrics + 'static>);
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ClonedMetrics {
+    total_duration: Option<Duration>,
+    name_lookup_duration: Option<Duration>,
+    connect_duration: Option<Duration>,
+    secure_connect_duration: Option<Duration>,
+    redirect_duration: Option<Duration>,
+    transfer_duration: Option<Duration>,
+}
+
+impl ClonedMetrics {
+    #[inline]
+    fn new(metrics: &dyn Metrics) -> Self {
+        Self {
+            total_duration: metrics.total_duration(),
+            name_lookup_duration: metrics.name_lookup_duration(),
+            connect_duration: metrics.connect_duration(),
+            secure_connect_duration: metrics.secure_connect_duration(),
+            redirect_duration: metrics.redirect_duration(),
+            transfer_duration: metrics.transfer_duration(),
+        }
+    }
+}
+
+impl Metrics for ClonedMetrics {
+    #[inline]
+    fn total_duration(&self) -> Option<Duration> {
+        self.total_duration
+    }
+
+    #[inline]
+    fn name_lookup_duration(&self) -> Option<Duration> {
+        self.name_lookup_duration
+    }
+
+    #[inline]
+    fn connect_duration(&self) -> Option<Duration> {
+        self.connect_duration
+    }
+
+    #[inline]
+    fn secure_connect_duration(&self) -> Option<Duration> {
+        self.secure_connect_duration
+    }
+
+    #[inline]
+    fn redirect_duration(&self) -> Option<Duration> {
+        self.redirect_duration
+    }
+
+    #[inline]
+    fn transfer_duration(&self) -> Option<Duration> {
+        self.transfer_duration
+    }
+}
+
+impl From<JsonError> for Error {
+    #[inline]
+    fn from(error: JsonError) -> Self {
+        Self::new(ErrorKind::ParseResponseError, error)
+    }
+}
+
 impl From<IoError> for Error {
     #[inline]
     fn from(error: IoError) -> Self {
-        Self::new(HttpResponseErrorKind::LocalIoError.into(), error)
+        Self::new(
+            ErrorKind::HttpError(HttpResponseErrorKind::LocalIoError),
+            error,
+        )
     }
 }

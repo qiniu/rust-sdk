@@ -1,9 +1,6 @@
 use super::{
     super::{
-        super::{
-            ApiResult, CacheController, HttpClient, PersistentResult, ResponseError,
-            ResponseErrorKind,
-        },
+        super::{ApiResult, CacheController, HttpClient, PersistentResult, ResponseError},
         Endpoints, ServiceName,
     },
     regions_cache::{CacheKey, RegionsCache},
@@ -209,7 +206,7 @@ impl RegionProvider for BucketRegionsProvider {
 
 impl BucketRegionsProvider {
     fn do_sync_query(&self) -> ApiResult<Vec<Region>> {
-        let body: ResponseBody = self
+        let (parts, body) = self
             .inner
             .queryer
             .inner
@@ -223,13 +220,13 @@ impl BucketRegionsProvider {
             .append_query_pair("bucket", self.inner.bucket_name.as_str())
             .accept_json()
             .call()?
-            .parse_json()?
-            .into_body();
+            .parse_json::<ResponseBody>()?
+            .into_parts();
         body.into_hosts()
             .into_iter()
             .map(|host| {
                 Region::try_from(host)
-                    .map_err(|err| ResponseError::new(ResponseErrorKind::ParseResponseError, err))
+                    .map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts))
             })
             .collect()
     }

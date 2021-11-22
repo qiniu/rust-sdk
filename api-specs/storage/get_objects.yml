@@ -4,7 +4,7 @@ service_names:
 base_path: /list
 documentation: 列举指定存储空间里的所有对象条目
 request:
-  authorization: credential
+  authorization: qiniu
   query_names:
     - field_name: bucket
       query_name: bucket

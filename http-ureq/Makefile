@@ -12,7 +12,7 @@ build_test:
 	cargo test --features async --no-run
 doc:
 	cargo test --doc --features async
-	cargo +nightly doc --lib --release --no-deps --all-features
+	cargo +nightly doc --lib --release --all-features
 test:
 	cargo test -- --test-threads=1 --show-output
 	cargo test --features async -- --test-threads=1 --show-output

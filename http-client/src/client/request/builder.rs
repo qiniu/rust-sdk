@@ -155,8 +155,8 @@ impl<'r, B> RequestBuilder<'r, B> {
     }
 
     #[inline]
-    pub fn query_pairs(mut self, query_pairs: QueryPairs<'r>) -> Self {
-        self.metadata.query_pairs = query_pairs;
+    pub fn query_pairs(mut self, query_pairs: impl Into<QueryPairs<'r>>) -> Self {
+        self.metadata.query_pairs = query_pairs.into();
         self
     }
 
@@ -354,9 +354,9 @@ impl<'r> SyncRequestBuilder<'r> {
     }
 
     #[inline]
-    pub fn multipart(self, multipart: SyncMultipart) -> IoResult<Self> {
+    pub fn multipart(self, multipart: impl Into<SyncMultipart>) -> IoResult<Self> {
         let mut buf = Vec::new();
-        multipart.into_read().read_to_end(&mut buf)?;
+        multipart.into().into_read().read_to_end(&mut buf)?;
         Ok(self.bytes_as_body(buf, Some(MULTIPART_FORM_DATA)))
     }
 
@@ -451,12 +451,16 @@ impl<'r> AsyncRequestBuilder<'r> {
     #[inline]
     pub async fn multipart(
         self,
-        multipart: AsyncMultipart,
+        multipart: impl Into<AsyncMultipart>,
     ) -> IoResult<RequestBuilder<'r, AsyncRequestBody<'r>>> {
         use futures::AsyncReadExt;
 
         let mut buf = Vec::new();
-        multipart.into_async_read().read_to_end(&mut buf).await?;
+        multipart
+            .into()
+            .into_async_read()
+            .read_to_end(&mut buf)
+            .await?;
         Ok(self.bytes_as_body(buf, Some(MULTIPART_FORM_DATA)))
     }
 

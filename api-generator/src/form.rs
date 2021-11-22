@@ -1,4 +1,4 @@
-use super::{description::StringLikeType, traits::CodeGenerator};
+use super::{enums::StringLikeType, traits::CodeGenerator};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
@@ -57,10 +57,10 @@ impl FormUrlencodedRequestStruct {
             documentation: &str,
             fields: &[FormUrlencodedRequestField],
         ) -> TokenStream {
-            let field_declarations: Vec<_> = fields
+            let field_definitions: Vec<_> = fields
                 .iter()
                 .map(|param| {
-                    field_declaration_token_stream(
+                    field_definition_token_stream(
                         &field_name_to_ident(&param.field_name),
                         param.multiple,
                     )
@@ -75,7 +75,7 @@ impl FormUrlencodedRequestStruct {
                 #[derive(Debug, Default)]
                 #[doc = #documentation]
                 pub struct #name {
-                    #(#field_declarations,)*
+                    #(#field_definitions,)*
                     extended_pairs: Vec<(std::borrow::Cow<'static, str>, Option<std::borrow::Cow<'static, str>>)>,
                 }
 
@@ -100,14 +100,24 @@ impl FormUrlencodedRequestStruct {
                         all_pairs
                     }
                 }
+
+                impl IntoIterator for #name {
+                    type Item = (std::borrow::Cow<'static, str>, Option<std::borrow::Cow<'static, str>>);
+                    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+                    #[inline]
+                    fn into_iter(self) -> Self::IntoIter {
+                        self.build().into_iter()
+                    }
+                }
             }
         }
 
         fn field_name_to_ident(field_name: &str) -> Ident {
-            format_ident!("{}", field_name.to_case(Case::Snake))
+            format_ident!("r#{}", field_name.to_case(Case::Snake))
         }
 
-        fn field_declaration_token_stream(field_name: &Ident, multi: bool) -> TokenStream {
+        fn field_definition_token_stream(field_name: &Ident, multi: bool) -> TokenStream {
             if multi {
                 quote! {#field_name: Vec<std::borrow::Cow<'static, str>>}
             } else {
@@ -124,21 +134,20 @@ impl FormUrlencodedRequestStruct {
             if field.multiple {
                 quote! {
                     for value in self.#field_name.into_iter() {
-                        #all_pairs.push((#key.into(), Some(value.into())));
+                        #all_pairs.push((#key.into(), Some(value)));
                     }
                 }
             } else {
                 quote! {
                     if let Some(value) = self.#field_name {
-                        #all_pairs.push((#key.into(), Some(value.into())));
+                        #all_pairs.push((#key.into(), Some(value)));
                     }
                 }
             }
         }
 
         fn for_form_fields(fields: &[FormUrlencodedRequestField]) -> TokenStream {
-            let token_streams_for_fields: Vec<_> =
-                fields.iter().map(|field| for_form_field(field)).collect();
+            let token_streams_for_fields: Vec<_> = fields.iter().map(for_form_field).collect();
             quote! {
                 #(#token_streams_for_fields)*
             }

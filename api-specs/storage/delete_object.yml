@@ -4,7 +4,7 @@ service_names:
 base_path: /delete
 documentation: 删除指定对象
 request:
-  authorization: credential
+  authorization: qiniu
   path_params:
     named:
       - field_name: entry

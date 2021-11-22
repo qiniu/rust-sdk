@@ -4,7 +4,7 @@ service_names:
 base_path: /copy
 documentation: 将源空间的指定对象复制到目标空间
 request:
-  authorization: credential
+  authorization: qiniu
   path_params:
     named:
       - field_name: src_entry

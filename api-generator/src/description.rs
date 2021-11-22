@@ -158,8 +158,8 @@ enum ResponseBody {
 #[serde(deny_unknown_fields, default)]
 struct ApiResponseDescription {
     /// 七牛 API 响应 HTTP 头参数列表
-    #[serde(skip_serializing_if = "HeaderNames::is_empty")]
-    header_names: HeaderNames,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    header_names: Option<HeaderNames>,
 
     /// 七牛 API 响应请求体
     #[serde(skip_serializing_if = "Option::is_none")]

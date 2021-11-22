@@ -4,7 +4,7 @@ service_names:
 base_path: /stat
 documentation: 仅获取对象的元信息，不返回对象的内容
 request:
-  authorization: credential
+  authorization: qiniu
   path_params:
     named:
       - field_name: entry

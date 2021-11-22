@@ -2,9 +2,10 @@ method: post
 service_names:
   - up
 base_path: /mkblk
-documentation: 将上传好的所有数据块按指定顺序合并成一个资源文件
+documentation: 为后续分片上传创建一个新的块，同时上传第一片数据
 request:
   authorization: upload_token
+  idempotent: always
   path_params:
     named:
       - field_name: block_size

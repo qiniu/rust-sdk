@@ -1,7 +1,7 @@
 use qiniu_http::{
     Extensions, HeaderMap, HeaderName, HeaderValue, Metrics, Response as HttpResponse,
-    ResponseErrorKind as HttpResponseErrorKind, ResponseResult as HttpResponseResult, StatusCode,
-    Version,
+    ResponseErrorKind as HttpResponseErrorKind, ResponseParts as HttpResponseParts,
+    ResponseResult as HttpResponseResult, StatusCode, Version,
 };
 use serde::de::DeserializeOwned;
 use serde_json::from_slice as parse_json_from_slice;
@@ -137,6 +137,18 @@ impl<B> Response<B> {
     #[inline]
     pub fn body_mut(&mut self) -> &mut B {
         self.inner.body_mut()
+    }
+
+    #[inline]
+    pub fn into_parts(self) -> (HttpResponseParts, B) {
+        self.inner.into_parts()
+    }
+
+    #[inline]
+    pub fn from_parts(parts: HttpResponseParts, body: B) -> Self {
+        Self {
+            inner: HttpResponse::from_parts(parts, body),
+        }
     }
 
     #[inline]

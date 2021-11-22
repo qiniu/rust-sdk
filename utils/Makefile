@@ -9,7 +9,7 @@ build_test:
 	cargo test --no-run
 doc:
 	cargo test --doc
-	cargo +nightly doc --lib --release --no-deps --all-features
+	cargo +nightly doc --lib --release --all-features
 test:
 	cargo test -- --test-threads=1 --show-output
 clean:

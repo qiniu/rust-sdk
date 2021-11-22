@@ -24,7 +24,7 @@ build_test:
 	cargo test --no-run --no-default-features --features 'async c_ares trust_dns'
 doc:
 	cargo test --doc --features 'async c_ares trust_dns'
-	cargo +nightly doc --lib --release --no-deps --all-features
+	cargo +nightly doc --lib --release --all-features
 test:
 	cargo test --no-default-features --features ureq -- --test-threads=1 --show-output
 	cargo test --no-default-features --features isahc -- --test-threads=1 --show-output

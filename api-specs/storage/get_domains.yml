@@ -4,7 +4,7 @@ service_names:
 base_path: /v2/domains
 documentation: 获取存储空间的域名列表
 request:
-  authorization: credential
+  authorization: qiniu
   query_names:
     - field_name: bucket_name
       query_name: tbl

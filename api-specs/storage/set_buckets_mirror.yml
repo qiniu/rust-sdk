@@ -4,7 +4,8 @@ service_names:
 base_path: /image
 documentation: 设置存储空间的镜像源
 request:
-  authorization: credential
+  authorization: qiniu
+  idempotent: always
   path_params:
     named:
       - field_name: bucket

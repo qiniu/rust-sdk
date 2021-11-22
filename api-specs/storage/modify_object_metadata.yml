@@ -4,7 +4,8 @@ service_names:
 base_path: /chgm
 documentation: 修改文件元信息
 request:
-  authorization: credential
+  authorization: qiniu
+  idempotent: always
   path_params:
     named:
       - field_name: entry

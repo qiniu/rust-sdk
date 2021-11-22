@@ -4,7 +4,7 @@ service_names:
 base_path: /mkbucketv3
 documentation: 创建一个新的存储空间
 request:
-  authorization: credential
+  authorization: qiniu
   path_params:
     named:
       - field_name: bucket

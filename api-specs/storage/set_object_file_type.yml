@@ -4,7 +4,8 @@ service_names:
 base_path: /chtype
 documentation: 修改文件的存储类型信息，可以实现标准存储、低频存储和归档存储之间的互相转换
 request:
-  authorization: credential
+  authorization: qiniu
+  idempotent: always
   path_params:
     named:
       - field_name: entry

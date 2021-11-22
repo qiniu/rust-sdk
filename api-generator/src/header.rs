@@ -48,7 +48,7 @@ impl HeaderNames {
         fn for_header_fields(header_names: &[HeaderName]) -> TokenStream {
             let token_streams_for_fields: Vec<_> = header_names
                 .iter()
-                .map(|field| for_header_field(field))
+                .map(for_header_field)
                 .collect();
             quote! {
                 #(#token_streams_for_fields)*
@@ -65,10 +65,10 @@ impl HeaderNames {
                 #[doc = #documentation]
                 pub fn #method_name(
                     self,
-                    value: impl Into<qiniu_http::header::HeaderValue>,
+                    value: impl Into<qiniu_http_client::http::header::HeaderValue>,
                 ) -> Self {
                     self.insert(
-                        qiniu_http::header::HeaderName::from_bytes(#header_name.as_bytes()).unwrap(),
+                        qiniu_http_client::http::header::HeaderName::from_bytes(#header_name.as_bytes()).unwrap(),
                         value.into(),
                     )
                 }
@@ -80,23 +80,30 @@ impl HeaderNames {
                 #[derive(Debug, Clone)]
                 #[doc = #documentation]
                 pub struct #name {
-                    map: qiniu_http::header::HeaderMap,
+                    map: qiniu_http_client::http::header::HeaderMap,
                 }
 
                 impl #name {
                     #[inline]
                     fn insert(
                         mut self,
-                        header_name: qiniu_http::header::HeaderName,
-                        header_value: qiniu_http::header::HeaderValue,
+                        header_name: qiniu_http_client::http::header::HeaderName,
+                        header_value: qiniu_http_client::http::header::HeaderValue,
                      ) -> Self {
                         self.map.insert(header_name, header_value);
                         self
                      }
 
                     #[inline]
-                    fn build(self) -> qiniu_http::header::HeaderMap {
+                    fn build(self) -> qiniu_http_client::http::header::HeaderMap {
                         self.map
+                    }
+                }
+
+                impl<'a> From<#name> for std::borrow::Cow<'a, qiniu_http_client::http::header::HeaderMap> {
+                    #[inline]
+                    fn from(map: #name) -> Self {
+                        std::borrow::Cow::Owned(map.build())
                     }
                 }
             }
@@ -105,10 +112,6 @@ impl HeaderNames {
         fn field_name_to_ident(field_name: &str) -> Ident {
             format_ident!("{}", field_name.to_case(Case::Snake))
         }
-    }
-
-    pub(super) fn is_empty(&self) -> bool {
-        self.0.is_empty()
     }
 }
 

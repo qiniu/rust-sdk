@@ -1,4 +1,4 @@
-use super::{description::StringLikeType, traits::CodeGenerator};
+use super::{enums::StringLikeType, traits::CodeGenerator};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
@@ -82,11 +82,7 @@ impl PathParams {
         let struct_definition_token_stream = define_new_struct(&name, documentation, &self.named);
 
         let named_path_params_methods_token_stream = for_named_path_params(&self.named);
-        let free_path_params_methods_token_stream = if let Some(free_params) = &self.free {
-            for_free_path_params(free_params)
-        } else {
-            quote! {}
-        };
+        let free_path_params_methods_token_stream = self.free.as_ref().map(for_free_path_params);
         return quote! {
             #struct_definition_token_stream
             impl #name {
@@ -136,20 +132,18 @@ impl PathParams {
         }
 
         fn field_name_to_ident(field_name: &str) -> Ident {
-            format_ident!("{}", field_name.to_case(Case::Snake))
+            format_ident!("r#{}", field_name.to_case(Case::Snake))
         }
 
         fn concat_segments_token_stream(
             all_segments: &Ident,
             param: &NamedPathParam,
         ) -> TokenStream {
-            let path_segment_push_token_stream = if let Some(path_segment) = &param.path_segment {
+            let path_segment_push_token_stream = param.path_segment.as_ref().map(|path_segment| {
                 quote! {
                     #all_segments.push(std::borrow::Cow::Borrowed(#path_segment));
                 }
-            } else {
-                quote! {}
-            };
+            });
             let field_name = field_name_to_ident(&param.field_name);
             match (param.ty, param.encode) {
                 (StringLikeType::String, Some(EncodeType::UrlSafeBase64OrNone)) => {
@@ -172,10 +166,8 @@ impl PathParams {
         }
 
         fn for_named_path_params(params: &[NamedPathParam]) -> TokenStream {
-            let token_streams_for_fields: Vec<_> = params
-                .iter()
-                .map(|param| for_named_path_param(param))
-                .collect();
+            let token_streams_for_fields: Vec<_> =
+                params.iter().map(for_named_path_param).collect();
             quote! {
                 #(#token_streams_for_fields)*
             }

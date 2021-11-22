@@ -8,28 +8,26 @@ use super::{
 use qiniu_http::{HeaderName, HeaderValue, StatusCode, TransferProgressInfo};
 use std::{fmt, time::Duration};
 
-pub(super) type OnProgress =
+pub type OnProgress =
     Box<dyn Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool + Send + Sync>;
-pub(super) type OnStatusCode =
+pub type OnStatusCode =
     Box<dyn Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync>;
-pub(super) type OnHeader =
+pub type OnHeader =
     Box<dyn Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool + Send + Sync>;
 
-pub(super) type OnToResolveDomain =
-    Box<dyn Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync>;
-pub(super) type OnDomainResolved =
+pub type OnToResolveDomain = Box<dyn Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync>;
+pub type OnDomainResolved =
     Box<dyn Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool + Send + Sync>;
-pub(super) type OnToChooseIPs =
+pub type OnToChooseIPs =
     Box<dyn Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync>;
-pub(super) type OnIPsChosen = Box<
+pub type OnIPsChosen = Box<
     dyn Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool + Send + Sync,
 >;
-pub(super) type OnRequest = Box<dyn Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync>;
-pub(super) type OnRetry =
-    Box<dyn Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync>;
-pub(super) type OnSuccess =
+pub type OnRequest = Box<dyn Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync>;
+pub type OnRetry = Box<dyn Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync>;
+pub type OnSuccess =
     Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseInfo) -> bool + Send + Sync>;
-pub(super) type OnError =
+pub type OnError =
     Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync>;
 
 #[derive(Default)]

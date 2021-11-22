@@ -5,11 +5,11 @@ base_path: /buckets
 documentation: 初始化一个 Multipart Upload 任务之后，可以根据指定的对象名称和 UploadId 来分片上传数据
 request:
   authorization: upload_token
+  idempotent: always
   header_names:
     - field_name: md5
       header_name: Content-MD5
       documentation: 上传块内容的 md5 值，如果指定服务端会进行校验，不指定不校验
-      optional: true
   path_params:
     named:
       - field_name: bucket_name

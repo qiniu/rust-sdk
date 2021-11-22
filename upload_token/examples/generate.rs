@@ -1,6 +1,7 @@
+use anyhow::Result;
 use qiniu_credential::{Credential, StaticCredentialProvider};
 use qiniu_upload_token::{UploadPolicyBuilder, UploadTokenProvider};
-use std::{error::Error, result::Result, time::Duration};
+use std::{error::Error, time::Duration};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -20,7 +21,7 @@ struct Opt {
     lifetime: u64,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     let opt: Opt = Opt::from_args();
 
     let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(

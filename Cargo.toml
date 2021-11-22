@@ -11,6 +11,7 @@ members = [
     "http-ureq",
     "http-client",
     "api-generator",
+    "apis",
 ]
 
 [profile.release]
