@@ -1,5 +1,5 @@
-use lazy_static::lazy_static;
 use mime::Mime;
+use once_cell::sync::Lazy;
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use qiniu_http::{header::CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 use qiniu_utils::{smallstr::SmallString, wrap_smallstr};
@@ -394,9 +394,7 @@ fn encode_headers(name: &str, field: &PartMetadata) -> HeaderBuffer {
 
 #[inline]
 fn format_file_name(filename: &str) -> FileName {
-    lazy_static! {
-        static ref REGEX: Regex = Regex::new("\\\\|\"|\r|\n").unwrap();
-    }
+    static REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("\\\\|\"|\r|\n").unwrap());
     let mut formatted = FileName::from("filename=\"");
     let mut last_match = 0;
     for m in REGEX.find_iter(filename) {

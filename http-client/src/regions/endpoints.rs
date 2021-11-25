@@ -1,6 +1,7 @@
 use super::{super::ApiResult, Endpoint, Region, RegionProvider};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::{error::Error, fmt, str::FromStr};
+use std::{borrow::Cow, error::Error, fmt, str::FromStr};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 #[non_exhaustive]
@@ -56,6 +57,16 @@ impl Endpoints {
             preferred: vec![endpoint.into()],
             alternative: vec![],
         }
+    }
+
+    #[inline]
+    pub fn public_uc_endpoints() -> &'static Self {
+        static DEFAULT_UC_ENDPOINTS: Lazy<Endpoints> = Lazy::new(|| {
+            Endpoints::builder(Endpoint::new_from_domain("uc.qbox.me"))
+                .add_preferred_endpoint(Endpoint::new_from_domain("api.qiniu.com"))
+                .build()
+        });
+        &DEFAULT_UC_ENDPOINTS
     }
 
     #[inline]
@@ -197,7 +208,7 @@ pub struct IntoEndpoints<'r> {
 
 #[derive(Debug, Clone)]
 enum Inner<'r> {
-    Endpoints(Endpoints),
+    Endpoints(Cow<'r, Endpoints>),
     Region(&'r Region),
     Provider(&'r dyn RegionProvider),
 }
@@ -206,7 +217,16 @@ impl From<Endpoints> for IntoEndpoints<'_> {
     #[inline]
     fn from(endpoints: Endpoints) -> Self {
         Self {
-            inner: Inner::Endpoints(endpoints),
+            inner: Inner::Endpoints(Cow::Owned(endpoints)),
+        }
+    }
+}
+
+impl<'r> From<&'r Endpoints> for IntoEndpoints<'r> {
+    #[inline]
+    fn from(endpoints: &'r Endpoints) -> Self {
+        Self {
+            inner: Inner::Endpoints(Cow::Borrowed(endpoints)),
         }
     }
 }
@@ -228,12 +248,17 @@ impl<'r> From<&'r dyn RegionProvider> for IntoEndpoints<'r> {
     }
 }
 
-impl IntoEndpoints<'_> {
-    pub(in super::super) fn into_endpoints(self, services: &[ServiceName]) -> ApiResult<Endpoints> {
+impl<'r> IntoEndpoints<'r> {
+    pub(in super::super) fn into_endpoints(
+        self,
+        services: &[ServiceName],
+    ) -> ApiResult<Cow<'r, Endpoints>> {
         let endpoints = match self.inner {
             Inner::Endpoints(endpoints) => endpoints,
-            Inner::Region(region) => Endpoints::from_region(region, services),
-            Inner::Provider(provider) => Endpoints::from_region_provider(provider, services)?,
+            Inner::Region(region) => Cow::Owned(Endpoints::from_region(region, services)),
+            Inner::Provider(provider) => {
+                Cow::Owned(Endpoints::from_region_provider(provider, services)?)
+            }
         };
         Ok(endpoints)
     }
@@ -242,12 +267,12 @@ impl IntoEndpoints<'_> {
     pub(in super::super) async fn async_into_endpoints(
         self,
         services: &[ServiceName],
-    ) -> ApiResult<Endpoints> {
+    ) -> ApiResult<Cow<'r, Endpoints>> {
         let endpoints = match self.inner {
             Inner::Endpoints(endpoints) => endpoints,
-            Inner::Region(region) => Endpoints::from_region(region, services),
+            Inner::Region(region) => Cow::Owned(Endpoints::from_region(region, services)),
             Inner::Provider(provider) => {
-                Endpoints::async_from_region_provider(provider, services).await?
+                Cow::Owned(Endpoints::async_from_region_provider(provider, services).await?)
             }
         };
         Ok(endpoints)
