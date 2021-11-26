@@ -29,7 +29,7 @@ pub trait Metrics: Debug + Send + Sync {
 }
 
 #[derive(Debug, Default)]
-struct ResponseInfo {
+pub(super) struct ResponseInfo {
     server_ip: Option<IpAddr>,
     server_port: Option<NonZeroU16>,
     metrics: Option<Box<dyn Metrics>>,
@@ -37,32 +37,32 @@ struct ResponseInfo {
 
 impl ResponseInfo {
     #[inline]
-    fn server_ip(&self) -> Option<IpAddr> {
+    pub fn server_ip(&self) -> Option<IpAddr> {
         self.server_ip
     }
 
     #[inline]
-    fn server_port(&self) -> Option<NonZeroU16> {
+    pub fn server_port(&self) -> Option<NonZeroU16> {
         self.server_port
     }
 
     #[inline]
-    fn metrics(&self) -> Option<&dyn Metrics> {
+    pub fn metrics(&self) -> Option<&dyn Metrics> {
         self.metrics.as_deref()
     }
 
     #[inline]
-    fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
+    pub(super) fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
         &mut self.server_ip
     }
 
     #[inline]
-    fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
+    pub(super) fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
         &mut self.server_port
     }
 
     #[inline]
-    fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
+    pub(super) fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
         &mut self.metrics
     }
 }
@@ -110,6 +110,29 @@ impl ResponseParts {
         &mut self.inner.version
     }
 
+    /// 扩展字段
+    #[inline]
+    pub fn extensions(&self) -> &Extensions {
+        &self.inner.extensions
+    }
+
+    /// 修改扩展字段
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        &mut self.inner.extensions
+    }
+
+    /// 获取 HTTP 响应 Header
+    #[inline]
+    pub fn header(&self, header_name: HeaderName) -> Option<&HeaderValue> {
+        self.headers().get(&header_name)
+    }
+
+    #[inline]
+    pub(super) fn into_response_info(self) -> ResponseInfo {
+        self.info
+    }
+
     /// HTTP 服务器 IP 地址
     #[inline]
     pub fn server_ip(&self) -> Option<IpAddr> {
@@ -132,24 +155,6 @@ impl ResponseParts {
     #[inline]
     pub fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
         self.info.server_port_mut()
-    }
-
-    /// 扩展字段
-    #[inline]
-    pub fn extensions(&self) -> &Extensions {
-        &self.inner.extensions
-    }
-
-    /// 修改扩展字段
-    #[inline]
-    pub fn extensions_mut(&mut self) -> &mut Extensions {
-        &mut self.inner.extensions
-    }
-
-    /// 获取 HTTP 响应 Header
-    #[inline]
-    pub fn header(&self, header_name: HeaderName) -> Option<&HeaderValue> {
-        self.headers().get(&header_name)
     }
 
     #[inline]

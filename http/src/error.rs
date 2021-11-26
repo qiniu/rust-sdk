@@ -1,15 +1,6 @@
-use super::response::{Metrics, ResponseParts};
-use http::{
-    uri::{Scheme, Uri},
-    Extensions, HeaderMap, HeaderValue, StatusCode, Version,
-};
-use std::{
-    error::Error as StdError,
-    fmt,
-    net::IpAddr,
-    num::NonZeroU16,
-    ops::{Deref, DerefMut},
-};
+use super::response::{Metrics, ResponseInfo, ResponseParts};
+use http::uri::{Scheme, Uri};
+use std::{error::Error as StdError, fmt, net::IpAddr, num::NonZeroU16};
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -75,7 +66,7 @@ pub enum ErrorKind {
 pub struct Error {
     kind: ErrorKind,
     error: Box<dyn StdError + Send + Sync>,
-    parts: ResponseParts,
+    response_info: ResponseInfo,
 }
 
 impl Error {
@@ -98,21 +89,35 @@ impl Error {
     pub fn into_inner(self) -> Box<dyn StdError + Send + Sync> {
         self.error
     }
-}
-
-impl Deref for Error {
-    type Target = ResponseParts;
 
     #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.parts
+    pub fn server_ip(&self) -> Option<IpAddr> {
+        self.response_info.server_ip()
     }
-}
 
-impl DerefMut for Error {
     #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.parts
+    pub fn server_port(&self) -> Option<NonZeroU16> {
+        self.response_info.server_port()
+    }
+
+    #[inline]
+    pub fn metrics(&self) -> Option<&dyn Metrics> {
+        self.response_info.metrics()
+    }
+
+    #[inline]
+    pub fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
+        self.response_info.server_ip_mut()
+    }
+
+    #[inline]
+    pub fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
+        self.response_info.server_port_mut()
+    }
+
+    #[inline]
+    pub fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
+        self.response_info.metrics_mut()
     }
 }
 
@@ -141,7 +146,7 @@ impl ErrorBuilder {
             inner: Error {
                 kind,
                 error: err.into(),
-                parts: Default::default(),
+                response_info: Default::default(),
             },
         }
     }
@@ -149,30 +154,6 @@ impl ErrorBuilder {
     #[inline]
     pub fn build(self) -> Error {
         self.inner
-    }
-
-    #[inline]
-    pub fn status_code(mut self, status_code: StatusCode) -> Self {
-        *self.inner.status_code_mut() = status_code;
-        self
-    }
-
-    #[inline]
-    pub fn version(mut self, version: Version) -> Self {
-        *self.inner.version_mut() = version;
-        self
-    }
-
-    #[inline]
-    pub fn headers(mut self, headers: HeaderMap<HeaderValue>) -> Self {
-        *self.inner.headers_mut() = headers;
-        self
-    }
-
-    #[inline]
-    pub fn extensions(mut self, extensions: Extensions) -> Self {
-        *self.inner.extensions_mut() = extensions;
-        self
     }
 
     #[inline]
@@ -235,7 +216,7 @@ impl<E: StdError + Sync + Send + 'static> MapError<E> {
         Error {
             kind,
             error: Box::new(self.error),
-            parts: self.parts,
+            response_info: self.parts.into_response_info(),
         }
     }
 }
