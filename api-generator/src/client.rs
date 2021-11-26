@@ -348,12 +348,12 @@ impl ApiDetailedDescription {
                 match authorization {
                     Authorization::Qbox | Authorization::Qiniu => {
                         params.push(quote! {
-                            credential: std::sync::Arc<dyn qiniu_http_client::credential::CredentialProvider>
+                            credential: Box<dyn qiniu_http_client::credential::CredentialProvider>
                         });
                     }
                     Authorization::UploadToken => {
                         params.push(quote! {
-                            upload_token: std::sync::Arc<dyn qiniu_http_client::upload_token::UploadTokenProvider>
+                            upload_token: Box<dyn qiniu_http_client::upload_token::UploadTokenProvider>
                         });
                     }
                 }

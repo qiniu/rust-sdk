@@ -4,7 +4,7 @@ use qiniu_http::{
     HeaderValue, RequestParts, SyncRequest,
 };
 use qiniu_upload_token::UploadTokenProvider;
-use std::{fmt, io::Error as IoError, mem::take, result::Result, sync::Arc};
+use std::{fmt, io::Error as IoError, mem::take, result::Result};
 use tap::Tap;
 use thiserror::Error;
 use url::ParseError as UrlParseError;
@@ -20,28 +20,28 @@ pub struct Authorization {
 
 #[derive(Clone, Debug)]
 enum AuthorizationInner {
-    UpToken(Arc<dyn UploadTokenProvider>),
-    V1(Arc<dyn CredentialProvider>),
-    V2(Arc<dyn CredentialProvider>),
+    UpToken(Box<dyn UploadTokenProvider>),
+    V1(Box<dyn CredentialProvider>),
+    V2(Box<dyn CredentialProvider>),
 }
 
 impl Authorization {
     #[inline]
-    pub fn uptoken(provider: Arc<dyn UploadTokenProvider>) -> Self {
+    pub fn uptoken(provider: Box<dyn UploadTokenProvider>) -> Self {
         Self {
             inner: AuthorizationInner::UpToken(provider),
         }
     }
 
     #[inline]
-    pub fn v1(provider: Arc<dyn CredentialProvider>) -> Self {
+    pub fn v1(provider: Box<dyn CredentialProvider>) -> Self {
         Self {
             inner: AuthorizationInner::V1(provider),
         }
     }
 
     #[inline]
-    pub fn v2(provider: Arc<dyn CredentialProvider>) -> Self {
+    pub fn v2(provider: Box<dyn CredentialProvider>) -> Self {
         Self {
             inner: AuthorizationInner::V2(provider),
         }
@@ -180,16 +180,16 @@ fn uptoken_authorization(upload_token: &str) -> String {
     "UpToken ".to_owned() + upload_token
 }
 
-impl From<Arc<dyn UploadTokenProvider>> for Authorization {
+impl From<Box<dyn UploadTokenProvider>> for Authorization {
     #[inline]
-    fn from(provider: Arc<dyn UploadTokenProvider>) -> Self {
+    fn from(provider: Box<dyn UploadTokenProvider>) -> Self {
         Self::uptoken(provider)
     }
 }
 
-impl From<Arc<dyn CredentialProvider>> for Authorization {
+impl From<Box<dyn CredentialProvider>> for Authorization {
     #[inline]
-    fn from(provider: Arc<dyn CredentialProvider>) -> Self {
+    fn from(provider: Box<dyn CredentialProvider>) -> Self {
         Self::v2(provider)
     }
 }

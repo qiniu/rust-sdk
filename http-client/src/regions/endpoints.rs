@@ -1,7 +1,7 @@
 use super::{super::ApiResult, Endpoint, Region, RegionProvider};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, error::Error, fmt, str::FromStr};
+use std::{borrow::Cow, error::Error, fmt, str::FromStr, sync::Arc};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 #[non_exhaustive]
@@ -46,8 +46,8 @@ impl Error for InvalidServiceName {}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Endpoints {
-    preferred: Box<[Endpoint]>,
-    alternative: Box<[Endpoint]>,
+    preferred: Arc<[Endpoint]>,
+    alternative: Arc<[Endpoint]>,
 }
 
 impl Endpoints {
@@ -133,32 +133,12 @@ impl Endpoints {
     }
 }
 
-impl From<Box<[Endpoint]>> for Endpoints {
-    #[inline]
-    fn from(endpoints: Box<[Endpoint]>) -> Self {
-        Self {
-            preferred: endpoints,
-            alternative: Default::default(),
-        }
-    }
-}
-
-impl From<(Box<[Endpoint]>, Box<[Endpoint]>)> for Endpoints {
-    #[inline]
-    fn from(endpoints: (Box<[Endpoint]>, Box<[Endpoint]>)) -> Self {
-        Self {
-            preferred: endpoints.0,
-            alternative: endpoints.1,
-        }
-    }
-}
-
 impl From<Vec<Endpoint>> for Endpoints {
     #[inline]
     fn from(endpoints: Vec<Endpoint>) -> Self {
         Self {
-            preferred: endpoints.into_boxed_slice(),
-            alternative: Default::default(),
+            preferred: endpoints.into_boxed_slice().into(),
+            alternative: Arc::new([]),
         }
     }
 }
@@ -167,8 +147,8 @@ impl From<(Vec<Endpoint>, Vec<Endpoint>)> for Endpoints {
     #[inline]
     fn from(endpoints: (Vec<Endpoint>, Vec<Endpoint>)) -> Self {
         Self {
-            preferred: endpoints.0.into_boxed_slice(),
-            alternative: endpoints.1.into_boxed_slice(),
+            preferred: endpoints.0.into_boxed_slice().into(),
+            alternative: endpoints.1.into_boxed_slice().into(),
         }
     }
 }
@@ -195,8 +175,8 @@ impl EndpointsBuilder {
     #[inline]
     pub fn build(self) -> Endpoints {
         Endpoints {
-            preferred: self.preferred.into_boxed_slice(),
-            alternative: self.alternative.into_boxed_slice(),
+            preferred: self.preferred.into_boxed_slice().into(),
+            alternative: self.alternative.into_boxed_slice().into(),
         }
     }
 }
@@ -227,6 +207,15 @@ impl<'r> From<&'r Endpoints> for IntoEndpoints<'r> {
     fn from(endpoints: &'r Endpoints) -> Self {
         Self {
             inner: Inner::Endpoints(Cow::Borrowed(endpoints)),
+        }
+    }
+}
+
+impl<'r> From<Cow<'r, Endpoints>> for IntoEndpoints<'r> {
+    #[inline]
+    fn from(endpoints: Cow<'r, Endpoints>) -> Self {
+        Self {
+            inner: Inner::Endpoints(endpoints),
         }
     }
 }

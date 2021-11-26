@@ -96,7 +96,7 @@ impl<'client> Client<'client> {
         &self,
         into_endpoints: impl Into<qiniu_http_client::IntoEndpoints<'client>>,
         path_params: PathParams,
-        credential: std::sync::Arc<dyn qiniu_http_client::credential::CredentialProvider>,
+        credential: Box<dyn qiniu_http_client::credential::CredentialProvider>,
     ) -> SyncRequestBuilder {
         SyncRequestBuilder(
             self.0
@@ -117,7 +117,7 @@ impl<'client> Client<'client> {
         &self,
         into_endpoints: impl Into<qiniu_http_client::IntoEndpoints<'client>>,
         path_params: PathParams,
-        credential: std::sync::Arc<dyn qiniu_http_client::credential::CredentialProvider>,
+        credential: Box<dyn qiniu_http_client::credential::CredentialProvider>,
     ) -> AsyncRequestBuilder {
         AsyncRequestBuilder(
             self.0

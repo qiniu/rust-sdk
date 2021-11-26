@@ -7,28 +7,28 @@ use super::{
     GetOptions, GotRegion, GotRegions, Region, RegionProvider,
 };
 use qiniu_credential::CredentialProvider;
-use std::{convert::TryFrom, fmt::Debug, sync::Arc};
+use std::{convert::TryFrom, fmt::Debug};
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RegionsProvider {
-    credential_provider: Arc<dyn CredentialProvider>,
+    credential_provider: Box<dyn CredentialProvider>,
     http_client: HttpClient,
     uc_endpoints: Endpoints,
 }
 
 impl RegionsProvider {
     #[inline]
-    pub fn builder(credential_provider: Arc<dyn CredentialProvider>) -> RegionsProviderBuilder {
+    pub fn builder(credential_provider: Box<dyn CredentialProvider>) -> RegionsProviderBuilder {
         RegionsProviderBuilder::new(credential_provider)
     }
 
     fn do_sync_query(&self) -> ApiResult<Vec<Region>> {
         let (parts, body) = self
             .http_client
-            .get(&[ServiceName::Uc], self.uc_endpoints.to_owned())
+            .get(&[ServiceName::Uc], &self.uc_endpoints)
             .path("/regions")
             .authorization(Authorization::v2(self.credential_provider.to_owned()))
             .accept_json()
@@ -48,7 +48,7 @@ impl RegionsProvider {
     async fn do_async_query(&self) -> ApiResult<Vec<Region>> {
         let (parts, body) = self
             .http_client
-            .async_get(&[ServiceName::Uc], self.uc_endpoints.to_owned())
+            .async_get(&[ServiceName::Uc], &self.uc_endpoints)
             .path("/regions")
             .authorization(Authorization::v2(self.credential_provider.to_owned()))
             .accept_json()
@@ -110,16 +110,16 @@ impl RegionProvider for RegionsProvider {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RegionsProviderBuilder {
-    credential_provider: Arc<dyn CredentialProvider>,
+    credential_provider: Box<dyn CredentialProvider>,
     http_client: Option<HttpClient>,
     uc_endpoints: Option<Endpoints>,
 }
 
 impl RegionsProviderBuilder {
     #[inline]
-    pub fn new(credential_provider: Arc<dyn CredentialProvider>) -> Self {
+    pub fn new(credential_provider: Box<dyn CredentialProvider>) -> Self {
         Self {
             credential_provider,
             http_client: None,
@@ -197,7 +197,7 @@ mod tests {
             });
 
         starts_with_server!(addr, routes, {
-            let provider = RegionsProvider::builder(Arc::new(StaticCredentialProvider::new(
+            let provider = RegionsProvider::builder(Box::new(StaticCredentialProvider::new(
                 Credential::new(ACCESS_KEY, SECRET_KEY),
             )))
             .http_client(HttpClient::build_isahc()?.use_https(false).build())

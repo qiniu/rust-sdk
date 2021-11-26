@@ -353,7 +353,7 @@ impl<'client> Client<'client> {
         &self,
         into_endpoints: impl Into<qiniu_http_client::IntoEndpoints<'client>>,
         path_params: PathParams,
-        upload_token: std::sync::Arc<dyn qiniu_http_client::upload_token::UploadTokenProvider>,
+        upload_token: Box<dyn qiniu_http_client::upload_token::UploadTokenProvider>,
     ) -> SyncRequestBuilder {
         SyncRequestBuilder(
             self.0
@@ -374,7 +374,7 @@ impl<'client> Client<'client> {
         &self,
         into_endpoints: impl Into<qiniu_http_client::IntoEndpoints<'client>>,
         path_params: PathParams,
-        upload_token: std::sync::Arc<dyn qiniu_http_client::upload_token::UploadTokenProvider>,
+        upload_token: Box<dyn qiniu_http_client::upload_token::UploadTokenProvider>,
     ) -> AsyncRequestBuilder {
         AsyncRequestBuilder(
             self.0

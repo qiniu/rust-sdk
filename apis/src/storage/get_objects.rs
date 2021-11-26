@@ -740,7 +740,7 @@ impl<'client> Client<'client> {
     pub fn new_request(
         &self,
         into_endpoints: impl Into<qiniu_http_client::IntoEndpoints<'client>>,
-        credential: std::sync::Arc<dyn qiniu_http_client::credential::CredentialProvider>,
+        credential: Box<dyn qiniu_http_client::credential::CredentialProvider>,
     ) -> SyncRequestBuilder {
         SyncRequestBuilder(
             self.0
@@ -759,7 +759,7 @@ impl<'client> Client<'client> {
     pub fn new_async_request(
         &self,
         into_endpoints: impl Into<qiniu_http_client::IntoEndpoints<'client>>,
-        credential: std::sync::Arc<dyn qiniu_http_client::credential::CredentialProvider>,
+        credential: Box<dyn qiniu_http_client::credential::CredentialProvider>,
     ) -> AsyncRequestBuilder {
         AsyncRequestBuilder(
             self.0

@@ -5,7 +5,7 @@ use super::{
     GetOptions, GotRegion, GotRegions, RegionProvider,
 };
 use qiniu_credential::CredentialProvider;
-use std::{fmt, path::Path, sync::Arc, time::Duration};
+use std::{fmt, path::Path, time::Duration};
 
 #[cfg(feature = "async")]
 use {async_std::task::spawn, futures::future::BoxFuture};
@@ -15,10 +15,6 @@ const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 
 #[derive(Clone)]
 pub struct CachedRegionsProvider {
-    inner: Arc<CachedRegionsProviderInner>,
-}
-
-struct CachedRegionsProviderInner {
     cache_key: CacheKey,
     provider: RegionsProvider,
     cache: RegionsCache,
@@ -27,7 +23,7 @@ struct CachedRegionsProviderInner {
 impl CachedRegionsProvider {
     #[inline]
     pub fn builder(
-        credential_provider: Arc<dyn CredentialProvider>,
+        credential_provider: Box<dyn CredentialProvider>,
     ) -> CachedRegionsProviderBuilder {
         CachedRegionsProviderBuilder {
             credential_provider,
@@ -55,11 +51,9 @@ impl RegionProvider for CachedRegionsProvider {
     fn get_all(&self, opts: &GetOptions) -> ApiResult<GotRegions> {
         let provider = self.to_owned();
         let opts = opts.to_owned();
-        self.inner
-            .cache
-            .get(&self.inner.cache_key, move || {
+        self.cache
+            .get(&self.cache_key, move || {
                 provider
-                    .inner
                     .provider
                     .get_all(&opts)
                     .map(|results| results.into_regions())
@@ -89,7 +83,7 @@ impl RegionProvider for CachedRegionsProvider {
 
     #[inline]
     fn cache_controller(&self) -> Option<&dyn CacheController> {
-        Some(&self.inner.cache)
+        Some(&self.cache)
     }
 }
 
@@ -97,7 +91,7 @@ impl fmt::Debug for CachedRegionsProvider {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("CachedRegionsProvider")
-            .field("provider", &self.inner.provider)
+            .field("provider", &self.provider)
             .finish()
     }
 }
@@ -107,7 +101,7 @@ pub struct CachedRegionsProviderBuilder {
     shrink_interval: Duration,
     http_client: Option<HttpClient>,
     uc_endpoints: Option<Endpoints>,
-    credential_provider: Arc<dyn CredentialProvider>,
+    credential_provider: Box<dyn CredentialProvider>,
 }
 
 impl fmt::Debug for CachedRegionsProviderBuilder {
@@ -155,16 +149,14 @@ impl CachedRegionsProviderBuilder {
         auto_persistent: bool,
     ) -> CachedRegionsProvider {
         CachedRegionsProvider {
-            inner: Arc::new(CachedRegionsProviderInner {
-                cache: RegionsCache::load_or_create_from(
-                    path.as_ref(),
-                    auto_persistent,
-                    self.cache_lifetime,
-                    self.shrink_interval,
-                ),
-                cache_key: self.new_cache_key(),
-                provider: self.new_regions_provider(),
-            }),
+            cache: RegionsCache::load_or_create_from(
+                path.as_ref(),
+                auto_persistent,
+                self.cache_lifetime,
+                self.shrink_interval,
+            ),
+            cache_key: self.new_cache_key(),
+            provider: self.new_regions_provider(),
         }
     }
 
@@ -176,26 +168,22 @@ impl CachedRegionsProviderBuilder {
     #[inline]
     pub fn default_load_or_create_from(self, auto_persistent: bool) -> CachedRegionsProvider {
         CachedRegionsProvider {
-            inner: Arc::new(CachedRegionsProviderInner {
-                cache: RegionsCache::default_load_or_create_from(
-                    auto_persistent,
-                    self.cache_lifetime,
-                    self.shrink_interval,
-                ),
-                cache_key: self.new_cache_key(),
-                provider: self.new_regions_provider(),
-            }),
+            cache: RegionsCache::default_load_or_create_from(
+                auto_persistent,
+                self.cache_lifetime,
+                self.shrink_interval,
+            ),
+            cache_key: self.new_cache_key(),
+            provider: self.new_regions_provider(),
         }
     }
 
     #[inline]
     pub fn in_memory(self) -> CachedRegionsProvider {
         CachedRegionsProvider {
-            inner: Arc::new(CachedRegionsProviderInner {
-                cache: RegionsCache::in_memory(self.cache_lifetime, self.shrink_interval),
-                cache_key: self.new_cache_key(),
-                provider: self.new_regions_provider(),
-            }),
+            cache: RegionsCache::in_memory(self.cache_lifetime, self.shrink_interval),
+            cache_key: self.new_cache_key(),
+            provider: self.new_regions_provider(),
         }
     }
 

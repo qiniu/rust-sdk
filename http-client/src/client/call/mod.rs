@@ -622,7 +622,7 @@ mod tests {
         .backoff(Box::new(NO_BACKOFF))
         .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
         .build();
-        let credential: Arc<dyn CredentialProvider> = Arc::new(StaticCredentialProvider::new(
+        let credential: Box<dyn CredentialProvider> = Box::new(StaticCredentialProvider::new(
             Credential::new("abcdefghklmnopq", "012345678901234567890"),
         ));
         let signed_urls = Arc::new(Mutex::new(HashSet::new()));

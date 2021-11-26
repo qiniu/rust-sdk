@@ -9,7 +9,7 @@ use super::{
 };
 use qiniu_credential::AccessKey;
 use qiniu_upload_token::BucketName;
-use std::{convert::TryFrom, fmt::Debug, path::Path, sync::Arc, time::Duration};
+use std::{convert::TryFrom, fmt::Debug, path::Path, time::Duration};
 
 #[cfg(feature = "async")]
 use {async_std::task::spawn, futures::future::BoxFuture};
@@ -19,11 +19,6 @@ const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 
 #[derive(Debug, Clone)]
 pub struct BucketRegionsQueryer {
-    inner: Arc<BucketRegionsQueryerInner>,
-}
-
-#[derive(Debug)]
-struct BucketRegionsQueryerInner {
     http_client: HttpClient,
     uc_endpoints: Endpoints,
     cache: RegionsCache,
@@ -52,16 +47,14 @@ impl BucketRegionsQueryer {
         let access_key = access_key.into();
         let bucket_name = bucket_name.into();
         BucketRegionsProvider {
-            inner: Arc::new(BucketRegionsProviderInner {
-                queryer: self.to_owned(),
-                access_key: access_key.to_owned(),
-                bucket_name: bucket_name.to_owned(),
-                cache_key: CacheKey::new_from_endpoint_and_ak_and_bucket(
-                    &self.inner.uc_endpoints,
-                    bucket_name,
-                    access_key,
-                ),
-            }),
+            queryer: self.to_owned(),
+            access_key: access_key.to_owned(),
+            bucket_name: bucket_name.to_owned(),
+            cache_key: CacheKey::new_from_endpoint_and_ak_and_bucket(
+                &self.uc_endpoints,
+                bucket_name,
+                access_key,
+            ),
         }
     }
 }
@@ -122,59 +115,48 @@ impl BucketRegionsQueryerBuilder {
         auto_persistent: bool,
     ) -> BucketRegionsQueryer {
         BucketRegionsQueryer {
-            inner: Arc::new(BucketRegionsQueryerInner {
-                cache: RegionsCache::load_or_create_from(
-                    path.as_ref(),
-                    auto_persistent,
-                    self.cache_lifetime,
-                    self.shrink_interval,
-                ),
-                http_client: self.http_client.unwrap_or_default(),
-                uc_endpoints: self
-                    .uc_endpoints
-                    .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
-            }),
+            cache: RegionsCache::load_or_create_from(
+                path.as_ref(),
+                auto_persistent,
+                self.cache_lifetime,
+                self.shrink_interval,
+            ),
+            http_client: self.http_client.unwrap_or_default(),
+            uc_endpoints: self
+                .uc_endpoints
+                .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
         }
     }
 
     #[inline]
     pub fn default_load_or_create_from(self, auto_persistent: bool) -> BucketRegionsQueryer {
         BucketRegionsQueryer {
-            inner: Arc::new(BucketRegionsQueryerInner {
-                cache: RegionsCache::default_load_or_create_from(
-                    auto_persistent,
-                    self.cache_lifetime,
-                    self.shrink_interval,
-                ),
-                http_client: self.http_client.unwrap_or_default(),
-                uc_endpoints: self
-                    .uc_endpoints
-                    .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
-            }),
+            cache: RegionsCache::default_load_or_create_from(
+                auto_persistent,
+                self.cache_lifetime,
+                self.shrink_interval,
+            ),
+            http_client: self.http_client.unwrap_or_default(),
+            uc_endpoints: self
+                .uc_endpoints
+                .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
         }
     }
 
     #[inline]
     pub fn in_memory(self) -> BucketRegionsQueryer {
         BucketRegionsQueryer {
-            inner: Arc::new(BucketRegionsQueryerInner {
-                cache: RegionsCache::in_memory(self.cache_lifetime, self.shrink_interval),
-                http_client: self.http_client.unwrap_or_default(),
-                uc_endpoints: self
-                    .uc_endpoints
-                    .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
-            }),
+            cache: RegionsCache::in_memory(self.cache_lifetime, self.shrink_interval),
+            http_client: self.http_client.unwrap_or_default(),
+            uc_endpoints: self
+                .uc_endpoints
+                .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct BucketRegionsProvider {
-    inner: Arc<BucketRegionsProviderInner>,
-}
-
-#[derive(Debug)]
-struct BucketRegionsProviderInner {
     queryer: BucketRegionsQueryer,
     cache_key: CacheKey,
     access_key: AccessKey,
@@ -196,11 +178,9 @@ impl RegionProvider for BucketRegionsProvider {
     #[inline]
     fn get_all(&self, _opts: &GetOptions) -> ApiResult<GotRegions> {
         let provider = self.to_owned();
-        self.inner
-            .queryer
-            .inner
+        self.queryer
             .cache
-            .get(&self.inner.cache_key, move || provider.do_sync_query())
+            .get(&self.cache_key, move || provider.do_sync_query())
             .map(GotRegions::from)
     }
 
@@ -226,24 +206,22 @@ impl RegionProvider for BucketRegionsProvider {
 
     #[inline]
     fn cache_controller(&self) -> Option<&dyn CacheController> {
-        Some(&self.inner.queryer.inner.cache)
+        Some(&self.queryer.cache)
     }
 }
 
 impl BucketRegionsProvider {
     fn do_sync_query(&self) -> ApiResult<Vec<Region>> {
         let (parts, body) = self
-            .inner
             .queryer
-            .inner
             .http_client
             .get(
                 &[ServiceName::Uc, ServiceName::Api],
-                self.inner.queryer.inner.uc_endpoints.to_owned(),
+                &self.queryer.uc_endpoints,
             )
             .path("/v4/query")
-            .append_query_pair("ak", self.inner.access_key.as_str())
-            .append_query_pair("bucket", self.inner.bucket_name.as_str())
+            .append_query_pair("ak", self.access_key.as_str())
+            .append_query_pair("bucket", self.bucket_name.as_str())
             .accept_json()
             .call()?
             .parse_json::<ResponseBody>()?
