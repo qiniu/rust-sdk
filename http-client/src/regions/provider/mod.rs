@@ -64,6 +64,37 @@ pub trait RegionProvider: Debug + Sync + Send {
     }
 }
 
+impl RegionProvider for Box<dyn RegionProvider + 'static> {
+    #[inline]
+    fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
+        self.as_ref().get(opts)
+    }
+
+    #[inline]
+    fn get_all(&self, opts: &GetOptions) -> ApiResult<GotRegions> {
+        self.as_ref().get_all(opts)
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
+        self.as_ref().async_get(opts)
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegions>> {
+        self.as_ref().async_get_all(opts)
+    }
+
+    #[inline]
+    fn cache_controller(&self) -> Option<&dyn CacheController> {
+        self.as_ref().cache_controller()
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct GetOptions {}
 
