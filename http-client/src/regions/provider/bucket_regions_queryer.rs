@@ -246,7 +246,10 @@ mod tests {
         error::Error,
         result::Result,
         str::FromStr,
-        sync::atomic::{AtomicUsize, Ordering::Relaxed},
+        sync::{
+            atomic::{AtomicUsize, Ordering::Relaxed},
+            Arc,
+        },
     };
     use tokio::task::spawn;
     use warp::{http::header::HeaderValue, path, reply::Response, Filter};
@@ -296,8 +299,11 @@ mod tests {
                 }
             });
 
-        starts_with_server!(_addr, routes, {
-            let queryer = BucketRegionsQueryer::builder().in_memory();
+        starts_with_server!(addr, routes, {
+            let queryer = BucketRegionsQueryer::builder()
+                .http_client(HttpClient::build_isahc()?.use_https(false).build())
+                .uc_endpoints(vec![Endpoint::from(addr)])
+                .in_memory();
 
             for _ in 0..2 {
                 let provider = queryer.query(ACCESS_KEY, BUCKET_NAME);
