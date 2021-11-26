@@ -131,7 +131,7 @@ impl QueryNames {
 
         fn define_new_struct(name: &Ident, documentation: &str) -> TokenStream {
             quote! {
-                #[derive(Debug, Clone)]
+                #[derive(Debug, Clone, Default)]
                 #[doc = #documentation]
                 pub struct #name<'a> {
                     map: std::collections::HashMap<

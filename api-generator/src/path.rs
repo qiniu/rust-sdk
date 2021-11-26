@@ -106,7 +106,7 @@ impl PathParams {
                 .collect();
 
             quote! {
-                #[derive(Debug, Clone)]
+                #[derive(Debug, Clone, Default)]
                 #[doc = #documentation]
                 pub struct #name {
                     #(#named_fields: Option<std::borrow::Cow<'static, str>>,)*

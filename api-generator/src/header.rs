@@ -46,10 +46,8 @@ impl HeaderNames {
         };
 
         fn for_header_fields(header_names: &[HeaderName]) -> TokenStream {
-            let token_streams_for_fields: Vec<_> = header_names
-                .iter()
-                .map(for_header_field)
-                .collect();
+            let token_streams_for_fields: Vec<_> =
+                header_names.iter().map(for_header_field).collect();
             quote! {
                 #(#token_streams_for_fields)*
             }
@@ -77,7 +75,7 @@ impl HeaderNames {
 
         fn define_new_struct(name: &Ident, documentation: &str) -> TokenStream {
             quote! {
-                #[derive(Debug, Clone)]
+                #[derive(Debug, Clone, Default)]
                 #[doc = #documentation]
                 pub struct #name {
                     map: qiniu_http_client::http::header::HeaderMap,

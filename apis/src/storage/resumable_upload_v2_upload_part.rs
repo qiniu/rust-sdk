@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[doc = "调用 API 所用的路径参数"]
 pub struct PathParams {
     r#bucket_name: Option<std::borrow::Cow<'static, str>>,
@@ -76,7 +76,7 @@ impl PathParams {
         self
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[doc = "调用 API 所用的 HTTP 头参数"]
 pub struct RequestHeaders {
     map: qiniu_http_client::http::header::HeaderMap,

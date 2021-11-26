@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[doc = "调用 API 所用的 URL 查询参数"]
 pub struct QueryParams<'a> {
     map: std::collections::HashMap<

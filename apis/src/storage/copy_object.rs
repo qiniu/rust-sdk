@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[doc = "调用 API 所用的路径参数"]
 pub struct PathParams {
     r#src_entry: Option<std::borrow::Cow<'static, str>>,
