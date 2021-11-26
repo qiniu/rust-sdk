@@ -573,11 +573,11 @@ impl<'req> AsyncRequestBuilder<'req> {
     }
     pub async fn call(
         self,
-        body: String,
+        body: impl Into<String>,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
         let request = self
             .0
-            .bytes_as_body(body.into_bytes(), Some(mime::TEXT_PLAIN_UTF_8));
+            .bytes_as_body(body.into().into_bytes(), Some(mime::TEXT_PLAIN_UTF_8));
         let response = request.call().await?;
         let parsed = response.parse_json().await?;
         Ok(parsed)

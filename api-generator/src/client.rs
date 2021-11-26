@@ -526,10 +526,9 @@ impl ApiDetailedDescription {
                             + Sync
                             + 'static,
                         content_length: u64,
-                        content_type: Option<mime::Mime>,
                     }),
                     quote! {
-                        self.0.stream_as_body(body, content_length, content_type)
+                        self.0.stream_as_body(body, content_length, None)
                     },
                 ),
                 Some(RequestBody::PlainText) => (
@@ -593,18 +592,17 @@ impl ApiDetailedDescription {
                             + Sync
                             + 'static,
                         content_length: u64,
-                        content_type: Option<mime::Mime>,
                     }),
                     quote! {
-                        self.0.stream_as_body(body, content_length, content_type)
+                        self.0.stream_as_body(body, content_length, None)
                     },
                 ),
                 Some(RequestBody::PlainText) => (
                     Some(quote! {
-                        body: String,
+                        body: impl Into<String>,
                     }),
                     quote! {
-                        self.0.bytes_as_body(body.into_bytes(), Some(mime::TEXT_PLAIN_UTF_8))
+                        self.0.bytes_as_body(body.into().into_bytes(), Some(mime::TEXT_PLAIN_UTF_8))
                     },
                 ),
                 None => (None, quote! {self.0}),

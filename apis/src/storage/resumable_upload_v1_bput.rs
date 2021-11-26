@@ -453,9 +453,8 @@ impl<'req> SyncRequestBuilder<'req> {
             + Sync
             + 'static,
         content_length: u64,
-        content_type: Option<mime::Mime>,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
-        let request = self.0.stream_as_body(body, content_length, content_type);
+        let request = self.0.stream_as_body(body, content_length, None);
         let response = request.call()?;
         let parsed = response.parse_json()?;
         Ok(parsed)
@@ -574,9 +573,8 @@ impl<'req> AsyncRequestBuilder<'req> {
             + Sync
             + 'static,
         content_length: u64,
-        content_type: Option<mime::Mime>,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
-        let request = self.0.stream_as_body(body, content_length, content_type);
+        let request = self.0.stream_as_body(body, content_length, None);
         let response = request.call().await?;
         let parsed = response.parse_json().await?;
         Ok(parsed)
