@@ -167,6 +167,7 @@ fn generate_rust_modules() -> Result<()> {
             .arg("--manifest-path")
             .arg(cargo_toml_path)
             .stdin(Stdio::null())
+            .env_remove("RUST_LOG")
             .status()?;
         assert!(status.success());
         Ok(())
@@ -178,6 +179,7 @@ fn generate_rust_modules() -> Result<()> {
             .arg(dir_path)
             .arg("build")
             .stdin(Stdio::null())
+            .env_remove("RUST_LOG")
             .status()?;
         assert!(status.success());
         Ok(())
@@ -189,6 +191,7 @@ fn generate_rust_modules() -> Result<()> {
             .arg(dir_path)
             .arg("clippy")
             .stdin(Stdio::null())
+            .env_remove("RUST_LOG")
             .status()?;
         assert!(status.success());
         Ok(())
