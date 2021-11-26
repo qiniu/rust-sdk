@@ -12,6 +12,7 @@ members = [
     "http-client",
     "api-generator",
     "apis",
+    "api-examples",
 ]
 
 [profile.release]
