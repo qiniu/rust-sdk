@@ -25,12 +25,11 @@ pub use file_type::{FileType, InvalidFileType};
 pub use qiniu_utils::{BucketName, ObjectName};
 pub use serde_json;
 pub use upload_policy::{UploadPolicy, UploadPolicyBuilder};
-use upload_token::FromUploadPolicy;
 pub use upload_token::{
     BucketUploadTokenProvider, BucketUploadTokenProviderBuilder, CachedUploadTokenProvider,
-    GetAccessKeyOptions, GetPolicyOptions, GotAccessKey, GotString, GotUploadPolicy,
-    ObjectUploadTokenProvider, ObjectUploadTokenProviderBuilder, OnPolicyGeneratedCallback,
-    ParseError, ParseResult, StaticUploadTokenProvider, ToStringOptions, UploadTokenProvider,
+    FromUploadPolicy, GetAccessKeyOptions, GetPolicyOptions, GotAccessKey, GotString,
+    GotUploadPolicy, ObjectUploadTokenProvider, ObjectUploadTokenProviderBuilder, ParseError,
+    ParseResult, StaticUploadTokenProvider, ToStringOptions, UploadTokenProvider,
 };
 
 pub mod preclude {

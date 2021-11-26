@@ -1,4 +1,5 @@
 use super::{UploadPolicy, UploadPolicyBuilder};
+use dyn_clonable::clonable;
 use once_cell::sync::OnceCell;
 use qiniu_credential::{AccessKey, CredentialProvider};
 use qiniu_utils::{base64, BucketName, ObjectName};
@@ -7,7 +8,7 @@ use std::{
     fmt::{self, Debug},
     io::{Error as IoError, Result as IoResult},
     ops::{Deref, DerefMut},
-    sync::RwLock,
+    sync::{Arc, RwLock},
     time::{Duration, Instant},
 };
 use tap::Tap;
@@ -28,7 +29,8 @@ type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send
 /// 上传凭证提供者
 ///
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1208/upload-token)了解七牛安全机制。
-pub trait UploadTokenProvider: Debug + Sync + Send {
+#[clonable]
+pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
     /// 从上传凭证内获取 AccessKey
     fn access_key(&self, opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey>;
 
@@ -131,7 +133,7 @@ impl DerefMut for GotAccessKey {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GotUploadPolicy<'a>(Cow<'a, UploadPolicy>);
 
 impl<'a> From<GotUploadPolicy<'a>> for Cow<'a, UploadPolicy> {
@@ -202,7 +204,7 @@ impl DerefMut for GotUploadPolicy<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GotString<'a>(Cow<'a, str>);
 
 impl<'a> From<GotString<'a>> for Cow<'a, str> {
@@ -287,6 +289,7 @@ impl<'a> DerefMut for GotString<'a> {
 /// 静态上传凭证提供者
 ///
 /// 根据已经被生成好的上传凭证字符串生成上传凭证提供者实例，可以将上传凭证解析为 Access Token 和上传策略
+#[derive(Clone)]
 pub struct StaticUploadTokenProvider {
     upload_token: Box<str>,
     policy: OnceCell<UploadPolicy>,
@@ -356,15 +359,15 @@ impl<T: Into<String>> From<T> for StaticUploadTokenProvider {
     }
 }
 
-#[derive(Debug)]
-pub(super) struct FromUploadPolicy<C> {
+#[derive(Debug, Clone)]
+pub struct FromUploadPolicy<C: Clone> {
     upload_policy: UploadPolicy,
     credential: C,
 }
 
-impl<C> FromUploadPolicy<C> {
+impl<C: Clone> FromUploadPolicy<C> {
     /// 基于上传策略和认证信息生成上传凭证实例
-    pub(super) fn new(upload_policy: UploadPolicy, credential: C) -> Self {
+    pub fn new(upload_policy: UploadPolicy, credential: C) -> Self {
         Self {
             upload_policy,
             credential,
@@ -372,7 +375,7 @@ impl<C> FromUploadPolicy<C> {
     }
 }
 
-impl<C: CredentialProvider> UploadTokenProvider for FromUploadPolicy<C> {
+impl<C: CredentialProvider + Clone> UploadTokenProvider for FromUploadPolicy<C> {
     #[inline]
     fn access_key(&self, _opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
         Ok(self
@@ -398,19 +401,20 @@ impl<C: CredentialProvider> UploadTokenProvider for FromUploadPolicy<C> {
     }
 }
 
-pub type OnPolicyGeneratedCallback = Box<dyn Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static>;
+type OnPolicyGeneratedCallback = Arc<dyn Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static>;
 
 /// 基于存储空间的动态生成
 ///
 /// 根据存储空间的快速生成上传凭证实例
-pub struct BucketUploadTokenProvider<C> {
+#[derive(Clone)]
+pub struct BucketUploadTokenProvider<C: Clone> {
     bucket: BucketName,
     upload_token_lifetime: Duration,
     credential: C,
     on_policy_generated: Option<OnPolicyGeneratedCallback>,
 }
 
-impl<C> BucketUploadTokenProvider<C> {
+impl<C: Clone> BucketUploadTokenProvider<C> {
     /// 基于存储空间和认证信息动态生成上传凭证实例
     #[inline]
     pub fn new(
@@ -452,7 +456,7 @@ impl<C> BucketUploadTokenProvider<C> {
     }
 }
 
-impl<C> Debug for BucketUploadTokenProvider<C> {
+impl<C: Clone> Debug for BucketUploadTokenProvider<C> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BucketUploadTokenProvider")
@@ -462,7 +466,7 @@ impl<C> Debug for BucketUploadTokenProvider<C> {
     }
 }
 
-impl<C: CredentialProvider> UploadTokenProvider for BucketUploadTokenProvider<C> {
+impl<C: CredentialProvider + Clone> UploadTokenProvider for BucketUploadTokenProvider<C> {
     #[inline]
     fn access_key(&self, _opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
         Ok(self
@@ -487,14 +491,18 @@ impl<C: CredentialProvider> UploadTokenProvider for BucketUploadTokenProvider<C>
     }
 }
 
-pub struct BucketUploadTokenProviderBuilder<C> {
+#[derive(Clone)]
+pub struct BucketUploadTokenProviderBuilder<C: Clone> {
     inner: BucketUploadTokenProvider<C>,
 }
 
-impl<C> BucketUploadTokenProviderBuilder<C> {
+impl<C: Clone> BucketUploadTokenProviderBuilder<C> {
     #[inline]
-    pub fn on_policy_generated(mut self, callback: OnPolicyGeneratedCallback) -> Self {
-        self.inner.on_policy_generated = Some(callback);
+    pub fn on_policy_generated(
+        mut self,
+        callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static,
+    ) -> Self {
+        self.inner.on_policy_generated = Some(Arc::new(callback));
         self
     }
 
@@ -504,7 +512,7 @@ impl<C> BucketUploadTokenProviderBuilder<C> {
     }
 }
 
-impl<C> Debug for BucketUploadTokenProviderBuilder<C> {
+impl<C: Clone> Debug for BucketUploadTokenProviderBuilder<C> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BucketUploadTokenProviderBuilder")
@@ -517,7 +525,8 @@ impl<C> Debug for BucketUploadTokenProviderBuilder<C> {
 /// 基于对象的动态生成
 ///
 /// 根据对象的快速生成上传凭证实例
-pub struct ObjectUploadTokenProvider<C> {
+#[derive(Clone)]
+pub struct ObjectUploadTokenProvider<C: Clone> {
     bucket: BucketName,
     object: ObjectName,
     upload_token_lifetime: Duration,
@@ -525,7 +534,7 @@ pub struct ObjectUploadTokenProvider<C> {
     on_policy_generated: Option<OnPolicyGeneratedCallback>,
 }
 
-impl<C> ObjectUploadTokenProvider<C> {
+impl<C: Clone> ObjectUploadTokenProvider<C> {
     /// 基于存储空间和对象名称和认证信息动态生成上传凭证实例
     #[inline]
     pub fn new(
@@ -571,7 +580,7 @@ impl<C> ObjectUploadTokenProvider<C> {
     }
 }
 
-impl<C> Debug for ObjectUploadTokenProvider<C> {
+impl<C: Clone> Debug for ObjectUploadTokenProvider<C> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ObjectUploadTokenProvider")
@@ -582,7 +591,7 @@ impl<C> Debug for ObjectUploadTokenProvider<C> {
     }
 }
 
-impl<C: CredentialProvider> UploadTokenProvider for ObjectUploadTokenProvider<C> {
+impl<C: CredentialProvider + Clone> UploadTokenProvider for ObjectUploadTokenProvider<C> {
     #[inline]
     fn access_key(&self, _opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
         Ok(self
@@ -607,14 +616,18 @@ impl<C: CredentialProvider> UploadTokenProvider for ObjectUploadTokenProvider<C>
     }
 }
 
-pub struct ObjectUploadTokenProviderBuilder<C> {
+#[derive(Clone)]
+pub struct ObjectUploadTokenProviderBuilder<C: Clone> {
     inner: ObjectUploadTokenProvider<C>,
 }
 
-impl<C> ObjectUploadTokenProviderBuilder<C> {
+impl<C: Clone> ObjectUploadTokenProviderBuilder<C> {
     #[inline]
-    pub fn on_policy_generated(mut self, callback: OnPolicyGeneratedCallback) -> Self {
-        self.inner.on_policy_generated = Some(callback);
+    pub fn on_policy_generated(
+        mut self,
+        callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static,
+    ) -> Self {
+        self.inner.on_policy_generated = Some(Arc::new(callback));
         self
     }
 
@@ -624,7 +637,7 @@ impl<C> ObjectUploadTokenProviderBuilder<C> {
     }
 }
 
-impl<C> Debug for ObjectUploadTokenProviderBuilder<C> {
+impl<C: Clone> Debug for ObjectUploadTokenProviderBuilder<C> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ObjectUploadTokenProviderBuilder")
@@ -641,23 +654,30 @@ struct Cache<T> {
     value: T,
 }
 
+#[derive(Debug, Default, Clone)]
+struct SyncCache(Arc<SyncCacheInner>);
+
 #[derive(Debug, Default)]
-struct SyncCache {
+struct SyncCacheInner {
     access_key: RwLock<Option<Cache<AccessKey>>>,
     upload_policy: RwLock<Option<Cache<UploadPolicy>>>,
     upload_token: RwLock<Option<Cache<String>>>,
 }
 
 #[cfg(feature = "async")]
+#[derive(Debug, Default, Clone)]
+struct AsyncCache(Arc<AsyncCacheInner>);
+
+#[cfg(feature = "async")]
 #[derive(Debug, Default)]
-struct AsyncCache {
+struct AsyncCacheInner {
     access_key: AsyncMutex<Option<Cache<AccessKey>>>,
     upload_policy: AsyncMutex<Option<Cache<UploadPolicy>>>,
     upload_token: AsyncMutex<Option<Cache<String>>>,
 }
 
-#[derive(Debug)]
-pub struct CachedUploadTokenProvider<P> {
+#[derive(Debug, Clone)]
+pub struct CachedUploadTokenProvider<P: Clone> {
     inner_provider: P,
     cache_lifetime: Duration,
     sync_cache: SyncCache,
@@ -666,7 +686,7 @@ pub struct CachedUploadTokenProvider<P> {
     async_cache: AsyncCache,
 }
 
-impl<P> CachedUploadTokenProvider<P> {
+impl<P: Clone> CachedUploadTokenProvider<P> {
     #[inline]
     pub fn new(inner_provider: P, cache_lifetime: Duration) -> Self {
         Self {
@@ -682,7 +702,7 @@ impl<P> CachedUploadTokenProvider<P> {
 
 macro_rules! sync_method {
     ($provider:expr, $cache_field:ident, $opts_field:ident, $opts_type:ty, $method_name:ident, $return_type:ty) => {{
-        let guard = $provider.sync_cache.$cache_field.read().unwrap();
+        let guard = $provider.sync_cache.0.$cache_field.read().unwrap();
         return if let Some(cache) = &*guard {
             if cache.cached_at.elapsed() < $provider.cache_lifetime {
                 Ok(cache.value.to_owned().into())
@@ -697,10 +717,10 @@ macro_rules! sync_method {
 
         #[allow(unused_lifetimes)]
         fn update_cache<'a>(
-            provider: &'a CachedUploadTokenProvider<impl UploadTokenProvider>,
+            provider: &'a CachedUploadTokenProvider<impl UploadTokenProvider + Clone>,
             opts: &$opts_type,
         ) -> $return_type {
-            let mut guard = provider.sync_cache.$cache_field.write().unwrap();
+            let mut guard = provider.sync_cache.0.$cache_field.write().unwrap();
             if let Some(cache) = &*guard {
                 if cache.cached_at.elapsed() < provider.cache_lifetime {
                     return Ok(cache.value.to_owned().into());
@@ -724,7 +744,7 @@ macro_rules! sync_method {
 macro_rules! async_method {
     ($provider:expr, $cache_field:ident, $opts_field:ident, $method_name:ident) => {{
         Box::pin(async move {
-            let mut cache = $provider.async_cache.$cache_field.lock().await;
+            let mut cache = $provider.async_cache.0.$cache_field.lock().await;
             if let Some(cache) = &*cache {
                 if cache.cached_at.elapsed() < $provider.cache_lifetime {
                     return Ok(cache.value.to_owned().into());
@@ -744,7 +764,7 @@ macro_rules! async_method {
     }};
 }
 
-impl<P: UploadTokenProvider> UploadTokenProvider for CachedUploadTokenProvider<P> {
+impl<P: UploadTokenProvider + Clone> UploadTokenProvider for CachedUploadTokenProvider<P> {
     fn access_key(&self, opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
         sync_method!(
             self,
@@ -866,9 +886,9 @@ mod tests {
             Duration::from_secs(3600),
             get_credential(),
         )
-        .on_policy_generated(Box::new(|policy| {
+        .on_policy_generated(|policy| {
             policy.return_body("{\"key\":$(key)}");
-        }))
+        })
         .build();
 
         let token = provider.to_token_string(&Default::default())?.to_string();
@@ -919,7 +939,7 @@ mod tests {
         }
     }
 
-    fn get_credential() -> impl CredentialProvider {
+    fn get_credential() -> StaticCredentialProvider {
         StaticCredentialProvider::new(Credential::new("abcdefghklmnopq", "1234567890"))
     }
 }

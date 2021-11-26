@@ -1,7 +1,7 @@
 use anyhow::Result;
 use qiniu_credential::{Credential, StaticCredentialProvider};
 use qiniu_upload_token::{UploadPolicyBuilder, UploadTokenProvider};
-use std::{error::Error, time::Duration};
+use std::time::Duration;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]

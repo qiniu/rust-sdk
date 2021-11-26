@@ -18,6 +18,7 @@
     unused_qualifications
 )]
 
+use dyn_clonable::clonable;
 use hmac::{Hmac, Mac, NewMac};
 use http::{
     header::{HeaderMap, HeaderValue, CONTENT_TYPE},
@@ -34,7 +35,7 @@ use std::{
     fmt::{self, Debug},
     io::{copy, Cursor, Error, ErrorKind, Read, Result},
     ops::{Deref, DerefMut},
-    sync::RwLock,
+    sync::{Arc, RwLock},
     time::Duration,
 };
 
@@ -84,9 +85,7 @@ impl Credential {
     pub fn into_pair(self) -> (AccessKey, SecretKey) {
         (self.access_key, self.secret_key)
     }
-}
 
-impl Credential {
     /// 使用七牛签名算法对数据进行签名
     ///
     /// 参考[管理凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1201/access-token)
@@ -505,7 +504,8 @@ type AsyncResult<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a + Send>>;
 /// 认证信息提供者
 ///
 /// 为认证信息提供者的实现提供接口支持
-pub trait CredentialProvider: Debug + Sync + Send {
+#[clonable]
+pub trait CredentialProvider: Clone + Debug + Sync + Send {
     /// 返回七牛认证信息
     fn get(&self, opts: &GetOptions) -> Result<GotCredential>;
 
@@ -692,9 +692,9 @@ impl Debug for EnvCredentialProvider {
 /// 认证信息串提供者
 ///
 /// 将多个认证信息串联，遍历并找寻第一个可用认证信息
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ChainCredentialsProvider {
-    credentials: Box<[Box<dyn CredentialProvider>]>,
+    credentials: Arc<[Box<dyn CredentialProvider>]>,
 }
 
 impl ChainCredentialsProvider {
@@ -784,17 +784,18 @@ impl ChainCredentialsProviderBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::Result;
     use async_std as _;
     use http::header::HeaderName;
     use mime::APPLICATION_JSON;
-    use std::{boxed::Box, error::Error, result::Result, sync::Arc, thread, time::Duration};
+    use std::{thread, time::Duration};
 
     #[test]
-    fn test_sign() -> Result<(), Box<dyn Error>> {
-        let credential: Arc<dyn CredentialProvider> = Arc::new(get_static_credential());
+    fn test_sign() -> Result<()> {
+        let credential = get_static_credential();
         let mut threads = Vec::new();
         {
-            let credential = credential.clone();
+            let credential = credential.to_owned();
             threads.push(thread::spawn(move || {
                 assert_eq!(
                     credential.get(&Default::default()).unwrap().sign(b"hello"),
@@ -811,7 +812,6 @@ mod tests {
             }));
         }
         {
-            let credential = credential.clone();
             threads.push(thread::spawn(move || {
                 assert_eq!(
                     credential.get(&Default::default()).unwrap().sign(b"-test"),
@@ -834,11 +834,11 @@ mod tests {
     }
 
     #[test]
-    fn test_sign_with_data() -> Result<(), Box<dyn Error>> {
-        let credential: Arc<dyn CredentialProvider> = Arc::new(get_static_credential());
+    fn test_sign_with_data() -> Result<()> {
+        let credential = get_static_credential();
         let mut threads = Vec::new();
         {
-            let credential = credential.clone();
+            let credential = credential.to_owned();
             threads.push(thread::spawn(move || {
                 assert_eq!(
                     credential
@@ -857,7 +857,6 @@ mod tests {
             }));
         }
         {
-            let credential = credential.clone();
             threads.push(thread::spawn(move || {
                 assert_eq!(
                     credential
@@ -882,7 +881,7 @@ mod tests {
     }
 
     #[test]
-    fn test_authorization_v1_with_body_reader() -> Result<(), Box<dyn Error>> {
+    fn test_authorization_v1_with_body_reader() -> Result<()> {
         let credential = get_static_credential();
         assert_eq!(
             credential
@@ -953,7 +952,7 @@ mod tests {
     }
 
     #[test]
-    fn test_authorization_v2_with_body_reader() -> Result<(), Box<dyn Error>> {
+    fn test_authorization_v2_with_body_reader() -> Result<()> {
         let credential = get_global_credential();
         let empty_headers = {
             let mut headers = HeaderMap::new();
@@ -1173,7 +1172,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sign_download_url() -> Result<(), Box<dyn Error>> {
+    fn test_sign_download_url() -> Result<()> {
         let credential = get_env_credential();
         let url = "http://www.qiniu.com/?go=1".parse()?;
         let url = credential
@@ -1187,7 +1186,7 @@ mod tests {
     }
 
     #[test]
-    fn test_chain_credentials() -> Result<(), Box<dyn Error>> {
+    fn test_chain_credentials() -> Result<()> {
         GlobalCredentialProvider::clear();
         let chain_credentials = ChainCredentialsProvider::default();
         env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "TEST2");
@@ -1204,16 +1203,16 @@ mod tests {
         Ok(())
     }
 
-    fn get_static_credential() -> impl CredentialProvider {
+    fn get_static_credential() -> StaticCredentialProvider {
         StaticCredentialProvider::new(Credential::new("abcdefghklmnopq", "1234567890"))
     }
 
-    fn get_global_credential() -> impl CredentialProvider {
+    fn get_global_credential() -> GlobalCredentialProvider {
         GlobalCredentialProvider::setup(Credential::new("abcdefghklmnopq", "1234567890"));
         GlobalCredentialProvider
     }
 
-    fn get_env_credential() -> impl CredentialProvider {
+    fn get_env_credential() -> EnvCredentialProvider {
         env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "abcdefghklmnopq");
         env::set_var(QINIU_SECRET_KEY_ENV_KEY, "1234567890");
         EnvCredentialProvider
@@ -1225,7 +1224,7 @@ mod tests {
         use futures_lite::io::Cursor;
 
         #[async_std::test]
-        async fn test_sign_async_reader() -> Result<(), Box<dyn Error>> {
+        async fn test_sign_async_reader() -> Result<()> {
             let credential = get_static_credential();
             assert_eq!(
                 credential
@@ -1259,7 +1258,7 @@ mod tests {
         }
 
         #[async_std::test]
-        async fn test_async_authorization_v1() -> Result<(), Box<dyn Error>> {
+        async fn test_async_authorization_v1() -> Result<()> {
             let credential = get_static_credential();
             assert_eq!(
                 credential
@@ -1335,7 +1334,7 @@ mod tests {
         }
 
         #[async_std::test]
-        async fn test_async_authorization_v2() -> Result<(), Box<dyn Error>> {
+        async fn test_async_authorization_v2() -> Result<()> {
             let credential = get_global_credential();
             let empty_headers = {
                 let mut headers = HeaderMap::new();
@@ -1561,7 +1560,7 @@ mod tests {
         }
 
         #[async_std::test]
-        async fn test_async_sign_download_url() -> Result<(), Box<dyn Error>> {
+        async fn test_async_sign_download_url() -> Result<()> {
             let credential = get_env_credential();
             let url = "http://www.qiniu.com/?go=1".parse()?;
             let url = credential
@@ -1576,7 +1575,7 @@ mod tests {
         }
 
         #[async_std::test]
-        async fn test_async_chain_credentials() -> Result<(), Box<dyn Error>> {
+        async fn test_async_chain_credentials() -> Result<()> {
             GlobalCredentialProvider::clear();
             let chain_credentials = ChainCredentialsProvider::default();
             env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "TEST2");

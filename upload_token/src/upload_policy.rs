@@ -1,4 +1,4 @@
-use super::{FileType, FromUploadPolicy, InvalidFileType, UploadTokenProvider};
+use super::{FileType, FromUploadPolicy, InvalidFileType};
 use assert_impl::assert_impl;
 use qiniu_credential::CredentialProvider;
 use qiniu_utils::{BucketName, ObjectName};
@@ -254,10 +254,10 @@ impl UploadPolicy {
 
     /// 将上传策略转换为上传凭证提供者
     #[inline]
-    pub fn into_upload_token_provider(
+    pub fn into_upload_token_provider<T: CredentialProvider + Clone>(
         self,
-        credential: impl CredentialProvider,
-    ) -> impl UploadTokenProvider {
+        credential: T,
+    ) -> FromUploadPolicy<T> {
         FromUploadPolicy::new(self, credential)
     }
 
@@ -618,12 +618,12 @@ impl<'p> From<Cow<'p, UploadPolicy>> for UploadPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::Result;
     use mime::APPLICATION_WWW_FORM_URLENCODED;
     use serde_json::json;
-    use std::{boxed::Box, error::Error, result::Result};
 
     #[test]
-    fn test_build_upload_policy_for_bucket() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_for_bucket() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .build();
@@ -652,7 +652,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_for_object() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_for_object() -> Result<()> {
         let policy = UploadPolicyBuilder::new_policy_for_object(
             "test_bucket",
             "test:object",
@@ -685,7 +685,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_for_objects_with_prefix() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_for_objects_with_prefix() -> Result<()> {
         let policy = UploadPolicyBuilder::new_policy_for_objects_with_prefix(
             "test_bucket",
             "test:object",
@@ -718,7 +718,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_deadline() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_deadline() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .token_deadline(SystemTime::now())
@@ -741,7 +741,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_lifetime() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_lifetime() -> Result<()> {
         let one_day = Duration::from_secs(60 * 60 * 24);
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
@@ -767,7 +767,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_insert_only() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_insert_only() -> Result<()> {
         let policy = UploadPolicyBuilder::new_policy_for_object(
             "test_bucket",
             "test",
@@ -781,7 +781,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_mime_detection() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_mime_detection() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .enable_mime_detection()
@@ -792,7 +792,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_normal_storage() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_normal_storage() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .file_type(FileType::Normal)
@@ -803,7 +803,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_infrequent_storage() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_infrequent_storage() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .file_type(FileType::InfrequentAccess)
@@ -814,7 +814,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_return_url() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_return_url() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .return_url("http://www.qiniu.io/test")
@@ -828,7 +828,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_return_body() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_return_body() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .return_body("datadatadata")
@@ -839,7 +839,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_callback() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_callback() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .callback(
@@ -873,7 +873,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_callback_body_with_body_type() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_callback_body_with_body_type() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .callback(
@@ -913,7 +913,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_save_key() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_save_key() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .save_as("target_file", false)
@@ -926,7 +926,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_save_key_by_force() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_save_key_by_force() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .save_as("target_file", true)
@@ -939,7 +939,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_file_size_exclusive_limit() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_file_size_exclusive_limit() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .file_size_limitation(15..20)
@@ -951,7 +951,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_file_size_inclusive_limit() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_file_size_inclusive_limit() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .file_size_limitation(15..=20)
@@ -963,7 +963,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_file_size_max_limit() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_file_size_max_limit() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .file_size_limitation(..20)
@@ -975,7 +975,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_file_size_min_limit() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_file_size_min_limit() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .file_size_limitation(15..)
@@ -987,7 +987,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_mime() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_mime() -> Result<()> {
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
                 .mime_types(&["image/jpeg", "image/png"])
@@ -1004,7 +1004,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_object_lifetime() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_object_lifetime() -> Result<()> {
         let one_hundred_days = Duration::from_secs(100 * 24 * 60 * 60);
         let policy =
             UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
@@ -1017,7 +1017,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upload_policy_with_short_object_lifetime() -> Result<(), Box<dyn Error>> {
+    fn test_build_upload_policy_with_short_object_lifetime() -> Result<()> {
         let one_hundred_secs = Duration::from_secs(100);
         let one_day = Duration::from_secs(24 * 60 * 60);
         let policy =
