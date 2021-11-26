@@ -1,6 +1,6 @@
 use super::super::{
     super::{
-        cache::{Cache, CacheController, PersistentResult},
+        cache::{Cache, CacheController},
         ApiResult,
     },
     Endpoints, Region,
@@ -76,15 +76,15 @@ impl RegionsCache {
         auto_persistent: bool,
         cache_lifetime: Duration,
         shrink_interval: Duration,
-    ) -> PersistentResult<Self> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             inner: Cache::load_or_create_from(
                 path,
                 auto_persistent,
                 cache_lifetime,
                 shrink_interval,
-            )?,
-        })
+            ),
+        }
     }
 
     #[inline]
@@ -92,7 +92,7 @@ impl RegionsCache {
         auto_persistent: bool,
         cache_lifetime: Duration,
         shrink_interval: Duration,
-    ) -> PersistentResult<Self> {
+    ) -> Self {
         Self::load_or_create_from(
             &Self::default_persistent_path(),
             auto_persistent,
@@ -225,7 +225,7 @@ mod tests {
             true,
             Duration::from_secs(120),
             Duration::from_secs(120),
-        )?;
+        );
         let cache_key_1 = CacheKey::new(
             "https://fake.uc.qiniu.com".into(),
             Some(("fakebucket".into(), "fakeaccesskey".into())),
@@ -261,7 +261,7 @@ mod tests {
             true,
             Duration::from_secs(120),
             Duration::from_secs(120),
-        )?;
+        );
         assert_eq!(cache.get(&cache_key_1, || unreachable!())?, regions_2);
         cache.remove(&cache_key_1);
         assert!(!cache.inner.exists(&cache_key_1));
@@ -272,7 +272,7 @@ mod tests {
             true,
             Duration::from_secs(120),
             Duration::from_secs(120),
-        )?;
+        );
         assert!(!cache.inner.exists(&cache_key_1));
 
         assert_eq!(
@@ -310,7 +310,7 @@ mod tests {
             true,
             Duration::from_secs(120),
             Duration::from_secs(120),
-        )?;
+        );
         assert!(!cache.inner.exists(&cache_key_1));
         assert!(!cache.inner.exists(&cache_key_2));
 
@@ -336,7 +336,7 @@ mod tests {
             true,
             Duration::from_secs(1),
             Duration::from_secs(120),
-        )?;
+        );
         assert!(!cache.inner.exists(&cache_key_1));
         assert!(!cache.inner.exists(&cache_key_2));
 
@@ -354,7 +354,7 @@ mod tests {
             false,
             Duration::from_secs(120),
             Duration::from_secs(120),
-        )?;
+        );
         let cache_key = CacheKey::new(
             "https://fake.uc.qiniu.com".into(),
             Some(("fakebucket".into(), "fakeaccesskey".into())),
@@ -374,7 +374,7 @@ mod tests {
             false,
             Duration::from_secs(120),
             Duration::from_secs(120),
-        )?;
+        );
         assert!(!cache.inner.exists(&cache_key));
 
         Ok(())

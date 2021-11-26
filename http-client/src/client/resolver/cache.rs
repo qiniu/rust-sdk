@@ -1,7 +1,4 @@
-use super::{
-    super::super::cache::{Cache, PersistentResult},
-    ResolveAnswers, ResolveOptions, ResolveResult, Resolver,
-};
+use super::{super::super::cache::Cache, ResolveAnswers, ResolveOptions, ResolveResult, Resolver};
 use std::{
     env::temp_dir,
     fmt::Debug,
@@ -50,9 +47,7 @@ impl<R> CachedResolver<R> {
 impl<R: Default> Default for CachedResolver<R> {
     #[inline]
     fn default() -> Self {
-        Self::builder(R::default())
-            .default_load_or_create_from(true)
-            .unwrap_or_else(|_| Self::builder(R::default()).in_memory())
+        Self::builder(R::default()).default_load_or_create_from(true)
     }
 }
 
@@ -126,32 +121,29 @@ impl<R> CachedResolverBuilder<R> {
         self,
         path: impl AsRef<Path>,
         auto_persistent: bool,
-    ) -> PersistentResult<CachedResolver<R>> {
-        Ok(CachedResolver {
+    ) -> CachedResolver<R> {
+        CachedResolver {
             resolver: Arc::new(self.resolver),
             cache: Cache::load_or_create_from(
                 path.as_ref(),
                 auto_persistent,
                 self.cache_lifetime,
                 self.shrink_interval,
-            )?,
-        })
+            ),
+        }
     }
 
     #[inline]
-    pub fn default_load_or_create_from(
-        self,
-        auto_persistent: bool,
-    ) -> PersistentResult<CachedResolver<R>> {
-        Ok(CachedResolver {
+    pub fn default_load_or_create_from(self, auto_persistent: bool) -> CachedResolver<R> {
+        CachedResolver {
             resolver: Arc::new(self.resolver),
             cache: Cache::load_or_create_from(
                 &CachedResolver::<R>::default_persistent_path(),
                 auto_persistent,
                 self.cache_lifetime,
                 self.shrink_interval,
-            )?,
-        })
+            ),
+        }
     }
 
     #[inline]
@@ -354,7 +346,7 @@ mod tests {
 
         {
             let resolver = CachedResolver::builder(backend.to_owned())
-                .load_or_create_from(&tempfile_path, true)?;
+                .load_or_create_from(&tempfile_path, true);
             {
                 let result = resolver
                     .resolve("test_domain_1.com", &Default::default())
@@ -379,7 +371,7 @@ mod tests {
 
         {
             let resolver = CachedResolver::builder(backend.to_owned())
-                .load_or_create_from(&tempfile_path, true)?;
+                .load_or_create_from(&tempfile_path, true);
             {
                 let result = resolver
                     .resolve("test_domain_1.com", &Default::default())
@@ -416,7 +408,7 @@ mod tests {
 
         {
             let resolver = CachedResolver::builder(backend.to_owned())
-                .load_or_create_from(&tempfile_path, true)?;
+                .load_or_create_from(&tempfile_path, true);
             {
                 let result = resolver
                     .resolve("test_domain_1.com", &Default::default())

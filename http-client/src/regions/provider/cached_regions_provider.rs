@@ -1,5 +1,5 @@
 use super::{
-    super::super::{ApiResult, CacheController, Endpoints, HttpClient, PersistentResult},
+    super::super::{ApiResult, CacheController, Endpoints, HttpClient},
     regions_cache::{CacheKey, RegionsCache},
     regions_provider::RegionsProvider,
     GetOptions, GotRegion, GotRegions, RegionProvider,
@@ -27,15 +27,14 @@ struct CachedRegionsProviderInner {
 impl CachedRegionsProvider {
     #[inline]
     pub fn builder(
-        http_client: HttpClient,
         credential_provider: Arc<dyn CredentialProvider>,
     ) -> CachedRegionsProviderBuilder {
         CachedRegionsProviderBuilder {
-            http_client,
             credential_provider,
             cache_lifetime: DEFAULT_CACHE_LIFETIME,
             shrink_interval: DEFAULT_SHRINK_INTERVAL,
-            uc_endpoints: Endpoints::public_uc_endpoints().to_owned(),
+            uc_endpoints: None,
+            http_client: None,
         }
     }
 }
@@ -104,12 +103,10 @@ impl fmt::Debug for CachedRegionsProvider {
 }
 
 pub struct CachedRegionsProviderBuilder {
-    // provider: RegionsProvider,
-    // cache_key: CacheKey,
     cache_lifetime: Duration,
     shrink_interval: Duration,
-    http_client: HttpClient,
-    uc_endpoints: Endpoints,
+    http_client: Option<HttpClient>,
+    uc_endpoints: Option<Endpoints>,
     credential_provider: Arc<dyn CredentialProvider>,
 }
 
@@ -140,41 +137,55 @@ impl CachedRegionsProviderBuilder {
     }
 
     #[inline]
+    pub fn http_client(mut self, http_client: HttpClient) -> Self {
+        self.http_client = Some(http_client);
+        self
+    }
+
+    #[inline]
+    pub fn uc_endpoints(mut self, uc_endpoints: impl Into<Endpoints>) -> Self {
+        self.uc_endpoints = Some(uc_endpoints.into());
+        self
+    }
+
+    #[inline]
     pub fn load_or_create_from(
         self,
         path: impl AsRef<Path>,
         auto_persistent: bool,
-    ) -> PersistentResult<CachedRegionsProvider> {
-        Ok(CachedRegionsProvider {
+    ) -> CachedRegionsProvider {
+        CachedRegionsProvider {
             inner: Arc::new(CachedRegionsProviderInner {
                 cache: RegionsCache::load_or_create_from(
                     path.as_ref(),
                     auto_persistent,
                     self.cache_lifetime,
                     self.shrink_interval,
-                )?,
+                ),
                 cache_key: self.new_cache_key(),
                 provider: self.new_regions_provider(),
             }),
-        })
+        }
     }
 
     #[inline]
-    pub fn default_load_or_create_from(
-        self,
-        auto_persistent: bool,
-    ) -> PersistentResult<CachedRegionsProvider> {
-        Ok(CachedRegionsProvider {
+    pub fn default(self) -> CachedRegionsProvider {
+        self.default_load_or_create_from(true)
+    }
+
+    #[inline]
+    pub fn default_load_or_create_from(self, auto_persistent: bool) -> CachedRegionsProvider {
+        CachedRegionsProvider {
             inner: Arc::new(CachedRegionsProviderInner {
                 cache: RegionsCache::default_load_or_create_from(
                     auto_persistent,
                     self.cache_lifetime,
                     self.shrink_interval,
-                )?,
+                ),
                 cache_key: self.new_cache_key(),
                 provider: self.new_regions_provider(),
             }),
-        })
+        }
     }
 
     #[inline]
@@ -190,15 +201,25 @@ impl CachedRegionsProviderBuilder {
 
     #[inline]
     fn new_cache_key(&self) -> CacheKey {
-        CacheKey::new_from_endpoint(&self.uc_endpoints, None)
+        CacheKey::new_from_endpoint(
+            if let Some(uc_endpoints) = self.uc_endpoints.as_ref() {
+                uc_endpoints
+            } else {
+                Endpoints::public_uc_endpoints()
+            },
+            None,
+        )
     }
 
     #[inline]
     fn new_regions_provider(self) -> RegionsProvider {
-        RegionsProvider::new(
-            self.http_client,
-            self.uc_endpoints,
-            self.credential_provider,
-        )
+        let mut builder = RegionsProvider::builder(self.credential_provider);
+        if let Some(http_client) = self.http_client {
+            builder = builder.http_client(http_client);
+        }
+        if let Some(uc_endpoints) = self.uc_endpoints {
+            builder = builder.uc_endpoints(uc_endpoints);
+        }
+        builder.build()
     }
 }

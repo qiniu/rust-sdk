@@ -43,7 +43,7 @@ pub use qiniu_upload_token as upload_token;
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 pub use futures::io::AsyncRead;
 
-pub use cache::{CacheController, PersistentError, PersistentResult};
+pub use cache::CacheController;
 pub use client::{
     ApiResult, Authorization, AuthorizationError, AuthorizationResult, Backoff, BackoffDuration,
     BackoffOptions, CachedResolver, CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver,

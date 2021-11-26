@@ -85,19 +85,19 @@ impl<
         auto_persistent: bool,
         cache_lifetime: Duration,
         shrink_interval: Duration,
-    ) -> PersistentResult<Self> {
+    ) -> Self {
         match Self::load_cache_from_persistent_file(
             path,
             auto_persistent,
             cache_lifetime,
             shrink_interval,
         ) {
-            Ok(Some(cache)) => Ok(cache),
-            _ => Ok(Self::new(
+            Ok(Some(cache)) => cache,
+            _ => Self::new(
                 cache_lifetime,
                 shrink_interval,
                 Some(PersistentFile::new(path.to_owned(), auto_persistent)),
-            )),
+            ),
         }
     }
 
@@ -327,14 +327,14 @@ enum PersistentCacheCommand<K, V> {
 
 #[derive(Error, Debug)]
 #[non_exhaustive]
-pub enum PersistentError {
+enum PersistentError {
     #[error("I/O error: {0}")]
     IoError(#[from] IoError),
 
     #[error("JSON serialize/deserialize error: {0}")]
     JsonError(#[from] JsonError),
 }
-pub type PersistentResult<T> = Result<T, PersistentError>;
+type PersistentResult<T> = Result<T, PersistentError>;
 
 #[inline]
 fn do_some_work_async<

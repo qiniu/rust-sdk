@@ -60,7 +60,7 @@ impl Endpoints {
     }
 
     #[inline]
-    pub fn public_uc_endpoints() -> &'static Self {
+    pub(super) fn public_uc_endpoints() -> &'static Self {
         static DEFAULT_UC_ENDPOINTS: Lazy<Endpoints> = Lazy::new(|| {
             Endpoints::builder(Endpoint::new_from_domain("uc.qbox.me"))
                 .add_preferred_endpoint(Endpoint::new_from_domain("api.qiniu.com"))

@@ -1,6 +1,6 @@
 use super::{
     super::{
-        super::{ApiResult, CacheController, HttpClient, PersistentResult, ResponseError},
+        super::{ApiResult, CacheController, HttpClient, ResponseError},
         Endpoints, ServiceName,
     },
     regions_cache::{CacheKey, RegionsCache},
@@ -31,19 +31,16 @@ struct BucketRegionsQueryerInner {
 
 #[derive(Debug)]
 pub struct BucketRegionsQueryerBuilder {
-    http_client: HttpClient,
-    uc_endpoints: Endpoints,
+    http_client: Option<HttpClient>,
+    uc_endpoints: Option<Endpoints>,
     cache_lifetime: Duration,
     shrink_interval: Duration,
 }
 
 impl BucketRegionsQueryer {
     #[inline]
-    pub fn builder(
-        http_client: HttpClient,
-        uc_endpoints: impl Into<Endpoints>,
-    ) -> BucketRegionsQueryerBuilder {
-        BucketRegionsQueryerBuilder::new(http_client, uc_endpoints.into())
+    pub fn builder() -> BucketRegionsQueryerBuilder {
+        BucketRegionsQueryerBuilder::new()
     }
 
     #[inline]
@@ -69,15 +66,41 @@ impl BucketRegionsQueryer {
     }
 }
 
-impl BucketRegionsQueryerBuilder {
+impl Default for BucketRegionsQueryer {
     #[inline]
-    pub fn new(http_client: HttpClient, uc_endpoints: impl Into<Endpoints>) -> Self {
+    fn default() -> Self {
+        Self::builder().default_load_or_create_from(true)
+    }
+}
+
+impl Default for BucketRegionsQueryerBuilder {
+    #[inline]
+    fn default() -> Self {
         Self {
-            http_client,
-            uc_endpoints: uc_endpoints.into(),
+            http_client: None,
+            uc_endpoints: None,
             cache_lifetime: DEFAULT_CACHE_LIFETIME,
             shrink_interval: DEFAULT_SHRINK_INTERVAL,
         }
+    }
+}
+
+impl BucketRegionsQueryerBuilder {
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[inline]
+    pub fn http_client(mut self, http_client: HttpClient) -> Self {
+        self.http_client = Some(http_client);
+        self
+    }
+
+    #[inline]
+    pub fn uc_endpoints(mut self, uc_endpoints: impl Into<Endpoints>) -> Self {
+        self.uc_endpoints = Some(uc_endpoints.into());
+        self
     }
 
     #[inline]
@@ -97,37 +120,38 @@ impl BucketRegionsQueryerBuilder {
         self,
         path: impl AsRef<Path>,
         auto_persistent: bool,
-    ) -> PersistentResult<BucketRegionsQueryer> {
-        Ok(BucketRegionsQueryer {
+    ) -> BucketRegionsQueryer {
+        BucketRegionsQueryer {
             inner: Arc::new(BucketRegionsQueryerInner {
                 cache: RegionsCache::load_or_create_from(
                     path.as_ref(),
                     auto_persistent,
                     self.cache_lifetime,
                     self.shrink_interval,
-                )?,
-                http_client: self.http_client,
-                uc_endpoints: self.uc_endpoints,
+                ),
+                http_client: self.http_client.unwrap_or_default(),
+                uc_endpoints: self
+                    .uc_endpoints
+                    .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
             }),
-        })
+        }
     }
 
     #[inline]
-    pub fn default_load_or_create_from(
-        self,
-        auto_persistent: bool,
-    ) -> PersistentResult<BucketRegionsQueryer> {
-        Ok(BucketRegionsQueryer {
+    pub fn default_load_or_create_from(self, auto_persistent: bool) -> BucketRegionsQueryer {
+        BucketRegionsQueryer {
             inner: Arc::new(BucketRegionsQueryerInner {
                 cache: RegionsCache::default_load_or_create_from(
                     auto_persistent,
                     self.cache_lifetime,
                     self.shrink_interval,
-                )?,
-                http_client: self.http_client,
-                uc_endpoints: self.uc_endpoints,
+                ),
+                http_client: self.http_client.unwrap_or_default(),
+                uc_endpoints: self
+                    .uc_endpoints
+                    .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
             }),
-        })
+        }
     }
 
     #[inline]
@@ -135,8 +159,10 @@ impl BucketRegionsQueryerBuilder {
         BucketRegionsQueryer {
             inner: Arc::new(BucketRegionsQueryerInner {
                 cache: RegionsCache::in_memory(self.cache_lifetime, self.shrink_interval),
-                http_client: self.http_client,
-                uc_endpoints: self.uc_endpoints,
+                http_client: self.http_client.unwrap_or_default(),
+                uc_endpoints: self
+                    .uc_endpoints
+                    .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
             }),
         }
     }
@@ -292,12 +318,8 @@ mod tests {
                 }
             });
 
-        starts_with_server!(addr, routes, {
-            let queryer = BucketRegionsQueryer::builder(
-                HttpClient::build_isahc()?.use_https(false).build(),
-                vec![Endpoint::from(addr)],
-            )
-            .in_memory();
+        starts_with_server!(_addr, routes, {
+            let queryer = BucketRegionsQueryer::builder().in_memory();
 
             for _ in 0..2 {
                 let provider = queryer.query(ACCESS_KEY, BUCKET_NAME);

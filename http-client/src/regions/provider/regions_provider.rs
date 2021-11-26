@@ -21,16 +21,8 @@ pub struct RegionsProvider {
 
 impl RegionsProvider {
     #[inline]
-    pub fn new(
-        http_client: HttpClient,
-        uc_endpoints: impl Into<Endpoints>,
-        credential_provider: Arc<dyn CredentialProvider>,
-    ) -> Self {
-        Self {
-            http_client,
-            credential_provider,
-            uc_endpoints: uc_endpoints.into(),
-        }
+    pub fn builder(credential_provider: Arc<dyn CredentialProvider>) -> RegionsProviderBuilder {
+        RegionsProviderBuilder::new(credential_provider)
     }
 
     fn do_sync_query(&self) -> ApiResult<Vec<Region>> {
@@ -118,6 +110,47 @@ impl RegionProvider for RegionsProvider {
     }
 }
 
+#[derive(Debug)]
+pub struct RegionsProviderBuilder {
+    credential_provider: Arc<dyn CredentialProvider>,
+    http_client: Option<HttpClient>,
+    uc_endpoints: Option<Endpoints>,
+}
+
+impl RegionsProviderBuilder {
+    #[inline]
+    pub fn new(credential_provider: Arc<dyn CredentialProvider>) -> Self {
+        Self {
+            credential_provider,
+            http_client: None,
+            uc_endpoints: None,
+        }
+    }
+
+    #[inline]
+    pub fn http_client(mut self, http_client: HttpClient) -> Self {
+        self.http_client = Some(http_client);
+        self
+    }
+
+    #[inline]
+    pub fn uc_endpoints(mut self, uc_endpoints: impl Into<Endpoints>) -> Self {
+        self.uc_endpoints = Some(uc_endpoints.into());
+        self
+    }
+
+    #[inline]
+    pub fn build(self) -> RegionsProvider {
+        RegionsProvider {
+            credential_provider: self.credential_provider,
+            http_client: self.http_client.unwrap_or_default(),
+            uc_endpoints: self
+                .uc_endpoints
+                .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
+        }
+    }
+}
+
 #[cfg(all(test, feature = "isahc", feature = "async"))]
 mod tests {
     use crate::HttpClient;
@@ -164,13 +197,12 @@ mod tests {
             });
 
         starts_with_server!(addr, routes, {
-            let provider = RegionsProvider::new(
-                HttpClient::build_isahc()?.use_https(false).build(),
-                vec![Endpoint::from(addr)],
-                Arc::new(StaticCredentialProvider::new(Credential::new(
-                    ACCESS_KEY, SECRET_KEY,
-                ))),
-            );
+            let provider = RegionsProvider::builder(Arc::new(StaticCredentialProvider::new(
+                Credential::new(ACCESS_KEY, SECRET_KEY),
+            )))
+            .http_client(HttpClient::build_isahc()?.use_https(false).build())
+            .uc_endpoints(vec![Endpoint::from(addr)])
+            .build();
 
             let regions = provider.async_get_all(&Default::default()).await?;
             assert_eq!(regions.len(), 5);
