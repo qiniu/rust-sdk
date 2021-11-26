@@ -91,15 +91,19 @@ impl RequestHeaders {
         self.map.insert(header_name, header_value);
         self
     }
-    #[inline]
-    fn build(self) -> qiniu_http_client::http::header::HeaderMap {
-        self.map
-    }
 }
 impl<'a> From<RequestHeaders> for std::borrow::Cow<'a, qiniu_http_client::http::header::HeaderMap> {
     #[inline]
-    fn from(map: RequestHeaders) -> Self {
-        std::borrow::Cow::Owned(map.build())
+    fn from(m: RequestHeaders) -> Self {
+        std::borrow::Cow::Owned(m.map)
+    }
+}
+impl<'a> From<&'a RequestHeaders>
+    for std::borrow::Cow<'a, qiniu_http_client::http::header::HeaderMap>
+{
+    #[inline]
+    fn from(m: &'a RequestHeaders) -> Self {
+        std::borrow::Cow::Borrowed(&m.map)
     }
 }
 impl RequestHeaders {
@@ -267,7 +271,7 @@ impl<'req> SyncRequestBuilder<'req> {
         self
     }
     #[inline]
-    pub fn headers(mut self, headers: RequestHeaders) -> Self {
+    pub fn headers(mut self, headers: &'req RequestHeaders) -> Self {
         self.0 = self.0.headers(headers);
         self
     }
@@ -376,7 +380,7 @@ impl<'req> AsyncRequestBuilder<'req> {
         self
     }
     #[inline]
-    pub fn headers(mut self, headers: RequestHeaders) -> Self {
+    pub fn headers(mut self, headers: &'req RequestHeaders) -> Self {
         self.0 = self.0.headers(headers);
         self
     }

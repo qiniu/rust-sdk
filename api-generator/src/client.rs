@@ -369,7 +369,7 @@ impl ApiDetailedDescription {
                 .header_names
                 .as_ref()
                 .map(|_| {
-                    quote! {RequestHeaders}
+                    quote! {&'req RequestHeaders}
                 })
                 .unwrap_or_else(|| {
                     quote! {impl Into<std::borrow::Cow<'req, qiniu_http_client::http::HeaderMap>>}

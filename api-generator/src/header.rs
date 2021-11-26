@@ -91,17 +91,19 @@ impl HeaderNames {
                         self.map.insert(header_name, header_value);
                         self
                      }
-
-                    #[inline]
-                    fn build(self) -> qiniu_http_client::http::header::HeaderMap {
-                        self.map
-                    }
                 }
 
                 impl<'a> From<#name> for std::borrow::Cow<'a, qiniu_http_client::http::header::HeaderMap> {
                     #[inline]
-                    fn from(map: #name) -> Self {
-                        std::borrow::Cow::Owned(map.build())
+                    fn from(m: #name) -> Self {
+                        std::borrow::Cow::Owned(m.map)
+                    }
+                }
+
+                impl<'a> From<&'a #name> for std::borrow::Cow<'a, qiniu_http_client::http::header::HeaderMap> {
+                    #[inline]
+                    fn from(m: &'a #name) -> Self {
+                        std::borrow::Cow::Borrowed(&m.map)
                     }
                 }
             }
