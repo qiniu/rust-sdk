@@ -36,6 +36,7 @@ jobs:
           override: true
       - name: Test
         run: |
+          rustup default ${{ matrix.rust }}
           make build clippy test doc
   macos:
     name: CI Test On macOS
@@ -67,6 +68,7 @@ jobs:
           override: true
       - name: Test
         run: |
+          rustup default ${{ matrix.rust }}
           make build clippy test doc
   windows:
     name: CI Test On Windows
@@ -95,6 +97,7 @@ jobs:
           override: true
       - name: Test
         run: |
+          rustup default ${{ matrix.rust }}
           make build clippy test doc
         env:
           RUST_LOG: "debug"
