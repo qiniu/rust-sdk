@@ -447,11 +447,10 @@ fn do_some_work_with_locked_data<
                 _persistent_to_file(&persistent.commands, &persistent.path, inner.cache_lifetime)
             {
                 warn!(
-                    "Cache was failed to persist to file {:?}: {}",
-                    &persistent.path, err
+                    "Cache was failed to persist to file {}: {}",
+                    persistent.path.display(),
+                    err
                 );
-            } else {
-                info!("Cache was persisted to file {:?}", &persistent.path)
             }
         }
     }
@@ -474,6 +473,7 @@ fn do_some_work_with_locked_data<
             writer.flush()?;
             writer.get_mut().unlock()?;
             let _ = result?;
+            info!("Cache was persisted to file {}", path.display())
         }
         Ok(())
     }
