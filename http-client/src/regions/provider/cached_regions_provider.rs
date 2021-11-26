@@ -22,6 +22,11 @@ pub struct CachedRegionsProvider {
 
 impl CachedRegionsProvider {
     #[inline]
+    pub fn new(credential_provider: Box<dyn CredentialProvider>) -> Self {
+        Self::builder(credential_provider).default()
+    }
+
+    #[inline]
     pub fn builder(
         credential_provider: Box<dyn CredentialProvider>,
     ) -> CachedRegionsProviderBuilder {

@@ -137,7 +137,7 @@ impl From<Vec<Endpoint>> for Endpoints {
     #[inline]
     fn from(endpoints: Vec<Endpoint>) -> Self {
         Self {
-            preferred: endpoints.into_boxed_slice().into(),
+            preferred: endpoints.into(),
             alternative: Arc::new([]),
         }
     }
@@ -147,8 +147,8 @@ impl From<(Vec<Endpoint>, Vec<Endpoint>)> for Endpoints {
     #[inline]
     fn from(endpoints: (Vec<Endpoint>, Vec<Endpoint>)) -> Self {
         Self {
-            preferred: endpoints.0.into_boxed_slice().into(),
-            alternative: endpoints.1.into_boxed_slice().into(),
+            preferred: endpoints.0.into(),
+            alternative: endpoints.1.into(),
         }
     }
 }
@@ -175,8 +175,8 @@ impl EndpointsBuilder {
     #[inline]
     pub fn build(self) -> Endpoints {
         Endpoints {
-            preferred: self.preferred.into_boxed_slice().into(),
-            alternative: self.alternative.into_boxed_slice().into(),
+            preferred: self.preferred.into(),
+            alternative: self.alternative.into(),
         }
     }
 }

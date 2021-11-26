@@ -1,5 +1,5 @@
 use anyhow::Result;
-use qiniu_credential::{Credential, StaticCredentialProvider};
+use qiniu_credential::Credential;
 use qiniu_upload_token::{UploadPolicyBuilder, UploadTokenProvider};
 use std::time::Duration;
 use structopt::StructOpt;
@@ -29,9 +29,8 @@ fn main() -> Result<()> {
         Duration::from_secs(opt.lifetime),
     )
     .build();
-    let upload_token = upload_policy.into_upload_token_provider(StaticCredentialProvider::new(
-        Credential::new(opt.access_key, opt.secret_key),
-    ));
+    let upload_token =
+        upload_policy.into_upload_token_provider(Credential::new(opt.access_key, opt.secret_key));
     println!("{}", upload_token.to_token_string(&Default::default())?);
     Ok(())
 }

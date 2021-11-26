@@ -851,7 +851,7 @@ pub type ParseResult<T> = Result<T, ParseError>;
 mod tests {
     use super::{super::UploadPolicyBuilder, *};
     use async_std as _;
-    use qiniu_credential::{Credential, StaticCredentialProvider};
+    use qiniu_credential::Credential;
     use std::{boxed::Box, error::Error, result::Result};
     use structopt as _;
 
@@ -939,7 +939,7 @@ mod tests {
         }
     }
 
-    fn get_credential() -> StaticCredentialProvider {
-        StaticCredentialProvider::new(Credential::new("abcdefghklmnopq", "1234567890"))
+    fn get_credential() -> Credential {
+        Credential::new("abcdefghklmnopq", "1234567890")
     }
 }

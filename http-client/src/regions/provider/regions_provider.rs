@@ -25,6 +25,11 @@ impl RegionsProvider {
         RegionsProviderBuilder::new(credential_provider)
     }
 
+    #[inline]
+    pub fn new(credential_provider: Box<dyn CredentialProvider>) -> Self {
+        Self::builder(credential_provider).build()
+    }
+
     fn do_sync_query(&self) -> ApiResult<Vec<Region>> {
         let (parts, body) = self
             .http_client
@@ -157,7 +162,7 @@ mod tests {
 
     use super::{super::super::Endpoint, *};
     use futures::channel::oneshot::channel;
-    use qiniu_credential::{Credential, StaticCredentialProvider};
+    use qiniu_credential::Credential;
     use serde_json::{json, Value as JsonValue};
     use std::{error::Error, result::Result};
     use tokio::task::spawn;
@@ -197,12 +202,11 @@ mod tests {
             });
 
         starts_with_server!(addr, routes, {
-            let provider = RegionsProvider::builder(Box::new(StaticCredentialProvider::new(
-                Credential::new(ACCESS_KEY, SECRET_KEY),
-            )))
-            .http_client(HttpClient::build_isahc()?.use_https(false).build())
-            .uc_endpoints(vec![Endpoint::from(addr)])
-            .build();
+            let provider =
+                RegionsProvider::builder(Box::new(Credential::new(ACCESS_KEY, SECRET_KEY)))
+                    .http_client(HttpClient::build_isahc()?.use_https(false).build())
+                    .uc_endpoints(vec![Endpoint::from(addr)])
+                    .build();
 
             let regions = provider.async_get_all(&Default::default()).await?;
             assert_eq!(regions.len(), 5);

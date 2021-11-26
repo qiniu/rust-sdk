@@ -571,23 +571,10 @@ impl DerefMut for GotCredential {
     }
 }
 
-/// 静态认证信息提供者，包含一个静态的认证信息，一旦创建则不可修改
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct StaticCredentialProvider {
-    credential: Credential,
-}
-
-impl StaticCredentialProvider {
-    /// 构建一个静态认证信息提供者，只需要传入静态的认证信息即可
-    pub fn new(credential: Credential) -> Self {
-        Self { credential }
-    }
-}
-
-impl CredentialProvider for StaticCredentialProvider {
+impl CredentialProvider for Credential {
     #[inline]
     fn get(&self, _opts: &GetOptions) -> Result<GotCredential> {
-        Ok(self.credential.to_owned().into())
+        Ok(self.to_owned().into())
     }
 }
 
@@ -792,7 +779,7 @@ mod tests {
 
     #[test]
     fn test_sign() -> Result<()> {
-        let credential = get_static_credential();
+        let credential = get_credential();
         let mut threads = Vec::new();
         {
             let credential = credential.to_owned();
@@ -835,7 +822,7 @@ mod tests {
 
     #[test]
     fn test_sign_with_data() -> Result<()> {
-        let credential = get_static_credential();
+        let credential = get_credential();
         let mut threads = Vec::new();
         {
             let credential = credential.to_owned();
@@ -882,7 +869,7 @@ mod tests {
 
     #[test]
     fn test_authorization_v1_with_body_reader() -> Result<()> {
-        let credential = get_static_credential();
+        let credential = get_credential();
         assert_eq!(
             credential
                 .get(&Default::default())?
@@ -1203,8 +1190,8 @@ mod tests {
         Ok(())
     }
 
-    fn get_static_credential() -> StaticCredentialProvider {
-        StaticCredentialProvider::new(Credential::new("abcdefghklmnopq", "1234567890"))
+    fn get_credential() -> Credential {
+        Credential::new("abcdefghklmnopq", "1234567890")
     }
 
     fn get_global_credential() -> GlobalCredentialProvider {
@@ -1225,7 +1212,7 @@ mod tests {
 
         #[async_std::test]
         async fn test_sign_async_reader() -> Result<()> {
-            let credential = get_static_credential();
+            let credential = get_credential();
             assert_eq!(
                 credential
                     .get(&Default::default())?
@@ -1259,7 +1246,7 @@ mod tests {
 
         #[async_std::test]
         async fn test_async_authorization_v1() -> Result<()> {
-            let credential = get_static_credential();
+            let credential = get_credential();
             assert_eq!(
                 credential
                     .get(&Default::default())?
