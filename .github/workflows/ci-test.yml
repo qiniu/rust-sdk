@@ -31,6 +31,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
           default: true
           override: true
       - name: Test
@@ -61,6 +62,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
           default: true
           override: true
       - name: Test
@@ -88,6 +90,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
           default: true
           override: true
       - name: Test
