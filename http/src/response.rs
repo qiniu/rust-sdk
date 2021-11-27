@@ -209,6 +209,16 @@ impl<B> Response<B> {
         &mut self.body
     }
 
+    #[inline]
+    pub fn parts(&self) -> &ResponseParts {
+        &self.parts
+    }
+
+    #[inline]
+    pub fn parts_mut(&mut self) -> &mut ResponseParts {
+        &mut self.parts
+    }
+
     /// 直接获取 HTTP 响应体
     #[inline]
     pub fn into_body(self) -> B {

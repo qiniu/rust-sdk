@@ -1,13 +1,13 @@
-use super::super::super::EndpointParseError;
+use super::{super::super::EndpointParseError, X_LOG_HEADER_NAME, X_REQ_ID_HEADER_NAME};
 use qiniu_http::{
-    Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
-    ResponseParts as HttpResponseParts, StatusCode as HttpStatusCode,
+    HeaderName, HeaderValue, Metrics, ResponseError as HttpResponseError,
+    ResponseErrorKind as HttpResponseErrorKind, ResponseParts as HttpResponseParts,
+    StatusCode as HttpStatusCode,
 };
 use serde_json::Error as JsonError;
 use std::{
     error, fmt, io::Error as IoError, mem::take, net::IpAddr, num::NonZeroU16, time::Duration,
 };
-use tap::Tap;
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -43,7 +43,7 @@ pub struct Error {
     server_ip: Option<IpAddr>,
     server_port: Option<NonZeroU16>,
     metrics: Option<Box<dyn Metrics>>,
-    // TODO: 增加 x-log 作为可选错误信息
+    x_headers: XHeaders,
 }
 
 impl Error {
@@ -56,7 +56,17 @@ impl Error {
             server_ip: Default::default(),
             server_port: Default::default(),
             metrics: Default::default(),
+            x_headers: Default::default(),
         }
+    }
+
+    #[inline]
+    pub fn response_parts(mut self, response_parts: &HttpResponseParts) -> Self {
+        self.server_ip = response_parts.server_ip();
+        self.server_port = response_parts.server_port();
+        self.metrics = extract_metrics_from_response_parts(response_parts);
+        self.x_headers = response_parts.into();
+        self
     }
 
     /// 获取 HTTP 响应错误类型
@@ -81,15 +91,70 @@ impl Error {
     }
 
     #[inline]
-    pub(super) fn from_http_response_error(kind: ErrorKind, mut err: HttpResponseError) -> Self {
+    pub fn x_log(&self) -> Option<&HeaderValue> {
+        self.x_headers.x_log.as_ref()
+    }
+
+    #[inline]
+    pub fn x_reqid(&self) -> Option<&HeaderValue> {
+        self.x_headers.x_reqid.as_ref()
+    }
+
+    #[inline]
+    pub(in super::super) fn from_http_response_error(
+        mut err: HttpResponseError,
+        x_headers: XHeaders,
+        kind: Option<ErrorKind>,
+    ) -> Self {
         Self {
-            kind,
+            x_headers,
             server_ip: err.server_ip(),
             server_port: err.server_port(),
             metrics: take(err.metrics_mut()),
+            kind: kind.unwrap_or_else(|| err.kind().into()),
             error: err.into_inner(),
         }
     }
+}
+
+#[derive(Debug, Default)]
+pub(in super::super) struct XHeaders {
+    x_log: Option<HeaderValue>,
+    x_reqid: Option<HeaderValue>,
+}
+
+impl From<&HttpResponseParts> for XHeaders {
+    #[inline]
+    fn from(parts: &HttpResponseParts) -> Self {
+        Self {
+            x_log: extract_x_log_from_response_parts(parts),
+            x_reqid: extract_x_reqid_from_response_parts(parts),
+        }
+    }
+}
+
+#[inline]
+fn extract_x_log_from_response_parts(parts: &HttpResponseParts) -> Option<HeaderValue> {
+    parts
+        .header(HeaderName::from_static(X_LOG_HEADER_NAME))
+        .cloned()
+}
+
+#[inline]
+fn extract_x_reqid_from_response_parts(parts: &HttpResponseParts) -> Option<HeaderValue> {
+    parts
+        .header(HeaderName::from_static(X_REQ_ID_HEADER_NAME))
+        .cloned()
+}
+
+#[inline]
+fn extract_metrics_from_response_parts(
+    parts: &HttpResponseParts,
+) -> Option<Box<dyn Metrics + 'static>> {
+    parts
+        .metrics()
+        .map(ClonedMetrics::new)
+        .map(|metrics| Box::new(metrics) as Box<dyn Metrics + 'static>)
 }
 
 impl fmt::Display for Error {
@@ -109,7 +174,7 @@ impl error::Error for Error {
 impl From<HttpResponseError> for Error {
     #[inline]
     fn from(error: HttpResponseError) -> Self {
-        Self::from_http_response_error(error.kind().into(), error)
+        Self::from_http_response_error(error, Default::default(), None)
     }
 }
 
@@ -126,14 +191,7 @@ impl Error {
         error: EndpointParseError,
         parts: &HttpResponseParts,
     ) -> Self {
-        Self::new(ErrorKind::ParseResponseError, error).tap_mut(|err| {
-            err.server_ip = parts.server_ip();
-            err.server_port = parts.server_port();
-            err.metrics = parts
-                .metrics()
-                .map(ClonedMetrics::new)
-                .map(|metrics| Box::new(metrics) as Box<dyn Metrics + 'static>);
-        })
+        Self::new(ErrorKind::ParseResponseError, error).response_parts(parts)
     }
 }
 

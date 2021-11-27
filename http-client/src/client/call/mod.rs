@@ -40,8 +40,8 @@ mod tests {
         },
     };
 
-    // TODO: REMOVE
     const X_REQ_ID_HEADER_NAME: &str = "x-reqid";
+    const X_LOG_HEADER_NAME: &str = "x-log";
 
     #[test]
     fn test_call_endpoints_selection() -> Result<(), Box<dyn Error>> {
@@ -366,6 +366,10 @@ mod tests {
                 HeaderName::from_static(X_REQ_ID_HEADER_NAME),
                 HeaderValue::from_static("fake_req_id"),
             );
+            headers.insert(
+                HeaderName::from_static(X_LOG_HEADER_NAME),
+                HeaderValue::from_static("fake_log"),
+            );
             headers
         };
         let always_throttled_client = make_fixed_response_client_builder(
@@ -403,6 +407,11 @@ mod tests {
             err.kind(),
             ResponseErrorKind::StatusCodeError(StatusCode::from_u16(509)?)
         );
+        assert_eq!(
+            err.x_reqid(),
+            Some(&HeaderValue::from_static("fake_req_id"))
+        );
+        assert_eq!(err.x_log(), Some(&HeaderValue::from_static("fake_log")));
         assert_eq!(&err.to_string(), "Fake Throttled Error");
 
         Ok(())

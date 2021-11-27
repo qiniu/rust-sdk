@@ -11,7 +11,7 @@ use super::{
 };
 use qiniu_http::{
     uri::{Authority, InvalidUri, PathAndQuery, Scheme, Uri},
-    Extensions, Request as HttpRequest, RequestParts as HttpRequestParts,
+    Extensions, HeaderValue, Request as HttpRequest, RequestParts as HttpRequestParts,
     ResponseErrorKind as HttpResponseErrorKind, StatusCode, SyncRequest as SyncHttpRequest,
 };
 use std::{borrow::Cow, net::IpAddr, time::Duration};
@@ -417,7 +417,8 @@ pub(super) fn choose(
 pub(super) fn judge(response: SyncResponse) -> ApiResult<SyncResponse> {
     check_x_req_id(response.x_req_id())?;
     return match response.status_code().as_u16() {
-        0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.status_code())),
+        0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.status_code())
+            .response_parts(response.parts())),
         200..=299 => Ok(response),
         _ => to_status_code_error(response),
     };
@@ -425,16 +426,17 @@ pub(super) fn judge(response: SyncResponse) -> ApiResult<SyncResponse> {
     #[inline]
     fn to_status_code_error(response: SyncResponse) -> ApiResult<SyncResponse> {
         let status_code = response.status_code();
-        let error_response_body: ErrorResponseBody = response.parse_json()?.into_body();
+        let (parts, body) = response.parse_json::<ErrorResponseBody>()?.into_parts();
         Err(ResponseError::new(
             ResponseErrorKind::StatusCodeError(status_code),
-            error_response_body.into_error(),
-        ))
+            body.into_error(),
+        )
+        .response_parts(&parts))
     }
 }
 
 #[inline]
-fn check_x_req_id(req_id: Option<&str>) -> ApiResult<()> {
+fn check_x_req_id(req_id: Option<&HeaderValue>) -> ApiResult<()> {
     req_id.map_or_else(
         || {
             Err(ResponseError::new(
@@ -533,7 +535,8 @@ mod async_utils {
     pub(in super::super) async fn async_judge(response: AsyncResponse) -> ApiResult<AsyncResponse> {
         check_x_req_id(response.x_req_id())?;
         return match response.status_code().as_u16() {
-            0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.status_code())),
+            0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.status_code())
+                .response_parts(response.parts())),
             200..=299 => Ok(response),
             _ => to_status_code_error(response).await,
         };
@@ -541,11 +544,15 @@ mod async_utils {
         #[inline]
         async fn to_status_code_error(response: AsyncResponse) -> ApiResult<AsyncResponse> {
             let status_code = response.status_code();
-            let error_response_body: ErrorResponseBody = response.parse_json().await?.into_body();
+            let (parts, body) = response
+                .parse_json::<ErrorResponseBody>()
+                .await?
+                .into_parts();
             Err(ResponseError::new(
                 ResponseErrorKind::StatusCodeError(status_code),
-                error_response_body.into_error(),
-            ))
+                body.into_error(),
+            )
+            .response_parts(&parts))
         }
     }
 }

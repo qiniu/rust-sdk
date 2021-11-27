@@ -1,13 +1,14 @@
 use qiniu_http::{
     Extensions, HeaderMap, HeaderName, HeaderValue, Metrics, Response as HttpResponse,
-    ResponseErrorKind as HttpResponseErrorKind, ResponseParts as HttpResponseParts,
-    ResponseResult as HttpResponseResult, StatusCode, Version,
+    ResponseErrorKind as HttpResponseErrorKind, ResponseParts as HttpResponseParts, StatusCode,
+    Version,
 };
 use serde::de::DeserializeOwned;
 use serde_json::from_slice as parse_json_from_slice;
 use std::{io::copy as io_copy, net::IpAddr, num::NonZeroU16};
 
 mod error;
+pub(super) use error::XHeaders;
 pub use error::{Error as ResponseError, ErrorKind as ResponseErrorKind};
 
 pub type ApiResult<T> = Result<T, ResponseError>;
@@ -20,7 +21,8 @@ use futures::io::copy as async_io_copy;
 #[cfg(feature = "async")]
 pub use qiniu_http::AsyncResponseBody;
 
-// TODO: 在 Debug 中额外列出 x-reqid
+const X_REQ_ID_HEADER_NAME: &str = "x-reqid";
+const X_LOG_HEADER_NAME: &str = "x-log";
 
 #[derive(Default, Debug)]
 pub struct Response<B> {
@@ -140,6 +142,11 @@ impl<B> Response<B> {
     }
 
     #[inline]
+    pub fn parts(&self) -> &HttpResponseParts {
+        self.inner.parts()
+    }
+
+    #[inline]
     pub fn into_parts(self) -> (HttpResponseParts, B) {
         self.inner.into_parts()
     }
@@ -152,62 +159,89 @@ impl<B> Response<B> {
     }
 
     #[inline]
-    pub fn x_req_id(&self) -> Option<&str> {
-        self.header(HeaderName::from_static("x-reqid"))
-            .and_then(|v| v.to_str().ok())
+    pub fn parts_mut(&mut self) -> &mut HttpResponseParts {
+        self.inner.parts_mut()
+    }
+
+    #[inline]
+    pub fn x_req_id(&self) -> Option<&HeaderValue> {
+        self.header(HeaderName::from_static(X_REQ_ID_HEADER_NAME))
+    }
+
+    #[inline]
+    pub fn x_log(&self) -> Option<&HeaderValue> {
+        self.header(HeaderName::from_static(X_LOG_HEADER_NAME))
     }
 }
 
 impl Response<SyncResponseBody> {
     pub fn parse_json<T: DeserializeOwned>(self) -> ApiResult<Response<T>> {
+        let x_headers = XHeaders::from(self.parts());
         let json_response = self
             .fulfill()?
             .try_map_body(|body| parse_json_from_slice(&body))
             .map_err(|err| {
                 ResponseError::from_http_response_error(
-                    ResponseErrorKind::ParseResponseError,
                     err.into_response_error(HttpResponseErrorKind::ReceiveError),
+                    x_headers,
+                    Some(ResponseErrorKind::ParseResponseError),
                 )
             })?;
         Ok(Response::new(json_response))
     }
 
     #[inline]
-    pub(super) fn fulfill(self) -> HttpResponseResult<Vec<u8>> {
+    pub(super) fn fulfill(self) -> ApiResult<HttpResponse<Vec<u8>>> {
+        let x_headers = XHeaders::from(self.parts());
         self.inner
             .try_map_body(|mut body| {
                 let mut buf = Vec::new();
                 io_copy(&mut body, &mut buf).map(|_| buf)
             })
-            .map_err(|err| err.into_response_error(HttpResponseErrorKind::LocalIoError))
+            .map_err(|err| {
+                ResponseError::from_http_response_error(
+                    err.into_response_error(HttpResponseErrorKind::LocalIoError),
+                    x_headers,
+                    None,
+                )
+            })
     }
 }
 
 #[cfg(feature = "async")]
 impl Response<AsyncResponseBody> {
     pub async fn parse_json<T: DeserializeOwned>(self) -> ApiResult<Response<T>> {
+        let x_headers = XHeaders::from(self.parts());
         let json_response = self
             .fulfill()
             .await?
             .try_map_body(|body| parse_json_from_slice(&body))
             .map_err(|err| {
                 ResponseError::from_http_response_error(
-                    ResponseErrorKind::ParseResponseError,
                     err.into_response_error(HttpResponseErrorKind::ReceiveError),
+                    x_headers,
+                    Some(ResponseErrorKind::ParseResponseError),
                 )
             })?;
         Ok(Response::new(json_response))
     }
 
     #[inline]
-    pub(super) async fn fulfill(self) -> HttpResponseResult<Vec<u8>> {
+    pub(super) async fn fulfill(self) -> ApiResult<HttpResponse<Vec<u8>>> {
+        let x_headers = XHeaders::from(self.parts());
         self.inner
             .try_async_map_body(|mut body| async move {
                 let mut buf = Vec::new();
                 async_io_copy(&mut body, &mut buf).await.map(|_| buf)
             })
             .await
-            .map_err(|err| err.into_response_error(HttpResponseErrorKind::LocalIoError))
+            .map_err(|err| {
+                ResponseError::from_http_response_error(
+                    err.into_response_error(HttpResponseErrorKind::LocalIoError),
+                    x_headers,
+                    None,
+                )
+            })
     }
 }
 
