@@ -293,7 +293,7 @@ impl<'a> DerefMut for GotString<'a> {
 pub struct StaticUploadTokenProvider {
     upload_token: Box<str>,
     policy: OnceCell<UploadPolicy>,
-    access_key: OnceCell<Box<str>>,
+    access_key: OnceCell<AccessKey>,
 }
 
 impl StaticUploadTokenProvider {
@@ -325,8 +325,7 @@ impl UploadTokenProvider for StaticUploadTokenProvider {
                     .map(|i| self.upload_token.split_at(i).0.to_owned().into())
                     .ok_or(ParseError::InvalidUploadTokenFormat)
             })
-            .map(|access_key| access_key.as_ref())
-            .map(AccessKey::from)
+            .map(|access_key| access_key.to_owned())
             .map(GotAccessKey::from)
     }
 
