@@ -729,9 +729,17 @@ impl Default for ChainCredentialsProvider {
     }
 }
 
+impl FromIterator<Box<dyn CredentialProvider>> for ChainCredentialsProvider {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = Box<dyn CredentialProvider>>>(iter: T) -> Self {
+        ChainCredentialsProviderBuilder::from_iter(iter).build()
+    }
+}
+
 /// 串联认证信息构建器
 ///
 /// 接受多个认证信息提供者并将他们串联成串联认证信息
+#[derive(Debug, Clone, Default)]
 pub struct ChainCredentialsProviderBuilder {
     credentials: VecDeque<Box<dyn CredentialProvider>>,
 }
@@ -762,9 +770,29 @@ impl ChainCredentialsProviderBuilder {
     /// 串联认证信息
     #[inline]
     pub fn build(self) -> ChainCredentialsProvider {
+        assert!(
+            !self.credentials.is_empty(),
+            "ChainCredentialsProvider must owns at least one CredentialProvider"
+        );
         ChainCredentialsProvider {
-            credentials: self.credentials.into_iter().collect(),
+            credentials: Vec::from(self.credentials).into_boxed_slice().into(),
         }
+    }
+}
+
+impl FromIterator<Box<dyn CredentialProvider>> for ChainCredentialsProviderBuilder {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = Box<dyn CredentialProvider>>>(iter: T) -> Self {
+        ChainCredentialsProviderBuilder {
+            credentials: VecDeque::from_iter(iter),
+        }
+    }
+}
+
+impl Extend<Box<dyn CredentialProvider>> for ChainCredentialsProviderBuilder {
+    #[inline]
+    fn extend<T: IntoIterator<Item = Box<dyn CredentialProvider>>>(&mut self, iter: T) {
+        self.credentials.extend(iter)
     }
 }
 
@@ -1188,6 +1216,12 @@ mod tests {
             assert_eq!(cred.access_key().as_str(), "TEST1");
         }
         Ok(())
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_build_empty_chain_credentials() {
+        ChainCredentialsProviderBuilder::default().build();
     }
 
     fn get_credential() -> Credential {
