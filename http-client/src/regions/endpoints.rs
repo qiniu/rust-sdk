@@ -143,6 +143,16 @@ impl From<Vec<Endpoint>> for Endpoints {
     }
 }
 
+impl FromIterator<Endpoint> for Endpoints {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = Endpoint>>(iter: T) -> Self {
+        Self {
+            preferred: iter.into_iter().collect(),
+            alternative: Arc::new([]),
+        }
+    }
+}
+
 impl From<(Vec<Endpoint>, Vec<Endpoint>)> for Endpoints {
     #[inline]
     fn from(endpoints: (Vec<Endpoint>, Vec<Endpoint>)) -> Self {
@@ -178,6 +188,23 @@ impl EndpointsBuilder {
             preferred: self.preferred.into(),
             alternative: self.alternative.into(),
         }
+    }
+}
+
+impl FromIterator<Endpoint> for EndpointsBuilder {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = Endpoint>>(iter: T) -> Self {
+        Self {
+            preferred: Vec::from_iter(iter),
+            alternative: Default::default(),
+        }
+    }
+}
+
+impl Extend<Endpoint> for EndpointsBuilder {
+    #[inline]
+    fn extend<T: IntoIterator<Item = Endpoint>>(&mut self, iter: T) {
+        self.preferred.extend(iter)
     }
 }
 
