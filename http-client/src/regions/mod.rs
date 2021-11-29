@@ -11,6 +11,6 @@ pub use endpoints::{Endpoints, EndpointsBuilder, IntoEndpoints, InvalidServiceNa
 pub use provider::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
     CachedRegionsProvider, GetOptions, GotRegion, GotRegions, RegionProvider, RegionsProvider,
-    StaticRegionProvider,
+    StaticRegionsProvider,
 };
 pub use region::{Region, RegionBuilder};

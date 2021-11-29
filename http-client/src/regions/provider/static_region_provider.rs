@@ -5,11 +5,11 @@ use super::{
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
-pub struct StaticRegionProvider {
+pub struct StaticRegionsProvider {
     regions: Arc<[Region]>,
 }
 
-impl StaticRegionProvider {
+impl StaticRegionsProvider {
     #[inline]
     pub fn new(regions: impl Into<Vec<Region>>) -> Self {
         let regions = Arc::<[_]>::from(regions.into());
@@ -18,7 +18,7 @@ impl StaticRegionProvider {
     }
 }
 
-impl RegionProvider for StaticRegionProvider {
+impl RegionProvider for StaticRegionsProvider {
     #[inline]
     fn get(&self, _opts: &GetOptions) -> ApiResult<GotRegion> {
         Ok(self
@@ -32,5 +32,23 @@ impl RegionProvider for StaticRegionProvider {
     #[inline]
     fn get_all(&self, _opts: &GetOptions) -> ApiResult<GotRegions> {
         Ok(Vec::from_iter(self.regions.iter().cloned()).into())
+    }
+}
+
+impl From<Region> for StaticRegionsProvider {
+    #[inline]
+    fn from(region: Region) -> Self {
+        Self {
+            regions: Arc::new([region]),
+        }
+    }
+}
+
+impl FromIterator<Region> for StaticRegionsProvider {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = Region>>(iter: T) -> Self {
+        Self {
+            regions: iter.into_iter().collect(),
+        }
     }
 }

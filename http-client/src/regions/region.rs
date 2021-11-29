@@ -1,4 +1,4 @@
-use super::{Endpoint, Endpoints};
+use super::{Endpoint, Endpoints, StaticRegionsProvider};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -159,6 +159,11 @@ impl Region {
     #[inline]
     pub(super) fn s3(&self) -> &Endpoints {
         &self.inner.s3
+    }
+
+    #[inline]
+    pub fn into_region_provider(self) -> StaticRegionsProvider {
+        self.into()
     }
 }
 
