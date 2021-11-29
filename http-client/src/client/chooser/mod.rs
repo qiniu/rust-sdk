@@ -68,6 +68,13 @@ impl From<Vec<IpAddrWithPort>> for ChosenResults {
     }
 }
 
+impl FromIterator<IpAddrWithPort> for ChosenResults {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = IpAddrWithPort>>(iter: T) -> Self {
+        Self(Vec::from_iter(iter))
+    }
+}
+
 impl From<ChosenResults> for Vec<IpAddrWithPort> {
     #[inline]
     fn from(answers: ChosenResults) -> Self {

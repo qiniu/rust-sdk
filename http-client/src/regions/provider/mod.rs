@@ -165,6 +165,13 @@ impl From<Vec<Region>> for GotRegions {
     }
 }
 
+impl FromIterator<Region> for GotRegions {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = Region>>(iter: T) -> Self {
+        Self(Vec::from_iter(iter))
+    }
+}
+
 impl GotRegions {
     #[inline]
     pub fn regions(&self) -> &[Region] {

@@ -75,6 +75,15 @@ impl From<Vec<IpAddr>> for ResolveAnswers {
     }
 }
 
+impl FromIterator<IpAddr> for ResolveAnswers {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = IpAddr>>(iter: T) -> Self {
+        Self {
+            ip_addrs: Vec::from_iter(iter).into(),
+        }
+    }
+}
+
 impl From<ResolveAnswers> for Box<[IpAddr]> {
     #[inline]
     fn from(answers: ResolveAnswers) -> Self {
