@@ -157,11 +157,11 @@ impl JsonType {
                 name,
                 &quote!(f64),
                 &quote!(as_f64),
-                "解析 JSON 得到浮点型",
+                "解析 JSON 得到 f64 浮点型",
             );
             let from_trait_and_set_method_token_streams = [
-                (quote!(f64), quote!(as_f64), "解析 JSON 得到 f64 浮点型"),
-                (quote!(f32), quote!(as_f32), "解析 JSON 得到 f32 浮点型"),
+                (quote!(f64), quote!(set_f64), "设置 JSON f64 浮点型"),
+                (quote!(f32), quote!(set_f32), "设置 JSON f32 浮点型"),
             ]
             .map(|(ty, set_method_name, set_method_documentation)| {
                 let set_method_token_stream = impl_set_method_for_base_types(
