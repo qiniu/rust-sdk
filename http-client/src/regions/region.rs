@@ -1,4 +1,4 @@
-use super::{Endpoint, Endpoints, StaticRegionsProvider};
+use super::{super::ApiResult, Endpoint, Endpoints, GetOptions, GotRegion, RegionProvider};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -160,10 +160,12 @@ impl Region {
     pub(super) fn s3(&self) -> &Endpoints {
         &self.inner.s3
     }
+}
 
+impl RegionProvider for Region {
     #[inline]
-    pub fn into_region_provider(self) -> StaticRegionsProvider {
-        self.into()
+    fn get(&self, _opts: &GetOptions) -> ApiResult<GotRegion> {
+        Ok(self.to_owned().into())
     }
 }
 

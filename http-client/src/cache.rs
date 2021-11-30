@@ -1,4 +1,5 @@
 use super::{spawn::spawn, ApiResult};
+use auto_impl::auto_impl;
 use crossbeam_queue::SegQueue;
 use dashmap::DashMap;
 use fs2::FileExt;
@@ -20,6 +21,7 @@ use std::{
 };
 use thiserror::Error;
 
+#[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait CacheController {
     fn clear(&self);
 }

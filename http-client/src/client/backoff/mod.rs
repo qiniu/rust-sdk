@@ -3,6 +3,7 @@ mod fixed;
 mod randomized;
 
 use super::{ResponseError, RetriedStatsInfo, RetryDecision};
+use auto_impl::auto_impl;
 use qiniu_http::RequestParts as HttpRequestParts;
 use std::{
     fmt::Debug,
@@ -10,6 +11,7 @@ use std::{
     time::Duration,
 };
 
+#[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Backoff: Debug + Sync + Send {
     fn time(&self, request: &mut HttpRequestParts, opts: &BackoffOptions) -> BackoffDuration;
 }

@@ -1,4 +1,5 @@
 use super::{UploadPolicy, UploadPolicyBuilder};
+use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use once_cell::sync::OnceCell;
 use qiniu_credential::{AccessKey, CredentialProvider};
@@ -30,6 +31,7 @@ type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send
 ///
 /// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1208/upload-token)了解七牛安全机制。
 #[clonable]
+#[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
     /// 从上传凭证内获取 AccessKey
     fn access_key(&self, opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey>;

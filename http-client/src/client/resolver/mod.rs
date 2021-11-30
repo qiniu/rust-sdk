@@ -5,6 +5,7 @@ mod simple;
 mod timeout;
 
 use super::{super::CacheController, ApiResult};
+use auto_impl::auto_impl;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
@@ -15,6 +16,7 @@ use std::{
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
+#[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Resolver: Debug + Sync + Send {
     fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult;
 

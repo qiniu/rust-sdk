@@ -2,8 +2,10 @@ use super::{
     super::{Authorization, Idempotent, QueryPairs, RequestParts},
     simplified::SimplifiedCallbackContext,
 };
+use auto_impl::auto_impl;
 use qiniu_http::{Extensions, HeaderMap, Method, UserAgent, Version};
 
+#[auto_impl(&mut, Box)]
 pub trait CallbackContext: SimplifiedCallbackContext {
     fn extensions(&self) -> &Extensions;
     fn extensions_mut(&mut self) -> &mut Extensions;

@@ -15,10 +15,12 @@ use std::{
     result,
     time::Duration,
 };
+use auto_impl::auto_impl;
 
 #[cfg(feature = "async")]
 use futures_lite::Future;
 
+#[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Metrics: Debug + Send + Sync {
     fn total_duration(&self) -> Option<Duration>;
     fn name_lookup_duration(&self) -> Option<Duration>;

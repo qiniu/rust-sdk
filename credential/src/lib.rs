@@ -18,6 +18,7 @@
     unused_qualifications
 )]
 
+use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use hmac::{Hmac, Mac, NewMac};
 use http::{
@@ -505,6 +506,7 @@ type AsyncResult<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a + Send>>;
 ///
 /// 为认证信息提供者的实现提供接口支持
 #[clonable]
+#[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait CredentialProvider: Clone + Debug + Sync + Send {
     /// 返回七牛认证信息
     fn get(&self, opts: &GetOptions) -> Result<GotCredential>;

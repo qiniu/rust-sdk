@@ -2,6 +2,7 @@ use super::{
     super::{ApiResult, CacheController},
     Region,
 };
+use auto_impl::auto_impl;
 use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
@@ -31,6 +32,7 @@ use futures::future::BoxFuture;
 /// 区域信息提供者
 ///
 /// 为区域信息提供者的实现提供接口支持
+#[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait RegionProvider: Debug + Sync + Send {
     /// 返回七牛区域信息
     fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion>;
@@ -61,37 +63,6 @@ pub trait RegionProvider: Debug + Sync + Send {
     #[inline]
     fn cache_controller(&self) -> Option<&dyn CacheController> {
         None
-    }
-}
-
-impl RegionProvider for Box<dyn RegionProvider + 'static> {
-    #[inline]
-    fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
-        self.as_ref().get(opts)
-    }
-
-    #[inline]
-    fn get_all(&self, opts: &GetOptions) -> ApiResult<GotRegions> {
-        self.as_ref().get_all(opts)
-    }
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
-        self.as_ref().async_get(opts)
-    }
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegions>> {
-        self.as_ref().async_get_all(opts)
-    }
-
-    #[inline]
-    fn cache_controller(&self) -> Option<&dyn CacheController> {
-        self.as_ref().cache_controller()
     }
 }
 

@@ -3,12 +3,14 @@ use super::{
     context::CallbackContext,
     simplified::SimplifiedCallbackContext,
 };
+use auto_impl::auto_impl;
 use qiniu_http::{
     uri::Scheme, Extensions, HeaderMap, Method, RequestParts as HttpRequestParts, Uri, UserAgent,
     Version,
 };
 use std::{borrow::Cow, net::IpAddr};
 
+#[auto_impl(&mut, Box)]
 pub trait ExtendedCallbackContext: CallbackContext {
     fn url(&self) -> &Uri;
     fn version_mut(&mut self) -> &mut Version;

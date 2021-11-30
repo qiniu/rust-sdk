@@ -6,6 +6,7 @@ mod shuffled;
 mod subnet;
 
 use super::super::regions::IpAddrWithPort;
+use auto_impl::auto_impl;
 pub use feedback::ChooserFeedback;
 use std::{
     fmt::Debug,
@@ -15,6 +16,7 @@ use std::{
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
+#[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Chooser: Debug + Sync + Send {
     fn choose(&self, ips: &[IpAddrWithPort], opts: &ChooseOptions) -> ChosenResults;
     fn feedback(&self, feedback: ChooserFeedback);

@@ -22,6 +22,7 @@ mod error;
 mod request;
 mod response;
 
+use auto_impl::auto_impl;
 pub use error::{
     Error as ResponseError, ErrorBuilder as ResponseErrorBuilder, ErrorKind as ResponseErrorKind,
     MapError,
@@ -102,6 +103,7 @@ type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 /// HTTP 请求处理函数
 ///
 /// 实现该接口，即可处理所有七牛 SDK 发送的 HTTP 请求
+#[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait HttpCaller: Debug + Send + Sync {
     /// 同步发送 HTTP 请求
     fn call<'a>(&self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult;

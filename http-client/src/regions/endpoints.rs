@@ -216,9 +216,7 @@ pub struct IntoEndpoints<'r> {
 #[derive(Debug)]
 enum Inner<'r> {
     Endpoints(Cow<'r, Endpoints>),
-    Region(Cow<'r, Region>),
-    Provider(&'r dyn RegionProvider),
-    BoxedProvider(Box<dyn RegionProvider + 'static>),
+    Region(Box<dyn RegionProvider + 'r>),
 }
 
 impl From<Endpoints> for IntoEndpoints<'_> {
@@ -248,47 +246,11 @@ impl<'r> From<Cow<'r, Endpoints>> for IntoEndpoints<'r> {
     }
 }
 
-impl From<Region> for IntoEndpoints<'_> {
-    #[inline]
-    fn from(region: Region) -> Self {
-        Self {
-            inner: Inner::Region(Cow::Owned(region)),
-        }
-    }
-}
-
-impl<'r> From<&'r Region> for IntoEndpoints<'r> {
-    #[inline]
-    fn from(region: &'r Region) -> Self {
-        Self {
-            inner: Inner::Region(Cow::Borrowed(region)),
-        }
-    }
-}
-
-impl<'r> From<Cow<'r, Region>> for IntoEndpoints<'r> {
-    #[inline]
-    fn from(region: Cow<'r, Region>) -> Self {
-        Self {
-            inner: Inner::Region(region),
-        }
-    }
-}
-
-impl<'r> From<&'r dyn RegionProvider> for IntoEndpoints<'r> {
-    #[inline]
-    fn from(provider: &'r dyn RegionProvider) -> Self {
-        Self {
-            inner: Inner::Provider(provider),
-        }
-    }
-}
-
-impl<T: RegionProvider + 'static> From<T> for IntoEndpoints<'_> {
+impl<'r, T: RegionProvider + 'r> From<T> for IntoEndpoints<'r> {
     #[inline]
     fn from(provider: T) -> Self {
         Self {
-            inner: Inner::BoxedProvider(Box::new(provider)),
+            inner: Inner::Region(Box::new(provider)),
         }
     }
 }
@@ -300,11 +262,7 @@ impl<'r> IntoEndpoints<'r> {
     ) -> ApiResult<Cow<'r, Endpoints>> {
         let endpoints = match self.inner {
             Inner::Endpoints(endpoints) => endpoints,
-            Inner::Region(region) => Cow::Owned(Endpoints::from_region(region.as_ref(), services)),
-            Inner::Provider(provider) => {
-                Cow::Owned(Endpoints::from_region_provider(provider, services)?)
-            }
-            Inner::BoxedProvider(provider) => {
+            Inner::Region(provider) => {
                 Cow::Owned(Endpoints::from_region_provider(&provider, services)?)
             }
         };
@@ -318,11 +276,7 @@ impl<'r> IntoEndpoints<'r> {
     ) -> ApiResult<Cow<'r, Endpoints>> {
         let endpoints = match self.inner {
             Inner::Endpoints(endpoints) => endpoints,
-            Inner::Region(region) => Cow::Owned(Endpoints::from_region(region.as_ref(), services)),
-            Inner::Provider(provider) => {
-                Cow::Owned(Endpoints::async_from_region_provider(provider, services).await?)
-            }
-            Inner::BoxedProvider(provider) => {
+            Inner::Region(provider) => {
                 Cow::Owned(Endpoints::async_from_region_provider(&provider, services).await?)
             }
         };
