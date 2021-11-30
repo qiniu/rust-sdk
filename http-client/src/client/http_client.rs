@@ -1,17 +1,16 @@
 use super::{
-    super::{IntoEndpoints, ServiceName},
-    callbacks::{
-        OnDomainResolved, OnError, OnHeader, OnIPsChosen, OnProgress, OnRequest, OnRetry,
-        OnStatusCode, OnToChooseIPs, OnToResolveDomain,
-    },
-    Backoff, CachedResolver, Callbacks, CallbacksBuilder, ChainedResolver, Chooser, ErrorRetrier,
-    ExponentialBackoff, LimitedRetrier, NeverEmptyHandedChooser, RandomizedBackoff, RequestRetrier,
-    Resolver, ShuffledChooser, ShuffledResolver, SimpleResolver, SubnetChooser, SyncRequestBuilder,
-    TimeoutResolver,
+    super::{IntoEndpoints, IpAddrWithPort, ServiceName},
+    Backoff, CachedResolver, CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver,
+    Chooser, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, LimitedRetrier,
+    NeverEmptyHandedChooser, RandomizedBackoff, RequestRetrier, ResolveAnswers, Resolver,
+    ResponseError, ShuffledChooser, ShuffledResolver, SimpleResolver, SimplifiedCallbackContext,
+    SubnetChooser, SyncRequestBuilder, TimeoutResolver,
 };
 use cfg_if::cfg_if;
-use qiniu_http::{HttpCaller, Method, UserAgent};
-use std::sync::Arc;
+use qiniu_http::{
+    HeaderName, HeaderValue, HttpCaller, Method, StatusCode, TransferProgressInfo, UserAgent,
+};
+use std::{sync::Arc, time::Duration};
 
 #[cfg(feature = "isahc")]
 use qiniu_isahc::isahc::error::Error as IsahcError;
@@ -33,7 +32,7 @@ struct HttpClientInner {
     backoff: Box<dyn Backoff>,
     chooser: Box<dyn Chooser>,
     resolver: Box<dyn Resolver>,
-    callbacks: Callbacks,
+    callbacks: Callbacks<'static>,
 }
 
 impl HttpClient {
@@ -246,7 +245,7 @@ impl HttpClient {
     }
 
     #[inline]
-    pub(super) fn callbacks(&self) -> &Callbacks {
+    pub(super) fn callbacks(&self) -> &Callbacks<'static> {
         &self.inner.callbacks
     }
 
@@ -285,7 +284,7 @@ pub struct HttpClientBuilder {
     backoff: Box<dyn Backoff>,
     chooser: Box<dyn Chooser>,
     resolver: Box<dyn Resolver>,
-    callbacks: CallbacksBuilder,
+    callbacks: CallbacksBuilder<'static>,
 }
 
 impl HttpClientBuilder {
@@ -375,73 +374,124 @@ impl HttpClientBuilder {
     }
 
     #[inline]
-    pub fn on_uploading_progress(mut self, callback: OnProgress) -> Self {
+    pub fn on_uploading_progress(
+        mut self,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool
+            + Send
+            + Sync
+            + 'static,
+    ) -> Self {
         self.callbacks = self.callbacks.on_uploading_progress(callback);
         self
     }
 
     #[inline]
-    pub fn on_receive_response_status(mut self, callback: OnStatusCode) -> Self {
+    pub fn on_receive_response_status(
+        mut self,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync + 'static,
+    ) -> Self {
         self.callbacks = self.callbacks.on_receive_response_status(callback);
         self
     }
 
     #[inline]
-    pub fn on_receive_response_header(mut self, callback: OnHeader) -> Self {
+    pub fn on_receive_response_header(
+        mut self,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool
+            + Send
+            + Sync
+            + 'static,
+    ) -> Self {
         self.callbacks = self.callbacks.on_receive_response_header(callback);
         self
     }
 
     #[inline]
-    pub fn on_to_resolve_domain(mut self, callback: OnToResolveDomain) -> Self {
+    pub fn on_to_resolve_domain(
+        mut self,
+        callback: impl Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync + 'static,
+    ) -> Self {
         self.callbacks = self.callbacks.on_to_resolve_domain(callback);
         self
     }
 
     #[inline]
-    pub fn on_domain_resolved(mut self, callback: OnDomainResolved) -> Self {
+    pub fn on_domain_resolved(
+        mut self,
+        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool
+            + Send
+            + Sync
+            + 'static,
+    ) -> Self {
         self.callbacks = self.callbacks.on_domain_resolved(callback);
         self
     }
 
     #[inline]
-    pub fn on_to_choose_ips(mut self, callback: OnToChooseIPs) -> Self {
+    pub fn on_to_choose_ips(
+        mut self,
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync + 'static,
+    ) -> Self {
         self.callbacks = self.callbacks.on_to_choose_ips(callback);
         self
     }
 
     #[inline]
-    pub fn on_ips_chosen(mut self, callback: OnIPsChosen) -> Self {
+    pub fn on_ips_chosen(
+        mut self,
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool
+            + Send
+            + Sync
+            + 'static,
+    ) -> Self {
         self.callbacks = self.callbacks.on_ips_chosen(callback);
         self
     }
 
     #[inline]
-    pub fn on_before_request_signed(mut self, callback: OnRequest) -> Self {
+    pub fn on_before_request_signed(
+        mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'static,
+    ) -> Self {
         self.callbacks = self.callbacks.on_before_request_signed(callback);
         self
     }
 
     #[inline]
-    pub fn on_after_request_signed(mut self, callback: OnRequest) -> Self {
+    pub fn on_after_request_signed(
+        mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'static,
+    ) -> Self {
         self.callbacks = self.callbacks.on_after_request_signed(callback);
         self
     }
 
     #[inline]
-    pub fn on_error(mut self, callback: OnError) -> Self {
+    pub fn on_error(
+        mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool
+            + Send
+            + Sync
+            + 'static,
+    ) -> Self {
         self.callbacks = self.callbacks.on_error(callback);
         self
     }
 
     #[inline]
-    pub fn on_before_backoff(mut self, callback: OnRetry) -> Self {
+    pub fn on_before_backoff(
+        mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'static,
+    ) -> Self {
         self.callbacks = self.callbacks.on_before_backoff(callback);
         self
     }
 
     #[inline]
-    pub fn on_after_backoff(mut self, callback: OnRetry) -> Self {
+    pub fn on_after_backoff(
+        mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'static,
+    ) -> Self {
         self.callbacks = self.callbacks.on_after_backoff(callback);
         self
     }

@@ -361,67 +361,172 @@ impl<'req> SyncRequestBuilder<'req> {
         self
     }
     #[inline]
-    pub fn on_uploading_progress(mut self, callback: qiniu_http_client::OnProgress) -> Self {
+    pub fn on_uploading_progress(
+        mut self,
+        callback: impl Fn(
+                &dyn qiniu_http_client::SimplifiedCallbackContext,
+                &qiniu_http_client::http::TransferProgressInfo,
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_uploading_progress(callback);
         self
     }
     #[inline]
-    pub fn on_receive_response_status(mut self, callback: qiniu_http_client::OnStatusCode) -> Self {
+    pub fn on_receive_response_status(
+        mut self,
+        callback: impl Fn(
+                &dyn qiniu_http_client::SimplifiedCallbackContext,
+                qiniu_http_client::http::StatusCode,
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_receive_response_status(callback);
         self
     }
     #[inline]
-    pub fn on_receive_response_header(mut self, callback: qiniu_http_client::OnHeader) -> Self {
+    pub fn on_receive_response_header(
+        mut self,
+        callback: impl Fn(
+                &dyn qiniu_http_client::SimplifiedCallbackContext,
+                &qiniu_http_client::http::HeaderName,
+                &qiniu_http_client::http::HeaderValue,
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_receive_response_header(callback);
         self
     }
     #[inline]
-    pub fn on_to_resolve_domain(mut self, callback: qiniu_http_client::OnToResolveDomain) -> Self {
+    pub fn on_to_resolve_domain(
+        mut self,
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_to_resolve_domain(callback);
         self
     }
     #[inline]
-    pub fn on_domain_resolved(mut self, callback: qiniu_http_client::OnDomainResolved) -> Self {
+    pub fn on_domain_resolved(
+        mut self,
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::CallbackContext,
+                &str,
+                &qiniu_http_client::ResolveAnswers,
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_domain_resolved(callback);
         self
     }
     #[inline]
-    pub fn on_to_choose_ips(mut self, callback: qiniu_http_client::OnToChooseIPs) -> Self {
+    pub fn on_to_choose_ips(
+        mut self,
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::CallbackContext,
+                &[qiniu_http_client::IpAddrWithPort],
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_to_choose_ips(callback);
         self
     }
     #[inline]
-    pub fn on_ips_chosen(mut self, callback: qiniu_http_client::OnIPsChosen) -> Self {
+    pub fn on_ips_chosen(
+        mut self,
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::CallbackContext,
+                &[qiniu_http_client::IpAddrWithPort],
+                &[qiniu_http_client::IpAddrWithPort],
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_ips_chosen(callback);
         self
     }
     #[inline]
-    pub fn on_before_request_signed(mut self, callback: qiniu_http_client::OnRequest) -> Self {
+    pub fn on_before_request_signed(
+        mut self,
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_before_request_signed(callback);
         self
     }
     #[inline]
-    pub fn on_after_request_signed(mut self, callback: qiniu_http_client::OnRequest) -> Self {
+    pub fn on_after_request_signed(
+        mut self,
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_after_request_signed(callback);
         self
     }
     #[inline]
-    pub fn on_success(mut self, callback: qiniu_http_client::OnSuccess) -> Self {
+    pub fn on_success(
+        mut self,
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::ExtendedCallbackContext,
+                &qiniu_http_client::ResponseInfo,
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_success(callback);
         self
     }
     #[inline]
-    pub fn on_error(mut self, callback: qiniu_http_client::OnError) -> Self {
+    pub fn on_error(
+        mut self,
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::ExtendedCallbackContext,
+                &qiniu_http_client::ResponseError,
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_error(callback);
         self
     }
     #[inline]
-    pub fn on_before_backoff(mut self, callback: qiniu_http_client::OnRetry) -> Self {
+    pub fn on_before_backoff(
+        mut self,
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext, std::time::Duration) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_before_backoff(callback);
         self
     }
     #[inline]
-    pub fn on_after_backoff(mut self, callback: qiniu_http_client::OnRetry) -> Self {
+    pub fn on_after_backoff(
+        mut self,
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext, std::time::Duration) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_after_backoff(callback);
         self
     }
@@ -470,67 +575,172 @@ impl<'req> AsyncRequestBuilder<'req> {
         self
     }
     #[inline]
-    pub fn on_uploading_progress(mut self, callback: qiniu_http_client::OnProgress) -> Self {
+    pub fn on_uploading_progress(
+        mut self,
+        callback: impl Fn(
+                &dyn qiniu_http_client::SimplifiedCallbackContext,
+                &qiniu_http_client::http::TransferProgressInfo,
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_uploading_progress(callback);
         self
     }
     #[inline]
-    pub fn on_receive_response_status(mut self, callback: qiniu_http_client::OnStatusCode) -> Self {
+    pub fn on_receive_response_status(
+        mut self,
+        callback: impl Fn(
+                &dyn qiniu_http_client::SimplifiedCallbackContext,
+                qiniu_http_client::http::StatusCode,
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_receive_response_status(callback);
         self
     }
     #[inline]
-    pub fn on_receive_response_header(mut self, callback: qiniu_http_client::OnHeader) -> Self {
+    pub fn on_receive_response_header(
+        mut self,
+        callback: impl Fn(
+                &dyn qiniu_http_client::SimplifiedCallbackContext,
+                &qiniu_http_client::http::HeaderName,
+                &qiniu_http_client::http::HeaderValue,
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_receive_response_header(callback);
         self
     }
     #[inline]
-    pub fn on_to_resolve_domain(mut self, callback: qiniu_http_client::OnToResolveDomain) -> Self {
+    pub fn on_to_resolve_domain(
+        mut self,
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_to_resolve_domain(callback);
         self
     }
     #[inline]
-    pub fn on_domain_resolved(mut self, callback: qiniu_http_client::OnDomainResolved) -> Self {
+    pub fn on_domain_resolved(
+        mut self,
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::CallbackContext,
+                &str,
+                &qiniu_http_client::ResolveAnswers,
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_domain_resolved(callback);
         self
     }
     #[inline]
-    pub fn on_to_choose_ips(mut self, callback: qiniu_http_client::OnToChooseIPs) -> Self {
+    pub fn on_to_choose_ips(
+        mut self,
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::CallbackContext,
+                &[qiniu_http_client::IpAddrWithPort],
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_to_choose_ips(callback);
         self
     }
     #[inline]
-    pub fn on_ips_chosen(mut self, callback: qiniu_http_client::OnIPsChosen) -> Self {
+    pub fn on_ips_chosen(
+        mut self,
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::CallbackContext,
+                &[qiniu_http_client::IpAddrWithPort],
+                &[qiniu_http_client::IpAddrWithPort],
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_ips_chosen(callback);
         self
     }
     #[inline]
-    pub fn on_before_request_signed(mut self, callback: qiniu_http_client::OnRequest) -> Self {
+    pub fn on_before_request_signed(
+        mut self,
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_before_request_signed(callback);
         self
     }
     #[inline]
-    pub fn on_after_request_signed(mut self, callback: qiniu_http_client::OnRequest) -> Self {
+    pub fn on_after_request_signed(
+        mut self,
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_after_request_signed(callback);
         self
     }
     #[inline]
-    pub fn on_success(mut self, callback: qiniu_http_client::OnSuccess) -> Self {
+    pub fn on_success(
+        mut self,
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::ExtendedCallbackContext,
+                &qiniu_http_client::ResponseInfo,
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_success(callback);
         self
     }
     #[inline]
-    pub fn on_error(mut self, callback: qiniu_http_client::OnError) -> Self {
+    pub fn on_error(
+        mut self,
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::ExtendedCallbackContext,
+                &qiniu_http_client::ResponseError,
+            ) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_error(callback);
         self
     }
     #[inline]
-    pub fn on_before_backoff(mut self, callback: qiniu_http_client::OnRetry) -> Self {
+    pub fn on_before_backoff(
+        mut self,
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext, std::time::Duration) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_before_backoff(callback);
         self
     }
     #[inline]
-    pub fn on_after_backoff(mut self, callback: qiniu_http_client::OnRetry) -> Self {
+    pub fn on_after_backoff(
+        mut self,
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext, std::time::Duration) -> bool
+            + Send
+            + Sync
+            + 'req,
+    ) -> Self {
         self.0 = self.0.on_after_backoff(callback);
         self
     }

@@ -17,7 +17,7 @@ pub(in super::super) struct Request<'r, B: 'r> {
     http_client: &'r HttpClient,
     service_names: &'r [ServiceName],
     into_endpoints: IntoEndpoints<'r>,
-    callbacks: Callbacks,
+    callbacks: Callbacks<'r>,
     metadata: RequestMetadata<'r>,
     body: B,
     appended_user_agent: UserAgent,
@@ -31,7 +31,7 @@ impl<'r, B: 'r> Request<'r, B> {
         http_client: &'r HttpClient,
         service_names: &'r [ServiceName],
         into_endpoints: IntoEndpoints<'r>,
-        callbacks: Callbacks,
+        callbacks: Callbacks<'r>,
         data: RequestMetadata<'r>,
         body: B,
         appended_user_agent: UserAgent,
@@ -77,7 +77,7 @@ impl<'r, B: 'r> Request<'r, B> {
 #[derive(Debug)]
 pub(in super::super) struct RequestParts<'r> {
     http_client: &'r HttpClient,
-    callbacks: Callbacks,
+    callbacks: Callbacks<'r>,
     data: RequestMetadata<'r>,
     appended_user_agent: UserAgent,
 }

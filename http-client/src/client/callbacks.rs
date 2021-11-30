@@ -1,70 +1,73 @@
-use crate::SimplifiedCallbackContext;
-
 use super::{
     super::regions::IpAddrWithPort,
     callback::{CallbackContext, ExtendedCallbackContext},
-    ResolveAnswers, ResponseError, ResponseInfo,
+    ResolveAnswers, ResponseError, ResponseInfo, SimplifiedCallbackContext,
 };
 use qiniu_http::{HeaderName, HeaderValue, StatusCode, TransferProgressInfo};
 use std::{fmt, time::Duration};
 
-pub type OnProgress =
-    Box<dyn Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool + Send + Sync>;
-pub type OnStatusCode =
-    Box<dyn Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync>;
-pub type OnHeader =
-    Box<dyn Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool + Send + Sync>;
-
-pub type OnToResolveDomain = Box<dyn Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync>;
-pub type OnDomainResolved =
-    Box<dyn Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool + Send + Sync>;
-pub type OnToChooseIPs =
-    Box<dyn Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync>;
-pub type OnIPsChosen = Box<
-    dyn Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool + Send + Sync,
+type OnProgress<'f> =
+    Box<dyn Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool + Send + Sync + 'f>;
+type OnStatusCode<'f> =
+    Box<dyn Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync + 'f>;
+type OnHeader<'f> = Box<
+    dyn Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool + Send + Sync + 'f,
 >;
-pub type OnRequest = Box<dyn Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync>;
-pub type OnRetry = Box<dyn Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync>;
-pub type OnSuccess =
-    Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseInfo) -> bool + Send + Sync>;
-pub type OnError =
-    Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync>;
+
+type OnToResolveDomain<'f> = Box<dyn Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync + 'f>;
+type OnDomainResolved<'f> =
+    Box<dyn Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool + Send + Sync + 'f>;
+type OnToChooseIPs<'f> =
+    Box<dyn Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync + 'f>;
+type OnIPsChosen<'f> = Box<
+    dyn Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool
+        + Send
+        + Sync
+        + 'f,
+>;
+type OnRequest<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'f>;
+type OnRetry<'f> =
+    Box<dyn Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'f>;
+type OnSuccess<'f> =
+    Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseInfo) -> bool + Send + Sync + 'f>;
+type OnError<'f> =
+    Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync + 'f>;
 
 #[derive(Default)]
-pub struct Callbacks {
-    on_uploading_progress: Box<[OnProgress]>,
-    on_receive_response_status: Box<[OnStatusCode]>,
-    on_receive_response_header: Box<[OnHeader]>,
-    on_to_resolve_domain: Box<[OnToResolveDomain]>,
-    on_domain_resolved: Box<[OnDomainResolved]>,
-    on_to_choose_ips: Box<[OnToChooseIPs]>,
-    on_ips_chosen: Box<[OnIPsChosen]>,
-    on_before_request_signed: Box<[OnRequest]>,
-    on_after_request_signed: Box<[OnRequest]>,
-    on_success: Box<[OnSuccess]>,
-    on_error: Box<[OnError]>,
-    on_before_backoff: Box<[OnRetry]>,
-    on_after_backoff: Box<[OnRetry]>,
+pub struct Callbacks<'f> {
+    on_uploading_progress: Box<[OnProgress<'f>]>,
+    on_receive_response_status: Box<[OnStatusCode<'f>]>,
+    on_receive_response_header: Box<[OnHeader<'f>]>,
+    on_to_resolve_domain: Box<[OnToResolveDomain<'f>]>,
+    on_domain_resolved: Box<[OnDomainResolved<'f>]>,
+    on_to_choose_ips: Box<[OnToChooseIPs<'f>]>,
+    on_ips_chosen: Box<[OnIPsChosen<'f>]>,
+    on_before_request_signed: Box<[OnRequest<'f>]>,
+    on_after_request_signed: Box<[OnRequest<'f>]>,
+    on_success: Box<[OnSuccess<'f>]>,
+    on_error: Box<[OnError<'f>]>,
+    on_before_backoff: Box<[OnRetry<'f>]>,
+    on_after_backoff: Box<[OnRetry<'f>]>,
 }
 
 #[derive(Default)]
-pub struct CallbacksBuilder {
-    on_uploading_progress: Vec<OnProgress>,
-    on_receive_response_status: Vec<OnStatusCode>,
-    on_receive_response_header: Vec<OnHeader>,
-    on_to_resolve_domain: Vec<OnToResolveDomain>,
-    on_domain_resolved: Vec<OnDomainResolved>,
-    on_to_choose_ips: Vec<OnToChooseIPs>,
-    on_ips_chosen: Vec<OnIPsChosen>,
-    on_before_request_signed: Vec<OnRequest>,
-    on_after_request_signed: Vec<OnRequest>,
-    on_success: Vec<OnSuccess>,
-    on_error: Vec<OnError>,
-    on_before_backoff: Vec<OnRetry>,
-    on_after_backoff: Vec<OnRetry>,
+pub struct CallbacksBuilder<'f> {
+    on_uploading_progress: Vec<OnProgress<'f>>,
+    on_receive_response_status: Vec<OnStatusCode<'f>>,
+    on_receive_response_header: Vec<OnHeader<'f>>,
+    on_to_resolve_domain: Vec<OnToResolveDomain<'f>>,
+    on_domain_resolved: Vec<OnDomainResolved<'f>>,
+    on_to_choose_ips: Vec<OnToChooseIPs<'f>>,
+    on_ips_chosen: Vec<OnIPsChosen<'f>>,
+    on_before_request_signed: Vec<OnRequest<'f>>,
+    on_after_request_signed: Vec<OnRequest<'f>>,
+    on_success: Vec<OnSuccess<'f>>,
+    on_error: Vec<OnError<'f>>,
+    on_before_backoff: Vec<OnRetry<'f>>,
+    on_after_backoff: Vec<OnRetry<'f>>,
 }
 
-impl Callbacks {
+impl<'f> Callbacks<'f> {
     #[inline]
     pub(super) fn call_uploading_progress_callbacks(
         &self,
@@ -223,157 +226,205 @@ impl Callbacks {
     }
 
     #[inline]
-    pub fn builder() -> CallbacksBuilder {
+    pub fn builder() -> CallbacksBuilder<'f> {
         Default::default()
     }
 
     #[inline]
-    pub fn on_uploading_progress_callbacks(&self) -> &[OnProgress] {
+    pub fn on_uploading_progress_callbacks(&self) -> &[OnProgress<'f>] {
         &self.on_uploading_progress
     }
 
     #[inline]
-    pub fn on_receive_response_status_callbacks(&self) -> &[OnStatusCode] {
+    pub fn on_receive_response_status_callbacks(&self) -> &[OnStatusCode<'f>] {
         &self.on_receive_response_status
     }
 
     #[inline]
-    pub fn on_receive_response_header_callbacks(&self) -> &[OnHeader] {
+    pub fn on_receive_response_header_callbacks(&self) -> &[OnHeader<'f>] {
         &self.on_receive_response_header
     }
 
     #[inline]
-    pub fn on_to_resolve_domain_callbacks(&self) -> &[OnToResolveDomain] {
+    pub fn on_to_resolve_domain_callbacks(&self) -> &[OnToResolveDomain<'f>] {
         &self.on_to_resolve_domain
     }
 
     #[inline]
-    pub fn on_domain_resolved_callbacks(&self) -> &[OnDomainResolved] {
+    pub fn on_domain_resolved_callbacks(&self) -> &[OnDomainResolved<'f>] {
         &self.on_domain_resolved
     }
 
     #[inline]
-    pub fn on_to_choose_ips_callbacks(&self) -> &[OnToChooseIPs] {
+    pub fn on_to_choose_ips_callbacks(&self) -> &[OnToChooseIPs<'f>] {
         &self.on_to_choose_ips
     }
 
     #[inline]
-    pub fn on_ips_chosen_callbacks(&self) -> &[OnIPsChosen] {
+    pub fn on_ips_chosen_callbacks(&self) -> &[OnIPsChosen<'f>] {
         &self.on_ips_chosen
     }
 
     #[inline]
-    pub fn on_before_request_signed_callbacks(&self) -> &[OnRequest] {
+    pub fn on_before_request_signed_callbacks(&self) -> &[OnRequest<'f>] {
         &self.on_before_request_signed
     }
 
     #[inline]
-    pub fn on_after_request_signed_callbacks(&self) -> &[OnRequest] {
+    pub fn on_after_request_signed_callbacks(&self) -> &[OnRequest<'f>] {
         &self.on_after_request_signed
     }
 
     #[inline]
-    pub fn on_success_callbacks(&self) -> &[OnSuccess] {
+    pub fn on_success_callbacks(&self) -> &[OnSuccess<'f>] {
         &self.on_success
     }
 
     #[inline]
-    pub fn on_error_callbacks(&self) -> &[OnError] {
+    pub fn on_error_callbacks(&self) -> &[OnError<'f>] {
         &self.on_error
     }
 
     #[inline]
-    pub fn on_before_backoff_callbacks(&self) -> &[OnRetry] {
+    pub fn on_before_backoff_callbacks(&self) -> &[OnRetry<'f>] {
         &self.on_before_backoff
     }
 
     #[inline]
-    pub fn on_after_backoff_callbacks(&self) -> &[OnRetry] {
+    pub fn on_after_backoff_callbacks(&self) -> &[OnRetry<'f>] {
         &self.on_after_backoff
     }
 }
 
-impl CallbacksBuilder {
+impl<'f> CallbacksBuilder<'f> {
     #[inline]
-    pub fn on_uploading_progress(mut self, callback: OnProgress) -> Self {
-        self.on_uploading_progress.push(callback);
+    pub fn on_uploading_progress(
+        mut self,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool
+            + Send
+            + Sync
+            + 'f,
+    ) -> Self {
+        self.on_uploading_progress.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn on_receive_response_status(mut self, callback: OnStatusCode) -> Self {
-        self.on_receive_response_status.push(callback);
+    pub fn on_receive_response_status(
+        mut self,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync + 'f,
+    ) -> Self {
+        self.on_receive_response_status.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn on_receive_response_header(mut self, callback: OnHeader) -> Self {
-        self.on_receive_response_header.push(callback);
+    pub fn on_receive_response_header(
+        mut self,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool
+            + Send
+            + Sync
+            + 'f,
+    ) -> Self {
+        self.on_receive_response_header.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn on_to_resolve_domain(mut self, callback: OnToResolveDomain) -> Self {
-        self.on_to_resolve_domain.push(callback);
+    pub fn on_to_resolve_domain(
+        mut self,
+        callback: impl Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync + 'f,
+    ) -> Self {
+        self.on_to_resolve_domain.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn on_domain_resolved(mut self, callback: OnDomainResolved) -> Self {
-        self.on_domain_resolved.push(callback);
+    pub fn on_domain_resolved(
+        mut self,
+        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool + Send + Sync + 'f,
+    ) -> Self {
+        self.on_domain_resolved.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn on_to_choose_ips(mut self, callback: OnToChooseIPs) -> Self {
-        self.on_to_choose_ips.push(callback);
+    pub fn on_to_choose_ips(
+        mut self,
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync + 'f,
+    ) -> Self {
+        self.on_to_choose_ips.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn on_ips_chosen(mut self, callback: OnIPsChosen) -> Self {
-        self.on_ips_chosen.push(callback);
+    pub fn on_ips_chosen(
+        mut self,
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool
+            + Send
+            + Sync
+            + 'f,
+    ) -> Self {
+        self.on_ips_chosen.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn on_before_request_signed(mut self, callback: OnRequest) -> Self {
-        self.on_before_request_signed.push(callback);
+    pub fn on_before_request_signed(
+        mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'f,
+    ) -> Self {
+        self.on_before_request_signed.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn on_after_request_signed(mut self, callback: OnRequest) -> Self {
-        self.on_after_request_signed.push(callback);
+    pub fn on_after_request_signed(
+        mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'f,
+    ) -> Self {
+        self.on_after_request_signed.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn on_success(mut self, callback: OnSuccess) -> Self {
-        self.on_success.push(callback);
+    pub fn on_success(
+        mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseInfo) -> bool + Send + Sync + 'f,
+    ) -> Self {
+        self.on_success.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn on_error(mut self, callback: OnError) -> Self {
-        self.on_error.push(callback);
+    pub fn on_error(
+        mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync + 'f,
+    ) -> Self {
+        self.on_error.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn on_before_backoff(mut self, callback: OnRetry) -> Self {
-        self.on_before_backoff.push(callback);
+    pub fn on_before_backoff(
+        mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'f,
+    ) -> Self {
+        self.on_before_backoff.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn on_after_backoff(mut self, callback: OnRetry) -> Self {
-        self.on_after_backoff.push(callback);
+    pub fn on_after_backoff(
+        mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'f,
+    ) -> Self {
+        self.on_after_backoff.push(Box::new(callback));
         self
     }
 
     #[inline]
-    pub fn build(self) -> Callbacks {
+    pub fn build(self) -> Callbacks<'f> {
         Callbacks {
             on_uploading_progress: self.on_uploading_progress.into(),
             on_receive_response_status: self.on_receive_response_status.into(),
@@ -392,7 +443,7 @@ impl CallbacksBuilder {
     }
 }
 
-impl fmt::Debug for Callbacks {
+impl fmt::Debug for Callbacks<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         macro_rules! field {
             ($ctx:ident, $method_name:expr, $method:ident) => {
@@ -417,7 +468,7 @@ impl fmt::Debug for Callbacks {
     }
 }
 
-impl fmt::Debug for CallbacksBuilder {
+impl fmt::Debug for CallbacksBuilder<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         macro_rules! field {
             ($ctx:ident, $method_name:expr, $method:ident) => {

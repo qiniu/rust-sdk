@@ -62,20 +62,20 @@ mod tests {
         let domain_resolved = Arc::new(Mutex::new(Vec::new()));
         let err = client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_to_resolve_domain(Box::new({
+            .on_to_resolve_domain({
                 let domain_resolved = domain_resolved.to_owned();
                 move |_, domain| {
                     domain_resolved.lock().unwrap().push(domain.to_owned());
                     true
                 }
-            }))
-            .on_after_request_signed(Box::new({
+            })
+            .on_after_request_signed({
                 let urls_visited = urls_visited.to_owned();
                 move |context| {
                     urls_visited.lock().unwrap().push(context.url().to_string());
                     true
                 }
-            }))
+            })
             .call()
             .unwrap_err();
         assert_eq!(
@@ -126,15 +126,15 @@ mod tests {
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
         let err = client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_to_resolve_domain(Box::new(|_, _| unreachable!()))
-            .on_domain_resolved(Box::new(|_, _, _| unreachable!()))
-            .on_after_request_signed(Box::new({
+            .on_to_resolve_domain(|_, _| unreachable!())
+            .on_domain_resolved(|_, _, _| unreachable!())
+            .on_after_request_signed({
                 let urls_visited = urls_visited.to_owned();
                 move |context| {
                     urls_visited.lock().unwrap().push(context.url().to_string());
                     true
                 }
-            }))
+            })
             .call()
             .unwrap_err();
         assert_eq!(
@@ -199,20 +199,20 @@ mod tests {
         let domain_resolved = Arc::new(Mutex::new(Vec::new()));
         let err = client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_to_resolve_domain(Box::new({
+            .on_to_resolve_domain({
                 let domain_resolved = domain_resolved.to_owned();
                 move |_, domain| {
                     domain_resolved.lock().unwrap().push(domain.to_owned());
                     true
                 }
-            }))
-            .on_after_request_signed(Box::new({
+            })
+            .on_after_request_signed({
                 let urls_visited = urls_visited.to_owned();
                 move |context| {
                     urls_visited.lock().unwrap().push(context.url().to_string());
                     true
                 }
-            }))
+            })
             .call()
             .unwrap_err();
         assert_eq!(
@@ -260,15 +260,15 @@ mod tests {
         let domain_resolved = Arc::new(Mutex::new(Vec::new()));
         let err = client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_before_backoff(Box::new(|_, _| panic!("Should not retry")))
-            .on_to_resolve_domain(Box::new({
+            .on_before_backoff(|_, _| panic!("Should not retry"))
+            .on_to_resolve_domain({
                 let domain_resolved = domain_resolved.to_owned();
                 move |_, domain| {
                     domain_resolved.lock().unwrap().push(domain.to_owned());
                     true
                 }
-            }))
-            .on_after_request_signed(Box::new({
+            })
+            .on_after_request_signed({
                 let urls_visited = urls_visited.to_owned();
                 let retried = Arc::new(AtomicUsize::new(0));
                 move |context| {
@@ -285,7 +285,7 @@ mod tests {
                     }
                     true
                 }
-            }))
+            })
             .call()
             .unwrap_err();
         assert_eq!(
@@ -340,7 +340,7 @@ mod tests {
             .post(&[ServiceName::Up], &single_up_domain_region())
             .on_before_backoff({
                 let retried = retried.to_owned();
-                Box::new(move |context, _| {
+                move |context, _| {
                     assert_eq!(
                         "https://fakedomain.withport.com:8080/",
                         &context.url().to_string(),
@@ -351,7 +351,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_ips(), retried);
                     assert_eq!(context.retried().abandoned_endpoints(), 0);
                     true
-                })
+                }
             })
             .call()
             .unwrap_err();
@@ -388,7 +388,7 @@ mod tests {
             .post(&[ServiceName::Up], &single_up_domain_region())
             .on_before_backoff({
                 retried.store(0, Relaxed);
-                Box::new(move |context, _| {
+                move |context, _| {
                     assert_eq!(
                         "https://fakedomain.withport.com:8080/",
                         &context.url().to_string(),
@@ -399,7 +399,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_ips(), retried);
                     assert_eq!(context.retried().abandoned_endpoints(), 0);
                     true
-                })
+                }
             })
             .call()
             .unwrap_err();
@@ -447,34 +447,16 @@ mod tests {
         .build()
         .post(&[ServiceName::Up], &single_up_domain_region())
         .add_extension(counter.to_owned())
-        .on_to_resolve_domain(Box::new(move |context, _| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_domain_resolved(Box::new(move |context, _, _| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_to_choose_ips(Box::new(move |context, _| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_ips_chosen(Box::new(move |context, _, _| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_before_request_signed(Box::new(move |context| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_after_request_signed(Box::new(move |context| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_before_backoff(Box::new(move |context, _| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_after_backoff(Box::new(move |context, _| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_error(Box::new(move |context, _| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_success(Box::new(move |_, _| unreachable!()))
+        .on_to_resolve_domain(move |context, _| inc_extensions(context.extensions_mut()))
+        .on_domain_resolved(move |context, _, _| inc_extensions(context.extensions_mut()))
+        .on_to_choose_ips(move |context, _| inc_extensions(context.extensions_mut()))
+        .on_ips_chosen(move |context, _, _| inc_extensions(context.extensions_mut()))
+        .on_before_request_signed(move |context| inc_extensions(context.extensions_mut()))
+        .on_after_request_signed(move |context| inc_extensions(context.extensions_mut()))
+        .on_before_backoff(move |context, _| inc_extensions(context.extensions_mut()))
+        .on_after_backoff(move |context, _| inc_extensions(context.extensions_mut()))
+        .on_error(move |context, _| inc_extensions(context.extensions_mut()))
+        .on_success(move |_, _| unreachable!())
         .call()
         .unwrap_err();
         assert_eq!(
@@ -496,30 +478,16 @@ mod tests {
         .build()
         .post(&[ServiceName::Up], &single_up_domain_region())
         .add_extension(counter.to_owned())
-        .on_to_resolve_domain(Box::new(move |context, _| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_domain_resolved(Box::new(move |context, _, _| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_to_choose_ips(Box::new(move |context, _| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_ips_chosen(Box::new(move |context, _, _| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_before_request_signed(Box::new(move |context| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_after_request_signed(Box::new(move |context| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_before_backoff(Box::new(move |_, _| unreachable!()))
-        .on_after_backoff(Box::new(move |_, _| unreachable!()))
-        .on_error(Box::new(move |context, _| {
-            inc_extensions(context.extensions_mut())
-        }))
-        .on_success(Box::new(move |_, _| unreachable!()))
+        .on_to_resolve_domain(move |context, _| inc_extensions(context.extensions_mut()))
+        .on_domain_resolved(move |context, _, _| inc_extensions(context.extensions_mut()))
+        .on_to_choose_ips(move |context, _| inc_extensions(context.extensions_mut()))
+        .on_ips_chosen(move |context, _, _| inc_extensions(context.extensions_mut()))
+        .on_before_request_signed(move |context| inc_extensions(context.extensions_mut()))
+        .on_after_request_signed(move |context| inc_extensions(context.extensions_mut()))
+        .on_before_backoff(move |_, _| unreachable!())
+        .on_after_backoff(move |_, _| unreachable!())
+        .on_error(move |context, _| inc_extensions(context.extensions_mut()))
+        .on_success(move |_, _| unreachable!())
         .call()
         .unwrap_err();
         assert_eq!(
@@ -563,7 +531,7 @@ mod tests {
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
             .on_before_backoff({
                 let retried = Arc::new(AtomicUsize::new(0));
-                Box::new(move |context, _| {
+                move |context, _| {
                     let retried = retried.fetch_add(1, Relaxed);
                     assert_eq!(&context.url().to_string(), retry_urls.get(retried).unwrap());
                     assert_eq!(context.retried().retried_total(), retried + 1);
@@ -571,7 +539,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_ips(), 1);
                     assert_eq!(context.retried().abandoned_endpoints(), retried);
                     true
-                })
+                }
             })
             .call()
             .unwrap_err();
@@ -598,15 +566,15 @@ mod tests {
 
         let err = always_dont_retry_client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_before_backoff(Box::new(|_, _| panic!("Should never retry")))
-            .on_after_request_signed(Box::new(|context| {
+            .on_before_backoff(|_, _| panic!("Should never retry"))
+            .on_after_request_signed(|context| {
                 assert_eq!(
                     &context.url().to_string(),
                     "https://fakedomain.withoutport.com/"
                 );
                 assert_eq!(context.retried().retried_total(), 0);
                 true
-            }))
+            })
             .call()
             .unwrap_err();
         assert_eq!(
@@ -639,14 +607,14 @@ mod tests {
             let err = always_retry_client
                 .post(&[ServiceName::Up], &chaotic_up_domains_region())
                 .authorization(Authorization::v2(credential.to_owned()))
-                .on_before_request_signed(Box::new(|context| {
+                .on_before_request_signed(|context| {
                     assert!(context
                         .headers()
                         .get(&HeaderName::from_static("authorization"))
                         .is_none());
                     true
-                }))
-                .on_after_request_signed(Box::new({
+                })
+                .on_after_request_signed({
                     let signed_urls = signed_urls.to_owned();
                     move |context| {
                         signed_urls
@@ -662,7 +630,7 @@ mod tests {
                             .starts_with("Qiniu "));
                         true
                     }
-                }))
+                })
                 .call()
                 .unwrap_err();
             assert_eq!(
@@ -676,14 +644,14 @@ mod tests {
             let err = always_retry_client
                 .post(&[ServiceName::Up], &chaotic_up_domains_region())
                 .authorization(Authorization::v1(credential))
-                .on_before_request_signed(Box::new(|context| {
+                .on_before_request_signed(|context| {
                     assert!(context
                         .headers()
                         .get(&HeaderName::from_static("authorization"))
                         .is_none());
                     true
-                }))
-                .on_after_request_signed(Box::new({
+                })
+                .on_after_request_signed({
                     move |context| {
                         signed_urls
                             .lock()
@@ -698,7 +666,7 @@ mod tests {
                             .starts_with("QBox "));
                         true
                     }
-                }))
+                })
                 .call()
                 .unwrap_err();
             assert_eq!(
@@ -729,7 +697,7 @@ mod tests {
         let retried_times = Arc::new(Mutex::new(HashMap::<String, AtomicUsize>::new()));
         let err = always_malicious_client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_before_backoff(Box::new({
+            .on_before_backoff({
                 let retried_times = retried_times.to_owned();
                 move |context, _| {
                     retried_times
@@ -742,7 +710,7 @@ mod tests {
                         .or_insert_with(|| AtomicUsize::new(1));
                     true
                 }
-            }))
+            })
             .call()
             .unwrap_err();
         assert_eq!(err.kind(), ResponseErrorKind::MaliciousResponse);
@@ -796,7 +764,7 @@ mod tests {
 
         let err = always_redirected_client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_before_backoff(Box::new(|_, _| panic!("Should never retry")))
+            .on_before_backoff(|_, _| panic!("Should never retry"))
             .call()
             .unwrap_err();
         assert_eq!(
@@ -824,8 +792,8 @@ mod tests {
 
         let err = client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_before_request_signed(Box::new(|_| false))
-            .on_before_backoff(Box::new(|_, _| panic!("Should not retry")))
+            .on_before_request_signed(|_| false)
+            .on_before_backoff(|_, _| panic!("Should not retry"))
             .call()
             .unwrap_err();
         assert_eq!(
@@ -835,8 +803,8 @@ mod tests {
 
         let err = client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_after_request_signed(Box::new(|_| false))
-            .on_before_backoff(Box::new(|_, _| panic!("Should not retry")))
+            .on_after_request_signed(|_| false)
+            .on_before_backoff(|_, _| panic!("Should not retry"))
             .call()
             .unwrap_err();
         assert_eq!(
@@ -846,8 +814,8 @@ mod tests {
 
         let err = client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_before_backoff(Box::new(|_, _| false))
-            .on_after_backoff(Box::new(|_, _| panic!("Should not retry")))
+            .on_before_backoff(|_, _| false)
+            .on_after_backoff(|_, _| panic!("Should not retry"))
             .call()
             .unwrap_err();
         assert_eq!(
@@ -878,7 +846,7 @@ mod tests {
             .async_post(&[ServiceName::Up], &single_up_domain_region())
             .on_before_backoff({
                 let retried = retried.to_owned();
-                Box::new(move |context, _| {
+                move |context, _| {
                     assert_eq!(
                         "https://fakedomain.withport.com:8080/",
                         &context.url().to_string()
@@ -889,7 +857,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_ips(), retried);
                     assert_eq!(context.retried().abandoned_endpoints(), 0);
                     true
-                })
+                }
             })
             .call()
             .await
@@ -924,7 +892,7 @@ mod tests {
             .async_post(&[ServiceName::Up], &single_up_domain_region())
             .on_before_backoff({
                 let retried = retried.to_owned();
-                Box::new(move |context, _| {
+                move |context, _| {
                     assert_eq!(
                         "https://fakedomain.withport.com:8080/",
                         &context.url().to_string(),
@@ -935,7 +903,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_ips(), retried);
                     assert_eq!(context.retried().abandoned_endpoints(), 0);
                     true
-                })
+                }
             })
             .call()
             .await

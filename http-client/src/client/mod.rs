@@ -20,10 +20,7 @@ pub use call::DomainOrIpAddr;
 pub use callback::{
     CallbackContext, ExtendedCallbackContext, ResponseInfo, SimplifiedCallbackContext,
 };
-pub use callbacks::{
-    Callbacks, CallbacksBuilder, OnDomainResolved, OnError, OnHeader, OnIPsChosen, OnProgress,
-    OnRequest, OnRetry, OnStatusCode, OnSuccess, OnToChooseIPs, OnToResolveDomain,
-};
+pub use callbacks::{Callbacks, CallbacksBuilder};
 pub use chooser::{
     Chooser, ChooserFeedback, IpChooser, IpChooserBuilder, NeverEmptyHandedChooser,
     ShuffledChooser, SubnetChooser, SubnetChooserBuilder,
