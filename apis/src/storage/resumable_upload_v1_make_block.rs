@@ -25,13 +25,61 @@ impl PathParams {
 impl PathParams {
     #[inline]
     #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
-    pub fn set_block_size_as_int(mut self, value: i64) -> Self {
+    pub fn set_block_size_as_i8(mut self, value: i8) -> Self {
         self.r#block_size = Some(value.to_string().into());
         self
     }
     #[inline]
     #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
-    pub fn set_block_size_as_uint(mut self, value: u64) -> Self {
+    pub fn set_block_size_as_i16(mut self, value: i16) -> Self {
+        self.r#block_size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
+    pub fn set_block_size_as_i32(mut self, value: i32) -> Self {
+        self.r#block_size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
+    pub fn set_block_size_as_i64(mut self, value: i64) -> Self {
+        self.r#block_size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
+    pub fn set_block_size_as_isize(mut self, value: isize) -> Self {
+        self.r#block_size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
+    pub fn set_block_size_as_u8(mut self, value: u8) -> Self {
+        self.r#block_size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
+    pub fn set_block_size_as_u16(mut self, value: u16) -> Self {
+        self.r#block_size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
+    pub fn set_block_size_as_u32(mut self, value: u32) -> Self {
+        self.r#block_size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
+    pub fn set_block_size_as_u64(mut self, value: u64) -> Self {
+        self.r#block_size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
+    pub fn set_block_size_as_usize(mut self, value: usize) -> Self {
         self.r#block_size = Some(value.to_string().into());
         self
     }
@@ -124,7 +172,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验"]
-    pub fn get_crc_32_as_int(&self) -> i64 {
+    pub fn get_crc_32_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -137,7 +185,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验"]
-    pub fn set_crc_32_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_crc_32_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -149,7 +197,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验"]
-    pub fn get_crc_32_as_uint(&self) -> u64 {
+    pub fn get_crc_32_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -162,7 +210,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验"]
-    pub fn set_crc_32_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_crc_32_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -174,7 +222,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 下一个上传块在切割块中的偏移"]
-    pub fn get_offset_as_int(&self) -> i64 {
+    pub fn get_offset_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -187,7 +235,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 下一个上传块在切割块中的偏移"]
-    pub fn set_offset_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_offset_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -199,7 +247,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 下一个上传块在切割块中的偏移"]
-    pub fn get_offset_as_uint(&self) -> u64 {
+    pub fn get_offset_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -212,7 +260,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 下一个上传块在切割块中的偏移"]
-    pub fn set_offset_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_offset_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -252,7 +300,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 `ctx` 过期时间"]
-    pub fn get_expired_at_as_int(&self) -> i64 {
+    pub fn get_expired_at_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -265,7 +313,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 `ctx` 过期时间"]
-    pub fn set_expired_at_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_expired_at_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -277,7 +325,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 `ctx` 过期时间"]
-    pub fn get_expired_at_as_uint(&self) -> u64 {
+    pub fn get_expired_at_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -290,7 +338,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 `ctx` 过期时间"]
-    pub fn set_expired_at_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_expired_at_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()

@@ -68,21 +68,29 @@ impl QueryNames {
                     documentation,
                     &query_name.query_name,
                     &[
-                        ("int", &format_ident!("i64")),
-                        ("uint", &format_ident!("u64")),
+                        ("i8", &quote!(i8)),
+                        ("i16", &quote!(i16)),
+                        ("i32", &quote!(i32)),
+                        ("i64", &quote!(i64)),
+                        ("isize", &quote!(isize)),
+                        ("u8", &quote!(u8)),
+                        ("u16", &quote!(u16)),
+                        ("u32", &quote!(u32)),
+                        ("u64", &quote!(u64)),
+                        ("usize", &quote!(usize)),
                     ],
                 ),
                 StringLikeType::Float => for_based_field(
                     &field_name,
                     documentation,
                     &query_name.query_name,
-                    &[("float", &format_ident!("f64"))],
+                    &[("f32", &quote!(f32)), ("f64", &quote!(f64))],
                 ),
                 StringLikeType::Boolean => for_based_field(
                     &field_name,
                     documentation,
                     &query_name.query_name,
-                    &[("bool", &format_ident!("bool"))],
+                    &[("bool", &quote!(bool))],
                 ),
             }
         }
@@ -109,7 +117,7 @@ impl QueryNames {
             field_name: &Ident,
             query_name: &str,
             documentation: &str,
-            pairs: &[(&str, &Ident)],
+            pairs: &[(&str, &TokenStream)],
         ) -> TokenStream {
             let methods_token_streams: Vec<_> = pairs
                 .iter()

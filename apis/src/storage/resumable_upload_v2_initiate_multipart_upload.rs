@@ -108,7 +108,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
-    pub fn get_expired_at_as_int(&self) -> i64 {
+    pub fn get_expired_at_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -121,7 +121,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
-    pub fn set_expired_at_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_expired_at_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -133,7 +133,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
-    pub fn get_expired_at_as_uint(&self) -> u64 {
+    pub fn get_expired_at_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -146,7 +146,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
-    pub fn set_expired_at_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_expired_at_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()

@@ -40,13 +40,61 @@ impl PathParams {
 impl PathParams {
     #[inline]
     #[doc = "对象大小"]
-    pub fn set_size_as_int(mut self, value: i64) -> Self {
+    pub fn set_size_as_i8(mut self, value: i8) -> Self {
         self.r#size = Some(value.to_string().into());
         self
     }
     #[inline]
     #[doc = "对象大小"]
-    pub fn set_size_as_uint(mut self, value: u64) -> Self {
+    pub fn set_size_as_i16(mut self, value: i16) -> Self {
+        self.r#size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "对象大小"]
+    pub fn set_size_as_i32(mut self, value: i32) -> Self {
+        self.r#size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "对象大小"]
+    pub fn set_size_as_i64(mut self, value: i64) -> Self {
+        self.r#size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "对象大小"]
+    pub fn set_size_as_isize(mut self, value: isize) -> Self {
+        self.r#size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "对象大小"]
+    pub fn set_size_as_u8(mut self, value: u8) -> Self {
+        self.r#size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "对象大小"]
+    pub fn set_size_as_u16(mut self, value: u16) -> Self {
+        self.r#size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "对象大小"]
+    pub fn set_size_as_u32(mut self, value: u32) -> Self {
+        self.r#size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "对象大小"]
+    pub fn set_size_as_u64(mut self, value: u64) -> Self {
+        self.r#size = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[doc = "对象大小"]
+    pub fn set_size_as_usize(mut self, value: usize) -> Self {
         self.r#size = Some(value.to_string().into());
         self
     }

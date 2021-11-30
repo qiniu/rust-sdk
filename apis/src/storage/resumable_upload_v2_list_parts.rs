@@ -94,7 +94,7 @@ impl<'a> From<QueryParams<'a>> for qiniu_http_client::QueryPairs<'a> {
 impl<'a> QueryParams<'a> {
     #[inline]
     #[doc = "max-parts"]
-    pub fn set_max_parts_as_int(self, value: i64) -> Self {
+    pub fn set_max_parts_as_i8(self, value: i8) -> Self {
         self.insert(
             "响应中的最大分片数目。默认值：1000，最大值：1000".into(),
             value.to_string().into(),
@@ -102,7 +102,71 @@ impl<'a> QueryParams<'a> {
     }
     #[inline]
     #[doc = "max-parts"]
-    pub fn set_max_parts_as_uint(self, value: u64) -> Self {
+    pub fn set_max_parts_as_i16(self, value: i16) -> Self {
+        self.insert(
+            "响应中的最大分片数目。默认值：1000，最大值：1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "max-parts"]
+    pub fn set_max_parts_as_i32(self, value: i32) -> Self {
+        self.insert(
+            "响应中的最大分片数目。默认值：1000，最大值：1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "max-parts"]
+    pub fn set_max_parts_as_i64(self, value: i64) -> Self {
+        self.insert(
+            "响应中的最大分片数目。默认值：1000，最大值：1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "max-parts"]
+    pub fn set_max_parts_as_isize(self, value: isize) -> Self {
+        self.insert(
+            "响应中的最大分片数目。默认值：1000，最大值：1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "max-parts"]
+    pub fn set_max_parts_as_u8(self, value: u8) -> Self {
+        self.insert(
+            "响应中的最大分片数目。默认值：1000，最大值：1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "max-parts"]
+    pub fn set_max_parts_as_u16(self, value: u16) -> Self {
+        self.insert(
+            "响应中的最大分片数目。默认值：1000，最大值：1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "max-parts"]
+    pub fn set_max_parts_as_u32(self, value: u32) -> Self {
+        self.insert(
+            "响应中的最大分片数目。默认值：1000，最大值：1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "max-parts"]
+    pub fn set_max_parts_as_u64(self, value: u64) -> Self {
+        self.insert(
+            "响应中的最大分片数目。默认值：1000，最大值：1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "max-parts"]
+    pub fn set_max_parts_as_usize(self, value: usize) -> Self {
         self.insert(
             "响应中的最大分片数目。默认值：1000，最大值：1000".into(),
             value.to_string().into(),
@@ -110,7 +174,7 @@ impl<'a> QueryParams<'a> {
     }
     #[inline]
     #[doc = "part-number_marker"]
-    pub fn set_part_number_marker_as_int(self, value: i64) -> Self {
+    pub fn set_part_number_marker_as_i8(self, value: i8) -> Self {
         self.insert(
             "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出".into(),
             value.to_string().into(),
@@ -118,7 +182,71 @@ impl<'a> QueryParams<'a> {
     }
     #[inline]
     #[doc = "part-number_marker"]
-    pub fn set_part_number_marker_as_uint(self, value: u64) -> Self {
+    pub fn set_part_number_marker_as_i16(self, value: i16) -> Self {
+        self.insert(
+            "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "part-number_marker"]
+    pub fn set_part_number_marker_as_i32(self, value: i32) -> Self {
+        self.insert(
+            "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "part-number_marker"]
+    pub fn set_part_number_marker_as_i64(self, value: i64) -> Self {
+        self.insert(
+            "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "part-number_marker"]
+    pub fn set_part_number_marker_as_isize(self, value: isize) -> Self {
+        self.insert(
+            "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "part-number_marker"]
+    pub fn set_part_number_marker_as_u8(self, value: u8) -> Self {
+        self.insert(
+            "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "part-number_marker"]
+    pub fn set_part_number_marker_as_u16(self, value: u16) -> Self {
+        self.insert(
+            "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "part-number_marker"]
+    pub fn set_part_number_marker_as_u32(self, value: u32) -> Self {
+        self.insert(
+            "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "part-number_marker"]
+    pub fn set_part_number_marker_as_u64(self, value: u64) -> Self {
+        self.insert(
+            "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "part-number_marker"]
+    pub fn set_part_number_marker_as_usize(self, value: usize) -> Self {
         self.insert(
             "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出".into(),
             value.to_string().into(),
@@ -185,7 +313,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
-    pub fn get_expired_at_as_int(&self) -> i64 {
+    pub fn get_expired_at_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -198,7 +326,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
-    pub fn set_expired_at_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_expired_at_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -210,7 +338,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
-    pub fn get_expired_at_as_uint(&self) -> u64 {
+    pub fn get_expired_at_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -223,7 +351,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
-    pub fn set_expired_at_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_expired_at_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -235,7 +363,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 下次继续列举的起始位置，0 表示列举结束，没有更多分片"]
-    pub fn get_part_number_marker_as_int(&self) -> i64 {
+    pub fn get_part_number_marker_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -248,7 +376,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 下次继续列举的起始位置，0 表示列举结束，没有更多分片"]
-    pub fn set_part_number_marker_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_part_number_marker_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -260,7 +388,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 下次继续列举的起始位置，0 表示列举结束，没有更多分片"]
-    pub fn get_part_number_marker_as_uint(&self) -> u64 {
+    pub fn get_part_number_marker_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -273,7 +401,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 下次继续列举的起始位置，0 表示列举结束，没有更多分片"]
-    pub fn set_part_number_marker_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_part_number_marker_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -343,7 +471,7 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ListedPartInfo<'a> {
 impl<'a> ListedPartInfo<'a> {
     #[inline]
     #[doc = "获取 分片大小"]
-    pub fn get_size_as_int(&self) -> i64 {
+    pub fn get_size_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -356,7 +484,7 @@ impl<'a> ListedPartInfo<'a> {
 impl<'a> ListedPartInfo<'a> {
     #[inline]
     #[doc = "设置 分片大小"]
-    pub fn set_size_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_size_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -368,7 +496,7 @@ impl<'a> ListedPartInfo<'a> {
 impl<'a> ListedPartInfo<'a> {
     #[inline]
     #[doc = "获取 分片大小"]
-    pub fn get_size_as_uint(&self) -> u64 {
+    pub fn get_size_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -381,7 +509,7 @@ impl<'a> ListedPartInfo<'a> {
 impl<'a> ListedPartInfo<'a> {
     #[inline]
     #[doc = "设置 分片大小"]
-    pub fn set_size_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_size_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -421,7 +549,7 @@ impl<'a> ListedPartInfo<'a> {
 impl<'a> ListedPartInfo<'a> {
     #[inline]
     #[doc = "获取 每一个上传的分片都有一个标识它的号码"]
-    pub fn get_part_number_as_int(&self) -> i64 {
+    pub fn get_part_number_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -434,7 +562,7 @@ impl<'a> ListedPartInfo<'a> {
 impl<'a> ListedPartInfo<'a> {
     #[inline]
     #[doc = "设置 每一个上传的分片都有一个标识它的号码"]
-    pub fn set_part_number_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_part_number_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -446,7 +574,7 @@ impl<'a> ListedPartInfo<'a> {
 impl<'a> ListedPartInfo<'a> {
     #[inline]
     #[doc = "获取 每一个上传的分片都有一个标识它的号码"]
-    pub fn get_part_number_as_uint(&self) -> u64 {
+    pub fn get_part_number_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -459,7 +587,7 @@ impl<'a> ListedPartInfo<'a> {
 impl<'a> ListedPartInfo<'a> {
     #[inline]
     #[doc = "设置 每一个上传的分片都有一个标识它的号码"]
-    pub fn set_part_number_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_part_number_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -471,7 +599,7 @@ impl<'a> ListedPartInfo<'a> {
 impl<'a> ListedPartInfo<'a> {
     #[inline]
     #[doc = "获取 分片上传时间 UNIX 时间戳"]
-    pub fn get_put_time_as_int(&self) -> i64 {
+    pub fn get_put_time_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -484,7 +612,7 @@ impl<'a> ListedPartInfo<'a> {
 impl<'a> ListedPartInfo<'a> {
     #[inline]
     #[doc = "设置 分片上传时间 UNIX 时间戳"]
-    pub fn set_put_time_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_put_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -496,7 +624,7 @@ impl<'a> ListedPartInfo<'a> {
 impl<'a> ListedPartInfo<'a> {
     #[inline]
     #[doc = "获取 分片上传时间 UNIX 时间戳"]
-    pub fn get_put_time_as_uint(&self) -> u64 {
+    pub fn get_put_time_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -509,7 +637,7 @@ impl<'a> ListedPartInfo<'a> {
 impl<'a> ListedPartInfo<'a> {
     #[inline]
     #[doc = "设置 分片上传时间 UNIX 时间戳"]
-    pub fn set_put_time_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_put_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()

@@ -96,7 +96,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
-    pub fn get_queued_tasks_count_as_int(&self) -> i64 {
+    pub fn get_queued_tasks_count_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -109,7 +109,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
-    pub fn set_queued_tasks_count_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_queued_tasks_count_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -121,7 +121,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "获取 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
-    pub fn get_queued_tasks_count_as_uint(&self) -> u64 {
+    pub fn get_queued_tasks_count_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -134,7 +134,7 @@ impl<'a> ResponseBody<'a> {
 impl<'a> ResponseBody<'a> {
     #[inline]
     #[doc = "设置 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
-    pub fn set_queued_tasks_count_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_queued_tasks_count_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()

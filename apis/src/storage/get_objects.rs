@@ -339,7 +339,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
-    pub fn get_put_time_as_int(&self) -> i64 {
+    pub fn get_put_time_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -352,7 +352,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "设置 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
-    pub fn set_put_time_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_put_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -364,7 +364,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
-    pub fn get_put_time_as_uint(&self) -> u64 {
+    pub fn get_put_time_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -377,7 +377,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "设置 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
-    pub fn set_put_time_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_put_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -417,7 +417,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "获取 对象大小，单位为字节"]
-    pub fn get_size_as_int(&self) -> i64 {
+    pub fn get_size_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -430,7 +430,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "设置 对象大小，单位为字节"]
-    pub fn set_size_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_size_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -442,7 +442,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "获取 对象大小，单位为字节"]
-    pub fn get_size_as_uint(&self) -> u64 {
+    pub fn get_size_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -455,7 +455,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "设置 对象大小，单位为字节"]
-    pub fn set_size_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_size_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -519,7 +519,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
-    pub fn get_type_as_int(&self) -> Option<i64> {
+    pub fn get_type_as_i64(&self) -> Option<i64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("type"))
@@ -529,7 +529,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "设置 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
-    pub fn set_type_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_type_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("type".to_owned(), new.into())
@@ -540,7 +540,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
-    pub fn get_type_as_uint(&self) -> Option<u64> {
+    pub fn get_type_as_u64(&self) -> Option<u64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("type"))
@@ -550,7 +550,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "设置 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
-    pub fn set_type_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_type_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("type".to_owned(), new.into())
@@ -561,7 +561,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "获取 文件的存储状态，即禁用状态和启用状态间的的互相转换，`0` 表示启用，`1`表示禁用"]
-    pub fn get_unfreezing_status_as_int(&self) -> i64 {
+    pub fn get_unfreezing_status_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -574,7 +574,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "设置 文件的存储状态，即禁用状态和启用状态间的的互相转换，`0` 表示启用，`1`表示禁用"]
-    pub fn set_unfreezing_status_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_unfreezing_status_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -586,7 +586,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "获取 文件的存储状态，即禁用状态和启用状态间的的互相转换，`0` 表示启用，`1`表示禁用"]
-    pub fn get_unfreezing_status_as_uint(&self) -> u64 {
+    pub fn get_unfreezing_status_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -599,7 +599,7 @@ impl<'a> ListedObjectEntry<'a> {
 impl<'a> ListedObjectEntry<'a> {
     #[inline]
     #[doc = "设置 文件的存储状态，即禁用状态和启用状态间的的互相转换，`0` 表示启用，`1`表示禁用"]
-    pub fn set_unfreezing_status_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_unfreezing_status_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()

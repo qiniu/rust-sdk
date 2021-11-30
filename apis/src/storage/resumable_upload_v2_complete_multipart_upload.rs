@@ -123,7 +123,7 @@ impl<'a> std::convert::AsMut<serde_json::Value> for PartInfo<'a> {
 impl<'a> PartInfo<'a> {
     #[inline]
     #[doc = "获取 每一个上传的分片都有一个标识它的号码"]
-    pub fn get_part_number_as_int(&self) -> i64 {
+    pub fn get_part_number_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -136,7 +136,7 @@ impl<'a> PartInfo<'a> {
 impl<'a> PartInfo<'a> {
     #[inline]
     #[doc = "设置 每一个上传的分片都有一个标识它的号码"]
-    pub fn set_part_number_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_part_number_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -148,7 +148,7 @@ impl<'a> PartInfo<'a> {
 impl<'a> PartInfo<'a> {
     #[inline]
     #[doc = "获取 每一个上传的分片都有一个标识它的号码"]
-    pub fn get_part_number_as_uint(&self) -> u64 {
+    pub fn get_part_number_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -161,7 +161,7 @@ impl<'a> PartInfo<'a> {
 impl<'a> PartInfo<'a> {
     #[inline]
     #[doc = "设置 每一个上传的分片都有一个标识它的号码"]
-    pub fn set_part_number_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_part_number_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()

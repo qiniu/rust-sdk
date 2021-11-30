@@ -117,7 +117,7 @@ impl<'a> std::convert::AsMut<serde_json::Value> for OperationResponse<'a> {
 impl<'a> OperationResponse<'a> {
     #[inline]
     #[doc = "获取 响应状态码"]
-    pub fn get_code_as_int(&self) -> i64 {
+    pub fn get_code_as_i64(&self) -> i64 {
         self.0
             .as_object()
             .unwrap()
@@ -130,7 +130,7 @@ impl<'a> OperationResponse<'a> {
 impl<'a> OperationResponse<'a> {
     #[inline]
     #[doc = "设置 响应状态码"]
-    pub fn set_code_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_code_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -142,7 +142,7 @@ impl<'a> OperationResponse<'a> {
 impl<'a> OperationResponse<'a> {
     #[inline]
     #[doc = "获取 响应状态码"]
-    pub fn get_code_as_uint(&self) -> u64 {
+    pub fn get_code_as_u64(&self) -> u64 {
         self.0
             .as_object()
             .unwrap()
@@ -155,7 +155,7 @@ impl<'a> OperationResponse<'a> {
 impl<'a> OperationResponse<'a> {
     #[inline]
     #[doc = "设置 响应状态码"]
-    pub fn set_code_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_code_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
             .to_mut()
             .as_object_mut()
@@ -220,7 +220,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 对象大小，单位为字节，仅对 stat 指令才有效"]
-    pub fn get_size_as_int(&self) -> Option<i64> {
+    pub fn get_size_as_i64(&self) -> Option<i64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("fsize"))
@@ -230,7 +230,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 对象大小，单位为字节，仅对 stat 指令才有效"]
-    pub fn set_size_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_size_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("fsize".to_owned(), new.into())
@@ -241,7 +241,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 对象大小，单位为字节，仅对 stat 指令才有效"]
-    pub fn get_size_as_uint(&self) -> Option<u64> {
+    pub fn get_size_as_u64(&self) -> Option<u64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("fsize"))
@@ -251,7 +251,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 对象大小，单位为字节，仅对 stat 指令才有效"]
-    pub fn set_size_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_size_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("fsize".to_owned(), new.into())
@@ -310,7 +310,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储，仅对 stat 指令才有效"]
-    pub fn get_type_as_int(&self) -> Option<i64> {
+    pub fn get_type_as_i64(&self) -> Option<i64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("type"))
@@ -320,7 +320,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储，仅对 stat 指令才有效"]
-    pub fn set_type_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_type_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("type".to_owned(), new.into())
@@ -331,7 +331,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储，仅对 stat 指令才有效"]
-    pub fn get_type_as_uint(&self) -> Option<u64> {
+    pub fn get_type_as_u64(&self) -> Option<u64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("type"))
@@ -341,7 +341,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储，仅对 stat 指令才有效"]
-    pub fn set_type_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_type_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("type".to_owned(), new.into())
@@ -352,7 +352,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒，仅对 stat 指令才有效"]
-    pub fn get_put_time_as_int(&self) -> Option<i64> {
+    pub fn get_put_time_as_i64(&self) -> Option<i64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("putTime"))
@@ -362,7 +362,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒，仅对 stat 指令才有效"]
-    pub fn set_put_time_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_put_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("putTime".to_owned(), new.into())
@@ -373,7 +373,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒，仅对 stat 指令才有效"]
-    pub fn get_put_time_as_uint(&self) -> Option<u64> {
+    pub fn get_put_time_as_u64(&self) -> Option<u64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("putTime"))
@@ -383,7 +383,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒，仅对 stat 指令才有效"]
-    pub fn set_put_time_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_put_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("putTime".to_owned(), new.into())
@@ -394,7 +394,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 归档存储文件的解冻状态，`2` 表示解冻完成，`1` 表示解冻中；归档文件冻结时，不返回该字段，仅对 stat 指令才有效"]
-    pub fn get_unfreezing_status_as_int(&self) -> Option<i64> {
+    pub fn get_unfreezing_status_as_i64(&self) -> Option<i64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("restoreStatus"))
@@ -404,7 +404,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 归档存储文件的解冻状态，`2` 表示解冻完成，`1` 表示解冻中；归档文件冻结时，不返回该字段，仅对 stat 指令才有效"]
-    pub fn set_unfreezing_status_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_unfreezing_status_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("restoreStatus".to_owned(), new.into())
@@ -415,7 +415,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 归档存储文件的解冻状态，`2` 表示解冻完成，`1` 表示解冻中；归档文件冻结时，不返回该字段，仅对 stat 指令才有效"]
-    pub fn get_unfreezing_status_as_uint(&self) -> Option<u64> {
+    pub fn get_unfreezing_status_as_u64(&self) -> Option<u64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("restoreStatus"))
@@ -425,7 +425,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 归档存储文件的解冻状态，`2` 表示解冻完成，`1` 表示解冻中；归档文件冻结时，不返回该字段，仅对 stat 指令才有效"]
-    pub fn set_unfreezing_status_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_unfreezing_status_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("restoreStatus".to_owned(), new.into())
@@ -436,7 +436,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 文件状态。`1` 表示禁用；只有禁用状态的文件才会返回该字段，仅对 stat 指令才有效"]
-    pub fn get_status_as_int(&self) -> Option<i64> {
+    pub fn get_status_as_i64(&self) -> Option<i64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("status"))
@@ -446,7 +446,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 文件状态。`1` 表示禁用；只有禁用状态的文件才会返回该字段，仅对 stat 指令才有效"]
-    pub fn set_status_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_status_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("status".to_owned(), new.into())
@@ -457,7 +457,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 文件状态。`1` 表示禁用；只有禁用状态的文件才会返回该字段，仅对 stat 指令才有效"]
-    pub fn get_status_as_uint(&self) -> Option<u64> {
+    pub fn get_status_as_u64(&self) -> Option<u64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("status"))
@@ -467,7 +467,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 文件状态。`1` 表示禁用；只有禁用状态的文件才会返回该字段，仅对 stat 指令才有效"]
-    pub fn set_status_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_status_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("status".to_owned(), new.into())
@@ -502,7 +502,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 文件过期删除日期，UNIX 时间戳格式，文件在设置过期时间后才会返回该字段，仅对 stat 指令才有效"]
-    pub fn get_expiration_time_as_int(&self) -> Option<i64> {
+    pub fn get_expiration_time_as_i64(&self) -> Option<i64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("expiration"))
@@ -512,7 +512,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 文件过期删除日期，UNIX 时间戳格式，文件在设置过期时间后才会返回该字段，仅对 stat 指令才有效"]
-    pub fn set_expiration_time_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_expiration_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("expiration".to_owned(), new.into())
@@ -523,7 +523,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 文件过期删除日期，UNIX 时间戳格式，文件在设置过期时间后才会返回该字段，仅对 stat 指令才有效"]
-    pub fn get_expiration_time_as_uint(&self) -> Option<u64> {
+    pub fn get_expiration_time_as_u64(&self) -> Option<u64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("expiration"))
@@ -533,7 +533,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 文件过期删除日期，UNIX 时间戳格式，文件在设置过期时间后才会返回该字段，仅对 stat 指令才有效"]
-    pub fn set_expiration_time_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_expiration_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("expiration".to_owned(), new.into())
@@ -544,7 +544,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 文件生命周期中转为低频存储的日期，UNIX 时间戳格式，文件在设置转低频后才会返回该字段，仅对 stat 指令才有效"]
-    pub fn get_transition_to_ia_time_as_int(&self) -> Option<i64> {
+    pub fn get_transition_to_ia_time_as_i64(&self) -> Option<i64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("transitionToIA"))
@@ -554,7 +554,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 文件生命周期中转为低频存储的日期，UNIX 时间戳格式，文件在设置转低频后才会返回该字段，仅对 stat 指令才有效"]
-    pub fn set_transition_to_ia_time_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_transition_to_ia_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("transitionToIA".to_owned(), new.into())
@@ -565,7 +565,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 文件生命周期中转为低频存储的日期，UNIX 时间戳格式，文件在设置转低频后才会返回该字段，仅对 stat 指令才有效"]
-    pub fn get_transition_to_ia_time_as_uint(&self) -> Option<u64> {
+    pub fn get_transition_to_ia_time_as_u64(&self) -> Option<u64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("transitionToIA"))
@@ -575,7 +575,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 文件生命周期中转为低频存储的日期，UNIX 时间戳格式，文件在设置转低频后才会返回该字段，仅对 stat 指令才有效"]
-    pub fn set_transition_to_ia_time_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_transition_to_ia_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("transitionToIA".to_owned(), new.into())
@@ -586,7 +586,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段，仅对 stat 指令才有效"]
-    pub fn get_transition_to_archive_time_as_int(&self) -> Option<i64> {
+    pub fn get_transition_to_archive_time_as_i64(&self) -> Option<i64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("transitionToARCHIVE"))
@@ -596,7 +596,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段，仅对 stat 指令才有效"]
-    pub fn set_transition_to_archive_time_as_int(&mut self, new: i64) -> Option<i64> {
+    pub fn set_transition_to_archive_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("transitionToARCHIVE".to_owned(), new.into())
@@ -607,7 +607,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "获取 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段，仅对 stat 指令才有效"]
-    pub fn get_transition_to_archive_time_as_uint(&self) -> Option<u64> {
+    pub fn get_transition_to_archive_time_as_u64(&self) -> Option<u64> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("transitionToARCHIVE"))
@@ -617,7 +617,7 @@ impl<'a> OperationResponseData<'a> {
 impl<'a> OperationResponseData<'a> {
     #[inline]
     #[doc = "设置 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段，仅对 stat 指令才有效"]
-    pub fn set_transition_to_archive_time_as_uint(&mut self, new: u64) -> Option<u64> {
+    pub fn set_transition_to_archive_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
             object
                 .insert("transitionToARCHIVE".to_owned(), new.into())

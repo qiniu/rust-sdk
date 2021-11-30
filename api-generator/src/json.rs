@@ -121,8 +121,16 @@ impl JsonType {
                 ),
             ];
             let from_trait_and_set_method_token_streams = [
-                (quote!(i64), quote!(set_int), "设置 JSON 整型"),
-                (quote!(u64), quote!(set_uint), "设置 JSON 无符号整型"),
+                (quote!(i8), quote!(set_i8), "设置 JSON i8 整型"),
+                (quote!(i16), quote!(set_i16), "设置 JSON i16 整型"),
+                (quote!(i32), quote!(set_i32), "设置 JSON i32 整型"),
+                (quote!(i64), quote!(set_i64), "设置 JSON i64 整型"),
+                (quote!(isize), quote!(set_isize), "设置 JSON isize 整型"),
+                (quote!(u8), quote!(set_u8), "设置 JSON u8 整型"),
+                (quote!(u16), quote!(set_u16), "设置 JSON u16 整型"),
+                (quote!(u32), quote!(set_u32), "设置 JSON u32 整型"),
+                (quote!(u64), quote!(set_u64), "设置 JSON u64 整型"),
+                (quote!(usize), quote!(set_usize), "设置 JSON usize 整型"),
             ]
             .map(|(ty, set_method_name, set_method_documentation)| {
                 let set_method_token_stream = impl_set_method_for_base_types(
@@ -151,18 +159,27 @@ impl JsonType {
                 &quote!(as_f64),
                 "解析 JSON 得到浮点型",
             );
-            let set_method_token_stream = impl_set_method_for_base_types(
-                name,
-                &quote!(f64),
-                &quote!(set_f64),
-                "设置 JSON f64",
-            );
-            let from_trait_token_stream = impl_from_trait_for_base_types(name, &quote!(f64));
+            let from_trait_and_set_method_token_streams = [
+                (quote!(f64), quote!(as_f64), "解析 JSON 得到 f64 浮点型"),
+                (quote!(f32), quote!(as_f32), "解析 JSON 得到 f32 浮点型"),
+            ]
+            .map(|(ty, set_method_name, set_method_documentation)| {
+                let set_method_token_stream = impl_set_method_for_base_types(
+                    name,
+                    &ty,
+                    &set_method_name,
+                    set_method_documentation,
+                );
+                let from_trait_token_stream = impl_from_trait_for_base_types(name, &ty);
+                quote! {
+                    #set_method_token_stream
+                    #from_trait_token_stream
+                }
+            });
 
             quote! {
                 #as_method_token_stream
-                #set_method_token_stream
-                #from_trait_token_stream
+                #(#from_trait_and_set_method_token_streams)*
             }
         }
 
@@ -330,14 +347,14 @@ impl JsonType {
                     impl_as_method_for_base_types_in_array(
                         name,
                         &quote!(i64),
-                        &quote!(to_int_vec),
+                        &quote!(to_i64_vec),
                         &quote!(as_i64),
                         "解析 JSON 得到整型列表",
                     ),
                     impl_as_method_for_base_types_in_array(
                         name,
                         &quote!(u64),
-                        &quote!(to_uint_vec),
+                        &quote!(to_u64_vec),
                         &quote!(as_u64),
                         "解析 JSON 得到无符号整型列表",
                     ),
@@ -347,19 +364,19 @@ impl JsonType {
                         quote!(i64),
                         quote!(serde_json::Value::Number),
                         quote!(as_i64),
-                        quote!(remove_as_int),
-                        "在列表的指定位置移出 JSON 整型",
-                        quote!(pop_as_int),
-                        "在列表尾部取出 JSON 整型",
+                        quote!(remove_as_i64),
+                        "在列表的指定位置移出 JSON i64 整型",
+                        quote!(pop_as_i64),
+                        "在列表尾部取出 JSON i64 整型",
                     ),
                     (
                         quote!(u64),
                         quote!(serde_json::Value::Number),
                         quote!(as_u64),
-                        quote!(remove_as_uint),
-                        "在列表的指定位置移出 JSON 无符号整型",
-                        quote!(pop_as_uint),
-                        "在列表尾部取出 JSON 无符号整型",
+                        quote!(remove_as_u64),
+                        "在列表的指定位置移出 JSON u64 整型",
+                        quote!(pop_as_u64),
+                        "在列表尾部取出 JSON u64 整型",
                     ),
                 ]
                 .map(
@@ -397,18 +414,74 @@ impl JsonType {
                 );
                 let from_trait_and_insert_methods_token_streams = [
                     (
+                        quote!(i8),
+                        quote!(insert_i8),
+                        "在列表的指定位置插入 JSON i8 整型",
+                        quote!(push_i8),
+                        "在列表尾部追加 JSON i8 整型",
+                    ),
+                    (
+                        quote!(i16),
+                        quote!(insert_i16),
+                        "在列表的指定位置插入 JSON i16 整型",
+                        quote!(push_i16),
+                        "在列表尾部追加 JSON i16 整型",
+                    ),
+                    (
+                        quote!(i32),
+                        quote!(insert_i32),
+                        "在列表的指定位置插入 JSON i32 整型",
+                        quote!(push_i32),
+                        "在列表尾部追加 JSON i32 整型",
+                    ),
+                    (
                         quote!(i64),
-                        quote!(insert_int),
-                        "在列表的指定位置插入 JSON 整型",
-                        quote!(push_int),
-                        "在列表尾部追加 JSON 整型",
+                        quote!(insert_i64),
+                        "在列表的指定位置插入 JSON i64 整型",
+                        quote!(push_i64),
+                        "在列表尾部追加 JSON i64 整型",
+                    ),
+                    (
+                        quote!(isize),
+                        quote!(insert_isize),
+                        "在列表的指定位置插入 JSON isize 整型",
+                        quote!(push_isize),
+                        "在列表尾部追加 JSON isize 整型",
+                    ),
+                    (
+                        quote!(u8),
+                        quote!(insert_u8),
+                        "在列表的指定位置插入 JSON u8 整型",
+                        quote!(push_u8),
+                        "在列表尾部追加 JSON u8 整型",
+                    ),
+                    (
+                        quote!(u16),
+                        quote!(insert_u16),
+                        "在列表的指定位置插入 JSON u16 整型",
+                        quote!(push_u16),
+                        "在列表尾部追加 JSON u16 整型",
+                    ),
+                    (
+                        quote!(u32),
+                        quote!(insert_u32),
+                        "在列表的指定位置插入 JSON u32 整型",
+                        quote!(push_u32),
+                        "在列表尾部追加 JSON u32 整型",
                     ),
                     (
                         quote!(u64),
-                        quote!(insert_uint),
-                        "在列表的指定位置插入 JSON 无符号整型",
-                        quote!(push_uint),
-                        "在列表尾部追加 JSON 无符号整型",
+                        quote!(insert_u64),
+                        "在列表的指定位置插入 JSON u64 整型",
+                        quote!(push_u64),
+                        "在列表尾部追加 JSON u64 整型",
+                    ),
+                    (
+                        quote!(usize),
+                        quote!(insert_usize),
+                        "在列表的指定位置插入 JSON usize 整型",
+                        quote!(push_usize),
+                        "在列表尾部追加 JSON usize 整型",
                     ),
                 ]
                 .map(
@@ -475,13 +548,22 @@ impl JsonType {
                     &quote!(pop_as_float),
                     "在列表尾部取出 JSON 浮点型",
                 );
-                let from_trait_and_methods_token_streams = [(
-                    quote!(f64),
-                    quote!(insert_float),
-                    "在列表的指定位置插入 JSON 浮点型",
-                    quote!(push_float),
-                    "在列表尾部追加 JSON 浮点型",
-                )]
+                let from_trait_and_methods_token_streams = [
+                    (
+                        quote!(f64),
+                        quote!(insert_f64),
+                        "在列表的指定位置插入 JSON f64 浮点型",
+                        quote!(push_f64),
+                        "在列表尾部追加 JSON f64 浮点型",
+                    ),
+                    (
+                        quote!(f32),
+                        quote!(insert_f32),
+                        "在列表的指定位置插入 JSON f32 浮点型",
+                        quote!(push_f32),
+                        "在列表尾部追加 JSON f32 浮点型",
+                    ),
+                ]
                 .map(
                     |(
                         ty,
@@ -920,7 +1002,7 @@ impl JsonType {
                         let signed_impls = impls_token_stream_for_base_type_field_of_struct(
                             name,
                             &field_name,
-                            "int",
+                            "i64",
                             json_key,
                             documentation,
                             &quote!(i64),
@@ -930,7 +1012,7 @@ impl JsonType {
                         let unsigned_impls = impls_token_stream_for_base_type_field_of_struct(
                             name,
                             &field_name,
-                            "uint",
+                            "u64",
                             json_key,
                             documentation,
                             &quote!(u64),
@@ -945,7 +1027,7 @@ impl JsonType {
                     JsonType::Float => impls_token_stream_for_base_type_field_of_struct(
                         name,
                         &field_name,
-                        "float",
+                        "f64",
                         json_key,
                         documentation,
                         &quote!(f64),
