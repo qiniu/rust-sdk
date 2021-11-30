@@ -23,6 +23,7 @@ smart-default = "0.6.0"
 tempfile = "3.2.0"
 trybuild = "1.0.50"
 walkdir = "2.3.2"
+serde_json = "1.0.68"
 
 [dev-dependencies]
 serde_json = "1.0.68"
