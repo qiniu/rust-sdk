@@ -491,7 +491,7 @@ mod body {
 
     impl<'a> RequestBody<'a> {
         #[inline]
-        pub fn from_referenced_reader<T: Read + Reset + Debug + Send + Sync>(
+        pub fn from_referenced_reader<T: Read + Reset + Debug + Send + Sync + 'a>(
             reader: &'a mut T,
             size: u64,
         ) -> Self {
@@ -675,7 +675,7 @@ mod body {
         impl<'a> AsyncRequestBody<'a> {
             #[inline]
             pub fn from_referenced_reader<
-                T: AsyncRead + AsyncReset + Unpin + Debug + Send + Sync,
+                T: AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'a,
             >(
                 reader: &'a mut T,
                 size: u64,
