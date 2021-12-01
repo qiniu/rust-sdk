@@ -190,22 +190,22 @@ fn make_sync_response(
 ) -> SyncResponseResult {
     call_response_callbacks(request, &response)?;
 
-    let mut response_builder = SyncResponse::builder()
+    let mut response_builder = SyncResponse::builder();
+    response_builder
         .status_code(response.status())
         .version(response.version())
         .headers(take(response.headers_mut()))
         .extensions(take(response.extensions_mut()));
     if let Some(remote_addr) = response.remote_addr() {
-        response_builder = response_builder.server_ip(remote_addr.ip());
+        response_builder.server_ip(remote_addr.ip());
         if let Some(port) = NonZeroU16::new(remote_addr.port()) {
-            response_builder = response_builder.server_port(port);
+            response_builder.server_port(port);
         }
     }
     if let Some(metrics) = response.metrics() {
-        response_builder =
-            response_builder.metrics(Box::new(IsahcBasedMetrics(metrics.to_owned())));
+        response_builder.metrics(Box::new(IsahcBasedMetrics(metrics.to_owned())));
     }
-    response_builder = response_builder.body(SyncResponseBody::from_reader(response.into_body()));
+    response_builder.body(SyncResponseBody::from_reader(response.into_body()));
     Ok(response_builder.build())
 }
 
@@ -216,22 +216,22 @@ fn make_async_response(
 ) -> AsyncResponseResult {
     call_response_callbacks(request, &response)?;
 
-    let mut response_builder = AsyncResponse::builder()
+    let mut response_builder = AsyncResponse::builder();
+    response_builder
         .status_code(response.status())
         .version(response.version())
         .headers(take(response.headers_mut()))
         .extensions(take(response.extensions_mut()));
     if let Some(remote_addr) = response.remote_addr() {
-        response_builder = response_builder.server_ip(remote_addr.ip());
+        response_builder.server_ip(remote_addr.ip());
         if let Some(port) = NonZeroU16::new(remote_addr.port()) {
-            response_builder = response_builder.server_port(port);
+            response_builder.server_port(port);
         }
     }
     if let Some(metrics) = response.metrics() {
-        response_builder =
-            response_builder.metrics(Box::new(IsahcBasedMetrics(metrics.to_owned())));
+        response_builder.metrics(Box::new(IsahcBasedMetrics(metrics.to_owned())));
     }
-    response_builder = response_builder.body(AsyncResponseBody::from_reader(response.into_body()));
+    response_builder.body(AsyncResponseBody::from_reader(response.into_body()));
     Ok(response_builder.build())
 }
 

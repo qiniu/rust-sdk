@@ -164,7 +164,8 @@ fn from_sync_response(
     request: &SyncRequest,
 ) -> SyncResponseResult {
     call_response_callbacks(request, response.status(), response.headers())?;
-    let mut response_builder = SyncResponse::builder()
+    let mut response_builder = SyncResponse::builder();
+    response_builder
         .status_code(response.status())
         .version(response.version())
         .headers(take(response.headers_mut()));
@@ -173,15 +174,15 @@ fn from_sync_response(
         .port_or_known_default()
         .and_then(NonZeroU16::new)
     {
-        response_builder = response_builder.server_port(port);
+        response_builder.server_port(port);
     }
     if let Some(remote_addr) = response.remote_addr() {
-        response_builder = response_builder.server_ip(remote_addr.ip());
+        response_builder.server_ip(remote_addr.ip());
         if let Some(port) = NonZeroU16::new(remote_addr.port()) {
-            response_builder = response_builder.server_port(port);
+            response_builder.server_port(port);
         }
     }
-    response_builder = response_builder.body(SyncResponseBody::from_reader(response));
+    response_builder.body(SyncResponseBody::from_reader(response));
     Ok(response_builder.build())
 }
 

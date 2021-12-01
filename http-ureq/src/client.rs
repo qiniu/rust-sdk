@@ -101,7 +101,8 @@ fn make_ureq_request(agent: &Agent, request: &SyncRequest) -> Result<UreqRequest
 fn make_ureq_sync_response(response: UreqResponse, request: &SyncRequest) -> SyncResponseResult {
     call_response_callbacks(request, &response)?;
 
-    let mut response_builder = SyncResponse::builder()
+    let mut response_builder = SyncResponse::builder();
+    response_builder
         .status_code(status_code_of_response(&response, request)?)
         .version(parse_http_version(response.http_version(), request)?);
     for header_name_str in response.headers_names().into_iter() {
@@ -110,10 +111,10 @@ fn make_ureq_sync_response(response: UreqResponse, request: &SyncRequest) -> Syn
                 .map_err(|err| build_header_name_error(request, &header_name_str, err))?;
             let header_value = HeaderValue::from_bytes(header_value_str.as_bytes())
                 .map_err(|err| build_header_value_error(request, header_value_str, err))?;
-            response_builder = response_builder.header(header_name, header_value);
+            response_builder.header(header_name, header_value);
         }
     }
-    response_builder = response_builder.body(SyncResponseBody::from_reader(ResponseReaderWrapper(
+    response_builder.body(SyncResponseBody::from_reader(ResponseReaderWrapper(
         response.into_reader(),
     )));
     return Ok(response_builder.build());

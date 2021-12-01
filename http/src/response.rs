@@ -1,5 +1,6 @@
 use super::{MapError, ResponseError};
 use assert_impl::assert_impl;
+use auto_impl::auto_impl;
 use http::{
     header::{HeaderMap, HeaderName, HeaderValue},
     response::{Parts as HttpResponseParts, Response as HttpResponse},
@@ -9,13 +10,13 @@ use http::{
 use std::{
     default::Default,
     fmt::Debug,
+    mem::take,
     net::IpAddr,
     num::NonZeroU16,
     ops::{Deref, DerefMut},
     result,
     time::Duration,
 };
-use auto_impl::auto_impl;
 
 #[cfg(feature = "async")]
 use futures_lite::Future;
@@ -311,70 +312,72 @@ pub struct ResponseBuilder<B> {
 impl<B> ResponseBuilder<B> {
     /// 设置 HTTP 状态码
     #[inline]
-    pub fn status_code(mut self, status_code: StatusCode) -> Self {
+    pub fn status_code(&mut self, status_code: StatusCode) -> &mut Self {
         *self.inner.status_code_mut() = status_code;
         self
     }
 
     /// 设置 HTTP Headers
     #[inline]
-    pub fn headers(mut self, headers: HeaderMap) -> Self {
+    pub fn headers(&mut self, headers: HeaderMap) -> &mut Self {
         *self.inner.headers_mut() = headers;
         self
     }
 
     /// 设置 HTTP 版本
     #[inline]
-    pub fn version(mut self, version: Version) -> Self {
+    pub fn version(&mut self, version: Version) -> &mut Self {
         *self.inner.version_mut() = version;
         self
     }
 
     /// 设置 HTTP 服务器 IP 地址
     #[inline]
-    pub fn server_ip(mut self, server_ip: IpAddr) -> Self {
+    pub fn server_ip(&mut self, server_ip: IpAddr) -> &mut Self {
         *self.inner.info.server_ip_mut() = Some(server_ip);
         self
     }
 
     /// 设置 HTTP 服务器端口号
     #[inline]
-    pub fn server_port(mut self, server_port: NonZeroU16) -> Self {
+    pub fn server_port(&mut self, server_port: NonZeroU16) -> &mut Self {
         *self.inner.info.server_port_mut() = Some(server_port);
         self
     }
 
     /// 设置扩展字段
     #[inline]
-    pub fn extensions(mut self, extensions: Extensions) -> Self {
+    pub fn extensions(&mut self, extensions: Extensions) -> &mut Self {
         *self.inner.extensions_mut() = extensions;
         self
     }
 
     /// 添加 HTTP Header
     #[inline]
-    pub fn header(mut self, header_name: HeaderName, header_value: HeaderValue) -> Self {
+    pub fn header(&mut self, header_name: HeaderName, header_value: HeaderValue) -> &mut Self {
         self.inner.headers_mut().insert(header_name, header_value);
         self
     }
 
     /// 添加 HTTP 响应体
     #[inline]
-    pub fn body(mut self, body: B) -> Self {
+    pub fn body(&mut self, body: B) -> &mut Self {
         *self.inner.body_mut() = body;
         self
     }
 
     #[inline]
-    pub fn metrics(mut self, metrics: Box<dyn Metrics>) -> Self {
+    pub fn metrics(&mut self, metrics: Box<dyn Metrics>) -> &mut Self {
         *self.inner.metrics_mut() = Some(metrics);
         self
     }
+}
 
+impl<B: Default> ResponseBuilder<B> {
     /// 构建 HTTP 请求
     #[inline]
-    pub fn build(self) -> Response<B> {
-        self.inner
+    pub fn build(&mut self) -> Response<B> {
+        take(&mut self.inner)
     }
 }
 
