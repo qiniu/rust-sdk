@@ -143,6 +143,26 @@ impl FromIterator<Region> for GotRegions {
     }
 }
 
+impl<'a> IntoIterator for &'a GotRegions {
+    type Item = &'a Region;
+    type IntoIter = std::slice::Iter<'a, Region>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl IntoIterator for GotRegions {
+    type Item = Region;
+    type IntoIter = std::vec::IntoIter<Region>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl GotRegions {
     #[inline]
     pub fn regions(&self) -> &[Region] {

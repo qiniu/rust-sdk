@@ -52,3 +52,13 @@ impl FromIterator<Region> for StaticRegionsProvider {
         }
     }
 }
+
+impl<'a> IntoIterator for &'a StaticRegionsProvider {
+    type Item = &'a Region;
+    type IntoIter = std::slice::Iter<'a, Region>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.regions.iter()
+    }
+}

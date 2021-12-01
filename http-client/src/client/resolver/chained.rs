@@ -64,6 +64,17 @@ impl FromIterator<Box<dyn Resolver>> for ChainedResolver {
         ChainedResolverBuilder::from_iter(iter).build()
     }
 }
+
+impl<'a> IntoIterator for &'a ChainedResolver {
+    type Item = &'a Box<dyn Resolver>;
+    type IntoIter = std::slice::Iter<'a, Box<dyn Resolver>>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.resolvers.iter()
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct ChainedResolverBuilder {
     resolvers: VecDeque<Box<dyn Resolver>>,

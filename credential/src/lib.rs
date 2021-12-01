@@ -739,6 +739,16 @@ impl FromIterator<Box<dyn CredentialProvider>> for ChainCredentialsProvider {
     }
 }
 
+impl<'a> IntoIterator for &'a ChainCredentialsProvider {
+    type Item = &'a Box<dyn CredentialProvider + 'static>;
+    type IntoIter = std::slice::Iter<'a, Box<dyn CredentialProvider + 'static>>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.credentials.iter()
+    }
+}
+
 /// 串联认证信息构建器
 ///
 /// 接受多个认证信息提供者并将他们串联成串联认证信息

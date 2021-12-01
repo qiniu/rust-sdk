@@ -86,6 +86,16 @@ impl FromIterator<IpAddr> for ResolveAnswers {
     }
 }
 
+impl<'a> IntoIterator for &'a ResolveAnswers {
+    type Item = &'a IpAddr;
+    type IntoIter = std::slice::Iter<'a, IpAddr>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.ip_addrs.iter()
+    }
+}
+
 impl From<ResolveAnswers> for Box<[IpAddr]> {
     #[inline]
     fn from(answers: ResolveAnswers) -> Self {

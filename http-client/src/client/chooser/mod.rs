@@ -77,6 +77,26 @@ impl FromIterator<IpAddrWithPort> for ChosenResults {
     }
 }
 
+impl<'a> IntoIterator for &'a ChosenResults {
+    type Item = &'a IpAddrWithPort;
+    type IntoIter = std::slice::Iter<'a, IpAddrWithPort>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl IntoIterator for ChosenResults {
+    type Item = IpAddrWithPort;
+    type IntoIter = std::vec::IntoIter<IpAddrWithPort>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl From<ChosenResults> for Vec<IpAddrWithPort> {
     #[inline]
     fn from(answers: ChosenResults) -> Self {

@@ -153,6 +153,16 @@ impl FromIterator<Endpoint> for Endpoints {
     }
 }
 
+impl<'a> IntoIterator for &'a Endpoints {
+    type Item = &'a Endpoint;
+    type IntoIter = std::slice::Iter<'a, Endpoint>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.preferred.iter()
+    }
+}
+
 impl From<(Vec<Endpoint>, Vec<Endpoint>)> for Endpoints {
     #[inline]
     fn from(endpoints: (Vec<Endpoint>, Vec<Endpoint>)) -> Self {
