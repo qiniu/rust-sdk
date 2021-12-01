@@ -35,6 +35,7 @@ use std::{
     env,
     fmt::{self, Debug},
     io::{copy, Cursor, Error, ErrorKind, Read, Result},
+    mem::take,
     ops::{Deref, DerefMut},
     sync::{Arc, RwLock},
     time::Duration,
@@ -757,27 +758,29 @@ impl ChainCredentialsProviderBuilder {
 
     /// 将认证信息提供者推送到认证串末端
     #[inline]
-    pub fn append_credential(mut self, credential: Box<dyn CredentialProvider>) -> Self {
+    pub fn append_credential(&mut self, credential: Box<dyn CredentialProvider>) -> &mut Self {
         self.credentials.push_back(credential);
         self
     }
 
     /// 将认证信息提供者推送到认证串顶端
     #[inline]
-    pub fn prepend_credential(mut self, credential: Box<dyn CredentialProvider>) -> Self {
+    pub fn prepend_credential(&mut self, credential: Box<dyn CredentialProvider>) -> &mut Self {
         self.credentials.push_front(credential);
         self
     }
 
     /// 串联认证信息
     #[inline]
-    pub fn build(self) -> ChainCredentialsProvider {
+    pub fn build(&mut self) -> ChainCredentialsProvider {
         assert!(
             !self.credentials.is_empty(),
             "ChainCredentialsProvider must owns at least one CredentialProvider"
         );
         ChainCredentialsProvider {
-            credentials: Vec::from(self.credentials).into_boxed_slice().into(),
+            credentials: Vec::from(take(&mut self.credentials))
+                .into_boxed_slice()
+                .into(),
         }
     }
 }
