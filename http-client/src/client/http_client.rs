@@ -554,14 +554,14 @@ fn default_resolver() -> Box<dyn Resolver> {
 
         #[cfg(feature = "c_ares")]
         if let Ok(resolver) = super::CAresResolver::new() {
-            builder = builder.prepend_resolver(Box::new(resolver));
+            builder.prepend_resolver(Box::new(resolver));
         }
 
         #[cfg(all(feature = "trust_dns", feature = "async"))]
         if let Ok(resolver) =
             async_std::task::block_on(async { super::TrustDnsResolver::from_system_conf().await })
         {
-            builder = builder.prepend_resolver(Box::new(resolver));
+            builder.prepend_resolver(Box::new(resolver));
         }
 
         builder.build()

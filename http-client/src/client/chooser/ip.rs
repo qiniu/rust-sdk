@@ -5,6 +5,7 @@ use super::{
 use dashmap::DashMap;
 use log::{info, warn};
 use std::{
+    mem::take,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -189,21 +190,21 @@ impl Default for IpChooserBuilder {
 
 impl IpChooserBuilder {
     #[inline]
-    pub fn block_duration(mut self, block_duration: Duration) -> Self {
+    pub fn block_duration(&mut self, block_duration: Duration) -> &mut Self {
         self.inner.block_duration = block_duration;
         self
     }
 
     #[inline]
-    pub fn shrink_interval(mut self, shrink_interval: Duration) -> Self {
+    pub fn shrink_interval(&mut self, shrink_interval: Duration) -> &mut Self {
         self.inner.shrink_interval = shrink_interval;
         self
     }
 
     #[inline]
-    pub fn build(self) -> IpChooser {
+    pub fn build(&mut self) -> IpChooser {
         IpChooser {
-            inner: Arc::new(self.inner),
+            inner: Arc::new(take(&mut self.inner)),
         }
     }
 }

@@ -9,7 +9,7 @@ use super::{
 };
 use qiniu_credential::AccessKey;
 use qiniu_upload_token::BucketName;
-use std::{convert::TryFrom, fmt::Debug, path::Path, time::Duration};
+use std::{convert::TryFrom, fmt::Debug, mem::take, path::Path, time::Duration};
 
 #[cfg(feature = "async")]
 use {async_std::task::spawn, futures::future::BoxFuture};
@@ -85,70 +85,73 @@ impl BucketRegionsQueryerBuilder {
     }
 
     #[inline]
-    pub fn http_client(mut self, http_client: HttpClient) -> Self {
+    pub fn http_client(&mut self, http_client: HttpClient) -> &mut Self {
         self.http_client = Some(http_client);
         self
     }
 
     #[inline]
-    pub fn uc_endpoints(mut self, uc_endpoints: impl Into<Endpoints>) -> Self {
+    pub fn uc_endpoints(&mut self, uc_endpoints: impl Into<Endpoints>) -> &mut Self {
         self.uc_endpoints = Some(uc_endpoints.into());
         self
     }
 
     #[inline]
-    pub fn cache_lifetime(mut self, cache_lifetime: Duration) -> Self {
+    pub fn cache_lifetime(&mut self, cache_lifetime: Duration) -> &mut Self {
         self.cache_lifetime = cache_lifetime;
         self
     }
 
     #[inline]
-    pub fn shrink_interval(mut self, shrink_interval: Duration) -> Self {
+    pub fn shrink_interval(&mut self, shrink_interval: Duration) -> &mut Self {
         self.shrink_interval = shrink_interval;
         self
     }
 
     #[inline]
     pub fn load_or_create_from(
-        self,
+        &mut self,
         path: impl AsRef<Path>,
         auto_persistent: bool,
     ) -> BucketRegionsQueryer {
+        let owned = take(self);
         BucketRegionsQueryer {
             cache: RegionsCache::load_or_create_from(
                 path.as_ref(),
                 auto_persistent,
-                self.cache_lifetime,
-                self.shrink_interval,
+                owned.cache_lifetime,
+                owned.shrink_interval,
             ),
-            http_client: self.http_client.unwrap_or_default(),
-            uc_endpoints: self
+            http_client: owned.http_client.unwrap_or_default(),
+            uc_endpoints: owned
                 .uc_endpoints
                 .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
         }
     }
 
     #[inline]
-    pub fn default_load_or_create_from(self, auto_persistent: bool) -> BucketRegionsQueryer {
+    pub fn default_load_or_create_from(&mut self, auto_persistent: bool) -> BucketRegionsQueryer {
+        let owned = take(self);
         BucketRegionsQueryer {
             cache: RegionsCache::default_load_or_create_from(
                 auto_persistent,
-                self.cache_lifetime,
-                self.shrink_interval,
+                owned.cache_lifetime,
+                owned.shrink_interval,
             ),
-            http_client: self.http_client.unwrap_or_default(),
-            uc_endpoints: self
+            http_client: owned.http_client.unwrap_or_default(),
+            uc_endpoints: owned
                 .uc_endpoints
                 .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
         }
     }
 
     #[inline]
-    pub fn in_memory(self) -> BucketRegionsQueryer {
+    pub fn in_memory(&mut self) -> BucketRegionsQueryer {
+        let owned = take(self);
         BucketRegionsQueryer {
-            cache: RegionsCache::in_memory(self.cache_lifetime, self.shrink_interval),
-            http_client: self.http_client.unwrap_or_default(),
-            uc_endpoints: self
+            cache: RegionsCache::in_memory(owned.cache_lifetime, owned.shrink_interval),
+            http_client: owned.http_client.unwrap_or_default(),
+            uc_endpoints: owned
                 .uc_endpoints
                 .unwrap_or_else(|| Endpoints::public_uc_endpoints().to_owned()),
         }

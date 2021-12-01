@@ -101,6 +101,7 @@ impl fmt::Debug for CachedRegionsProvider {
     }
 }
 
+#[derive(Clone)]
 pub struct CachedRegionsProviderBuilder {
     cache_lifetime: Duration,
     shrink_interval: Duration,

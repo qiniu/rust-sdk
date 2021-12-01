@@ -58,12 +58,12 @@ impl TryFrom<RegionResponseBody> for Region {
             ($service_name:expr, $push_to_preferred_endpoint:ident, $push_to_alternative_endpoint:ident) => {
                 for preferred_domain in $service_name.preferred.iter() {
                     let endpoint: Endpoint = preferred_domain.as_ref().parse()?;
-                    builder = builder.$push_to_preferred_endpoint(endpoint);
+                    builder.$push_to_preferred_endpoint(endpoint);
                 }
                 if let Some(alternative_domains) = &$service_name.alternative {
                     for alternative_domain in alternative_domains.iter() {
                         let endpoint: Endpoint = alternative_domain.as_ref().parse()?;
-                        builder = builder.$push_to_alternative_endpoint(endpoint);
+                        builder.$push_to_alternative_endpoint(endpoint);
                     }
                 }
             };

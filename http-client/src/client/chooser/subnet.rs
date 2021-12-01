@@ -8,6 +8,7 @@ use ipnet::{Ipv4Net, Ipv6Net};
 use log::{info, warn};
 use std::{
     collections::HashMap,
+    mem::take,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -261,33 +262,33 @@ impl Default for SubnetChooserBuilder {
 
 impl SubnetChooserBuilder {
     #[inline]
-    pub fn block_duration(mut self, block_duration: Duration) -> Self {
+    pub fn block_duration(&mut self, block_duration: Duration) -> &mut Self {
         self.inner.block_duration = block_duration;
         self
     }
 
     #[inline]
-    pub fn shrink_interval(mut self, shrink_interval: Duration) -> Self {
+    pub fn shrink_interval(&mut self, shrink_interval: Duration) -> &mut Self {
         self.inner.shrink_interval = shrink_interval;
         self
     }
 
     #[inline]
-    pub fn ipv4_netmask_prefix_length(mut self, ipv4_netmask_prefix_length: u8) -> Self {
+    pub fn ipv4_netmask_prefix_length(&mut self, ipv4_netmask_prefix_length: u8) -> &mut Self {
         self.inner.ipv4_netmask_prefix_length = ipv4_netmask_prefix_length;
         self
     }
 
     #[inline]
-    pub fn ipv6_netmask_prefix_length(mut self, ipv6_netmask_prefix_length: u8) -> Self {
+    pub fn ipv6_netmask_prefix_length(&mut self, ipv6_netmask_prefix_length: u8) -> &mut Self {
         self.inner.ipv6_netmask_prefix_length = ipv6_netmask_prefix_length;
         self
     }
 
     #[inline]
-    pub fn build(self) -> SubnetChooser {
+    pub fn build(&mut self) -> SubnetChooser {
         SubnetChooser {
-            inner: Arc::new(self.inner),
+            inner: Arc::new(take(&mut self.inner)),
         }
     }
 }

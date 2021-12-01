@@ -1,6 +1,6 @@
 use super::{super::ApiResult, Endpoint, Endpoints, GetOptions, GotRegion, RegionProvider};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{mem::take, sync::Arc};
 
 /// 七牛存储区域
 ///
@@ -169,6 +169,7 @@ impl RegionProvider for Region {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Clone, Default)]
 pub struct RegionBuilder {
     region_id: String,
     s3_region_id: String,
@@ -213,121 +214,122 @@ impl RegionBuilder {
 
     /// 设置 S3 区域 ID
     #[inline]
-    pub fn s3_region_id(mut self, s3_region_id: impl Into<String>) -> Self {
+    pub fn s3_region_id(&mut self, s3_region_id: impl Into<String>) -> &mut Self {
         self.s3_region_id = s3_region_id.into();
         self
     }
 
     /// 追加访问地址到上传访问地址列表
     #[inline]
-    pub fn push_up_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_up_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.up_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_up_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_up_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.up_alternative.push(endpoint.into());
         self
     }
 
     /// 追加访问地址到下载访问地址列表
     #[inline]
-    pub fn push_io_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_io_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.io_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_io_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_io_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.io_alternative.push(endpoint.into());
         self
     }
 
     /// 追加访问地址到 UC 访问地址列表
     #[inline]
-    pub fn push_uc_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_uc_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.uc_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_uc_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_uc_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.uc_alternative.push(endpoint.into());
         self
     }
 
     /// 追加访问地址到 RS 访问地址列表
     #[inline]
-    pub fn push_rs_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_rs_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.rs_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_rs_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_rs_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.rs_alternative.push(endpoint.into());
         self
     }
 
     /// 追加访问地址到 RSF 访问地址列表
     #[inline]
-    pub fn push_rsf_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_rsf_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.rsf_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_rsf_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_rsf_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.rsf_alternative.push(endpoint.into());
         self
     }
 
     /// 追加访问地址到 API 访问地址列表
     #[inline]
-    pub fn push_api_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_api_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.api_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_api_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_api_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.api_alternative.push(endpoint.into());
         self
     }
 
     /// 追加访问地址到 S3 访问地址列表
     #[inline]
-    pub fn push_s3_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_s3_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.s3_preferred.push(endpoint.into());
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_s3_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn push_s3_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.s3_alternative.push(endpoint.into());
         self
     }
     /// 构建区域
-    pub fn build(self) -> Region {
+    pub fn build(&mut self) -> Region {
+        let owned = take(self);
         Region {
             inner: Arc::new(RegionInner {
-                region_id: self.region_id.into_boxed_str(),
-                s3_region_id: self.s3_region_id.into_boxed_str(),
-                up: (self.up_preferred, self.up_alternative).into(),
-                io: (self.io_preferred, self.io_alternative).into(),
-                uc: (self.uc_preferred, self.uc_alternative).into(),
-                rs: (self.rs_preferred, self.rs_alternative).into(),
-                rsf: (self.rsf_preferred, self.rsf_alternative).into(),
-                api: (self.api_preferred, self.api_alternative).into(),
-                s3: (self.s3_preferred, self.s3_alternative).into(),
+                region_id: owned.region_id.into_boxed_str(),
+                s3_region_id: owned.s3_region_id.into_boxed_str(),
+                up: (owned.up_preferred, owned.up_alternative).into(),
+                io: (owned.io_preferred, owned.io_alternative).into(),
+                uc: (owned.uc_preferred, owned.uc_alternative).into(),
+                rs: (owned.rs_preferred, owned.rs_alternative).into(),
+                rsf: (owned.rsf_preferred, owned.rsf_alternative).into(),
+                api: (owned.api_preferred, owned.api_alternative).into(),
+                s3: (owned.s3_preferred, owned.s3_alternative).into(),
             }),
         }
     }

@@ -1,7 +1,7 @@
 use super::{super::ApiResult, Endpoint, Region, RegionProvider};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, error::Error, fmt, str::FromStr, sync::Arc};
+use std::{borrow::Cow, error::Error, fmt, mem::take, str::FromStr, sync::Arc};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 #[non_exhaustive]
@@ -163,7 +163,7 @@ impl From<(Vec<Endpoint>, Vec<Endpoint>)> for Endpoints {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct EndpointsBuilder {
     preferred: Vec<Endpoint>,
     alternative: Vec<Endpoint>,
@@ -171,22 +171,23 @@ pub struct EndpointsBuilder {
 
 impl EndpointsBuilder {
     #[inline]
-    pub fn add_preferred_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn add_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.preferred.push(endpoint.into());
         self
     }
 
     #[inline]
-    pub fn add_alternative_endpoint(mut self, endpoint: impl Into<Endpoint>) -> Self {
+    pub fn add_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
         self.alternative.push(endpoint.into());
         self
     }
 
     #[inline]
-    pub fn build(self) -> Endpoints {
+    pub fn build(&mut self) -> Endpoints {
+        let owned = take(self);
         Endpoints {
-            preferred: self.preferred.into(),
-            alternative: self.alternative.into(),
+            preferred: owned.preferred.into(),
+            alternative: owned.alternative.into(),
         }
     }
 }

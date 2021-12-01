@@ -2,14 +2,14 @@ use super::{
     super::{ResponseError, ResponseErrorKind},
     ResolveOptions, ResolveResult, Resolver,
 };
-use std::collections::VecDeque;
+use std::{collections::VecDeque, mem::take, sync::Arc};
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ChainedResolver {
-    resolvers: Box<[Box<dyn Resolver>]>,
+    resolvers: Arc<[Box<dyn Resolver>]>,
 }
 
 impl ChainedResolver {
@@ -58,7 +58,13 @@ fn no_try_error() -> ResponseError {
     ResponseError::new(ResponseErrorKind::NoTry, "None resolver is tried")
 }
 
-#[derive(Debug)]
+impl FromIterator<Box<dyn Resolver>> for ChainedResolver {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = Box<dyn Resolver>>>(iter: T) -> Self {
+        ChainedResolverBuilder::from_iter(iter).build()
+    }
+}
+#[derive(Debug, Default)]
 pub struct ChainedResolverBuilder {
     resolvers: VecDeque<Box<dyn Resolver>>,
 }
@@ -72,25 +78,46 @@ impl ChainedResolverBuilder {
     }
 
     #[inline]
-    pub fn append_resolver(mut self, resolver: Box<dyn Resolver>) -> Self {
+    pub fn append_resolver(&mut self, resolver: Box<dyn Resolver>) -> &mut Self {
         self.resolvers.push_back(resolver);
         self
     }
 
     #[inline]
-    pub fn prepend_resolver(mut self, resolver: Box<dyn Resolver>) -> Self {
+    pub fn prepend_resolver(&mut self, resolver: Box<dyn Resolver>) -> &mut Self {
         self.resolvers.push_front(resolver);
         self
     }
 
     #[inline]
-    pub fn build(self) -> ChainedResolver {
+    pub fn build(&mut self) -> ChainedResolver {
+        assert!(
+            !self.resolvers.is_empty(),
+            "ChainedResolverBuilder must owns at least one Resolver"
+        );
         ChainedResolver {
-            resolvers: Vec::from(self.resolvers).into(),
+            resolvers: Vec::from(take(&mut self.resolvers))
+                .into_boxed_slice()
+                .into(),
         }
     }
 }
 
+impl FromIterator<Box<dyn Resolver>> for ChainedResolverBuilder {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = Box<dyn Resolver>>>(iter: T) -> Self {
+        ChainedResolverBuilder {
+            resolvers: VecDeque::from_iter(iter),
+        }
+    }
+}
+
+impl Extend<Box<dyn Resolver>> for ChainedResolverBuilder {
+    #[inline]
+    fn extend<T: IntoIterator<Item = Box<dyn Resolver>>>(&mut self, iter: T) {
+        self.resolvers.extend(iter)
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
