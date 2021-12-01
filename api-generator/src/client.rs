@@ -179,14 +179,21 @@ impl ApiDetailedDescription {
             #sync_request_builder_definition_token_stream
             #async_request_builder_definition_token_stream
 
-            impl<'req> SyncRequestBuilder<'req> {
+            impl<'req, E: 'req> SyncRequestBuilder<'req, E> {
                 #request_builder_methods_token_stream
+            }
+
+            impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> SyncRequestBuilder<'req, E> {
                 #sync_request_builder_methods_token_stream
             }
 
             #[cfg(feature = "async")]
-            impl<'req> AsyncRequestBuilder<'req> {
+            impl<'req, E: 'req> AsyncRequestBuilder<'req, E> {
                 #request_builder_methods_token_stream
+            }
+
+            #[cfg(feature = "async")]
+            impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> AsyncRequestBuilder<'req, E> {
                 #async_request_builder_methods_token_stream
             }
         };
@@ -194,7 +201,7 @@ impl ApiDetailedDescription {
         fn sync_request_builder_definition_token_stream() -> TokenStream {
             quote! {
                 #[derive(Debug)]
-                pub struct SyncRequestBuilder<'req>(qiniu_http_client::SyncRequestBuilder<'req>);
+                pub struct SyncRequestBuilder<'req, E: 'req>(qiniu_http_client::SyncRequestBuilder<'req, E>);
             }
         }
 
@@ -203,24 +210,21 @@ impl ApiDetailedDescription {
                 #[derive(Debug)]
                 #[cfg(feature = "async")]
                 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-                pub struct AsyncRequestBuilder<'req>(qiniu_http_client::AsyncRequestBuilder<'req>);
+                pub struct AsyncRequestBuilder<'req, E: 'req>(qiniu_http_client::AsyncRequestBuilder<'req, E>);
             }
         }
 
         fn new_request_method_token_stream(description: &ApiDetailedDescription) -> TokenStream {
-            let new_request_impl = impl_request_method_token_stream(
-                description,
-                &quote! {into_endpoints.into()},
-                true,
-            );
+            let new_request_impl =
+                impl_request_method_token_stream(description, &quote! {endpoints_provider}, true);
             let new_request_params_token_stream = new_request_params_token_stream(description);
             quote! {
                 #[inline]
-                pub fn new_request(
+                pub fn new_request<E: qiniu_http_client::EndpointsProvider + 'client>(
                     &self,
-                    into_endpoints: impl Into<qiniu_http_client::IntoEndpoints<'client>>,
+                    endpoints_provider: E,
                     #new_request_params_token_stream
-                ) -> SyncRequestBuilder {
+                ) -> SyncRequestBuilder<'client, E> {
                     SyncRequestBuilder(#new_request_impl)
                 }
             }
@@ -229,20 +233,17 @@ impl ApiDetailedDescription {
         fn new_async_request_method_token_stream(
             description: &ApiDetailedDescription,
         ) -> TokenStream {
-            let new_async_request_impl = impl_request_method_token_stream(
-                description,
-                &quote! {into_endpoints.into()},
-                false,
-            );
+            let new_async_request_impl =
+                impl_request_method_token_stream(description, &quote! {endpoints_provider}, false);
             let new_request_params_token_stream = new_request_params_token_stream(description);
             quote! {
                 #[inline]
                 #[cfg(feature = "async")]
-                pub fn new_async_request(
+                pub fn new_async_request<E: qiniu_http_client::EndpointsProvider + 'client>(
                     &self,
-                    into_endpoints: impl Into<qiniu_http_client::IntoEndpoints<'client>>,
+                    endpoints_provider: E,
                     #new_request_params_token_stream
-                ) -> AsyncRequestBuilder {
+                ) -> AsyncRequestBuilder<'client, E> {
                     AsyncRequestBuilder(#new_async_request_impl)
                 }
             }

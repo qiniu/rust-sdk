@@ -61,7 +61,7 @@ pub use client::{
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
     CachedRegionsProvider, DomainWithPort, DomainWithPortParseError, Endpoint, EndpointParseError,
-    Endpoints, EndpointsBuilder, GetOptions, GotRegion, GotRegions, IntoEndpoints,
+    Endpoints, EndpointsBuilder, GetOptions, GotRegion, GotRegions, EndpointsProvider,
     InvalidServiceName, IpAddrWithPort, IpAddrWithPortParseError, Region, RegionBuilder,
     RegionProvider, RegionsProvider, ServiceName, StaticRegionsProvider,
 };

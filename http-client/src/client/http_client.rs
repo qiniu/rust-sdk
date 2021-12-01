@@ -1,5 +1,5 @@
 use super::{
-    super::{IntoEndpoints, IpAddrWithPort, ServiceName},
+    super::{EndpointsProvider, IpAddrWithPort, ServiceName},
     Backoff, CachedResolver, CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver,
     Chooser, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, LimitedRetrier,
     NeverEmptyHandedChooser, RandomizedBackoff, RequestRetrier, ResolveAnswers, Resolver,
@@ -114,124 +114,124 @@ impl HttpClient {
     }
 
     #[inline]
-    pub fn get<'r>(
+    pub fn get<'r, E: EndpointsProvider + 'r>(
         &'r self,
         service_names: &'r [ServiceName],
-        into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> SyncRequestBuilder<'r> {
-        self.new_sync_request(Method::GET, service_names, into_endpoints.into())
+        endpoints_provider: E,
+    ) -> SyncRequestBuilder<'r, E> {
+        self.new_sync_request(Method::GET, service_names, endpoints_provider)
     }
 
     #[inline]
-    pub fn head<'r>(
+    pub fn head<'r, E: EndpointsProvider + 'r>(
         &'r self,
         service_names: &'r [ServiceName],
-        into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> SyncRequestBuilder<'r> {
-        self.new_sync_request(Method::HEAD, service_names, into_endpoints.into())
+        endpoints_provider: E,
+    ) -> SyncRequestBuilder<'r, E> {
+        self.new_sync_request(Method::HEAD, service_names, endpoints_provider)
     }
 
     #[inline]
-    pub fn post<'r>(
+    pub fn post<'r, E: EndpointsProvider + 'r>(
         &'r self,
         service_names: &'r [ServiceName],
-        into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> SyncRequestBuilder<'r> {
-        self.new_sync_request(Method::POST, service_names, into_endpoints.into())
+        endpoints_provider: E,
+    ) -> SyncRequestBuilder<'r, E> {
+        self.new_sync_request(Method::POST, service_names, endpoints_provider)
     }
 
     #[inline]
-    pub fn put<'r>(
+    pub fn put<'r, E: EndpointsProvider + 'r>(
         &'r self,
         service_names: &'r [ServiceName],
-        into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> SyncRequestBuilder<'r> {
-        self.new_sync_request(Method::PUT, service_names, into_endpoints.into())
+        endpoints_provider: E,
+    ) -> SyncRequestBuilder<'r, E> {
+        self.new_sync_request(Method::PUT, service_names, endpoints_provider)
     }
 
     #[inline]
-    pub fn delete<'r>(
+    pub fn delete<'r, E: EndpointsProvider + 'r>(
         &'r self,
         service_names: &'r [ServiceName],
-        into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> SyncRequestBuilder<'r> {
-        self.new_sync_request(Method::DELETE, service_names, into_endpoints.into())
+        endpoints_provider: E,
+    ) -> SyncRequestBuilder<'r, E> {
+        self.new_sync_request(Method::DELETE, service_names, endpoints_provider)
     }
 
     #[inline]
-    fn new_sync_request<'r>(
+    fn new_sync_request<'r, E: EndpointsProvider + 'r>(
         &'r self,
         method: Method,
         service_names: &'r [ServiceName],
-        into_endpoints: IntoEndpoints<'r>,
-    ) -> SyncRequestBuilder<'r> {
-        SyncRequestBuilder::new(self, method, into_endpoints, service_names)
+        endpoints_provider: E,
+    ) -> SyncRequestBuilder<'r, E> {
+        SyncRequestBuilder::new(self, method, endpoints_provider, service_names)
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub fn async_get<'r>(
+    pub fn async_get<'r, E: EndpointsProvider + 'r>(
         &'r self,
         service_names: &'r [ServiceName],
-        into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> AsyncRequestBuilder<'r> {
-        self.new_async_request(Method::GET, service_names, into_endpoints.into())
+        endpoints_provider: E,
+    ) -> AsyncRequestBuilder<'r, E> {
+        self.new_async_request(Method::GET, service_names, endpoints_provider)
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub fn async_head<'r>(
+    pub fn async_head<'r, E: EndpointsProvider + 'r>(
         &'r self,
         service_names: &'r [ServiceName],
-        into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> AsyncRequestBuilder<'r> {
-        self.new_async_request(Method::HEAD, service_names, into_endpoints.into())
+        endpoints_provider: E,
+    ) -> AsyncRequestBuilder<'r, E> {
+        self.new_async_request(Method::HEAD, service_names, endpoints_provider)
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub fn async_post<'r>(
+    pub fn async_post<'r, E: EndpointsProvider + 'r>(
         &'r self,
         service_names: &'r [ServiceName],
-        into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> AsyncRequestBuilder<'r> {
-        self.new_async_request(Method::POST, service_names, into_endpoints.into())
+        endpoints_provider: E,
+    ) -> AsyncRequestBuilder<'r, E> {
+        self.new_async_request(Method::POST, service_names, endpoints_provider)
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub fn async_put<'r>(
+    pub fn async_put<'r, E: EndpointsProvider + 'r>(
         &'r self,
         service_names: &'r [ServiceName],
-        into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> AsyncRequestBuilder<'r> {
-        self.new_async_request(Method::PUT, service_names, into_endpoints.into())
+        endpoints_provider: E,
+    ) -> AsyncRequestBuilder<'r, E> {
+        self.new_async_request(Method::PUT, service_names, endpoints_provider)
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub fn async_delete<'r>(
+    pub fn async_delete<'r, E: EndpointsProvider + 'r>(
         &'r self,
         service_names: &'r [ServiceName],
-        into_endpoints: impl Into<IntoEndpoints<'r>>,
-    ) -> AsyncRequestBuilder<'r> {
-        self.new_async_request(Method::DELETE, service_names, into_endpoints.into())
+        endpoints_provider: E,
+    ) -> AsyncRequestBuilder<'r, E> {
+        self.new_async_request(Method::DELETE, service_names, endpoints_provider)
     }
 
     #[inline]
     #[cfg(feature = "async")]
-    fn new_async_request<'r>(
+    fn new_async_request<'r, E: EndpointsProvider + 'r>(
         &'r self,
         method: Method,
         service_names: &'r [ServiceName],
-        into_endpoints: IntoEndpoints<'r>,
-    ) -> AsyncRequestBuilder<'r> {
-        AsyncRequestBuilder::new(self, method, into_endpoints, service_names)
+        endpoints_provider: E,
+    ) -> AsyncRequestBuilder<'r, E> {
+        AsyncRequestBuilder::new(self, method, endpoints_provider, service_names)
     }
 
     #[inline]

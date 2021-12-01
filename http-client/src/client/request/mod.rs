@@ -41,9 +41,9 @@ pub use {
 };
 
 /// 同步 HTTP 请求
-pub(super) type SyncRequest<'r> = Request<'r, SyncRequestBody<'r>>;
+pub(super) type SyncRequest<'r, E> = Request<'r, SyncRequestBody<'r>, E>;
 
 /// 异步 HTTP 请求
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub(super) type AsyncRequest<'r> = Request<'r, AsyncRequestBody<'r>>;
+pub(super) type AsyncRequest<'r, E> = Request<'r, AsyncRequestBody<'r>, E>;

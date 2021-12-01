@@ -228,13 +228,13 @@ impl<'client> Client<'client> {
 }
 impl<'client> Client<'client> {
     #[inline]
-    pub fn new_request(
+    pub fn new_request<E: qiniu_http_client::EndpointsProvider + 'client>(
         &self,
-        into_endpoints: impl Into<qiniu_http_client::IntoEndpoints<'client>>,
-    ) -> SyncRequestBuilder {
+        endpoints_provider: E,
+    ) -> SyncRequestBuilder<'client, E> {
         SyncRequestBuilder(
             self.0
-                .post(&[qiniu_http_client::ServiceName::Up], into_endpoints.into())
+                .post(&[qiniu_http_client::ServiceName::Up], endpoints_provider)
                 .idempotent(qiniu_http_client::Idempotent::Default)
                 .path("")
                 .accept_json(),
@@ -242,13 +242,13 @@ impl<'client> Client<'client> {
     }
     #[inline]
     #[cfg(feature = "async")]
-    pub fn new_async_request(
+    pub fn new_async_request<E: qiniu_http_client::EndpointsProvider + 'client>(
         &self,
-        into_endpoints: impl Into<qiniu_http_client::IntoEndpoints<'client>>,
-    ) -> AsyncRequestBuilder {
+        endpoints_provider: E,
+    ) -> AsyncRequestBuilder<'client, E> {
         AsyncRequestBuilder(
             self.0
-                .async_post(&[qiniu_http_client::ServiceName::Up], into_endpoints.into())
+                .async_post(&[qiniu_http_client::ServiceName::Up], endpoints_provider)
                 .idempotent(qiniu_http_client::Idempotent::Default)
                 .path("")
                 .accept_json(),
@@ -256,12 +256,12 @@ impl<'client> Client<'client> {
     }
 }
 #[derive(Debug)]
-pub struct SyncRequestBuilder<'req>(qiniu_http_client::SyncRequestBuilder<'req>);
+pub struct SyncRequestBuilder<'req, E: 'req>(qiniu_http_client::SyncRequestBuilder<'req, E>);
 #[derive(Debug)]
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub struct AsyncRequestBuilder<'req>(qiniu_http_client::AsyncRequestBuilder<'req>);
-impl<'req> SyncRequestBuilder<'req> {
+pub struct AsyncRequestBuilder<'req, E: 'req>(qiniu_http_client::AsyncRequestBuilder<'req, E>);
+impl<'req, E: 'req> SyncRequestBuilder<'req, E> {
     #[inline]
     pub fn use_https(mut self, use_https: bool) -> Self {
         self.0 = self.0.use_https(use_https);
@@ -468,6 +468,8 @@ impl<'req> SyncRequestBuilder<'req> {
         self.0 = self.0.on_after_backoff(callback);
         self
     }
+}
+impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> SyncRequestBuilder<'req, E> {
     pub fn call(
         self,
         body: sync_part::RequestBody,
@@ -479,7 +481,7 @@ impl<'req> SyncRequestBuilder<'req> {
     }
 }
 #[cfg(feature = "async")]
-impl<'req> AsyncRequestBuilder<'req> {
+impl<'req, E: 'req> AsyncRequestBuilder<'req, E> {
     #[inline]
     pub fn use_https(mut self, use_https: bool) -> Self {
         self.0 = self.0.use_https(use_https);
@@ -686,6 +688,9 @@ impl<'req> AsyncRequestBuilder<'req> {
         self.0 = self.0.on_after_backoff(callback);
         self
     }
+}
+#[cfg(feature = "async")]
+impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> AsyncRequestBuilder<'req, E> {
     pub async fn call(
         self,
         body: async_part::RequestBody,

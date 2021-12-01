@@ -1,6 +1,6 @@
 use super::{
     super::{
-        super::{IntoEndpoints, IpAddrWithPort, ServiceName},
+        super::{EndpointsProvider, IpAddrWithPort, ServiceName},
         request_call, ApiResult, Authorization, CallbackContext, CallbacksBuilder,
         ExtendedCallbackContext, HttpClient, ResolveAnswers, ResponseError, ResponseInfo,
         SimplifiedCallbackContext, SyncResponse,
@@ -39,10 +39,10 @@ use {
 };
 
 #[derive(Debug)]
-pub struct RequestBuilder<'r, B: 'r> {
+pub struct RequestBuilder<'r, B: 'r, E: 'r> {
     http_client: &'r HttpClient,
     service_names: &'r [ServiceName],
-    into_endpoints: IntoEndpoints<'r>,
+    endpoints_provider: E,
     callbacks: CallbacksBuilder<'r>,
     metadata: RequestMetadata<'r>,
     body: B,
@@ -50,17 +50,17 @@ pub struct RequestBuilder<'r, B: 'r> {
     extensions: Extensions,
 }
 
-impl<'r, B: Default> RequestBuilder<'r, B> {
+impl<'r, B: Default + 'r, E: EndpointsProvider + 'r> RequestBuilder<'r, B, E> {
     pub(in super::super) fn new(
         http_client: &'r HttpClient,
         method: Method,
-        into_endpoints: IntoEndpoints<'r>,
+        endpoints_provider: E,
         service_names: &'r [ServiceName],
     ) -> Self {
         Self {
             http_client,
             service_names,
-            into_endpoints,
+            endpoints_provider,
             callbacks: Default::default(),
             appended_user_agent: Default::default(),
             extensions: Default::default(),
@@ -80,7 +80,7 @@ impl<'r, B: Default> RequestBuilder<'r, B> {
     }
 }
 
-impl<'r, B> RequestBuilder<'r, B> {
+impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn use_https(mut self, use_https: bool) -> Self {
         self.metadata.use_https = Some(use_https);
@@ -335,9 +335,9 @@ impl<'r, B> RequestBuilder<'r, B> {
     }
 }
 
-pub type SyncRequestBuilder<'r> = RequestBuilder<'r, SyncRequestBody<'r>>;
+pub type SyncRequestBuilder<'r, E> = RequestBuilder<'r, SyncRequestBody<'r>, E>;
 
-impl<'r> SyncRequestBuilder<'r> {
+impl<'r, E: 'r> SyncRequestBuilder<'r, E> {
     #[inline]
     pub fn stream_as_body(
         mut self,
@@ -406,19 +406,21 @@ impl<'r> SyncRequestBuilder<'r> {
         multipart.into().into_read().read_to_end(&mut buf)?;
         Ok(self.bytes_as_body(buf, Some(MULTIPART_FORM_DATA)))
     }
+}
 
+impl<'r, E: EndpointsProvider + 'r> SyncRequestBuilder<'r, E> {
     #[inline]
     pub fn call(self) -> ApiResult<SyncResponse> {
         request_call(self.build())
     }
 
     #[inline]
-    pub(in super::super) fn build(self) -> SyncRequest<'r> {
+    pub(in super::super) fn build(self) -> SyncRequest<'r, E> {
         let appended_user_agent = self.get_appended_user_agent();
         SyncRequest::new(
             self.http_client,
+            self.endpoints_provider,
             self.service_names,
-            self.into_endpoints,
             self.callbacks.build(),
             self.metadata,
             self.body,
@@ -429,10 +431,10 @@ impl<'r> SyncRequestBuilder<'r> {
 }
 
 #[cfg(feature = "async")]
-pub type AsyncRequestBuilder<'r> = RequestBuilder<'r, AsyncRequestBody<'r>>;
+pub type AsyncRequestBuilder<'r, E> = RequestBuilder<'r, AsyncRequestBody<'r>, E>;
 
 #[cfg(feature = "async")]
-impl<'r> AsyncRequestBuilder<'r> {
+impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
     #[inline]
     pub fn stream_as_body(
         mut self,
@@ -499,7 +501,7 @@ impl<'r> AsyncRequestBuilder<'r> {
     pub async fn multipart(
         self,
         multipart: impl Into<AsyncMultipart>,
-    ) -> IoResult<RequestBuilder<'r, AsyncRequestBody<'r>>> {
+    ) -> IoResult<RequestBuilder<'r, AsyncRequestBody<'r>, E>> {
         use futures::AsyncReadExt;
 
         let mut buf = Vec::new();
@@ -510,19 +512,22 @@ impl<'r> AsyncRequestBuilder<'r> {
             .await?;
         Ok(self.bytes_as_body(buf, Some(MULTIPART_FORM_DATA)))
     }
+}
 
+#[cfg(feature = "async")]
+impl<'r, E: EndpointsProvider + 'r> AsyncRequestBuilder<'r, E> {
     #[inline]
     pub async fn call(self) -> ApiResult<AsyncResponse> {
         async_request_call(self.build()).await
     }
 
     #[inline]
-    pub(in super::super) fn build(self) -> AsyncRequest<'r> {
+    pub(in super::super) fn build(self) -> AsyncRequest<'r, E> {
         let appended_user_agent = self.get_appended_user_agent();
         AsyncRequest::new(
             self.http_client,
+            self.endpoints_provider,
             self.service_names,
-            self.into_endpoints,
             self.callbacks.build(),
             self.metadata,
             self.body,

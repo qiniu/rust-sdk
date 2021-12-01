@@ -219,78 +219,61 @@ impl Extend<Endpoint> for EndpointsBuilder {
     }
 }
 
-#[derive(Debug)]
-pub struct IntoEndpoints<'r> {
-    inner: Inner<'r>,
-}
+#[cfg(feature = "async")]
+type BoxFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + 'a + Send>>;
 
-#[derive(Debug)]
-enum Inner<'r> {
-    Endpoints(Cow<'r, Endpoints>),
-    Region(Box<dyn RegionProvider + 'r>),
-}
+pub trait EndpointsProvider: fmt::Debug + Send + Sync {
+    fn get_endpoints<'e>(&'e self, services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>>;
 
-impl From<Endpoints> for IntoEndpoints<'_> {
     #[inline]
-    fn from(endpoints: Endpoints) -> Self {
-        Self {
-            inner: Inner::Endpoints(Cow::Owned(endpoints)),
-        }
-    }
-}
-
-impl<'r> From<&'r Endpoints> for IntoEndpoints<'r> {
-    #[inline]
-    fn from(endpoints: &'r Endpoints) -> Self {
-        Self {
-            inner: Inner::Endpoints(Cow::Borrowed(endpoints)),
-        }
-    }
-}
-
-impl<'r> From<Cow<'r, Endpoints>> for IntoEndpoints<'r> {
-    #[inline]
-    fn from(endpoints: Cow<'r, Endpoints>) -> Self {
-        Self {
-            inner: Inner::Endpoints(endpoints),
-        }
-    }
-}
-
-impl<'r, T: RegionProvider + 'r> From<T> for IntoEndpoints<'r> {
-    #[inline]
-    fn from(provider: T) -> Self {
-        Self {
-            inner: Inner::Region(Box::new(provider)),
-        }
-    }
-}
-
-impl<'r> IntoEndpoints<'r> {
-    pub(in super::super) fn into_endpoints(
-        self,
-        services: &[ServiceName],
-    ) -> ApiResult<Cow<'r, Endpoints>> {
-        let endpoints = match self.inner {
-            Inner::Endpoints(endpoints) => endpoints,
-            Inner::Region(provider) => {
-                Cow::Owned(Endpoints::from_region_provider(&provider, services)?)
-            }
-        };
-        Ok(endpoints)
-    }
-
     #[cfg(feature = "async")]
-    pub(in super::super) async fn async_into_endpoints(
-        self,
-        services: &[ServiceName],
-    ) -> ApiResult<Cow<'r, Endpoints>> {
-        let endpoints = match self.inner {
-            Inner::Endpoints(endpoints) => endpoints,
-            Inner::Region(provider) => {
-                Cow::Owned(Endpoints::async_from_region_provider(&provider, services).await?)
-            }
-        };
-        Ok(endpoints)
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_get_endpoints<'a>(
+        &'a self,
+        services: &'a [ServiceName],
+    ) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
+        Box::pin(async move { self.get_endpoints(services) })
+    }
+}
+
+impl EndpointsProvider for Endpoint {
+    #[inline]
+    fn get_endpoints<'e>(&'e self, _services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>> {
+        Ok(Cow::Owned(Endpoints::builder(self.to_owned()).build()))
+    }
+}
+
+impl EndpointsProvider for Endpoints {
+    #[inline]
+    fn get_endpoints<'e>(&'e self, _services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>> {
+        Ok(Cow::Borrowed(self))
+    }
+}
+
+impl<'a> EndpointsProvider for &'a Endpoints {
+    #[inline]
+    fn get_endpoints<'e>(&'e self, _services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>> {
+        Ok(Cow::Borrowed(self))
+    }
+}
+
+impl<T: RegionProvider> EndpointsProvider for T {
+    #[inline]
+    fn get_endpoints<'e>(&'e self, services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>> {
+        Ok(Cow::Owned(Endpoints::from_region_provider(self, services)?))
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_get_endpoints<'a>(
+        &'a self,
+        services: &'a [ServiceName],
+    ) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
+        Box::pin(async move {
+            Ok(Cow::Owned(
+                Endpoints::async_from_region_provider(self, services).await?,
+            ))
+        })
     }
 }

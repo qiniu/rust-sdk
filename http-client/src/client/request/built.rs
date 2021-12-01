@@ -1,6 +1,6 @@
 use super::{
     super::{
-        super::{IntoEndpoints, IpAddrWithPort, ServiceName},
+        super::{EndpointsProvider, IpAddrWithPort, ServiceName},
         Authorization, CallbackContext, Callbacks, ExtendedCallbackContext, HttpClient,
         ResolveAnswers, ResponseError, ResponseInfo, SimplifiedCallbackContext,
     },
@@ -13,10 +13,10 @@ use qiniu_http::{
 };
 use std::{fmt, time::Duration};
 
-pub(in super::super) struct Request<'r, B: 'r> {
+pub(in super::super) struct Request<'r, B: 'r, E: 'r> {
     http_client: &'r HttpClient,
+    endpoints_provider: E,
     service_names: &'r [ServiceName],
-    into_endpoints: IntoEndpoints<'r>,
     callbacks: Callbacks<'r>,
     metadata: RequestMetadata<'r>,
     body: B,
@@ -24,13 +24,13 @@ pub(in super::super) struct Request<'r, B: 'r> {
     extensions: Extensions,
 }
 
-impl<'r, B: 'r> Request<'r, B> {
+impl<'r, B: 'r, E: 'r> Request<'r, B, E> {
     #[inline]
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         http_client: &'r HttpClient,
+        endpoints_provider: E,
         service_names: &'r [ServiceName],
-        into_endpoints: IntoEndpoints<'r>,
         callbacks: Callbacks<'r>,
         data: RequestMetadata<'r>,
         body: B,
@@ -39,8 +39,8 @@ impl<'r, B: 'r> Request<'r, B> {
     ) -> Self {
         Self {
             http_client,
+            endpoints_provider,
             service_names,
-            into_endpoints,
             callbacks,
             metadata: data,
             body,
@@ -50,15 +50,7 @@ impl<'r, B: 'r> Request<'r, B> {
     }
 
     #[inline]
-    pub(in super::super) fn split(
-        self,
-    ) -> (
-        RequestParts<'r>,
-        B,
-        IntoEndpoints<'r>,
-        &'r [ServiceName],
-        Extensions,
-    ) {
+    pub(in super::super) fn split(self) -> (RequestParts<'r>, B, E, &'r [ServiceName], Extensions) {
         (
             RequestParts {
                 http_client: self.http_client,
@@ -67,7 +59,7 @@ impl<'r, B: 'r> Request<'r, B> {
                 appended_user_agent: self.appended_user_agent,
             },
             self.body,
-            self.into_endpoints,
+            self.endpoints_provider,
             self.service_names,
             self.extensions,
         )
@@ -349,12 +341,12 @@ impl<'r> RequestParts<'r> {
     }
 }
 
-impl<'r, B: 'r> fmt::Debug for Request<'r, B> {
+impl<'r, B: 'r, E: EndpointsProvider + 'r> fmt::Debug for Request<'r, B, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Request")
             .field("http_client", &self.http_client)
             .field("service_names", &self.service_names)
-            .field("into_endpoints", &self.into_endpoints)
+            .field("endpoints_provider", &self.endpoints_provider)
             .field("callbacks", &self.callbacks)
             .field("data", &self.metadata)
             .field("appended_user_agent", &self.appended_user_agent)

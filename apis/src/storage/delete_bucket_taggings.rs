@@ -78,14 +78,14 @@ impl<'client> Client<'client> {
 }
 impl<'client> Client<'client> {
     #[inline]
-    pub fn new_request(
+    pub fn new_request<E: qiniu_http_client::EndpointsProvider + 'client>(
         &self,
-        into_endpoints: impl Into<qiniu_http_client::IntoEndpoints<'client>>,
+        endpoints_provider: E,
         credential: Box<dyn qiniu_http_client::credential::CredentialProvider>,
-    ) -> SyncRequestBuilder {
+    ) -> SyncRequestBuilder<'client, E> {
         SyncRequestBuilder(
             self.0
-                .delete(&[qiniu_http_client::ServiceName::Uc], into_endpoints.into())
+                .delete(&[qiniu_http_client::ServiceName::Uc], endpoints_provider)
                 .authorization(qiniu_http_client::Authorization::v2(credential))
                 .idempotent(qiniu_http_client::Idempotent::Default)
                 .path("bucketTagging")
@@ -94,14 +94,14 @@ impl<'client> Client<'client> {
     }
     #[inline]
     #[cfg(feature = "async")]
-    pub fn new_async_request(
+    pub fn new_async_request<E: qiniu_http_client::EndpointsProvider + 'client>(
         &self,
-        into_endpoints: impl Into<qiniu_http_client::IntoEndpoints<'client>>,
+        endpoints_provider: E,
         credential: Box<dyn qiniu_http_client::credential::CredentialProvider>,
-    ) -> AsyncRequestBuilder {
+    ) -> AsyncRequestBuilder<'client, E> {
         AsyncRequestBuilder(
             self.0
-                .async_delete(&[qiniu_http_client::ServiceName::Uc], into_endpoints.into())
+                .async_delete(&[qiniu_http_client::ServiceName::Uc], endpoints_provider)
                 .authorization(qiniu_http_client::Authorization::v2(credential))
                 .idempotent(qiniu_http_client::Idempotent::Default)
                 .path("bucketTagging")
@@ -110,12 +110,12 @@ impl<'client> Client<'client> {
     }
 }
 #[derive(Debug)]
-pub struct SyncRequestBuilder<'req>(qiniu_http_client::SyncRequestBuilder<'req>);
+pub struct SyncRequestBuilder<'req, E: 'req>(qiniu_http_client::SyncRequestBuilder<'req, E>);
 #[derive(Debug)]
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub struct AsyncRequestBuilder<'req>(qiniu_http_client::AsyncRequestBuilder<'req>);
-impl<'req> SyncRequestBuilder<'req> {
+pub struct AsyncRequestBuilder<'req, E: 'req>(qiniu_http_client::AsyncRequestBuilder<'req, E>);
+impl<'req, E: 'req> SyncRequestBuilder<'req, E> {
     #[inline]
     pub fn use_https(mut self, use_https: bool) -> Self {
         self.0 = self.0.use_https(use_https);
@@ -319,6 +319,8 @@ impl<'req> SyncRequestBuilder<'req> {
         self.0 = self.0.on_after_backoff(callback);
         self
     }
+}
+impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> SyncRequestBuilder<'req, E> {
     pub fn call(
         self,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
@@ -329,7 +331,7 @@ impl<'req> SyncRequestBuilder<'req> {
     }
 }
 #[cfg(feature = "async")]
-impl<'req> AsyncRequestBuilder<'req> {
+impl<'req, E: 'req> AsyncRequestBuilder<'req, E> {
     #[inline]
     pub fn use_https(mut self, use_https: bool) -> Self {
         self.0 = self.0.use_https(use_https);
@@ -533,6 +535,9 @@ impl<'req> AsyncRequestBuilder<'req> {
         self.0 = self.0.on_after_backoff(callback);
         self
     }
+}
+#[cfg(feature = "async")]
+impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> AsyncRequestBuilder<'req, E> {
     pub async fn call(
         self,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {

@@ -1,7 +1,8 @@
 use super::{
     super::{
-        super::Endpoint, request::SyncRequest, ApiResult, RequestParts, RetriedStatsInfo,
-        RetryDecision, SyncRequestBody, SyncResponse,
+        super::{Endpoint, EndpointsProvider},
+        request::SyncRequest,
+        ApiResult, RequestParts, RetriedStatsInfo, RetryDecision, SyncRequestBody, SyncResponse,
     },
     error::TryErrorWithExtensions,
     ip_addrs_set::IpAddrsSet,
@@ -9,9 +10,11 @@ use super::{
 };
 use qiniu_http::Extensions;
 
-pub(in super::super) fn request_call(request: SyncRequest<'_>) -> ApiResult<SyncResponse> {
+pub(in super::super) fn request_call<E: EndpointsProvider>(
+    request: SyncRequest<'_, E>,
+) -> ApiResult<SyncResponse> {
     let (parts, mut body, into_endpoints, service_name, extensions) = request.split();
-    let endpoints = into_endpoints.into_endpoints(service_name)?;
+    let endpoints = into_endpoints.get_endpoints(service_name)?;
     let mut tried_ips = IpAddrsSet::default();
     let mut retried = RetriedStatsInfo::default();
 
@@ -77,11 +80,11 @@ use super::{
 };
 
 #[cfg(feature = "async")]
-pub(in super::super) async fn async_request_call(
-    request: AsyncRequest<'_>,
+pub(in super::super) async fn async_request_call<E: EndpointsProvider>(
+    request: AsyncRequest<'_, E>,
 ) -> ApiResult<AsyncResponse> {
     let (parts, mut body, into_endpoints, service_name, extensions) = request.split();
-    let endpoints = into_endpoints.async_into_endpoints(service_name).await?;
+    let endpoints = into_endpoints.async_get_endpoints(service_name).await?;
     let mut tried_ips = IpAddrsSet::default();
     let mut retried = RetriedStatsInfo::default();
 

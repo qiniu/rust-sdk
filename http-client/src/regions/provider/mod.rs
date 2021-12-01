@@ -119,6 +119,13 @@ impl DerefMut for GotRegion {
     }
 }
 
+impl RegionProvider for Region {
+    #[inline]
+    fn get(&self, _opts: &GetOptions) -> ApiResult<GotRegion> {
+        Ok(self.to_owned().into())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct GotRegions(Vec<Region>);
 
