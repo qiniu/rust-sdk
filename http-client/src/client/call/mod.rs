@@ -714,6 +714,7 @@ mod tests {
             .call()
             .unwrap_err();
         assert_eq!(err.kind(), ResponseErrorKind::MaliciousResponse);
+        assert_eq!(err.response_body_sample(), "<p>Hello world!</p>".as_bytes());
 
         let urls = [
             "https://fakedomain.withoutport.com/",

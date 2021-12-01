@@ -6,8 +6,16 @@ use qiniu_http::{
 };
 use serde_json::Error as JsonError;
 use std::{
-    error, fmt, io::Error as IoError, mem::take, net::IpAddr, num::NonZeroU16, time::Duration,
+    error, fmt,
+    io::{Error as IoError, Read, Result as IOResult},
+    mem::take,
+    net::IpAddr,
+    num::NonZeroU16,
+    time::Duration,
 };
+
+#[cfg(feature = "async")]
+pub use futures::{AsyncRead, AsyncReadExt};
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -44,6 +52,7 @@ pub struct Error {
     server_port: Option<NonZeroU16>,
     metrics: Option<Box<dyn Metrics>>,
     x_headers: XHeaders,
+    response_body_sample: Vec<u8>,
 }
 
 impl Error {
@@ -57,6 +66,7 @@ impl Error {
             server_port: Default::default(),
             metrics: Default::default(),
             x_headers: Default::default(),
+            response_body_sample: Default::default(),
         }
     }
 
@@ -69,10 +79,34 @@ impl Error {
         self
     }
 
+    #[inline]
+    pub fn read_response_body_sample<R: Read>(mut self, body: R) -> IOResult<Self> {
+        body.take(1024)
+            .read_to_end(&mut self.response_body_sample)?;
+        Ok(self)
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    pub async fn async_read_response_body_sample<R: AsyncRead + Unpin>(
+        mut self,
+        body: R,
+    ) -> IOResult<Self> {
+        body.take(1024)
+            .read_to_end(&mut self.response_body_sample)
+            .await?;
+        Ok(self)
+    }
+
     /// 获取 HTTP 响应错误类型
     #[inline]
     pub fn kind(&self) -> ErrorKind {
         self.kind
+    }
+
+    #[inline]
+    pub fn response_body_sample(&self) -> &[u8] {
+        &self.response_body_sample
     }
 
     #[inline]
@@ -113,6 +147,7 @@ impl Error {
             metrics: take(err.metrics_mut()),
             kind: kind.unwrap_or_else(|| err.kind().into()),
             error: err.into_inner(),
+            response_body_sample: Default::default(),
         }
     }
 }

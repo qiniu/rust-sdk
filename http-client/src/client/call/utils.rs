@@ -11,10 +11,13 @@ use super::{
 };
 use qiniu_http::{
     uri::{Authority, InvalidUri, PathAndQuery, Scheme, Uri},
-    Extensions, HeaderValue, Request as HttpRequest, RequestParts as HttpRequestParts,
-    ResponseErrorKind as HttpResponseErrorKind, StatusCode, SyncRequest as SyncHttpRequest,
+    Extensions, Request as HttpRequest, RequestParts as HttpRequestParts,
+    ResponseErrorKind as HttpResponseErrorKind, ResponseParts, SyncRequest as SyncHttpRequest,
 };
 use std::{borrow::Cow, net::IpAddr, time::Duration};
+
+#[cfg(feature = "async")]
+use super::super::AsyncResponse;
 
 #[inline]
 pub(super) fn make_request<'r, B: Default + 'r>(
@@ -414,11 +417,10 @@ pub(super) fn choose(
 }
 
 #[inline]
-pub(super) fn judge(response: SyncResponse) -> ApiResult<SyncResponse> {
-    check_x_req_id(response.x_req_id())?;
+pub(super) fn judge(mut response: SyncResponse) -> ApiResult<SyncResponse> {
+    check_x_req_id(&mut response)?;
     return match response.status_code().as_u16() {
-        0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.status_code())
-            .response_parts(response.parts())),
+        0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.parts())),
         200..=299 => Ok(response),
         _ => to_status_code_error(response),
     };
@@ -436,24 +438,43 @@ pub(super) fn judge(response: SyncResponse) -> ApiResult<SyncResponse> {
 }
 
 #[inline]
-fn check_x_req_id(req_id: Option<&HeaderValue>) -> ApiResult<()> {
-    req_id.map_or_else(
-        || {
-            Err(ResponseError::new(
-                ResponseErrorKind::MaliciousResponse,
-                "cannot find X-ReqId header from response, might be malicious response",
-            ))
-        },
-        |_| Ok(()),
-    )
+fn check_x_req_id(response: &mut SyncResponse) -> ApiResult<()> {
+    if response.x_req_id().is_some() {
+        Ok(())
+    } else {
+        Err(make_malicious_response(response.parts())
+            .read_response_body_sample(response.body_mut())?)
+    }
 }
 
 #[inline]
-fn make_unexpected_status_code_error(status_code: StatusCode) -> ResponseError {
+#[cfg(feature = "async")]
+async fn async_check_x_req_id(response: &mut AsyncResponse) -> ApiResult<()> {
+    if response.x_req_id().is_some() {
+        Ok(())
+    } else {
+        Err(make_malicious_response(response.parts())
+            .async_read_response_body_sample(response.body_mut())
+            .await?)
+    }
+}
+
+#[inline]
+fn make_malicious_response(parts: &ResponseParts) -> ResponseError {
     ResponseError::new(
-        ResponseErrorKind::UnexpectedStatusCode(status_code),
-        format!("status code {} is unexpected", status_code),
+        ResponseErrorKind::MaliciousResponse,
+        "cannot find X-ReqId header from response, might be malicious response",
     )
+    .response_parts(parts)
+}
+
+#[inline]
+fn make_unexpected_status_code_error(parts: &ResponseParts) -> ResponseError {
+    ResponseError::new(
+        ResponseErrorKind::UnexpectedStatusCode(parts.status_code()),
+        format!("status code {} is unexpected", parts.status_code()),
+    )
+    .response_parts(parts)
 }
 
 #[cfg(feature = "async")]
@@ -532,11 +553,12 @@ mod async_utils {
     }
 
     #[inline]
-    pub(in super::super) async fn async_judge(response: AsyncResponse) -> ApiResult<AsyncResponse> {
-        check_x_req_id(response.x_req_id())?;
+    pub(in super::super) async fn async_judge(
+        mut response: AsyncResponse,
+    ) -> ApiResult<AsyncResponse> {
+        async_check_x_req_id(&mut response).await?;
         return match response.status_code().as_u16() {
-            0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.status_code())
-                .response_parts(response.parts())),
+            0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.parts())),
             200..=299 => Ok(response),
             _ => to_status_code_error(response).await,
         };
