@@ -1,5 +1,6 @@
 mod exponential;
 mod fixed;
+mod limited;
 mod randomized;
 
 use super::{ResponseError, RetriedStatsInfo, RetryDecision};
@@ -114,4 +115,5 @@ impl DerefMut for BackoffDuration {
 
 pub use exponential::ExponentialBackoff;
 pub use fixed::{FixedBackoff, NO_BACKOFF};
+pub use limited::LimitedBackoff;
 pub use randomized::{RandomizedBackoff, Ratio};

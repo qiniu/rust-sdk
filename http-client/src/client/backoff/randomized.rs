@@ -14,7 +14,7 @@ pub struct RandomizedBackoff<P> {
 
 impl<P> RandomizedBackoff<P> {
     #[inline]
-    pub fn new(base_backoff: P, minification: Ratio<u8>, magnification: Ratio<u8>) -> Self {
+    pub const fn new(base_backoff: P, minification: Ratio<u8>, magnification: Ratio<u8>) -> Self {
         Self {
             base_backoff,
             minification,
@@ -23,17 +23,17 @@ impl<P> RandomizedBackoff<P> {
     }
 
     #[inline]
-    pub fn base_backoff(&self) -> &P {
+    pub const fn base_backoff(&self) -> &P {
         &self.base_backoff
     }
 
     #[inline]
-    pub fn minification(&self) -> Ratio<u8> {
+    pub const fn minification(&self) -> Ratio<u8> {
         self.minification
     }
 
     #[inline]
-    pub fn magnification(&self) -> Ratio<u8> {
+    pub const fn magnification(&self) -> Ratio<u8> {
         self.magnification
     }
 }

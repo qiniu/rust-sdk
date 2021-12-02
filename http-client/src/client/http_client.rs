@@ -1,10 +1,10 @@
 use super::{
     super::{EndpointsProvider, IpAddrWithPort, ServiceName},
     Backoff, CachedResolver, CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver,
-    Chooser, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, LimitedRetrier,
-    NeverEmptyHandedChooser, RandomizedBackoff, RequestRetrier, ResolveAnswers, Resolver,
-    ResponseError, ShuffledChooser, ShuffledResolver, SimpleResolver, SimplifiedCallbackContext,
-    SubnetChooser, SyncRequestBuilder, TimeoutResolver,
+    Chooser, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, LimitedBackoff,
+    LimitedRetrier, NeverEmptyHandedChooser, RandomizedBackoff, RequestRetrier, ResolveAnswers,
+    Resolver, ResponseError, ShuffledChooser, ShuffledResolver, SimpleResolver,
+    SimplifiedCallbackContext, SubnetChooser, SyncRequestBuilder, TimeoutResolver,
 };
 use cfg_if::cfg_if;
 use qiniu_http::{
@@ -584,6 +584,6 @@ impl HttpClient {
 
     #[inline]
     pub fn default_backoff() -> Box<dyn Backoff> {
-        Box::new(RandomizedBackoff::<ExponentialBackoff>::default())
+        Box::new(LimitedBackoff::<RandomizedBackoff<ExponentialBackoff>>::default())
     }
 }

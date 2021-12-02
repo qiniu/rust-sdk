@@ -13,8 +13,8 @@ mod retrier;
 
 pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
 pub use backoff::{
-    Backoff, BackoffDuration, BackoffOptions, ExponentialBackoff, FixedBackoff, RandomizedBackoff,
-    Ratio, NO_BACKOFF,
+    Backoff, BackoffDuration, BackoffOptions, ExponentialBackoff, FixedBackoff, LimitedBackoff,
+    RandomizedBackoff, Ratio, NO_BACKOFF,
 };
 pub use call::DomainOrIpAddr;
 pub use callback::{
