@@ -1,6 +1,10 @@
+use super::Bucket;
 use qiniu_apis::{
     credential::CredentialProvider,
-    http_client::{BucketRegionsQueryer, BucketRegionsQueryerBuilder, Endpoints, HttpClient},
+    http_client::{
+        BucketName, BucketRegionsQueryer, BucketRegionsQueryerBuilder, Endpoints, HttpClient,
+        RegionProvider,
+    },
     Client as QiniuApiClient,
 };
 use std::sync::Arc;
@@ -8,7 +12,7 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct ObjectsManager(Arc<ObjectsManagerInner>);
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct ObjectsManagerInner {
     client: QiniuApiClient,
     credential: Arc<dyn CredentialProvider>,
@@ -24,6 +28,43 @@ impl ObjectsManager {
     #[inline]
     pub fn new(credential: impl CredentialProvider + 'static) -> Self {
         Self::builder(credential).build()
+    }
+
+    #[inline]
+    pub fn client(&self) -> &QiniuApiClient {
+        &self.0.client
+    }
+
+    #[inline]
+    pub fn credential(&self) -> &dyn CredentialProvider {
+        &self.0.credential
+    }
+
+    #[inline]
+    pub fn queryer(&self) -> &BucketRegionsQueryer {
+        &self.0.queryer
+    }
+
+    #[inline]
+    pub fn bucket(&self, name: BucketName) -> Bucket {
+        self._bucket_with_region(name, None)
+    }
+
+    #[inline]
+    pub fn bucket_with_region(
+        &self,
+        name: BucketName,
+        region_provider: impl RegionProvider + 'static,
+    ) -> Bucket {
+        self._bucket_with_region(name, Some(Box::new(region_provider)))
+    }
+
+    fn _bucket_with_region(
+        &self,
+        name: BucketName,
+        region_provider: Option<Box<dyn RegionProvider>>,
+    ) -> Bucket {
+        Bucket::new(name, self.to_owned(), region_provider)
     }
 }
 

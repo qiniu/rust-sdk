@@ -15,7 +15,9 @@
     unused_qualifications
 )]
 
+mod bucket;
 mod objects_manager;
 
+pub use bucket::Bucket;
+pub use objects_manager::{ObjectsManager, ObjectsManagerBuilder};
 pub use qiniu_apis as apis;
-pub use objects_manager::{ObjectsManager,ObjectsManagerBuilder};
