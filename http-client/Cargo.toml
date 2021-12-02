@@ -72,6 +72,16 @@ once_cell = "1.8.0"
 default = ["ureq"]
 c_ares = ["c-ares", "c-ares-resolver"]
 trust_dns = ["trust-dns-resolver", "async-std-resolver"]
+
+dns-over-https = ["trust_dns", "trust-dns-resolver/dns-over-https"]
+dns-over-https-rustls = ["trust_dns", "trust-dns-resolver/dns-over-https-rustls"]
+dns-over-tls = ["trust_dns", "trust-dns-resolver/dns-over-tls"]
+dns-over-rustls = ["trust_dns", "trust-dns-resolver/dns-over-rustls"]
+dns-over-native-tls = ["trust_dns", "trust-dns-resolver/dns-over-native-tls"]
+dnssec-openssl = ["trust_dns", "trust-dns-resolver/dnssec-openssl"]
+dnssec-ring = ["trust_dns", "trust-dns-resolver/dnssec-ring"]
+dnssec = ["trust_dns", "trust-dns-resolver/dnssec"]
+
 reqwest = ["qiniu-reqwest"]
 isahc = ["qiniu-isahc"]
 ureq = ["qiniu-ureq"]

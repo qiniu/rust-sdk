@@ -25,7 +25,7 @@ pub struct BucketRegionsQueryer {
     cache: RegionsCache,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BucketRegionsQueryerBuilder {
     http_client: Option<HttpClient>,
     uc_endpoints: Option<Endpoints>,

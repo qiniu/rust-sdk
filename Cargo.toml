@@ -13,6 +13,7 @@ members = [
     "api-generator",
     "apis",
     "api-examples",
+    "objects-manager",
 ]
 
 [profile.release]

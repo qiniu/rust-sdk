@@ -1,0 +1,42 @@
+[package]
+name = "qiniu-objects-manager"
+version = "0.0.4"
+authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
+edition = "2021"
+rust-version = "1.56.0"
+license = "Apache-2.0"
+homepage = "https://www.qiniu.com"
+description = "Qiniu Objects Manager for Rust"
+keywords = ["qiniu", "storage"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+futures = { version = "0.3.5", optional = true }
+async-std = { version = "1.9.0", optional = true }
+qiniu-apis = { version = "0.0.4", path = "../apis" }
+
+[features]
+default = ["ureq"]
+async = ["futures", "async-std", "qiniu-apis/async"]
+reqwest = ["qiniu-apis/reqwest"]
+isahc = ["qiniu-apis/isahc"]
+ureq = ["qiniu-apis/ureq"]
+c_ares = ["qiniu-apis/c_ares"]
+trust_dns = ["qiniu-apis/trust_dns"]
+tokio1 = ["qiniu-apis/tokio1"]
+tokio02 = ["qiniu-apis/tokio02"]
+tokio03 = ["qiniu-apis/tokio03"]
+dns-over-https = ["qiniu-apis/dns-over-https"]
+dns-over-https-rustls = ["qiniu-apis/dns-over-https-rustls"]
+dns-over-tls = ["qiniu-apis/dns-over-tls"]
+dns-over-rustls = ["qiniu-apis/dns-over-rustls"]
+dns-over-native-tls = ["qiniu-apis/dns-over-native-tls"]
+dnssec-openssl = ["qiniu-apis/dnssec-openssl"]
+dnssec-ring = ["qiniu-apis/dnssec-ring"]
+dnssec = ["qiniu-apis/dnssec"]
+docs = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "feature=\"docs\""]
