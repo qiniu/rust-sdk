@@ -50,6 +50,13 @@ impl Display for DomainWithPort {
     }
 }
 
+impl<'a> From<&'a str> for DomainWithPort {
+    #[inline]
+    fn from(domain: &'a str) -> Self {
+        Self::new(domain, None)
+    }
+}
+
 impl From<Box<str>> for DomainWithPort {
     #[inline]
     fn from(domain: Box<str>) -> Self {
@@ -332,6 +339,13 @@ impl From<IpAddrWithPort> for Endpoint {
     #[inline]
     fn from(ip_addr_with_port: IpAddrWithPort) -> Self {
         Self::IpAddrWithPort(ip_addr_with_port)
+    }
+}
+
+impl<'a> From<&'a str> for Endpoint {
+    #[inline]
+    fn from(domain: &'a str) -> Self {
+        DomainWithPort::new(domain, None).into()
     }
 }
 

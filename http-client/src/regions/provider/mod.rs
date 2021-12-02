@@ -8,6 +8,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+mod cache_key;
 mod regions_cache;
 
 mod bucket_regions_queryer;

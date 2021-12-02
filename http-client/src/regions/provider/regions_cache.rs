@@ -1,68 +1,18 @@
-use super::super::{
+use super::{
     super::{
-        cache::{Cache, CacheController},
-        ApiResult,
+        super::{
+            cache::{Cache, CacheController},
+            ApiResult,
+        },
+        Region,
     },
-    Endpoints, Region,
+    cache_key::CacheKey,
 };
-use qiniu_credential::AccessKey;
-use qiniu_upload_token::BucketName;
-use serde::{Deserialize, Serialize};
 use std::{
     env::temp_dir,
     path::{Path, PathBuf},
     time::Duration,
 };
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub(super) struct CacheKey {
-    uc_url: Box<str>,
-    ak_and_bucket: Option<AkAndBucket>,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-struct AkAndBucket {
-    bucket_name: BucketName,
-    access_key: AccessKey,
-}
-
-impl CacheKey {
-    #[inline]
-    fn new(uc_url: Box<str>, ak_and_bucket: Option<(BucketName, AccessKey)>) -> Self {
-        Self {
-            uc_url,
-            ak_and_bucket: ak_and_bucket.map(|(bucket_name, access_key)| AkAndBucket {
-                bucket_name,
-                access_key,
-            }),
-        }
-    }
-
-    #[inline]
-    pub(super) fn new_from_endpoint(
-        uc_endpoints: &Endpoints,
-        ak_and_bucket: Option<(BucketName, AccessKey)>,
-    ) -> Self {
-        Self::new(
-            uc_endpoints
-                .preferred()
-                .first()
-                .map(|e| e.to_string())
-                .unwrap_or_default()
-                .into(),
-            ak_and_bucket,
-        )
-    }
-
-    #[inline]
-    pub(super) fn new_from_endpoint_and_ak_and_bucket(
-        uc_endpoints: &Endpoints,
-        bucket_name: BucketName,
-        access_key: AccessKey,
-    ) -> Self {
-        Self::new_from_endpoint(uc_endpoints, Some((bucket_name, access_key)))
-    }
-}
 
 #[derive(Debug, Clone)]
 pub(super) struct RegionsCache {
@@ -147,7 +97,7 @@ impl CacheController for RegionsCache {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{super::super::Endpoints, *};
     use crate::test_utils::chaotic_up_domains_region;
     use std::{
         sync::{
@@ -163,9 +113,10 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let cache = RegionsCache::in_memory(Duration::from_secs(1), Duration::from_secs(1));
-        let cache_key = CacheKey::new(
-            "https://fake.uc.qiniu.com".into(),
-            Some(("fakebucket".into(), "fakeaccesskey".into())),
+        let cache_key = CacheKey::new_from_endpoint_and_ak_and_bucket(
+            &Endpoints::builder("https://fake.uc.qiniu.com").build(),
+            "fakebucket".into(),
+            "fakeaccesskey".into(),
         );
         let generate_new_cache = Arc::new(AtomicBool::new(false));
         assert_eq!(
@@ -186,9 +137,10 @@ mod tests {
 
         sleep(Duration::from_secs(1));
 
-        let cache_key2 = CacheKey::new(
-            "https://fake.uc2.qiniu.com".into(),
-            Some(("fakebucket".into(), "fakeaccesskey".into())),
+        let cache_key2 = CacheKey::new_from_endpoint_and_ak_and_bucket(
+            &Endpoints::builder("https://fake.uc2.qiniu.com").build(),
+            "fakebucket".into(),
+            "fakeaccesskey".into(),
         );
 
         generate_new_cache.store(false, Relaxed);
@@ -226,13 +178,15 @@ mod tests {
             Duration::from_secs(120),
             Duration::from_secs(120),
         );
-        let cache_key_1 = CacheKey::new(
-            "https://fake.uc.qiniu.com".into(),
-            Some(("fakebucket".into(), "fakeaccesskey".into())),
+        let cache_key_1 = CacheKey::new_from_endpoint_and_ak_and_bucket(
+            &Endpoints::builder("https://fake.uc.qiniu.com").build(),
+            "fakebucket".into(),
+            "fakeaccesskey".into(),
         );
-        let cache_key_2 = CacheKey::new(
-            "https://fake_2.uc.qiniu.com".into(),
-            Some(("fakebucket".into(), "fakeaccesskey".into())),
+        let cache_key_2 = CacheKey::new_from_endpoint_and_ak_and_bucket(
+            &Endpoints::builder("https://fake.uc2.qiniu.com").build(),
+            "fakebucket".into(),
+            "fakeaccesskey".into(),
         );
 
         let regions_1 = vec![Region::builder("test")
@@ -355,9 +309,10 @@ mod tests {
             Duration::from_secs(120),
             Duration::from_secs(120),
         );
-        let cache_key = CacheKey::new(
-            "https://fake.uc.qiniu.com".into(),
-            Some(("fakebucket".into(), "fakeaccesskey".into())),
+        let cache_key = CacheKey::new_from_endpoint_and_ak_and_bucket(
+            &Endpoints::builder("https://fake.uc.qiniu.com").build(),
+            "fakebucket".into(),
+            "fakeaccesskey".into(),
         );
         let regions = vec![Region::builder("test")
             .push_up_preferred_endpoint("fakedomain_1.withport.com".to_owned())

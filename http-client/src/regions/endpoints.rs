@@ -1,5 +1,9 @@
 use super::{super::ApiResult, Endpoint, Region, RegionProvider};
-use once_cell::sync::Lazy;
+use md5::{
+    digest::{generic_array::GenericArray, FixedOutputDirty},
+    Digest, Md5,
+};
+use once_cell::sync::{Lazy, OnceCell};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, error::Error, fmt, mem::take, str::FromStr, sync::Arc};
 
@@ -44,10 +48,14 @@ impl fmt::Display for InvalidServiceName {
 
 impl Error for InvalidServiceName {}
 
+pub(super) type Md5Value = GenericArray<u8, <Md5 as FixedOutputDirty>::OutputSize>;
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Endpoints {
     preferred: Arc<[Endpoint]>,
     alternative: Arc<[Endpoint]>,
+    #[serde(skip)]
+    md5: OnceCell<Md5Value>,
 }
 
 impl Endpoints {
@@ -131,6 +139,26 @@ impl Endpoints {
             services,
         ))
     }
+
+    pub(super) fn md5(&self) -> &Md5Value {
+        self.md5.get_or_init(|| {
+            let mut all_endpoints: Vec<_> = self
+                .preferred()
+                .iter()
+                .chain(self.alternative().iter())
+                .map(|endpoint| endpoint.to_string())
+                .collect();
+            all_endpoints.sort();
+
+            all_endpoints
+                .into_iter()
+                .fold(Md5::default(), |mut md5, endpoint| {
+                    md5.update(endpoint.as_bytes());
+                    md5
+                })
+                .finalize()
+        })
+    }
 }
 
 impl From<Vec<Endpoint>> for Endpoints {
@@ -139,6 +167,7 @@ impl From<Vec<Endpoint>> for Endpoints {
         Self {
             preferred: endpoints.into(),
             alternative: Arc::new([]),
+            md5: Default::default(),
         }
     }
 }
@@ -149,6 +178,7 @@ impl FromIterator<Endpoint> for Endpoints {
         Self {
             preferred: iter.into_iter().collect(),
             alternative: Arc::new([]),
+            md5: Default::default(),
         }
     }
 }
@@ -169,6 +199,7 @@ impl From<(Vec<Endpoint>, Vec<Endpoint>)> for Endpoints {
         Self {
             preferred: endpoints.0.into(),
             alternative: endpoints.1.into(),
+            md5: Default::default(),
         }
     }
 }
@@ -198,6 +229,7 @@ impl EndpointsBuilder {
         Endpoints {
             preferred: owned.preferred.into(),
             alternative: owned.alternative.into(),
+            md5: Default::default(),
         }
     }
 }

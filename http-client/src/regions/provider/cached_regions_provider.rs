@@ -1,6 +1,7 @@
 use super::{
     super::super::{ApiResult, CacheController, Endpoints, HttpClient},
-    regions_cache::{CacheKey, RegionsCache},
+    cache_key::CacheKey,
+    regions_cache::RegionsCache,
     regions_provider::RegionsProvider,
     GetOptions, GotRegion, GotRegions, RegionProvider,
 };

@@ -3,7 +3,8 @@ use super::{
         super::{ApiResult, CacheController, HttpClient, ResponseError},
         Endpoints, ServiceName,
     },
-    regions_cache::{CacheKey, RegionsCache},
+    cache_key::CacheKey,
+    regions_cache::RegionsCache,
     structs::ResponseBody,
     GetOptions, GotRegion, GotRegions, Region, RegionProvider,
 };
