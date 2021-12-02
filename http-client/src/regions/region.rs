@@ -6,6 +6,7 @@ use std::{mem::take, sync::Arc};
 ///
 /// 提供七牛不同区域的域名
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Region {
     inner: Arc<RegionInner>,
 }

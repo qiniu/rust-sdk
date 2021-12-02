@@ -255,6 +255,7 @@ impl FromStr for IpAddrWithPort {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Endpoint {
     DomainWithPort(DomainWithPort),
