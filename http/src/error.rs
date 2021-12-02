@@ -188,8 +188,8 @@ impl ErrorBuilder {
     }
 
     #[inline]
-    pub fn metrics(mut self, metrics: Box<dyn Metrics>) -> Self {
-        *self.inner.metrics_mut() = Some(metrics);
+    pub fn metrics(mut self, metrics: impl Metrics + 'static) -> Self {
+        *self.inner.metrics_mut() = Some(Box::new(metrics));
         self
     }
 }

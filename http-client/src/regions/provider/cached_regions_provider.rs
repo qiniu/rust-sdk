@@ -23,16 +23,16 @@ pub struct CachedRegionsProvider {
 
 impl CachedRegionsProvider {
     #[inline]
-    pub fn new(credential_provider: Box<dyn CredentialProvider>) -> Self {
-        Self::builder(credential_provider).default()
+    pub fn new(credential_provider: impl CredentialProvider + 'static) -> Self {
+        Self::builder(credential_provider).build()
     }
 
     #[inline]
     pub fn builder(
-        credential_provider: Box<dyn CredentialProvider>,
+        credential_provider: impl CredentialProvider + 'static,
     ) -> CachedRegionsProviderBuilder {
         CachedRegionsProviderBuilder {
-            credential_provider,
+            credential_provider: Box::new(credential_provider),
             cache_lifetime: DEFAULT_CACHE_LIFETIME,
             shrink_interval: DEFAULT_SHRINK_INTERVAL,
             uc_endpoints: None,
@@ -168,7 +168,7 @@ impl CachedRegionsProviderBuilder {
     }
 
     #[inline]
-    pub fn default(self) -> CachedRegionsProvider {
+    pub fn build(self) -> CachedRegionsProvider {
         self.default_load_or_create_from(true)
     }
 

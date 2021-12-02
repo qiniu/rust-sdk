@@ -32,7 +32,7 @@ pub(crate) fn make_dumb_client_builder() -> HttpClientBuilder {
         }
     }
 
-    HttpClient::builder(Box::new(FakeHttpCaller))
+    HttpClient::builder(FakeHttpCaller)
 }
 
 pub(crate) fn make_fixed_response_client_builder(
@@ -79,14 +79,12 @@ pub(crate) fn make_fixed_response_client_builder(
         }
     }
 
-    let http_caller = Box::new(RedirectHttpCaller {
+    HttpClient::builder(RedirectHttpCaller {
         status_code,
         headers,
         body,
         is_resolved_ip_addrs_supported,
-    });
-
-    HttpClient::builder(http_caller)
+    })
 }
 
 pub(crate) fn make_error_response_client_builder(
@@ -123,11 +121,9 @@ pub(crate) fn make_error_response_client_builder(
         }
     }
 
-    let http_caller = Box::new(ErrorHttpCaller {
+    HttpClient::builder(ErrorHttpCaller {
         error_kind,
         is_resolved_ip_addrs_supported,
         message: message.into(),
-    });
-
-    HttpClient::builder(http_caller)
+    })
 }

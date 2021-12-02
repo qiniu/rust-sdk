@@ -8,7 +8,6 @@
     meta_variable_misuse,
     non_ascii_idents,
     indirect_structural_match,
-    trivial_casts,
     trivial_numeric_casts,
     unreachable_pub,
     unused_crate_dependencies,
@@ -689,7 +688,9 @@ pub struct ChainCredentialsProvider {
 
 impl ChainCredentialsProvider {
     #[inline]
-    pub fn builder(credential: Box<dyn CredentialProvider>) -> ChainCredentialsProviderBuilder {
+    pub fn builder(
+        credential: impl CredentialProvider + 'static,
+    ) -> ChainCredentialsProviderBuilder {
         ChainCredentialsProviderBuilder::new(credential)
     }
 }
@@ -754,29 +755,35 @@ impl<'a> IntoIterator for &'a ChainCredentialsProvider {
 /// 接受多个认证信息提供者并将他们串联成串联认证信息
 #[derive(Debug, Clone, Default)]
 pub struct ChainCredentialsProviderBuilder {
-    credentials: VecDeque<Box<dyn CredentialProvider>>,
+    credentials: VecDeque<Box<dyn CredentialProvider + 'static>>,
 }
 
 impl ChainCredentialsProviderBuilder {
     /// 构建新的串联认证信息构建器
     #[inline]
-    pub fn new(credential: Box<dyn CredentialProvider>) -> ChainCredentialsProviderBuilder {
-        let mut credentials = VecDeque::with_capacity(1);
-        credentials.push_back(credential);
-        Self { credentials }
+    pub fn new(credential: impl CredentialProvider + 'static) -> Self {
+        let mut builder = Self::default();
+        builder.append_credential(credential);
+        builder
     }
 
     /// 将认证信息提供者推送到认证串末端
     #[inline]
-    pub fn append_credential(&mut self, credential: Box<dyn CredentialProvider>) -> &mut Self {
-        self.credentials.push_back(credential);
+    pub fn append_credential(
+        &mut self,
+        credential: impl CredentialProvider + 'static,
+    ) -> &mut Self {
+        self.credentials.push_back(Box::new(credential));
         self
     }
 
     /// 将认证信息提供者推送到认证串顶端
     #[inline]
-    pub fn prepend_credential(&mut self, credential: Box<dyn CredentialProvider>) -> &mut Self {
-        self.credentials.push_front(credential);
+    pub fn prepend_credential(
+        &mut self,
+        credential: impl CredentialProvider + 'static,
+    ) -> &mut Self {
+        self.credentials.push_front(Box::new(credential));
         self
     }
 

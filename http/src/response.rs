@@ -367,8 +367,8 @@ impl<B> ResponseBuilder<B> {
     }
 
     #[inline]
-    pub fn metrics(&mut self, metrics: Box<dyn Metrics>) -> &mut Self {
-        *self.inner.metrics_mut() = Some(metrics);
+    pub fn metrics(&mut self, metrics: impl Metrics + 'static) -> &mut Self {
+        *self.inner.metrics_mut() = Some(Box::new(metrics));
         self
     }
 }

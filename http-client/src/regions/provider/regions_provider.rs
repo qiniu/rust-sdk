@@ -21,12 +21,14 @@ pub struct RegionsProvider {
 
 impl RegionsProvider {
     #[inline]
-    pub fn builder(credential_provider: Box<dyn CredentialProvider>) -> RegionsProviderBuilder {
+    pub fn builder(
+        credential_provider: impl CredentialProvider + 'static,
+    ) -> RegionsProviderBuilder {
         RegionsProviderBuilder::new(credential_provider)
     }
 
     #[inline]
-    pub fn new(credential_provider: Box<dyn CredentialProvider>) -> Self {
+    pub fn new(credential_provider: impl CredentialProvider + 'static) -> Self {
         Self::builder(credential_provider).build()
     }
 
@@ -124,9 +126,9 @@ pub struct RegionsProviderBuilder {
 
 impl RegionsProviderBuilder {
     #[inline]
-    pub fn new(credential_provider: Box<dyn CredentialProvider>) -> Self {
+    pub fn new(credential_provider: impl CredentialProvider + 'static) -> Self {
         Self {
-            credential_provider,
+            credential_provider: Box::new(credential_provider),
             http_client: None,
             uc_endpoints: None,
         }
@@ -202,11 +204,10 @@ mod tests {
             });
 
         starts_with_server!(addr, routes, {
-            let provider =
-                RegionsProvider::builder(Box::new(Credential::new(ACCESS_KEY, SECRET_KEY)))
-                    .http_client(HttpClient::build_isahc()?.use_https(false).build())
-                    .uc_endpoints(vec![Endpoint::from(addr)])
-                    .build();
+            let provider = RegionsProvider::builder(Credential::new(ACCESS_KEY, SECRET_KEY))
+                .http_client(HttpClient::build_isahc()?.use_https(false).build())
+                .uc_endpoints(vec![Endpoint::from(addr)])
+                .build();
 
             let regions = provider.async_get_all(&Default::default()).await?;
             assert_eq!(regions.len(), 5);

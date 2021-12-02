@@ -163,9 +163,9 @@ mod sync_part {
         }
 
         #[inline]
-        pub fn stream(value: Box<dyn Read>) -> Self {
+        pub fn stream(value: impl Read + 'static) -> Self {
             Self {
-                body: SyncPartBody(SyncPartBodyInner::Stream(value)),
+                body: SyncPartBody(SyncPartBodyInner::Stream(Box::new(value))),
                 meta: Default::default(),
             }
         }
@@ -182,7 +182,7 @@ mod sync_part {
                 };
                 metadata = metadata.file_name(file_name);
             }
-            Ok(SyncPart::stream(Box::new(file)).metadata(metadata))
+            Ok(SyncPart::stream(file).metadata(metadata))
         }
     }
 
@@ -286,9 +286,9 @@ mod async_part {
         }
 
         #[inline]
-        pub fn stream(value: AsyncStream) -> Self {
+        pub fn stream(value: impl AsyncRead + Send + Unpin + 'static) -> Self {
             Self {
-                body: AsyncPartBody(AsyncPartBodyInner::Stream(value)),
+                body: AsyncPartBody(AsyncPartBodyInner::Stream(Box::new(value))),
                 meta: Default::default(),
             }
         }
@@ -305,7 +305,7 @@ mod async_part {
                 };
                 metadata = metadata.file_name(file_name);
             }
-            Ok(AsyncPart::stream(Box::new(file)).metadata(metadata))
+            Ok(AsyncPart::stream(file).metadata(metadata))
         }
     }
 
@@ -508,10 +508,7 @@ mod tests {
                 "text2",
                 SyncPart::text("value1").metadata(PartMetadata::default().mime(IMAGE_BMP)),
             )
-            .add_part(
-                "reader1",
-                SyncPart::stream(Box::new(Cursor::new(b"value1"))),
-            )
+            .add_part("reader1", SyncPart::stream(Cursor::new(b"value1")))
             .add_part("reader2", SyncPart::file_path(temp_file_path)?);
         multipart.boundary = "boundary".into();
 
@@ -567,10 +564,7 @@ mod tests {
                 "text2",
                 AsyncPart::text("value1").metadata(PartMetadata::default().mime(IMAGE_BMP)),
             )
-            .add_part(
-                "reader1",
-                AsyncPart::stream(Box::new(AsyncCursor::new(b"value1"))),
-            )
+            .add_part("reader1", AsyncPart::stream(AsyncCursor::new(b"value1")))
             .add_part("reader2", AsyncPart::file_path(temp_file_path).await?);
         multipart.boundary = "boundary".into();
 

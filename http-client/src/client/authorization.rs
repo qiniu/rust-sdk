@@ -27,23 +27,23 @@ enum AuthorizationInner {
 
 impl Authorization {
     #[inline]
-    pub fn uptoken(provider: Box<dyn UploadTokenProvider>) -> Self {
+    pub fn uptoken(provider: impl UploadTokenProvider + 'static) -> Self {
         Self {
-            inner: AuthorizationInner::UpToken(provider),
+            inner: AuthorizationInner::UpToken(Box::new(provider)),
         }
     }
 
     #[inline]
-    pub fn v1(provider: Box<dyn CredentialProvider>) -> Self {
+    pub fn v1(provider: impl CredentialProvider + 'static) -> Self {
         Self {
-            inner: AuthorizationInner::V1(provider),
+            inner: AuthorizationInner::V1(Box::new(provider)),
         }
     }
 
     #[inline]
-    pub fn v2(provider: Box<dyn CredentialProvider>) -> Self {
+    pub fn v2(provider: impl CredentialProvider + 'static) -> Self {
         Self {
-            inner: AuthorizationInner::V2(provider),
+            inner: AuthorizationInner::V2(Box::new(provider)),
         }
     }
 

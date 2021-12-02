@@ -14,7 +14,7 @@ pub struct ChainedResolver {
 
 impl ChainedResolver {
     #[inline]
-    pub fn builder(first_resolver: Box<dyn Resolver>) -> ChainedResolverBuilder {
+    pub fn builder(first_resolver: impl Resolver + 'static) -> ChainedResolverBuilder {
         ChainedResolverBuilder::new(first_resolver)
     }
 }
@@ -86,21 +86,21 @@ pub struct ChainedResolverBuilder {
 
 impl ChainedResolverBuilder {
     #[inline]
-    pub fn new(first_resolver: Box<dyn Resolver>) -> Self {
-        Self {
-            resolvers: vec![first_resolver].into(),
-        }
+    pub fn new(first_resolver: impl Resolver + 'static) -> Self {
+        let mut builder = Self::default();
+        builder.append_resolver(first_resolver);
+        builder
     }
 
     #[inline]
-    pub fn append_resolver(&mut self, resolver: Box<dyn Resolver>) -> &mut Self {
-        self.resolvers.push_back(resolver);
+    pub fn append_resolver(&mut self, resolver: impl Resolver + 'static) -> &mut Self {
+        self.resolvers.push_back(Box::new(resolver));
         self
     }
 
     #[inline]
-    pub fn prepend_resolver(&mut self, resolver: Box<dyn Resolver>) -> &mut Self {
-        self.resolvers.push_front(resolver);
+    pub fn prepend_resolver(&mut self, resolver: impl Resolver + 'static) -> &mut Self {
+        self.resolvers.push_front(Box::new(resolver));
         self
     }
 
@@ -151,35 +151,34 @@ mod tests {
 
     #[test]
     fn test_chained_resolver() -> Result<(), Box<dyn Error>> {
-        let resolver =
-            ChainedResolver::builder(Box::new(make_static_resolver(IPS.to_vec().into())))
-                .prepend_resolver(Box::new(make_dumb_resolver()))
-                .prepend_resolver(Box::new(make_error_resolver(
-                    ResponseErrorKind::LocalIoError.into(),
-                    "Test Local IO Error",
-                )))
-                .build();
+        let resolver = ChainedResolver::builder(make_static_resolver(IPS.to_vec().into()))
+            .prepend_resolver(make_dumb_resolver())
+            .prepend_resolver(make_error_resolver(
+                ResponseErrorKind::LocalIoError.into(),
+                "Test Local IO Error",
+            ))
+            .build();
 
         let ips = resolver.resolve("testdomain.com", &Default::default())?;
         assert_eq!(ips.ip_addrs(), IPS);
 
-        let resolver = ChainedResolver::builder(Box::new(make_dumb_resolver()))
-            .prepend_resolver(Box::new(make_static_resolver(IPS.to_vec().into())))
-            .prepend_resolver(Box::new(make_error_resolver(
+        let resolver = ChainedResolver::builder(make_dumb_resolver())
+            .prepend_resolver(make_static_resolver(IPS.to_vec().into()))
+            .prepend_resolver(make_error_resolver(
                 ResponseErrorKind::LocalIoError.into(),
                 "Test Local IO Error",
-            )))
+            ))
             .build();
 
         let ips = resolver.resolve("testdomain.com", &Default::default())?;
         assert_eq!(ips.ip_addrs(), IPS,);
 
-        let resolver = ChainedResolver::builder(Box::new(make_error_resolver(
+        let resolver = ChainedResolver::builder(make_error_resolver(
             ResponseErrorKind::LocalIoError.into(),
             "Test Local IO Error",
-        )))
-        .prepend_resolver(Box::new(make_dumb_resolver()))
-        .prepend_resolver(Box::new(make_static_resolver(IPS.to_vec().into())))
+        ))
+        .prepend_resolver(make_dumb_resolver())
+        .prepend_resolver(make_static_resolver(IPS.to_vec().into()))
         .build();
 
         let ips = resolver.resolve("testdomain.com", &Default::default())?;

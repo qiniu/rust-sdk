@@ -104,12 +104,12 @@ impl HttpClient {
     }
 
     #[inline]
-    pub fn new(http_caller: Box<dyn HttpCaller>) -> Self {
+    pub fn new(http_caller: impl HttpCaller + 'static) -> Self {
         HttpClientBuilder::new(http_caller).build()
     }
 
     #[inline]
-    pub fn builder(http_caller: Box<dyn HttpCaller>) -> HttpClientBuilder {
+    pub fn builder(http_caller: impl HttpCaller + 'static) -> HttpClientBuilder {
         HttpClientBuilder::new(http_caller)
     }
 
@@ -313,8 +313,8 @@ impl HttpClientBuilder {
     }
 
     #[inline]
-    pub fn new(http_caller: Box<dyn HttpCaller>) -> Self {
-        Self::_new(http_caller)
+    pub fn new(http_caller: impl HttpCaller + 'static) -> Self {
+        Self::_new(Box::new(http_caller))
     }
 
     #[inline]
@@ -344,32 +344,32 @@ impl HttpClientBuilder {
     }
 
     #[inline]
-    pub fn http_caller(mut self, http_caller: Box<dyn HttpCaller>) -> Self {
-        self.http_caller = http_caller;
+    pub fn http_caller(mut self, http_caller: impl HttpCaller + 'static) -> Self {
+        self.http_caller = Box::new(http_caller);
         self
     }
 
     #[inline]
-    pub fn request_retrier(mut self, request_retrier: Box<dyn RequestRetrier>) -> Self {
-        self.request_retrier = request_retrier;
+    pub fn request_retrier(mut self, request_retrier: impl RequestRetrier + 'static) -> Self {
+        self.request_retrier = Box::new(request_retrier);
         self
     }
 
     #[inline]
-    pub fn backoff(mut self, backoff: Box<dyn Backoff>) -> Self {
-        self.backoff = backoff;
+    pub fn backoff(mut self, backoff: impl Backoff + 'static) -> Self {
+        self.backoff = Box::new(backoff);
         self
     }
 
     #[inline]
-    pub fn chooser(mut self, chooser: Box<dyn Chooser>) -> Self {
-        self.chooser = chooser;
+    pub fn chooser(mut self, chooser: impl Chooser + 'static) -> Self {
+        self.chooser = Box::new(chooser);
         self
     }
 
     #[inline]
-    pub fn resolver(mut self, resolver: Box<dyn Resolver>) -> Self {
-        self.resolver = resolver;
+    pub fn resolver(mut self, resolver: impl Resolver + 'static) -> Self {
+        self.resolver = Box::new(resolver);
         self
     }
 

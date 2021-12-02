@@ -17,7 +17,7 @@ pub(super) use request_call::async_request_call;
 mod tests {
     use crate::{
         client::{chooser::DirectChooser, retried::RetriedStatsInfo},
-        credential::{Credential, CredentialProvider},
+        credential::Credential,
         test_utils::{
             chaotic_up_domains_region, make_dumb_resolver, make_error_response_client_builder,
             make_fixed_response_client_builder, make_random_resolver, single_up_domain_region,
@@ -52,10 +52,10 @@ mod tests {
             "Fake Connect Error",
             true,
         )
-        .chooser(Box::new(DirectChooser))
-        .resolver(Box::new(make_random_resolver()))
-        .request_retrier(Box::new(ErrorRetrier))
-        .backoff(Box::new(NO_BACKOFF))
+        .chooser(DirectChooser)
+        .resolver(make_random_resolver())
+        .request_retrier(ErrorRetrier)
+        .backoff(NO_BACKOFF)
         .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
@@ -117,10 +117,10 @@ mod tests {
             "Fake Connect Error",
             false,
         )
-        .chooser(Box::new(DirectChooser))
-        .resolver(Box::new(make_dumb_resolver()))
-        .request_retrier(Box::new(ErrorRetrier))
-        .backoff(Box::new(NO_BACKOFF))
+        .chooser(DirectChooser)
+        .resolver(make_dumb_resolver())
+        .request_retrier(ErrorRetrier)
+        .backoff(NO_BACKOFF)
         .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
@@ -189,10 +189,10 @@ mod tests {
             "Fake Connect Error",
             true,
         )
-        .backoff(Box::new(NO_BACKOFF))
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(chooser))
-        .request_retrier(Box::new(ErrorRetrier))
+        .backoff(NO_BACKOFF)
+        .resolver(make_random_resolver())
+        .chooser(chooser)
+        .request_retrier(ErrorRetrier)
         .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
@@ -250,10 +250,10 @@ mod tests {
             "Fake SSL Error",
             true,
         )
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(DirectChooser))
-        .backoff(Box::new(NO_BACKOFF))
-        .request_retrier(Box::new(ErrorRetrier))
+        .resolver(make_random_resolver())
+        .chooser(DirectChooser)
+        .backoff(NO_BACKOFF)
+        .request_retrier(ErrorRetrier)
         .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
@@ -329,10 +329,10 @@ mod tests {
             "Fake Timeout Error",
             true,
         )
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(DirectChooser))
-        .backoff(Box::new(NO_BACKOFF))
-        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .resolver(make_random_resolver())
+        .chooser(DirectChooser)
+        .backoff(NO_BACKOFF)
+        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
         .build();
 
         let retried = Arc::new(AtomicUsize::new(0));
@@ -378,10 +378,10 @@ mod tests {
             b"{\"error\":\"Fake Throttled Error\"}".to_vec(),
             true,
         )
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(DirectChooser))
-        .backoff(Box::new(NO_BACKOFF))
-        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .resolver(make_random_resolver())
+        .chooser(DirectChooser)
+        .backoff(NO_BACKOFF)
+        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
         .build();
 
         let err = always_throttled_client
@@ -440,10 +440,10 @@ mod tests {
             "Fake Timeout Error",
             true,
         )
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(DirectChooser))
-        .backoff(Box::new(NO_BACKOFF))
-        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .resolver(make_random_resolver())
+        .chooser(DirectChooser)
+        .backoff(NO_BACKOFF)
+        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
         .build()
         .post(&[ServiceName::Up], &single_up_domain_region())
         .add_extension(counter.to_owned())
@@ -471,10 +471,10 @@ mod tests {
             "Fake Server Cert Error",
             true,
         )
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(DirectChooser))
-        .backoff(Box::new(NO_BACKOFF))
-        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .resolver(make_random_resolver())
+        .chooser(DirectChooser)
+        .backoff(NO_BACKOFF)
+        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
         .build()
         .post(&[ServiceName::Up], &single_up_domain_region())
         .add_extension(counter.to_owned())
@@ -513,10 +513,10 @@ mod tests {
             "Test Unknown Host Error",
             true,
         )
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(DirectChooser))
-        .backoff(Box::new(NO_BACKOFF))
-        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .resolver(make_random_resolver())
+        .chooser(DirectChooser)
+        .backoff(NO_BACKOFF)
+        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
         .build();
 
         let retry_urls = [
@@ -560,8 +560,8 @@ mod tests {
             "Test Local IO Error",
             true,
         )
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(DirectChooser))
+        .resolver(make_random_resolver())
+        .chooser(DirectChooser)
         .build();
 
         let err = always_dont_retry_client
@@ -594,13 +594,12 @@ mod tests {
             "Test Send Error",
             true,
         )
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(DirectChooser))
-        .backoff(Box::new(NO_BACKOFF))
-        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .resolver(make_random_resolver())
+        .chooser(DirectChooser)
+        .backoff(NO_BACKOFF)
+        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
         .build();
-        let credential: Box<dyn CredentialProvider> =
-            Box::new(Credential::new("abcdefghklmnopq", "012345678901234567890"));
+        let credential = Credential::new("abcdefghklmnopq", "012345678901234567890");
         let signed_urls = Arc::new(Mutex::new(HashSet::new()));
 
         {
@@ -688,10 +687,10 @@ mod tests {
             b"<p>Hello world!</p>".to_vec(),
             true,
         )
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(DirectChooser))
-        .backoff(Box::new(NO_BACKOFF))
-        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .resolver(make_random_resolver())
+        .chooser(DirectChooser)
+        .backoff(NO_BACKOFF)
+        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
         .build();
 
         let retried_times = Arc::new(Mutex::new(HashMap::<String, AtomicUsize>::new()));
@@ -757,10 +756,10 @@ mod tests {
             b"<p>Hello world!</p>".to_vec(),
             true,
         )
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(DirectChooser))
-        .backoff(Box::new(NO_BACKOFF))
-        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .resolver(make_random_resolver())
+        .chooser(DirectChooser)
+        .backoff(NO_BACKOFF)
+        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
         .build();
 
         let err = always_redirected_client
@@ -785,10 +784,10 @@ mod tests {
             "Fake Connect Error",
             true,
         )
-        .resolver(Box::new(make_dumb_resolver()))
-        .chooser(Box::new(DirectChooser))
-        .request_retrier(Box::new(ErrorRetrier))
-        .backoff(Box::new(NO_BACKOFF))
+        .resolver(make_dumb_resolver())
+        .chooser(DirectChooser)
+        .request_retrier(ErrorRetrier)
+        .backoff(NO_BACKOFF)
         .build();
 
         let err = client
@@ -836,10 +835,10 @@ mod tests {
             "Fake Timeout Error",
             true,
         )
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(DirectChooser))
-        .backoff(Box::new(NO_BACKOFF))
-        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .resolver(make_random_resolver())
+        .chooser(DirectChooser)
+        .backoff(NO_BACKOFF)
+        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
         .build();
 
         let retried = Arc::new(AtomicUsize::new(0));
@@ -882,10 +881,10 @@ mod tests {
             b"{\"error\":\"Fake Throttled Error\"}".to_vec(),
             true,
         )
-        .resolver(Box::new(make_random_resolver()))
-        .chooser(Box::new(DirectChooser))
-        .backoff(Box::new(NO_BACKOFF))
-        .request_retrier(Box::new(LimitedRetrier::new(ErrorRetrier, 3)))
+        .resolver(make_random_resolver())
+        .chooser(DirectChooser)
+        .backoff(NO_BACKOFF)
+        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
         .build();
 
         retried.store(0, Relaxed);
