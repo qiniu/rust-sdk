@@ -52,14 +52,14 @@ impl Resolver for TrustDnsResolver {
     fn async_resolve<'a>(
         &'a self,
         domain: &'a str,
-        _opts: &ResolveOptions,
+        opts: &'a ResolveOptions,
     ) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             Ok(self
                 .resolver
                 .lookup_ip(domain)
                 .await
-                .map_err(convert_trust_dns_error_to_response_error)?
+                .map_err(|err| convert_trust_dns_error_to_response_error(err, opts))?
                 .iter()
                 .collect::<Vec<_>>()
                 .into())
@@ -74,9 +74,15 @@ impl fmt::Debug for TrustDnsResolver {
     }
 }
 
-#[inline]
-fn convert_trust_dns_error_to_response_error(err: ResolveError) -> ResponseError {
-    ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err)
+fn convert_trust_dns_error_to_response_error(
+    err: ResolveError,
+    opts: &ResolveOptions,
+) -> ResponseError {
+    let mut err = ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err);
+    if let Some(retried) = opts.retried() {
+        err = err.retried(retried);
+    }
+    err
 }
 
 #[cfg(test)]

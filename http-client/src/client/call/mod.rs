@@ -412,7 +412,7 @@ mod tests {
             Some(&HeaderValue::from_static("fake_req_id"))
         );
         assert_eq!(err.x_log(), Some(&HeaderValue::from_static("fake_log")));
-        assert_eq!(&err.to_string(), "Fake Throttled Error");
+        assert!(err.to_string().ends_with("Fake Throttled Error"));
 
         Ok(())
     }
@@ -913,7 +913,7 @@ mod tests {
             err.kind(),
             ResponseErrorKind::StatusCodeError(StatusCode::from_u16(509)?)
         );
-        assert_eq!(&err.to_string(), "Fake Throttled Error");
+        assert!(err.to_string().ends_with("Fake Throttled Error"));
 
         Ok(())
     }

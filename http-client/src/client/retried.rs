@@ -1,4 +1,6 @@
-#[derive(Debug, Default, Eq, PartialEq)]
+use std::fmt;
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct RetriedStatsInfo {
     retried_total: usize,
     retried_on_current_endpoint: usize,
@@ -72,5 +74,25 @@ impl RetriedStatsInfo {
     #[inline]
     pub fn switched_to_alternative_endpoints(&self) -> bool {
         self.switched_to_alternative_endpoints
+    }
+}
+
+impl fmt::Display for RetriedStatsInfo {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{},{},{},{},{},{}",
+            self.retried_total,
+            self.retried_on_current_endpoint,
+            self.retried_on_current_ips,
+            self.abandoned_endpoints,
+            self.abandoned_ips_of_current_endpoint,
+            if self.switched_to_alternative_endpoints {
+                "a" // alternative
+            } else {
+                "p" // preferred
+            }
+        )
     }
 }

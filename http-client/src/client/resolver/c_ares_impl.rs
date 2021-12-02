@@ -72,28 +72,32 @@ impl fmt::Debug for CAresResolver {
 }
 
 impl Resolver for CAresResolver {
-    fn resolve(&self, domain: &str, _opts: &ResolveOptions) -> ResolveResult {
+    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
         let (tx, rx) = mpsc::channel();
         let tx2 = tx.to_owned();
 
-        self.callback_resolver
-            .get_host_by_name(domain, INET, move |results| {
+        self.callback_resolver.get_host_by_name(domain, INET, {
+            let opts = opts.to_owned();
+            move |results| {
                 tx.send(
                     results
-                        .map_err(convert_c_ares_error_to_response_error)
+                        .map_err(|err| convert_c_ares_error_to_response_error(err, &opts))
                         .map(convert_hosts_to_ip_addrs),
                 )
                 .unwrap();
-            });
-        self.callback_resolver
-            .get_host_by_name(domain, INET6, move |results| {
+            }
+        });
+        self.callback_resolver.get_host_by_name(domain, INET6, {
+            let opts = opts.to_owned();
+            move |results| {
                 tx2.send(
                     results
-                        .map_err(convert_c_ares_error_to_response_error)
+                        .map_err(|err| convert_c_ares_error_to_response_error(err, &opts))
                         .map(convert_hosts_to_ip_addrs),
                 )
                 .unwrap();
-            });
+            }
+        });
 
         match (rx.recv().unwrap(), rx.recv().unwrap()) {
             (Ok(ip_addrs_1), Ok(ip_addrs_2)) => {
@@ -113,7 +117,7 @@ impl Resolver for CAresResolver {
     fn async_resolve<'a>(
         &'a self,
         domain: &'a str,
-        _opts: &'a ResolveOptions,
+        opts: &'a ResolveOptions,
     ) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             let task1 = self.future_resolver.get_host_by_name(domain, INET);
@@ -121,10 +125,10 @@ impl Resolver for CAresResolver {
             let (results1, results2) = join(task1, task2).await;
             match (
                 results1
-                    .map_err(convert_c_ares_error_to_response_error)
+                    .map_err(|err| convert_c_ares_error_to_response_error(err, opts))
                     .map(convert_resolver_hosts_to_ip_addrs),
                 results2
-                    .map_err(convert_c_ares_error_to_response_error)
+                    .map_err(|err| convert_c_ares_error_to_response_error(err, opts))
                     .map(convert_resolver_hosts_to_ip_addrs),
             ) {
                 (Ok(ip_addrs_1), Ok(ip_addrs_2)) => {
@@ -154,9 +158,12 @@ fn convert_resolver_hosts_to_ip_addrs(results: CAresResolverHostResults) -> Box<
     results.addresses.into_boxed_slice()
 }
 
-#[inline]
-fn convert_c_ares_error_to_response_error(err: CAresError) -> ResponseError {
-    ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err)
+fn convert_c_ares_error_to_response_error(err: CAresError, opts: &ResolveOptions) -> ResponseError {
+    let mut err = ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err);
+    if let Some(retried) = opts.retried() {
+        err = err.retried(retried);
+    }
+    err
 }
 
 #[cfg(all(test, feature = "async"))]

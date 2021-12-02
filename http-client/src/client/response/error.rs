@@ -1,4 +1,7 @@
-use super::{super::super::EndpointParseError, X_LOG_HEADER_NAME, X_REQ_ID_HEADER_NAME};
+use super::{
+    super::super::{EndpointParseError, RetriedStatsInfo},
+    X_LOG_HEADER_NAME, X_REQ_ID_HEADER_NAME,
+};
 use qiniu_http::{
     HeaderName, HeaderValue, Metrics, ResponseError as HttpResponseError,
     ResponseErrorKind as HttpResponseErrorKind, ResponseParts as HttpResponseParts,
@@ -53,6 +56,7 @@ pub struct Error {
     metrics: Option<Box<dyn Metrics>>,
     x_headers: XHeaders,
     response_body_sample: Vec<u8>,
+    retried: Option<RetriedStatsInfo>,
 }
 
 impl Error {
@@ -67,7 +71,14 @@ impl Error {
             metrics: Default::default(),
             x_headers: Default::default(),
             response_body_sample: Default::default(),
+            retried: Default::default(),
         }
+    }
+
+    #[inline]
+    pub fn retried(mut self, retried: &RetriedStatsInfo) -> Self {
+        self.retried = Some(retried.to_owned());
+        self
     }
 
     #[inline]
@@ -148,6 +159,7 @@ impl Error {
             kind: kind.unwrap_or_else(|| err.kind().into()),
             error: err.into_inner(),
             response_body_sample: Default::default(),
+            retried: Default::default(),
         }
     }
 }
@@ -195,7 +207,25 @@ fn extract_metrics_from_response_parts(
 impl fmt::Display for Error {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.error.fmt(f)
+        write!(f, "[{:?}]", self.kind)?;
+        if let Some(retried) = self.retried.as_ref() {
+            write!(f, "[{}]", retried)?;
+        }
+        if let Some(x_reqid) = self.x_headers.x_reqid.as_ref() {
+            write!(f, "[reqid={:?}]", x_reqid)?;
+        }
+        if let Some(x_log) = self.x_headers.x_log.as_ref() {
+            write!(f, "[log={:?}]", x_log)?;
+        }
+        write!(f, " {}", self.error)?;
+        if !self.response_body_sample.is_empty() {
+            write!(
+                f,
+                " {}",
+                String::from_utf8_lossy(&self.response_body_sample)
+            )?;
+        }
+        Ok(())
     }
 }
 

@@ -1,17 +1,26 @@
 use super::{super::ResponseError, ResolveOptions, ResolveResult, Resolver};
 use dns_lookup::lookup_host;
 use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
+use std::io::Error as IOError;
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct SimpleResolver;
 
 impl Resolver for SimpleResolver {
     #[inline]
-    fn resolve(&self, domain: &str, _opts: &ResolveOptions) -> ResolveResult {
+    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
         lookup_host(domain)
             .map(|ips| ips.into_boxed_slice().into())
-            .map_err(|err| ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err))
+            .map_err(|err| convert_io_error_to_response_error(err, opts))
     }
+}
+
+fn convert_io_error_to_response_error(err: IOError, opts: &ResolveOptions) -> ResponseError {
+    let mut err = ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err);
+    if let Some(retried) = opts.retried() {
+        err = err.retried(retried);
+    }
+    err
 }
 
 #[cfg(test)]

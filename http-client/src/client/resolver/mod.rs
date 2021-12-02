@@ -4,11 +4,14 @@ mod shuffled;
 mod simple;
 mod timeout;
 
+use crate::RetriedStatsInfo;
+
 use super::{super::CacheController, ApiResult};
 use auto_impl::auto_impl;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
+    mem::take,
     net::IpAddr,
     ops::{Deref, DerefMut},
 };
@@ -37,7 +40,37 @@ pub trait Resolver: Debug + Sync + Send {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct ResolveOptions {}
+pub struct ResolveOptions {
+    retried: Option<RetriedStatsInfo>,
+}
+
+impl ResolveOptions {
+    #[inline]
+    pub fn retried(&self) -> Option<&RetriedStatsInfo> {
+        self.retried.as_ref()
+    }
+
+    #[inline]
+    pub fn builder() -> ResolveOptionsBuilder {
+        Default::default()
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ResolveOptionsBuilder(ResolveOptions);
+
+impl ResolveOptionsBuilder {
+    #[inline]
+    pub fn retried(&mut self, retried: &RetriedStatsInfo) -> &mut Self {
+        self.0.retried = Some(retried.to_owned());
+        self
+    }
+
+    #[inline]
+    pub fn build(&mut self) -> ResolveOptions {
+        take(&mut self.0)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolveAnswers {

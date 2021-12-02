@@ -29,7 +29,7 @@ impl Resolver for ChainedResolver {
                 result => last_result = Some(result),
             }
         }
-        last_result.unwrap_or_else(|| Err(no_try_error()))
+        last_result.unwrap_or_else(|| Err(no_try_error(opts)))
     }
 
     #[inline]
@@ -48,14 +48,18 @@ impl Resolver for ChainedResolver {
                     result => last_result = Some(result),
                 }
             }
-            last_result.unwrap_or_else(|| Err(no_try_error()))
+            last_result.unwrap_or_else(|| Err(no_try_error(opts)))
         })
     }
 }
 
 #[inline]
-fn no_try_error() -> ResponseError {
-    ResponseError::new(ResponseErrorKind::NoTry, "None resolver is tried")
+fn no_try_error(opts: &ResolveOptions) -> ResponseError {
+    let mut err = ResponseError::new(ResponseErrorKind::NoTry, "None resolver is tried");
+    if let Some(retried) = opts.retried() {
+        err = err.retried(retried);
+    }
+    err
 }
 
 impl FromIterator<Box<dyn Resolver>> for ChainedResolver {

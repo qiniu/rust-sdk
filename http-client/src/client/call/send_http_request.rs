@@ -25,7 +25,7 @@ pub(super) fn send_http_request(
             .call(http_request)
             .map_err(ResponseError::from)
             .map(SyncResponse::new)
-            .and_then(judge)
+            .and_then(|response| judge(response, retried))
             .map_err(|err| handle_response_error(err, http_request, parts, retried));
         match response {
             Ok(response) => {
@@ -141,7 +141,7 @@ mod async_send {
                 .await
                 .map_err(ResponseError::from)
                 .map(AsyncResponse::new)
-                .and_then(|err| block_on(async { async_judge(err).await }))
+                .and_then(|err| block_on(async { async_judge(err, retried).await }))
                 .map_err(|err| handle_response_error(err, http_request, parts, retried));
             match response {
                 Ok(response) => {

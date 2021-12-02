@@ -2,8 +2,8 @@ use super::{
     super::{
         super::{DomainWithPort, Endpoint, IpAddrWithPort},
         ApiResult, Authorization, AuthorizationError, CallbackContextImpl,
-        ExtendedCallbackContextImpl, RequestParts, ResolveAnswers, ResolveResult, ResponseError,
-        ResponseErrorKind, ResponseInfo, RetriedStatsInfo, RetryDecision,
+        ExtendedCallbackContextImpl, RequestParts, ResolveAnswers, ResolveOptions, ResolveResult,
+        ResponseError, ResponseErrorKind, ResponseInfo, RetriedStatsInfo, RetryDecision,
         SimplifiedCallbackContext, SyncResponse,
     },
     domain_or_ip_addr::DomainOrIpAddr,
@@ -51,10 +51,11 @@ pub(super) fn extract_ips_from(domain_or_ip: &DomainOrIpAddr) -> Cow<[IpAddrWith
 pub(super) fn make_url(
     domain_or_ip: &DomainOrIpAddr,
     request: &RequestParts<'_>,
+    retried: &RetriedStatsInfo,
 ) -> Result<(Uri, Vec<IpAddr>), TryError> {
     return _make_url(domain_or_ip, request).map_err(|err| {
         TryError::new(
-            ResponseError::new(HttpResponseErrorKind::InvalidUrl.into(), err),
+            ResponseError::new(HttpResponseErrorKind::InvalidUrl.into(), err).retried(retried),
             RetryDecision::TryNextServer.into(),
         )
     });
@@ -131,7 +132,8 @@ pub(super) fn call_before_backoff_callbacks(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "on_before_backoff() callback returns false",
-            ),
+            )
+            .retried(retried),
             RetryDecision::DontRetry.into(),
         ));
     }
@@ -153,7 +155,8 @@ pub(super) fn call_after_backoff_callbacks(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "on_after_backoff() callback returns false",
-            ),
+            )
+            .retried(retried),
             RetryDecision::DontRetry.into(),
         ));
     }
@@ -165,6 +168,7 @@ fn call_to_resolve_domain_callbacks(
     request: &RequestParts<'_>,
     domain: &str,
     extensions: &mut Extensions,
+    retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
     if !request.call_to_resolve_domain_callbacks(&mut context, domain) {
@@ -172,7 +176,8 @@ fn call_to_resolve_domain_callbacks(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "on_to_resolve_domain_callbacks() callback returns false",
-            ),
+            )
+            .retried(retried),
             RetryDecision::DontRetry.into(),
         ));
     }
@@ -185,6 +190,7 @@ fn call_domain_resolved_callbacks(
     domain: &str,
     answers: &ResolveAnswers,
     extensions: &mut Extensions,
+    retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
     if !request.call_domain_resolved_callbacks(&mut context, domain, answers) {
@@ -192,7 +198,8 @@ fn call_domain_resolved_callbacks(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "on_domain_resolved_callbacks() callback returns false",
-            ),
+            )
+            .retried(retried),
             RetryDecision::DontRetry.into(),
         ));
     }
@@ -204,6 +211,7 @@ fn call_to_choose_ips_callbacks(
     request: &RequestParts<'_>,
     ips: &[IpAddrWithPort],
     extensions: &mut Extensions,
+    retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
     if !request.call_to_choose_ips_callbacks(&mut context, ips) {
@@ -211,7 +219,8 @@ fn call_to_choose_ips_callbacks(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "on_to_choose_ips_callbacks() callback returns false",
-            ),
+            )
+            .retried(retried),
             RetryDecision::DontRetry.into(),
         ));
     }
@@ -224,6 +233,7 @@ fn call_ips_chosen_callbacks(
     ips: &[IpAddrWithPort],
     chosen: &[IpAddrWithPort],
     extensions: &mut Extensions,
+    retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
     if !request.call_ips_chosen_callbacks(&mut context, ips, chosen) {
@@ -231,7 +241,8 @@ fn call_ips_chosen_callbacks(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "on_ips_chosen_callbacks() callback returns false",
-            ),
+            )
+            .retried(retried),
             RetryDecision::DontRetry.into(),
         ));
     }
@@ -242,7 +253,7 @@ fn call_ips_chosen_callbacks(
 pub(super) fn call_before_request_signed_callbacks(
     request: &RequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
-    retried: &mut RetriedStatsInfo,
+    retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
     if !request.call_before_request_signed_callbacks(&mut context) {
@@ -250,7 +261,8 @@ pub(super) fn call_before_request_signed_callbacks(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "on_before_request_signed() callback returns false",
-            ),
+            )
+            .retried(retried),
             RetryDecision::DontRetry.into(),
         ));
     }
@@ -261,7 +273,7 @@ pub(super) fn call_before_request_signed_callbacks(
 pub(super) fn call_after_request_signed_callbacks(
     request: &RequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
-    retried: &mut RetriedStatsInfo,
+    retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
     if !request.call_after_request_signed_callbacks(&mut context) {
@@ -269,7 +281,8 @@ pub(super) fn call_after_request_signed_callbacks(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "on_after_request_signed() callback returns false",
-            ),
+            )
+            .retried(retried),
             RetryDecision::DontRetry.into(),
         ));
     }
@@ -289,7 +302,8 @@ pub(super) fn call_success_callbacks(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "on_success() callback returns false",
-            ),
+            )
+            .retried(retried),
             RetryDecision::DontRetry.into(),
         ));
     }
@@ -309,7 +323,8 @@ pub(super) fn call_error_callbacks(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "on_error() callback returns false",
-            ),
+            )
+            .retried(retried),
             RetryDecision::DontRetry.into(),
         ));
     }
@@ -340,30 +355,33 @@ pub(super) fn find_ip_addr_with_port(
 pub(super) fn sign_request(
     request: &mut SyncHttpRequest<'_>,
     authorization: Option<&Authorization>,
+    retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     if let Some(authorization) = authorization {
         authorization
             .sign(request)
-            .map_err(handle_sign_request_error)?;
+            .map_err(|err| handle_sign_request_error(err, retried))?;
     }
     Ok(())
 }
 
 #[inline]
-fn handle_sign_request_error(err: AuthorizationError) -> TryError {
+fn handle_sign_request_error(err: AuthorizationError, retried: &RetriedStatsInfo) -> TryError {
     match err {
         AuthorizationError::IoError(err) => TryError::new(
             ResponseError::new(
                 ResponseErrorKind::HttpError(HttpResponseErrorKind::LocalIoError),
                 err,
-            ),
+            )
+            .retried(retried),
             RetryDecision::DontRetry.into(),
         ),
         AuthorizationError::UrlParseError(err) => TryError::new(
             ResponseError::new(
                 ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl),
                 err,
-            ),
+            )
+            .retried(retried),
             RetryDecision::TryNextServer.into(),
         ),
     }
@@ -374,13 +392,20 @@ pub(super) fn resolve(
     request: &RequestParts<'_>,
     domain_with_port: &DomainWithPort,
     extensions: &mut Extensions,
+    retried: &RetriedStatsInfo,
 ) -> Result<Vec<IpAddrWithPort>, TryError> {
-    let answers = with_resolve_domain(request, domain_with_port.domain(), extensions, || {
-        request
-            .http_client()
-            .resolver()
-            .resolve(domain_with_port.domain(), &Default::default())
-    })?;
+    let answers = with_resolve_domain(
+        request,
+        domain_with_port.domain(),
+        extensions,
+        retried,
+        || {
+            request.http_client().resolver().resolve(
+                domain_with_port.domain(),
+                &ResolveOptions::builder().retried(retried).build(),
+            )
+        },
+    )?;
     return Ok(answers
         .into_ip_addrs()
         .iter()
@@ -392,11 +417,12 @@ pub(super) fn resolve(
         request: &RequestParts<'_>,
         domain: &str,
         extensions: &mut Extensions,
+        retried: &RetriedStatsInfo,
         f: impl FnOnce() -> ResolveResult,
     ) -> Result<ResolveAnswers, TryError> {
-        call_to_resolve_domain_callbacks(request, domain, extensions)?;
+        call_to_resolve_domain_callbacks(request, domain, extensions, retried)?;
         let answers = f().map_err(|err| TryError::new(err, RetryDecision::TryNextServer.into()))?;
-        call_domain_resolved_callbacks(request, domain, &answers, extensions)?;
+        call_domain_resolved_callbacks(request, domain, &answers, extensions, retried)?;
         Ok(answers)
     }
 }
@@ -405,76 +431,94 @@ pub(super) fn choose(
     request: &RequestParts<'_>,
     ips: &[IpAddrWithPort],
     extensions: &mut Extensions,
+    retried: &RetriedStatsInfo,
 ) -> Result<Vec<IpAddrWithPort>, TryError> {
-    call_to_choose_ips_callbacks(request, ips, extensions)?;
+    call_to_choose_ips_callbacks(request, ips, extensions, retried)?;
     let chosen_ips = request
         .http_client()
         .chooser()
         .choose(ips, &Default::default())
         .into_ip_addrs();
-    call_ips_chosen_callbacks(request, ips, &chosen_ips, extensions)?;
+    call_ips_chosen_callbacks(request, ips, &chosen_ips, extensions, retried)?;
     Ok(chosen_ips)
 }
 
 #[inline]
-pub(super) fn judge(mut response: SyncResponse) -> ApiResult<SyncResponse> {
-    check_x_req_id(&mut response)?;
+pub(super) fn judge(
+    mut response: SyncResponse,
+    retried: &RetriedStatsInfo,
+) -> ApiResult<SyncResponse> {
     return match response.status_code().as_u16() {
-        0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.parts())),
-        200..=299 => Ok(response),
-        _ => to_status_code_error(response),
+        0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.parts(), retried)),
+        200..=299 => {
+            check_x_req_id(&mut response, retried)?;
+            Ok(response)
+        }
+        _ => to_status_code_error(response, retried),
     };
 
     #[inline]
-    fn to_status_code_error(response: SyncResponse) -> ApiResult<SyncResponse> {
+    fn to_status_code_error(
+        response: SyncResponse,
+        retried: &RetriedStatsInfo,
+    ) -> ApiResult<SyncResponse> {
         let status_code = response.status_code();
         let (parts, body) = response.parse_json::<ErrorResponseBody>()?.into_parts();
         Err(ResponseError::new(
             ResponseErrorKind::StatusCodeError(status_code),
             body.into_error(),
         )
-        .response_parts(&parts))
+        .response_parts(&parts)
+        .retried(retried))
     }
 }
 
 #[inline]
-fn check_x_req_id(response: &mut SyncResponse) -> ApiResult<()> {
+fn check_x_req_id(response: &mut SyncResponse, retried: &RetriedStatsInfo) -> ApiResult<()> {
     if response.x_req_id().is_some() {
         Ok(())
     } else {
-        Err(make_malicious_response(response.parts())
+        Err(make_malicious_response(response.parts(), retried)
             .read_response_body_sample(response.body_mut())?)
     }
 }
 
 #[inline]
 #[cfg(feature = "async")]
-async fn async_check_x_req_id(response: &mut AsyncResponse) -> ApiResult<()> {
+async fn async_check_x_req_id(
+    response: &mut AsyncResponse,
+    retried: &RetriedStatsInfo,
+) -> ApiResult<()> {
     if response.x_req_id().is_some() {
         Ok(())
     } else {
-        Err(make_malicious_response(response.parts())
+        Err(make_malicious_response(response.parts(), retried)
             .async_read_response_body_sample(response.body_mut())
             .await?)
     }
 }
 
 #[inline]
-fn make_malicious_response(parts: &ResponseParts) -> ResponseError {
+fn make_malicious_response(parts: &ResponseParts, retried: &RetriedStatsInfo) -> ResponseError {
     ResponseError::new(
         ResponseErrorKind::MaliciousResponse,
         "cannot find X-ReqId header from response, might be malicious response",
     )
     .response_parts(parts)
+    .retried(retried)
 }
 
 #[inline]
-fn make_unexpected_status_code_error(parts: &ResponseParts) -> ResponseError {
+fn make_unexpected_status_code_error(
+    parts: &ResponseParts,
+    retried: &RetriedStatsInfo,
+) -> ResponseError {
     ResponseError::new(
         ResponseErrorKind::UnexpectedStatusCode(parts.status_code()),
         format!("status code {} is unexpected", parts.status_code()),
     )
     .response_parts(parts)
+    .retried(retried)
 }
 
 #[cfg(feature = "async")]
@@ -490,12 +534,13 @@ mod async_utils {
     pub(in super::super) async fn sign_async_request(
         request: &mut AsyncHttpRequest<'_>,
         authorization: Option<&Authorization>,
+        retried: &RetriedStatsInfo,
     ) -> Result<(), TryError> {
         if let Some(authorization) = authorization {
             authorization
                 .async_sign(request)
                 .await
-                .map_err(handle_sign_request_error)?;
+                .map_err(|err| handle_sign_request_error(err, retried))?;
         }
         Ok(())
     }
@@ -505,14 +550,24 @@ mod async_utils {
         parts: &RequestParts<'_>,
         domain_with_port: &DomainWithPort,
         extensions: &mut Extensions,
+        retried: &RetriedStatsInfo,
     ) -> Result<Vec<IpAddrWithPort>, TryError> {
-        let answers = with_resolve_domain(parts, domain_with_port.domain(), extensions, || async {
-            parts
-                .http_client()
-                .resolver()
-                .async_resolve(domain_with_port.domain(), &Default::default())
-                .await
-        });
+        let answers = with_resolve_domain(
+            parts,
+            domain_with_port.domain(),
+            extensions,
+            retried,
+            || async {
+                parts
+                    .http_client()
+                    .resolver()
+                    .async_resolve(
+                        domain_with_port.domain(),
+                        &ResolveOptions::builder().retried(retried).build(),
+                    )
+                    .await
+            },
+        );
         return Ok(answers
             .await?
             .into_ip_addrs()
@@ -525,13 +580,14 @@ mod async_utils {
             parts: &RequestParts<'_>,
             domain: &str,
             extensions: &mut Extensions,
+            retried: &RetriedStatsInfo,
             f: F,
         ) -> Result<ResolveAnswers, TryError> {
-            call_to_resolve_domain_callbacks(parts, domain, extensions)?;
+            call_to_resolve_domain_callbacks(parts, domain, extensions, retried)?;
             let answers = f()
                 .await
                 .map_err(|err| TryError::new(err, RetryDecision::TryNextServer.into()))?;
-            call_domain_resolved_callbacks(parts, domain, &answers, extensions)?;
+            call_domain_resolved_callbacks(parts, domain, &answers, extensions, retried)?;
             Ok(answers)
         }
     }
@@ -540,31 +596,40 @@ mod async_utils {
         parts: &RequestParts<'_>,
         ips: &[IpAddrWithPort],
         extensions: &mut Extensions,
+        retried: &RetriedStatsInfo,
     ) -> Result<Vec<IpAddrWithPort>, TryError> {
-        call_to_choose_ips_callbacks(parts, ips, extensions)?;
+        call_to_choose_ips_callbacks(parts, ips, extensions, retried)?;
         let chosen_ips = parts
             .http_client()
             .chooser()
             .async_choose(ips, &Default::default())
             .await
             .into_ip_addrs();
-        call_ips_chosen_callbacks(parts, ips, &chosen_ips, extensions)?;
+        call_ips_chosen_callbacks(parts, ips, &chosen_ips, extensions, retried)?;
         Ok(chosen_ips)
     }
 
     #[inline]
     pub(in super::super) async fn async_judge(
         mut response: AsyncResponse,
+        retried: &RetriedStatsInfo,
     ) -> ApiResult<AsyncResponse> {
-        async_check_x_req_id(&mut response).await?;
         return match response.status_code().as_u16() {
-            0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.parts())),
-            200..=299 => Ok(response),
-            _ => to_status_code_error(response).await,
+            0..=199 | 300..=399 => {
+                Err(make_unexpected_status_code_error(response.parts(), retried))
+            }
+            200..=299 => {
+                async_check_x_req_id(&mut response, retried).await?;
+                Ok(response)
+            }
+            _ => to_status_code_error(response, retried).await,
         };
 
         #[inline]
-        async fn to_status_code_error(response: AsyncResponse) -> ApiResult<AsyncResponse> {
+        async fn to_status_code_error(
+            response: AsyncResponse,
+            retried: &RetriedStatsInfo,
+        ) -> ApiResult<AsyncResponse> {
             let status_code = response.status_code();
             let (parts, body) = response
                 .parse_json::<ErrorResponseBody>()
@@ -574,7 +639,8 @@ mod async_utils {
                 ResponseErrorKind::StatusCodeError(status_code),
                 body.into_error(),
             )
-            .response_parts(&parts))
+            .response_parts(&parts)
+            .retried(retried))
         }
     }
 }
@@ -612,6 +678,7 @@ mod tests {
                     vec![],
                 ),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -632,6 +699,7 @@ mod tests {
                     vec![],
                 ),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -652,6 +720,7 @@ mod tests {
                     vec![],
                 ),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -672,6 +741,7 @@ mod tests {
                     vec![],
                 ),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -692,6 +762,7 @@ mod tests {
                     vec![],
                 ),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -712,6 +783,7 @@ mod tests {
                     vec![],
                 ),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -732,6 +804,7 @@ mod tests {
                     vec![],
                 ),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -749,6 +822,7 @@ mod tests {
             let (url, resolved_ips) = make_url(
                 &IpAddrWithPort::new(Ipv4Addr::new(192, 168, 1, 4).into(), None).into(),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -767,6 +841,7 @@ mod tests {
                 &IpAddrWithPort::from(SocketAddr::new(Ipv4Addr::new(192, 168, 1, 4).into(), 8080))
                     .into(),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -788,6 +863,7 @@ mod tests {
                 )
                 .into(),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -809,6 +885,7 @@ mod tests {
                 ))
                 .into(),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -836,6 +913,7 @@ mod tests {
                 ))
                 .into(),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -858,6 +936,7 @@ mod tests {
             let (url, resolved_ips) = make_url(
                 &IpAddrWithPort::new(Ipv4Addr::new(192, 168, 1, 4).into(), None).into(),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -879,6 +958,7 @@ mod tests {
             let (url, resolved_ips) = make_url(
                 &IpAddrWithPort::new(Ipv4Addr::new(192, 168, 1, 4).into(), None).into(),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -902,6 +982,7 @@ mod tests {
             let (url, resolved_ips) = make_url(
                 &IpAddrWithPort::new(Ipv4Addr::new(192, 168, 1, 4).into(), None).into(),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -925,6 +1006,7 @@ mod tests {
             let (url, resolved_ips) = make_url(
                 &IpAddrWithPort::new(Ipv4Addr::new(192, 168, 1, 4).into(), None).into(),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
@@ -948,6 +1030,7 @@ mod tests {
                     vec![],
                 ),
                 &parts,
+                &Default::default(),
             )
             .unwrap_err();
             assert_eq!(
@@ -970,6 +1053,7 @@ mod tests {
                     vec![],
                 ),
                 &parts,
+                &Default::default(),
             )
             .unwrap_err();
             assert_eq!(
@@ -994,6 +1078,7 @@ mod tests {
                     vec![],
                 ),
                 &parts,
+                &Default::default(),
             )
             .unwrap();
             assert!(resolved_ips.is_empty());

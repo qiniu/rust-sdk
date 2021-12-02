@@ -47,12 +47,12 @@ pub(super) fn try_domain_or_ip_addr(
     mut extensions: Extensions,
     retried: &mut RetriedStatsInfo,
 ) -> Result<SyncResponse, TryErrorWithExtensions> {
-    let (url, resolved_ips) =
-        make_url(domain_or_ip, parts).map_err(|err| err.with_extensions(take(&mut extensions)))?;
+    let (url, resolved_ips) = make_url(domain_or_ip, parts, retried)
+        .map_err(|err| err.with_extensions(take(&mut extensions)))?;
     let mut http_request = make_request(url, parts, body.into(), extensions, &resolved_ips);
     call_before_request_signed_callbacks(parts, &mut http_request, retried)
         .map_err(|err| err.with_request(&mut http_request))?;
-    sign_request(&mut http_request, parts.authorization())
+    sign_request(&mut http_request, parts.authorization(), retried)
         .map_err(|err| err.with_request(&mut http_request))?;
     call_after_request_signed_callbacks(parts, &mut http_request, retried)
         .map_err(|err| err.with_request(&mut http_request))?;
@@ -133,12 +133,12 @@ pub(super) async fn async_try_domain_or_ip_addr(
     mut extensions: Extensions,
     retried: &mut RetriedStatsInfo,
 ) -> Result<AsyncResponse, TryErrorWithExtensions> {
-    let (url, resolved_ips) =
-        make_url(domain_or_ip, parts).map_err(|err| err.with_extensions(take(&mut extensions)))?;
+    let (url, resolved_ips) = make_url(domain_or_ip, parts, retried)
+        .map_err(|err| err.with_extensions(take(&mut extensions)))?;
     let mut http_request = make_request(url, parts, body.into(), extensions, &resolved_ips);
     call_before_request_signed_callbacks(parts, &mut http_request, retried)
         .map_err(|err| err.with_request(&mut http_request))?;
-    sign_async_request(&mut http_request, parts.authorization())
+    sign_async_request(&mut http_request, parts.authorization(), retried)
         .await
         .map_err(|err| err.with_request(&mut http_request))?;
     call_after_request_signed_callbacks(parts, &mut http_request, retried)

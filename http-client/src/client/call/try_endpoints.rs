@@ -75,7 +75,7 @@ pub(super) fn try_endpoints(
     }
 
     return Err(last_error
-        .unwrap_or_else(no_try_error)
+        .unwrap_or_else(|| no_try_error(retried))
         .with_extensions(extensions));
 
     fn try_domain_with_port(
@@ -124,7 +124,7 @@ pub(super) fn try_endpoints(
             is_endpoints_alternative: bool,
         ) -> Result<SyncResponse, ControlFlow<TryErrorWithExtensions>> {
             let mut last_error: Option<TryError> = None;
-            let ips = resolve(parts, domain_with_port, extensions)
+            let ips = resolve(parts, domain_with_port, extensions, retried)
                 .map_err(|err| err.with_extensions(take(extensions)))
                 .map_err(Some)
                 .map_err(ControlFlow::TryNext)?;
@@ -207,7 +207,7 @@ pub(super) fn try_endpoints(
             is_endpoints_alternative: bool,
         ) -> Result<SyncResponse, TryFlow<TryErrorWithExtensions>> {
             let chosen_ips = match remaining_ips.remains() {
-                ips if !ips.is_empty() => choose(parts, &ips, extensions)
+                ips if !ips.is_empty() => choose(parts, &ips, extensions, retried)
                     .map_err(|err| err.with_extensions(take(extensions)))
                     .map_err(TryFlow::TryAgain)?,
                 _ => vec![],
@@ -289,7 +289,7 @@ pub(super) fn try_endpoints(
         ) -> Result<SyncResponse, ControlFlow<TryErrorWithExtensions>> {
             let mut last_error: Option<TryError> = None;
             let chosen_ips = match remaining_ips.remains() {
-                ips if !ips.is_empty() => choose(parts, &ips, extensions)
+                ips if !ips.is_empty() => choose(parts, &ips, extensions, retried)
                     .map_err(|err| err.with_extensions(take(extensions)))
                     .map_err(Some)
                     .map_err(ControlFlow::TryNext)?,
@@ -447,7 +447,7 @@ pub(super) async fn async_try_endpoints(
     }
 
     return Err(last_error
-        .unwrap_or_else(no_try_error)
+        .unwrap_or_else(|| no_try_error(retried))
         .with_extensions(extensions));
 
     async fn try_domain_with_port(
@@ -498,7 +498,7 @@ pub(super) async fn async_try_endpoints(
             is_endpoints_alternative: bool,
         ) -> Result<AsyncResponse, ControlFlow<TryErrorWithExtensions>> {
             let mut last_error: Option<TryError> = None;
-            let ips = async_resolve(parts, domain_with_port, extensions)
+            let ips = async_resolve(parts, domain_with_port, extensions, retried)
                 .await
                 .map_err(|err| err.with_extensions(take(extensions)))
                 .map_err(Some)
@@ -585,7 +585,7 @@ pub(super) async fn async_try_endpoints(
             is_endpoints_alternative: bool,
         ) -> Result<AsyncResponse, TryFlow<TryErrorWithExtensions>> {
             let chosen_ips = match remaining_ips.remains() {
-                ips if !ips.is_empty() => async_choose(parts, &ips, extensions)
+                ips if !ips.is_empty() => async_choose(parts, &ips, extensions, retried)
                     .await
                     .map_err(|err| err.with_extensions(take(extensions)))
                     .map_err(TryFlow::TryAgain)?,
@@ -672,7 +672,7 @@ pub(super) async fn async_try_endpoints(
         ) -> Result<AsyncResponse, ControlFlow<TryErrorWithExtensions>> {
             let mut last_error: Option<TryError> = None;
             let chosen_ips = match remaining_ips.remains() {
-                ips if !ips.is_empty() => async_choose(parts, &ips, extensions)
+                ips if !ips.is_empty() => async_choose(parts, &ips, extensions, retried)
                     .await
                     .map_err(|err| err.with_extensions(take(extensions)))
                     .map_err(Some)
@@ -778,9 +778,9 @@ enum SingleTryFlow<E> {
 }
 
 #[inline]
-fn no_try_error() -> TryError {
+fn no_try_error(retried: &RetriedStatsInfo) -> TryError {
     TryError::new(
-        ResponseError::new(ResponseErrorKind::NoTry, "None resolver is tried"),
+        ResponseError::new(ResponseErrorKind::NoTry, "None endpoint is tried").retried(retried),
         RetryDecision::DontRetry.into(),
     )
 }

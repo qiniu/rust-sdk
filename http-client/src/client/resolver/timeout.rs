@@ -63,7 +63,7 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
             opts: &ResolveOptions,
         ) -> ResolveResult {
             use super::super::super::spawn::spawn;
-            use crossbeam_channel::{bounded, Select};
+            use crossbeam_channel::{bounded, Select, SelectTimeoutError};
             use log::warn;
 
             let (sender, receiver) = bounded(0);
@@ -86,15 +86,20 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
             let mut sel = Select::new();
             let op1 = sel.recv(&receiver);
             let oper = sel.select_timeout(resolver.inner.timeout);
-            match oper {
+            return match oper {
                 Ok(op) => match op.index() {
                     i if i == op1 => op.recv(&receiver).unwrap(),
                     _ => unreachable!(),
                 },
-                Err(err) => Err(ResponseError::new(
-                    HttpResponseErrorKind::TimeoutError.into(),
-                    err,
-                )),
+                Err(err) => Err(make_timeout_error(err, opts)),
+            };
+
+            fn make_timeout_error(err: SelectTimeoutError, opts: &ResolveOptions) -> ResponseError {
+                let mut err = ResponseError::new(HttpResponseErrorKind::TimeoutError.into(), err);
+                if let Some(retried) = opts.retried() {
+                    err = err.retried(retried);
+                }
+                err
             }
         }
     }
@@ -109,16 +114,27 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
     ) -> BoxFuture<'a, ResolveResult> {
         use futures::{pin_mut, select};
 
-        Box::pin(async move {
+        return Box::pin(async move {
             let resolve_task = self.inner.resolver.async_resolve(domain, opts).fuse();
             let timeout_task = AsyncDelay::new(self.inner.timeout).fuse();
             pin_mut!(resolve_task);
             pin_mut!(timeout_task);
             select! {
                 resolve_result = resolve_task => resolve_result,
-                _ = timeout_task => Err(ResponseError::new(HttpResponseErrorKind::TimeoutError.into(), format!("Failed to resolve domain in {:?}", self.inner.timeout))),
+                _ = timeout_task => Err(make_timeout_error(self.inner.timeout, opts)),
             }
-        })
+        });
+
+        fn make_timeout_error(timeout: Duration, opts: &ResolveOptions) -> ResponseError {
+            let mut err = ResponseError::new(
+                HttpResponseErrorKind::TimeoutError.into(),
+                format!("Failed to resolve domain in {:?}", timeout),
+            );
+            if let Some(retried) = opts.retried() {
+                err = err.retried(retried);
+            }
+            err
+        }
     }
 
     #[inline]
