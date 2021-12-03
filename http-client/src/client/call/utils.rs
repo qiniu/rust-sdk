@@ -19,7 +19,6 @@ use std::{borrow::Cow, net::IpAddr, time::Duration};
 #[cfg(feature = "async")]
 use super::super::AsyncResponse;
 
-#[inline]
 pub(super) fn make_request<'r, B: Default + 'r>(
     url: Uri,
     request: &'r RequestParts<'r>,
@@ -39,7 +38,6 @@ pub(super) fn make_request<'r, B: Default + 'r>(
         .build()
 }
 
-#[inline]
 pub(super) fn extract_ips_from(domain_or_ip: &DomainOrIpAddr) -> Cow<[IpAddrWithPort]> {
     match domain_or_ip {
         DomainOrIpAddr::Domain { resolved_ips, .. } => Cow::Borrowed(resolved_ips),
@@ -47,7 +45,6 @@ pub(super) fn extract_ips_from(domain_or_ip: &DomainOrIpAddr) -> Cow<[IpAddrWith
     }
 }
 
-#[inline]
 pub(super) fn make_url(
     domain_or_ip: &DomainOrIpAddr,
     request: &RequestParts<'_>,
@@ -117,7 +114,6 @@ pub(super) fn make_url(
     }
 }
 
-#[inline]
 pub(super) fn call_before_backoff_callbacks(
     request: &RequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
@@ -140,7 +136,6 @@ pub(super) fn call_before_backoff_callbacks(
     Ok(())
 }
 
-#[inline]
 pub(super) fn call_after_backoff_callbacks(
     request: &RequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
@@ -163,7 +158,6 @@ pub(super) fn call_after_backoff_callbacks(
     Ok(())
 }
 
-#[inline]
 fn call_to_resolve_domain_callbacks(
     request: &RequestParts<'_>,
     domain: &str,
@@ -184,7 +178,6 @@ fn call_to_resolve_domain_callbacks(
     Ok(())
 }
 
-#[inline]
 fn call_domain_resolved_callbacks(
     request: &RequestParts<'_>,
     domain: &str,
@@ -206,7 +199,6 @@ fn call_domain_resolved_callbacks(
     Ok(())
 }
 
-#[inline]
 fn call_to_choose_ips_callbacks(
     request: &RequestParts<'_>,
     ips: &[IpAddrWithPort],
@@ -227,7 +219,6 @@ fn call_to_choose_ips_callbacks(
     Ok(())
 }
 
-#[inline]
 fn call_ips_chosen_callbacks(
     request: &RequestParts<'_>,
     ips: &[IpAddrWithPort],
@@ -249,7 +240,6 @@ fn call_ips_chosen_callbacks(
     Ok(())
 }
 
-#[inline]
 pub(super) fn call_before_request_signed_callbacks(
     request: &RequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
@@ -269,7 +259,6 @@ pub(super) fn call_before_request_signed_callbacks(
     Ok(())
 }
 
-#[inline]
 pub(super) fn call_after_request_signed_callbacks(
     request: &RequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
@@ -289,7 +278,6 @@ pub(super) fn call_after_request_signed_callbacks(
     Ok(())
 }
 
-#[inline]
 pub(super) fn call_success_callbacks(
     request: &RequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
@@ -310,7 +298,6 @@ pub(super) fn call_success_callbacks(
     Ok(())
 }
 
-#[inline]
 pub(super) fn call_error_callbacks(
     request: &RequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
@@ -331,7 +318,6 @@ pub(super) fn call_error_callbacks(
     Ok(())
 }
 
-#[inline]
 pub(super) fn find_domains_with_port(
     endpoints: &[Endpoint],
 ) -> impl Iterator<Item = &DomainWithPort> {
@@ -341,7 +327,6 @@ pub(super) fn find_domains_with_port(
     })
 }
 
-#[inline]
 pub(super) fn find_ip_addr_with_port(
     endpoints: &[Endpoint],
 ) -> impl Iterator<Item = &IpAddrWithPort> {
@@ -351,7 +336,6 @@ pub(super) fn find_ip_addr_with_port(
     })
 }
 
-#[inline]
 pub(super) fn sign_request(
     request: &mut SyncHttpRequest<'_>,
     authorization: Option<&Authorization>,
@@ -365,7 +349,6 @@ pub(super) fn sign_request(
     Ok(())
 }
 
-#[inline]
 fn handle_sign_request_error(err: AuthorizationError, retried: &RetriedStatsInfo) -> TryError {
     match err {
         AuthorizationError::IoError(err) => TryError::new(
@@ -387,7 +370,6 @@ fn handle_sign_request_error(err: AuthorizationError, retried: &RetriedStatsInfo
     }
 }
 
-#[inline]
 pub(super) fn resolve(
     request: &RequestParts<'_>,
     domain_with_port: &DomainWithPort,
@@ -412,7 +394,6 @@ pub(super) fn resolve(
         .map(|&ip| IpAddrWithPort::new(ip, domain_with_port.port()))
         .collect());
 
-    #[inline]
     fn with_resolve_domain(
         request: &RequestParts<'_>,
         domain: &str,
@@ -443,7 +424,6 @@ pub(super) fn choose(
     Ok(chosen_ips)
 }
 
-#[inline]
 pub(super) fn judge(
     mut response: SyncResponse,
     retried: &RetriedStatsInfo,
@@ -457,7 +437,6 @@ pub(super) fn judge(
         _ => to_status_code_error(response, retried),
     };
 
-    #[inline]
     fn to_status_code_error(
         response: SyncResponse,
         retried: &RetriedStatsInfo,
@@ -473,7 +452,6 @@ pub(super) fn judge(
     }
 }
 
-#[inline]
 fn check_x_req_id(response: &mut SyncResponse, retried: &RetriedStatsInfo) -> ApiResult<()> {
     if response.x_req_id().is_some() {
         Ok(())
@@ -483,7 +461,6 @@ fn check_x_req_id(response: &mut SyncResponse, retried: &RetriedStatsInfo) -> Ap
     }
 }
 
-#[inline]
 #[cfg(feature = "async")]
 async fn async_check_x_req_id(
     response: &mut AsyncResponse,
@@ -498,7 +475,6 @@ async fn async_check_x_req_id(
     }
 }
 
-#[inline]
 fn make_malicious_response(parts: &ResponseParts, retried: &RetriedStatsInfo) -> ResponseError {
     ResponseError::new(
         ResponseErrorKind::MaliciousResponse,
@@ -508,7 +484,6 @@ fn make_malicious_response(parts: &ResponseParts, retried: &RetriedStatsInfo) ->
     .retried(retried)
 }
 
-#[inline]
 fn make_unexpected_status_code_error(
     parts: &ResponseParts,
     retried: &RetriedStatsInfo,
@@ -530,7 +505,6 @@ mod async_utils {
     use qiniu_http::AsyncRequest as AsyncHttpRequest;
     use std::future::Future;
 
-    #[inline]
     pub(in super::super) async fn sign_async_request(
         request: &mut AsyncHttpRequest<'_>,
         authorization: Option<&Authorization>,
@@ -545,7 +519,6 @@ mod async_utils {
         Ok(())
     }
 
-    #[inline]
     pub(in super::super) async fn async_resolve(
         parts: &RequestParts<'_>,
         domain_with_port: &DomainWithPort,
@@ -575,7 +548,6 @@ mod async_utils {
             .map(|&ip| IpAddrWithPort::new(ip, domain_with_port.port()))
             .collect());
 
-        #[inline]
         async fn with_resolve_domain<F: FnOnce() -> Fu, Fu: Future<Output = ResolveResult>>(
             parts: &RequestParts<'_>,
             domain: &str,
@@ -609,7 +581,6 @@ mod async_utils {
         Ok(chosen_ips)
     }
 
-    #[inline]
     pub(in super::super) async fn async_judge(
         mut response: AsyncResponse,
         retried: &RetriedStatsInfo,
@@ -625,7 +596,6 @@ mod async_utils {
             _ => to_status_code_error(response, retried).await,
         };
 
-        #[inline]
         async fn to_status_code_error(
             response: AsyncResponse,
             retried: &RetriedStatsInfo,

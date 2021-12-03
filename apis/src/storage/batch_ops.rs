@@ -19,7 +19,6 @@ impl RequestBody {
         self.extended_pairs.push((key.into(), Some(value.into())));
         self
     }
-    #[inline]
     fn build(
         self,
     ) -> Vec<(
@@ -61,7 +60,6 @@ impl RequestBody {
 #[doc = "获取 API 所用的响应体参数"]
 pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -90,7 +88,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
 #[doc = "每个管理指令的响应信息"]
 pub struct OperationResponse<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> OperationResponse<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -115,7 +112,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for OperationResponse<'a> {
     }
 }
 impl<'a> OperationResponse<'a> {
-    #[inline]
     #[doc = "获取 响应状态码"]
     pub fn get_code_as_i64(&self) -> i64 {
         self.0
@@ -128,7 +124,6 @@ impl<'a> OperationResponse<'a> {
     }
 }
 impl<'a> OperationResponse<'a> {
-    #[inline]
     #[doc = "设置 响应状态码"]
     pub fn set_code_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -140,7 +135,6 @@ impl<'a> OperationResponse<'a> {
     }
 }
 impl<'a> OperationResponse<'a> {
-    #[inline]
     #[doc = "获取 响应状态码"]
     pub fn get_code_as_u64(&self) -> u64 {
         self.0
@@ -153,7 +147,6 @@ impl<'a> OperationResponse<'a> {
     }
 }
 impl<'a> OperationResponse<'a> {
-    #[inline]
     #[doc = "设置 响应状态码"]
     pub fn set_code_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -169,7 +162,6 @@ impl<'a> OperationResponse<'a> {
 #[doc = "管理指令的响应数据"]
 pub struct OperationResponseData<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -194,7 +186,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 管理指令的错误信息，仅在发生错误时才返回"]
     pub fn get_error_as_str(&self) -> Option<&str> {
         self.0
@@ -204,7 +195,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 管理指令的错误信息，仅在发生错误时才返回"]
     pub fn set_error_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -218,7 +208,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 对象大小，单位为字节，仅对 stat 指令才有效"]
     pub fn get_size_as_i64(&self) -> Option<i64> {
         self.0
@@ -228,7 +217,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 对象大小，单位为字节，仅对 stat 指令才有效"]
     pub fn set_size_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -239,7 +227,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 对象大小，单位为字节，仅对 stat 指令才有效"]
     pub fn get_size_as_u64(&self) -> Option<u64> {
         self.0
@@ -249,7 +236,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 对象大小，单位为字节，仅对 stat 指令才有效"]
     pub fn set_size_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -260,7 +246,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 对象哈希值，仅对 stat 指令才有效"]
     pub fn get_hash_as_str(&self) -> Option<&str> {
         self.0
@@ -270,7 +255,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 对象哈希值，仅对 stat 指令才有效"]
     pub fn set_hash_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -284,7 +268,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 对象 MIME 类型，仅对 stat 指令才有效"]
     pub fn get_mime_type_as_str(&self) -> Option<&str> {
         self.0
@@ -294,7 +277,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 对象 MIME 类型，仅对 stat 指令才有效"]
     pub fn set_mime_type_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -308,7 +290,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储，仅对 stat 指令才有效"]
     pub fn get_type_as_i64(&self) -> Option<i64> {
         self.0
@@ -318,7 +299,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储，仅对 stat 指令才有效"]
     pub fn set_type_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -329,7 +309,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储，仅对 stat 指令才有效"]
     pub fn get_type_as_u64(&self) -> Option<u64> {
         self.0
@@ -339,7 +318,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储，仅对 stat 指令才有效"]
     pub fn set_type_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -350,7 +328,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒，仅对 stat 指令才有效"]
     pub fn get_put_time_as_i64(&self) -> Option<i64> {
         self.0
@@ -360,7 +337,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒，仅对 stat 指令才有效"]
     pub fn set_put_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -371,7 +347,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒，仅对 stat 指令才有效"]
     pub fn get_put_time_as_u64(&self) -> Option<u64> {
         self.0
@@ -381,7 +356,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒，仅对 stat 指令才有效"]
     pub fn set_put_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -392,7 +366,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 归档存储文件的解冻状态，`2` 表示解冻完成，`1` 表示解冻中；归档文件冻结时，不返回该字段，仅对 stat 指令才有效"]
     pub fn get_unfreezing_status_as_i64(&self) -> Option<i64> {
         self.0
@@ -402,7 +375,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 归档存储文件的解冻状态，`2` 表示解冻完成，`1` 表示解冻中；归档文件冻结时，不返回该字段，仅对 stat 指令才有效"]
     pub fn set_unfreezing_status_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -413,7 +385,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 归档存储文件的解冻状态，`2` 表示解冻完成，`1` 表示解冻中；归档文件冻结时，不返回该字段，仅对 stat 指令才有效"]
     pub fn get_unfreezing_status_as_u64(&self) -> Option<u64> {
         self.0
@@ -423,7 +394,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 归档存储文件的解冻状态，`2` 表示解冻完成，`1` 表示解冻中；归档文件冻结时，不返回该字段，仅对 stat 指令才有效"]
     pub fn set_unfreezing_status_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -434,7 +404,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 文件状态。`1` 表示禁用；只有禁用状态的文件才会返回该字段，仅对 stat 指令才有效"]
     pub fn get_status_as_i64(&self) -> Option<i64> {
         self.0
@@ -444,7 +413,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 文件状态。`1` 表示禁用；只有禁用状态的文件才会返回该字段，仅对 stat 指令才有效"]
     pub fn set_status_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -455,7 +423,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 文件状态。`1` 表示禁用；只有禁用状态的文件才会返回该字段，仅对 stat 指令才有效"]
     pub fn get_status_as_u64(&self) -> Option<u64> {
         self.0
@@ -465,7 +432,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 文件状态。`1` 表示禁用；只有禁用状态的文件才会返回该字段，仅对 stat 指令才有效"]
     pub fn set_status_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -476,7 +442,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 对象 MD5 值，只有通过直传文件和追加文件 API 上传的文件，服务端确保有该字段返回，仅对 stat 指令才有效"]
     pub fn get_md_5_as_str(&self) -> Option<&str> {
         self.0
@@ -486,7 +451,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 对象 MD5 值，只有通过直传文件和追加文件 API 上传的文件，服务端确保有该字段返回，仅对 stat 指令才有效"]
     pub fn set_md_5_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -500,7 +464,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 文件过期删除日期，UNIX 时间戳格式，文件在设置过期时间后才会返回该字段，仅对 stat 指令才有效"]
     pub fn get_expiration_time_as_i64(&self) -> Option<i64> {
         self.0
@@ -510,7 +473,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 文件过期删除日期，UNIX 时间戳格式，文件在设置过期时间后才会返回该字段，仅对 stat 指令才有效"]
     pub fn set_expiration_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -521,7 +483,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 文件过期删除日期，UNIX 时间戳格式，文件在设置过期时间后才会返回该字段，仅对 stat 指令才有效"]
     pub fn get_expiration_time_as_u64(&self) -> Option<u64> {
         self.0
@@ -531,7 +492,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 文件过期删除日期，UNIX 时间戳格式，文件在设置过期时间后才会返回该字段，仅对 stat 指令才有效"]
     pub fn set_expiration_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -542,7 +502,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 文件生命周期中转为低频存储的日期，UNIX 时间戳格式，文件在设置转低频后才会返回该字段，仅对 stat 指令才有效"]
     pub fn get_transition_to_ia_time_as_i64(&self) -> Option<i64> {
         self.0
@@ -552,7 +511,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 文件生命周期中转为低频存储的日期，UNIX 时间戳格式，文件在设置转低频后才会返回该字段，仅对 stat 指令才有效"]
     pub fn set_transition_to_ia_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -563,7 +521,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 文件生命周期中转为低频存储的日期，UNIX 时间戳格式，文件在设置转低频后才会返回该字段，仅对 stat 指令才有效"]
     pub fn get_transition_to_ia_time_as_u64(&self) -> Option<u64> {
         self.0
@@ -573,7 +530,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 文件生命周期中转为低频存储的日期，UNIX 时间戳格式，文件在设置转低频后才会返回该字段，仅对 stat 指令才有效"]
     pub fn set_transition_to_ia_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -584,7 +540,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段，仅对 stat 指令才有效"]
     pub fn get_transition_to_archive_time_as_i64(&self) -> Option<i64> {
         self.0
@@ -594,7 +549,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段，仅对 stat 指令才有效"]
     pub fn set_transition_to_archive_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -605,7 +559,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "获取 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段，仅对 stat 指令才有效"]
     pub fn get_transition_to_archive_time_as_u64(&self) -> Option<u64> {
         self.0
@@ -615,7 +568,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponseData<'a> {
-    #[inline]
     #[doc = "设置 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段，仅对 stat 指令才有效"]
     pub fn set_transition_to_archive_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -626,7 +578,6 @@ impl<'a> OperationResponseData<'a> {
     }
 }
 impl<'a> OperationResponse<'a> {
-    #[inline]
     #[doc = "获取 响应数据"]
     pub fn get_data(&self) -> OperationResponseData {
         OperationResponseData::new(std::borrow::Cow::Borrowed(
@@ -635,7 +586,6 @@ impl<'a> OperationResponse<'a> {
     }
 }
 impl<'a> OperationResponse<'a> {
-    #[inline]
     #[doc = "设置 响应数据"]
     pub fn set_data(&mut self, new: OperationResponseData) -> Option<OperationResponseData> {
         self.0
@@ -648,7 +598,6 @@ impl<'a> OperationResponse<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "解析 JSON 得到 OperationResponse 列表"]
     pub fn to_operation_response_vec(&self) -> Vec<OperationResponse> {
         self.0
@@ -673,17 +622,14 @@ impl<'a, 'b> From<&'a [OperationResponse<'a>]> for ResponseBody<'b> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     pub fn len(&self) -> usize {
         self.0.as_array().unwrap().len()
     }
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.as_array().unwrap().is_empty()
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "在列表的指定位置插入 JSON OperationResponse"]
     pub fn insert_operation_response(&mut self, index: usize, val: OperationResponse<'a>) {
         self.0
@@ -694,7 +640,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "在列表的指定位置移出 JSON OperationResponse"]
     pub fn remove_as_operation_response(&mut self, index: usize) -> OperationResponse {
         OperationResponse::new(std::borrow::Cow::Owned(
@@ -703,14 +648,12 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "在列表尾部追加 JSON OperationResponse"]
     pub fn push_operation_response(&mut self, val: OperationResponse<'a>) {
         self.0.to_mut().as_array_mut().unwrap().push(val.into());
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "在列表尾部取出 JSON OperationResponse"]
     pub fn pop_operation_response(&mut self) -> Option<OperationResponse> {
         self.0
@@ -725,7 +668,6 @@ impl<'a> ResponseBody<'a> {
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
-    #[inline]
     pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
         Self(http_client)
     }

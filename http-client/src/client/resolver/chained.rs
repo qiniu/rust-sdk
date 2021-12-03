@@ -20,7 +20,6 @@ impl ChainedResolver {
 }
 
 impl Resolver for ChainedResolver {
-    #[inline]
     fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
         let mut last_result: Option<ResolveResult> = None;
         for resolver in self.resolvers.iter() {
@@ -32,7 +31,6 @@ impl Resolver for ChainedResolver {
         last_result.unwrap_or_else(|| Err(no_try_error(opts)))
     }
 
-    #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_resolve<'a>(
@@ -53,7 +51,6 @@ impl Resolver for ChainedResolver {
     }
 }
 
-#[inline]
 fn no_try_error(opts: &ResolveOptions) -> ResponseError {
     let mut err = ResponseError::new(ResponseErrorKind::NoTry, "None resolver is tried");
     if let Some(retried) = opts.retried() {

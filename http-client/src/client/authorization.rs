@@ -65,7 +65,6 @@ impl Authorization {
         set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
         return Ok(());
 
-        #[inline]
         fn authorization_v1_for_request(
             credential: &Credential,
             request: &mut SyncRequest,
@@ -83,7 +82,6 @@ impl Authorization {
                 .map_err(|err| err.into())
         }
 
-        #[inline]
         fn authorization_v2_for_request(
             credential: &Credential,
             request: &mut SyncRequest,
@@ -129,7 +127,6 @@ impl Authorization {
         set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
         return Ok(());
 
-        #[inline]
         async fn authorization_v1_for_request(
             credential: &Credential,
             request: &mut AsyncRequest<'_>,
@@ -148,7 +145,6 @@ impl Authorization {
                 .map_err(|err| err.into())
         }
 
-        #[inline]
         async fn authorization_v2_for_request(
             credential: &Credential,
             request: &mut AsyncRequest<'_>,
@@ -170,12 +166,10 @@ impl Authorization {
     }
 }
 
-#[inline]
 fn set_authorization(request: &mut RequestParts, authorization: HeaderValue) {
     request.headers_mut().insert(AUTHORIZATION, authorization);
 }
 
-#[inline]
 fn uptoken_authorization(upload_token: &str) -> String {
     "UpToken ".to_owned() + upload_token
 }

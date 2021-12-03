@@ -148,7 +148,6 @@ mod tests {
         );
     }
 
-    #[inline]
     fn make_set(ips: impl AsRef<[IpAddrWithPort]>) -> HashSet<IpAddrWithPort> {
         HashSet::from_iter(ips.as_ref().iter().copied())
     }

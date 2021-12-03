@@ -12,7 +12,6 @@ pub(super) struct TryError {
 }
 
 impl TryError {
-    #[inline]
     pub(super) fn new(response_error: ResponseError, retry_result: RetryResult) -> Self {
         Self {
             response_error,
@@ -20,12 +19,10 @@ impl TryError {
         }
     }
 
-    #[inline]
     pub(super) fn response_error(&self) -> &ResponseError {
         &self.response_error
     }
 
-    #[inline]
     pub(super) fn feedback_response_error(&self) -> Option<&ResponseError> {
         match &self.response_error.kind() {
             ResponseErrorKind::HttpError(error_kind) => match error_kind {
@@ -49,17 +46,14 @@ impl TryError {
         }
     }
 
-    #[inline]
     pub(super) fn into_response_error(self) -> ResponseError {
         self.response_error
     }
 
-    #[inline]
     pub(super) fn retry_decision(&self) -> RetryDecision {
         self.retry_result.decision()
     }
 
-    #[inline]
     pub(super) fn with_extensions(self, extensions: Extensions) -> TryErrorWithExtensions {
         TryErrorWithExtensions {
             inner: self,
@@ -67,7 +61,6 @@ impl TryError {
         }
     }
 
-    #[inline]
     pub(super) fn with_request(self, request: &mut HttpRequestParts) -> TryErrorWithExtensions {
         self.with_extensions(take(request.extensions_mut()))
     }
@@ -80,17 +73,14 @@ pub(super) struct TryErrorWithExtensions {
 }
 
 impl TryErrorWithExtensions {
-    #[inline]
     pub(super) fn into_response_error(self) -> ResponseError {
         self.inner.into_response_error()
     }
 
-    #[inline]
     pub(super) fn retry_decision(&self) -> RetryDecision {
         self.inner.retry_decision()
     }
 
-    #[inline]
     pub(super) fn split(self) -> (TryError, Extensions) {
         (self.inner, self.extensions)
     }
@@ -102,7 +92,6 @@ pub(super) struct ErrorResponseBody {
 }
 
 impl ErrorResponseBody {
-    #[inline]
     pub(super) fn into_error(self) -> String {
         self.error
     }

@@ -383,7 +383,6 @@ impl MultipartFormDataRequestStruct {
                         self
                     }
 
-                    #[inline]
                     fn build(self) -> #multipart_type {
                         self.multipart
                     }

@@ -90,7 +90,6 @@ impl FormUrlencodedRequestStruct {
                         self
                     }
 
-                    #[inline]
                     fn build(
                         self,
                     ) -> Vec<(std::borrow::Cow<'static, str>, Option<std::borrow::Cow<'static, str>>)> {

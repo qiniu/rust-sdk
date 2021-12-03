@@ -13,7 +13,6 @@ impl PathParams {
         self.extended_segments.push(segment.into());
         self
     }
-    #[inline]
     fn build(self) -> Vec<std::borrow::Cow<'static, str>> {
         let mut all_segments: Vec<_> = Default::default();
         if let Some(segment) = self.r#bucket_name {
@@ -53,7 +52,6 @@ impl PathParams {
 #[doc = "获取 API 所用的响应体参数"]
 pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -78,7 +76,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 初始化文件生成的 id"]
     pub fn get_upload_id_as_str(&self) -> &str {
         self.0
@@ -91,7 +88,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 初始化文件生成的 id"]
     pub fn set_upload_id_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -106,7 +102,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn get_expired_at_as_i64(&self) -> i64 {
         self.0
@@ -119,7 +114,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn set_expired_at_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -131,7 +125,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn get_expired_at_as_u64(&self) -> u64 {
         self.0
@@ -144,7 +137,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn set_expired_at_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -158,7 +150,6 @@ impl<'a> ResponseBody<'a> {
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
-    #[inline]
     pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
         Self(http_client)
     }

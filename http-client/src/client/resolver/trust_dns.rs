@@ -123,7 +123,6 @@ mod tests {
         Ok(())
     }
 
-    #[inline]
     fn make_set(ips: impl AsRef<[IpAddr]>) -> HashSet<IpAddr> {
         let mut h = HashSet::new();
         h.extend(ips.as_ref());

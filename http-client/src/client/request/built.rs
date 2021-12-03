@@ -25,7 +25,6 @@ pub(in super::super) struct Request<'r, B: 'r, E: 'r> {
 }
 
 impl<'r, B: 'r, E: 'r> Request<'r, B, E> {
-    #[inline]
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         http_client: &'r HttpClient,
@@ -49,7 +48,6 @@ impl<'r, B: 'r, E: 'r> Request<'r, B, E> {
         }
     }
 
-    #[inline]
     pub(in super::super) fn split(self) -> (RequestParts<'r>, B, E, &'r [ServiceName], Extensions) {
         (
             RequestParts {
@@ -129,12 +127,10 @@ impl<'r> SimplifiedCallbackContext for RequestParts<'r> {
 }
 
 impl<'r> RequestParts<'r> {
-    #[inline]
     pub(in super::super) fn http_client(&self) -> &HttpClient {
         self.http_client
     }
 
-    #[inline]
     pub(in super::super) fn call_uploading_progress_callbacks(
         &self,
         context: &dyn SimplifiedCallbackContext,
@@ -148,7 +144,6 @@ impl<'r> RequestParts<'r> {
                 .call_uploading_progress_callbacks(context, progress_info)
     }
 
-    #[inline]
     pub(in super::super) fn uploading_progress_callbacks_count(&self) -> usize {
         self.callbacks.on_uploading_progress_callbacks().len()
             + self
@@ -158,7 +153,6 @@ impl<'r> RequestParts<'r> {
                 .len()
     }
 
-    #[inline]
     pub(in super::super) fn call_receive_response_status_callbacks(
         &self,
         context: &dyn SimplifiedCallbackContext,
@@ -172,7 +166,6 @@ impl<'r> RequestParts<'r> {
                 .call_receive_response_status_callbacks(context, status_code)
     }
 
-    #[inline]
     pub(in super::super) fn receive_response_status_callbacks_count(&self) -> usize {
         self.callbacks.on_receive_response_status_callbacks().len()
             + self
@@ -182,7 +175,6 @@ impl<'r> RequestParts<'r> {
                 .len()
     }
 
-    #[inline]
     pub(in super::super) fn call_receive_response_header_callbacks(
         &self,
         context: &dyn SimplifiedCallbackContext,
@@ -197,7 +189,6 @@ impl<'r> RequestParts<'r> {
                 .call_receive_response_header_callbacks(context, header_name, header_value)
     }
 
-    #[inline]
     pub(in super::super) fn receive_response_header_callbacks_count(&self) -> usize {
         self.callbacks.on_receive_response_header_callbacks().len()
             + self
@@ -207,7 +198,6 @@ impl<'r> RequestParts<'r> {
                 .len()
     }
 
-    #[inline]
     pub(in super::super) fn call_to_resolve_domain_callbacks(
         &self,
         context: &mut dyn CallbackContext,
@@ -221,7 +211,6 @@ impl<'r> RequestParts<'r> {
                 .call_to_resolve_domain_callbacks(context, domain)
     }
 
-    #[inline]
     pub(in super::super) fn call_domain_resolved_callbacks(
         &self,
         context: &mut dyn CallbackContext,
@@ -236,7 +225,6 @@ impl<'r> RequestParts<'r> {
                 .call_domain_resolved_callbacks(context, domain, answers)
     }
 
-    #[inline]
     pub(in super::super) fn call_to_choose_ips_callbacks(
         &self,
         context: &mut dyn CallbackContext,
@@ -249,7 +237,6 @@ impl<'r> RequestParts<'r> {
                 .call_to_choose_ips_callbacks(context, ips)
     }
 
-    #[inline]
     pub(in super::super) fn call_ips_chosen_callbacks(
         &self,
         context: &mut dyn CallbackContext,
@@ -264,7 +251,6 @@ impl<'r> RequestParts<'r> {
                 .call_ips_chosen_callbacks(context, ips, chosen)
     }
 
-    #[inline]
     pub(in super::super) fn call_before_request_signed_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -276,7 +262,6 @@ impl<'r> RequestParts<'r> {
                 .call_before_request_signed_callbacks(context)
     }
 
-    #[inline]
     pub(in super::super) fn call_after_request_signed_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -288,7 +273,6 @@ impl<'r> RequestParts<'r> {
                 .call_after_request_signed_callbacks(context)
     }
 
-    #[inline]
     pub(in super::super) fn call_success_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -301,7 +285,6 @@ impl<'r> RequestParts<'r> {
                 .call_success_callbacks(context, response)
     }
 
-    #[inline]
     pub(in super::super) fn call_error_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -314,7 +297,6 @@ impl<'r> RequestParts<'r> {
                 .call_error_callbacks(context, error)
     }
 
-    #[inline]
     pub(in super::super) fn call_before_backoff_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -327,7 +309,6 @@ impl<'r> RequestParts<'r> {
                 .call_before_backoff_callbacks(context, delay)
     }
 
-    #[inline]
     pub(in super::super) fn call_after_backoff_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,

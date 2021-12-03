@@ -118,7 +118,6 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         self
     }
 
-    #[inline]
     fn set_content_type(self, content_type: Option<Mime>) -> Self {
         self.set_header(
             CONTENT_TYPE,
@@ -142,7 +141,6 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         self.set_accept(APPLICATION_OCTET_STREAM)
     }
 
-    #[inline]
     fn set_accept(self, accept: Mime) -> Self {
         self.set_header(ACCEPT, HeaderValue::from_str(accept.as_ref()).unwrap())
     }
@@ -327,7 +325,6 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         self
     }
 
-    #[inline]
     fn get_appended_user_agent(&self) -> UserAgent {
         let mut appended_user_agent = self.http_client.appended_user_agent().to_owned();
         appended_user_agent.push_str(self.appended_user_agent.as_str());
@@ -414,7 +411,6 @@ impl<'r, E: EndpointsProvider + 'r> SyncRequestBuilder<'r, E> {
         request_call(self.build())
     }
 
-    #[inline]
     pub(in super::super) fn build(self) -> SyncRequest<'r, E> {
         let appended_user_agent = self.get_appended_user_agent();
         SyncRequest::new(
@@ -521,7 +517,6 @@ impl<'r, E: EndpointsProvider + 'r> AsyncRequestBuilder<'r, E> {
         async_request_call(self.build()).await
     }
 
-    #[inline]
     pub(in super::super) fn build(self) -> AsyncRequest<'r, E> {
         let appended_user_agent = self.get_appended_user_agent();
         AsyncRequest::new(

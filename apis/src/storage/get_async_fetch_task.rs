@@ -10,7 +10,7 @@ pub struct QueryParams<'a> {
 }
 impl<'a> QueryParams<'a> {
     #[inline]
-    fn insert(
+    pub fn insert(
         mut self,
         query_pair_key: qiniu_http_client::QueryPairKey<'a>,
         query_pair_value: qiniu_http_client::QueryPairValue<'a>,
@@ -18,7 +18,6 @@ impl<'a> QueryParams<'a> {
         self.map.insert(query_pair_key, query_pair_value);
         self
     }
-    #[inline]
     fn build(self) -> qiniu_http_client::QueryPairs<'a> {
         qiniu_http_client::QueryPairs::from_iter(self.map)
     }
@@ -41,7 +40,6 @@ impl<'a> QueryParams<'a> {
 #[doc = "获取 API 所用的响应体参数"]
 pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -66,7 +64,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 异步任务 ID"]
     pub fn get_id_as_str(&self) -> &str {
         self.0
@@ -79,7 +76,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 异步任务 ID"]
     pub fn set_id_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -94,7 +90,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
     pub fn get_queued_tasks_count_as_i64(&self) -> i64 {
         self.0
@@ -107,7 +102,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
     pub fn set_queued_tasks_count_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -119,7 +113,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
     pub fn get_queued_tasks_count_as_u64(&self) -> u64 {
         self.0
@@ -132,7 +125,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
     pub fn set_queued_tasks_count_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -146,7 +138,6 @@ impl<'a> ResponseBody<'a> {
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
-    #[inline]
     pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
         Self(http_client)
     }

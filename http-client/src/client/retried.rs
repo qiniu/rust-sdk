@@ -11,37 +11,31 @@ pub struct RetriedStatsInfo {
 }
 
 impl RetriedStatsInfo {
-    #[inline]
     pub(super) fn increase(&mut self) {
         self.retried_total += 1;
         self.retried_on_current_endpoint += 1;
         self.retried_on_current_ips += 1;
     }
 
-    #[inline]
     pub(super) fn increase_abandoned_endpoints(&mut self) {
         self.abandoned_endpoints += 1;
     }
 
-    #[inline]
     pub(super) fn increase_abandoned_ips_of_current_endpoint(&mut self) {
         self.abandoned_ips_of_current_endpoint += 1;
     }
 
-    #[inline]
     pub(super) fn switch_to_alternative_endpoints(&mut self) {
         self.switched_to_alternative_endpoints = true;
         self.switch_endpoint();
     }
 
-    #[inline]
     pub(super) fn switch_endpoint(&mut self) {
         self.retried_on_current_endpoint = 0;
         self.abandoned_ips_of_current_endpoint = 0;
         self.switch_ips();
     }
 
-    #[inline]
     pub(super) fn switch_ips(&mut self) {
         self.retried_on_current_ips = 0;
     }

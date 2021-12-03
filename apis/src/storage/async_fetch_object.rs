@@ -5,7 +5,6 @@
 #[doc = "调用 API 所用的请求体参数"]
 pub struct RequestBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -30,7 +29,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 需要抓取的 URL，支持设置多个用于高可用，以’;'分隔，当指定多个 URL 时可以在前一个 URL 抓取失败时重试下一个"]
     pub fn get_body_as_str(&self) -> &str {
         self.0
@@ -43,7 +41,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 需要抓取的 URL，支持设置多个用于高可用，以’;'分隔，当指定多个 URL 时可以在前一个 URL 抓取失败时重试下一个"]
     pub fn set_body_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -58,7 +55,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 所在区域的存储空间"]
     pub fn get_bucket_as_str(&self) -> &str {
         self.0
@@ -71,7 +67,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 所在区域的存储空间"]
     pub fn set_bucket_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -86,7 +81,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 从指定 URL 下载数据时使用的 Host"]
     pub fn get_host_as_str(&self) -> Option<&str> {
         self.0
@@ -96,7 +90,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 从指定 URL 下载数据时使用的 Host"]
     pub fn set_host_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -110,7 +103,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 对象名称，如果不传，则默认为文件的哈希值"]
     pub fn get_key_as_str(&self) -> Option<&str> {
         self.0
@@ -120,7 +112,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 对象名称，如果不传，则默认为文件的哈希值"]
     pub fn set_key_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -134,7 +125,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 对象内容的 ETag，传入以后会在存入存储时对文件做校验，校验失败则不存入指定空间"]
     pub fn get_etag_as_str(&self) -> Option<&str> {
         self.0
@@ -144,7 +134,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 对象内容的 ETag，传入以后会在存入存储时对文件做校验，校验失败则不存入指定空间"]
     pub fn set_etag_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -158,7 +147,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 回调 URL"]
     pub fn get_callback_url_as_str(&self) -> Option<&str> {
         self.0
@@ -168,7 +156,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 回调 URL"]
     pub fn set_callback_url_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -182,7 +169,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 回调负荷，如果 callback_url 不为空则必须指定"]
     pub fn get_callback_body_as_str(&self) -> Option<&str> {
         self.0
@@ -192,7 +178,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 回调负荷，如果 callback_url 不为空则必须指定"]
     pub fn set_callback_body_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -206,7 +191,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 回调负荷内容类型，默认为 \"application/x-www-form-urlencoded\""]
     pub fn get_callback_body_type_as_str(&self) -> Option<&str> {
         self.0
@@ -216,7 +200,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 回调负荷内容类型，默认为 \"application/x-www-form-urlencoded\""]
     pub fn set_callback_body_type_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -230,7 +213,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 回调时使用的 Host"]
     pub fn get_callback_host_as_str(&self) -> Option<&str> {
         self.0
@@ -240,7 +222,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 回调时使用的 Host"]
     pub fn set_callback_host_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -254,7 +235,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 存储文件类型 `0`: 标准存储(默认)，`1`: 低频存储，`2`: 归档存储"]
     pub fn get_file_type_as_i64(&self) -> Option<i64> {
         self.0
@@ -264,7 +244,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 存储文件类型 `0`: 标准存储(默认)，`1`: 低频存储，`2`: 归档存储"]
     pub fn set_file_type_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -275,7 +254,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 存储文件类型 `0`: 标准存储(默认)，`1`: 低频存储，`2`: 归档存储"]
     pub fn get_file_type_as_u64(&self) -> Option<u64> {
         self.0
@@ -285,7 +263,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 存储文件类型 `0`: 标准存储(默认)，`1`: 低频存储，`2`: 归档存储"]
     pub fn set_file_type_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -296,7 +273,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 如果空间中已经存在同名文件则放弃本次抓取（仅对比对象名称，不校验文件内容）"]
     pub fn get_ignore_same_key_as_bool(&self) -> Option<bool> {
         self.0
@@ -306,7 +282,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 如果空间中已经存在同名文件则放弃本次抓取（仅对比对象名称，不校验文件内容）"]
     pub fn set_ignore_same_key_as_bool(&mut self, new: bool) -> Option<bool> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -321,7 +296,6 @@ impl<'a> RequestBody<'a> {
 #[doc = "获取 API 所用的响应体参数"]
 pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -346,7 +320,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 异步任务 ID"]
     pub fn get_id_as_str(&self) -> &str {
         self.0
@@ -359,7 +332,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 异步任务 ID"]
     pub fn set_id_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -374,7 +346,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
     pub fn get_queued_tasks_count_as_i64(&self) -> i64 {
         self.0
@@ -387,7 +358,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
     pub fn set_queued_tasks_count_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -399,7 +369,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
     pub fn get_queued_tasks_count_as_u64(&self) -> u64 {
         self.0
@@ -412,7 +381,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
     pub fn set_queued_tasks_count_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -426,7 +394,6 @@ impl<'a> ResponseBody<'a> {
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
-    #[inline]
     pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
         Self(http_client)
     }

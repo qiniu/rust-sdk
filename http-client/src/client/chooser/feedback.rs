@@ -11,7 +11,6 @@ pub struct ChooserFeedback<'f> {
 }
 
 impl<'f> ChooserFeedback<'f> {
-    #[inline]
     pub(in super::super::super) fn new(
         ips: &'f [IpAddrWithPort],
         retried: &'f RetriedStatsInfo,

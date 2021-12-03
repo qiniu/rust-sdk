@@ -150,7 +150,7 @@ impl QueryNames {
 
                 impl<'a> #name<'a> {
                     #[inline]
-                    fn insert(
+                    pub fn insert(
                         mut self,
                         query_pair_key: qiniu_http_client::QueryPairKey<'a>,
                         query_pair_value: qiniu_http_client::QueryPairValue<'a>,
@@ -159,7 +159,6 @@ impl QueryNames {
                         self
                      }
 
-                    #[inline]
                     fn build(self) -> qiniu_http_client::QueryPairs<'a> {
                         qiniu_http_client::QueryPairs::from_iter(self.map)
                     }

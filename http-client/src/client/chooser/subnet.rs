@@ -76,7 +76,6 @@ impl SubnetChooser {
 }
 
 impl Chooser for SubnetChooser {
-    #[inline]
     fn choose(&self, ips: &[IpAddrWithPort], _opts: &ChooseOptions) -> ChosenResults {
         let mut need_to_shrink = false;
         let mut subnets_map: HashMap<Subnet, Vec<IpAddrWithPort>> = Default::default();
@@ -106,7 +105,6 @@ impl Chooser for SubnetChooser {
 
         /// For production, choose any subnet by random
         #[cfg(not(test))]
-        #[inline]
         fn choose_group(
             iter: impl Iterator<Item = Vec<IpAddrWithPort>>,
         ) -> Option<Vec<IpAddrWithPort>> {
@@ -117,7 +115,6 @@ impl Chooser for SubnetChooser {
 
         /// For Test cases, always choose the biggest subnet
         #[cfg(test)]
-        #[inline]
         fn choose_group(
             iter: impl Iterator<Item = Vec<IpAddrWithPort>>,
         ) -> Option<Vec<IpAddrWithPort>> {
@@ -163,18 +160,15 @@ impl SubnetChooser {
         };
         return Subnet(IpAddrWithPort::new(subnet, addr.port()));
 
-        #[inline]
         fn get_network_address_of_ipv4_addr(addr: Ipv4Addr, prefix: u8) -> Ipv4Addr {
             Ipv4Net::new(addr, prefix).unwrap().network()
         }
 
-        #[inline]
         fn get_network_address_of_ipv6_addr(addr: Ipv6Addr, prefix: u8) -> Ipv6Addr {
             Ipv6Net::new(addr, prefix).unwrap().network()
         }
     }
 
-    #[inline]
     #[allow(dead_code)]
     fn len(&self) -> usize {
         self.inner.blacklist.len()
@@ -202,7 +196,6 @@ fn do_some_work_async(inner: &Arc<SubnetChooserInner>, need_to_shrink: bool) {
 
     return;
 
-    #[inline]
     fn is_time_to_shrink(inner: &Arc<SubnetChooserInner>) -> bool {
         if let Ok(locked_data) = inner.lock.try_lock() {
             _is_time_to_shrink(inner.shrink_interval, &*locked_data)
@@ -211,7 +204,6 @@ fn do_some_work_async(inner: &Arc<SubnetChooserInner>, need_to_shrink: bool) {
         }
     }
 
-    #[inline]
     fn is_time_to_shrink_mut(inner: &Arc<SubnetChooserInner>) -> bool {
         if let Ok(mut locked_data) = inner.lock.try_lock() {
             if _is_time_to_shrink(inner.shrink_interval, &*locked_data) {
@@ -222,12 +214,10 @@ fn do_some_work_async(inner: &Arc<SubnetChooserInner>, need_to_shrink: bool) {
         false
     }
 
-    #[inline]
     fn _is_time_to_shrink(shrink_interval: Duration, locked_data: &LockedData) -> bool {
         locked_data.last_shrink_at.elapsed() >= shrink_interval
     }
 
-    #[inline]
     fn shrink_cache(blacklist: &Blacklist, block_duration: Duration) {
         let old_size = blacklist.len();
         blacklist.retain(|_, value| value.blocked_at.elapsed() < block_duration);

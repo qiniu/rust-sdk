@@ -14,7 +14,6 @@ impl PathParams {
         self.extended_segments.push(segment.into());
         self
     }
-    #[inline]
     fn build(self) -> Vec<std::borrow::Cow<'static, str>> {
         let mut all_segments: Vec<_> = Default::default();
         if let Some(segment) = self.r#bucket_name {
@@ -72,7 +71,7 @@ pub struct QueryParams<'a> {
 }
 impl<'a> QueryParams<'a> {
     #[inline]
-    fn insert(
+    pub fn insert(
         mut self,
         query_pair_key: qiniu_http_client::QueryPairKey<'a>,
         query_pair_value: qiniu_http_client::QueryPairValue<'a>,
@@ -80,7 +79,6 @@ impl<'a> QueryParams<'a> {
         self.map.insert(query_pair_key, query_pair_value);
         self
     }
-    #[inline]
     fn build(self) -> qiniu_http_client::QueryPairs<'a> {
         qiniu_http_client::QueryPairs::from_iter(self.map)
     }
@@ -258,7 +256,6 @@ impl<'a> QueryParams<'a> {
 #[doc = "获取 API 所用的响应体参数"]
 pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -283,7 +280,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 在服务端申请的 Multipart Upload 任务 id"]
     pub fn get_upload_id_as_str(&self) -> &str {
         self.0
@@ -296,7 +292,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 在服务端申请的 Multipart Upload 任务 id"]
     pub fn set_upload_id_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -311,7 +306,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn get_expired_at_as_i64(&self) -> i64 {
         self.0
@@ -324,7 +318,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn set_expired_at_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -336,7 +329,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn get_expired_at_as_u64(&self) -> u64 {
         self.0
@@ -349,7 +341,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn set_expired_at_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -361,7 +352,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 下次继续列举的起始位置，0 表示列举结束，没有更多分片"]
     pub fn get_part_number_marker_as_i64(&self) -> i64 {
         self.0
@@ -374,7 +364,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 下次继续列举的起始位置，0 表示列举结束，没有更多分片"]
     pub fn set_part_number_marker_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -386,7 +375,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 下次继续列举的起始位置，0 表示列举结束，没有更多分片"]
     pub fn get_part_number_marker_as_u64(&self) -> u64 {
         self.0
@@ -399,7 +387,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 下次继续列举的起始位置，0 表示列举结束，没有更多分片"]
     pub fn set_part_number_marker_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -415,7 +402,6 @@ impl<'a> ResponseBody<'a> {
 #[doc = "所有已经上传的分片信息"]
 pub struct ListedParts<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ListedParts<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -444,7 +430,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ListedParts<'a> {
 #[doc = "单个已经上传的分片信息"]
 pub struct ListedPartInfo<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -469,7 +454,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "获取 分片大小"]
     pub fn get_size_as_i64(&self) -> i64 {
         self.0
@@ -482,7 +466,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "设置 分片大小"]
     pub fn set_size_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -494,7 +477,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "获取 分片大小"]
     pub fn get_size_as_u64(&self) -> u64 {
         self.0
@@ -507,7 +489,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "设置 分片大小"]
     pub fn set_size_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -519,7 +500,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "获取 分片内容的 etag"]
     pub fn get_etag_as_str(&self) -> &str {
         self.0
@@ -532,7 +512,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "设置 分片内容的 etag"]
     pub fn set_etag_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -547,7 +526,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "获取 每一个上传的分片都有一个标识它的号码"]
     pub fn get_part_number_as_i64(&self) -> i64 {
         self.0
@@ -560,7 +538,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "设置 每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -572,7 +549,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "获取 每一个上传的分片都有一个标识它的号码"]
     pub fn get_part_number_as_u64(&self) -> u64 {
         self.0
@@ -585,7 +561,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "设置 每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -597,7 +572,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "获取 分片上传时间 UNIX 时间戳"]
     pub fn get_put_time_as_i64(&self) -> i64 {
         self.0
@@ -610,7 +584,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "设置 分片上传时间 UNIX 时间戳"]
     pub fn set_put_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -622,7 +595,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "获取 分片上传时间 UNIX 时间戳"]
     pub fn get_put_time_as_u64(&self) -> u64 {
         self.0
@@ -635,7 +607,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedPartInfo<'a> {
-    #[inline]
     #[doc = "设置 分片上传时间 UNIX 时间戳"]
     pub fn set_put_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -647,7 +618,6 @@ impl<'a> ListedPartInfo<'a> {
     }
 }
 impl<'a> ListedParts<'a> {
-    #[inline]
     #[doc = "解析 JSON 得到 ListedPartInfo 列表"]
     pub fn to_listed_part_info_vec(&self) -> Vec<ListedPartInfo> {
         self.0
@@ -672,17 +642,14 @@ impl<'a, 'b> From<&'a [ListedPartInfo<'a>]> for ListedParts<'b> {
     }
 }
 impl<'a> ListedParts<'a> {
-    #[inline]
     pub fn len(&self) -> usize {
         self.0.as_array().unwrap().len()
     }
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.as_array().unwrap().is_empty()
     }
 }
 impl<'a> ListedParts<'a> {
-    #[inline]
     #[doc = "在列表的指定位置插入 JSON ListedPartInfo"]
     pub fn insert_listed_part_info(&mut self, index: usize, val: ListedPartInfo<'a>) {
         self.0
@@ -693,7 +660,6 @@ impl<'a> ListedParts<'a> {
     }
 }
 impl<'a> ListedParts<'a> {
-    #[inline]
     #[doc = "在列表的指定位置移出 JSON ListedPartInfo"]
     pub fn remove_as_listed_part_info(&mut self, index: usize) -> ListedPartInfo {
         ListedPartInfo::new(std::borrow::Cow::Owned(
@@ -702,14 +668,12 @@ impl<'a> ListedParts<'a> {
     }
 }
 impl<'a> ListedParts<'a> {
-    #[inline]
     #[doc = "在列表尾部追加 JSON ListedPartInfo"]
     pub fn push_listed_part_info(&mut self, val: ListedPartInfo<'a>) {
         self.0.to_mut().as_array_mut().unwrap().push(val.into());
     }
 }
 impl<'a> ListedParts<'a> {
-    #[inline]
     #[doc = "在列表尾部取出 JSON ListedPartInfo"]
     pub fn pop_listed_part_info(&mut self) -> Option<ListedPartInfo> {
         self.0
@@ -722,7 +686,6 @@ impl<'a> ListedParts<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 返回所有已经上传成功的分片信息"]
     pub fn get_parts(&self) -> ListedParts {
         ListedParts::new(std::borrow::Cow::Borrowed(
@@ -731,7 +694,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 返回所有已经上传成功的分片信息"]
     pub fn set_parts(&mut self, new: ListedParts) -> Option<ListedParts> {
         self.0
@@ -746,7 +708,6 @@ impl<'a> ResponseBody<'a> {
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
-    #[inline]
     pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
         Self(http_client)
     }

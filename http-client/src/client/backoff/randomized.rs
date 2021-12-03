@@ -39,7 +39,6 @@ impl<P> RandomizedBackoff<P> {
 }
 
 impl<P: Backoff> Backoff for RandomizedBackoff<P> {
-    #[inline]
     fn time(&self, request: &mut HttpRequestParts, opts: &BackoffOptions) -> BackoffDuration {
         let duration = self.base_backoff().time(request, opts).duration();
         let minification: Ratio<u128> = Ratio::new_raw(

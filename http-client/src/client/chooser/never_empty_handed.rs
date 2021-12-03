@@ -33,7 +33,6 @@ impl<C: Default> Default for NeverEmptyHandedChooser<C> {
 }
 
 impl<C: Chooser> Chooser for NeverEmptyHandedChooser<C> {
-    #[inline]
     fn choose(&self, ips: &[IpAddrWithPort], opts: &ChooseOptions) -> ChosenResults {
         let chosen = self.inner_chooser.choose(ips, opts);
         if chosen.is_empty() {
@@ -48,7 +47,6 @@ impl<C: Chooser> Chooser for NeverEmptyHandedChooser<C> {
         self.inner_chooser.feedback(feedback)
     }
 
-    #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_choose<'a>(
@@ -75,7 +73,6 @@ impl<C: Chooser> Chooser for NeverEmptyHandedChooser<C> {
 }
 
 impl<C> NeverEmptyHandedChooser<C> {
-    #[inline]
     fn random_choose(&self, ips: &[IpAddrWithPort]) -> Vec<IpAddrWithPort> {
         let chosen_len = (self.random_choose_ratio * ips.len()).ceil().to_integer();
         ips.choose_multiple(&mut thread_rng(), chosen_len)

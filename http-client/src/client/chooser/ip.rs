@@ -64,7 +64,6 @@ impl IpChooser {
 }
 
 impl Chooser for IpChooser {
-    #[inline]
     fn choose(&self, ips: &[IpAddrWithPort], _opts: &ChooseOptions) -> ChosenResults {
         let mut need_to_shrink = false;
         let filtered_ips: Vec<_> = ips
@@ -104,7 +103,6 @@ impl Chooser for IpChooser {
 }
 
 impl IpChooser {
-    #[inline]
     #[allow(dead_code)]
     fn len(&self) -> usize {
         self.inner.blacklist.len()
@@ -132,7 +130,6 @@ fn do_some_work_async(inner: &Arc<IpChooserInner>, need_to_shrink: bool) {
 
     return;
 
-    #[inline]
     fn is_time_to_shrink(inner: &Arc<IpChooserInner>) -> bool {
         if let Ok(locked_data) = inner.lock.try_lock() {
             _is_time_to_shrink(inner.shrink_interval, &*locked_data)
@@ -141,7 +138,6 @@ fn do_some_work_async(inner: &Arc<IpChooserInner>, need_to_shrink: bool) {
         }
     }
 
-    #[inline]
     fn is_time_to_shrink_mut(inner: &Arc<IpChooserInner>) -> bool {
         if let Ok(mut locked_data) = inner.lock.try_lock() {
             if _is_time_to_shrink(inner.shrink_interval, &*locked_data) {
@@ -152,12 +148,10 @@ fn do_some_work_async(inner: &Arc<IpChooserInner>, need_to_shrink: bool) {
         false
     }
 
-    #[inline]
     fn _is_time_to_shrink(shrink_interval: Duration, locked_data: &LockedData) -> bool {
         locked_data.last_shrink_at.elapsed() >= shrink_interval
     }
 
-    #[inline]
     fn shrink_cache(blacklist: &Blacklist, block_duration: Duration) {
         let old_size = blacklist.len();
         blacklist.retain(|_, value| value.blocked_at.elapsed() < block_duration);

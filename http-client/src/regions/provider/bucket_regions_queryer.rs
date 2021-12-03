@@ -39,7 +39,6 @@ impl BucketRegionsQueryer {
         BucketRegionsQueryerBuilder::new()
     }
 
-    #[inline]
     pub fn query(
         &self,
         access_key: impl Into<AccessKey>,
@@ -109,7 +108,6 @@ impl BucketRegionsQueryerBuilder {
         self
     }
 
-    #[inline]
     pub fn load_or_create_from(
         &mut self,
         path: impl AsRef<Path>,
@@ -131,6 +129,10 @@ impl BucketRegionsQueryerBuilder {
     }
 
     #[inline]
+    pub fn build(&mut self) -> BucketRegionsQueryer {
+        self.default_load_or_create_from(true)
+    }
+
     pub fn default_load_or_create_from(&mut self, auto_persistent: bool) -> BucketRegionsQueryer {
         let owned = take(self);
         BucketRegionsQueryer {
@@ -146,7 +148,6 @@ impl BucketRegionsQueryerBuilder {
         }
     }
 
-    #[inline]
     pub fn in_memory(&mut self) -> BucketRegionsQueryer {
         let owned = take(self);
         BucketRegionsQueryer {

@@ -170,7 +170,6 @@ impl HttpCaller for Client {
     }
 }
 
-#[inline]
 fn make_user_agent(request: &RequestParts) -> Result<HeaderValue, ResponseError> {
     HeaderValue::from_str(&format!(
         "{}/qiniu-http-{}",
@@ -235,7 +234,6 @@ fn make_async_response(
     Ok(response_builder.build())
 }
 
-#[inline]
 fn call_response_callbacks<ReqBody, RespBody>(
     request: &Request<ReqBody>,
     response: &IsahcResponse<RespBody>,
@@ -265,7 +263,6 @@ fn call_response_callbacks<ReqBody, RespBody>(
     Ok(())
 }
 
-#[inline]
 fn should_retry(err: &IsahcError) -> bool {
     err.kind() == IsahcErrorKind::ConnectionFailed
         || err.kind() == IsahcErrorKind::BadClientCertificate
@@ -481,7 +478,6 @@ fn make_async_isahc_request(
     }
 }
 
-#[inline]
 fn add_extensions_to_isahc_request_builder(
     request: &RequestParts,
     ip_addr: Option<IpAddr>,
@@ -636,7 +632,6 @@ fn add_extensions_to_isahc_request_builder(
 
     return Ok(isahc_request_builder);
 
-    #[inline]
     fn extract_port_for_uri(uri: &Uri) -> Result<u16, ResponseError> {
         const INVALID_URL: ResponseErrorKind = ResponseErrorKind::InvalidUrl;
         uri.port_u16().map(Ok).unwrap_or_else(|| {
@@ -655,7 +650,6 @@ fn add_extensions_to_isahc_request_builder(
     }
 }
 
-#[inline]
 fn from_isahc_error(err: IsahcError, request: &RequestParts) -> ResponseError {
     let error_builder = match err.kind() {
         IsahcErrorKind::BadClientCertificate => {

@@ -59,6 +59,8 @@ pub struct Error {
     retried: Option<RetriedStatsInfo>,
 }
 
+const RESPONSE_BODY_SAMPLE_LEN_LIMIT: u64 = 1024;
+
 impl Error {
     /// 创建 HTTP 响应错误
     #[inline]
@@ -92,7 +94,7 @@ impl Error {
 
     #[inline]
     pub fn read_response_body_sample<R: Read>(mut self, body: R) -> IOResult<Self> {
-        body.take(1024)
+        body.take(RESPONSE_BODY_SAMPLE_LEN_LIMIT)
             .read_to_end(&mut self.response_body_sample)?;
         Ok(self)
     }
@@ -103,7 +105,7 @@ impl Error {
         mut self,
         body: R,
     ) -> IOResult<Self> {
-        body.take(1024)
+        body.take(RESPONSE_BODY_SAMPLE_LEN_LIMIT)
             .read_to_end(&mut self.response_body_sample)
             .await?;
         Ok(self)
@@ -145,7 +147,6 @@ impl Error {
         self.x_headers.x_reqid.as_ref()
     }
 
-    #[inline]
     pub(in super::super) fn from_http_response_error(
         mut err: HttpResponseError,
         x_headers: XHeaders,
@@ -161,6 +162,13 @@ impl Error {
             response_body_sample: Default::default(),
             retried: Default::default(),
         }
+    }
+
+    pub(crate) fn from_endpoint_parse_error(
+        error: EndpointParseError,
+        parts: &HttpResponseParts,
+    ) -> Self {
+        Self::new(ErrorKind::ParseResponseError, error).response_parts(parts)
     }
 }
 
@@ -180,21 +188,18 @@ impl From<&HttpResponseParts> for XHeaders {
     }
 }
 
-#[inline]
 fn extract_x_log_from_response_parts(parts: &HttpResponseParts) -> Option<HeaderValue> {
     parts
         .header(HeaderName::from_static(X_LOG_HEADER_NAME))
         .cloned()
 }
 
-#[inline]
 fn extract_x_reqid_from_response_parts(parts: &HttpResponseParts) -> Option<HeaderValue> {
     parts
         .header(HeaderName::from_static(X_REQ_ID_HEADER_NAME))
         .cloned()
 }
 
-#[inline]
 fn extract_metrics_from_response_parts(
     parts: &HttpResponseParts,
 ) -> Option<Box<dyn Metrics + 'static>> {
@@ -205,17 +210,16 @@ fn extract_metrics_from_response_parts(
 }
 
 impl fmt::Display for Error {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "[{:?}]", self.kind)?;
         if let Some(retried) = self.retried.as_ref() {
             write!(f, "[{}]", retried)?;
         }
         if let Some(x_reqid) = self.x_headers.x_reqid.as_ref() {
-            write!(f, "[reqid={:?}]", x_reqid)?;
+            write!(f, "[{:?}]", x_reqid)?;
         }
         if let Some(x_log) = self.x_headers.x_log.as_ref() {
-            write!(f, "[log={:?}]", x_log)?;
+            write!(f, "[{:?}]", x_log)?;
         }
         write!(f, " {}", self.error)?;
         if !self.response_body_sample.is_empty() {
@@ -250,16 +254,6 @@ impl From<HttpResponseErrorKind> for ErrorKind {
     }
 }
 
-impl Error {
-    #[inline]
-    pub(crate) fn from_endpoint_parse_error(
-        error: EndpointParseError,
-        parts: &HttpResponseParts,
-    ) -> Self {
-        Self::new(ErrorKind::ParseResponseError, error).response_parts(parts)
-    }
-}
-
 #[derive(Clone, Debug)]
 struct ClonedMetrics {
     total_duration: Option<Duration>,
@@ -271,7 +265,6 @@ struct ClonedMetrics {
 }
 
 impl ClonedMetrics {
-    #[inline]
     fn new(metrics: &dyn Metrics) -> Self {
         Self {
             total_duration: metrics.total_duration(),

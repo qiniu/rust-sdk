@@ -12,7 +12,6 @@ pub(super) struct ResponseBody {
 }
 
 impl ResponseBody {
-    #[inline]
     pub(super) fn into_hosts(self) -> Vec<RegionResponseBody> {
         self.hosts
     }

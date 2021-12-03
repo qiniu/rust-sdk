@@ -92,7 +92,6 @@ pub(super) fn try_domain_or_ip_addr(
     }
 }
 
-#[inline]
 fn make_positive_feedback<'f>(
     ips: &'f [IpAddrWithPort],
     parts: &'f mut HttpRequestParts,
@@ -102,7 +101,6 @@ fn make_positive_feedback<'f>(
     ChooserFeedback::new(ips, retried, parts.extensions_mut(), metrics, None)
 }
 
-#[inline]
 fn make_negative_feedback<'f>(
     ips: &'f [IpAddrWithPort],
     parts: &'f mut HttpRequestParts,

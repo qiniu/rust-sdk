@@ -10,7 +10,7 @@ pub struct QueryParams<'a> {
 }
 impl<'a> QueryParams<'a> {
     #[inline]
-    fn insert(
+    pub fn insert(
         mut self,
         query_pair_key: qiniu_http_client::QueryPairKey<'a>,
         query_pair_value: qiniu_http_client::QueryPairValue<'a>,
@@ -18,7 +18,6 @@ impl<'a> QueryParams<'a> {
         self.map.insert(query_pair_key, query_pair_value);
         self
     }
-    #[inline]
     fn build(self) -> qiniu_http_client::QueryPairs<'a> {
         qiniu_http_client::QueryPairs::from_iter(self.map)
     }
@@ -73,7 +72,6 @@ impl<'a> QueryParams<'a> {
 #[doc = "获取 API 所用的响应体参数"]
 pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -98,7 +96,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 有剩余条目则返回非空字符串，作为下一次列举的参数传入，如果没有剩余条目则返回空字符串"]
     pub fn get_marker_as_str(&self) -> Option<&str> {
         self.0
@@ -108,7 +105,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 有剩余条目则返回非空字符串，作为下一次列举的参数传入，如果没有剩余条目则返回空字符串"]
     pub fn set_marker_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -126,7 +122,6 @@ impl<'a> ResponseBody<'a> {
 #[doc = "公共前缀的数组"]
 pub struct CommonPrefixes<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> CommonPrefixes<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -151,7 +146,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for CommonPrefixes<'a> {
     }
 }
 impl<'a> CommonPrefixes<'a> {
-    #[inline]
     #[doc = "解析 JSON 得到 String 列表"]
     pub fn to_str_vec(&self) -> Vec<&str> {
         self.0
@@ -175,17 +169,14 @@ impl<'a, 'b> From<&'a [String]> for CommonPrefixes<'b> {
     }
 }
 impl<'a> CommonPrefixes<'a> {
-    #[inline]
     pub fn len(&self) -> usize {
         self.0.as_array().unwrap().len()
     }
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.as_array().unwrap().is_empty()
     }
 }
 impl<'a> CommonPrefixes<'a> {
-    #[inline]
     #[doc = "在列表的指定位置插入 JSON String"]
     pub fn insert_str(&mut self, index: usize, val: String) {
         self.0
@@ -196,7 +187,6 @@ impl<'a> CommonPrefixes<'a> {
     }
 }
 impl<'a> CommonPrefixes<'a> {
-    #[inline]
     #[doc = "在列表的指定位置移出 JSON String"]
     pub fn remove_as_str(&mut self, index: usize) -> Option<String> {
         match self.0.to_mut().as_array_mut().unwrap().remove(index) {
@@ -206,14 +196,12 @@ impl<'a> CommonPrefixes<'a> {
     }
 }
 impl<'a> CommonPrefixes<'a> {
-    #[inline]
     #[doc = "在列表尾部追加 JSON String"]
     pub fn push_str(&mut self, val: String) {
         self.0.to_mut().as_array_mut().unwrap().push(val.into());
     }
 }
 impl<'a> CommonPrefixes<'a> {
-    #[inline]
     #[doc = "在列表尾部取出 JSON String"]
     pub fn pop_as_str(&mut self) -> Option<String> {
         self.0
@@ -228,7 +216,6 @@ impl<'a> CommonPrefixes<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 公共前缀的数组，如没有指定 delimiter 参数则不返回"]
     pub fn get_common_prefixes(&self) -> Option<CommonPrefixes> {
         self.0
@@ -239,7 +226,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 公共前缀的数组，如没有指定 delimiter 参数则不返回"]
     pub fn set_common_prefixes(&mut self, new: CommonPrefixes) -> Option<CommonPrefixes> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -255,7 +241,6 @@ impl<'a> ResponseBody<'a> {
 #[doc = "条目的数组，不能用来判断是否还有剩余条目"]
 pub struct ListedObjects<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ListedObjects<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -284,7 +269,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ListedObjects<'a> {
 #[doc = "对象条目，包含对象的元信息"]
 pub struct ListedObjectEntry<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -309,7 +293,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 对象名称"]
     pub fn get_key_as_str(&self) -> &str {
         self.0
@@ -322,7 +305,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 对象名称"]
     pub fn set_key_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -337,7 +319,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn get_put_time_as_i64(&self) -> i64 {
         self.0
@@ -350,7 +331,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn set_put_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -362,7 +342,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn get_put_time_as_u64(&self) -> u64 {
         self.0
@@ -375,7 +354,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn set_put_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -387,7 +365,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 文件的哈希值"]
     pub fn get_hash_as_str(&self) -> &str {
         self.0
@@ -400,7 +377,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 文件的哈希值"]
     pub fn set_hash_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -415,7 +391,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 对象大小，单位为字节"]
     pub fn get_size_as_i64(&self) -> i64 {
         self.0
@@ -428,7 +403,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 对象大小，单位为字节"]
     pub fn set_size_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -440,7 +414,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 对象大小，单位为字节"]
     pub fn get_size_as_u64(&self) -> u64 {
         self.0
@@ -453,7 +426,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 对象大小，单位为字节"]
     pub fn set_size_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -465,7 +437,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 对象 MIME 类型"]
     pub fn get_mime_type_as_str(&self) -> &str {
         self.0
@@ -478,7 +449,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 对象 MIME 类型"]
     pub fn set_mime_type_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -493,7 +463,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 资源内容的唯一属主标识"]
     pub fn get_end_user_as_str(&self) -> Option<&str> {
         self.0
@@ -503,7 +472,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 资源内容的唯一属主标识"]
     pub fn set_end_user_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -517,7 +485,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn get_type_as_i64(&self) -> Option<i64> {
         self.0
@@ -527,7 +494,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn set_type_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -538,7 +504,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn get_type_as_u64(&self) -> Option<u64> {
         self.0
@@ -548,7 +513,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn set_type_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -559,7 +523,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 文件的存储状态，即禁用状态和启用状态间的的互相转换，`0` 表示启用，`1`表示禁用"]
     pub fn get_unfreezing_status_as_i64(&self) -> i64 {
         self.0
@@ -572,7 +535,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 文件的存储状态，即禁用状态和启用状态间的的互相转换，`0` 表示启用，`1`表示禁用"]
     pub fn set_unfreezing_status_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -584,7 +546,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 文件的存储状态，即禁用状态和启用状态间的的互相转换，`0` 表示启用，`1`表示禁用"]
     pub fn get_unfreezing_status_as_u64(&self) -> u64 {
         self.0
@@ -597,7 +558,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 文件的存储状态，即禁用状态和启用状态间的的互相转换，`0` 表示启用，`1`表示禁用"]
     pub fn set_unfreezing_status_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -609,7 +569,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "获取 对象 MD5 值，只有通过直传文件和追加文件 API 上传的文件，服务端确保有该字段返回"]
     pub fn get_md_5_as_str(&self) -> Option<&str> {
         self.0
@@ -619,7 +578,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjectEntry<'a> {
-    #[inline]
     #[doc = "设置 对象 MD5 值，只有通过直传文件和追加文件 API 上传的文件，服务端确保有该字段返回"]
     pub fn set_md_5_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -633,7 +591,6 @@ impl<'a> ListedObjectEntry<'a> {
     }
 }
 impl<'a> ListedObjects<'a> {
-    #[inline]
     #[doc = "解析 JSON 得到 ListedObjectEntry 列表"]
     pub fn to_listed_object_entry_vec(&self) -> Vec<ListedObjectEntry> {
         self.0
@@ -658,17 +615,14 @@ impl<'a, 'b> From<&'a [ListedObjectEntry<'a>]> for ListedObjects<'b> {
     }
 }
 impl<'a> ListedObjects<'a> {
-    #[inline]
     pub fn len(&self) -> usize {
         self.0.as_array().unwrap().len()
     }
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.as_array().unwrap().is_empty()
     }
 }
 impl<'a> ListedObjects<'a> {
-    #[inline]
     #[doc = "在列表的指定位置插入 JSON ListedObjectEntry"]
     pub fn insert_listed_object_entry(&mut self, index: usize, val: ListedObjectEntry<'a>) {
         self.0
@@ -679,7 +633,6 @@ impl<'a> ListedObjects<'a> {
     }
 }
 impl<'a> ListedObjects<'a> {
-    #[inline]
     #[doc = "在列表的指定位置移出 JSON ListedObjectEntry"]
     pub fn remove_as_listed_object_entry(&mut self, index: usize) -> ListedObjectEntry {
         ListedObjectEntry::new(std::borrow::Cow::Owned(
@@ -688,14 +641,12 @@ impl<'a> ListedObjects<'a> {
     }
 }
 impl<'a> ListedObjects<'a> {
-    #[inline]
     #[doc = "在列表尾部追加 JSON ListedObjectEntry"]
     pub fn push_listed_object_entry(&mut self, val: ListedObjectEntry<'a>) {
         self.0.to_mut().as_array_mut().unwrap().push(val.into());
     }
 }
 impl<'a> ListedObjects<'a> {
-    #[inline]
     #[doc = "在列表尾部取出 JSON ListedObjectEntry"]
     pub fn pop_listed_object_entry(&mut self) -> Option<ListedObjectEntry> {
         self.0
@@ -708,7 +659,6 @@ impl<'a> ListedObjects<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 条目的数组，不能用来判断是否还有剩余条目"]
     pub fn get_items(&self) -> ListedObjects {
         ListedObjects::new(std::borrow::Cow::Borrowed(
@@ -717,7 +667,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 条目的数组，不能用来判断是否还有剩余条目"]
     pub fn set_items(&mut self, new: ListedObjects) -> Option<ListedObjects> {
         self.0
@@ -732,7 +681,6 @@ impl<'a> ResponseBody<'a> {
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
-    #[inline]
     pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
         Self(http_client)
     }

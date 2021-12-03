@@ -45,7 +45,6 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
     fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
         return _resolve(self, domain, opts);
 
-        #[inline]
         #[cfg(feature = "async")]
         fn _resolve<R: Resolver + 'static>(
             resolver: &TimeoutResolver<R>,
@@ -55,7 +54,6 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
             async_std::task::block_on(async move { resolver.async_resolve(domain, opts).await })
         }
 
-        #[inline]
         #[cfg(not(feature = "async"))]
         fn _resolve<R: Resolver + 'static>(
             resolver: &TimeoutResolver<R>,
@@ -104,7 +102,6 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
         }
     }
 
-    #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_resolve<'a>(

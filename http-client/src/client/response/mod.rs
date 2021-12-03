@@ -30,7 +30,6 @@ pub struct Response<B> {
 }
 
 impl<B> Response<B> {
-    #[inline]
     pub(super) fn new(inner: HttpResponse<B>) -> Self {
         Self { inner }
     }
@@ -190,7 +189,6 @@ impl Response<SyncResponseBody> {
         Ok(Response::new(json_response))
     }
 
-    #[inline]
     pub(super) fn fulfill(self) -> ApiResult<HttpResponse<Vec<u8>>> {
         let x_headers = XHeaders::from(self.parts());
         self.inner
@@ -226,7 +224,6 @@ impl Response<AsyncResponseBody> {
         Ok(Response::new(json_response))
     }
 
-    #[inline]
     pub(super) async fn fulfill(self) -> ApiResult<HttpResponse<Vec<u8>>> {
         let x_headers = XHeaders::from(self.parts());
         self.inner

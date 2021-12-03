@@ -106,13 +106,11 @@ impl Reset for EtagV1 {
 }
 
 impl EtagV1 {
-    #[inline]
     pub(super) fn finalize_into_without_reset(&mut self, out: &mut GenericArray<u8, U28>) {
         self.finish();
         self.calculate(out);
     }
 
-    #[inline]
     pub(super) fn finish(&mut self) {
         if !self.buffer.is_empty() {
             self.sha1s.push(sha1(&self.buffer));
@@ -120,12 +118,10 @@ impl EtagV1 {
         }
     }
 
-    #[inline]
     fn calculate(&mut self, out: &mut GenericArray<u8, U28>) {
         base64::urlsafe_slice(&hash_sha1s(&self.sha1s), out);
     }
 
-    #[inline]
     pub(super) fn sha1s(&self) -> &[Vec<u8>] {
         &self.sha1s
     }

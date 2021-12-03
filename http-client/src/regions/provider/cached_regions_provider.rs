@@ -53,7 +53,6 @@ impl RegionProvider for CachedRegionsProvider {
         })
     }
 
-    #[inline]
     fn get_all(&self, opts: &GetOptions) -> ApiResult<GotRegions> {
         let provider = self.to_owned();
         let opts = opts.to_owned();
@@ -149,7 +148,6 @@ impl CachedRegionsProviderBuilder {
         self
     }
 
-    #[inline]
     pub fn load_or_create_from(
         self,
         path: impl AsRef<Path>,
@@ -172,7 +170,6 @@ impl CachedRegionsProviderBuilder {
         self.default_load_or_create_from(true)
     }
 
-    #[inline]
     pub fn default_load_or_create_from(self, auto_persistent: bool) -> CachedRegionsProvider {
         CachedRegionsProvider {
             cache: RegionsCache::default_load_or_create_from(
@@ -185,7 +182,6 @@ impl CachedRegionsProviderBuilder {
         }
     }
 
-    #[inline]
     pub fn in_memory(self) -> CachedRegionsProvider {
         CachedRegionsProvider {
             cache: RegionsCache::in_memory(self.cache_lifetime, self.shrink_interval),
@@ -194,7 +190,6 @@ impl CachedRegionsProviderBuilder {
         }
     }
 
-    #[inline]
     fn new_cache_key(&self) -> CacheKey {
         CacheKey::new_from_endpoint(
             if let Some(uc_endpoints) = self.uc_endpoints.as_ref() {
@@ -206,7 +201,6 @@ impl CachedRegionsProviderBuilder {
         )
     }
 
-    #[inline]
     fn new_regions_provider(self) -> RegionsProvider {
         let mut builder = RegionsProvider::builder(self.credential_provider);
         if let Some(http_client) = self.http_client {

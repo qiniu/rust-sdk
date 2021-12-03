@@ -111,7 +111,6 @@ impl Resolver for CAresResolver {
         }
     }
 
-    #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_resolve<'a>(
@@ -144,7 +143,6 @@ impl Resolver for CAresResolver {
     }
 }
 
-#[inline]
 fn convert_hosts_to_ip_addrs(results: CAresHostResults) -> Box<[IpAddr]> {
     results.addresses().collect()
 }
@@ -152,7 +150,6 @@ fn convert_hosts_to_ip_addrs(results: CAresHostResults) -> Box<[IpAddr]> {
 #[cfg(feature = "async")]
 use c_ares_resolver::HostResults as CAresResolverHostResults;
 
-#[inline]
 #[cfg(feature = "async")]
 fn convert_resolver_hosts_to_ip_addrs(results: CAresResolverHostResults) -> Box<[IpAddr]> {
     results.addresses.into_boxed_slice()
@@ -200,12 +197,10 @@ mod tests {
         Ok(())
     }
 
-    #[inline]
     fn make_set(ips: impl AsRef<[IpAddr]>) -> HashSet<IpAddr> {
         HashSet::from_iter(ips.as_ref().iter().copied())
     }
 
-    #[inline]
     fn is_subset_of(ips1: impl AsRef<[IpAddr]>, ips2: impl AsRef<[IpAddr]>) -> bool {
         make_set(ips1).is_subset(&make_set(ips2))
     }

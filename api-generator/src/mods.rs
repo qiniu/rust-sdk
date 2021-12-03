@@ -184,7 +184,6 @@ pub(super) fn mod_rs_client_definition_token_stream(
         pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 
         impl<'client> Client<'client> {
-            #[inline]
             pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
                 Self(http_client)
             }

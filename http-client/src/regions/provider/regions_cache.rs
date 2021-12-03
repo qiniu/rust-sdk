@@ -20,7 +20,6 @@ pub(super) struct RegionsCache {
 }
 
 impl RegionsCache {
-    #[inline]
     pub(super) fn load_or_create_from(
         path: &Path,
         auto_persistent: bool,
@@ -37,7 +36,6 @@ impl RegionsCache {
         }
     }
 
-    #[inline]
     pub(super) fn default_load_or_create_from(
         auto_persistent: bool,
         cache_lifetime: Duration,
@@ -51,7 +49,6 @@ impl RegionsCache {
         )
     }
 
-    #[inline]
     pub(super) fn default_persistent_path() -> PathBuf {
         let mut path = dirs::cache_dir().unwrap_or_else(temp_dir);
         path.push(".qiniu-rust-sdk");
@@ -59,14 +56,12 @@ impl RegionsCache {
         path
     }
 
-    #[inline]
     pub(super) fn in_memory(cache_lifetime: Duration, shrink_interval: Duration) -> Self {
         Self {
             inner: Cache::in_memory(cache_lifetime, shrink_interval),
         }
     }
 
-    #[inline]
     pub(super) fn get(
         &self,
         key: &CacheKey,
@@ -75,13 +70,11 @@ impl RegionsCache {
         self.inner.get(key, f)
     }
 
-    #[inline]
     #[allow(dead_code)]
     pub(super) fn set(&self, key: CacheKey, regions: Vec<Region>) {
         self.inner.set(key, regions)
     }
 
-    #[inline]
     #[allow(dead_code)]
     pub(super) fn remove(&self, key: &CacheKey) {
         self.inner.remove(key)

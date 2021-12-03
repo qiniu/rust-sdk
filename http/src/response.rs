@@ -54,17 +54,14 @@ impl ResponseInfo {
         self.metrics.as_deref()
     }
 
-    #[inline]
     pub(super) fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
         &mut self.server_ip
     }
 
-    #[inline]
     pub(super) fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
         &mut self.server_port
     }
 
-    #[inline]
     pub(super) fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
         &mut self.metrics
     }
@@ -131,7 +128,6 @@ impl ResponseParts {
         self.headers().get(&header_name)
     }
 
-    #[inline]
     pub(super) fn into_response_info(self) -> ResponseInfo {
         self.info
     }

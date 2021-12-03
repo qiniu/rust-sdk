@@ -10,7 +10,7 @@ pub struct QueryParams<'a> {
 }
 impl<'a> QueryParams<'a> {
     #[inline]
-    fn insert(
+    pub fn insert(
         mut self,
         query_pair_key: qiniu_http_client::QueryPairKey<'a>,
         query_pair_value: qiniu_http_client::QueryPairValue<'a>,
@@ -18,7 +18,6 @@ impl<'a> QueryParams<'a> {
         self.map.insert(query_pair_key, query_pair_value);
         self
     }
-    #[inline]
     fn build(self) -> qiniu_http_client::QueryPairs<'a> {
         qiniu_http_client::QueryPairs::from_iter(self.map)
     }
@@ -44,7 +43,6 @@ impl<'a> QueryParams<'a> {
 #[doc = "调用 API 所用的请求体参数"]
 pub struct RequestBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -73,7 +71,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for RequestBody<'a> {
 #[doc = "标签列表"]
 pub struct Tags<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> Tags<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -102,7 +99,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for Tags<'a> {
 #[doc = "标签键值对"]
 pub struct TagInfo<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> TagInfo<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -127,7 +123,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for TagInfo<'a> {
     }
 }
 impl<'a> TagInfo<'a> {
-    #[inline]
     #[doc = "获取 标签名称，最大 64 Byte，不能为空且大小写敏感，不能以 kodo 为前缀(预留), 不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"]
     pub fn get_key_as_str(&self) -> &str {
         self.0
@@ -140,7 +135,6 @@ impl<'a> TagInfo<'a> {
     }
 }
 impl<'a> TagInfo<'a> {
-    #[inline]
     #[doc = "设置 标签名称，最大 64 Byte，不能为空且大小写敏感，不能以 kodo 为前缀(预留), 不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"]
     pub fn set_key_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -155,7 +149,6 @@ impl<'a> TagInfo<'a> {
     }
 }
 impl<'a> TagInfo<'a> {
-    #[inline]
     #[doc = "获取 标签值，最大 128 Byte，不能为空且大小写敏感，不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"]
     pub fn get_value_as_str(&self) -> &str {
         self.0
@@ -168,7 +161,6 @@ impl<'a> TagInfo<'a> {
     }
 }
 impl<'a> TagInfo<'a> {
-    #[inline]
     #[doc = "设置 标签值，最大 128 Byte，不能为空且大小写敏感，不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"]
     pub fn set_value_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -183,7 +175,6 @@ impl<'a> TagInfo<'a> {
     }
 }
 impl<'a> Tags<'a> {
-    #[inline]
     #[doc = "解析 JSON 得到 TagInfo 列表"]
     pub fn to_tag_info_vec(&self) -> Vec<TagInfo> {
         self.0
@@ -208,17 +199,14 @@ impl<'a, 'b> From<&'a [TagInfo<'a>]> for Tags<'b> {
     }
 }
 impl<'a> Tags<'a> {
-    #[inline]
     pub fn len(&self) -> usize {
         self.0.as_array().unwrap().len()
     }
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.as_array().unwrap().is_empty()
     }
 }
 impl<'a> Tags<'a> {
-    #[inline]
     #[doc = "在列表的指定位置插入 JSON TagInfo"]
     pub fn insert_tag_info(&mut self, index: usize, val: TagInfo<'a>) {
         self.0
@@ -229,7 +217,6 @@ impl<'a> Tags<'a> {
     }
 }
 impl<'a> Tags<'a> {
-    #[inline]
     #[doc = "在列表的指定位置移出 JSON TagInfo"]
     pub fn remove_as_tag_info(&mut self, index: usize) -> TagInfo {
         TagInfo::new(std::borrow::Cow::Owned(
@@ -238,14 +225,12 @@ impl<'a> Tags<'a> {
     }
 }
 impl<'a> Tags<'a> {
-    #[inline]
     #[doc = "在列表尾部追加 JSON TagInfo"]
     pub fn push_tag_info(&mut self, val: TagInfo<'a>) {
         self.0.to_mut().as_array_mut().unwrap().push(val.into());
     }
 }
 impl<'a> Tags<'a> {
-    #[inline]
     #[doc = "在列表尾部取出 JSON TagInfo"]
     pub fn pop_tag_info(&mut self) -> Option<TagInfo> {
         self.0
@@ -258,7 +243,6 @@ impl<'a> Tags<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 标签列表"]
     pub fn get_tags(&self) -> Tags {
         Tags::new(std::borrow::Cow::Borrowed(
@@ -267,7 +251,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 标签列表"]
     pub fn set_tags(&mut self, new: Tags) -> Option<Tags> {
         self.0
@@ -284,7 +267,6 @@ impl<'a> RequestBody<'a> {
 #[doc = "获取 API 所用的响应体参数"]
 pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -311,7 +293,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
-    #[inline]
     pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
         Self(http_client)
     }

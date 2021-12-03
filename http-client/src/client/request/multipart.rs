@@ -170,7 +170,6 @@ mod sync_part {
             }
         }
 
-        #[inline]
         pub fn file_path(path: impl AsRef<Path>) -> IoResult<Self> {
             let file = File::open(path.as_ref())?;
             let mut metadata = PartMetadata::default()
@@ -189,7 +188,6 @@ mod sync_part {
     pub type SyncMultipart = Multipart<SyncPart>;
 
     impl SyncMultipart {
-        #[inline]
         pub(in super::super) fn into_read(mut self) -> Box<dyn Read> {
             if self.fields.is_empty() {
                 return Box::new(Cursor::new([]));
@@ -210,7 +208,6 @@ mod sync_part {
             )
         }
 
-        #[inline]
         fn part_stream(&self, name: &str, part: SyncPart) -> impl Read {
             Cursor::new(b"--")
                 .chain(Cursor::new(self.boundary.to_owned()))
@@ -293,7 +290,6 @@ mod async_part {
             }
         }
 
-        #[inline]
         pub async fn file_path(path: impl AsRef<Path>) -> IoResult<Self> {
             let file = File::open(path.as_ref()).await?;
             let mut metadata = PartMetadata::default()
@@ -313,7 +309,6 @@ mod async_part {
     pub type AsyncMultipart = Multipart<AsyncPart>;
 
     impl AsyncMultipart {
-        #[inline]
         pub(in super::super) fn into_async_read(mut self) -> Box<dyn AsyncRead + Send + Unpin> {
             if self.fields.is_empty() {
                 return Box::new(Cursor::new([]));
@@ -336,7 +331,6 @@ mod async_part {
             )
         }
 
-        #[inline]
         fn part_stream(&self, name: &str, part: AsyncPart) -> impl AsyncRead + Send + Unpin {
             Cursor::new(b"--")
                 .chain(Cursor::new(self.boundary.to_owned()))
@@ -366,7 +360,6 @@ mod async_part {
 #[cfg(feature = "async")]
 pub use async_part::{AsyncMultipart, AsyncPart, AsyncPartBody};
 
-#[inline]
 fn gen_boundary() -> Boundary {
     use std::fmt::Write;
 
@@ -375,7 +368,6 @@ fn gen_boundary() -> Boundary {
     b
 }
 
-#[inline]
 fn encode_headers(name: &str, field: &PartMetadata) -> HeaderBuffer {
     let mut buf = HeaderBuffer::from_slice(b"content-disposition: form-data; ");
     buf.extend_from_slice(&format_parameter("name", name));
@@ -392,7 +384,6 @@ fn encode_headers(name: &str, field: &PartMetadata) -> HeaderBuffer {
     buf
 }
 
-#[inline]
 fn format_file_name(filename: &str) -> FileName {
     static REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("\\\\|\"|\r|\n").unwrap());
     let mut formatted = FileName::from("filename=\"");
@@ -428,7 +419,6 @@ const PATH_SEGMENT_ENCODE_SET: &AsciiSet = &CONTROLS
     .add(b'/')
     .add(b'%');
 
-#[inline]
 fn format_parameter(name: &str, value: &str) -> HeaderBuffer {
     let legal_value = {
         let mut buf = HeaderBuffer::new();

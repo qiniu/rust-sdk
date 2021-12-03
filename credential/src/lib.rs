@@ -161,14 +161,12 @@ impl Credential {
     }
 
     /// 对对象的下载 URL 签名，可以生成私有存储空间的下载地址
-    #[inline]
     pub fn sign_download_url(&self, url: Uri, deadline: Duration) -> Uri {
         let deadline = deadline.as_secs().to_string();
         let to_sign = append_query_pairs_to_url(url, &[("e", &deadline)]);
         let signature = self.sign(to_sign.to_string().as_bytes());
         return append_query_pairs_to_url(to_sign, &[("token", &signature)]);
 
-        #[inline]
         fn append_query_pairs_to_url(url: Uri, pairs: &[(&str, &str)]) -> Uri {
             let path_string = url.path().to_owned();
             let query_string = url.query().unwrap_or_default().to_owned();
@@ -266,7 +264,6 @@ fn sign_request_v1_with_body_reader(
     Ok(cred.sign(&data_to_sign))
 }
 
-#[inline]
 fn _sign_request_v1_without_body(url: &Uri) -> Vec<u8> {
     let mut data_to_sign = Vec::with_capacity(1024);
     data_to_sign.extend_from_slice(url.path().as_bytes());
@@ -362,26 +359,22 @@ fn _sign_data_for_x_qiniu_headers(data_to_sign: &mut Vec<u8>, headers: &HeaderMa
     }
 }
 
-#[inline]
 fn base64ed_hmac_digest(secret_key: &str, data: &[u8]) -> String {
     let mut hmac = Hmac::<Sha1>::new_from_slice(secret_key.as_bytes()).unwrap();
     hmac.update(data);
     base64::urlsafe(&hmac.finalize().into_bytes())
 }
 
-#[inline]
 fn base64ed_hmac_digest_reader(secret_key: &str, reader: &mut dyn Read) -> Result<String> {
     let mut hmac = Hmac::<Sha1>::new_from_slice(secret_key.as_bytes()).unwrap();
     copy(reader, &mut hmac)?;
     Ok(base64::urlsafe(&hmac.finalize().into_bytes()))
 }
 
-#[inline]
 fn will_push_body_v1(content_type: &HeaderValue) -> bool {
     APPLICATION_WWW_FORM_URLENCODED.as_ref() == content_type
 }
 
-#[inline]
 fn will_push_body_v2(content_type: &HeaderValue) -> bool {
     APPLICATION_OCTET_STREAM.as_ref() != content_type
 }
@@ -434,7 +427,6 @@ mod async_sign {
         Ok(cred.sign(&data_to_sign))
     }
 
-    #[inline]
     pub(super) async fn base64ed_hmac_digest_async_reader(
         secret_key: &str,
         reader: &mut (dyn AsyncRead + Send + Unpin),

@@ -1,11 +1,13 @@
 use duplicate::duplicate;
+use smart_default::SmartDefault;
 use std::{convert::TryFrom, error::Error, fmt};
 
 /// 文件存储类型
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, SmartDefault)]
 #[non_exhaustive]
 pub enum FileType {
     /// 标准存储
+    #[default]
     Normal = 0,
 
     /// 低频存储
@@ -13,13 +15,6 @@ pub enum FileType {
 
     /// 归档存储
     Glacial = 2,
-}
-
-impl Default for FileType {
-    #[inline]
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 #[duplicate(

@@ -140,7 +140,6 @@ pub struct ErrorBuilder {
 }
 
 impl ErrorBuilder {
-    #[inline]
     fn new(kind: ErrorKind, err: impl Into<Box<dyn StdError + Send + Sync>>) -> Self {
         Self {
             inner: Error {
@@ -156,7 +155,6 @@ impl ErrorBuilder {
         self.inner
     }
 
-    #[inline]
     pub fn uri(mut self, uri: &Uri) -> Self {
         if let Some(host) = uri.host() {
             if let Ok(ip_addr) = host.parse::<IpAddr>() {
@@ -200,7 +198,6 @@ pub struct MapError<E> {
 }
 
 impl<E> MapError<E> {
-    #[inline]
     pub(super) fn new(error: E, parts: ResponseParts) -> Self {
         Self { error, parts }
     }

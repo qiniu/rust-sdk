@@ -67,7 +67,6 @@ impl Endpoints {
         }
     }
 
-    #[inline]
     pub(super) fn public_uc_endpoints() -> &'static Self {
         static DEFAULT_UC_ENDPOINTS: Lazy<Endpoints> = Lazy::new(|| {
             Endpoints::builder(Endpoint::new_from_domain("uc.qbox.me"))
@@ -114,7 +113,6 @@ impl Endpoints {
         builder.build()
     }
 
-    #[inline]
     fn from_region_provider(
         region_provider: &dyn RegionProvider,
         services: &[ServiceName],
@@ -126,7 +124,6 @@ impl Endpoints {
     }
 
     #[cfg(feature = "async")]
-    #[inline]
     async fn async_from_region_provider(
         region_provider: &dyn RegionProvider,
         services: &[ServiceName],

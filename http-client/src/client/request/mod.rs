@@ -4,6 +4,7 @@ mod multipart;
 mod request_metadata;
 
 pub use qiniu_http::SyncRequestBody;
+use smart_default::SmartDefault;
 use std::borrow::Cow;
 
 #[cfg(feature = "async")]
@@ -13,19 +14,15 @@ pub type QueryPairKey<'q> = Cow<'q, str>;
 pub type QueryPairValue<'q> = Cow<'q, str>;
 pub type QueryPairs<'q> = Vec<(QueryPairKey<'q>, QueryPairValue<'q>)>;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, SmartDefault)]
 #[non_exhaustive]
 pub enum Idempotent {
     Always,
-    Default,
-    Never,
-}
 
-impl Default for Idempotent {
-    #[inline]
-    fn default() -> Self {
-        Self::Default
-    }
+    #[default]
+    Default,
+
+    Never,
 }
 
 pub use builder::{RequestBuilder, SyncRequestBuilder};

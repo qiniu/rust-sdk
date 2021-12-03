@@ -12,7 +12,6 @@ impl PathParams {
         self.extended_segments.push(segment.into());
         self
     }
-    #[inline]
     fn build(self) -> Vec<std::borrow::Cow<'static, str>> {
         let mut all_segments: Vec<_> = Default::default();
         if let Some(segment) = self.r#entry {
@@ -35,7 +34,6 @@ impl PathParams {
 #[doc = "获取 API 所用的响应体参数"]
 pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -60,7 +58,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 对象大小，单位为字节"]
     pub fn get_size_as_i64(&self) -> i64 {
         self.0
@@ -73,7 +70,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 对象大小，单位为字节"]
     pub fn set_size_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -85,7 +81,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 对象大小，单位为字节"]
     pub fn get_size_as_u64(&self) -> u64 {
         self.0
@@ -98,7 +93,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 对象大小，单位为字节"]
     pub fn set_size_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -110,7 +104,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 对象哈希值"]
     pub fn get_hash_as_str(&self) -> &str {
         self.0
@@ -123,7 +116,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 对象哈希值"]
     pub fn set_hash_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -138,7 +130,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 对象 MIME 类型"]
     pub fn get_mime_type_as_str(&self) -> &str {
         self.0
@@ -151,7 +142,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 对象 MIME 类型"]
     pub fn set_mime_type_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -166,7 +156,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn get_type_as_i64(&self) -> i64 {
         self.0
@@ -179,7 +168,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn set_type_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -191,7 +179,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn get_type_as_u64(&self) -> u64 {
         self.0
@@ -204,7 +191,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn set_type_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -216,7 +202,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn get_put_time_as_i64(&self) -> i64 {
         self.0
@@ -229,7 +214,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn set_put_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -241,7 +225,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn get_put_time_as_u64(&self) -> u64 {
         self.0
@@ -254,7 +237,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn set_put_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -266,7 +248,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 归档存储文件的解冻状态，`2` 表示解冻完成，`1` 表示解冻中；归档文件冻结时，不返回该字段"]
     pub fn get_unfreezing_status_as_i64(&self) -> Option<i64> {
         self.0
@@ -276,7 +257,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 归档存储文件的解冻状态，`2` 表示解冻完成，`1` 表示解冻中；归档文件冻结时，不返回该字段"]
     pub fn set_unfreezing_status_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -287,7 +267,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 归档存储文件的解冻状态，`2` 表示解冻完成，`1` 表示解冻中；归档文件冻结时，不返回该字段"]
     pub fn get_unfreezing_status_as_u64(&self) -> Option<u64> {
         self.0
@@ -297,7 +276,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 归档存储文件的解冻状态，`2` 表示解冻完成，`1` 表示解冻中；归档文件冻结时，不返回该字段"]
     pub fn set_unfreezing_status_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -308,7 +286,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 文件状态。`1` 表示禁用；只有禁用状态的文件才会返回该字段"]
     pub fn get_status_as_i64(&self) -> Option<i64> {
         self.0
@@ -318,7 +295,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 文件状态。`1` 表示禁用；只有禁用状态的文件才会返回该字段"]
     pub fn set_status_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -329,7 +305,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 文件状态。`1` 表示禁用；只有禁用状态的文件才会返回该字段"]
     pub fn get_status_as_u64(&self) -> Option<u64> {
         self.0
@@ -339,7 +314,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 文件状态。`1` 表示禁用；只有禁用状态的文件才会返回该字段"]
     pub fn set_status_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -350,7 +324,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 对象 MD5 值，只有通过直传文件和追加文件 API 上传的文件，服务端确保有该字段返回"]
     pub fn get_md_5_as_str(&self) -> Option<&str> {
         self.0
@@ -360,7 +333,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 对象 MD5 值，只有通过直传文件和追加文件 API 上传的文件，服务端确保有该字段返回"]
     pub fn set_md_5_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -374,7 +346,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 文件过期删除日期，UNIX 时间戳格式，文件在设置过期时间后才会返回该字段"]
     pub fn get_expiration_time_as_i64(&self) -> Option<i64> {
         self.0
@@ -384,7 +355,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 文件过期删除日期，UNIX 时间戳格式，文件在设置过期时间后才会返回该字段"]
     pub fn set_expiration_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -395,7 +365,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 文件过期删除日期，UNIX 时间戳格式，文件在设置过期时间后才会返回该字段"]
     pub fn get_expiration_time_as_u64(&self) -> Option<u64> {
         self.0
@@ -405,7 +374,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 文件过期删除日期，UNIX 时间戳格式，文件在设置过期时间后才会返回该字段"]
     pub fn set_expiration_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -416,7 +384,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 文件生命周期中转为低频存储的日期，UNIX 时间戳格式，文件在设置转低频后才会返回该字段"]
     pub fn get_transition_to_ia_time_as_i64(&self) -> Option<i64> {
         self.0
@@ -426,7 +393,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 文件生命周期中转为低频存储的日期，UNIX 时间戳格式，文件在设置转低频后才会返回该字段"]
     pub fn set_transition_to_ia_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -437,7 +403,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 文件生命周期中转为低频存储的日期，UNIX 时间戳格式，文件在设置转低频后才会返回该字段"]
     pub fn get_transition_to_ia_time_as_u64(&self) -> Option<u64> {
         self.0
@@ -447,7 +412,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 文件生命周期中转为低频存储的日期，UNIX 时间戳格式，文件在设置转低频后才会返回该字段"]
     pub fn set_transition_to_ia_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -458,7 +422,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段"]
     pub fn get_transition_to_archive_time_as_i64(&self) -> Option<i64> {
         self.0
@@ -468,7 +431,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段"]
     pub fn set_transition_to_archive_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -479,7 +441,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段"]
     pub fn get_transition_to_archive_time_as_u64(&self) -> Option<u64> {
         self.0
@@ -489,7 +450,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段"]
     pub fn set_transition_to_archive_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -502,7 +462,6 @@ impl<'a> ResponseBody<'a> {
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
-    #[inline]
     pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
         Self(http_client)
     }

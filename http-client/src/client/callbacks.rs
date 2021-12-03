@@ -68,7 +68,6 @@ pub struct CallbacksBuilder<'f> {
 }
 
 impl<'f> Callbacks<'f> {
-    #[inline]
     pub(super) fn call_uploading_progress_callbacks(
         &self,
         context: &dyn SimplifiedCallbackContext,
@@ -80,7 +79,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context, progress_info))
     }
 
-    #[inline]
     pub(super) fn call_receive_response_status_callbacks(
         &self,
         context: &dyn SimplifiedCallbackContext,
@@ -92,7 +90,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context, status_code))
     }
 
-    #[inline]
     pub(super) fn call_receive_response_header_callbacks(
         &self,
         context: &dyn SimplifiedCallbackContext,
@@ -105,7 +102,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context, header_name, header_value))
     }
 
-    #[inline]
     pub(super) fn call_to_resolve_domain_callbacks(
         &self,
         context: &mut dyn CallbackContext,
@@ -117,7 +113,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context, domain))
     }
 
-    #[inline]
     pub(super) fn call_domain_resolved_callbacks(
         &self,
         context: &mut dyn CallbackContext,
@@ -130,7 +125,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context, domain, answers))
     }
 
-    #[inline]
     pub(super) fn call_to_choose_ips_callbacks(
         &self,
         context: &mut dyn CallbackContext,
@@ -142,7 +136,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context, ips))
     }
 
-    #[inline]
     pub(super) fn call_ips_chosen_callbacks(
         &self,
         context: &mut dyn CallbackContext,
@@ -155,7 +148,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context, ips, chosen))
     }
 
-    #[inline]
     pub(super) fn call_before_request_signed_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -166,7 +158,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context))
     }
 
-    #[inline]
     pub(super) fn call_after_request_signed_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -177,7 +168,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context))
     }
 
-    #[inline]
     pub(super) fn call_success_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -189,7 +179,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context, response))
     }
 
-    #[inline]
     pub(super) fn call_error_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -201,7 +190,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context, error))
     }
 
-    #[inline]
     pub(super) fn call_before_backoff_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -213,7 +201,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context, delay))
     }
 
-    #[inline]
     pub(super) fn call_after_backoff_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -423,7 +410,6 @@ impl<'f> CallbacksBuilder<'f> {
         self
     }
 
-    #[inline]
     pub fn build(self) -> Callbacks<'f> {
         Callbacks {
             on_uploading_progress: self.on_uploading_progress.into(),

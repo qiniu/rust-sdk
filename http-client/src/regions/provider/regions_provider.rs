@@ -92,7 +92,6 @@ impl RegionProvider for RegionsProvider {
     }
 
     /// 异步返回七牛区域信息
-    #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
@@ -146,7 +145,6 @@ impl RegionsProviderBuilder {
         self
     }
 
-    #[inline]
     pub fn build(self) -> RegionsProvider {
         RegionsProvider {
             credential_provider: self.credential_provider,

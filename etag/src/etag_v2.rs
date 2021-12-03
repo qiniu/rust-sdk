@@ -50,7 +50,6 @@ impl Update for EtagV2 {
 
 impl Reset for EtagV2 {
     /// 重置 Etag V2 计算器
-    #[inline]
     fn reset(&mut self) {
         self.buffer.clear();
         if let Some(etag_v1) = &mut self.etag_v1 {

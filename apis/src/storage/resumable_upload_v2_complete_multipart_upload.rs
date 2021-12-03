@@ -14,7 +14,6 @@ impl PathParams {
         self.extended_segments.push(segment.into());
         self
     }
-    #[inline]
     fn build(self) -> Vec<std::borrow::Cow<'static, str>> {
         let mut all_segments: Vec<_> = Default::default();
         if let Some(segment) = self.r#bucket_name {
@@ -67,7 +66,6 @@ impl PathParams {
 #[doc = "调用 API 所用的请求体参数"]
 pub struct RequestBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -96,7 +94,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for RequestBody<'a> {
 #[doc = "单个分片信息"]
 pub struct PartInfo<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> PartInfo<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -121,7 +118,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for PartInfo<'a> {
     }
 }
 impl<'a> PartInfo<'a> {
-    #[inline]
     #[doc = "获取 每一个上传的分片都有一个标识它的号码"]
     pub fn get_part_number_as_i64(&self) -> i64 {
         self.0
@@ -134,7 +130,6 @@ impl<'a> PartInfo<'a> {
     }
 }
 impl<'a> PartInfo<'a> {
-    #[inline]
     #[doc = "设置 每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -146,7 +141,6 @@ impl<'a> PartInfo<'a> {
     }
 }
 impl<'a> PartInfo<'a> {
-    #[inline]
     #[doc = "获取 每一个上传的分片都有一个标识它的号码"]
     pub fn get_part_number_as_u64(&self) -> u64 {
         self.0
@@ -159,7 +153,6 @@ impl<'a> PartInfo<'a> {
     }
 }
 impl<'a> PartInfo<'a> {
-    #[inline]
     #[doc = "设置 每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -171,7 +164,6 @@ impl<'a> PartInfo<'a> {
     }
 }
 impl<'a> PartInfo<'a> {
-    #[inline]
     #[doc = "获取 上传块的 etag"]
     pub fn get_etag_as_str(&self) -> &str {
         self.0
@@ -184,7 +176,6 @@ impl<'a> PartInfo<'a> {
     }
 }
 impl<'a> PartInfo<'a> {
-    #[inline]
     #[doc = "设置 上传块的 etag"]
     pub fn set_etag_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -199,7 +190,6 @@ impl<'a> PartInfo<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 已经上传的分片列表"]
     pub fn get_parts(&self) -> PartInfo {
         PartInfo::new(std::borrow::Cow::Borrowed(
@@ -208,7 +198,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 已经上传的分片列表"]
     pub fn set_parts(&mut self, new: PartInfo) -> Option<PartInfo> {
         self.0
@@ -221,7 +210,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 上传的原始文件名，若未指定，则魔法变量中无法使用 fname，ext，suffix"]
     pub fn get_file_name_as_str(&self) -> Option<&str> {
         self.0
@@ -231,7 +219,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 上传的原始文件名，若未指定，则魔法变量中无法使用 fname，ext，suffix"]
     pub fn set_file_name_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -245,7 +232,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 若指定了则设置上传文件的 MIME 类型，若未指定，则根据文件内容自动检测 MIME 类型"]
     pub fn get_mime_type_as_str(&self) -> Option<&str> {
         self.0
@@ -255,7 +241,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "设置 若指定了则设置上传文件的 MIME 类型，若未指定，则根据文件内容自动检测 MIME 类型"]
     pub fn set_mime_type_as_str(&mut self, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -269,7 +254,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 用户自定义文件 metadata 信息的键值对，可以设置多个，MetaKey 和 MetaValue 都是 string，，其中 可以由字母、数字、下划线、减号组成，且长度小于等于 50，单个文件 MetaKey 和 MetaValue 总和大小不能超过 1024 字节，MetaKey 必须以 `x-qn-meta-` 作为前缀"]
     pub fn get_metadata(&self) -> Option<crate::base_types::StringMap> {
         self.0
@@ -277,7 +261,6 @@ impl<'a> RequestBody<'a> {
             .and_then(|obj| obj.get("metadata"))
             .map(|obj| crate::base_types::StringMap::new(std::borrow::Cow::Borrowed(obj)))
     }
-    #[inline]
     #[doc = "设置 用户自定义文件 metadata 信息的键值对，可以设置多个，MetaKey 和 MetaValue 都是 string，，其中 可以由字母、数字、下划线、减号组成，且长度小于等于 50，单个文件 MetaKey 和 MetaValue 总和大小不能超过 1024 字节，MetaKey 必须以 `x-qn-meta-` 作为前缀"]
     pub fn set_metadata(
         &mut self,
@@ -291,7 +274,6 @@ impl<'a> RequestBody<'a> {
     }
 }
 impl<'a> RequestBody<'a> {
-    #[inline]
     #[doc = "获取 用户自定义变量"]
     pub fn get_custom_vars(&self) -> Option<crate::base_types::StringMap> {
         self.0
@@ -299,7 +281,6 @@ impl<'a> RequestBody<'a> {
             .and_then(|obj| obj.get("customVars"))
             .map(|obj| crate::base_types::StringMap::new(std::borrow::Cow::Borrowed(obj)))
     }
-    #[inline]
     #[doc = "设置 用户自定义变量"]
     pub fn set_custom_vars(
         &mut self,
@@ -317,7 +298,6 @@ impl<'a> RequestBody<'a> {
 #[doc = "获取 API 所用的响应体参数"]
 pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -344,7 +324,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
-    #[inline]
     pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
         Self(http_client)
     }

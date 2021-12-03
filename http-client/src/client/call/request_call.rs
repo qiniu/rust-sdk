@@ -45,7 +45,6 @@ pub(in super::super) fn request_call<E: EndpointsProvider>(
         Err(err) => Err(err.into_response_error()),
     };
 
-    #[inline]
     fn try_preferred_endpoints(
         endpoints: &[Endpoint],
         parts: &RequestParts<'_>,
@@ -57,7 +56,6 @@ pub(in super::super) fn request_call<E: EndpointsProvider>(
         try_endpoints(endpoints, parts, body, extensions, tried_ips, retried, true)
     }
 
-    #[inline]
     fn try_alternative_endpoints(
         endpoints: &[Endpoint],
         parts: &RequestParts<'_>,
@@ -118,7 +116,6 @@ pub(in super::super) async fn async_request_call<E: EndpointsProvider>(
         Err(err) => Err(err.into_response_error()),
     };
 
-    #[inline]
     async fn try_preferred_endpoints(
         endpoints: &[Endpoint],
         parts: &RequestParts<'_>,
@@ -130,7 +127,6 @@ pub(in super::super) async fn async_request_call<E: EndpointsProvider>(
         async_try_endpoints(endpoints, parts, body, extensions, tried_ips, retried, true).await
     }
 
-    #[inline]
     async fn try_alternative_endpoints(
         endpoints: &[Endpoint],
         parts: &RequestParts<'_>,

@@ -159,7 +159,6 @@ impl IpAddrWithPort {
 }
 
 impl Display for IpAddrWithPort {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(port) = self.port() {
             SocketAddr::new(self.ip_addr(), port.get()).fmt(f)

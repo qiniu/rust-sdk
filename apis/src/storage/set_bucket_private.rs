@@ -20,7 +20,6 @@ impl RequestBody {
         self.extended_pairs.push((key.into(), Some(value.into())));
         self
     }
-    #[inline]
     fn build(
         self,
     ) -> Vec<(
@@ -122,7 +121,6 @@ impl RequestBody {
 #[doc = "获取 API 所用的响应体参数"]
 pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -149,7 +147,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
-    #[inline]
     pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
         Self(http_client)
     }

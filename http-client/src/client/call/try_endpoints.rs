@@ -327,7 +327,6 @@ pub(super) fn try_endpoints(
             ))
         }
 
-        #[inline]
         fn try_single_ip(
             ip: IpAddrWithPort,
             parts: &RequestParts<'_>,
@@ -713,7 +712,6 @@ pub(super) async fn async_try_endpoints(
             ))
         }
 
-        #[inline]
         async fn try_single_ip(
             ip: IpAddrWithPort,
             parts: &RequestParts<'_>,
@@ -777,7 +775,6 @@ enum SingleTryFlow<E> {
     DontRetry(E),
 }
 
-#[inline]
 fn no_try_error(retried: &RetriedStatsInfo) -> TryError {
     TryError::new(
         ResponseError::new(ResponseErrorKind::NoTry, "None endpoint is tried").retried(retried),

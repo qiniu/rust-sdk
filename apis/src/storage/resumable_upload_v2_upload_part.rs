@@ -15,7 +15,6 @@ impl PathParams {
         self.extended_segments.push(segment.into());
         self
     }
-    #[inline]
     fn build(self) -> Vec<std::borrow::Cow<'static, str>> {
         let mut all_segments: Vec<_> = Default::default();
         if let Some(segment) = self.r#bucket_name {
@@ -133,7 +132,7 @@ pub struct RequestHeaders {
 }
 impl RequestHeaders {
     #[inline]
-    fn insert(
+    pub fn insert(
         mut self,
         header_name: qiniu_http_client::http::header::HeaderName,
         header_value: qiniu_http_client::http::header::HeaderValue,
@@ -172,7 +171,6 @@ impl RequestHeaders {
 #[doc = "获取 API 所用的响应体参数"]
 pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -197,7 +195,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 上传块内容的 etag，用来标识块，completeMultipartUpload API 调用的时候作为参数进行文件合成"]
     pub fn get_etag_as_str(&self) -> &str {
         self.0
@@ -210,7 +207,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 上传块内容的 etag，用来标识块，completeMultipartUpload API 调用的时候作为参数进行文件合成"]
     pub fn set_etag_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -225,7 +221,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 上传块内容的 MD5 值"]
     pub fn get_md_5_as_str(&self) -> &str {
         self.0
@@ -238,7 +233,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 上传块内容的 MD5 值"]
     pub fn set_md_5_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -255,7 +249,6 @@ impl<'a> ResponseBody<'a> {
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
-    #[inline]
     pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
         Self(http_client)
     }

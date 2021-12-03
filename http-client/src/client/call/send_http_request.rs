@@ -51,7 +51,6 @@ pub(super) fn send_http_request(
         }
     }
 
-    #[inline]
     fn backoff(
         http_request: &mut SyncHttpRequest<'_>,
         parts: &RequestParts<'_>,
@@ -74,7 +73,6 @@ pub(super) fn send_http_request(
         Ok(())
     }
 
-    #[inline]
     fn reset_body_if_needed(http_request: &mut SyncHttpRequest<'_>, err: &TryError) {
         match err.retry_decision() {
             RetryDecision::DontRetry => {}
@@ -87,7 +85,6 @@ pub(super) fn send_http_request(
     }
 }
 
-#[inline]
 fn need_backoff(err: &TryError) -> bool {
     matches!(
         err.retry_decision(),
@@ -95,7 +92,6 @@ fn need_backoff(err: &TryError) -> bool {
     )
 }
 
-#[inline]
 fn need_retry_after_backoff(err: &TryError) -> bool {
     matches!(
         err.retry_decision(),
@@ -103,7 +99,6 @@ fn need_retry_after_backoff(err: &TryError) -> bool {
     )
 }
 
-#[inline]
 fn handle_response_error(
     response_error: ResponseError,
     http_parts: &mut HttpRequestParts,
@@ -167,7 +162,6 @@ mod async_send {
             }
         }
 
-        #[inline]
         async fn backoff(
             http_request: &mut AsyncHttpRequest<'_>,
             parts: &RequestParts<'_>,
@@ -190,7 +184,6 @@ mod async_send {
             Ok(())
         }
 
-        #[inline]
         async fn reset_body_if_needed(http_request: &mut AsyncHttpRequest<'_>, err: &TryError) {
             match err.retry_decision() {
                 RetryDecision::DontRetry => {}
@@ -202,7 +195,6 @@ mod async_send {
             }
         }
 
-        #[inline]
         async fn async_sleep(dur: Duration) {
             AsyncDelay::new(dur).await
         }

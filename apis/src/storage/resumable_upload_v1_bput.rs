@@ -13,7 +13,6 @@ impl PathParams {
         self.extended_segments.push(segment.into());
         self
     }
-    #[inline]
     fn build(self) -> Vec<std::borrow::Cow<'static, str>> {
         let mut all_segments: Vec<_> = Default::default();
         if let Some(segment) = self.r#ctx {
@@ -99,7 +98,6 @@ impl PathParams {
 #[doc = "获取 API 所用的响应体参数"]
 pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
         Self(value)
@@ -124,7 +122,6 @@ impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 本次上传成功后的块级上传控制信息，用于后续上传片（bput）及创建文件（mkfile）"]
     pub fn get_ctx_as_str(&self) -> &str {
         self.0
@@ -137,7 +134,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 本次上传成功后的块级上传控制信息，用于后续上传片（bput）及创建文件（mkfile）"]
     pub fn set_ctx_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -152,7 +148,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 上传块 SHA1 值，使用 URL 安全的 Base64 编码"]
     pub fn get_checksum_as_str(&self) -> &str {
         self.0
@@ -165,7 +160,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 上传块 SHA1 值，使用 URL 安全的 Base64 编码"]
     pub fn set_checksum_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -180,7 +174,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验"]
     pub fn get_crc_32_as_i64(&self) -> i64 {
         self.0
@@ -193,7 +186,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验"]
     pub fn set_crc_32_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -205,7 +197,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验"]
     pub fn get_crc_32_as_u64(&self) -> u64 {
         self.0
@@ -218,7 +209,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验"]
     pub fn set_crc_32_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -230,7 +220,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 下一个上传块在切割块中的偏移"]
     pub fn get_offset_as_i64(&self) -> i64 {
         self.0
@@ -243,7 +232,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 下一个上传块在切割块中的偏移"]
     pub fn set_offset_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
@@ -255,7 +243,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 下一个上传块在切割块中的偏移"]
     pub fn get_offset_as_u64(&self) -> u64 {
         self.0
@@ -268,7 +255,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 下一个上传块在切割块中的偏移"]
     pub fn set_offset_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
@@ -280,7 +266,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 后续上传接收地址"]
     pub fn get_host_as_str(&self) -> &str {
         self.0
@@ -293,7 +278,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 后续上传接收地址"]
     pub fn set_host_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -308,7 +292,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "获取 `ctx` 过期时间"]
     pub fn get_expired_at_as_str(&self) -> &str {
         self.0
@@ -321,7 +304,6 @@ impl<'a> ResponseBody<'a> {
     }
 }
 impl<'a> ResponseBody<'a> {
-    #[inline]
     #[doc = "设置 `ctx` 过期时间"]
     pub fn set_expired_at_as_str(&mut self, new: String) -> Option<String> {
         self.0
@@ -338,7 +320,6 @@ impl<'a> ResponseBody<'a> {
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
-    #[inline]
     pub(super) fn new(http_client: &'client qiniu_http_client::HttpClient) -> Self {
         Self(http_client)
     }

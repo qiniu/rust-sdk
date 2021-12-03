@@ -37,7 +37,6 @@ impl SyncReqwestHttpCaller {
 }
 
 impl HttpCaller for SyncReqwestHttpCaller {
-    #[inline]
     fn call<'a>(&'a self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
         let mut user_cancelled_error: Option<ResponseError> = None;
         let reqwest_request = make_sync_reqwest_request(request, &mut user_cancelled_error)?;
@@ -141,7 +140,6 @@ fn make_sync_reqwest_request(
     }
 }
 
-#[inline]
 pub(super) fn make_user_agent(
     request: &RequestParts,
     suffix: &str,
@@ -214,7 +212,6 @@ pub(super) fn from_reqwest_error(err: ReqwestError, request: &RequestParts) -> R
     }
 }
 
-#[inline]
 pub(super) fn call_response_callbacks(
     request: &RequestParts,
     status_code: StatusCode,

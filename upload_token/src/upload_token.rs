@@ -377,7 +377,6 @@ impl<C: Clone> FromUploadPolicy<C> {
 }
 
 impl<C: CredentialProvider + Clone> UploadTokenProvider for FromUploadPolicy<C> {
-    #[inline]
     fn access_key(&self, _opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
         Ok(self
             .credential
@@ -442,7 +441,6 @@ impl<C: Clone> BucketUploadTokenProvider<C> {
         }
     }
 
-    #[inline]
     fn make_policy(&self) -> UploadPolicy {
         UploadPolicyBuilder::new_policy_for_bucket(
             self.bucket.to_string(),
@@ -565,7 +563,6 @@ impl<C: Clone> ObjectUploadTokenProvider<C> {
         }
     }
 
-    #[inline]
     fn make_policy(&self) -> UploadPolicy {
         UploadPolicyBuilder::new_policy_for_object(
             self.bucket.to_string(),
@@ -593,7 +590,6 @@ impl<C: Clone> Debug for ObjectUploadTokenProvider<C> {
 }
 
 impl<C: CredentialProvider + Clone> UploadTokenProvider for ObjectUploadTokenProvider<C> {
-    #[inline]
     fn access_key(&self, _opts: &GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
         Ok(self
             .credential

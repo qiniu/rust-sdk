@@ -10,7 +10,6 @@ enum LimitTarget {
 }
 
 impl LimitTarget {
-    #[inline]
     fn retry(
         self,
         decision: RetryDecision,
@@ -78,7 +77,6 @@ impl<R: Default> Default for LimitedRetrier<R> {
 }
 
 impl<R: RequestRetrier> RequestRetrier for LimitedRetrier<R> {
-    #[inline]
     fn retry(&self, request: &mut HttpRequestParts, opts: &RequestRetrierOptions) -> RetryResult {
         self.target
             .retry(

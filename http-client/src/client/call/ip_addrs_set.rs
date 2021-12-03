@@ -8,7 +8,6 @@ pub(super) struct IpAddrsSet {
 }
 
 impl IpAddrsSet {
-    #[inline]
     pub(super) fn new(ips: &[IpAddrWithPort]) -> Self {
         Self {
             set: ips.iter().copied().collect(),
@@ -16,14 +15,12 @@ impl IpAddrsSet {
         }
     }
 
-    #[inline]
     pub(super) fn difference_slice(&mut self, ips: &[IpAddrWithPort]) {
         for ip in ips.iter() {
             self.set.remove(ip);
         }
     }
 
-    #[inline]
     pub(super) fn union_slice(&mut self, ips: &[IpAddrWithPort]) {
         for &ip in ips.iter() {
             self.set.insert(ip);
@@ -31,14 +28,12 @@ impl IpAddrsSet {
         }
     }
 
-    #[inline]
     pub(super) fn difference_set(&mut self, ips: &Self) {
         for ip in ips.set.iter() {
             self.set.remove(ip);
         }
     }
 
-    #[inline]
     #[allow(dead_code)]
     pub(super) fn union_set(&mut self, ips: &Self) {
         for &ip in ips.set.iter() {
@@ -47,7 +42,6 @@ impl IpAddrsSet {
         }
     }
 
-    #[inline]
     pub(super) fn remains(&self) -> Vec<IpAddrWithPort> {
         self.ordered
             .iter()

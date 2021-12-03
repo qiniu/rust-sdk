@@ -424,7 +424,6 @@ mod body {
     }
 
     impl OwnedRequestBody {
-        #[inline]
         fn from_reader(
             reader: impl Read + Reset + Debug + Send + Sync + 'static,
             size: u64,
@@ -435,12 +434,10 @@ mod body {
             })
         }
 
-        #[inline]
         fn from_bytes(bytes: Vec<u8>) -> Self {
             Self(OwnedRequestBodyInner::Bytes(Cursor::new(bytes)))
         }
 
-        #[inline]
         fn size(&self) -> u64 {
             match &self.0 {
                 OwnedRequestBodyInner::Reader { size, .. } => *size,
@@ -594,7 +591,6 @@ mod body {
         }
 
         impl OwnedAsyncRequestBody {
-            #[inline]
             fn from_reader(
                 reader: impl AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'static,
                 size: u64,
@@ -605,7 +601,6 @@ mod body {
                 })
             }
 
-            #[inline]
             fn from_bytes(bytes: Vec<u8>) -> Self {
                 Self(OwnedAsyncRequestBodyInner::Bytes(Cursor::new(bytes)))
             }

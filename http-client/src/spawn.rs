@@ -11,7 +11,6 @@ type TasksMap = HashMap<String, TasksDequeue>;
 
 static THREADS_MAP_LOCK: Lazy<Mutex<TasksMap>> = Lazy::new(Default::default);
 
-#[inline]
 pub(super) fn spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Result<()> {
     let mut threads_map = THREADS_MAP_LOCK.lock().unwrap();
     if let Some(dequeue) = threads_map.get_mut(&task_name) {
@@ -24,7 +23,6 @@ pub(super) fn spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Re
         return spawn_inner(task_name);
     }
 
-    #[inline]
     fn spawn_inner(task_name: String) -> Result<()> {
         _spawn(task_name.to_owned(), move || {
             while let Some(task) = get_task(&task_name) {
@@ -33,7 +31,6 @@ pub(super) fn spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Re
         })
     }
 
-    #[inline]
     fn get_task(task_name: &str) -> Option<Task> {
         let mut threads_map = THREADS_MAP_LOCK.lock().unwrap();
         if let Some(dequeue) = threads_map.get_mut(task_name) {
@@ -46,7 +43,6 @@ pub(super) fn spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Re
         None
     }
 
-    #[inline]
     #[cfg(not(feature = "async"))]
     fn _spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Result<()> {
         std::thread::Builder::new()
@@ -56,7 +52,6 @@ pub(super) fn spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Re
             .map_err(|err| err.into())
     }
 
-    #[inline]
     #[cfg(feature = "async")]
     fn _spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Result<()> {
         async_std::task::Builder::new()

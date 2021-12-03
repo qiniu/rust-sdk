@@ -158,7 +158,6 @@ impl HttpClient {
         self.new_sync_request(Method::DELETE, service_names, endpoints_provider)
     }
 
-    #[inline]
     fn new_sync_request<'r, E: EndpointsProvider + 'r>(
         &'r self,
         method: Method,
@@ -223,7 +222,6 @@ impl HttpClient {
         self.new_async_request(Method::DELETE, service_names, endpoints_provider)
     }
 
-    #[inline]
     #[cfg(feature = "async")]
     fn new_async_request<'r, E: EndpointsProvider + 'r>(
         &'r self,
@@ -234,42 +232,34 @@ impl HttpClient {
         AsyncRequestBuilder::new(self, method, endpoints_provider, service_names)
     }
 
-    #[inline]
     pub(super) fn use_https(&self) -> bool {
         self.inner.use_https
     }
 
-    #[inline]
     pub(super) fn appended_user_agent(&self) -> &UserAgent {
         &self.inner.appended_user_agent
     }
 
-    #[inline]
     pub(super) fn callbacks(&self) -> &Callbacks<'static> {
         &self.inner.callbacks
     }
 
-    #[inline]
     pub(super) fn http_caller(&self) -> &dyn HttpCaller {
         self.inner.http_caller.as_ref()
     }
 
-    #[inline]
     pub(super) fn request_retrier(&self) -> &dyn RequestRetrier {
         self.inner.request_retrier.as_ref()
     }
 
-    #[inline]
     pub(super) fn backoff(&self) -> &dyn Backoff {
         self.inner.backoff.as_ref()
     }
 
-    #[inline]
     pub(super) fn chooser(&self) -> &dyn Chooser {
         self.inner.chooser.as_ref()
     }
 
-    #[inline]
     pub(super) fn resolver(&self) -> &dyn Resolver {
         self.inner.resolver.as_ref()
     }
@@ -317,9 +307,8 @@ impl HttpClientBuilder {
         Self::_new(Box::new(http_caller))
     }
 
-    #[inline]
     fn _new(http_caller: Box<dyn HttpCaller>) -> Self {
-        return HttpClientBuilder {
+        HttpClientBuilder {
             http_caller,
             use_https: true,
             appended_user_agent: Default::default(),
@@ -328,7 +317,7 @@ impl HttpClientBuilder {
             chooser: HttpClient::default_chooser(),
             resolver: HttpClient::default_resolver(),
             callbacks: Default::default(),
-        };
+        }
     }
 
     #[inline]
@@ -496,7 +485,6 @@ impl HttpClientBuilder {
         self
     }
 
-    #[inline]
     pub fn build(self) -> HttpClient {
         HttpClient {
             inner: Arc::new(HttpClientInner {
@@ -545,7 +533,6 @@ impl HttpClient {
         }
     }
 
-    #[inline]
     pub fn default_resolver() -> Box<dyn Resolver> {
         let chained_resolver = {
             let base_resolver = Box::new(TimeoutResolver::<SimpleResolver>::default());

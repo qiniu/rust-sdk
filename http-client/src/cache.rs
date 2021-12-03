@@ -58,7 +58,6 @@ pub(super) struct PersistentFile<K, V> {
 }
 
 impl<K, V> PersistentFile<K, V> {
-    #[inline]
     pub(super) fn new(path: PathBuf, auto_persistent: bool) -> Self {
         Self {
             path,
@@ -81,7 +80,6 @@ impl<
         V: Clone + Serialize + for<'de> Deserialize<'de>,
     > Cache<K, V>
 {
-    #[inline]
     pub(super) fn load_or_create_from(
         path: &Path,
         auto_persistent: bool,
@@ -135,12 +133,10 @@ impl<
 }
 
 impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> Cache<K, V> {
-    #[inline]
     pub(super) fn in_memory(cache_lifetime: Duration, shrink_interval: Duration) -> Self {
         Self::new(cache_lifetime, shrink_interval, None)
     }
 
-    #[inline]
     fn new(
         cache_lifetime: Duration,
         shrink_interval: Duration,
@@ -158,12 +154,10 @@ impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize>
         }
     }
 
-    #[inline]
     pub(super) fn persistent_path(&self) -> Option<&Path> {
         self.inner.persistent.as_ref().map(|p| p.path())
     }
 
-    #[inline]
     pub(super) fn auto_persistent(&self) -> Option<bool> {
         self.inner.persistent.as_ref().map(|p| p.auto_persistent())
     }
@@ -174,7 +168,6 @@ impl<
         V: Clone + Sync + Send + Serialize + 'static,
     > Cache<K, V>
 {
-    #[inline]
     pub(super) fn get<Q: ?Sized>(
         &self,
         key: &Q,
@@ -210,7 +203,6 @@ impl<
         Ok(cache.value.to_owned())
     }
 
-    #[inline]
     pub(super) fn set(&self, key: K, value: V) {
         let value = CacheValue {
             value,
@@ -226,13 +218,11 @@ impl<
         do_some_work_async(&self.inner);
     }
 
-    #[inline]
     #[allow(dead_code)]
     pub(super) fn exists(&self, key: &K) -> bool {
         self.inner.cache.contains_key(key)
     }
 
-    #[inline]
     pub(super) fn remove(&self, key: &K) {
         self.inner.cache.remove(key);
         self.push_command_if_persistent_enabled(|| {
@@ -250,7 +240,6 @@ impl<
         V: Clone + Serialize + Sync + Send + 'static,
     > CacheController for Cache<K, V>
 {
-    #[inline]
     fn clear(&self) {
         self.inner.cache.clear();
         if let Some(persistent) = self.inner.persistent.as_ref() {
@@ -264,7 +253,6 @@ impl<
 }
 
 impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> Cache<K, V> {
-    #[inline]
     fn push_command_if_persistent_enabled(
         &self,
         get_cmd: impl FnOnce() -> PersistentCacheCommand<K, V>,
@@ -294,7 +282,6 @@ impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize>
 }
 
 impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> CacheInner<K, V> {
-    #[inline]
     fn push_command_if_persistent_enabled(
         &self,
         get_cmd: impl FnOnce() -> PersistentCacheCommand<K, V>,
@@ -338,7 +325,6 @@ enum PersistentError {
 }
 type PersistentResult<T> = Result<T, PersistentError>;
 
-#[inline]
 fn do_some_work_async<
     K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Sync + Send + 'static,
     V: Clone + Serialize + Sync + Send + 'static,
@@ -380,7 +366,6 @@ fn do_some_work_async<
     }
 }
 
-#[inline]
 fn do_some_work_with_locked_data<
     K: Eq + PartialEq + Hash + Clone + Debug + Serialize,
     V: Clone + Serialize,
@@ -397,7 +382,6 @@ fn do_some_work_with_locked_data<
     persistent_to_file(inner);
     return;
 
-    #[inline]
     fn refresh_cache<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize>(
         inner: &CacheInner<K, V>,
     ) {
@@ -423,7 +407,6 @@ fn do_some_work_with_locked_data<
         });
     }
 
-    #[inline]
     fn shrink_cache<K: Eq + PartialEq + Hash, V>(inner: &CacheInner<K, V>) {
         let mut count = 0usize;
         inner.cache.retain(|_, cache| {
@@ -440,7 +423,6 @@ fn do_some_work_with_locked_data<
         }
     }
 
-    #[inline]
     fn persistent_to_file<K: Serialize, V: Serialize>(inner: &CacheInner<K, V>) {
         if let Some(persistent) = &inner.persistent {
             if let Err(err) =
@@ -455,7 +437,6 @@ fn do_some_work_with_locked_data<
         }
     }
 
-    #[inline]
     fn _persistent_to_file<K: Serialize, V: Serialize>(
         commands: &SegQueue<PersistentCacheCommand<K, V>>,
         path: &Path,
@@ -478,7 +459,6 @@ fn do_some_work_with_locked_data<
         Ok(())
     }
 
-    #[inline]
     fn _execute_commands<K: Serialize, V: Serialize>(
         commands: &SegQueue<PersistentCacheCommand<K, V>>,
         mut writer: &mut BufWriter<File>,
@@ -503,7 +483,6 @@ fn do_some_work_with_locked_data<
         Ok(())
     }
 
-    #[inline]
     fn _append_cache_entry_to_file<K: Serialize, V: Serialize>(
         mut writer: impl Write,
         key: K,
@@ -526,7 +505,6 @@ fn do_some_work_with_locked_data<
     }
 }
 
-#[inline]
 fn is_time_to_shrink<K, V>(
     inner: &CacheInner<K, V>,
     locked_data: &mut CacheInnerLockedData,

@@ -8,7 +8,6 @@ use qiniu_http::{RequestParts as HttpRequestParts, ResponseErrorKind as HttpResp
 pub struct ErrorRetrier;
 
 impl RequestRetrier for ErrorRetrier {
-    #[inline]
     fn retry(&self, request: &mut HttpRequestParts, opts: &RequestRetrierOptions) -> RetryResult {
         return match opts.response_error().kind() {
             ResponseErrorKind::HttpError(http_err_kind) => match http_err_kind {
@@ -65,7 +64,6 @@ impl RequestRetrier for ErrorRetrier {
         }
         .into();
 
-        #[inline]
         fn is_idempotent(request: &HttpRequestParts, idempotent: Idempotent) -> bool {
             match idempotent {
                 Idempotent::Always => true,

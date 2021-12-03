@@ -127,37 +127,30 @@ impl Region {
         RegionBuilder::new(region_id.into())
     }
 
-    #[inline]
     pub(super) fn up(&self) -> &Endpoints {
         &self.inner.up
     }
 
-    #[inline]
     pub(super) fn io(&self) -> &Endpoints {
         &self.inner.io
     }
 
-    #[inline]
     pub(super) fn uc(&self) -> &Endpoints {
         &self.inner.uc
     }
 
-    #[inline]
     pub(super) fn rs(&self) -> &Endpoints {
         &self.inner.rs
     }
 
-    #[inline]
     pub(super) fn rsf(&self) -> &Endpoints {
         &self.inner.rsf
     }
 
-    #[inline]
     pub(super) fn api(&self) -> &Endpoints {
         &self.inner.api
     }
 
-    #[inline]
     pub(super) fn s3(&self) -> &Endpoints {
         &self.inner.s3
     }

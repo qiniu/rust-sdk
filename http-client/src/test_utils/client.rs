@@ -17,12 +17,10 @@ pub(crate) fn make_dumb_client_builder() -> HttpClientBuilder {
     struct FakeHttpCaller;
 
     impl HttpCaller for FakeHttpCaller {
-        #[inline]
         fn call(&self, _request: &mut SyncHttpRequest<'_>) -> SyncResponseResult {
             Ok(Default::default())
         }
 
-        #[inline]
         #[cfg(feature = "async")]
         fn async_call<'a>(
             &'a self,
@@ -50,7 +48,6 @@ pub(crate) fn make_fixed_response_client_builder(
     }
 
     impl HttpCaller for RedirectHttpCaller {
-        #[inline]
         fn call(&self, _request: &mut SyncHttpRequest<'_>) -> SyncResponseResult {
             Ok(SyncResponse::builder()
                 .status_code(self.status_code)
@@ -73,7 +70,6 @@ pub(crate) fn make_fixed_response_client_builder(
             })
         }
 
-        #[inline]
         fn is_resolved_ip_addrs_supported(&self) -> bool {
             self.is_resolved_ip_addrs_supported
         }
@@ -100,7 +96,6 @@ pub(crate) fn make_error_response_client_builder(
     }
 
     impl HttpCaller for ErrorHttpCaller {
-        #[inline]
         fn call(&self, _request: &mut SyncHttpRequest<'_>) -> SyncResponseResult {
             Err(ResponseError::builder(self.error_kind, self.message.to_owned()).build())
         }
@@ -115,7 +110,6 @@ pub(crate) fn make_error_response_client_builder(
             })
         }
 
-        #[inline]
         fn is_resolved_ip_addrs_supported(&self) -> bool {
             self.is_resolved_ip_addrs_supported
         }

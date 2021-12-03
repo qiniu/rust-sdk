@@ -120,7 +120,6 @@ impl PathParams {
                         self
                     }
 
-                    #[inline]
                     fn build(self) -> Vec<std::borrow::Cow<'static, str>> {
                         let mut all_segments: Vec<_> = Default::default();
                         #(#concat_segments)*

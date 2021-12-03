@@ -73,7 +73,6 @@ impl HttpCaller for Client {
     }
 }
 
-#[inline]
 fn make_user_agent(request: &RequestParts) -> Result<HeaderValue, ResponseError> {
     let user_agent = format!("{}/qiniu-http-ureq", request.user_agent());
     HeaderValue::from_str(&user_agent)
@@ -173,7 +172,6 @@ fn call_response_callbacks(
     Ok(())
 }
 
-#[inline]
 fn build_on_receive_response_status_error(request: &RequestParts) -> ResponseError {
     ResponseError::builder(
         ResponseErrorKind::UserCanceled,
@@ -183,7 +181,6 @@ fn build_on_receive_response_status_error(request: &RequestParts) -> ResponseErr
     .build()
 }
 
-#[inline]
 fn build_on_receive_response_header_error(request: &RequestParts) -> ResponseError {
     ResponseError::builder(
         ResponseErrorKind::UserCanceled,
@@ -193,7 +190,6 @@ fn build_on_receive_response_header_error(request: &RequestParts) -> ResponseErr
     .build()
 }
 
-#[inline]
 fn build_status_code_error(request: &RequestParts, code: u16, err: impl Error) -> ResponseError {
     ResponseError::builder(
         ResponseErrorKind::InvalidRequestResponse,
@@ -203,7 +199,6 @@ fn build_status_code_error(request: &RequestParts, code: u16, err: impl Error) -
     .build()
 }
 
-#[inline]
 fn build_header_name_error(
     request: &RequestParts,
     header_name: &str,
@@ -217,7 +212,6 @@ fn build_header_name_error(
     .build()
 }
 
-#[inline]
 fn build_header_value_error(
     request: &RequestParts,
     header_value: &str,
@@ -231,7 +225,6 @@ fn build_header_value_error(
     .build()
 }
 
-#[inline]
 fn convert_header_value_error(
     request: &RequestParts,
     header_value: &HeaderValue,
@@ -245,7 +238,6 @@ fn convert_header_value_error(
     .build()
 }
 
-#[inline]
 fn set_header_for_request_builder(
     request_builder: UreqRequest,
     request: &RequestParts,
@@ -260,7 +252,6 @@ fn set_header_for_request_builder(
     ))
 }
 
-#[inline]
 fn status_code_of_response(
     response: &UreqResponse,
     request: &RequestParts,
@@ -269,7 +260,6 @@ fn status_code_of_response(
         .map_err(|err| build_status_code_error(request, response.status(), err))
 }
 
-#[inline]
 fn parse_http_version(version: &str, request: &RequestParts) -> Result<Version, ResponseError> {
     match version {
         "HTTP/0.9" => Ok(Version::HTTP_09),
@@ -286,7 +276,6 @@ fn parse_http_version(version: &str, request: &RequestParts) -> Result<Version, 
     }
 }
 
-#[inline]
 fn from_ureq_error(
     kind: UreqErrorKind,
     err: impl Error + Send + Sync + 'static,

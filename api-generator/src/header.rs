@@ -83,7 +83,7 @@ impl HeaderNames {
 
                 impl #name {
                     #[inline]
-                    fn insert(
+                    pub fn insert(
                         mut self,
                         header_name: qiniu_http_client::http::header::HeaderName,
                         header_value: qiniu_http_client::http::header::HeaderValue,

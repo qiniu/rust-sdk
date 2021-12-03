@@ -62,7 +62,6 @@ impl<R> Clone for CachedResolver<R> {
 }
 
 impl<R: Resolver + 'static> Resolver for CachedResolver<R> {
-    #[inline]
     fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
         let resolver = self.resolver.to_owned();
         let opts = opts.to_owned();
@@ -72,7 +71,6 @@ impl<R: Resolver + 'static> Resolver for CachedResolver<R> {
         })
     }
 
-    #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_resolve<'a>(
@@ -188,7 +186,6 @@ mod tests {
     }
 
     impl Resolver for ResolverFromTable {
-        #[inline]
         fn resolve(&self, domain: &str, _opts: &ResolveOptions) -> ResolveResult {
             let key = domain.to_owned();
             Ok(self

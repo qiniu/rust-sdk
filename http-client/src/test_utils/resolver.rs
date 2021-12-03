@@ -7,7 +7,6 @@ pub(crate) fn make_dumb_resolver() -> impl Resolver {
     struct FakeResolver;
 
     impl Resolver for FakeResolver {
-        #[inline]
         fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
             Ok(vec![].into())
         }
@@ -21,7 +20,6 @@ pub(crate) fn make_static_resolver(ip_addrs: Box<[IpAddr]>) -> impl Resolver {
     struct StaticResolver(Box<[IpAddr]>);
 
     impl Resolver for StaticResolver {
-        #[inline]
         fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
             Ok(self.0.to_owned().into())
         }
@@ -35,7 +33,6 @@ pub(crate) fn make_random_resolver() -> impl Resolver {
     struct RandomResolver;
 
     impl Resolver for RandomResolver {
-        #[inline]
         fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
             let ips = vec![IpAddr::V4(Ipv4Addr::from(thread_rng().gen::<u32>()))];
             Ok(ips.into())
@@ -56,7 +53,6 @@ pub(crate) fn make_error_resolver(
     }
 
     impl Resolver for ErrorResolver {
-        #[inline]
         fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
             Err(ResponseError::new(self.error_kind, self.message.to_owned()))
         }

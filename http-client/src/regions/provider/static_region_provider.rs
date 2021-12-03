@@ -19,7 +19,6 @@ impl StaticRegionsProvider {
 }
 
 impl RegionProvider for StaticRegionsProvider {
-    #[inline]
     fn get(&self, _opts: &GetOptions) -> ApiResult<GotRegion> {
         Ok(self
             .regions

@@ -11,7 +11,6 @@ use std::{
 pub struct StringMap<'a>(Cow<'a, Value>);
 
 impl<'a> StringMap<'a> {
-    #[inline]
     #[allow(dead_code)]
     pub(crate) fn new(value: Cow<'a, Value>) -> Self {
         Self(value)
@@ -40,7 +39,6 @@ impl<'a> AsMut<Value> for StringMap<'a> {
 }
 
 impl<'a> StringMap<'a> {
-    #[inline]
     #[doc = "根据 Key 获取相应的不可变 String 引用"]
     pub fn get<Q: ?Sized>(&self, key: &Q) -> Option<&str>
     where
@@ -53,7 +51,6 @@ impl<'a> StringMap<'a> {
             .and_then(|val| val.as_str())
     }
 
-    #[inline]
     #[doc = "根据 Key 设置 String 值"]
     pub fn insert(&mut self, key: String, new: String) -> Option<String> {
         self.0.to_mut().as_object_mut().and_then(|object| {
@@ -64,7 +61,6 @@ impl<'a> StringMap<'a> {
         })
     }
 
-    #[inline]
     #[doc = "根据 Key 获取相应的不可变 String 引用"]
     pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<String>
     where
