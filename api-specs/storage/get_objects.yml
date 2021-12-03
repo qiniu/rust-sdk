@@ -16,7 +16,7 @@ request:
       documentation: 上一次列举返回的位置标记，作为本次列举的起点信息
     - field_name: limit
       query_name: limit
-      query_type: string
+      query_type: integer
       documentation: 本次列举的条目数，范围为 1-1000
     - field_name: prefix
       query_name: prefix

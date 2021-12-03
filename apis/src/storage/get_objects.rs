@@ -46,9 +46,84 @@ impl<'a> QueryParams<'a> {
         self.insert("marker".into(), value.into())
     }
     #[inline]
-    #[doc = "本次列举的条目数，范围为 1-1000"]
-    pub fn set_limit_as_str(self, value: impl Into<qiniu_http_client::QueryPairValue<'a>>) -> Self {
-        self.insert("limit".into(), value.into())
+    #[doc = "limit"]
+    pub fn set_limit_as_i8(self, value: i8) -> Self {
+        self.insert(
+            "本次列举的条目数，范围为 1-1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "limit"]
+    pub fn set_limit_as_i16(self, value: i16) -> Self {
+        self.insert(
+            "本次列举的条目数，范围为 1-1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "limit"]
+    pub fn set_limit_as_i32(self, value: i32) -> Self {
+        self.insert(
+            "本次列举的条目数，范围为 1-1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "limit"]
+    pub fn set_limit_as_i64(self, value: i64) -> Self {
+        self.insert(
+            "本次列举的条目数，范围为 1-1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "limit"]
+    pub fn set_limit_as_isize(self, value: isize) -> Self {
+        self.insert(
+            "本次列举的条目数，范围为 1-1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "limit"]
+    pub fn set_limit_as_u8(self, value: u8) -> Self {
+        self.insert(
+            "本次列举的条目数，范围为 1-1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "limit"]
+    pub fn set_limit_as_u16(self, value: u16) -> Self {
+        self.insert(
+            "本次列举的条目数，范围为 1-1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "limit"]
+    pub fn set_limit_as_u32(self, value: u32) -> Self {
+        self.insert(
+            "本次列举的条目数，范围为 1-1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "limit"]
+    pub fn set_limit_as_u64(self, value: u64) -> Self {
+        self.insert(
+            "本次列举的条目数，范围为 1-1000".into(),
+            value.to_string().into(),
+        )
+    }
+    #[inline]
+    #[doc = "limit"]
+    pub fn set_limit_as_usize(self, value: usize) -> Self {
+        self.insert(
+            "本次列举的条目数，范围为 1-1000".into(),
+            value.to_string().into(),
+        )
     }
     #[inline]
     #[doc = "指定前缀，只有资源名匹配该前缀的资源会被列出"]
