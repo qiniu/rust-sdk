@@ -107,7 +107,7 @@ mod tests {
 
         let cache = RegionsCache::in_memory(Duration::from_secs(1), Duration::from_secs(1));
         let cache_key = CacheKey::new_from_endpoint_and_ak_and_bucket(
-            &Endpoints::builder("https://fake.uc.qiniu.com").build(),
+            &Endpoints::builder("fake.uc.qiniu.com".parse().unwrap()).build(),
             "fakebucket".into(),
             "fakeaccesskey".into(),
         );
@@ -131,7 +131,7 @@ mod tests {
         sleep(Duration::from_secs(1));
 
         let cache_key2 = CacheKey::new_from_endpoint_and_ak_and_bucket(
-            &Endpoints::builder("https://fake.uc2.qiniu.com").build(),
+            &Endpoints::builder("fake.uc2.qiniu.com".parse().unwrap()).build(),
             "fakebucket".into(),
             "fakeaccesskey".into(),
         );
@@ -172,18 +172,18 @@ mod tests {
             Duration::from_secs(120),
         );
         let cache_key_1 = CacheKey::new_from_endpoint_and_ak_and_bucket(
-            &Endpoints::builder("https://fake.uc.qiniu.com").build(),
+            &Endpoints::builder("fake.uc.qiniu.com".parse().unwrap()).build(),
             "fakebucket".into(),
             "fakeaccesskey".into(),
         );
         let cache_key_2 = CacheKey::new_from_endpoint_and_ak_and_bucket(
-            &Endpoints::builder("https://fake.uc2.qiniu.com").build(),
+            &Endpoints::builder("fake.uc2.qiniu.com".parse().unwrap()).build(),
             "fakebucket".into(),
             "fakeaccesskey".into(),
         );
 
         let regions_1 = vec![Region::builder("test")
-            .push_up_preferred_endpoint("fakedomain_1.withport.com".to_owned())
+            .push_up_preferred_endpoint("fakedomain_1.withport.com".parse().unwrap())
             .build()];
         assert_eq!(
             cache
@@ -197,7 +197,7 @@ mod tests {
         assert!(cache.inner.exists(&cache_key_1));
 
         let regions_2 = vec![Region::builder("test")
-            .push_up_preferred_endpoint("fakedomain_2.withport.com".to_owned())
+            .push_up_preferred_endpoint("fakedomain_2.withport.com".parse().unwrap())
             .build()];
         cache.set(cache_key_1.to_owned(), regions_2.to_owned());
         assert!(cache.inner.exists(&cache_key_1));
@@ -303,12 +303,12 @@ mod tests {
             Duration::from_secs(120),
         );
         let cache_key = CacheKey::new_from_endpoint_and_ak_and_bucket(
-            &Endpoints::builder("https://fake.uc.qiniu.com").build(),
+            &Endpoints::builder("fake.uc.qiniu.com".parse().unwrap()).build(),
             "fakebucket".into(),
             "fakeaccesskey".into(),
         );
         let regions = vec![Region::builder("test")
-            .push_up_preferred_endpoint("fakedomain_1.withport.com".to_owned())
+            .push_up_preferred_endpoint("fakedomain_1.withport.com".parse().unwrap())
             .build()];
         assert_eq!(
             cache.get(&cache_key, move || Ok(regions.to_owned()))?.len(),

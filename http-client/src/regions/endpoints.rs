@@ -60,9 +60,9 @@ pub struct Endpoints {
 
 impl Endpoints {
     #[inline]
-    pub fn builder(endpoint: impl Into<Endpoint>) -> EndpointsBuilder {
+    pub fn builder(endpoint: Endpoint) -> EndpointsBuilder {
         EndpointsBuilder {
-            preferred: vec![endpoint.into()],
+            preferred: vec![endpoint],
             alternative: vec![],
         }
     }
@@ -77,7 +77,7 @@ impl Endpoints {
     }
 
     #[inline]
-    pub fn new(endpoint: impl Into<Endpoint>) -> Self {
+    pub fn new(endpoint: Endpoint) -> Self {
         Self::builder(endpoint).build()
     }
 
@@ -209,14 +209,14 @@ pub struct EndpointsBuilder {
 
 impl EndpointsBuilder {
     #[inline]
-    pub fn add_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.preferred.push(endpoint.into());
+    pub fn add_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.preferred.push(endpoint);
         self
     }
 
     #[inline]
-    pub fn add_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.alternative.push(endpoint.into());
+    pub fn add_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.alternative.push(endpoint);
         self
     }
 

@@ -638,7 +638,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .build()
                 .split();
@@ -658,7 +658,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("/fake/path")
                 .build()
@@ -679,7 +679,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .build()
@@ -700,7 +700,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .build()
@@ -721,7 +721,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .build()
@@ -742,7 +742,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .build()
@@ -763,7 +763,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .build()
@@ -784,7 +784,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .build()
@@ -802,7 +802,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .build()
@@ -821,7 +821,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .build()
@@ -843,7 +843,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .build()
@@ -868,10 +868,13 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new(SocketAddr::new(
-                        Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff).into(),
-                        8080,
-                    )),
+                    Endpoints::new(
+                        SocketAddr::new(
+                            Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff).into(),
+                            8080,
+                        )
+                        .into(),
+                    ),
                 )
                 .path("fake/path")
                 .build()
@@ -896,7 +899,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .append_query_pair("sign", "155d24fea16df8c77e9b9eec08a895f7")
@@ -919,7 +922,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .query("avthumb/mp4")
@@ -941,7 +944,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .query("avthumb/mp4")
@@ -965,7 +968,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .query("avthumb/mp4")
@@ -989,7 +992,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .build()
@@ -1012,7 +1015,7 @@ mod tests {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .build()
@@ -1037,7 +1040,7 @@ mod tests {
             let (parts, _, _, _, _) = http_client
                 .get(
                     &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".to_owned()),
+                    Endpoints::new("fakedomain.com".parse().unwrap()),
                 )
                 .path("fake/path")
                 .build()

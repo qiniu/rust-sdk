@@ -208,99 +208,99 @@ impl RegionBuilder {
 
     /// 追加访问地址到上传访问地址列表
     #[inline]
-    pub fn push_up_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.up_preferred.push(endpoint.into());
+    pub fn push_up_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.up_preferred.push(endpoint);
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_up_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.up_alternative.push(endpoint.into());
+    pub fn push_up_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.up_alternative.push(endpoint);
         self
     }
 
     /// 追加访问地址到下载访问地址列表
     #[inline]
-    pub fn push_io_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.io_preferred.push(endpoint.into());
+    pub fn push_io_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.io_preferred.push(endpoint);
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_io_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.io_alternative.push(endpoint.into());
+    pub fn push_io_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.io_alternative.push(endpoint);
         self
     }
 
     /// 追加访问地址到 UC 访问地址列表
     #[inline]
-    pub fn push_uc_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.uc_preferred.push(endpoint.into());
+    pub fn push_uc_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.uc_preferred.push(endpoint);
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_uc_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.uc_alternative.push(endpoint.into());
+    pub fn push_uc_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.uc_alternative.push(endpoint);
         self
     }
 
     /// 追加访问地址到 RS 访问地址列表
     #[inline]
-    pub fn push_rs_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.rs_preferred.push(endpoint.into());
+    pub fn push_rs_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.rs_preferred.push(endpoint);
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_rs_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.rs_alternative.push(endpoint.into());
+    pub fn push_rs_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.rs_alternative.push(endpoint);
         self
     }
 
     /// 追加访问地址到 RSF 访问地址列表
     #[inline]
-    pub fn push_rsf_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.rsf_preferred.push(endpoint.into());
+    pub fn push_rsf_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.rsf_preferred.push(endpoint);
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_rsf_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.rsf_alternative.push(endpoint.into());
+    pub fn push_rsf_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.rsf_alternative.push(endpoint);
         self
     }
 
     /// 追加访问地址到 API 访问地址列表
     #[inline]
-    pub fn push_api_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.api_preferred.push(endpoint.into());
+    pub fn push_api_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.api_preferred.push(endpoint);
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_api_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.api_alternative.push(endpoint.into());
+    pub fn push_api_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.api_alternative.push(endpoint);
         self
     }
 
     /// 追加访问地址到 S3 访问地址列表
     #[inline]
-    pub fn push_s3_preferred_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.s3_preferred.push(endpoint.into());
+    pub fn push_s3_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.s3_preferred.push(endpoint);
         self
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn push_s3_alternative_endpoint(&mut self, endpoint: impl Into<Endpoint>) -> &mut Self {
-        self.s3_alternative.push(endpoint.into());
+    pub fn push_s3_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+        self.s3_alternative.push(endpoint);
         self
     }
     /// 构建区域
