@@ -47,7 +47,7 @@ pub use cache::CacheController;
 pub use client::{
     ApiResult, Authorization, AuthorizationError, AuthorizationResult, Backoff, BackoffDuration,
     BackoffOptions, CachedResolver, CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver,
-    ChainedResolverBuilder, Chooser, ChooserFeedback, DomainOrIpAddr, ErrorRetrier,
+    ChainedResolverBuilder, Chooser, ChooserFeedback, DirectChooser, DomainOrIpAddr, ErrorRetrier,
     ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName, FixedBackoff, HttpClient,
     HttpClientBuilder, Idempotent, IpChooser, IpChooserBuilder, LimitedBackoff, LimitedRetrier,
     Multipart, NeverRetrier, Part, PartMetadata, QueryPairKey, QueryPairValue, QueryPairs,

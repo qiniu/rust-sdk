@@ -20,7 +20,7 @@ pub use call::DomainOrIpAddr;
 pub use callback::{CallbackContext, ExtendedCallbackContext, SimplifiedCallbackContext};
 pub use callbacks::{Callbacks, CallbacksBuilder};
 pub use chooser::{
-    Chooser, ChooserFeedback, IpChooser, IpChooserBuilder, NeverEmptyHandedChooser,
+    Chooser, ChooserFeedback, DirectChooser, IpChooser, IpChooserBuilder, NeverEmptyHandedChooser,
     ShuffledChooser, SubnetChooser, SubnetChooserBuilder,
 };
 pub use http_client::{HttpClient, HttpClientBuilder};

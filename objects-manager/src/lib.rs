@@ -16,8 +16,13 @@
 )]
 
 mod bucket;
+mod list;
 mod objects_manager;
 
-pub use bucket::Bucket;
+pub use bucket::{Bucket, ListBuilder};
+pub use list::{ListIter, ListVersion};
 pub use objects_manager::{ObjectsManager, ObjectsManagerBuilder};
 pub use qiniu_apis as apis;
+
+#[cfg(feature = "async")]
+pub use list::ListStream;

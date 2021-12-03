@@ -36,8 +36,8 @@ impl ObjectsManager {
     }
 
     #[inline]
-    pub fn credential(&self) -> &dyn CredentialProvider {
-        &self.0.credential
+    pub fn credential(&self) -> Arc<dyn CredentialProvider> {
+        self.0.credential.to_owned()
     }
 
     #[inline]
@@ -46,17 +46,17 @@ impl ObjectsManager {
     }
 
     #[inline]
-    pub fn bucket(&self, name: BucketName) -> Bucket {
-        self._bucket_with_region(name, None)
+    pub fn bucket(&self, name: impl Into<BucketName>) -> Bucket {
+        self._bucket_with_region(name.into(), None)
     }
 
     #[inline]
     pub fn bucket_with_region(
         &self,
-        name: BucketName,
+        name: impl Into<BucketName>,
         region_provider: impl RegionProvider + 'static,
     ) -> Bucket {
-        self._bucket_with_region(name, Some(Box::new(region_provider)))
+        self._bucket_with_region(name.into(), Some(Box::new(region_provider)))
     }
 
     fn _bucket_with_region(

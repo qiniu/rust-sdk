@@ -71,7 +71,7 @@ once_cell = "1.8.0"
 [features]
 default = ["ureq"]
 c_ares = ["c-ares", "c-ares-resolver"]
-trust_dns = ["trust-dns-resolver", "async-std-resolver"]
+trust_dns = ["trust-dns-resolver", "async-std-resolver", "qiniu-reqwest/trust-dns"]
 
 dns-over-https = ["trust_dns", "trust-dns-resolver/dns-over-https"]
 dns-over-https-rustls = ["trust_dns", "trust-dns-resolver/dns-over-https-rustls"]
