@@ -23,11 +23,10 @@ async fn main() -> Result<()> {
 
     let opt: Opt = Opt::from_args();
 
-    let credential = Box::new(Credential::new(opt.access_key, opt.secret_key));
+    let credential = Credential::new(opt.access_key, opt.secret_key);
     let region = CachedRegionsProvider::new(credential.to_owned())
         .async_get(&Default::default())
-        .await?
-        .into_region();
+        .await?;
     let response = Client::default()
         .storage()
         .get_buckets()

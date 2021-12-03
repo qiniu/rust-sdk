@@ -274,7 +274,7 @@ impl<'client> Client<'client> {
     pub fn new_request<E: qiniu_http_client::EndpointsProvider + 'client>(
         &self,
         endpoints_provider: E,
-        credential: Box<dyn qiniu_http_client::credential::CredentialProvider>,
+        credential: impl qiniu_http_client::credential::CredentialProvider + 'static,
     ) -> SyncRequestBuilder<'client, E> {
         SyncRequestBuilder(
             self.0
@@ -290,7 +290,7 @@ impl<'client> Client<'client> {
     pub fn new_async_request<E: qiniu_http_client::EndpointsProvider + 'client>(
         &self,
         endpoints_provider: E,
-        credential: Box<dyn qiniu_http_client::credential::CredentialProvider>,
+        credential: impl qiniu_http_client::credential::CredentialProvider + 'static,
     ) -> AsyncRequestBuilder<'client, E> {
         AsyncRequestBuilder(
             self.0

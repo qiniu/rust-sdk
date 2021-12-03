@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
     let opt: Opt = Opt::from_args();
 
     let bucket_queryer = BucketRegionsQueryer::default();
-    let credential = Box::new(Credential::new(&opt.access_key, &opt.secret_key));
+    let credential = Credential::new(&opt.access_key, &opt.secret_key);
     let client = Client::default();
     let mut prev_marker = String::new();
     loop {

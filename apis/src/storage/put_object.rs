@@ -54,7 +54,7 @@ pub mod sync_part {
         #[doc = "上传文件的内容"]
         pub fn set_file_as_reader(
             self,
-            reader: Box<dyn std::io::Read>,
+            reader: impl std::io::Read + 'static,
             metadata: qiniu_http_client::PartMetadata,
         ) -> Self {
             self.add_part(
@@ -148,7 +148,7 @@ pub mod async_part {
         #[doc = "上传文件的内容"]
         pub fn set_file_as_reader(
             self,
-            reader: Box<dyn futures::io::AsyncRead + Send + Unpin>,
+            reader: impl futures::io::AsyncRead + Send + Unpin + 'static,
             metadata: qiniu_http_client::PartMetadata,
         ) -> Self {
             self.add_part(

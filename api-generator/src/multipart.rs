@@ -235,7 +235,7 @@ impl MultipartFormDataRequestStruct {
                     #[doc = #documentation]
                     pub fn #method_name(
                         self,
-                        reader: Box<dyn std::io::Read>,
+                        reader: impl std::io::Read + 'static,
                         metadata: qiniu_http_client::PartMetadata,
                     ) -> Self {
                         self.add_part(
@@ -250,7 +250,7 @@ impl MultipartFormDataRequestStruct {
                     #[doc = #documentation]
                     pub fn #method_name(
                         self,
-                        reader: Box<dyn futures::io::AsyncRead + Send + Unpin>,
+                        reader: impl futures::io::AsyncRead + Send + Unpin+'static,
                         metadata: qiniu_http_client::PartMetadata,
                     ) -> Self {
                         self.add_part(

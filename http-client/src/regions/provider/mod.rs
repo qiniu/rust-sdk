@@ -127,6 +127,13 @@ impl RegionProvider for Region {
     }
 }
 
+impl RegionProvider for GotRegion {
+    #[inline]
+    fn get(&self, _opts: &GetOptions) -> ApiResult<GotRegion> {
+        Ok(self.to_owned())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct GotRegions(Vec<Region>);
 
@@ -215,5 +222,24 @@ impl DerefMut for GotRegions {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl RegionProvider for GotRegions {
+    #[inline]
+    fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
+        self.get_all(opts).map(|regions| {
+            regions
+                .into_regions()
+                .into_iter()
+                .next()
+                .expect("Regions are empty")
+                .into()
+        })
+    }
+
+    #[inline]
+    fn get_all(&self, _opts: &GetOptions) -> ApiResult<GotRegions> {
+        Ok(self.to_owned())
     }
 }

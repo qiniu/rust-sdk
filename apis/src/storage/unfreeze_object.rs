@@ -135,7 +135,7 @@ impl<'client> Client<'client> {
         &self,
         endpoints_provider: E,
         path_params: PathParams,
-        credential: Box<dyn qiniu_http_client::credential::CredentialProvider>,
+        credential: impl qiniu_http_client::credential::CredentialProvider + 'static,
     ) -> SyncRequestBuilder<'client, E> {
         SyncRequestBuilder(
             self.0
@@ -156,7 +156,7 @@ impl<'client> Client<'client> {
         &self,
         endpoints_provider: E,
         path_params: PathParams,
-        credential: Box<dyn qiniu_http_client::credential::CredentialProvider>,
+        credential: impl qiniu_http_client::credential::CredentialProvider + 'static,
     ) -> AsyncRequestBuilder<'client, E> {
         AsyncRequestBuilder(
             self.0
