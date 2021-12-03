@@ -11,6 +11,11 @@ request:
         type: string
         documentation: 指定目标对象空间与目标对象名称
         encode: url_safe_base64
+  query_names:
+    - field_name: need_parts
+      query_name: needparts
+      query_type: boolean
+      documentation: 如果文件是通过分片上传的，是否返回对应的分片信息
 response:
   body:
     json:
@@ -65,6 +70,15 @@ response:
             key: transitionToARCHIVE
             documentation: 文件生命周期中转为归档存储的日期，UNIX 时间戳格式，文件在设置转归档后才会返回该字段
             type: integer
+            optional: true
+          - field_name: parts
+            key: parts
+            documentation: 每个分片的大小，如没有指定 need_parts 参数则不返回
+            type:
+              array:
+                name: PartSizes
+                type: integer
+                documentation: 每个分片的大小
             optional: true
         name: ObjectMetadata
         documentation: 文件元信息

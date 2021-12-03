@@ -26,6 +26,10 @@ request:
       query_name: delimiter
       query_type: string
       documentation: 指定目录分隔符，列出所有公共前缀（模拟列出目录效果）
+    - field_name: need_parts
+      query_name: needparts
+      query_type: boolean
+      documentation: 如果文件是通过分片上传的，是否返回对应的分片信息
 response:
   body:
     json:
@@ -44,6 +48,15 @@ response:
                 name: CommonPrefixes
                 type: string
                 documentation: 公共前缀的数组
+            optional: true
+          - field_name: parts
+            key: parts
+            documentation: 每个分片的大小，如没有指定 need_parts 参数则不返回
+            type:
+              array:
+                name: PartSizes
+                type: integer
+                documentation: 每个分片的大小
             optional: true
           - field_name: items
             key: items
