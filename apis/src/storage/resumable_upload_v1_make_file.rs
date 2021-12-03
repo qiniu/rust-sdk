@@ -137,29 +137,29 @@ impl PathParams {
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 #[serde(transparent)]
 #[doc = "获取 API 所用的响应体参数"]
-pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
-impl<'a> ResponseBody<'a> {
+pub struct ResponseBody(serde_json::Value);
+impl ResponseBody {
     #[allow(dead_code)]
-    pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+    pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
     }
 }
-impl<'a> From<ResponseBody<'a>> for serde_json::Value {
+impl From<ResponseBody> for serde_json::Value {
     #[inline]
-    fn from(val: ResponseBody<'a>) -> Self {
-        val.0.into_owned()
+    fn from(val: ResponseBody) -> Self {
+        val.0
     }
 }
-impl<'a> std::convert::AsRef<serde_json::Value> for ResponseBody<'a> {
+impl std::convert::AsRef<serde_json::Value> for ResponseBody {
     #[inline]
     fn as_ref(&self) -> &serde_json::Value {
-        self.0.as_ref()
+        &self.0
     }
 }
-impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
+impl std::convert::AsMut<serde_json::Value> for ResponseBody {
     #[inline]
     fn as_mut(&mut self) -> &mut serde_json::Value {
-        self.0.to_mut()
+        &mut self.0
     }
 }
 #[derive(Debug, Clone)]
@@ -436,7 +436,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> SyncRequestBuilder<'r
             + Sync
             + 'static,
         content_length: u64,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
+    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0.stream_as_body(body, content_length, None);
         let response = request.call()?;
         let parsed = response.parse_json()?;
@@ -664,7 +664,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> AsyncRequestBuilder<'
             + Sync
             + 'static,
         content_length: u64,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
+    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0.stream_as_body(body, content_length, None);
         let response = request.call().await?;
         let parsed = response.parse_json().await?;

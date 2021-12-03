@@ -50,32 +50,32 @@ impl PathParams {
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 #[serde(transparent)]
 #[doc = "获取 API 所用的响应体参数"]
-pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
-impl<'a> ResponseBody<'a> {
+pub struct ResponseBody(serde_json::Value);
+impl ResponseBody {
     #[allow(dead_code)]
-    pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+    pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
     }
 }
-impl<'a> From<ResponseBody<'a>> for serde_json::Value {
+impl From<ResponseBody> for serde_json::Value {
     #[inline]
-    fn from(val: ResponseBody<'a>) -> Self {
-        val.0.into_owned()
+    fn from(val: ResponseBody) -> Self {
+        val.0
     }
 }
-impl<'a> std::convert::AsRef<serde_json::Value> for ResponseBody<'a> {
+impl std::convert::AsRef<serde_json::Value> for ResponseBody {
     #[inline]
     fn as_ref(&self) -> &serde_json::Value {
-        self.0.as_ref()
+        &self.0
     }
 }
-impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
+impl std::convert::AsMut<serde_json::Value> for ResponseBody {
     #[inline]
     fn as_mut(&mut self) -> &mut serde_json::Value {
-        self.0.to_mut()
+        &mut self.0
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 初始化文件生成的 id"]
     pub fn get_upload_id_as_str(&self) -> &str {
         self.0
@@ -87,11 +87,10 @@ impl<'a> ResponseBody<'a> {
             .unwrap()
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 初始化文件生成的 id"]
     pub fn set_upload_id_as_str(&mut self, new: String) -> Option<String> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("uploadId".to_owned(), new.into())
@@ -101,7 +100,7 @@ impl<'a> ResponseBody<'a> {
             })
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn get_expired_at_as_i64(&self) -> i64 {
         self.0
@@ -113,18 +112,17 @@ impl<'a> ResponseBody<'a> {
             .unwrap()
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn set_expired_at_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("expireAt".to_owned(), new.into())
             .and_then(|val| val.as_i64())
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn get_expired_at_as_u64(&self) -> u64 {
         self.0
@@ -136,11 +134,10 @@ impl<'a> ResponseBody<'a> {
             .unwrap()
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn set_expired_at_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("expireAt".to_owned(), new.into())
@@ -412,9 +409,7 @@ impl<'req, E: 'req> SyncRequestBuilder<'req, E> {
     }
 }
 impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> SyncRequestBuilder<'req, E> {
-    pub fn call(
-        self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
+    pub fn call(self) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0;
         let response = request.call()?;
         let parsed = response.parse_json()?;
@@ -634,7 +629,7 @@ impl<'req, E: 'req> AsyncRequestBuilder<'req, E> {
 impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> AsyncRequestBuilder<'req, E> {
     pub async fn call(
         self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
+    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0;
         let response = request.call().await?;
         let parsed = response.parse_json().await?;

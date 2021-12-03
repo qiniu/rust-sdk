@@ -625,7 +625,7 @@ impl ApiDetailedDescription {
         ) -> TokenStream {
             let (call_params, set_body_call) = match &description.request.body {
                 Some(RequestBody::Json(_)) => (
-                    Some(quote! {body: &RequestBody<'_>}),
+                    Some(quote! {body: &RequestBody}),
                     quote! {self.0.json(body)?},
                 ),
                 Some(RequestBody::FormUrlencoded(_)) => (
@@ -669,10 +669,7 @@ impl ApiDetailedDescription {
                     quote! {response},
                 )
             } else {
-                (
-                    quote! {ResponseBody<'static>},
-                    quote! {response.parse_json()?},
-                )
+                (quote! {ResponseBody}, quote! {response.parse_json()?})
             };
 
             quote! {
@@ -690,7 +687,7 @@ impl ApiDetailedDescription {
         ) -> TokenStream {
             let (call_params, set_body_call) = match &description.request.body {
                 Some(RequestBody::Json(_)) => (
-                    Some(quote! {body: &RequestBody<'_>}),
+                    Some(quote! {body: &RequestBody}),
                     quote! {self.0.json(body)?},
                 ),
                 Some(RequestBody::FormUrlencoded(_)) => (
@@ -735,10 +732,7 @@ impl ApiDetailedDescription {
                     quote! {response},
                 )
             } else {
-                (
-                    quote! {ResponseBody<'static>},
-                    quote! {response.parse_json().await?},
-                )
+                (quote! {ResponseBody}, quote! {response.parse_json().await?})
             };
 
             quote! {

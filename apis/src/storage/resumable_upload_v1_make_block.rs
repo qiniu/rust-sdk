@@ -86,32 +86,32 @@ impl PathParams {
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 #[serde(transparent)]
 #[doc = "获取 API 所用的响应体参数"]
-pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
-impl<'a> ResponseBody<'a> {
+pub struct ResponseBody(serde_json::Value);
+impl ResponseBody {
     #[allow(dead_code)]
-    pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+    pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
     }
 }
-impl<'a> From<ResponseBody<'a>> for serde_json::Value {
+impl From<ResponseBody> for serde_json::Value {
     #[inline]
-    fn from(val: ResponseBody<'a>) -> Self {
-        val.0.into_owned()
+    fn from(val: ResponseBody) -> Self {
+        val.0
     }
 }
-impl<'a> std::convert::AsRef<serde_json::Value> for ResponseBody<'a> {
+impl std::convert::AsRef<serde_json::Value> for ResponseBody {
     #[inline]
     fn as_ref(&self) -> &serde_json::Value {
-        self.0.as_ref()
+        &self.0
     }
 }
-impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
+impl std::convert::AsMut<serde_json::Value> for ResponseBody {
     #[inline]
     fn as_mut(&mut self) -> &mut serde_json::Value {
-        self.0.to_mut()
+        &mut self.0
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 本次上传成功后的块级上传控制信息，用于后续上传片（bput）及创建文件（mkfile）"]
     pub fn get_ctx_as_str(&self) -> &str {
         self.0
@@ -123,11 +123,10 @@ impl<'a> ResponseBody<'a> {
             .unwrap()
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 本次上传成功后的块级上传控制信息，用于后续上传片（bput）及创建文件（mkfile）"]
     pub fn set_ctx_as_str(&mut self, new: String) -> Option<String> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("ctx".to_owned(), new.into())
@@ -137,7 +136,7 @@ impl<'a> ResponseBody<'a> {
             })
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 上传块 SHA1 值，使用 URL 安全的 Base64 编码"]
     pub fn get_checksum_as_str(&self) -> &str {
         self.0
@@ -149,11 +148,10 @@ impl<'a> ResponseBody<'a> {
             .unwrap()
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 上传块 SHA1 值，使用 URL 安全的 Base64 编码"]
     pub fn set_checksum_as_str(&mut self, new: String) -> Option<String> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("checksum".to_owned(), new.into())
@@ -163,7 +161,7 @@ impl<'a> ResponseBody<'a> {
             })
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验"]
     pub fn get_crc_32_as_i64(&self) -> i64 {
         self.0
@@ -175,18 +173,17 @@ impl<'a> ResponseBody<'a> {
             .unwrap()
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验"]
     pub fn set_crc_32_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("crc32".to_owned(), new.into())
             .and_then(|val| val.as_i64())
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验"]
     pub fn get_crc_32_as_u64(&self) -> u64 {
         self.0
@@ -198,18 +195,17 @@ impl<'a> ResponseBody<'a> {
             .unwrap()
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 上传块 CRC32 值，客户可通过此字段对上传块的完整性进行校验"]
     pub fn set_crc_32_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("crc32".to_owned(), new.into())
             .and_then(|val| val.as_u64())
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 下一个上传块在切割块中的偏移"]
     pub fn get_offset_as_i64(&self) -> i64 {
         self.0
@@ -221,18 +217,17 @@ impl<'a> ResponseBody<'a> {
             .unwrap()
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 下一个上传块在切割块中的偏移"]
     pub fn set_offset_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("offset".to_owned(), new.into())
             .and_then(|val| val.as_i64())
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 下一个上传块在切割块中的偏移"]
     pub fn get_offset_as_u64(&self) -> u64 {
         self.0
@@ -244,18 +239,17 @@ impl<'a> ResponseBody<'a> {
             .unwrap()
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 下一个上传块在切割块中的偏移"]
     pub fn set_offset_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("offset".to_owned(), new.into())
             .and_then(|val| val.as_u64())
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 后续上传接收地址"]
     pub fn get_host_as_str(&self) -> &str {
         self.0
@@ -267,11 +261,10 @@ impl<'a> ResponseBody<'a> {
             .unwrap()
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 后续上传接收地址"]
     pub fn set_host_as_str(&mut self, new: String) -> Option<String> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("host".to_owned(), new.into())
@@ -281,7 +274,7 @@ impl<'a> ResponseBody<'a> {
             })
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 `ctx` 过期时间"]
     pub fn get_expired_at_as_i64(&self) -> i64 {
         self.0
@@ -293,18 +286,17 @@ impl<'a> ResponseBody<'a> {
             .unwrap()
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 `ctx` 过期时间"]
     pub fn set_expired_at_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("expired_at".to_owned(), new.into())
             .and_then(|val| val.as_i64())
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 `ctx` 过期时间"]
     pub fn get_expired_at_as_u64(&self) -> u64 {
         self.0
@@ -316,11 +308,10 @@ impl<'a> ResponseBody<'a> {
             .unwrap()
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 `ctx` 过期时间"]
     pub fn set_expired_at_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("expired_at".to_owned(), new.into())
@@ -595,7 +586,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> SyncRequestBuilder<'r
     pub fn call(
         self,
         body: String,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
+    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self
             .0
             .bytes_as_body(body.into_bytes(), Some(mime::TEXT_PLAIN_UTF_8));
@@ -818,7 +809,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> AsyncRequestBuilder<'
     pub async fn call(
         self,
         body: impl Into<String>,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
+    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self
             .0
             .bytes_as_body(body.into().into_bytes(), Some(mime::TEXT_PLAIN_UTF_8));

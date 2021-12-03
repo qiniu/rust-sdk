@@ -1,6 +1,6 @@
 use serde_json::{Map, Value};
 use std::{
-    borrow::{Borrow, Cow},
+    borrow::Borrow,
     convert::{AsMut, AsRef},
     hash::Hash,
     iter::{FromIterator, IntoIterator},
@@ -8,37 +8,37 @@ use std::{
 
 #[derive(Clone, Debug)]
 /// 通用类型，表示字符串 => 字符串的映射结构
-pub struct StringMap<'a>(Cow<'a, Value>);
+pub struct StringMap(Value);
 
-impl<'a> StringMap<'a> {
+impl StringMap {
     #[allow(dead_code)]
-    pub(crate) fn new(value: Cow<'a, Value>) -> Self {
+    pub(crate) fn new(value: Value) -> Self {
         Self(value)
     }
 }
 
-impl<'a> From<StringMap<'a>> for Value {
+impl From<StringMap> for Value {
     #[inline]
-    fn from(val: StringMap<'a>) -> Self {
-        val.0.into_owned()
+    fn from(val: StringMap) -> Self {
+        val.0
     }
 }
 
-impl<'a> AsRef<Value> for StringMap<'a> {
+impl AsRef<Value> for StringMap {
     #[inline]
     fn as_ref(&self) -> &Value {
-        self.0.as_ref()
+        &self.0
     }
 }
 
-impl<'a> AsMut<Value> for StringMap<'a> {
+impl AsMut<Value> for StringMap {
     #[inline]
     fn as_mut(&mut self) -> &mut Value {
-        self.0.to_mut()
+        &mut self.0
     }
 }
 
-impl<'a> StringMap<'a> {
+impl StringMap {
     #[doc = "根据 Key 获取相应的不可变 String 引用"]
     pub fn get<Q: ?Sized>(&self, key: &Q) -> Option<&str>
     where
@@ -53,7 +53,7 @@ impl<'a> StringMap<'a> {
 
     #[doc = "根据 Key 设置 String 值"]
     pub fn insert(&mut self, key: String, new: String) -> Option<String> {
-        self.0.to_mut().as_object_mut().and_then(|object| {
+        self.0.as_object_mut().and_then(|object| {
             object.insert(key, new.into()).and_then(|old| match old {
                 Value::String(s) => Some(s),
                 _ => None,
@@ -68,7 +68,6 @@ impl<'a> StringMap<'a> {
         Q: Ord + Eq + Hash,
     {
         self.0
-            .to_mut()
             .as_object_mut()
             .and_then(|object| object.remove(key))
             .and_then(|val| match val {
@@ -88,15 +87,15 @@ impl<'a> StringMap<'a> {
     }
 }
 
-impl<'a, T> From<T> for StringMap<'a>
+impl<'a, T> From<T> for StringMap
 where
     T: IntoIterator<Item = (String, String)>,
 {
     #[inline]
     fn from(m: T) -> Self {
-        Self(Cow::Owned(Value::Object(Map::from_iter(
+        Self(Value::Object(Map::from_iter(
             m.into_iter()
                 .map(|(key, value)| (key, Value::String(value))),
-        ))))
+        )))
     }
 }

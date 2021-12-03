@@ -54,7 +54,7 @@ impl JsonType {
             Self::Struct(info) => Some(impls_token_stream_for_struct(&name, &info.fields)),
             Self::Any => None,
             Self::StringMap => {
-                return quote! { type #name<'a> = crate::base_types::StringMap<'a>; };
+                return quote! { type #name = crate::base_types::StringMap; };
             }
         };
 
@@ -190,7 +190,7 @@ impl JsonType {
             as_method_documentation: &str,
         ) -> TokenStream {
             quote! {
-                impl<'a> #name<'a> {
+                impl #name {
                     #[inline]
                     #[doc = #as_method_documentation]
                     pub fn #as_method_name(&self) -> #ty {
@@ -207,7 +207,7 @@ impl JsonType {
             set_method_documentation: &str,
         ) -> TokenStream {
             quote! {
-                impl<'a> #name<'a> {
+                impl #name {
                     #[inline]
                     #[doc = #set_method_documentation]
                     pub fn #set_method_name(&mut self, val: #ty) {
@@ -219,10 +219,10 @@ impl JsonType {
 
         fn impl_from_trait_for_base_types(name: &Ident, rust_type: &TokenStream) -> TokenStream {
             quote! {
-                impl<'a> From<#rust_type> for #name<'a> {
+                impl From<#rust_type> for #name {
                     #[inline]
                     fn from(val: #rust_type) -> Self {
-                        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+                        Self(serde_json::Value::from(val))
                     }
                 }
             }
@@ -633,7 +633,7 @@ impl JsonType {
                     )
                 };
                 let from_trait_token_stream =
-                    impl_from_trait_for_base_types_in_array(name, &quote!(#struct_name<'a>));
+                    impl_from_trait_for_base_types_in_array(name, &quote!(#struct_name));
                 let immutable_methods_token_stream =
                     impl_immutable_methods_for_base_types_in_array(name);
                 let insert_method_token_stream = {
@@ -645,7 +645,7 @@ impl JsonType {
                     );
                     impl_insert_method_for_base_types_in_array(
                         name,
-                        &quote!(#struct_name<'a>),
+                        &quote!(#struct_name),
                         &quote!(#insert_method_name),
                         &insert_method_documentation,
                     )
@@ -673,7 +673,7 @@ impl JsonType {
                     );
                     impl_push_method_for_base_types_in_array(
                         name,
-                        &quote!(#struct_name<'a>),
+                        &quote!(#struct_name),
                         &quote!(#push_method_name),
                         &push_method_documentation,
                     )
@@ -713,7 +713,7 @@ impl JsonType {
                 to_method_documentation: &str,
             ) -> TokenStream {
                 quote! {
-                    impl<'a> #name<'a> {
+                    impl #name {
                         #[doc = #to_method_documentation]
                         pub fn #to_method_name(&self) -> Vec<#ty> {
                             self.0
@@ -734,14 +734,14 @@ impl JsonType {
                 to_method_documentation: &str,
             ) -> TokenStream {
                 quote! {
-                    impl<'a> #name<'a> {
+                    impl #name {
                         #[doc = #to_method_documentation]
                         pub fn #to_method_name(&self) -> Vec<#ty> {
                             self.0
                                 .as_array()
                                 .unwrap()
                                 .iter()
-                                .map(std::borrow::Cow::Borrowed)
+                                .cloned()
                                 .map(#ty::new)
                                 .collect()
                         }
@@ -754,16 +754,10 @@ impl JsonType {
                 rust_type: &TokenStream,
             ) -> TokenStream {
                 quote! {
-                    impl<'a> From<Vec<#rust_type>> for #name<'a> {
+                    impl From<Vec<#rust_type>> for #name {
                         #[inline]
                         fn from(val: Vec<#rust_type>) -> Self {
-                            Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-                        }
-                    }
-                    impl<'a, 'b> From<&'a [#rust_type]> for #name<'b> {
-                        #[inline]
-                        fn from(val: &'a [#rust_type]) -> Self {
-                            Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+                            Self(serde_json::Value::from(val))
                         }
                     }
                 }
@@ -771,7 +765,7 @@ impl JsonType {
 
             fn impl_immutable_methods_for_base_types_in_array(name: &Ident) -> TokenStream {
                 quote! {
-                    impl<'a> #name<'a> {
+                    impl #name {
                         pub fn len(&self) -> usize {
                             self.0
                                 .as_array()
@@ -796,11 +790,10 @@ impl JsonType {
                 insert_method_documentation: &str,
             ) -> TokenStream {
                 quote! {
-                    impl<'a> #name<'a> {
+                    impl #name {
                         #[doc = #insert_method_documentation]
                         pub fn #insert_method_name(&mut self, index: usize, val: #rust_type) {
                             self.0
-                                .to_mut()
                                 .as_array_mut()
                                 .unwrap()
                                 .insert(index, val.into());
@@ -817,10 +810,10 @@ impl JsonType {
                 remove_method_documentation: &str,
             ) -> TokenStream {
                 quote! {
-                    impl<'a> #name<'a> {
+                    impl #name {
                         #[doc = #remove_method_documentation]
                         pub fn #remove_method_name(&mut self, index: usize) -> Option<#rust_type> {
-                            match self.0.to_mut().as_array_mut().unwrap().remove(index) {
+                            match self.0.as_array_mut().unwrap().remove(index) {
                                 #json_type(s) => Some(s),
                                 _ => None,
                             }
@@ -836,12 +829,12 @@ impl JsonType {
                 remove_method_documentation: &str,
             ) -> TokenStream {
                 quote! {
-                    impl<'a> #name<'a> {
+                    impl #name {
                         #[doc = #remove_method_documentation]
                         pub fn #remove_method_name(&mut self, index: usize) -> #rust_type {
-                            #rust_type::new(std::borrow::Cow::Owned(
-                                self.0.to_mut().as_array_mut().unwrap().remove(index)
-                            ))
+                            #rust_type::new(
+                                self.0.as_array_mut().unwrap().remove(index)
+                            )
                         }
                     }
                 }
@@ -856,10 +849,10 @@ impl JsonType {
                 remove_method_documentation: &str,
             ) -> TokenStream {
                 quote! {
-                    impl<'a> #name<'a> {
+                    impl #name {
                         #[doc = #remove_method_documentation]
                         pub fn #remove_method_name(&mut self, index: usize) -> Option<#rust_type> {
-                            match self.0.to_mut().as_array_mut().unwrap().remove(index) {
+                            match self.0.as_array_mut().unwrap().remove(index) {
                                 #json_type(s) => s.#as_method_name(),
                                 _ => None,
                             }
@@ -875,11 +868,10 @@ impl JsonType {
                 push_method_documentation: &str,
             ) -> TokenStream {
                 quote! {
-                    impl<'a> #name<'a> {
+                    impl #name {
                         #[doc = #push_method_documentation]
                         pub fn #push_method_name(&mut self, val: #rust_type) {
                             self.0
-                                .to_mut()
                                 .as_array_mut()
                                 .unwrap()
                                 .push(val.into());
@@ -896,11 +888,10 @@ impl JsonType {
                 pop_method_documentation: &str,
             ) -> TokenStream {
                 quote! {
-                    impl<'a> #name<'a> {
+                    impl #name {
                         #[doc = #pop_method_documentation]
                         pub fn #pop_method_name(&mut self) -> Option<#rust_type> {
                             self.0
-                                .to_mut()
                                 .as_array_mut()
                                 .unwrap()
                                 .pop()
@@ -920,15 +911,13 @@ impl JsonType {
                 pop_method_documentation: &str,
             ) -> TokenStream {
                 quote! {
-                    impl<'a> #name<'a> {
+                    impl #name {
                         #[doc = #pop_method_documentation]
                         pub fn #pop_method_name(&mut self) -> Option<#rust_type> {
                             self.0
-                                .to_mut()
                                 .as_array_mut()
                                 .unwrap()
                                 .pop()
-                                .map(std::borrow::Cow::Owned)
                                 .map(#rust_type::new)
                         }
                     }
@@ -944,11 +933,10 @@ impl JsonType {
                 pop_method_documentation: &str,
             ) -> TokenStream {
                 quote! {
-                    impl<'a> #name<'a> {
+                    impl #name {
                         #[doc = #pop_method_documentation]
                         pub fn #pop_method_name(&mut self) -> Option<#rust_type> {
                             self.0
-                                .to_mut()
                                 .as_array_mut()
                                 .unwrap()
                                 .pop()
@@ -1148,7 +1136,7 @@ impl JsonType {
                     let getter_documentation = format!("获取 {}", documentation);
                     if optional {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #getter_documentation]
                                 pub fn #field_getter_method_name(&self) -> Option<#rust_type> {
                                     self.0
@@ -1160,7 +1148,7 @@ impl JsonType {
                         }
                     } else {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #getter_documentation]
                                 pub fn #field_getter_method_name(&self) -> #rust_type {
                                     self.0
@@ -1191,10 +1179,10 @@ impl JsonType {
                     let setter_documentation = format!("设置 {}", documentation);
                     if optional {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #setter_documentation]
                                 pub fn #field_setter_method_name(&mut self, new: #rust_type) -> Option<#rust_type> {
-                                    self.0.to_mut().as_object_mut().and_then(|object| {
+                                    self.0.as_object_mut().and_then(|object| {
                                         object
                                             .insert(#json_key.to_owned(), new.into())
                                             .and_then(|val| val.#as_method_name())
@@ -1204,11 +1192,10 @@ impl JsonType {
                         }
                     } else {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #setter_documentation]
                                 pub fn #field_setter_method_name(&mut self, new: #rust_type) -> Option<#rust_type> {
                                     self.0
-                                        .to_mut()
                                         .as_object_mut()
                                         .unwrap()
                                         .insert(#json_key.to_owned(), new.into())
@@ -1230,10 +1217,10 @@ impl JsonType {
                     let setter_documentation = format!("设置 {}", documentation);
                     if optional {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #setter_documentation]
                                 pub fn #field_setter_method_name(&mut self, new: String) -> Option<String> {
-                                    self.0.to_mut().as_object_mut().and_then(|object| {
+                                    self.0.as_object_mut().and_then(|object| {
                                         object
                                             .insert(#json_key.to_owned(), new.into())
                                             .and_then(|val| match val {
@@ -1246,11 +1233,10 @@ impl JsonType {
                         }
                     } else {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #setter_documentation]
                                 pub fn #field_setter_method_name(&mut self, new: String) -> Option<String> {
                                     self.0
-                                        .to_mut()
                                         .as_object_mut()
                                         .unwrap()
                                         .insert(#json_key.to_owned(), new.into())
@@ -1278,7 +1264,7 @@ impl JsonType {
 
                     if optional {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #getter_documentation]
                                 pub fn #field_getter_method_name(&self) -> Option<&serde_json::Value> {
                                     self.0
@@ -1289,7 +1275,6 @@ impl JsonType {
                                 #[doc = #setter_documentation]
                                 pub fn #field_setter_method_name(&mut self, new: serde_json::Value) -> Option<serde_json::Value> {
                                     self.0
-                                        .to_mut()
                                         .as_object_mut()
                                         .and_then(|object| object.insert(#json_key.to_owned(), new.into()))
                                 }
@@ -1297,7 +1282,7 @@ impl JsonType {
                         }
                     } else {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #getter_documentation]
                                 pub fn #field_getter_method_name(&self) -> &serde_json::Value {
                                     self.0.as_object().unwrap().get(#json_key).unwrap()
@@ -1305,7 +1290,6 @@ impl JsonType {
                                 #[doc = #setter_documentation]
                                 pub fn #field_setter_method_name(&mut self, new: serde_json::Value) -> Option<serde_json::Value> {
                                     self.0
-                                        .to_mut()
                                         .as_object_mut()
                                         .unwrap()
                                         .insert(#json_key.to_owned(), new.into())
@@ -1329,42 +1313,41 @@ impl JsonType {
 
                     if optional {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #getter_documentation]
                                 pub fn #field_getter_method_name(&self) -> Option<crate::base_types::StringMap> {
                                     self.0
                                         .as_object()
                                         .and_then(|obj| obj.get(#json_key))
-                                        .map(|obj| crate::base_types::StringMap::new(std::borrow::Cow::Borrowed(obj)))
+                                        .cloned()
+                                        .map(crate::base_types::StringMap::new)
                                 }
 
                                 #[doc = #setter_documentation]
                                 pub fn #field_setter_method_name(&mut self, new: crate::base_types::StringMap) -> Option<crate::base_types::StringMap> {
                                     self.0
-                                        .to_mut()
                                         .as_object_mut()
                                         .and_then(|object| object.insert(#json_key.to_owned(), new.into()))
-                                        .map(|obj| crate::base_types::StringMap::new(std::borrow::Cow::Owned(obj)))
+                                        .map(crate::base_types::StringMap::new)
                                 }
                             }
                         }
                     } else {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #getter_documentation]
                                 pub fn #field_getter_method_name(&self) -> crate::base_types::StringMap {
-                                    crate::base_types::StringMap::new(std::borrow::Cow::Borrowed(
-                                        self.0.as_object().unwrap().get(#json_key).unwrap(),
-                                    ))
+                                    crate::base_types::StringMap::new(
+                                        self.0.as_object().unwrap().get(#json_key).cloned().unwrap(),
+                                    )
                                 }
                                 #[doc = #setter_documentation]
                                 pub fn #field_setter_method_name(&mut self, new: crate::base_types::StringMap) -> Option<crate::base_types::StringMap> {
                                     self.0
-                                        .to_mut()
                                         .as_object_mut()
                                         .unwrap()
                                         .insert(#json_key.to_owned(), new.into())
-                                        .map(|obj| crate::base_types::StringMap::new(std::borrow::Cow::Owned(obj)))
+                                        .map(crate::base_types::StringMap::new)
                                 }
                             }
                         }
@@ -1462,29 +1445,30 @@ impl JsonType {
                     let getter_documentation = format!("获取 {}", documentation);
                     if optional {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #getter_documentation]
                                 pub fn #field_getter_method_name(&self) -> Option<#rust_type> {
                                     self.0
                                         .as_object()
                                         .and_then(|obj| obj.get(#json_key))
-                                        .map(std::borrow::Cow::Borrowed)
+                                        .cloned()
                                         .map(#rust_type::new)
                                 }
                             }
                         }
                     } else {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #getter_documentation]
                                 pub fn #field_getter_method_name(&self) -> #rust_type {
-                                    #rust_type::new(std::borrow::Cow::Borrowed(
+                                    #rust_type::new(
                                         self.0
                                             .as_object()
                                             .unwrap()
                                             .get(#json_key)
+                                            .cloned()
                                             .unwrap()
-                                    ))
+                                    )
                                 }
                             }
                         }
@@ -1503,13 +1487,12 @@ impl JsonType {
                     let setter_documentation = format!("设置 {}", documentation);
                     if optional {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #setter_documentation]
                                 pub fn #field_setter_method_name(&mut self, new: #rust_type) -> Option<#rust_type> {
-                                    self.0.to_mut().as_object_mut().and_then(|object| {
+                                    self.0.as_object_mut().and_then(|object| {
                                         object
                                             .insert(#json_key.to_owned(), new.into())
-                                            .map(std::borrow::Cow::Owned)
                                             .map(#rust_type::new)
                                     })
                                 }
@@ -1517,15 +1500,13 @@ impl JsonType {
                         }
                     } else {
                         quote! {
-                            impl<'a> #name<'a> {
+                            impl #name {
                                 #[doc = #setter_documentation]
                                 pub fn #field_setter_method_name(&mut self, new: #rust_type) -> Option<#rust_type> {
                                     self.0
-                                        .to_mut()
                                         .as_object_mut()
                                         .unwrap()
                                         .insert(#json_key.to_owned(), new.into())
-                                        .map(std::borrow::Cow::Owned)
                                         .map(#rust_type::new)
                                 }
                             }
@@ -1542,33 +1523,33 @@ fn define_new_struct(name: &Ident, documentation: &str) -> TokenStream {
         #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
         #[serde(transparent)]
         #[doc = #documentation]
-        pub struct #name<'a>(std::borrow::Cow<'a, serde_json::Value>);
+        pub struct #name(serde_json::Value);
 
-        impl<'a> #name<'a> {
+        impl #name {
             #[allow(dead_code)]
-            pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+            pub(crate) fn new(value: serde_json::Value) -> Self {
                 Self(value)
             }
         }
 
-        impl<'a> From<#name<'a>> for serde_json::Value {
+        impl From<#name> for serde_json::Value {
             #[inline]
-            fn from(val: #name<'a>) -> Self {
-                val.0.into_owned()
+            fn from(val: #name) -> Self {
+                val.0
             }
         }
 
-        impl<'a> std::convert::AsRef<serde_json::Value> for #name<'a> {
+        impl std::convert::AsRef<serde_json::Value> for #name {
             #[inline]
             fn as_ref(&self) -> &serde_json::Value {
-                self.0.as_ref()
+                &self.0
             }
         }
 
-        impl<'a> std::convert::AsMut<serde_json::Value> for #name<'a> {
+        impl std::convert::AsMut<serde_json::Value> for #name {
             #[inline]
             fn as_mut(&mut self) -> &mut serde_json::Value {
-                self.0.to_mut()
+                &mut self.0
             }
         }
     }

@@ -153,32 +153,32 @@ impl<'a> QueryParams<'a> {
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 #[serde(transparent)]
 #[doc = "获取 API 所用的响应体参数"]
-pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
-impl<'a> ResponseBody<'a> {
+pub struct ResponseBody(serde_json::Value);
+impl ResponseBody {
     #[allow(dead_code)]
-    pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+    pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
     }
 }
-impl<'a> From<ResponseBody<'a>> for serde_json::Value {
+impl From<ResponseBody> for serde_json::Value {
     #[inline]
-    fn from(val: ResponseBody<'a>) -> Self {
-        val.0.into_owned()
+    fn from(val: ResponseBody) -> Self {
+        val.0
     }
 }
-impl<'a> std::convert::AsRef<serde_json::Value> for ResponseBody<'a> {
+impl std::convert::AsRef<serde_json::Value> for ResponseBody {
     #[inline]
     fn as_ref(&self) -> &serde_json::Value {
-        self.0.as_ref()
+        &self.0
     }
 }
-impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
+impl std::convert::AsMut<serde_json::Value> for ResponseBody {
     #[inline]
     fn as_mut(&mut self) -> &mut serde_json::Value {
-        self.0.to_mut()
+        &mut self.0
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 有剩余条目则返回非空字符串，作为下一次列举的参数传入，如果没有剩余条目则返回空字符串"]
     pub fn get_marker_as_str(&self) -> Option<&str> {
         self.0
@@ -187,10 +187,10 @@ impl<'a> ResponseBody<'a> {
             .and_then(|val| val.as_str())
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 有剩余条目则返回非空字符串，作为下一次列举的参数传入，如果没有剩余条目则返回空字符串"]
     pub fn set_marker_as_str(&mut self, new: String) -> Option<String> {
-        self.0.to_mut().as_object_mut().and_then(|object| {
+        self.0.as_object_mut().and_then(|object| {
             object
                 .insert("marker".to_owned(), new.into())
                 .and_then(|val| match val {
@@ -203,32 +203,32 @@ impl<'a> ResponseBody<'a> {
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 #[serde(transparent)]
 #[doc = "公共前缀的数组"]
-pub struct CommonPrefixes<'a>(std::borrow::Cow<'a, serde_json::Value>);
-impl<'a> CommonPrefixes<'a> {
+pub struct CommonPrefixes(serde_json::Value);
+impl CommonPrefixes {
     #[allow(dead_code)]
-    pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+    pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
     }
 }
-impl<'a> From<CommonPrefixes<'a>> for serde_json::Value {
+impl From<CommonPrefixes> for serde_json::Value {
     #[inline]
-    fn from(val: CommonPrefixes<'a>) -> Self {
-        val.0.into_owned()
+    fn from(val: CommonPrefixes) -> Self {
+        val.0
     }
 }
-impl<'a> std::convert::AsRef<serde_json::Value> for CommonPrefixes<'a> {
+impl std::convert::AsRef<serde_json::Value> for CommonPrefixes {
     #[inline]
     fn as_ref(&self) -> &serde_json::Value {
-        self.0.as_ref()
+        &self.0
     }
 }
-impl<'a> std::convert::AsMut<serde_json::Value> for CommonPrefixes<'a> {
+impl std::convert::AsMut<serde_json::Value> for CommonPrefixes {
     #[inline]
     fn as_mut(&mut self) -> &mut serde_json::Value {
-        self.0.to_mut()
+        &mut self.0
     }
 }
-impl<'a> CommonPrefixes<'a> {
+impl CommonPrefixes {
     #[doc = "解析 JSON 得到 String 列表"]
     pub fn to_str_vec(&self) -> Vec<&str> {
         self.0
@@ -239,19 +239,13 @@ impl<'a> CommonPrefixes<'a> {
             .collect()
     }
 }
-impl<'a> From<Vec<String>> for CommonPrefixes<'a> {
+impl From<Vec<String>> for CommonPrefixes {
     #[inline]
     fn from(val: Vec<String>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [String]> for CommonPrefixes<'b> {
-    #[inline]
-    fn from(val: &'a [String]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> CommonPrefixes<'a> {
+impl CommonPrefixes {
     pub fn len(&self) -> usize {
         self.0.as_array().unwrap().len()
     }
@@ -259,36 +253,31 @@ impl<'a> CommonPrefixes<'a> {
         self.0.as_array().unwrap().is_empty()
     }
 }
-impl<'a> CommonPrefixes<'a> {
+impl CommonPrefixes {
     #[doc = "在列表的指定位置插入 JSON String"]
     pub fn insert_str(&mut self, index: usize, val: String) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> CommonPrefixes<'a> {
+impl CommonPrefixes {
     #[doc = "在列表的指定位置移出 JSON String"]
     pub fn remove_as_str(&mut self, index: usize) -> Option<String> {
-        match self.0.to_mut().as_array_mut().unwrap().remove(index) {
+        match self.0.as_array_mut().unwrap().remove(index) {
             serde_json::Value::String(s) => Some(s),
             _ => None,
         }
     }
 }
-impl<'a> CommonPrefixes<'a> {
+impl CommonPrefixes {
     #[doc = "在列表尾部追加 JSON String"]
     pub fn push_str(&mut self, val: String) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> CommonPrefixes<'a> {
+impl CommonPrefixes {
     #[doc = "在列表尾部取出 JSON String"]
     pub fn pop_as_str(&mut self) -> Option<String> {
         self.0
-            .to_mut()
             .as_array_mut()
             .unwrap()
             .pop()
@@ -298,23 +287,22 @@ impl<'a> CommonPrefixes<'a> {
             })
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 公共前缀的数组，如没有指定 delimiter 参数则不返回"]
     pub fn get_common_prefixes(&self) -> Option<CommonPrefixes> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("common_prefixes"))
-            .map(std::borrow::Cow::Borrowed)
+            .cloned()
             .map(CommonPrefixes::new)
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 公共前缀的数组，如没有指定 delimiter 参数则不返回"]
     pub fn set_common_prefixes(&mut self, new: CommonPrefixes) -> Option<CommonPrefixes> {
-        self.0.to_mut().as_object_mut().and_then(|object| {
+        self.0.as_object_mut().and_then(|object| {
             object
                 .insert("common_prefixes".to_owned(), new.into())
-                .map(std::borrow::Cow::Owned)
                 .map(CommonPrefixes::new)
         })
     }
@@ -322,32 +310,32 @@ impl<'a> ResponseBody<'a> {
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 #[serde(transparent)]
 #[doc = "每个分片的大小"]
-pub struct PartSizes<'a>(std::borrow::Cow<'a, serde_json::Value>);
-impl<'a> PartSizes<'a> {
+pub struct PartSizes(serde_json::Value);
+impl PartSizes {
     #[allow(dead_code)]
-    pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+    pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
     }
 }
-impl<'a> From<PartSizes<'a>> for serde_json::Value {
+impl From<PartSizes> for serde_json::Value {
     #[inline]
-    fn from(val: PartSizes<'a>) -> Self {
-        val.0.into_owned()
+    fn from(val: PartSizes) -> Self {
+        val.0
     }
 }
-impl<'a> std::convert::AsRef<serde_json::Value> for PartSizes<'a> {
+impl std::convert::AsRef<serde_json::Value> for PartSizes {
     #[inline]
     fn as_ref(&self) -> &serde_json::Value {
-        self.0.as_ref()
+        &self.0
     }
 }
-impl<'a> std::convert::AsMut<serde_json::Value> for PartSizes<'a> {
+impl std::convert::AsMut<serde_json::Value> for PartSizes {
     #[inline]
     fn as_mut(&mut self) -> &mut serde_json::Value {
-        self.0.to_mut()
+        &mut self.0
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     pub fn len(&self) -> usize {
         self.0.as_array().unwrap().len()
     }
@@ -355,7 +343,7 @@ impl<'a> PartSizes<'a> {
         self.0.as_array().unwrap().is_empty()
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "解析 JSON 得到整型列表"]
     pub fn to_i64_vec(&self) -> Vec<i64> {
         self.0
@@ -366,7 +354,7 @@ impl<'a> PartSizes<'a> {
             .collect()
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "解析 JSON 得到无符号整型列表"]
     pub fn to_u64_vec(&self) -> Vec<u64> {
         self.0
@@ -377,20 +365,19 @@ impl<'a> PartSizes<'a> {
             .collect()
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表的指定位置移出 JSON i64 整型"]
     pub fn remove_as_i64(&mut self, index: usize) -> Option<i64> {
-        match self.0.to_mut().as_array_mut().unwrap().remove(index) {
+        match self.0.as_array_mut().unwrap().remove(index) {
             serde_json::Value::Number(s) => s.as_i64(),
             _ => None,
         }
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表尾部取出 JSON i64 整型"]
     pub fn pop_as_i64(&mut self) -> Option<i64> {
         self.0
-            .to_mut()
             .as_array_mut()
             .unwrap()
             .pop()
@@ -400,20 +387,19 @@ impl<'a> PartSizes<'a> {
             })
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表的指定位置移出 JSON u64 整型"]
     pub fn remove_as_u64(&mut self, index: usize) -> Option<u64> {
-        match self.0.to_mut().as_array_mut().unwrap().remove(index) {
+        match self.0.as_array_mut().unwrap().remove(index) {
             serde_json::Value::Number(s) => s.as_u64(),
             _ => None,
         }
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表尾部取出 JSON u64 整型"]
     pub fn pop_as_u64(&mut self) -> Option<u64> {
         self.0
-            .to_mut()
             .as_array_mut()
             .unwrap()
             .pop()
@@ -423,303 +409,202 @@ impl<'a> PartSizes<'a> {
             })
     }
 }
-impl<'a> From<Vec<i8>> for PartSizes<'a> {
+impl From<Vec<i8>> for PartSizes {
     #[inline]
     fn from(val: Vec<i8>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [i8]> for PartSizes<'b> {
-    #[inline]
-    fn from(val: &'a [i8]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表的指定位置插入 JSON i8 整型"]
     pub fn insert_i8(&mut self, index: usize, val: i8) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表尾部追加 JSON i8 整型"]
     pub fn push_i8(&mut self, val: i8) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> From<Vec<i16>> for PartSizes<'a> {
+impl From<Vec<i16>> for PartSizes {
     #[inline]
     fn from(val: Vec<i16>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [i16]> for PartSizes<'b> {
-    #[inline]
-    fn from(val: &'a [i16]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表的指定位置插入 JSON i16 整型"]
     pub fn insert_i16(&mut self, index: usize, val: i16) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表尾部追加 JSON i16 整型"]
     pub fn push_i16(&mut self, val: i16) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> From<Vec<i32>> for PartSizes<'a> {
+impl From<Vec<i32>> for PartSizes {
     #[inline]
     fn from(val: Vec<i32>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [i32]> for PartSizes<'b> {
-    #[inline]
-    fn from(val: &'a [i32]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表的指定位置插入 JSON i32 整型"]
     pub fn insert_i32(&mut self, index: usize, val: i32) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表尾部追加 JSON i32 整型"]
     pub fn push_i32(&mut self, val: i32) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> From<Vec<i64>> for PartSizes<'a> {
+impl From<Vec<i64>> for PartSizes {
     #[inline]
     fn from(val: Vec<i64>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [i64]> for PartSizes<'b> {
-    #[inline]
-    fn from(val: &'a [i64]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表的指定位置插入 JSON i64 整型"]
     pub fn insert_i64(&mut self, index: usize, val: i64) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表尾部追加 JSON i64 整型"]
     pub fn push_i64(&mut self, val: i64) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> From<Vec<isize>> for PartSizes<'a> {
+impl From<Vec<isize>> for PartSizes {
     #[inline]
     fn from(val: Vec<isize>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [isize]> for PartSizes<'b> {
-    #[inline]
-    fn from(val: &'a [isize]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表的指定位置插入 JSON isize 整型"]
     pub fn insert_isize(&mut self, index: usize, val: isize) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表尾部追加 JSON isize 整型"]
     pub fn push_isize(&mut self, val: isize) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> From<Vec<u8>> for PartSizes<'a> {
+impl From<Vec<u8>> for PartSizes {
     #[inline]
     fn from(val: Vec<u8>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [u8]> for PartSizes<'b> {
-    #[inline]
-    fn from(val: &'a [u8]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表的指定位置插入 JSON u8 整型"]
     pub fn insert_u8(&mut self, index: usize, val: u8) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表尾部追加 JSON u8 整型"]
     pub fn push_u8(&mut self, val: u8) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> From<Vec<u16>> for PartSizes<'a> {
+impl From<Vec<u16>> for PartSizes {
     #[inline]
     fn from(val: Vec<u16>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [u16]> for PartSizes<'b> {
-    #[inline]
-    fn from(val: &'a [u16]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表的指定位置插入 JSON u16 整型"]
     pub fn insert_u16(&mut self, index: usize, val: u16) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表尾部追加 JSON u16 整型"]
     pub fn push_u16(&mut self, val: u16) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> From<Vec<u32>> for PartSizes<'a> {
+impl From<Vec<u32>> for PartSizes {
     #[inline]
     fn from(val: Vec<u32>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [u32]> for PartSizes<'b> {
-    #[inline]
-    fn from(val: &'a [u32]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表的指定位置插入 JSON u32 整型"]
     pub fn insert_u32(&mut self, index: usize, val: u32) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表尾部追加 JSON u32 整型"]
     pub fn push_u32(&mut self, val: u32) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> From<Vec<u64>> for PartSizes<'a> {
+impl From<Vec<u64>> for PartSizes {
     #[inline]
     fn from(val: Vec<u64>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [u64]> for PartSizes<'b> {
-    #[inline]
-    fn from(val: &'a [u64]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表的指定位置插入 JSON u64 整型"]
     pub fn insert_u64(&mut self, index: usize, val: u64) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表尾部追加 JSON u64 整型"]
     pub fn push_u64(&mut self, val: u64) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> From<Vec<usize>> for PartSizes<'a> {
+impl From<Vec<usize>> for PartSizes {
     #[inline]
     fn from(val: Vec<usize>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [usize]> for PartSizes<'b> {
-    #[inline]
-    fn from(val: &'a [usize]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表的指定位置插入 JSON usize 整型"]
     pub fn insert_usize(&mut self, index: usize, val: usize) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> PartSizes<'a> {
+impl PartSizes {
     #[doc = "在列表尾部追加 JSON usize 整型"]
     pub fn push_usize(&mut self, val: usize) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 每个分片的大小，如没有指定 need_parts 参数则不返回"]
     pub fn get_parts(&self) -> Option<PartSizes> {
         self.0
             .as_object()
             .and_then(|obj| obj.get("parts"))
-            .map(std::borrow::Cow::Borrowed)
+            .cloned()
             .map(PartSizes::new)
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 每个分片的大小，如没有指定 need_parts 参数则不返回"]
     pub fn set_parts(&mut self, new: PartSizes) -> Option<PartSizes> {
-        self.0.to_mut().as_object_mut().and_then(|object| {
+        self.0.as_object_mut().and_then(|object| {
             object
                 .insert("parts".to_owned(), new.into())
-                .map(std::borrow::Cow::Owned)
                 .map(PartSizes::new)
         })
     }
@@ -727,60 +612,60 @@ impl<'a> ResponseBody<'a> {
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 #[serde(transparent)]
 #[doc = "条目的数组，不能用来判断是否还有剩余条目"]
-pub struct ListedObjects<'a>(std::borrow::Cow<'a, serde_json::Value>);
-impl<'a> ListedObjects<'a> {
+pub struct ListedObjects(serde_json::Value);
+impl ListedObjects {
     #[allow(dead_code)]
-    pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+    pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
     }
 }
-impl<'a> From<ListedObjects<'a>> for serde_json::Value {
+impl From<ListedObjects> for serde_json::Value {
     #[inline]
-    fn from(val: ListedObjects<'a>) -> Self {
-        val.0.into_owned()
+    fn from(val: ListedObjects) -> Self {
+        val.0
     }
 }
-impl<'a> std::convert::AsRef<serde_json::Value> for ListedObjects<'a> {
+impl std::convert::AsRef<serde_json::Value> for ListedObjects {
     #[inline]
     fn as_ref(&self) -> &serde_json::Value {
-        self.0.as_ref()
+        &self.0
     }
 }
-impl<'a> std::convert::AsMut<serde_json::Value> for ListedObjects<'a> {
+impl std::convert::AsMut<serde_json::Value> for ListedObjects {
     #[inline]
     fn as_mut(&mut self) -> &mut serde_json::Value {
-        self.0.to_mut()
+        &mut self.0
     }
 }
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 #[serde(transparent)]
 #[doc = "对象条目，包含对象的元信息"]
-pub struct ListedObjectEntry<'a>(std::borrow::Cow<'a, serde_json::Value>);
-impl<'a> ListedObjectEntry<'a> {
+pub struct ListedObjectEntry(serde_json::Value);
+impl ListedObjectEntry {
     #[allow(dead_code)]
-    pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+    pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
     }
 }
-impl<'a> From<ListedObjectEntry<'a>> for serde_json::Value {
+impl From<ListedObjectEntry> for serde_json::Value {
     #[inline]
-    fn from(val: ListedObjectEntry<'a>) -> Self {
-        val.0.into_owned()
+    fn from(val: ListedObjectEntry) -> Self {
+        val.0
     }
 }
-impl<'a> std::convert::AsRef<serde_json::Value> for ListedObjectEntry<'a> {
+impl std::convert::AsRef<serde_json::Value> for ListedObjectEntry {
     #[inline]
     fn as_ref(&self) -> &serde_json::Value {
-        self.0.as_ref()
+        &self.0
     }
 }
-impl<'a> std::convert::AsMut<serde_json::Value> for ListedObjectEntry<'a> {
+impl std::convert::AsMut<serde_json::Value> for ListedObjectEntry {
     #[inline]
     fn as_mut(&mut self) -> &mut serde_json::Value {
-        self.0.to_mut()
+        &mut self.0
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 对象名称"]
     pub fn get_key_as_str(&self) -> &str {
         self.0
@@ -792,11 +677,10 @@ impl<'a> ListedObjectEntry<'a> {
             .unwrap()
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 对象名称"]
     pub fn set_key_as_str(&mut self, new: String) -> Option<String> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("key".to_owned(), new.into())
@@ -806,7 +690,7 @@ impl<'a> ListedObjectEntry<'a> {
             })
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn get_put_time_as_i64(&self) -> i64 {
         self.0
@@ -818,18 +702,17 @@ impl<'a> ListedObjectEntry<'a> {
             .unwrap()
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn set_put_time_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("putTime".to_owned(), new.into())
             .and_then(|val| val.as_i64())
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn get_put_time_as_u64(&self) -> u64 {
         self.0
@@ -841,18 +724,17 @@ impl<'a> ListedObjectEntry<'a> {
             .unwrap()
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn set_put_time_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("putTime".to_owned(), new.into())
             .and_then(|val| val.as_u64())
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 文件的哈希值"]
     pub fn get_hash_as_str(&self) -> &str {
         self.0
@@ -864,11 +746,10 @@ impl<'a> ListedObjectEntry<'a> {
             .unwrap()
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 文件的哈希值"]
     pub fn set_hash_as_str(&mut self, new: String) -> Option<String> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("hash".to_owned(), new.into())
@@ -878,7 +759,7 @@ impl<'a> ListedObjectEntry<'a> {
             })
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 对象大小，单位为字节"]
     pub fn get_size_as_i64(&self) -> i64 {
         self.0
@@ -890,18 +771,17 @@ impl<'a> ListedObjectEntry<'a> {
             .unwrap()
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 对象大小，单位为字节"]
     pub fn set_size_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("fsize".to_owned(), new.into())
             .and_then(|val| val.as_i64())
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 对象大小，单位为字节"]
     pub fn get_size_as_u64(&self) -> u64 {
         self.0
@@ -913,18 +793,17 @@ impl<'a> ListedObjectEntry<'a> {
             .unwrap()
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 对象大小，单位为字节"]
     pub fn set_size_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("fsize".to_owned(), new.into())
             .and_then(|val| val.as_u64())
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 对象 MIME 类型"]
     pub fn get_mime_type_as_str(&self) -> &str {
         self.0
@@ -936,11 +815,10 @@ impl<'a> ListedObjectEntry<'a> {
             .unwrap()
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 对象 MIME 类型"]
     pub fn set_mime_type_as_str(&mut self, new: String) -> Option<String> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("mimeType".to_owned(), new.into())
@@ -950,7 +828,7 @@ impl<'a> ListedObjectEntry<'a> {
             })
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 资源内容的唯一属主标识"]
     pub fn get_end_user_as_str(&self) -> Option<&str> {
         self.0
@@ -959,10 +837,10 @@ impl<'a> ListedObjectEntry<'a> {
             .and_then(|val| val.as_str())
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 资源内容的唯一属主标识"]
     pub fn set_end_user_as_str(&mut self, new: String) -> Option<String> {
-        self.0.to_mut().as_object_mut().and_then(|object| {
+        self.0.as_object_mut().and_then(|object| {
             object
                 .insert("endUser".to_owned(), new.into())
                 .and_then(|val| match val {
@@ -972,7 +850,7 @@ impl<'a> ListedObjectEntry<'a> {
         })
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn get_type_as_i64(&self) -> Option<i64> {
         self.0
@@ -981,17 +859,17 @@ impl<'a> ListedObjectEntry<'a> {
             .and_then(|val| val.as_i64())
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn set_type_as_i64(&mut self, new: i64) -> Option<i64> {
-        self.0.to_mut().as_object_mut().and_then(|object| {
+        self.0.as_object_mut().and_then(|object| {
             object
                 .insert("type".to_owned(), new.into())
                 .and_then(|val| val.as_i64())
         })
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn get_type_as_u64(&self) -> Option<u64> {
         self.0
@@ -1000,17 +878,17 @@ impl<'a> ListedObjectEntry<'a> {
             .and_then(|val| val.as_u64())
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn set_type_as_u64(&mut self, new: u64) -> Option<u64> {
-        self.0.to_mut().as_object_mut().and_then(|object| {
+        self.0.as_object_mut().and_then(|object| {
             object
                 .insert("type".to_owned(), new.into())
                 .and_then(|val| val.as_u64())
         })
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 文件的存储状态，即禁用状态和启用状态间的的互相转换，`0` 表示启用，`1`表示禁用"]
     pub fn get_unfreezing_status_as_i64(&self) -> i64 {
         self.0
@@ -1022,18 +900,17 @@ impl<'a> ListedObjectEntry<'a> {
             .unwrap()
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 文件的存储状态，即禁用状态和启用状态间的的互相转换，`0` 表示启用，`1`表示禁用"]
     pub fn set_unfreezing_status_as_i64(&mut self, new: i64) -> Option<i64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("status".to_owned(), new.into())
             .and_then(|val| val.as_i64())
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 文件的存储状态，即禁用状态和启用状态间的的互相转换，`0` 表示启用，`1`表示禁用"]
     pub fn get_unfreezing_status_as_u64(&self) -> u64 {
         self.0
@@ -1045,18 +922,17 @@ impl<'a> ListedObjectEntry<'a> {
             .unwrap()
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 文件的存储状态，即禁用状态和启用状态间的的互相转换，`0` 表示启用，`1`表示禁用"]
     pub fn set_unfreezing_status_as_u64(&mut self, new: u64) -> Option<u64> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("status".to_owned(), new.into())
             .and_then(|val| val.as_u64())
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "获取 对象 MD5 值，只有通过直传文件和追加文件 API 上传的文件，服务端确保有该字段返回"]
     pub fn get_md_5_as_str(&self) -> Option<&str> {
         self.0
@@ -1065,10 +941,10 @@ impl<'a> ListedObjectEntry<'a> {
             .and_then(|val| val.as_str())
     }
 }
-impl<'a> ListedObjectEntry<'a> {
+impl ListedObjectEntry {
     #[doc = "设置 对象 MD5 值，只有通过直传文件和追加文件 API 上传的文件，服务端确保有该字段返回"]
     pub fn set_md_5_as_str(&mut self, new: String) -> Option<String> {
-        self.0.to_mut().as_object_mut().and_then(|object| {
+        self.0.as_object_mut().and_then(|object| {
             object
                 .insert("md5".to_owned(), new.into())
                 .and_then(|val| match val {
@@ -1078,31 +954,25 @@ impl<'a> ListedObjectEntry<'a> {
         })
     }
 }
-impl<'a> ListedObjects<'a> {
+impl ListedObjects {
     #[doc = "解析 JSON 得到 ListedObjectEntry 列表"]
     pub fn to_listed_object_entry_vec(&self) -> Vec<ListedObjectEntry> {
         self.0
             .as_array()
             .unwrap()
             .iter()
-            .map(std::borrow::Cow::Borrowed)
+            .cloned()
             .map(ListedObjectEntry::new)
             .collect()
     }
 }
-impl<'a> From<Vec<ListedObjectEntry<'a>>> for ListedObjects<'a> {
+impl From<Vec<ListedObjectEntry>> for ListedObjects {
     #[inline]
-    fn from(val: Vec<ListedObjectEntry<'a>>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+    fn from(val: Vec<ListedObjectEntry>) -> Self {
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [ListedObjectEntry<'a>]> for ListedObjects<'b> {
-    #[inline]
-    fn from(val: &'a [ListedObjectEntry<'a>]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> ListedObjects<'a> {
+impl ListedObjects {
     pub fn len(&self) -> usize {
         self.0.as_array().unwrap().len()
     }
@@ -1110,59 +980,47 @@ impl<'a> ListedObjects<'a> {
         self.0.as_array().unwrap().is_empty()
     }
 }
-impl<'a> ListedObjects<'a> {
+impl ListedObjects {
     #[doc = "在列表的指定位置插入 JSON ListedObjectEntry"]
-    pub fn insert_listed_object_entry(&mut self, index: usize, val: ListedObjectEntry<'a>) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+    pub fn insert_listed_object_entry(&mut self, index: usize, val: ListedObjectEntry) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> ListedObjects<'a> {
+impl ListedObjects {
     #[doc = "在列表的指定位置移出 JSON ListedObjectEntry"]
     pub fn remove_as_listed_object_entry(&mut self, index: usize) -> ListedObjectEntry {
-        ListedObjectEntry::new(std::borrow::Cow::Owned(
-            self.0.to_mut().as_array_mut().unwrap().remove(index),
-        ))
+        ListedObjectEntry::new(self.0.as_array_mut().unwrap().remove(index))
     }
 }
-impl<'a> ListedObjects<'a> {
+impl ListedObjects {
     #[doc = "在列表尾部追加 JSON ListedObjectEntry"]
-    pub fn push_listed_object_entry(&mut self, val: ListedObjectEntry<'a>) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+    pub fn push_listed_object_entry(&mut self, val: ListedObjectEntry) {
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> ListedObjects<'a> {
+impl ListedObjects {
     #[doc = "在列表尾部取出 JSON ListedObjectEntry"]
     pub fn pop_listed_object_entry(&mut self) -> Option<ListedObjectEntry> {
         self.0
-            .to_mut()
             .as_array_mut()
             .unwrap()
             .pop()
-            .map(std::borrow::Cow::Owned)
             .map(ListedObjectEntry::new)
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 条目的数组，不能用来判断是否还有剩余条目"]
     pub fn get_items(&self) -> ListedObjects {
-        ListedObjects::new(std::borrow::Cow::Borrowed(
-            self.0.as_object().unwrap().get("items").unwrap(),
-        ))
+        ListedObjects::new(self.0.as_object().unwrap().get("items").cloned().unwrap())
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 条目的数组，不能用来判断是否还有剩余条目"]
     pub fn set_items(&mut self, new: ListedObjects) -> Option<ListedObjects> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("items".to_owned(), new.into())
-            .map(std::borrow::Cow::Owned)
             .map(ListedObjects::new)
     }
 }
@@ -1418,9 +1276,7 @@ impl<'req, E: 'req> SyncRequestBuilder<'req, E> {
     }
 }
 impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> SyncRequestBuilder<'req, E> {
-    pub fn call(
-        self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
+    pub fn call(self) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0;
         let response = request.call()?;
         let parsed = response.parse_json()?;
@@ -1637,7 +1493,7 @@ impl<'req, E: 'req> AsyncRequestBuilder<'req, E> {
 impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> AsyncRequestBuilder<'req, E> {
     pub async fn call(
         self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
+    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0;
         let response = request.call().await?;
         let parsed = response.parse_json().await?;

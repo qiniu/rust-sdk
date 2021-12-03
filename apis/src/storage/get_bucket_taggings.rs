@@ -41,88 +41,88 @@ impl<'a> QueryParams<'a> {
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 #[serde(transparent)]
 #[doc = "获取 API 所用的响应体参数"]
-pub struct ResponseBody<'a>(std::borrow::Cow<'a, serde_json::Value>);
-impl<'a> ResponseBody<'a> {
+pub struct ResponseBody(serde_json::Value);
+impl ResponseBody {
     #[allow(dead_code)]
-    pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+    pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
     }
 }
-impl<'a> From<ResponseBody<'a>> for serde_json::Value {
+impl From<ResponseBody> for serde_json::Value {
     #[inline]
-    fn from(val: ResponseBody<'a>) -> Self {
-        val.0.into_owned()
+    fn from(val: ResponseBody) -> Self {
+        val.0
     }
 }
-impl<'a> std::convert::AsRef<serde_json::Value> for ResponseBody<'a> {
+impl std::convert::AsRef<serde_json::Value> for ResponseBody {
     #[inline]
     fn as_ref(&self) -> &serde_json::Value {
-        self.0.as_ref()
+        &self.0
     }
 }
-impl<'a> std::convert::AsMut<serde_json::Value> for ResponseBody<'a> {
+impl std::convert::AsMut<serde_json::Value> for ResponseBody {
     #[inline]
     fn as_mut(&mut self) -> &mut serde_json::Value {
-        self.0.to_mut()
+        &mut self.0
     }
 }
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 #[serde(transparent)]
 #[doc = "标签列表"]
-pub struct Tags<'a>(std::borrow::Cow<'a, serde_json::Value>);
-impl<'a> Tags<'a> {
+pub struct Tags(serde_json::Value);
+impl Tags {
     #[allow(dead_code)]
-    pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+    pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
     }
 }
-impl<'a> From<Tags<'a>> for serde_json::Value {
+impl From<Tags> for serde_json::Value {
     #[inline]
-    fn from(val: Tags<'a>) -> Self {
-        val.0.into_owned()
+    fn from(val: Tags) -> Self {
+        val.0
     }
 }
-impl<'a> std::convert::AsRef<serde_json::Value> for Tags<'a> {
+impl std::convert::AsRef<serde_json::Value> for Tags {
     #[inline]
     fn as_ref(&self) -> &serde_json::Value {
-        self.0.as_ref()
+        &self.0
     }
 }
-impl<'a> std::convert::AsMut<serde_json::Value> for Tags<'a> {
+impl std::convert::AsMut<serde_json::Value> for Tags {
     #[inline]
     fn as_mut(&mut self) -> &mut serde_json::Value {
-        self.0.to_mut()
+        &mut self.0
     }
 }
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 #[serde(transparent)]
 #[doc = "标签键值对"]
-pub struct TagInfo<'a>(std::borrow::Cow<'a, serde_json::Value>);
-impl<'a> TagInfo<'a> {
+pub struct TagInfo(serde_json::Value);
+impl TagInfo {
     #[allow(dead_code)]
-    pub(crate) fn new(value: std::borrow::Cow<'a, serde_json::Value>) -> Self {
+    pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
     }
 }
-impl<'a> From<TagInfo<'a>> for serde_json::Value {
+impl From<TagInfo> for serde_json::Value {
     #[inline]
-    fn from(val: TagInfo<'a>) -> Self {
-        val.0.into_owned()
+    fn from(val: TagInfo) -> Self {
+        val.0
     }
 }
-impl<'a> std::convert::AsRef<serde_json::Value> for TagInfo<'a> {
+impl std::convert::AsRef<serde_json::Value> for TagInfo {
     #[inline]
     fn as_ref(&self) -> &serde_json::Value {
-        self.0.as_ref()
+        &self.0
     }
 }
-impl<'a> std::convert::AsMut<serde_json::Value> for TagInfo<'a> {
+impl std::convert::AsMut<serde_json::Value> for TagInfo {
     #[inline]
     fn as_mut(&mut self) -> &mut serde_json::Value {
-        self.0.to_mut()
+        &mut self.0
     }
 }
-impl<'a> TagInfo<'a> {
+impl TagInfo {
     #[doc = "获取 标签名称，最大 64 Byte，不能为空且大小写敏感，不能以 kodo 为前缀(预留), 不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"]
     pub fn get_key_as_str(&self) -> &str {
         self.0
@@ -134,11 +134,10 @@ impl<'a> TagInfo<'a> {
             .unwrap()
     }
 }
-impl<'a> TagInfo<'a> {
+impl TagInfo {
     #[doc = "设置 标签名称，最大 64 Byte，不能为空且大小写敏感，不能以 kodo 为前缀(预留), 不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"]
     pub fn set_key_as_str(&mut self, new: String) -> Option<String> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("Key".to_owned(), new.into())
@@ -148,7 +147,7 @@ impl<'a> TagInfo<'a> {
             })
     }
 }
-impl<'a> TagInfo<'a> {
+impl TagInfo {
     #[doc = "获取 标签值，最大 128 Byte，不能为空且大小写敏感，不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"]
     pub fn get_value_as_str(&self) -> &str {
         self.0
@@ -160,11 +159,10 @@ impl<'a> TagInfo<'a> {
             .unwrap()
     }
 }
-impl<'a> TagInfo<'a> {
+impl TagInfo {
     #[doc = "设置 标签值，最大 128 Byte，不能为空且大小写敏感，不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"]
     pub fn set_value_as_str(&mut self, new: String) -> Option<String> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("Value".to_owned(), new.into())
@@ -174,31 +172,25 @@ impl<'a> TagInfo<'a> {
             })
     }
 }
-impl<'a> Tags<'a> {
+impl Tags {
     #[doc = "解析 JSON 得到 TagInfo 列表"]
     pub fn to_tag_info_vec(&self) -> Vec<TagInfo> {
         self.0
             .as_array()
             .unwrap()
             .iter()
-            .map(std::borrow::Cow::Borrowed)
+            .cloned()
             .map(TagInfo::new)
             .collect()
     }
 }
-impl<'a> From<Vec<TagInfo<'a>>> for Tags<'a> {
+impl From<Vec<TagInfo>> for Tags {
     #[inline]
-    fn from(val: Vec<TagInfo<'a>>) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
+    fn from(val: Vec<TagInfo>) -> Self {
+        Self(serde_json::Value::from(val))
     }
 }
-impl<'a, 'b> From<&'a [TagInfo<'a>]> for Tags<'b> {
-    #[inline]
-    fn from(val: &'a [TagInfo<'a>]) -> Self {
-        Self(std::borrow::Cow::Owned(serde_json::Value::from(val)))
-    }
-}
-impl<'a> Tags<'a> {
+impl Tags {
     pub fn len(&self) -> usize {
         self.0.as_array().unwrap().len()
     }
@@ -206,59 +198,43 @@ impl<'a> Tags<'a> {
         self.0.as_array().unwrap().is_empty()
     }
 }
-impl<'a> Tags<'a> {
+impl Tags {
     #[doc = "在列表的指定位置插入 JSON TagInfo"]
-    pub fn insert_tag_info(&mut self, index: usize, val: TagInfo<'a>) {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .insert(index, val.into());
+    pub fn insert_tag_info(&mut self, index: usize, val: TagInfo) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
     }
 }
-impl<'a> Tags<'a> {
+impl Tags {
     #[doc = "在列表的指定位置移出 JSON TagInfo"]
     pub fn remove_as_tag_info(&mut self, index: usize) -> TagInfo {
-        TagInfo::new(std::borrow::Cow::Owned(
-            self.0.to_mut().as_array_mut().unwrap().remove(index),
-        ))
+        TagInfo::new(self.0.as_array_mut().unwrap().remove(index))
     }
 }
-impl<'a> Tags<'a> {
+impl Tags {
     #[doc = "在列表尾部追加 JSON TagInfo"]
-    pub fn push_tag_info(&mut self, val: TagInfo<'a>) {
-        self.0.to_mut().as_array_mut().unwrap().push(val.into());
+    pub fn push_tag_info(&mut self, val: TagInfo) {
+        self.0.as_array_mut().unwrap().push(val.into());
     }
 }
-impl<'a> Tags<'a> {
+impl Tags {
     #[doc = "在列表尾部取出 JSON TagInfo"]
     pub fn pop_tag_info(&mut self) -> Option<TagInfo> {
-        self.0
-            .to_mut()
-            .as_array_mut()
-            .unwrap()
-            .pop()
-            .map(std::borrow::Cow::Owned)
-            .map(TagInfo::new)
+        self.0.as_array_mut().unwrap().pop().map(TagInfo::new)
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "获取 标签列表"]
     pub fn get_tags(&self) -> Tags {
-        Tags::new(std::borrow::Cow::Borrowed(
-            self.0.as_object().unwrap().get("Tags").unwrap(),
-        ))
+        Tags::new(self.0.as_object().unwrap().get("Tags").cloned().unwrap())
     }
 }
-impl<'a> ResponseBody<'a> {
+impl ResponseBody {
     #[doc = "设置 标签列表"]
     pub fn set_tags(&mut self, new: Tags) -> Option<Tags> {
         self.0
-            .to_mut()
             .as_object_mut()
             .unwrap()
             .insert("Tags".to_owned(), new.into())
-            .map(std::borrow::Cow::Owned)
             .map(Tags::new)
     }
 }
@@ -514,9 +490,7 @@ impl<'req, E: 'req> SyncRequestBuilder<'req, E> {
     }
 }
 impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> SyncRequestBuilder<'req, E> {
-    pub fn call(
-        self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
+    pub fn call(self) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0;
         let response = request.call()?;
         let parsed = response.parse_json()?;
@@ -733,7 +707,7 @@ impl<'req, E: 'req> AsyncRequestBuilder<'req, E> {
 impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> AsyncRequestBuilder<'req, E> {
     pub async fn call(
         self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody<'static>>> {
+    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0;
         let response = request.call().await?;
         let parsed = response.parse_json().await?;
