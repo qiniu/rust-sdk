@@ -173,7 +173,7 @@ pub(super) fn mod_rs_client_definition_token_stream(
             quote! {
                 #[inline]
                 #documentation
-                pub fn #mod_name(&self) -> #mod_name::Client {
+                pub fn #mod_name(&self) -> #mod_name::Client<'client> {
                     #mod_name::Client::new(self.0)
                 }
             }
