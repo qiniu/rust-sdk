@@ -332,7 +332,10 @@ impl<'req, E: 'req> SyncRequestBuilder<'req, E> {
         self
     }
     #[inline]
-    pub fn query_pairs(mut self, query_pairs: QueryParams<'req>) -> Self {
+    pub fn query_pairs(
+        mut self,
+        query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>,
+    ) -> Self {
         self.0 = self.0.query_pairs(query_pairs);
         self
     }
@@ -535,7 +538,10 @@ impl<'req, E: 'req> AsyncRequestBuilder<'req, E> {
         self
     }
     #[inline]
-    pub fn query_pairs(mut self, query_pairs: QueryParams<'req>) -> Self {
+    pub fn query_pairs(
+        mut self,
+        query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>,
+    ) -> Self {
         self.0 = self.0.query_pairs(query_pairs);
         self
     }

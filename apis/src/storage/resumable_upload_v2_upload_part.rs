@@ -312,7 +312,10 @@ impl<'req, E: 'req> SyncRequestBuilder<'req, E> {
         self
     }
     #[inline]
-    pub fn headers(mut self, headers: &'req RequestHeaders) -> Self {
+    pub fn headers(
+        mut self,
+        headers: impl Into<std::borrow::Cow<'req, qiniu_http_client::http::HeaderMap>>,
+    ) -> Self {
         self.0 = self.0.headers(headers);
         self
     }
@@ -512,7 +515,10 @@ impl<'req, E: 'req> AsyncRequestBuilder<'req, E> {
         self
     }
     #[inline]
-    pub fn headers(mut self, headers: &'req RequestHeaders) -> Self {
+    pub fn headers(
+        mut self,
+        headers: impl Into<std::borrow::Cow<'req, qiniu_http_client::http::HeaderMap>>,
+    ) -> Self {
         self.0 = self.0.headers(headers);
         self
     }

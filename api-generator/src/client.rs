@@ -156,7 +156,7 @@ impl ApiDetailedDescription {
             ),
             Some(ResponseBody::BinaryDataStream) => None,
         };
-        let request_builder_methods_token_stream = request_builder_methods_token_stream(self);
+        let request_builder_methods_token_stream = request_builder_methods_token_stream();
         let sync_request_builder_methods_token_stream =
             sync_request_builder_methods_token_stream(self);
         let async_request_builder_methods_token_stream =
@@ -362,29 +362,7 @@ impl ApiDetailedDescription {
             quote! {#(#params),*}
         }
 
-        fn request_builder_methods_token_stream(
-            description: &ApiDetailedDescription,
-        ) -> TokenStream {
-            let headers_type_token_stream = description
-                .request
-                .header_names
-                .as_ref()
-                .map(|_| {
-                    quote! {&'req RequestHeaders}
-                })
-                .unwrap_or_else(|| {
-                    quote! {impl Into<std::borrow::Cow<'req, qiniu_http_client::http::HeaderMap>>}
-                });
-            let query_pairs_type_token_stream = description
-                .request
-                .query_names
-                .as_ref()
-                .map(|_| {
-                    quote! {QueryParams<'req>}
-                })
-                .unwrap_or_else(|| {
-                    quote! {impl Into<qiniu_http_client::QueryPairs<'req>>}
-                });
+        fn request_builder_methods_token_stream() -> TokenStream {
             quote! {
                 #[inline]
                 pub fn use_https(mut self, use_https: bool) -> Self {
@@ -399,13 +377,13 @@ impl ApiDetailedDescription {
                 }
 
                 #[inline]
-                pub fn headers(mut self, headers: #headers_type_token_stream) -> Self {
+                pub fn headers(mut self, headers: impl Into<std::borrow::Cow<'req, qiniu_http_client::http::HeaderMap>>) -> Self {
                     self.0 = self.0.headers(headers);
                     self
                 }
 
                 #[inline]
-                pub fn query_pairs(mut self, query_pairs: #query_pairs_type_token_stream) -> Self {
+                pub fn query_pairs(mut self, query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>) -> Self {
                     self.0 = self.0.query_pairs(query_pairs);
                     self
                 }
