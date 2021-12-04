@@ -46,84 +46,54 @@ impl<'a> QueryParams<'a> {
         self.insert("marker".into(), value.into())
     }
     #[inline]
-    #[doc = "limit"]
+    #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_i8(self, value: i8) -> Self {
-        self.insert(
-            "本次列举的条目数，范围为 1-1000".into(),
-            value.to_string().into(),
-        )
+        self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
-    #[doc = "limit"]
+    #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_i16(self, value: i16) -> Self {
-        self.insert(
-            "本次列举的条目数，范围为 1-1000".into(),
-            value.to_string().into(),
-        )
+        self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
-    #[doc = "limit"]
+    #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_i32(self, value: i32) -> Self {
-        self.insert(
-            "本次列举的条目数，范围为 1-1000".into(),
-            value.to_string().into(),
-        )
+        self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
-    #[doc = "limit"]
+    #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_i64(self, value: i64) -> Self {
-        self.insert(
-            "本次列举的条目数，范围为 1-1000".into(),
-            value.to_string().into(),
-        )
+        self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
-    #[doc = "limit"]
+    #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_isize(self, value: isize) -> Self {
-        self.insert(
-            "本次列举的条目数，范围为 1-1000".into(),
-            value.to_string().into(),
-        )
+        self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
-    #[doc = "limit"]
+    #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_u8(self, value: u8) -> Self {
-        self.insert(
-            "本次列举的条目数，范围为 1-1000".into(),
-            value.to_string().into(),
-        )
+        self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
-    #[doc = "limit"]
+    #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_u16(self, value: u16) -> Self {
-        self.insert(
-            "本次列举的条目数，范围为 1-1000".into(),
-            value.to_string().into(),
-        )
+        self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
-    #[doc = "limit"]
+    #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_u32(self, value: u32) -> Self {
-        self.insert(
-            "本次列举的条目数，范围为 1-1000".into(),
-            value.to_string().into(),
-        )
+        self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
-    #[doc = "limit"]
+    #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_u64(self, value: u64) -> Self {
-        self.insert(
-            "本次列举的条目数，范围为 1-1000".into(),
-            value.to_string().into(),
-        )
+        self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
-    #[doc = "limit"]
+    #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_usize(self, value: usize) -> Self {
-        self.insert(
-            "本次列举的条目数，范围为 1-1000".into(),
-            value.to_string().into(),
-        )
+        self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
     #[doc = "指定前缀，只有资源名匹配该前缀的资源会被列出"]
@@ -142,12 +112,9 @@ impl<'a> QueryParams<'a> {
         self.insert("delimiter".into(), value.into())
     }
     #[inline]
-    #[doc = "needparts"]
+    #[doc = "如果文件是通过分片上传的，是否返回对应的分片信息"]
     pub fn set_need_parts_as_bool(self, value: bool) -> Self {
-        self.insert(
-            "如果文件是通过分片上传的，是否返回对应的分片信息".into(),
-            value.to_string().into(),
-        )
+        self.insert("needparts".into(), value.to_string().into())
     }
 }
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
@@ -304,308 +271,6 @@ impl ResponseBody {
             object
                 .insert("common_prefixes".to_owned(), new.into())
                 .map(CommonPrefixes::new)
-        })
-    }
-}
-#[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
-#[serde(transparent)]
-#[doc = "每个分片的大小"]
-pub struct PartSizes(serde_json::Value);
-impl PartSizes {
-    #[allow(dead_code)]
-    pub(crate) fn new(value: serde_json::Value) -> Self {
-        Self(value)
-    }
-}
-impl From<PartSizes> for serde_json::Value {
-    #[inline]
-    fn from(val: PartSizes) -> Self {
-        val.0
-    }
-}
-impl std::convert::AsRef<serde_json::Value> for PartSizes {
-    #[inline]
-    fn as_ref(&self) -> &serde_json::Value {
-        &self.0
-    }
-}
-impl std::convert::AsMut<serde_json::Value> for PartSizes {
-    #[inline]
-    fn as_mut(&mut self) -> &mut serde_json::Value {
-        &mut self.0
-    }
-}
-impl PartSizes {
-    pub fn len(&self) -> usize {
-        self.0.as_array().unwrap().len()
-    }
-    pub fn is_empty(&self) -> bool {
-        self.0.as_array().unwrap().is_empty()
-    }
-}
-impl PartSizes {
-    #[doc = "解析 JSON 得到整型列表"]
-    pub fn to_i64_vec(&self) -> Vec<i64> {
-        self.0
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|ele| ele.as_i64().unwrap())
-            .collect()
-    }
-}
-impl PartSizes {
-    #[doc = "解析 JSON 得到无符号整型列表"]
-    pub fn to_u64_vec(&self) -> Vec<u64> {
-        self.0
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|ele| ele.as_u64().unwrap())
-            .collect()
-    }
-}
-impl PartSizes {
-    #[doc = "在列表的指定位置移出 JSON i64 整型"]
-    pub fn remove_as_i64(&mut self, index: usize) -> Option<i64> {
-        match self.0.as_array_mut().unwrap().remove(index) {
-            serde_json::Value::Number(s) => s.as_i64(),
-            _ => None,
-        }
-    }
-}
-impl PartSizes {
-    #[doc = "在列表尾部取出 JSON i64 整型"]
-    pub fn pop_as_i64(&mut self) -> Option<i64> {
-        self.0
-            .as_array_mut()
-            .unwrap()
-            .pop()
-            .and_then(|val| match val {
-                serde_json::Value::Number(s) => s.as_i64(),
-                _ => None,
-            })
-    }
-}
-impl PartSizes {
-    #[doc = "在列表的指定位置移出 JSON u64 整型"]
-    pub fn remove_as_u64(&mut self, index: usize) -> Option<u64> {
-        match self.0.as_array_mut().unwrap().remove(index) {
-            serde_json::Value::Number(s) => s.as_u64(),
-            _ => None,
-        }
-    }
-}
-impl PartSizes {
-    #[doc = "在列表尾部取出 JSON u64 整型"]
-    pub fn pop_as_u64(&mut self) -> Option<u64> {
-        self.0
-            .as_array_mut()
-            .unwrap()
-            .pop()
-            .and_then(|val| match val {
-                serde_json::Value::Number(s) => s.as_u64(),
-                _ => None,
-            })
-    }
-}
-impl From<Vec<i8>> for PartSizes {
-    #[inline]
-    fn from(val: Vec<i8>) -> Self {
-        Self(serde_json::Value::from(val))
-    }
-}
-impl PartSizes {
-    #[doc = "在列表的指定位置插入 JSON i8 整型"]
-    pub fn insert_i8(&mut self, index: usize, val: i8) {
-        self.0.as_array_mut().unwrap().insert(index, val.into());
-    }
-}
-impl PartSizes {
-    #[doc = "在列表尾部追加 JSON i8 整型"]
-    pub fn push_i8(&mut self, val: i8) {
-        self.0.as_array_mut().unwrap().push(val.into());
-    }
-}
-impl From<Vec<i16>> for PartSizes {
-    #[inline]
-    fn from(val: Vec<i16>) -> Self {
-        Self(serde_json::Value::from(val))
-    }
-}
-impl PartSizes {
-    #[doc = "在列表的指定位置插入 JSON i16 整型"]
-    pub fn insert_i16(&mut self, index: usize, val: i16) {
-        self.0.as_array_mut().unwrap().insert(index, val.into());
-    }
-}
-impl PartSizes {
-    #[doc = "在列表尾部追加 JSON i16 整型"]
-    pub fn push_i16(&mut self, val: i16) {
-        self.0.as_array_mut().unwrap().push(val.into());
-    }
-}
-impl From<Vec<i32>> for PartSizes {
-    #[inline]
-    fn from(val: Vec<i32>) -> Self {
-        Self(serde_json::Value::from(val))
-    }
-}
-impl PartSizes {
-    #[doc = "在列表的指定位置插入 JSON i32 整型"]
-    pub fn insert_i32(&mut self, index: usize, val: i32) {
-        self.0.as_array_mut().unwrap().insert(index, val.into());
-    }
-}
-impl PartSizes {
-    #[doc = "在列表尾部追加 JSON i32 整型"]
-    pub fn push_i32(&mut self, val: i32) {
-        self.0.as_array_mut().unwrap().push(val.into());
-    }
-}
-impl From<Vec<i64>> for PartSizes {
-    #[inline]
-    fn from(val: Vec<i64>) -> Self {
-        Self(serde_json::Value::from(val))
-    }
-}
-impl PartSizes {
-    #[doc = "在列表的指定位置插入 JSON i64 整型"]
-    pub fn insert_i64(&mut self, index: usize, val: i64) {
-        self.0.as_array_mut().unwrap().insert(index, val.into());
-    }
-}
-impl PartSizes {
-    #[doc = "在列表尾部追加 JSON i64 整型"]
-    pub fn push_i64(&mut self, val: i64) {
-        self.0.as_array_mut().unwrap().push(val.into());
-    }
-}
-impl From<Vec<isize>> for PartSizes {
-    #[inline]
-    fn from(val: Vec<isize>) -> Self {
-        Self(serde_json::Value::from(val))
-    }
-}
-impl PartSizes {
-    #[doc = "在列表的指定位置插入 JSON isize 整型"]
-    pub fn insert_isize(&mut self, index: usize, val: isize) {
-        self.0.as_array_mut().unwrap().insert(index, val.into());
-    }
-}
-impl PartSizes {
-    #[doc = "在列表尾部追加 JSON isize 整型"]
-    pub fn push_isize(&mut self, val: isize) {
-        self.0.as_array_mut().unwrap().push(val.into());
-    }
-}
-impl From<Vec<u8>> for PartSizes {
-    #[inline]
-    fn from(val: Vec<u8>) -> Self {
-        Self(serde_json::Value::from(val))
-    }
-}
-impl PartSizes {
-    #[doc = "在列表的指定位置插入 JSON u8 整型"]
-    pub fn insert_u8(&mut self, index: usize, val: u8) {
-        self.0.as_array_mut().unwrap().insert(index, val.into());
-    }
-}
-impl PartSizes {
-    #[doc = "在列表尾部追加 JSON u8 整型"]
-    pub fn push_u8(&mut self, val: u8) {
-        self.0.as_array_mut().unwrap().push(val.into());
-    }
-}
-impl From<Vec<u16>> for PartSizes {
-    #[inline]
-    fn from(val: Vec<u16>) -> Self {
-        Self(serde_json::Value::from(val))
-    }
-}
-impl PartSizes {
-    #[doc = "在列表的指定位置插入 JSON u16 整型"]
-    pub fn insert_u16(&mut self, index: usize, val: u16) {
-        self.0.as_array_mut().unwrap().insert(index, val.into());
-    }
-}
-impl PartSizes {
-    #[doc = "在列表尾部追加 JSON u16 整型"]
-    pub fn push_u16(&mut self, val: u16) {
-        self.0.as_array_mut().unwrap().push(val.into());
-    }
-}
-impl From<Vec<u32>> for PartSizes {
-    #[inline]
-    fn from(val: Vec<u32>) -> Self {
-        Self(serde_json::Value::from(val))
-    }
-}
-impl PartSizes {
-    #[doc = "在列表的指定位置插入 JSON u32 整型"]
-    pub fn insert_u32(&mut self, index: usize, val: u32) {
-        self.0.as_array_mut().unwrap().insert(index, val.into());
-    }
-}
-impl PartSizes {
-    #[doc = "在列表尾部追加 JSON u32 整型"]
-    pub fn push_u32(&mut self, val: u32) {
-        self.0.as_array_mut().unwrap().push(val.into());
-    }
-}
-impl From<Vec<u64>> for PartSizes {
-    #[inline]
-    fn from(val: Vec<u64>) -> Self {
-        Self(serde_json::Value::from(val))
-    }
-}
-impl PartSizes {
-    #[doc = "在列表的指定位置插入 JSON u64 整型"]
-    pub fn insert_u64(&mut self, index: usize, val: u64) {
-        self.0.as_array_mut().unwrap().insert(index, val.into());
-    }
-}
-impl PartSizes {
-    #[doc = "在列表尾部追加 JSON u64 整型"]
-    pub fn push_u64(&mut self, val: u64) {
-        self.0.as_array_mut().unwrap().push(val.into());
-    }
-}
-impl From<Vec<usize>> for PartSizes {
-    #[inline]
-    fn from(val: Vec<usize>) -> Self {
-        Self(serde_json::Value::from(val))
-    }
-}
-impl PartSizes {
-    #[doc = "在列表的指定位置插入 JSON usize 整型"]
-    pub fn insert_usize(&mut self, index: usize, val: usize) {
-        self.0.as_array_mut().unwrap().insert(index, val.into());
-    }
-}
-impl PartSizes {
-    #[doc = "在列表尾部追加 JSON usize 整型"]
-    pub fn push_usize(&mut self, val: usize) {
-        self.0.as_array_mut().unwrap().push(val.into());
-    }
-}
-impl ResponseBody {
-    #[doc = "获取 每个分片的大小，如没有指定 need_parts 参数则不返回"]
-    pub fn get_parts(&self) -> Option<PartSizes> {
-        self.0
-            .as_object()
-            .and_then(|obj| obj.get("parts"))
-            .cloned()
-            .map(PartSizes::new)
-    }
-}
-impl ResponseBody {
-    #[doc = "设置 每个分片的大小，如没有指定 need_parts 参数则不返回"]
-    pub fn set_parts(&mut self, new: PartSizes) -> Option<PartSizes> {
-        self.0.as_object_mut().and_then(|object| {
-            object
-                .insert("parts".to_owned(), new.into())
-                .map(PartSizes::new)
         })
     }
 }
@@ -951,6 +616,308 @@ impl ListedObjectEntry {
                     serde_json::Value::String(s) => Some(s),
                     _ => None,
                 })
+        })
+    }
+}
+#[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
+#[serde(transparent)]
+#[doc = "每个分片的大小"]
+pub struct PartSizes(serde_json::Value);
+impl PartSizes {
+    #[allow(dead_code)]
+    pub(crate) fn new(value: serde_json::Value) -> Self {
+        Self(value)
+    }
+}
+impl From<PartSizes> for serde_json::Value {
+    #[inline]
+    fn from(val: PartSizes) -> Self {
+        val.0
+    }
+}
+impl std::convert::AsRef<serde_json::Value> for PartSizes {
+    #[inline]
+    fn as_ref(&self) -> &serde_json::Value {
+        &self.0
+    }
+}
+impl std::convert::AsMut<serde_json::Value> for PartSizes {
+    #[inline]
+    fn as_mut(&mut self) -> &mut serde_json::Value {
+        &mut self.0
+    }
+}
+impl PartSizes {
+    pub fn len(&self) -> usize {
+        self.0.as_array().unwrap().len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.0.as_array().unwrap().is_empty()
+    }
+}
+impl PartSizes {
+    #[doc = "解析 JSON 得到整型列表"]
+    pub fn to_i64_vec(&self) -> Vec<i64> {
+        self.0
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|ele| ele.as_i64().unwrap())
+            .collect()
+    }
+}
+impl PartSizes {
+    #[doc = "解析 JSON 得到无符号整型列表"]
+    pub fn to_u64_vec(&self) -> Vec<u64> {
+        self.0
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|ele| ele.as_u64().unwrap())
+            .collect()
+    }
+}
+impl PartSizes {
+    #[doc = "在列表的指定位置移出 JSON i64 整型"]
+    pub fn remove_as_i64(&mut self, index: usize) -> Option<i64> {
+        match self.0.as_array_mut().unwrap().remove(index) {
+            serde_json::Value::Number(s) => s.as_i64(),
+            _ => None,
+        }
+    }
+}
+impl PartSizes {
+    #[doc = "在列表尾部取出 JSON i64 整型"]
+    pub fn pop_as_i64(&mut self) -> Option<i64> {
+        self.0
+            .as_array_mut()
+            .unwrap()
+            .pop()
+            .and_then(|val| match val {
+                serde_json::Value::Number(s) => s.as_i64(),
+                _ => None,
+            })
+    }
+}
+impl PartSizes {
+    #[doc = "在列表的指定位置移出 JSON u64 整型"]
+    pub fn remove_as_u64(&mut self, index: usize) -> Option<u64> {
+        match self.0.as_array_mut().unwrap().remove(index) {
+            serde_json::Value::Number(s) => s.as_u64(),
+            _ => None,
+        }
+    }
+}
+impl PartSizes {
+    #[doc = "在列表尾部取出 JSON u64 整型"]
+    pub fn pop_as_u64(&mut self) -> Option<u64> {
+        self.0
+            .as_array_mut()
+            .unwrap()
+            .pop()
+            .and_then(|val| match val {
+                serde_json::Value::Number(s) => s.as_u64(),
+                _ => None,
+            })
+    }
+}
+impl From<Vec<i8>> for PartSizes {
+    #[inline]
+    fn from(val: Vec<i8>) -> Self {
+        Self(serde_json::Value::from(val))
+    }
+}
+impl PartSizes {
+    #[doc = "在列表的指定位置插入 JSON i8 整型"]
+    pub fn insert_i8(&mut self, index: usize, val: i8) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
+    }
+}
+impl PartSizes {
+    #[doc = "在列表尾部追加 JSON i8 整型"]
+    pub fn push_i8(&mut self, val: i8) {
+        self.0.as_array_mut().unwrap().push(val.into());
+    }
+}
+impl From<Vec<i16>> for PartSizes {
+    #[inline]
+    fn from(val: Vec<i16>) -> Self {
+        Self(serde_json::Value::from(val))
+    }
+}
+impl PartSizes {
+    #[doc = "在列表的指定位置插入 JSON i16 整型"]
+    pub fn insert_i16(&mut self, index: usize, val: i16) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
+    }
+}
+impl PartSizes {
+    #[doc = "在列表尾部追加 JSON i16 整型"]
+    pub fn push_i16(&mut self, val: i16) {
+        self.0.as_array_mut().unwrap().push(val.into());
+    }
+}
+impl From<Vec<i32>> for PartSizes {
+    #[inline]
+    fn from(val: Vec<i32>) -> Self {
+        Self(serde_json::Value::from(val))
+    }
+}
+impl PartSizes {
+    #[doc = "在列表的指定位置插入 JSON i32 整型"]
+    pub fn insert_i32(&mut self, index: usize, val: i32) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
+    }
+}
+impl PartSizes {
+    #[doc = "在列表尾部追加 JSON i32 整型"]
+    pub fn push_i32(&mut self, val: i32) {
+        self.0.as_array_mut().unwrap().push(val.into());
+    }
+}
+impl From<Vec<i64>> for PartSizes {
+    #[inline]
+    fn from(val: Vec<i64>) -> Self {
+        Self(serde_json::Value::from(val))
+    }
+}
+impl PartSizes {
+    #[doc = "在列表的指定位置插入 JSON i64 整型"]
+    pub fn insert_i64(&mut self, index: usize, val: i64) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
+    }
+}
+impl PartSizes {
+    #[doc = "在列表尾部追加 JSON i64 整型"]
+    pub fn push_i64(&mut self, val: i64) {
+        self.0.as_array_mut().unwrap().push(val.into());
+    }
+}
+impl From<Vec<isize>> for PartSizes {
+    #[inline]
+    fn from(val: Vec<isize>) -> Self {
+        Self(serde_json::Value::from(val))
+    }
+}
+impl PartSizes {
+    #[doc = "在列表的指定位置插入 JSON isize 整型"]
+    pub fn insert_isize(&mut self, index: usize, val: isize) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
+    }
+}
+impl PartSizes {
+    #[doc = "在列表尾部追加 JSON isize 整型"]
+    pub fn push_isize(&mut self, val: isize) {
+        self.0.as_array_mut().unwrap().push(val.into());
+    }
+}
+impl From<Vec<u8>> for PartSizes {
+    #[inline]
+    fn from(val: Vec<u8>) -> Self {
+        Self(serde_json::Value::from(val))
+    }
+}
+impl PartSizes {
+    #[doc = "在列表的指定位置插入 JSON u8 整型"]
+    pub fn insert_u8(&mut self, index: usize, val: u8) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
+    }
+}
+impl PartSizes {
+    #[doc = "在列表尾部追加 JSON u8 整型"]
+    pub fn push_u8(&mut self, val: u8) {
+        self.0.as_array_mut().unwrap().push(val.into());
+    }
+}
+impl From<Vec<u16>> for PartSizes {
+    #[inline]
+    fn from(val: Vec<u16>) -> Self {
+        Self(serde_json::Value::from(val))
+    }
+}
+impl PartSizes {
+    #[doc = "在列表的指定位置插入 JSON u16 整型"]
+    pub fn insert_u16(&mut self, index: usize, val: u16) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
+    }
+}
+impl PartSizes {
+    #[doc = "在列表尾部追加 JSON u16 整型"]
+    pub fn push_u16(&mut self, val: u16) {
+        self.0.as_array_mut().unwrap().push(val.into());
+    }
+}
+impl From<Vec<u32>> for PartSizes {
+    #[inline]
+    fn from(val: Vec<u32>) -> Self {
+        Self(serde_json::Value::from(val))
+    }
+}
+impl PartSizes {
+    #[doc = "在列表的指定位置插入 JSON u32 整型"]
+    pub fn insert_u32(&mut self, index: usize, val: u32) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
+    }
+}
+impl PartSizes {
+    #[doc = "在列表尾部追加 JSON u32 整型"]
+    pub fn push_u32(&mut self, val: u32) {
+        self.0.as_array_mut().unwrap().push(val.into());
+    }
+}
+impl From<Vec<u64>> for PartSizes {
+    #[inline]
+    fn from(val: Vec<u64>) -> Self {
+        Self(serde_json::Value::from(val))
+    }
+}
+impl PartSizes {
+    #[doc = "在列表的指定位置插入 JSON u64 整型"]
+    pub fn insert_u64(&mut self, index: usize, val: u64) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
+    }
+}
+impl PartSizes {
+    #[doc = "在列表尾部追加 JSON u64 整型"]
+    pub fn push_u64(&mut self, val: u64) {
+        self.0.as_array_mut().unwrap().push(val.into());
+    }
+}
+impl From<Vec<usize>> for PartSizes {
+    #[inline]
+    fn from(val: Vec<usize>) -> Self {
+        Self(serde_json::Value::from(val))
+    }
+}
+impl PartSizes {
+    #[doc = "在列表的指定位置插入 JSON usize 整型"]
+    pub fn insert_usize(&mut self, index: usize, val: usize) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
+    }
+}
+impl PartSizes {
+    #[doc = "在列表尾部追加 JSON usize 整型"]
+    pub fn push_usize(&mut self, val: usize) {
+        self.0.as_array_mut().unwrap().push(val.into());
+    }
+}
+impl ListedObjectEntry {
+    #[doc = "获取 每个分片的大小，如没有指定 need_parts 参数则不返回"]
+    pub fn get_parts(&self) -> Option<PartSizes> {
+        self.0
+            .as_object()
+            .and_then(|obj| obj.get("parts"))
+            .cloned()
+            .map(PartSizes::new)
+    }
+}
+impl ListedObjectEntry {
+    #[doc = "设置 每个分片的大小，如没有指定 need_parts 参数则不返回"]
+    pub fn set_parts(&mut self, new: PartSizes) -> Option<PartSizes> {
+        self.0.as_object_mut().and_then(|object| {
+            object
+                .insert("parts".to_owned(), new.into())
+                .map(PartSizes::new)
         })
     }
 }

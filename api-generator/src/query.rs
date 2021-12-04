@@ -65,8 +65,8 @@ impl QueryNames {
                 }
                 StringLikeType::Integer => for_based_field(
                     &field_name,
-                    documentation,
                     &query_name.query_name,
+                    documentation,
                     &[
                         ("i8", &quote!(i8)),
                         ("i16", &quote!(i16)),
@@ -82,14 +82,14 @@ impl QueryNames {
                 ),
                 StringLikeType::Float => for_based_field(
                     &field_name,
-                    documentation,
                     &query_name.query_name,
+                    documentation,
                     &[("f32", &quote!(f32)), ("f64", &quote!(f64))],
                 ),
                 StringLikeType::Boolean => for_based_field(
                     &field_name,
-                    documentation,
                     &query_name.query_name,
+                    documentation,
                     &[("bool", &quote!(bool))],
                 ),
             }
