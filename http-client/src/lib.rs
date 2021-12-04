@@ -58,6 +58,7 @@ pub use client::{
     SubnetChooserBuilder, SyncMultipart, SyncPart, SyncPartBody, SyncRequestBody,
     SyncRequestBuilder, SyncResponse, TimeoutResolver, NO_BACKOFF,
 };
+pub use http::SyncResponseBody;
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
     CachedRegionsProvider, DomainWithPort, DomainWithPortParseError, Endpoint, EndpointParseError,
@@ -79,8 +80,12 @@ pub use client::{c_ares, c_ares_resolver, CAresResolver};
 pub use client::{trust_dns_resolver, TrustDnsResolver};
 
 #[cfg(feature = "async")]
-pub use client::{
-    AsyncMultipart, AsyncPart, AsyncPartBody, AsyncRequestBody, AsyncRequestBuilder, AsyncResponse,
+pub use {
+    client::{
+        AsyncMultipart, AsyncPart, AsyncPartBody, AsyncRequestBody, AsyncRequestBuilder,
+        AsyncResponse,
+    },
+    http::AsyncResponseBody,
 };
 
 pub mod preclude {

@@ -1,0 +1,34 @@
+method: get
+service_names:
+  - rsf
+base_path: /v2/list
+documentation: 列举指定存储空间里的所有对象条目
+request:
+  authorization: qiniu
+  query_names:
+    - field_name: bucket
+      query_name: bucket
+      query_type: string
+      documentation: 指定存储空间
+    - field_name: marker
+      query_name: marker
+      query_type: string
+      documentation: 上一次列举返回的位置标记，作为本次列举的起点信息
+    - field_name: limit
+      query_name: limit
+      query_type: integer
+      documentation: 本次列举的条目数，范围为 1-1000
+    - field_name: prefix
+      query_name: prefix
+      query_type: string
+      documentation: 指定前缀，只有资源名匹配该前缀的资源会被列出
+    - field_name: delimiter
+      query_name: delimiter
+      query_type: string
+      documentation: 指定目录分隔符，列出所有公共前缀（模拟列出目录效果）
+    - field_name: need_parts
+      query_name: needparts
+      query_type: boolean
+      documentation: 如果文件是通过分片上传的，是否返回对应的分片信息
+response:
+  body: binary_data_stream

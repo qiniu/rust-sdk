@@ -24,6 +24,8 @@ pub mod get_buckets;
 pub mod get_domains;
 #[doc = "列举指定存储空间里的所有对象条目"]
 pub mod get_objects;
+#[doc = "列举指定存储空间里的所有对象条目"]
+pub mod get_objects_v2;
 #[doc = "修改已上传对象的生命周期"]
 pub mod modify_object_life_cycle;
 #[doc = "修改文件元信息"]
@@ -129,6 +131,11 @@ impl<'client> Client<'client> {
     #[doc = "列举指定存储空间里的所有对象条目"]
     pub fn get_objects(&self) -> get_objects::Client {
         get_objects::Client::new(self.0)
+    }
+    #[inline]
+    #[doc = "列举指定存储空间里的所有对象条目"]
+    pub fn get_objects_v2(&self) -> get_objects_v2::Client {
+        get_objects_v2::Client::new(self.0)
     }
     #[inline]
     #[doc = "修改已上传对象的生命周期"]
