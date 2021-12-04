@@ -456,7 +456,6 @@ mod tests {
         .on_before_backoff(move |context, _| inc_extensions(context.extensions_mut()))
         .on_after_backoff(move |context, _| inc_extensions(context.extensions_mut()))
         .on_error(move |context, _| inc_extensions(context.extensions_mut()))
-        .on_success(move |_, _| unreachable!())
         .call()
         .unwrap_err();
         assert_eq!(
@@ -487,7 +486,6 @@ mod tests {
         .on_before_backoff(move |_, _| unreachable!())
         .on_after_backoff(move |_, _| unreachable!())
         .on_error(move |context, _| inc_extensions(context.extensions_mut()))
-        .on_success(move |_, _| unreachable!())
         .call()
         .unwrap_err();
         assert_eq!(

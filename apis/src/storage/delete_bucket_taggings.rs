@@ -267,20 +267,6 @@ impl<'req, E: 'req> SyncRequestBuilder<'req, E> {
         self
     }
     #[inline]
-    pub fn on_success(
-        mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-                &qiniu_http_client::ResponseInfo,
-            ) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_success(callback);
-        self
-    }
-    #[inline]
     pub fn on_error(
         mut self,
         callback: impl Fn(
@@ -478,20 +464,6 @@ impl<'req, E: 'req> AsyncRequestBuilder<'req, E> {
             + 'req,
     ) -> Self {
         self.0 = self.0.on_after_request_signed(callback);
-        self
-    }
-    #[inline]
-    pub fn on_success(
-        mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-                &qiniu_http_client::ResponseInfo,
-            ) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_success(callback);
         self
     }
     #[inline]

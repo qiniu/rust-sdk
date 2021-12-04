@@ -2,7 +2,7 @@ use super::{
     super::{
         super::{EndpointsProvider, IpAddrWithPort, ServiceName},
         Authorization, CallbackContext, Callbacks, ExtendedCallbackContext, HttpClient,
-        ResolveAnswers, ResponseError, ResponseInfo, SimplifiedCallbackContext,
+        ResolveAnswers, ResponseError, SimplifiedCallbackContext,
     },
     request_metadata::RequestMetadata,
     Idempotent, QueryPairs,
@@ -271,18 +271,6 @@ impl<'r> RequestParts<'r> {
                 .http_client
                 .callbacks()
                 .call_after_request_signed_callbacks(context)
-    }
-
-    pub(in super::super) fn call_success_callbacks(
-        &self,
-        context: &mut dyn ExtendedCallbackContext,
-        response: &ResponseInfo,
-    ) -> bool {
-        self.callbacks.call_success_callbacks(context, response)
-            && self
-                .http_client
-                .callbacks()
-                .call_success_callbacks(context, response)
     }
 
     pub(in super::super) fn call_error_callbacks(

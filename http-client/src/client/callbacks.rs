@@ -1,7 +1,7 @@
 use super::{
     super::regions::IpAddrWithPort,
     callback::{CallbackContext, ExtendedCallbackContext},
-    ResolveAnswers, ResponseError, ResponseInfo, SimplifiedCallbackContext,
+    ResolveAnswers, ResponseError, SimplifiedCallbackContext,
 };
 use qiniu_http::{HeaderName, HeaderValue, StatusCode, TransferProgressInfo};
 use std::{fmt, time::Duration};
@@ -28,8 +28,6 @@ type OnIPsChosen<'f> = Box<
 type OnRequest<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'f>;
 type OnRetry<'f> =
     Box<dyn Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'f>;
-type OnSuccess<'f> =
-    Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseInfo) -> bool + Send + Sync + 'f>;
 type OnError<'f> =
     Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync + 'f>;
 
@@ -44,7 +42,6 @@ pub struct Callbacks<'f> {
     on_ips_chosen: Box<[OnIPsChosen<'f>]>,
     on_before_request_signed: Box<[OnRequest<'f>]>,
     on_after_request_signed: Box<[OnRequest<'f>]>,
-    on_success: Box<[OnSuccess<'f>]>,
     on_error: Box<[OnError<'f>]>,
     on_before_backoff: Box<[OnRetry<'f>]>,
     on_after_backoff: Box<[OnRetry<'f>]>,
@@ -61,7 +58,6 @@ pub struct CallbacksBuilder<'f> {
     on_ips_chosen: Vec<OnIPsChosen<'f>>,
     on_before_request_signed: Vec<OnRequest<'f>>,
     on_after_request_signed: Vec<OnRequest<'f>>,
-    on_success: Vec<OnSuccess<'f>>,
     on_error: Vec<OnError<'f>>,
     on_before_backoff: Vec<OnRetry<'f>>,
     on_after_backoff: Vec<OnRetry<'f>>,
@@ -168,17 +164,6 @@ impl<'f> Callbacks<'f> {
             .any(|callback| !callback(context))
     }
 
-    pub(super) fn call_success_callbacks(
-        &self,
-        context: &mut dyn ExtendedCallbackContext,
-        response: &ResponseInfo,
-    ) -> bool {
-        !self
-            .on_success_callbacks()
-            .iter()
-            .any(|callback| !callback(context, response))
-    }
-
     pub(super) fn call_error_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -260,11 +245,6 @@ impl<'f> Callbacks<'f> {
     #[inline]
     pub fn on_after_request_signed_callbacks(&self) -> &[OnRequest<'f>] {
         &self.on_after_request_signed
-    }
-
-    #[inline]
-    pub fn on_success_callbacks(&self) -> &[OnSuccess<'f>] {
-        &self.on_success
     }
 
     #[inline]
@@ -375,15 +355,6 @@ impl<'f> CallbacksBuilder<'f> {
     }
 
     #[inline]
-    pub fn on_success(
-        mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseInfo) -> bool + Send + Sync + 'f,
-    ) -> Self {
-        self.on_success.push(Box::new(callback));
-        self
-    }
-
-    #[inline]
     pub fn on_error(
         mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync + 'f,
@@ -421,7 +392,6 @@ impl<'f> CallbacksBuilder<'f> {
             on_ips_chosen: self.on_ips_chosen.into(),
             on_before_request_signed: self.on_before_request_signed.into(),
             on_after_request_signed: self.on_after_request_signed.into(),
-            on_success: self.on_success.into(),
             on_error: self.on_error.into(),
             on_before_backoff: self.on_before_backoff.into(),
             on_after_backoff: self.on_after_backoff.into(),
@@ -446,7 +416,6 @@ impl fmt::Debug for Callbacks<'_> {
         field!(s, "on_ips_chosen", on_ips_chosen);
         field!(s, "on_before_request_signed", on_before_request_signed);
         field!(s, "on_after_request_signed", on_after_request_signed);
-        field!(s, "on_success", on_success);
         field!(s, "on_error", on_error);
         field!(s, "on_before_backoff", on_before_backoff);
         field!(s, "on_after_backoff", on_after_backoff);
@@ -471,7 +440,6 @@ impl fmt::Debug for CallbacksBuilder<'_> {
         field!(s, "on_ips_chosen", on_ips_chosen);
         field!(s, "on_before_request_signed", on_before_request_signed);
         field!(s, "on_after_request_signed", on_after_request_signed);
-        field!(s, "on_success", on_success);
         field!(s, "on_error", on_error);
         field!(s, "on_before_backoff", on_before_backoff);
         field!(s, "on_after_backoff", on_after_backoff);

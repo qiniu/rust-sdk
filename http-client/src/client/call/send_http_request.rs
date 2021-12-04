@@ -1,12 +1,11 @@
 use super::{
     super::{
-        BackoffOptions, RequestParts, RequestRetrierOptions, ResponseError, ResponseInfo,
-        RetriedStatsInfo, RetryDecision, SimplifiedCallbackContext, SyncResponse,
+        BackoffOptions, RequestParts, RequestRetrierOptions, ResponseError, RetriedStatsInfo,
+        RetryDecision, SimplifiedCallbackContext, SyncResponse,
     },
     error::TryError,
     utils::{
-        call_after_backoff_callbacks, call_before_backoff_callbacks, call_error_callbacks,
-        call_success_callbacks, judge,
+        call_after_backoff_callbacks, call_before_backoff_callbacks, call_error_callbacks, judge,
     },
 };
 use log::error;
@@ -29,12 +28,6 @@ pub(super) fn send_http_request(
             .map_err(|err| handle_response_error(err, http_request, parts, retried));
         match response {
             Ok(response) => {
-                call_success_callbacks(
-                    parts,
-                    http_request,
-                    retried,
-                    &ResponseInfo::new_from_sync(&response),
-                )?;
                 return Ok(response);
             }
             Err(err) => {
@@ -140,12 +133,6 @@ mod async_send {
                 .map_err(|err| handle_response_error(err, http_request, parts, retried));
             match response {
                 Ok(response) => {
-                    call_success_callbacks(
-                        parts,
-                        http_request,
-                        retried,
-                        &ResponseInfo::new_from_async(&response),
-                    )?;
                     return Ok(response);
                 }
                 Err(err) => {

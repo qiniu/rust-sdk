@@ -559,21 +559,6 @@ impl ApiDetailedDescription {
                 }
 
                 #[inline]
-                pub fn on_success(
-                    mut self,
-                    callback: impl Fn(
-                            &mut dyn qiniu_http_client::ExtendedCallbackContext,
-                            &qiniu_http_client::ResponseInfo,
-                        ) -> bool
-                            + Send
-                            + Sync
-                            +'req,
-                ) -> Self {
-                    self.0 = self.0.on_success(callback);
-                    self
-                }
-
-                #[inline]
                 pub fn on_error(
                     mut self,
                     callback: impl Fn(

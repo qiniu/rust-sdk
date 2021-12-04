@@ -17,9 +17,7 @@ pub use backoff::{
     RandomizedBackoff, Ratio, NO_BACKOFF,
 };
 pub use call::DomainOrIpAddr;
-pub use callback::{
-    CallbackContext, ExtendedCallbackContext, ResponseInfo, SimplifiedCallbackContext,
-};
+pub use callback::{CallbackContext, ExtendedCallbackContext, SimplifiedCallbackContext};
 pub use callbacks::{Callbacks, CallbacksBuilder};
 pub use chooser::{
     Chooser, ChooserFeedback, IpChooser, IpChooserBuilder, NeverEmptyHandedChooser,

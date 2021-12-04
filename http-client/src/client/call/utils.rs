@@ -3,7 +3,7 @@ use super::{
         super::{DomainWithPort, Endpoint, IpAddrWithPort},
         ApiResult, Authorization, AuthorizationError, CallbackContextImpl,
         ExtendedCallbackContextImpl, RequestParts, ResolveAnswers, ResolveOptions, ResolveResult,
-        ResponseError, ResponseErrorKind, ResponseInfo, RetriedStatsInfo, RetryDecision,
+        ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision,
         SimplifiedCallbackContext, SyncResponse,
     },
     domain_or_ip_addr::DomainOrIpAddr,
@@ -270,26 +270,6 @@ pub(super) fn call_after_request_signed_callbacks(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "on_after_request_signed() callback returns false",
-            )
-            .retried(retried),
-            RetryDecision::DontRetry.into(),
-        ));
-    }
-    Ok(())
-}
-
-pub(super) fn call_success_callbacks(
-    request: &RequestParts<'_>,
-    built: &mut HttpRequestParts<'_>,
-    retried: &RetriedStatsInfo,
-    response: &ResponseInfo,
-) -> Result<(), TryError> {
-    let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
-    if !request.call_success_callbacks(&mut context, response) {
-        return Err(TryError::new(
-            ResponseError::new(
-                HttpResponseErrorKind::UserCanceled.into(),
-                "on_success() callback returns false",
             )
             .retried(retried),
             RetryDecision::DontRetry.into(),

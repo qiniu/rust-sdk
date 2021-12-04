@@ -2,7 +2,7 @@ use super::{
     super::{
         super::{EndpointsProvider, IpAddrWithPort, ServiceName},
         request_call, ApiResult, Authorization, CallbackContext, CallbacksBuilder,
-        ExtendedCallbackContext, HttpClient, ResolveAnswers, ResponseError, ResponseInfo,
+        ExtendedCallbackContext, HttpClient, ResolveAnswers, ResponseError,
         SimplifiedCallbackContext, SyncResponse,
     },
     multipart::SyncMultipart,
@@ -286,15 +286,6 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'r,
     ) -> Self {
         self.callbacks = self.callbacks.on_after_request_signed(callback);
-        self
-    }
-
-    #[inline]
-    pub fn on_success(
-        mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseInfo) -> bool + Send + Sync + 'r,
-    ) -> Self {
-        self.callbacks = self.callbacks.on_success(callback);
         self
     }
 

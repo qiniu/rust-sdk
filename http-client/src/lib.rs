@@ -53,7 +53,7 @@ pub use client::{
     Multipart, NeverRetrier, Part, PartMetadata, QueryPairKey, QueryPairValue, QueryPairs,
     RandomizedBackoff, Ratio, RequestBuilder, RequestRetrier, RequestRetrierOptions,
     ResolveAnswers, ResolveOptions, ResolveResult, Resolver, Response, ResponseError,
-    ResponseErrorKind, ResponseInfo, RetriedStatsInfo, RetryDecision, RetryResult, ShuffledChooser,
+    ResponseErrorKind, RetriedStatsInfo, RetryDecision, RetryResult, ShuffledChooser,
     ShuffledResolver, SimpleResolver, SimplifiedCallbackContext, SubnetChooser,
     SubnetChooserBuilder, SyncMultipart, SyncPart, SyncPartBody, SyncRequestBody,
     SyncRequestBuilder, SyncResponse, TimeoutResolver, NO_BACKOFF,
