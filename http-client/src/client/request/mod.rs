@@ -25,7 +25,7 @@ pub enum Idempotent {
     Never,
 }
 
-pub use builder::{RequestBuilder, SyncRequestBuilder};
+pub use builder::{RequestBuilder,RequestBuilderParts, SyncRequestBuilder};
 pub(super) use built::{Request, RequestParts};
 pub use multipart::{
     FieldName, FileName, Multipart, Part, PartMetadata, SyncMultipart, SyncPart, SyncPartBody,

@@ -568,6 +568,16 @@ impl ApiDetailedDescription {
                     self.0 = self.0.on_after_backoff(callback);
                     self
                 }
+
+                #[inline]
+                pub fn parts(&self) -> &qiniu_http_client::RequestBuilderParts<'req> {
+                    self.0.parts()
+                }
+
+                #[inline]
+                pub fn parts_mut(&mut self) -> &mut qiniu_http_client::RequestBuilderParts<'req> {
+                     self.0.parts_mut()
+                }
             }
         }
 

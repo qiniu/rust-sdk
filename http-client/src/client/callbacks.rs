@@ -4,7 +4,7 @@ use super::{
     ResolveAnswers, ResponseError, SimplifiedCallbackContext,
 };
 use qiniu_http::{HeaderName, HeaderValue, StatusCode, TransferProgressInfo};
-use std::{fmt, time::Duration};
+use std::{fmt, mem::take, time::Duration};
 
 type OnProgress<'f> =
     Box<dyn Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool + Send + Sync + 'f>;
@@ -266,135 +266,136 @@ impl<'f> Callbacks<'f> {
 impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub fn on_uploading_progress(
-        mut self,
+        &mut self,
         callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool
             + Send
             + Sync
             + 'f,
-    ) -> Self {
+    ) -> &mut Self {
         self.on_uploading_progress.push(Box::new(callback));
         self
     }
 
     #[inline]
     pub fn on_receive_response_status(
-        mut self,
+        &mut self,
         callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync + 'f,
-    ) -> Self {
+    ) -> &mut Self {
         self.on_receive_response_status.push(Box::new(callback));
         self
     }
 
     #[inline]
     pub fn on_receive_response_header(
-        mut self,
+        &mut self,
         callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool
             + Send
             + Sync
             + 'f,
-    ) -> Self {
+    ) -> &mut Self {
         self.on_receive_response_header.push(Box::new(callback));
         self
     }
 
     #[inline]
     pub fn on_to_resolve_domain(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync + 'f,
-    ) -> Self {
+    ) -> &mut Self {
         self.on_to_resolve_domain.push(Box::new(callback));
         self
     }
 
     #[inline]
     pub fn on_domain_resolved(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool + Send + Sync + 'f,
-    ) -> Self {
+    ) -> &mut Self {
         self.on_domain_resolved.push(Box::new(callback));
         self
     }
 
     #[inline]
     pub fn on_to_choose_ips(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync + 'f,
-    ) -> Self {
+    ) -> &mut Self {
         self.on_to_choose_ips.push(Box::new(callback));
         self
     }
 
     #[inline]
     pub fn on_ips_chosen(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool
             + Send
             + Sync
             + 'f,
-    ) -> Self {
+    ) -> &mut Self {
         self.on_ips_chosen.push(Box::new(callback));
         self
     }
 
     #[inline]
     pub fn on_before_request_signed(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'f,
-    ) -> Self {
+    ) -> &mut Self {
         self.on_before_request_signed.push(Box::new(callback));
         self
     }
 
     #[inline]
     pub fn on_after_request_signed(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'f,
-    ) -> Self {
+    ) -> &mut Self {
         self.on_after_request_signed.push(Box::new(callback));
         self
     }
 
     #[inline]
     pub fn on_error(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync + 'f,
-    ) -> Self {
+    ) -> &mut Self {
         self.on_error.push(Box::new(callback));
         self
     }
 
     #[inline]
     pub fn on_before_backoff(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'f,
-    ) -> Self {
+    ) -> &mut Self {
         self.on_before_backoff.push(Box::new(callback));
         self
     }
 
     #[inline]
     pub fn on_after_backoff(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'f,
-    ) -> Self {
+    ) -> &mut Self {
         self.on_after_backoff.push(Box::new(callback));
         self
     }
 
-    pub fn build(self) -> Callbacks<'f> {
+    pub fn build(&mut self) -> Callbacks<'f> {
+        let owned = take(self);
         Callbacks {
-            on_uploading_progress: self.on_uploading_progress.into(),
-            on_receive_response_status: self.on_receive_response_status.into(),
-            on_receive_response_header: self.on_receive_response_header.into(),
-            on_to_resolve_domain: self.on_to_resolve_domain.into(),
-            on_domain_resolved: self.on_domain_resolved.into(),
-            on_to_choose_ips: self.on_to_choose_ips.into(),
-            on_ips_chosen: self.on_ips_chosen.into(),
-            on_before_request_signed: self.on_before_request_signed.into(),
-            on_after_request_signed: self.on_after_request_signed.into(),
-            on_error: self.on_error.into(),
-            on_before_backoff: self.on_before_backoff.into(),
-            on_after_backoff: self.on_after_backoff.into(),
+            on_uploading_progress: owned.on_uploading_progress.into(),
+            on_receive_response_status: owned.on_receive_response_status.into(),
+            on_receive_response_header: owned.on_receive_response_header.into(),
+            on_to_resolve_domain: owned.on_to_resolve_domain.into(),
+            on_domain_resolved: owned.on_domain_resolved.into(),
+            on_to_choose_ips: owned.on_to_choose_ips.into(),
+            on_ips_chosen: owned.on_ips_chosen.into(),
+            on_before_request_signed: owned.on_before_request_signed.into(),
+            on_after_request_signed: owned.on_after_request_signed.into(),
+            on_error: owned.on_error.into(),
+            on_before_backoff: owned.on_before_backoff.into(),
+            on_after_backoff: owned.on_after_backoff.into(),
         }
     }
 }

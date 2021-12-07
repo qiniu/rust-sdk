@@ -2,7 +2,7 @@ use super::{super::authorization::Authorization, Idempotent, QueryPairs};
 use qiniu_http::{HeaderMap, Method, Version};
 use std::borrow::Cow;
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub(super) struct RequestMetadata<'r> {
     pub(super) use_https: Option<bool>,
     pub(super) method: Method,

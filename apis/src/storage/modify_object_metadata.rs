@@ -348,6 +348,14 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self.0 = self.0.on_after_backoff(callback);
         self
     }
+    #[inline]
+    pub fn parts(&self) -> &qiniu_http_client::RequestBuilderParts<'req> {
+        self.0.parts()
+    }
+    #[inline]
+    pub fn parts_mut(&mut self) -> &mut qiniu_http_client::RequestBuilderParts<'req> {
+        self.0.parts_mut()
+    }
 }
 impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> SyncRequestBuilder<'req, E> {
     pub fn call(self) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {

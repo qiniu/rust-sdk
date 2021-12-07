@@ -26,8 +26,8 @@ pub use chooser::{
 pub use http_client::{HttpClient, HttpClientBuilder};
 pub use request::{
     FieldName, FileName, Idempotent, Multipart, Part, PartMetadata, QueryPairKey, QueryPairValue,
-    QueryPairs, RequestBuilder, SyncMultipart, SyncPart, SyncPartBody, SyncRequestBody,
-    SyncRequestBuilder,
+    QueryPairs, RequestBuilder, RequestBuilderParts, SyncMultipart, SyncPart, SyncPartBody,
+    SyncRequestBody, SyncRequestBuilder,
 };
 pub use resolver::{
     CachedResolver, ChainedResolver, ChainedResolverBuilder, ResolveAnswers, ResolveOptions,

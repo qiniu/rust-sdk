@@ -370,7 +370,7 @@ impl HttpClientBuilder {
             + Sync
             + 'static,
     ) -> Self {
-        self.callbacks = self.callbacks.on_uploading_progress(callback);
+        self.callbacks.on_uploading_progress(callback);
         self
     }
 
@@ -379,7 +379,7 @@ impl HttpClientBuilder {
         mut self,
         callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync + 'static,
     ) -> Self {
-        self.callbacks = self.callbacks.on_receive_response_status(callback);
+        self.callbacks.on_receive_response_status(callback);
         self
     }
 
@@ -391,7 +391,7 @@ impl HttpClientBuilder {
             + Sync
             + 'static,
     ) -> Self {
-        self.callbacks = self.callbacks.on_receive_response_header(callback);
+        self.callbacks.on_receive_response_header(callback);
         self
     }
 
@@ -400,7 +400,7 @@ impl HttpClientBuilder {
         mut self,
         callback: impl Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync + 'static,
     ) -> Self {
-        self.callbacks = self.callbacks.on_to_resolve_domain(callback);
+        self.callbacks.on_to_resolve_domain(callback);
         self
     }
 
@@ -412,7 +412,7 @@ impl HttpClientBuilder {
             + Sync
             + 'static,
     ) -> Self {
-        self.callbacks = self.callbacks.on_domain_resolved(callback);
+        self.callbacks.on_domain_resolved(callback);
         self
     }
 
@@ -421,7 +421,7 @@ impl HttpClientBuilder {
         mut self,
         callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync + 'static,
     ) -> Self {
-        self.callbacks = self.callbacks.on_to_choose_ips(callback);
+        self.callbacks.on_to_choose_ips(callback);
         self
     }
 
@@ -433,7 +433,7 @@ impl HttpClientBuilder {
             + Sync
             + 'static,
     ) -> Self {
-        self.callbacks = self.callbacks.on_ips_chosen(callback);
+        self.callbacks.on_ips_chosen(callback);
         self
     }
 
@@ -442,7 +442,7 @@ impl HttpClientBuilder {
         mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'static,
     ) -> Self {
-        self.callbacks = self.callbacks.on_before_request_signed(callback);
+        self.callbacks.on_before_request_signed(callback);
         self
     }
 
@@ -451,7 +451,7 @@ impl HttpClientBuilder {
         mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'static,
     ) -> Self {
-        self.callbacks = self.callbacks.on_after_request_signed(callback);
+        self.callbacks.on_after_request_signed(callback);
         self
     }
 
@@ -463,7 +463,7 @@ impl HttpClientBuilder {
             + Sync
             + 'static,
     ) -> Self {
-        self.callbacks = self.callbacks.on_error(callback);
+        self.callbacks.on_error(callback);
         self
     }
 
@@ -472,7 +472,7 @@ impl HttpClientBuilder {
         mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'static,
     ) -> Self {
-        self.callbacks = self.callbacks.on_before_backoff(callback);
+        self.callbacks.on_before_backoff(callback);
         self
     }
 
@@ -481,11 +481,11 @@ impl HttpClientBuilder {
         mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'static,
     ) -> Self {
-        self.callbacks = self.callbacks.on_after_backoff(callback);
+        self.callbacks.on_after_backoff(callback);
         self
     }
 
-    pub fn build(self) -> HttpClient {
+    pub fn build(mut self) -> HttpClient {
         HttpClient {
             inner: Arc::new(HttpClientInner {
                 use_https: self.use_https,

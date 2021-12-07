@@ -38,79 +38,33 @@ use {
     qiniu_http::{AsyncRequestBody, AsyncReset},
 };
 
-#[derive(Debug)]
-pub struct RequestBuilder<'r, B: 'r, E: 'r> {
-    http_client: &'r HttpClient,
-    service_names: &'r [ServiceName],
-    endpoints_provider: E,
+#[derive(Default, Debug)]
+pub struct RequestBuilderParts<'r> {
     callbacks: CallbacksBuilder<'r>,
     metadata: RequestMetadata<'r>,
-    body: B,
-    appended_user_agent: UserAgent,
     extensions: Extensions,
+    appended_user_agent: UserAgent,
 }
 
-impl<'r, B: Default + 'r, E: EndpointsProvider + 'r> RequestBuilder<'r, B, E> {
-    pub(in super::super) fn new(
-        http_client: &'r HttpClient,
-        method: Method,
-        endpoints_provider: E,
-        service_names: &'r [ServiceName],
-    ) -> Self {
-        Self {
-            http_client,
-            service_names,
-            endpoints_provider,
-            callbacks: Default::default(),
-            appended_user_agent: Default::default(),
-            extensions: Default::default(),
-            body: Default::default(),
-            metadata: RequestMetadata {
-                method,
-                use_https: None,
-                version: Default::default(),
-                path: Default::default(),
-                query: Default::default(),
-                query_pairs: Default::default(),
-                headers: Default::default(),
-                authorization: None,
-                idempotent: Default::default(),
-            },
-        }
-    }
-}
-
-impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
+impl<'r> RequestBuilderParts<'r> {
     #[inline]
-    pub fn use_https(mut self, use_https: bool) -> Self {
+    pub fn use_https(&mut self, use_https: bool) -> &mut Self {
         self.metadata.use_https = Some(use_https);
         self
     }
 
     #[inline]
-    pub fn version(mut self, version: Version) -> Self {
+    pub fn version(&mut self, version: Version) -> &mut Self {
         self.metadata.version = version;
         self
     }
 
     #[inline]
-    pub fn path(mut self, path: impl Into<Cow<'r, str>>) -> Self {
-        self.metadata.path = path.into();
-        self
-    }
-
-    #[inline]
-    pub fn headers(mut self, headers: impl Into<Cow<'r, HeaderMap>>) -> Self {
-        self.metadata.headers = headers.into();
-        self
-    }
-
-    #[inline]
     pub fn set_header(
-        mut self,
+        &mut self,
         header_name: impl Into<HeaderName>,
         header_value: impl Into<HeaderValue>,
-    ) -> Self {
+    ) -> &mut Self {
         self.metadata
             .headers
             .to_mut()
@@ -118,7 +72,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         self
     }
 
-    fn set_content_type(self, content_type: Option<Mime>) -> Self {
+    fn set_content_type(&mut self, content_type: Option<Mime>) -> &mut Self {
         self.set_header(
             CONTENT_TYPE,
             HeaderValue::from_str(
@@ -132,28 +86,264 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     }
 
     #[inline]
-    pub fn accept_json(self) -> Self {
+    pub fn accept_json(&mut self) -> &mut Self {
         self.set_accept(APPLICATION_JSON)
     }
 
     #[inline]
-    pub fn accept_application_octet_stream(self) -> Self {
+    pub fn accept_application_octet_stream(&mut self) -> &mut Self {
         self.set_accept(APPLICATION_OCTET_STREAM)
     }
 
-    fn set_accept(self, accept: Mime) -> Self {
+    fn set_accept(&mut self, accept: Mime) -> &mut Self {
         self.set_header(ACCEPT, HeaderValue::from_str(accept.as_ref()).unwrap())
     }
 
     #[inline]
+    pub fn append_query_pair(
+        &mut self,
+        query_pair_key: impl Into<QueryPairKey<'r>>,
+        query_pair_value: impl Into<QueryPairValue<'r>>,
+    ) -> &mut Self {
+        self.metadata
+            .query_pairs
+            .push((query_pair_key.into(), query_pair_value.into()));
+        self
+    }
+
+    #[inline]
+    pub fn appended_user_agent(&mut self, user_agent: impl Into<UserAgent>) -> &mut Self {
+        self.appended_user_agent = user_agent.into();
+        self
+    }
+
+    #[inline]
+    pub fn extensions(&mut self, extensions: Extensions) -> &mut Self {
+        self.extensions = extensions;
+        self
+    }
+
+    #[inline]
+    pub fn add_extension<T: Send + Sync + 'static>(&mut self, val: T) -> &mut Self {
+        self.extensions.insert(val);
+        self
+    }
+
+    #[inline]
+    pub fn on_uploading_progress(
+        &mut self,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool
+            + Send
+            + Sync
+            + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_uploading_progress(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_receive_response_status(
+        &mut self,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_receive_response_status(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_receive_response_header(
+        &mut self,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool
+            + Send
+            + Sync
+            + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_receive_response_header(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_to_resolve_domain(
+        &mut self,
+        callback: impl Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_to_resolve_domain(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_domain_resolved(
+        &mut self,
+        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool + Send + Sync + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_domain_resolved(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_to_choose_ips(
+        &mut self,
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_to_choose_ips(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_ips_chosen(
+        &mut self,
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool
+            + Send
+            + Sync
+            + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_ips_chosen(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_before_request_signed(
+        &mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_before_request_signed(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_after_request_signed(
+        &mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_after_request_signed(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_error(
+        &mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_error(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_before_backoff(
+        &mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_before_backoff(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_after_backoff(
+        &mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_after_backoff(callback);
+        self
+    }
+}
+
+#[derive(Debug)]
+pub struct RequestBuilder<'r, B: 'r, E: 'r> {
+    http_client: &'r HttpClient,
+    service_names: &'r [ServiceName],
+    endpoints_provider: E,
+    parts: RequestBuilderParts<'r>,
+    body: B,
+}
+
+impl<'r, B: Default + 'r, E: EndpointsProvider + 'r> RequestBuilder<'r, B, E> {
+    pub(in super::super) fn new(
+        http_client: &'r HttpClient,
+        method: Method,
+        endpoints_provider: E,
+        service_names: &'r [ServiceName],
+    ) -> Self {
+        Self {
+            http_client,
+            service_names,
+            endpoints_provider,
+            parts: RequestBuilderParts {
+                metadata: RequestMetadata {
+                    method,
+                    use_https: None,
+                    version: Default::default(),
+                    path: Default::default(),
+                    query: Default::default(),
+                    query_pairs: Default::default(),
+                    headers: Default::default(),
+                    authorization: None,
+                    idempotent: Default::default(),
+                },
+                callbacks: Default::default(),
+                extensions: Default::default(),
+                appended_user_agent: Default::default(),
+            },
+            body: Default::default(),
+        }
+    }
+}
+
+impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
+    #[inline]
+    pub fn use_https(mut self, use_https: bool) -> Self {
+        self.parts.use_https(use_https);
+        self
+    }
+
+    #[inline]
+    pub fn version(mut self, version: Version) -> Self {
+        self.parts.version(version);
+        self
+    }
+
+    #[inline]
+    pub fn path(mut self, path: impl Into<Cow<'r, str>>) -> Self {
+        self.parts.metadata.path = path.into();
+        self
+    }
+
+    #[inline]
+    pub fn headers(mut self, headers: impl Into<Cow<'r, HeaderMap>>) -> Self {
+        self.parts.metadata.headers = headers.into();
+        self
+    }
+
+    #[inline]
+    pub fn set_header(
+        mut self,
+        header_name: impl Into<HeaderName>,
+        header_value: impl Into<HeaderValue>,
+    ) -> Self {
+        self.parts.set_header(header_name, header_value);
+        self
+    }
+
+    #[inline]
+    pub fn accept_json(mut self) -> Self {
+        self.parts.accept_json();
+        self
+    }
+
+    #[inline]
+    pub fn accept_application_octet_stream(mut self) -> Self {
+        self.parts.accept_application_octet_stream();
+        self
+    }
+
+    #[inline]
     pub fn query(mut self, query: impl Into<Cow<'r, str>>) -> Self {
-        self.metadata.query = query.into();
+        self.parts.metadata.query = query.into();
         self
     }
 
     #[inline]
     pub fn query_pairs(mut self, query_pairs: impl Into<QueryPairs<'r>>) -> Self {
-        self.metadata.query_pairs = query_pairs.into();
+        self.parts.metadata.query_pairs = query_pairs.into();
         self
     }
 
@@ -163,39 +353,38 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         query_pair_key: impl Into<QueryPairKey<'r>>,
         query_pair_value: impl Into<QueryPairValue<'r>>,
     ) -> Self {
-        self.metadata
-            .query_pairs
-            .push((query_pair_key.into(), query_pair_value.into()));
+        self.parts
+            .append_query_pair(query_pair_key, query_pair_value);
         self
     }
 
     #[inline]
     pub fn appended_user_agent(mut self, user_agent: impl Into<UserAgent>) -> Self {
-        self.appended_user_agent = user_agent.into();
+        self.parts.appended_user_agent(user_agent);
         self
     }
 
     #[inline]
     pub fn authorization(mut self, authorization: Authorization) -> Self {
-        self.metadata.authorization = Some(authorization);
+        self.parts.metadata.authorization = Some(authorization);
         self
     }
 
     #[inline]
     pub fn idempotent(mut self, idempotent: Idempotent) -> Self {
-        self.metadata.idempotent = idempotent;
+        self.parts.metadata.idempotent = idempotent;
         self
     }
 
     #[inline]
     pub fn extensions(mut self, extensions: Extensions) -> Self {
-        self.extensions = extensions;
+        self.parts.extensions(extensions);
         self
     }
 
     #[inline]
     pub fn add_extension<T: Send + Sync + 'static>(mut self, val: T) -> Self {
-        self.extensions.insert(val);
+        self.parts.add_extension(val);
         self
     }
 
@@ -207,7 +396,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
             + Sync
             + 'r,
     ) -> Self {
-        self.callbacks = self.callbacks.on_uploading_progress(callback);
+        self.parts.on_uploading_progress(callback);
         self
     }
 
@@ -216,7 +405,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         mut self,
         callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync + 'r,
     ) -> Self {
-        self.callbacks = self.callbacks.on_receive_response_status(callback);
+        self.parts.on_receive_response_status(callback);
         self
     }
 
@@ -228,7 +417,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
             + Sync
             + 'r,
     ) -> Self {
-        self.callbacks = self.callbacks.on_receive_response_header(callback);
+        self.parts.on_receive_response_header(callback);
         self
     }
 
@@ -237,7 +426,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         mut self,
         callback: impl Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync + 'r,
     ) -> Self {
-        self.callbacks = self.callbacks.on_to_resolve_domain(callback);
+        self.parts.on_to_resolve_domain(callback);
         self
     }
 
@@ -246,7 +435,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         mut self,
         callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool + Send + Sync + 'r,
     ) -> Self {
-        self.callbacks = self.callbacks.on_domain_resolved(callback);
+        self.parts.on_domain_resolved(callback);
         self
     }
 
@@ -255,7 +444,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         mut self,
         callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync + 'r,
     ) -> Self {
-        self.callbacks = self.callbacks.on_to_choose_ips(callback);
+        self.parts.on_to_choose_ips(callback);
         self
     }
 
@@ -267,7 +456,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
             + Sync
             + 'r,
     ) -> Self {
-        self.callbacks = self.callbacks.on_ips_chosen(callback);
+        self.parts.on_ips_chosen(callback);
         self
     }
 
@@ -276,7 +465,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'r,
     ) -> Self {
-        self.callbacks = self.callbacks.on_before_request_signed(callback);
+        self.parts.on_before_request_signed(callback);
         self
     }
 
@@ -285,7 +474,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'r,
     ) -> Self {
-        self.callbacks = self.callbacks.on_after_request_signed(callback);
+        self.parts.on_after_request_signed(callback);
         self
     }
 
@@ -294,7 +483,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync + 'r,
     ) -> Self {
-        self.callbacks = self.callbacks.on_error(callback);
+        self.parts.on_error(callback);
         self
     }
 
@@ -303,7 +492,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'r,
     ) -> Self {
-        self.callbacks = self.callbacks.on_before_backoff(callback);
+        self.parts.on_before_backoff(callback);
         self
     }
 
@@ -312,13 +501,23 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'r,
     ) -> Self {
-        self.callbacks = self.callbacks.on_after_backoff(callback);
+        self.parts.on_after_backoff(callback);
         self
+    }
+
+    #[inline]
+    pub fn parts(&self) -> &RequestBuilderParts<'r> {
+        &self.parts
+    }
+
+    #[inline]
+    pub fn parts_mut(&mut self) -> &mut RequestBuilderParts<'r> {
+        &mut self.parts
     }
 
     fn get_appended_user_agent(&self) -> UserAgent {
         let mut appended_user_agent = self.http_client.appended_user_agent().to_owned();
-        appended_user_agent.push_str(self.appended_user_agent.as_str());
+        appended_user_agent.push_str(self.parts.appended_user_agent.as_str());
         appended_user_agent
     }
 }
@@ -334,7 +533,8 @@ impl<'r, E: 'r> SyncRequestBuilder<'r, E> {
         content_type: Option<Mime>,
     ) -> Self {
         self.body = SyncRequestBody::from_reader(body, content_length);
-        self.set_content_type(content_type)
+        self.parts.set_content_type(content_type);
+        self
     }
 
     #[inline]
@@ -345,19 +545,22 @@ impl<'r, E: 'r> SyncRequestBuilder<'r, E> {
         content_type: Option<Mime>,
     ) -> Self {
         self.body = SyncRequestBody::from_referenced_reader(body, content_length);
-        self.set_content_type(content_type)
+        self.parts.set_content_type(content_type);
+        self
     }
 
     #[inline]
     pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>, content_type: Option<Mime>) -> Self {
         self.body = SyncRequestBody::from_bytes(body.into());
-        self.set_content_type(content_type)
+        self.parts.set_content_type(content_type);
+        self
     }
 
     #[inline]
     pub fn referenced_bytes_as_body(mut self, body: &'r [u8], content_type: Option<Mime>) -> Self {
         self.body = SyncRequestBody::from_referenced_bytes(body);
-        self.set_content_type(content_type)
+        self.parts.set_content_type(content_type);
+        self
     }
 
     #[inline]
@@ -402,17 +605,17 @@ impl<'r, E: EndpointsProvider + 'r> SyncRequestBuilder<'r, E> {
         request_call(self.build())
     }
 
-    pub(in super::super) fn build(self) -> SyncRequest<'r, E> {
+    pub(in super::super) fn build(mut self) -> SyncRequest<'r, E> {
         let appended_user_agent = self.get_appended_user_agent();
         SyncRequest::new(
             self.http_client,
             self.endpoints_provider,
             self.service_names,
-            self.callbacks.build(),
-            self.metadata,
+            self.parts.callbacks.build(),
+            self.parts.metadata,
             self.body,
             appended_user_agent,
-            self.extensions,
+            self.parts.extensions,
         )
     }
 }
@@ -430,7 +633,8 @@ impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
         content_type: Option<Mime>,
     ) -> Self {
         self.body = AsyncRequestBody::from_reader(body, content_length);
-        self.set_content_type(content_type)
+        self.parts.set_content_type(content_type);
+        self
     }
 
     #[inline]
@@ -441,19 +645,22 @@ impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
         content_type: Option<Mime>,
     ) -> Self {
         self.body = AsyncRequestBody::from_referenced_reader(body, content_length);
-        self.set_content_type(content_type)
+        self.parts.set_content_type(content_type);
+        self
     }
 
     #[inline]
     pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>, content_type: Option<Mime>) -> Self {
         self.body = AsyncRequestBody::from_bytes(body.into());
-        self.set_content_type(content_type)
+        self.parts.set_content_type(content_type);
+        self
     }
 
     #[inline]
     pub fn referenced_bytes_as_body(mut self, body: &'r [u8], content_type: Option<Mime>) -> Self {
         self.body = AsyncRequestBody::from_referenced_bytes(body);
-        self.set_content_type(content_type)
+        self.parts.set_content_type(content_type);
+        self
     }
 
     #[inline]
@@ -508,17 +715,17 @@ impl<'r, E: EndpointsProvider + 'r> AsyncRequestBuilder<'r, E> {
         async_request_call(self.build()).await
     }
 
-    pub(in super::super) fn build(self) -> AsyncRequest<'r, E> {
+    pub(in super::super) fn build(mut self) -> AsyncRequest<'r, E> {
         let appended_user_agent = self.get_appended_user_agent();
         AsyncRequest::new(
             self.http_client,
             self.endpoints_provider,
             self.service_names,
-            self.callbacks.build(),
-            self.metadata,
+            self.parts.callbacks.build(),
+            self.parts.metadata,
             self.body,
             appended_user_agent,
-            self.extensions,
+            self.parts.extensions,
         )
     }
 }
