@@ -252,7 +252,7 @@ impl<'client> Client<'client> {
         endpoints_provider: E,
         credential: impl qiniu_http_client::credential::CredentialProvider + 'static,
     ) -> SyncRequestBuilder<'client, E> {
-        SyncRequestBuilder(
+        RequestBuilder(
             self.0
                 .get(&[qiniu_http_client::ServiceName::Uc], endpoints_provider)
                 .authorization(qiniu_http_client::Authorization::v2(credential))
@@ -268,7 +268,7 @@ impl<'client> Client<'client> {
         endpoints_provider: E,
         credential: impl qiniu_http_client::credential::CredentialProvider + 'static,
     ) -> AsyncRequestBuilder<'client, E> {
-        AsyncRequestBuilder(
+        RequestBuilder(
             self.0
                 .async_get(&[qiniu_http_client::ServiceName::Uc], endpoints_provider)
                 .authorization(qiniu_http_client::Authorization::v2(credential))
@@ -279,12 +279,14 @@ impl<'client> Client<'client> {
     }
 }
 #[derive(Debug)]
-pub struct SyncRequestBuilder<'req, E: 'req>(qiniu_http_client::SyncRequestBuilder<'req, E>);
-#[derive(Debug)]
+pub struct RequestBuilder<'req, B: 'req, E: 'req>(qiniu_http_client::RequestBuilder<'req, B, E>);
+pub type SyncRequestBuilder<'req, E> =
+    RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub struct AsyncRequestBuilder<'req, E: 'req>(qiniu_http_client::AsyncRequestBuilder<'req, E>);
-impl<'req, E: 'req> SyncRequestBuilder<'req, E> {
+pub type AsyncRequestBuilder<'req, E> =
+    RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
+impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn use_https(mut self, use_https: bool) -> Self {
         self.0 = self.0.use_https(use_https);
@@ -484,201 +486,6 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> SyncRequestBuilder<'r
         let response = request.call()?;
         let parsed = response.parse_json()?;
         Ok(parsed)
-    }
-}
-#[cfg(feature = "async")]
-impl<'req, E: 'req> AsyncRequestBuilder<'req, E> {
-    #[inline]
-    pub fn use_https(mut self, use_https: bool) -> Self {
-        self.0 = self.0.use_https(use_https);
-        self
-    }
-    #[inline]
-    pub fn version(mut self, version: qiniu_http_client::http::Version) -> Self {
-        self.0 = self.0.version(version);
-        self
-    }
-    #[inline]
-    pub fn headers(
-        mut self,
-        headers: impl Into<std::borrow::Cow<'req, qiniu_http_client::http::HeaderMap>>,
-    ) -> Self {
-        self.0 = self.0.headers(headers);
-        self
-    }
-    #[inline]
-    pub fn query_pairs(
-        mut self,
-        query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>,
-    ) -> Self {
-        self.0 = self.0.query_pairs(query_pairs);
-        self
-    }
-    #[inline]
-    pub fn extensions(mut self, extensions: qiniu_http_client::http::Extensions) -> Self {
-        self.0 = self.0.extensions(extensions);
-        self
-    }
-    #[inline]
-    pub fn add_extension<T: Send + Sync + 'static>(mut self, val: T) -> Self {
-        self.0 = self.0.add_extension(val);
-        self
-    }
-    #[inline]
-    pub fn on_uploading_progress(
-        mut self,
-        callback: impl Fn(
-                &dyn qiniu_http_client::SimplifiedCallbackContext,
-                &qiniu_http_client::http::TransferProgressInfo,
-            ) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_uploading_progress(callback);
-        self
-    }
-    #[inline]
-    pub fn on_receive_response_status(
-        mut self,
-        callback: impl Fn(
-                &dyn qiniu_http_client::SimplifiedCallbackContext,
-                qiniu_http_client::http::StatusCode,
-            ) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_receive_response_status(callback);
-        self
-    }
-    #[inline]
-    pub fn on_receive_response_header(
-        mut self,
-        callback: impl Fn(
-                &dyn qiniu_http_client::SimplifiedCallbackContext,
-                &qiniu_http_client::http::HeaderName,
-                &qiniu_http_client::http::HeaderValue,
-            ) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_receive_response_header(callback);
-        self
-    }
-    #[inline]
-    pub fn on_to_resolve_domain(
-        mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_to_resolve_domain(callback);
-        self
-    }
-    #[inline]
-    pub fn on_domain_resolved(
-        mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &str,
-                &qiniu_http_client::ResolveAnswers,
-            ) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_domain_resolved(callback);
-        self
-    }
-    #[inline]
-    pub fn on_to_choose_ips(
-        mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &[qiniu_http_client::IpAddrWithPort],
-            ) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_to_choose_ips(callback);
-        self
-    }
-    #[inline]
-    pub fn on_ips_chosen(
-        mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &[qiniu_http_client::IpAddrWithPort],
-                &[qiniu_http_client::IpAddrWithPort],
-            ) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_ips_chosen(callback);
-        self
-    }
-    #[inline]
-    pub fn on_before_request_signed(
-        mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_before_request_signed(callback);
-        self
-    }
-    #[inline]
-    pub fn on_after_request_signed(
-        mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_after_request_signed(callback);
-        self
-    }
-    #[inline]
-    pub fn on_error(
-        mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-                &qiniu_http_client::ResponseError,
-            ) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_error(callback);
-        self
-    }
-    #[inline]
-    pub fn on_before_backoff(
-        mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext, std::time::Duration) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_before_backoff(callback);
-        self
-    }
-    #[inline]
-    pub fn on_after_backoff(
-        mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext, std::time::Duration) -> bool
-            + Send
-            + Sync
-            + 'req,
-    ) -> Self {
-        self.0 = self.0.on_after_backoff(callback);
-        self
     }
 }
 #[cfg(feature = "async")]

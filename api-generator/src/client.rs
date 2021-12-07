@@ -114,10 +114,7 @@ pub(super) struct ApiResponseDescription {
 impl ApiDetailedDescription {
     pub(super) fn to_rust_token_stream(&self) -> TokenStream {
         let api_client_definition_token_stream = api_client_definition_token_stream();
-        let sync_request_builder_definition_token_stream =
-            sync_request_builder_definition_token_stream();
-        let async_request_builder_definition_token_stream =
-            async_request_builder_definition_token_stream();
+        let request_builder_definition_token_stream = request_builder_definition_token_stream();
         let new_request_method_token_stream = new_request_method_token_stream(self);
         let new_async_request_method_token_stream = new_async_request_method_token_stream(self);
         let path_params_token_stream = self.request.path_params.as_ref().map(|path_params| {
@@ -176,10 +173,9 @@ impl ApiDetailedDescription {
                 #new_async_request_method_token_stream
             }
 
-            #sync_request_builder_definition_token_stream
-            #async_request_builder_definition_token_stream
+            #request_builder_definition_token_stream
 
-            impl<'req, E: 'req> SyncRequestBuilder<'req, E> {
+            impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
                 #request_builder_methods_token_stream
             }
 
@@ -188,29 +184,21 @@ impl ApiDetailedDescription {
             }
 
             #[cfg(feature = "async")]
-            impl<'req, E: 'req> AsyncRequestBuilder<'req, E> {
-                #request_builder_methods_token_stream
-            }
-
-            #[cfg(feature = "async")]
             impl<'req, E: qiniu_http_client::EndpointsProvider + 'req> AsyncRequestBuilder<'req, E> {
                 #async_request_builder_methods_token_stream
             }
         };
 
-        fn sync_request_builder_definition_token_stream() -> TokenStream {
+        fn request_builder_definition_token_stream() -> TokenStream {
             quote! {
                 #[derive(Debug)]
-                pub struct SyncRequestBuilder<'req, E: 'req>(qiniu_http_client::SyncRequestBuilder<'req, E>);
-            }
-        }
+                pub struct RequestBuilder<'req, B: 'req, E: 'req>(qiniu_http_client::RequestBuilder<'req, B, E>);
 
-        fn async_request_builder_definition_token_stream() -> TokenStream {
-            quote! {
-                #[derive(Debug)]
+                pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
+
                 #[cfg(feature = "async")]
                 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-                pub struct AsyncRequestBuilder<'req, E: 'req>(qiniu_http_client::AsyncRequestBuilder<'req, E>);
+                pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
             }
         }
 
@@ -225,7 +213,7 @@ impl ApiDetailedDescription {
                     endpoints_provider: E,
                     #new_request_params_token_stream
                 ) -> SyncRequestBuilder<'client, E> {
-                    SyncRequestBuilder(#new_request_impl)
+                    RequestBuilder(#new_request_impl)
                 }
             }
         }
@@ -244,7 +232,7 @@ impl ApiDetailedDescription {
                     endpoints_provider: E,
                     #new_request_params_token_stream
                 ) -> AsyncRequestBuilder<'client, E> {
-                    AsyncRequestBuilder(#new_async_request_impl)
+                    RequestBuilder(#new_async_request_impl)
                 }
             }
         }
