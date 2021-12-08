@@ -1,4 +1,5 @@
 use super::{super::ApiResult, Endpoint, Region, RegionProvider};
+use dyn_clonable::clonable;
 use md5::{
     digest::{generic_array::GenericArray, FixedOutputDirty},
     Digest, Md5,
@@ -251,7 +252,8 @@ impl Extend<Endpoint> for EndpointsBuilder {
 #[cfg(feature = "async")]
 type BoxFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + 'a + Send>>;
 
-pub trait EndpointsProvider: fmt::Debug + Send + Sync {
+#[clonable]
+pub trait EndpointsProvider: Clone + fmt::Debug + Send + Sync {
     fn get_endpoints<'e>(&'e self, services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>>;
 
     #[inline]

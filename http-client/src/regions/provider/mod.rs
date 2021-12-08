@@ -3,6 +3,7 @@ use super::{
     Region,
 };
 use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
@@ -33,8 +34,9 @@ use futures::future::BoxFuture;
 /// 区域信息提供者
 ///
 /// 为区域信息提供者的实现提供接口支持
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait RegionProvider: Debug + Sync + Send {
+pub trait RegionProvider: Clone + Debug + Sync + Send {
     /// 返回七牛区域信息
     fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion>;
 

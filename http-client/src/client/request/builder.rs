@@ -270,18 +270,9 @@ impl<'r, B: Default + 'r, E: EndpointsProvider + 'r> RequestBuilder<'r, B, E> {
             parts: RequestBuilderParts {
                 metadata: RequestMetadata {
                     method,
-                    use_https: None,
-                    version: Default::default(),
-                    path: Default::default(),
-                    query: Default::default(),
-                    query_pairs: Default::default(),
-                    headers: Default::default(),
-                    authorization: None,
-                    idempotent: Default::default(),
+                    ..Default::default()
                 },
-                callbacks: Default::default(),
-                extensions: Default::default(),
-                appended_user_agent: Default::default(),
+                ..Default::default()
             },
             body: Default::default(),
         }
