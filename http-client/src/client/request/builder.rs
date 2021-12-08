@@ -24,6 +24,7 @@ use std::{
     borrow::{Borrow, Cow},
     fmt::Debug,
     io::{Read, Result as IoResult},
+    mem::take,
     time::Duration,
 };
 
@@ -281,217 +282,217 @@ impl<'r, B: Default + 'r, E: EndpointsProvider + 'r> RequestBuilder<'r, B, E> {
 
 impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
-    pub fn use_https(mut self, use_https: bool) -> Self {
+    pub fn use_https(&mut self, use_https: bool) -> &mut Self {
         self.parts.use_https(use_https);
         self
     }
 
     #[inline]
-    pub fn version(mut self, version: Version) -> Self {
+    pub fn version(&mut self, version: Version) -> &mut Self {
         self.parts.version(version);
         self
     }
 
     #[inline]
-    pub fn path(mut self, path: impl Into<Cow<'r, str>>) -> Self {
+    pub fn path(&mut self, path: impl Into<Cow<'r, str>>) -> &mut Self {
         self.parts.metadata.path = path.into();
         self
     }
 
     #[inline]
-    pub fn headers(mut self, headers: impl Into<Cow<'r, HeaderMap>>) -> Self {
+    pub fn headers(&mut self, headers: impl Into<Cow<'r, HeaderMap>>) -> &mut Self {
         self.parts.metadata.headers = headers.into();
         self
     }
 
     #[inline]
     pub fn set_header(
-        mut self,
+        &mut self,
         header_name: impl Into<HeaderName>,
         header_value: impl Into<HeaderValue>,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.set_header(header_name, header_value);
         self
     }
 
     #[inline]
-    pub fn accept_json(mut self) -> Self {
+    pub fn accept_json(&mut self) -> &mut Self {
         self.parts.accept_json();
         self
     }
 
     #[inline]
-    pub fn accept_application_octet_stream(mut self) -> Self {
+    pub fn accept_application_octet_stream(&mut self) -> &mut Self {
         self.parts.accept_application_octet_stream();
         self
     }
 
     #[inline]
-    pub fn query(mut self, query: impl Into<Cow<'r, str>>) -> Self {
+    pub fn query(&mut self, query: impl Into<Cow<'r, str>>) -> &mut Self {
         self.parts.metadata.query = query.into();
         self
     }
 
     #[inline]
-    pub fn query_pairs(mut self, query_pairs: impl Into<QueryPairs<'r>>) -> Self {
+    pub fn query_pairs(&mut self, query_pairs: impl Into<QueryPairs<'r>>) -> &mut Self {
         self.parts.metadata.query_pairs = query_pairs.into();
         self
     }
 
     #[inline]
     pub fn append_query_pair(
-        mut self,
+        &mut self,
         query_pair_key: impl Into<QueryPairKey<'r>>,
         query_pair_value: impl Into<QueryPairValue<'r>>,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts
             .append_query_pair(query_pair_key, query_pair_value);
         self
     }
 
     #[inline]
-    pub fn appended_user_agent(mut self, user_agent: impl Into<UserAgent>) -> Self {
+    pub fn appended_user_agent(&mut self, user_agent: impl Into<UserAgent>) -> &mut Self {
         self.parts.appended_user_agent(user_agent);
         self
     }
 
     #[inline]
-    pub fn authorization(mut self, authorization: Authorization) -> Self {
+    pub fn authorization(&mut self, authorization: Authorization) -> &mut Self {
         self.parts.metadata.authorization = Some(authorization);
         self
     }
 
     #[inline]
-    pub fn idempotent(mut self, idempotent: Idempotent) -> Self {
+    pub fn idempotent(&mut self, idempotent: Idempotent) -> &mut Self {
         self.parts.metadata.idempotent = idempotent;
         self
     }
 
     #[inline]
-    pub fn extensions(mut self, extensions: Extensions) -> Self {
+    pub fn extensions(&mut self, extensions: Extensions) -> &mut Self {
         self.parts.extensions(extensions);
         self
     }
 
     #[inline]
-    pub fn add_extension<T: Send + Sync + 'static>(mut self, val: T) -> Self {
+    pub fn add_extension<T: Send + Sync + 'static>(&mut self, val: T) -> &mut Self {
         self.parts.add_extension(val);
         self
     }
 
     #[inline]
     pub fn on_uploading_progress(
-        mut self,
+        &mut self,
         callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool
             + Send
             + Sync
             + 'r,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.on_uploading_progress(callback);
         self
     }
 
     #[inline]
     pub fn on_receive_response_status(
-        mut self,
+        &mut self,
         callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync + 'r,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.on_receive_response_status(callback);
         self
     }
 
     #[inline]
     pub fn on_receive_response_header(
-        mut self,
+        &mut self,
         callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool
             + Send
             + Sync
             + 'r,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.on_receive_response_header(callback);
         self
     }
 
     #[inline]
     pub fn on_to_resolve_domain(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync + 'r,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.on_to_resolve_domain(callback);
         self
     }
 
     #[inline]
     pub fn on_domain_resolved(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool + Send + Sync + 'r,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.on_domain_resolved(callback);
         self
     }
 
     #[inline]
     pub fn on_to_choose_ips(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync + 'r,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.on_to_choose_ips(callback);
         self
     }
 
     #[inline]
     pub fn on_ips_chosen(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool
             + Send
             + Sync
             + 'r,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.on_ips_chosen(callback);
         self
     }
 
     #[inline]
     pub fn on_before_request_signed(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'r,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.on_before_request_signed(callback);
         self
     }
 
     #[inline]
     pub fn on_after_request_signed(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'r,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.on_after_request_signed(callback);
         self
     }
 
     #[inline]
     pub fn on_error(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync + 'r,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.on_error(callback);
         self
     }
 
     #[inline]
     pub fn on_before_backoff(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'r,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.on_before_backoff(callback);
         self
     }
 
     #[inline]
     pub fn on_after_backoff(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'r,
-    ) -> Self {
+    ) -> &mut Self {
         self.parts.on_after_backoff(callback);
         self
     }
@@ -518,11 +519,11 @@ pub type SyncRequestBuilder<'r, E> = RequestBuilder<'r, SyncRequestBody<'r>, E>;
 impl<'r, E: 'r> SyncRequestBuilder<'r, E> {
     #[inline]
     pub fn stream_as_body(
-        mut self,
+        &mut self,
         body: impl Read + Reset + Debug + Send + Sync + 'static,
         content_length: u64,
         content_type: Option<Mime>,
-    ) -> Self {
+    ) -> &mut Self {
         self.body = SyncRequestBody::from_reader(body, content_length);
         self.parts.set_content_type(content_type);
         self
@@ -530,37 +531,45 @@ impl<'r, E: 'r> SyncRequestBuilder<'r, E> {
 
     #[inline]
     pub fn referenced_stream_as_body<T: Read + Reset + Debug + Send + Sync>(
-        mut self,
+        &mut self,
         body: &'r mut T,
         content_length: u64,
         content_type: Option<Mime>,
-    ) -> Self {
+    ) -> &mut Self {
         self.body = SyncRequestBody::from_referenced_reader(body, content_length);
         self.parts.set_content_type(content_type);
         self
     }
 
     #[inline]
-    pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>, content_type: Option<Mime>) -> Self {
+    pub fn bytes_as_body(
+        &mut self,
+        body: impl Into<Vec<u8>>,
+        content_type: Option<Mime>,
+    ) -> &mut Self {
         self.body = SyncRequestBody::from_bytes(body.into());
         self.parts.set_content_type(content_type);
         self
     }
 
     #[inline]
-    pub fn referenced_bytes_as_body(mut self, body: &'r [u8], content_type: Option<Mime>) -> Self {
+    pub fn referenced_bytes_as_body(
+        &mut self,
+        body: &'r [u8],
+        content_type: Option<Mime>,
+    ) -> &mut Self {
         self.body = SyncRequestBody::from_referenced_bytes(body);
         self.parts.set_content_type(content_type);
         self
     }
 
     #[inline]
-    pub fn json(self, body: impl Serialize) -> JsonResult<Self> {
+    pub fn json(&mut self, body: impl Serialize) -> JsonResult<&mut Self> {
         Ok(self.bytes_as_body(serde_json::to_vec(&body)?, Some(APPLICATION_JSON)))
     }
 
     #[inline]
-    pub fn post_form<I, K, V>(self, iter: I) -> Self
+    pub fn post_form<I, K, V>(&mut self, iter: I) -> &mut Self
     where
         I: IntoIterator,
         I::Item: Borrow<(K, Option<V>)>,
@@ -583,30 +592,29 @@ impl<'r, E: 'r> SyncRequestBuilder<'r, E> {
     }
 
     #[inline]
-    pub fn multipart(self, multipart: impl Into<SyncMultipart>) -> IoResult<Self> {
+    pub fn multipart(&mut self, multipart: impl Into<SyncMultipart>) -> IoResult<&mut Self> {
         let mut buf = Vec::new();
         multipart.into().into_read().read_to_end(&mut buf)?;
         Ok(self.bytes_as_body(buf, Some(MULTIPART_FORM_DATA)))
     }
 }
 
-impl<'r, E: EndpointsProvider + 'r> SyncRequestBuilder<'r, E> {
+impl<'r, E: EndpointsProvider + Clone + 'r> SyncRequestBuilder<'r, E> {
     #[inline]
-    pub fn call(self) -> ApiResult<SyncResponse> {
+    pub fn call(&mut self) -> ApiResult<SyncResponse> {
         request_call(self.build())
     }
 
-    pub(in super::super) fn build(mut self) -> SyncRequest<'r, E> {
-        let appended_user_agent = self.get_appended_user_agent();
+    pub(in super::super) fn build(&mut self) -> SyncRequest<'r, E> {
         SyncRequest::new(
             self.http_client,
-            self.endpoints_provider,
+            self.endpoints_provider.to_owned(),
             self.service_names,
             self.parts.callbacks.build(),
-            self.parts.metadata,
-            self.body,
-            appended_user_agent,
-            self.parts.extensions,
+            take(&mut self.parts.metadata),
+            take(&mut self.body),
+            self.get_appended_user_agent(),
+            take(&mut self.parts.extensions),
         )
     }
 }
@@ -618,11 +626,11 @@ pub type AsyncRequestBuilder<'r, E> = RequestBuilder<'r, AsyncRequestBody<'r>, E
 impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
     #[inline]
     pub fn stream_as_body(
-        mut self,
+        &mut self,
         body: impl AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'static,
         content_length: u64,
         content_type: Option<Mime>,
-    ) -> Self {
+    ) -> &mut Self {
         self.body = AsyncRequestBody::from_reader(body, content_length);
         self.parts.set_content_type(content_type);
         self
@@ -630,37 +638,45 @@ impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
 
     #[inline]
     pub fn referenced_stream_as_body<T: AsyncRead + AsyncReset + Unpin + Debug + Send + Sync>(
-        mut self,
+        &mut self,
         body: &'r mut T,
         content_length: u64,
         content_type: Option<Mime>,
-    ) -> Self {
+    ) -> &mut Self {
         self.body = AsyncRequestBody::from_referenced_reader(body, content_length);
         self.parts.set_content_type(content_type);
         self
     }
 
     #[inline]
-    pub fn bytes_as_body(mut self, body: impl Into<Vec<u8>>, content_type: Option<Mime>) -> Self {
+    pub fn bytes_as_body(
+        &mut self,
+        body: impl Into<Vec<u8>>,
+        content_type: Option<Mime>,
+    ) -> &mut Self {
         self.body = AsyncRequestBody::from_bytes(body.into());
         self.parts.set_content_type(content_type);
         self
     }
 
     #[inline]
-    pub fn referenced_bytes_as_body(mut self, body: &'r [u8], content_type: Option<Mime>) -> Self {
+    pub fn referenced_bytes_as_body(
+        &mut self,
+        body: &'r [u8],
+        content_type: Option<Mime>,
+    ) -> &mut Self {
         self.body = AsyncRequestBody::from_referenced_bytes(body);
         self.parts.set_content_type(content_type);
         self
     }
 
     #[inline]
-    pub fn json(self, body: impl Serialize) -> JsonResult<Self> {
+    pub fn json(&mut self, body: impl Serialize) -> JsonResult<&mut Self> {
         Ok(self.bytes_as_body(serde_json::to_vec(&body)?, Some(APPLICATION_JSON)))
     }
 
     #[inline]
-    pub fn post_form<I, K, V>(self, iter: I) -> Self
+    pub fn post_form<I, K, V>(&mut self, iter: I) -> &mut Self
     where
         I: IntoIterator,
         I::Item: Borrow<(K, Option<V>)>,
@@ -684,9 +700,9 @@ impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
 
     #[inline]
     pub async fn multipart(
-        self,
+        &mut self,
         multipart: impl Into<AsyncMultipart>,
-    ) -> IoResult<RequestBuilder<'r, AsyncRequestBody<'r>, E>> {
+    ) -> IoResult<&mut RequestBuilder<'r, AsyncRequestBody<'r>, E>> {
         use futures::AsyncReadExt;
 
         let mut buf = Vec::new();
@@ -700,23 +716,22 @@ impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
 }
 
 #[cfg(feature = "async")]
-impl<'r, E: EndpointsProvider + 'r> AsyncRequestBuilder<'r, E> {
+impl<'r, E: EndpointsProvider + Clone + 'r> AsyncRequestBuilder<'r, E> {
     #[inline]
-    pub async fn call(self) -> ApiResult<AsyncResponse> {
+    pub async fn call(&mut self) -> ApiResult<AsyncResponse> {
         async_request_call(self.build()).await
     }
 
-    pub(in super::super) fn build(mut self) -> AsyncRequest<'r, E> {
-        let appended_user_agent = self.get_appended_user_agent();
+    pub(in super::super) fn build(&mut self) -> AsyncRequest<'r, E> {
         AsyncRequest::new(
             self.http_client,
-            self.endpoints_provider,
+            self.endpoints_provider.to_owned(),
             self.service_names,
             self.parts.callbacks.build(),
-            self.parts.metadata,
-            self.body,
-            appended_user_agent,
-            self.parts.extensions,
+            take(&mut self.parts.metadata),
+            take(&mut self.body),
+            self.get_appended_user_agent(),
+            take(&mut self.parts.extensions),
         )
     }
 }
