@@ -10,7 +10,11 @@ use cfg_if::cfg_if;
 use qiniu_http::{
     HeaderName, HeaderValue, HttpCaller, Method, StatusCode, TransferProgressInfo, UserAgent,
 };
-use std::{sync::Arc, time::Duration};
+use std::{
+    mem::{replace, take},
+    sync::Arc,
+    time::Duration,
+};
 
 #[cfg(feature = "isahc")]
 use qiniu_isahc::isahc::error::Error as IsahcError;
@@ -269,11 +273,11 @@ impl HttpClient {
 pub struct HttpClientBuilder {
     use_https: bool,
     appended_user_agent: UserAgent,
-    http_caller: Box<dyn HttpCaller>,
-    request_retrier: Box<dyn RequestRetrier>,
-    backoff: Box<dyn Backoff>,
-    chooser: Box<dyn Chooser>,
-    resolver: Box<dyn Resolver>,
+    http_caller: Option<Box<dyn HttpCaller>>,
+    request_retrier: Option<Box<dyn RequestRetrier>>,
+    backoff: Option<Box<dyn Backoff>>,
+    chooser: Option<Box<dyn Chooser>>,
+    resolver: Option<Box<dyn Resolver>>,
     callbacks: CallbacksBuilder<'static>,
 }
 
@@ -281,220 +285,228 @@ impl HttpClientBuilder {
     #[inline]
     #[cfg(feature = "ureq")]
     pub fn ureq() -> Self {
-        Self::_new(Box::new(qiniu_ureq::Client::default()))
+        Self::_new(Some(Box::new(qiniu_ureq::Client::default())))
     }
 
     #[inline]
     #[cfg(feature = "isahc")]
     pub fn isahc() -> Result<Self, IsahcError> {
-        Ok(Self::_new(Box::new(qiniu_isahc::Client::default_client()?)))
+        Ok(Self::_new(Some(Box::new(
+            qiniu_isahc::Client::default_client()?,
+        ))))
     }
 
     #[inline]
     #[cfg(feature = "reqwest")]
     pub fn reqwest_sync() -> Self {
-        Self::_new(Box::new(qiniu_reqwest::SyncReqwestHttpCaller::default()))
+        Self::_new(Some(Box::new(
+            qiniu_reqwest::SyncReqwestHttpCaller::default(),
+        )))
     }
 
     #[inline]
     #[cfg(all(feature = "reqwest", feature = "async"))]
     pub fn reqwest_async() -> Self {
-        Self::_new(Box::new(qiniu_reqwest::AsyncReqwestHttpCaller::default()))
+        Self::_new(Some(Box::new(
+            qiniu_reqwest::AsyncReqwestHttpCaller::default(),
+        )))
     }
 
     #[inline]
     pub fn new(http_caller: impl HttpCaller + 'static) -> Self {
-        Self::_new(Box::new(http_caller))
+        Self::_new(Some(Box::new(http_caller)))
     }
 
-    fn _new(http_caller: Box<dyn HttpCaller>) -> Self {
+    fn _new(http_caller: Option<Box<dyn HttpCaller>>) -> Self {
         HttpClientBuilder {
             http_caller,
             use_https: true,
             appended_user_agent: Default::default(),
-            request_retrier: HttpClient::default_retrier(),
-            backoff: HttpClient::default_backoff(),
-            chooser: HttpClient::default_chooser(),
-            resolver: HttpClient::default_resolver(),
+            request_retrier: Default::default(),
+            backoff: Default::default(),
+            chooser: Default::default(),
+            resolver: Default::default(),
             callbacks: Default::default(),
         }
     }
 
     #[inline]
-    pub fn use_https(mut self, use_https: bool) -> Self {
+    pub fn use_https(&mut self, use_https: bool) -> &mut Self {
         self.use_https = use_https;
         self
     }
 
     #[inline]
-    pub fn appended_user_agent(mut self, appended_user_agent: impl Into<UserAgent>) -> Self {
+    pub fn appended_user_agent(&mut self, appended_user_agent: impl Into<UserAgent>) -> &mut Self {
         self.appended_user_agent = appended_user_agent.into();
         self
     }
 
     #[inline]
-    pub fn http_caller(mut self, http_caller: impl HttpCaller + 'static) -> Self {
-        self.http_caller = Box::new(http_caller);
+    pub fn http_caller(&mut self, http_caller: impl HttpCaller + 'static) -> &mut Self {
+        self.http_caller = Some(Box::new(http_caller));
         self
     }
 
     #[inline]
-    pub fn request_retrier(mut self, request_retrier: impl RequestRetrier + 'static) -> Self {
-        self.request_retrier = Box::new(request_retrier);
+    pub fn request_retrier(&mut self, request_retrier: impl RequestRetrier + 'static) -> &mut Self {
+        self.request_retrier = Some(Box::new(request_retrier));
         self
     }
 
     #[inline]
-    pub fn backoff(mut self, backoff: impl Backoff + 'static) -> Self {
-        self.backoff = Box::new(backoff);
+    pub fn backoff(&mut self, backoff: impl Backoff + 'static) -> &mut Self {
+        self.backoff = Some(Box::new(backoff));
         self
     }
 
     #[inline]
-    pub fn chooser(mut self, chooser: impl Chooser + 'static) -> Self {
-        self.chooser = Box::new(chooser);
+    pub fn chooser(&mut self, chooser: impl Chooser + 'static) -> &mut Self {
+        self.chooser = Some(Box::new(chooser));
         self
     }
 
     #[inline]
-    pub fn resolver(mut self, resolver: impl Resolver + 'static) -> Self {
-        self.resolver = Box::new(resolver);
+    pub fn resolver(&mut self, resolver: impl Resolver + 'static) -> &mut Self {
+        self.resolver = Some(Box::new(resolver));
         self
     }
 
     #[inline]
     pub fn on_uploading_progress(
-        mut self,
+        &mut self,
         callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool
             + Send
             + Sync
             + 'static,
-    ) -> Self {
+    ) -> &mut Self {
         self.callbacks.on_uploading_progress(callback);
         self
     }
 
     #[inline]
     pub fn on_receive_response_status(
-        mut self,
+        &mut self,
         callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync + 'static,
-    ) -> Self {
+    ) -> &mut Self {
         self.callbacks.on_receive_response_status(callback);
         self
     }
 
     #[inline]
     pub fn on_receive_response_header(
-        mut self,
+        &mut self,
         callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool
             + Send
             + Sync
             + 'static,
-    ) -> Self {
+    ) -> &mut Self {
         self.callbacks.on_receive_response_header(callback);
         self
     }
 
     #[inline]
     pub fn on_to_resolve_domain(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync + 'static,
-    ) -> Self {
+    ) -> &mut Self {
         self.callbacks.on_to_resolve_domain(callback);
         self
     }
 
     #[inline]
     pub fn on_domain_resolved(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool
             + Send
             + Sync
             + 'static,
-    ) -> Self {
+    ) -> &mut Self {
         self.callbacks.on_domain_resolved(callback);
         self
     }
 
     #[inline]
     pub fn on_to_choose_ips(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync + 'static,
-    ) -> Self {
+    ) -> &mut Self {
         self.callbacks.on_to_choose_ips(callback);
         self
     }
 
     #[inline]
     pub fn on_ips_chosen(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool
             + Send
             + Sync
             + 'static,
-    ) -> Self {
+    ) -> &mut Self {
         self.callbacks.on_ips_chosen(callback);
         self
     }
 
     #[inline]
     pub fn on_before_request_signed(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'static,
-    ) -> Self {
+    ) -> &mut Self {
         self.callbacks.on_before_request_signed(callback);
         self
     }
 
     #[inline]
     pub fn on_after_request_signed(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'static,
-    ) -> Self {
+    ) -> &mut Self {
         self.callbacks.on_after_request_signed(callback);
         self
     }
 
     #[inline]
     pub fn on_error(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool
             + Send
             + Sync
             + 'static,
-    ) -> Self {
+    ) -> &mut Self {
         self.callbacks.on_error(callback);
         self
     }
 
     #[inline]
     pub fn on_before_backoff(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'static,
-    ) -> Self {
+    ) -> &mut Self {
         self.callbacks.on_before_backoff(callback);
         self
     }
 
     #[inline]
     pub fn on_after_backoff(
-        mut self,
+        &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'static,
-    ) -> Self {
+    ) -> &mut Self {
         self.callbacks.on_after_backoff(callback);
         self
     }
 
-    pub fn build(mut self) -> HttpClient {
+    pub fn build(&mut self) -> HttpClient {
         HttpClient {
             inner: Arc::new(HttpClientInner {
-                use_https: self.use_https,
-                appended_user_agent: self.appended_user_agent,
-                http_caller: self.http_caller,
-                request_retrier: self.request_retrier,
-                backoff: self.backoff,
-                chooser: self.chooser,
-                resolver: self.resolver,
+                use_https: replace(&mut self.use_https, true),
+                appended_user_agent: take(&mut self.appended_user_agent),
+                http_caller: take(&mut self.http_caller)
+                    .unwrap_or_else(HttpClient::default_http_caller),
+                request_retrier: take(&mut self.request_retrier)
+                    .unwrap_or_else(HttpClient::default_retrier),
+                backoff: take(&mut self.backoff).unwrap_or_else(HttpClient::default_backoff),
+                chooser: take(&mut self.chooser).unwrap_or_else(HttpClient::default_chooser),
+                resolver: take(&mut self.resolver).unwrap_or_else(HttpClient::default_resolver),
                 callbacks: self.callbacks.build(),
             }),
         }
@@ -504,7 +516,7 @@ impl HttpClientBuilder {
 impl Default for HttpClientBuilder {
     #[inline]
     fn default() -> Self {
-        HttpClientBuilder::_new(HttpClient::default_http_caller())
+        HttpClientBuilder::_new(None)
     }
 }
 
