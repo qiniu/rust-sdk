@@ -477,8 +477,7 @@ mod tests {
 
     #[test]
     fn test_from_str_to_domain_with_port() -> Result<(), Box<dyn Error>> {
-        let mut result: Result<DomainWithPort, DomainWithPortParseError>;
-        result = "".parse();
+        let mut result: Result<DomainWithPort, DomainWithPortParseError> = "".parse();
         assert_eq!(result.unwrap_err(), DomainWithPortParseError::EmptyHost);
 
         result = "/".parse();
@@ -552,8 +551,7 @@ mod tests {
 
     #[test]
     fn test_from_str_to_ip_addr_with_port() -> Result<(), Box<dyn Error>> {
-        let mut result: Result<IpAddrWithPort, IpAddrWithPortParseError>;
-        result = "".parse();
+        let mut result: Result<IpAddrWithPort, IpAddrWithPortParseError> = "".parse();
         assert!(result.is_err());
 
         result = "/".parse();
@@ -621,9 +619,7 @@ mod tests {
     }
     #[test]
     fn test_from_str_to_endpoint() -> Result<(), Box<dyn Error>> {
-        let mut result: Result<Endpoint, EndpointParseError>;
-
-        result = "".parse();
+        let mut result: Result<Endpoint, EndpointParseError> = "".parse();
         assert_eq!(result.unwrap_err(), EndpointParseError::EmptyHost);
 
         result = "/".parse();

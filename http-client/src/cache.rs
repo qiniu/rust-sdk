@@ -331,17 +331,16 @@ fn do_some_work_async<
 >(
     inner: &Arc<CacheInner<K, V>>,
 ) {
-    let need_to_shrink;
     let mut need_to_refresh = false;
     let mut need_to_persistent = false;
     let inner = inner.to_owned();
-    if let Ok(mut locked_data) = inner.thread_lock.try_lock() {
-        need_to_shrink = is_time_to_shrink(&inner, &mut *locked_data, false);
+    let need_to_shrink = if let Ok(mut locked_data) = inner.thread_lock.try_lock() {
+        is_time_to_shrink(&inner, &mut *locked_data, false)
     } else {
         // Looks like some work is being done, we don't want to spawn another thread
         info!("Cache has hired someone to do the housework, so we don't hire another now");
         return;
-    }
+    };
 
     if !inner.refreshes.is_empty() {
         need_to_refresh = true;
