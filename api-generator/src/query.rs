@@ -142,7 +142,7 @@ impl QueryNames {
                 #[derive(Debug, Clone, Default)]
                 #[doc = #documentation]
                 pub struct #name<'a> {
-                    map: std::collections::HashMap<
+                    map: indexmap::IndexMap<
                         qiniu_http_client::QueryPairKey<'a>,
                         qiniu_http_client::QueryPairValue<'a>,
                     >,

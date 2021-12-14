@@ -31,3 +31,4 @@ qiniu-http = { version = "0.0.4", path = "../http" }
 qiniu-http-client = { version = "0.0.4", path = "../http-client" }
 qiniu-upload-token = { version = "0.0.4", path = "../upload_token" }
 qiniu-utils = { version = "0.0.4", path = "../utils" }
+indexmap = "1.7.0"

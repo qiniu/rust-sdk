@@ -3,7 +3,7 @@
 #[derive(Debug, Clone, Default)]
 #[doc = "调用 API 所用的 URL 查询参数"]
 pub struct QueryParams<'a> {
-    map: std::collections::HashMap<
+    map: indexmap::IndexMap<
         qiniu_http_client::QueryPairKey<'a>,
         qiniu_http_client::QueryPairValue<'a>,
     >,
