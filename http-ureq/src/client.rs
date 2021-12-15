@@ -175,7 +175,7 @@ fn call_response_callbacks(
 fn build_on_receive_response_status_error(request: &RequestParts) -> ResponseError {
     ResponseError::builder(
         ResponseErrorKind::UserCanceled,
-        "on_receive_response_status() returns false",
+        "Cancelled by on_receive_response_status() callback",
     )
     .uri(request.url())
     .build()
@@ -184,7 +184,7 @@ fn build_on_receive_response_status_error(request: &RequestParts) -> ResponseErr
 fn build_on_receive_response_header_error(request: &RequestParts) -> ResponseError {
     ResponseError::builder(
         ResponseErrorKind::UserCanceled,
-        "on_receive_response_header() returns false",
+        "Cancelled by on_receive_response_header() callback",
     )
     .uri(request.url())
     .build()
@@ -335,7 +335,7 @@ impl Read for RequestBodyWithCallbacks<'_, '_> {
                     ))
                     .is_cancelled()
                     {
-                        const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
+                        const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
                         *self.user_cancelled_error = Some(
                             ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
                                 .uri(self.request.url())

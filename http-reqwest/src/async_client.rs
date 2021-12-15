@@ -128,7 +128,8 @@ fn make_async_reqwest_request(
                         ))
                         .is_cancelled()
                         {
-                            const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
+                            const ERROR_MESSAGE: &str =
+                                "Cancelled by on_uploading_progress() callback";
                             *self.user_cancelled_error = Some(
                                 ResponseError::builder(
                                     ResponseErrorKind::UserCanceled,

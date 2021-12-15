@@ -130,7 +130,7 @@ pub(super) fn call_before_backoff_callbacks(
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
-                "on_before_backoff() callback returns false",
+                "Cancelled by on_before_backoff() callback",
             )
             .retried(retried),
             RetryDecision::DontRetry.into(),
@@ -155,7 +155,7 @@ pub(super) fn call_after_backoff_callbacks(
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
-                "on_after_backoff() callback returns false",
+                "Cancelled by on_after_backoff() callback",
             )
             .retried(retried),
             RetryDecision::DontRetry.into(),
@@ -178,7 +178,7 @@ fn call_to_resolve_domain_callbacks(
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
-                "on_to_resolve_domain_callbacks() callback returns false",
+                "Cancelled by on_to_resolve_domain_callbacks() callback",
             )
             .retried(retried),
             RetryDecision::DontRetry.into(),
@@ -202,7 +202,7 @@ fn call_domain_resolved_callbacks(
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
-                "on_domain_resolved_callbacks() callback returns false",
+                "Cancelled by on_domain_resolved_callbacks() callback",
             )
             .retried(retried),
             RetryDecision::DontRetry.into(),
@@ -225,7 +225,7 @@ fn call_to_choose_ips_callbacks(
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
-                "on_to_choose_ips_callbacks() callback returns false",
+                "Cancelled by on_to_choose_ips_callbacks() callback",
             )
             .retried(retried),
             RetryDecision::DontRetry.into(),
@@ -249,7 +249,7 @@ fn call_ips_chosen_callbacks(
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
-                "on_ips_chosen_callbacks() callback returns false",
+                "Cancelled by on_ips_chosen_callbacks() callback",
             )
             .retried(retried),
             RetryDecision::DontRetry.into(),
@@ -271,7 +271,7 @@ pub(super) fn call_before_request_signed_callbacks(
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
-                "on_before_request_signed() callback returns false",
+                "Cancelled by on_before_request_signed() callback",
             )
             .retried(retried),
             RetryDecision::DontRetry.into(),
@@ -293,7 +293,7 @@ pub(super) fn call_after_request_signed_callbacks(
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
-                "on_after_request_signed() callback returns false",
+                "Cancelled by on_after_request_signed() callback",
             )
             .retried(retried),
             RetryDecision::DontRetry.into(),
@@ -316,7 +316,7 @@ pub(super) fn call_error_callbacks(
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
-                "on_error() callback returns false",
+                "Cancelled by on_error() callback",
             )
             .retried(retried),
             RetryDecision::DontRetry.into(),
