@@ -12,28 +12,29 @@ use super::{
     },
 };
 use qiniu_http::{
-    Extensions, HeaderName, HeaderValue, Metrics, RequestParts as HttpRequestParts, StatusCode,
-    SyncRequestBody, TransferProgressInfo,
+    CallbackResult, Extensions, HeaderName, HeaderValue, Metrics, RequestParts as HttpRequestParts,
+    StatusCode, SyncRequestBody, TransferProgressInfo,
 };
 use std::mem::take;
 
 macro_rules! setup_callbacks {
     ($parts:ident, $http_request:ident) => {
-        let on_uploading_progress = |info: &TransferProgressInfo| -> bool {
+        let on_uploading_progress = |info: &TransferProgressInfo| -> CallbackResult {
             $parts.call_uploading_progress_callbacks($parts, info)
         };
         if $parts.uploading_progress_callbacks_count() > 0 {
             *$http_request.on_uploading_progress_mut() = Some(&on_uploading_progress);
         }
-        let on_receive_response_status = |status_code: StatusCode| -> bool {
+        let on_receive_response_status = |status_code: StatusCode| -> CallbackResult {
             $parts.call_receive_response_status_callbacks($parts, status_code)
         };
         if $parts.receive_response_status_callbacks_count() > 0 {
             *$http_request.on_receive_response_status_mut() = Some(&on_receive_response_status);
         }
-        let on_receive_response_header = |name: &HeaderName, value: &HeaderValue| -> bool {
-            $parts.call_receive_response_header_callbacks($parts, name, value)
-        };
+        let on_receive_response_header =
+            |name: &HeaderName, value: &HeaderValue| -> CallbackResult {
+                $parts.call_receive_response_header_callbacks($parts, name, value)
+            };
         if $parts.receive_response_header_callbacks_count() > 0 {
             *$http_request.on_receive_response_header_mut() = Some(&on_receive_response_header);
         }

@@ -8,8 +8,8 @@ use super::{
     Idempotent, QueryPairs,
 };
 use qiniu_http::{
-    Extensions, HeaderMap, HeaderName, HeaderValue, Method, StatusCode, TransferProgressInfo,
-    UserAgent, Version,
+    CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, Method, StatusCode,
+    TransferProgressInfo, UserAgent, Version,
 };
 use std::{fmt, time::Duration};
 
@@ -135,10 +135,10 @@ impl<'r> RequestParts<'r> {
         &self,
         context: &dyn SimplifiedCallbackContext,
         progress_info: &TransferProgressInfo,
-    ) -> bool {
+    ) -> CallbackResult {
         self.callbacks
             .call_uploading_progress_callbacks(context, progress_info)
-            && self
+            & self
                 .http_client
                 .callbacks()
                 .call_uploading_progress_callbacks(context, progress_info)
@@ -157,10 +157,10 @@ impl<'r> RequestParts<'r> {
         &self,
         context: &dyn SimplifiedCallbackContext,
         status_code: StatusCode,
-    ) -> bool {
+    ) -> CallbackResult {
         self.callbacks
             .call_receive_response_status_callbacks(context, status_code)
-            && self
+            & self
                 .http_client
                 .callbacks()
                 .call_receive_response_status_callbacks(context, status_code)
@@ -180,10 +180,10 @@ impl<'r> RequestParts<'r> {
         context: &dyn SimplifiedCallbackContext,
         header_name: &HeaderName,
         header_value: &HeaderValue,
-    ) -> bool {
+    ) -> CallbackResult {
         self.callbacks
             .call_receive_response_header_callbacks(context, header_name, header_value)
-            && self
+            & self
                 .http_client
                 .callbacks()
                 .call_receive_response_header_callbacks(context, header_name, header_value)
@@ -202,10 +202,10 @@ impl<'r> RequestParts<'r> {
         &self,
         context: &mut dyn CallbackContext,
         domain: &str,
-    ) -> bool {
+    ) -> CallbackResult {
         self.callbacks
             .call_to_resolve_domain_callbacks(context, domain)
-            && self
+            & self
                 .http_client
                 .callbacks()
                 .call_to_resolve_domain_callbacks(context, domain)
@@ -216,10 +216,10 @@ impl<'r> RequestParts<'r> {
         context: &mut dyn CallbackContext,
         domain: &str,
         answers: &ResolveAnswers,
-    ) -> bool {
+    ) -> CallbackResult {
         self.callbacks
             .call_domain_resolved_callbacks(context, domain, answers)
-            && self
+            & self
                 .http_client
                 .callbacks()
                 .call_domain_resolved_callbacks(context, domain, answers)
@@ -229,9 +229,9 @@ impl<'r> RequestParts<'r> {
         &self,
         context: &mut dyn CallbackContext,
         ips: &[IpAddrWithPort],
-    ) -> bool {
+    ) -> CallbackResult {
         self.callbacks.call_to_choose_ips_callbacks(context, ips)
-            && self
+            & self
                 .http_client
                 .callbacks()
                 .call_to_choose_ips_callbacks(context, ips)
@@ -242,10 +242,10 @@ impl<'r> RequestParts<'r> {
         context: &mut dyn CallbackContext,
         ips: &[IpAddrWithPort],
         chosen: &[IpAddrWithPort],
-    ) -> bool {
+    ) -> CallbackResult {
         self.callbacks
             .call_ips_chosen_callbacks(context, ips, chosen)
-            && self
+            & self
                 .http_client
                 .callbacks()
                 .call_ips_chosen_callbacks(context, ips, chosen)
@@ -254,9 +254,9 @@ impl<'r> RequestParts<'r> {
     pub(in super::super) fn call_before_request_signed_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
-    ) -> bool {
+    ) -> CallbackResult {
         self.callbacks.call_before_request_signed_callbacks(context)
-            && self
+            & self
                 .http_client
                 .callbacks()
                 .call_before_request_signed_callbacks(context)
@@ -265,9 +265,9 @@ impl<'r> RequestParts<'r> {
     pub(in super::super) fn call_after_request_signed_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
-    ) -> bool {
+    ) -> CallbackResult {
         self.callbacks.call_after_request_signed_callbacks(context)
-            && self
+            & self
                 .http_client
                 .callbacks()
                 .call_after_request_signed_callbacks(context)
@@ -277,9 +277,9 @@ impl<'r> RequestParts<'r> {
         &self,
         context: &mut dyn ExtendedCallbackContext,
         error: &ResponseError,
-    ) -> bool {
+    ) -> CallbackResult {
         self.callbacks.call_error_callbacks(context, error)
-            && self
+            & self
                 .http_client
                 .callbacks()
                 .call_error_callbacks(context, error)
@@ -289,9 +289,9 @@ impl<'r> RequestParts<'r> {
         &self,
         context: &mut dyn ExtendedCallbackContext,
         delay: Duration,
-    ) -> bool {
+    ) -> CallbackResult {
         self.callbacks.call_before_backoff_callbacks(context, delay)
-            && self
+            & self
                 .http_client
                 .callbacks()
                 .call_before_backoff_callbacks(context, delay)
@@ -301,9 +301,9 @@ impl<'r> RequestParts<'r> {
         &self,
         context: &mut dyn ExtendedCallbackContext,
         delay: Duration,
-    ) -> bool {
+    ) -> CallbackResult {
         self.callbacks.call_after_backoff_callbacks(context, delay)
-            && self
+            & self
                 .http_client
                 .callbacks()
                 .call_after_backoff_callbacks(context, delay)

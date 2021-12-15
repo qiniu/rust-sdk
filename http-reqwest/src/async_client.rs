@@ -121,11 +121,13 @@ fn make_async_reqwest_request(
                     if let Some(on_uploading_progress) =
                         self.as_ref().request.on_uploading_progress()
                     {
-                        if !on_uploading_progress(&TransferProgressInfo::new(
+                        if on_uploading_progress(&TransferProgressInfo::new(
                             self.as_mut().have_read,
                             self.as_ref().request.body().size(),
                             buf,
-                        )) {
+                        ))
+                        .is_cancelled()
+                        {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
                             *self.user_cancelled_error = Some(
                                 ResponseError::builder(

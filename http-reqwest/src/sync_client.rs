@@ -116,11 +116,13 @@ fn make_sync_reqwest_request(
                     let buf = &buf[..n];
                     self.have_read += n as u64;
                     if let Some(on_uploading_progress) = self.request.on_uploading_progress() {
-                        if !on_uploading_progress(&TransferProgressInfo::new(
+                        if on_uploading_progress(&TransferProgressInfo::new(
                             self.have_read,
                             self.request.body().size(),
                             buf,
-                        )) {
+                        ))
+                        .is_cancelled()
+                        {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
                             *self.user_cancelled_error = Some(
                                 ResponseError::builder(
@@ -218,7 +220,7 @@ pub(super) fn call_response_callbacks(
     headers: &HeaderMap,
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
-        if !on_receive_response_status(status_code) {
+        if on_receive_response_status(status_code).is_cancelled() {
             return Err(ResponseError::builder(
                 ResponseErrorKind::UserCanceled,
                 "on_receive_response_status() returns false",
@@ -229,7 +231,7 @@ pub(super) fn call_response_callbacks(
     }
     if let Some(on_receive_response_header) = request.on_receive_response_header() {
         for (header_name, header_value) in headers.iter() {
-            if !on_receive_response_header(header_name, header_value) {
+            if !on_receive_response_header(header_name, header_value).is_cancelled() {
                 return Err(ResponseError::builder(
                     ResponseErrorKind::UserCanceled,
                     "on_receive_response_header() returns false",

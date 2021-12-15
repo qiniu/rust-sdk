@@ -182,7 +182,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         callback: impl Fn(
                 &dyn qiniu_http_client::SimplifiedCallbackContext,
                 &qiniu_http_client::http::TransferProgressInfo,
-            ) -> bool
+            ) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -196,7 +196,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         callback: impl Fn(
                 &dyn qiniu_http_client::SimplifiedCallbackContext,
                 qiniu_http_client::http::StatusCode,
-            ) -> bool
+            ) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -211,7 +211,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
                 &dyn qiniu_http_client::SimplifiedCallbackContext,
                 &qiniu_http_client::http::HeaderName,
                 &qiniu_http_client::http::HeaderValue,
-            ) -> bool
+            ) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -222,7 +222,10 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> bool
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::CallbackContext,
+                &str,
+            ) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -237,7 +240,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
                 &mut dyn qiniu_http_client::CallbackContext,
                 &str,
                 &qiniu_http_client::ResolveAnswers,
-            ) -> bool
+            ) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -251,7 +254,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         callback: impl Fn(
                 &mut dyn qiniu_http_client::CallbackContext,
                 &[qiniu_http_client::IpAddrWithPort],
-            ) -> bool
+            ) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -266,7 +269,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
                 &mut dyn qiniu_http_client::CallbackContext,
                 &[qiniu_http_client::IpAddrWithPort],
                 &[qiniu_http_client::IpAddrWithPort],
-            ) -> bool
+            ) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -277,7 +280,9 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> bool
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::ExtendedCallbackContext,
+            ) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -288,7 +293,9 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> bool
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::ExtendedCallbackContext,
+            ) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -302,7 +309,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         callback: impl Fn(
                 &mut dyn qiniu_http_client::ExtendedCallbackContext,
                 &qiniu_http_client::ResponseError,
-            ) -> bool
+            ) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -313,7 +320,10 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_before_backoff(
         &mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext, std::time::Duration) -> bool
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::ExtendedCallbackContext,
+                std::time::Duration,
+            ) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -324,7 +334,10 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_after_backoff(
         &mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext, std::time::Duration) -> bool
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::ExtendedCallbackContext,
+                std::time::Duration,
+            ) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,

@@ -58,7 +58,7 @@ pub use client::{
     SubnetChooserBuilder, SyncMultipart, SyncPart, SyncPartBody, SyncRequestBody,
     SyncRequestBuilder, SyncResponse, TimeoutResolver, NO_BACKOFF,
 };
-pub use http::SyncResponseBody;
+pub use http::{CallbackResult, SyncResponseBody};
 pub use regions::{
     BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
     CachedRegionsProvider, DomainWithPort, DomainWithPortParseError, Endpoint, EndpointParseError,

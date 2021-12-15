@@ -26,8 +26,8 @@ mod tests {
         ResponseError, ResponseErrorKind, ServiceName, NO_BACKOFF,
     };
     use qiniu_http::{
-        Extensions, HeaderMap, HeaderName, HeaderValue, ResponseErrorKind as HttpResponseErrorKind,
-        StatusCode,
+        CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue,
+        ResponseErrorKind as HttpResponseErrorKind, StatusCode,
     };
     use std::{
         collections::{HashMap, HashSet},
@@ -66,14 +66,14 @@ mod tests {
                 let domain_resolved = domain_resolved.to_owned();
                 move |_, domain| {
                     domain_resolved.lock().unwrap().push(domain.to_owned());
-                    true
+                    CallbackResult::Continue
                 }
             })
             .on_after_request_signed({
                 let urls_visited = urls_visited.to_owned();
                 move |context| {
                     urls_visited.lock().unwrap().push(context.url().to_string());
-                    true
+                    CallbackResult::Continue
                 }
             })
             .call()
@@ -132,7 +132,7 @@ mod tests {
                 let urls_visited = urls_visited.to_owned();
                 move |context| {
                     urls_visited.lock().unwrap().push(context.url().to_string());
-                    true
+                    CallbackResult::Continue
                 }
             })
             .call()
@@ -203,14 +203,14 @@ mod tests {
                 let domain_resolved = domain_resolved.to_owned();
                 move |_, domain| {
                     domain_resolved.lock().unwrap().push(domain.to_owned());
-                    true
+                    CallbackResult::Continue
                 }
             })
             .on_after_request_signed({
                 let urls_visited = urls_visited.to_owned();
                 move |context| {
                     urls_visited.lock().unwrap().push(context.url().to_string());
-                    true
+                    CallbackResult::Continue
                 }
             })
             .call()
@@ -265,7 +265,7 @@ mod tests {
                 let domain_resolved = domain_resolved.to_owned();
                 move |_, domain| {
                     domain_resolved.lock().unwrap().push(domain.to_owned());
-                    true
+                    CallbackResult::Continue
                 }
             })
             .on_after_request_signed({
@@ -283,7 +283,7 @@ mod tests {
                     } else {
                         assert!(!context.retried().switched_to_alternative_endpoints());
                     }
-                    true
+                    CallbackResult::Continue
                 }
             })
             .call()
@@ -350,7 +350,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_endpoint(), retried);
                     assert_eq!(context.retried().retried_on_current_ips(), retried);
                     assert_eq!(context.retried().abandoned_endpoints(), 0);
-                    true
+                    CallbackResult::Continue
                 }
             })
             .call()
@@ -398,7 +398,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_endpoint(), retried);
                     assert_eq!(context.retried().retried_on_current_ips(), retried);
                     assert_eq!(context.retried().abandoned_endpoints(), 0);
-                    true
+                    CallbackResult::Continue
                 }
             })
             .call()
@@ -496,9 +496,9 @@ mod tests {
 
         return Ok(());
 
-        fn inc_extensions(extensions: &mut Extensions) -> bool {
+        fn inc_extensions(extensions: &mut Extensions) -> CallbackResult {
             extensions.get_mut::<ExtensionCounter>().unwrap().inc();
-            true
+            CallbackResult::Continue
         }
     }
 
@@ -536,7 +536,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_endpoint(), 1);
                     assert_eq!(context.retried().retried_on_current_ips(), 1);
                     assert_eq!(context.retried().abandoned_endpoints(), retried);
-                    true
+                    CallbackResult::Continue
                 }
             })
             .call()
@@ -571,7 +571,7 @@ mod tests {
                     "https://fakedomain.withoutport.com/"
                 );
                 assert_eq!(context.retried().retried_total(), 0);
-                true
+                CallbackResult::Continue
             })
             .call()
             .unwrap_err();
@@ -609,7 +609,7 @@ mod tests {
                         .headers()
                         .get(&HeaderName::from_static("authorization"))
                         .is_none());
-                    true
+                    CallbackResult::Continue
                 })
                 .on_after_request_signed({
                     let signed_urls = signed_urls.to_owned();
@@ -625,7 +625,7 @@ mod tests {
                             .to_str()
                             .unwrap()
                             .starts_with("Qiniu "));
-                        true
+                        CallbackResult::Continue
                     }
                 })
                 .call()
@@ -646,7 +646,7 @@ mod tests {
                         .headers()
                         .get(&HeaderName::from_static("authorization"))
                         .is_none());
-                    true
+                    CallbackResult::Continue
                 })
                 .on_after_request_signed({
                     move |context| {
@@ -661,7 +661,7 @@ mod tests {
                             .to_str()
                             .unwrap()
                             .starts_with("QBox "));
-                        true
+                        CallbackResult::Continue
                     }
                 })
                 .call()
@@ -705,7 +705,7 @@ mod tests {
                             t.fetch_add(1, Relaxed);
                         })
                         .or_insert_with(|| AtomicUsize::new(1));
-                    true
+                    CallbackResult::Continue
                 }
             })
             .call()
@@ -790,7 +790,7 @@ mod tests {
 
         let err = client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_before_request_signed(|_| false)
+            .on_before_request_signed(|_| CallbackResult::Cancel)
             .on_before_backoff(|_, _| panic!("Should not retry"))
             .call()
             .unwrap_err();
@@ -801,7 +801,7 @@ mod tests {
 
         let err = client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_after_request_signed(|_| false)
+            .on_after_request_signed(|_| CallbackResult::Cancel)
             .on_before_backoff(|_, _| panic!("Should not retry"))
             .call()
             .unwrap_err();
@@ -812,7 +812,7 @@ mod tests {
 
         let err = client
             .post(&[ServiceName::Up], &chaotic_up_domains_region())
-            .on_before_backoff(|_, _| false)
+            .on_before_backoff(|_, _| CallbackResult::Cancel)
             .on_after_backoff(|_, _| panic!("Should not retry"))
             .call()
             .unwrap_err();
@@ -854,7 +854,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_endpoint(), retried);
                     assert_eq!(context.retried().retried_on_current_ips(), retried);
                     assert_eq!(context.retried().abandoned_endpoints(), 0);
-                    true
+                    CallbackResult::Continue
                 }
             })
             .call()
@@ -900,7 +900,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_endpoint(), retried);
                     assert_eq!(context.retried().retried_on_current_ips(), retried);
                     assert_eq!(context.retried().abandoned_endpoints(), 0);
-                    true
+                    CallbackResult::Continue
                 }
             })
             .call()

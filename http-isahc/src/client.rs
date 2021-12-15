@@ -239,7 +239,7 @@ fn call_response_callbacks<ReqBody, RespBody>(
     response: &IsahcResponse<RespBody>,
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
-        if !on_receive_response_status(response.status()) {
+        if on_receive_response_status(response.status()).is_cancelled() {
             return Err(ResponseError::builder(
                 ResponseErrorKind::UserCanceled,
                 "on_receive_response_status() returns false",
@@ -250,7 +250,7 @@ fn call_response_callbacks<ReqBody, RespBody>(
     }
     if let Some(on_receive_response_header) = request.on_receive_response_header() {
         for (header_name, header_value) in response.headers().iter() {
-            if !on_receive_response_header(header_name, header_value) {
+            if on_receive_response_header(header_name, header_value).is_cancelled() {
                 return Err(ResponseError::builder(
                     ResponseErrorKind::UserCanceled,
                     "on_receive_response_header() returns false",
@@ -360,11 +360,13 @@ fn make_sync_isahc_request(
                     let buf = &buf[..n];
                     self.have_read += n as u64;
                     if let Some(on_uploading_progress) = self.request.on_uploading_progress() {
-                        if !on_uploading_progress(&TransferProgressInfo::new(
+                        if on_uploading_progress(&TransferProgressInfo::new(
                             self.have_read,
                             self.request.body().size(),
                             buf,
-                        )) {
+                        ))
+                        .is_cancelled()
+                        {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
                             *self.user_cancelled_error = Some(
                                 ResponseError::builder(
@@ -451,11 +453,13 @@ fn make_async_isahc_request(
                     if let Some(on_uploading_progress) =
                         self.as_ref().request.on_uploading_progress()
                     {
-                        if !on_uploading_progress(&TransferProgressInfo::new(
+                        if on_uploading_progress(&TransferProgressInfo::new(
                             self.as_ref().have_read,
                             self.as_ref().request.body().size(),
                             buf,
-                        )) {
+                        ))
+                        .is_cancelled()
+                        {
                             const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
                             *self.user_cancelled_error = Some(
                                 ResponseError::builder(

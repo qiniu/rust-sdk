@@ -38,7 +38,7 @@ mod tests {
     use futures::channel::oneshot::channel;
     use isahc::http::header::{CONTENT_LENGTH, USER_AGENT};
     use md5::{Digest, Md5};
-    use qiniu_http::{Method, SyncRequest, SyncRequestBody};
+    use qiniu_http::{CallbackResult, Method, SyncRequest, SyncRequestBody};
     use rand::{thread_rng, RngCore};
     use std::{
         io::{copy as io_copy, Read},
@@ -136,7 +136,7 @@ mod tests {
                             .on_uploading_progress(&|info| {
                                 last_uploaded.store(info.transferred_bytes(), Relaxed);
                                 last_total.store(info.total_bytes(), Relaxed);
-                                true
+                                CallbackResult::Continue
                             })
                             .build(),
                     )?
@@ -236,7 +236,7 @@ mod tests {
                             .on_uploading_progress(&|info| {
                                 last_uploaded.store(info.transferred_bytes(), Relaxed);
                                 last_total.store(info.total_bytes(), Relaxed);
-                                true
+                                CallbackResult::Continue
                             })
                             .build(),
                     )

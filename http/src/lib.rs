@@ -18,11 +18,13 @@
     unused_qualifications
 )]
 
+mod callback;
 mod error;
 mod request;
 mod response;
 
 use auto_impl::auto_impl;
+pub use callback::{CallbackResult, TransferProgressInfo};
 pub use error::{
     Error as ResponseError, ErrorBuilder as ResponseErrorBuilder, ErrorKind as ResponseErrorKind,
     MapError,
@@ -35,8 +37,7 @@ pub use http::{
     Extensions, Version,
 };
 pub use request::{
-    Request, RequestBody as SyncRequestBody, RequestBuilder, RequestParts, TransferProgressInfo,
-    UserAgent,
+    Request, RequestBody as SyncRequestBody, RequestBuilder, RequestParts, UserAgent,
 };
 pub use response::{
     Metrics, Response, ResponseBody as SyncResponseBody, ResponseBuilder, ResponseParts,

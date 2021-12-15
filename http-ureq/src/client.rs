@@ -152,7 +152,7 @@ fn call_response_callbacks(
     response: &UreqResponse,
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
-        if !on_receive_response_status(status_code_of_response(response, request)?) {
+        if on_receive_response_status(status_code_of_response(response, request)?).is_cancelled() {
             return Err(build_on_receive_response_status_error(request));
         }
     }
@@ -163,7 +163,7 @@ fn call_response_callbacks(
                     .map_err(|err| build_header_name_error(request, &header_name_str, err))?;
                 let header_value = HeaderValue::from_bytes(header_value_str.as_bytes())
                     .map_err(|err| build_header_value_error(request, header_value_str, err))?;
-                if !on_receive_response_header(&header_name, &header_value) {
+                if on_receive_response_header(&header_name, &header_value).is_cancelled() {
                     return Err(build_on_receive_response_header_error(request));
                 }
             }
@@ -328,11 +328,13 @@ impl Read for RequestBodyWithCallbacks<'_, '_> {
                 self.have_read += n as u64;
                 let buf = &buf[..n];
                 if let Some(on_uploading_progress) = self.request.on_uploading_progress() {
-                    if !on_uploading_progress(&TransferProgressInfo::new(
+                    if on_uploading_progress(&TransferProgressInfo::new(
                         self.have_read,
                         self.request.body().size(),
                         buf,
-                    )) {
+                    ))
+                    .is_cancelled()
+                    {
                         const ERROR_MESSAGE: &str = "on_uploading_progress() returns false";
                         *self.user_cancelled_error = Some(
                             ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)

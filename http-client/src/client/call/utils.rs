@@ -120,10 +120,13 @@ pub(super) fn call_before_backoff_callbacks(
     retried: &RetriedStatsInfo,
     delay: Duration,
 ) -> Result<(), TryError> {
-    if !request.call_before_backoff_callbacks(
-        &mut ExtendedCallbackContextImpl::new(request, built, retried),
-        delay,
-    ) {
+    if request
+        .call_before_backoff_callbacks(
+            &mut ExtendedCallbackContextImpl::new(request, built, retried),
+            delay,
+        )
+        .is_cancelled()
+    {
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
@@ -142,10 +145,13 @@ pub(super) fn call_after_backoff_callbacks(
     retried: &RetriedStatsInfo,
     delay: Duration,
 ) -> Result<(), TryError> {
-    if !request.call_after_backoff_callbacks(
-        &mut ExtendedCallbackContextImpl::new(request, built, retried),
-        delay,
-    ) {
+    if request
+        .call_after_backoff_callbacks(
+            &mut ExtendedCallbackContextImpl::new(request, built, retried),
+            delay,
+        )
+        .is_cancelled()
+    {
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
@@ -165,7 +171,10 @@ fn call_to_resolve_domain_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
-    if !request.call_to_resolve_domain_callbacks(&mut context, domain) {
+    if request
+        .call_to_resolve_domain_callbacks(&mut context, domain)
+        .is_cancelled()
+    {
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
@@ -186,7 +195,10 @@ fn call_domain_resolved_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
-    if !request.call_domain_resolved_callbacks(&mut context, domain, answers) {
+    if request
+        .call_domain_resolved_callbacks(&mut context, domain, answers)
+        .is_cancelled()
+    {
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
@@ -206,7 +218,10 @@ fn call_to_choose_ips_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
-    if !request.call_to_choose_ips_callbacks(&mut context, ips) {
+    if request
+        .call_to_choose_ips_callbacks(&mut context, ips)
+        .is_cancelled()
+    {
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
@@ -227,7 +242,10 @@ fn call_ips_chosen_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
-    if !request.call_ips_chosen_callbacks(&mut context, ips, chosen) {
+    if request
+        .call_ips_chosen_callbacks(&mut context, ips, chosen)
+        .is_cancelled()
+    {
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
@@ -246,7 +264,10 @@ pub(super) fn call_before_request_signed_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
-    if !request.call_before_request_signed_callbacks(&mut context) {
+    if request
+        .call_before_request_signed_callbacks(&mut context)
+        .is_cancelled()
+    {
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
@@ -265,7 +286,10 @@ pub(super) fn call_after_request_signed_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
-    if !request.call_after_request_signed_callbacks(&mut context) {
+    if request
+        .call_after_request_signed_callbacks(&mut context)
+        .is_cancelled()
+    {
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
@@ -285,7 +309,10 @@ pub(super) fn call_error_callbacks(
     response_error: &ResponseError,
 ) -> Result<(), TryError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
-    if !request.call_error_callbacks(&mut context, response_error) {
+    if request
+        .call_error_callbacks(&mut context, response_error)
+        .is_cancelled()
+    {
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),

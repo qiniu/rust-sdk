@@ -8,7 +8,8 @@ use super::{
 };
 use cfg_if::cfg_if;
 use qiniu_http::{
-    HeaderName, HeaderValue, HttpCaller, Method, StatusCode, TransferProgressInfo, UserAgent,
+    CallbackResult, HeaderName, HeaderValue, HttpCaller, Method, StatusCode, TransferProgressInfo,
+    UserAgent,
 };
 use std::{
     mem::{replace, take},
@@ -375,7 +376,7 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_uploading_progress(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> CallbackResult
             + Send
             + Sync
             + 'static,
@@ -387,7 +388,10 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_receive_response_status(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync + 'static,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> CallbackResult
+            + Send
+            + Sync
+            + 'static,
     ) -> &mut Self {
         self.callbacks.on_receive_response_status(callback);
         self
@@ -396,7 +400,7 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_receive_response_header(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> CallbackResult
             + Send
             + Sync
             + 'static,
@@ -408,7 +412,7 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync + 'static,
+        callback: impl Fn(&mut dyn CallbackContext, &str) -> CallbackResult + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_to_resolve_domain(callback);
         self
@@ -417,7 +421,7 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_domain_resolved(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool
+        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> CallbackResult
             + Send
             + Sync
             + 'static,
@@ -429,7 +433,10 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_to_choose_ips(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync + 'static,
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> CallbackResult
+            + Send
+            + Sync
+            + 'static,
     ) -> &mut Self {
         self.callbacks.on_to_choose_ips(callback);
         self
@@ -438,7 +445,7 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_ips_chosen(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> CallbackResult
             + Send
             + Sync
             + 'static,
@@ -450,7 +457,7 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'static,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_before_request_signed(callback);
         self
@@ -459,7 +466,7 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'static,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_after_request_signed(callback);
         self
@@ -468,7 +475,7 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_error(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> CallbackResult
             + Send
             + Sync
             + 'static,
@@ -480,7 +487,10 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_before_backoff(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'static,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult
+            + Send
+            + Sync
+            + 'static,
     ) -> &mut Self {
         self.callbacks.on_before_backoff(callback);
         self
@@ -489,7 +499,10 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_after_backoff(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'static,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult
+            + Send
+            + Sync
+            + 'static,
     ) -> &mut Self {
         self.callbacks.on_after_backoff(callback);
         self

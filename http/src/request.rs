@@ -1,9 +1,9 @@
+use super::callback::{OnHeader, OnProgress, OnStatusCode};
 use assert_impl::assert_impl;
 use http::{
-    header::{HeaderMap, HeaderName, HeaderValue},
+    header::HeaderMap,
     method::Method,
     request::{Parts as HttpRequestParts, Request as HttpRequest},
-    status::StatusCode,
     uri::Uri,
     Extensions, Version,
 };
@@ -36,10 +36,6 @@ static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
     )
     .into()
 });
-
-type OnProgress<'r> = &'r (dyn Fn(&TransferProgressInfo) -> bool + Send + Sync);
-type OnStatusCode<'r> = &'r (dyn Fn(StatusCode) -> bool + Send + Sync);
-type OnHeader<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> bool + Send + Sync);
 
 pub struct RequestParts<'r> {
     inner: HttpRequestParts,
@@ -769,36 +765,3 @@ pub use body::RequestBody;
 
 #[cfg(feature = "async")]
 pub use body::AsyncRequestBody;
-
-/// 上传进度信息
-pub struct TransferProgressInfo<'b> {
-    transferred_bytes: u64,
-    total_bytes: u64,
-    body: &'b [u8],
-}
-
-impl<'b> TransferProgressInfo<'b> {
-    #[inline]
-    pub fn new(transferred_bytes: u64, total_bytes: u64, body: &'b [u8]) -> Self {
-        Self {
-            transferred_bytes,
-            total_bytes,
-            body,
-        }
-    }
-
-    #[inline]
-    pub fn transferred_bytes(&self) -> u64 {
-        self.transferred_bytes
-    }
-
-    #[inline]
-    pub fn total_bytes(&self) -> u64 {
-        self.total_bytes
-    }
-
-    #[inline]
-    pub fn body(&self) -> &[u8] {
-        self.body
-    }
-}

@@ -45,7 +45,7 @@ mod tests {
     use md5::{Digest, Md5};
     use qiniu_http::{
         header::{CONTENT_LENGTH, USER_AGENT},
-        Method, SyncRequest, SyncRequestBody,
+        CallbackResult, Method, SyncRequest, SyncRequestBody,
     };
     use rand::{thread_rng, RngCore};
     use std::{
@@ -137,7 +137,7 @@ mod tests {
                             .on_uploading_progress(&|info| {
                                 last_uploaded.store(info.transferred_bytes(), Relaxed);
                                 last_total.store(info.total_bytes(), Relaxed);
-                                true
+                                CallbackResult::Continue
                             })
                             .build(),
                     )?

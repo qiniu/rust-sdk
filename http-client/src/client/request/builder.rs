@@ -15,8 +15,8 @@ use mime::{
 };
 use qiniu_http::{
     header::{ACCEPT, CONTENT_TYPE},
-    Extensions, HeaderMap, HeaderName, HeaderValue, Method, Reset, StatusCode, SyncRequestBody,
-    TransferProgressInfo, UserAgent, Version,
+    CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, Method, Reset, StatusCode,
+    SyncRequestBody, TransferProgressInfo, UserAgent, Version,
 };
 use serde::Serialize;
 use serde_json::Result as JsonResult;
@@ -133,7 +133,7 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_uploading_progress(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> CallbackResult
             + Send
             + Sync
             + 'r,
@@ -145,7 +145,10 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_receive_response_status(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
     ) -> &mut Self {
         self.callbacks.on_receive_response_status(callback);
         self
@@ -154,7 +157,7 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_receive_response_header(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> CallbackResult
             + Send
             + Sync
             + 'r,
@@ -166,7 +169,7 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn CallbackContext, &str) -> CallbackResult + Send + Sync + 'r,
     ) -> &mut Self {
         self.callbacks.on_to_resolve_domain(callback);
         self
@@ -175,7 +178,10 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_domain_resolved(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
     ) -> &mut Self {
         self.callbacks.on_domain_resolved(callback);
         self
@@ -184,7 +190,10 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_to_choose_ips(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
     ) -> &mut Self {
         self.callbacks.on_to_choose_ips(callback);
         self
@@ -193,7 +202,7 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_ips_chosen(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> CallbackResult
             + Send
             + Sync
             + 'r,
@@ -205,7 +214,7 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'r,
     ) -> &mut Self {
         self.callbacks.on_before_request_signed(callback);
         self
@@ -214,7 +223,7 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'r,
     ) -> &mut Self {
         self.callbacks.on_after_request_signed(callback);
         self
@@ -223,7 +232,10 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_error(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
     ) -> &mut Self {
         self.callbacks.on_error(callback);
         self
@@ -232,7 +244,10 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_before_backoff(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
     ) -> &mut Self {
         self.callbacks.on_before_backoff(callback);
         self
@@ -241,7 +256,10 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_after_backoff(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
     ) -> &mut Self {
         self.callbacks.on_after_backoff(callback);
         self
@@ -383,7 +401,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_uploading_progress(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> bool
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> CallbackResult
             + Send
             + Sync
             + 'r,
@@ -395,7 +413,10 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_receive_response_status(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
     ) -> &mut Self {
         self.parts.on_receive_response_status(callback);
         self
@@ -404,7 +425,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_receive_response_header(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> bool
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> CallbackResult
             + Send
             + Sync
             + 'r,
@@ -416,7 +437,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &str) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn CallbackContext, &str) -> CallbackResult + Send + Sync + 'r,
     ) -> &mut Self {
         self.parts.on_to_resolve_domain(callback);
         self
@@ -425,7 +446,10 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_domain_resolved(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
     ) -> &mut Self {
         self.parts.on_domain_resolved(callback);
         self
@@ -434,7 +458,10 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_to_choose_ips(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
     ) -> &mut Self {
         self.parts.on_to_choose_ips(callback);
         self
@@ -443,7 +470,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_ips_chosen(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> bool
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> CallbackResult
             + Send
             + Sync
             + 'r,
@@ -455,7 +482,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'r,
     ) -> &mut Self {
         self.parts.on_before_request_signed(callback);
         self
@@ -464,7 +491,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'r,
     ) -> &mut Self {
         self.parts.on_after_request_signed(callback);
         self
@@ -473,7 +500,10 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_error(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
     ) -> &mut Self {
         self.parts.on_error(callback);
         self
@@ -482,7 +512,10 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_before_backoff(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
     ) -> &mut Self {
         self.parts.on_before_backoff(callback);
         self
@@ -491,7 +524,10 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_after_backoff(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> bool + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
     ) -> &mut Self {
         self.parts.on_after_backoff(callback);
         self
