@@ -9,9 +9,11 @@ use super::{
     domain_or_ip_addr::DomainOrIpAddr,
     error::{ErrorResponseBody, TryError},
 };
+use mime::APPLICATION_WWW_FORM_URLENCODED;
 use qiniu_http::{
+    header::CONTENT_TYPE,
     uri::{Authority, InvalidUri, PathAndQuery, Scheme, Uri},
-    Extensions, Request as HttpRequest, RequestParts as HttpRequestParts,
+    Extensions, HeaderValue, Request as HttpRequest, RequestParts as HttpRequestParts,
     ResponseErrorKind as HttpResponseErrorKind, ResponseParts, SyncRequest as SyncHttpRequest,
 };
 use std::{borrow::Cow, net::IpAddr, time::Duration};
@@ -26,11 +28,15 @@ pub(super) fn make_request<'r, B: Default + 'r>(
     extensions: Extensions,
     resolved_ips: &'r [IpAddr],
 ) -> HttpRequest<'r, B> {
+    let mut headers = request.headers().to_owned();
+    headers
+        .entry(CONTENT_TYPE)
+        .or_insert(HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref()).unwrap());
     HttpRequest::builder()
         .url(url)
         .method(request.method().to_owned())
         .version(request.version())
-        .headers(request.headers().to_owned())
+        .headers(headers)
         .body(body)
         .appended_user_agent(request.appended_user_agent().to_owned())
         .resolved_ip_addrs(resolved_ips)

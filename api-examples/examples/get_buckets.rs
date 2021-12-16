@@ -10,10 +10,10 @@ use structopt::StructOpt;
 #[structopt(name = "get-buckets")]
 struct Opt {
     /// Qiniu Access Key
-    #[structopt(short, long)]
+    #[structopt( long)]
     access_key: String,
     /// Qiniu Secret Key
-    #[structopt(short, long)]
+    #[structopt( long)]
     secret_key: String,
 }
 

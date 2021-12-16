@@ -260,6 +260,16 @@ impl<'r, B: 'r> Request<'r, B> {
     }
 
     #[inline]
+    pub fn parts(&self) -> &RequestParts<'r> {
+        &self.parts
+    }
+
+    #[inline]
+    pub fn parts_mut(&mut self) -> &mut RequestParts<'r> {
+        &mut self.parts
+    }
+
+    #[inline]
     pub fn into_parts(self) -> (RequestParts<'r>, B) {
         let Self { parts, body } = self;
         (parts, body)

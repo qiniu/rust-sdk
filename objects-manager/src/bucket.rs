@@ -3,8 +3,16 @@ use super::{
         AfterResponseErrorCallback, AfterResponseOkCallback, BeforeRequestCallback, ListIter,
         ListVersion,
     },
+    operation::{
+        CopyObject, CopyObjectBuilder, DeleteObject, DeleteObjectBuilder, Entry,
+        ModifyObjectLifeCycle, ModifyObjectLifeCycleBuilder, ModifyObjectMetadata,
+        ModifyObjectMetadataBuilder, ModifyObjectStatus, ModifyObjectStatusBuilder, MoveObject,
+        MoveObjectBuilder, ObjectType, SetObjectType, SetObjectTypeBuilder, StatObject,
+        StatObjectBuilder, UnfreezeObject, UnfreezeObjectBuilder,
+    },
     ObjectsManager,
 };
+use mime::Mime;
 use once_cell::sync::OnceCell;
 use qiniu_apis::{
     http::ResponseParts,
@@ -62,6 +70,88 @@ impl Bucket {
     #[inline]
     pub fn list(&self) -> ListBuilder<'_> {
         ListBuilder::new(self)
+    }
+
+    #[inline]
+    pub fn stat_object<'a>(&'a self, object_name: &'a str) -> StatObjectBuilder<'a> {
+        StatObject::builder(Entry::new(self, object_name))
+    }
+
+    #[inline]
+    pub fn copy_object_to<'a>(
+        &'a self,
+        from_object_name: &'a str,
+        to_bucket_name: &'a str,
+        to_object_name: &'a str,
+    ) -> CopyObjectBuilder<'a> {
+        CopyObject::builder(
+            Entry::new(self, from_object_name),
+            to_bucket_name,
+            to_object_name,
+        )
+    }
+
+    #[inline]
+    pub fn move_object_to<'a>(
+        &'a self,
+        from_object_name: &'a str,
+        to_bucket_name: &'a str,
+        to_object_name: &'a str,
+    ) -> MoveObjectBuilder<'a> {
+        MoveObject::builder(
+            Entry::new(self, from_object_name),
+            to_bucket_name,
+            to_object_name,
+        )
+    }
+
+    #[inline]
+    pub fn delete_object<'a>(&'a self, object_name: &'a str) -> DeleteObjectBuilder<'a> {
+        DeleteObject::builder(Entry::new(self, object_name))
+    }
+
+    #[inline]
+    pub fn unfreeze_object<'a>(
+        &'a self,
+        object_name: &'a str,
+        freeze_after_days: usize,
+    ) -> UnfreezeObjectBuilder<'a> {
+        UnfreezeObject::builder(Entry::new(self, object_name), freeze_after_days)
+    }
+
+    #[inline]
+    pub fn set_object_type<'a>(
+        &'a self,
+        object_name: &'a str,
+        object_type: ObjectType,
+    ) -> SetObjectTypeBuilder<'a> {
+        SetObjectType::builder(Entry::new(self, object_name), object_type)
+    }
+
+    #[inline]
+    pub fn modify_object_status<'a>(
+        &'a self,
+        object_name: &'a str,
+        disable: bool,
+    ) -> ModifyObjectStatusBuilder<'a> {
+        ModifyObjectStatus::builder(Entry::new(self, object_name), disable)
+    }
+
+    #[inline]
+    pub fn modify_object_metadata<'a>(
+        &'a self,
+        object_name: &'a str,
+        mime_type: Mime,
+    ) -> ModifyObjectMetadataBuilder<'a> {
+        ModifyObjectMetadata::builder(Entry::new(self, object_name), mime_type)
+    }
+
+    #[inline]
+    pub fn modify_object_life_cycle<'a>(
+        &'a self,
+        object_name: &'a str,
+    ) -> ModifyObjectLifeCycleBuilder<'a> {
+        ModifyObjectLifeCycle::builder(Entry::new(self, object_name))
     }
 
     pub(super) fn region_provider(&self) -> IOResult<&dyn RegionProvider> {

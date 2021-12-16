@@ -18,10 +18,16 @@
 mod bucket;
 mod list;
 mod objects_manager;
+mod operation;
 
 pub use bucket::{Bucket, ListBuilder};
 pub use list::{ListIter, ListVersion};
 pub use objects_manager::{ObjectsManager, ObjectsManagerBuilder};
+pub use operation::{
+    AfterDays, CopyObjectBuilder, DeleteObjectBuilder, ModifyObjectLifeCycleBuilder,
+    ModifyObjectMetadataBuilder, ModifyObjectStatusBuilder, MoveObjectBuilder, ObjectType,
+    SetObjectTypeBuilder, StatObjectBuilder, UnfreezeObjectBuilder,
+};
 pub use qiniu_apis as apis;
 
 #[cfg(feature = "async")]

@@ -3,8 +3,7 @@ use qiniu_http::{
     ResponseErrorKind as HttpResponseErrorKind, ResponseParts as HttpResponseParts, StatusCode,
     Version,
 };
-use serde::de::DeserializeOwned;
-use serde_json::from_slice as parse_json_from_slice;
+use serde::{de::DeserializeOwned, Deserialize};
 use std::{io::copy as io_copy, net::IpAddr, num::NonZeroU16};
 
 mod error;
@@ -239,6 +238,15 @@ impl Response<AsyncResponseBody> {
                     None,
                 )
             })
+    }
+}
+
+fn parse_json_from_slice<'a, T: Deserialize<'a>>(v: &'a [u8]) -> serde_json::Result<T> {
+    // Sometimes the API are supposed to response with JSON but actually Empty!
+    if v.as_ref().is_empty() {
+        serde_json::from_slice(&b"{}"[..])
+    } else {
+        serde_json::from_slice(v)
     }
 }
 
