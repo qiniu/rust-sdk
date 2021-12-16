@@ -81,6 +81,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Install Visual Studio Dev cmds
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Install vcpkg
+        uses: lukka/run-vcpkg@main
+        with:
+          setupOnly: true
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+          vcpkgArguments: 'sqlite3'
+          vcpkgTriplet: 'x64-windows'
+          vcpkgGitCommitId: '30124253eecff36bc90f73341edbfb4f845e2a1e'
+      - name: Install openssl
+        run: |
+          $VCPKG_ROOT/vcpkg install openssl --triplet x64-windows
+        shell: bash
       - name: Install Rust nightly
         uses: actions-rs/toolchain@v1
         with:
@@ -102,3 +116,4 @@ jobs:
         env:
           RUST_LOG: "debug"
           RUST_BACKTRACE: "1"
+          OPENSSL_DIR: "${{ github.workspace }}/vcpkg/packages/openssl_x64-windows"

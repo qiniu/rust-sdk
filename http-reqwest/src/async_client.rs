@@ -161,14 +161,15 @@ fn make_async_reqwest_request(
 
 fn from_async_response(
     mut response: AsyncReqwestResponse,
-    request: &AsyncRequest,
+    request: &mut AsyncRequest,
 ) -> AsyncResponseResult {
     call_response_callbacks(request, response.status(), response.headers())?;
     let mut response_builder = AsyncResponse::builder();
     response_builder
         .status_code(response.status())
         .version(response.version())
-        .headers(take(response.headers_mut()));
+        .headers(take(response.headers_mut()))
+        .extensions(take(request.extensions_mut()));
     if let Some(port) = response
         .url()
         .port_or_known_default()

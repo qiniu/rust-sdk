@@ -343,6 +343,13 @@ impl<'r, B: 'r> RequestBuilder<'r, B> {
         self
     }
 
+    /// 追加扩展字段
+    #[inline]
+    pub fn add_extension<T: Sync + Send + 'static>(&mut self, val: T) -> &mut Self {
+        self.inner.extensions_mut().insert(val);
+        self
+    }
+
     /// 设置用户代理
     #[inline]
     pub fn appended_user_agent(&mut self, user_agent: impl Into<UserAgent>) -> &mut Self {

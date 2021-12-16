@@ -185,7 +185,7 @@ fn make_user_agent(request: &RequestParts) -> Result<HeaderValue, ResponseError>
 
 fn make_sync_response(
     mut response: IsahcSyncResponse,
-    request: &SyncRequest,
+    request: &mut SyncRequest,
 ) -> SyncResponseResult {
     call_response_callbacks(request, &response)?;
 
@@ -194,7 +194,7 @@ fn make_sync_response(
         .status_code(response.status())
         .version(response.version())
         .headers(take(response.headers_mut()))
-        .extensions(take(response.extensions_mut()));
+        .extensions(take(request.extensions_mut()));
     if let Some(remote_addr) = response.remote_addr() {
         response_builder.server_ip(remote_addr.ip());
         if let Some(port) = NonZeroU16::new(remote_addr.port()) {
@@ -211,7 +211,7 @@ fn make_sync_response(
 #[cfg(feature = "async")]
 fn make_async_response(
     mut response: IsahcAsyncResponse,
-    request: &AsyncRequest,
+    request: &mut AsyncRequest,
 ) -> AsyncResponseResult {
     call_response_callbacks(request, &response)?;
 
@@ -220,7 +220,7 @@ fn make_async_response(
         .status_code(response.status())
         .version(response.version())
         .headers(take(response.headers_mut()))
-        .extensions(take(response.extensions_mut()));
+        .extensions(take(request.extensions_mut()));
     if let Some(remote_addr) = response.remote_addr() {
         response_builder.server_ip(remote_addr.ip());
         if let Some(port) = NonZeroU16::new(remote_addr.port()) {

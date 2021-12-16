@@ -8,6 +8,7 @@ use std::{
     error::Error,
     fmt,
     io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult},
+    mem::take,
 };
 use ureq::{
     Agent, Error as UreqError, ErrorKind as UreqErrorKind, Request as UreqRequest,
@@ -97,13 +98,17 @@ fn make_ureq_request(agent: &Agent, request: &SyncRequest) -> Result<UreqRequest
     Ok(request_builder)
 }
 
-fn make_ureq_sync_response(response: UreqResponse, request: &SyncRequest) -> SyncResponseResult {
+fn make_ureq_sync_response(
+    response: UreqResponse,
+    request: &mut SyncRequest,
+) -> SyncResponseResult {
     call_response_callbacks(request, &response)?;
 
     let mut response_builder = SyncResponse::builder();
     response_builder
         .status_code(status_code_of_response(&response, request)?)
-        .version(parse_http_version(response.http_version(), request)?);
+        .version(parse_http_version(response.http_version(), request)?)
+        .extensions(take(request.extensions_mut()));
     for header_name_str in response.headers_names().into_iter() {
         if let Some(header_value_str) = response.header(&header_name_str) {
             let header_name = HeaderName::from_bytes(header_name_str.as_bytes())

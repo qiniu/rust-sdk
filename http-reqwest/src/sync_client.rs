@@ -162,14 +162,15 @@ pub(super) fn make_user_agent(
 
 fn from_sync_response(
     mut response: SyncReqwestResponse,
-    request: &SyncRequest,
+    request: &mut SyncRequest,
 ) -> SyncResponseResult {
     call_response_callbacks(request, response.status(), response.headers())?;
     let mut response_builder = SyncResponse::builder();
     response_builder
         .status_code(response.status())
         .version(response.version())
-        .headers(take(response.headers_mut()));
+        .headers(take(response.headers_mut()))
+        .extensions(take(request.extensions_mut()));
     if let Some(port) = response
         .url()
         .port_or_known_default()

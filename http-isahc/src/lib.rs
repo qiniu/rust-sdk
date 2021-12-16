@@ -46,6 +46,7 @@ mod tests {
             atomic::{AtomicU64, Ordering::Relaxed},
             Arc,
         },
+        time::Duration,
     };
     use tokio::task::spawn_blocking;
     use warp::{
@@ -138,6 +139,7 @@ mod tests {
                                 last_total.store(info.total_bytes(), Relaxed);
                                 CallbackResult::Continue
                             })
+                            .add_extension(TimeoutRequestExtension::new(Duration::from_secs(1)))
                             .build(),
                     )?
                 };
@@ -147,6 +149,14 @@ mod tests {
                 );
                 assert_eq!(last_uploaded.load(Relaxed), request_body.len() as u64);
                 assert_eq!(last_total.load(Relaxed), request_body.len() as u64);
+                assert_eq!(
+                    response
+                        .extensions()
+                        .get::<TimeoutRequestExtension>()
+                        .unwrap()
+                        .get(),
+                    &Duration::from_secs(1)
+                );
 
                 {
                     let mut body_part = Vec::new();
@@ -238,6 +248,7 @@ mod tests {
                                 last_total.store(info.total_bytes(), Relaxed);
                                 CallbackResult::Continue
                             })
+                            .add_extension(TimeoutRequestExtension::new(Duration::from_secs(1)))
                             .build(),
                     )
                     .await?
@@ -248,6 +259,14 @@ mod tests {
             );
             assert_eq!(last_uploaded.load(Relaxed), request_body.len() as u64);
             assert_eq!(last_total.load(Relaxed), request_body.len() as u64);
+            assert_eq!(
+                response
+                    .extensions()
+                    .get::<TimeoutRequestExtension>()
+                    .unwrap()
+                    .get(),
+                &Duration::from_secs(1)
+            );
 
             {
                 let mut body_part = Vec::new();
