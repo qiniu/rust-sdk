@@ -13,6 +13,7 @@ use smallvec::SmallVec;
 use std::{
     borrow::{Borrow, BorrowMut, Cow},
     collections::VecDeque,
+    ffi::OsStr,
     fmt,
     iter::FromIterator,
     ops::{Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo},
@@ -178,11 +179,12 @@ mod sync_part {
             }
         }
 
-        pub fn file_path(path: impl AsRef<Path>) -> IoResult<Self> {
-            let file = File::open(path.as_ref())?;
-            let mut metadata = PartMetadata::default()
-                .mime(mime_guess::from_path(path.as_ref()).first_or_octet_stream());
-            if let Some(file_name) = path.as_ref().file_name() {
+        pub fn file_path<S: AsRef<OsStr> + ?Sized>(path: &S) -> IoResult<Self> {
+            let path = Path::new(path);
+            let file = File::open(&path)?;
+            let mut metadata =
+                PartMetadata::default().mime(mime_guess::from_path(&path).first_or_octet_stream());
+            if let Some(file_name) = path.file_name() {
                 let file_name = match file_name.to_string_lossy() {
                     Cow::Borrowed(str) => FileName::from(str),
                     Cow::Owned(string) => FileName::from(string),
@@ -301,11 +303,12 @@ mod async_part {
             }
         }
 
-        pub async fn file_path(path: impl AsRef<Path>) -> IoResult<Self> {
-            let file = File::open(path.as_ref()).await?;
-            let mut metadata = PartMetadata::default()
-                .mime(mime_guess::from_path(path.as_ref()).first_or_octet_stream());
-            if let Some(file_name) = path.as_ref().file_name() {
+        pub async fn file_path<S: AsRef<OsStr> + ?Sized>(path: &S) -> IoResult<Self> {
+            let path = Path::new(path);
+            let file = File::open(&path).await?;
+            let mut metadata =
+                PartMetadata::default().mime(mime_guess::from_path(&path).first_or_octet_stream());
+            if let Some(file_name) = path.file_name() {
                 let file_name = match file_name.to_string_lossy() {
                     Cow::Borrowed(str) => FileName::from(str),
                     Cow::Owned(string) => FileName::from(string),
@@ -510,7 +513,7 @@ mod tests {
                 SyncPart::text("value1").metadata(PartMetadata::default().mime(IMAGE_BMP)),
             )
             .add_part("reader1", SyncPart::stream(Cursor::new(b"value1")))
-            .add_part("reader2", SyncPart::file_path(temp_file_path)?);
+            .add_part("reader2", SyncPart::file_path(&temp_file_path)?);
         multipart.boundary = "boundary".into();
 
         const EXPECTED: &str = "--boundary\r\n\
@@ -566,7 +569,7 @@ mod tests {
                 AsyncPart::text("value1").metadata(PartMetadata::default().mime(IMAGE_BMP)),
             )
             .add_part("reader1", AsyncPart::stream(AsyncCursor::new(b"value1")))
-            .add_part("reader2", AsyncPart::file_path(temp_file_path).await?);
+            .add_part("reader2", AsyncPart::file_path(&temp_file_path).await?);
         multipart.boundary = "boundary".into();
 
         const EXPECTED: &str = "--boundary\r\n\

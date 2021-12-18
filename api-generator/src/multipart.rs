@@ -305,13 +305,13 @@ impl MultipartFormDataRequestStruct {
                 quote! {
                     #[inline]
                     #[doc = #documentation]
-                    pub fn #method_name(
+                    pub fn #method_name<S: AsRef<std::ffi::OsStr> + ?Sized>(
                         self,
-                        path: impl AsRef<std::path::Path>,
+                        path: &S,
                     ) -> std::io::Result<Self> {
                         Ok(self.add_part(
                             #key,
-                            qiniu_http_client::SyncPart::file_path(path)?,
+                            qiniu_http_client::SyncPart::file_path(std::path::Path::new(path))?,
                         ))
                     }
                 }
@@ -319,13 +319,13 @@ impl MultipartFormDataRequestStruct {
                 quote! {
                     #[inline]
                     #[doc = #documentation]
-                    pub async fn #method_name(
+                    pub async fn #method_name<S: AsRef<std::ffi::OsStr> + ?Sized>(
                         self,
-                        path: impl AsRef<async_std::path::Path>,
+                        path: &S,
                     ) -> std::io::Result<Self> {
                         Ok(self.add_part(
                             #key,
-                            qiniu_http_client::AsyncPart::file_path(path).await?,
+                            qiniu_http_client::AsyncPart::file_path(async_std::path::Path::new(path)).await?,
                         ))
                     }
                 }

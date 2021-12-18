@@ -81,11 +81,14 @@ pub mod sync_part {
         }
         #[inline]
         #[doc = "上传文件的内容"]
-        pub fn set_file_as_file_path(
+        pub fn set_file_as_file_path<S: AsRef<std::ffi::OsStr> + ?Sized>(
             self,
-            path: impl AsRef<std::path::Path>,
+            path: &S,
         ) -> std::io::Result<Self> {
-            Ok(self.add_part("file", qiniu_http_client::SyncPart::file_path(path)?))
+            Ok(self.add_part(
+                "file",
+                qiniu_http_client::SyncPart::file_path(std::path::Path::new(path))?,
+            ))
         }
         #[inline]
         #[must_use]
@@ -181,11 +184,14 @@ pub mod async_part {
         }
         #[inline]
         #[doc = "上传文件的内容"]
-        pub async fn set_file_as_file_path(
+        pub async fn set_file_as_file_path<S: AsRef<std::ffi::OsStr> + ?Sized>(
             self,
-            path: impl AsRef<async_std::path::Path>,
+            path: &S,
         ) -> std::io::Result<Self> {
-            Ok(self.add_part("file", qiniu_http_client::AsyncPart::file_path(path).await?))
+            Ok(self.add_part(
+                "file",
+                qiniu_http_client::AsyncPart::file_path(async_std::path::Path::new(path)).await?,
+            ))
         }
         #[inline]
         #[must_use]
