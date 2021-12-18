@@ -375,7 +375,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     }
 
     #[inline]
-    pub fn authorization(&mut self, authorization: Authorization) -> &mut Self {
+    pub fn authorization(&mut self, authorization: Authorization<'r>) -> &mut Self {
         self.parts.metadata.authorization = Some(authorization);
         self
     }

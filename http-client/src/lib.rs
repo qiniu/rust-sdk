@@ -45,18 +45,19 @@ pub use futures::io::AsyncRead;
 
 pub use cache::CacheController;
 pub use client::{
-    ApiResult, Authorization, AuthorizationError, AuthorizationResult, Backoff, BackoffDuration,
-    BackoffOptions, CachedResolver, CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver,
-    ChainedResolverBuilder, Chooser, ChooserFeedback, DirectChooser, DomainOrIpAddr, ErrorRetrier,
-    ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName, FixedBackoff, HttpClient,
-    HttpClientBuilder, Idempotent, IpChooser, IpChooserBuilder, LimitedBackoff, LimitedRetrier,
-    Multipart, NeverRetrier, Part, PartMetadata, QueryPairKey, QueryPairValue, QueryPairs,
-    RandomizedBackoff, Ratio, RequestBuilder, RequestBuilderParts, RequestRetrier,
+    ApiResult, Authorization, AuthorizationError, AuthorizationProvider, AuthorizationResult,
+    Backoff, BackoffDuration, BackoffOptions, CachedResolver, CallbackContext, Callbacks,
+    CallbacksBuilder, ChainedResolver, ChainedResolverBuilder, Chooser, ChooserFeedback,
+    CredentialAuthorizationV1, CredentialAuthorizationV2, DirectChooser, DomainOrIpAddr,
+    ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName, FixedBackoff,
+    HttpClient, HttpClientBuilder, Idempotent, IpChooser, IpChooserBuilder, LimitedBackoff,
+    LimitedRetrier, Multipart, NeverRetrier, Part, PartMetadata, QueryPairKey, QueryPairValue,
+    QueryPairs, RandomizedBackoff, Ratio, RequestBuilder, RequestBuilderParts, RequestRetrier,
     RequestRetrierOptions, ResolveAnswers, ResolveOptions, ResolveResult, Resolver, Response,
     ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision, RetryResult,
     ShuffledChooser, ShuffledResolver, SimpleResolver, SimplifiedCallbackContext, SubnetChooser,
     SubnetChooserBuilder, SyncMultipart, SyncPart, SyncPartBody, SyncRequestBody,
-    SyncRequestBuilder, SyncResponse, TimeoutResolver, NO_BACKOFF,
+    SyncRequestBuilder, SyncResponse, TimeoutResolver, UploadTokenAuthorization, NO_BACKOFF,
 };
 pub use http::{CallbackResult, SyncResponseBody};
 pub use regions::{
@@ -91,8 +92,8 @@ pub use {
 pub mod preclude {
     pub use super::{
         client::{
-            Backoff, CallbackContext, Chooser, ExtendedCallbackContext, RequestRetrier, Resolver,
-            SimplifiedCallbackContext,
+            AuthorizationProvider, Backoff, CallbackContext, Chooser, ExtendedCallbackContext,
+            RequestRetrier, Resolver, SimplifiedCallbackContext,
         },
         credential::CredentialProvider,
         http::{HttpCaller, Metrics},

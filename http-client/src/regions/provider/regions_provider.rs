@@ -37,7 +37,7 @@ impl RegionsProvider {
             .http_client
             .get(&[ServiceName::Uc], &self.uc_endpoints)
             .path("/regions")
-            .authorization(Authorization::v2(self.credential_provider.to_owned()))
+            .authorization(Authorization::v2(&self.credential_provider))
             .accept_json()
             .call()?
             .parse_json::<ResponseBody>()?
@@ -57,7 +57,7 @@ impl RegionsProvider {
             .http_client
             .async_get(&[ServiceName::Uc], &self.uc_endpoints)
             .path("/regions")
-            .authorization(Authorization::v2(self.credential_provider.to_owned()))
+            .authorization(Authorization::v2(&self.credential_provider))
             .accept_json()
             .call()
             .await?

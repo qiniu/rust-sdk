@@ -336,12 +336,12 @@ impl ApiDetailedDescription {
                 match authorization {
                     Authorization::Qbox | Authorization::Qiniu => {
                         params.push(quote! {
-                            credential: impl qiniu_http_client::credential::CredentialProvider + 'static
+                            credential: impl qiniu_http_client::credential::CredentialProvider + std::clone::Clone + 'static
                         });
                     }
                     Authorization::UploadToken => {
                         params.push(quote! {
-                            upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider + 'static
+                            upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider + std::clone::Clone + 'static
                         });
                     }
                 }

@@ -11,6 +11,6 @@ pub(super) struct RequestMetadata<'r> {
     pub(super) query: Cow<'r, str>,
     pub(super) query_pairs: QueryPairs<'r>,
     pub(super) headers: Cow<'r, HeaderMap>,
-    pub(super) authorization: Option<Authorization>,
+    pub(super) authorization: Option<Authorization<'r>>,
     pub(super) idempotent: Idempotent,
 }

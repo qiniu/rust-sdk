@@ -1,7 +1,7 @@
 use super::{
     super::{
         super::{DomainWithPort, Endpoint, IpAddrWithPort},
-        ApiResult, Authorization, AuthorizationError, CallbackContextImpl,
+        ApiResult, Authorization, AuthorizationError, AuthorizationProvider, CallbackContextImpl,
         ExtendedCallbackContextImpl, RequestParts, ResolveAnswers, ResolveOptions, ResolveResult,
         ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision,
         SimplifiedCallbackContext, SyncResponse,
@@ -345,7 +345,7 @@ pub(super) fn find_ip_addr_with_port(
 
 pub(super) fn sign_request(
     request: &mut SyncHttpRequest<'_>,
-    authorization: Option<&Authorization>,
+    authorization: Option<&Authorization<'_>>,
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     if let Some(authorization) = authorization {
@@ -514,7 +514,7 @@ mod async_utils {
 
     pub(in super::super) async fn sign_async_request(
         request: &mut AsyncHttpRequest<'_>,
-        authorization: Option<&Authorization>,
+        authorization: Option<&Authorization<'_>>,
         retried: &RetriedStatsInfo,
     ) -> Result<(), TryError> {
         if let Some(authorization) = authorization {

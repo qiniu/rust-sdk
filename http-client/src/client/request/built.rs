@@ -116,7 +116,7 @@ impl<'r> SimplifiedCallbackContext for RequestParts<'r> {
     }
 
     #[inline]
-    fn authorization(&self) -> Option<&Authorization> {
+    fn authorization(&self) -> Option<&Authorization<'r>> {
         self.data.authorization.as_ref()
     }
 

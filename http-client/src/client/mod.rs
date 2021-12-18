@@ -11,7 +11,10 @@ mod response;
 mod retried;
 mod retrier;
 
-pub use authorization::{Authorization, AuthorizationError, AuthorizationResult};
+pub use authorization::{
+    Authorization, AuthorizationError, AuthorizationProvider, AuthorizationResult,
+    CredentialAuthorizationV1, CredentialAuthorizationV2, UploadTokenAuthorization,
+};
 pub use backoff::{
     Backoff, BackoffDuration, BackoffOptions, ExponentialBackoff, FixedBackoff, LimitedBackoff,
     RandomizedBackoff, Ratio, NO_BACKOFF,

@@ -801,7 +801,7 @@ impl<'client> Client<'client> {
         &self,
         endpoints_provider: E,
         path_params: PathParams,
-        credential: impl qiniu_http_client::credential::CredentialProvider + 'static,
+        credential: impl qiniu_http_client::credential::CredentialProvider + std::clone::Clone + 'static,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
             let mut builder = self
@@ -824,7 +824,7 @@ impl<'client> Client<'client> {
         &self,
         endpoints_provider: E,
         path_params: PathParams,
-        credential: impl qiniu_http_client::credential::CredentialProvider + 'static,
+        credential: impl qiniu_http_client::credential::CredentialProvider + std::clone::Clone + 'static,
     ) -> AsyncRequestBuilder<'client, E> {
         RequestBuilder({
             let mut builder = self
