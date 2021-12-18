@@ -18,7 +18,7 @@ use proc_macro2::TokenStream;
 use serde_yaml::from_reader as yaml_from_reader;
 use std::{
     collections::VecDeque,
-    env::current_dir,
+    env::{self, current_dir},
     ffi::{OsStr, OsString},
     fs::{copy, create_dir_all, remove_dir_all, write, File},
     path::{Component, Path, PathBuf},
@@ -185,14 +185,16 @@ fn generate_rust_modules() -> Result<()> {
     }
 
     fn run_make_clippy(dir_path: &Path) -> Result<()> {
-        let status = Command::new("make")
-            .arg("-C")
-            .arg(dir_path)
-            .arg("clippy")
-            .stdin(Stdio::null())
-            .env_remove("RUST_LOG")
-            .status()?;
-        assert!(status.success());
+        if env::var_os("SKIP_CLIPPY").is_none() {
+            let status = Command::new("make")
+                .arg("-C")
+                .arg(dir_path)
+                .arg("clippy")
+                .stdin(Stdio::null())
+                .env_remove("RUST_LOG")
+                .status()?;
+            assert!(status.success());
+        }
         Ok(())
     }
 }

@@ -38,6 +38,9 @@ jobs:
         run: |
           rustup default ${{ matrix.rust }}
           make build clippy test
+        env:
+          RUST_LOG: "debug"
+          RUST_BACKTRACE: "1"
   macos:
     name: CI Test On macOS
     runs-on: macos-latest
@@ -57,19 +60,23 @@ jobs:
         with:
           profile: minimal
           toolchain: nightly
-          components: rustfmt, clippy
+          components: rustfmt
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
-          components: rustfmt, clippy
+          components: rustfmt
           default: true
           override: true
       - name: Test
         run: |
           rustup default ${{ matrix.rust }}
-          make build clippy test
+          make build test
+        env:
+          RUST_LOG: "debug"
+          RUST_BACKTRACE: "1"
+          SKIP_CLIPPY: "1"
   windows:
     name: CI Test On Windows
     runs-on: windows-latest
@@ -81,39 +88,25 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Install Visual Studio Dev cmds
-        uses: ilammy/msvc-dev-cmd@v1
-      - name: Install vcpkg
-        uses: lukka/run-vcpkg@main
-        with:
-          setupOnly: true
-          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-          vcpkgArguments: 'sqlite3'
-          vcpkgTriplet: 'x64-windows'
-          vcpkgGitCommitId: '30124253eecff36bc90f73341edbfb4f845e2a1e'
-      - name: Install openssl
-        run: |
-          $VCPKG_ROOT/vcpkg install openssl --triplet x64-windows
-        shell: bash
       - name: Install Rust nightly
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: nightly
-          components: rustfmt, clippy
+          components: rustfmt
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
-          components: rustfmt, clippy
+          components: rustfmt
           default: true
           override: true
       - name: Test
         run: |
           rustup default ${{ matrix.rust }}
-          make build clippy test
+          make build test
         env:
           RUST_LOG: "debug"
           RUST_BACKTRACE: "1"
-          OPENSSL_DIR: "${{ github.workspace }}/vcpkg/packages/openssl_x64-windows"
+          SKIP_CLIPPY: "1"
