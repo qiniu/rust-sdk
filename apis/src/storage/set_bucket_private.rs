@@ -12,6 +12,7 @@ pub struct RequestBody {
 }
 impl RequestBody {
     #[inline]
+    #[must_use]
     pub fn append_pair(
         mut self,
         key: impl Into<std::borrow::Cow<'static, str>>,
@@ -50,66 +51,77 @@ impl IntoIterator for RequestBody {
 }
 impl RequestBody {
     #[inline]
+    #[must_use]
     #[doc = "空间名称"]
     pub fn set_bucket_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#bucket = Some(value.into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "`0`: 公开，`1`: 私有"]
     pub fn set_is_private_as_i8(mut self, value: i8) -> Self {
         self.r#is_private = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "`0`: 公开，`1`: 私有"]
     pub fn set_is_private_as_i16(mut self, value: i16) -> Self {
         self.r#is_private = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "`0`: 公开，`1`: 私有"]
     pub fn set_is_private_as_i32(mut self, value: i32) -> Self {
         self.r#is_private = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "`0`: 公开，`1`: 私有"]
     pub fn set_is_private_as_i64(mut self, value: i64) -> Self {
         self.r#is_private = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "`0`: 公开，`1`: 私有"]
     pub fn set_is_private_as_isize(mut self, value: isize) -> Self {
         self.r#is_private = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "`0`: 公开，`1`: 私有"]
     pub fn set_is_private_as_u8(mut self, value: u8) -> Self {
         self.r#is_private = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "`0`: 公开，`1`: 私有"]
     pub fn set_is_private_as_u16(mut self, value: u16) -> Self {
         self.r#is_private = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "`0`: 公开，`1`: 私有"]
     pub fn set_is_private_as_u32(mut self, value: u32) -> Self {
         self.r#is_private = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "`0`: 公开，`1`: 私有"]
     pub fn set_is_private_as_u64(mut self, value: u64) -> Self {
         self.r#is_private = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "`0`: 公开，`1`: 私有"]
     pub fn set_is_private_as_usize(mut self, value: usize) -> Self {
         self.r#is_private = Some(value.to_string().into());

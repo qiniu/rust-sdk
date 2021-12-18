@@ -214,6 +214,7 @@ fn lib_rs_client_definition_token_stream(mods: &[(Ident, Option<&FileProperty>)]
 
         impl Client {
             #[inline]
+            #[must_use]
             pub fn new(client: qiniu_http_client::HttpClient) -> Self {
                 Self(client)
             }

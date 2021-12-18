@@ -497,6 +497,7 @@ pub struct BucketUploadTokenProviderBuilder<C: Clone> {
 
 impl<C: Clone> BucketUploadTokenProviderBuilder<C> {
     #[inline]
+    #[must_use]
     pub fn on_policy_generated(
         mut self,
         callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static,
@@ -620,6 +621,7 @@ pub struct ObjectUploadTokenProviderBuilder<C: Clone> {
 
 impl<C: Clone> ObjectUploadTokenProviderBuilder<C> {
     #[inline]
+    #[must_use]
     pub fn on_policy_generated(
         mut self,
         callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static,

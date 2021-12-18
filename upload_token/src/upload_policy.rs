@@ -106,7 +106,7 @@ impl UploadPolicy {
         self.get(SCOPE_KEY)
             .as_ref()
             .and_then(|v| v.as_str())
-            .and_then(|s| s.splitn(2, ':').nth(1))
+            .and_then(|s| s.split_once(':').map(|x| x.1))
     }
 
     /// 是否是对象名称前缀约束

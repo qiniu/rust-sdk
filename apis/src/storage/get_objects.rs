@@ -10,6 +10,7 @@ pub struct QueryParams<'a> {
 }
 impl<'a> QueryParams<'a> {
     #[inline]
+    #[must_use]
     pub fn insert(
         mut self,
         query_pair_key: qiniu_http_client::QueryPairKey<'a>,
@@ -30,6 +31,7 @@ impl<'a> From<QueryParams<'a>> for qiniu_http_client::QueryPairs<'a> {
 }
 impl<'a> QueryParams<'a> {
     #[inline]
+    #[must_use]
     #[doc = "指定存储空间"]
     pub fn set_bucket_as_str(
         self,
@@ -38,6 +40,7 @@ impl<'a> QueryParams<'a> {
         self.insert("bucket".into(), value.into())
     }
     #[inline]
+    #[must_use]
     #[doc = "上一次列举返回的位置标记，作为本次列举的起点信息"]
     pub fn set_marker_as_str(
         self,
@@ -46,56 +49,67 @@ impl<'a> QueryParams<'a> {
         self.insert("marker".into(), value.into())
     }
     #[inline]
+    #[must_use]
     #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_i8(self, value: i8) -> Self {
         self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_i16(self, value: i16) -> Self {
         self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_i32(self, value: i32) -> Self {
         self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_i64(self, value: i64) -> Self {
         self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_isize(self, value: isize) -> Self {
         self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_u8(self, value: u8) -> Self {
         self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_u16(self, value: u16) -> Self {
         self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_u32(self, value: u32) -> Self {
         self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_u64(self, value: u64) -> Self {
         self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "本次列举的条目数，范围为 1-1000"]
     pub fn set_limit_as_usize(self, value: usize) -> Self {
         self.insert("limit".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "指定前缀，只有资源名匹配该前缀的资源会被列出"]
     pub fn set_prefix_as_str(
         self,
@@ -104,6 +118,7 @@ impl<'a> QueryParams<'a> {
         self.insert("prefix".into(), value.into())
     }
     #[inline]
+    #[must_use]
     #[doc = "指定目录分隔符，列出所有公共前缀（模拟列出目录效果）"]
     pub fn set_delimiter_as_str(
         self,
@@ -112,6 +127,7 @@ impl<'a> QueryParams<'a> {
         self.insert("delimiter".into(), value.into())
     }
     #[inline]
+    #[must_use]
     #[doc = "如果文件是通过分片上传的，是否返回对应的分片信息"]
     pub fn set_need_parts_as_bool(self, value: bool) -> Self {
         self.insert("needparts".into(), value.to_string().into())

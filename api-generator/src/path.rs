@@ -115,6 +115,7 @@ impl PathParams {
 
                 impl #name {
                     #[inline]
+                    #[must_use]
                     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
                         self.extended_segments.push(segment.into());
                         self
@@ -219,6 +220,7 @@ impl PathParams {
             };
             quote! {
                 #[inline]
+                #[must_use]
                 #[doc = #documentation]
                 pub fn #method_name(
                     mut self,
@@ -241,6 +243,7 @@ impl PathParams {
                     let method_name = format_ident!("set_{}_as_{}", field_name, type_name);
                     quote! {
                         #[inline]
+                        #[must_use]
                         #[doc = #documentation]
                         pub fn #method_name(mut self, value: #rust_type) -> Self {
                             self.#field_name = Some(value.to_string().into());
@@ -270,6 +273,7 @@ impl PathParams {
             let method_name = format_ident!("append_{}_as_str", field_name);
             return quote! {
                 #[inline]
+                #[must_use]
                 #[doc = #documentation]
                 pub fn #method_name(
                     mut self,

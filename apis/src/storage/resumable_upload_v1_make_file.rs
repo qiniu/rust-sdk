@@ -11,6 +11,7 @@ pub struct PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.extended_segments.push(segment.into());
         self
@@ -38,72 +39,84 @@ impl PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     #[doc = "对象大小"]
     pub fn set_size_as_i8(mut self, value: i8) -> Self {
         self.r#size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象大小"]
     pub fn set_size_as_i16(mut self, value: i16) -> Self {
         self.r#size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象大小"]
     pub fn set_size_as_i32(mut self, value: i32) -> Self {
         self.r#size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象大小"]
     pub fn set_size_as_i64(mut self, value: i64) -> Self {
         self.r#size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象大小"]
     pub fn set_size_as_isize(mut self, value: isize) -> Self {
         self.r#size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象大小"]
     pub fn set_size_as_u8(mut self, value: u8) -> Self {
         self.r#size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象大小"]
     pub fn set_size_as_u16(mut self, value: u16) -> Self {
         self.r#size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象大小"]
     pub fn set_size_as_u32(mut self, value: u32) -> Self {
         self.r#size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象大小"]
     pub fn set_size_as_u64(mut self, value: u64) -> Self {
         self.r#size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象大小"]
     pub fn set_size_as_usize(mut self, value: usize) -> Self {
         self.r#size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象名称"]
     pub fn set_key_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#key = Some(qiniu_utils::base64::urlsafe(value.into().as_bytes()).into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "文件名称，若未指定，则魔法变量中无法使用fname，ext，fprefix"]
     pub fn set_file_name_as_str(
         mut self,
@@ -113,6 +126,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "文件 MIME 类型，若未指定，则根据文件内容自动检测 MIME 类型"]
     pub fn set_mime_type_as_str(
         mut self,
@@ -122,6 +136,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "自定义元数据（需要以 `x-qn-meta-` 作为前缀）或自定义变量（需要以 `x:` 作为前缀）"]
     pub fn append_custom_data_as_str(
         mut self,

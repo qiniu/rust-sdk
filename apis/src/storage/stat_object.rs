@@ -8,6 +8,7 @@ pub struct PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.extended_segments.push(segment.into());
         self
@@ -23,6 +24,7 @@ impl PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     #[doc = "指定目标对象空间与目标对象名称"]
     pub fn set_entry_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#entry = Some(qiniu_utils::base64::urlsafe(value.into().as_bytes()).into());
@@ -39,6 +41,7 @@ pub struct QueryParams<'a> {
 }
 impl<'a> QueryParams<'a> {
     #[inline]
+    #[must_use]
     pub fn insert(
         mut self,
         query_pair_key: qiniu_http_client::QueryPairKey<'a>,
@@ -59,6 +62,7 @@ impl<'a> From<QueryParams<'a>> for qiniu_http_client::QueryPairs<'a> {
 }
 impl<'a> QueryParams<'a> {
     #[inline]
+    #[must_use]
     #[doc = "如果文件是通过分片上传的，是否返回对应的分片信息"]
     pub fn set_need_parts_as_bool(self, value: bool) -> Self {
         self.insert("needparts".into(), value.to_string().into())

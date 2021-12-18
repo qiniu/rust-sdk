@@ -8,6 +8,7 @@ pub mod sync_part {
     }
     impl RequestBody {
         #[inline]
+        #[must_use]
         pub fn add_part(
             mut self,
             name: impl Into<qiniu_http_client::FieldName>,
@@ -28,6 +29,7 @@ pub mod sync_part {
     }
     impl RequestBody {
         #[inline]
+        #[must_use]
         #[doc = "对象名称，如果不传入，则通过上传策略中的 `saveKey` 字段决定，如果 `saveKey` 也没有置顶，则使用对象的哈希值"]
         pub fn set_object_name(self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
             self.add_part("key", qiniu_http_client::SyncPart::text(value))
@@ -46,11 +48,13 @@ pub mod sync_part {
             ))
         }
         #[inline]
+        #[must_use]
         #[doc = "上传内容的 CRC32 校验码，如果指定此值，则七牛服务器会使用此值进行内容检验"]
         pub fn set_crc_32(self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
             self.add_part("crc32", qiniu_http_client::SyncPart::text(value))
         }
         #[inline]
+        #[must_use]
         #[doc = "上传文件的内容"]
         pub fn set_file_as_reader(
             self,
@@ -63,6 +67,7 @@ pub mod sync_part {
             )
         }
         #[inline]
+        #[must_use]
         #[doc = "上传文件的内容"]
         pub fn set_file_as_bytes(
             self,
@@ -83,6 +88,7 @@ pub mod sync_part {
             Ok(self.add_part("file", qiniu_http_client::SyncPart::file_path(path)?))
         }
         #[inline]
+        #[must_use]
         #[doc = "自定义元数据（需要以 `x-qn-meta-` 作为前缀）或自定义变量（需要以 `x:` 作为前缀）"]
         pub fn append_custom_data(
             self,
@@ -102,6 +108,7 @@ pub mod async_part {
     }
     impl RequestBody {
         #[inline]
+        #[must_use]
         pub fn add_part(
             mut self,
             name: impl Into<qiniu_http_client::FieldName>,
@@ -122,6 +129,7 @@ pub mod async_part {
     }
     impl RequestBody {
         #[inline]
+        #[must_use]
         #[doc = "对象名称，如果不传入，则通过上传策略中的 `saveKey` 字段决定，如果 `saveKey` 也没有置顶，则使用对象的哈希值"]
         pub fn set_object_name(self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
             self.add_part("key", qiniu_http_client::AsyncPart::text(value))
@@ -140,11 +148,13 @@ pub mod async_part {
             ))
         }
         #[inline]
+        #[must_use]
         #[doc = "上传内容的 CRC32 校验码，如果指定此值，则七牛服务器会使用此值进行内容检验"]
         pub fn set_crc_32(self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
             self.add_part("crc32", qiniu_http_client::AsyncPart::text(value))
         }
         #[inline]
+        #[must_use]
         #[doc = "上传文件的内容"]
         pub fn set_file_as_reader(
             self,
@@ -157,6 +167,7 @@ pub mod async_part {
             )
         }
         #[inline]
+        #[must_use]
         #[doc = "上传文件的内容"]
         pub fn set_file_as_bytes(
             self,
@@ -177,6 +188,7 @@ pub mod async_part {
             Ok(self.add_part("file", qiniu_http_client::AsyncPart::file_path(path).await?))
         }
         #[inline]
+        #[must_use]
         #[doc = "自定义元数据（需要以 `x-qn-meta-` 作为前缀）或自定义变量（需要以 `x:` 作为前缀）"]
         pub fn append_custom_data(
             self,

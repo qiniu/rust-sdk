@@ -11,6 +11,7 @@ pub struct PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.extended_segments.push(segment.into());
         self
@@ -38,6 +39,7 @@ impl PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     #[doc = "存储空间名称"]
     pub fn set_bucket_name_as_str(
         mut self,
@@ -47,6 +49,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象名称"]
     pub fn set_object_name_as_str(
         mut self,
@@ -56,6 +59,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "在服务端申请的 Multipart Upload 任务 id"]
     pub fn set_upload_id_as_str(
         mut self,
@@ -65,60 +69,70 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_i8(mut self, value: i8) -> Self {
         self.r#part_number = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_i16(mut self, value: i16) -> Self {
         self.r#part_number = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_i32(mut self, value: i32) -> Self {
         self.r#part_number = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_i64(mut self, value: i64) -> Self {
         self.r#part_number = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_isize(mut self, value: isize) -> Self {
         self.r#part_number = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_u8(mut self, value: u8) -> Self {
         self.r#part_number = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_u16(mut self, value: u16) -> Self {
         self.r#part_number = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_u32(mut self, value: u32) -> Self {
         self.r#part_number = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_u64(mut self, value: u64) -> Self {
         self.r#part_number = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "每一个上传的分片都有一个标识它的号码"]
     pub fn set_part_number_as_usize(mut self, value: usize) -> Self {
         self.r#part_number = Some(value.to_string().into());
@@ -132,6 +146,7 @@ pub struct RequestHeaders {
 }
 impl RequestHeaders {
     #[inline]
+    #[must_use]
     pub fn insert(
         mut self,
         header_name: qiniu_http_client::http::header::HeaderName,
@@ -157,6 +172,7 @@ impl<'a> From<&'a RequestHeaders>
 }
 impl RequestHeaders {
     #[inline]
+    #[must_use]
     #[doc = "上传块内容的 md5 值，如果指定服务端会进行校验，不指定不校验"]
     pub fn set_md_5(self, value: impl Into<qiniu_http_client::http::header::HeaderValue>) -> Self {
         self.insert(

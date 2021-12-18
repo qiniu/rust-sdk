@@ -8,6 +8,7 @@ pub struct PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.extended_segments.push(segment.into());
         self
@@ -23,60 +24,70 @@ impl PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
     pub fn set_block_size_as_i8(mut self, value: i8) -> Self {
         self.r#block_size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
     pub fn set_block_size_as_i16(mut self, value: i16) -> Self {
         self.r#block_size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
     pub fn set_block_size_as_i32(mut self, value: i32) -> Self {
         self.r#block_size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
     pub fn set_block_size_as_i64(mut self, value: i64) -> Self {
         self.r#block_size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
     pub fn set_block_size_as_isize(mut self, value: isize) -> Self {
         self.r#block_size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
     pub fn set_block_size_as_u8(mut self, value: u8) -> Self {
         self.r#block_size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
     pub fn set_block_size_as_u16(mut self, value: u16) -> Self {
         self.r#block_size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
     pub fn set_block_size_as_u32(mut self, value: u32) -> Self {
         self.r#block_size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
     pub fn set_block_size_as_u64(mut self, value: u64) -> Self {
         self.r#block_size = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB"]
     pub fn set_block_size_as_usize(mut self, value: usize) -> Self {
         self.r#block_size = Some(value.to_string().into());

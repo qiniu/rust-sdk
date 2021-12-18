@@ -10,6 +10,7 @@ pub struct QueryParams<'a> {
 }
 impl<'a> QueryParams<'a> {
     #[inline]
+    #[must_use]
     pub fn insert(
         mut self,
         query_pair_key: qiniu_http_client::QueryPairKey<'a>,
@@ -30,6 +31,7 @@ impl<'a> From<QueryParams<'a>> for qiniu_http_client::QueryPairs<'a> {
 }
 impl<'a> QueryParams<'a> {
     #[inline]
+    #[must_use]
     #[doc = "空间名称"]
     pub fn set_bucket_as_str(
         self,

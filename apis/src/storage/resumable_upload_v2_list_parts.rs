@@ -10,6 +10,7 @@ pub struct PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.extended_segments.push(segment.into());
         self
@@ -34,6 +35,7 @@ impl PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     #[doc = "存储空间名称"]
     pub fn set_bucket_name_as_str(
         mut self,
@@ -43,6 +45,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象名称"]
     pub fn set_object_name_as_str(
         mut self,
@@ -52,6 +55,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "在服务端申请的 Multipart Upload 任务 id"]
     pub fn set_upload_id_as_str(
         mut self,
@@ -71,6 +75,7 @@ pub struct QueryParams<'a> {
 }
 impl<'a> QueryParams<'a> {
     #[inline]
+    #[must_use]
     pub fn insert(
         mut self,
         query_pair_key: qiniu_http_client::QueryPairKey<'a>,
@@ -91,101 +96,121 @@ impl<'a> From<QueryParams<'a>> for qiniu_http_client::QueryPairs<'a> {
 }
 impl<'a> QueryParams<'a> {
     #[inline]
+    #[must_use]
     #[doc = "响应中的最大分片数目。默认值：1000，最大值：1000"]
     pub fn set_max_parts_as_i8(self, value: i8) -> Self {
         self.insert("max-parts".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "响应中的最大分片数目。默认值：1000，最大值：1000"]
     pub fn set_max_parts_as_i16(self, value: i16) -> Self {
         self.insert("max-parts".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "响应中的最大分片数目。默认值：1000，最大值：1000"]
     pub fn set_max_parts_as_i32(self, value: i32) -> Self {
         self.insert("max-parts".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "响应中的最大分片数目。默认值：1000，最大值：1000"]
     pub fn set_max_parts_as_i64(self, value: i64) -> Self {
         self.insert("max-parts".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "响应中的最大分片数目。默认值：1000，最大值：1000"]
     pub fn set_max_parts_as_isize(self, value: isize) -> Self {
         self.insert("max-parts".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "响应中的最大分片数目。默认值：1000，最大值：1000"]
     pub fn set_max_parts_as_u8(self, value: u8) -> Self {
         self.insert("max-parts".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "响应中的最大分片数目。默认值：1000，最大值：1000"]
     pub fn set_max_parts_as_u16(self, value: u16) -> Self {
         self.insert("max-parts".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "响应中的最大分片数目。默认值：1000，最大值：1000"]
     pub fn set_max_parts_as_u32(self, value: u32) -> Self {
         self.insert("max-parts".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "响应中的最大分片数目。默认值：1000，最大值：1000"]
     pub fn set_max_parts_as_u64(self, value: u64) -> Self {
         self.insert("max-parts".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "响应中的最大分片数目。默认值：1000，最大值：1000"]
     pub fn set_max_parts_as_usize(self, value: usize) -> Self {
         self.insert("max-parts".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出"]
     pub fn set_part_number_marker_as_i8(self, value: i8) -> Self {
         self.insert("part-number_marker".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出"]
     pub fn set_part_number_marker_as_i16(self, value: i16) -> Self {
         self.insert("part-number_marker".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出"]
     pub fn set_part_number_marker_as_i32(self, value: i32) -> Self {
         self.insert("part-number_marker".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出"]
     pub fn set_part_number_marker_as_i64(self, value: i64) -> Self {
         self.insert("part-number_marker".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出"]
     pub fn set_part_number_marker_as_isize(self, value: isize) -> Self {
         self.insert("part-number_marker".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出"]
     pub fn set_part_number_marker_as_u8(self, value: u8) -> Self {
         self.insert("part-number_marker".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出"]
     pub fn set_part_number_marker_as_u16(self, value: u16) -> Self {
         self.insert("part-number_marker".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出"]
     pub fn set_part_number_marker_as_u32(self, value: u32) -> Self {
         self.insert("part-number_marker".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出"]
     pub fn set_part_number_marker_as_u64(self, value: u64) -> Self {
         self.insert("part-number_marker".into(), value.to_string().into())
     }
     #[inline]
+    #[must_use]
     #[doc = "指定列举的起始位置，只有 partNumber 值大于该参数的分片会被列出"]
     pub fn set_part_number_marker_as_usize(self, value: usize) -> Self {
         self.insert("part-number_marker".into(), value.to_string().into())

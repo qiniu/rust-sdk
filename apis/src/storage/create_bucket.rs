@@ -9,6 +9,7 @@ pub struct PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.extended_segments.push(segment.into());
         self
@@ -28,12 +29,14 @@ impl PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     #[doc = "空间名称，要求在对象存储系统范围内唯一，由 3～63 个字符组成，支持小写字母、短划线-和数字，且必须以小写字母或数字开头和结尾"]
     pub fn set_bucket_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#bucket = Some(value.into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "存储区域 ID，默认 z0"]
     pub fn set_region_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#region = Some(value.into());

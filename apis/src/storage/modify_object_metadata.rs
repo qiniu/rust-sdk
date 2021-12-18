@@ -10,6 +10,7 @@ pub struct PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.extended_segments.push(segment.into());
         self
@@ -33,12 +34,14 @@ impl PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     #[doc = "指定目标对象空间与目标对象名称"]
     pub fn set_entry_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#entry = Some(qiniu_utils::base64::urlsafe(value.into().as_bytes()).into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "新的 MIME 类型"]
     pub fn set_mime_type_as_str(
         mut self,
@@ -48,6 +51,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "条件匹配，当前支持设置 hash、mime、fsize、putTime 条件，只有条件匹配才会执行修改操作，格式为 condKey1=condVal1&condKey2=condVal2"]
     pub fn set_condition_as_str(
         mut self,
@@ -57,6 +61,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象存储元信息，键可以自定义，它可以由字母、数字、下划线、减号组成，必须以 x-qn-meta- 为前缀，且长度小于等于 50，单个文件键和值总和大小不能超过 1024 字节，可以同时修改多个键"]
     pub fn append_meta_data_as_str(
         mut self,

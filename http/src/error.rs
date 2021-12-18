@@ -155,6 +155,7 @@ impl ErrorBuilder {
         self.inner
     }
 
+    #[must_use]
     pub fn uri(mut self, uri: &Uri) -> Self {
         if let Some(host) = uri.host() {
             if let Ok(ip_addr) = host.parse::<IpAddr>() {
@@ -174,18 +175,21 @@ impl ErrorBuilder {
     }
 
     #[inline]
+    #[must_use]
     pub fn server_ip(mut self, server_ip: IpAddr) -> Self {
         *self.inner.server_ip_mut() = Some(server_ip);
         self
     }
 
     #[inline]
+    #[must_use]
     pub fn server_port(mut self, server_port: NonZeroU16) -> Self {
         *self.inner.server_port_mut() = Some(server_port);
         self
     }
 
     #[inline]
+    #[must_use]
     pub fn metrics(mut self, metrics: impl Metrics + 'static) -> Self {
         *self.inner.metrics_mut() = Some(Box::new(metrics));
         self

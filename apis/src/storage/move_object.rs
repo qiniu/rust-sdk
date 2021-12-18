@@ -10,6 +10,7 @@ pub struct PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.extended_segments.push(segment.into());
         self
@@ -32,6 +33,7 @@ impl PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     #[doc = "指定源对象空间与源对象名称"]
     pub fn set_src_entry_as_str(
         mut self,
@@ -41,6 +43,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定目标对象空间与目标对象名称"]
     pub fn set_dest_entry_as_str(
         mut self,
@@ -50,6 +53,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "如果目标对象名已被占用，则返回错误码 614，且不做任何覆盖操作；如果指定为 true，会强制覆盖目标对象"]
     pub fn set_is_force_as_bool(mut self, value: bool) -> Self {
         self.r#is_force = Some(value.to_string().into());

@@ -73,6 +73,7 @@ impl<P> Multipart<P> {
     }
 
     #[inline]
+    #[must_use]
     pub fn add_part(mut self, name: impl Into<FieldName>, part: P) -> Self {
         self.fields.push_back((name.into(), part));
         self
@@ -87,11 +88,13 @@ pub struct PartMetadata {
 
 impl PartMetadata {
     #[inline]
+    #[must_use]
     pub fn mime(self, mime: Mime) -> Self {
         self.add_header(CONTENT_TYPE, HeaderValue::from_str(mime.as_ref()).unwrap())
     }
 
     #[inline]
+    #[must_use]
     pub fn add_header(
         mut self,
         name: impl Into<HeaderName>,
@@ -102,6 +105,7 @@ impl PartMetadata {
     }
 
     #[inline]
+    #[must_use]
     pub fn file_name(mut self, file_name: impl Into<FileName>) -> Self {
         self.file_name = Some(file_name.into());
         self
@@ -110,6 +114,7 @@ impl PartMetadata {
 
 impl<B> Part<B> {
     #[inline]
+    #[must_use]
     pub fn metadata(mut self, metadata: PartMetadata) -> Self {
         self.meta = metadata;
         self
@@ -135,6 +140,7 @@ mod sync_part {
 
     impl SyncPart {
         #[inline]
+        #[must_use]
         pub fn text(value: impl Into<Cow<'static, str>>) -> Self {
             use bytes::Buf;
 
@@ -149,6 +155,7 @@ mod sync_part {
         }
 
         #[inline]
+        #[must_use]
         pub fn bytes(value: impl Into<Cow<'static, [u8]>>) -> Self {
             use bytes::Buf;
 
@@ -163,6 +170,7 @@ mod sync_part {
         }
 
         #[inline]
+        #[must_use]
         pub fn stream(value: impl Read + 'static) -> Self {
             Self {
                 body: SyncPartBody(SyncPartBodyInner::Stream(Box::new(value))),
@@ -259,6 +267,7 @@ mod async_part {
 
     impl AsyncPart {
         #[inline]
+        #[must_use]
         pub fn text(value: impl Into<Cow<'static, str>>) -> Self {
             let bytes = match value.into() {
                 Cow::Borrowed(slice) => Bytes::from_static(slice.as_bytes()),
@@ -271,6 +280,7 @@ mod async_part {
         }
 
         #[inline]
+        #[must_use]
         pub fn bytes(value: impl Into<Cow<'static, [u8]>>) -> Self {
             let bytes = match value.into() {
                 Cow::Borrowed(slice) => Bytes::from_static(slice),
@@ -283,6 +293,7 @@ mod async_part {
         }
 
         #[inline]
+        #[must_use]
         pub fn stream(value: impl AsyncRead + Send + Unpin + 'static) -> Self {
             Self {
                 body: AsyncPartBody(AsyncPartBodyInner::Stream(Box::new(value))),

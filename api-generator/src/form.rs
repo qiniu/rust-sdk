@@ -81,6 +81,7 @@ impl FormUrlencodedRequestStruct {
 
                 impl #name {
                     #[inline]
+                    #[must_use]
                     pub fn append_pair(
                         mut self,
                         key: impl Into<std::borrow::Cow<'static, str>>,
@@ -196,6 +197,7 @@ impl FormUrlencodedRequestStruct {
                 let method_name = format_ident!("append_{}_as_str", field_name);
                 quote! {
                     #[inline]
+                    #[must_use]
                     #[doc = #documentation]
                     pub fn #method_name(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
                         self.#field_name.push(value.into());
@@ -206,6 +208,7 @@ impl FormUrlencodedRequestStruct {
                 let method_name = format_ident!("set_{}_as_str", field_name);
                 quote! {
                     #[inline]
+                    #[must_use]
                     #[doc = #documentation]
                     pub fn #method_name(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
                         self.#field_name = Some(value.into());
@@ -228,6 +231,7 @@ impl FormUrlencodedRequestStruct {
                         let method_name = format_ident!("append_{}_as_{}", field_name, type_name);
                         quote! {
                             #[inline]
+                            #[must_use]
                             #[doc = #documentation]
                             pub fn #method_name(mut self, value: #rust_type) -> Self {
                                 self.#field_name.push(value.to_string().into());
@@ -238,6 +242,7 @@ impl FormUrlencodedRequestStruct {
                         let method_name = format_ident!("set_{}_as_{}", field_name, type_name);
                         quote! {
                             #[inline]
+                            #[must_use]
                             #[doc = #documentation]
                             pub fn #method_name(mut self, value: #rust_type) -> Self {
                                 self.#field_name = Some(value.to_string().into());

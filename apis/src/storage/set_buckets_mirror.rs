@@ -10,6 +10,7 @@ pub struct PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.extended_segments.push(segment.into());
         self
@@ -33,12 +34,14 @@ impl PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     #[doc = "需要设定镜像源的目标空间名"]
     pub fn set_bucket_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#bucket = Some(value.into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "镜像源的访问域名，必须设置为形如 `http(s)://source.com` 或 `http(s)://114.114.114.114` 的字符串"]
     pub fn set_src_site_url_as_str(
         mut self,
@@ -48,6 +51,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "回源时使用的 `Host` 头部值"]
     pub fn set_host_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#host = Some(qiniu_utils::base64::urlsafe(value.into().as_bytes()).into());

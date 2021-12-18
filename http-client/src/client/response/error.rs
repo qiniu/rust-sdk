@@ -78,12 +78,14 @@ impl Error {
     }
 
     #[inline]
+    #[must_use]
     pub fn retried(mut self, retried: &RetriedStatsInfo) -> Self {
         self.retried = Some(retried.to_owned());
         self
     }
 
     #[inline]
+    #[must_use]
     pub fn response_parts(mut self, response_parts: &HttpResponseParts) -> Self {
         self.server_ip = response_parts.server_ip();
         self.server_port = response_parts.server_port();
@@ -265,6 +267,7 @@ struct ClonedMetrics {
 }
 
 impl ClonedMetrics {
+    #[must_use]
     fn new(metrics: &dyn Metrics) -> Self {
         Self {
             total_duration: metrics.total_duration(),

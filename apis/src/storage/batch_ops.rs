@@ -11,6 +11,7 @@ pub struct RequestBody {
 }
 impl RequestBody {
     #[inline]
+    #[must_use]
     pub fn append_pair(
         mut self,
         key: impl Into<std::borrow::Cow<'static, str>>,
@@ -46,6 +47,7 @@ impl IntoIterator for RequestBody {
 }
 impl RequestBody {
     #[inline]
+    #[must_use]
     #[doc = "单一对象管理指令"]
     pub fn append_operations_as_str(
         mut self,

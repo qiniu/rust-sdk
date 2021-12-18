@@ -67,8 +67,8 @@ impl Chooser for IpChooser {
     fn choose(&self, ips: &[IpAddrWithPort], _opts: &ChooseOptions) -> ChosenResults {
         let mut need_to_shrink = false;
         let filtered_ips: Vec<_> = ips
-            .to_vec()
-            .into_iter()
+            .iter()
+            .copied()
             .filter(|&ip| {
                 self.inner.blacklist.get(&ip).map_or(true, |r| {
                     if r.value().blocked_at.elapsed() < self.inner.block_duration {

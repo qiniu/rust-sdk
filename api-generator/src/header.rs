@@ -60,6 +60,7 @@ impl HeaderNames {
             let header_name = header.header_name.as_str();
             quote! {
                 #[inline]
+                #[must_use]
                 #[doc = #documentation]
                 pub fn #method_name(
                     self,
@@ -83,6 +84,7 @@ impl HeaderNames {
 
                 impl #name {
                     #[inline]
+                    #[must_use]
                     pub fn insert(
                         mut self,
                         header_name: qiniu_http_client::http::header::HeaderName,

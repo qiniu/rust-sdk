@@ -11,6 +11,7 @@ pub struct PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.extended_segments.push(segment.into());
         self
@@ -38,186 +39,217 @@ impl PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     #[doc = "指定目标对象空间与目标对象名称"]
     pub fn set_entry_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#entry = Some(qiniu_utils::base64::urlsafe(value.into().as_bytes()).into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToIAAfterDays 转换到低频存储类型，设置为 -1 表示取消已设置的转低频存储的生命周期规则"]
     pub fn set_to_ia_after_days_as_i8(mut self, value: i8) -> Self {
         self.r#to_ia_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToIAAfterDays 转换到低频存储类型，设置为 -1 表示取消已设置的转低频存储的生命周期规则"]
     pub fn set_to_ia_after_days_as_i16(mut self, value: i16) -> Self {
         self.r#to_ia_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToIAAfterDays 转换到低频存储类型，设置为 -1 表示取消已设置的转低频存储的生命周期规则"]
     pub fn set_to_ia_after_days_as_i32(mut self, value: i32) -> Self {
         self.r#to_ia_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToIAAfterDays 转换到低频存储类型，设置为 -1 表示取消已设置的转低频存储的生命周期规则"]
     pub fn set_to_ia_after_days_as_i64(mut self, value: i64) -> Self {
         self.r#to_ia_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToIAAfterDays 转换到低频存储类型，设置为 -1 表示取消已设置的转低频存储的生命周期规则"]
     pub fn set_to_ia_after_days_as_isize(mut self, value: isize) -> Self {
         self.r#to_ia_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToIAAfterDays 转换到低频存储类型，设置为 -1 表示取消已设置的转低频存储的生命周期规则"]
     pub fn set_to_ia_after_days_as_u8(mut self, value: u8) -> Self {
         self.r#to_ia_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToIAAfterDays 转换到低频存储类型，设置为 -1 表示取消已设置的转低频存储的生命周期规则"]
     pub fn set_to_ia_after_days_as_u16(mut self, value: u16) -> Self {
         self.r#to_ia_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToIAAfterDays 转换到低频存储类型，设置为 -1 表示取消已设置的转低频存储的生命周期规则"]
     pub fn set_to_ia_after_days_as_u32(mut self, value: u32) -> Self {
         self.r#to_ia_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToIAAfterDays 转换到低频存储类型，设置为 -1 表示取消已设置的转低频存储的生命周期规则"]
     pub fn set_to_ia_after_days_as_u64(mut self, value: u64) -> Self {
         self.r#to_ia_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToIAAfterDays 转换到低频存储类型，设置为 -1 表示取消已设置的转低频存储的生命周期规则"]
     pub fn set_to_ia_after_days_as_usize(mut self, value: usize) -> Self {
         self.r#to_ia_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToARCHIVEAfterDays 转换到 归档存储类型， 设置为 -1 表示取消已设置的转归档存储的生命周期规则"]
     pub fn set_to_archive_after_days_as_i8(mut self, value: i8) -> Self {
         self.r#to_archive_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToARCHIVEAfterDays 转换到 归档存储类型， 设置为 -1 表示取消已设置的转归档存储的生命周期规则"]
     pub fn set_to_archive_after_days_as_i16(mut self, value: i16) -> Self {
         self.r#to_archive_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToARCHIVEAfterDays 转换到 归档存储类型， 设置为 -1 表示取消已设置的转归档存储的生命周期规则"]
     pub fn set_to_archive_after_days_as_i32(mut self, value: i32) -> Self {
         self.r#to_archive_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToARCHIVEAfterDays 转换到 归档存储类型， 设置为 -1 表示取消已设置的转归档存储的生命周期规则"]
     pub fn set_to_archive_after_days_as_i64(mut self, value: i64) -> Self {
         self.r#to_archive_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToARCHIVEAfterDays 转换到 归档存储类型， 设置为 -1 表示取消已设置的转归档存储的生命周期规则"]
     pub fn set_to_archive_after_days_as_isize(mut self, value: isize) -> Self {
         self.r#to_archive_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToARCHIVEAfterDays 转换到 归档存储类型， 设置为 -1 表示取消已设置的转归档存储的生命周期规则"]
     pub fn set_to_archive_after_days_as_u8(mut self, value: u8) -> Self {
         self.r#to_archive_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToARCHIVEAfterDays 转换到 归档存储类型， 设置为 -1 表示取消已设置的转归档存储的生命周期规则"]
     pub fn set_to_archive_after_days_as_u16(mut self, value: u16) -> Self {
         self.r#to_archive_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToARCHIVEAfterDays 转换到 归档存储类型， 设置为 -1 表示取消已设置的转归档存储的生命周期规则"]
     pub fn set_to_archive_after_days_as_u32(mut self, value: u32) -> Self {
         self.r#to_archive_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToARCHIVEAfterDays 转换到 归档存储类型， 设置为 -1 表示取消已设置的转归档存储的生命周期规则"]
     pub fn set_to_archive_after_days_as_u64(mut self, value: u64) -> Self {
         self.r#to_archive_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 ToARCHIVEAfterDays 转换到 归档存储类型， 设置为 -1 表示取消已设置的转归档存储的生命周期规则"]
     pub fn set_to_archive_after_days_as_usize(mut self, value: usize) -> Self {
         self.r#to_archive_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 DeleteAfterDays 过期删除，删除后不可恢复，设置为 -1 表示取消已设置的过期删除的生命周期规则"]
     pub fn set_delete_after_days_as_i8(mut self, value: i8) -> Self {
         self.r#delete_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 DeleteAfterDays 过期删除，删除后不可恢复，设置为 -1 表示取消已设置的过期删除的生命周期规则"]
     pub fn set_delete_after_days_as_i16(mut self, value: i16) -> Self {
         self.r#delete_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 DeleteAfterDays 过期删除，删除后不可恢复，设置为 -1 表示取消已设置的过期删除的生命周期规则"]
     pub fn set_delete_after_days_as_i32(mut self, value: i32) -> Self {
         self.r#delete_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 DeleteAfterDays 过期删除，删除后不可恢复，设置为 -1 表示取消已设置的过期删除的生命周期规则"]
     pub fn set_delete_after_days_as_i64(mut self, value: i64) -> Self {
         self.r#delete_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 DeleteAfterDays 过期删除，删除后不可恢复，设置为 -1 表示取消已设置的过期删除的生命周期规则"]
     pub fn set_delete_after_days_as_isize(mut self, value: isize) -> Self {
         self.r#delete_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 DeleteAfterDays 过期删除，删除后不可恢复，设置为 -1 表示取消已设置的过期删除的生命周期规则"]
     pub fn set_delete_after_days_as_u8(mut self, value: u8) -> Self {
         self.r#delete_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 DeleteAfterDays 过期删除，删除后不可恢复，设置为 -1 表示取消已设置的过期删除的生命周期规则"]
     pub fn set_delete_after_days_as_u16(mut self, value: u16) -> Self {
         self.r#delete_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 DeleteAfterDays 过期删除，删除后不可恢复，设置为 -1 表示取消已设置的过期删除的生命周期规则"]
     pub fn set_delete_after_days_as_u32(mut self, value: u32) -> Self {
         self.r#delete_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 DeleteAfterDays 过期删除，删除后不可恢复，设置为 -1 表示取消已设置的过期删除的生命周期规则"]
     pub fn set_delete_after_days_as_u64(mut self, value: u64) -> Self {
         self.r#delete_after_days = Some(value.to_string().into());
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "指定文件上传后在设置的 DeleteAfterDays 过期删除，删除后不可恢复，设置为 -1 表示取消已设置的过期删除的生命周期规则"]
     pub fn set_delete_after_days_as_usize(mut self, value: usize) -> Self {
         self.r#delete_after_days = Some(value.to_string().into());

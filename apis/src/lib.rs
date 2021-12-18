@@ -22,6 +22,7 @@ pub mod storage;
 pub struct Client(qiniu_http_client::HttpClient);
 impl Client {
     #[inline]
+    #[must_use]
     pub fn new(client: qiniu_http_client::HttpClient) -> Self {
         Self(client)
     }

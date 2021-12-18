@@ -10,6 +10,7 @@ pub struct PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.extended_segments.push(segment.into());
         self
@@ -34,6 +35,7 @@ impl PathParams {
 }
 impl PathParams {
     #[inline]
+    #[must_use]
     #[doc = "存储空间名称"]
     pub fn set_bucket_name_as_str(
         mut self,
@@ -43,6 +45,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "对象名称"]
     pub fn set_object_name_as_str(
         mut self,
@@ -52,6 +55,7 @@ impl PathParams {
         self
     }
     #[inline]
+    #[must_use]
     #[doc = "在服务端申请的 Multipart Upload 任务 id"]
     pub fn set_upload_id_as_str(
         mut self,

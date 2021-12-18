@@ -103,6 +103,7 @@ impl QueryNames {
             let method_name = format_ident!("set_{}_as_str", field_name);
             quote! {
                 #[inline]
+                #[must_use]
                 #[doc = #documentation]
                 pub fn #method_name(
                     self,
@@ -125,6 +126,7 @@ impl QueryNames {
                     let method_name = format_ident!("set_{}_as_{}", field_name, type_name);
                     quote! {
                         #[inline]
+                        #[must_use]
                         #[doc = #documentation]
                         pub fn #method_name(self, value: #rust_type) -> Self {
                             self.insert(#query_name.into(), value.to_string().into())
@@ -150,6 +152,7 @@ impl QueryNames {
 
                 impl<'a> #name<'a> {
                     #[inline]
+                    #[must_use]
                     pub fn insert(
                         mut self,
                         query_pair_key: qiniu_http_client::QueryPairKey<'a>,

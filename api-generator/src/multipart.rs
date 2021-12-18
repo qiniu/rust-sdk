@@ -173,6 +173,7 @@ impl MultipartFormDataRequestStruct {
             };
             quote! {
                 #[inline]
+                #[must_use]
                 #[doc = #documentation]
                 pub fn #method_name(self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
                     self.add_part(#key, #part_type::text(value))
@@ -232,6 +233,7 @@ impl MultipartFormDataRequestStruct {
             if sync_version {
                 quote! {
                     #[inline]
+                    #[must_use]
                     #[doc = #documentation]
                     pub fn #method_name(
                         self,
@@ -247,6 +249,7 @@ impl MultipartFormDataRequestStruct {
             } else {
                 quote! {
                     #[inline]
+                    #[must_use]
                     #[doc = #documentation]
                     pub fn #method_name(
                         self,
@@ -276,6 +279,7 @@ impl MultipartFormDataRequestStruct {
             };
             quote! {
                 #[inline]
+                #[must_use]
                 #[doc = #documentation]
                 pub fn #method_name(
                     self,
@@ -342,6 +346,7 @@ impl MultipartFormDataRequestStruct {
             };
             quote! {
                 #[inline]
+                #[must_use]
                 #[doc = #documentation]
                 pub fn #method_name(
                     self,
@@ -374,6 +379,7 @@ impl MultipartFormDataRequestStruct {
 
                 impl #name {
                     #[inline]
+                    #[must_use]
                     pub fn add_part(
                         mut self,
                         name: impl Into<qiniu_http_client::FieldName>,
