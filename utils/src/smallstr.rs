@@ -445,24 +445,10 @@ impl<A: Array<Item = u8>> AsRef<[u8]> for SmallString<A> {
     }
 }
 
-impl<A: Array<Item = u8>> AsMut<[u8]> for SmallString<A> {
-    #[inline]
-    fn as_mut(&mut self) -> &mut [u8] {
-        self.data.as_mut()
-    }
-}
-
 impl<A: Array<Item = u8>> std::borrow::Borrow<[u8]> for SmallString<A> {
     #[inline]
     fn borrow(&self) -> &[u8] {
         self.data.borrow()
-    }
-}
-
-impl<A: Array<Item = u8>> std::borrow::BorrowMut<[u8]> for SmallString<A> {
-    #[inline]
-    fn borrow_mut(&mut self) -> &mut [u8] {
-        self.data.borrow_mut()
     }
 }
 
@@ -1118,24 +1104,10 @@ macro_rules! wrap_smallstr {
             }
         }
 
-        impl AsMut<[u8]> for $name {
-            #[inline]
-            fn as_mut(&mut self) -> &mut [u8] {
-                self.inner.as_mut()
-            }
-        }
-
         impl Borrow<[u8]> for $name {
             #[inline]
             fn borrow(&self) -> &[u8] {
                 self.inner.borrow()
-            }
-        }
-
-        impl BorrowMut<[u8]> for $name {
-            #[inline]
-            fn borrow_mut(&mut self) -> &mut [u8] {
-                self.inner.borrow_mut()
             }
         }
 
