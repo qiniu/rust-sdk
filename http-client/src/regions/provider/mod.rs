@@ -1,12 +1,18 @@
 use super::{
-    super::{ApiResult, CacheController},
+    super::{
+        cache::{CacheController, IsCacheValid},
+        ApiResult,
+    },
     Region,
 };
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
+use serde::{Deserialize, Serialize};
 use std::{
-    fmt::Debug,
+    error::Error,
+    fmt::{self, Debug, Display},
     ops::{Deref, DerefMut},
+    time::{Duration, SystemTime},
 };
 
 mod cache_key;
@@ -72,53 +78,95 @@ pub trait RegionProvider: Clone + Debug + Sync + Send {
 #[derive(Clone, Debug, Default)]
 pub struct GetOptions {}
 
-#[derive(Clone, Debug)]
-pub struct GotRegion(Region);
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GotRegion {
+    region: Region,
+    lifetime: Option<Duration>,
+    got_at: SystemTime,
+}
 
 impl From<GotRegion> for Region {
     #[inline]
     fn from(result: GotRegion) -> Self {
-        result.0
+        result.region
     }
 }
 
 impl From<Region> for GotRegion {
     #[inline]
     fn from(region: Region) -> Self {
-        Self(region)
+        Self {
+            region,
+            got_at: SystemTime::now(),
+            lifetime: None,
+        }
     }
 }
 
 impl GotRegion {
     #[inline]
     pub fn region(&self) -> &Region {
-        &self.0
+        &self.region
     }
 
     #[inline]
     pub fn region_mut(&mut self) -> &mut Region {
-        &mut self.0
+        &mut self.region
+    }
+
+    #[inline]
+    pub fn lifetime(&self) -> Option<Duration> {
+        self.lifetime
+    }
+
+    #[inline]
+    pub fn lifetime_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.lifetime
     }
 
     #[inline]
     pub fn into_region(self) -> Region {
-        self.0
+        self.region
     }
 }
+
+impl IsCacheValid for GotRegion {
+    #[inline]
+    fn is_valid(&self) -> bool {
+        if let Some(lifetime) = self.lifetime {
+            if let Ok(elapsed) = self.got_at.elapsed() {
+                elapsed <= lifetime
+            } else {
+                false // 如果发生时间倒流，则立即判定为 INVALID
+            }
+        } else {
+            true
+        }
+    }
+}
+
+impl PartialEq for GotRegion {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.region == other.region
+    }
+}
+
+impl Eq for GotRegion {}
 
 impl Deref for GotRegion {
     type Target = Region;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.region()
     }
 }
 
 impl DerefMut for GotRegion {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        self.region_mut()
     }
 }
 
@@ -136,27 +184,35 @@ impl RegionProvider for GotRegion {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct GotRegions(Vec<Region>);
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GotRegions {
+    regions: Vec<Region>,
+    lifetime: Option<Duration>,
+    got_at: SystemTime,
+}
 
 impl From<GotRegions> for Vec<Region> {
     #[inline]
     fn from(results: GotRegions) -> Self {
-        results.0
+        results.regions
     }
 }
 
 impl From<Vec<Region>> for GotRegions {
     #[inline]
     fn from(regions: Vec<Region>) -> Self {
-        Self(regions)
+        Self {
+            regions,
+            got_at: SystemTime::now(),
+            lifetime: None,
+        }
     }
 }
 
 impl FromIterator<Region> for GotRegions {
     #[inline]
     fn from_iter<T: IntoIterator<Item = Region>>(iter: T) -> Self {
-        Self(Vec::from_iter(iter))
+        Vec::from_iter(iter).into()
     }
 }
 
@@ -166,7 +222,7 @@ impl<'a> IntoIterator for &'a GotRegions {
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
+        self.regions.iter()
     }
 }
 
@@ -176,38 +232,72 @@ impl IntoIterator for GotRegions {
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+        self.regions.into_iter()
     }
 }
 
 impl GotRegions {
     #[inline]
     pub fn regions(&self) -> &[Region] {
-        &self.0
+        &self.regions
     }
 
     #[inline]
     pub fn regions_mut(&mut self) -> &mut Vec<Region> {
-        &mut self.0
+        &mut self.regions
+    }
+
+    #[inline]
+    pub fn lifetime(&self) -> Option<Duration> {
+        self.lifetime
+    }
+
+    #[inline]
+    pub fn lifetime_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.lifetime
     }
 
     #[inline]
     pub fn into_regions(self) -> Vec<Region> {
-        self.0
+        self.regions
     }
 }
+
+impl IsCacheValid for GotRegions {
+    #[inline]
+    fn is_valid(&self) -> bool {
+        if let Some(lifetime) = self.lifetime {
+            if let Ok(elapsed) = self.got_at.elapsed() {
+                elapsed <= lifetime
+            } else {
+                false // 如果发生时间倒流，则立即判定为 INVALID
+            }
+        } else {
+            true
+        }
+    }
+}
+
+impl PartialEq for GotRegions {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.regions == other.regions
+    }
+}
+
+impl Eq for GotRegions {}
 
 impl AsRef<[Region]> for GotRegions {
     #[inline]
     fn as_ref(&self) -> &[Region] {
-        &self.0
+        self.regions()
     }
 }
 
 impl AsMut<[Region]> for GotRegions {
     #[inline]
     fn as_mut(&mut self) -> &mut [Region] {
-        &mut self.0
+        self.regions_mut()
     }
 }
 
@@ -216,14 +306,14 @@ impl Deref for GotRegions {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.regions()
     }
 }
 
 impl DerefMut for GotRegions {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        self.regions_mut()
     }
 }
 
@@ -243,5 +333,44 @@ impl RegionProvider for GotRegions {
     #[inline]
     fn get_all(&self, _opts: &GetOptions) -> ApiResult<GotRegions> {
         Ok(self.to_owned())
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct EmptyRegionError;
+
+impl Display for EmptyRegionError {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&"regions must not be empty", f)
+    }
+}
+
+impl Error for EmptyRegionError {}
+
+impl TryFrom<GotRegions> for GotRegion {
+    type Error = EmptyRegionError;
+
+    fn try_from(value: GotRegions) -> Result<Self, Self::Error> {
+        if let Some(region) = value.regions.into_iter().next() {
+            Ok(Self {
+                region,
+                lifetime: value.lifetime,
+                got_at: value.got_at,
+            })
+        } else {
+            Err(EmptyRegionError)
+        }
+    }
+}
+
+impl From<GotRegion> for GotRegions {
+    #[inline]
+    fn from(value: GotRegion) -> Self {
+        Self {
+            regions: vec![value.region],
+            lifetime: value.lifetime,
+            got_at: value.got_at,
+        }
     }
 }

@@ -32,7 +32,7 @@ impl RegionsProvider {
         Self::builder(credential_provider).build()
     }
 
-    fn do_sync_query(&self) -> ApiResult<Vec<Region>> {
+    fn do_sync_query(&self) -> ApiResult<GotRegions> {
         let (parts, body) = self
             .http_client
             .get(&[ServiceName::Uc], &self.uc_endpoints)
@@ -42,17 +42,21 @@ impl RegionsProvider {
             .call()?
             .parse_json::<ResponseBody>()?
             .into_parts();
-        body.into_hosts()
+        let hosts = body.into_hosts();
+        let min_lifetime = hosts.iter().map(|host| host.lifetime()).min();
+        let mut got_regions = hosts
             .into_iter()
             .map(|host| {
                 Region::try_from(host)
                     .map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts))
             })
-            .collect()
+            .collect::<ApiResult<GotRegions>>()?;
+        *got_regions.lifetime_mut() = min_lifetime;
+        Ok(got_regions)
     }
 
     #[cfg(feature = "async")]
-    async fn do_async_query(&self) -> ApiResult<Vec<Region>> {
+    async fn do_async_query(&self) -> ApiResult<GotRegions> {
         let (parts, body) = self
             .http_client
             .async_get(&[ServiceName::Uc], &self.uc_endpoints)
@@ -64,13 +68,17 @@ impl RegionsProvider {
             .parse_json::<ResponseBody>()
             .await?
             .into_parts();
-        body.into_hosts()
+        let hosts = body.into_hosts();
+        let min_lifetime = hosts.iter().map(|host| host.lifetime()).min();
+        let mut got_regions = hosts
             .into_iter()
             .map(|host| {
                 Region::try_from(host)
                     .map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts))
             })
-            .collect()
+            .collect::<ApiResult<GotRegions>>()?;
+        *got_regions.lifetime_mut() = min_lifetime;
+        Ok(got_regions)
     }
 }
 
@@ -78,11 +86,8 @@ impl RegionProvider for RegionsProvider {
     fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
         self.get_all(opts).map(|regions| {
             regions
-                .into_regions()
-                .into_iter()
-                .next()
+                .try_into()
                 .expect("Regions API returns empty regions")
-                .into()
         })
     }
 
@@ -98,11 +103,8 @@ impl RegionProvider for RegionsProvider {
         Box::pin(async move {
             self.async_get_all(opts).await.map(|regions| {
                 regions
-                    .into_regions()
-                    .into_iter()
-                    .next()
+                    .try_into()
                     .expect("Regions API returns empty regions")
-                    .into()
             })
         })
     }
@@ -164,7 +166,7 @@ mod tests {
     use futures::channel::oneshot::channel;
     use qiniu_credential::Credential;
     use serde_json::{json, Value as JsonValue};
-    use std::{error::Error, result::Result};
+    use std::{error::Error, result::Result, time::Duration};
     use tokio::task::spawn;
     use warp::{http::header::HeaderValue, path, reply::Response, Filter};
 
@@ -208,6 +210,7 @@ mod tests {
                 .build();
 
             let regions = provider.async_get_all(&Default::default()).await?;
+            assert_eq!(regions.lifetime(), Some(Duration::from_secs(5)));
             assert_eq!(regions.len(), 5);
             assert_eq!(
                 regions
@@ -225,6 +228,7 @@ mod tests {
             "regions": [
                {
                  "id": "z0",
+                 "ttl": 5,
                  "description": "East China",
                  "io": {
                    "domains": [
@@ -270,6 +274,7 @@ mod tests {
                },
                {
                  "id": "z1",
+                 "ttl": 5,
                  "description": "North China",
                  "io": {
                    "domains": [
@@ -315,6 +320,7 @@ mod tests {
                },
                {
                  "id": "z2",
+                 "ttl": 5,
                  "description": "South China",
                  "io": {
                    "domains": [
@@ -360,6 +366,7 @@ mod tests {
                },
                {
                  "id": "as0",
+                 "ttl": 5,
                  "description": "Southeast Asia",
                  "io": {
                    "domains": [
@@ -405,6 +412,7 @@ mod tests {
                },
                {
                  "id": "na0",
+                 "ttl": 5,
                  "description": "North America",
                  "io": {
                    "domains": [

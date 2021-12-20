@@ -22,9 +22,10 @@ impl RegionProvider for StaticRegionsProvider {
     fn get(&self, _opts: &GetOptions) -> ApiResult<GotRegion> {
         Ok(self
             .regions
-            .first()
+            .iter()
+            .cloned()
+            .next()
             .expect("regions must not be empty")
-            .to_owned()
             .into())
     }
 

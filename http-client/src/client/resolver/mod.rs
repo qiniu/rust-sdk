@@ -4,9 +4,10 @@ mod shuffled;
 mod simple;
 mod timeout;
 
-use crate::RetriedStatsInfo;
-
-use super::{super::CacheController, ApiResult};
+use super::{
+    super::cache::{CacheController, IsCacheValid},
+    ApiResult, RetriedStatsInfo,
+};
 use auto_impl::auto_impl;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -93,6 +94,8 @@ impl ResolveAnswers {
         self.ip_addrs
     }
 }
+
+impl IsCacheValid for ResolveAnswers {}
 
 impl From<Box<[IpAddr]>> for ResolveAnswers {
     #[inline]

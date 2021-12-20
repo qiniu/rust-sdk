@@ -3,7 +3,7 @@ use super::{
     Region,
 };
 use serde::Deserialize;
-use std::{convert::TryFrom, fmt::Debug};
+use std::{convert::TryFrom, fmt::Debug, time::Duration};
 
 #[derive(Debug, Clone, Deserialize)]
 pub(super) struct ResponseBody {
@@ -21,6 +21,8 @@ impl ResponseBody {
 pub(super) struct RegionResponseBody {
     #[serde(alias = "id")]
     region: Box<str>,
+    #[serde(default = "default_ttl")]
+    ttl: u64,
     io: DomainsResponseBody,
     up: DomainsResponseBody,
     uc: DomainsResponseBody,
@@ -28,6 +30,16 @@ pub(super) struct RegionResponseBody {
     rsf: DomainsResponseBody,
     api: DomainsResponseBody,
     s3: DomainsResponseBody,
+}
+
+impl RegionResponseBody {
+    pub(super) fn lifetime(&self) -> Duration {
+        Duration::from_secs(self.ttl)
+    }
+}
+
+fn default_ttl() -> u64 {
+    86400
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -54,6 +66,7 @@ impl TryFrom<RegionResponseBody> for Region {
             rsf,
             api,
             s3,
+            ..
         } = body;
         let mut builder = Self::builder(region);
 

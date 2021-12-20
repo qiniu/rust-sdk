@@ -21,6 +21,12 @@ use std::{
 };
 use thiserror::Error;
 
+pub(super) trait IsCacheValid {
+    fn is_valid(&self) -> bool {
+        true
+    }
+}
+
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait CacheController {
     fn clear(&self);
@@ -32,9 +38,23 @@ struct CacheValue<V> {
     cached_at: SystemTime,
 }
 
+impl<V: IsCacheValid> CacheValue<V> {
+    fn is_cache_valid(&self, cache_lifetime: Duration) -> bool {
+        self.cached_at + cache_lifetime >= SystemTime::now() && self.value.is_valid()
+    }
+}
+
+impl<V: IsCacheValid> IsCacheValid for CacheValue<V> {
+    fn is_valid(&self) -> bool {
+        self.value.is_valid()
+    }
+}
+
 #[derive(Clone)]
-pub(super) struct Cache<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize>
-{
+pub(super) struct Cache<
+    K: Eq + PartialEq + Hash + Clone + Debug + Serialize,
+    V: IsCacheValid + Clone + Serialize,
+> {
     inner: Arc<CacheInner<K, V>>,
 }
 
@@ -77,7 +97,7 @@ impl<K, V> PersistentFile<K, V> {
 
 impl<
         K: Eq + PartialEq + Hash + Clone + Debug + Serialize + for<'de> Deserialize<'de>,
-        V: Clone + Serialize + for<'de> Deserialize<'de>,
+        V: IsCacheValid + Clone + Serialize + for<'de> Deserialize<'de>,
     > Cache<K, V>
 {
     pub(super) fn load_or_create_from(
@@ -112,7 +132,7 @@ impl<
         for line in file.lines() {
             let entry: PersistentCacheEntry<K, V> = serde_json::from_str(&line?)?;
             if let Some(value) = entry.value {
-                if value.cached_at + cache_lifetime >= SystemTime::now() {
+                if value.is_cache_valid(cache_lifetime) {
                     cache.insert(entry.key, value);
                 }
             } else {
@@ -132,7 +152,9 @@ impl<
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> Cache<K, V> {
+impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize>
+    Cache<K, V>
+{
     pub(super) fn in_memory(cache_lifetime: Duration, shrink_interval: Duration) -> Self {
         Self::new(cache_lifetime, shrink_interval, None)
     }
@@ -165,7 +187,7 @@ impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize>
 
 impl<
         K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Sync + Send + 'static,
-        V: Clone + Sync + Send + Serialize + 'static,
+        V: IsCacheValid + Clone + Sync + Send + Serialize + 'static,
     > Cache<K, V>
 {
     pub(super) fn get<Q: ?Sized>(
@@ -195,7 +217,7 @@ impl<
                 });
 
         let cache = cache_result?;
-        if cache.cached_at + self.inner.cache_lifetime < SystemTime::now() {
+        if !cache.is_cache_valid(self.inner.cache_lifetime) {
             self.inner.refreshes.insert(key.to_owned(), Box::new(f));
         }
 
@@ -237,7 +259,7 @@ impl<
 
 impl<
         K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Sync + Send + 'static,
-        V: Clone + Serialize + Sync + Send + 'static,
+        V: IsCacheValid + Clone + Serialize + Sync + Send + 'static,
     > CacheController for Cache<K, V>
 {
     fn clear(&self) {
@@ -252,7 +274,9 @@ impl<
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> Cache<K, V> {
+impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize>
+    Cache<K, V>
+{
     fn push_command_if_persistent_enabled(
         &self,
         get_cmd: impl FnOnce() -> PersistentCacheCommand<K, V>,
@@ -261,8 +285,8 @@ impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize>
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> Debug
-    for Cache<K, V>
+impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize>
+    Debug for Cache<K, V>
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -270,7 +294,7 @@ impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize>
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> Drop
+impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize> Drop
     for Cache<K, V>
 {
     #[inline]
@@ -281,7 +305,9 @@ impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize>
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize> CacheInner<K, V> {
+impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize>
+    CacheInner<K, V>
+{
     fn push_command_if_persistent_enabled(
         &self,
         get_cmd: impl FnOnce() -> PersistentCacheCommand<K, V>,
@@ -327,7 +353,7 @@ type PersistentResult<T> = Result<T, PersistentError>;
 
 fn do_some_work_async<
     K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Sync + Send + 'static,
-    V: Clone + Serialize + Sync + Send + 'static,
+    V: IsCacheValid + Clone + Serialize + Sync + Send + 'static,
 >(
     inner: &Arc<CacheInner<K, V>>,
 ) {
@@ -367,7 +393,7 @@ fn do_some_work_async<
 
 fn do_some_work_with_locked_data<
     K: Eq + PartialEq + Hash + Clone + Debug + Serialize,
-    V: Clone + Serialize,
+    V: IsCacheValid + Clone + Serialize,
 >(
     inner: &CacheInner<K, V>,
     locked_data: &mut CacheInnerLockedData,
@@ -381,7 +407,10 @@ fn do_some_work_with_locked_data<
     persistent_to_file(inner);
     return;
 
-    fn refresh_cache<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: Clone + Serialize>(
+    fn refresh_cache<
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize,
+        V: IsCacheValid + Clone + Serialize,
+    >(
         inner: &CacheInner<K, V>,
     ) {
         inner.refreshes.retain(|key, f| {
@@ -406,10 +435,10 @@ fn do_some_work_with_locked_data<
         });
     }
 
-    fn shrink_cache<K: Eq + PartialEq + Hash, V>(inner: &CacheInner<K, V>) {
+    fn shrink_cache<K: Eq + PartialEq + Hash, V: IsCacheValid>(inner: &CacheInner<K, V>) {
         let mut count = 0usize;
         inner.cache.retain(|_, cache| {
-            if cache.cached_at + inner.cache_lifetime >= SystemTime::now() {
+            if cache.is_cache_valid(inner.cache_lifetime) {
                 true
             } else {
                 count += 1;
@@ -422,7 +451,7 @@ fn do_some_work_with_locked_data<
         }
     }
 
-    fn persistent_to_file<K: Serialize, V: Serialize>(inner: &CacheInner<K, V>) {
+    fn persistent_to_file<K: Serialize, V: IsCacheValid + Serialize>(inner: &CacheInner<K, V>) {
         if let Some(persistent) = &inner.persistent {
             if let Err(err) =
                 _persistent_to_file(&persistent.commands, &persistent.path, inner.cache_lifetime)
@@ -436,7 +465,7 @@ fn do_some_work_with_locked_data<
         }
     }
 
-    fn _persistent_to_file<K: Serialize, V: Serialize>(
+    fn _persistent_to_file<K: Serialize, V: IsCacheValid + Serialize>(
         commands: &SegQueue<PersistentCacheCommand<K, V>>,
         path: &Path,
         cache_lifetime: Duration,
@@ -458,7 +487,7 @@ fn do_some_work_with_locked_data<
         Ok(())
     }
 
-    fn _execute_commands<K: Serialize, V: Serialize>(
+    fn _execute_commands<K: Serialize, V: IsCacheValid + Serialize>(
         commands: &SegQueue<PersistentCacheCommand<K, V>>,
         mut writer: &mut BufWriter<File>,
         cache_lifetime: Duration,
@@ -482,14 +511,14 @@ fn do_some_work_with_locked_data<
         Ok(())
     }
 
-    fn _append_cache_entry_to_file<K: Serialize, V: Serialize>(
+    fn _append_cache_entry_to_file<K: Serialize, V: IsCacheValid + Serialize>(
         mut writer: impl Write,
         key: K,
         value: Option<CacheValue<V>>,
         cache_lifetime: Duration,
     ) -> PersistentResult<()> {
         if let Some(value) = value {
-            if value.cached_at + cache_lifetime >= SystemTime::now() {
+            if value.is_cache_valid(cache_lifetime) {
                 let line = serde_json::to_string(&PersistentCacheEntry::<K, V> {
                     key,
                     value: Some(value),
@@ -529,6 +558,11 @@ mod tests {
         thread::sleep,
     };
 
+    #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+    struct SimpleCacheValue(String);
+
+    impl IsCacheValid for SimpleCacheValue {}
+
     #[test]
     fn test_cache_in_memory_refresh() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
@@ -536,7 +570,7 @@ mod tests {
         let cache = Cache::in_memory(Duration::from_secs(2), Duration::from_secs(2));
         let called = Arc::new(AtomicUsize::new(0));
         let cache_key = "key_1".to_owned();
-        let cache_value_1 = "val_1".to_owned();
+        let cache_value_1 = SimpleCacheValue("val_1".to_owned());
         assert_eq!(
             cache.get(&cache_key, {
                 let called = called.to_owned();
@@ -554,7 +588,7 @@ mod tests {
 
         sleep(Duration::from_secs(2));
 
-        let cache_value_2 = "val_2".to_owned();
+        let cache_value_2 = SimpleCacheValue("val_2".to_owned());
         assert_eq!(
             cache.get(&cache_key, {
                 let called = called.to_owned();
@@ -585,7 +619,7 @@ mod tests {
         let cache = Cache::in_memory(Duration::from_secs(2), Duration::from_secs(2));
         let called = Arc::new(AtomicUsize::new(0));
         let cache_key = "key_1".to_owned();
-        let cache_value_1 = "val_1".to_owned();
+        let cache_value_1 = SimpleCacheValue("val_1".to_owned());
         assert_eq!(
             cache.get(&cache_key, {
                 let called = called.to_owned();

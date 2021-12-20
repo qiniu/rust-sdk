@@ -172,11 +172,8 @@ impl RegionProvider for BucketRegionsProvider {
     fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
         self.get_all(opts).map(|regions| {
             regions
-                .into_regions()
-                .into_iter()
-                .next()
+                .try_into()
                 .expect("Regions Query API returns empty regions")
-                .into()
         })
     }
 
@@ -186,7 +183,6 @@ impl RegionProvider for BucketRegionsProvider {
         self.queryer
             .cache
             .get(&self.cache_key, move || provider.do_sync_query())
-            .map(GotRegions::from)
     }
 
     /// 异步返回七牛区域信息
@@ -216,7 +212,7 @@ impl RegionProvider for BucketRegionsProvider {
 }
 
 impl BucketRegionsProvider {
-    fn do_sync_query(&self) -> ApiResult<Vec<Region>> {
+    fn do_sync_query(&self) -> ApiResult<GotRegions> {
         let (parts, body) = self
             .queryer
             .http_client
@@ -231,13 +227,17 @@ impl BucketRegionsProvider {
             .call()?
             .parse_json::<ResponseBody>()?
             .into_parts();
-        body.into_hosts()
+        let hosts = body.into_hosts();
+        let min_lifetime = hosts.iter().map(|host| host.lifetime()).min();
+        let mut got_regions = hosts
             .into_iter()
             .map(|host| {
                 Region::try_from(host)
                     .map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts))
             })
-            .collect()
+            .collect::<ApiResult<GotRegions>>()?;
+        *got_regions.lifetime_mut() = min_lifetime;
+        Ok(got_regions)
     }
 }
 
@@ -312,11 +312,9 @@ mod tests {
 
             for _ in 0..2 {
                 let provider = queryer.query(ACCESS_KEY, BUCKET_NAME);
-                let mut regions = provider
-                    .async_get_all(&Default::default())
-                    .await?
-                    .into_regions()
-                    .into_iter();
+                let got_regions = provider.async_get_all(&Default::default()).await?;
+                assert_eq!(got_regions.lifetime(), Some(Duration::from_secs(5)));
+                let mut regions = got_regions.into_regions().into_iter();
                 assert_eq!(regions.len(), 2);
                 let region = regions.next().unwrap();
                 assert_eq!(region.region_id(), "z0");
@@ -424,7 +422,7 @@ mod tests {
           "hosts": [
             {
               "region": "z0",
-              "ttl": 86400,
+              "ttl": 5,
               "io": {
                 "domains": [
                   "iovip.qbox.me"
@@ -469,7 +467,7 @@ mod tests {
             },
             {
               "region": "z1",
-              "ttl": 86400,
+              "ttl": 5,
               "io": {
                 "domains": [
                   "iovip-z1.qbox.me"

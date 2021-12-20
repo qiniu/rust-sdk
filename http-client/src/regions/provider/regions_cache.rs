@@ -1,12 +1,10 @@
 use super::{
-    super::{
-        super::{
-            cache::{Cache, CacheController},
-            ApiResult,
-        },
-        Region,
+    super::super::{
+        cache::{Cache, CacheController},
+        ApiResult,
     },
     cache_key::CacheKey,
+    GotRegions,
 };
 use std::{
     env::temp_dir,
@@ -16,7 +14,7 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub(super) struct RegionsCache {
-    inner: Cache<CacheKey, Vec<Region>>,
+    inner: Cache<CacheKey, GotRegions>,
 }
 
 impl RegionsCache {
@@ -65,13 +63,13 @@ impl RegionsCache {
     pub(super) fn get(
         &self,
         key: &CacheKey,
-        f: impl FnMut() -> ApiResult<Vec<Region>> + Send + Sync + 'static,
-    ) -> ApiResult<Vec<Region>> {
+        f: impl FnMut() -> ApiResult<GotRegions> + Send + Sync + 'static,
+    ) -> ApiResult<GotRegions> {
         self.inner.get(key, f)
     }
 
     #[allow(dead_code)]
-    pub(super) fn set(&self, key: CacheKey, regions: Vec<Region>) {
+    pub(super) fn set(&self, key: CacheKey, regions: GotRegions) {
         self.inner.set(key, regions)
     }
 
@@ -90,7 +88,10 @@ impl CacheController for RegionsCache {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::super::Endpoints, *};
+    use super::{
+        super::super::{Endpoints, Region},
+        *,
+    };
     use crate::test_utils::chaotic_up_domains_region;
     use std::{
         sync::{
@@ -118,7 +119,7 @@ mod tests {
                     let generate_new_cache = generate_new_cache.to_owned();
                     move || {
                         generate_new_cache.store(true, Relaxed);
-                        Ok(vec![chaotic_up_domains_region()])
+                        Ok(vec![chaotic_up_domains_region()].into())
                     }
                 })?
                 .len(),
@@ -143,7 +144,7 @@ mod tests {
                     let generate_new_cache = generate_new_cache.to_owned();
                     move || {
                         generate_new_cache.store(true, Relaxed);
-                        Ok(vec![chaotic_up_domains_region()])
+                        Ok(vec![chaotic_up_domains_region()].into())
                     }
                 })?
                 .len(),
@@ -155,6 +156,51 @@ mod tests {
         sleep(Duration::from_secs(1));
         assert!(!cache.inner.exists(&cache_key));
         assert!(cache.inner.exists(&cache_key2));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_regions_cache_in_memory_with_invalidation() -> anyhow::Result<()> {
+        env_logger::builder().is_test(true).try_init().ok();
+
+        let cache = RegionsCache::in_memory(Duration::from_secs(60), Duration::from_secs(60));
+        let cache_key = CacheKey::new_from_endpoint_and_ak_and_bucket(
+            &Endpoints::builder("fake.uc.qiniu.com".parse().unwrap()).build(),
+            "fakebucket".into(),
+            "fakeaccesskey".into(),
+        );
+        let generate_new_cache = Arc::new(AtomicBool::new(false));
+        assert_eq!(
+            cache
+                .get(&cache_key, {
+                    let generate_new_cache = generate_new_cache.to_owned();
+                    move || {
+                        generate_new_cache.store(true, Relaxed);
+                        let mut regions: GotRegions = vec![chaotic_up_domains_region()].into();
+                        *regions.lifetime_mut() = Some(Duration::from_secs(1));
+                        Ok(regions)
+                    }
+                })?
+                .len(),
+            1
+        );
+
+        assert!(generate_new_cache.load(Relaxed));
+        assert!(cache.inner.exists(&cache_key));
+        cache.get(&cache_key, || unreachable!())?;
+
+        sleep(Duration::from_secs(1));
+        generate_new_cache.store(false, Relaxed);
+        cache.get(&cache_key, {
+            let generate_new_cache = generate_new_cache.to_owned();
+            move || {
+                generate_new_cache.store(true, Relaxed);
+                Ok(vec![chaotic_up_domains_region()].into())
+            }
+        })?;
+        sleep(Duration::from_secs(1));
+        assert!(generate_new_cache.load(Relaxed));
 
         Ok(())
     }
@@ -189,7 +235,7 @@ mod tests {
             cache
                 .get(&cache_key_1, {
                     let regions_1 = regions_1.to_owned();
-                    move || Ok(regions_1.to_owned())
+                    move || Ok(regions_1.to_owned().into())
                 })?
                 .len(),
             1
@@ -199,7 +245,7 @@ mod tests {
         let regions_2 = vec![Region::builder("test")
             .push_up_preferred_endpoint("fakedomain_2.withport.com".parse().unwrap())
             .build()];
-        cache.set(cache_key_1.to_owned(), regions_2.to_owned());
+        cache.set(cache_key_1.to_owned(), regions_2.to_owned().into());
         assert!(cache.inner.exists(&cache_key_1));
         drop(cache);
 
@@ -209,7 +255,10 @@ mod tests {
             Duration::from_secs(120),
             Duration::from_secs(120),
         );
-        assert_eq!(cache.get(&cache_key_1, || unreachable!())?, regions_2);
+        assert_eq!(
+            cache.get(&cache_key_1, || unreachable!())?,
+            regions_2.to_owned().into()
+        );
         cache.remove(&cache_key_1);
         assert!(!cache.inner.exists(&cache_key_1));
         drop(cache);
@@ -226,7 +275,7 @@ mod tests {
             cache
                 .get(&cache_key_1, {
                     let regions_1 = regions_1.to_owned();
-                    move || Ok(regions_1.to_owned())
+                    move || Ok(regions_1.to_owned().into())
                 })?
                 .len(),
             1
@@ -235,7 +284,7 @@ mod tests {
             cache
                 .get(&cache_key_2, {
                     let regions_2 = regions_2.to_owned();
-                    move || Ok(regions_2.to_owned())
+                    move || Ok(regions_2.to_owned().into())
                 })?
                 .len(),
             1
@@ -263,13 +312,13 @@ mod tests {
 
         assert_eq!(
             cache
-                .get(&cache_key_1, move || Ok(regions_1.to_owned()))?
+                .get(&cache_key_1, move || Ok(regions_1.to_owned().into()))?
                 .len(),
             1
         );
         assert_eq!(
             cache
-                .get(&cache_key_2, move || Ok(regions_2.to_owned()))?
+                .get(&cache_key_2, move || Ok(regions_2.to_owned().into()))?
                 .len(),
             1
         );
@@ -311,7 +360,9 @@ mod tests {
             .push_up_preferred_endpoint("fakedomain_1.withport.com".parse().unwrap())
             .build()];
         assert_eq!(
-            cache.get(&cache_key, move || Ok(regions.to_owned()))?.len(),
+            cache
+                .get(&cache_key, move || Ok(regions.to_owned().into()))?
+                .len(),
             1
         );
         assert!(cache.inner.exists(&cache_key));

@@ -45,11 +45,8 @@ impl RegionProvider for CachedRegionsProvider {
     fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
         self.get_all(opts).map(|regions| {
             regions
-                .into_regions()
-                .into_iter()
-                .next()
+                .try_into()
                 .expect("Regions API returns empty regions")
-                .into()
         })
     }
 
@@ -57,13 +54,7 @@ impl RegionProvider for CachedRegionsProvider {
         let provider = self.to_owned();
         let opts = opts.to_owned();
         self.cache
-            .get(&self.cache_key, move || {
-                provider
-                    .provider
-                    .get_all(&opts)
-                    .map(|results| results.into_regions())
-            })
-            .map(GotRegions::from)
+            .get(&self.cache_key, move || provider.provider.get_all(&opts))
     }
 
     /// 异步返回七牛区域信息
