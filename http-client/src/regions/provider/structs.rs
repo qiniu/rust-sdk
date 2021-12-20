@@ -34,8 +34,12 @@ pub(super) struct RegionResponseBody {
 struct DomainsResponseBody {
     #[serde(rename = "domains")]
     preferred: Box<[Box<str>]>,
+
     #[serde(rename = "old")]
     alternative: Option<Box<[Box<str>]>>,
+
+    #[serde(rename = "region_alias")]
+    s3_region_id: Option<Box<str>>,
 }
 
 impl TryFrom<RegionResponseBody> for Region {
@@ -82,6 +86,9 @@ impl TryFrom<RegionResponseBody> for Region {
             push_api_alternative_endpoint
         );
         push_to_builder!(s3, push_s3_preferred_endpoint, push_s3_alternative_endpoint);
+        if let Some(s3_region_id) = s3.s3_region_id {
+            builder.s3_region_id(s3_region_id);
+        }
 
         Ok(builder.build())
     }

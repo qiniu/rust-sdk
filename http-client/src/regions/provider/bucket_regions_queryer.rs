@@ -320,7 +320,7 @@ mod tests {
                 assert_eq!(regions.len(), 2);
                 let region = regions.next().unwrap();
                 assert_eq!(region.region_id(), "z0");
-                assert!(region.s3_region_id().is_empty());
+                assert_eq!(region.s3_region_id(), "cn-east-1");
                 assert_eq!(
                     region.up_preferred_endpoints(),
                     &[
@@ -367,7 +367,7 @@ mod tests {
                 assert!(region.s3_alternative_endpoints().is_empty());
                 let region = regions.next().unwrap();
                 assert_eq!(region.region_id(), "z1");
-                assert!(region.s3_region_id().is_empty());
+                assert_eq!(region.s3_region_id(), "cn-north-1");
                 assert_eq!(
                     region.up_preferred_endpoints(),
                     &[
