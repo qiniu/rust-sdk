@@ -1,10 +1,12 @@
 use qiniu_http::{
-    Extensions, HeaderMap, HeaderName, HeaderValue, Metrics, Response as HttpResponse,
-    ResponseErrorKind as HttpResponseErrorKind, ResponseParts as HttpResponseParts, StatusCode,
-    Version,
+    HeaderName, HeaderValue, Response as HttpResponse, ResponseErrorKind as HttpResponseErrorKind,
+    ResponseParts as HttpResponseParts,
 };
 use serde::{de::DeserializeOwned, Deserialize};
-use std::{io::copy as io_copy, net::IpAddr, num::NonZeroU16};
+use std::{
+    io::copy as io_copy,
+    ops::{Deref, DerefMut},
+};
 
 mod error;
 pub(super) use error::XHeaders;
@@ -24,141 +26,27 @@ const X_REQ_ID_HEADER_NAME: &str = "x-reqid";
 const X_LOG_HEADER_NAME: &str = "x-log";
 
 #[derive(Default, Debug)]
-pub struct Response<B> {
-    inner: HttpResponse<B>,
-}
+pub struct Response<B>(HttpResponse<B>);
 
 impl<B> Response<B> {
     pub(super) fn new(inner: HttpResponse<B>) -> Self {
-        Self { inner }
-    }
-
-    /// HTTP 状态码
-    #[inline]
-    pub fn status_code(&self) -> StatusCode {
-        self.inner.status_code()
-    }
-
-    /// 修改 HTTP 状态码
-    #[inline]
-    pub fn status_code_mut(&mut self) -> &mut StatusCode {
-        self.inner.status_code_mut()
-    }
-
-    /// HTTP Headers
-    #[inline]
-    pub fn headers(&self) -> &HeaderMap {
-        self.inner.headers()
-    }
-
-    /// 修改 HTTP Headers
-    #[inline]
-    pub fn headers_mut(&mut self) -> &mut HeaderMap {
-        self.inner.headers_mut()
-    }
-
-    /// HTTP 版本
-    #[inline]
-    pub fn version(&self) -> Version {
-        self.inner.version()
-    }
-
-    /// 修改 HTTP 版本
-    #[inline]
-    pub fn version_mut(&mut self) -> &mut Version {
-        self.inner.version_mut()
-    }
-
-    /// HTTP 服务器 IP 地址
-    #[inline]
-    pub fn server_ip(&self) -> Option<IpAddr> {
-        self.inner.server_ip()
-    }
-
-    /// 修改 HTTP 服务器 IP 地址
-    #[inline]
-    pub fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
-        self.inner.server_ip_mut()
-    }
-
-    /// HTTP 服务器端口号
-    #[inline]
-    pub fn server_port(&self) -> Option<NonZeroU16> {
-        self.inner.server_port()
-    }
-
-    /// 修改 HTTP 服务器端口号
-    #[inline]
-    pub fn server_port_mut(&mut self) -> &mut Option<NonZeroU16> {
-        self.inner.server_port_mut()
-    }
-
-    /// 获取 HTTP 响应 Header
-    #[inline]
-    pub fn header(&self, header_name: HeaderName) -> Option<&HeaderValue> {
-        self.inner.header(header_name)
-    }
-
-    /// 扩展字段
-    #[inline]
-    pub fn extensions(&self) -> &Extensions {
-        self.inner.extensions()
-    }
-
-    /// 修改扩展字段
-    #[inline]
-    pub fn extensions_mut(&mut self) -> &mut Extensions {
-        self.inner.extensions_mut()
-    }
-
-    #[inline]
-    pub fn metrics(&self) -> Option<&dyn Metrics> {
-        self.inner.metrics()
-    }
-
-    #[inline]
-    pub fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
-        self.inner.metrics_mut()
-    }
-
-    /// HTTP 响应体
-    #[inline]
-    pub fn body(&self) -> &B {
-        self.inner.body()
+        Self(inner)
     }
 
     /// 直接获取 HTTP 响应体
     #[inline]
     pub fn into_body(self) -> B {
-        self.inner.into_body()
-    }
-
-    /// 修改 HTTP 响应体
-    #[inline]
-    pub fn body_mut(&mut self) -> &mut B {
-        self.inner.body_mut()
-    }
-
-    #[inline]
-    pub fn parts(&self) -> &HttpResponseParts {
-        self.inner.parts()
+        self.0.into_body()
     }
 
     #[inline]
     pub fn into_parts(self) -> (HttpResponseParts, B) {
-        self.inner.into_parts()
+        self.0.into_parts()
     }
 
     #[inline]
     pub fn from_parts(parts: HttpResponseParts, body: B) -> Self {
-        Self {
-            inner: HttpResponse::from_parts(parts, body),
-        }
-    }
-
-    #[inline]
-    pub fn parts_mut(&mut self) -> &mut HttpResponseParts {
-        self.inner.parts_mut()
+        Self(HttpResponse::from_parts(parts, body))
     }
 
     #[inline]
@@ -169,6 +57,22 @@ impl<B> Response<B> {
     #[inline]
     pub fn x_log(&self) -> Option<&HeaderValue> {
         self.header(HeaderName::from_static(X_LOG_HEADER_NAME))
+    }
+}
+
+impl<B> Deref for Response<B> {
+    type Target = HttpResponse<B>;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<B> DerefMut for Response<B> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -190,7 +94,7 @@ impl Response<SyncResponseBody> {
 
     pub(super) fn fulfill(self) -> ApiResult<HttpResponse<Vec<u8>>> {
         let x_headers = XHeaders::from(self.parts());
-        self.inner
+        self.0
             .try_map_body(|mut body| {
                 let mut buf = Vec::new();
                 io_copy(&mut body, &mut buf).map(|_| buf)
@@ -225,7 +129,7 @@ impl Response<AsyncResponseBody> {
 
     pub(super) async fn fulfill(self) -> ApiResult<HttpResponse<Vec<u8>>> {
         let x_headers = XHeaders::from(self.parts());
-        self.inner
+        self.0
             .try_async_map_body(|mut body| async move {
                 let mut buf = Vec::new();
                 async_io_copy(&mut body, &mut buf).await.map(|_| buf)
