@@ -265,8 +265,6 @@ fn call_response_callbacks<ReqBody, RespBody>(
 
 fn should_retry(err: &IsahcError) -> bool {
     err.kind() == IsahcErrorKind::ConnectionFailed
-        || err.kind() == IsahcErrorKind::BadClientCertificate
-        || err.kind() == IsahcErrorKind::BadServerCertificate
 }
 
 #[derive(Debug)]
