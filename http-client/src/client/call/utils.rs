@@ -308,6 +308,26 @@ pub(super) fn call_after_request_signed_callbacks(
     Ok(())
 }
 
+pub(super) fn call_response_callbacks(
+    request: &RequestParts<'_>,
+    built: &mut HttpRequestParts<'_>,
+    retried: &RetriedStatsInfo,
+    response: &ResponseParts,
+) -> Result<(), ResponseError> {
+    let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
+    if request
+        .call_response_callbacks(&mut context, response)
+        .is_cancelled()
+    {
+        return Err(ResponseError::new(
+            HttpResponseErrorKind::UserCanceled.into(),
+            "Cancelled by on_response() callback",
+        )
+        .retried(retried));
+    }
+    Ok(())
+}
+
 pub(super) fn call_error_callbacks(
     request: &RequestParts<'_>,
     built: &mut HttpRequestParts<'_>,

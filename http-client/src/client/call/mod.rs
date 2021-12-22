@@ -455,6 +455,7 @@ mod tests {
         .on_after_request_signed(move |context| inc_extensions(context.extensions_mut()))
         .on_before_backoff(move |context, _| inc_extensions(context.extensions_mut()))
         .on_after_backoff(move |context, _| inc_extensions(context.extensions_mut()))
+        .on_response(move |context, _| inc_extensions(context.extensions_mut()))
         .on_error(move |context, _| inc_extensions(context.extensions_mut()))
         .call()
         .unwrap_err();
@@ -485,6 +486,7 @@ mod tests {
         .on_after_request_signed(move |context| inc_extensions(context.extensions_mut()))
         .on_before_backoff(move |_, _| unreachable!())
         .on_after_backoff(move |_, _| unreachable!())
+        .on_response(move |context, _| inc_extensions(context.extensions_mut()))
         .on_error(move |context, _| inc_extensions(context.extensions_mut()))
         .call()
         .unwrap_err();
@@ -774,7 +776,7 @@ mod tests {
     }
 
     #[test]
-    fn test_call_callbacks() -> Result<(), Box<dyn Error>> {
+    fn test_cancel_in_callbacks() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
         let client = make_error_response_client_builder(

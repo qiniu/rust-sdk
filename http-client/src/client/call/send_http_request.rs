@@ -5,7 +5,8 @@ use super::{
     },
     error::TryError,
     utils::{
-        call_after_backoff_callbacks, call_before_backoff_callbacks, call_error_callbacks, judge,
+        call_after_backoff_callbacks, call_before_backoff_callbacks, call_error_callbacks,
+        call_response_callbacks, judge,
     },
 };
 use log::error;
@@ -23,6 +24,10 @@ pub(super) fn send_http_request(
             .http_caller()
             .call(http_request)
             .map_err(ResponseError::from)
+            .and_then(|response| {
+                call_response_callbacks(parts, http_request, retried, response.parts())
+                    .map(|_| response)
+            })
             .map(SyncResponse::new)
             .and_then(|response| judge(response, retried))
             .map_err(|err| handle_response_error(err, http_request, parts, retried));
@@ -128,6 +133,10 @@ mod async_send {
                 .async_call(http_request)
                 .await
                 .map_err(ResponseError::from)
+                .and_then(|response| {
+                    call_response_callbacks(parts, http_request, retried, response.parts())
+                        .map(|_| response)
+                })
                 .map(AsyncResponse::new)
                 .and_then(|err| block_on(async { async_judge(err, retried).await }))
                 .map_err(|err| handle_response_error(err, http_request, parts, retried));

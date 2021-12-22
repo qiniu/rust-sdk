@@ -549,6 +549,20 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    pub fn on_response(
+        &mut self,
+        callback: impl Fn(
+                &mut dyn qiniu_http_client::ExtendedCallbackContext,
+                &qiniu_http_client::http::ResponseParts,
+            ) -> qiniu_http_client::CallbackResult
+            + Send
+            + Sync
+            + 'req,
+    ) -> &mut Self {
+        self.0.on_response(callback);
+        self
+    }
+    #[inline]
     pub fn on_error(
         &mut self,
         callback: impl Fn(

@@ -3,7 +3,9 @@ use super::{
     callback::{CallbackContext, ExtendedCallbackContext},
     ResolveAnswers, ResponseError, SimplifiedCallbackContext,
 };
-use qiniu_http::{CallbackResult, HeaderName, HeaderValue, StatusCode, TransferProgressInfo};
+use qiniu_http::{
+    CallbackResult, HeaderName, HeaderValue, ResponseParts, StatusCode, TransferProgressInfo,
+};
 use std::{fmt, mem::take, time::Duration};
 
 type OnProgress<'f> = Box<
@@ -38,6 +40,9 @@ type OnRequest<'f> =
     Box<dyn Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'f>;
 type OnRetry<'f> =
     Box<dyn Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult + Send + Sync + 'f>;
+type OnResponse<'f> = Box<
+    dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseParts) -> CallbackResult + Send + Sync + 'f,
+>;
 type OnError<'f> = Box<
     dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> CallbackResult + Send + Sync + 'f,
 >;
@@ -53,6 +58,7 @@ pub struct Callbacks<'f> {
     on_ips_chosen: Box<[OnIPsChosen<'f>]>,
     on_before_request_signed: Box<[OnRequest<'f>]>,
     on_after_request_signed: Box<[OnRequest<'f>]>,
+    on_response: Box<[OnResponse<'f>]>,
     on_error: Box<[OnError<'f>]>,
     on_before_backoff: Box<[OnRetry<'f>]>,
     on_after_backoff: Box<[OnRetry<'f>]>,
@@ -69,6 +75,7 @@ pub struct CallbacksBuilder<'f> {
     on_ips_chosen: Vec<OnIPsChosen<'f>>,
     on_before_request_signed: Vec<OnRequest<'f>>,
     on_after_request_signed: Vec<OnRequest<'f>>,
+    on_response: Vec<OnResponse<'f>>,
     on_error: Vec<OnError<'f>>,
     on_before_backoff: Vec<OnRetry<'f>>,
     on_after_backoff: Vec<OnRetry<'f>>,
@@ -175,6 +182,17 @@ impl<'f> Callbacks<'f> {
             .collect()
     }
 
+    pub(super) fn call_response_callbacks(
+        &self,
+        context: &mut dyn ExtendedCallbackContext,
+        response: &ResponseParts,
+    ) -> CallbackResult {
+        self.on_response_callbacks()
+            .iter()
+            .map(|callback| callback(context, response))
+            .collect()
+    }
+
     pub(super) fn call_error_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
@@ -256,6 +274,11 @@ impl<'f> Callbacks<'f> {
     #[inline]
     pub fn on_after_request_signed_callbacks(&self) -> &[OnRequest<'f>] {
         &self.on_after_request_signed
+    }
+
+    #[inline]
+    pub fn on_response_callbacks(&self) -> &[OnResponse<'f>] {
+        &self.on_response
     }
 
     #[inline]
@@ -375,6 +398,18 @@ impl<'f> CallbacksBuilder<'f> {
     }
 
     #[inline]
+    pub fn on_response(
+        &mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseParts) -> CallbackResult
+            + Send
+            + Sync
+            + 'f,
+    ) -> &mut Self {
+        self.on_response.push(Box::new(callback));
+        self
+    }
+
+    #[inline]
     pub fn on_error(
         &mut self,
         callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> CallbackResult
@@ -422,6 +457,7 @@ impl<'f> CallbacksBuilder<'f> {
             on_ips_chosen: owned.on_ips_chosen.into(),
             on_before_request_signed: owned.on_before_request_signed.into(),
             on_after_request_signed: owned.on_after_request_signed.into(),
+            on_response: owned.on_response.into(),
             on_error: owned.on_error.into(),
             on_before_backoff: owned.on_before_backoff.into(),
             on_after_backoff: owned.on_after_backoff.into(),
@@ -446,6 +482,7 @@ impl fmt::Debug for Callbacks<'_> {
         field!(s, "on_ips_chosen", on_ips_chosen);
         field!(s, "on_before_request_signed", on_before_request_signed);
         field!(s, "on_after_request_signed", on_after_request_signed);
+        field!(s, "on_response", on_response);
         field!(s, "on_error", on_error);
         field!(s, "on_before_backoff", on_before_backoff);
         field!(s, "on_after_backoff", on_after_backoff);
@@ -470,6 +507,7 @@ impl fmt::Debug for CallbacksBuilder<'_> {
         field!(s, "on_ips_chosen", on_ips_chosen);
         field!(s, "on_before_request_signed", on_before_request_signed);
         field!(s, "on_after_request_signed", on_after_request_signed);
+        field!(s, "on_response", on_response);
         field!(s, "on_error", on_error);
         field!(s, "on_before_backoff", on_before_backoff);
         field!(s, "on_after_backoff", on_after_backoff);

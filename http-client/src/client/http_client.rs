@@ -8,8 +8,8 @@ use super::{
 };
 use cfg_if::cfg_if;
 use qiniu_http::{
-    CallbackResult, HeaderName, HeaderValue, HttpCaller, Method, StatusCode, TransferProgressInfo,
-    UserAgent,
+    CallbackResult, HeaderName, HeaderValue, HttpCaller, Method, ResponseParts, StatusCode,
+    TransferProgressInfo, UserAgent,
 };
 use std::{
     mem::{replace, take},
@@ -469,6 +469,18 @@ impl HttpClientBuilder {
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_after_request_signed(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_response(
+        &mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseParts) -> CallbackResult
+            + Send
+            + Sync
+            + 'static,
+    ) -> &mut Self {
+        self.callbacks.on_response(callback);
         self
     }
 

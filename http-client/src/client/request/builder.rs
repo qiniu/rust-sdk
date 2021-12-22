@@ -15,8 +15,8 @@ use mime::{
 };
 use qiniu_http::{
     header::{ACCEPT, CONTENT_TYPE},
-    CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, Method, Reset, StatusCode,
-    SyncRequestBody, TransferProgressInfo, UserAgent, Version,
+    CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, Method, Reset, ResponseParts,
+    StatusCode, SyncRequestBody, TransferProgressInfo, UserAgent, Version,
 };
 use serde::Serialize;
 use serde_json::Result as JsonResult;
@@ -226,6 +226,18 @@ impl<'r> RequestBuilderParts<'r> {
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'r,
     ) -> &mut Self {
         self.callbacks.on_after_request_signed(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_response(
+        &mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseParts) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
+    ) -> &mut Self {
+        self.callbacks.on_response(callback);
         self
     }
 
@@ -494,6 +506,18 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         callback: impl Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'r,
     ) -> &mut Self {
         self.parts.on_after_request_signed(callback);
+        self
+    }
+
+    #[inline]
+    pub fn on_response(
+        &mut self,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseParts) -> CallbackResult
+            + Send
+            + Sync
+            + 'r,
+    ) -> &mut Self {
+        self.parts.on_response(callback);
         self
     }
 

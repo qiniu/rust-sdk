@@ -8,8 +8,8 @@ use super::{
     Idempotent, QueryPairs,
 };
 use qiniu_http::{
-    CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, Method, StatusCode,
-    TransferProgressInfo, UserAgent, Version,
+    CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, Method, ResponseParts,
+    StatusCode, TransferProgressInfo, UserAgent, Version,
 };
 use std::{fmt, time::Duration};
 
@@ -271,6 +271,18 @@ impl<'r> RequestParts<'r> {
                 .http_client
                 .callbacks()
                 .call_after_request_signed_callbacks(context)
+    }
+
+    pub(in super::super) fn call_response_callbacks(
+        &self,
+        context: &mut dyn ExtendedCallbackContext,
+        response: &ResponseParts,
+    ) -> CallbackResult {
+        self.callbacks.call_response_callbacks(context, response)
+            & self
+                .http_client
+                .callbacks()
+                .call_response_callbacks(context, response)
     }
 
     pub(in super::super) fn call_error_callbacks(
