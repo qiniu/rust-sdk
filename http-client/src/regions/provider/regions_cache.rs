@@ -129,7 +129,7 @@ mod tests {
         assert!(cache.inner.exists(&cache_key));
         cache.get(&cache_key, || unreachable!())?;
 
-        sleep(Duration::from_secs(1));
+        sleep(Duration::from_secs(3));
 
         let cache_key2 = CacheKey::new_from_endpoint_and_ak_and_bucket(
             &Endpoints::builder("fake.uc2.qiniu.com".parse().unwrap()).build(),
@@ -153,7 +153,7 @@ mod tests {
         assert!(generate_new_cache.load(Relaxed));
         assert!(cache.inner.exists(&cache_key2));
 
-        sleep(Duration::from_secs(1));
+        sleep(Duration::from_secs(3));
         assert!(!cache.inner.exists(&cache_key));
         assert!(cache.inner.exists(&cache_key2));
 
@@ -190,7 +190,7 @@ mod tests {
         assert!(cache.inner.exists(&cache_key));
         cache.get(&cache_key, || unreachable!())?;
 
-        sleep(Duration::from_secs(1));
+        sleep(Duration::from_secs(3));
         generate_new_cache.store(false, Relaxed);
         cache.get(&cache_key, {
             let generate_new_cache = generate_new_cache.to_owned();
@@ -199,7 +199,7 @@ mod tests {
                 Ok(vec![chaotic_up_domains_region()].into())
             }
         })?;
-        sleep(Duration::from_secs(1));
+        sleep(Duration::from_secs(3));
         assert!(generate_new_cache.load(Relaxed));
 
         Ok(())
