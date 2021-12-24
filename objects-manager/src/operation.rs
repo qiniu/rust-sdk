@@ -107,6 +107,10 @@ impl Display for SimpleEntry<'_> {
     }
 }
 
+pub trait OperationProvider {
+    fn to_operation(&mut self) -> String;
+}
+
 #[derive(Clone, Debug)]
 pub(super) struct StatObject<'a> {
     entry: Entry<'a>,
@@ -154,6 +158,12 @@ impl<'a> StatObjectBuilder<'a> {
     }
 
     impl_call_methods!(stat_object);
+}
+
+impl<'a> OperationProvider for StatObjectBuilder<'a> {
+    fn to_operation(&mut self) -> String {
+        self.build().to_string()
+    }
 }
 
 impl Debug for StatObjectBuilder<'_> {
@@ -243,6 +253,12 @@ impl<'a> MoveObjectBuilder<'a> {
     impl_call_methods!(move_object, from_entry);
 }
 
+impl<'a> OperationProvider for MoveObjectBuilder<'a> {
+    fn to_operation(&mut self) -> String {
+        self.build().to_string()
+    }
+}
+
 impl Debug for MoveObjectBuilder<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -330,6 +346,12 @@ impl<'a> CopyObjectBuilder<'a> {
     impl_call_methods!(copy_object, from_entry);
 }
 
+impl<'a> OperationProvider for CopyObjectBuilder<'a> {
+    fn to_operation(&mut self) -> String {
+        self.build().to_string()
+    }
+}
+
 impl Debug for CopyObjectBuilder<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -384,6 +406,12 @@ impl<'a> DeleteObjectBuilder<'a> {
     }
 
     impl_call_methods!(delete_object);
+}
+
+impl<'a> OperationProvider for DeleteObjectBuilder<'a> {
+    fn to_operation(&mut self) -> String {
+        self.build().to_string()
+    }
 }
 
 impl Debug for DeleteObjectBuilder<'_> {
@@ -452,6 +480,12 @@ impl<'a> UnfreezeObjectBuilder<'a> {
     impl_call_methods!(unfreeze_object);
 }
 
+impl<'a> OperationProvider for UnfreezeObjectBuilder<'a> {
+    fn to_operation(&mut self) -> String {
+        self.build().to_string()
+    }
+}
+
 impl Debug for UnfreezeObjectBuilder<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -513,6 +547,12 @@ impl<'a> SetObjectTypeBuilder<'a> {
     }
 
     impl_call_methods!(set_object_file_type);
+}
+
+impl<'a> OperationProvider for SetObjectTypeBuilder<'a> {
+    fn to_operation(&mut self) -> String {
+        self.build().to_string()
+    }
 }
 
 impl Debug for SetObjectTypeBuilder<'_> {
@@ -634,6 +674,12 @@ impl<'a> ModifyObjectStatusBuilder<'a> {
     impl_call_methods!(modify_object_status);
 }
 
+impl<'a> OperationProvider for ModifyObjectStatusBuilder<'a> {
+    fn to_operation(&mut self) -> String {
+        self.build().to_string()
+    }
+}
+
 impl Debug for ModifyObjectStatusBuilder<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -737,6 +783,12 @@ impl<'a> ModifyObjectMetadataBuilder<'a> {
     }
 
     impl_call_methods!(modify_object_metadata);
+}
+
+impl<'a> OperationProvider for ModifyObjectMetadataBuilder<'a> {
+    fn to_operation(&mut self) -> String {
+        self.build().to_string()
+    }
 }
 
 impl Debug for ModifyObjectMetadataBuilder<'_> {
@@ -844,6 +896,12 @@ impl<'a> ModifyObjectLifeCycleBuilder<'a> {
     }
 
     impl_call_methods!(modify_object_life_cycle);
+}
+
+impl<'a> OperationProvider for ModifyObjectLifeCycleBuilder<'a> {
+    fn to_operation(&mut self) -> String {
+        self.build().to_string()
+    }
 }
 
 impl Debug for ModifyObjectLifeCycleBuilder<'_> {

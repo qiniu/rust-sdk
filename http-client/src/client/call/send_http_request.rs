@@ -9,8 +9,7 @@ use super::{
         call_response_callbacks, judge,
     },
 };
-use log::error;
-use qiniu_http::{RequestParts as HttpRequestParts, Reset, SyncRequest as SyncHttpRequest};
+use qiniu_http::{RequestParts as HttpRequestParts, SyncRequest as SyncHttpRequest};
 use std::{result::Result, thread::sleep, time::Duration};
 
 pub(super) fn send_http_request(
@@ -43,7 +42,6 @@ pub(super) fn send_http_request(
                         continue;
                     }
                 }
-                reset_body_if_needed(http_request, &err);
                 return Err(err);
             }
         }
@@ -69,17 +67,6 @@ pub(super) fn send_http_request(
         }
         call_after_backoff_callbacks(parts, http_request, retried, delay)?;
         Ok(())
-    }
-
-    fn reset_body_if_needed(http_request: &mut SyncHttpRequest<'_>, err: &TryError) {
-        match err.retry_decision() {
-            RetryDecision::DontRetry => {}
-            _ => {
-                if let Err(err) = http_request.body_mut().reset() {
-                    error!("Failed to reset http request body: {}", err)
-                }
-            }
-        }
     }
 }
 
@@ -119,7 +106,7 @@ mod async_send {
     };
     use async_std::task::block_on;
     use futures_timer::Delay as AsyncDelay;
-    use qiniu_http::{AsyncRequest as AsyncHttpRequest, AsyncReset};
+    use qiniu_http::AsyncRequest as AsyncHttpRequest;
 
     pub(in super::super) async fn async_send_http_request(
         http_request: &mut AsyncHttpRequest<'_>,
@@ -152,7 +139,6 @@ mod async_send {
                             continue;
                         }
                     }
-                    reset_body_if_needed(http_request, &err).await;
                     return Err(err);
                 }
             }
@@ -178,17 +164,6 @@ mod async_send {
             }
             call_after_backoff_callbacks(parts, http_request, retried, delay)?;
             Ok(())
-        }
-
-        async fn reset_body_if_needed(http_request: &mut AsyncHttpRequest<'_>, err: &TryError) {
-            match err.retry_decision() {
-                RetryDecision::DontRetry => {}
-                _ => {
-                    if let Err(err) = http_request.body_mut().reset().await {
-                        error!("Failed to reset http request body: {}", err)
-                    }
-                }
-            }
         }
 
         async fn async_sleep(dur: Duration) {

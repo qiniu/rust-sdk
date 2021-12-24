@@ -8,12 +8,12 @@ use super::{
     send_http_request::send_http_request,
     utils::{
         call_after_request_signed_callbacks, call_before_request_signed_callbacks,
-        extract_ips_from, make_request, make_url, sign_request,
+        extract_ips_from, make_request, make_url, reset_request_body, sign_request,
     },
 };
 use qiniu_http::{
-    CallbackResult, Extensions, HeaderName, HeaderValue, Metrics, RequestParts as HttpRequestParts,
-    StatusCode, SyncRequestBody, TransferProgressInfo,
+    CallbackResult, Extensions, HeaderName, HeaderValue, Metrics, Request as HttpRequest,
+    RequestParts as HttpRequestParts, StatusCode, SyncRequestBody, TransferProgressInfo,
 };
 use std::mem::take;
 
@@ -50,12 +50,17 @@ pub(super) fn try_domain_or_ip_addr(
 ) -> Result<SyncResponse, TryErrorWithExtensions> {
     let (url, resolved_ips) = make_url(domain_or_ip, parts, retried)
         .map_err(|err| err.with_extensions(take(&mut extensions)))?;
-    let mut http_request = make_request(url, parts, body.into(), extensions, &resolved_ips);
+    let mut http_request: HttpRequest<SyncRequestBody> =
+        make_request(url, parts, body.into(), extensions, &resolved_ips);
+    reset_request_body(http_request.body_mut(), retried)
+        .map_err(|err| err.with_request(&mut http_request))?;
     call_before_request_signed_callbacks(parts, &mut http_request, retried)
         .map_err(|err| err.with_request(&mut http_request))?;
     sign_request(&mut http_request, parts.authorization(), retried)
         .map_err(|err| err.with_request(&mut http_request))?;
     call_after_request_signed_callbacks(parts, &mut http_request, retried)
+        .map_err(|err| err.with_request(&mut http_request))?;
+    reset_request_body(http_request.body_mut(), retried)
         .map_err(|err| err.with_request(&mut http_request))?;
 
     setup_callbacks!(parts, http_request);
@@ -121,7 +126,7 @@ fn make_negative_feedback<'f>(
 use super::{
     super::super::{AsyncRequestBody, AsyncResponse},
     send_http_request::async_send_http_request,
-    utils::sign_async_request,
+    utils::{reset_async_request_body, sign_async_request},
 };
 
 #[cfg(feature = "async")]
@@ -134,13 +139,20 @@ pub(super) async fn async_try_domain_or_ip_addr(
 ) -> Result<AsyncResponse, TryErrorWithExtensions> {
     let (url, resolved_ips) = make_url(domain_or_ip, parts, retried)
         .map_err(|err| err.with_extensions(take(&mut extensions)))?;
-    let mut http_request = make_request(url, parts, body.into(), extensions, &resolved_ips);
+    let mut http_request: HttpRequest<AsyncRequestBody> =
+        make_request(url, parts, body.into(), extensions, &resolved_ips);
+    reset_async_request_body(http_request.body_mut(), retried)
+        .await
+        .map_err(|err| err.with_request(&mut http_request))?;
     call_before_request_signed_callbacks(parts, &mut http_request, retried)
         .map_err(|err| err.with_request(&mut http_request))?;
     sign_async_request(&mut http_request, parts.authorization(), retried)
         .await
         .map_err(|err| err.with_request(&mut http_request))?;
     call_after_request_signed_callbacks(parts, &mut http_request, retried)
+        .map_err(|err| err.with_request(&mut http_request))?;
+    reset_async_request_body(http_request.body_mut(), retried)
+        .await
         .map_err(|err| err.with_request(&mut http_request))?;
 
     setup_callbacks!(parts, http_request);

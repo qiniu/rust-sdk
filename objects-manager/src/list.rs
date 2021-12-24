@@ -1,11 +1,8 @@
-use super::Bucket;
+use super::{callbacks::Callbacks, Bucket};
 use log::warn;
 use qiniu_apis::{
-    http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
-    http_client::{
-        ApiResult, CallbackResult, RegionProvider, RequestBuilderParts, Response, ResponseError,
-        SyncResponseBody,
-    },
+    http::ResponseErrorKind as HttpResponseErrorKind,
+    http_client::{ApiResult, RegionProvider, Response, ResponseError, SyncResponseBody},
     storage::get_objects::{
         ListedObjectEntry, QueryParams, ResponseBody as GetObjectsV1ResponseBody,
         SyncRequestBuilder as GetObjectsV1SyncRequestBuilder,
@@ -20,13 +17,6 @@ use std::{
     io::{BufRead, BufReader, Lines},
 };
 use tap::prelude::*;
-
-pub(super) type BeforeRequestCallback<'c> =
-    Box<dyn FnMut(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'c>;
-pub(super) type AfterResponseOkCallback<'c> =
-    Box<dyn FnMut(&mut ResponseParts) -> CallbackResult + Send + Sync + 'c>;
-pub(super) type AfterResponseErrorCallback<'c> =
-    Box<dyn FnMut(&ResponseError) -> CallbackResult + Send + Sync + 'c>;
 
 #[cfg(feature = "async")]
 use {futures::io::BufReader as AsyncBufReader, qiniu_apis::http_client::AsyncResponseBody};
@@ -129,46 +119,11 @@ impl<'a> ListParams<'a> {
     }
 }
 
-struct ListIterCallbacks<'a> {
-    before_request_callback: Option<BeforeRequestCallback<'a>>,
-    after_response_ok_callback: Option<AfterResponseOkCallback<'a>>,
-    after_response_error_callback: Option<AfterResponseErrorCallback<'a>>,
-}
-
-impl ListIterCallbacks<'_> {
-    fn before_request(&mut self, builder_parts: &mut RequestBuilderParts) -> CallbackResult {
-        if let Some(before_request_callback) = self.before_request_callback.as_mut() {
-            before_request_callback(builder_parts)
-        } else {
-            CallbackResult::Continue
-        }
-    }
-
-    fn after_response<B>(
-        &mut self,
-        result: &mut Result<Response<B>, ResponseError>,
-    ) -> CallbackResult {
-        match (
-            result,
-            self.after_response_ok_callback.as_mut(),
-            self.after_response_error_callback.as_mut(),
-        ) {
-            (Ok(response), Some(after_response_ok_callback), _) => {
-                after_response_ok_callback(response.parts_mut())
-            }
-            (Err(err), _, Some(after_response_error_callback)) => {
-                after_response_error_callback(err)
-            }
-            _ => CallbackResult::Continue,
-        }
-    }
-}
-
 #[must_use]
 pub struct ListIter<'a> {
     params: ListParams<'a>,
     version: SyncListVersionWithStep,
-    callbacks: ListIterCallbacks<'a>,
+    callbacks: Callbacks<'a>,
 }
 
 impl Debug for ListIter<'_> {
@@ -241,7 +196,6 @@ struct ListedObjectEntryV2 {
 }
 
 impl<'a> ListIter<'a> {
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         bucket: &'a Bucket,
         limit: Option<usize>,
@@ -249,11 +203,10 @@ impl<'a> ListIter<'a> {
         marker: Option<&'a str>,
         need_parts: bool,
         version: ListVersion,
-        before_request_callback: Option<BeforeRequestCallback<'a>>,
-        after_response_ok_callback: Option<AfterResponseOkCallback<'a>>,
-        after_response_error_callback: Option<AfterResponseErrorCallback<'a>>,
+        callbacks: Callbacks<'a>,
     ) -> Self {
         Self {
+            callbacks,
             version: version.into(),
             params: ListParams {
                 bucket,
@@ -261,11 +214,6 @@ impl<'a> ListIter<'a> {
                 need_parts,
                 limit: Limit::new(limit, version),
                 marker: Marker::new(marker),
-            },
-            callbacks: ListIterCallbacks {
-                before_request_callback,
-                after_response_ok_callback,
-                after_response_error_callback,
             },
         }
     }
@@ -287,7 +235,7 @@ impl<'a> Iterator for ListIter<'a> {
 
         fn v1_next(
             params: &mut ListParams<'_>,
-            callbacks: &mut ListIterCallbacks<'_>,
+            callbacks: &mut Callbacks<'_>,
             step: &mut SyncListV1Step,
         ) -> Option<ApiResult<ListedObjectEntry>> {
             match step {
@@ -314,7 +262,7 @@ impl<'a> Iterator for ListIter<'a> {
 
         fn v1_next_page(
             params: &mut ListParams<'_>,
-            callbacks: &mut ListIterCallbacks<'_>,
+            callbacks: &mut Callbacks<'_>,
             buffer: &mut VecDeque<ListedObjectEntry>,
         ) -> ApiResult<bool> {
             let mut have_done = false;
@@ -347,7 +295,7 @@ impl<'a> Iterator for ListIter<'a> {
 
         fn v1_call_request(
             mut request: GetObjectsV1SyncRequestBuilder<'_, &dyn RegionProvider>,
-            callbacks: &mut ListIterCallbacks<'_>,
+            callbacks: &mut Callbacks<'_>,
         ) -> ApiResult<Response<GetObjectsV1ResponseBody>> {
             if callbacks.before_request(request.parts_mut()).is_cancelled() {
                 return Err(make_user_cancelled_error(
@@ -381,7 +329,7 @@ impl<'a> Iterator for ListIter<'a> {
 
         fn v2_next(
             params: &mut ListParams<'_>,
-            callbacks: &mut ListIterCallbacks<'_>,
+            callbacks: &mut Callbacks<'_>,
             step: &mut SyncListV2Step,
         ) -> Option<ApiResult<ListedObjectEntry>> {
             match step {
@@ -458,7 +406,7 @@ impl<'a> Iterator for ListIter<'a> {
 
         fn v2_call(
             params: &mut ListParams<'_>,
-            callbacks: &mut ListIterCallbacks<'_>,
+            callbacks: &mut Callbacks<'_>,
         ) -> ApiResult<Option<Lines<BufReader<SyncResponseBody>>>> {
             if params.have_done() {
                 return Ok(None);
@@ -487,7 +435,7 @@ impl<'a> Iterator for ListIter<'a> {
 
         fn v2_call_request(
             mut request: GetObjectsV2SyncRequestBuilder<'_, &dyn RegionProvider>,
-            callbacks: &mut ListIterCallbacks<'_>,
+            callbacks: &mut Callbacks<'_>,
         ) -> ApiResult<Response<SyncResponseBody>> {
             if callbacks.before_request(request.parts_mut()).is_cancelled() {
                 return Err(make_user_cancelled_error(
@@ -557,7 +505,6 @@ mod async_list_stream {
     pub struct ListStream<'a>(ListedObjectEntryResultStream<'a>);
 
     impl<'a> ListStream<'a> {
-        #[allow(clippy::too_many_arguments)]
         pub(in super::super) fn new(
             bucket: &'a Bucket,
             limit: Option<usize>,
@@ -565,31 +512,11 @@ mod async_list_stream {
             marker: Option<&'a str>,
             need_parts: bool,
             version: ListVersion,
-            before_request_callback: Option<BeforeRequestCallback<'a>>,
-            after_response_ok_callback: Option<AfterResponseOkCallback<'a>>,
-            after_response_error_callback: Option<AfterResponseErrorCallback<'a>>,
+            callbacks: Callbacks<'a>,
         ) -> Self {
             Self(match version {
-                ListVersion::V1 => v1_next(
-                    bucket,
-                    limit,
-                    prefix,
-                    marker,
-                    need_parts,
-                    before_request_callback,
-                    after_response_ok_callback,
-                    after_response_error_callback,
-                ),
-                ListVersion::V2 => v2_next(
-                    bucket,
-                    limit,
-                    prefix,
-                    marker,
-                    need_parts,
-                    before_request_callback,
-                    after_response_ok_callback,
-                    after_response_error_callback,
-                ),
+                ListVersion::V1 => v1_next(bucket, limit, prefix, marker, need_parts, callbacks),
+                ListVersion::V2 => v2_next(bucket, limit, prefix, marker, need_parts, callbacks),
             })
         }
     }
@@ -605,20 +532,17 @@ mod async_list_stream {
 
     struct ListV1Stream<'a> {
         params: ListParams<'a>,
-        callbacks: ListIterCallbacks<'a>,
+        callbacks: Callbacks<'a>,
         current_step: AsyncListV1Step<'a>,
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn v1_next<'a>(
         bucket: &'a Bucket,
         limit: Option<usize>,
         prefix: Option<&'a str>,
         marker: Option<&'a str>,
         need_parts: bool,
-        before_request_callback: Option<BeforeRequestCallback<'a>>,
-        after_response_ok_callback: Option<AfterResponseOkCallback<'a>>,
-        after_response_error_callback: Option<AfterResponseErrorCallback<'a>>,
+        callbacks: Callbacks<'a>,
     ) -> ListedObjectEntryResultStream<'a> {
         let params = ListParams {
             bucket,
@@ -626,11 +550,6 @@ mod async_list_stream {
             need_parts,
             limit: Limit::new(limit, ListVersion::V1),
             marker: Marker::new(marker),
-        };
-        let callbacks = ListIterCallbacks {
-            before_request_callback,
-            after_response_ok_callback,
-            after_response_error_callback,
         };
         ListV1Stream {
             params,
@@ -778,7 +697,7 @@ mod async_list_stream {
 
     struct ListV2Stream<'a> {
         params: ListParams<'a>,
-        callbacks: ListIterCallbacks<'a>,
+        callbacks: Callbacks<'a>,
         current_step: AsyncListV2Step<'a>,
     }
 
@@ -789,9 +708,7 @@ mod async_list_stream {
         prefix: Option<&'a str>,
         marker: Option<&'a str>,
         need_parts: bool,
-        before_request_callback: Option<BeforeRequestCallback<'a>>,
-        after_response_ok_callback: Option<AfterResponseOkCallback<'a>>,
-        after_response_error_callback: Option<AfterResponseErrorCallback<'a>>,
+        callbacks: Callbacks<'a>,
     ) -> ListedObjectEntryResultStream<'a> {
         let params = ListParams {
             bucket,
@@ -799,11 +716,6 @@ mod async_list_stream {
             need_parts,
             limit: Limit::new(limit, ListVersion::V2),
             marker: Marker::new(marker),
-        };
-        let callbacks = ListIterCallbacks {
-            before_request_callback,
-            after_response_ok_callback,
-            after_response_error_callback,
         };
         ListV2Stream {
             params,
@@ -978,8 +890,8 @@ mod tests {
             SyncResponseResult,
         },
         http_client::{
-            BucketName, DirectChooser, HttpClient, NeverRetrier, Region, ResponseErrorKind,
-            NO_BACKOFF,
+            BucketName, CallbackResult, DirectChooser, HttpClient, NeverRetrier, Region,
+            ResponseErrorKind, NO_BACKOFF,
         },
     };
     use serde_json::{json, to_string as json_to_string, to_vec as json_to_vec};

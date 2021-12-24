@@ -1,8 +1,7 @@
 use super::{
-    list::{
-        AfterResponseErrorCallback, AfterResponseOkCallback, BeforeRequestCallback, ListIter,
-        ListVersion,
-    },
+    batch_operations::BatchOperations,
+    callbacks::Callbacks,
+    list::{ListIter, ListVersion},
     operation::{
         CopyObject, CopyObjectBuilder, DeleteObject, DeleteObjectBuilder, Entry,
         ModifyObjectLifeCycle, ModifyObjectLifeCycleBuilder, ModifyObjectMetadata,
@@ -154,6 +153,11 @@ impl Bucket {
         ModifyObjectLifeCycle::builder(Entry::new(self, object_name))
     }
 
+    #[inline]
+    pub fn batch_ops(&self) -> BatchOperations<'_> {
+        BatchOperations::new(self)
+    }
+
     pub(super) fn region_provider(&self) -> IOResult<&dyn RegionProvider> {
         self.0
             .region_provider
@@ -214,9 +218,7 @@ pub struct ListBuilder<'a> {
     marker: Option<&'a str>,
     version: ListVersion,
     need_parts: bool,
-    before_request_callback: Option<BeforeRequestCallback<'a>>,
-    after_response_ok_callback: Option<AfterResponseOkCallback<'a>>,
-    after_response_error_callback: Option<AfterResponseErrorCallback<'a>>,
+    callbacks: Callbacks<'a>,
 }
 
 impl<'a> ListBuilder<'a> {
@@ -228,9 +230,7 @@ impl<'a> ListBuilder<'a> {
             marker: Default::default(),
             version: Default::default(),
             need_parts: Default::default(),
-            before_request_callback: Default::default(),
-            after_response_ok_callback: Default::default(),
-            after_response_error_callback: Default::default(),
+            callbacks: Default::default(),
         }
     }
 
@@ -269,7 +269,7 @@ impl<'a> ListBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.before_request_callback = Some(Box::new(callback));
+        self.callbacks.before_request_callback = Some(Box::new(callback));
         self
     }
 
@@ -278,7 +278,7 @@ impl<'a> ListBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut ResponseParts) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.after_response_ok_callback = Some(Box::new(callback));
+        self.callbacks.after_response_ok_callback = Some(Box::new(callback));
         self
     }
 
@@ -287,7 +287,7 @@ impl<'a> ListBuilder<'a> {
         &mut self,
         callback: impl FnMut(&ResponseError) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.after_response_error_callback = Some(Box::new(callback));
+        self.callbacks.after_response_error_callback = Some(Box::new(callback));
         self
     }
 
@@ -301,9 +301,7 @@ impl<'a> ListBuilder<'a> {
             owned.marker,
             owned.need_parts,
             owned.version,
-            owned.before_request_callback,
-            owned.after_response_ok_callback,
-            owned.after_response_error_callback,
+            owned.callbacks,
         )
     }
 
@@ -319,9 +317,7 @@ impl<'a> ListBuilder<'a> {
             owned.marker,
             owned.need_parts,
             owned.version,
-            owned.before_request_callback,
-            owned.after_response_ok_callback,
-            owned.after_response_error_callback,
+            owned.callbacks,
         )
     }
 
@@ -333,9 +329,7 @@ impl<'a> ListBuilder<'a> {
             marker: take(&mut self.marker),
             need_parts: take(&mut self.need_parts),
             version: take(&mut self.version),
-            before_request_callback: take(&mut self.before_request_callback),
-            after_response_ok_callback: take(&mut self.after_response_ok_callback),
-            after_response_error_callback: take(&mut self.after_response_error_callback),
+            callbacks: take(&mut self.callbacks),
         }
     }
 }

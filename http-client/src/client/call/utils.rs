@@ -13,13 +13,17 @@ use mime::APPLICATION_WWW_FORM_URLENCODED;
 use qiniu_http::{
     header::CONTENT_TYPE,
     uri::{Authority, InvalidUri, PathAndQuery, Scheme, Uri},
-    Extensions, HeaderValue, Request as HttpRequest, RequestParts as HttpRequestParts,
+    Extensions, HeaderValue, Request as HttpRequest, RequestParts as HttpRequestParts, Reset,
     ResponseErrorKind as HttpResponseErrorKind, ResponseParts, SyncRequest as SyncHttpRequest,
+    SyncRequestBody,
 };
 use std::{borrow::Cow, net::IpAddr, time::Duration};
 
 #[cfg(feature = "async")]
-use super::super::AsyncResponse;
+use {
+    super::super::AsyncResponse,
+    qiniu_http::{AsyncRequestBody, AsyncReset},
+};
 
 pub(super) fn make_request<'r, B: Default + 'r>(
     url: Uri,
@@ -118,6 +122,31 @@ pub(super) fn make_url(
             .unwrap();
         Ok((url, resolved_ip_addrs))
     }
+}
+
+pub(super) fn reset_request_body(
+    body: &mut SyncRequestBody<'_>,
+    retried: &RetriedStatsInfo,
+) -> Result<(), TryError> {
+    body.reset().map_err(|err| {
+        TryError::new(
+            ResponseError::from(err).retried(retried),
+            RetryDecision::DontRetry.into(),
+        )
+    })
+}
+
+#[cfg(feature = "async")]
+pub(super) async fn reset_async_request_body(
+    body: &mut AsyncRequestBody<'_>,
+    retried: &RetriedStatsInfo,
+) -> Result<(), TryError> {
+    body.reset().await.map_err(|err| {
+        TryError::new(
+            ResponseError::from(err).retried(retried),
+            RetryDecision::DontRetry.into(),
+        )
+    })
 }
 
 pub(super) fn call_before_backoff_callbacks(

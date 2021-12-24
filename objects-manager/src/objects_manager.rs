@@ -90,11 +90,13 @@ impl ObjectsManagerBuilder {
     }
 
     #[inline]
+    #[must_use]
     pub fn api_client(mut self, api_client: QiniuApiClient) -> Self {
         self.api_client = Some(api_client);
         self
     }
 
+    #[must_use]
     pub fn http_client(mut self, http_client: HttpClient) -> Self {
         self.http_client = Some(http_client.to_owned());
         if let Some(queryer_builder) = self.queryer_builder.as_mut() {
@@ -108,11 +110,13 @@ impl ObjectsManagerBuilder {
     }
 
     #[inline]
+    #[must_use]
     pub fn queryer(mut self, queryer: BucketRegionsQueryer) -> Self {
         self.queryer = Some(queryer);
         self
     }
 
+    #[must_use]
     pub fn uc_endpoints(mut self, endpoints: impl Into<Endpoints>) -> Self {
         if let Some(queryer_builder) = self.queryer_builder.as_mut() {
             queryer_builder.uc_endpoints(endpoints);
