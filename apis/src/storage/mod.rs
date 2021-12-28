@@ -14,6 +14,8 @@ pub mod delete_bucket;
 pub mod delete_bucket_taggings;
 #[doc = "删除指定对象"]
 pub mod delete_object;
+#[doc = "从指定 URL 抓取指定名称的对象并存储到该空间中"]
+pub mod fetch_object;
 #[doc = "查询异步抓取任务"]
 pub mod get_async_fetch_task;
 #[doc = "查询指定的存储空间已设置的标签信息"]
@@ -106,6 +108,11 @@ impl<'client> Client<'client> {
     #[doc = "删除指定对象"]
     pub fn delete_object(&self) -> delete_object::Client<'client> {
         delete_object::Client::new(self.0)
+    }
+    #[inline]
+    #[doc = "从指定 URL 抓取指定名称的对象并存储到该空间中"]
+    pub fn fetch_object(&self) -> fetch_object::Client<'client> {
+        fetch_object::Client::new(self.0)
     }
     #[inline]
     #[doc = "查询异步抓取任务"]

@@ -1,0 +1,45 @@
+method: post
+service_names:
+  - io
+base_path: /fetch
+documentation: 从指定 URL 抓取指定名称的对象并存储到该空间中
+request:
+  authorization: qiniu
+  idempotent: always
+  path_params:
+    named:
+      - field_name: from_url
+        type: string
+        documentation: 指定抓取的 URL
+        encode: url_safe_base64
+      - field_name: to_entry
+        path_segment: to
+        type: string
+        documentation: 指定目标对象空间与目标对象名称
+        encode: url_safe_base64
+      - field_name: host
+        path_segment: host
+        type: string
+        documentation: 指定抓取 URL 请求用的 HOST 参数
+        encode: url_safe_base64
+response:
+  body:
+    json:
+      struct:
+        fields:
+          - field_name: hash
+            key: hash
+            type: string
+            documentation: 抓取的对象内容的 Etag 值
+          - field_name: object_name
+            key: key
+            type: string
+            documentation: 抓取后保存的对象名称
+          - field_name: size
+            key: fsize
+            type: integer
+            documentation: 对象大小，单位为字节
+          - field_name: mime_type
+            key: mimeType
+            documentation: 对象 MIME 类型
+            type: string
