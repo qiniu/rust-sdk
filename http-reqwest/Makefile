@@ -20,10 +20,10 @@ doc:
 	cargo test --doc --features async
 	cargo +nightly doc --lib --release --all-features
 test:
-	cargo test -- --test-threads=1 --show-output
-	cargo test --features async -- --test-threads=1 --show-output
-	cargo test --features async,native-tls -- --test-threads=1 --show-output
-	cargo test --features async,rustls-tls -- --test-threads=1 --show-output
+	cargo test -- --show-output
+	cargo test --features async -- --show-output
+	cargo test --features async,native-tls -- --show-output
+	cargo test --features async,rustls-tls -- --show-output
 clean:
 	cargo clean
 clippy:

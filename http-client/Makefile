@@ -26,12 +26,12 @@ doc:
 	cargo test --doc --features 'async c_ares trust_dns'
 	cargo +nightly doc --lib --release --all-features
 test:
-	cargo test --no-default-features --features ureq -- --test-threads=1 --show-output
-	cargo test --no-default-features --features isahc -- --test-threads=1 --show-output
-	cargo test --no-default-features --features reqwest -- --test-threads=1 --show-output
-	cargo test --no-default-features --features 'async isahc' -- --test-threads=1 --show-output
-	cargo test --no-default-features --features 'async reqwest' -- --test-threads=1 --show-output
-	cargo test --no-default-features --features 'async c_ares trust_dns' -- --test-threads=1 --show-output
+	cargo test --no-default-features --features ureq -- --show-output
+	cargo test --no-default-features --features isahc -- --show-output
+	cargo test --no-default-features --features reqwest -- --show-output
+	cargo test --no-default-features --features 'async isahc' -- --show-output
+	cargo test --no-default-features --features 'async reqwest' -- --show-output
+	cargo test --no-default-features --features 'async c_ares trust_dns' -- --show-output
 clean:
 	cargo clean
 clippy:

@@ -8,7 +8,7 @@ build_test:
 	cargo test --no-run
 doc:
 test:
-	cargo test -- --test-threads=1 --show-output
+	cargo test -- --show-output
 clean:
 	cargo clean
 clippy:

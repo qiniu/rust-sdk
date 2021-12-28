@@ -17,7 +17,7 @@
     unused_lifetimes,
     unused_qualifications
 )]
-#![warn(missing_crate_level_docs)]
+#![warn(rustdoc::missing_crate_level_docs)]
 
 pub mod base64;
 pub mod smallstr;
