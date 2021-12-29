@@ -4,7 +4,7 @@ members = [
     "credential",
     "utils",
     "etag",
-    "upload_token",
+    "upload-token",
     "http",
     "http-reqwest",
     "http-isahc",
@@ -14,6 +14,7 @@ members = [
     "apis",
     "api-examples",
     "objects-manager",
+    "upload-manager",
 ]
 
 [profile.release]

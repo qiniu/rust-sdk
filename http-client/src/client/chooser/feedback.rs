@@ -28,32 +28,32 @@ impl<'f> ChooserFeedback<'f> {
     }
 
     #[inline]
-    pub fn ips(&self) -> &[IpAddrWithPort] {
+    pub fn ips(&'f self) -> &'f [IpAddrWithPort] {
         self.ips
     }
 
     #[inline]
-    pub fn retried(&self) -> &RetriedStatsInfo {
+    pub fn retried(&'f self) -> &'f RetriedStatsInfo {
         self.retried
     }
 
     #[inline]
-    pub fn extensions(&self) -> &Extensions {
+    pub fn extensions(&'f self) -> &'f Extensions {
         self.extensions
     }
 
     #[inline]
-    pub fn extensions_mut(&mut self) -> &mut Extensions {
+    pub fn extensions_mut(&'f mut self) -> &'f mut Extensions {
         self.extensions
     }
 
     #[inline]
-    pub fn metrics(&self) -> Option<&dyn Metrics> {
+    pub fn metrics(&'f self) -> Option<&'f dyn Metrics> {
         self.metrics
     }
 
     #[inline]
-    pub fn error(&self) -> Option<&ResponseError> {
+    pub fn error(&'f self) -> Option<&'f ResponseError> {
         self.error
     }
 }

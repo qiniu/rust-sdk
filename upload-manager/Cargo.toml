@@ -1,0 +1,59 @@
+[package]
+name = "qiniu-upload-manager"
+version = "0.0.4"
+authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
+edition = "2021"
+rust-version = "1.56.0"
+license = "Apache-2.0"
+homepage = "https://www.qiniu.com"
+description = "Qiniu Upload Manager for Rust"
+keywords = ["qiniu", "storage"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4.14"
+qiniu-apis = { version = "0.0.4", path = "../apis" }
+qiniu-upload-token = { version = "0.0.4", path = "../upload-token" }
+auto_impl = { package = "bachue-auto_impl", version = "0.5.1" }
+smart-default = "0.6.0"
+sha-1 = "0.10.0"
+once_cell = "1.9.0"
+
+futures = { version = "0.3.5", optional = true }
+async-once-cell = { version = "0.3.0", optional = true }
+async-std = { version = "1.10.0", optional = true }
+
+[dev-dependencies]
+env_logger = "0.9.0"
+anyhow = "1.0.51"
+tempfile = "3.2.0"
+rand = "0.8.4"
+ipipe = "0.9.0"
+defer-lite = "1.0.0"
+async-std = { version = "1.10.0", features = ["attributes"] }
+
+[features]
+default = ["ureq"]
+async = ["futures", "async-once-cell", "async-std", "qiniu-apis/async"]
+reqwest = ["qiniu-apis/reqwest"]
+isahc = ["qiniu-apis/isahc"]
+ureq = ["qiniu-apis/ureq"]
+c_ares = ["qiniu-apis/c_ares"]
+trust_dns = ["qiniu-apis/trust_dns"]
+tokio1 = ["qiniu-apis/tokio1"]
+tokio02 = ["qiniu-apis/tokio02"]
+tokio03 = ["qiniu-apis/tokio03"]
+dns-over-https = ["qiniu-apis/dns-over-https"]
+dns-over-https-rustls = ["qiniu-apis/dns-over-https-rustls"]
+dns-over-tls = ["qiniu-apis/dns-over-tls"]
+dns-over-rustls = ["qiniu-apis/dns-over-rustls"]
+dns-over-native-tls = ["qiniu-apis/dns-over-native-tls"]
+dnssec-openssl = ["qiniu-apis/dnssec-openssl"]
+dnssec-ring = ["qiniu-apis/dnssec-ring"]
+dnssec = ["qiniu-apis/dnssec"]
+docs = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "feature=\"docs\""]

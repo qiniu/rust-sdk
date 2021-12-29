@@ -52,7 +52,7 @@ async-std-resolver = { version = "0.20.3", optional = true }
 
 qiniu-http = { version = "0.0.4", path = "../http" }
 qiniu-credential = { version = "0.0.4", path = "../credential" }
-qiniu-upload-token = { version = "0.0.4", path = "../upload_token" }
+qiniu-upload-token = { version = "0.0.4", path = "../upload-token" }
 qiniu-reqwest = { version = "0.0.4", path = "../http-reqwest", optional = true }
 qiniu-isahc = { version = "0.0.4", path = "../http-isahc", optional = true }
 qiniu-ureq = { version = "0.0.4", path = "../http-ureq", optional = true }
