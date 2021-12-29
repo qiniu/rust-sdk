@@ -22,7 +22,7 @@ mod list;
 mod objects_manager;
 mod operation;
 
-pub use batch_operations::BatchOperations;
+pub use batch_operations::{BatchOperations, BatchOperationsIterator, BatchSizeProvider};
 pub use bucket::{Bucket, ListBuilder};
 pub use list::{ListIter, ListVersion};
 pub use objects_manager::{ObjectsManager, ObjectsManagerBuilder};
@@ -34,4 +34,9 @@ pub use operation::{
 pub use qiniu_apis as apis;
 
 #[cfg(feature = "async")]
-pub use list::ListStream;
+pub use {batch_operations::BatchOperationsStream, list::ListStream};
+
+pub mod prelude {
+    pub use super::apis::http_client::preclude::*;
+    pub use super::{BatchSizeProvider, OperationProvider};
+}
