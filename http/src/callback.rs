@@ -1,4 +1,4 @@
-use std::ops::{BitAnd, BitOr, Not};
+use std::ops::Not;
 
 use http::{header::HeaderName, HeaderValue, StatusCode};
 use smart_default::SmartDefault;
@@ -80,31 +80,6 @@ impl Not for CallbackResult {
     #[inline]
     fn not(self) -> Self::Output {
         if self.is_cancelled() {
-            Self::Continue
-        } else {
-            Self::Cancel
-        }
-    }
-}
-
-impl BitAnd for CallbackResult {
-    type Output = Self;
-
-    #[inline]
-    fn bitand(self, rhs: Self) -> Self::Output {
-        if self.is_cancelled() || rhs.is_cancelled() {
-            Self::Cancel
-        } else {
-            Self::Continue
-        }
-    }
-}
-
-impl BitOr for CallbackResult {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
-        if self.is_continue() && rhs.is_continue() {
             Self::Continue
         } else {
             Self::Cancel

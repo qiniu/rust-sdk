@@ -12,39 +12,68 @@ type AfterResponseErrorCallback<'c> =
 
 #[derive(Default)]
 pub(super) struct Callbacks<'a> {
-    pub(super) before_request_callback: Option<BeforeRequestCallback<'a>>,
-    pub(super) after_response_ok_callback: Option<AfterResponseOkCallback<'a>>,
-    pub(super) after_response_error_callback: Option<AfterResponseErrorCallback<'a>>,
+    before_request_callbacks: Vec<BeforeRequestCallback<'a>>,
+    after_response_ok_callbacks: Vec<AfterResponseOkCallback<'a>>,
+    after_response_error_callbacks: Vec<AfterResponseErrorCallback<'a>>,
 }
 
-impl Callbacks<'_> {
+impl<'a> Callbacks<'a> {
+    pub(super) fn insert_before_request_callback(
+        &mut self,
+        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'a,
+    ) -> &mut Self {
+        self.before_request_callbacks.push(Box::new(callback));
+        self
+    }
+
+    pub(super) fn insert_after_response_ok_callback(
+        &mut self,
+        callback: impl FnMut(&mut ResponseParts) -> CallbackResult + Send + Sync + 'a,
+    ) -> &mut Self {
+        self.after_response_ok_callbacks.push(Box::new(callback));
+        self
+    }
+
+    pub(super) fn insert_after_response_error_callback(
+        &mut self,
+        callback: impl FnMut(&ResponseError) -> CallbackResult + Send + Sync + 'a,
+    ) -> &mut Self {
+        self.after_response_error_callbacks.push(Box::new(callback));
+        self
+    }
+
     pub(super) fn before_request(
         &mut self,
         builder_parts: &mut RequestBuilderParts,
     ) -> CallbackResult {
-        if let Some(before_request_callback) = self.before_request_callback.as_mut() {
-            before_request_callback(builder_parts)
-        } else {
-            CallbackResult::Continue
+        for callback in self.before_request_callbacks.iter_mut() {
+            if callback(builder_parts) == CallbackResult::Cancel {
+                return CallbackResult::Cancel;
+            }
         }
+        CallbackResult::Continue
     }
 
     pub(super) fn after_response<B>(
         &mut self,
         result: &mut Result<Response<B>, ResponseError>,
     ) -> CallbackResult {
-        match (
-            result,
-            self.after_response_ok_callback.as_mut(),
-            self.after_response_error_callback.as_mut(),
-        ) {
-            (Ok(response), Some(after_response_ok_callback), _) => {
-                after_response_ok_callback(response.parts_mut())
+        match result {
+            Ok(response) => {
+                for callback in self.after_response_ok_callbacks.iter_mut() {
+                    if callback(response.parts_mut()) == CallbackResult::Cancel {
+                        return CallbackResult::Cancel;
+                    }
+                }
             }
-            (Err(err), _, Some(after_response_error_callback)) => {
-                after_response_error_callback(err)
+            Err(err) => {
+                for callback in self.after_response_error_callbacks.iter_mut() {
+                    if callback(err) == CallbackResult::Cancel {
+                        return CallbackResult::Cancel;
+                    }
+                }
             }
-            _ => CallbackResult::Continue,
         }
+        CallbackResult::Continue
     }
 }

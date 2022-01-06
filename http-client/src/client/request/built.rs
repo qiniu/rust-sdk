@@ -136,12 +136,20 @@ impl<'r> RequestParts<'r> {
         context: &dyn SimplifiedCallbackContext,
         progress_info: &TransferProgressInfo,
     ) -> CallbackResult {
-        self.callbacks
+        if self
+            .callbacks
             .call_uploading_progress_callbacks(context, progress_info)
-            & self
+            == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_uploading_progress_callbacks(context, progress_info)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 
     pub(in super::super) fn uploading_progress_callbacks_count(&self) -> usize {
@@ -158,12 +166,20 @@ impl<'r> RequestParts<'r> {
         context: &dyn SimplifiedCallbackContext,
         status_code: StatusCode,
     ) -> CallbackResult {
-        self.callbacks
+        if self
+            .callbacks
             .call_receive_response_status_callbacks(context, status_code)
-            & self
+            == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_receive_response_status_callbacks(context, status_code)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 
     pub(in super::super) fn receive_response_status_callbacks_count(&self) -> usize {
@@ -181,12 +197,20 @@ impl<'r> RequestParts<'r> {
         header_name: &HeaderName,
         header_value: &HeaderValue,
     ) -> CallbackResult {
-        self.callbacks
+        if self
+            .callbacks
             .call_receive_response_header_callbacks(context, header_name, header_value)
-            & self
+            == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_receive_response_header_callbacks(context, header_name, header_value)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 
     pub(in super::super) fn receive_response_header_callbacks_count(&self) -> usize {
@@ -203,12 +227,20 @@ impl<'r> RequestParts<'r> {
         context: &mut dyn CallbackContext,
         domain: &str,
     ) -> CallbackResult {
-        self.callbacks
+        if self
+            .callbacks
             .call_to_resolve_domain_callbacks(context, domain)
-            & self
+            == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_to_resolve_domain_callbacks(context, domain)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 
     pub(in super::super) fn call_domain_resolved_callbacks(
@@ -217,12 +249,20 @@ impl<'r> RequestParts<'r> {
         domain: &str,
         answers: &ResolveAnswers,
     ) -> CallbackResult {
-        self.callbacks
+        if self
+            .callbacks
             .call_domain_resolved_callbacks(context, domain, answers)
-            & self
+            == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_domain_resolved_callbacks(context, domain, answers)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 
     pub(in super::super) fn call_to_choose_ips_callbacks(
@@ -230,11 +270,17 @@ impl<'r> RequestParts<'r> {
         context: &mut dyn CallbackContext,
         ips: &[IpAddrWithPort],
     ) -> CallbackResult {
-        self.callbacks.call_to_choose_ips_callbacks(context, ips)
-            & self
+        if self.callbacks.call_to_choose_ips_callbacks(context, ips) == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_to_choose_ips_callbacks(context, ips)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 
     pub(in super::super) fn call_ips_chosen_callbacks(
@@ -243,34 +289,54 @@ impl<'r> RequestParts<'r> {
         ips: &[IpAddrWithPort],
         chosen: &[IpAddrWithPort],
     ) -> CallbackResult {
-        self.callbacks
+        if self
+            .callbacks
             .call_ips_chosen_callbacks(context, ips, chosen)
-            & self
+            == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_ips_chosen_callbacks(context, ips, chosen)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 
     pub(in super::super) fn call_before_request_signed_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
     ) -> CallbackResult {
-        self.callbacks.call_before_request_signed_callbacks(context)
-            & self
+        if self.callbacks.call_before_request_signed_callbacks(context) == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_before_request_signed_callbacks(context)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 
     pub(in super::super) fn call_after_request_signed_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
     ) -> CallbackResult {
-        self.callbacks.call_after_request_signed_callbacks(context)
-            & self
+        if self.callbacks.call_after_request_signed_callbacks(context) == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_after_request_signed_callbacks(context)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 
     pub(in super::super) fn call_response_callbacks(
@@ -278,11 +344,17 @@ impl<'r> RequestParts<'r> {
         context: &mut dyn ExtendedCallbackContext,
         response: &ResponseParts,
     ) -> CallbackResult {
-        self.callbacks.call_response_callbacks(context, response)
-            & self
+        if self.callbacks.call_response_callbacks(context, response) == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_response_callbacks(context, response)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 
     pub(in super::super) fn call_error_callbacks(
@@ -290,11 +362,17 @@ impl<'r> RequestParts<'r> {
         context: &mut dyn ExtendedCallbackContext,
         error: &ResponseError,
     ) -> CallbackResult {
-        self.callbacks.call_error_callbacks(context, error)
-            & self
+        if self.callbacks.call_error_callbacks(context, error) == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_error_callbacks(context, error)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 
     pub(in super::super) fn call_before_backoff_callbacks(
@@ -302,11 +380,17 @@ impl<'r> RequestParts<'r> {
         context: &mut dyn ExtendedCallbackContext,
         delay: Duration,
     ) -> CallbackResult {
-        self.callbacks.call_before_backoff_callbacks(context, delay)
-            & self
+        if self.callbacks.call_before_backoff_callbacks(context, delay) == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_before_backoff_callbacks(context, delay)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 
     pub(in super::super) fn call_after_backoff_callbacks(
@@ -314,11 +398,17 @@ impl<'r> RequestParts<'r> {
         context: &mut dyn ExtendedCallbackContext,
         delay: Duration,
     ) -> CallbackResult {
-        self.callbacks.call_after_backoff_callbacks(context, delay)
-            & self
+        if self.callbacks.call_after_backoff_callbacks(context, delay) == CallbackResult::Continue
+            && self
                 .http_client
                 .callbacks()
                 .call_after_backoff_callbacks(context, delay)
+                == CallbackResult::Continue
+        {
+            CallbackResult::Continue
+        } else {
+            CallbackResult::Cancel
+        }
     }
 }
 

@@ -269,7 +269,7 @@ impl<'a> ListBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.callbacks.before_request_callback = Some(Box::new(callback));
+        self.callbacks.insert_before_request_callback(callback);
         self
     }
 
@@ -278,7 +278,7 @@ impl<'a> ListBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut ResponseParts) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.callbacks.after_response_ok_callback = Some(Box::new(callback));
+        self.callbacks.insert_after_response_ok_callback(callback);
         self
     }
 
@@ -287,7 +287,8 @@ impl<'a> ListBuilder<'a> {
         &mut self,
         callback: impl FnMut(&ResponseError) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.callbacks.after_response_error_callback = Some(Box::new(callback));
+        self.callbacks
+            .insert_after_response_error_callback(callback);
         self
     }
 
