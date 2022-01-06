@@ -90,14 +90,12 @@ impl ObjectsManagerBuilder {
     }
 
     #[inline]
-    #[must_use]
-    pub fn api_client(mut self, api_client: QiniuApiClient) -> Self {
+    pub fn api_client(&mut self, api_client: QiniuApiClient) -> &mut Self {
         self.api_client = Some(api_client);
         self
     }
 
-    #[must_use]
-    pub fn http_client(mut self, http_client: HttpClient) -> Self {
+    pub fn http_client(&mut self, http_client: HttpClient) -> &mut Self {
         self.http_client = Some(http_client.to_owned());
         if let Some(queryer_builder) = self.queryer_builder.as_mut() {
             queryer_builder.http_client(http_client);
@@ -110,14 +108,12 @@ impl ObjectsManagerBuilder {
     }
 
     #[inline]
-    #[must_use]
-    pub fn queryer(mut self, queryer: BucketRegionsQueryer) -> Self {
+    pub fn queryer(&mut self, queryer: BucketRegionsQueryer) -> &mut Self {
         self.queryer = Some(queryer);
         self
     }
 
-    #[must_use]
-    pub fn uc_endpoints(mut self, endpoints: impl Into<Endpoints>) -> Self {
+    pub fn uc_endpoints(&mut self, endpoints: impl Into<Endpoints>) -> &mut Self {
         if let Some(queryer_builder) = self.queryer_builder.as_mut() {
             queryer_builder.uc_endpoints(endpoints);
         } else {
@@ -128,16 +124,19 @@ impl ObjectsManagerBuilder {
         self
     }
 
-    pub fn build(mut self) -> ObjectsManager {
+    pub fn build(&mut self) -> ObjectsManager {
+        let api_client = self.api_client.take();
+        let http_client = self.http_client.take();
+        let queryer = self.queryer.take();
+        let mut queryer_builder = self.queryer_builder.take();
+
         ObjectsManager(Arc::new(ObjectsManagerInner {
-            client: self
-                .api_client
-                .or_else(|| self.http_client.map(QiniuApiClient::new))
+            client: api_client
+                .or_else(|| http_client.map(QiniuApiClient::new))
                 .unwrap_or_default(),
-            credential: self.credential,
-            queryer: self
-                .queryer
-                .or_else(|| self.queryer_builder.as_mut().map(|builder| builder.build()))
+            credential: self.credential.to_owned(),
+            queryer: queryer
+                .or_else(|| queryer_builder.as_mut().map(|builder| builder.build()))
                 .unwrap_or_default(),
         }))
     }
