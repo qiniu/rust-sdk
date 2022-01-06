@@ -288,6 +288,37 @@ impl<'a> DerefMut for GotString<'a> {
     }
 }
 
+pub trait UploadTokenProviderExt: UploadTokenProvider {
+    fn bucket_name(&self, opts: &GetPolicyOptions) -> ParseResult<BucketName> {
+        self.policy(opts).and_then(|policy| {
+            policy
+                .bucket()
+                .map_or(Err(ParseError::InvalidUploadTokenFormat), |bucket_name| {
+                    Ok(BucketName::from(bucket_name))
+                })
+        })
+    }
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_bucket_name<'a>(
+        &'a self,
+        opts: &'a GetPolicyOptions,
+    ) -> AsyncParseResult<'a, BucketName> {
+        Box::pin(async move {
+            self.async_policy(opts).await.and_then(|policy| {
+                policy
+                    .bucket()
+                    .map_or(Err(ParseError::InvalidUploadTokenFormat), |bucket_name| {
+                        Ok(BucketName::from(bucket_name))
+                    })
+            })
+        })
+    }
+}
+
+impl<T: UploadTokenProvider> UploadTokenProviderExt for T {}
+
 /// 静态上传凭证提供者
 ///
 /// 根据已经被生成好的上传凭证字符串生成上传凭证提供者实例，可以将上传凭证解析为 Access Token 和上传策略

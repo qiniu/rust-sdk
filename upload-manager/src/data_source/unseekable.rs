@@ -6,10 +6,7 @@ use std::{
 };
 
 #[cfg(feature = "async")]
-use {
-    super::AsyncDataSourceReader,
-    futures::{future::BoxFuture, AsyncRead},
-};
+use {super::AsyncDataSourceReader, futures::future::BoxFuture};
 
 #[derive(Debug)]
 pub(crate) struct UnseekableDataSource<R>(Mutex<UnseekableDataSourceInner<R>>);
@@ -63,20 +60,6 @@ impl<R: Read + Debug + Send + Sync + 'static> DataSource for UnseekableDataSourc
     #[inline]
     fn source_key(&self) -> IoResult<Option<SourceKey>> {
         Ok(self.0.lock().unwrap().source_key.to_owned())
-    }
-
-    #[inline]
-    fn into_read(self) -> IoResult<Box<dyn Read + Send + Sync>> {
-        Ok(Box::new(self.0.into_inner().unwrap().reader) as Box<dyn Read + Send + Sync>)
-    }
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn into_async_read(
-        self,
-    ) -> BoxFuture<'static, IoResult<Box<dyn AsyncRead + Unpin + Send + Sync>>> {
-        unimplemented!()
     }
 }
 
@@ -144,19 +127,6 @@ mod async_unseekable {
         #[inline]
         fn async_source_key(&self) -> BoxFuture<IoResult<Option<SourceKey>>> {
             Box::pin(async move { Ok(self.0.lock().await.source_key.to_owned()) })
-        }
-
-        fn into_read(self) -> IoResult<Box<dyn Read + Send + Sync>> {
-            unimplemented!()
-        }
-
-        fn into_async_read(
-            self,
-        ) -> BoxFuture<'static, IoResult<Box<dyn AsyncRead + Unpin + Send + Sync>>> {
-            Box::pin(async move {
-                Ok(Box::new(self.0.into_inner().reader)
-                    as Box<dyn AsyncRead + Unpin + Send + Sync>)
-            })
         }
     }
 }

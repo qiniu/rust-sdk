@@ -1,11 +1,13 @@
 use qiniu_apis::{
-    http::ResponseParts,
+    http::{ResponseParts, TransferProgressInfo},
     http_client::{CallbackResult, RequestBuilderParts, Response, ResponseError},
 };
 use std::fmt::{self, Debug};
 
 type BeforeRequestCallback<'c> =
     Box<dyn FnMut(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'c>;
+type UploadProgressCallback<'c> =
+    Box<dyn Fn(&TransferProgressInfo) -> CallbackResult + Send + Sync + 'c>;
 type AfterResponseOkCallback<'c> =
     Box<dyn FnMut(&mut ResponseParts) -> CallbackResult + Send + Sync + 'c>;
 type AfterResponseErrorCallback<'c> =
@@ -14,6 +16,7 @@ type AfterResponseErrorCallback<'c> =
 #[derive(Default)]
 pub(super) struct Callbacks<'a> {
     before_request_callbacks: Vec<BeforeRequestCallback<'a>>,
+    upload_progress_callbacks: Vec<UploadProgressCallback<'a>>,
     after_response_ok_callbacks: Vec<AfterResponseOkCallback<'a>>,
     after_response_error_callbacks: Vec<AfterResponseErrorCallback<'a>>,
 }
@@ -24,6 +27,14 @@ impl<'a> Callbacks<'a> {
         callback: impl FnMut(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
         self.before_request_callbacks.push(Box::new(callback));
+        self
+    }
+
+    pub(super) fn insert_upload_progress_callback(
+        &mut self,
+        callback: impl Fn(&TransferProgressInfo) -> CallbackResult + Send + Sync + 'a,
+    ) -> &mut Self {
+        self.upload_progress_callbacks.push(Box::new(callback));
         self
     }
 
@@ -49,6 +60,15 @@ impl<'a> Callbacks<'a> {
     ) -> CallbackResult {
         for callback in self.before_request_callbacks.iter_mut() {
             if callback(builder_parts) == CallbackResult::Cancel {
+                return CallbackResult::Cancel;
+            }
+        }
+        CallbackResult::Continue
+    }
+
+    pub(super) fn upload_progress(&self, progress_info: &TransferProgressInfo) -> CallbackResult {
+        for callback in self.upload_progress_callbacks.iter() {
+            if callback(progress_info) == CallbackResult::Cancel {
                 return CallbackResult::Cancel;
             }
         }

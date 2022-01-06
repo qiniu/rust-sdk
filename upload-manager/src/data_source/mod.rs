@@ -1,3 +1,4 @@
+use auto_impl::auto_impl;
 use sha1::{
     digest::{generic_array::GenericArray, OutputSizeUser},
     Sha1,
@@ -9,22 +10,15 @@ use std::{
 };
 
 #[cfg(feature = "async")]
-use futures::{future::BoxFuture, AsyncRead};
+use futures::future::BoxFuture;
 
+#[auto_impl(&, &mut, Box, Rc, Arc)]
 pub(super) trait DataSource: Debug + Sync + Send {
     fn slice(&self, size: u64) -> IoResult<Option<DataSourceReader>>;
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_slice(&self, size: u64) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>>;
-
-    fn into_read(self) -> IoResult<Box<dyn Read + Send + Sync>>;
-
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn into_async_read(
-        self,
-    ) -> BoxFuture<'static, IoResult<Box<dyn AsyncRead + Unpin + Send + Sync>>>;
 
     #[inline]
     fn source_key(&self) -> IoResult<Option<SourceKey>> {

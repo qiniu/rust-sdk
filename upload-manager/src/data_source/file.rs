@@ -3,7 +3,7 @@ use once_cell::sync::OnceCell;
 use sha1::{Digest, Sha1};
 use std::{
     fs::File,
-    io::{Read, Result as IoResult, Seek},
+    io::{Result as IoResult, Seek},
     path::PathBuf,
     sync::Mutex,
 };
@@ -13,7 +13,7 @@ use {
     super::{AsyncDataSourceReader, AsyncSeekableSource, AsyncUnseekableDataSource},
     async_once_cell::OnceCell as AsyncOnceCell,
     async_std::{fs::File as AsyncFile, path::PathBuf as AsyncPathBuf},
-    futures::{future::BoxFuture, lock::Mutex as AsyncMutex, AsyncRead, AsyncSeekExt},
+    futures::{future::BoxFuture, lock::Mutex as AsyncMutex, AsyncSeekExt},
 };
 
 #[derive(Debug)]
@@ -172,24 +172,6 @@ impl DataSource for FileDataSource {
                 }
                 AsyncSource::Unseekable(source) => source.async_source_key().await,
             }
-        })
-    }
-
-    #[inline]
-    fn into_read(self) -> IoResult<Box<dyn Read + Send + Sync>> {
-        File::open(&self.path).map(|file| Box::new(file) as Box<dyn Read + Send + Sync>)
-    }
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn into_async_read(
-        self,
-    ) -> BoxFuture<'static, IoResult<Box<dyn AsyncRead + Unpin + Send + Sync>>> {
-        Box::pin(async move {
-            AsyncFile::open(&self.path)
-                .await
-                .map(|file| Box::new(file) as Box<dyn AsyncRead + Unpin + Send + Sync>)
         })
     }
 }

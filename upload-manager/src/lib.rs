@@ -15,10 +15,13 @@
     unused_qualifications
 )]
 
+mod callbacks;
 mod concurrency_provider;
 mod data_partition_provider;
 mod data_source;
+mod object_params;
 mod resumable_policy;
+mod single_part_uploader;
 mod upload_manager;
 
 pub use qiniu_apis as apis;
@@ -32,12 +35,14 @@ pub use data_partition_provider::{
     LimitedDataPartitionProvider, MultiplyDataPartitionProvider, PartSize,
     TimeAwareDataPartitionProvider,
 };
+pub use data_source::SourceKey;
+pub use object_params::{ObjectParams, DataCheck, ObjectParamsBuilder};
 pub use resumable_policy::{
     AlwaysMultiParts, AlwaysSinglePart, FixedThresholdResumablePolicy, GetPolicyOptions,
     MultiplePartitionsResumablePolicyProvider, ResumablePolicy, ResumablePolicyProvider,
 };
+pub use single_part_uploader::{FormUploader, SinglePartUploader};
 pub use upload_manager::UploadManager;
-pub use data_source::SourceKey;
 
 pub mod prelude {
     pub use super::apis::http_client::preclude::*;

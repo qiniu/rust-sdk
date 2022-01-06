@@ -29,7 +29,7 @@ pub use upload_token::{
     BucketUploadTokenProvider, BucketUploadTokenProviderBuilder, CachedUploadTokenProvider,
     FromUploadPolicy, GetAccessKeyOptions, GetPolicyOptions, GotAccessKey, GotString,
     GotUploadPolicy, ObjectUploadTokenProvider, ObjectUploadTokenProviderBuilder, ParseError,
-    ParseResult, StaticUploadTokenProvider, ToStringOptions, UploadTokenProvider,
+    ParseResult, StaticUploadTokenProvider, ToStringOptions, UploadTokenProvider,UploadTokenProviderExt,
 };
 
 pub mod preclude {
