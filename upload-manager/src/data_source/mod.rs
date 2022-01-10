@@ -1,10 +1,7 @@
 use auto_impl::auto_impl;
-use sha1::{
-    digest::{generic_array::GenericArray, OutputSizeUser},
-    Sha1,
-};
+use digest::{generic_array::GenericArray, OutputSizeUser};
 use std::{
-    fmt::Debug,
+    fmt::{self, Debug},
     io::{Cursor, Read, Result as IoResult, Seek, SeekFrom},
     sync::{Arc, Mutex},
 };
@@ -13,7 +10,7 @@ use std::{
 use futures::future::BoxFuture;
 
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub(super) trait DataSource: Debug + Sync + Send {
+pub(super) trait DataSource<A: OutputSizeUser>: Debug + Sync + Send {
     fn slice(&self, size: u64) -> IoResult<Option<DataSourceReader>>;
 
     #[cfg(feature = "async")]
@@ -21,31 +18,45 @@ pub(super) trait DataSource: Debug + Sync + Send {
     fn async_slice(&self, size: u64) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>>;
 
     #[inline]
-    fn source_key(&self) -> IoResult<Option<SourceKey>> {
+    fn source_key(&self) -> IoResult<Option<SourceKey<A>>> {
         Ok(None)
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_source_key(&self) -> BoxFuture<IoResult<Option<SourceKey>>> {
+    fn async_source_key(&self) -> BoxFuture<IoResult<Option<SourceKey<A>>>> {
         Box::pin(async move { self.source_key() })
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct SourceKey(GenericArray<u8, <Sha1 as OutputSizeUser>::OutputSize>);
+pub struct SourceKey<A: OutputSizeUser>(GenericArray<u8, A::OutputSize>);
 
-impl SourceKey {
-    pub fn new(array: impl Into<GenericArray<u8, <Sha1 as OutputSizeUser>::OutputSize>>) -> Self {
+impl<A: OutputSizeUser> SourceKey<A> {
+    #[inline]
+    pub fn new(array: impl Into<GenericArray<u8, A::OutputSize>>) -> Self {
         Self::from(array.into())
     }
 }
 
-impl From<GenericArray<u8, <Sha1 as OutputSizeUser>::OutputSize>> for SourceKey {
+impl<A: OutputSizeUser> From<GenericArray<u8, A::OutputSize>> for SourceKey<A> {
     #[inline]
-    fn from(array: GenericArray<u8, <Sha1 as OutputSizeUser>::OutputSize>) -> Self {
+    fn from(array: GenericArray<u8, A::OutputSize>) -> Self {
         Self(array)
+    }
+}
+
+impl<A: OutputSizeUser> Debug for SourceKey<A> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("SourceKey").field(&self.0).finish()
+    }
+}
+
+impl<A: OutputSizeUser> Clone for SourceKey<A> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }
 

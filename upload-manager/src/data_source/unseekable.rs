@@ -1,6 +1,7 @@
 use super::{DataSource, DataSourceReader, SourceKey};
+use sha1::Sha1;
 use std::{
-    fmt::Debug,
+    fmt::{self, Debug},
     io::{Read, Result as IoResult},
     sync::Mutex,
 };
@@ -8,17 +9,27 @@ use std::{
 #[cfg(feature = "async")]
 use {super::AsyncDataSourceReader, futures::future::BoxFuture};
 
-#[derive(Debug)]
-pub(crate) struct UnseekableDataSource<R>(Mutex<UnseekableDataSourceInner<R>>);
+pub(crate) struct UnseekableDataSource<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser>(
+    Mutex<UnseekableDataSourceInner<R, A>>,
+);
 
-#[derive(Debug)]
-struct UnseekableDataSourceInner<R> {
-    reader: R,
-    current_offset: u64,
-    source_key: Option<SourceKey>,
+impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> Debug
+    for UnseekableDataSource<R, A>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("UnseekableDataSource")
+            .field(&self.0)
+            .finish()
+    }
 }
 
-impl<R> UnseekableDataSource<R> {
+struct UnseekableDataSourceInner<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> {
+    reader: R,
+    current_offset: u64,
+    source_key: Option<SourceKey<A>>,
+}
+
+impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> UnseekableDataSource<R, A> {
     pub(crate) fn new(reader: R) -> Self {
         Self(Mutex::new(UnseekableDataSourceInner {
             reader,
@@ -27,7 +38,7 @@ impl<R> UnseekableDataSource<R> {
         }))
     }
 
-    pub(crate) fn new_with_source_key(reader: R, source_key: SourceKey) -> Self {
+    pub(crate) fn new_with_source_key(reader: R, source_key: SourceKey<A>) -> Self {
         Self(Mutex::new(UnseekableDataSourceInner {
             reader,
             source_key: Some(source_key),
@@ -36,7 +47,9 @@ impl<R> UnseekableDataSource<R> {
     }
 }
 
-impl<R: Read + Debug + Send + Sync + 'static> DataSource for UnseekableDataSource<R> {
+impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> DataSource<A>
+    for UnseekableDataSource<R, A>
+{
     fn slice(&self, size: u64) -> IoResult<Option<DataSourceReader>> {
         let mut buf = Vec::new();
         let guard = &mut *self.0.lock().unwrap();
@@ -58,8 +71,20 @@ impl<R: Read + Debug + Send + Sync + 'static> DataSource for UnseekableDataSourc
     }
 
     #[inline]
-    fn source_key(&self) -> IoResult<Option<SourceKey>> {
+    fn source_key(&self) -> IoResult<Option<SourceKey<A>>> {
         Ok(self.0.lock().unwrap().source_key.to_owned())
+    }
+}
+
+impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> Debug
+    for UnseekableDataSourceInner<R, A>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("UnseekableDataSourceInner")
+            .field("reader", &self.reader)
+            .field("current_offset", &self.current_offset)
+            .field("source_key", &self.source_key)
+            .finish()
     }
 }
 
@@ -68,17 +93,33 @@ mod async_unseekable {
     use super::*;
     use futures::{lock::Mutex, AsyncRead, AsyncReadExt};
 
-    #[derive(Debug)]
-    pub(crate) struct AsyncUnseekableDataSource<R>(Mutex<AsyncUnseekableDataSourceInner<R>>);
+    pub(crate) struct AsyncUnseekableDataSource<
+        R: AsyncRead + Debug + Unpin + Send + Sync + 'static,
+        A: OutputSizeUser,
+    >(Mutex<AsyncUnseekableDataSourceInner<R, A>>);
 
-    #[derive(Debug)]
-    struct AsyncUnseekableDataSourceInner<R> {
-        reader: R,
-        current_offset: u64,
-        source_key: Option<SourceKey>,
+    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: OutputSizeUser> Debug
+        for AsyncUnseekableDataSource<R, A>
+    {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.debug_tuple("AsyncUnseekableDataSource")
+                .field(&self.0)
+                .finish()
+        }
     }
 
-    impl<R> AsyncUnseekableDataSource<R> {
+    struct AsyncUnseekableDataSourceInner<
+        R: AsyncRead + Debug + Unpin + Send + Sync + 'static,
+        A: OutputSizeUser,
+    > {
+        reader: R,
+        current_offset: u64,
+        source_key: Option<SourceKey<A>>,
+    }
+
+    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: OutputSizeUser>
+        AsyncUnseekableDataSource<R, A>
+    {
         pub(crate) fn new(reader: R) -> Self {
             Self(Mutex::new(AsyncUnseekableDataSourceInner {
                 reader,
@@ -87,7 +128,7 @@ mod async_unseekable {
             }))
         }
 
-        pub(crate) fn new_with_source_key(reader: R, source_key: SourceKey) -> Self {
+        pub(crate) fn new_with_source_key(reader: R, source_key: SourceKey<A>) -> Self {
             Self(Mutex::new(AsyncUnseekableDataSourceInner {
                 reader,
                 source_key: Some(source_key),
@@ -96,8 +137,8 @@ mod async_unseekable {
         }
     }
 
-    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static> DataSource
-        for AsyncUnseekableDataSource<R>
+    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: OutputSizeUser> DataSource<A>
+        for AsyncUnseekableDataSource<R, A>
     {
         fn slice(&self, _size: u64) -> IoResult<Option<DataSourceReader>> {
             unimplemented!()
@@ -120,16 +161,29 @@ mod async_unseekable {
         }
 
         #[inline]
-        fn source_key(&self) -> IoResult<Option<SourceKey>> {
+        fn source_key(&self) -> IoResult<Option<SourceKey<A>>> {
             unimplemented!()
         }
 
         #[inline]
-        fn async_source_key(&self) -> BoxFuture<IoResult<Option<SourceKey>>> {
+        fn async_source_key(&self) -> BoxFuture<IoResult<Option<SourceKey<A>>>> {
             Box::pin(async move { Ok(self.0.lock().await.source_key.to_owned()) })
+        }
+    }
+
+    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: OutputSizeUser> Debug
+        for AsyncUnseekableDataSourceInner<R, A>
+    {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.debug_struct("AsyncUnseekableDataSourceInner")
+                .field("reader", &self.reader)
+                .field("current_offset", &self.current_offset)
+                .field("source_key", &self.source_key)
+                .finish()
         }
     }
 }
 
 #[cfg(feature = "async")]
 pub(crate) use async_unseekable::*;
+use sha1::digest::OutputSizeUser;

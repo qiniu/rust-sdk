@@ -112,10 +112,14 @@ impl SinglePartUploader for FormUploader {
         Ok(response.into_body().into())
     }
 
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_upload_path(&self, path: &Path, params: ObjectParams) -> BoxFuture<ApiResult<Value>> {
         todo!()
     }
 
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_upload_reader<R: AsyncRead + Unpin + Send + Sync + 'static>(
         &self,
         reader: R,
