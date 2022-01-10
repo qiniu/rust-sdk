@@ -104,7 +104,6 @@ mod async_send {
         super::{super::AsyncResponse, utils::async_judge},
         *,
     };
-    use async_std::task::block_on;
     use futures_timer::Delay as AsyncDelay;
     use qiniu_http::AsyncRequest as AsyncHttpRequest;
 
@@ -114,7 +113,7 @@ mod async_send {
         retried: &mut RetriedStatsInfo,
     ) -> Result<AsyncResponse, TryError> {
         loop {
-            let response = parts
+            let mut response = parts
                 .http_client()
                 .http_caller()
                 .async_call(http_request)
@@ -124,9 +123,12 @@ mod async_send {
                     call_response_callbacks(parts, http_request, retried, response.parts())
                         .map(|_| response)
                 })
-                .map(AsyncResponse::new)
-                .and_then(|err| block_on(async { async_judge(err, retried).await }))
-                .map_err(|err| handle_response_error(err, http_request, parts, retried));
+                .map(AsyncResponse::new);
+            if let Ok(resp) = response {
+                response = async_judge(resp, retried).await
+            };
+            let response =
+                response.map_err(|err| handle_response_error(err, http_request, parts, retried));
             match response {
                 Ok(response) => {
                     return Ok(response);
