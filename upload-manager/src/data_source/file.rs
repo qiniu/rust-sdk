@@ -268,10 +268,7 @@ impl<A: OutputSizeUser> Debug for AsyncSource<A> {
 mod tests {
     use super::*;
     use anyhow::Result;
-    use defer_lite::defer;
-    use ipipe::Pipe;
     use std::{
-        fs::remove_file,
         io::{Read, Write},
         thread::{spawn as thread_spawn, JoinHandle as ThreadJoinHandle},
     };
@@ -312,7 +309,12 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "unix")]
     fn test_sync_unseekable_file_data_source() -> Result<()> {
+        use defer_lite::defer;
+        use ipipe::Pipe;
+        use std::fs::remove_file;
+
         let mut pipe = Pipe::create()?;
         let pipe_path = pipe.path().to_owned();
         defer! {

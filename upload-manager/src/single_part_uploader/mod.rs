@@ -12,7 +12,7 @@ use futures::{future::BoxFuture, AsyncRead};
 pub trait SinglePartUploader: Debug {
     fn new(upload_manager: UploadManager) -> Self;
     fn on_before_request<
-        F: FnMut(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static,
+        F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static,
     >(
         &mut self,
         callback: F,
@@ -21,11 +21,11 @@ pub trait SinglePartUploader: Debug {
         &mut self,
         callback: F,
     ) -> &mut Self;
-    fn on_response_ok<F: FnMut(&mut ResponseParts) -> CallbackResult + Send + Sync + 'static>(
+    fn on_response_ok<F: Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self;
-    fn on_response_error<F: FnMut(&ResponseError) -> CallbackResult + Send + Sync + 'static>(
+    fn on_response_error<F: Fn(&ResponseError) -> CallbackResult + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self;
@@ -37,7 +37,11 @@ pub trait SinglePartUploader: Debug {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload_path(&self, path: &Path, params: ObjectParams) -> BoxFuture<ApiResult<Value>>;
+    fn async_upload_path<'a>(
+        &'a self,
+        path: &'a Path,
+        params: ObjectParams,
+    ) -> BoxFuture<'a, ApiResult<Value>>;
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]

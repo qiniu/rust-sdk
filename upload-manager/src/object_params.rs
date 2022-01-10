@@ -115,14 +115,14 @@ pub struct ObjectParamsBuilder(ObjectParams);
 
 impl ObjectParamsBuilder {
     #[inline]
-    pub fn object_name(&mut self, object_name: ObjectName) -> &mut Self {
-        self.0.object_name = Some(object_name);
+    pub fn object_name(&mut self, object_name: impl Into<ObjectName>) -> &mut Self {
+        self.0.object_name = Some(object_name.into());
         self
     }
 
     #[inline]
-    pub fn file_name(&mut self, file_name: FileName) -> &mut Self {
-        self.0.file_name = Some(file_name);
+    pub fn file_name(&mut self, file_name: impl Into<FileName>) -> &mut Self {
+        self.0.file_name = Some(file_name.into());
         self
     }
 

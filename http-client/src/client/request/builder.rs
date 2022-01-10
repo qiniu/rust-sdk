@@ -9,10 +9,7 @@ use super::{
     request_metadata::RequestMetadata,
     Idempotent, QueryPairKey, QueryPairValue, QueryPairs, SyncRequest,
 };
-use mime::{
-    Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM, APPLICATION_WWW_FORM_URLENCODED,
-    MULTIPART_FORM_DATA,
-};
+use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM, APPLICATION_WWW_FORM_URLENCODED};
 use qiniu_http::{
     header::{ACCEPT, CONTENT_TYPE},
     CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, Method, Reset, ResponseParts,
@@ -654,8 +651,12 @@ impl<'r, E: 'r> SyncRequestBuilder<'r, E> {
     #[inline]
     pub fn multipart(&mut self, multipart: impl Into<SyncMultipart>) -> IoResult<&mut Self> {
         let mut buf = Vec::new();
-        multipart.into().into_read().read_to_end(&mut buf)?;
-        Ok(self.bytes_as_body(buf, Some(MULTIPART_FORM_DATA)))
+        let multipart = multipart.into();
+        let mime = ("multipart/form-data; boundary=".to_owned() + multipart.boundary())
+            .parse()
+            .unwrap();
+        multipart.into_read().read_to_end(&mut buf)?;
+        Ok(self.bytes_as_body(buf, Some(mime)))
     }
 }
 
@@ -766,12 +767,12 @@ impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
         use futures::AsyncReadExt;
 
         let mut buf = Vec::new();
-        multipart
-            .into()
-            .into_async_read()
-            .read_to_end(&mut buf)
-            .await?;
-        Ok(self.bytes_as_body(buf, Some(MULTIPART_FORM_DATA)))
+        let multipart = multipart.into();
+        let mime = ("multipart/form-data; boundary=".to_owned() + multipart.boundary())
+            .parse()
+            .unwrap();
+        multipart.into_async_read().read_to_end(&mut buf).await?;
+        Ok(self.bytes_as_body(buf, Some(mime)))
     }
 }
 

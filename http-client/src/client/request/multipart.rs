@@ -74,6 +74,11 @@ impl<P> Multipart<P> {
     }
 
     #[inline]
+    pub fn boundary(&self) -> &str {
+        &self.boundary
+    }
+
+    #[inline]
     #[must_use]
     pub fn add_part(mut self, name: impl Into<FieldName>, part: P) -> Self {
         self.fields.push_back((name.into(), part));

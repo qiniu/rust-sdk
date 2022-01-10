@@ -1,5 +1,4 @@
 use super::{DataSource, DataSourceReader, SourceKey};
-use sha1::Sha1;
 use std::{
     fmt::{self, Debug},
     io::{Read, Result as IoResult},
