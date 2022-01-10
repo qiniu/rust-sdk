@@ -3,6 +3,7 @@ use digest::{generic_array::GenericArray, OutputSizeUser};
 use std::{
     fmt::{self, Debug},
     io::{Cursor, Read, Result as IoResult, Seek, SeekFrom},
+    ops::Deref,
     sync::{Arc, Mutex},
 };
 
@@ -36,6 +37,14 @@ impl<A: OutputSizeUser> SourceKey<A> {
     #[inline]
     pub fn new(array: impl Into<GenericArray<u8, A::OutputSize>>) -> Self {
         Self::from(array.into())
+    }
+}
+
+impl<A: OutputSizeUser> Deref for SourceKey<A> {
+    type Target = GenericArray<u8, A::OutputSize>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

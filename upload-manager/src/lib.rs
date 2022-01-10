@@ -21,6 +21,7 @@ mod data_partition_provider;
 mod data_source;
 mod object_params;
 mod resumable_policy;
+mod resumable_recorder;
 mod single_part_uploader;
 mod upload_manager;
 mod upload_token;
@@ -43,10 +44,29 @@ pub use resumable_policy::{
     AlwaysMultiParts, AlwaysSinglePart, FixedThresholdResumablePolicy, GetPolicyOptions,
     MultiplePartitionsResumablePolicyProvider, ResumablePolicy, ResumablePolicyProvider,
 };
+pub use resumable_recorder::{
+    AppendOnlyResumableRecorderMedium, FileSystemAppendOnlyResumableRecorderMedium,
+    FileSystemReadOnlyResumableRecorderMedium, FileSystemResumableRecorder,
+    ReadOnlyResumableRecorderMedium, ResumableRecorder,
+};
 pub use single_part_uploader::{FormUploader, SinglePartUploader};
-pub use upload_manager::UploadManager;
+pub use upload_manager::{UploadManager, UploadManagerBuilder};
+pub use upload_token::UploadTokenSigner;
+
+#[cfg(feature = "async")]
+pub use resumable_recorder::{
+    AppendOnlyAsyncResumableRecorderMedium, FileSystemAppendOnlyAsyncResumableRecorderMedium,
+    FileSystemReadOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium,
+};
 
 pub mod prelude {
     pub use super::apis::http_client::preclude::*;
-    pub use super::{ConcurrencyProvider, DataPartitionProvider, ResumablePolicyProvider};
+    pub use super::{
+        AppendOnlyResumableRecorderMedium, ConcurrencyProvider, DataPartitionProvider,
+        ReadOnlyResumableRecorderMedium, ResumablePolicyProvider, ResumableRecorder,
+        SinglePartUploader,
+    };
+
+    #[cfg(feature = "async")]
+    pub use super::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium};
 }
