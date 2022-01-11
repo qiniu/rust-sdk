@@ -556,7 +556,7 @@ mod tests {
 
     fn new_temp_file() -> Result<NamedTempFile> {
         let mut temp_file = TempfileBuilder::new().tempfile()?;
-        let rng = Box::new(thread_rng()) as Box<dyn RngCore>;
+        let rng = &mut thread_rng() as &mut dyn RngCore;
         io_copy(&mut rng.take(FILE_SIZE), &mut temp_file)?;
         temp_file.seek(SeekFrom::Start(0))?;
         Ok(temp_file)

@@ -36,6 +36,7 @@ tempfile = "3.2.0"
 rand = "0.8.4"
 ipipe = "0.9.0"
 defer-lite = "1.0.0"
+multipart = { version = "0.18.0", features = ["server"] }
 async-std = { version = "1.10.0", features = ["attributes"] }
 
 [features]
