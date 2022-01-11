@@ -37,7 +37,7 @@ jobs:
       - name: Test
         run: |
           rustup default ${{ matrix.rust }}
-          make build clippy test
+          make clippy test
         env:
           RUST_LOG: "debug"
           RUST_BACKTRACE: "1"
