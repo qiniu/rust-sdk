@@ -65,7 +65,7 @@ pub use regions::{
     CachedRegionsProvider, DomainWithPort, DomainWithPortParseError, Endpoint, EndpointParseError,
     Endpoints, EndpointsBuilder, EndpointsProvider, GetOptions, GotRegion, GotRegions,
     InvalidServiceName, IpAddrWithPort, IpAddrWithPortParseError, Region, RegionBuilder,
-    RegionProvider, RegionsProvider, ServiceName, StaticRegionsProvider,
+    RegionProvider, RegionProviderEndpoints, RegionsProvider, ServiceName, StaticRegionsProvider,
 };
 pub use upload_token::{BucketName, ObjectName};
 

@@ -1,10 +1,14 @@
-use super::super::Region;
+use super::super::{Region, RegionProviderEndpoints};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
-pub(crate) fn single_up_domain_region() -> Region {
+fn single_up_domain_region() -> Region {
     Region::builder("chaotic")
         .push_up_preferred_endpoint(("fakedomain.withport.com".to_owned(), 8080).into())
         .build()
+}
+
+pub(crate) fn single_up_domain_endpoint() -> RegionProviderEndpoints<Region> {
+    RegionProviderEndpoints::new(single_up_domain_region())
 }
 
 pub(crate) fn chaotic_up_domains_region() -> Region {
@@ -48,4 +52,8 @@ pub(crate) fn chaotic_up_domains_region() -> Region {
             ("alternative_fakedomain.withport.com".to_owned(), 8080).into(),
         )
         .build()
+}
+
+pub(crate) fn chaotic_up_domains_endpoint() -> RegionProviderEndpoints<Region> {
+    RegionProviderEndpoints::new(chaotic_up_domains_region())
 }

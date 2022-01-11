@@ -1,7 +1,7 @@
 use super::Bucket;
 use indexmap::IndexMap;
 use mime::Mime;
-use qiniu_apis::http_client::{ApiResult, RequestBuilderParts, Response};
+use qiniu_apis::http_client::{ApiResult, RegionProviderEndpoints, RequestBuilderParts, Response};
 use qiniu_utils::base64::urlsafe;
 use std::{
     fmt::{self, Debug, Display},
@@ -25,7 +25,7 @@ macro_rules! impl_call_methods {
                 .storage()
                 .$mod_name()
                 .new_request(
-                    op.$entry.bucket.region_provider()?,
+                    RegionProviderEndpoints::new(op.$entry.bucket.region_provider()?),
                     op.to_path_params(),
                     op.$entry.bucket.objects_manager().credential(),
                 );
@@ -49,7 +49,7 @@ macro_rules! impl_call_methods {
                 .storage()
                 .$mod_name()
                 .new_async_request(
-                    op.$entry.bucket.region_provider()?,
+                    RegionProviderEndpoints::new(op.$entry.bucket.region_provider()?),
                     op.to_path_params(),
                     op.$entry.bucket.objects_manager().credential(),
                 );

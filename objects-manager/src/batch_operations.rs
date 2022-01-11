@@ -2,8 +2,8 @@ use super::{callbacks::Callbacks, Bucket, OperationProvider};
 use qiniu_apis::{
     http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts, StatusCode},
     http_client::{
-        ApiResult, CallbackResult, RegionProvider, RequestBuilderParts, Response, ResponseError,
-        ResponseErrorKind,
+        ApiResult, CallbackResult, RegionProvider, RegionProviderEndpoints, RequestBuilderParts,
+        Response, ResponseError, ResponseErrorKind,
     },
     storage::batch_ops::{
         OperationResponse, OperationResponseData, RequestBody, ResponseBody,
@@ -158,6 +158,7 @@ impl Iterator for BatchOperationsIterator<'_> {
 }
 
 const DEFAULT_BATCH_SIZE: usize = 1000;
+type RefRegionProviderEndpoints<'a> = RegionProviderEndpoints<&'a dyn RegionProvider>;
 
 impl<'a> BatchOperationsIterator<'a> {
     fn next_response(&mut self) -> ApiResult<Option<OperationResponseData>> {
@@ -171,7 +172,9 @@ impl<'a> BatchOperationsIterator<'a> {
         }
     }
 
-    fn make_request(&self) -> ApiResult<BatchOpsSyncRequestBuilder<'a, &'a dyn RegionProvider>> {
+    fn make_request(
+        &self,
+    ) -> ApiResult<BatchOpsSyncRequestBuilder<'a, RefRegionProviderEndpoints<'a>>> {
         let request = self
             .operations
             .bucket
@@ -180,7 +183,7 @@ impl<'a> BatchOperationsIterator<'a> {
             .storage()
             .batch_ops()
             .new_request(
-                self.operations.bucket.region_provider()?,
+                RegionProviderEndpoints::new(self.operations.bucket.region_provider()?),
                 self.operations.bucket.objects_manager().credential(),
             );
         Ok(request)
@@ -188,7 +191,7 @@ impl<'a> BatchOperationsIterator<'a> {
 
     fn call_request(
         &mut self,
-        mut request: BatchOpsSyncRequestBuilder<'_, &dyn RegionProvider>,
+        mut request: BatchOpsSyncRequestBuilder<'_, RefRegionProviderEndpoints>,
         request_body: RequestBody,
     ) -> ApiResult<Response<ResponseBody>> {
         if self
@@ -444,7 +447,7 @@ mod async_stream {
         fn make_request(
             &self,
             region_provider: &'a dyn RegionProvider,
-        ) -> BatchOpsAsyncRequestBuilder<'a, &'a dyn RegionProvider> {
+        ) -> BatchOpsAsyncRequestBuilder<'a, RefRegionProviderEndpoints<'a>> {
             self.operations
                 .bucket
                 .objects_manager()
@@ -452,7 +455,7 @@ mod async_stream {
                 .storage()
                 .batch_ops()
                 .new_async_request(
-                    region_provider,
+                    RegionProviderEndpoints::new(region_provider),
                     self.operations.bucket.objects_manager().credential(),
                 )
         }

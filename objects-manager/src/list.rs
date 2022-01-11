@@ -2,7 +2,10 @@ use super::{callbacks::Callbacks, Bucket};
 use log::warn;
 use qiniu_apis::{
     http::ResponseErrorKind as HttpResponseErrorKind,
-    http_client::{ApiResult, RegionProvider, Response, ResponseError, SyncResponseBody},
+    http_client::{
+        ApiResult, RegionProvider, RegionProviderEndpoints, Response, ResponseError,
+        SyncResponseBody,
+    },
     storage::get_objects::{
         ListedObjectEntry, QueryParams, ResponseBody as GetObjectsV1ResponseBody,
         SyncRequestBuilder as GetObjectsV1SyncRequestBuilder,
@@ -20,6 +23,8 @@ use tap::prelude::*;
 
 #[cfg(feature = "async")]
 use {futures::io::BufReader as AsyncBufReader, qiniu_apis::http_client::AsyncResponseBody};
+
+type RefRegionProviderEndpoints<'a> = RegionProviderEndpoints<&'a dyn RegionProvider>;
 
 #[derive(Debug, Clone)]
 struct ListParams<'a> {
@@ -278,7 +283,7 @@ impl<'a> Iterator for ListIter<'a> {
 
         fn v1_make_request<'a>(
             params: &mut ListParams<'a>,
-        ) -> ApiResult<GetObjectsV1SyncRequestBuilder<'a, &'a dyn RegionProvider>> {
+        ) -> ApiResult<GetObjectsV1SyncRequestBuilder<'a, RefRegionProviderEndpoints<'a>>> {
             let mut request = params
                 .bucket
                 .objects_manager()
@@ -286,7 +291,7 @@ impl<'a> Iterator for ListIter<'a> {
                 .storage()
                 .get_objects()
                 .new_request(
-                    params.bucket.region_provider()?,
+                    RegionProviderEndpoints::new(params.bucket.region_provider()?),
                     params.bucket.objects_manager().credential(),
                 );
             request.query_pairs(params.to_query_params());
@@ -294,7 +299,7 @@ impl<'a> Iterator for ListIter<'a> {
         }
 
         fn v1_call_request(
-            mut request: GetObjectsV1SyncRequestBuilder<'_, &dyn RegionProvider>,
+            mut request: GetObjectsV1SyncRequestBuilder<'_, RefRegionProviderEndpoints>,
             callbacks: &mut Callbacks<'_>,
         ) -> ApiResult<Response<GetObjectsV1ResponseBody>> {
             if callbacks.before_request(request.parts_mut()).is_cancelled() {
@@ -418,7 +423,7 @@ impl<'a> Iterator for ListIter<'a> {
 
         fn v2_make_request<'a>(
             params: &mut ListParams<'a>,
-        ) -> ApiResult<GetObjectsV2SyncRequestBuilder<'a, &'a dyn RegionProvider>> {
+        ) -> ApiResult<GetObjectsV2SyncRequestBuilder<'a, RefRegionProviderEndpoints<'a>>> {
             let mut request = params
                 .bucket
                 .objects_manager()
@@ -426,7 +431,7 @@ impl<'a> Iterator for ListIter<'a> {
                 .storage()
                 .get_objects_v2()
                 .new_request(
-                    params.bucket.region_provider()?,
+                    RegionProviderEndpoints::new(params.bucket.region_provider()?),
                     params.bucket.objects_manager().credential(),
                 );
             request.query_pairs(params.to_query_params());
@@ -434,7 +439,7 @@ impl<'a> Iterator for ListIter<'a> {
         }
 
         fn v2_call_request(
-            mut request: GetObjectsV2SyncRequestBuilder<'_, &dyn RegionProvider>,
+            mut request: GetObjectsV2SyncRequestBuilder<'_, RefRegionProviderEndpoints>,
             callbacks: &mut Callbacks<'_>,
         ) -> ApiResult<Response<SyncResponseBody>> {
             if callbacks.before_request(request.parts_mut()).is_cancelled() {
@@ -612,7 +617,10 @@ mod async_list_stream {
                             .client()
                             .storage()
                             .get_objects()
-                            .new_async_request(region_provider, credential);
+                            .new_async_request(
+                                RegionProviderEndpoints::new(region_provider),
+                                credential,
+                            );
                         request.query_pairs(self.params.to_query_params());
                         if self
                             .callbacks
@@ -775,7 +783,10 @@ mod async_list_stream {
                             .client()
                             .storage()
                             .get_objects_v2()
-                            .new_async_request(region_provider, credential);
+                            .new_async_request(
+                                RegionProviderEndpoints::new(region_provider),
+                                credential,
+                            );
                         request.query_pairs(self.params.to_query_params());
                         if self
                             .callbacks

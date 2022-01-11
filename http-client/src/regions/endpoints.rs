@@ -1,4 +1,5 @@
 use super::{super::ApiResult, Endpoint, Region, RegionProvider};
+use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use md5::{
     digest::{generic_array::GenericArray, FixedOutputDirty},
@@ -253,6 +254,7 @@ impl Extend<Endpoint> for EndpointsBuilder {
 type BoxFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + 'a + Send>>;
 
 #[clonable]
+#[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait EndpointsProvider: Clone + fmt::Debug + Send + Sync {
     fn get_endpoints<'e>(&'e self, services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>>;
 
@@ -281,17 +283,21 @@ impl EndpointsProvider for Endpoints {
     }
 }
 
-impl<'a> EndpointsProvider for &'a Endpoints {
+pub struct RegionProviderEndpoints<R>(R);
+
+impl<R> RegionProviderEndpoints<R> {
     #[inline]
-    fn get_endpoints<'e>(&'e self, _services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>> {
-        Ok(Cow::Borrowed(self))
+    pub fn new(region_provider: R) -> Self {
+        Self(region_provider)
     }
 }
 
-impl<T: RegionProvider> EndpointsProvider for T {
+impl<R: RegionProvider + Clone> EndpointsProvider for RegionProviderEndpoints<R> {
     #[inline]
     fn get_endpoints<'e>(&'e self, services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>> {
-        Ok(Cow::Owned(Endpoints::from_region_provider(self, services)?))
+        Ok(Cow::Owned(Endpoints::from_region_provider(
+            &self.0, services,
+        )?))
     }
 
     #[inline]
@@ -303,8 +309,24 @@ impl<T: RegionProvider> EndpointsProvider for T {
     ) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
         Box::pin(async move {
             Ok(Cow::Owned(
-                Endpoints::async_from_region_provider(self, services).await?,
+                Endpoints::async_from_region_provider(&self.0, services).await?,
             ))
         })
+    }
+}
+
+impl<R: RegionProvider> fmt::Debug for RegionProviderEndpoints<R> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("RegionProviderEndpoints")
+            .field(&self.0)
+            .finish()
+    }
+}
+
+impl<R: RegionProvider + Clone> Clone for RegionProviderEndpoints<R> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }
