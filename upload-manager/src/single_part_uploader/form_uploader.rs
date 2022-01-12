@@ -11,7 +11,7 @@ use qiniu_apis::{
     },
     storage::put_object::{sync_part::RequestBody as SyncRequestBody, SyncRequestBuilder},
 };
-use qiniu_upload_token::{BucketName, UploadTokenProviderExt};
+use qiniu_upload_token::{BucketName, ObjectName};
 use serde_json::Value;
 use std::{
     fmt::Debug,
@@ -141,22 +141,21 @@ impl SinglePartUploader for FormUploader {
 
 impl FormUploader {
     fn access_key(&self) -> ApiResult<AccessKey> {
-        self.upload_manager
-            .upload_token()
-            .access_key(&Default::default())
-            .map(|ak| ak.into())
-            .map_err(|err| {
-                ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)
-            })
+        self.upload_manager.upload_token().access_key()
     }
 
     fn bucket_name(&self) -> ApiResult<BucketName> {
-        self.upload_manager
-            .upload_token()
-            .bucket_name(&Default::default())
-            .map_err(|err| {
-                ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)
-            })
+        self.upload_manager.upload_token().bucket_name()
+    }
+
+    #[cfg(feature = "async")]
+    async fn async_access_key(&self) -> ApiResult<AccessKey> {
+        self.upload_manager.upload_token().async_access_key().await
+    }
+
+    #[cfg(feature = "async")]
+    async fn async_bucket_name(&self) -> ApiResult<BucketName> {
+        self.upload_manager.upload_token().async_bucket_name().await
     }
 
     fn upload(
@@ -227,9 +226,10 @@ impl FormUploader {
             .await
         } else {
             let request = put_object.new_async_request(RegionProviderEndpoints::new(
-                self.upload_manager
-                    .queryer()
-                    .query(self.access_key()?, self.bucket_name()?),
+                self.upload_manager.queryer().query(
+                    self.async_access_key().await?,
+                    self.async_bucket_name().await?,
+                ),
             ));
             _async_upload(self, request, body).await
         };
@@ -269,7 +269,7 @@ impl FormUploader {
         &self,
         path: &Path,
         mut params: ObjectParams,
-    ) -> IoResult<SyncRequestBody> {
+    ) -> ApiResult<SyncRequestBody> {
         let mut file = File::open(path)?;
         if params.file_name().is_none() {
             *params.file_name_mut() = path
@@ -292,7 +292,7 @@ impl FormUploader {
         &self,
         reader: R,
         mut params: ObjectParams,
-    ) -> IoResult<SyncRequestBody> {
+    ) -> ApiResult<SyncRequestBody> {
         let mut file_metadata = PartMetadata::default();
         if let Some(file_name) = params.file_name() {
             file_metadata = file_metadata.file_name(file_name);
@@ -300,8 +300,12 @@ impl FormUploader {
         if let Some(content_type) = params.take_content_type() {
             file_metadata = file_metadata.mime(content_type);
         }
-        let mut request_body =
-            SyncRequestBody::default().set_upload_token(self.upload_manager.upload_token())?;
+        let mut request_body = SyncRequestBody::default().set_upload_token(
+            self.upload_manager
+                .upload_token()
+                .make_upload_token_provider(params.object_name().map(ObjectName::from))
+                .as_ref(),
+        )?;
         if let Some(object_name) = params.take_object_name() {
             request_body = request_body.set_object_name(object_name.to_string());
         }
@@ -323,7 +327,7 @@ impl FormUploader {
         &self,
         path: &Path,
         mut params: ObjectParams,
-    ) -> IoResult<AsyncRequestBody> {
+    ) -> ApiResult<AsyncRequestBody> {
         let mut file = AsyncFile::open(path).await?;
         if params.file_name().is_none() {
             *params.file_name_mut() = path
@@ -350,7 +354,7 @@ impl FormUploader {
         &self,
         reader: R,
         mut params: ObjectParams,
-    ) -> IoResult<AsyncRequestBody> {
+    ) -> ApiResult<AsyncRequestBody> {
         let mut file_metadata = PartMetadata::default();
         if let Some(file_name) = params.file_name() {
             file_metadata = file_metadata.file_name(file_name);
@@ -359,7 +363,12 @@ impl FormUploader {
             file_metadata = file_metadata.mime(content_type);
         }
         let mut request_body = AsyncRequestBody::default()
-            .set_upload_token(self.upload_manager.upload_token())
+            .set_upload_token(
+                self.upload_manager
+                    .upload_token()
+                    .make_upload_token_provider(params.object_name().map(ObjectName::from))
+                    .as_ref(),
+            )
             .await?;
         if let Some(object_name) = params.take_object_name() {
             request_body = request_body.set_object_name(object_name.to_string());
@@ -421,7 +430,7 @@ fn make_user_cancelled_error(message: &str) -> ResponseError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{super::super::upload_token::UploadTokenSigner, *};
     use mime::{Mime, BOUNDARY, TEXT_PLAIN};
     use multipart::server::Multipart;
     use qiniu_apis::{
@@ -432,7 +441,6 @@ mod tests {
         },
         http_client::{DirectChooser, HttpClient, NeverRetrier, Region, NO_BACKOFF},
     };
-    use qiniu_upload_token::BucketUploadTokenProvider;
     use rand::{thread_rng, RngCore};
     use serde_json::{json, to_vec as json_to_vec};
     use std::time::Duration;
@@ -523,14 +531,11 @@ mod tests {
     }
 
     fn get_upload_manager(caller: impl HttpCaller + 'static) -> UploadManager {
-        UploadManager::builder(
-            BucketUploadTokenProvider::builder(
-                "fakebucket",
-                Duration::from_secs(100),
-                get_credential(),
-            )
-            .build(),
-        )
+        UploadManager::builder(UploadTokenSigner::new_credential_provider(
+            get_credential(),
+            "fakebucket",
+            Duration::from_secs(100),
+        ))
         .http_client(
             HttpClient::builder(caller)
                 .chooser(DirectChooser)

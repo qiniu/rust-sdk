@@ -1,13 +1,12 @@
 use super::{
-    ConcurrencyProvider, DataPartitionProvider, FixedConcurrencyProvider,
-    FixedDataPartitionProvider, FixedThresholdResumablePolicy, FormUploader,
-    ResumablePolicyProvider, SinglePartUploader,
+    upload_token::UploadTokenSigner, ConcurrencyProvider, DataPartitionProvider,
+    FixedConcurrencyProvider, FixedDataPartitionProvider, FixedThresholdResumablePolicy,
+    FormUploader, ResumablePolicyProvider, SinglePartUploader,
 };
 use qiniu_apis::{
     http_client::{BucketRegionsQueryer, BucketRegionsQueryerBuilder, Endpoints, HttpClient},
     Client as QiniuApiClient,
 };
-use qiniu_upload_token::UploadTokenProvider;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -15,7 +14,7 @@ pub struct UploadManager(Arc<UploadManagerInner>);
 
 #[derive(Debug)]
 struct UploadManagerInner {
-    upload_token_provider: Box<dyn UploadTokenProvider>,
+    upload_token_signer: UploadTokenSigner,
     data_partition_provider: Box<dyn DataPartitionProvider>,
     concurrency_provider: Box<dyn ConcurrencyProvider>,
     resumable_policy_provider: Box<dyn ResumablePolicyProvider>,
@@ -25,18 +24,18 @@ struct UploadManagerInner {
 
 impl UploadManager {
     #[inline]
-    pub fn builder(upload_token: impl UploadTokenProvider + 'static) -> UploadManagerBuilder {
+    pub fn builder(upload_token: impl Into<UploadTokenSigner>) -> UploadManagerBuilder {
         UploadManagerBuilder::new(upload_token)
     }
 
     #[inline]
-    pub fn new(upload_token: impl UploadTokenProvider + 'static) -> Self {
+    pub fn new(upload_token: impl Into<UploadTokenSigner>) -> Self {
         Self::builder(upload_token).build()
     }
 
     #[inline]
-    pub fn upload_token(&self) -> &dyn UploadTokenProvider {
-        &self.0.upload_token_provider
+    pub fn upload_token(&self) -> &UploadTokenSigner {
+        &self.0.upload_token_signer
     }
 
     #[inline]
@@ -81,7 +80,7 @@ pub struct UploadManagerBuilder {
     http_client: Option<HttpClient>,
     queryer_builder: Option<BucketRegionsQueryerBuilder>,
     queryer: Option<BucketRegionsQueryer>,
-    upload_token_provider: Box<dyn UploadTokenProvider>,
+    upload_token_signer: UploadTokenSigner,
     data_partition_provider: Option<Box<dyn DataPartitionProvider>>,
     concurrency_provider: Option<Box<dyn ConcurrencyProvider>>,
     resumable_policy_provider: Option<Box<dyn ResumablePolicyProvider>>,
@@ -89,9 +88,9 @@ pub struct UploadManagerBuilder {
 
 impl UploadManagerBuilder {
     #[inline]
-    pub fn new(upload_token: impl UploadTokenProvider + 'static) -> Self {
+    pub fn new(upload_token_signer: impl Into<UploadTokenSigner>) -> Self {
         Self {
-            upload_token_provider: Box::new(upload_token),
+            upload_token_signer: upload_token_signer.into(),
             api_client: Default::default(),
             http_client: Default::default(),
             queryer_builder: Default::default(),
@@ -162,13 +161,13 @@ impl UploadManagerBuilder {
     }
 
     pub fn build(&mut self) -> UploadManager {
-        let upload_token_provider = self.upload_token_provider.to_owned();
+        let upload_token_provider = self.upload_token_signer.to_owned();
         let api_client = self.api_client.take();
         let http_client = self.http_client.take();
         let queryer = self.queryer.take();
         let mut queryer_builder = self.queryer_builder.take();
         UploadManager(Arc::new(UploadManagerInner {
-            upload_token_provider,
+            upload_token_signer: upload_token_provider,
             data_partition_provider: self
                 .data_partition_provider
                 .take()

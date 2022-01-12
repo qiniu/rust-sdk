@@ -23,6 +23,7 @@ mod object_params;
 mod resumable_policy;
 mod single_part_uploader;
 mod upload_manager;
+mod upload_token;
 
 pub use qiniu_apis as apis;
 
