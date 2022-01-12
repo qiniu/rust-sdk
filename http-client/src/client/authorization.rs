@@ -30,7 +30,7 @@ pub trait AuthorizationProvider: Clone + Debug + Sync + Send {
 }
 
 #[derive(Clone, Debug)]
-pub struct UploadTokenAuthorization<P>(P);
+pub struct UploadTokenAuthorization<P: ?Sized>(P);
 
 impl<P> From<P> for UploadTokenAuthorization<P> {
     #[inline]
@@ -62,7 +62,7 @@ impl<P: UploadTokenProvider + Clone> AuthorizationProvider for UploadTokenAuthor
 }
 
 #[derive(Clone, Debug)]
-pub struct CredentialAuthorizationV1<P>(P);
+pub struct CredentialAuthorizationV1<P: ?Sized>(P);
 
 impl<P> From<P> for CredentialAuthorizationV1<P> {
     #[inline]
@@ -138,7 +138,7 @@ impl<P: CredentialProvider + Clone> CredentialAuthorizationV1<P> {
 }
 
 #[derive(Clone, Debug)]
-pub struct CredentialAuthorizationV2<P>(P);
+pub struct CredentialAuthorizationV2<P: ?Sized>(P);
 
 impl<P> From<P> for CredentialAuthorizationV2<P> {
     #[inline]

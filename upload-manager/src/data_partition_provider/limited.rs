@@ -2,10 +2,10 @@ use super::{DataPartitionProvider, DataPartitionProviderFeedback, PartSize};
 use std::num::NonZeroU64;
 
 #[derive(Debug, Clone, Copy)]
-pub struct LimitedDataPartitionProvider<P> {
-    base: P,
+pub struct LimitedDataPartitionProvider<P: ?Sized> {
     min: NonZeroU64,
     max: NonZeroU64,
+    base: P,
 }
 
 impl<P: DataPartitionProvider> LimitedDataPartitionProvider<P> {

@@ -7,7 +7,7 @@ use rand::{seq::SliceRandom, thread_rng};
 use futures::future::BoxFuture;
 
 #[derive(Debug, Clone)]
-pub struct ShuffledChooser<C> {
+pub struct ShuffledChooser<C: ?Sized> {
     chooser: C,
 }
 

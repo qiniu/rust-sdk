@@ -6,10 +6,10 @@ use std::{convert::TryInto, time::Duration, u64};
 pub use num_rational::Ratio;
 
 #[derive(Debug, Clone)]
-pub struct RandomizedBackoff<P> {
-    base_backoff: P,
+pub struct RandomizedBackoff<P: ?Sized> {
     minification: Ratio<u8>,
     magnification: Ratio<u8>,
+    base_backoff: P,
 }
 
 impl<P> RandomizedBackoff<P> {

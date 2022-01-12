@@ -5,7 +5,7 @@ use rand::{prelude::*, thread_rng};
 use futures::future::BoxFuture;
 
 #[derive(Debug, Default, Clone)]
-pub struct ShuffledResolver<R> {
+pub struct ShuffledResolver<R: ?Sized> {
     base_resolver: R,
 }
 

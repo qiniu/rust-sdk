@@ -3,10 +3,10 @@ use qiniu_http::RequestParts as HttpRequestParts;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
-pub struct LimitedBackoff<P> {
-    base_backoff: P,
+pub struct LimitedBackoff<P: ?Sized> {
     max_backoff: Duration,
     min_backoff: Duration,
+    base_backoff: P,
 }
 
 impl<P> LimitedBackoff<P> {

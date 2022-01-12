@@ -283,7 +283,7 @@ impl EndpointsProvider for Endpoints {
     }
 }
 
-pub struct RegionProviderEndpoints<R>(R);
+pub struct RegionProviderEndpoints<R: ?Sized>(R);
 
 impl<R> RegionProviderEndpoints<R> {
     #[inline]

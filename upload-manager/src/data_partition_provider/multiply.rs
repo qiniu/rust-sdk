@@ -2,9 +2,9 @@ use super::{DataPartitionProvider, DataPartitionProviderFeedback, PartSize};
 use std::num::NonZeroU64;
 
 #[derive(Debug, Clone, Copy)]
-pub struct MultiplyDataPartitionProvider<P> {
-    base: P,
+pub struct MultiplyDataPartitionProvider<P: ?Sized> {
     multiply: NonZeroU64,
+    base: P,
 }
 
 impl<P: DataPartitionProvider> MultiplyDataPartitionProvider<P> {

@@ -14,7 +14,7 @@ const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(120);
 
 #[derive(Debug)]
-pub struct CachedResolver<R> {
+pub struct CachedResolver<R: ?Sized> {
     resolver: Arc<R>,
     cache: Cache<String, ResolveAnswers>,
 }
@@ -86,10 +86,10 @@ impl<R: Resolver + 'static> Resolver for CachedResolver<R> {
 }
 
 #[derive(Debug)]
-pub struct CachedResolverBuilder<R> {
-    resolver: R,
+pub struct CachedResolverBuilder<R: ?Sized> {
     cache_lifetime: Duration,
     shrink_interval: Duration,
+    resolver: R,
 }
 
 impl<R> CachedResolverBuilder<R> {

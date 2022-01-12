@@ -8,7 +8,7 @@ use std::{
 #[cfg(feature = "async")]
 use {super::AsyncDataSourceReader, futures::future::BoxFuture};
 
-pub struct UnseekableDataSource<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser>(
+pub struct UnseekableDataSource<R: Read + Debug + Send + Sync + 'static + ?Sized, A: OutputSizeUser>(
     Mutex<UnseekableDataSourceInner<R, A>>,
 );
 
@@ -22,10 +22,13 @@ impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> Debug
     }
 }
 
-struct UnseekableDataSourceInner<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> {
-    reader: R,
+struct UnseekableDataSourceInner<
+    R: Read + Debug + Send + Sync + 'static + ?Sized,
+    A: OutputSizeUser,
+> {
     current_offset: u64,
     source_key: Option<SourceKey<A>>,
+    reader: R,
 }
 
 impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> UnseekableDataSource<R, A> {
@@ -93,7 +96,7 @@ mod async_unseekable {
     use futures::{lock::Mutex, AsyncRead, AsyncReadExt};
 
     pub struct AsyncUnseekableDataSource<
-        R: AsyncRead + Debug + Unpin + Send + Sync + 'static,
+        R: AsyncRead + Debug + Unpin + Send + Sync + 'static + ?Sized,
         A: OutputSizeUser,
     >(Mutex<AsyncUnseekableDataSourceInner<R, A>>);
 
@@ -108,12 +111,12 @@ mod async_unseekable {
     }
 
     struct AsyncUnseekableDataSourceInner<
-        R: AsyncRead + Debug + Unpin + Send + Sync + 'static,
+        R: AsyncRead + Debug + Unpin + Send + Sync + 'static + ?Sized,
         A: OutputSizeUser,
     > {
-        reader: R,
         current_offset: u64,
         source_key: Option<SourceKey<A>>,
+        reader: R,
     }
 
     impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: OutputSizeUser>

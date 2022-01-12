@@ -14,14 +14,14 @@ use {
 const DEFAULT_RESOLVE_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone)]
-pub struct TimeoutResolver<R> {
+pub struct TimeoutResolver<R: ?Sized> {
     inner: Arc<TimeoutResolverInner<R>>,
 }
 
 #[derive(Debug)]
-struct TimeoutResolverInner<R> {
-    resolver: R,
+struct TimeoutResolverInner<R: ?Sized> {
     timeout: Duration,
+    resolver: R,
 }
 
 impl<R> TimeoutResolver<R> {

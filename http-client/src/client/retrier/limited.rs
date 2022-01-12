@@ -38,10 +38,10 @@ impl LimitTarget {
 }
 
 #[derive(Clone, Debug)]
-pub struct LimitedRetrier<R> {
-    retrier: R,
+pub struct LimitedRetrier<R: ?Sized> {
     retries: usize,
     target: LimitTarget,
+    retrier: R,
 }
 
 impl<R> LimitedRetrier<R> {

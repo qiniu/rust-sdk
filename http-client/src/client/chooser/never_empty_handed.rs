@@ -10,9 +10,9 @@ use futures::future::BoxFuture;
 const DEFAULT_RANDOM_CHOOSE_RATIO: Ratio<usize> = Ratio::new_raw(1, 2);
 
 #[derive(Debug, Clone)]
-pub struct NeverEmptyHandedChooser<C> {
-    inner_chooser: C,
+pub struct NeverEmptyHandedChooser<C: ?Sized> {
     random_choose_ratio: Ratio<usize>,
+    inner_chooser: C,
 }
 
 impl<C> NeverEmptyHandedChooser<C> {

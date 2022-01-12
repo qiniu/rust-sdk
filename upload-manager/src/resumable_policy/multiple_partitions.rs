@@ -4,9 +4,9 @@ use super::{
 use std::num::NonZeroU64;
 
 #[derive(Debug, Clone)]
-pub struct MultiplePartitionsResumablePolicyProvider<P> {
-    base_partition_provider: P,
+pub struct MultiplePartitionsResumablePolicyProvider<P: ?Sized> {
     multiply: NonZeroU64,
+    base_partition_provider: P,
 }
 
 impl<P> MultiplePartitionsResumablePolicyProvider<P> {
