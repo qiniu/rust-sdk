@@ -11,7 +11,7 @@ use std::{
 use futures::future::BoxFuture;
 
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub(super) trait DataSource<A: OutputSizeUser>: Debug + Sync + Send {
+pub trait DataSource<A: OutputSizeUser>: Debug + Sync + Send {
     fn slice(&self, size: u64) -> IoResult<Option<DataSourceReader>>;
 
     #[cfg(feature = "async")]
@@ -70,7 +70,7 @@ impl<A: OutputSizeUser> Clone for SourceKey<A> {
 }
 
 #[derive(Debug)]
-pub(super) struct DataSourceReader(DataSourceReaderInner);
+pub struct DataSourceReader(DataSourceReaderInner);
 
 #[derive(Debug)]
 enum DataSourceReaderInner {
@@ -79,11 +79,13 @@ enum DataSourceReaderInner {
 }
 
 impl DataSourceReader {
-    pub(super) fn seekable(source: SeekableSource) -> Self {
+    #[inline]
+    pub fn seekable(source: SeekableSource) -> Self {
         Self(DataSourceReaderInner::ReadSeekable(source))
     }
 
-    pub(super) fn unseekable(data: Vec<u8>, offset: u64) -> Self {
+    #[inline]
+    pub fn unseekable(data: Vec<u8>, offset: u64) -> Self {
         Self(DataSourceReaderInner::Readable {
             data: Cursor::new(data),
             offset,
@@ -106,6 +108,7 @@ impl DataSourceReader {
 }
 
 impl Read for DataSourceReader {
+    #[inline]
     fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
         match &mut self.0 {
             DataSourceReaderInner::ReadSeekable(source) => source.read(buf),
@@ -127,7 +130,7 @@ impl<T: Read + Seek + Send + Sync + Debug> SeekableSourceInner<T> {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct SeekableSource {
+pub struct SeekableSource {
     source: Arc<Mutex<SeekableSourceInner<dyn ReadSeek>>>,
     source_offset: u64,
     offset: u64,
@@ -135,7 +138,8 @@ pub(super) struct SeekableSource {
 }
 
 impl SeekableSource {
-    pub(super) fn new(
+    #[inline]
+    pub fn new(
         source: impl Read + Seek + Debug + Send + Sync + 'static,
         offset: u64,
         len: u64,
@@ -207,7 +211,7 @@ mod async_reader {
     };
 
     #[derive(Debug)]
-    pub(in super::super) struct AsyncSeekableSource {
+    pub struct AsyncSeekableSource {
         source: Arc<Mutex<AsyncSeekableSourceInner<dyn ReadSeek>>>,
         source_offset: Arc<AtomicU64>,
         offset: u64,
@@ -255,7 +259,8 @@ mod async_reader {
     }
 
     impl AsyncSeekableSource {
-        pub(super) fn new(
+        #[inline]
+        pub fn new(
             source: impl AsyncRead + AsyncSeek + Debug + Send + Sync + Unpin + 'static,
             offset: u64,
             len: u64,
@@ -370,6 +375,7 @@ mod async_reader {
     }
 
     impl AsyncRead for AsyncSeekableSource {
+        #[inline]
         fn poll_read(
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,
@@ -384,7 +390,7 @@ mod async_reader {
     }
 
     #[derive(Debug)]
-    pub(in super::super) struct AsyncDataSourceReader(AsyncDataSourceReaderInner);
+    pub struct AsyncDataSourceReader(AsyncDataSourceReaderInner);
 
     #[derive(Debug)]
     enum AsyncDataSourceReaderInner {
@@ -393,11 +399,13 @@ mod async_reader {
     }
 
     impl AsyncDataSourceReader {
-        pub(in super::super) fn seekable(source: AsyncSeekableSource) -> Self {
+        #[inline]
+        pub fn seekable(source: AsyncSeekableSource) -> Self {
             Self(AsyncDataSourceReaderInner::ReadSeekable(source))
         }
 
-        pub(in super::super) fn unseekable(data: Vec<u8>, offset: u64) -> Self {
+        #[inline]
+        pub fn unseekable(data: Vec<u8>, offset: u64) -> Self {
             Self(AsyncDataSourceReaderInner::Readable {
                 data: Cursor::new(data),
                 offset,
@@ -420,6 +428,7 @@ mod async_reader {
     }
 
     impl AsyncRead for AsyncDataSourceReader {
+        #[inline]
         fn poll_read(
             mut self: Pin<&mut Self>,
             cx: &mut Context<'_>,
@@ -441,7 +450,7 @@ mod async_reader {
 }
 
 #[cfg(feature = "async")]
-pub(super) use async_reader::*;
+pub use async_reader::*;
 
 #[cfg(test)]
 mod tests {
@@ -573,10 +582,10 @@ mod tests {
 }
 
 mod file;
-pub(super) use file::FileDataSource;
+pub use file::FileDataSource;
 
 mod unseekable;
-pub(super) use unseekable::UnseekableDataSource;
+pub use unseekable::UnseekableDataSource;
 
 #[cfg(feature = "async")]
-pub(super) use unseekable::AsyncUnseekableDataSource;
+pub use unseekable::AsyncUnseekableDataSource;

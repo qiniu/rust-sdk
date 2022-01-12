@@ -45,7 +45,7 @@ impl<A: OutputSizeUser> Debug for Source<A> {
     }
 }
 
-pub(crate) struct FileDataSource<A: OutputSizeUser> {
+pub struct FileDataSource<A: OutputSizeUser> {
     path: PathBuf,
     canonicalized_path: OnceCell<PathBuf>,
     source: OnceCell<Source<A>>,
@@ -55,7 +55,7 @@ pub(crate) struct FileDataSource<A: OutputSizeUser> {
 }
 
 impl<A: OutputSizeUser> FileDataSource<A> {
-    pub(crate) fn new(path: impl Into<PathBuf>) -> Self {
+    pub fn new(path: impl Into<PathBuf>) -> Self {
         Self {
             path: path.into(),
             canonicalized_path: Default::default(),

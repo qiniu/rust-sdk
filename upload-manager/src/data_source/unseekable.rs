@@ -8,7 +8,7 @@ use std::{
 #[cfg(feature = "async")]
 use {super::AsyncDataSourceReader, futures::future::BoxFuture};
 
-pub(crate) struct UnseekableDataSource<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser>(
+pub struct UnseekableDataSource<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser>(
     Mutex<UnseekableDataSourceInner<R, A>>,
 );
 
@@ -29,7 +29,7 @@ struct UnseekableDataSourceInner<R: Read + Debug + Send + Sync + 'static, A: Out
 }
 
 impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> UnseekableDataSource<R, A> {
-    pub(crate) fn new(reader: R) -> Self {
+    pub fn new(reader: R) -> Self {
         Self(Mutex::new(UnseekableDataSourceInner {
             reader,
             current_offset: 0,
@@ -37,7 +37,7 @@ impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> UnseekableDataS
         }))
     }
 
-    pub(crate) fn new_with_source_key(reader: R, source_key: SourceKey<A>) -> Self {
+    pub fn new_with_source_key(reader: R, source_key: SourceKey<A>) -> Self {
         Self(Mutex::new(UnseekableDataSourceInner {
             reader,
             source_key: Some(source_key),
@@ -92,7 +92,7 @@ mod async_unseekable {
     use super::*;
     use futures::{lock::Mutex, AsyncRead, AsyncReadExt};
 
-    pub(crate) struct AsyncUnseekableDataSource<
+    pub struct AsyncUnseekableDataSource<
         R: AsyncRead + Debug + Unpin + Send + Sync + 'static,
         A: OutputSizeUser,
     >(Mutex<AsyncUnseekableDataSourceInner<R, A>>);
@@ -119,7 +119,7 @@ mod async_unseekable {
     impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: OutputSizeUser>
         AsyncUnseekableDataSource<R, A>
     {
-        pub(crate) fn new(reader: R) -> Self {
+        pub fn new(reader: R) -> Self {
             Self(Mutex::new(AsyncUnseekableDataSourceInner {
                 reader,
                 current_offset: 0,
@@ -127,7 +127,7 @@ mod async_unseekable {
             }))
         }
 
-        pub(crate) fn new_with_source_key(reader: R, source_key: SourceKey<A>) -> Self {
+        pub fn new_with_source_key(reader: R, source_key: SourceKey<A>) -> Self {
             Self(Mutex::new(AsyncUnseekableDataSourceInner {
                 reader,
                 source_key: Some(source_key),
@@ -184,5 +184,5 @@ mod async_unseekable {
 }
 
 #[cfg(feature = "async")]
-pub(crate) use async_unseekable::*;
+pub use async_unseekable::*;
 use sha1::digest::OutputSizeUser;
