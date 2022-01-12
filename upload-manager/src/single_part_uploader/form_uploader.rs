@@ -1,6 +1,6 @@
 use super::{
     super::{
-        callbacks::{Callbacks, UploadingProgressInfo},
+        callbacks::{Callbacks, UploaderWithCallbacks, UploadingProgressInfo},
         DataCheck, ObjectParams, UploadManager,
     },
     SinglePartUploader,
@@ -40,15 +40,7 @@ pub struct FormUploader {
     callbacks: Callbacks<'static>,
 }
 
-impl SinglePartUploader for FormUploader {
-    #[inline]
-    fn new(upload_manager: UploadManager) -> Self {
-        Self {
-            upload_manager,
-            callbacks: Default::default(),
-        }
-    }
-
+impl UploaderWithCallbacks for FormUploader {
     #[inline]
     fn on_before_request<
         F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static,
@@ -88,6 +80,16 @@ impl SinglePartUploader for FormUploader {
         self.callbacks
             .insert_after_response_error_callback(callback);
         self
+    }
+}
+
+impl SinglePartUploader for FormUploader {
+    #[inline]
+    fn new(upload_manager: UploadManager) -> Self {
+        Self {
+            upload_manager,
+            callbacks: Default::default(),
+        }
     }
 
     fn upload_path(&self, path: &Path, mut params: ObjectParams) -> ApiResult<Value> {

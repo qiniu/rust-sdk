@@ -1,4 +1,4 @@
-use super::{ObjectParams, UploadManager, UploadingProgressInfo};
+use super::{ObjectParams, UploadManager, UploaderWithCallbacks, UploadingProgressInfo};
 use qiniu_apis::{
     http::ResponseParts,
     http_client::{ApiResult, CallbackResult, RequestBuilderParts, ResponseError},
@@ -9,26 +9,8 @@ use std::{fmt::Debug, io::Read, path::Path};
 #[cfg(feature = "async")]
 use futures::{future::BoxFuture, AsyncRead};
 
-pub trait SinglePartUploader: Debug {
+pub trait SinglePartUploader: UploaderWithCallbacks + Debug {
     fn new(upload_manager: UploadManager) -> Self;
-    fn on_before_request<
-        F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static,
-    >(
-        &mut self,
-        callback: F,
-    ) -> &mut Self;
-    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static>(
-        &mut self,
-        callback: F,
-    ) -> &mut Self;
-    fn on_response_ok<F: Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'static>(
-        &mut self,
-        callback: F,
-    ) -> &mut Self;
-    fn on_response_error<F: Fn(&ResponseError) -> CallbackResult + Send + Sync + 'static>(
-        &mut self,
-        callback: F,
-    ) -> &mut Self;
 
     fn upload_path(&self, path: &Path, params: ObjectParams) -> ApiResult<Value>;
 

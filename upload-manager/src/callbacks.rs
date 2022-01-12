@@ -13,6 +13,27 @@ type AfterResponseOkCallback<'c> =
 type AfterResponseErrorCallback<'c> =
     Box<dyn Fn(&ResponseError) -> CallbackResult + Send + Sync + 'c>;
 
+pub trait UploaderWithCallbacks {
+    fn on_before_request<
+        F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static,
+    >(
+        &mut self,
+        callback: F,
+    ) -> &mut Self;
+    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static>(
+        &mut self,
+        callback: F,
+    ) -> &mut Self;
+    fn on_response_ok<F: Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'static>(
+        &mut self,
+        callback: F,
+    ) -> &mut Self;
+    fn on_response_error<F: Fn(&ResponseError) -> CallbackResult + Send + Sync + 'static>(
+        &mut self,
+        callback: F,
+    ) -> &mut Self;
+}
+
 #[derive(Default)]
 pub(super) struct Callbacks<'a> {
     before_request_callbacks: Vec<BeforeRequestCallback<'a>>,

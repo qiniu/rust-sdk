@@ -19,6 +19,7 @@ mod callbacks;
 mod concurrency_provider;
 mod data_partition_provider;
 mod data_source;
+mod multi_parts_uploader;
 mod object_params;
 mod resumable_policy;
 mod resumable_recorder;
@@ -28,7 +29,7 @@ mod upload_token;
 
 pub use qiniu_apis as apis;
 
-pub use callbacks::UploadingProgressInfo;
+pub use callbacks::{UploaderWithCallbacks, UploadingProgressInfo};
 pub use concurrency_provider::{
     Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, FixedConcurrencyProvider,
     TimeAwareConcurrencyProvider,
@@ -39,6 +40,7 @@ pub use data_partition_provider::{
     TimeAwareDataPartitionProvider,
 };
 pub use data_source::SourceKey;
+pub use multi_parts_uploader::MultiPartsUploader;
 pub use object_params::{DataCheck, ObjectParams, ObjectParamsBuilder};
 pub use resumable_policy::{
     AlwaysMultiParts, AlwaysSinglePart, FixedThresholdResumablePolicy, GetPolicyOptions,
@@ -63,8 +65,8 @@ pub mod prelude {
     pub use super::apis::http_client::preclude::*;
     pub use super::{
         AppendOnlyResumableRecorderMedium, ConcurrencyProvider, DataPartitionProvider,
-        ReadOnlyResumableRecorderMedium, ResumablePolicyProvider, ResumableRecorder,
-        SinglePartUploader,
+        MultiPartsUploader, ReadOnlyResumableRecorderMedium, ResumablePolicyProvider,
+        ResumableRecorder, SinglePartUploader,
     };
 
     #[cfg(feature = "async")]

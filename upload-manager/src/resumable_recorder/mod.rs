@@ -94,7 +94,9 @@ pub trait AppendOnlyAsyncResumableRecorderMedium: AsyncWrite + Unpin + Debug + S
     fn into_medium_for_read(self) -> BoxFuture<'static, IoResult<Self::ReadOnlyMedium>>;
 }
 
+mod dummy;
 mod file;
+pub use dummy::{DummyResumableRecorder, DummyResumableRecorderMedium};
 pub use file::{
     FileSystemAppendOnlyResumableRecorderMedium, FileSystemReadOnlyResumableRecorderMedium,
     FileSystemResumableRecorder,
