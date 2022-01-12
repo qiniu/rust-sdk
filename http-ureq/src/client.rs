@@ -326,10 +326,11 @@ impl<'a, 'r> RequestBodyWithCallbacks<'a, 'r> {
 
 impl Read for RequestBodyWithCallbacks<'_, '_> {
     fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
-        match self.request.body_mut().read(buf) {
-            Err(err) => Err(err),
-            Ok(0) => Ok(0),
-            Ok(n) => {
+        let n = self.request.body_mut().read(buf)?;
+        println!("ureq: have_read: {:?}", n);
+        match n {
+            0 => Ok(0),
+            n => {
                 self.have_read += n as u64;
                 let buf = &buf[..n];
                 if let Some(on_uploading_progress) = self.request.on_uploading_progress() {

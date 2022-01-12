@@ -1,6 +1,7 @@
 use super::{
     super::{
         callbacks::{Callbacks, UploaderWithCallbacks, UploadingProgressInfo},
+        upload_token::OwnedUploadTokenProviderOrReferenced,
         DataCheck, ObjectParams, UploadManager,
     },
     SinglePartUploader,
@@ -9,10 +10,11 @@ use qiniu_apis::{
     credential::AccessKey,
     http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
     http_client::{
-        ApiResult, CallbackResult, EndpointsProvider, FileName, PartMetadata, RegionProvider,
-        RegionProviderEndpoints, RequestBuilderParts, ResponseError,
+        ApiResult, BucketRegionsProvider, CallbackResult, EndpointsProvider, FileName,
+        PartMetadata, RegionProvider, RegionProviderEndpoints, RequestBuilderParts, Response,
+        ResponseError,
     },
-    storage::put_object::{sync_part::RequestBody as SyncRequestBody, SyncRequestBuilder},
+    storage::put_object::{self, sync_part::RequestBody as SyncRequestBody, SyncRequestBuilder},
 };
 use qiniu_upload_token::{BucketName, ObjectName};
 use serde_json::Value;
@@ -145,30 +147,12 @@ impl SinglePartUploader for FormUploader {
 }
 
 impl FormUploader {
-    fn access_key(&self) -> ApiResult<AccessKey> {
-        self.upload_manager.upload_token().access_key()
-    }
-
-    fn bucket_name(&self) -> ApiResult<BucketName> {
-        self.upload_manager.upload_token().bucket_name()
-    }
-
-    #[cfg(feature = "async")]
-    async fn async_access_key(&self) -> ApiResult<AccessKey> {
-        self.upload_manager.upload_token().async_access_key().await
-    }
-
-    #[cfg(feature = "async")]
-    async fn async_bucket_name(&self) -> ApiResult<BucketName> {
-        self.upload_manager.upload_token().async_bucket_name().await
-    }
-
     fn upload(
         &self,
         region_provider: Option<Box<dyn RegionProvider>>,
         body: SyncRequestBody,
     ) -> ApiResult<Value> {
-        let put_object = self.upload_manager.client().storage().put_object();
+        let put_object = self.put_object();
         return if let Some(region_provider) = region_provider {
             _upload(
                 self,
@@ -176,11 +160,8 @@ impl FormUploader {
                 body,
             )
         } else {
-            let request = put_object.new_request(RegionProviderEndpoints::new(
-                self.upload_manager
-                    .queryer()
-                    .query(self.access_key()?, self.bucket_name()?),
-            ));
+            let request =
+                put_object.new_request(RegionProviderEndpoints::new(self.get_bucket_region()?));
             _upload(self, request, body)
         };
 
@@ -194,25 +175,9 @@ impl FormUploader {
                     .callbacks
                     .upload_progress(&UploadingProgressInfo::from(transfer))
             });
-            if form_uploader
-                .callbacks
-                .before_request(request.parts_mut())
-                .is_cancelled()
-            {
-                return Err(make_user_cancelled_error(
-                    "Cancelled by on_before_request() callback",
-                ));
-            }
+            form_uploader.before_request_call(request.parts_mut())?;
             let mut response_result = request.call(body);
-            if form_uploader
-                .callbacks
-                .after_response(&mut response_result)
-                .is_cancelled()
-            {
-                return Err(make_user_cancelled_error(
-                    "Cancelled by on_after_response() callback",
-                ));
-            }
+            form_uploader.after_response_call(&mut response_result)?;
             Ok(response_result?.into_body().into())
         }
     }
@@ -223,7 +188,7 @@ impl FormUploader {
         region_provider: Option<Box<dyn RegionProvider>>,
         body: AsyncRequestBody,
     ) -> ApiResult<Value> {
-        let put_object = self.upload_manager.client().storage().put_object();
+        let put_object = self.put_object();
         return if let Some(region_provider) = region_provider {
             _async_upload(
                 self,
@@ -233,10 +198,7 @@ impl FormUploader {
             .await
         } else {
             let request = put_object.new_async_request(RegionProviderEndpoints::new(
-                self.upload_manager.queryer().query(
-                    self.async_access_key().await?,
-                    self.async_bucket_name().await?,
-                ),
+                self.async_get_bucket_region().await?,
             ));
             _async_upload(self, request, body).await
         };
@@ -251,25 +213,9 @@ impl FormUploader {
                     .callbacks
                     .upload_progress(&UploadingProgressInfo::from(transfer))
             });
-            if form_uploader
-                .callbacks
-                .before_request(request.parts_mut())
-                .is_cancelled()
-            {
-                return Err(make_user_cancelled_error(
-                    "Cancelled by on_before_request() callback",
-                ));
-            }
+            form_uploader.before_request_call(request.parts_mut())?;
             let mut response_result = request.call(body).await;
-            if form_uploader
-                .callbacks
-                .after_response(&mut response_result)
-                .is_cancelled()
-            {
-                return Err(make_user_cancelled_error(
-                    "Cancelled by on_after_response() callback",
-                ));
-            }
+            form_uploader.after_response_call(&mut response_result)?;
             Ok(response_result?.into_body().into())
         }
     }
@@ -309,12 +255,8 @@ impl FormUploader {
         if let Some(content_type) = params.take_content_type() {
             file_metadata = file_metadata.mime(content_type);
         }
-        let mut request_body = SyncRequestBody::default().set_upload_token(
-            self.upload_manager
-                .upload_token()
-                .make_upload_token_provider(params.object_name().map(ObjectName::from))
-                .as_ref(),
-        )?;
+        let mut request_body = SyncRequestBody::default()
+            .set_upload_token(self.make_upload_token_signer(&params).as_ref())?;
         if let Some(object_name) = params.take_object_name() {
             request_body = request_body.set_object_name(object_name.to_string());
         }
@@ -372,12 +314,7 @@ impl FormUploader {
             file_metadata = file_metadata.mime(content_type);
         }
         let mut request_body = AsyncRequestBody::default()
-            .set_upload_token(
-                self.upload_manager
-                    .upload_token()
-                    .make_upload_token_provider(params.object_name().map(ObjectName::from))
-                    .as_ref(),
-            )
+            .set_upload_token(self.make_upload_token_signer(&params).as_ref())
             .await?;
         if let Some(object_name) = params.take_object_name() {
             request_body = request_body.set_object_name(object_name.to_string());
@@ -393,6 +330,73 @@ impl FormUploader {
         }
         request_body = request_body.set_file_as_reader(reader, file_metadata);
         Ok(request_body)
+    }
+
+    fn get_bucket_region(&self) -> ApiResult<BucketRegionsProvider> {
+        Ok(self
+            .upload_manager
+            .queryer()
+            .query(self.access_key()?, self.bucket_name()?))
+    }
+
+    #[cfg(feature = "async")]
+    async fn async_get_bucket_region(&self) -> ApiResult<BucketRegionsProvider> {
+        Ok(self.upload_manager.queryer().query(
+            self.async_access_key().await?,
+            self.async_bucket_name().await?,
+        ))
+    }
+
+    fn make_upload_token_signer(
+        &self,
+        params: &ObjectParams,
+    ) -> OwnedUploadTokenProviderOrReferenced<'_> {
+        let object_name = params.object_name().map(ObjectName::from);
+        self.upload_manager
+            .upload_token()
+            .make_upload_token_provider(object_name)
+    }
+
+    fn put_object(&self) -> put_object::Client {
+        self.upload_manager.client().storage().put_object()
+    }
+
+    fn access_key(&self) -> ApiResult<AccessKey> {
+        self.upload_manager.upload_token().access_key()
+    }
+
+    fn bucket_name(&self) -> ApiResult<BucketName> {
+        self.upload_manager.upload_token().bucket_name()
+    }
+
+    #[cfg(feature = "async")]
+    async fn async_access_key(&self) -> ApiResult<AccessKey> {
+        self.upload_manager.upload_token().async_access_key().await
+    }
+
+    #[cfg(feature = "async")]
+    async fn async_bucket_name(&self) -> ApiResult<BucketName> {
+        self.upload_manager.upload_token().async_bucket_name().await
+    }
+
+    fn before_request_call(&self, request: &mut RequestBuilderParts<'_>) -> ApiResult<()> {
+        if self.callbacks.before_request(request).is_cancelled() {
+            Err(make_user_cancelled_error(
+                "Cancelled by on_before_request() callback",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn after_response_call<B>(&self, response: &mut ApiResult<Response<B>>) -> ApiResult<()> {
+        if self.callbacks.after_response(response).is_cancelled() {
+            Err(make_user_cancelled_error(
+                "Cancelled by on_after_response() callback",
+            ))
+        } else {
+            Ok(())
+        }
     }
 }
 

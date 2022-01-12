@@ -8,7 +8,12 @@ pub struct FixedConcurrencyProvider(NonZeroUsize);
 impl FixedConcurrencyProvider {
     #[inline]
     pub fn new(concurrency: usize) -> Option<Self> {
-        NonZeroUsize::new(concurrency).map(Self)
+        NonZeroUsize::new(concurrency).map(Self::new_with_non_zero_concurrency)
+    }
+
+    #[inline]
+    pub fn new_with_non_zero_concurrency(concurrency: NonZeroUsize) -> Self {
+        Self(concurrency)
     }
 
     #[inline]

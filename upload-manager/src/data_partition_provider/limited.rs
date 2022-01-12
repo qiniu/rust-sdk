@@ -12,9 +12,14 @@ impl<P: DataPartitionProvider> LimitedDataPartitionProvider<P> {
     #[inline]
     pub fn new(base: P, min: u64, max: u64) -> Option<Self> {
         match (NonZeroU64::new(min), NonZeroU64::new(max)) {
-            (Some(min), Some(max)) => Some(Self { base, min, max }),
+            (Some(min), Some(max)) => Some(Self::new_with_non_zero_threshold(base, min, max)),
             _ => None,
         }
+    }
+
+    #[inline]
+    pub fn new_with_non_zero_threshold(base: P, min: NonZeroU64, max: NonZeroU64) -> Self {
+        Self { base, min, max }
     }
 }
 

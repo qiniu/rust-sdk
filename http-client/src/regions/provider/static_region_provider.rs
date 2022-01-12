@@ -23,8 +23,8 @@ impl RegionProvider for StaticRegionsProvider {
         Ok(self
             .regions
             .iter()
-            .cloned()
             .next()
+            .cloned()
             .expect("regions must not be empty")
             .into())
     }

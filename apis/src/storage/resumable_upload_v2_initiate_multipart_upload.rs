@@ -162,7 +162,7 @@ impl<'client> Client<'client> {
         path_params: PathParams,
         upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider
             + std::clone::Clone
-            + 'static,
+            + 'client,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
             let mut builder = self
@@ -187,7 +187,7 @@ impl<'client> Client<'client> {
         path_params: PathParams,
         upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider
             + std::clone::Clone
-            + 'static,
+            + 'client,
     ) -> AsyncRequestBuilder<'client, E> {
         RequestBuilder({
             let mut builder = self

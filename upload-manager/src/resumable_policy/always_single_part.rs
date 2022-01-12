@@ -1,4 +1,4 @@
-use super::{ResumablePolicy, ResumablePolicyProvider, GetPolicyOptions};
+use super::{GetPolicyOptions, ResumablePolicy, ResumablePolicyProvider};
 
 #[derive(Debug, Copy, Clone)]
 pub struct AlwaysSinglePart;

@@ -1,13 +1,15 @@
-use super::{DataSource, DataSourceReader, SeekableSource, SourceKey, UnseekableDataSource};
+use super::{
+    DataSource, DataSourceReader, PartSize, SeekableDataSource, SourceKey, UnseekableDataSource,
+};
 use digest::OutputSizeUser;
 use once_cell::sync::OnceCell;
+use os_str_bytes::OsStrBytes;
 use sha1::{Digest, Sha1};
 use std::{
     fmt::{self, Debug},
     fs::File,
-    io::{Result as IoResult, Seek},
+    io::Result as IoResult,
     path::PathBuf,
-    sync::Mutex,
 };
 
 #[cfg(feature = "async")]
@@ -19,33 +21,21 @@ use {
 };
 
 enum Source<A: OutputSizeUser> {
-    Seekable {
-        source: SeekableSource,
-        current_offset: Mutex<u64>,
-        file_size: u64,
-    },
+    Seekable(SeekableDataSource),
     Unseekable(UnseekableDataSource<File, A>),
 }
 
 impl<A: OutputSizeUser> Debug for Source<A> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Seekable {
-                source,
-                current_offset,
-                file_size,
-            } => f
-                .debug_struct("Seekable")
-                .field("source", source)
-                .field("current_offset", current_offset)
-                .field("file_size", file_size)
-                .finish(),
-            Self::Unseekable(file) => f.debug_tuple("Unseekable").field(file).finish(),
+            Self::Seekable(source) => f.debug_struct("Seekable").field("source", source).finish(),
+            Self::Unseekable(source) => f.debug_tuple("Unseekable").field(source).finish(),
         }
     }
 }
 
-pub struct FileDataSource<A: OutputSizeUser> {
+pub struct FileDataSource<A: OutputSizeUser = Sha1> {
     path: PathBuf,
     canonicalized_path: OnceCell<PathBuf>,
     source: OnceCell<Source<A>>,
@@ -68,16 +58,15 @@ impl<A: OutputSizeUser> FileDataSource<A> {
 
     fn get_seekable_source(&self) -> IoResult<&Source<A>> {
         self.source.get_or_try_init(|| {
-            let mut file = File::open(&self.path)?;
-            if let Ok(current_offset) = file.stream_position() {
-                Ok(Source::Seekable {
-                    file_size: file.metadata()?.len(),
-                    source: SeekableSource::new(file, 0, 0),
-                    current_offset: Mutex::new(current_offset),
+            let file = File::open(&self.path)?;
+            let file_size = file.metadata()?.len();
+            SeekableDataSource::new(file, file_size)
+                .map(Source::Seekable)
+                .or_else(|_| {
+                    File::open(&self.path)
+                        .map(UnseekableDataSource::new)
+                        .map(Source::Unseekable)
                 })
-            } else {
-                Ok(Source::Unseekable(UnseekableDataSource::new(file)))
-            }
         })
     }
 
@@ -117,31 +106,16 @@ impl<A: OutputSizeUser> FileDataSource<A> {
 }
 
 impl DataSource<Sha1> for FileDataSource<Sha1> {
-    fn slice(&self, size: u64) -> IoResult<Option<DataSourceReader>> {
+    fn slice(&self, size: PartSize) -> IoResult<Option<DataSourceReader>> {
         match self.get_seekable_source()? {
-            Source::Seekable {
-                source,
-                file_size,
-                current_offset,
-            } => {
-                let mut cur_off = current_offset.lock().unwrap();
-                if *cur_off < *file_size {
-                    let source_reader = DataSourceReader::seekable(
-                        source.clone_with_new_offset_and_length(*cur_off, size),
-                    );
-                    *cur_off += size;
-                    Ok(Some(source_reader))
-                } else {
-                    Ok(None)
-                }
-            }
+            Source::Seekable(source) => source.slice(size),
             Source::Unseekable(source) => source.slice(size),
         }
     }
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_slice(&self, size: u64) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
+    fn async_slice(&self, size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
         Box::pin(async move {
             match self.get_async_seekable_source().await? {
                 AsyncSource::Seekable {
@@ -151,6 +125,7 @@ impl DataSource<Sha1> for FileDataSource<Sha1> {
                 } => {
                     let mut cur_off = current_offset.lock().await;
                     if *cur_off < *file_size {
+                        let size = size.as_u64();
                         let source_reader = AsyncDataSourceReader::seekable(
                             source.clone_with_new_offset_and_length(*cur_off, size),
                         );
@@ -170,7 +145,7 @@ impl DataSource<Sha1> for FileDataSource<Sha1> {
             Source::Seekable { .. } => {
                 let mut hasher = Sha1::new();
                 hasher.update(b"file://");
-                hasher.update(&self.get_path()?.display().to_string());
+                hasher.update(&self.get_path()?.to_raw_bytes());
                 Ok(Some(hasher.finalize().into()))
             }
             Source::Unseekable(source) => source.source_key(),
@@ -185,7 +160,7 @@ impl DataSource<Sha1> for FileDataSource<Sha1> {
                 AsyncSource::Seekable { .. } => {
                     let mut hasher = Sha1::new();
                     hasher.update(b"file://");
-                    hasher.update(&self.get_async_path().await?.display().to_string());
+                    hasher.update(&self.get_async_path().await?.as_os_str().to_raw_bytes());
                     Ok(Some(hasher.finalize().into()))
                 }
                 AsyncSource::Unseekable(source) => source.async_source_key().await,
@@ -195,7 +170,7 @@ impl DataSource<Sha1> for FileDataSource<Sha1> {
 
     fn total_size(&self) -> IoResult<Option<u64>> {
         match self.get_seekable_source()? {
-            Source::Seekable { file_size, .. } => Ok(Some(*file_size)),
+            Source::Seekable(source) => source.total_size(),
             Source::Unseekable(source) => source.total_size(),
         }
     }
@@ -305,9 +280,11 @@ mod tests {
         let data_source = FileDataSource::new(&temp_file_path);
         let mut source_readers = Vec::with_capacity(256);
         for _ in 0..255u8 {
-            source_readers.push(data_source.slice(1 << 20)?.unwrap());
+            source_readers.push(data_source.slice(PartSize::new(1 << 20).unwrap())?.unwrap());
         }
-        assert!(data_source.slice(1 << 20)?.is_none());
+        assert!(data_source
+            .slice(PartSize::new(1 << 20).unwrap())?
+            .is_none());
 
         let mut threads: Vec<ThreadJoinHandle<IoResult<()>>> = Vec::with_capacity(256);
         for (i, mut source_reader) in source_readers.into_iter().enumerate() {

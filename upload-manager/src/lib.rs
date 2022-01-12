@@ -42,16 +42,18 @@ pub use data_partition_provider::{
 pub use data_source::{
     DataSource, DataSourceReader, FileDataSource, SeekableSource, SourceKey, UnseekableDataSource,
 };
-pub use multi_parts_uploader::MultiPartsUploader;
+pub use multi_parts_uploader::{
+    MultiPartsUploader, MultiPartsV1Uploader, MultiPartsV1UploaderInitializedObject,
+    MultiPartsV1UploaderUploadedPart,
+};
 pub use object_params::{DataCheck, ObjectParams, ObjectParamsBuilder};
 pub use resumable_policy::{
     AlwaysMultiParts, AlwaysSinglePart, FixedThresholdResumablePolicy, GetPolicyOptions,
     MultiplePartitionsResumablePolicyProvider, ResumablePolicy, ResumablePolicyProvider,
 };
 pub use resumable_recorder::{
-    AppendOnlyResumableRecorderMedium, FileSystemAppendOnlyResumableRecorderMedium,
-    FileSystemReadOnlyResumableRecorderMedium, FileSystemResumableRecorder,
-    ReadOnlyResumableRecorderMedium, ResumableRecorder,
+    AppendOnlyResumableRecorderMedium, DummyResumableRecorder, DummyResumableRecorderMedium,
+    FileSystemResumableRecorder, ReadOnlyResumableRecorderMedium, ResumableRecorder,
 };
 pub use single_part_uploader::{FormUploader, SinglePartUploader};
 pub use upload_manager::{UploadManager, UploadManagerBuilder};
@@ -61,8 +63,7 @@ pub use upload_token::UploadTokenSigner;
 pub use {
     data_source::{AsyncDataSourceReader, AsyncSeekableSource, AsyncUnseekableDataSource},
     resumable_recorder::{
-        AppendOnlyAsyncResumableRecorderMedium, FileSystemAppendOnlyAsyncResumableRecorderMedium,
-        FileSystemReadOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium,
+        AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium,
     },
 };
 

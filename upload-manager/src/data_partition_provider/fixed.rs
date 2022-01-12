@@ -7,7 +7,12 @@ pub struct FixedDataPartitionProvider(NonZeroU64);
 impl FixedDataPartitionProvider {
     #[inline]
     pub fn new(part_size: u64) -> Option<Self> {
-        NonZeroU64::new(part_size).map(Self)
+        NonZeroU64::new(part_size).map(Self::new_with_non_zero_part_size)
+    }
+
+    #[inline]
+    pub fn new_with_non_zero_part_size(part_size: NonZeroU64) -> Self {
+        Self(part_size)
     }
 
     #[inline]

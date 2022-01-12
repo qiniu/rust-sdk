@@ -1,5 +1,5 @@
 use auto_impl::auto_impl;
-use qiniu_apis::{http::Extensions, http_client::ResponseError};
+use qiniu_apis::http_client::ResponseError;
 use std::{
     fmt::Debug,
     num::NonZeroU64,
@@ -80,7 +80,6 @@ impl DerefMut for PartSize {
 pub struct DataPartitionProviderFeedback<'f> {
     part_size: NonZeroU64,
     elapsed: Duration,
-    extensions: &'f mut Extensions,
     error: Option<&'f ResponseError>,
 }
 
@@ -88,13 +87,11 @@ impl<'f> DataPartitionProviderFeedback<'f> {
     pub(super) fn new(
         part_size: NonZeroU64,
         elapsed: Duration,
-        extensions: &'f mut Extensions,
         error: Option<&'f ResponseError>,
     ) -> Self {
         Self {
             part_size,
             elapsed,
-            extensions,
             error,
         }
     }
@@ -112,16 +109,6 @@ impl<'f> DataPartitionProviderFeedback<'f> {
     #[inline]
     pub fn error(&self) -> Option<&'f ResponseError> {
         self.error
-    }
-
-    #[inline]
-    pub fn extensions(&self) -> &Extensions {
-        self.extensions
-    }
-
-    #[inline]
-    pub fn extensions_mut(&mut self) -> &mut Extensions {
-        self.extensions
     }
 }
 

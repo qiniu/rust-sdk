@@ -344,7 +344,7 @@ impl<'client> Client<'client> {
         path_params: PathParams,
         upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider
             + std::clone::Clone
-            + 'static,
+            + 'client,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
             let mut builder = self
@@ -369,7 +369,7 @@ impl<'client> Client<'client> {
         path_params: PathParams,
         upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider
             + std::clone::Clone
-            + 'static,
+            + 'client,
     ) -> AsyncRequestBuilder<'client, E> {
         RequestBuilder({
             let mut builder = self
@@ -623,11 +623,15 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBuilder<'req, E> {
     pub fn call(
         &mut self,
-        body: String,
+        body: impl std::io::Read
+            + qiniu_http_client::http::Reset
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static,
+        content_length: u64,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
-        let request = self
-            .0
-            .bytes_as_body(body.into_bytes(), Some(mime::TEXT_PLAIN_UTF_8));
+        let request = self.0.stream_as_body(body, content_length, None);
         let response = request.call()?;
         let parsed = response.parse_json()?;
         Ok(parsed)
@@ -637,11 +641,16 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBu
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> AsyncRequestBuilder<'req, E> {
     pub async fn call(
         &mut self,
-        body: impl Into<String>,
+        body: impl futures::io::AsyncRead
+            + qiniu_http_client::http::AsyncReset
+            + Unpin
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static,
+        content_length: u64,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
-        let request = self
-            .0
-            .bytes_as_body(body.into().into_bytes(), Some(mime::TEXT_PLAIN_UTF_8));
+        let request = self.0.stream_as_body(body, content_length, None);
         let response = request.call().await?;
         let parsed = response.parse_json().await?;
         Ok(parsed)

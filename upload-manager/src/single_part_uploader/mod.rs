@@ -1,8 +1,5 @@
-use super::{ObjectParams, UploadManager, UploaderWithCallbacks, UploadingProgressInfo};
-use qiniu_apis::{
-    http::ResponseParts,
-    http_client::{ApiResult, CallbackResult, RequestBuilderParts, ResponseError},
-};
+use super::{ObjectParams, UploadManager, UploaderWithCallbacks};
+use qiniu_apis::http_client::ApiResult;
 use serde_json::Value;
 use std::{fmt::Debug, io::Read, path::Path};
 

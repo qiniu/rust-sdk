@@ -1,8 +1,6 @@
-use super::{
-    AppendOnlyResumableRecorderMedium, ReadOnlyResumableRecorderMedium, ResumableRecorder,
-    SourceKey,
-};
+use super::{ResumableRecorder, SourceKey};
 use digest::OutputSizeUser;
+use sha1::Sha1;
 use std::{
     fmt::{self, Debug},
     io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult, Write},
@@ -13,11 +11,27 @@ use std::{
 use futures::future::BoxFuture;
 
 #[derive(Clone, Copy)]
-pub struct DummyResumableRecorder<O> {
+pub struct DummyResumableRecorder<O = Sha1> {
     _unused: PhantomData<O>,
 }
 
-impl<O: OutputSizeUser> ResumableRecorder for DummyResumableRecorder<O> {
+impl<O> DummyResumableRecorder<O> {
+    #[inline]
+    pub fn new() -> Self {
+        Default::default()
+    }
+}
+
+impl<O> Default for DummyResumableRecorder<O> {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            _unused: Default::default(),
+        }
+    }
+}
+
+impl<O: OutputSizeUser + Send + Sync + Unpin> ResumableRecorder for DummyResumableRecorder<O> {
     type HashAlgorithm = O;
     type ReadOnlyMedium = DummyResumableRecorderMedium;
     type AppendOnlyMedium = DummyResumableRecorderMedium;
@@ -106,11 +120,6 @@ impl<O> Debug for DummyResumableRecorder<O> {
         f.debug_struct("DummyResumableRecorder").finish()
     }
 }
-#[allow(unsafe_code)]
-unsafe impl<O> Send for DummyResumableRecorder<O> {}
-
-#[allow(unsafe_code)]
-unsafe impl<O> Sync for DummyResumableRecorder<O> {}
 
 #[derive(Debug, Clone, Copy)]
 pub struct DummyResumableRecorderMedium;
@@ -134,32 +143,8 @@ impl Write for DummyResumableRecorderMedium {
     }
 }
 
-impl ReadOnlyResumableRecorderMedium for DummyResumableRecorderMedium {
-    type AppendOnlyMedium = Self;
-
-    #[inline]
-    fn into_medium_for_append(self) -> IoResult<Self::AppendOnlyMedium> {
-        Ok(self)
-    }
-
-    #[inline]
-    fn into_medium_for_create_new(self) -> IoResult<Self::AppendOnlyMedium> {
-        Ok(self)
-    }
-}
-
-impl AppendOnlyResumableRecorderMedium for DummyResumableRecorderMedium {
-    type ReadOnlyMedium = Self;
-
-    #[inline]
-    fn into_medium_for_read(self) -> IoResult<Self::ReadOnlyMedium> {
-        Ok(self)
-    }
-}
-
 #[cfg(feature = "async")]
 use {
-    super::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium},
     futures::{AsyncRead, AsyncWrite},
     std::{
         pin::Pin,
@@ -198,28 +183,6 @@ impl AsyncWrite for DummyResumableRecorderMedium {
     #[inline]
     fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<IoResult<()>> {
         Poll::Ready(Err(make_error()))
-    }
-}
-
-#[cfg(feature = "async")]
-impl ReadOnlyAsyncResumableRecorderMedium for DummyResumableRecorderMedium {
-    type AppendOnlyMedium = Self;
-
-    fn into_medium_for_append(self) -> BoxFuture<'static, IoResult<Self::AppendOnlyMedium>> {
-        Box::pin(async move { Ok(self) })
-    }
-
-    fn into_medium_for_create_new(self) -> BoxFuture<'static, IoResult<Self::AppendOnlyMedium>> {
-        Box::pin(async move { Ok(self) })
-    }
-}
-
-#[cfg(feature = "async")]
-impl AppendOnlyAsyncResumableRecorderMedium for DummyResumableRecorderMedium {
-    type ReadOnlyMedium = Self;
-
-    fn into_medium_for_read(self) -> BoxFuture<'static, IoResult<Self::ReadOnlyMedium>> {
-        Box::pin(async move { Ok(self) })
     }
 }
 

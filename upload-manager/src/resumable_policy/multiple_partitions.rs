@@ -10,11 +10,18 @@ pub struct MultiplePartitionsResumablePolicyProvider<P: ?Sized> {
 }
 
 impl<P> MultiplePartitionsResumablePolicyProvider<P> {
+    #[inline]
     pub fn new(base_partition_provider: P, multiply: u64) -> Option<Self> {
-        NonZeroU64::new(multiply).map(|multiply| Self {
+        NonZeroU64::new(multiply)
+            .map(|multiply| Self::new_with_non_zero_multiply(base_partition_provider, multiply))
+    }
+
+    #[inline]
+    pub fn new_with_non_zero_multiply(base_partition_provider: P, multiply: NonZeroU64) -> Self {
+        Self {
             base_partition_provider,
             multiply,
-        })
+        }
     }
 }
 

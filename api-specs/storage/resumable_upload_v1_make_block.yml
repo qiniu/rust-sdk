@@ -11,7 +11,7 @@ request:
       - field_name: block_size
         type: integer
         documentation: 块大小，单位为字节，每块均为 4 MB，最后一块大小不超过 4 MB
-  body: plain_text
+  body: binary_data
 response:
   body:
     json:

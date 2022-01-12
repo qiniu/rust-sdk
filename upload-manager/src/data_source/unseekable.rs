@@ -1,4 +1,5 @@
-use super::{DataSource, DataSourceReader, SourceKey};
+use super::{DataSource, DataSourceReader, PartSize, SourceKey};
+use sha1::{digest::OutputSizeUser, Sha1};
 use std::{
     fmt::{self, Debug},
     io::{Read, Result as IoResult},
@@ -8,9 +9,10 @@ use std::{
 #[cfg(feature = "async")]
 use {super::AsyncDataSourceReader, futures::future::BoxFuture};
 
-pub struct UnseekableDataSource<R: Read + Debug + Send + Sync + 'static + ?Sized, A: OutputSizeUser>(
-    Mutex<UnseekableDataSourceInner<R, A>>,
-);
+pub struct UnseekableDataSource<
+    R: Read + Debug + Send + Sync + 'static + ?Sized,
+    A: OutputSizeUser = Sha1,
+>(Mutex<UnseekableDataSourceInner<R, A>>);
 
 impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> Debug
     for UnseekableDataSource<R, A>
@@ -52,10 +54,12 @@ impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> UnseekableDataS
 impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> DataSource<A>
     for UnseekableDataSource<R, A>
 {
-    fn slice(&self, size: u64) -> IoResult<Option<DataSourceReader>> {
+    fn slice(&self, size: PartSize) -> IoResult<Option<DataSourceReader>> {
         let mut buf = Vec::new();
         let guard = &mut *self.0.lock().unwrap();
-        let have_read = (&mut guard.reader).take(size).read_to_end(&mut buf)?;
+        let have_read = (&mut guard.reader)
+            .take(size.as_u64())
+            .read_to_end(&mut buf)?;
         if have_read > 0 {
             let source_reader = DataSourceReader::unseekable(buf, guard.current_offset);
             guard.current_offset += have_read as u64;
@@ -68,7 +72,7 @@ impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> DataSource<A>
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_slice(&self, _size: u64) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
+    fn async_slice(&self, _size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
         unimplemented!()
     }
 
@@ -102,7 +106,7 @@ mod async_unseekable {
 
     pub struct AsyncUnseekableDataSource<
         R: AsyncRead + Debug + Unpin + Send + Sync + 'static + ?Sized,
-        A: OutputSizeUser,
+        A: OutputSizeUser = Sha1,
     >(Mutex<AsyncUnseekableDataSourceInner<R, A>>);
 
     impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: OutputSizeUser> Debug
@@ -147,15 +151,21 @@ mod async_unseekable {
     impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: OutputSizeUser> DataSource<A>
         for AsyncUnseekableDataSource<R, A>
     {
-        fn slice(&self, _size: u64) -> IoResult<Option<DataSourceReader>> {
+        fn slice(&self, _size: PartSize) -> IoResult<Option<DataSourceReader>> {
             unimplemented!()
         }
 
-        fn async_slice(&self, size: u64) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
+        fn async_slice(
+            &self,
+            size: PartSize,
+        ) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
             Box::pin(async move {
                 let mut buf = Vec::new();
                 let guard = &mut *self.0.lock().await;
-                let have_read = (&mut guard.reader).take(size).read_to_end(&mut buf).await?;
+                let have_read = (&mut guard.reader)
+                    .take(size.as_u64())
+                    .read_to_end(&mut buf)
+                    .await?;
                 if have_read > 0 {
                     let source_reader =
                         AsyncDataSourceReader::unseekable(buf, guard.current_offset);
@@ -201,4 +211,3 @@ mod async_unseekable {
 
 #[cfg(feature = "async")]
 pub use async_unseekable::*;
-use sha1::digest::OutputSizeUser;

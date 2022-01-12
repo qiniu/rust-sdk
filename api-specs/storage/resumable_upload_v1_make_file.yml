@@ -10,8 +10,8 @@ request:
       - field_name: size
         type: integer
         documentation: 对象大小
-      - field_name: key
-        path_segment: object_name
+      - field_name: object_name
+        path_segment: key
         type: string
         documentation: 对象名称
         encode: url_safe_base64

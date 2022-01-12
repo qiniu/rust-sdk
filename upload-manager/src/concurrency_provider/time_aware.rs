@@ -35,14 +35,13 @@ impl ConcurrencyProvider for TimeAwareConcurrencyProvider {
     }
 
     fn feedback(&self, feedback: ConcurrencyProviderFeedback<'_>) {
-        if (maybe_network_error(&feedback) || self.slow_network(&feedback))
-            && feedback.concurrency().get() > 1
-        {
+        let concurrency = feedback.concurrency().get();
+        if (maybe_network_error(&feedback) || self.slow_network(&feedback)) && concurrency > 1 {
             self.0
                 .current
                 .compare_exchange(
-                    feedback.concurrency().get(),
-                    feedback.concurrency().get() - 1,
+                    concurrency,
+                    concurrency - 1,
                     Ordering::Acquire,
                     Ordering::Relaxed,
                 )
@@ -54,8 +53,8 @@ impl ConcurrencyProvider for TimeAwareConcurrencyProvider {
             self.0
                 .current
                 .compare_exchange(
-                    feedback.concurrency().get(),
-                    feedback.concurrency().get() + 1,
+                    concurrency,
+                    concurrency + 1,
                     Ordering::Acquire,
                     Ordering::Relaxed,
                 )
@@ -78,9 +77,31 @@ fn maybe_network_error(feedback: &ConcurrencyProviderFeedback<'_>) -> bool {
 
 impl TimeAwareConcurrencyProvider {
     #[inline]
-    #[must_use]
     pub fn new(
-        &self,
+        initial_concurrency: usize,
+        max_concurrency: usize,
+        up_threshold: Duration,
+        down_threshold: Duration,
+    ) -> Option<Self> {
+        match (
+            NonZeroUsize::new(initial_concurrency),
+            NonZeroUsize::new(max_concurrency),
+        ) {
+            (Some(initial_concurrency), Some(max_concurrency)) => {
+                Some(Self::new_with_non_zero_concurrency(
+                    initial_concurrency,
+                    max_concurrency,
+                    up_threshold,
+                    down_threshold,
+                ))
+            }
+            _ => None,
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn new_with_non_zero_concurrency(
         initial_concurrency: NonZeroUsize,
         max_concurrency: NonZeroUsize,
         up_threshold: Duration,

@@ -109,10 +109,10 @@ fn make_sync_reqwest_request(
 
     impl Read for RequestBodyWithCallbacks {
         fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
-            match self.request.body_mut().read(buf) {
-                Err(err) => Err(err),
-                Ok(0) => Ok(0),
-                Ok(n) => {
+            let n = self.request.body_mut().read(buf)?;
+            match n {
+                0 => Ok(0),
+                n => {
                     let buf = &buf[..n];
                     self.have_read += n as u64;
                     if let Some(on_uploading_progress) = self.request.on_uploading_progress() {

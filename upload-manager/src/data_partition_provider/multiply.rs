@@ -10,7 +10,12 @@ pub struct MultiplyDataPartitionProvider<P: ?Sized> {
 impl<P: DataPartitionProvider> MultiplyDataPartitionProvider<P> {
     #[inline]
     pub fn new(base: P, multiply: u64) -> Option<Self> {
-        NonZeroU64::new(multiply).map(|multiply| Self { base, multiply })
+        NonZeroU64::new(multiply).map(|multiply| Self::new_with_non_zero_multiply(base, multiply))
+    }
+
+    #[inline]
+    pub fn new_with_non_zero_multiply(base: P, multiply: NonZeroU64) -> Self {
+        Self { base, multiply }
     }
 }
 
@@ -35,8 +40,8 @@ impl<P: DataPartitionProvider> DataPartitionProvider for MultiplyDataPartitionPr
     #[inline]
     fn part_size(&self) -> PartSize {
         let base_partition = self.base.part_size().as_non_zero_u64();
-        let partition =
-            base_partition.max(self.multiply).get() / self.multiply.get() * self.multiply.get();
+        let multiply = self.multiply.get();
+        let partition = base_partition.max(self.multiply).get() / multiply * multiply;
         NonZeroU64::new(partition).unwrap().into()
     }
 

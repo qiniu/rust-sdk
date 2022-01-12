@@ -4,7 +4,7 @@
 #[doc = "调用 API 所用的路径参数"]
 pub struct PathParams {
     r#size: Option<std::borrow::Cow<'static, str>>,
-    r#key: Option<std::borrow::Cow<'static, str>>,
+    r#object_name: Option<std::borrow::Cow<'static, str>>,
     r#file_name: Option<std::borrow::Cow<'static, str>>,
     r#mime_type: Option<std::borrow::Cow<'static, str>>,
     extended_segments: Vec<std::borrow::Cow<'static, str>>,
@@ -21,8 +21,8 @@ impl PathParams {
         if let Some(segment) = self.r#size {
             all_segments.push(segment);
         }
-        if let Some(segment) = self.r#key {
-            all_segments.push(std::borrow::Cow::Borrowed("object_name"));
+        if let Some(segment) = self.r#object_name {
+            all_segments.push(std::borrow::Cow::Borrowed("key"));
             all_segments.push(segment);
         }
         if let Some(segment) = self.r#file_name {
@@ -111,8 +111,11 @@ impl PathParams {
     #[inline]
     #[must_use]
     #[doc = "对象名称"]
-    pub fn set_key_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
-        self.r#key = Some(qiniu_utils::base64::urlsafe(value.into().as_bytes()).into());
+    pub fn set_object_name_as_str(
+        mut self,
+        value: impl Into<std::borrow::Cow<'static, str>>,
+    ) -> Self {
+        self.r#object_name = Some(qiniu_utils::base64::urlsafe(value.into().as_bytes()).into());
         self
     }
     #[inline]
@@ -192,7 +195,7 @@ impl<'client> Client<'client> {
         path_params: PathParams,
         upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider
             + std::clone::Clone
-            + 'static,
+            + 'client,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
             let mut builder = self
@@ -217,7 +220,7 @@ impl<'client> Client<'client> {
         path_params: PathParams,
         upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider
             + std::clone::Clone
-            + 'static,
+            + 'client,
     ) -> AsyncRequestBuilder<'client, E> {
         RequestBuilder({
             let mut builder = self

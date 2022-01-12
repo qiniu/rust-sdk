@@ -205,7 +205,8 @@ impl ApiDetailedDescription {
         fn new_request_method_token_stream(description: &ApiDetailedDescription) -> TokenStream {
             let new_request_impl =
                 impl_request_method_token_stream(description, &quote! {endpoints_provider}, true);
-            let new_request_params_token_stream = new_request_params_token_stream(description);
+            let new_request_params_token_stream =
+                new_request_params_token_stream(description, &quote! {'client});
             quote! {
                 #[inline]
                 pub fn new_request<E: qiniu_http_client::EndpointsProvider + 'client>(
@@ -223,7 +224,8 @@ impl ApiDetailedDescription {
         ) -> TokenStream {
             let new_async_request_impl =
                 impl_request_method_token_stream(description, &quote! {endpoints_provider}, false);
-            let new_request_params_token_stream = new_request_params_token_stream(description);
+            let new_request_params_token_stream =
+                new_request_params_token_stream(description, &quote! {'client});
             quote! {
                 #[inline]
                 #[cfg(feature = "async")]
@@ -327,7 +329,10 @@ impl ApiDetailedDescription {
             quote! {#(#statements);*}
         }
 
-        fn new_request_params_token_stream(description: &ApiDetailedDescription) -> TokenStream {
+        fn new_request_params_token_stream(
+            description: &ApiDetailedDescription,
+            lifetime: &TokenStream,
+        ) -> TokenStream {
             let mut params: Vec<_> = vec![];
             if description.request.path_params.is_some() {
                 params.push(quote! {path_params: PathParams});
@@ -336,12 +341,12 @@ impl ApiDetailedDescription {
                 match authorization {
                     Authorization::Qbox | Authorization::Qiniu => {
                         params.push(quote! {
-                            credential: impl qiniu_http_client::credential::CredentialProvider + std::clone::Clone + 'static
+                            credential: impl qiniu_http_client::credential::CredentialProvider + std::clone::Clone + #lifetime
                         });
                     }
                     Authorization::UploadToken => {
                         params.push(quote! {
-                            upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider + std::clone::Clone + 'static
+                            upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider + std::clone::Clone + #lifetime
                         });
                     }
                 }

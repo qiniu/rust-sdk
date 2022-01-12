@@ -68,42 +68,29 @@ pub trait ResumableRecorder: Debug + Sync + Send {
     ) -> BoxFuture<'a, IoResult<()>>;
 }
 
-pub trait ReadOnlyResumableRecorderMedium: Read + Debug + Sync + Send {
-    type AppendOnlyMedium: AppendOnlyResumableRecorderMedium;
-    fn into_medium_for_append(self) -> IoResult<Self::AppendOnlyMedium>;
-    fn into_medium_for_create_new(self) -> IoResult<Self::AppendOnlyMedium>;
-}
+pub trait ReadOnlyResumableRecorderMedium: Read + Debug + Sync + Send {}
+impl<T: Read + Debug + Sync + Send> ReadOnlyResumableRecorderMedium for T {}
 
-pub trait AppendOnlyResumableRecorderMedium: Write + Debug + Sync + Send {
-    type ReadOnlyMedium: ReadOnlyResumableRecorderMedium;
-    fn into_medium_for_read(self) -> IoResult<Self::ReadOnlyMedium>;
-}
+pub trait AppendOnlyResumableRecorderMedium: Write + Debug + Sync + Send {}
+impl<T: Write + Debug + Sync + Send> AppendOnlyResumableRecorderMedium for T {}
 
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub trait ReadOnlyAsyncResumableRecorderMedium: AsyncRead + Unpin + Debug + Sync + Send {
-    type AppendOnlyMedium: AppendOnlyAsyncResumableRecorderMedium;
-    fn into_medium_for_append(self) -> BoxFuture<'static, IoResult<Self::AppendOnlyMedium>>;
-    fn into_medium_for_create_new(self) -> BoxFuture<'static, IoResult<Self::AppendOnlyMedium>>;
-}
+pub trait ReadOnlyAsyncResumableRecorderMedium: AsyncRead + Unpin + Debug + Sync + Send {}
 
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub trait AppendOnlyAsyncResumableRecorderMedium: AsyncWrite + Unpin + Debug + Sync + Send {
-    type ReadOnlyMedium: ReadOnlyAsyncResumableRecorderMedium;
-    fn into_medium_for_read(self) -> BoxFuture<'static, IoResult<Self::ReadOnlyMedium>>;
-}
+impl<T: AsyncRead + Unpin + Debug + Sync + Send> ReadOnlyAsyncResumableRecorderMedium for T {}
+
+#[cfg(feature = "async")]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+pub trait AppendOnlyAsyncResumableRecorderMedium: AsyncWrite + Unpin + Debug + Sync + Send {}
+
+#[cfg(feature = "async")]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+impl<T: AsyncWrite + Unpin + Debug + Sync + Send> AppendOnlyAsyncResumableRecorderMedium for T {}
 
 mod dummy;
 mod file;
 pub use dummy::{DummyResumableRecorder, DummyResumableRecorderMedium};
-pub use file::{
-    FileSystemAppendOnlyResumableRecorderMedium, FileSystemReadOnlyResumableRecorderMedium,
-    FileSystemResumableRecorder,
-};
-
-#[cfg(feature = "async")]
-pub use file::{
-    FileSystemAppendOnlyAsyncResumableRecorderMedium,
-    FileSystemReadOnlyAsyncResumableRecorderMedium,
-};
+pub use file::FileSystemResumableRecorder;

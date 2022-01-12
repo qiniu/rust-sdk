@@ -17,8 +17,14 @@ pub trait ConcurrencyProvider: Debug + Sync + Send {
 pub struct Concurrency(NonZeroUsize);
 
 impl Concurrency {
+    #[inline]
     pub fn new(concurrency: usize) -> Option<Self> {
-        NonZeroUsize::new(concurrency).map(Self)
+        NonZeroUsize::new(concurrency).map(Self::new_with_concurrency)
+    }
+
+    #[inline]
+    pub fn new_with_concurrency(concurrency: NonZeroUsize) -> Self {
+        Self(concurrency)
     }
 
     #[inline]

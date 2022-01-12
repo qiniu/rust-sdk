@@ -1,10 +1,10 @@
+use super::PartSize;
 use auto_impl::auto_impl;
-use digest::{generic_array::GenericArray, OutputSizeUser};
+use digest::OutputSizeUser;
+use qiniu_apis::http::Reset;
 use std::{
-    fmt::{self, Debug},
-    io::{Cursor, Read, Result as IoResult, Seek, SeekFrom},
-    ops::Deref,
-    sync::{Arc, Mutex},
+    fmt::Debug,
+    io::{Cursor, Read, Result as IoResult},
 };
 
 #[cfg(feature = "async")]
@@ -12,11 +12,11 @@ use futures::future::BoxFuture;
 
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait DataSource<A: OutputSizeUser>: Debug + Sync + Send {
-    fn slice(&self, size: u64) -> IoResult<Option<DataSourceReader>>;
+    fn slice(&self, size: PartSize) -> IoResult<Option<DataSourceReader>>;
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_slice(&self, size: u64) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>>;
+    fn async_slice(&self, size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>>;
 
     #[inline]
     fn source_key(&self) -> IoResult<Option<SourceKey<A>>> {
@@ -37,44 +37,6 @@ pub trait DataSource<A: OutputSizeUser>: Debug + Sync + Send {
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_total_size(&self) -> BoxFuture<IoResult<Option<u64>>> {
         Box::pin(async move { self.total_size() })
-    }
-}
-
-pub struct SourceKey<A: OutputSizeUser>(GenericArray<u8, A::OutputSize>);
-
-impl<A: OutputSizeUser> SourceKey<A> {
-    #[inline]
-    pub fn new(array: impl Into<GenericArray<u8, A::OutputSize>>) -> Self {
-        Self::from(array.into())
-    }
-}
-
-impl<A: OutputSizeUser> Deref for SourceKey<A> {
-    type Target = GenericArray<u8, A::OutputSize>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<A: OutputSizeUser> From<GenericArray<u8, A::OutputSize>> for SourceKey<A> {
-    #[inline]
-    fn from(array: GenericArray<u8, A::OutputSize>) -> Self {
-        Self(array)
-    }
-}
-
-impl<A: OutputSizeUser> Debug for SourceKey<A> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("SourceKey").field(&self.0).finish()
-    }
-}
-
-impl<A: OutputSizeUser> Clone for SourceKey<A> {
-    #[inline]
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
     }
 }
 
@@ -108,10 +70,10 @@ impl DataSourceReader {
         }
     }
 
-    pub(super) fn len(&self) -> u64 {
+    pub(super) fn len(&self) -> IoResult<u64> {
         match &self.0 {
             DataSourceReaderInner::ReadSeekable(source) => source.len(),
-            DataSourceReaderInner::Readable { data, .. } => data.get_ref().len() as u64,
+            DataSourceReaderInner::Readable { data, .. } => Ok(data.get_ref().len() as u64),
         }
     }
 }
@@ -126,277 +88,28 @@ impl Read for DataSourceReader {
     }
 }
 
-#[derive(Debug)]
-struct SeekableSourceInner<T: Read + Seek + Send + Sync + Debug + ?Sized> {
-    pos: Option<u64>,
-    source: T,
-}
-
-impl<T: Read + Seek + Send + Sync + Debug> SeekableSourceInner<T> {
-    fn new(source: T) -> Self {
-        Self { source, pos: None }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SeekableSource {
-    source: Arc<Mutex<SeekableSourceInner<dyn ReadSeek>>>,
-    source_offset: u64,
-    offset: u64,
-    len: u64,
-}
-
-impl SeekableSource {
+impl Reset for DataSourceReader {
     #[inline]
-    pub fn new(
-        source: impl Read + Seek + Debug + Send + Sync + 'static,
-        offset: u64,
-        len: u64,
-    ) -> Self {
-        Self {
-            source: Arc::new(Mutex::new(SeekableSourceInner::new(source))),
-            source_offset: 0,
-            offset,
-            len,
+    fn reset(&mut self) -> IoResult<()> {
+        match &mut self.0 {
+            DataSourceReaderInner::ReadSeekable(source) => source.reset(),
+            DataSourceReaderInner::Readable { data, .. } => data.reset(),
         }
-    }
-
-    pub(super) fn clone_with_new_offset_and_length(&self, offset: u64, len: u64) -> Self {
-        let mut cloned = self.to_owned();
-        cloned.source_offset = 0;
-        cloned.offset = offset;
-        cloned.len = len;
-        cloned
-    }
-
-    fn offset(&self) -> u64 {
-        self.offset
-    }
-
-    fn len(&self) -> u64 {
-        self.len
     }
 }
-
-impl Read for SeekableSource {
-    fn read(&mut self, mut buf: &mut [u8]) -> IoResult<usize> {
-        let mut locked = self.source.lock().unwrap();
-        let max_read = self.len - self.source_offset;
-        if max_read == 0 {
-            return Ok(0);
-        } else if max_read < buf.len() as u64 {
-            let max_read: usize = max_read.try_into().unwrap_or(usize::MAX);
-            buf = &mut buf[..max_read];
-        }
-        let seek_pos = self.offset + self.source_offset;
-        if Some(seek_pos) != locked.pos {
-            locked.pos = Some(locked.source.seek(SeekFrom::Start(seek_pos))?);
-        }
-        let have_read = locked.source.read(buf)?;
-        self.source_offset += have_read as u64;
-        if let Some(ref mut pos) = locked.pos {
-            *pos += have_read as u64;
-        }
-        Ok(have_read)
-    }
-}
-
-trait ReadSeek: Read + Seek + Send + Sync + Debug {}
-impl<T: Read + Seek + Send + Sync + Debug> ReadSeek for T {}
 
 #[cfg(feature = "async")]
 mod async_reader {
     use super::*;
     use futures::{
-        future::FutureExt, io::Cursor, lock::Mutex, ready, AsyncRead, AsyncReadExt, AsyncSeek,
-        AsyncSeekExt, Future,
+        io::{Cursor, SeekFrom},
+        AsyncRead, AsyncSeek, AsyncSeekExt,
     };
-    use smart_default::SmartDefault;
+    use qiniu_apis::http::AsyncReset;
     use std::{
-        fmt,
         pin::Pin,
-        sync::atomic::{AtomicU64, Ordering::Relaxed},
         task::{Context, Poll},
     };
-
-    #[derive(Debug)]
-    pub struct AsyncSeekableSource {
-        source: Arc<Mutex<AsyncSeekableSourceInner<dyn ReadSeek>>>,
-        source_offset: Arc<AtomicU64>,
-        offset: u64,
-        len: u64,
-        step: AsyncSeekableSourceReadStep,
-    }
-
-    #[derive(Debug)]
-    struct AsyncSeekableSourceInner<T: AsyncRead + AsyncSeek + Debug + Send + Sync + Unpin + ?Sized> {
-        pos: Option<u64>,
-        source: T,
-    }
-
-    impl<T: AsyncRead + AsyncSeek + Debug + Send + Sync + Unpin> AsyncSeekableSourceInner<T> {
-        fn new(source: T) -> Self {
-            Self { source, pos: None }
-        }
-    }
-
-    #[derive(SmartDefault)]
-    enum AsyncSeekableSourceReadStep {
-        #[default]
-        Buffered {
-            buffer: Vec<u8>,
-            consumed: usize,
-        },
-        Waiting {
-            task: Pin<Box<dyn Future<Output = IoResult<Vec<u8>>> + Send + Sync + 'static>>,
-        },
-        Done,
-    }
-
-    impl Debug for AsyncSeekableSourceReadStep {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            match self {
-                Self::Buffered { buffer, consumed } => f
-                    .debug_struct("Buffered")
-                    .field("buffer", buffer)
-                    .field("consumed", consumed)
-                    .finish(),
-                Self::Waiting { .. } => f.debug_struct("Waiting").finish(),
-                Self::Done => write!(f, "Done"),
-            }
-        }
-    }
-
-    impl AsyncSeekableSource {
-        #[inline]
-        pub fn new(
-            source: impl AsyncRead + AsyncSeek + Debug + Send + Sync + Unpin + 'static,
-            offset: u64,
-            len: u64,
-        ) -> Self {
-            Self {
-                step: Default::default(),
-                source: Arc::new(Mutex::new(AsyncSeekableSourceInner::new(source))),
-                source_offset: Arc::new(AtomicU64::new(0)),
-                offset,
-                len,
-            }
-        }
-
-        pub(super) fn clone_with_new_offset_and_length(&self, offset: u64, len: u64) -> Self {
-            Self {
-                step: Default::default(),
-                source: self.source.to_owned(),
-                source_offset: Arc::new(AtomicU64::new(0)),
-                offset,
-                len,
-            }
-        }
-
-        fn offset(&self) -> u64 {
-            self.offset
-        }
-
-        fn len(&self) -> u64 {
-            self.len
-        }
-
-        fn poll_from_task(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            buf: &mut [u8],
-        ) -> Poll<IoResult<usize>> {
-            match &mut self.step {
-                AsyncSeekableSourceReadStep::Waiting { task } => {
-                    let buffer = ready!(task.poll_unpin(cx))?;
-                    self.step = if buffer.is_empty() {
-                        AsyncSeekableSourceReadStep::Done
-                    } else {
-                        AsyncSeekableSourceReadStep::Buffered {
-                            buffer,
-                            consumed: 0,
-                        }
-                    };
-                    self.poll_read(cx, buf)
-                }
-                _ => unreachable!(),
-            }
-        }
-
-        fn poll_from_buffer(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            buf: &mut [u8],
-        ) -> Poll<IoResult<usize>> {
-            match &mut self.step {
-                AsyncSeekableSourceReadStep::Buffered { buffer, consumed } => {
-                    let rested = buf.len().min(buffer.len() - *consumed);
-                    if rested > 0 {
-                        buf[..rested].copy_from_slice(&buffer[*consumed..(*consumed + rested)]);
-                        *consumed += rested;
-                        Poll::Ready(Ok(rested))
-                    } else {
-                        let buffer_request_size = buf.len().max(1 << 22);
-                        let source = self.source.to_owned();
-                        let source_offset = self.source_offset.to_owned();
-                        let len = self.len;
-                        let offset = self.offset;
-                        self.step = AsyncSeekableSourceReadStep::Waiting {
-                            task: Box::pin(async move {
-                                let mut locked = source.lock().await;
-                                let source_offset_value = source_offset.load(Relaxed);
-                                let max_read = len - source_offset_value;
-                                if max_read == 0 {
-                                    Ok(Vec::new())
-                                } else {
-                                    let max_read: usize = max_read.try_into().unwrap_or(usize::MAX);
-                                    let mut buffer = vec![0u8; buffer_request_size.min(max_read)];
-                                    let seek_pos = offset + source_offset_value;
-                                    if Some(seek_pos) != locked.pos {
-                                        locked.pos = Some(
-                                            locked.source.seek(SeekFrom::Start(seek_pos)).await?,
-                                        );
-                                    }
-                                    let have_read = locked.source.read(&mut buffer).await?;
-                                    buffer.truncate(have_read);
-                                    let have_read = have_read as u64;
-                                    source_offset.fetch_add(have_read, Relaxed);
-                                    if let Some(ref mut pos) = locked.pos {
-                                        *pos += have_read;
-                                    }
-                                    Ok(buffer)
-                                }
-                            }),
-                        };
-                        self.poll_read(cx, buf)
-                    }
-                }
-                _ => unreachable!(),
-            }
-        }
-
-        fn poll_done(self: Pin<&mut Self>) -> Poll<IoResult<usize>> {
-            match &self.step {
-                AsyncSeekableSourceReadStep::Done => Poll::Ready(Ok(0)),
-                _ => unreachable!(),
-            }
-        }
-    }
-
-    impl AsyncRead for AsyncSeekableSource {
-        #[inline]
-        fn poll_read(
-            self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            buf: &mut [u8],
-        ) -> Poll<IoResult<usize>> {
-            match self.step {
-                AsyncSeekableSourceReadStep::Waiting { .. } => self.poll_from_task(cx, buf),
-                AsyncSeekableSourceReadStep::Buffered { .. } => self.poll_from_buffer(cx, buf),
-                AsyncSeekableSourceReadStep::Done => self.poll_done(),
-            }
-        }
-    }
 
     #[derive(Debug)]
     pub struct AsyncDataSourceReader(AsyncDataSourceReaderInner);
@@ -428,10 +141,12 @@ mod async_reader {
             }
         }
 
-        pub(in super::super) fn len(&self) -> u64 {
+        pub(in super::super) async fn len(&self) -> IoResult<u64> {
             match &self.0 {
-                AsyncDataSourceReaderInner::ReadSeekable(source) => source.len(),
-                AsyncDataSourceReaderInner::Readable { data, .. } => data.get_ref().len() as u64,
+                AsyncDataSourceReaderInner::ReadSeekable(source) => source.len().await,
+                AsyncDataSourceReaderInner::Readable { data, .. } => {
+                    Ok(data.get_ref().len() as u64)
+                }
             }
         }
     }
@@ -454,6 +169,19 @@ mod async_reader {
         }
     }
 
+    impl AsyncReset for AsyncDataSourceReader {
+        #[inline]
+        fn reset(&mut self) -> BoxFuture<IoResult<()>> {
+            match &mut self.0 {
+                AsyncDataSourceReaderInner::ReadSeekable(source) => source.reset(),
+                AsyncDataSourceReaderInner::Readable { data, .. } => Box::pin(async move {
+                    data.seek(SeekFrom::Start(0)).await?;
+                    Ok(())
+                }),
+            }
+        }
+    }
+
     trait ReadSeek: AsyncRead + AsyncSeek + Debug + Send + Sync + Unpin {}
     impl<T: AsyncRead + AsyncSeek + Debug + Send + Sync + Unpin> ReadSeek for T {}
 }
@@ -468,7 +196,8 @@ mod tests {
     use rand::{thread_rng, RngCore};
     use std::{
         fs::OpenOptions,
-        io::{copy as io_copy, Read},
+        io::{copy as io_copy, Read, Seek, SeekFrom},
+        sync::{Arc, Mutex},
         thread::spawn as thread_spawn,
     };
     use tempfile::{Builder as TempfileBuilder, NamedTempFile};
@@ -590,11 +319,17 @@ mod tests {
     }
 }
 
+mod source_key;
+pub use source_key::SourceKey;
+
 mod file;
 pub use file::FileDataSource;
+
+mod seekable;
+pub use seekable::{SeekableDataSource, SeekableSource};
 
 mod unseekable;
 pub use unseekable::UnseekableDataSource;
 
 #[cfg(feature = "async")]
-pub use unseekable::AsyncUnseekableDataSource;
+pub use {seekable::AsyncSeekableSource, unseekable::AsyncUnseekableDataSource};

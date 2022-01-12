@@ -151,14 +151,11 @@ impl<A: Array<Item = u8>> SmallString<A> {
     /// Returns `None` if the string is empty.
     #[inline]
     pub fn pop(&mut self) -> Option<char> {
-        match self.chars().next_back() {
-            Some(ch) => unsafe {
-                let new_len = self.len() - ch.len_utf8();
-                self.data.set_len(new_len);
-                Some(ch)
-            },
-            None => None,
-        }
+        self.chars().next_back().map(|ch| unsafe {
+            let new_len = self.len() - ch.len_utf8();
+            self.data.set_len(new_len);
+            ch
+        })
     }
 
     /// Reallocates to set the new capacity to `new_cap`.
