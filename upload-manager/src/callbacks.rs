@@ -7,7 +7,7 @@ use std::fmt::{self, Debug};
 type BeforeRequestCallback<'c> =
     Box<dyn Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'c>;
 type UploadProgressCallback<'c> =
-    Box<dyn Fn(&TransferProgressInfo) -> CallbackResult + Send + Sync + 'c>;
+    Box<dyn Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'c>;
 type AfterResponseOkCallback<'c> =
     Box<dyn Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'c>;
 type AfterResponseErrorCallback<'c> =
@@ -32,7 +32,7 @@ impl<'a> Callbacks<'a> {
 
     pub(super) fn insert_upload_progress_callback(
         &mut self,
-        callback: impl Fn(&TransferProgressInfo) -> CallbackResult + Send + Sync + 'a,
+        callback: impl Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
         self.upload_progress_callbacks.push(Box::new(callback));
         self
@@ -63,7 +63,7 @@ impl<'a> Callbacks<'a> {
         CallbackResult::Continue
     }
 
-    pub(super) fn upload_progress(&self, progress_info: &TransferProgressInfo) -> CallbackResult {
+    pub(super) fn upload_progress(&self, progress_info: &UploadingProgressInfo) -> CallbackResult {
         for callback in self.upload_progress_callbacks.iter() {
             if callback(progress_info) == CallbackResult::Cancel {
                 return CallbackResult::Cancel;
@@ -99,5 +99,44 @@ impl<'a> Callbacks<'a> {
 impl<'a> Debug for Callbacks<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Callbacks").finish()
+    }
+}
+
+pub struct UploadingProgressInfo<'b> {
+    transferred_bytes: u64,
+    total_bytes: Option<u64>,
+    body: &'b [u8],
+}
+
+impl<'b> UploadingProgressInfo<'b> {
+    #[inline]
+    pub fn new(transferred_bytes: u64, total_bytes: Option<u64>, body: &'b [u8]) -> Self {
+        Self {
+            transferred_bytes,
+            total_bytes,
+            body,
+        }
+    }
+
+    #[inline]
+    pub fn transferred_bytes(&self) -> u64 {
+        self.transferred_bytes
+    }
+
+    #[inline]
+    pub fn total_bytes(&self) -> Option<u64> {
+        self.total_bytes
+    }
+
+    #[inline]
+    pub fn body(&self) -> &[u8] {
+        self.body
+    }
+}
+
+impl<'b> From<&'b TransferProgressInfo<'b>> for UploadingProgressInfo<'b> {
+    #[inline]
+    fn from(t: &'b TransferProgressInfo<'b>) -> Self {
+        Self::new(t.transferred_bytes(), Some(t.total_bytes()), t.body())
     }
 }

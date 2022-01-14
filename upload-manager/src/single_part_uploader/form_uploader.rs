@@ -1,10 +1,13 @@
 use super::{
-    super::{callbacks::Callbacks, DataCheck, ObjectParams, UploadManager},
+    super::{
+        callbacks::{Callbacks, UploadingProgressInfo},
+        DataCheck, ObjectParams, UploadManager,
+    },
     SinglePartUploader,
 };
 use qiniu_apis::{
     credential::AccessKey,
-    http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts, TransferProgressInfo},
+    http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
     http_client::{
         ApiResult, CallbackResult, EndpointsProvider, FileName, PartMetadata, RegionProvider,
         RegionProviderEndpoints, RequestBuilderParts, ResponseError,
@@ -59,7 +62,7 @@ impl SinglePartUploader for FormUploader {
 
     #[inline]
     fn on_upload_progress<
-        F: Fn(&TransferProgressInfo) -> CallbackResult + Send + Sync + 'static,
+        F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static,
     >(
         &mut self,
         callback: F,
@@ -185,7 +188,9 @@ impl FormUploader {
             body: SyncRequestBody,
         ) -> ApiResult<Value> {
             request.on_uploading_progress(|_, transfer| {
-                form_uploader.callbacks.upload_progress(transfer)
+                form_uploader
+                    .callbacks
+                    .upload_progress(&UploadingProgressInfo::from(transfer))
             });
             if form_uploader
                 .callbacks
@@ -240,7 +245,9 @@ impl FormUploader {
             body: AsyncRequestBody,
         ) -> ApiResult<Value> {
             request.on_uploading_progress(|_, transfer| {
-                form_uploader.callbacks.upload_progress(transfer)
+                form_uploader
+                    .callbacks
+                    .upload_progress(&UploadingProgressInfo::from(transfer))
             });
             if form_uploader
                 .callbacks

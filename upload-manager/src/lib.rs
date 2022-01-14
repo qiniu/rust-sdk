@@ -27,6 +27,7 @@ mod upload_token;
 
 pub use qiniu_apis as apis;
 
+pub use callbacks::UploadingProgressInfo;
 pub use concurrency_provider::{
     Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, FixedConcurrencyProvider,
     TimeAwareConcurrencyProvider,
@@ -37,7 +38,7 @@ pub use data_partition_provider::{
     TimeAwareDataPartitionProvider,
 };
 pub use data_source::SourceKey;
-pub use object_params::{ObjectParams, DataCheck, ObjectParamsBuilder};
+pub use object_params::{DataCheck, ObjectParams, ObjectParamsBuilder};
 pub use resumable_policy::{
     AlwaysMultiParts, AlwaysSinglePart, FixedThresholdResumablePolicy, GetPolicyOptions,
     MultiplePartitionsResumablePolicyProvider, ResumablePolicy, ResumablePolicyProvider,

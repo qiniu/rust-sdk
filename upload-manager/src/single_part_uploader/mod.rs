@@ -1,6 +1,6 @@
-use super::{ObjectParams, UploadManager};
+use super::{ObjectParams, UploadManager, UploadingProgressInfo};
 use qiniu_apis::{
-    http::{ResponseParts, TransferProgressInfo},
+    http::ResponseParts,
     http_client::{ApiResult, CallbackResult, RequestBuilderParts, ResponseError},
 };
 use serde_json::Value;
@@ -17,7 +17,7 @@ pub trait SinglePartUploader: Debug {
         &mut self,
         callback: F,
     ) -> &mut Self;
-    fn on_upload_progress<F: Fn(&TransferProgressInfo) -> CallbackResult + Send + Sync + 'static>(
+    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self;
