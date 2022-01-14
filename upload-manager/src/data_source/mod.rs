@@ -29,6 +29,15 @@ pub trait DataSource<A: OutputSizeUser>: Debug + Sync + Send {
     fn async_source_key(&self) -> BoxFuture<IoResult<Option<SourceKey<A>>>> {
         Box::pin(async move { self.source_key() })
     }
+
+    fn total_size(&self) -> IoResult<Option<u64>>;
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_total_size(&self) -> BoxFuture<IoResult<Option<u64>>> {
+        Box::pin(async move { self.total_size() })
+    }
 }
 
 pub struct SourceKey<A: OutputSizeUser>(GenericArray<u8, A::OutputSize>);

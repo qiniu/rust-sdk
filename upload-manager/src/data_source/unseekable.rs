@@ -76,6 +76,11 @@ impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> DataSource<A>
     fn source_key(&self) -> IoResult<Option<SourceKey<A>>> {
         Ok(self.0.lock().unwrap().source_key.to_owned())
     }
+
+    #[inline]
+    fn total_size(&self) -> IoResult<Option<u64>> {
+        Ok(None)
+    }
 }
 
 impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> Debug
@@ -170,6 +175,14 @@ mod async_unseekable {
         #[inline]
         fn async_source_key(&self) -> BoxFuture<IoResult<Option<SourceKey<A>>>> {
             Box::pin(async move { Ok(self.0.lock().await.source_key.to_owned()) })
+        }
+
+        fn total_size(&self) -> IoResult<Option<u64>> {
+            unimplemented!()
+        }
+
+        fn async_total_size(&self) -> BoxFuture<IoResult<Option<u64>>> {
+            Box::pin(async move { Ok(None) })
         }
     }
 

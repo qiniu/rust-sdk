@@ -192,6 +192,24 @@ impl DataSource<Sha1> for FileDataSource<Sha1> {
             }
         })
     }
+
+    fn total_size(&self) -> IoResult<Option<u64>> {
+        match self.get_seekable_source()? {
+            Source::Seekable { file_size, .. } => Ok(Some(*file_size)),
+            Source::Unseekable(source) => source.total_size(),
+        }
+    }
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_total_size(&self) -> BoxFuture<IoResult<Option<u64>>> {
+        Box::pin(async move {
+            match self.get_async_seekable_source().await? {
+                AsyncSource::Seekable { file_size, .. } => Ok(Some(*file_size)),
+                AsyncSource::Unseekable(source) => source.async_total_size().await,
+            }
+        })
+    }
 }
 
 impl<A: OutputSizeUser> Debug for FileDataSource<A> {

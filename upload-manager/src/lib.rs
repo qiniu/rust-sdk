@@ -42,7 +42,7 @@ pub use data_partition_provider::{
 pub use data_source::{
     DataSource, DataSourceReader, FileDataSource, SeekableSource, SourceKey, UnseekableDataSource,
 };
-pub use multi_parts_uploader::{MultiPartsUploader, MultiPartsV1Uploader};
+pub use multi_parts_uploader::MultiPartsUploader;
 pub use object_params::{DataCheck, ObjectParams, ObjectParamsBuilder};
 pub use resumable_policy::{
     AlwaysMultiParts, AlwaysSinglePart, FixedThresholdResumablePolicy, GetPolicyOptions,
