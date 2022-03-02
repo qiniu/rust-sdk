@@ -41,7 +41,10 @@ pub trait DataSource<A: OutputSizeUser>: Debug + Sync + Send {
 }
 
 #[derive(Debug)]
-pub struct DataSourceReader(DataSourceReaderInner);
+pub struct DataSourceReader {
+    inner: DataSourceReaderInner,
+    index: usize,
+}
 
 #[derive(Debug)]
 enum DataSourceReaderInner {
@@ -51,27 +54,37 @@ enum DataSourceReaderInner {
 
 impl DataSourceReader {
     #[inline]
-    pub fn seekable(source: SeekableSource) -> Self {
-        Self(DataSourceReaderInner::ReadSeekable(source))
+    pub fn seekable(index: usize, source: SeekableSource) -> Self {
+        Self {
+            inner: DataSourceReaderInner::ReadSeekable(source),
+            index,
+        }
     }
 
     #[inline]
-    pub fn unseekable(data: Vec<u8>, offset: u64) -> Self {
-        Self(DataSourceReaderInner::Readable {
-            data: Cursor::new(data),
-            offset,
-        })
+    pub fn unseekable(index: usize, data: Vec<u8>, offset: u64) -> Self {
+        Self {
+            inner: DataSourceReaderInner::Readable {
+                data: Cursor::new(data),
+                offset,
+            },
+            index,
+        }
+    }
+
+    pub(super) fn index(&self) -> usize {
+        self.index
     }
 
     pub(super) fn offset(&self) -> u64 {
-        match &self.0 {
+        match &self.inner {
             DataSourceReaderInner::ReadSeekable(source) => source.offset(),
             DataSourceReaderInner::Readable { offset, .. } => *offset,
         }
     }
 
     pub(super) fn len(&self) -> IoResult<u64> {
-        match &self.0 {
+        match &self.inner {
             DataSourceReaderInner::ReadSeekable(source) => source.len(),
             DataSourceReaderInner::Readable { data, .. } => Ok(data.get_ref().len() as u64),
         }
@@ -81,7 +94,7 @@ impl DataSourceReader {
 impl Read for DataSourceReader {
     #[inline]
     fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
-        match &mut self.0 {
+        match &mut self.inner {
             DataSourceReaderInner::ReadSeekable(source) => source.read(buf),
             DataSourceReaderInner::Readable { data, .. } => data.read(buf),
         }
@@ -91,7 +104,7 @@ impl Read for DataSourceReader {
 impl Reset for DataSourceReader {
     #[inline]
     fn reset(&mut self) -> IoResult<()> {
-        match &mut self.0 {
+        match &mut self.inner {
             DataSourceReaderInner::ReadSeekable(source) => source.reset(),
             DataSourceReaderInner::Readable { data, .. } => data.reset(),
         }
@@ -112,7 +125,10 @@ mod async_reader {
     };
 
     #[derive(Debug)]
-    pub struct AsyncDataSourceReader(AsyncDataSourceReaderInner);
+    pub struct AsyncDataSourceReader {
+        inner: AsyncDataSourceReaderInner,
+        index: usize,
+    }
 
     #[derive(Debug)]
     enum AsyncDataSourceReaderInner {
@@ -122,27 +138,37 @@ mod async_reader {
 
     impl AsyncDataSourceReader {
         #[inline]
-        pub fn seekable(source: AsyncSeekableSource) -> Self {
-            Self(AsyncDataSourceReaderInner::ReadSeekable(source))
+        pub fn seekable(index: usize, source: AsyncSeekableSource) -> Self {
+            Self {
+                inner: AsyncDataSourceReaderInner::ReadSeekable(source),
+                index,
+            }
         }
 
         #[inline]
-        pub fn unseekable(data: Vec<u8>, offset: u64) -> Self {
-            Self(AsyncDataSourceReaderInner::Readable {
-                data: Cursor::new(data),
-                offset,
-            })
+        pub fn unseekable(index: usize, data: Vec<u8>, offset: u64) -> Self {
+            Self {
+                inner: AsyncDataSourceReaderInner::Readable {
+                    data: Cursor::new(data),
+                    offset,
+                },
+                index,
+            }
+        }
+
+        pub(in super::super) fn index(&self) -> usize {
+            self.index
         }
 
         pub(in super::super) fn offset(&self) -> u64 {
-            match &self.0 {
+            match &self.inner {
                 AsyncDataSourceReaderInner::ReadSeekable(source) => source.offset(),
                 AsyncDataSourceReaderInner::Readable { offset, .. } => *offset,
             }
         }
 
         pub(in super::super) async fn len(&self) -> IoResult<u64> {
-            match &self.0 {
+            match &self.inner {
                 AsyncDataSourceReaderInner::ReadSeekable(source) => source.len().await,
                 AsyncDataSourceReaderInner::Readable { data, .. } => {
                     Ok(data.get_ref().len() as u64)
@@ -158,7 +184,7 @@ mod async_reader {
             cx: &mut Context<'_>,
             buf: &mut [u8],
         ) -> Poll<IoResult<usize>> {
-            match &mut self.0 {
+            match &mut self.inner {
                 AsyncDataSourceReaderInner::ReadSeekable(source) => {
                     Pin::new(source).poll_read(cx, buf)
                 }
@@ -172,7 +198,7 @@ mod async_reader {
     impl AsyncReset for AsyncDataSourceReader {
         #[inline]
         fn reset(&mut self) -> BoxFuture<IoResult<()>> {
-            match &mut self.0 {
+            match &mut self.inner {
                 AsyncDataSourceReaderInner::ReadSeekable(source) => source.reset(),
                 AsyncDataSourceReaderInner::Readable { data, .. } => Box::pin(async move {
                     data.seek(SeekFrom::Start(0)).await?;
@@ -219,10 +245,10 @@ mod tests {
 
         let s1 = SeekableSource::new(temp_file, 0, FILE_SIZE);
         let s2 = s1.clone_with_new_offset_and_length(FILE_SIZE, FILE_SIZE);
-        let mut r1 = DataSourceReader::seekable(s1);
+        let mut r1 = DataSourceReader::seekable(0, s1);
         let r1_buf = Vec::<u8>::with_capacity(FILE_SIZE as usize);
         let r1_buf = Arc::new(Mutex::new(Cursor::new(r1_buf)));
-        let mut r2 = DataSourceReader::seekable(s2);
+        let mut r2 = DataSourceReader::seekable(1, s2);
         let r2_buf = Vec::<u8>::with_capacity(FILE_SIZE as usize);
         let r2_buf = Arc::new(Mutex::new(Cursor::new(r2_buf)));
 
@@ -279,10 +305,10 @@ mod tests {
         }
         let s1 = AsyncSeekableSource::new(temp_file, 0, FILE_SIZE);
         let s2 = s1.clone_with_new_offset_and_length(FILE_SIZE, FILE_SIZE);
-        let mut r1 = AsyncDataSourceReader::seekable(s1);
+        let mut r1 = AsyncDataSourceReader::seekable(0, s1);
         let r1_buf = Vec::<u8>::with_capacity(FILE_SIZE as usize);
         let r1_buf = Arc::new(Mutex::new(Cursor::new(r1_buf)));
-        let mut r2 = AsyncDataSourceReader::seekable(s2);
+        let mut r2 = AsyncDataSourceReader::seekable(1, s2);
         let r2_buf = Vec::<u8>::with_capacity(FILE_SIZE as usize);
         let r2_buf = Arc::new(Mutex::new(Cursor::new(r2_buf)));
 

@@ -81,11 +81,11 @@ impl<A: OutputSizeUser> FileDataSource<A> {
             .source
             .get_or_try_init(async {
                 let mut file = AsyncFile::open(&self.path).await?;
-                if let Ok(current_offset) = file.stream_position().await {
+                if let Ok(offset) = file.stream_position().await {
                     Ok(AsyncSource::Seekable {
                         file_size: file.metadata().await?.len(),
                         source: AsyncSeekableSource::new(file, 0, 0),
-                        current_offset: AsyncMutex::new(current_offset),
+                        current: AsyncMutex::new(SourceOffset { offset, index: 0 }),
                     })
                 } else {
                     Ok(AsyncSource::Unseekable(AsyncUnseekableDataSource::new(
@@ -120,16 +120,18 @@ impl DataSource<Sha1> for FileDataSource<Sha1> {
             match self.get_async_seekable_source().await? {
                 AsyncSource::Seekable {
                     source,
-                    current_offset,
+                    current,
                     file_size,
                 } => {
-                    let mut cur_off = current_offset.lock().await;
-                    if *cur_off < *file_size {
+                    let mut cur = current.lock().await;
+                    if cur.offset < *file_size {
                         let size = size.as_u64();
                         let source_reader = AsyncDataSourceReader::seekable(
-                            source.clone_with_new_offset_and_length(*cur_off, size),
+                            cur.index,
+                            source.clone_with_new_offset_and_length(cur.offset, size),
                         );
-                        *cur_off += size;
+                        cur.offset += size;
+                        cur.index += 1;
                         Ok(Some(source_reader))
                     } else {
                         Ok(None)
@@ -229,10 +231,17 @@ impl<A: OutputSizeUser> Debug for AsyncFileDataSource<A> {
 }
 
 #[cfg(feature = "async")]
+#[derive(Debug)]
+struct SourceOffset {
+    offset: u64,
+    index: usize,
+}
+
+#[cfg(feature = "async")]
 enum AsyncSource<A: OutputSizeUser> {
     Seekable {
         source: AsyncSeekableSource,
-        current_offset: AsyncMutex<u64>,
+        current: AsyncMutex<SourceOffset>,
         file_size: u64,
     },
     Unseekable(AsyncUnseekableDataSource<AsyncFile, A>),
@@ -244,12 +253,12 @@ impl<A: OutputSizeUser> Debug for AsyncSource<A> {
         match self {
             Self::Seekable {
                 source,
-                current_offset,
+                current,
                 file_size,
             } => f
                 .debug_struct("Seekable")
                 .field("source", source)
-                .field("current_offset", current_offset)
+                .field("current", current)
                 .field("file_size", file_size)
                 .finish(),
             Self::Unseekable(file) => f.debug_tuple("Unseekable").field(file).finish(),

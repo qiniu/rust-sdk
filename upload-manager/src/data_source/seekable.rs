@@ -11,9 +11,15 @@ use std::{
 use {super::AsyncDataSourceReader, futures::future::BoxFuture};
 
 #[derive(Debug)]
+struct SourceOffset {
+    offset: u64,
+    index: usize,
+}
+
+#[derive(Debug)]
 pub struct SeekableDataSource {
     source: SeekableSource,
-    current_offset: Mutex<u64>,
+    current: Mutex<SourceOffset>,
     size: u64,
 }
 
@@ -24,7 +30,10 @@ impl SeekableDataSource {
     ) -> IoResult<Self> {
         Ok(Self {
             size,
-            current_offset: Mutex::new(source.stream_position()?),
+            current: Mutex::new(SourceOffset {
+                offset: source.stream_position()?,
+                index: 0,
+            }),
             source: SeekableSource::new(source, 0, 0),
         })
     }
@@ -32,13 +41,16 @@ impl SeekableDataSource {
 
 impl DataSource<Sha1> for SeekableDataSource {
     fn slice(&self, size: PartSize) -> IoResult<Option<DataSourceReader>> {
-        let mut cur_off = self.current_offset.lock().unwrap();
-        if *cur_off < self.size {
+        let mut cur = self.current.lock().unwrap();
+        if cur.offset < self.size {
             let size = size.as_u64();
             let source_reader = DataSourceReader::seekable(
-                self.source.clone_with_new_offset_and_length(*cur_off, size),
+                cur.index,
+                self.source
+                    .clone_with_new_offset_and_length(cur.offset, size),
             );
-            *cur_off += size;
+            cur.offset += size;
+            cur.index += 1;
             Ok(Some(source_reader))
         } else {
             Ok(None)

@@ -29,6 +29,7 @@ struct UnseekableDataSourceInner<
     A: OutputSizeUser,
 > {
     current_offset: u64,
+    current_index: usize,
     source_key: Option<SourceKey<A>>,
     reader: R,
 }
@@ -38,6 +39,7 @@ impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> UnseekableDataS
         Self(Mutex::new(UnseekableDataSourceInner {
             reader,
             current_offset: 0,
+            current_index: 0,
             source_key: None,
         }))
     }
@@ -47,6 +49,7 @@ impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> UnseekableDataS
             reader,
             source_key: Some(source_key),
             current_offset: 0,
+            current_index: 0,
         }))
     }
 }
@@ -61,8 +64,10 @@ impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> DataSource<A>
             .take(size.as_u64())
             .read_to_end(&mut buf)?;
         if have_read > 0 {
-            let source_reader = DataSourceReader::unseekable(buf, guard.current_offset);
+            let source_reader =
+                DataSourceReader::unseekable(guard.current_index, buf, guard.current_offset);
             guard.current_offset += have_read as u64;
+            guard.current_index += 1;
             Ok(Some(source_reader))
         } else {
             Ok(None)
@@ -94,6 +99,7 @@ impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> Debug
         f.debug_struct("UnseekableDataSourceInner")
             .field("reader", &self.reader)
             .field("current_offset", &self.current_offset)
+            .field("current_index", &self.current_index)
             .field("source_key", &self.source_key)
             .finish()
     }
@@ -124,6 +130,7 @@ mod async_unseekable {
         A: OutputSizeUser,
     > {
         current_offset: u64,
+        current_index: usize,
         source_key: Option<SourceKey<A>>,
         reader: R,
     }
@@ -135,6 +142,7 @@ mod async_unseekable {
             Self(Mutex::new(AsyncUnseekableDataSourceInner {
                 reader,
                 current_offset: 0,
+                current_index: 0,
                 source_key: None,
             }))
         }
@@ -144,6 +152,7 @@ mod async_unseekable {
                 reader,
                 source_key: Some(source_key),
                 current_offset: 0,
+                current_index: 0,
             }))
         }
     }
@@ -167,9 +176,13 @@ mod async_unseekable {
                     .read_to_end(&mut buf)
                     .await?;
                 if have_read > 0 {
-                    let source_reader =
-                        AsyncDataSourceReader::unseekable(buf, guard.current_offset);
+                    let source_reader = AsyncDataSourceReader::unseekable(
+                        guard.current_index,
+                        buf,
+                        guard.current_offset,
+                    );
                     guard.current_offset += have_read as u64;
+                    guard.current_index += 1;
                     Ok(Some(source_reader))
                 } else {
                     Ok(None)
@@ -203,6 +216,7 @@ mod async_unseekable {
             f.debug_struct("AsyncUnseekableDataSourceInner")
                 .field("reader", &self.reader)
                 .field("current_offset", &self.current_offset)
+                .field("current_index", &self.current_index)
                 .field("source_key", &self.source_key)
                 .finish()
         }
