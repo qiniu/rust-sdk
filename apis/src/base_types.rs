@@ -17,6 +17,13 @@ impl StringMap {
     }
 }
 
+impl Default for StringMap {
+    #[inline]
+    fn default() -> Self {
+        Self(Value::Object(Default::default()))
+    }
+}
+
 impl From<StringMap> for Value {
     #[inline]
     fn from(val: StringMap) -> Self {

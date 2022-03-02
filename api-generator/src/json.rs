@@ -44,7 +44,15 @@ impl CodeGenerator for JsonType {
 impl JsonType {
     fn to_rust_token_stream_inner(&self, name: &str, documentation: &str) -> TokenStream {
         let name = format_ident!("{}", name.to_case(Case::Pascal));
-        let type_definition_token_stream = define_new_struct(&name, documentation);
+        let type_definition_token_stream = define_new_struct(
+            &name,
+            documentation,
+            match self {
+                Self::Array(_) => Some(JsonCollectionType::Array),
+                Self::Struct(_) | Self::StringMap => Some(JsonCollectionType::Object),
+                _ => None,
+            },
+        );
         let impls_token_stream = match self {
             Self::String => Some(impls_token_stream_for_string(&name)),
             Self::Integer => Some(impls_token_stream_for_int(&name)),
@@ -609,8 +617,11 @@ impl JsonType {
             ) -> TokenStream {
                 let struct_name = format_ident!("{}", struct_info.name.to_case(Case::Pascal));
                 let struct_token_stream = {
-                    let type_definition_token_stream =
-                        define_new_struct(&struct_name, &struct_info.documentation);
+                    let type_definition_token_stream = define_new_struct(
+                        &struct_name,
+                        &struct_info.documentation,
+                        Some(JsonCollectionType::Object),
+                    );
                     let struct_impls_token_stream =
                         impls_token_stream_for_struct(&struct_name, &struct_info.fields);
                     quote! {
@@ -1363,8 +1374,11 @@ impl JsonType {
                     optional: bool,
                 ) -> TokenStream {
                     let array_name = format_ident!("{}", array_info.name.to_case(Case::Pascal));
-                    let type_definition_token_stream =
-                        define_new_struct(&array_name, &array_info.documentation);
+                    let type_definition_token_stream = define_new_struct(
+                        &array_name,
+                        &array_info.documentation,
+                        Some(JsonCollectionType::Array),
+                    );
                     let impls_token_stream =
                         impls_token_stream_for_array(&array_name, &array_info.ty);
                     let getter_method_token_stream = impl_getter_method_for_struct_field_of_struct(
@@ -1401,8 +1415,11 @@ impl JsonType {
                 ) -> TokenStream {
                     let struct_name = format_ident!("{}", struct_info.name.to_case(Case::Pascal));
                     let struct_token_stream = {
-                        let type_definition_token_stream =
-                            define_new_struct(&struct_name, &struct_info.documentation);
+                        let type_definition_token_stream = define_new_struct(
+                            &struct_name,
+                            &struct_info.documentation,
+                            Some(JsonCollectionType::Object),
+                        );
                         let struct_impls_token_stream =
                             impls_token_stream_for_struct(&struct_name, &struct_info.fields);
                         quote! {
@@ -1518,7 +1535,36 @@ impl JsonType {
     }
 }
 
-fn define_new_struct(name: &Ident, documentation: &str) -> TokenStream {
+#[derive(Debug, Clone, Copy)]
+enum JsonCollectionType {
+    Array,
+    Object,
+}
+
+fn define_new_struct(
+    name: &Ident,
+    documentation: &str,
+    coll_type: Option<JsonCollectionType>,
+) -> TokenStream {
+    let default_method = match coll_type {
+        Some(JsonCollectionType::Array) => Some(quote! {
+            impl Default for #name {
+                #[inline]
+                fn default() -> Self {
+                    Self(serde_json::Value::Array(Default::default()))
+                }
+            }
+        }),
+        Some(JsonCollectionType::Object) => Some(quote! {
+            impl Default for #name {
+                #[inline]
+                fn default() -> Self {
+                    Self(serde_json::Value::Object(Default::default()))
+                }
+            }
+        }),
+        None => None,
+    };
     quote! {
         #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
         #[serde(transparent)]
@@ -1531,6 +1577,8 @@ fn define_new_struct(name: &Ident, documentation: &str) -> TokenStream {
                 Self(value)
             }
         }
+
+        #default_method
 
         impl From<#name> for serde_json::Value {
             #[inline]

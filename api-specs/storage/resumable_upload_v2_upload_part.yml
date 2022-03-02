@@ -1,4 +1,4 @@
-method: post
+method: put
 service_names:
   - up
 base_path: /buckets
@@ -27,6 +27,7 @@ request:
       - field_name: part_number
         type: integer
         documentation: 每一个上传的分片都有一个标识它的号码
+  body: binary_data
 response:
   body:
     json:

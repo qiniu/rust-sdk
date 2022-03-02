@@ -42,6 +42,9 @@ pub enum ErrorKind {
     /// 疑似响应被劫持
     MaliciousResponse,
 
+    /// 哈希验证失败
+    FailedHashVerification,
+
     /// 没有尝试
     NoTry,
 }

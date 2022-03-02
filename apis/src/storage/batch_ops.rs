@@ -67,6 +67,12 @@ impl ResponseBody {
         Self(value)
     }
 }
+impl Default for ResponseBody {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Array(Default::default()))
+    }
+}
 impl From<ResponseBody> for serde_json::Value {
     #[inline]
     fn from(val: ResponseBody) -> Self {
@@ -93,6 +99,12 @@ impl OperationResponse {
     #[allow(dead_code)]
     pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
+    }
+}
+impl Default for OperationResponse {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Object(Default::default()))
     }
 }
 impl From<OperationResponse> for serde_json::Value {
@@ -165,6 +177,12 @@ impl OperationResponseData {
     #[allow(dead_code)]
     pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
+    }
+}
+impl Default for OperationResponseData {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Object(Default::default()))
     }
 }
 impl From<OperationResponseData> for serde_json::Value {

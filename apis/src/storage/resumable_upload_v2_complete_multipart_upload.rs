@@ -75,6 +75,12 @@ impl RequestBody {
         Self(value)
     }
 }
+impl Default for RequestBody {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Object(Default::default()))
+    }
+}
 impl From<RequestBody> for serde_json::Value {
     #[inline]
     fn from(val: RequestBody) -> Self {
@@ -95,12 +101,52 @@ impl std::convert::AsMut<serde_json::Value> for RequestBody {
 }
 #[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
 #[serde(transparent)]
+#[doc = "分片信息列表"]
+pub struct Parts(serde_json::Value);
+impl Parts {
+    #[allow(dead_code)]
+    pub(crate) fn new(value: serde_json::Value) -> Self {
+        Self(value)
+    }
+}
+impl Default for Parts {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Array(Default::default()))
+    }
+}
+impl From<Parts> for serde_json::Value {
+    #[inline]
+    fn from(val: Parts) -> Self {
+        val.0
+    }
+}
+impl std::convert::AsRef<serde_json::Value> for Parts {
+    #[inline]
+    fn as_ref(&self) -> &serde_json::Value {
+        &self.0
+    }
+}
+impl std::convert::AsMut<serde_json::Value> for Parts {
+    #[inline]
+    fn as_mut(&mut self) -> &mut serde_json::Value {
+        &mut self.0
+    }
+}
+#[derive(Clone, Debug, serde :: Serialize, serde :: Deserialize)]
+#[serde(transparent)]
 #[doc = "单个分片信息"]
 pub struct PartInfo(serde_json::Value);
 impl PartInfo {
     #[allow(dead_code)]
     pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
+    }
+}
+impl Default for PartInfo {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Object(Default::default()))
     }
 }
 impl From<PartInfo> for serde_json::Value {
@@ -190,20 +236,70 @@ impl PartInfo {
             })
     }
 }
+impl Parts {
+    #[doc = "解析 JSON 得到 PartInfo 列表"]
+    pub fn to_part_info_vec(&self) -> Vec<PartInfo> {
+        self.0
+            .as_array()
+            .unwrap()
+            .iter()
+            .cloned()
+            .map(PartInfo::new)
+            .collect()
+    }
+}
+impl From<Vec<PartInfo>> for Parts {
+    #[inline]
+    fn from(val: Vec<PartInfo>) -> Self {
+        Self(serde_json::Value::from(val))
+    }
+}
+impl Parts {
+    pub fn len(&self) -> usize {
+        self.0.as_array().unwrap().len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.0.as_array().unwrap().is_empty()
+    }
+}
+impl Parts {
+    #[doc = "在列表的指定位置插入 JSON PartInfo"]
+    pub fn insert_part_info(&mut self, index: usize, val: PartInfo) {
+        self.0.as_array_mut().unwrap().insert(index, val.into());
+    }
+}
+impl Parts {
+    #[doc = "在列表的指定位置移出 JSON PartInfo"]
+    pub fn remove_as_part_info(&mut self, index: usize) -> PartInfo {
+        PartInfo::new(self.0.as_array_mut().unwrap().remove(index))
+    }
+}
+impl Parts {
+    #[doc = "在列表尾部追加 JSON PartInfo"]
+    pub fn push_part_info(&mut self, val: PartInfo) {
+        self.0.as_array_mut().unwrap().push(val.into());
+    }
+}
+impl Parts {
+    #[doc = "在列表尾部取出 JSON PartInfo"]
+    pub fn pop_part_info(&mut self) -> Option<PartInfo> {
+        self.0.as_array_mut().unwrap().pop().map(PartInfo::new)
+    }
+}
 impl RequestBody {
     #[doc = "获取 已经上传的分片列表"]
-    pub fn get_parts(&self) -> PartInfo {
-        PartInfo::new(self.0.as_object().unwrap().get("parts").cloned().unwrap())
+    pub fn get_parts(&self) -> Parts {
+        Parts::new(self.0.as_object().unwrap().get("parts").cloned().unwrap())
     }
 }
 impl RequestBody {
     #[doc = "设置 已经上传的分片列表"]
-    pub fn set_parts(&mut self, new: PartInfo) -> Option<PartInfo> {
+    pub fn set_parts(&mut self, new: Parts) -> Option<Parts> {
         self.0
             .as_object_mut()
             .unwrap()
             .insert("parts".to_owned(), new.into())
-            .map(PartInfo::new)
+            .map(Parts::new)
     }
 }
 impl RequestBody {

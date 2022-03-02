@@ -44,9 +44,12 @@ pub use data_source::{
 };
 pub use multi_parts_uploader::{
     MultiPartsUploader, MultiPartsV1Uploader, MultiPartsV1UploaderInitializedObject,
-    MultiPartsV1UploaderUploadedPart,
+    MultiPartsV1UploaderUploadedPart, MultiPartsV2Uploader, MultiPartsV2UploaderInitializedObject,
+    MultiPartsV2UploaderUploadedPart,
 };
-pub use object_params::{DataCheck, ObjectParams, ObjectParamsBuilder};
+pub use object_params::{
+    ObjectParams, ObjectParamsBuilder, SingleFileHashCheck, SinglePartHashCheck,
+};
 pub use resumable_policy::{
     AlwaysMultiParts, AlwaysSinglePart, FixedThresholdResumablePolicy, GetPolicyOptions,
     MultiplePartitionsResumablePolicyProvider, ResumablePolicy, ResumablePolicyProvider,

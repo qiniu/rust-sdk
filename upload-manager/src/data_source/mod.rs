@@ -5,6 +5,7 @@ use qiniu_apis::http::Reset;
 use std::{
     fmt::Debug,
     io::{Cursor, Read, Result as IoResult},
+    num::NonZeroUsize,
 };
 
 #[cfg(feature = "async")]
@@ -43,7 +44,7 @@ pub trait DataSource<A: OutputSizeUser>: Debug + Sync + Send {
 #[derive(Debug)]
 pub struct DataSourceReader {
     inner: DataSourceReaderInner,
-    index: usize,
+    part_number: NonZeroUsize,
 }
 
 #[derive(Debug)]
@@ -54,26 +55,26 @@ enum DataSourceReaderInner {
 
 impl DataSourceReader {
     #[inline]
-    pub fn seekable(index: usize, source: SeekableSource) -> Self {
+    pub fn seekable(part_number: NonZeroUsize, source: SeekableSource) -> Self {
         Self {
             inner: DataSourceReaderInner::ReadSeekable(source),
-            index,
+            part_number,
         }
     }
 
     #[inline]
-    pub fn unseekable(index: usize, data: Vec<u8>, offset: u64) -> Self {
+    pub fn unseekable(part_number: NonZeroUsize, data: Vec<u8>, offset: u64) -> Self {
         Self {
             inner: DataSourceReaderInner::Readable {
                 data: Cursor::new(data),
                 offset,
             },
-            index,
+            part_number,
         }
     }
 
-    pub(super) fn index(&self) -> usize {
-        self.index
+    pub(super) fn part_number(&self) -> NonZeroUsize {
+        self.part_number
     }
 
     pub(super) fn offset(&self) -> u64 {
@@ -127,7 +128,7 @@ mod async_reader {
     #[derive(Debug)]
     pub struct AsyncDataSourceReader {
         inner: AsyncDataSourceReaderInner,
-        index: usize,
+        part_number: NonZeroUsize,
     }
 
     #[derive(Debug)]
@@ -138,26 +139,26 @@ mod async_reader {
 
     impl AsyncDataSourceReader {
         #[inline]
-        pub fn seekable(index: usize, source: AsyncSeekableSource) -> Self {
+        pub fn seekable(part_number: NonZeroUsize, source: AsyncSeekableSource) -> Self {
             Self {
                 inner: AsyncDataSourceReaderInner::ReadSeekable(source),
-                index,
+                part_number,
             }
         }
 
         #[inline]
-        pub fn unseekable(index: usize, data: Vec<u8>, offset: u64) -> Self {
+        pub fn unseekable(part_number: NonZeroUsize, data: Vec<u8>, offset: u64) -> Self {
             Self {
                 inner: AsyncDataSourceReaderInner::Readable {
                     data: Cursor::new(data),
                     offset,
                 },
-                index,
+                part_number,
             }
         }
 
-        pub(in super::super) fn index(&self) -> usize {
-            self.index
+        pub(in super::super) fn part_number(&self) -> NonZeroUsize {
+            self.part_number
         }
 
         pub(in super::super) fn offset(&self) -> u64 {
@@ -245,10 +246,10 @@ mod tests {
 
         let s1 = SeekableSource::new(temp_file, 0, FILE_SIZE);
         let s2 = s1.clone_with_new_offset_and_length(FILE_SIZE, FILE_SIZE);
-        let mut r1 = DataSourceReader::seekable(0, s1);
+        let mut r1 = DataSourceReader::seekable(NonZeroUsize::new(1).unwrap(), s1);
         let r1_buf = Vec::<u8>::with_capacity(FILE_SIZE as usize);
         let r1_buf = Arc::new(Mutex::new(Cursor::new(r1_buf)));
-        let mut r2 = DataSourceReader::seekable(1, s2);
+        let mut r2 = DataSourceReader::seekable(NonZeroUsize::new(2).unwrap(), s2);
         let r2_buf = Vec::<u8>::with_capacity(FILE_SIZE as usize);
         let r2_buf = Arc::new(Mutex::new(Cursor::new(r2_buf)));
 
@@ -305,10 +306,10 @@ mod tests {
         }
         let s1 = AsyncSeekableSource::new(temp_file, 0, FILE_SIZE);
         let s2 = s1.clone_with_new_offset_and_length(FILE_SIZE, FILE_SIZE);
-        let mut r1 = AsyncDataSourceReader::seekable(0, s1);
+        let mut r1 = AsyncDataSourceReader::seekable(NonZeroUsize::new(1).unwrap(), s1);
         let r1_buf = Vec::<u8>::with_capacity(FILE_SIZE as usize);
         let r1_buf = Arc::new(Mutex::new(Cursor::new(r1_buf)));
-        let mut r2 = AsyncDataSourceReader::seekable(1, s2);
+        let mut r2 = AsyncDataSourceReader::seekable(NonZeroUsize::new(2).unwrap(), s2);
         let r2_buf = Vec::<u8>::with_capacity(FILE_SIZE as usize);
         let r2_buf = Arc::new(Mutex::new(Cursor::new(r2_buf)));
 

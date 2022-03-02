@@ -41,6 +41,7 @@ impl TryError {
             },
             ResponseErrorKind::UnexpectedEof
             | ResponseErrorKind::ParseResponseError
+            | ResponseErrorKind::FailedHashVerification
             | ResponseErrorKind::MaliciousResponse => Some(self.response_error()),
             ResponseErrorKind::UnexpectedStatusCode(_) | ResponseErrorKind::NoTry => None,
         }

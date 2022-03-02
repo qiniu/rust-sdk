@@ -68,4 +68,9 @@ pub use v1::{
     MultiPartsV1Uploader, MultiPartsV1UploaderInitializedObject, MultiPartsV1UploaderUploadedPart,
 };
 
+mod v2;
+pub use v2::{
+    MultiPartsV2Uploader, MultiPartsV2UploaderInitializedObject, MultiPartsV2UploaderUploadedPart,
+};
+
 mod progress;

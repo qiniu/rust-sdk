@@ -47,6 +47,12 @@ impl ResponseBody {
         Self(value)
     }
 }
+impl Default for ResponseBody {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Object(Default::default()))
+    }
+}
 impl From<ResponseBody> for serde_json::Value {
     #[inline]
     fn from(val: ResponseBody) -> Self {

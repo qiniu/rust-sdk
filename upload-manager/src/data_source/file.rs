@@ -18,6 +18,7 @@ use {
     async_once_cell::OnceCell as AsyncOnceCell,
     async_std::{fs::File as AsyncFile, path::PathBuf as AsyncPathBuf},
     futures::{future::BoxFuture, lock::Mutex as AsyncMutex, AsyncSeekExt},
+    std::num::NonZeroUsize,
 };
 
 enum Source<A: OutputSizeUser> {
@@ -85,7 +86,11 @@ impl<A: OutputSizeUser> FileDataSource<A> {
                     Ok(AsyncSource::Seekable {
                         file_size: file.metadata().await?.len(),
                         source: AsyncSeekableSource::new(file, 0, 0),
-                        current: AsyncMutex::new(SourceOffset { offset, index: 0 }),
+                        current: AsyncMutex::new(SourceOffset {
+                            offset,
+                            #[allow(unsafe_code)]
+                            part_number: unsafe { NonZeroUsize::new_unchecked(1) },
+                        }),
                     })
                 } else {
                     Ok(AsyncSource::Unseekable(AsyncUnseekableDataSource::new(
@@ -127,11 +132,12 @@ impl DataSource<Sha1> for FileDataSource<Sha1> {
                     if cur.offset < *file_size {
                         let size = size.as_u64();
                         let source_reader = AsyncDataSourceReader::seekable(
-                            cur.index,
+                            cur.part_number,
                             source.clone_with_new_offset_and_length(cur.offset, size),
                         );
                         cur.offset += size;
-                        cur.index += 1;
+                        cur.part_number = NonZeroUsize::new(cur.part_number.get() + 1)
+                            .expect("Page number is too big");
                         Ok(Some(source_reader))
                     } else {
                         Ok(None)
@@ -234,7 +240,7 @@ impl<A: OutputSizeUser> Debug for AsyncFileDataSource<A> {
 #[derive(Debug)]
 struct SourceOffset {
     offset: u64,
-    index: usize,
+    part_number: NonZeroUsize,
 }
 
 #[cfg(feature = "async")]

@@ -192,6 +192,12 @@ impl ResponseBody {
         Self(value)
     }
 }
+impl Default for ResponseBody {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Object(Default::default()))
+    }
+}
 impl From<ResponseBody> for serde_json::Value {
     #[inline]
     fn from(val: ResponseBody) -> Self {
@@ -280,7 +286,7 @@ impl<'client> Client<'client> {
         RequestBuilder({
             let mut builder = self
                 .0
-                .post(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
+                .put(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::uptoken(upload_token));
             builder.idempotent(qiniu_http_client::Idempotent::Always);
             builder.path(crate::base_utils::join_path(
@@ -305,7 +311,7 @@ impl<'client> Client<'client> {
         RequestBuilder({
             let mut builder = self
                 .0
-                .async_post(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
+                .async_put(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::uptoken(upload_token));
             builder.idempotent(qiniu_http_client::Idempotent::Always);
             builder.path(crate::base_utils::join_path(
@@ -554,8 +560,15 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBuilder<'req, E> {
     pub fn call(
         &mut self,
+        body: impl std::io::Read
+            + qiniu_http_client::http::Reset
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static,
+        content_length: u64,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
-        let request = &mut self.0;
+        let request = self.0.stream_as_body(body, content_length, None);
         let response = request.call()?;
         let parsed = response.parse_json()?;
         Ok(parsed)
@@ -565,8 +578,16 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBu
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> AsyncRequestBuilder<'req, E> {
     pub async fn call(
         &mut self,
+        body: impl futures::io::AsyncRead
+            + qiniu_http_client::http::AsyncReset
+            + Unpin
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static,
+        content_length: u64,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
-        let request = &mut self.0;
+        let request = self.0.stream_as_body(body, content_length, None);
         let response = request.call().await?;
         let parsed = response.parse_json().await?;
         Ok(parsed)

@@ -4,6 +4,7 @@ use sha1::Sha1;
 use std::{
     fmt::Debug,
     io::{Read, Result as IoResult, Seek, SeekFrom},
+    num::NonZeroUsize,
     sync::{Arc, Mutex},
 };
 
@@ -13,7 +14,7 @@ use {super::AsyncDataSourceReader, futures::future::BoxFuture};
 #[derive(Debug)]
 struct SourceOffset {
     offset: u64,
-    index: usize,
+    part_number: NonZeroUsize,
 }
 
 #[derive(Debug)]
@@ -32,7 +33,8 @@ impl SeekableDataSource {
             size,
             current: Mutex::new(SourceOffset {
                 offset: source.stream_position()?,
-                index: 0,
+                #[allow(unsafe_code)]
+                part_number: unsafe { NonZeroUsize::new_unchecked(1) },
             }),
             source: SeekableSource::new(source, 0, 0),
         })
@@ -45,12 +47,13 @@ impl DataSource<Sha1> for SeekableDataSource {
         if cur.offset < self.size {
             let size = size.as_u64();
             let source_reader = DataSourceReader::seekable(
-                cur.index,
+                cur.part_number,
                 self.source
                     .clone_with_new_offset_and_length(cur.offset, size),
             );
             cur.offset += size;
-            cur.index += 1;
+            cur.part_number =
+                NonZeroUsize::new(cur.part_number.get() + 1).expect("Page number is too big");
             Ok(Some(source_reader))
         } else {
             Ok(None)

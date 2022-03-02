@@ -26,18 +26,22 @@ request:
           - field_name: parts
             key: parts
             type:
-              struct:
-                fields:
-                  - field_name: part_number
-                    key: partNumber
-                    type: integer
-                    documentation: 每一个上传的分片都有一个标识它的号码
-                  - field_name: etag
-                    key: etag
-                    type: string
-                    documentation: 上传块的 etag
-                name: PartInfo
-                documentation: 单个分片信息
+              array:
+                type:
+                  struct:
+                    fields:
+                      - field_name: part_number
+                        key: partNumber
+                        type: integer
+                        documentation: 每一个上传的分片都有一个标识它的号码
+                      - field_name: etag
+                        key: etag
+                        type: string
+                        documentation: 上传块的 etag
+                    name: PartInfo
+                    documentation: 单个分片信息
+                name: Parts
+                documentation: 分片信息列表
             documentation: 已经上传的分片列表
           - field_name: file_name
             key: fname

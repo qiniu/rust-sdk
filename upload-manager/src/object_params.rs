@@ -208,8 +208,16 @@ impl ObjectParamsBuilder {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum DataCheck<T> {
+#[non_exhaustive]
+pub enum SingleFileHashCheck<T> {
     Const(T),
+    AutoCheck,
+    SkipCheck,
+}
+
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub enum SinglePartHashCheck {
     AutoCheck,
     SkipCheck,
 }

@@ -226,6 +226,12 @@ impl ResponseBody {
         Self(value)
     }
 }
+impl Default for ResponseBody {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Object(Default::default()))
+    }
+}
 impl From<ResponseBody> for serde_json::Value {
     #[inline]
     fn from(val: ResponseBody) -> Self {
@@ -367,6 +373,12 @@ impl ListedParts {
         Self(value)
     }
 }
+impl Default for ListedParts {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Array(Default::default()))
+    }
+}
 impl From<ListedParts> for serde_json::Value {
     #[inline]
     fn from(val: ListedParts) -> Self {
@@ -393,6 +405,12 @@ impl ListedPartInfo {
     #[allow(dead_code)]
     pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
+    }
+}
+impl Default for ListedPartInfo {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Object(Default::default()))
     }
 }
 impl From<ListedPartInfo> for serde_json::Value {

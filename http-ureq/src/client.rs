@@ -327,7 +327,6 @@ impl<'a, 'r> RequestBodyWithCallbacks<'a, 'r> {
 impl Read for RequestBodyWithCallbacks<'_, '_> {
     fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
         let n = self.request.body_mut().read(buf)?;
-        println!("ureq: have_read: {:?}", n);
         match n {
             0 => Ok(0),
             n => {

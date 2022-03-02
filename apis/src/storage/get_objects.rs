@@ -143,6 +143,12 @@ impl ResponseBody {
         Self(value)
     }
 }
+impl Default for ResponseBody {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Object(Default::default()))
+    }
+}
 impl From<ResponseBody> for serde_json::Value {
     #[inline]
     fn from(val: ResponseBody) -> Self {
@@ -191,6 +197,12 @@ impl CommonPrefixes {
     #[allow(dead_code)]
     pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
+    }
+}
+impl Default for CommonPrefixes {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Array(Default::default()))
     }
 }
 impl From<CommonPrefixes> for serde_json::Value {
@@ -300,6 +312,12 @@ impl ListedObjects {
         Self(value)
     }
 }
+impl Default for ListedObjects {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Array(Default::default()))
+    }
+}
 impl From<ListedObjects> for serde_json::Value {
     #[inline]
     fn from(val: ListedObjects) -> Self {
@@ -326,6 +344,12 @@ impl ListedObjectEntry {
     #[allow(dead_code)]
     pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
+    }
+}
+impl Default for ListedObjectEntry {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Object(Default::default()))
     }
 }
 impl From<ListedObjectEntry> for serde_json::Value {
@@ -643,6 +667,12 @@ impl PartSizes {
     #[allow(dead_code)]
     pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
+    }
+}
+impl Default for PartSizes {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Array(Default::default()))
     }
 }
 impl From<PartSizes> for serde_json::Value {

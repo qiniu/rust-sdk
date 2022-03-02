@@ -86,7 +86,7 @@ impl DerefMut for Concurrency {
 pub struct ConcurrencyProviderFeedback<'f> {
     concurrency: NonZeroUsize,
     elapsed: Duration,
-    extensions: &'f mut Extensions,
+    extensions: &'f Extensions,
     error: Option<&'f ResponseError>,
 }
 
@@ -94,7 +94,7 @@ impl<'f> ConcurrencyProviderFeedback<'f> {
     pub(super) fn new(
         concurrency: NonZeroUsize,
         elapsed: Duration,
-        extensions: &'f mut Extensions,
+        extensions: &'f Extensions,
         error: Option<&'f ResponseError>,
     ) -> Self {
         Self {
@@ -122,11 +122,6 @@ impl<'f> ConcurrencyProviderFeedback<'f> {
 
     #[inline]
     pub fn extensions(&self) -> &Extensions {
-        self.extensions
-    }
-
-    #[inline]
-    pub fn extensions_mut(&mut self) -> &mut Extensions {
         self.extensions
     }
 }

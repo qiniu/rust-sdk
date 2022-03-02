@@ -142,6 +142,7 @@ impl Debug for ListIter<'_> {
 }
 
 #[derive(Copy, Clone, Debug, SmartDefault)]
+#[non_exhaustive]
 pub enum ListVersion {
     V1,
 

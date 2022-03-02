@@ -78,6 +78,12 @@ impl ResponseBody {
         Self(value)
     }
 }
+impl Default for ResponseBody {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Object(Default::default()))
+    }
+}
 impl From<ResponseBody> for serde_json::Value {
     #[inline]
     fn from(val: ResponseBody) -> Self {
@@ -498,6 +504,12 @@ impl PartSizes {
     #[allow(dead_code)]
     pub(crate) fn new(value: serde_json::Value) -> Self {
         Self(value)
+    }
+}
+impl Default for PartSizes {
+    #[inline]
+    fn default() -> Self {
+        Self(serde_json::Value::Array(Default::default()))
     }
 }
 impl From<PartSizes> for serde_json::Value {
