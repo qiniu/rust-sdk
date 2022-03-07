@@ -4,7 +4,7 @@ use qiniu_apis::{
     http_client::{FileName, RegionProvider},
 };
 use qiniu_utils::ObjectName;
-use std::{collections::HashMap, mem::take};
+use std::{collections::HashMap, mem::take, time::Duration};
 
 #[derive(Debug, Default)]
 pub struct ObjectParams {
@@ -14,6 +14,7 @@ pub struct ObjectParams {
     content_type: Option<Mime>,
     metadata: HashMap<String, String>,
     custom_vars: HashMap<String, String>,
+    uploaded_part_ttl: Duration,
     extensions: Extensions,
 }
 
@@ -127,10 +128,40 @@ impl ObjectParams {
     pub fn extensions_mut(&mut self) -> &mut Extensions {
         &mut self.extensions
     }
+
+    #[inline]
+    pub fn uploaded_part_ttl(&self) -> Duration {
+        self.uploaded_part_ttl
+    }
+
+    #[inline]
+    pub fn take_uploaded_part_ttl(&mut self) -> Duration {
+        take(&mut self.uploaded_part_ttl)
+    }
+
+    #[inline]
+    pub fn uploaded_part_ttl_mut(&mut self) -> &mut Duration {
+        &mut self.uploaded_part_ttl
+    }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ObjectParamsBuilder(ObjectParams);
+
+impl Default for ObjectParamsBuilder {
+    fn default() -> Self {
+        Self(ObjectParams {
+            uploaded_part_ttl: Duration::from_secs(5 * 86400),
+            region_provider: Default::default(),
+            object_name: Default::default(),
+            file_name: Default::default(),
+            content_type: Default::default(),
+            metadata: Default::default(),
+            custom_vars: Default::default(),
+            extensions: Default::default(),
+        })
+    }
+}
 
 impl ObjectParamsBuilder {
     #[inline]
@@ -198,6 +229,12 @@ impl ObjectParamsBuilder {
     #[inline]
     pub fn insert_extension<T: Send + Sync + 'static>(&mut self, val: T) -> &mut Self {
         self.0.extensions.insert(val);
+        self
+    }
+
+    #[inline]
+    pub fn uploaded_part_ttl(&mut self, uploaded_part_ttl: Duration) -> &mut Self {
+        self.0.uploaded_part_ttl = uploaded_part_ttl;
         self
     }
 

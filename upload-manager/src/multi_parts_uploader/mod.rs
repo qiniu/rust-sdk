@@ -4,7 +4,7 @@ use super::{
 };
 use qiniu_apis::http_client::ApiResult;
 use serde_json::Value;
-use std::{fmt::Debug, time::Duration};
+use std::fmt::Debug;
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
@@ -15,8 +15,6 @@ pub trait MultiPartsUploader: UploaderWithCallbacks + Debug {
     type UploadedPart;
 
     fn new(upload_manager: UploadManager, resumable_recorder: Self::ResumableRecorder) -> Self;
-    fn uploaded_part_ttl(&self) -> Duration;
-    fn uploaded_part_lifetime_mut(&mut self) -> &mut Duration;
 
     fn initialize_parts<
         D: DataSource<<Self::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static,

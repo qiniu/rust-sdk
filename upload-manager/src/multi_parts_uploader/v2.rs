@@ -72,7 +72,6 @@ use {
 #[derive(Debug)]
 pub struct MultiPartsV2Uploader<R: ?Sized> {
     upload_manager: UploadManager,
-    uploaded_part_ttl: Duration,
     callbacks: Callbacks<'static>,
     resumable_recorder: R,
 }
@@ -149,18 +148,7 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV2Uploader<R> {
             upload_manager,
             resumable_recorder,
             callbacks: Default::default(),
-            uploaded_part_ttl: Duration::from_secs(5 * 86400),
         }
-    }
-
-    #[inline]
-    fn uploaded_part_ttl(&self) -> Duration {
-        self.uploaded_part_ttl
-    }
-
-    #[inline]
-    fn uploaded_part_lifetime_mut(&mut self) -> &mut Duration {
-        &mut self.uploaded_part_ttl
     }
 
     fn initialize_parts<
@@ -244,9 +232,12 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV2Uploader<R> {
         {
             let part_size = reader.len()?;
             assert!(part_size > 0);
-            if let Some(uploaded_part) =
-                _could_recover(initialized, &mut reader, part_size, self.uploaded_part_ttl)
-            {
+            if let Some(uploaded_part) = _could_recover(
+                initialized,
+                &mut reader,
+                part_size,
+                initialized.params.uploaded_part_ttl(),
+            ) {
                 return Ok(Some(uploaded_part));
             }
             let path_params = make_upload_part_path_params_from_initialized_params(
@@ -569,9 +560,13 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV2Uploader<R> {
             {
                 let part_size = reader.len().await?;
                 assert!(part_size > 0);
-                if let Some(uploaded_part) =
-                    _could_recover(initialized, &mut reader, part_size, self.uploaded_part_ttl)
-                        .await
+                if let Some(uploaded_part) = _could_recover(
+                    initialized,
+                    &mut reader,
+                    part_size,
+                    initialized.params.uploaded_part_ttl(),
+                )
+                .await
                 {
                     return Ok(Some(uploaded_part));
                 }
