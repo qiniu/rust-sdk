@@ -23,6 +23,7 @@ mod multi_parts_uploader;
 mod object_params;
 mod resumable_policy;
 mod resumable_recorder;
+mod scheduler;
 mod single_part_uploader;
 mod upload_manager;
 mod upload_token;
@@ -58,6 +59,7 @@ pub use resumable_recorder::{
     AppendOnlyResumableRecorderMedium, DummyResumableRecorder, DummyResumableRecorderMedium,
     FileSystemResumableRecorder, ReadOnlyResumableRecorderMedium, ResumableRecorder,
 };
+pub use scheduler::{LocalMultiPartsUploaderScheduler, MultiPartsUploaderScheduler};
 pub use single_part_uploader::{FormUploader, SinglePartUploader};
 pub use upload_manager::{UploadManager, UploadManagerBuilder};
 pub use upload_token::UploadTokenSigner;
