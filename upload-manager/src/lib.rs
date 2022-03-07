@@ -44,9 +44,9 @@ pub use data_source::{
     DataSource, DataSourceReader, FileDataSource, SeekableSource, SourceKey, UnseekableDataSource,
 };
 pub use multi_parts_uploader::{
-    MultiPartsUploader, MultiPartsV1Uploader, MultiPartsV1UploaderInitializedObject,
-    MultiPartsV1UploaderUploadedPart, MultiPartsV2Uploader, MultiPartsV2UploaderInitializedObject,
-    MultiPartsV2UploaderUploadedPart,
+    InitializedParts, MultiPartsUploader, MultiPartsV1Uploader,
+    MultiPartsV1UploaderInitializedObject, MultiPartsV1UploaderUploadedPart, MultiPartsV2Uploader,
+    MultiPartsV2UploaderInitializedObject, MultiPartsV2UploaderUploadedPart, UploadedPart,
 };
 pub use object_params::{
     ObjectParams, ObjectParamsBuilder, SingleFileHashVerification, SinglePartHashVerification,
@@ -59,7 +59,7 @@ pub use resumable_recorder::{
     AppendOnlyResumableRecorderMedium, DummyResumableRecorder, DummyResumableRecorderMedium,
     FileSystemResumableRecorder, ReadOnlyResumableRecorderMedium, ResumableRecorder,
 };
-pub use scheduler::{LocalMultiPartsUploaderScheduler, MultiPartsUploaderScheduler};
+pub use scheduler::{MultiPartsUploaderScheduler, SerialMultiPartsUploaderScheduler};
 pub use single_part_uploader::{FormUploader, SinglePartUploader};
 pub use upload_manager::{UploadManager, UploadManagerBuilder};
 pub use upload_token::UploadTokenSigner;

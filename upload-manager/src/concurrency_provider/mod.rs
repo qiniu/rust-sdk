@@ -1,8 +1,8 @@
 use auto_impl::auto_impl;
-use qiniu_apis::{http::Extensions, http_client::ResponseError};
+use qiniu_apis::http_client::ResponseError;
 use std::{
     fmt::Debug,
-    num::NonZeroUsize,
+    num::{NonZeroU64, NonZeroUsize},
     ops::{Deref, DerefMut},
     time::Duration,
 };
@@ -85,22 +85,22 @@ impl DerefMut for Concurrency {
 #[derive(Debug)]
 pub struct ConcurrencyProviderFeedback<'f> {
     concurrency: NonZeroUsize,
+    object_size: NonZeroU64,
     elapsed: Duration,
-    extensions: &'f Extensions,
     error: Option<&'f ResponseError>,
 }
 
 impl<'f> ConcurrencyProviderFeedback<'f> {
     pub(super) fn new(
         concurrency: NonZeroUsize,
+        object_size: NonZeroU64,
         elapsed: Duration,
-        extensions: &'f Extensions,
         error: Option<&'f ResponseError>,
     ) -> Self {
         Self {
             concurrency,
+            object_size,
             elapsed,
-            extensions,
             error,
         }
     }
@@ -111,6 +111,11 @@ impl<'f> ConcurrencyProviderFeedback<'f> {
     }
 
     #[inline]
+    pub fn object_size(&self) -> NonZeroU64 {
+        self.object_size
+    }
+
+    #[inline]
     pub fn elapsed(&self) -> Duration {
         self.elapsed
     }
@@ -118,11 +123,6 @@ impl<'f> ConcurrencyProviderFeedback<'f> {
     #[inline]
     pub fn error(&self) -> Option<&'f ResponseError> {
         self.error
-    }
-
-    #[inline]
-    pub fn extensions(&self) -> &Extensions {
-        self.extensions
     }
 }
 

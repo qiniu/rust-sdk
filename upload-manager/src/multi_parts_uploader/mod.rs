@@ -4,15 +4,15 @@ use super::{
 };
 use qiniu_apis::http_client::ApiResult;
 use serde_json::Value;
-use std::fmt::Debug;
+use std::{fmt::Debug, num::NonZeroU64};
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
-pub trait MultiPartsUploader: UploaderWithCallbacks + Debug {
+pub trait MultiPartsUploader: UploaderWithCallbacks + Send + Sync + Debug {
     type ResumableRecorder: ResumableRecorder;
-    type InitializedParts;
-    type UploadedPart;
+    type InitializedParts: InitializedParts;
+    type UploadedPart: UploadedPart;
 
     fn new(upload_manager: UploadManager, resumable_recorder: Self::ResumableRecorder) -> Self;
 
@@ -59,6 +59,16 @@ pub trait MultiPartsUploader: UploaderWithCallbacks + Debug {
         initialized: Self::InitializedParts,
         parts: Vec<Self::UploadedPart>,
     ) -> BoxFuture<'_, ApiResult<Value>>;
+}
+
+pub trait InitializedParts: Send + Sync + Debug {
+    fn params(&self) -> &ObjectParams;
+}
+
+pub trait UploadedPart: Send + Sync + Debug {
+    fn size(&self) -> NonZeroU64;
+    fn offset(&self) -> u64;
+    fn resumed(&self) -> bool;
 }
 
 mod v1;

@@ -1,20 +1,18 @@
 use super::{
     ConcurrencyProvider, DataPartitionProvider, DataSource, MultiPartsUploader, ObjectParams,
-    ResumableRecorder, UploadManager,
+    ResumableRecorder,
 };
 use qiniu_apis::http_client::ApiResult;
 use serde_json::Value;
+use std::fmt::Debug;
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
-pub trait MultiPartsUploaderScheduler {
+pub trait MultiPartsUploaderScheduler: Send + Sync + Debug {
     type MultiPartsUploader: MultiPartsUploader;
 
-    fn new(
-        upload_manager: UploadManager,
-        resumable_recorder: <Self::MultiPartsUploader as MultiPartsUploader>::ResumableRecorder,
-    ) -> Self;
+    fn new(multi_parts_uploader: Self::MultiPartsUploader) -> Self;
 
     fn set_concurrency_provider(
         &mut self,
@@ -44,5 +42,5 @@ pub trait MultiPartsUploaderScheduler {
     ) -> BoxFuture<ApiResult<Value>>;
 }
 
-mod local_multi_parts_uploader_scheduler;
-pub use local_multi_parts_uploader_scheduler::LocalMultiPartsUploaderScheduler;
+mod serial_multi_parts_uploader_scheduler;
+pub use serial_multi_parts_uploader_scheduler::SerialMultiPartsUploaderScheduler;

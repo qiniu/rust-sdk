@@ -4,6 +4,13 @@ use std::num::NonZeroU64;
 #[derive(Debug, Clone, Copy)]
 pub struct FixedDataPartitionProvider(NonZeroU64);
 
+impl Default for FixedDataPartitionProvider {
+    #[inline]
+    fn default() -> Self {
+        Self(PartSize::default().into())
+    }
+}
+
 impl FixedDataPartitionProvider {
     #[inline]
     pub fn new(part_size: u64) -> Option<Self> {

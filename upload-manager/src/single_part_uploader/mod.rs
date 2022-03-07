@@ -6,7 +6,7 @@ use std::{fmt::Debug, io::Read, path::Path};
 #[cfg(feature = "async")]
 use futures::{future::BoxFuture, AsyncRead};
 
-pub trait SinglePartUploader: UploaderWithCallbacks + Debug {
+pub trait SinglePartUploader: UploaderWithCallbacks + Sync + Send + Debug {
     fn new(upload_manager: UploadManager) -> Self;
 
     fn upload_path(&self, path: &Path, params: ObjectParams) -> ApiResult<Value>;

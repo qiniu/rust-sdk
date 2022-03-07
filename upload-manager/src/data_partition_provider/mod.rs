@@ -13,7 +13,7 @@ pub trait DataPartitionProvider: Debug + Sync + Send {
     fn feedback(&self, feedback: DataPartitionProviderFeedback<'_>);
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PartSize(NonZeroU64);
 
 impl PartSize {
@@ -35,7 +35,12 @@ impl PartSize {
 impl Default for PartSize {
     #[inline]
     fn default() -> Self {
-        Self(NonZeroU64::new(1 << 22).unwrap())
+        Self(
+            #[allow(unsafe_code)]
+            unsafe {
+                NonZeroU64::new_unchecked(1 << 22)
+            },
+        )
     }
 }
 
