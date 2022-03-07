@@ -209,15 +209,13 @@ impl ObjectParamsBuilder {
 
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
-pub enum SingleFileHashCheck<T> {
+pub enum SingleFileHashVerification<T> {
     Const(T),
-    AutoCheck,
     SkipCheck,
 }
 
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
-pub enum SinglePartHashCheck {
-    AutoCheck,
+pub enum SinglePartHashVerification {
     SkipCheck,
 }

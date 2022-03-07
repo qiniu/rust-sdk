@@ -2,7 +2,7 @@ use super::{
     super::{
         callbacks::{Callbacks, UploaderWithCallbacks, UploadingProgressInfo},
         upload_token::OwnedUploadTokenProviderOrReferenced,
-        ObjectParams, SingleFileHashCheck, UploadManager,
+        ObjectParams, SingleFileHashVerification, UploadManager,
     },
     SinglePartUploader,
 };
@@ -232,15 +232,16 @@ impl FormUploader {
                 .map(Path::new)
                 .map(|file_name| FileName::from(file_name.display().to_string()));
         }
-        if matches!(
-            params.extensions().get::<SingleFileHashCheck<u32>>(),
-            Some(SingleFileHashCheck::AutoCheck)
-        ) {
+        if params
+            .extensions()
+            .get::<SingleFileHashVerification<u32>>()
+            .is_none()
+        {
             let crc32 = crc32_of_reader(&mut file)?;
             file.seek(SeekFrom::Start(0))?;
             params
                 .extensions_mut()
-                .insert(SingleFileHashCheck::Const(crc32));
+                .insert(SingleFileHashVerification::Const(crc32));
         }
         self.make_request_body_from_reader(file, params)
     }
@@ -262,8 +263,8 @@ impl FormUploader {
         if let Some(object_name) = params.take_object_name() {
             request_body = request_body.set_object_name(object_name.to_string());
         }
-        if let Some(SingleFileHashCheck::Const(crc32)) =
-            params.extensions().get::<SingleFileHashCheck<u32>>()
+        if let Some(SingleFileHashVerification::Const(crc32)) =
+            params.extensions().get::<SingleFileHashVerification<u32>>()
         {
             request_body = request_body.set_crc_32(crc32.to_string());
         }
@@ -290,15 +291,16 @@ impl FormUploader {
                 .map(Path::new)
                 .map(|file_name| FileName::from(file_name.display().to_string()));
         }
-        if matches!(
-            params.extensions().get::<SingleFileHashCheck<u32>>(),
-            Some(SingleFileHashCheck::AutoCheck)
-        ) {
+        if params
+            .extensions()
+            .get::<SingleFileHashVerification<u32>>()
+            .is_none()
+        {
             let crc32 = crc32_of_async_reader(&mut file).await?;
             file.seek(SeekFrom::Start(0)).await?;
             params
                 .extensions_mut()
-                .insert(SingleFileHashCheck::Const(crc32));
+                .insert(SingleFileHashVerification::Const(crc32));
         }
         self.make_async_request_body_from_async_reader(file, params)
             .await
@@ -325,8 +327,8 @@ impl FormUploader {
         if let Some(object_name) = params.take_object_name() {
             request_body = request_body.set_object_name(object_name.to_string());
         }
-        if let Some(SingleFileHashCheck::Const(crc32)) =
-            params.extensions().get::<SingleFileHashCheck<u32>>()
+        if let Some(SingleFileHashVerification::Const(crc32)) =
+            params.extensions().get::<SingleFileHashVerification<u32>>()
         {
             request_body = request_body.set_crc_32(crc32.to_string());
         }

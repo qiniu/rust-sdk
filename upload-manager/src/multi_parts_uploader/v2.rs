@@ -4,7 +4,7 @@ use super::{
         data_source::SourceKey,
         upload_token::OwnedUploadTokenProviderOrReferenced,
         DataPartitionProvider, DataPartitionProviderFeedback, DataSourceReader,
-        LimitedDataPartitionProvider, SinglePartHashCheck,
+        LimitedDataPartitionProvider, SinglePartHashVerification,
     },
     progress::{Progresses, ProgressesKey},
     DataSource, MultiPartsUploader, ObjectParams, ResumableRecorder, UploadManager,
@@ -389,18 +389,17 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV2Uploader<R> {
             extensions: &Extensions,
             request_body: &mut DataSourceReader,
         ) -> ApiResult<Option<String>> {
-            let md5 = match extensions.get::<SinglePartHashCheck>() {
-                Some(SinglePartHashCheck::AutoCheck) => Some(md5_of_sync_reader(request_body)?),
-                _ => None,
-            };
-            Ok(md5)
+            match extensions.get::<SinglePartHashVerification>() {
+                Some(SinglePartHashVerification::SkipCheck) => Ok(None),
+                None => Ok(Some(md5_of_sync_reader(request_body)?)),
+            }
         }
 
         fn _verify_content_md5(
             expected_md5: &str,
             response_body: &UploadPartResponseBody,
         ) -> ApiResult<()> {
-            if response_body.get_md_5_as_str() == expected_md5 {
+            if response_body.get_md_5_as_str() != expected_md5 {
                 return Err(ResponseError::new(
                     ResponseErrorKind::FailedHashVerification,
                     format!(
@@ -721,20 +720,17 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV2Uploader<R> {
             extensions: &Extensions,
             request_body: &mut AsyncDataSourceReader,
         ) -> ApiResult<Option<String>> {
-            let md5 = match extensions.get::<SinglePartHashCheck>() {
-                Some(SinglePartHashCheck::AutoCheck) => {
-                    Some(md5_of_async_reader(request_body).await?)
-                }
-                _ => None,
-            };
-            Ok(md5)
+            match extensions.get::<SinglePartHashVerification>() {
+                Some(SinglePartHashVerification::SkipCheck) => Ok(None),
+                None => Ok(Some(md5_of_async_reader(request_body).await?)),
+            }
         }
 
         fn _verify_content_md5(
             expected_md5: &str,
             response_body: &UploadPartResponseBody,
         ) -> ApiResult<()> {
-            if response_body.get_md_5_as_str() == expected_md5 {
+            if response_body.get_md_5_as_str() != expected_md5 {
                 return Err(ResponseError::new(
                     ResponseErrorKind::FailedHashVerification,
                     format!(

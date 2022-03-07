@@ -48,7 +48,7 @@ pub use multi_parts_uploader::{
     MultiPartsV2UploaderUploadedPart,
 };
 pub use object_params::{
-    ObjectParams, ObjectParamsBuilder, SingleFileHashCheck, SinglePartHashCheck,
+    ObjectParams, ObjectParamsBuilder, SingleFileHashVerification, SinglePartHashVerification,
 };
 pub use resumable_policy::{
     AlwaysMultiParts, AlwaysSinglePart, FixedThresholdResumablePolicy, GetPolicyOptions,

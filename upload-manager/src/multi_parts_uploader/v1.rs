@@ -4,7 +4,7 @@ use super::{
         data_source::SourceKey,
         upload_token::OwnedUploadTokenProviderOrReferenced,
         DataPartitionProvider, DataPartitionProviderFeedback, DataSourceReader,
-        MultiplyDataPartitionProvider, SinglePartHashCheck,
+        MultiplyDataPartitionProvider, SinglePartHashVerification,
     },
     progress::{Progresses, ProgressesKey},
     DataSource, MultiPartsUploader, ObjectParams, ResumableRecorder, UploadManager,
@@ -320,18 +320,17 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV1Uploader<R> {
             extensions: &Extensions,
             request_body: &mut DataSourceReader,
         ) -> ApiResult<Option<String>> {
-            let sha1 = match extensions.get() {
-                Some(SinglePartHashCheck::AutoCheck) => Some(sha1_of_sync_reader(request_body)?),
-                _ => None,
-            };
-            Ok(sha1)
+            match extensions.get::<SinglePartHashVerification>() {
+                Some(SinglePartHashVerification::SkipCheck) => Ok(None),
+                None => Ok(Some(sha1_of_sync_reader(request_body)?)),
+            }
         }
 
         fn _verify_content_sha1(
             expected_sha1: &str,
             response_body: &MkBlkResponseBody,
         ) -> ApiResult<()> {
-            if response_body.get_checksum_as_str() == expected_sha1 {
+            if response_body.get_checksum_as_str() != expected_sha1 {
                 return Err(ResponseError::new(
                     ResponseErrorKind::FailedHashVerification,
                     format!(
@@ -588,20 +587,17 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV1Uploader<R> {
             extensions: &Extensions,
             request_body: &mut AsyncDataSourceReader,
         ) -> ApiResult<Option<String>> {
-            let sha1 = match extensions.get::<SinglePartHashCheck>() {
-                Some(SinglePartHashCheck::AutoCheck) => {
-                    Some(sha1_of_async_reader(request_body).await?)
-                }
-                _ => None,
-            };
-            Ok(sha1)
+            match extensions.get::<SinglePartHashVerification>() {
+                Some(SinglePartHashVerification::SkipCheck) => Ok(None),
+                None => Ok(Some(sha1_of_async_reader(request_body).await?)),
+            }
         }
 
         fn _verify_content_sha1(
             expected_sha1: &str,
             response_body: &MkBlkResponseBody,
         ) -> ApiResult<()> {
-            if response_body.get_checksum_as_str() == expected_sha1 {
+            if response_body.get_checksum_as_str() != expected_sha1 {
                 return Err(ResponseError::new(
                     ResponseErrorKind::FailedHashVerification,
                     format!(
