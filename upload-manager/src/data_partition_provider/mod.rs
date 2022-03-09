@@ -22,6 +22,11 @@ impl PartSize {
     }
 
     #[inline]
+    pub const fn new_with_non_zero_u64(concurrency: NonZeroU64) -> Self {
+        Self(concurrency)
+    }
+
+    #[inline]
     pub fn as_non_zero_u64(&self) -> NonZeroU64 {
         self.0
     }

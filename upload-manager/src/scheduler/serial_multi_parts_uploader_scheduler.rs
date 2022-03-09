@@ -1,6 +1,6 @@
 use super::{
     super::{
-        ConcurrencyProvider, ConcurrencyProviderFeedback, FixedConcurrencyProvider,
+        Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, FixedConcurrencyProvider,
         FixedDataPartitionProvider, ResumableRecorder, UploadedPart,
     },
     DataPartitionProvider, DataSource, MultiPartsUploader, MultiPartsUploaderScheduler,
@@ -24,7 +24,8 @@ pub struct SerialMultiPartsUploaderScheduler<M> {
 }
 
 #[allow(unsafe_code)]
-const ONE: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1) };
+const ONE: Concurrency =
+    Concurrency::new_with_non_zero_usize(unsafe { NonZeroUsize::new_unchecked(1) });
 
 impl<M: MultiPartsUploader> MultiPartsUploaderScheduler for SerialMultiPartsUploaderScheduler<M> {
     type MultiPartsUploader = M;

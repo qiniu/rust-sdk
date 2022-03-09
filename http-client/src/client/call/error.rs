@@ -43,7 +43,9 @@ impl TryError {
             | ResponseErrorKind::ParseResponseError
             | ResponseErrorKind::FailedHashVerification
             | ResponseErrorKind::MaliciousResponse => Some(self.response_error()),
-            ResponseErrorKind::UnexpectedStatusCode(_) | ResponseErrorKind::NoTry => None,
+            ResponseErrorKind::UnexpectedStatusCode(_)
+            | ResponseErrorKind::SystemCallError
+            | ResponseErrorKind::NoTry => None,
         }
     }
 

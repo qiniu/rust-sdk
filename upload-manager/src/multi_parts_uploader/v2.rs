@@ -162,7 +162,7 @@ impl<R> UploaderWithCallbacks for MultiPartsV2Uploader<R> {
     }
 }
 
-impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV2Uploader<R> {
+impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader<R> {
     type ResumableRecorder = R;
     type InitializedParts = MultiPartsV2UploaderInitializedObject<R>;
     type UploadedPart = MultiPartsV2UploaderUploadedPart;
@@ -231,7 +231,7 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV2Uploader<R> {
 
         fn _initialize_parts<
             'a,
-            R: ResumableRecorder + Send + Sync,
+            R: ResumableRecorder + Send + Sync + 'static,
             E: EndpointsProvider + Clone + 'a,
         >(
             uploader: &'a MultiPartsV2Uploader<R>,
@@ -348,7 +348,7 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV2Uploader<R> {
 
         fn _upload_part<
             'a,
-            R: ResumableRecorder + Send + Sync,
+            R: ResumableRecorder + Send + Sync + 'static,
             E: EndpointsProvider + Clone + 'a,
         >(
             uploader: &'a MultiPartsV2Uploader<R>,
@@ -473,7 +473,7 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV2Uploader<R> {
 
         fn _complete_parts<
             'a,
-            R: ResumableRecorder + Send + Sync,
+            R: ResumableRecorder + Send + Sync + 'static,
             E: EndpointsProvider + Clone + 'a,
             D: DataSource<<<MultiPartsV2Uploader<R> as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm>,
         >(
@@ -553,7 +553,7 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV2Uploader<R> {
 
         async fn _initialize_parts<
             'a,
-            R: ResumableRecorder + Send + Sync,
+            R: ResumableRecorder + Send + Sync + 'static,
             E: EndpointsProvider + Clone + 'a,
         >(
             uploader: &'a MultiPartsV2Uploader<R>,
@@ -683,7 +683,7 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV2Uploader<R> {
 
         async fn _upload_part<
             'a,
-            R: ResumableRecorder + Send + Sync,
+            R: ResumableRecorder + Send + Sync + 'static,
             E: EndpointsProvider + Clone + 'a,
         >(
             uploader: &'a MultiPartsV2Uploader<R>,
@@ -815,7 +815,7 @@ impl<R: ResumableRecorder> MultiPartsUploader for MultiPartsV2Uploader<R> {
 
         async fn _complete_parts<
             'a,
-            R: ResumableRecorder + Send + Sync,
+            R: ResumableRecorder + Send + Sync + 'static,
             E: EndpointsProvider + Clone + 'a,
             D: DataSource<<<MultiPartsV2Uploader<R> as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm>,
         >(
@@ -1004,7 +1004,7 @@ impl<R> MultiPartsV2Uploader<R> {
     }
 }
 
-impl<R: ResumableRecorder> MultiPartsV2Uploader<R> {
+impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
     fn get_bucket_region(&self) -> ApiResult<BucketRegionsProvider> {
         Ok(self
             .upload_manager

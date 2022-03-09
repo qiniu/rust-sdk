@@ -45,6 +45,9 @@ pub enum ErrorKind {
     /// 哈希验证失败
     FailedHashVerification,
 
+    /// 系统调用失败
+    SystemCallError,
+
     /// 没有尝试
     NoTry,
 }

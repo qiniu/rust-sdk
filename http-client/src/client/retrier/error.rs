@@ -62,7 +62,9 @@ impl RequestRetrier for ErrorRetrier {
             ResponseErrorKind::MaliciousResponse | ResponseErrorKind::FailedHashVerification => {
                 RetryDecision::RetryRequest
             }
-            ResponseErrorKind::NoTry => RetryDecision::DontRetry,
+            ResponseErrorKind::NoTry | ResponseErrorKind::SystemCallError => {
+                RetryDecision::DontRetry
+            }
         }
         .into();
 

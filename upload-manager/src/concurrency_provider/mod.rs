@@ -13,17 +13,17 @@ pub trait ConcurrencyProvider: Debug + Sync + Send {
     fn feedback(&self, feedback: ConcurrencyProviderFeedback<'_>);
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Concurrency(NonZeroUsize);
 
 impl Concurrency {
     #[inline]
     pub fn new(concurrency: usize) -> Option<Self> {
-        NonZeroUsize::new(concurrency).map(Self::new_with_concurrency)
+        NonZeroUsize::new(concurrency).map(Self)
     }
 
     #[inline]
-    pub fn new_with_concurrency(concurrency: NonZeroUsize) -> Self {
+    pub const fn new_with_non_zero_usize(concurrency: NonZeroUsize) -> Self {
         Self(concurrency)
     }
 
@@ -84,7 +84,7 @@ impl DerefMut for Concurrency {
 
 #[derive(Debug)]
 pub struct ConcurrencyProviderFeedback<'f> {
-    concurrency: NonZeroUsize,
+    concurrency: Concurrency,
     object_size: NonZeroU64,
     elapsed: Duration,
     error: Option<&'f ResponseError>,
@@ -92,7 +92,7 @@ pub struct ConcurrencyProviderFeedback<'f> {
 
 impl<'f> ConcurrencyProviderFeedback<'f> {
     pub(super) fn new(
-        concurrency: NonZeroUsize,
+        concurrency: Concurrency,
         object_size: NonZeroU64,
         elapsed: Duration,
         error: Option<&'f ResponseError>,
@@ -106,7 +106,7 @@ impl<'f> ConcurrencyProviderFeedback<'f> {
     }
 
     #[inline]
-    pub fn concurrency(&self) -> NonZeroUsize {
+    pub fn concurrency(&self) -> Concurrency {
         self.concurrency
     }
 

@@ -10,9 +10,9 @@ use std::{fmt::Debug, num::NonZeroU64};
 use futures::future::BoxFuture;
 
 pub trait MultiPartsUploader: UploaderWithCallbacks + Send + Sync + Debug {
-    type ResumableRecorder: ResumableRecorder;
-    type InitializedParts: InitializedParts;
-    type UploadedPart: UploadedPart;
+    type ResumableRecorder: ResumableRecorder + 'static;
+    type InitializedParts: InitializedParts + 'static;
+    type UploadedPart: UploadedPart + 'static;
 
     fn new(upload_manager: UploadManager, resumable_recorder: Self::ResumableRecorder) -> Self;
 

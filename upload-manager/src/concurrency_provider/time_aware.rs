@@ -19,7 +19,7 @@ struct TimeAwareConcurrencyProviderInner {
     current: AtomicUsize,
     up_threshold: Duration,
     down_threshold: Duration,
-    max_concurrency: NonZeroUsize,
+    max_concurrency: Concurrency,
 }
 
 impl ConcurrencyProvider for TimeAwareConcurrencyProvider {
@@ -109,7 +109,7 @@ impl TimeAwareConcurrencyProvider {
     ) -> Self {
         Self(Arc::new(TimeAwareConcurrencyProviderInner {
             current: AtomicUsize::new(initial_concurrency.get()),
-            max_concurrency,
+            max_concurrency: max_concurrency.into(),
             up_threshold,
             down_threshold,
         }))
