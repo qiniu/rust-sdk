@@ -86,7 +86,16 @@ async fn main() -> Result<()> {
     };
 
     let upload_progress = |transfer: &UploadingProgressInfo| {
-        println!("Progress: {}", transfer.transferred_bytes());
+        if let Some(total_size) = transfer.total_bytes() {
+            println!(
+                "Progress: {} / {} = {}%",
+                transfer.transferred_bytes(),
+                total_size,
+                transfer.transferred_bytes() * 100 / total_size
+            );
+        } else {
+            println!("Progress: {}", transfer.transferred_bytes());
+        }
         CallbackResult::Continue
     };
 

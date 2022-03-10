@@ -278,11 +278,12 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
             initialized: &MultiPartsV1UploaderInitializedObject<R>,
             data_partitioner_provider: &dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV1UploaderUploadedPart> {
+            let total_size = initialized.source.total_size()?;
             request.on_uploading_progress(move |_, transfer| {
                 progresses_key.update_part(transfer.transferred_bytes());
                 uploader.callbacks.upload_progress(&UploadingProgressInfo::new(
                     progresses_key.current_uploaded(),
-                    None,
+                    total_size,
                     transfer.body(),
                 ))
             });
@@ -495,11 +496,12 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
             initialized: &MultiPartsV1UploaderInitializedObject<R>,
             data_partitioner_provider: &dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV1UploaderUploadedPart> {
+            let total_size = initialized.source.async_total_size().await?;
             request.on_uploading_progress(move |_, transfer| {
                 progresses_key.update_part(transfer.transferred_bytes());
                 uploader.callbacks.upload_progress(&UploadingProgressInfo::new(
                     progresses_key.current_uploaded(),
-                    None,
+                    total_size,
                     transfer.body(),
                 ))
             });
