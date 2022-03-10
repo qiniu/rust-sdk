@@ -1,13 +1,10 @@
 use anyhow::Result;
 use async_std::io::stdin;
-use qiniu_apis::{
-    credential::Credential,
-    http_client::{CallbackResult, HttpClient},
-};
+use qiniu_apis::{credential::Credential, http_client::CallbackResult};
 use qiniu_upload_manager::{
     ConcurrentMultiPartsUploaderScheduler, FileSystemResumableRecorder, MultiPartsUploaderScheduler,
-    MultiPartsUploaderSchedulerExt, ObjectParams, SinglePartUploader, UploadManager, UploadTokenSigner,
-    UploaderWithCallbacks, UploadingProgressInfo,
+    MultiPartsUploaderSchedulerExt, MultiPartsUploaderWithCallbacks, ObjectParams, SinglePartUploader, UploadManager,
+    UploadTokenSigner, UploadedPart, UploaderWithCallbacks, UploadingProgressInfo,
 };
 use std::{path::PathBuf, str::FromStr, time::Duration};
 use structopt::StructOpt;
@@ -67,11 +64,6 @@ async fn main() -> Result<()> {
         opt.bucket_name,
         Duration::from_secs(3600),
     ))
-    .http_client({
-        let mut builder = HttpClient::build_isahc()?;
-        builder.use_https(false);
-        builder.build()
-    })
     .build();
 
     let object_params = {
@@ -98,6 +90,10 @@ async fn main() -> Result<()> {
         }
         CallbackResult::Continue
     };
+    let part_uploaded = |part: &dyn UploadedPart| {
+        println!("Uploaded Part: {}", part.offset());
+        CallbackResult::Continue
+    };
 
     let body = match opt.upload_method {
         UploadMethod::Form => {
@@ -111,7 +107,9 @@ async fn main() -> Result<()> {
         }
         UploadMethod::ResumableV1 => {
             let mut uploader = upload_manager.multi_parts_v1_uploader(FileSystemResumableRecorder::default());
-            uploader.on_upload_progress(upload_progress);
+            uploader
+                .on_upload_progress(upload_progress)
+                .on_part_uploaded(part_uploaded);
             let scheduler = ConcurrentMultiPartsUploaderScheduler::new(uploader);
             if let Some(local_file) = opt.local_file.as_ref() {
                 scheduler.async_upload_path(local_file, object_params).await?
@@ -121,7 +119,9 @@ async fn main() -> Result<()> {
         }
         UploadMethod::ResumableV2 => {
             let mut uploader = upload_manager.multi_parts_v2_uploader(FileSystemResumableRecorder::default());
-            uploader.on_upload_progress(upload_progress);
+            uploader
+                .on_upload_progress(upload_progress)
+                .on_part_uploaded(part_uploaded);
             let scheduler = ConcurrentMultiPartsUploaderScheduler::new(uploader);
             if let Some(local_file) = opt.local_file.as_ref() {
                 scheduler.async_upload_path(local_file, object_params).await?

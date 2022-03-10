@@ -1,6 +1,5 @@
 use super::{
-    DataPartitionProvider, DataSource, ObjectParams, ResumableRecorder, UploadManager,
-    UploaderWithCallbacks,
+    DataPartitionProvider, DataSource, MultiPartsUploaderWithCallbacks, ObjectParams, ResumableRecorder, UploadManager,
 };
 use qiniu_apis::http_client::ApiResult;
 use serde_json::Value;
@@ -9,16 +8,14 @@ use std::{fmt::Debug, num::NonZeroU64};
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
-pub trait MultiPartsUploader: UploaderWithCallbacks + Send + Sync + Debug {
+pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Send + Sync + Debug {
     type ResumableRecorder: ResumableRecorder + 'static;
     type InitializedParts: InitializedParts + 'static;
     type UploadedPart: UploadedPart + 'static;
 
     fn new(upload_manager: UploadManager, resumable_recorder: Self::ResumableRecorder) -> Self;
 
-    fn initialize_parts<
-        D: DataSource<<Self::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static,
-    >(
+    fn initialize_parts<D: DataSource<<Self::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
@@ -28,17 +25,11 @@ pub trait MultiPartsUploader: UploaderWithCallbacks + Send + Sync + Debug {
         initialized: &Self::InitializedParts,
         data_partitioner_provider: &dyn DataPartitionProvider,
     ) -> ApiResult<Option<Self::UploadedPart>>;
-    fn complete_parts(
-        &self,
-        initialized: Self::InitializedParts,
-        parts: Vec<Self::UploadedPart>,
-    ) -> ApiResult<Value>;
+    fn complete_parts(&self, initialized: Self::InitializedParts, parts: Vec<Self::UploadedPart>) -> ApiResult<Value>;
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_initialize_parts<
-        D: DataSource<<Self::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static,
-    >(
+    fn async_initialize_parts<D: DataSource<<Self::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
@@ -72,13 +63,9 @@ pub trait UploadedPart: Send + Sync + Debug {
 }
 
 mod v1;
-pub use v1::{
-    MultiPartsV1Uploader, MultiPartsV1UploaderInitializedObject, MultiPartsV1UploaderUploadedPart,
-};
+pub use v1::{MultiPartsV1Uploader, MultiPartsV1UploaderInitializedObject, MultiPartsV1UploaderUploadedPart};
 
 mod v2;
-pub use v2::{
-    MultiPartsV2Uploader, MultiPartsV2UploaderInitializedObject, MultiPartsV2UploaderUploadedPart,
-};
+pub use v2::{MultiPartsV2Uploader, MultiPartsV2UploaderInitializedObject, MultiPartsV2UploaderUploadedPart};
 
 mod progress;

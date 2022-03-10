@@ -4,10 +4,11 @@ use super::{
         data_source::SourceKey,
         upload_token::OwnedUploadTokenProviderOrReferenced,
         DataPartitionProvider, DataPartitionProviderFeedback, DataSourceReader, LimitedDataPartitionProvider,
+        UploaderWithCallbacks,
     },
     progress::{Progresses, ProgressesKey},
-    DataSource, InitializedParts, MultiPartsUploader, ObjectParams, ResumableRecorder, UploadManager, UploadedPart,
-    UploaderWithCallbacks,
+    DataSource, InitializedParts, MultiPartsUploader, MultiPartsUploaderWithCallbacks, ObjectParams, ResumableRecorder,
+    UploadManager, UploadedPart,
 };
 use dashmap::DashMap;
 use digest::Digest;
@@ -179,6 +180,17 @@ impl<R> UploaderWithCallbacks for MultiPartsV2Uploader<R> {
     }
 }
 
+impl<R> MultiPartsUploaderWithCallbacks for MultiPartsV2Uploader<R> {
+    #[inline]
+    fn on_part_uploaded<F: Fn(&dyn UploadedPart) -> CallbackResult + Send + Sync + 'static>(
+        &mut self,
+        callback: F,
+    ) -> &mut Self {
+        self.callbacks.insert_part_uploaded_callback(callback);
+        self
+    }
+}
+
 impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader<R> {
     type ResumableRecorder = R;
     type InitializedParts = MultiPartsV2UploaderInitializedObject<R>;
@@ -280,7 +292,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                         self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
                     let upload_part = self.storage().resumable_upload_v2_upload_part();
                     let progresses_key = initialized.progresses.add_new_part(part_size.into());
-                    if let Some(region_provider) = initialized.params.region_provider() {
+                    let uploaded_part = if let Some(region_provider) = initialized.params.region_provider() {
                         _upload_part(
                             self,
                             upload_part.new_request(
@@ -308,8 +320,9 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                             progresses_key,
                             &data_partitioner_provider,
                         )
-                    }
-                    .map(Some)
+                    }?;
+                    self.callbacks.part_uploaded(&uploaded_part);
+                    Ok(Some(uploaded_part))
                 }
             } else {
                 Ok(None)
@@ -556,7 +569,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                             self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
                         let init_parts = self.storage().resumable_upload_v2_upload_part();
                         let progresses_key = initialized.progresses.add_new_part(part_size.get());
-                        if let Some(region_provider) = initialized.params.region_provider() {
+                        let uploaded_part = if let Some(region_provider) = initialized.params.region_provider() {
                             _upload_part(
                                 self,
                                 init_parts.new_async_request(
@@ -586,8 +599,9 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                                 &data_partitioner_provider,
                             )
                             .await
-                        }
-                        .map(Some)
+                        }?;
+                        self.callbacks.part_uploaded(&uploaded_part);
+                        Ok(Some(uploaded_part))
                     }
                 } else {
                     Ok(None)

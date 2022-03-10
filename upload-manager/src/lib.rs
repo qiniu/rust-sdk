@@ -30,7 +30,7 @@ mod upload_token;
 
 pub use qiniu_apis as apis;
 
-pub use callbacks::{UploaderWithCallbacks, UploadingProgressInfo};
+pub use callbacks::{MultiPartsUploaderWithCallbacks, UploaderWithCallbacks, UploadingProgressInfo};
 pub use concurrency_provider::{
     Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, FixedConcurrencyProvider,
     TimeAwareConcurrencyProvider,
@@ -73,7 +73,8 @@ pub mod prelude {
     pub use super::{
         AppendOnlyResumableRecorderMedium, ConcurrencyProvider, DataPartitionProvider, DataSource, InitializedParts,
         MultiPartsUploader, MultiPartsUploaderScheduler, MultiPartsUploaderSchedulerExt,
-        ReadOnlyResumableRecorderMedium, ResumablePolicyProvider, ResumableRecorder, SinglePartUploader, UploadedPart,
+        MultiPartsUploaderWithCallbacks, ReadOnlyResumableRecorderMedium, ResumablePolicyProvider, ResumableRecorder,
+        SinglePartUploader, UploadedPart, UploaderWithCallbacks,
     };
 
     #[cfg(feature = "async")]
