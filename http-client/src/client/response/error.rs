@@ -3,9 +3,8 @@ use super::{
     X_LOG_HEADER_NAME, X_REQ_ID_HEADER_NAME,
 };
 use qiniu_http::{
-    HeaderName, HeaderValue, Metrics, ResponseError as HttpResponseError,
-    ResponseErrorKind as HttpResponseErrorKind, ResponseParts as HttpResponseParts,
-    StatusCode as HttpStatusCode,
+    HeaderName, HeaderValue, Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
+    ResponseParts as HttpResponseParts, StatusCode as HttpStatusCode,
 };
 use serde_json::Error as JsonError;
 use std::{
@@ -41,9 +40,6 @@ pub enum ErrorKind {
 
     /// 疑似响应被劫持
     MaliciousResponse,
-
-    /// 哈希验证失败
-    FailedHashVerification,
 
     /// 系统调用失败
     SystemCallError,
@@ -109,10 +105,7 @@ impl Error {
 
     #[inline]
     #[cfg(feature = "async")]
-    pub async fn async_read_response_body_sample<R: AsyncRead + Unpin>(
-        mut self,
-        body: R,
-    ) -> IOResult<Self> {
+    pub async fn async_read_response_body_sample<R: AsyncRead + Unpin>(mut self, body: R) -> IOResult<Self> {
         body.take(RESPONSE_BODY_SAMPLE_LEN_LIMIT)
             .read_to_end(&mut self.response_body_sample)
             .await?;
@@ -172,10 +165,7 @@ impl Error {
         }
     }
 
-    pub(crate) fn from_endpoint_parse_error(
-        error: EndpointParseError,
-        parts: &HttpResponseParts,
-    ) -> Self {
+    pub(crate) fn from_endpoint_parse_error(error: EndpointParseError, parts: &HttpResponseParts) -> Self {
         Self::new(ErrorKind::ParseResponseError, error).response_parts(parts)
     }
 }
@@ -197,20 +187,14 @@ impl From<&HttpResponseParts> for XHeaders {
 }
 
 fn extract_x_log_from_response_parts(parts: &HttpResponseParts) -> Option<HeaderValue> {
-    parts
-        .header(HeaderName::from_static(X_LOG_HEADER_NAME))
-        .cloned()
+    parts.header(HeaderName::from_static(X_LOG_HEADER_NAME)).cloned()
 }
 
 fn extract_x_reqid_from_response_parts(parts: &HttpResponseParts) -> Option<HeaderValue> {
-    parts
-        .header(HeaderName::from_static(X_REQ_ID_HEADER_NAME))
-        .cloned()
+    parts.header(HeaderName::from_static(X_REQ_ID_HEADER_NAME)).cloned()
 }
 
-fn extract_metrics_from_response_parts(
-    parts: &HttpResponseParts,
-) -> Option<Box<dyn Metrics + 'static>> {
+fn extract_metrics_from_response_parts(parts: &HttpResponseParts) -> Option<Box<dyn Metrics + 'static>> {
     parts
         .metrics()
         .map(ClonedMetrics::new)
@@ -231,11 +215,7 @@ impl fmt::Display for Error {
         }
         write!(f, " {}", self.error)?;
         if !self.response_body_sample.is_empty() {
-            write!(
-                f,
-                " {}",
-                String::from_utf8_lossy(&self.response_body_sample)
-            )?;
+            write!(f, " {}", String::from_utf8_lossy(&self.response_body_sample))?;
         }
         Ok(())
     }
@@ -328,9 +308,6 @@ impl From<JsonError> for Error {
 impl From<IoError> for Error {
     #[inline]
     fn from(error: IoError) -> Self {
-        Self::new(
-            ErrorKind::HttpError(HttpResponseErrorKind::LocalIoError),
-            error,
-        )
+        Self::new(ErrorKind::HttpError(HttpResponseErrorKind::LocalIoError), error)
     }
 }

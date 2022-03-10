@@ -195,11 +195,7 @@ impl ObjectParamsBuilder {
     }
 
     #[inline]
-    pub fn insert_metadata<K: Into<String>, V: Into<String>>(
-        &mut self,
-        key: K,
-        value: V,
-    ) -> &mut Self {
+    pub fn insert_metadata<K: Into<String>, V: Into<String>>(&mut self, key: K, value: V) -> &mut Self {
         self.0.metadata.insert(key.into(), value.into());
         self
     }
@@ -211,11 +207,7 @@ impl ObjectParamsBuilder {
     }
 
     #[inline]
-    pub fn insert_custom_var<K: Into<String>, V: Into<String>>(
-        &mut self,
-        key: K,
-        value: V,
-    ) -> &mut Self {
+    pub fn insert_custom_var<K: Into<String>, V: Into<String>>(&mut self, key: K, value: V) -> &mut Self {
         self.0.custom_vars.insert(key.into(), value.into());
         self
     }
@@ -242,17 +234,4 @@ impl ObjectParamsBuilder {
     pub fn build(&mut self) -> ObjectParams {
         take(&mut self.0)
     }
-}
-
-#[derive(Clone, Copy, Debug)]
-#[non_exhaustive]
-pub enum SingleFileHashVerification<T> {
-    Const(T),
-    SkipCheck,
-}
-
-#[derive(Clone, Copy, Debug)]
-#[non_exhaustive]
-pub enum SinglePartHashVerification {
-    SkipCheck,
 }

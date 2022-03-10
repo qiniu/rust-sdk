@@ -36,21 +36,16 @@ pub use concurrency_provider::{
     TimeAwareConcurrencyProvider,
 };
 pub use data_partition_provider::{
-    DataPartitionProvider, DataPartitionProviderFeedback, FixedDataPartitionProvider,
-    LimitedDataPartitionProvider, MultiplyDataPartitionProvider, PartSize,
-    TimeAwareDataPartitionProvider,
+    DataPartitionProvider, DataPartitionProviderFeedback, FixedDataPartitionProvider, LimitedDataPartitionProvider,
+    MultiplyDataPartitionProvider, PartSize, TimeAwareDataPartitionProvider,
 };
-pub use data_source::{
-    DataSource, DataSourceReader, FileDataSource, SeekableSource, SourceKey, UnseekableDataSource,
-};
+pub use data_source::{DataSource, DataSourceReader, FileDataSource, SeekableSource, SourceKey, UnseekableDataSource};
 pub use multi_parts_uploader::{
-    InitializedParts, MultiPartsUploader, MultiPartsV1Uploader,
-    MultiPartsV1UploaderInitializedObject, MultiPartsV1UploaderUploadedPart, MultiPartsV2Uploader,
-    MultiPartsV2UploaderInitializedObject, MultiPartsV2UploaderUploadedPart, UploadedPart,
+    InitializedParts, MultiPartsUploader, MultiPartsV1Uploader, MultiPartsV1UploaderInitializedObject,
+    MultiPartsV1UploaderUploadedPart, MultiPartsV2Uploader, MultiPartsV2UploaderInitializedObject,
+    MultiPartsV2UploaderUploadedPart, UploadedPart,
 };
-pub use object_params::{
-    ObjectParams, ObjectParamsBuilder, SingleFileHashVerification, SinglePartHashVerification,
-};
+pub use object_params::{ObjectParams, ObjectParamsBuilder};
 pub use resumable_policy::{
     AlwaysMultiParts, AlwaysSinglePart, FixedThresholdResumablePolicy, GetPolicyOptions,
     MultiplePartitionsResumablePolicyProvider, ResumablePolicy, ResumablePolicyProvider,
@@ -59,7 +54,10 @@ pub use resumable_recorder::{
     AppendOnlyResumableRecorderMedium, DummyResumableRecorder, DummyResumableRecorderMedium,
     FileSystemResumableRecorder, ReadOnlyResumableRecorderMedium, ResumableRecorder,
 };
-pub use scheduler::{MultiPartsUploaderScheduler, SerialMultiPartsUploaderScheduler};
+pub use scheduler::{
+    ConcurrentMultiPartsUploaderScheduler, MultiPartsUploaderScheduler, MultiPartsUploaderSchedulerExt,
+    SerialMultiPartsUploaderScheduler,
+};
 pub use single_part_uploader::{FormUploader, SinglePartUploader};
 pub use upload_manager::{UploadManager, UploadManagerBuilder};
 pub use upload_token::UploadTokenSigner;
@@ -67,17 +65,15 @@ pub use upload_token::UploadTokenSigner;
 #[cfg(feature = "async")]
 pub use {
     data_source::{AsyncDataSourceReader, AsyncSeekableSource, AsyncUnseekableDataSource},
-    resumable_recorder::{
-        AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium,
-    },
+    resumable_recorder::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium},
 };
 
 pub mod prelude {
     pub use super::apis::http_client::preclude::*;
     pub use super::{
-        AppendOnlyResumableRecorderMedium, ConcurrencyProvider, DataPartitionProvider,
-        MultiPartsUploader, ReadOnlyResumableRecorderMedium, ResumablePolicyProvider,
-        ResumableRecorder, SinglePartUploader,
+        AppendOnlyResumableRecorderMedium, ConcurrencyProvider, DataPartitionProvider, DataSource, InitializedParts,
+        MultiPartsUploader, MultiPartsUploaderScheduler, MultiPartsUploaderSchedulerExt,
+        ReadOnlyResumableRecorderMedium, ResumablePolicyProvider, ResumableRecorder, SinglePartUploader, UploadedPart,
     };
 
     #[cfg(feature = "async")]

@@ -1,6 +1,6 @@
 use super::PartSize;
 use auto_impl::auto_impl;
-use digest::OutputSizeUser;
+use digest::Digest;
 use qiniu_apis::http::Reset;
 use std::{
     fmt::Debug,
@@ -12,7 +12,7 @@ use std::{
 use futures::future::BoxFuture;
 
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait DataSource<A: OutputSizeUser>: Debug + Sync + Send {
+pub trait DataSource<A: Digest>: Debug + Sync + Send {
     fn slice(&self, size: PartSize) -> IoResult<Option<DataSourceReader>>;
 
     #[cfg(feature = "async")]
@@ -56,21 +56,12 @@ enum DataSourceReaderInner {
 impl DataSourceReader {
     #[inline]
     pub fn seekable(part_number: NonZeroUsize, source: SeekableSource) -> Self {
-        Self {
-            inner: DataSourceReaderInner::ReadSeekable(source),
-            part_number,
-        }
+        Self { inner: DataSourceReaderInner::ReadSeekable(source), part_number }
     }
 
     #[inline]
     pub fn unseekable(part_number: NonZeroUsize, data: Vec<u8>, offset: u64) -> Self {
-        Self {
-            inner: DataSourceReaderInner::Readable {
-                data: Cursor::new(data),
-                offset,
-            },
-            part_number,
-        }
+        Self { inner: DataSourceReaderInner::Readable { data: Cursor::new(data), offset }, part_number }
     }
 
     pub(super) fn part_number(&self) -> NonZeroUsize {
@@ -140,21 +131,12 @@ mod async_reader {
     impl AsyncDataSourceReader {
         #[inline]
         pub fn seekable(part_number: NonZeroUsize, source: AsyncSeekableSource) -> Self {
-            Self {
-                inner: AsyncDataSourceReaderInner::ReadSeekable(source),
-                part_number,
-            }
+            Self { inner: AsyncDataSourceReaderInner::ReadSeekable(source), part_number }
         }
 
         #[inline]
         pub fn unseekable(part_number: NonZeroUsize, data: Vec<u8>, offset: u64) -> Self {
-            Self {
-                inner: AsyncDataSourceReaderInner::Readable {
-                    data: Cursor::new(data),
-                    offset,
-                },
-                part_number,
-            }
+            Self { inner: AsyncDataSourceReaderInner::Readable { data: Cursor::new(data), offset }, part_number }
         }
 
         pub(in super::super) fn part_number(&self) -> NonZeroUsize {
@@ -171,27 +153,17 @@ mod async_reader {
         pub(in super::super) async fn len(&self) -> IoResult<u64> {
             match &self.inner {
                 AsyncDataSourceReaderInner::ReadSeekable(source) => source.len().await,
-                AsyncDataSourceReaderInner::Readable { data, .. } => {
-                    Ok(data.get_ref().len() as u64)
-                }
+                AsyncDataSourceReaderInner::Readable { data, .. } => Ok(data.get_ref().len() as u64),
             }
         }
     }
 
     impl AsyncRead for AsyncDataSourceReader {
         #[inline]
-        fn poll_read(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            buf: &mut [u8],
-        ) -> Poll<IoResult<usize>> {
+        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<IoResult<usize>> {
             match &mut self.inner {
-                AsyncDataSourceReaderInner::ReadSeekable(source) => {
-                    Pin::new(source).poll_read(cx, buf)
-                }
-                AsyncDataSourceReaderInner::Readable { data, .. } => {
-                    Pin::new(data).poll_read(cx, buf)
-                }
+                AsyncDataSourceReaderInner::ReadSeekable(source) => Pin::new(source).poll_read(cx, buf),
+                AsyncDataSourceReaderInner::Readable { data, .. } => Pin::new(data).poll_read(cx, buf),
             }
         }
     }
@@ -292,11 +264,7 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let temp_path = new_temp_file()?.into_temp_path();
-        let temp_file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&*temp_path)
-            .await?;
+        let temp_file = OpenOptions::new().read(true).write(true).open(&*temp_path).await?;
         {
             let r = OpenOptions::new().read(true).open(&*temp_path).await?;
             let mut w = OpenOptions::new().write(true).open(&*temp_path).await?;

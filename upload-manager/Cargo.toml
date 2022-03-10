@@ -31,6 +31,7 @@ os_str_bytes = "6.0.0"
 tap = "1.0.1"
 md-5 = "0.10.1"
 rayon = "1.5.1"
+num_cpus = "1.13.1"
 serde = { version = "1.0.130", features = ["derive"] }
 
 futures = { version = "0.3.5", optional = true }
@@ -47,6 +48,7 @@ defer-lite = "1.0.0"
 multipart = { version = "0.18.0", features = ["server"] }
 async-std = { version = "1.10.0", features = ["attributes"] }
 text_io = "0.1.10"
+structopt = "0.3.23"
 
 [features]
 default = ["ureq"]

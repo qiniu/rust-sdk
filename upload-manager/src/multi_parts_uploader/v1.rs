@@ -3,21 +3,20 @@ use super::{
         callbacks::{Callbacks, UploadingProgressInfo},
         data_source::SourceKey,
         upload_token::OwnedUploadTokenProviderOrReferenced,
-        DataPartitionProvider, DataPartitionProviderFeedback, DataSourceReader,
-        MultiplyDataPartitionProvider, SinglePartHashVerification,
+        DataPartitionProvider, DataPartitionProviderFeedback, DataSourceReader, MultiplyDataPartitionProvider,
     },
     progress::{Progresses, ProgressesKey},
-    DataSource, InitializedParts, MultiPartsUploader, ObjectParams, ResumableRecorder,
-    UploadManager, UploadedPart, UploaderWithCallbacks,
+    DataSource, InitializedParts, MultiPartsUploader, ObjectParams, ResumableRecorder, UploadManager, UploadedPart,
+    UploaderWithCallbacks,
 };
 use dashmap::DashMap;
 use digest::Digest;
 use qiniu_apis::{
     credential::AccessKey,
-    http::{Extensions, Reset, ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
+    http::{Reset, ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
     http_client::{
-        ApiResult, BucketRegionsProvider, CallbackResult, EndpointsProvider,
-        RegionProviderEndpoints, RequestBuilderParts, Response, ResponseError, ResponseErrorKind,
+        ApiResult, BucketRegionsProvider, CallbackResult, EndpointsProvider, RegionProviderEndpoints,
+        RequestBuilderParts, Response, ResponseError,
     },
     storage::{
         self,
@@ -93,6 +92,13 @@ pub struct MultiPartsV1UploaderUploadedPart {
     resumed: bool,
 }
 
+impl MultiPartsV1UploaderUploadedPart {
+    #[inline]
+    pub fn response_body(&self) -> &MkBlkResponseBody {
+        &self.response_body
+    }
+}
+
 impl UploadedPart for MultiPartsV1UploaderUploadedPart {
     #[inline]
     fn size(&self) -> NonZeroU64 {
@@ -112,9 +118,7 @@ impl UploadedPart for MultiPartsV1UploaderUploadedPart {
 
 impl<R> UploaderWithCallbacks for MultiPartsV1Uploader<R> {
     #[inline]
-    fn on_before_request<
-        F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static,
-    >(
+    fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -123,9 +127,7 @@ impl<R> UploaderWithCallbacks for MultiPartsV1Uploader<R> {
     }
 
     #[inline]
-    fn on_upload_progress<
-        F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static,
-    >(
+    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -147,8 +149,7 @@ impl<R> UploaderWithCallbacks for MultiPartsV1Uploader<R> {
         &mut self,
         callback: F,
     ) -> &mut Self {
-        self.callbacks
-            .insert_after_response_error_callback(callback);
+        self.callbacks.insert_after_response_error_callback(callback);
         self
     }
 }
@@ -167,9 +168,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
         }
     }
 
-    fn initialize_parts<
-        D: DataSource<<Self::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static,
-    >(
+    fn initialize_parts<D: DataSource<<Self::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
@@ -188,14 +187,9 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
         initialized: &Self::InitializedParts,
         data_partitioner_provider: &dyn DataPartitionProvider,
     ) -> ApiResult<Option<Self::UploadedPart>> {
-        let data_partitioner_provider = MultiplyDataPartitionProvider::new_with_non_zero_multiply(
-            data_partitioner_provider,
-            PART_SIZE,
-        );
-        return if let Some(mut reader) = initialized
-            .source
-            .slice(data_partitioner_provider.part_size())?
-        {
+        let data_partitioner_provider =
+            MultiplyDataPartitionProvider::new_with_non_zero_multiply(data_partitioner_provider, PART_SIZE);
+        return if let Some(mut reader) = initialized.source.slice(data_partitioner_provider.part_size())? {
             if let Some(part_size) = NonZeroU64::new(reader.len()?) {
                 if let Some(uploaded_part) = _could_recover(
                     initialized,
@@ -206,9 +200,8 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                     Ok(Some(uploaded_part))
                 } else {
                     let params = MkBlkPathParams::default().set_block_size_as_u64(part_size.into());
-                    let upload_token_signer = self.make_upload_token_signer(
-                        initialized.params.object_name().map(|n| n.into()),
-                    );
+                    let upload_token_signer =
+                        self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
                     let mkblk = self.storage().resumable_upload_v1_make_block();
                     let progresses_key = initialized.progresses.add_new_part(part_size.into());
                     if let Some(region_provider) = initialized.params.region_provider() {
@@ -256,54 +249,42 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
             uploaded_part_ttl: Duration,
         ) -> Option<MultiPartsV1UploaderUploadedPart> {
             let offset = data_reader.offset();
-            initialized
-                .recovered_records
-                .take(offset)
-                .and_then(|record| {
-                    if record.size == part_size
-                        && UNIX_EPOCH
-                            + Duration::from_secs(record.uploaded_timestamp)
-                            + uploaded_part_ttl
-                            > SystemTime::now()
-                        && Some(record.response_body.get_checksum_as_str())
-                            == sha1_of_sync_reader(data_reader).ok().as_deref()
-                    {
-                        Some(MultiPartsV1UploaderUploadedPart {
-                            response_body: record.response_body.to_owned(),
-                            uploaded_size: record.size,
-                            resumed: true,
-                            offset,
-                        })
-                    } else {
-                        None
-                    }
-                })
+            initialized.recovered_records.take(offset).and_then(|record| {
+                if record.size == part_size
+                    && UNIX_EPOCH + Duration::from_secs(record.uploaded_timestamp) + uploaded_part_ttl
+                        > SystemTime::now()
+                    && Some(record.response_body.get_checksum_as_str())
+                        == sha1_of_sync_reader(data_reader).ok().as_deref()
+                {
+                    Some(MultiPartsV1UploaderUploadedPart {
+                        response_body: record.response_body.to_owned(),
+                        uploaded_size: record.size,
+                        resumed: true,
+                        offset,
+                    })
+                } else {
+                    None
+                }
+            })
         }
 
         #[allow(clippy::too_many_arguments)]
-        fn _upload_part<
-            'a,
-            R: ResumableRecorder + Send + Sync + 'static,
-            E: EndpointsProvider + Clone + 'a,
-        >(
+        fn _upload_part<'a, R: ResumableRecorder + Send + Sync + 'static, E: EndpointsProvider + Clone + 'a>(
             uploader: &'a MultiPartsV1Uploader<R>,
             mut request: SyncMkBlkRequestBuilder<'a, E>,
-            mut body: DataSourceReader,
+            body: DataSourceReader,
             content_length: NonZeroU64,
             progresses_key: ProgressesKey,
             initialized: &MultiPartsV1UploaderInitializedObject<R>,
             data_partitioner_provider: &dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV1UploaderUploadedPart> {
-            let content_sha1 = _get_content_sha1(initialized.params.extensions(), &mut body)?;
             request.on_uploading_progress(move |_, transfer| {
                 progresses_key.update_part(transfer.transferred_bytes());
-                uploader
-                    .callbacks
-                    .upload_progress(&UploadingProgressInfo::new(
-                        progresses_key.current_uploaded(),
-                        None,
-                        transfer.body(),
-                    ))
+                uploader.callbacks.upload_progress(&UploadingProgressInfo::new(
+                    progresses_key.current_uploaded(),
+                    None,
+                    transfer.body(),
+                ))
             });
             uploader.before_request_call(request.parts_mut())?;
             let body_offset = body.offset();
@@ -318,46 +299,14 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                 response_result.as_ref().err(),
             ));
             let response_body = response_result?.into_body();
-            if let Some(content_sha1) = content_sha1.as_ref() {
-                _verify_content_sha1(content_sha1, &response_body)?;
-            }
             let record = MultiPartsV1ResumableRecorderRecord {
                 response_body,
                 offset: body_offset,
                 size: content_length,
-                uploaded_timestamp: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_or(0, |d| d.as_secs()),
+                uploaded_timestamp: SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs()),
             };
             initialized.recovered_records.persist(&record).ok();
             Ok(MultiPartsV1UploaderUploadedPart::from_record(record, false))
-        }
-
-        fn _get_content_sha1(
-            extensions: &Extensions,
-            request_body: &mut DataSourceReader,
-        ) -> ApiResult<Option<String>> {
-            match extensions.get::<SinglePartHashVerification>() {
-                Some(SinglePartHashVerification::SkipCheck) => Ok(None),
-                None => Ok(Some(sha1_of_sync_reader(request_body)?)),
-            }
-        }
-
-        fn _verify_content_sha1(
-            expected_sha1: &str,
-            response_body: &MkBlkResponseBody,
-        ) -> ApiResult<()> {
-            if response_body.get_checksum_as_str() != expected_sha1 {
-                return Err(ResponseError::new(
-                    ResponseErrorKind::FailedHashVerification,
-                    format!(
-                        "MkBlk Sha1 verification failed, Expected: {}, Actual: {}",
-                        expected_sha1,
-                        response_body.get_checksum_as_str()
-                    ),
-                ));
-            }
-            Ok(())
         }
     }
 
@@ -367,10 +316,8 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
         parts: Vec<Self::UploadedPart>,
     ) -> ApiResult<Value> {
         let file_size = get_file_size_from_uploaded_parts(&parts);
-        let upload_token_signer =
-            self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
-        let params =
-            make_mkfile_path_params_from_initialized_parts(&mut initialized.params, file_size);
+        let upload_token_signer = self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
+        let params = make_mkfile_path_params_from_initialized_parts(&mut initialized.params, file_size);
         let mkfile = self.storage().resumable_upload_v1_make_file();
         let body = make_mkfile_request_body_from_uploaded_parts(parts);
         return if let Some(region_provider) = initialized.params.region_provider() {
@@ -447,10 +394,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
     ) -> BoxFuture<'r, ApiResult<Option<Self::UploadedPart>>> {
         return Box::pin(async move {
             let data_partitioner_provider =
-                MultiplyDataPartitionProvider::new_with_non_zero_multiply(
-                    data_partitioner_provider,
-                    PART_SIZE,
-                );
+                MultiplyDataPartitionProvider::new_with_non_zero_multiply(data_partitioner_provider, PART_SIZE);
             if let Some(mut reader) = initialized
                 .source
                 .async_slice(data_partitioner_provider.part_size())
@@ -467,11 +411,9 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                     {
                         Ok(Some(uploaded_part))
                     } else {
-                        let params =
-                            MkBlkPathParams::default().set_block_size_as_u64(part_size.into());
-                        let upload_token_signer = self.make_upload_token_signer(
-                            initialized.params.object_name().map(|n| n.into()),
-                        );
+                        let params = MkBlkPathParams::default().set_block_size_as_u64(part_size.into());
+                        let upload_token_signer =
+                            self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
                         let mkblk = self.storage().resumable_upload_v1_make_block();
                         let progresses_key = initialized.progresses.add_new_part(part_size.into());
                         if let Some(region_provider) = initialized.params.region_provider() {
@@ -493,9 +435,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                             _upload_part(
                                 self,
                                 mkblk.new_async_request(
-                                    RegionProviderEndpoints::new(
-                                        self.async_get_bucket_region().await?,
-                                    ),
+                                    RegionProviderEndpoints::new(self.async_get_bucket_region().await?),
                                     params,
                                     upload_token_signer.as_ref(),
                                 ),
@@ -524,56 +464,44 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
             uploaded_part_ttl: Duration,
         ) -> Option<MultiPartsV1UploaderUploadedPart> {
             let offset = data_reader.offset();
-            OptionFuture::from(initialized.recovered_records.take(offset).map(
-                |record| async move {
-                    if record.size == part_size
-                        && UNIX_EPOCH
-                            + Duration::from_secs(record.uploaded_timestamp)
-                            + uploaded_part_ttl
-                            > SystemTime::now()
-                        && Some(record.response_body.get_checksum_as_str())
-                            == sha1_of_async_reader(data_reader).await.ok().as_deref()
-                    {
-                        Some(MultiPartsV1UploaderUploadedPart {
-                            response_body: record.response_body.to_owned(),
-                            uploaded_size: record.size,
-                            resumed: true,
-                            offset,
-                        })
-                    } else {
-                        None
-                    }
-                },
-            ))
+            OptionFuture::from(initialized.recovered_records.take(offset).map(|record| async move {
+                if record.size == part_size
+                    && UNIX_EPOCH + Duration::from_secs(record.uploaded_timestamp) + uploaded_part_ttl
+                        > SystemTime::now()
+                    && Some(record.response_body.get_checksum_as_str())
+                        == sha1_of_async_reader(data_reader).await.ok().as_deref()
+                {
+                    Some(MultiPartsV1UploaderUploadedPart {
+                        response_body: record.response_body.to_owned(),
+                        uploaded_size: record.size,
+                        resumed: true,
+                        offset,
+                    })
+                } else {
+                    None
+                }
+            }))
             .await
             .flatten()
         }
 
         #[allow(clippy::too_many_arguments)]
-        async fn _upload_part<
-            'a,
-            R: ResumableRecorder + Send + Sync + 'static,
-            E: EndpointsProvider + Clone + 'a,
-        >(
+        async fn _upload_part<'a, R: ResumableRecorder + Send + Sync + 'static, E: EndpointsProvider + Clone + 'a>(
             uploader: &'a MultiPartsV1Uploader<R>,
             mut request: AsyncMkBlkRequestBuilder<'a, E>,
-            mut body: AsyncDataSourceReader,
+            body: AsyncDataSourceReader,
             content_length: NonZeroU64,
             progresses_key: ProgressesKey,
             initialized: &MultiPartsV1UploaderInitializedObject<R>,
             data_partitioner_provider: &dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV1UploaderUploadedPart> {
-            let content_sha1 =
-                _get_content_sha1(initialized.params.extensions(), &mut body).await?;
             request.on_uploading_progress(move |_, transfer| {
                 progresses_key.update_part(transfer.transferred_bytes());
-                uploader
-                    .callbacks
-                    .upload_progress(&UploadingProgressInfo::new(
-                        progresses_key.current_uploaded(),
-                        None,
-                        transfer.body(),
-                    ))
+                uploader.callbacks.upload_progress(&UploadingProgressInfo::new(
+                    progresses_key.current_uploaded(),
+                    None,
+                    transfer.body(),
+                ))
             });
             uploader.before_request_call(request.parts_mut())?;
             let body_offset = body.offset();
@@ -588,50 +516,14 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                 response_result.as_ref().err(),
             ));
             let response_body = response_result?.into_body();
-            if let Some(content_sha1) = content_sha1.as_ref() {
-                _verify_content_sha1(content_sha1, &response_body)?;
-            }
             let record = MultiPartsV1ResumableRecorderRecord {
                 response_body,
                 offset: body_offset,
                 size: content_length,
-                uploaded_timestamp: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_or(0, |d| d.as_secs()),
+                uploaded_timestamp: SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs()),
             };
-            initialized
-                .recovered_records
-                .async_persist(&record)
-                .await
-                .ok();
+            initialized.recovered_records.async_persist(&record).await.ok();
             Ok(MultiPartsV1UploaderUploadedPart::from_record(record, false))
-        }
-
-        async fn _get_content_sha1(
-            extensions: &Extensions,
-            request_body: &mut AsyncDataSourceReader,
-        ) -> ApiResult<Option<String>> {
-            match extensions.get::<SinglePartHashVerification>() {
-                Some(SinglePartHashVerification::SkipCheck) => Ok(None),
-                None => Ok(Some(sha1_of_async_reader(request_body).await?)),
-            }
-        }
-
-        fn _verify_content_sha1(
-            expected_sha1: &str,
-            response_body: &MkBlkResponseBody,
-        ) -> ApiResult<()> {
-            if response_body.get_checksum_as_str() != expected_sha1 {
-                return Err(ResponseError::new(
-                    ResponseErrorKind::FailedHashVerification,
-                    format!(
-                        "MkBlk Sha1 verification failed, Expected: {}, Actual: {}",
-                        expected_sha1,
-                        response_body.get_checksum_as_str()
-                    ),
-                ));
-            }
-            Ok(())
         }
     }
 
@@ -644,10 +536,8 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
     ) -> BoxFuture<'_, ApiResult<Value>> {
         return Box::pin(async move {
             let file_size = get_file_size_from_uploaded_parts(&parts);
-            let upload_token_signer =
-                self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
-            let params =
-                make_mkfile_path_params_from_initialized_parts(&mut initialized.params, file_size);
+            let upload_token_signer = self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
+            let params = make_mkfile_path_params_from_initialized_parts(&mut initialized.params, file_size);
             let mkfile = self.storage().resumable_upload_v1_make_file();
             let body = make_mkfile_request_body_from_uploaded_parts(parts);
             if let Some(region_provider) = initialized.params.region_provider() {
@@ -714,8 +604,7 @@ fn make_mkfile_path_params_from_initialized_parts(
         params = params.set_mime_type_as_str(mime.to_string());
     }
     for (metadata_name, metadata_value) in object_params.take_metadata() {
-        params = params
-            .append_custom_data_as_str("x-qn-meta-".to_owned() + &metadata_name, metadata_value);
+        params = params.append_custom_data_as_str("x-qn-meta-".to_owned() + &metadata_name, metadata_value);
     }
     for (var_name, var_value) in object_params.take_custom_vars() {
         params = params.append_custom_data_as_str("x:".to_owned() + &var_name, var_value);
@@ -730,9 +619,7 @@ fn get_file_size_from_uploaded_parts(parts: &[MultiPartsV1UploaderUploadedPart])
         .sum()
 }
 
-fn make_mkfile_request_body_from_uploaded_parts(
-    mut parts: Vec<MultiPartsV1UploaderUploadedPart>,
-) -> String {
+fn make_mkfile_request_body_from_uploaded_parts(mut parts: Vec<MultiPartsV1UploaderUploadedPart>) -> String {
     parts.sort_by_key(|part| part.offset);
     parts
         .iter()
@@ -755,9 +642,7 @@ fn sha1_of_sync_reader<R: Read + Reset>(mut reader: &mut R) -> IoResult<String> 
 }
 
 #[cfg(feature = "async")]
-async fn sha1_of_async_reader<R: AsyncRead + AsyncReset + Unpin>(
-    reader: &mut R,
-) -> IoResult<String> {
+async fn sha1_of_async_reader<R: AsyncRead + AsyncReset + Unpin>(reader: &mut R) -> IoResult<String> {
     use futures::{
         io::{copy as async_io_copy, sink as async_sink},
         ready,
@@ -773,11 +658,7 @@ async fn sha1_of_async_reader<R: AsyncRead + AsyncReset + Unpin>(
     }
 
     impl<R: AsyncRead + Unpin> AsyncRead for ReadHasher<'_, R> {
-        fn poll_read(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            buf: &mut [u8],
-        ) -> Poll<IoResult<usize>> {
+        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<IoResult<usize>> {
             let size = ready!(Pin::new(&mut self.reader).poll_read(cx, buf))?;
             self.sha1.update(buf);
             Poll::Ready(Ok(size))
@@ -818,9 +699,7 @@ impl<R> MultiPartsV1Uploader<R> {
 
     fn before_request_call(&self, request: &mut RequestBuilderParts<'_>) -> ApiResult<()> {
         if self.callbacks.before_request(request).is_cancelled() {
-            Err(make_user_cancelled_error(
-                "Cancelled by on_before_request() callback",
-            ))
+            Err(make_user_cancelled_error("Cancelled by on_before_request() callback"))
         } else {
             Ok(())
         }
@@ -828,9 +707,7 @@ impl<R> MultiPartsV1Uploader<R> {
 
     fn after_response_call<B>(&self, response: &mut ApiResult<Response<B>>) -> ApiResult<()> {
         if self.callbacks.after_response(response).is_cancelled() {
-            Err(make_user_cancelled_error(
-                "Cancelled by on_after_response() callback",
-            ))
+            Err(make_user_cancelled_error("Cancelled by on_after_response() callback"))
         } else {
             Ok(())
         }
@@ -847,16 +724,13 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
 
     #[cfg(feature = "async")]
     async fn async_get_bucket_region(&self) -> ApiResult<BucketRegionsProvider> {
-        Ok(self.upload_manager.queryer().query(
-            self.async_access_key().await?,
-            self.async_bucket_name().await?,
-        ))
+        Ok(self
+            .upload_manager
+            .queryer()
+            .query(self.async_access_key().await?, self.async_bucket_name().await?))
     }
 
-    fn make_upload_token_signer(
-        &self,
-        object_name: Option<ObjectName>,
-    ) -> OwnedUploadTokenProviderOrReferenced<'_> {
+    fn make_upload_token_signer(&self, object_name: Option<ObjectName>) -> OwnedUploadTokenProviderOrReferenced<'_> {
         self.upload_manager
             .upload_token()
             .make_upload_token_provider(object_name)
@@ -867,7 +741,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
     >(
         &self,
         source: &D,
-    ) -> ApiResult<MultiPartsV1ResumableRecorderRecords<R>>{
+    ) -> ApiResult<MultiPartsV1ResumableRecorderRecords<R>> {
         return source
             .source_key()?
             .map(|source_key| {
@@ -896,8 +770,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
                 lines
                     .map(|line| {
                         let line = line?;
-                        let record: MultiPartsV1ResumableRecorderRecord =
-                            serde_json::from_str(&line)?;
+                        let record: MultiPartsV1ResumableRecorderRecord = serde_json::from_str(&line)?;
                         Ok(record)
                     })
                     .collect::<ApiResult<MultiPartsV1ResumableRecorderRecords<R>>>()?
@@ -911,8 +784,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
             source_key: &SourceKey<R::HashAlgorithm>,
         ) -> ApiResult<MultiPartsV1ResumableRecorderRecords<R>> {
             let mut records = MultiPartsV1ResumableRecorderRecords::default();
-            records
-                .set_medium_for_append(resumable_recorder.open_for_create_new(source_key)?, false);
+            records.set_medium_for_append(resumable_recorder.open_for_create_new(source_key)?, false);
             Ok(records)
         }
     }
@@ -923,23 +795,18 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
     >(
         &self,
         source: &D,
-    ) -> ApiResult<MultiPartsV1ResumableRecorderRecords<R>>{
-        return OptionFuture::from(
-            source
-                .async_source_key()
-                .await?
-                .map(|source_key| async move {
-                    if let Some(records) = _try_to_recover(&self.resumable_recorder, &source_key)
-                        .await
-                        .ok()
-                        .flatten()
-                    {
-                        Ok(records)
-                    } else {
-                        _new_records(&self.resumable_recorder, &source_key).await
-                    }
-                }),
-        )
+    ) -> ApiResult<MultiPartsV1ResumableRecorderRecords<R>> {
+        return OptionFuture::from(source.async_source_key().await?.map(|source_key| async move {
+            if let Some(records) = _try_to_recover(&self.resumable_recorder, &source_key)
+                .await
+                .ok()
+                .flatten()
+            {
+                Ok(records)
+            } else {
+                _new_records(&self.resumable_recorder, &source_key).await
+            }
+        }))
         .await
         .unwrap_or_else(|| Ok(Default::default()));
 
@@ -959,17 +826,13 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
                 lines
                     .map(|line| {
                         let line = line?;
-                        let record: MultiPartsV1ResumableRecorderRecord =
-                            serde_json::from_str(&line)?;
+                        let record: MultiPartsV1ResumableRecorderRecord = serde_json::from_str(&line)?;
                         Ok::<_, ResponseError>(record)
                     })
                     .try_collect::<MultiPartsV1ResumableRecorderRecords<R>>()
                     .await?
             };
-            records.set_medium_for_async_append(
-                resumable_recorder.open_for_async_append(source_key).await?,
-                true,
-            );
+            records.set_medium_for_async_append(resumable_recorder.open_for_async_append(source_key).await?, true);
             Ok(Some(records))
         }
 
@@ -978,20 +841,13 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
             source_key: &SourceKey<R::HashAlgorithm>,
         ) -> ApiResult<MultiPartsV1ResumableRecorderRecords<R>> {
             let mut records = MultiPartsV1ResumableRecorderRecords::default();
-            records.set_medium_for_async_append(
-                resumable_recorder
-                    .open_for_async_create_new(source_key)
-                    .await?,
-                false,
-            );
+            records.set_medium_for_async_append(resumable_recorder.open_for_async_create_new(source_key).await?, false);
             Ok(records)
         }
     }
 
     fn try_to_delete_records<
-        D: DataSource<
-            <<Self as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm,
-        >,
+        D: DataSource<<<Self as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm>,
     >(
         &self,
         source: &D,
@@ -1004,9 +860,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
 
     #[cfg(feature = "async")]
     async fn try_to_async_delete_records<
-        D: DataSource<
-            <<Self as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm,
-        >,
+        D: DataSource<<<Self as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm>,
     >(
         &self,
         source: &D,
@@ -1072,8 +926,7 @@ struct MultiPartsV1ResumableRecorderRecords<R: ResumableRecorder + ?Sized> {
     append_only_medium: Option<Mutex<AppendOnlyMediumForMultiPartsV1ResumableRecorderRecords<R>>>,
 
     #[cfg(feature = "async")]
-    async_append_only_medium:
-        Option<AsyncMutex<AsyncAppendOnlyMediumForMultiPartsV1ResumableRecorderRecords<R>>>,
+    async_append_only_medium: Option<AsyncMutex<AsyncAppendOnlyMediumForMultiPartsV1ResumableRecorderRecords<R>>>,
 }
 
 impl<R: ResumableRecorder + ?Sized> Default for MultiPartsV1ResumableRecorderRecords<R> {
@@ -1088,17 +941,11 @@ impl<R: ResumableRecorder + ?Sized> Default for MultiPartsV1ResumableRecorderRec
 }
 
 impl<R: ResumableRecorder + ?Sized> MultiPartsV1ResumableRecorderRecords<R> {
-    fn set_medium_for_append(
-        &mut self,
-        medium: <R as ResumableRecorder>::AppendOnlyMedium,
-        header_written: bool,
-    ) {
-        self.append_only_medium = Some(Mutex::new(
-            AppendOnlyMediumForMultiPartsV1ResumableRecorderRecords {
-                medium,
-                header_written,
-            },
-        ));
+    fn set_medium_for_append(&mut self, medium: <R as ResumableRecorder>::AppendOnlyMedium, header_written: bool) {
+        self.append_only_medium = Some(Mutex::new(AppendOnlyMediumForMultiPartsV1ResumableRecorderRecords {
+            medium,
+            header_written,
+        }));
     }
 
     #[cfg(feature = "async")]
@@ -1108,10 +955,7 @@ impl<R: ResumableRecorder + ?Sized> MultiPartsV1ResumableRecorderRecords<R> {
         header_written: bool,
     ) {
         self.async_append_only_medium = Some(AsyncMutex::new(
-            AsyncAppendOnlyMediumForMultiPartsV1ResumableRecorderRecords {
-                medium,
-                header_written,
-            },
+            AsyncAppendOnlyMediumForMultiPartsV1ResumableRecorderRecords { medium, header_written },
         ));
     }
 
@@ -1173,8 +1017,7 @@ impl<R: ResumableRecorder + ?Sized> Extend<MultiPartsV1ResumableRecorderRecord>
     for MultiPartsV1ResumableRecorderRecords<R>
 {
     fn extend<T: IntoIterator<Item = MultiPartsV1ResumableRecorderRecord>>(&mut self, iter: T) {
-        self.map
-            .extend(iter.into_iter().map(|record| (record.offset, record)))
+        self.map.extend(iter.into_iter().map(|record| (record.offset, record)))
     }
 }
 
@@ -1192,15 +1035,13 @@ impl MultiPartsV1UploaderUploadedPart {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        DummyResumableRecorder, FileDataSource, FixedDataPartitionProvider, UploadTokenSigner,
-    };
+    use crate::{DummyResumableRecorder, FileDataSource, FixedDataPartitionProvider, UploadTokenSigner};
     use anyhow::Result;
     use qiniu_apis::{
         credential::Credential,
         http::{
-            HeaderName, HeaderValue, HttpCaller, StatusCode, SyncRequest, SyncResponse,
-            SyncResponseBody, SyncResponseResult,
+            HeaderName, HeaderValue, HttpCaller, StatusCode, SyncRequest, SyncResponse, SyncResponseBody,
+            SyncResponseResult,
         },
         http_client::{DirectChooser, HttpClient, NeverRetrier, Region, NO_BACKOFF},
     };
@@ -1259,7 +1100,8 @@ mod tests {
                         "offset": blk_size,
                         "host": "http://fakeexample.com",
                         "expired_at": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-                    })).unwrap()
+                    }))
+                    .unwrap()
                 } else if request.url().path().starts_with("/mkfile/") {
                     assert_eq!(self.mkblk_counts.load(Ordering::Relaxed), BLOCK_COUNT - 1);
                     assert_eq!(self.mkfile_counts.fetch_add(1, Ordering::Relaxed), 0);
@@ -1269,10 +1111,7 @@ mod tests {
                     let req_body = String::from_utf8(req_body).unwrap();
                     let contexts: Vec<_> = req_body.split(',').collect();
                     assert_eq!(contexts.len(), BLOCK_COUNT);
-                    assert_eq!(
-                        *contexts.last().unwrap(),
-                        &format!("==={}===", BLOCK_COUNT - 1)
-                    );
+                    assert_eq!(*contexts.last().unwrap(), &format!("==={}===", BLOCK_COUNT - 1));
                     json_to_vec(&json!({
                         "done": 1,
                     }))
@@ -1291,17 +1130,14 @@ mod tests {
             }
 
             #[cfg(feature = "async")]
-            fn async_call(
-                &self,
-                _request: &mut AsyncRequest<'_>,
-            ) -> BoxFuture<AsyncResponseResult> {
+            fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
         }
 
         let uploader = Arc::new(MultiPartsV1Uploader::new(
             get_upload_manager(FakeHttpCaller::default()),
-            DummyResumableRecorder::new(),
+            DummyResumableRecorder::<Sha1>::new(),
         ));
         let file_path = random_file_path(FILE_SIZE)?;
         let file_source = FileDataSource::new(file_path.as_os_str());
@@ -1316,10 +1152,7 @@ mod tests {
                 let uploader = uploader.to_owned();
                 let initialized_parts = initialized_parts.to_owned();
                 spawn_thread(move || {
-                    uploader.upload_part(
-                        &initialized_parts,
-                        &new_data_partitioner_provider(BLOCK_SIZE),
-                    )
+                    uploader.upload_part(&initialized_parts, &new_data_partitioner_provider(BLOCK_SIZE))
                 })
             })
             .collect::<Vec<_>>();
@@ -1327,10 +1160,7 @@ mod tests {
             .into_iter()
             .map(|thread| thread.join().unwrap())
             .collect::<ApiResult<Vec<_>>>()?;
-        let parts = parts
-            .into_iter()
-            .map(|part| part.unwrap())
-            .collect::<Vec<_>>();
+        let parts = parts.into_iter().map(|part| part.unwrap()).collect::<Vec<_>>();
         let body = uploader.complete_parts(Arc::try_unwrap(initialized_parts).unwrap(), parts)?;
         assert_eq!(body.get("done").unwrap().as_u64().unwrap(), 1u64);
         Ok(())
@@ -1352,10 +1182,7 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     let resp_body = if request.url().path().starts_with("/mkblk/") {
                         let blk_size: u64;
@@ -1374,22 +1201,18 @@ mod tests {
                             "offset": blk_size,
                             "host": "http://fakeexample.com",
                             "expired_at": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-                        })).unwrap()
+                        }))
+                        .unwrap()
                     } else if request.url().path().starts_with("/mkfile/") {
                         assert_eq!(self.mkblk_counts.load(Ordering::Relaxed), BLOCK_COUNT - 1);
                         assert_eq!(self.mkfile_counts.fetch_add(1, Ordering::Relaxed), 0);
                         assert_eq!(request.url().path(), &format!("/mkfile/{}", FILE_SIZE));
                         let mut req_body = Vec::new();
-                        async_io_copy(request.body_mut(), &mut req_body)
-                            .await
-                            .unwrap();
+                        async_io_copy(request.body_mut(), &mut req_body).await.unwrap();
                         let req_body = String::from_utf8(req_body).unwrap();
                         let contexts: Vec<_> = req_body.split(',').collect();
                         assert_eq!(contexts.len(), BLOCK_COUNT);
-                        assert_eq!(
-                            *contexts.last().unwrap(),
-                            &format!("==={}===", BLOCK_COUNT - 1)
-                        );
+                        assert_eq!(*contexts.last().unwrap(), &format!("==={}===", BLOCK_COUNT - 1));
                         json_to_vec(&json!({
                             "done": 1,
                         }))
@@ -1411,36 +1234,26 @@ mod tests {
 
         let uploader = Arc::new(MultiPartsV1Uploader::new(
             get_upload_manager(FakeHttpCaller::default()),
-            DummyResumableRecorder::new(),
+            DummyResumableRecorder::<Sha1>::new(),
         ));
         let file_path = spawn_task(async { random_file_path(FILE_SIZE) }).await?;
         let file_source = FileDataSource::new(file_path.as_os_str());
         let params = ObjectParams::builder()
             .region_provider(single_up_domain_region())
             .build();
-        let initialized_parts =
-            Arc::new(uploader.async_initialize_parts(file_source, params).await?);
+        let initialized_parts = Arc::new(uploader.async_initialize_parts(file_source, params).await?);
 
         let tasks = (0..BLOCK_COUNT).map(|_| {
             let uploader = uploader.to_owned();
             let initialized_parts = initialized_parts.to_owned();
             spawn_task(async move {
                 uploader
-                    .async_upload_part(
-                        &initialized_parts,
-                        &new_data_partitioner_provider(BLOCK_SIZE),
-                    )
+                    .async_upload_part(&initialized_parts, &new_data_partitioner_provider(BLOCK_SIZE))
                     .await
             })
         });
-        let parts = join_all(tasks)
-            .await
-            .into_iter()
-            .collect::<ApiResult<Vec<_>>>()?;
-        let parts = parts
-            .into_iter()
-            .map(|part| part.unwrap())
-            .collect::<Vec<_>>();
+        let parts = join_all(tasks).await.into_iter().collect::<ApiResult<Vec<_>>>()?;
+        let parts = parts.into_iter().map(|part| part.unwrap()).collect::<Vec<_>>();
         let body = uploader
             .async_complete_parts(Arc::try_unwrap(initialized_parts).unwrap(), parts)
             .await?;
@@ -1497,7 +1310,8 @@ mod tests {
                             "offset": blk_size,
                             "host": "http://fakeexample.com",
                             "expired_at": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-                        })).unwrap()
+                        }))
+                        .unwrap()
                     } else {
                         unreachable!()
                     };
@@ -1512,10 +1326,7 @@ mod tests {
                 }
 
                 #[cfg(feature = "async")]
-                fn async_call(
-                    &self,
-                    _request: &mut AsyncRequest<'_>,
-                ) -> BoxFuture<AsyncResponseResult> {
+                fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                     unreachable!()
                 }
             }
@@ -1533,10 +1344,7 @@ mod tests {
                     .build();
                 let initialized_parts = uploader.initialize_parts(file_source, params)?;
                 uploader
-                    .upload_part(
-                        &initialized_parts,
-                        &new_data_partitioner_provider(BLOCK_SIZE),
-                    )?
+                    .upload_part(&initialized_parts, &new_data_partitioner_provider(BLOCK_SIZE))?
                     .unwrap();
             }
             {
@@ -1551,10 +1359,7 @@ mod tests {
                 let initialized_parts = uploader.initialize_parts(file_source, params)?;
                 for _ in 0..2 {
                     uploader
-                        .upload_part(
-                            &initialized_parts,
-                            &new_data_partitioner_provider(BLOCK_SIZE),
-                        )?
+                        .upload_part(&initialized_parts, &new_data_partitioner_provider(BLOCK_SIZE))?
                         .unwrap();
                 }
             }
@@ -1596,7 +1401,8 @@ mod tests {
                             "offset": blk_size,
                             "host": "http://fakeexample.com",
                             "expired_at": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-                        })).unwrap()
+                        }))
+                        .unwrap()
                     } else if request.url().path().starts_with("/mkfile/") {
                         assert_eq!(self.mkblk_counts.load(Ordering::Relaxed), 1);
                         assert_eq!(self.mkfile_counts.fetch_add(1, Ordering::Relaxed), 0);
@@ -1606,10 +1412,7 @@ mod tests {
                         let req_body = String::from_utf8(req_body).unwrap();
                         let contexts: Vec<_> = req_body.split(',').collect();
                         assert_eq!(contexts.len(), BLOCK_COUNT);
-                        assert_eq!(
-                            *contexts.last().unwrap(),
-                            &format!("==={}===", self.blk_num)
-                        );
+                        assert_eq!(*contexts.last().unwrap(), &format!("==={}===", self.blk_num));
                         json_to_vec(&json!({
                             "done": 1,
                         }))
@@ -1628,10 +1431,7 @@ mod tests {
                 }
 
                 #[cfg(feature = "async")]
-                fn async_call(
-                    &self,
-                    _request: &mut AsyncRequest<'_>,
-                ) -> BoxFuture<AsyncResponseResult> {
+                fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                     unreachable!()
                 }
             }
@@ -1652,10 +1452,7 @@ mod tests {
                         let uploader = uploader.to_owned();
                         let initialized_parts = initialized_parts.to_owned();
                         spawn_thread(move || {
-                            uploader.upload_part(
-                                &initialized_parts,
-                                &new_data_partitioner_provider(BLOCK_SIZE),
-                            )
+                            uploader.upload_part(&initialized_parts, &new_data_partitioner_provider(BLOCK_SIZE))
                         })
                     })
                     .collect::<Vec<_>>();
@@ -1663,12 +1460,8 @@ mod tests {
                     .into_iter()
                     .map(|thread| thread.join().unwrap())
                     .collect::<ApiResult<Vec<_>>>()?;
-                let parts = parts
-                    .into_iter()
-                    .map(|part| part.unwrap())
-                    .collect::<Vec<_>>();
-                let body =
-                    uploader.complete_parts(Arc::try_unwrap(initialized_parts).unwrap(), parts)?;
+                let parts = parts.into_iter().map(|part| part.unwrap()).collect::<Vec<_>>();
+                let body = uploader.complete_parts(Arc::try_unwrap(initialized_parts).unwrap(), parts)?;
                 assert_eq!(body.get("done").unwrap().as_u64().unwrap(), 1u64);
             }
 
@@ -1701,10 +1494,7 @@ mod tests {
                     unreachable!()
                 }
 
-                fn async_call<'a>(
-                    &'a self,
-                    request: &'a mut AsyncRequest<'_>,
-                ) -> BoxFuture<'a, AsyncResponseResult> {
+                fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                     Box::pin(async move {
                         let resp_body = if request.url().path().starts_with("/mkblk/") {
                             let blk_size: u64;
@@ -1712,10 +1502,7 @@ mod tests {
 
                             match blk_size {
                                 BLOCK_SIZE => {
-                                    assert_eq!(
-                                        self.mkblk_counts.fetch_add(1, Ordering::Relaxed),
-                                        0
-                                    );
+                                    assert_eq!(self.mkblk_counts.fetch_add(1, Ordering::Relaxed), 0);
                                 }
                                 _ => unreachable!(),
                             }
@@ -1727,7 +1514,8 @@ mod tests {
                                 "offset": blk_size,
                                 "host": "http://fakeexample.com",
                                 "expired_at": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-                            })).unwrap()
+                            }))
+                            .unwrap()
                         } else {
                             unreachable!()
                         };
@@ -1754,13 +1542,9 @@ mod tests {
                 let params = ObjectParams::builder()
                     .region_provider(single_up_domain_region())
                     .build();
-                let initialized_parts =
-                    uploader.async_initialize_parts(file_source, params).await?;
+                let initialized_parts = uploader.async_initialize_parts(file_source, params).await?;
                 uploader
-                    .async_upload_part(
-                        &initialized_parts,
-                        &new_data_partitioner_provider(BLOCK_SIZE),
-                    )
+                    .async_upload_part(&initialized_parts, &new_data_partitioner_provider(BLOCK_SIZE))
                     .await?
                     .unwrap();
             }
@@ -1773,14 +1557,10 @@ mod tests {
                 let params = ObjectParams::builder()
                     .region_provider(single_up_domain_region())
                     .build();
-                let initialized_parts =
-                    uploader.async_initialize_parts(file_source, params).await?;
+                let initialized_parts = uploader.async_initialize_parts(file_source, params).await?;
                 for _ in 0..2 {
                     uploader
-                        .async_upload_part(
-                            &initialized_parts,
-                            &new_data_partitioner_provider(BLOCK_SIZE),
-                        )
+                        .async_upload_part(&initialized_parts, &new_data_partitioner_provider(BLOCK_SIZE))
                         .await?
                         .unwrap();
                 }
@@ -1808,10 +1588,7 @@ mod tests {
                     unreachable!()
                 }
 
-                fn async_call<'a>(
-                    &'a self,
-                    request: &'a mut AsyncRequest<'_>,
-                ) -> BoxFuture<'a, AsyncResponseResult> {
+                fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                     Box::pin(async move {
                         let resp_body = if request.url().path().starts_with("/mkblk/") {
                             let blk_size: u64;
@@ -1819,10 +1596,7 @@ mod tests {
 
                             match blk_size {
                                 LAST_BLOCK_SIZE => {
-                                    assert_eq!(
-                                        self.mkblk_counts.fetch_add(1, Ordering::Relaxed),
-                                        0
-                                    );
+                                    assert_eq!(self.mkblk_counts.fetch_add(1, Ordering::Relaxed), 0);
                                 }
                                 _ => unreachable!(),
                             }
@@ -1834,22 +1608,18 @@ mod tests {
                                 "offset": blk_size,
                                 "host": "http://fakeexample.com",
                                 "expired_at": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-                            })).unwrap()
+                            }))
+                            .unwrap()
                         } else if request.url().path().starts_with("/mkfile/") {
                             assert_eq!(self.mkblk_counts.load(Ordering::Relaxed), 1);
                             assert_eq!(self.mkfile_counts.fetch_add(1, Ordering::Relaxed), 0);
                             assert_eq!(request.url().path(), &format!("/mkfile/{}", FILE_SIZE));
                             let mut req_body = Vec::new();
-                            async_io_copy(request.body_mut(), &mut req_body)
-                                .await
-                                .unwrap();
+                            async_io_copy(request.body_mut(), &mut req_body).await.unwrap();
                             let req_body = String::from_utf8(req_body).unwrap();
                             let contexts: Vec<_> = req_body.split(',').collect();
                             assert_eq!(contexts.len(), BLOCK_COUNT);
-                            assert_eq!(
-                                *contexts.last().unwrap(),
-                                &format!("==={}===", self.blk_num)
-                            );
+                            assert_eq!(*contexts.last().unwrap(), &format!("==={}===", self.blk_num));
                             json_to_vec(&json!({
                                 "done": 1,
                             }))
@@ -1878,28 +1648,18 @@ mod tests {
                 let params = ObjectParams::builder()
                     .region_provider(single_up_domain_region())
                     .build();
-                let initialized_parts =
-                    Arc::new(uploader.async_initialize_parts(file_source, params).await?);
+                let initialized_parts = Arc::new(uploader.async_initialize_parts(file_source, params).await?);
                 let tasks = (0..BLOCK_COUNT).map(|_| {
                     let uploader = uploader.to_owned();
                     let initialized_parts = initialized_parts.to_owned();
                     spawn_task(async move {
                         uploader
-                            .async_upload_part(
-                                &initialized_parts,
-                                &new_data_partitioner_provider(BLOCK_SIZE),
-                            )
+                            .async_upload_part(&initialized_parts, &new_data_partitioner_provider(BLOCK_SIZE))
                             .await
                     })
                 });
-                let parts = join_all(tasks)
-                    .await
-                    .into_iter()
-                    .collect::<ApiResult<Vec<_>>>()?;
-                let parts = parts
-                    .into_iter()
-                    .map(|part| part.unwrap())
-                    .collect::<Vec<_>>();
+                let parts = join_all(tasks).await.into_iter().collect::<ApiResult<Vec<_>>>()?;
+                let parts = parts.into_iter().map(|part| part.unwrap()).collect::<Vec<_>>();
                 let body = uploader
                     .async_complete_parts(Arc::try_unwrap(initialized_parts).unwrap(), parts)
                     .await?;
@@ -1959,9 +1719,7 @@ mod tests {
     }
 
     #[cfg(feature = "async")]
-    async fn size_of_async_reader<R: AsyncRead + AsyncReset + Unpin>(
-        mut reader: &mut R,
-    ) -> IoResult<u64> {
+    async fn size_of_async_reader<R: AsyncRead + AsyncReset + Unpin>(mut reader: &mut R) -> IoResult<u64> {
         let size = async_io_copy(&mut reader, &mut async_io_sink()).await?;
         reader.reset().await?;
         Ok(size)

@@ -1,6 +1,6 @@
 use super::{DataSource, DataSourceReader, PartSize, SourceKey};
+use digest::Digest;
 use qiniu_apis::http::Reset;
-use sha1::Sha1;
 use std::{
     fmt::Debug,
     io::{Read, Result as IoResult, Seek, SeekFrom},
@@ -25,10 +25,7 @@ pub struct SeekableDataSource {
 }
 
 impl SeekableDataSource {
-    pub fn new(
-        mut source: impl Read + Seek + Debug + Send + Sync + 'static,
-        size: u64,
-    ) -> IoResult<Self> {
+    pub fn new(mut source: impl Read + Seek + Debug + Send + Sync + 'static, size: u64) -> IoResult<Self> {
         Ok(Self {
             size,
             current: Mutex::new(SourceOffset {
@@ -41,19 +38,17 @@ impl SeekableDataSource {
     }
 }
 
-impl DataSource<Sha1> for SeekableDataSource {
+impl<D: Digest> DataSource<D> for SeekableDataSource {
     fn slice(&self, size: PartSize) -> IoResult<Option<DataSourceReader>> {
         let mut cur = self.current.lock().unwrap();
         if cur.offset < self.size {
             let size = size.as_u64();
             let source_reader = DataSourceReader::seekable(
                 cur.part_number,
-                self.source
-                    .clone_with_new_offset_and_length(cur.offset, size),
+                self.source.clone_with_new_offset_and_length(cur.offset, size),
             );
             cur.offset += size;
-            cur.part_number =
-                NonZeroUsize::new(cur.part_number.get() + 1).expect("Page number is too big");
+            cur.part_number = NonZeroUsize::new(cur.part_number.get() + 1).expect("Page number is too big");
             Ok(Some(source_reader))
         } else {
             Ok(None)
@@ -70,7 +65,7 @@ impl DataSource<Sha1> for SeekableDataSource {
         Ok(Some(self.size))
     }
 
-    fn source_key(&self) -> IoResult<Option<SourceKey<Sha1>>> {
+    fn source_key(&self) -> IoResult<Option<SourceKey<D>>> {
         Ok(None)
     }
 }
@@ -85,11 +80,7 @@ pub struct SeekableSource {
 
 impl SeekableSource {
     #[inline]
-    pub fn new(
-        source: impl Read + Seek + Debug + Send + Sync + 'static,
-        offset: u64,
-        len: u64,
-    ) -> Self {
+    pub fn new(source: impl Read + Seek + Debug + Send + Sync + 'static, offset: u64, len: u64) -> Self {
         Self {
             source: Arc::new(Mutex::new(SeekableSourceInner::new(source))),
             source_offset: 0,
@@ -169,10 +160,7 @@ impl<T: Read + Seek + Send + Sync + Debug> SeekableSourceInner<T> {
 #[cfg(feature = "async")]
 mod async_reader {
     use super::*;
-    use futures::{
-        future::FutureExt, lock::Mutex, ready, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt,
-        Future,
-    };
+    use futures::{future::FutureExt, lock::Mutex, ready, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, Future};
     use qiniu_apis::http::AsyncReset;
     use smart_default::SmartDefault;
     use std::{
@@ -246,11 +234,7 @@ mod async_reader {
             }
         }
 
-        pub(in super::super) fn clone_with_new_offset_and_length(
-            &self,
-            offset: u64,
-            len: u64,
-        ) -> Self {
+        pub(in super::super) fn clone_with_new_offset_and_length(&self, offset: u64, len: u64) -> Self {
             Self {
                 step: Default::default(),
                 source: self.source.to_owned(),
@@ -273,21 +257,14 @@ mod async_reader {
             Ok(self.len.min(new_pos - self.offset))
         }
 
-        fn poll_from_task(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            buf: &mut [u8],
-        ) -> Poll<IoResult<usize>> {
+        fn poll_from_task(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<IoResult<usize>> {
             match &mut self.step {
                 AsyncSeekableSourceReadStep::Waiting { task } => {
                     let buffer = ready!(task.poll_unpin(cx))?;
                     self.step = if buffer.is_empty() {
                         AsyncSeekableSourceReadStep::Done
                     } else {
-                        AsyncSeekableSourceReadStep::Buffered {
-                            buffer,
-                            consumed: 0,
-                        }
+                        AsyncSeekableSourceReadStep::Buffered { buffer, consumed: 0 }
                     };
                     self.poll_read(cx, buf)
                 }
@@ -295,11 +272,7 @@ mod async_reader {
             }
         }
 
-        fn poll_from_buffer(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            buf: &mut [u8],
-        ) -> Poll<IoResult<usize>> {
+        fn poll_from_buffer(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<IoResult<usize>> {
             match &mut self.step {
                 AsyncSeekableSourceReadStep::Buffered { buffer, consumed } => {
                     let rested = buf.len().min(buffer.len() - *consumed);
@@ -325,9 +298,7 @@ mod async_reader {
                                     let mut buffer = vec![0u8; buffer_request_size.min(max_read)];
                                     let seek_pos = offset + source_offset_value;
                                     if Some(seek_pos) != locked.pos {
-                                        locked.pos = Some(
-                                            locked.source.seek(SeekFrom::Start(seek_pos)).await?,
-                                        );
+                                        locked.pos = Some(locked.source.seek(SeekFrom::Start(seek_pos)).await?);
                                     }
                                     let have_read = locked.source.read(&mut buffer).await?;
                                     buffer.truncate(have_read);
@@ -357,11 +328,7 @@ mod async_reader {
 
     impl AsyncRead for AsyncSeekableSource {
         #[inline]
-        fn poll_read(
-            self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            buf: &mut [u8],
-        ) -> Poll<IoResult<usize>> {
+        fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<IoResult<usize>> {
             match self.step {
                 AsyncSeekableSourceReadStep::Waiting { .. } => self.poll_from_task(cx, buf),
                 AsyncSeekableSourceReadStep::Buffered { .. } => self.poll_from_buffer(cx, buf),

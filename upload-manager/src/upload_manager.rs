@@ -1,7 +1,6 @@
 use super::{
-    upload_token::UploadTokenSigner, ConcurrencyProvider, DataPartitionProvider,
-    FixedConcurrencyProvider, FixedDataPartitionProvider, FixedThresholdResumablePolicy,
-    FormUploader, ResumablePolicyProvider, SinglePartUploader,
+    upload_token::UploadTokenSigner, FormUploader, MultiPartsUploader, MultiPartsV1Uploader,
+    MultiPartsV2Uploader, ResumableRecorder, SinglePartUploader,
 };
 use qiniu_apis::{
     http_client::{BucketRegionsQueryer, BucketRegionsQueryerBuilder, Endpoints, HttpClient},
@@ -15,9 +14,6 @@ pub struct UploadManager(Arc<UploadManagerInner>);
 #[derive(Debug)]
 struct UploadManagerInner {
     upload_token_signer: UploadTokenSigner,
-    data_partition_provider: Box<dyn DataPartitionProvider>,
-    concurrency_provider: Box<dyn ConcurrencyProvider>,
-    resumable_policy_provider: Box<dyn ResumablePolicyProvider>,
     client: QiniuApiClient,
     queryer: BucketRegionsQueryer,
 }
@@ -39,21 +35,6 @@ impl UploadManager {
     }
 
     #[inline]
-    pub fn data_partition(&self) -> &dyn DataPartitionProvider {
-        &self.0.data_partition_provider
-    }
-
-    #[inline]
-    pub fn concurrency(&self) -> &dyn ConcurrencyProvider {
-        &self.0.concurrency_provider
-    }
-
-    #[inline]
-    pub fn resumable_policy(&self) -> &dyn ResumablePolicyProvider {
-        &self.0.resumable_policy_provider
-    }
-
-    #[inline]
     pub fn client(&self) -> &QiniuApiClient {
         &self.0.client
     }
@@ -72,6 +53,30 @@ impl UploadManager {
     pub fn form_uploader(&self) -> FormUploader {
         FormUploader::new(self.to_owned())
     }
+
+    #[inline]
+    pub fn multi_parts_uploader(
+        &self,
+        resumable_recorder: impl ResumableRecorder + 'static,
+    ) -> impl MultiPartsUploader {
+        self.multi_parts_v2_uploader(resumable_recorder)
+    }
+
+    #[inline]
+    pub fn multi_parts_v1_uploader<R: ResumableRecorder + 'static>(
+        &self,
+        resumable_recorder: R,
+    ) -> MultiPartsV1Uploader<R> {
+        MultiPartsV1Uploader::new(self.to_owned(), resumable_recorder)
+    }
+
+    #[inline]
+    pub fn multi_parts_v2_uploader<R: ResumableRecorder + 'static>(
+        &self,
+        resumable_recorder: R,
+    ) -> MultiPartsV2Uploader<R> {
+        MultiPartsV2Uploader::new(self.to_owned(), resumable_recorder)
+    }
 }
 
 #[derive(Debug)]
@@ -81,9 +86,6 @@ pub struct UploadManagerBuilder {
     queryer_builder: Option<BucketRegionsQueryerBuilder>,
     queryer: Option<BucketRegionsQueryer>,
     upload_token_signer: UploadTokenSigner,
-    data_partition_provider: Option<Box<dyn DataPartitionProvider>>,
-    concurrency_provider: Option<Box<dyn ConcurrencyProvider>>,
-    resumable_policy_provider: Option<Box<dyn ResumablePolicyProvider>>,
 }
 
 impl UploadManagerBuilder {
@@ -95,9 +97,6 @@ impl UploadManagerBuilder {
             http_client: Default::default(),
             queryer_builder: Default::default(),
             queryer: Default::default(),
-            data_partition_provider: Default::default(),
-            concurrency_provider: Default::default(),
-            resumable_policy_provider: Default::default(),
         }
     }
 
@@ -136,30 +135,6 @@ impl UploadManagerBuilder {
         self
     }
 
-    #[inline]
-    pub fn data_partition(
-        &mut self,
-        data_partition: impl DataPartitionProvider + 'static,
-    ) -> &mut Self {
-        self.data_partition_provider = Some(Box::new(data_partition));
-        self
-    }
-
-    #[inline]
-    pub fn concurrency(&mut self, concurrency: impl ConcurrencyProvider + 'static) -> &mut Self {
-        self.concurrency_provider = Some(Box::new(concurrency));
-        self
-    }
-
-    #[inline]
-    pub fn resumable_policy(
-        &mut self,
-        resumable_policy: impl ResumablePolicyProvider + 'static,
-    ) -> &mut Self {
-        self.resumable_policy_provider = Some(Box::new(resumable_policy));
-        self
-    }
-
     pub fn build(&mut self) -> UploadManager {
         let upload_token_provider = self.upload_token_signer.to_owned();
         let api_client = self.api_client.take();
@@ -168,18 +143,6 @@ impl UploadManagerBuilder {
         let mut queryer_builder = self.queryer_builder.take();
         UploadManager(Arc::new(UploadManagerInner {
             upload_token_signer: upload_token_provider,
-            data_partition_provider: self
-                .data_partition_provider
-                .take()
-                .unwrap_or_else(UploadManager::default_data_partition),
-            concurrency_provider: self
-                .concurrency_provider
-                .take()
-                .unwrap_or_else(UploadManager::default_concurrency),
-            resumable_policy_provider: self
-                .resumable_policy_provider
-                .take()
-                .unwrap_or_else(UploadManager::default_resumable_policy),
             client: api_client
                 .or_else(|| http_client.map(QiniuApiClient::new))
                 .unwrap_or_default(),
@@ -187,22 +150,5 @@ impl UploadManagerBuilder {
                 .or_else(|| queryer_builder.as_mut().map(|builder| builder.build()))
                 .unwrap_or_default(),
         }))
-    }
-}
-
-impl UploadManager {
-    #[inline]
-    pub fn default_data_partition() -> Box<dyn DataPartitionProvider> {
-        Box::new(FixedDataPartitionProvider::new(1 << 22).unwrap())
-    }
-
-    #[inline]
-    pub fn default_concurrency() -> Box<dyn ConcurrencyProvider> {
-        Box::new(FixedConcurrencyProvider::new(2).unwrap())
-    }
-
-    #[inline]
-    pub fn default_resumable_policy() -> Box<dyn ResumablePolicyProvider> {
-        Box::new(FixedThresholdResumablePolicy::new(1 << 22))
     }
 }

@@ -2,7 +2,7 @@ use super::{
     super::{
         callbacks::{Callbacks, UploaderWithCallbacks, UploadingProgressInfo},
         upload_token::OwnedUploadTokenProviderOrReferenced,
-        ObjectParams, SingleFileHashVerification, UploadManager,
+        ObjectParams, UploadManager,
     },
     SinglePartUploader,
 };
@@ -10,30 +10,20 @@ use qiniu_apis::{
     credential::AccessKey,
     http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
     http_client::{
-        ApiResult, BucketRegionsProvider, CallbackResult, EndpointsProvider, FileName,
-        PartMetadata, RegionProvider, RegionProviderEndpoints, RequestBuilderParts, Response,
-        ResponseError,
+        ApiResult, BucketRegionsProvider, CallbackResult, EndpointsProvider, FileName, PartMetadata, RegionProvider,
+        RegionProviderEndpoints, RequestBuilderParts, Response, ResponseError,
     },
     storage::put_object::{self, sync_part::RequestBody as SyncRequestBody, SyncRequestBuilder},
 };
 use qiniu_upload_token::{BucketName, ObjectName};
 use serde_json::Value;
-use std::{
-    fmt::Debug,
-    fs::File,
-    io::{BufReader, Read, Result as IoResult, Seek, SeekFrom},
-    path::Path,
-};
+use std::{fmt::Debug, fs::File, io::Read, path::Path};
 
 #[cfg(feature = "async")]
 use {
     async_std::fs::File as AsyncFile,
-    futures::{
-        future::BoxFuture, io::BufReader as AsyncBufReader, AsyncRead, AsyncReadExt, AsyncSeekExt,
-    },
-    qiniu_apis::storage::put_object::{
-        async_part::RequestBody as AsyncRequestBody, AsyncRequestBuilder,
-    },
+    futures::{future::BoxFuture, AsyncRead},
+    qiniu_apis::storage::put_object::{async_part::RequestBody as AsyncRequestBody, AsyncRequestBuilder},
 };
 
 #[derive(Debug)]
@@ -44,9 +34,7 @@ pub struct FormUploader {
 
 impl UploaderWithCallbacks for FormUploader {
     #[inline]
-    fn on_before_request<
-        F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static,
-    >(
+    fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -55,9 +43,7 @@ impl UploaderWithCallbacks for FormUploader {
     }
 
     #[inline]
-    fn on_upload_progress<
-        F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static,
-    >(
+    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -79,8 +65,7 @@ impl UploaderWithCallbacks for FormUploader {
         &mut self,
         callback: F,
     ) -> &mut Self {
-        self.callbacks
-            .insert_after_response_error_callback(callback);
+        self.callbacks.insert_after_response_error_callback(callback);
         self
     }
 }
@@ -101,11 +86,7 @@ impl SinglePartUploader for FormUploader {
         )
     }
 
-    fn upload_reader<R: Read + 'static>(
-        &self,
-        reader: R,
-        mut params: ObjectParams,
-    ) -> ApiResult<Value> {
+    fn upload_reader<R: Read + 'static>(&self, reader: R, mut params: ObjectParams) -> ApiResult<Value> {
         self.upload(
             params.take_region_provider(),
             self.make_request_body_from_reader(reader, params)?,
@@ -114,11 +95,7 @@ impl SinglePartUploader for FormUploader {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload_path<'a>(
-        &'a self,
-        path: &'a Path,
-        mut params: ObjectParams,
-    ) -> BoxFuture<'a, ApiResult<Value>> {
+    fn async_upload_path<'a>(&'a self, path: &'a Path, mut params: ObjectParams) -> BoxFuture<'a, ApiResult<Value>> {
         Box::pin(async move {
             self.async_upload(
                 params.take_region_provider(),
@@ -138,8 +115,7 @@ impl SinglePartUploader for FormUploader {
         Box::pin(async move {
             self.async_upload(
                 params.take_region_provider(),
-                self.make_async_request_body_from_async_reader(reader, params)
-                    .await?,
+                self.make_async_request_body_from_async_reader(reader, params).await?,
             )
             .await
         })
@@ -147,11 +123,7 @@ impl SinglePartUploader for FormUploader {
 }
 
 impl FormUploader {
-    fn upload(
-        &self,
-        region_provider: Option<Box<dyn RegionProvider>>,
-        body: SyncRequestBody,
-    ) -> ApiResult<Value> {
+    fn upload(&self, region_provider: Option<Box<dyn RegionProvider>>, body: SyncRequestBody) -> ApiResult<Value> {
         let put_object = self.put_object();
         return if let Some(region_provider) = region_provider {
             _upload(
@@ -160,8 +132,7 @@ impl FormUploader {
                 body,
             )
         } else {
-            let request =
-                put_object.new_request(RegionProviderEndpoints::new(self.get_bucket_region()?));
+            let request = put_object.new_request(RegionProviderEndpoints::new(self.get_bucket_region()?));
             _upload(self, request, body)
         };
 
@@ -197,9 +168,8 @@ impl FormUploader {
             )
             .await
         } else {
-            let request = put_object.new_async_request(RegionProviderEndpoints::new(
-                self.async_get_bucket_region().await?,
-            ));
+            let request =
+                put_object.new_async_request(RegionProviderEndpoints::new(self.async_get_bucket_region().await?));
             _async_upload(self, request, body).await
         };
 
@@ -220,28 +190,13 @@ impl FormUploader {
         }
     }
 
-    fn make_request_body_from_path(
-        &self,
-        path: &Path,
-        mut params: ObjectParams,
-    ) -> ApiResult<SyncRequestBody> {
-        let mut file = File::open(path)?;
+    fn make_request_body_from_path(&self, path: &Path, mut params: ObjectParams) -> ApiResult<SyncRequestBody> {
+        let file = File::open(path)?;
         if params.file_name().is_none() {
             *params.file_name_mut() = path
                 .file_name()
                 .map(Path::new)
                 .map(|file_name| FileName::from(file_name.display().to_string()));
-        }
-        if params
-            .extensions()
-            .get::<SingleFileHashVerification<u32>>()
-            .is_none()
-        {
-            let crc32 = crc32_of_reader(&mut file)?;
-            file.seek(SeekFrom::Start(0))?;
-            params
-                .extensions_mut()
-                .insert(SingleFileHashVerification::Const(crc32));
         }
         self.make_request_body_from_reader(file, params)
     }
@@ -258,15 +213,10 @@ impl FormUploader {
         if let Some(content_type) = params.take_content_type() {
             file_metadata = file_metadata.mime(content_type);
         }
-        let mut request_body = SyncRequestBody::default()
-            .set_upload_token(self.make_upload_token_signer(&params).as_ref())?;
+        let mut request_body =
+            SyncRequestBody::default().set_upload_token(self.make_upload_token_signer(&params).as_ref())?;
         if let Some(object_name) = params.take_object_name() {
             request_body = request_body.set_object_name(object_name.to_string());
-        }
-        if let Some(SingleFileHashVerification::Const(crc32)) =
-            params.extensions().get::<SingleFileHashVerification<u32>>()
-        {
-            request_body = request_body.set_crc_32(crc32.to_string());
         }
         for (key, value) in params.take_metadata().into_iter() {
             request_body = request_body.append_custom_data("x-qn-meta-".to_owned() + &key, value);
@@ -284,32 +234,18 @@ impl FormUploader {
         path: &Path,
         mut params: ObjectParams,
     ) -> ApiResult<AsyncRequestBody> {
-        let mut file = AsyncFile::open(path).await?;
+        let file = AsyncFile::open(path).await?;
         if params.file_name().is_none() {
             *params.file_name_mut() = path
                 .file_name()
                 .map(Path::new)
                 .map(|file_name| FileName::from(file_name.display().to_string()));
         }
-        if params
-            .extensions()
-            .get::<SingleFileHashVerification<u32>>()
-            .is_none()
-        {
-            let crc32 = crc32_of_async_reader(&mut file).await?;
-            file.seek(SeekFrom::Start(0)).await?;
-            params
-                .extensions_mut()
-                .insert(SingleFileHashVerification::Const(crc32));
-        }
-        self.make_async_request_body_from_async_reader(file, params)
-            .await
+        self.make_async_request_body_from_async_reader(file, params).await
     }
 
     #[cfg(feature = "async")]
-    async fn make_async_request_body_from_async_reader<
-        R: AsyncRead + Unpin + Send + Sync + 'static,
-    >(
+    async fn make_async_request_body_from_async_reader<R: AsyncRead + Unpin + Send + Sync + 'static>(
         &self,
         reader: R,
         mut params: ObjectParams,
@@ -317,6 +253,8 @@ impl FormUploader {
         let mut file_metadata = PartMetadata::default();
         if let Some(file_name) = params.file_name() {
             file_metadata = file_metadata.file_name(file_name);
+        } else {
+            file_metadata = file_metadata.file_name("untitled");
         }
         if let Some(content_type) = params.take_content_type() {
             file_metadata = file_metadata.mime(content_type);
@@ -326,11 +264,6 @@ impl FormUploader {
             .await?;
         if let Some(object_name) = params.take_object_name() {
             request_body = request_body.set_object_name(object_name.to_string());
-        }
-        if let Some(SingleFileHashVerification::Const(crc32)) =
-            params.extensions().get::<SingleFileHashVerification<u32>>()
-        {
-            request_body = request_body.set_crc_32(crc32.to_string());
         }
         for (key, value) in params.take_metadata().into_iter() {
             request_body = request_body.append_custom_data("x-qn-meta-".to_owned() + &key, value);
@@ -351,16 +284,13 @@ impl FormUploader {
 
     #[cfg(feature = "async")]
     async fn async_get_bucket_region(&self) -> ApiResult<BucketRegionsProvider> {
-        Ok(self.upload_manager.queryer().query(
-            self.async_access_key().await?,
-            self.async_bucket_name().await?,
-        ))
+        Ok(self
+            .upload_manager
+            .queryer()
+            .query(self.async_access_key().await?, self.async_bucket_name().await?))
     }
 
-    fn make_upload_token_signer(
-        &self,
-        params: &ObjectParams,
-    ) -> OwnedUploadTokenProviderOrReferenced<'_> {
+    fn make_upload_token_signer(&self, params: &ObjectParams) -> OwnedUploadTokenProviderOrReferenced<'_> {
         let object_name = params.object_name().map(ObjectName::from);
         self.upload_manager
             .upload_token()
@@ -391,9 +321,7 @@ impl FormUploader {
 
     fn before_request_call(&self, request: &mut RequestBuilderParts<'_>) -> ApiResult<()> {
         if self.callbacks.before_request(request).is_cancelled() {
-            Err(make_user_cancelled_error(
-                "Cancelled by on_before_request() callback",
-            ))
+            Err(make_user_cancelled_error("Cancelled by on_before_request() callback"))
         } else {
             Ok(())
         }
@@ -401,28 +329,11 @@ impl FormUploader {
 
     fn after_response_call<B>(&self, response: &mut ApiResult<Response<B>>) -> ApiResult<()> {
         if self.callbacks.after_response(response).is_cancelled() {
-            Err(make_user_cancelled_error(
-                "Cancelled by on_after_response() callback",
-            ))
+            Err(make_user_cancelled_error("Cancelled by on_after_response() callback"))
         } else {
             Ok(())
         }
     }
-}
-
-fn crc32_of_reader(reader: &mut dyn Read) -> IoResult<u32> {
-    let mut hasher = crc32fast::Hasher::new();
-    let mut reader = BufReader::new(reader);
-    let mut buf = [0u8; 1024];
-    loop {
-        let have_read = reader.read(&mut buf)?;
-        if have_read == 0 {
-            break;
-        } else {
-            hasher.update(&buf[..have_read]);
-        }
-    }
-    Ok(hasher.finalize())
 }
 
 #[cfg(feature = "async")]
@@ -430,22 +341,6 @@ trait AsyncReadTrait: AsyncRead + Unpin + Send + Sync {}
 
 #[cfg(feature = "async")]
 impl<T: AsyncRead + Unpin + Send + Sync> AsyncReadTrait for T {}
-
-#[cfg(feature = "async")]
-async fn crc32_of_async_reader(reader: &mut dyn AsyncReadTrait) -> IoResult<u32> {
-    let mut hasher = crc32fast::Hasher::new();
-    let mut reader = AsyncBufReader::new(reader);
-    let mut buf = [0u8; 1024];
-    loop {
-        let have_read = reader.read(&mut buf).await?;
-        if have_read == 0 {
-            break;
-        } else {
-            hasher.update(&buf[..have_read]);
-        }
-    }
-    Ok(hasher.finalize())
-}
 
 fn make_user_cancelled_error(message: &str) -> ResponseError {
     ResponseError::new(HttpResponseErrorKind::UserCanceled.into(), message)
@@ -459,8 +354,8 @@ mod tests {
     use qiniu_apis::{
         credential::Credential,
         http::{
-            header::CONTENT_TYPE, HeaderName, HeaderValue, HttpCaller, StatusCode, SyncRequest,
-            SyncResponse, SyncResponseBody, SyncResponseResult,
+            header::CONTENT_TYPE, HeaderName, HeaderValue, HttpCaller, StatusCode, SyncRequest, SyncResponse,
+            SyncResponseBody, SyncResponseResult,
         },
         http_client::{DirectChooser, HttpClient, NeverRetrier, Region, NO_BACKOFF},
     };
@@ -527,26 +422,21 @@ mod tests {
             }
 
             #[cfg(feature = "async")]
-            fn async_call(
-                &self,
-                _request: &mut AsyncRequest<'_>,
-            ) -> BoxFuture<AsyncResponseResult> {
+            fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
         }
 
         let rand_reader = Box::new(thread_rng()) as Box<dyn RngCore>;
-        let value = get_upload_manager(FakeHttpCaller)
-            .form_uploader()
-            .upload_reader(
-                rand_reader.take(1 << 10),
-                ObjectParams::builder()
-                    .object_name("fakeobjectname")
-                    .file_name("fakefilename")
-                    .content_type(TEXT_PLAIN)
-                    .region_provider(single_up_domain_region())
-                    .build(),
-            )?;
+        let value = get_upload_manager(FakeHttpCaller).form_uploader().upload_reader(
+            rand_reader.take(1 << 10),
+            ObjectParams::builder()
+                .object_name("fakeobjectname")
+                .file_name("fakefilename")
+                .content_type(TEXT_PLAIN)
+                .region_provider(single_up_domain_region())
+                .build(),
+        )?;
         assert_eq!(value["hash"].as_str(), Some("fakehash"));
         assert_eq!(value["key"].as_str(), Some("fakekey"));
 

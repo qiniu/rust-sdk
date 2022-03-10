@@ -1,6 +1,6 @@
 use super::SourceKey;
 use auto_impl::auto_impl;
-use digest::OutputSizeUser;
+use digest::Digest;
 use std::{
     fmt::Debug,
     io::{Read, Result as IoResult, Write},
@@ -14,7 +14,7 @@ use futures::{
 
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait ResumableRecorder: Debug + Sync + Send {
-    type HashAlgorithm: OutputSizeUser;
+    type HashAlgorithm: Digest;
     type ReadOnlyMedium: ReadOnlyResumableRecorderMedium;
     type AppendOnlyMedium: AppendOnlyResumableRecorderMedium;
 

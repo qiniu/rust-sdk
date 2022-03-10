@@ -186,11 +186,11 @@ fn make_bucket_upload_token_provider<C: CredentialProvider + Clone>(
     BucketUploadTokenProvider::new(bucket_name.to_owned(), lifetime, credential)
 }
 
-impl From<Box<dyn UploadTokenProvider>> for UploadTokenSigner {
+impl<T: UploadTokenProvider + 'static> From<T> for UploadTokenSigner {
     #[inline]
-    fn from(upload_token_provider: Box<dyn UploadTokenProvider>) -> Self {
-        Self(UploadTokenSignerInner::UploadTokenProvider(
+    fn from(upload_token_provider: T) -> Self {
+        Self(UploadTokenSignerInner::UploadTokenProvider(Box::new(
             upload_token_provider,
-        ))
+        )))
     }
 }

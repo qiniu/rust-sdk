@@ -1,5 +1,5 @@
 use super::{DataSource, DataSourceReader, PartSize, SourceKey};
-use sha1::{digest::OutputSizeUser, Sha1};
+use sha1::{digest::Digest, Sha1};
 use std::{
     fmt::{self, Debug},
     io::{Read, Result as IoResult},
@@ -10,32 +10,22 @@ use std::{
 #[cfg(feature = "async")]
 use {super::AsyncDataSourceReader, futures::future::BoxFuture};
 
-pub struct UnseekableDataSource<
-    R: Read + Debug + Send + Sync + 'static + ?Sized,
-    A: OutputSizeUser = Sha1,
->(Mutex<UnseekableDataSourceInner<R, A>>);
+pub struct UnseekableDataSource<R: Read + Debug + Send + Sync + 'static + ?Sized, A: Digest = Sha1>(Mutex<UnseekableDataSourceInner<R, A>>);
 
-impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> Debug
-    for UnseekableDataSource<R, A>
-{
+impl<R: Read + Debug + Send + Sync + 'static, A: Digest> Debug for UnseekableDataSource<R, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("UnseekableDataSource")
-            .field(&self.0)
-            .finish()
+        f.debug_tuple("UnseekableDataSource").field(&self.0).finish()
     }
 }
 
-struct UnseekableDataSourceInner<
-    R: Read + Debug + Send + Sync + 'static + ?Sized,
-    A: OutputSizeUser,
-> {
+struct UnseekableDataSourceInner<R: Read + Debug + Send + Sync + 'static + ?Sized, A: Digest> {
     current_offset: u64,
     current_part_number: NonZeroUsize,
     source_key: Option<SourceKey<A>>,
     reader: R,
 }
 
-impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> UnseekableDataSource<R, A> {
+impl<R: Read + Debug + Send + Sync + 'static, A: Digest> UnseekableDataSource<R, A> {
     pub fn new(reader: R) -> Self {
         Self(Mutex::new(UnseekableDataSourceInner {
             reader,
@@ -57,21 +47,15 @@ impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> UnseekableDataS
     }
 }
 
-impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> DataSource<A>
-    for UnseekableDataSource<R, A>
-{
+impl<R: Read + Debug + Send + Sync + 'static, A: Digest> DataSource<A> for UnseekableDataSource<R, A> {
     fn slice(&self, size: PartSize) -> IoResult<Option<DataSourceReader>> {
         let mut buf = Vec::new();
         let guard = &mut *self.0.lock().unwrap();
-        let have_read = (&mut guard.reader)
-            .take(size.as_u64())
-            .read_to_end(&mut buf)?;
+        let have_read = (&mut guard.reader).take(size.as_u64()).read_to_end(&mut buf)?;
         if have_read > 0 {
-            let source_reader =
-                DataSourceReader::unseekable(guard.current_part_number, buf, guard.current_offset);
+            let source_reader = DataSourceReader::unseekable(guard.current_part_number, buf, guard.current_offset);
             guard.current_offset += have_read as u64;
-            guard.current_part_number = NonZeroUsize::new(guard.current_part_number.get() + 1)
-                .expect("Page number is too big");
+            guard.current_part_number = NonZeroUsize::new(guard.current_part_number.get() + 1).expect("Page number is too big");
             Ok(Some(source_reader))
         } else {
             Ok(None)
@@ -96,16 +80,9 @@ impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> DataSource<A>
     }
 }
 
-impl<R: Read + Debug + Send + Sync + 'static, A: OutputSizeUser> Debug
-    for UnseekableDataSourceInner<R, A>
-{
+impl<R: Read + Debug + Send + Sync + 'static, A: Digest> Debug for UnseekableDataSourceInner<R, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UnseekableDataSourceInner")
-            .field("reader", &self.reader)
-            .field("current_offset", &self.current_offset)
-            .field("current_part_number", &self.current_part_number)
-            .field("source_key", &self.source_key)
-            .finish()
+        f.debug_struct("UnseekableDataSourceInner").field("reader", &self.reader).field("current_offset", &self.current_offset).field("current_part_number", &self.current_part_number).field("source_key", &self.source_key).finish()
     }
 }
 
@@ -114,34 +91,22 @@ mod async_unseekable {
     use super::*;
     use futures::{lock::Mutex, AsyncRead, AsyncReadExt};
 
-    pub struct AsyncUnseekableDataSource<
-        R: AsyncRead + Debug + Unpin + Send + Sync + 'static + ?Sized,
-        A: OutputSizeUser = Sha1,
-    >(Mutex<AsyncUnseekableDataSourceInner<R, A>>);
+    pub struct AsyncUnseekableDataSource<R: AsyncRead + Debug + Unpin + Send + Sync + 'static + ?Sized, A: Digest = Sha1>(Mutex<AsyncUnseekableDataSourceInner<R, A>>);
 
-    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: OutputSizeUser> Debug
-        for AsyncUnseekableDataSource<R, A>
-    {
+    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: Digest> Debug for AsyncUnseekableDataSource<R, A> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.debug_tuple("AsyncUnseekableDataSource")
-                .field(&self.0)
-                .finish()
+            f.debug_tuple("AsyncUnseekableDataSource").field(&self.0).finish()
         }
     }
 
-    struct AsyncUnseekableDataSourceInner<
-        R: AsyncRead + Debug + Unpin + Send + Sync + 'static + ?Sized,
-        A: OutputSizeUser,
-    > {
+    struct AsyncUnseekableDataSourceInner<R: AsyncRead + Debug + Unpin + Send + Sync + 'static + ?Sized, A: Digest> {
         current_offset: u64,
         current_part_number: NonZeroUsize,
         source_key: Option<SourceKey<A>>,
         reader: R,
     }
 
-    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: OutputSizeUser>
-        AsyncUnseekableDataSource<R, A>
-    {
+    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: Digest> AsyncUnseekableDataSource<R, A> {
         pub fn new(reader: R) -> Self {
             Self(Mutex::new(AsyncUnseekableDataSourceInner {
                 reader,
@@ -163,34 +128,20 @@ mod async_unseekable {
         }
     }
 
-    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: OutputSizeUser> DataSource<A>
-        for AsyncUnseekableDataSource<R, A>
-    {
+    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: Digest> DataSource<A> for AsyncUnseekableDataSource<R, A> {
         fn slice(&self, _size: PartSize) -> IoResult<Option<DataSourceReader>> {
             unimplemented!()
         }
 
-        fn async_slice(
-            &self,
-            size: PartSize,
-        ) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
+        fn async_slice(&self, size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
             Box::pin(async move {
                 let mut buf = Vec::new();
                 let guard = &mut *self.0.lock().await;
-                let have_read = (&mut guard.reader)
-                    .take(size.as_u64())
-                    .read_to_end(&mut buf)
-                    .await?;
+                let have_read = (&mut guard.reader).take(size.as_u64()).read_to_end(&mut buf).await?;
                 if have_read > 0 {
-                    let source_reader = AsyncDataSourceReader::unseekable(
-                        guard.current_part_number,
-                        buf,
-                        guard.current_offset,
-                    );
+                    let source_reader = AsyncDataSourceReader::unseekable(guard.current_part_number, buf, guard.current_offset);
                     guard.current_offset += have_read as u64;
-                    guard.current_part_number =
-                        NonZeroUsize::new(guard.current_part_number.get() + 1)
-                            .expect("Page number is too big");
+                    guard.current_part_number = NonZeroUsize::new(guard.current_part_number.get() + 1).expect("Page number is too big");
                     Ok(Some(source_reader))
                 } else {
                     Ok(None)
@@ -217,16 +168,9 @@ mod async_unseekable {
         }
     }
 
-    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: OutputSizeUser> Debug
-        for AsyncUnseekableDataSourceInner<R, A>
-    {
+    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: Digest> Debug for AsyncUnseekableDataSourceInner<R, A> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.debug_struct("AsyncUnseekableDataSourceInner")
-                .field("reader", &self.reader)
-                .field("current_offset", &self.current_offset)
-                .field("current_part_number", &self.current_part_number)
-                .field("source_key", &self.source_key)
-                .finish()
+            f.debug_struct("AsyncUnseekableDataSourceInner").field("reader", &self.reader).field("current_offset", &self.current_offset).field("current_part_number", &self.current_part_number).field("source_key", &self.source_key).finish()
         }
     }
 }

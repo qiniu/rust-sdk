@@ -1,5 +1,5 @@
 use super::{ResumableRecorder, SourceKey};
-use digest::OutputSizeUser;
+use digest::Digest;
 use sha1::Sha1;
 use std::{
     fmt::{self, Debug},
@@ -31,7 +31,7 @@ impl<O> Default for DummyResumableRecorder<O> {
     }
 }
 
-impl<O: OutputSizeUser + Send + Sync + Unpin> ResumableRecorder for DummyResumableRecorder<O> {
+impl<O: Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumableRecorder<O> {
     type HashAlgorithm = O;
     type ReadOnlyMedium = DummyResumableRecorderMedium;
     type AppendOnlyMedium = DummyResumableRecorderMedium;

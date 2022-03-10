@@ -1,7 +1,5 @@
 use super::super::{ResponseError, ResponseErrorKind, RetryDecision, RetryResult};
-use qiniu_http::{
-    Extensions, RequestParts as HttpRequestParts, ResponseErrorKind as HttpResponseErrorKind,
-};
+use qiniu_http::{Extensions, RequestParts as HttpRequestParts, ResponseErrorKind as HttpResponseErrorKind};
 use serde::Deserialize;
 use std::mem::take;
 
@@ -41,7 +39,6 @@ impl TryError {
             },
             ResponseErrorKind::UnexpectedEof
             | ResponseErrorKind::ParseResponseError
-            | ResponseErrorKind::FailedHashVerification
             | ResponseErrorKind::MaliciousResponse => Some(self.response_error()),
             ResponseErrorKind::UnexpectedStatusCode(_)
             | ResponseErrorKind::SystemCallError

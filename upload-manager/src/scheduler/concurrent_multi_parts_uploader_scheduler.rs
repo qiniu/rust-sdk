@@ -3,8 +3,7 @@ use super::{
         Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, FixedConcurrencyProvider,
         FixedDataPartitionProvider, ResumableRecorder, UploadedPart,
     },
-    DataPartitionProvider, DataSource, MultiPartsUploader, MultiPartsUploaderScheduler,
-    ObjectParams,
+    DataPartitionProvider, DataSource, MultiPartsUploader, MultiPartsUploaderScheduler, ObjectParams,
 };
 use qiniu_apis::http_client::{ApiResult, ResponseError, ResponseErrorKind};
 use rayon::ThreadPoolBuilder;
@@ -42,44 +41,32 @@ impl<M> Clone for ConcurrentMultiPartsUploaderScheduler<M> {
     }
 }
 
-impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler
-    for ConcurrentMultiPartsUploaderScheduler<M>
-{
+impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for ConcurrentMultiPartsUploaderScheduler<M> {
     type MultiPartsUploader = M;
 
     fn new(multi_parts_uploader: Self::MultiPartsUploader) -> Self {
         Self {
-            data_partition_provider: Arc::new(
-                FixedDataPartitionProvider::new_with_non_zero_part_size(
-                    #[allow(unsafe_code)]
-                    unsafe {
-                        NonZeroU64::new_unchecked(1 << 22)
-                    },
-                ),
-            ),
-            concurrency_provider: Arc::new(
-                FixedConcurrencyProvider::new_with_non_zero_concurrency(
-                    #[allow(unsafe_code)]
-                    unsafe {
-                        NonZeroUsize::new_unchecked(1)
-                    },
-                ),
-            ),
+            data_partition_provider: Arc::new(FixedDataPartitionProvider::new_with_non_zero_part_size(
+                #[allow(unsafe_code)]
+                unsafe {
+                    NonZeroU64::new_unchecked(1 << 22)
+                },
+            )),
+            concurrency_provider: Arc::new(FixedConcurrencyProvider::new_with_non_zero_concurrency(
+                #[allow(unsafe_code)]
+                unsafe {
+                    NonZeroUsize::new_unchecked(num_cpus::get())
+                },
+            )),
             multi_parts_uploader: Arc::new(multi_parts_uploader),
         }
     }
 
-    fn set_concurrency_provider(
-        &mut self,
-        concurrency_provider: impl ConcurrencyProvider + 'static,
-    ) {
+    fn set_concurrency_provider(&mut self, concurrency_provider: impl ConcurrencyProvider + 'static) {
         self.concurrency_provider = Arc::new(concurrency_provider);
     }
 
-    fn set_data_partition_provider(
-        &mut self,
-        data_partition_provider: impl DataPartitionProvider + 'static,
-    ) {
+    fn set_data_partition_provider(&mut self, data_partition_provider: impl DataPartitionProvider + 'static) {
         self.data_partition_provider = Arc::new(data_partition_provider);
     }
 
@@ -94,13 +81,12 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler
         let result = _upload(self, source, params, concurrency, &uploaded_size);
         let elapsed = begin_at.elapsed();
         if let Some(uploaded_size) = NonZeroU64::new(uploaded_size.load(Ordering::SeqCst)) {
-            self.concurrency_provider
-                .feedback(ConcurrencyProviderFeedback::new(
-                    concurrency,
-                    uploaded_size,
-                    elapsed,
-                    result.as_ref().err(),
-                ))
+            self.concurrency_provider.feedback(ConcurrencyProviderFeedback::new(
+                concurrency,
+                uploaded_size,
+                elapsed,
+                result.as_ref().err(),
+            ))
         }
         return result;
 
@@ -114,12 +100,15 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler
             concurrency: Concurrency,
             uploaded_size: &AtomicU64,
         ) -> ApiResult<Value> {
-            let initialized = scheduler
-                .multi_parts_uploader
-                .initialize_parts(source, params)?;
+            let initialized = scheduler.multi_parts_uploader.initialize_parts(source, params)?;
             let thread_pool = ThreadPoolBuilder::new()
                 .num_threads(concurrency.as_usize())
-                .thread_name(|i| format!("qiniu.rust-sdk.upload-manager.scheduler.concurrent_multi_parts_uploader_scheduler.{}", i))
+                .thread_name(|i| {
+                    format!(
+                        "qiniu.rust-sdk.upload-manager.scheduler.concurrent_multi_parts_uploader_scheduler.{}",
+                        i
+                    )
+                })
                 .build()
                 .map_err(|err| ResponseError::new(ResponseErrorKind::SystemCallError, err))?;
             let parts = Mutex::new(Vec::with_capacity(4));
@@ -133,8 +122,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler
                         {
                             Ok(Some(uploaded_part)) => {
                                 if !uploaded_part.resumed() {
-                                    uploaded_size
-                                        .fetch_add(uploaded_part.size().get(), Ordering::Relaxed);
+                                    uploaded_size.fetch_add(uploaded_part.size().get(), Ordering::Relaxed);
                                 }
                                 parts.lock().unwrap().push(Ok(uploaded_part));
                             }
@@ -150,17 +138,13 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler
                     }
                 })
             });
-            let parts = parts
-                .into_inner()
-                .unwrap()
-                .into_iter()
-                .collect::<ApiResult<Vec<_>>>()?;
-            scheduler
-                .multi_parts_uploader
-                .complete_parts(initialized, parts)
+            let parts = parts.into_inner().unwrap().into_iter().collect::<ApiResult<Vec<_>>>()?;
+            scheduler.multi_parts_uploader.complete_parts(initialized, parts)
         }
     }
 
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_upload<D: DataSource<<<Self::MultiPartsUploader as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(
         &self,
         source: D,
@@ -173,13 +157,12 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler
             let result = _upload(self, source, params, concurrency, uploaded_size.to_owned()).await;
             let elapsed = begin_at.elapsed();
             if let Some(uploaded_size) = NonZeroU64::new(uploaded_size.load(Ordering::SeqCst)) {
-                self.concurrency_provider
-                    .feedback(ConcurrencyProviderFeedback::new(
-                        concurrency,
-                        uploaded_size,
-                        elapsed,
-                        result.as_ref().err(),
-                    ))
+                self.concurrency_provider.feedback(ConcurrencyProviderFeedback::new(
+                    concurrency,
+                    uploaded_size,
+                    elapsed,
+                    result.as_ref().err(),
+                ))
             }
             result
         });
@@ -216,8 +199,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler
                         {
                             Ok(Some(uploaded_part)) => {
                                 if !uploaded_part.resumed() {
-                                    uploaded_size
-                                        .fetch_add(uploaded_part.size().get(), Ordering::SeqCst);
+                                    uploaded_size.fetch_add(uploaded_part.size().get(), Ordering::SeqCst);
                                 }
                                 parts.push(Ok(uploaded_part));
                             }
