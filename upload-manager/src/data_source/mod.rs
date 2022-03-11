@@ -1,10 +1,10 @@
 use super::PartSize;
 use auto_impl::auto_impl;
-use digest::Digest;
+use digest::{Digest, Output as DigestOutput};
 use qiniu_apis::http::Reset;
 use std::{
     fmt::Debug,
-    io::{Cursor, Read, Result as IoResult},
+    io::{copy as io_copy, sink as io_sink, Cursor, Read, Result as IoResult},
     num::NonZeroUsize,
 };
 
@@ -41,6 +41,33 @@ pub trait DataSource<A: Digest>: Debug + Sync + Send {
     }
 }
 
+pub(super) trait Digestible<A: Digest>: Read + Reset {
+    fn digest(&mut self) -> IoResult<DigestOutput<A>> {
+        struct ReadWithDigest<A, R> {
+            reader: R,
+            digest: A,
+        }
+
+        impl<A: Digest, R: Read> Read for ReadWithDigest<A, R> {
+            fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
+                let size = self.reader.read(buf)?;
+                self.digest.update(buf);
+                Ok(size)
+            }
+        }
+
+        let mut hasher = ReadWithDigest {
+            reader: self,
+            digest: A::new(),
+        };
+        io_copy(&mut hasher, &mut io_sink())?;
+        hasher.reader.reset()?;
+        Ok(hasher.digest.finalize())
+    }
+}
+
+impl<T: Read + Reset, A: Digest> Digestible<A> for T {}
+
 #[derive(Debug)]
 pub struct DataSourceReader {
     inner: DataSourceReaderInner,
@@ -56,12 +83,21 @@ enum DataSourceReaderInner {
 impl DataSourceReader {
     #[inline]
     pub fn seekable(part_number: NonZeroUsize, source: SeekableSource) -> Self {
-        Self { inner: DataSourceReaderInner::ReadSeekable(source), part_number }
+        Self {
+            inner: DataSourceReaderInner::ReadSeekable(source),
+            part_number,
+        }
     }
 
     #[inline]
     pub fn unseekable(part_number: NonZeroUsize, data: Vec<u8>, offset: u64) -> Self {
-        Self { inner: DataSourceReaderInner::Readable { data: Cursor::new(data), offset }, part_number }
+        Self {
+            inner: DataSourceReaderInner::Readable {
+                data: Cursor::new(data),
+                offset,
+            },
+            part_number,
+        }
     }
 
     pub(super) fn part_number(&self) -> NonZeroUsize {
@@ -107,14 +143,45 @@ impl Reset for DataSourceReader {
 mod async_reader {
     use super::*;
     use futures::{
-        io::{Cursor, SeekFrom},
-        AsyncRead, AsyncSeek, AsyncSeekExt,
+        io::{copy as async_io_copy, sink as async_sink, Cursor, SeekFrom},
+        ready, AsyncRead, AsyncSeek, AsyncSeekExt,
     };
     use qiniu_apis::http::AsyncReset;
     use std::{
         pin::Pin,
         task::{Context, Poll},
     };
+
+    pub(in super::super) trait AsyncDigestible<A: Digest + Unpin + Send>:
+        AsyncRead + AsyncReset + Unpin + Send
+    {
+        fn digest(&mut self) -> BoxFuture<IoResult<DigestOutput<A>>> {
+            struct ReadWithDigest<A, R> {
+                reader: R,
+                digest: A,
+            }
+
+            impl<A: Digest + Unpin + Send, R: AsyncRead + Unpin> AsyncRead for ReadWithDigest<A, R> {
+                fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<IoResult<usize>> {
+                    let size = ready!(Pin::new(&mut self.reader).poll_read(cx, buf))?;
+                    self.digest.update(buf);
+                    Poll::Ready(Ok(size))
+                }
+            }
+
+            Box::pin(async move {
+                let mut hasher = ReadWithDigest {
+                    reader: self,
+                    digest: A::new(),
+                };
+                async_io_copy(Pin::new(&mut hasher), &mut async_sink()).await?;
+                hasher.reader.reset().await?;
+                Ok(hasher.digest.finalize())
+            })
+        }
+    }
+
+    impl<T: AsyncRead + AsyncReset + Unpin + Send, A: Digest + Unpin + Send> AsyncDigestible<A> for T {}
 
     #[derive(Debug)]
     pub struct AsyncDataSourceReader {
@@ -131,12 +198,21 @@ mod async_reader {
     impl AsyncDataSourceReader {
         #[inline]
         pub fn seekable(part_number: NonZeroUsize, source: AsyncSeekableSource) -> Self {
-            Self { inner: AsyncDataSourceReaderInner::ReadSeekable(source), part_number }
+            Self {
+                inner: AsyncDataSourceReaderInner::ReadSeekable(source),
+                part_number,
+            }
         }
 
         #[inline]
         pub fn unseekable(part_number: NonZeroUsize, data: Vec<u8>, offset: u64) -> Self {
-            Self { inner: AsyncDataSourceReaderInner::Readable { data: Cursor::new(data), offset }, part_number }
+            Self {
+                inner: AsyncDataSourceReaderInner::Readable {
+                    data: Cursor::new(data),
+                    offset,
+                },
+                part_number,
+            }
         }
 
         pub(in super::super) fn part_number(&self) -> NonZeroUsize {

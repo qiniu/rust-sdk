@@ -1,7 +1,7 @@
 use super::{
     super::{
         callbacks::{Callbacks, UploadingProgressInfo},
-        data_source::SourceKey,
+        data_source::{Digestible, SourceKey},
         upload_token::OwnedUploadTokenProviderOrReferenced,
         DataPartitionProvider, DataPartitionProviderFeedback, DataSourceReader, LimitedDataPartitionProvider,
         UploaderWithCallbacks,
@@ -11,8 +11,6 @@ use super::{
     UploadManager, UploadedPart,
 };
 use dashmap::DashMap;
-use digest::Digest;
-use md5::Md5;
 use qiniu_apis::{
     base_types::StringMap,
     credential::AccessKey,
@@ -38,11 +36,13 @@ use qiniu_apis::{
     },
 };
 use qiniu_upload_token::{BucketName, ObjectName};
+use qiniu_utils::base64::urlsafe as urlsafe_base64;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha1::Sha1;
 use std::{
     fmt::Debug,
-    io::{copy as io_copy, BufRead, BufReader, Read, Result as IoResult, Write},
+    io::{BufRead, BufReader, Read, Result as IoResult, Write},
     iter::FromIterator,
     num::{NonZeroU64, NonZeroUsize},
     sync::{Arc, Mutex},
@@ -51,7 +51,7 @@ use std::{
 
 #[cfg(feature = "async")]
 use {
-    super::super::AsyncDataSourceReader,
+    super::super::{data_source::AsyncDigestible, AsyncDataSourceReader},
     futures::{
         future::{BoxFuture, OptionFuture},
         io::{AsyncRead, BufReader as AsyncBufReader},
@@ -272,14 +272,17 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
             MIN_PART_SIZE,
             MAX_PART_SIZE,
         );
+        let total_size = initialized.source.total_size()?;
         return if let Some(mut reader) = initialized.source.slice(data_partitioner_provider.part_size())? {
             if let Some(part_size) = NonZeroU64::new(reader.len()?) {
+                let progresses_key = initialized.progresses.add_new_part(part_size.into());
                 if let Some(uploaded_part) = _could_recover(
                     initialized,
                     &mut reader,
                     part_size,
                     initialized.params.uploaded_part_ttl(),
                 ) {
+                    self.after_part_uploaded(&progresses_key, total_size, Some(&uploaded_part))?;
                     Ok(Some(uploaded_part))
                 } else {
                     let path_params = make_upload_part_path_params_from_initialized_params(
@@ -291,8 +294,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                     let upload_token_signer =
                         self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
                     let upload_part = self.storage().resumable_upload_v2_upload_part();
-                    let progresses_key = initialized.progresses.add_new_part(part_size.into());
-                    let uploaded_part = if let Some(region_provider) = initialized.params.region_provider() {
+                    let uploaded_result = if let Some(region_provider) = initialized.params.region_provider() {
                         _upload_part(
                             self,
                             upload_part.new_request(
@@ -303,7 +305,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                             reader,
                             part_size,
                             initialized,
-                            progresses_key,
+                            &progresses_key,
                             &data_partitioner_provider,
                         )
                     } else {
@@ -317,12 +319,20 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                             reader,
                             part_size,
                             initialized,
-                            progresses_key,
+                            &progresses_key,
                             &data_partitioner_provider,
                         )
-                    }?;
-                    self.callbacks.part_uploaded(&uploaded_part);
-                    Ok(Some(uploaded_part))
+                    };
+                    match uploaded_result {
+                        Ok(uploaded_part) => {
+                            self.after_part_uploaded(&progresses_key, total_size, Some(&uploaded_part))?;
+                            Ok(Some(uploaded_part))
+                        }
+                        Err(err) => {
+                            self.after_part_uploaded(&progresses_key, total_size, None).ok();
+                            Err(err)
+                        }
+                    }
                 }
             } else {
                 Ok(None)
@@ -342,7 +352,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                 if record.size == part_size
                     && record.part_number == data_reader.part_number()
                     && initialized.initialized_at + uploaded_part_ttl > SystemTime::now()
-                    && Some(record.response_body.get_md_5_as_str()) == md5_of_sync_reader(data_reader).ok().as_deref()
+                    && Some(record.base64ed_sha1.as_str()) == sha1_of_sync_reader(data_reader).ok().as_deref()
                 {
                     Some(MultiPartsV2UploaderUploadedPart {
                         response_body: record.response_body.to_owned(),
@@ -360,11 +370,11 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
         fn _upload_part<'a, R: ResumableRecorder + Send + Sync + 'static, E: EndpointsProvider + Clone + 'a>(
             uploader: &'a MultiPartsV2Uploader<R>,
             mut request: SyncUploadPartRequestBuilder<'a, E>,
-            body: DataSourceReader,
+            mut body: DataSourceReader,
             content_length: NonZeroU64,
-            initialized: &MultiPartsV2UploaderInitializedObject<R>,
-            progresses_key: ProgressesKey,
-            data_partitioner_provider: &dyn DataPartitionProvider,
+            initialized: &'a MultiPartsV2UploaderInitializedObject<R>,
+            progresses_key: &'a ProgressesKey,
+            data_partitioner_provider: &'a dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV2UploaderUploadedPart> {
             let total_size = initialized.source.total_size()?;
             request.on_uploading_progress(move |_, transfer| {
@@ -377,6 +387,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
             uploader.before_request_call(request.parts_mut())?;
             let body_offset = body.offset();
             let part_number = body.part_number();
+            let base64ed_sha1 = sha1_of_sync_reader(&mut body)?;
             let begin_at = Instant::now();
             let mut response_result = request.call(body, content_length.get());
             let elapsed = begin_at.elapsed();
@@ -392,6 +403,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                 response_body,
                 offset: body_offset,
                 size: content_length,
+                base64ed_sha1,
                 part_number,
             };
             initialized
@@ -542,12 +554,14 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                 MIN_PART_SIZE,
                 MAX_PART_SIZE,
             );
+            let total_size = initialized.source.async_total_size().await?;
             if let Some(mut reader) = initialized
                 .source
                 .async_slice(data_partitioner_provider.part_size())
                 .await?
             {
                 if let Some(part_size) = NonZeroU64::new(reader.len().await?) {
+                    let progresses_key = initialized.progresses.add_new_part(part_size.get());
                     if let Some(uploaded_part) = _could_recover(
                         initialized,
                         &mut reader,
@@ -556,6 +570,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                     )
                     .await
                     {
+                        self.after_part_uploaded(&progresses_key, total_size, Some(&uploaded_part))?;
                         Ok(Some(uploaded_part))
                     } else {
                         let path_params = make_upload_part_path_params_from_initialized_params(
@@ -566,12 +581,11 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                         );
                         let upload_token_signer =
                             self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
-                        let init_parts = self.storage().resumable_upload_v2_upload_part();
-                        let progresses_key = initialized.progresses.add_new_part(part_size.get());
-                        let uploaded_part = if let Some(region_provider) = initialized.params.region_provider() {
+                        let upload_part = self.storage().resumable_upload_v2_upload_part();
+                        let uploaded_result = if let Some(region_provider) = initialized.params.region_provider() {
                             _upload_part(
                                 self,
-                                init_parts.new_async_request(
+                                upload_part.new_async_request(
                                     RegionProviderEndpoints::new(region_provider),
                                     path_params,
                                     upload_token_signer.as_ref(),
@@ -579,14 +593,14 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                                 reader,
                                 part_size,
                                 initialized,
-                                progresses_key,
+                                &progresses_key,
                                 &data_partitioner_provider,
                             )
                             .await
                         } else {
                             _upload_part(
                                 self,
-                                init_parts.new_async_request(
+                                upload_part.new_async_request(
                                     RegionProviderEndpoints::new(self.async_get_bucket_region().await?),
                                     path_params,
                                     upload_token_signer.as_ref(),
@@ -594,13 +608,21 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                                 reader,
                                 part_size,
                                 initialized,
-                                progresses_key,
+                                &progresses_key,
                                 &data_partitioner_provider,
                             )
                             .await
-                        }?;
-                        self.callbacks.part_uploaded(&uploaded_part);
-                        Ok(Some(uploaded_part))
+                        };
+                        match uploaded_result {
+                            Ok(uploaded_part) => {
+                                self.after_part_uploaded(&progresses_key, total_size, Some(&uploaded_part))?;
+                                Ok(Some(uploaded_part))
+                            }
+                            Err(err) => {
+                                self.after_part_uploaded(&progresses_key, total_size, None).ok();
+                                Err(err)
+                            }
+                        }
                     }
                 } else {
                     Ok(None)
@@ -621,8 +643,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                 if record.size == part_size
                     && record.part_number == data_reader.part_number()
                     && initialized.initialized_at + uploaded_part_ttl > SystemTime::now()
-                    && Some(record.response_body.get_md_5_as_str())
-                        == md5_of_async_reader(data_reader).await.ok().as_deref()
+                    && Some(record.base64ed_sha1.as_str()) == sha1_of_async_reader(data_reader).await.ok().as_deref()
                 {
                     Some(MultiPartsV2UploaderUploadedPart {
                         response_body: record.response_body.to_owned(),
@@ -642,11 +663,11 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
         async fn _upload_part<'a, R: ResumableRecorder + Send + Sync + 'static, E: EndpointsProvider + Clone + 'a>(
             uploader: &'a MultiPartsV2Uploader<R>,
             mut request: AsyncUploadPartRequestBuilder<'a, E>,
-            body: AsyncDataSourceReader,
+            mut body: AsyncDataSourceReader,
             content_length: NonZeroU64,
-            initialized: &MultiPartsV2UploaderInitializedObject<R>,
-            progresses_key: ProgressesKey,
-            data_partitioner_provider: &dyn DataPartitionProvider,
+            initialized: &'a MultiPartsV2UploaderInitializedObject<R>,
+            progresses_key: &'a ProgressesKey,
+            data_partitioner_provider: &'a dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV2UploaderUploadedPart> {
             let total_size = initialized.source.async_total_size().await?;
             request.on_uploading_progress(move |_, transfer| {
@@ -659,6 +680,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
             uploader.before_request_call(request.parts_mut())?;
             let body_offset = body.offset();
             let part_number = body.part_number();
+            let base64ed_sha1 = sha1_of_async_reader(&mut body).await?;
             let begin_at = Instant::now();
             let mut response_result = request.call(body, content_length.get()).await;
             let elapsed = begin_at.elapsed();
@@ -674,6 +696,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                 response_body,
                 offset: body_offset,
                 size: content_length,
+                base64ed_sha1,
                 part_number,
             };
             initialized
@@ -829,44 +852,15 @@ fn make_complete_parts_request_body_from_initialized_params(
     body
 }
 
-fn md5_of_sync_reader<R: Read + Reset>(mut reader: &mut R) -> IoResult<String> {
-    let mut hasher = Md5::new();
-    io_copy(&mut reader, &mut hasher)?;
-    reader.reset()?;
-    Ok(hex::encode(hasher.finalize().as_slice()))
+fn sha1_of_sync_reader<R: Read + Reset>(reader: &mut R) -> IoResult<String> {
+    Ok(urlsafe_base64(Digestible::<Sha1>::digest(reader)?.as_slice()))
 }
 
 #[cfg(feature = "async")]
-async fn md5_of_async_reader<R: AsyncRead + AsyncReset + Unpin>(reader: &mut R) -> IoResult<String> {
-    use futures::{
-        io::{copy as async_io_copy, sink as async_sink},
-        ready,
-    };
-    use std::{
-        pin::Pin,
-        task::{Context, Poll},
-    };
-
-    struct ReadHasher<'r, R> {
-        reader: &'r mut R,
-        md5: Md5,
-    }
-
-    impl<R: AsyncRead + Unpin> AsyncRead for ReadHasher<'_, R> {
-        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<IoResult<usize>> {
-            let size = ready!(Pin::new(&mut self.reader).poll_read(cx, buf))?;
-            self.md5.update(buf);
-            Poll::Ready(Ok(size))
-        }
-    }
-
-    let mut hasher = ReadHasher {
-        reader,
-        md5: Md5::new(),
-    };
-    async_io_copy(&mut hasher, &mut async_sink()).await?;
-    hasher.reader.reset().await?;
-    Ok(hex::encode(hasher.md5.finalize().as_slice()))
+async fn sha1_of_async_reader<R: AsyncRead + AsyncReset + Unpin + Send>(reader: &mut R) -> IoResult<String> {
+    Ok(urlsafe_base64(
+        AsyncDigestible::<Sha1>::digest(reader).await?.as_slice(),
+    ))
 }
 
 impl<R> MultiPartsV2Uploader<R> {
@@ -906,6 +900,33 @@ impl<R> MultiPartsV2Uploader<R> {
         } else {
             Ok(())
         }
+    }
+
+    fn after_part_uploaded(
+        &self,
+        progresses_key: &ProgressesKey,
+        total_size: Option<u64>,
+        uploaded_part: Option<&MultiPartsV2UploaderUploadedPart>,
+    ) -> ApiResult<()> {
+        if let Some(uploaded_part) = uploaded_part {
+            progresses_key.complete_part();
+            if self.callbacks.part_uploaded(uploaded_part).is_cancelled() {
+                return Err(make_user_cancelled_error("Cancelled by on_part_uploaded() callback"));
+            };
+        } else {
+            progresses_key.delete_part();
+        }
+        if self
+            .callbacks
+            .upload_progress(&UploadingProgressInfo::new(
+                progresses_key.current_uploaded(),
+                total_size,
+            ))
+            .is_cancelled()
+        {
+            return Err(make_user_cancelled_error("Cancelled by on_upload_progress() callback"));
+        }
+        Ok(())
     }
 }
 
@@ -1148,6 +1169,8 @@ pub struct MultiPartsV2ResumableRecorderRecord {
     response_body: UploadPartResponseBody,
     #[serde(rename = "pnum")]
     part_number: NonZeroUsize,
+    #[serde(rename = "sha1")]
+    base64ed_sha1: String,
 }
 
 #[derive(Debug)]
@@ -1372,7 +1395,7 @@ mod tests {
                     self.upload_part_counts.fetch_add(1, Ordering::Relaxed);
                     json_to_vec(&json!({
                         "etag": format!("==={}===", page_number),
-                        "md5": md5_of_sync_reader(request.body_mut()).unwrap(),
+                        "md5": "fake-md5",
                     }))
                     .unwrap()
                 } else if request.url().path() == "/buckets/fakebucket/objects/~/uploads/fakeuploadid" {
@@ -1493,7 +1516,7 @@ mod tests {
                         self.upload_part_counts.fetch_add(1, Ordering::Relaxed);
                         json_to_vec(&json!({
                             "etag": format!("==={}===", page_number),
-                            "md5": md5_of_async_reader(request.body_mut()).await.unwrap(),
+                            "md5": "fake-md5",
                         }))
                         .unwrap()
                     } else if request.url().path() == "/buckets/fakebucket/objects/~/uploads/fakeuploadid" {
@@ -1622,7 +1645,7 @@ mod tests {
                         assert_eq!(self.upload_part_counts.fetch_add(1, Ordering::Relaxed), 0);
                         json_to_vec(&json!({
                             "etag": format!("==={}===", page_number),
-                            "md5": md5_of_sync_reader(request.body_mut()).unwrap(),
+                            "md5": "fake-md5",
                         }))
                         .unwrap()
                     } else {
@@ -1709,7 +1732,7 @@ mod tests {
                         assert_eq!(self.upload_part_counts.fetch_add(1, Ordering::Relaxed), 0);
                         json_to_vec(&json!({
                             "etag": format!("==={}===", page_number),
-                            "md5": md5_of_sync_reader(request.body_mut()).unwrap(),
+                            "md5": "fake-md5",
                         }))
                         .unwrap()
                     } else if request.url().path() == "/buckets/fakebucket/objects/~/uploads/fakeuploadid" {
@@ -1839,7 +1862,7 @@ mod tests {
                             assert_eq!(self.upload_part_counts.fetch_add(1, Ordering::Relaxed), 0);
                             json_to_vec(&json!({
                                 "etag": format!("==={}===", page_number),
-                                "md5": md5_of_async_reader(request.body_mut()).await.unwrap(),
+                                "md5": "fake-md5",
                             }))
                             .unwrap()
                         } else {
@@ -1930,7 +1953,7 @@ mod tests {
                             assert_eq!(self.upload_part_counts.fetch_add(1, Ordering::Relaxed), 0);
                             json_to_vec(&json!({
                                 "etag": format!("==={}===", page_number),
-                                "md5": md5_of_async_reader(request.body_mut()).await.unwrap(),
+                                "md5": "fake-md5",
                             }))
                             .unwrap()
                         } else if request.url().path() == "/buckets/fakebucket/objects/~/uploads/fakeuploadid" {

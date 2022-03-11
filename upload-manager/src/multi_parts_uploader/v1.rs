@@ -1,7 +1,7 @@
 use super::{
     super::{
         callbacks::{Callbacks, UploadingProgressInfo},
-        data_source::SourceKey,
+        data_source::{Digestible, SourceKey},
         upload_token::OwnedUploadTokenProviderOrReferenced,
         DataPartitionProvider, DataPartitionProviderFeedback, DataSourceReader, MultiplyDataPartitionProvider,
         UploaderWithCallbacks,
@@ -11,7 +11,6 @@ use super::{
     UploadManager, UploadedPart,
 };
 use dashmap::DashMap;
-use digest::Digest;
 use qiniu_apis::{
     credential::AccessKey,
     http::{Reset, ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
@@ -37,7 +36,7 @@ use serde_json::Value;
 use sha1::Sha1;
 use std::{
     fmt::Debug,
-    io::{copy as io_copy, BufRead, BufReader, Cursor, Read, Result as IoResult, Write},
+    io::{BufRead, BufReader, Cursor, Read, Result as IoResult, Write},
     iter::FromIterator,
     num::NonZeroU64,
     sync::{Arc, Mutex},
@@ -46,7 +45,7 @@ use std::{
 
 #[cfg(feature = "async")]
 use {
-    super::super::AsyncDataSourceReader,
+    super::super::{data_source::AsyncDigestible, AsyncDataSourceReader},
     async_std::io::Cursor as AsyncCursor,
     futures::{
         future::{BoxFuture, OptionFuture},
@@ -670,44 +669,15 @@ fn make_mkfile_request_body_from_uploaded_parts(mut parts: Vec<MultiPartsV1Uploa
         })
 }
 
-fn sha1_of_sync_reader<R: Read + Reset>(mut reader: &mut R) -> IoResult<String> {
-    let mut hasher = Sha1::new();
-    io_copy(&mut reader, &mut hasher)?;
-    reader.reset()?;
-    Ok(urlsafe_base64(hasher.finalize().as_slice()))
+fn sha1_of_sync_reader<R: Read + Reset>(reader: &mut R) -> IoResult<String> {
+    Ok(urlsafe_base64(Digestible::<Sha1>::digest(reader)?.as_slice()))
 }
 
 #[cfg(feature = "async")]
-async fn sha1_of_async_reader<R: AsyncRead + AsyncReset + Unpin>(reader: &mut R) -> IoResult<String> {
-    use futures::{
-        io::{copy as async_io_copy, sink as async_sink},
-        ready,
-    };
-    use std::{
-        pin::Pin,
-        task::{Context, Poll},
-    };
-
-    struct ReadHasher<'r, R> {
-        reader: &'r mut R,
-        sha1: Sha1,
-    }
-
-    impl<R: AsyncRead + Unpin> AsyncRead for ReadHasher<'_, R> {
-        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<IoResult<usize>> {
-            let size = ready!(Pin::new(&mut self.reader).poll_read(cx, buf))?;
-            self.sha1.update(buf);
-            Poll::Ready(Ok(size))
-        }
-    }
-
-    let mut hasher = ReadHasher {
-        reader,
-        sha1: Sha1::new(),
-    };
-    async_io_copy(&mut hasher, &mut async_sink()).await?;
-    hasher.reader.reset().await?;
-    Ok(urlsafe_base64(hasher.sha1.finalize().as_slice()))
+async fn sha1_of_async_reader<R: AsyncRead + AsyncReset + Unpin + Send>(reader: &mut R) -> IoResult<String> {
+    Ok(urlsafe_base64(
+        AsyncDigestible::<Sha1>::digest(reader).await?.as_slice(),
+    ))
 }
 
 impl<R> MultiPartsV1Uploader<R> {
