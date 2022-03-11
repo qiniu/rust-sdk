@@ -91,7 +91,7 @@ async fn main() -> Result<()> {
         CallbackResult::Continue
     };
     let part_uploaded = |part: &dyn UploadedPart| {
-        println!("Uploaded Part: {}", part.offset());
+        println!("Uploaded Part: {}, is resumed: {}", part.offset(), part.resumed());
         CallbackResult::Continue
     };
 

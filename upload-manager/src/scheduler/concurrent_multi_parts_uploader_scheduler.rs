@@ -55,7 +55,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
             concurrency_provider: Arc::new(FixedConcurrencyProvider::new_with_non_zero_concurrency(
                 #[allow(unsafe_code)]
                 unsafe {
-                    NonZeroUsize::new_unchecked(num_cpus::get())
+                    NonZeroUsize::new_unchecked(4)
                 },
             )),
             multi_parts_uploader: Arc::new(multi_parts_uploader),

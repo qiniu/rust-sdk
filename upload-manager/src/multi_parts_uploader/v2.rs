@@ -372,7 +372,6 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                 uploader.callbacks.upload_progress(&UploadingProgressInfo::new(
                     progresses_key.current_uploaded(),
                     total_size,
-                    transfer.body(),
                 ))
             });
             uploader.before_request_call(request.parts_mut())?;
@@ -655,7 +654,6 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                 uploader.callbacks.upload_progress(&UploadingProgressInfo::new(
                     progresses_key.current_uploaded(),
                     total_size,
-                    transfer.body(),
                 ))
             });
             uploader.before_request_call(request.parts_mut())?;

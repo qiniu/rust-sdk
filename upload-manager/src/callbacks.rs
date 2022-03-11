@@ -141,19 +141,17 @@ impl<'a> Debug for Callbacks<'a> {
     }
 }
 
-pub struct UploadingProgressInfo<'b> {
+pub struct UploadingProgressInfo {
     transferred_bytes: u64,
     total_bytes: Option<u64>,
-    body: &'b [u8],
 }
 
-impl<'b> UploadingProgressInfo<'b> {
+impl UploadingProgressInfo {
     #[inline]
-    pub fn new(transferred_bytes: u64, total_bytes: Option<u64>, body: &'b [u8]) -> Self {
+    pub fn new(transferred_bytes: u64, total_bytes: Option<u64>) -> Self {
         Self {
             transferred_bytes,
             total_bytes,
-            body,
         }
     }
 
@@ -166,16 +164,11 @@ impl<'b> UploadingProgressInfo<'b> {
     pub fn total_bytes(&self) -> Option<u64> {
         self.total_bytes
     }
-
-    #[inline]
-    pub fn body(&self) -> &[u8] {
-        self.body
-    }
 }
 
-impl<'b> From<&'b TransferProgressInfo<'b>> for UploadingProgressInfo<'b> {
+impl<'a> From<&'a TransferProgressInfo<'a>> for UploadingProgressInfo {
     #[inline]
-    fn from(t: &'b TransferProgressInfo<'b>) -> Self {
-        Self::new(t.transferred_bytes(), Some(t.total_bytes()), t.body())
+    fn from(t: &'a TransferProgressInfo<'a>) -> Self {
+        Self::new(t.transferred_bytes(), Some(t.total_bytes()))
     }
 }

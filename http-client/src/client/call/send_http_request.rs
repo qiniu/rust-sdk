@@ -1,12 +1,12 @@
 use super::{
     super::{
-        BackoffOptions, RequestParts, RequestRetrierOptions, ResponseError, RetriedStatsInfo,
-        RetryDecision, SimplifiedCallbackContext, SyncResponse,
+        BackoffOptions, RequestParts, RequestRetrierOptions, ResponseError, RetriedStatsInfo, RetryDecision,
+        SimplifiedCallbackContext, SyncResponse,
     },
     error::TryError,
     utils::{
-        call_after_backoff_callbacks, call_before_backoff_callbacks, call_error_callbacks,
-        call_response_callbacks, judge,
+        call_after_backoff_callbacks, call_before_backoff_callbacks, call_error_callbacks, call_response_callbacks,
+        judge,
     },
 };
 use qiniu_http::{RequestParts as HttpRequestParts, SyncRequest as SyncHttpRequest};
@@ -24,8 +24,7 @@ pub(super) fn send_http_request(
             .call(http_request)
             .map_err(ResponseError::from)
             .and_then(|response| {
-                call_response_callbacks(parts, http_request, retried, response.parts())
-                    .map(|_| response)
+                call_response_callbacks(parts, http_request, retried, response.parts()).map(|_| response)
             })
             .map(SyncResponse::new)
             .and_then(|response| judge(response, retried))
@@ -120,15 +119,13 @@ mod async_send {
                 .await
                 .map_err(ResponseError::from)
                 .and_then(|response| {
-                    call_response_callbacks(parts, http_request, retried, response.parts())
-                        .map(|_| response)
+                    call_response_callbacks(parts, http_request, retried, response.parts()).map(|_| response)
                 })
                 .map(AsyncResponse::new);
             if let Ok(resp) = response {
                 response = async_judge(resp, retried).await
             };
-            let response =
-                response.map_err(|err| handle_response_error(err, http_request, parts, retried));
+            let response = response.map_err(|err| handle_response_error(err, http_request, parts, retried));
             match response {
                 Ok(response) => {
                     return Ok(response);

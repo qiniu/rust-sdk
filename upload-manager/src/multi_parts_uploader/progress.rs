@@ -22,6 +22,10 @@ impl ProgressesKey {
         self.progresses.complete_part(self)
     }
 
+    pub(super) fn delete_part(&self) -> bool {
+        self.progresses.delete_part(self)
+    }
+
     pub(super) fn current_uploaded(&self) -> u64 {
         self.progresses.current_uploaded()
     }
@@ -40,13 +44,6 @@ impl Hash for ProgressesKey {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.index.hash(state);
-    }
-}
-
-impl Drop for ProgressesKey {
-    #[inline]
-    fn drop(&mut self) {
-        self.complete_part();
     }
 }
 
@@ -85,6 +82,10 @@ impl Progresses {
 
     pub(super) fn complete_part(&self, key: &ProgressesKey) -> bool {
         self.try_write(move |inner| inner.complete_part(key.index, key.total_size))
+    }
+
+    pub(super) fn delete_part(&self, key: &ProgressesKey) -> bool {
+        self.try_write(move |inner| inner.delete_part(key.index))
     }
 
     pub(super) fn current_uploaded(&self) -> u64 {

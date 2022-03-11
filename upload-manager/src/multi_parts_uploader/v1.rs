@@ -201,22 +201,24 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
     ) -> ApiResult<Option<Self::UploadedPart>> {
         let data_partitioner_provider =
             MultiplyDataPartitionProvider::new_with_non_zero_multiply(data_partitioner_provider, PART_SIZE);
+        let total_size = initialized.source.total_size()?;
         return if let Some(mut reader) = initialized.source.slice(data_partitioner_provider.part_size())? {
             if let Some(part_size) = NonZeroU64::new(reader.len()?) {
+                let progresses_key = initialized.progresses.add_new_part(part_size.into());
                 if let Some(uploaded_part) = _could_recover(
                     initialized,
                     &mut reader,
                     part_size,
                     initialized.params.uploaded_part_ttl(),
                 ) {
+                    self.after_part_uploaded(&progresses_key, total_size, Some(&uploaded_part))?;
                     Ok(Some(uploaded_part))
                 } else {
                     let params = MkBlkPathParams::default().set_block_size_as_u64(part_size.into());
                     let upload_token_signer =
                         self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
                     let mkblk = self.storage().resumable_upload_v1_make_block();
-                    let progresses_key = initialized.progresses.add_new_part(part_size.into());
-                    let uploaded_part = if let Some(region_provider) = initialized.params.region_provider() {
+                    let uploaded_result = if let Some(region_provider) = initialized.params.region_provider() {
                         _upload_part(
                             self,
                             mkblk.new_request(
@@ -226,7 +228,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                             ),
                             reader,
                             part_size,
-                            progresses_key,
+                            &progresses_key,
                             initialized,
                             &data_partitioner_provider,
                         )
@@ -240,13 +242,21 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                             ),
                             reader,
                             part_size,
-                            progresses_key,
+                            &progresses_key,
                             initialized,
                             &data_partitioner_provider,
                         )
-                    }?;
-                    self.callbacks.part_uploaded(&uploaded_part);
-                    Ok(Some(uploaded_part))
+                    };
+                    match uploaded_result {
+                        Ok(uploaded_part) => {
+                            self.after_part_uploaded(&progresses_key, total_size, Some(&uploaded_part))?;
+                            Ok(Some(uploaded_part))
+                        }
+                        Err(err) => {
+                            self.after_part_uploaded(&progresses_key, total_size, None).ok();
+                            Err(err)
+                        }
+                    }
                 }
             } else {
                 Ok(None)
@@ -266,8 +276,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                 if record.size == part_size
                     && UNIX_EPOCH + Duration::from_secs(record.uploaded_timestamp) + uploaded_part_ttl
                         > SystemTime::now()
-                    && Some(record.response_body.get_checksum_as_str())
-                        == sha1_of_sync_reader(data_reader).ok().as_deref()
+                    && Some(record.base64ed_sha1.as_str()) == sha1_of_sync_reader(data_reader).ok().as_deref()
                 {
                     Some(MultiPartsV1UploaderUploadedPart {
                         response_body: record.response_body.to_owned(),
@@ -285,11 +294,11 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
         fn _upload_part<'a, R: ResumableRecorder + Send + Sync + 'static, E: EndpointsProvider + Clone + 'a>(
             uploader: &'a MultiPartsV1Uploader<R>,
             mut request: SyncMkBlkRequestBuilder<'a, E>,
-            body: DataSourceReader,
+            mut body: DataSourceReader,
             content_length: NonZeroU64,
-            progresses_key: ProgressesKey,
-            initialized: &MultiPartsV1UploaderInitializedObject<R>,
-            data_partitioner_provider: &dyn DataPartitionProvider,
+            progresses_key: &'a ProgressesKey,
+            initialized: &'a MultiPartsV1UploaderInitializedObject<R>,
+            data_partitioner_provider: &'a dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV1UploaderUploadedPart> {
             let total_size = initialized.source.total_size()?;
             request.on_uploading_progress(move |_, transfer| {
@@ -297,10 +306,10 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                 uploader.callbacks.upload_progress(&UploadingProgressInfo::new(
                     progresses_key.current_uploaded(),
                     total_size,
-                    transfer.body(),
                 ))
             });
             uploader.before_request_call(request.parts_mut())?;
+            let base64ed_sha1 = sha1_of_sync_reader(&mut body)?;
             let body_offset = body.offset();
             let begin_at = Instant::now();
             let mut response_result = request.call(body, content_length.get());
@@ -317,6 +326,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                 response_body,
                 offset: body_offset,
                 size: content_length,
+                base64ed_sha1,
                 uploaded_timestamp: SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs()),
             };
             initialized.recovered_records.persist(&record).ok();
@@ -409,12 +419,14 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
         return Box::pin(async move {
             let data_partitioner_provider =
                 MultiplyDataPartitionProvider::new_with_non_zero_multiply(data_partitioner_provider, PART_SIZE);
+            let total_size = initialized.source.async_total_size().await?;
             if let Some(mut reader) = initialized
                 .source
                 .async_slice(data_partitioner_provider.part_size())
                 .await?
             {
                 if let Some(part_size) = NonZeroU64::new(reader.len().await?) {
+                    let progresses_key = initialized.progresses.add_new_part(part_size.into());
                     if let Some(uploaded_part) = _could_recover(
                         initialized,
                         &mut reader,
@@ -423,14 +435,14 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                     )
                     .await
                     {
+                        self.after_part_uploaded(&progresses_key, total_size, Some(&uploaded_part))?;
                         Ok(Some(uploaded_part))
                     } else {
                         let params = MkBlkPathParams::default().set_block_size_as_u64(part_size.into());
                         let upload_token_signer =
                             self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
                         let mkblk = self.storage().resumable_upload_v1_make_block();
-                        let progresses_key = initialized.progresses.add_new_part(part_size.into());
-                        let uploaded_part = if let Some(region_provider) = initialized.params.region_provider() {
+                        let uploaded_result = if let Some(region_provider) = initialized.params.region_provider() {
                             _upload_part(
                                 self,
                                 mkblk.new_async_request(
@@ -440,7 +452,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                                 ),
                                 reader,
                                 part_size,
-                                progresses_key,
+                                &progresses_key,
                                 initialized,
                                 &data_partitioner_provider,
                             )
@@ -455,14 +467,22 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                                 ),
                                 reader,
                                 part_size,
-                                progresses_key,
+                                &progresses_key,
                                 initialized,
                                 &data_partitioner_provider,
                             )
                             .await
-                        }?;
-                        self.callbacks.part_uploaded(&uploaded_part);
-                        Ok(Some(uploaded_part))
+                        };
+                        match uploaded_result {
+                            Ok(uploaded_part) => {
+                                self.after_part_uploaded(&progresses_key, total_size, Some(&uploaded_part))?;
+                                Ok(Some(uploaded_part))
+                            }
+                            Err(err) => {
+                                self.after_part_uploaded(&progresses_key, total_size, None).ok();
+                                Err(err)
+                            }
+                        }
                     }
                 } else {
                     Ok(None)
@@ -483,8 +503,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                 if record.size == part_size
                     && UNIX_EPOCH + Duration::from_secs(record.uploaded_timestamp) + uploaded_part_ttl
                         > SystemTime::now()
-                    && Some(record.response_body.get_checksum_as_str())
-                        == sha1_of_async_reader(data_reader).await.ok().as_deref()
+                    && Some(record.base64ed_sha1.as_str()) == sha1_of_async_reader(data_reader).await.ok().as_deref()
                 {
                     Some(MultiPartsV1UploaderUploadedPart {
                         response_body: record.response_body.to_owned(),
@@ -504,11 +523,11 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
         async fn _upload_part<'a, R: ResumableRecorder + Send + Sync + 'static, E: EndpointsProvider + Clone + 'a>(
             uploader: &'a MultiPartsV1Uploader<R>,
             mut request: AsyncMkBlkRequestBuilder<'a, E>,
-            body: AsyncDataSourceReader,
+            mut body: AsyncDataSourceReader,
             content_length: NonZeroU64,
-            progresses_key: ProgressesKey,
-            initialized: &MultiPartsV1UploaderInitializedObject<R>,
-            data_partitioner_provider: &dyn DataPartitionProvider,
+            progresses_key: &'a ProgressesKey,
+            initialized: &'a MultiPartsV1UploaderInitializedObject<R>,
+            data_partitioner_provider: &'a dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV1UploaderUploadedPart> {
             let total_size = initialized.source.async_total_size().await?;
             request.on_uploading_progress(move |_, transfer| {
@@ -516,11 +535,11 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                 uploader.callbacks.upload_progress(&UploadingProgressInfo::new(
                     progresses_key.current_uploaded(),
                     total_size,
-                    transfer.body(),
                 ))
             });
             uploader.before_request_call(request.parts_mut())?;
             let body_offset = body.offset();
+            let base64ed_sha1 = sha1_of_async_reader(&mut body).await?;
             let begin_at = Instant::now();
             let mut response_result = request.call(body, content_length.get()).await;
             let elapsed = begin_at.elapsed();
@@ -536,6 +555,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
                 response_body,
                 offset: body_offset,
                 size: content_length,
+                base64ed_sha1,
                 uploaded_timestamp: SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs()),
             };
             initialized.recovered_records.async_persist(&record).await.ok();
@@ -727,6 +747,33 @@ impl<R> MultiPartsV1Uploader<R> {
         } else {
             Ok(())
         }
+    }
+
+    fn after_part_uploaded(
+        &self,
+        progresses_key: &ProgressesKey,
+        total_size: Option<u64>,
+        uploaded_part: Option<&MultiPartsV1UploaderUploadedPart>,
+    ) -> ApiResult<()> {
+        if let Some(uploaded_part) = uploaded_part {
+            progresses_key.complete_part();
+            if self.callbacks.part_uploaded(uploaded_part).is_cancelled() {
+                return Err(make_user_cancelled_error("Cancelled by on_part_uploaded() callback"));
+            };
+        } else {
+            progresses_key.delete_part();
+        }
+        if self
+            .callbacks
+            .upload_progress(&UploadingProgressInfo::new(
+                progresses_key.current_uploaded(),
+                total_size,
+            ))
+            .is_cancelled()
+        {
+            return Err(make_user_cancelled_error("Cancelled by on_upload_progress() callback"));
+        }
+        Ok(())
     }
 }
 
@@ -921,6 +968,8 @@ struct MultiPartsV1ResumableRecorderRecord {
     response_body: MkBlkResponseBody,
     #[serde(rename = "upat")]
     uploaded_timestamp: u64,
+    #[serde(rename = "sha1")]
+    base64ed_sha1: String,
 }
 
 #[derive(Debug)]
