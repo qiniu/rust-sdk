@@ -1,6 +1,6 @@
 use super::{
-    upload_token::UploadTokenSigner, FormUploader, MultiPartsUploader, MultiPartsV1Uploader,
-    MultiPartsV2Uploader, ResumableRecorder, SinglePartUploader,
+    upload_token::UploadTokenSigner, AutoUploader, AutoUploaderBuilder, FormUploader, MultiPartsUploader,
+    MultiPartsV1Uploader, MultiPartsV2Uploader, ResumableRecorder, SinglePartUploader,
 };
 use qiniu_apis::{
     http_client::{BucketRegionsQueryer, BucketRegionsQueryerBuilder, Endpoints, HttpClient},
@@ -76,6 +76,20 @@ impl UploadManager {
         resumable_recorder: R,
     ) -> MultiPartsV2Uploader<R> {
         MultiPartsV2Uploader::new(self.to_owned(), resumable_recorder)
+    }
+
+    #[inline]
+    pub fn auto_uploader<CP: Default, DPP: Default, RR: Default, RPP: Default>(
+        &self,
+    ) -> AutoUploader<CP, DPP, RR, RPP> {
+        AutoUploader::<CP, DPP, RR, RPP>::new(self.to_owned())
+    }
+
+    #[inline]
+    pub fn auto_uploader_builder<CP: Default, DPP: Default, RR: Default, RPP: Default>(
+        &self,
+    ) -> AutoUploaderBuilder<CP, DPP, RR, RPP> {
+        AutoUploader::<CP, DPP, RR, RPP>::builder(self.to_owned())
     }
 }
 

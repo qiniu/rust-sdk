@@ -25,18 +25,9 @@ pub trait ResumableRecorder: Debug + Sync + Send {
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     type AsyncAppendOnlyMedium: AppendOnlyAsyncResumableRecorderMedium;
 
-    fn open_for_read(
-        &self,
-        source_key: &SourceKey<Self::HashAlgorithm>,
-    ) -> IoResult<Self::ReadOnlyMedium>;
-    fn open_for_append(
-        &self,
-        source_key: &SourceKey<Self::HashAlgorithm>,
-    ) -> IoResult<Self::AppendOnlyMedium>;
-    fn open_for_create_new(
-        &self,
-        source_key: &SourceKey<Self::HashAlgorithm>,
-    ) -> IoResult<Self::AppendOnlyMedium>;
+    fn open_for_read(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::ReadOnlyMedium>;
+    fn open_for_append(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::AppendOnlyMedium>;
+    fn open_for_create_new(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::AppendOnlyMedium>;
     fn delete(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<()>;
 
     #[cfg(feature = "async")]
@@ -62,10 +53,7 @@ pub trait ResumableRecorder: Debug + Sync + Send {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_delete<'a>(
-        &'a self,
-        source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<()>>;
+    fn async_delete<'a>(&'a self, source_key: &'a SourceKey<Self::HashAlgorithm>) -> BoxFuture<'a, IoResult<()>>;
 }
 
 pub trait ReadOnlyResumableRecorderMedium: Read + Debug + Sync + Send {}

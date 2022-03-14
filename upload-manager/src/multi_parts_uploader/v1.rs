@@ -165,6 +165,21 @@ impl<R> MultiPartsUploaderWithCallbacks for MultiPartsV1Uploader<R> {
     }
 }
 
+impl<R> MultiPartsV1Uploader<R> {
+    #[inline]
+    pub(crate) fn new_with_callbacks(
+        upload_manager: UploadManager,
+        callbacks: Callbacks<'static>,
+        resumable_recorder: R,
+    ) -> Self {
+        Self {
+            upload_manager,
+            resumable_recorder,
+            callbacks,
+        }
+    }
+}
+
 impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader<R> {
     type ResumableRecorder = R;
     type InitializedParts = MultiPartsV1UploaderInitializedObject<R>;

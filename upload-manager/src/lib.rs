@@ -15,6 +15,7 @@
     unused_qualifications
 )]
 
+mod auto_uploader;
 mod callbacks;
 mod concurrency_provider;
 mod data_partition_provider;
@@ -30,14 +31,17 @@ mod upload_token;
 
 pub use qiniu_apis as apis;
 
+pub use auto_uploader::{
+    AutoUploader, AutoUploaderBuilder, AutoUploaderObjectParams, AutoUploaderObjectParamsBuilder,
+    MultiPartsUploaderPrefer, MultiPartsUploaderSchedulerPrefer, SinglePartUploaderPrefer,
+};
 pub use callbacks::{MultiPartsUploaderWithCallbacks, UploaderWithCallbacks, UploadingProgressInfo};
 pub use concurrency_provider::{
     Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, FixedConcurrencyProvider,
-    TimeAwareConcurrencyProvider,
 };
 pub use data_partition_provider::{
     DataPartitionProvider, DataPartitionProviderFeedback, FixedDataPartitionProvider, LimitedDataPartitionProvider,
-    MultiplyDataPartitionProvider, PartSize, TimeAwareDataPartitionProvider,
+    MultiplyDataPartitionProvider, PartSize,
 };
 pub use data_source::{DataSource, DataSourceReader, FileDataSource, SeekableSource, SourceKey, UnseekableDataSource};
 pub use multi_parts_uploader::{
@@ -47,7 +51,7 @@ pub use multi_parts_uploader::{
 };
 pub use object_params::{ObjectParams, ObjectParamsBuilder};
 pub use resumable_policy::{
-    AlwaysMultiParts, AlwaysSinglePart, FixedThresholdResumablePolicy, GetPolicyOptions,
+    AlwaysMultiParts, AlwaysSinglePart, DynRead, FixedThresholdResumablePolicy, GetPolicyOptions,
     MultiplePartitionsResumablePolicyProvider, ResumablePolicy, ResumablePolicyProvider,
 };
 pub use resumable_recorder::{
@@ -65,6 +69,7 @@ pub use upload_token::UploadTokenSigner;
 #[cfg(feature = "async")]
 pub use {
     data_source::{AsyncDataSourceReader, AsyncSeekableSource, AsyncUnseekableDataSource},
+    resumable_policy::DynAsyncRead,
     resumable_recorder::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium},
 };
 
@@ -78,5 +83,5 @@ pub mod prelude {
     };
 
     #[cfg(feature = "async")]
-    pub use super::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium};
+    pub use super::{AppendOnlyAsyncResumableRecorderMedium, DynAsyncRead, ReadOnlyAsyncResumableRecorderMedium};
 }

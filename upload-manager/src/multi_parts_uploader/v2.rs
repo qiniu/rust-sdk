@@ -180,6 +180,21 @@ impl<R> UploaderWithCallbacks for MultiPartsV2Uploader<R> {
     }
 }
 
+impl<R> MultiPartsV2Uploader<R> {
+    #[inline]
+    pub(crate) fn new_with_callbacks(
+        upload_manager: UploadManager,
+        callbacks: Callbacks<'static>,
+        resumable_recorder: R,
+    ) -> Self {
+        Self {
+            upload_manager,
+            resumable_recorder,
+            callbacks,
+        }
+    }
+}
+
 impl<R> MultiPartsUploaderWithCallbacks for MultiPartsV2Uploader<R> {
     #[inline]
     fn on_part_uploaded<F: Fn(&dyn UploadedPart) -> CallbackResult + Send + Sync + 'static>(

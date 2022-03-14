@@ -32,6 +32,16 @@ pub struct FormUploader {
     callbacks: Callbacks<'static>,
 }
 
+impl FormUploader {
+    #[inline]
+    pub(crate) fn new_with_callbacks(upload_manager: UploadManager, callbacks: Callbacks<'static>) -> Self {
+        Self {
+            upload_manager,
+            callbacks,
+        }
+    }
+}
+
 impl UploaderWithCallbacks for FormUploader {
     #[inline]
     fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static>(

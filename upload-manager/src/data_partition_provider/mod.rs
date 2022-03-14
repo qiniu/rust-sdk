@@ -133,9 +133,6 @@ impl<'f> DataPartitionProviderFeedback<'f> {
 mod fixed;
 pub use fixed::FixedDataPartitionProvider;
 
-mod time_aware;
-pub use time_aware::TimeAwareDataPartitionProvider;
-
 mod limited;
 pub use limited::LimitedDataPartitionProvider;
 

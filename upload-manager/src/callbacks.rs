@@ -3,13 +3,16 @@ use qiniu_apis::{
     http::{ResponseParts, TransferProgressInfo},
     http_client::{CallbackResult, RequestBuilderParts, Response, ResponseError},
 };
-use std::fmt::{self, Debug};
+use std::{
+    fmt::{self, Debug},
+    sync::Arc,
+};
 
-type BeforeRequestCallback<'c> = Box<dyn Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'c>;
-type UploadProgressCallback<'c> = Box<dyn Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'c>;
-type PartUploadedCallback<'c> = Box<dyn Fn(&dyn UploadedPart) -> CallbackResult + Send + Sync + 'c>;
-type AfterResponseOkCallback<'c> = Box<dyn Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'c>;
-type AfterResponseErrorCallback<'c> = Box<dyn Fn(&ResponseError) -> CallbackResult + Send + Sync + 'c>;
+type BeforeRequestCallback<'c> = Arc<dyn Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'c>;
+type UploadProgressCallback<'c> = Arc<dyn Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'c>;
+type PartUploadedCallback<'c> = Arc<dyn Fn(&dyn UploadedPart) -> CallbackResult + Send + Sync + 'c>;
+type AfterResponseOkCallback<'c> = Arc<dyn Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'c>;
+type AfterResponseErrorCallback<'c> = Arc<dyn Fn(&ResponseError) -> CallbackResult + Send + Sync + 'c>;
 
 pub trait UploaderWithCallbacks {
     fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static>(
@@ -37,7 +40,7 @@ pub trait MultiPartsUploaderWithCallbacks: UploaderWithCallbacks {
     ) -> &mut Self;
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(super) struct Callbacks<'a> {
     before_request_callbacks: Vec<BeforeRequestCallback<'a>>,
     upload_progress_callbacks: Vec<UploadProgressCallback<'a>>,
@@ -51,7 +54,7 @@ impl<'a> Callbacks<'a> {
         &mut self,
         callback: impl Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.before_request_callbacks.push(Box::new(callback));
+        self.before_request_callbacks.push(Arc::new(callback));
         self
     }
 
@@ -59,7 +62,7 @@ impl<'a> Callbacks<'a> {
         &mut self,
         callback: impl Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.upload_progress_callbacks.push(Box::new(callback));
+        self.upload_progress_callbacks.push(Arc::new(callback));
         self
     }
 
@@ -67,7 +70,7 @@ impl<'a> Callbacks<'a> {
         &mut self,
         callback: impl Fn(&dyn UploadedPart) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.part_uploaded_callbacks.push(Box::new(callback));
+        self.part_uploaded_callbacks.push(Arc::new(callback));
         self
     }
 
@@ -75,7 +78,7 @@ impl<'a> Callbacks<'a> {
         &mut self,
         callback: impl Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.after_response_ok_callbacks.push(Box::new(callback));
+        self.after_response_ok_callbacks.push(Arc::new(callback));
         self
     }
 
@@ -83,7 +86,7 @@ impl<'a> Callbacks<'a> {
         &mut self,
         callback: impl Fn(&ResponseError) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.after_response_error_callbacks.push(Box::new(callback));
+        self.after_response_error_callbacks.push(Arc::new(callback));
         self
     }
 
@@ -116,19 +119,24 @@ impl<'a> Callbacks<'a> {
 
     pub(super) fn after_response<B>(&self, result: &mut Result<Response<B>, ResponseError>) -> CallbackResult {
         match result {
-            Ok(response) => {
-                for callback in self.after_response_ok_callbacks.iter() {
-                    if callback(response.parts_mut()) == CallbackResult::Cancel {
-                        return CallbackResult::Cancel;
-                    }
-                }
+            Ok(response) => self.after_response_ok(response.parts_mut()),
+            Err(err) => self.after_response_error(err),
+        }
+    }
+
+    fn after_response_ok(&self, response_parts: &mut ResponseParts) -> CallbackResult {
+        for callback in self.after_response_ok_callbacks.iter() {
+            if callback(response_parts) == CallbackResult::Cancel {
+                return CallbackResult::Cancel;
             }
-            Err(err) => {
-                for callback in self.after_response_error_callbacks.iter() {
-                    if callback(err) == CallbackResult::Cancel {
-                        return CallbackResult::Cancel;
-                    }
-                }
+        }
+        CallbackResult::Continue
+    }
+
+    fn after_response_error(&self, error: &ResponseError) -> CallbackResult {
+        for callback in self.after_response_error_callbacks.iter() {
+            if callback(error) == CallbackResult::Cancel {
+                return CallbackResult::Cancel;
             }
         }
         CallbackResult::Continue

@@ -22,6 +22,18 @@ impl FixedConcurrencyProvider {
     }
 }
 
+impl Default for FixedConcurrencyProvider {
+    #[inline]
+    fn default() -> Self {
+        Self::new_with_non_zero_concurrency(
+            #[allow(unsafe_code)]
+            unsafe {
+                NonZeroUsize::new_unchecked(4)
+            },
+        )
+    }
+}
+
 impl ConcurrencyProvider for FixedConcurrencyProvider {
     #[inline]
     fn concurrency(&self) -> Concurrency {

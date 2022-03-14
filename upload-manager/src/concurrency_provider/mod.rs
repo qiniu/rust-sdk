@@ -128,6 +128,3 @@ impl<'f> ConcurrencyProviderFeedback<'f> {
 
 mod fixed;
 pub use fixed::FixedConcurrencyProvider;
-
-mod time_aware;
-pub use time_aware::TimeAwareConcurrencyProvider;

@@ -40,10 +40,7 @@ pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_access_key<'a>(
-        &'a self,
-        opts: &'a GetAccessKeyOptions,
-    ) -> AsyncParseResult<'a, GotAccessKey> {
+    fn async_access_key<'a>(&'a self, opts: &'a GetAccessKeyOptions) -> AsyncParseResult<'a, GotAccessKey> {
         Box::pin(async move { self.access_key(opts) })
     }
 
@@ -54,10 +51,7 @@ pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_policy<'a>(
-        &'a self,
-        opts: &'a GetPolicyOptions,
-    ) -> AsyncParseResult<'a, GotUploadPolicy<'a>> {
+    fn async_policy<'a>(&'a self, opts: &'a GetPolicyOptions) -> AsyncParseResult<'a, GotUploadPolicy<'a>> {
         Box::pin(async move { self.policy(opts) })
     }
 
@@ -68,10 +62,7 @@ pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_to_token_string<'a>(
-        &'a self,
-        opts: &'a ToStringOptions,
-    ) -> AsyncIoResult<'a, GotString<'a>> {
+    fn async_to_token_string<'a>(&'a self, opts: &'a ToStringOptions) -> AsyncIoResult<'a, GotString<'a>> {
         Box::pin(async move { self.to_token_string(opts) })
     }
 }
@@ -301,10 +292,7 @@ pub trait UploadTokenProviderExt: UploadTokenProvider {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_bucket_name<'a>(
-        &'a self,
-        opts: &'a GetPolicyOptions,
-    ) -> AsyncParseResult<'a, BucketName> {
+    fn async_bucket_name<'a>(&'a self, opts: &'a GetPolicyOptions) -> AsyncParseResult<'a, BucketName> {
         Box::pin(async move {
             self.async_policy(opts).await.and_then(|policy| {
                 policy
@@ -370,8 +358,8 @@ impl UploadTokenProvider for StaticUploadTokenProvider {
                     .splitn(3, ':')
                     .last()
                     .ok_or(ParseError::InvalidUploadTokenFormat)?;
-                let decoded_policy = base64::decode(encoded_policy.as_bytes())
-                    .map_err(ParseError::Base64DecodeError)?;
+                let decoded_policy =
+                    base64::decode(encoded_policy.as_bytes()).map_err(ParseError::Base64DecodeError)?;
                 UploadPolicy::from_json(&decoded_policy).map_err(ParseError::JsonDecodeError)
             })
             .map(Cow::Borrowed)
@@ -448,11 +436,7 @@ pub struct BucketUploadTokenProvider<C: Clone> {
 impl<C: Clone> BucketUploadTokenProvider<C> {
     /// 基于存储空间和认证信息动态生成上传凭证实例
     #[inline]
-    pub fn new(
-        bucket: impl Into<BucketName>,
-        upload_token_lifetime: Duration,
-        credential: C,
-    ) -> Self {
+    pub fn new(bucket: impl Into<BucketName>, upload_token_lifetime: Duration, credential: C) -> Self {
         Self::builder(bucket, upload_token_lifetime, credential).build()
     }
 
@@ -473,16 +457,13 @@ impl<C: Clone> BucketUploadTokenProvider<C> {
     }
 
     fn make_policy(&self) -> UploadPolicy {
-        UploadPolicyBuilder::new_policy_for_bucket(
-            self.bucket.to_string(),
-            self.upload_token_lifetime,
-        )
-        .tap_mut(|policy| {
-            if let Some(on_policy_generated) = self.on_policy_generated.as_ref() {
-                on_policy_generated(policy);
-            }
-        })
-        .build()
+        UploadPolicyBuilder::new_policy_for_bucket(self.bucket.to_string(), self.upload_token_lifetime)
+            .tap_mut(|policy| {
+                if let Some(on_policy_generated) = self.on_policy_generated.as_ref() {
+                    on_policy_generated(policy);
+                }
+            })
+            .build()
     }
 }
 
@@ -529,10 +510,7 @@ pub struct BucketUploadTokenProviderBuilder<C: Clone> {
 impl<C: Clone> BucketUploadTokenProviderBuilder<C> {
     #[inline]
     #[must_use]
-    pub fn on_policy_generated(
-        mut self,
-        callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static,
-    ) -> Self {
+    pub fn on_policy_generated(mut self, callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static) -> Self {
         self.inner.on_policy_generated = Some(Arc::new(callback));
         self
     }
@@ -653,10 +631,7 @@ pub struct ObjectUploadTokenProviderBuilder<C: Clone> {
 impl<C: Clone> ObjectUploadTokenProviderBuilder<C> {
     #[inline]
     #[must_use]
-    pub fn on_policy_generated(
-        mut self,
-        callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static,
-    ) -> Self {
+    pub fn on_policy_generated(mut self, callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static) -> Self {
         self.inner.on_policy_generated = Some(Arc::new(callback));
         self
     }
@@ -830,28 +805,19 @@ impl<P: UploadTokenProvider + Clone> UploadTokenProvider for CachedUploadTokenPr
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_access_key<'a>(
-        &'a self,
-        opts: &'a GetAccessKeyOptions,
-    ) -> AsyncParseResult<'a, GotAccessKey> {
+    fn async_access_key<'a>(&'a self, opts: &'a GetAccessKeyOptions) -> AsyncParseResult<'a, GotAccessKey> {
         async_method!(self, access_key, opts, async_access_key)
     }
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_policy<'a>(
-        &'a self,
-        opts: &'a GetPolicyOptions,
-    ) -> AsyncParseResult<'a, GotUploadPolicy<'a>> {
+    fn async_policy<'a>(&'a self, opts: &'a GetPolicyOptions) -> AsyncParseResult<'a, GotUploadPolicy<'a>> {
         async_method!(self, upload_policy, opts, async_policy)
     }
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_to_token_string<'a>(
-        &'a self,
-        opts: &'a ToStringOptions,
-    ) -> AsyncIoResult<'a, GotString<'a>> {
+    fn async_to_token_string<'a>(&'a self, opts: &'a ToStringOptions) -> AsyncIoResult<'a, GotString<'a>> {
         async_method!(self, upload_token, opts, async_to_token_string)
     }
 }
@@ -887,21 +853,12 @@ mod tests {
 
     #[test]
     fn test_build_upload_token_from_upload_policy() -> Result<(), Box<dyn Error>> {
-        let policy = UploadPolicyBuilder::new_policy_for_object(
-            "test_bucket",
-            "test:file",
-            Duration::from_secs(3600),
-        )
-        .build();
+        let policy =
+            UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", Duration::from_secs(3600)).build();
         let token = FromUploadPolicy::new(policy, get_credential())
             .to_token_string(&Default::default())?
             .to_string();
-        assert!(token.starts_with(
-            get_credential()
-                .get(&Default::default())?
-                .access_key()
-                .as_str()
-        ));
+        assert!(token.starts_with(get_credential().get(&Default::default())?.access_key().as_str()));
         let token = StaticUploadTokenProvider::from(token);
         let policy = token.policy(&Default::default())?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
@@ -911,23 +868,14 @@ mod tests {
 
     #[test]
     fn test_build_upload_token_for_bucket() -> Result<(), Box<dyn Error>> {
-        let provider = BucketUploadTokenProvider::builder(
-            "test_bucket",
-            Duration::from_secs(3600),
-            get_credential(),
-        )
-        .on_policy_generated(|policy| {
-            policy.return_body("{\"key\":$(key)}");
-        })
-        .build();
+        let provider = BucketUploadTokenProvider::builder("test_bucket", Duration::from_secs(3600), get_credential())
+            .on_policy_generated(|policy| {
+                policy.return_body("{\"key\":$(key)}");
+            })
+            .build();
 
         let token = provider.to_token_string(&Default::default())?.to_string();
-        assert!(token.starts_with(
-            get_credential()
-                .get(&Default::default())?
-                .access_key()
-                .as_str()
-        ));
+        assert!(token.starts_with(get_credential().get(&Default::default())?.access_key().as_str()));
 
         let policy = provider.policy(&Default::default())?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
@@ -943,12 +891,9 @@ mod tests {
 
         #[async_std::test]
         async fn test_async_build_upload_token_from_upload_policy() -> Result<(), Box<dyn Error>> {
-            let policy = UploadPolicyBuilder::new_policy_for_object(
-                "test_bucket",
-                "test:file",
-                Duration::from_secs(3600),
-            )
-            .build();
+            let policy =
+                UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", Duration::from_secs(3600))
+                    .build();
             let token = FromUploadPolicy::new(policy, get_credential())
                 .async_to_token_string(&Default::default())
                 .await?
@@ -961,8 +906,8 @@ mod tests {
                     .as_str()
             ));
             let token = StaticUploadTokenProvider::from(token);
-            let get_policy_options = Default::default();
-            let policy = token.async_policy(&get_policy_options).await?;
+            let get_policy_from_size_options = Default::default();
+            let policy = token.async_policy(&get_policy_from_size_options).await?;
             assert_eq!(policy.bucket(), Some("test_bucket"));
             assert_eq!(policy.key(), Some("test:file"));
             Ok(())
