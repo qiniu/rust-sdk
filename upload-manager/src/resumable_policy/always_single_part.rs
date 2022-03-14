@@ -10,7 +10,7 @@ use {
     futures::{future::BoxFuture, AsyncRead},
 };
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct AlwaysSinglePart;
 
 impl ResumablePolicyProvider for AlwaysSinglePart {

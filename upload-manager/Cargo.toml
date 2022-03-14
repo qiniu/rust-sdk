@@ -70,6 +70,10 @@ dnssec-ring = ["qiniu-apis/dnssec-ring"]
 dnssec = ["qiniu-apis/dnssec"]
 docs = []
 
+[[example]]
+name = "upload"
+required-features = ["async", "isahc"]
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "feature=\"docs\""]

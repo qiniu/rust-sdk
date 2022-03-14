@@ -118,6 +118,7 @@ macro_rules! sync_block {
     };
 }
 
+#[cfg(feature = "async")]
 macro_rules! async_block {
     ($code:block) => {
         $code.await

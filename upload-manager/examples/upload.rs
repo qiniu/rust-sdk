@@ -2,9 +2,9 @@ use anyhow::Result;
 use async_std::io::stdin;
 use qiniu_apis::{credential::Credential, http_client::CallbackResult};
 use qiniu_upload_manager::{
-    ConcurrentMultiPartsUploaderScheduler, FileSystemResumableRecorder, MultiPartsUploaderScheduler,
-    MultiPartsUploaderSchedulerExt, MultiPartsUploaderWithCallbacks, ObjectParams, SinglePartUploader, UploadManager,
-    UploadTokenSigner, UploadedPart, UploaderWithCallbacks, UploadingProgressInfo,
+    AlwaysMultiParts, AlwaysSinglePart, AutoUploaderObjectParams, FileSystemResumableRecorder,
+    FixedConcurrencyProvider, FixedDataPartitionProvider, MultiPartsUploaderPrefer, MultiPartsUploaderWithCallbacks,
+    UploadManager, UploadTokenSigner, UploadedPart, UploaderWithCallbacks, UploadingProgressInfo,
 };
 use std::{path::PathBuf, str::FromStr, time::Duration};
 use structopt::StructOpt;
@@ -66,15 +66,15 @@ async fn main() -> Result<()> {
     ))
     .build();
 
-    let object_params = {
-        let mut builder = ObjectParams::builder();
+    let mut object_params_builder = {
+        let mut builder = AutoUploaderObjectParams::builder();
         if let Some(object_name) = opt.object_name.take() {
             builder.object_name(object_name);
         }
         if let Some(file_name) = opt.file_name.take() {
             builder.file_name(file_name);
         }
-        builder.build()
+        builder
     };
 
     let upload_progress = |transfer: &UploadingProgressInfo| {
@@ -97,7 +97,8 @@ async fn main() -> Result<()> {
 
     let body = match opt.upload_method {
         UploadMethod::Form => {
-            let mut uploader = upload_manager.form_uploader();
+            let mut uploader = upload_manager.auto_uploader::<FixedConcurrencyProvider,FixedDataPartitionProvider,FileSystemResumableRecorder,AlwaysSinglePart>();
+            let object_params = object_params_builder.build();
             uploader.on_upload_progress(upload_progress);
             if let Some(local_file) = opt.local_file.as_ref() {
                 uploader.async_upload_path(local_file, object_params).await?
@@ -106,27 +107,31 @@ async fn main() -> Result<()> {
             }
         }
         UploadMethod::ResumableV1 => {
-            let mut uploader = upload_manager.multi_parts_v1_uploader(FileSystemResumableRecorder::default());
+            let mut uploader = upload_manager.auto_uploader::<FixedConcurrencyProvider,FixedDataPartitionProvider,FileSystemResumableRecorder,AlwaysMultiParts>();
             uploader
                 .on_upload_progress(upload_progress)
                 .on_part_uploaded(part_uploaded);
-            let scheduler = ConcurrentMultiPartsUploaderScheduler::new(uploader);
+            let object_params = object_params_builder
+                .multi_parts_uploader_prefer(MultiPartsUploaderPrefer::V1)
+                .build();
             if let Some(local_file) = opt.local_file.as_ref() {
-                scheduler.async_upload_path(local_file, object_params).await?
+                uploader.async_upload_path(local_file, object_params).await?
             } else {
-                scheduler.async_upload_reader(stdin(), object_params).await?
+                uploader.async_upload_reader(stdin(), object_params).await?
             }
         }
         UploadMethod::ResumableV2 => {
-            let mut uploader = upload_manager.multi_parts_v2_uploader(FileSystemResumableRecorder::default());
+            let mut uploader = upload_manager.auto_uploader::<FixedConcurrencyProvider,FixedDataPartitionProvider,FileSystemResumableRecorder,AlwaysMultiParts>();
             uploader
                 .on_upload_progress(upload_progress)
                 .on_part_uploaded(part_uploaded);
-            let scheduler = ConcurrentMultiPartsUploaderScheduler::new(uploader);
+            let object_params = object_params_builder
+                .multi_parts_uploader_prefer(MultiPartsUploaderPrefer::V2)
+                .build();
             if let Some(local_file) = opt.local_file.as_ref() {
-                scheduler.async_upload_path(local_file, object_params).await?
+                uploader.async_upload_path(local_file, object_params).await?
             } else {
-                scheduler.async_upload_reader(stdin(), object_params).await?
+                uploader.async_upload_reader(stdin(), object_params).await?
             }
         }
     };
