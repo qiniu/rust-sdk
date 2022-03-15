@@ -36,9 +36,8 @@ pub(super) fn spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Re
         if let Some(dequeue) = threads_map.get_mut(task_name) {
             if let Some(task) = dequeue.pop_front() {
                 return Some(task);
-            } else {
-                threads_map.remove(task_name);
             }
+            threads_map.remove(task_name);
         }
         None
     }
