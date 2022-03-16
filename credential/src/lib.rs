@@ -33,7 +33,7 @@ use std::{
     collections::VecDeque,
     env,
     fmt::{self, Debug},
-    io::{copy, Cursor, Error, ErrorKind, Read, Result},
+    io::{copy, Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult},
     mem::take,
     ops::{Deref, DerefMut},
     sync::{Arc, RwLock},
@@ -90,73 +90,61 @@ impl Credential {
     /// 使用七牛签名算法对数据进行签名
     ///
     /// 参考[管理凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1201/access-token)
-    #[inline]
     pub fn sign(&self, data: &[u8]) -> String {
-        self.access_key.to_string() + ":" + &base64ed_hmac_digest(self.secret_key.as_ref(), data)
+        self.sign_within::<IoError, _>(|hmac| {
+            hmac.update(data);
+            Ok(())
+        })
+        .unwrap()
     }
 
-    #[inline]
-    pub fn sign_reader(&self, reader: &mut dyn Read) -> Result<String> {
-        Ok(self.access_key.to_string()
-            + ":"
-            + &base64ed_hmac_digest_reader(self.secret_key.as_ref(), reader)?)
+    pub fn sign_reader(&self, reader: &mut dyn Read) -> IoResult<String> {
+        self.sign_within(|hmac| copy(reader, hmac).map(|_| ()))
+    }
+
+    fn sign_within<E, F: FnOnce(&mut Hmac<Sha1>) -> Result<(), E>>(&self, f: F) -> Result<String, E> {
+        let signature = generate_base64ed_hmac_sha1_digest_within(self.secret_key(), f)?;
+        Ok(self.access_key().to_string() + ":" + &signature)
     }
 
     /// 使用七牛签名算法对数据进行签名，并同时给出签名和原数据
     ///
     /// 参考[上传凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1208/upload-token)
-    #[inline]
     pub fn sign_with_data(&self, data: &[u8]) -> String {
         let encoded_data = base64::urlsafe(data);
         self.sign(encoded_data.as_bytes()) + ":" + &encoded_data
     }
 
     /// 使用七牛签名算法 V1 对 HTTP 请求进行签名，返回 Authorization 的值
-    #[inline]
-    pub fn authorization_v1_for_request(
-        &self,
-        url: &Uri,
-        content_type: Option<&HeaderValue>,
-        body: &[u8],
-    ) -> String {
+    pub fn authorization_v1_for_request(&self, url: &Uri, content_type: Option<&HeaderValue>, body: &[u8]) -> String {
         let authorization_token = sign_request_v1(self, url, content_type, body);
         "QBox ".to_owned() + &authorization_token
     }
 
-    #[inline]
     pub fn authorization_v1_for_request_with_body_reader(
         &self,
         url: &Uri,
         content_type: Option<&HeaderValue>,
         body: &mut dyn Read,
-    ) -> Result<String> {
+    ) -> IoResult<String> {
         let authorization_token = sign_request_v1_with_body_reader(self, url, content_type, body)?;
         Ok("QBox ".to_owned() + &authorization_token)
     }
 
     /// 使用七牛签名算法 V2 对 HTTP 请求进行签名，返回 Authorization 的值
-    #[inline]
-    pub fn authorization_v2_for_request(
-        &self,
-        method: &Method,
-        url: &Uri,
-        headers: &HeaderMap,
-        body: &[u8],
-    ) -> String {
+    pub fn authorization_v2_for_request(&self, method: &Method, url: &Uri, headers: &HeaderMap, body: &[u8]) -> String {
         let authorization_token = sign_request_v2(self, method, url, headers, body);
         "Qiniu ".to_owned() + &authorization_token
     }
 
-    #[inline]
     pub fn authorization_v2_for_request_with_body_reader(
         &self,
         method: &Method,
         url: &Uri,
         headers: &HeaderMap,
         body: &mut dyn Read,
-    ) -> Result<String> {
-        let authorization_token =
-            sign_request_v2_with_body_reader(self, method, url, headers, body)?;
+    ) -> IoResult<String> {
+        let authorization_token = sign_request_v2_with_body_reader(self, method, url, headers, body)?;
         Ok("Qiniu ".to_owned() + &authorization_token)
     }
 
@@ -195,31 +183,24 @@ impl Credential {
 
 #[cfg(feature = "async")]
 impl Credential {
-    #[inline]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub async fn sign_async_reader(
-        &self,
-        reader: &mut (dyn AsyncRead + Send + Unpin),
-    ) -> Result<String> {
-        Ok(self.access_key.to_string()
-            + ":"
-            + &base64ed_hmac_digest_async_reader(self.secret_key.as_ref(), reader).await?)
+    pub async fn sign_async_reader(&self, reader: &mut (dyn AsyncRead + Send + Unpin)) -> IoResult<String> {
+        let mut hmac = new_hmac_sha1(self.secret_key());
+        copy_async_reader_to_hmac_sha1(&mut hmac, reader).await?;
+        Ok(base64ed_hmac_sha1_with_access_key(self.access_key().to_string(), hmac))
     }
 
-    #[inline]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub async fn authorization_v1_for_request_with_async_body_reader(
         &self,
         url: &Uri,
         content_type: Option<&HeaderValue>,
         body: &mut (dyn AsyncRead + Send + Unpin),
-    ) -> Result<String> {
-        let authorization_token =
-            sign_request_v1_with_async_body_reader(self, url, content_type, body).await?;
+    ) -> IoResult<String> {
+        let authorization_token = sign_request_v1_with_async_body_reader(self, url, content_type, body).await?;
         Ok("QBox ".to_owned() + &authorization_token)
     }
 
-    #[inline]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub async fn authorization_v2_for_request_with_async_body_reader(
         &self,
@@ -227,26 +208,23 @@ impl Credential {
         url: &Uri,
         headers: &HeaderMap,
         body: &mut (dyn AsyncRead + Send + Unpin),
-    ) -> Result<String> {
-        let authorization_token =
-            sign_request_v2_with_async_body_reader(self, method, url, headers, body).await?;
+    ) -> IoResult<String> {
+        let authorization_token = sign_request_v2_with_async_body_reader(self, method, url, headers, body).await?;
         Ok("Qiniu ".to_owned() + &authorization_token)
     }
 }
 
-fn sign_request_v1(
-    cred: &Credential,
-    url: &Uri,
-    content_type: Option<&HeaderValue>,
-    body: &[u8],
-) -> String {
-    let mut data_to_sign = _sign_request_v1_without_body(url);
-    if let Some(content_type) = content_type {
-        if !body.is_empty() && will_push_body_v1(content_type) {
-            data_to_sign.extend_from_slice(body);
+fn sign_request_v1(cred: &Credential, url: &Uri, content_type: Option<&HeaderValue>, body: &[u8]) -> String {
+    cred.sign_within::<IoError, _>(|hmac| {
+        _sign_request_v1_without_body(hmac, url);
+        if let Some(content_type) = content_type {
+            if !body.is_empty() && will_push_body_v1(content_type) {
+                hmac.update(body);
+            }
         }
-    }
-    cred.sign(&data_to_sign)
+        Ok(())
+    })
+    .unwrap()
 }
 
 fn sign_request_v1_with_body_reader(
@@ -254,43 +232,40 @@ fn sign_request_v1_with_body_reader(
     url: &Uri,
     content_type: Option<&HeaderValue>,
     body: &mut dyn Read,
-) -> Result<String> {
-    let data_to_sign = _sign_request_v1_without_body(url);
-    if let Some(content_type) = content_type {
-        if will_push_body_v1(content_type) {
-            return cred.sign_reader(&mut Cursor::new(data_to_sign).chain(body));
+) -> IoResult<String> {
+    cred.sign_within(|hmac| {
+        _sign_request_v1_without_body(hmac, url);
+        if let Some(content_type) = content_type {
+            if will_push_body_v1(content_type) {
+                copy(body, hmac)?;
+            }
         }
-    }
-    Ok(cred.sign(&data_to_sign))
+        Ok(())
+    })
 }
 
-fn _sign_request_v1_without_body(url: &Uri) -> Vec<u8> {
-    let mut data_to_sign = Vec::with_capacity(1024);
-    data_to_sign.extend_from_slice(url.path().as_bytes());
+fn _sign_request_v1_without_body(digest: &mut Hmac<Sha1>, url: &Uri) {
+    digest.update(url.path().as_bytes());
     if let Some(query) = url.query() {
         if !query.is_empty() {
-            data_to_sign.extend_from_slice(b"?");
-            data_to_sign.extend_from_slice(query.as_bytes());
+            digest.update(b"?");
+            digest.update(query.as_bytes());
         }
     }
-    data_to_sign.extend_from_slice(b"\n");
-    data_to_sign
+    digest.update(b"\n");
 }
 
-fn sign_request_v2(
-    cred: &Credential,
-    method: &Method,
-    url: &Uri,
-    headers: &HeaderMap,
-    body: &[u8],
-) -> String {
-    let mut data_to_sign = _sign_request_v2_without_body(method, url, headers);
-    if let Some(content_type) = headers.get(CONTENT_TYPE) {
-        if will_push_body_v2(content_type) {
-            data_to_sign.extend_from_slice(body);
+fn sign_request_v2(cred: &Credential, method: &Method, url: &Uri, headers: &HeaderMap, body: &[u8]) -> String {
+    cred.sign_within::<IoError, _>(|hmac| {
+        _sign_request_v2_without_body(hmac, method, url, headers);
+        if let Some(content_type) = headers.get(CONTENT_TYPE) {
+            if will_push_body_v2(content_type) {
+                hmac.update(body);
+            }
         }
-    }
-    cred.sign(&data_to_sign)
+        Ok(())
+    })
+    .unwrap()
 }
 
 fn sign_request_v2_with_body_reader(
@@ -299,76 +274,87 @@ fn sign_request_v2_with_body_reader(
     url: &Uri,
     headers: &HeaderMap,
     body: &mut dyn Read,
-) -> Result<String> {
-    let data_to_sign = _sign_request_v2_without_body(method, url, headers);
-    if let Some(content_type) = headers.get(CONTENT_TYPE) {
-        if will_push_body_v2(content_type) {
-            return cred.sign_reader(&mut Cursor::new(data_to_sign).chain(body));
+) -> IoResult<String> {
+    cred.sign_within(|hmac| {
+        _sign_request_v2_without_body(hmac, method, url, headers);
+        if let Some(content_type) = headers.get(CONTENT_TYPE) {
+            if will_push_body_v2(content_type) {
+                copy(body, hmac)?;
+            }
         }
-    }
-    Ok(cred.sign(&data_to_sign))
+        Ok(())
+    })
 }
 
-fn _sign_request_v2_without_body(method: &Method, url: &Uri, headers: &HeaderMap) -> Vec<u8> {
-    let mut data_to_sign = Vec::with_capacity(1024);
-    data_to_sign.extend_from_slice(method.as_str().as_bytes());
-    data_to_sign.extend_from_slice(b" ");
-    data_to_sign.extend_from_slice(url.path().as_bytes());
+fn _sign_request_v2_without_body(digest: &mut Hmac<Sha1>, method: &Method, url: &Uri, headers: &HeaderMap) {
+    digest.update(method.as_str().as_bytes());
+    digest.update(b" ");
+    digest.update(url.path().as_bytes());
     if let Some(query) = url.query() {
         if !query.is_empty() {
-            data_to_sign.extend_from_slice(b"?");
-            data_to_sign.extend_from_slice(query.as_bytes());
+            digest.update(b"?");
+            digest.update(query.as_bytes());
         }
     }
     if let Some(host) = url.host() {
-        data_to_sign.extend_from_slice(b"\nHost: ");
-        data_to_sign.extend_from_slice(host.as_bytes());
+        digest.update(b"\nHost: ");
+        digest.update(host.as_bytes());
     }
     if let Some(port) = url.port() {
-        data_to_sign.extend_from_slice(b":");
-        data_to_sign.extend_from_slice(port.to_string().as_bytes());
+        digest.update(b":");
+        digest.update(port.to_string().as_bytes());
     }
-    data_to_sign.extend_from_slice(b"\n");
+    digest.update(b"\n");
 
     if let Some(content_type) = headers.get(CONTENT_TYPE) {
-        data_to_sign.extend_from_slice(b"Content-Type: ");
-        data_to_sign.extend_from_slice(content_type.as_bytes());
-        data_to_sign.extend_from_slice(b"\n");
+        digest.update(b"Content-Type: ");
+        digest.update(content_type.as_bytes());
+        digest.update(b"\n");
     }
-    _sign_data_for_x_qiniu_headers(&mut data_to_sign, headers);
-    data_to_sign.extend_from_slice(b"\n");
-    data_to_sign
+    _sign_data_for_x_qiniu_headers(digest, headers);
+    digest.update(b"\n");
+    return;
+
+    fn _sign_data_for_x_qiniu_headers(digest: &mut Hmac<Sha1>, headers: &HeaderMap) {
+        let mut x_qiniu_headers = headers
+            .iter()
+            .map(|(key, value)| (make_header_name(key.as_str().into()), value.as_bytes()))
+            .filter(|(key, _)| key.len() > "X-Qiniu-".len())
+            .filter(|(key, _)| key.starts_with("X-Qiniu-"))
+            .collect::<Vec<_>>();
+        if x_qiniu_headers.is_empty() {
+            return;
+        }
+        x_qiniu_headers.sort_unstable();
+        for (header_key, header_value) in x_qiniu_headers {
+            digest.update(header_key.as_bytes());
+            digest.update(b": ");
+            digest.update(header_value);
+            digest.update(b"\n");
+        }
+    }
 }
 
-fn _sign_data_for_x_qiniu_headers(data_to_sign: &mut Vec<u8>, headers: &HeaderMap) {
-    let mut x_qiniu_headers = headers
-        .iter()
-        .map(|(key, value)| (make_header_name(key.as_str().into()), value.as_bytes()))
-        .filter(|(key, _)| key.len() > "X-Qiniu-".len())
-        .filter(|(key, _)| key.starts_with("X-Qiniu-"))
-        .collect::<Vec<_>>();
-    if x_qiniu_headers.is_empty() {
-        return;
-    }
-    x_qiniu_headers.sort_unstable();
-    for (header_key, header_value) in x_qiniu_headers {
-        data_to_sign.extend_from_slice(header_key.as_bytes());
-        data_to_sign.extend_from_slice(b": ");
-        data_to_sign.extend_from_slice(header_value);
-        data_to_sign.extend_from_slice(b"\n");
-    }
+fn generate_base64ed_hmac_sha1_digest_within<E, F: FnOnce(&mut Hmac<Sha1>) -> Result<(), E>>(
+    secret_key: &str,
+    f: F,
+) -> Result<String, E> {
+    let mut hmac = new_hmac_sha1(secret_key);
+    f(&mut hmac)?;
+    Ok(base64ed_hmac_sha1(hmac))
 }
 
-fn base64ed_hmac_digest(secret_key: &str, data: &[u8]) -> String {
-    let mut hmac = Hmac::<Sha1>::new_from_slice(secret_key.as_bytes()).unwrap();
-    hmac.update(data);
+fn new_hmac_sha1(secret_key: &str) -> Hmac<Sha1> {
+    Hmac::<Sha1>::new_from_slice(secret_key.as_bytes()).unwrap()
+}
+
+fn base64ed_hmac_sha1(hmac: Hmac<Sha1>) -> String {
     base64::urlsafe(&hmac.finalize().into_bytes())
 }
 
-fn base64ed_hmac_digest_reader(secret_key: &str, reader: &mut dyn Read) -> Result<String> {
-    let mut hmac = Hmac::<Sha1>::new_from_slice(secret_key.as_bytes()).unwrap();
-    copy(reader, &mut hmac)?;
-    Ok(base64::urlsafe(&hmac.finalize().into_bytes()))
+#[cfg(feature = "async")]
+fn base64ed_hmac_sha1_with_access_key(access_key: String, hmac: Hmac<Sha1>) -> String {
+    access_key + ":" + &base64ed_hmac_sha1(hmac)
 }
 
 fn will_push_body_v1(content_type: &HeaderValue) -> bool {
@@ -382,14 +368,7 @@ fn will_push_body_v2(content_type: &HeaderValue) -> bool {
 #[cfg(feature = "async")]
 mod async_sign {
     use super::*;
-    use futures_lite::{
-        io::{copy, AsyncRead, AsyncReadExt, Cursor},
-        AsyncWrite,
-    };
-    use hmac::digest::{
-        generic_array::{ArrayLength, GenericArray},
-        BlockInput, FixedOutput, Reset, Update,
-    };
+    use futures_lite::io::AsyncRead;
     use std::task::{Context, Poll};
 
     pub(super) async fn sign_request_v1_with_async_body_reader(
@@ -397,16 +376,15 @@ mod async_sign {
         url: &Uri,
         content_type: Option<&HeaderValue>,
         body: &mut (dyn AsyncRead + Send + Unpin),
-    ) -> Result<String> {
-        let data_to_sign = _sign_request_v1_without_body(url);
+    ) -> IoResult<String> {
+        let mut hmac = new_hmac_sha1(cred.secret_key());
+        _sign_request_v1_without_body(&mut hmac, url);
         if let Some(content_type) = content_type {
             if will_push_body_v1(content_type) {
-                return cred
-                    .sign_async_reader(&mut Cursor::new(data_to_sign).chain(body))
-                    .await;
+                copy_async_reader_to_hmac_sha1(&mut hmac, body).await?;
             }
         }
-        Ok(cred.sign(&data_to_sign))
+        Ok(base64ed_hmac_sha1_with_access_key(cred.access_key().to_string(), hmac))
     }
 
     pub(super) async fn sign_request_v2_with_async_body_reader(
@@ -415,70 +393,44 @@ mod async_sign {
         url: &Uri,
         headers: &HeaderMap,
         body: &mut (dyn AsyncRead + Send + Unpin),
-    ) -> Result<String> {
-        let data_to_sign = _sign_request_v2_without_body(method, url, headers);
+    ) -> IoResult<String> {
+        let mut hmac = new_hmac_sha1(cred.secret_key());
+        _sign_request_v2_without_body(&mut hmac, method, url, headers);
         if let Some(content_type) = headers.get(CONTENT_TYPE) {
             if will_push_body_v2(content_type) {
-                return cred
-                    .sign_async_reader(&mut Cursor::new(data_to_sign).chain(body))
-                    .await;
+                copy_async_reader_to_hmac_sha1(&mut hmac, body).await?;
             }
         }
-        Ok(cred.sign(&data_to_sign))
+        Ok(base64ed_hmac_sha1_with_access_key(cred.access_key().to_string(), hmac))
     }
 
-    pub(super) async fn base64ed_hmac_digest_async_reader(
-        secret_key: &str,
+    pub(super) async fn copy_async_reader_to_hmac_sha1(
+        hmac: &mut Hmac<Sha1>,
         reader: &mut (dyn AsyncRead + Send + Unpin),
-    ) -> Result<String> {
-        let mut hmac =
-            AsyncHmacWriter(Hmac::<Sha1>::new_from_slice(secret_key.as_bytes()).unwrap());
-        copy(reader, &mut hmac).await?;
-        return Ok(base64::urlsafe(&hmac.finalize()));
+    ) -> IoResult<u64> {
+        use futures_lite::io::{copy as async_io_copy, AsyncWrite};
 
-        #[derive(Clone)]
-        struct AsyncHmacWriter<D>(Hmac<D>)
-        where
-            D: Update + BlockInput + FixedOutput + Reset + Default + Clone,
-            D::BlockSize: ArrayLength<u8>;
+        struct AsyncHmacWriter<'a>(&'a mut Hmac<Sha1>);
 
-        impl<D> AsyncWrite for AsyncHmacWriter<D>
-        where
-            D: Update + BlockInput + FixedOutput + Reset + Default + Clone,
-            D::BlockSize: ArrayLength<u8>,
-            D::OutputSize: ArrayLength<u8>,
-        {
+        impl AsyncWrite for AsyncHmacWriter<'_> {
             #[inline]
-            fn poll_write(
-                self: Pin<&mut Self>,
-                _cx: &mut Context<'_>,
-                buf: &[u8],
-            ) -> Poll<Result<usize>> {
+            fn poll_write(self: Pin<&mut Self>, _cx: &mut Context<'_>, buf: &[u8]) -> Poll<IoResult<usize>> {
                 unsafe { self.get_unchecked_mut() }.0.update(buf);
                 Poll::Ready(Ok(buf.len()))
             }
 
             #[inline]
-            fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<()>> {
+            fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<IoResult<()>> {
                 Poll::Ready(Ok(()))
             }
 
             #[inline]
-            fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<()>> {
+            fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<IoResult<()>> {
                 Poll::Ready(Ok(()))
             }
         }
 
-        impl<D> AsyncHmacWriter<D>
-        where
-            D: Update + BlockInput + FixedOutput + Reset + Default + Clone,
-            D::BlockSize: ArrayLength<u8>,
-        {
-            #[inline]
-            fn finalize(self) -> GenericArray<u8, <D as FixedOutput>::OutputSize> {
-                self.0.finalize().into_bytes()
-            }
-        }
+        async_io_copy(reader, &mut AsyncHmacWriter(hmac)).await
     }
 }
 
@@ -492,7 +444,7 @@ use {
 };
 
 #[cfg(feature = "async")]
-type AsyncResult<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a + Send>>;
+type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send>>;
 
 /// 认证信息提供者
 ///
@@ -501,13 +453,13 @@ type AsyncResult<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a + Send>>;
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait CredentialProvider: Clone + Debug + Sync + Send {
     /// 返回七牛认证信息
-    fn get(&self, opts: &GetOptions) -> Result<GotCredential>;
+    fn get(&self, opts: &GetOptions) -> IoResult<GotCredential>;
 
     /// 异步返回七牛认证信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> AsyncResult<'a, GotCredential> {
+    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> AsyncIoResult<'a, GotCredential> {
         Box::pin(async move { self.get(opts) })
     }
 }
@@ -567,7 +519,7 @@ impl DerefMut for GotCredential {
 
 impl CredentialProvider for Credential {
     #[inline]
-    fn get(&self, _opts: &GetOptions) -> Result<GotCredential> {
+    fn get(&self, _opts: &GetOptions) -> IoResult<GotCredential> {
         Ok(self.to_owned().into())
     }
 }
@@ -596,12 +548,12 @@ impl GlobalCredentialProvider {
 
 impl CredentialProvider for GlobalCredentialProvider {
     #[inline]
-    fn get(&self, _opts: &GetOptions) -> Result<GotCredential> {
+    fn get(&self, _opts: &GetOptions) -> IoResult<GotCredential> {
         if let Some(credential) = GLOBAL_CREDENTIAL.read().unwrap().as_ref() {
             Ok(credential.to_owned().into())
         } else {
-            Err(Error::new(
-                ErrorKind::Other,
+            Err(IoError::new(
+                IoErrorKind::Other,
                 "GlobalCredentialProvider is not setuped, please call GlobalCredentialProvider::setup() to do it",
             ))
         }
@@ -636,21 +588,16 @@ impl EnvCredentialProvider {
 }
 
 impl CredentialProvider for EnvCredentialProvider {
-    fn get(&self, _opts: &GetOptions) -> Result<GotCredential> {
-        match (
-            env::var(QINIU_ACCESS_KEY_ENV_KEY),
-            env::var(QINIU_SECRET_KEY_ENV_KEY),
-        ) {
-            (Ok(access_key), Ok(secret_key))
-                if !access_key.is_empty() && !secret_key.is_empty() =>
-            {
+    fn get(&self, _opts: &GetOptions) -> IoResult<GotCredential> {
+        match (env::var(QINIU_ACCESS_KEY_ENV_KEY), env::var(QINIU_SECRET_KEY_ENV_KEY)) {
+            (Ok(access_key), Ok(secret_key)) if !access_key.is_empty() && !secret_key.is_empty() => {
                 Ok(Credential::new(access_key, secret_key).into())
             }
             _ => {
                 static ERROR_MESSAGE: Lazy<String> = Lazy::new(|| {
                     format!("EnvCredentialProvider is not setuped, please call EnvCredentialProvider::setup() to do it, or set environment variable `{}` and `{}`", QINIU_ACCESS_KEY_ENV_KEY, QINIU_SECRET_KEY_ENV_KEY)
                 });
-                Err(Error::new(ErrorKind::Other, ERROR_MESSAGE.as_str()))
+                Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE.as_str()))
             }
         }
     }
@@ -663,8 +610,7 @@ impl Debug for EnvCredentialProvider {
             env::var_os(QINIU_ACCESS_KEY_ENV_KEY),
             env::var_os(QINIU_SECRET_KEY_ENV_KEY),
         ) {
-            d.field("access_key", &access_key)
-                .field("secret_key", &secret_key);
+            d.field("access_key", &access_key).field("secret_key", &secret_key);
         }
         d.finish()
     }
@@ -680,38 +626,30 @@ pub struct ChainCredentialsProvider {
 
 impl ChainCredentialsProvider {
     #[inline]
-    pub fn builder(
-        credential: impl CredentialProvider + 'static,
-    ) -> ChainCredentialsProviderBuilder {
+    pub fn builder(credential: impl CredentialProvider + 'static) -> ChainCredentialsProviderBuilder {
         ChainCredentialsProviderBuilder::new(credential)
     }
 }
 
 impl CredentialProvider for ChainCredentialsProvider {
-    fn get(&self, opts: &GetOptions) -> Result<GotCredential> {
+    fn get(&self, opts: &GetOptions) -> IoResult<GotCredential> {
         if let Some(credential) = self.credentials.iter().find_map(|c| c.get(opts).ok()) {
             Ok(credential)
         } else {
-            Err(Error::new(
-                ErrorKind::Other,
-                "All credentials are failed to get",
-            ))
+            Err(IoError::new(IoErrorKind::Other, "All credentials are failed to get"))
         }
     }
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> AsyncResult<'a, GotCredential> {
+    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> AsyncIoResult<'a, GotCredential> {
         Box::pin(async move {
             for provider in self.credentials.iter() {
                 if let Ok(credential) = provider.async_get(opts).await {
                     return Ok(credential);
                 }
             }
-            Err(Error::new(
-                ErrorKind::Other,
-                "All credentials are failed to get",
-            ))
+            Err(IoError::new(IoErrorKind::Other, "All credentials are failed to get"))
         })
     }
 }
@@ -761,20 +699,14 @@ impl ChainCredentialsProviderBuilder {
 
     /// 将认证信息提供者推送到认证串末端
     #[inline]
-    pub fn append_credential(
-        &mut self,
-        credential: impl CredentialProvider + 'static,
-    ) -> &mut Self {
+    pub fn append_credential(&mut self, credential: impl CredentialProvider + 'static) -> &mut Self {
         self.credentials.push_back(Box::new(credential));
         self
     }
 
     /// 将认证信息提供者推送到认证串顶端
     #[inline]
-    pub fn prepend_credential(
-        &mut self,
-        credential: impl CredentialProvider + 'static,
-    ) -> &mut Self {
+    pub fn prepend_credential(&mut self, credential: impl CredentialProvider + 'static) -> &mut Self {
         self.credentials.push_front(Box::new(credential));
         self
     }
@@ -787,9 +719,7 @@ impl ChainCredentialsProviderBuilder {
             "ChainCredentialsProvider must owns at least one CredentialProvider"
         );
         ChainCredentialsProvider {
-            credentials: Vec::from(take(&mut self.credentials))
-                .into_boxed_slice()
-                .into(),
+            credentials: Vec::from(take(&mut self.credentials)).into_boxed_slice().into(),
         }
     }
 }
@@ -817,7 +747,7 @@ mod tests {
     use async_std as _;
     use http::header::HeaderName;
     use mime::APPLICATION_JSON;
-    use std::{thread, time::Duration};
+    use std::{io::Cursor, thread, time::Duration};
 
     #[test]
     fn test_sign() -> Result<()> {
@@ -856,9 +786,7 @@ mod tests {
                 );
             }));
         }
-        threads
-            .into_iter()
-            .for_each(|thread| thread.join().unwrap());
+        threads.into_iter().for_each(|thread| thread.join().unwrap());
         Ok(())
     }
 
@@ -870,17 +798,11 @@ mod tests {
             let credential = credential.to_owned();
             threads.push(thread::spawn(move || {
                 assert_eq!(
-                    credential
-                        .get(&Default::default())
-                        .unwrap()
-                        .sign_with_data(b"hello"),
+                    credential.get(&Default::default()).unwrap().sign_with_data(b"hello"),
                     "abcdefghklmnopq:BZYt5uVRy1RVt5ZTXbaIt2ROVMA=:aGVsbG8="
                 );
                 assert_eq!(
-                    credential
-                        .get(&Default::default())
-                        .unwrap()
-                        .sign_with_data(b"world"),
+                    credential.get(&Default::default()).unwrap().sign_with_data(b"world"),
                     "abcdefghklmnopq:Wpe04qzPphiSZb1u6I0nFn6KpZg=:d29ybGQ="
                 );
             }));
@@ -888,24 +810,16 @@ mod tests {
         {
             threads.push(thread::spawn(move || {
                 assert_eq!(
-                    credential
-                        .get(&Default::default())
-                        .unwrap()
-                        .sign_with_data(b"-test"),
+                    credential.get(&Default::default()).unwrap().sign_with_data(b"-test"),
                     "abcdefghklmnopq:HlxenSSP_6BbaYNzx1fyeyw8v1Y=:LXRlc3Q="
                 );
                 assert_eq!(
-                    credential
-                        .get(&Default::default())
-                        .unwrap()
-                        .sign_with_data(b"ba#a-"),
+                    credential.get(&Default::default()).unwrap().sign_with_data(b"ba#a-"),
                     "abcdefghklmnopq:kwzeJrFziPDMO4jv3DKVLDyqud0=:YmEjYS0="
                 );
             }));
         }
-        threads
-            .into_iter()
-            .for_each(|thread| thread.join().unwrap());
+        threads.into_iter().for_each(|thread| thread.join().unwrap());
         Ok(())
     }
 
@@ -937,24 +851,17 @@ mod tests {
                 .get(&Default::default())?
                 .authorization_v1_for_request_with_body_reader(
                     &"http://upload.qiniup.com/".parse()?,
-                    Some(&HeaderValue::from_str(
-                        APPLICATION_WWW_FORM_URLENCODED.as_ref()
-                    )?),
+                    Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
                     &mut Cursor::new(b"name=test&language=go")
                 )?,
-            "QBox ".to_owned()
-                + &credential
-                    .get(&Default::default())?
-                    .sign(b"/\nname=test&language=go")
+            "QBox ".to_owned() + &credential.get(&Default::default())?.sign(b"/\nname=test&language=go")
         );
         assert_eq!(
             credential
                 .get(&Default::default())?
                 .authorization_v1_for_request_with_body_reader(
                     &"http://upload.qiniup.com/?v=2".parse()?,
-                    Some(&HeaderValue::from_str(
-                        APPLICATION_WWW_FORM_URLENCODED.as_ref()
-                    )?),
+                    Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
                     &mut Cursor::new(b"name=test&language=go")
                 )?,
             "QBox ".to_owned()
@@ -967,9 +874,7 @@ mod tests {
                 .get(&Default::default())?
                 .authorization_v1_for_request_with_body_reader(
                     &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
-                    Some(&HeaderValue::from_str(
-                        APPLICATION_WWW_FORM_URLENCODED.as_ref()
-                    )?),
+                    Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
                     &mut Cursor::new(b"name=test&language=go")
                 )?,
             "QBox ".to_owned()
@@ -985,22 +890,13 @@ mod tests {
         let credential = get_global_credential();
         let empty_headers = {
             let mut headers = HeaderMap::new();
-            headers.insert(
-                HeaderName::from_static("x-qbox-meta"),
-                HeaderValue::from_str("value")?,
-            );
+            headers.insert(HeaderName::from_static("x-qbox-meta"), HeaderValue::from_str("value")?);
             headers
         };
         let json_headers = {
             let mut headers = HeaderMap::new();
-            headers.insert(
-                CONTENT_TYPE,
-                HeaderValue::from_str(APPLICATION_JSON.as_ref())?,
-            );
-            headers.insert(
-                HeaderName::from_static("x-qbox-meta"),
-                HeaderValue::from_str("value")?,
-            );
+            headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
+            headers.insert(HeaderName::from_static("x-qbox-meta"), HeaderValue::from_str("value")?);
             headers.insert(
                 HeaderName::from_static("x-qiniu-cxxxx"),
                 HeaderValue::from_str("valuec")?,
@@ -1013,18 +909,9 @@ mod tests {
                 HeaderName::from_static("x-qiniu-axxxx"),
                 HeaderValue::from_str("valuea")?,
             );
-            headers.insert(
-                HeaderName::from_static("x-qiniu-e"),
-                HeaderValue::from_str("value")?,
-            );
-            headers.insert(
-                HeaderName::from_static("x-qiniu-"),
-                HeaderValue::from_str("value")?,
-            );
-            headers.insert(
-                HeaderName::from_static("x-qiniu"),
-                HeaderValue::from_str("value")?,
-            );
+            headers.insert(HeaderName::from_static("x-qiniu-e"), HeaderValue::from_str("value")?);
+            headers.insert(HeaderName::from_static("x-qiniu-"), HeaderValue::from_str("value")?);
+            headers.insert(HeaderName::from_static("x-qiniu"), HeaderValue::from_str("value")?);
             headers
         };
         let form_headers = {
@@ -1033,10 +920,7 @@ mod tests {
                 CONTENT_TYPE,
                 HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?,
             );
-            headers.insert(
-                HeaderName::from_static("x-qbox-meta"),
-                HeaderValue::from_str("value")?,
-            );
+            headers.insert(HeaderName::from_static("x-qbox-meta"), HeaderValue::from_str("value")?);
             headers.insert(
                 HeaderName::from_static("x-qiniu-cxxxx"),
                 HeaderValue::from_str("valuec")?,
@@ -1049,18 +933,9 @@ mod tests {
                 HeaderName::from_static("x-qiniu-axxxx"),
                 HeaderValue::from_str("valuea")?,
             );
-            headers.insert(
-                HeaderName::from_static("x-qiniu-e"),
-                HeaderValue::from_str("value")?,
-            );
-            headers.insert(
-                HeaderName::from_static("x-qiniu-"),
-                HeaderValue::from_str("value")?,
-            );
-            headers.insert(
-                HeaderName::from_static("x-qiniu"),
-                HeaderValue::from_str("value")?,
-            );
+            headers.insert(HeaderName::from_static("x-qiniu-e"), HeaderValue::from_str("value")?);
+            headers.insert(HeaderName::from_static("x-qiniu-"), HeaderValue::from_str("value")?);
+            headers.insert(HeaderName::from_static("x-qiniu"), HeaderValue::from_str("value")?);
             headers
         };
         assert_eq!(
@@ -1208,9 +1083,9 @@ mod tests {
             .get(&Default::default())?
             .sign_download_url(url, Duration::from_secs(1_234_567_890 + 3600));
         assert_eq!(
-                url.to_string(),
-                "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq%3AKjQtlGAkEOhSwtFjJfYtYa2-reE%3D",
-            );
+            url.to_string(),
+            "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq%3AKjQtlGAkEOhSwtFjJfYtYa2-reE%3D",
+        );
         Ok(())
     }
 
@@ -1322,25 +1197,18 @@ mod tests {
                     .get(&Default::default())?
                     .authorization_v1_for_request_with_async_body_reader(
                         &"http://upload.qiniup.com/".parse()?,
-                        Some(&HeaderValue::from_str(
-                            APPLICATION_WWW_FORM_URLENCODED.as_ref()
-                        )?),
+                        Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
                         &mut Cursor::new(b"name=test&language=go")
                     )
                     .await?,
-                "QBox ".to_owned()
-                    + &credential
-                        .get(&Default::default())?
-                        .sign(b"/\nname=test&language=go")
+                "QBox ".to_owned() + &credential.get(&Default::default())?.sign(b"/\nname=test&language=go")
             );
             assert_eq!(
                 credential
                     .get(&Default::default())?
                     .authorization_v1_for_request_with_async_body_reader(
                         &"http://upload.qiniup.com/?v=2".parse()?,
-                        Some(&HeaderValue::from_str(
-                            APPLICATION_WWW_FORM_URLENCODED.as_ref()
-                        )?),
+                        Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
                         &mut Cursor::new(b"name=test&language=go")
                     )
                     .await?,
@@ -1354,9 +1222,7 @@ mod tests {
                     .get(&Default::default())?
                     .authorization_v1_for_request_with_async_body_reader(
                         &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
-                        Some(&HeaderValue::from_str(
-                            APPLICATION_WWW_FORM_URLENCODED.as_ref()
-                        )?),
+                        Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
                         &mut Cursor::new(b"name=test&language=go")
                     )
                     .await?,
@@ -1373,22 +1239,13 @@ mod tests {
             let credential = get_global_credential();
             let empty_headers = {
                 let mut headers = HeaderMap::new();
-                headers.insert(
-                    HeaderName::from_static("x-qbox-meta"),
-                    HeaderValue::from_str("value")?,
-                );
+                headers.insert(HeaderName::from_static("x-qbox-meta"), HeaderValue::from_str("value")?);
                 headers
             };
             let json_headers = {
                 let mut headers = HeaderMap::new();
-                headers.insert(
-                    CONTENT_TYPE,
-                    HeaderValue::from_str(APPLICATION_JSON.as_ref())?,
-                );
-                headers.insert(
-                    HeaderName::from_static("x-qbox-meta"),
-                    HeaderValue::from_str("value")?,
-                );
+                headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
+                headers.insert(HeaderName::from_static("x-qbox-meta"), HeaderValue::from_str("value")?);
                 headers.insert(
                     HeaderName::from_static("x-qiniu-cxxxx"),
                     HeaderValue::from_str("valuec")?,
@@ -1401,18 +1258,9 @@ mod tests {
                     HeaderName::from_static("x-qiniu-axxxx"),
                     HeaderValue::from_str("valuea")?,
                 );
-                headers.insert(
-                    HeaderName::from_static("x-qiniu-e"),
-                    HeaderValue::from_str("value")?,
-                );
-                headers.insert(
-                    HeaderName::from_static("x-qiniu-"),
-                    HeaderValue::from_str("value")?,
-                );
-                headers.insert(
-                    HeaderName::from_static("x-qiniu"),
-                    HeaderValue::from_str("value")?,
-                );
+                headers.insert(HeaderName::from_static("x-qiniu-e"), HeaderValue::from_str("value")?);
+                headers.insert(HeaderName::from_static("x-qiniu-"), HeaderValue::from_str("value")?);
+                headers.insert(HeaderName::from_static("x-qiniu"), HeaderValue::from_str("value")?);
                 headers
             };
             let form_headers = {
@@ -1421,10 +1269,7 @@ mod tests {
                     CONTENT_TYPE,
                     HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?,
                 );
-                headers.insert(
-                    HeaderName::from_static("x-qbox-meta"),
-                    HeaderValue::from_str("value")?,
-                );
+                headers.insert(HeaderName::from_static("x-qbox-meta"), HeaderValue::from_str("value")?);
                 headers.insert(
                     HeaderName::from_static("x-qiniu-cxxxx"),
                     HeaderValue::from_str("valuec")?,
@@ -1437,18 +1282,9 @@ mod tests {
                     HeaderName::from_static("x-qiniu-axxxx"),
                     HeaderValue::from_str("valuea")?,
                 );
-                headers.insert(
-                    HeaderName::from_static("x-qiniu-e"),
-                    HeaderValue::from_str("value")?,
-                );
-                headers.insert(
-                    HeaderName::from_static("x-qiniu-"),
-                    HeaderValue::from_str("value")?,
-                );
-                headers.insert(
-                    HeaderName::from_static("x-qiniu"),
-                    HeaderValue::from_str("value")?,
-                );
+                headers.insert(HeaderName::from_static("x-qiniu-e"), HeaderValue::from_str("value")?);
+                headers.insert(HeaderName::from_static("x-qiniu-"), HeaderValue::from_str("value")?);
+                headers.insert(HeaderName::from_static("x-qiniu"), HeaderValue::from_str("value")?);
                 headers
             };
             assert_eq!(
