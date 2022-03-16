@@ -86,11 +86,7 @@ pub fn etag_to_buf(reader: impl Read, array: &mut [u8; ETAG_SIZE]) -> Result<()>
     Ok(())
 }
 
-fn _etag_of_reader_with_parts(
-    mut reader: impl Read,
-    parts: &[usize],
-    out: &mut GenericArray<u8, U28>,
-) -> Result<()> {
+fn _etag_of_reader_with_parts(mut reader: impl Read, parts: &[usize], out: &mut GenericArray<u8, U28>) -> Result<()> {
     if can_use_etag_v1(parts) {
         return _etag_of_reader(reader, out);
     }
@@ -114,83 +110,61 @@ pub fn etag_with_parts(reader: impl Read, parts: &[usize]) -> Result<String> {
 }
 
 /// 根据给出的数据块尺寸，读取 reader 中的数据并计算它的 Etag，生成结果到指定的数组中
-pub fn etag_with_parts_to_buf(
-    reader: impl Read,
-    parts: &[usize],
-    array: &mut [u8; ETAG_SIZE],
-) -> Result<()> {
+pub fn etag_with_parts_to_buf(reader: impl Read, parts: &[usize], array: &mut [u8; ETAG_SIZE]) -> Result<()> {
     _etag_of_reader_with_parts(reader, parts, GenericArray::from_mut_slice(array))?;
     Ok(())
 }
 
 pub(super) fn can_use_etag_v1(parts: &[usize]) -> bool {
-    !parts.iter().enumerate().any(|(i, &part)| {
-        i != parts.len() - 1 && part != DEFAULT_BLOCK_SIZE || part > DEFAULT_BLOCK_SIZE
-    })
+    !parts
+        .iter()
+        .enumerate()
+        .any(|(i, &part)| i != parts.len() - 1 && part != DEFAULT_BLOCK_SIZE || part > DEFAULT_BLOCK_SIZE)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_std as _;
     use std::{error::Error, io::Cursor, result::Result};
+
+    #[cfg(not(target_arch = "wasm32"))]
+    use async_std as _;
 
     #[test]
     fn test_etag_v1() -> Result<(), Box<dyn Error>> {
         {
             let etag_v1 = EtagV1::new();
-            assert_eq!(
-                etag_v1.finalize_fixed().as_slice(),
-                b"Fto5o-5ea0sNMlW_75VgGJCv2AcJ"
-            );
+            assert_eq!(etag_v1.finalize_fixed().as_slice(), b"Fto5o-5ea0sNMlW_75VgGJCv2AcJ");
         }
         {
             let mut etag_v1 = EtagV1::new();
             etag_v1.update(b"etag");
-            assert_eq!(
-                etag_v1.finalize_fixed().as_slice(),
-                b"FpLiADEaVoALPkdb8tJEJyRTXoe_"
-            );
+            assert_eq!(etag_v1.finalize_fixed().as_slice(), b"FpLiADEaVoALPkdb8tJEJyRTXoe_");
         }
         {
             let mut etag_v1 = EtagV1::new();
             etag_v1.update(&utils::data_of_size(1 << 20));
-            assert_eq!(
-                etag_v1.finalize_fixed().as_slice(),
-                b"Foyl8onxBLWeRLL5oItRJphv6i4b"
-            );
+            assert_eq!(etag_v1.finalize_fixed().as_slice(), b"Foyl8onxBLWeRLL5oItRJphv6i4b");
         }
         {
             let mut etag_v1 = EtagV1::new();
             etag_v1.update(&utils::data_of_size(4 * (1 << 20)));
-            assert_eq!(
-                etag_v1.finalize_fixed().as_slice(),
-                b"FicHOveBNs5Kn9d74M3b9tI4D-8r"
-            );
+            assert_eq!(etag_v1.finalize_fixed().as_slice(), b"FicHOveBNs5Kn9d74M3b9tI4D-8r");
         }
         {
             let mut etag_v1 = EtagV1::new();
             etag_v1.update(&utils::data_of_size(5 * (1 << 20)));
-            assert_eq!(
-                etag_v1.finalize_fixed().as_slice(),
-                b"lg-Eb5KFCuZn-cUfj_oS2PPOU9xy"
-            );
+            assert_eq!(etag_v1.finalize_fixed().as_slice(), b"lg-Eb5KFCuZn-cUfj_oS2PPOU9xy");
         }
         {
             let mut etag_v1 = EtagV1::new();
             etag_v1.update(&utils::data_of_size(8 * (1 << 20)));
-            assert_eq!(
-                etag_v1.finalize_fixed().as_slice(),
-                b"lkSKZOMToDp-EqLDVuT1pyjQssl-"
-            );
+            assert_eq!(etag_v1.finalize_fixed().as_slice(), b"lkSKZOMToDp-EqLDVuT1pyjQssl-");
         }
         {
             let mut etag_v1 = EtagV1::new();
             etag_v1.update(&utils::data_of_size(9 * (1 << 20)));
-            assert_eq!(
-                etag_v1.finalize_fixed().as_slice(),
-                b"ljgVjMtyMsOgIySv79U8Qz4TrUO4"
-            );
+            assert_eq!(etag_v1.finalize_fixed().as_slice(), b"ljgVjMtyMsOgIySv79U8Qz4TrUO4");
         }
         Ok(())
     }
@@ -201,28 +175,19 @@ mod tests {
             let mut etag_v2 = EtagV2::new();
             etag_v2.update(b"hello");
             etag_v2.update(b"world");
-            assert_eq!(
-                etag_v2.finalize_fixed().as_slice(),
-                b"ns56DcSIfBFUENXjdhsJTIvl3Rcu"
-            );
+            assert_eq!(etag_v2.finalize_fixed().as_slice(), b"ns56DcSIfBFUENXjdhsJTIvl3Rcu");
         }
         {
             let mut etag_v2 = EtagV2::new();
             etag_v2.update(&utils::data_of_size(1 << 19));
             etag_v2.update(&utils::data_of_size(1 << 19));
-            assert_eq!(
-                etag_v2.finalize_fixed().as_slice(),
-                b"nlF4JinKEDBChmFGYbEIsZt6Gxnw"
-            );
+            assert_eq!(etag_v2.finalize_fixed().as_slice(), b"nlF4JinKEDBChmFGYbEIsZt6Gxnw");
         }
         {
             let mut etag_v2 = EtagV2::new();
             etag_v2.update(&utils::data_of_size(1 << 19));
             etag_v2.update(&utils::data_of_size(1 << 23));
-            assert_eq!(
-                etag_v2.finalize_fixed().as_slice(),
-                b"nt82yvMNHlNgZ4H8_A_4de84mr2f"
-            );
+            assert_eq!(etag_v2.finalize_fixed().as_slice(), b"nt82yvMNHlNgZ4H8_A_4de84mr2f");
         }
         {
             let mut etag_v1 = EtagV1::new();
@@ -233,10 +198,7 @@ mod tests {
             etag_v2.update(&utils::data_of_size(1 << 22));
             etag_v1.update(&utils::data_of_size(1 << 20));
             etag_v2.update(&utils::data_of_size(1 << 20));
-            assert_eq!(
-                etag_v1.finalize_fixed().as_slice(),
-                etag_v2.finalize_fixed().as_slice(),
-            );
+            assert_eq!(etag_v1.finalize_fixed().as_slice(), etag_v2.finalize_fixed().as_slice(),);
         }
         {
             let mut etag_v1 = EtagV1::new();
@@ -249,10 +211,7 @@ mod tests {
             etag_v2.update(&utils::data_of_size(1 << 20));
             etag_v1.update(&utils::data_of_size(1 << 22));
             etag_v2.update(&utils::data_of_size(1 << 22));
-            assert_ne!(
-                etag_v1.finalize_fixed().as_slice(),
-                etag_v2.finalize_fixed().as_slice(),
-            );
+            assert_ne!(etag_v1.finalize_fixed().as_slice(), etag_v2.finalize_fixed().as_slice(),);
         }
         Ok(())
     }
@@ -284,10 +243,7 @@ mod tests {
             "ljgVjMtyMsOgIySv79U8Qz4TrUO4",
         );
         assert_eq!(
-            etag_with_parts(
-                Cursor::new(utils::data_of_size(1 << 20)),
-                &[1 << 19, 1 << 19]
-            )?,
+            etag_with_parts(Cursor::new(utils::data_of_size(1 << 20)), &[1 << 19, 1 << 19])?,
             "nlF4JinKEDBChmFGYbEIsZt6Gxnw",
         );
         assert_eq!(

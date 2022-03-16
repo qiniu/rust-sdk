@@ -41,6 +41,37 @@ jobs:
         env:
           RUST_LOG: "debug"
           RUST_BACKTRACE: "1"
+  wasm:
+    name: CI Test On WASM
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - 1.56.0
+          - stable
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          target: wasm32-wasi
+          default: true
+          override: true
+      - name: Install cargo-wasi
+        run: cargo install cargo-wasi
+      - name: Install wasmtime
+        run: curl https://wasmtime.dev/install.sh -sSf | bash
+      - name: Test
+        run: |
+          rustup default ${{ matrix.rust }}
+          source $HOME/.bashrc
+          make test-wasm
+        env:
+          RUST_LOG: "debug"
+          RUST_BACKTRACE: "1"
   macos:
     name: CI Test On macOS
     runs-on: macos-latest

@@ -1,4 +1,4 @@
-.PHONY: all build build_release build_test doc test clean clippy
+.PHONY: all build build_release build_test doc test clean clippy test-wasm
 SUBDIRS := utils credential etag upload-token http http-ureq http-isahc http-reqwest http-client api-generator apis api-examples objects-manager upload-manager
 
 all:
@@ -41,3 +41,6 @@ clippy:
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir clippy; \
 	done
+test-wasm:
+	set -e; \
+		(cd etag && cargo wasi test -- --show-output)
