@@ -43,4 +43,5 @@ clippy:
 	done
 test-wasm:
 	set -e; \
-		(cd etag && cargo wasi test -- --show-output)
+		(cd etag && cargo wasi test -- --show-output); \
+		(cd upload-token && cargo wasi test -- --show-output)

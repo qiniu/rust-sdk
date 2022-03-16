@@ -67,7 +67,8 @@ jobs:
       - name: Test
         run: |
           rustup default ${{ matrix.rust }}
-          source $HOME/.bashrc
+          export WASMTIME_HOME="$HOME/.wasmtime"
+          export PATH="$WASMTIME_HOME/bin:$PATH"
           make test-wasm
         env:
           RUST_LOG: "debug"

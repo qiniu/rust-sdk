@@ -846,10 +846,12 @@ pub type ParseResult<T> = Result<T, ParseError>;
 #[cfg(test)]
 mod tests {
     use super::{super::UploadPolicyBuilder, *};
-    use async_std as _;
     use qiniu_credential::Credential;
     use std::{boxed::Box, error::Error, result::Result};
     use structopt as _;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    use async_std as _;
 
     #[test]
     fn test_build_upload_token_from_upload_policy() -> Result<(), Box<dyn Error>> {
