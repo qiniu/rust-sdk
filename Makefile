@@ -42,6 +42,9 @@ clippy:
 		$(MAKE) -C $$dir clippy; \
 	done
 test-wasm:
+	unset RUSTFLAGS; \
 	set -e; \
+		(cd utils && cargo wasi test -- --show-output); \
 		(cd etag && cargo wasi test -- --show-output); \
-		(cd upload-token && cargo wasi test -- --show-output)
+		(cd upload-token && cargo wasi test -- --show-output); \
+		(cd http && cargo wasi test -- --show-output)
