@@ -1,12 +1,11 @@
 use super::extensions::TimeoutExtension;
 use qiniu_http::{
-    HeaderMap, HeaderValue, HttpCaller, RequestParts, ResponseError, ResponseErrorKind, StatusCode,
-    SyncRequest, SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo,
+    HeaderMap, HeaderValue, HttpCaller, RequestParts, ResponseError, ResponseErrorKind, StatusCode, SyncRequest,
+    SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo,
 };
 use reqwest::{
     blocking::{
-        Body as SyncBody, Client as SyncReqwestClient, Request as SyncReqwestRequest,
-        Response as SyncReqwestResponse,
+        Body as SyncBody, Client as SyncReqwestClient, Request as SyncReqwestRequest, Response as SyncReqwestResponse,
     },
     header::USER_AGENT,
     Error as ReqwestError, Url,
@@ -36,25 +35,27 @@ impl SyncReqwestHttpCaller {
     }
 }
 
+impl From<SyncReqwestClient> for SyncReqwestHttpCaller {
+    #[inline]
+    fn from(sync_client: SyncReqwestClient) -> Self {
+        Self::new(sync_client)
+    }
+}
+
 impl HttpCaller for SyncReqwestHttpCaller {
     fn call<'a>(&'a self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
         let mut user_cancelled_error: Option<ResponseError> = None;
         let reqwest_request = make_sync_reqwest_request(request, &mut user_cancelled_error)?;
         match self.sync_client.execute(reqwest_request) {
             Ok(reqwest_response) => from_sync_response(reqwest_response, request),
-            Err(err) => {
-                user_cancelled_error.map_or_else(|| Err(from_reqwest_error(err, request)), Err)
-            }
+            Err(err) => user_cancelled_error.map_or_else(|| Err(from_reqwest_error(err, request)), Err),
         }
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_call<'a>(
-        &'a self,
-        _request: &'a mut AsyncRequest<'_>,
-    ) -> BoxFuture<'a, AsyncResponseResult> {
+    fn async_call<'a>(&'a self, _request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
         unimplemented!("SyncReqwestHttpCaller does not support async call")
     }
 }
@@ -95,10 +96,8 @@ fn make_sync_reqwest_request(
     }
 
     impl RequestBodyWithCallbacks {
-        fn new(
-            request: &mut SyncRequest,
-            user_cancelled_error: &mut Option<ResponseError>,
-        ) -> Self {
+        fn new(request: &mut SyncRequest, user_cancelled_error: &mut Option<ResponseError>) -> Self {
+            #[allow(unsafe_code)]
             Self {
                 have_read: 0,
                 request: unsafe { transmute(request) },
@@ -123,15 +122,11 @@ fn make_sync_reqwest_request(
                         ))
                         .is_cancelled()
                         {
-                            const ERROR_MESSAGE: &str =
-                                "Cancelled by on_uploading_progress() callback";
+                            const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
                             *self.user_cancelled_error = Some(
-                                ResponseError::builder(
-                                    ResponseErrorKind::UserCanceled,
-                                    ERROR_MESSAGE,
-                                )
-                                .uri(self.request.url())
-                                .build(),
+                                ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
+                                    .uri(self.request.url())
+                                    .build(),
                             );
                             return Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE));
                         }
@@ -143,10 +138,7 @@ fn make_sync_reqwest_request(
     }
 }
 
-pub(super) fn make_user_agent(
-    request: &RequestParts,
-    suffix: &str,
-) -> Result<HeaderValue, ResponseError> {
+pub(super) fn make_user_agent(request: &RequestParts, suffix: &str) -> Result<HeaderValue, ResponseError> {
     HeaderValue::from_str(&format!(
         "{}/qiniu-http-reqwest-{}/{}",
         request.user_agent(),
@@ -160,10 +152,7 @@ pub(super) fn make_user_agent(
     })
 }
 
-fn from_sync_response(
-    mut response: SyncReqwestResponse,
-    request: &mut SyncRequest,
-) -> SyncResponseResult {
+fn from_sync_response(mut response: SyncReqwestResponse, request: &mut SyncRequest) -> SyncResponseResult {
     call_response_callbacks(request, response.status(), response.headers())?;
     let mut response_builder = SyncResponse::builder();
     response_builder
@@ -171,11 +160,7 @@ fn from_sync_response(
         .version(response.version())
         .headers(take(response.headers_mut()))
         .extensions(take(request.extensions_mut()));
-    if let Some(port) = response
-        .url()
-        .port_or_known_default()
-        .and_then(NonZeroU16::new)
-    {
+    if let Some(port) = response.url().port_or_known_default().and_then(NonZeroU16::new) {
         response_builder.server_port(port);
     }
     if let Some(remote_addr) = response.remote_addr() {

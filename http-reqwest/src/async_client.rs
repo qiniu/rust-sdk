@@ -6,12 +6,12 @@ use bytes::Bytes;
 use futures::future::BoxFuture;
 use futures::{ready, AsyncRead, Stream};
 use qiniu_http::{
-    AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult, HttpCaller, ResponseError,
-    ResponseErrorKind, SyncRequest, SyncResponseResult, TransferProgressInfo,
+    AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult, HttpCaller, ResponseError, ResponseErrorKind,
+    SyncRequest, SyncResponseResult, TransferProgressInfo,
 };
 use reqwest::{
-    header::USER_AGENT, Body as AsyncBody, Client as AsyncReqwestClient,
-    Request as AsyncReqwestRequest, Response as AsyncReqwestResponse, Result as ReqwestResult, Url,
+    header::USER_AGENT, Body as AsyncBody, Client as AsyncReqwestClient, Request as AsyncReqwestRequest,
+    Response as AsyncReqwestResponse, Result as ReqwestResult, Url,
 };
 use std::{
     error::Error,
@@ -36,6 +36,13 @@ impl AsyncReqwestHttpCaller {
     }
 }
 
+impl From<AsyncReqwestClient> for AsyncReqwestHttpCaller {
+    #[inline]
+    fn from(async_client: AsyncReqwestClient) -> Self {
+        Self::new(async_client)
+    }
+}
+
 impl HttpCaller for AsyncReqwestHttpCaller {
     #[inline]
     fn call<'a>(&'a self, _request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
@@ -43,18 +50,13 @@ impl HttpCaller for AsyncReqwestHttpCaller {
     }
 
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_call<'a>(
-        &'a self,
-        request: &'a mut AsyncRequest<'_>,
-    ) -> BoxFuture<'a, AsyncResponseResult> {
+    fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
         Box::pin(async move {
             let mut user_cancelled_error: Option<ResponseError> = None;
             let reqwest_request = make_async_reqwest_request(request, &mut user_cancelled_error)?;
             match self.async_client.execute(reqwest_request).await {
                 Ok(reqwest_response) => from_async_response(reqwest_response, request),
-                Err(err) => {
-                    user_cancelled_error.map_or_else(|| Err(from_reqwest_error(err, request)), Err)
-                }
+                Err(err) => user_cancelled_error.map_or_else(|| Err(from_reqwest_error(err, request)), Err),
             }
         })
     }
@@ -94,10 +96,8 @@ fn make_async_reqwest_request(
     }
 
     impl RequestBodyWithCallbacks {
-        fn new(
-            request: &mut AsyncRequest,
-            user_cancelled_error: &mut Option<ResponseError>,
-        ) -> Self {
+        fn new(request: &mut AsyncRequest, user_cancelled_error: &mut Option<ResponseError>) -> Self {
+            #[allow(unsafe_code)]
             Self {
                 have_read: 0,
                 request: unsafe { transmute(request) },
@@ -118,9 +118,7 @@ fn make_async_reqwest_request(
                 Ok(n) => {
                     let buf = &buf[..n];
                     self.as_mut().have_read += n as u64;
-                    if let Some(on_uploading_progress) =
-                        self.as_ref().request.on_uploading_progress()
-                    {
+                    if let Some(on_uploading_progress) = self.as_ref().request.on_uploading_progress() {
                         if on_uploading_progress(&TransferProgressInfo::new(
                             self.as_mut().have_read,
                             self.as_ref().request.body().size(),
@@ -128,20 +126,13 @@ fn make_async_reqwest_request(
                         ))
                         .is_cancelled()
                         {
-                            const ERROR_MESSAGE: &str =
-                                "Cancelled by on_uploading_progress() callback";
+                            const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
                             *self.user_cancelled_error = Some(
-                                ResponseError::builder(
-                                    ResponseErrorKind::UserCanceled,
-                                    ERROR_MESSAGE,
-                                )
-                                .uri(self.as_ref().request.url())
-                                .build(),
+                                ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
+                                    .uri(self.as_ref().request.url())
+                                    .build(),
                             );
-                            return Poll::Ready(Some(Err(Box::new(IoError::new(
-                                IoErrorKind::Other,
-                                ERROR_MESSAGE,
-                            )))));
+                            return Poll::Ready(Some(Err(Box::new(IoError::new(IoErrorKind::Other, ERROR_MESSAGE)))));
                         }
                     }
                     Poll::Ready(Some(Ok(buf.to_vec())))
@@ -151,18 +142,12 @@ fn make_async_reqwest_request(
 
         #[inline]
         fn size_hint(&self) -> (usize, Option<usize>) {
-            (
-                self.have_read as usize,
-                Some(self.request.body().size() as usize),
-            )
+            (self.have_read as usize, Some(self.request.body().size() as usize))
         }
     }
 }
 
-fn from_async_response(
-    mut response: AsyncReqwestResponse,
-    request: &mut AsyncRequest,
-) -> AsyncResponseResult {
+fn from_async_response(mut response: AsyncReqwestResponse, request: &mut AsyncRequest) -> AsyncResponseResult {
     call_response_callbacks(request, response.status(), response.headers())?;
     let mut response_builder = AsyncResponse::builder();
     response_builder
@@ -170,11 +155,7 @@ fn from_async_response(
         .version(response.version())
         .headers(take(response.headers_mut()))
         .extensions(take(request.extensions_mut()));
-    if let Some(port) = response
-        .url()
-        .port_or_known_default()
-        .and_then(NonZeroU16::new)
-    {
+    if let Some(port) = response.url().port_or_known_default().and_then(NonZeroU16::new) {
         response_builder.server_port(port);
     }
     if let Some(remote_addr) = response.remote_addr() {
@@ -183,9 +164,9 @@ fn from_async_response(
             response_builder.server_port(port);
         }
     }
-    response_builder.body(AsyncResponseBody::from_reader(
-        AsyncReqwestResponseReadWrapper::new(response.bytes_stream()),
-    ));
+    response_builder.body(AsyncResponseBody::from_reader(AsyncReqwestResponseReadWrapper::new(
+        response.bytes_stream(),
+    )));
     return Ok(response_builder.build());
 
     struct AsyncReqwestResponseReadWrapper<S: Stream<Item = ReqwestResult<Bytes>>> {
@@ -217,11 +198,8 @@ fn from_async_response(
     }
 
     impl<S: Stream<Item = ReqwestResult<Bytes>>> AsyncRead for AsyncReqwestResponseReadWrapper<S> {
-        fn poll_read(
-            self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            buf: &mut [u8],
-        ) -> Poll<IoResult<usize>> {
+        #[allow(unsafe_code)]
+        fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<IoResult<usize>> {
             let oriself = unsafe { self.get_unchecked_mut() };
             let buffer_rested = oriself.buffer.len() - oriself.used;
             if oriself.buffer.is_empty() {

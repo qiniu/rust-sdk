@@ -12,9 +12,7 @@ impl<A: Array<Item = u8>> SmallString<A> {
     /// Construct an empty string.
     #[inline]
     pub fn new() -> SmallString<A> {
-        SmallString {
-            data: SmallVec::new(),
-        }
+        SmallString { data: SmallVec::new() }
     }
 
     /// Construct an empty string with enough capacity pre-allocated to store
@@ -55,6 +53,7 @@ impl<A: Array<Item = u8>> SmallString<A> {
     /// memory unsafety issues, as the Rust standard library functions assume
     /// that `&str`s are valid UTF-8.
     #[inline]
+    #[allow(unsafe_code)]
     pub unsafe fn from_buf_unchecked(buf: A) -> SmallString<A> {
         SmallString {
             data: SmallVec::from_buf(buf),
@@ -93,6 +92,7 @@ impl<A: Array<Item = u8>> SmallString<A> {
 
     /// Empties the string and returns an iterator over its former contents.
     pub fn drain(&mut self) -> Drain {
+        #[allow(unsafe_code)]
         unsafe {
             let len = self.len();
 
@@ -151,6 +151,7 @@ impl<A: Array<Item = u8>> SmallString<A> {
     /// Returns `None` if the string is empty.
     #[inline]
     pub fn pop(&mut self) -> Option<char> {
+        #[allow(unsafe_code)]
         self.chars().next_back().map(|ch| unsafe {
             let new_len = self.len() - ch.len_utf8();
             self.data.set_len(new_len);
@@ -242,12 +243,9 @@ impl<A: Array<Item = u8>> SmallString<A> {
         let next = idx + ch_len;
         let len = self.len();
 
+        #[allow(unsafe_code)]
         unsafe {
-            std::ptr::copy(
-                self.as_ptr().add(next),
-                self.as_mut_ptr().add(idx),
-                len - next,
-            );
+            std::ptr::copy(self.as_ptr().add(next), self.as_mut_ptr().add(idx), len - next);
             self.data.set_len(len - ch_len);
         }
 
@@ -283,12 +281,9 @@ impl<A: Array<Item = u8>> SmallString<A> {
 
         self.data.reserve(amt);
 
+        #[allow(unsafe_code)]
         unsafe {
-            std::ptr::copy(
-                self.as_ptr().add(idx),
-                self.as_mut_ptr().add(idx + amt),
-                len - idx,
-            );
+            std::ptr::copy(self.as_ptr().add(idx), self.as_mut_ptr().add(idx + amt), len - idx);
             std::ptr::copy_nonoverlapping(s.as_ptr(), self.as_mut_ptr().add(idx), amt);
             self.data.set_len(len + amt);
         }
@@ -303,6 +298,7 @@ impl<A: Array<Item = u8>> SmallString<A> {
     /// memory unsafety issues, as the Rust standard library functions assume
     /// that `&str`s are valid UTF-8.
     #[inline]
+    #[allow(unsafe_code)]
     pub unsafe fn as_mut_vec(&mut self) -> &mut SmallVec<A> {
         &mut self.data
     }
@@ -311,7 +307,10 @@ impl<A: Array<Item = u8>> SmallString<A> {
     /// `SmallString` has already spilled onto the heap.
     #[inline]
     pub fn into_string(self) -> String {
-        unsafe { String::from_utf8_unchecked(self.data.into_vec()) }
+        #[allow(unsafe_code)]
+        unsafe {
+            String::from_utf8_unchecked(self.data.into_vec())
+        }
     }
 
     /// Converts the `SmallString` into a `Box<str>`, without reallocating if the
@@ -351,6 +350,7 @@ impl<A: Array<Item = u8>> SmallString<A> {
     /// assert_eq!(s, "foobar");
     /// ```
     #[inline]
+    #[allow(unsafe_code)]
     pub fn retain<F: FnMut(char) -> bool>(&mut self, mut f: F) {
         let len = self.len();
         let mut del_bytes = 0;
@@ -365,11 +365,7 @@ impl<A: Array<Item = u8>> SmallString<A> {
                 del_bytes += ch_len;
             } else if del_bytes > 0 {
                 unsafe {
-                    std::ptr::copy(
-                        self.as_ptr().add(idx),
-                        self.as_mut_ptr().add(idx - del_bytes),
-                        ch_len,
-                    );
+                    std::ptr::copy(self.as_ptr().add(idx), self.as_mut_ptr().add(idx - del_bytes), ch_len);
                 }
             }
 
@@ -393,6 +389,7 @@ impl<A: Array<Item = u8>> std::ops::Deref for SmallString<A> {
     type Target = str;
 
     #[inline]
+    #[allow(unsafe_code)]
     fn deref(&self) -> &str {
         let bytes: &[u8] = &self.data;
         unsafe { std::str::from_utf8_unchecked(bytes) }
@@ -401,6 +398,7 @@ impl<A: Array<Item = u8>> std::ops::Deref for SmallString<A> {
 
 impl<A: Array<Item = u8>> std::ops::DerefMut for SmallString<A> {
     #[inline]
+    #[allow(unsafe_code)]
     fn deref_mut(&mut self) -> &mut str {
         let bytes: &mut [u8] = &mut self.data;
         unsafe { std::str::from_utf8_unchecked_mut(bytes) }
@@ -765,7 +763,7 @@ pub struct FromUtf8Error<A: Array<Item = u8>> {
 impl<A: Array<Item = u8>> FromUtf8Error<A> {
     /// Returns the slice of `[u8]` bytes that were attempted to convert to a `SmallString`.
     #[inline]
-    #[allow(trivial_casts)]
+    #[allow(unsafe_code, trivial_casts)]
     pub fn as_bytes(&self) -> &[u8] {
         let ptr = &self.buf as *const _ as *const u8;
         unsafe { std::slice::from_raw_parts(ptr, A::size()) }

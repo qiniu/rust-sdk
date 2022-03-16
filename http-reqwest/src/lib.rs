@@ -11,6 +11,7 @@
     trivial_casts,
     trivial_numeric_casts,
     unreachable_pub,
+    unsafe_code,
     unused_crate_dependencies,
     unused_extern_crates,
     unused_import_braces,
@@ -72,10 +73,9 @@ mod tests {
     macro_rules! starts_with_server {
         ($addr:ident, $routes:ident, $code:block) => {{
             let (tx, rx) = channel();
-            let ($addr, server) =
-                warp::serve($routes).bind_with_graceful_shutdown(([127, 0, 0, 1], 0), async move {
-                    rx.await.ok();
-                });
+            let ($addr, server) = warp::serve($routes).bind_with_graceful_shutdown(([127, 0, 0, 1], 0), async move {
+                rx.await.ok();
+            });
             let handler = tokio::spawn(server);
             $code?;
             tx.send(()).ok();
@@ -132,11 +132,7 @@ mod tests {
                     SyncReqwestHttpCaller::default().call(
                         &mut SyncRequest::builder()
                             .method(Method::POST)
-                            .url(
-                                format!("http://{}/dir1/dir2/file", addr)
-                                    .parse()
-                                    .expect("invalid uri"),
-                            )
+                            .url(format!("http://{}/dir1/dir2/file", addr).parse().expect("invalid uri"))
                             .body(SyncRequestBody::from_referenced_bytes(&request_body))
                             .on_uploading_progress(&|info| {
                                 last_uploaded.store(info.transferred_bytes(), Relaxed);
@@ -154,11 +150,7 @@ mod tests {
                 assert_eq!(last_uploaded.load(Relaxed), request_body.len() as u64);
                 assert_eq!(last_total.load(Relaxed), request_body.len() as u64);
                 assert_eq!(
-                    response
-                        .extensions()
-                        .get::<TimeoutExtension>()
-                        .unwrap()
-                        .get(),
+                    response.extensions().get::<TimeoutExtension>().unwrap().get(),
                     Duration::from_secs(1)
                 );
 
@@ -167,17 +159,11 @@ mod tests {
                     let mut checksum_part = Vec::new();
 
                     assert_eq!(
-                        io_copy(
-                            &mut response.body_mut().take(BUF_LEN as u64),
-                            &mut body_part
-                        )?,
+                        io_copy(&mut response.body_mut().take(BUF_LEN as u64), &mut body_part)?,
                         BUF_LEN as u64
                     );
                     assert_eq!(
-                        io_copy(
-                            &mut response.body_mut().take(MD5_LEN as u64),
-                            &mut checksum_part
-                        )?,
+                        io_copy(&mut response.body_mut().take(MD5_LEN as u64), &mut checksum_part)?,
                         MD5_LEN as u64
                     );
 
@@ -240,11 +226,7 @@ mod tests {
                     .async_call(
                         &mut AsyncRequest::builder()
                             .method(Method::POST)
-                            .url(
-                                format!("http://{}/dir1/dir2/file", addr)
-                                    .parse()
-                                    .expect("invalid uri"),
-                            )
+                            .url(format!("http://{}/dir1/dir2/file", addr).parse().expect("invalid uri"))
                             .body(AsyncRequestBody::from_referenced_bytes(&request_body))
                             .on_uploading_progress(&|info| {
                                 last_uploaded.store(info.transferred_bytes(), Relaxed);
@@ -263,11 +245,7 @@ mod tests {
             assert_eq!(last_uploaded.load(Relaxed), request_body.len() as u64);
             assert_eq!(last_total.load(Relaxed), request_body.len() as u64);
             assert_eq!(
-                response
-                    .extensions()
-                    .get::<TimeoutExtension>()
-                    .unwrap()
-                    .get(),
+                response.extensions().get::<TimeoutExtension>().unwrap().get(),
                 Duration::from_secs(1)
             );
 
@@ -276,19 +254,11 @@ mod tests {
                 let mut checksum_part = Vec::new();
 
                 assert_eq!(
-                    async_io_copy(
-                        &mut response.body_mut().take(BUF_LEN as u64),
-                        &mut body_part
-                    )
-                    .await?,
+                    async_io_copy(&mut response.body_mut().take(BUF_LEN as u64), &mut body_part).await?,
                     BUF_LEN as u64
                 );
                 assert_eq!(
-                    async_io_copy(
-                        &mut response.body_mut().take(MD5_LEN as u64),
-                        &mut checksum_part
-                    )
-                    .await?,
+                    async_io_copy(&mut response.body_mut().take(MD5_LEN as u64), &mut checksum_part).await?,
                     MD5_LEN as u64
                 );
 

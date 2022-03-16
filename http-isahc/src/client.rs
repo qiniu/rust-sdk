@@ -2,12 +2,11 @@ use isahc::{
     config::{Configurable, Dialer},
     error::{Error as IsahcError, ErrorKind as IsahcErrorKind},
     http::{header::USER_AGENT, request::Builder as IsahcRequestBuilder, uri::Scheme},
-    Body as IsahcBody, HttpClient as IsahcHttpClient, Metrics as IsahcMetrics,
-    Response as IsahcResponse, ResponseExt,
+    Body as IsahcBody, HttpClient as IsahcHttpClient, Metrics as IsahcMetrics, Response as IsahcResponse, ResponseExt,
 };
 use qiniu_http::{
-    HeaderValue, HttpCaller, Metrics, Request, RequestParts, ResponseError, ResponseErrorKind,
-    SyncRequest, SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo, Uri,
+    HeaderValue, HttpCaller, Metrics, Request, RequestParts, ResponseError, ResponseErrorKind, SyncRequest,
+    SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo, Uri,
 };
 use std::{
     io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult},
@@ -54,6 +53,13 @@ impl Client {
     }
 }
 
+impl From<IsahcHttpClient> for Client {
+    #[inline]
+    fn from(isahc_client: IsahcHttpClient) -> Self {
+        Self::new(isahc_client)
+    }
+}
+
 impl HttpCaller for Client {
     fn call<'a>(&'a self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
         let mut user_cancelled_error: Option<ResponseError> = None;
@@ -62,15 +68,13 @@ impl HttpCaller for Client {
             Some(ips) if !ips.is_empty() => {
                 let mut last_result = None;
                 for ip in ips {
-                    let isahc_request =
-                        match make_sync_isahc_request(request, Some(ip), &mut user_cancelled_error)
-                        {
-                            Ok(request) => request,
-                            Err(err) => {
-                                last_result = Some(Err(err));
-                                break;
-                            }
-                        };
+                    let isahc_request = match make_sync_isahc_request(request, Some(ip), &mut user_cancelled_error) {
+                        Ok(request) => request,
+                        Err(err) => {
+                            last_result = Some(Err(err));
+                            break;
+                        }
+                    };
                     match self.isahc_client.send(isahc_request) {
                         Ok(isahc_response) => {
                             last_result = Some(Ok(isahc_response));
@@ -88,8 +92,7 @@ impl HttpCaller for Client {
                 last_result.unwrap()
             }
             _ => {
-                let isahc_request =
-                    make_sync_isahc_request(request, None, &mut user_cancelled_error)?;
+                let isahc_request = make_sync_isahc_request(request, None, &mut user_cancelled_error)?;
                 self.isahc_client
                     .send(isahc_request)
                     .map_err(|err| from_isahc_error(err, request))
@@ -104,10 +107,7 @@ impl HttpCaller for Client {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_call<'a>(
-        &'a self,
-        request: &'a mut AsyncRequest<'_>,
-    ) -> BoxFuture<'a, AsyncResponseResult> {
+    fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
         Box::pin(async move {
             let mut user_cancelled_error: Option<ResponseError> = None;
 
@@ -115,11 +115,8 @@ impl HttpCaller for Client {
                 Some(ips) if !ips.is_empty() => {
                     let mut last_result = None;
                     for ip in ips {
-                        let isahc_request = match make_async_isahc_request(
-                            request,
-                            Some(ip),
-                            &mut user_cancelled_error,
-                        ) {
+                        let isahc_request = match make_async_isahc_request(request, Some(ip), &mut user_cancelled_error)
+                        {
                             Ok(request) => request,
                             Err(err) => {
                                 last_result = Some(Err(err));
@@ -143,8 +140,7 @@ impl HttpCaller for Client {
                     last_result.unwrap()
                 }
                 _ => {
-                    let isahc_request =
-                        make_async_isahc_request(request, None, &mut user_cancelled_error)?;
+                    let isahc_request = make_async_isahc_request(request, None, &mut user_cancelled_error)?;
                     self.isahc_client
                         .send_async(isahc_request)
                         .await
@@ -171,22 +167,14 @@ impl HttpCaller for Client {
 }
 
 fn make_user_agent(request: &RequestParts) -> Result<HeaderValue, ResponseError> {
-    HeaderValue::from_str(&format!(
-        "{}/qiniu-http-{}",
-        request.user_agent(),
-        isahc::version(),
-    ))
-    .map_err(|err| {
+    HeaderValue::from_str(&format!("{}/qiniu-http-{}", request.user_agent(), isahc::version(),)).map_err(|err| {
         ResponseError::builder(ResponseErrorKind::InvalidHeader, err)
             .uri(request.url())
             .build()
     })
 }
 
-fn make_sync_response(
-    mut response: IsahcSyncResponse,
-    request: &mut SyncRequest,
-) -> SyncResponseResult {
+fn make_sync_response(mut response: IsahcSyncResponse, request: &mut SyncRequest) -> SyncResponseResult {
     call_response_callbacks(request, &response)?;
 
     let mut response_builder = SyncResponse::builder();
@@ -209,10 +197,7 @@ fn make_sync_response(
 }
 
 #[cfg(feature = "async")]
-fn make_async_response(
-    mut response: IsahcAsyncResponse,
-    request: &mut AsyncRequest,
-) -> AsyncResponseResult {
+fn make_async_response(mut response: IsahcAsyncResponse, request: &mut AsyncRequest) -> AsyncResponseResult {
     call_response_callbacks(request, &response)?;
 
     let mut response_builder = AsyncResponse::builder();
@@ -307,14 +292,11 @@ fn make_sync_isahc_request(
     ip_addr: Option<IpAddr>,
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<IsahcSyncRequest, ResponseError> {
-    let mut isahc_request_builder = isahc::Request::builder()
-        .uri(request.url())
-        .method(request.method());
+    let mut isahc_request_builder = isahc::Request::builder().uri(request.url()).method(request.method());
     for (header_name, header_value) in request.headers() {
         isahc_request_builder = isahc_request_builder.header(header_name, header_value);
     }
-    isahc_request_builder =
-        add_extensions_to_isahc_request_builder(request, ip_addr, isahc_request_builder)?;
+    isahc_request_builder = add_extensions_to_isahc_request_builder(request, ip_addr, isahc_request_builder)?;
 
     isahc_request_builder = isahc_request_builder.header(USER_AGENT, make_user_agent(request)?);
 
@@ -337,10 +319,8 @@ fn make_sync_isahc_request(
     }
 
     impl RequestBodyWithCallbacks {
-        fn new(
-            request: &mut SyncRequest,
-            user_cancelled_error: &mut Option<ResponseError>,
-        ) -> Self {
+        fn new(request: &mut SyncRequest, user_cancelled_error: &mut Option<ResponseError>) -> Self {
+            #[allow(unsafe_code)]
             Self {
                 have_read: 0,
                 request: unsafe { transmute(request) },
@@ -365,15 +345,11 @@ fn make_sync_isahc_request(
                         ))
                         .is_cancelled()
                         {
-                            const ERROR_MESSAGE: &str =
-                                "Cancelled by on_uploading_progress() callback";
+                            const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
                             *self.user_cancelled_error = Some(
-                                ResponseError::builder(
-                                    ResponseErrorKind::UserCanceled,
-                                    ERROR_MESSAGE,
-                                )
-                                .uri(self.request.url())
-                                .build(),
+                                ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
+                                    .uri(self.request.url())
+                                    .build(),
                             );
                             return Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE));
                         }
@@ -393,14 +369,11 @@ fn make_async_isahc_request(
 ) -> Result<IsahcAsyncRequest, ResponseError> {
     use futures::pin_mut;
 
-    let mut isahc_request_builder = isahc::Request::builder()
-        .uri(request.url())
-        .method(request.method());
+    let mut isahc_request_builder = isahc::Request::builder().uri(request.url()).method(request.method());
     for (header_name, header_value) in request.headers() {
         isahc_request_builder = isahc_request_builder.header(header_name, header_value);
     }
-    isahc_request_builder =
-        add_extensions_to_isahc_request_builder(request, ip_addr, isahc_request_builder)?;
+    isahc_request_builder = add_extensions_to_isahc_request_builder(request, ip_addr, isahc_request_builder)?;
     isahc_request_builder = isahc_request_builder.header(USER_AGENT, make_user_agent(request)?);
 
     let isahc_request = isahc_request_builder
@@ -422,10 +395,8 @@ fn make_async_isahc_request(
     }
 
     impl RequestBodyWithCallbacks {
-        fn new(
-            request: &mut AsyncRequest,
-            user_cancelled_error: &mut Option<ResponseError>,
-        ) -> Self {
+        fn new(request: &mut AsyncRequest, user_cancelled_error: &mut Option<ResponseError>) -> Self {
+            #[allow(unsafe_code)]
             Self {
                 have_read: 0,
                 request: unsafe { transmute(request) },
@@ -435,11 +406,7 @@ fn make_async_isahc_request(
     }
 
     impl AsyncRead for RequestBodyWithCallbacks {
-        fn poll_read(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context,
-            buf: &mut [u8],
-        ) -> Poll<IoResult<usize>> {
+        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context, buf: &mut [u8]) -> Poll<IoResult<usize>> {
             let request_mut = &mut self.as_mut().request;
             let body = request_mut.body_mut();
             pin_mut!(body);
@@ -449,9 +416,7 @@ fn make_async_isahc_request(
                 Ok(n) => {
                     let buf = &buf[..n];
                     self.as_mut().have_read += n as u64;
-                    if let Some(on_uploading_progress) =
-                        self.as_ref().request.on_uploading_progress()
-                    {
+                    if let Some(on_uploading_progress) = self.as_ref().request.on_uploading_progress() {
                         if on_uploading_progress(&TransferProgressInfo::new(
                             self.as_ref().have_read,
                             self.as_ref().request.body().size(),
@@ -459,20 +424,13 @@ fn make_async_isahc_request(
                         ))
                         .is_cancelled()
                         {
-                            const ERROR_MESSAGE: &str =
-                                "Cancelled by on_uploading_progress() callback";
+                            const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
                             *self.user_cancelled_error = Some(
-                                ResponseError::builder(
-                                    ResponseErrorKind::UserCanceled,
-                                    ERROR_MESSAGE,
-                                )
-                                .uri(self.as_ref().request.url())
-                                .build(),
+                                ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
+                                    .uri(self.as_ref().request.url())
+                                    .build(),
                             );
-                            return Poll::Ready(Err(IoError::new(
-                                IoErrorKind::Other,
-                                ERROR_MESSAGE,
-                            )));
+                            return Poll::Ready(Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE)));
                         }
                     }
                     Poll::Ready(Ok(n))
@@ -499,58 +457,36 @@ fn add_extensions_to_isahc_request_builder(
         isahc_request_builder = isahc_request_builder.connect_timeout(extension.get().to_owned());
     }
 
-    if let Some(extension) = request
-        .extensions()
-        .get::<LowSpeedTimeoutRequestExtension>()
-    {
-        isahc_request_builder = isahc_request_builder
-            .low_speed_timeout(extension.get().0.to_owned(), extension.get().1.to_owned());
+    if let Some(extension) = request.extensions().get::<LowSpeedTimeoutRequestExtension>() {
+        isahc_request_builder =
+            isahc_request_builder.low_speed_timeout(extension.get().0.to_owned(), extension.get().1.to_owned());
     }
 
-    if let Some(extension) = request
-        .extensions()
-        .get::<VersionNegotiationRequestExtension>()
-    {
-        isahc_request_builder =
-            isahc_request_builder.version_negotiation(extension.get().to_owned());
+    if let Some(extension) = request.extensions().get::<VersionNegotiationRequestExtension>() {
+        isahc_request_builder = isahc_request_builder.version_negotiation(extension.get().to_owned());
     }
 
     if let Some(extension) = request.extensions().get::<RedirectPolicyRequestExtension>() {
         isahc_request_builder = isahc_request_builder.redirect_policy(extension.get().to_owned());
     }
 
-    if request
-        .extensions()
-        .get::<AutoRefererRequestExtension>()
-        .is_some()
-    {
+    if request.extensions().get::<AutoRefererRequestExtension>().is_some() {
         isahc_request_builder = isahc_request_builder.auto_referer();
     }
 
-    if let Some(extension) = request
-        .extensions()
-        .get::<AutomaticDecompressionRequestExtension>()
-    {
-        isahc_request_builder =
-            isahc_request_builder.automatic_decompression(extension.get().to_owned());
+    if let Some(extension) = request.extensions().get::<AutomaticDecompressionRequestExtension>() {
+        isahc_request_builder = isahc_request_builder.automatic_decompression(extension.get().to_owned());
     }
 
     if let Some(extension) = request.extensions().get::<TcpKeepaliveRequestExtension>() {
         isahc_request_builder = isahc_request_builder.tcp_keepalive(extension.get().to_owned());
     }
 
-    if request
-        .extensions()
-        .get::<TcpNodelayRequestExtension>()
-        .is_some()
-    {
+    if request.extensions().get::<TcpNodelayRequestExtension>().is_some() {
         isahc_request_builder = isahc_request_builder.tcp_nodelay();
     }
 
-    if let Some(extension) = request
-        .extensions()
-        .get::<NetworkInterfaceRequestExtension>()
-    {
+    if let Some(extension) = request.extensions().get::<NetworkInterfaceRequestExtension>() {
         isahc_request_builder = isahc_request_builder.interface(extension.get().to_owned());
     }
 
@@ -575,18 +511,11 @@ fn add_extensions_to_isahc_request_builder(
         isahc_request_builder = isahc_request_builder.proxy_blacklist(extension.get().to_owned());
     }
 
-    if let Some(extension) = request
-        .extensions()
-        .get::<ProxyAuthenticationRequestExtension>()
-    {
-        isahc_request_builder =
-            isahc_request_builder.proxy_authentication(extension.get().to_owned());
+    if let Some(extension) = request.extensions().get::<ProxyAuthenticationRequestExtension>() {
+        isahc_request_builder = isahc_request_builder.proxy_authentication(extension.get().to_owned());
     }
 
-    if let Some(extension) = request
-        .extensions()
-        .get::<ProxyCredentialsRequestExtension>()
-    {
+    if let Some(extension) = request.extensions().get::<ProxyCredentialsRequestExtension>() {
         isahc_request_builder = isahc_request_builder.proxy_credentials(extension.get().to_owned());
     }
 
@@ -594,28 +523,16 @@ fn add_extensions_to_isahc_request_builder(
         isahc_request_builder = isahc_request_builder.max_upload_speed(extension.get().to_owned());
     }
 
-    if let Some(extension) = request
-        .extensions()
-        .get::<MaxDownloadSpeedRequestExtension>()
-    {
-        isahc_request_builder =
-            isahc_request_builder.max_download_speed(extension.get().to_owned());
+    if let Some(extension) = request.extensions().get::<MaxDownloadSpeedRequestExtension>() {
+        isahc_request_builder = isahc_request_builder.max_download_speed(extension.get().to_owned());
     }
 
-    if let Some(extension) = request
-        .extensions()
-        .get::<SslClientCertificateRequestExtension>()
-    {
-        isahc_request_builder =
-            isahc_request_builder.ssl_client_certificate(extension.get().to_owned());
+    if let Some(extension) = request.extensions().get::<SslClientCertificateRequestExtension>() {
+        isahc_request_builder = isahc_request_builder.ssl_client_certificate(extension.get().to_owned());
     }
 
-    if let Some(extension) = request
-        .extensions()
-        .get::<SslCaCertificateRequestExtension>()
-    {
-        isahc_request_builder =
-            isahc_request_builder.ssl_ca_certificate(extension.get().to_owned());
+    if let Some(extension) = request.extensions().get::<SslCaCertificateRequestExtension>() {
+        isahc_request_builder = isahc_request_builder.ssl_ca_certificate(extension.get().to_owned());
     }
 
     if let Some(extension) = request.extensions().get::<SslCiphersRequestExtension>() {
@@ -626,12 +543,8 @@ fn add_extensions_to_isahc_request_builder(
         isahc_request_builder = isahc_request_builder.ssl_options(extension.get().to_owned());
     }
 
-    if let Some(extension) = request
-        .extensions()
-        .get::<TitleCaseHeadersRequestExtension>()
-    {
-        isahc_request_builder =
-            isahc_request_builder.title_case_headers(extension.get().to_owned());
+    if let Some(extension) = request.extensions().get::<TitleCaseHeadersRequestExtension>() {
+        isahc_request_builder = isahc_request_builder.title_case_headers(extension.get().to_owned());
     }
 
     return Ok(isahc_request_builder);
@@ -656,39 +569,19 @@ fn add_extensions_to_isahc_request_builder(
 
 fn from_isahc_error(err: IsahcError, request: &RequestParts) -> ResponseError {
     let error_builder = match err.kind() {
-        IsahcErrorKind::BadClientCertificate => {
-            ResponseError::builder(ResponseErrorKind::ClientCertError, err)
-        }
-        IsahcErrorKind::BadServerCertificate => {
-            ResponseError::builder(ResponseErrorKind::ServerCertError, err)
-        }
-        IsahcErrorKind::ClientInitialization => {
-            ResponseError::builder(ResponseErrorKind::LocalIoError, err)
-        }
-        IsahcErrorKind::ConnectionFailed => {
-            ResponseError::builder(ResponseErrorKind::ConnectError, err)
-        }
-        IsahcErrorKind::InvalidContentEncoding => {
-            ResponseError::builder(ResponseErrorKind::InvalidHeader, err)
-        }
-        IsahcErrorKind::InvalidCredentials => {
-            ResponseError::builder(ResponseErrorKind::InvalidHeader, err)
-        }
-        IsahcErrorKind::InvalidRequest => {
-            ResponseError::builder(ResponseErrorKind::InvalidRequestResponse, err)
-        }
+        IsahcErrorKind::BadClientCertificate => ResponseError::builder(ResponseErrorKind::ClientCertError, err),
+        IsahcErrorKind::BadServerCertificate => ResponseError::builder(ResponseErrorKind::ServerCertError, err),
+        IsahcErrorKind::ClientInitialization => ResponseError::builder(ResponseErrorKind::LocalIoError, err),
+        IsahcErrorKind::ConnectionFailed => ResponseError::builder(ResponseErrorKind::ConnectError, err),
+        IsahcErrorKind::InvalidContentEncoding => ResponseError::builder(ResponseErrorKind::InvalidHeader, err),
+        IsahcErrorKind::InvalidCredentials => ResponseError::builder(ResponseErrorKind::InvalidHeader, err),
+        IsahcErrorKind::InvalidRequest => ResponseError::builder(ResponseErrorKind::InvalidRequestResponse, err),
         IsahcErrorKind::Io => ResponseError::builder(ResponseErrorKind::SendError, err),
-        IsahcErrorKind::NameResolution => {
-            ResponseError::builder(ResponseErrorKind::LocalIoError, err)
-        }
-        IsahcErrorKind::ProtocolViolation => {
-            ResponseError::builder(ResponseErrorKind::InvalidRequestResponse, err)
-        }
+        IsahcErrorKind::NameResolution => ResponseError::builder(ResponseErrorKind::LocalIoError, err),
+        IsahcErrorKind::ProtocolViolation => ResponseError::builder(ResponseErrorKind::InvalidRequestResponse, err),
         IsahcErrorKind::Timeout => ResponseError::builder(ResponseErrorKind::TimeoutError, err),
         IsahcErrorKind::TlsEngine => ResponseError::builder(ResponseErrorKind::SslError, err),
-        IsahcErrorKind::TooManyRedirects => {
-            ResponseError::builder(ResponseErrorKind::TooManyRedirect, err)
-        }
+        IsahcErrorKind::TooManyRedirects => ResponseError::builder(ResponseErrorKind::TooManyRedirect, err),
         _ => ResponseError::builder(ResponseErrorKind::UnknownError, err),
     };
     error_builder.uri(request.url()).build()

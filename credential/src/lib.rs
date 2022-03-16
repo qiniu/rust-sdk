@@ -10,6 +10,7 @@
     indirect_structural_match,
     trivial_numeric_casts,
     unreachable_pub,
+    unsafe_code,
     unused_crate_dependencies,
     unused_extern_crates,
     unused_import_braces,
@@ -415,6 +416,7 @@ mod async_sign {
         impl AsyncWrite for AsyncHmacWriter<'_> {
             #[inline]
             fn poll_write(self: Pin<&mut Self>, _cx: &mut Context<'_>, buf: &[u8]) -> Poll<IoResult<usize>> {
+                #[allow(unsafe_code)]
                 unsafe { self.get_unchecked_mut() }.0.update(buf);
                 Poll::Ready(Ok(buf.len()))
             }
