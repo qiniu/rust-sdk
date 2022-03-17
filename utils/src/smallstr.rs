@@ -333,12 +333,6 @@ macro_rules! wrap_smallstr {
                 self.inner.as_mut_str()
             }
 
-            /// TODO
-            #[inline]
-            pub fn as_bytes(&self) -> &[u8] {
-                self.inner.as_bytes()
-            }
-
             /// Removes all contents of the string.
             #[inline]
             pub fn clear(&mut self) {

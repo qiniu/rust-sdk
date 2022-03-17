@@ -10,11 +10,13 @@ use std::{
     ops::{Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo},
 };
 
+/// 七牛 Access Key
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AccessKey {
     inner: SmallString<[u8; 64]>,
 }
 
+/// 七牛 Secret Key
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SecretKey {
     inner: SmallString<[u8; 64]>,

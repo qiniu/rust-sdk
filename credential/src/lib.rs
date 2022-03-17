@@ -6,6 +6,7 @@
     keyword_idents,
     macro_use_extern_crate,
     meta_variable_misuse,
+    missing_docs,
     non_ascii_idents,
     indirect_structural_match,
     trivial_numeric_casts,
@@ -18,13 +19,26 @@
     unused_qualifications
 )]
 
+//! # qiniu-credential
+//!
+//! ## 七牛认证信息
+//!
+//! 负责存储调用七牛 API 所必要的认证信息，提供 `CredentialProvider` 方便扩展获取认证信息的方式。
+//! 提供 `CredentialProvider` 的多个实现方式，例如：
+//!
+//! - `GlobalCredentialProvider`: 使用全局变量配置的认证信息
+//! - `EnvCredentialProvider`: 使用环境变量配置的认证信息
+//! - `ChainCredentialsProvider`: 配置多个 `CredentialProvider` 形成认证信息串，遍历找寻第一个可用的认证信息
+
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use hmac::{Hmac, Mac, NewMac};
-use http::{
-    header::{HeaderMap, HeaderValue, CONTENT_TYPE},
+use http::header::CONTENT_TYPE;
+pub use http::{
+    header::{HeaderMap, HeaderName, HeaderValue},
     method::Method,
     uri::Uri,
+    Extensions,
 };
 use mime::{APPLICATION_OCTET_STREAM, APPLICATION_WWW_FORM_URLENCODED};
 use once_cell::sync::Lazy;
@@ -47,7 +61,8 @@ use header_name::make_header_name;
 mod key;
 pub use key::{AccessKey, SecretKey};
 
-pub mod preclude {
+/// 将所有 Trait 全部重新导出，方便统一导入
+pub mod prelude {
     pub use super::CredentialProvider;
 }
 
@@ -91,6 +106,18 @@ impl Credential {
     /// 使用七牛签名算法对数据进行签名
     ///
     /// 参考[管理凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1201/access-token)
+    ///
+    /// ```
+    /// use qiniu_credential::{Credential, prelude::*};
+    /// # fn main() -> anyhow::Result<()> {
+    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// assert_eq!(
+    ///     credential.get(&Default::default())?.sign(b"hello"),
+    ///     "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0="
+    /// );
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn sign(&self, data: &[u8]) -> String {
         self.sign_within::<IoError, _>(|hmac| {
             hmac.update(data);
@@ -99,6 +126,24 @@ impl Credential {
         .unwrap()
     }
 
+    /// 使用七牛签名算法对输入流数据进行签名
+    ///
+    /// 参考[管理凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1201/access-token)
+    ///
+    /// ```
+    /// use qiniu_credential::{Credential, prelude::*};
+    /// use std::io::Cursor;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// assert_eq!(
+    ///     credential
+    ///         .get(&Default::default())?
+    ///         .sign_reader(&mut Cursor::new(b"world"))?,
+    ///     "abcdefghklmnopq:VjgXt0P_nCxHuaTfiFz-UjDJ1AQ="
+    /// );
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn sign_reader(&self, reader: &mut dyn Read) -> IoResult<String> {
         self.sign_within(|hmac| copy(reader, hmac).map(|_| ()))
     }
@@ -111,17 +156,65 @@ impl Credential {
     /// 使用七牛签名算法对数据进行签名，并同时给出签名和原数据
     ///
     /// 参考[上传凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1208/upload-token)
+    ///
+    /// ```
+    /// use qiniu_credential::{Credential, prelude::*};
+    /// use std::io::Cursor;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// assert_eq!(
+    ///     credential.get(&Default::default())?.sign_with_data(b"hello"),
+    ///     "abcdefghklmnopq:BZYt5uVRy1RVt5ZTXbaIt2ROVMA=:aGVsbG8="
+    /// );
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn sign_with_data(&self, data: &[u8]) -> String {
         let encoded_data = base64::urlsafe(data);
         self.sign(encoded_data.as_bytes()) + ":" + &encoded_data
     }
 
-    /// 使用七牛签名算法 V1 对 HTTP 请求进行签名，返回 Authorization 的值
+    /// 使用七牛签名算法 V1 对 HTTP 请求（请求体为内存数据）进行签名，返回 Authorization 的值
+    ///
+    /// ```
+    /// use qiniu_credential::{Credential, HeaderValue, prelude::*};
+    /// use mime::APPLICATION_WWW_FORM_URLENCODED;
+    /// use std::io::Cursor;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let authorization = credential
+    ///     .get(&Default::default())?
+    ///     .authorization_v1_for_request(
+    ///         &"http://upload.qiniup.com/".parse()?,
+    ///         Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
+    ///         b"name=test&language=go"
+    ///     );
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn authorization_v1_for_request(&self, url: &Uri, content_type: Option<&HeaderValue>, body: &[u8]) -> String {
         let authorization_token = sign_request_v1(self, url, content_type, body);
         "QBox ".to_owned() + &authorization_token
     }
 
+    /// 使用七牛签名算法 V1 对 HTTP 请求（请求体为输入流）进行签名，返回 Authorization 的值
+    ///
+    /// ```
+    /// use qiniu_credential::{Credential, HeaderValue, prelude::*};
+    /// use std::io::Cursor;
+    /// use mime::APPLICATION_WWW_FORM_URLENCODED;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let authorization = credential
+    ///     .get(&Default::default())?
+    ///     .authorization_v1_for_request_with_body_reader(
+    ///         &"http://upload.qiniup.com/".parse()?,
+    ///         Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
+    ///         &mut Cursor::new(b"name=test&language=go")
+    ///     )?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn authorization_v1_for_request_with_body_reader(
         &self,
         url: &Uri,
@@ -132,12 +225,54 @@ impl Credential {
         Ok("QBox ".to_owned() + &authorization_token)
     }
 
-    /// 使用七牛签名算法 V2 对 HTTP 请求进行签名，返回 Authorization 的值
+    /// 使用七牛签名算法 V2 对 HTTP 请求（请求体为内存数据）进行签名，返回 Authorization 的值
+    ///
+    /// ```
+    /// use qiniu_credential::{Credential, Method, HeaderMap, HeaderValue, prelude::*};
+    /// use http::header::CONTENT_TYPE;
+    /// use mime::APPLICATION_JSON;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let mut headers = HeaderMap::new();
+    /// headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
+    /// let authorization = credential
+    ///     .get(&Default::default())?
+    ///     .authorization_v2_for_request(
+    ///         &Method::GET,
+    ///         &"http://upload.qiniup.com/".parse()?,
+    ///         &headers,
+    ///         b"{\"name\":\"test\"}".as_slice(),
+    ///     );
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn authorization_v2_for_request(&self, method: &Method, url: &Uri, headers: &HeaderMap, body: &[u8]) -> String {
         let authorization_token = sign_request_v2(self, method, url, headers, body);
         "Qiniu ".to_owned() + &authorization_token
     }
 
+    /// 使用七牛签名算法 V2 对 HTTP 请求（请求体为输入流）进行签名，返回 Authorization 的值
+    ///
+    /// ```
+    /// use qiniu_credential::{Credential, Method, HeaderMap, HeaderValue, prelude::*};
+    /// use http::header::CONTENT_TYPE;
+    /// use mime::APPLICATION_JSON;
+    /// use std::io::Cursor;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let mut headers = HeaderMap::new();
+    /// headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
+    /// let authorization = credential
+    ///     .get(&Default::default())?
+    ///     .authorization_v2_for_request_with_body_reader(
+    ///         &Method::GET,
+    ///         &"http://upload.qiniup.com/".parse()?,
+    ///         &headers,
+    ///         &mut Cursor::new(b"{\"name\":\"test\"}")
+    ///     )?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn authorization_v2_for_request_with_body_reader(
         &self,
         method: &Method,
@@ -150,6 +285,23 @@ impl Credential {
     }
 
     /// 对对象的下载 URL 签名，可以生成私有存储空间的下载地址
+    ///
+    /// ```
+    /// use qiniu_credential::{Credential, prelude::*};
+    /// use std::time::Duration;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let url = "http://www.qiniu.com/?go=1".parse()?;
+    /// let url = credential
+    ///     .get(&Default::default())?
+    ///     .sign_download_url(url, Duration::from_secs(1_234_567_890 + 3600));
+    /// assert_eq!(
+    ///     url.to_string(),
+    ///     "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq%3AKjQtlGAkEOhSwtFjJfYtYa2-reE%3D",
+    /// );
+    /// Ok(())
+    /// }
+    /// ```
     pub fn sign_download_url(&self, url: Uri, deadline: Duration) -> Uri {
         let deadline = deadline.as_secs().to_string();
         let to_sign = append_query_pairs_to_url(url, &[("e", &deadline)]);
@@ -184,6 +336,24 @@ impl Credential {
 
 #[cfg(feature = "async")]
 impl Credential {
+    /// 使用七牛签名算法对异步输入流数据进行签名
+    ///
+    /// 参考[管理凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1201/access-token)
+    ///
+    /// ```
+    /// use qiniu_credential::{Credential, prelude::*};
+    /// use futures_lite::io::Cursor;
+    /// # async fn f() -> anyhow::Result<()> {
+    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// assert_eq!(
+    ///     credential
+    ///         .async_get(&Default::default()).await?
+    ///         .sign_async_reader(&mut Cursor::new(b"world")).await?,
+    ///     "abcdefghklmnopq:VjgXt0P_nCxHuaTfiFz-UjDJ1AQ="
+    /// );
+    /// # Ok(())
+    /// # }
+    /// ```
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub async fn sign_async_reader(&self, reader: &mut (dyn AsyncRead + Send + Unpin)) -> IoResult<String> {
         let mut hmac = new_hmac_sha1(self.secret_key());
@@ -191,6 +361,24 @@ impl Credential {
         Ok(base64ed_hmac_sha1_with_access_key(self.access_key().to_string(), hmac))
     }
 
+    /// 使用七牛签名算法 V1 对 HTTP 请求（请求体为异步输入流）进行签名，返回 Authorization 的值
+    ///
+    /// ```
+    /// use qiniu_credential::{Credential, HeaderValue, prelude::*};
+    /// use mime::APPLICATION_WWW_FORM_URLENCODED;
+    /// use futures_lite::io::Cursor;
+    /// # async fn f() -> anyhow::Result<()> {
+    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let authorization = credential
+    ///     .async_get(&Default::default()).await?
+    ///     .authorization_v1_for_request_with_async_body_reader(
+    ///         &"http://upload.qiniup.com/".parse()?,
+    ///         Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
+    ///         &mut Cursor::new(b"name=test&language=go")
+    ///     ).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub async fn authorization_v1_for_request_with_async_body_reader(
         &self,
@@ -202,6 +390,29 @@ impl Credential {
         Ok("QBox ".to_owned() + &authorization_token)
     }
 
+    /// 使用七牛签名算法 V2 对 HTTP 请求（请求体为异步输入流）进行签名，返回 Authorization 的值
+    ///
+    /// ```
+    /// use qiniu_credential::{Credential, Method, HeaderMap, HeaderValue, prelude::*};
+    /// use http::header::CONTENT_TYPE;
+    /// use mime::APPLICATION_JSON;
+    /// use futures_lite::io::Cursor;
+    /// #[async_std::main]
+    /// # async fn main() -> anyhow::Result<()> {
+    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let mut headers = HeaderMap::new();
+    /// headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
+    /// let authorization = credential
+    ///     .async_get(&Default::default()).await?
+    ///     .authorization_v2_for_request_with_async_body_reader(
+    ///         &Method::GET,
+    ///         &"http://upload.qiniup.com/".parse()?,
+    ///         &headers,
+    ///         &mut Cursor::new(b"{\"name\":\"test\"}")
+    ///     ).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub async fn authorization_v2_for_request_with_async_body_reader(
         &self,
@@ -437,6 +648,7 @@ mod async_sign {
 }
 
 #[cfg(feature = "async")]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 pub use futures_lite::AsyncRead;
 
 #[cfg(feature = "async")]
@@ -466,16 +678,49 @@ pub trait CredentialProvider: Clone + Debug + Sync + Send {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct GetOptions {}
+impl CredentialProvider for Credential {
+    #[inline]
+    fn get(&self, _opts: &GetOptions) -> IoResult<GotCredential> {
+        Ok(self.to_owned().into())
+    }
+}
 
-#[derive(Debug)]
+/// 获取认证信息的选项
+#[derive(Debug, Default)]
+pub struct GetOptions {
+    extensions: Extensions,
+}
+
+impl GetOptions {
+    /// 获取扩展信息
+    #[inline]
+    pub fn extensions(&self) -> &Extensions {
+        &self.extensions
+    }
+
+    /// 获取扩展信息的可变引用
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        &mut self.extensions
+    }
+
+    /// 取出扩展信息
+    #[inline]
+    pub fn take_extensions(&mut self) -> Extensions {
+        take(&mut self.extensions)
+    }
+}
+
+/// 获取的认证信息
+///
+/// 该数据结构目前和认证信息相同，可以和认证信息相互转换，但之后可能会添加更多字段
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GotCredential(Credential);
 
 impl From<GotCredential> for Credential {
     #[inline]
     fn from(result: GotCredential) -> Self {
-        result.0
+        result.into_credential()
     }
 }
 
@@ -487,16 +732,19 @@ impl From<Credential> for GotCredential {
 }
 
 impl GotCredential {
+    /// 获取认证信息
     #[inline]
     pub fn credential(&self) -> &Credential {
         &self.0
     }
 
+    /// 获取认证信息的可变引用
     #[inline]
     pub fn credential_mut(&mut self) -> &mut Credential {
         &mut self.0
     }
 
+    /// 转换为认证信息
     #[inline]
     pub fn into_credential(self) -> Credential {
         self.0
@@ -519,10 +767,10 @@ impl DerefMut for GotCredential {
     }
 }
 
-impl CredentialProvider for Credential {
+impl CredentialProvider for GotCredential {
     #[inline]
     fn get(&self, _opts: &GetOptions) -> IoResult<GotCredential> {
-        Ok(self.to_owned().into())
+        Ok(self.to_owned())
     }
 }
 
@@ -627,6 +875,7 @@ pub struct ChainCredentialsProvider {
 }
 
 impl ChainCredentialsProvider {
+    /// 创建认证信息串提供者构建器
     #[inline]
     pub fn builder(credential: impl CredentialProvider + 'static) -> ChainCredentialsProviderBuilder {
         ChainCredentialsProviderBuilder::new(credential)
@@ -635,10 +884,17 @@ impl ChainCredentialsProvider {
 
 impl CredentialProvider for ChainCredentialsProvider {
     fn get(&self, opts: &GetOptions) -> IoResult<GotCredential> {
-        if let Some(credential) = self.credentials.iter().find_map(|c| c.get(opts).ok()) {
+        let mut last_err = None;
+        if let Some(credential) = self.credentials.iter().find_map(|c| match c.get(opts) {
+            Ok(cred) => Some(cred),
+            Err(err) => {
+                last_err = Some(err);
+                None
+            }
+        }) {
             Ok(credential)
         } else {
-            Err(IoError::new(IoErrorKind::Other, "All credentials are failed to get"))
+            Err(last_err.expect("No credential in ChainCredentialsProvider, which is unexpected"))
         }
     }
 
@@ -646,12 +902,18 @@ impl CredentialProvider for ChainCredentialsProvider {
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get<'a>(&'a self, opts: &'a GetOptions) -> AsyncIoResult<'a, GotCredential> {
         Box::pin(async move {
+            let mut last_err = None;
             for provider in self.credentials.iter() {
-                if let Ok(credential) = provider.async_get(opts).await {
-                    return Ok(credential);
+                match provider.async_get(opts).await {
+                    Ok(cred) => {
+                        return Ok(cred);
+                    }
+                    Err(err) => {
+                        last_err = Some(err);
+                    }
                 }
             }
-            Err(IoError::new(IoErrorKind::Other, "All credentials are failed to get"))
+            Err(last_err.expect("No credential in ChainCredentialsProvider, which is unexpected"))
         })
     }
 }
@@ -747,7 +1009,6 @@ mod tests {
     use super::*;
     use anyhow::Result;
     use async_std as _;
-    use http::header::HeaderName;
     use mime::APPLICATION_JSON;
     use std::{io::Cursor, thread, time::Duration};
 
