@@ -1,4 +1,6 @@
 //! Base64 计算库
+//!
+//! 提供简单的 URLSafe Base64 计算库
 
 pub use base64::DecodeError;
 use std::result::Result;

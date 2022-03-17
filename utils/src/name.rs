@@ -10,11 +10,13 @@ use std::{
     ops::{Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo},
 };
 
+/// 存储空间名称
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BucketName {
     inner: SmallString<[u8; 64]>,
 }
 
+/// 对象名称
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ObjectName {
     inner: SmallString<[u8; 96]>,

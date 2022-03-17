@@ -12,7 +12,4 @@ keywords = ["qiniu", "storage"]
 [dependencies]
 base64 = "0.13.0"
 serde = "1.0.130"
-smallvec = "1.7.0"
-
-[dev-dependencies]
-bincode = "1.0"
+smallstr = "0.3.0"

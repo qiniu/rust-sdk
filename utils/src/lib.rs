@@ -5,6 +5,7 @@
     keyword_idents,
     macro_use_extern_crate,
     meta_variable_misuse,
+    missing_docs,
     non_ascii_idents,
     indirect_structural_match,
     trivial_casts,
@@ -18,7 +19,12 @@
     unused_lifetimes,
     unused_qualifications
 )]
-#![warn(rustdoc::missing_crate_level_docs)]
+
+//! # qiniu-etag
+//!
+//! ## 七牛实用工具库
+//!
+//! 仅供七牛 SDK 内部使用，接口不保证总是兼容变更
 
 pub mod base64;
 pub mod smallstr;
