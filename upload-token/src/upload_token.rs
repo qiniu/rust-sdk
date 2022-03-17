@@ -849,9 +849,7 @@ mod tests {
     use qiniu_credential::Credential;
     use std::{boxed::Box, error::Error, result::Result};
     use structopt as _;
-
-    #[cfg(not(target_arch = "wasm32"))]
-    use async_std as _;
+    use tokio as _;
 
     #[test]
     fn test_build_upload_token_from_upload_policy() -> Result<(), Box<dyn Error>> {
@@ -891,7 +889,7 @@ mod tests {
     mod async_test {
         use super::*;
 
-        #[async_std::test]
+        #[tokio::test]
         async fn test_async_build_upload_token_from_upload_policy() -> Result<(), Box<dyn Error>> {
             let policy =
                 UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", Duration::from_secs(3600))

@@ -28,9 +28,7 @@ qiniu-utils = { version = "0.0.4", path = "../utils" }
 anyhow = "1.0.44"
 mime = "0.3.16"
 structopt = "0.3.23"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-async-std = { version = "1.9.0", features = ["attributes"] }
+tokio = { version = "1", features = ["rt", "macros"] }
 
 [features]
 default = ["qiniu-credential"]
