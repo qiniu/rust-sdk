@@ -5,17 +5,14 @@ use digest::{
 };
 use futures_lite::io::{copy, AsyncRead, AsyncReadExt, Result};
 
-async fn _etag_of_reader(
-    mut reader: impl AsyncRead + Send + Unpin,
-    out: &mut GenericArray<u8, U28>,
-) -> Result<()> {
+async fn _etag_of_reader(mut reader: impl AsyncRead + Send + Unpin, out: &mut GenericArray<u8, U28>) -> Result<()> {
     let mut etag_v1 = EtagV1::new();
     copy(&mut reader, &mut etag_v1).await?;
     etag_v1.finalize_into(out);
     Ok(())
 }
 
-/// 异步读取 reader 中的数据并计算它的 Etag，生成结果
+/// 异步读取 reader 中的数据并计算它的 Etag V1，生成结果
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 pub async fn etag_of(reader: impl AsyncRead + Send + Unpin) -> Result<String> {
     let mut buf = GenericArray::default();
@@ -23,12 +20,9 @@ pub async fn etag_of(reader: impl AsyncRead + Send + Unpin) -> Result<String> {
     Ok(String::from_utf8(buf.to_vec()).unwrap())
 }
 
-/// 异步读取 reader 中的数据并计算它的 Etag，生成结果到指定的缓冲中
+/// 异步读取 reader 中的数据并计算它的 Etag V1，生成结果到指定的缓冲中
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub async fn etag_to_buf(
-    reader: impl AsyncRead + Send + Unpin,
-    array: &mut [u8; ETAG_SIZE],
-) -> Result<()> {
+pub async fn etag_to_buf(reader: impl AsyncRead + Send + Unpin, array: &mut [u8; ETAG_SIZE]) -> Result<()> {
     _etag_of_reader(reader, GenericArray::from_mut_slice(array)).await?;
     Ok(())
 }
@@ -53,18 +47,15 @@ async fn _etag_of_reader_with_parts(
     Ok(())
 }
 
-/// 根据给出的数据块尺寸，异步读取 reader 中的数据并计算它的 Etag，生成结果
+/// 根据给出的数据块尺寸，异步读取 reader 中的数据并计算它的 Etag V2，生成结果
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub async fn etag_with_parts(
-    reader: impl AsyncRead + Send + Unpin,
-    parts: &[usize],
-) -> Result<String> {
+pub async fn etag_with_parts(reader: impl AsyncRead + Send + Unpin, parts: &[usize]) -> Result<String> {
     let mut buf = GenericArray::default();
     _etag_of_reader_with_parts(reader, parts, &mut buf).await?;
     Ok(String::from_utf8(buf.to_vec()).unwrap())
 }
 
-/// 根据给出的数据块尺寸，异步读取 reader 中的数据并计算它的 Etag，生成结果到指定的数组中
+/// 根据给出的数据块尺寸，异步读取 reader 中的数据并计算它的 Etag V2，生成结果到指定的数组中
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 pub async fn etag_with_parts_to_buf(
     reader: impl AsyncRead + Send + Unpin,
@@ -109,11 +100,7 @@ mod tests {
             "ljgVjMtyMsOgIySv79U8Qz4TrUO4",
         );
         assert_eq!(
-            etag_with_parts(
-                Cursor::new(utils::data_of_size(1 << 20)),
-                &[1 << 19, 1 << 19]
-            )
-            .await?,
+            etag_with_parts(Cursor::new(utils::data_of_size(1 << 20)), &[1 << 19, 1 << 19]).await?,
             "nlF4JinKEDBChmFGYbEIsZt6Gxnw",
         );
         assert_eq!(
