@@ -746,18 +746,21 @@ impl Extend<Box<dyn CredentialProvider>> for ChainCredentialsProviderBuilder {
 mod tests {
     use super::*;
     use anyhow::Result;
-    use async_std as _;
     use http::header::HeaderName;
     use mime::APPLICATION_JSON;
-    use std::{io::Cursor, thread, time::Duration};
+    use std::{io::Cursor, time::Duration};
+    use tokio as _;
 
     #[test]
+    #[cfg(not(target_arch = "wasm32"))]
     fn test_sign() -> Result<()> {
+        use std::thread::spawn as spawn_thread;
+
         let credential = get_credential();
         let mut threads = Vec::new();
         {
             let credential = credential.to_owned();
-            threads.push(thread::spawn(move || {
+            threads.push(spawn_thread(move || {
                 assert_eq!(
                     credential.get(&Default::default()).unwrap().sign(b"hello"),
                     "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0="
@@ -773,7 +776,7 @@ mod tests {
             }));
         }
         {
-            threads.push(thread::spawn(move || {
+            threads.push(spawn_thread(move || {
                 assert_eq!(
                     credential.get(&Default::default()).unwrap().sign(b"-test"),
                     "abcdefghklmnopq:vYKRLUoXRlNHfpMEQeewG0zylaw="
@@ -793,12 +796,15 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_arch = "wasm32"))]
     fn test_sign_with_data() -> Result<()> {
+        use std::thread::spawn as spawn_thread;
+
         let credential = get_credential();
         let mut threads = Vec::new();
         {
             let credential = credential.to_owned();
-            threads.push(thread::spawn(move || {
+            threads.push(spawn_thread(move || {
                 assert_eq!(
                     credential.get(&Default::default()).unwrap().sign_with_data(b"hello"),
                     "abcdefghklmnopq:BZYt5uVRy1RVt5ZTXbaIt2ROVMA=:aGVsbG8="
@@ -810,7 +816,7 @@ mod tests {
             }));
         }
         {
-            threads.push(thread::spawn(move || {
+            threads.push(spawn_thread(move || {
                 assert_eq!(
                     credential.get(&Default::default()).unwrap().sign_with_data(b"-test"),
                     "abcdefghklmnopq:HlxenSSP_6BbaYNzx1fyeyw8v1Y=:LXRlc3Q="
@@ -1135,7 +1141,7 @@ mod tests {
         use super::*;
         use futures_lite::io::Cursor;
 
-        #[async_std::test]
+        #[tokio::test]
         async fn test_sign_async_reader() -> Result<()> {
             let credential = get_credential();
             assert_eq!(
@@ -1169,7 +1175,7 @@ mod tests {
             Ok(())
         }
 
-        #[async_std::test]
+        #[tokio::test]
         async fn test_async_authorization_v1() -> Result<()> {
             let credential = get_credential();
             assert_eq!(
@@ -1236,7 +1242,7 @@ mod tests {
             Ok(())
         }
 
-        #[async_std::test]
+        #[tokio::test]
         async fn test_async_authorization_v2() -> Result<()> {
             let credential = get_global_credential();
             let empty_headers = {
@@ -1432,7 +1438,7 @@ mod tests {
             Ok(())
         }
 
-        #[async_std::test]
+        #[tokio::test]
         async fn test_async_sign_download_url() -> Result<()> {
             let credential = get_env_credential();
             let url = "http://www.qiniu.com/?go=1".parse()?;
@@ -1447,7 +1453,7 @@ mod tests {
             Ok(())
         }
 
-        #[async_std::test]
+        #[tokio::test]
         async fn test_async_chain_credentials() -> Result<()> {
             GlobalCredentialProvider::clear();
             let chain_credentials = ChainCredentialsProvider::default();

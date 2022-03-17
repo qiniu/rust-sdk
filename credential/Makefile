@@ -20,3 +20,4 @@ clippy:
 	cargo +nightly clippy --tests --all-features -- -D warnings --no-deps
 test-wasm:
 	cargo wasi test -- --show-output
+	cargo wasi test --features async -- --show-output
