@@ -76,9 +76,9 @@ impl<P: DataPartitionProvider> MultiplePartitionsResumablePolicyProvider<P> {
 }
 
 fn get_policy_from_size(threshold: u64, source_size: u64) -> ResumablePolicy {
-    if threshold <= source_size {
-        ResumablePolicy::SinglePartUploading
-    } else {
+    if threshold < source_size {
         ResumablePolicy::MultiPartsUploading
+    } else {
+        ResumablePolicy::SinglePartUploading
     }
 }

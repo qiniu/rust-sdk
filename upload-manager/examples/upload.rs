@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_std::io::stdin;
 use qiniu_apis::{credential::Credential, http_client::CallbackResult};
 use qiniu_upload_manager::{
-    AlwaysMultiParts, AlwaysSinglePart, AutoUploaderObjectParams, FileSystemResumableRecorder,
+    AlwaysMultiParts, AlwaysSinglePart, AutoUploader, AutoUploaderObjectParams, FileSystemResumableRecorder,
     FixedConcurrencyProvider, FixedDataPartitionProvider, MultiPartsUploaderPrefer, MultiPartsUploaderWithCallbacks,
     UploadManager, UploadTokenSigner, UploadedPart, UploaderWithCallbacks, UploadingProgressInfo,
 };
@@ -32,11 +32,12 @@ struct Opt {
     local_file: Option<PathBuf>,
     /// Upload method
     #[structopt(short, long)]
-    upload_method: UploadMethod,
+    upload_method: Option<UploadMethod>,
 }
 
 #[derive(Clone, Copy, Debug)]
 enum UploadMethod {
+    Default,
     Form,
     ResumableV1,
     ResumableV2,
@@ -47,6 +48,7 @@ impl FromStr for UploadMethod {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            "default" => Ok(Self::Default),
             "form" => Ok(Self::Form),
             "v1" | "resumable_v1" => Ok(Self::ResumableV1),
             "v2" | "resumable_v2" => Ok(Self::ResumableV2),
@@ -54,6 +56,11 @@ impl FromStr for UploadMethod {
         }
     }
 }
+
+type FormAutoUploader =
+    AutoUploader<FixedConcurrencyProvider, FixedDataPartitionProvider, FileSystemResumableRecorder, AlwaysSinglePart>;
+type ResumableUploader =
+    AutoUploader<FixedConcurrencyProvider, FixedDataPartitionProvider, FileSystemResumableRecorder, AlwaysMultiParts>;
 
 #[async_std::main]
 async fn main() -> Result<()> {
@@ -96,8 +103,20 @@ async fn main() -> Result<()> {
     };
 
     let body = match opt.upload_method {
-        UploadMethod::Form => {
-            let mut uploader = upload_manager.auto_uploader::<FixedConcurrencyProvider,FixedDataPartitionProvider,FileSystemResumableRecorder,AlwaysSinglePart>();
+        None | Some(UploadMethod::Default) => {
+            let mut uploader: AutoUploader = upload_manager.auto_uploader();
+            let object_params = object_params_builder.build();
+            uploader
+                .on_upload_progress(upload_progress)
+                .on_part_uploaded(part_uploaded);
+            if let Some(local_file) = opt.local_file.as_ref() {
+                uploader.async_upload_path(local_file, object_params).await?
+            } else {
+                uploader.async_upload_reader(stdin(), object_params).await?
+            }
+        }
+        Some(UploadMethod::Form) => {
+            let mut uploader: FormAutoUploader = upload_manager.auto_uploader();
             let object_params = object_params_builder.build();
             uploader.on_upload_progress(upload_progress);
             if let Some(local_file) = opt.local_file.as_ref() {
@@ -106,8 +125,8 @@ async fn main() -> Result<()> {
                 uploader.async_upload_reader(stdin(), object_params).await?
             }
         }
-        UploadMethod::ResumableV1 => {
-            let mut uploader = upload_manager.auto_uploader::<FixedConcurrencyProvider,FixedDataPartitionProvider,FileSystemResumableRecorder,AlwaysMultiParts>();
+        Some(UploadMethod::ResumableV1) => {
+            let mut uploader: ResumableUploader = upload_manager.auto_uploader();
             uploader
                 .on_upload_progress(upload_progress)
                 .on_part_uploaded(part_uploaded);
@@ -120,8 +139,8 @@ async fn main() -> Result<()> {
                 uploader.async_upload_reader(stdin(), object_params).await?
             }
         }
-        UploadMethod::ResumableV2 => {
-            let mut uploader = upload_manager.auto_uploader::<FixedConcurrencyProvider,FixedDataPartitionProvider,FileSystemResumableRecorder,AlwaysMultiParts>();
+        Some(UploadMethod::ResumableV2) => {
+            let mut uploader: ResumableUploader = upload_manager.auto_uploader();
             uploader
                 .on_upload_progress(upload_progress)
                 .on_part_uploaded(part_uploaded);
