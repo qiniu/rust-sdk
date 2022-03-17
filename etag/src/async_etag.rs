@@ -5,10 +5,7 @@ use digest::{
 };
 use futures_lite::io::{copy, AsyncRead, AsyncReadExt, Result};
 
-async fn _etag_of_reader(
-    mut reader: impl AsyncRead + Send + Unpin,
-    out: &mut GenericArray<u8, U28>,
-) -> Result<()> {
+async fn _etag_of_reader(mut reader: impl AsyncRead + Send + Unpin, out: &mut GenericArray<u8, U28>) -> Result<()> {
     let mut etag_v1 = EtagV1::new();
     copy(&mut reader, &mut etag_v1).await?;
     etag_v1.finalize_into(out);
@@ -25,10 +22,7 @@ pub async fn etag_of(reader: impl AsyncRead + Send + Unpin) -> Result<String> {
 
 /// 异步读取 reader 中的数据并计算它的 Etag，生成结果到指定的缓冲中
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub async fn etag_to_buf(
-    reader: impl AsyncRead + Send + Unpin,
-    array: &mut [u8; ETAG_SIZE],
-) -> Result<()> {
+pub async fn etag_to_buf(reader: impl AsyncRead + Send + Unpin, array: &mut [u8; ETAG_SIZE]) -> Result<()> {
     _etag_of_reader(reader, GenericArray::from_mut_slice(array)).await?;
     Ok(())
 }
@@ -55,10 +49,7 @@ async fn _etag_of_reader_with_parts(
 
 /// 根据给出的数据块尺寸，异步读取 reader 中的数据并计算它的 Etag，生成结果
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub async fn etag_with_parts(
-    reader: impl AsyncRead + Send + Unpin,
-    parts: &[usize],
-) -> Result<String> {
+pub async fn etag_with_parts(reader: impl AsyncRead + Send + Unpin, parts: &[usize]) -> Result<String> {
     let mut buf = GenericArray::default();
     _etag_of_reader_with_parts(reader, parts, &mut buf).await?;
     Ok(String::from_utf8(buf.to_vec()).unwrap())
@@ -81,7 +72,7 @@ mod tests {
     use futures_lite::io::Cursor;
     use std::{error::Error, result::Result};
 
-    #[async_std::test]
+    #[tokio::test]
     async fn test_etag_of_reader() -> Result<(), Box<dyn Error>> {
         assert_eq!(
             etag_of(Cursor::new(utils::data_of_size(1 << 20))).await?,
@@ -94,7 +85,7 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn test_etag_of_reader_with_parts() -> Result<(), Box<dyn Error>> {
         assert_eq!(
             etag_with_parts(Cursor::new(utils::data_of_size(1 << 20)), &[1 << 20]).await?,
@@ -109,11 +100,7 @@ mod tests {
             "ljgVjMtyMsOgIySv79U8Qz4TrUO4",
         );
         assert_eq!(
-            etag_with_parts(
-                Cursor::new(utils::data_of_size(1 << 20)),
-                &[1 << 19, 1 << 19]
-            )
-            .await?,
+            etag_with_parts(Cursor::new(utils::data_of_size(1 << 20)), &[1 << 19, 1 << 19]).await?,
             "nlF4JinKEDBChmFGYbEIsZt6Gxnw",
         );
         assert_eq!(

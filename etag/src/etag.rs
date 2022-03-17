@@ -126,9 +126,7 @@ pub(super) fn can_use_etag_v1(parts: &[usize]) -> bool {
 mod tests {
     use super::*;
     use std::{error::Error, io::Cursor, result::Result};
-
-    #[cfg(not(target_arch = "wasm32"))]
-    use async_std as _;
+    use tokio as _;
 
     #[test]
     fn test_etag_v1() -> Result<(), Box<dyn Error>> {
