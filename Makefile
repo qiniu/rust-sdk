@@ -44,7 +44,6 @@ clippy:
 test-wasm:
 	unset RUSTFLAGS; \
 	set -e; \
-		(cd utils && cargo wasi test -- --show-output); \
-		(cd etag && cargo wasi test -- --show-output); \
-		(cd upload-token && cargo wasi test -- --show-output); \
-		(cd http && cargo wasi test -- --show-output)
+	for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir test-wasm; \
+	done

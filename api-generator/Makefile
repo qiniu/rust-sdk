@@ -1,4 +1,4 @@
-.PHONY: all build build_release build_test doc test clean clippy reset_apis
+.PHONY: all build build_release build_test doc test clean clippy reset_apis test-wasm
 
 all: build doc
 build: reset_apis
@@ -17,3 +17,4 @@ reset_apis:
 	rm -rf ../apis/src
 	mkdir ../apis/src
 	touch ../apis/src/lib.rs
+test-wasm:

@@ -1,4 +1,4 @@
-.PHONY: all build build_release build_test doc test clean clippy
+.PHONY: all build build_release build_test doc test clean clippy test-wasm
 
 all: build doc
 build:
@@ -20,3 +20,4 @@ clean:
 	cargo clean
 clippy:
 	cargo +nightly clippy --tests --all-features -- --no-deps
+test-wasm:
