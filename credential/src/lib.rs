@@ -703,12 +703,6 @@ impl GetOptions {
     pub fn extensions_mut(&mut self) -> &mut Extensions {
         &mut self.extensions
     }
-
-    /// 取出扩展信息
-    #[inline]
-    pub fn take_extensions(&mut self) -> Extensions {
-        take(&mut self.extensions)
-    }
 }
 
 /// 获取的认证信息

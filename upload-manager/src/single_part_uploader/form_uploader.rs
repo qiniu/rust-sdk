@@ -17,7 +17,7 @@ use qiniu_apis::{
 };
 use qiniu_upload_token::{BucketName, ObjectName};
 use serde_json::Value;
-use std::{fmt::Debug, fs::File, io::Read, path::Path};
+use std::{fmt::Debug, fs::File, io::Read, mem::take, path::Path};
 
 #[cfg(feature = "async")]
 use {
@@ -91,14 +91,14 @@ impl SinglePartUploader for FormUploader {
 
     fn upload_path(&self, path: &Path, mut params: ObjectParams) -> ApiResult<Value> {
         self.upload(
-            params.take_region_provider(),
+            take(params.region_provider_mut()),
             self.make_request_body_from_path(path, params)?,
         )
     }
 
     fn upload_reader<R: Read + 'static>(&self, reader: R, mut params: ObjectParams) -> ApiResult<Value> {
         self.upload(
-            params.take_region_provider(),
+            take(params.region_provider_mut()),
             self.make_request_body_from_reader(reader, params)?,
         )
     }
@@ -108,7 +108,7 @@ impl SinglePartUploader for FormUploader {
     fn async_upload_path<'a>(&'a self, path: &'a Path, mut params: ObjectParams) -> BoxFuture<'a, ApiResult<Value>> {
         Box::pin(async move {
             self.async_upload(
-                params.take_region_provider(),
+                take(params.region_provider_mut()),
                 self.make_async_request_body_from_path(path, params).await?,
             )
             .await
@@ -124,7 +124,7 @@ impl SinglePartUploader for FormUploader {
     ) -> BoxFuture<ApiResult<Value>> {
         Box::pin(async move {
             self.async_upload(
-                params.take_region_provider(),
+                take(params.region_provider_mut()),
                 self.make_async_request_body_from_async_reader(reader, params).await?,
             )
             .await
@@ -220,18 +220,18 @@ impl FormUploader {
         if let Some(file_name) = params.file_name() {
             file_metadata = file_metadata.file_name(file_name);
         }
-        if let Some(content_type) = params.take_content_type() {
+        if let Some(content_type) = take(params.content_type_mut()) {
             file_metadata = file_metadata.mime(content_type);
         }
         let mut request_body =
             SyncRequestBody::default().set_upload_token(self.make_upload_token_signer(&params).as_ref())?;
-        if let Some(object_name) = params.take_object_name() {
+        if let Some(object_name) = take(params.object_name_mut()) {
             request_body = request_body.set_object_name(object_name.to_string());
         }
-        for (key, value) in params.take_metadata().into_iter() {
+        for (key, value) in take(params.metadata_mut()).into_iter() {
             request_body = request_body.append_custom_data("x-qn-meta-".to_owned() + &key, value);
         }
-        for (key, value) in params.take_custom_vars().into_iter() {
+        for (key, value) in take(params.custom_vars_mut()).into_iter() {
             request_body = request_body.append_custom_data("x:".to_owned() + &key, value);
         }
         request_body = request_body.set_file_as_reader(reader, file_metadata);
@@ -266,19 +266,19 @@ impl FormUploader {
         } else {
             file_metadata = file_metadata.file_name("untitled");
         }
-        if let Some(content_type) = params.take_content_type() {
+        if let Some(content_type) = take(params.content_type_mut()) {
             file_metadata = file_metadata.mime(content_type);
         }
         let mut request_body = AsyncRequestBody::default()
             .set_upload_token(self.make_upload_token_signer(&params).as_ref())
             .await?;
-        if let Some(object_name) = params.take_object_name() {
+        if let Some(object_name) = take(params.object_name_mut()) {
             request_body = request_body.set_object_name(object_name.to_string());
         }
-        for (key, value) in params.take_metadata().into_iter() {
+        for (key, value) in take(params.metadata_mut()).into_iter() {
             request_body = request_body.append_custom_data("x-qn-meta-".to_owned() + &key, value);
         }
-        for (key, value) in params.take_custom_vars().into_iter() {
+        for (key, value) in take(params.custom_vars_mut()).into_iter() {
             request_body = request_body.append_custom_data("x:".to_owned() + &key, value);
         }
         request_body = request_body.set_file_as_reader(reader, file_metadata);

@@ -30,11 +30,6 @@ impl ObjectParams {
     }
 
     #[inline]
-    pub fn take_region_provider(&mut self) -> Option<Box<dyn RegionProvider>> {
-        self.region_provider.take()
-    }
-
-    #[inline]
     pub fn region_provider_mut(&mut self) -> &mut Option<Box<dyn RegionProvider>> {
         &mut self.region_provider
     }
@@ -42,11 +37,6 @@ impl ObjectParams {
     #[inline]
     pub fn object_name(&self) -> Option<&str> {
         self.object_name.as_deref()
-    }
-
-    #[inline]
-    pub fn take_object_name(&mut self) -> Option<ObjectName> {
-        self.object_name.take()
     }
 
     #[inline]
@@ -60,11 +50,6 @@ impl ObjectParams {
     }
 
     #[inline]
-    pub fn take_file_name(&mut self) -> Option<FileName> {
-        self.file_name.take()
-    }
-
-    #[inline]
     pub fn file_name_mut(&mut self) -> &mut Option<FileName> {
         &mut self.file_name
     }
@@ -72,11 +57,6 @@ impl ObjectParams {
     #[inline]
     pub fn content_type(&self) -> Option<&Mime> {
         self.content_type.as_ref()
-    }
-
-    #[inline]
-    pub fn take_content_type(&mut self) -> Option<Mime> {
-        self.content_type.take()
     }
 
     #[inline]
@@ -90,11 +70,6 @@ impl ObjectParams {
     }
 
     #[inline]
-    pub fn take_metadata(&mut self) -> HashMap<String, String> {
-        take(&mut self.metadata)
-    }
-
-    #[inline]
     pub fn metadata_mut(&mut self) -> &mut HashMap<String, String> {
         &mut self.metadata
     }
@@ -102,11 +77,6 @@ impl ObjectParams {
     #[inline]
     pub fn custom_vars(&self) -> &HashMap<String, String> {
         &self.custom_vars
-    }
-
-    #[inline]
-    pub fn take_custom_vars(&mut self) -> HashMap<String, String> {
-        take(&mut self.custom_vars)
     }
 
     #[inline]
@@ -120,11 +90,6 @@ impl ObjectParams {
     }
 
     #[inline]
-    pub fn take_extensions(&mut self) -> Extensions {
-        take(&mut self.extensions)
-    }
-
-    #[inline]
     pub fn extensions_mut(&mut self) -> &mut Extensions {
         &mut self.extensions
     }
@@ -132,11 +97,6 @@ impl ObjectParams {
     #[inline]
     pub fn uploaded_part_ttl(&self) -> Duration {
         self.uploaded_part_ttl
-    }
-
-    #[inline]
-    pub fn take_uploaded_part_ttl(&mut self) -> Duration {
-        take(&mut self.uploaded_part_ttl)
     }
 
     #[inline]

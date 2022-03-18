@@ -45,6 +45,7 @@ use std::{
     fmt::Debug,
     io::{BufRead, BufReader, Read, Result as IoResult, Write},
     iter::FromIterator,
+    mem::take,
     num::{NonZeroU64, NonZeroUsize},
     sync::{Arc, Mutex},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -762,21 +763,19 @@ fn make_complete_parts_request_body_from_initialized_params(
             .collect::<Vec<_>>()
             .into(),
     );
-    if let Some(file_name) = params.take_file_name() {
+    if let Some(file_name) = take(params.file_name_mut()) {
         body.set_file_name_as_str(file_name.to_string());
     }
-    if let Some(mime) = params.take_content_type() {
+    if let Some(mime) = take(params.content_type_mut()) {
         body.set_mime_type_as_str(mime.to_string());
     }
     body.set_metadata(StringMap::from(
-        params
-            .take_metadata()
+        take(params.metadata_mut())
             .into_iter()
             .map(|(key, value)| ("x-qn-meta-".to_owned() + &key, value)),
     ));
     body.set_custom_vars(StringMap::from(
-        params
-            .take_custom_vars()
+        take(params.custom_vars_mut())
             .into_iter()
             .map(|(key, value)| ("x:".to_owned() + &key, value)),
     ));

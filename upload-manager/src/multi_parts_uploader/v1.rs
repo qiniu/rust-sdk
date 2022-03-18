@@ -39,6 +39,7 @@ use std::{
     fmt::Debug,
     io::{BufRead, BufReader, Cursor, Read, Result as IoResult, Write},
     iter::FromIterator,
+    mem::take,
     num::NonZeroU64,
     sync::{Arc, Mutex},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -623,19 +624,19 @@ fn make_mkfile_path_params_from_initialized_parts(
     file_size: u64,
 ) -> MkFilePathParams {
     let mut params = MkFilePathParams::default().set_size_as_u64(file_size);
-    if let Some(object_name) = object_params.take_object_name() {
+    if let Some(object_name) = take(object_params.object_name_mut()) {
         params = params.set_object_name_as_str(object_name.to_string());
     }
-    if let Some(file_name) = object_params.take_file_name() {
+    if let Some(file_name) = take(object_params.file_name_mut()) {
         params = params.set_file_name_as_str(file_name.to_string());
     }
-    if let Some(mime) = object_params.take_content_type() {
+    if let Some(mime) = take(object_params.content_type_mut()) {
         params = params.set_mime_type_as_str(mime.to_string());
     }
-    for (metadata_name, metadata_value) in object_params.take_metadata() {
+    for (metadata_name, metadata_value) in take(object_params.metadata_mut()) {
         params = params.append_custom_data_as_str("x-qn-meta-".to_owned() + &metadata_name, metadata_value);
     }
-    for (var_name, var_value) in object_params.take_custom_vars() {
+    for (var_name, var_value) in take(object_params.custom_vars_mut()) {
         params = params.append_custom_data_as_str("x:".to_owned() + &var_name, var_value);
     }
     params
