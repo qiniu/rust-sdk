@@ -1,6 +1,6 @@
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
-use qiniu_credential::{Credential, CredentialProvider};
+use qiniu_credential::{Credential, CredentialProvider, GetOptions};
 use qiniu_http::{
     header::{AUTHORIZATION, CONTENT_TYPE},
     HeaderValue, RequestParts, SyncRequest,
@@ -23,10 +23,7 @@ pub trait AuthorizationProvider: Clone + Debug + Sync + Send {
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     /// 使用指定的鉴权方式对 HTTP 请求进行异步签名
-    fn async_sign<'a>(
-        &'a self,
-        request: &'a mut AsyncRequest<'_>,
-    ) -> BoxFuture<'a, AuthorizationResult<()>>;
+    fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>>;
 }
 
 #[derive(Clone, Debug)]
@@ -48,13 +45,9 @@ impl<P: UploadTokenProvider + Clone> AuthorizationProvider for UploadTokenAuthor
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_sign<'a>(
-        &'a self,
-        request: &'a mut AsyncRequest<'_>,
-    ) -> BoxFuture<'a, AuthorizationResult<()>> {
+    fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         Box::pin(async move {
-            let authorization =
-                uptoken_authorization(&self.0.async_to_token_string(&Default::default()).await?);
+            let authorization = uptoken_authorization(&self.0.async_to_token_string(&Default::default()).await?);
             set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
             Ok(())
         })
@@ -73,68 +66,73 @@ impl<P> From<P> for CredentialAuthorizationV1<P> {
 
 impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthorizationV1<P> {
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()> {
-        let authorization = Self::authorization_v1_for_request(
-            self.0.get(&Default::default())?.credential(),
-            request,
-        )?;
-        set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
-        Ok(())
+        let mut get_options = GetOptions::default();
+        *get_options.extensions_mut() = take(request.extensions_mut());
+        _sign(&self.0, request, &get_options).tap(|_| {
+            *request.extensions_mut() = take(get_options.extensions_mut());
+        })?;
+        return Ok(());
+
+        fn _sign(
+            credential_provider: impl CredentialProvider + Clone,
+            request: &mut SyncRequest,
+            get_options: &GetOptions,
+        ) -> AuthorizationResult<()> {
+            let authorization = authorization_v1_for_request(&*credential_provider.get(get_options)?, request)?;
+            set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
+            Ok(())
+        }
     }
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_sign<'a>(
-        &'a self,
-        request: &'a mut AsyncRequest<'_>,
-    ) -> BoxFuture<'a, AuthorizationResult<()>> {
-        Box::pin(async move {
-            let authorization = Self::authorization_v1_for_async_request(
-                self.0.async_get(&Default::default()).await?.credential(),
-                request,
-            )
-            .await?;
+    fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
+        return Box::pin(async move {
+            let mut get_options = GetOptions::default();
+            *get_options.extensions_mut() = take(request.extensions_mut());
+            _sign(&self.0, request, &get_options).await.tap(|_| {
+                *request.extensions_mut() = take(get_options.extensions_mut());
+            })?;
+            Ok(())
+        });
+
+        async fn _sign(
+            credential_provider: impl CredentialProvider + Clone,
+            request: &mut AsyncRequest<'_>,
+            get_options: &GetOptions,
+        ) -> AuthorizationResult<()> {
+            let authorization =
+                authorization_v1_for_async_request(&*credential_provider.async_get(get_options).await?, request)
+                    .await?;
             set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
             Ok(())
-        })
+        }
     }
 }
 
-impl<P: CredentialProvider + Clone> CredentialAuthorizationV1<P> {
-    fn authorization_v1_for_request(
-        credential: &Credential,
-        request: &mut SyncRequest,
-    ) -> AuthorizationResult<String> {
-        let (parts, mut body) = take(request).into_parts();
-        credential
-            .authorization_v1_for_request_with_body_reader(
-                parts.url(),
-                parts.headers().get(CONTENT_TYPE),
-                &mut body,
-            )
-            .tap(|_| {
-                *request = SyncRequest::from_parts(parts, body);
-            })
-            .map_err(|err| err.into())
-    }
+fn authorization_v1_for_request(credential: &Credential, request: &mut SyncRequest) -> AuthorizationResult<String> {
+    let (parts, mut body) = take(request).into_parts();
+    credential
+        .authorization_v1_for_request_with_body_reader(parts.url(), parts.headers().get(CONTENT_TYPE), &mut body)
+        .tap(|_| {
+            *request = SyncRequest::from_parts(parts, body);
+        })
+        .map_err(|err| err.into())
+}
 
-    #[cfg(feature = "async")]
-    async fn authorization_v1_for_async_request(
-        credential: &Credential,
-        request: &mut AsyncRequest<'_>,
-    ) -> AuthorizationResult<String> {
-        let (parts, mut body) = take(request).into_parts();
-        credential
-            .authorization_v1_for_request_with_async_body_reader(
-                parts.url(),
-                parts.headers().get(CONTENT_TYPE),
-                &mut body,
-            )
-            .await
-            .tap(|_| {
-                *request = AsyncRequest::from_parts(parts, body);
-            })
-            .map_err(|err| err.into())
-    }
+#[cfg(feature = "async")]
+async fn authorization_v1_for_async_request(
+    credential: &Credential,
+    request: &mut AsyncRequest<'_>,
+) -> AuthorizationResult<String> {
+    let (parts, mut body) = take(request).into_parts();
+    credential
+        .authorization_v1_for_request_with_async_body_reader(parts.url(), parts.headers().get(CONTENT_TYPE), &mut body)
+        .await
+        .tap(|_| {
+            *request = AsyncRequest::from_parts(parts, body);
+        })
+        .map_err(|err| err.into())
 }
 
 #[derive(Clone, Debug)]
@@ -149,70 +147,73 @@ impl<P> From<P> for CredentialAuthorizationV2<P> {
 
 impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthorizationV2<P> {
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()> {
-        let authorization = Self::authorization_v2_for_request(
-            self.0.get(&Default::default())?.credential(),
-            request,
-        )?;
-        set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
-        Ok(())
+        let mut get_options = GetOptions::default();
+        *get_options.extensions_mut() = take(request.extensions_mut());
+        _sign(&self.0, request, &get_options).tap(|_| {
+            *request.extensions_mut() = take(get_options.extensions_mut());
+        })?;
+        return Ok(());
+
+        fn _sign(
+            credential_provider: impl CredentialProvider + Clone,
+            request: &mut SyncRequest,
+            get_options: &GetOptions,
+        ) -> AuthorizationResult<()> {
+            let authorization = authorization_v2_for_request(&*credential_provider.get(get_options)?, request)?;
+            set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
+            Ok(())
+        }
     }
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_sign<'a>(
-        &'a self,
-        request: &'a mut AsyncRequest<'_>,
-    ) -> BoxFuture<'a, AuthorizationResult<()>> {
-        Box::pin(async move {
-            let authorization = Self::authorization_v2_for_async_request(
-                self.0.async_get(&Default::default()).await?.credential(),
-                request,
-            )
-            .await?;
+    fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
+        return Box::pin(async move {
+            let mut get_options = GetOptions::default();
+            *get_options.extensions_mut() = take(request.extensions_mut());
+            _sign(&self.0, request, &get_options).await.tap(|_| {
+                *request.extensions_mut() = take(get_options.extensions_mut());
+            })?;
+            Ok(())
+        });
+
+        async fn _sign(
+            credential_provider: impl CredentialProvider + Clone,
+            request: &mut AsyncRequest<'_>,
+            get_options: &GetOptions,
+        ) -> AuthorizationResult<()> {
+            let authorization =
+                authorization_v2_for_async_request(&*credential_provider.async_get(get_options).await?, request)
+                    .await?;
             set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
             Ok(())
-        })
+        }
     }
 }
 
-impl<P: CredentialProvider> CredentialAuthorizationV2<P> {
-    fn authorization_v2_for_request(
-        credential: &Credential,
-        request: &mut SyncRequest,
-    ) -> AuthorizationResult<String> {
-        let (parts, mut body) = take(request).into_parts();
-        credential
-            .authorization_v2_for_request_with_body_reader(
-                parts.method(),
-                parts.url(),
-                parts.headers(),
-                &mut body,
-            )
-            .tap(|_| {
-                *request = SyncRequest::from_parts(parts, body);
-            })
-            .map_err(|err| err.into())
-    }
+fn authorization_v2_for_request(credential: &Credential, request: &mut SyncRequest) -> AuthorizationResult<String> {
+    let (parts, mut body) = take(request).into_parts();
+    credential
+        .authorization_v2_for_request_with_body_reader(parts.method(), parts.url(), parts.headers(), &mut body)
+        .tap(|_| {
+            *request = SyncRequest::from_parts(parts, body);
+        })
+        .map_err(|err| err.into())
+}
 
-    #[cfg(feature = "async")]
-    async fn authorization_v2_for_async_request(
-        credential: &Credential,
-        request: &mut AsyncRequest<'_>,
-    ) -> AuthorizationResult<String> {
-        let (parts, mut body) = take(request).into_parts();
-        credential
-            .authorization_v2_for_request_with_async_body_reader(
-                parts.method(),
-                parts.url(),
-                parts.headers(),
-                &mut body,
-            )
-            .await
-            .tap(|_| {
-                *request = AsyncRequest::from_parts(parts, body);
-            })
-            .map_err(|err| err.into())
-    }
+#[cfg(feature = "async")]
+async fn authorization_v2_for_async_request(
+    credential: &Credential,
+    request: &mut AsyncRequest<'_>,
+) -> AuthorizationResult<String> {
+    let (parts, mut body) = take(request).into_parts();
+    credential
+        .authorization_v2_for_request_with_async_body_reader(parts.method(), parts.url(), parts.headers(), &mut body)
+        .await
+        .tap(|_| {
+            *request = AsyncRequest::from_parts(parts, body);
+        })
+        .map_err(|err| err.into())
 }
 
 fn set_authorization(request: &mut RequestParts, authorization: HeaderValue) {
@@ -287,10 +288,7 @@ impl AuthorizationProvider for Authorization<'_> {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_sign<'a>(
-        &'a self,
-        request: &'a mut AsyncRequest<'_>,
-    ) -> BoxFuture<'a, AuthorizationResult<()>> {
+    fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         self.as_ref().async_sign(request)
     }
 }
