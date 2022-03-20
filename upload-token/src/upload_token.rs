@@ -2,13 +2,15 @@ use super::{UploadPolicy, UploadPolicyBuilder};
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use once_cell::sync::OnceCell;
-use qiniu_credential::{AccessKey, CredentialProvider};
+use qiniu_credential::{AccessKey, CredentialProvider, Extensions};
 use qiniu_utils::{base64, BucketName, ObjectName};
 use std::{
     borrow::Cow,
+    convert::Infallible,
     fmt::{self, Debug},
     io::{Error as IoError, Result as IoResult},
     ops::{Deref, DerefMut},
+    str::FromStr,
     sync::{Arc, RwLock},
     time::{Duration, Instant},
 };
@@ -29,7 +31,7 @@ type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send
 
 /// 上传凭证提供者
 ///
-/// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1208/upload-token)了解七牛安全机制。
+/// 可以阅读 <https://developer.qiniu.com/kodo/manual/1208/upload-token> 了解七牛安全机制。
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
@@ -67,22 +69,76 @@ pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct GetAccessKeyOptions {}
+/// 获取 Access Key 的选项
+#[derive(Debug, Default)]
+pub struct GetAccessKeyOptions {
+    extensions: Extensions,
+}
 
-#[derive(Clone, Debug, Default)]
-pub struct GetPolicyOptions {}
+impl GetAccessKeyOptions {
+    /// 获取扩展信息
+    #[inline]
+    pub fn extensions(&self) -> &Extensions {
+        &self.extensions
+    }
 
-#[derive(Clone, Debug, Default)]
-pub struct ToStringOptions {}
+    /// 获取扩展信息的可变引用
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        &mut self.extensions
+    }
+}
 
+/// 获取上传策略的选项
+#[derive(Debug, Default)]
+pub struct GetPolicyOptions {
+    extensions: Extensions,
+}
+
+impl GetPolicyOptions {
+    /// 获取扩展信息
+    #[inline]
+    pub fn extensions(&self) -> &Extensions {
+        &self.extensions
+    }
+
+    /// 获取扩展信息的可变引用
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        &mut self.extensions
+    }
+}
+
+/// 获取上传凭证的选项
+#[derive(Debug, Default)]
+pub struct ToStringOptions {
+    extensions: Extensions,
+}
+
+impl ToStringOptions {
+    /// 获取扩展信息
+    #[inline]
+    pub fn extensions(&self) -> &Extensions {
+        &self.extensions
+    }
+
+    /// 获取扩展信息的可变引用
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        &mut self.extensions
+    }
+}
+
+/// 获取的 Access Key
+///
+/// 该数据结构目前和 Access Key 相同，可以和 Access Key 相互转换，但之后可能会添加更多字段
 #[derive(Debug)]
 pub struct GotAccessKey(AccessKey);
 
 impl From<GotAccessKey> for AccessKey {
     #[inline]
     fn from(result: GotAccessKey) -> Self {
-        result.0
+        result.into_access_key()
     }
 }
 
@@ -94,16 +150,19 @@ impl From<AccessKey> for GotAccessKey {
 }
 
 impl GotAccessKey {
+    /// 获取 Access Key
     #[inline]
     pub fn access_key(&self) -> &AccessKey {
         &self.0
     }
 
+    /// 获取 Access Key 的可变引用
     #[inline]
     pub fn access_key_mut(&mut self) -> &mut AccessKey {
         &mut self.0
     }
 
+    /// 转换为 Access Key
     #[inline]
     pub fn into_access_key(self) -> AccessKey {
         self.0
@@ -126,6 +185,9 @@ impl DerefMut for GotAccessKey {
     }
 }
 
+/// 获取的上传策略
+///
+/// 该数据结构目前和上传策略相同，可以和上传策略相互转换，但之后可能会添加更多字段
 #[derive(Debug, Clone)]
 pub struct GotUploadPolicy<'a>(Cow<'a, UploadPolicy>);
 
@@ -165,16 +227,19 @@ impl From<UploadPolicy> for GotUploadPolicy<'_> {
 }
 
 impl GotUploadPolicy<'_> {
+    /// 获取上传策略
     #[inline]
     pub fn upload_policy(&self) -> &UploadPolicy {
         &self.0
     }
 
+    /// 获取上传策略的可变引用
     #[inline]
     pub fn upload_policy_mut(&mut self) -> &mut UploadPolicy {
         self.0.to_mut()
     }
 
+    /// 转换为上传策略
     #[inline]
     pub fn into_upload_policy(self) -> UploadPolicy {
         self.0.into_owned()
@@ -197,13 +262,18 @@ impl DerefMut for GotUploadPolicy<'_> {
     }
 }
 
+/// 获取的上传凭证字符串
+///
+/// 该数据结构目前和字符串相同，可以和字符串相互转换，但之后可能会添加更多字段
 #[derive(Debug, Clone)]
 pub struct GotString<'a>(Cow<'a, str>);
 
-impl<'a> From<GotString<'a>> for Cow<'a, str> {
+impl FromStr for GotString<'_> {
+    type Err = Infallible;
+
     #[inline]
-    fn from(result: GotString<'a>) -> Self {
-        result.0
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(s.to_owned().into())
     }
 }
 
@@ -214,31 +284,10 @@ impl From<GotString<'_>> for String {
     }
 }
 
-impl<'a> From<Cow<'a, str>> for GotString<'a> {
+impl<'a, T: Into<Cow<'a, str>>> From<T> for GotString<'a> {
     #[inline]
-    fn from(s: Cow<'a, str>) -> Self {
-        Self(s)
-    }
-}
-
-impl<'a> From<&'a str> for GotString<'a> {
-    #[inline]
-    fn from(s: &'a str) -> Self {
-        Self::from(Cow::Borrowed(s))
-    }
-}
-
-impl From<String> for GotString<'_> {
-    #[inline]
-    fn from(s: String) -> Self {
-        Self::from(Cow::Owned(s))
-    }
-}
-
-impl From<Box<str>> for GotString<'_> {
-    #[inline]
-    fn from(s: Box<str>) -> Self {
-        Self::from(Cow::Owned(s.into_string()))
+    fn from(s: T) -> Self {
+        Self(s.into())
     }
 }
 
@@ -256,14 +305,14 @@ impl AsMut<str> for GotString<'_> {
     }
 }
 
-impl<'a> fmt::Display for GotString<'a> {
+impl fmt::Display for GotString<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.0, f)
     }
 }
 
-impl<'a> Deref for GotString<'a> {
+impl Deref for GotString<'_> {
     type Target = str;
 
     #[inline]
@@ -272,14 +321,18 @@ impl<'a> Deref for GotString<'a> {
     }
 }
 
-impl<'a> DerefMut for GotString<'a> {
+impl DerefMut for GotString<'_> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0.to_mut()
     }
 }
 
+/// 上传凭证提供者扩展
+///
+/// 提供存储空间名称解析方法
 pub trait UploadTokenProviderExt: UploadTokenProvider {
+    /// 获取上传凭证中的存储空间名称
     fn bucket_name(&self, opts: &GetPolicyOptions) -> ParseResult<BucketName> {
         self.policy(opts).and_then(|policy| {
             policy
@@ -290,6 +343,7 @@ pub trait UploadTokenProviderExt: UploadTokenProvider {
         })
     }
 
+    /// 异步获取上传凭证中的存储空间名称
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_bucket_name<'a>(&'a self, opts: &'a GetPolicyOptions) -> AsyncParseResult<'a, BucketName> {
@@ -375,10 +429,22 @@ impl UploadTokenProvider for StaticUploadTokenProvider {
 impl<T: Into<String>> From<T> for StaticUploadTokenProvider {
     #[inline]
     fn from(s: T) -> Self {
-        Self::new(s)
+        Self::new(s.into())
     }
 }
 
+impl FromStr for StaticUploadTokenProvider {
+    type Err = Infallible;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::new(s))
+    }
+}
+
+/// 根据上传凭证生成上传策略
+///
+/// 通过 [`UploadPolicy::into_upload_token_provider()`] 创建
 #[derive(Debug, Clone)]
 pub struct FromUploadPolicy<C: Clone> {
     upload_policy: UploadPolicy,
@@ -387,6 +453,7 @@ pub struct FromUploadPolicy<C: Clone> {
 
 impl<C: Clone> FromUploadPolicy<C> {
     /// 基于上传策略和认证信息生成上传凭证实例
+    #[inline]
     pub fn new(upload_policy: UploadPolicy, credential: C) -> Self {
         Self {
             upload_policy,
@@ -440,6 +507,7 @@ impl<C: Clone> BucketUploadTokenProvider<C> {
         Self::builder(bucket, upload_token_lifetime, credential).build()
     }
 
+    /// 创建存储空间上传凭证构建器
     #[inline]
     pub fn builder(
         bucket: impl Into<BucketName>,
@@ -502,12 +570,14 @@ impl<C: CredentialProvider + Clone> UploadTokenProvider for BucketUploadTokenPro
     }
 }
 
+/// 存储空间上传凭证构建器
 #[derive(Clone)]
 pub struct BucketUploadTokenProviderBuilder<C: Clone> {
     inner: BucketUploadTokenProvider<C>,
 }
 
 impl<C: Clone> BucketUploadTokenProviderBuilder<C> {
+    /// 设置上传凭证回调函数
     #[inline]
     #[must_use]
     pub fn on_policy_generated(mut self, callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static) -> Self {
@@ -515,6 +585,7 @@ impl<C: Clone> BucketUploadTokenProviderBuilder<C> {
         self
     }
 
+    /// 构造存储空间上传凭证
     #[inline]
     pub fn build(self) -> BucketUploadTokenProvider<C> {
         self.inner
@@ -555,6 +626,7 @@ impl<C: Clone> ObjectUploadTokenProvider<C> {
         Self::builder(bucket, object, upload_token_lifetime, credential).build()
     }
 
+    /// 创建对象上传凭证构建器
     #[inline]
     pub fn builder(
         bucket: impl Into<BucketName>,
@@ -623,12 +695,14 @@ impl<C: CredentialProvider + Clone> UploadTokenProvider for ObjectUploadTokenPro
     }
 }
 
+/// 对象上传凭证构建器
 #[derive(Clone)]
 pub struct ObjectUploadTokenProviderBuilder<C: Clone> {
     inner: ObjectUploadTokenProvider<C>,
 }
 
 impl<C: Clone> ObjectUploadTokenProviderBuilder<C> {
+    /// 设置上传凭证回调函数
     #[inline]
     #[must_use]
     pub fn on_policy_generated(mut self, callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static) -> Self {
@@ -636,6 +710,7 @@ impl<C: Clone> ObjectUploadTokenProviderBuilder<C> {
         self
     }
 
+    /// 构建对象上传凭证
     #[inline]
     pub fn build(self) -> ObjectUploadTokenProvider<C> {
         self.inner
@@ -681,6 +756,9 @@ struct AsyncCacheInner {
     upload_token: AsyncMutex<Option<Cache<String>>>,
 }
 
+/// 缓存生成的上传凭证
+///
+/// 内部存储另一个实现 `UploadTokenProvider` 的结构体，该结构为之提供指定时间内的缓存，避免每次都要重新生成新的上传凭证。
 #[derive(Debug, Clone)]
 pub struct CachedUploadTokenProvider<P: Clone> {
     inner_provider: P,
@@ -692,6 +770,7 @@ pub struct CachedUploadTokenProvider<P: Clone> {
 }
 
 impl<P: Clone> CachedUploadTokenProvider<P> {
+    /// 创建上传凭证缓存，需要提供另一个实现 `UploadTokenProvider` 的结构体，和需要缓存的时长
     #[inline]
     pub fn new(inner_provider: P, cache_lifetime: Duration) -> Self {
         Self {
@@ -859,7 +938,7 @@ mod tests {
             .to_token_string(&Default::default())?
             .to_string();
         assert!(token.starts_with(get_credential().get(&Default::default())?.access_key().as_str()));
-        let token = StaticUploadTokenProvider::from(token);
+        let token: StaticUploadTokenProvider = token.parse()?;
         let policy = token.policy(&Default::default())?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
         assert_eq!(policy.key(), Some("test:file"));
@@ -905,7 +984,7 @@ mod tests {
                     .access_key()
                     .as_str()
             ));
-            let token = StaticUploadTokenProvider::from(token);
+            let token: StaticUploadTokenProvider = token.parse()?;
             let get_policy_from_size_options = Default::default();
             let policy = token.async_policy(&get_policy_from_size_options).await?;
             assert_eq!(policy.bucket(), Some("test_bucket"));

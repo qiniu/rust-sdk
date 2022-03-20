@@ -1,4 +1,4 @@
-use super::{FileType, FromUploadPolicy, InvalidFileType};
+use super::{FileType, FromUploadPolicy};
 use assert_impl::assert_impl;
 use qiniu_credential::CredentialProvider;
 use qiniu_utils::{BucketName, ObjectName};
@@ -10,7 +10,7 @@ use serde_json::{
 };
 use std::{
     borrow::{Borrow, Cow},
-    convert::{TryFrom, TryInto},
+    convert::TryInto,
     fmt,
     hash::Hash,
     ops::{Bound, RangeBounds},
@@ -39,7 +39,16 @@ const DELETE_AFTER_DAYS_KEY: &str = "deleteAfterDays";
 
 /// 上传策略
 ///
-/// 可以点击[这里](https://developer.qiniu.com/kodo/manual/1206/put-policy)了解七牛安全机制。
+/// 可以阅读 <https://developer.qiniu.com/kodo/manual/1206/put-policy> 了解七牛安全机制。
+///
+/// 根据指定的存储空间和对象名称，生成可以用来上传低频存储类型文件的上传策略：
+///
+/// ```
+/// use qiniu_upload_token::{FileType, UploadPolicy};
+/// use std::time::Duration;
+///
+/// let upload_policy = UploadPolicy::new_for_object("your-bucket", "your-key", Duration::from_secs(3600)).file_type(FileType::InfrequentAccess).build();
+/// ```
 #[derive(Clone, Eq, PartialEq)]
 pub struct UploadPolicy {
     inner: JsonValue,
@@ -52,10 +61,7 @@ impl UploadPolicy {
     ///
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
     #[inline]
-    pub fn new_for_bucket(
-        bucket: impl Into<BucketName>,
-        upload_token_lifetime: Duration,
-    ) -> UploadPolicyBuilder {
+    pub fn new_for_bucket(bucket: impl Into<BucketName>, upload_token_lifetime: Duration) -> UploadPolicyBuilder {
         UploadPolicyBuilder::new_policy_for_bucket(bucket, upload_token_lifetime)
     }
 
@@ -86,11 +92,7 @@ impl UploadPolicy {
         prefix: impl AsRef<str>,
         upload_token_lifetime: Duration,
     ) -> UploadPolicyBuilder {
-        UploadPolicyBuilder::new_policy_for_objects_with_prefix(
-            bucket,
-            prefix,
-            upload_token_lifetime,
-        )
+        UploadPolicyBuilder::new_policy_for_objects_with_prefix(bucket, prefix, upload_token_lifetime)
     }
 
     /// 存储空间约束
@@ -111,9 +113,7 @@ impl UploadPolicy {
 
     /// 是否是对象名称前缀约束
     pub fn use_prefixal_object_key(&self) -> bool {
-        self.get(IS_PREFIXAL_SCOPE_KEY)
-            .and_then(|v| v.as_u64())
-            .is_some()
+        self.get(IS_PREFIXAL_SCOPE_KEY).and_then(|v| v.as_u64()).is_some()
     }
 
     /// 是否仅允许新增对象，不允许覆盖对象
@@ -128,11 +128,9 @@ impl UploadPolicy {
 
     /// 上传凭证过期时间
     pub fn token_deadline(&self) -> Option<SystemTime> {
-        self.get(DEADLINE_KEY).and_then(|v| v.as_u64()).map(|t| {
-            SystemTime::UNIX_EPOCH
-                .checked_add(Duration::from_secs(t))
-                .unwrap()
-        })
+        self.get(DEADLINE_KEY)
+            .and_then(|v| v.as_u64())
+            .map(|t| SystemTime::UNIX_EPOCH.checked_add(Duration::from_secs(t)).unwrap())
     }
 
     /// Web 端文件上传成功后，浏览器执行 303 跳转的 URL
@@ -180,9 +178,7 @@ impl UploadPolicy {
 
     /// 是否忽略客户端指定的对象名称，强制使用自定义对象名称进行文件命名
     pub fn is_save_key_forced(&self) -> bool {
-        self.get(FORCE_SAVE_KEY_KEY)
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
+        self.get(FORCE_SAVE_KEY_KEY).and_then(|v| v.as_bool()).unwrap_or(false)
     }
 
     /// 限定上传文件尺寸的范围
@@ -200,19 +196,12 @@ impl UploadPolicy {
     /// 指定本字段值，七牛服务器会侦测文件内容以判断 MIME 类型，再用判断值跟指定值进行匹配，
     /// 匹配成功则允许上传，匹配失败则返回 403 状态码
     pub fn mime_types(&self) -> Option<Split<char>> {
-        self.get(MIME_LIMIT_KEY)
-            .and_then(|v| v.as_str())
-            .map(|s| s.split(';'))
+        self.get(MIME_LIMIT_KEY).and_then(|v| v.as_str()).map(|s| s.split(';'))
     }
 
     /// 文件类型
-    pub fn file_type(&self) -> Result<Option<FileType>, InvalidFileType> {
-        self.get(FILE_TYPE_KEY).and_then(|v| v.as_u64()). // Option<u64>
-        map(|v| {
-            u8::try_from(v)
-                .map_err(|_| InvalidFileType(v))
-                .and_then(|v| v.try_into())
-        }).map_or(Ok(None), |v| v.map(Some))
+    pub fn file_type(&self) -> Option<FileType> {
+        self.get(FILE_TYPE_KEY).and_then(|v| v.as_u64()).map(FileType::from)
     }
 
     /// 对象生命周期
@@ -254,10 +243,7 @@ impl UploadPolicy {
 
     /// 将上传策略转换为上传凭证提供者
     #[inline]
-    pub fn into_upload_token_provider<T: CredentialProvider + Clone>(
-        self,
-        credential: T,
-    ) -> FromUploadPolicy<T> {
+    pub fn into_upload_token_provider<T: CredentialProvider + Clone>(self, credential: T) -> FromUploadPolicy<T> {
         FromUploadPolicy::new(self, credential)
     }
 
@@ -284,9 +270,7 @@ pub struct UploadPolicyBuilder {
 
 impl From<UploadPolicy> for UploadPolicyBuilder {
     fn from(policy: UploadPolicy) -> Self {
-        Self {
-            inner: policy.inner,
-        }
+        Self { inner: policy.inner }
     }
 }
 
@@ -296,10 +280,7 @@ impl UploadPolicyBuilder {
     /// 允许用户上传文件到指定的存储空间，不限制上传客户端指定对象名称。
     ///
     /// 上传策略根据给出的客户端配置指定上传凭证有效期
-    pub fn new_policy_for_bucket(
-        bucket: impl Into<BucketName>,
-        upload_token_lifetime: Duration,
-    ) -> Self {
+    pub fn new_policy_for_bucket(bucket: impl Into<BucketName>, upload_token_lifetime: Duration) -> Self {
         let mut policy = Self {
             inner: json!({
                 SCOPE_KEY: bucket.into().to_string(),
@@ -397,10 +378,7 @@ impl UploadPolicyBuilder {
 
     /// 设置文件类型
     pub fn file_type(&mut self, file_type: FileType) -> &mut Self {
-        self.set(
-            FILE_TYPE_KEY.into(),
-            JsonValue::Number(u8::from(file_type).into()),
-        )
+        self.set(FILE_TYPE_KEY.into(), JsonValue::Number(u8::from(file_type).into()))
     }
 
     /// Web 端文件上传成功后，浏览器执行 303 跳转的 URL
@@ -431,17 +409,14 @@ impl UploadPolicyBuilder {
     /// `body` 参数必须不能为空，支持[魔法变量](https://developer.qiniu.com/kodo/manual/1235/vars#magicvar)和[自定义变量](https://developer.qiniu.com/kodo/manual/1235/vars#xvar)
     //
     /// `body_type` 参数表示 `body` 参数的 `Content-Type`，如果为空，则为默认的 `application/x-www-form-urlencoded`
-    pub fn callback<'a>(
+    pub fn callback<V: AsRef<[S]>, S: AsRef<str>>(
         &mut self,
-        urls: impl AsRef<[&'a str]>,
+        urls: V,
         host: impl Into<String>,
         body: impl Into<String>,
         body_type: impl Into<String>,
     ) -> &mut Self {
-        self.set(
-            CALLBACK_URL_KEY.into(),
-            JsonValue::String(urls.as_ref().join(";")),
-        );
+        self.set(CALLBACK_URL_KEY.into(), JsonValue::String(join_str_slice(urls, ";")));
         {
             let callback_host = host.into();
             if callback_host.is_empty() {
@@ -456,10 +431,7 @@ impl UploadPolicyBuilder {
             if callback_body_type.is_empty() {
                 self.unset(CALLBACK_BODY_TYPE_KEY);
             } else {
-                self.set(
-                    CALLBACK_BODY_TYPE_KEY.into(),
-                    JsonValue::String(callback_body_type),
-                );
+                self.set(CALLBACK_BODY_TYPE_KEY.into(), JsonValue::String(callback_body_type));
             }
         }
         self
@@ -513,10 +485,10 @@ impl UploadPolicyBuilder {
     ///
     /// 指定本字段值，七牛服务器会侦测文件内容以判断 MIME 类型，再用判断值跟指定值进行匹配，
     /// 匹配成功则允许上传，匹配失败则返回 403 状态码
-    pub fn mime_types<'a>(&mut self, content_types: impl AsRef<[&'a str]>) -> &mut Self {
+    pub fn mime_types<V: AsRef<[S]>, S: AsRef<str>>(&mut self, content_types: V) -> &mut Self {
         self.set(
             MIME_LIMIT_KEY.into(),
-            JsonValue::String(content_types.as_ref().join(";")),
+            JsonValue::String(join_str_slice(content_types, ";")),
         )
     }
 
@@ -615,6 +587,20 @@ impl<'p> From<Cow<'p, UploadPolicy>> for UploadPolicy {
     }
 }
 
+fn join_str_slice<V: AsRef<[S]>, S: AsRef<str>, Sep: AsRef<str>>(slice: V, sep: Sep) -> String {
+    let mut iter = slice.as_ref().iter().map(|s| s.as_ref());
+    let mut joined = String::new();
+    if let Some(first) = iter.next() {
+        joined.push_str(first);
+        joined = iter.fold(joined, |mut joined, s| {
+            joined.push_str(sep.as_ref());
+            joined.push_str(s);
+            joined
+        })
+    }
+    joined
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -624,9 +610,7 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_for_bucket() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600)).build();
         let now = SystemTime::now();
         let one_hour_later = now + Duration::from_secs(60 * 60);
         assert_eq!(policy.bucket(), Some("test_bucket"));
@@ -653,12 +637,8 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_for_object() -> Result<()> {
-        let policy = UploadPolicyBuilder::new_policy_for_object(
-            "test_bucket",
-            "test:object",
-            Duration::from_secs(3600),
-        )
-        .build();
+        let policy =
+            UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:object", Duration::from_secs(3600)).build();
         let now = SystemTime::now();
         let one_hour_later = now + Duration::from_secs(60 * 60);
         assert_eq!(policy.bucket(), Some("test_bucket"));
@@ -719,10 +699,9 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_deadline() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .token_deadline(SystemTime::now())
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .token_deadline(SystemTime::now())
+            .build();
         assert!(
             SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?
                 - policy
@@ -743,10 +722,9 @@ mod tests {
     #[test]
     fn test_build_upload_policy_with_lifetime() -> Result<()> {
         let one_day = Duration::from_secs(60 * 60 * 24);
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .token_lifetime(one_day)
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .token_lifetime(one_day)
+            .build();
         let now = SystemTime::now();
         let tomorrow = now + one_day;
         assert!(
@@ -768,13 +746,9 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_insert_only() -> Result<()> {
-        let policy = UploadPolicyBuilder::new_policy_for_object(
-            "test_bucket",
-            "test",
-            Duration::from_secs(3600),
-        )
-        .insert_only()
-        .build();
+        let policy = UploadPolicyBuilder::new_policy_for_object("test_bucket", "test", Duration::from_secs(3600))
+            .insert_only()
+            .build();
         assert!(policy.is_insert_only());
         assert_eq!(policy.get("insertOnly"), Some(&json!(1)));
         Ok(())
@@ -782,10 +756,9 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_mime_detection() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .enable_mime_detection()
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .enable_mime_detection()
+            .build();
         assert!(policy.mime_detection_enabled());
         assert_eq!(policy.get("detectMime"), Some(&json!(1)));
         Ok(())
@@ -793,46 +766,39 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_normal_storage() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .file_type(FileType::Normal)
-                .build();
-        assert_eq!(policy.file_type()?, Some(FileType::Normal));
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .file_type(FileType::Standard)
+            .build();
+        assert_eq!(policy.file_type(), Some(FileType::Standard));
         assert_eq!(policy.get("fileType"), Some(&json!(0)));
         Ok(())
     }
 
     #[test]
     fn test_build_upload_policy_with_infrequent_storage() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .file_type(FileType::InfrequentAccess)
-                .build();
-        assert_eq!(policy.file_type()?, Some(FileType::InfrequentAccess));
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .file_type(FileType::InfrequentAccess)
+            .build();
+        assert_eq!(policy.file_type(), Some(FileType::InfrequentAccess));
         assert_eq!(policy.get("fileType"), Some(&json!(1)));
         Ok(())
     }
 
     #[test]
     fn test_build_upload_policy_with_return_url() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .return_url("http://www.qiniu.io/test")
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .return_url("http://www.qiniu.io/test")
+            .build();
         assert_eq!(policy.return_url(), Some("http://www.qiniu.io/test"));
-        assert_eq!(
-            policy.get("returnUrl"),
-            Some(&json!("http://www.qiniu.io/test"))
-        );
+        assert_eq!(policy.get("returnUrl"), Some(&json!("http://www.qiniu.io/test")));
         Ok(())
     }
 
     #[test]
     fn test_build_upload_policy_with_return_body() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .return_body("datadatadata")
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .return_body("datadatadata")
+            .build();
         assert_eq!(policy.return_body(), Some("datadatadata"));
         assert_eq!(policy.get("returnBody"), Some(&json!("datadatadata")));
         Ok(())
@@ -840,24 +806,17 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_callback() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .callback(
-                    &["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"],
-                    "www.qiniu.com",
-                    "a=b&c=d",
-                    "",
-                )
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .callback(
+                &["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"],
+                "www.qiniu.com",
+                "a=b&c=d",
+                "",
+            )
+            .build();
         assert_eq!(
-            policy
-                .callback_urls()
-                .map(|urls| urls.collect::<Vec<&str>>()),
-            Some(vec![
-                "https://1.1.1.1",
-                "https://2.2.2.2",
-                "https://3.3.3.3"
-            ])
+            policy.callback_urls().map(|urls| urls.collect::<Vec<&str>>()),
+            Some(vec!["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"])
         );
         assert_eq!(policy.callback_host(), Some("www.qiniu.com"));
         assert_eq!(policy.callback_body(), Some("a=b&c=d"));
@@ -874,24 +833,17 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_callback_body_with_body_type() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .callback(
-                    &["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"],
-                    "www.qiniu.com",
-                    "a=b&c=d",
-                    APPLICATION_WWW_FORM_URLENCODED.as_ref(),
-                )
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .callback(
+                &["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"],
+                "www.qiniu.com",
+                "a=b&c=d",
+                APPLICATION_WWW_FORM_URLENCODED.as_ref(),
+            )
+            .build();
         assert_eq!(
-            policy
-                .callback_urls()
-                .map(|urls| urls.collect::<Vec<&str>>()),
-            Some(vec![
-                "https://1.1.1.1",
-                "https://2.2.2.2",
-                "https://3.3.3.3"
-            ])
+            policy.callback_urls().map(|urls| urls.collect::<Vec<&str>>()),
+            Some(vec!["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"])
         );
         assert_eq!(policy.callback_host(), Some("www.qiniu.com"));
         assert_eq!(policy.callback_body(), Some("a=b&c=d"));
@@ -914,10 +866,9 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_save_key() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .save_as("target_file", false)
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .save_as("target_file", false)
+            .build();
         assert_eq!(policy.save_key(), Some("target_file"));
         assert!(!policy.is_save_key_forced());
         assert_eq!(policy.get("saveKey"), Some(&json!("target_file")));
@@ -927,10 +878,9 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_save_key_by_force() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .save_as("target_file", true)
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .save_as("target_file", true)
+            .build();
         assert_eq!(policy.save_key(), Some("target_file"));
         assert!(policy.is_save_key_forced());
         assert_eq!(policy.get("saveKey"), Some(&json!("target_file")));
@@ -940,10 +890,9 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_file_size_exclusive_limit() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .file_size_limitation(15..20)
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .file_size_limitation(15..20)
+            .build();
         assert_eq!(policy.file_size_limitation(), (Some(15), Some(19)));
         assert_eq!(policy.get("fsizeMin"), Some(&json!(15)));
         assert_eq!(policy.get("fsizeLimit"), Some(&json!(19)));
@@ -952,10 +901,9 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_file_size_inclusive_limit() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .file_size_limitation(15..=20)
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .file_size_limitation(15..=20)
+            .build();
         assert_eq!(policy.file_size_limitation(), (Some(15), Some(20)));
         assert_eq!(policy.get("fsizeMin"), Some(&json!(15)));
         assert_eq!(policy.get("fsizeLimit"), Some(&json!(20)));
@@ -964,10 +912,9 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_file_size_max_limit() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .file_size_limitation(..20)
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .file_size_limitation(..20)
+            .build();
         assert_eq!(policy.file_size_limitation(), (None, Some(19)));
         assert!(policy.get("fsizeMin").is_none());
         assert_eq!(policy.get("fsizeLimit"), Some(&json!(19)));
@@ -976,10 +923,9 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_file_size_min_limit() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .file_size_limitation(15..)
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .file_size_limitation(15..)
+            .build();
         assert_eq!(policy.file_size_limitation(), (Some(15), None));
         assert_eq!(policy.get("fsizeMin"), Some(&json!(15)));
         assert!(policy.get("fsizeLimit").is_none());
@@ -988,28 +934,23 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_mime() -> Result<()> {
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .mime_types(&["image/jpeg", "image/png"])
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .mime_types(&["image/jpeg", "image/png"])
+            .build();
         assert_eq!(
             policy.mime_types().map(|ops| ops.collect::<Vec<&str>>()),
             Some(vec!["image/jpeg", "image/png"])
         );
-        assert_eq!(
-            policy.get("mimeLimit"),
-            Some(&json!("image/jpeg;image/png"))
-        );
+        assert_eq!(policy.get("mimeLimit"), Some(&json!("image/jpeg;image/png")));
         Ok(())
     }
 
     #[test]
     fn test_build_upload_policy_with_object_lifetime() -> Result<()> {
         let one_hundred_days = Duration::from_secs(100 * 24 * 60 * 60);
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .object_lifetime(one_hundred_days)
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .object_lifetime(one_hundred_days)
+            .build();
         assert_eq!(policy.object_lifetime(), Some(one_hundred_days));
 
         assert_eq!(policy.get("deleteAfterDays"), Some(&json!(100)));
@@ -1020,10 +961,9 @@ mod tests {
     fn test_build_upload_policy_with_short_object_lifetime() -> Result<()> {
         let one_hundred_secs = Duration::from_secs(100);
         let one_day = Duration::from_secs(24 * 60 * 60);
-        let policy =
-            UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-                .object_lifetime(one_hundred_secs)
-                .build();
+        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+            .object_lifetime(one_hundred_secs)
+            .build();
         assert_eq!(policy.object_lifetime(), Some(one_day));
 
         assert_eq!(policy.get("deleteAfterDays"), Some(&json!(1)));

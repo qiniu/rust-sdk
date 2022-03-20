@@ -24,6 +24,7 @@
 //! ## 七牛认证信息
 //!
 //! 负责存储调用七牛 API 所必要的认证信息，提供 `CredentialProvider` 方便扩展获取认证信息的方式。
+//! 同时提供阻塞接口和异步接口（异步接口需要启用 `async` 功能）。
 //! 提供 `CredentialProvider` 的多个实现方式，例如：
 //!
 //! - `GlobalCredentialProvider`: 使用全局变量配置的认证信息

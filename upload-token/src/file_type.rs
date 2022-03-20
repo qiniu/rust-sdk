@@ -1,20 +1,27 @@
 use duplicate::duplicate;
+use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
-use std::{convert::TryFrom, error::Error, fmt};
 
 /// 文件存储类型
-#[derive(Copy, Clone, Debug, Eq, PartialEq, SmartDefault)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, SmartDefault, Serialize, Deserialize)]
+#[serde(from = "u8", into = "u8")]
 #[non_exhaustive]
 pub enum FileType {
     /// 标准存储
     #[default]
-    Normal = 0,
+    Standard,
 
     /// 低频存储
-    InfrequentAccess = 1,
+    InfrequentAccess,
 
     /// 归档存储
-    Glacial = 2,
+    Archive,
+
+    /// 深度归档存储
+    DeepArchive,
+
+    /// 其他存储类型
+    Other(u8),
 }
 
 #[duplicate(
@@ -33,7 +40,13 @@ pub enum FileType {
 impl From<FileType> for ty {
     #[inline]
     fn from(file_type: FileType) -> Self {
-        file_type as ty
+        match file_type {
+            FileType::Standard => 0,
+            FileType::InfrequentAccess => 1,
+            FileType::Archive => 2,
+            FileType::DeepArchive => 3,
+            FileType::Other(ft) => ft as ty,
+        }
     }
 }
 
@@ -44,27 +57,28 @@ impl From<FileType> for ty {
     [u32];
     [u64];
 )]
-impl TryFrom<ty> for FileType {
-    type Error = InvalidFileType;
-
-    fn try_from(value: ty) -> Result<Self, Self::Error> {
+impl From<ty> for FileType {
+    fn from(value: ty) -> Self {
         match value as u8 {
-            0 => Ok(Self::Normal),
-            1 => Ok(Self::InfrequentAccess),
-            2 => Ok(Self::Glacial),
-            _ => Err(InvalidFileType(value.into())),
+            0 => Self::Standard,
+            1 => Self::InfrequentAccess,
+            2 => Self::Archive,
+            3 => Self::DeepArchive,
+            ft => Self::Other(ft),
         }
     }
 }
 
-/// 非法的文件类型
-#[derive(Copy, Clone, Debug)]
-pub struct InvalidFileType(pub u64);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl fmt::Display for InvalidFileType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "File type ({}) is invalid", self.0)
+    #[test]
+    fn test_file_type_serialization_and_deserialization() -> anyhow::Result<()> {
+        assert_eq!(&serde_json::to_string(&FileType::Standard)?, "0");
+        assert_eq!(&serde_json::to_string(&FileType::Other(5))?, "5");
+        assert_eq!(serde_json::from_str::<FileType>("0")?, FileType::Standard);
+        assert_eq!(serde_json::from_str::<FileType>("5")?, FileType::Other(5));
+        Ok(())
     }
 }
-
-impl Error for InvalidFileType {}

@@ -27,9 +27,9 @@ pub use bucket::{Bucket, ListBuilder};
 pub use list::{ListIter, ListVersion};
 pub use objects_manager::{ObjectsManager, ObjectsManagerBuilder};
 pub use operation::{
-    AfterDays, CopyObjectBuilder, DeleteObjectBuilder, ModifyObjectLifeCycleBuilder,
-    ModifyObjectMetadataBuilder, ModifyObjectStatusBuilder, MoveObjectBuilder, ObjectType,
-    OperationProvider, SetObjectTypeBuilder, StatObjectBuilder, UnfreezeObjectBuilder,
+    AfterDays, CopyObjectBuilder, DeleteObjectBuilder, ModifyObjectLifeCycleBuilder, ModifyObjectMetadataBuilder,
+    ModifyObjectStatusBuilder, MoveObjectBuilder, ObjectType, OperationProvider, SetObjectTypeBuilder,
+    StatObjectBuilder, UnfreezeObjectBuilder,
 };
 pub use qiniu_apis as apis;
 
@@ -37,6 +37,6 @@ pub use qiniu_apis as apis;
 pub use {batch_operations::BatchOperationsStream, list::ListStream};
 
 pub mod prelude {
-    pub use super::apis::http_client::preclude::*;
+    pub use super::apis::http_client::prelude::*;
     pub use super::{BatchSizeProvider, OperationProvider};
 }

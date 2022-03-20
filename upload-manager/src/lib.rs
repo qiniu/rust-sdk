@@ -74,7 +74,7 @@ pub use {
 };
 
 pub mod prelude {
-    pub use super::apis::http_client::preclude::*;
+    pub use super::apis::http_client::prelude::*;
     pub use super::{
         AppendOnlyResumableRecorderMedium, ConcurrencyProvider, DataPartitionProvider, DataSource, InitializedParts,
         MultiPartsUploader, MultiPartsUploaderScheduler, MultiPartsUploaderSchedulerExt,

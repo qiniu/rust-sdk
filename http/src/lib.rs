@@ -26,8 +26,7 @@ mod response;
 use auto_impl::auto_impl;
 pub use callback::{CallbackResult, TransferProgressInfo};
 pub use error::{
-    Error as ResponseError, ErrorBuilder as ResponseErrorBuilder, ErrorKind as ResponseErrorKind,
-    MapError,
+    Error as ResponseError, ErrorBuilder as ResponseErrorBuilder, ErrorKind as ResponseErrorKind, MapError,
 };
 pub use http::{
     header::{self, HeaderMap, HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue},
@@ -36,12 +35,9 @@ pub use http::{
     uri::{self, Uri},
     Extensions, Version,
 };
-pub use request::{
-    Request, RequestBody as SyncRequestBody, RequestBuilder, RequestParts, UserAgent,
-};
+pub use request::{Request, RequestBody as SyncRequestBody, RequestBuilder, RequestParts, UserAgent};
 pub use response::{
-    Metrics, Response, ResponseBody as SyncResponseBody, ResponseBuilder, ResponseParts,
-    Result as ResponseResult,
+    Metrics, Response, ResponseBody as SyncResponseBody, ResponseBuilder, ResponseParts, Result as ResponseResult,
 };
 use std::{
     fmt::Debug,
@@ -89,8 +85,8 @@ mod async_req_resp {
 #[cfg(feature = "async")]
 pub use {
     async_req_resp::{
-        AsyncRequest, AsyncRequestBody, AsyncRequestBuilder, AsyncResponse, AsyncResponseBody,
-        AsyncResponseBuilder, AsyncResponseResult,
+        AsyncRequest, AsyncRequestBody, AsyncRequestBuilder, AsyncResponse, AsyncResponseBody, AsyncResponseBuilder,
+        AsyncResponseResult,
     },
     futures_lite::{AsyncRead, AsyncSeek},
 };
@@ -112,10 +108,7 @@ pub trait HttpCaller: Debug + Send + Sync {
     /// 异步发送 HTTP 请求
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_call<'a>(
-        &'a self,
-        request: &'a mut AsyncRequest<'_>,
-    ) -> BoxFuture<'a, AsyncResponseResult>;
+    fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult>;
 
     #[inline]
     fn is_resolved_ip_addrs_supported(&self) -> bool {
@@ -159,7 +152,7 @@ impl<T: AsyncSeek + Unpin + Send + Sync> AsyncReset for T {
     }
 }
 
-pub mod preclude {
+pub mod prelude {
     pub use super::{HttpCaller, Metrics, Reset};
 
     #[cfg(feature = "async")]

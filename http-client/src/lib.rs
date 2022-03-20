@@ -45,26 +45,23 @@ pub use futures::io::AsyncRead;
 
 pub use cache::CacheController;
 pub use client::{
-    ApiResult, Authorization, AuthorizationError, AuthorizationProvider, AuthorizationResult,
-    Backoff, BackoffDuration, BackoffOptions, CachedResolver, CallbackContext, Callbacks,
-    CallbacksBuilder, ChainedResolver, ChainedResolverBuilder, Chooser, ChooserFeedback,
-    CredentialAuthorizationV1, CredentialAuthorizationV2, DirectChooser, DomainOrIpAddr,
-    ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName, FixedBackoff,
-    HttpClient, HttpClientBuilder, Idempotent, IpChooser, IpChooserBuilder, LimitedBackoff,
-    LimitedRetrier, Multipart, NeverRetrier, Part, PartMetadata, QueryPairKey, QueryPairValue,
-    QueryPairs, RandomizedBackoff, Ratio, RequestBuilder, RequestBuilderParts, RequestRetrier,
-    RequestRetrierOptions, ResolveAnswers, ResolveOptions, ResolveResult, Resolver, Response,
-    ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision, RetryResult,
-    ShuffledChooser, ShuffledResolver, SimpleResolver, SimplifiedCallbackContext, SubnetChooser,
-    SubnetChooserBuilder, SyncMultipart, SyncPart, SyncPartBody, SyncRequestBody,
-    SyncRequestBuilder, SyncResponse, TimeoutResolver, UploadTokenAuthorization, NO_BACKOFF,
+    ApiResult, Authorization, AuthorizationError, AuthorizationProvider, AuthorizationResult, Backoff, BackoffDuration,
+    BackoffOptions, CachedResolver, CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver,
+    ChainedResolverBuilder, Chooser, ChooserFeedback, CredentialAuthorizationV1, CredentialAuthorizationV2,
+    DirectChooser, DomainOrIpAddr, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName,
+    FixedBackoff, HttpClient, HttpClientBuilder, Idempotent, IpChooser, IpChooserBuilder, LimitedBackoff,
+    LimitedRetrier, Multipart, NeverRetrier, Part, PartMetadata, QueryPairKey, QueryPairValue, QueryPairs,
+    RandomizedBackoff, Ratio, RequestBuilder, RequestBuilderParts, RequestRetrier, RequestRetrierOptions,
+    ResolveAnswers, ResolveOptions, ResolveResult, Resolver, Response, ResponseError, ResponseErrorKind,
+    RetriedStatsInfo, RetryDecision, RetryResult, ShuffledChooser, ShuffledResolver, SimpleResolver,
+    SimplifiedCallbackContext, SubnetChooser, SubnetChooserBuilder, SyncMultipart, SyncPart, SyncPartBody,
+    SyncRequestBody, SyncRequestBuilder, SyncResponse, TimeoutResolver, UploadTokenAuthorization, NO_BACKOFF,
 };
 pub use http::{CallbackResult, SyncResponseBody};
 pub use regions::{
-    BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
-    CachedRegionsProvider, DomainWithPort, DomainWithPortParseError, Endpoint, EndpointParseError,
-    Endpoints, EndpointsBuilder, EndpointsProvider, GetOptions, GotRegion, GotRegions,
-    InvalidServiceName, IpAddrWithPort, IpAddrWithPortParseError, Region, RegionBuilder,
+    BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder, CachedRegionsProvider, DomainWithPort,
+    DomainWithPortParseError, Endpoint, EndpointParseError, Endpoints, EndpointsBuilder, EndpointsProvider, GetOptions,
+    GotRegion, GotRegions, InvalidServiceName, IpAddrWithPort, IpAddrWithPortParseError, Region, RegionBuilder,
     RegionProvider, RegionProviderEndpoints, RegionsProvider, ServiceName, StaticRegionsProvider,
 };
 pub use upload_token::{BucketName, ObjectName};
@@ -74,26 +71,20 @@ pub use upload_token::{BucketName, ObjectName};
 pub use client::{c_ares, c_ares_resolver, CAresResolver};
 
 #[cfg(all(feature = "trust_dns", feature = "async"))]
-#[cfg_attr(
-    feature = "docs",
-    doc(cfg(all(feature = "trust_dns", feature = "async")))
-)]
+#[cfg_attr(feature = "docs", doc(cfg(all(feature = "trust_dns", feature = "async"))))]
 pub use client::{trust_dns_resolver, TrustDnsResolver};
 
 #[cfg(feature = "async")]
 pub use {
-    client::{
-        AsyncMultipart, AsyncPart, AsyncPartBody, AsyncRequestBody, AsyncRequestBuilder,
-        AsyncResponse,
-    },
+    client::{AsyncMultipart, AsyncPart, AsyncPartBody, AsyncRequestBody, AsyncRequestBuilder, AsyncResponse},
     http::AsyncResponseBody,
 };
 
-pub mod preclude {
+pub mod prelude {
     pub use super::{
         client::{
-            AuthorizationProvider, Backoff, CallbackContext, Chooser, ExtendedCallbackContext,
-            RequestRetrier, Resolver, SimplifiedCallbackContext,
+            AuthorizationProvider, Backoff, CallbackContext, Chooser, ExtendedCallbackContext, RequestRetrier,
+            Resolver, SimplifiedCallbackContext,
         },
         credential::CredentialProvider,
         http::{HttpCaller, Metrics},
