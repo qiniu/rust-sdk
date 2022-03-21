@@ -101,11 +101,7 @@ impl PartMetadata {
 
     #[inline]
     #[must_use]
-    pub fn add_header(
-        mut self,
-        name: impl Into<HeaderName>,
-        value: impl Into<HeaderValue>,
-    ) -> Self {
+    pub fn add_header(mut self, name: impl Into<HeaderName>, value: impl Into<HeaderValue>) -> Self {
         self.headers.insert(name.into(), value.into());
         self
     }
@@ -131,6 +127,7 @@ mod sync_part {
     use super::*;
     use bytes::{buf::Reader as BytesReader, Bytes};
     use std::{
+        fmt::{self, Debug},
         fs::File,
         io::{Cursor, Read, Result as IoResult},
         mem::take,
@@ -141,6 +138,18 @@ mod sync_part {
         Bytes(BytesReader<Bytes>),
         Stream(Box<dyn Read>),
     }
+
+    impl Debug for SyncPartBodyInner {
+        #[inline]
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                Self::Bytes(bytes) => f.debug_tuple("Bytes").field(bytes).finish(),
+                Self::Stream(_) => f.debug_tuple("Stream").finish(),
+            }
+        }
+    }
+
+    #[derive(Debug)]
     pub struct SyncPartBody(SyncPartBodyInner);
     pub type SyncPart = Part<SyncPartBody>;
 
@@ -187,8 +196,7 @@ mod sync_part {
         pub fn file_path<S: AsRef<OsStr> + ?Sized>(path: &S) -> IoResult<Self> {
             let path = Path::new(path);
             let file = File::open(&path)?;
-            let mut metadata =
-                PartMetadata::default().mime(mime_guess::from_path(&path).first_or_octet_stream());
+            let mut metadata = PartMetadata::default().mime(mime_guess::from_path(&path).first_or_octet_stream());
             if let Some(file_name) = path.file_name() {
                 let file_name = match file_name.to_string_lossy() {
                     Cow::Borrowed(str) => FileName::from(str),
@@ -253,6 +261,7 @@ mod async_part {
     use bytes::Bytes;
     use futures::io::{AsyncRead, AsyncReadExt, Cursor};
     use std::{
+        fmt::{self, Debug},
         io::Result as IoResult,
         mem::take,
         pin::Pin,
@@ -266,6 +275,17 @@ mod async_part {
         Stream(AsyncStream),
     }
 
+    impl Debug for AsyncPartBodyInner {
+        #[inline]
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                Self::Bytes(bytes) => f.debug_tuple("Bytes").field(bytes).finish(),
+                Self::Stream(_) => f.debug_tuple("Stream").finish(),
+            }
+        }
+    }
+
+    #[derive(Debug)]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub struct AsyncPartBody(AsyncPartBodyInner);
 
@@ -311,8 +331,7 @@ mod async_part {
         pub async fn file_path<S: AsRef<OsStr> + ?Sized>(path: &S) -> IoResult<Self> {
             let path = Path::new(path);
             let file = File::open(&path).await?;
-            let mut metadata =
-                PartMetadata::default().mime(mime_guess::from_path(&path).first_or_octet_stream());
+            let mut metadata = PartMetadata::default().mime(mime_guess::from_path(&path).first_or_octet_stream());
             if let Some(file_name) = path.file_name() {
                 let file_name = match file_name.to_string_lossy() {
                     Cow::Borrowed(str) => FileName::from(str),
@@ -334,15 +353,13 @@ mod async_part {
             }
 
             let (name, part) = self.fields.pop_front().unwrap();
-            let chain =
-                Box::new(self.part_stream(&name, part)) as Box<dyn AsyncRead + Send + Unpin>;
+            let chain = Box::new(self.part_stream(&name, part)) as Box<dyn AsyncRead + Send + Unpin>;
             let fields = take(&mut self.fields);
             Box::new(
                 fields
                     .into_iter()
                     .fold(chain, |readable, (name, part)| {
-                        Box::new(readable.chain(self.part_stream(&name, part)))
-                            as Box<dyn AsyncRead + Send + Unpin>
+                        Box::new(readable.chain(self.part_stream(&name, part))) as Box<dyn AsyncRead + Send + Unpin>
                     })
                     .chain(Cursor::new(b"--"))
                     .chain(Cursor::new(self.boundary.to_owned()))
@@ -363,11 +380,7 @@ mod async_part {
 
     impl AsyncRead for AsyncPartBody {
         #[inline]
-        fn poll_read(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            buf: &mut [u8],
-        ) -> Poll<IoResult<usize>> {
+        fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<IoResult<usize>> {
             match &mut self.0 {
                 AsyncPartBodyInner::Bytes(bytes) => Pin::new(bytes).poll_read(cx, buf),
                 AsyncPartBodyInner::Stream(stream) => Pin::new(stream).poll_read(cx, buf),
@@ -485,10 +498,7 @@ mod tests {
         let metadata = PartMetadata {
             headers: {
                 let mut headers = HeaderMap::default();
-                headers.insert(
-                    CONTENT_TYPE,
-                    HeaderValue::from_str(APPLICATION_JSON.as_ref()).unwrap(),
-                );
+                headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref()).unwrap());
                 headers
             },
             file_name: Some(name.into()),
@@ -598,10 +608,7 @@ mod tests {
         \r\n";
 
         let mut actual = String::new();
-        multipart
-            .into_async_read()
-            .read_to_string(&mut actual)
-            .await?;
+        multipart.into_async_read().read_to_string(&mut actual).await?;
         assert_eq!(EXPECTED, actual);
 
         tempdir.close()?;

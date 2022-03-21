@@ -149,6 +149,7 @@ impl<'a> Debug for Callbacks<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct UploadingProgressInfo {
     transferred_bytes: u64,
     total_bytes: Option<u64>,

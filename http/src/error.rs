@@ -72,10 +72,7 @@ pub struct Error {
 impl Error {
     /// 创建 HTTP 响应错误
     #[inline]
-    pub fn builder(
-        kind: ErrorKind,
-        err: impl Into<Box<dyn StdError + Send + Sync>>,
-    ) -> ErrorBuilder {
+    pub fn builder(kind: ErrorKind, err: impl Into<Box<dyn StdError + Send + Sync>>) -> ErrorBuilder {
         ErrorBuilder::new(kind, err)
     }
 
@@ -196,6 +193,7 @@ impl ErrorBuilder {
     }
 }
 
+#[derive(Debug)]
 pub struct MapError<E> {
     error: E,
     parts: ResponseParts,

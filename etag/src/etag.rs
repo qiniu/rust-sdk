@@ -9,6 +9,7 @@ use std::io::{copy, Read, Result};
 pub const ETAG_SIZE: usize = 28;
 
 /// 兼容 Etag 兼容计算器，可以为不同版本的 Etag 提供相同的接口
+#[derive(Debug)]
 #[non_exhaustive]
 pub enum Etag {
     /// Etag V1 计算器

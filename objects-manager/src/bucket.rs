@@ -3,11 +3,10 @@ use super::{
     callbacks::Callbacks,
     list::{ListIter, ListVersion},
     operation::{
-        CopyObject, CopyObjectBuilder, DeleteObject, DeleteObjectBuilder, Entry,
-        ModifyObjectLifeCycle, ModifyObjectLifeCycleBuilder, ModifyObjectMetadata,
-        ModifyObjectMetadataBuilder, ModifyObjectStatus, ModifyObjectStatusBuilder, MoveObject,
-        MoveObjectBuilder, ObjectType, SetObjectType, SetObjectTypeBuilder, StatObject,
-        StatObjectBuilder, UnfreezeObject, UnfreezeObjectBuilder,
+        CopyObject, CopyObjectBuilder, DeleteObject, DeleteObjectBuilder, Entry, ModifyObjectLifeCycle,
+        ModifyObjectLifeCycleBuilder, ModifyObjectMetadata, ModifyObjectMetadataBuilder, ModifyObjectStatus,
+        ModifyObjectStatusBuilder, MoveObject, MoveObjectBuilder, ObjectType, SetObjectType, SetObjectTypeBuilder,
+        StatObject, StatObjectBuilder, UnfreezeObject, UnfreezeObjectBuilder,
     },
     ObjectsManager,
 };
@@ -16,8 +15,7 @@ use once_cell::sync::OnceCell;
 use qiniu_apis::{
     http::ResponseParts,
     http_client::{
-        BucketName, BucketRegionsProvider, CallbackResult, RegionProvider, RequestBuilderParts,
-        ResponseError,
+        BucketName, BucketRegionsProvider, CallbackResult, RegionProvider, RequestBuilderParts, ResponseError,
     },
 };
 use std::{io::Result as IOResult, mem::take, sync::Arc};
@@ -83,11 +81,7 @@ impl Bucket {
         to_bucket_name: &'a str,
         to_object_name: &'a str,
     ) -> CopyObjectBuilder<'a> {
-        CopyObject::builder(
-            Entry::new(self, from_object_name),
-            to_bucket_name,
-            to_object_name,
-        )
+        CopyObject::builder(Entry::new(self, from_object_name), to_bucket_name, to_object_name)
     }
 
     #[inline]
@@ -97,11 +91,7 @@ impl Bucket {
         to_bucket_name: &'a str,
         to_object_name: &'a str,
     ) -> MoveObjectBuilder<'a> {
-        MoveObject::builder(
-            Entry::new(self, from_object_name),
-            to_bucket_name,
-            to_object_name,
-        )
+        MoveObject::builder(Entry::new(self, from_object_name), to_bucket_name, to_object_name)
     }
 
     #[inline]
@@ -110,29 +100,17 @@ impl Bucket {
     }
 
     #[inline]
-    pub fn unfreeze_object<'a>(
-        &'a self,
-        object_name: &'a str,
-        freeze_after_days: usize,
-    ) -> UnfreezeObjectBuilder<'a> {
+    pub fn unfreeze_object<'a>(&'a self, object_name: &'a str, freeze_after_days: usize) -> UnfreezeObjectBuilder<'a> {
         UnfreezeObject::builder(Entry::new(self, object_name), freeze_after_days)
     }
 
     #[inline]
-    pub fn set_object_type<'a>(
-        &'a self,
-        object_name: &'a str,
-        object_type: ObjectType,
-    ) -> SetObjectTypeBuilder<'a> {
+    pub fn set_object_type<'a>(&'a self, object_name: &'a str, object_type: ObjectType) -> SetObjectTypeBuilder<'a> {
         SetObjectType::builder(Entry::new(self, object_name), object_type)
     }
 
     #[inline]
-    pub fn modify_object_status<'a>(
-        &'a self,
-        object_name: &'a str,
-        disable: bool,
-    ) -> ModifyObjectStatusBuilder<'a> {
+    pub fn modify_object_status<'a>(&'a self, object_name: &'a str, disable: bool) -> ModifyObjectStatusBuilder<'a> {
         ModifyObjectStatus::builder(Entry::new(self, object_name), disable)
     }
 
@@ -146,10 +124,7 @@ impl Bucket {
     }
 
     #[inline]
-    pub fn modify_object_life_cycle<'a>(
-        &'a self,
-        object_name: &'a str,
-    ) -> ModifyObjectLifeCycleBuilder<'a> {
+    pub fn modify_object_life_cycle<'a>(&'a self, object_name: &'a str) -> ModifyObjectLifeCycleBuilder<'a> {
         ModifyObjectLifeCycle::builder(Entry::new(self, object_name))
     }
 
@@ -211,6 +186,7 @@ impl Bucket {
 }
 
 #[must_use]
+#[derive(Debug)]
 pub struct ListBuilder<'a> {
     bucket: &'a Bucket,
     limit: Option<usize>,
@@ -287,8 +263,7 @@ impl<'a> ListBuilder<'a> {
         &mut self,
         callback: impl FnMut(&ResponseError) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.callbacks
-            .insert_after_response_error_callback(callback);
+        self.callbacks.insert_after_response_error_callback(callback);
         self
     }
 

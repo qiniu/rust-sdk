@@ -3,13 +3,12 @@ use std::ops::Not;
 use http::{header::HeaderName, HeaderValue, StatusCode};
 use smart_default::SmartDefault;
 
-pub(super) type OnProgress<'r> =
-    &'r (dyn Fn(&TransferProgressInfo) -> CallbackResult + Send + Sync);
+pub(super) type OnProgress<'r> = &'r (dyn Fn(&TransferProgressInfo) -> CallbackResult + Send + Sync);
 pub(super) type OnStatusCode<'r> = &'r (dyn Fn(StatusCode) -> CallbackResult + Send + Sync);
-pub(super) type OnHeader<'r> =
-    &'r (dyn Fn(&HeaderName, &HeaderValue) -> CallbackResult + Send + Sync);
+pub(super) type OnHeader<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> CallbackResult + Send + Sync);
 
 /// 上传进度信息
+#[derive(Debug)]
 pub struct TransferProgressInfo<'b> {
     transferred_bytes: u64,
     total_bytes: u64,

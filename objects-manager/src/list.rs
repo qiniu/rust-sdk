@@ -2,10 +2,7 @@ use super::{callbacks::Callbacks, Bucket};
 use log::warn;
 use qiniu_apis::{
     http::ResponseErrorKind as HttpResponseErrorKind,
-    http_client::{
-        ApiResult, RegionProvider, RegionProviderEndpoints, Response, ResponseError,
-        SyncResponseBody,
-    },
+    http_client::{ApiResult, RegionProvider, RegionProviderEndpoints, Response, ResponseError, SyncResponseBody},
     storage::get_objects::{
         ListedObjectEntry, QueryParams, ResponseBody as GetObjectsV1ResponseBody,
         SyncRequestBuilder as GetObjectsV1SyncRequestBuilder,
@@ -102,8 +99,7 @@ impl Limit {
 
 impl<'a> ListParams<'a> {
     fn to_query_params(&self) -> QueryParams<'a> {
-        let mut query_params =
-            QueryParams::default().set_bucket_as_str(self.bucket.name().as_str());
+        let mut query_params = QueryParams::default().set_bucket_as_str(self.bucket.name().as_str());
         if let Some(marker) = self.marker.as_ref() {
             query_params = query_params.set_marker_as_str(marker.to_owned());
         }
@@ -231,12 +227,8 @@ impl<'a> Iterator for ListIter<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         return match &mut self.version {
-            SyncListVersionWithStep::V1(step) => {
-                v1_next(&mut self.params, &mut self.callbacks, step)
-            }
-            SyncListVersionWithStep::V2(step) => {
-                v2_next(&mut self.params, &mut self.callbacks, step)
-            }
+            SyncListVersionWithStep::V1(step) => v1_next(&mut self.params, &mut self.callbacks, step),
+            SyncListVersionWithStep::V2(step) => v2_next(&mut self.params, &mut self.callbacks, step),
         };
 
         fn v1_next(
@@ -304,18 +296,11 @@ impl<'a> Iterator for ListIter<'a> {
             callbacks: &mut Callbacks<'_>,
         ) -> ApiResult<Response<GetObjectsV1ResponseBody>> {
             if callbacks.before_request(request.parts_mut()).is_cancelled() {
-                return Err(make_user_cancelled_error(
-                    "Cancelled by before_request() callback",
-                ));
+                return Err(make_user_cancelled_error("Cancelled by before_request() callback"));
             }
             let mut response_result = request.call();
-            if callbacks
-                .after_response(&mut response_result)
-                .is_cancelled()
-            {
-                return Err(make_user_cancelled_error(
-                    "Cancelled by after_response() callback",
-                ));
+            if callbacks.after_response(&mut response_result).is_cancelled() {
+                return Err(make_user_cancelled_error("Cancelled by after_response() callback"));
             }
             response_result
         }
@@ -327,9 +312,7 @@ impl<'a> Iterator for ListIter<'a> {
         ) {
             params.marker.set(body.get_marker_as_str());
             let listed_object_entries = body.get_items().to_listed_object_entry_vec();
-            params
-                .limit
-                .saturating_decrease(listed_object_entries.len());
+            params.limit.saturating_decrease(listed_object_entries.len());
             *buffer = listed_object_entries.into();
         }
 
@@ -340,15 +323,13 @@ impl<'a> Iterator for ListIter<'a> {
         ) -> Option<ApiResult<ListedObjectEntry>> {
             match step {
                 SyncListV2Step::Start => match v2_call(params, callbacks) {
-                    Ok(Some(mut lines)) => {
-                        v2_read_entry_from_lines(params, &mut lines).tap_some(|result| {
-                            if result.is_ok() {
-                                *step = SyncListV2Step::Lines { lines };
-                            } else {
-                                *step = SyncListV2Step::Done;
-                            }
-                        })
-                    }
+                    Ok(Some(mut lines)) => v2_read_entry_from_lines(params, &mut lines).tap_some(|result| {
+                        if result.is_ok() {
+                            *step = SyncListV2Step::Lines { lines };
+                        } else {
+                            *step = SyncListV2Step::Done;
+                        }
+                    }),
                     Ok(None) => {
                         *step = SyncListV2Step::Done;
                         None
@@ -444,18 +425,11 @@ impl<'a> Iterator for ListIter<'a> {
             callbacks: &mut Callbacks<'_>,
         ) -> ApiResult<Response<SyncResponseBody>> {
             if callbacks.before_request(request.parts_mut()).is_cancelled() {
-                return Err(make_user_cancelled_error(
-                    "Cancelled by before_request() callback",
-                ));
+                return Err(make_user_cancelled_error("Cancelled by before_request() callback"));
             }
             let mut response_result = request.call();
-            if callbacks
-                .after_response(&mut response_result)
-                .is_cancelled()
-            {
-                return Err(make_user_cancelled_error(
-                    "Cancelled by after_response() callback",
-                ));
+            if callbacks.after_response(&mut response_result).is_cancelled() {
+                return Err(make_user_cancelled_error("Cancelled by after_response() callback"));
             }
             response_result
         }
@@ -466,10 +440,11 @@ impl<'a> Iterator for ListIter<'a> {
 mod async_list_stream {
     use super::*;
     use futures::{
-        future::BoxFuture, io::Lines as AsyncLines, ready, stream::BoxStream, AsyncBufReadExt,
-        FutureExt, Stream, StreamExt,
+        future::BoxFuture, io::Lines as AsyncLines, ready, stream::BoxStream, AsyncBufReadExt, FutureExt, Stream,
+        StreamExt,
     };
     use std::{
+        fmt::{self, Debug},
         io::Result as IOResult,
         pin::Pin,
         task::{Context, Poll},
@@ -504,6 +479,18 @@ mod async_list_stream {
         Done,
     }
 
+    impl Debug for AsyncListV1Step<'_> {
+        #[inline]
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                Self::FromBuffer { buffer } => f.debug_tuple("FromBuffer").field(buffer).finish(),
+                Self::WaitForResponse { .. } => f.debug_tuple("WaitForResponse").finish(),
+                Self::WaitForRegionProvider { .. } => f.debug_tuple("WaitForRegionProvider").finish(),
+                Self::Done => f.debug_tuple("Done").finish(),
+            }
+        }
+    }
+
     type ListedObjectEntryResultStream<'a> = BoxStream<'a, ApiResult<ListedObjectEntry>>;
 
     #[must_use]
@@ -527,7 +514,7 @@ mod async_list_stream {
         }
     }
 
-    impl<'a> Stream for ListStream<'a> {
+    impl Stream for ListStream<'_> {
         type Item = ApiResult<ListedObjectEntry>;
 
         #[inline]
@@ -536,6 +523,14 @@ mod async_list_stream {
         }
     }
 
+    impl Debug for ListStream<'_> {
+        #[inline]
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.debug_struct("ListStream").finish()
+        }
+    }
+
+    #[derive(Debug)]
     struct ListV1Stream<'a> {
         params: ListParams<'a>,
         callbacks: Callbacks<'a>,
@@ -580,10 +575,7 @@ mod async_list_stream {
     }
 
     impl<'a> ListV1Stream<'a> {
-        fn read_from_buffer(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<<Self as Stream>::Item>> {
+        fn read_from_buffer(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let AsyncListV1Step::FromBuffer { buffer } = &mut self.current_step {
                 if let Some(object) = buffer.pop_front() {
                     Poll::Ready(Some(Ok(object)))
@@ -603,10 +595,7 @@ mod async_list_stream {
             }
         }
 
-        fn wait_for_region(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<<Self as Stream>::Item>> {
+        fn wait_for_region(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let AsyncListV1Step::WaitForRegionProvider { task } = &mut self.current_step {
                 match ready!(task.poll_unpin(cx)) {
                     Ok(region_provider) => {
@@ -618,16 +607,9 @@ mod async_list_stream {
                             .client()
                             .storage()
                             .get_objects()
-                            .new_async_request(
-                                RegionProviderEndpoints::new(region_provider),
-                                credential,
-                            );
+                            .new_async_request(RegionProviderEndpoints::new(region_provider), credential);
                         request.query_pairs(self.params.to_query_params());
-                        if self
-                            .callbacks
-                            .before_request(request.parts_mut())
-                            .is_cancelled()
-                        {
+                        if self.callbacks.before_request(request.parts_mut()).is_cancelled() {
                             self.current_step = AsyncListV1Step::Done;
                             return Poll::Ready(Some(Err(make_user_cancelled_error(
                                 "Cancelled by before_request() callback",
@@ -648,17 +630,10 @@ mod async_list_stream {
             }
         }
 
-        fn wait_for_response(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<<Self as Stream>::Item>> {
+        fn wait_for_response(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let AsyncListV1Step::WaitForResponse { task } = &mut self.current_step {
                 let mut response_result = ready!(task.poll_unpin(cx));
-                if self
-                    .callbacks
-                    .after_response(&mut response_result)
-                    .is_cancelled()
-                {
+                if self.callbacks.after_response(&mut response_result).is_cancelled() {
                     self.current_step = AsyncListV1Step::Done;
                     return Poll::Ready(Some(Err(make_user_cancelled_error(
                         "Cancelled by after_response() callback",
@@ -669,9 +644,7 @@ mod async_list_stream {
                         let body = response.into_body();
                         let listed_object_entries = body.get_items().to_listed_object_entry_vec();
                         self.params.marker.set(body.get_marker_as_str());
-                        self.params
-                            .limit
-                            .saturating_decrease(listed_object_entries.len());
+                        self.params.limit.saturating_decrease(listed_object_entries.len());
                         self.current_step = AsyncListV1Step::FromBuffer {
                             buffer: listed_object_entries.into(),
                         };
@@ -750,10 +723,7 @@ mod async_list_stream {
     }
 
     impl<'a> ListV2Stream<'a> {
-        fn start(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<<Self as Stream>::Item>> {
+        fn start(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let AsyncListV2Step::Start { .. } = &mut self.current_step {
                 if self.params.have_done() {
                     self.current_step = AsyncListV2Step::Done;
@@ -769,10 +739,7 @@ mod async_list_stream {
             }
         }
 
-        fn wait_for_region(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<<Self as Stream>::Item>> {
+        fn wait_for_region(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let AsyncListV2Step::WaitForRegionProvider { task } = &mut self.current_step {
                 match ready!(task.poll_unpin(cx)) {
                     Ok(region_provider) => {
@@ -784,16 +751,9 @@ mod async_list_stream {
                             .client()
                             .storage()
                             .get_objects_v2()
-                            .new_async_request(
-                                RegionProviderEndpoints::new(region_provider),
-                                credential,
-                            );
+                            .new_async_request(RegionProviderEndpoints::new(region_provider), credential);
                         request.query_pairs(self.params.to_query_params());
-                        if self
-                            .callbacks
-                            .before_request(request.parts_mut())
-                            .is_cancelled()
-                        {
+                        if self.callbacks.before_request(request.parts_mut()).is_cancelled() {
                             self.current_step = AsyncListV2Step::Done;
                             return Poll::Ready(Some(Err(make_user_cancelled_error(
                                 "Cancelled by after_response() callback",
@@ -814,17 +774,10 @@ mod async_list_stream {
             }
         }
 
-        fn wait_for_response(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<<Self as Stream>::Item>> {
+        fn wait_for_response(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let AsyncListV2Step::WaitForResponse { task } = &mut self.current_step {
                 let mut response_result = ready!(task.poll_unpin(cx));
-                if self
-                    .callbacks
-                    .after_response(&mut response_result)
-                    .is_cancelled()
-                {
+                if self.callbacks.after_response(&mut response_result).is_cancelled() {
                     self.current_step = AsyncListV2Step::Done;
                     return Poll::Ready(Some(Err(make_user_cancelled_error(
                         "Cancelled by after_response() error",
@@ -847,10 +800,7 @@ mod async_list_stream {
             }
         }
 
-        fn wait_for_entries(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<<Self as Stream>::Item>> {
+        fn wait_for_entries(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let AsyncListV2Step::WaitForEntries { lines } = &mut self.current_step {
                 match ready!(lines.poll_next_unpin(cx)) {
                     Some(Ok(line)) if line.is_empty() => self.wait_for_entries(cx),
@@ -897,13 +847,9 @@ mod tests {
     use super::{super::ObjectsManager, *};
     use qiniu_apis::{
         credential::Credential,
-        http::{
-            HeaderName, HeaderValue, HttpCaller, StatusCode, SyncRequest, SyncResponse,
-            SyncResponseResult,
-        },
+        http::{HeaderName, HeaderValue, HttpCaller, StatusCode, SyncRequest, SyncResponse, SyncResponseResult},
         http_client::{
-            BucketName, CallbackResult, DirectChooser, HttpClient, NeverRetrier, Region,
-            ResponseErrorKind, NO_BACKOFF,
+            BucketName, CallbackResult, DirectChooser, HttpClient, NeverRetrier, Region, ResponseErrorKind, NO_BACKOFF,
         },
     };
     use serde_json::{json, to_string as json_to_string, to_vec as json_to_vec};
@@ -997,10 +943,7 @@ mod tests {
             }
 
             #[cfg(feature = "async")]
-            fn async_call(
-                &self,
-                _request: &mut AsyncRequest<'_>,
-            ) -> BoxFuture<AsyncResponseResult> {
+            fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
         }
@@ -1092,10 +1035,7 @@ mod tests {
             }
 
             #[cfg(feature = "async")]
-            fn async_call(
-                &self,
-                _request: &mut AsyncRequest<'_>,
-            ) -> BoxFuture<AsyncResponseResult> {
+            fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
         }
@@ -1115,16 +1055,14 @@ mod tests {
                 }
             })
             .after_response_ok_callback({
-                let after_response_ok_callback_counter =
-                    after_response_ok_callback_counter.to_owned();
+                let after_response_ok_callback_counter = after_response_ok_callback_counter.to_owned();
                 move |_| {
                     after_response_ok_callback_counter.fetch_add(1, Ordering::Relaxed);
                     CallbackResult::Continue
                 }
             })
             .after_response_error_callback({
-                let after_response_error_callback_counter =
-                    after_response_error_callback_counter.to_owned();
+                let after_response_error_callback_counter = after_response_error_callback_counter.to_owned();
                 move |_| {
                     after_response_error_callback_counter.fetch_add(1, Ordering::Relaxed);
                     CallbackResult::Continue
@@ -1147,18 +1085,9 @@ mod tests {
             ResponseErrorKind::StatusCodeError(StatusCode::from_u16(599)?)
         );
         assert!(iter.next().is_none());
-        assert_eq!(
-            before_request_callback_counter.load(Ordering::Relaxed),
-            2usize
-        );
-        assert_eq!(
-            after_response_ok_callback_counter.load(Ordering::Relaxed),
-            1usize
-        );
-        assert_eq!(
-            after_response_error_callback_counter.load(Ordering::Relaxed),
-            1usize
-        );
+        assert_eq!(before_request_callback_counter.load(Ordering::Relaxed), 2usize);
+        assert_eq!(after_response_ok_callback_counter.load(Ordering::Relaxed), 1usize);
+        assert_eq!(after_response_error_callback_counter.load(Ordering::Relaxed), 1usize);
 
         Ok(())
     }
@@ -1202,9 +1131,10 @@ mod tests {
                         )
                     }
                     1 => {
-                        assert!(request.url().to_string().ends_with(
-                            "/list?bucket=fakebucketname&marker=fakemarker&limit=1&prefix=fakeobj"
-                        ));
+                        assert!(request
+                            .url()
+                            .to_string()
+                            .ends_with("/list?bucket=fakebucketname&marker=fakemarker&limit=1&prefix=fakeobj"));
                         SyncResponseBody::from_bytes(
                             json_to_vec(&json!({
                                 "marker": "",
@@ -1232,10 +1162,7 @@ mod tests {
             }
 
             #[cfg(feature = "async")]
-            fn async_call(
-                &self,
-                _request: &mut AsyncRequest<'_>,
-            ) -> BoxFuture<AsyncResponseResult> {
+            fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
         }
@@ -1311,10 +1238,7 @@ mod tests {
             }
 
             #[cfg(feature = "async")]
-            fn async_call(
-                &self,
-                _request: &mut AsyncRequest<'_>,
-            ) -> BoxFuture<AsyncResponseResult> {
+            fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
         }
@@ -1366,10 +1290,7 @@ mod tests {
                 let n = self.counter.fetch_add(1, Ordering::SeqCst);
                 let body = match n {
                     0 => {
-                        assert!(request
-                            .url()
-                            .to_string()
-                            .ends_with("/v2/list?bucket=fakebucketname"));
+                        assert!(request.url().to_string().ends_with("/v2/list?bucket=fakebucketname"));
                         SyncResponseBody::from_bytes(
                             [
                                 json_to_string(&json!({
@@ -1448,10 +1369,7 @@ mod tests {
             }
 
             #[cfg(feature = "async")]
-            fn async_call(
-                &self,
-                _request: &mut AsyncRequest<'_>,
-            ) -> BoxFuture<AsyncResponseResult> {
+            fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
         }
@@ -1488,10 +1406,7 @@ mod tests {
                 let n = self.counter.fetch_add(1, Ordering::SeqCst);
                 let (code, body) = match n {
                     0 => {
-                        assert!(request
-                            .url()
-                            .to_string()
-                            .ends_with("/v2/list?bucket=fakebucketname"));
+                        assert!(request.url().to_string().ends_with("/v2/list?bucket=fakebucketname"));
                         (
                             StatusCode::OK,
                             SyncResponseBody::from_bytes(
@@ -1553,10 +1468,7 @@ mod tests {
             }
 
             #[cfg(feature = "async")]
-            fn async_call(
-                &self,
-                _request: &mut AsyncRequest<'_>,
-            ) -> BoxFuture<AsyncResponseResult> {
+            fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
         }
@@ -1576,16 +1488,14 @@ mod tests {
                 }
             })
             .after_response_ok_callback({
-                let after_response_ok_callback_counter =
-                    after_response_ok_callback_counter.to_owned();
+                let after_response_ok_callback_counter = after_response_ok_callback_counter.to_owned();
                 move |_| {
                     after_response_ok_callback_counter.fetch_add(1, Ordering::Relaxed);
                     CallbackResult::Continue
                 }
             })
             .after_response_error_callback({
-                let after_response_error_callback_counter =
-                    after_response_error_callback_counter.to_owned();
+                let after_response_error_callback_counter = after_response_error_callback_counter.to_owned();
                 move |_| {
                     after_response_error_callback_counter.fetch_add(1, Ordering::Relaxed);
                     CallbackResult::Continue
@@ -1608,18 +1518,9 @@ mod tests {
             ResponseErrorKind::StatusCodeError(StatusCode::from_u16(599)?)
         );
         assert!(iter.next().is_none());
-        assert_eq!(
-            before_request_callback_counter.load(Ordering::Relaxed),
-            2usize
-        );
-        assert_eq!(
-            after_response_ok_callback_counter.load(Ordering::Relaxed),
-            1usize
-        );
-        assert_eq!(
-            after_response_error_callback_counter.load(Ordering::Relaxed),
-            1usize
-        );
+        assert_eq!(before_request_callback_counter.load(Ordering::Relaxed), 2usize);
+        assert_eq!(after_response_ok_callback_counter.load(Ordering::Relaxed), 1usize);
+        assert_eq!(after_response_error_callback_counter.load(Ordering::Relaxed), 1usize);
 
         Ok(())
     }
@@ -1638,10 +1539,7 @@ mod tests {
                 let n = self.counter.fetch_add(1, Ordering::SeqCst);
                 let body = match n {
                     0 => {
-                        assert!(request
-                            .url()
-                            .to_string()
-                            .ends_with("/v2/list?bucket=fakebucketname"));
+                        assert!(request.url().to_string().ends_with("/v2/list?bucket=fakebucketname"));
                         SyncResponseBody::from_bytes(
                             [
                                 json_to_string(&json!({
@@ -1685,10 +1583,7 @@ mod tests {
             }
 
             #[cfg(feature = "async")]
-            fn async_call(
-                &self,
-                _request: &mut AsyncRequest<'_>,
-            ) -> BoxFuture<AsyncResponseResult> {
+            fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
         }
@@ -1741,10 +1636,7 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     let n = self.counter.fetch_add(1, Ordering::SeqCst);
                     let body = match n {
@@ -1774,9 +1666,10 @@ mod tests {
                             )
                         }
                         1 => {
-                            assert!(request.url().to_string().ends_with(
-                                "/list?bucket=fakebucketname&marker=fakemarker&limit=1000"
-                            ));
+                            assert!(request
+                                .url()
+                                .to_string()
+                                .ends_with("/list?bucket=fakebucketname&marker=fakemarker&limit=1000"));
                             AsyncResponseBody::from_bytes(
                                 json_to_vec(&json!({
                                     "marker": "",
@@ -1841,10 +1734,7 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     let n = self.counter.fetch_add(1, Ordering::SeqCst);
                     let (code, body) = match n {
@@ -1877,9 +1767,10 @@ mod tests {
                             )
                         }
                         1 => {
-                            assert!(request.url().to_string().ends_with(
-                                "/list?bucket=fakebucketname&marker=fakemarker&limit=1000"
-                            ));
+                            assert!(request
+                                .url()
+                                .to_string()
+                                .ends_with("/list?bucket=fakebucketname&marker=fakemarker&limit=1000"));
                             (
                                 StatusCode::from_u16(599).unwrap(),
                                 AsyncResponseBody::from_bytes(
@@ -1919,16 +1810,14 @@ mod tests {
                 }
             })
             .after_response_ok_callback({
-                let after_response_ok_callback_counter =
-                    after_response_ok_callback_counter.to_owned();
+                let after_response_ok_callback_counter = after_response_ok_callback_counter.to_owned();
                 move |_| {
                     after_response_ok_callback_counter.fetch_add(1, Ordering::Relaxed);
                     CallbackResult::Continue
                 }
             })
             .after_response_error_callback({
-                let after_response_error_callback_counter =
-                    after_response_error_callback_counter.to_owned();
+                let after_response_error_callback_counter = after_response_error_callback_counter.to_owned();
                 move |_| {
                     after_response_error_callback_counter.fetch_add(1, Ordering::Relaxed);
                     CallbackResult::Continue
@@ -1951,18 +1840,9 @@ mod tests {
             ResponseErrorKind::StatusCodeError(StatusCode::from_u16(599)?)
         );
         assert!(iter.try_next().await?.is_none());
-        assert_eq!(
-            before_request_callback_counter.load(Ordering::Relaxed),
-            2usize
-        );
-        assert_eq!(
-            after_response_ok_callback_counter.load(Ordering::Relaxed),
-            1usize
-        );
-        assert_eq!(
-            after_response_error_callback_counter.load(Ordering::Relaxed),
-            1usize
-        );
+        assert_eq!(before_request_callback_counter.load(Ordering::Relaxed), 2usize);
+        assert_eq!(after_response_ok_callback_counter.load(Ordering::Relaxed), 1usize);
+        assert_eq!(after_response_error_callback_counter.load(Ordering::Relaxed), 1usize);
 
         Ok(())
     }
@@ -1982,10 +1862,7 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     let n = self.counter.fetch_add(1, Ordering::SeqCst);
                     let body = match n {
@@ -2015,9 +1892,10 @@ mod tests {
                             )
                         }
                         1 => {
-                            assert!(request.url().to_string().ends_with(
-                            "/list?bucket=fakebucketname&marker=fakemarker&limit=1&prefix=fakeobj"
-                        ));
+                            assert!(request
+                                .url()
+                                .to_string()
+                                .ends_with("/list?bucket=fakebucketname&marker=fakemarker&limit=1&prefix=fakeobj"));
                             AsyncResponseBody::from_bytes(
                                 json_to_vec(&json!({
                                     "marker": "",
@@ -2082,10 +1960,7 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     let n = self.counter.fetch_add(1, Ordering::SeqCst);
                     let body = match n {
@@ -2182,18 +2057,12 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     let n = self.counter.fetch_add(1, Ordering::SeqCst);
                     let body = match n {
                         0 => {
-                            assert!(request
-                                .url()
-                                .to_string()
-                                .ends_with("/v2/list?bucket=fakebucketname"));
+                            assert!(request.url().to_string().ends_with("/v2/list?bucket=fakebucketname"));
                             AsyncResponseBody::from_bytes(
                                 [
                                     json_to_string(&json!({
@@ -2303,18 +2172,12 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     let n = self.counter.fetch_add(1, Ordering::SeqCst);
                     let (code, body) = match n {
                         0 => {
-                            assert!(request
-                                .url()
-                                .to_string()
-                                .ends_with("/v2/list?bucket=fakebucketname"));
+                            assert!(request.url().to_string().ends_with("/v2/list?bucket=fakebucketname"));
                             (
                                 StatusCode::OK,
                                 AsyncResponseBody::from_bytes(
@@ -2392,16 +2255,14 @@ mod tests {
                 }
             })
             .after_response_ok_callback({
-                let after_response_ok_callback_counter =
-                    after_response_ok_callback_counter.to_owned();
+                let after_response_ok_callback_counter = after_response_ok_callback_counter.to_owned();
                 move |_| {
                     after_response_ok_callback_counter.fetch_add(1, Ordering::Relaxed);
                     CallbackResult::Continue
                 }
             })
             .after_response_error_callback({
-                let after_response_error_callback_counter =
-                    after_response_error_callback_counter.to_owned();
+                let after_response_error_callback_counter = after_response_error_callback_counter.to_owned();
                 move |_| {
                     after_response_error_callback_counter.fetch_add(1, Ordering::Relaxed);
                     CallbackResult::Continue
@@ -2424,18 +2285,9 @@ mod tests {
             ResponseErrorKind::StatusCodeError(StatusCode::from_u16(599)?)
         );
         assert!(stream.try_next().await?.is_none());
-        assert_eq!(
-            before_request_callback_counter.load(Ordering::Relaxed),
-            2usize
-        );
-        assert_eq!(
-            after_response_ok_callback_counter.load(Ordering::Relaxed),
-            1usize
-        );
-        assert_eq!(
-            after_response_error_callback_counter.load(Ordering::Relaxed),
-            1usize
-        );
+        assert_eq!(before_request_callback_counter.load(Ordering::Relaxed), 2usize);
+        assert_eq!(after_response_ok_callback_counter.load(Ordering::Relaxed), 1usize);
+        assert_eq!(after_response_error_callback_counter.load(Ordering::Relaxed), 1usize);
 
         Ok(())
     }
@@ -2455,18 +2307,12 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     let n = self.counter.fetch_add(1, Ordering::SeqCst);
                     let body = match n {
                         0 => {
-                            assert!(request
-                                .url()
-                                .to_string()
-                                .ends_with("/v2/list?bucket=fakebucketname"));
+                            assert!(request.url().to_string().ends_with("/v2/list?bucket=fakebucketname"));
                             AsyncResponseBody::from_bytes(
                                 [
                                     json_to_string(&json!({
@@ -2572,11 +2418,7 @@ mod tests {
     }
 
     fn generate_put_time() -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as u64
-            / 100
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64 / 100
     }
 
     fn single_rsf_domain_region() -> Region {

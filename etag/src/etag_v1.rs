@@ -7,7 +7,7 @@ use std::io::{Result, Write};
 pub(super) const DEFAULT_BLOCK_SIZE: usize = 1 << 22;
 
 /// Etag V1 计算器，使用 Etag V1 算法计算七牛云存储上文件的 HASH 值
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct EtagV1 {
     buffer: Vec<u8>,
     sha1s: Vec<Vec<u8>>,

@@ -1,5 +1,6 @@
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
 #![deny(
+    missing_debug_implementations,
     large_assignments,
     exported_private_dependencies,
     absolute_paths_not_starting_with_crate,

@@ -7,7 +7,7 @@ use digest::{FixedOutput, Reset, Update};
 use qiniu_utils::base64;
 
 /// Etag V2 计算器，使用 Etag V2 算法计算七牛云存储上文件的 HASH 值
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct EtagV2 {
     buffer: Vec<u8>,
     partial_etag: EtagV1,

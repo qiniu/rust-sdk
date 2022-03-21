@@ -2,8 +2,8 @@ use super::{callbacks::Callbacks, Bucket, OperationProvider};
 use qiniu_apis::{
     http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts, StatusCode},
     http_client::{
-        ApiResult, CallbackResult, RegionProvider, RegionProviderEndpoints, RequestBuilderParts,
-        Response, ResponseError, ResponseErrorKind,
+        ApiResult, CallbackResult, RegionProvider, RegionProviderEndpoints, RequestBuilderParts, Response,
+        ResponseError, ResponseErrorKind,
     },
     storage::batch_ops::{
         OperationResponse, OperationResponseData, RequestBody, ResponseBody,
@@ -93,8 +93,7 @@ impl<'a> BatchOperations<'a> {
         &mut self,
         callback: impl FnMut(&ResponseError) -> CallbackResult + Send + Sync + 'a,
     ) -> &mut Self {
-        self.callbacks
-            .insert_after_response_error_callback(callback);
+        self.callbacks.insert_after_response_error_callback(callback);
         self
     }
 
@@ -134,6 +133,7 @@ impl Debug for BatchOperations<'_> {
     }
 }
 
+#[derive(Debug)]
 pub struct BatchOperationsIterator<'a> {
     operations: BatchOperations<'a>,
     buffer: VecDeque<ApiResult<OperationResponseData>>,
@@ -150,9 +150,7 @@ impl Iterator for BatchOperationsIterator<'_> {
         } else if self.closed {
             None
         } else {
-            self.next_response()
-                .map(|v| v.map(Ok))
-                .unwrap_or_else(|e| Some(Err(e)))
+            self.next_response().map(|v| v.map(Ok)).unwrap_or_else(|e| Some(Err(e)))
         }
     }
 }
@@ -172,9 +170,7 @@ impl<'a> BatchOperationsIterator<'a> {
         }
     }
 
-    fn make_request(
-        &self,
-    ) -> ApiResult<BatchOpsSyncRequestBuilder<'a, RefRegionProviderEndpoints<'a>>> {
+    fn make_request(&self) -> ApiResult<BatchOpsSyncRequestBuilder<'a, RefRegionProviderEndpoints<'a>>> {
         let request = self
             .operations
             .bucket
@@ -200,9 +196,7 @@ impl<'a> BatchOperationsIterator<'a> {
             .before_request(request.parts_mut())
             .is_cancelled()
         {
-            return Err(make_user_cancelled_error(
-                "Cancelled by before_request() callback",
-            ));
+            return Err(make_user_cancelled_error("Cancelled by before_request() callback"));
         }
         let mut response_result = request.call(request_body);
         if self
@@ -211,23 +205,15 @@ impl<'a> BatchOperationsIterator<'a> {
             .after_response(&mut response_result)
             .is_cancelled()
         {
-            return Err(make_user_cancelled_error(
-                "Cancelled by after_response() callback",
-            ));
+            return Err(make_user_cancelled_error("Cancelled by after_response() callback"));
         }
         response_result
     }
 
-    fn handle_response(
-        &mut self,
-        response_body: ResponseBody,
-    ) -> Option<ApiResult<OperationResponseData>> {
+    fn handle_response(&mut self, response_body: ResponseBody) -> Option<ApiResult<OperationResponseData>> {
         let responses = response_body.to_operation_response_vec();
-        self.buffer.extend(
-            responses
-                .into_iter()
-                .map(from_response_to_response_data_result),
-        );
+        self.buffer
+            .extend(responses.into_iter().map(from_response_to_response_data_result));
         self.buffer.pop_front()
     }
 
@@ -241,9 +227,7 @@ impl<'a> BatchOperationsIterator<'a> {
             .map(|provider| provider.batch_size())
             .unwrap_or(DEFAULT_BATCH_SIZE)
         {
-            if let Some(mut operation) =
-                self.operations.operations.as_mut().and_then(|op| op.next())
-            {
+            if let Some(mut operation) = self.operations.operations.as_mut().and_then(|op| op.next()) {
                 request_body = request_body.append_operations_as_str(operation.to_operation());
                 operation_count += 1;
             } else {
@@ -266,6 +250,7 @@ mod async_stream {
     use qiniu_apis::storage::batch_ops::AsyncRequestBuilder as BatchOpsAsyncRequestBuilder;
     use smart_default::SmartDefault;
     use std::{
+        fmt::{self, Debug},
         io::Result as IOResult,
         pin::Pin,
         task::{Context, Poll},
@@ -273,6 +258,7 @@ mod async_stream {
 
     #[must_use]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[derive(Debug)]
     pub struct BatchOperationsStream<'a> {
         operations: BatchOperations<'a>,
         current_step: BatchOperationsStep<'a>,
@@ -292,6 +278,18 @@ mod async_stream {
             task: BoxFuture<'a, IOResult<&'a dyn RegionProvider>>,
         },
         Done,
+    }
+
+    impl Debug for BatchOperationsStep<'_> {
+        #[inline]
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                Self::FromBuffer { buffer } => f.debug_tuple("FromBuffer").field(buffer).finish(),
+                Self::WaitForResponse { .. } => f.debug_tuple("WaitForResponse").finish(),
+                Self::WaitForRegionProvider { .. } => f.debug_tuple("WaitForRegionProvider").finish(),
+                Self::Done => f.debug_tuple("Done").finish(),
+            }
+        }
     }
 
     impl Stream for BatchOperationsStream<'_> {
@@ -317,10 +315,7 @@ mod async_stream {
             }
         }
 
-        fn read_from_buffer(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<<Self as Stream>::Item>> {
+        fn read_from_buffer(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let BatchOperationsStep::FromBuffer { buffer } = &mut self.current_step {
                 if let Some(response) = buffer.pop_front() {
                     Poll::Ready(Some(response))
@@ -339,10 +334,7 @@ mod async_stream {
             }
         }
 
-        fn wait_for_response(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<<Self as Stream>::Item>> {
+        fn wait_for_response(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let BatchOperationsStep::WaitForResponse { task } = &mut self.current_step {
                 let mut response_result = ready!(task.poll_unpin(cx));
                 if self
@@ -378,10 +370,7 @@ mod async_stream {
             }
         }
 
-        fn wait_for_region(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<<Self as Stream>::Item>> {
+        fn wait_for_region(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let BatchOperationsStep::WaitForRegionProvider { task } = &mut self.current_step {
                 match ready!(task.poll_unpin(cx)) {
                     Ok(region_provider) => {
@@ -427,9 +416,7 @@ mod async_stream {
                 .map(|provider| provider.batch_size())
                 .unwrap_or(DEFAULT_BATCH_SIZE)
             {
-                if let Some(mut operation) =
-                    self.operations.operations.as_mut().and_then(|op| op.next())
-                {
+                if let Some(mut operation) = self.operations.operations.as_mut().and_then(|op| op.next()) {
                     request_body = request_body.append_operations_as_str(operation.to_operation());
                     operation_count += 1;
                 } else {
@@ -469,9 +456,7 @@ fn make_user_cancelled_error(message: &str) -> ResponseError {
     ResponseError::new(HttpResponseErrorKind::UserCanceled.into(), message)
 }
 
-fn from_response_to_response_data_result(
-    response: OperationResponse,
-) -> ApiResult<OperationResponseData> {
+fn from_response_to_response_data_result(response: OperationResponse) -> ApiResult<OperationResponseData> {
     type AnyError = Box<dyn StdError + Send + Sync>;
 
     let status_code = StatusCode::from_u16(
@@ -517,12 +502,8 @@ mod tests {
     use super::{super::ObjectsManager, *};
     use qiniu_apis::{
         credential::Credential,
-        http::{
-            HeaderName, HeaderValue, HttpCaller, SyncRequest, SyncResponse, SyncResponseResult,
-        },
-        http_client::{
-            DirectChooser, HttpClient, NeverRetrier, Region, SyncResponseBody, NO_BACKOFF,
-        },
+        http::{HeaderName, HeaderValue, HttpCaller, SyncRequest, SyncResponse, SyncResponseResult},
+        http_client::{DirectChooser, HttpClient, NeverRetrier, Region, SyncResponseBody, NO_BACKOFF},
     };
     use qiniu_utils::BucketName;
     use serde_json::{json, to_vec as json_to_vec};
@@ -551,8 +532,7 @@ mod tests {
                 let n = self.counter.fetch_add(1, Ordering::SeqCst);
                 let mut req_body = Vec::new();
                 request.body_mut().read_to_end(&mut req_body).unwrap();
-                let pairs: Vec<(String, String)> =
-                    form_urlencoded::parse(&req_body).into_owned().collect();
+                let pairs: Vec<(String, String)> = form_urlencoded::parse(&req_body).into_owned().collect();
                 assert_eq!(pairs.len(), 3);
                 assert!(pairs.iter().all(|(k, _)| k == "op"));
                 let body = match n {
@@ -585,10 +565,7 @@ mod tests {
             }
 
             #[cfg(feature = "async")]
-            fn async_call(
-                &self,
-                _request: &mut AsyncRequest<'_>,
-            ) -> BoxFuture<AsyncResponseResult> {
+            fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
         }
@@ -621,16 +598,12 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     let n = self.counter.fetch_add(1, Ordering::SeqCst);
                     let mut req_body = Vec::new();
                     request.body_mut().read_to_end(&mut req_body).await.unwrap();
-                    let pairs: Vec<(String, String)> =
-                        form_urlencoded::parse(&req_body).into_owned().collect();
+                    let pairs: Vec<(String, String)> = form_urlencoded::parse(&req_body).into_owned().collect();
                     assert_eq!(pairs.len(), 3);
                     assert!(pairs.iter().all(|(k, _)| k == "op"));
                     let body = match n {

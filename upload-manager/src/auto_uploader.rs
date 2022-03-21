@@ -24,6 +24,7 @@ use std::{
 #[cfg(feature = "async")]
 use {async_std::fs::metadata as async_metadata, futures::AsyncRead};
 
+#[derive(Debug)]
 pub struct AutoUploader<
     CP = FixedConcurrencyProvider,
     DPP = FixedDataPartitionProvider,
@@ -433,6 +434,7 @@ impl AutoUploaderObjectParamsBuilder {
     }
 }
 
+#[derive(Debug)]
 pub struct AutoUploaderBuilder<
     CP = FixedConcurrencyProvider,
     DPP = FixedDataPartitionProvider,

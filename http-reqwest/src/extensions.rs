@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+#[derive(Debug)]
 pub struct TimeoutExtension(Duration);
 
 impl TimeoutExtension {
