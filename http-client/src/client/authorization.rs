@@ -103,11 +103,11 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
 }
 
 fn authorization_v1_for_request(credential: &Credential, request: &mut SyncRequest) -> AuthorizationResult<String> {
-    let (parts, mut body) = take(request).into_parts();
+    let (parts, mut body) = take(request).into_parts_and_body();
     credential
         .authorization_v1_for_request_with_body_reader(parts.url(), parts.headers().get(CONTENT_TYPE), &mut body)
         .tap(|_| {
-            *request = SyncRequest::from_parts(parts, body);
+            *request = SyncRequest::from_parts_and_body(parts, body);
         })
         .map_err(|err| err.into())
 }
@@ -117,12 +117,12 @@ async fn authorization_v1_for_async_request(
     credential: &Credential,
     request: &mut AsyncRequest<'_>,
 ) -> AuthorizationResult<String> {
-    let (parts, mut body) = take(request).into_parts();
+    let (parts, mut body) = take(request).into_parts_and_body();
     credential
         .authorization_v1_for_request_with_async_body_reader(parts.url(), parts.headers().get(CONTENT_TYPE), &mut body)
         .await
         .tap(|_| {
-            *request = AsyncRequest::from_parts(parts, body);
+            *request = AsyncRequest::from_parts_and_body(parts, body);
         })
         .map_err(|err| err.into())
 }
@@ -176,11 +176,11 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
 }
 
 fn authorization_v2_for_request(credential: &Credential, request: &mut SyncRequest) -> AuthorizationResult<String> {
-    let (parts, mut body) = take(request).into_parts();
+    let (parts, mut body) = take(request).into_parts_and_body();
     credential
         .authorization_v2_for_request_with_body_reader(parts.method(), parts.url(), parts.headers(), &mut body)
         .tap(|_| {
-            *request = SyncRequest::from_parts(parts, body);
+            *request = SyncRequest::from_parts_and_body(parts, body);
         })
         .map_err(|err| err.into())
 }
@@ -190,12 +190,12 @@ async fn authorization_v2_for_async_request(
     credential: &Credential,
     request: &mut AsyncRequest<'_>,
 ) -> AuthorizationResult<String> {
-    let (parts, mut body) = take(request).into_parts();
+    let (parts, mut body) = take(request).into_parts_and_body();
     credential
         .authorization_v2_for_request_with_async_body_reader(parts.method(), parts.url(), parts.headers(), &mut body)
         .await
         .tap(|_| {
-            *request = AsyncRequest::from_parts(parts, body);
+            *request = AsyncRequest::from_parts_and_body(parts, body);
         })
         .map_err(|err| err.into())
 }

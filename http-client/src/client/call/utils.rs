@@ -2,9 +2,8 @@ use super::{
     super::{
         super::{DomainWithPort, Endpoint, IpAddrWithPort},
         ApiResult, Authorization, AuthorizationError, AuthorizationProvider, CallbackContextImpl,
-        ExtendedCallbackContextImpl, RequestParts, ResolveAnswers, ResolveOptions, ResolveResult,
-        ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision,
-        SimplifiedCallbackContext, SyncResponse,
+        ExtendedCallbackContextImpl, RequestParts, ResolveAnswers, ResolveOptions, ResolveResult, ResponseError,
+        ResponseErrorKind, RetriedStatsInfo, RetryDecision, SimplifiedCallbackContext, SyncResponse,
     },
     domain_or_ip_addr::DomainOrIpAddr,
     error::{ErrorResponseBody, TryError},
@@ -14,8 +13,7 @@ use qiniu_http::{
     header::CONTENT_TYPE,
     uri::{Authority, InvalidUri, PathAndQuery, Scheme, Uri},
     Extensions, HeaderValue, Request as HttpRequest, RequestParts as HttpRequestParts, Reset,
-    ResponseErrorKind as HttpResponseErrorKind, ResponseParts, SyncRequest as SyncHttpRequest,
-    SyncRequestBody,
+    ResponseErrorKind as HttpResponseErrorKind, ResponseParts, SyncRequest as SyncHttpRequest, SyncRequestBody,
 };
 use std::{borrow::Cow, net::IpAddr, time::Duration};
 
@@ -67,10 +65,7 @@ pub(super) fn make_url(
         )
     });
 
-    fn _make_url(
-        domain_or_ip: &DomainOrIpAddr,
-        request: &RequestParts<'_>,
-    ) -> Result<(Uri, Vec<IpAddr>), InvalidUri> {
+    fn _make_url(domain_or_ip: &DomainOrIpAddr, request: &RequestParts<'_>) -> Result<(Uri, Vec<IpAddr>), InvalidUri> {
         let mut resolved_ip_addrs = Vec::new();
         let scheme = if request.use_https() {
             Scheme::HTTPS
@@ -83,10 +78,7 @@ pub(super) fn make_url(
                 domain_with_port,
                 resolved_ips,
             } => {
-                resolved_ip_addrs = resolved_ips
-                    .iter()
-                    .map(|resolved| resolved.ip_addr())
-                    .collect();
+                resolved_ip_addrs = resolved_ips.iter().map(|resolved| resolved.ip_addr()).collect();
                 let mut authority = domain_with_port.domain().to_owned();
                 if let Some(port) = domain_with_port.port() {
                     authority.push(':');
@@ -107,8 +99,7 @@ pub(super) fn make_url(
             if !request.query().is_empty() {
                 path_and_query.push_str(request.query());
             }
-            let mut serializer =
-                form_urlencoded::Serializer::for_suffix(&mut path_and_query, path_len);
+            let mut serializer = form_urlencoded::Serializer::for_suffix(&mut path_and_query, path_len);
             serializer.extend_pairs(request.query_pairs().iter());
             serializer.finish();
         }
@@ -124,10 +115,7 @@ pub(super) fn make_url(
     }
 }
 
-pub(super) fn reset_request_body(
-    body: &mut SyncRequestBody<'_>,
-    retried: &RetriedStatsInfo,
-) -> Result<(), TryError> {
+pub(super) fn reset_request_body(body: &mut SyncRequestBody<'_>, retried: &RetriedStatsInfo) -> Result<(), TryError> {
     body.reset().map_err(|err| {
         TryError::new(
             ResponseError::from(err).retried(retried),
@@ -156,10 +144,7 @@ pub(super) fn call_before_backoff_callbacks(
     delay: Duration,
 ) -> Result<(), TryError> {
     if request
-        .call_before_backoff_callbacks(
-            &mut ExtendedCallbackContextImpl::new(request, built, retried),
-            delay,
-        )
+        .call_before_backoff_callbacks(&mut ExtendedCallbackContextImpl::new(request, built, retried), delay)
         .is_cancelled()
     {
         return Err(TryError::new(
@@ -181,10 +166,7 @@ pub(super) fn call_after_backoff_callbacks(
     delay: Duration,
 ) -> Result<(), TryError> {
     if request
-        .call_after_backoff_callbacks(
-            &mut ExtendedCallbackContextImpl::new(request, built, retried),
-            delay,
-        )
+        .call_after_backoff_callbacks(&mut ExtendedCallbackContextImpl::new(request, built, retried), delay)
         .is_cancelled()
     {
         return Err(TryError::new(
@@ -253,10 +235,7 @@ fn call_to_choose_ips_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
-    if request
-        .call_to_choose_ips_callbacks(&mut context, ips)
-        .is_cancelled()
-    {
+    if request.call_to_choose_ips_callbacks(&mut context, ips).is_cancelled() {
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
@@ -321,10 +300,7 @@ pub(super) fn call_after_request_signed_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
-    if request
-        .call_after_request_signed_callbacks(&mut context)
-        .is_cancelled()
-    {
+    if request.call_after_request_signed_callbacks(&mut context).is_cancelled() {
         return Err(TryError::new(
             ResponseError::new(
                 HttpResponseErrorKind::UserCanceled.into(),
@@ -344,10 +320,7 @@ pub(super) fn call_response_callbacks(
     response: &ResponseParts,
 ) -> Result<(), ResponseError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
-    if request
-        .call_response_callbacks(&mut context, response)
-        .is_cancelled()
-    {
+    if request.call_response_callbacks(&mut context, response).is_cancelled() {
         return Err(ResponseError::new(
             HttpResponseErrorKind::UserCanceled.into(),
             "Cancelled by on_response() callback",
@@ -380,18 +353,14 @@ pub(super) fn call_error_callbacks(
     Ok(())
 }
 
-pub(super) fn find_domains_with_port(
-    endpoints: &[Endpoint],
-) -> impl Iterator<Item = &DomainWithPort> {
+pub(super) fn find_domains_with_port(endpoints: &[Endpoint]) -> impl Iterator<Item = &DomainWithPort> {
     endpoints.iter().filter_map(|endpoint| match endpoint {
         Endpoint::DomainWithPort(domain_with_port) => Some(domain_with_port),
         _ => None,
     })
 }
 
-pub(super) fn find_ip_addr_with_port(
-    endpoints: &[Endpoint],
-) -> impl Iterator<Item = &IpAddrWithPort> {
+pub(super) fn find_ip_addr_with_port(endpoints: &[Endpoint]) -> impl Iterator<Item = &IpAddrWithPort> {
     endpoints.iter().filter_map(|endpoint| match endpoint {
         Endpoint::IpAddrWithPort(ip_addr_with_port) => Some(ip_addr_with_port),
         _ => None,
@@ -414,19 +383,11 @@ pub(super) fn sign_request(
 fn handle_sign_request_error(err: AuthorizationError, retried: &RetriedStatsInfo) -> TryError {
     match err {
         AuthorizationError::IoError(err) => TryError::new(
-            ResponseError::new(
-                ResponseErrorKind::HttpError(HttpResponseErrorKind::LocalIoError),
-                err,
-            )
-            .retried(retried),
+            ResponseError::new(ResponseErrorKind::HttpError(HttpResponseErrorKind::LocalIoError), err).retried(retried),
             RetryDecision::DontRetry.into(),
         ),
         AuthorizationError::UrlParseError(err) => TryError::new(
-            ResponseError::new(
-                ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl),
-                err,
-            )
-            .retried(retried),
+            ResponseError::new(ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl), err).retried(retried),
             RetryDecision::TryNextServer.into(),
         ),
     }
@@ -438,18 +399,12 @@ pub(super) fn resolve(
     extensions: &mut Extensions,
     retried: &RetriedStatsInfo,
 ) -> Result<Vec<IpAddrWithPort>, TryError> {
-    let answers = with_resolve_domain(
-        request,
-        domain_with_port.domain(),
-        extensions,
-        retried,
-        || {
-            request.http_client().resolver().resolve(
-                domain_with_port.domain(),
-                &ResolveOptions::builder().retried(retried).build(),
-            )
-        },
-    )?;
+    let answers = with_resolve_domain(request, domain_with_port.domain(), extensions, retried, || {
+        request.http_client().resolver().resolve(
+            domain_with_port.domain(),
+            &ResolveOptions::builder().retried(retried).build(),
+        )
+    })?;
     return Ok(answers
         .into_ip_addrs()
         .iter()
@@ -486,10 +441,7 @@ pub(super) fn choose(
     Ok(chosen_ips)
 }
 
-pub(super) fn judge(
-    mut response: SyncResponse,
-    retried: &RetriedStatsInfo,
-) -> ApiResult<SyncResponse> {
+pub(super) fn judge(mut response: SyncResponse, retried: &RetriedStatsInfo) -> ApiResult<SyncResponse> {
     return match response.status_code().as_u16() {
         0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.parts(), retried)),
         200..=299 => {
@@ -499,18 +451,14 @@ pub(super) fn judge(
         _ => to_status_code_error(response, retried),
     };
 
-    fn to_status_code_error(
-        response: SyncResponse,
-        retried: &RetriedStatsInfo,
-    ) -> ApiResult<SyncResponse> {
+    fn to_status_code_error(response: SyncResponse, retried: &RetriedStatsInfo) -> ApiResult<SyncResponse> {
         let status_code = response.status_code();
-        let (parts, body) = response.parse_json::<ErrorResponseBody>()?.into_parts();
-        Err(ResponseError::new(
-            ResponseErrorKind::StatusCodeError(status_code),
-            body.into_error(),
+        let (parts, body) = response.parse_json::<ErrorResponseBody>()?.into_parts_and_body();
+        Err(
+            ResponseError::new(ResponseErrorKind::StatusCodeError(status_code), body.into_error())
+                .response_parts(&parts)
+                .retried(retried),
         )
-        .response_parts(&parts)
-        .retried(retried))
     }
 }
 
@@ -518,16 +466,12 @@ fn check_x_req_id(response: &mut SyncResponse, retried: &RetriedStatsInfo) -> Ap
     if response.x_req_id().is_some() {
         Ok(())
     } else {
-        Err(make_malicious_response(response.parts(), retried)
-            .read_response_body_sample(response.body_mut())?)
+        Err(make_malicious_response(response.parts(), retried).read_response_body_sample(response.body_mut())?)
     }
 }
 
 #[cfg(feature = "async")]
-async fn async_check_x_req_id(
-    response: &mut AsyncResponse,
-    retried: &RetriedStatsInfo,
-) -> ApiResult<()> {
+async fn async_check_x_req_id(response: &mut AsyncResponse, retried: &RetriedStatsInfo) -> ApiResult<()> {
     if response.x_req_id().is_some() {
         Ok(())
     } else {
@@ -546,10 +490,7 @@ fn make_malicious_response(parts: &ResponseParts, retried: &RetriedStatsInfo) ->
     .retried(retried)
 }
 
-fn make_unexpected_status_code_error(
-    parts: &ResponseParts,
-    retried: &RetriedStatsInfo,
-) -> ResponseError {
+fn make_unexpected_status_code_error(parts: &ResponseParts, retried: &RetriedStatsInfo) -> ResponseError {
     ResponseError::new(
         ResponseErrorKind::UnexpectedStatusCode(parts.status_code()),
         format!("status code {} is unexpected", parts.status_code()),
@@ -587,22 +528,16 @@ mod async_utils {
         extensions: &mut Extensions,
         retried: &RetriedStatsInfo,
     ) -> Result<Vec<IpAddrWithPort>, TryError> {
-        let answers = with_resolve_domain(
-            parts,
-            domain_with_port.domain(),
-            extensions,
-            retried,
-            || async {
-                parts
-                    .http_client()
-                    .resolver()
-                    .async_resolve(
-                        domain_with_port.domain(),
-                        &ResolveOptions::builder().retried(retried).build(),
-                    )
-                    .await
-            },
-        );
+        let answers = with_resolve_domain(parts, domain_with_port.domain(), extensions, retried, || async {
+            parts
+                .http_client()
+                .resolver()
+                .async_resolve(
+                    domain_with_port.domain(),
+                    &ResolveOptions::builder().retried(retried).build(),
+                )
+                .await
+        });
         return Ok(answers
             .await?
             .into_ip_addrs()
@@ -648,9 +583,7 @@ mod async_utils {
         retried: &RetriedStatsInfo,
     ) -> ApiResult<AsyncResponse> {
         return match response.status_code().as_u16() {
-            0..=199 | 300..=399 => {
-                Err(make_unexpected_status_code_error(response.parts(), retried))
-            }
+            0..=199 | 300..=399 => Err(make_unexpected_status_code_error(response.parts(), retried)),
             200..=299 => {
                 async_check_x_req_id(&mut response, retried).await?;
                 Ok(response)
@@ -658,21 +591,14 @@ mod async_utils {
             _ => to_status_code_error(response, retried).await,
         };
 
-        async fn to_status_code_error(
-            response: AsyncResponse,
-            retried: &RetriedStatsInfo,
-        ) -> ApiResult<AsyncResponse> {
+        async fn to_status_code_error(response: AsyncResponse, retried: &RetriedStatsInfo) -> ApiResult<AsyncResponse> {
             let status_code = response.status_code();
-            let (parts, body) = response
-                .parse_json::<ErrorResponseBody>()
-                .await?
-                .into_parts();
-            Err(ResponseError::new(
-                ResponseErrorKind::StatusCodeError(status_code),
-                body.into_error(),
+            let (parts, body) = response.parse_json::<ErrorResponseBody>().await?.into_parts_and_body();
+            Err(
+                ResponseError::new(ResponseErrorKind::StatusCodeError(status_code), body.into_error())
+                    .response_parts(&parts)
+                    .retried(retried),
             )
-            .response_parts(&parts)
-            .retried(retried))
         }
     }
 }
@@ -698,17 +624,11 @@ mod tests {
         let default_client = make_dumb_client_builder().build();
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .build()
                 .split();
             let (url, resolved_ips) = make_url(
-                &DomainOrIpAddr::new_from_domain(
-                    DomainWithPort::new("fakedomain.com", None),
-                    vec![],
-                ),
+                &DomainOrIpAddr::new_from_domain(DomainWithPort::new("fakedomain.com", None), vec![]),
                 &parts,
                 &Default::default(),
             )
@@ -718,18 +638,12 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("/fake/path")
                 .build()
                 .split();
             let (url, resolved_ips) = make_url(
-                &DomainOrIpAddr::new_from_domain(
-                    DomainWithPort::new("fakedomain.com", None),
-                    vec![],
-                ),
+                &DomainOrIpAddr::new_from_domain(DomainWithPort::new("fakedomain.com", None), vec![]),
                 &parts,
                 &Default::default(),
             )
@@ -739,18 +653,12 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .build()
                 .split();
             let (url, resolved_ips) = make_url(
-                &DomainOrIpAddr::new_from_domain(
-                    DomainWithPort::new("fakedomain.com", None),
-                    vec![],
-                ),
+                &DomainOrIpAddr::new_from_domain(DomainWithPort::new("fakedomain.com", None), vec![]),
                 &parts,
                 &Default::default(),
             )
@@ -760,18 +668,12 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .build()
                 .split();
             let (url, resolved_ips) = make_url(
-                &DomainOrIpAddr::new_from_domain(
-                    DomainWithPort::new("fakedomain.com", None),
-                    vec![],
-                ),
+                &DomainOrIpAddr::new_from_domain(DomainWithPort::new("fakedomain.com", None), vec![]),
                 &parts,
                 &Default::default(),
             )
@@ -781,18 +683,12 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .build()
                 .split();
             let (url, resolved_ips) = make_url(
-                &DomainOrIpAddr::new_from_domain(
-                    DomainWithPort::new("fakedomain.com", None),
-                    vec![],
-                ),
+                &DomainOrIpAddr::new_from_domain(DomainWithPort::new("fakedomain.com", None), vec![]),
                 &parts,
                 &Default::default(),
             )
@@ -802,18 +698,12 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .build()
                 .split();
             let (url, resolved_ips) = make_url(
-                &DomainOrIpAddr::new_from_domain(
-                    DomainWithPort::new("fakedomain.com", NonZeroU16::new(8080)),
-                    vec![],
-                ),
+                &DomainOrIpAddr::new_from_domain(DomainWithPort::new("fakedomain.com", NonZeroU16::new(8080)), vec![]),
                 &parts,
                 &Default::default(),
             )
@@ -823,18 +713,12 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .build()
                 .split();
             let (url, resolved_ips) = make_url(
-                &DomainOrIpAddr::new_from_domain(
-                    DomainWithPort::new("fakedomain.com", NonZeroU16::new(8080)),
-                    vec![],
-                ),
+                &DomainOrIpAddr::new_from_domain(DomainWithPort::new("fakedomain.com", NonZeroU16::new(8080)), vec![]),
                 &parts,
                 &Default::default(),
             )
@@ -844,10 +728,7 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .build()
                 .split();
@@ -862,16 +743,12 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .build()
                 .split();
             let (url, resolved_ips) = make_url(
-                &IpAddrWithPort::from(SocketAddr::new(Ipv4Addr::new(192, 168, 1, 4).into(), 8080))
-                    .into(),
+                &IpAddrWithPort::from(SocketAddr::new(Ipv4Addr::new(192, 168, 1, 4).into(), 8080)).into(),
                 &parts,
                 &Default::default(),
             )
@@ -881,19 +758,12 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .build()
                 .split();
             let (url, resolved_ips) = make_url(
-                &IpAddrWithPort::new(
-                    Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff).into(),
-                    None,
-                )
-                .into(),
+                &IpAddrWithPort::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff).into(), None).into(),
                 &parts,
                 &Default::default(),
             )
@@ -903,10 +773,7 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .build()
                 .split();
@@ -921,21 +788,14 @@ mod tests {
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
-            assert_eq!(
-                &url.to_string(),
-                "https://[::ffff:192.10.2.255]:8080/fake/path"
-            );
+            assert_eq!(&url.to_string(), "https://[::ffff:192.10.2.255]:8080/fake/path");
         }
         {
             let (parts, _, _, _, _) = default_client
                 .get(
                     &[ServiceName::Up],
                     Endpoints::new(
-                        SocketAddr::new(
-                            Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff).into(),
-                            8080,
-                        )
-                        .into(),
+                        SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff).into(), 8080).into(),
                     ),
                 )
                 .path("fake/path")
@@ -952,17 +812,11 @@ mod tests {
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
-            assert_eq!(
-                &url.to_string(),
-                "https://[::ffff:192.11.2.255]:8080/fake/path"
-            );
+            assert_eq!(&url.to_string(), "https://[::ffff:192.11.2.255]:8080/fake/path");
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .append_query_pair("sign", "155d24fea16df8c77e9b9eec08a895f7")
                 .append_query_pair("t", "5f99714f")
@@ -982,10 +836,7 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .query("avthumb/mp4")
                 .build()
@@ -997,17 +848,11 @@ mod tests {
             )
             .unwrap();
             assert!(resolved_ips.is_empty());
-            assert_eq!(
-                &url.to_string(),
-                "https://192.168.1.4/fake/path?avthumb/mp4"
-            );
+            assert_eq!(&url.to_string(), "https://192.168.1.4/fake/path?avthumb/mp4");
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .query("avthumb/mp4")
                 .append_query_pair("sign", "155d24fea16df8c77e9b9eec08a895f7")
@@ -1028,10 +873,7 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .query("avthumb/mp4")
                 .append_query_pair("sign", "155d24fea16df8c77e9b9eec08a895f7")
@@ -1052,66 +894,42 @@ mod tests {
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .build()
                 .split();
             let err = make_url(
-                &DomainOrIpAddr::new_from_domain(
-                    DomainWithPort::new("fakedomain.com/", None),
-                    vec![],
-                ),
+                &DomainOrIpAddr::new_from_domain(DomainWithPort::new("fakedomain.com/", None), vec![]),
                 &parts,
                 &Default::default(),
             )
             .unwrap_err();
-            assert_eq!(
-                err.response_error().kind(),
-                HttpResponseErrorKind::InvalidUrl.into(),
-            );
+            assert_eq!(err.response_error().kind(), HttpResponseErrorKind::InvalidUrl.into(),);
         }
         {
             let (parts, _, _, _, _) = default_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .build()
                 .split();
             let err = make_url(
-                &DomainOrIpAddr::new_from_domain(
-                    DomainWithPort::new("fakedomain.com/", NonZeroU16::new(8080)),
-                    vec![],
-                ),
+                &DomainOrIpAddr::new_from_domain(DomainWithPort::new("fakedomain.com/", NonZeroU16::new(8080)), vec![]),
                 &parts,
                 &Default::default(),
             )
             .unwrap_err();
-            assert_eq!(
-                err.response_error().kind(),
-                HttpResponseErrorKind::InvalidUrl.into(),
-            );
+            assert_eq!(err.response_error().kind(), HttpResponseErrorKind::InvalidUrl.into(),);
         }
 
         let http_client = make_dumb_client_builder().use_https(false).build();
         {
             let (parts, _, _, _, _) = http_client
-                .get(
-                    &[ServiceName::Up],
-                    Endpoints::new("fakedomain.com".parse().unwrap()),
-                )
+                .get(&[ServiceName::Up], Endpoints::new("fakedomain.com".parse().unwrap()))
                 .path("fake/path")
                 .build()
                 .split();
             let (url, resolved_ips) = make_url(
-                &DomainOrIpAddr::new_from_domain(
-                    DomainWithPort::new("fakedomain.com", None),
-                    vec![],
-                ),
+                &DomainOrIpAddr::new_from_domain(DomainWithPort::new("fakedomain.com", None), vec![]),
                 &parts,
                 &Default::default(),
             )

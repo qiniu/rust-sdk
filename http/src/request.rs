@@ -22,6 +22,7 @@ use std::{
     ops::{Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo},
 };
 
+/// 用户代理信息
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UserAgent {
     inner: SmallString<[u8; 256]>,
@@ -37,6 +38,9 @@ static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
     .into()
 });
 
+/// HTTP 请求信息
+///
+/// 不包含请求体信息
 pub struct RequestParts<'r> {
     inner: HttpRequestParts,
 
@@ -49,67 +53,67 @@ pub struct RequestParts<'r> {
 }
 
 impl<'r> RequestParts<'r> {
-    /// 请求 URL
+    /// 获取 HTTP 请求 URL
     #[inline]
     pub fn url(&self) -> &Uri {
         &self.inner.uri
     }
 
-    /// 修改请求 URL
+    /// 获取 HTTP 请求 URL 的可变引用
     #[inline]
     pub fn url_mut(&mut self) -> &mut Uri {
         &mut self.inner.uri
     }
 
-    /// 请求 HTTP 版本
+    /// 获取请求 HTTP 版本
     #[inline]
     pub fn version(&self) -> Version {
         self.inner.version
     }
 
-    /// 修改请求 HTTP 版本
+    /// 获取请求 HTTP 版本的可变引用
     #[inline]
     pub fn version_mut(&mut self) -> &mut Version {
         &mut self.inner.version
     }
 
-    /// 请求 HTTP 方法
+    /// 获取请求 HTTP 方法
     #[inline]
     pub fn method(&self) -> &Method {
         &self.inner.method
     }
 
-    /// 修改请求 HTTP 方法
+    /// 获取请求 HTTP 方法的可变引用
     #[inline]
     pub fn method_mut(&mut self) -> &mut Method {
         &mut self.inner.method
     }
 
-    /// 请求 HTTP Headers
+    /// 获取请求 HTTP Headers
     #[inline]
     pub fn headers(&self) -> &HeaderMap {
         &self.inner.headers
     }
 
-    /// 修改请求 HTTP Headers
+    /// 获取请求 HTTP Headers 的可变引用
     #[inline]
     pub fn headers_mut(&mut self) -> &mut HeaderMap {
         &mut self.inner.headers
     }
 
-    /// 扩展字段
+    /// 获取扩展字段
     #[inline]
     pub fn extensions(&self) -> &Extensions {
         &self.inner.extensions
     }
 
-    /// 修改扩展字段
+    /// 获取扩展字段的可变引用
     #[inline]
     pub fn extensions_mut(&mut self) -> &mut Extensions {
         &mut self.inner.extensions
     }
 
-    /// 用户代理
+    /// 获取用户代理
     #[inline]
     pub fn user_agent(&self) -> UserAgent {
         let mut user_agent = UserAgent::from(FULL_USER_AGENT.as_ref());
@@ -117,61 +121,61 @@ impl<'r> RequestParts<'r> {
         user_agent
     }
 
-    /// 追加的用户代理
+    /// 获取追加的用户代理
     #[inline]
     pub fn appended_user_agent(&self) -> &UserAgent {
         &self.appended_user_agent
     }
 
-    /// 修改追加的用户代理
+    /// 获取追加的用户代理的可变引用
     #[inline]
     pub fn appended_user_agent_mut(&mut self) -> &mut UserAgent {
         &mut self.appended_user_agent
     }
 
-    /// 预解析的服务器套接字地址
+    /// 获取预解析的服务器套接字地址
     #[inline]
     pub fn resolved_ip_addrs(&self) -> Option<&[IpAddr]> {
         self.resolved_ip_addrs.as_deref()
     }
 
-    /// 修改预解析的服务器套接字地址
+    /// 获取预解析的服务器套接字地址的可变引用
     #[inline]
     pub fn resolved_ip_addrs_mut(&mut self) -> &mut Option<Cow<'r, [IpAddr]>> {
         &mut self.resolved_ip_addrs
     }
 
-    /// 上传进度回调
+    /// 获取上传进度回调
     #[inline]
     pub fn on_uploading_progress(&self) -> Option<OnProgress<'r>> {
         self.on_uploading_progress
     }
 
-    /// 修改上传进度回调
+    /// 获取上传进度回调的可变引用
     #[inline]
     pub fn on_uploading_progress_mut(&mut self) -> &mut Option<OnProgress<'r>> {
         &mut self.on_uploading_progress
     }
 
-    /// 接受到响应状态回调
+    /// 获取接受到响应状态回调
     #[inline]
     pub fn on_receive_response_status(&self) -> Option<OnStatusCode> {
         self.on_receive_response_status
     }
 
-    /// 修改接受到响应状态回调
+    /// 获取接受到响应状态回调的可变引用
     #[inline]
     pub fn on_receive_response_status_mut(&mut self) -> &mut Option<OnStatusCode<'r>> {
         &mut self.on_receive_response_status
     }
 
-    /// 接受到响应 Header 回调
+    /// 获取接受到响应 Header 回调
     #[inline]
     pub fn on_receive_response_header(&self) -> Option<OnHeader> {
         self.on_receive_response_header
     }
 
-    /// 修改接受到响应 Header 回调
+    /// 获取接受到响应 Header 回调的可变引用
     #[inline]
     pub fn on_receive_response_header_mut(&mut self) -> &mut Option<OnHeader<'r>> {
         &mut self.on_receive_response_header
@@ -205,10 +209,9 @@ impl Debug for RequestParts<'_> {
             ($ctx:ident, $method_name:expr, $method:ident) => {
                 $ctx.field(
                     $method_name,
-                    &self.$method.map_or_else(
-                        || Cow::Borrowed("Uninstalled"),
-                        |_| Cow::Borrowed("Installed"),
-                    ),
+                    &self
+                        .$method
+                        .map_or_else(|| Cow::Borrowed("Uninstalled"), |_| Cow::Borrowed("Installed")),
                 )
             };
         }
@@ -233,7 +236,7 @@ pub struct Request<'r, B: 'r> {
 }
 
 impl<'r, B: Default + 'r> Request<'r, B> {
-    // 返回 HTTP 响应构建器
+    /// 创建 HTTP 响应构建器
     #[inline]
     pub fn builder() -> RequestBuilder<'r, B> {
         RequestBuilder::default()
@@ -241,42 +244,46 @@ impl<'r, B: Default + 'r> Request<'r, B> {
 }
 
 impl<'r, B: 'r> Request<'r, B> {
-    /// 请求体
+    /// 获取请求体
     #[inline]
     pub fn body(&self) -> &B {
         &self.body
     }
 
-    /// 修改请求体
+    /// 获取请求体的可变引用
     #[inline]
     pub fn body_mut(&mut self) -> &mut B {
         &mut self.body
     }
 
-    /// 直接获取 HTTP 请求体
+    /// 转换为 HTTP 请求体
     #[inline]
     pub fn into_body(self) -> B {
         self.body
     }
 
+    /// 获取请求信息
     #[inline]
     pub fn parts(&self) -> &RequestParts<'r> {
         &self.parts
     }
 
+    /// 获取请求信息的可变引用
     #[inline]
     pub fn parts_mut(&mut self) -> &mut RequestParts<'r> {
         &mut self.parts
     }
 
+    /// 转换为请求信息和请求体
     #[inline]
-    pub fn into_parts(self) -> (RequestParts<'r>, B) {
+    pub fn into_parts_and_body(self) -> (RequestParts<'r>, B) {
         let Self { parts, body } = self;
         (parts, body)
     }
 
+    /// 通过请求信息和请求体创建 HTTP 请求
     #[inline]
-    pub fn from_parts<B2>(parts: RequestParts<'r>, body: B2) -> Request<'r, B2> {
+    pub fn from_parts_and_body<B2>(parts: RequestParts<'r>, body: B2) -> Request<'r, B2> {
         Request { parts, body }
     }
 }
@@ -305,7 +312,7 @@ impl<'r, B: 'r> DerefMut for Request<'r, B> {
     }
 }
 
-/// HTTP 请求生成器
+/// HTTP 请求构建器
 #[derive(Default, Debug)]
 pub struct RequestBuilder<'r, B> {
     inner: Request<'r, B>,
@@ -340,13 +347,14 @@ impl<'r, B: 'r> RequestBuilder<'r, B> {
         self
     }
 
+    /// 设置请求 HTTP 请求体
     #[inline]
     pub fn body(&mut self, body: B) -> &mut Self {
         *self.inner.body_mut() = body;
         self
     }
 
-    /// 扩展字段
+    /// 设置扩展字段
     #[inline]
     pub fn extensions(&mut self, extensions: Extensions) -> &mut Self {
         *self.inner.extensions_mut() = extensions;
@@ -369,10 +377,7 @@ impl<'r, B: 'r> RequestBuilder<'r, B> {
 
     /// 设置预解析的服务器套接字地址
     #[inline]
-    pub fn resolved_ip_addrs(
-        &mut self,
-        resolved_ip_addrs: impl Into<Cow<'r, [IpAddr]>>,
-    ) -> &mut Self {
+    pub fn resolved_ip_addrs(&mut self, resolved_ip_addrs: impl Into<Cow<'r, [IpAddr]>>) -> &mut Self {
         *self.inner.resolved_ip_addrs_mut() = Some(resolved_ip_addrs.into());
         self
     }
@@ -384,14 +389,14 @@ impl<'r, B: 'r> RequestBuilder<'r, B> {
         self
     }
 
-    /// 接受到响应状态回调
+    /// 设置接受到响应状态回调
     #[inline]
     pub fn on_receive_response_status(&mut self, f: OnStatusCode<'r>) -> &mut Self {
         *self.inner.on_receive_response_status_mut() = Some(f);
         self
     }
 
-    /// 接受到响应 Header 回调
+    /// 设置接受到响应 Header 回调
     #[inline]
     pub fn on_receive_response_header(&mut self, f: OnHeader<'r>) -> &mut Self {
         *self.inner.on_receive_response_header_mut() = Some(f);
@@ -406,7 +411,7 @@ impl<'r, B: Default + 'r> RequestBuilder<'r, B> {
         take(&mut self.inner)
     }
 
-    /// 重置构建器
+    /// 重置 HTTP 请求构建器
     #[inline]
     pub fn reset(&mut self) {
         self.inner = Default::default();
@@ -429,18 +434,12 @@ mod body {
 
     #[derive(Debug)]
     enum OwnedRequestBodyInner {
-        Reader {
-            reader: Box<dyn ReadDebug>,
-            size: u64,
-        },
+        Reader { reader: Box<dyn ReadDebug>, size: u64 },
         Bytes(Cursor<Vec<u8>>),
     }
 
     impl OwnedRequestBody {
-        fn from_reader(
-            reader: impl Read + Reset + Debug + Send + Sync + 'static,
-            size: u64,
-        ) -> Self {
+        fn from_reader(reader: impl Read + Reset + Debug + Send + Sync + 'static, size: u64) -> Self {
             Self(OwnedRequestBodyInner::Reader {
                 reader: Box::new(reader),
                 size,
@@ -491,15 +490,13 @@ mod body {
 
     #[derive(Debug)]
     enum RequestBodyInner<'a> {
-        ReaderRef {
-            reader: &'a mut dyn ReadDebug,
-            size: u64,
-        },
+        ReaderRef { reader: &'a mut dyn ReadDebug, size: u64 },
         BytesRef(Cursor<&'a [u8]>),
         Owned(OwnedRequestBody),
     }
 
     impl<'a> RequestBody<'a> {
+        /// 通过输入流的可变引用创建 HTTP 请求体
         #[inline]
         pub fn from_referenced_reader<T: Read + Reset + Debug + Send + Sync + 'a>(
             reader: &'a mut T,
@@ -508,26 +505,27 @@ mod body {
             Self(RequestBodyInner::ReaderRef { reader, size })
         }
 
+        /// 通过二进制数据的引用创建 HTTP 请求体
         #[inline]
         pub fn from_referenced_bytes(bytes: &'a [u8]) -> Self {
             Self(RequestBodyInner::BytesRef(Cursor::new(bytes)))
         }
 
+        /// 通过输入流创建 HTTP 请求体
         #[inline]
-        pub fn from_reader(
-            reader: impl Read + Reset + Debug + Send + Sync + 'static,
-            size: u64,
-        ) -> Self {
-            Self(RequestBodyInner::Owned(OwnedRequestBody::from_reader(
-                reader, size,
-            )))
+        pub fn from_reader(reader: impl Read + Reset + Debug + Send + Sync + 'static, size: u64) -> Self {
+            Self(RequestBodyInner::Owned(OwnedRequestBody::from_reader(reader, size)))
         }
 
+        /// 通过二进制数据创建 HTTP 请求体
         #[inline]
         pub fn from_bytes(bytes: Vec<u8>) -> Self {
             Self(RequestBodyInner::Owned(OwnedRequestBody::from_bytes(bytes)))
         }
 
+        /// 获取请求体大小
+        ///
+        /// 单位为字节
         #[inline]
         pub fn size(&self) -> u64 {
             match &self.0 {
@@ -596,10 +594,7 @@ mod body {
 
         #[derive(Debug)]
         enum OwnedAsyncRequestBodyInner {
-            Reader {
-                reader: Box<dyn AsyncReadDebug>,
-                size: u64,
-            },
+            Reader { reader: Box<dyn AsyncReadDebug>, size: u64 },
             Bytes(Cursor<Vec<u8>>),
         }
 
@@ -635,11 +630,7 @@ mod body {
         }
 
         impl AsyncRead for OwnedAsyncRequestBody {
-            fn poll_read(
-                mut self: Pin<&mut Self>,
-                cx: &mut Context,
-                buf: &mut [u8],
-            ) -> Poll<IoResult<usize>> {
+            fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context, buf: &mut [u8]) -> Poll<IoResult<usize>> {
                 match &mut self.as_mut().0 {
                     OwnedAsyncRequestBodyInner::Reader { reader, .. } => {
                         pin!(reader);
@@ -681,38 +672,41 @@ mod body {
         }
 
         impl<'a> AsyncRequestBody<'a> {
+            /// 通过异步输入流的可变引用创建异步 HTTP 请求体
             #[inline]
-            pub fn from_referenced_reader<
-                T: AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'a,
-            >(
+            pub fn from_referenced_reader<T: AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'a>(
                 reader: &'a mut T,
                 size: u64,
             ) -> Self {
                 Self(AsyncRequestBodyInner::ReaderRef { reader, size })
             }
 
+            /// 通过二进制数据的引用创建异步 HTTP 请求体
             #[inline]
             pub fn from_referenced_bytes(bytes: &'a [u8]) -> Self {
                 Self(AsyncRequestBodyInner::BytesRef(Cursor::new(bytes)))
             }
 
+            /// 通过异步输入流创建异步 HTTP 请求体
             #[inline]
             pub fn from_reader(
                 reader: impl AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'static,
                 size: u64,
             ) -> Self {
-                Self(AsyncRequestBodyInner::Owned(
-                    OwnedAsyncRequestBody::from_reader(reader, size),
-                ))
+                Self(AsyncRequestBodyInner::Owned(OwnedAsyncRequestBody::from_reader(
+                    reader, size,
+                )))
             }
 
+            /// 通过二进制数据创建异步 HTTP 请求体
             #[inline]
             pub fn from_bytes(bytes: Vec<u8>) -> Self {
-                Self(AsyncRequestBodyInner::Owned(
-                    OwnedAsyncRequestBody::from_bytes(bytes),
-                ))
+                Self(AsyncRequestBodyInner::Owned(OwnedAsyncRequestBody::from_bytes(bytes)))
             }
 
+            /// 获取请求体大小
+            ///
+            /// 单位为字节
             #[inline]
             pub fn size(&self) -> u64 {
                 match &self.0 {
@@ -731,11 +725,7 @@ mod body {
         }
 
         impl AsyncRead for AsyncRequestBody<'_> {
-            fn poll_read(
-                mut self: Pin<&mut Self>,
-                cx: &mut Context,
-                buf: &mut [u8],
-            ) -> Poll<IoResult<usize>> {
+            fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context, buf: &mut [u8]) -> Poll<IoResult<usize>> {
                 match &mut self.as_mut().0 {
                     AsyncRequestBodyInner::ReaderRef { reader, .. } => {
                         pin!(reader);

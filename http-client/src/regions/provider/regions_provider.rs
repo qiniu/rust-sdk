@@ -21,9 +21,7 @@ pub struct RegionsProvider {
 
 impl RegionsProvider {
     #[inline]
-    pub fn builder(
-        credential_provider: impl CredentialProvider + 'static,
-    ) -> RegionsProviderBuilder {
+    pub fn builder(credential_provider: impl CredentialProvider + 'static) -> RegionsProviderBuilder {
         RegionsProviderBuilder::new(credential_provider)
     }
 
@@ -41,15 +39,12 @@ impl RegionsProvider {
             .accept_json()
             .call()?
             .parse_json::<ResponseBody>()?
-            .into_parts();
+            .into_parts_and_body();
         let hosts = body.into_hosts();
         let min_lifetime = hosts.iter().map(|host| host.lifetime()).min();
         let mut got_regions = hosts
             .into_iter()
-            .map(|host| {
-                Region::try_from(host)
-                    .map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts))
-            })
+            .map(|host| Region::try_from(host).map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts)))
             .collect::<ApiResult<GotRegions>>()?;
         *got_regions.lifetime_mut() = min_lifetime;
         Ok(got_regions)
@@ -67,15 +62,12 @@ impl RegionsProvider {
             .await?
             .parse_json::<ResponseBody>()
             .await?
-            .into_parts();
+            .into_parts_and_body();
         let hosts = body.into_hosts();
         let min_lifetime = hosts.iter().map(|host| host.lifetime()).min();
         let mut got_regions = hosts
             .into_iter()
-            .map(|host| {
-                Region::try_from(host)
-                    .map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts))
-            })
+            .map(|host| Region::try_from(host).map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts)))
             .collect::<ApiResult<GotRegions>>()?;
         *got_regions.lifetime_mut() = min_lifetime;
         Ok(got_regions)
@@ -84,11 +76,8 @@ impl RegionsProvider {
 
 impl RegionProvider for RegionsProvider {
     fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
-        self.get_all(opts).map(|regions| {
-            regions
-                .try_into()
-                .expect("Regions API returns empty regions")
-        })
+        self.get_all(opts)
+            .map(|regions| regions.try_into().expect("Regions API returns empty regions"))
     }
 
     #[inline]
@@ -101,11 +90,9 @@ impl RegionProvider for RegionsProvider {
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
         Box::pin(async move {
-            self.async_get_all(opts).await.map(|regions| {
-                regions
-                    .try_into()
-                    .expect("Regions API returns empty regions")
-            })
+            self.async_get_all(opts)
+                .await
+                .map(|regions| regions.try_into().expect("Regions API returns empty regions"))
         })
     }
 
@@ -173,10 +160,9 @@ mod tests {
     macro_rules! starts_with_server {
         ($addr:ident, $routes:ident, $code:block) => {{
             let (tx, rx) = channel();
-            let ($addr, server) =
-                warp::serve($routes).bind_with_graceful_shutdown(([127, 0, 0, 1], 0), async move {
-                    rx.await.ok();
-                });
+            let ($addr, server) = warp::serve($routes).bind_with_graceful_shutdown(([127, 0, 0, 1], 0), async move {
+                rx.await.ok();
+            });
             let handler = spawn(server);
             $code;
             tx.send(()).ok();
@@ -188,20 +174,20 @@ mod tests {
     async fn test_get_all_regions() -> Result<(), Box<dyn Error>> {
         const ACCESS_KEY: &str = "0123456789001234567890";
         const SECRET_KEY: &str = "secret01234567890";
-        let routes = path!("regions")
-            .and(warp::header::value("Authorization"))
-            .map(move |authorization: HeaderValue| {
-                assert!(authorization
-                    .to_str()
-                    .unwrap()
-                    .starts_with("Qiniu 0123456789001234567890:"));
-                let mut response =
-                    Response::new(get_response_json_body().to_string().into_bytes().into());
-                response
-                    .headers_mut()
-                    .insert("X-Reqid", HeaderValue::from_static("FAKE_REQ_ID"));
-                response
-            });
+        let routes =
+            path!("regions")
+                .and(warp::header::value("Authorization"))
+                .map(move |authorization: HeaderValue| {
+                    assert!(authorization
+                        .to_str()
+                        .unwrap()
+                        .starts_with("Qiniu 0123456789001234567890:"));
+                    let mut response = Response::new(get_response_json_body().to_string().into_bytes().into());
+                    response
+                        .headers_mut()
+                        .insert("X-Reqid", HeaderValue::from_static("FAKE_REQ_ID"));
+                    response
+                });
 
         starts_with_server!(addr, routes, {
             let provider = RegionsProvider::builder(Credential::new(ACCESS_KEY, SECRET_KEY))
@@ -213,10 +199,7 @@ mod tests {
             assert_eq!(regions.lifetime(), Some(Duration::from_secs(5)));
             assert_eq!(regions.len(), 5);
             assert_eq!(
-                regions
-                    .iter()
-                    .map(|region| region.region_id())
-                    .collect::<Vec<_>>(),
+                regions.iter().map(|region| region.region_id()).collect::<Vec<_>>(),
                 &["z0", "z1", "z2", "as0", "na0"]
             )
         });

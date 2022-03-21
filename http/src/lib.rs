@@ -10,6 +10,7 @@
     keyword_idents,
     macro_use_extern_crate,
     meta_variable_misuse,
+    missing_docs,
     non_ascii_idents,
     indirect_structural_match,
     trivial_casts,
@@ -21,6 +22,12 @@
     unused_lifetimes,
     unused_qualifications
 )]
+
+//! # qiniu-http
+//!
+//! ## 七牛 HTTP 客户端接口库
+//!
+//! 为更高层的 HTTP 客户端提供基础接口（同时提供阻塞接口和异步接口，异步接口则需要启用 `async` 功能），使不同的 HTTP 客户端基于相同的接口实现，以便于 API 调用层可以灵活切换 HTTP 客户端实现。
 
 mod callback;
 mod error;
@@ -101,7 +108,7 @@ use std::{future::Future, pin::Pin};
 #[cfg(feature = "async")]
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 
-/// HTTP 请求处理函数
+/// HTTP 请求处理接口
 ///
 /// 实现该接口，即可处理所有七牛 SDK 发送的 HTTP 请求
 #[auto_impl(&, &mut, Box, Rc, Arc)]
@@ -114,18 +121,26 @@ pub trait HttpCaller: Debug + Send + Sync {
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult>;
 
+    /// 是否实现了 IP 地址解析功能
     #[inline]
     fn is_resolved_ip_addrs_supported(&self) -> bool {
         false
     }
 
+    /// 是否返回响应指标信息功能
     #[inline]
     fn is_response_metrics_supported(&self) -> bool {
         false
     }
 }
 
+/// 重置输入流接口
+///
+/// 该接口相当于实现 `seek(SeekFrom::Start(0))`
 pub trait Reset {
+    /// 重置输入流
+    ///
+    /// 相当于 `seek(SeekFrom::Start(0))`
     fn reset(&mut self) -> IoResult<()>;
 }
 
@@ -137,9 +152,15 @@ impl<T: Seek> Reset for T {
     }
 }
 
+/// 异步重置输入流接口
+///
+/// 该接口相当于实现 `seek(SeekFrom::Start(0))`
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 pub trait AsyncReset {
+    /// 异步重置输入流
+    ///
+    /// 相当于 `seek(SeekFrom::Start(0))`
     fn reset(&mut self) -> BoxFuture<IoResult<()>>;
 }
 
@@ -156,6 +177,7 @@ impl<T: AsyncSeek + Unpin + Send + Sync> AsyncReset for T {
     }
 }
 
+/// 将所有 Trait 全部重新导出，方便统一导入
 pub mod prelude {
     pub use super::{HttpCaller, Metrics, Reset};
 

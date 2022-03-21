@@ -39,22 +39,14 @@ impl BucketRegionsQueryer {
         BucketRegionsQueryerBuilder::new()
     }
 
-    pub fn query(
-        &self,
-        access_key: impl Into<AccessKey>,
-        bucket_name: impl Into<BucketName>,
-    ) -> BucketRegionsProvider {
+    pub fn query(&self, access_key: impl Into<AccessKey>, bucket_name: impl Into<BucketName>) -> BucketRegionsProvider {
         let access_key = access_key.into();
         let bucket_name = bucket_name.into();
         BucketRegionsProvider {
             queryer: self.to_owned(),
             access_key: access_key.to_owned(),
             bucket_name: bucket_name.to_owned(),
-            cache_key: CacheKey::new_from_endpoint_and_ak_and_bucket(
-                &self.uc_endpoints,
-                bucket_name,
-                access_key,
-            ),
+            cache_key: CacheKey::new_from_endpoint_and_ak_and_bucket(&self.uc_endpoints, bucket_name, access_key),
         }
     }
 }
@@ -108,11 +100,7 @@ impl BucketRegionsQueryerBuilder {
         self
     }
 
-    pub fn load_or_create_from(
-        &mut self,
-        path: impl AsRef<Path>,
-        auto_persistent: bool,
-    ) -> BucketRegionsQueryer {
+    pub fn load_or_create_from(&mut self, path: impl AsRef<Path>, auto_persistent: bool) -> BucketRegionsQueryer {
         let owned = take(self);
         BucketRegionsQueryer {
             cache: RegionsCache::load_or_create_from(
@@ -170,11 +158,8 @@ pub struct BucketRegionsProvider {
 
 impl RegionProvider for BucketRegionsProvider {
     fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
-        self.get_all(opts).map(|regions| {
-            regions
-                .try_into()
-                .expect("Regions Query API returns empty regions")
-        })
+        self.get_all(opts)
+            .map(|regions| regions.try_into().expect("Regions Query API returns empty regions"))
     }
 
     #[inline]
@@ -216,25 +201,19 @@ impl BucketRegionsProvider {
         let (parts, body) = self
             .queryer
             .http_client
-            .get(
-                &[ServiceName::Uc, ServiceName::Api],
-                &self.queryer.uc_endpoints,
-            )
+            .get(&[ServiceName::Uc, ServiceName::Api], &self.queryer.uc_endpoints)
             .path("/v4/query")
             .append_query_pair("ak", self.access_key.as_str())
             .append_query_pair("bucket", self.bucket_name.as_str())
             .accept_json()
             .call()?
             .parse_json::<ResponseBody>()?
-            .into_parts();
+            .into_parts_and_body();
         let hosts = body.into_hosts();
         let min_lifetime = hosts.iter().map(|host| host.lifetime()).min();
         let mut got_regions = hosts
             .into_iter()
-            .map(|host| {
-                Region::try_from(host)
-                    .map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts))
-            })
+            .map(|host| Region::try_from(host).map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts)))
             .collect::<ApiResult<GotRegions>>()?;
         *got_regions.lifetime_mut() = min_lifetime;
         Ok(got_regions)
@@ -262,10 +241,9 @@ mod tests {
     macro_rules! starts_with_server {
         ($addr:ident, $routes:ident, $code:block) => {{
             let (tx, rx) = channel();
-            let ($addr, server) =
-                warp::serve($routes).bind_with_graceful_shutdown(([127, 0, 0, 1], 0), async move {
-                    rx.await.ok();
-                });
+            let ($addr, server) = warp::serve($routes).bind_with_graceful_shutdown(([127, 0, 0, 1], 0), async move {
+                rx.await.ok();
+            });
             let handler = spawn(server);
             $code;
             tx.send(()).ok();
@@ -287,22 +265,19 @@ mod tests {
         const BUCKET_NAME: &str = "test-bucket";
 
         let called = Arc::new(AtomicUsize::new(0));
-        let routes = path!("v4" / "query")
-            .and(warp::query::<UcQueryParams>())
-            .map({
-                let called = called.to_owned();
-                move |params: UcQueryParams| {
-                    assert_eq!(&params.ak, ACCESS_KEY);
-                    assert_eq!(&params.bucket, BUCKET_NAME);
-                    called.fetch_add(1, Relaxed);
-                    let mut response =
-                        Response::new(get_response_json_body().to_string().into_bytes().into());
-                    response
-                        .headers_mut()
-                        .insert("X-Reqid", HeaderValue::from_static("FAKE_REQ_ID"));
-                    response
-                }
-            });
+        let routes = path!("v4" / "query").and(warp::query::<UcQueryParams>()).map({
+            let called = called.to_owned();
+            move |params: UcQueryParams| {
+                assert_eq!(&params.ak, ACCESS_KEY);
+                assert_eq!(&params.bucket, BUCKET_NAME);
+                called.fetch_add(1, Relaxed);
+                let mut response = Response::new(get_response_json_body().to_string().into_bytes().into());
+                response
+                    .headers_mut()
+                    .insert("X-Reqid", HeaderValue::from_static("FAKE_REQ_ID"));
+                response
+            }
+        });
 
         starts_with_server!(addr, routes, {
             let queryer = BucketRegionsQueryer::builder()

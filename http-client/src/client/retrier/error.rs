@@ -83,7 +83,7 @@ mod tests {
             .method(HttpMethod::GET)
             .body(())
             .build()
-            .into_parts();
+            .into_parts_and_body();
         let result = retrier.retry(
             &mut parts,
             &RequestRetrierOptions::new(
@@ -109,7 +109,7 @@ mod tests {
             .method(HttpMethod::POST)
             .body(())
             .build()
-            .into_parts();
+            .into_parts_and_body();
         let result = retrier.retry(
             &mut parts,
             &RequestRetrierOptions::new(
@@ -157,7 +157,7 @@ mod tests {
             .method(HttpMethod::GET)
             .body(())
             .build()
-            .into_parts();
+            .into_parts_and_body();
         let result = retrier.retry(
             &mut parts,
             &RequestRetrierOptions::new(

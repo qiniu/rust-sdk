@@ -40,13 +40,13 @@ impl<B> Response<B> {
     }
 
     #[inline]
-    pub fn into_parts(self) -> (HttpResponseParts, B) {
-        self.0.into_parts()
+    pub fn into_parts_and_body(self) -> (HttpResponseParts, B) {
+        self.0.into_parts_and_body()
     }
 
     #[inline]
-    pub fn from_parts(parts: HttpResponseParts, body: B) -> Self {
-        Self(HttpResponse::from_parts(parts, body))
+    pub fn from_parts_and_body(parts: HttpResponseParts, body: B) -> Self {
+        Self(HttpResponse::from_parts_and_body(parts, body))
     }
 
     #[inline]

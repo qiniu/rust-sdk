@@ -10,12 +10,7 @@ enum LimitTarget {
 }
 
 impl LimitTarget {
-    fn retry(
-        self,
-        decision: RetryDecision,
-        retries: usize,
-        opts: &RequestRetrierOptions,
-    ) -> RetryDecision {
+    fn retry(self, decision: RetryDecision, retries: usize, opts: &RequestRetrierOptions) -> RetryDecision {
         match self {
             Self::LimitCurrentEndpoint => match decision {
                 RetryDecision::RetryRequest | RetryDecision::Throttled
@@ -26,9 +21,7 @@ impl LimitTarget {
                 result => result,
             },
             Self::LimitTotal => match decision {
-                RetryDecision::RetryRequest | RetryDecision::Throttled
-                    if opts.retried().retried_total() >= retries =>
-                {
+                RetryDecision::RetryRequest | RetryDecision::Throttled if opts.retried().retried_total() >= retries => {
                     RetryDecision::DontRetry
                 }
                 result => result,
@@ -79,11 +72,7 @@ impl<R: Default> Default for LimitedRetrier<R> {
 impl<R: RequestRetrier> RequestRetrier for LimitedRetrier<R> {
     fn retry(&self, request: &mut HttpRequestParts, opts: &RequestRetrierOptions) -> RetryResult {
         self.target
-            .retry(
-                self.retrier.retry(request, opts).decision(),
-                self.retries,
-                opts,
-            )
+            .retry(self.retrier.retry(request, opts).decision(), self.retries, opts)
             .into()
     }
 }
@@ -95,8 +84,7 @@ mod tests {
         *,
     };
     use qiniu_http::{
-        Method as HttpMethod, Request as HttpRequest, ResponseErrorKind as HttpResponseErrorKind,
-        Uri as HttpUri,
+        Method as HttpMethod, Request as HttpRequest, ResponseErrorKind as HttpResponseErrorKind, Uri as HttpUri,
     };
     use std::{convert::TryFrom, error::Error, result::Result};
 
@@ -115,7 +103,7 @@ mod tests {
             .method(HttpMethod::GET)
             .body(())
             .build()
-            .into_parts();
+            .into_parts_and_body();
         let result = current_endpoint_retrier.retry(
             &mut parts,
             &RequestRetrierOptions::new(

@@ -10,10 +10,7 @@ use trust_dns_resolver::{
     error::ResolveError,
 };
 
-#[cfg_attr(
-    feature = "docs",
-    doc(cfg(all(feature = "trust_dns", feature = "async")))
-)]
+#[cfg_attr(feature = "docs", doc(cfg(all(feature = "trust_dns", feature = "async"))))]
 pub struct TrustDnsResolver {
     #[cfg(feature = "async")]
     resolver: AsyncResolver,
@@ -49,11 +46,7 @@ impl Resolver for TrustDnsResolver {
         block_on(async move { self.async_resolve(domain, opts).await })
     }
 
-    fn async_resolve<'a>(
-        &'a self,
-        domain: &'a str,
-        opts: &'a ResolveOptions,
-    ) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             Ok(self
                 .resolver
@@ -74,10 +67,7 @@ impl fmt::Debug for TrustDnsResolver {
     }
 }
 
-fn convert_trust_dns_error_to_response_error(
-    err: ResolveError,
-    opts: &ResolveOptions,
-) -> ResponseError {
+fn convert_trust_dns_error_to_response_error(err: ResolveError, opts: &ResolveOptions) -> ResponseError {
     let mut err = ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err);
     if let Some(retried) = opts.retried() {
         err = err.retried(retried);
@@ -107,11 +97,7 @@ mod tests {
     #[tokio::test]
     async fn test_trust_dns_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = TrustDnsResolver::new(
-            ResolverConfig::from_parts(
-                None,
-                vec![],
-                NameServerConfigGroup::from_ips_clear(IPS, 53, true),
-            ),
+            ResolverConfig::from_parts(None, vec![], NameServerConfigGroup::from_ips_clear(IPS, 53, true)),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4AndIpv6,
                 ..Default::default()
