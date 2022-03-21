@@ -36,17 +36,20 @@ type IsahcAsyncRequest = isahc::Request<IsahcAsyncBody>;
 #[cfg(feature = "async")]
 type IsahcAsyncResponse = isahc::Response<IsahcAsyncBody>;
 
+/// Isahc 客户端
 #[derive(Debug, Clone)]
 pub struct Client {
     isahc_client: IsahcHttpClient,
 }
 
 impl Client {
+    /// 创建 Isahc 客户端
     #[inline]
     pub fn new(isahc_client: IsahcHttpClient) -> Self {
         Client { isahc_client }
     }
 
+    /// 创建默认的 Isahc 客户端
     #[inline]
     pub fn default_client() -> Result<Self, IsahcError> {
         Ok(Self::new(IsahcHttpClient::new()?))

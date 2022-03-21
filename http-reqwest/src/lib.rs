@@ -10,6 +10,7 @@
     keyword_idents,
     macro_use_extern_crate,
     meta_variable_misuse,
+    missing_docs,
     non_ascii_idents,
     indirect_structural_match,
     trivial_casts,
@@ -23,6 +24,14 @@
     unused_qualifications
 )]
 
+//! # qiniu-http-reqwest
+//!
+//! ## 七牛 Reqwest HTTP 客户端实现
+//!
+//! 基于 Reqwest 库提供 HTTP 客户端接口实现（分别实现阻塞接口和异步接口，异步实现则需要启用 `async` 功能）
+//!
+//! 需要注意的是，如果使用阻塞接口，则必须使用 `SyncReqwestHttpCaller`，而如果使用异步接口则必须使用 `AsyncReqwestHttpCaller`，二者不能混用。
+
 mod extensions;
 mod sync_client;
 
@@ -31,15 +40,11 @@ mod async_client;
 
 pub use extensions::*;
 pub use qiniu_http as http;
-pub use qiniu_http::{HttpCaller, Request, ResponseError, SyncResponseResult};
 pub use reqwest;
 pub use sync_client::SyncReqwestHttpCaller;
 
 #[cfg(feature = "async")]
 pub use async_client::AsyncReqwestHttpCaller;
-
-#[cfg(feature = "async")]
-pub use qiniu_http::AsyncResponseResult;
 
 #[cfg(test)]
 mod tests {
@@ -47,7 +52,7 @@ mod tests {
     use bytes::Bytes;
     use futures::channel::oneshot::channel;
     use md5::{Digest, Md5};
-    use qiniu_http::{CallbackResult, Method, SyncRequest, SyncRequestBody};
+    use qiniu_http::{CallbackResult, HttpCaller, Method, SyncRequest, SyncRequestBody};
     use rand::{thread_rng, RngCore};
     use reqwest::header::{CONTENT_LENGTH, USER_AGENT};
     use std::{

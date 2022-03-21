@@ -10,6 +10,7 @@
     keyword_idents,
     macro_use_extern_crate,
     meta_variable_misuse,
+    missing_docs,
     non_ascii_idents,
     indirect_structural_match,
     trivial_casts,
@@ -23,6 +24,12 @@
     unused_qualifications
 )]
 
+//! # qiniu-http-ureq
+//!
+//! ## 七牛 Ureq HTTP 客户端实现
+//!
+//! 基于 Ureq 库提供 HTTP 客户端接口实现，仅提供阻塞接口的实现，不提供异步接口的实现。
+
 mod client;
 mod extensions;
 
@@ -30,11 +37,7 @@ pub use client::Client;
 pub use extensions::*;
 
 pub use qiniu_http as http;
-pub use qiniu_http::{HttpCaller, Request, ResponseError, SyncResponseResult};
 pub use ureq;
-
-#[cfg(feature = "async")]
-pub use qiniu_http::AsyncResponseResult;
 
 #[cfg(feature = "async")]
 use std::{future::Future, pin::Pin};
@@ -48,6 +51,7 @@ mod tests {
     use bytes::Bytes;
     use futures::channel::oneshot::channel;
     use md5::{Digest, Md5};
+    use qiniu_http::HttpCaller;
     use qiniu_http::{
         header::{CONTENT_LENGTH, USER_AGENT},
         CallbackResult, Method, SyncRequest, SyncRequestBody,

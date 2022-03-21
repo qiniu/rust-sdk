@@ -10,6 +10,7 @@
     keyword_idents,
     macro_use_extern_crate,
     meta_variable_misuse,
+    missing_docs,
     non_ascii_idents,
     indirect_structural_match,
     trivial_casts,
@@ -23,6 +24,13 @@
     unused_qualifications
 )]
 
+//! # qiniu-http-isahc
+//!
+//! ## 七牛 Isahc HTTP 客户端实现
+//!
+//! 基于 Isahc 库提供 HTTP 客户端接口实现（同时实现阻塞接口和异步接口，异步实现则需要启用 `async` 功能）
+//! 不过由于 Isahc 库本身核心是使用异步接口实现，所以即使不启用 `async` 功能，也会引入异步相关库。
+
 mod client;
 mod extensions;
 
@@ -31,10 +39,6 @@ pub use extensions::*;
 
 pub use isahc;
 pub use qiniu_http as http;
-pub use qiniu_http::{HttpCaller, Request, ResponseError, SyncResponseResult};
-
-#[cfg(feature = "async")]
-pub use qiniu_http::AsyncResponseResult;
 
 #[cfg(test)]
 mod tests {
@@ -43,7 +47,7 @@ mod tests {
     use futures::channel::oneshot::channel;
     use isahc::http::header::{CONTENT_LENGTH, USER_AGENT};
     use md5::{Digest, Md5};
-    use qiniu_http::{CallbackResult, Method, SyncRequest, SyncRequestBody};
+    use qiniu_http::{CallbackResult, HttpCaller, Method, SyncRequest, SyncRequestBody};
     use rand::{thread_rng, RngCore};
     use std::{
         io::{copy as io_copy, Read},

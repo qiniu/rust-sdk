@@ -23,6 +23,7 @@ use std::{
     task::{Context, Poll},
 };
 
+/// Reqwest 异步客户端
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 #[derive(Debug, Default)]
 pub struct AsyncReqwestHttpCaller {
@@ -30,6 +31,7 @@ pub struct AsyncReqwestHttpCaller {
 }
 
 impl AsyncReqwestHttpCaller {
+    /// 创建 Reqwest 异步客户端
     #[inline]
     pub fn new(async_client: AsyncReqwestClient) -> Self {
         Self { async_client }

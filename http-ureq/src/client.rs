@@ -17,12 +17,14 @@ use {
     qiniu_http::{AsyncRequest, AsyncResponseResult},
 };
 
+/// Ureq 客户端
 #[derive(Debug, Clone)]
 pub struct Client {
     client: Agent,
 }
 
 impl Client {
+    /// 创建 Ureq 客户端
     #[inline]
     pub fn new(client: Agent) -> Self {
         Self { client }
