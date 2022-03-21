@@ -136,7 +136,7 @@ macro_rules! wrap_smallstr {
             fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
                 struct KeyVisitor;
 
-                impl<'de> Visitor<'de> for KeyVisitor {
+                impl Visitor<'_> for KeyVisitor {
                     type Value = $name;
 
                     #[inline]

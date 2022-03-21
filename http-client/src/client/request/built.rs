@@ -1,15 +1,15 @@
 use super::{
     super::{
         super::{EndpointsProvider, IpAddrWithPort, ServiceName},
-        Authorization, CallbackContext, Callbacks, ExtendedCallbackContext, HttpClient,
-        ResolveAnswers, ResponseError, SimplifiedCallbackContext,
+        Authorization, CallbackContext, Callbacks, ExtendedCallbackContext, HttpClient, ResolveAnswers, ResponseError,
+        SimplifiedCallbackContext,
     },
     request_metadata::RequestMetadata,
     Idempotent, QueryPairs,
 };
 use qiniu_http::{
-    CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, Method, ResponseParts,
-    StatusCode, TransferProgressInfo, UserAgent, Version,
+    CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, Method, ResponseParts, StatusCode,
+    TransferProgressInfo, UserAgent, Version,
 };
 use std::{fmt, time::Duration};
 
@@ -75,9 +75,7 @@ pub(in super::super) struct RequestParts<'r> {
 impl<'r> SimplifiedCallbackContext for RequestParts<'r> {
     #[inline]
     fn use_https(&self) -> bool {
-        self.data
-            .use_https
-            .unwrap_or_else(|| self.http_client.use_https())
+        self.data.use_https.unwrap_or_else(|| self.http_client.use_https())
     }
 
     #[inline]
@@ -126,7 +124,7 @@ impl<'r> SimplifiedCallbackContext for RequestParts<'r> {
     }
 }
 
-impl<'r> RequestParts<'r> {
+impl RequestParts<'_> {
     pub(in super::super) fn http_client(&self) -> &HttpClient {
         self.http_client
     }
@@ -136,10 +134,7 @@ impl<'r> RequestParts<'r> {
         context: &dyn SimplifiedCallbackContext,
         progress_info: &TransferProgressInfo,
     ) -> CallbackResult {
-        if self
-            .callbacks
-            .call_uploading_progress_callbacks(context, progress_info)
-            == CallbackResult::Continue
+        if self.callbacks.call_uploading_progress_callbacks(context, progress_info) == CallbackResult::Continue
             && self
                 .http_client
                 .callbacks()
@@ -154,11 +149,7 @@ impl<'r> RequestParts<'r> {
 
     pub(in super::super) fn uploading_progress_callbacks_count(&self) -> usize {
         self.callbacks.on_uploading_progress_callbacks().len()
-            + self
-                .http_client
-                .callbacks()
-                .on_uploading_progress_callbacks()
-                .len()
+            + self.http_client.callbacks().on_uploading_progress_callbacks().len()
     }
 
     pub(in super::super) fn call_receive_response_status_callbacks(
@@ -227,10 +218,7 @@ impl<'r> RequestParts<'r> {
         context: &mut dyn CallbackContext,
         domain: &str,
     ) -> CallbackResult {
-        if self
-            .callbacks
-            .call_to_resolve_domain_callbacks(context, domain)
-            == CallbackResult::Continue
+        if self.callbacks.call_to_resolve_domain_callbacks(context, domain) == CallbackResult::Continue
             && self
                 .http_client
                 .callbacks()
@@ -249,10 +237,7 @@ impl<'r> RequestParts<'r> {
         domain: &str,
         answers: &ResolveAnswers,
     ) -> CallbackResult {
-        if self
-            .callbacks
-            .call_domain_resolved_callbacks(context, domain, answers)
-            == CallbackResult::Continue
+        if self.callbacks.call_domain_resolved_callbacks(context, domain, answers) == CallbackResult::Continue
             && self
                 .http_client
                 .callbacks()
@@ -271,11 +256,7 @@ impl<'r> RequestParts<'r> {
         ips: &[IpAddrWithPort],
     ) -> CallbackResult {
         if self.callbacks.call_to_choose_ips_callbacks(context, ips) == CallbackResult::Continue
-            && self
-                .http_client
-                .callbacks()
-                .call_to_choose_ips_callbacks(context, ips)
-                == CallbackResult::Continue
+            && self.http_client.callbacks().call_to_choose_ips_callbacks(context, ips) == CallbackResult::Continue
         {
             CallbackResult::Continue
         } else {
@@ -289,10 +270,7 @@ impl<'r> RequestParts<'r> {
         ips: &[IpAddrWithPort],
         chosen: &[IpAddrWithPort],
     ) -> CallbackResult {
-        if self
-            .callbacks
-            .call_ips_chosen_callbacks(context, ips, chosen)
-            == CallbackResult::Continue
+        if self.callbacks.call_ips_chosen_callbacks(context, ips, chosen) == CallbackResult::Continue
             && self
                 .http_client
                 .callbacks()
@@ -345,11 +323,7 @@ impl<'r> RequestParts<'r> {
         response: &ResponseParts,
     ) -> CallbackResult {
         if self.callbacks.call_response_callbacks(context, response) == CallbackResult::Continue
-            && self
-                .http_client
-                .callbacks()
-                .call_response_callbacks(context, response)
-                == CallbackResult::Continue
+            && self.http_client.callbacks().call_response_callbacks(context, response) == CallbackResult::Continue
         {
             CallbackResult::Continue
         } else {
@@ -363,11 +337,7 @@ impl<'r> RequestParts<'r> {
         error: &ResponseError,
     ) -> CallbackResult {
         if self.callbacks.call_error_callbacks(context, error) == CallbackResult::Continue
-            && self
-                .http_client
-                .callbacks()
-                .call_error_callbacks(context, error)
-                == CallbackResult::Continue
+            && self.http_client.callbacks().call_error_callbacks(context, error) == CallbackResult::Continue
         {
             CallbackResult::Continue
         } else {

@@ -1,4 +1,5 @@
 #![deny(
+    single_use_lifetimes,
     missing_debug_implementations,
     large_assignments,
     exported_private_dependencies,

@@ -44,7 +44,7 @@ impl Default for Client {
 }
 
 impl HttpCaller for Client {
-    fn call<'a>(&self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
+    fn call(&self, request: &mut SyncRequest<'_>) -> SyncResponseResult {
         let mut user_cancelled_error: Option<ResponseError> = None;
 
         let ureq_request = make_ureq_request(&self.client, request)?;

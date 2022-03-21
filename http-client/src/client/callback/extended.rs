@@ -5,8 +5,7 @@ use super::{
 };
 use auto_impl::auto_impl;
 use qiniu_http::{
-    uri::Scheme, Extensions, HeaderMap, Method, RequestParts as HttpRequestParts, Uri, UserAgent,
-    Version,
+    uri::Scheme, Extensions, HeaderMap, Method, RequestParts as HttpRequestParts, Uri, UserAgent, Version,
 };
 use std::{borrow::Cow, net::IpAddr};
 
@@ -23,13 +22,7 @@ pub trait ExtendedCallbackContext: CallbackContext {
 }
 
 #[derive(Debug)]
-pub(in super::super) struct ExtendedCallbackContextImpl<
-    'reqref,
-    'req,
-    'retried,
-    'httpreqref,
-    'httpreq,
-> {
+pub(in super::super) struct ExtendedCallbackContextImpl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> {
     request: &'reqref RequestParts<'req>,
     http_request: &'httpreqref mut HttpRequestParts<'httpreq>,
     retried: &'retried RetriedStatsInfo,
@@ -51,9 +44,7 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
     }
 }
 
-impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> SimplifiedCallbackContext
-    for ExtendedCallbackContextImpl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
-{
+impl SimplifiedCallbackContext for ExtendedCallbackContextImpl<'_, '_, '_, '_, '_> {
     #[inline]
     fn use_https(&self) -> bool {
         self.http_request.url().scheme() == Some(&Scheme::HTTPS)
@@ -105,9 +96,7 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> SimplifiedCallbackContext
     }
 }
 
-impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> CallbackContext
-    for ExtendedCallbackContextImpl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
-{
+impl CallbackContext for ExtendedCallbackContextImpl<'_, '_, '_, '_, '_> {
     #[inline]
     fn extensions(&self) -> &Extensions {
         self.http_request.extensions()
@@ -119,9 +108,7 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> CallbackContext
     }
 }
 
-impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> ExtendedCallbackContext
-    for ExtendedCallbackContextImpl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
-{
+impl ExtendedCallbackContext for ExtendedCallbackContextImpl<'_, '_, '_, '_, '_> {
     #[inline]
     fn url(&self) -> &Uri {
         self.http_request.url()

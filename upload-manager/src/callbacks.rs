@@ -143,7 +143,7 @@ impl<'a> Callbacks<'a> {
     }
 }
 
-impl<'a> Debug for Callbacks<'a> {
+impl Debug for Callbacks<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Callbacks").finish()
     }

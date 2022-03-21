@@ -1,5 +1,6 @@
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
 #![deny(
+    single_use_lifetimes,
     missing_debug_implementations,
     large_assignments,
     exported_private_dependencies,
@@ -106,7 +107,7 @@ type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait HttpCaller: Debug + Send + Sync {
     /// 同步发送 HTTP 请求
-    fn call<'a>(&self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult;
+    fn call(&self, request: &mut SyncRequest<'_>) -> SyncResponseResult;
 
     /// 异步发送 HTTP 请求
     #[cfg(feature = "async")]

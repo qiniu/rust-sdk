@@ -18,18 +18,12 @@ pub(in super::super) struct CallbackContextImpl<'reqref, 'req, 'ext> {
 }
 
 impl<'reqref, 'req, 'ext> CallbackContextImpl<'reqref, 'req, 'ext> {
-    pub(in super::super) fn new(
-        request: &'reqref RequestParts<'req>,
-        extensions: &'ext mut Extensions,
-    ) -> Self {
-        Self {
-            request,
-            extensions,
-        }
+    pub(in super::super) fn new(request: &'reqref RequestParts<'req>, extensions: &'ext mut Extensions) -> Self {
+        Self { request, extensions }
     }
 }
 
-impl<'reqref, 'req, 'ext> SimplifiedCallbackContext for CallbackContextImpl<'reqref, 'req, 'ext> {
+impl SimplifiedCallbackContext for CallbackContextImpl<'_, '_, '_> {
     #[inline]
     fn use_https(&self) -> bool {
         self.request.use_https()
@@ -81,7 +75,7 @@ impl<'reqref, 'req, 'ext> SimplifiedCallbackContext for CallbackContextImpl<'req
     }
 }
 
-impl<'reqref, 'req, 'ext> CallbackContext for CallbackContextImpl<'reqref, 'req, 'ext> {
+impl CallbackContext for CallbackContextImpl<'_, '_, '_> {
     #[inline]
     fn extensions(&self) -> &Extensions {
         self.extensions

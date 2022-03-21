@@ -221,7 +221,7 @@ impl<'a> ListIter<'a> {
     }
 }
 
-impl<'a> Iterator for ListIter<'a> {
+impl Iterator for ListIter<'_> {
     type Item = ApiResult<ListedObjectEntry>;
 
     #[inline]
@@ -574,7 +574,7 @@ mod async_list_stream {
         }
     }
 
-    impl<'a> ListV1Stream<'a> {
+    impl ListV1Stream<'_> {
         fn read_from_buffer(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let AsyncListV1Step::FromBuffer { buffer } = &mut self.current_step {
                 if let Some(object) = buffer.pop_front() {
@@ -722,7 +722,7 @@ mod async_list_stream {
         }
     }
 
-    impl<'a> ListV2Stream<'a> {
+    impl ListV2Stream<'_> {
         fn start(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let AsyncListV2Step::Start { .. } = &mut self.current_step {
                 if self.params.have_done() {

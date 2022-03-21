@@ -4,8 +4,8 @@ use qiniu_apis::{
     http_client::{ApiResult, ResponseError},
 };
 use qiniu_upload_token::{
-    BucketName, BucketUploadTokenProvider, ObjectName, ObjectUploadTokenProvider,
-    UploadTokenProvider, UploadTokenProviderExt,
+    BucketName, BucketUploadTokenProvider, ObjectName, ObjectUploadTokenProvider, UploadTokenProvider,
+    UploadTokenProviderExt,
 };
 use std::time::Duration;
 
@@ -24,9 +24,7 @@ enum UploadTokenSignerInner {
 
 impl UploadTokenSigner {
     #[inline]
-    pub fn new_upload_token_provider(
-        upload_token_provider: impl UploadTokenProvider + 'static,
-    ) -> Self {
+    pub fn new_upload_token_provider(upload_token_provider: impl UploadTokenProvider + 'static) -> Self {
         Self(UploadTokenSignerInner::UploadTokenProvider(Box::new(
             upload_token_provider,
         )))
@@ -57,9 +55,7 @@ impl UploadTokenSigner {
     pub fn credential_provider(&self) -> Option<&dyn CredentialProvider> {
         match &self.0 {
             UploadTokenSignerInner::UploadTokenProvider(_) => None,
-            UploadTokenSignerInner::CredentialProvider { credential, .. } => {
-                Some(credential.as_ref())
-            }
+            UploadTokenSignerInner::CredentialProvider { credential, .. } => Some(credential.as_ref()),
         }
     }
 
@@ -68,9 +64,7 @@ impl UploadTokenSigner {
             UploadTokenSignerInner::UploadTokenProvider(provider) => provider
                 .access_key(&Default::default())
                 .map(|ak| ak.into())
-                .map_err(|err| {
-                    ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)
-                }),
+                .map_err(|err| ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)),
             UploadTokenSignerInner::CredentialProvider { credential, .. } => {
                 Ok(credential.get(&Default::default())?.access_key().to_owned())
             }
@@ -79,14 +73,10 @@ impl UploadTokenSigner {
 
     pub(super) fn bucket_name(&self) -> ApiResult<BucketName> {
         match &self.0 {
-            UploadTokenSignerInner::UploadTokenProvider(provider) => {
-                provider.bucket_name(&Default::default()).map_err(|err| {
-                    ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)
-                })
-            }
-            UploadTokenSignerInner::CredentialProvider { bucket_name, .. } => {
-                Ok(bucket_name.to_owned())
-            }
+            UploadTokenSignerInner::UploadTokenProvider(provider) => provider
+                .bucket_name(&Default::default())
+                .map_err(|err| ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)),
+            UploadTokenSignerInner::CredentialProvider { bucket_name, .. } => Ok(bucket_name.to_owned()),
         }
     }
 
@@ -97,14 +87,10 @@ impl UploadTokenSigner {
                 .async_access_key(&Default::default())
                 .await
                 .map(|ak| ak.into())
-                .map_err(|err| {
-                    ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)
-                }),
-            UploadTokenSignerInner::CredentialProvider { credential, .. } => Ok(credential
-                .async_get(&Default::default())
-                .await?
-                .access_key()
-                .to_owned()),
+                .map_err(|err| ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)),
+            UploadTokenSignerInner::CredentialProvider { credential, .. } => {
+                Ok(credential.async_get(&Default::default()).await?.access_key().to_owned())
+            }
         }
     }
 
@@ -114,12 +100,8 @@ impl UploadTokenSigner {
             UploadTokenSignerInner::UploadTokenProvider(provider) => provider
                 .async_bucket_name(&Default::default())
                 .await
-                .map_err(|err| {
-                    ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)
-                }),
-            UploadTokenSignerInner::CredentialProvider { bucket_name, .. } => {
-                Ok(bucket_name.to_owned())
-            }
+                .map_err(|err| ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)),
+            UploadTokenSignerInner::CredentialProvider { bucket_name, .. } => Ok(bucket_name.to_owned()),
         }
     }
 
@@ -137,18 +119,18 @@ impl UploadTokenSigner {
                 lifetime,
             } => {
                 if let Some(object_name) = object_name {
-                    OwnedUploadTokenProviderOrReferenced::Owned(Box::new(
-                        make_object_upload_token_provider(
-                            bucket_name,
-                            object_name,
-                            *lifetime,
-                            credential,
-                        ),
-                    ))
+                    OwnedUploadTokenProviderOrReferenced::Owned(Box::new(make_object_upload_token_provider(
+                        bucket_name,
+                        object_name,
+                        *lifetime,
+                        credential,
+                    )))
                 } else {
-                    OwnedUploadTokenProviderOrReferenced::Owned(Box::new(
-                        make_bucket_upload_token_provider(bucket_name, *lifetime, credential),
-                    ))
+                    OwnedUploadTokenProviderOrReferenced::Owned(Box::new(make_bucket_upload_token_provider(
+                        bucket_name,
+                        *lifetime,
+                        credential,
+                    )))
                 }
             }
         }
@@ -160,7 +142,7 @@ pub(super) enum OwnedUploadTokenProviderOrReferenced<'r> {
     Referenced(&'r dyn UploadTokenProvider),
 }
 
-impl<'r> OwnedUploadTokenProviderOrReferenced<'r> {
+impl OwnedUploadTokenProviderOrReferenced<'_> {
     pub(super) fn as_ref(&self) -> &dyn UploadTokenProvider {
         match self {
             OwnedUploadTokenProviderOrReferenced::Owned(provider) => provider.as_ref(),

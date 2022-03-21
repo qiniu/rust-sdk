@@ -4,12 +4,9 @@ use qiniu_apis::{
 };
 use std::fmt::{self, Debug};
 
-type BeforeRequestCallback<'c> =
-    Box<dyn FnMut(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'c>;
-type AfterResponseOkCallback<'c> =
-    Box<dyn FnMut(&mut ResponseParts) -> CallbackResult + Send + Sync + 'c>;
-type AfterResponseErrorCallback<'c> =
-    Box<dyn FnMut(&ResponseError) -> CallbackResult + Send + Sync + 'c>;
+type BeforeRequestCallback<'c> = Box<dyn FnMut(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'c>;
+type AfterResponseOkCallback<'c> = Box<dyn FnMut(&mut ResponseParts) -> CallbackResult + Send + Sync + 'c>;
+type AfterResponseErrorCallback<'c> = Box<dyn FnMut(&ResponseError) -> CallbackResult + Send + Sync + 'c>;
 
 #[derive(Default)]
 pub(super) struct Callbacks<'a> {
@@ -43,10 +40,7 @@ impl<'a> Callbacks<'a> {
         self
     }
 
-    pub(super) fn before_request(
-        &mut self,
-        builder_parts: &mut RequestBuilderParts,
-    ) -> CallbackResult {
+    pub(super) fn before_request(&mut self, builder_parts: &mut RequestBuilderParts) -> CallbackResult {
         for callback in self.before_request_callbacks.iter_mut() {
             if callback(builder_parts) == CallbackResult::Cancel {
                 return CallbackResult::Cancel;
@@ -55,10 +49,7 @@ impl<'a> Callbacks<'a> {
         CallbackResult::Continue
     }
 
-    pub(super) fn after_response<B>(
-        &mut self,
-        result: &mut Result<Response<B>, ResponseError>,
-    ) -> CallbackResult {
+    pub(super) fn after_response<B>(&mut self, result: &mut Result<Response<B>, ResponseError>) -> CallbackResult {
         match result {
             Ok(response) => {
                 for callback in self.after_response_ok_callbacks.iter_mut() {
@@ -79,7 +70,7 @@ impl<'a> Callbacks<'a> {
     }
 }
 
-impl<'a> Debug for Callbacks<'a> {
+impl Debug for Callbacks<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Callbacks").finish()
     }

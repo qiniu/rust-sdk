@@ -33,10 +33,7 @@ impl CacheKey {
     }
 
     #[inline]
-    pub(super) fn new_from_endpoint(
-        uc_endpoints: &Endpoints,
-        ak_and_bucket: Option<(BucketName, AccessKey)>,
-    ) -> Self {
+    pub(super) fn new_from_endpoint(uc_endpoints: &Endpoints, ak_and_bucket: Option<(BucketName, AccessKey)>) -> Self {
         Self::new(uc_endpoints.md5(), ak_and_bucket)
     }
 
@@ -66,7 +63,7 @@ impl Serialize for CacheKey {
 
 struct CacheKeyVisitor;
 
-impl<'de> Visitor<'de> for CacheKeyVisitor {
+impl Visitor<'_> for CacheKeyVisitor {
     type Value = CacheKey;
 
     #[inline]
@@ -92,10 +89,7 @@ impl<'de> Visitor<'de> for CacheKeyVisitor {
                 _ => Err(E::custom(format!("Invalid cache_key: {}", value))),
             }
         } else {
-            Err(E::custom(format!(
-                "Unrecognized version of cache_key: {}",
-                value
-            )))
+            Err(E::custom(format!("Unrecognized version of cache_key: {}", value)))
         }
     }
 }

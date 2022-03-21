@@ -13,9 +13,7 @@ macro_rules! impl_call_methods {
         impl_call_methods!($mod_name, entry);
     };
     ($mod_name:ident, $entry:ident) => {
-        pub fn call(
-            &mut self,
-        ) -> ApiResult<Response<qiniu_apis::storage::$mod_name::ResponseBody>> {
+        pub fn call(&mut self) -> ApiResult<Response<qiniu_apis::storage::$mod_name::ResponseBody>> {
             let op = self.build();
             let mut request = op
                 .$entry
@@ -37,9 +35,7 @@ macro_rules! impl_call_methods {
 
         #[cfg(feature = "async")]
         #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-        pub async fn async_call(
-            &mut self,
-        ) -> ApiResult<Response<qiniu_apis::storage::$mod_name::ResponseBody>> {
+        pub async fn async_call(&mut self) -> ApiResult<Response<qiniu_apis::storage::$mod_name::ResponseBody>> {
             let op = self.build();
             let mut request = op
                 .$entry
@@ -125,8 +121,7 @@ impl StatObject<'_> {
     }
 
     fn to_path_params(&self) -> qiniu_apis::storage::stat_object::PathParams {
-        qiniu_apis::storage::stat_object::PathParams::default()
-            .set_entry_as_str(self.entry.to_string())
+        qiniu_apis::storage::stat_object::PathParams::default().set_entry_as_str(self.entry.to_string())
     }
 }
 
@@ -160,7 +155,7 @@ impl<'a> StatObjectBuilder<'a> {
     impl_call_methods!(stat_object);
 }
 
-impl<'a> OperationProvider for StatObjectBuilder<'a> {
+impl OperationProvider for StatObjectBuilder<'_> {
     fn to_operation(&mut self) -> String {
         self.build().to_string()
     }
@@ -169,9 +164,7 @@ impl<'a> OperationProvider for StatObjectBuilder<'a> {
 impl Debug for StatObjectBuilder<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("StatObjectBuilder")
-            .field("inner", &self.inner)
-            .finish()
+        f.debug_struct("StatObjectBuilder").field("inner", &self.inner).finish()
     }
 }
 
@@ -183,11 +176,7 @@ pub(super) struct MoveObject<'a> {
 }
 
 impl MoveObject<'_> {
-    pub(super) fn builder<'a>(
-        from_entry: Entry<'a>,
-        to_bucket: &'a str,
-        to_object: &'a str,
-    ) -> MoveObjectBuilder<'a> {
+    pub(super) fn builder<'a>(from_entry: Entry<'a>, to_bucket: &'a str, to_object: &'a str) -> MoveObjectBuilder<'a> {
         MoveObjectBuilder {
             inner: MoveObject {
                 from_entry,
@@ -208,12 +197,7 @@ impl MoveObject<'_> {
 
 impl Display for MoveObject<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "move/{}/{}",
-            self.from_entry.encode(),
-            self.to_entry.encode()
-        )?;
+        write!(f, "move/{}/{}", self.from_entry.encode(), self.to_entry.encode())?;
         if self.is_force {
             write!(f, "/force/true")?;
         }
@@ -253,7 +237,7 @@ impl<'a> MoveObjectBuilder<'a> {
     impl_call_methods!(move_object, from_entry);
 }
 
-impl<'a> OperationProvider for MoveObjectBuilder<'a> {
+impl OperationProvider for MoveObjectBuilder<'_> {
     fn to_operation(&mut self) -> String {
         self.build().to_string()
     }
@@ -262,9 +246,7 @@ impl<'a> OperationProvider for MoveObjectBuilder<'a> {
 impl Debug for MoveObjectBuilder<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("MoveObjectBuilder")
-            .field("inner", &self.inner)
-            .finish()
+        f.debug_struct("MoveObjectBuilder").field("inner", &self.inner).finish()
     }
 }
 
@@ -276,11 +258,7 @@ pub(super) struct CopyObject<'a> {
 }
 
 impl CopyObject<'_> {
-    pub(super) fn builder<'a>(
-        from_entry: Entry<'a>,
-        to_bucket: &'a str,
-        to_object: &'a str,
-    ) -> CopyObjectBuilder<'a> {
+    pub(super) fn builder<'a>(from_entry: Entry<'a>, to_bucket: &'a str, to_object: &'a str) -> CopyObjectBuilder<'a> {
         CopyObjectBuilder {
             inner: CopyObject {
                 from_entry,
@@ -301,12 +279,7 @@ impl CopyObject<'_> {
 
 impl Display for CopyObject<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "copy/{}/{}",
-            self.from_entry.encode(),
-            self.to_entry.encode()
-        )?;
+        write!(f, "copy/{}/{}", self.from_entry.encode(), self.to_entry.encode())?;
         if self.is_force {
             write!(f, "/force/true")?;
         }
@@ -346,7 +319,7 @@ impl<'a> CopyObjectBuilder<'a> {
     impl_call_methods!(copy_object, from_entry);
 }
 
-impl<'a> OperationProvider for CopyObjectBuilder<'a> {
+impl OperationProvider for CopyObjectBuilder<'_> {
     fn to_operation(&mut self) -> String {
         self.build().to_string()
     }
@@ -355,9 +328,7 @@ impl<'a> OperationProvider for CopyObjectBuilder<'a> {
 impl Debug for CopyObjectBuilder<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CopyObjectBuilder")
-            .field("inner", &self.inner)
-            .finish()
+        f.debug_struct("CopyObjectBuilder").field("inner", &self.inner).finish()
     }
 }
 
@@ -375,8 +346,7 @@ impl DeleteObject<'_> {
     }
 
     fn to_path_params(&self) -> qiniu_apis::storage::delete_object::PathParams {
-        qiniu_apis::storage::delete_object::PathParams::default()
-            .set_entry_as_str(self.entry.to_string())
+        qiniu_apis::storage::delete_object::PathParams::default().set_entry_as_str(self.entry.to_string())
     }
 }
 
@@ -408,7 +378,7 @@ impl<'a> DeleteObjectBuilder<'a> {
     impl_call_methods!(delete_object);
 }
 
-impl<'a> OperationProvider for DeleteObjectBuilder<'a> {
+impl OperationProvider for DeleteObjectBuilder<'_> {
     fn to_operation(&mut self) -> String {
         self.build().to_string()
     }
@@ -480,7 +450,7 @@ impl<'a> UnfreezeObjectBuilder<'a> {
     impl_call_methods!(unfreeze_object);
 }
 
-impl<'a> OperationProvider for UnfreezeObjectBuilder<'a> {
+impl OperationProvider for UnfreezeObjectBuilder<'_> {
     fn to_operation(&mut self) -> String {
         self.build().to_string()
     }
@@ -518,12 +488,7 @@ impl SetObjectType<'_> {
 
 impl Display for SetObjectType<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "chtype/{}/type/{}",
-            self.entry.encode(),
-            self.object_type
-        )
+        write!(f, "chtype/{}/type/{}", self.entry.encode(), self.object_type)
     }
 }
 
@@ -549,7 +514,7 @@ impl<'a> SetObjectTypeBuilder<'a> {
     impl_call_methods!(set_object_file_type);
 }
 
-impl<'a> OperationProvider for SetObjectTypeBuilder<'a> {
+impl OperationProvider for SetObjectTypeBuilder<'_> {
     fn to_operation(&mut self) -> String {
         self.build().to_string()
     }
@@ -674,7 +639,7 @@ impl<'a> ModifyObjectStatusBuilder<'a> {
     impl_call_methods!(modify_object_status);
 }
 
-impl<'a> OperationProvider for ModifyObjectStatusBuilder<'a> {
+impl OperationProvider for ModifyObjectStatusBuilder<'_> {
     fn to_operation(&mut self) -> String {
         self.build().to_string()
     }
@@ -785,7 +750,7 @@ impl<'a> ModifyObjectMetadataBuilder<'a> {
     impl_call_methods!(modify_object_metadata);
 }
 
-impl<'a> OperationProvider for ModifyObjectMetadataBuilder<'a> {
+impl OperationProvider for ModifyObjectMetadataBuilder<'_> {
     fn to_operation(&mut self) -> String {
         self.build().to_string()
     }
@@ -898,7 +863,7 @@ impl<'a> ModifyObjectLifeCycleBuilder<'a> {
     impl_call_methods!(modify_object_life_cycle);
 }
 
-impl<'a> OperationProvider for ModifyObjectLifeCycleBuilder<'a> {
+impl OperationProvider for ModifyObjectLifeCycleBuilder<'_> {
     fn to_operation(&mut self) -> String {
         self.build().to_string()
     }
@@ -982,8 +947,8 @@ mod tests {
     use qiniu_apis::{
         credential::Credential,
         http::{
-            AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult, HeaderName,
-            HeaderValue, HttpCaller, StatusCode, SyncRequest, SyncResponseResult,
+            AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult, HeaderName, HeaderValue, HttpCaller,
+            StatusCode, SyncRequest, SyncResponseResult,
         },
         http_client::{BucketName, DirectChooser, HttpClient, NeverRetrier, Region, NO_BACKOFF},
     };
@@ -1002,10 +967,7 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     assert!(request
                         .url()
@@ -1033,11 +995,7 @@ mod tests {
         }
 
         let bucket = get_bucket(FakeHttpCaller::default());
-        let object = bucket
-            .stat_object("fakeobjectname")
-            .async_call()
-            .await?
-            .into_body();
+        let object = bucket.stat_object("fakeobjectname").async_call().await?.into_body();
         assert_eq!(object.get_hash_as_str(), "fakehash");
         assert_eq!(object.get_size_as_u64(), 12345u64);
 
@@ -1056,10 +1014,7 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     assert!(request.url().to_string().ends_with(&format!(
                         "/copy/{}/{}/force/true",
@@ -1100,10 +1055,7 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     assert!(request.url().to_string().ends_with(&format!(
                         "/move/{}/{}/force/false",
@@ -1143,10 +1095,7 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     assert!(request
                         .url()
@@ -1182,10 +1131,7 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     assert!(request.url().to_string().ends_with(&format!(
                         "/restoreAr/{}/freezeAfterDays/7",
@@ -1204,10 +1150,7 @@ mod tests {
         }
 
         let bucket = get_bucket(FakeHttpCaller::default());
-        bucket
-            .unfreeze_object("fakeobjectname", 7)
-            .async_call()
-            .await?;
+        bucket.unfreeze_object("fakeobjectname", 7).async_call().await?;
 
         Ok(())
     }
@@ -1224,15 +1167,12 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
-                    assert!(request.url().to_string().ends_with(&format!(
-                        "/chtype/{}/type/2",
-                        &encode_entry("fakeobjectname")
-                    )));
+                    assert!(request
+                        .url()
+                        .to_string()
+                        .ends_with(&format!("/chtype/{}/type/2", &encode_entry("fakeobjectname"))));
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
                         .header(
@@ -1266,15 +1206,12 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
-                    assert!(request.url().to_string().ends_with(&format!(
-                        "/chstatus/{}/status/1",
-                        &encode_entry("fakeobjectname")
-                    )));
+                    assert!(request
+                        .url()
+                        .to_string()
+                        .ends_with(&format!("/chstatus/{}/status/1", &encode_entry("fakeobjectname"))));
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
                         .header(
@@ -1288,10 +1225,7 @@ mod tests {
         }
 
         let bucket = get_bucket(FakeHttpCaller::default());
-        bucket
-            .modify_object_status("fakeobjectname", true)
-            .async_call()
-            .await?;
+        bucket.modify_object_status("fakeobjectname", true).async_call().await?;
 
         Ok(())
     }
@@ -1308,10 +1242,7 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     assert!(request.url().to_string().ends_with(&format!(
                         "/chgm/{}/mime/{}/cond/{}/x-qn-meta-MetaKey-1/{}",
@@ -1356,10 +1287,7 @@ mod tests {
                 unreachable!()
             }
 
-            fn async_call<'a>(
-                &'a self,
-                request: &'a mut AsyncRequest<'_>,
-            ) -> BoxFuture<'a, AsyncResponseResult> {
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     assert!(request.url().to_string().ends_with(&format!(
                         "/lifecycle/{}/toIAAfterDays/1/toARCHIVEAfterDays/2/deleteAfterDays/3",
@@ -1415,11 +1343,7 @@ mod tests {
     }
 
     fn generate_put_time() -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as u64
-            / 100
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64 / 100
     }
 
     fn single_rs_domain_region() -> Region {
