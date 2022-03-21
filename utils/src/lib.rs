@@ -1,4 +1,5 @@
 #![deny(
+    large_assignments,
     exported_private_dependencies,
     absolute_paths_not_starting_with_crate,
     anonymous_parameters,
