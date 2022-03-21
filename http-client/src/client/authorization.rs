@@ -66,11 +66,7 @@ impl<P> From<P> for CredentialAuthorizationV1<P> {
 
 impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthorizationV1<P> {
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()> {
-        let mut get_options = GetOptions::default();
-        *get_options.extensions_mut() = take(request.extensions_mut());
-        _sign(&self.0, request, &get_options).tap(|_| {
-            *request.extensions_mut() = take(get_options.extensions_mut());
-        })?;
+        _sign(&self.0, request, &Default::default())?;
         return Ok(());
 
         fn _sign(
@@ -88,11 +84,7 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         return Box::pin(async move {
-            let mut get_options = GetOptions::default();
-            *get_options.extensions_mut() = take(request.extensions_mut());
-            _sign(&self.0, request, &get_options).await.tap(|_| {
-                *request.extensions_mut() = take(get_options.extensions_mut());
-            })?;
+            _sign(&self.0, request, &Default::default()).await?;
             Ok(())
         });
 
@@ -147,11 +139,7 @@ impl<P> From<P> for CredentialAuthorizationV2<P> {
 
 impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthorizationV2<P> {
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()> {
-        let mut get_options = GetOptions::default();
-        *get_options.extensions_mut() = take(request.extensions_mut());
-        _sign(&self.0, request, &get_options).tap(|_| {
-            *request.extensions_mut() = take(get_options.extensions_mut());
-        })?;
+        _sign(&self.0, request, &Default::default())?;
         return Ok(());
 
         fn _sign(
@@ -169,11 +157,7 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         return Box::pin(async move {
-            let mut get_options = GetOptions::default();
-            *get_options.extensions_mut() = take(request.extensions_mut());
-            _sign(&self.0, request, &get_options).await.tap(|_| {
-                *request.extensions_mut() = take(get_options.extensions_mut());
-            })?;
+            _sign(&self.0, request, &Default::default()).await?;
             Ok(())
         });
 

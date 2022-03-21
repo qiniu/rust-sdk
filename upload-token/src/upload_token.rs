@@ -2,7 +2,7 @@ use super::{UploadPolicy, UploadPolicyBuilder};
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use once_cell::sync::OnceCell;
-use qiniu_credential::{AccessKey, CredentialProvider, Extensions};
+use qiniu_credential::{AccessKey, CredentialProvider};
 use qiniu_utils::{base64, BucketName, ObjectName};
 use std::{
     borrow::Cow,
@@ -71,63 +71,21 @@ pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
 
 /// 获取 Access Key 的选项
 #[derive(Debug, Default)]
-pub struct GetAccessKeyOptions {
-    extensions: Extensions,
-}
+pub struct GetAccessKeyOptions {}
 
-impl GetAccessKeyOptions {
-    /// 获取扩展信息
-    #[inline]
-    pub fn extensions(&self) -> &Extensions {
-        &self.extensions
-    }
-
-    /// 获取扩展信息的可变引用
-    #[inline]
-    pub fn extensions_mut(&mut self) -> &mut Extensions {
-        &mut self.extensions
-    }
-}
+impl GetAccessKeyOptions {}
 
 /// 获取上传策略的选项
 #[derive(Debug, Default)]
-pub struct GetPolicyOptions {
-    extensions: Extensions,
-}
+pub struct GetPolicyOptions {}
 
-impl GetPolicyOptions {
-    /// 获取扩展信息
-    #[inline]
-    pub fn extensions(&self) -> &Extensions {
-        &self.extensions
-    }
-
-    /// 获取扩展信息的可变引用
-    #[inline]
-    pub fn extensions_mut(&mut self) -> &mut Extensions {
-        &mut self.extensions
-    }
-}
+impl GetPolicyOptions {}
 
 /// 获取上传凭证的选项
 #[derive(Debug, Default)]
-pub struct ToStringOptions {
-    extensions: Extensions,
-}
+pub struct ToStringOptions {}
 
-impl ToStringOptions {
-    /// 获取扩展信息
-    #[inline]
-    pub fn extensions(&self) -> &Extensions {
-        &self.extensions
-    }
-
-    /// 获取扩展信息的可变引用
-    #[inline]
-    pub fn extensions_mut(&mut self) -> &mut Extensions {
-        &mut self.extensions
-    }
-}
+impl ToStringOptions {}
 
 /// 获取的 Access Key
 ///

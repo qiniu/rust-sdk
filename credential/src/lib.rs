@@ -688,23 +688,7 @@ impl CredentialProvider for Credential {
 
 /// 获取认证信息的选项
 #[derive(Debug, Default)]
-pub struct GetOptions {
-    extensions: Extensions,
-}
-
-impl GetOptions {
-    /// 获取扩展信息
-    #[inline]
-    pub fn extensions(&self) -> &Extensions {
-        &self.extensions
-    }
-
-    /// 获取扩展信息的可变引用
-    #[inline]
-    pub fn extensions_mut(&mut self) -> &mut Extensions {
-        &mut self.extensions
-    }
-}
+pub struct GetOptions {}
 
 /// 获取的认证信息
 ///
