@@ -27,13 +27,13 @@
 //!
 //! ## 七牛认证信息
 //!
-//! 负责存储调用七牛 API 所必要的认证信息，提供 `CredentialProvider` 方便扩展获取认证信息的方式。
+//! 负责存储调用七牛 API 所必要的认证信息，提供 [`CredentialProvider`] 方便扩展获取认证信息的方式。
 //! 同时提供阻塞接口和异步接口（异步接口需要启用 `async` 功能）。
-//! 提供 `CredentialProvider` 的多个实现方式，例如：
+//! 提供 [`CredentialProvider`] 的多个实现方式，例如：
 //!
-//! - `GlobalCredentialProvider`: 使用全局变量配置的认证信息
-//! - `EnvCredentialProvider`: 使用环境变量配置的认证信息
-//! - `ChainCredentialsProvider`: 配置多个 `CredentialProvider` 形成认证信息串，遍历找寻第一个可用的认证信息
+//! - [`GlobalCredentialProvider`] : 使用全局变量配置的认证信息
+//! - [`EnvCredentialProvider`] : 使用环境变量配置的认证信息
+//! - [`ChainCredentialsProvider`] : 配置多个 [`CredentialProvider`] 形成认证信息串，遍历找寻第一个可用的认证信息
 
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;

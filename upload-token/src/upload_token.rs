@@ -716,7 +716,7 @@ struct AsyncCacheInner {
 
 /// 缓存生成的上传凭证
 ///
-/// 内部存储另一个实现 `UploadTokenProvider` 的结构体，该结构为之提供指定时间内的缓存，避免每次都要重新生成新的上传凭证。
+/// 内部存储另一个实现 [`UploadTokenProvider`] 的结构体，该结构为之提供指定时间内的缓存，避免每次都要重新生成新的上传凭证。
 #[derive(Debug, Clone)]
 pub struct CachedUploadTokenProvider<P: Clone> {
     inner_provider: P,
@@ -728,7 +728,7 @@ pub struct CachedUploadTokenProvider<P: Clone> {
 }
 
 impl<P: Clone> CachedUploadTokenProvider<P> {
-    /// 创建上传凭证缓存，需要提供另一个实现 `UploadTokenProvider` 的结构体，和需要缓存的时长
+    /// 创建上传凭证缓存，需要提供另一个实现 [`UploadTokenProvider`] 的结构体，和需要缓存的时长
     #[inline]
     pub fn new(inner_provider: P, cache_lifetime: Duration) -> Self {
         Self {

@@ -26,15 +26,15 @@
 //!
 //! ## 七牛 上传策略 / 上传凭证 库
 //!
-//! 负责配置七牛对象上传所需要的上传策略，并提供生成上传凭证的库函数，同时提供 `UploadTokenProvider` 方便扩展获取上传凭证的方式。
+//! 负责配置七牛对象上传所需要的上传策略，并提供生成上传凭证的库函数，同时提供 [`UploadTokenProvider`] 方便扩展获取上传凭证的方式。
 //! 同时提供阻塞接口和异步接口（异步接口需要启用 `async` 功能）。
-//! 提供 `UploadTokenProvider` 的多个实现方式，例如：
+//! 提供 [`UploadTokenProvider`] 的多个实现方式，例如：
 //!
-//! - `StaticUploadTokenProvider`: 根据其他服务计算得到的上传凭证字符串生成上传凭证
-//! - `FromUploadPolicy`: 根据给出的上传策略和认证信息生成上传凭证
-//! - `BucketUploadTokenProvider`: 基于存储空间和认证信息即时生成上传凭证
-//! - `ObjectUploadTokenProvider`: 基于存储空间，对象名称和认证信息即时生成上传凭证
-//! - `CachedUploadTokenProvider`: 缓存生成的上传凭证，不必每次都即时生成
+//! - [`StaticUploadTokenProvider`] : 根据其他服务计算得到的上传凭证字符串生成上传凭证
+//! - [`FromUploadPolicy`] : 根据给出的上传策略和认证信息生成上传凭证
+//! - [`BucketUploadTokenProvider`] : 基于存储空间和认证信息即时生成上传凭证
+//! - [`ObjectUploadTokenProvider`] : 基于存储空间，对象名称和认证信息即时生成上传凭证
+//! - [`CachedUploadTokenProvider`] : 缓存生成的上传凭证，不必每次都即时生成
 //!
 //! 创建上传策略，并基于该策略创建凭证：
 //!
