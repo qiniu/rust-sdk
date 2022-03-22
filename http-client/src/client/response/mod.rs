@@ -12,6 +12,7 @@ mod error;
 pub(super) use error::XHeaders;
 pub use error::{Error as ResponseError, ErrorKind as ResponseErrorKind};
 
+/// API 响应结果
 pub type ApiResult<T> = Result<T, ResponseError>;
 
 pub use qiniu_http::SyncResponseBody;
@@ -25,6 +26,7 @@ pub use qiniu_http::AsyncResponseBody;
 const X_REQ_ID_HEADER_NAME: &str = "x-reqid";
 const X_LOG_HEADER_NAME: &str = "x-log";
 
+/// HTTP 响应
 #[derive(Default, Debug)]
 pub struct Response<B>(HttpResponse<B>);
 
@@ -33,27 +35,31 @@ impl<B> Response<B> {
         Self(inner)
     }
 
-    /// 直接获取 HTTP 响应体
+    /// 转换为 HTTP 响应体
     #[inline]
     pub fn into_body(self) -> B {
         self.0.into_body()
     }
 
+    /// 转换为 HTTP 响应信息和响应体
     #[inline]
     pub fn into_parts_and_body(self) -> (HttpResponseParts, B) {
         self.0.into_parts_and_body()
     }
 
+    /// 根据 HTTP 响应信息和响应体创建 HTTP 响应
     #[inline]
     pub fn from_parts_and_body(parts: HttpResponseParts, body: B) -> Self {
         Self(HttpResponse::from_parts_and_body(parts, body))
     }
 
+    /// 获取 HTTP 响应的 X-ReqId 信息
     #[inline]
-    pub fn x_req_id(&self) -> Option<&HeaderValue> {
+    pub fn x_reqid(&self) -> Option<&HeaderValue> {
         self.header(HeaderName::from_static(X_REQ_ID_HEADER_NAME))
     }
 
+    /// 获取 HTTP 响应的 X-Log 信息
     #[inline]
     pub fn x_log(&self) -> Option<&HeaderValue> {
         self.header(HeaderName::from_static(X_LOG_HEADER_NAME))
@@ -77,6 +83,7 @@ impl<B> DerefMut for Response<B> {
 }
 
 impl Response<SyncResponseBody> {
+    /// JSON 序列化响应体
     pub fn parse_json<T: DeserializeOwned>(self) -> ApiResult<Response<T>> {
         let x_headers = XHeaders::from(self.parts());
         let json_response = self
@@ -111,6 +118,7 @@ impl Response<SyncResponseBody> {
 
 #[cfg(feature = "async")]
 impl Response<AsyncResponseBody> {
+    /// 异步 JSON 序列化响应体
     pub async fn parse_json<T: DeserializeOwned>(self) -> ApiResult<Response<T>> {
         let x_headers = XHeaders::from(self.parts());
         let json_response = self
@@ -154,7 +162,7 @@ fn parse_json_from_slice<'a, T: Deserialize<'a>>(v: &'a [u8]) -> serde_json::Res
     }
 }
 
-/// 同步 HTTP 响应
+/// 阻塞 HTTP 响应
 pub type SyncResponse = Response<SyncResponseBody>;
 
 /// 异步 HTTP 响应

@@ -2,7 +2,7 @@ use super::{callbacks::Callbacks, Bucket, OperationProvider};
 use qiniu_apis::{
     http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts, StatusCode},
     http_client::{
-        ApiResult, CallbackResult, RegionProvider, RegionProviderEndpoints, RequestBuilderParts, Response,
+        ApiResult, CallbackResult, RegionsProvider, RegionsProviderEndpoints, RequestBuilderParts, Response,
         ResponseError, ResponseErrorKind,
     },
     storage::batch_ops::{
@@ -156,7 +156,7 @@ impl Iterator for BatchOperationsIterator<'_> {
 }
 
 const DEFAULT_BATCH_SIZE: usize = 1000;
-type RefRegionProviderEndpoints<'a> = RegionProviderEndpoints<&'a dyn RegionProvider>;
+type RefRegionProviderEndpoints<'a> = RegionsProviderEndpoints<&'a dyn RegionsProvider>;
 
 impl<'a> BatchOperationsIterator<'a> {
     fn next_response(&mut self) -> ApiResult<Option<OperationResponseData>> {
@@ -179,7 +179,7 @@ impl<'a> BatchOperationsIterator<'a> {
             .storage()
             .batch_ops()
             .new_request(
-                RegionProviderEndpoints::new(self.operations.bucket.region_provider()?),
+                RegionsProviderEndpoints::new(self.operations.bucket.region_provider()?),
                 self.operations.bucket.objects_manager().credential(),
             );
         Ok(request)
@@ -275,7 +275,7 @@ mod async_stream {
             task: BoxFuture<'a, ApiResult<Response<ResponseBody>>>,
         },
         WaitForRegionProvider {
-            task: BoxFuture<'a, IOResult<&'a dyn RegionProvider>>,
+            task: BoxFuture<'a, IOResult<&'a dyn RegionsProvider>>,
         },
         Done,
     }
@@ -433,7 +433,7 @@ mod async_stream {
 
         fn make_request(
             &self,
-            region_provider: &'a dyn RegionProvider,
+            region_provider: &'a dyn RegionsProvider,
         ) -> BatchOpsAsyncRequestBuilder<'a, RefRegionProviderEndpoints<'a>> {
             self.operations
                 .bucket
@@ -442,7 +442,7 @@ mod async_stream {
                 .storage()
                 .batch_ops()
                 .new_async_request(
-                    RegionProviderEndpoints::new(region_provider),
+                    RegionsProviderEndpoints::new(region_provider),
                     self.operations.bucket.objects_manager().credential(),
                 )
         }
@@ -685,7 +685,7 @@ mod tests {
 
     fn single_rs_domain_region() -> Region {
         Region::builder("chaotic")
-            .push_rs_preferred_endpoint(("fakers.example.com".to_owned(), 8080).into())
+            .add_rs_preferred_endpoint(("fakers.example.com".to_owned(), 8080).into())
             .build()
     }
 }

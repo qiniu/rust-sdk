@@ -1,12 +1,12 @@
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
-use qiniu_credential::{Credential, CredentialProvider, GetOptions};
+use qiniu_credential::{Credential, CredentialProvider, GetOptions, Uri};
 use qiniu_http::{
     header::{AUTHORIZATION, CONTENT_TYPE},
     HeaderValue, RequestParts, SyncRequest,
 };
 use qiniu_upload_token::UploadTokenProvider;
-use std::{fmt::Debug, io::Error as IoError, mem::take, result::Result};
+use std::{fmt::Debug, io::Error as IoError, mem::take, result::Result, time::Duration};
 use tap::Tap;
 use thiserror::Error;
 use url::ParseError as UrlParseError;
@@ -14,25 +14,37 @@ use url::ParseError as UrlParseError;
 #[cfg(feature = "async")]
 use {futures::future::BoxFuture, qiniu_http::AsyncRequest};
 
+/// 七牛鉴权签名接口
+///
+/// 对 HTTP 请求进行签名
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait AuthorizationProvider: Clone + Debug + Sync + Send {
     /// 使用指定的鉴权方式对 HTTP 请求进行签名
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()>;
 
+    /// 使用指定的鉴权方式对 HTTP 请求进行异步签名
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    /// 使用指定的鉴权方式对 HTTP 请求进行异步签名
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>>;
 }
 
+/// 上传凭证鉴权签名
 #[derive(Clone, Debug)]
 pub struct UploadTokenAuthorization<P: ?Sized>(P);
+
+impl<P> UploadTokenAuthorization<P> {
+    /// 创建上传凭证鉴权签名
+    #[inline]
+    pub fn new(provider: P) -> Self {
+        Self(provider)
+    }
+}
 
 impl<P> From<P> for UploadTokenAuthorization<P> {
     #[inline]
     fn from(provider: P) -> Self {
-        Self(provider)
+        Self::new(provider)
     }
 }
 
@@ -54,13 +66,22 @@ impl<P: UploadTokenProvider + Clone> AuthorizationProvider for UploadTokenAuthor
     }
 }
 
+/// 七牛签名算法 V1 鉴权签名
 #[derive(Clone, Debug)]
 pub struct CredentialAuthorizationV1<P: ?Sized>(P);
+
+impl<P> CredentialAuthorizationV1<P> {
+    /// 创建七牛签名算法 V1 鉴权签名
+    #[inline]
+    pub fn new(provider: P) -> Self {
+        Self(provider)
+    }
+}
 
 impl<P> From<P> for CredentialAuthorizationV1<P> {
     #[inline]
     fn from(provider: P) -> Self {
-        Self(provider)
+        Self::new(provider)
     }
 }
 
@@ -127,13 +148,22 @@ async fn authorization_v1_for_async_request(
         .map_err(|err| err.into())
 }
 
+/// 七牛签名算法 V2 鉴权签名
 #[derive(Clone, Debug)]
 pub struct CredentialAuthorizationV2<P: ?Sized>(P);
+
+impl<P> CredentialAuthorizationV2<P> {
+    /// 创建七牛签名算法 V2 鉴权签名
+    #[inline]
+    pub fn new(provider: P) -> Self {
+        Self(provider)
+    }
+}
 
 impl<P> From<P> for CredentialAuthorizationV2<P> {
     #[inline]
     fn from(provider: P) -> Self {
-        Self(provider)
+        Self::new(provider)
     }
 }
 
@@ -208,50 +238,115 @@ fn uptoken_authorization(upload_token: &str) -> String {
     "UpToken ".to_owned() + upload_token
 }
 
-/// API 鉴权错误
+/// 七牛下载地址鉴权签名
+#[derive(Clone, Debug)]
+pub struct DownloadUrlCredentialAuthorization<P: ?Sized> {
+    lifetime: Duration,
+    provider: P,
+}
+
+impl<P> DownloadUrlCredentialAuthorization<P> {
+    /// 创建七牛下载地址鉴权签名
+    #[inline]
+    pub fn new(provider: P, lifetime: Duration) -> Self {
+        Self { provider, lifetime }
+    }
+}
+
+impl<P> From<P> for DownloadUrlCredentialAuthorization<P> {
+    #[inline]
+    fn from(provider: P) -> Self {
+        Self::new(provider, Duration::from_secs(3600))
+    }
+}
+
+impl<P: CredentialProvider + Clone> AuthorizationProvider for DownloadUrlCredentialAuthorization<P> {
+    fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()> {
+        let credential = self.provider.get(&Default::default())?;
+        let url = sign_download_url(&*credential, self.lifetime, take(request.url_mut()));
+        *request.url_mut() = url;
+        Ok(())
+    }
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
+        Box::pin(async move {
+            let credential = self.provider.async_get(&Default::default()).await?;
+            let url = sign_download_url(&*credential, self.lifetime, take(request.url_mut()));
+            *request.url_mut() = url;
+            Ok(())
+        })
+    }
+}
+
+fn sign_download_url(credential: &Credential, lifetime: Duration, url: Uri) -> Uri {
+    credential.sign_download_url(url, lifetime)
+}
+
+/// 鉴权签名错误
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum AuthorizationError {
     /// 获取认证信息或上传凭证错误
     #[error("Get Upload Token or Credential error: {0}")]
     IoError(#[from] IoError),
+
     /// URL 解析错误
     #[error("Parse URL error: {0}")]
     UrlParseError(#[from] UrlParseError),
 }
-/// API 鉴权结果
+
+/// 鉴权签名结果
 pub type AuthorizationResult<T> = Result<T, AuthorizationError>;
 
+/// 七牛鉴权签名
+///
+/// 该类型是个枚举类型，引用或拥有七牛鉴权签名接口的实例
 #[derive(Clone, Debug)]
 pub enum Authorization<'a> {
+    /// 拥有七牛鉴权签名接口的实例
     Owned(Box<dyn AuthorizationProvider + 'a>),
+
+    /// 引用七牛鉴权签名接口的实例
     Borrowed(&'a dyn AuthorizationProvider),
 }
 
 impl<'a> Authorization<'a> {
+    /// 根据一个拥有的七牛鉴权签名接口的实例创建一个鉴权签名
     #[inline]
     pub fn from_owned<T: AuthorizationProvider + 'a>(provider: T) -> Self {
         Self::Owned(Box::new(provider))
     }
 
+    /// 根据一个引用的七牛鉴权签名接口的实例创建一个鉴权签名
     #[inline]
     pub fn from_referenced(provider: &'a dyn AuthorizationProvider) -> Self {
         Self::Borrowed(provider)
     }
 
+    /// 根据上传凭证获取接口创建一个上传凭证签名算法的签名
     #[inline]
     pub fn uptoken(provider: impl UploadTokenProvider + Clone + 'a) -> Self {
         Self::from_owned(UploadTokenAuthorization::from(provider))
     }
 
+    /// 根据认证信息获取接口创建一个使用七牛鉴权 v1 签名算法的签名
     #[inline]
     pub fn v1(provider: impl CredentialProvider + Clone + 'a) -> Self {
         Self::from_owned(CredentialAuthorizationV1::from(provider))
     }
 
+    /// 根据认证信息获取接口创建一个使用七牛鉴权 v2 签名算法的签名
     #[inline]
     pub fn v2(provider: impl CredentialProvider + Clone + 'a) -> Self {
         Self::from_owned(CredentialAuthorizationV2::from(provider))
+    }
+
+    /// 根据认证信息获取接口创建一个下载凭证签名算法的签名
+    #[inline]
+    pub fn download(provider: impl CredentialProvider + Clone + 'a) -> Self {
+        Self::from_owned(DownloadUrlCredentialAuthorization::from(provider))
     }
 }
 

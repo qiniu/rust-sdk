@@ -8,6 +8,9 @@ use std::{
 use thiserror::Error;
 use url::{ParseError as UrlParseError, Url};
 
+/// 域名和端口号
+///
+/// 用来表示一个七牛服务器的地址，端口号是可选的，如果不提供，则根据传输协议判定默认的端口号。
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DomainWithPort {
     #[serde(rename = "domain")]
@@ -18,24 +21,28 @@ pub struct DomainWithPort {
 }
 
 impl DomainWithPort {
+    /// 创建一个域名和端口号
     #[inline]
-    pub fn new(domain: impl Into<Box<str>>, port: Option<NonZeroU16>) -> Self {
+    pub fn new(domain: impl Into<String>, port: Option<NonZeroU16>) -> Self {
         DomainWithPort {
-            domain: domain.into(),
+            domain: domain.into().into_boxed_str(),
             port,
         }
     }
 
+    /// 获取域名
     #[inline]
-    pub const fn domain(&self) -> &str {
+    pub fn domain(&self) -> &str {
         &self.domain
     }
 
+    /// 获取端口
     #[inline]
-    pub const fn port(&self) -> Option<NonZeroU16> {
+    pub fn port(&self) -> Option<NonZeroU16> {
         self.port
     }
 
+    /// 分离为域名和端口号
     #[inline]
     pub fn into_domain_and_port(self) -> (String, Option<NonZeroU16>) {
         (self.domain.into(), self.port)
@@ -102,13 +109,19 @@ impl From<(String, Option<NonZeroU16>)> for DomainWithPort {
     }
 }
 
+/// 解析域名和端口号错误
 #[derive(Error, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum DomainWithPortParseError {
+    /// 端口号非法
     #[error("invalid port number")]
     InvalidPort,
+
+    /// 空域名
     #[error("empty host")]
     EmptyHost,
+
+    /// 非法的域名字符
     #[error("invalid domain character")]
     InvalidDomainCharacter,
 }
@@ -138,6 +151,7 @@ impl FromStr for DomainWithPort {
     }
 }
 
+/// IP 地址和端口号
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct IpAddrWithPort {
     #[serde(rename = "ip")]
@@ -148,16 +162,21 @@ pub struct IpAddrWithPort {
 }
 
 impl IpAddrWithPort {
+    /// 创建 IP 地址和端口号
+    ///
+    /// IP 地址可以是 IPv4 地址或 IPv6 地址
     #[inline]
     pub const fn new(ip_addr: IpAddr, port: Option<NonZeroU16>) -> Self {
         IpAddrWithPort { ip_addr, port }
     }
 
+    /// 获取 IP 地址
     #[inline]
     pub const fn ip_addr(&self) -> IpAddr {
         self.ip_addr
     }
 
+    /// 获取端口号
     #[inline]
     pub const fn port(&self) -> Option<NonZeroU16> {
         self.port
@@ -240,9 +259,11 @@ impl From<(IpAddr, Option<NonZeroU16>)> for IpAddrWithPort {
     }
 }
 
+/// 解析 IP 地址和端口号错误
 #[derive(Error, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum IpAddrWithPortParseError {
+    /// 地址解析错误
     #[error("invalid ip address: {0}")]
     ParseError(#[from] AddrParseError),
 }
@@ -259,36 +280,50 @@ impl FromStr for IpAddrWithPort {
     }
 }
 
+/// 终端地址
+///
+/// 该类型是枚举类型，表示一个域名和端口号，或 IP 地址和端口号
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "ty")]
 #[non_exhaustive]
 pub enum Endpoint {
+    /// 域名和端口号
     DomainWithPort(DomainWithPort),
+
+    /// IP 地址和端口号
     IpAddrWithPort(IpAddrWithPort),
 }
 
 impl Endpoint {
+    /// 基于域名创建终端地址
     #[inline]
-    pub fn new_from_domain(domain: impl Into<Box<str>>) -> Self {
+    pub fn new_from_domain(domain: impl Into<String>) -> Self {
         Self::DomainWithPort(DomainWithPort {
-            domain: domain.into(),
+            domain: domain.into().into_boxed_str(),
             port: None,
         })
     }
 
+    /// 基于域名和端口号创建终端地址
     #[inline]
-    pub fn new_from_domain_with_port(domain: impl Into<Box<str>>, port: u16) -> Self {
+    pub fn new_from_domain_with_port(domain: impl Into<String>, port: u16) -> Self {
         Self::DomainWithPort(DomainWithPort {
-            domain: domain.into(),
+            domain: domain.into().into_boxed_str(),
             port: NonZeroU16::new(port),
         })
     }
 
+    /// 基于 IP 地址创建终端地址
+    ///
+    /// IP 地址可以是 IPv4 地址或 IPv6 地址
     #[inline]
     pub const fn new_from_ip_addr(ip_addr: IpAddr) -> Self {
         Self::IpAddrWithPort(IpAddrWithPort { ip_addr, port: None })
     }
 
+    /// 基于套接字地址创建终端地址
+    ///
+    /// 套接字地址可以是 IPv4 地址加端口号，或 IPv6 地址加端口号
     #[inline]
     pub fn new_from_socket_addr(addr: SocketAddr) -> Self {
         Self::IpAddrWithPort(IpAddrWithPort {
@@ -297,6 +332,7 @@ impl Endpoint {
         })
     }
 
+    /// 如果终端地址包含域名，则获得域名
     #[inline]
     pub fn domain(&self) -> Option<&str> {
         match self {
@@ -305,6 +341,7 @@ impl Endpoint {
         }
     }
 
+    /// 如果终端地址包含 IP 地址，则获得域名
     #[inline]
     pub fn ip_addr(&self) -> Option<IpAddr> {
         match self {
@@ -313,6 +350,7 @@ impl Endpoint {
         }
     }
 
+    /// 获得端口号
     #[inline]
     pub fn port(&self) -> Option<NonZeroU16> {
         match self {
@@ -436,13 +474,19 @@ impl From<SocketAddrV6> for Endpoint {
     }
 }
 
+/// 终端地址解析错误
 #[derive(Error, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum EndpointParseError {
+    /// 端口号非法
     #[error("invalid port number")]
     InvalidPort,
+
+    /// 空域名
     #[error("empty host")]
     EmptyHost,
+
+    /// 非法的域名字符
     #[error("invalid domain character")]
     InvalidDomainCharacter,
 }

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use qiniu_apis::{http_client::CallbackResult, upload_token::ObjectUploadTokenProvider};
 use qiniu_upload_manager::{
-    apis::credential::Credential, ObjectParams, SinglePartUploader, UploadManager,
+    apis::credential::Credential, ObjectParams, SinglePartUploader, UploadManager, UploaderWithCallbacks,
 };
 use std::{path::PathBuf, time::Duration};
 use structopt::StructOpt;
@@ -41,20 +41,20 @@ async fn main() -> Result<()> {
     let value = upload_manager
         .form_uploader()
         .on_upload_progress(|transfer| {
-            println!(
-                "{} / {} => {}%",
-                transfer.transferred_bytes(),
-                transfer.total_bytes(),
-                transfer.transferred_bytes() as f64 * 100f64 / transfer.total_bytes() as f64
-            );
+            let transferred_bytes = transfer.transferred_bytes();
+            if let Some(total_bytes) = transfer.total_bytes() {
+                println!(
+                    "{} / {} => {}%",
+                    transferred_bytes,
+                    total_bytes,
+                    transferred_bytes as f64 * 100f64 / total_bytes as f64
+                );
+            } else {
+                println!("{}", transferred_bytes);
+            }
             CallbackResult::Continue
         })
-        .async_upload_path(
-            &opt.file,
-            ObjectParams::builder()
-                .object_name(&opt.object_name)
-                .build(),
-        )
+        .async_upload_path(&opt.file, ObjectParams::builder().object_name(&opt.object_name).build())
         .await?;
     println!("{:?}", value);
 

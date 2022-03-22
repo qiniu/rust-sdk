@@ -58,16 +58,16 @@ use std::{
     io::{Result as IoResult, Seek, SeekFrom},
 };
 
-/// 同步 HTTP 响应
+/// 阻塞 HTTP 响应
 pub type SyncRequest<'r> = Request<'r, SyncRequestBody<'r>>;
-/// 同步 HTTP 响应构建器
+/// 阻塞 HTTP 响应构建器
 pub type SyncRequestBuilder<'r> = RequestBuilder<'r, SyncRequestBody<'r>>;
 
-/// 同步 HTTP 响应
+/// 阻塞 HTTP 响应
 pub type SyncResponse = Response<SyncResponseBody>;
-/// 同步 HTTP 响应构建器
+/// 阻塞 HTTP 响应构建器
 pub type SyncResponseBuilder = ResponseBuilder<SyncResponseBody>;
-/// 同步 HTTP 响应结果
+/// 阻塞 HTTP 响应结果
 pub type SyncResponseResult = ResponseResult<SyncResponseBody>;
 
 #[cfg(feature = "async")]
@@ -116,7 +116,7 @@ type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 /// 实现该接口，即可处理所有七牛 SDK 发送的 HTTP 请求
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait HttpCaller: Debug + Send + Sync {
-    /// 同步发送 HTTP 请求
+    /// 阻塞发送 HTTP 请求
     fn call(&self, request: &mut SyncRequest<'_>) -> SyncResponseResult;
 
     /// 异步发送 HTTP 请求

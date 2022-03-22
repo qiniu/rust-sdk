@@ -101,13 +101,13 @@ impl<'r> RequestParts<'r> {
         &mut self.inner.headers
     }
 
-    /// 获取扩展字段
+    /// 获取扩展信息
     #[inline]
     pub fn extensions(&self) -> &Extensions {
         &self.inner.extensions
     }
 
-    /// 获取扩展字段的可变引用
+    /// 获取扩展信息的可变引用
     #[inline]
     pub fn extensions_mut(&mut self) -> &mut Extensions {
         &mut self.inner.extensions
@@ -354,14 +354,14 @@ impl<'r, B: 'r> RequestBuilder<'r, B> {
         self
     }
 
-    /// 设置扩展字段
+    /// 设置扩展信息
     #[inline]
     pub fn extensions(&mut self, extensions: Extensions) -> &mut Self {
         *self.inner.extensions_mut() = extensions;
         self
     }
 
-    /// 追加扩展字段
+    /// 追加扩展信息
     #[inline]
     pub fn add_extension<T: Sync + Send + 'static>(&mut self, val: T) -> &mut Self {
         self.inner.extensions_mut().insert(val);

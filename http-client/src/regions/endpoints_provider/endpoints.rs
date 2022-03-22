@@ -1,66 +1,35 @@
-use super::{super::ApiResult, Endpoint, Region, RegionProvider};
-use auto_impl::auto_impl;
-use dyn_clonable::clonable;
+use super::{
+    super::{
+        super::{cache::IsCacheValid, ApiResult},
+        Endpoint, Region, RegionsProvider,
+    },
+    ServiceName,
+};
 use md5::{
     digest::{generic_array::GenericArray, FixedOutputDirty},
     Digest, Md5,
 };
 use once_cell::sync::{Lazy, OnceCell};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, error::Error, fmt, mem::take, str::FromStr, sync::Arc};
+use std::{mem::take, sync::Arc};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-#[non_exhaustive]
-pub enum ServiceName {
-    Up,
-    Io,
-    Uc,
-    Rs,
-    Rsf,
-    Api,
-    S3,
-}
+type Md5Value = GenericArray<u8, <Md5 as FixedOutputDirty>::OutputSize>;
 
-#[derive(Debug, Clone)]
-pub struct InvalidServiceName(Box<str>);
-
-impl FromStr for ServiceName {
-    type Err = InvalidServiceName;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "up" => Ok(Self::Up),
-            "io" => Ok(Self::Io),
-            "uc" => Ok(Self::Uc),
-            "rs" => Ok(Self::Rs),
-            "rsf" => Ok(Self::Rsf),
-            "api" => Ok(Self::Api),
-            "s3" => Ok(Self::S3),
-            service_name => Err(InvalidServiceName(service_name.into())),
-        }
-    }
-}
-
-impl fmt::Display for InvalidServiceName {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "invalid service name: {}", self.0)
-    }
-}
-
-impl Error for InvalidServiceName {}
-
-pub(super) type Md5Value = GenericArray<u8, <Md5 as FixedOutputDirty>::OutputSize>;
-
+/// 终端地址列表
+///
+/// 存储一个七牛服务的多个终端地址，包含主要地址列表和备选地址列表
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Endpoints {
     preferred: Arc<[Endpoint]>,
     alternative: Arc<[Endpoint]>,
     #[serde(skip)]
-    md5: OnceCell<Md5Value>,
+    md5: Arc<OnceCell<Md5Value>>,
 }
 
 impl Endpoints {
+    /// 创建终端地址列表构建器
+    ///
+    /// 必须提供一个主要终端地址
     #[inline]
     pub fn builder(endpoint: Endpoint) -> EndpointsBuilder {
         EndpointsBuilder {
@@ -69,25 +38,29 @@ impl Endpoints {
         }
     }
 
-    pub(super) fn public_uc_endpoints() -> &'static Self {
+    pub(in super::super) fn public_uc_endpoints() -> &'static Self {
         static DEFAULT_UC_ENDPOINTS: Lazy<Endpoints> = Lazy::new(|| {
             Endpoints::builder(Endpoint::new_from_domain("uc.qbox.me"))
+                .add_preferred_endpoint(Endpoint::new_from_domain("kodo-config.qiniuapi.com"))
                 .add_preferred_endpoint(Endpoint::new_from_domain("api.qiniu.com"))
                 .build()
         });
         &DEFAULT_UC_ENDPOINTS
     }
 
+    /// 创建只包含一个主要终端地址的终端地址列表
     #[inline]
     pub fn new(endpoint: Endpoint) -> Self {
         Self::builder(endpoint).build()
     }
 
+    /// 返回主要终端地址列表
     #[inline]
     pub fn preferred(&self) -> &[Endpoint] {
         &self.preferred
     }
 
+    /// 返回备选终端地址列表
     #[inline]
     pub fn alternative(&self) -> &[Endpoint] {
         &self.alternative
@@ -115,7 +88,10 @@ impl Endpoints {
         builder.build()
     }
 
-    fn from_region_provider(region_provider: &dyn RegionProvider, services: &[ServiceName]) -> ApiResult<Self> {
+    pub(super) fn from_region_provider(
+        region_provider: &dyn RegionsProvider,
+        services: &[ServiceName],
+    ) -> ApiResult<Self> {
         Ok(Self::from_region(
             region_provider.get(&Default::default())?.region(),
             services,
@@ -123,8 +99,8 @@ impl Endpoints {
     }
 
     #[cfg(feature = "async")]
-    async fn async_from_region_provider(
-        region_provider: &dyn RegionProvider,
+    pub(super) async fn async_from_region_provider(
+        region_provider: &dyn RegionsProvider,
         services: &[ServiceName],
     ) -> ApiResult<Self> {
         Ok(Self::from_region(
@@ -133,7 +109,7 @@ impl Endpoints {
         ))
     }
 
-    pub(super) fn md5(&self) -> &Md5Value {
+    pub(in super::super) fn md5(&self) -> &Md5Value {
         self.md5.get_or_init(|| {
             let mut all_endpoints: Vec<_> = self
                 .preferred()
@@ -197,6 +173,9 @@ impl From<(Vec<Endpoint>, Vec<Endpoint>)> for Endpoints {
     }
 }
 
+impl IsCacheValid for Endpoints {}
+
+/// 终端地址列表构建器
 #[derive(Clone, Debug, Default)]
 pub struct EndpointsBuilder {
     preferred: Vec<Endpoint>,
@@ -204,18 +183,21 @@ pub struct EndpointsBuilder {
 }
 
 impl EndpointsBuilder {
+    /// 添加一个主要终端地址
     #[inline]
     pub fn add_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.preferred.push(endpoint);
         self
     }
 
+    /// 添加一个备选终端地址
     #[inline]
     pub fn add_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.alternative.push(endpoint);
         self
     }
 
+    /// 构建终端地址列表
     #[inline]
     pub fn build(&mut self) -> Endpoints {
         let owned = take(self);
@@ -241,76 +223,5 @@ impl Extend<Endpoint> for EndpointsBuilder {
     #[inline]
     fn extend<T: IntoIterator<Item = Endpoint>>(&mut self, iter: T) {
         self.preferred.extend(iter)
-    }
-}
-
-#[cfg(feature = "async")]
-type BoxFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + 'a + Send>>;
-
-#[clonable]
-#[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait EndpointsProvider: Clone + fmt::Debug + Send + Sync {
-    fn get_endpoints<'e>(&'e self, services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>>;
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_endpoints<'a>(&'a self, services: &'a [ServiceName]) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
-        Box::pin(async move { self.get_endpoints(services) })
-    }
-}
-
-impl EndpointsProvider for Endpoint {
-    #[inline]
-    fn get_endpoints<'e>(&'e self, _services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>> {
-        Ok(Cow::Owned(Endpoints::builder(self.to_owned()).build()))
-    }
-}
-
-impl EndpointsProvider for Endpoints {
-    #[inline]
-    fn get_endpoints<'e>(&'e self, _services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>> {
-        Ok(Cow::Borrowed(self))
-    }
-}
-
-pub struct RegionProviderEndpoints<R: ?Sized>(R);
-
-impl<R> RegionProviderEndpoints<R> {
-    #[inline]
-    pub fn new(region_provider: R) -> Self {
-        Self(region_provider)
-    }
-}
-
-impl<R: RegionProvider + Clone> EndpointsProvider for RegionProviderEndpoints<R> {
-    #[inline]
-    fn get_endpoints<'e>(&'e self, services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>> {
-        Ok(Cow::Owned(Endpoints::from_region_provider(&self.0, services)?))
-    }
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_endpoints<'a>(&'a self, services: &'a [ServiceName]) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
-        Box::pin(async move {
-            Ok(Cow::Owned(
-                Endpoints::async_from_region_provider(&self.0, services).await?,
-            ))
-        })
-    }
-}
-
-impl<R: RegionProvider> fmt::Debug for RegionProviderEndpoints<R> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("RegionProviderEndpoints").field(&self.0).finish()
-    }
-}
-
-impl<R: RegionProvider + Clone> Clone for RegionProviderEndpoints<R> {
-    #[inline]
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
     }
 }

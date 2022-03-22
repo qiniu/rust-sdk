@@ -10,8 +10,8 @@ use qiniu_apis::{
     credential::AccessKey,
     http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
     http_client::{
-        ApiResult, BucketRegionsProvider, CallbackResult, EndpointsProvider, FileName, PartMetadata, RegionProvider,
-        RegionProviderEndpoints, RequestBuilderParts, Response, ResponseError,
+        ApiResult, BucketRegionsProvider, CallbackResult, EndpointsProvider, FileName, PartMetadata, RegionsProvider,
+        RegionsProviderEndpoints, RequestBuilderParts, Response, ResponseError,
     },
     storage::put_object::{self, sync_part::RequestBody as SyncRequestBody, SyncRequestBuilder},
 };
@@ -133,16 +133,16 @@ impl SinglePartUploader for FormUploader {
 }
 
 impl FormUploader {
-    fn upload(&self, region_provider: Option<Box<dyn RegionProvider>>, body: SyncRequestBody) -> ApiResult<Value> {
+    fn upload(&self, region_provider: Option<Box<dyn RegionsProvider>>, body: SyncRequestBody) -> ApiResult<Value> {
         let put_object = self.put_object();
         return if let Some(region_provider) = region_provider {
             _upload(
                 self,
-                put_object.new_request(RegionProviderEndpoints::new(region_provider)),
+                put_object.new_request(RegionsProviderEndpoints::new(region_provider)),
                 body,
             )
         } else {
-            let request = put_object.new_request(RegionProviderEndpoints::new(self.get_bucket_region()?));
+            let request = put_object.new_request(RegionsProviderEndpoints::new(self.get_bucket_region()?));
             _upload(self, request, body)
         };
 
@@ -166,20 +166,20 @@ impl FormUploader {
     #[cfg(feature = "async")]
     async fn async_upload(
         &self,
-        region_provider: Option<Box<dyn RegionProvider>>,
+        region_provider: Option<Box<dyn RegionsProvider>>,
         body: AsyncRequestBody,
     ) -> ApiResult<Value> {
         let put_object = self.put_object();
         return if let Some(region_provider) = region_provider {
             _async_upload(
                 self,
-                put_object.new_async_request(RegionProviderEndpoints::new(region_provider)),
+                put_object.new_async_request(RegionsProviderEndpoints::new(region_provider)),
                 body,
             )
             .await
         } else {
             let request =
-                put_object.new_async_request(RegionProviderEndpoints::new(self.async_get_bucket_region().await?));
+                put_object.new_async_request(RegionsProviderEndpoints::new(self.async_get_bucket_region().await?));
             _async_upload(self, request, body).await
         };
 
@@ -475,7 +475,7 @@ mod tests {
 
     fn single_up_domain_region() -> Region {
         Region::builder("chaotic")
-            .push_up_preferred_endpoint(("fakeup.example.com".to_owned(), 8080).into())
+            .add_up_preferred_endpoint(("fakeup.example.com".to_owned(), 8080).into())
             .build()
     }
 }

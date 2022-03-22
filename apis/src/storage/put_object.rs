@@ -42,9 +42,7 @@ pub mod sync_part {
         ) -> std::io::Result<Self> {
             Ok(self.add_part(
                 "token",
-                qiniu_http_client::SyncPart::text(String::from(
-                    token.to_token_string(&Default::default())?,
-                )),
+                qiniu_http_client::SyncPart::text(String::from(token.to_token_string(&Default::default())?)),
             ))
         }
         #[inline]
@@ -61,10 +59,7 @@ pub mod sync_part {
             reader: impl std::io::Read + 'static,
             metadata: qiniu_http_client::PartMetadata,
         ) -> Self {
-            self.add_part(
-                "file",
-                qiniu_http_client::SyncPart::stream(reader).metadata(metadata),
-            )
+            self.add_part("file", qiniu_http_client::SyncPart::stream(reader).metadata(metadata))
         }
         #[inline]
         #[must_use]
@@ -74,17 +69,11 @@ pub mod sync_part {
             bytes: impl Into<std::borrow::Cow<'static, [u8]>>,
             metadata: qiniu_http_client::PartMetadata,
         ) -> Self {
-            self.add_part(
-                "file",
-                qiniu_http_client::SyncPart::bytes(bytes).metadata(metadata),
-            )
+            self.add_part("file", qiniu_http_client::SyncPart::bytes(bytes).metadata(metadata))
         }
         #[inline]
         #[doc = "上传文件的内容"]
-        pub fn set_file_as_file_path<S: AsRef<std::ffi::OsStr> + ?Sized>(
-            self,
-            path: &S,
-        ) -> std::io::Result<Self> {
+        pub fn set_file_as_file_path<S: AsRef<std::ffi::OsStr> + ?Sized>(self, path: &S) -> std::io::Result<Self> {
             Ok(self.add_part(
                 "file",
                 qiniu_http_client::SyncPart::file_path(std::path::Path::new(path))?,
@@ -164,10 +153,7 @@ pub mod async_part {
             reader: impl futures::io::AsyncRead + Send + Unpin + 'static,
             metadata: qiniu_http_client::PartMetadata,
         ) -> Self {
-            self.add_part(
-                "file",
-                qiniu_http_client::AsyncPart::stream(reader).metadata(metadata),
-            )
+            self.add_part("file", qiniu_http_client::AsyncPart::stream(reader).metadata(metadata))
         }
         #[inline]
         #[must_use]
@@ -177,10 +163,7 @@ pub mod async_part {
             bytes: impl Into<std::borrow::Cow<'static, [u8]>>,
             metadata: qiniu_http_client::PartMetadata,
         ) -> Self {
-            self.add_part(
-                "file",
-                qiniu_http_client::AsyncPart::bytes(bytes).metadata(metadata),
-            )
+            self.add_part("file", qiniu_http_client::AsyncPart::bytes(bytes).metadata(metadata))
         }
         #[inline]
         #[doc = "上传文件的内容"]
@@ -247,9 +230,7 @@ impl<'client> Client<'client> {
         endpoints_provider: E,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
-            let mut builder = self
-                .0
-                .post(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
+            let mut builder = self.0.post(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
             builder.idempotent(qiniu_http_client::Idempotent::Default);
             builder.path("");
             builder.accept_json();
@@ -275,12 +256,10 @@ impl<'client> Client<'client> {
 }
 #[derive(Debug)]
 pub struct RequestBuilder<'req, B: 'req, E: 'req>(qiniu_http_client::RequestBuilder<'req, B, E>);
-pub type SyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
+pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub type AsyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
+pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
 impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn use_https(&mut self, use_https: bool) -> &mut Self {
@@ -301,10 +280,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
-    pub fn query_pairs(
-        &mut self,
-        query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>,
-    ) -> &mut Self {
+    pub fn query_pairs(&mut self, query_pairs: impl Into<Vec<qiniu_http_client::QueryPair<'req>>>) -> &mut Self {
         self.0.query_pairs(query_pairs);
         self
     }
@@ -364,10 +340,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &str,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -422,9 +395,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -435,9 +406,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,

@@ -4,6 +4,7 @@ use super::{
 };
 use qiniu_http::{RequestParts as HttpRequestParts, ResponseErrorKind as HttpResponseErrorKind};
 
+/// 根据七牛 API 返回的状态码作出重试决定
 #[derive(Copy, Clone, Debug, Default)]
 pub struct ErrorRetrier;
 
@@ -42,7 +43,7 @@ impl RequestRetrier for ErrorRetrier {
                 509 | 573 => RetryDecision::Throttled,
                 _ => RetryDecision::TryNextServer,
             },
-            ResponseErrorKind::ParseResponseError | ResponseErrorKind::UnexpectedEof => {
+            ResponseErrorKind::ParseResponseError => {
                 if is_idempotent(request, opts.idempotent()) {
                     RetryDecision::RetryRequest
                 } else {

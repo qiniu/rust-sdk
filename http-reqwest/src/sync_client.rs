@@ -23,14 +23,14 @@ use {
     qiniu_http::{AsyncRequest, AsyncResponseResult},
 };
 
-/// Reqwest 同步客户端
+/// Reqwest 阻塞客户端
 #[derive(Debug, Default)]
 pub struct SyncReqwestHttpCaller {
     sync_client: SyncReqwestClient,
 }
 
 impl SyncReqwestHttpCaller {
-    /// 创建 Reqwest 同步客户端
+    /// 创建 Reqwest 阻塞客户端
     #[inline]
     pub fn new(sync_client: SyncReqwestClient) -> Self {
         Self { sync_client }

@@ -1,15 +1,15 @@
 use super::{
     super::{EndpointsProvider, IpAddrWithPort, ServiceName},
-    Backoff, CachedResolver, CallbackContext, Callbacks, CallbacksBuilder, ChainedResolver,
-    Chooser, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, LimitedBackoff,
-    LimitedRetrier, NeverEmptyHandedChooser, RandomizedBackoff, RequestRetrier, ResolveAnswers,
-    Resolver, ResponseError, ShuffledChooser, ShuffledResolver, SimpleResolver,
+    callbacks::{Callbacks, CallbacksBuilder},
+    Backoff, CachedResolver, CallbackContext, ChainedResolver, Chooser, ErrorRetrier, ExponentialBackoff,
+    ExtendedCallbackContext, LimitedBackoff, LimitedRetrier, NeverEmptyHandedChooser, RandomizedBackoff,
+    RequestRetrier, ResolveAnswers, Resolver, ResponseError, ShuffledChooser, ShuffledResolver, SimpleResolver,
     SimplifiedCallbackContext, SubnetChooser, SyncRequestBuilder, TimeoutResolver,
 };
 use cfg_if::cfg_if;
 use qiniu_http::{
-    CallbackResult, HeaderName, HeaderValue, HttpCaller, Method, ResponseParts, StatusCode,
-    TransferProgressInfo, UserAgent,
+    CallbackResult, HeaderName, HeaderValue, HttpCaller, Method, ResponseParts, StatusCode, TransferProgressInfo,
+    UserAgent,
 };
 use std::{
     mem::{replace, take},
@@ -23,6 +23,11 @@ use qiniu_isahc::isahc::error::Error as IsahcError;
 #[cfg(feature = "async")]
 use super::AsyncRequestBuilder;
 
+/// HTTP 客户端
+///
+/// 用于发送 HTTP 请求的入口。
+///
+/// 其中 HTTP 请求将由 [`HttpCaller`] 实现的实例来发送，如果不指定，默认通过当前启用的功能来判定。
 #[derive(Debug, Clone)]
 pub struct HttpClient {
     inner: Arc<HttpClientInner>,
@@ -41,6 +46,7 @@ struct HttpClientInner {
 }
 
 impl HttpClient {
+    /// 创建一个新的 HTTP 客户端，使用 `http-ureq` 库作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "ureq")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "ureq")))]
@@ -48,6 +54,7 @@ impl HttpClient {
         Self::build_ureq().build()
     }
 
+    /// 创建一个新的 HTTP 客户端，使用 `http-isahc` 库作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "isahc")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "isahc")))]
@@ -55,6 +62,7 @@ impl HttpClient {
         Ok(Self::build_isahc()?.build())
     }
 
+    /// 创建一个新的 HTTP 客户端，使用 `http-reqwest` 库的阻塞实现作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "reqwest")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "reqwest")))]
@@ -62,21 +70,21 @@ impl HttpClient {
         Self::build_reqwest_sync().build()
     }
 
+    /// 创建一个新的 HTTP 客户端，使用 `http-reqwest` 库的异步实现作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(all(feature = "reqwest", feature = "async"))]
-    #[cfg_attr(
-        feature = "docs",
-        doc(cfg(all(feature = "reqwest", feature = "async")))
-    )]
+    #[cfg_attr(feature = "docs", doc(cfg(all(feature = "reqwest", feature = "async"))))]
     pub fn reqwest_async() -> Self {
         Self::build_reqwest_async().build()
     }
 
+    /// 创建一个新的 HTTP 客户端，根据当前环境变量选择 [`HttpCaller`] 实现
     #[inline]
     pub fn build_default() -> HttpClientBuilder {
         HttpClientBuilder::default()
     }
 
+    /// 创建一个新的 HTTP 客户端构建器，使用 `http-ureq` 库作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "ureq")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "ureq")))]
@@ -84,6 +92,7 @@ impl HttpClient {
         HttpClientBuilder::ureq()
     }
 
+    /// 创建一个新的 HTTP 客户端构建器，使用 `http-isahc` 库作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "isahc")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "isahc")))]
@@ -91,6 +100,7 @@ impl HttpClient {
         HttpClientBuilder::isahc()
     }
 
+    /// 创建一个新的 HTTP 客户端构建器，使用 `http-reqwest` 库的阻塞实现作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "reqwest")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "reqwest")))]
@@ -98,26 +108,27 @@ impl HttpClient {
         HttpClientBuilder::reqwest_sync()
     }
 
+    /// 创建一个新的 HTTP 客户端构建器，使用 `http-reqwest` 库的异步实现作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(all(feature = "reqwest", feature = "async"))]
-    #[cfg_attr(
-        feature = "docs",
-        doc(cfg(all(feature = "reqwest", feature = "async")))
-    )]
+    #[cfg_attr(feature = "docs", doc(cfg(all(feature = "reqwest", feature = "async"))))]
     pub fn build_reqwest_async() -> HttpClientBuilder {
         HttpClientBuilder::reqwest_async()
     }
 
+    /// 创建一个新的 HTTP 客户端，需要指定 [`HttpCaller`] 实现
     #[inline]
     pub fn new(http_caller: impl HttpCaller + 'static) -> Self {
         HttpClientBuilder::new(http_caller).build()
     }
 
+    /// 创建一个新的 HTTP 客户端构建器，需要指定 [`HttpCaller`] 实现
     #[inline]
     pub fn builder(http_caller: impl HttpCaller + 'static) -> HttpClientBuilder {
         HttpClientBuilder::new(http_caller)
     }
 
+    /// 创建 GET 请求的请求构建器
     #[inline]
     pub fn get<'r, E: EndpointsProvider + 'r>(
         &'r self,
@@ -127,15 +138,7 @@ impl HttpClient {
         self.new_sync_request(Method::GET, service_names, endpoints_provider)
     }
 
-    #[inline]
-    pub fn head<'r, E: EndpointsProvider + 'r>(
-        &'r self,
-        service_names: &'r [ServiceName],
-        endpoints_provider: E,
-    ) -> SyncRequestBuilder<'r, E> {
-        self.new_sync_request(Method::HEAD, service_names, endpoints_provider)
-    }
-
+    /// 创建 POST 请求的请求构建器
     #[inline]
     pub fn post<'r, E: EndpointsProvider + 'r>(
         &'r self,
@@ -145,6 +148,7 @@ impl HttpClient {
         self.new_sync_request(Method::POST, service_names, endpoints_provider)
     }
 
+    /// 创建 PUT 请求的请求构建器
     #[inline]
     pub fn put<'r, E: EndpointsProvider + 'r>(
         &'r self,
@@ -154,6 +158,7 @@ impl HttpClient {
         self.new_sync_request(Method::PUT, service_names, endpoints_provider)
     }
 
+    /// 创建 DELETE 请求的请求构建器
     #[inline]
     pub fn delete<'r, E: EndpointsProvider + 'r>(
         &'r self,
@@ -172,6 +177,7 @@ impl HttpClient {
         SyncRequestBuilder::new(self, method, endpoints_provider, service_names)
     }
 
+    /// 创建 GET 请求的异步请求构建器
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -183,17 +189,7 @@ impl HttpClient {
         self.new_async_request(Method::GET, service_names, endpoints_provider)
     }
 
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub fn async_head<'r, E: EndpointsProvider + 'r>(
-        &'r self,
-        service_names: &'r [ServiceName],
-        endpoints_provider: E,
-    ) -> AsyncRequestBuilder<'r, E> {
-        self.new_async_request(Method::HEAD, service_names, endpoints_provider)
-    }
-
+    /// 创建 POST 请求的异步请求构建器
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -205,6 +201,7 @@ impl HttpClient {
         self.new_async_request(Method::POST, service_names, endpoints_provider)
     }
 
+    /// 创建 PUT 请求的异步请求构建器
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -216,6 +213,7 @@ impl HttpClient {
         self.new_async_request(Method::PUT, service_names, endpoints_provider)
     }
 
+    /// 创建 DELETE 请求的异步请求构建器
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -270,6 +268,7 @@ impl HttpClient {
     }
 }
 
+/// HTTP 客户端构建器
 #[derive(Debug)]
 pub struct HttpClientBuilder {
     use_https: bool,
@@ -283,36 +282,35 @@ pub struct HttpClientBuilder {
 }
 
 impl HttpClientBuilder {
+    /// 创建一个新的 HTTP 客户端构建器，使用 `http-ureq` 库作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "ureq")]
     pub fn ureq() -> Self {
         Self::_new(Some(Box::new(qiniu_ureq::Client::default())))
     }
 
+    /// 创建一个新的 HTTP 客户端构建器，使用 `http-isahc` 库作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "isahc")]
     pub fn isahc() -> Result<Self, IsahcError> {
-        Ok(Self::_new(Some(Box::new(
-            qiniu_isahc::Client::default_client()?,
-        ))))
+        Ok(Self::_new(Some(Box::new(qiniu_isahc::Client::default_client()?))))
     }
 
+    /// 创建一个新的 HTTP 客户端构建器，使用 `http-reqwest` 库的阻塞实现作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "reqwest")]
     pub fn reqwest_sync() -> Self {
-        Self::_new(Some(Box::new(
-            qiniu_reqwest::SyncReqwestHttpCaller::default(),
-        )))
+        Self::_new(Some(Box::new(qiniu_reqwest::SyncReqwestHttpCaller::default())))
     }
 
+    /// 创建一个新的 HTTP 客户端构建器，使用 `http-reqwest` 库的阻塞实现作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(all(feature = "reqwest", feature = "async"))]
     pub fn reqwest_async() -> Self {
-        Self::_new(Some(Box::new(
-            qiniu_reqwest::AsyncReqwestHttpCaller::default(),
-        )))
+        Self::_new(Some(Box::new(qiniu_reqwest::AsyncReqwestHttpCaller::default())))
     }
 
+    /// 创建一个新的 HTTP 客户端构建器，需要指定 [`HttpCaller`] 实现
     #[inline]
     pub fn new(http_caller: impl HttpCaller + 'static) -> Self {
         Self::_new(Some(Box::new(http_caller)))
@@ -331,72 +329,88 @@ impl HttpClientBuilder {
         }
     }
 
+    /// 设置是否使用 HTTPS
+    ///
+    /// 默认为使用 HTTPS
     #[inline]
     pub fn use_https(&mut self, use_https: bool) -> &mut Self {
         self.use_https = use_https;
         self
     }
 
+    /// 设置追加的用户代理
     #[inline]
     pub fn appended_user_agent(&mut self, appended_user_agent: impl Into<UserAgent>) -> &mut Self {
         self.appended_user_agent = appended_user_agent.into();
         self
     }
 
+    /// 设置 HTTP 客户端实现
+    ///
+    /// 默认根据启用的功能自动选择。
     #[inline]
     pub fn http_caller(&mut self, http_caller: impl HttpCaller + 'static) -> &mut Self {
         self.http_caller = Some(Box::new(http_caller));
         self
     }
 
+    /// 设置重试器
+    ///
+    /// 默认使用 [`ErrorRetrier`]，并使用 [`LimitedRetrier`] 对其进行包装。
     #[inline]
     pub fn request_retrier(&mut self, request_retrier: impl RequestRetrier + 'static) -> &mut Self {
         self.request_retrier = Some(Box::new(request_retrier));
         self
     }
 
+    /// 设置退避器
+    ///
+    /// 默认使用 [`ExponentialBackoff`]，并使用 [`LimitedBackoff`] 和 [`RandomizedBackoff`] 对其进行包装。
     #[inline]
     pub fn backoff(&mut self, backoff: impl Backoff + 'static) -> &mut Self {
         self.backoff = Some(Box::new(backoff));
         self
     }
 
+    /// 设置选择器
+    ///
+    /// 默认使用 [`SubnetChooser`]，并使用 [`ShuffledChooser`] 和 [`NeverEmptyHandedChooser`] 对其进行包装。
     #[inline]
     pub fn chooser(&mut self, chooser: impl Chooser + 'static) -> &mut Self {
         self.chooser = Some(Box::new(chooser));
         self
     }
 
+    /// 设置域名解析器
+    ///
+    /// 默认通过当前启用的功能来判定，并使用 [`CachedResolver`] 和 [`ShuffledResolver`] 对其进行包装。
     #[inline]
     pub fn resolver(&mut self, resolver: impl Resolver + 'static) -> &mut Self {
         self.resolver = Some(Box::new(resolver));
         self
     }
 
+    /// 设置上传进度回调函数
     #[inline]
     pub fn on_uploading_progress(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> CallbackResult
-            + Send
-            + Sync
-            + 'static,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> CallbackResult + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_uploading_progress(callback);
         self
     }
 
+    /// 设置响应状态码回调函数
     #[inline]
     pub fn on_receive_response_status(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> CallbackResult
-            + Send
-            + Sync
-            + 'static,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> CallbackResult + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_receive_response_status(callback);
         self
     }
 
+    /// 设置响应 HTTP 头回调函数
     #[inline]
     pub fn on_receive_response_header(
         &mut self,
@@ -409,6 +423,7 @@ impl HttpClientBuilder {
         self
     }
 
+    /// 设置域名解析前回调函数
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
@@ -418,30 +433,27 @@ impl HttpClientBuilder {
         self
     }
 
+    /// 设置域名解析成功回调函数
     #[inline]
     pub fn on_domain_resolved(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> CallbackResult
-            + Send
-            + Sync
-            + 'static,
+        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> CallbackResult + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_domain_resolved(callback);
         self
     }
 
+    /// 设置 IP 地址选择前回调函数
     #[inline]
     pub fn on_to_choose_ips(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> CallbackResult
-            + Send
-            + Sync
-            + 'static,
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> CallbackResult + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_to_choose_ips(callback);
         self
     }
 
+    /// 设置 IP 地址选择成功回调函数
     #[inline]
     pub fn on_ips_chosen(
         &mut self,
@@ -454,6 +466,7 @@ impl HttpClientBuilder {
         self
     }
 
+    /// 设置 HTTP 请求签名前回调函数
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
@@ -463,6 +476,7 @@ impl HttpClientBuilder {
         self
     }
 
+    /// 设置 HTTP 请求前回调函数
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
@@ -472,63 +486,54 @@ impl HttpClientBuilder {
         self
     }
 
+    /// 设置 HTTP 响应成功回调函数
     #[inline]
     pub fn on_response(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseParts) -> CallbackResult
-            + Send
-            + Sync
-            + 'static,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseParts) -> CallbackResult + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_response(callback);
         self
     }
 
+    /// 设置 HTTP 响应出错回调函数
     #[inline]
     pub fn on_error(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> CallbackResult
-            + Send
-            + Sync
-            + 'static,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> CallbackResult + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_error(callback);
         self
     }
 
+    /// 设置退避前回调函数
     #[inline]
     pub fn on_before_backoff(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult
-            + Send
-            + Sync
-            + 'static,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_before_backoff(callback);
         self
     }
 
+    /// 设置退避后回调函数
     #[inline]
     pub fn on_after_backoff(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult
-            + Send
-            + Sync
-            + 'static,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_after_backoff(callback);
         self
     }
 
+    /// 构建 HTTP 客户端
     pub fn build(&mut self) -> HttpClient {
         HttpClient {
             inner: Arc::new(HttpClientInner {
                 use_https: replace(&mut self.use_https, true),
                 appended_user_agent: take(&mut self.appended_user_agent),
-                http_caller: take(&mut self.http_caller)
-                    .unwrap_or_else(HttpClient::default_http_caller),
-                request_retrier: take(&mut self.request_retrier)
-                    .unwrap_or_else(HttpClient::default_retrier),
+                http_caller: take(&mut self.http_caller).unwrap_or_else(HttpClient::default_http_caller),
+                request_retrier: take(&mut self.request_retrier).unwrap_or_else(HttpClient::default_retrier),
                 backoff: take(&mut self.backoff).unwrap_or_else(HttpClient::default_backoff),
                 chooser: take(&mut self.chooser).unwrap_or_else(HttpClient::default_chooser),
                 resolver: take(&mut self.resolver).unwrap_or_else(HttpClient::default_resolver),
@@ -553,6 +558,7 @@ impl Default for HttpClient {
 }
 
 impl HttpClient {
+    /// 获得默认的 [`HttpCaller`] 实例
     #[inline]
     pub fn default_http_caller() -> Box<dyn HttpCaller> {
         cfg_if! {
@@ -570,6 +576,7 @@ impl HttpClient {
         }
     }
 
+    /// 获得默认的 [`Resolver`] 实例
     pub fn default_resolver() -> Box<dyn Resolver> {
         let chained_resolver = {
             let base_resolver = Box::new(TimeoutResolver::<SimpleResolver>::default());
@@ -583,9 +590,8 @@ impl HttpClient {
             }
 
             #[cfg(all(feature = "trust_dns", feature = "async"))]
-            if let Ok(resolver) = async_std::task::block_on(async {
-                super::TrustDnsResolver::from_system_conf().await
-            }) {
+            if let Ok(resolver) = async_std::task::block_on(async { super::TrustDnsResolver::from_system_conf().await })
+            {
                 builder.prepend_resolver(Box::new(resolver));
             }
 
@@ -596,16 +602,19 @@ impl HttpClient {
         Box::new(shuffled_resolver)
     }
 
+    /// 获得默认的 [`Chooser`] 实例
     #[inline]
     pub fn default_chooser() -> Box<dyn Chooser> {
         Box::new(NeverEmptyHandedChooser::<ShuffledChooser<SubnetChooser>>::default())
     }
 
+    /// 获得默认的 [`RequestRetrier`] 实例
     #[inline]
     pub fn default_retrier() -> Box<dyn RequestRetrier> {
         Box::new(LimitedRetrier::<ErrorRetrier>::default())
     }
 
+    /// 获得默认的 [`Backoff`] 实例
     #[inline]
     pub fn default_backoff() -> Box<dyn Backoff> {
         Box::new(LimitedBackoff::<RandomizedBackoff<ExponentialBackoff>>::default())

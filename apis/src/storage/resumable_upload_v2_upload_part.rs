@@ -22,10 +22,7 @@ impl PathParams {
             all_segments.push(segment);
         }
         all_segments.push(std::borrow::Cow::Borrowed("objects"));
-        all_segments.push(
-            self.r#object_name
-                .unwrap_or(std::borrow::Cow::Borrowed("~")),
-        );
+        all_segments.push(self.r#object_name.unwrap_or(std::borrow::Cow::Borrowed("~")));
         if let Some(segment) = self.r#upload_id {
             all_segments.push(std::borrow::Cow::Borrowed("uploads"));
             all_segments.push(segment);
@@ -41,30 +38,21 @@ impl PathParams {
     #[inline]
     #[must_use]
     #[doc = "存储空间名称"]
-    pub fn set_bucket_name_as_str(
-        mut self,
-        value: impl Into<std::borrow::Cow<'static, str>>,
-    ) -> Self {
+    pub fn set_bucket_name_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#bucket_name = Some(value.into());
         self
     }
     #[inline]
     #[must_use]
     #[doc = "对象名称"]
-    pub fn set_object_name_as_str(
-        mut self,
-        value: impl Into<std::borrow::Cow<'static, str>>,
-    ) -> Self {
+    pub fn set_object_name_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#object_name = Some(qiniu_utils::base64::urlsafe(value.into().as_bytes()).into());
         self
     }
     #[inline]
     #[must_use]
     #[doc = "在服务端申请的 Multipart Upload 任务 id"]
-    pub fn set_upload_id_as_str(
-        mut self,
-        value: impl Into<std::borrow::Cow<'static, str>>,
-    ) -> Self {
+    pub fn set_upload_id_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#upload_id = Some(value.into());
         self
     }
@@ -162,9 +150,7 @@ impl<'a> From<RequestHeaders> for std::borrow::Cow<'a, qiniu_http_client::http::
         std::borrow::Cow::Owned(m.map)
     }
 }
-impl<'a> From<&'a RequestHeaders>
-    for std::borrow::Cow<'a, qiniu_http_client::http::header::HeaderMap>
-{
+impl<'a> From<&'a RequestHeaders> for std::borrow::Cow<'a, qiniu_http_client::http::header::HeaderMap> {
     #[inline]
     fn from(m: &'a RequestHeaders) -> Self {
         std::borrow::Cow::Borrowed(&m.map)
@@ -176,8 +162,7 @@ impl RequestHeaders {
     #[doc = "上传块内容的 md5 值，如果指定服务端会进行校验，不指定不校验"]
     pub fn set_md_5(self, value: impl Into<qiniu_http_client::http::header::HeaderValue>) -> Self {
         self.insert(
-            qiniu_http_client::http::header::HeaderName::from_bytes("Content-MD5".as_bytes())
-                .unwrap(),
+            qiniu_http_client::http::header::HeaderName::from_bytes("Content-MD5".as_bytes()).unwrap(),
             value.into(),
         )
     }
@@ -219,13 +204,7 @@ impl std::convert::AsMut<serde_json::Value> for ResponseBody {
 impl ResponseBody {
     #[doc = "获取 上传块内容的 etag，用来标识块，completeMultipartUpload API 调用的时候作为参数进行文件合成"]
     pub fn get_etag_as_str(&self) -> &str {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("etag")
-            .unwrap()
-            .as_str()
-            .unwrap()
+        self.0.as_object().unwrap().get("etag").unwrap().as_str().unwrap()
     }
 }
 impl ResponseBody {
@@ -244,13 +223,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "获取 上传块内容的 MD5 值"]
     pub fn get_md_5_as_str(&self) -> &str {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("md5")
-            .unwrap()
-            .as_str()
-            .unwrap()
+        self.0.as_object().unwrap().get("md5").unwrap().as_str().unwrap()
     }
 }
 impl ResponseBody {
@@ -279,21 +252,13 @@ impl<'client> Client<'client> {
         &self,
         endpoints_provider: E,
         path_params: PathParams,
-        upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider
-            + std::clone::Clone
-            + 'client,
+        upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider + std::clone::Clone + 'client,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
-            let mut builder = self
-                .0
-                .put(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
+            let mut builder = self.0.put(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::uptoken(upload_token));
             builder.idempotent(qiniu_http_client::Idempotent::Always);
-            builder.path(crate::base_utils::join_path(
-                "/buckets",
-                "",
-                path_params.build(),
-            ));
+            builder.path(crate::base_utils::join_path("/buckets", "", path_params.build()));
             builder.accept_json();
             builder
         })
@@ -304,9 +269,7 @@ impl<'client> Client<'client> {
         &self,
         endpoints_provider: E,
         path_params: PathParams,
-        upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider
-            + std::clone::Clone
-            + 'client,
+        upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider + std::clone::Clone + 'client,
     ) -> AsyncRequestBuilder<'client, E> {
         RequestBuilder({
             let mut builder = self
@@ -314,11 +277,7 @@ impl<'client> Client<'client> {
                 .async_put(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::uptoken(upload_token));
             builder.idempotent(qiniu_http_client::Idempotent::Always);
-            builder.path(crate::base_utils::join_path(
-                "/buckets",
-                "",
-                path_params.build(),
-            ));
+            builder.path(crate::base_utils::join_path("/buckets", "", path_params.build()));
             builder.accept_json();
             builder
         })
@@ -326,12 +285,10 @@ impl<'client> Client<'client> {
 }
 #[derive(Debug)]
 pub struct RequestBuilder<'req, B: 'req, E: 'req>(qiniu_http_client::RequestBuilder<'req, B, E>);
-pub type SyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
+pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub type AsyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
+pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
 impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn use_https(&mut self, use_https: bool) -> &mut Self {
@@ -352,10 +309,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
-    pub fn query_pairs(
-        &mut self,
-        query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>,
-    ) -> &mut Self {
+    pub fn query_pairs(&mut self, query_pairs: impl Into<Vec<qiniu_http_client::QueryPair<'req>>>) -> &mut Self {
         self.0.query_pairs(query_pairs);
         self
     }
@@ -415,10 +369,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &str,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -473,9 +424,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -486,9 +435,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -560,12 +507,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBuilder<'req, E> {
     pub fn call(
         &mut self,
-        body: impl std::io::Read
-            + qiniu_http_client::http::Reset
-            + std::fmt::Debug
-            + Send
-            + Sync
-            + 'static,
+        body: impl std::io::Read + qiniu_http_client::http::Reset + std::fmt::Debug + Send + Sync + 'static,
         content_length: u64,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0.stream_as_body(body, content_length, None);

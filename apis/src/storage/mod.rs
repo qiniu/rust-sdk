@@ -181,9 +181,7 @@ impl<'client> Client<'client> {
     }
     #[inline]
     #[doc = "为后续分片上传创建一个新的块，同时上传第一片数据"]
-    pub fn resumable_upload_v1_make_block(
-        &self,
-    ) -> resumable_upload_v1_make_block::Client<'client> {
+    pub fn resumable_upload_v1_make_block(&self) -> resumable_upload_v1_make_block::Client<'client> {
         resumable_upload_v1_make_block::Client::new(self.0)
     }
     #[inline]
@@ -214,16 +212,12 @@ impl<'client> Client<'client> {
     }
     #[inline]
     #[doc = "列举出指定 UploadId 所属任务所有已经上传成功的分片"]
-    pub fn resumable_upload_v2_list_parts(
-        &self,
-    ) -> resumable_upload_v2_list_parts::Client<'client> {
+    pub fn resumable_upload_v2_list_parts(&self) -> resumable_upload_v2_list_parts::Client<'client> {
         resumable_upload_v2_list_parts::Client::new(self.0)
     }
     #[inline]
     #[doc = "初始化一个 Multipart Upload 任务之后，可以根据指定的对象名称和 UploadId 来分片上传数据"]
-    pub fn resumable_upload_v2_upload_part(
-        &self,
-    ) -> resumable_upload_v2_upload_part::Client<'client> {
+    pub fn resumable_upload_v2_upload_part(&self) -> resumable_upload_v2_upload_part::Client<'client> {
         resumable_upload_v2_upload_part::Client::new(self.0)
     }
     #[inline]

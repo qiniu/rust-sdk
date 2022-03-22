@@ -15,7 +15,7 @@ use once_cell::sync::OnceCell;
 use qiniu_apis::{
     http::ResponseParts,
     http_client::{
-        BucketName, BucketRegionsProvider, CallbackResult, RegionProvider, RequestBuilderParts, ResponseError,
+        BucketName, BucketRegionsProvider, CallbackResult, RegionsProvider, RequestBuilderParts, ResponseError,
     },
 };
 use std::{io::Result as IOResult, mem::take, sync::Arc};
@@ -30,7 +30,7 @@ pub struct Bucket(Arc<BucketInner>);
 struct BucketInner {
     name: BucketName,
     objects_manager: ObjectsManager,
-    region_provider: Option<Box<dyn RegionProvider>>,
+    region_provider: Option<Box<dyn RegionsProvider>>,
     bucket_regions_provider: OnceCell<BucketRegionsProvider>,
 
     #[cfg(feature = "async")]
@@ -41,7 +41,7 @@ impl Bucket {
     pub(super) fn new(
         name: BucketName,
         objects_manager: ObjectsManager,
-        region_provider: Option<Box<dyn RegionProvider>>,
+        region_provider: Option<Box<dyn RegionsProvider>>,
     ) -> Self {
         Self(Arc::new(BucketInner {
             name,
@@ -133,11 +133,11 @@ impl Bucket {
         BatchOperations::new(self)
     }
 
-    pub(super) fn region_provider(&self) -> IOResult<&dyn RegionProvider> {
+    pub(super) fn region_provider(&self) -> IOResult<&dyn RegionsProvider> {
         self.0
             .region_provider
             .as_ref()
-            .map(|r| Ok(r as &dyn RegionProvider))
+            .map(|r| Ok(r as &dyn RegionsProvider))
             .unwrap_or_else(|| {
                 self.0
                     .bucket_regions_provider
@@ -152,12 +152,12 @@ impl Bucket {
                             self.name().to_owned(),
                         ))
                     })
-                    .map(|r| r as &dyn RegionProvider)
+                    .map(|r| r as &dyn RegionsProvider)
             })
     }
 
     #[cfg(feature = "async")]
-    pub(super) async fn async_region_provider(&self) -> IOResult<&dyn RegionProvider> {
+    pub(super) async fn async_region_provider(&self) -> IOResult<&dyn RegionsProvider> {
         return if let Some(region_provider) = self.0.region_provider.as_ref() {
             Ok(region_provider)
         } else {
@@ -165,7 +165,7 @@ impl Bucket {
                 .async_bucket_regions_provider
                 .get_or_try_init(create_region_provider(&self.0.objects_manager, self.name()))
                 .await
-                .map(|r| r as &dyn RegionProvider)
+                .map(|r| r as &dyn RegionsProvider)
         };
 
         async fn create_region_provider(

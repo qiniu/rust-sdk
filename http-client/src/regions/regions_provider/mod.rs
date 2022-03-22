@@ -15,34 +15,29 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-mod cache_key;
 mod regions_cache;
 
 mod bucket_regions_queryer;
-pub use bucket_regions_queryer::{
-    BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
-};
+pub use bucket_regions_queryer::{BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder};
 
-mod regions_provider;
-pub use regions_provider::RegionsProvider;
+mod all_regions_provider;
+pub use all_regions_provider::AllRegionsProvider;
 
-mod static_region_provider;
-pub use static_region_provider::StaticRegionsProvider;
+mod static_regions_provider;
+pub use static_regions_provider::StaticRegionsProvider;
 
-mod cached_regions_provider;
-pub use cached_regions_provider::CachedRegionsProvider;
+mod cached_all_regions_provider;
+pub use cached_all_regions_provider::CachedAllRegionsProvider;
 
 mod structs;
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
-/// 区域信息提供者
-///
-/// 为区域信息提供者的实现提供接口支持
+/// 区域信息获取接口
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait RegionProvider: Clone + Debug + Sync + Send {
+pub trait RegionsProvider: Clone + Debug + Sync + Send {
     /// 返回七牛区域信息
     fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion>;
 
@@ -69,15 +64,20 @@ pub trait RegionProvider: Clone + Debug + Sync + Send {
         Box::pin(async move { self.get_all(opts) })
     }
 
+    /// 获取缓存控制器
+    ///
+    /// 如果缓存存在，则返回缓存控制器，否则返回 [`None`]
     #[inline]
     fn cache_controller(&self) -> Option<&dyn CacheController> {
         None
     }
 }
 
+/// 获取区域信息的选项
 #[derive(Clone, Debug, Default)]
 pub struct GetOptions {}
 
+/// 获取的区域信息
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GotRegion {
     region: Region,
@@ -104,26 +104,31 @@ impl From<Region> for GotRegion {
 }
 
 impl GotRegion {
+    /// 获取的区域信息
     #[inline]
     pub fn region(&self) -> &Region {
         &self.region
     }
 
+    /// 获取的区域信息的可变引用
     #[inline]
     pub fn region_mut(&mut self) -> &mut Region {
         &mut self.region
     }
 
+    /// 获取的生命周期
     #[inline]
     pub fn lifetime(&self) -> Option<Duration> {
         self.lifetime
     }
 
+    /// 获取的生命周期的可变引用
     #[inline]
     pub fn lifetime_mut(&mut self) -> &mut Option<Duration> {
         &mut self.lifetime
     }
 
+    /// 转换为区域信息
     #[inline]
     pub fn into_region(self) -> Region {
         self.region
@@ -131,7 +136,6 @@ impl GotRegion {
 }
 
 impl IsCacheValid for GotRegion {
-    #[inline]
     fn is_valid(&self) -> bool {
         if let Some(lifetime) = self.lifetime {
             if let Ok(elapsed) = self.got_at.elapsed() {
@@ -170,20 +174,21 @@ impl DerefMut for GotRegion {
     }
 }
 
-impl RegionProvider for Region {
+impl RegionsProvider for Region {
     #[inline]
     fn get(&self, _opts: &GetOptions) -> ApiResult<GotRegion> {
         Ok(self.to_owned().into())
     }
 }
 
-impl RegionProvider for GotRegion {
+impl RegionsProvider for GotRegion {
     #[inline]
     fn get(&self, _opts: &GetOptions) -> ApiResult<GotRegion> {
         Ok(self.to_owned())
     }
 }
 
+/// 获取的区域列表信息
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GotRegions {
     regions: Vec<Region>,
@@ -216,6 +221,13 @@ impl FromIterator<Region> for GotRegions {
     }
 }
 
+impl Extend<Region> for GotRegions {
+    #[inline]
+    fn extend<T: IntoIterator<Item = Region>>(&mut self, iter: T) {
+        self.regions.extend(iter)
+    }
+}
+
 impl<'a> IntoIterator for &'a GotRegions {
     type Item = &'a Region;
     type IntoIter = std::slice::Iter<'a, Region>;
@@ -237,26 +249,31 @@ impl IntoIterator for GotRegions {
 }
 
 impl GotRegions {
+    /// 获取的区域信息列表
     #[inline]
     pub fn regions(&self) -> &[Region] {
         &self.regions
     }
 
+    /// 获取的区域信息列表的可变引用
     #[inline]
     pub fn regions_mut(&mut self) -> &mut Vec<Region> {
         &mut self.regions
     }
 
+    /// 获取的生命周期
     #[inline]
     pub fn lifetime(&self) -> Option<Duration> {
         self.lifetime
     }
 
+    /// 获取的生命周期的可变引用
     #[inline]
     pub fn lifetime_mut(&mut self) -> &mut Option<Duration> {
         &mut self.lifetime
     }
 
+    /// 转换为区域信息列表
     #[inline]
     pub fn into_regions(self) -> Vec<Region> {
         self.regions
@@ -317,7 +334,7 @@ impl DerefMut for GotRegions {
     }
 }
 
-impl RegionProvider for GotRegions {
+impl RegionsProvider for GotRegions {
     #[inline]
     fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
         self.get_all(opts).map(|regions| {

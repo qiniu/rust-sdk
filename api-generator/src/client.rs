@@ -117,16 +117,21 @@ impl ApiDetailedDescription {
         let request_builder_definition_token_stream = request_builder_definition_token_stream();
         let new_request_method_token_stream = new_request_method_token_stream(self);
         let new_async_request_method_token_stream = new_async_request_method_token_stream(self);
-        let path_params_token_stream = self.request.path_params.as_ref().map(|path_params| {
-            path_params.to_rust_token_stream("PathParams", "调用 API 所用的路径参数")
-        });
-        let query_names_token_stream = self.request.query_names.as_ref().map(|query_names| {
-            query_names.to_rust_token_stream("QueryParams", "调用 API 所用的 URL 查询参数")
-        });
-        let request_header_names_token_stream =
-            self.request.header_names.as_ref().map(|header_names| {
-                header_names.to_rust_token_stream("RequestHeaders", "调用 API 所用的 HTTP 头参数")
-            });
+        let path_params_token_stream = self
+            .request
+            .path_params
+            .as_ref()
+            .map(|path_params| path_params.to_rust_token_stream("PathParams", "调用 API 所用的路径参数"));
+        let query_names_token_stream = self
+            .request
+            .query_names
+            .as_ref()
+            .map(|query_names| query_names.to_rust_token_stream("QueryParams", "调用 API 所用的 URL 查询参数"));
+        let request_header_names_token_stream = self
+            .request
+            .header_names
+            .as_ref()
+            .map(|header_names| header_names.to_rust_token_stream("RequestHeaders", "调用 API 所用的 HTTP 头参数"));
         let response_header_names_token_stream =
             self.response.header_names.as_ref().map(|header_names| {
                 header_names.to_rust_token_stream("ResponseHeaders", "获取 API 响应的 HTTP 头参数")
@@ -138,26 +143,21 @@ impl ApiDetailedDescription {
             Some(RequestBody::FormUrlencoded(form_struct)) => {
                 Some(form_struct.to_rust_token_stream("RequestBody", "调用 API 所用的请求体参数"))
             }
-            Some(RequestBody::MultipartFormData(multipart_struct)) => Some(
-                multipart_struct.to_rust_token_stream("RequestBody", "调用 API 所用的请求体参数"),
-            ),
+            Some(RequestBody::MultipartFormData(multipart_struct)) => {
+                Some(multipart_struct.to_rust_token_stream("RequestBody", "调用 API 所用的请求体参数"))
+            }
             _ => None,
         };
         let response_body_token_stream = match &self.response.body {
             Some(ResponseBody::Json(json_struct)) => {
                 Some(json_struct.to_rust_token_stream("ResponseBody", "获取 API 所用的响应体参数"))
             }
-            None => Some(
-                JsonType::default()
-                    .to_rust_token_stream("ResponseBody", "获取 API 所用的响应体参数"),
-            ),
+            None => Some(JsonType::default().to_rust_token_stream("ResponseBody", "获取 API 所用的响应体参数")),
             Some(ResponseBody::BinaryDataStream) => None,
         };
         let request_builder_methods_token_stream = request_builder_methods_token_stream();
-        let sync_request_builder_methods_token_stream =
-            sync_request_builder_methods_token_stream(self);
-        let async_request_builder_methods_token_stream =
-            async_request_builder_methods_token_stream(self);
+        let sync_request_builder_methods_token_stream = sync_request_builder_methods_token_stream(self);
+        let async_request_builder_methods_token_stream = async_request_builder_methods_token_stream(self);
 
         return quote! {
             #path_params_token_stream
@@ -203,10 +203,8 @@ impl ApiDetailedDescription {
         }
 
         fn new_request_method_token_stream(description: &ApiDetailedDescription) -> TokenStream {
-            let new_request_impl =
-                impl_request_method_token_stream(description, &quote! {endpoints_provider}, true);
-            let new_request_params_token_stream =
-                new_request_params_token_stream(description, &quote! {'client});
+            let new_request_impl = impl_request_method_token_stream(description, &quote! {endpoints_provider}, true);
+            let new_request_params_token_stream = new_request_params_token_stream(description, &quote! {'client});
             quote! {
                 #[inline]
                 pub fn new_request<E: qiniu_http_client::EndpointsProvider + 'client>(
@@ -219,13 +217,10 @@ impl ApiDetailedDescription {
             }
         }
 
-        fn new_async_request_method_token_stream(
-            description: &ApiDetailedDescription,
-        ) -> TokenStream {
+        fn new_async_request_method_token_stream(description: &ApiDetailedDescription) -> TokenStream {
             let new_async_request_impl =
                 impl_request_method_token_stream(description, &quote! {endpoints_provider}, false);
-            let new_request_params_token_stream =
-                new_request_params_token_stream(description, &quote! {'client});
+            let new_request_params_token_stream = new_request_params_token_stream(description, &quote! {'client});
             quote! {
                 #[inline]
                 #[cfg(feature = "async")]
@@ -276,9 +271,7 @@ impl ApiDetailedDescription {
                         &[#(#service_names),*]
                     }
                 };
-                statements.push(
-                    quote! {let mut builder = self.0.#method_name(#service_names, #into_endpoints)},
-                );
+                statements.push(quote! {let mut builder = self.0.#method_name(#service_names, #into_endpoints)});
             }
 
             if let Some(authorization) = &description.request.authorization {
@@ -316,10 +309,7 @@ impl ApiDetailedDescription {
                 statements.push(path_call_token_stream);
             }
 
-            if matches!(
-                &description.response.body,
-                Some(ResponseBody::BinaryDataStream),
-            ) {
+            if matches!(&description.response.body, Some(ResponseBody::BinaryDataStream),) {
                 statements.push(quote! {builder.accept_application_octet_stream()});
             } else {
                 statements.push(quote! {builder.accept_json()});
@@ -375,7 +365,7 @@ impl ApiDetailedDescription {
                 }
 
                 #[inline]
-                pub fn query_pairs(&mut self, query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>) -> &mut Self {
+                pub fn query_pairs(&mut self, query_pairs: impl Into<Vec<qiniu_http_client::QueryPair<'req>>>) -> &mut Self {
                     self.0.query_pairs(query_pairs);
                     self
                 }
@@ -595,18 +585,12 @@ impl ApiDetailedDescription {
             }
         }
 
-        fn sync_request_builder_methods_token_stream(
-            description: &ApiDetailedDescription,
-        ) -> TokenStream {
+        fn sync_request_builder_methods_token_stream(description: &ApiDetailedDescription) -> TokenStream {
             let (call_params, set_body_call) = match &description.request.body {
-                Some(RequestBody::Json(_)) => (
-                    Some(quote! {body: &RequestBody}),
-                    quote! {self.0.json(body)?},
-                ),
-                Some(RequestBody::FormUrlencoded(_)) => (
-                    Some(quote! {body: RequestBody}),
-                    quote! {self.0.post_form(body)},
-                ),
+                Some(RequestBody::Json(_)) => (Some(quote! {body: &RequestBody}), quote! {self.0.json(body)?}),
+                Some(RequestBody::FormUrlencoded(_)) => {
+                    (Some(quote! {body: RequestBody}), quote! {self.0.post_form(body)})
+                }
                 Some(RequestBody::MultipartFormData(_)) => (
                     Some(quote! {body: sync_part::RequestBody}),
                     quote! {self.0.multipart(body)?},
@@ -635,17 +619,12 @@ impl ApiDetailedDescription {
                 ),
                 None => (None, quote! {&mut self.0}),
             };
-            let (response_body_type, parse_body_call) = if matches!(
-                &description.response.body,
-                Some(ResponseBody::BinaryDataStream)
-            ) {
-                (
-                    quote! {qiniu_http_client::SyncResponseBody},
-                    quote! {response},
-                )
-            } else {
-                (quote! {ResponseBody}, quote! {response.parse_json()?})
-            };
+            let (response_body_type, parse_body_call) =
+                if matches!(&description.response.body, Some(ResponseBody::BinaryDataStream)) {
+                    (quote! {qiniu_http_client::SyncResponseBody}, quote! {response})
+                } else {
+                    (quote! {ResponseBody}, quote! {response.parse_json()?})
+                };
 
             quote! {
                 pub fn call(&mut self, #call_params) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<#response_body_type>> {
@@ -657,18 +636,12 @@ impl ApiDetailedDescription {
             }
         }
 
-        fn async_request_builder_methods_token_stream(
-            description: &ApiDetailedDescription,
-        ) -> TokenStream {
+        fn async_request_builder_methods_token_stream(description: &ApiDetailedDescription) -> TokenStream {
             let (call_params, set_body_call) = match &description.request.body {
-                Some(RequestBody::Json(_)) => (
-                    Some(quote! {body: &RequestBody}),
-                    quote! {self.0.json(body)?},
-                ),
-                Some(RequestBody::FormUrlencoded(_)) => (
-                    Some(quote! {body: RequestBody}),
-                    quote! {self.0.post_form(body)},
-                ),
+                Some(RequestBody::Json(_)) => (Some(quote! {body: &RequestBody}), quote! {self.0.json(body)?}),
+                Some(RequestBody::FormUrlencoded(_)) => {
+                    (Some(quote! {body: RequestBody}), quote! {self.0.post_form(body)})
+                }
                 Some(RequestBody::MultipartFormData(_)) => (
                     Some(quote! {body: async_part::RequestBody}),
                     quote! {self.0.multipart(body).await?},
@@ -698,17 +671,12 @@ impl ApiDetailedDescription {
                 ),
                 None => (None, quote! {&mut self.0}),
             };
-            let (response_body_type, parse_body_call) = if matches!(
-                &description.response.body,
-                Some(ResponseBody::BinaryDataStream)
-            ) {
-                (
-                    quote! {qiniu_http_client::AsyncResponseBody},
-                    quote! {response},
-                )
-            } else {
-                (quote! {ResponseBody}, quote! {response.parse_json().await?})
-            };
+            let (response_body_type, parse_body_call) =
+                if matches!(&description.response.body, Some(ResponseBody::BinaryDataStream)) {
+                    (quote! {qiniu_http_client::AsyncResponseBody}, quote! {response})
+                } else {
+                    (quote! {ResponseBody}, quote! {response.parse_json().await?})
+                };
 
             quote! {
                 pub async fn call(&mut self, #call_params) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<#response_body_type>> {

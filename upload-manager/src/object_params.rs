@@ -1,14 +1,14 @@
 use mime::Mime;
 use qiniu_apis::{
     http::Extensions,
-    http_client::{FileName, RegionProvider},
+    http_client::{FileName, RegionsProvider},
 };
 use qiniu_utils::ObjectName;
 use std::{collections::HashMap, mem::take, time::Duration};
 
 #[derive(Debug, Default)]
 pub struct ObjectParams {
-    region_provider: Option<Box<dyn RegionProvider>>,
+    region_provider: Option<Box<dyn RegionsProvider>>,
     object_name: Option<ObjectName>,
     file_name: Option<FileName>,
     content_type: Option<Mime>,
@@ -25,12 +25,12 @@ impl ObjectParams {
     }
 
     #[inline]
-    pub fn region_provider(&self) -> Option<&dyn RegionProvider> {
+    pub fn region_provider(&self) -> Option<&dyn RegionsProvider> {
         self.region_provider.as_deref()
     }
 
     #[inline]
-    pub fn region_provider_mut(&mut self) -> &mut Option<Box<dyn RegionProvider>> {
+    pub fn region_provider_mut(&mut self) -> &mut Option<Box<dyn RegionsProvider>> {
         &mut self.region_provider
     }
 
@@ -125,7 +125,7 @@ impl Default for ObjectParamsBuilder {
 
 impl ObjectParamsBuilder {
     #[inline]
-    pub fn region_provider(&mut self, region_provider: impl RegionProvider + 'static) -> &mut Self {
+    pub fn region_provider(&mut self, region_provider: impl RegionsProvider + 'static) -> &mut Self {
         self.0.region_provider = Some(Box::new(region_provider));
         self
     }

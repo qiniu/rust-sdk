@@ -1,6 +1,6 @@
 use super::{
     super::{
-        super::{Endpoint, EndpointsProvider},
+        super::{Endpoint, EndpointsGetOptions, EndpointsProvider},
         request::SyncRequest,
         ApiResult, RequestParts, RetriedStatsInfo, RetryDecision, SyncRequestBody, SyncResponse,
     },
@@ -10,11 +10,10 @@ use super::{
 };
 use qiniu_http::Extensions;
 
-pub(in super::super) fn request_call<E: EndpointsProvider>(
-    request: SyncRequest<'_, E>,
-) -> ApiResult<SyncResponse> {
+pub(in super::super) fn request_call<E: EndpointsProvider>(request: SyncRequest<'_, E>) -> ApiResult<SyncResponse> {
     let (parts, mut body, into_endpoints, service_name, extensions) = request.split();
-    let endpoints = into_endpoints.get_endpoints(service_name)?;
+    let options = EndpointsGetOptions::builder().service_names(service_name).build();
+    let endpoints = into_endpoints.get_endpoints(&options)?;
     let mut tried_ips = IpAddrsSet::default();
     let mut retried = RetriedStatsInfo::default();
 
@@ -64,10 +63,8 @@ pub(in super::super) fn request_call<E: EndpointsProvider>(
         tried_ips: &mut IpAddrsSet,
         retried: &mut RetriedStatsInfo,
     ) -> ApiResult<SyncResponse> {
-        try_endpoints(
-            endpoints, parts, body, extensions, tried_ips, retried, false,
-        )
-        .map_err(|err| err.into_response_error())
+        try_endpoints(endpoints, parts, body, extensions, tried_ips, retried, false)
+            .map_err(|err| err.into_response_error())
     }
 }
 
@@ -82,7 +79,8 @@ pub(in super::super) async fn async_request_call<E: EndpointsProvider>(
     request: AsyncRequest<'_, E>,
 ) -> ApiResult<AsyncResponse> {
     let (parts, mut body, into_endpoints, service_name, extensions) = request.split();
-    let endpoints = into_endpoints.async_get_endpoints(service_name).await?;
+    let options = EndpointsGetOptions::builder().service_names(service_name).build();
+    let endpoints = into_endpoints.async_get_endpoints(&options).await?;
     let mut tried_ips = IpAddrsSet::default();
     let mut retried = RetriedStatsInfo::default();
 
@@ -135,10 +133,8 @@ pub(in super::super) async fn async_request_call<E: EndpointsProvider>(
         tried_ips: &mut IpAddrsSet,
         retried: &mut RetriedStatsInfo,
     ) -> ApiResult<AsyncResponse> {
-        async_try_endpoints(
-            endpoints, parts, body, extensions, tried_ips, retried, false,
-        )
-        .await
-        .map_err(|err| err.into_response_error())
+        async_try_endpoints(endpoints, parts, body, extensions, tried_ips, retried, false)
+            .await
+            .map_err(|err| err.into_response_error())
     }
 }

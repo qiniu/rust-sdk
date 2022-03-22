@@ -17,7 +17,7 @@ use qiniu_apis::{
     credential::AccessKey,
     http::{Reset, ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
     http_client::{
-        ApiResult, BucketRegionsProvider, CallbackResult, Endpoint, EndpointsProvider, RegionProviderEndpoints,
+        ApiResult, BucketRegionsProvider, CallbackResult, Endpoint, EndpointsProvider, RegionsProviderEndpoints,
         RequestBuilderParts, Response, ResponseError,
     },
     storage::{
@@ -863,9 +863,9 @@ impl<R> MultiPartsV2Uploader<R> {
 impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
     fn up_endpoints(&self, params: &ObjectParams) -> ApiResult<UpEndpoints> {
         let up_endpoints = if let Some(region_provider) = params.region_provider() {
-            UpEndpoints::from_endpoints_provider(&RegionProviderEndpoints::new(region_provider))?
+            UpEndpoints::from_endpoints_provider(&RegionsProviderEndpoints::new(region_provider))?
         } else {
-            UpEndpoints::from_endpoints_provider(&RegionProviderEndpoints::new(self.get_bucket_region()?))?
+            UpEndpoints::from_endpoints_provider(&RegionsProviderEndpoints::new(self.get_bucket_region()?))?
         };
         Ok(up_endpoints)
     }
@@ -873,9 +873,9 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
     #[cfg(feature = "async")]
     async fn async_up_endpoints(&self, params: &ObjectParams) -> ApiResult<UpEndpoints> {
         let up_endpoints = if let Some(region_provider) = params.region_provider() {
-            UpEndpoints::async_from_endpoints_provider(&RegionProviderEndpoints::new(region_provider)).await?
+            UpEndpoints::async_from_endpoints_provider(&RegionsProviderEndpoints::new(region_provider)).await?
         } else {
-            UpEndpoints::async_from_endpoints_provider(&RegionProviderEndpoints::new(
+            UpEndpoints::async_from_endpoints_provider(&RegionsProviderEndpoints::new(
                 self.async_get_bucket_region().await?,
             ))
             .await?
@@ -2079,7 +2079,7 @@ mod tests {
 
     fn single_up_domain_region() -> Region {
         Region::builder("chaotic")
-            .push_up_preferred_endpoint(("fakeup.example.com".to_owned(), 8080).into())
+            .add_up_preferred_endpoint(("fakeup.example.com".to_owned(), 8080).into())
             .build()
     }
 

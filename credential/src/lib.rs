@@ -307,9 +307,8 @@ impl Credential {
     /// Ok(())
     /// }
     /// ```
-    pub fn sign_download_url(&self, url: Uri, deadline: Duration) -> Uri {
-        let deadline = deadline.as_secs().to_string();
-        let to_sign = append_query_pairs_to_url(url, &[("e", &deadline)]);
+    pub fn sign_download_url(&self, url: Uri, lifetime: Duration) -> Uri {
+        let to_sign = append_query_pairs_to_url(url, &[("e", &lifetime.as_secs().to_string())]);
         let signature = self.sign(to_sign.to_string().as_bytes());
         return append_query_pairs_to_url(to_sign, &[("token", &signature)]);
 
@@ -665,9 +664,7 @@ use {
 #[cfg(feature = "async")]
 type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send>>;
 
-/// 认证信息提供者
-///
-/// 为认证信息提供者的实现提供接口支持
+/// 认证信息获取接口
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait CredentialProvider: Clone + Debug + Sync + Send {
@@ -851,7 +848,7 @@ impl Debug for EnvCredentialProvider {
 
 /// 认证信息串提供者
 ///
-/// 将多个认证信息串联，遍历并找寻第一个可用认证信息
+/// 将多个认证信息提供者串联，遍历并找寻第一个可用认证信息
 #[derive(Clone, Debug)]
 pub struct ChainCredentialsProvider {
     credentials: Arc<[Box<dyn CredentialProvider>]>,
@@ -929,7 +926,7 @@ impl<'a> IntoIterator for &'a ChainCredentialsProvider {
 
 /// 串联认证信息构建器
 ///
-/// 接受多个认证信息提供者并将他们串联成串联认证信息
+/// 接受多个认证信息获取接口的实例并将他们串联成串联认证信息
 #[derive(Debug, Clone, Default)]
 pub struct ChainCredentialsProviderBuilder {
     credentials: VecDeque<Box<dyn CredentialProvider + 'static>>,
@@ -944,14 +941,14 @@ impl ChainCredentialsProviderBuilder {
         builder
     }
 
-    /// 将认证信息提供者推送到认证串末端
+    /// 将认证信息获取接口的实例推送到认证串末端
     #[inline]
     pub fn append_credential(&mut self, credential: impl CredentialProvider + 'static) -> &mut Self {
         self.credentials.push_back(Box::new(credential));
         self
     }
 
-    /// 将认证信息提供者推送到认证串顶端
+    /// 将认证信息获取接口的实例推送到认证串顶端
     #[inline]
     pub fn prepend_credential(&mut self, credential: impl CredentialProvider + 'static) -> &mut Self {
         self.credentials.push_front(Box::new(credential));

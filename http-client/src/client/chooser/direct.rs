@@ -1,8 +1,8 @@
 use super::{ChooseOptions, Chooser, ChooserFeedback, ChosenResults, IpAddrWithPort};
 
-#[cfg(feature = "async")]
-use futures::future::BoxFuture;
-
+/// 直接选择器
+///
+/// 不做任何筛选，也不接受任何反馈，直接将给出的 IP 地址列表返回
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DirectChooser;
 
@@ -14,24 +14,6 @@ impl Chooser for DirectChooser {
 
     #[inline]
     fn feedback(&self, _feedback: ChooserFeedback) {}
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_choose<'a>(
-        &'a self,
-        ips: &'a [IpAddrWithPort],
-        opts: &'a ChooseOptions,
-    ) -> BoxFuture<'a, ChosenResults> {
-        Box::pin(async move { self.choose(ips, opts) })
-    }
-
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_feedback<'a>(&'a self, feedback: ChooserFeedback<'a>) -> BoxFuture<'a, ()> {
-        Box::pin(async move { self.feedback(feedback) })
-    }
 }
 
 #[cfg(test)]
@@ -54,18 +36,9 @@ mod tests {
 
     static IPS_WITH_PORT: Lazy<Vec<IpAddrWithPort>> = Lazy::new(|| {
         vec![
-            IpAddrWithPort::new(
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-                NonZeroU16::new(443),
-            ),
-            IpAddrWithPort::new(
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
-                NonZeroU16::new(443),
-            ),
-            IpAddrWithPort::new(
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
-                NonZeroU16::new(443),
-            ),
+            IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), NonZeroU16::new(443)),
+            IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), NonZeroU16::new(443)),
+            IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), NonZeroU16::new(443)),
         ]
     });
 
@@ -73,15 +46,11 @@ mod tests {
     fn test_direct_chooser() -> Result<()> {
         let chooser = DirectChooser;
         assert_eq!(
-            chooser
-                .choose(&IPS_WITHOUT_PORT, &Default::default())
-                .into_ip_addrs(),
+            chooser.choose(&IPS_WITHOUT_PORT, &Default::default()).into_ip_addrs(),
             IPS_WITHOUT_PORT.to_vec(),
         );
         assert_eq!(
-            chooser
-                .choose(&IPS_WITH_PORT, &Default::default())
-                .into_ip_addrs(),
+            chooser.choose(&IPS_WITH_PORT, &Default::default()).into_ip_addrs(),
             IPS_WITH_PORT.to_vec(),
         );
         Ok(())

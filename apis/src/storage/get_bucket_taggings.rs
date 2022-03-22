@@ -3,10 +3,7 @@
 #[derive(Debug, Clone, Default)]
 #[doc = "调用 API 所用的 URL 查询参数"]
 pub struct QueryParams<'a> {
-    map: indexmap::IndexMap<
-        qiniu_http_client::QueryPairKey<'a>,
-        qiniu_http_client::QueryPairValue<'a>,
-    >,
+    map: indexmap::IndexMap<qiniu_http_client::QueryPairKey<'a>, qiniu_http_client::QueryPairValue<'a>>,
 }
 impl<'a> QueryParams<'a> {
     #[inline]
@@ -19,11 +16,11 @@ impl<'a> QueryParams<'a> {
         self.map.insert(query_pair_key, query_pair_value);
         self
     }
-    fn build(self) -> qiniu_http_client::QueryPairs<'a> {
-        qiniu_http_client::QueryPairs::from_iter(self.map)
+    fn build(self) -> Vec<qiniu_http_client::QueryPair<'a>> {
+        Vec::from_iter(self.map)
     }
 }
-impl<'a> From<QueryParams<'a>> for qiniu_http_client::QueryPairs<'a> {
+impl<'a> From<QueryParams<'a>> for Vec<qiniu_http_client::QueryPair<'a>> {
     #[inline]
     fn from(map: QueryParams<'a>) -> Self {
         map.build()
@@ -33,10 +30,7 @@ impl<'a> QueryParams<'a> {
     #[inline]
     #[must_use]
     #[doc = "空间名称"]
-    pub fn set_bucket_name_as_str(
-        self,
-        value: impl Into<qiniu_http_client::QueryPairValue<'a>>,
-    ) -> Self {
+    pub fn set_bucket_name_as_str(self, value: impl Into<qiniu_http_client::QueryPairValue<'a>>) -> Self {
         self.insert("bucket".into(), value.into())
     }
 }
@@ -145,13 +139,7 @@ impl std::convert::AsMut<serde_json::Value> for TagInfo {
 impl TagInfo {
     #[doc = "获取 标签名称，最大 64 Byte，不能为空且大小写敏感，不能以 kodo 为前缀(预留), 不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"]
     pub fn get_key_as_str(&self) -> &str {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("Key")
-            .unwrap()
-            .as_str()
-            .unwrap()
+        self.0.as_object().unwrap().get("Key").unwrap().as_str().unwrap()
     }
 }
 impl TagInfo {
@@ -170,13 +158,7 @@ impl TagInfo {
 impl TagInfo {
     #[doc = "获取 标签值，最大 128 Byte，不能为空且大小写敏感，不支持中文字符，可使用的字符有：字母，数字，空格，+ - = . _ : / @"]
     pub fn get_value_as_str(&self) -> &str {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("Value")
-            .unwrap()
-            .as_str()
-            .unwrap()
+        self.0.as_object().unwrap().get("Value").unwrap().as_str().unwrap()
     }
 }
 impl TagInfo {
@@ -195,13 +177,7 @@ impl TagInfo {
 impl Tags {
     #[doc = "解析 JSON 得到 TagInfo 列表"]
     pub fn to_tag_info_vec(&self) -> Vec<TagInfo> {
-        self.0
-            .as_array()
-            .unwrap()
-            .iter()
-            .cloned()
-            .map(TagInfo::new)
-            .collect()
+        self.0.as_array().unwrap().iter().cloned().map(TagInfo::new).collect()
     }
 }
 impl From<Vec<TagInfo>> for Tags {
@@ -273,9 +249,7 @@ impl<'client> Client<'client> {
         credential: impl qiniu_http_client::credential::CredentialProvider + std::clone::Clone + 'client,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
-            let mut builder = self
-                .0
-                .get(&[qiniu_http_client::ServiceName::Uc], endpoints_provider);
+            let mut builder = self.0.get(&[qiniu_http_client::ServiceName::Uc], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::v2(credential));
             builder.idempotent(qiniu_http_client::Idempotent::Default);
             builder.path("bucketTagging");
@@ -304,12 +278,10 @@ impl<'client> Client<'client> {
 }
 #[derive(Debug)]
 pub struct RequestBuilder<'req, B: 'req, E: 'req>(qiniu_http_client::RequestBuilder<'req, B, E>);
-pub type SyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
+pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub type AsyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
+pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
 impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn use_https(&mut self, use_https: bool) -> &mut Self {
@@ -330,10 +302,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
-    pub fn query_pairs(
-        &mut self,
-        query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>,
-    ) -> &mut Self {
+    pub fn query_pairs(&mut self, query_pairs: impl Into<Vec<qiniu_http_client::QueryPair<'req>>>) -> &mut Self {
         self.0.query_pairs(query_pairs);
         self
     }
@@ -393,10 +362,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &str,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -451,9 +417,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -464,9 +428,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -536,9 +498,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     }
 }
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBuilder<'req, E> {
-    pub fn call(
-        &mut self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
+    pub fn call(&mut self) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = &mut self.0;
         let response = request.call()?;
         let parsed = response.parse_json()?;
@@ -547,9 +507,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBu
 }
 #[cfg(feature = "async")]
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> AsyncRequestBuilder<'req, E> {
-    pub async fn call(
-        &mut self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
+    pub async fn call(&mut self) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = &mut self.0;
         let response = request.call().await?;
         let parsed = response.parse_json().await?;

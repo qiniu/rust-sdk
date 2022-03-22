@@ -241,7 +241,7 @@ impl UploadPolicy {
         self.inner.as_object().unwrap().values()
     }
 
-    /// 将上传策略转换为上传凭证提供者
+    /// 将上传策略转换为上传凭证获取接口的实例
     #[inline]
     pub fn into_upload_token_provider<T: CredentialProvider + Clone>(self, credential: T) -> FromUploadPolicy<T> {
         FromUploadPolicy::new(self, credential)

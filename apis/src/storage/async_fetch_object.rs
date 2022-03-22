@@ -37,13 +37,7 @@ impl std::convert::AsMut<serde_json::Value> for RequestBody {
 impl RequestBody {
     #[doc = "获取 需要抓取的 URL，支持设置多个用于高可用，以’;'分隔，当指定多个 URL 时可以在前一个 URL 抓取失败时重试下一个"]
     pub fn get_body_as_str(&self) -> &str {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("body")
-            .unwrap()
-            .as_str()
-            .unwrap()
+        self.0.as_object().unwrap().get("body").unwrap().as_str().unwrap()
     }
 }
 impl RequestBody {
@@ -62,13 +56,7 @@ impl RequestBody {
 impl RequestBody {
     #[doc = "获取 所在区域的存储空间"]
     pub fn get_bucket_as_str(&self) -> &str {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("bucket")
-            .unwrap()
-            .as_str()
-            .unwrap()
+        self.0.as_object().unwrap().get("bucket").unwrap().as_str().unwrap()
     }
 }
 impl RequestBody {
@@ -97,12 +85,10 @@ impl RequestBody {
     #[doc = "设置 从指定 URL 下载数据时使用的 Host"]
     pub fn set_host_as_str(&mut self, new: String) -> Option<String> {
         self.0.as_object_mut().and_then(|object| {
-            object
-                .insert("host".to_owned(), new.into())
-                .and_then(|val| match val {
-                    serde_json::Value::String(s) => Some(s),
-                    _ => None,
-                })
+            object.insert("host".to_owned(), new.into()).and_then(|val| match val {
+                serde_json::Value::String(s) => Some(s),
+                _ => None,
+            })
         })
     }
 }
@@ -119,12 +105,10 @@ impl RequestBody {
     #[doc = "设置 对象名称，如果不传，则默认为文件的哈希值"]
     pub fn set_key_as_str(&mut self, new: String) -> Option<String> {
         self.0.as_object_mut().and_then(|object| {
-            object
-                .insert("key".to_owned(), new.into())
-                .and_then(|val| match val {
-                    serde_json::Value::String(s) => Some(s),
-                    _ => None,
-                })
+            object.insert("key".to_owned(), new.into()).and_then(|val| match val {
+                serde_json::Value::String(s) => Some(s),
+                _ => None,
+            })
         })
     }
 }
@@ -141,12 +125,10 @@ impl RequestBody {
     #[doc = "设置 对象内容的 ETag，传入以后会在存入存储时对文件做校验，校验失败则不存入指定空间"]
     pub fn set_etag_as_str(&mut self, new: String) -> Option<String> {
         self.0.as_object_mut().and_then(|object| {
-            object
-                .insert("etag".to_owned(), new.into())
-                .and_then(|val| match val {
-                    serde_json::Value::String(s) => Some(s),
-                    _ => None,
-                })
+            object.insert("etag".to_owned(), new.into()).and_then(|val| match val {
+                serde_json::Value::String(s) => Some(s),
+                _ => None,
+            })
         })
     }
 }
@@ -332,13 +314,7 @@ impl std::convert::AsMut<serde_json::Value> for ResponseBody {
 impl ResponseBody {
     #[doc = "获取 异步任务 ID"]
     pub fn get_id_as_str(&self) -> &str {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("id")
-            .unwrap()
-            .as_str()
-            .unwrap()
+        self.0.as_object().unwrap().get("id").unwrap().as_str().unwrap()
     }
 }
 impl ResponseBody {
@@ -357,13 +333,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "获取 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
     pub fn get_queued_tasks_count_as_i64(&self) -> i64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("wait")
-            .unwrap()
-            .as_i64()
-            .unwrap()
+        self.0.as_object().unwrap().get("wait").unwrap().as_i64().unwrap()
     }
 }
 impl ResponseBody {
@@ -379,13 +349,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "获取 当前任务前面的排队任务数量，`0` 表示当前任务正在进行，`-1` 表示任务已经至少被处理过一次（可能会进入重试逻辑）"]
     pub fn get_queued_tasks_count_as_u64(&self) -> u64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("wait")
-            .unwrap()
-            .as_u64()
-            .unwrap()
+        self.0.as_object().unwrap().get("wait").unwrap().as_u64().unwrap()
     }
 }
 impl ResponseBody {
@@ -413,9 +377,7 @@ impl<'client> Client<'client> {
         credential: impl qiniu_http_client::credential::CredentialProvider + std::clone::Clone + 'client,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
-            let mut builder = self
-                .0
-                .post(&[qiniu_http_client::ServiceName::Api], endpoints_provider);
+            let mut builder = self.0.post(&[qiniu_http_client::ServiceName::Api], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::v2(credential));
             builder.idempotent(qiniu_http_client::Idempotent::Default);
             builder.path("sisyphus/fetch");
@@ -444,12 +406,10 @@ impl<'client> Client<'client> {
 }
 #[derive(Debug)]
 pub struct RequestBuilder<'req, B: 'req, E: 'req>(qiniu_http_client::RequestBuilder<'req, B, E>);
-pub type SyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
+pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub type AsyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
+pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
 impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn use_https(&mut self, use_https: bool) -> &mut Self {
@@ -470,10 +430,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
-    pub fn query_pairs(
-        &mut self,
-        query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>,
-    ) -> &mut Self {
+    pub fn query_pairs(&mut self, query_pairs: impl Into<Vec<qiniu_http_client::QueryPair<'req>>>) -> &mut Self {
         self.0.query_pairs(query_pairs);
         self
     }
@@ -533,10 +490,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &str,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -591,9 +545,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -604,9 +556,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,

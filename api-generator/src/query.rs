@@ -49,8 +49,7 @@ impl QueryNames {
         };
 
         fn for_query_fields(query_names: &[QueryName]) -> TokenStream {
-            let token_streams_for_fields: Vec<_> =
-                query_names.iter().map(for_query_field).collect();
+            let token_streams_for_fields: Vec<_> = query_names.iter().map(for_query_field).collect();
             quote! {
                 #(#token_streams_for_fields)*
             }
@@ -60,9 +59,7 @@ impl QueryNames {
             let field_name = field_name_to_ident(&query_name.field_name);
             let documentation = query_name.documentation.as_str();
             match &query_name.query_type {
-                StringLikeType::String => {
-                    for_string_field(&field_name, &query_name.query_name, documentation)
-                }
+                StringLikeType::String => for_string_field(&field_name, &query_name.query_name, documentation),
                 StringLikeType::Integer => for_based_field(
                     &field_name,
                     &query_name.query_name,
@@ -95,11 +92,7 @@ impl QueryNames {
             }
         }
 
-        fn for_string_field(
-            field_name: &Ident,
-            query_name: &str,
-            documentation: &str,
-        ) -> TokenStream {
+        fn for_string_field(field_name: &Ident, query_name: &str, documentation: &str) -> TokenStream {
             let method_name = format_ident!("set_{}_as_str", field_name);
             quote! {
                 #[inline]
@@ -162,12 +155,12 @@ impl QueryNames {
                         self
                      }
 
-                    fn build(self) -> qiniu_http_client::QueryPairs<'a> {
-                        qiniu_http_client::QueryPairs::from_iter(self.map)
+                    fn build(self) -> Vec<qiniu_http_client::QueryPair<'a>> {
+                        Vec::from_iter(self.map)
                     }
                 }
 
-                impl<'a> From<#name<'a>> for qiniu_http_client::QueryPairs<'a> {
+                impl<'a> From<#name<'a>> for Vec<qiniu_http_client::QueryPair<'a>> {
                     #[inline]
                     fn from(map: #name<'a>) -> Self {
                         map.build()

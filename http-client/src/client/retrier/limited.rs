@@ -3,9 +3,13 @@ use qiniu_http::RequestParts as HttpRequestParts;
 
 const DEFAULT_RETIES: usize = 2;
 
+/// 限制目标
 #[derive(Copy, Clone, Debug)]
 enum LimitTarget {
+    /// 限制当前终端地址的重试次数
     LimitCurrentEndpoint,
+
+    /// 限制总的重试次数
     LimitTotal,
 }
 
@@ -30,6 +34,9 @@ impl LimitTarget {
     }
 }
 
+/// 受限重试器
+///
+/// 为一个重试器实例增加重试次数上限，即重试次数到达上限时，无论错误是什么，都切换服务器地址或不再予以重试。
 #[derive(Clone, Debug)]
 pub struct LimitedRetrier<R: ?Sized> {
     retries: usize,
@@ -38,11 +45,17 @@ pub struct LimitedRetrier<R: ?Sized> {
 }
 
 impl<R> LimitedRetrier<R> {
+    /// 创建受限重试器
+    ///
+    /// 默认限制当前终端地址的重试次数
+    ///
+    /// 与 [`LimitedRetrier::limit_current_endpoint`] 等效
     #[inline]
     pub fn new(retrier: R, retries: usize) -> Self {
         Self::limit_current_endpoint(retrier, retries)
     }
 
+    /// 创建限制当前终端地址的重试次数的受限重试器
     #[inline]
     pub fn limit_current_endpoint(retrier: R, retries: usize) -> Self {
         Self {
@@ -52,6 +65,7 @@ impl<R> LimitedRetrier<R> {
         }
     }
 
+    /// 创建限制总的的重试次数的受限重试器
     #[inline]
     pub fn limit_total(retrier: R, retries: usize) -> Self {
         Self {

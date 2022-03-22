@@ -8,9 +8,7 @@ use c_ares::{
     AddressFamily::{INET, INET6},
     Error as CAresError, HostResults as CAresHostResults,
 };
-use c_ares_resolver::{
-    Error as CAresResolverError, Options as CAresResolverOptions, Resolver as CallbackResolver,
-};
+use c_ares_resolver::{Error as CAresResolverError, Options as CAresResolverOptions, Resolver as CallbackResolver};
 use cfg_if::cfg_if;
 use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
 use std::{fmt, net::IpAddr, sync::mpsc};
@@ -23,6 +21,9 @@ use {
 
 type CAresResolverResult<T> = Result<T, CAresResolverError>;
 
+/// `c-ares` 域名解析器
+///
+/// 基于 `c-ares` 库的域名解析接口实现
 #[cfg_attr(feature = "docs", doc(cfg(feature = "c_ares")))]
 pub struct CAresResolver {
     callback_resolver: CallbackResolver,
@@ -32,6 +33,7 @@ pub struct CAresResolver {
 }
 
 impl CAresResolver {
+    /// 创建 `c-ares` 域名解析器
     #[inline]
     #[cfg(not(feature = "async"))]
     pub fn new_with_options(options: CAresResolverOptions) -> CAresResolverResult<Self> {
@@ -40,6 +42,7 @@ impl CAresResolver {
         })
     }
 
+    /// 创建 `c-ares` 域名解析器
     #[inline]
     #[cfg(any(feature = "async"))]
     pub fn new_with_options(
@@ -52,6 +55,7 @@ impl CAresResolver {
         })
     }
 
+    /// 创建默认的 `c-ares` 域名解析器
     #[inline]
     pub fn new() -> CAresResolverResult<Self> {
         cfg_if! {
@@ -113,11 +117,7 @@ impl Resolver for CAresResolver {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_resolve<'a>(
-        &'a self,
-        domain: &'a str,
-        opts: &'a ResolveOptions,
-    ) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             let task1 = self.future_resolver.get_host_by_name(domain, INET);
             let task2 = self.future_resolver.get_host_by_name(domain, INET6);

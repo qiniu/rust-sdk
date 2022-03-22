@@ -2,7 +2,7 @@ use super::{callbacks::Callbacks, Bucket};
 use log::warn;
 use qiniu_apis::{
     http::ResponseErrorKind as HttpResponseErrorKind,
-    http_client::{ApiResult, RegionProvider, RegionProviderEndpoints, Response, ResponseError, SyncResponseBody},
+    http_client::{ApiResult, RegionsProvider, RegionsProviderEndpoints, Response, ResponseError, SyncResponseBody},
     storage::get_objects::{
         ListedObjectEntry, QueryParams, ResponseBody as GetObjectsV1ResponseBody,
         SyncRequestBuilder as GetObjectsV1SyncRequestBuilder,
@@ -21,7 +21,7 @@ use tap::prelude::*;
 #[cfg(feature = "async")]
 use {futures::io::BufReader as AsyncBufReader, qiniu_apis::http_client::AsyncResponseBody};
 
-type RefRegionProviderEndpoints<'a> = RegionProviderEndpoints<&'a dyn RegionProvider>;
+type RefRegionProviderEndpoints<'a> = RegionsProviderEndpoints<&'a dyn RegionsProvider>;
 
 #[derive(Debug, Clone)]
 struct ListParams<'a> {
@@ -284,7 +284,7 @@ impl Iterator for ListIter<'_> {
                 .storage()
                 .get_objects()
                 .new_request(
-                    RegionProviderEndpoints::new(params.bucket.region_provider()?),
+                    RegionsProviderEndpoints::new(params.bucket.region_provider()?),
                     params.bucket.objects_manager().credential(),
                 );
             request.query_pairs(params.to_query_params());
@@ -413,7 +413,7 @@ impl Iterator for ListIter<'_> {
                 .storage()
                 .get_objects_v2()
                 .new_request(
-                    RegionProviderEndpoints::new(params.bucket.region_provider()?),
+                    RegionsProviderEndpoints::new(params.bucket.region_provider()?),
                     params.bucket.objects_manager().credential(),
                 );
             request.query_pairs(params.to_query_params());
@@ -474,7 +474,7 @@ mod async_list_stream {
             task: BoxFuture<'a, ApiResult<Response<GetObjectsV1ResponseBody>>>,
         },
         WaitForRegionProvider {
-            task: BoxFuture<'a, IOResult<&'a dyn RegionProvider>>,
+            task: BoxFuture<'a, IOResult<&'a dyn RegionsProvider>>,
         },
         Done,
     }
@@ -607,7 +607,7 @@ mod async_list_stream {
                             .client()
                             .storage()
                             .get_objects()
-                            .new_async_request(RegionProviderEndpoints::new(region_provider), credential);
+                            .new_async_request(RegionsProviderEndpoints::new(region_provider), credential);
                         request.query_pairs(self.params.to_query_params());
                         if self.callbacks.before_request(request.parts_mut()).is_cancelled() {
                             self.current_step = AsyncListV1Step::Done;
@@ -666,7 +666,7 @@ mod async_list_stream {
         #[default]
         Start,
         WaitForRegionProvider {
-            task: BoxFuture<'a, IOResult<&'a dyn RegionProvider>>,
+            task: BoxFuture<'a, IOResult<&'a dyn RegionsProvider>>,
         },
         WaitForResponse {
             task: BoxFuture<'a, ApiResult<Response<AsyncResponseBody>>>,
@@ -751,7 +751,7 @@ mod async_list_stream {
                             .client()
                             .storage()
                             .get_objects_v2()
-                            .new_async_request(RegionProviderEndpoints::new(region_provider), credential);
+                            .new_async_request(RegionsProviderEndpoints::new(region_provider), credential);
                         request.query_pairs(self.params.to_query_params());
                         if self.callbacks.before_request(request.parts_mut()).is_cancelled() {
                             self.current_step = AsyncListV2Step::Done;
@@ -2423,7 +2423,7 @@ mod tests {
 
     fn single_rsf_domain_region() -> Region {
         Region::builder("chaotic")
-            .push_rsf_preferred_endpoint(("fakersf.example.com".to_owned(), 8080).into())
+            .add_rsf_preferred_endpoint(("fakersf.example.com".to_owned(), 8080).into())
             .build()
     }
 }

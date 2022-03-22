@@ -463,7 +463,7 @@ pub(super) fn judge(mut response: SyncResponse, retried: &RetriedStatsInfo) -> A
 }
 
 fn check_x_req_id(response: &mut SyncResponse, retried: &RetriedStatsInfo) -> ApiResult<()> {
-    if response.x_req_id().is_some() {
+    if response.x_reqid().is_some() {
         Ok(())
     } else {
         Err(make_malicious_response(response.parts(), retried).read_response_body_sample(response.body_mut())?)
@@ -472,7 +472,7 @@ fn check_x_req_id(response: &mut SyncResponse, retried: &RetriedStatsInfo) -> Ap
 
 #[cfg(feature = "async")]
 async fn async_check_x_req_id(response: &mut AsyncResponse, retried: &RetriedStatsInfo) -> ApiResult<()> {
-    if response.x_req_id().is_some() {
+    if response.x_reqid().is_some() {
         Ok(())
     } else {
         Err(make_malicious_response(response.parts(), retried)

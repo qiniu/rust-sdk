@@ -1,10 +1,15 @@
-use super::{Backoff, BackoffDuration, BackoffOptions};
+use super::{Backoff, BackoffOptions, GotBackoffDuration};
 use qiniu_http::RequestParts as HttpRequestParts;
 use rand::{thread_rng, Rng};
-use std::{convert::TryInto, time::Duration, u64};
+use std::{convert::TryInto, fmt::Debug, time::Duration, u64};
 
 pub use num_rational::Ratio;
 
+/// 均匀分布随机化退避时长提供者
+///
+/// 基于一个退避时长提供者并为其增加随机化范围
+///
+/// 默认的随机化范围是 `[1/2, 3/2]`
 #[derive(Debug, Clone)]
 pub struct RandomizedBackoff<P: ?Sized> {
     minification: Ratio<u8>,
@@ -13,8 +18,15 @@ pub struct RandomizedBackoff<P: ?Sized> {
 }
 
 impl<P> RandomizedBackoff<P> {
+    /// 创建均匀分布随机化退避时长提供者
+    ///
+    /// 需要提供随机化范围，其中随机化范围由最小随机比率和最大随机比率组成，返回的退避时长为 `random(base_backoff * minification, base_backoff * magnification)`
+    ///
+    /// 需要注意，提供的随机比率的分母必须大于 0。
     #[inline]
     pub const fn new(base_backoff: P, minification: Ratio<u8>, magnification: Ratio<u8>) -> Self {
+        assert!(*minification.denom() > 0);
+        assert!(*magnification.denom() > 0);
         Self {
             base_backoff,
             minification,
@@ -22,16 +34,19 @@ impl<P> RandomizedBackoff<P> {
         }
     }
 
+    /// 获取基础退避时长提供者
     #[inline]
     pub const fn base_backoff(&self) -> &P {
         &self.base_backoff
     }
 
+    /// 获取最小随机比率
     #[inline]
     pub const fn minification(&self) -> Ratio<u8> {
         self.minification
     }
 
+    /// 获取最大随机比率
     #[inline]
     pub const fn magnification(&self) -> Ratio<u8> {
         self.magnification
@@ -39,7 +54,7 @@ impl<P> RandomizedBackoff<P> {
 }
 
 impl<P: Backoff> Backoff for RandomizedBackoff<P> {
-    fn time(&self, request: &mut HttpRequestParts, opts: &BackoffOptions) -> BackoffDuration {
+    fn time(&self, request: &mut HttpRequestParts, opts: &BackoffOptions) -> GotBackoffDuration {
         let duration = self.base_backoff().time(request, opts).duration();
         let minification: Ratio<u128> = Ratio::new_raw(
             self.minification().numer().to_owned().into(),
@@ -90,10 +105,7 @@ mod tests {
                     &mut HttpRequestParts::default(),
                     &BackoffOptions::new(
                         RetryDecision::RetryRequest,
-                        &ResponseError::new(
-                            HttpResponseErrorKind::TimeoutError.into(),
-                            "Test Error",
-                        ),
+                        &ResponseError::new(HttpResponseErrorKind::TimeoutError.into(), "Test Error"),
                         &RetriedStatsInfo::default(),
                     ),
                 )

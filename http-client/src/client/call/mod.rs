@@ -7,7 +7,6 @@ mod try_domain_or_ip_addr;
 mod try_endpoints;
 mod utils;
 
-pub use domain_or_ip_addr::DomainOrIpAddr;
 pub(super) use request_call::request_call;
 
 #[cfg(feature = "async")]
@@ -22,12 +21,12 @@ mod tests {
             chaotic_up_domains_endpoint, make_dumb_resolver, make_error_response_client_builder,
             make_fixed_response_client_builder, make_random_resolver, single_up_domain_endpoint,
         },
-        Authorization, Chooser, ChooserFeedback, ErrorRetrier, IpChooser, LimitedRetrier,
-        ResponseError, ResponseErrorKind, ServiceName, NO_BACKOFF,
+        Authorization, Chooser, ChooserFeedback, ErrorRetrier, IpChooser, LimitedRetrier, ResponseError,
+        ResponseErrorKind, ServiceName, NO_BACKOFF,
     };
     use qiniu_http::{
-        CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue,
-        ResponseErrorKind as HttpResponseErrorKind, StatusCode,
+        CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, ResponseErrorKind as HttpResponseErrorKind,
+        StatusCode,
     };
     use std::{
         collections::{HashMap, HashSet},
@@ -47,16 +46,13 @@ mod tests {
     fn test_call_endpoints_selection() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let client = make_error_response_client_builder(
-            HttpResponseErrorKind::ConnectError,
-            "Fake Connect Error",
-            true,
-        )
-        .chooser(DirectChooser)
-        .resolver(make_random_resolver())
-        .request_retrier(ErrorRetrier)
-        .backoff(NO_BACKOFF)
-        .build();
+        let client =
+            make_error_response_client_builder(HttpResponseErrorKind::ConnectError, "Fake Connect Error", true)
+                .chooser(DirectChooser)
+                .resolver(make_random_resolver())
+                .request_retrier(ErrorRetrier)
+                .backoff(NO_BACKOFF)
+                .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
         let domain_resolved = Arc::new(Mutex::new(Vec::new()));
@@ -78,14 +74,8 @@ mod tests {
             })
             .call()
             .unwrap_err();
-        assert_eq!(
-            err.kind(),
-            ResponseErrorKind::from(HttpResponseErrorKind::ConnectError)
-        );
-        let domain_resolved = Arc::try_unwrap(domain_resolved)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::ConnectError));
+        let domain_resolved = Arc::try_unwrap(domain_resolved).unwrap().into_inner().unwrap();
         assert_eq!(
             &domain_resolved,
             &[
@@ -112,16 +102,13 @@ mod tests {
     fn test_call_endpoints_selection_without_resolver() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let client = make_error_response_client_builder(
-            HttpResponseErrorKind::ConnectError,
-            "Fake Connect Error",
-            false,
-        )
-        .chooser(DirectChooser)
-        .resolver(make_dumb_resolver())
-        .request_retrier(ErrorRetrier)
-        .backoff(NO_BACKOFF)
-        .build();
+        let client =
+            make_error_response_client_builder(HttpResponseErrorKind::ConnectError, "Fake Connect Error", false)
+                .chooser(DirectChooser)
+                .resolver(make_dumb_resolver())
+                .request_retrier(ErrorRetrier)
+                .backoff(NO_BACKOFF)
+                .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
         let err = client
@@ -137,10 +124,7 @@ mod tests {
             })
             .call()
             .unwrap_err();
-        assert_eq!(
-            err.kind(),
-            ResponseErrorKind::from(HttpResponseErrorKind::ConnectError)
-        );
+        assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::ConnectError));
         let urls_visited = Arc::try_unwrap(urls_visited).unwrap().into_inner().unwrap();
         assert_eq!(
             &urls_visited,
@@ -160,10 +144,7 @@ mod tests {
     fn test_call_all_frozen_endpoints_selection() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let err = ResponseError::new(
-            HttpResponseErrorKind::ConnectError.into(),
-            "Fake Connect Error",
-        );
+        let err = ResponseError::new(HttpResponseErrorKind::ConnectError.into(), "Fake Connect Error");
         let chooser = IpChooser::default();
         chooser.feedback(ChooserFeedback::new(
             &[
@@ -184,16 +165,13 @@ mod tests {
             Some(&err),
         ));
 
-        let client = make_error_response_client_builder(
-            HttpResponseErrorKind::ConnectError,
-            "Fake Connect Error",
-            true,
-        )
-        .backoff(NO_BACKOFF)
-        .resolver(make_random_resolver())
-        .chooser(chooser)
-        .request_retrier(ErrorRetrier)
-        .build();
+        let client =
+            make_error_response_client_builder(HttpResponseErrorKind::ConnectError, "Fake Connect Error", true)
+                .backoff(NO_BACKOFF)
+                .resolver(make_random_resolver())
+                .chooser(chooser)
+                .request_retrier(ErrorRetrier)
+                .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
         let domain_resolved = Arc::new(Mutex::new(Vec::new()));
@@ -219,10 +197,7 @@ mod tests {
             err.kind(),
             ResponseErrorKind::HttpError(HttpResponseErrorKind::ConnectError)
         );
-        let domain_resolved = Arc::try_unwrap(domain_resolved)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let domain_resolved = Arc::try_unwrap(domain_resolved).unwrap().into_inner().unwrap();
         assert_eq!(
             &domain_resolved,
             &[
@@ -245,16 +220,12 @@ mod tests {
     fn test_call_switch_to_alternative_endpoints() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let client = make_error_response_client_builder(
-            HttpResponseErrorKind::ServerCertError,
-            "Fake SSL Error",
-            true,
-        )
-        .resolver(make_random_resolver())
-        .chooser(DirectChooser)
-        .backoff(NO_BACKOFF)
-        .request_retrier(ErrorRetrier)
-        .build();
+        let client = make_error_response_client_builder(HttpResponseErrorKind::ServerCertError, "Fake SSL Error", true)
+            .resolver(make_random_resolver())
+            .chooser(DirectChooser)
+            .backoff(NO_BACKOFF)
+            .request_retrier(ErrorRetrier)
+            .build();
 
         let urls_visited = Arc::new(Mutex::new(Vec::new()));
         let domain_resolved = Arc::new(Mutex::new(Vec::new()));
@@ -292,10 +263,7 @@ mod tests {
             err.kind(),
             ResponseErrorKind::from(HttpResponseErrorKind::ServerCertError)
         );
-        let domain_resolved = Arc::try_unwrap(domain_resolved)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let domain_resolved = Arc::try_unwrap(domain_resolved).unwrap().into_inner().unwrap();
         assert_eq!(
             &domain_resolved,
             &[
@@ -324,16 +292,13 @@ mod tests {
     fn test_call_single_endpoint_retry() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let always_retry_client = make_error_response_client_builder(
-            HttpResponseErrorKind::TimeoutError,
-            "Fake Timeout Error",
-            true,
-        )
-        .resolver(make_random_resolver())
-        .chooser(DirectChooser)
-        .backoff(NO_BACKOFF)
-        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
-        .build();
+        let always_retry_client =
+            make_error_response_client_builder(HttpResponseErrorKind::TimeoutError, "Fake Timeout Error", true)
+                .resolver(make_random_resolver())
+                .chooser(DirectChooser)
+                .backoff(NO_BACKOFF)
+                .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
+                .build();
 
         let retried = Arc::new(AtomicUsize::new(0));
         let err = always_retry_client
@@ -341,10 +306,7 @@ mod tests {
             .on_before_backoff({
                 let retried = retried.to_owned();
                 move |context, _| {
-                    assert_eq!(
-                        "https://fakedomain.withport.com:8080/",
-                        &context.url().to_string(),
-                    );
+                    assert_eq!("https://fakedomain.withport.com:8080/", &context.url().to_string(),);
                     let retried = retried.fetch_add(1, Relaxed) + 1;
                     assert_eq!(context.retried().retried_total(), retried);
                     assert_eq!(context.retried().retried_on_current_endpoint(), retried);
@@ -355,10 +317,7 @@ mod tests {
             })
             .call()
             .unwrap_err();
-        assert_eq!(
-            err.kind(),
-            ResponseErrorKind::from(HttpResponseErrorKind::TimeoutError)
-        );
+        assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::TimeoutError));
 
         let headers = {
             let mut headers = HeaderMap::default();
@@ -389,10 +348,7 @@ mod tests {
             .on_before_backoff({
                 retried.store(0, Relaxed);
                 move |context, _| {
-                    assert_eq!(
-                        "https://fakedomain.withport.com:8080/",
-                        &context.url().to_string(),
-                    );
+                    assert_eq!("https://fakedomain.withport.com:8080/", &context.url().to_string(),);
                     let retried = retried.fetch_add(1, Relaxed) + 1;
                     assert_eq!(context.retried().retried_total(), retried);
                     assert_eq!(context.retried().retried_on_current_endpoint(), retried);
@@ -407,10 +363,7 @@ mod tests {
             err.kind(),
             ResponseErrorKind::StatusCodeError(StatusCode::from_u16(509)?)
         );
-        assert_eq!(
-            err.x_reqid(),
-            Some(&HeaderValue::from_static("fake_req_id"))
-        );
+        assert_eq!(err.x_reqid(), Some(&HeaderValue::from_static("fake_req_id")));
         assert_eq!(err.x_log(), Some(&HeaderValue::from_static("fake_log")));
         assert!(err.to_string().ends_with("Fake Throttled Error"));
 
@@ -435,61 +388,51 @@ mod tests {
         }
 
         let counter = ExtensionCounter::default();
-        let err = make_error_response_client_builder(
-            HttpResponseErrorKind::TimeoutError,
-            "Fake Timeout Error",
-            true,
-        )
-        .resolver(make_random_resolver())
-        .chooser(DirectChooser)
-        .backoff(NO_BACKOFF)
-        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
-        .build()
-        .post(&[ServiceName::Up], &single_up_domain_endpoint())
-        .add_extension(counter.to_owned())
-        .on_to_resolve_domain(move |context, _| inc_extensions(context.extensions_mut()))
-        .on_domain_resolved(move |context, _, _| inc_extensions(context.extensions_mut()))
-        .on_to_choose_ips(move |context, _| inc_extensions(context.extensions_mut()))
-        .on_ips_chosen(move |context, _, _| inc_extensions(context.extensions_mut()))
-        .on_before_request_signed(move |context| inc_extensions(context.extensions_mut()))
-        .on_after_request_signed(move |context| inc_extensions(context.extensions_mut()))
-        .on_before_backoff(move |context, _| inc_extensions(context.extensions_mut()))
-        .on_after_backoff(move |context, _| inc_extensions(context.extensions_mut()))
-        .on_response(move |context, _| inc_extensions(context.extensions_mut()))
-        .on_error(move |context, _| inc_extensions(context.extensions_mut()))
-        .call()
-        .unwrap_err();
-        assert_eq!(
-            err.kind(),
-            ResponseErrorKind::from(HttpResponseErrorKind::TimeoutError)
-        );
+        let err = make_error_response_client_builder(HttpResponseErrorKind::TimeoutError, "Fake Timeout Error", true)
+            .resolver(make_random_resolver())
+            .chooser(DirectChooser)
+            .backoff(NO_BACKOFF)
+            .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
+            .build()
+            .post(&[ServiceName::Up], &single_up_domain_endpoint())
+            .add_extension(counter.to_owned())
+            .on_to_resolve_domain(move |context, _| inc_extensions(context.extensions_mut()))
+            .on_domain_resolved(move |context, _, _| inc_extensions(context.extensions_mut()))
+            .on_to_choose_ips(move |context, _| inc_extensions(context.extensions_mut()))
+            .on_ips_chosen(move |context, _, _| inc_extensions(context.extensions_mut()))
+            .on_before_request_signed(move |context| inc_extensions(context.extensions_mut()))
+            .on_after_request_signed(move |context| inc_extensions(context.extensions_mut()))
+            .on_before_backoff(move |context, _| inc_extensions(context.extensions_mut()))
+            .on_after_backoff(move |context, _| inc_extensions(context.extensions_mut()))
+            .on_response(move |context, _| inc_extensions(context.extensions_mut()))
+            .on_error(move |context, _| inc_extensions(context.extensions_mut()))
+            .call()
+            .unwrap_err();
+        assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::TimeoutError));
         assert_eq!(counter.into_inner(), 18);
 
         let counter = ExtensionCounter::default();
-        let err = make_error_response_client_builder(
-            HttpResponseErrorKind::ServerCertError,
-            "Fake Server Cert Error",
-            true,
-        )
-        .resolver(make_random_resolver())
-        .chooser(DirectChooser)
-        .backoff(NO_BACKOFF)
-        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
-        .build()
-        .post(&[ServiceName::Up], &single_up_domain_endpoint())
-        .add_extension(counter.to_owned())
-        .on_to_resolve_domain(move |context, _| inc_extensions(context.extensions_mut()))
-        .on_domain_resolved(move |context, _, _| inc_extensions(context.extensions_mut()))
-        .on_to_choose_ips(move |context, _| inc_extensions(context.extensions_mut()))
-        .on_ips_chosen(move |context, _, _| inc_extensions(context.extensions_mut()))
-        .on_before_request_signed(move |context| inc_extensions(context.extensions_mut()))
-        .on_after_request_signed(move |context| inc_extensions(context.extensions_mut()))
-        .on_before_backoff(move |_, _| unreachable!())
-        .on_after_backoff(move |_, _| unreachable!())
-        .on_response(move |context, _| inc_extensions(context.extensions_mut()))
-        .on_error(move |context, _| inc_extensions(context.extensions_mut()))
-        .call()
-        .unwrap_err();
+        let err =
+            make_error_response_client_builder(HttpResponseErrorKind::ServerCertError, "Fake Server Cert Error", true)
+                .resolver(make_random_resolver())
+                .chooser(DirectChooser)
+                .backoff(NO_BACKOFF)
+                .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
+                .build()
+                .post(&[ServiceName::Up], &single_up_domain_endpoint())
+                .add_extension(counter.to_owned())
+                .on_to_resolve_domain(move |context, _| inc_extensions(context.extensions_mut()))
+                .on_domain_resolved(move |context, _, _| inc_extensions(context.extensions_mut()))
+                .on_to_choose_ips(move |context, _| inc_extensions(context.extensions_mut()))
+                .on_ips_chosen(move |context, _, _| inc_extensions(context.extensions_mut()))
+                .on_before_request_signed(move |context| inc_extensions(context.extensions_mut()))
+                .on_after_request_signed(move |context| inc_extensions(context.extensions_mut()))
+                .on_before_backoff(move |_, _| unreachable!())
+                .on_after_backoff(move |_, _| unreachable!())
+                .on_response(move |context, _| inc_extensions(context.extensions_mut()))
+                .on_error(move |context, _| inc_extensions(context.extensions_mut()))
+                .call()
+                .unwrap_err();
         assert_eq!(
             err.kind(),
             ResponseErrorKind::from(HttpResponseErrorKind::ServerCertError)
@@ -555,32 +498,23 @@ mod tests {
     fn test_call_dont_retry() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let always_dont_retry_client = make_error_response_client_builder(
-            HttpResponseErrorKind::LocalIoError,
-            "Test Local IO Error",
-            true,
-        )
-        .resolver(make_random_resolver())
-        .chooser(DirectChooser)
-        .build();
+        let always_dont_retry_client =
+            make_error_response_client_builder(HttpResponseErrorKind::LocalIoError, "Test Local IO Error", true)
+                .resolver(make_random_resolver())
+                .chooser(DirectChooser)
+                .build();
 
         let err = always_dont_retry_client
             .post(&[ServiceName::Up], chaotic_up_domains_endpoint())
             .on_before_backoff(|_, _| panic!("Should never retry"))
             .on_after_request_signed(|context| {
-                assert_eq!(
-                    &context.url().to_string(),
-                    "https://fakedomain.withoutport.com/"
-                );
+                assert_eq!(&context.url().to_string(), "https://fakedomain.withoutport.com/");
                 assert_eq!(context.retried().retried_total(), 0);
                 CallbackResult::Continue
             })
             .call()
             .unwrap_err();
-        assert_eq!(
-            err.kind(),
-            ResponseErrorKind::from(HttpResponseErrorKind::LocalIoError)
-        );
+        assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::LocalIoError));
 
         Ok(())
     }
@@ -589,16 +523,13 @@ mod tests {
     fn test_call_request_signature() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let always_retry_client = make_error_response_client_builder(
-            HttpResponseErrorKind::SendError,
-            "Test Send Error",
-            true,
-        )
-        .resolver(make_random_resolver())
-        .chooser(DirectChooser)
-        .backoff(NO_BACKOFF)
-        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
-        .build();
+        let always_retry_client =
+            make_error_response_client_builder(HttpResponseErrorKind::SendError, "Test Send Error", true)
+                .resolver(make_random_resolver())
+                .chooser(DirectChooser)
+                .backoff(NO_BACKOFF)
+                .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
+                .build();
         let credential = Credential::new("abcdefghklmnopq", "012345678901234567890");
         let signed_urls = Arc::new(Mutex::new(HashSet::new()));
 
@@ -616,10 +547,7 @@ mod tests {
                 .on_after_request_signed({
                     let signed_urls = signed_urls.to_owned();
                     move |context| {
-                        signed_urls
-                            .lock()
-                            .unwrap()
-                            .insert(context.url().to_string());
+                        signed_urls.lock().unwrap().insert(context.url().to_string());
                         assert!(context
                             .headers()
                             .get(&HeaderName::from_static("authorization"))
@@ -632,10 +560,7 @@ mod tests {
                 })
                 .call()
                 .unwrap_err();
-            assert_eq!(
-                err.kind(),
-                ResponseErrorKind::from(HttpResponseErrorKind::SendError)
-            );
+            assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::SendError));
         }
 
         {
@@ -652,10 +577,7 @@ mod tests {
                 })
                 .on_after_request_signed({
                     move |context| {
-                        signed_urls
-                            .lock()
-                            .unwrap()
-                            .insert(context.url().to_string());
+                        signed_urls.lock().unwrap().insert(context.url().to_string());
                         assert!(context
                             .headers()
                             .get(&HeaderName::from_static("authorization"))
@@ -668,10 +590,7 @@ mod tests {
                 })
                 .call()
                 .unwrap_err();
-            assert_eq!(
-                err.kind(),
-                ResponseErrorKind::from(HttpResponseErrorKind::SendError)
-            );
+            assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::SendError));
         }
 
         Ok(())
@@ -723,10 +642,7 @@ mod tests {
             "https://[::ffff:192.11.2.255]:8081/",
             "https://192.168.1.2:8080/",
         ];
-        let retried_times = Arc::try_unwrap(retried_times)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let retried_times = Arc::try_unwrap(retried_times).unwrap().into_inner().unwrap();
         for &url in urls.iter() {
             assert_eq!(retried_times.get(url).map(|e| e.load(Relaxed)).unwrap(), 4);
         }
@@ -779,16 +695,13 @@ mod tests {
     fn test_cancel_in_callbacks() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let client = make_error_response_client_builder(
-            HttpResponseErrorKind::ConnectError,
-            "Fake Connect Error",
-            true,
-        )
-        .resolver(make_dumb_resolver())
-        .chooser(DirectChooser)
-        .request_retrier(ErrorRetrier)
-        .backoff(NO_BACKOFF)
-        .build();
+        let client =
+            make_error_response_client_builder(HttpResponseErrorKind::ConnectError, "Fake Connect Error", true)
+                .resolver(make_dumb_resolver())
+                .chooser(DirectChooser)
+                .request_retrier(ErrorRetrier)
+                .backoff(NO_BACKOFF)
+                .build();
 
         let err = client
             .post(&[ServiceName::Up], chaotic_up_domains_endpoint())
@@ -796,10 +709,7 @@ mod tests {
             .on_before_backoff(|_, _| panic!("Should not retry"))
             .call()
             .unwrap_err();
-        assert_eq!(
-            err.kind(),
-            ResponseErrorKind::from(HttpResponseErrorKind::UserCanceled)
-        );
+        assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::UserCanceled));
 
         let err = client
             .post(&[ServiceName::Up], chaotic_up_domains_endpoint())
@@ -807,10 +717,7 @@ mod tests {
             .on_before_backoff(|_, _| panic!("Should not retry"))
             .call()
             .unwrap_err();
-        assert_eq!(
-            err.kind(),
-            ResponseErrorKind::from(HttpResponseErrorKind::UserCanceled)
-        );
+        assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::UserCanceled));
 
         let err = client
             .post(&[ServiceName::Up], chaotic_up_domains_endpoint())
@@ -818,10 +725,7 @@ mod tests {
             .on_after_backoff(|_, _| panic!("Should not retry"))
             .call()
             .unwrap_err();
-        assert_eq!(
-            err.kind(),
-            ResponseErrorKind::from(HttpResponseErrorKind::UserCanceled)
-        );
+        assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::UserCanceled));
         Ok(())
     }
 
@@ -830,16 +734,13 @@ mod tests {
     async fn test_async_call_single_endpoint_retry() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let always_retry_client = make_error_response_client_builder(
-            HttpResponseErrorKind::TimeoutError,
-            "Fake Timeout Error",
-            true,
-        )
-        .resolver(make_random_resolver())
-        .chooser(DirectChooser)
-        .backoff(NO_BACKOFF)
-        .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
-        .build();
+        let always_retry_client =
+            make_error_response_client_builder(HttpResponseErrorKind::TimeoutError, "Fake Timeout Error", true)
+                .resolver(make_random_resolver())
+                .chooser(DirectChooser)
+                .backoff(NO_BACKOFF)
+                .request_retrier(LimitedRetrier::new(ErrorRetrier, 3))
+                .build();
 
         let retried = Arc::new(AtomicUsize::new(0));
         let err = always_retry_client
@@ -847,10 +748,7 @@ mod tests {
             .on_before_backoff({
                 let retried = retried.to_owned();
                 move |context, _| {
-                    assert_eq!(
-                        "https://fakedomain.withport.com:8080/",
-                        &context.url().to_string()
-                    );
+                    assert_eq!("https://fakedomain.withport.com:8080/", &context.url().to_string());
                     let retried = retried.fetch_add(1, Relaxed) + 1;
                     assert_eq!(context.retried().retried_total(), retried);
                     assert_eq!(context.retried().retried_on_current_endpoint(), retried);
@@ -862,10 +760,7 @@ mod tests {
             .call()
             .await
             .unwrap_err();
-        assert_eq!(
-            err.kind(),
-            ResponseErrorKind::from(HttpResponseErrorKind::TimeoutError)
-        );
+        assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::TimeoutError));
 
         let headers = {
             let mut headers = HeaderMap::default();
@@ -893,10 +788,7 @@ mod tests {
             .on_before_backoff({
                 let retried = retried.to_owned();
                 move |context, _| {
-                    assert_eq!(
-                        "https://fakedomain.withport.com:8080/",
-                        &context.url().to_string(),
-                    );
+                    assert_eq!("https://fakedomain.withport.com:8080/", &context.url().to_string(),);
                     let retried = retried.fetch_add(1, Relaxed) + 1;
                     assert_eq!(context.retried().retried_total(), retried);
                     assert_eq!(context.retried().retried_on_current_endpoint(), retried);

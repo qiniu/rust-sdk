@@ -13,6 +13,11 @@ use {
 
 const DEFAULT_RESOLVE_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// 超时域名解析器
+///
+/// 为一个域名解析器实例提供超时功能
+///
+/// 默认超时时间为 5 秒
 #[derive(Debug, Clone)]
 pub struct TimeoutResolver<R: ?Sized> {
     inner: Arc<TimeoutResolverInner<R>>,
@@ -25,6 +30,7 @@ struct TimeoutResolverInner<R: ?Sized> {
 }
 
 impl<R> TimeoutResolver<R> {
+    /// 创建超时解析器
     #[inline]
     pub fn new(resolver: R, timeout: Duration) -> Self {
         Self {
@@ -75,10 +81,7 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
                         sender.send(inner.resolver.resolve(&domain, &opts)).ok();
                     },
                 ) {
-                    warn!(
-                        "Timeout Resolver was failed to spawn thread to resolve domain: {}",
-                        err
-                    );
+                    warn!("Timeout Resolver was failed to spawn thread to resolve domain: {}", err);
                 }
             }
             let mut sel = Select::new();
@@ -104,11 +107,7 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_resolve<'a>(
-        &'a self,
-        domain: &'a str,
-        opts: &'a ResolveOptions,
-    ) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
         use futures::{pin_mut, select};
 
         return Box::pin(async move {
@@ -163,11 +162,7 @@ mod tests {
 
         #[inline]
         #[cfg(feature = "async")]
-        fn async_resolve<'a>(
-            &'a self,
-            _domain: &'a str,
-            _opts: &'a ResolveOptions,
-        ) -> BoxFuture<'a, ResolveResult> {
+        fn async_resolve<'a>(&'a self, _domain: &'a str, _opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
             Box::pin(async move {
                 AsyncDelay::new(self.0).await;
                 Ok(IPS.to_owned().into_boxed_slice().into())
@@ -177,17 +172,13 @@ mod tests {
 
     #[test]
     fn test_timeout_resolver() -> Result<(), Box<dyn Error>> {
-        let resolver =
-            TimeoutResolver::new(WaitResolver(Duration::from_secs(1)), Duration::from_secs(2));
+        let resolver = TimeoutResolver::new(WaitResolver(Duration::from_secs(1)), Duration::from_secs(2));
 
         let answers = resolver.resolve("fake.domain", &Default::default())?;
         assert_eq!(answers.ip_addrs(), IPS);
 
-        let resolver =
-            TimeoutResolver::new(WaitResolver(Duration::from_secs(2)), Duration::from_secs(1));
-        resolver
-            .resolve("fake.domain", &Default::default())
-            .unwrap_err();
+        let resolver = TimeoutResolver::new(WaitResolver(Duration::from_secs(2)), Duration::from_secs(1));
+        resolver.resolve("fake.domain", &Default::default()).unwrap_err();
 
         Ok(())
     }
@@ -195,20 +186,12 @@ mod tests {
     #[cfg(feature = "async")]
     #[tokio::test]
     async fn test_async_timeout_resolver() -> Result<(), Box<dyn Error>> {
-        let resolver = TimeoutResolver::new(
-            WaitResolver(Duration::from_millis(100)),
-            Duration::from_millis(200),
-        );
+        let resolver = TimeoutResolver::new(WaitResolver(Duration::from_millis(100)), Duration::from_millis(200));
 
-        let answers = resolver
-            .async_resolve("fake.domain", &Default::default())
-            .await?;
+        let answers = resolver.async_resolve("fake.domain", &Default::default()).await?;
         assert_eq!(answers.ip_addrs(), IPS);
 
-        let resolver = TimeoutResolver::new(
-            WaitResolver(Duration::from_millis(200)),
-            Duration::from_millis(100),
-        );
+        let resolver = TimeoutResolver::new(WaitResolver(Duration::from_millis(200)), Duration::from_millis(100));
         resolver
             .async_resolve("fake.domain", &Default::default())
             .await

@@ -21,10 +21,7 @@ impl PathParams {
             all_segments.push(segment);
         }
         all_segments.push(std::borrow::Cow::Borrowed("objects"));
-        all_segments.push(
-            self.r#object_name
-                .unwrap_or(std::borrow::Cow::Borrowed("~")),
-        );
+        all_segments.push(self.r#object_name.unwrap_or(std::borrow::Cow::Borrowed("~")));
         if let Some(segment) = self.r#upload_id {
             all_segments.push(std::borrow::Cow::Borrowed("uploads"));
             all_segments.push(segment);
@@ -37,30 +34,21 @@ impl PathParams {
     #[inline]
     #[must_use]
     #[doc = "存储空间名称"]
-    pub fn set_bucket_name_as_str(
-        mut self,
-        value: impl Into<std::borrow::Cow<'static, str>>,
-    ) -> Self {
+    pub fn set_bucket_name_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#bucket_name = Some(value.into());
         self
     }
     #[inline]
     #[must_use]
     #[doc = "对象名称"]
-    pub fn set_object_name_as_str(
-        mut self,
-        value: impl Into<std::borrow::Cow<'static, str>>,
-    ) -> Self {
+    pub fn set_object_name_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#object_name = Some(qiniu_utils::base64::urlsafe(value.into().as_bytes()).into());
         self
     }
     #[inline]
     #[must_use]
     #[doc = "在服务端申请的 Multipart Upload 任务 id"]
-    pub fn set_upload_id_as_str(
-        mut self,
-        value: impl Into<std::borrow::Cow<'static, str>>,
-    ) -> Self {
+    pub fn set_upload_id_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#upload_id = Some(value.into());
         self
     }
@@ -68,10 +56,7 @@ impl PathParams {
 #[derive(Debug, Clone, Default)]
 #[doc = "调用 API 所用的 URL 查询参数"]
 pub struct QueryParams<'a> {
-    map: indexmap::IndexMap<
-        qiniu_http_client::QueryPairKey<'a>,
-        qiniu_http_client::QueryPairValue<'a>,
-    >,
+    map: indexmap::IndexMap<qiniu_http_client::QueryPairKey<'a>, qiniu_http_client::QueryPairValue<'a>>,
 }
 impl<'a> QueryParams<'a> {
     #[inline]
@@ -84,11 +69,11 @@ impl<'a> QueryParams<'a> {
         self.map.insert(query_pair_key, query_pair_value);
         self
     }
-    fn build(self) -> qiniu_http_client::QueryPairs<'a> {
-        qiniu_http_client::QueryPairs::from_iter(self.map)
+    fn build(self) -> Vec<qiniu_http_client::QueryPair<'a>> {
+        Vec::from_iter(self.map)
     }
 }
-impl<'a> From<QueryParams<'a>> for qiniu_http_client::QueryPairs<'a> {
+impl<'a> From<QueryParams<'a>> for Vec<qiniu_http_client::QueryPair<'a>> {
     #[inline]
     fn from(map: QueryParams<'a>) -> Self {
         map.build()
@@ -253,13 +238,7 @@ impl std::convert::AsMut<serde_json::Value> for ResponseBody {
 impl ResponseBody {
     #[doc = "获取 在服务端申请的 Multipart Upload 任务 id"]
     pub fn get_upload_id_as_str(&self) -> &str {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("uploadId")
-            .unwrap()
-            .as_str()
-            .unwrap()
+        self.0.as_object().unwrap().get("uploadId").unwrap().as_str().unwrap()
     }
 }
 impl ResponseBody {
@@ -278,13 +257,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "获取 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn get_expired_at_as_i64(&self) -> i64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("expireAt")
-            .unwrap()
-            .as_i64()
-            .unwrap()
+        self.0.as_object().unwrap().get("expireAt").unwrap().as_i64().unwrap()
     }
 }
 impl ResponseBody {
@@ -300,13 +273,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "获取 UploadId 的过期时间 UNIX 时间戳，过期之后 UploadId 不可用"]
     pub fn get_expired_at_as_u64(&self) -> u64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("expireAt")
-            .unwrap()
-            .as_u64()
-            .unwrap()
+        self.0.as_object().unwrap().get("expireAt").unwrap().as_u64().unwrap()
     }
 }
 impl ResponseBody {
@@ -434,13 +401,7 @@ impl std::convert::AsMut<serde_json::Value> for ListedPartInfo {
 impl ListedPartInfo {
     #[doc = "获取 分片大小"]
     pub fn get_size_as_i64(&self) -> i64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("size")
-            .unwrap()
-            .as_i64()
-            .unwrap()
+        self.0.as_object().unwrap().get("size").unwrap().as_i64().unwrap()
     }
 }
 impl ListedPartInfo {
@@ -456,13 +417,7 @@ impl ListedPartInfo {
 impl ListedPartInfo {
     #[doc = "获取 分片大小"]
     pub fn get_size_as_u64(&self) -> u64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("size")
-            .unwrap()
-            .as_u64()
-            .unwrap()
+        self.0.as_object().unwrap().get("size").unwrap().as_u64().unwrap()
     }
 }
 impl ListedPartInfo {
@@ -478,13 +433,7 @@ impl ListedPartInfo {
 impl ListedPartInfo {
     #[doc = "获取 分片内容的 etag"]
     pub fn get_etag_as_str(&self) -> &str {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("etag")
-            .unwrap()
-            .as_str()
-            .unwrap()
+        self.0.as_object().unwrap().get("etag").unwrap().as_str().unwrap()
     }
 }
 impl ListedPartInfo {
@@ -503,13 +452,7 @@ impl ListedPartInfo {
 impl ListedPartInfo {
     #[doc = "获取 每一个上传的分片都有一个标识它的号码"]
     pub fn get_part_number_as_i64(&self) -> i64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("partNumber")
-            .unwrap()
-            .as_i64()
-            .unwrap()
+        self.0.as_object().unwrap().get("partNumber").unwrap().as_i64().unwrap()
     }
 }
 impl ListedPartInfo {
@@ -525,13 +468,7 @@ impl ListedPartInfo {
 impl ListedPartInfo {
     #[doc = "获取 每一个上传的分片都有一个标识它的号码"]
     pub fn get_part_number_as_u64(&self) -> u64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("partNumber")
-            .unwrap()
-            .as_u64()
-            .unwrap()
+        self.0.as_object().unwrap().get("partNumber").unwrap().as_u64().unwrap()
     }
 }
 impl ListedPartInfo {
@@ -547,13 +484,7 @@ impl ListedPartInfo {
 impl ListedPartInfo {
     #[doc = "获取 分片上传时间 UNIX 时间戳"]
     pub fn get_put_time_as_i64(&self) -> i64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("put_time")
-            .unwrap()
-            .as_i64()
-            .unwrap()
+        self.0.as_object().unwrap().get("put_time").unwrap().as_i64().unwrap()
     }
 }
 impl ListedPartInfo {
@@ -569,13 +500,7 @@ impl ListedPartInfo {
 impl ListedPartInfo {
     #[doc = "获取 分片上传时间 UNIX 时间戳"]
     pub fn get_put_time_as_u64(&self) -> u64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("put_time")
-            .unwrap()
-            .as_u64()
-            .unwrap()
+        self.0.as_object().unwrap().get("put_time").unwrap().as_u64().unwrap()
     }
 }
 impl ListedPartInfo {
@@ -635,11 +560,7 @@ impl ListedParts {
 impl ListedParts {
     #[doc = "在列表尾部取出 JSON ListedPartInfo"]
     pub fn pop_listed_part_info(&mut self) -> Option<ListedPartInfo> {
-        self.0
-            .as_array_mut()
-            .unwrap()
-            .pop()
-            .map(ListedPartInfo::new)
+        self.0.as_array_mut().unwrap().pop().map(ListedPartInfo::new)
     }
 }
 impl ResponseBody {
@@ -671,21 +592,13 @@ impl<'client> Client<'client> {
         &self,
         endpoints_provider: E,
         path_params: PathParams,
-        upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider
-            + std::clone::Clone
-            + 'client,
+        upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider + std::clone::Clone + 'client,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
-            let mut builder = self
-                .0
-                .get(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
+            let mut builder = self.0.get(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::uptoken(upload_token));
             builder.idempotent(qiniu_http_client::Idempotent::Default);
-            builder.path(crate::base_utils::join_path(
-                "/buckets",
-                "",
-                path_params.build(),
-            ));
+            builder.path(crate::base_utils::join_path("/buckets", "", path_params.build()));
             builder.accept_json();
             builder
         })
@@ -696,9 +609,7 @@ impl<'client> Client<'client> {
         &self,
         endpoints_provider: E,
         path_params: PathParams,
-        upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider
-            + std::clone::Clone
-            + 'client,
+        upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider + std::clone::Clone + 'client,
     ) -> AsyncRequestBuilder<'client, E> {
         RequestBuilder({
             let mut builder = self
@@ -706,11 +617,7 @@ impl<'client> Client<'client> {
                 .async_get(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::uptoken(upload_token));
             builder.idempotent(qiniu_http_client::Idempotent::Default);
-            builder.path(crate::base_utils::join_path(
-                "/buckets",
-                "",
-                path_params.build(),
-            ));
+            builder.path(crate::base_utils::join_path("/buckets", "", path_params.build()));
             builder.accept_json();
             builder
         })
@@ -718,12 +625,10 @@ impl<'client> Client<'client> {
 }
 #[derive(Debug)]
 pub struct RequestBuilder<'req, B: 'req, E: 'req>(qiniu_http_client::RequestBuilder<'req, B, E>);
-pub type SyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
+pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub type AsyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
+pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
 impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn use_https(&mut self, use_https: bool) -> &mut Self {
@@ -744,10 +649,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
-    pub fn query_pairs(
-        &mut self,
-        query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>,
-    ) -> &mut Self {
+    pub fn query_pairs(&mut self, query_pairs: impl Into<Vec<qiniu_http_client::QueryPair<'req>>>) -> &mut Self {
         self.0.query_pairs(query_pairs);
         self
     }
@@ -807,10 +709,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &str,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -865,9 +764,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -878,9 +775,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -950,9 +845,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     }
 }
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBuilder<'req, E> {
-    pub fn call(
-        &mut self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
+    pub fn call(&mut self) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = &mut self.0;
         let response = request.call()?;
         let parsed = response.parse_json()?;
@@ -961,9 +854,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBu
 }
 #[cfg(feature = "async")]
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> AsyncRequestBuilder<'req, E> {
-    pub async fn call(
-        &mut self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
+    pub async fn call(&mut self) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = &mut self.0;
         let response = request.call().await?;
         let parsed = response.parse_json().await?;

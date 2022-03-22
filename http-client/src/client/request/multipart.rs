@@ -19,12 +19,14 @@ use std::{
     ops::{Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo},
 };
 
+/// 文件名
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FileName {
     inner: SmallString<[u8; 64]>,
 }
 wrap_smallstr!(FileName);
 
+/// Multipart 字段名称
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FieldName {
     inner: SmallString<[u8; 16]>,
@@ -39,22 +41,18 @@ wrap_smallstr!(Boundary);
 
 type HeaderBuffer = SmallVec<[u8; 256]>;
 
+/// Multipart 表单
 #[derive(Debug)]
 pub struct Multipart<P> {
     boundary: Boundary,
     fields: VecDeque<(FieldName, P)>,
 }
 
+/// Multipart 表单组件
+#[derive(Debug)]
 pub struct Part<B> {
     meta: PartMetadata,
     body: B,
-}
-
-impl<B> fmt::Debug for Part<B> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Part").field("meta", &self.meta).finish()
-    }
 }
 
 impl<P> Default for Multipart<P> {
@@ -65,6 +63,7 @@ impl<P> Default for Multipart<P> {
 }
 
 impl<P> Multipart<P> {
+    /// 创建 Multipart 表单
     #[inline]
     pub fn new() -> Self {
         Self {
@@ -73,11 +72,11 @@ impl<P> Multipart<P> {
         }
     }
 
-    #[inline]
-    pub fn boundary(&self) -> &str {
+    pub(super) fn boundary(&self) -> &str {
         &self.boundary
     }
 
+    /// 添加 Multipart 表单组件
     #[inline]
     #[must_use]
     pub fn add_part(mut self, name: impl Into<FieldName>, part: P) -> Self {
@@ -86,6 +85,7 @@ impl<P> Multipart<P> {
     }
 }
 
+/// Multipart 表单组件元信息
 #[derive(Default, Debug)]
 pub struct PartMetadata {
     headers: HeaderMap,
@@ -93,12 +93,14 @@ pub struct PartMetadata {
 }
 
 impl PartMetadata {
+    /// 设置表单组件的 MIME 类型
     #[inline]
     #[must_use]
     pub fn mime(self, mime: Mime) -> Self {
         self.add_header(CONTENT_TYPE, HeaderValue::from_str(mime.as_ref()).unwrap())
     }
 
+    /// 添加表单组件的 HTTP 头
     #[inline]
     #[must_use]
     pub fn add_header(mut self, name: impl Into<HeaderName>, value: impl Into<HeaderValue>) -> Self {
@@ -106,6 +108,7 @@ impl PartMetadata {
         self
     }
 
+    /// 设置表单组件的文件名
     #[inline]
     #[must_use]
     pub fn file_name(mut self, file_name: impl Into<FileName>) -> Self {
@@ -115,6 +118,7 @@ impl PartMetadata {
 }
 
 impl<B> Part<B> {
+    /// 设置 Multipart 表单组件的元信息
     #[inline]
     #[must_use]
     pub fn metadata(mut self, metadata: PartMetadata) -> Self {
@@ -149,11 +153,15 @@ mod sync_part {
         }
     }
 
+    /// 阻塞 Multipart 表单组件请求体
     #[derive(Debug)]
     pub struct SyncPartBody(SyncPartBodyInner);
+
+    /// 阻塞 Multipart 表单组件
     pub type SyncPart = Part<SyncPartBody>;
 
     impl SyncPart {
+        /// 设置阻塞 Multipart 的请求体为字符串
         #[inline]
         #[must_use]
         pub fn text(value: impl Into<Cow<'static, str>>) -> Self {
@@ -169,6 +177,7 @@ mod sync_part {
             }
         }
 
+        /// 设置阻塞 Multipart 的请求体为内存数据
         #[inline]
         #[must_use]
         pub fn bytes(value: impl Into<Cow<'static, [u8]>>) -> Self {
@@ -184,6 +193,7 @@ mod sync_part {
             }
         }
 
+        /// 设置阻塞 Multipart 的请求体为输入流
         #[inline]
         #[must_use]
         pub fn stream(value: impl Read + 'static) -> Self {
@@ -193,6 +203,7 @@ mod sync_part {
             }
         }
 
+        /// 设置阻塞 Multipart 的请求体为文件
         pub fn file_path<S: AsRef<OsStr> + ?Sized>(path: &S) -> IoResult<Self> {
             let path = Path::new(path);
             let file = File::open(&path)?;
@@ -208,6 +219,7 @@ mod sync_part {
         }
     }
 
+    /// 阻塞 Multipart
     pub type SyncMultipart = Multipart<SyncPart>;
 
     impl SyncMultipart {
@@ -285,14 +297,17 @@ mod async_part {
         }
     }
 
+    /// 异步 Multipart 表单组件请求体
     #[derive(Debug)]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub struct AsyncPartBody(AsyncPartBodyInner);
 
+    /// 异步 Multipart 表单组件
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub type AsyncPart = Part<AsyncPartBody>;
 
     impl AsyncPart {
+        /// 设置异步 Multipart 的请求体为字符串
         #[inline]
         #[must_use]
         pub fn text(value: impl Into<Cow<'static, str>>) -> Self {
@@ -306,6 +321,7 @@ mod async_part {
             }
         }
 
+        /// 设置异步 Multipart 的请求体为内存数据
         #[inline]
         #[must_use]
         pub fn bytes(value: impl Into<Cow<'static, [u8]>>) -> Self {
@@ -319,6 +335,7 @@ mod async_part {
             }
         }
 
+        /// 设置异步 Multipart 的请求体为异步输入流
         #[inline]
         #[must_use]
         pub fn stream(value: impl AsyncRead + Send + Unpin + 'static) -> Self {
@@ -328,6 +345,7 @@ mod async_part {
             }
         }
 
+        /// 设置异步 Multipart 的请求体为文件
         pub async fn file_path<S: AsRef<OsStr> + ?Sized>(path: &S) -> IoResult<Self> {
             let path = Path::new(path);
             let file = File::open(&path).await?;
@@ -343,6 +361,7 @@ mod async_part {
         }
     }
 
+    /// 异步 Multipart
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub type AsyncMultipart = Multipart<AsyncPart>;
 

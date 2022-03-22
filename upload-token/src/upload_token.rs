@@ -29,7 +29,7 @@ type AsyncParseResult<'a, T> = Pin<Box<dyn Future<Output = ParseResult<T>> + 'a 
 #[cfg(feature = "async")]
 type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send>>;
 
-/// 上传凭证提供者
+/// 上传凭证获取接口
 ///
 /// 可以阅读 <https://developer.qiniu.com/kodo/manual/1208/upload-token> 了解七牛安全机制。
 #[clonable]
@@ -286,7 +286,7 @@ impl DerefMut for GotString<'_> {
     }
 }
 
-/// 上传凭证提供者扩展
+/// 上传凭证获取接口扩展
 ///
 /// 提供存储空间名称解析方法
 pub trait UploadTokenProviderExt: UploadTokenProvider {
@@ -321,7 +321,7 @@ impl<T: UploadTokenProvider> UploadTokenProviderExt for T {}
 
 /// 静态上传凭证提供者
 ///
-/// 根据已经被生成好的上传凭证字符串生成上传凭证提供者实例，可以将上传凭证解析为 Access Token 和上传策略
+/// 根据已经被生成好的上传凭证字符串生成上传凭证获取接口的实例，可以将上传凭证解析为 Access Token 和上传策略
 #[derive(Clone)]
 pub struct StaticUploadTokenProvider {
     upload_token: Box<str>,
@@ -716,7 +716,7 @@ struct AsyncCacheInner {
 
 /// 缓存生成的上传凭证
 ///
-/// 内部存储另一个实现 [`UploadTokenProvider`] 的结构体，该结构为之提供指定时间内的缓存，避免每次都要重新生成新的上传凭证。
+/// 内部存储另一个上传凭证获取接口的实例，该结构为之提供指定时间内的缓存，避免每次都要重新生成新的上传凭证。
 #[derive(Debug, Clone)]
 pub struct CachedUploadTokenProvider<P: Clone> {
     inner_provider: P,
@@ -728,7 +728,7 @@ pub struct CachedUploadTokenProvider<P: Clone> {
 }
 
 impl<P: Clone> CachedUploadTokenProvider<P> {
-    /// 创建上传凭证缓存，需要提供另一个实现 [`UploadTokenProvider`] 的结构体，和需要缓存的时长
+    /// 创建上传凭证缓存，需要提供另一个上传凭证获取接口的实例，和需要缓存的时长
     #[inline]
     pub fn new(inner_provider: P, cache_lifetime: Duration) -> Self {
         Self {

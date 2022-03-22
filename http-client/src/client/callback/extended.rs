@@ -1,5 +1,5 @@
 use super::{
-    super::{Authorization, Idempotent, QueryPairs, RequestParts, RetriedStatsInfo},
+    super::{Authorization, Idempotent, QueryPair, RequestParts, RetriedStatsInfo},
     context::CallbackContext,
     simplified::SimplifiedCallbackContext,
 };
@@ -9,15 +9,33 @@ use qiniu_http::{
 };
 use std::{borrow::Cow, net::IpAddr};
 
+/// 扩展的回调函数上下文
+///
+/// 基于回调函数上下文，并在此基础上增加返回部分请求信息的可变引用，以及用户代理和经过解析的 IP 地址列表的获取和设置方法。
 #[auto_impl(&mut, Box)]
 pub trait ExtendedCallbackContext: CallbackContext {
+    /// 获取 HTTP 请求 URL
     fn url(&self) -> &Uri;
+
+    /// 获取请求 HTTP 版本的可变引用
     fn version_mut(&mut self) -> &mut Version;
+
+    /// 获取请求 HTTP Headers 的可变引用
     fn headers_mut(&mut self) -> &mut HeaderMap;
+
+    /// 获取用户代理
     fn user_agent(&self) -> UserAgent;
+
+    /// 设置追加的用户代理
     fn set_appended_user_agent(&mut self, appended_user_agent: UserAgent);
+
+    /// 获取经过解析的 IP 地址列表
     fn resolved_ip_addrs(&self) -> Option<&[IpAddr]>;
+
+    /// 设置经过解析的 IP 地址列表
     fn set_resolved_ip_addrs(&mut self, resolved_ip_addrs: Vec<IpAddr>);
+
+    /// 获取重试统计信息
     fn retried(&self) -> &RetriedStatsInfo;
 }
 
@@ -71,7 +89,7 @@ impl SimplifiedCallbackContext for ExtendedCallbackContextImpl<'_, '_, '_, '_, '
     }
 
     #[inline]
-    fn query_pairs(&self) -> &QueryPairs {
+    fn query_pairs(&self) -> &[QueryPair] {
         self.request.query_pairs()
     }
 

@@ -32,9 +32,6 @@ pub enum ErrorKind {
     /// 未预期的状态码（例如 0 - 199 或 300 - 399，理论上应该由 HttpCaller 自动处理）
     UnexpectedStatusCode(HttpStatusCode),
 
-    /// 读取响应体时遭遇未预期的 EOF
-    UnexpectedEof,
-
     /// 解析响应体错误
     ParseResponseError,
 
@@ -79,6 +76,7 @@ impl Error {
         }
     }
 
+    /// 设置重试信息
     #[inline]
     #[must_use]
     pub fn retried(mut self, retried: &RetriedStatsInfo) -> Self {
@@ -86,6 +84,7 @@ impl Error {
         self
     }
 
+    /// 设置 HTTP 响应信息
     #[inline]
     #[must_use]
     pub fn response_parts(mut self, response_parts: &HttpResponseParts) -> Self {
@@ -96,6 +95,7 @@ impl Error {
         self
     }
 
+    /// 设置响应体样本
     #[inline]
     pub fn read_response_body_sample<R: Read>(mut self, body: R) -> IOResult<Self> {
         body.take(RESPONSE_BODY_SAMPLE_LEN_LIMIT)
@@ -103,6 +103,7 @@ impl Error {
         Ok(self)
     }
 
+    /// 异步设置响应体样本
     #[inline]
     #[cfg(feature = "async")]
     pub async fn async_read_response_body_sample<R: AsyncRead + Unpin>(mut self, body: R) -> IOResult<Self> {
@@ -118,31 +119,37 @@ impl Error {
         self.kind
     }
 
+    /// 获取响应体样本
     #[inline]
     pub fn response_body_sample(&self) -> &[u8] {
         &self.response_body_sample
     }
 
+    /// 获取服务器 IP 地址
     #[inline]
     pub fn server_ip(&self) -> Option<IpAddr> {
         self.server_ip
     }
 
+    /// 获取服务器端口号
     #[inline]
     pub fn server_port(&self) -> Option<NonZeroU16> {
         self.server_port
     }
 
+    /// 获取 HTTP 响应指标信息
     #[inline]
     pub fn metrics(&self) -> Option<&dyn Metrics> {
         self.metrics.as_deref()
     }
 
+    /// 获取 HTTP 响应的 X-Log 信息
     #[inline]
     pub fn x_log(&self) -> Option<&HeaderValue> {
         self.x_headers.x_log.as_ref()
     }
 
+    /// 获取 HTTP 响应的 X-ReqId 信息
     #[inline]
     pub fn x_reqid(&self) -> Option<&HeaderValue> {
         self.x_headers.x_reqid.as_ref()

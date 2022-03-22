@@ -101,8 +101,7 @@ where
     #[inline]
     fn from(m: T) -> Self {
         Self(Value::Object(Map::from_iter(
-            m.into_iter()
-                .map(|(key, value)| (key, Value::String(value))),
+            m.into_iter().map(|(key, value)| (key, Value::String(value))),
         )))
     }
 }

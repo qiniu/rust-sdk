@@ -1,4 +1,4 @@
-use super::{super::authorization::Authorization, Idempotent, QueryPairs};
+use super::{super::authorization::Authorization, Idempotent, QueryPair};
 use qiniu_http::{HeaderMap, Method, Version};
 use std::borrow::Cow;
 
@@ -9,7 +9,7 @@ pub(super) struct RequestMetadata<'r> {
     pub(super) version: Version,
     pub(super) path: Cow<'r, str>,
     pub(super) query: Cow<'r, str>,
-    pub(super) query_pairs: QueryPairs<'r>,
+    pub(super) query_pairs: Vec<QueryPair<'r>>,
     pub(super) headers: Cow<'r, HeaderMap>,
     pub(super) authorization: Option<Authorization<'r>>,
     pub(super) idempotent: Idempotent,

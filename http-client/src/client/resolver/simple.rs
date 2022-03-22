@@ -3,6 +3,12 @@ use dns_lookup::lookup_host;
 use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
 use std::io::Error as IOError;
 
+#[cfg(feature = "async")]
+use {async_std::task::spawn, futures::future::BoxFuture};
+
+/// 简单域名解析器
+///
+/// 基于 `libc` 库的域名解析接口实现
 #[derive(Default, Debug, Clone, Copy)]
 pub struct SimpleResolver;
 
@@ -12,6 +18,16 @@ impl Resolver for SimpleResolver {
         lookup_host(domain)
             .map(|ips| ips.into_boxed_slice().into())
             .map_err(|err| convert_io_error_to_response_error(err, opts))
+    }
+
+    #[inline]
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
+        let resolver = self.to_owned();
+        let domain = domain.to_owned();
+        let opts = opts.to_owned();
+        Box::pin(async move { spawn(async move { resolver.resolve(&domain, &opts) }).await })
     }
 }
 

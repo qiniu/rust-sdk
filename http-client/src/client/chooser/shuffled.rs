@@ -1,17 +1,19 @@
-use super::{
-    super::super::regions::IpAddrWithPort, ChooseOptions, Chooser, ChooserFeedback, ChosenResults,
-};
+use super::{super::super::regions::IpAddrWithPort, ChooseOptions, Chooser, ChooserFeedback, ChosenResults};
 use rand::{seq::SliceRandom, thread_rng};
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
+/// 随机选择器
+///
+/// 基于一个选择器实例，但将其返回的选择结果打乱
 #[derive(Debug, Clone)]
 pub struct ShuffledChooser<C: ?Sized> {
     chooser: C,
 }
 
 impl<C> ShuffledChooser<C> {
+    /// 创建随机选择器
     #[inline]
     pub fn new(chooser: C) -> Self {
         Self { chooser }
@@ -36,11 +38,7 @@ impl<C: Chooser> Chooser for ShuffledChooser<C> {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_choose<'a>(
-        &'a self,
-        ips: &'a [IpAddrWithPort],
-        opts: &'a ChooseOptions,
-    ) -> BoxFuture<'a, ChosenResults> {
+    fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort], opts: &'a ChooseOptions) -> BoxFuture<'a, ChosenResults> {
         Box::pin(async move {
             let mut ips = self.chooser.async_choose(ips, opts).await;
             ips.shuffle(&mut thread_rng());
@@ -99,17 +97,11 @@ mod tests {
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
-            Some(&ResponseError::new(
-                ResponseErrorKind::ParseResponseError,
-                "Test Error",
-            )),
+            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
             make_set(ip_chooser.choose(IPS_WITHOUT_PORT, &Default::default())),
-            make_set(&[IpAddrWithPort::new(
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
-                None
-            )]),
+            make_set(&[IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)]),
         );
 
         ip_chooser.feedback(ChooserFeedback::new(
@@ -117,15 +109,10 @@ mod tests {
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
-            Some(&ResponseError::new(
-                ResponseErrorKind::ParseResponseError,
-                "Test Error",
-            )),
+            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
-            ip_chooser
-                .choose(IPS_WITHOUT_PORT, &Default::default())
-                .into_ip_addrs(),
+            ip_chooser.choose(IPS_WITHOUT_PORT, &Default::default()).into_ip_addrs(),
             vec![]
         );
 

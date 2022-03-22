@@ -5,10 +5,7 @@
 pub struct RequestBody {
     r#bucket: Option<std::borrow::Cow<'static, str>>,
     r#is_private: Option<std::borrow::Cow<'static, str>>,
-    extended_pairs: Vec<(
-        std::borrow::Cow<'static, str>,
-        Option<std::borrow::Cow<'static, str>>,
-    )>,
+    extended_pairs: Vec<(std::borrow::Cow<'static, str>, Option<std::borrow::Cow<'static, str>>)>,
 }
 impl RequestBody {
     #[inline]
@@ -21,12 +18,7 @@ impl RequestBody {
         self.extended_pairs.push((key.into(), Some(value.into())));
         self
     }
-    fn build(
-        self,
-    ) -> Vec<(
-        std::borrow::Cow<'static, str>,
-        Option<std::borrow::Cow<'static, str>>,
-    )> {
+    fn build(self) -> Vec<(std::borrow::Cow<'static, str>, Option<std::borrow::Cow<'static, str>>)> {
         let mut all_pairs: Vec<_> = Default::default();
         if let Some(value) = self.r#bucket {
             all_pairs.push(("bucket".into(), Some(value)));
@@ -39,10 +31,7 @@ impl RequestBody {
     }
 }
 impl IntoIterator for RequestBody {
-    type Item = (
-        std::borrow::Cow<'static, str>,
-        Option<std::borrow::Cow<'static, str>>,
-    );
+    type Item = (std::borrow::Cow<'static, str>, Option<std::borrow::Cow<'static, str>>);
     type IntoIter = std::vec::IntoIter<Self::Item>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -177,9 +166,7 @@ impl<'client> Client<'client> {
         credential: impl qiniu_http_client::credential::CredentialProvider + std::clone::Clone + 'client,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
-            let mut builder = self
-                .0
-                .post(&[qiniu_http_client::ServiceName::Uc], endpoints_provider);
+            let mut builder = self.0.post(&[qiniu_http_client::ServiceName::Uc], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::v2(credential));
             builder.idempotent(qiniu_http_client::Idempotent::Always);
             builder.path("private");
@@ -208,12 +195,10 @@ impl<'client> Client<'client> {
 }
 #[derive(Debug)]
 pub struct RequestBuilder<'req, B: 'req, E: 'req>(qiniu_http_client::RequestBuilder<'req, B, E>);
-pub type SyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
+pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub type AsyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
+pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
 impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn use_https(&mut self, use_https: bool) -> &mut Self {
@@ -234,10 +219,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
-    pub fn query_pairs(
-        &mut self,
-        query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>,
-    ) -> &mut Self {
+    pub fn query_pairs(&mut self, query_pairs: impl Into<Vec<qiniu_http_client::QueryPair<'req>>>) -> &mut Self {
         self.0.query_pairs(query_pairs);
         self
     }
@@ -297,10 +279,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &str,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -355,9 +334,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -368,9 +345,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,

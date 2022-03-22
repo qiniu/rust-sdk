@@ -34,10 +34,7 @@ impl PathParams {
 #[derive(Debug, Clone, Default)]
 #[doc = "调用 API 所用的 URL 查询参数"]
 pub struct QueryParams<'a> {
-    map: indexmap::IndexMap<
-        qiniu_http_client::QueryPairKey<'a>,
-        qiniu_http_client::QueryPairValue<'a>,
-    >,
+    map: indexmap::IndexMap<qiniu_http_client::QueryPairKey<'a>, qiniu_http_client::QueryPairValue<'a>>,
 }
 impl<'a> QueryParams<'a> {
     #[inline]
@@ -50,11 +47,11 @@ impl<'a> QueryParams<'a> {
         self.map.insert(query_pair_key, query_pair_value);
         self
     }
-    fn build(self) -> qiniu_http_client::QueryPairs<'a> {
-        qiniu_http_client::QueryPairs::from_iter(self.map)
+    fn build(self) -> Vec<qiniu_http_client::QueryPair<'a>> {
+        Vec::from_iter(self.map)
     }
 }
-impl<'a> From<QueryParams<'a>> for qiniu_http_client::QueryPairs<'a> {
+impl<'a> From<QueryParams<'a>> for Vec<qiniu_http_client::QueryPair<'a>> {
     #[inline]
     fn from(map: QueryParams<'a>) -> Self {
         map.build()
@@ -105,13 +102,7 @@ impl std::convert::AsMut<serde_json::Value> for ResponseBody {
 impl ResponseBody {
     #[doc = "获取 对象大小，单位为字节"]
     pub fn get_size_as_i64(&self) -> i64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("fsize")
-            .unwrap()
-            .as_i64()
-            .unwrap()
+        self.0.as_object().unwrap().get("fsize").unwrap().as_i64().unwrap()
     }
 }
 impl ResponseBody {
@@ -127,13 +118,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "获取 对象大小，单位为字节"]
     pub fn get_size_as_u64(&self) -> u64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("fsize")
-            .unwrap()
-            .as_u64()
-            .unwrap()
+        self.0.as_object().unwrap().get("fsize").unwrap().as_u64().unwrap()
     }
 }
 impl ResponseBody {
@@ -149,13 +134,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "获取 对象哈希值"]
     pub fn get_hash_as_str(&self) -> &str {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("hash")
-            .unwrap()
-            .as_str()
-            .unwrap()
+        self.0.as_object().unwrap().get("hash").unwrap().as_str().unwrap()
     }
 }
 impl ResponseBody {
@@ -174,13 +153,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "获取 对象 MIME 类型"]
     pub fn get_mime_type_as_str(&self) -> &str {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("mimeType")
-            .unwrap()
-            .as_str()
-            .unwrap()
+        self.0.as_object().unwrap().get("mimeType").unwrap().as_str().unwrap()
     }
 }
 impl ResponseBody {
@@ -199,13 +172,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn get_type_as_i64(&self) -> i64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("type")
-            .unwrap()
-            .as_i64()
-            .unwrap()
+        self.0.as_object().unwrap().get("type").unwrap().as_i64().unwrap()
     }
 }
 impl ResponseBody {
@@ -221,13 +188,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "获取 对象存储类型，`0` 表示普通存储，`1` 表示低频存储，`2` 表示归档存储"]
     pub fn get_type_as_u64(&self) -> u64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("type")
-            .unwrap()
-            .as_u64()
-            .unwrap()
+        self.0.as_object().unwrap().get("type").unwrap().as_u64().unwrap()
     }
 }
 impl ResponseBody {
@@ -243,13 +204,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn get_put_time_as_i64(&self) -> i64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("putTime")
-            .unwrap()
-            .as_i64()
-            .unwrap()
+        self.0.as_object().unwrap().get("putTime").unwrap().as_i64().unwrap()
     }
 }
 impl ResponseBody {
@@ -265,13 +220,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "获取 文件上传时间，UNIX 时间戳格式，单位为 100 纳秒"]
     pub fn get_put_time_as_u64(&self) -> u64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("putTime")
-            .unwrap()
-            .as_u64()
-            .unwrap()
+        self.0.as_object().unwrap().get("putTime").unwrap().as_u64().unwrap()
     }
 }
 impl ResponseBody {
@@ -373,12 +322,10 @@ impl ResponseBody {
     #[doc = "设置 对象 MD5 值，只有通过直传文件和追加文件 API 上传的文件，服务端确保有该字段返回"]
     pub fn set_md_5_as_str(&mut self, new: String) -> Option<String> {
         self.0.as_object_mut().and_then(|object| {
-            object
-                .insert("md5".to_owned(), new.into())
-                .and_then(|val| match val {
-                    serde_json::Value::String(s) => Some(s),
-                    _ => None,
-                })
+            object.insert("md5".to_owned(), new.into()).and_then(|val| match val {
+                serde_json::Value::String(s) => Some(s),
+                _ => None,
+            })
         })
     }
 }
@@ -572,14 +519,10 @@ impl PartSizes {
 impl PartSizes {
     #[doc = "在列表尾部取出 JSON i64 整型"]
     pub fn pop_as_i64(&mut self) -> Option<i64> {
-        self.0
-            .as_array_mut()
-            .unwrap()
-            .pop()
-            .and_then(|val| match val {
-                serde_json::Value::Number(s) => s.as_i64(),
-                _ => None,
-            })
+        self.0.as_array_mut().unwrap().pop().and_then(|val| match val {
+            serde_json::Value::Number(s) => s.as_i64(),
+            _ => None,
+        })
     }
 }
 impl PartSizes {
@@ -594,14 +537,10 @@ impl PartSizes {
 impl PartSizes {
     #[doc = "在列表尾部取出 JSON u64 整型"]
     pub fn pop_as_u64(&mut self) -> Option<u64> {
-        self.0
-            .as_array_mut()
-            .unwrap()
-            .pop()
-            .and_then(|val| match val {
-                serde_json::Value::Number(s) => s.as_u64(),
-                _ => None,
-            })
+        self.0.as_array_mut().unwrap().pop().and_then(|val| match val {
+            serde_json::Value::Number(s) => s.as_u64(),
+            _ => None,
+        })
     }
 }
 impl From<Vec<i8>> for PartSizes {
@@ -797,11 +736,9 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "设置 每个分片的大小，如没有指定 need_parts 参数则不返回"]
     pub fn set_parts(&mut self, new: PartSizes) -> Option<PartSizes> {
-        self.0.as_object_mut().and_then(|object| {
-            object
-                .insert("parts".to_owned(), new.into())
-                .map(PartSizes::new)
-        })
+        self.0
+            .as_object_mut()
+            .and_then(|object| object.insert("parts".to_owned(), new.into()).map(PartSizes::new))
     }
 }
 #[derive(Debug, Clone)]
@@ -820,16 +757,10 @@ impl<'client> Client<'client> {
         credential: impl qiniu_http_client::credential::CredentialProvider + std::clone::Clone + 'client,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
-            let mut builder = self
-                .0
-                .get(&[qiniu_http_client::ServiceName::Rs], endpoints_provider);
+            let mut builder = self.0.get(&[qiniu_http_client::ServiceName::Rs], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::v2(credential));
             builder.idempotent(qiniu_http_client::Idempotent::Default);
-            builder.path(crate::base_utils::join_path(
-                "/stat",
-                "",
-                path_params.build(),
-            ));
+            builder.path(crate::base_utils::join_path("/stat", "", path_params.build()));
             builder.accept_json();
             builder
         })
@@ -848,11 +779,7 @@ impl<'client> Client<'client> {
                 .async_get(&[qiniu_http_client::ServiceName::Rs], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::v2(credential));
             builder.idempotent(qiniu_http_client::Idempotent::Default);
-            builder.path(crate::base_utils::join_path(
-                "/stat",
-                "",
-                path_params.build(),
-            ));
+            builder.path(crate::base_utils::join_path("/stat", "", path_params.build()));
             builder.accept_json();
             builder
         })
@@ -860,12 +787,10 @@ impl<'client> Client<'client> {
 }
 #[derive(Debug)]
 pub struct RequestBuilder<'req, B: 'req, E: 'req>(qiniu_http_client::RequestBuilder<'req, B, E>);
-pub type SyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
+pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub type AsyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
+pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
 impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn use_https(&mut self, use_https: bool) -> &mut Self {
@@ -886,10 +811,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
-    pub fn query_pairs(
-        &mut self,
-        query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>,
-    ) -> &mut Self {
+    pub fn query_pairs(&mut self, query_pairs: impl Into<Vec<qiniu_http_client::QueryPair<'req>>>) -> &mut Self {
         self.0.query_pairs(query_pairs);
         self
     }
@@ -949,10 +871,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &str,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -1007,9 +926,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -1020,9 +937,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -1092,9 +1007,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     }
 }
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBuilder<'req, E> {
-    pub fn call(
-        &mut self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
+    pub fn call(&mut self) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = &mut self.0;
         let response = request.call()?;
         let parsed = response.parse_json()?;
@@ -1103,9 +1016,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBu
 }
 #[cfg(feature = "async")]
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> AsyncRequestBuilder<'req, E> {
-    pub async fn call(
-        &mut self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
+    pub async fn call(&mut self) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = &mut self.0;
         let response = request.call().await?;
         let parsed = response.parse_json().await?;

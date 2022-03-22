@@ -1,11 +1,12 @@
 use super::{
     super::{
         super::{EndpointsProvider, IpAddrWithPort, ServiceName},
-        Authorization, CallbackContext, Callbacks, ExtendedCallbackContext, HttpClient, ResolveAnswers, ResponseError,
+        callbacks::Callbacks,
+        Authorization, CallbackContext, ExtendedCallbackContext, HttpClient, ResolveAnswers, ResponseError,
         SimplifiedCallbackContext,
     },
     request_metadata::RequestMetadata,
-    Idempotent, QueryPairs,
+    Idempotent, QueryPair,
 };
 use qiniu_http::{
     CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, Method, ResponseParts, StatusCode,
@@ -99,7 +100,7 @@ impl<'r> SimplifiedCallbackContext for RequestParts<'r> {
     }
 
     #[inline]
-    fn query_pairs(&self) -> &QueryPairs {
+    fn query_pairs(&self) -> &[QueryPair] {
         &self.data.query_pairs
     }
 

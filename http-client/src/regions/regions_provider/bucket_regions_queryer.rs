@@ -1,12 +1,12 @@
 use super::{
     super::{
         super::{ApiResult, CacheController, HttpClient, ResponseError},
+        cache_key::CacheKey,
         Endpoints, ServiceName,
     },
-    cache_key::CacheKey,
     regions_cache::RegionsCache,
     structs::ResponseBody,
-    GetOptions, GotRegion, GotRegions, Region, RegionProvider,
+    GetOptions, GotRegion, GotRegions, Region, RegionsProvider,
 };
 use qiniu_credential::AccessKey;
 use qiniu_upload_token::BucketName;
@@ -18,6 +18,7 @@ use {async_std::task::spawn, futures::future::BoxFuture};
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(86400);
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 
+/// 存储空间相关区域查询器
 #[derive(Debug, Clone)]
 pub struct BucketRegionsQueryer {
     http_client: HttpClient,
@@ -25,6 +26,7 @@ pub struct BucketRegionsQueryer {
     cache: RegionsCache,
 }
 
+/// 存储空间相关区域查询构建器
 #[derive(Debug, Clone)]
 pub struct BucketRegionsQueryerBuilder {
     http_client: Option<HttpClient>,
@@ -34,11 +36,19 @@ pub struct BucketRegionsQueryerBuilder {
 }
 
 impl BucketRegionsQueryer {
+    /// 创建存储空间相关区域查询构建器
     #[inline]
     pub fn builder() -> BucketRegionsQueryerBuilder {
         BucketRegionsQueryerBuilder::new()
     }
 
+    /// 创建存储空间相关区域查询器
+    #[inline]
+    pub fn new() -> BucketRegionsQueryer {
+        BucketRegionsQueryerBuilder::new().build()
+    }
+
+    /// 查询存储空间相关区域
     pub fn query(&self, access_key: impl Into<AccessKey>, bucket_name: impl Into<BucketName>) -> BucketRegionsProvider {
         let access_key = access_key.into();
         let bucket_name = bucket_name.into();
@@ -71,35 +81,43 @@ impl Default for BucketRegionsQueryerBuilder {
 }
 
 impl BucketRegionsQueryerBuilder {
+    /// 创建存储空间相关区域查询构建器
     #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// 设置 HTTP 客户端
     #[inline]
     pub fn http_client(&mut self, http_client: HttpClient) -> &mut Self {
         self.http_client = Some(http_client);
         self
     }
 
+    /// 设置存储空间管理终端地址列表
     #[inline]
     pub fn uc_endpoints(&mut self, uc_endpoints: impl Into<Endpoints>) -> &mut Self {
         self.uc_endpoints = Some(uc_endpoints.into());
         self
     }
 
+    /// 缓存时长
     #[inline]
     pub fn cache_lifetime(&mut self, cache_lifetime: Duration) -> &mut Self {
         self.cache_lifetime = cache_lifetime;
         self
     }
 
+    /// 清理间隔时长
     #[inline]
     pub fn shrink_interval(&mut self, shrink_interval: Duration) -> &mut Self {
         self.shrink_interval = shrink_interval;
         self
     }
 
+    /// 从文件系统加载或构建存储空间相关区域查询器
+    ///
+    /// 可以选择是否启用自动持久化缓存功能
     pub fn load_or_create_from(&mut self, path: impl AsRef<Path>, auto_persistent: bool) -> BucketRegionsQueryer {
         let owned = take(self);
         BucketRegionsQueryer {
@@ -116,11 +134,15 @@ impl BucketRegionsQueryerBuilder {
         }
     }
 
+    /// 从默认文件系统路径加载或构建存储空间相关区域查询器，并启用自动持久化缓存功能
     #[inline]
     pub fn build(&mut self) -> BucketRegionsQueryer {
         self.default_load_or_create_from(true)
     }
 
+    /// 从默认文件系统路径加载或构建存储空间相关区域查询器
+    ///
+    /// 可以选择是否启用自动持久化缓存功能
     pub fn default_load_or_create_from(&mut self, auto_persistent: bool) -> BucketRegionsQueryer {
         let owned = take(self);
         BucketRegionsQueryer {
@@ -136,6 +158,9 @@ impl BucketRegionsQueryerBuilder {
         }
     }
 
+    /// 构建存储空间相关区域查询器
+    ///
+    /// 不启用文件系统持久化缓存
     pub fn in_memory(&mut self) -> BucketRegionsQueryer {
         let owned = take(self);
         BucketRegionsQueryer {
@@ -148,6 +173,7 @@ impl BucketRegionsQueryerBuilder {
     }
 }
 
+/// 存储空间相关区域获取器
 #[derive(Debug, Clone)]
 pub struct BucketRegionsProvider {
     queryer: BucketRegionsQueryer,
@@ -156,7 +182,7 @@ pub struct BucketRegionsProvider {
     bucket_name: BucketName,
 }
 
-impl RegionProvider for BucketRegionsProvider {
+impl RegionsProvider for BucketRegionsProvider {
     fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
         self.get_all(opts)
             .map(|regions| regions.try_into().expect("Regions Query API returns empty regions"))
@@ -170,7 +196,6 @@ impl RegionProvider for BucketRegionsProvider {
             .get(&self.cache_key, move || provider.do_sync_query())
     }
 
-    /// 异步返回七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -180,7 +205,6 @@ impl RegionProvider for BucketRegionsProvider {
         Box::pin(async move { spawn(async move { provider.get(&opts) }).await })
     }
 
-    /// 异步返回多个七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]

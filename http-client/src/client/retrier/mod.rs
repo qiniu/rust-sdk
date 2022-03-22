@@ -10,18 +10,32 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+/// 请求重试器
+///
+/// 根据 HTTP 客户端返回的错误，决定是否重试请求，重试决定由 [`RetryDecision`] 定义。
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait RequestRetrier: Debug + Sync + Send {
+    /// 作出重试决定
     fn retry(&self, request: &mut HttpRequestParts, opts: &RequestRetrierOptions) -> RetryResult;
 }
 
+/// 重试决定
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum RetryDecision {
+    /// 不再重试
     DontRetry,
+
+    /// 切换到下一个服务器
     TryNextServer,
+
+    /// 切换到备选终端地址
     TryAlternativeEndpoints,
+
+    /// 重试当前请求
     RetryRequest,
+
+    /// 节流
     Throttled,
 }
 
@@ -32,6 +46,7 @@ impl Default for RetryDecision {
     }
 }
 
+/// 重试器选项
 #[derive(Debug, Clone)]
 pub struct RequestRetrierOptions<'a> {
     idempotent: Idempotent,
@@ -52,31 +67,37 @@ impl<'a> RequestRetrierOptions<'a> {
         }
     }
 
+    /// 是否是幂等请求
     #[inline]
     pub fn idempotent(&self) -> Idempotent {
         self.idempotent
     }
 
+    /// 获取响应错误
     #[inline]
     pub fn response_error(&self) -> &ResponseError {
         self.response_error
     }
 
+    /// 获取重试统计信息
     #[inline]
     pub fn retried(&self) -> &RetriedStatsInfo {
         self.retried
     }
 }
 
+/// 重试器结果
 #[derive(Clone)]
 pub struct RetryResult(RetryDecision);
 
 impl RetryResult {
+    /// 获取重试决定
     #[inline]
     pub fn decision(&self) -> RetryDecision {
         self.0
     }
 
+    /// 获取重试决定的可变引用
     #[inline]
     pub fn decision_mut(&mut self) -> &mut RetryDecision {
         &mut self.0

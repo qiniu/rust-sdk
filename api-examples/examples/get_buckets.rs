@@ -1,7 +1,7 @@
 use anyhow::Result;
 use qiniu_apis::{
     credential::Credential,
-    http_client::{CachedRegionsProvider, RegionProvider},
+    http_client::{CachedAllRegionsProvider, RegionsProvider, RegionsProviderEndpoints},
     Client,
 };
 use structopt::StructOpt;
@@ -10,10 +10,10 @@ use structopt::StructOpt;
 #[structopt(name = "get-buckets")]
 struct Opt {
     /// Qiniu Access Key
-    #[structopt( long)]
+    #[structopt(long)]
     access_key: String,
     /// Qiniu Secret Key
-    #[structopt( long)]
+    #[structopt(long)]
     secret_key: String,
 }
 
@@ -24,13 +24,13 @@ async fn main() -> Result<()> {
     let opt: Opt = Opt::from_args();
 
     let credential = Credential::new(opt.access_key, opt.secret_key);
-    let region = CachedRegionsProvider::new(credential.to_owned())
+    let region = CachedAllRegionsProvider::new(credential.to_owned())
         .async_get(&Default::default())
         .await?;
     let response = Client::default()
         .storage()
         .get_buckets()
-        .new_async_request(&region, credential)
+        .new_async_request(RegionsProviderEndpoints::new(&region), credential)
         .call()
         .await?;
     for bucket_name in response.body().to_str_vec().into_iter() {

@@ -71,34 +71,26 @@ impl TryFrom<RegionResponseBody> for Region {
         let mut builder = Self::builder(region);
 
         macro_rules! push_to_builder {
-            ($service_name:expr, $push_to_preferred_endpoint:ident, $push_to_alternative_endpoint:ident) => {
+            ($service_name:expr, $add_to_preferred_endpoint:ident, $add_to_alternative_endpoint:ident) => {
                 for preferred_domain in $service_name.preferred.iter() {
                     let endpoint: Endpoint = preferred_domain.as_ref().parse()?;
-                    builder.$push_to_preferred_endpoint(endpoint);
+                    builder.$add_to_preferred_endpoint(endpoint);
                 }
                 if let Some(alternative_domains) = &$service_name.alternative {
                     for alternative_domain in alternative_domains.iter() {
                         let endpoint: Endpoint = alternative_domain.as_ref().parse()?;
-                        builder.$push_to_alternative_endpoint(endpoint);
+                        builder.$add_to_alternative_endpoint(endpoint);
                     }
                 }
             };
         }
-        push_to_builder!(io, push_io_preferred_endpoint, push_io_alternative_endpoint);
-        push_to_builder!(up, push_up_preferred_endpoint, push_up_alternative_endpoint);
-        push_to_builder!(uc, push_uc_preferred_endpoint, push_uc_alternative_endpoint);
-        push_to_builder!(rs, push_rs_preferred_endpoint, push_rs_alternative_endpoint);
-        push_to_builder!(
-            rsf,
-            push_rsf_preferred_endpoint,
-            push_rsf_alternative_endpoint
-        );
-        push_to_builder!(
-            api,
-            push_api_preferred_endpoint,
-            push_api_alternative_endpoint
-        );
-        push_to_builder!(s3, push_s3_preferred_endpoint, push_s3_alternative_endpoint);
+        push_to_builder!(io, add_io_preferred_endpoint, add_io_alternative_endpoint);
+        push_to_builder!(up, add_up_preferred_endpoint, add_up_alternative_endpoint);
+        push_to_builder!(uc, add_uc_preferred_endpoint, add_uc_alternative_endpoint);
+        push_to_builder!(rs, add_rs_preferred_endpoint, add_rs_alternative_endpoint);
+        push_to_builder!(rsf, add_rsf_preferred_endpoint, add_rsf_alternative_endpoint);
+        push_to_builder!(api, add_api_preferred_endpoint, add_api_alternative_endpoint);
+        push_to_builder!(s3, add_s3_preferred_endpoint, add_s3_alternative_endpoint);
         if let Some(s3_region_id) = s3.s3_region_id {
             builder.s3_region_id(s3_region_id);
         }

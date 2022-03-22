@@ -1,12 +1,14 @@
 use super::{
-    super::super::{ApiResult, CacheController, Endpoints, HttpClient},
-    cache_key::CacheKey,
+    super::{
+        super::{ApiResult, CacheController, Endpoints, HttpClient},
+        cache_key::CacheKey,
+    },
+    all_regions_provider::AllRegionsProvider,
     regions_cache::RegionsCache,
-    regions_provider::RegionsProvider,
-    GetOptions, GotRegion, GotRegions, RegionProvider,
+    GetOptions, GotRegion, GotRegions, RegionsProvider,
 };
 use qiniu_credential::CredentialProvider;
-use std::{fmt, path::Path, time::Duration};
+use std::{path::Path, time::Duration};
 
 #[cfg(feature = "async")]
 use {async_std::task::spawn, futures::future::BoxFuture};
@@ -14,24 +16,25 @@ use {async_std::task::spawn, futures::future::BoxFuture};
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(86400);
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 
-#[derive(Clone)]
-pub struct CachedRegionsProvider {
+/// 七牛所有区域信息缓存器
+#[derive(Clone, Debug)]
+pub struct CachedAllRegionsProvider {
     cache_key: CacheKey,
-    provider: RegionsProvider,
+    provider: AllRegionsProvider,
     cache: RegionsCache,
 }
 
-impl CachedRegionsProvider {
+impl CachedAllRegionsProvider {
+    /// 创建七牛所有区域信息缓存器
     #[inline]
     pub fn new(credential_provider: impl CredentialProvider + 'static) -> Self {
         Self::builder(credential_provider).build()
     }
 
+    /// 构建七牛所有区域信息缓存器
     #[inline]
-    pub fn builder(
-        credential_provider: impl CredentialProvider + 'static,
-    ) -> CachedRegionsProviderBuilder {
-        CachedRegionsProviderBuilder {
+    pub fn builder(credential_provider: impl CredentialProvider + 'static) -> CachedAllRegionsProviderBuilder {
+        CachedAllRegionsProviderBuilder {
             credential_provider: Box::new(credential_provider),
             cache_lifetime: DEFAULT_CACHE_LIFETIME,
             shrink_interval: DEFAULT_SHRINK_INTERVAL,
@@ -41,13 +44,10 @@ impl CachedRegionsProvider {
     }
 }
 
-impl RegionProvider for CachedRegionsProvider {
+impl RegionsProvider for CachedAllRegionsProvider {
     fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
-        self.get_all(opts).map(|regions| {
-            regions
-                .try_into()
-                .expect("Regions API returns empty regions")
-        })
+        self.get_all(opts)
+            .map(|regions| regions.try_into().expect("Regions API returns empty regions"))
     }
 
     fn get_all(&self, opts: &GetOptions) -> ApiResult<GotRegions> {
@@ -57,7 +57,6 @@ impl RegionProvider for CachedRegionsProvider {
             .get(&self.cache_key, move || provider.provider.get_all(&opts))
     }
 
-    /// 异步返回七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -67,7 +66,6 @@ impl RegionProvider for CachedRegionsProvider {
         Box::pin(async move { spawn(async move { provider.get(&opts) }).await })
     }
 
-    /// 异步返回多个七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -83,17 +81,9 @@ impl RegionProvider for CachedRegionsProvider {
     }
 }
 
-impl fmt::Debug for CachedRegionsProvider {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CachedRegionsProvider")
-            .field("provider", &self.provider)
-            .finish()
-    }
-}
-
-#[derive(Clone)]
-pub struct CachedRegionsProviderBuilder {
+/// 七牛所有区域信息缓存构建器
+#[derive(Clone, Debug)]
+pub struct CachedAllRegionsProviderBuilder {
     cache_lifetime: Duration,
     shrink_interval: Duration,
     http_client: Option<HttpClient>,
@@ -101,50 +91,40 @@ pub struct CachedRegionsProviderBuilder {
     credential_provider: Box<dyn CredentialProvider>,
 }
 
-impl fmt::Debug for CachedRegionsProviderBuilder {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CachedRegionsProviderBuilder")
-            .field("http_client", &self.http_client)
-            .field("uc_endpoints", &self.uc_endpoints)
-            .field("credential_provider", &self.credential_provider)
-            .field("cache_lifetime", &self.cache_lifetime)
-            .field("shrink_interval", &self.shrink_interval)
-            .finish()
-    }
-}
-
-impl CachedRegionsProviderBuilder {
+impl CachedAllRegionsProviderBuilder {
+    /// 缓存时长
     #[inline]
     pub fn cache_lifetime(mut self, cache_lifetime: Duration) -> Self {
         self.cache_lifetime = cache_lifetime;
         self
     }
 
+    /// 清理间隔时长
     #[inline]
     pub fn shrink_interval(mut self, shrink_interval: Duration) -> Self {
         self.shrink_interval = shrink_interval;
         self
     }
 
+    /// 设置 HTTP 客户端
     #[inline]
     pub fn http_client(mut self, http_client: HttpClient) -> Self {
         self.http_client = Some(http_client);
         self
     }
 
+    /// 设置存储空间管理终端地址列表
     #[inline]
     pub fn uc_endpoints(mut self, uc_endpoints: impl Into<Endpoints>) -> Self {
         self.uc_endpoints = Some(uc_endpoints.into());
         self
     }
 
-    pub fn load_or_create_from(
-        self,
-        path: impl AsRef<Path>,
-        auto_persistent: bool,
-    ) -> CachedRegionsProvider {
-        CachedRegionsProvider {
+    /// 从文件系统加载或构建七牛所有区域查询器
+    ///
+    /// 可以选择是否启用自动持久化缓存功能
+    pub fn load_or_create_from(self, path: impl AsRef<Path>, auto_persistent: bool) -> CachedAllRegionsProvider {
+        CachedAllRegionsProvider {
             cache: RegionsCache::load_or_create_from(
                 path.as_ref(),
                 auto_persistent,
@@ -156,13 +136,17 @@ impl CachedRegionsProviderBuilder {
         }
     }
 
+    /// 从默认文件系统路径加载或构建七牛所有区域查询器，并启用自动持久化缓存功能
     #[inline]
-    pub fn build(self) -> CachedRegionsProvider {
+    pub fn build(self) -> CachedAllRegionsProvider {
         self.default_load_or_create_from(true)
     }
 
-    pub fn default_load_or_create_from(self, auto_persistent: bool) -> CachedRegionsProvider {
-        CachedRegionsProvider {
+    /// 从默认文件系统路径加载或构建七牛所有区域查询器
+    ///
+    /// 可以选择是否启用自动持久化缓存功能
+    pub fn default_load_or_create_from(self, auto_persistent: bool) -> CachedAllRegionsProvider {
+        CachedAllRegionsProvider {
             cache: RegionsCache::default_load_or_create_from(
                 auto_persistent,
                 self.cache_lifetime,
@@ -173,8 +157,11 @@ impl CachedRegionsProviderBuilder {
         }
     }
 
-    pub fn in_memory(self) -> CachedRegionsProvider {
-        CachedRegionsProvider {
+    /// 构建七牛所有区域查询器
+    ///
+    /// 不启用文件系统持久化缓存
+    pub fn in_memory(self) -> CachedAllRegionsProvider {
+        CachedAllRegionsProvider {
             cache: RegionsCache::in_memory(self.cache_lifetime, self.shrink_interval),
             cache_key: self.new_cache_key(),
             provider: self.new_regions_provider(),
@@ -192,8 +179,8 @@ impl CachedRegionsProviderBuilder {
         )
     }
 
-    fn new_regions_provider(self) -> RegionsProvider {
-        let mut builder = RegionsProvider::builder(self.credential_provider);
+    fn new_regions_provider(self) -> AllRegionsProvider {
+        let mut builder = AllRegionsProvider::builder(self.credential_provider);
         if let Some(http_client) = self.http_client {
             builder = builder.http_client(http_client);
         }

@@ -2,8 +2,7 @@ use super::Bucket;
 use qiniu_apis::{
     credential::CredentialProvider,
     http_client::{
-        BucketName, BucketRegionsQueryer, BucketRegionsQueryerBuilder, Endpoints, HttpClient,
-        RegionProvider,
+        BucketName, BucketRegionsQueryer, BucketRegionsQueryerBuilder, Endpoints, HttpClient, RegionsProvider,
     },
     Client as QiniuApiClient,
 };
@@ -54,16 +53,12 @@ impl ObjectsManager {
     pub fn bucket_with_region(
         &self,
         name: impl Into<BucketName>,
-        region_provider: impl RegionProvider + 'static,
+        region_provider: impl RegionsProvider + 'static,
     ) -> Bucket {
         self._bucket_with_region(name.into(), Some(Box::new(region_provider)))
     }
 
-    fn _bucket_with_region(
-        &self,
-        name: BucketName,
-        region_provider: Option<Box<dyn RegionProvider>>,
-    ) -> Bucket {
+    fn _bucket_with_region(&self, name: BucketName, region_provider: Option<Box<dyn RegionsProvider>>) -> Bucket {
         Bucket::new(name, self.to_owned(), region_provider)
     }
 }

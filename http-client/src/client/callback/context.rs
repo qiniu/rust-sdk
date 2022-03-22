@@ -1,13 +1,19 @@
 use super::{
-    super::{Authorization, Idempotent, QueryPairs, RequestParts},
+    super::{Authorization, Idempotent, QueryPair, RequestParts},
     simplified::SimplifiedCallbackContext,
 };
 use auto_impl::auto_impl;
 use qiniu_http::{Extensions, HeaderMap, Method, UserAgent, Version};
 
+/// 回调函数上下文
+///
+/// 基于简化回调函数上下文，并在此基础上增加获取扩展信息的引用和可变引用的方法。
 #[auto_impl(&mut, Box)]
 pub trait CallbackContext: SimplifiedCallbackContext {
+    /// 获取扩展信息
     fn extensions(&self) -> &Extensions;
+
+    /// 获取扩展信息的可变引用
     fn extensions_mut(&mut self) -> &mut Extensions;
 }
 
@@ -50,7 +56,7 @@ impl SimplifiedCallbackContext for CallbackContextImpl<'_, '_, '_> {
     }
 
     #[inline]
-    fn query_pairs(&self) -> &QueryPairs {
+    fn query_pairs(&self) -> &[QueryPair] {
         self.request.query_pairs()
     }
 

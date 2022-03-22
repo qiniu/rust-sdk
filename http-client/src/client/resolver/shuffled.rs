@@ -4,12 +4,16 @@ use rand::{prelude::*, thread_rng};
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
+/// 域名解析随机混淆器
+///
+/// 基于一个域名解析器实例，但将其返回的解析结果打乱
 #[derive(Debug, Default, Clone)]
 pub struct ShuffledResolver<R: ?Sized> {
     base_resolver: R,
 }
 
 impl<R> ShuffledResolver<R> {
+    /// 创建域名解析随机混淆器
     #[inline]
     pub fn new(base_resolver: R) -> Self {
         Self { base_resolver }
@@ -27,11 +31,7 @@ impl<R: Resolver> Resolver for ShuffledResolver<R> {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_resolve<'a>(
-        &'a self,
-        domain: &'a str,
-        opts: &'a ResolveOptions,
-    ) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             let mut answers = self.base_resolver.async_resolve(domain, opts).await?;
             answers.ip_addrs_mut().shuffle(&mut thread_rng());

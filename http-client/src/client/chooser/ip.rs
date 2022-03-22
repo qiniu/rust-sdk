@@ -36,6 +36,9 @@ impl Default for LockedData {
 const DEFAULT_BLOCK_DURATION: Duration = Duration::from_secs(30);
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
 
+/// IP 地址选择器
+///
+/// 包含 IP 地址黑名单，一旦被反馈 API 调用失败，则将所有相关 IP 地址冻结一段时间
 #[derive(Debug, Clone)]
 pub struct IpChooser {
     inner: Arc<IpChooserInner>,
@@ -57,6 +60,7 @@ impl Default for IpChooser {
 }
 
 impl IpChooser {
+    /// 创建 IP 地址选择构建器
     #[inline]
     pub fn builder() -> IpChooserBuilder {
         Default::default()
@@ -112,19 +116,13 @@ impl IpChooser {
 fn do_some_work_async(inner: &Arc<IpChooserInner>, need_to_shrink: bool) {
     if need_to_shrink && is_time_to_shrink(inner) {
         let cloned = inner.to_owned();
-        if let Err(err) = spawn(
-            "qiniu.rust-sdk.http-client.chooser.IpChooser".into(),
-            move || {
-                if is_time_to_shrink_mut(&cloned) {
-                    info!("Ip Chooser spawns thread to do some housework");
-                    shrink_cache(&cloned.blacklist, cloned.block_duration);
-                }
-            },
-        ) {
-            warn!(
-                "Ip Chooser was failed to spawn thread to do some housework: {}",
-                err
-            );
+        if let Err(err) = spawn("qiniu.rust-sdk.http-client.chooser.IpChooser".into(), move || {
+            if is_time_to_shrink_mut(&cloned) {
+                info!("Ip Chooser spawns thread to do some housework");
+                shrink_cache(&cloned.blacklist, cloned.block_duration);
+            }
+        }) {
+            warn!("Ip Chooser was failed to spawn thread to do some housework: {}", err);
         }
     }
 
@@ -156,13 +154,11 @@ fn do_some_work_async(inner: &Arc<IpChooserInner>, need_to_shrink: bool) {
         let old_size = blacklist.len();
         blacklist.retain(|_, value| value.blocked_at.elapsed() < block_duration);
         let new_size = blacklist.len();
-        info!(
-            "Blacklist is shrunken, from {} to {} entries",
-            old_size, new_size
-        );
+        info!("Blacklist is shrunken, from {} to {} entries", old_size, new_size);
     }
 }
 
+/// IP 地址选择构建器
 #[derive(Debug)]
 pub struct IpChooserBuilder {
     inner: IpChooserInner,
@@ -183,18 +179,21 @@ impl Default for IpChooserBuilder {
 }
 
 impl IpChooserBuilder {
+    /// 设置屏蔽时长
     #[inline]
     pub fn block_duration(&mut self, block_duration: Duration) -> &mut Self {
         self.inner.block_duration = block_duration;
         self
     }
 
+    /// 设置清理间隔时长
     #[inline]
     pub fn shrink_interval(&mut self, shrink_interval: Duration) -> &mut Self {
         self.inner.shrink_interval = shrink_interval;
         self
     }
 
+    /// 构建 IP 地址选择器
     #[inline]
     pub fn build(&mut self) -> IpChooser {
         IpChooser {
@@ -224,9 +223,7 @@ mod tests {
 
         let ip_chooser = IpChooser::default();
         assert_eq!(
-            ip_chooser
-                .choose(IPS_WITHOUT_PORT, &Default::default())
-                .into_ip_addrs(),
+            ip_chooser.choose(IPS_WITHOUT_PORT, &Default::default()).into_ip_addrs(),
             IPS_WITHOUT_PORT.to_vec()
         );
         ip_chooser.feedback(ChooserFeedback::new(
@@ -237,19 +234,11 @@ mod tests {
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
-            Some(&ResponseError::new(
-                ResponseErrorKind::ParseResponseError,
-                "Test Error",
-            )),
+            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
-            ip_chooser
-                .choose(IPS_WITHOUT_PORT, &Default::default())
-                .into_ip_addrs(),
-            vec![IpAddrWithPort::new(
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
-                None
-            )],
+            ip_chooser.choose(IPS_WITHOUT_PORT, &Default::default()).into_ip_addrs(),
+            vec![IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)],
         );
 
         ip_chooser.feedback(ChooserFeedback::new(
@@ -257,15 +246,10 @@ mod tests {
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
-            Some(&ResponseError::new(
-                ResponseErrorKind::ParseResponseError,
-                "Test Error",
-            )),
+            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
-            ip_chooser
-                .choose(IPS_WITHOUT_PORT, &Default::default())
-                .into_ip_addrs(),
+            ip_chooser.choose(IPS_WITHOUT_PORT, &Default::default()).into_ip_addrs(),
             vec![]
         );
 
@@ -280,9 +264,7 @@ mod tests {
             None,
         ));
         assert_eq!(
-            ip_chooser
-                .choose(IPS_WITHOUT_PORT, &Default::default())
-                .into_ip_addrs(),
+            ip_chooser.choose(IPS_WITHOUT_PORT, &Default::default()).into_ip_addrs(),
             vec![
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
@@ -318,10 +300,7 @@ mod tests {
                 &RetriedStatsInfo::default(),
                 &mut Extensions::default(),
                 None,
-                Some(&ResponseError::new(
-                    ResponseErrorKind::ParseResponseError,
-                    "Test Error",
-                )),
+                Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
             ))
             .await;
         assert_eq!(
@@ -329,10 +308,7 @@ mod tests {
                 .async_choose(IPS_WITHOUT_PORT, &Default::default())
                 .await
                 .into_ip_addrs(),
-            vec![IpAddrWithPort::new(
-                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)),
-                None
-            )],
+            vec![IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)],
         );
 
         AsyncDelay::new(Duration::from_secs(1)).await;

@@ -4,7 +4,7 @@ use super::{
         Endpoints, ServiceName,
     },
     structs::ResponseBody,
-    GetOptions, GotRegion, GotRegions, Region, RegionProvider,
+    GetOptions, GotRegion, GotRegions, Region, RegionsProvider,
 };
 use qiniu_credential::CredentialProvider;
 use std::{convert::TryFrom, fmt::Debug};
@@ -12,19 +12,22 @@ use std::{convert::TryFrom, fmt::Debug};
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
+/// 七牛所有区域信息查询器
 #[derive(Debug, Clone)]
-pub struct RegionsProvider {
+pub struct AllRegionsProvider {
     credential_provider: Box<dyn CredentialProvider>,
     http_client: HttpClient,
     uc_endpoints: Endpoints,
 }
 
-impl RegionsProvider {
+impl AllRegionsProvider {
+    /// 创建七牛所有区域信息查询构建器
     #[inline]
-    pub fn builder(credential_provider: impl CredentialProvider + 'static) -> RegionsProviderBuilder {
-        RegionsProviderBuilder::new(credential_provider)
+    pub fn builder(credential_provider: impl CredentialProvider + 'static) -> AllRegionsProviderBuilder {
+        AllRegionsProviderBuilder::new(credential_provider)
     }
 
+    /// 创建七牛所有区域信息查询器
     #[inline]
     pub fn new(credential_provider: impl CredentialProvider + 'static) -> Self {
         Self::builder(credential_provider).build()
@@ -74,7 +77,7 @@ impl RegionsProvider {
     }
 }
 
-impl RegionProvider for RegionsProvider {
+impl RegionsProvider for AllRegionsProvider {
     fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
         self.get_all(opts)
             .map(|regions| regions.try_into().expect("Regions API returns empty regions"))
@@ -85,7 +88,6 @@ impl RegionProvider for RegionsProvider {
         self.do_sync_query().map(GotRegions::from)
     }
 
-    /// 异步返回七牛区域信息
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
@@ -96,7 +98,6 @@ impl RegionProvider for RegionsProvider {
         })
     }
 
-    /// 异步返回多个七牛区域信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -106,13 +107,13 @@ impl RegionProvider for RegionsProvider {
 }
 
 #[derive(Debug, Clone)]
-pub struct RegionsProviderBuilder {
+pub struct AllRegionsProviderBuilder {
     credential_provider: Box<dyn CredentialProvider>,
     http_client: Option<HttpClient>,
     uc_endpoints: Option<Endpoints>,
 }
 
-impl RegionsProviderBuilder {
+impl AllRegionsProviderBuilder {
     #[inline]
     pub fn new(credential_provider: impl CredentialProvider + 'static) -> Self {
         Self {
@@ -134,8 +135,8 @@ impl RegionsProviderBuilder {
         self
     }
 
-    pub fn build(self) -> RegionsProvider {
-        RegionsProvider {
+    pub fn build(self) -> AllRegionsProvider {
+        AllRegionsProvider {
             credential_provider: self.credential_provider,
             http_client: self.http_client.unwrap_or_default(),
             uc_endpoints: self
@@ -190,7 +191,7 @@ mod tests {
                 });
 
         starts_with_server!(addr, routes, {
-            let provider = RegionsProvider::builder(Credential::new(ACCESS_KEY, SECRET_KEY))
+            let provider = AllRegionsProvider::builder(Credential::new(ACCESS_KEY, SECRET_KEY))
                 .http_client(HttpClient::build_isahc()?.use_https(false).build())
                 .uc_endpoints(vec![Endpoint::from(addr)])
                 .build();

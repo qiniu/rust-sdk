@@ -4,7 +4,7 @@ use std::{mem::take, sync::Arc};
 
 /// 七牛存储区域
 ///
-/// 提供七牛不同区域的域名
+/// 提供七牛不同服务的终端地址列表
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Region {
@@ -37,91 +37,91 @@ impl Region {
         &self.inner.s3_region_id
     }
 
-    /// 获取上传域名列表
+    /// 获取上传服务主要终端列表
     #[inline]
     pub fn up_preferred_endpoints(&self) -> &[Endpoint] {
         self.up().preferred()
     }
 
+    /// 获取上传服务备选终端列表
     #[inline]
-    #[doc(hidden)]
     pub fn up_alternative_endpoints(&self) -> &[Endpoint] {
         self.up().alternative()
     }
 
-    /// 获取下载域名列表
+    /// 获取下载服务主要终端列表
     #[inline]
     pub fn io_preferred_endpoints(&self) -> &[Endpoint] {
         self.io().preferred()
     }
 
+    /// 获取下载服务备选终端列表
     #[inline]
-    #[doc(hidden)]
     pub fn io_alternative_endpoints(&self) -> &[Endpoint] {
         self.io().alternative()
     }
 
-    /// 获取 UC 域名列表
+    /// 获取存储空间管理服务主要终端列表
     #[inline]
     pub fn uc_preferred_endpoints(&self) -> &[Endpoint] {
         self.uc().preferred()
     }
 
+    /// 获取存储空间管理服务备选终端列表
     #[inline]
-    #[doc(hidden)]
     pub fn uc_alternative_endpoints(&self) -> &[Endpoint] {
         self.uc().alternative()
     }
 
-    /// 获取 RS 域名列表
+    /// 获取元数据管理服务主要终端列表
     #[inline]
     pub fn rs_preferred_endpoints(&self) -> &[Endpoint] {
         self.rs().preferred()
     }
 
+    /// 获取元数据管理服务备选终端列表
     #[inline]
-    #[doc(hidden)]
     pub fn rs_alternative_endpoints(&self) -> &[Endpoint] {
         self.rs().alternative()
     }
 
-    /// 获取 RSF 域名列表
+    /// 获取元数据列举服务主要终端列表
     #[inline]
     pub fn rsf_preferred_endpoints(&self) -> &[Endpoint] {
         self.rsf().preferred()
     }
 
+    /// 获取元数据列举服务备选终端列表
     #[inline]
-    #[doc(hidden)]
     pub fn rsf_alternative_endpoints(&self) -> &[Endpoint] {
         self.rsf().alternative()
     }
 
-    /// 获取 API 域名列表
+    /// 获取 API 入口服务主要终端列表
     #[inline]
     pub fn api_preferred_endpoints(&self) -> &[Endpoint] {
         self.api().preferred()
     }
 
+    /// 获取 API 入口服务备选终端列表
     #[inline]
-    #[doc(hidden)]
     pub fn api_alternative_endpoints(&self) -> &[Endpoint] {
         self.api().alternative()
     }
 
-    /// 获取 S3 域名列表
+    /// 获取 S3 入口服务主要终端列表
     #[inline]
     pub fn s3_preferred_endpoints(&self) -> &[Endpoint] {
         self.s3().preferred()
     }
 
+    /// 获取 S3 入口服务备选终端列表
     #[inline]
-    #[doc(hidden)]
     pub fn s3_alternative_endpoints(&self) -> &[Endpoint] {
         self.s3().alternative()
     }
 
-    /// 创建新的区域
+    /// 创建区域构建器
     #[inline]
     pub fn builder(region_id: impl Into<String>) -> RegionBuilder {
         RegionBuilder::new(region_id.into())
@@ -156,6 +156,7 @@ impl Region {
     }
 }
 
+/// 区域构建器
 #[derive(Debug, Eq, PartialEq, Clone, Default)]
 pub struct RegionBuilder {
     region_id: String,
@@ -177,7 +178,7 @@ pub struct RegionBuilder {
 }
 
 impl RegionBuilder {
-    /// 创建新的区域，传入域名 ID
+    /// 创建新的区域，传入终端 ID
     pub fn new(region_id: impl Into<String>) -> Self {
         Self {
             region_id: region_id.into(),
@@ -206,100 +207,100 @@ impl RegionBuilder {
         self
     }
 
-    /// 追加访问地址到上传访问地址列表
+    /// 添加访问终端地址到上传服务主要终端地址列表
     #[inline]
-    pub fn push_up_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_up_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.up_preferred.push(endpoint);
         self
     }
 
+    /// 添加访问终端地址到上传服务备选终端地址列表
     #[inline]
-    #[doc(hidden)]
-    pub fn push_up_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_up_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.up_alternative.push(endpoint);
         self
     }
 
-    /// 追加访问地址到下载访问地址列表
+    /// 添加访问终端地址到下载服务主要终端地址列表
     #[inline]
-    pub fn push_io_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_io_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.io_preferred.push(endpoint);
         self
     }
 
+    /// 添加访问终端地址到下载服务备选终端地址列表
     #[inline]
-    #[doc(hidden)]
-    pub fn push_io_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_io_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.io_alternative.push(endpoint);
         self
     }
 
-    /// 追加访问地址到 UC 访问地址列表
+    /// 添加访问终端地址到存储空间管理服务主要终端地址列表
     #[inline]
-    pub fn push_uc_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_uc_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.uc_preferred.push(endpoint);
         self
     }
 
+    /// 添加访问终端地址到存储空间管理服务备选终端地址列表
     #[inline]
-    #[doc(hidden)]
-    pub fn push_uc_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_uc_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.uc_alternative.push(endpoint);
         self
     }
 
-    /// 追加访问地址到 RS 访问地址列表
+    /// 添加访问终端地址到元数据管理服务主要终端地址列表
     #[inline]
-    pub fn push_rs_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_rs_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.rs_preferred.push(endpoint);
         self
     }
 
+    /// 添加访问终端地址到元数据管理服务备选终端地址列表
     #[inline]
-    #[doc(hidden)]
-    pub fn push_rs_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_rs_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.rs_alternative.push(endpoint);
         self
     }
 
-    /// 追加访问地址到 RSF 访问地址列表
+    /// 添加访问终端地址到元数据列举服务主要终端地址列表
     #[inline]
-    pub fn push_rsf_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_rsf_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.rsf_preferred.push(endpoint);
         self
     }
 
+    /// 添加访问终端地址到元数据列举服务备选终端地址列表
     #[inline]
-    #[doc(hidden)]
-    pub fn push_rsf_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_rsf_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.rsf_alternative.push(endpoint);
         self
     }
 
-    /// 追加访问地址到 API 访问地址列表
+    /// 添加访问终端地址到 API 入口服务主要终端地址列表
     #[inline]
-    pub fn push_api_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_api_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.api_preferred.push(endpoint);
         self
     }
 
+    /// 添加访问终端地址到 API 入口服务备选终端地址列表
     #[inline]
-    #[doc(hidden)]
-    pub fn push_api_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_api_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.api_alternative.push(endpoint);
         self
     }
 
-    /// 追加访问地址到 S3 访问地址列表
+    /// 添加访问终端地址到 S3 入口服务主要终端地址列表
     #[inline]
-    pub fn push_s3_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_s3_preferred_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.s3_preferred.push(endpoint);
         self
     }
 
+    /// 添加访问终端地址到 S3 入口服务备选终端地址列表
     #[inline]
-    #[doc(hidden)]
-    pub fn push_s3_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
+    pub fn add_s3_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.s3_alternative.push(endpoint);
         self
     }

@@ -1,4 +1,4 @@
-use qiniu_apis::http_client::{ApiResult, Endpoint, Endpoints, EndpointsProvider, ServiceName};
+use qiniu_apis::http_client::{ApiResult, Endpoint, Endpoints, EndpointsGetOptions, EndpointsProvider, ServiceName};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, collections::HashSet};
 
@@ -28,7 +28,9 @@ impl From<UpEndpoints> for Endpoints {
 
 impl UpEndpoints {
     pub(super) fn from_endpoints_provider(endpoints_provider: &impl EndpointsProvider) -> ApiResult<Self> {
-        let inner = endpoints_provider.get_endpoints(&[ServiceName::Up])?.into_owned();
+        let inner = endpoints_provider
+            .get_endpoints(&EndpointsGetOptions::builder().service_names(&[ServiceName::Up]).build())?
+            .into_owned();
         let set = to_hash_set(&inner);
         let vec = to_vec(&inner);
         Ok(Self { inner, set, vec })
@@ -37,7 +39,7 @@ impl UpEndpoints {
     #[cfg(feature = "async")]
     pub(super) async fn async_from_endpoints_provider(endpoints_provider: &impl EndpointsProvider) -> ApiResult<Self> {
         let inner = endpoints_provider
-            .async_get_endpoints(&[ServiceName::Up])
+            .async_get_endpoints(&EndpointsGetOptions::builder().service_names(&[ServiceName::Up]).build())
             .await?
             .into_owned();
         let set = to_hash_set(&inner);
@@ -61,7 +63,7 @@ impl UpEndpoints {
 
 impl EndpointsProvider for UpEndpoints {
     #[inline]
-    fn get_endpoints<'e>(&'e self, _services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>> {
+    fn get_endpoints<'e>(&'e self, _options: &'e EndpointsGetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>> {
         Ok(Cow::Borrowed(&self.inner))
     }
 }

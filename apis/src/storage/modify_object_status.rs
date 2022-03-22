@@ -156,16 +156,10 @@ impl<'client> Client<'client> {
         credential: impl qiniu_http_client::credential::CredentialProvider + std::clone::Clone + 'client,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
-            let mut builder = self
-                .0
-                .post(&[qiniu_http_client::ServiceName::Rs], endpoints_provider);
+            let mut builder = self.0.post(&[qiniu_http_client::ServiceName::Rs], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::v2(credential));
             builder.idempotent(qiniu_http_client::Idempotent::Always);
-            builder.path(crate::base_utils::join_path(
-                "/chstatus",
-                "",
-                path_params.build(),
-            ));
+            builder.path(crate::base_utils::join_path("/chstatus", "", path_params.build()));
             builder.accept_json();
             builder
         })
@@ -184,11 +178,7 @@ impl<'client> Client<'client> {
                 .async_post(&[qiniu_http_client::ServiceName::Rs], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::v2(credential));
             builder.idempotent(qiniu_http_client::Idempotent::Always);
-            builder.path(crate::base_utils::join_path(
-                "/chstatus",
-                "",
-                path_params.build(),
-            ));
+            builder.path(crate::base_utils::join_path("/chstatus", "", path_params.build()));
             builder.accept_json();
             builder
         })
@@ -196,12 +186,10 @@ impl<'client> Client<'client> {
 }
 #[derive(Debug)]
 pub struct RequestBuilder<'req, B: 'req, E: 'req>(qiniu_http_client::RequestBuilder<'req, B, E>);
-pub type SyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
+pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub type AsyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
+pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
 impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn use_https(&mut self, use_https: bool) -> &mut Self {
@@ -222,10 +210,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
-    pub fn query_pairs(
-        &mut self,
-        query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>,
-    ) -> &mut Self {
+    pub fn query_pairs(&mut self, query_pairs: impl Into<Vec<qiniu_http_client::QueryPair<'req>>>) -> &mut Self {
         self.0.query_pairs(query_pairs);
         self
     }
@@ -285,10 +270,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &str,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -343,9 +325,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -356,9 +336,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -428,9 +406,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     }
 }
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBuilder<'req, E> {
-    pub fn call(
-        &mut self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
+    pub fn call(&mut self) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = &mut self.0;
         let response = request.call()?;
         let parsed = response.parse_json()?;
@@ -439,9 +415,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBu
 }
 #[cfg(feature = "async")]
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> AsyncRequestBuilder<'req, E> {
-    pub async fn call(
-        &mut self,
-    ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
+    pub async fn call(&mut self) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = &mut self.0;
         let response = request.call().await?;
         let parsed = response.parse_json().await?;

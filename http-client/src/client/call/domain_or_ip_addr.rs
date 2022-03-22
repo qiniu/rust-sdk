@@ -1,7 +1,7 @@
 use super::super::super::{DomainWithPort, Endpoint, IpAddrWithPort};
 
 #[derive(Debug, Clone)]
-pub enum DomainOrIpAddr {
+pub(super) enum DomainOrIpAddr {
     Domain {
         domain_with_port: DomainWithPort,
         resolved_ips: Vec<IpAddrWithPort>,
@@ -10,11 +10,7 @@ pub enum DomainOrIpAddr {
 }
 
 impl DomainOrIpAddr {
-    #[inline]
-    pub fn new_from_domain(
-        domain_with_port: DomainWithPort,
-        resolved_ips: Vec<IpAddrWithPort>,
-    ) -> Self {
+    pub(super) fn new_from_domain(domain_with_port: DomainWithPort, resolved_ips: Vec<IpAddrWithPort>) -> Self {
         Self::Domain {
             domain_with_port,
             resolved_ips,
@@ -33,12 +29,8 @@ impl From<DomainOrIpAddr> for Endpoint {
     #[inline]
     fn from(domain_or_ip_addr: DomainOrIpAddr) -> Self {
         match domain_or_ip_addr {
-            DomainOrIpAddr::Domain {
-                domain_with_port, ..
-            } => Endpoint::DomainWithPort(domain_with_port),
-            DomainOrIpAddr::IpAddr(ip_addr_with_port) => {
-                Endpoint::IpAddrWithPort(ip_addr_with_port)
-            }
+            DomainOrIpAddr::Domain { domain_with_port, .. } => Endpoint::DomainWithPort(domain_with_port),
+            DomainOrIpAddr::IpAddr(ip_addr_with_port) => Endpoint::IpAddrWithPort(ip_addr_with_port),
         }
     }
 }

@@ -12,11 +12,14 @@ use std::{
     time::Duration,
 };
 
+/// 退避时长获取接口
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Backoff: Debug + Sync + Send {
-    fn time(&self, request: &mut HttpRequestParts, opts: &BackoffOptions) -> BackoffDuration;
+    /// 获取退避时长
+    fn time(&self, request: &mut HttpRequestParts, opts: &BackoffOptions) -> GotBackoffDuration;
 }
 
+/// 获取退避时长的选项
 #[derive(Debug, Clone)]
 pub struct BackoffOptions<'a> {
     retry_decision: RetryDecision,
@@ -37,66 +40,72 @@ impl<'a> BackoffOptions<'a> {
         }
     }
 
+    /// 获取重试决定
     #[inline]
     pub fn retry_decision(&self) -> RetryDecision {
         self.retry_decision
     }
 
+    /// 获取响应错误
     #[inline]
     pub fn response_error(&self) -> &ResponseError {
         self.response_error
     }
 
+    /// 获取重试信息
     #[inline]
     pub fn retried(&self) -> &RetriedStatsInfo {
         self.retried
     }
 }
 
+/// 获取的退避时长
 #[derive(Debug)]
-pub struct BackoffDuration(Duration);
+pub struct GotBackoffDuration(Duration);
 
-impl BackoffDuration {
+impl GotBackoffDuration {
+    /// 获取退避时长
     #[inline]
     pub fn duration(&self) -> Duration {
         self.0
     }
 
+    /// 获取退避时长的可变引用
     #[inline]
     pub fn duration_mut(&mut self) -> &mut Duration {
         &mut self.0
     }
 }
 
-impl From<Duration> for BackoffDuration {
+impl From<Duration> for GotBackoffDuration {
     #[inline]
     fn from(duration: Duration) -> Self {
         Self(duration)
     }
 }
 
-impl From<BackoffDuration> for Duration {
+impl From<GotBackoffDuration> for Duration {
     #[inline]
-    fn from(backoff_duration: BackoffDuration) -> Self {
+    fn from(backoff_duration: GotBackoffDuration) -> Self {
         backoff_duration.0
     }
 }
 
-impl AsRef<Duration> for BackoffDuration {
+impl AsRef<Duration> for GotBackoffDuration {
     #[inline]
     fn as_ref(&self) -> &Duration {
         &self.0
     }
 }
 
-impl AsMut<Duration> for BackoffDuration {
+impl AsMut<Duration> for GotBackoffDuration {
     #[inline]
     fn as_mut(&mut self) -> &mut Duration {
         &mut self.0
     }
 }
 
-impl Deref for BackoffDuration {
+impl Deref for GotBackoffDuration {
     type Target = Duration;
 
     #[inline]
@@ -105,7 +114,7 @@ impl Deref for BackoffDuration {
     }
 }
 
-impl DerefMut for BackoffDuration {
+impl DerefMut for GotBackoffDuration {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0

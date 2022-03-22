@@ -7,12 +7,16 @@ use std::{collections::VecDeque, mem::take, sync::Arc};
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
+/// 域名解析串
+///
+/// 将多个域名解析器串联起来，遍历并找寻第一个可用的解析结果
 #[derive(Debug, Clone)]
 pub struct ChainedResolver {
     resolvers: Arc<[Box<dyn Resolver>]>,
 }
 
 impl ChainedResolver {
+    /// 创建域名解析串构建器
     #[inline]
     pub fn builder(first_resolver: impl Resolver + 'static) -> ChainedResolverBuilder {
         ChainedResolverBuilder::new(first_resolver)
@@ -33,11 +37,7 @@ impl Resolver for ChainedResolver {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_resolve<'a>(
-        &'a self,
-        domain: &'a str,
-        opts: &'a ResolveOptions,
-    ) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             let mut last_result: Option<ResolveResult> = None;
             for resolver in self.resolvers.iter() {
@@ -76,12 +76,14 @@ impl<'a> IntoIterator for &'a ChainedResolver {
     }
 }
 
+/// 域名解析串构建器
 #[derive(Debug, Default)]
 pub struct ChainedResolverBuilder {
     resolvers: VecDeque<Box<dyn Resolver>>,
 }
 
 impl ChainedResolverBuilder {
+    /// 创建域名解析串构建器
     #[inline]
     pub fn new(first_resolver: impl Resolver + 'static) -> Self {
         let mut builder = Self::default();
@@ -89,18 +91,21 @@ impl ChainedResolverBuilder {
         builder
     }
 
+    /// 追加域名解析器
     #[inline]
     pub fn append_resolver(&mut self, resolver: impl Resolver + 'static) -> &mut Self {
         self.resolvers.push_back(Box::new(resolver));
         self
     }
 
+    /// 前置域名解析器
     #[inline]
     pub fn prepend_resolver(&mut self, resolver: impl Resolver + 'static) -> &mut Self {
         self.resolvers.push_front(Box::new(resolver));
         self
     }
 
+    /// 构建域名解析串
     #[inline]
     pub fn build(&mut self) -> ChainedResolver {
         assert!(
@@ -108,9 +113,7 @@ impl ChainedResolverBuilder {
             "ChainedResolverBuilder must owns at least one Resolver"
         );
         ChainedResolver {
-            resolvers: Vec::from(take(&mut self.resolvers))
-                .into_boxed_slice()
-                .into(),
+            resolvers: Vec::from(take(&mut self.resolvers)).into_boxed_slice().into(),
         }
     }
 }

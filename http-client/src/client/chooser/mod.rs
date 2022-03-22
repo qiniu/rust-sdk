@@ -16,22 +16,28 @@ use std::{
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
+/// 选择 IP 地址接口
+///
+/// 还提供了对选择结果的反馈接口，用以修正自身选择逻辑，优化选择结果
+///
+/// 同时提供阻塞接口和异步接口，异步接口则需要启用 `async` 功能
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Chooser: Debug + Sync + Send {
+    /// 选择 IP 地址列表
     fn choose(&self, ips: &[IpAddrWithPort], opts: &ChooseOptions) -> ChosenResults;
+
+    /// 反馈选择的 IP 地址列表的结果
     fn feedback(&self, feedback: ChooserFeedback);
 
+    /// 异步选择 IP 地址列表
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_choose<'a>(
-        &'a self,
-        ips: &'a [IpAddrWithPort],
-        opts: &'a ChooseOptions,
-    ) -> BoxFuture<'a, ChosenResults> {
+    fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort], opts: &'a ChooseOptions) -> BoxFuture<'a, ChosenResults> {
         Box::pin(async move { self.choose(ips, opts) })
     }
 
+    /// 异步反馈选择的 IP 地址列表的结果
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -40,23 +46,28 @@ pub trait Chooser: Debug + Sync + Send {
     }
 }
 
+/// 选择 IP 地址列表的选项
 #[derive(Debug, Clone, Default)]
 pub struct ChooseOptions {}
 
+/// 经过选择的 IP 地址列表
 #[derive(Debug)]
 pub struct ChosenResults(Vec<IpAddrWithPort>);
 
 impl ChosenResults {
+    /// 获取 IP 地址列表
     #[inline]
     pub fn ip_addrs(&self) -> &[IpAddrWithPort] {
         &self.0
     }
 
+    /// 获取 IP 地址列表的可变引用
     #[inline]
     pub fn ip_addrs_mut(&mut self) -> &mut Vec<IpAddrWithPort> {
         &mut self.0
     }
 
+    /// 转换为 IP 地址列表
     #[inline]
     pub fn into_ip_addrs(self) -> Vec<IpAddrWithPort> {
         self.0

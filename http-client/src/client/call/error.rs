@@ -37,9 +37,7 @@ impl TryError {
                 500..=599 => Some(self.response_error()),
                 _ => None,
             },
-            ResponseErrorKind::UnexpectedEof
-            | ResponseErrorKind::ParseResponseError
-            | ResponseErrorKind::MaliciousResponse => Some(self.response_error()),
+            ResponseErrorKind::ParseResponseError | ResponseErrorKind::MaliciousResponse => Some(self.response_error()),
             ResponseErrorKind::UnexpectedStatusCode(_)
             | ResponseErrorKind::SystemCallError
             | ResponseErrorKind::NoTry => None,

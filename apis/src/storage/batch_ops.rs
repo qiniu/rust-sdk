@@ -4,10 +4,7 @@
 #[doc = "调用 API 所用的请求体参数"]
 pub struct RequestBody {
     r#operations: Vec<std::borrow::Cow<'static, str>>,
-    extended_pairs: Vec<(
-        std::borrow::Cow<'static, str>,
-        Option<std::borrow::Cow<'static, str>>,
-    )>,
+    extended_pairs: Vec<(std::borrow::Cow<'static, str>, Option<std::borrow::Cow<'static, str>>)>,
 }
 impl RequestBody {
     #[inline]
@@ -20,12 +17,7 @@ impl RequestBody {
         self.extended_pairs.push((key.into(), Some(value.into())));
         self
     }
-    fn build(
-        self,
-    ) -> Vec<(
-        std::borrow::Cow<'static, str>,
-        Option<std::borrow::Cow<'static, str>>,
-    )> {
+    fn build(self) -> Vec<(std::borrow::Cow<'static, str>, Option<std::borrow::Cow<'static, str>>)> {
         let mut all_pairs: Vec<_> = Default::default();
         for value in self.r#operations.into_iter() {
             all_pairs.push(("op".into(), Some(value)));
@@ -35,10 +27,7 @@ impl RequestBody {
     }
 }
 impl IntoIterator for RequestBody {
-    type Item = (
-        std::borrow::Cow<'static, str>,
-        Option<std::borrow::Cow<'static, str>>,
-    );
+    type Item = (std::borrow::Cow<'static, str>, Option<std::borrow::Cow<'static, str>>);
     type IntoIter = std::vec::IntoIter<Self::Item>;
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -49,10 +38,7 @@ impl RequestBody {
     #[inline]
     #[must_use]
     #[doc = "单一对象管理指令"]
-    pub fn append_operations_as_str(
-        mut self,
-        value: impl Into<std::borrow::Cow<'static, str>>,
-    ) -> Self {
+    pub fn append_operations_as_str(mut self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.r#operations.push(value.into());
         self
     }
@@ -128,13 +114,7 @@ impl std::convert::AsMut<serde_json::Value> for OperationResponse {
 impl OperationResponse {
     #[doc = "获取 响应状态码"]
     pub fn get_code_as_i64(&self) -> i64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("code")
-            .unwrap()
-            .as_i64()
-            .unwrap()
+        self.0.as_object().unwrap().get("code").unwrap().as_i64().unwrap()
     }
 }
 impl OperationResponse {
@@ -150,13 +130,7 @@ impl OperationResponse {
 impl OperationResponse {
     #[doc = "获取 响应状态码"]
     pub fn get_code_as_u64(&self) -> u64 {
-        self.0
-            .as_object()
-            .unwrap()
-            .get("code")
-            .unwrap()
-            .as_u64()
-            .unwrap()
+        self.0.as_object().unwrap().get("code").unwrap().as_u64().unwrap()
     }
 }
 impl OperationResponse {
@@ -216,12 +190,10 @@ impl OperationResponseData {
     #[doc = "设置 管理指令的错误信息，仅在发生错误时才返回"]
     pub fn set_error_as_str(&mut self, new: String) -> Option<String> {
         self.0.as_object_mut().and_then(|object| {
-            object
-                .insert("error".to_owned(), new.into())
-                .and_then(|val| match val {
-                    serde_json::Value::String(s) => Some(s),
-                    _ => None,
-                })
+            object.insert("error".to_owned(), new.into()).and_then(|val| match val {
+                serde_json::Value::String(s) => Some(s),
+                _ => None,
+            })
         })
     }
 }
@@ -276,12 +248,10 @@ impl OperationResponseData {
     #[doc = "设置 对象哈希值，仅对 stat 指令才有效"]
     pub fn set_hash_as_str(&mut self, new: String) -> Option<String> {
         self.0.as_object_mut().and_then(|object| {
-            object
-                .insert("hash".to_owned(), new.into())
-                .and_then(|val| match val {
-                    serde_json::Value::String(s) => Some(s),
-                    _ => None,
-                })
+            object.insert("hash".to_owned(), new.into()).and_then(|val| match val {
+                serde_json::Value::String(s) => Some(s),
+                _ => None,
+            })
         })
     }
 }
@@ -472,12 +442,10 @@ impl OperationResponseData {
     #[doc = "设置 对象 MD5 值，只有通过直传文件和追加文件 API 上传的文件，服务端确保有该字段返回，仅对 stat 指令才有效"]
     pub fn set_md_5_as_str(&mut self, new: String) -> Option<String> {
         self.0.as_object_mut().and_then(|object| {
-            object
-                .insert("md5".to_owned(), new.into())
-                .and_then(|val| match val {
-                    serde_json::Value::String(s) => Some(s),
-                    _ => None,
-                })
+            object.insert("md5".to_owned(), new.into()).and_then(|val| match val {
+                serde_json::Value::String(s) => Some(s),
+                _ => None,
+            })
         })
     }
 }
@@ -658,11 +626,7 @@ impl ResponseBody {
 impl ResponseBody {
     #[doc = "在列表尾部取出 JSON OperationResponse"]
     pub fn pop_operation_response(&mut self) -> Option<OperationResponse> {
-        self.0
-            .as_array_mut()
-            .unwrap()
-            .pop()
-            .map(OperationResponse::new)
+        self.0.as_array_mut().unwrap().pop().map(OperationResponse::new)
     }
 }
 #[derive(Debug, Clone)]
@@ -680,9 +644,7 @@ impl<'client> Client<'client> {
         credential: impl qiniu_http_client::credential::CredentialProvider + std::clone::Clone + 'client,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
-            let mut builder = self
-                .0
-                .post(&[qiniu_http_client::ServiceName::Rs], endpoints_provider);
+            let mut builder = self.0.post(&[qiniu_http_client::ServiceName::Rs], endpoints_provider);
             builder.authorization(qiniu_http_client::Authorization::v2(credential));
             builder.idempotent(qiniu_http_client::Idempotent::Default);
             builder.path("batch");
@@ -711,12 +673,10 @@ impl<'client> Client<'client> {
 }
 #[derive(Debug)]
 pub struct RequestBuilder<'req, B: 'req, E: 'req>(qiniu_http_client::RequestBuilder<'req, B, E>);
-pub type SyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
+pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub type AsyncRequestBuilder<'req, E> =
-    RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
+pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
 impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn use_https(&mut self, use_https: bool) -> &mut Self {
@@ -737,10 +697,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
-    pub fn query_pairs(
-        &mut self,
-        query_pairs: impl Into<qiniu_http_client::QueryPairs<'req>>,
-    ) -> &mut Self {
+    pub fn query_pairs(&mut self, query_pairs: impl Into<Vec<qiniu_http_client::QueryPair<'req>>>) -> &mut Self {
         self.0.query_pairs(query_pairs);
         self
     }
@@ -800,10 +757,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &str,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -858,9 +812,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,
@@ -871,9 +823,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
     #[inline]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
             + Send
             + Sync
             + 'req,

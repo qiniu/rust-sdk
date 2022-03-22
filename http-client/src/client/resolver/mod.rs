@@ -20,77 +20,91 @@ use std::{
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
+/// 域名解析的接口
+///
+/// 同时提供阻塞接口和异步接口，异步接口则需要启用 `async` 功能
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Resolver: Debug + Sync + Send {
+    /// 解析域名
     fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult;
 
+    /// 异步解析域名
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_resolve<'a>(
-        &'a self,
-        domain: &'a str,
-        opts: &'a ResolveOptions,
-    ) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move { self.resolve(domain, opts) })
     }
 
+    /// 获取缓存控制器
+    ///
+    /// 如果缓存存在，则返回缓存控制器，否则返回 [`None`]
     fn cache_controller(&self) -> Option<&dyn CacheController> {
         None
     }
 }
 
+/// 解析域名的选项
 #[derive(Debug, Clone, Default)]
 pub struct ResolveOptions {
     retried: Option<RetriedStatsInfo>,
 }
 
 impl ResolveOptions {
+    /// 获取重试统计信息
     #[inline]
     pub fn retried(&self) -> Option<&RetriedStatsInfo> {
         self.retried.as_ref()
     }
 
+    /// 创建解析域名的选项构建器
     #[inline]
     pub fn builder() -> ResolveOptionsBuilder {
         Default::default()
     }
 }
 
+/// 解析域名的选项构建器
 #[derive(Debug, Clone, Default)]
 pub struct ResolveOptionsBuilder(ResolveOptions);
 
 impl ResolveOptionsBuilder {
+    /// 设置重试统计信息
     #[inline]
     pub fn retried(&mut self, retried: &RetriedStatsInfo) -> &mut Self {
         self.0.retried = Some(retried.to_owned());
         self
     }
 
+    /// 构建解析域名的选项
     #[inline]
     pub fn build(&mut self) -> ResolveOptions {
         take(&mut self.0)
     }
 }
 
+/// 解析结果
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolveAnswers {
-    ip_addrs: Box<[IpAddr]>,
+    ip_addrs: Vec<IpAddr>,
 }
 
 impl ResolveAnswers {
+    /// 获取 IP 地址列表
     #[inline]
     pub fn ip_addrs(&self) -> &[IpAddr] {
         &self.ip_addrs
     }
 
+    /// 获取 IP 地址列表的可变引用
     #[inline]
-    pub fn ip_addrs_mut(&mut self) -> &mut Box<[IpAddr]> {
+    pub fn ip_addrs_mut(&mut self) -> &mut Vec<IpAddr> {
         &mut self.ip_addrs
     }
 
+    /// 转换为 IP 地址列表
     #[inline]
-    pub fn into_ip_addrs(self) -> Box<[IpAddr]> {
+    pub fn into_ip_addrs(self) -> Vec<IpAddr> {
         self.ip_addrs
     }
 }
@@ -100,16 +114,16 @@ impl IsCacheValid for ResolveAnswers {}
 impl From<Box<[IpAddr]>> for ResolveAnswers {
     #[inline]
     fn from(ip_addrs: Box<[IpAddr]>) -> Self {
-        Self { ip_addrs }
+        Self {
+            ip_addrs: ip_addrs.into(),
+        }
     }
 }
 
 impl From<Vec<IpAddr>> for ResolveAnswers {
     #[inline]
     fn from(ip_addrs: Vec<IpAddr>) -> Self {
-        Self {
-            ip_addrs: ip_addrs.into_boxed_slice(),
-        }
+        Self { ip_addrs }
     }
 }
 
@@ -117,7 +131,7 @@ impl FromIterator<IpAddr> for ResolveAnswers {
     #[inline]
     fn from_iter<T: IntoIterator<Item = IpAddr>>(iter: T) -> Self {
         Self {
-            ip_addrs: Vec::from_iter(iter).into(),
+            ip_addrs: Vec::from_iter(iter),
         }
     }
 }
@@ -132,17 +146,23 @@ impl<'a> IntoIterator for &'a ResolveAnswers {
     }
 }
 
+impl Extend<IpAddr> for ResolveAnswers {
+    fn extend<T: IntoIterator<Item = IpAddr>>(&mut self, iter: T) {
+        self.ip_addrs.extend(iter);
+    }
+}
+
 impl From<ResolveAnswers> for Box<[IpAddr]> {
     #[inline]
     fn from(answers: ResolveAnswers) -> Self {
-        answers.ip_addrs
+        answers.ip_addrs.into()
     }
 }
 
 impl From<ResolveAnswers> for Vec<IpAddr> {
     #[inline]
     fn from(answers: ResolveAnswers) -> Self {
-        answers.ip_addrs.into()
+        answers.ip_addrs
     }
 }
 
@@ -176,6 +196,7 @@ impl DerefMut for ResolveAnswers {
     }
 }
 
+/// 域名解析结果
 pub type ResolveResult = ApiResult<ResolveAnswers>;
 
 pub use cache::CachedResolver;

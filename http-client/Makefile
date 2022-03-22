@@ -23,7 +23,7 @@ build_test:
 	cargo test --no-run --no-default-features --features 'async reqwest'
 	cargo test --no-run --no-default-features --features 'async c_ares trust_dns'
 doc:
-	cargo test --doc --features 'async c_ares trust_dns'
+	cargo test --doc --features 'async c_ares trust_dns ureq isahc reqwest'
 	cargo +nightly doc --lib --release --all-features
 test:
 	cargo test --no-default-features --features ureq -- --show-output

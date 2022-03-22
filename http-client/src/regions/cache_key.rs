@@ -1,12 +1,17 @@
-use std::fmt;
-
-use super::super::{endpoints::Md5Value, Endpoints};
+use super::super::Endpoints;
+use md5::{
+    digest::{generic_array::GenericArray, FixedOutputDirty},
+    Md5,
+};
 use qiniu_credential::AccessKey;
 use qiniu_upload_token::BucketName;
 use serde::{
     de::{Error as DeError, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
+use std::fmt;
+
+type Md5Value = GenericArray<u8, <Md5 as FixedOutputDirty>::OutputSize>;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub(super) struct CacheKey {
