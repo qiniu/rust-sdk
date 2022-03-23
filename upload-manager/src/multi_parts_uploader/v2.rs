@@ -7,6 +7,7 @@ use super::{
         UploaderWithCallbacks,
     },
     progress::{Progresses, ProgressesKey},
+    up_endpoints::UpEndpoints,
     DataSource, InitializedParts, MultiPartsUploader, MultiPartsUploaderWithCallbacks, ObjectParams, ResumableRecorder,
     UploadManager, UploadedPart,
 };
@@ -16,7 +17,7 @@ use qiniu_apis::{
     credential::AccessKey,
     http::{Reset, ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
     http_client::{
-        ApiResult, BucketRegionsProvider, CallbackResult, EndpointsProvider, RegionProviderEndpoints,
+        ApiResult, BucketRegionsProvider, CallbackResult, Endpoint, EndpointsProvider, RegionProviderEndpoints,
         RequestBuilderParts, Response, ResponseError,
     },
     storage::{
@@ -83,6 +84,7 @@ pub struct MultiPartsV2UploaderInitializedObject<R: ResumableRecorder + ?Sized> 
     progresses: Progresses,
     recovered_records: MultiPartsV2ResumableRecorderRecords<R>,
     initialized_at: SystemTime,
+    up_endpoints: UpEndpoints,
 }
 
 impl<R: ResumableRecorder + ?Sized> MultiPartsV2UploaderInitializedObject<R> {
@@ -225,9 +227,8 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
         source: D,
         params: ObjectParams,
     ) -> ApiResult<Self::InitializedParts> {
-        let (upload_id, recovered_records) = self
-            .try_to_recover(&source, params.uploaded_part_ttl())
-            .unwrap_or_default();
+        let up_endpoints = self.up_endpoints(&params)?;
+        let (upload_id, recovered_records) = self.try_to_recover(&source, &params, &up_endpoints).unwrap_or_default();
         let upload_id = if let Some(upload_id) = upload_id {
             upload_id
         } else {
@@ -235,25 +236,10 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                 make_init_parts_path_params_from_initialized_params(self.bucket_name()?.to_string(), &params);
             let upload_token_signer = self.make_upload_token_signer(params.object_name().map(|n| n.into()));
             let init_parts = self.storage().resumable_upload_v2_initiate_multipart_upload();
-            let initialized_parts = if let Some(region_provider) = params.region_provider() {
-                _initialize_parts(
-                    self,
-                    init_parts.new_request(
-                        RegionProviderEndpoints::new(region_provider),
-                        path_params,
-                        upload_token_signer.as_ref(),
-                    ),
-                )
-            } else {
-                _initialize_parts(
-                    self,
-                    init_parts.new_request(
-                        RegionProviderEndpoints::new(self.get_bucket_region()?),
-                        path_params,
-                        upload_token_signer.as_ref(),
-                    ),
-                )
-            }?;
+            let initialized_parts = _initialize_parts(
+                self,
+                init_parts.new_request(&up_endpoints, path_params, upload_token_signer.as_ref()),
+            )?;
             initialized_parts.get_upload_id_as_str().to_owned()
         };
 
@@ -262,6 +248,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
             params,
             upload_id,
             recovered_records,
+            up_endpoints,
             progresses: Default::default(),
             initialized_at: SystemTime::now(),
         });
@@ -309,35 +296,16 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                     let upload_token_signer =
                         self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
                     let upload_part = self.storage().resumable_upload_v2_upload_part();
-                    let uploaded_result = if let Some(region_provider) = initialized.params.region_provider() {
-                        _upload_part(
-                            self,
-                            upload_part.new_request(
-                                RegionProviderEndpoints::new(region_provider),
-                                path_params,
-                                upload_token_signer.as_ref(),
-                            ),
-                            reader,
-                            part_size,
-                            initialized,
-                            &progresses_key,
-                            &data_partitioner_provider,
-                        )
-                    } else {
-                        _upload_part(
-                            self,
-                            upload_part.new_request(
-                                RegionProviderEndpoints::new(self.get_bucket_region()?),
-                                path_params,
-                                upload_token_signer.as_ref(),
-                            ),
-                            reader,
-                            part_size,
-                            initialized,
-                            &progresses_key,
-                            &data_partitioner_provider,
-                        )
-                    };
+                    let uploaded_result = _upload_part(
+                        self,
+                        upload_part.new_request(&initialized.up_endpoints, path_params, upload_token_signer.as_ref()),
+                        reader,
+                        part_size,
+                        initialized,
+                        &progresses_key,
+                        &data_partitioner_provider,
+                    );
+
                     match uploaded_result {
                         Ok(uploaded_part) => {
                             self.after_part_uploaded(&progresses_key, total_size, Some(&uploaded_part))?;
@@ -423,7 +391,14 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
             };
             initialized
                 .recovered_records
-                .persist(&initialized.upload_id, initialized.initialized_at, &record)
+                .persist(
+                    &initialized.upload_id,
+                    initialized.initialized_at,
+                    &record,
+                    &uploader.bucket_name()?,
+                    initialized.params.object_name(),
+                    &initialized.up_endpoints,
+                )
                 .ok();
             Ok(MultiPartsV2UploaderUploadedPart::from_record(record, false))
         }
@@ -442,29 +417,12 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
         );
         let body = make_complete_parts_request_body_from_initialized_params(&mut initialized.params, parts);
         let complete_parts = self.storage().resumable_upload_v2_complete_multipart_upload();
-        return if let Some(region_provider) = initialized.params.region_provider() {
-            _complete_parts(
-                self,
-                complete_parts.new_request(
-                    RegionProviderEndpoints::new(region_provider),
-                    path_params,
-                    upload_token_signer.as_ref(),
-                ),
-                &initialized.source,
-                body,
-            )
-        } else {
-            _complete_parts(
-                self,
-                complete_parts.new_request(
-                    RegionProviderEndpoints::new(self.get_bucket_region()?),
-                    path_params,
-                    upload_token_signer.as_ref(),
-                ),
-                &initialized.source,
-                body,
-            )
-        };
+        return _complete_parts(
+            self,
+            complete_parts.new_request(&initialized.up_endpoints, path_params, upload_token_signer.as_ref()),
+            &initialized.source,
+            body,
+        );
 
         fn _complete_parts<
             'a,
@@ -496,8 +454,9 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
         params: ObjectParams,
     ) -> BoxFuture<ApiResult<Self::InitializedParts>> {
         return Box::pin(async move {
+            let up_endpoints = self.async_up_endpoints(&params).await?;
             let (upload_id, recovered_records) = self
-                .try_to_async_recover(&source, params.uploaded_part_ttl())
+                .try_to_async_recover(&source, &params, &up_endpoints)
                 .await
                 .unwrap_or_default();
             let upload_id = if let Some(upload_id) = upload_id {
@@ -507,27 +466,11 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                     make_init_parts_path_params_from_initialized_params(self.bucket_name()?.to_string(), &params);
                 let upload_token_signer = self.make_upload_token_signer(params.object_name().map(|n| n.into()));
                 let init_parts = self.storage().resumable_upload_v2_initiate_multipart_upload();
-                let initialized_parts = if let Some(region_provider) = params.region_provider() {
-                    _initialize_parts(
-                        self,
-                        init_parts.new_async_request(
-                            RegionProviderEndpoints::new(region_provider),
-                            path_params,
-                            upload_token_signer.as_ref(),
-                        ),
-                    )
-                    .await
-                } else {
-                    _initialize_parts(
-                        self,
-                        init_parts.new_async_request(
-                            RegionProviderEndpoints::new(self.async_get_bucket_region().await?),
-                            path_params,
-                            upload_token_signer.as_ref(),
-                        ),
-                    )
-                    .await
-                }?;
+                let initialized_parts = _initialize_parts(
+                    self,
+                    init_parts.new_async_request(&up_endpoints, path_params, upload_token_signer.as_ref()),
+                )
+                .await?;
                 initialized_parts.get_upload_id_as_str().to_owned()
             };
 
@@ -536,6 +479,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                 params,
                 upload_id,
                 recovered_records,
+                up_endpoints,
                 progresses: Default::default(),
                 initialized_at: SystemTime::now(),
             })
@@ -597,37 +541,20 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
                         let upload_token_signer =
                             self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
                         let upload_part = self.storage().resumable_upload_v2_upload_part();
-                        let uploaded_result = if let Some(region_provider) = initialized.params.region_provider() {
-                            _upload_part(
-                                self,
-                                upload_part.new_async_request(
-                                    RegionProviderEndpoints::new(region_provider),
-                                    path_params,
-                                    upload_token_signer.as_ref(),
-                                ),
-                                reader,
-                                part_size,
-                                initialized,
-                                &progresses_key,
-                                &data_partitioner_provider,
-                            )
-                            .await
-                        } else {
-                            _upload_part(
-                                self,
-                                upload_part.new_async_request(
-                                    RegionProviderEndpoints::new(self.async_get_bucket_region().await?),
-                                    path_params,
-                                    upload_token_signer.as_ref(),
-                                ),
-                                reader,
-                                part_size,
-                                initialized,
-                                &progresses_key,
-                                &data_partitioner_provider,
-                            )
-                            .await
-                        };
+                        let uploaded_result = _upload_part(
+                            self,
+                            upload_part.new_async_request(
+                                &initialized.up_endpoints,
+                                path_params,
+                                upload_token_signer.as_ref(),
+                            ),
+                            reader,
+                            part_size,
+                            initialized,
+                            &progresses_key,
+                            &data_partitioner_provider,
+                        )
+                        .await;
                         match uploaded_result {
                             Ok(uploaded_part) => {
                                 self.after_part_uploaded(&progresses_key, total_size, Some(&uploaded_part))?;
@@ -716,7 +643,14 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
             };
             initialized
                 .recovered_records
-                .async_persist(&initialized.upload_id, initialized.initialized_at, &record)
+                .async_persist(
+                    &initialized.upload_id,
+                    initialized.initialized_at,
+                    &record,
+                    &uploader.async_bucket_name().await?,
+                    initialized.params.object_name(),
+                    &initialized.up_endpoints,
+                )
                 .await
                 .ok();
             Ok(MultiPartsV2UploaderUploadedPart::from_record(record, false))
@@ -739,31 +673,13 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
             );
             let body = make_complete_parts_request_body_from_initialized_params(&mut initialized.params, parts);
             let complete_parts = self.storage().resumable_upload_v2_complete_multipart_upload();
-            if let Some(region_provider) = initialized.params.region_provider() {
-                _complete_parts(
-                    self,
-                    complete_parts.new_async_request(
-                        RegionProviderEndpoints::new(region_provider),
-                        path_params,
-                        upload_token_signer.as_ref(),
-                    ),
-                    &initialized.source,
-                    body,
-                )
-                .await
-            } else {
-                _complete_parts(
-                    self,
-                    complete_parts.new_async_request(
-                        RegionProviderEndpoints::new(self.async_get_bucket_region().await?),
-                        path_params,
-                        upload_token_signer.as_ref(),
-                    ),
-                    &initialized.source,
-                    body,
-                )
-                .await
-            }
+            _complete_parts(
+                self,
+                complete_parts.new_async_request(&initialized.up_endpoints, path_params, upload_token_signer.as_ref()),
+                &initialized.source,
+                body,
+            )
+            .await
         });
 
         async fn _complete_parts<
@@ -946,6 +862,28 @@ impl<R> MultiPartsV2Uploader<R> {
 }
 
 impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
+    fn up_endpoints(&self, params: &ObjectParams) -> ApiResult<UpEndpoints> {
+        let up_endpoints = if let Some(region_provider) = params.region_provider() {
+            UpEndpoints::from_endpoints_provider(&RegionProviderEndpoints::new(region_provider))?
+        } else {
+            UpEndpoints::from_endpoints_provider(&RegionProviderEndpoints::new(self.get_bucket_region()?))?
+        };
+        Ok(up_endpoints)
+    }
+
+    #[cfg(feature = "async")]
+    async fn async_up_endpoints(&self, params: &ObjectParams) -> ApiResult<UpEndpoints> {
+        let up_endpoints = if let Some(region_provider) = params.region_provider() {
+            UpEndpoints::async_from_endpoints_provider(&RegionProviderEndpoints::new(region_provider)).await?
+        } else {
+            UpEndpoints::async_from_endpoints_provider(&RegionProviderEndpoints::new(
+                self.async_get_bucket_region().await?,
+            ))
+            .await?
+        };
+        Ok(up_endpoints)
+    }
+
     fn get_bucket_region(&self) -> ApiResult<BucketRegionsProvider> {
         Ok(self
             .upload_manager
@@ -972,12 +910,13 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
     >(
         &self,
         source: &D,
-        uploaded_part_ttl: Duration,
+        params: &ObjectParams,
+        up_endpoints: &UpEndpoints,
     ) -> ApiResult<(Option<String>, MultiPartsV2ResumableRecorderRecords<R>)> {
         return source
             .source_key()?
             .map(|source_key| {
-                _try_to_recover(&self.resumable_recorder, &source_key, uploaded_part_ttl)
+                _try_to_recover(self, &source_key, params, up_endpoints)
                     .ok()
                     .flatten()
                     .map(|(upload_id, records)| Ok((Some(upload_id), records)))
@@ -988,17 +927,23 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
             .unwrap_or_else(|| Ok(Default::default()));
 
         fn _try_to_recover<R: ResumableRecorder>(
-            resumable_recorder: &R,
+            uploader: &MultiPartsV2Uploader<R>,
             source_key: &SourceKey<R::HashAlgorithm>,
-            uploaded_part_ttl: Duration,
+            params: &ObjectParams,
+            up_endpoints: &UpEndpoints,
         ) -> ApiResult<Option<(String, MultiPartsV2ResumableRecorderRecords<R>)>> {
             let (upload_id, mut records) = {
-                let mut medium = resumable_recorder.open_for_read(source_key)?;
+                let mut medium = uploader.resumable_recorder.open_for_read(source_key)?;
                 let mut lines = BufReader::new(&mut medium).lines();
                 let upload_id = if let Some(line) = lines.next() {
                     let line = line?;
                     let header: MultiPartsV2ResumableRecorderDeserializableHeader = serde_json::from_str(&line)?;
-                    if !header.is_v2() || header.initialized_at() + uploaded_part_ttl <= SystemTime::now() {
+                    if !header.is_v2()
+                        || header.initialized_at() + params.uploaded_part_ttl() <= SystemTime::now()
+                        || header.bucket() != uploader.bucket_name()?.as_str()
+                        || header.object() != params.object_name()
+                        || !up_endpoints.any_intersection(header.up_endpoints())
+                    {
                         return Ok(None);
                     }
                     header.upload_id
@@ -1014,7 +959,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
                     .collect::<ApiResult<MultiPartsV2ResumableRecorderRecords<R>>>()?;
                 (upload_id, records)
             };
-            records.set_medium_for_append(resumable_recorder.open_for_append(source_key)?, true);
+            records.set_medium_for_append(uploader.resumable_recorder.open_for_append(source_key)?, true);
             Ok(Some((upload_id, records)))
         }
 
@@ -1034,14 +979,14 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
     >(
         &self,
         source: &D,
-        uploaded_part_ttl: Duration,
+        params: &ObjectParams,
+        up_endpoints: &UpEndpoints,
     ) -> ApiResult<(Option<String>, MultiPartsV2ResumableRecorderRecords<R>)> {
         return OptionFuture::from(source.async_source_key().await?.map(|source_key| async move {
-            if let Some((upload_id, records)) =
-                _try_to_recover(&self.resumable_recorder, &source_key, uploaded_part_ttl)
-                    .await
-                    .ok()
-                    .flatten()
+            if let Some((upload_id, records)) = _try_to_recover(self, &source_key, params, up_endpoints)
+                .await
+                .ok()
+                .flatten()
             {
                 Ok((Some(upload_id), records))
             } else {
@@ -1054,16 +999,22 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
         .unwrap_or_else(|| Ok(Default::default()));
 
         async fn _try_to_recover<R: ResumableRecorder>(
-            resumable_recorder: &R,
+            uploader: &MultiPartsV2Uploader<R>,
             source_key: &SourceKey<R::HashAlgorithm>,
-            uploaded_part_ttl: Duration,
+            params: &ObjectParams,
+            up_endpoints: &UpEndpoints,
         ) -> ApiResult<Option<(String, MultiPartsV2ResumableRecorderRecords<R>)>> {
             let (upload_id, mut records) = {
-                let mut medium = resumable_recorder.open_for_async_read(source_key).await?;
+                let mut medium = uploader.resumable_recorder.open_for_async_read(source_key).await?;
                 let mut lines = AsyncBufReader::new(&mut medium).lines();
                 let upload_id = if let Some(line) = lines.try_next().await? {
                     let header: MultiPartsV2ResumableRecorderDeserializableHeader = serde_json::from_str(&line)?;
-                    if !header.is_v2() || header.initialized_at() + uploaded_part_ttl <= SystemTime::now() {
+                    if !header.is_v2()
+                        || header.initialized_at() + params.uploaded_part_ttl() <= SystemTime::now()
+                        || header.bucket() != uploader.bucket_name()?.as_str()
+                        || header.object() != params.object_name()
+                        || !up_endpoints.any_intersection(header.up_endpoints())
+                    {
                         return Ok(None);
                     }
                     header.upload_id
@@ -1080,7 +1031,10 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
                     .await?;
                 (upload_id, records)
             };
-            records.set_medium_for_async_append(resumable_recorder.open_for_async_append(source_key).await?, true);
+            records.set_medium_for_async_append(
+                uploader.resumable_recorder.open_for_async_append(source_key).await?,
+                true,
+            );
             Ok(Some((upload_id, records)))
         }
 
@@ -1130,7 +1084,7 @@ fn make_user_cancelled_error(message: &str) -> ResponseError {
     ResponseError::new(HttpResponseErrorKind::UserCanceled.into(), message)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct MultiPartsV2ResumableRecorderDeserializableHeader {
     #[serde(rename = "ver")]
     version: u8,
@@ -1140,6 +1094,15 @@ struct MultiPartsV2ResumableRecorderDeserializableHeader {
 
     #[serde(rename = "init")]
     initialized_timestamp: u64,
+
+    #[serde(rename = "bkt")]
+    bucket: BucketName,
+
+    #[serde(rename = "key")]
+    object: Option<ObjectName>,
+
+    #[serde(rename = "ups")]
+    up_endpoints: Vec<Endpoint>,
 }
 
 impl MultiPartsV2ResumableRecorderDeserializableHeader {
@@ -1150,9 +1113,21 @@ impl MultiPartsV2ResumableRecorderDeserializableHeader {
     fn initialized_at(&self) -> SystemTime {
         UNIX_EPOCH + Duration::from_secs(self.initialized_timestamp)
     }
+
+    fn bucket(&self) -> &str {
+        &self.bucket
+    }
+
+    fn object(&self) -> Option<&str> {
+        self.object.as_deref()
+    }
+
+    fn up_endpoints(&self) -> &[Endpoint] {
+        &self.up_endpoints
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 struct MultiPartsV2ResumableRecorderSerializableHeader<'a> {
     #[serde(rename = "ver")]
     version: u8,
@@ -1162,12 +1137,30 @@ struct MultiPartsV2ResumableRecorderSerializableHeader<'a> {
 
     #[serde(rename = "init")]
     initialized_timestamp: u64,
+
+    #[serde(rename = "bkt")]
+    bucket: &'a str,
+
+    #[serde(rename = "key")]
+    object: Option<&'a str>,
+
+    #[serde(rename = "ups")]
+    up_endpoints: &'a [Endpoint],
 }
 
 impl<'a> MultiPartsV2ResumableRecorderSerializableHeader<'a> {
-    fn v2(upload_id: &'a str, initialized_at: SystemTime) -> Self {
+    fn v2(
+        upload_id: &'a str,
+        initialized_at: SystemTime,
+        bucket: &'a str,
+        object: Option<&'a str>,
+        up_endpoints: &'a [Endpoint],
+    ) -> Self {
         Self {
             upload_id,
+            bucket,
+            object,
+            up_endpoints,
             version: 2,
             initialized_timestamp: initialized_at.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs()),
         }
@@ -1249,6 +1242,9 @@ impl<R: ResumableRecorder + ?Sized> MultiPartsV2ResumableRecorderRecords<R> {
         upload_id: &str,
         initialized_at: SystemTime,
         record: &MultiPartsV2ResumableRecorderRecord,
+        bucket_name: &str,
+        object_name: Option<&str>,
+        up_endpoints: &UpEndpoints,
     ) -> ApiResult<()> {
         if let Some(append_only_medium) = self.append_only_medium.as_ref() {
             let mut buf = Vec::new();
@@ -1256,7 +1252,13 @@ impl<R: ResumableRecorder + ?Sized> MultiPartsV2ResumableRecorderRecords<R> {
             if !append_only_medium.header_written {
                 serde_json::to_writer(
                     &mut buf,
-                    &MultiPartsV2ResumableRecorderSerializableHeader::v2(upload_id, initialized_at),
+                    &MultiPartsV2ResumableRecorderSerializableHeader::v2(
+                        upload_id,
+                        initialized_at,
+                        bucket_name,
+                        object_name,
+                        up_endpoints.as_slice(),
+                    ),
                 )?;
                 buf.extend_from_slice(b"\n");
             }
@@ -1275,6 +1277,9 @@ impl<R: ResumableRecorder + ?Sized> MultiPartsV2ResumableRecorderRecords<R> {
         upload_id: &str,
         initialized_at: SystemTime,
         record: &MultiPartsV2ResumableRecorderRecord,
+        bucket_name: &str,
+        object_name: Option<&str>,
+        up_endpoints: &UpEndpoints,
     ) -> ApiResult<()> {
         if let Some(append_only_medium) = self.async_append_only_medium.as_ref() {
             let mut append_only_medium = append_only_medium.lock().await;
@@ -1282,7 +1287,13 @@ impl<R: ResumableRecorder + ?Sized> MultiPartsV2ResumableRecorderRecords<R> {
             if !append_only_medium.header_written {
                 serde_json::to_writer(
                     &mut buf,
-                    &MultiPartsV2ResumableRecorderSerializableHeader::v2(upload_id, initialized_at),
+                    &MultiPartsV2ResumableRecorderSerializableHeader::v2(
+                        upload_id,
+                        initialized_at,
+                        bucket_name,
+                        object_name,
+                        up_endpoints.as_slice(),
+                    ),
                 )?;
                 buf.extend_from_slice(b"\n");
             }

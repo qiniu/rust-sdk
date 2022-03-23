@@ -115,10 +115,7 @@ impl Endpoints {
         builder.build()
     }
 
-    fn from_region_provider(
-        region_provider: &dyn RegionProvider,
-        services: &[ServiceName],
-    ) -> ApiResult<Self> {
+    fn from_region_provider(region_provider: &dyn RegionProvider, services: &[ServiceName]) -> ApiResult<Self> {
         Ok(Self::from_region(
             region_provider.get(&Default::default())?.region(),
             services,
@@ -131,10 +128,7 @@ impl Endpoints {
         services: &[ServiceName],
     ) -> ApiResult<Self> {
         Ok(Self::from_region(
-            region_provider
-                .async_get(&Default::default())
-                .await?
-                .region(),
+            region_provider.async_get(&Default::default()).await?.region(),
             services,
         ))
     }
@@ -261,10 +255,7 @@ pub trait EndpointsProvider: Clone + fmt::Debug + Send + Sync {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_endpoints<'a>(
-        &'a self,
-        services: &'a [ServiceName],
-    ) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
+    fn async_get_endpoints<'a>(&'a self, services: &'a [ServiceName]) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
         Box::pin(async move { self.get_endpoints(services) })
     }
 }
@@ -295,18 +286,13 @@ impl<R> RegionProviderEndpoints<R> {
 impl<R: RegionProvider + Clone> EndpointsProvider for RegionProviderEndpoints<R> {
     #[inline]
     fn get_endpoints<'e>(&'e self, services: &[ServiceName]) -> ApiResult<Cow<'e, Endpoints>> {
-        Ok(Cow::Owned(Endpoints::from_region_provider(
-            &self.0, services,
-        )?))
+        Ok(Cow::Owned(Endpoints::from_region_provider(&self.0, services)?))
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_endpoints<'a>(
-        &'a self,
-        services: &'a [ServiceName],
-    ) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
+    fn async_get_endpoints<'a>(&'a self, services: &'a [ServiceName]) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
         Box::pin(async move {
             Ok(Cow::Owned(
                 Endpoints::async_from_region_provider(&self.0, services).await?,
@@ -318,9 +304,7 @@ impl<R: RegionProvider + Clone> EndpointsProvider for RegionProviderEndpoints<R>
 impl<R: RegionProvider> fmt::Debug for RegionProviderEndpoints<R> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("RegionProviderEndpoints")
-            .field(&self.0)
-            .finish()
+        f.debug_tuple("RegionProviderEndpoints").field(&self.0).finish()
     }
 }
 

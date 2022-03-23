@@ -69,3 +69,4 @@ mod v2;
 pub use v2::{MultiPartsV2Uploader, MultiPartsV2UploaderInitializedObject, MultiPartsV2UploaderUploadedPart};
 
 mod progress;
+mod up_endpoints;

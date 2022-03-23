@@ -10,7 +10,10 @@ use url::{ParseError as UrlParseError, Url};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DomainWithPort {
+    #[serde(rename = "domain")]
     domain: Box<str>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     port: Option<NonZeroU16>,
 }
 
@@ -137,7 +140,10 @@ impl FromStr for DomainWithPort {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct IpAddrWithPort {
+    #[serde(rename = "ip")]
     ip_addr: IpAddr,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     port: Option<NonZeroU16>,
 }
 
@@ -254,7 +260,7 @@ impl FromStr for IpAddrWithPort {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "ty")]
 #[non_exhaustive]
 pub enum Endpoint {
     DomainWithPort(DomainWithPort),
@@ -280,10 +286,7 @@ impl Endpoint {
 
     #[inline]
     pub const fn new_from_ip_addr(ip_addr: IpAddr) -> Self {
-        Self::IpAddrWithPort(IpAddrWithPort {
-            ip_addr,
-            port: None,
-        })
+        Self::IpAddrWithPort(IpAddrWithPort { ip_addr, port: None })
     }
 
     #[inline]
@@ -490,61 +493,34 @@ mod tests {
         assert_eq!(result.unwrap_err(), DomainWithPortParseError::EmptyHost);
 
         result = "127.0.0.1:8080".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            DomainWithPortParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), DomainWithPortParseError::InvalidDomainCharacter);
 
         result = "[127.0.0.1]:8080".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            DomainWithPortParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), DomainWithPortParseError::InvalidDomainCharacter);
 
         result = "8080:8080".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            DomainWithPortParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), DomainWithPortParseError::InvalidDomainCharacter);
 
         result = "8080".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            DomainWithPortParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), DomainWithPortParseError::InvalidDomainCharacter);
 
         result = "8080:".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            DomainWithPortParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), DomainWithPortParseError::InvalidDomainCharacter);
 
         result = "domain:".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            DomainWithPortParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), DomainWithPortParseError::InvalidDomainCharacter);
 
         result = "domain:8080".parse();
-        assert_eq!(
-            result.unwrap(),
-            DomainWithPort::new("domain", NonZeroU16::new(8080))
-        );
+        assert_eq!(result.unwrap(), DomainWithPort::new("domain", NonZeroU16::new(8080)));
 
         result = "domain:8080/".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            DomainWithPortParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), DomainWithPortParseError::InvalidDomainCharacter);
 
         result = "domain:65536".parse();
         assert_eq!(result.unwrap_err(), DomainWithPortParseError::InvalidPort);
 
         result = "七牛云:65535".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            DomainWithPortParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), DomainWithPortParseError::InvalidDomainCharacter);
 
         Ok(())
     }
@@ -566,10 +542,7 @@ mod tests {
         result = "127.0.0.1:8080".parse();
         assert_eq!(
             result.unwrap(),
-            IpAddrWithPort::new(
-                IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-                NonZeroU16::new(8080)
-            ),
+            IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), NonZeroU16::new(8080)),
         );
 
         result = "127.0.0.1:65536".parse();
@@ -579,9 +552,7 @@ mod tests {
         assert_eq!(
             result.unwrap(),
             IpAddrWithPort::new(
-                IpAddr::V6(Ipv6Addr::new(
-                    0xfe80, 0, 0, 0, 0xe31c, 0xb4e6, 0x5919, 0x728f,
-                )),
+                IpAddr::V6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0xe31c, 0xb4e6, 0x5919, 0x728f,)),
                 None
             ),
         );
@@ -590,9 +561,7 @@ mod tests {
         assert_eq!(
             result.unwrap(),
             IpAddrWithPort::new(
-                IpAddr::V6(Ipv6Addr::new(
-                    0xfe80, 0, 0, 0, 0xe31c, 0xb4e6, 0x5919, 0x728f,
-                )),
+                IpAddr::V6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0xe31c, 0xb4e6, 0x5919, 0x728f,)),
                 NonZeroU16::new(8080)
             ),
         );
@@ -641,34 +610,19 @@ mod tests {
         );
 
         result = "[127.0.0.1]:8080".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            EndpointParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), EndpointParseError::InvalidDomainCharacter);
 
         result = "8080:8080".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            EndpointParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), EndpointParseError::InvalidDomainCharacter);
 
         result = "8080".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            EndpointParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), EndpointParseError::InvalidDomainCharacter);
 
         result = "8080:".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            EndpointParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), EndpointParseError::InvalidDomainCharacter);
 
         result = "domain:".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            EndpointParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), EndpointParseError::InvalidDomainCharacter);
 
         result = "domain:8080".parse();
         assert_eq!(
@@ -677,19 +631,13 @@ mod tests {
         );
 
         result = "domain:8080/".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            EndpointParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), EndpointParseError::InvalidDomainCharacter);
 
         result = "domain:65536".parse();
         assert_eq!(result.unwrap_err(), EndpointParseError::InvalidPort);
 
         result = "七牛云:65535".parse();
-        assert_eq!(
-            result.unwrap_err(),
-            EndpointParseError::InvalidDomainCharacter
-        );
+        assert_eq!(result.unwrap_err(), EndpointParseError::InvalidDomainCharacter);
 
         Ok(())
     }
