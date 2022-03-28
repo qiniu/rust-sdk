@@ -449,31 +449,59 @@ pub struct AutoUploaderBuilder<
 
 impl<CP, DPP, RR, RPP> AutoUploaderBuilder<CP, DPP, RR, RPP> {
     #[inline]
-    pub fn concurrency_provider(mut self, concurrency_provider: CP) -> Self {
-        self.concurrency_provider = concurrency_provider;
-        self
+    pub fn concurrency_provider<CP2>(self, concurrency_provider: CP2) -> AutoUploaderBuilder<CP2, DPP, RR, RPP> {
+        AutoUploaderBuilder {
+            upload_manager: self.upload_manager,
+            callbacks: self.callbacks,
+            concurrency_provider,
+            data_partition_provider: self.data_partition_provider,
+            resumable_recorder: self.resumable_recorder,
+            resumable_policy_provider: self.resumable_policy_provider,
+        }
     }
 
     #[inline]
-    pub fn data_partition_provider(mut self, data_partition_provider: DPP) -> Self {
-        self.data_partition_provider = data_partition_provider;
-        self
+    pub fn data_partition_provider<DPP2>(
+        self,
+        data_partition_provider: DPP2,
+    ) -> AutoUploaderBuilder<CP, DPP2, RR, RPP> {
+        AutoUploaderBuilder {
+            upload_manager: self.upload_manager,
+            callbacks: self.callbacks,
+            concurrency_provider: self.concurrency_provider,
+            data_partition_provider,
+            resumable_recorder: self.resumable_recorder,
+            resumable_policy_provider: self.resumable_policy_provider,
+        }
     }
 
     #[inline]
-    pub fn resumable_recorder(mut self, resumable_recorder: RR) -> Self {
-        self.resumable_recorder = resumable_recorder;
-        self
+    pub fn resumable_recorder<RR2>(self, resumable_recorder: RR2) -> AutoUploaderBuilder<CP, DPP, RR2, RPP> {
+        AutoUploaderBuilder {
+            upload_manager: self.upload_manager,
+            callbacks: self.callbacks,
+            concurrency_provider: self.concurrency_provider,
+            data_partition_provider: self.data_partition_provider,
+            resumable_recorder,
+            resumable_policy_provider: self.resumable_policy_provider,
+        }
     }
 
     #[inline]
-    pub fn resumable_policy_provider(mut self, resumable_policy_provider: RPP) -> Self {
-        self.resumable_policy_provider = resumable_policy_provider;
-        self
+    pub fn resumable_policy_provider<RPP2>(
+        self,
+        resumable_policy_provider: RPP2,
+    ) -> AutoUploaderBuilder<CP, DPP, RR, RPP2> {
+        AutoUploaderBuilder {
+            upload_manager: self.upload_manager,
+            callbacks: self.callbacks,
+            concurrency_provider: self.concurrency_provider,
+            data_partition_provider: self.data_partition_provider,
+            resumable_recorder: self.resumable_recorder,
+            resumable_policy_provider,
+        }
     }
 }
-
-impl<CP, DPP, RR, RPP> AutoUploaderBuilder<CP, DPP, RR, RPP> {}
 
 impl<CP, DPP, RR, RPP> AutoUploaderBuilder<CP, DPP, RR, RPP> {
     #[inline]

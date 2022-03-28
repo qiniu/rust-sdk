@@ -17,4 +17,4 @@ test:
 clean:
 	cargo clean
 clippy:
-	cargo +nightly clippy --tests --all-features -- -D warnings -A clippy::manual-split-once --no-deps
+	cargo +nightly clippy --examples --tests --all-features -- -D warnings -A clippy::manual-split-once --no-deps
