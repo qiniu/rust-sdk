@@ -8,7 +8,7 @@ use {async_std::task::spawn, futures::future::BoxFuture};
 
 /// 简单域名解析器
 ///
-/// 基于 `libc` 库的域名解析接口实现
+/// 基于 [`libc`](https://man7.org/linux/man-pages/man7/libc.7.html) 库的域名解析接口实现
 #[derive(Default, Debug, Clone, Copy)]
 pub struct SimpleResolver;
 

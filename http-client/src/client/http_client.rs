@@ -46,7 +46,7 @@ struct HttpClientInner {
 }
 
 impl HttpClient {
-    /// 创建一个新的 HTTP 客户端，使用 `http-ureq` 库作为 [`HttpCaller`] 实现
+    /// 创建一个新的 HTTP 客户端，使用 [`crate::ureq::Client`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "ureq")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "ureq")))]
@@ -54,7 +54,7 @@ impl HttpClient {
         Self::build_ureq().build()
     }
 
-    /// 创建一个新的 HTTP 客户端，使用 `http-isahc` 库作为 [`HttpCaller`] 实现
+    /// 创建一个新的 HTTP 客户端，使用 [`crate::isahc::Client`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "isahc")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "isahc")))]
@@ -62,7 +62,7 @@ impl HttpClient {
         Ok(Self::build_isahc()?.build())
     }
 
-    /// 创建一个新的 HTTP 客户端，使用 `http-reqwest` 库的阻塞实现作为 [`HttpCaller`] 实现
+    /// 创建一个新的 HTTP 客户端，使用 [`crate::reqwest::SyncClient`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "reqwest")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "reqwest")))]
@@ -70,7 +70,7 @@ impl HttpClient {
         Self::build_reqwest_sync().build()
     }
 
-    /// 创建一个新的 HTTP 客户端，使用 `http-reqwest` 库的异步实现作为 [`HttpCaller`] 实现
+    /// 创建一个新的 HTTP 客户端，使用 [`crate::reqwest::AsyncClient`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(all(feature = "reqwest", feature = "async"))]
     #[cfg_attr(feature = "docs", doc(cfg(all(feature = "reqwest", feature = "async"))))]
@@ -84,7 +84,7 @@ impl HttpClient {
         HttpClientBuilder::default()
     }
 
-    /// 创建一个新的 HTTP 客户端构建器，使用 `http-ureq` 库作为 [`HttpCaller`] 实现
+    /// 创建一个新的 HTTP 客户端构建器，使用 [`crate::ureq::Client`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "ureq")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "ureq")))]
@@ -92,7 +92,7 @@ impl HttpClient {
         HttpClientBuilder::ureq()
     }
 
-    /// 创建一个新的 HTTP 客户端构建器，使用 `http-isahc` 库作为 [`HttpCaller`] 实现
+    /// 创建一个新的 HTTP 客户端构建器，使用 [`crate::isahc::Client`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "isahc")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "isahc")))]
@@ -100,7 +100,7 @@ impl HttpClient {
         HttpClientBuilder::isahc()
     }
 
-    /// 创建一个新的 HTTP 客户端构建器，使用 `http-reqwest` 库的阻塞实现作为 [`HttpCaller`] 实现
+    /// 创建一个新的 HTTP 客户端构建器，使用 [`crate::reqwest::SyncClient`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "reqwest")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "reqwest")))]
@@ -108,7 +108,7 @@ impl HttpClient {
         HttpClientBuilder::reqwest_sync()
     }
 
-    /// 创建一个新的 HTTP 客户端构建器，使用 `http-reqwest` 库的异步实现作为 [`HttpCaller`] 实现
+    /// 创建一个新的 HTTP 客户端构建器，使用 [`crate::reqwest::AsyncClient`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(all(feature = "reqwest", feature = "async"))]
     #[cfg_attr(feature = "docs", doc(cfg(all(feature = "reqwest", feature = "async"))))]
@@ -282,28 +282,28 @@ pub struct HttpClientBuilder {
 }
 
 impl HttpClientBuilder {
-    /// 创建一个新的 HTTP 客户端构建器，使用 `http-ureq` 库作为 [`HttpCaller`] 实现
+    /// 创建一个新的 HTTP 客户端构建器，使用 [`crate::ureq::Client`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "ureq")]
     pub fn ureq() -> Self {
         Self::_new(Some(Box::new(qiniu_ureq::Client::default())))
     }
 
-    /// 创建一个新的 HTTP 客户端构建器，使用 `http-isahc` 库作为 [`HttpCaller`] 实现
+    /// 创建一个新的 HTTP 客户端构建器，使用 [`crate::isahc::Client`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "isahc")]
     pub fn isahc() -> Result<Self, IsahcError> {
         Ok(Self::_new(Some(Box::new(qiniu_isahc::Client::default_client()?))))
     }
 
-    /// 创建一个新的 HTTP 客户端构建器，使用 `http-reqwest` 库的阻塞实现作为 [`HttpCaller`] 实现
+    /// 创建一个新的 HTTP 客户端构建器，使用 [`crate::reqwest::SyncClient`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(feature = "reqwest")]
     pub fn reqwest_sync() -> Self {
         Self::_new(Some(Box::new(qiniu_reqwest::SyncClient::default())))
     }
 
-    /// 创建一个新的 HTTP 客户端构建器，使用 `http-reqwest` 库的阻塞实现作为 [`HttpCaller`] 实现
+    /// 创建一个新的 HTTP 客户端构建器，使用 [`crate::reqwest::SyncClient`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(all(feature = "reqwest", feature = "async"))]
     pub fn reqwest_async() -> Self {

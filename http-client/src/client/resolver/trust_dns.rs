@@ -10,9 +10,9 @@ use trust_dns_resolver::{
     error::ResolveError,
 };
 
-/// `trust-dns` 域名解析器
+/// [`trust-dns`](https://trust-dns.org/) 域名解析器
 ///
-/// 基于 `trust-dns` 库的域名解析接口实现，由于该接口只有异步实现，即使使用阻塞接口，也会调用异步实现
+/// 基于 [`trust-dns`](https://trust-dns.org/) 库的域名解析接口实现，由于该接口只有异步实现，即使使用阻塞接口，也会调用异步实现
 #[cfg_attr(feature = "docs", doc(cfg(all(feature = "trust_dns", feature = "async"))))]
 pub struct TrustDnsResolver {
     #[cfg(feature = "async")]
@@ -22,7 +22,7 @@ pub struct TrustDnsResolver {
 type TrustDnsResolveResult<T> = Result<T, ResolveError>;
 
 impl TrustDnsResolver {
-    /// 创建 `trust-dns` 域名解析器
+    /// 创建 [`trust-dns`](https://trust-dns.org/) 域名解析器
     #[inline]
     pub async fn new(config: ResolverConfig, options: ResolverOpts) -> TrustDnsResolveResult<Self> {
         Ok(Self {
@@ -30,7 +30,7 @@ impl TrustDnsResolver {
         })
     }
 
-    /// 创建默认的 `trust-dns` 域名解析器
+    /// 创建默认的 [`trust-dns`](https://trust-dns.org/) 域名解析器
     #[inline]
     pub async fn default() -> TrustDnsResolveResult<Self> {
         Ok(Self {
@@ -38,7 +38,7 @@ impl TrustDnsResolver {
         })
     }
 
-    /// 通过系统的 system.conf 文件创建 `trust-dns` 域名解析器
+    /// 通过系统的 system.conf 文件创建 [`trust-dns`](https://trust-dns.org/) 域名解析器
     #[inline]
     pub async fn from_system_conf() -> TrustDnsResolveResult<Self> {
         Ok(Self {

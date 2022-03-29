@@ -68,7 +68,7 @@
 //! 且由于 `reqwest` 库自身基于异步接口实现，因此即使不启用 `async` 功能，也会用线程启动 `tokio` 异步环境驱动 HTTP 请求发送；
 //! [`qiniu_isahc::Client`] 提供基于 `isahc` 库的 HTTP 客户端
 //! （需要启用 `reqwest` 功能，如果需要用到异步接口还需要额外启用 `async` 功能），
-//! 特点是功能全面，且同时支持阻塞接口和异步接口，但依赖原生的 `libcurl` 库，
+//! 特点是功能全面，且同时支持阻塞接口和异步接口，但依赖原生的 [`libcurl`](https://curl.se/libcurl/) 库，
 //! 且由于 `isahc` 库自身基于异步接口实现，因此即使不启用 `async` 功能，也会用线程启动 `tokio` 异步环境驱动 HTTP 请求发送；
 //! 可以通过配置 [`HttpClientBuilder::http_caller`] 来指定使用哪个客户端。如果不指定，默认通过当前启用的功能来判定。
 //!
@@ -76,9 +76,9 @@
 //!
 //! [`Resolver`] 提供域名解析的接口（同时提供阻塞接口和异步接口，异步接口则需要启用 `async` 功能），可以将一个域名解析为 IP 地址列表。
 //! `qiniu-http-client` 提供多种域名解析的实现，
-//! [`SimpleResolver`] 提供最简单的，基于 `libc` 库的域名解析实现；
-//! [`CAresResolver`] （需要启用 `c_ares` 功能）提供基于 `c-ares` 库的域名解析实现；
-//! [`TrustDnsResolver`] （需要同时启用 `trust_dns` 功能和 `async` 功能）提供基于 `trust-dns` 库的域名解析实现；
+//! [`SimpleResolver`] 提供最简单的，基于 [`libc`](https://man7.org/linux/man-pages/man7/libc.7.html) 库的域名解析实现；
+//! [`CAresResolver`] （需要启用 `c_ares` 功能）提供基于 [`c-ares`](https://c-ares.org/) 库的域名解析实现；
+//! [`TrustDnsResolver`] （需要同时启用 `trust_dns` 功能和 `async` 功能）提供基于 [`trust-dns`](https://trust-dns.org/) 库的域名解析实现；
 //! [`TimeoutResolver`] 为任意一个 [`Resolver`] 实现提供超时功能，不过该实现不是很高效，如果 [`Resolver`] 实现本身就带有超时功能，还是尽量使用自带的超时功能更好；
 //! [`ShuffledResolver`] 可以将任意一个 [`Resolver`] 实现提供打乱解析结果的功能，便于在客户端层面实现简单的服务器的负载均衡功能；
 //! [`ChainedResolver`] 提供对多个 [`Resolver`] 的链式调用，可以依次尝试不同的 [`Resolver`] 实现直到获得一个有效的解析结果为止；

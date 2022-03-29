@@ -21,9 +21,9 @@ use {
 
 type CAresResolverResult<T> = Result<T, CAresResolverError>;
 
-/// `c-ares` 域名解析器
+/// [`c-ares`](https://c-ares.org/) 域名解析器
 ///
-/// 基于 `c-ares` 库的域名解析接口实现
+/// 基于 [`c-ares`](https://c-ares.org/) 库的域名解析接口实现
 #[cfg_attr(feature = "docs", doc(cfg(feature = "c_ares")))]
 pub struct CAresResolver {
     callback_resolver: CallbackResolver,
@@ -33,7 +33,7 @@ pub struct CAresResolver {
 }
 
 impl CAresResolver {
-    /// 创建 `c-ares` 域名解析器
+    /// 创建 [`c-ares`](https://c-ares.org/) 域名解析器
     #[inline]
     #[cfg(not(feature = "async"))]
     pub fn new_with_options(options: CAresResolverOptions) -> CAresResolverResult<Self> {
@@ -42,7 +42,7 @@ impl CAresResolver {
         })
     }
 
-    /// 创建 `c-ares` 域名解析器
+    /// 创建 [`c-ares`](https://c-ares.org/) 域名解析器
     #[inline]
     #[cfg(any(feature = "async"))]
     pub fn new_with_options(
@@ -55,7 +55,7 @@ impl CAresResolver {
         })
     }
 
-    /// 创建默认的 `c-ares` 域名解析器
+    /// 创建默认的 [`c-ares`](https://c-ares.org/) 域名解析器
     #[inline]
     pub fn new() -> CAresResolverResult<Self> {
         cfg_if! {
