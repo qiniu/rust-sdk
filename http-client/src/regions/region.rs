@@ -5,6 +5,23 @@ use std::{mem::take, sync::Arc};
 /// 七牛存储区域
 ///
 /// 提供七牛不同服务的终端地址列表
+///
+/// ```
+/// use qiniu_http_client::Region;
+///
+/// # fn main() -> anyhow::Result<()> {
+/// let region = Region::builder("z0")
+///     .add_uc_preferred_endpoint("uc.qbox.me".parse()?)
+///     .add_up_preferred_endpoint("upload.qiniup.com".parse()?)
+///     .add_up_preferred_endpoint("up.qiniup.com".parse()?)
+///     .add_up_alternative_endpoint("up.qbox.me".parse()?)
+///     .add_rs_preferred_endpoint("rs.qbox.me".parse()?)
+///     .add_rsf_preferred_endpoint("rsf.qbox.me".parse()?)
+///     .add_api_preferred_endpoint("api.qiniu.com".parse()?)
+///     .build();
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Region {
@@ -157,6 +174,26 @@ impl Region {
 }
 
 /// 区域构建器
+///
+/// ```
+/// use qiniu_http_client::RegionBuilder;
+///
+/// # fn main() -> anyhow::Result<()> {
+/// let region = RegionBuilder::new("z0")
+///     .add_uc_preferred_endpoint("10.11.0.178:10221".parse()?)
+///     .add_uc_preferred_endpoint("10.11.0.180:10221".parse()?)
+///     .add_up_preferred_endpoint("10.11.0.178:5010".parse()?)
+///     .add_up_preferred_endpoint("10.11.0.180:5010".parse()?)
+///     .add_io_preferred_endpoint("10.11.0.178:5000".parse()?)
+///     .add_io_preferred_endpoint("10.11.0.180:5000".parse()?)
+///     .add_rs_preferred_endpoint("10.11.0.178:9433".parse()?)
+///     .add_rs_preferred_endpoint("10.11.0.180:9433".parse()?)
+///     .add_rsf_preferred_endpoint("10.11.0.178:7913".parse()?)
+///     .add_rsf_preferred_endpoint("10.11.0.180:7913".parse()?)
+///     .build();
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Eq, PartialEq, Clone, Default)]
 pub struct RegionBuilder {
     region_id: String,

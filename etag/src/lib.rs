@@ -32,7 +32,7 @@
 //!
 //! 七牛 Etag 文档：<https://developer.qiniu.com/kodo/1231/appendix>
 //!
-//! Etag V1 计算案例:
+//! ### Etag V1 计算示例
 //! ```
 //! use qiniu_etag::{EtagV1, prelude::*};
 //!
@@ -41,7 +41,7 @@
 //! assert_eq!(etag_v1.finalize_fixed().as_slice(), b"FpLiADEaVoALPkdb8tJEJyRTXoe_");
 //! ```
 //!
-//! Etag V1 计算输入流案例:
+//! ### Etag V1 计算输入流示例
 //! ```
 //! use std::io::{copy, Cursor};
 //! use qiniu_etag::{EtagV1, prelude::*};
@@ -54,7 +54,7 @@
 //! # }
 //! ```
 //!
-//! Etag V2 计算案例:
+//! ### Etag V2 计算示例
 //! ```
 //! use qiniu_etag::{EtagV2, prelude::*};
 //!
@@ -64,9 +64,10 @@
 //! assert_eq!(etag_v2.finalize_fixed().as_slice(), b"ns56DcSIfBFUENXjdhsJTIvl3Rcu");
 //! ```
 //!
-//! Etag V2 计算输入流案例:
+//! ### Etag V2 计算输入流示例
 //!
 //! 与 V1 不同的是，Etag V2 要求传入数据的分块方式
+//!
 //! ```
 //! use qiniu_etag::etag_with_parts;
 //! use std::io::Cursor;

@@ -41,13 +41,15 @@ const DELETE_AFTER_DAYS_KEY: &str = "deleteAfterDays";
 ///
 /// 可以阅读 <https://developer.qiniu.com/kodo/manual/1206/put-policy> 了解七牛安全机制。
 ///
-/// 根据指定的存储空间和对象名称，生成可以用来上传低频存储类型文件的上传策略：
+/// ### 根据指定的存储空间和对象名称，生成可以用来上传低频存储类型文件的上传策略
 ///
 /// ```
 /// use qiniu_upload_token::{FileType, UploadPolicy};
 /// use std::time::Duration;
 ///
-/// let upload_policy = UploadPolicy::new_for_object("your-bucket", "your-key", Duration::from_secs(3600)).file_type(FileType::InfrequentAccess).build();
+/// let upload_policy = UploadPolicy::new_for_object("your-bucket", "your-key", Duration::from_secs(3600))
+///     .file_type(FileType::InfrequentAccess)
+///     .build();
 /// ```
 #[derive(Clone, Eq, PartialEq)]
 pub struct UploadPolicy {

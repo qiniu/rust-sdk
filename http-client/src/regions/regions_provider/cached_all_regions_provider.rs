@@ -17,6 +17,22 @@ const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(86400);
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 
 /// 七牛所有区域信息缓存器
+///
+/// 与 [`AllRegionsProvider`] 功能相似，但包含从文件系统或内存缓存中读写数据的功能。
+///
+/// ```
+/// # async fn example() -> anyhow::Result<()> {
+/// use qiniu_credential::Credential;
+/// use qiniu_http_client::{CachedAllRegionsProvider, RegionsProvider};
+///
+/// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+/// let regions = CachedAllRegionsProvider::builder(credential)
+///     .build()
+///     .async_get_all(&Default::default())
+///     .await?;
+/// #     Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug)]
 pub struct CachedAllRegionsProvider {
     cache_key: CacheKey,

@@ -1,14 +1,13 @@
 use super::{
     super::{
-        super::IpAddrWithPort, ChooserFeedback, RequestParts, RetriedStatsInfo,
-        SimplifiedCallbackContext, SyncResponse,
+        super::IpAddrWithPort, ChooserFeedback, RequestParts, RetriedStatsInfo, SimplifiedCallbackContext, SyncResponse,
     },
     domain_or_ip_addr::DomainOrIpAddr,
     error::{TryError, TryErrorWithExtensions},
     send_http_request::send_http_request,
     utils::{
-        call_after_request_signed_callbacks, call_before_request_signed_callbacks,
-        extract_ips_from, make_request, make_url, reset_request_body, sign_request,
+        call_after_request_signed_callbacks, call_before_request_signed_callbacks, extract_ips_from, make_request,
+        make_url, reset_request_body, sign_request,
     },
 };
 use qiniu_http::{
@@ -19,9 +18,8 @@ use std::mem::take;
 
 macro_rules! setup_callbacks {
     ($parts:ident, $http_request:ident) => {
-        let on_uploading_progress = |info: &TransferProgressInfo| -> CallbackResult {
-            $parts.call_uploading_progress_callbacks($parts, info)
-        };
+        let on_uploading_progress =
+            |info: &TransferProgressInfo| -> CallbackResult { $parts.call_uploading_progress_callbacks($parts, info) };
         if $parts.uploading_progress_callbacks_count() > 0 {
             *$http_request.on_uploading_progress_mut() = Some(&on_uploading_progress);
         }
@@ -31,10 +29,9 @@ macro_rules! setup_callbacks {
         if $parts.receive_response_status_callbacks_count() > 0 {
             *$http_request.on_receive_response_status_mut() = Some(&on_receive_response_status);
         }
-        let on_receive_response_header =
-            |name: &HeaderName, value: &HeaderValue| -> CallbackResult {
-                $parts.call_receive_response_header_callbacks($parts, name, value)
-            };
+        let on_receive_response_header = |name: &HeaderName, value: &HeaderValue| -> CallbackResult {
+            $parts.call_receive_response_header_callbacks($parts, name, value)
+        };
         if $parts.receive_response_header_callbacks_count() > 0 {
             *$http_request.on_receive_response_header_mut() = Some(&on_receive_response_header);
         }
@@ -48,20 +45,18 @@ pub(super) fn try_domain_or_ip_addr(
     mut extensions: Extensions,
     retried: &mut RetriedStatsInfo,
 ) -> Result<SyncResponse, TryErrorWithExtensions> {
-    let (url, resolved_ips) = make_url(domain_or_ip, parts, retried)
-        .map_err(|err| err.with_extensions(take(&mut extensions)))?;
+    let (url, resolved_ips) =
+        make_url(domain_or_ip, parts, retried).map_err(|err| err.with_extensions(take(&mut extensions)))?;
     let mut http_request: HttpRequest<SyncRequestBody> =
         make_request(url, parts, body.into(), extensions, &resolved_ips);
-    reset_request_body(http_request.body_mut(), retried)
-        .map_err(|err| err.with_request(&mut http_request))?;
+    reset_request_body(http_request.body_mut(), retried).map_err(|err| err.with_request(&mut http_request))?;
     call_before_request_signed_callbacks(parts, &mut http_request, retried)
         .map_err(|err| err.with_request(&mut http_request))?;
     sign_request(&mut http_request, parts.authorization(), retried)
         .map_err(|err| err.with_request(&mut http_request))?;
     call_after_request_signed_callbacks(parts, &mut http_request, retried)
         .map_err(|err| err.with_request(&mut http_request))?;
-    reset_request_body(http_request.body_mut(), retried)
-        .map_err(|err| err.with_request(&mut http_request))?;
+    reset_request_body(http_request.body_mut(), retried).map_err(|err| err.with_request(&mut http_request))?;
 
     setup_callbacks!(parts, http_request);
 
@@ -69,29 +64,23 @@ pub(super) fn try_domain_or_ip_addr(
     match send_http_request(&mut http_request, parts, retried) {
         Ok(response) => {
             if !extracted_ips.is_empty() {
-                parts
-                    .http_client()
-                    .chooser()
-                    .feedback(make_positive_feedback(
-                        &extracted_ips,
-                        &mut http_request,
-                        response.metrics(),
-                        retried,
-                    ));
+                parts.http_client().chooser().feedback(make_positive_feedback(
+                    &extracted_ips,
+                    &mut http_request,
+                    response.metrics(),
+                    retried,
+                ));
             }
             Ok(response)
         }
         Err(err) => {
             if !extracted_ips.is_empty() {
-                parts
-                    .http_client()
-                    .chooser()
-                    .feedback(make_negative_feedback(
-                        &extracted_ips,
-                        &mut http_request,
-                        &err,
-                        retried,
-                    ));
+                parts.http_client().chooser().feedback(make_negative_feedback(
+                    &extracted_ips,
+                    &mut http_request,
+                    &err,
+                    retried,
+                ));
             }
             Err(err.with_request(&mut http_request))
         }
@@ -137,8 +126,8 @@ pub(super) async fn async_try_domain_or_ip_addr(
     mut extensions: Extensions,
     retried: &mut RetriedStatsInfo,
 ) -> Result<AsyncResponse, TryErrorWithExtensions> {
-    let (url, resolved_ips) = make_url(domain_or_ip, parts, retried)
-        .map_err(|err| err.with_extensions(take(&mut extensions)))?;
+    let (url, resolved_ips) =
+        make_url(domain_or_ip, parts, retried).map_err(|err| err.with_extensions(take(&mut extensions)))?;
     let mut http_request: HttpRequest<AsyncRequestBody> =
         make_request(url, parts, body.into(), extensions, &resolved_ips);
     reset_async_request_body(http_request.body_mut(), retried)
@@ -179,12 +168,7 @@ pub(super) async fn async_try_domain_or_ip_addr(
                 parts
                     .http_client()
                     .chooser()
-                    .async_feedback(make_negative_feedback(
-                        &extracted_ips,
-                        &mut http_request,
-                        &err,
-                        retried,
-                    ))
+                    .async_feedback(make_negative_feedback(&extracted_ips, &mut http_request, &err, retried))
                     .await;
             }
             Err(err.with_request(&mut http_request))

@@ -17,6 +17,30 @@ const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(3600);
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(3600);
 
 /// 存储空间绑定域名查询器
+///
+/// 查询该存储空间绑定的域名。
+///
+/// ### 存储空间绑定域名查询器使用示例
+///
+/// ```
+/// # async fn example() -> anyhow::Result<()> {
+/// use qiniu_credential::Credential;
+/// use qiniu_http_client::{Authorization, BucketDomainsQueryer, HttpClient};
+///
+/// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+/// let response = HttpClient::default()
+///     .async_get(
+///         &[],
+///         BucketDomainsQueryer::new().query(credential.to_owned(), "test-bucket"),
+///     )
+///     .path("/test-key")
+///     .use_https(false)
+///     .authorization(Authorization::download(credential))
+///     .call()
+///     .await?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct BucketDomainsQueryer {
     http_client: HttpClient,

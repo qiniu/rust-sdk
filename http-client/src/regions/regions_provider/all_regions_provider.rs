@@ -13,6 +13,25 @@ use std::{convert::TryFrom, fmt::Debug};
 use futures::future::BoxFuture;
 
 /// 七牛所有区域信息查询器
+///
+/// 该查询器没有缓存功能，如果希望避免反复查询，请使用 [`super::CachedAllRegionsProvider`]。
+///
+/// ```
+/// # async fn example() -> anyhow::Result<()> {
+/// use qiniu_credential::Credential;
+/// use qiniu_http_client::{AllRegionsProvider, HttpClient, RegionsProvider};
+///
+/// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+/// let regions = AllRegionsProvider::builder(credential)
+///     .uc_endpoints(vec!["uc-qos.pocdemo.qiniu.io".parse()?])
+///     .http_client(HttpClient::build_default().use_https(false).build())
+///     .build()
+///     .async_get_all(&Default::default())
+///     .await?;
+/// #    Ok(())
+/// # }
+/// ```
+
 #[derive(Debug, Clone)]
 pub struct AllRegionsProvider {
     credential_provider: Box<dyn CredentialProvider>,

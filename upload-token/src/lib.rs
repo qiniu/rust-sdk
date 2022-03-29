@@ -36,30 +36,34 @@
 //! - [`ObjectUploadTokenProvider`] : 基于存储空间，对象名称和认证信息即时生成上传凭证
 //! - [`CachedUploadTokenProvider`] : 缓存生成的上传凭证，不必每次都即时生成
 //!
-//! 创建上传策略，并基于该策略创建凭证：
+//! ### 创建上传策略，并基于该策略创建凭证
 //!
 //! ```
 //! use qiniu_upload_token::{FileType, UploadPolicy, credential::Credential, prelude::*};
 //! use std::time::Duration;
 //!
 //! # fn main() -> anyhow::Result<()> {
-//! let upload_policy = UploadPolicy::new_for_object("your-bucket", "your-key", Duration::from_secs(3600)).file_type(FileType::InfrequentAccess).build();
+//! let upload_policy = UploadPolicy::new_for_object("your-bucket", "your-key", Duration::from_secs(3600))
+//!     .file_type(FileType::InfrequentAccess)
+//!     .build();
 //! let credential = Credential::new("your-access-key", "your-secret-key");
-//! let upload_token = upload_policy.into_upload_token_provider(credential).to_token_string(&Default::default())?;
+//! let upload_token = upload_policy
+//!     .into_upload_token_provider(credential)
+//!     .to_token_string(&Default::default())?;
 //! # Ok(())
 //! # }
 //! ```
 //!
-//! 从其他应用程序生成的上传凭证解析出上传策略：
+//! ### 从其他应用程序生成的上传凭证解析出上传策略
 //!
 //! ```
 //! use qiniu_upload_token::{StaticUploadTokenProvider, prelude::*};
 //!
 //! # fn main() -> anyhow::Result<()> {
-//! # let upload_token: StaticUploadTokenProvider = "your-access-key:qRD-BSf_XGtovGsuOePTc1EKJo8=:eyJkZWFkbGluZSI6MTY0NzgyODY3NCwic2NvcGUiOiJ5b3VyLWJ1Y2tldC1uYW1lIn0=".parse()?;
-//! # let access_key = upload_token.access_key(&Default::default())?;
-//! # let bucket_name = upload_token.bucket_name(&Default::default())?;
-//! # let upload_policy = upload_token.policy(&Default::default())?;
+//! let upload_token: StaticUploadTokenProvider = "your-access-key:qRD-BSf_XGtovGsuOePTc1EKJo8=:eyJkZWFkbGluZSI6MTY0NzgyODY3NCwic2NvcGUiOiJ5b3VyLWJ1Y2tldC1uYW1lIn0=".parse()?;
+//! let access_key = upload_token.access_key(&Default::default())?;
+//! let bucket_name = upload_token.bucket_name(&Default::default())?;
+//! let upload_policy = upload_token.policy(&Default::default())?;
 //! # Ok(())
 //! # }
 //! ```

@@ -28,6 +28,32 @@ use super::AsyncRequestBuilder;
 /// 用于发送 HTTP 请求的入口。
 ///
 /// 其中 HTTP 请求将由 [`HttpCaller`] 实现的实例来发送，如果不指定，默认通过当前启用的功能来判定。
+///
+/// ### 私有云获取当前账户的 Buckets 列表
+///
+/// ```
+/// use qiniu_credential::Credential;
+/// use qiniu_http_client::{Authorization, HttpClient, Region, RegionsProviderEndpoints, ServiceName};
+///
+/// # async fn example_1() -> anyhow::Result<()> {
+/// let region = Region::builder("z0")
+///     .add_uc_preferred_endpoint("uc-qos.pocdemo.qiniu.io".parse()?)
+///     .build();
+/// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+/// let bucket_names: Vec<String> = HttpClient::default()
+///     .async_get(&[ServiceName::Uc], RegionsProviderEndpoints::new(region))
+///     .use_https(false)
+///     .authorization(Authorization::v2(credential))
+///     .accept_json()
+///     .path("/buckets")
+///     .call()
+///     .await?
+///     .parse_json()
+///     .await?
+///     .into_body();
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct HttpClient {
     inner: Arc<HttpClientInner>,

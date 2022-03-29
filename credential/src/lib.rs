@@ -115,7 +115,7 @@ impl Credential {
     /// ```
     /// use qiniu_credential::{Credential, prelude::*};
     /// # fn main() -> anyhow::Result<()> {
-    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// assert_eq!(
     ///     credential.get(&Default::default())?.sign(b"hello"),
     ///     "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0="
@@ -139,7 +139,7 @@ impl Credential {
     /// use qiniu_credential::{Credential, prelude::*};
     /// use std::io::Cursor;
     /// # fn main() -> anyhow::Result<()> {
-    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// assert_eq!(
     ///     credential
     ///         .get(&Default::default())?
@@ -166,7 +166,7 @@ impl Credential {
     /// use qiniu_credential::{Credential, prelude::*};
     /// use std::io::Cursor;
     /// # fn main() -> anyhow::Result<()> {
-    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// assert_eq!(
     ///     credential.get(&Default::default())?.sign_with_data(b"hello"),
     ///     "abcdefghklmnopq:BZYt5uVRy1RVt5ZTXbaIt2ROVMA=:aGVsbG8="
@@ -186,7 +186,7 @@ impl Credential {
     /// use mime::APPLICATION_WWW_FORM_URLENCODED;
     /// use std::io::Cursor;
     /// # fn main() -> anyhow::Result<()> {
-    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// let authorization = credential
     ///     .get(&Default::default())?
     ///     .authorization_v1_for_request(
@@ -209,7 +209,7 @@ impl Credential {
     /// use std::io::Cursor;
     /// use mime::APPLICATION_WWW_FORM_URLENCODED;
     /// # fn main() -> anyhow::Result<()> {
-    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// let authorization = credential
     ///     .get(&Default::default())?
     ///     .authorization_v1_for_request_with_body_reader(
@@ -237,7 +237,7 @@ impl Credential {
     /// use http::header::CONTENT_TYPE;
     /// use mime::APPLICATION_JSON;
     /// # fn main() -> anyhow::Result<()> {
-    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// let mut headers = HeaderMap::new();
     /// headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
     /// let authorization = credential
@@ -264,7 +264,7 @@ impl Credential {
     /// use mime::APPLICATION_JSON;
     /// use std::io::Cursor;
     /// # fn main() -> anyhow::Result<()> {
-    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// let mut headers = HeaderMap::new();
     /// headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
     /// let authorization = credential
@@ -295,7 +295,7 @@ impl Credential {
     /// use qiniu_credential::{Credential, prelude::*};
     /// use std::time::Duration;
     /// # fn main() -> anyhow::Result<()> {
-    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// let url = "http://www.qiniu.com/?go=1".parse()?;
     /// let url = credential
     ///     .get(&Default::default())?
@@ -348,7 +348,7 @@ impl Credential {
     /// use qiniu_credential::{Credential, prelude::*};
     /// use futures_lite::io::Cursor;
     /// # async fn f() -> anyhow::Result<()> {
-    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// assert_eq!(
     ///     credential
     ///         .async_get(&Default::default()).await?
@@ -372,7 +372,7 @@ impl Credential {
     /// use mime::APPLICATION_WWW_FORM_URLENCODED;
     /// use futures_lite::io::Cursor;
     /// # async fn f() -> anyhow::Result<()> {
-    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// let authorization = credential
     ///     .async_get(&Default::default()).await?
     ///     .authorization_v1_for_request_with_async_body_reader(
@@ -403,7 +403,7 @@ impl Credential {
     /// use futures_lite::io::Cursor;
     /// #[async_std::main]
     /// # async fn main() -> anyhow::Result<()> {
-    /// let credential =  Credential::new("abcdefghklmnopq", "1234567890");
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// let mut headers = HeaderMap::new();
     /// headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
     /// let authorization = credential

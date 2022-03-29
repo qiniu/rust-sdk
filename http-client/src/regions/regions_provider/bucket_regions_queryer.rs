@@ -19,6 +19,36 @@ const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(86400);
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 
 /// 存储空间相关区域查询器
+///
+/// 查询存储空间相关区域，如果返回多个区域，则第一个区域是该存储空间所在区域，其他区域都是多活区域。
+///
+/// ### 存储空间域名查询器使用示例
+///
+/// ```
+/// # async fn example() -> anyhow::Result<()> {
+/// use qiniu_credential::Credential;
+/// use qiniu_http_client::{Authorization, BucketRegionsQueryer, HttpClient, RegionsProviderEndpoints, ServiceName};
+/// use serde_json::Value;
+///
+/// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+/// let value: Value = HttpClient::default()
+///     .async_get(
+///         &[ServiceName::Rs],
+///         RegionsProviderEndpoints::new(
+///             BucketRegionsQueryer::new().query(credential.access_key().to_owned(), "test-bucket"),
+///         ),
+///     )
+///     .path("/stat/dGVzdC1idWNrZXQ6dGVzdC1rZXk=")
+///     .authorization(Authorization::v2(credential))
+///     .accept_json()
+///     .call()
+///     .await?
+///     .parse_json()
+///     .await?
+///     .into_body();
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct BucketRegionsQueryer {
     http_client: HttpClient,

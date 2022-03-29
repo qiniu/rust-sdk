@@ -42,6 +42,57 @@ wrap_smallstr!(Boundary);
 type HeaderBuffer = SmallVec<[u8; 256]>;
 
 /// Multipart 表单
+///
+/// ### 发送 Mutlipart 表单代码实例
+///
+/// ```
+/// async fn example() -> anyhow::Result<()> {
+/// # use async_std::io::ReadExt;
+/// use qiniu_credential::Credential;
+/// use qiniu_http_client::{
+///     prelude::*, AsyncMultipart, AsyncPart, BucketRegionsQueryer, HttpClient, Idempotent, PartMetadata, RegionsProviderEndpoints, ServiceName,
+/// };
+/// use qiniu_upload_token::UploadPolicy;
+/// use serde_json::Value;
+/// use std::time::Duration;
+///
+/// # let file = async_std::io::Cursor::new(vec![0u8; 1024]);
+/// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+/// let bucket_name = "test-bucket";
+/// let object_name = "test-key";
+/// let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Duration::from_secs(3600))
+///     .build()
+///     .into_upload_token_provider(&credential)
+///     .async_to_token_string(&Default::default())
+///     .await?
+///     .to_string();
+/// let value: Value = HttpClient::default()
+///     .async_post(
+///         &[ServiceName::Up],
+///         RegionsProviderEndpoints::new(
+///             BucketRegionsQueryer::new().query(credential.access_key().to_owned(), bucket_name),
+///         ),
+///     )
+///     .idempotent(Idempotent::Always)
+///     .accept_json()
+///     .multipart(
+///         AsyncMultipart::new()
+///             .add_part("token", AsyncPart::text(upload_token))
+///             .add_part("key", AsyncPart::text(object_name))
+///             .add_part(
+///                 "file",
+///                 AsyncPart::stream(file).metadata(PartMetadata::default().file_name("fakefilename.bin")),
+///             ),
+///     )
+///     .await?
+///     .call()
+///     .await?
+///     .parse_json()
+///     .await?
+///     .into_body();
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug)]
 pub struct Multipart<P> {
     boundary: Boundary,

@@ -1,8 +1,7 @@
 use super::{
     super::{
         super::{DomainWithPort, Endpoint, IpAddrWithPort},
-        RequestParts, ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision,
-        SyncResponse,
+        RequestParts, ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision, SyncResponse,
     },
     domain_or_ip_addr::DomainOrIpAddr,
     error::{TryError, TryErrorWithExtensions},
@@ -48,9 +47,7 @@ pub(super) fn try_endpoints(
         }
     }
 
-    let ips = find_ip_addr_with_port(endpoints)
-        .copied()
-        .collect::<Vec<_>>();
+    let ips = find_ip_addr_with_port(endpoints).copied().collect::<Vec<_>>();
     if !ips.is_empty() {
         match try_ips(
             &ips,
@@ -88,11 +85,7 @@ pub(super) fn try_endpoints(
         is_endpoints_alternative: bool,
     ) -> Result<SyncResponse, ControlFlow<TryErrorWithExtensions>> {
         retried.switch_endpoint();
-        return if parts
-            .http_client()
-            .http_caller()
-            .is_resolved_ip_addrs_supported()
-        {
+        return if parts.http_client().http_caller().is_resolved_ip_addrs_supported() {
             with_resolver(
                 domain_with_port,
                 tried_ips,
@@ -300,14 +293,7 @@ pub(super) fn try_endpoints(
                 tried_ips.union_slice(&chosen_ips);
                 for chosen_ip in chosen_ips.into_iter() {
                     retried.switch_endpoint();
-                    match try_single_ip(
-                        chosen_ip,
-                        parts,
-                        body,
-                        extensions,
-                        retried,
-                        is_endpoints_alternative,
-                    ) {
+                    match try_single_ip(chosen_ip, parts, body, extensions, retried, is_endpoints_alternative) {
                         Ok(response) => return Ok(response),
                         Err(SingleTryFlow::TryAgain(err)) => {
                             let (err, ext) = err.split();
@@ -417,9 +403,7 @@ pub(super) async fn async_try_endpoints(
         }
     }
 
-    let ips = find_ip_addr_with_port(endpoints)
-        .copied()
-        .collect::<Vec<_>>();
+    let ips = find_ip_addr_with_port(endpoints).copied().collect::<Vec<_>>();
     if !ips.is_empty() {
         match try_ips(
             &ips,
@@ -459,11 +443,7 @@ pub(super) async fn async_try_endpoints(
         is_endpoints_alternative: bool,
     ) -> Result<AsyncResponse, ControlFlow<TryErrorWithExtensions>> {
         retried.switch_endpoint();
-        return if parts
-            .http_client()
-            .http_caller()
-            .is_resolved_ip_addrs_supported()
-        {
+        return if parts.http_client().http_caller().is_resolved_ip_addrs_supported() {
             with_resolver(
                 domain_with_port,
                 tried_ips,
@@ -553,8 +533,7 @@ pub(super) async fn async_try_endpoints(
             is_endpoints_alternative: bool,
         ) -> Result<AsyncResponse, ControlFlow<TryErrorWithExtensions>> {
             let domain = DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), vec![]);
-            match async_try_domain_or_ip_addr(&domain, parts, body, take(extensions), retried).await
-            {
+            match async_try_domain_or_ip_addr(&domain, parts, body, take(extensions), retried).await {
                 Ok(response) => Ok(response),
                 Err(err) => match err.retry_decision() {
                     RetryDecision::TryAlternativeEndpoints if is_endpoints_alternative => {
@@ -683,16 +662,7 @@ pub(super) async fn async_try_endpoints(
                 tried_ips.union_slice(&chosen_ips);
                 for chosen_ip in chosen_ips.into_iter() {
                     retried.switch_endpoint();
-                    match try_single_ip(
-                        chosen_ip,
-                        parts,
-                        body,
-                        extensions,
-                        retried,
-                        is_endpoints_alternative,
-                    )
-                    .await
-                    {
+                    match try_single_ip(chosen_ip, parts, body, extensions, retried, is_endpoints_alternative).await {
                         Ok(response) => return Ok(response),
                         Err(SingleTryFlow::TryAgain(err)) => {
                             let (err, ext) = err.split();

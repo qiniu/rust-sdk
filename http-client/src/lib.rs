@@ -115,9 +115,83 @@
 //! [`RandomizedBackoff`] 为一个 [`Backoff`] 实例返回的退避时长增加随机范围，即返回的退避时长随机化。
 //! 可以通过配置 [`HttpClientBuilder::backoff`] 来指定使用哪个退避器，如果不指定，默认使用 [`ExponentialBackoff`]，并使用 [`LimitedBackoff`] 和 [`RandomizedBackoff`] 对其进行包装。
 //!
-//! TODO: 配置私有云的 HttpClient code example
+//! ## 代码示例
 //!
-//! TODO: 公有云下载请求的 code example
+//! ### 私有云获取当前账户的 Buckets 列表
+//!
+//! ```
+//! use qiniu_credential::Credential;
+//! use qiniu_http_client::{Authorization, HttpClient, Region, RegionsProviderEndpoints, ServiceName};
+//!
+//! # async fn example_1() -> anyhow::Result<()> {
+//! let region = Region::builder("z0")
+//!     .add_uc_preferred_endpoint("uc-qos.pocdemo.qiniu.io".parse()?)
+//!     .build();
+//! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+//! let bucket_names: Vec<String> = HttpClient::default()
+//!     .async_get(&[ServiceName::Uc], RegionsProviderEndpoints::new(region))
+//!     .use_https(false)
+//!     .authorization(Authorization::v2(credential))
+//!     .accept_json()
+//!     .path("/buckets")
+//!     .call()
+//!     .await?
+//!     .parse_json()
+//!     .await?
+//!     .into_body();
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### 公有云获取对象信息
+//!
+//! ```
+//! # async fn example() -> anyhow::Result<()> {
+//! use qiniu_credential::Credential;
+//! use qiniu_http_client::{Authorization, BucketRegionsQueryer, HttpClient, RegionsProviderEndpoints, ServiceName};
+//! use serde_json::Value;
+//!
+//! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+//! let value: Value = HttpClient::default()
+//!     .async_get(
+//!         &[ServiceName::Rs],
+//!         RegionsProviderEndpoints::new(
+//!             BucketRegionsQueryer::new().query(credential.access_key().to_owned(), "test-bucket"),
+//!         ),
+//!     )
+//!     .path("/stat/dGVzdC1idWNrZXQ6dGVzdC1rZXk=")
+//!     .authorization(Authorization::v2(credential))
+//!     .accept_json()
+//!     .call()
+//!     .await?
+//!     .parse_json()
+//!     .await?
+//!     .into_body();
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### 公有云私有空间下载文件（存储空间必须绑定至少一个域名）
+//!
+//! ```
+//! # async fn example() -> anyhow::Result<()> {
+//! use qiniu_credential::Credential;
+//! use qiniu_http_client::{Authorization, BucketDomainsQueryer, HttpClient};
+//!
+//! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+//! let response = HttpClient::default()
+//!     .async_get(
+//!         &[],
+//!         BucketDomainsQueryer::new().query(credential.to_owned(), "test-bucket"),
+//!     )
+//!     .path("/test-key")
+//!     .use_https(false)
+//!     .authorization(Authorization::download(credential))
+//!     .call()
+//!     .await?;
+//! # Ok(())
+//! # }
+//! ```
 
 mod cache;
 mod client;
