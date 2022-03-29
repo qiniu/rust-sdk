@@ -28,7 +28,7 @@ pub enum Idempotent {
 
     /// 根据 HTTP 方法自动判定
     ///
-    /// 参考 [https://datatracker.ietf.org/doc/html/rfc7231#section-4.2.2]
+    /// 参考 <https://datatracker.ietf.org/doc/html/rfc7231#section-4.2.2>
     #[default]
     Default,
 

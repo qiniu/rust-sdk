@@ -30,7 +30,7 @@
 //!
 //! 基于 Reqwest 库提供 HTTP 客户端接口实现（分别实现阻塞接口和异步接口，异步实现则需要启用 `async` 功能）
 //!
-//! 需要注意的是，如果使用阻塞接口，则必须使用 `SyncReqwestHttpCaller`，而如果使用异步接口则必须使用 `AsyncReqwestHttpCaller`，二者不能混用。
+//! 需要注意的是，如果使用阻塞接口，则必须使用 `SyncClient`，而如果使用异步接口则必须使用 `AsyncClient`，二者不能混用。
 
 mod extensions;
 mod sync_client;
@@ -41,10 +41,10 @@ mod async_client;
 pub use extensions::*;
 pub use qiniu_http as http;
 pub use reqwest;
-pub use sync_client::SyncReqwestHttpCaller;
+pub use sync_client::SyncClient;
 
 #[cfg(feature = "async")]
-pub use async_client::AsyncReqwestHttpCaller;
+pub use async_client::AsyncClient;
 
 #[cfg(test)]
 mod tests {
@@ -138,7 +138,7 @@ mod tests {
                 let mut response = {
                     let last_uploaded = last_uploaded.to_owned();
                     let last_total = last_total.to_owned();
-                    SyncReqwestHttpCaller::default().call(
+                    SyncClient::default().call(
                         &mut SyncRequest::builder()
                             .method(Method::POST)
                             .url(format!("http://{}/dir1/dir2/file", addr).parse().expect("invalid uri"))
@@ -231,7 +231,7 @@ mod tests {
             let mut response = {
                 let last_uploaded = last_uploaded.to_owned();
                 let last_total = last_total.to_owned();
-                AsyncReqwestHttpCaller::default()
+                AsyncClient::default()
                     .async_call(
                         &mut AsyncRequest::builder()
                             .method(Method::POST)

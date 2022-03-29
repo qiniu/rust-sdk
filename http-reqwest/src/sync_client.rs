@@ -25,11 +25,11 @@ use {
 
 /// Reqwest 阻塞客户端
 #[derive(Debug, Default)]
-pub struct SyncReqwestHttpCaller {
+pub struct SyncClient {
     sync_client: SyncReqwestClient,
 }
 
-impl SyncReqwestHttpCaller {
+impl SyncClient {
     /// 创建 Reqwest 阻塞客户端
     #[inline]
     pub fn new(sync_client: SyncReqwestClient) -> Self {
@@ -37,14 +37,14 @@ impl SyncReqwestHttpCaller {
     }
 }
 
-impl From<SyncReqwestClient> for SyncReqwestHttpCaller {
+impl From<SyncReqwestClient> for SyncClient {
     #[inline]
     fn from(sync_client: SyncReqwestClient) -> Self {
         Self::new(sync_client)
     }
 }
 
-impl HttpCaller for SyncReqwestHttpCaller {
+impl HttpCaller for SyncClient {
     fn call<'a>(&'a self, request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
         let mut user_cancelled_error: Option<ResponseError> = None;
         let reqwest_request = make_sync_reqwest_request(request, &mut user_cancelled_error)?;
@@ -58,7 +58,7 @@ impl HttpCaller for SyncReqwestHttpCaller {
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_call<'a>(&'a self, _request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
-        unimplemented!("SyncReqwestHttpCaller does not support async call")
+        unimplemented!("SyncClient does not support async call")
     }
 }
 

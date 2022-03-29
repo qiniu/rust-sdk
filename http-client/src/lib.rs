@@ -61,10 +61,10 @@
 //!
 //! [`qiniu_http::HttpCaller`] 提供 HTTP 请求接口（同时提供阻塞接口和异步接口，异步接口则需要启用 `async` 功能）。
 //! [`qiniu_ureq::Client`] 提供基于 `ureq` 库的 HTTP 客户端（需要启用 `ureq` 功能），特点是代码精简，依赖简单，但不支持异步接口；
-//! [`qiniu_reqwest::SyncReqwestHttpCaller`] 和 [`qiniu_reqwest::AsyncReqwestHttpCaller`] 提供基于 `reqwest` 库的 HTTP 客户端
+//! [`qiniu_reqwest::SyncClient`] 和 [`qiniu_reqwest::AsyncClient`] 提供基于 `reqwest` 库的 HTTP 客户端
 //! （需要启用 `reqwest` 功能，如果需要用到异步接口还需要额外启用 `async` 功能），
 //! 特点是支持阻塞接口和异步接口，但两个客户端不能混用，
-//! 即 [`qiniu_reqwest::SyncReqwestHttpCaller`] 只能用于发送阻塞请求，而 [`qiniu_reqwest::AsyncReqwestHttpCaller`] 只能用来发送异步请求，
+//! 即 [`qiniu_reqwest::SyncClient`] 只能用于发送阻塞请求，而 [`qiniu_reqwest::AsyncClient`] 只能用来发送异步请求，
 //! 且由于 `reqwest` 库自身基于异步接口实现，因此即使不启用 `async` 功能，也会用线程启动 `tokio` 异步环境驱动 HTTP 请求发送；
 //! [`qiniu_isahc::Client`] 提供基于 `isahc` 库的 HTTP 客户端
 //! （需要启用 `reqwest` 功能，如果需要用到异步接口还需要额外启用 `async` 功能），

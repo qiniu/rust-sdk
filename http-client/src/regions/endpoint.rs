@@ -152,6 +152,8 @@ impl FromStr for DomainWithPort {
 }
 
 /// IP 地址和端口号
+///
+/// 用来表示一个七牛服务器的地址，端口号是可选的，如果不提供，则根据传输协议判定默认的端口号。
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct IpAddrWithPort {
     #[serde(rename = "ip")]

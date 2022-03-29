@@ -300,14 +300,14 @@ impl HttpClientBuilder {
     #[inline]
     #[cfg(feature = "reqwest")]
     pub fn reqwest_sync() -> Self {
-        Self::_new(Some(Box::new(qiniu_reqwest::SyncReqwestHttpCaller::default())))
+        Self::_new(Some(Box::new(qiniu_reqwest::SyncClient::default())))
     }
 
     /// 创建一个新的 HTTP 客户端构建器，使用 `http-reqwest` 库的阻塞实现作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(all(feature = "reqwest", feature = "async"))]
     pub fn reqwest_async() -> Self {
-        Self::_new(Some(Box::new(qiniu_reqwest::AsyncReqwestHttpCaller::default())))
+        Self::_new(Some(Box::new(qiniu_reqwest::AsyncClient::default())))
     }
 
     /// 创建一个新的 HTTP 客户端构建器，需要指定 [`HttpCaller`] 实现
@@ -559,6 +559,8 @@ impl Default for HttpClient {
 
 impl HttpClient {
     /// 获得默认的 [`HttpCaller`] 实例
+    ///
+    /// 默认通过当前启用的功能来判定
     #[inline]
     pub fn default_http_caller() -> Box<dyn HttpCaller> {
         cfg_if! {
@@ -567,9 +569,9 @@ impl HttpClient {
             } else if #[cfg(feature = "isahc")] {
                 Box::new(qiniu_isahc::Client::default_client().expect("Failed to initialize isahc"))
             } else if #[cfg(all(feature = "reqwest", not(feature = "async")))] {
-                Box::new(qiniu_reqwest::SyncReqwestHttpCaller::default())
+                Box::new(qiniu_reqwest::SyncClient::default())
             } else if #[cfg(all(feature = "reqwest", feature = "async"))] {
-                Box::new(qiniu_reqwest::AsyncReqwestHttpCaller::default())
+                Box::new(qiniu_reqwest::AsyncClient::default())
             } else {
                 panic!("No http caller available, can you enable feature `isahc` to resolve this problem?")
             }
@@ -577,6 +579,8 @@ impl HttpClient {
     }
 
     /// 获得默认的 [`Resolver`] 实例
+    ///
+    /// 默认通过当前启用的功能来判定，并使用 [`CachedResolver`] 和 [`ShuffledResolver`] 对其进行包装。
     pub fn default_resolver() -> Box<dyn Resolver> {
         let chained_resolver = {
             let base_resolver = Box::new(TimeoutResolver::<SimpleResolver>::default());
@@ -603,18 +607,24 @@ impl HttpClient {
     }
 
     /// 获得默认的 [`Chooser`] 实例
+    ///
+    /// 默认使用 [`SubnetChooser`]，并使用 [`ShuffledChooser`] 和 [`NeverEmptyHandedChooser`] 对其进行包装。
     #[inline]
     pub fn default_chooser() -> Box<dyn Chooser> {
         Box::new(NeverEmptyHandedChooser::<ShuffledChooser<SubnetChooser>>::default())
     }
 
     /// 获得默认的 [`RequestRetrier`] 实例
+    ///
+    /// 默认使用 [`ErrorRetrier`]，并使用 [`LimitedRetrier`] 对其进行包装。
     #[inline]
     pub fn default_retrier() -> Box<dyn RequestRetrier> {
         Box::new(LimitedRetrier::<ErrorRetrier>::default())
     }
 
     /// 获得默认的 [`Backoff`] 实例
+    ///
+    /// 默认使用 [`ExponentialBackoff`]，并使用 [`LimitedBackoff`] 和 [`RandomizedBackoff`] 对其进行包装。
     #[inline]
     pub fn default_backoff() -> Box<dyn Backoff> {
         Box::new(LimitedBackoff::<RandomizedBackoff<ExponentialBackoff>>::default())

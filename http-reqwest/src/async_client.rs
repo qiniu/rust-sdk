@@ -26,11 +26,11 @@ use std::{
 /// Reqwest 异步客户端
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 #[derive(Debug, Default)]
-pub struct AsyncReqwestHttpCaller {
+pub struct AsyncClient {
     async_client: AsyncReqwestClient,
 }
 
-impl AsyncReqwestHttpCaller {
+impl AsyncClient {
     /// 创建 Reqwest 异步客户端
     #[inline]
     pub fn new(async_client: AsyncReqwestClient) -> Self {
@@ -38,17 +38,17 @@ impl AsyncReqwestHttpCaller {
     }
 }
 
-impl From<AsyncReqwestClient> for AsyncReqwestHttpCaller {
+impl From<AsyncReqwestClient> for AsyncClient {
     #[inline]
     fn from(async_client: AsyncReqwestClient) -> Self {
         Self::new(async_client)
     }
 }
 
-impl HttpCaller for AsyncReqwestHttpCaller {
+impl HttpCaller for AsyncClient {
     #[inline]
     fn call<'a>(&'a self, _request: &'a mut SyncRequest<'_>) -> SyncResponseResult {
-        unimplemented!("AsyncReqwestHttpCaller does not support blocking call")
+        unimplemented!("AsyncClient does not support blocking call")
     }
 
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
