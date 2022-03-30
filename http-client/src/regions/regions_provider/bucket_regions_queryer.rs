@@ -220,10 +220,7 @@ impl RegionsProvider for BucketRegionsProvider {
 
     #[inline]
     fn get_all(&self, _opts: &GetOptions) -> ApiResult<GotRegions> {
-        let provider = self.to_owned();
-        self.queryer
-            .cache
-            .get(&self.cache_key, move || provider.do_sync_query())
+        self.queryer.cache.get(&self.cache_key, || self.do_sync_query())
     }
 
     #[inline]

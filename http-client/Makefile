@@ -16,9 +16,9 @@ build_release:
 	cargo build --no-default-features --release --features 'async reqwest'
 	cargo build --no-default-features --release --features 'async c_ares trust_dns'
 build_test:
-	cargo test --no-run
-	cargo test --no-run --no-default-features --features isahc
-	cargo test --no-run --no-default-features --features reqwest
+	cargo test --no-run --tests
+	cargo test --no-run --tests --no-default-features --features isahc
+	cargo test --no-run --tests --no-default-features --features reqwest
 	cargo test --no-run --no-default-features --features 'async isahc'
 	cargo test --no-run --no-default-features --features 'async reqwest'
 	cargo test --no-run --no-default-features --features 'async c_ares trust_dns'
@@ -26,9 +26,9 @@ doc:
 	cargo test --doc --features 'async c_ares trust_dns ureq isahc reqwest'
 	cargo +nightly doc --lib --release --all-features
 test:
-	cargo test --no-default-features --features ureq -- --show-output
-	cargo test --no-default-features --features isahc -- --show-output
-	cargo test --no-default-features --features reqwest -- --show-output
+	cargo test --tests --no-default-features --features ureq -- --show-output
+	cargo test --tests --no-default-features --features isahc -- --show-output
+	cargo test --tests --no-default-features --features reqwest -- --show-output
 	cargo test --no-default-features --features 'async isahc' -- --show-output
 	cargo test --no-default-features --features 'async reqwest' -- --show-output
 	cargo test --no-default-features --features 'async c_ares trust_dns' -- --show-output

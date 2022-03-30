@@ -207,10 +207,9 @@ pub struct BucketDomainsProvider {
 impl EndpointsProvider for BucketDomainsProvider {
     fn get_endpoints<'e>(&'e self, _options: &'e EndpointsGetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>> {
         let credential = self.credential.get(&Default::default())?;
-        let provider = self.to_owned();
         self.queryer
             .cache
-            .get(&self.make_cache_key(&credential), move || provider.do_sync_query())
+            .get(&self.make_cache_key(&credential), || self.do_sync_query())
             .map(Cow::Owned)
     }
 
@@ -225,7 +224,7 @@ impl EndpointsProvider for BucketDomainsProvider {
             let cache_key = self.make_cache_key(&credential);
             let provider = self.to_owned();
             let cache = self.queryer.cache.to_owned();
-            spawn(async move { cache.get(&cache_key, move || provider.do_sync_query()).map(Cow::Owned) }).await
+            spawn(async move { cache.get(&cache_key, || provider.do_sync_query()).map(Cow::Owned) }).await
         })
     }
 }

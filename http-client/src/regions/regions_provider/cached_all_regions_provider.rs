@@ -67,10 +67,7 @@ impl RegionsProvider for CachedAllRegionsProvider {
     }
 
     fn get_all(&self, opts: &GetOptions) -> ApiResult<GotRegions> {
-        let provider = self.to_owned();
-        let opts = opts.to_owned();
-        self.cache
-            .get(&self.cache_key, move || provider.provider.get_all(&opts))
+        self.cache.get(&self.cache_key, || self.provider.get_all(opts))
     }
 
     #[inline]

@@ -57,11 +57,7 @@ impl EndpointsCache {
         }
     }
 
-    pub(super) fn get(
-        &self,
-        key: &CacheKey,
-        f: impl FnMut() -> ApiResult<Endpoints> + Send + Sync + 'static,
-    ) -> ApiResult<Endpoints> {
+    pub(super) fn get(&self, key: &CacheKey, f: impl FnOnce() -> ApiResult<Endpoints>) -> ApiResult<Endpoints> {
         self.inner.get(key, f)
     }
 

@@ -72,12 +72,7 @@ impl<R> Clone for CachedResolver<R> {
 
 impl<R: Resolver + 'static> Resolver for CachedResolver<R> {
     fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
-        let resolver = self.resolver.to_owned();
-        let opts = opts.to_owned();
-        self.cache.get(domain, {
-            let domain = domain.to_owned();
-            move || resolver.resolve(&domain, &opts)
-        })
+        self.cache.get(domain, || self.resolver.resolve(&domain, &opts))
     }
 
     #[cfg(feature = "async")]
