@@ -10,6 +10,7 @@ use crossbeam_queue::SegQueue;
 use dashmap::DashMap;
 use fs4::FileExt;
 use log::{info, warn};
+use once_cell::sync::OnceCell;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     borrow::Borrow,
@@ -25,16 +26,19 @@ use tap::prelude::*;
 
 #[derive(Clone, Debug)]
 pub(in super::super) struct Cache<
-    K: Eq + PartialEq + Hash + Clone + Debug + Serialize,
-    V: IsCacheValid + Clone + Serialize,
+    K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+    V: IsCacheValid + Clone + Serialize + DeserializeOwned,
 > {
     inner: Arc<CacheInner<K, V>>,
 }
 
-struct CacheInner<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize> {
+struct CacheInner<
+    K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+    V: IsCacheValid + Clone + Serialize + DeserializeOwned,
+> {
     cache_lifetime: Duration,
     shrink_interval: Duration,
-    cache: DashMap<K, CacheValue<V>>,
+    cache: OnceCell<DashMap<K, CacheValue<V>>>,
     locked_data: Mutex<CacheInnerLockedData>,
     persistent: Option<PersistentFile<K, V>>,
 }
@@ -50,70 +54,30 @@ impl<
         cache_lifetime: Duration,
         shrink_interval: Duration,
     ) -> Self {
-        return load_cache_from_persistent_file(path, auto_persistent, cache_lifetime, shrink_interval).unwrap_or_else(
-            |_| {
-                Self::new(
-                    cache_lifetime,
-                    shrink_interval,
-                    Default::default(),
-                    Some(PersistentFile::new(path.to_owned(), auto_persistent)),
-                )
-            },
-        );
-
-        fn load_cache_from_persistent_file<
-            K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
-            V: IsCacheValid + Clone + Debug + Serialize + DeserializeOwned,
-        >(
-            path: &Path,
-            auto_persistent: bool,
-            cache_lifetime: Duration,
-            shrink_interval: Duration,
-        ) -> PersistentResult<Cache<K, V>> {
-            let mut file = File::open(path)?;
-            file.lock_shared()?;
-            let cache = DashMap::new();
-            for line in BufReader::new(&mut file).lines() {
-                let line = line?;
-                let entry: PersistentCacheEntry<K, V> = serde_json::from_str(&line)?;
-                let (key, value) = entry.into_parts();
-                if let Some(value) = value {
-                    if value.is_cache_valid(cache_lifetime) {
-                        cache.insert(key, value);
-                    }
-                } else {
-                    cache.remove(&key);
-                }
-            }
-            file.unlock()?;
-            drop(file);
-            Ok(Cache::new(
-                cache_lifetime,
-                shrink_interval,
-                cache,
-                Some(PersistentFile::new(path.to_owned(), auto_persistent)),
-            ))
-        }
+        Self::new(
+            cache_lifetime,
+            shrink_interval,
+            Some(PersistentFile::new(path.to_owned(), auto_persistent)),
+        )
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize> Cache<K, V> {
+impl<
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+        V: IsCacheValid + Clone + Serialize + DeserializeOwned,
+    > Cache<K, V>
+{
     pub(in super::super) fn in_memory(cache_lifetime: Duration, shrink_interval: Duration) -> Self {
-        Self::new(cache_lifetime, shrink_interval, Default::default(), None)
+        Self::new(cache_lifetime, shrink_interval, None)
     }
 
-    fn new(
-        cache_lifetime: Duration,
-        shrink_interval: Duration,
-        cache: DashMap<K, CacheValue<V>>,
-        persistent: Option<PersistentFile<K, V>>,
-    ) -> Self {
+    fn new(cache_lifetime: Duration, shrink_interval: Duration, persistent: Option<PersistentFile<K, V>>) -> Self {
         Self {
             inner: Arc::new(CacheInner {
                 cache_lifetime,
                 shrink_interval,
                 persistent,
-                cache,
+                cache: Default::default(),
                 locked_data: Default::default(),
             }),
         }
@@ -129,8 +93,8 @@ impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clo
 }
 
 impl<
-        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Sync + Send + 'static,
-        V: IsCacheValid + Clone + Sync + Send + Serialize + 'static,
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned + Sync + Send + 'static,
+        V: IsCacheValid + Clone + Sync + Send + Serialize + DeserializeOwned + 'static,
     > Cache<K, V>
 {
     pub(in super::super) fn get<Q: Hash + Eq + ToOwned<Owned = K> + ?Sized, F: FnOnce() -> ApiResult<V>>(
@@ -146,8 +110,8 @@ impl<
         });
 
         fn get<
-            K: Borrow<Q> + Eq + PartialEq + Hash + Clone + Debug + Serialize + Sync + Send + 'static,
-            V: IsCacheValid + Clone + Sync + Send + Serialize + 'static,
+            K: Borrow<Q> + Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned + Sync + Send + 'static,
+            V: IsCacheValid + Clone + Sync + Send + Serialize + DeserializeOwned + 'static,
             Q: Hash + Eq + ToOwned<Owned = K> + ?Sized,
             F: FnOnce() -> ApiResult<V>,
         >(
@@ -155,7 +119,7 @@ impl<
             key: &Q,
             f: F,
         ) -> ApiResult<V> {
-            let value_ref = cache.inner.cache.get(key);
+            let value_ref = cache.inner.cache().get(key);
             if let Some(old_value) = &value_ref {
                 if old_value.is_cache_valid(cache.inner.cache_lifetime) {
                     return Ok(old_value.value().value().to_owned());
@@ -165,7 +129,7 @@ impl<
                 Ok(new_value) => {
                     drop(value_ref);
                     let new_value = CacheValue::new(new_value);
-                    cache.inner.cache.insert(key.to_owned(), new_value.to_owned());
+                    cache.inner.cache().insert(key.to_owned(), new_value.to_owned());
                     cache.push_command_if_persistent_enabled(|| {
                         PersistentCacheCommand::Append(PersistentCacheEntry::new(
                             key.to_owned(),
@@ -186,16 +150,16 @@ impl<
         self.push_command_if_persistent_enabled(|| {
             PersistentCacheCommand::Append(PersistentCacheEntry::new(key.to_owned(), Some(value.to_owned())))
         });
-        self.inner.cache.insert(key, value);
+        self.inner.cache().insert(key, value);
         do_some_work_async(&self.inner);
     }
 
     pub(in super::super) fn exists(&self, key: &K) -> bool {
-        self.inner.cache.contains_key(key)
+        self.inner.cache().contains_key(key)
     }
 
     pub(in super::super) fn remove(&self, key: &K) {
-        self.inner.cache.remove(key);
+        self.inner.cache().remove(key);
         self.push_command_if_persistent_enabled(|| {
             PersistentCacheCommand::Append(PersistentCacheEntry::new(key.to_owned(), None))
         });
@@ -204,25 +168,31 @@ impl<
 }
 
 impl<
-        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Sync + Send + 'static,
-        V: IsCacheValid + Clone + Serialize + Sync + Send + 'static,
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned + Sync + Send + 'static,
+        V: IsCacheValid + Clone + Serialize + DeserializeOwned + Sync + Send + 'static,
     > CacheController for Cache<K, V>
 {
     fn clear(&self) {
-        self.inner.cache.clear();
+        self.inner.cache().clear();
         self.push_command_if_persistent_enabled(|| PersistentCacheCommand::ClearAll);
         do_some_work_async(&self.inner);
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize> Cache<K, V> {
+impl<
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+        V: IsCacheValid + Clone + Serialize + DeserializeOwned,
+    > Cache<K, V>
+{
     fn push_command_if_persistent_enabled(&self, get_cmd: impl FnOnce() -> PersistentCacheCommand<K, V>) {
         self.inner.push_command_if_persistent_enabled(get_cmd);
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Debug + Serialize> Debug
-    for CacheInner<K, V>
+impl<
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+        V: IsCacheValid + Clone + Debug + Serialize + DeserializeOwned,
+    > Debug for CacheInner<K, V>
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -234,8 +204,10 @@ impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clo
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize> Drop
-    for CacheInner<K, V>
+impl<
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+        V: IsCacheValid + Clone + Serialize + DeserializeOwned,
+    > Drop for CacheInner<K, V>
 {
     #[inline]
     fn drop(&mut self) {
@@ -245,7 +217,54 @@ impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clo
     }
 }
 
-impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize> CacheInner<K, V> {
+impl<
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+        V: IsCacheValid + Clone + Serialize + DeserializeOwned,
+    > CacheInner<K, V>
+{
+    fn cache(&self) -> &DashMap<K, CacheValue<V>> {
+        return self.cache.get_or_init(|| {
+            if let Some(persistent) = &self.persistent {
+                load_cache_from_persistent_file(persistent.path(), self.cache_lifetime).unwrap_or_default()
+            } else {
+                Default::default()
+            }
+        });
+
+        fn load_cache_from_persistent_file<
+            K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+            V: IsCacheValid + Clone + Serialize + DeserializeOwned,
+        >(
+            path: &Path,
+            cache_lifetime: Duration,
+        ) -> PersistentResult<DashMap<K, CacheValue<V>>> {
+            let mut file = File::open(path)?;
+            file.lock_shared()?;
+            let cache = DashMap::new();
+            for line in BufReader::new(&mut file).lines() {
+                let line = line?;
+                let entry: PersistentCacheEntry<K, V> = serde_json::from_str(&line)?;
+                let (key, value) = entry.into_parts();
+                if let Some(value) = value {
+                    if value.is_cache_valid(cache_lifetime) {
+                        cache.insert(key, value);
+                    }
+                } else {
+                    cache.remove(&key);
+                }
+            }
+            file.unlock()?;
+            drop(file);
+            Ok(cache)
+        }
+    }
+}
+
+impl<
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+        V: IsCacheValid + Clone + Serialize + DeserializeOwned,
+    > CacheInner<K, V>
+{
     fn push_command_if_persistent_enabled(&self, get_cmd: impl FnOnce() -> PersistentCacheCommand<K, V>) {
         if let Some(persistent) = self.persistent.as_ref() {
             if persistent.auto_persistent() {
@@ -256,8 +275,8 @@ impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clo
 }
 
 fn do_some_work_async<
-    K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Sync + Send + 'static,
-    V: IsCacheValid + Clone + Serialize + Sync + Send + 'static,
+    K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned + Sync + Send + 'static,
+    V: IsCacheValid + Clone + Serialize + DeserializeOwned + Sync + Send + 'static,
 >(
     inner: &Arc<CacheInner<K, V>>,
 ) {
@@ -291,8 +310,8 @@ fn do_some_work_async<
 }
 
 fn do_some_work_with_locked_data<
-    K: Eq + PartialEq + Hash + Clone + Debug + Serialize,
-    V: IsCacheValid + Clone + Serialize,
+    K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+    V: IsCacheValid + Clone + Serialize + DeserializeOwned,
 >(
     inner: &CacheInner<K, V>,
     locked_data: &mut CacheInnerLockedData,
@@ -304,11 +323,14 @@ fn do_some_work_with_locked_data<
     persistent_to_file(inner);
     return;
 
-    fn shrink_cache<K: Eq + Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize>(
+    fn shrink_cache<
+        K: Eq + Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+        V: IsCacheValid + Clone + Serialize + DeserializeOwned,
+    >(
         inner: &CacheInner<K, V>,
     ) {
         let mut count = 0usize;
-        inner.cache.retain(|_, cache| {
+        inner.cache().retain(|_, cache| {
             if cache.is_cache_valid(inner.cache_lifetime) {
                 true
             } else {
@@ -317,12 +339,15 @@ fn do_some_work_with_locked_data<
             }
         });
         if count > 0 {
-            inner.cache.shrink_to_fit();
+            inner.cache().shrink_to_fit();
             info!("Cache is shrunken, {} entries are removed", count);
         }
     }
 
-    fn persistent_to_file<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize>(
+    fn persistent_to_file<
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+        V: IsCacheValid + Clone + Serialize + DeserializeOwned,
+    >(
         inner: &CacheInner<K, V>,
     ) {
         if let Some(persistent) = &inner.persistent {
@@ -337,8 +362,8 @@ fn do_some_work_with_locked_data<
     }
 
     fn _persistent_to_file<
-        K: Eq + PartialEq + Hash + Clone + Debug + Serialize,
-        V: IsCacheValid + Clone + Serialize,
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+        V: IsCacheValid + Clone + Serialize + DeserializeOwned,
     >(
         commands: &SegQueue<PersistentCacheCommand<K, V>>,
         path: &Path,
@@ -362,7 +387,10 @@ fn do_some_work_with_locked_data<
         Ok(())
     }
 
-    fn _execute_commands<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize>(
+    fn _execute_commands<
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+        V: IsCacheValid + Clone + Serialize + DeserializeOwned,
+    >(
         commands: &SegQueue<PersistentCacheCommand<K, V>>,
         mut writer: &mut BufWriter<File>,
         cache_lifetime: Duration,
@@ -383,8 +411,8 @@ fn do_some_work_with_locked_data<
     }
 
     fn _append_cache_entry_to_file<
-        K: Eq + PartialEq + Hash + Clone + Debug + Serialize,
-        V: IsCacheValid + Clone + Serialize,
+        K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+        V: IsCacheValid + Clone + Serialize + DeserializeOwned,
     >(
         mut writer: impl Write,
         key: K,
@@ -404,7 +432,10 @@ fn do_some_work_with_locked_data<
     }
 }
 
-fn is_time_to_shrink<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize>(
+fn is_time_to_shrink<
+    K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+    V: IsCacheValid + Clone + Serialize + DeserializeOwned,
+>(
     inner: &CacheInner<K, V>,
     locked_data: &mut CacheInnerLockedData,
     update_last_shrink_time: bool,
