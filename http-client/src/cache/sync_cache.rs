@@ -50,63 +50,70 @@ impl<
         cache_lifetime: Duration,
         shrink_interval: Duration,
     ) -> Self {
-        match Self::load_cache_from_persistent_file(path, auto_persistent, cache_lifetime, shrink_interval) {
-            Ok(Some(cache)) => cache,
-            _ => Self::new(
-                cache_lifetime,
-                shrink_interval,
-                Some(PersistentFile::new(path.to_owned(), auto_persistent)),
-            ),
-        }
-    }
+        return load_cache_from_persistent_file(path, auto_persistent, cache_lifetime, shrink_interval).unwrap_or_else(
+            |_| {
+                Self::new(
+                    cache_lifetime,
+                    shrink_interval,
+                    Default::default(),
+                    Some(PersistentFile::new(path.to_owned(), auto_persistent)),
+                )
+            },
+        );
 
-    fn load_cache_from_persistent_file(
-        path: &Path,
-        auto_persistent: bool,
-        cache_lifetime: Duration,
-        shrink_interval: Duration,
-    ) -> PersistentResult<Option<Self>> {
-        let mut file = File::open(path)?;
-        file.lock_shared()?;
-        let cache = DashMap::new();
-        for line in BufReader::new(&mut file).lines() {
-            let line = line?;
-            let entry: PersistentCacheEntry<K, V> = serde_json::from_str(&line)?;
-            let (key, value) = entry.into_parts();
-            if let Some(value) = value {
-                if value.is_cache_valid(cache_lifetime) {
-                    cache.insert(key, value);
+        fn load_cache_from_persistent_file<
+            K: Eq + PartialEq + Hash + Clone + Debug + Serialize + DeserializeOwned,
+            V: IsCacheValid + Clone + Debug + Serialize + DeserializeOwned,
+        >(
+            path: &Path,
+            auto_persistent: bool,
+            cache_lifetime: Duration,
+            shrink_interval: Duration,
+        ) -> PersistentResult<Cache<K, V>> {
+            let mut file = File::open(path)?;
+            file.lock_shared()?;
+            let cache = DashMap::new();
+            for line in BufReader::new(&mut file).lines() {
+                let line = line?;
+                let entry: PersistentCacheEntry<K, V> = serde_json::from_str(&line)?;
+                let (key, value) = entry.into_parts();
+                if let Some(value) = value {
+                    if value.is_cache_valid(cache_lifetime) {
+                        cache.insert(key, value);
+                    }
+                } else {
+                    cache.remove(&key);
                 }
-            } else {
-                cache.remove(&key);
             }
-        }
-        file.unlock()?;
-        drop(file);
-        Ok(Some(Self {
-            inner: Arc::new(CacheInner {
-                cache,
+            file.unlock()?;
+            drop(file);
+            Ok(Cache::new(
                 cache_lifetime,
                 shrink_interval,
-                locked_data: Default::default(),
-                persistent: Some(PersistentFile::new(path.to_owned(), auto_persistent)),
-            }),
-        }))
+                cache,
+                Some(PersistentFile::new(path.to_owned(), auto_persistent)),
+            ))
+        }
     }
 }
 
 impl<K: Eq + PartialEq + Hash + Clone + Debug + Serialize, V: IsCacheValid + Clone + Serialize> Cache<K, V> {
     pub(in super::super) fn in_memory(cache_lifetime: Duration, shrink_interval: Duration) -> Self {
-        Self::new(cache_lifetime, shrink_interval, None)
+        Self::new(cache_lifetime, shrink_interval, Default::default(), None)
     }
 
-    fn new(cache_lifetime: Duration, shrink_interval: Duration, persistent: Option<PersistentFile<K, V>>) -> Self {
+    fn new(
+        cache_lifetime: Duration,
+        shrink_interval: Duration,
+        cache: DashMap<K, CacheValue<V>>,
+        persistent: Option<PersistentFile<K, V>>,
+    ) -> Self {
         Self {
             inner: Arc::new(CacheInner {
                 cache_lifetime,
                 shrink_interval,
                 persistent,
-                cache: Default::default(),
+                cache,
                 locked_data: Default::default(),
             }),
         }

@@ -6,6 +6,7 @@ use super::{
     },
     AsyncCacheController, IsCacheValid,
 };
+use async_once_cell::Lazy;
 use async_std::{
     fs::{create_dir_all, File, OpenOptions},
     io::{BufReader, BufWriter},
@@ -24,7 +25,7 @@ use std::{
     future::Future,
     hash::Hash,
     io::SeekFrom,
-    mem::take,
+    mem::{swap, take},
     path::Path,
     sync::Arc,
     time::{Duration, Instant},
@@ -46,9 +47,9 @@ struct CacheInner<
 > {
     cache_lifetime: Duration,
     shrink_interval: Duration,
-    cache: RwLockedMap<K, CacheValue<V>>,
-    locked_data: Mutex<CacheInnerLockedData>,
+    cache: Lazy<RwLockedMap<K, CacheValue<V>>>,
     persistent: Option<PersistentFile<K, V>>,
+    locked_data: Mutex<CacheInnerLockedData>,
     have_dropped: bool,
 }
 
@@ -57,57 +58,60 @@ impl<
         V: IsCacheValid + Clone + Serialize + Send + Sync + DeserializeOwned + 'static,
     > AsyncCache<K, V>
 {
-    pub(in super::super) async fn load_or_create_from(
+    pub(in super::super) fn load_or_create_from(
         path: &Path,
         auto_persistent: bool,
         cache_lifetime: Duration,
         shrink_interval: Duration,
     ) -> Self {
-        match Self::load_cache_from_persistent_file(path, auto_persistent, cache_lifetime, shrink_interval).await {
-            Ok(Some(cache)) => cache,
-            _ => Self::new(
-                cache_lifetime,
-                shrink_interval,
-                Some(PersistentFile::new(path.to_owned(), auto_persistent)),
-            ),
-        }
-    }
+        let path = path.to_owned();
+        return Self::new(
+            cache_lifetime,
+            shrink_interval,
+            Some(PersistentFile::new(path.to_owned(), auto_persistent)),
+            async move { load_or_create_from(&path, cache_lifetime).await },
+        );
 
-    async fn load_cache_from_persistent_file(
-        path: &Path,
-        auto_persistent: bool,
-        cache_lifetime: Duration,
-        shrink_interval: Duration,
-    ) -> PersistentResult<Option<Self>> {
-        let mut cache = HashMap::new();
-        let mut line = String::new();
-        let mut file = File::open(path).await?;
-        if file.try_lock_shared().is_ok() {
-            let mut reader = BufReader::new(&mut file);
-            while reader.read_line(&mut line).await? > 0 {
-                let entry: PersistentCacheEntry<K, V> = serde_json::from_str(&line)?;
-                let (key, value) = entry.into_parts();
-                if let Some(value) = value {
-                    if value.is_cache_valid(cache_lifetime) {
-                        cache.insert(key, value);
+        async fn load_or_create_from<
+            K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Send + Sync + DeserializeOwned + 'static,
+            V: IsCacheValid + Clone + Serialize + Send + Sync + DeserializeOwned + 'static,
+        >(
+            path: &Path,
+            cache_lifetime: Duration,
+        ) -> RwLockedMap<K, CacheValue<V>> {
+            load_cache_from_persistent_file(path, cache_lifetime)
+                .await
+                .unwrap_or_default()
+        }
+
+        async fn load_cache_from_persistent_file<
+            K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Send + Sync + DeserializeOwned + 'static,
+            V: IsCacheValid + Clone + Serialize + Send + Sync + DeserializeOwned + 'static,
+        >(
+            path: &Path,
+            cache_lifetime: Duration,
+        ) -> PersistentResult<RwLockedMap<K, CacheValue<V>>> {
+            let mut cache = HashMap::new();
+            let mut line = String::new();
+            let mut file = File::open(path).await?;
+            if file.try_lock_shared().is_ok() {
+                let mut reader = BufReader::new(&mut file);
+                while reader.read_line(&mut line).await? > 0 {
+                    let entry: PersistentCacheEntry<K, V> = serde_json::from_str(&line)?;
+                    let (key, value) = entry.into_parts();
+                    if let Some(value) = value {
+                        if value.is_cache_valid(cache_lifetime) {
+                            cache.insert(key, value);
+                        }
+                    } else {
+                        cache.remove(&key);
                     }
-                } else {
-                    cache.remove(&key);
                 }
             }
+            file.unlock()?;
+            drop(file);
+            Ok(RwLock::new(cache))
         }
-        file.unlock()?;
-        drop(file);
-        Ok(Some(Self {
-            inner: Arc::new(CacheInner {
-                cache_lifetime,
-                shrink_interval,
-                cache: RwLock::new(cache),
-                locked_data: Default::default(),
-                persistent: Some(PersistentFile::new(path.to_owned(), auto_persistent)),
-                have_dropped: false,
-            }),
-        }))
     }
 }
 
@@ -117,16 +121,21 @@ impl<
     > AsyncCache<K, V>
 {
     pub(in super::super) fn in_memory(cache_lifetime: Duration, shrink_interval: Duration) -> Self {
-        Self::new(cache_lifetime, shrink_interval, None)
+        Self::new(cache_lifetime, shrink_interval, None, async move { Default::default() })
     }
 
-    fn new(cache_lifetime: Duration, shrink_interval: Duration, persistent: Option<PersistentFile<K, V>>) -> Self {
+    fn new<Fut: Future<Output = RwLockedMap<K, CacheValue<V>>> + Send + 'static>(
+        cache_lifetime: Duration,
+        shrink_interval: Duration,
+        persistent: Option<PersistentFile<K, V>>,
+        cache_fut: Fut,
+    ) -> Self {
         Self {
             inner: Arc::new(CacheInner {
                 cache_lifetime,
                 shrink_interval,
                 persistent,
-                cache: Default::default(),
+                cache: Lazy::new(Box::pin(cache_fut)),
                 locked_data: Default::default(),
                 have_dropped: false,
             }),
@@ -169,7 +178,7 @@ impl<
             key: &Q,
             fut: Fut,
         ) -> ApiResult<V> {
-            let locked_map = cache.inner.cache.read().await;
+            let locked_map = cache.inner.cache().await.read().await;
             let value_ref = locked_map.get(key);
             if let Some(old_value) = &value_ref {
                 if old_value.is_cache_valid(cache.inner.cache_lifetime) {
@@ -182,7 +191,8 @@ impl<
                     let new_value = CacheValue::new(new_value);
                     cache
                         .inner
-                        .cache
+                        .cache()
+                        .await
                         .write()
                         .await
                         .insert(key.to_owned(), new_value.to_owned());
@@ -206,16 +216,16 @@ impl<
         self.push_command_if_persistent_enabled(|| {
             PersistentCacheCommand::Append(PersistentCacheEntry::new(key.to_owned(), Some(value.to_owned())))
         });
-        self.inner.cache.write().await.insert(key, value);
+        self.inner.cache().await.write().await.insert(key, value);
         do_some_work_async(&self.inner).await;
     }
 
     pub(in super::super) async fn exists(&self, key: &K) -> bool {
-        self.inner.cache.read().await.contains_key(key)
+        self.inner.cache().await.read().await.contains_key(key)
     }
 
     pub(in super::super) async fn remove(&self, key: &K) {
-        self.inner.cache.write().await.remove(key);
+        self.inner.cache().await.write().await.remove(key);
         self.push_command_if_persistent_enabled(|| {
             PersistentCacheCommand::Append(PersistentCacheEntry::new(key.to_owned(), None))
         });
@@ -230,7 +240,7 @@ impl<
 {
     fn async_clear(&self) -> BoxFuture<()> {
         Box::pin(async move {
-            self.inner.cache.write().await.clear();
+            self.inner.cache().await.write().await.clear();
             self.push_command_if_persistent_enabled(|| PersistentCacheCommand::ClearAll);
             do_some_work_async(&self.inner).await;
         })
@@ -254,9 +264,13 @@ impl<
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CacheInner")
-            .field("cache", &self.cache)
-            .field("cache_lifetime", &self.cache_lifetime)
+        let mut d = f.debug_struct("CacheInner");
+        if let Some(cache) = self.cache.try_get() {
+            d.field("cache", cache);
+        } else {
+            d.field("cache", &"<uninitialized>");
+        }
+        d.field("cache_lifetime", &self.cache_lifetime)
             .field("shrink_interval", &self.shrink_interval)
             .finish()
     }
@@ -267,6 +281,10 @@ impl<
         V: IsCacheValid + Clone + Serialize + Send + Sync + 'static,
     > CacheInner<K, V>
 {
+    async fn cache(&self) -> &RwLockedMap<K, CacheValue<V>> {
+        self.cache.get().await
+    }
+
     fn push_command_if_persistent_enabled(&self, get_cmd: impl FnOnce() -> PersistentCacheCommand<K, V>) {
         if let Some(persistent) = self.persistent.as_ref() {
             if persistent.auto_persistent() {
@@ -286,10 +304,12 @@ impl<
         if self.have_dropped {
             return;
         }
+        let mut cache: Lazy<RwLockedMap<K, CacheValue<V>>> = Lazy::new(Box::pin(async move { Default::default() }));
+        swap(&mut self.cache, &mut cache);
         let new_cache_inner = CacheInner {
+            cache,
             cache_lifetime: self.cache_lifetime,
             shrink_interval: self.shrink_interval,
-            cache: take(&mut self.cache),
             locked_data: take(&mut self.locked_data),
             persistent: self.persistent.take(),
             have_dropped: true,
@@ -352,7 +372,7 @@ async fn do_some_work_with_locked_data<
         inner: &CacheInner<K, V>,
     ) {
         let mut count = 0usize;
-        let mut cache = inner.cache.write().await;
+        let mut cache = inner.cache().await.write().await;
         cache.retain(|_, cache| {
             if cache.is_cache_valid(inner.cache_lifetime) {
                 true

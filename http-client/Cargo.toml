@@ -49,6 +49,7 @@ futures-timer = { version = "3.0.2", optional = true }
 async-std = { version = "1.9.0", optional = true }
 trust-dns-resolver = { version = "0.20.3", optional = true }
 async-std-resolver = { version = "0.20.3", optional = true }
+async-once-cell = { version = "0.3.0", optional = true }
 
 qiniu-http = { version = "0.0.4", path = "../http" }
 qiniu-credential = { version = "0.0.4", path = "../credential" }
@@ -84,7 +85,7 @@ dnssec = ["trust_dns", "trust-dns-resolver/dnssec"]
 reqwest = ["qiniu-reqwest"]
 isahc = ["qiniu-isahc"]
 ureq = ["qiniu-ureq"]
-async = ["async-std", "futures", "fs4/std-async", "futures-timer", "qiniu-http/async", "qiniu-credential/async", "qiniu-upload-token/async", "qiniu-reqwest/async", "qiniu-isahc/async", "qiniu-ureq/async"]
+async = ["async-std", "futures", "fs4/std-async", "async-once-cell", "futures-timer", "qiniu-http/async", "qiniu-credential/async", "qiniu-upload-token/async", "qiniu-reqwest/async", "qiniu-isahc/async", "qiniu-ureq/async"]
 tokio1 = ["async", "async-std/tokio1"]
 tokio02 = ["async", "async-std/tokio02"]
 tokio03 = ["async", "async-std/tokio03"]
