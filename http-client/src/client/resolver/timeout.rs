@@ -1,7 +1,4 @@
-use super::{
-    super::{super::CacheController, ResponseError},
-    ResolveOptions, ResolveResult, Resolver,
-};
+use super::{super::ResponseError, ResolveOptions, ResolveResult, Resolver};
 use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
 use std::{sync::Arc, time::Duration};
 
@@ -131,11 +128,6 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
             }
             err
         }
-    }
-
-    #[inline]
-    fn cache_controller(&self) -> Option<&dyn CacheController> {
-        self.inner.resolver.cache_controller()
     }
 }
 

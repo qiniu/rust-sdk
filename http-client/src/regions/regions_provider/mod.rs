@@ -1,8 +1,5 @@
 use super::{
-    super::{
-        cache::{CacheController, IsCacheValid},
-        ApiResult,
-    },
+    super::{cache::IsCacheValid, ApiResult},
     Region,
 };
 use auto_impl::auto_impl;
@@ -62,14 +59,6 @@ pub trait RegionsProvider: Clone + Debug + Sync + Send {
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegions>> {
         Box::pin(async move { self.get_all(opts) })
-    }
-
-    /// 获取缓存控制器
-    ///
-    /// 如果缓存存在，则返回缓存控制器，否则返回 [`None`]
-    #[inline]
-    fn cache_controller(&self) -> Option<&dyn CacheController> {
-        None
     }
 }
 

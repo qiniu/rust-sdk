@@ -16,25 +16,17 @@ pub(in super::super) trait IsCacheValid {
     }
 }
 
-/// 缓存控制器接口
-///
-/// 控制缓存的生命周期
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait CacheController {
-    /// 清空所有缓存
+pub(crate) trait CacheController {
     fn clear(&self);
 }
 
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
-/// 异步缓存控制器接口
-///
-/// 控制缓存的生命周期
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 #[cfg(feature = "async")]
-pub trait AsyncCacheController {
-    /// 清空所有缓存
+pub(crate) trait AsyncCacheController {
     fn async_clear(&self) -> BoxFuture<()>;
 }
 

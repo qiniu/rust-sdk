@@ -4,10 +4,7 @@ mod shuffled;
 mod simple;
 mod timeout;
 
-use super::{
-    super::cache::{CacheController, IsCacheValid},
-    ApiResult, RetriedStatsInfo,
-};
+use super::{super::cache::IsCacheValid, ApiResult, RetriedStatsInfo};
 use auto_impl::auto_impl;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -34,13 +31,6 @@ pub trait Resolver: Debug + Sync + Send {
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move { self.resolve(domain, opts) })
-    }
-
-    /// 获取缓存控制器
-    ///
-    /// 如果缓存存在，则返回缓存控制器，否则返回 [`None`]
-    fn cache_controller(&self) -> Option<&dyn CacheController> {
-        None
     }
 }
 

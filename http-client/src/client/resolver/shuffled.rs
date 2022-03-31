@@ -1,4 +1,4 @@
-use super::{super::super::CacheController, ResolveOptions, ResolveResult, Resolver};
+use super::{ResolveOptions, ResolveResult, Resolver};
 use rand::{prelude::*, thread_rng};
 
 #[cfg(feature = "async")]
@@ -37,11 +37,6 @@ impl<R: Resolver> Resolver for ShuffledResolver<R> {
             answers.ip_addrs_mut().shuffle(&mut thread_rng());
             Ok(answers)
         })
-    }
-
-    #[inline]
-    fn cache_controller(&self) -> Option<&dyn CacheController> {
-        self.base_resolver.cache_controller()
     }
 }
 

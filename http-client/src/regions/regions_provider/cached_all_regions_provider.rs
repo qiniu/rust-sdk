@@ -1,6 +1,6 @@
 use super::{
     super::{
-        super::{ApiResult, CacheController, Endpoints, HttpClient},
+        super::{ApiResult, Endpoints, HttpClient},
         cache_key::CacheKey,
     },
     all_regions_provider::AllRegionsProvider,
@@ -86,11 +86,6 @@ impl RegionsProvider for CachedAllRegionsProvider {
         let provider = self.to_owned();
         let opts = opts.to_owned();
         Box::pin(async move { spawn(async move { provider.get_all(&opts) }).await })
-    }
-
-    #[inline]
-    fn cache_controller(&self) -> Option<&dyn CacheController> {
-        Some(&self.cache)
     }
 }
 

@@ -221,7 +221,6 @@ pub use qiniu_upload_token as upload_token;
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 pub use futures::io::AsyncRead;
 
-pub use cache::CacheController;
 pub use client::{
     ApiResult, Authorization, AuthorizationError, AuthorizationProvider, AuthorizationResult, Backoff, BackoffOptions,
     CachedResolver, CallbackContext, ChainedResolver, ChainedResolverBuilder, Chooser, ChooserFeedback,
@@ -263,7 +262,6 @@ pub use {
 /// 将所有 Trait 全部重新导出，方便统一导入
 pub mod prelude {
     pub use super::{
-        cache::CacheController,
         client::{
             AuthorizationProvider, Backoff, CallbackContext, Chooser, ExtendedCallbackContext, RequestRetrier,
             Resolver, SimplifiedCallbackContext,
