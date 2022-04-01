@@ -65,7 +65,7 @@ type HeaderBuffer = SmallVec<[u8; 256]>;
 ///     .into_upload_token_provider(&credential)
 ///     .async_to_token_string(&Default::default())
 ///     .await?
-///     .to_string();
+///     .into_owned();
 /// let value: Value = HttpClient::default()
 ///     .async_post(
 ///         &[ServiceName::Up],

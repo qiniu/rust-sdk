@@ -79,12 +79,7 @@ impl CodeGenerator for MultipartFormDataRequestStruct {
 }
 
 impl MultipartFormDataRequestStruct {
-    fn to_rust_token_stream_inner(
-        &self,
-        name: &str,
-        documentation: &str,
-        sync_version: bool,
-    ) -> TokenStream {
+    fn to_rust_token_stream_inner(&self, name: &str, documentation: &str, sync_version: bool) -> TokenStream {
         let name = format_ident!("{}", name.to_case(Case::Pascal));
         let struct_definition_token_stream = define_new_struct(&name, documentation, sync_version);
         let named_fields_methods_token_stream = for_named_fields(&self.named_fields, sync_version);
@@ -101,10 +96,7 @@ impl MultipartFormDataRequestStruct {
             }
         };
 
-        fn for_named_fields(
-            fields: &[NamedMultipartFormDataRequestField],
-            sync_version: bool,
-        ) -> TokenStream {
+        fn for_named_fields(fields: &[NamedMultipartFormDataRequestField], sync_version: bool) -> TokenStream {
             let token_streams_for_fields: Vec<_> = fields
                 .iter()
                 .map(|field| for_named_field(field, sync_version))
@@ -114,45 +106,21 @@ impl MultipartFormDataRequestStruct {
             }
         }
 
-        fn for_named_field(
-            field: &NamedMultipartFormDataRequestField,
-            sync_version: bool,
-        ) -> TokenStream {
+        fn for_named_field(field: &NamedMultipartFormDataRequestField, sync_version: bool) -> TokenStream {
             let field_name = format_ident!("{}", field.field_name.to_case(Case::Snake));
             let documentation = field.documentation.as_str();
             match &field.ty {
-                MultipartFormDataRequestType::String => for_named_string_field(
-                    &field_name,
-                    documentation,
-                    field.key.as_str(),
-                    sync_version,
-                ),
-                MultipartFormDataRequestType::UploadToken => for_named_upload_token_field(
-                    &field_name,
-                    documentation,
-                    field.key.as_str(),
-                    sync_version,
-                ),
+                MultipartFormDataRequestType::String => {
+                    for_named_string_field(&field_name, documentation, field.key.as_str(), sync_version)
+                }
+                MultipartFormDataRequestType::UploadToken => {
+                    for_named_upload_token_field(&field_name, documentation, field.key.as_str(), sync_version)
+                }
                 MultipartFormDataRequestType::BinaryData => {
                     let token_streams = [
-                        for_named_binary_field(
-                            &field_name,
-                            documentation,
-                            field.key.as_str(),
-                            sync_version,
-                        ),
-                        for_named_bytes_field(
-                            &field_name,
-                            documentation,
-                            field.key.as_str(),
-                            sync_version,
-                        ),
-                        for_named_file_path_field(
-                            &field_name,
-                            documentation,
-                            field.key.as_str(),
-                            sync_version,
-                        ),
+                        for_named_binary_field(&field_name, documentation, field.key.as_str(), sync_version),
+                        for_named_bytes_field(&field_name, documentation, field.key.as_str(), sync_version),
+                        for_named_file_path_field(&field_name, documentation, field.key.as_str(), sync_version),
                     ];
                     quote! {#(#token_streams)*}
                 }
@@ -198,9 +166,9 @@ impl MultipartFormDataRequestStruct {
                     ) -> std::io::Result<Self> {
                         Ok(self.add_part(
                             #key,
-                            qiniu_http_client::SyncPart::text(String::from(
-                                token.to_token_string(&Default::default())?,
-                            )),
+                            qiniu_http_client::SyncPart::text(
+                                token.to_token_string(&Default::default())?.into_owned(),
+                            ),
                         ))
                     }
                 }
@@ -214,9 +182,9 @@ impl MultipartFormDataRequestStruct {
                     ) -> std::io::Result<Self> {
                         Ok(self.add_part(
                             #key,
-                            qiniu_http_client::AsyncPart::text(String::from(
-                                token.async_to_token_string(&Default::default()).await?,
-                            )),
+                            qiniu_http_client::AsyncPart::text(
+                                token.async_to_token_string(&Default::default()).await?.into_owned(),
+                            ),
                         ))
                     }
                 }
@@ -332,10 +300,7 @@ impl MultipartFormDataRequestStruct {
             }
         }
 
-        fn for_free_fields(
-            fields: &FreeMultipartFormDataRequestFields,
-            sync_version: bool,
-        ) -> TokenStream {
+        fn for_free_fields(fields: &FreeMultipartFormDataRequestFields, sync_version: bool) -> TokenStream {
             let field_name = format_ident!("{}", fields.field_name.to_case(Case::Snake));
             let method_name = format_ident!("append_{}", field_name);
             let documentation = fields.documentation.as_str();

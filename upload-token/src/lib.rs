@@ -78,7 +78,7 @@ pub use serde_json;
 pub use upload_policy::{UploadPolicy, UploadPolicyBuilder};
 pub use upload_token::{
     BucketUploadTokenProvider, BucketUploadTokenProviderBuilder, CachedUploadTokenProvider, FromUploadPolicy,
-    GetAccessKeyOptions, GetPolicyOptions, GotAccessKey, GotString, GotUploadPolicy, ObjectUploadTokenProvider,
+    GetAccessKeyOptions, GetPolicyOptions, GotAccessKey, GotUploadPolicy, ObjectUploadTokenProvider,
     ObjectUploadTokenProviderBuilder, ParseError, ParseResult, StaticUploadTokenProvider, ToStringOptions,
     UploadTokenProvider, UploadTokenProviderExt,
 };

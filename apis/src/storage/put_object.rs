@@ -42,7 +42,7 @@ pub mod sync_part {
         ) -> std::io::Result<Self> {
             Ok(self.add_part(
                 "token",
-                qiniu_http_client::SyncPart::text(String::from(token.to_token_string(&Default::default())?)),
+                qiniu_http_client::SyncPart::text(token.to_token_string(&Default::default())?.into_owned()),
             ))
         }
         #[inline]
@@ -134,9 +134,9 @@ pub mod async_part {
         ) -> std::io::Result<Self> {
             Ok(self.add_part(
                 "token",
-                qiniu_http_client::AsyncPart::text(String::from(
-                    token.async_to_token_string(&Default::default()).await?,
-                )),
+                qiniu_http_client::AsyncPart::text(
+                    token.async_to_token_string(&Default::default()).await?.into_owned(),
+                ),
             ))
         }
         #[inline]
