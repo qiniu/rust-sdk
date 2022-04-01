@@ -15,6 +15,5 @@ pub use endpoints_provider::{
 pub use region::{Region, RegionBuilder};
 pub use regions_provider::{
     AllRegionsProvider, BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
-    CachedAllRegionsProvider, GetOptions as RegionsGetOptions, GotRegion, GotRegions, RegionsProvider,
-    StaticRegionsProvider,
+    GetOptions as RegionsGetOptions, GotRegion, GotRegions, RegionsProvider, StaticRegionsProvider,
 };

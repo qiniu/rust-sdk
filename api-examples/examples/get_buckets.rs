@@ -1,7 +1,7 @@
 use anyhow::Result;
 use qiniu_apis::{
     credential::Credential,
-    http_client::{CachedAllRegionsProvider, RegionsProvider, RegionsProviderEndpoints},
+    http_client::{AllRegionsProvider, RegionsProvider, RegionsProviderEndpoints},
     Client,
 };
 use structopt::StructOpt;
@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
     let opt: Opt = Opt::from_args();
 
     let credential = Credential::new(opt.access_key, opt.secret_key);
-    let region = CachedAllRegionsProvider::new(credential.to_owned())
+    let region = AllRegionsProvider::new(credential.to_owned())
         .async_get(&Default::default())
         .await?;
     let response = Client::default()

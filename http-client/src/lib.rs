@@ -46,14 +46,13 @@
 //! 无论是七牛的公有云还是私有云，一个区域包含多个服务，用 [`Region`] 来表示一个区域，用于存储该区域的 ID 和所有服务的 [`Endpoints`]。
 //! 区域并不总是需要用户静态配置，可以通过实现 [`RegionsProvider`] 接口来定义区域获取的不同方式，
 //! [`StaticRegionsProvider`] 实现了最基础的静态配置区域；
-//! [`AllRegionsProvider`] 实现了查询七牛所有区域的功能；
-//! [`BucketRegionsQueryer`] 可以用来查询七牛某个存储空间的所在区域和相关的多活区域；
-//! [`CachedAllRegionsProvider`] 可以用来为 [`AllRegionsProvider`] 提供缓存功能，支持内存缓存和文件系统缓存。
+//! [`AllRegionsProvider`] 实现了查询七牛所有区域的功能，支持内存缓存和文件系统缓存；
+//! [`BucketRegionsQueryer`] 可以用来查询七牛某个存储空间的所在区域和相关的多活区域，支持内存缓存和文件系统缓存；
 //!
 //! 在调用一个七牛服务的 API 时，需要传入所有服务器可用的域名或服务器 IP 地址以便于客户端重试，如果只能静态配置将十分麻烦，
 //! 因此我们也提供 [`EndpointsProvider`] 供用户实现不同的 [`Endpoints`] 获取方式，
 //! [`RegionsProviderEndpoints`] 可以从任意一个 [`RegionsProvider`] 实现中获取 [`Endpoints`]；
-//! [`BucketDomainsQueryer`] 可以用来查询七牛某个存储空间绑定的域名。
+//! [`BucketDomainsQueryer`] 可以用来查询七牛某个存储空间绑定的域名，支持内存缓存和文件系统缓存。
 //!
 //! ## HTTP 客户端逻辑相关
 //!
@@ -237,11 +236,10 @@ pub use client::{
 pub use http::{CallbackResult, SyncResponseBody};
 pub use regions::{
     AllRegionsProvider, BucketDomainsProvider, BucketDomainsQueryer, BucketDomainsQueryerBuilder,
-    BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder, CachedAllRegionsProvider, DomainWithPort,
-    DomainWithPortParseError, Endpoint, EndpointParseError, Endpoints, EndpointsBuilder, EndpointsGetOptions,
-    EndpointsGetOptionsBuilder, EndpointsProvider, GotRegion, GotRegions, InvalidServiceName, IpAddrWithPort,
-    IpAddrWithPortParseError, Region, RegionBuilder, RegionsGetOptions, RegionsProvider, RegionsProviderEndpoints,
-    ServiceName, StaticRegionsProvider,
+    BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder, DomainWithPort, DomainWithPortParseError,
+    Endpoint, EndpointParseError, Endpoints, EndpointsBuilder, EndpointsGetOptions, EndpointsGetOptionsBuilder,
+    EndpointsProvider, GotRegion, GotRegions, InvalidServiceName, IpAddrWithPort, IpAddrWithPortParseError, Region,
+    RegionBuilder, RegionsGetOptions, RegionsProvider, RegionsProviderEndpoints, ServiceName, StaticRegionsProvider,
 };
 pub use upload_token::{BucketName, ObjectName};
 

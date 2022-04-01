@@ -23,9 +23,6 @@ pub use all_regions_provider::AllRegionsProvider;
 mod static_regions_provider;
 pub use static_regions_provider::StaticRegionsProvider;
 
-mod cached_all_regions_provider;
-pub use cached_all_regions_provider::CachedAllRegionsProvider;
-
 mod structs;
 
 #[cfg(feature = "async")]
