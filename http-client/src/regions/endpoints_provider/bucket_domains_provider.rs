@@ -11,7 +11,7 @@ use qiniu_upload_token::BucketName;
 use std::{borrow::Cow, mem::take, path::Path, sync::Arc, time::Duration};
 
 #[cfg(feature = "async")]
-use {async_std::task::spawn, futures::future::BoxFuture};
+use futures::future::BoxFuture;
 
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(3600);
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(3600);
@@ -221,10 +221,11 @@ impl EndpointsProvider for BucketDomainsProvider {
     ) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
         Box::pin(async move {
             let credential = self.credential.async_get(&Default::default()).await?;
-            let cache_key = self.make_cache_key(&credential);
-            let provider = self.to_owned();
-            let cache = self.queryer.cache.to_owned();
-            spawn(async move { cache.get(&cache_key, || provider.do_sync_query()).map(Cow::Owned) }).await
+            self.queryer
+                .cache
+                .async_get(&self.make_cache_key(&credential), self.do_async_query())
+                .await
+                .map(Cow::Owned)
         })
     }
 }
@@ -249,6 +250,27 @@ impl BucketDomainsProvider {
             .accept_json()
             .call()?
             .parse_json::<Vec<String>>()?
+            .into_body()
+            .into_iter()
+            .map(Endpoint::from)
+            .collect();
+        Ok(endpoints)
+    }
+
+    #[cfg(feature = "async")]
+    async fn do_async_query(&self) -> ApiResult<Endpoints> {
+        let endpoints: Endpoints = self
+            .queryer
+            .http_client
+            .async_get(&[ServiceName::Uc], &self.queryer.uc_endpoints)
+            .path("/v2/domains")
+            .authorization(Authorization::v2(&self.credential))
+            .append_query_pair("tbl", self.bucket_name.as_str())
+            .accept_json()
+            .call()
+            .await?
+            .parse_json::<Vec<String>>()
+            .await?
             .into_body()
             .into_iter()
             .map(Endpoint::from)

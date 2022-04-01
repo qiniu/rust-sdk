@@ -11,7 +11,7 @@ use qiniu_credential::CredentialProvider;
 use std::{path::Path, time::Duration};
 
 #[cfg(feature = "async")]
-use {async_std::task::spawn, futures::future::BoxFuture};
+use futures::future::BoxFuture;
 
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(86400);
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
@@ -74,18 +74,22 @@ impl RegionsProvider for CachedAllRegionsProvider {
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
-        let provider = self.to_owned();
-        let opts = opts.to_owned();
-        Box::pin(async move { spawn(async move { provider.get(&opts) }).await })
+        Box::pin(async move {
+            self.async_get_all(opts)
+                .await
+                .map(|regions| regions.try_into().expect("Regions API returns empty regions"))
+        })
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegions>> {
-        let provider = self.to_owned();
-        let opts = opts.to_owned();
-        Box::pin(async move { spawn(async move { provider.get_all(&opts) }).await })
+        Box::pin(async move {
+            self.cache
+                .async_get(&self.cache_key, self.provider.async_get_all(opts))
+                .await
+        })
     }
 }
 

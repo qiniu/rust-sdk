@@ -8,7 +8,7 @@ use std::{
 };
 
 #[cfg(feature = "async")]
-use {async_std::task::spawn, futures::future::BoxFuture};
+use {super::super::super::cache::AsyncCache, futures::future::BoxFuture};
 
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(120);
@@ -22,6 +22,9 @@ const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(120);
 pub struct CachedResolver<R: ?Sized> {
     resolver: Arc<R>,
     cache: Cache<String, ResolveAnswers>,
+
+    #[cfg(feature = "async")]
+    async_cache: AsyncCache<String, ResolveAnswers>,
 }
 
 impl<R> CachedResolver<R> {
@@ -66,6 +69,9 @@ impl<R> Clone for CachedResolver<R> {
         Self {
             resolver: self.resolver.clone(),
             cache: self.cache.clone(),
+
+            #[cfg(feature = "async")]
+            async_cache: self.async_cache.clone(),
         }
     }
 }
@@ -78,10 +84,11 @@ impl<R: Resolver + 'static> Resolver for CachedResolver<R> {
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
-        let resolver = self.to_owned();
-        let domain = domain.to_owned();
-        let opts = opts.to_owned();
-        Box::pin(async move { spawn(async move { resolver.resolve(&domain, &opts) }).await })
+        Box::pin(async move {
+            self.async_cache
+                .get(domain, self.resolver.async_resolve(domain, opts))
+                .await
+        })
     }
 }
 
@@ -131,6 +138,14 @@ impl<R> CachedResolverBuilder<R> {
                 self.cache_lifetime,
                 self.shrink_interval,
             ),
+
+            #[cfg(feature = "async")]
+            async_cache: AsyncCache::load_or_create_from(
+                path.as_ref(),
+                auto_persistent,
+                self.cache_lifetime,
+                self.shrink_interval,
+            ),
         }
     }
 
@@ -147,6 +162,14 @@ impl<R> CachedResolverBuilder<R> {
                 self.cache_lifetime,
                 self.shrink_interval,
             ),
+
+            #[cfg(feature = "async")]
+            async_cache: AsyncCache::load_or_create_from(
+                &CachedResolver::<R>::default_persistent_path(),
+                auto_persistent,
+                self.cache_lifetime,
+                self.shrink_interval,
+            ),
         }
     }
 
@@ -158,6 +181,9 @@ impl<R> CachedResolverBuilder<R> {
         CachedResolver {
             resolver: Arc::new(self.resolver),
             cache: Cache::in_memory(self.cache_lifetime, self.shrink_interval),
+
+            #[cfg(feature = "async")]
+            async_cache: AsyncCache::in_memory(self.cache_lifetime, self.shrink_interval),
         }
     }
 }
@@ -208,6 +234,12 @@ mod tests {
                 .cloned()
                 .unwrap_or_default()
                 .into())
+        }
+
+        #[cfg(feature = "async")]
+        #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+        fn async_resolve<'a>(&'a self, _domain: &'a str, _opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
+            unreachable!()
         }
     }
 

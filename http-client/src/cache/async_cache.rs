@@ -15,7 +15,7 @@ use async_std::{
 };
 use crossbeam_queue::SegQueue;
 use fs4::async_std::AsyncFileExt;
-use futures::{future::BoxFuture, AsyncBufReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
+use futures::{future::BoxFuture, AsyncBufReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt, TryStreamExt};
 use log::{info, warn};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -92,11 +92,10 @@ impl<
             cache_lifetime: Duration,
         ) -> PersistentResult<RwLockedMap<K, CacheValue<V>>> {
             let mut cache = HashMap::new();
-            let mut line = String::new();
             let mut file = File::open(path).await?;
             if file.try_lock_shared().is_ok() {
-                let mut reader = BufReader::new(&mut file);
-                while reader.read_line(&mut line).await? > 0 {
+                let mut lines = BufReader::new(&mut file).lines();
+                while let Some(line) = lines.try_next().await? {
                     let entry: PersistentCacheEntry<K, V> = serde_json::from_str(&line)?;
                     let (key, value) = entry.into_parts();
                     if let Some(value) = value {
@@ -107,8 +106,8 @@ impl<
                         cache.remove(&key);
                     }
                 }
+                file.unlock()?;
             }
-            file.unlock()?;
             drop(file);
             Ok(RwLock::new(cache))
         }
@@ -142,10 +141,12 @@ impl<
         }
     }
 
+    #[allow(dead_code)]
     pub(in super::super) fn persistent_path(&self) -> Option<&Path> {
         self.inner.persistent.as_ref().map(|p| p.path())
     }
 
+    #[allow(dead_code)]
     pub(in super::super) fn auto_persistent(&self) -> Option<bool> {
         self.inner.persistent.as_ref().map(|p| p.auto_persistent())
     }
@@ -220,6 +221,7 @@ impl<
         do_some_work_async(&self.inner).await;
     }
 
+    #[allow(dead_code)]
     pub(in super::super) async fn exists(&self, key: &K) -> bool {
         self.inner.cache().await.read().await.contains_key(key)
     }

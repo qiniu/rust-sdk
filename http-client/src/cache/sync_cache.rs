@@ -154,6 +154,7 @@ impl<
         do_some_work_async(&self.inner);
     }
 
+    #[allow(dead_code)]
     pub(in super::super) fn exists(&self, key: &K) -> bool {
         self.inner.cache().contains_key(key)
     }

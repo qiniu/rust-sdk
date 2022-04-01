@@ -14,9 +14,19 @@ use std::{
     time::Duration,
 };
 
+#[cfg(feature = "async")]
+use {
+    super::super::super::cache::{AsyncCache, AsyncCacheController},
+    futures::future::BoxFuture,
+    std::future::Future,
+};
+
 #[derive(Debug, Clone)]
 pub(super) struct EndpointsCache {
-    inner: Cache<CacheKey, Endpoints>,
+    cache: Cache<CacheKey, Endpoints>,
+
+    #[cfg(feature = "async")]
+    async_cache: AsyncCache<CacheKey, Endpoints>,
 }
 
 impl EndpointsCache {
@@ -27,7 +37,10 @@ impl EndpointsCache {
         shrink_interval: Duration,
     ) -> Self {
         Self {
-            inner: Cache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
+            cache: Cache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
+
+            #[cfg(feature = "async")]
+            async_cache: AsyncCache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
         }
     }
 
@@ -53,28 +66,40 @@ impl EndpointsCache {
 
     pub(super) fn in_memory(cache_lifetime: Duration, shrink_interval: Duration) -> Self {
         Self {
-            inner: Cache::in_memory(cache_lifetime, shrink_interval),
+            cache: Cache::in_memory(cache_lifetime, shrink_interval),
+
+            #[cfg(feature = "async")]
+            async_cache: AsyncCache::in_memory(cache_lifetime, shrink_interval),
         }
     }
 
     pub(super) fn get(&self, key: &CacheKey, f: impl FnOnce() -> ApiResult<Endpoints>) -> ApiResult<Endpoints> {
-        self.inner.get(key, f)
+        self.cache.get(key, f)
     }
 
-    #[allow(dead_code)]
-    pub(super) fn set(&self, key: CacheKey, endpoints: Endpoints) {
-        self.inner.set(key, endpoints)
-    }
-
-    #[allow(dead_code)]
-    pub(super) fn remove(&self, key: &CacheKey) {
-        self.inner.remove(key)
+    #[cfg(feature = "async")]
+    pub(super) async fn async_get<Fut: Future<Output = ApiResult<Endpoints>>>(
+        &self,
+        key: &CacheKey,
+        fut: Fut,
+    ) -> ApiResult<Endpoints> {
+        self.async_cache.get(key, fut).await
     }
 }
 
 impl CacheController for EndpointsCache {
     #[inline]
     fn clear(&self) {
-        self.inner.clear();
+        self.cache.clear();
+    }
+}
+
+#[cfg(feature = "async")]
+impl AsyncCacheController for EndpointsCache {
+    #[inline]
+    fn async_clear(&self) -> BoxFuture<()> {
+        Box::pin(async move {
+            self.async_cache.async_clear().await;
+        })
     }
 }

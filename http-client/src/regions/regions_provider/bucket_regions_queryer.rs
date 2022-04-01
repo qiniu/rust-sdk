@@ -1,6 +1,6 @@
 use super::{
     super::{
-        super::{ApiResult, HttpClient, ResponseError},
+        super::{ApiResult, HttpClient, Response, ResponseError},
         cache_key::CacheKey,
         Endpoints, ServiceName,
     },
@@ -13,7 +13,7 @@ use qiniu_upload_token::BucketName;
 use std::{convert::TryFrom, fmt::Debug, mem::take, path::Path, time::Duration};
 
 #[cfg(feature = "async")]
-use {async_std::task::spawn, futures::future::BoxFuture};
+use futures::future::BoxFuture;
 
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(86400);
 const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
@@ -227,43 +227,69 @@ impl RegionsProvider for BucketRegionsProvider {
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
-        let provider = self.to_owned();
-        let opts = opts.to_owned();
-        Box::pin(async move { spawn(async move { provider.get(&opts) }).await })
+        Box::pin(async move {
+            self.async_get_all(opts)
+                .await
+                .map(|regions| regions.try_into().expect("Regions Query API returns empty regions"))
+        })
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegions>> {
-        let provider = self.to_owned();
-        let opts = opts.to_owned();
-        Box::pin(async move { spawn(async move { provider.get_all(&opts) }).await })
+    fn async_get_all<'a>(&'a self, _opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegions>> {
+        Box::pin(async move {
+            self.queryer
+                .cache
+                .async_get(&self.cache_key, self.do_async_query())
+                .await
+        })
     }
 }
 
 impl BucketRegionsProvider {
     fn do_sync_query(&self) -> ApiResult<GotRegions> {
-        let (parts, body) = self
-            .queryer
-            .http_client
-            .get(&[ServiceName::Uc, ServiceName::Api], &self.queryer.uc_endpoints)
-            .path("/v4/query")
-            .append_query_pair("ak", self.access_key.as_str())
-            .append_query_pair("bucket", self.bucket_name.as_str())
-            .accept_json()
-            .call()?
-            .parse_json::<ResponseBody>()?
-            .into_parts_and_body();
-        let hosts = body.into_hosts();
-        let min_lifetime = hosts.iter().map(|host| host.lifetime()).min();
-        let mut got_regions = hosts
-            .into_iter()
-            .map(|host| Region::try_from(host).map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts)))
-            .collect::<ApiResult<GotRegions>>()?;
-        *got_regions.lifetime_mut() = min_lifetime;
-        Ok(got_regions)
+        handle_response_body(
+            self.queryer
+                .http_client
+                .get(&[ServiceName::Uc, ServiceName::Api], &self.queryer.uc_endpoints)
+                .path("/v4/query")
+                .append_query_pair("ak", self.access_key.as_str())
+                .append_query_pair("bucket", self.bucket_name.as_str())
+                .accept_json()
+                .call()?
+                .parse_json::<ResponseBody>()?,
+        )
     }
+
+    #[cfg(feature = "async")]
+    async fn do_async_query(&self) -> ApiResult<GotRegions> {
+        handle_response_body(
+            self.queryer
+                .http_client
+                .async_get(&[ServiceName::Uc, ServiceName::Api], &self.queryer.uc_endpoints)
+                .path("/v4/query")
+                .append_query_pair("ak", self.access_key.as_str())
+                .append_query_pair("bucket", self.bucket_name.as_str())
+                .accept_json()
+                .call()
+                .await?
+                .parse_json::<ResponseBody>()
+                .await?,
+        )
+    }
+}
+
+fn handle_response_body(response: Response<ResponseBody>) -> ApiResult<GotRegions> {
+    let (parts, body) = response.into_parts_and_body();
+    let hosts = body.into_hosts();
+    let min_lifetime = hosts.iter().map(|host| host.lifetime()).min();
+    let mut got_regions = hosts
+        .into_iter()
+        .map(|host| Region::try_from(host).map_err(|err| ResponseError::from_endpoint_parse_error(err, &parts)))
+        .collect::<ApiResult<GotRegions>>()?;
+    *got_regions.lifetime_mut() = min_lifetime;
+    Ok(got_regions)
 }
 
 #[cfg(all(test, feature = "isahc", feature = "async"))]
