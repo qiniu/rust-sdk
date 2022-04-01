@@ -684,7 +684,7 @@ impl<'r, E: 'r> SyncRequestBuilder<'r, E> {
 
     /// 设置 HTTP 请求体为 Multipart 表单对象
     #[inline]
-    pub fn multipart(&mut self, multipart: impl Into<SyncMultipart>) -> IoResult<&mut Self> {
+    pub fn multipart<'a>(&mut self, multipart: impl Into<SyncMultipart<'a>>) -> IoResult<&mut Self> {
         let mut buf = Vec::new();
         let multipart = multipart.into();
         let mime = ("multipart/form-data; boundary=".to_owned() + multipart.boundary())
@@ -793,9 +793,9 @@ impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
 
     /// 设置 HTTP 请求体为 Multipart 表单对象
     #[inline]
-    pub async fn multipart(
+    pub async fn multipart<'a>(
         &mut self,
-        multipart: impl Into<AsyncMultipart>,
+        multipart: impl Into<AsyncMultipart<'a>>,
     ) -> IoResult<&mut RequestBuilder<'r, AsyncRequestBody<'r>, E>> {
         use futures::AsyncReadExt;
 

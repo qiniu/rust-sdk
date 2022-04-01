@@ -826,9 +826,8 @@ mod tests {
     fn test_build_upload_token_from_upload_policy() -> Result<(), Box<dyn Error>> {
         let policy =
             UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", Duration::from_secs(3600)).build();
-        let token = FromUploadPolicy::new(policy, get_credential())
-            .to_token_string(&Default::default())?
-            .into_owned();
+        let provider = FromUploadPolicy::new(policy, get_credential());
+        let token = provider.to_token_string(&Default::default())?;
         assert!(token.starts_with(get_credential().get(&Default::default())?.access_key().as_str()));
         let token: StaticUploadTokenProvider = token.parse()?;
         let policy = token.policy(&Default::default())?;
@@ -845,7 +844,7 @@ mod tests {
             })
             .build();
 
-        let token = provider.to_token_string(&Default::default())?.into_owned();
+        let token = provider.to_token_string(&Default::default())?;
         assert!(token.starts_with(get_credential().get(&Default::default())?.access_key().as_str()));
 
         let policy = provider.policy(&Default::default())?;
@@ -865,10 +864,8 @@ mod tests {
             let policy =
                 UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", Duration::from_secs(3600))
                     .build();
-            let token = FromUploadPolicy::new(policy, get_credential())
-                .async_to_token_string(&Default::default())
-                .await?
-                .into_owned();
+            let provider = FromUploadPolicy::new(policy, get_credential());
+            let token = provider.async_to_token_string(&Default::default()).await?.into_owned();
             assert!(token.starts_with(
                 get_credential()
                     .async_get(&Default::default())

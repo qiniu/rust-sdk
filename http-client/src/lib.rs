@@ -1,6 +1,5 @@
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
 #![deny(
-    single_use_lifetimes,
     missing_debug_implementations,
     large_assignments,
     exported_private_dependencies,

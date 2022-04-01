@@ -188,12 +188,12 @@ mod sync_part {
         path::Path,
     };
 
-    enum SyncPartBodyInner {
-        Bytes(Cursor<Vec<u8>>),
-        Stream(Box<dyn Read>),
+    enum SyncPartBodyInner<'a> {
+        Bytes(Cursor<Cow<'a, [u8]>>),
+        Stream(Box<dyn Read + 'a>),
     }
 
-    impl Debug for SyncPartBodyInner {
+    impl Debug for SyncPartBodyInner<'_> {
         #[inline]
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
@@ -205,19 +205,19 @@ mod sync_part {
 
     /// 阻塞 Multipart 表单组件请求体
     #[derive(Debug)]
-    pub struct SyncPartBody(SyncPartBodyInner);
+    pub struct SyncPartBody<'a>(SyncPartBodyInner<'a>);
 
     /// 阻塞 Multipart 表单组件
-    pub type SyncPart = Part<SyncPartBody>;
+    pub type SyncPart<'a> = Part<SyncPartBody<'a>>;
 
-    impl SyncPart {
+    impl<'a> SyncPart<'a> {
         /// 设置阻塞 Multipart 的请求体为字符串
         #[inline]
         #[must_use]
-        pub fn text(value: impl Into<Cow<'static, str>>) -> Self {
+        pub fn text(value: impl Into<Cow<'a, str>>) -> Self {
             let bytes = match value.into() {
-                Cow::Borrowed(slice) => slice.as_bytes().to_vec(),
-                Cow::Owned(string) => string.into_bytes(),
+                Cow::Borrowed(str) => Cow::Borrowed(str.as_bytes()),
+                Cow::Owned(string) => Cow::Owned(string.into_bytes()),
             };
             Self {
                 body: SyncPartBody(SyncPartBodyInner::Bytes(Cursor::new(bytes))),
@@ -228,10 +228,9 @@ mod sync_part {
         /// 设置阻塞 Multipart 的请求体为内存数据
         #[inline]
         #[must_use]
-        pub fn bytes(value: impl Into<Cow<'static, [u8]>>) -> Self {
-            let bytes = value.into().into_owned();
+        pub fn bytes(value: impl Into<Cow<'a, [u8]>>) -> Self {
             Self {
-                body: SyncPartBody(SyncPartBodyInner::Bytes(Cursor::new(bytes))),
+                body: SyncPartBody(SyncPartBodyInner::Bytes(Cursor::new(value.into()))),
                 meta: Default::default(),
             }
         }
@@ -239,7 +238,7 @@ mod sync_part {
         /// 设置阻塞 Multipart 的请求体为输入流
         #[inline]
         #[must_use]
-        pub fn stream(value: impl Read + 'static) -> Self {
+        pub fn stream(value: impl Read + 'a) -> Self {
             Self {
                 body: SyncPartBody(SyncPartBodyInner::Stream(Box::new(value))),
                 meta: Default::default(),
@@ -263,22 +262,22 @@ mod sync_part {
     }
 
     /// 阻塞 Multipart
-    pub type SyncMultipart = Multipart<SyncPart>;
+    pub type SyncMultipart<'a> = Multipart<SyncPart<'a>>;
 
-    impl SyncMultipart {
-        pub(in super::super) fn into_read(mut self) -> Box<dyn Read> {
+    impl<'a> SyncMultipart<'a> {
+        pub(in super::super) fn into_read(mut self) -> Box<dyn Read + 'a> {
             if self.fields.is_empty() {
                 return Box::new(Cursor::new([]));
             }
 
             let (name, part) = self.fields.pop_front().unwrap();
-            let chain = Box::new(self.part_stream(&name, part)) as Box<dyn Read>;
+            let chain = Box::new(self.part_stream(&name, part)) as Box<dyn Read + 'a>;
             let fields = take(&mut self.fields);
             Box::new(
                 fields
                     .into_iter()
                     .fold(chain, |readable, (name, part)| {
-                        Box::new(readable.chain(self.part_stream(&name, part))) as Box<dyn Read>
+                        Box::new(readable.chain(self.part_stream(&name, part))) as Box<dyn Read + 'a>
                     })
                     .chain(Cursor::new(b"--"))
                     .chain(Cursor::new(self.boundary.to_owned()))
@@ -286,7 +285,7 @@ mod sync_part {
             )
         }
 
-        fn part_stream(&self, name: &str, part: SyncPart) -> impl Read {
+        fn part_stream(&self, name: &str, part: SyncPart<'a>) -> impl Read + 'a {
             Cursor::new(b"--")
                 .chain(Cursor::new(self.boundary.to_owned()))
                 .chain(Cursor::new(b"\r\n"))
@@ -297,7 +296,7 @@ mod sync_part {
         }
     }
 
-    impl Read for SyncPartBody {
+    impl Read for SyncPartBody<'_> {
         #[inline]
         fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
             match &mut self.0 {
@@ -322,14 +321,14 @@ mod async_part {
         task::{Context, Poll},
     };
 
-    type AsyncStream = Box<dyn AsyncRead + Send + Unpin>;
+    type AsyncStream<'a> = Box<dyn AsyncRead + Send + Unpin + 'a>;
 
-    enum AsyncPartBodyInner {
-        Bytes(Cursor<Vec<u8>>),
-        Stream(AsyncStream),
+    enum AsyncPartBodyInner<'a> {
+        Bytes(Cursor<Cow<'a, [u8]>>),
+        Stream(AsyncStream<'a>),
     }
 
-    impl Debug for AsyncPartBodyInner {
+    impl Debug for AsyncPartBodyInner<'_> {
         #[inline]
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
@@ -342,20 +341,20 @@ mod async_part {
     /// 异步 Multipart 表单组件请求体
     #[derive(Debug)]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub struct AsyncPartBody(AsyncPartBodyInner);
+    pub struct AsyncPartBody<'a>(AsyncPartBodyInner<'a>);
 
     /// 异步 Multipart 表单组件
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub type AsyncPart = Part<AsyncPartBody>;
+    pub type AsyncPart<'a> = Part<AsyncPartBody<'a>>;
 
-    impl AsyncPart {
+    impl<'a> AsyncPart<'a> {
         /// 设置异步 Multipart 的请求体为字符串
         #[inline]
         #[must_use]
-        pub fn text(value: impl Into<Cow<'static, str>>) -> Self {
+        pub fn text(value: impl Into<Cow<'a, str>>) -> Self {
             let bytes = match value.into() {
-                Cow::Borrowed(slice) => slice.as_bytes().to_vec(),
-                Cow::Owned(string) => string.into_bytes(),
+                Cow::Borrowed(slice) => Cow::Borrowed(slice.as_bytes()),
+                Cow::Owned(string) => Cow::Owned(string.into_bytes()),
             };
             Self {
                 body: AsyncPartBody(AsyncPartBodyInner::Bytes(Cursor::new(bytes))),
@@ -366,10 +365,9 @@ mod async_part {
         /// 设置异步 Multipart 的请求体为内存数据
         #[inline]
         #[must_use]
-        pub fn bytes(value: impl Into<Cow<'static, [u8]>>) -> Self {
-            let bytes = value.into().into_owned();
+        pub fn bytes(value: impl Into<Cow<'a, [u8]>>) -> Self {
             Self {
-                body: AsyncPartBody(AsyncPartBodyInner::Bytes(Cursor::new(bytes))),
+                body: AsyncPartBody(AsyncPartBodyInner::Bytes(Cursor::new(value.into()))),
                 meta: Default::default(),
             }
         }
@@ -377,7 +375,7 @@ mod async_part {
         /// 设置异步 Multipart 的请求体为异步输入流
         #[inline]
         #[must_use]
-        pub fn stream(value: impl AsyncRead + Send + Unpin + 'static) -> Self {
+        pub fn stream(value: impl AsyncRead + Send + Unpin + 'a) -> Self {
             Self {
                 body: AsyncPartBody(AsyncPartBodyInner::Stream(Box::new(value))),
                 meta: Default::default(),
@@ -385,7 +383,7 @@ mod async_part {
         }
 
         /// 设置异步 Multipart 的请求体为文件
-        pub async fn file_path<S: AsRef<OsStr> + ?Sized>(path: &S) -> IoResult<Self> {
+        pub async fn file_path<S: AsRef<OsStr> + ?Sized>(path: &S) -> IoResult<AsyncPart<'a>> {
             let path = Path::new(path);
             let file = File::open(&path).await?;
             let mut metadata = PartMetadata::default().mime(mime_guess::from_path(&path).first_or_octet_stream());
@@ -402,22 +400,23 @@ mod async_part {
 
     /// 异步 Multipart
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub type AsyncMultipart = Multipart<AsyncPart>;
+    pub type AsyncMultipart<'a> = Multipart<AsyncPart<'a>>;
 
-    impl AsyncMultipart {
-        pub(in super::super) fn into_async_read(mut self) -> Box<dyn AsyncRead + Send + Unpin> {
+    impl<'a> AsyncMultipart<'a> {
+        pub(in super::super) fn into_async_read(mut self) -> Box<dyn AsyncRead + Send + Unpin + 'a> {
             if self.fields.is_empty() {
                 return Box::new(Cursor::new([]));
             }
 
             let (name, part) = self.fields.pop_front().unwrap();
-            let chain = Box::new(self.part_stream(&name, part)) as Box<dyn AsyncRead + Send + Unpin>;
+            let chain = Box::new(self.part_stream(&name, part)) as Box<dyn AsyncRead + Send + Unpin + 'a>;
             let fields = take(&mut self.fields);
             Box::new(
                 fields
                     .into_iter()
                     .fold(chain, |readable, (name, part)| {
-                        Box::new(readable.chain(self.part_stream(&name, part))) as Box<dyn AsyncRead + Send + Unpin>
+                        Box::new(readable.chain(self.part_stream(&name, part)))
+                            as Box<dyn AsyncRead + Send + Unpin + 'a>
                     })
                     .chain(Cursor::new(b"--"))
                     .chain(Cursor::new(self.boundary.to_owned()))
@@ -425,7 +424,7 @@ mod async_part {
             )
         }
 
-        fn part_stream(&self, name: &str, part: AsyncPart) -> impl AsyncRead + Send + Unpin {
+        fn part_stream(&self, name: &str, part: AsyncPart<'a>) -> impl AsyncRead + Send + Unpin + 'a {
             Cursor::new(b"--")
                 .chain(Cursor::new(self.boundary.to_owned()))
                 .chain(Cursor::new(b"\r\n"))
@@ -436,7 +435,7 @@ mod async_part {
         }
     }
 
-    impl AsyncRead for AsyncPartBody {
+    impl AsyncRead for AsyncPartBody<'_> {
         #[inline]
         fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<IoResult<usize>> {
             match &mut self.0 {

@@ -3,52 +3,50 @@
 pub mod sync_part {
     #[derive(Debug, Default)]
     #[doc = "调用 API 所用的请求体参数"]
-    pub struct RequestBody {
-        multipart: qiniu_http_client::SyncMultipart,
+    pub struct RequestBody<'a> {
+        multipart: qiniu_http_client::SyncMultipart<'a>,
     }
-    impl RequestBody {
+    impl<'a> RequestBody<'a> {
         #[inline]
         #[must_use]
         pub fn add_part(
             mut self,
             name: impl Into<qiniu_http_client::FieldName>,
-            part: qiniu_http_client::SyncPart,
+            part: qiniu_http_client::SyncPart<'a>,
         ) -> Self {
             self.multipart = self.multipart.add_part(name.into(), part);
             self
         }
-        fn build(self) -> qiniu_http_client::SyncMultipart {
+        fn build(self) -> qiniu_http_client::SyncMultipart<'a> {
             self.multipart
         }
     }
-    impl From<RequestBody> for qiniu_http_client::SyncMultipart {
+    impl<'a> From<RequestBody<'a>> for qiniu_http_client::SyncMultipart<'a> {
         #[inline]
-        fn from(parts: RequestBody) -> Self {
+        fn from(parts: RequestBody<'a>) -> Self {
             parts.build()
         }
     }
-    impl RequestBody {
+    impl<'a> RequestBody<'a> {
         #[inline]
         #[must_use]
         #[doc = "对象名称，如果不传入，则通过上传策略中的 `saveKey` 字段决定，如果 `saveKey` 也没有置顶，则使用对象的哈希值"]
-        pub fn set_object_name(self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
+        pub fn set_object_name(self, value: impl Into<std::borrow::Cow<'a, str>>) -> RequestBody<'a> {
             self.add_part("key", qiniu_http_client::SyncPart::text(value))
         }
         #[inline]
         #[doc = "上传凭证"]
         pub fn set_upload_token(
             self,
-            token: &dyn qiniu_http_client::upload_token::UploadTokenProvider,
-        ) -> std::io::Result<Self> {
-            Ok(self.add_part(
-                "token",
-                qiniu_http_client::SyncPart::text(token.to_token_string(&Default::default())?.into_owned()),
-            ))
+            token: &'a (dyn qiniu_http_client::upload_token::UploadTokenProvider + 'a),
+            opts: &'a qiniu_http_client::upload_token::ToStringOptions,
+        ) -> std::io::Result<RequestBody<'a>> {
+            Ok(self.add_part("token", qiniu_http_client::SyncPart::text(token.to_token_string(opts)?)))
         }
         #[inline]
         #[must_use]
         #[doc = "上传内容的 CRC32 校验码，如果指定此值，则七牛服务器会使用此值进行内容检验"]
-        pub fn set_crc_32(self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
+        pub fn set_crc_32(self, value: impl Into<std::borrow::Cow<'a, str>>) -> RequestBody<'a> {
             self.add_part("crc32", qiniu_http_client::SyncPart::text(value))
         }
         #[inline]
@@ -56,9 +54,9 @@ pub mod sync_part {
         #[doc = "上传文件的内容"]
         pub fn set_file_as_reader(
             self,
-            reader: impl std::io::Read + 'static,
+            reader: impl std::io::Read + 'a,
             metadata: qiniu_http_client::PartMetadata,
-        ) -> Self {
+        ) -> RequestBody<'a> {
             self.add_part("file", qiniu_http_client::SyncPart::stream(reader).metadata(metadata))
         }
         #[inline]
@@ -66,14 +64,17 @@ pub mod sync_part {
         #[doc = "上传文件的内容"]
         pub fn set_file_as_bytes(
             self,
-            bytes: impl Into<std::borrow::Cow<'static, [u8]>>,
+            bytes: impl Into<std::borrow::Cow<'a, [u8]>>,
             metadata: qiniu_http_client::PartMetadata,
-        ) -> Self {
+        ) -> RequestBody<'a> {
             self.add_part("file", qiniu_http_client::SyncPart::bytes(bytes).metadata(metadata))
         }
         #[inline]
         #[doc = "上传文件的内容"]
-        pub fn set_file_as_file_path<S: AsRef<std::ffi::OsStr> + ?Sized>(self, path: &S) -> std::io::Result<Self> {
+        pub fn set_file_as_file_path<S: AsRef<std::ffi::OsStr> + ?Sized>(
+            self,
+            path: &S,
+        ) -> std::io::Result<RequestBody<'a>> {
             Ok(self.add_part(
                 "file",
                 qiniu_http_client::SyncPart::file_path(std::path::Path::new(path))?,
@@ -85,8 +86,8 @@ pub mod sync_part {
         pub fn append_custom_data(
             self,
             key: impl Into<qiniu_http_client::FieldName>,
-            value: impl Into<std::borrow::Cow<'static, str>>,
-        ) -> Self {
+            value: impl Into<std::borrow::Cow<'a, str>>,
+        ) -> RequestBody<'a> {
             self.add_part(key, qiniu_http_client::SyncPart::text(value))
         }
     }
@@ -95,54 +96,53 @@ pub mod sync_part {
 pub mod async_part {
     #[derive(Debug, Default)]
     #[doc = "调用 API 所用的请求体参数"]
-    pub struct RequestBody {
-        multipart: qiniu_http_client::AsyncMultipart,
+    pub struct RequestBody<'a> {
+        multipart: qiniu_http_client::AsyncMultipart<'a>,
     }
-    impl RequestBody {
+    impl<'a> RequestBody<'a> {
         #[inline]
         #[must_use]
         pub fn add_part(
             mut self,
             name: impl Into<qiniu_http_client::FieldName>,
-            part: qiniu_http_client::AsyncPart,
+            part: qiniu_http_client::AsyncPart<'a>,
         ) -> Self {
             self.multipart = self.multipart.add_part(name.into(), part);
             self
         }
-        fn build(self) -> qiniu_http_client::AsyncMultipart {
+        fn build(self) -> qiniu_http_client::AsyncMultipart<'a> {
             self.multipart
         }
     }
-    impl From<RequestBody> for qiniu_http_client::AsyncMultipart {
+    impl<'a> From<RequestBody<'a>> for qiniu_http_client::AsyncMultipart<'a> {
         #[inline]
-        fn from(parts: RequestBody) -> Self {
+        fn from(parts: RequestBody<'a>) -> Self {
             parts.build()
         }
     }
-    impl RequestBody {
+    impl<'a> RequestBody<'a> {
         #[inline]
         #[must_use]
         #[doc = "对象名称，如果不传入，则通过上传策略中的 `saveKey` 字段决定，如果 `saveKey` 也没有置顶，则使用对象的哈希值"]
-        pub fn set_object_name(self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
+        pub fn set_object_name(self, value: impl Into<std::borrow::Cow<'a, str>>) -> RequestBody<'a> {
             self.add_part("key", qiniu_http_client::AsyncPart::text(value))
         }
         #[inline]
         #[doc = "上传凭证"]
         pub async fn set_upload_token(
             self,
-            token: &dyn qiniu_http_client::upload_token::UploadTokenProvider,
-        ) -> std::io::Result<Self> {
+            token: &'a (dyn qiniu_http_client::upload_token::UploadTokenProvider + 'a),
+            opts: &'a qiniu_http_client::upload_token::ToStringOptions,
+        ) -> std::io::Result<RequestBody<'a>> {
             Ok(self.add_part(
                 "token",
-                qiniu_http_client::AsyncPart::text(
-                    token.async_to_token_string(&Default::default()).await?.into_owned(),
-                ),
+                qiniu_http_client::AsyncPart::text(token.async_to_token_string(opts).await?),
             ))
         }
         #[inline]
         #[must_use]
         #[doc = "上传内容的 CRC32 校验码，如果指定此值，则七牛服务器会使用此值进行内容检验"]
-        pub fn set_crc_32(self, value: impl Into<std::borrow::Cow<'static, str>>) -> Self {
+        pub fn set_crc_32(self, value: impl Into<std::borrow::Cow<'a, str>>) -> RequestBody<'a> {
             self.add_part("crc32", qiniu_http_client::AsyncPart::text(value))
         }
         #[inline]
@@ -150,9 +150,9 @@ pub mod async_part {
         #[doc = "上传文件的内容"]
         pub fn set_file_as_reader(
             self,
-            reader: impl futures::io::AsyncRead + Send + Unpin + 'static,
+            reader: impl futures::io::AsyncRead + Send + Unpin + 'a,
             metadata: qiniu_http_client::PartMetadata,
-        ) -> Self {
+        ) -> RequestBody<'a> {
             self.add_part("file", qiniu_http_client::AsyncPart::stream(reader).metadata(metadata))
         }
         #[inline]
@@ -160,9 +160,9 @@ pub mod async_part {
         #[doc = "上传文件的内容"]
         pub fn set_file_as_bytes(
             self,
-            bytes: impl Into<std::borrow::Cow<'static, [u8]>>,
+            bytes: impl Into<std::borrow::Cow<'a, [u8]>>,
             metadata: qiniu_http_client::PartMetadata,
-        ) -> Self {
+        ) -> RequestBody<'a> {
             self.add_part("file", qiniu_http_client::AsyncPart::bytes(bytes).metadata(metadata))
         }
         #[inline]
@@ -170,7 +170,7 @@ pub mod async_part {
         pub async fn set_file_as_file_path<S: AsRef<std::ffi::OsStr> + ?Sized>(
             self,
             path: &S,
-        ) -> std::io::Result<Self> {
+        ) -> std::io::Result<RequestBody<'a>> {
             Ok(self.add_part(
                 "file",
                 qiniu_http_client::AsyncPart::file_path(async_std::path::Path::new(path)).await?,
@@ -182,8 +182,8 @@ pub mod async_part {
         pub fn append_custom_data(
             self,
             key: impl Into<qiniu_http_client::FieldName>,
-            value: impl Into<std::borrow::Cow<'static, str>>,
-        ) -> Self {
+            value: impl Into<std::borrow::Cow<'a, str>>,
+        ) -> RequestBody<'a> {
             self.add_part(key, qiniu_http_client::AsyncPart::text(value))
         }
     }
@@ -478,7 +478,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBuilder<'req, E> {
     pub fn call(
         &mut self,
-        body: sync_part::RequestBody,
+        body: sync_part::RequestBody<'_>,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0.multipart(body)?;
         let response = request.call()?;
@@ -490,7 +490,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBu
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> AsyncRequestBuilder<'req, E> {
     pub async fn call(
         &mut self,
-        body: async_part::RequestBody,
+        body: async_part::RequestBody<'_>,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0.multipart(body).await?;
         let response = request.call().await?;

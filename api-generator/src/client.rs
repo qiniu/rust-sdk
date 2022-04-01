@@ -592,7 +592,7 @@ impl ApiDetailedDescription {
                     (Some(quote! {body: RequestBody}), quote! {self.0.post_form(body)})
                 }
                 Some(RequestBody::MultipartFormData(_)) => (
-                    Some(quote! {body: sync_part::RequestBody}),
+                    Some(quote! {body: sync_part::RequestBody<'_>}),
                     quote! {self.0.multipart(body)?},
                 ),
                 Some(RequestBody::BinaryData) => (
@@ -643,7 +643,7 @@ impl ApiDetailedDescription {
                     (Some(quote! {body: RequestBody}), quote! {self.0.post_form(body)})
                 }
                 Some(RequestBody::MultipartFormData(_)) => (
-                    Some(quote! {body: async_part::RequestBody}),
+                    Some(quote! {body: async_part::RequestBody<'_>}),
                     quote! {self.0.multipart(body).await?},
                 ),
                 Some(RequestBody::BinaryData) => (
