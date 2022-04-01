@@ -180,7 +180,6 @@ impl<B> Part<B> {
 
 mod sync_part {
     use super::*;
-    use bytes::{buf::Reader as BytesReader, Bytes};
     use std::{
         fmt::{self, Debug},
         fs::File,
@@ -190,7 +189,7 @@ mod sync_part {
     };
 
     enum SyncPartBodyInner {
-        Bytes(BytesReader<Bytes>),
+        Bytes(Cursor<Vec<u8>>),
         Stream(Box<dyn Read>),
     }
 
@@ -216,14 +215,12 @@ mod sync_part {
         #[inline]
         #[must_use]
         pub fn text(value: impl Into<Cow<'static, str>>) -> Self {
-            use bytes::Buf;
-
             let bytes = match value.into() {
-                Cow::Borrowed(slice) => Bytes::from_static(slice.as_bytes()),
-                Cow::Owned(string) => Bytes::from(string),
+                Cow::Borrowed(slice) => slice.as_bytes().to_vec(),
+                Cow::Owned(string) => string.into_bytes(),
             };
             Self {
-                body: SyncPartBody(SyncPartBodyInner::Bytes(bytes.reader())),
+                body: SyncPartBody(SyncPartBodyInner::Bytes(Cursor::new(bytes))),
                 meta: Default::default(),
             }
         }
@@ -232,14 +229,9 @@ mod sync_part {
         #[inline]
         #[must_use]
         pub fn bytes(value: impl Into<Cow<'static, [u8]>>) -> Self {
-            use bytes::Buf;
-
-            let bytes = match value.into() {
-                Cow::Borrowed(slice) => Bytes::from_static(slice),
-                Cow::Owned(string) => Bytes::from(string),
-            };
+            let bytes = value.into().into_owned();
             Self {
-                body: SyncPartBody(SyncPartBodyInner::Bytes(bytes.reader())),
+                body: SyncPartBody(SyncPartBodyInner::Bytes(Cursor::new(bytes))),
                 meta: Default::default(),
             }
         }
@@ -321,7 +313,6 @@ pub use sync_part::{SyncMultipart, SyncPart, SyncPartBody};
 mod async_part {
     use super::*;
     use async_std::{fs::File, path::Path};
-    use bytes::Bytes;
     use futures::io::{AsyncRead, AsyncReadExt, Cursor};
     use std::{
         fmt::{self, Debug},
@@ -334,7 +325,7 @@ mod async_part {
     type AsyncStream = Box<dyn AsyncRead + Send + Unpin>;
 
     enum AsyncPartBodyInner {
-        Bytes(Cursor<Bytes>),
+        Bytes(Cursor<Vec<u8>>),
         Stream(AsyncStream),
     }
 
@@ -363,8 +354,8 @@ mod async_part {
         #[must_use]
         pub fn text(value: impl Into<Cow<'static, str>>) -> Self {
             let bytes = match value.into() {
-                Cow::Borrowed(slice) => Bytes::from_static(slice.as_bytes()),
-                Cow::Owned(string) => Bytes::from(string),
+                Cow::Borrowed(slice) => slice.as_bytes().to_vec(),
+                Cow::Owned(string) => string.into_bytes(),
             };
             Self {
                 body: AsyncPartBody(AsyncPartBodyInner::Bytes(Cursor::new(bytes))),
@@ -376,10 +367,7 @@ mod async_part {
         #[inline]
         #[must_use]
         pub fn bytes(value: impl Into<Cow<'static, [u8]>>) -> Self {
-            let bytes = match value.into() {
-                Cow::Borrowed(slice) => Bytes::from_static(slice),
-                Cow::Owned(string) => Bytes::from(string),
-            };
+            let bytes = value.into().into_owned();
             Self {
                 body: AsyncPartBody(AsyncPartBodyInner::Bytes(Cursor::new(bytes))),
                 meta: Default::default(),
