@@ -6,7 +6,8 @@ build: reset_apis
 build_release: build
 build_test:
 	cargo test --no-run
-doc:
+doc: build
+	make -C ../apis doc
 test:
 	cargo test -- --show-output
 clean:

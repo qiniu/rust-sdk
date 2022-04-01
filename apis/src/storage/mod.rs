@@ -68,6 +68,7 @@ pub mod set_object_file_type;
 pub mod stat_object;
 #[doc = "解冻归档存储类型的文件，可设置解冻有效期1～7天，完成解冻任务通常需要1～5分钟"]
 pub mod unfreeze_object;
+#[doc = "API 调用客户端"]
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {

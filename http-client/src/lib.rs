@@ -23,7 +23,8 @@
 //!
 //! ## 七牛 HTTP 客户端库
 //!
-//! 基于 `qiniu-http` 提供具有重试功能的 HTTP 客户端（同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async` 功能），
+//! 基于 `qiniu-http` 提供具有重试功能的 HTTP 客户端
+//! （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async` 功能），
 //! 通过对七牛特有的状态码和响应头进行合理的处理和重试，竭力保证七牛 API 可以调用成功。
 //!
 //! 该接口库可以通过启用不同的功能来选择不同的客户端实现，
@@ -121,7 +122,7 @@
 //! use qiniu_credential::Credential;
 //! use qiniu_http_client::{Authorization, HttpClient, Region, RegionsProviderEndpoints, ServiceName};
 //!
-//! # async fn example_1() -> anyhow::Result<()> {
+//! # async fn example() -> anyhow::Result<()> {
 //! let region = Region::builder("z0")
 //!     .add_uc_preferred_endpoint("uc-qos.pocdemo.qiniu.io".parse()?)
 //!     .build();

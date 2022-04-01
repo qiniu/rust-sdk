@@ -66,11 +66,13 @@ impl CodeGenerator for MultipartFormDataRequestStruct {
         let sync_token_stream = self.to_rust_token_stream_inner(name, documentation, true);
         let async_token_stream = self.to_rust_token_stream_inner(name, documentation, false);
         quote! {
+            #[doc = "阻塞 Multipart 表单"]
             pub mod sync_part {
                 #sync_token_stream
             }
 
             #[cfg(feature = "async")]
+            #[doc = "异步 Multipart 表单"]
             pub mod async_part {
                 #async_token_stream
             }
@@ -386,6 +388,7 @@ impl MultipartFormDataRequestStruct {
                 impl<'a> #name<'a> {
                     #[inline]
                     #[must_use]
+                    #[doc = "添加新的 Multipart 表单组件"]
                     pub fn add_part(
                         mut self,
                         name: impl Into<qiniu_http_client::FieldName>,

@@ -83,12 +83,12 @@ impl StringMap {
             })
     }
 
-    #[inline]
+    #[doc = "获取映射结构的元素数量"]
     pub fn len(&self) -> usize {
         self.0.as_object().unwrap().len()
     }
 
-    #[inline]
+    #[doc = "映射结构是否为空"]
     pub fn is_empty(&self) -> bool {
         self.0.as_object().unwrap().is_empty()
     }

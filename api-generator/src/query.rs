@@ -146,6 +146,7 @@ impl QueryNames {
                 impl<'a> #name<'a> {
                     #[inline]
                     #[must_use]
+                    #[doc = "插入一个新的查询参数对"]
                     pub fn insert(
                         mut self,
                         query_pair_key: qiniu_http_client::QueryPairKey<'a>,

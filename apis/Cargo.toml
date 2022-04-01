@@ -23,6 +23,7 @@ qiniu-http-client = { version = "0.0.4", path = "../http-client" }
 qiniu-utils = { version = "0.0.4", path = "../utils" }
 
 [dev-dependencies]
+anyhow = "1.0.43"
 
 [features]
 default = ["ureq"]

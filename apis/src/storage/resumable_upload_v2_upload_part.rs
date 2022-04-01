@@ -12,6 +12,7 @@ pub struct PathParams {
 impl PathParams {
     #[inline]
     #[must_use]
+    #[doc = "追加新的路径段"]
     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
         self.extended_segments.push(segment.into());
         self
@@ -135,6 +136,7 @@ pub struct RequestHeaders {
 impl RequestHeaders {
     #[inline]
     #[must_use]
+    #[doc = "插入 HTTP 头参数"]
     pub fn insert(
         mut self,
         header_name: qiniu_http_client::http::header::HeaderName,
@@ -189,13 +191,13 @@ impl From<ResponseBody> for serde_json::Value {
         val.0
     }
 }
-impl std::convert::AsRef<serde_json::Value> for ResponseBody {
+impl AsRef<serde_json::Value> for ResponseBody {
     #[inline]
     fn as_ref(&self) -> &serde_json::Value {
         &self.0
     }
 }
-impl std::convert::AsMut<serde_json::Value> for ResponseBody {
+impl AsMut<serde_json::Value> for ResponseBody {
     #[inline]
     fn as_mut(&mut self) -> &mut serde_json::Value {
         &mut self.0
@@ -239,6 +241,7 @@ impl ResponseBody {
             })
     }
 }
+#[doc = "API 调用客户端"]
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
 impl<'client> Client<'client> {
@@ -248,11 +251,12 @@ impl<'client> Client<'client> {
 }
 impl<'client> Client<'client> {
     #[inline]
+    #[doc = "创建一个新的阻塞请求"]
     pub fn new_request<E: qiniu_http_client::EndpointsProvider + 'client>(
         &self,
         endpoints_provider: E,
         path_params: PathParams,
-        upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider + std::clone::Clone + 'client,
+        upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider + Clone + 'client,
     ) -> SyncRequestBuilder<'client, E> {
         RequestBuilder({
             let mut builder = self.0.put(&[qiniu_http_client::ServiceName::Up], endpoints_provider);
@@ -265,11 +269,12 @@ impl<'client> Client<'client> {
     }
     #[inline]
     #[cfg(feature = "async")]
+    #[doc = "创建一个新的异步请求"]
     pub fn new_async_request<E: qiniu_http_client::EndpointsProvider + 'client>(
         &self,
         endpoints_provider: E,
         path_params: PathParams,
-        upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider + std::clone::Clone + 'client,
+        upload_token: impl qiniu_http_client::upload_token::UploadTokenProvider + Clone + 'client,
     ) -> AsyncRequestBuilder<'client, E> {
         RequestBuilder({
             let mut builder = self
@@ -284,23 +289,29 @@ impl<'client> Client<'client> {
     }
 }
 #[derive(Debug)]
-pub struct RequestBuilder<'req, B: 'req, E: 'req>(qiniu_http_client::RequestBuilder<'req, B, E>);
+#[doc = "API 请求构造器"]
+pub struct RequestBuilder<'req, B, E>(qiniu_http_client::RequestBuilder<'req, B, E>);
+#[doc = "API 阻塞请求构造器"]
 pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[doc = "API 异步请求构造器"]
 pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
-impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
+impl<'req, B, E> RequestBuilder<'req, B, E> {
     #[inline]
+    #[doc = "设置是否使用 HTTPS"]
     pub fn use_https(&mut self, use_https: bool) -> &mut Self {
         self.0.use_https(use_https);
         self
     }
     #[inline]
+    #[doc = "设置 HTTP 协议版本"]
     pub fn version(&mut self, version: qiniu_http_client::http::Version) -> &mut Self {
         self.0.version(version);
         self
     }
     #[inline]
+    #[doc = "设置 HTTP 请求头"]
     pub fn headers(
         &mut self,
         headers: impl Into<std::borrow::Cow<'req, qiniu_http_client::http::HeaderMap>>,
@@ -309,21 +320,51 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "添加 HTTP 请求头"]
+    pub fn set_header(
+        &mut self,
+        header_name: impl Into<qiniu_http_client::http::HeaderName>,
+        header_value: impl Into<qiniu_http_client::http::HeaderValue>,
+    ) -> &mut Self {
+        self.0.set_header(header_name, header_value);
+        self
+    }
+    #[inline]
+    #[doc = "设置查询参数"]
+    pub fn query(&mut self, query: impl Into<std::borrow::Cow<'req, str>>) -> &mut Self {
+        self.0.query(query);
+        self
+    }
+    #[inline]
+    #[doc = "设置查询参数"]
     pub fn query_pairs(&mut self, query_pairs: impl Into<Vec<qiniu_http_client::QueryPair<'req>>>) -> &mut Self {
         self.0.query_pairs(query_pairs);
         self
     }
     #[inline]
+    #[doc = "追加查询参数"]
+    pub fn append_query_pair(
+        &mut self,
+        query_pair_key: impl Into<qiniu_http_client::QueryPairKey<'req>>,
+        query_pair_value: impl Into<qiniu_http_client::QueryPairValue<'req>>,
+    ) -> &mut Self {
+        self.0.append_query_pair(query_pair_key, query_pair_value);
+        self
+    }
+    #[inline]
+    #[doc = "设置扩展信息"]
     pub fn extensions(&mut self, extensions: qiniu_http_client::http::Extensions) -> &mut Self {
         self.0.extensions(extensions);
         self
     }
+    #[doc = "添加扩展信息"]
     #[inline]
     pub fn add_extension<T: Send + Sync + 'static>(&mut self, val: T) -> &mut Self {
         self.0.add_extension(val);
         self
     }
     #[inline]
+    #[doc = "上传进度回调函数"]
     pub fn on_uploading_progress(
         &mut self,
         callback: impl Fn(
@@ -338,6 +379,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "设置响应状态码回调函数"]
     pub fn on_receive_response_status(
         &mut self,
         callback: impl Fn(
@@ -352,6 +394,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "设置响应 HTTP 头回调函数"]
     pub fn on_receive_response_header(
         &mut self,
         callback: impl Fn(
@@ -367,6 +410,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "设置域名解析前回调函数"]
     pub fn on_to_resolve_domain(
         &mut self,
         callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> qiniu_http_client::CallbackResult
@@ -378,6 +422,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "设置域名解析成功回调函数"]
     pub fn on_domain_resolved(
         &mut self,
         callback: impl Fn(
@@ -393,6 +438,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "设置 IP 地址选择前回调函数"]
     pub fn on_to_choose_ips(
         &mut self,
         callback: impl Fn(
@@ -407,6 +453,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "设置 IP 地址选择成功回调函数"]
     pub fn on_ips_chosen(
         &mut self,
         callback: impl Fn(
@@ -422,6 +469,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "设置 HTTP 请求签名前回调函数"]
     pub fn on_before_request_signed(
         &mut self,
         callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
@@ -433,6 +481,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "设置 HTTP 请求前回调函数"]
     pub fn on_after_request_signed(
         &mut self,
         callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
@@ -444,6 +493,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "设置响应成功回调函数"]
     pub fn on_response(
         &mut self,
         callback: impl Fn(
@@ -458,6 +508,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "设置响应错误回调函数"]
     pub fn on_error(
         &mut self,
         callback: impl Fn(
@@ -472,6 +523,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "设置退避前回调函数"]
     pub fn on_before_backoff(
         &mut self,
         callback: impl Fn(
@@ -486,6 +538,7 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "设置退避后回调函数"]
     pub fn on_after_backoff(
         &mut self,
         callback: impl Fn(
@@ -500,11 +553,18 @@ impl<'req, B: 'req, E: 'req> RequestBuilder<'req, B, E> {
         self
     }
     #[inline]
+    #[doc = "获取 HTTP 请求构建器部分参数"]
+    pub fn parts(&self) -> &qiniu_http_client::RequestBuilderParts<'req> {
+        self.0.parts()
+    }
+    #[inline]
+    #[doc = "获取 HTTP 请求构建器部分参数的可变引用"]
     pub fn parts_mut(&mut self) -> &mut qiniu_http_client::RequestBuilderParts<'req> {
         self.0.parts_mut()
     }
 }
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBuilder<'req, E> {
+    #[doc = "阻塞发起 HTTP 请求"]
     pub fn call(
         &mut self,
         body: impl std::io::Read + qiniu_http_client::http::Reset + std::fmt::Debug + Send + Sync + 'static,
@@ -518,6 +578,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBu
 }
 #[cfg(feature = "async")]
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> AsyncRequestBuilder<'req, E> {
+    #[doc = "异步发起 HTTP 请求"]
     pub async fn call(
         &mut self,
         body: impl futures::io::AsyncRead

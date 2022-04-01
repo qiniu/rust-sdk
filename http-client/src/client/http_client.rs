@@ -35,7 +35,7 @@ use super::AsyncRequestBuilder;
 /// use qiniu_credential::Credential;
 /// use qiniu_http_client::{Authorization, HttpClient, Region, RegionsProviderEndpoints, ServiceName};
 ///
-/// # async fn example_1() -> anyhow::Result<()> {
+/// # async fn example() -> anyhow::Result<()> {
 /// let region = Region::builder("z0")
 ///     .add_uc_preferred_endpoint("uc-qos.pocdemo.qiniu.io".parse()?)
 ///     .build();

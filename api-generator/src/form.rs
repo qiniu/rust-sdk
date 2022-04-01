@@ -52,19 +52,10 @@ impl FormUrlencodedRequestStruct {
             }
         };
 
-        fn define_new_struct(
-            name: &Ident,
-            documentation: &str,
-            fields: &[FormUrlencodedRequestField],
-        ) -> TokenStream {
+        fn define_new_struct(name: &Ident, documentation: &str, fields: &[FormUrlencodedRequestField]) -> TokenStream {
             let field_definitions: Vec<_> = fields
                 .iter()
-                .map(|param| {
-                    field_definition_token_stream(
-                        &field_name_to_ident(&param.field_name),
-                        param.multiple,
-                    )
-                })
+                .map(|param| field_definition_token_stream(&field_name_to_ident(&param.field_name), param.multiple))
                 .collect();
             let append_pairs: Vec<_> = fields
                 .iter()
@@ -82,6 +73,7 @@ impl FormUrlencodedRequestStruct {
                 impl #name {
                     #[inline]
                     #[must_use]
+                    #[doc = "添加新的表单项"]
                     pub fn append_pair(
                         mut self,
                         key: impl Into<std::borrow::Cow<'static, str>>,
@@ -125,10 +117,7 @@ impl FormUrlencodedRequestStruct {
             }
         }
 
-        fn append_pairs_token_stream(
-            all_pairs: &Ident,
-            field: &FormUrlencodedRequestField,
-        ) -> TokenStream {
+        fn append_pairs_token_stream(all_pairs: &Ident, field: &FormUrlencodedRequestField) -> TokenStream {
             let field_name = field_name_to_ident(&field.field_name);
             let key = &field.key;
             if field.multiple {
@@ -157,9 +146,7 @@ impl FormUrlencodedRequestStruct {
             let field_name = field_name_to_ident(&field.field_name);
             let documentation = field.documentation.as_str();
             match &field.ty {
-                StringLikeType::String => {
-                    for_string_field(&field_name, documentation, field.multiple)
-                }
+                StringLikeType::String => for_string_field(&field_name, documentation, field.multiple),
                 StringLikeType::Integer => for_based_field(
                     &field_name,
                     documentation,
@@ -183,12 +170,9 @@ impl FormUrlencodedRequestStruct {
                     field.multiple,
                     &[("f32", &quote!(f32)), ("f64", &quote!(f64))],
                 ),
-                StringLikeType::Boolean => for_based_field(
-                    &field_name,
-                    documentation,
-                    field.multiple,
-                    &[("bool", &quote!(bool))],
-                ),
+                StringLikeType::Boolean => {
+                    for_based_field(&field_name, documentation, field.multiple, &[("bool", &quote!(bool))])
+                }
             }
         }
 

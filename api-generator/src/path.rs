@@ -91,11 +91,7 @@ impl PathParams {
             }
         };
 
-        fn define_new_struct(
-            name: &Ident,
-            documentation: &str,
-            named_path_params: &[NamedPathParam],
-        ) -> TokenStream {
+        fn define_new_struct(name: &Ident, documentation: &str, named_path_params: &[NamedPathParam]) -> TokenStream {
             let named_fields: Vec<_> = named_path_params
                 .iter()
                 .map(|param| field_name_to_ident(&param.field_name))
@@ -116,6 +112,7 @@ impl PathParams {
                 impl #name {
                     #[inline]
                     #[must_use]
+                    #[doc = "追加新的路径段"]
                     pub fn push_segment(mut self, segment: impl Into<std::borrow::Cow<'static, str>>) -> Self {
                         self.extended_segments.push(segment.into());
                         self
@@ -135,10 +132,7 @@ impl PathParams {
             format_ident!("r#{}", field_name.to_case(Case::Snake))
         }
 
-        fn concat_segments_token_stream(
-            all_segments: &Ident,
-            param: &NamedPathParam,
-        ) -> TokenStream {
+        fn concat_segments_token_stream(all_segments: &Ident, param: &NamedPathParam) -> TokenStream {
             let path_segment_push_token_stream = param.path_segment.as_ref().map(|path_segment| {
                 quote! {
                     #all_segments.push(std::borrow::Cow::Borrowed(#path_segment));
@@ -166,8 +160,7 @@ impl PathParams {
         }
 
         fn for_named_path_params(params: &[NamedPathParam]) -> TokenStream {
-            let token_streams_for_fields: Vec<_> =
-                params.iter().map(for_named_path_param).collect();
+            let token_streams_for_fields: Vec<_> = params.iter().map(for_named_path_param).collect();
             quote! {
                 #(#token_streams_for_fields)*
             }
@@ -177,9 +170,7 @@ impl PathParams {
             let field_name = field_name_to_ident(&param.field_name);
             let documentation = param.documentation.as_str();
             match &param.ty {
-                StringLikeType::String => {
-                    for_named_string_field(&field_name, documentation, param.encode)
-                }
+                StringLikeType::String => for_named_string_field(&field_name, documentation, param.encode),
                 StringLikeType::Integer => for_named_based_field(
                     &field_name,
                     documentation,
@@ -207,11 +198,7 @@ impl PathParams {
             }
         }
 
-        fn for_named_string_field(
-            field_name: &Ident,
-            documentation: &str,
-            encode: Option<EncodeType>,
-        ) -> TokenStream {
+        fn for_named_string_field(field_name: &Ident, documentation: &str, encode: Option<EncodeType>) -> TokenStream {
             let method_name = format_ident!("set_{}_as_str", field_name);
             let value_token_stream = if encode.is_some() {
                 quote! {qiniu_utils::base64::urlsafe(value.into().as_bytes()).into()}
@@ -260,15 +247,11 @@ impl PathParams {
         fn for_free_path_params(params: &FreePathParams) -> TokenStream {
             let field_name = field_name_to_ident(&params.field_name);
             let documentation = params.documentation.as_str();
-            let encode_key_token_stream = encode_path_segment_token_stream(
-                &format_ident!("{}", "key"),
-                params.encode_param_key,
-            );
+            let encode_key_token_stream =
+                encode_path_segment_token_stream(&format_ident!("{}", "key"), params.encode_param_key);
             let key_type_token_stream = path_segment_type_token_stream(params.encode_param_key);
-            let encode_value_token_stream = encode_path_segment_token_stream(
-                &format_ident!("{}", "value"),
-                params.encode_param_value,
-            );
+            let encode_value_token_stream =
+                encode_path_segment_token_stream(&format_ident!("{}", "value"), params.encode_param_value);
             let value_type_token_stream = path_segment_type_token_stream(params.encode_param_value);
             let method_name = format_ident!("append_{}_as_str", field_name);
             return quote! {
@@ -297,10 +280,7 @@ impl PathParams {
                 }
             }
 
-            fn encode_path_segment_token_stream(
-                ident: &Ident,
-                encode: Option<EncodeType>,
-            ) -> TokenStream {
+            fn encode_path_segment_token_stream(ident: &Ident, encode: Option<EncodeType>) -> TokenStream {
                 match encode {
                     None => {
                         quote! { #ident.into() }

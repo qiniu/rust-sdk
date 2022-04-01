@@ -46,8 +46,7 @@ impl HeaderNames {
         };
 
         fn for_header_fields(header_names: &[HeaderName]) -> TokenStream {
-            let token_streams_for_fields: Vec<_> =
-                header_names.iter().map(for_header_field).collect();
+            let token_streams_for_fields: Vec<_> = header_names.iter().map(for_header_field).collect();
             quote! {
                 #(#token_streams_for_fields)*
             }
@@ -85,6 +84,7 @@ impl HeaderNames {
                 impl #name {
                     #[inline]
                     #[must_use]
+                    #[doc = "插入 HTTP 头参数"]
                     pub fn insert(
                         mut self,
                         header_name: qiniu_http_client::http::header::HeaderName,

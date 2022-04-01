@@ -72,18 +72,10 @@ impl JsonType {
         };
 
         fn impls_token_stream_for_string(name: &Ident) -> TokenStream {
-            let as_method_token_stream = impl_as_method_for_base_types(
-                name,
-                &quote!(&str),
-                &quote!(as_str),
-                "解析 JSON 得到 String",
-            );
-            let set_method_token_stream = impl_set_method_for_base_types(
-                name,
-                &quote!(String),
-                &quote!(set_str),
-                "设置 JSON String 值",
-            );
+            let as_method_token_stream =
+                impl_as_method_for_base_types(name, &quote!(&str), &quote!(as_str), "解析 JSON 得到 String");
+            let set_method_token_stream =
+                impl_set_method_for_base_types(name, &quote!(String), &quote!(set_str), "设置 JSON String 值");
             let from_trait_token_stream = impl_from_trait_for_base_types(name, &quote!(String));
             quote! {
                 #as_method_token_stream
@@ -93,18 +85,10 @@ impl JsonType {
         }
 
         fn impls_token_stream_for_bool(name: &Ident) -> TokenStream {
-            let as_method_token_stream = impl_as_method_for_base_types(
-                name,
-                &quote!(bool),
-                &quote!(as_bool),
-                "解析 JSON 得到 Boolean",
-            );
-            let set_method_token_stream = impl_set_method_for_base_types(
-                name,
-                &quote!(bool),
-                &quote!(set_bool),
-                "设置 JSON Boolean",
-            );
+            let as_method_token_stream =
+                impl_as_method_for_base_types(name, &quote!(bool), &quote!(as_bool), "解析 JSON 得到 Boolean");
+            let set_method_token_stream =
+                impl_set_method_for_base_types(name, &quote!(bool), &quote!(set_bool), "设置 JSON Boolean");
             let from_trait_token_stream = impl_from_trait_for_base_types(name, &quote!(bool));
             quote! {
                 #as_method_token_stream
@@ -115,18 +99,8 @@ impl JsonType {
 
         fn impls_token_stream_for_int(name: &Ident) -> TokenStream {
             let as_method_token_streams = [
-                impl_as_method_for_base_types(
-                    name,
-                    &quote!(i64),
-                    &quote!(as_i64),
-                    "解析 JSON 得到 i64",
-                ),
-                impl_as_method_for_base_types(
-                    name,
-                    &quote!(u64),
-                    &quote!(as_u64),
-                    "解析 JSON 得到 u64",
-                ),
+                impl_as_method_for_base_types(name, &quote!(i64), &quote!(as_i64), "解析 JSON 得到 i64"),
+                impl_as_method_for_base_types(name, &quote!(u64), &quote!(as_u64), "解析 JSON 得到 u64"),
             ];
             let from_trait_and_set_method_token_streams = [
                 (quote!(i8), quote!(set_i8), "设置 JSON i8 整型"),
@@ -141,12 +115,8 @@ impl JsonType {
                 (quote!(usize), quote!(set_usize), "设置 JSON usize 整型"),
             ]
             .map(|(ty, set_method_name, set_method_documentation)| {
-                let set_method_token_stream = impl_set_method_for_base_types(
-                    name,
-                    &ty,
-                    &set_method_name,
-                    set_method_documentation,
-                );
+                let set_method_token_stream =
+                    impl_set_method_for_base_types(name, &ty, &set_method_name, set_method_documentation);
                 let from_trait_token_stream = impl_from_trait_for_base_types(name, &ty);
                 quote! {
                     #set_method_token_stream
@@ -161,23 +131,15 @@ impl JsonType {
         }
 
         fn impls_token_stream_for_float(name: &Ident) -> TokenStream {
-            let as_method_token_stream = impl_as_method_for_base_types(
-                name,
-                &quote!(f64),
-                &quote!(as_f64),
-                "解析 JSON 得到 f64 浮点型",
-            );
+            let as_method_token_stream =
+                impl_as_method_for_base_types(name, &quote!(f64), &quote!(as_f64), "解析 JSON 得到 f64 浮点型");
             let from_trait_and_set_method_token_streams = [
                 (quote!(f64), quote!(set_f64), "设置 JSON f64 浮点型"),
                 (quote!(f32), quote!(set_f32), "设置 JSON f32 浮点型"),
             ]
             .map(|(ty, set_method_name, set_method_documentation)| {
-                let set_method_token_stream = impl_set_method_for_base_types(
-                    name,
-                    &ty,
-                    &set_method_name,
-                    set_method_documentation,
-                );
+                let set_method_token_stream =
+                    impl_set_method_for_base_types(name, &ty, &set_method_name, set_method_documentation);
                 let from_trait_token_stream = impl_from_trait_for_base_types(name, &ty);
                 quote! {
                     #set_method_token_stream
@@ -243,9 +205,7 @@ impl JsonType {
                 JsonType::Float => impls_token_stream_for_array_of_float(name),
                 JsonType::Boolean => impls_token_stream_for_array_of_bool(name),
                 JsonType::Array(_) => panic!("Array of Array is not supported"),
-                JsonType::Struct(struct_info) => {
-                    impls_token_stream_for_array_of_struct(name, struct_info)
-                }
+                JsonType::Struct(struct_info) => impls_token_stream_for_array_of_struct(name, struct_info),
                 JsonType::Any => panic!("Array of Any is not supported"),
                 JsonType::StringMap => panic!("Array of StringMap is not supported"),
             };
@@ -258,10 +218,8 @@ impl JsonType {
                     &quote!(as_str),
                     "解析 JSON 得到 String 列表",
                 );
-                let from_trait_token_stream =
-                    impl_from_trait_for_base_types_in_array(name, &quote!(String));
-                let immutable_methods_token_stream =
-                    impl_immutable_methods_for_base_types_in_array(name);
+                let from_trait_token_stream = impl_from_trait_for_base_types_in_array(name, &quote!(String));
+                let immutable_methods_token_stream = impl_immutable_methods_for_base_types_in_array(name);
                 let insert_method_token_stream = impl_insert_method_for_base_types_in_array(
                     name,
                     &quote!(String),
@@ -307,10 +265,8 @@ impl JsonType {
                     &quote!(as_bool),
                     "解析 JSON 得到 Boolean 列表",
                 );
-                let from_trait_token_stream =
-                    impl_from_trait_for_base_types_in_array(name, &quote!(bool));
-                let immutable_methods_token_stream =
-                    impl_immutable_methods_for_base_types_in_array(name);
+                let from_trait_token_stream = impl_from_trait_for_base_types_in_array(name, &quote!(bool));
+                let immutable_methods_token_stream = impl_immutable_methods_for_base_types_in_array(name);
                 let insert_method_token_stream = impl_insert_method_for_base_types_in_array(
                     name,
                     &quote!(bool),
@@ -349,8 +305,7 @@ impl JsonType {
             }
 
             fn impls_token_stream_for_array_of_int(name: &Ident) -> TokenStream {
-                let immutable_methods_token_stream =
-                    impl_immutable_methods_for_base_types_in_array(name);
+                let immutable_methods_token_stream = impl_immutable_methods_for_base_types_in_array(name);
                 let as_method_token_streams = [
                     impl_as_method_for_base_types_in_array(
                         name,
@@ -397,15 +352,14 @@ impl JsonType {
                         pop_method_name,
                         pop_method_documentation,
                     )| {
-                        let remove_method_token_stream =
-                            impl_remove_as_method_for_base_types_in_array(
-                                name,
-                                &ty,
-                                &json_type,
-                                &as_method_name,
-                                &remove_method_name,
-                                remove_method_documentation,
-                            );
+                        let remove_method_token_stream = impl_remove_as_method_for_base_types_in_array(
+                            name,
+                            &ty,
+                            &json_type,
+                            &as_method_name,
+                            &remove_method_name,
+                            remove_method_documentation,
+                        );
                         let pop_method_token_stream = impl_pop_as_method_for_base_types_in_array(
                             name,
                             &ty,
@@ -500,8 +454,7 @@ impl JsonType {
                         push_method_name,
                         push_method_documentation,
                     )| {
-                        let from_trait_token_stream =
-                            impl_from_trait_for_base_types_in_array(name, &ty);
+                        let from_trait_token_stream = impl_from_trait_for_base_types_in_array(name, &ty);
                         let insert_method_token_stream = impl_insert_method_for_base_types_in_array(
                             name,
                             &ty,
@@ -531,8 +484,7 @@ impl JsonType {
             }
 
             fn impls_token_stream_for_array_of_float(name: &Ident) -> TokenStream {
-                let immutable_methods_token_stream =
-                    impl_immutable_methods_for_base_types_in_array(name);
+                let immutable_methods_token_stream = impl_immutable_methods_for_base_types_in_array(name);
                 let as_method_token_stream = impl_as_method_for_base_types_in_array(
                     name,
                     &quote!(f64),
@@ -580,8 +532,7 @@ impl JsonType {
                         push_method_name,
                         push_method_documentation,
                     )| {
-                        let from_trait_token_stream =
-                            impl_from_trait_for_base_types_in_array(name, &ty);
+                        let from_trait_token_stream = impl_from_trait_for_base_types_in_array(name, &ty);
                         let insert_method_token_stream = impl_insert_method_for_base_types_in_array(
                             name,
                             &ty,
@@ -611,10 +562,7 @@ impl JsonType {
                 }
             }
 
-            fn impls_token_stream_for_array_of_struct(
-                name: &Ident,
-                struct_info: &JsonStruct,
-            ) -> TokenStream {
+            fn impls_token_stream_for_array_of_struct(name: &Ident, struct_info: &JsonStruct) -> TokenStream {
                 let struct_name = format_ident!("{}", struct_info.name.to_case(Case::Pascal));
                 let struct_token_stream = {
                     let type_definition_token_stream = define_new_struct(
@@ -622,20 +570,16 @@ impl JsonType {
                         &struct_info.documentation,
                         Some(JsonCollectionType::Object),
                     );
-                    let struct_impls_token_stream =
-                        impls_token_stream_for_struct(&struct_name, &struct_info.fields);
+                    let struct_impls_token_stream = impls_token_stream_for_struct(&struct_name, &struct_info.fields);
                     quote! {
                         #type_definition_token_stream
                         #struct_impls_token_stream
                     }
                 };
                 let as_method_token_stream = {
-                    let to_method_name =
-                        format_ident!("to_{}_vec", struct_info.name.to_case(Case::Snake));
-                    let to_method_documentation = format!(
-                        "解析 JSON 得到 {} 列表",
-                        struct_info.name.to_case(Case::Pascal)
-                    );
+                    let to_method_name = format_ident!("to_{}_vec", struct_info.name.to_case(Case::Snake));
+                    let to_method_documentation =
+                        format!("解析 JSON 得到 {} 列表", struct_info.name.to_case(Case::Pascal));
                     impl_as_method_for_user_defined_types_in_array(
                         name,
                         &quote!(#struct_name),
@@ -643,17 +587,12 @@ impl JsonType {
                         &to_method_documentation,
                     )
                 };
-                let from_trait_token_stream =
-                    impl_from_trait_for_base_types_in_array(name, &quote!(#struct_name));
-                let immutable_methods_token_stream =
-                    impl_immutable_methods_for_base_types_in_array(name);
+                let from_trait_token_stream = impl_from_trait_for_base_types_in_array(name, &quote!(#struct_name));
+                let immutable_methods_token_stream = impl_immutable_methods_for_base_types_in_array(name);
                 let insert_method_token_stream = {
-                    let insert_method_name =
-                        format_ident!("insert_{}", struct_info.name.to_case(Case::Snake));
-                    let insert_method_documentation = format!(
-                        "在列表的指定位置插入 JSON {}",
-                        struct_info.name.to_case(Case::Pascal)
-                    );
+                    let insert_method_name = format_ident!("insert_{}", struct_info.name.to_case(Case::Snake));
+                    let insert_method_documentation =
+                        format!("在列表的指定位置插入 JSON {}", struct_info.name.to_case(Case::Pascal));
                     impl_insert_method_for_base_types_in_array(
                         name,
                         &quote!(#struct_name),
@@ -662,12 +601,9 @@ impl JsonType {
                     )
                 };
                 let remove_method_token_stream = {
-                    let remove_method_name =
-                        format_ident!("remove_as_{}", struct_info.name.to_case(Case::Snake));
-                    let remove_method_documentation = format!(
-                        "在列表的指定位置移出 JSON {}",
-                        struct_info.name.to_case(Case::Pascal)
-                    );
+                    let remove_method_name = format_ident!("remove_as_{}", struct_info.name.to_case(Case::Snake));
+                    let remove_method_documentation =
+                        format!("在列表的指定位置移出 JSON {}", struct_info.name.to_case(Case::Pascal));
                     impl_remove_method_for_struct_types_in_array(
                         name,
                         &quote!(#struct_name),
@@ -676,12 +612,9 @@ impl JsonType {
                     )
                 };
                 let push_method_token_stream = {
-                    let push_method_name =
-                        format_ident!("push_{}", struct_info.name.to_case(Case::Snake));
-                    let push_method_documentation = format!(
-                        "在列表尾部追加 JSON {}",
-                        struct_info.name.to_case(Case::Pascal)
-                    );
+                    let push_method_name = format_ident!("push_{}", struct_info.name.to_case(Case::Snake));
+                    let push_method_documentation =
+                        format!("在列表尾部追加 JSON {}", struct_info.name.to_case(Case::Pascal));
                     impl_push_method_for_base_types_in_array(
                         name,
                         &quote!(#struct_name),
@@ -690,12 +623,9 @@ impl JsonType {
                     )
                 };
                 let pop_method_token_stream = {
-                    let pop_method_name =
-                        format_ident!("pop_{}", struct_info.name.to_case(Case::Snake));
-                    let pop_method_documentation = format!(
-                        "在列表尾部取出 JSON {}",
-                        struct_info.name.to_case(Case::Pascal)
-                    );
+                    let pop_method_name = format_ident!("pop_{}", struct_info.name.to_case(Case::Snake));
+                    let pop_method_documentation =
+                        format!("在列表尾部取出 JSON {}", struct_info.name.to_case(Case::Pascal));
                     impl_pop_method_for_struct_types_in_array(
                         name,
                         &quote!(#struct_name),
@@ -760,10 +690,7 @@ impl JsonType {
                 }
             }
 
-            fn impl_from_trait_for_base_types_in_array(
-                name: &Ident,
-                rust_type: &TokenStream,
-            ) -> TokenStream {
+            fn impl_from_trait_for_base_types_in_array(name: &Ident, rust_type: &TokenStream) -> TokenStream {
                 quote! {
                     impl From<Vec<#rust_type>> for #name {
                         #[inline]
@@ -777,6 +704,7 @@ impl JsonType {
             fn impl_immutable_methods_for_base_types_in_array(name: &Ident) -> TokenStream {
                 quote! {
                     impl #name {
+                        #[doc = "获取数组的长度"]
                         pub fn len(&self) -> usize {
                             self.0
                                 .as_array()
@@ -784,6 +712,7 @@ impl JsonType {
                                 .len()
                         }
 
+                        #[doc = "数组是否为空"]
                         pub fn is_empty(&self) -> bool {
                             self.0
                                 .as_array()
@@ -970,10 +899,7 @@ impl JsonType {
                 #(#impls_token_stream)*
             };
 
-            fn impls_token_stream_for_field_of_struct(
-                name: &Ident,
-                field: &JsonField,
-            ) -> TokenStream {
+            fn impls_token_stream_for_field_of_struct(name: &Ident, field: &JsonField) -> TokenStream {
                 let field_name = format_ident!("{}", field.field_name.to_case(Case::Snake));
                 let json_key = field.key.as_str();
                 let documentation = field.documentation.as_str();
@@ -1070,17 +996,16 @@ impl JsonType {
                     documentation: &str,
                     optional: bool,
                 ) -> TokenStream {
-                    let getter_method_token_stream =
-                        impl_getter_method_for_base_type_field_of_struct(
-                            name,
-                            field_name,
-                            "str",
-                            json_key,
-                            documentation,
-                            &quote!(&str),
-                            &quote!(as_str),
-                            optional,
-                        );
+                    let getter_method_token_stream = impl_getter_method_for_base_type_field_of_struct(
+                        name,
+                        field_name,
+                        "str",
+                        json_key,
+                        documentation,
+                        &quote!(&str),
+                        &quote!(as_str),
+                        optional,
+                    );
                     let setter_method_token_stream = impl_setter_method_for_string_field_of_struct(
                         name,
                         field_name,
@@ -1104,28 +1029,26 @@ impl JsonType {
                     as_method_name: &TokenStream,
                     optional: bool,
                 ) -> TokenStream {
-                    let getter_method_token_stream =
-                        impl_getter_method_for_base_type_field_of_struct(
-                            name,
-                            field_name,
-                            type_suffix,
-                            json_key,
-                            documentation,
-                            rust_type,
-                            as_method_name,
-                            optional,
-                        );
-                    let setter_method_token_stream =
-                        impl_setter_method_for_base_type_field_of_struct(
-                            name,
-                            field_name,
-                            type_suffix,
-                            json_key,
-                            documentation,
-                            rust_type,
-                            as_method_name,
-                            optional,
-                        );
+                    let getter_method_token_stream = impl_getter_method_for_base_type_field_of_struct(
+                        name,
+                        field_name,
+                        type_suffix,
+                        json_key,
+                        documentation,
+                        rust_type,
+                        as_method_name,
+                        optional,
+                    );
+                    let setter_method_token_stream = impl_setter_method_for_base_type_field_of_struct(
+                        name,
+                        field_name,
+                        type_suffix,
+                        json_key,
+                        documentation,
+                        rust_type,
+                        as_method_name,
+                        optional,
+                    );
                     quote! {
                         #getter_method_token_stream
                         #setter_method_token_stream
@@ -1142,8 +1065,7 @@ impl JsonType {
                     as_method_name: &TokenStream,
                     optional: bool,
                 ) -> TokenStream {
-                    let field_getter_method_name =
-                        format_ident!("get_{}_as_{}", field_name, type_suffix);
+                    let field_getter_method_name = format_ident!("get_{}_as_{}", field_name, type_suffix);
                     let getter_documentation = format!("获取 {}", documentation);
                     if optional {
                         quote! {
@@ -1185,8 +1107,7 @@ impl JsonType {
                     as_method_name: &TokenStream,
                     optional: bool,
                 ) -> TokenStream {
-                    let field_setter_method_name =
-                        format_ident!("set_{}_as_{}", field_name, type_suffix);
+                    let field_setter_method_name = format_ident!("set_{}_as_{}", field_name, type_suffix);
                     let setter_documentation = format!("设置 {}", documentation);
                     if optional {
                         quote! {
@@ -1374,13 +1295,9 @@ impl JsonType {
                     optional: bool,
                 ) -> TokenStream {
                     let array_name = format_ident!("{}", array_info.name.to_case(Case::Pascal));
-                    let type_definition_token_stream = define_new_struct(
-                        &array_name,
-                        &array_info.documentation,
-                        Some(JsonCollectionType::Array),
-                    );
-                    let impls_token_stream =
-                        impls_token_stream_for_array(&array_name, &array_info.ty);
+                    let type_definition_token_stream =
+                        define_new_struct(&array_name, &array_info.documentation, Some(JsonCollectionType::Array));
+                    let impls_token_stream = impls_token_stream_for_array(&array_name, &array_info.ty);
                     let getter_method_token_stream = impl_getter_method_for_struct_field_of_struct(
                         name,
                         field_name,
@@ -1541,11 +1458,7 @@ enum JsonCollectionType {
     Object,
 }
 
-fn define_new_struct(
-    name: &Ident,
-    documentation: &str,
-    coll_type: Option<JsonCollectionType>,
-) -> TokenStream {
+fn define_new_struct(name: &Ident, documentation: &str, coll_type: Option<JsonCollectionType>) -> TokenStream {
     let default_method = match coll_type {
         Some(JsonCollectionType::Array) => Some(quote! {
             impl Default for #name {
@@ -1587,14 +1500,14 @@ fn define_new_struct(
             }
         }
 
-        impl std::convert::AsRef<serde_json::Value> for #name {
+        impl AsRef<serde_json::Value> for #name {
             #[inline]
             fn as_ref(&self) -> &serde_json::Value {
                 &self.0
             }
         }
 
-        impl std::convert::AsMut<serde_json::Value> for #name {
+        impl AsMut<serde_json::Value> for #name {
             #[inline]
             fn as_mut(&mut self) -> &mut serde_json::Value {
                 &mut self.0
@@ -1684,10 +1597,7 @@ mod tests {
                 "TestStringMap",
                 &JsonType::StringMap.to_rust_token_stream("TestStringMap", "Fake docs"),
             )?,
-            write_token_stream(
-                "TestAny",
-                &JsonType::Any.to_rust_token_stream("TestAny", "Fake docs"),
-            )?,
+            write_token_stream("TestAny", &JsonType::Any.to_rust_token_stream("TestAny", "Fake docs"))?,
             write_token_stream(
                 "TestArrayOfString",
                 &JsonType::Array(Box::new(JsonArray {
