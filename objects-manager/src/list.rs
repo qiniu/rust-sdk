@@ -120,6 +120,10 @@ impl<'a> ListParams<'a> {
     }
 }
 
+/// 对象列举迭代器
+///
+/// 实现 [`std::iter::Iterator`] 接口，
+/// 在迭代过程中阻塞发起 API 列举对象信息
 #[must_use]
 pub struct ListIter<'a> {
     params: ListParams<'a>,
@@ -137,11 +141,16 @@ impl Debug for ListIter<'_> {
     }
 }
 
+/// 列举 API 版本
+///
+/// 目前支持 V1 和 V2，默认为 V2
 #[derive(Copy, Clone, Debug, SmartDefault)]
 #[non_exhaustive]
 pub enum ListVersion {
+    /// 列举 API V1
     V1,
 
+    /// 列举 API V2
     #[default]
     V2,
 }
@@ -493,6 +502,10 @@ mod async_list_stream {
 
     type ListedObjectEntryResultStream<'a> = BoxStream<'a, ApiResult<ListedObjectEntry>>;
 
+    /// 对象列举流
+    ///
+    /// 实现 [`futures::stream::Stream`] 接口，
+    /// 在迭代过程中异步发起 API 列举对象信息
     #[must_use]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub struct ListStream<'a>(ListedObjectEntryResultStream<'a>);

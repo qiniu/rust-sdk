@@ -17,7 +17,9 @@ use std::{
     mem::take,
 };
 
+/// 最大批量操作数获取接口
 pub trait BatchSizeProvider: Debug + Send + Sync {
+    /// 获取最大批量操作数
     fn batch_size(&self) -> usize;
 }
 
@@ -28,6 +30,7 @@ impl BatchSizeProvider for usize {
     }
 }
 
+/// 批量操作
 pub struct BatchOperations<'a> {
     bucket: &'a Bucket,
     operations: Option<Box<dyn Iterator<Item = Box<dyn OperationProvider + 'a>> + 'a>>,
@@ -45,18 +48,21 @@ impl<'a> BatchOperations<'a> {
         }
     }
 
+    /// 设置最大批量操作数提供者
     #[inline]
     pub fn batch_size(&mut self, batch_size: impl BatchSizeProvider + 'a) -> &mut Self {
         self.batch_size = Some(Box::new(batch_size));
         self
     }
 
+    /// 添加对象操作提供者
     #[inline]
     pub fn add_operation(&mut self, operation: impl OperationProvider + 'a) -> &mut Self {
         let new_iter = vec![Box::new(operation) as Box<dyn OperationProvider + 'a>].into_iter();
         self.add_operations(new_iter)
     }
 
+    /// 批量添加操作提供者
     #[inline]
     pub fn add_operations(
         &mut self,
@@ -70,6 +76,7 @@ impl<'a> BatchOperations<'a> {
         self
     }
 
+    /// 设置请求前回调函数
     #[inline]
     pub fn before_request_callback(
         &mut self,
@@ -79,6 +86,7 @@ impl<'a> BatchOperations<'a> {
         self
     }
 
+    /// 设置响应成功回调函数
     #[inline]
     pub fn after_response_ok_callback(
         &mut self,
@@ -88,6 +96,7 @@ impl<'a> BatchOperations<'a> {
         self
     }
 
+    /// 设置响应失败回调函数
     #[inline]
     pub fn after_response_error_callback(
         &mut self,
@@ -97,6 +106,7 @@ impl<'a> BatchOperations<'a> {
         self
     }
 
+    /// 阻塞发起批量操作，返回操作结果迭代器
     #[inline]
     pub fn call(&mut self) -> BatchOperationsIterator<'a> {
         BatchOperationsIterator {
@@ -106,6 +116,7 @@ impl<'a> BatchOperations<'a> {
         }
     }
 
+    /// 异步发起批量操作，返回操作结果流
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -133,6 +144,10 @@ impl Debug for BatchOperations<'_> {
     }
 }
 
+/// 批量操作迭代器
+///
+/// 实现 [`std::iter::Iterator`] 接口，
+/// 在迭代过程中阻塞发起批量操作 API
 #[derive(Debug)]
 pub struct BatchOperationsIterator<'a> {
     operations: BatchOperations<'a>,
@@ -256,6 +271,10 @@ mod async_stream {
         task::{Context, Poll},
     };
 
+    /// 批量操作流
+    ///
+    /// 实现 [`futures::stream::Stream`] 接口，
+    /// 在迭代过程中异步发起批量操作 API
     #[must_use]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     #[derive(Debug)]

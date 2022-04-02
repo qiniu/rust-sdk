@@ -5,8 +5,8 @@ use super::{
     operation::{
         CopyObject, CopyObjectBuilder, DeleteObject, DeleteObjectBuilder, Entry, ModifyObjectLifeCycle,
         ModifyObjectLifeCycleBuilder, ModifyObjectMetadata, ModifyObjectMetadataBuilder, ModifyObjectStatus,
-        ModifyObjectStatusBuilder, MoveObject, MoveObjectBuilder, ObjectType, SetObjectType, SetObjectTypeBuilder,
-        StatObject, StatObjectBuilder, UnfreezeObject, UnfreezeObjectBuilder,
+        ModifyObjectStatusBuilder, MoveObject, MoveObjectBuilder, SetObjectType, SetObjectTypeBuilder, StatObject,
+        StatObjectBuilder, UnfreezeObject, UnfreezeObjectBuilder,
     },
     ObjectsManager,
 };
@@ -17,12 +17,14 @@ use qiniu_apis::{
     http_client::{
         BucketName, BucketRegionsProvider, CallbackResult, RegionsProvider, RequestBuilderParts, ResponseError,
     },
+    upload_token::FileType,
 };
 use std::{io::Result as IOResult, mem::take, sync::Arc};
 
 #[cfg(feature = "async")]
 use {super::list::ListStream, async_once_cell::OnceCell as AsyncOnceCell};
 
+/// 七牛存储空间管理器
 #[derive(Debug, Clone)]
 pub struct Bucket(Arc<BucketInner>);
 
@@ -54,26 +56,79 @@ impl Bucket {
         }))
     }
 
+    /// 获取存储空间名称
     #[inline]
     pub fn name(&self) -> &BucketName {
         &self.0.name
     }
 
+    /// 获取对象管理器
     #[inline]
     pub fn objects_manager(&self) -> &ObjectsManager {
         &self.0.objects_manager
     }
 
+    /// 创建列举操作构建器
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    /// use futures::stream::TryStreamExt;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    /// let mut stream = bucket.list().stream();
+    /// while let Some(object) = stream.try_next().await? {
+    ///     println!("fsize: {:?}", object.get_size_as_u64());
+    ///     println!("hash: {:?}", object.get_hash_as_str());
+    ///     println!("mime_type: {:?}", object.get_mime_type_as_str());
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     #[inline]
     pub fn list(&self) -> ListBuilder<'_> {
         ListBuilder::new(self)
     }
 
+    /// 创建对象元信息获取操作构建器
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// let response = bucket.stat_object("test-key").async_call().await?;
+    /// let object = response.into_body();
+    /// println!("fsize: {}", object.get_size_as_u64());
+    /// println!("hash: {}", object.get_hash_as_str());
+    /// println!("mime_type: {}", object.get_mime_type_as_str());
+    /// # Ok(())
+    /// # }
+    /// ```
     #[inline]
     pub fn stat_object<'a>(&'a self, object_name: &'a str) -> StatObjectBuilder<'a> {
         StatObject::builder(Entry::new(self, object_name))
     }
 
+    /// 创建对象复制操作构建器
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.copy_object_to("test-key", "test-bucket-2", "test-key").async_call().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[inline]
     pub fn copy_object_to<'a>(
         &'a self,
@@ -84,6 +139,20 @@ impl Bucket {
         CopyObject::builder(Entry::new(self, from_object_name), to_bucket_name, to_object_name)
     }
 
+    /// 创建对象移动操作构建器
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.move_object_to("test-key", "test-bucket-2", "test-key").async_call().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[inline]
     pub fn move_object_to<'a>(
         &'a self,
@@ -94,26 +163,97 @@ impl Bucket {
         MoveObject::builder(Entry::new(self, from_object_name), to_bucket_name, to_object_name)
     }
 
+    /// 创建对象删除操作构建器
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.delete_object("test-key").async_call().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[inline]
     pub fn delete_object<'a>(&'a self, object_name: &'a str) -> DeleteObjectBuilder<'a> {
         DeleteObject::builder(Entry::new(self, object_name))
     }
 
+    /// 创建对象解冻操作构建器
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.unfreeze_object("test-key", 1).async_call().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[inline]
     pub fn unfreeze_object<'a>(&'a self, object_name: &'a str, freeze_after_days: usize) -> UnfreezeObjectBuilder<'a> {
         UnfreezeObject::builder(Entry::new(self, object_name), freeze_after_days)
     }
 
+    /// 创建对象类型设置操作构建器
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::{credential::Credential, upload_token::FileType}, ObjectsManager};
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.set_object_type("test-key", FileType::Archive).async_call().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[inline]
-    pub fn set_object_type<'a>(&'a self, object_name: &'a str, object_type: ObjectType) -> SetObjectTypeBuilder<'a> {
+    pub fn set_object_type<'a>(&'a self, object_name: &'a str, object_type: FileType) -> SetObjectTypeBuilder<'a> {
         SetObjectType::builder(Entry::new(self, object_name), object_type)
     }
 
+    /// 创建对象状态设置操作构建器
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.modify_object_status("test-key", true).async_call().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[inline]
     pub fn modify_object_status<'a>(&'a self, object_name: &'a str, disable: bool) -> ModifyObjectStatusBuilder<'a> {
         ModifyObjectStatus::builder(Entry::new(self, object_name), disable)
     }
 
+    /// 创建对象元信息设置操作构建器
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    /// use mime::APPLICATION_JSON;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.modify_object_metadata("test-key", APPLICATION_JSON).async_call().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[inline]
     pub fn modify_object_metadata<'a>(
         &'a self,
@@ -123,11 +263,50 @@ impl Bucket {
         ModifyObjectMetadata::builder(Entry::new(self, object_name), mime_type)
     }
 
+    /// 创建对象生命周期设置操作构建器
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{AfterDays, apis::credential::Credential, ObjectsManager};
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.modify_object_life_cycle("test-key").delete_after_days(AfterDays::new(5)).async_call().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[inline]
     pub fn modify_object_life_cycle<'a>(&'a self, object_name: &'a str) -> ModifyObjectLifeCycleBuilder<'a> {
         ModifyObjectLifeCycle::builder(Entry::new(self, object_name))
     }
 
+    /// 创建批量操作
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager, OperationProvider};
+    /// use futures::stream::TryStreamExt;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    /// let mut ops = bucket.batch_ops();
+    /// ops.add_operation(bucket.stat_object("test-file-1"));
+    /// ops.add_operation(bucket.stat_object("test-file-2"));
+    /// ops.add_operation(bucket.stat_object("test-file-3"));
+    /// ops.add_operation(bucket.stat_object("test-file-4"));
+    /// ops.add_operation(bucket.stat_object("test-file-5"));
+    /// let mut stream = ops.async_call();
+    /// while let Some(object) = stream.try_next().await? {
+    ///     println!("fsize: {:?}", object.get_size_as_u64());
+    ///     println!("hash: {:?}", object.get_hash_as_str());
+    ///     println!("mime_type: {:?}", object.get_mime_type_as_str());
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     #[inline]
     pub fn batch_ops(&self) -> BatchOperations<'_> {
         BatchOperations::new(self)
@@ -185,6 +364,9 @@ impl Bucket {
     }
 }
 
+/// 列举操作构建器
+///
+/// 可以通过 [`Bucket::list`] 方法获取该构建器。
 #[must_use]
 #[derive(Debug)]
 pub struct ListBuilder<'a> {
@@ -211,35 +393,41 @@ impl<'a> ListBuilder<'a> {
     }
 
     #[inline]
+    /// 设置列举限制
     pub fn limit(&mut self, limit: usize) -> &mut Self {
         self.limit = Some(limit);
         self
     }
 
     #[inline]
+    /// 设置对象名称前缀匹配字符串
     pub fn prefix(&mut self, prefix: &'a str) -> &mut Self {
         self.prefix = Some(prefix);
         self
     }
 
     #[inline]
+    /// 设置上一次列举返回的位置标记
     pub fn marker(&mut self, marker: &'a str) -> &mut Self {
         self.marker = Some(marker);
         self
     }
 
     #[inline]
+    /// 设置列举 API 版本
     pub fn version(&mut self, version: ListVersion) -> &mut Self {
         self.version = version;
         self
     }
 
+    /// 设置是否需要返回分片信息
     #[inline]
     pub fn need_parts(&mut self) -> &mut Self {
         self.need_parts = true;
         self
     }
 
+    /// 设置请求前回调函数
     #[inline]
     pub fn before_request_callback(
         &mut self,
@@ -249,6 +437,7 @@ impl<'a> ListBuilder<'a> {
         self
     }
 
+    /// 设置响应成功回调函数
     #[inline]
     pub fn after_response_ok_callback(
         &mut self,
@@ -258,6 +447,7 @@ impl<'a> ListBuilder<'a> {
         self
     }
 
+    /// 设置响应失败回调函数
     #[inline]
     pub fn after_response_error_callback(
         &mut self,
@@ -267,6 +457,9 @@ impl<'a> ListBuilder<'a> {
         self
     }
 
+    /// 创建对象列举迭代器
+    ///
+    /// 对象列举迭代器采用阻塞 API 列举对象信息
     #[inline]
     pub fn iter(&mut self) -> ListIter<'a> {
         let owned = self.take_self();
@@ -281,6 +474,9 @@ impl<'a> ListBuilder<'a> {
         )
     }
 
+    /// 创建对象列举流
+    ///
+    /// 对象列举流采用异步 API 列举对象信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]

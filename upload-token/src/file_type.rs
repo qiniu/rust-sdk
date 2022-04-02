@@ -1,6 +1,7 @@
 use duplicate::duplicate;
 use serde::{Deserialize, Serialize};
 use smart_default::SmartDefault;
+use std::fmt::{self, Display};
 
 /// 文件存储类型
 #[derive(Copy, Clone, Debug, Eq, PartialEq, SmartDefault, Serialize, Deserialize)]
@@ -22,6 +23,12 @@ pub enum FileType {
 
     /// 其他存储类型
     Other(u8),
+}
+
+impl Display for FileType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        usize::from(*self).fmt(f)
+    }
 }
 
 #[duplicate(

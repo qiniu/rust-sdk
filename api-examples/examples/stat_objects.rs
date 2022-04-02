@@ -27,14 +27,13 @@ async fn main() -> Result<()> {
     let credential = Credential::new(&opt.access_key, &opt.secret_key);
     let object_manager = ObjectsManager::builder(credential).build();
     let bucket = object_manager.bucket(opt.bucket_name);
-    let object_names = BufReader::new(stdin())
-        .lines()
-        .try_collect::<Vec<String>>()
-        .await?;
+    let object_names = BufReader::new(stdin()).lines().try_collect::<Vec<String>>().await?;
     let mut ops = bucket.batch_ops();
-    ops.add_operations(object_names.iter().map(|object_name| {
-        Box::new(bucket.stat_object(object_name.trim())) as Box<dyn OperationProvider>
-    }));
+    ops.add_operations(
+        object_names
+            .iter()
+            .map(|object_name| Box::new(bucket.stat_object(object_name.trim())) as Box<dyn OperationProvider>),
+    );
     let mut stream = ops.async_call();
     loop {
         match stream.try_next().await {

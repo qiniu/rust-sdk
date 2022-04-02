@@ -8,6 +8,7 @@ use qiniu_apis::{
 };
 use std::sync::Arc;
 
+/// 七牛对象管理器
 #[derive(Debug, Clone)]
 pub struct ObjectsManager(Arc<ObjectsManagerInner>);
 
@@ -19,36 +20,49 @@ struct ObjectsManagerInner {
 }
 
 impl ObjectsManager {
+    /// 创建七牛对象管理构建器
+    ///
+    /// 必须传入认证信息提供者
     #[inline]
     pub fn builder(credential: impl CredentialProvider + 'static) -> ObjectsManagerBuilder {
         ObjectsManagerBuilder::new(credential)
     }
 
+    /// 创建七牛对象管理器
+    ///
+    /// 必须传入认证信息提供者
     #[inline]
     pub fn new(credential: impl CredentialProvider + 'static) -> Self {
         Self::builder(credential).build()
     }
 
+    /// 获取七牛 API 调用客户端
     #[inline]
     pub fn client(&self) -> &QiniuApiClient {
         &self.0.client
     }
 
+    /// 获取七牛认证信息提供者
     #[inline]
     pub fn credential(&self) -> Arc<dyn CredentialProvider> {
         self.0.credential.to_owned()
     }
 
+    /// 获取七牛存储空间相关区域查询器
     #[inline]
     pub fn queryer(&self) -> &BucketRegionsQueryer {
         &self.0.queryer
     }
 
+    /// 获取七牛存储空间管理器
     #[inline]
     pub fn bucket(&self, name: impl Into<BucketName>) -> Bucket {
         self._bucket_with_region(name.into(), None)
     }
 
+    /// 获取七牛存储空间管理器
+    ///
+    /// 可以提供区域信息提供者
     #[inline]
     pub fn bucket_with_region(
         &self,
@@ -63,6 +77,7 @@ impl ObjectsManager {
     }
 }
 
+/// 七牛对象管理构建器
 #[derive(Debug, Clone)]
 pub struct ObjectsManagerBuilder {
     api_client: Option<QiniuApiClient>,
@@ -73,6 +88,7 @@ pub struct ObjectsManagerBuilder {
 }
 
 impl ObjectsManagerBuilder {
+    /// 创建七牛对象管理构建器
     #[inline]
     pub fn new(credential: impl CredentialProvider + 'static) -> Self {
         Self {
@@ -84,12 +100,14 @@ impl ObjectsManagerBuilder {
         }
     }
 
+    /// 设置七牛 API 调用客户端
     #[inline]
     pub fn api_client(&mut self, api_client: QiniuApiClient) -> &mut Self {
         self.api_client = Some(api_client);
         self
     }
 
+    /// 设置 HTTP 客户端
     pub fn http_client(&mut self, http_client: HttpClient) -> &mut Self {
         self.http_client = Some(http_client.to_owned());
         if let Some(queryer_builder) = self.queryer_builder.as_mut() {
@@ -102,12 +120,14 @@ impl ObjectsManagerBuilder {
         self
     }
 
+    /// 设置存储空间相关区域查询器
     #[inline]
     pub fn queryer(&mut self, queryer: BucketRegionsQueryer) -> &mut Self {
         self.queryer = Some(queryer);
         self
     }
 
+    /// 设置存储空间管理终端地址
     pub fn uc_endpoints(&mut self, endpoints: impl Into<Endpoints>) -> &mut Self {
         if let Some(queryer_builder) = self.queryer_builder.as_mut() {
             queryer_builder.uc_endpoints(endpoints);
@@ -119,6 +139,7 @@ impl ObjectsManagerBuilder {
         self
     }
 
+    /// 构建七牛对象管理器
     pub fn build(&mut self) -> ObjectsManager {
         let api_client = self.api_client.take();
         let http_client = self.http_client.take();

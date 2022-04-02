@@ -1,7 +1,10 @@
 use super::Bucket;
 use indexmap::IndexMap;
 use mime::Mime;
-use qiniu_apis::http_client::{ApiResult, RegionsProviderEndpoints, RequestBuilderParts, Response};
+use qiniu_apis::{
+    http_client::{ApiResult, RegionsProviderEndpoints, RequestBuilderParts, Response},
+    upload_token::FileType,
+};
 use qiniu_utils::base64::urlsafe;
 use std::{
     fmt::{self, Debug, Display},
@@ -13,6 +16,7 @@ macro_rules! impl_call_methods {
         impl_call_methods!($mod_name, entry);
     };
     ($mod_name:ident, $entry:ident) => {
+        /// 阻塞发起操作请求
         pub fn call(&mut self) -> ApiResult<Response<qiniu_apis::storage::$mod_name::ResponseBody>> {
             let op = self.build();
             let mut request = op
@@ -35,6 +39,7 @@ macro_rules! impl_call_methods {
 
         #[cfg(feature = "async")]
         #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+        /// 异步发起操作请求
         pub async fn async_call(&mut self) -> ApiResult<Response<qiniu_apis::storage::$mod_name::ResponseBody>> {
             let op = self.build();
             let mut request = op
@@ -103,7 +108,9 @@ impl Display for SimpleEntry<'_> {
     }
 }
 
+/// 对象操作提供者接口
 pub trait OperationProvider {
+    /// 转换为对象操作命令
     fn to_operation(&mut self) -> String;
 }
 
@@ -131,12 +138,16 @@ impl Display for StatObject<'_> {
     }
 }
 
+/// 对象元信息获取操作构建器
+///
+/// 可以通过 [`crate::Bucket::stat_object`] 方法获取该构建器。
 pub struct StatObjectBuilder<'a> {
     inner: StatObject<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
 }
 
 impl<'a> StatObjectBuilder<'a> {
+    /// 设置请求前回调函数
     #[inline]
     pub fn before_request_callback(
         &mut self,
@@ -205,18 +216,23 @@ impl Display for MoveObject<'_> {
     }
 }
 
+/// 对象移动操作构建器
+///
+/// 可以通过 [`crate::Bucket::move_object_to`] 方法获取该构建器。
 pub struct MoveObjectBuilder<'a> {
     inner: MoveObject<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
 }
 
 impl<'a> MoveObjectBuilder<'a> {
+    /// 是否强制移动
     #[inline]
     pub fn is_force(&mut self, is_force: bool) -> &mut Self {
         self.inner.is_force = is_force;
         self
     }
 
+    /// 设置请求前回调函数
     #[inline]
     pub fn before_request_callback(
         &mut self,
@@ -287,18 +303,23 @@ impl Display for CopyObject<'_> {
     }
 }
 
+/// 对象复制操作构建器
+///
+/// 可以通过 [`crate::Bucket::copy_object_to`] 方法获取该构建器。
 pub struct CopyObjectBuilder<'a> {
     inner: CopyObject<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
 }
 
 impl<'a> CopyObjectBuilder<'a> {
+    /// 是否强制复制
     #[inline]
     pub fn is_force(&mut self, is_force: bool) -> &mut Self {
         self.inner.is_force = is_force;
         self
     }
 
+    /// 设置请求前回调函数
     #[inline]
     pub fn before_request_callback(
         &mut self,
@@ -356,6 +377,9 @@ impl Display for DeleteObject<'_> {
     }
 }
 
+/// 对象删除操作构建器
+///
+/// 可以通过 [`crate::Bucket::delete_object`] 方法获取该构建器。
 pub struct DeleteObjectBuilder<'a> {
     inner: DeleteObject<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
@@ -366,6 +390,7 @@ impl<'a> DeleteObjectBuilder<'a> {
         self.inner.to_owned()
     }
 
+    /// 设置请求前回调函数
     #[inline]
     pub fn before_request_callback(
         &mut self,
@@ -428,12 +453,14 @@ impl Display for UnfreezeObject<'_> {
     }
 }
 
+/// 对象解冻操作构建器
 pub struct UnfreezeObjectBuilder<'a> {
     inner: UnfreezeObject<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
 }
 
 impl<'a> UnfreezeObjectBuilder<'a> {
+    /// 设置请求前回调函数
     #[inline]
     pub fn before_request_callback(
         &mut self,
@@ -468,11 +495,11 @@ impl Debug for UnfreezeObjectBuilder<'_> {
 #[derive(Clone, Debug)]
 pub(super) struct SetObjectType<'a> {
     entry: Entry<'a>,
-    object_type: ObjectType,
+    object_type: FileType,
 }
 
 impl SetObjectType<'_> {
-    pub(super) fn builder(entry: Entry, object_type: ObjectType) -> SetObjectTypeBuilder {
+    pub(super) fn builder(entry: Entry, object_type: FileType) -> SetObjectTypeBuilder {
         SetObjectTypeBuilder {
             inner: SetObjectType { entry, object_type },
             before_request_callback: None,
@@ -492,12 +519,16 @@ impl Display for SetObjectType<'_> {
     }
 }
 
+/// 对象类型设置操作构建器
+///
+/// 可以通过 [`crate::Bucket::set_object_type`] 方法获取该构建器。
 pub struct SetObjectTypeBuilder<'a> {
     inner: SetObjectType<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
 }
 
 impl<'a> SetObjectTypeBuilder<'a> {
+    /// 设置请求前回调函数
     #[inline]
     pub fn before_request_callback(
         &mut self,
@@ -529,57 +560,6 @@ impl Debug for SetObjectTypeBuilder<'_> {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ObjectType(usize);
-
-impl ObjectType {
-    #[inline]
-    pub const fn standard() -> Self {
-        Self(0)
-    }
-
-    #[inline]
-    pub const fn infrequent_access() -> Self {
-        Self(1)
-    }
-
-    #[inline]
-    pub const fn glacier() -> Self {
-        Self(2)
-    }
-
-    #[inline]
-    pub const fn new(t: usize) -> Self {
-        Self(t)
-    }
-
-    #[inline]
-    pub const fn to_value(self) -> usize {
-        self.0
-    }
-}
-
-impl From<usize> for ObjectType {
-    #[inline]
-    fn from(num: usize) -> Self {
-        Self(num)
-    }
-}
-
-impl From<ObjectType> for usize {
-    #[inline]
-    fn from(t: ObjectType) -> Self {
-        t.0
-    }
-}
-
-impl Display for ObjectType {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
 #[derive(Clone, Debug)]
 pub(super) struct ModifyObjectStatus<'a> {
     entry: Entry<'a>,
@@ -608,18 +588,23 @@ impl Display for ModifyObjectStatus<'_> {
     }
 }
 
+/// 修改对象状态构建器
+///
+/// 可以通过 [`crate::Bucket::modify_object_status`] 方法获取该构建器。
 pub struct ModifyObjectStatusBuilder<'a> {
     inner: ModifyObjectStatus<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
 }
 
 impl<'a> ModifyObjectStatusBuilder<'a> {
+    /// 封禁对象
     #[inline]
     pub fn disable(&mut self, disable: bool) -> &mut Self {
         self.inner.disabled = disable;
         self
     }
 
+    /// 设置请求前回调函数
     #[inline]
     pub fn before_request_callback(
         &mut self,
@@ -711,24 +696,30 @@ impl Display for ModifyObjectMetadata<'_> {
     }
 }
 
+/// 修改对象元信息构建器
+///
+/// 可以通过 [`crate::Bucket::modify_object_metadata`] 方法获取该构建器。
 pub struct ModifyObjectMetadataBuilder<'a> {
     inner: ModifyObjectMetadata<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
 }
 
 impl<'a> ModifyObjectMetadataBuilder<'a> {
+    /// 添加元信息
     #[inline]
     pub fn add_metadata(&mut self, key: impl Into<String>, value: impl Into<String>) -> &mut Self {
         self.inner.metadata.insert(key.into(), value.into());
         self
     }
 
+    /// 添加修改条件条件
     #[inline]
     pub fn add_condition(&mut self, key: impl Into<String>, value: impl Into<String>) -> &mut Self {
         self.inner.conditions.insert(key.into(), value.into());
         self
     }
 
+    /// 设置请求前回调函数
     #[inline]
     pub fn before_request_callback(
         &mut self,
@@ -770,6 +761,7 @@ pub(super) struct ModifyObjectLifeCycle<'a> {
     entry: Entry<'a>,
     to_ia_after_days: AfterDays,
     to_archive_after_days: AfterDays,
+    to_deep_archive_after_days: AfterDays,
     delete_after_days: AfterDays,
 }
 
@@ -780,6 +772,7 @@ impl ModifyObjectLifeCycle<'_> {
                 entry,
                 to_ia_after_days: Default::default(),
                 to_archive_after_days: Default::default(),
+                to_deep_archive_after_days: Default::default(),
                 delete_after_days: Default::default(),
             },
             before_request_callback: None,
@@ -794,6 +787,9 @@ impl ModifyObjectLifeCycle<'_> {
         }
         if !self.to_archive_after_days.is_unmodified() {
             params = params.set_to_archive_after_days_as_isize(self.to_archive_after_days.into());
+        }
+        if !self.to_deep_archive_after_days.is_unmodified() {
+            params = params.set_to_deep_archive_after_days_as_isize(self.to_deep_archive_after_days.into());
         }
         if !self.delete_after_days.is_unmodified() {
             params = params.set_delete_after_days_as_isize(self.delete_after_days.into());
@@ -818,30 +814,44 @@ impl Display for ModifyObjectLifeCycle<'_> {
     }
 }
 
+/// 修改对象生命周期构建器
+///
+/// 可以通过 [`crate::Bucket::modify_object_life_cycle`] 方法获取该构建器。
 pub struct ModifyObjectLifeCycleBuilder<'a> {
     inner: ModifyObjectLifeCycle<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
 }
 
 impl<'a> ModifyObjectLifeCycleBuilder<'a> {
+    /// 设置多少天后自动转换为低频文件
     #[inline]
     pub fn ia_after_days(&mut self, to_ia_after_days: AfterDays) -> &mut Self {
         self.inner.to_ia_after_days = to_ia_after_days;
         self
     }
 
+    /// 设置多少天后自动转换为归档文件
     #[inline]
     pub fn archive_after_days(&mut self, to_archive_after_days: AfterDays) -> &mut Self {
         self.inner.to_archive_after_days = to_archive_after_days;
         self
     }
 
+    /// 设置多少天后自动转换为深度归档文件
+    #[inline]
+    pub fn deep_archive_after_days(&mut self, to_deep_archive_after_days: AfterDays) -> &mut Self {
+        self.inner.to_deep_archive_after_days = to_deep_archive_after_days;
+        self
+    }
+
+    /// 设置多少天后自动删除
     #[inline]
     pub fn delete_after_days(&mut self, to_delete_after_days: AfterDays) -> &mut Self {
         self.inner.delete_after_days = to_delete_after_days;
         self
     }
 
+    /// 设置请求前回调函数
     #[inline]
     pub fn before_request_callback(
         &mut self,
@@ -856,6 +866,7 @@ impl<'a> ModifyObjectLifeCycleBuilder<'a> {
             entry: self.inner.entry.to_owned(),
             to_ia_after_days: take(&mut self.inner.to_ia_after_days),
             to_archive_after_days: take(&mut self.inner.to_archive_after_days),
+            to_deep_archive_after_days: take(&mut self.inner.to_deep_archive_after_days),
             delete_after_days: take(&mut self.inner.delete_after_days),
         }
     }
@@ -878,40 +889,48 @@ impl Debug for ModifyObjectLifeCycleBuilder<'_> {
     }
 }
 
+/// 设置对象生命周期天数
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AfterDays(isize);
 
 impl AfterDays {
+    /// 不设置生命周期
     #[inline]
     pub const fn unset() -> Self {
         Self(-1)
     }
 
+    /// 是否没有设置生命周期
     #[inline]
     pub const fn is_unset(self) -> bool {
         self.0 == -1
     }
 
+    /// 不修改生命周期
     #[inline]
     pub const fn unmodify() -> Self {
         Self(0)
     }
 
+    /// 是否不修改生命周期
     #[inline]
     pub const fn is_unmodified(self) -> bool {
         self.0 == 0
     }
 
+    /// 设置生命周期天数
     #[inline]
     pub const fn new(days: isize) -> Self {
         Self(days)
     }
 
+    /// 是否已经设置生命周期天数
     #[inline]
     pub const fn is_set(self) -> bool {
         self.0 > 0
     }
 
+    /// 获取生命周期的天数
     #[inline]
     pub const fn to_value(self) -> isize {
         self.0
@@ -1187,7 +1206,7 @@ mod tests {
 
         let bucket = get_bucket(FakeHttpCaller::default());
         bucket
-            .set_object_type("fakeobjectname", ObjectType::glacier())
+            .set_object_type("fakeobjectname", FileType::Archive)
             .async_call()
             .await?;
 
