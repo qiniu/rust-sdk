@@ -50,7 +50,7 @@ impl<P> From<P> for UploadTokenAuthorization<P> {
 
 impl<P: UploadTokenProvider + Clone> AuthorizationProvider for UploadTokenAuthorization<P> {
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()> {
-        let authorization = uptoken_authorization(&self.0.to_token_string(&Default::default())?);
+        let authorization = uptoken_authorization(&self.0.to_token_string(Default::default())?);
         set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
         Ok(())
     }
@@ -59,7 +59,7 @@ impl<P: UploadTokenProvider + Clone> AuthorizationProvider for UploadTokenAuthor
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         Box::pin(async move {
-            let authorization = uptoken_authorization(&self.0.async_to_token_string(&Default::default()).await?);
+            let authorization = uptoken_authorization(&self.0.async_to_token_string(Default::default()).await?);
             set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
             Ok(())
         })

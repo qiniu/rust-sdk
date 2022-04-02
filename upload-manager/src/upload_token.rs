@@ -62,7 +62,7 @@ impl UploadTokenSigner {
     pub(super) fn access_key(&self) -> ApiResult<AccessKey> {
         match &self.0 {
             UploadTokenSignerInner::UploadTokenProvider(provider) => provider
-                .access_key(&Default::default())
+                .access_key(Default::default())
                 .map(|ak| ak.into())
                 .map_err(|err| ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)),
             UploadTokenSignerInner::CredentialProvider { credential, .. } => {
@@ -74,7 +74,7 @@ impl UploadTokenSigner {
     pub(super) fn bucket_name(&self) -> ApiResult<BucketName> {
         match &self.0 {
             UploadTokenSignerInner::UploadTokenProvider(provider) => provider
-                .bucket_name(&Default::default())
+                .bucket_name(Default::default())
                 .map_err(|err| ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)),
             UploadTokenSignerInner::CredentialProvider { bucket_name, .. } => Ok(bucket_name.to_owned()),
         }
@@ -84,7 +84,7 @@ impl UploadTokenSigner {
     pub(super) async fn async_access_key(&self) -> ApiResult<AccessKey> {
         match &self.0 {
             UploadTokenSignerInner::UploadTokenProvider(provider) => provider
-                .async_access_key(&Default::default())
+                .async_access_key(Default::default())
                 .await
                 .map(|ak| ak.into())
                 .map_err(|err| ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)),
@@ -98,7 +98,7 @@ impl UploadTokenSigner {
     pub(super) async fn async_bucket_name(&self) -> ApiResult<BucketName> {
         match &self.0 {
             UploadTokenSignerInner::UploadTokenProvider(provider) => provider
-                .async_bucket_name(&Default::default())
+                .async_bucket_name(Default::default())
                 .await
                 .map_err(|err| ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)),
             UploadTokenSignerInner::CredentialProvider { bucket_name, .. } => Ok(bucket_name.to_owned()),

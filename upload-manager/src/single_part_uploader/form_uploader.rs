@@ -15,7 +15,7 @@ use qiniu_apis::{
     },
     storage::put_object::{self, sync_part::RequestBody as SyncRequestBody, SyncRequestBuilder},
 };
-use qiniu_upload_token::{BucketName, ObjectName, ToStringOptions, UploadTokenProvider};
+use qiniu_upload_token::{BucketName, ObjectName, UploadTokenProvider};
 use serde_json::Value;
 use std::{fmt::Debug, fs::File, io::Read, mem::take, path::Path};
 
@@ -92,24 +92,14 @@ impl SinglePartUploader for FormUploader {
     fn upload_path(&self, path: &Path, mut params: ObjectParams) -> ApiResult<Value> {
         self.upload(
             take(params.region_provider_mut()),
-            self.make_request_body_from_path(
-                path,
-                self.make_upload_token_signer(&params).as_ref(),
-                &Default::default(),
-                params,
-            )?,
+            self.make_request_body_from_path(path, self.make_upload_token_signer(&params).as_ref(), params)?,
         )
     }
 
     fn upload_reader<R: Read + 'static>(&self, reader: R, mut params: ObjectParams) -> ApiResult<Value> {
         self.upload(
             take(params.region_provider_mut()),
-            self.make_request_body_from_reader(
-                reader,
-                self.make_upload_token_signer(&params).as_ref(),
-                &Default::default(),
-                params,
-            )?,
+            self.make_request_body_from_reader(reader, self.make_upload_token_signer(&params).as_ref(), params)?,
         )
     }
 
@@ -119,13 +109,8 @@ impl SinglePartUploader for FormUploader {
         Box::pin(async move {
             self.async_upload(
                 take(params.region_provider_mut()),
-                self.make_async_request_body_from_path(
-                    path,
-                    self.make_upload_token_signer(&params).as_ref(),
-                    &Default::default(),
-                    params,
-                )
-                .await?,
+                self.make_async_request_body_from_path(path, self.make_upload_token_signer(&params).as_ref(), params)
+                    .await?,
             )
             .await
         })
@@ -144,7 +129,6 @@ impl SinglePartUploader for FormUploader {
                 self.make_async_request_body_from_async_reader(
                     reader,
                     self.make_upload_token_signer(&params).as_ref(),
-                    &Default::default(),
                     params,
                 )
                 .await?,
@@ -226,7 +210,6 @@ impl FormUploader {
         &'a self,
         path: &Path,
         token: &'a (dyn UploadTokenProvider + 'a),
-        opts: &'a ToStringOptions,
         mut params: ObjectParams,
     ) -> ApiResult<SyncRequestBody<'a>> {
         let file = File::open(path)?;
@@ -236,14 +219,13 @@ impl FormUploader {
                 .map(Path::new)
                 .map(|file_name| FileName::from(file_name.display().to_string()));
         }
-        self.make_request_body_from_reader(file, token, opts, params)
+        self.make_request_body_from_reader(file, token, params)
     }
 
     fn make_request_body_from_reader<'a, R: Read + 'static>(
         &'a self,
         reader: R,
         token: &'a (dyn UploadTokenProvider + 'a),
-        opts: &'a ToStringOptions,
         mut params: ObjectParams,
     ) -> ApiResult<SyncRequestBody<'a>> {
         let mut file_metadata = PartMetadata::default();
@@ -253,7 +235,7 @@ impl FormUploader {
         if let Some(content_type) = take(params.content_type_mut()) {
             file_metadata = file_metadata.mime(content_type);
         }
-        let mut request_body = SyncRequestBody::default().set_upload_token(token, opts)?;
+        let mut request_body = SyncRequestBody::default().set_upload_token(token, Default::default())?;
         if let Some(object_name) = take(params.object_name_mut()) {
             request_body = request_body.set_object_name(object_name.to_string());
         }
@@ -272,7 +254,6 @@ impl FormUploader {
         &'a self,
         path: &Path,
         token: &'a (dyn UploadTokenProvider + 'a),
-        opts: &'a ToStringOptions,
         mut params: ObjectParams,
     ) -> ApiResult<AsyncRequestBody<'a>> {
         let file = AsyncFile::open(path).await?;
@@ -282,7 +263,7 @@ impl FormUploader {
                 .map(Path::new)
                 .map(|file_name| FileName::from(file_name.display().to_string()));
         }
-        self.make_async_request_body_from_async_reader(file, token, opts, params)
+        self.make_async_request_body_from_async_reader(file, token, params)
             .await
     }
 
@@ -291,7 +272,6 @@ impl FormUploader {
         &'a self,
         reader: R,
         token: &'a (dyn UploadTokenProvider + 'a),
-        opts: &'a ToStringOptions,
         mut params: ObjectParams,
     ) -> ApiResult<AsyncRequestBody<'a>> {
         let mut file_metadata = PartMetadata::default();
@@ -303,7 +283,9 @@ impl FormUploader {
         if let Some(content_type) = take(params.content_type_mut()) {
             file_metadata = file_metadata.mime(content_type);
         }
-        let mut request_body = AsyncRequestBody::default().set_upload_token(token, opts).await?;
+        let mut request_body = AsyncRequestBody::default()
+            .set_upload_token(token, Default::default())
+            .await?;
         if let Some(object_name) = take(params.object_name_mut()) {
             request_body = request_body.set_object_name(object_name.to_string());
         }

@@ -24,13 +24,9 @@ struct Opt {
 fn main() -> Result<()> {
     let opt: Opt = Opt::from_args();
 
-    let upload_policy = UploadPolicyBuilder::new_policy_for_bucket(
-        &opt.bucket_name,
-        Duration::from_secs(opt.lifetime),
-    )
-    .build();
-    let upload_token =
-        upload_policy.into_upload_token_provider(Credential::new(opt.access_key, opt.secret_key));
-    println!("{}", upload_token.to_token_string(&Default::default())?);
+    let upload_policy =
+        UploadPolicyBuilder::new_policy_for_bucket(&opt.bucket_name, Duration::from_secs(opt.lifetime)).build();
+    let upload_token = upload_policy.into_upload_token_provider(Credential::new(opt.access_key, opt.secret_key));
+    println!("{}", upload_token.to_token_string(Default::default())?);
     Ok(())
 }

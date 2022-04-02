@@ -60,12 +60,12 @@ type HeaderBuffer = SmallVec<[u8; 256]>;
 /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
 /// let bucket_name = "test-bucket";
 /// let object_name = "test-key";
-/// let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Duration::from_secs(3600))
+/// let provider = UploadPolicy::new_for_object(bucket_name, object_name, Duration::from_secs(3600))
 ///     .build()
-///     .into_upload_token_provider(&credential)
-///     .async_to_token_string(&Default::default())
-///     .await?
-///     .into_owned();
+///     .into_upload_token_provider(&credential);
+/// let upload_token = provider
+///     .async_to_token_string(Default::default())
+///     .await?;
 /// let value: Value = HttpClient::default()
 ///     .async_post(
 ///         &[ServiceName::Up],

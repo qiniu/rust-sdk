@@ -201,7 +201,7 @@ impl MultipartFormDataRequestStruct {
                     pub fn #method_name(
                         self,
                         token: &'a (dyn qiniu_http_client::upload_token::UploadTokenProvider + 'a),
-                        opts: &'a qiniu_http_client::upload_token::ToStringOptions,
+                        opts: qiniu_http_client::upload_token::ToStringOptions,
                     ) -> std::io::Result<#struct_name<'a>> {
                         Ok(self.add_part(
                             #key,
@@ -216,7 +216,7 @@ impl MultipartFormDataRequestStruct {
                     pub async fn #method_name(
                         self,
                         token: &'a (dyn qiniu_http_client::upload_token::UploadTokenProvider + 'a),
-                        opts: &'a qiniu_http_client::upload_token::ToStringOptions,
+                        opts: qiniu_http_client::upload_token::ToStringOptions,
                     ) -> std::io::Result<#struct_name<'a>> {
                         Ok(self.add_part(
                             #key,

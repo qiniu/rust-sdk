@@ -49,7 +49,7 @@
 //! let credential = Credential::new("your-access-key", "your-secret-key");
 //! let upload_token = upload_policy
 //!     .into_upload_token_provider(credential)
-//!     .to_token_string(&Default::default())?;
+//!     .to_token_string(Default::default())?;
 //! # Ok(())
 //! # }
 //! ```
@@ -61,9 +61,9 @@
 //!
 //! # fn main() -> anyhow::Result<()> {
 //! let upload_token: StaticUploadTokenProvider = "your-access-key:qRD-BSf_XGtovGsuOePTc1EKJo8=:eyJkZWFkbGluZSI6MTY0NzgyODY3NCwic2NvcGUiOiJ5b3VyLWJ1Y2tldC1uYW1lIn0=".parse()?;
-//! let access_key = upload_token.access_key(&Default::default())?;
-//! let bucket_name = upload_token.bucket_name(&Default::default())?;
-//! let upload_policy = upload_token.policy(&Default::default())?;
+//! let access_key = upload_token.access_key(Default::default())?;
+//! let bucket_name = upload_token.bucket_name(Default::default())?;
+//! let upload_policy = upload_token.policy(Default::default())?;
 //! # Ok(())
 //! # }
 //! ```
