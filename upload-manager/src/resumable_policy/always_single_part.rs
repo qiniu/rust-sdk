@@ -10,12 +10,13 @@ use {
     futures::{future::BoxFuture, AsyncRead},
 };
 
+/// 总是选择单请求上传
 #[derive(Debug, Copy, Clone, Default)]
 pub struct AlwaysSinglePart;
 
 impl ResumablePolicyProvider for AlwaysSinglePart {
     #[inline]
-    fn get_policy_from_size(&self, _source_size: u64, _opts: &GetPolicyOptions) -> ResumablePolicy {
+    fn get_policy_from_size(&self, _source_size: u64, _opts: GetPolicyOptions) -> ResumablePolicy {
         ResumablePolicy::SinglePartUploading
     }
 
@@ -23,7 +24,7 @@ impl ResumablePolicyProvider for AlwaysSinglePart {
     fn get_policy_from_reader<'a, R: Read + Debug + Send + Sync + 'a>(
         &self,
         reader: R,
-        _opts: &GetPolicyOptions,
+        _opts: GetPolicyOptions,
     ) -> IoResult<(ResumablePolicy, Box<dyn DynRead + 'a>)> {
         Ok((
             ResumablePolicy::SinglePartUploading,
@@ -37,7 +38,7 @@ impl ResumablePolicyProvider for AlwaysSinglePart {
     fn get_policy_from_async_reader<'a, R: AsyncRead + Debug + Unpin + Send + Sync + 'a>(
         &self,
         reader: R,
-        _opts: &GetPolicyOptions,
+        _opts: GetPolicyOptions,
     ) -> BoxFuture<'a, IoResult<(ResumablePolicy, Box<dyn DynAsyncRead + 'a>)>> {
         Box::pin(async move {
             Ok((

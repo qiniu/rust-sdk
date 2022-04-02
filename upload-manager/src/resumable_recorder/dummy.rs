@@ -10,12 +10,16 @@ use std::{
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
+/// 无断点恢复记录器
+///
+/// 实现了断点恢复记录器接口，但总是返回找不到记录
 #[derive(Clone, Copy)]
 pub struct DummyResumableRecorder<O = Sha1> {
     _unused: PhantomData<O>,
 }
 
 impl<O> DummyResumableRecorder<O> {
+    /// 创建无断点恢复记录器
     #[inline]
     pub fn new() -> Self {
         Default::default()
@@ -45,26 +49,17 @@ impl<O: Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumableRecord
     type AsyncAppendOnlyMedium = DummyResumableRecorderMedium;
 
     #[inline]
-    fn open_for_read(
-        &self,
-        _source_key: &SourceKey<Self::HashAlgorithm>,
-    ) -> IoResult<Self::ReadOnlyMedium> {
+    fn open_for_read(&self, _source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::ReadOnlyMedium> {
         Err(make_error())
     }
 
     #[inline]
-    fn open_for_append(
-        &self,
-        _source_key: &SourceKey<Self::HashAlgorithm>,
-    ) -> IoResult<Self::AppendOnlyMedium> {
+    fn open_for_append(&self, _source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::AppendOnlyMedium> {
         Err(make_error())
     }
 
     #[inline]
-    fn open_for_create_new(
-        &self,
-        _source_key: &SourceKey<Self::HashAlgorithm>,
-    ) -> IoResult<Self::AppendOnlyMedium> {
+    fn open_for_create_new(&self, _source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::AppendOnlyMedium> {
         Err(make_error())
     }
 
@@ -106,10 +101,7 @@ impl<O: Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumableRecord
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_delete<'a>(
-        &'a self,
-        _source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<()>> {
+    fn async_delete<'a>(&'a self, _source_key: &'a SourceKey<Self::HashAlgorithm>) -> BoxFuture<'a, IoResult<()>> {
         Box::pin(async move { Err(make_error()) })
     }
 }
@@ -121,6 +113,9 @@ impl<O> Debug for DummyResumableRecorder<O> {
     }
 }
 
+/// 无断点恢复记录介质
+///
+/// 实现了断点恢复记录介质接口，但总是返回错误
 #[derive(Debug, Clone, Copy)]
 pub struct DummyResumableRecorderMedium;
 
@@ -155,11 +150,7 @@ use {
 #[cfg(feature = "async")]
 impl AsyncRead for DummyResumableRecorderMedium {
     #[inline]
-    fn poll_read(
-        self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-        _buf: &mut [u8],
-    ) -> Poll<IoResult<usize>> {
+    fn poll_read(self: Pin<&mut Self>, _cx: &mut Context<'_>, _buf: &mut [u8]) -> Poll<IoResult<usize>> {
         Poll::Ready(Err(make_error()))
     }
 }
@@ -167,11 +158,7 @@ impl AsyncRead for DummyResumableRecorderMedium {
 #[cfg(feature = "async")]
 impl AsyncWrite for DummyResumableRecorderMedium {
     #[inline]
-    fn poll_write(
-        self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-        _buf: &[u8],
-    ) -> Poll<IoResult<usize>> {
+    fn poll_write(self: Pin<&mut Self>, _cx: &mut Context<'_>, _buf: &[u8]) -> Poll<IoResult<usize>> {
         Poll::Ready(Err(make_error()))
     }
 

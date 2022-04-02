@@ -8,6 +8,7 @@ use qiniu_apis::{
 };
 use std::sync::Arc;
 
+/// 上传管理器
 #[derive(Debug, Clone)]
 pub struct UploadManager(Arc<UploadManagerInner>);
 
@@ -19,41 +20,49 @@ struct UploadManagerInner {
 }
 
 impl UploadManager {
+    /// 创建上传管理构建器
     #[inline]
     pub fn builder(upload_token: impl Into<UploadTokenSigner>) -> UploadManagerBuilder {
         UploadManagerBuilder::new(upload_token)
     }
 
+    /// 创建上传管理器
     #[inline]
     pub fn new(upload_token: impl Into<UploadTokenSigner>) -> Self {
         Self::builder(upload_token).build()
     }
 
+    /// 获取上传凭证签发器
     #[inline]
     pub fn upload_token(&self) -> &UploadTokenSigner {
         &self.0.upload_token_signer
     }
 
+    /// 获取七牛 API 调用客户端
     #[inline]
     pub fn client(&self) -> &QiniuApiClient {
         &self.0.client
     }
 
+    /// 获取存储空间相关区域查询器
     #[inline]
     pub fn queryer(&self) -> &BucketRegionsQueryer {
         &self.0.queryer
     }
 
+    /// 创建默认的单请求上传器
     #[inline]
     pub fn single_part_uploader(&self) -> impl SinglePartUploader {
         self.form_uploader()
     }
 
+    /// 创建表单上传器
     #[inline]
     pub fn form_uploader(&self) -> FormUploader {
         FormUploader::new(self.to_owned())
     }
 
+    /// 创建默认的分片上传器
     #[inline]
     pub fn multi_parts_uploader(
         &self,
@@ -62,6 +71,7 @@ impl UploadManager {
         self.multi_parts_v2_uploader(resumable_recorder)
     }
 
+    /// 创建分片上传器 V1
     #[inline]
     pub fn multi_parts_v1_uploader<R: ResumableRecorder + 'static>(
         &self,
@@ -70,6 +80,7 @@ impl UploadManager {
         MultiPartsV1Uploader::new(self.to_owned(), resumable_recorder)
     }
 
+    /// 创建分片上传器 V2
     #[inline]
     pub fn multi_parts_v2_uploader<R: ResumableRecorder + 'static>(
         &self,
@@ -78,6 +89,7 @@ impl UploadManager {
         MultiPartsV2Uploader::new(self.to_owned(), resumable_recorder)
     }
 
+    /// 创建自动上传器
     #[inline]
     pub fn auto_uploader<CP: Default, DPP: Default, RR: Default, RPP: Default>(
         &self,
@@ -85,6 +97,7 @@ impl UploadManager {
         AutoUploader::<CP, DPP, RR, RPP>::new(self.to_owned())
     }
 
+    /// 创建自动上传构建器
     #[inline]
     pub fn auto_uploader_builder<CP: Default, DPP: Default, RR: Default, RPP: Default>(
         &self,
@@ -93,6 +106,7 @@ impl UploadManager {
     }
 }
 
+/// 上传管理构建器
 #[derive(Debug)]
 pub struct UploadManagerBuilder {
     api_client: Option<QiniuApiClient>,
@@ -103,6 +117,7 @@ pub struct UploadManagerBuilder {
 }
 
 impl UploadManagerBuilder {
+    /// 创建上传管理构建器
     #[inline]
     pub fn new(upload_token_signer: impl Into<UploadTokenSigner>) -> Self {
         Self {
@@ -114,12 +129,14 @@ impl UploadManagerBuilder {
         }
     }
 
+    /// 设置七牛 API 调用客户端
     #[inline]
     pub fn api_client(&mut self, api_client: QiniuApiClient) -> &mut Self {
         self.api_client = Some(api_client);
         self
     }
 
+    /// 设置 HTTP 客户端
     pub fn http_client(&mut self, http_client: HttpClient) -> &mut Self {
         self.http_client = Some(http_client.to_owned());
         if let Some(queryer_builder) = self.queryer_builder.as_mut() {
@@ -132,12 +149,14 @@ impl UploadManagerBuilder {
         self
     }
 
+    /// 设置存储空间相关区域查询器
     #[inline]
     pub fn queryer(&mut self, queryer: BucketRegionsQueryer) -> &mut Self {
         self.queryer = Some(queryer);
         self
     }
 
+    /// 设置存储空间管理终端地址
     pub fn uc_endpoints(&mut self, endpoints: impl Into<Endpoints>) -> &mut Self {
         if let Some(queryer_builder) = self.queryer_builder.as_mut() {
             queryer_builder.uc_endpoints(endpoints);
@@ -149,6 +168,7 @@ impl UploadManagerBuilder {
         self
     }
 
+    /// 构建上传管理器
     pub fn build(&mut self) -> UploadManager {
         let upload_token_provider = self.upload_token_signer.to_owned();
         let api_client = self.api_client.take();

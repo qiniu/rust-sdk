@@ -1,6 +1,9 @@
 use super::{DataPartitionProvider, DataPartitionProviderFeedback, PartSize};
 use std::num::NonZeroU64;
 
+/// 整数倍分片大小提供者
+///
+/// 基于一个分片大小提供者实例，如果提供的分片大小不是指定倍数的整数倍，则下调到它的整数倍
 #[derive(Debug, Clone, Copy)]
 pub struct MultiplyDataPartitionProvider<P: ?Sized> {
     multiply: NonZeroU64,
@@ -8,11 +11,17 @@ pub struct MultiplyDataPartitionProvider<P: ?Sized> {
 }
 
 impl<P: DataPartitionProvider> MultiplyDataPartitionProvider<P> {
+    /// 创建整数倍分片大小提供者
+    ///
+    /// 如果传入 `0` 将返回 [`None`]。
     #[inline]
     pub fn new(base: P, multiply: u64) -> Option<Self> {
         NonZeroU64::new(multiply).map(|multiply| Self::new_with_non_zero_multiply(base, multiply))
     }
 
+    /// 创建整数倍分片大小提供者
+    ///
+    /// 提供 [`NonZeroU64`] 作为分片大小类型。
     #[inline]
     pub fn new_with_non_zero_multiply(base: P, multiply: NonZeroU64) -> Self {
         Self { base, multiply }
@@ -30,6 +39,7 @@ impl<P: DataPartitionProvider + Default> Default for MultiplyDataPartitionProvid
 }
 
 impl<P> MultiplyDataPartitionProvider<P> {
+    /// 获取倍数
     #[inline]
     pub fn multiply(&self) -> NonZeroU64 {
         self.multiply

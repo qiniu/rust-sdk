@@ -24,6 +24,41 @@ use std::{
 #[cfg(feature = "async")]
 use {async_std::fs::metadata as async_metadata, futures::AsyncRead};
 
+/// 自动上传器
+///
+/// 使用设置的各种提供者，将文件或是二进制流数据上传。
+///
+/// 该类型包含多个泛型参数，
+/// `CP` 表示并发数提供者，默认为固定并发数提供者；
+/// `DPP` 表示分片大小提供者，默认为固定分片大小提供者；
+/// `RR` 表示断点恢复记录器，默认为文件系统断点恢复记录器；
+/// `RPP` 表示可恢复策略，默认为固定阀值可恢复策略。
+///
+/// ### 用自动上传器上传文件
+///
+/// ```
+/// use qiniu_upload_manager::{
+///     apis::credential::Credential, AutoUploader, AutoUploaderObjectParams, UploadManager,
+///     UploadTokenSigner,
+/// };
+/// use std::time::Duration;
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// let bucket_name = "test-bucket";
+/// let object_name = "test-object";
+/// # let file_path = std::path::Path::new("test.txt");
+/// let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
+///     Credential::new("abcdefghklmnopq", "1234567890"),
+///     bucket_name,
+///     Duration::from_secs(3600),
+/// ))
+/// .build();
+/// let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
+/// let mut uploader: AutoUploader = upload_manager.auto_uploader();
+/// uploader.async_upload_path(file_path, params).await?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug)]
 pub struct AutoUploader<
     CP = FixedConcurrencyProvider,
@@ -40,6 +75,7 @@ pub struct AutoUploader<
 }
 
 impl<CP: Default, DPP: Default, RR: Default, RPP: Default> AutoUploader<CP, DPP, RR, RPP> {
+    /// 创建自动上传器
     #[inline]
     pub fn new(upload_manager: UploadManager) -> Self {
         Self {
@@ -52,6 +88,7 @@ impl<CP: Default, DPP: Default, RR: Default, RPP: Default> AutoUploader<CP, DPP,
         }
     }
 
+    /// 构建自动上传构建器
     #[inline]
     pub fn builder(upload_manager: UploadManager) -> AutoUploaderBuilder<CP, DPP, RR, RPP> {
         AutoUploaderBuilder {
@@ -202,13 +239,14 @@ impl<
 where
     RR::HashAlgorithm: Send,
 {
+    /// 阻塞上传指定路径的文件
     pub fn upload_path(&self, path: &Path, params: impl Into<AutoUploaderObjectParams>) -> ApiResult<Value> {
         let params = params.into();
         let size = metadata(path)?.len();
         with_uploader!(
             self,
             self.resumable_policy_provider
-                .get_policy_from_size(size, &Default::default()),
+                .get_policy_from_size(size, Default::default()),
             params,
             sync_block,
             upload_path,
@@ -217,6 +255,7 @@ where
         )
     }
 
+    /// 阻塞上传阅读器的数据
     pub fn upload_reader<R: Read + Debug + Send + Sync + 'static>(
         &self,
         reader: R,
@@ -225,10 +264,11 @@ where
         let params = params.into();
         let (policy, reader) = self
             .resumable_policy_provider
-            .get_policy_from_reader(reader, &Default::default())?;
+            .get_policy_from_reader(reader, Default::default())?;
         with_uploader!(self, policy, params, sync_block, upload_reader, reader, params.into(),)
     }
 
+    /// 异步上传指定路径的文件
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub async fn async_upload_path<'a>(
@@ -241,7 +281,7 @@ where
         with_uploader!(
             self,
             self.resumable_policy_provider
-                .get_policy_from_size(size, &Default::default()),
+                .get_policy_from_size(size, Default::default()),
             params,
             async_block,
             async_upload_path,
@@ -250,6 +290,7 @@ where
         )
     }
 
+    /// 异步上传阅读器的数据
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub async fn async_upload_reader<R: AsyncRead + Unpin + Debug + Send + Sync + 'static>(
@@ -260,7 +301,7 @@ where
         let params = params.into();
         let (policy, reader) = self
             .resumable_policy_provider
-            .get_policy_from_async_reader(reader, &Default::default())
+            .get_policy_from_async_reader(reader, Default::default())
             .await?;
         with_uploader!(
             self,
@@ -274,6 +315,7 @@ where
     }
 }
 
+/// 自动上传器对象参数
 #[derive(Debug, Default)]
 pub struct AutoUploaderObjectParams {
     object_params: ObjectParams,
@@ -282,60 +324,89 @@ pub struct AutoUploaderObjectParams {
     multi_parts_uploader_prefer: MultiPartsUploaderPrefer,
 }
 
+/// 期望的分片上传调度器
 #[derive(Clone, Copy, Debug, PartialEq, Eq, SmartDefault)]
 #[non_exhaustive]
 pub enum MultiPartsUploaderSchedulerPrefer {
+    /// 串行上传调度器
+    ///
+    /// 即 [`crate::SerialMultiPartsUploaderScheduler`]。
+    ///
+    /// 使用该方式，则始终使用单并发上传，不会使用 [`crate::DataPartitionProvider`] 的值。
     Serial,
+
+    /// 并行上传调度器
+    ///
+    /// 即 [`crate::ConcurrentMultiPartsUploaderScheduler`]。
     #[default]
     Concurrent,
 }
 
+/// 期望的对象单请求上传器
 #[derive(Clone, Copy, Debug, PartialEq, Eq, SmartDefault)]
 #[non_exhaustive]
 pub enum SinglePartUploaderPrefer {
+    /// 表单上传器
+    ///
+    /// 即 [`crate::FormUploader`]。
     #[default]
     Form,
 }
 
+/// 期望的对象分片上传器
 #[derive(Clone, Copy, Debug, PartialEq, Eq, SmartDefault)]
 #[non_exhaustive]
 pub enum MultiPartsUploaderPrefer {
+    /// 分片上传器 V1
+    ///
+    /// 即 [`crate::MultiPartsV1Uploader`]。
     V1,
+
+    /// 分片上传器 V2
+    ///
+    /// 即 [`crate::MultiPartsV2Uploader`]。
     #[default]
     V2,
 }
 
 impl AutoUploaderObjectParams {
+    /// 创建自动上传器对象参数构建器
     #[inline]
     pub fn builder() -> AutoUploaderObjectParamsBuilder {
         Default::default()
     }
 
+    /// 获取期望的分片上传调度器
     #[inline]
     pub fn multi_parts_uploader_scheduler_prefer(&self) -> MultiPartsUploaderSchedulerPrefer {
         self.multi_parts_uploader_scheduler_prefer
     }
 
+    /// 获取期望的分片上传调度器的可变引用
     #[inline]
     pub fn multi_parts_uploader_scheduler_prefer_mut(&mut self) -> &mut MultiPartsUploaderSchedulerPrefer {
         &mut self.multi_parts_uploader_scheduler_prefer
     }
 
+    /// 期望的对象单请求上传器
     #[inline]
     pub fn single_part_uploader_prefer(&self) -> SinglePartUploaderPrefer {
         self.single_part_uploader_prefer
     }
 
+    /// 期望的对象单请求上传器的可变引用
     #[inline]
     pub fn single_part_uploader_prefer_mut(&mut self) -> &mut SinglePartUploaderPrefer {
         &mut self.single_part_uploader_prefer
     }
 
+    /// 期望的对象分片上传器
     #[inline]
     pub fn multi_parts_uploader_prefer(&self) -> MultiPartsUploaderPrefer {
         self.multi_parts_uploader_prefer
     }
 
+    /// 期望的对象分片上传器的可变引用
     #[inline]
     pub fn multi_parts_uploader_prefer_mut(&mut self) -> &mut MultiPartsUploaderPrefer {
         &mut self.multi_parts_uploader_prefer
@@ -377,6 +448,7 @@ impl From<AutoUploaderObjectParams> for ObjectParams {
     }
 }
 
+/// 自动上传器对象参数构建器
 #[derive(Debug, Default)]
 pub struct AutoUploaderObjectParamsBuilder {
     object_params_builder: ObjectParamsBuilder,
@@ -402,6 +474,7 @@ impl DerefMut for AutoUploaderObjectParamsBuilder {
 }
 
 impl AutoUploaderObjectParamsBuilder {
+    /// 设置期望的分片上传调度器
     #[inline]
     pub fn multi_parts_uploader_scheduler_prefer(
         &mut self,
@@ -411,18 +484,21 @@ impl AutoUploaderObjectParamsBuilder {
         self
     }
 
+    /// 设置对象单请求上传器
     #[inline]
     pub fn single_part_uploader_prefer(&mut self, single_part_uploader_prefer: SinglePartUploaderPrefer) -> &mut Self {
         self.single_part_uploader_prefer = single_part_uploader_prefer;
         self
     }
 
+    /// 设置对象分片上传器
     #[inline]
     pub fn multi_parts_uploader_prefer(&mut self, multi_parts_uploader_prefer: MultiPartsUploaderPrefer) -> &mut Self {
         self.multi_parts_uploader_prefer = multi_parts_uploader_prefer;
         self
     }
 
+    /// 构建自动上传器对象参数
     #[inline]
     pub fn build(&mut self) -> AutoUploaderObjectParams {
         AutoUploaderObjectParams {
@@ -434,6 +510,7 @@ impl AutoUploaderObjectParamsBuilder {
     }
 }
 
+/// 自动上传构建器
 #[derive(Debug)]
 pub struct AutoUploaderBuilder<
     CP = FixedConcurrencyProvider,
@@ -450,6 +527,7 @@ pub struct AutoUploaderBuilder<
 }
 
 impl<CP, DPP, RR, RPP> AutoUploaderBuilder<CP, DPP, RR, RPP> {
+    /// 设置并发数提供者
     #[inline]
     pub fn concurrency_provider<CP2>(self, concurrency_provider: CP2) -> AutoUploaderBuilder<CP2, DPP, RR, RPP> {
         AutoUploaderBuilder {
@@ -462,6 +540,7 @@ impl<CP, DPP, RR, RPP> AutoUploaderBuilder<CP, DPP, RR, RPP> {
         }
     }
 
+    /// 设置分片大小提供者
     #[inline]
     pub fn data_partition_provider<DPP2>(
         self,
@@ -477,6 +556,7 @@ impl<CP, DPP, RR, RPP> AutoUploaderBuilder<CP, DPP, RR, RPP> {
         }
     }
 
+    /// 设置断点恢复记录器
     #[inline]
     pub fn resumable_recorder<RR2>(self, resumable_recorder: RR2) -> AutoUploaderBuilder<CP, DPP, RR2, RPP> {
         AutoUploaderBuilder {
@@ -489,6 +569,7 @@ impl<CP, DPP, RR, RPP> AutoUploaderBuilder<CP, DPP, RR, RPP> {
         }
     }
 
+    /// 设置可恢复策略
     #[inline]
     pub fn resumable_policy_provider<RPP2>(
         self,
@@ -506,6 +587,7 @@ impl<CP, DPP, RR, RPP> AutoUploaderBuilder<CP, DPP, RR, RPP> {
 }
 
 impl<CP, DPP, RR, RPP> AutoUploaderBuilder<CP, DPP, RR, RPP> {
+    /// 构建上传提供者
     #[inline]
     pub fn build(self) -> AutoUploader<CP, DPP, RR, RPP> {
         AutoUploader {

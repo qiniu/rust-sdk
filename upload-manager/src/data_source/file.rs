@@ -1,4 +1,4 @@
-use super::{DataSource, DataSourceReader, PartSize, SeekableDataSource, SourceKey, UnseekableDataSource};
+use super::{seekable::SeekableDataSource, DataSource, DataSourceReader, PartSize, SourceKey, UnseekableDataSource};
 use digest::Digest;
 use once_cell::sync::OnceCell;
 use os_str_bytes::OsStrBytes;
@@ -34,6 +34,9 @@ impl<A: Digest> Debug for Source<A> {
     }
 }
 
+/// 文件数据源
+///
+/// 基于一个文件实现了数据源接口
 pub struct FileDataSource<A: Digest = Sha1> {
     path: PathBuf,
     canonicalized_path: OnceCell<PathBuf>,
@@ -44,6 +47,7 @@ pub struct FileDataSource<A: Digest = Sha1> {
 }
 
 impl<A: Digest> FileDataSource<A> {
+    /// 创建文件数据源
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self {
             path: path.into(),

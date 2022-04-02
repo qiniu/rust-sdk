@@ -7,31 +7,48 @@ use std::{
     time::Duration,
 };
 
+/// 并发数获取接口
+///
+/// 获取分片上传时的并发数
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait ConcurrencyProvider: Debug + Sync + Send {
+    /// 获取并发数
     fn concurrency(&self) -> Concurrency;
+
+    /// 反馈并发数结果
     fn feedback(&self, feedback: ConcurrencyProviderFeedback<'_>);
 }
 
+/// 上传并发数
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Concurrency(NonZeroUsize);
 
 impl Concurrency {
+    /// 创建上传并发数
+    ///
+    /// 如果传入 `0` 将返回 [`None`]。
     #[inline]
     pub fn new(concurrency: usize) -> Option<Self> {
         NonZeroUsize::new(concurrency).map(Self)
     }
 
+    /// 创建上传并发数
+    ///
+    /// 提供 [`NonZeroUsize`] 作为并发数类型。
     #[inline]
     pub const fn new_with_non_zero_usize(concurrency: NonZeroUsize) -> Self {
         Self(concurrency)
     }
 
+    /// 获取并发数
     #[inline]
     pub fn as_usize(&self) -> usize {
         self.as_non_zero_usize().get()
     }
 
+    /// 获取并发数
+    ///
+    /// 返回 [`NonZeroUsize`] 作为并发数类型。
     #[inline]
     pub fn as_non_zero_usize(&self) -> NonZeroUsize {
         self.0
@@ -82,6 +99,9 @@ impl DerefMut for Concurrency {
     }
 }
 
+/// 并发数提供者反馈
+///
+/// 反馈给提供者并发的效果，包含对象大小，花费时间，以及错误信息。
 #[derive(Debug)]
 pub struct ConcurrencyProviderFeedback<'f> {
     concurrency: Concurrency,
@@ -105,21 +125,25 @@ impl<'f> ConcurrencyProviderFeedback<'f> {
         }
     }
 
+    /// 获取并发数
     #[inline]
     pub fn concurrency(&self) -> Concurrency {
         self.concurrency
     }
 
+    /// 获取对象大小
     #[inline]
     pub fn object_size(&self) -> NonZeroU64 {
         self.object_size
     }
 
+    /// 获取花费时间
     #[inline]
     pub fn elapsed(&self) -> Duration {
         self.elapsed
     }
 
+    /// 获取错误信息
     #[inline]
     pub fn error(&self) -> Option<&'f ResponseError> {
         self.error

@@ -11,19 +11,30 @@ use std::{
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
+/// 数据源接口
+///
+/// 提供上传所用的数据源
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait DataSource<A: Digest>: Debug + Sync + Send {
+    /// 数据源切片
     fn slice(&self, size: PartSize) -> IoResult<Option<DataSourceReader>>;
 
+    /// 异步数据源切片
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_slice(&self, size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>>;
 
+    /// 获取数据源 KEY
+    ///
+    /// 用于区分不同的数据源
     #[inline]
     fn source_key(&self) -> IoResult<Option<SourceKey<A>>> {
         Ok(None)
     }
 
+    /// 异步获取数据源 KEY
+    ///
+    /// 用于区分不同的数据源
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -31,8 +42,10 @@ pub trait DataSource<A: Digest>: Debug + Sync + Send {
         Box::pin(async move { self.source_key() })
     }
 
+    /// 获取数据源大小
     fn total_size(&self) -> IoResult<Option<u64>>;
 
+    /// 异步获取数据源大小
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -68,6 +81,9 @@ pub(super) trait Digestible<A: Digest>: Read + Reset {
 
 impl<T: Read + Reset, A: Digest> Digestible<A> for T {}
 
+/// 数据源阅读器
+///
+/// 提供阻塞读取接口
 #[derive(Debug)]
 pub struct DataSourceReader {
     inner: DataSourceReaderInner,
@@ -81,6 +97,7 @@ enum DataSourceReaderInner {
 }
 
 impl DataSourceReader {
+    /// 创建可寻址的数据源阅读器
     #[inline]
     pub fn seekable(part_number: NonZeroUsize, source: SeekableSource) -> Self {
         Self {
@@ -89,6 +106,7 @@ impl DataSourceReader {
         }
     }
 
+    /// 创建不可寻址的数据源阅读器
     #[inline]
     pub fn unseekable(part_number: NonZeroUsize, data: Vec<u8>, offset: u64) -> Self {
         Self {
@@ -183,6 +201,9 @@ mod async_reader {
 
     impl<T: AsyncRead + AsyncReset + Unpin + Send, A: Digest + Unpin + Send> AsyncDigestible<A> for T {}
 
+    /// 异步数据源阅读器
+    ///
+    /// 提供异步读取接口
     #[derive(Debug)]
     pub struct AsyncDataSourceReader {
         inner: AsyncDataSourceReaderInner,
@@ -196,6 +217,7 @@ mod async_reader {
     }
 
     impl AsyncDataSourceReader {
+        /// 创建可寻址的异步数据源阅读器
         #[inline]
         pub fn seekable(part_number: NonZeroUsize, source: AsyncSeekableSource) -> Self {
             Self {
@@ -204,6 +226,7 @@ mod async_reader {
             }
         }
 
+        /// 创建不可寻址的异步数据源阅读器
         #[inline]
         pub fn unseekable(part_number: NonZeroUsize, data: Vec<u8>, offset: u64) -> Self {
             Self {
@@ -397,10 +420,13 @@ mod file;
 pub use file::FileDataSource;
 
 mod seekable;
-pub use seekable::{SeekableDataSource, SeekableSource};
+pub use seekable::SeekableSource;
 
 mod unseekable;
-pub use unseekable::UnseekableDataSource;
+pub(crate) use unseekable::UnseekableDataSource;
 
 #[cfg(feature = "async")]
-pub use {seekable::AsyncSeekableSource, unseekable::AsyncUnseekableDataSource};
+pub use seekable::AsyncSeekableSource;
+
+#[cfg(feature = "async")]
+pub(crate) use unseekable::AsyncUnseekableDataSource;

@@ -10,6 +10,7 @@
     keyword_idents,
     macro_use_extern_crate,
     meta_variable_misuse,
+    missing_docs,
     non_ascii_idents,
     indirect_structural_match,
     trivial_numeric_casts,
@@ -18,6 +19,39 @@
     unused_import_braces,
     unused_qualifications
 )]
+
+//! # qiniu-upload-manager
+//!
+//! ## 七牛上传管理
+//!
+//! 基于 `qiniu-apis` 提供针对七牛对象的上传功能
+//! （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async` 功能）。
+//!
+//! ### 用自动上传器上传文件
+//!
+//! ```
+//! use qiniu_upload_manager::{
+//!     apis::credential::Credential, AutoUploader, AutoUploaderObjectParams, UploadManager,
+//!     UploadTokenSigner,
+//! };
+//! use std::time::Duration;
+//!
+//! # async fn example() -> anyhow::Result<()> {
+//! let bucket_name = "test-bucket";
+//! let object_name = "test-object";
+//! # let file_path = std::path::Path::new("test.txt");
+//! let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
+//!     Credential::new("abcdefghklmnopq", "1234567890"),
+//!     bucket_name,
+//!     Duration::from_secs(3600),
+//! ))
+//! .build();
+//! let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
+//! let mut uploader: AutoUploader = upload_manager.auto_uploader();
+//! uploader.async_upload_path(file_path, params).await?;
+//! # Ok(())
+//! # }
+//! ```
 
 mod auto_uploader;
 mod callbacks;
@@ -47,7 +81,7 @@ pub use data_partition_provider::{
     DataPartitionProvider, DataPartitionProviderFeedback, FixedDataPartitionProvider, LimitedDataPartitionProvider,
     MultiplyDataPartitionProvider, PartSize,
 };
-pub use data_source::{DataSource, DataSourceReader, FileDataSource, SeekableSource, SourceKey, UnseekableDataSource};
+pub use data_source::{DataSource, DataSourceReader, FileDataSource, SeekableSource, SourceKey};
 pub use multi_parts_uploader::{
     InitializedParts, MultiPartsUploader, MultiPartsV1Uploader, MultiPartsV1UploaderInitializedObject,
     MultiPartsV1UploaderUploadedPart, MultiPartsV2Uploader, MultiPartsV2UploaderInitializedObject,
@@ -72,11 +106,12 @@ pub use upload_token::UploadTokenSigner;
 
 #[cfg(feature = "async")]
 pub use {
-    data_source::{AsyncDataSourceReader, AsyncSeekableSource, AsyncUnseekableDataSource},
+    data_source::{AsyncDataSourceReader, AsyncSeekableSource},
     resumable_policy::DynAsyncRead,
     resumable_recorder::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium},
 };
 
+/// 将所有 Trait 全部重新导出，方便统一导入
 pub mod prelude {
     pub use super::apis::http_client::prelude::*;
     pub use super::{

@@ -70,6 +70,9 @@ use {
     },
 };
 
+/// 分片上传器 V2
+///
+/// 不推荐直接使用这个上传器，而是可以借助 [`crate::MultiPartsUploaderScheduler`] 来方便地实现分片上传。
 #[derive(Debug)]
 pub struct MultiPartsV2Uploader<R: ?Sized> {
     upload_manager: UploadManager,
@@ -77,6 +80,7 @@ pub struct MultiPartsV2Uploader<R: ?Sized> {
     resumable_recorder: R,
 }
 
+/// 被 分片上传器 V2 初始化的分片信息
 #[derive(Debug)]
 pub struct MultiPartsV2UploaderInitializedObject<R: ResumableRecorder + ?Sized> {
     upload_id: String,
@@ -89,11 +93,13 @@ pub struct MultiPartsV2UploaderInitializedObject<R: ResumableRecorder + ?Sized> 
 }
 
 impl<R: ResumableRecorder + ?Sized> MultiPartsV2UploaderInitializedObject<R> {
+    /// 获得上传 ID
     #[inline]
     pub fn upload_id(&self) -> &str {
         &self.upload_id
     }
 
+    /// 获得初始化时间
     #[inline]
     pub fn initialized_at(&self) -> SystemTime {
         self.initialized_at
@@ -107,6 +113,7 @@ impl<R: ResumableRecorder + ?Sized> InitializedParts for MultiPartsV2UploaderIni
     }
 }
 
+/// 已经通过 分片上传器 V2 上传的分片信息
 #[derive(Debug)]
 pub struct MultiPartsV2UploaderUploadedPart {
     response_body: UploadPartResponseBody,
@@ -117,11 +124,13 @@ pub struct MultiPartsV2UploaderUploadedPart {
 }
 
 impl MultiPartsV2UploaderUploadedPart {
+    /// 获取响应体
     #[inline]
     pub fn response_body(&self) -> &UploadPartResponseBody {
         &self.response_body
     }
 
+    /// 获取分片大小
     #[inline]
     pub fn part_number(&self) -> NonZeroUsize {
         self.part_number
@@ -377,7 +386,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
             let elapsed = begin_at.elapsed();
             uploader.after_response_call(&mut response_result)?;
             data_partitioner_provider.feedback(DataPartitionProviderFeedback::new(
-                content_length,
+                content_length.into(),
                 elapsed,
                 initialized.params.extensions(),
                 response_result.as_ref().err(),
@@ -629,7 +638,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV2Uploader
             let elapsed = begin_at.elapsed();
             uploader.after_response_call(&mut response_result)?;
             data_partitioner_provider.feedback(DataPartitionProviderFeedback::new(
-                content_length,
+                content_length.into(),
                 elapsed,
                 initialized.params.extensions(),
                 response_result.as_ref().err(),
@@ -1343,7 +1352,7 @@ impl MultiPartsV2UploaderUploadedPart {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{DummyResumableRecorder, FileDataSource, FixedDataPartitionProvider, UploadTokenSigner};
+    use crate::{data_source::FileDataSource, DummyResumableRecorder, FixedDataPartitionProvider, UploadTokenSigner};
     use anyhow::Result;
     use qiniu_apis::{
         credential::Credential,

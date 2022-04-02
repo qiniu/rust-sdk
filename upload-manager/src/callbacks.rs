@@ -14,26 +14,36 @@ type PartUploadedCallback<'c> = Arc<dyn Fn(&dyn UploadedPart) -> CallbackResult 
 type AfterResponseOkCallback<'c> = Arc<dyn Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'c>;
 type AfterResponseErrorCallback<'c> = Arc<dyn Fn(&ResponseError) -> CallbackResult + Send + Sync + 'c>;
 
+/// 上传回调函数提供者
 pub trait UploaderWithCallbacks {
+    /// 设置请求前的回调函数
     fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self;
+
+    /// 设置上传进度回调函数
     fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self;
+
+    /// 设置响应成功的回调函数
     fn on_response_ok<F: Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self;
+
+    /// 设置响应错误的回调函数
     fn on_response_error<F: Fn(&ResponseError) -> CallbackResult + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self;
 }
 
+/// 分片上传回调函数提供者
 pub trait MultiPartsUploaderWithCallbacks: UploaderWithCallbacks {
+    /// 设置分片上传回调函数
     fn on_part_uploaded<F: Fn(&dyn UploadedPart) -> CallbackResult + Send + Sync + 'static>(
         &mut self,
         callback: F,
@@ -149,6 +159,7 @@ impl Debug for Callbacks<'_> {
     }
 }
 
+/// 上传进度信息
 #[derive(Debug)]
 pub struct UploadingProgressInfo {
     transferred_bytes: u64,
@@ -156,6 +167,7 @@ pub struct UploadingProgressInfo {
 }
 
 impl UploadingProgressInfo {
+    /// 创建上传进度信息
     #[inline]
     pub fn new(transferred_bytes: u64, total_bytes: Option<u64>) -> Self {
         Self {
@@ -164,11 +176,13 @@ impl UploadingProgressInfo {
         }
     }
 
+    /// 获取已传输的字节数
     #[inline]
     pub fn transferred_bytes(&self) -> u64 {
         self.transferred_bytes
     }
 
+    /// 获取总字节数
     #[inline]
     pub fn total_bytes(&self) -> Option<u64> {
         self.total_bytes

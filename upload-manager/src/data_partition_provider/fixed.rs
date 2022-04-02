@@ -1,6 +1,7 @@
 use super::{DataPartitionProvider, DataPartitionProviderFeedback, PartSize};
 use std::num::NonZeroU64;
 
+/// 固定分片大小提供者
 #[derive(Debug, Clone, Copy)]
 pub struct FixedDataPartitionProvider(NonZeroU64);
 
@@ -12,16 +13,23 @@ impl Default for FixedDataPartitionProvider {
 }
 
 impl FixedDataPartitionProvider {
+    /// 创建固定分片大小提供者
+    ///
+    /// 如果传入 `0` 将返回 [`None`]。
     #[inline]
     pub fn new(part_size: u64) -> Option<Self> {
         NonZeroU64::new(part_size).map(Self::new_with_non_zero_part_size)
     }
 
+    /// 创建固定分片大小提供者
+    ///
+    /// 提供 [`NonZeroU64`] 作为分片大小类型。
     #[inline]
     pub fn new_with_non_zero_part_size(part_size: NonZeroU64) -> Self {
         Self(part_size)
     }
 
+    /// 获取固定分片大小
     #[inline]
     pub fn fixed_part_size(&self) -> NonZeroU64 {
         self.0

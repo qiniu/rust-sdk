@@ -7,30 +7,44 @@ use std::{
     time::Duration,
 };
 
+/// 分片大小获取接口
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait DataPartitionProvider: Debug + Sync + Send {
+    /// 获取分片大小
     fn part_size(&self) -> PartSize;
+    /// 反馈分片大小结果
     fn feedback(&self, feedback: DataPartitionProviderFeedback<'_>);
 }
 
+/// 分片大小
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PartSize(NonZeroU64);
 
 impl PartSize {
+    /// 创建分片大小
+    ///
+    /// 如果传入 `0` 将返回 [`None`]。
     pub fn new(part_size: u64) -> Option<Self> {
         NonZeroU64::new(part_size).map(Self)
     }
 
+    /// 创建分片大小
+    ///
+    /// 提供 [`NonZeroU64`] 作为并发数类型。
     #[inline]
     pub const fn new_with_non_zero_u64(concurrency: NonZeroU64) -> Self {
         Self(concurrency)
     }
 
+    /// 获取并发数
+    ///
+    /// 返回 [`NonZeroU64`] 作为并发数类型。
     #[inline]
     pub fn as_non_zero_u64(&self) -> NonZeroU64 {
         self.0
     }
 
+    /// 获取并发数
     #[inline]
     pub fn as_u64(&self) -> u64 {
         self.as_non_zero_u64().get()
@@ -86,9 +100,12 @@ impl DerefMut for PartSize {
     }
 }
 
+/// 分片大小提供者反馈
+///
+/// 反馈给提供者分片的效果，包含对象大小，花费时间，以及错误信息。
 #[derive(Debug)]
 pub struct DataPartitionProviderFeedback<'f> {
-    part_size: NonZeroU64,
+    part_size: PartSize,
     elapsed: Duration,
     extensions: &'f Extensions,
     error: Option<&'f ResponseError>,
@@ -96,7 +113,7 @@ pub struct DataPartitionProviderFeedback<'f> {
 
 impl<'f> DataPartitionProviderFeedback<'f> {
     pub(super) fn new(
-        part_size: NonZeroU64,
+        part_size: PartSize,
         elapsed: Duration,
         extensions: &'f Extensions,
         error: Option<&'f ResponseError>,
@@ -109,21 +126,25 @@ impl<'f> DataPartitionProviderFeedback<'f> {
         }
     }
 
+    /// 获取分片大小
     #[inline]
-    pub fn part_size(&self) -> NonZeroU64 {
+    pub fn part_size(&self) -> PartSize {
         self.part_size
     }
 
+    /// 获取花费时间
     #[inline]
     pub fn elapsed(&self) -> Duration {
         self.elapsed
     }
 
+    /// 获取扩展信息
     #[inline]
     pub fn extensions(&self) -> &Extensions {
         self.extensions
     }
 
+    /// 获取错误信息
     #[inline]
     pub fn error(&self) -> Option<&'f ResponseError> {
         self.error

@@ -16,6 +16,9 @@ use {
     futures::future::BoxFuture,
 };
 
+/// 文件系统断点恢复记录器
+///
+/// 基于文件系统提供断点恢复记录功能
 #[derive(Debug)]
 pub struct FileSystemResumableRecorder {
     path: PathBuf,
@@ -31,6 +34,7 @@ impl Default for FileSystemResumableRecorder {
 }
 
 impl FileSystemResumableRecorder {
+    /// 创建文件系统断点恢复记录器，传入一个目录路径用于储存断点记录
     #[inline]
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self { path: path.into() }

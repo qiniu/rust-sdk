@@ -18,14 +18,14 @@ struct SourceOffset {
 }
 
 #[derive(Debug)]
-pub struct SeekableDataSource {
+pub(crate) struct SeekableDataSource {
     source: SeekableSource,
     current: Mutex<SourceOffset>,
     size: u64,
 }
 
 impl SeekableDataSource {
-    pub fn new(mut source: impl Read + Seek + Debug + Send + Sync + 'static, size: u64) -> IoResult<Self> {
+    pub(crate) fn new(mut source: impl Read + Seek + Debug + Send + Sync + 'static, size: u64) -> IoResult<Self> {
         Ok(Self {
             size,
             current: Mutex::new(SourceOffset {
@@ -70,6 +70,9 @@ impl<D: Digest> DataSource<D> for SeekableDataSource {
     }
 }
 
+/// 可寻址的数据源
+///
+/// 用于表示一个分片，需要传入可寻址的数据源，以及分片的起始位置和长度
 #[derive(Debug, Clone)]
 pub struct SeekableSource {
     source: Arc<Mutex<SeekableSourceInner<dyn ReadSeek>>>,
@@ -79,6 +82,9 @@ pub struct SeekableSource {
 }
 
 impl SeekableSource {
+    /// 创建可寻址的数据源
+    ///
+    /// 需要传入可寻址的数据源，以及分片的起始位置和长度
     #[inline]
     pub fn new(source: impl Read + Seek + Debug + Send + Sync + 'static, offset: u64, len: u64) -> Self {
         Self {
@@ -170,6 +176,9 @@ mod async_reader {
         task::{Context, Poll},
     };
 
+    /// 可异步寻址的数据源
+    ///
+    /// 用于表示一个分片，需要传入可异步寻址的数据源，以及分片的起始位置和长度
     #[derive(Debug)]
     pub struct AsyncSeekableSource {
         source: Arc<Mutex<AsyncSeekableSourceInner<dyn ReadSeek>>>,
@@ -219,6 +228,9 @@ mod async_reader {
     }
 
     impl AsyncSeekableSource {
+        /// 创建可异步寻址的数据源
+        ///
+        /// 需要传入可异步寻址的数据源，以及分片的起始位置和长度
         #[inline]
         pub fn new(
             source: impl AsyncRead + AsyncSeek + Debug + Send + Sync + Unpin + 'static,

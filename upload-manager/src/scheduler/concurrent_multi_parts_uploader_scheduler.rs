@@ -23,6 +23,39 @@ use {
     futures::future::{join_all, BoxFuture},
 };
 
+/// 并行分片上传调度器
+///
+/// 在阻塞模式下创建线程池负责上传分片，在异步模式下使用 async-std 的线程池负责上传分片。
+///
+/// ### 用并行分片上传调度器上传文件
+///
+/// ```
+/// use qiniu_upload_manager::{
+///     apis::credential::Credential, prelude::*, ConcurrentMultiPartsUploaderScheduler,
+///     FileSystemResumableRecorder, MultiPartsV2Uploader, ObjectParams, UploadManager,
+///     UploadTokenSigner,
+/// };
+/// use std::time::Duration;
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// let bucket_name = "test-bucket";
+/// let object_name = "test-object";
+/// # let file_path = std::path::Path::new("test.txt");
+/// let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
+///     Credential::new("abcdefghklmnopq", "1234567890"),
+///     bucket_name,
+///     Duration::from_secs(3600),
+/// ))
+/// .build();
+/// let params = ObjectParams::builder().object_name(object_name).file_name(object_name).build();
+/// let mut scheduler = ConcurrentMultiPartsUploaderScheduler::new(MultiPartsV2Uploader::new(
+///     upload_manager,
+///     FileSystemResumableRecorder::default(),
+/// ));
+/// scheduler.async_upload_path(file_path, params).await?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug)]
 pub struct ConcurrentMultiPartsUploaderScheduler<M> {
     data_partition_provider: Arc<dyn DataPartitionProvider>,

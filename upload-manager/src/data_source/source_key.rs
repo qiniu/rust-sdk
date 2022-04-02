@@ -5,9 +5,13 @@ use std::{
     ops::Deref,
 };
 
+/// 数据源 KEY
+///
+/// 用于区分不同的数据源
 pub struct SourceKey<A: Digest = Sha1>(GenericArray<u8, A::OutputSize>);
 
 impl<A: Digest> SourceKey<A> {
+    /// 创建数据源 KEY
     #[inline]
     pub fn new(array: impl Into<GenericArray<u8, A::OutputSize>>) -> Self {
         Self::from(array.into())

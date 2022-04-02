@@ -9,6 +9,7 @@ use qiniu_upload_token::{
 };
 use std::time::Duration;
 
+/// 上传凭证签发器
 #[derive(Clone, Debug)]
 pub struct UploadTokenSigner(UploadTokenSignerInner);
 
@@ -23,6 +24,7 @@ enum UploadTokenSignerInner {
 }
 
 impl UploadTokenSigner {
+    /// 根据上传凭证提供者创建上传凭证签发器
     #[inline]
     pub fn new_upload_token_provider(upload_token_provider: impl UploadTokenProvider + 'static) -> Self {
         Self(UploadTokenSignerInner::UploadTokenProvider(Box::new(
@@ -30,6 +32,7 @@ impl UploadTokenSigner {
         )))
     }
 
+    /// 根据认证信息提供者和存储空间名称创建上传凭证签发器
     #[inline]
     pub fn new_credential_provider(
         credential: impl CredentialProvider + 'static,
@@ -43,6 +46,9 @@ impl UploadTokenSigner {
         })
     }
 
+    /// 获取上传凭证提供者
+    ///
+    /// 如果没有设置则返回 [`None`]
     #[inline]
     pub fn upload_token_provider(&self) -> Option<&dyn UploadTokenProvider> {
         match &self.0 {
@@ -51,6 +57,9 @@ impl UploadTokenSigner {
         }
     }
 
+    /// 获取认证信息提供者
+    ///
+    /// 如果没有设置则返回 [`None`]
     #[inline]
     pub fn credential_provider(&self) -> Option<&dyn CredentialProvider> {
         match &self.0 {

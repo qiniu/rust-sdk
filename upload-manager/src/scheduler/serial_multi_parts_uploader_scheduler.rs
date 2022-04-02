@@ -9,6 +9,38 @@ use std::num::NonZeroU64;
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 
+/// 串行分片上传调度器
+///
+/// 不启动任何线程，仅在本地串行上传分片。
+///
+/// ### 用串行分片上传调度器上传文件
+///
+/// ```
+/// use qiniu_upload_manager::{
+///     apis::credential::Credential, prelude::*, FileSystemResumableRecorder, MultiPartsV2Uploader,
+///     ObjectParams, SerialMultiPartsUploaderScheduler, UploadManager, UploadTokenSigner,
+/// };
+/// use std::time::Duration;
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// let bucket_name = "test-bucket";
+/// let object_name = "test-object";
+/// # let file_path = std::path::Path::new("test.txt");
+/// let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
+///     Credential::new("abcdefghklmnopq", "1234567890"),
+///     bucket_name,
+///     Duration::from_secs(3600),
+/// ))
+/// .build();
+/// let params = ObjectParams::builder().object_name(object_name).file_name(object_name).build();
+/// let mut scheduler = SerialMultiPartsUploaderScheduler::new(MultiPartsV2Uploader::new(
+///     upload_manager,
+///     FileSystemResumableRecorder::default(),
+/// ));
+/// scheduler.async_upload_path(file_path, params).await?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug)]
 pub struct SerialMultiPartsUploaderScheduler<M> {
     data_partition_provider: Box<dyn DataPartitionProvider>,

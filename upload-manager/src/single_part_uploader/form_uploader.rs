@@ -26,6 +26,34 @@ use {
     qiniu_apis::storage::put_object::{async_part::RequestBody as AsyncRequestBody, AsyncRequestBuilder},
 };
 
+/// 表单上传器
+///
+/// 通过七牛表单上传 API 一次上传整个数据流
+///
+/// ### 用表单上传器上传文件
+///
+/// ```
+/// use qiniu_upload_manager::{
+///     apis::credential::Credential, prelude::*, ObjectParams, UploadManager, UploadTokenSigner,
+/// };
+/// use std::time::Duration;
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// let bucket_name = "test-bucket";
+/// let object_name = "test-object";
+/// # let file_path = std::path::Path::new("test.txt");
+/// let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
+///     Credential::new("abcdefghklmnopq", "1234567890"),
+///     bucket_name,
+///     Duration::from_secs(3600),
+/// ))
+/// .build();
+/// let params = ObjectParams::builder().object_name(object_name).file_name(object_name).build();
+/// let mut uploader = upload_manager.form_uploader();
+/// uploader.async_upload_path(file_path, params).await?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug)]
 pub struct FormUploader {
     upload_manager: UploadManager,

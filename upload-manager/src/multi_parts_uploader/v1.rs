@@ -64,6 +64,9 @@ use {
     },
 };
 
+/// 分片上传器 V1
+///
+/// 不推荐直接使用这个上传器，而是可以借助 [`crate::MultiPartsUploaderScheduler`] 来方便地实现分片上传。
 #[derive(Debug)]
 pub struct MultiPartsV1Uploader<R: ?Sized> {
     upload_manager: UploadManager,
@@ -71,6 +74,7 @@ pub struct MultiPartsV1Uploader<R: ?Sized> {
     resumable_recorder: R,
 }
 
+/// 被 分片上传器 V1 初始化的分片信息
 #[derive(Debug)]
 pub struct MultiPartsV1UploaderInitializedObject<R: ResumableRecorder + ?Sized> {
     source: Arc<dyn DataSource<<R as ResumableRecorder>::HashAlgorithm>>,
@@ -87,6 +91,7 @@ impl<R: ResumableRecorder + ?Sized> InitializedParts for MultiPartsV1UploaderIni
     }
 }
 
+/// 已经通过 分片上传器 V1 上传的分片信息
 #[derive(Debug)]
 pub struct MultiPartsV1UploaderUploadedPart {
     response_body: MkBlkResponseBody,
@@ -96,6 +101,7 @@ pub struct MultiPartsV1UploaderUploadedPart {
 }
 
 impl MultiPartsV1UploaderUploadedPart {
+    /// 获取响应体
     #[inline]
     pub fn response_body(&self) -> &MkBlkResponseBody {
         &self.response_body
@@ -315,7 +321,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
             let elapsed = begin_at.elapsed();
             uploader.after_response_call(&mut response_result)?;
             data_partitioner_provider.feedback(DataPartitionProviderFeedback::new(
-                content_length,
+                content_length.into(),
                 elapsed,
                 initialized.params.extensions(),
                 response_result.as_ref().err(),
@@ -535,7 +541,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
             let elapsed = begin_at.elapsed();
             uploader.after_response_call(&mut response_result)?;
             data_partitioner_provider.feedback(DataPartitionProviderFeedback::new(
-                content_length,
+                content_length.into(),
                 elapsed,
                 initialized.params.extensions(),
                 response_result.as_ref().err(),
@@ -1144,7 +1150,7 @@ impl MultiPartsV1UploaderUploadedPart {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{DummyResumableRecorder, FileDataSource, FixedDataPartitionProvider, UploadTokenSigner};
+    use crate::{data_source::FileDataSource, DummyResumableRecorder, FixedDataPartitionProvider, UploadTokenSigner};
     use anyhow::Result;
     use qiniu_apis::{
         credential::Credential,

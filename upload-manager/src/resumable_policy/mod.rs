@@ -7,37 +7,55 @@ use std::{
 #[cfg(feature = "async")]
 use futures::{future::BoxFuture, AsyncRead};
 
+/// 可恢复策略
+///
+/// 选择使用单请求上传或分片上传
 #[derive(Debug, Copy, Clone)]
 #[non_exhaustive]
 pub enum ResumablePolicy {
+    /// 分片上传
     MultiPartsUploading,
+
+    /// 单请求上传
     SinglePartUploading,
 }
 
+/// 可恢复策略获取接口
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait ResumablePolicyProvider: Debug + Sync + Send {
-    fn get_policy_from_size(&self, source_size: u64, opts: &GetPolicyOptions) -> ResumablePolicy;
+    /// 通过数据源大小获取可恢复策略
+    fn get_policy_from_size(&self, source_size: u64, opts: GetPolicyOptions) -> ResumablePolicy;
+
+    /// 通过输入流获取可恢复策略
+    ///
+    /// 返回选择的可恢复策略，以及经过更新的输入流
     fn get_policy_from_reader<'a, R: Read + Debug + Send + Sync + 'a>(
         &self,
         reader: R,
-        opts: &GetPolicyOptions,
+        opts: GetPolicyOptions,
     ) -> IoResult<(ResumablePolicy, Box<dyn DynRead + 'a>)>;
 
+    /// 通过异步输入流获取可恢复策略
+    ///
+    /// 返回选择的可恢复策略，以及经过更新的异步输入流
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn get_policy_from_async_reader<'a, R: AsyncRead + Debug + Unpin + Send + Sync + 'a>(
         &self,
         reader: R,
-        opts: &GetPolicyOptions,
+        opts: GetPolicyOptions,
     ) -> BoxFuture<'a, IoResult<(ResumablePolicy, Box<dyn DynAsyncRead + 'a>)>>;
 }
 
-#[derive(Debug, Clone, Default)]
+/// 获取可恢复策略的选项
+#[derive(Debug, Copy, Clone, Default)]
 pub struct GetPolicyOptions {}
 
+/// 阻塞输入流
 pub trait DynRead: Read + Debug + Send + Sync {}
 impl<T: Read + Debug + Send + Sync> DynRead for T {}
 
+/// 异步输入流
 #[cfg(feature = "async")]
 pub trait DynAsyncRead: AsyncRead + Debug + Unpin + Send + Sync {}
 

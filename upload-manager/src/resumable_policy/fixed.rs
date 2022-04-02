@@ -10,12 +10,14 @@ use {
     futures::{future::BoxFuture, io::Cursor as AsyncCursor, AsyncRead, AsyncReadExt},
 };
 
+/// 固定阀值的可恢复策略
 #[derive(Debug, Copy, Clone)]
 pub struct FixedThresholdResumablePolicy {
     threshold: u64,
 }
 
 impl FixedThresholdResumablePolicy {
+    /// 创建固定阀值的可恢复策略
     #[inline]
     pub fn new(threshold: u64) -> Self {
         Self::from(threshold)
@@ -45,14 +47,14 @@ impl From<FixedThresholdResumablePolicy> for u64 {
 
 impl ResumablePolicyProvider for FixedThresholdResumablePolicy {
     #[inline]
-    fn get_policy_from_size(&self, source_size: u64, _opts: &GetPolicyOptions) -> ResumablePolicy {
+    fn get_policy_from_size(&self, source_size: u64, _opts: GetPolicyOptions) -> ResumablePolicy {
         get_policy_from_size(self.threshold, source_size)
     }
 
     fn get_policy_from_reader<'a, R: Read + Debug + Send + Sync + 'a>(
         &self,
         mut reader: R,
-        opts: &GetPolicyOptions,
+        opts: GetPolicyOptions,
     ) -> IoResult<(ResumablePolicy, Box<dyn DynRead + 'a>)> {
         let mut first_chunk = Vec::new();
         (&mut reader).take(self.threshold + 1).read_to_end(&mut first_chunk)?;
@@ -65,7 +67,7 @@ impl ResumablePolicyProvider for FixedThresholdResumablePolicy {
     fn get_policy_from_async_reader<'a, R: AsyncRead + Debug + Unpin + Send + Sync + 'a>(
         &self,
         mut reader: R,
-        _opts: &GetPolicyOptions,
+        _opts: GetPolicyOptions,
     ) -> BoxFuture<'a, IoResult<(ResumablePolicy, Box<dyn DynAsyncRead + 'a>)>> {
         let threshold = self.threshold;
         Box::pin(async move {
