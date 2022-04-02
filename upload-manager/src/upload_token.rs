@@ -66,7 +66,7 @@ impl UploadTokenSigner {
                 .map(|ak| ak.into())
                 .map_err(|err| ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)),
             UploadTokenSignerInner::CredentialProvider { credential, .. } => {
-                Ok(credential.get(&Default::default())?.access_key().to_owned())
+                Ok(credential.get(Default::default())?.access_key().to_owned())
             }
         }
     }
@@ -89,7 +89,7 @@ impl UploadTokenSigner {
                 .map(|ak| ak.into())
                 .map_err(|err| ResponseError::new(HttpResponseErrorKind::InvalidRequestResponse.into(), err)),
             UploadTokenSignerInner::CredentialProvider { credential, .. } => {
-                Ok(credential.async_get(&Default::default()).await?.access_key().to_owned())
+                Ok(credential.async_get(Default::default()).await?.access_key().to_owned())
             }
         }
     }

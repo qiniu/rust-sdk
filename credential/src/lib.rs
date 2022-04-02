@@ -117,7 +117,7 @@ impl Credential {
     /// # fn main() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// assert_eq!(
-    ///     credential.get(&Default::default())?.sign(b"hello"),
+    ///     credential.get(Default::default())?.sign(b"hello"),
     ///     "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0="
     /// );
     /// # Ok(())
@@ -142,7 +142,7 @@ impl Credential {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// assert_eq!(
     ///     credential
-    ///         .get(&Default::default())?
+    ///         .get(Default::default())?
     ///         .sign_reader(&mut Cursor::new(b"world"))?,
     ///     "abcdefghklmnopq:VjgXt0P_nCxHuaTfiFz-UjDJ1AQ="
     /// );
@@ -168,7 +168,7 @@ impl Credential {
     /// # fn main() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// assert_eq!(
-    ///     credential.get(&Default::default())?.sign_with_data(b"hello"),
+    ///     credential.get(Default::default())?.sign_with_data(b"hello"),
     ///     "abcdefghklmnopq:BZYt5uVRy1RVt5ZTXbaIt2ROVMA=:aGVsbG8="
     /// );
     /// # Ok(())
@@ -188,7 +188,7 @@ impl Credential {
     /// # fn main() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// let authorization = credential
-    ///     .get(&Default::default())?
+    ///     .get(Default::default())?
     ///     .authorization_v1_for_request(
     ///         &"http://upload.qiniup.com/".parse()?,
     ///         Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
@@ -211,7 +211,7 @@ impl Credential {
     /// # fn main() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// let authorization = credential
-    ///     .get(&Default::default())?
+    ///     .get(Default::default())?
     ///     .authorization_v1_for_request_with_body_reader(
     ///         &"http://upload.qiniup.com/".parse()?,
     ///         Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
@@ -241,7 +241,7 @@ impl Credential {
     /// let mut headers = HeaderMap::new();
     /// headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
     /// let authorization = credential
-    ///     .get(&Default::default())?
+    ///     .get(Default::default())?
     ///     .authorization_v2_for_request(
     ///         &Method::GET,
     ///         &"http://upload.qiniup.com/".parse()?,
@@ -268,7 +268,7 @@ impl Credential {
     /// let mut headers = HeaderMap::new();
     /// headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
     /// let authorization = credential
-    ///     .get(&Default::default())?
+    ///     .get(Default::default())?
     ///     .authorization_v2_for_request_with_body_reader(
     ///         &Method::GET,
     ///         &"http://upload.qiniup.com/".parse()?,
@@ -298,7 +298,7 @@ impl Credential {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// let url = "http://www.qiniu.com/?go=1".parse()?;
     /// let url = credential
-    ///     .get(&Default::default())?
+    ///     .get(Default::default())?
     ///     .sign_download_url(url, Duration::from_secs(1_234_567_890 + 3600));
     /// assert_eq!(
     ///     url.to_string(),
@@ -351,7 +351,7 @@ impl Credential {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// assert_eq!(
     ///     credential
-    ///         .async_get(&Default::default()).await?
+    ///         .async_get(Default::default()).await?
     ///         .sign_async_reader(&mut Cursor::new(b"world")).await?,
     ///     "abcdefghklmnopq:VjgXt0P_nCxHuaTfiFz-UjDJ1AQ="
     /// );
@@ -374,7 +374,7 @@ impl Credential {
     /// # async fn f() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
     /// let authorization = credential
-    ///     .async_get(&Default::default()).await?
+    ///     .async_get(Default::default()).await?
     ///     .authorization_v1_for_request_with_async_body_reader(
     ///         &"http://upload.qiniup.com/".parse()?,
     ///         Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
@@ -407,7 +407,7 @@ impl Credential {
     /// let mut headers = HeaderMap::new();
     /// headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
     /// let authorization = credential
-    ///     .async_get(&Default::default()).await?
+    ///     .async_get(Default::default()).await?
     ///     .authorization_v2_for_request_with_async_body_reader(
     ///         &Method::GET,
     ///         &"http://upload.qiniup.com/".parse()?,
@@ -669,26 +669,26 @@ type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait CredentialProvider: Clone + Debug + Sync + Send {
     /// 返回七牛认证信息
-    fn get(&self, opts: &GetOptions) -> IoResult<GotCredential>;
+    fn get(&self, opts: GetOptions) -> IoResult<GotCredential>;
 
     /// 异步返回七牛认证信息
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> AsyncIoResult<'a, GotCredential> {
+    fn async_get(&self, opts: GetOptions) -> AsyncIoResult<'_, GotCredential> {
         Box::pin(async move { self.get(opts) })
     }
 }
 
 impl CredentialProvider for Credential {
     #[inline]
-    fn get(&self, _opts: &GetOptions) -> IoResult<GotCredential> {
+    fn get(&self, _opts: GetOptions) -> IoResult<GotCredential> {
         Ok(self.to_owned().into())
     }
 }
 
 /// 获取认证信息的选项
-#[derive(Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct GetOptions {}
 
 /// 获取的认证信息
@@ -749,7 +749,7 @@ impl DerefMut for GotCredential {
 
 impl CredentialProvider for GotCredential {
     #[inline]
-    fn get(&self, _opts: &GetOptions) -> IoResult<GotCredential> {
+    fn get(&self, _opts: GetOptions) -> IoResult<GotCredential> {
         Ok(self.to_owned())
     }
 }
@@ -778,7 +778,7 @@ impl GlobalCredentialProvider {
 
 impl CredentialProvider for GlobalCredentialProvider {
     #[inline]
-    fn get(&self, _opts: &GetOptions) -> IoResult<GotCredential> {
+    fn get(&self, _opts: GetOptions) -> IoResult<GotCredential> {
         if let Some(credential) = GLOBAL_CREDENTIAL.read().unwrap().as_ref() {
             Ok(credential.to_owned().into())
         } else {
@@ -818,7 +818,7 @@ impl EnvCredentialProvider {
 }
 
 impl CredentialProvider for EnvCredentialProvider {
-    fn get(&self, _opts: &GetOptions) -> IoResult<GotCredential> {
+    fn get(&self, _opts: GetOptions) -> IoResult<GotCredential> {
         match (env::var(QINIU_ACCESS_KEY_ENV_KEY), env::var(QINIU_SECRET_KEY_ENV_KEY)) {
             (Ok(access_key), Ok(secret_key)) if !access_key.is_empty() && !secret_key.is_empty() => {
                 Ok(Credential::new(access_key, secret_key).into())
@@ -863,7 +863,7 @@ impl ChainCredentialsProvider {
 }
 
 impl CredentialProvider for ChainCredentialsProvider {
-    fn get(&self, opts: &GetOptions) -> IoResult<GotCredential> {
+    fn get(&self, opts: GetOptions) -> IoResult<GotCredential> {
         let mut last_err = None;
         if let Some(credential) = self.credentials.iter().find_map(|c| match c.get(opts) {
             Ok(cred) => Some(cred),
@@ -880,7 +880,7 @@ impl CredentialProvider for ChainCredentialsProvider {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> AsyncIoResult<'a, GotCredential> {
+    fn async_get(&self, opts: GetOptions) -> AsyncIoResult<'_, GotCredential> {
         Box::pin(async move {
             let mut last_err = None;
             for provider in self.credentials.iter() {
@@ -1000,12 +1000,12 @@ mod tests {
             let credential = credential.to_owned();
             threads.push(thread::spawn(move || {
                 assert_eq!(
-                    credential.get(&Default::default()).unwrap().sign(b"hello"),
+                    credential.get(Default::default()).unwrap().sign(b"hello"),
                     "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0="
                 );
                 assert_eq!(
                     credential
-                        .get(&Default::default())
+                        .get(Default::default())
                         .unwrap()
                         .sign_reader(&mut Cursor::new(b"world"))
                         .unwrap(),
@@ -1016,12 +1016,12 @@ mod tests {
         {
             threads.push(thread::spawn(move || {
                 assert_eq!(
-                    credential.get(&Default::default()).unwrap().sign(b"-test"),
+                    credential.get(Default::default()).unwrap().sign(b"-test"),
                     "abcdefghklmnopq:vYKRLUoXRlNHfpMEQeewG0zylaw="
                 );
                 assert_eq!(
                     credential
-                        .get(&Default::default())
+                        .get(Default::default())
                         .unwrap()
                         .sign_reader(&mut Cursor::new(b"ba#a-"))
                         .unwrap(),
@@ -1041,11 +1041,11 @@ mod tests {
             let credential = credential.to_owned();
             threads.push(thread::spawn(move || {
                 assert_eq!(
-                    credential.get(&Default::default()).unwrap().sign_with_data(b"hello"),
+                    credential.get(Default::default()).unwrap().sign_with_data(b"hello"),
                     "abcdefghklmnopq:BZYt5uVRy1RVt5ZTXbaIt2ROVMA=:aGVsbG8="
                 );
                 assert_eq!(
-                    credential.get(&Default::default()).unwrap().sign_with_data(b"world"),
+                    credential.get(Default::default()).unwrap().sign_with_data(b"world"),
                     "abcdefghklmnopq:Wpe04qzPphiSZb1u6I0nFn6KpZg=:d29ybGQ="
                 );
             }));
@@ -1053,11 +1053,11 @@ mod tests {
         {
             threads.push(thread::spawn(move || {
                 assert_eq!(
-                    credential.get(&Default::default()).unwrap().sign_with_data(b"-test"),
+                    credential.get(Default::default()).unwrap().sign_with_data(b"-test"),
                     "abcdefghklmnopq:HlxenSSP_6BbaYNzx1fyeyw8v1Y=:LXRlc3Q="
                 );
                 assert_eq!(
-                    credential.get(&Default::default()).unwrap().sign_with_data(b"ba#a-"),
+                    credential.get(Default::default()).unwrap().sign_with_data(b"ba#a-"),
                     "abcdefghklmnopq:kwzeJrFziPDMO4jv3DKVLDyqud0=:YmEjYS0="
                 );
             }));
@@ -1071,37 +1071,37 @@ mod tests {
         let credential = get_credential();
         assert_eq!(
             credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .authorization_v1_for_request_with_body_reader(
                     &"http://upload.qiniup.com/".parse()?,
                     None,
                     &mut Cursor::new(b"{\"name\":\"test\"}")
                 )?,
-            "QBox ".to_owned() + &credential.get(&Default::default())?.sign(b"/\n")
+            "QBox ".to_owned() + &credential.get(Default::default())?.sign(b"/\n")
         );
         assert_eq!(
             credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .authorization_v1_for_request_with_body_reader(
                     &"http://upload.qiniup.com/".parse()?,
                     Some(&HeaderValue::from_str(APPLICATION_JSON.as_ref())?),
                     &mut Cursor::new(b"{\"name\":\"test\"}")
                 )?,
-            "QBox ".to_owned() + &credential.get(&Default::default())?.sign(b"/\n")
+            "QBox ".to_owned() + &credential.get(Default::default())?.sign(b"/\n")
         );
         assert_eq!(
             credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .authorization_v1_for_request_with_body_reader(
                     &"http://upload.qiniup.com/".parse()?,
                     Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
                     &mut Cursor::new(b"name=test&language=go")
                 )?,
-            "QBox ".to_owned() + &credential.get(&Default::default())?.sign(b"/\nname=test&language=go")
+            "QBox ".to_owned() + &credential.get(Default::default())?.sign(b"/\nname=test&language=go")
         );
         assert_eq!(
             credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .authorization_v1_for_request_with_body_reader(
                     &"http://upload.qiniup.com/?v=2".parse()?,
                     Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
@@ -1109,12 +1109,12 @@ mod tests {
                 )?,
             "QBox ".to_owned()
                 + &credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .sign(b"/?v=2\nname=test&language=go")
         );
         assert_eq!(
             credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .authorization_v1_for_request_with_body_reader(
                     &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
                     Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
@@ -1122,7 +1122,7 @@ mod tests {
                 )?,
             "QBox ".to_owned()
                 + &credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .sign(b"/find/sdk?v=2\nname=test&language=go")
         );
         Ok(())
@@ -1183,7 +1183,7 @@ mod tests {
         };
         assert_eq!(
             credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .authorization_v2_for_request_with_body_reader(
                     &Method::GET,
                     &"http://upload.qiniup.com/".parse()?,
@@ -1191,7 +1191,7 @@ mod tests {
                     &mut Cursor::new(b"{\"name\":\"test\"}")
                 )?,
             "Qiniu ".to_owned()
-                + &credential.get(&Default::default())?.sign(
+                + &credential.get(Default::default())?.sign(
                     concat!(
                         "GET /\n",
                         "Host: upload.qiniup.com\n",
@@ -1207,7 +1207,7 @@ mod tests {
         );
         assert_eq!(
             credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .authorization_v2_for_request_with_body_reader(
                     &Method::GET,
                     &"http://upload.qiniup.com/".parse()?,
@@ -1216,12 +1216,12 @@ mod tests {
                 )?,
             "Qiniu ".to_owned()
                 + &credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .sign(concat!("GET /\n", "Host: upload.qiniup.com\n\n").as_bytes())
         );
         assert_eq!(
             credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .authorization_v2_for_request_with_body_reader(
                     &Method::POST,
                     &"http://upload.qiniup.com/".parse()?,
@@ -1229,7 +1229,7 @@ mod tests {
                     &mut Cursor::new(b"{\"name\":\"test\"}")
                 )?,
             "Qiniu ".to_owned()
-                + &credential.get(&Default::default())?.sign(
+                + &credential.get(Default::default())?.sign(
                     concat!(
                         "POST /\n",
                         "Host: upload.qiniup.com\n",
@@ -1245,7 +1245,7 @@ mod tests {
         );
         assert_eq!(
             credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .authorization_v2_for_request_with_body_reader(
                     &Method::GET,
                     &"http://upload.qiniup.com/".parse()?,
@@ -1253,7 +1253,7 @@ mod tests {
                     &mut Cursor::new(b"name=test&language=go")
                 )?,
             "Qiniu ".to_owned()
-                + &credential.get(&Default::default())?.sign(
+                + &credential.get(Default::default())?.sign(
                     concat!(
                         "GET /\n",
                         "Host: upload.qiniup.com\n",
@@ -1269,7 +1269,7 @@ mod tests {
         );
         assert_eq!(
             credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .authorization_v2_for_request_with_body_reader(
                     &Method::GET,
                     &"http://upload.qiniup.com/?v=2".parse()?,
@@ -1277,7 +1277,7 @@ mod tests {
                     &mut Cursor::new(b"name=test&language=go")
                 )?,
             "Qiniu ".to_owned()
-                + &credential.get(&Default::default())?.sign(
+                + &credential.get(Default::default())?.sign(
                     concat!(
                         "GET /?v=2\n",
                         "Host: upload.qiniup.com\n",
@@ -1293,7 +1293,7 @@ mod tests {
         );
         assert_eq!(
             credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .authorization_v2_for_request_with_body_reader(
                     &Method::GET,
                     &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
@@ -1301,7 +1301,7 @@ mod tests {
                     &mut Cursor::new(b"name=test&language=go")
                 )?,
             "Qiniu ".to_owned()
-                + &credential.get(&Default::default())?.sign(
+                + &credential.get(Default::default())?.sign(
                     concat!(
                         "GET /find/sdk?v=2\n",
                         "Host: upload.qiniup.com\n",
@@ -1323,7 +1323,7 @@ mod tests {
         let credential = get_env_credential();
         let url = "http://www.qiniu.com/?go=1".parse()?;
         let url = credential
-            .get(&Default::default())?
+            .get(Default::default())?
             .sign_download_url(url, Duration::from_secs(1_234_567_890 + 3600));
         assert_eq!(
             url.to_string(),
@@ -1339,12 +1339,12 @@ mod tests {
         env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "TEST2");
         env::set_var(QINIU_SECRET_KEY_ENV_KEY, "test2");
         {
-            let cred = chain_credentials.get(&Default::default())?;
+            let cred = chain_credentials.get(Default::default())?;
             assert_eq!(cred.access_key().as_str(), "TEST2");
         }
         GlobalCredentialProvider::setup(Credential::new("TEST1", "test1"));
         {
-            let cred = chain_credentials.get(&Default::default())?;
+            let cred = chain_credentials.get(Default::default())?;
             assert_eq!(cred.access_key().as_str(), "TEST1");
         }
         Ok(())
@@ -1381,28 +1381,28 @@ mod tests {
             let credential = get_credential();
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .sign_async_reader(&mut Cursor::new(b"hello"))
                     .await?,
                 "abcdefghklmnopq:b84KVc-LroDiz0ebUANfdzSRxa0="
             );
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .sign_async_reader(&mut Cursor::new(b"world"))
                     .await?,
                 "abcdefghklmnopq:VjgXt0P_nCxHuaTfiFz-UjDJ1AQ="
             );
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .sign_async_reader(&mut Cursor::new(b"-test"))
                     .await?,
                 "abcdefghklmnopq:vYKRLUoXRlNHfpMEQeewG0zylaw="
             );
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .sign_async_reader(&mut Cursor::new(b"ba#a-"))
                     .await?,
                 "abcdefghklmnopq:2d_Yr6H1GdTKg3RvMtpHOhi047M="
@@ -1415,40 +1415,40 @@ mod tests {
             let credential = get_credential();
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .authorization_v1_for_request_with_async_body_reader(
                         &"http://upload.qiniup.com/".parse()?,
                         None,
                         &mut Cursor::new(b"{\"name\":\"test\"}")
                     )
                     .await?,
-                "QBox ".to_owned() + &credential.get(&Default::default())?.sign(b"/\n")
+                "QBox ".to_owned() + &credential.get(Default::default())?.sign(b"/\n")
             );
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .authorization_v1_for_request_with_async_body_reader(
                         &"http://upload.qiniup.com/".parse()?,
                         Some(&HeaderValue::from_str(APPLICATION_JSON.as_ref())?),
                         &mut Cursor::new(b"{\"name\":\"test\"}")
                     )
                     .await?,
-                "QBox ".to_owned() + &credential.get(&Default::default())?.sign(b"/\n")
+                "QBox ".to_owned() + &credential.get(Default::default())?.sign(b"/\n")
             );
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .authorization_v1_for_request_with_async_body_reader(
                         &"http://upload.qiniup.com/".parse()?,
                         Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
                         &mut Cursor::new(b"name=test&language=go")
                     )
                     .await?,
-                "QBox ".to_owned() + &credential.get(&Default::default())?.sign(b"/\nname=test&language=go")
+                "QBox ".to_owned() + &credential.get(Default::default())?.sign(b"/\nname=test&language=go")
             );
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .authorization_v1_for_request_with_async_body_reader(
                         &"http://upload.qiniup.com/?v=2".parse()?,
                         Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
@@ -1457,12 +1457,12 @@ mod tests {
                     .await?,
                 "QBox ".to_owned()
                     + &credential
-                        .get(&Default::default())?
+                        .get(Default::default())?
                         .sign(b"/?v=2\nname=test&language=go")
             );
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .authorization_v1_for_request_with_async_body_reader(
                         &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
                         Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
@@ -1471,7 +1471,7 @@ mod tests {
                     .await?,
                 "QBox ".to_owned()
                     + &credential
-                        .get(&Default::default())?
+                        .get(Default::default())?
                         .sign(b"/find/sdk?v=2\nname=test&language=go")
             );
             Ok(())
@@ -1532,7 +1532,7 @@ mod tests {
             };
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .authorization_v2_for_request_with_async_body_reader(
                         &Method::GET,
                         &"http://upload.qiniup.com/".parse()?,
@@ -1541,7 +1541,7 @@ mod tests {
                     )
                     .await?,
                 "Qiniu ".to_owned()
-                    + &credential.get(&Default::default())?.sign(
+                    + &credential.get(Default::default())?.sign(
                         concat!(
                             "GET /\n",
                             "Host: upload.qiniup.com\n",
@@ -1557,7 +1557,7 @@ mod tests {
             );
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .authorization_v2_for_request_with_async_body_reader(
                         &Method::GET,
                         &"http://upload.qiniup.com/".parse()?,
@@ -1567,12 +1567,12 @@ mod tests {
                     .await?,
                 "Qiniu ".to_owned()
                     + &credential
-                        .get(&Default::default())?
+                        .get(Default::default())?
                         .sign(concat!("GET /\n", "Host: upload.qiniup.com\n\n").as_bytes())
             );
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .authorization_v2_for_request_with_async_body_reader(
                         &Method::POST,
                         &"http://upload.qiniup.com/".parse()?,
@@ -1581,7 +1581,7 @@ mod tests {
                     )
                     .await?,
                 "Qiniu ".to_owned()
-                    + &credential.get(&Default::default())?.sign(
+                    + &credential.get(Default::default())?.sign(
                         concat!(
                             "POST /\n",
                             "Host: upload.qiniup.com\n",
@@ -1597,7 +1597,7 @@ mod tests {
             );
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .authorization_v2_for_request_with_async_body_reader(
                         &Method::GET,
                         &"http://upload.qiniup.com/".parse()?,
@@ -1606,7 +1606,7 @@ mod tests {
                     )
                     .await?,
                 "Qiniu ".to_owned()
-                    + &credential.get(&Default::default())?.sign(
+                    + &credential.get(Default::default())?.sign(
                         concat!(
                             "GET /\n",
                             "Host: upload.qiniup.com\n",
@@ -1622,7 +1622,7 @@ mod tests {
             );
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .authorization_v2_for_request_with_async_body_reader(
                         &Method::GET,
                         &"http://upload.qiniup.com/?v=2".parse()?,
@@ -1631,7 +1631,7 @@ mod tests {
                     )
                     .await?,
                 "Qiniu ".to_owned()
-                    + &credential.get(&Default::default())?.sign(
+                    + &credential.get(Default::default())?.sign(
                         concat!(
                             "GET /?v=2\n",
                             "Host: upload.qiniup.com\n",
@@ -1647,7 +1647,7 @@ mod tests {
             );
             assert_eq!(
                 credential
-                    .get(&Default::default())?
+                    .get(Default::default())?
                     .authorization_v2_for_request_with_async_body_reader(
                         &Method::GET,
                         &"http://upload.qiniup.com/find/sdk?v=2".parse()?,
@@ -1656,7 +1656,7 @@ mod tests {
                     )
                     .await?,
                 "Qiniu ".to_owned()
-                    + &credential.get(&Default::default())?.sign(
+                    + &credential.get(Default::default())?.sign(
                         concat!(
                             "GET /find/sdk?v=2\n",
                             "Host: upload.qiniup.com\n",
@@ -1678,7 +1678,7 @@ mod tests {
             let credential = get_env_credential();
             let url = "http://www.qiniu.com/?go=1".parse()?;
             let url = credential
-                .async_get(&Default::default())
+                .async_get(Default::default())
                 .await?
                 .sign_download_url(url, Duration::from_secs(1_234_567_890 + 3600));
             assert_eq!(
@@ -1695,12 +1695,12 @@ mod tests {
             env::set_var(QINIU_ACCESS_KEY_ENV_KEY, "TEST2");
             env::set_var(QINIU_SECRET_KEY_ENV_KEY, "test2");
             {
-                let cred = chain_credentials.async_get(&Default::default()).await?;
+                let cred = chain_credentials.async_get(Default::default()).await?;
                 assert_eq!(cred.access_key().as_str(), "TEST2");
             }
             GlobalCredentialProvider::setup(Credential::new("TEST1", "test1"));
             {
-                let cred = chain_credentials.async_get(&Default::default()).await?;
+                let cred = chain_credentials.async_get(Default::default()).await?;
                 assert_eq!(cred.access_key().as_str(), "TEST1");
             }
             Ok(())

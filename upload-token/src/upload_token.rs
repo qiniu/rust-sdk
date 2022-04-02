@@ -358,7 +358,7 @@ impl<C: CredentialProvider + Clone> UploadTokenProvider for FromUploadPolicy<C> 
     fn access_key(&self, _opts: GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
         Ok(self
             .credential
-            .get(&Default::default())?
+            .get(Default::default())?
             .into_credential()
             .into_pair()
             .0
@@ -373,7 +373,7 @@ impl<C: CredentialProvider + Clone> UploadTokenProvider for FromUploadPolicy<C> 
     fn to_token_string(&self, _opts: ToStringOptions) -> IoResult<Cow<'_, str>> {
         Ok(Cow::Owned(
             self.credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .sign_with_data(self.upload_policy.as_json().as_bytes()),
         ))
     }
@@ -442,7 +442,7 @@ impl<C: CredentialProvider + Clone> UploadTokenProvider for BucketUploadTokenPro
     fn access_key(&self, _opts: GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
         Ok(self
             .credential
-            .get(&Default::default())?
+            .get(Default::default())?
             .into_credential()
             .into_pair()
             .0
@@ -456,7 +456,7 @@ impl<C: CredentialProvider + Clone> UploadTokenProvider for BucketUploadTokenPro
     fn to_token_string(&self, _opts: ToStringOptions) -> IoResult<Cow<'_, str>> {
         Ok(Cow::Owned(
             self.credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .sign_with_data(self.make_policy().as_json().as_bytes()),
         ))
     }
@@ -567,7 +567,7 @@ impl<C: CredentialProvider + Clone> UploadTokenProvider for ObjectUploadTokenPro
     fn access_key(&self, _opts: GetAccessKeyOptions) -> ParseResult<GotAccessKey> {
         Ok(self
             .credential
-            .get(&Default::default())?
+            .get(Default::default())?
             .into_credential()
             .into_pair()
             .0
@@ -581,7 +581,7 @@ impl<C: CredentialProvider + Clone> UploadTokenProvider for ObjectUploadTokenPro
     fn to_token_string(&self, _opts: ToStringOptions) -> IoResult<Cow<'_, str>> {
         Ok(Cow::Owned(
             self.credential
-                .get(&Default::default())?
+                .get(Default::default())?
                 .sign_with_data(self.make_policy().as_json().as_bytes()),
         ))
     }
@@ -828,7 +828,7 @@ mod tests {
             UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", Duration::from_secs(3600)).build();
         let provider = FromUploadPolicy::new(policy, get_credential());
         let token = provider.to_token_string(Default::default())?;
-        assert!(token.starts_with(get_credential().get(&Default::default())?.access_key().as_str()));
+        assert!(token.starts_with(get_credential().get(Default::default())?.access_key().as_str()));
         let token: StaticUploadTokenProvider = token.parse()?;
         let policy = token.policy(Default::default())?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
@@ -845,7 +845,7 @@ mod tests {
             .build();
 
         let token = provider.to_token_string(Default::default())?;
-        assert!(token.starts_with(get_credential().get(&Default::default())?.access_key().as_str()));
+        assert!(token.starts_with(get_credential().get(Default::default())?.access_key().as_str()));
 
         let policy = provider.policy(Default::default())?;
         assert_eq!(policy.bucket(), Some("test_bucket"));
@@ -865,10 +865,10 @@ mod tests {
                 UploadPolicyBuilder::new_policy_for_object("test_bucket", "test:file", Duration::from_secs(3600))
                     .build();
             let provider = FromUploadPolicy::new(policy, get_credential());
-            let token = provider.async_to_token_string(Default::default()).await?.into_owned();
+            let token = provider.async_to_token_string(Default::default()).await?;
             assert!(token.starts_with(
                 get_credential()
-                    .async_get(&Default::default())
+                    .async_get(Default::default())
                     .await?
                     .access_key()
                     .as_str()

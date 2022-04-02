@@ -206,7 +206,7 @@ pub struct BucketDomainsProvider {
 
 impl EndpointsProvider for BucketDomainsProvider {
     fn get_endpoints<'e>(&'e self, _options: &'e EndpointsGetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>> {
-        let credential = self.credential.get(&Default::default())?;
+        let credential = self.credential.get(Default::default())?;
         self.queryer
             .cache
             .get(&self.make_cache_key(&credential), || self.do_sync_query())
@@ -220,7 +220,7 @@ impl EndpointsProvider for BucketDomainsProvider {
         _options: &'a EndpointsGetOptions<'_>,
     ) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
         Box::pin(async move {
-            let credential = self.credential.async_get(&Default::default()).await?;
+            let credential = self.credential.async_get(Default::default()).await?;
             self.queryer
                 .cache
                 .async_get(&self.make_cache_key(&credential), self.do_async_query())

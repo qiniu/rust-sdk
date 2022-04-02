@@ -87,13 +87,13 @@ impl<P> From<P> for CredentialAuthorizationV1<P> {
 
 impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthorizationV1<P> {
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()> {
-        _sign(&self.0, request, &Default::default())?;
+        _sign(&self.0, request, Default::default())?;
         return Ok(());
 
         fn _sign(
             credential_provider: impl CredentialProvider + Clone,
             request: &mut SyncRequest,
-            get_options: &GetOptions,
+            get_options: GetOptions,
         ) -> AuthorizationResult<()> {
             let authorization = authorization_v1_for_request(&*credential_provider.get(get_options)?, request)?;
             set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
@@ -105,14 +105,14 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         return Box::pin(async move {
-            _sign(&self.0, request, &Default::default()).await?;
+            _sign(&self.0, request, Default::default()).await?;
             Ok(())
         });
 
         async fn _sign(
             credential_provider: impl CredentialProvider + Clone,
             request: &mut AsyncRequest<'_>,
-            get_options: &GetOptions,
+            get_options: GetOptions,
         ) -> AuthorizationResult<()> {
             let authorization =
                 authorization_v1_for_async_request(&*credential_provider.async_get(get_options).await?, request)
@@ -169,13 +169,13 @@ impl<P> From<P> for CredentialAuthorizationV2<P> {
 
 impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthorizationV2<P> {
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()> {
-        _sign(&self.0, request, &Default::default())?;
+        _sign(&self.0, request, Default::default())?;
         return Ok(());
 
         fn _sign(
             credential_provider: impl CredentialProvider + Clone,
             request: &mut SyncRequest,
-            get_options: &GetOptions,
+            get_options: GetOptions,
         ) -> AuthorizationResult<()> {
             let authorization = authorization_v2_for_request(&*credential_provider.get(get_options)?, request)?;
             set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
@@ -187,14 +187,14 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         return Box::pin(async move {
-            _sign(&self.0, request, &Default::default()).await?;
+            _sign(&self.0, request, Default::default()).await?;
             Ok(())
         });
 
         async fn _sign(
             credential_provider: impl CredentialProvider + Clone,
             request: &mut AsyncRequest<'_>,
-            get_options: &GetOptions,
+            get_options: GetOptions,
         ) -> AuthorizationResult<()> {
             let authorization =
                 authorization_v2_for_async_request(&*credential_provider.async_get(get_options).await?, request)
@@ -262,7 +262,7 @@ impl<P> From<P> for DownloadUrlCredentialAuthorization<P> {
 
 impl<P: CredentialProvider + Clone> AuthorizationProvider for DownloadUrlCredentialAuthorization<P> {
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()> {
-        let credential = self.provider.get(&Default::default())?;
+        let credential = self.provider.get(Default::default())?;
         let url = sign_download_url(&*credential, self.lifetime, take(request.url_mut()));
         *request.url_mut() = url;
         Ok(())
@@ -272,7 +272,7 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for DownloadUrlCredent
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         Box::pin(async move {
-            let credential = self.provider.async_get(&Default::default()).await?;
+            let credential = self.provider.async_get(Default::default()).await?;
             let url = sign_download_url(&*credential, self.lifetime, take(request.url_mut()));
             *request.url_mut() = url;
             Ok(())

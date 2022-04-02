@@ -146,7 +146,7 @@ impl Bucket {
                             self.0
                                 .objects_manager
                                 .credential()
-                                .get(&Default::default())?
+                                .get(Default::default())?
                                 .access_key()
                                 .to_owned(),
                             self.name().to_owned(),
@@ -175,7 +175,7 @@ impl Bucket {
             Ok(objects_manager.queryer().query(
                 objects_manager
                     .credential()
-                    .async_get(&Default::default())
+                    .async_get(Default::default())
                     .await?
                     .access_key()
                     .to_owned(),
