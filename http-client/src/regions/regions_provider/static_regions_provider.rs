@@ -27,12 +27,12 @@ impl StaticRegionsProvider {
 }
 
 impl RegionsProvider for StaticRegionsProvider {
-    fn get(&self, _opts: &GetOptions) -> ApiResult<GotRegion> {
+    fn get(&self, _opts: GetOptions) -> ApiResult<GotRegion> {
         Ok(self.regions.get(0).cloned().expect("regions must not be empty").into())
     }
 
     #[inline]
-    fn get_all(&self, _opts: &GetOptions) -> ApiResult<GotRegions> {
+    fn get_all(&self, _opts: GetOptions) -> ApiResult<GotRegions> {
         Ok(Vec::from_iter(self.regions.iter().cloned()).into())
     }
 }

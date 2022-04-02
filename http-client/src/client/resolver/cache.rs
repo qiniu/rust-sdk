@@ -77,13 +77,13 @@ impl<R> Clone for CachedResolver<R> {
 }
 
 impl<R: Resolver + 'static> Resolver for CachedResolver<R> {
-    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
+    fn resolve(&self, domain: &str, opts: ResolveOptions) -> ResolveResult {
         self.cache.get(domain, || self.resolver.resolve(domain, opts))
     }
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             self.async_cache
                 .get(domain, self.resolver.async_resolve(domain, opts))
@@ -220,7 +220,7 @@ mod tests {
     }
 
     impl Resolver for ResolverFromTable {
-        fn resolve(&self, domain: &str, _opts: &ResolveOptions) -> ResolveResult {
+        fn resolve(&self, domain: &str, _opts: ResolveOptions) -> ResolveResult {
             let key = domain.to_owned();
             Ok(self
                 .table
@@ -238,7 +238,7 @@ mod tests {
 
         #[cfg(feature = "async")]
         #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-        fn async_resolve<'a>(&'a self, _domain: &'a str, _opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
+        fn async_resolve<'a>(&'a self, _domain: &'a str, _opts: ResolveOptions) -> BoxFuture<'a, ResolveResult> {
             unreachable!()
         }
     }
@@ -259,21 +259,21 @@ mod tests {
         let threads_1 = (0..3).map(|_| {
             let resolver = resolver.to_owned();
             spawn(move || {
-                let result = resolver.resolve("test_domain_1.com", &Default::default()).unwrap();
+                let result = resolver.resolve("test_domain_1.com", Default::default()).unwrap();
                 assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))]);
             })
         });
         let threads_2 = (0..5).map(|_| {
             let resolver = resolver.to_owned();
             spawn(move || {
-                let result = resolver.resolve("test_domain_2.com", &Default::default()).unwrap();
+                let result = resolver.resolve("test_domain_2.com", Default::default()).unwrap();
                 assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))]);
             })
         });
         let threads_3 = (0..7).map(|_| {
             let resolver = resolver.to_owned();
             spawn(move || {
-                let result = resolver.resolve("test_domain_3.com", &Default::default()).unwrap();
+                let result = resolver.resolve("test_domain_3.com", Default::default()).unwrap();
                 assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))]);
             })
         });
@@ -301,7 +301,7 @@ mod tests {
             .in_memory();
 
         for _ in 0..5 {
-            let result = resolver.resolve("test_domain_1.com", &Default::default()).unwrap();
+            let result = resolver.resolve("test_domain_1.com", Default::default()).unwrap();
             assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))]);
         }
 
@@ -310,7 +310,7 @@ mod tests {
         sleep(Duration::from_secs(2));
 
         for _ in 0..5 {
-            let result = resolver.resolve("test_domain_1.com", &Default::default()).unwrap();
+            let result = resolver.resolve("test_domain_1.com", Default::default()).unwrap();
             assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))]);
             sleep(Duration::from_millis(50));
         }
@@ -338,11 +338,11 @@ mod tests {
         {
             let resolver = CachedResolver::builder(backend.to_owned()).load_or_create_from(&tempfile_path, true);
             {
-                let result = resolver.resolve("test_domain_1.com", &Default::default()).unwrap();
+                let result = resolver.resolve("test_domain_1.com", Default::default()).unwrap();
                 assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))]);
             }
             {
-                let result = resolver.resolve("test_domain_2.com", &Default::default()).unwrap();
+                let result = resolver.resolve("test_domain_2.com", Default::default()).unwrap();
                 assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))]);
             }
             sleep(Duration::from_secs(1));
@@ -352,15 +352,15 @@ mod tests {
         {
             let resolver = CachedResolver::builder(backend.to_owned()).load_or_create_from(&tempfile_path, true);
             {
-                let result = resolver.resolve("test_domain_1.com", &Default::default()).unwrap();
+                let result = resolver.resolve("test_domain_1.com", Default::default()).unwrap();
                 assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))]);
             }
             {
-                let result = resolver.resolve("test_domain_2.com", &Default::default()).unwrap();
+                let result = resolver.resolve("test_domain_2.com", Default::default()).unwrap();
                 assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))]);
             }
             {
-                let result = resolver.resolve("test_domain_3.com", &Default::default()).unwrap();
+                let result = resolver.resolve("test_domain_3.com", Default::default()).unwrap();
                 assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))]);
             }
             assert_eq!(resolver.resolver.resolved("test_domain_1.com"), None);
@@ -373,15 +373,15 @@ mod tests {
         {
             let resolver = CachedResolver::builder(backend.to_owned()).load_or_create_from(&tempfile_path, true);
             {
-                let result = resolver.resolve("test_domain_1.com", &Default::default()).unwrap();
+                let result = resolver.resolve("test_domain_1.com", Default::default()).unwrap();
                 assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1))]);
             }
             {
-                let result = resolver.resolve("test_domain_2.com", &Default::default()).unwrap();
+                let result = resolver.resolve("test_domain_2.com", Default::default()).unwrap();
                 assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 2))]);
             }
             {
-                let result = resolver.resolve("test_domain_3.com", &Default::default()).unwrap();
+                let result = resolver.resolve("test_domain_3.com", Default::default()).unwrap();
                 assert_eq!(result.ip_addrs(), &[IpAddr::V4(Ipv4Addr::new(192, 168, 0, 3))]);
             }
             assert_eq!(resolver.resolver.resolved("test_domain_1.com"), None);

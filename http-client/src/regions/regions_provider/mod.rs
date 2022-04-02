@@ -33,11 +33,11 @@ use futures::future::BoxFuture;
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait RegionsProvider: Clone + Debug + Sync + Send {
     /// 返回七牛区域信息
-    fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion>;
+    fn get(&self, opts: GetOptions) -> ApiResult<GotRegion>;
 
     /// 返回多个七牛区域信息
     #[inline]
-    fn get_all(&self, opts: &GetOptions) -> ApiResult<GotRegions> {
+    fn get_all(&self, opts: GetOptions) -> ApiResult<GotRegions> {
         let region = self.get(opts)?.into_region();
         Ok(vec![region].into())
     }
@@ -46,7 +46,7 @@ pub trait RegionsProvider: Clone + Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
+    fn async_get(&self, opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegion>> {
         Box::pin(async move { self.get(opts) })
     }
 
@@ -54,13 +54,13 @@ pub trait RegionsProvider: Clone + Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegions>> {
+    fn async_get_all(&self, opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegions>> {
         Box::pin(async move { self.get_all(opts) })
     }
 }
 
 /// 获取区域信息的选项
-#[derive(Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct GetOptions {}
 
 /// 获取的区域信息
@@ -162,14 +162,14 @@ impl DerefMut for GotRegion {
 
 impl RegionsProvider for Region {
     #[inline]
-    fn get(&self, _opts: &GetOptions) -> ApiResult<GotRegion> {
+    fn get(&self, _opts: GetOptions) -> ApiResult<GotRegion> {
         Ok(self.to_owned().into())
     }
 }
 
 impl RegionsProvider for GotRegion {
     #[inline]
-    fn get(&self, _opts: &GetOptions) -> ApiResult<GotRegion> {
+    fn get(&self, _opts: GetOptions) -> ApiResult<GotRegion> {
         Ok(self.to_owned())
     }
 }
@@ -322,7 +322,7 @@ impl DerefMut for GotRegions {
 
 impl RegionsProvider for GotRegions {
     #[inline]
-    fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
+    fn get(&self, opts: GetOptions) -> ApiResult<GotRegion> {
         self.get_all(opts).map(|regions| {
             regions
                 .into_regions()
@@ -334,7 +334,7 @@ impl RegionsProvider for GotRegions {
     }
 
     #[inline]
-    fn get_all(&self, _opts: &GetOptions) -> ApiResult<GotRegions> {
+    fn get_all(&self, _opts: GetOptions) -> ApiResult<GotRegions> {
         Ok(self.to_owned())
     }
 }

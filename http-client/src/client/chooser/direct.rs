@@ -8,7 +8,7 @@ pub struct DirectChooser;
 
 impl Chooser for DirectChooser {
     #[inline]
-    fn choose(&self, ips: &[IpAddrWithPort], _opts: &ChooseOptions) -> ChosenResults {
+    fn choose(&self, ips: &[IpAddrWithPort], _opts: ChooseOptions) -> ChosenResults {
         ips.to_owned().into()
     }
 
@@ -46,11 +46,11 @@ mod tests {
     fn test_direct_chooser() -> Result<()> {
         let chooser = DirectChooser;
         assert_eq!(
-            chooser.choose(&IPS_WITHOUT_PORT, &Default::default()).into_ip_addrs(),
+            chooser.choose(&IPS_WITHOUT_PORT, Default::default()).into_ip_addrs(),
             IPS_WITHOUT_PORT.to_vec(),
         );
         assert_eq!(
-            chooser.choose(&IPS_WITH_PORT, &Default::default()).into_ip_addrs(),
+            chooser.choose(&IPS_WITH_PORT, Default::default()).into_ip_addrs(),
             IPS_WITH_PORT.to_vec(),
         );
         Ok(())
@@ -62,14 +62,14 @@ mod tests {
         let chooser = DirectChooser;
         assert_eq!(
             chooser
-                .async_choose(&IPS_WITHOUT_PORT, &Default::default())
+                .async_choose(&IPS_WITHOUT_PORT, Default::default())
                 .await
                 .into_ip_addrs(),
             IPS_WITHOUT_PORT.to_vec(),
         );
         assert_eq!(
             chooser
-                .async_choose(&IPS_WITH_PORT, &Default::default())
+                .async_choose(&IPS_WITH_PORT, Default::default())
                 .await
                 .into_ip_addrs(),
             IPS_WITH_PORT.to_vec(),

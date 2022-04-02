@@ -25,7 +25,7 @@ const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
 /// let regions = AllRegionsProvider::builder(credential)
 ///     .build()
-///     .async_get_all(&Default::default())
+///     .async_get_all(Default::default())
 ///     .await?;
 /// #     Ok(())
 /// # }
@@ -58,19 +58,19 @@ impl AllRegionsProvider {
 }
 
 impl RegionsProvider for AllRegionsProvider {
-    fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
+    fn get(&self, opts: GetOptions) -> ApiResult<GotRegion> {
         self.get_all(opts)
             .map(|regions| regions.try_into().expect("Regions API returns empty regions"))
     }
 
-    fn get_all(&self, opts: &GetOptions) -> ApiResult<GotRegions> {
+    fn get_all(&self, opts: GetOptions) -> ApiResult<GotRegions> {
         self.cache.get(&self.cache_key, || self.provider.get_all(opts))
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
+    fn async_get(&self, opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegion>> {
         Box::pin(async move {
             self.async_get_all(opts)
                 .await
@@ -81,7 +81,7 @@ impl RegionsProvider for AllRegionsProvider {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_all<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegions>> {
+    fn async_get_all(&self, opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegions>> {
         Box::pin(async move {
             self.cache
                 .async_get(&self.cache_key, self.provider.async_get_all(opts))
@@ -269,19 +269,19 @@ mod inner {
     }
 
     impl RegionsProvider for AllRegionsProvider {
-        fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
+        fn get(&self, opts: GetOptions) -> ApiResult<GotRegion> {
             self.get_all(opts)
                 .map(|regions| regions.try_into().expect("Regions API returns empty regions"))
         }
 
         #[inline]
-        fn get_all(&self, _opts: &GetOptions) -> ApiResult<GotRegions> {
+        fn get_all(&self, _opts: GetOptions) -> ApiResult<GotRegions> {
             self.do_sync_query().map(GotRegions::from)
         }
 
         #[cfg(feature = "async")]
         #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-        fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
+        fn async_get(&self, opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegion>> {
             Box::pin(async move {
                 self.async_get_all(opts)
                     .await
@@ -292,7 +292,7 @@ mod inner {
         #[inline]
         #[cfg(feature = "async")]
         #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-        fn async_get_all<'a>(&'a self, _opts: &'a GetOptions) -> BoxFuture<ApiResult<GotRegions>> {
+        fn async_get_all(&self, _opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegions>> {
             Box::pin(async move { self.do_async_query().await.map(GotRegions::from) })
         }
     }
@@ -389,7 +389,7 @@ mod inner {
                     .uc_endpoints(vec![Endpoint::from(addr)])
                     .build();
 
-                let regions = provider.async_get_all(&Default::default()).await?;
+                let regions = provider.async_get_all(Default::default()).await?;
                 assert_eq!(regions.lifetime(), Some(Duration::from_secs(5)));
                 assert_eq!(regions.len(), 5);
                 assert_eq!(

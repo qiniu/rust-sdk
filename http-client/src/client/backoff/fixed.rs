@@ -29,7 +29,7 @@ impl FixedBackoff {
 
 impl Backoff for FixedBackoff {
     #[inline]
-    fn time(&self, _request: &mut HttpRequestParts, _opts: &BackoffOptions) -> GotBackoffDuration {
+    fn time(&self, _request: &mut HttpRequestParts, _opts: BackoffOptions) -> GotBackoffDuration {
         self.delay.into()
     }
 }

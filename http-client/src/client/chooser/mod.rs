@@ -24,7 +24,7 @@ use futures::future::BoxFuture;
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Chooser: Debug + Sync + Send {
     /// 选择 IP 地址列表
-    fn choose(&self, ips: &[IpAddrWithPort], opts: &ChooseOptions) -> ChosenResults;
+    fn choose(&self, ips: &[IpAddrWithPort], opts: ChooseOptions) -> ChosenResults;
 
     /// 反馈选择的 IP 地址列表的结果
     fn feedback(&self, feedback: ChooserFeedback);
@@ -33,7 +33,7 @@ pub trait Chooser: Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort], opts: &'a ChooseOptions) -> BoxFuture<'a, ChosenResults> {
+    fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort], opts: ChooseOptions) -> BoxFuture<'a, ChosenResults> {
         Box::pin(async move { self.choose(ips, opts) })
     }
 
@@ -47,7 +47,7 @@ pub trait Chooser: Debug + Sync + Send {
 }
 
 /// 选择 IP 地址列表的选项
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct ChooseOptions {}
 
 /// 经过选择的 IP 地址列表

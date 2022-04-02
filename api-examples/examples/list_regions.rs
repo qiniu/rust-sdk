@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
     let credential = Credential::new(opt.access_key, opt.secret_key);
 
     let regions = AllRegionsProvider::new(credential)
-        .async_get_all(&Default::default())
+        .async_get_all(Default::default())
         .await?;
     println!("{:#?}", regions);
 

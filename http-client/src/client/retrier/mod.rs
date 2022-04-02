@@ -16,7 +16,7 @@ use std::{
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait RequestRetrier: Debug + Sync + Send {
     /// 作出重试决定
-    fn retry(&self, request: &mut HttpRequestParts, opts: &RequestRetrierOptions) -> RetryResult;
+    fn retry(&self, request: &mut HttpRequestParts, opts: RequestRetrierOptions) -> RetryResult;
 }
 
 /// 重试决定
@@ -47,7 +47,7 @@ impl Default for RetryDecision {
 }
 
 /// 重试器选项
-#[derive(Debug, Clone)]
+#[derive(Copy, Debug, Clone)]
 pub struct RequestRetrierOptions<'a> {
     idempotent: Idempotent,
     response_error: &'a ResponseError,

@@ -13,7 +13,7 @@ use qiniu_http::Extensions;
 pub(in super::super) fn request_call<E: EndpointsProvider>(request: SyncRequest<'_, E>) -> ApiResult<SyncResponse> {
     let (parts, mut body, into_endpoints, service_name, extensions) = request.split();
     let options = EndpointsGetOptions::builder().service_names(service_name).build();
-    let endpoints = into_endpoints.get_endpoints(&options)?;
+    let endpoints = into_endpoints.get_endpoints(options)?;
     let mut tried_ips = IpAddrsSet::default();
     let mut retried = RetriedStatsInfo::default();
 
@@ -80,7 +80,7 @@ pub(in super::super) async fn async_request_call<E: EndpointsProvider>(
 ) -> ApiResult<AsyncResponse> {
     let (parts, mut body, into_endpoints, service_name, extensions) = request.split();
     let options = EndpointsGetOptions::builder().service_names(service_name).build();
-    let endpoints = into_endpoints.async_get_endpoints(&options).await?;
+    let endpoints = into_endpoints.async_get_endpoints(options).await?;
     let mut tried_ips = IpAddrsSet::default();
     let mut retried = RetriedStatsInfo::default();
 

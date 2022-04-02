@@ -68,7 +68,7 @@ impl IpChooser {
 }
 
 impl Chooser for IpChooser {
-    fn choose(&self, ips: &[IpAddrWithPort], _opts: &ChooseOptions) -> ChosenResults {
+    fn choose(&self, ips: &[IpAddrWithPort], _opts: ChooseOptions) -> ChosenResults {
         let mut need_to_shrink = false;
         let filtered_ips: Vec<_> = ips
             .iter()
@@ -223,7 +223,7 @@ mod tests {
 
         let ip_chooser = IpChooser::default();
         assert_eq!(
-            ip_chooser.choose(IPS_WITHOUT_PORT, &Default::default()).into_ip_addrs(),
+            ip_chooser.choose(IPS_WITHOUT_PORT, Default::default()).into_ip_addrs(),
             IPS_WITHOUT_PORT.to_vec()
         );
         ip_chooser.feedback(ChooserFeedback::new(
@@ -237,7 +237,7 @@ mod tests {
             Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
-            ip_chooser.choose(IPS_WITHOUT_PORT, &Default::default()).into_ip_addrs(),
+            ip_chooser.choose(IPS_WITHOUT_PORT, Default::default()).into_ip_addrs(),
             vec![IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)],
         );
 
@@ -249,7 +249,7 @@ mod tests {
             Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
-            ip_chooser.choose(IPS_WITHOUT_PORT, &Default::default()).into_ip_addrs(),
+            ip_chooser.choose(IPS_WITHOUT_PORT, Default::default()).into_ip_addrs(),
             vec![]
         );
 
@@ -264,7 +264,7 @@ mod tests {
             None,
         ));
         assert_eq!(
-            ip_chooser.choose(IPS_WITHOUT_PORT, &Default::default()).into_ip_addrs(),
+            ip_chooser.choose(IPS_WITHOUT_PORT, Default::default()).into_ip_addrs(),
             vec![
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
@@ -286,7 +286,7 @@ mod tests {
 
         assert_eq!(
             ip_chooser
-                .async_choose(IPS_WITHOUT_PORT, &Default::default())
+                .async_choose(IPS_WITHOUT_PORT, Default::default())
                 .await
                 .into_ip_addrs(),
             IPS_WITHOUT_PORT.to_vec()
@@ -305,7 +305,7 @@ mod tests {
             .await;
         assert_eq!(
             ip_chooser
-                .async_choose(IPS_WITHOUT_PORT, &Default::default())
+                .async_choose(IPS_WITHOUT_PORT, Default::default())
                 .await
                 .into_ip_addrs(),
             vec![IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)],
@@ -314,7 +314,7 @@ mod tests {
         AsyncDelay::new(Duration::from_secs(1)).await;
         assert_eq!(
             ip_chooser
-                .async_choose(IPS_WITHOUT_PORT, &Default::default())
+                .async_choose(IPS_WITHOUT_PORT, Default::default())
                 .await
                 .into_ip_addrs(),
             IPS_WITHOUT_PORT.to_vec()

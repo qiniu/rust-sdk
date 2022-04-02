@@ -7,7 +7,7 @@ pub(crate) fn make_dumb_resolver() -> impl Resolver {
     struct FakeResolver;
 
     impl Resolver for FakeResolver {
-        fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
+        fn resolve(&self, _domain: &str, _opts: ResolveOptions) -> ResolveResult {
             Ok(vec![].into())
         }
     }
@@ -20,7 +20,7 @@ pub(crate) fn make_static_resolver(ip_addrs: Box<[IpAddr]>) -> impl Resolver {
     struct StaticResolver(Box<[IpAddr]>);
 
     impl Resolver for StaticResolver {
-        fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
+        fn resolve(&self, _domain: &str, _opts: ResolveOptions) -> ResolveResult {
             Ok(self.0.to_owned().into())
         }
     }
@@ -33,7 +33,7 @@ pub(crate) fn make_random_resolver() -> impl Resolver {
     struct RandomResolver;
 
     impl Resolver for RandomResolver {
-        fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
+        fn resolve(&self, _domain: &str, _opts: ResolveOptions) -> ResolveResult {
             let ips = vec![IpAddr::V4(Ipv4Addr::from(thread_rng().gen::<u32>()))];
             Ok(ips.into())
         }
@@ -42,10 +42,7 @@ pub(crate) fn make_random_resolver() -> impl Resolver {
     RandomResolver
 }
 
-pub(crate) fn make_error_resolver(
-    error_kind: ResponseErrorKind,
-    message: impl Into<String>,
-) -> impl Resolver {
+pub(crate) fn make_error_resolver(error_kind: ResponseErrorKind, message: impl Into<String>) -> impl Resolver {
     #[derive(Debug)]
     struct ErrorResolver {
         error_kind: ResponseErrorKind,
@@ -53,7 +50,7 @@ pub(crate) fn make_error_resolver(
     }
 
     impl Resolver for ErrorResolver {
-        fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
+        fn resolve(&self, _domain: &str, _opts: ResolveOptions) -> ResolveResult {
             Err(ResponseError::new(self.error_kind, self.message.to_owned()))
         }
     }

@@ -48,11 +48,11 @@ impl TrustDnsResolver {
 }
 
 impl Resolver for TrustDnsResolver {
-    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
+    fn resolve(&self, domain: &str, opts: ResolveOptions) -> ResolveResult {
         block_on(async move { self.async_resolve(domain, opts).await })
     }
 
-    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             Ok(self
                 .resolver
@@ -73,7 +73,7 @@ impl fmt::Debug for TrustDnsResolver {
     }
 }
 
-fn convert_trust_dns_error_to_response_error(err: ResolveError, opts: &ResolveOptions) -> ResponseError {
+fn convert_trust_dns_error_to_response_error(err: ResolveError, opts: ResolveOptions) -> ResponseError {
     let mut err = ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err);
     if let Some(retried) = opts.retried() {
         err = err.retried(retried);
@@ -110,7 +110,7 @@ mod tests {
             },
         )
         .await?;
-        let ips = resolver.async_resolve(DOMAIN, &Default::default()).await?;
+        let ips = resolver.async_resolve(DOMAIN, Default::default()).await?;
         assert_eq!(make_set(ips.ip_addrs()), make_set(IPS));
         Ok(())
     }

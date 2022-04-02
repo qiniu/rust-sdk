@@ -9,7 +9,7 @@ use qiniu_http::{RequestParts as HttpRequestParts, ResponseErrorKind as HttpResp
 pub struct ErrorRetrier;
 
 impl RequestRetrier for ErrorRetrier {
-    fn retry(&self, request: &mut HttpRequestParts, opts: &RequestRetrierOptions) -> RetryResult {
+    fn retry(&self, request: &mut HttpRequestParts, opts: RequestRetrierOptions) -> RetryResult {
         return match opts.response_error().kind() {
             ResponseErrorKind::HttpError(http_err_kind) => match http_err_kind {
                 HttpResponseErrorKind::ProtocolError => RetryDecision::RetryRequest,
@@ -87,7 +87,7 @@ mod tests {
             .into_parts_and_body();
         let result = retrier.retry(
             &mut parts,
-            &RequestRetrierOptions::new(
+            RequestRetrierOptions::new(
                 Idempotent::Default,
                 &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
@@ -97,7 +97,7 @@ mod tests {
 
         let result = retrier.retry(
             &mut parts,
-            &RequestRetrierOptions::new(
+            RequestRetrierOptions::new(
                 Idempotent::Never,
                 &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
@@ -113,7 +113,7 @@ mod tests {
             .into_parts_and_body();
         let result = retrier.retry(
             &mut parts,
-            &RequestRetrierOptions::new(
+            RequestRetrierOptions::new(
                 Idempotent::Default,
                 &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
@@ -123,7 +123,7 @@ mod tests {
 
         let result = retrier.retry(
             &mut parts,
-            &RequestRetrierOptions::new(
+            RequestRetrierOptions::new(
                 Idempotent::Always,
                 &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
@@ -133,7 +133,7 @@ mod tests {
 
         let result = retrier.retry(
             &mut parts,
-            &RequestRetrierOptions::new(
+            RequestRetrierOptions::new(
                 Idempotent::Always,
                 &ResponseError::new(HttpResponseErrorKind::InvalidUrl.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
@@ -161,7 +161,7 @@ mod tests {
             .into_parts_and_body();
         let result = retrier.retry(
             &mut parts,
-            &RequestRetrierOptions::new(
+            RequestRetrierOptions::new(
                 Idempotent::Default,
                 &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
@@ -173,7 +173,7 @@ mod tests {
 
         let result = retrier.retry(
             &mut parts,
-            &RequestRetrierOptions::new(
+            RequestRetrierOptions::new(
                 Idempotent::Default,
                 &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,

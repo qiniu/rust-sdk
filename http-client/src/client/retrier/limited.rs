@@ -14,7 +14,7 @@ enum LimitTarget {
 }
 
 impl LimitTarget {
-    fn retry(self, decision: RetryDecision, retries: usize, opts: &RequestRetrierOptions) -> RetryDecision {
+    fn retry(self, decision: RetryDecision, retries: usize, opts: RequestRetrierOptions) -> RetryDecision {
         match self {
             Self::LimitCurrentEndpoint => match decision {
                 RetryDecision::RetryRequest | RetryDecision::Throttled
@@ -84,7 +84,7 @@ impl<R: Default> Default for LimitedRetrier<R> {
 }
 
 impl<R: RequestRetrier> RequestRetrier for LimitedRetrier<R> {
-    fn retry(&self, request: &mut HttpRequestParts, opts: &RequestRetrierOptions) -> RetryResult {
+    fn retry(&self, request: &mut HttpRequestParts, opts: RequestRetrierOptions) -> RetryResult {
         self.target
             .retry(self.retrier.retry(request, opts).decision(), self.retries, opts)
             .into()
@@ -120,7 +120,7 @@ mod tests {
             .into_parts_and_body();
         let result = current_endpoint_retrier.retry(
             &mut parts,
-            &RequestRetrierOptions::new(
+            RequestRetrierOptions::new(
                 Idempotent::Default,
                 &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
@@ -130,7 +130,7 @@ mod tests {
 
         let result = total_retrier.retry(
             &mut parts,
-            &RequestRetrierOptions::new(
+            RequestRetrierOptions::new(
                 Idempotent::Default,
                 &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
@@ -142,7 +142,7 @@ mod tests {
 
         let result = current_endpoint_retrier.retry(
             &mut parts,
-            &RequestRetrierOptions::new(
+            RequestRetrierOptions::new(
                 Idempotent::Default,
                 &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
@@ -152,7 +152,7 @@ mod tests {
 
         let result = total_retrier.retry(
             &mut parts,
-            &RequestRetrierOptions::new(
+            RequestRetrierOptions::new(
                 Idempotent::Default,
                 &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,

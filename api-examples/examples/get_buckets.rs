@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
 
     let credential = Credential::new(opt.access_key, opt.secret_key);
     let region = AllRegionsProvider::new(credential.to_owned())
-        .async_get(&Default::default())
+        .async_get(Default::default())
         .await?;
     let response = Client::default()
         .storage()

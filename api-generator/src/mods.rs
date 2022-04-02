@@ -131,7 +131,7 @@ impl Mods {
                     //! # async fn example() -> anyhow::Result<()> {
                     //! let credential = Credential::new("abcdefghklmnopq", "1234567890");
                     //! let region = AllRegionsProvider::new(credential.to_owned())
-                    //!     .async_get(&Default::default())
+                    //!     .async_get(Default::default())
                     //!     .await?;
                     //! Client::default()
                     //!     .storage()

@@ -16,11 +16,11 @@ use std::{
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Backoff: Debug + Sync + Send {
     /// 获取退避时长
-    fn time(&self, request: &mut HttpRequestParts, opts: &BackoffOptions) -> GotBackoffDuration;
+    fn time(&self, request: &mut HttpRequestParts, opts: BackoffOptions) -> GotBackoffDuration;
 }
 
 /// 获取退避时长的选项
-#[derive(Debug, Clone)]
+#[derive(Copy, Debug, Clone)]
 pub struct BackoffOptions<'a> {
     retry_decision: RetryDecision,
     response_error: &'a ResponseError,

@@ -37,7 +37,7 @@ impl ExponentialBackoff {
 }
 
 impl Backoff for ExponentialBackoff {
-    fn time(&self, _request: &mut HttpRequestParts, opts: &BackoffOptions) -> GotBackoffDuration {
+    fn time(&self, _request: &mut HttpRequestParts, opts: BackoffOptions) -> GotBackoffDuration {
         let retried_count = if opts.retry_decision() == RetryDecision::Throttled {
             opts.retried().retried_total()
         } else {

@@ -213,20 +213,20 @@ pub struct BucketRegionsProvider {
 }
 
 impl RegionsProvider for BucketRegionsProvider {
-    fn get(&self, opts: &GetOptions) -> ApiResult<GotRegion> {
+    fn get(&self, opts: GetOptions) -> ApiResult<GotRegion> {
         self.get_all(opts)
             .map(|regions| regions.try_into().expect("Regions Query API returns empty regions"))
     }
 
     #[inline]
-    fn get_all(&self, _opts: &GetOptions) -> ApiResult<GotRegions> {
+    fn get_all(&self, _opts: GetOptions) -> ApiResult<GotRegions> {
         self.queryer.cache.get(&self.cache_key, || self.do_sync_query())
     }
 
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get<'a>(&'a self, opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegion>> {
+    fn async_get(&self, opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegion>> {
         Box::pin(async move {
             self.async_get_all(opts)
                 .await
@@ -237,7 +237,7 @@ impl RegionsProvider for BucketRegionsProvider {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_all<'a>(&'a self, _opts: &'a GetOptions) -> BoxFuture<'a, ApiResult<GotRegions>> {
+    fn async_get_all(&self, _opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegions>> {
         Box::pin(async move {
             self.queryer
                 .cache
@@ -359,7 +359,7 @@ mod tests {
 
             for _ in 0..2 {
                 let provider = queryer.query(ACCESS_KEY, BUCKET_NAME);
-                let got_regions = provider.async_get_all(&Default::default()).await?;
+                let got_regions = provider.async_get_all(Default::default()).await?;
                 assert_eq!(got_regions.lifetime(), Some(Duration::from_secs(5)));
                 let mut regions = got_regions.into_regions().into_iter();
                 assert_eq!(regions.len(), 2);

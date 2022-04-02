@@ -22,7 +22,7 @@ impl<R> ShuffledResolver<R> {
 
 impl<R: Resolver> Resolver for ShuffledResolver<R> {
     #[inline]
-    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
+    fn resolve(&self, domain: &str, opts: ResolveOptions) -> ResolveResult {
         let mut answers = self.base_resolver.resolve(domain, opts)?;
         answers.ip_addrs_mut().shuffle(&mut thread_rng());
         Ok(answers)
@@ -31,7 +31,7 @@ impl<R: Resolver> Resolver for ShuffledResolver<R> {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             let mut answers = self.base_resolver.async_resolve(domain, opts).await?;
             answers.ip_addrs_mut().shuffle(&mut thread_rng());
@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn test_shuffled_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = ShuffledResolver::new(make_static_resolver(IPS.to_vec().into()));
-        let ips = resolver.resolve("testdomain.com", &Default::default())?;
+        let ips = resolver.resolve("testdomain.com", Default::default())?;
         assert_eq!(make_set(ips.ip_addrs()), make_set(IPS));
         Ok(())
     }

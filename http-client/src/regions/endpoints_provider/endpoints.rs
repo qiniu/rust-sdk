@@ -93,7 +93,7 @@ impl Endpoints {
         services: &[ServiceName],
     ) -> ApiResult<Self> {
         Ok(Self::from_region(
-            region_provider.get(&Default::default())?.region(),
+            region_provider.get(Default::default())?.region(),
             services,
         ))
     }
@@ -104,7 +104,7 @@ impl Endpoints {
         services: &[ServiceName],
     ) -> ApiResult<Self> {
         Ok(Self::from_region(
-            region_provider.async_get(&Default::default()).await?.region(),
+            region_provider.async_get(Default::default()).await?.region(),
             services,
         ))
     }

@@ -52,7 +52,7 @@
 #![doc = r" # async fn example() -> anyhow::Result<()> {"]
 #![doc = r#" let credential = Credential::new("abcdefghklmnopq", "1234567890");"#]
 #![doc = r" let region = AllRegionsProvider::new(credential.to_owned())"]
-#![doc = r"     .async_get(&Default::default())"]
+#![doc = r"     .async_get(Default::default())"]
 #![doc = r"     .await?;"]
 #![doc = r" Client::default()"]
 #![doc = r"     .storage()"]

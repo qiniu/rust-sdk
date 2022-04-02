@@ -23,7 +23,7 @@ impl<R> RegionsProviderEndpoints<R> {
 
 impl<R: RegionsProvider + Clone> EndpointsProvider for RegionsProviderEndpoints<R> {
     #[inline]
-    fn get_endpoints<'e>(&'e self, options: &'e EndpointsGetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>> {
+    fn get_endpoints<'e>(&'e self, options: EndpointsGetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>> {
         Ok(Cow::Owned(Endpoints::from_region_provider(
             &self.0,
             options.service_names(),
@@ -35,7 +35,7 @@ impl<R: RegionsProvider + Clone> EndpointsProvider for RegionsProviderEndpoints<
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get_endpoints<'a>(
         &'a self,
-        options: &'a EndpointsGetOptions<'_>,
+        options: EndpointsGetOptions<'a>,
     ) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
         Box::pin(async move {
             Ok(Cow::Owned(

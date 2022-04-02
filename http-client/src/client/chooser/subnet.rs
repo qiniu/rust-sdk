@@ -80,7 +80,7 @@ impl SubnetChooser {
 }
 
 impl Chooser for SubnetChooser {
-    fn choose(&self, ips: &[IpAddrWithPort], _opts: &ChooseOptions) -> ChosenResults {
+    fn choose(&self, ips: &[IpAddrWithPort], _opts: ChooseOptions) -> ChosenResults {
         let mut need_to_shrink = false;
         let mut subnets_map: HashMap<Subnet, Vec<IpAddrWithPort>> = Default::default();
         for &ip in ips.iter() {
@@ -307,7 +307,7 @@ mod tests {
 
         let subnet_chooser = SubnetChooser::default();
         assert_eq!(
-            subnet_chooser.choose(&all_ips, &Default::default()).into_ip_addrs(),
+            subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
             SUBNET_1.to_vec()
         );
         subnet_chooser.feedback(ChooserFeedback::new(
@@ -321,7 +321,7 @@ mod tests {
             Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
-            subnet_chooser.choose(&all_ips, &Default::default()).into_ip_addrs(),
+            subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
             vec![
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 2)), None),
@@ -338,7 +338,7 @@ mod tests {
             Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
-            subnet_chooser.choose(&all_ips, &Default::default()).into_ip_addrs(),
+            subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
             vec![IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)]
         );
 
@@ -357,7 +357,7 @@ mod tests {
             None,
         ));
         assert_eq!(
-            subnet_chooser.choose(&all_ips, &Default::default()).into_ip_addrs(),
+            subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
             vec![IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)), None)],
         );
     }
@@ -373,7 +373,7 @@ mod tests {
             .build();
 
         assert_eq!(
-            subnet_chooser.choose(&all_ips, &Default::default()).into_ip_addrs(),
+            subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
             SUBNET_1.to_vec()
         );
         subnet_chooser.feedback(ChooserFeedback::new(
@@ -387,13 +387,13 @@ mod tests {
             Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
-            subnet_chooser.choose(&all_ips, &Default::default()).into_ip_addrs(),
+            subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
             SUBNET_2.to_vec(),
         );
 
         sleep(Duration::from_secs(1));
         assert_eq!(
-            subnet_chooser.choose(&all_ips, &Default::default()).into_ip_addrs(),
+            subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
             SUBNET_1.to_vec()
         );
 

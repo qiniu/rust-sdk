@@ -402,7 +402,7 @@ pub(super) fn resolve(
     let answers = with_resolve_domain(request, domain_with_port.domain(), extensions, retried, || {
         request.http_client().resolver().resolve(
             domain_with_port.domain(),
-            &ResolveOptions::builder().retried(retried).build(),
+            ResolveOptions::builder().retried(retried).build(),
         )
     })?;
     return Ok(answers
@@ -435,7 +435,7 @@ pub(super) fn choose(
     let chosen_ips = request
         .http_client()
         .chooser()
-        .choose(ips, &Default::default())
+        .choose(ips, Default::default())
         .into_ip_addrs();
     call_ips_chosen_callbacks(request, ips, &chosen_ips, extensions, retried)?;
     Ok(chosen_ips)
@@ -534,7 +534,7 @@ mod async_utils {
                 .resolver()
                 .async_resolve(
                     domain_with_port.domain(),
-                    &ResolveOptions::builder().retried(retried).build(),
+                    ResolveOptions::builder().retried(retried).build(),
                 )
                 .await
         });
@@ -571,7 +571,7 @@ mod async_utils {
         let chosen_ips = parts
             .http_client()
             .chooser()
-            .async_choose(ips, &Default::default())
+            .async_choose(ips, Default::default())
             .await
             .into_ip_addrs();
         call_ips_chosen_callbacks(parts, ips, &chosen_ips, extensions, retried)?;

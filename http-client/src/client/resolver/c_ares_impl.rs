@@ -3,7 +3,9 @@ pub use c_ares;
 #[cfg_attr(feature = "docs", doc(cfg(feature = "c_ares")))]
 pub use c_ares_resolver;
 
-use super::{super::ResponseError, ResolveOptions, ResolveResult, Resolver};
+use super::{
+    super::ResponseError, owned_resolver_options::OwnedResolveOptions, ResolveOptions, ResolveResult, Resolver,
+};
 use c_ares::{
     AddressFamily::{INET, INET6},
     Error as CAresError, HostResults as CAresHostResults,
@@ -76,27 +78,27 @@ impl fmt::Debug for CAresResolver {
 }
 
 impl Resolver for CAresResolver {
-    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
+    fn resolve(&self, domain: &str, opts: ResolveOptions) -> ResolveResult {
         let (tx, rx) = mpsc::channel();
         let tx2 = tx.to_owned();
 
         self.callback_resolver.get_host_by_name(domain, INET, {
-            let opts = opts.to_owned();
+            let opts = OwnedResolveOptions::from(opts);
             move |results| {
                 tx.send(
                     results
-                        .map_err(|err| convert_c_ares_error_to_response_error(err, &opts))
+                        .map_err(|err| owned_convert_c_ares_error_to_response_error(err, opts))
                         .map(convert_hosts_to_ip_addrs),
                 )
                 .unwrap();
             }
         });
         self.callback_resolver.get_host_by_name(domain, INET6, {
-            let opts = opts.to_owned();
+            let opts = OwnedResolveOptions::from(opts);
             move |results| {
                 tx2.send(
                     results
-                        .map_err(|err| convert_c_ares_error_to_response_error(err, &opts))
+                        .map_err(|err| owned_convert_c_ares_error_to_response_error(err, opts))
                         .map(convert_hosts_to_ip_addrs),
                 )
                 .unwrap();
@@ -117,7 +119,7 @@ impl Resolver for CAresResolver {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             let task1 = self.future_resolver.get_host_by_name(domain, INET);
             let task2 = self.future_resolver.get_host_by_name(domain, INET6);
@@ -155,7 +157,15 @@ fn convert_resolver_hosts_to_ip_addrs(results: CAresResolverHostResults) -> Box<
     results.addresses.into_boxed_slice()
 }
 
-fn convert_c_ares_error_to_response_error(err: CAresError, opts: &ResolveOptions) -> ResponseError {
+fn convert_c_ares_error_to_response_error(err: CAresError, opts: ResolveOptions) -> ResponseError {
+    let mut err = ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err);
+    if let Some(retried) = opts.retried() {
+        err = err.retried(retried);
+    }
+    err
+}
+
+fn owned_convert_c_ares_error_to_response_error(err: CAresError, opts: OwnedResolveOptions) -> ResponseError {
     let mut err = ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err);
     if let Some(retried) = opts.retried() {
         err = err.retried(retried);
@@ -184,7 +194,7 @@ mod tests {
     #[test]
     fn test_c_ares_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = CAresResolver::new()?;
-        let ips = resolver.resolve(DOMAIN, &Default::default())?;
+        let ips = resolver.resolve(DOMAIN, Default::default())?;
         assert!(is_subset_of(IPS, ips.ip_addrs()));
         Ok(())
     }
@@ -192,7 +202,7 @@ mod tests {
     #[tokio::test]
     async fn test_async_c_ares_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = CAresResolver::new()?;
-        let ips = resolver.async_resolve(DOMAIN, &Default::default()).await?;
+        let ips = resolver.async_resolve(DOMAIN, Default::default()).await?;
         assert!(is_subset_of(IPS, ips.ip_addrs()));
         Ok(())
     }

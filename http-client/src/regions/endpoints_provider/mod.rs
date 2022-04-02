@@ -27,19 +27,19 @@ type BoxFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + 
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait EndpointsProvider: Clone + fmt::Debug + Send + Sync {
     /// 获取终端地址列表
-    fn get_endpoints<'e>(&'e self, options: &'e GetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>>;
+    fn get_endpoints<'e>(&'e self, options: GetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>>;
 
     /// 异步获取终端地址列表
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_get_endpoints<'a>(&'a self, options: &'a GetOptions<'_>) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
+    fn async_get_endpoints<'a>(&'a self, options: GetOptions<'a>) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
         Box::pin(async move { self.get_endpoints(options) })
     }
 }
 
 /// 获取终端地址列表的选项
-#[derive(Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct GetOptions<'a> {
     service_names: &'a [ServiceName],
 }
@@ -79,14 +79,14 @@ impl<'a> GetOptionsBuilder<'a> {
 
 impl EndpointsProvider for Endpoint {
     #[inline]
-    fn get_endpoints<'e>(&'e self, _services: &GetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>> {
+    fn get_endpoints<'e>(&'e self, _services: GetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>> {
         Ok(Cow::Owned(Endpoints::builder(self.to_owned()).build()))
     }
 }
 
 impl EndpointsProvider for Endpoints {
     #[inline]
-    fn get_endpoints<'e>(&'e self, _services: &GetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>> {
+    fn get_endpoints<'e>(&'e self, _services: GetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>> {
         Ok(Cow::Borrowed(self))
     }
 }

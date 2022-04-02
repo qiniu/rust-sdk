@@ -54,7 +54,7 @@ impl<P> RandomizedBackoff<P> {
 }
 
 impl<P: Backoff> Backoff for RandomizedBackoff<P> {
-    fn time(&self, request: &mut HttpRequestParts, opts: &BackoffOptions) -> GotBackoffDuration {
+    fn time(&self, request: &mut HttpRequestParts, opts: BackoffOptions) -> GotBackoffDuration {
         let duration = self.base_backoff().time(request, opts).duration();
         let minification: Ratio<u128> = Ratio::new_raw(
             self.minification().numer().to_owned().into(),
@@ -103,7 +103,7 @@ mod tests {
             let delay = randomized
                 .time(
                     &mut HttpRequestParts::default(),
-                    &BackoffOptions::new(
+                    BackoffOptions::new(
                         RetryDecision::RetryRequest,
                         &ResponseError::new(HttpResponseErrorKind::TimeoutError.into(), "Test Error"),
                         &RetriedStatsInfo::default(),

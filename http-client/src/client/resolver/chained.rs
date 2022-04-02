@@ -24,7 +24,7 @@ impl ChainedResolver {
 }
 
 impl Resolver for ChainedResolver {
-    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
+    fn resolve(&self, domain: &str, opts: ResolveOptions) -> ResolveResult {
         let mut last_result: Option<ResolveResult> = None;
         for resolver in self.resolvers.iter() {
             match resolver.resolve(domain, opts) {
@@ -37,7 +37,7 @@ impl Resolver for ChainedResolver {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             let mut last_result: Option<ResolveResult> = None;
             for resolver in self.resolvers.iter() {
@@ -51,7 +51,7 @@ impl Resolver for ChainedResolver {
     }
 }
 
-fn no_try_error(opts: &ResolveOptions) -> ResponseError {
+fn no_try_error(opts: ResolveOptions) -> ResponseError {
     let mut err = ResponseError::new(ResponseErrorKind::NoTry, "None resolver is tried");
     if let Some(retried) = opts.retried() {
         err = err.retried(retried);
@@ -159,7 +159,7 @@ mod tests {
             ))
             .build();
 
-        let ips = resolver.resolve("testdomain.com", &Default::default())?;
+        let ips = resolver.resolve("testdomain.com", Default::default())?;
         assert_eq!(ips.ip_addrs(), IPS);
 
         let resolver = ChainedResolver::builder(make_dumb_resolver())
@@ -170,7 +170,7 @@ mod tests {
             ))
             .build();
 
-        let ips = resolver.resolve("testdomain.com", &Default::default())?;
+        let ips = resolver.resolve("testdomain.com", Default::default())?;
         assert_eq!(ips.ip_addrs(), IPS,);
 
         let resolver = ChainedResolver::builder(make_error_resolver(
@@ -181,7 +181,7 @@ mod tests {
         .prepend_resolver(make_static_resolver(IPS.to_vec().into()))
         .build();
 
-        let ips = resolver.resolve("testdomain.com", &Default::default())?;
+        let ips = resolver.resolve("testdomain.com", Default::default())?;
         assert_eq!(ips.ip_addrs(), IPS,);
 
         Ok(())

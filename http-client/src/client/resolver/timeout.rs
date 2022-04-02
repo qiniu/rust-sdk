@@ -45,14 +45,14 @@ impl<R: Default> Default for TimeoutResolver<R> {
 
 impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
     #[inline]
-    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
+    fn resolve(&self, domain: &str, opts: ResolveOptions) -> ResolveResult {
         return _resolve(self, domain, opts);
 
         #[cfg(feature = "async")]
         fn _resolve<R: Resolver + 'static>(
             resolver: &TimeoutResolver<R>,
             domain: &str,
-            opts: &ResolveOptions,
+            opts: ResolveOptions,
         ) -> ResolveResult {
             async_std::task::block_on(async move { resolver.async_resolve(domain, opts).await })
         }
@@ -61,9 +61,9 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
         fn _resolve<R: Resolver + 'static>(
             resolver: &TimeoutResolver<R>,
             domain: &str,
-            opts: &ResolveOptions,
+            opts: ResolveOptions,
         ) -> ResolveResult {
-            use super::super::super::spawn::spawn;
+            use super::{super::super::spawn::spawn, owned_resolver_options::OwnedResolveOptions};
             use crossbeam_channel::{bounded, Select, SelectTimeoutError};
             use log::warn;
 
@@ -71,11 +71,12 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
             {
                 let inner = resolver.inner.to_owned();
                 let domain = domain.to_owned();
-                let opts = opts.to_owned();
+                let opts = OwnedResolveOptions::from(opts);
                 if let Err(err) = spawn(
                     "qiniu.rust-sdk.http-client.resolver.TimeoutResolver.resolve".into(),
                     move || {
-                        sender.send(inner.resolver.resolve(&domain, &opts)).ok();
+                        let opts = ResolveOptions::from(&opts);
+                        sender.send(inner.resolver.resolve(&domain, opts)).ok();
                     },
                 ) {
                     warn!("Timeout Resolver was failed to spawn thread to resolve domain: {}", err);
@@ -92,7 +93,7 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
                 Err(err) => Err(make_timeout_error(err, opts)),
             };
 
-            fn make_timeout_error(err: SelectTimeoutError, opts: &ResolveOptions) -> ResponseError {
+            fn make_timeout_error(err: SelectTimeoutError, opts: ResolveOptions) -> ResponseError {
                 let mut err = ResponseError::new(HttpResponseErrorKind::TimeoutError.into(), err);
                 if let Some(retried) = opts.retried() {
                     err = err.retried(retried);
@@ -104,7 +105,7 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         use futures::{pin_mut, select};
 
         return Box::pin(async move {
@@ -118,7 +119,7 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
             }
         });
 
-        fn make_timeout_error(timeout: Duration, opts: &ResolveOptions) -> ResponseError {
+        fn make_timeout_error(timeout: Duration, opts: ResolveOptions) -> ResponseError {
             let mut err = ResponseError::new(
                 HttpResponseErrorKind::TimeoutError.into(),
                 format!("Failed to resolve domain in {:?}", timeout),
@@ -147,14 +148,14 @@ mod tests {
 
     impl Resolver for WaitResolver {
         #[inline]
-        fn resolve(&self, _domain: &str, _opts: &ResolveOptions) -> ResolveResult {
+        fn resolve(&self, _domain: &str, _opts: ResolveOptions) -> ResolveResult {
             sleep(self.0);
             Ok(IPS.to_owned().into_boxed_slice().into())
         }
 
         #[inline]
         #[cfg(feature = "async")]
-        fn async_resolve<'a>(&'a self, _domain: &'a str, _opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
+        fn async_resolve<'a>(&'a self, _domain: &'a str, _opts: ResolveOptions) -> BoxFuture<'a, ResolveResult> {
             Box::pin(async move {
                 AsyncDelay::new(self.0).await;
                 Ok(IPS.to_owned().into_boxed_slice().into())
@@ -166,11 +167,11 @@ mod tests {
     fn test_timeout_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = TimeoutResolver::new(WaitResolver(Duration::from_secs(1)), Duration::from_secs(2));
 
-        let answers = resolver.resolve("fake.domain", &Default::default())?;
+        let answers = resolver.resolve("fake.domain", Default::default())?;
         assert_eq!(answers.ip_addrs(), IPS);
 
         let resolver = TimeoutResolver::new(WaitResolver(Duration::from_secs(2)), Duration::from_secs(1));
-        resolver.resolve("fake.domain", &Default::default()).unwrap_err();
+        resolver.resolve("fake.domain", Default::default()).unwrap_err();
 
         Ok(())
     }
@@ -180,12 +181,12 @@ mod tests {
     async fn test_async_timeout_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = TimeoutResolver::new(WaitResolver(Duration::from_millis(100)), Duration::from_millis(200));
 
-        let answers = resolver.async_resolve("fake.domain", &Default::default()).await?;
+        let answers = resolver.async_resolve("fake.domain", Default::default()).await?;
         assert_eq!(answers.ip_addrs(), IPS);
 
         let resolver = TimeoutResolver::new(WaitResolver(Duration::from_millis(200)), Duration::from_millis(100));
         resolver
-            .async_resolve("fake.domain", &Default::default())
+            .async_resolve("fake.domain", Default::default())
             .await
             .unwrap_err();
 

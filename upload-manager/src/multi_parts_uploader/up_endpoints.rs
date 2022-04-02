@@ -29,7 +29,7 @@ impl From<UpEndpoints> for Endpoints {
 impl UpEndpoints {
     pub(super) fn from_endpoints_provider(endpoints_provider: &impl EndpointsProvider) -> ApiResult<Self> {
         let inner = endpoints_provider
-            .get_endpoints(&EndpointsGetOptions::builder().service_names(&[ServiceName::Up]).build())?
+            .get_endpoints(EndpointsGetOptions::builder().service_names(&[ServiceName::Up]).build())?
             .into_owned();
         let set = to_hash_set(&inner);
         let vec = to_vec(&inner);
@@ -39,7 +39,7 @@ impl UpEndpoints {
     #[cfg(feature = "async")]
     pub(super) async fn async_from_endpoints_provider(endpoints_provider: &impl EndpointsProvider) -> ApiResult<Self> {
         let inner = endpoints_provider
-            .async_get_endpoints(&EndpointsGetOptions::builder().service_names(&[ServiceName::Up]).build())
+            .async_get_endpoints(EndpointsGetOptions::builder().service_names(&[ServiceName::Up]).build())
             .await?
             .into_owned();
         let set = to_hash_set(&inner);
@@ -63,7 +63,7 @@ impl UpEndpoints {
 
 impl EndpointsProvider for UpEndpoints {
     #[inline]
-    fn get_endpoints<'e>(&'e self, _options: &'e EndpointsGetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>> {
+    fn get_endpoints<'e>(&'e self, _options: EndpointsGetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>> {
         Ok(Cow::Borrowed(&self.inner))
     }
 }

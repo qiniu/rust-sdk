@@ -23,52 +23,52 @@ use futures::future::BoxFuture;
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Resolver: Debug + Sync + Send {
     /// 解析域名
-    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult;
+    fn resolve(&self, domain: &str, opts: ResolveOptions<'_>) -> ResolveResult;
 
     /// 异步解析域名
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move { self.resolve(domain, opts) })
     }
 }
 
 /// 解析域名的选项
-#[derive(Debug, Clone, Default)]
-pub struct ResolveOptions {
-    retried: Option<RetriedStatsInfo>,
+#[derive(Copy, Debug, Clone, Default)]
+pub struct ResolveOptions<'a> {
+    retried: Option<&'a RetriedStatsInfo>,
 }
 
-impl ResolveOptions {
+impl<'a> ResolveOptions<'a> {
     /// 获取重试统计信息
     #[inline]
-    pub fn retried(&self) -> Option<&RetriedStatsInfo> {
-        self.retried.as_ref()
+    pub fn retried(&'a self) -> Option<&'a RetriedStatsInfo> {
+        self.retried
     }
 
     /// 创建解析域名的选项构建器
     #[inline]
-    pub fn builder() -> ResolveOptionsBuilder {
+    pub fn builder() -> ResolveOptionsBuilder<'a> {
         Default::default()
     }
 }
 
 /// 解析域名的选项构建器
-#[derive(Debug, Clone, Default)]
-pub struct ResolveOptionsBuilder(ResolveOptions);
+#[derive(Copy, Debug, Clone, Default)]
+pub struct ResolveOptionsBuilder<'a>(ResolveOptions<'a>);
 
-impl ResolveOptionsBuilder {
+impl<'a> ResolveOptionsBuilder<'a> {
     /// 设置重试统计信息
     #[inline]
-    pub fn retried(&mut self, retried: &RetriedStatsInfo) -> &mut Self {
-        self.0.retried = Some(retried.to_owned());
+    pub fn retried(&'a mut self, retried: &'a RetriedStatsInfo) -> &mut Self {
+        self.0.retried = Some(retried);
         self
     }
 
     /// 构建解析域名的选项
     #[inline]
-    pub fn build(&mut self) -> ResolveOptions {
+    pub fn build(&mut self) -> ResolveOptions<'a> {
         take(&mut self.0)
     }
 }
@@ -194,6 +194,8 @@ pub use chained::{ChainedResolver, ChainedResolverBuilder};
 pub use shuffled::ShuffledResolver;
 pub use simple::SimpleResolver;
 pub use timeout::TimeoutResolver;
+
+mod owned_resolver_options;
 
 #[cfg(any(feature = "c_ares"))]
 mod c_ares_impl;

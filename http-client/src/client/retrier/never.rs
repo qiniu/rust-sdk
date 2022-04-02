@@ -9,7 +9,7 @@ pub struct NeverRetrier;
 
 impl RequestRetrier for NeverRetrier {
     #[inline]
-    fn retry(&self, _request: &mut HttpRequestParts, _opts: &RequestRetrierOptions) -> RetryResult {
+    fn retry(&self, _request: &mut HttpRequestParts, _opts: RequestRetrierOptions) -> RetryResult {
         RetryDecision::DontRetry.into()
     }
 }

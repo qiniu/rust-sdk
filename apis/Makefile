@@ -14,7 +14,6 @@ doc:
 	cargo test --doc --features async
 	cargo +nightly doc --lib --release --all-features
 test:
-	cargo test -- --show-output
 	cargo test --features async -- --show-output
 clean:
 	cargo clean

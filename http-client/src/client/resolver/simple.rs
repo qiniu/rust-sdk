@@ -4,7 +4,7 @@ use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
 use std::io::Error as IOError;
 
 #[cfg(feature = "async")]
-use {async_std::task::spawn, futures::future::BoxFuture};
+use futures::future::BoxFuture;
 
 /// 简单域名解析器
 ///
@@ -14,7 +14,7 @@ pub struct SimpleResolver;
 
 impl Resolver for SimpleResolver {
     #[inline]
-    fn resolve(&self, domain: &str, opts: &ResolveOptions) -> ResolveResult {
+    fn resolve(&self, domain: &str, opts: ResolveOptions) -> ResolveResult {
         lookup_host(domain)
             .map(|ips| ips.into_boxed_slice().into())
             .map_err(|err| convert_io_error_to_response_error(err, opts))
@@ -23,15 +23,12 @@ impl Resolver for SimpleResolver {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_resolve<'a>(&'a self, domain: &'a str, opts: &'a ResolveOptions) -> BoxFuture<'a, ResolveResult> {
-        let resolver = self.to_owned();
-        let domain = domain.to_owned();
-        let opts = opts.to_owned();
-        Box::pin(async move { spawn(async move { resolver.resolve(&domain, &opts) }).await })
+    fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
+        Box::pin(async move { self.resolve(domain, opts) })
     }
 }
 
-fn convert_io_error_to_response_error(err: IOError, opts: &ResolveOptions) -> ResponseError {
+fn convert_io_error_to_response_error(err: IOError, opts: ResolveOptions) -> ResponseError {
     let mut err = ResponseError::new(HttpResponseErrorKind::DnsServerError.into(), err);
     if let Some(retried) = opts.retried() {
         err = err.retried(retried);
@@ -58,7 +55,7 @@ mod tests {
     #[test]
     fn test_simple_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = SimpleResolver;
-        let ips = resolver.resolve(DOMAIN, &Default::default())?;
+        let ips = resolver.resolve(DOMAIN, Default::default())?;
         assert!(is_subset_of(IPS, ips.ip_addrs()));
         Ok(())
     }
