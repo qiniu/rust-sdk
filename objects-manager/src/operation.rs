@@ -1309,7 +1309,7 @@ mod tests {
             fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     assert!(request.url().to_string().ends_with(&format!(
-                        "/lifecycle/{}/toIAAfterDays/1/toARCHIVEAfterDays/2/deleteAfterDays/3",
+                        "/lifecycle/{}/toIAAfterDays/1/toArchiveAfterDays/2/toDeepArchiveAfterDays/3/deleteAfterDays/4",
                         &encode_entry("fakeobjectname"),
                     )));
                     Ok(AsyncResponse::builder()
@@ -1329,7 +1329,8 @@ mod tests {
             .modify_object_life_cycle("fakeobjectname")
             .ia_after_days(AfterDays::new(1))
             .archive_after_days(AfterDays::new(2))
-            .delete_after_days(AfterDays::new(3))
+            .deep_archive_after_days(AfterDays::new(3))
+            .delete_after_days(AfterDays::new(4))
             .async_call()
             .await?;
 

@@ -246,7 +246,7 @@ impl Credential {
     ///         &Method::GET,
     ///         &"http://upload.qiniup.com/".parse()?,
     ///         &headers,
-    ///         b"{\"name\":\"test\"}".as_slice(),
+    ///         &b"{\"name\":\"test\"}"[..],
     ///     );
     /// # Ok(())
     /// # }

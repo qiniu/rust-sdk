@@ -1,5 +1,8 @@
 use anyhow::Result;
-use qiniu_objects_manager::{apis::credential::Credential, ObjectType, ObjectsManager};
+use qiniu_objects_manager::{
+    apis::{credential::Credential, upload_token::FileType},
+    ObjectsManager,
+};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -19,7 +22,7 @@ struct Opt {
     object_name: String,
     /// Qiniu Object File Type
     #[structopt(long)]
-    object_type: usize,
+    object_type: u8,
 }
 
 #[async_std::main]
@@ -33,7 +36,7 @@ async fn main() -> Result<()> {
     let bucket = object_manager.bucket(opt.bucket_name);
 
     bucket
-        .set_object_type(&opt.object_name, ObjectType::new(opt.object_type))
+        .set_object_type(&opt.object_name, FileType::Other(opt.object_type))
         .async_call()
         .await?;
 
