@@ -487,14 +487,14 @@ fn from_response_to_response_data_result(response: OperationResponse) -> ApiResu
     .map_err(make_invalid_request_response_error)?;
 
     return if status_code == StatusCode::OK {
-        Ok(response.get_data())
+        Ok(response.get_data().unwrap_or_default())
     } else {
         Err(ResponseError::new(
             ResponseErrorKind::StatusCodeError(status_code),
             response
                 .get_data()
-                .get_error_as_str()
-                .map(|errmsg| AnyError::from(errmsg.to_owned()))
+                .and_then(|data| data.get_error_as_str().map(|err| err.to_owned()))
+                .map(AnyError::from)
                 .unwrap_or_else(|| NoErrorMessageFromOperation.into()),
         ))
     };

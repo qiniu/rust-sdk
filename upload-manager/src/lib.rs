@@ -39,7 +39,6 @@
 //! # async fn example() -> anyhow::Result<()> {
 //! let bucket_name = "test-bucket";
 //! let object_name = "test-object";
-//! # let file_path = std::path::Path::new("test.txt");
 //! let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
 //!     Credential::new("abcdefghklmnopq", "1234567890"),
 //!     bucket_name,
@@ -48,7 +47,7 @@
 //! .build();
 //! let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
 //! let mut uploader: AutoUploader = upload_manager.auto_uploader();
-//! uploader.async_upload_path(file_path, params).await?;
+//! uploader.async_upload_path("/home/qiniu/test.png", params).await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -102,7 +101,7 @@ pub use scheduler::{
 };
 pub use single_part_uploader::{FormUploader, SinglePartUploader};
 pub use upload_manager::{UploadManager, UploadManagerBuilder};
-pub use upload_token::UploadTokenSigner;
+pub use upload_token::{UploadTokenSigner, UploadTokenSignerBuilder};
 
 #[cfg(feature = "async")]
 pub use {

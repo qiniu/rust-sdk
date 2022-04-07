@@ -67,7 +67,6 @@
 //! # Ok(())
 //! # }
 //! ```
-
 mod file_type;
 mod upload_policy;
 mod upload_token;

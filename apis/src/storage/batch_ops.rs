@@ -566,18 +566,22 @@ impl OperationResponseData {
 }
 impl OperationResponse {
     #[doc = "获取 响应数据"]
-    pub fn get_data(&self) -> OperationResponseData {
-        OperationResponseData::new(self.0.as_object().unwrap().get("data").cloned().unwrap())
+    pub fn get_data(&self) -> Option<OperationResponseData> {
+        self.0
+            .as_object()
+            .and_then(|obj| obj.get("data"))
+            .cloned()
+            .map(OperationResponseData::new)
     }
 }
 impl OperationResponse {
     #[doc = "设置 响应数据"]
     pub fn set_data(&mut self, new: OperationResponseData) -> Option<OperationResponseData> {
-        self.0
-            .as_object_mut()
-            .unwrap()
-            .insert("data".to_owned(), new.into())
-            .map(OperationResponseData::new)
+        self.0.as_object_mut().and_then(|object| {
+            object
+                .insert("data".to_owned(), new.into())
+                .map(OperationResponseData::new)
+        })
     }
 }
 impl ResponseBody {

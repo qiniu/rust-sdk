@@ -29,6 +29,542 @@ Qiniu SDK for Rust 包含以下 Crates:
 | [![qiniu-objects-manager](https://img.shields.io/crates/v/qiniu-objects-manager.svg)](https://crates.io/crates/qiniu-objects-manager)      | 实现七牛对象相关管理接口，包含对象的列举和操作       |
 | [![qiniu-upload-manager](https://img.shields.io/crates/v/qiniu-upload-manager.svg)](https://crates.io/crates/qiniu-upload-manager)      | 实现七牛对象上传功能       |
 
+## 代码示例
+
+### 客户端上传凭证
+
+#### 简单上传的凭证
+
+```rust
+use qiniu_upload_token::{UploadPolicy, credential::Credential, prelude::*};
+use std::time::Duration;
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let credential = Credential::new(access_key, secret_key);
+let upload_token = UploadPolicy::new_for_bucket(bucket_name, Duration::from_secs(3600))
+    .build_token(&credential, Default::default());
+println!("{}", upload_token);
+```
+
+#### 覆盖上传的凭证
+
+```rust
+use qiniu_upload_token::{UploadPolicy, credential::Credential, prelude::*};
+use std::time::Duration;
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let credential = Credential::new(access_key, secret_key);
+let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Duration::from_secs(3600))
+    .build_token(&credential, Default::default());
+println!("{}", upload_token);
+```
+
+#### 自定义上传回复的凭证
+
+```rust
+use qiniu_upload_token::{UploadPolicy, credential::Credential, prelude::*};
+use std::time::Duration;
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let credential = Credential::new(access_key, secret_key);
+let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Duration::from_secs(3600))
+    .return_body("{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"bucket\":\"$(bucket)\",\"fsize\":$(fsize)}")
+    .build_token(&credential, Default::default());
+println!("{}", upload_token);
+```
+
+#### 带回调业务服务器的凭证
+
+
+```rust
+use qiniu_upload_token::{UploadPolicy, credential::Credential, prelude::*};
+use std::time::Duration;
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let credential = Credential::new(access_key, secret_key);
+let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Duration::from_secs(3600))
+    .callback(&["http://api.example.com/qiniu/upload/callback"], "", "{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"bucket\":\"$(bucket)\",\"fsize\":$(fsize)}", "application/json")
+    .build_token(&credential, Default::default());
+println!("{}", upload_token);
+```
+
+```rust
+use qiniu_upload_token::{UploadPolicy, credential::Credential, prelude::*};
+use std::time::Duration;
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let credential = Credential::new(access_key, secret_key);
+let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Duration::from_secs(3600))
+    .callback(&["http://api.example.com/qiniu/upload/callback"], "", "key=$(key)&hash=$(etag)&bucket=$(bucket)&fsize=$(fsize)", "")
+    .build_token(&credential, Default::default());
+println!("{}", upload_token);
+```
+
+### 服务端直传
+
+#### 文件上传
+
+```rust
+use qiniu_upload_manager::{
+    apis::credential::Credential, AutoUploader, AutoUploaderObjectParams, UploadManager,
+    UploadTokenSigner,
+};
+use std::{time::Duration};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let credential = Credential::new(access_key, secret_key);
+let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
+    credential,
+    bucket_name,
+    Duration::from_secs(3600),
+))
+.build();
+let mut uploader: AutoUploader = upload_manager.auto_uploader();
+
+let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
+uploader.upload_path("/home/qiniu/test.png", params)?;
+```
+
+#### 字节数组上传 / 数据流上传
+
+```rust
+use qiniu_upload_manager::{
+    apis::credential::Credential, AutoUploader, AutoUploaderObjectParams, UploadManager,
+    UploadTokenSigner,
+};
+use std::{io::Cursor, time::Duration};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let credential = Credential::new(access_key, secret_key);
+let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
+    credential,
+    bucket_name,
+    Duration::from_secs(3600),
+))
+.build();
+let mut uploader: AutoUploader = upload_manager.auto_uploader();
+
+let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
+uploader.upload_reader(Cursor::new("hello qiniu cloud"), params)?;
+```
+
+#### 自定义参数上传
+
+```rust
+use qiniu_upload_manager::{
+    apis::credential::Credential, AutoUploader, AutoUploaderObjectParams, UploadManager, UploadTokenSigner,
+};
+use std::{io::Cursor, time::Duration};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let credential = Credential::new(access_key, secret_key);
+let upload_manager = UploadManager::builder(
+    UploadTokenSigner::new_credential_provider_builder(credential, bucket_name, Duration::from_secs(3600))
+        .on_policy_generated(|builder| {
+            builder
+                .return_body("{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"fname\":\"$(x:fname)\",\"age\",$(x:age)}");
+        })
+        .build(),
+)
+.build();
+let mut uploader: AutoUploader = upload_manager.auto_uploader();
+
+let params = AutoUploaderObjectParams::builder()
+    .object_name(object_name)
+    .file_name(object_name)
+    .insert_metadata("x:fname", "123.jpg")
+    .insert_metadata("x:age", "20")
+    .build();
+uploader.upload_path("/home/qiniu/test.mp4", params)?;
+```
+
+### 下载文件
+
+#### 公开空间
+
+```rust
+use http::Uri;
+
+let object_name = "公司/存储/qiniu.jpg";
+let domain = "devtools.qiniu.com";
+let mut path = "/".to_string();
+url_escape::encode_path_to_string(object_name, &mut path);
+let url = Uri::builder()
+    .scheme("http")
+    .authority(domain)
+    .path_and_query(path)
+    .build()?;
+println!("{}", url);
+```
+
+#### 私有空间
+
+```rust
+use qiniu_credential::Credential;
+use http::Uri;
+
+let access_key = "access key";
+let secret_key = "secret key";
+let object_name = "公司/存储/qiniu.jpg";
+let domain = "devtools.qiniu.com";
+let mut path = "/".to_string();
+url_escape::encode_path_to_string(object_name, &mut path);
+let url = Uri::builder()
+    .scheme("http")
+    .authority(domain)
+    .path_and_query(path)
+    .build()?;
+let credential = Credential::new(access_key, secret_key);
+let url = credential.sign_download_url(url, Duration::from_secs(3600));
+println!("{}", url);
+```
+
+### 资源管理
+
+#### 获取文件信息
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+
+let response = bucket.stat_object(object_name).call()?;
+let entry = response.into_body();
+println!("{}", entry.get_hash_as_str());
+println!("{}", entry.get_size_as_u64());
+println!("{}", entry.get_mime_type_as_str());
+println!("{}", entry.get_put_time_as_u64());
+```
+
+#### 修改文件类型
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+
+bucket
+    .modify_object_metadata(object_name, mime::APPLICATION_JSON)
+    .call()?;
+```
+
+#### 移动或重命名文件
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let to_bucket_name = "to bucket name";
+let to_object_name = "new object name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+
+bucket
+    .move_object_to(object_name, to_bucket_name, to_object_name);
+    .call()?;
+```
+
+#### 复制文件副本
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let to_bucket_name = "to bucket name";
+let to_object_name = "new object name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+
+bucket
+    .copy_object_to(object_name, to_bucket_name, to_object_name);
+    .call()?;
+```
+
+#### 删除空间中的文件
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+
+bucket
+    .delete_object(object_name);
+    .call()?;
+```
+
+#### 设置或更新文件的生存时间
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, AfterDays, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+
+bucket
+    .modify_object_life_cycle(object_name)
+    .delete_after_days(AfterDays::new(10))?;
+```
+
+#### 获取空间文件列表
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+
+let mut iter = bucket.list().iter();
+while let Some(entry) = iter.next() {
+    let entry = entry?;
+    println!(
+        "{}\n  hash: {}\n  size: {}\n  mime type: {}",
+        entry.get_key_as_str(),
+        entry.get_hash_as_str(),
+        entry.get_size_as_u64(),
+        entry.get_mime_type_as_str(),
+    );
+}
+```
+
+### 资源管理批量操作
+
+#### 批量获取文件信息
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+let mut ops = bucket.batch_ops();
+ops.add_operation(bucket.stat_object("qiniu.jpg"));
+ops.add_operation(bucket.stat_object("qiniu.mp4"));
+ops.add_operation(bucket.stat_object("qiniu.png"));
+
+let mut iter = ops.call();
+while let Some(result) = iter.next() {
+    match result {
+        Ok(entry) => {
+            println!(
+                "hash: {:?}\n  size: {:?}\n  mime type: {:?}",
+                entry.get_hash_as_str(),
+                entry.get_size_as_u64(),
+                entry.get_mime_type_as_str(),
+            );
+        }
+        Err(err) => {
+            println!("{:?}", err);
+        }
+    }
+}
+```
+
+#### 批量修改文件类型
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+let mut ops = bucket.batch_ops();
+ops.add_operation(bucket.modify_object_metadata("qiniu.jpg", mime::IMAGE_JPEG));
+ops.add_operation(bucket.modify_object_metadata("qiniu.png", mime::IMAGE_PNG));
+ops.add_operation(bucket.modify_object_metadata("qiniu.mp4", "video/mp4".parse()?));
+
+let mut iter = ops.call();
+while let Some(result) = iter.next() {
+    match result {
+        Ok(_) => {
+            println!("Ok");
+        }
+        Err(err) => {
+            println!("{:?}", err);
+        }
+    }
+}
+```
+
+#### 批量删除文件类型
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+let mut ops = bucket.batch_ops();
+ops.add_operation(bucket.delete_object("qiniu.jpg"));
+ops.add_operation(bucket.delete_object("qiniu.png"));
+ops.add_operation(bucket.delete_object("qiniu.mp4"));
+
+let mut iter = ops.call();
+while let Some(result) = iter.next() {
+    match result {
+        Ok(_) => {
+            println!("Ok");
+        }
+        Err(err) => {
+            println!("{:?}", err);
+        }
+    }
+}
+```
+
+#### 批量移动或重命名文件
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+let mut ops = bucket.batch_ops();
+ops.add_operation(bucket.move_object_to("qiniu.jpg", bucket_name, "qiniu.jpg.move"));
+ops.add_operation(bucket.move_object_to("qiniu.png", bucket_name, "qiniu.png.move"));
+ops.add_operation(bucket.move_object_to("qiniu.mp4", bucket_name, "qiniu.mp4.move"));
+
+let mut iter = ops.call();
+while let Some(result) = iter.next() {
+    match result {
+        Ok(_) => {
+            println!("Ok");
+        }
+        Err(err) => {
+            println!("{:?}", err);
+        }
+    }
+}
+```
+
+#### 批量复制文件
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+let mut ops = bucket.batch_ops();
+ops.add_operation(bucket.copy_object_to("qiniu.jpg", bucket_name, "qiniu.jpg.move"));
+ops.add_operation(bucket.copy_object_to("qiniu.png", bucket_name, "qiniu.png.move"));
+ops.add_operation(bucket.copy_object_to("qiniu.mp4", bucket_name, "qiniu.mp4.move"));
+
+let mut iter = ops.call();
+while let Some(result) = iter.next() {
+    match result {
+        Ok(_) => {
+            println!("Ok");
+        }
+        Err(err) => {
+            println!("{:?}", err);
+        }
+    }
+}
+```
+
+#### 批量解冻归档存储类型文件
+
+```rust
+use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+let mut ops = bucket.batch_ops();
+ops.add_operation(bucket.unfreeze_object("qiniu.jpg", 7));
+ops.add_operation(bucket.unfreeze_object("qiniu.png", 7));
+ops.add_operation(bucket.unfreeze_object("qiniu.mp4", 7));
+
+let mut iter = ops.call();
+while let Some(result) = iter.next() {
+    match result {
+        Ok(_) => {
+            println!("Ok");
+        }
+        Err(err) => {
+            println!("{:?}", err);
+        }
+    }
+}
+```
+
 ## 最低支持的 Rust 版本（MSRV）
 
 1.56.0

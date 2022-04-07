@@ -25,7 +25,6 @@ use futures::future::BoxFuture;
 /// # async fn example() -> anyhow::Result<()> {
 /// let bucket_name = "test-bucket";
 /// let object_name = "test-object";
-/// # let file_path = std::path::Path::new("test.txt");
 /// let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
 ///     Credential::new("abcdefghklmnopq", "1234567890"),
 ///     bucket_name,
@@ -37,7 +36,7 @@ use futures::future::BoxFuture;
 ///     upload_manager,
 ///     FileSystemResumableRecorder::default(),
 /// ));
-/// scheduler.async_upload_path(file_path, params).await?;
+/// scheduler.async_upload_path("/home/qiniu/test.png", params).await?;
 /// # Ok(())
 /// # }
 /// ```

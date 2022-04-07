@@ -685,7 +685,12 @@ impl ModifyObjectMetadata<'_> {
 
 impl Display for ModifyObjectMetadata<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "chgm/{}/mime/{}", self.entry.encode(), self.mime_type)?;
+        write!(
+            f,
+            "chgm/{}/mime/{}",
+            self.entry.encode(),
+            urlsafe(self.mime_type.as_ref().as_bytes())
+        )?;
         for (key, value) in self.metadata.iter() {
             write!(f, "/x-qn-meta-{}/{}", key, urlsafe(value.as_bytes()))?;
         }

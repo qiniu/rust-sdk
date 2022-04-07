@@ -1,4 +1,4 @@
-use super::{FileType, FromUploadPolicy};
+use super::{FileType, FromUploadPolicy, StaticUploadTokenProvider, ToStringOptions, UploadTokenProvider};
 use assert_impl::assert_impl;
 use qiniu_credential::CredentialProvider;
 use qiniu_utils::{BucketName, ObjectName};
@@ -535,6 +535,20 @@ impl UploadPolicyBuilder {
         UploadPolicy {
             inner: self.inner.clone(),
         }
+    }
+
+    /// 生成上传凭证
+    pub fn build_token<T: CredentialProvider + Clone>(
+        &self,
+        credential: &T,
+        opts: ToStringOptions,
+    ) -> StaticUploadTokenProvider {
+        self.build()
+            .into_upload_token_provider(credential)
+            .to_token_string(opts)
+            .unwrap()
+            .parse()
+            .unwrap()
     }
 
     /// 重置上传策略构建器

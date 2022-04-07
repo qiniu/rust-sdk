@@ -46,7 +46,6 @@ use {async_std::fs::metadata as async_metadata, futures::AsyncRead};
 /// # async fn example() -> anyhow::Result<()> {
 /// let bucket_name = "test-bucket";
 /// let object_name = "test-object";
-/// # let file_path = std::path::Path::new("test.txt");
 /// let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
 ///     Credential::new("abcdefghklmnopq", "1234567890"),
 ///     bucket_name,
@@ -55,7 +54,7 @@ use {async_std::fs::metadata as async_metadata, futures::AsyncRead};
 /// .build();
 /// let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
 /// let mut uploader: AutoUploader = upload_manager.auto_uploader();
-/// uploader.async_upload_path(file_path, params).await?;
+/// uploader.async_upload_path("/home/qiniu/test.png", params).await?;
 /// # Ok(())
 /// # }
 /// ```
@@ -240,9 +239,9 @@ where
     RR::HashAlgorithm: Send,
 {
     /// 阻塞上传指定路径的文件
-    pub fn upload_path(&self, path: &Path, params: impl Into<AutoUploaderObjectParams>) -> ApiResult<Value> {
+    pub fn upload_path(&self, path: impl AsRef<Path>, params: impl Into<AutoUploaderObjectParams>) -> ApiResult<Value> {
         let params = params.into();
-        let size = metadata(path)?.len();
+        let size = metadata(path.as_ref())?.len();
         with_uploader!(
             self,
             self.resumable_policy_provider
@@ -250,7 +249,7 @@ where
             params,
             sync_block,
             upload_path,
-            path,
+            path.as_ref(),
             params.into(),
         )
     }
@@ -273,11 +272,11 @@ where
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub async fn async_upload_path<'a>(
         &'a self,
-        path: &'a Path,
+        path: impl AsRef<Path> + Send + Sync + 'a,
         params: impl Into<AutoUploaderObjectParams>,
     ) -> ApiResult<Value> {
         let params = params.into();
-        let size = async_metadata(path).await?.len();
+        let size = async_metadata(path.as_ref()).await?.len();
         with_uploader!(
             self,
             self.resumable_policy_provider
@@ -285,7 +284,7 @@ where
             params,
             async_block,
             async_upload_path,
-            path,
+            path.as_ref(),
             params.into(),
         )
     }

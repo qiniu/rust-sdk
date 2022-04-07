@@ -14,7 +14,7 @@ pub trait SinglePartUploader: UploaderWithCallbacks + Sync + Send + Debug {
     fn new(upload_manager: UploadManager) -> Self;
 
     /// 上传指定路径的文件
-    fn upload_path(&self, path: &Path, params: ObjectParams) -> ApiResult<Value>;
+    fn upload_path(&self, path: impl AsRef<Path>, params: ObjectParams) -> ApiResult<Value>;
 
     /// 上传输入流的数据
     fn upload_reader<R: Read + 'static>(&self, reader: R, params: ObjectParams) -> ApiResult<Value>;
@@ -22,7 +22,11 @@ pub trait SinglePartUploader: UploaderWithCallbacks + Sync + Send + Debug {
     /// 异步上传指定路径的文件
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload_path<'a>(&'a self, path: &'a Path, params: ObjectParams) -> BoxFuture<'a, ApiResult<Value>>;
+    fn async_upload_path<'a>(
+        &'a self,
+        path: impl AsRef<Path> + Send + Sync + 'a,
+        params: ObjectParams,
+    ) -> BoxFuture<'a, ApiResult<Value>>;
 
     /// 上传异步输入流的数据
     #[cfg(feature = "async")]

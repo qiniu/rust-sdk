@@ -43,8 +43,8 @@ where
     <<Self::MultiPartsUploader as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm: Send,
 {
     /// 上传指定路径的文件
-    fn upload_path(&self, path: &Path, params: ObjectParams) -> ApiResult<Value> {
-        self.upload(FileDataSource::new(path), params)
+    fn upload_path(&self, path: impl AsRef<Path>, params: ObjectParams) -> ApiResult<Value> {
+        self.upload(FileDataSource::new(path.as_ref()), params)
     }
 
     /// 上传输入流的数据
@@ -59,8 +59,12 @@ where
     /// 异步上传指定路径的文件
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload_path<'a>(&'a self, path: &'a Path, params: ObjectParams) -> BoxFuture<'a, ApiResult<Value>> {
-        Box::pin(async move { self.async_upload(FileDataSource::new(path), params).await })
+    fn async_upload_path<'a>(
+        &'a self,
+        path: impl AsRef<Path> + Send + Sync + 'a,
+        params: ObjectParams,
+    ) -> BoxFuture<'a, ApiResult<Value>> {
+        Box::pin(async move { self.async_upload(FileDataSource::new(path.as_ref()), params).await })
     }
 
     /// 异步上传输入流的数据

@@ -7,7 +7,7 @@ use qiniu_utils::{base64, BucketName, ObjectName};
 use std::{
     borrow::Cow,
     convert::Infallible,
-    fmt::{self, Debug},
+    fmt::{self, Debug, Display},
     io::{Error as IoError, Result as IoResult},
     ops::{Deref, DerefMut},
     str::FromStr,
@@ -280,6 +280,13 @@ impl Debug for StaticUploadTokenProvider {
         f.debug_struct("StaticUploadTokenProvider")
             .field("upload_token", &self.upload_token)
             .finish()
+    }
+}
+
+impl Display for StaticUploadTokenProvider {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt(&self.upload_token, f)
     }
 }
 

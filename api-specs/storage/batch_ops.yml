@@ -27,6 +27,7 @@ response:
               - field_name: data
                 key: data
                 documentation: 响应数据
+                optional: true
                 type:
                   struct:
                     fields:

@@ -41,7 +41,6 @@ use {
 /// # async fn example() -> anyhow::Result<()> {
 /// let bucket_name = "test-bucket";
 /// let object_name = "test-object";
-/// # let file_path = std::path::Path::new("test.txt");
 /// let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
 ///     Credential::new("abcdefghklmnopq", "1234567890"),
 ///     bucket_name,
@@ -50,7 +49,7 @@ use {
 /// .build();
 /// let params = ObjectParams::builder().object_name(object_name).file_name(object_name).build();
 /// let mut uploader = upload_manager.form_uploader();
-/// uploader.async_upload_path(file_path, params).await?;
+/// uploader.async_upload_path("/home/qiniu/test.png", params).await?;
 /// # Ok(())
 /// # }
 /// ```
@@ -117,10 +116,10 @@ impl SinglePartUploader for FormUploader {
         }
     }
 
-    fn upload_path(&self, path: &Path, mut params: ObjectParams) -> ApiResult<Value> {
+    fn upload_path(&self, path: impl AsRef<Path>, mut params: ObjectParams) -> ApiResult<Value> {
         self.upload(
             take(params.region_provider_mut()),
-            self.make_request_body_from_path(path, self.make_upload_token_signer(&params).as_ref(), params)?,
+            self.make_request_body_from_path(path.as_ref(), self.make_upload_token_signer(&params).as_ref(), params)?,
         )
     }
 
@@ -133,12 +132,20 @@ impl SinglePartUploader for FormUploader {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload_path<'a>(&'a self, path: &'a Path, mut params: ObjectParams) -> BoxFuture<'a, ApiResult<Value>> {
+    fn async_upload_path<'a>(
+        &'a self,
+        path: impl AsRef<Path> + Send + Sync + 'a,
+        mut params: ObjectParams,
+    ) -> BoxFuture<'a, ApiResult<Value>> {
         Box::pin(async move {
             self.async_upload(
                 take(params.region_provider_mut()),
-                self.make_async_request_body_from_path(path, self.make_upload_token_signer(&params).as_ref(), params)
-                    .await?,
+                self.make_async_request_body_from_path(
+                    path.as_ref(),
+                    self.make_upload_token_signer(&params).as_ref(),
+                    params,
+                )
+                .await?,
             )
             .await
         })
