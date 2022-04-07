@@ -1,7 +1,6 @@
-use anyhow::Result;
-use vergen::{vergen, Config};
+use rustc_version::{Result,version};
 
 fn main() -> Result<()> {
-    // Generate the default 'cargo:' instruction output
-    vergen(Config::default())
+    println!("cargo:rustc-env=RUSTC_VERSION={}", version()?);
+    Ok(())
 }

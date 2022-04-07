@@ -33,7 +33,7 @@ static FULL_USER_AGENT: Lazy<Box<str>> = Lazy::new(|| {
     format!(
         "QiniuRust/qiniu-http-{}/rust-{}",
         env!("CARGO_PKG_VERSION"),
-        env!("VERGEN_RUSTC_SEMVER"),
+        env!("RUSTC_VERSION"),
     )
     .into()
 });
