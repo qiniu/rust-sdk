@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-api-examples"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
 rust-version = "1.56.0"
@@ -14,9 +14,9 @@ anyhow = "1.0.44"
 async-std = { version = "1.6.3", features = ["attributes"] }
 env_logger = "0.9.0"
 log = "0.4.14"
-qiniu-apis = { version = "0.0.4", path = "../apis", features = ["async", "isahc", "trust_dns"] }
-qiniu-objects-manager = { version = "0.0.4", path = "../objects-manager", features = ["async", "isahc", "trust_dns"] }
-qiniu-upload-manager = { version = "0.0.4", path = "../upload-manager", features = ["async", "isahc", "trust_dns"] }
+qiniu-apis = { version = "0.0.5", path = "../apis", features = ["async", "isahc", "trust_dns"] }
+qiniu-objects-manager = { version = "0.0.5", path = "../objects-manager", features = ["async", "isahc", "trust_dns"] }
+qiniu-upload-manager = { version = "0.0.5", path = "../upload-manager", features = ["async", "isahc", "trust_dns"] }
 structopt = "0.3.23"
 
 [dependencies]

@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-upload-manager"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
 rust-version = "1.56.0"
@@ -13,9 +13,9 @@ keywords = ["qiniu", "storage"]
 
 [dependencies]
 log = "0.4.14"
-qiniu-apis = { version = "0.0.4", path = "../apis" }
-qiniu-upload-token = { version = "0.0.4", path = "../upload-token" }
-qiniu-utils = { version = "0.0.4", path = "../utils" }
+qiniu-apis = { version = "0.0.5", path = "../apis" }
+qiniu-upload-token = { version = "0.0.5", path = "../upload-token" }
+qiniu-utils = { version = "0.0.5", path = "../utils" }
 auto_impl = { package = "bachue-auto_impl", version = "0.5.1" }
 smart-default = "0.6.0"
 sha-1 = "0.10.0"
