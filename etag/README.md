@@ -1,6 +1,7 @@
 # Qiniu-Etag
 
 [![qiniu-etag](https://img.shields.io/crates/v/qiniu-etag.svg)](https://crates.io/crates/qiniu-etag)
+[![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-etag)
 [![Run Test Cases](https://github.com/bachue/rust-sdk/actions/workflows/ci-test.yml/badge.svg)](https://github.com/bachue/rust-sdk/actions/workflows/ci-test.yml)
 [![GitHub release](https://img.shields.io/github/v/tag/bachue/rust-sdk.svg?label=release)](https://github.com/bachue/rust-sdk/releases)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bachue/rust-sdk/blob/master/LICENSE)
@@ -17,14 +18,14 @@
 
 ```toml
 [dependencies]
-qiniu-etag = "0.0.5"
+qiniu-etag = "0.0.7"
 ```
 
 ### 启用异步接口
 
 ```toml
 [dependencies]
-qiniu-etag = { version = "0.0.5", features = ["async"] }
+qiniu-etag = { version = "0.0.7", features = ["async"] }
 ```
 
 ## 代码示例

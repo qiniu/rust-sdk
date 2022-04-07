@@ -34,6 +34,67 @@
 //! - [`GlobalCredentialProvider`] : 使用全局变量配置的认证信息
 //! - [`EnvCredentialProvider`] : 使用环境变量配置的认证信息
 //! - [`ChainCredentialsProvider`] : 配置多个 [`CredentialProvider`] 形成认证信息串，遍历找寻第一个可用的认证信息
+//!
+//! ### 计算七牛鉴权签名 V1
+//!
+//! ```
+//! use qiniu_credential::{Credential, HeaderValue, prelude::*};
+//! use mime::APPLICATION_WWW_FORM_URLENCODED;
+//! use std::io::Cursor;
+//!
+//! # fn main() -> anyhow::Result<()> {
+//! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+//! let authorization = credential
+//!     .get(Default::default())?
+//!     .authorization_v1_for_request(
+//!         &"http://upload.qiniup.com/".parse()?,
+//!         Some(&HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?),
+//!         b"name=test&language=go"
+//!     );
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### 计算七牛鉴权签名 V2
+//!
+//! ```
+//! use qiniu_credential::{Credential, Method, HeaderMap, HeaderValue, prelude::*};
+//! use http::header::CONTENT_TYPE;
+//! use mime::APPLICATION_JSON;
+//! # fn main() -> anyhow::Result<()> {
+//! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+//! let mut headers = HeaderMap::new();
+//! headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
+//! let authorization = credential
+//!     .get(Default::default())?
+//!     .authorization_v2_for_request(
+//!         &Method::GET,
+//!         &"http://upload.qiniup.com/".parse()?,
+//!         &headers,
+//!         &b"{\"name\":\"test\"}"[..],
+//!     );
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### 计算下载地址签名
+//!
+//! ```
+//! use qiniu_credential::{Credential, prelude::*};
+//! use std::time::Duration;
+//! # fn main() -> anyhow::Result<()> {
+//! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+//! let url = "http://www.qiniu.com/?go=1".parse()?;
+//! let url = credential
+//!     .get(Default::default())?
+//!     .sign_download_url(url, Duration::from_secs(1_234_567_890 + 3600));
+//! assert_eq!(
+//!     url.to_string(),
+//!     "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq%3AKjQtlGAkEOhSwtFjJfYtYa2-reE%3D",
+//! );
+//! Ok(())
+//! }
+//! ```
 
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;

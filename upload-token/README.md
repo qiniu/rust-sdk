@@ -1,6 +1,7 @@
 # Qiniu-Upload-Token
 
 [![qiniu-upload-token](https://img.shields.io/crates/v/qiniu-upload-token.svg)](https://crates.io/crates/qiniu-upload-token)
+[![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-upload-token)
 [![Run Test Cases](https://github.com/bachue/rust-sdk/actions/workflows/ci-test.yml/badge.svg)](https://github.com/bachue/rust-sdk/actions/workflows/ci-test.yml)
 [![GitHub release](https://img.shields.io/github/v/tag/bachue/rust-sdk.svg?label=release)](https://github.com/bachue/rust-sdk/releases)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bachue/rust-sdk/blob/master/LICENSE)
@@ -23,14 +24,14 @@
 
 ```toml
 [dependencies]
-qiniu-upload-token = "0.0.5"
+qiniu-upload-token = "0.0.7"
 ```
 
 ### 启用异步接口
 
 ```toml
 [dependencies]
-qiniu-upload-token = { version = "0.0.5", features = ["async"] }
+qiniu-upload-token = { version = "0.0.7", features = ["async"] }
 ```
 
 ## 代码示例
