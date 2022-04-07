@@ -165,7 +165,7 @@ impl Credential {
 
     /// 同时返回认证信息的 AccessKey 和 SecretKey
     #[inline]
-    pub fn into_pair(self) -> (AccessKey, SecretKey) {
+    pub fn split(self) -> (AccessKey, SecretKey) {
         (self.access_key, self.secret_key)
     }
 

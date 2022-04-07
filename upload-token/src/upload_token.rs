@@ -272,6 +272,20 @@ impl StaticUploadTokenProvider {
             access_key: OnceCell::new(),
         }
     }
+
+    /// 获取上传凭证字符串
+    #[inline]
+    pub fn into_string(self) -> String {
+        self.upload_token.into_string()
+    }
+
+    pub(super) fn set_policy(&self, policy: UploadPolicy) {
+        self.policy.set(policy).ok();
+    }
+
+    pub(super) fn set_access_key(&self, access_key: AccessKey) {
+        self.access_key.set(access_key).ok();
+    }
 }
 
 impl Debug for StaticUploadTokenProvider {
@@ -359,6 +373,12 @@ impl<C: Clone> FromUploadPolicy<C> {
             credential,
         }
     }
+
+    /// 同时返回构建时提供的上传策略和认证信息提供者
+    #[inline]
+    pub fn split(self) -> (UploadPolicy, C) {
+        (self.upload_policy, self.credential)
+    }
 }
 
 impl<C: CredentialProvider + Clone> UploadTokenProvider for FromUploadPolicy<C> {
@@ -367,7 +387,7 @@ impl<C: CredentialProvider + Clone> UploadTokenProvider for FromUploadPolicy<C> 
             .credential
             .get(Default::default())?
             .into_credential()
-            .into_pair()
+            .split()
             .0
             .into())
     }
@@ -451,7 +471,7 @@ impl<C: CredentialProvider + Clone> UploadTokenProvider for BucketUploadTokenPro
             .credential
             .get(Default::default())?
             .into_credential()
-            .into_pair()
+            .split()
             .0
             .into())
     }
@@ -576,7 +596,7 @@ impl<C: CredentialProvider + Clone> UploadTokenProvider for ObjectUploadTokenPro
             .credential
             .get(Default::default())?
             .into_credential()
-            .into_pair()
+            .split()
             .0
             .into())
     }

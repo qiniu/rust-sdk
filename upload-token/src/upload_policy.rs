@@ -1,6 +1,6 @@
 use super::{FileType, FromUploadPolicy, StaticUploadTokenProvider, ToStringOptions, UploadTokenProvider};
 use assert_impl::assert_impl;
-use qiniu_credential::CredentialProvider;
+use qiniu_credential::{Credential, CredentialProvider};
 use qiniu_utils::{BucketName, ObjectName};
 use serde_json::{
     json,
@@ -537,18 +537,16 @@ impl UploadPolicyBuilder {
         }
     }
 
-    /// 生成上传凭证
-    pub fn build_token<T: CredentialProvider + Clone>(
-        &self,
-        credential: &T,
-        opts: ToStringOptions,
-    ) -> StaticUploadTokenProvider {
-        self.build()
-            .into_upload_token_provider(credential)
-            .to_token_string(opts)
-            .unwrap()
-            .parse()
-            .unwrap()
+    /// 根据七牛认证信息直接生成上传凭证
+    pub fn build_token(&self, credential: Credential, opts: ToStringOptions) -> StaticUploadTokenProvider {
+        let provider = self.build().into_upload_token_provider(credential);
+        let token = provider.to_token_string(opts).unwrap();
+        let token: StaticUploadTokenProvider = token.parse().unwrap();
+        let (policy, credential) = provider.split();
+        let (access_key, _) = credential.split();
+        token.set_policy(policy);
+        token.set_access_key(access_key);
+        token
     }
 
     /// 重置上传策略构建器

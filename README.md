@@ -45,7 +45,7 @@ let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
 let upload_token = UploadPolicy::new_for_bucket(bucket_name, Duration::from_secs(3600))
-    .build_token(&credential, Default::default());
+    .build_token(credential, Default::default())?;
 println!("{}", upload_token);
 ```
 
@@ -61,7 +61,7 @@ let bucket_name = "bucket name";
 let object_name = "object name";
 let credential = Credential::new(access_key, secret_key);
 let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Duration::from_secs(3600))
-    .build_token(&credential, Default::default());
+    .build_token(credential, Default::default())?;
 println!("{}", upload_token);
 ```
 
@@ -78,7 +78,7 @@ let object_name = "object name";
 let credential = Credential::new(access_key, secret_key);
 let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Duration::from_secs(3600))
     .return_body("{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"bucket\":\"$(bucket)\",\"fsize\":$(fsize)}")
-    .build_token(&credential, Default::default());
+    .build_token(credential, Default::default())?;
 println!("{}", upload_token);
 ```
 
@@ -96,7 +96,7 @@ let object_name = "object name";
 let credential = Credential::new(access_key, secret_key);
 let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Duration::from_secs(3600))
     .callback(&["http://api.example.com/qiniu/upload/callback"], "", "{\"key\":\"$(key)\",\"hash\":\"$(etag)\",\"bucket\":\"$(bucket)\",\"fsize\":$(fsize)}", "application/json")
-    .build_token(&credential, Default::default());
+    .build_token(credential, Default::default())?;
 println!("{}", upload_token);
 ```
 
@@ -111,7 +111,7 @@ let object_name = "object name";
 let credential = Credential::new(access_key, secret_key);
 let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Duration::from_secs(3600))
     .callback(&["http://api.example.com/qiniu/upload/callback"], "", "key=$(key)&hash=$(etag)&bucket=$(bucket)&fsize=$(fsize)", "")
-    .build_token(&credential, Default::default());
+    .build_token(credential, Default::default())?;
 println!("{}", upload_token);
 ```
 
