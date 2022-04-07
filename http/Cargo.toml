@@ -5,6 +5,7 @@ authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technol
 edition = "2021"
 rust-version = "1.56.0"
 license = "MIT"
+readme = "README.md"
 homepage = "https://www.qiniu.com"
 description = "Qiniu HTTP Interface for Rust"
 keywords = ["qiniu", "storage"]
