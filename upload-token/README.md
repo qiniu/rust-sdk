@@ -49,7 +49,7 @@ let upload_policy = UploadPolicy::new_for_object("your-bucket", "your-key", Dura
     .build();
 let credential = Credential::new("your-access-key", "your-secret-key");
 let upload_token = upload_policy
-    .into_upload_token_provider(credential)
+    .into_dynamic_upload_token_provider(credential)
     .to_token_string(Default::default())?;
 ```
 
@@ -77,7 +77,7 @@ let upload_policy = UploadPolicy::new_for_object("your-bucket", "your-key", Dura
     .build();
 let credential = Credential::new("your-access-key", "your-secret-key");
 let upload_token = upload_policy
-    .into_upload_token_provider(credential)
+    .into_dynamic_upload_token_provider(credential)
     .async_to_token_string(Default::default()).await?;
 ```
 

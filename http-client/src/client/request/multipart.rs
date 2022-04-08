@@ -62,7 +62,7 @@ type HeaderBuffer = SmallVec<[u8; 256]>;
 /// let object_name = "test-key";
 /// let provider = UploadPolicy::new_for_object(bucket_name, object_name, Duration::from_secs(3600))
 ///     .build()
-///     .into_upload_token_provider(&credential);
+///     .into_dynamic_upload_token_provider(&credential);
 /// let upload_token = provider
 ///     .async_to_token_string(Default::default())
 ///     .await?;

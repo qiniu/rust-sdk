@@ -357,7 +357,7 @@ impl FromStr for StaticUploadTokenProvider {
 
 /// 根据上传凭证生成上传策略
 ///
-/// 通过 [`UploadPolicy::into_upload_token_provider()`] 创建
+/// 通过 [`UploadPolicy::into_dynamic_upload_token_provider()`] 创建
 #[derive(Debug, Clone)]
 pub struct FromUploadPolicy<C: Clone> {
     upload_policy: UploadPolicy,

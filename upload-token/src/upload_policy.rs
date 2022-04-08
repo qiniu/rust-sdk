@@ -243,10 +243,33 @@ impl UploadPolicy {
         self.inner.as_object().unwrap().values()
     }
 
-    /// 将上传策略转换为上传凭证获取接口的实例
+    /// 将上传策略转换为动态上传凭证提供者的实例
+    ///
+    /// 该方法与 [`UploadToken::into_static_upload_token_provider`] 的区别在于该方法接受 [`CredentialProvider`] 实例
     #[inline]
-    pub fn into_upload_token_provider<T: CredentialProvider + Clone>(self, credential: T) -> FromUploadPolicy<T> {
+    pub fn into_dynamic_upload_token_provider<T: CredentialProvider + Clone>(
+        self,
+        credential: T,
+    ) -> FromUploadPolicy<T> {
         FromUploadPolicy::new(self, credential)
+    }
+
+    /// 将上传策略转换为静态上传凭证提供者的实例
+    ///
+    /// 该方法与 [`UploadToken::into_dynamic_upload_token_provider`] 的区别在于该方法只能接受 [`Credential`] 实例
+    pub fn into_static_upload_token_provider(
+        &self,
+        credential: Credential,
+        opts: ToStringOptions,
+    ) -> StaticUploadTokenProvider {
+        let provider = self.into_dynamic_upload_token_provider(credential);
+        let token = provider.to_token_string(opts).unwrap();
+        let token: StaticUploadTokenProvider = token.parse().unwrap();
+        let (policy, credential) = provider.split();
+        let (access_key, _) = credential.split();
+        token.set_policy(policy);
+        token.set_access_key(access_key);
+        token
     }
 
     #[allow(dead_code)]
@@ -539,14 +562,7 @@ impl UploadPolicyBuilder {
 
     /// 根据七牛认证信息直接生成上传凭证
     pub fn build_token(&self, credential: Credential, opts: ToStringOptions) -> StaticUploadTokenProvider {
-        let provider = self.build().into_upload_token_provider(credential);
-        let token = provider.to_token_string(opts).unwrap();
-        let token: StaticUploadTokenProvider = token.parse().unwrap();
-        let (policy, credential) = provider.split();
-        let (access_key, _) = credential.split();
-        token.set_policy(policy);
-        token.set_access_key(access_key);
-        token
+        self.build().into_static_upload_token_provider(credential, opts)
     }
 
     /// 重置上传策略构建器
