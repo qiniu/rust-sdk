@@ -14,9 +14,13 @@ pub trait SinglePartUploader: UploaderWithCallbacks + Sync + Send + Debug {
     fn new(upload_manager: UploadManager) -> Self;
 
     /// 上传指定路径的文件
+    ///
+    /// 该方法的异步版本为 [`Self::async_upload_path`]。
     fn upload_path(&self, path: impl AsRef<Path>, params: ObjectParams) -> ApiResult<Value>;
 
     /// 上传输入流的数据
+    ///
+    /// 该方法的异步版本为 [`Self::async_upload_reader`]。
     fn upload_reader<R: Read + 'static>(&self, reader: R, params: ObjectParams) -> ApiResult<Value>;
 
     /// 异步上传指定路径的文件

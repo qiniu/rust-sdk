@@ -117,6 +117,8 @@ type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait HttpCaller: Debug + Send + Sync {
     /// 阻塞发送 HTTP 请求
+    ///
+    /// 该方法的异步版本为 [`Self::async_call`]。
     fn call(&self, request: &mut SyncRequest<'_>) -> SyncResponseResult;
 
     /// 异步发送 HTTP 请求

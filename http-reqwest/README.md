@@ -18,14 +18,14 @@
 
 ```toml
 [dependencies]
-qiniu-http-reqwest = "0.0.7"
+qiniu-http-reqwest = "0.0.8"
 ```
 
 ### 启用异步接口
 
 ```toml
 [dependencies]
-qiniu-http-reqwest = { version = "0.0.7", features = ["async"] }
+qiniu-http-reqwest = { version = "0.0.8", features = ["async"] }
 ```
 
 ## 最低支持的 Rust 版本（MSRV）

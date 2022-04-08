@@ -738,6 +738,8 @@ type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait CredentialProvider: Clone + Debug + Sync + Send {
     /// 返回七牛认证信息
+    ///
+    /// 该方法的异步版本为 [`Self::async_get`]。
     fn get(&self, opts: GetOptions) -> IoResult<GotCredential>;
 
     /// 异步返回七牛认证信息

@@ -29,6 +29,8 @@ pub trait ResumablePolicyProvider: Debug + Sync + Send {
     /// 通过输入流获取可恢复策略
     ///
     /// 返回选择的可恢复策略，以及经过更新的输入流
+    ///
+    /// 该方法的异步版本为 [`Self::get_policy_from_async_reader`]。
     fn get_policy_from_reader<'a, R: Read + Debug + Send + Sync + 'a>(
         &self,
         reader: R,

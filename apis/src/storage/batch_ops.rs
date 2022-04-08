@@ -646,7 +646,7 @@ impl<'client> Client<'client> {
 }
 impl<'client> Client<'client> {
     #[inline]
-    #[doc = "创建一个新的阻塞请求"]
+    #[doc = "创建一个新的阻塞请求，该方法的异步版本为 [`Self::new_async_request`]"]
     pub fn new_request<E: qiniu_http_client::EndpointsProvider + 'client>(
         &self,
         endpoints_provider: E,

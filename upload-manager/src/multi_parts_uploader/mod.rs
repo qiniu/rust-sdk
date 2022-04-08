@@ -27,6 +27,8 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Send + Sync + De
     /// 初始化分片信息
     ///
     /// 该步骤只负责初始化分片，但不实际上传数据，如果提供了有效的断点续传记录器，则可以尝试在这一步找到记录。
+    ///
+    /// 该方法的异步版本为 [`Self::async_initialize_parts`]。
     fn initialize_parts<D: DataSource<<Self::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(
         &self,
         source: D,
@@ -38,6 +40,8 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Send + Sync + De
     /// 实际上传的分片大小由提供的分片大小提供者获取。
     ///
     /// 如果返回 [`Ok(None)`] 则表示已经没有更多分片可以上传。
+    ///
+    /// 该方法的异步版本为 [`Self::async_upload_part`]。
     fn upload_part(
         &self,
         initialized: &Self::InitializedParts,
@@ -47,6 +51,8 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Send + Sync + De
     /// 完成分片上传
     ///
     /// 在这步成功返回后，对象即可被读取。
+    ///
+    /// 该方法的异步版本为 [`Self::async_complete_parts`]。
     fn complete_parts(&self, initialized: Self::InitializedParts, parts: Vec<Self::UploadedPart>) -> ApiResult<Value>;
 
     /// 异步初始化分片信息

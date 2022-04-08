@@ -460,6 +460,8 @@ impl<'a> ListBuilder<'a> {
     /// 创建对象列举迭代器
     ///
     /// 对象列举迭代器采用阻塞 API 列举对象信息
+    ///
+    /// 该方法的的异步版本为 [`Self::stream`]。
     #[inline]
     pub fn iter(&mut self) -> ListIter<'a> {
         let owned = self.take_self();

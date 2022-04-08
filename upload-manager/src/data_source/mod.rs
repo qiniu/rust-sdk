@@ -17,6 +17,8 @@ use futures::future::BoxFuture;
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait DataSource<A: Digest>: Debug + Sync + Send {
     /// 数据源切片
+    ///
+    /// 该方法的异步版本为 [`Self::async_slice`]。
     fn slice(&self, size: PartSize) -> IoResult<Option<DataSourceReader>>;
 
     /// 异步数据源切片
@@ -27,6 +29,8 @@ pub trait DataSource<A: Digest>: Debug + Sync + Send {
     /// 获取数据源 KEY
     ///
     /// 用于区分不同的数据源
+    ///
+    /// 该方法的异步版本为 [`Self::async_source_key`]。
     #[inline]
     fn source_key(&self) -> IoResult<Option<SourceKey<A>>> {
         Ok(None)
@@ -43,6 +47,8 @@ pub trait DataSource<A: Digest>: Debug + Sync + Send {
     }
 
     /// 获取数据源大小
+    ///
+    /// 该方法的异步版本为 [`Self::async_total_size`]。
     fn total_size(&self) -> IoResult<Option<u64>>;
 
     /// 异步获取数据源大小

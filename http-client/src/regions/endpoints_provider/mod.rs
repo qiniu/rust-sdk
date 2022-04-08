@@ -27,6 +27,8 @@ type BoxFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + 
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait EndpointsProvider: Clone + fmt::Debug + Send + Sync {
     /// 获取终端地址列表
+    ///
+    /// 该方法的异步版本为 [`Self::async_get_endpoints`]。
     fn get_endpoints<'e>(&'e self, options: GetOptions<'_>) -> ApiResult<Cow<'e, Endpoints>>;
 
     /// 异步获取终端地址列表

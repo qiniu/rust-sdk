@@ -21,6 +21,8 @@ use {futures::future::BoxFuture, qiniu_http::AsyncRequest};
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait AuthorizationProvider: Clone + Debug + Sync + Send {
     /// 使用指定的鉴权方式对 HTTP 请求进行签名
+    ///
+    /// 该方法的异步版本为 [`Self::async_sign`]。
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()>;
 
     /// 使用指定的鉴权方式对 HTTP 请求进行异步签名

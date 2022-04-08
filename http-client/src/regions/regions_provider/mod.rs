@@ -33,9 +33,13 @@ use futures::future::BoxFuture;
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait RegionsProvider: Clone + Debug + Sync + Send {
     /// 返回七牛区域信息
+    ///
+    /// 该方法的异步版本为 [`Self::async_get`]。
     fn get(&self, opts: GetOptions) -> ApiResult<GotRegion>;
 
     /// 返回多个七牛区域信息
+    ///
+    /// 该方法的异步版本为 [`Self::async_get_all`]。
     #[inline]
     fn get_all(&self, opts: GetOptions) -> ApiResult<GotRegions> {
         let region = self.get(opts)?.into_region();

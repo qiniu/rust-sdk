@@ -14,7 +14,7 @@
 
 ```toml
 [dependencies]
-qiniu-http-ureq = "0.0.7"
+qiniu-http-ureq = "0.0.8"
 ```
 
 ## 最低支持的 Rust 版本（MSRV）

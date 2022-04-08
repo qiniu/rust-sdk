@@ -30,6 +30,8 @@ pub trait Chooser: Debug + Sync + Send {
     fn feedback(&self, feedback: ChooserFeedback);
 
     /// 异步选择 IP 地址列表
+    ///
+    /// 该方法的异步版本为 [`Self::async_choose`]。
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]

@@ -36,6 +36,8 @@ type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
     /// 从上传凭证内获取 AccessKey
+    ///
+    /// 该方法的异步版本为 [`Self::async_access_key`]。
     fn access_key(&self, opts: GetAccessKeyOptions) -> ParseResult<GotAccessKey>;
 
     /// 异步从上传凭证内获取 AccessKey
@@ -47,6 +49,8 @@ pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
     }
 
     /// 从上传凭证内获取上传策略
+    ///
+    /// 该方法的异步版本为 [`Self::async_policy`]。
     fn policy(&self, opts: GetPolicyOptions) -> ParseResult<GotUploadPolicy>;
 
     /// 异步从上传凭证内获取上传策略
@@ -58,6 +62,8 @@ pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
     }
 
     /// 生成字符串
+    ///
+    /// 该方法的异步版本为 [`Self::async_to_token_string`]。
     fn to_token_string(&self, opts: ToStringOptions) -> IoResult<Cow<'_, str>>;
 
     /// 异步生成字符串
@@ -225,6 +231,8 @@ impl DerefMut for GotUploadPolicy<'_> {
 /// 提供存储空间名称解析方法
 pub trait UploadTokenProviderExt: UploadTokenProvider {
     /// 获取上传凭证中的存储空间名称
+    ///
+    /// 该方法的异步版本为 [`Self::async_bucket_name`]。
     fn bucket_name(&self, opts: GetPolicyOptions) -> ParseResult<BucketName> {
         self.policy(opts).and_then(|policy| {
             policy

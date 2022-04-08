@@ -245,7 +245,7 @@ impl UploadPolicy {
 
     /// 将上传策略转换为动态上传凭证提供者的实例
     ///
-    /// 该方法与 [`UploadToken::into_static_upload_token_provider`] 的区别在于该方法接受 [`CredentialProvider`] 实例
+    /// 该方法与 [`UploadPolicy::into_static_upload_token_provider`] 的区别在于该方法接受 [`CredentialProvider`] 实例
     #[inline]
     pub fn into_dynamic_upload_token_provider<T: CredentialProvider + Clone>(
         self,
@@ -256,7 +256,7 @@ impl UploadPolicy {
 
     /// 将上传策略转换为静态上传凭证提供者的实例
     ///
-    /// 该方法与 [`UploadToken::into_dynamic_upload_token_provider`] 的区别在于该方法只能接受 [`Credential`] 实例
+    /// 该方法与 [`UploadPolicy::into_dynamic_upload_token_provider`] 的区别在于该方法只能接受 [`Credential`] 实例
     pub fn into_static_upload_token_provider(
         self,
         credential: Credential,

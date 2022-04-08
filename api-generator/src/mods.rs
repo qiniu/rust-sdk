@@ -121,7 +121,7 @@ impl Mods {
                     //!
                     //! 通过该参考文档可知，创建存储空间需要通过 URL 路径提供参数，因此 `qiniu-apis` 代码如下：
                     //!
-                    //! ##### 同步代码示例
+                    //! ##### 阻塞代码示例
                     //!
                     //! ```
                     //! use qiniu_apis::{
@@ -137,7 +137,7 @@ impl Mods {
                     //! Client::default()
                     //!     .storage()
                     //!     .create_bucket()
-                    //!     .new_async_request(
+                    //!     .new_request(
                     //!         RegionsProviderEndpoints::new(&region),
                     //!         PathParams::default()
                     //!             .set_bucket_as_str("new-bucket-name")
@@ -187,7 +187,7 @@ impl Mods {
                     //!
                     //! 通过该参考文档可知，设置存储空间标签需要提供 URL 查询参数作为设置目标，并且通过 JSON 参数传输标签列表，因此 `qiniu-apis` 代码如下：
                     //!
-                    //! ##### 同步代码示例
+                    //! ##### 阻塞代码示例
                     //!
                     //! ```
                     //! use qiniu_apis::{
@@ -265,7 +265,7 @@ impl Mods {
                     //!
                     //! 通过该参考文档可知，该 API 通过 JSON 响应体返回标签列表，因此 `qiniu-apis` 代码如下：
                     //!
-                    //! ##### 同步代码示例
+                    //! ##### 阻塞代码示例
                     //!
                     //! ```
                     //! use qiniu_apis::{

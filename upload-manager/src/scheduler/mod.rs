@@ -29,6 +29,8 @@ pub trait MultiPartsUploaderScheduler: Send + Sync + Debug {
     fn set_data_partition_provider(&mut self, data_partition_provider: impl DataPartitionProvider + 'static);
 
     /// 上传数据源
+    ///
+    /// 该方法的异步版本为 [`Self::async_upload`]。
     fn upload<D: DataSource<<<Self::MultiPartsUploader as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(&self, source: D, params: ObjectParams) -> ApiResult<Value>;
 
     /// 异步上传数据源

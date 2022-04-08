@@ -107,6 +107,8 @@ impl<'a> BatchOperations<'a> {
     }
 
     /// 阻塞发起批量操作，返回操作结果迭代器
+    ///
+    /// 该方法的的异步版本为 [`Self::async_call`]。
     #[inline]
     pub fn call(&mut self) -> BatchOperationsIterator<'a> {
         BatchOperationsIterator {

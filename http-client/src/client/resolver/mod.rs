@@ -23,6 +23,8 @@ use futures::future::BoxFuture;
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Resolver: Debug + Sync + Send {
     /// 解析域名
+    ///
+    /// 该方法的异步版本为 [`Self::async_resolve`]。
     fn resolve(&self, domain: &str, opts: ResolveOptions<'_>) -> ResolveResult;
 
     /// 异步解析域名
