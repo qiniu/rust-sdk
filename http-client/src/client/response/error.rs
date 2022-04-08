@@ -96,6 +96,8 @@ impl Error {
     }
 
     /// 设置响应体样本
+    ///
+    /// 该方法的异步版本为 [`Error::async_read_response_body_sample`]。
     #[inline]
     pub fn read_response_body_sample<R: Read>(mut self, body: R) -> IOResult<Self> {
         body.take(RESPONSE_BODY_SAMPLE_LEN_LIMIT)

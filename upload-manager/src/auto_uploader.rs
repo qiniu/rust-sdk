@@ -239,6 +239,8 @@ where
     RR::HashAlgorithm: Send,
 {
     /// 阻塞上传指定路径的文件
+    ///
+    /// 该方法的异步版本为 [`Self::async_upload_path`]。
     pub fn upload_path(&self, path: impl AsRef<Path>, params: impl Into<AutoUploaderObjectParams>) -> ApiResult<Value> {
         let params = params.into();
         let size = metadata(path.as_ref())?.len();
@@ -255,6 +257,8 @@ where
     }
 
     /// 阻塞上传阅读器的数据
+    ///
+    /// 该方法的异步版本为 [`Self::async_upload_reader`]。
     pub fn upload_reader<R: Read + Debug + Send + Sync + 'static>(
         &self,
         reader: R,

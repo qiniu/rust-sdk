@@ -17,6 +17,8 @@ macro_rules! impl_call_methods {
     };
     ($mod_name:ident, $entry:ident) => {
         /// 阻塞发起操作请求
+        ///
+        /// 该方法的异步版本为 [`Self::async_call`]。
         pub fn call(&mut self) -> ApiResult<Response<qiniu_apis::storage::$mod_name::ResponseBody>> {
             let op = self.build();
             let mut request = op

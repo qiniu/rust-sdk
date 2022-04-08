@@ -196,6 +196,8 @@ impl Credential {
 
     /// 使用七牛签名算法对输入流数据进行签名
     ///
+    /// 该方法的异步版本为 [`Credential::sign_async_reader`]。
+    ///
     /// 参考[管理凭证的签名算法文档](https://developer.qiniu.com/kodo/manual/1201/access-token)
     ///
     /// ```
@@ -267,6 +269,8 @@ impl Credential {
 
     /// 使用七牛签名算法 V1 对 HTTP 请求（请求体为输入流）进行签名，返回 Authorization 的值
     ///
+    /// 该方法的异步版本为 [`Credential::authorization_v1_for_request_with_async_body_reader`]。
+    ///
     /// ```
     /// use qiniu_credential::{Credential, HeaderValue, prelude::*};
     /// use std::io::Cursor;
@@ -320,6 +324,8 @@ impl Credential {
     }
 
     /// 使用七牛签名算法 V2 对 HTTP 请求（请求体为输入流）进行签名，返回 Authorization 的值
+    ///
+    /// 该方法的异步版本为 [`Credential::authorization_v2_for_request_with_async_body_reader`]。
     ///
     /// ```
     /// use qiniu_credential::{Credential, Method, HeaderMap, HeaderValue, prelude::*};

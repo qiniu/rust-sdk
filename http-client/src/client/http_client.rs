@@ -155,6 +155,8 @@ impl HttpClient {
     }
 
     /// 创建 GET 请求的请求构建器
+    ///
+    /// 该方法的异步版本为 [`HttpClient::async_get`]。
     #[inline]
     pub fn get<'r, E: EndpointsProvider + 'r>(
         &'r self,
@@ -165,6 +167,8 @@ impl HttpClient {
     }
 
     /// 创建 POST 请求的请求构建器
+    ///
+    /// 该方法的异步版本为 [`HttpClient::async_post`]。
     #[inline]
     pub fn post<'r, E: EndpointsProvider + 'r>(
         &'r self,
@@ -175,6 +179,8 @@ impl HttpClient {
     }
 
     /// 创建 PUT 请求的请求构建器
+    ///
+    /// 该方法的异步版本为 [`HttpClient::async_put`]。
     #[inline]
     pub fn put<'r, E: EndpointsProvider + 'r>(
         &'r self,
@@ -185,6 +191,8 @@ impl HttpClient {
     }
 
     /// 创建 DELETE 请求的请求构建器
+    ///
+    /// 该方法的异步版本为 [`HttpClient::async_delete`]。
     #[inline]
     pub fn delete<'r, E: EndpointsProvider + 'r>(
         &'r self,
