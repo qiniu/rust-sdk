@@ -40,6 +40,8 @@ pub mod move_object;
 pub mod prefetch_object;
 #[doc = "在一次 HTTP 会话中上传单一的一个文件"]
 pub mod put_object;
+#[doc = "解冻归档存储类型的文件，可设置解冻有效期1～7天，完成解冻任务通常需要1～5分钟"]
+pub mod restore_archived_object;
 #[doc = "上传指定块的一片数据，具体数据量可根据现场环境调整，同一块的每片数据必须串行上传"]
 pub mod resumable_upload_v1_bput;
 #[doc = "为后续分片上传创建一个新的块，同时上传第一片数据"]
@@ -66,8 +68,6 @@ pub mod set_buckets_mirror;
 pub mod set_object_file_type;
 #[doc = "仅获取对象的元信息，不返回对象的内容"]
 pub mod stat_object;
-#[doc = "解冻归档存储类型的文件，可设置解冻有效期1～7天，完成解冻任务通常需要1～5分钟"]
-pub mod unfreeze_object;
 #[doc = "API 调用客户端"]
 #[derive(Debug, Clone)]
 pub struct Client<'client>(&'client qiniu_http_client::HttpClient);
@@ -176,6 +176,11 @@ impl<'client> Client<'client> {
         put_object::Client::new(self.0)
     }
     #[inline]
+    #[doc = "解冻归档存储类型的文件，可设置解冻有效期1～7天，完成解冻任务通常需要1～5分钟"]
+    pub fn restore_archived_object(&self) -> restore_archived_object::Client<'client> {
+        restore_archived_object::Client::new(self.0)
+    }
+    #[inline]
     #[doc = "上传指定块的一片数据，具体数据量可根据现场环境调整，同一块的每片数据必须串行上传"]
     pub fn resumable_upload_v1_bput(&self) -> resumable_upload_v1_bput::Client<'client> {
         resumable_upload_v1_bput::Client::new(self.0)
@@ -245,10 +250,5 @@ impl<'client> Client<'client> {
     #[doc = "仅获取对象的元信息，不返回对象的内容"]
     pub fn stat_object(&self) -> stat_object::Client<'client> {
         stat_object::Client::new(self.0)
-    }
-    #[inline]
-    #[doc = "解冻归档存储类型的文件，可设置解冻有效期1～7天，完成解冻任务通常需要1～5分钟"]
-    pub fn unfreeze_object(&self) -> unfreeze_object::Client<'client> {
-        unfreeze_object::Client::new(self.0)
     }
 }

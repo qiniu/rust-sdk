@@ -437,8 +437,8 @@ impl UnfreezeObject<'_> {
         }
     }
 
-    fn to_path_params(&self) -> qiniu_apis::storage::unfreeze_object::PathParams {
-        qiniu_apis::storage::unfreeze_object::PathParams::default()
+    fn to_path_params(&self) -> qiniu_apis::storage::restore_archived_object::PathParams {
+        qiniu_apis::storage::restore_archived_object::PathParams::default()
             .set_entry_as_str(self.entry.to_string())
             .set_freeze_after_days_as_usize(self.freeze_after_days)
     }
@@ -476,7 +476,7 @@ impl<'a> UnfreezeObjectBuilder<'a> {
         self.inner.to_owned()
     }
 
-    impl_call_methods!(unfreeze_object);
+    impl_call_methods!(restore_archived_object);
 }
 
 impl OperationProvider for UnfreezeObjectBuilder<'_> {
@@ -1176,7 +1176,7 @@ mod tests {
         }
 
         let bucket = get_bucket(FakeHttpCaller::default());
-        bucket.unfreeze_object("fakeobjectname", 7).async_call().await?;
+        bucket.restore_archived_object("fakeobjectname", 7).async_call().await?;
 
         Ok(())
     }

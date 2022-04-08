@@ -549,9 +549,9 @@ let credential = Credential::new(access_key, secret_key);
 let object_manager = ObjectsManager::builder(credential).build();
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
-ops.add_operation(bucket.unfreeze_object("qiniu.jpg", 7));
-ops.add_operation(bucket.unfreeze_object("qiniu.png", 7));
-ops.add_operation(bucket.unfreeze_object("qiniu.mp4", 7));
+ops.add_operation(bucket.restore_archived_object("qiniu.jpg", 7));
+ops.add_operation(bucket.restore_archived_object("qiniu.png", 7));
+ops.add_operation(bucket.restore_archived_object("qiniu.mp4", 7));
 
 let mut iter = ops.call();
 while let Some(result) = iter.next() {

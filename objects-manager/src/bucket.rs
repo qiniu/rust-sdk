@@ -192,12 +192,16 @@ impl Bucket {
     /// let object_manager = ObjectsManager::builder(credential).build();
     /// let bucket = object_manager.bucket("test-bucket");
     ///
-    /// bucket.unfreeze_object("test-key", 1).async_call().await?;
+    /// bucket.restore_archived_object("test-key", 1).async_call().await?;
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn unfreeze_object<'a>(&'a self, object_name: &'a str, freeze_after_days: usize) -> UnfreezeObjectBuilder<'a> {
+    pub fn restore_archived_object<'a>(
+        &'a self,
+        object_name: &'a str,
+        freeze_after_days: usize,
+    ) -> UnfreezeObjectBuilder<'a> {
         UnfreezeObject::builder(Entry::new(self, object_name), freeze_after_days)
     }
 

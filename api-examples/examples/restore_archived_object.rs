@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
     let bucket = object_manager.bucket(opt.bucket_name);
 
     bucket
-        .unfreeze_object(&opt.object_name, opt.freeze_after_days)
+        .restore_archived_object(&opt.object_name, opt.freeze_after_days)
         .async_call()
         .await?;
 
