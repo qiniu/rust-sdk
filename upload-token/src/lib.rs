@@ -36,7 +36,9 @@
 //! - [`ObjectUploadTokenProvider`] : 基于存储空间，对象名称和认证信息即时生成上传凭证
 //! - [`CachedUploadTokenProvider`] : 缓存生成的上传凭证，不必每次都即时生成
 //!
-//! ### 创建上传策略，并基于该策略创建凭证
+//! ### 代码示例
+//!
+//! #### 创建上传策略，并基于该策略创建凭证
 //!
 //! ```
 //! use qiniu_upload_token::{FileType, UploadPolicy, credential::Credential, prelude::*};
@@ -47,14 +49,13 @@
 //!     .file_type(FileType::InfrequentAccess)
 //!     .build();
 //! let credential = Credential::new("your-access-key", "your-secret-key");
-//! let upload_token = upload_policy
-//!     .into_dynamic_upload_token_provider(credential)
-//!     .to_token_string(Default::default())?;
+//! let upload_token = upload_policy.into_static_upload_token_provider(credential, Default::default());
+//! println!("{}", upload_token);
 //! # Ok(())
 //! # }
 //! ```
 //!
-//! ### 从其他应用程序生成的上传凭证解析出上传策略
+//! #### 从其他应用程序生成的上传凭证解析出上传策略
 //!
 //! ```
 //! use qiniu_upload_token::{StaticUploadTokenProvider, prelude::*};

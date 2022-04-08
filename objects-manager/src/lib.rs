@@ -28,7 +28,30 @@
 //! （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async` 功能），
 //! 主要负责七牛对象的列举和操作。
 //!
-//! ### 对象元信息获取
+//! ### 代码示例
+//!
+//! #### 对象元信息获取
+//!
+//! ##### 阻塞代码示例
+//!
+//! ```
+//! use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+//!
+//! # fn example() -> anyhow::Result<()> {
+//! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+//! let object_manager = ObjectsManager::builder(credential).build();
+//! let bucket = object_manager.bucket("test-bucket");
+//!
+//! let response = bucket.stat_object("test-key").call()?;
+//! let object = response.into_body();
+//! println!("fsize: {}", object.get_size_as_u64());
+//! println!("hash: {}", object.get_hash_as_str());
+//! println!("mime_type: {}", object.get_mime_type_as_str());
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ##### 异步代码示例
 //!
 //! ```
 //! use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
@@ -47,7 +70,35 @@
 //! # }
 //! ```
 //!
-//! ### 对象批量元信息获取
+//! #### 对象批量元信息获取
+//!
+//! ##### 阻塞代码示例
+//!
+//! ```
+//! use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager, OperationProvider};
+//!
+//! # fn example() -> anyhow::Result<()> {
+//! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+//! let object_manager = ObjectsManager::builder(credential).build();
+//! let bucket = object_manager.bucket("test-bucket");
+//! let mut ops = bucket.batch_ops();
+//! ops.add_operation(bucket.stat_object("test-file-1"));
+//! ops.add_operation(bucket.stat_object("test-file-2"));
+//! ops.add_operation(bucket.stat_object("test-file-3"));
+//! ops.add_operation(bucket.stat_object("test-file-4"));
+//! ops.add_operation(bucket.stat_object("test-file-5"));
+//! let mut iter = ops.call();
+//! while let Some(object) = iter.next() {
+//!     let object = object?;
+//!     println!("fsize: {:?}", object.get_size_as_u64());
+//!     println!("hash: {:?}", object.get_hash_as_str());
+//!     println!("mime_type: {:?}", object.get_mime_type_as_str());
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ##### 异步代码示例
 //!
 //! ```
 //! use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager, OperationProvider};
@@ -73,7 +124,29 @@
 //! # }
 //! ```
 //!
-//! ### 对象列举
+//! #### 对象列举
+//!
+//! ##### 阻塞代码示例
+//!
+//! ```
+//! use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+//!
+//! # async fn example() -> anyhow::Result<()> {
+//! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+//! let object_manager = ObjectsManager::builder(credential).build();
+//! let bucket = object_manager.bucket("test-bucket");
+//! let mut iter = bucket.list().iter();
+//! while let Some(object) = iter.next() {
+//!     let object = object?;
+//!     println!("fsize: {:?}", object.get_size_as_u64());
+//!     println!("hash: {:?}", object.get_hash_as_str());
+//!     println!("mime_type: {:?}", object.get_mime_type_as_str());
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ##### 异步代码示例
 //!
 //! ```
 //! use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};

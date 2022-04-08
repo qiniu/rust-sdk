@@ -115,11 +115,41 @@ impl Mods {
                     //!
                     //! 由于是自动生成库，无法为每个接口提供代码示例，下面选择几个典型的场景来讲解如何使用该库：
                     //!
-                    //! ### 创建存储空间
+                    //! #### 创建存储空间
                     //!
                     //! API 参考文档：<https://developer.qiniu.com/kodo/1382/mkbucketv3>
                     //!
                     //! 通过该参考文档可知，创建存储空间需要通过 URL 路径提供参数，因此 `qiniu-apis` 代码如下：
+                    //!
+                    //! ##### 同步代码示例
+                    //!
+                    //! ```
+                    //! use qiniu_apis::{
+                    //!     credential::Credential,
+                    //!     http_client::{AllRegionsProvider, RegionsProvider, RegionsProviderEndpoints},
+                    //!     storage::create_bucket::PathParams,
+                    //!     Client,
+                    //! };
+                    //! # fn example() -> anyhow::Result<()> {
+                    //! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+                    //! let region = AllRegionsProvider::new(credential.to_owned())
+                    //!     .get(Default::default())?;
+                    //! Client::default()
+                    //!     .storage()
+                    //!     .create_bucket()
+                    //!     .new_async_request(
+                    //!         RegionsProviderEndpoints::new(&region),
+                    //!         PathParams::default()
+                    //!             .set_bucket_as_str("new-bucket-name")
+                    //!             .set_region_as_str("z1"),
+                    //!         credential,
+                    //!     )
+                    //!     .call()?;
+                    //! # Ok(())
+                    //! # }
+                    //! ```
+                    //!
+                    //! ##### 异步代码示例
                     //!
                     //! ```
                     //! use qiniu_apis::{
@@ -151,11 +181,47 @@ impl Mods {
                     //!
                     //! 这里的 [`storage::create_bucket::PathParams`] 提供了设置路径参数的方法。
                     //!
-                    //! ### 设置存储空间标签
+                    //! #### 设置存储空间标签
                     //!
                     //! API 参考文档：<https://developer.qiniu.com/kodo/6314/put-bucket-tagging>
                     //!
                     //! 通过该参考文档可知，设置存储空间标签需要提供 URL 查询参数作为设置目标，并且通过 JSON 参数传输标签列表，因此 `qiniu-apis` 代码如下：
+                    //!
+                    //! ##### 同步代码示例
+                    //!
+                    //! ```
+                    //! use qiniu_apis::{
+                    //!     credential::Credential,
+                    //!     http_client::{BucketRegionsQueryer, RegionsProviderEndpoints},
+                    //!     storage::set_bucket_taggings::{QueryParams, RequestBody, TagInfo, Tags},
+                    //!     Client,
+                    //! };
+                    //! # fn example() -> anyhow::Result<()> {
+                    //! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+                    //! let bucket_name = "test-bucket";
+                    //! let region = BucketRegionsQueryer::new().query(credential.access_key().to_owned(), bucket_name);
+                    //! let mut tag1 = TagInfo::default();
+                    //! tag1.set_key_as_str("tag_key1".to_owned());
+                    //! tag1.set_value_as_str("tag_val1".to_owned());
+                    //! let mut tag2 = TagInfo::default();
+                    //! tag2.set_key_as_str("tag_key2".to_owned());
+                    //! tag2.set_value_as_str("tag_val2".to_owned());
+                    //! let mut tags = Tags::default();
+                    //! tags.push_tag_info(tag1);
+                    //! tags.push_tag_info(tag2);
+                    //! let mut req_body = RequestBody::default();
+                    //! req_body.set_tags(tags);
+                    //! Client::default()
+                    //!     .storage()
+                    //!     .set_bucket_taggings()
+                    //!     .new_request(RegionsProviderEndpoints::new(&region), credential)
+                    //!     .query_pairs(QueryParams::default().set_bucket_as_str(bucket_name))
+                    //!     .call(&req_body)?;
+                    //! # Ok(())
+                    //! # }
+                    //! ```
+                    //!
+                    //! ##### 异步代码示例
                     //!
                     //! ```
                     //! use qiniu_apis::{
@@ -193,11 +259,42 @@ impl Mods {
                     //! 这里的 [`storage::set_bucket_taggings::QueryParams`] 提供了设置查询参数的方法，
                     //! 而 [`storage::set_bucket_taggings::RequestBody`] 提供了设置请求体参数的方法 。
                     //!
-                    //! ### 列出存储空间标签
+                    //! #### 列出存储空间标签
                     //!
                     //! API 参考文档：<https://developer.qiniu.com/kodo/6315/get-bucket-tagging>
                     //!
                     //! 通过该参考文档可知，该 API 通过 JSON 响应体返回标签列表，因此 `qiniu-apis` 代码如下：
+                    //!
+                    //! ##### 同步代码示例
+                    //!
+                    //! ```
+                    //! use qiniu_apis::{
+                    //!     credential::Credential,
+                    //!     http_client::{BucketRegionsQueryer, RegionsProviderEndpoints},
+                    //!     storage::get_bucket_taggings::QueryParams,
+                    //!     Client,
+                    //! };
+                    //! # fn example() -> anyhow::Result<()> {
+                    //! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+                    //! let bucket_name = "test-bucket";
+                    //! let region = BucketRegionsQueryer::new().query(credential.access_key().to_owned(), bucket_name);
+                    //! let tags = Client::default()
+                    //!     .storage()
+                    //!     .get_bucket_taggings()
+                    //!     .new_request(RegionsProviderEndpoints::new(&region), credential)
+                    //!     .query_pairs(QueryParams::default().set_bucket_name_as_str(bucket_name))
+                    //!     .call()?
+                    //!     .into_body()
+                    //!     .get_tags()
+                    //!     .to_tag_info_vec();
+                    //! for tag in tags {
+                    //!     println!("{}: {}", tag.get_key_as_str(), tag.get_value_as_str());
+                    //! }
+                    //! # Ok(())
+                    //! # }
+                    //! ```
+                    //!
+                    //! ##### 异步代码示例
                     //!
                     //! ```
                     //! use qiniu_apis::{

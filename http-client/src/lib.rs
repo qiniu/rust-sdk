@@ -35,7 +35,7 @@
 //!
 //! `qiniu-http-client` 提供的功能主要分为两个大类：区域相关和 HTTP 客户端逻辑相关。
 //!
-//! ## 区域相关
+//! ### 区域相关
 //!
 //! `qiniu-http-client` 表示一个服务器地址有两种方式，
 //! 一种是 IP 地址加端口号，用 [`IpAddrWithPort`] 表示（与 Rust 自带的 [`std::net::SocketAddr`] 不同的是，端口号是可选参数），
@@ -54,9 +54,9 @@
 //! [`RegionsProviderEndpoints`] 可以从任意一个 [`RegionsProvider`] 实现中获取 [`Endpoints`]；
 //! [`BucketDomainsQueryer`] 可以用来查询七牛某个存储空间绑定的域名，支持内存缓存和文件系统缓存。
 //!
-//! ## HTTP 客户端逻辑相关
+//! ### HTTP 客户端逻辑相关
 //!
-//! ### [`qiniu_http::HttpCaller`]
+//! #### [`qiniu_http::HttpCaller`]
 //!
 //! [`qiniu_http::HttpCaller`] 提供 HTTP 请求接口（同时提供阻塞接口和异步接口，异步接口则需要启用 `async` 功能）。
 //! [`qiniu_ureq::Client`] 提供基于 `ureq` 库的 HTTP 客户端（需要启用 `ureq` 功能），特点是代码精简，依赖简单，但不支持异步接口；
@@ -71,7 +71,7 @@
 //! 且由于 `isahc` 库自身基于异步接口实现，因此即使不启用 `async` 功能，也会用线程启动 `tokio` 异步环境驱动 HTTP 请求发送；
 //! 可以通过配置 [`HttpClientBuilder::http_caller`] 来指定使用哪个客户端。如果不指定，默认通过当前启用的功能来判定。
 //!
-//! ### [`Resolver`]
+//! #### [`Resolver`]
 //!
 //! [`Resolver`] 提供域名解析的接口（同时提供阻塞接口和异步接口，异步接口则需要启用 `async` 功能），可以将一个域名解析为 IP 地址列表。
 //! `qiniu-http-client` 提供多种域名解析的实现，
@@ -84,7 +84,7 @@
 //! [`CachedResolver`] 提供对 [`Resolver`] 的缓存功能，支持内存缓存和文件系统缓存；
 //! 可以通过配置 [`HttpClientBuilder::resolver`] 来指定使用哪个解析器，如果不指定，默认通过当前启用的功能来判定，并使用 [`CachedResolver`] 和 [`ShuffledResolver`] 对其进行包装。
 //!
-//! ### [`Chooser`]
+//! #### [`Chooser`]
 //!
 //! [`Chooser`] 提供 IP 地址选择的功能，以及提供反馈接口以修正自身选择逻辑的功能（同时提供阻塞接口和异步接口，异步接口则需要启用 `async` 功能）。
 //! `qiniu-http-client` 提供多种选择器的实现，
@@ -95,7 +95,7 @@
 //! [`NeverEmptyHandedChooser`] 确保 [`Chooser`] 实例不会因为所有可选择的 IP 地址都被屏蔽而导致 HTTP 客户端直接返回错误，在内置的 [`Chooser`] 没有返回结果时，将会随机返回一定比例的 IP 地址供 HTTP 客户端做一轮尝试。
 //! 可以通过配置 [`HttpClientBuilder::chooser`] 来指定使用哪个选择器，如果不指定，默认使用 [`SubnetChooser`]，并使用 [`ShuffledChooser`] 和 [`NeverEmptyHandedChooser`] 对其进行包装。
 //!
-//! ### [`RequestRetrier`]
+//! #### [`RequestRetrier`]
 //!
 //! [`RequestRetrier`] 根据 HTTP 客户端返回的错误，决定是否重试请求，重试决定由 [`RetryDecision`] 定义。
 //! `qiniu-http-client` 提供多种重试器的实现，
@@ -104,7 +104,7 @@
 //! [`LimitedRetrier`] 为一个 [`RequestRetrier`] 实例增加重试次数上限，即重试次数到达上限时，无论错误是什么，都切换服务器地址或不再予以重试。
 //! 可以通过配置 [`HttpClientBuilder::request_retrier`] 来指定使用哪个重试器，如果不指定，默认使用 [`ErrorRetrier`]，并使用 [`LimitedRetrier`] 对其进行包装。
 //!
-//! ### [`Backoff`]
+//! #### [`Backoff`]
 //!
 //! [`Backoff`] 根据 HTTP 客户端返回的错误和 [`RequestRetrier`] 返回的重试决定，决定退避时长。
 //! `qiniu-http-client` 提供多种退避器的实现，
@@ -114,9 +114,35 @@
 //! [`RandomizedBackoff`] 为一个 [`Backoff`] 实例返回的退避时长增加随机范围，即返回的退避时长随机化。
 //! 可以通过配置 [`HttpClientBuilder::backoff`] 来指定使用哪个退避器，如果不指定，默认使用 [`ExponentialBackoff`]，并使用 [`LimitedBackoff`] 和 [`RandomizedBackoff`] 对其进行包装。
 //!
-//! ## 代码示例
+//! ### 代码示例
 //!
-//! ### 私有云获取当前账户的 Buckets 列表
+//! #### 私有云获取当前账户的 Buckets 列表
+//!
+//! ##### 阻塞代码示例
+//!
+//! ```
+//! use qiniu_credential::Credential;
+//! use qiniu_http_client::{Authorization, HttpClient, Region, RegionsProviderEndpoints, ServiceName};
+//!
+//! # fn example() -> anyhow::Result<()> {
+//! let region = Region::builder("z0")
+//!     .add_uc_preferred_endpoint("uc-qos.pocdemo.qiniu.io".parse()?)
+//!     .build();
+//! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+//! let bucket_names: Vec<String> = HttpClient::default()
+//!     .get(&[ServiceName::Uc], RegionsProviderEndpoints::new(region))
+//!     .use_https(false)
+//!     .authorization(Authorization::v2(credential))
+//!     .accept_json()
+//!     .path("/buckets")
+//!     .call()?
+//!     .parse_json()?
+//!     .into_body();
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ##### 异步代码示例
 //!
 //! ```
 //! use qiniu_credential::Credential;
@@ -142,7 +168,35 @@
 //! # }
 //! ```
 //!
-//! ### 公有云获取对象信息
+//! #### 公有云获取对象信息
+//!
+//! #### 阻塞代码示例
+//!
+//! ```
+//! # fn example() -> anyhow::Result<()> {
+//! use qiniu_credential::Credential;
+//! use qiniu_http_client::{Authorization, BucketRegionsQueryer, HttpClient, RegionsProviderEndpoints, ServiceName};
+//! use serde_json::Value;
+//!
+//! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+//! let value: Value = HttpClient::default()
+//!     .get(
+//!         &[ServiceName::Rs],
+//!         RegionsProviderEndpoints::new(
+//!             BucketRegionsQueryer::new().query(credential.access_key().to_owned(), "test-bucket"),
+//!         ),
+//!     )
+//!     .path("/stat/dGVzdC1idWNrZXQ6dGVzdC1rZXk=")
+//!     .authorization(Authorization::v2(credential))
+//!     .accept_json()
+//!     .call()?
+//!     .parse_json()?
+//!     .into_body();
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ##### 异步代码示例
 //!
 //! ```
 //! # async fn example() -> anyhow::Result<()> {
@@ -170,7 +224,30 @@
 //! # }
 //! ```
 //!
-//! ### 公有云私有空间下载文件（存储空间必须绑定至少一个域名）
+//! #### 公有云私有空间下载文件（存储空间必须绑定至少一个域名）
+//!
+//! ##### 阻塞代码示例
+//!
+//! ```
+//! # fn example() -> anyhow::Result<()> {
+//! use qiniu_credential::Credential;
+//! use qiniu_http_client::{Authorization, BucketDomainsQueryer, HttpClient};
+//!
+//! let credential = Credential::new("abcdefghklmnopq", "1234567890");
+//! let response = HttpClient::default()
+//!     .get(
+//!         &[],
+//!         BucketDomainsQueryer::new().query(credential.to_owned(), "test-bucket"),
+//!     )
+//!     .path("/test-key")
+//!     .use_https(false)
+//!     .authorization(Authorization::download(credential))
+//!     .call()?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ##### 异步代码示例
 //!
 //! ```
 //! # async fn example() -> anyhow::Result<()> {

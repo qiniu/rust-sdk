@@ -258,7 +258,7 @@ impl UploadPolicy {
     ///
     /// 该方法与 [`UploadToken::into_dynamic_upload_token_provider`] 的区别在于该方法只能接受 [`Credential`] 实例
     pub fn into_static_upload_token_provider(
-        &self,
+        self,
         credential: Credential,
         opts: ToStringOptions,
     ) -> StaticUploadTokenProvider {

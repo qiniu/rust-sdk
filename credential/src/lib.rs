@@ -35,7 +35,9 @@
 //! - [`EnvCredentialProvider`] : 使用环境变量配置的认证信息
 //! - [`ChainCredentialsProvider`] : 配置多个 [`CredentialProvider`] 形成认证信息串，遍历找寻第一个可用的认证信息
 //!
-//! ### 计算七牛鉴权签名 V1
+//! ### 代码示例
+//!
+//! #### 计算七牛鉴权签名 V1
 //!
 //! ```
 //! use qiniu_credential::{Credential, HeaderValue, prelude::*};
@@ -55,7 +57,7 @@
 //! # }
 //! ```
 //!
-//! ### 计算七牛鉴权签名 V2
+//! #### 计算七牛鉴权签名 V2
 //!
 //! ```
 //! use qiniu_credential::{Credential, Method, HeaderMap, HeaderValue, prelude::*};
@@ -77,7 +79,7 @@
 //! # }
 //! ```
 //!
-//! ### 计算下载地址签名
+//! #### 计算下载地址签名
 //!
 //! ```
 //! use qiniu_credential::{Credential, prelude::*};
