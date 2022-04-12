@@ -1,4 +1,4 @@
-.PHONY: all build build_release build_test doc test clean clippy reset_apis
+.PHONY: all build build_release build_test doc doc_test test clean clippy reset_apis
 
 all: build doc
 build: reset_apis
@@ -8,6 +8,8 @@ build_test:
 	cargo test --no-run
 doc: build
 	make -C ../apis doc
+doc_test: build
+	make -C ../apis doc_test
 test:
 	cargo test -- --show-output
 clean:

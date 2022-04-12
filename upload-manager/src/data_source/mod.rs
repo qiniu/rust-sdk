@@ -210,6 +210,7 @@ mod async_reader {
     /// 异步数据源阅读器
     ///
     /// 提供异步读取接口
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     #[derive(Debug)]
     pub struct AsyncDataSourceReader {
         inner: AsyncDataSourceReaderInner,

@@ -180,6 +180,7 @@ mod async_reader {
     ///
     /// 用于表示一个分片，需要传入可异步寻址的数据源，以及分片的起始位置和长度
     #[derive(Debug)]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub struct AsyncSeekableSource {
         source: Arc<Mutex<AsyncSeekableSourceInner<dyn ReadSeek>>>,
         source_offset: Arc<AtomicU64>,

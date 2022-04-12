@@ -23,7 +23,7 @@ serde = { version = "1.0.130", features = ["derive"] }
 auto_impl = { package = "bachue-auto_impl", version = "0.5.1" }
 futures = { version = "0.3.16", optional = true }
 
-qiniu-credential = { version = "0.0.8", path = "../credential", optional = true }
+qiniu-credential = { version = "0.0.8", path = "../credential" }
 qiniu-utils = { version = "0.0.8", path = "../utils" }
 
 [dev-dependencies]
@@ -33,7 +33,7 @@ mime = "0.3.16"
 structopt = "0.3.23"
 
 [features]
-default = ["qiniu-credential"]
+default = []
 async = ["qiniu-credential/async", "futures"]
 docs = []
 

@@ -1,4 +1,4 @@
-.PHONY: all build build_release build_test doc test clean clippy
+.PHONY: all build build_release build_test doc test doc_test clean clippy
 
 all: build doc
 build:
@@ -7,9 +7,10 @@ build_release:
 	cargo build --release
 build_test:
 	cargo test --no-run
-doc:
-	cargo test --doc
+doc: doc_test
 	cargo +nightly doc --lib --release --all-features
+doc_test:
+	cargo test --doc
 test:
 	cargo test -- --show-output
 clean:

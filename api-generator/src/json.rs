@@ -1019,6 +1019,7 @@ impl JsonType {
                     }
                 }
 
+                #[allow(clippy::too_many_arguments)]
                 fn impls_token_stream_for_base_type_field_of_struct(
                     name: &Ident,
                     field_name: &Ident,
@@ -1055,6 +1056,7 @@ impl JsonType {
                     }
                 }
 
+                #[allow(clippy::too_many_arguments)]
                 fn impl_getter_method_for_base_type_field_of_struct(
                     name: &Ident,
                     field_name: &Ident,
@@ -1097,6 +1099,7 @@ impl JsonType {
                     }
                 }
 
+                #[allow(clippy::too_many_arguments)]
                 fn impl_setter_method_for_base_type_field_of_struct(
                     name: &Ident,
                     field_name: &Ident,

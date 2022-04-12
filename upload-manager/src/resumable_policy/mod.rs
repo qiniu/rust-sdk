@@ -59,6 +59,7 @@ impl<T: Read + Debug + Send + Sync> DynRead for T {}
 
 /// 异步输入流
 #[cfg(feature = "async")]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 pub trait DynAsyncRead: AsyncRead + Debug + Unpin + Send + Sync {}
 
 #[cfg(feature = "async")]

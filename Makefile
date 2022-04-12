@@ -1,11 +1,7 @@
-.PHONY: all build build_release build_test doc test clean clippy
-SUBDIRS := utils credential etag upload-token http http-ureq http-isahc http-reqwest http-client api-generator apis api-examples objects-manager upload-manager
+.PHONY: all build build_release build_test doc doc_test test clean clippy
+SUBDIRS := utils credential etag upload-token http http-ureq http-isahc http-reqwest http-client api-generator apis api-examples objects-manager upload-manager sdk
 
-all:
-	set -e; \
-	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir; \
-	done
+all: build doc
 build:
 	set -e; \
 	for dir in $(SUBDIRS); do \
@@ -21,10 +17,12 @@ build_test:
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir build_test; \
 	done
-doc:
+doc: doc_test
+	cargo +nightly doc --lib --release --all-features
+doc_test:
 	set -e; \
 	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir doc; \
+		$(MAKE) -C $$dir doc_test; \
 	done
 test:
 	set -e; \
@@ -32,12 +30,6 @@ test:
 		$(MAKE) -C $$dir test; \
 	done
 clean:
-	set -e; \
-	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir clean; \
-	done
+	cargo clean
 clippy:
-	set -e; \
-	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir clippy; \
-	done
+	cargo +nightly clippy --examples --tests --all-features -- -D warnings --no-deps

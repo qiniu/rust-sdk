@@ -1,0 +1,60 @@
+[package]
+name = "qiniu-sdk"
+version = "0.0.8"
+authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
+edition = "2021"
+rust-version = "1.56.0"
+license = "MIT"
+homepage = "https://www.qiniu.com"
+description = "Qiniu Meta Crates for Rust SDK"
+keywords = ["qiniu", "storage"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+qiniu-utils = { version = "0.0.8", path = "../utils", optional = true }
+qiniu-etag = { version = "0.0.8", path = "../etag", optional = true }
+qiniu-credential = { version = "0.0.8", path = "../credential", optional = true }
+qiniu-upload-token = { version = "0.0.8", path = "../upload-token", optional = true }
+qiniu-http = { version = "0.0.8", path = "../http", optional = true }
+qiniu-ureq = { version = "0.0.8", path = "../http-ureq", optional = true }
+qiniu-isahc = { version = "0.0.8", path = "../http-isahc", optional = true }
+qiniu-reqwest = { version = "0.0.8", path = "../http-reqwest", optional = true }
+qiniu-http-client = { version = "0.0.8", path = "../http-client", optional = true }
+qiniu-apis = { version = "0.0.8", path = "../apis", optional = true }
+qiniu-objects-manager = { version = "0.0.8", path = "../objects-manager", optional = true }
+qiniu-upload-manager = { version = "0.0.8", path = "../upload-manager", optional = true }
+
+[features]
+default = ["ureq"]
+utils = ["qiniu-utils"]
+etag = ["qiniu-etag"]
+credential = ["qiniu-credential"]
+upload-token = ["qiniu-upload-token"]
+http = ["qiniu-http"]
+http-client = ["qiniu-http-client"]
+apis = ["qiniu-apis"]
+objects-manager = ["qiniu-objects-manager"]
+upload-manager = ["qiniu-upload-manager"]
+async = ["qiniu-etag?/async", "qiniu-credential?/async", "qiniu-upload-token?/async", "qiniu-http?/async", "qiniu-isahc?/async", "qiniu-reqwest?/async", "qiniu-http-client?/async", "qiniu-apis?/async", "qiniu-objects-manager?/async", "qiniu-upload-manager?/async"]
+reqwest = ["qiniu-http-client?/reqwest", "qiniu-apis?/reqwest", "qiniu-objects-manager?/reqwest", "qiniu-upload-manager?/reqwest", "qiniu-reqwest"]
+isahc = ["qiniu-http-client?/isahc", "qiniu-apis?/isahc", "qiniu-objects-manager?/isahc", "qiniu-upload-manager?/isahc", "qiniu-isahc"]
+ureq = ["qiniu-http-client?/ureq", "qiniu-apis?/ureq", "qiniu-objects-manager?/ureq", "qiniu-upload-manager?/ureq", "qiniu-ureq"]
+c_ares = ["qiniu-http-client?/c_ares", "qiniu-apis?/c_ares", "qiniu-objects-manager?/c_ares", "qiniu-upload-manager?/c_ares"]
+trust_dns = ["qiniu-http-client?/trust_dns", "qiniu-apis?/trust_dns", "qiniu-objects-manager?/trust_dns", "qiniu-upload-manager?/trust_dns"]
+tokio1 = ["qiniu-http-client?/tokio1", "qiniu-apis?/tokio1", "qiniu-objects-manager?/tokio1", "qiniu-upload-manager?/tokio1"]
+tokio02 = ["qiniu-http-client?/tokio02", "qiniu-apis?/tokio02", "qiniu-objects-manager?/tokio02", "qiniu-upload-manager?/tokio02"]
+tokio03 = ["qiniu-http-client?/tokio03", "qiniu-apis?/tokio03", "qiniu-objects-manager?/tokio03", "qiniu-upload-manager?/tokio03"]
+dns-over-https = ["qiniu-http-client?/dns-over-https", "qiniu-apis?/dns-over-https", "qiniu-objects-manager?/dns-over-https", "qiniu-upload-manager?/dns-over-https"]
+dns-over-https-rustls = ["qiniu-http-client?/dns-over-https-rustls", "qiniu-apis?/dns-over-https-rustls", "qiniu-objects-manager?/dns-over-https-rustls", "qiniu-upload-manager?/dns-over-https-rustls"]
+dns-over-tls = ["qiniu-http-client?/dns-over-tls", "qiniu-apis?/dns-over-tls", "qiniu-objects-manager?/dns-over-tls", "qiniu-upload-manager?/dns-over-tls"]
+dns-over-rustls = ["qiniu-http-client?/dns-over-rustls", "qiniu-apis?/dns-over-rustls", "qiniu-objects-manager?/dns-over-rustls", "qiniu-upload-manager?/dns-over-rustls"]
+dns-over-native-tls = ["qiniu-http-client?/dns-over-native-tls", "qiniu-apis?/dns-over-native-tls", "qiniu-objects-manager?/dns-over-native-tls", "qiniu-upload-manager?/dns-over-native-tls"]
+dnssec-openssl = ["qiniu-http-client?/dnssec-openssl", "qiniu-apis?/dnssec-openssl", "qiniu-objects-manager?/dnssec-openssl", "qiniu-upload-manager?/dnssec-openssl"]
+dnssec-ring = ["qiniu-http-client?/dnssec-ring", "qiniu-apis?/dnssec-ring", "qiniu-objects-manager?/dnssec-ring", "qiniu-upload-manager?/dnssec-ring"]
+dnssec = ["qiniu-http-client?/dnssec", "qiniu-apis?/dnssec", "qiniu-objects-manager?/dnssec", "qiniu-upload-manager?/dnssec"]
+docs = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "feature=\"docs\""]

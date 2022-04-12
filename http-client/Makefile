@@ -1,4 +1,4 @@
-.PHONY: all build build_release build_test doc test clean clippy
+.PHONY: all build build_release build_test doc doc_test test clean clippy
 
 all: build doc
 build:
@@ -22,9 +22,10 @@ build_test:
 	cargo test --no-run --no-default-features --features 'async isahc'
 	cargo test --no-run --no-default-features --features 'async reqwest'
 	cargo test --no-run --no-default-features --features 'async c_ares trust_dns'
-doc:
-	cargo test --doc --features 'async c_ares trust_dns ureq isahc reqwest'
+doc: doc_test
 	cargo +nightly doc --lib --release --all-features
+doc_test:
+	cargo test --doc --features 'async c_ares trust_dns ureq isahc reqwest'
 test:
 	cargo test --tests --no-default-features --features ureq -- --show-output
 	cargo test --tests --no-default-features --features isahc -- --show-output
