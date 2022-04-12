@@ -16,21 +16,21 @@
 
 ```toml
 [dependencies]
-qiniu-upload-manager = { version = "0.0.8", features = ["ureq"] }
+qiniu-upload-manager = { version = "0.0.9", features = ["ureq"] }
 ```
 
 ### 启用 Isahc 异步接口
 
 ```toml
 [dependencies]
-qiniu-upload-manager = { version = "0.0.8", features = ["async", "isahc"] }
+qiniu-upload-manager = { version = "0.0.9", features = ["async", "isahc"] }
 ```
 
 ### 启用 Reqwest 异步接口
 
 ```toml
 [dependencies]
-qiniu-upload-manager = { version = "0.0.8", features = ["async", "reqwest"] }
+qiniu-upload-manager = { version = "0.0.9", features = ["async", "reqwest"] }
 ```
 
 ### 其他功能
