@@ -37,7 +37,11 @@ Qiniu SDK for Rust 包含以下 Crates:
 
 ### 客户端上传凭证（需要依赖 `qiniu-sdk` 启用 `upload-token` 功能）
 
+客户端（移动端或者Web端）上传文件的时候，需要从客户自己的业务服务器获取上传凭证，而这些上传凭证是通过服务端的 SDK 来生成的，然后通过客户自己的业务API分发给客户端使用。根据上传的业务需求不同，七牛云 Rust SDK 支持丰富的上传凭证生成方式。
+
 #### 简单上传的凭证
+
+最简单的上传凭证只需要 `access key`，`secret key` 和 `bucket` 就可以。
 
 ```rust
 use qiniu_sdk::upload_token::{UploadPolicy, credential::Credential, prelude::*};
@@ -53,6 +57,8 @@ println!("{}", upload_token);
 ```
 
 #### 覆盖上传的凭证
+
+覆盖上传除了需要简单上传所需要的信息之外，还需要想进行覆盖的对象名称 `object name`，这个对象名称同时是客户端上传代码中指定的对象名称，两者必须一致。
 
 ```rust
 use qiniu_sdk::upload_token::{UploadPolicy, credential::Credential, prelude::*};
@@ -70,6 +76,14 @@ println!("{}", upload_token);
 
 #### 自定义上传回复的凭证
 
+默认情况下，文件上传到七牛之后，在没有设置 `return_body` 或者回调相关的参数情况下，七牛返回给上传端的回复格式为 `hash` 和 `key`，例如：
+
+```json
+{"hash":"Ftgm-CkWePC9fzMBTRNmPMhGBcSV","key":"qiniu.jpg"}
+```
+
+有时候我们希望能自定义这个返回的 JSON 格式的内容，可以通过设置 `return_body` 参数来实现，在 `return_body` 中，我们可以使用七牛支持的魔法变量和自定义变量。
+
 ```rust
 use qiniu_sdk::upload_token::{UploadPolicy, credential::Credential, prelude::*};
 use std::time::Duration;
@@ -85,8 +99,15 @@ let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Durati
 println!("{}", upload_token);
 ```
 
+则文件上传到七牛之后，收到的回复内容如下：
+
+```json
+{"key":"qiniu.jpg","hash":"Ftgm-CkWePC9fzMBTRNmPMhGBcSV","bucket":"if-bc","fsize":39335}
+```
+
 #### 带回调业务服务器的凭证
 
+上面生成的自定义上传回复的上传凭证适用于上传端（无论是客户端还是服务端）和七牛服务器之间进行直接交互的情况下。在客户端上传的场景之下，有时候客户端需要在文件上传到七牛之后，从业务服务器获取相关的信息，这个时候就要用到七牛的上传回调及相关回调参数的设置。
 
 ```rust
 use qiniu_sdk::upload_token::{UploadPolicy, credential::Credential, prelude::*};
@@ -102,6 +123,9 @@ let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Durati
     .build_token(credential, Default::default())?;
 println!("{}", upload_token);
 ```
+
+在使用了上传回调的情况下，客户端收到的回复就是业务服务器响应七牛的JSON格式内容。
+通常情况下，我们建议使用 `application/json` 格式来设置 `callback_body`，保持数据格式的统一性。实际情况下，`callback_body` 也支持 `application/x-www-form-urlencoded` 格式来组织内容，这个主要看业务服务器在接收到 `callback_body` 的内容时如何解析。例如：
 
 ```rust
 use qiniu_sdk::upload_token::{UploadPolicy, credential::Credential, prelude::*};
@@ -120,7 +144,11 @@ println!("{}", upload_token);
 
 ### 服务端直传（需要依赖 `qiniu-sdk` 启用 `upload` 功能）
 
+服务端直传是指客户利用七牛服务端 SDK 从服务端直接上传文件到七牛云，交互的双方一般都在机房里面，所以服务端可以自己生成上传凭证，然后利用 SDK 中的上传逻辑进行上传，最后从七牛云获取上传的结果，这个过程中由于双方都是业务服务器，所以很少利用到上传回调的功能，而是直接自定义 `return_body` 来获取自定义的回复内容。
+
 #### 文件上传
+
+最简单的就是上传本地文件，直接指定文件的完整路径即可上传。
 
 ```rust
 use qiniu_sdk::upload::{
@@ -146,7 +174,11 @@ let params = AutoUploaderObjectParams::builder().object_name(object_name).file_n
 uploader.upload_path("/home/qiniu/test.png", params)?;
 ```
 
+在这个场景下，`AutoUploader` 会自动根据文件尺寸判定是否启用断点续上传，如果文件较大，上传了一部分时因各种原因从而中断，再重新执行相同的代码时，SDK 会尝试找到先前没有完成的上传任务，从而继续进行上传。
+
 #### 字节数组上传 / 数据流上传
+
+可以支持将内存中的字节数组或实现了 `std::io::Read` 的实例上传到空间中。
 
 ```rust
 use qiniu_sdk::upload::{
@@ -207,7 +239,11 @@ uploader.upload_path("/home/qiniu/test.mp4", params)?;
 
 ### 下载文件
 
+文件下载分为公开空间的文件下载和私有空间的文件下载。
+
 #### 公开空间
+
+对于公开空间，其访问的链接主要是将空间绑定的域名拼接上空间里面的文件名即可访问，标准情况下需要在拼接链接之前，将文件名进行 `urlencode` 以兼容不同的字符。如果有其他访问处理需求，在文件名之后继续拼接即可。这个过程实际上不需要使用七牛 SDK 也可以完成。
 
 ```rust
 use http::Uri;
@@ -225,6 +261,8 @@ println!("{}", url);
 ```
 
 #### 私有空间（需要依赖 `qiniu-sdk` 启用 `credential` 功能）
+
+对于私有空间，首先需要按照公开空间的文件访问方式构建对应的公开空间访问链接，然后再对这个链接进行私有授权签名。
 
 ```rust
 use qiniu_sdk::credential::Credential;
@@ -289,6 +327,8 @@ bucket
 
 #### 移动或重命名文件
 
+移动操作本身支持移动文件到相同，不同空间中，在移动的同时也可以支持文件重命名。唯一的限制条件是，移动的源空间和目标空间必须在同一个机房。
+
 ```rust
 use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
@@ -308,6 +348,8 @@ bucket
 ```
 
 #### 复制文件副本
+
+文件的复制和文件移动其实操作一样，主要的区别是移动后源文件不存在了，而复制的结果是源文件还存在，只是多了一个新的文件副本。
 
 ```rust
 use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
@@ -346,6 +388,8 @@ bucket
 ```
 
 #### 设置或更新文件的生存时间
+
+可以给已经存在于空间中的文件设置文件生存时间，或者更新已设置了生存时间但尚未被删除的文件的新的生存时间。
 
 ```rust
 use qiniu_sdk::objects::{apis::credential::Credential, AfterDays, ObjectsManager};
