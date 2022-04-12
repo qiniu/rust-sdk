@@ -29,15 +29,18 @@ Qiniu SDK for Rust 包含以下 Crates:
 | [![qiniu-apis](https://img.shields.io/crates/v/qiniu-apis.svg)](https://crates.io/crates/qiniu-apis)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-apis) | 实现七牛 API 调用客户端接口       |
 | [![qiniu-objects-manager](https://img.shields.io/crates/v/qiniu-objects-manager.svg)](https://crates.io/crates/qiniu-objects-manager)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-objects-manager) | 实现七牛对象相关管理接口，包含对象的列举和操作       |
 | [![qiniu-upload-manager](https://img.shields.io/crates/v/qiniu-upload-manager.svg)](https://crates.io/crates/qiniu-upload-manager)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-upload-manager) | 实现七牛对象上传功能       |
+| [![qiniu-sdk](https://img.shields.io/crates/v/qiniu-sdk.svg)](https://crates.io/crates/qiniu-sdk)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-sdk) | 七牛 SDK 入口       |
 
 ## 代码示例
 
-### 客户端上传凭证
+以下所有代码示例都以 `qiniu-sdk` 作为入口。
+
+### 客户端上传凭证（需要依赖 `qiniu-sdk` 启用 `upload-token` 功能）
 
 #### 简单上传的凭证
 
 ```rust
-use qiniu_upload_token::{UploadPolicy, credential::Credential, prelude::*};
+use qiniu_sdk::upload_token::{UploadPolicy, credential::Credential, prelude::*};
 use std::time::Duration;
 
 let access_key = "access key";
@@ -52,7 +55,7 @@ println!("{}", upload_token);
 #### 覆盖上传的凭证
 
 ```rust
-use qiniu_upload_token::{UploadPolicy, credential::Credential, prelude::*};
+use qiniu_sdk::upload_token::{UploadPolicy, credential::Credential, prelude::*};
 use std::time::Duration;
 
 let access_key = "access key";
@@ -68,7 +71,7 @@ println!("{}", upload_token);
 #### 自定义上传回复的凭证
 
 ```rust
-use qiniu_upload_token::{UploadPolicy, credential::Credential, prelude::*};
+use qiniu_sdk::upload_token::{UploadPolicy, credential::Credential, prelude::*};
 use std::time::Duration;
 
 let access_key = "access key";
@@ -86,7 +89,7 @@ println!("{}", upload_token);
 
 
 ```rust
-use qiniu_upload_token::{UploadPolicy, credential::Credential, prelude::*};
+use qiniu_sdk::upload_token::{UploadPolicy, credential::Credential, prelude::*};
 use std::time::Duration;
 
 let access_key = "access key";
@@ -101,7 +104,7 @@ println!("{}", upload_token);
 ```
 
 ```rust
-use qiniu_upload_token::{UploadPolicy, credential::Credential, prelude::*};
+use qiniu_sdk::upload_token::{UploadPolicy, credential::Credential, prelude::*};
 use std::time::Duration;
 
 let access_key = "access key";
@@ -115,12 +118,12 @@ let upload_token = UploadPolicy::new_for_object(bucket_name, object_name, Durati
 println!("{}", upload_token);
 ```
 
-### 服务端直传
+### 服务端直传（需要依赖 `qiniu-sdk` 启用 `upload` 功能）
 
 #### 文件上传
 
 ```rust
-use qiniu_upload_manager::{
+use qiniu_sdk::upload::{
     apis::credential::Credential, AutoUploader, AutoUploaderObjectParams, UploadManager,
     UploadTokenSigner,
 };
@@ -146,7 +149,7 @@ uploader.upload_path("/home/qiniu/test.png", params)?;
 #### 字节数组上传 / 数据流上传
 
 ```rust
-use qiniu_upload_manager::{
+use qiniu_sdk::upload::{
     apis::credential::Credential, AutoUploader, AutoUploaderObjectParams, UploadManager,
     UploadTokenSigner,
 };
@@ -172,7 +175,7 @@ uploader.upload_reader(Cursor::new("hello qiniu cloud"), params)?;
 #### 自定义参数上传
 
 ```rust
-use qiniu_upload_manager::{
+use qiniu_sdk::upload::{
     apis::credential::Credential, AutoUploader, AutoUploaderObjectParams, UploadManager, UploadTokenSigner,
 };
 use std::{io::Cursor, time::Duration};
@@ -221,10 +224,10 @@ let url = Uri::builder()
 println!("{}", url);
 ```
 
-#### 私有空间
+#### 私有空间（需要依赖 `qiniu-sdk` 启用 `credential` 功能）
 
 ```rust
-use qiniu_credential::Credential;
+use qiniu_sdk::credential::Credential;
 use http::Uri;
 
 let access_key = "access key";
@@ -243,12 +246,12 @@ let url = credential.sign_download_url(url, Duration::from_secs(3600));
 println!("{}", url);
 ```
 
-### 资源管理
+### 资源管理（需要依赖 `qiniu-sdk` 启用 `objects` 功能）
 
 #### 获取文件信息
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";
@@ -269,7 +272,7 @@ println!("{}", entry.get_put_time_as_u64());
 #### 修改文件类型
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";
@@ -287,7 +290,7 @@ bucket
 #### 移动或重命名文件
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";
@@ -307,7 +310,7 @@ bucket
 #### 复制文件副本
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";
@@ -327,7 +330,7 @@ bucket
 #### 删除空间中的文件
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";
@@ -345,7 +348,7 @@ bucket
 #### 设置或更新文件的生存时间
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, AfterDays, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, AfterDays, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";
@@ -363,7 +366,7 @@ bucket
 #### 获取空间文件列表
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";
@@ -385,12 +388,12 @@ while let Some(entry) = iter.next() {
 }
 ```
 
-### 资源管理批量操作
+### 资源管理批量操作（需要依赖 `qiniu-sdk` 启用 `objects` 功能）
 
 #### 批量获取文件信息
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";
@@ -424,7 +427,7 @@ while let Some(result) = iter.next() {
 #### 批量修改文件类型
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";
@@ -453,7 +456,7 @@ while let Some(result) = iter.next() {
 #### 批量删除文件类型
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";
@@ -482,7 +485,7 @@ while let Some(result) = iter.next() {
 #### 批量移动或重命名文件
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";
@@ -511,7 +514,7 @@ while let Some(result) = iter.next() {
 #### 批量复制文件
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";
@@ -540,7 +543,7 @@ while let Some(result) = iter.next() {
 #### 批量解冻归档存储类型文件
 
 ```rust
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 
 let access_key = "access key";
 let secret_key = "secret key";

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use qiniu_apis::{
+use qiniu_sdk::apis::{
     credential::Credential,
     http_client::{BucketRegionsQueryer, RegionsProviderEndpoints},
     storage::get_domains::QueryParams,

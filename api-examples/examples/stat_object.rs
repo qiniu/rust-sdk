@@ -1,5 +1,5 @@
 use anyhow::Result;
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]

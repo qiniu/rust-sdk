@@ -1,5 +1,5 @@
 use anyhow::Result;
-use qiniu_objects_manager::{
+use qiniu_sdk::objects::{
     apis::{credential::Credential, upload_token::FileType},
     ObjectsManager,
 };

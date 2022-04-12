@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_std::io::stdin;
 use futures::{io::BufReader, AsyncBufReadExt, TryStreamExt};
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager, OperationProvider};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager, OperationProvider};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]

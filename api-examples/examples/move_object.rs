@@ -1,5 +1,5 @@
 use anyhow::Result;
-use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -36,11 +36,7 @@ async fn main() -> Result<()> {
     let bucket = object_manager.bucket(opt.from_bucket_name);
 
     bucket
-        .move_object_to(
-            &opt.from_object_name,
-            &opt.to_bucket_name,
-            &opt.to_object_name,
-        )
+        .move_object_to(&opt.from_object_name, &opt.to_bucket_name, &opt.to_object_name)
         .async_call()
         .await?;
 

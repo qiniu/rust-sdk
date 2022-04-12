@@ -1,6 +1,6 @@
 use anyhow::Result;
 use futures::TryStreamExt;
-use qiniu_objects_manager::{apis::credential::Credential, ListVersion, ObjectsManager};
+use qiniu_sdk::objects::{apis::credential::Credential, ListVersion, ObjectsManager};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]

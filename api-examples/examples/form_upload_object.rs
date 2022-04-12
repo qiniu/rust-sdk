@@ -1,7 +1,7 @@
 use anyhow::Result;
-use qiniu_apis::{http_client::CallbackResult, upload_token::ObjectUploadTokenProvider};
-use qiniu_upload_manager::{
-    apis::credential::Credential, ObjectParams, SinglePartUploader, UploadManager, UploaderWithCallbacks,
+use qiniu_sdk::upload::{
+    apis::{credential::Credential, http_client::CallbackResult, upload_token::ObjectUploadTokenProvider},
+    ObjectParams, SinglePartUploader, UploadManager, UploaderWithCallbacks,
 };
 use std::{path::PathBuf, time::Duration};
 use structopt::StructOpt;
