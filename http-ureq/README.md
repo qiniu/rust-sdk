@@ -1,7 +1,7 @@
-# Qiniu-Http-Ureq
+# Qiniu-Ureq
 
-[![qiniu-http-ureq](https://img.shields.io/crates/v/qiniu-http-ureq.svg)](https://crates.io/crates/qiniu-http-ureq)
-[![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-http-ureq)
+[![qiniu-ureq](https://img.shields.io/crates/v/qiniu-ureq.svg)](https://crates.io/crates/qiniu-ureq)
+[![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-ureq)
 [![Run Test Cases](https://github.com/bachue/rust-sdk/actions/workflows/ci-test.yml/badge.svg)](https://github.com/bachue/rust-sdk/actions/workflows/ci-test.yml)
 [![GitHub release](https://img.shields.io/github/v/tag/bachue/rust-sdk.svg?label=release)](https://github.com/bachue/rust-sdk/releases)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bachue/rust-sdk/blob/master/LICENSE)
@@ -14,7 +14,7 @@
 
 ```toml
 [dependencies]
-qiniu-http-ureq = "0.0.8"
+qiniu-ureq = "0.0.8"
 ```
 
 ## 最低支持的 Rust 版本（MSRV）

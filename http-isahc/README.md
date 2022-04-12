@@ -1,7 +1,7 @@
-# Qiniu-Http-Isahc
+# Qiniu-Isahc
 
-[![qiniu-http-isahc](https://img.shields.io/crates/v/qiniu-http-isahc.svg)](https://crates.io/crates/qiniu-http-isahc)
-[![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-http-isahc)
+[![qiniu-isahc](https://img.shields.io/crates/v/qiniu-isahc.svg)](https://crates.io/crates/qiniu-isahc)
+[![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-isahc)
 [![Run Test Cases](https://github.com/bachue/rust-sdk/actions/workflows/ci-test.yml/badge.svg)](https://github.com/bachue/rust-sdk/actions/workflows/ci-test.yml)
 [![GitHub release](https://img.shields.io/github/v/tag/bachue/rust-sdk.svg?label=release)](https://github.com/bachue/rust-sdk/releases)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bachue/rust-sdk/blob/master/LICENSE)
@@ -18,14 +18,14 @@
 
 ```toml
 [dependencies]
-qiniu-http-isahc = "0.0.8"
+qiniu-isahc = "0.0.8"
 ```
 
 ### 启用异步接口
 
 ```toml
 [dependencies]
-qiniu-http-isahc = { version = "0.0.8", features = ["async"] }
+qiniu-isahc = { version = "0.0.8", features = ["async"] }
 ```
 
 ## 最低支持的 Rust 版本（MSRV）

@@ -24,7 +24,7 @@
     unused_qualifications
 )]
 
-//! # qiniu-http-isahc
+//! # qiniu-isahc
 //!
 //! ## 七牛 Isahc HTTP 客户端实现
 //!
@@ -106,7 +106,7 @@ mod tests {
                 }
 
                 assert!(user_agent.to_str().unwrap().starts_with("QiniuRust/"));
-                assert!(user_agent.to_str().unwrap().contains("/qiniu-http-isahc/"));
+                assert!(user_agent.to_str().unwrap().contains("/qiniu-isahc/"));
 
                 let mut resp_body = vec![0u8; BUF_LEN + MD5_LEN];
                 thread_rng().fill_bytes(&mut resp_body[..BUF_LEN]);
@@ -205,7 +205,7 @@ mod tests {
                 }
 
                 assert!(user_agent.to_str().unwrap().starts_with("QiniuRust/"));
-                assert!(user_agent.to_str().unwrap().contains("/qiniu-http-isahc/"));
+                assert!(user_agent.to_str().unwrap().contains("/qiniu-isahc/"));
 
                 let mut resp_body = vec![0u8; BUF_LEN + MD5_LEN];
                 thread_rng().fill_bytes(&mut resp_body[..BUF_LEN]);

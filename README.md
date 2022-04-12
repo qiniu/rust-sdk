@@ -22,9 +22,9 @@ Qiniu SDK for Rust 包含以下 Crates:
 | [![qiniu-credential](https://img.shields.io/crates/v/qiniu-credential.svg)](https://crates.io/crates/qiniu-credential)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-credential) | 七牛认证库，实现七牛认证接口以及签名相关算法       |
 | [![qiniu-upload-token](https://img.shields.io/crates/v/qiniu-upload-token.svg)](https://crates.io/crates/qiniu-upload-token)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-upload-token) | 七牛上传凭证，实现七牛上传策略和上传凭证接口以及相关算法      |
 | [![qiniu-http](https://img.shields.io/crates/v/qiniu-http.svg)](https://crates.io/crates/qiniu-http)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-http) | 七牛客户端 HTTP 接口，为不同的 HTTP 客户端实现提供相同的基础接口      |
-| [![qiniu-ureq](https://img.shields.io/crates/v/qiniu-ureq.svg)](https://crates.io/crates/qiniu-ureq)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-ureq) | 基于 [Ureq](https://docs.rs/ureq) 库实现七牛客户端 HTTP 接口      |
-| [![qiniu-isahc](https://img.shields.io/crates/v/qiniu-isahc.svg)](https://crates.io/crates/qiniu-isahc)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-isahc) | 基于 [Isahc](https://docs.rs/isahc) 库实现七牛客户端 HTTP 接口      |
-| [![qiniu-reqwest](https://img.shields.io/crates/v/qiniu-reqwest.svg)](https://crates.io/crates/qiniu-reqwest)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-reqwest) | 基于 [Reqwest](https://docs.rs/reqwest) 库实现七牛客户端 HTTP 接口      |
+| [![qiniu-ureq](https://img.shields.io/crates/v/qiniu-ureq.svg)](https://crates.io/crates/qiniu-ureq)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-ureq) | 基于 [Ureq](https://docs.rs/ureq) 库实现七牛客户端 HTTP 接口，对于使用 `qiniu-http-request`，`qiniu-apis`，`qiniu-objects-manager` 或 `qiniu-upload-manager` 的用户，可以直接启用 `ureq` 功能，将默认使用该 HTTP 客户端实现。需要注意的是，如果需要使用异步接口，则不能选择 `ureq`      |
+| [![qiniu-isahc](https://img.shields.io/crates/v/qiniu-isahc.svg)](https://crates.io/crates/qiniu-isahc)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-isahc) | 基于 [Isahc](https://docs.rs/isahc) 库实现七牛客户端 HTTP 接口，对于使用 `qiniu-http-request`，`qiniu-apis`，`qiniu-objects-manager` 或 `qiniu-upload-manager` 的用户，可以直接启用 `isahc` 功能，将默认使用该 HTTP 客户端实现      |
+| [![qiniu-reqwest](https://img.shields.io/crates/v/qiniu-reqwest.svg)](https://crates.io/crates/qiniu-reqwest)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-reqwest) | 基于 [Reqwest](https://docs.rs/reqwest) 库实现七牛客户端 HTTP 接口，对于使用 `qiniu-http-request`，`qiniu-apis`，`qiniu-objects-manager` 或 `qiniu-upload-manager` 的用户，可以直接启用 `reqwest` 功能，将默认使用该 HTTP 客户端实现      |
 | [![qiniu-http-client](https://img.shields.io/crates/v/qiniu-http-client.svg)](https://crates.io/crates/qiniu-http-client)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-http-client) | 基于 [qiniu-http](https://docs.rs/qiniu-http) 提供具有重试功能的 HTTP 客户端       |
 | [![qiniu-apis](https://img.shields.io/crates/v/qiniu-apis.svg)](https://crates.io/crates/qiniu-apis)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-apis) | 实现七牛 API 调用客户端接口       |
 | [![qiniu-objects-manager](https://img.shields.io/crates/v/qiniu-objects-manager.svg)](https://crates.io/crates/qiniu-objects-manager)      | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-objects-manager) | 实现七牛对象相关管理接口，包含对象的列举和操作       |
@@ -568,7 +568,15 @@ while let Some(result) = iter.next() {
 
 ## 最低支持的 Rust 版本（MSRV）
 
-1.56.0
+- 1.56.0
+
+## 编码规范
+
+- 通过 `cargo clippy` 检查，并经过 `rustfmt` 格式化。
+- 所有阻塞操作都提供异步无阻塞版本。
+- 竭力避免 unsafe 代码。
+- 所有公开的 `trait` 都可以通过 `prelude` 模块自动导入。
+- 公开接口中如果要求传入或返回某个第三方库的类型，则该类型也必须公开导出。
 
 ## 联系我们
 

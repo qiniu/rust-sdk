@@ -170,7 +170,7 @@ impl HttpCaller for Client {
 }
 
 fn make_user_agent(request: &RequestParts) -> Result<HeaderValue, ResponseError> {
-    HeaderValue::from_str(&format!("{}/qiniu-http-{}", request.user_agent(), isahc::version(),)).map_err(|err| {
+    HeaderValue::from_str(&format!("{}/qiniu-{}", request.user_agent(), isahc::version(),)).map_err(|err| {
         ResponseError::builder(ResponseErrorKind::InvalidHeader, err)
             .uri(request.url())
             .build()

@@ -13,9 +13,9 @@
 通过对七牛特有的状态码和响应头进行合理的处理和重试，竭力保证七牛 API 可以调用成功。
 
 该接口库可以通过启用不同的功能来选择不同的客户端实现，
-例如可以通过启用 `ureq` 功能导入 `qiniu-http-ureq` 库作为 HTTP 客户端，
-通过启用 `reqwest` 功能导入 `qiniu-http-reqwest` 库作为 HTTP 客户端，
-通过启用 `isahc` 功能导入 `qiniu-http-isahc` 库作为 HTTP 客户端，
+例如可以通过启用 `ureq` 功能导入 `qiniu-ureq` 库作为 HTTP 客户端，
+通过启用 `reqwest` 功能导入 `qiniu-reqwest` 库作为 HTTP 客户端，
+通过启用 `isahc` 功能导入 `qiniu-isahc` 库作为 HTTP 客户端，
 您也可以显式传入任何基于 `qiniu-http` 接口的 HTTP 客户端实现来提供给 `qiniu-http-client` 使用。
 
 `qiniu-http-client` 提供的功能主要分为两个大类：区域相关和 HTTP 客户端逻辑相关。

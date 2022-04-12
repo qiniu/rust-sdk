@@ -13,9 +13,9 @@
 该库致力于根据 [`qiniu-apis-specs`](https://github.com/bachue/rust-sdk/tree/master/api-specs) 提供的 YAML 描述文件，在不理解业务逻辑的前提下，提供简单的封装方法方便用户正确调用 API。
 
 该库可以通过启用不同的功能来选择不同的 HTTP 客户端实现，
-例如可以通过启用 `ureq` 功能导入 `qiniu-http-ureq` 库作为 HTTP 客户端，
-通过启用 `reqwest` 功能导入 `qiniu-http-reqwest` 库作为 HTTP 客户端，
-通过启用 `isahc` 功能导入 `qiniu-http-isahc` 库作为 HTTP 客户端。
+例如可以通过启用 `ureq` 功能导入 `qiniu-ureq` 库作为 HTTP 客户端，
+通过启用 `reqwest` 功能导入 `qiniu-reqwest` 库作为 HTTP 客户端，
+通过启用 `isahc` 功能导入 `qiniu-isahc` 库作为 HTTP 客户端。
 您也可以显式传入任何基于 `qiniu-http` 接口的 HTTP 客户端实现来提供给 `qiniu-apis` 使用。
 
 ## 安装

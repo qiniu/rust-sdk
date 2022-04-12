@@ -73,7 +73,7 @@ impl HttpCaller for Client {
 }
 
 fn make_user_agent(request: &RequestParts) -> Result<HeaderValue, ResponseError> {
-    let user_agent = format!("{}/qiniu-http-ureq", request.user_agent());
+    let user_agent = format!("{}/qiniu-ureq", request.user_agent());
     HeaderValue::from_str(&user_agent).map_err(|err| build_header_value_error(request, &user_agent, err))
 }
 

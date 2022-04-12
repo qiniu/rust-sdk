@@ -24,7 +24,7 @@
     unused_qualifications
 )]
 
-//! # qiniu-http-reqwest
+//! # qiniu-reqwest
 //!
 //! ## 七牛 Reqwest HTTP 客户端实现
 //!

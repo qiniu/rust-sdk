@@ -28,9 +28,9 @@
 //! 通过对七牛特有的状态码和响应头进行合理的处理和重试，竭力保证七牛 API 可以调用成功。
 //!
 //! 该接口库可以通过启用不同的功能来选择不同的客户端实现，
-//! 例如可以通过启用 `ureq` 功能导入 `qiniu-http-ureq` 库作为 HTTP 客户端，
-//! 通过启用 `reqwest` 功能导入 `qiniu-http-reqwest` 库作为 HTTP 客户端，
-//! 通过启用 `isahc` 功能导入 `qiniu-http-isahc` 库作为 HTTP 客户端，
+//! 例如可以通过启用 `ureq` 功能导入 `qiniu-ureq` 库作为 HTTP 客户端，
+//! 通过启用 `reqwest` 功能导入 `qiniu-reqwest` 库作为 HTTP 客户端，
+//! 通过启用 `isahc` 功能导入 `qiniu-isahc` 库作为 HTTP 客户端，
 //! 您也可以显式传入任何基于 `qiniu-http` 接口的 HTTP 客户端实现来提供给 `qiniu-http-client` 使用。
 //!
 //! `qiniu-http-client` 提供的功能主要分为两个大类：区域相关和 HTTP 客户端逻辑相关。
@@ -113,6 +113,40 @@
 //! [`LimitedBackoff`] 为一个 [`Backoff`] 实例增加上限和下限，即如果基础的 [`Backoff`] 实例返回的退避时长超过限制，则返回极限值；
 //! [`RandomizedBackoff`] 为一个 [`Backoff`] 实例返回的退避时长增加随机范围，即返回的退避时长随机化。
 //! 可以通过配置 [`HttpClientBuilder::backoff`] 来指定使用哪个退避器，如果不指定，默认使用 [`ExponentialBackoff`]，并使用 [`LimitedBackoff`] 和 [`RandomizedBackoff`] 对其进行包装。
+//!
+//! ### 功能描述
+//!
+//! #### `async`
+//!
+//! 启用异步接口。
+//!
+//! #### `ureq`
+//!
+//! 导入 `qiniu-ureq` 作为 HTTP 客户端。
+//!
+//! #### `isahc`
+//!
+//! 导入 `qiniu-isahc` 作为 HTTP 客户端。
+//!
+//! #### `reqwest`
+//!
+//! 导入 `qiniu-reqwest` 作为 HTTP 客户端。
+//!
+//! #### `c_ares`
+//!
+//! 启用 `c-ares` 库作为 DNS 解析器。
+//!
+//! #### `trust_dns`
+//!
+//! 启用 `trust-dns` 库作为 DNS 解析器。
+//!
+//! #### `dns-over-https`
+//!
+//! 启用 `trust-dns` 库作为 DNS 解析器，并使用 DOH 协议。
+//!
+//! #### `dns-over-tls`
+//!
+//! 启用 `trust-dns` 库作为 DNS 解析器，并使用 DOT 协议。
 //!
 //! ### 代码示例
 //!

@@ -24,7 +24,7 @@
     unused_qualifications
 )]
 
-//! # qiniu-http-ureq
+//! # qiniu-ureq
 //!
 //! ## 七牛 Ureq HTTP 客户端实现
 //!
@@ -107,7 +107,7 @@ mod tests {
                 }
 
                 assert!(user_agent.to_str().unwrap().starts_with("QiniuRust/"));
-                assert!(user_agent.to_str().unwrap().ends_with("/qiniu-http-ureq"));
+                assert!(user_agent.to_str().unwrap().ends_with("/qiniu-ureq"));
 
                 let mut resp_body = vec![0u8; BUF_LEN + MD5_LEN];
                 thread_rng().fill_bytes(&mut resp_body[..BUF_LEN]);

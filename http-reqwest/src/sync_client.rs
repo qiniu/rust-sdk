@@ -142,7 +142,7 @@ fn make_sync_reqwest_request(
 
 pub(super) fn make_user_agent(request: &RequestParts, suffix: &str) -> Result<HeaderValue, ResponseError> {
     HeaderValue::from_str(&format!(
-        "{}/qiniu-http-reqwest-{}/{}",
+        "{}/qiniu-reqwest-{}/{}",
         request.user_agent(),
         env!("CARGO_PKG_VERSION"),
         suffix
