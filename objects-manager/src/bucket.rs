@@ -70,6 +70,29 @@ impl Bucket {
 
     /// 创建列举操作构建器
     ///
+    /// ##### 阻塞代码示例
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    /// use futures::stream::TryStreamExt;
+    ///
+    /// # fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    /// let mut iter = bucket.list().iter();
+    /// while let Some(object) = iter.next() {
+    ///     let object = object?;
+    ///     println!("fsize: {:?}", object.get_size_as_u64());
+    ///     println!("hash: {:?}", object.get_hash_as_str());
+    ///     println!("mime_type: {:?}", object.get_mime_type_as_str());
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ##### 异步代码示例
+    ///
     /// ```
     /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
     /// use futures::stream::TryStreamExt;
@@ -94,6 +117,27 @@ impl Bucket {
 
     /// 创建对象元信息获取操作构建器
     ///
+    /// ##### 阻塞代码示例
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    ///
+    /// # fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// let response = bucket.stat_object("test-key").call()?;
+    /// let object = response.into_body();
+    /// println!("fsize: {}", object.get_size_as_u64());
+    /// println!("hash: {}", object.get_hash_as_str());
+    /// println!("mime_type: {}", object.get_mime_type_as_str());
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ##### 异步代码示例
+    ///
     /// ```
     /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
     ///
@@ -116,6 +160,23 @@ impl Bucket {
     }
 
     /// 创建对象复制操作构建器
+    ///
+    /// ##### 阻塞代码示例
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    ///
+    /// # fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.copy_object_to("test-key", "test-bucket-2", "test-key").call()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ##### 异步代码示例
     ///
     /// ```
     /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
@@ -141,6 +202,23 @@ impl Bucket {
 
     /// 创建对象移动操作构建器
     ///
+    /// ##### 阻塞代码示例
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    ///
+    /// # fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.move_object_to("test-key", "test-bucket-2", "test-key").call()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ##### 异步代码示例
+    ///
     /// ```
     /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
     ///
@@ -165,6 +243,23 @@ impl Bucket {
 
     /// 创建对象删除操作构建器
     ///
+    /// ##### 阻塞代码示例
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    ///
+    /// # fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.delete_object("test-key").call()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ##### 异步代码示例
+    ///
     /// ```
     /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
     ///
@@ -183,6 +278,23 @@ impl Bucket {
     }
 
     /// 创建对象解冻操作构建器
+    ///
+    /// ##### 阻塞代码示例
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    ///
+    /// # fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.restore_archived_object("test-key", 1).call()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ##### 异步代码示例
     ///
     /// ```
     /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
@@ -207,6 +319,23 @@ impl Bucket {
 
     /// 创建对象类型设置操作构建器
     ///
+    /// ##### 阻塞代码示例
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::{credential::Credential, upload_token::FileType}, ObjectsManager};
+    ///
+    /// # fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.set_object_type("test-key", FileType::Archive).call()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ##### 异步代码示例
+    ///
     /// ```
     /// use qiniu_objects_manager::{apis::{credential::Credential, upload_token::FileType}, ObjectsManager};
     ///
@@ -225,6 +354,23 @@ impl Bucket {
     }
 
     /// 创建对象状态设置操作构建器
+    ///
+    /// ##### 阻塞代码示例
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.modify_object_status("test-key", true).call()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ##### 异步代码示例
     ///
     /// ```
     /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
@@ -269,6 +415,23 @@ impl Bucket {
 
     /// 创建对象生命周期设置操作构建器
     ///
+    /// ##### 阻塞代码示例
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{AfterDays, apis::credential::Credential, ObjectsManager};
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    ///
+    /// bucket.modify_object_life_cycle("test-key").delete_after_days(AfterDays::new(5)).call()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ##### 异步代码示例
+    ///
     /// ```
     /// use qiniu_objects_manager::{AfterDays, apis::credential::Credential, ObjectsManager};
     ///
@@ -287,6 +450,34 @@ impl Bucket {
     }
 
     /// 创建批量操作
+    ///
+    /// ##### 阻塞代码示例
+    ///
+    /// ```
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager, OperationProvider};
+    ///
+    /// # fn example() -> anyhow::Result<()> {
+    /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let bucket = object_manager.bucket("test-bucket");
+    /// let mut ops = bucket.batch_ops();
+    /// ops.add_operation(bucket.stat_object("test-file-1"));
+    /// ops.add_operation(bucket.stat_object("test-file-2"));
+    /// ops.add_operation(bucket.stat_object("test-file-3"));
+    /// ops.add_operation(bucket.stat_object("test-file-4"));
+    /// ops.add_operation(bucket.stat_object("test-file-5"));
+    /// let mut iter = ops.call();
+    /// while let Some(object) = iter.next() {
+    ///     let object = object?;
+    ///     println!("fsize: {:?}", object.get_size_as_u64());
+    ///     println!("hash: {:?}", object.get_hash_as_str());
+    ///     println!("mime_type: {:?}", object.get_mime_type_as_str());
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ##### 异步代码示例
     ///
     /// ```
     /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager, OperationProvider};

@@ -24,6 +24,34 @@ const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 ///
 /// ### 存储空间域名查询器使用示例
 ///
+/// ##### 阻塞代码示例
+///
+/// ```
+/// # fn example() -> anyhow::Result<()> {
+/// use qiniu_credential::Credential;
+/// use qiniu_http_client::{Authorization, BucketRegionsQueryer, HttpClient, RegionsProviderEndpoints, ServiceName};
+/// use serde_json::Value;
+///
+/// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+/// let value: Value = HttpClient::default()
+///     .get(
+///         &[ServiceName::Rs],
+///         RegionsProviderEndpoints::new(
+///             BucketRegionsQueryer::new().query(credential.access_key().to_owned(), "test-bucket"),
+///         ),
+///     )
+///     .path("/stat/dGVzdC1idWNrZXQ6dGVzdC1rZXk=")
+///     .authorization(Authorization::v2(credential))
+///     .accept_json()
+///     .call()?
+///     .parse_json()?
+///     .into_body();
+/// # Ok(())
+/// # }
+/// ```
+///
+/// ##### 异步代码示例
+///
 /// ```
 /// # async fn example() -> anyhow::Result<()> {
 /// use qiniu_credential::Credential;

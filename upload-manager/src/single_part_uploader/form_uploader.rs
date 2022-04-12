@@ -32,6 +32,32 @@ use {
 ///
 /// ### 用表单上传器上传文件
 ///
+/// ##### 阻塞代码示例
+///
+/// ```
+/// use qiniu_upload_manager::{
+///     apis::credential::Credential, prelude::*, ObjectParams, UploadManager, UploadTokenSigner,
+/// };
+/// use std::time::Duration;
+///
+/// # fn example() -> anyhow::Result<()> {
+/// let bucket_name = "test-bucket";
+/// let object_name = "test-object";
+/// let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
+///     Credential::new("abcdefghklmnopq", "1234567890"),
+///     bucket_name,
+///     Duration::from_secs(3600),
+/// ))
+/// .build();
+/// let params = ObjectParams::builder().object_name(object_name).file_name(object_name).build();
+/// let mut uploader = upload_manager.form_uploader();
+/// uploader.upload_path("/home/qiniu/test.png", params)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// ##### 异步代码示例
+///
 /// ```
 /// use qiniu_upload_manager::{
 ///     apis::credential::Credential, prelude::*, ObjectParams, UploadManager, UploadTokenSigner,

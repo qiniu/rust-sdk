@@ -17,6 +17,25 @@ const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 
 /// 七牛所有区域信息查询器
 ///
+/// ### 七牛所有区域信息查询器使用示例
+///
+/// ##### 阻塞代码示例
+///
+/// ```
+/// use qiniu_credential::Credential;
+/// use qiniu_http_client::{AllRegionsProvider, RegionsProvider};
+///
+/// # fn example() -> anyhow::Result<()> {
+/// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+/// let regions = AllRegionsProvider::builder(credential)
+///     .build()
+///     .get_all(Default::default())?;
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// ##### 异步代码示例
+///
 /// ```
 /// # async fn example() -> anyhow::Result<()> {
 /// use qiniu_credential::Credential;

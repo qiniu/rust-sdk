@@ -31,6 +31,32 @@ use super::AsyncRequestBuilder;
 ///
 /// ### 私有云获取当前账户的 Buckets 列表
 ///
+/// ##### 阻塞代码示例
+///
+/// ```
+/// use qiniu_credential::Credential;
+/// use qiniu_http_client::{Authorization, HttpClient, Region, RegionsProviderEndpoints, ServiceName};
+///
+/// # fn example() -> anyhow::Result<()> {
+/// let region = Region::builder("z0")
+///     .add_uc_preferred_endpoint("uc-qos.pocdemo.qiniu.io".parse()?)
+///     .build();
+/// let credential = Credential::new("abcdefghklmnopq", "1234567890");
+/// let bucket_names: Vec<String> = HttpClient::default()
+///     .get(&[ServiceName::Uc], RegionsProviderEndpoints::new(region))
+///     .use_https(false)
+///     .authorization(Authorization::v2(credential))
+///     .accept_json()
+///     .path("/buckets")
+///     .call()?
+///     .parse_json()?
+///     .into_body();
+/// # Ok(())
+/// # }
+/// ```
+///
+/// ##### 异步代码示例
+///
 /// ```
 /// use qiniu_credential::Credential;
 /// use qiniu_http_client::{Authorization, HttpClient, Region, RegionsProviderEndpoints, ServiceName};

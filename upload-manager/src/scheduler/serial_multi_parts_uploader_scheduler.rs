@@ -15,6 +15,36 @@ use futures::future::BoxFuture;
 ///
 /// ### 用串行分片上传调度器上传文件
 ///
+/// ###### 阻塞代码示例
+///
+/// ```
+/// use qiniu_upload_manager::{
+///     apis::credential::Credential, prelude::*, FileSystemResumableRecorder, MultiPartsV2Uploader,
+///     ObjectParams, SerialMultiPartsUploaderScheduler, UploadManager, UploadTokenSigner,
+/// };
+/// use std::time::Duration;
+///
+/// # fn example() -> anyhow::Result<()> {
+/// let bucket_name = "test-bucket";
+/// let object_name = "test-object";
+/// let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
+///     Credential::new("abcdefghklmnopq", "1234567890"),
+///     bucket_name,
+///     Duration::from_secs(3600),
+/// ))
+/// .build();
+/// let params = ObjectParams::builder().object_name(object_name).file_name(object_name).build();
+/// let mut scheduler = SerialMultiPartsUploaderScheduler::new(MultiPartsV2Uploader::new(
+///     upload_manager,
+///     FileSystemResumableRecorder::default(),
+/// ));
+/// scheduler.upload_path("/home/qiniu/test.png", params)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// ###### 异步代码示例
+///
 /// ```
 /// use qiniu_upload_manager::{
 ///     apis::credential::Credential, prelude::*, FileSystemResumableRecorder, MultiPartsV2Uploader,
