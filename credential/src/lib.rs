@@ -73,7 +73,7 @@
 //!         &Method::GET,
 //!         &"http://upload.qiniup.com/".parse()?,
 //!         &headers,
-//!         &b"{\"name\":\"test\"}"[..],
+//!         b"{\"name\":\"test\"}".as_slice(),
 //!     );
 //! # Ok(())
 //! # }
@@ -313,7 +313,7 @@ impl Credential {
     ///         &Method::GET,
     ///         &"http://upload.qiniup.com/".parse()?,
     ///         &headers,
-    ///         &b"{\"name\":\"test\"}"[..],
+    ///         b"{\"name\":\"test\"}".as_slice(),
     ///     );
     /// # Ok(())
     /// # }

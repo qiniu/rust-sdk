@@ -41,7 +41,7 @@ impl<P: DataPartitionProvider + Default> Default for MultiplyDataPartitionProvid
 impl<P> MultiplyDataPartitionProvider<P> {
     /// 获取倍数
     #[inline]
-    pub fn multiply(&self) -> NonZeroU64 {
+    pub const fn multiply(&self) -> NonZeroU64 {
         self.multiply
     }
 }

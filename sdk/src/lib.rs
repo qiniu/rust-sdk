@@ -56,3 +56,24 @@ pub use qiniu_reqwest as reqwest;
 
 #[cfg(feature = "isahc")]
 pub use qiniu_isahc as isahc;
+
+/// 将所有 Trait 全部重新导出，方便统一导入
+pub mod prelude {
+    #[cfg(feature = "credential")]
+    pub use qiniu_credential::prelude::*;
+
+    #[cfg(feature = "upload-token")]
+    pub use qiniu_upload_token::prelude::*;
+
+    #[cfg(feature = "http")]
+    pub use qiniu_http::prelude::*;
+
+    #[cfg(feature = "http-client")]
+    pub use qiniu_http_client::prelude::*;
+
+    #[cfg(feature = "objects-manager")]
+    pub use qiniu_objects_manager::prelude::*;
+
+    #[cfg(feature = "upload-manager")]
+    pub use qiniu_upload_manager::prelude::*;
+}

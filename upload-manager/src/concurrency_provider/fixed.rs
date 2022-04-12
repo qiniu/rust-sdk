@@ -19,13 +19,13 @@ impl FixedConcurrencyProvider {
     ///
     /// 提供 [`NonZeroUsize`] 作为并发数类型。
     #[inline]
-    pub fn new_with_non_zero_concurrency(concurrency: NonZeroUsize) -> Self {
+    pub const fn new_with_non_zero_concurrency(concurrency: NonZeroUsize) -> Self {
         Self(concurrency)
     }
 
     /// 获取固定并发数
     #[inline]
-    pub fn fixed_concurrency(&self) -> NonZeroUsize {
+    pub const fn fixed_concurrency(&self) -> NonZeroUsize {
         self.0
     }
 }

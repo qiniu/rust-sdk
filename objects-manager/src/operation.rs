@@ -1273,9 +1273,9 @@ mod tests {
                     assert!(request.url().to_string().ends_with(&format!(
                         "/chgm/{}/mime/{}/cond/{}/x-qn-meta-MetaKey-1/{}",
                         &encode_entry("fakeobjectname"),
-                        &urlsafe(&b"text/plain"[..]),
-                        &urlsafe(&b"hash=fakehash&mime=text/html"[..]),
-                        &urlsafe(&b"MetaValue-1"[..]),
+                        &urlsafe(b"text/plain".as_slice()),
+                        &urlsafe(b"hash=fakehash&mime=text/html".as_slice()),
+                        &urlsafe(b"MetaValue-1".as_slice()),
                     )));
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)

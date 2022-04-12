@@ -24,7 +24,7 @@ impl<P> RandomizedBackoff<P> {
     ///
     /// 需要注意，提供的随机比率的分母必须大于 0。
     #[inline]
-    pub fn new(base_backoff: P, minification: Ratio<u8>, magnification: Ratio<u8>) -> Self {
+    pub const fn new(base_backoff: P, minification: Ratio<u8>, magnification: Ratio<u8>) -> Self {
         assert!(*minification.denom() > 0);
         assert!(*magnification.denom() > 0);
         Self {
@@ -36,19 +36,19 @@ impl<P> RandomizedBackoff<P> {
 
     /// 获取基础退避时长提供者
     #[inline]
-    pub fn base_backoff(&self) -> &P {
+    pub const fn base_backoff(&self) -> &P {
         &self.base_backoff
     }
 
     /// 获取最小随机比率
     #[inline]
-    pub fn minification(&self) -> Ratio<u8> {
+    pub const fn minification(&self) -> Ratio<u8> {
         self.minification
     }
 
     /// 获取最大随机比率
     #[inline]
-    pub fn magnification(&self) -> Ratio<u8> {
+    pub const fn magnification(&self) -> Ratio<u8> {
         self.magnification
     }
 }

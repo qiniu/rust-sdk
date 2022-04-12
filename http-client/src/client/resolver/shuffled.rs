@@ -15,7 +15,7 @@ pub struct ShuffledResolver<R: ?Sized> {
 impl<R> ShuffledResolver<R> {
     /// 创建域名解析随机混淆器
     #[inline]
-    pub fn new(base_resolver: R) -> Self {
+    pub const fn new(base_resolver: R) -> Self {
         Self { base_resolver }
     }
 }

@@ -578,7 +578,7 @@ mod tests {
         drop(file);
 
         let mut multipart = SyncMultipart::new()
-            .add_part("bytes1", SyncPart::bytes(&b"part1"[..]))
+            .add_part("bytes1", SyncPart::bytes(b"part1".as_slice()))
             .add_part("text1", SyncPart::text("value1"))
             .add_part(
                 "text2",
@@ -634,7 +634,7 @@ mod tests {
         drop(file);
 
         let mut multipart = AsyncMultipart::new()
-            .add_part("bytes1", AsyncPart::bytes(&b"part1"[..]))
+            .add_part("bytes1", AsyncPart::bytes(b"part1".as_slice()))
             .add_part("text1", AsyncPart::text("value1"))
             .add_part(
                 "text2",

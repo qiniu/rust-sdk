@@ -51,13 +51,13 @@ impl<R> LimitedRetrier<R> {
     ///
     /// 与 [`LimitedRetrier::limit_current_endpoint`] 等效
     #[inline]
-    pub fn new(retrier: R, retries: usize) -> Self {
+    pub const fn new(retrier: R, retries: usize) -> Self {
         Self::limit_current_endpoint(retrier, retries)
     }
 
     /// 创建限制当前终端地址的重试次数的受限重试器
     #[inline]
-    pub fn limit_current_endpoint(retrier: R, retries: usize) -> Self {
+    pub const fn limit_current_endpoint(retrier: R, retries: usize) -> Self {
         Self {
             retrier,
             retries,
@@ -67,7 +67,7 @@ impl<R> LimitedRetrier<R> {
 
     /// 创建限制总的的重试次数的受限重试器
     #[inline]
-    pub fn limit_total(retrier: R, retries: usize) -> Self {
+    pub const fn limit_total(retrier: R, retries: usize) -> Self {
         Self {
             retrier,
             retries,

@@ -25,13 +25,13 @@ impl FixedDataPartitionProvider {
     ///
     /// 提供 [`NonZeroU64`] 作为分片大小类型。
     #[inline]
-    pub fn new_with_non_zero_part_size(part_size: NonZeroU64) -> Self {
+    pub const fn new_with_non_zero_part_size(part_size: NonZeroU64) -> Self {
         Self(part_size)
     }
 
     /// 获取固定分片大小
     #[inline]
-    pub fn fixed_part_size(&self) -> NonZeroU64 {
+    pub const fn fixed_part_size(&self) -> NonZeroU64 {
         self.0
     }
 }

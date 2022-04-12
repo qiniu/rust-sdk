@@ -46,13 +46,13 @@ impl<P: DataPartitionProvider + Default> Default for LimitedDataPartitionProvide
 impl<P> LimitedDataPartitionProvider<P> {
     /// 获得分片大小下限
     #[inline]
-    pub fn min_part_size(&self) -> NonZeroU64 {
+    pub const fn min_part_size(&self) -> NonZeroU64 {
         self.min
     }
 
     /// 获得分片大小上限
     #[inline]
-    pub fn max_part_size(&self) -> NonZeroU64 {
+    pub const fn max_part_size(&self) -> NonZeroU64 {
         self.max
     }
 }
