@@ -12,7 +12,7 @@ pub(super) enum JsonType {
     /// 字符串（默认）
     String,
 
-    /// isize
+    /// 整型数字
     Integer,
 
     /// 浮点型数字

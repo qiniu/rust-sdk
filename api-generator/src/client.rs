@@ -84,7 +84,7 @@ enum RequestBody {
     /// 二进制数据调用
     BinaryData,
 
-    /// 文本文件调用
+    /// 文本数据调用
     PlainText,
 }
 
