@@ -5,6 +5,7 @@ authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technol
 edition = "2021"
 rust-version = "1.60.0"
 license = "MIT"
+repository = "https://github.com/qiniu/rust-sdk.git"
 homepage = "https://www.qiniu.com"
 description = "Qiniu SDK Utilities for Rust"
 keywords = ["qiniu", "storage"]
