@@ -5,7 +5,7 @@ mod never_empty_handed;
 mod shuffled;
 mod subnet;
 
-use super::super::regions::IpAddrWithPort;
+use super::super::regions::{DomainWithPort, IpAddrWithPort};
 use auto_impl::auto_impl;
 pub use feedback::ChooserFeedback;
 use std::{
@@ -35,7 +35,7 @@ pub trait Chooser: Debug + Sync + Send {
     #[inline]
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort], opts: ChooseOptions) -> BoxFuture<'a, ChosenResults> {
+    fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort], opts: ChooseOptions<'a>) -> BoxFuture<'a, ChosenResults> {
         Box::pin(async move { self.choose(ips, opts) })
     }
 
@@ -50,7 +50,42 @@ pub trait Chooser: Debug + Sync + Send {
 
 /// 选择 IP 地址列表的选项
 #[derive(Debug, Copy, Clone, Default)]
-pub struct ChooseOptions {}
+pub struct ChooseOptions<'a> {
+    domain: Option<&'a DomainWithPort>,
+}
+
+impl<'a> ChooseOptions<'a> {
+    /// 获取 IP 地址的域名
+    #[inline]
+    pub fn domain(&'a self) -> Option<&'a DomainWithPort> {
+        self.domain
+    }
+}
+
+/// 选择 IP 地址列表的选项构建器
+#[derive(Debug, Clone, Default)]
+pub struct ChooseOptionsBuilder<'a>(ChooseOptions<'a>);
+
+impl<'a> ChooseOptionsBuilder<'a> {
+    /// 创建选择 IP 地址列表的选项构建器
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 设置 IP 地址的域名
+    #[inline]
+    pub fn domain(&mut self, domain: &'a DomainWithPort) -> &mut Self {
+        self.0.domain = Some(domain);
+        self
+    }
+
+    /// 构建选择 IP 地址列表的选项
+    #[inline]
+    pub fn build(&self) -> ChooseOptions<'a> {
+        self.0
+    }
+}
 
 /// 经过选择的 IP 地址列表
 #[derive(Debug)]

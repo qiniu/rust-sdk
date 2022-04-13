@@ -333,14 +333,14 @@ pub use futures::io::AsyncRead;
 
 pub use client::{
     ApiResult, Authorization, AuthorizationError, AuthorizationProvider, AuthorizationResult, Backoff, BackoffOptions,
-    CachedResolver, CallbackContext, ChainedResolver, ChainedResolverBuilder, Chooser, ChooserFeedback,
-    CredentialAuthorizationV1, CredentialAuthorizationV2, DirectChooser, DownloadUrlCredentialAuthorization,
-    ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName, FixedBackoff, GotBackoffDuration,
-    HttpClient, HttpClientBuilder, Idempotent, IpChooser, IpChooserBuilder, LimitedBackoff, LimitedRetrier, Multipart,
-    NeverEmptyHandedChooser, NeverRetrier, Part, PartMetadata, QueryPair, QueryPairKey, QueryPairValue,
-    RandomizedBackoff, Ratio, RequestBuilder, RequestBuilderParts, RequestRetrier, RequestRetrierOptions,
-    ResolveAnswers, ResolveOptions, ResolveResult, Resolver, Response, ResponseError, ResponseErrorKind,
-    RetriedStatsInfo, RetryDecision, RetryResult, ShuffledChooser, ShuffledResolver, SimpleResolver,
+    CachedResolver, CallbackContext, ChainedResolver, ChainedResolverBuilder, ChooseOptions, ChooseOptionsBuilder,
+    Chooser, ChooserFeedback, CredentialAuthorizationV1, CredentialAuthorizationV2, DirectChooser,
+    DownloadUrlCredentialAuthorization, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName,
+    FixedBackoff, GotBackoffDuration, HttpClient, HttpClientBuilder, Idempotent, IpChooser, IpChooserBuilder,
+    LimitedBackoff, LimitedRetrier, Multipart, NeverEmptyHandedChooser, NeverRetrier, Part, PartMetadata, QueryPair,
+    QueryPairKey, QueryPairValue, RandomizedBackoff, Ratio, RequestBuilder, RequestBuilderParts, RequestRetrier,
+    RequestRetrierOptions, ResolveAnswers, ResolveOptions, ResolveResult, Resolver, Response, ResponseError,
+    ResponseErrorKind, RetriedStatsInfo, RetryDecision, RetryResult, ShuffledChooser, ShuffledResolver, SimpleResolver,
     SimplifiedCallbackContext, SubnetChooser, SubnetChooserBuilder, SyncMultipart, SyncPart, SyncPartBody,
     SyncRequestBody, SyncRequestBuilder, SyncResponse, TimeoutResolver, UploadTokenAuthorization, NO_BACKOFF,
 };

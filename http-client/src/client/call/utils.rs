@@ -46,10 +46,15 @@ pub(super) fn make_request<'r, B: Default + 'r>(
         .build()
 }
 
-pub(super) fn extract_ips_from(domain_or_ip: &DomainOrIpAddr) -> Cow<[IpAddrWithPort]> {
+pub(super) fn extract_ips_from(
+    domain_or_ip: &DomainOrIpAddr,
+) -> (Cow<'_, [IpAddrWithPort]>, Option<&'_ DomainWithPort>) {
     match domain_or_ip {
-        DomainOrIpAddr::Domain { resolved_ips, .. } => Cow::Borrowed(resolved_ips),
-        &DomainOrIpAddr::IpAddr(ip_addr) => Cow::Owned(vec![ip_addr]),
+        DomainOrIpAddr::Domain {
+            domain_with_port,
+            resolved_ips,
+        } => (Cow::Borrowed(resolved_ips), Some(domain_with_port)),
+        &DomainOrIpAddr::IpAddr(ip_addr) => (Cow::Owned(vec![ip_addr]), None),
     }
 }
 

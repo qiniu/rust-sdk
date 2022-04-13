@@ -1,4 +1,7 @@
-use super::super::{super::regions::IpAddrWithPort, ResponseError, RetriedStatsInfo};
+use super::super::{
+    super::regions::{DomainWithPort, IpAddrWithPort},
+    ResponseError, RetriedStatsInfo,
+};
 use qiniu_http::{Extensions, Metrics};
 
 /// 选择器反馈
@@ -7,6 +10,7 @@ use qiniu_http::{Extensions, Metrics};
 #[derive(Debug)]
 pub struct ChooserFeedback<'f> {
     ips: &'f [IpAddrWithPort],
+    domain: Option<&'f DomainWithPort>,
     retried: &'f RetriedStatsInfo,
     extensions: &'f mut Extensions,
     metrics: Option<&'f dyn Metrics>,
@@ -16,6 +20,7 @@ pub struct ChooserFeedback<'f> {
 impl<'f> ChooserFeedback<'f> {
     pub(in super::super::super) fn new(
         ips: &'f [IpAddrWithPort],
+        domain: Option<&'f DomainWithPort>,
         retried: &'f RetriedStatsInfo,
         extensions: &'f mut Extensions,
         metrics: Option<&'f dyn Metrics>,
@@ -23,6 +28,7 @@ impl<'f> ChooserFeedback<'f> {
     ) -> Self {
         Self {
             ips,
+            domain,
             retried,
             extensions,
             metrics,
@@ -34,6 +40,14 @@ impl<'f> ChooserFeedback<'f> {
     #[inline]
     pub fn ips(&'f self) -> &'f [IpAddrWithPort] {
         self.ips
+    }
+
+    /// 获取域名
+    ///
+    /// 如果不存在域名的话，则返回 [`None`]
+    #[inline]
+    pub fn domain(&'f self) -> Option<&'f DomainWithPort> {
+        self.domain
     }
 
     /// 获取重试统计信息

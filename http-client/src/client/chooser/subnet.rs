@@ -1,5 +1,8 @@
 use super::{
-    super::super::{regions::IpAddrWithPort, spawn::spawn},
+    super::super::{
+        regions::{DomainWithPort, IpAddrWithPort},
+        spawn::spawn,
+    },
     ChooseOptions, Chooser, ChooserFeedback, ChosenResults,
 };
 use dashmap::DashMap;
@@ -15,7 +18,10 @@ use std::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct BlacklistKey(IpAddrWithPort);
+struct BlacklistKey {
+    ip: IpAddrWithPort,
+    domain: Option<DomainWithPort>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Subnet(IpAddrWithPort);
@@ -80,19 +86,25 @@ impl SubnetChooser {
 }
 
 impl Chooser for SubnetChooser {
-    fn choose(&self, ips: &[IpAddrWithPort], _opts: ChooseOptions) -> ChosenResults {
+    fn choose(&self, ips: &[IpAddrWithPort], opts: ChooseOptions) -> ChosenResults {
         let mut need_to_shrink = false;
         let mut subnets_map: HashMap<Subnet, Vec<IpAddrWithPort>> = Default::default();
         for &ip in ips.iter() {
-            let black_key = BlacklistKey(ip);
-            let is_blocked = self.inner.blacklist.get(&black_key).map_or(false, |r| {
-                if r.value().blocked_at.elapsed() < self.inner.block_duration {
-                    true
-                } else {
-                    need_to_shrink = true;
-                    false
-                }
-            });
+            let is_blocked = self
+                .inner
+                .blacklist
+                .get(&BlacklistKey {
+                    ip,
+                    domain: opts.domain().cloned(),
+                })
+                .map_or(false, |r| {
+                    if r.value().blocked_at.elapsed() < self.inner.block_duration {
+                        true
+                    } else {
+                        need_to_shrink = true;
+                        false
+                    }
+                });
             if !is_blocked {
                 let subnet = self.get_network_address(ip);
                 if let Some(ips) = subnets_map.get_mut(&subnet) {
@@ -125,7 +137,10 @@ impl Chooser for SubnetChooser {
         if feedback.error().is_some() {
             for &ip in feedback.ips().iter() {
                 self.inner.blacklist.insert(
-                    BlacklistKey(ip),
+                    BlacklistKey {
+                        ip,
+                        domain: feedback.domain().cloned(),
+                    },
                     BlacklistValue {
                         blocked_at: Instant::now(),
                     },
@@ -133,7 +148,10 @@ impl Chooser for SubnetChooser {
             }
         } else {
             for &ip in feedback.ips().iter() {
-                self.inner.blacklist.remove(&BlacklistKey(ip));
+                self.inner.blacklist.remove(&BlacklistKey {
+                    ip,
+                    domain: feedback.domain().cloned(),
+                });
             }
         }
     }
@@ -281,7 +299,7 @@ impl SubnetChooserBuilder {
 #[cfg(test)]
 mod tests {
     use super::{
-        super::super::{ResponseError, ResponseErrorKind, RetriedStatsInfo},
+        super::super::{ChooseOptionsBuilder, ResponseError, ResponseErrorKind, RetriedStatsInfo},
         *,
     };
     use qiniu_http::Extensions;
@@ -304,10 +322,13 @@ mod tests {
     fn test_subnet_chooser() {
         env_logger::builder().is_test(true).try_init().ok();
         let all_ips = [SUBNET_1, SUBNET_2].concat();
+        let domain = DomainWithPort::new("fakedomain", None);
 
         let subnet_chooser = SubnetChooser::default();
         assert_eq!(
-            subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
+            subnet_chooser
+                .choose(&all_ips, ChooseOptionsBuilder::new().domain(&domain).build())
+                .into_ip_addrs(),
             SUBNET_1.to_vec()
         );
         subnet_chooser.feedback(ChooserFeedback::new(
@@ -315,13 +336,16 @@ mod tests {
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
             ],
+            Some(&domain),
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
             Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
-            subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
+            subnet_chooser
+                .choose(&all_ips, ChooseOptionsBuilder::new().domain(&domain).build())
+                .into_ip_addrs(),
             vec![
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 2)), None),
@@ -332,18 +356,22 @@ mod tests {
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 2)), None),
             ],
+            Some(&domain),
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
             Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
-            subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
+            subnet_chooser
+                .choose(&all_ips, ChooseOptionsBuilder::new().domain(&domain).build())
+                .into_ip_addrs(),
             vec![IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)]
         );
 
         subnet_chooser.feedback(ChooserFeedback::new(
             &[IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)],
+            Some(&domain),
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
@@ -351,13 +379,16 @@ mod tests {
         ));
         subnet_chooser.feedback(ChooserFeedback::new(
             &[IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)), None)],
+            Some(&domain),
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
             None,
         ));
         assert_eq!(
-            subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
+            subnet_chooser
+                .choose(&all_ips, ChooseOptionsBuilder::new().domain(&domain).build())
+                .into_ip_addrs(),
             vec![IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)), None)],
         );
     }
@@ -381,6 +412,7 @@ mod tests {
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
             ],
+            None,
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,

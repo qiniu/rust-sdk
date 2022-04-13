@@ -159,6 +159,7 @@ mod tests {
                 ))
                 .into(),
             ],
+            None,
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,

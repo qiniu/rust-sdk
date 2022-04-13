@@ -1,5 +1,8 @@
 use super::{
-    super::super::{regions::IpAddrWithPort, spawn::spawn},
+    super::super::{
+        regions::{DomainWithPort, IpAddrWithPort},
+        spawn::spawn,
+    },
     ChooseOptions, Chooser, ChooserFeedback, ChosenResults,
 };
 use dashmap::DashMap;
@@ -10,7 +13,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-type BlacklistKey = IpAddrWithPort;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct BlacklistKey {
+    ip: IpAddrWithPort,
+    domain: Option<DomainWithPort>,
+}
 
 #[derive(Debug, Clone)]
 struct BlacklistValue {
@@ -68,20 +75,26 @@ impl IpChooser {
 }
 
 impl Chooser for IpChooser {
-    fn choose(&self, ips: &[IpAddrWithPort], _opts: ChooseOptions) -> ChosenResults {
+    fn choose(&self, ips: &[IpAddrWithPort], opts: ChooseOptions) -> ChosenResults {
         let mut need_to_shrink = false;
         let filtered_ips: Vec<_> = ips
             .iter()
             .copied()
             .filter(|&ip| {
-                self.inner.blacklist.get(&ip).map_or(true, |r| {
-                    if r.value().blocked_at.elapsed() < self.inner.block_duration {
-                        false
-                    } else {
-                        need_to_shrink = true;
-                        true
-                    }
-                })
+                self.inner
+                    .blacklist
+                    .get(&BlacklistKey {
+                        ip,
+                        domain: opts.domain().cloned(),
+                    })
+                    .map_or(true, |r| {
+                        if r.value().blocked_at.elapsed() < self.inner.block_duration {
+                            false
+                        } else {
+                            need_to_shrink = true;
+                            true
+                        }
+                    })
             })
             .collect();
         do_some_work_async(&self.inner, need_to_shrink);
@@ -92,15 +105,21 @@ impl Chooser for IpChooser {
         if feedback.error().is_some() {
             for &ip in feedback.ips().iter() {
                 self.inner.blacklist.insert(
-                    ip,
+                    BlacklistKey {
+                        ip,
+                        domain: feedback.domain().cloned(),
+                    },
                     BlacklistValue {
                         blocked_at: Instant::now(),
                     },
                 );
             }
         } else {
-            for ip in feedback.ips().iter() {
-                self.inner.blacklist.remove(ip);
+            for &ip in feedback.ips().iter() {
+                self.inner.blacklist.remove(&BlacklistKey {
+                    ip,
+                    domain: feedback.domain().cloned(),
+                });
             }
         }
     }
@@ -205,7 +224,7 @@ impl IpChooserBuilder {
 #[cfg(test)]
 mod tests {
     use super::{
-        super::super::{ResponseError, ResponseErrorKind, RetriedStatsInfo},
+        super::super::{ChooseOptionsBuilder, ResponseError, ResponseErrorKind, RetriedStatsInfo},
         *,
     };
     use qiniu_http::Extensions;
@@ -222,8 +241,11 @@ mod tests {
         env_logger::builder().is_test(true).try_init().ok();
 
         let ip_chooser = IpChooser::default();
+        let domain = DomainWithPort::new("fakedomain", None);
         assert_eq!(
-            ip_chooser.choose(IPS_WITHOUT_PORT, Default::default()).into_ip_addrs(),
+            ip_chooser
+                .choose(IPS_WITHOUT_PORT, ChooseOptionsBuilder::new().domain(&domain).build())
+                .into_ip_addrs(),
             IPS_WITHOUT_PORT.to_vec()
         );
         ip_chooser.feedback(ChooserFeedback::new(
@@ -231,25 +253,31 @@ mod tests {
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
             ],
+            Some(&domain),
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
             Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
-            ip_chooser.choose(IPS_WITHOUT_PORT, Default::default()).into_ip_addrs(),
+            ip_chooser
+                .choose(IPS_WITHOUT_PORT, ChooseOptionsBuilder::new().domain(&domain).build())
+                .into_ip_addrs(),
             vec![IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)],
         );
 
         ip_chooser.feedback(ChooserFeedback::new(
             IPS_WITHOUT_PORT,
+            Some(&domain),
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
             Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
         ));
         assert_eq!(
-            ip_chooser.choose(IPS_WITHOUT_PORT, Default::default()).into_ip_addrs(),
+            ip_chooser
+                .choose(IPS_WITHOUT_PORT, ChooseOptionsBuilder::new().domain(&domain).build())
+                .into_ip_addrs(),
             vec![]
         );
 
@@ -258,13 +286,16 @@ mod tests {
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
             ],
+            Some(&domain),
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
             None,
         ));
         assert_eq!(
-            ip_chooser.choose(IPS_WITHOUT_PORT, Default::default()).into_ip_addrs(),
+            ip_chooser
+                .choose(IPS_WITHOUT_PORT, ChooseOptionsBuilder::new().domain(&domain).build())
+                .into_ip_addrs(),
             vec![
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
@@ -297,6 +328,7 @@ mod tests {
                     IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                     IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
                 ],
+                None,
                 &RetriedStatsInfo::default(),
                 &mut Extensions::default(),
                 None,

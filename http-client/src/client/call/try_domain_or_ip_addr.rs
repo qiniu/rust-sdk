@@ -1,6 +1,7 @@
 use super::{
     super::{
-        super::IpAddrWithPort, ChooserFeedback, RequestParts, RetriedStatsInfo, SimplifiedCallbackContext, SyncResponse,
+        super::{DomainWithPort, IpAddrWithPort},
+        ChooserFeedback, RequestParts, RetriedStatsInfo, SimplifiedCallbackContext, SyncResponse,
     },
     domain_or_ip_addr::DomainOrIpAddr,
     error::{TryError, TryErrorWithExtensions},
@@ -60,12 +61,13 @@ pub(super) fn try_domain_or_ip_addr(
 
     setup_callbacks!(parts, http_request);
 
-    let extracted_ips = extract_ips_from(domain_or_ip);
+    let (extracted_ips, domain) = extract_ips_from(domain_or_ip);
     match send_http_request(&mut http_request, parts, retried) {
         Ok(response) => {
             if !extracted_ips.is_empty() {
                 parts.http_client().chooser().feedback(make_positive_feedback(
                     &extracted_ips,
+                    domain,
                     &mut http_request,
                     response.metrics(),
                     retried,
@@ -77,6 +79,7 @@ pub(super) fn try_domain_or_ip_addr(
             if !extracted_ips.is_empty() {
                 parts.http_client().chooser().feedback(make_negative_feedback(
                     &extracted_ips,
+                    domain,
                     &mut http_request,
                     &err,
                     retried,
@@ -89,21 +92,24 @@ pub(super) fn try_domain_or_ip_addr(
 
 fn make_positive_feedback<'f>(
     ips: &'f [IpAddrWithPort],
+    domain: Option<&'f DomainWithPort>,
     parts: &'f mut HttpRequestParts,
     metrics: Option<&'f dyn Metrics>,
     retried: &'f RetriedStatsInfo,
 ) -> ChooserFeedback<'f> {
-    ChooserFeedback::new(ips, retried, parts.extensions_mut(), metrics, None)
+    ChooserFeedback::new(ips, domain, retried, parts.extensions_mut(), metrics, None)
 }
 
 fn make_negative_feedback<'f>(
     ips: &'f [IpAddrWithPort],
+    domain: Option<&'f DomainWithPort>,
     parts: &'f mut HttpRequestParts,
     err: &'f TryError,
     retried: &'f RetriedStatsInfo,
 ) -> ChooserFeedback<'f> {
     ChooserFeedback::new(
         ips,
+        domain,
         retried,
         parts.extensions_mut(),
         err.response_error().metrics(),
@@ -146,7 +152,7 @@ pub(super) async fn async_try_domain_or_ip_addr(
 
     setup_callbacks!(parts, http_request);
 
-    let extracted_ips = extract_ips_from(domain_or_ip);
+    let (extracted_ips, domain) = extract_ips_from(domain_or_ip);
     match async_send_http_request(&mut http_request, parts, retried).await {
         Ok(response) => {
             if !extracted_ips.is_empty() {
@@ -155,6 +161,7 @@ pub(super) async fn async_try_domain_or_ip_addr(
                     .chooser()
                     .async_feedback(make_positive_feedback(
                         &extracted_ips,
+                        domain,
                         &mut http_request,
                         response.metrics(),
                         retried,
@@ -168,7 +175,13 @@ pub(super) async fn async_try_domain_or_ip_addr(
                 parts
                     .http_client()
                     .chooser()
-                    .async_feedback(make_negative_feedback(&extracted_ips, &mut http_request, &err, retried))
+                    .async_feedback(make_negative_feedback(
+                        &extracted_ips,
+                        domain,
+                        &mut http_request,
+                        &err,
+                        retried,
+                    ))
                     .await;
             }
             Err(err.with_request(&mut http_request))

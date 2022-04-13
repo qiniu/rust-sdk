@@ -58,7 +58,7 @@ impl<C: Chooser> Chooser for NeverEmptyHandedChooser<C> {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort], opts: ChooseOptions) -> BoxFuture<'a, ChosenResults> {
+    fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort], opts: ChooseOptions<'a>) -> BoxFuture<'a, ChosenResults> {
         Box::pin(async move {
             let chosen = self.inner_chooser.async_choose(ips, opts).await;
             if chosen.is_empty() {
@@ -116,6 +116,7 @@ mod tests {
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
             ],
+            None,
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
@@ -128,6 +129,7 @@ mod tests {
 
         ip_chooser.feedback(ChooserFeedback::new(
             IPS_WITHOUT_PORT,
+            None,
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
