@@ -404,7 +404,8 @@ let bucket = object_manager.bucket(bucket_name);
 
 bucket
     .modify_object_life_cycle(object_name)
-    .delete_after_days(AfterDays::new(10))?;
+    .delete_after_days(AfterDays::new(10))
+    .call()?;
 ```
 
 #### 获取空间文件列表
