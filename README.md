@@ -498,7 +498,7 @@ while let Some(result) = iter.next() {
 }
 ```
 
-#### 批量删除文件类型
+#### 批量删除文件
 
 ```rust
 use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
