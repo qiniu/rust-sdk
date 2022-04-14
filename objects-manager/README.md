@@ -17,21 +17,21 @@
 
 ```toml
 [dependencies]
-qiniu-objects-manager = { version = "0.0.9", features = ["ureq"] }
+qiniu-objects-manager = { version = "0.1.0", features = ["ureq"] }
 ```
 
 ### 启用 Isahc 异步接口
 
 ```toml
 [dependencies]
-qiniu-objects-manager = { version = "0.0.9", features = ["async", "isahc"] }
+qiniu-objects-manager = { version = "0.1.0", features = ["async", "isahc"] }
 ```
 
 ### 启用 Reqwest 异步接口
 
 ```toml
 [dependencies]
-qiniu-objects-manager = { version = "0.0.9", features = ["async", "reqwest"] }
+qiniu-objects-manager = { version = "0.1.0", features = ["async", "reqwest"] }
 ```
 
 ### 其他功能
