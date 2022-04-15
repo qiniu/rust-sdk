@@ -237,6 +237,41 @@ let params = AutoUploaderObjectParams::builder()
 uploader.upload_path("/home/qiniu/test.mp4", params)?;
 ```
 
+#### 私有云上传
+
+```rust
+use qiniu_sdk::upload::{
+    apis::{
+        credential::Credential,
+        http_client::{EndpointsBuilder, HttpClient},
+    },
+    AutoUploader, AutoUploaderObjectParams, UploadManager, UploadTokenSigner,
+};
+use std::{time::Duration};
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let object_name = "object name";
+let credential = Credential::new(access_key, secret_key);
+let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_provider(
+    credential,
+    bucket_name,
+    Duration::from_secs(3600),
+))
+.uc_endpoints(
+    EndpointsBuilder::default()
+        .add_preferred_endpoint("ucpub-qos.pocdemo.qiniu.io".into()) // 私有云存储空间管理服务域名，可以添加多个
+        .build(),
+)
+.http_client(HttpClient::build_default().use_https(false).build()) // 私有云普遍使用 HTTP 协议，而 SDK 则默认为 HTTPS 协议
+.build();
+let mut uploader: AutoUploader = upload_manager.auto_uploader();
+
+let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
+uploader.upload_path("/home/qiniu/test.png", params)?;
+```
+
 ### 下载文件
 
 文件下载分为公开空间的文件下载和私有空间的文件下载。
@@ -418,6 +453,45 @@ let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
 let object_manager = ObjectsManager::builder(credential).build();
+let bucket = object_manager.bucket(bucket_name);
+
+let mut iter = bucket.list().iter();
+while let Some(entry) = iter.next() {
+    let entry = entry?;
+    println!(
+        "{}\n  hash: {}\n  size: {}\n  mime type: {}",
+        entry.get_key_as_str(),
+        entry.get_hash_as_str(),
+        entry.get_size_as_u64(),
+        entry.get_mime_type_as_str(),
+    );
+}
+```
+
+#### 私有云中获取空间文件列表
+
+```rust
+use qiniu_sdk::objects::{
+    apis::{
+        credential::Credential,
+        http_client::{EndpointsBuilder, HttpClient},
+    },
+    ObjectsManager,
+};
+use std::net::Ipv4Addr;
+
+let access_key = "access key";
+let secret_key = "secret key";
+let bucket_name = "bucket name";
+let credential = Credential::new(access_key, secret_key);
+let object_manager = ObjectsManager::builder(credential)
+    .uc_endpoints(
+        EndpointsBuilder::default()
+            .add_preferred_endpoint("ucpub-qos.pocdemo.qiniu.io".into()) // 私有云存储空间管理服务域名，可以添加多个
+            .build(),
+    )
+    .http_client(HttpClient::build_default().use_https(false).build()) // 私有云普遍使用 HTTP 协议，而 SDK 则默认为 HTTPS 协议
+    .build();
 let bucket = object_manager.bucket(bucket_name);
 
 let mut iter = bucket.list().iter();
