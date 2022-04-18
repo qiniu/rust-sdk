@@ -346,11 +346,12 @@ pub use client::{
 };
 pub use http::{CallbackResult, SyncResponseBody};
 pub use regions::{
-    AllRegionsProvider, BucketDomainsProvider, BucketDomainsQueryer, BucketDomainsQueryerBuilder,
-    BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder, DomainWithPort, DomainWithPortParseError,
-    Endpoint, EndpointParseError, Endpoints, EndpointsBuilder, EndpointsGetOptions, EndpointsGetOptionsBuilder,
-    EndpointsProvider, GotRegion, GotRegions, InvalidServiceName, IpAddrWithPort, IpAddrWithPortParseError, Region,
-    RegionBuilder, RegionsGetOptions, RegionsProvider, RegionsProviderEndpoints, ServiceName, StaticRegionsProvider,
+    AllRegionsProvider, AllRegionsProviderBuilder, BucketDomainsProvider, BucketDomainsQueryer,
+    BucketDomainsQueryerBuilder, BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,
+    DomainWithPort, DomainWithPortParseError, Endpoint, EndpointParseError, Endpoints, EndpointsBuilder,
+    EndpointsGetOptions, EndpointsGetOptionsBuilder, EndpointsProvider, GotRegion, GotRegions, InvalidServiceName,
+    IpAddrWithPort, IpAddrWithPortParseError, Region, RegionBuilder, RegionsGetOptions, RegionsProvider,
+    RegionsProviderEndpoints, ServiceName, StaticRegionsProvider,
 };
 pub use upload_token::{BucketName, ObjectName};
 

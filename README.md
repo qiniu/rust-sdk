@@ -264,7 +264,7 @@ let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_pr
         .add_preferred_endpoint("ucpub-qos.pocdemo.qiniu.io".into()) // 私有云存储空间管理服务域名，可以添加多个
         .build(),
 )
-.http_client(HttpClient::build_default().use_https(false).build()) // 私有云普遍使用 HTTP 协议，而 SDK 则默认为 HTTPS 协议
+.use_https(false) // 私有云普遍使用 HTTP 协议，而 SDK 则默认为 HTTPS 协议
 .build();
 let mut uploader: AutoUploader = upload_manager.auto_uploader();
 
@@ -490,7 +490,7 @@ let object_manager = ObjectsManager::builder(credential)
             .add_preferred_endpoint("ucpub-qos.pocdemo.qiniu.io".into()) // 私有云存储空间管理服务域名，可以添加多个
             .build(),
     )
-    .http_client(HttpClient::build_default().use_https(false).build()) // 私有云普遍使用 HTTP 协议，而 SDK 则默认为 HTTPS 协议
+    .use_https(false) // 私有云普遍使用 HTTP 协议，而 SDK 则默认为 HTTPS 协议
     .build();
 let bucket = object_manager.bucket(bucket_name);
 

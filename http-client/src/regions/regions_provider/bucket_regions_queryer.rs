@@ -152,6 +152,13 @@ impl BucketRegionsQueryerBuilder {
         self
     }
 
+    /// 是否启用 HTTPS 协议
+    ///
+    /// 默认为 HTTPS 协议
+    pub fn use_https(&mut self, use_https: bool) -> &mut Self {
+        self.http_client(HttpClient::build_default().use_https(use_https).build())
+    }
+
     /// 设置存储空间管理终端地址列表
     #[inline]
     pub fn uc_endpoints(&mut self, uc_endpoints: impl Into<Endpoints>) -> &mut Self {

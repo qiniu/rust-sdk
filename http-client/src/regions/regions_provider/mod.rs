@@ -18,7 +18,7 @@ mod bucket_regions_queryer;
 pub use bucket_regions_queryer::{BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder};
 
 mod all_regions_provider;
-pub use all_regions_provider::AllRegionsProvider;
+pub use all_regions_provider::{AllRegionsProvider, AllRegionsProviderBuilder};
 
 mod static_regions_provider;
 pub use static_regions_provider::StaticRegionsProvider;

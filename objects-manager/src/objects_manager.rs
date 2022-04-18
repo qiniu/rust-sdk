@@ -120,6 +120,13 @@ impl ObjectsManagerBuilder {
         self
     }
 
+    /// 是否启用 HTTPS 协议
+    ///
+    /// 默认为 HTTPS 协议
+    pub fn use_https(&mut self, use_https: bool) -> &mut Self {
+        self.http_client(HttpClient::build_default().use_https(use_https).build())
+    }
+
     /// 设置存储空间相关区域查询器
     #[inline]
     pub fn queryer(&mut self, queryer: BucketRegionsQueryer) -> &mut Self {
