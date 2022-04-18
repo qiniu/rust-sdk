@@ -15,6 +15,7 @@ members = [
     "api-examples",
     "objects-manager",
     "upload-manager",
+    "download-manager",
     "sdk",
 ]
 

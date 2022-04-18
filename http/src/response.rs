@@ -134,8 +134,8 @@ impl ResponseParts {
 
     /// 获取 HTTP 响应 Header
     #[inline]
-    pub fn header(&self, header_name: HeaderName) -> Option<&HeaderValue> {
-        self.headers().get(&header_name)
+    pub fn header(&self, header_name: &HeaderName) -> Option<&HeaderValue> {
+        self.headers().get(header_name)
     }
 
     pub(super) fn into_response_info(self) -> ResponseInfo {

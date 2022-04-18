@@ -1,3 +1,4 @@
+use qiniu_http::uri::Authority;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{self, Display},
@@ -85,6 +86,13 @@ impl From<(Box<str>, Option<NonZeroU16>)> for DomainWithPort {
     #[inline]
     fn from(domain_with_port: (Box<str>, Option<NonZeroU16>)) -> Self {
         Self::new(domain_with_port.0, domain_with_port.1)
+    }
+}
+
+impl From<Authority> for DomainWithPort {
+    #[inline]
+    fn from(authority: Authority) -> Self {
+        Self::new(authority.host(), authority.port_u16().and_then(NonZeroU16::new))
     }
 }
 
@@ -410,6 +418,13 @@ impl From<(Box<str>, NonZeroU16)> for Endpoint {
     #[inline]
     fn from(domain_with_port: (Box<str>, NonZeroU16)) -> Self {
         DomainWithPort::new(domain_with_port.0, Some(domain_with_port.1)).into()
+    }
+}
+
+impl From<Authority> for Endpoint {
+    #[inline]
+    fn from(authority: Authority) -> Self {
+        DomainWithPort::from(authority).into()
     }
 }
 

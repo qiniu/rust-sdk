@@ -43,7 +43,7 @@ impl RequestRetrier for ErrorRetrier {
                 509 | 573 => RetryDecision::Throttled,
                 _ => RetryDecision::TryNextServer,
             },
-            ResponseErrorKind::ParseResponseError => {
+            ResponseErrorKind::ParseResponseError | ResponseErrorKind::UnexpectedEof => {
                 if is_idempotent(request, opts.idempotent()) {
                     RetryDecision::RetryRequest
                 } else {

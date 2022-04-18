@@ -35,6 +35,9 @@ pub enum ErrorKind {
     /// 解析响应体错误
     ParseResponseError,
 
+    /// 响应体提前结束
+    UnexpectedEof,
+
     /// 疑似响应被劫持
     MaliciousResponse,
 
@@ -196,11 +199,11 @@ impl From<&HttpResponseParts> for XHeaders {
 }
 
 fn extract_x_log_from_response_parts(parts: &HttpResponseParts) -> Option<HeaderValue> {
-    parts.header(HeaderName::from_static(X_LOG_HEADER_NAME)).cloned()
+    parts.header(&HeaderName::from_static(X_LOG_HEADER_NAME)).cloned()
 }
 
 fn extract_x_reqid_from_response_parts(parts: &HttpResponseParts) -> Option<HeaderValue> {
-    parts.header(HeaderName::from_static(X_REQ_ID_HEADER_NAME)).cloned()
+    parts.header(&HeaderName::from_static(X_REQ_ID_HEADER_NAME)).cloned()
 }
 
 fn extract_metrics_from_response_parts(parts: &HttpResponseParts) -> Option<Box<dyn Metrics + 'static>> {
