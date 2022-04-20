@@ -7,7 +7,7 @@ use super::{
     },
     multipart::SyncMultipart,
     request_metadata::RequestMetadata,
-    Idempotent, QueryPair, QueryPairKey, QueryPairValue, SyncRequest,
+    Idempotent, QueryPair, QueryPairKey, QueryPairValue, SyncInnerRequest,
 };
 use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM, APPLICATION_WWW_FORM_URLENCODED};
 use qiniu_http::{
@@ -30,7 +30,7 @@ use {
     super::{
         super::{async_request_call, AsyncResponse},
         multipart::AsyncMultipart,
-        AsyncRequest,
+        AsyncInnerRequest,
     },
     futures::io::AsyncRead,
     qiniu_http::{AsyncRequestBody, AsyncReset},
@@ -702,8 +702,8 @@ impl<'r, E: EndpointsProvider + Clone + 'r> SyncRequestBuilder<'r, E> {
         request_call(self.build())
     }
 
-    pub(in super::super) fn build(&mut self) -> SyncRequest<'r, E> {
-        SyncRequest::new(
+    pub(in super::super) fn build(&mut self) -> SyncInnerRequest<'r, E> {
+        SyncInnerRequest::new(
             self.http_client,
             self.endpoints_provider.to_owned(),
             self.service_names,
@@ -817,8 +817,8 @@ impl<'r, E: EndpointsProvider + Clone + 'r> AsyncRequestBuilder<'r, E> {
         async_request_call(self.build()).await
     }
 
-    pub(in super::super) fn build(&mut self) -> AsyncRequest<'r, E> {
-        AsyncRequest::new(
+    pub(in super::super) fn build(&mut self) -> AsyncInnerRequest<'r, E> {
+        AsyncInnerRequest::new(
             self.http_client,
             self.endpoints_provider.to_owned(),
             self.service_names,

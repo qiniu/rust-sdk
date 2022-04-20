@@ -14,7 +14,7 @@ use qiniu_http::{
 };
 use std::{fmt, time::Duration};
 
-pub(in super::super) struct Request<'r, B: 'r, E: 'r> {
+pub(in super::super) struct InnerRequest<'r, B: 'r, E: 'r> {
     http_client: &'r HttpClient,
     endpoints_provider: E,
     service_names: &'r [ServiceName],
@@ -25,7 +25,7 @@ pub(in super::super) struct Request<'r, B: 'r, E: 'r> {
     extensions: Extensions,
 }
 
-impl<'r, B: 'r, E: 'r> Request<'r, B, E> {
+impl<'r, B: 'r, E: 'r> InnerRequest<'r, B, E> {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         http_client: &'r HttpClient,
@@ -49,9 +49,9 @@ impl<'r, B: 'r, E: 'r> Request<'r, B, E> {
         }
     }
 
-    pub(in super::super) fn split(self) -> (RequestParts<'r>, B, E, &'r [ServiceName], Extensions) {
+    pub(in super::super) fn split(self) -> (InnerRequestParts<'r>, B, E, &'r [ServiceName], Extensions) {
         (
-            RequestParts {
+            InnerRequestParts {
                 http_client: self.http_client,
                 callbacks: self.callbacks,
                 data: self.metadata,
@@ -66,14 +66,14 @@ impl<'r, B: 'r, E: 'r> Request<'r, B, E> {
 }
 
 #[derive(Debug)]
-pub(in super::super) struct RequestParts<'r> {
+pub(in super::super) struct InnerRequestParts<'r> {
     http_client: &'r HttpClient,
     callbacks: Callbacks<'r>,
     data: RequestMetadata<'r>,
     appended_user_agent: UserAgent,
 }
 
-impl<'r> SimplifiedCallbackContext for RequestParts<'r> {
+impl<'r> SimplifiedCallbackContext for InnerRequestParts<'r> {
     #[inline]
     fn use_https(&self) -> bool {
         self.data.use_https.unwrap_or_else(|| self.http_client.use_https())
@@ -125,7 +125,7 @@ impl<'r> SimplifiedCallbackContext for RequestParts<'r> {
     }
 }
 
-impl RequestParts<'_> {
+impl InnerRequestParts<'_> {
     pub(in super::super) fn http_client(&self) -> &HttpClient {
         self.http_client
     }
@@ -383,7 +383,7 @@ impl RequestParts<'_> {
     }
 }
 
-impl<'r, B: 'r, E: EndpointsProvider + 'r> fmt::Debug for Request<'r, B, E> {
+impl<'r, B: 'r, E: EndpointsProvider + 'r> fmt::Debug for InnerRequest<'r, B, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Request")
             .field("http_client", &self.http_client)

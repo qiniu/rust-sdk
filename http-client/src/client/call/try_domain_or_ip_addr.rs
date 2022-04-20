@@ -1,7 +1,7 @@
 use super::{
     super::{
         super::{DomainWithPort, IpAddrWithPort},
-        ChooserFeedback, RequestParts, RetriedStatsInfo, SimplifiedCallbackContext, SyncResponse,
+        ChooserFeedback, InnerRequestParts, RetriedStatsInfo, SimplifiedCallbackContext, SyncResponse,
     },
     domain_or_ip_addr::DomainOrIpAddr,
     error::{TryError, TryErrorWithExtensions},
@@ -41,7 +41,7 @@ macro_rules! setup_callbacks {
 
 pub(super) fn try_domain_or_ip_addr(
     domain_or_ip: &DomainOrIpAddr,
-    parts: &RequestParts<'_>,
+    parts: &InnerRequestParts<'_>,
     body: &mut SyncRequestBody<'_>,
     mut extensions: Extensions,
     retried: &mut RetriedStatsInfo,
@@ -127,7 +127,7 @@ use super::{
 #[cfg(feature = "async")]
 pub(super) async fn async_try_domain_or_ip_addr(
     domain_or_ip: &DomainOrIpAddr,
-    parts: &RequestParts<'_>,
+    parts: &InnerRequestParts<'_>,
     body: &mut AsyncRequestBody<'_>,
     mut extensions: Extensions,
     retried: &mut RetriedStatsInfo,

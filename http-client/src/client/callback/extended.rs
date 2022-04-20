@@ -1,5 +1,5 @@
 use super::{
-    super::{Authorization, Idempotent, QueryPair, RequestParts, RetriedStatsInfo},
+    super::{Authorization, Idempotent, InnerRequestParts, QueryPair, RetriedStatsInfo},
     context::CallbackContext,
     simplified::SimplifiedCallbackContext,
 };
@@ -41,7 +41,7 @@ pub trait ExtendedCallbackContext: CallbackContext {
 
 #[derive(Debug)]
 pub(in super::super) struct ExtendedCallbackContextImpl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq> {
-    request: &'reqref RequestParts<'req>,
+    request: &'reqref InnerRequestParts<'req>,
     http_request: &'httpreqref mut HttpRequestParts<'httpreq>,
     retried: &'retried RetriedStatsInfo,
 }
@@ -50,7 +50,7 @@ impl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
     ExtendedCallbackContextImpl<'reqref, 'req, 'retried, 'httpreqref, 'httpreq>
 {
     pub(in super::super) fn new(
-        request: &'reqref RequestParts<'req>,
+        request: &'reqref InnerRequestParts<'req>,
         http_request: &'httpreqref mut HttpRequestParts<'httpreq>,
         retried: &'retried RetriedStatsInfo,
     ) -> Self {

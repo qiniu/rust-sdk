@@ -1,6 +1,6 @@
 use super::{
     super::{
-        BackoffOptions, RequestParts, RequestRetrierOptions, ResponseError, RetriedStatsInfo, RetryDecision,
+        BackoffOptions, InnerRequestParts, RequestRetrierOptions, ResponseError, RetriedStatsInfo, RetryDecision,
         SimplifiedCallbackContext, SyncResponse,
     },
     error::TryError,
@@ -14,7 +14,7 @@ use std::{result::Result, thread::sleep, time::Duration};
 
 pub(super) fn send_http_request(
     http_request: &mut SyncHttpRequest<'_>,
-    parts: &RequestParts<'_>,
+    parts: &InnerRequestParts<'_>,
     retried: &mut RetriedStatsInfo,
 ) -> Result<SyncResponse, TryError> {
     loop {
@@ -48,7 +48,7 @@ pub(super) fn send_http_request(
 
     fn backoff(
         http_request: &mut SyncHttpRequest<'_>,
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         retried: &mut RetriedStatsInfo,
         err: &TryError,
     ) -> Result<(), TryError> {
@@ -86,7 +86,7 @@ fn need_retry_after_backoff(err: &TryError) -> bool {
 fn handle_response_error(
     response_error: ResponseError,
     http_parts: &mut HttpRequestParts,
-    parts: &RequestParts<'_>,
+    parts: &InnerRequestParts<'_>,
     retried: &mut RetriedStatsInfo,
 ) -> TryError {
     let retry_result = parts.http_client().request_retrier().retry(
@@ -108,7 +108,7 @@ mod async_send {
 
     pub(in super::super) async fn async_send_http_request(
         http_request: &mut AsyncHttpRequest<'_>,
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         retried: &mut RetriedStatsInfo,
     ) -> Result<AsyncResponse, TryError> {
         loop {
@@ -145,7 +145,7 @@ mod async_send {
 
         async fn backoff(
             http_request: &mut AsyncHttpRequest<'_>,
-            parts: &RequestParts<'_>,
+            parts: &InnerRequestParts<'_>,
             retried: &mut RetriedStatsInfo,
             err: &TryError,
         ) -> Result<(), TryError> {

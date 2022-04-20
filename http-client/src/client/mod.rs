@@ -57,4 +57,4 @@ use call::request_call;
 use call::async_request_call;
 
 use callback::{CallbackContextImpl, ExtendedCallbackContextImpl};
-use request::RequestParts;
+use request::InnerRequestParts;

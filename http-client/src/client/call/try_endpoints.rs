@@ -1,7 +1,7 @@
 use super::{
     super::{
         super::{DomainWithPort, Endpoint, IpAddrWithPort},
-        RequestParts, ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision, SyncResponse,
+        InnerRequestParts, ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision, SyncResponse,
     },
     domain_or_ip_addr::DomainOrIpAddr,
     error::{TryError, TryErrorWithExtensions},
@@ -15,7 +15,7 @@ use tap::TapFallible;
 
 pub(super) fn try_endpoints(
     endpoints: &[Endpoint],
-    parts: &RequestParts<'_>,
+    parts: &InnerRequestParts<'_>,
     body: &mut SyncRequestBody<'_>,
     mut extensions: Extensions,
     tried_ips: &mut IpAddrsSet,
@@ -78,7 +78,7 @@ pub(super) fn try_endpoints(
     fn try_domain_with_port(
         domain_with_port: &DomainWithPort,
         tried_ips: &mut IpAddrsSet,
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         body: &mut SyncRequestBody<'_>,
         extensions: &mut Extensions,
         retried: &mut RetriedStatsInfo,
@@ -110,7 +110,7 @@ pub(super) fn try_endpoints(
         fn with_resolver(
             domain_with_port: &DomainWithPort,
             tried_ips: &mut IpAddrsSet,
-            parts: &RequestParts<'_>,
+            parts: &InnerRequestParts<'_>,
             body: &mut SyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
@@ -163,7 +163,7 @@ pub(super) fn try_endpoints(
 
         fn without_resolver(
             domain_with_port: &DomainWithPort,
-            parts: &RequestParts<'_>,
+            parts: &InnerRequestParts<'_>,
             body: &mut SyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
@@ -193,7 +193,7 @@ pub(super) fn try_endpoints(
             domain_with_port: &DomainWithPort,
             remaining_ips: &mut IpAddrsSet,
             tried_ips: &mut IpAddrsSet,
-            parts: &RequestParts<'_>,
+            parts: &InnerRequestParts<'_>,
             body: &mut SyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
@@ -230,7 +230,7 @@ pub(super) fn try_endpoints(
     fn try_ips(
         ips: &[IpAddrWithPort],
         tried_ips: &mut IpAddrsSet,
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         body: &mut SyncRequestBody<'_>,
         extensions: &mut Extensions,
         retried: &mut RetriedStatsInfo,
@@ -274,7 +274,7 @@ pub(super) fn try_endpoints(
         fn try_remaining_ips(
             remaining_ips: &mut IpAddrsSet,
             tried_ips: &mut IpAddrsSet,
-            parts: &RequestParts<'_>,
+            parts: &InnerRequestParts<'_>,
             body: &mut SyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
@@ -315,7 +315,7 @@ pub(super) fn try_endpoints(
 
         fn try_single_ip(
             ip: IpAddrWithPort,
-            parts: &RequestParts<'_>,
+            parts: &InnerRequestParts<'_>,
             body: &mut SyncRequestBody,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
@@ -334,7 +334,7 @@ pub(super) fn try_endpoints(
 
     fn try_domain_or_single_ip(
         domain: &DomainOrIpAddr,
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         body: &mut SyncRequestBody<'_>,
         extensions: Extensions,
         retried: &mut RetriedStatsInfo,
@@ -369,7 +369,7 @@ use super::{
 #[cfg(feature = "async")]
 pub(super) async fn async_try_endpoints(
     endpoints: &[Endpoint],
-    parts: &RequestParts<'_>,
+    parts: &InnerRequestParts<'_>,
     body: &mut AsyncRequestBody<'_>,
     mut extensions: Extensions,
     tried_ips: &mut IpAddrsSet,
@@ -436,7 +436,7 @@ pub(super) async fn async_try_endpoints(
     async fn try_domain_with_port(
         domain_with_port: &DomainWithPort,
         tried_ips: &mut IpAddrsSet,
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         body: &mut AsyncRequestBody<'_>,
         extensions: &mut Extensions,
         retried: &mut RetriedStatsInfo,
@@ -470,7 +470,7 @@ pub(super) async fn async_try_endpoints(
         async fn with_resolver(
             domain_with_port: &DomainWithPort,
             tried_ips: &mut IpAddrsSet,
-            parts: &RequestParts<'_>,
+            parts: &InnerRequestParts<'_>,
             body: &mut AsyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
@@ -526,7 +526,7 @@ pub(super) async fn async_try_endpoints(
 
         async fn without_resolver(
             domain_with_port: &DomainWithPort,
-            parts: &RequestParts<'_>,
+            parts: &InnerRequestParts<'_>,
             body: &mut AsyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
@@ -556,7 +556,7 @@ pub(super) async fn async_try_endpoints(
             domain_with_port: &DomainWithPort,
             remaining_ips: &mut IpAddrsSet,
             tried_ips: &mut IpAddrsSet,
-            parts: &RequestParts<'_>,
+            parts: &InnerRequestParts<'_>,
             body: &mut AsyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
@@ -596,7 +596,7 @@ pub(super) async fn async_try_endpoints(
     async fn try_ips(
         ips: &[IpAddrWithPort],
         tried_ips: &mut IpAddrsSet,
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         body: &mut AsyncRequestBody<'_>,
         extensions: &mut Extensions,
         retried: &mut RetriedStatsInfo,
@@ -642,7 +642,7 @@ pub(super) async fn async_try_endpoints(
         async fn try_remaining_ips(
             remaining_ips: &mut IpAddrsSet,
             tried_ips: &mut IpAddrsSet,
-            parts: &RequestParts<'_>,
+            parts: &InnerRequestParts<'_>,
             body: &mut AsyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
@@ -684,7 +684,7 @@ pub(super) async fn async_try_endpoints(
 
         async fn try_single_ip(
             ip: IpAddrWithPort,
-            parts: &RequestParts<'_>,
+            parts: &InnerRequestParts<'_>,
             body: &mut AsyncRequestBody<'_>,
             extensions: &mut Extensions,
             retried: &mut RetriedStatsInfo,
@@ -704,7 +704,7 @@ pub(super) async fn async_try_endpoints(
 
     async fn try_domain_or_single_ip(
         domain: &DomainOrIpAddr,
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         body: &mut AsyncRequestBody<'_>,
         extensions: Extensions,
         retried: &mut RetriedStatsInfo,
