@@ -36,7 +36,7 @@ pub enum Idempotent {
     Never,
 }
 
-pub use builder::{RequestBuilder, RequestBuilderParts, SyncRequestBuilder};
+pub use builder::{RequestBuilder, RequestBuilderParts, RequestParts, SyncRequestBuilder};
 pub(super) use built::{InnerRequest, InnerRequestParts};
 pub use multipart::{FieldName, FileName, Multipart, Part, PartMetadata, SyncMultipart, SyncPart, SyncPartBody};
 

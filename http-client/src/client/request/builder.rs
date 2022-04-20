@@ -308,6 +308,16 @@ impl<'r> RequestBuilderParts<'r> {
         self.callbacks.on_after_backoff(callback);
         self
     }
+
+    /// 构建为请求部分参数
+    #[inline]
+    pub fn build(self) -> RequestParts<'r> {
+        RequestParts {
+            metadata: self.metadata,
+            extensions: self.extensions,
+            appended_user_agent: self.appended_user_agent,
+        }
+    }
 }
 
 /// 请求构建器
@@ -602,6 +612,12 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         &mut self.parts
     }
 
+    /// 转换为 HTTP 请求构建器部分参数
+    #[inline]
+    pub fn into_parts(self) -> RequestBuilderParts<'r> {
+        self.parts
+    }
+
     fn get_appended_user_agent(&self) -> UserAgent {
         let mut appended_user_agent = self.http_client.appended_user_agent().to_owned();
         appended_user_agent.push_str(self.parts.appended_user_agent.as_str());
@@ -828,5 +844,79 @@ impl<'r, E: EndpointsProvider + Clone + 'r> AsyncRequestBuilder<'r, E> {
             self.get_appended_user_agent(),
             take(&mut self.parts.extensions),
         )
+    }
+}
+
+/// HTTP 请求部分参数
+///
+/// 包含 HTTP 请求内除请求体和终端地址提供者以外的参数
+#[derive(Default, Debug)]
+pub struct RequestParts<'r> {
+    metadata: RequestMetadata<'r>,
+    extensions: Extensions,
+    appended_user_agent: UserAgent,
+}
+
+impl CallbackContext for RequestParts<'_> {
+    #[inline]
+    fn extensions(&self) -> &Extensions {
+        &self.extensions
+    }
+
+    #[inline]
+    fn extensions_mut(&mut self) -> &mut Extensions {
+        &mut self.extensions
+    }
+}
+
+impl SimplifiedCallbackContext for RequestParts<'_> {
+    #[inline]
+    fn use_https(&self) -> bool {
+        self.metadata.use_https.unwrap_or(true)
+    }
+
+    #[inline]
+    fn method(&self) -> &Method {
+        &self.metadata.method
+    }
+
+    #[inline]
+    fn version(&self) -> Version {
+        self.metadata.version
+    }
+
+    #[inline]
+    fn path(&self) -> &str {
+        &self.metadata.path
+    }
+
+    #[inline]
+    fn query(&self) -> &str {
+        &self.metadata.query
+    }
+
+    #[inline]
+    fn query_pairs(&self) -> &[QueryPair] {
+        &self.metadata.query_pairs
+    }
+
+    #[inline]
+    fn headers(&self) -> &HeaderMap {
+        &self.metadata.headers
+    }
+
+    #[inline]
+    fn appended_user_agent(&self) -> &UserAgent {
+        &self.appended_user_agent
+    }
+
+    #[inline]
+    fn authorization(&self) -> Option<&Authorization> {
+        self.metadata.authorization.as_ref()
+    }
+
+    #[inline]
+    fn idempotent(&self) -> Idempotent {
+        self.metadata.idempotent
     }
 }
