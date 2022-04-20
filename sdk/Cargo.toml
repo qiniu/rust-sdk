@@ -26,6 +26,7 @@ qiniu-http-client = { version = "0.1.0", path = "../http-client", optional = tru
 qiniu-apis = { version = "0.1.0", path = "../apis", optional = true }
 qiniu-objects-manager = { version = "0.1.0", path = "../objects-manager", optional = true }
 qiniu-upload-manager = { version = "0.1.0", path = "../upload-manager", optional = true }
+qiniu-download-manager = { version = "0.1.0", path = "../download-manager", optional = true }
 
 [features]
 default = ["ureq"]
@@ -38,6 +39,7 @@ http-client = ["qiniu-http-client"]
 apis = ["qiniu-apis"]
 objects = ["qiniu-objects-manager"]
 upload = ["qiniu-upload-manager"]
+download = ["qiniu-download-manager"]
 async = ["qiniu-etag?/async", "qiniu-credential?/async", "qiniu-upload-token?/async", "qiniu-http?/async", "qiniu-isahc?/async", "qiniu-reqwest?/async", "qiniu-http-client?/async", "qiniu-apis?/async", "qiniu-objects-manager?/async", "qiniu-upload-manager?/async"]
 reqwest = ["qiniu-http-client?/reqwest", "qiniu-apis?/reqwest", "qiniu-objects-manager?/reqwest", "qiniu-upload-manager?/reqwest", "qiniu-reqwest"]
 isahc = ["qiniu-http-client?/isahc", "qiniu-apis?/isahc", "qiniu-objects-manager?/isahc", "qiniu-upload-manager?/isahc", "qiniu-isahc"]
