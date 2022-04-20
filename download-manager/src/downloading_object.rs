@@ -1552,7 +1552,7 @@ mod tests {
             let mut reader = get_download_manager(bytes)
                 .async_download("test-key")
                 .await?
-                .into_async_reader();
+                .into_async_read();
             let mut buf = Vec::new();
             reader.read_to_end(&mut buf).await?;
             let mut hasher = Sha1::new();

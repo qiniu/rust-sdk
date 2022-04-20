@@ -147,7 +147,7 @@ mod tests {
                     )?
                 };
                 assert_eq!(
-                    response.header(CONTENT_LENGTH).map(|h| h.as_bytes()),
+                    response.header(&CONTENT_LENGTH).map(|h| h.as_bytes()),
                     Some(format!("{}", BUF_LEN + MD5_LEN).as_bytes())
                 );
                 assert_eq!(last_uploaded.load(Relaxed), request_body.len() as u64);
