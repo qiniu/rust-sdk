@@ -1,6 +1,6 @@
+use qiniu_credential::HeaderValue;
 use qiniu_http::{
-    HeaderName, HeaderValue, Response as HttpResponse, ResponseErrorKind as HttpResponseErrorKind,
-    ResponseParts as HttpResponseParts,
+    Response as HttpResponse, ResponseErrorKind as HttpResponseErrorKind, ResponseParts as HttpResponseParts,
 };
 use serde::{de::DeserializeOwned, Deserialize};
 use std::{
@@ -56,13 +56,13 @@ impl<B> Response<B> {
     /// 获取 HTTP 响应的 X-ReqId 信息
     #[inline]
     pub fn x_reqid(&self) -> Option<&HeaderValue> {
-        self.header(&HeaderName::from_static(X_REQ_ID_HEADER_NAME))
+        self.header(X_REQ_ID_HEADER_NAME)
     }
 
     /// 获取 HTTP 响应的 X-Log 信息
     #[inline]
     pub fn x_log(&self) -> Option<&HeaderValue> {
-        self.header(&HeaderName::from_static(X_LOG_HEADER_NAME))
+        self.header(X_LOG_HEADER_NAME)
     }
 }
 

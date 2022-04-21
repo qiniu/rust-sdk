@@ -3,7 +3,7 @@ use super::{
     X_LOG_HEADER_NAME, X_REQ_ID_HEADER_NAME,
 };
 use qiniu_http::{
-    HeaderName, HeaderValue, Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
+    HeaderValue, Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
     ResponseParts as HttpResponseParts, StatusCode as HttpStatusCode,
 };
 use serde_json::Error as JsonError;
@@ -199,11 +199,11 @@ impl From<&HttpResponseParts> for XHeaders {
 }
 
 fn extract_x_log_from_response_parts(parts: &HttpResponseParts) -> Option<HeaderValue> {
-    parts.header(&HeaderName::from_static(X_LOG_HEADER_NAME)).cloned()
+    parts.header(X_LOG_HEADER_NAME).cloned()
 }
 
 fn extract_x_reqid_from_response_parts(parts: &HttpResponseParts) -> Option<HeaderValue> {
-    parts.header(&HeaderName::from_static(X_REQ_ID_HEADER_NAME)).cloned()
+    parts.header(X_REQ_ID_HEADER_NAME).cloned()
 }
 
 fn extract_metrics_from_response_parts(parts: &HttpResponseParts) -> Option<Box<dyn Metrics + 'static>> {

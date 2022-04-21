@@ -25,8 +25,7 @@ mod tests {
         ResponseErrorKind, ServiceName, NO_BACKOFF,
     };
     use qiniu_http::{
-        CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, ResponseErrorKind as HttpResponseErrorKind,
-        StatusCode,
+        CallbackResult, Extensions, HeaderMap, HeaderValue, ResponseErrorKind as HttpResponseErrorKind, StatusCode,
     };
     use std::{
         collections::{HashMap, HashSet},
@@ -322,14 +321,8 @@ mod tests {
 
         let headers = {
             let mut headers = HeaderMap::default();
-            headers.insert(
-                HeaderName::from_static(X_REQ_ID_HEADER_NAME),
-                HeaderValue::from_static("fake_req_id"),
-            );
-            headers.insert(
-                HeaderName::from_static(X_LOG_HEADER_NAME),
-                HeaderValue::from_static("fake_log"),
-            );
+            headers.insert(X_REQ_ID_HEADER_NAME, HeaderValue::from_static("fake_req_id"));
+            headers.insert(X_LOG_HEADER_NAME, HeaderValue::from_static("fake_log"));
             headers
         };
         let always_throttled_client = make_fixed_response_client_builder(
@@ -655,10 +648,7 @@ mod tests {
                 "location",
                 HeaderValue::from_static("https://another-fakedomain.withoutport.com/"),
             );
-            headers.insert(
-                HeaderName::from_static(X_REQ_ID_HEADER_NAME),
-                HeaderValue::from_static("fake_req_id"),
-            );
+            headers.insert(X_REQ_ID_HEADER_NAME, HeaderValue::from_static("fake_req_id"));
             headers
         };
         let always_redirected_client = make_fixed_response_client_builder(
@@ -759,10 +749,7 @@ mod tests {
 
         let headers = {
             let mut headers = HeaderMap::default();
-            headers.insert(
-                HeaderName::from_static(X_REQ_ID_HEADER_NAME),
-                HeaderValue::from_static("fake_req_id"),
-            );
+            headers.insert(X_REQ_ID_HEADER_NAME, HeaderValue::from_static("fake_req_id"));
             headers
         };
         let always_throttled_client = make_fixed_response_client_builder(

@@ -3,7 +3,7 @@ use super::{
     RetryDecision,
 };
 use http::{
-    header::{HeaderName, IntoHeaderName},
+    header::{IntoHeaderName, CONTENT_LENGTH, ETAG, RANGE},
     uri::Scheme,
     HeaderMap, HeaderValue, Uri,
 };
@@ -481,10 +481,6 @@ struct InnerReader {
     async_response: Option<ResponseInfo<AsyncResponseBody>>,
 }
 
-const ETAG_HEADER: &str = "etag";
-const RANGE_HEADER: &str = "range";
-const CONTENT_LENGTH_HEADER: &str = "content-length";
-
 impl InnerReader {
     fn read(&mut self, mut buf: &mut [u8]) -> DownloadResult<usize> {
         return if let Some(response) = &mut self.response {
@@ -689,9 +685,7 @@ impl InnerReader {
     }
 
     fn handle_response<B>(&mut self, response: Response<B>, uri: Uri) -> DownloadResult<ResponseInfo<B>> {
-        let etag_header = HeaderName::from_static(ETAG_HEADER);
-        let content_length_header = HeaderName::from_static(CONTENT_LENGTH_HEADER);
-        let content_length = if let Some(content_length) = response.header(&content_length_header) {
+        let content_length = if let Some(content_length) = response.header(CONTENT_LENGTH) {
             content_length
                 .to_str()
                 .ok()
@@ -714,7 +708,7 @@ impl InnerReader {
         if self.content_length.is_none() {
             self.content_length = Some(content_length);
         }
-        if let Some(etag) = response.header(&etag_header) {
+        if let Some(etag) = response.header(ETAG) {
             if let Some(first_etag) = &self.etag {
                 if first_etag != etag {
                     return Err(DownloadError::ContentChanged);
@@ -856,10 +850,7 @@ fn set_range_into_request(
             return;
         }
     };
-    request.set_header(
-        HeaderName::from_static(RANGE_HEADER),
-        HeaderValue::from_str(&value).unwrap(),
-    );
+    request.set_header(RANGE, HeaderValue::from_str(&value).unwrap());
 }
 
 fn before_request_call(callbacks: &Callbacks<'_>, builder_parts: &mut RequestBuilderParts) -> DownloadResult<()> {
