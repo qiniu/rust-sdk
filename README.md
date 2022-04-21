@@ -328,7 +328,7 @@ let secret_key = "secret key";
 let bucket_name = "bucket name";
 let object_name = "object name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 let response = bucket.stat_object(object_name).call()?;
@@ -349,7 +349,7 @@ let secret_key = "secret key";
 let bucket_name = "bucket name";
 let object_name = "object name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 bucket
@@ -371,7 +371,7 @@ let object_name = "object name";
 let to_bucket_name = "to bucket name";
 let to_object_name = "new object name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 bucket
@@ -393,7 +393,7 @@ let object_name = "object name";
 let to_bucket_name = "to bucket name";
 let to_object_name = "new object name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 bucket
@@ -411,7 +411,7 @@ let secret_key = "secret key";
 let bucket_name = "bucket name";
 let object_name = "object name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 bucket
@@ -431,7 +431,7 @@ let secret_key = "secret key";
 let bucket_name = "bucket name";
 let object_name = "object name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 bucket
@@ -449,7 +449,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 let mut iter = bucket.list().iter();
@@ -515,7 +515,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
 ops.add_operation(bucket.stat_object("qiniu.jpg"));
@@ -549,7 +549,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
 ops.add_operation(bucket.modify_object_metadata("qiniu.jpg", mime::IMAGE_JPEG));
@@ -578,7 +578,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
 ops.add_operation(bucket.delete_object("qiniu.jpg"));
@@ -607,7 +607,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
 ops.add_operation(bucket.move_object_to("qiniu.jpg", bucket_name, "qiniu.jpg.move"));
@@ -636,7 +636,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
 ops.add_operation(bucket.copy_object_to("qiniu.jpg", bucket_name, "qiniu.jpg.move"));
@@ -665,7 +665,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
 ops.add_operation(bucket.restore_archived_object("qiniu.jpg", 7));

@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
     let opt: Opt = Opt::from_args();
 
     let credential = Credential::new(&opt.access_key, &opt.secret_key);
-    let object_manager = ObjectsManager::builder(credential).build();
+    let object_manager = ObjectsManager::new(credential);
     let bucket = object_manager.bucket(opt.bucket_name);
 
     bucket

@@ -78,7 +78,7 @@ impl Bucket {
     ///
     /// # fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     /// let mut iter = bucket.list().iter();
     /// while let Some(object) = iter.next() {
@@ -99,7 +99,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     /// let mut stream = bucket.list().stream();
     /// while let Some(object) = stream.try_next().await? {
@@ -124,7 +124,7 @@ impl Bucket {
     ///
     /// # fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// let response = bucket.stat_object("test-key").call()?;
@@ -143,7 +143,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// let response = bucket.stat_object("test-key").async_call().await?;
@@ -168,7 +168,7 @@ impl Bucket {
     ///
     /// # fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.copy_object_to("test-key", "test-bucket-2", "test-key").call()?;
@@ -183,7 +183,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.copy_object_to("test-key", "test-bucket-2", "test-key").async_call().await?;
@@ -209,7 +209,7 @@ impl Bucket {
     ///
     /// # fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.move_object_to("test-key", "test-bucket-2", "test-key").call()?;
@@ -224,7 +224,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.move_object_to("test-key", "test-bucket-2", "test-key").async_call().await?;
@@ -250,7 +250,7 @@ impl Bucket {
     ///
     /// # fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.delete_object("test-key").call()?;
@@ -265,7 +265,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.delete_object("test-key").async_call().await?;
@@ -286,7 +286,7 @@ impl Bucket {
     ///
     /// # fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.restore_archived_object("test-key", 1).call()?;
@@ -301,7 +301,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.restore_archived_object("test-key", 1).async_call().await?;
@@ -326,7 +326,7 @@ impl Bucket {
     ///
     /// # fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.set_object_type("test-key", FileType::Archive).call()?;
@@ -341,7 +341,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.set_object_type("test-key", FileType::Archive).async_call().await?;
@@ -362,7 +362,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.modify_object_status("test-key", true).call()?;
@@ -377,7 +377,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.modify_object_status("test-key", true).async_call().await?;
@@ -397,7 +397,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.modify_object_metadata("test-key", APPLICATION_JSON).async_call().await?;
@@ -422,7 +422,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.modify_object_life_cycle("test-key").delete_after_days(AfterDays::new(5)).call()?;
@@ -437,7 +437,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     ///
     /// bucket.modify_object_life_cycle("test-key").delete_after_days(AfterDays::new(5)).async_call().await?;
@@ -458,7 +458,7 @@ impl Bucket {
     ///
     /// # fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     /// let mut ops = bucket.batch_ops();
     /// ops.add_operation(bucket.stat_object("test-file-1"));
@@ -485,7 +485,7 @@ impl Bucket {
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
-    /// let object_manager = ObjectsManager::builder(credential).build();
+    /// let object_manager = ObjectsManager::new(credential);
     /// let bucket = object_manager.bucket("test-bucket");
     /// let mut ops = bucket.batch_ops();
     /// ops.add_operation(bucket.stat_object("test-file-1"));
