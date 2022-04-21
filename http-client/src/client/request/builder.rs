@@ -11,7 +11,7 @@ use super::{
 };
 use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM, APPLICATION_WWW_FORM_URLENCODED};
 use qiniu_http::{
-    header::{ACCEPT, CONTENT_TYPE},
+    header::{IntoHeaderName, ACCEPT, CONTENT_TYPE},
     CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, Method, Reset, ResponseParts, StatusCode,
     SyncRequestBody, TransferProgressInfo, UserAgent, Version,
 };
@@ -78,15 +78,8 @@ impl<'r> RequestBuilderParts<'r> {
 
     /// 添加 HTTP 请求头
     #[inline]
-    pub fn set_header(
-        &mut self,
-        header_name: impl Into<HeaderName>,
-        header_value: impl Into<HeaderValue>,
-    ) -> &mut Self {
-        self.metadata
-            .headers
-            .to_mut()
-            .insert(header_name.into(), header_value.into());
+    pub fn set_header(&mut self, header_name: impl IntoHeaderName, header_value: impl Into<HeaderValue>) -> &mut Self {
+        self.metadata.headers.to_mut().insert(header_name, header_value.into());
         self
     }
 
@@ -384,11 +377,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
 
     /// 添加 HTTP 请求头
     #[inline]
-    pub fn set_header(
-        &mut self,
-        header_name: impl Into<HeaderName>,
-        header_value: impl Into<HeaderValue>,
-    ) -> &mut Self {
+    pub fn set_header(&mut self, header_name: impl IntoHeaderName, header_value: impl Into<HeaderValue>) -> &mut Self {
         self.parts.set_header(header_name, header_value);
         self
     }

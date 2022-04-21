@@ -2,7 +2,11 @@ use super::{
     download_callbacks::Callbacks, DownloadRetrier, DownloadRetrierOptions, ErrorRetrier, RetriedStatsInfo,
     RetryDecision,
 };
-use http::{header::HeaderName, uri::Scheme, HeaderValue, Uri};
+use http::{
+    header::{HeaderName, IntoHeaderName},
+    uri::Scheme,
+    HeaderMap, HeaderValue, Uri,
+};
 use qiniu_apis::{
     http::{
         uri::Parts as UriParts, ResponseErrorKind as HttpResponseErrorKind, ResponseParts as HttpResponseParts,
@@ -14,6 +18,7 @@ use qiniu_apis::{
     },
 };
 use std::{
+    borrow::Cow,
     fs::OpenOptions,
     io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult, Write},
     num::NonZeroU64,
@@ -39,6 +44,7 @@ pub struct DownloadingObject {
     urls_iter: IntoIter<Uri>,
     range_from: Option<NonZeroU64>,
     range_to: Option<NonZeroU64>,
+    headers: HeaderMap,
     callbacks: Callbacks<'static>,
     retrier: Option<Box<dyn DownloadRetrier>>,
 }
@@ -51,6 +57,7 @@ impl DownloadingObject {
             range_to: None,
             retrier: None,
             urls_iter: urls.into_iter(),
+            headers: Default::default(),
             callbacks: Default::default(),
         }
     }
@@ -81,6 +88,20 @@ impl DownloadingObject {
     #[inline]
     pub fn retrier(mut self, retrier: impl DownloadRetrier + 'static) -> Self {
         self.retrier = Some(Box::new(retrier));
+        self
+    }
+
+    /// 设置 HTTP 请求头
+    #[inline]
+    pub fn headers(mut self, headers: HeaderMap) -> Self {
+        self.headers = headers;
+        self
+    }
+
+    /// 添加 HTTP 请求头
+    #[inline]
+    pub fn set_header(mut self, header_name: impl IntoHeaderName, header_value: impl Into<HeaderValue>) -> Self {
+        self.headers.insert(header_name, header_value.into());
         self
     }
 
@@ -322,6 +343,7 @@ impl DownloadingObject {
         InnerReader {
             http_client: self.http_client,
             urls_iter: self.urls_iter,
+            headers: self.headers,
             callbacks: self.callbacks,
             range_from: self.range_from,
             range_to: self.range_to,
@@ -445,6 +467,7 @@ pub use async_reader::*;
 struct InnerReader {
     http_client: HttpClient,
     urls_iter: IntoIter<Uri>,
+    headers: HeaderMap,
     callbacks: Callbacks<'static>,
     retrier: Box<dyn DownloadRetrier>,
     retried: RetriedStatsInfo,
@@ -562,6 +585,7 @@ impl InnerReader {
             let mut request_builder = self.http_client.get(&[], make_endpoint_from_uri(&mut uri_parts)?);
 
             set_uri_into_request(request_builder.parts_mut(), &uri_parts)?;
+            set_headers_into_request(request_builder.parts_mut(), self.headers.to_owned());
             set_range_into_request(request_builder.parts_mut(), self.range_from, self.range_to);
             before_request_call(&self.callbacks, request_builder.parts_mut())?;
 
@@ -610,6 +634,7 @@ impl InnerReader {
             let mut request_builder = self.http_client.async_get(&[], make_endpoint_from_uri(&mut uri_parts)?);
 
             set_uri_into_request(request_builder.parts_mut(), &uri_parts)?;
+            set_headers_into_request(request_builder.parts_mut(), self.headers.to_owned());
             set_range_into_request(request_builder.parts_mut(), self.range_from, self.range_to);
             before_request_call(&self.callbacks, request_builder.parts_mut())?;
 
@@ -808,6 +833,10 @@ fn set_uri_into_request<'a>(request: &mut RequestBuilderParts<'a>, uri: &'a UriP
     Ok(())
 }
 
+fn set_headers_into_request(request: &mut RequestBuilderParts<'_>, headers: HeaderMap) {
+    request.headers(Cow::Owned(headers));
+}
+
 fn set_range_into_request(
     request: &mut RequestBuilderParts<'_>,
     range_from: Option<NonZeroU64>,
@@ -870,7 +899,7 @@ mod tests {
     use async_std::task::spawn_blocking;
     use futures::future::BoxFuture;
     use http::{
-        header::{CONTENT_LENGTH, ETAG, RANGE},
+        header::{CONTENT_LENGTH, ETAG, RANGE, REFERER},
         HeaderMap, StatusCode,
     };
     use qiniu_apis::{
@@ -903,19 +932,17 @@ mod tests {
         struct CounterHttpCaller(AtomicUsize);
 
         impl CounterHttpCaller {
-            fn handle<B: Default>(&self, url: &str, body: B) -> HttpResponseResult<B> {
+            fn handle<B: Default>(&self, url: &str, headers: &HeaderMap, body: B) -> HttpResponseResult<B> {
                 assert!(url.starts_with("http://127.0.0.1/test-key?e="));
                 assert!(url.contains("&token="));
+                assert_eq!(headers.get(REFERER).unwrap().to_str().unwrap(), "http://example.com");
                 if self.0.fetch_add(1, Ordering::Relaxed) > 0 {
                     return Err(
                         HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than once").build(),
                     );
                 }
                 Ok(HttpResponse::builder()
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("fake-reqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("fake-reqid"))
                     .header(CONTENT_LENGTH, HeaderValue::from_static("10"))
                     .header(ETAG, HeaderValue::from_static("fake-etag"))
                     .body(body)
@@ -927,6 +954,7 @@ mod tests {
             fn call(&self, request: &mut SyncHttpRequest<'_>) -> SyncHttpResponseResult {
                 self.handle(
                     &request.url().to_string(),
+                    request.headers(),
                     SyncHttpResponseBody::from_bytes(b"1234567890".to_vec()),
                 )
             }
@@ -939,6 +967,7 @@ mod tests {
                 Box::pin(async move {
                     self.handle(
                         &request.url().to_string(),
+                        request.headers(),
                         AsyncHttpResponseBody::from_bytes(b"1234567890".to_vec()),
                     )
                 })
@@ -946,7 +975,10 @@ mod tests {
         }
 
         spawn_blocking(|| {
-            let mut inner_reader = get_download_manager().download("test-key")?.into_inner_reader();
+            let mut inner_reader = get_download_manager()
+                .download("test-key")?
+                .set_header(REFERER, HeaderValue::from_static("http://example.com"))
+                .into_inner_reader();
             let mut buf = [0u8; 1024];
             assert_eq!(inner_reader.read(&mut buf)?, 10);
             assert_eq!(inner_reader.read(&mut buf)?, 0);
@@ -958,6 +990,7 @@ mod tests {
             let mut inner_reader = get_download_manager()
                 .async_download("test-key")
                 .await?
+                .set_header(REFERER, HeaderValue::from_static("http://example.com"))
                 .into_inner_reader();
             let mut buf = [0u8; 1024];
             assert_eq!(inner_reader.async_read(&mut buf).await?, 10);
@@ -991,10 +1024,7 @@ mod tests {
             fn handle<B: Default>(&self, headers: &HeaderMap, body_1: B, body_2: B) -> HttpResponseResult<B> {
                 let mut response_builder = HttpResponse::builder();
                 response_builder
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("fake-reqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("fake-reqid"))
                     .header(ETAG, HeaderValue::from_static("fake-etag"));
                 match self.0.fetch_add(1, Ordering::Relaxed) {
                     0 => Ok(response_builder
@@ -1114,10 +1144,7 @@ mod tests {
                 let called = self.0.fetch_add(1, Ordering::Relaxed);
                 let mut response_builder = HttpResponse::builder();
                 response_builder
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("fake-reqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("fake-reqid"))
                     .header(ETAG, HeaderValue::from_static("fake-etag"));
                 if url.starts_with("http://127.0.0.1/test-key") {
                     assert_eq!(called, 0);
@@ -1213,10 +1240,7 @@ mod tests {
                 match self.0.fetch_add(1, Ordering::Relaxed) {
                     0 => Ok(HttpResponse::builder()
                         .status_code(StatusCode::NOT_FOUND)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("fake-reqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("fake-reqid"))
                         .header(CONTENT_LENGTH, HeaderValue::from_static("16"))
                         .header(ETAG, HeaderValue::from_static("fake-etag"))
                         .body(body)
@@ -1309,10 +1333,7 @@ mod tests {
                 } else if url.starts_with("http://127.0.0.2/test-key") {
                     assert_eq!(called, 1);
                     Ok(HttpResponse::builder()
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("fake-reqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("fake-reqid"))
                         .header(CONTENT_LENGTH, HeaderValue::from_static("10"))
                         .header(ETAG, HeaderValue::from_static("fake-etag"))
                         .body(body)
@@ -1394,10 +1415,7 @@ mod tests {
         impl CounterHttpCaller {
             fn handle<B: Default>(&self, headers: &HeaderMap, body_1: B, body_2: B) -> HttpResponseResult<B> {
                 let mut request_builder = HttpResponse::builder();
-                request_builder.header(
-                    HeaderName::from_static("x-reqid"),
-                    HeaderValue::from_static("fake-reqid"),
-                );
+                request_builder.header("x-reqid", HeaderValue::from_static("fake-reqid"));
                 match self.0.fetch_add(1, Ordering::Relaxed) {
                     0 => Ok(request_builder
                         .header(CONTENT_LENGTH, HeaderValue::from_static("10"))
@@ -1506,10 +1524,7 @@ mod tests {
         impl BigFileHttpCaller {
             fn handle<B: Default>(&self, content_length: usize, body: B) -> HttpResponseResult<B> {
                 Ok(HttpResponse::builder()
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("fake-reqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("fake-reqid"))
                     .header(ETAG, HeaderValue::from_static("fake-etag"))
                     .header(
                         CONTENT_LENGTH,

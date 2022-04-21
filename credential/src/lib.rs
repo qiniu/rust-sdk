@@ -1203,28 +1203,19 @@ mod tests {
         let credential = get_global_credential();
         let empty_headers = {
             let mut headers = HeaderMap::new();
-            headers.insert(HeaderName::from_static("x-qbox-meta"), HeaderValue::from_str("value")?);
+            headers.insert("x-qbox-meta", HeaderValue::from_str("value")?);
             headers
         };
         let json_headers = {
             let mut headers = HeaderMap::new();
             headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
-            headers.insert(HeaderName::from_static("x-qbox-meta"), HeaderValue::from_str("value")?);
-            headers.insert(
-                HeaderName::from_static("x-qiniu-cxxxx"),
-                HeaderValue::from_str("valuec")?,
-            );
-            headers.insert(
-                HeaderName::from_static("x-qiniu-bxxxx"),
-                HeaderValue::from_str("valueb")?,
-            );
-            headers.insert(
-                HeaderName::from_static("x-qiniu-axxxx"),
-                HeaderValue::from_str("valuea")?,
-            );
-            headers.insert(HeaderName::from_static("x-qiniu-e"), HeaderValue::from_str("value")?);
-            headers.insert(HeaderName::from_static("x-qiniu-"), HeaderValue::from_str("value")?);
-            headers.insert(HeaderName::from_static("x-qiniu"), HeaderValue::from_str("value")?);
+            headers.insert("x-qbox-meta", HeaderValue::from_str("value")?);
+            headers.insert("x-qiniu-cxxxx", HeaderValue::from_str("valuec")?);
+            headers.insert("x-qiniu-bxxxx", HeaderValue::from_str("valueb")?);
+            headers.insert("x-qiniu-axxxx", HeaderValue::from_str("valuea")?);
+            headers.insert("x-qiniu-e", HeaderValue::from_str("value")?);
+            headers.insert("x-qiniu-", HeaderValue::from_str("value")?);
+            headers.insert("x-qiniu", HeaderValue::from_str("value")?);
             headers
         };
         let form_headers = {
@@ -1233,22 +1224,13 @@ mod tests {
                 CONTENT_TYPE,
                 HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?,
             );
-            headers.insert(HeaderName::from_static("x-qbox-meta"), HeaderValue::from_str("value")?);
-            headers.insert(
-                HeaderName::from_static("x-qiniu-cxxxx"),
-                HeaderValue::from_str("valuec")?,
-            );
-            headers.insert(
-                HeaderName::from_static("x-qiniu-bxxxx"),
-                HeaderValue::from_str("valueb")?,
-            );
-            headers.insert(
-                HeaderName::from_static("x-qiniu-axxxx"),
-                HeaderValue::from_str("valuea")?,
-            );
-            headers.insert(HeaderName::from_static("x-qiniu-e"), HeaderValue::from_str("value")?);
-            headers.insert(HeaderName::from_static("x-qiniu-"), HeaderValue::from_str("value")?);
-            headers.insert(HeaderName::from_static("x-qiniu"), HeaderValue::from_str("value")?);
+            headers.insert("x-qbox-meta", HeaderValue::from_str("value")?);
+            headers.insert("x-qiniu-cxxxx", HeaderValue::from_str("valuec")?);
+            headers.insert("x-qiniu-bxxxx", HeaderValue::from_str("valueb")?);
+            headers.insert("x-qiniu-axxxx", HeaderValue::from_str("valuea")?);
+            headers.insert("x-qiniu-e", HeaderValue::from_str("value")?);
+            headers.insert("x-qiniu-", HeaderValue::from_str("value")?);
+            headers.insert("x-qiniu", HeaderValue::from_str("value")?);
             headers
         };
         assert_eq!(
@@ -1550,28 +1532,19 @@ mod tests {
             let credential = get_global_credential();
             let empty_headers = {
                 let mut headers = HeaderMap::new();
-                headers.insert(HeaderName::from_static("x-qbox-meta"), HeaderValue::from_str("value")?);
+                headers.insert("x-qbox-meta", HeaderValue::from_str("value")?);
                 headers
             };
             let json_headers = {
                 let mut headers = HeaderMap::new();
                 headers.insert(CONTENT_TYPE, HeaderValue::from_str(APPLICATION_JSON.as_ref())?);
-                headers.insert(HeaderName::from_static("x-qbox-meta"), HeaderValue::from_str("value")?);
-                headers.insert(
-                    HeaderName::from_static("x-qiniu-cxxxx"),
-                    HeaderValue::from_str("valuec")?,
-                );
-                headers.insert(
-                    HeaderName::from_static("x-qiniu-bxxxx"),
-                    HeaderValue::from_str("valueb")?,
-                );
-                headers.insert(
-                    HeaderName::from_static("x-qiniu-axxxx"),
-                    HeaderValue::from_str("valuea")?,
-                );
-                headers.insert(HeaderName::from_static("x-qiniu-e"), HeaderValue::from_str("value")?);
-                headers.insert(HeaderName::from_static("x-qiniu-"), HeaderValue::from_str("value")?);
-                headers.insert(HeaderName::from_static("x-qiniu"), HeaderValue::from_str("value")?);
+                headers.insert("x-qbox-meta", HeaderValue::from_str("value")?);
+                headers.insert("x-qiniu-cxxxx", HeaderValue::from_str("valuec")?);
+                headers.insert("x-qiniu-bxxxx", HeaderValue::from_str("valueb")?);
+                headers.insert("x-qiniu-axxxx", HeaderValue::from_str("valuea")?);
+                headers.insert("x-qiniu-e", HeaderValue::from_str("value")?);
+                headers.insert("x-qiniu-", HeaderValue::from_str("value")?);
+                headers.insert("x-qiniu", HeaderValue::from_str("value")?);
                 headers
             };
             let form_headers = {
@@ -1580,22 +1553,13 @@ mod tests {
                     CONTENT_TYPE,
                     HeaderValue::from_str(APPLICATION_WWW_FORM_URLENCODED.as_ref())?,
                 );
-                headers.insert(HeaderName::from_static("x-qbox-meta"), HeaderValue::from_str("value")?);
-                headers.insert(
-                    HeaderName::from_static("x-qiniu-cxxxx"),
-                    HeaderValue::from_str("valuec")?,
-                );
-                headers.insert(
-                    HeaderName::from_static("x-qiniu-bxxxx"),
-                    HeaderValue::from_str("valueb")?,
-                );
-                headers.insert(
-                    HeaderName::from_static("x-qiniu-axxxx"),
-                    HeaderValue::from_str("valuea")?,
-                );
-                headers.insert(HeaderName::from_static("x-qiniu-e"), HeaderValue::from_str("value")?);
-                headers.insert(HeaderName::from_static("x-qiniu-"), HeaderValue::from_str("value")?);
-                headers.insert(HeaderName::from_static("x-qiniu"), HeaderValue::from_str("value")?);
+                headers.insert("x-qbox-meta", HeaderValue::from_str("value")?);
+                headers.insert("x-qiniu-cxxxx", HeaderValue::from_str("valuec")?);
+                headers.insert("x-qiniu-bxxxx", HeaderValue::from_str("valueb")?);
+                headers.insert("x-qiniu-axxxx", HeaderValue::from_str("valuea")?);
+                headers.insert("x-qiniu-e", HeaderValue::from_str("value")?);
+                headers.insert("x-qiniu-", HeaderValue::from_str("value")?);
+                headers.insert("x-qiniu", HeaderValue::from_str("value")?);
                 headers
             };
             assert_eq!(

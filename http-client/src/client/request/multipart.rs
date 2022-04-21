@@ -1,7 +1,10 @@
 use mime::Mime;
 use once_cell::sync::Lazy;
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
-use qiniu_http::{header::CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
+use qiniu_http::{
+    header::{IntoHeaderName, CONTENT_TYPE},
+    HeaderMap, HeaderValue,
+};
 use qiniu_utils::{smallstr::SmallString, wrap_smallstr};
 use rand::random;
 use regex::Regex;
@@ -154,8 +157,8 @@ impl PartMetadata {
     /// 添加表单组件的 HTTP 头
     #[inline]
     #[must_use]
-    pub fn add_header(mut self, name: impl Into<HeaderName>, value: impl Into<HeaderValue>) -> Self {
-        self.headers.insert(name.into(), value.into());
+    pub fn add_header(mut self, name: impl IntoHeaderName, value: impl Into<HeaderValue>) -> Self {
+        self.headers.insert(name, value.into());
         self
     }
 

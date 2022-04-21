@@ -973,8 +973,8 @@ mod tests {
     use qiniu_apis::{
         credential::Credential,
         http::{
-            AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult, HeaderName, HeaderValue, HttpCaller,
-            StatusCode, SyncRequest, SyncResponseResult,
+            AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult, HeaderValue, HttpCaller, StatusCode,
+            SyncRequest, SyncResponseResult,
         },
         http_client::{BucketName, DirectChooser, HttpClient, NeverRetrier, Region, NO_BACKOFF},
     };
@@ -1001,10 +1001,7 @@ mod tests {
                         .ends_with(&format!("/stat/{}", &encode_entry("fakeobjectname"))));
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(AsyncResponseBody::from_bytes(
                             json_to_vec(&json!({
                                 "fsize": 12345,
@@ -1049,10 +1046,7 @@ mod tests {
                     )));
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(AsyncResponseBody::from_bytes(vec![]))
                         .build())
                 })
@@ -1090,10 +1084,7 @@ mod tests {
                     )));
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(AsyncResponseBody::from_bytes(vec![]))
                         .build())
                 })
@@ -1129,10 +1120,7 @@ mod tests {
                         .ends_with(&format!("/delete/{}", &encode_entry("fakeobjectname"))));
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(AsyncResponseBody::from_bytes(vec![]))
                         .build())
                 })
@@ -1165,10 +1153,7 @@ mod tests {
                     )));
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(AsyncResponseBody::from_bytes(vec![]))
                         .build())
                 })
@@ -1201,10 +1186,7 @@ mod tests {
                         .ends_with(&format!("/chtype/{}/type/2", &encode_entry("fakeobjectname"))));
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(AsyncResponseBody::from_bytes(vec![]))
                         .build())
                 })
@@ -1240,10 +1222,7 @@ mod tests {
                         .ends_with(&format!("/chstatus/{}/status/1", &encode_entry("fakeobjectname"))));
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(AsyncResponseBody::from_bytes(vec![]))
                         .build())
                 })
@@ -1279,10 +1258,7 @@ mod tests {
                     )));
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(AsyncResponseBody::from_bytes(vec![]))
                         .build())
                 })
@@ -1321,10 +1297,7 @@ mod tests {
                     )));
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(AsyncResponseBody::from_bytes(vec![]))
                         .build())
                 })

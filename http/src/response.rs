@@ -2,7 +2,7 @@ use super::{MapError, ResponseError};
 use assert_impl::assert_impl;
 use auto_impl::auto_impl;
 use http::{
-    header::{HeaderMap, HeaderName, HeaderValue},
+    header::{AsHeaderName, HeaderMap, HeaderValue, IntoHeaderName},
     response::{Parts as HttpResponseParts, Response as HttpResponse},
     status::StatusCode,
     Extensions, Version,
@@ -134,7 +134,7 @@ impl ResponseParts {
 
     /// 获取 HTTP 响应 Header
     #[inline]
-    pub fn header(&self, header_name: &HeaderName) -> Option<&HeaderValue> {
+    pub fn header(&self, header_name: impl AsHeaderName) -> Option<&HeaderValue> {
         self.headers().get(header_name)
     }
 
@@ -363,8 +363,8 @@ impl<B> ResponseBuilder<B> {
 
     /// 添加 HTTP Header
     #[inline]
-    pub fn header(&mut self, header_name: HeaderName, header_value: HeaderValue) -> &mut Self {
-        self.inner.headers_mut().insert(header_name, header_value);
+    pub fn header(&mut self, header_name: impl IntoHeaderName, header_value: impl Into<HeaderValue>) -> &mut Self {
+        self.inner.headers_mut().insert(header_name, header_value.into());
         self
     }
 

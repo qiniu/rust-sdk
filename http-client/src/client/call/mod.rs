@@ -539,10 +539,7 @@ mod tests {
                 .post(&[ServiceName::Up], chaotic_up_domains_endpoint())
                 .authorization(Authorization::v2(credential.to_owned()))
                 .on_before_request_signed(|context| {
-                    assert!(context
-                        .headers()
-                        .get(&HeaderName::from_static("authorization"))
-                        .is_none());
+                    assert!(context.headers().get("authorization").is_none());
                     CallbackResult::Continue
                 })
                 .on_after_request_signed({
@@ -551,7 +548,7 @@ mod tests {
                         signed_urls.lock().unwrap().insert(context.url().to_string());
                         assert!(context
                             .headers()
-                            .get(&HeaderName::from_static("authorization"))
+                            .get("authorization")
                             .unwrap()
                             .to_str()
                             .unwrap()
@@ -570,10 +567,7 @@ mod tests {
                 .post(&[ServiceName::Up], chaotic_up_domains_endpoint())
                 .authorization(Authorization::v1(credential))
                 .on_before_request_signed(|context| {
-                    assert!(context
-                        .headers()
-                        .get(&HeaderName::from_static("authorization"))
-                        .is_none());
+                    assert!(context.headers().get("authorization").is_none());
                     CallbackResult::Continue
                 })
                 .on_after_request_signed({
@@ -581,7 +575,7 @@ mod tests {
                         signed_urls.lock().unwrap().insert(context.url().to_string());
                         assert!(context
                             .headers()
-                            .get(&HeaderName::from_static("authorization"))
+                            .get("authorization")
                             .unwrap()
                             .to_str()
                             .unwrap()
@@ -658,7 +652,7 @@ mod tests {
         let headers = {
             let mut headers = HeaderMap::new();
             headers.insert(
-                HeaderName::from_static("location"),
+                "location",
                 HeaderValue::from_static("https://another-fakedomain.withoutport.com/"),
             );
             headers.insert(
