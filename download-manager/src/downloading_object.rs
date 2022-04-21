@@ -232,7 +232,7 @@ impl DownloadingObject {
     /// # }
     /// ```
     pub fn to_writer(self, mut writer: impl Write) -> DownloadResult<()> {
-        let mut buf = [0u8; 8192];
+        let mut buf = [0u8; 1 << 15];
         let mut reader = self.into_inner_reader();
         loop {
             let n = reader.read(&mut buf)?;
@@ -268,7 +268,7 @@ impl DownloadingObject {
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub async fn to_async_writer(self, mut writer: impl AsyncWrite + Unpin) -> DownloadResult<()> {
-        let mut buf = [0u8; 8192];
+        let mut buf = [0u8; 1 << 15];
         let mut reader = self.into_inner_reader();
         loop {
             let n = reader.async_read(&mut buf).await?;
@@ -430,7 +430,7 @@ mod async_reader {
                         Ok(0) => {
                             let reader = self.inner.to_owned();
                             self.step = AsyncDownloadingObjectReaderStep::Waiting(Box::pin(async move {
-                                let mut buf = vec![0u8; 8192];
+                                let mut buf = vec![0u8; 1 << 20];
                                 let have_read = reader.lock().await.async_read(&mut buf).await?;
                                 buf.truncate(have_read);
                                 Ok(buf)
