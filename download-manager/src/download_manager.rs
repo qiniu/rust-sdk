@@ -58,11 +58,13 @@ impl<G: DownloadUrlsGenerator> DownloadManager<G> {
             .await?;
         Ok(DownloadingObject::new(self.http_client.to_owned(), urls))
     }
+}
 
+impl<G: Send + Sync> DownloadManager<G> {
     #[allow(dead_code)]
     fn assert() {
-        assert_impl!(Send: DownloadManager<G>);
-        assert_impl!(Sync: DownloadManager<G>);
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

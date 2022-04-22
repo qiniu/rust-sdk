@@ -2,6 +2,7 @@ use super::{
     super::super::{EndpointParseError, RetriedStatsInfo},
     X_LOG_HEADER_NAME, X_REQ_ID_HEADER_NAME,
 };
+use assert_impl::assert_impl;
 use qiniu_http::{
     HeaderValue, Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
     ResponseParts as HttpResponseParts, StatusCode as HttpStatusCode,
@@ -179,6 +180,12 @@ impl Error {
 
     pub(crate) fn from_endpoint_parse_error(error: EndpointParseError, parts: &HttpResponseParts) -> Self {
         Self::new(ErrorKind::ParseResponseError, error).response_parts(parts)
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

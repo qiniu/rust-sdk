@@ -30,8 +30,8 @@ impl EtagV2 {
 
     #[allow(dead_code)]
     fn assert() {
-        assert_impl!(Send: EtagV2);
-        assert_impl!(Sync: EtagV2);
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

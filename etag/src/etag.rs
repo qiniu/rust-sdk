@@ -23,8 +23,8 @@ pub enum Etag {
 impl Etag {
     #[allow(dead_code)]
     fn assert() {
-        assert_impl!(Send: Etag);
-        assert_impl!(Sync: Etag);
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

@@ -9,6 +9,7 @@ use super::{
     request_metadata::RequestMetadata,
     Idempotent, QueryPair, QueryPairKey, QueryPairValue, SyncInnerRequest,
 };
+use assert_impl::assert_impl;
 use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM, APPLICATION_WWW_FORM_URLENCODED};
 use qiniu_http::{
     header::{IntoHeaderName, ACCEPT, CONTENT_TYPE},
@@ -310,6 +311,12 @@ impl<'r> RequestBuilderParts<'r> {
             extensions: self.extensions,
             appended_user_agent: self.appended_user_agent,
         }
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
@@ -614,6 +621,14 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     }
 }
 
+impl<'r, B: Sync + Send + 'r, E: Sync + Send + 'r> RequestBuilder<'r, B, E> {
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
+}
+
 /// 阻塞请求构建器
 pub type SyncRequestBuilder<'r, E> = RequestBuilder<'r, SyncRequestBody<'r>, E>;
 
@@ -907,5 +922,13 @@ impl SimplifiedCallbackContext for RequestParts<'_> {
     #[inline]
     fn idempotent(&self) -> Idempotent {
         self.metadata.idempotent
+    }
+}
+
+impl RequestParts<'_> {
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }

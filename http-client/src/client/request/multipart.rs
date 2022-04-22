@@ -1,3 +1,4 @@
+use assert_impl::assert_impl;
 use mime::Mime;
 use once_cell::sync::Lazy;
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
@@ -139,6 +140,14 @@ impl<P> Multipart<P> {
     }
 }
 
+impl<P: Sync + Send> Multipart<P> {
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
+}
+
 /// Multipart 表单组件元信息
 #[derive(Default, Debug)]
 pub struct PartMetadata {
@@ -178,6 +187,14 @@ impl<B> Part<B> {
     pub fn metadata(mut self, metadata: PartMetadata) -> Self {
         self.meta = metadata;
         self
+    }
+}
+
+impl<B: Sync + Send> Part<B> {
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

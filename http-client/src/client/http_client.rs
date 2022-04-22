@@ -89,8 +89,8 @@ pub struct HttpClient {
 impl HttpClient {
     #[allow(dead_code)]
     fn assert() {
-        assert_impl!(Send: HttpClient);
-        assert_impl!(Sync: HttpClient);
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
@@ -609,6 +609,12 @@ impl HttpClientBuilder {
                 callbacks: self.callbacks.build(),
             }),
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

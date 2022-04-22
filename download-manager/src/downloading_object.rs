@@ -377,8 +377,8 @@ impl Read for DownloadingObjectReader {
 impl DownloadingObjectReader {
     #[allow(dead_code)]
     fn assert() {
-        assert_impl!(Send: DownloadingObjectReader);
-        // assert_impl!(Sync: DownloadingObjectReader);
+        assert_impl!(Send: Self);
+        // assert_impl!(Sync: Self);
     }
 }
 
@@ -408,9 +408,9 @@ mod async_reader {
     impl AsyncDownloadingObjectReader {
         #[allow(dead_code)]
         fn assert() {
-            assert_impl!(Send: AsyncDownloadingObjectReader);
-            // assert_impl!(Sync: AsyncDownloadingObjectReader);
-            assert_impl!(Unpin: AsyncDownloadingObjectReader);
+            assert_impl!(Send: Self);
+            // assert_impl!(Sync: Self);
+            assert_impl!(Unpin: Self);
         }
     }
 

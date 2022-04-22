@@ -1,3 +1,4 @@
+use assert_impl::assert_impl;
 use qiniu_credential::HeaderValue;
 use qiniu_http::{
     Response as HttpResponse, ResponseErrorKind as HttpResponseErrorKind, ResponseParts as HttpResponseParts,
@@ -79,6 +80,14 @@ impl<B> DerefMut for Response<B> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl<B: Sync + Send> Response<B> {
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

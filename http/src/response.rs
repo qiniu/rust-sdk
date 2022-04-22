@@ -392,6 +392,7 @@ impl<B: Default> ResponseBuilder<B> {
 }
 
 mod body {
+    use assert_impl::assert_impl;
     use std::{
         default::Default,
         fmt::Debug,
@@ -423,6 +424,12 @@ mod body {
         pub fn from_bytes(bytes: Vec<u8>) -> Self {
             Self(ResponseBodyInner::Bytes(Cursor::new(bytes)))
         }
+
+        #[allow(dead_code)]
+        fn ignore() {
+            assert_impl!(Send: Self);
+            // assert_impl!(Sync: Self);
+        }
     }
 
     impl Default for ResponseBody {
@@ -443,6 +450,7 @@ mod body {
 
     #[cfg(feature = "async")]
     mod async_body {
+        use assert_impl::assert_impl;
         use futures_lite::{
             io::{AsyncRead, Cursor, Result as IoResult},
             pin,
@@ -478,6 +486,12 @@ mod body {
             #[inline]
             pub fn from_bytes(bytes: Vec<u8>) -> Self {
                 Self(AsyncResponseBodyInner::Bytes(Cursor::new(bytes)))
+            }
+
+            #[allow(dead_code)]
+            fn ignore() {
+                assert_impl!(Send: Self);
+                assert_impl!(Sync: Self);
             }
         }
 
