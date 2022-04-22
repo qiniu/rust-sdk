@@ -95,6 +95,7 @@
 //! }
 //! ```
 
+use assert_impl::assert_impl;
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use hmac::{Hmac, Mac, NewMac};
@@ -403,6 +404,12 @@ impl Credential {
             }
             builder.path_and_query(&path_and_query).build().unwrap()
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
