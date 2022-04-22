@@ -742,7 +742,7 @@ type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send
 /// 认证信息获取接口
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait CredentialProvider: Clone + Debug + Sync + Send {
+pub trait CredentialProvider: Clone + Debug + Send {
     /// 返回七牛认证信息
     ///
     /// 该方法的异步版本为 [`Self::async_get`]。
@@ -753,7 +753,11 @@ pub trait CredentialProvider: Clone + Debug + Sync + Send {
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_get(&self, opts: GetOptions) -> AsyncIoResult<'_, GotCredential> {
-        Box::pin(async move { self.get(opts) })
+        let cred = dyn_clone::clone_box(self);
+        Box::pin(async move {
+            let c = cred;
+            c.get(opts)
+        })
     }
 }
 
@@ -928,13 +932,13 @@ impl Debug for EnvCredentialProvider {
 /// 将多个认证信息提供者串联，遍历并找寻第一个可用认证信息
 #[derive(Clone, Debug)]
 pub struct ChainCredentialsProvider {
-    credentials: Arc<[Box<dyn CredentialProvider>]>,
+    credentials: Arc<[Box<dyn CredentialProvider + Sync>]>,
 }
 
 impl ChainCredentialsProvider {
     /// 创建认证信息串提供者构建器
     #[inline]
-    pub fn builder(credential: impl CredentialProvider + 'static) -> ChainCredentialsProviderBuilder {
+    pub fn builder(credential: impl CredentialProvider + Sync + 'static) -> ChainCredentialsProviderBuilder {
         ChainCredentialsProviderBuilder::new(credential)
     }
 }
@@ -984,16 +988,16 @@ impl Default for ChainCredentialsProvider {
     }
 }
 
-impl FromIterator<Box<dyn CredentialProvider>> for ChainCredentialsProvider {
+impl FromIterator<Box<dyn CredentialProvider + Sync>> for ChainCredentialsProvider {
     #[inline]
-    fn from_iter<T: IntoIterator<Item = Box<dyn CredentialProvider>>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = Box<dyn CredentialProvider + Sync>>>(iter: T) -> Self {
         ChainCredentialsProviderBuilder::from_iter(iter).build()
     }
 }
 
 impl<'a> IntoIterator for &'a ChainCredentialsProvider {
-    type Item = &'a Box<dyn CredentialProvider + 'static>;
-    type IntoIter = std::slice::Iter<'a, Box<dyn CredentialProvider + 'static>>;
+    type Item = &'a Box<dyn CredentialProvider + Sync + 'static>;
+    type IntoIter = std::slice::Iter<'a, Box<dyn CredentialProvider + Sync + 'static>>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -1006,13 +1010,13 @@ impl<'a> IntoIterator for &'a ChainCredentialsProvider {
 /// 接受多个认证信息获取接口的实例并将他们串联成串联认证信息
 #[derive(Debug, Clone, Default)]
 pub struct ChainCredentialsProviderBuilder {
-    credentials: VecDeque<Box<dyn CredentialProvider + 'static>>,
+    credentials: VecDeque<Box<dyn CredentialProvider + Sync + 'static>>,
 }
 
 impl ChainCredentialsProviderBuilder {
     /// 构建新的串联认证信息构建器
     #[inline]
-    pub fn new(credential: impl CredentialProvider + 'static) -> Self {
+    pub fn new(credential: impl CredentialProvider + Sync + 'static) -> Self {
         let mut builder = Self::default();
         builder.append_credential(credential);
         builder
@@ -1020,14 +1024,14 @@ impl ChainCredentialsProviderBuilder {
 
     /// 将认证信息获取接口的实例推送到认证串末端
     #[inline]
-    pub fn append_credential(&mut self, credential: impl CredentialProvider + 'static) -> &mut Self {
+    pub fn append_credential(&mut self, credential: impl CredentialProvider + Sync + 'static) -> &mut Self {
         self.credentials.push_back(Box::new(credential));
         self
     }
 
     /// 将认证信息获取接口的实例推送到认证串顶端
     #[inline]
-    pub fn prepend_credential(&mut self, credential: impl CredentialProvider + 'static) -> &mut Self {
+    pub fn prepend_credential(&mut self, credential: impl CredentialProvider + Sync + 'static) -> &mut Self {
         self.credentials.push_front(Box::new(credential));
         self
     }
@@ -1045,18 +1049,18 @@ impl ChainCredentialsProviderBuilder {
     }
 }
 
-impl FromIterator<Box<dyn CredentialProvider>> for ChainCredentialsProviderBuilder {
+impl FromIterator<Box<dyn CredentialProvider + Sync>> for ChainCredentialsProviderBuilder {
     #[inline]
-    fn from_iter<T: IntoIterator<Item = Box<dyn CredentialProvider>>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = Box<dyn CredentialProvider + Sync>>>(iter: T) -> Self {
         ChainCredentialsProviderBuilder {
             credentials: VecDeque::from_iter(iter),
         }
     }
 }
 
-impl Extend<Box<dyn CredentialProvider>> for ChainCredentialsProviderBuilder {
+impl Extend<Box<dyn CredentialProvider + Sync>> for ChainCredentialsProviderBuilder {
     #[inline]
-    fn extend<T: IntoIterator<Item = Box<dyn CredentialProvider>>>(&mut self, iter: T) {
+    fn extend<T: IntoIterator<Item = Box<dyn CredentialProvider + Sync>>>(&mut self, iter: T) {
         self.credentials.extend(iter)
     }
 }

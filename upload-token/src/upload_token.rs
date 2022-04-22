@@ -34,7 +34,7 @@ type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send
 /// 可以阅读 <https://developer.qiniu.com/kodo/manual/1208/upload-token> 了解七牛安全机制。
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
+pub trait UploadTokenProvider: Clone + Debug + Send {
     /// 从上传凭证内获取 AccessKey
     ///
     /// 该方法的异步版本为 [`Self::async_access_key`]。
@@ -247,8 +247,10 @@ pub trait UploadTokenProviderExt: UploadTokenProvider {
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_bucket_name(&self, opts: GetPolicyOptions) -> AsyncParseResult<'_, BucketName> {
+        let provider = dyn_clone::clone_box(self);
         Box::pin(async move {
-            self.async_policy(opts).await.and_then(|policy| {
+            let policy = provider.async_policy(opts).await;
+            policy.and_then(|policy| {
                 policy
                     .bucket()
                     .map_or(Err(ParseError::InvalidUploadTokenFormat), |bucket_name| {
@@ -414,7 +416,7 @@ impl<C: CredentialProvider + Clone> UploadTokenProvider for FromUploadPolicy<C> 
     }
 }
 
-type OnPolicyGeneratedCallback = Arc<dyn Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static>;
+type OnPolicyGeneratedCallback = Arc<dyn Fn(&mut UploadPolicyBuilder) + Send + Sync + 'static>;
 
 /// 基于存储空间的动态生成
 ///
@@ -507,7 +509,7 @@ impl<C: Clone> BucketUploadTokenProviderBuilder<C> {
     /// 设置上传凭证回调函数
     #[inline]
     #[must_use]
-    pub fn on_policy_generated(mut self, callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static) -> Self {
+    pub fn on_policy_generated(mut self, callback: impl Fn(&mut UploadPolicyBuilder) + Send + Sync + 'static) -> Self {
         self.inner.on_policy_generated = Some(Arc::new(callback));
         self
     }
@@ -632,7 +634,7 @@ impl<C: Clone> ObjectUploadTokenProviderBuilder<C> {
     /// 设置上传凭证回调函数
     #[inline]
     #[must_use]
-    pub fn on_policy_generated(mut self, callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static) -> Self {
+    pub fn on_policy_generated(mut self, callback: impl Fn(&mut UploadPolicyBuilder) + Send + Sync + 'static) -> Self {
         self.inner.on_policy_generated = Some(Arc::new(callback));
         self
     }
@@ -754,14 +756,15 @@ macro_rules! sync_method {
 #[cfg(feature = "async")]
 macro_rules! async_method {
     ($provider:expr, $cache_field:ident, $opts_field:ident, $method_name:ident) => {{
+        let provider = dyn_clone::clone_box($provider);
         Box::pin(async move {
-            let mut cache = $provider.async_cache.0.$cache_field.lock().await;
+            let mut cache = provider.async_cache.0.$cache_field.lock().await;
             if let Some(cache) = &*cache {
-                if cache.cached_at.elapsed() < $provider.cache_lifetime {
+                if cache.cached_at.elapsed() < provider.cache_lifetime {
                     return Ok(cache.value.to_owned().into());
                 }
             }
-            match $provider.inner_provider.$method_name($opts_field).await {
+            match provider.inner_provider.$method_name($opts_field).await {
                 Ok(value) => {
                     *cache = Some(Cache {
                         cached_at: Instant::now(),
