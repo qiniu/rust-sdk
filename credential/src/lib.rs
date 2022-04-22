@@ -95,6 +95,7 @@
 //! }
 //! ```
 
+use assert_impl::assert_impl;
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use hmac::{Hmac, Mac, NewMac};
@@ -495,6 +496,12 @@ impl Credential {
     ) -> IoResult<String> {
         let authorization_token = sign_request_v2_with_async_body_reader(self, method, url, headers, body).await?;
         Ok("Qiniu ".to_owned() + &authorization_token)
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Credential);
+        assert_impl!(Sync: Credential);
     }
 }
 
