@@ -52,12 +52,9 @@ pub(super) fn spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Re
     }
 
     #[cfg(feature = "async")]
-    fn _spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Result<()> {
-        async_std::task::Builder::new()
-            .name(task_name)
-            .spawn(async move { f() })
-            .map(|_| ())
-            .map_err(|err| err.into())
+    fn _spawn<F: FnOnce() + Send + 'static>(_task_name: String, f: F) -> Result<()> {
+        async_std::task::spawn_blocking(f);
+        Ok(())
     }
 }
 

@@ -11,7 +11,7 @@ use async_std::{
     fs::{create_dir_all, File, OpenOptions},
     io::{BufReader, BufWriter},
     sync::{Mutex, RwLock},
-    task::spawn,
+    task::{spawn, spawn_blocking},
 };
 use crossbeam_queue::SegQueue;
 use fs4::async_std::AsyncFileExt;
@@ -93,22 +93,20 @@ impl<
         ) -> PersistentResult<RwLockedMap<K, CacheValue<V>>> {
             let mut cache = HashMap::new();
             let mut file = File::open(path).await?;
-            if file.try_lock_shared().is_ok() {
-                let mut lines = BufReader::new(&mut file).lines();
-                while let Some(line) = lines.try_next().await? {
-                    let entry: PersistentCacheEntry<K, V> = serde_json::from_str(&line)?;
-                    let (key, value) = entry.into_parts();
-                    if let Some(value) = value {
-                        if value.is_cache_valid(cache_lifetime) {
-                            cache.insert(key, value);
-                        }
-                    } else {
-                        cache.remove(&key);
+            file = spawn_blocking(move || file.lock_shared().map(|_| file)).await?;
+            let mut lines = BufReader::new(&mut file).lines();
+            while let Some(line) = lines.try_next().await? {
+                let entry: PersistentCacheEntry<K, V> = serde_json::from_str(&line)?;
+                let (key, value) = entry.into_parts();
+                if let Some(value) = value {
+                    if value.is_cache_valid(cache_lifetime) {
+                        cache.insert(key, value);
                     }
+                } else {
+                    cache.remove(&key);
                 }
-                file.unlock()?;
             }
-            drop(file);
+            file.unlock()?;
             Ok(RwLock::new(cache))
         }
     }
@@ -417,18 +415,14 @@ async fn do_some_work_with_locked_data<
                 create_dir_all(parent_dir).await?;
             }
             let mut file = OpenOptions::new().create(true).write(true).open(path).await?;
-            if file.lock_exclusive().is_ok() {
-                file.seek(SeekFrom::End(0)).await?;
-                let mut writer = BufWriter::new(file);
-                let result = _execute_commands(commands, &mut writer, cache_lifetime).await;
-                writer.flush().await?;
-                writer.get_mut().unlock()?;
-                drop(writer);
-                let _ = result?;
-                info!("AsyncCache was persisted to file {}", path.display())
-            } else {
-                info!("AsyncCache file {} was locked", path.display())
-            }
+            file = spawn_blocking(move || file.lock_exclusive().map(|_| file)).await?;
+            file.seek(SeekFrom::End(0)).await?;
+            let mut writer = BufWriter::new(file);
+            let result = _execute_commands(commands, &mut writer, cache_lifetime).await;
+            writer.flush().await?;
+            writer.get_mut().unlock()?;
+            let _ = result?;
+            info!("AsyncCache was persisted to file {}", path.display())
         }
         Ok(())
     }
