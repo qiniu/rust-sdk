@@ -99,3 +99,11 @@ impl<G> DownloadManagerBuilder<G> {
         }
     }
 }
+
+impl<G: Send + Sync> DownloadManagerBuilder<G> {
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
+}

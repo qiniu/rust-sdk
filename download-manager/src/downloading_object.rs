@@ -765,6 +765,14 @@ impl<B> InnerReader<B> {
     }
 }
 
+impl<B: Sync + Send> InnerReader<B> {
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
+}
+
 #[derive(Debug)]
 struct ResponseInfo<B> {
     body: B,
