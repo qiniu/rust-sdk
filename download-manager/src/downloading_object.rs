@@ -2,6 +2,7 @@ use super::{
     download_callbacks::Callbacks, DownloadRetrier, DownloadRetrierOptions, ErrorRetrier, RetriedStatsInfo,
     RetryDecision,
 };
+use assert_impl::assert_impl;
 use http::{
     header::{IntoHeaderName, CONTENT_LENGTH, ETAG, RANGE},
     uri::Scheme,
@@ -36,7 +37,9 @@ use {
 
 /// 准备下载的对象
 ///
-/// 可以在下载前设置范围参数或回调函数
+/// 可以在下载前设置范围参数或回调函数，以及写入数据的目标。
+/// 需要注意的是，生成该对象并不表示数据处于下载状态了，
+/// 下载将在调用 [`Self::to_path`]，[`Self::to_writer`]，[`DownloadingObjectReader::read`] 以后才正式开始。
 #[must_use]
 #[derive(Debug)]
 pub struct DownloadingObject {
@@ -149,7 +152,7 @@ impl DownloadingObject {
     ///
     /// 需要注意，如果文件已经存在，则会覆盖该文件，如果文件不存在，则会创建该文件。
     ///
-    /// 该方法的异步版本为 [`Self::async_write_to_path`]。
+    /// 该方法的异步版本为 [`Self::async_to_path`]。
     ///
     /// ### 代码示例
     ///
@@ -163,17 +166,17 @@ impl DownloadingObject {
     /// # ));
     /// download_manager
     ///     .download(object_name)?
-    ///     .write_to_path("/home/qiniu/test.png")?;
+    ///     .to_path("/home/qiniu/test.png")?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn write_to_path(self, path: impl AsRef<Path>) -> DownloadResult<()> {
-        let file = OpenOptions::new()
+    pub fn to_path(self, path: impl AsRef<Path>) -> DownloadResult<()> {
+        let mut file = OpenOptions::new()
             .write(true)
             .truncate(true)
             .create(true)
             .open(path.as_ref())?;
-        self.to_writer(file)
+        self.to_writer(&mut file)
     }
 
     /// 将下载的对象内容异步写入指定的文件系统路径
@@ -193,21 +196,21 @@ impl DownloadingObject {
     /// download_manager
     ///     .async_download(object_name)
     ///     .await?
-    ///     .async_write_to_path("/home/qiniu/test.png")
+    ///     .async_to_path("/home/qiniu/test.png")
     ///     .await?;
     /// # Ok(())
     /// # }
     /// ```
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub async fn async_write_to_path(self, path: impl AsRef<Path>) -> DownloadResult<()> {
-        let file = AsyncOpenOptions::new()
+    pub async fn async_to_path(self, path: impl AsRef<Path>) -> DownloadResult<()> {
+        let mut file = AsyncOpenOptions::new()
             .write(true)
             .truncate(true)
             .create(true)
             .open(path.as_ref())
             .await?;
-        self.to_async_writer(file).await
+        self.to_async_writer(&mut file).await
     }
 
     /// 将下载的对象内容写入指定的输出流
@@ -231,7 +234,7 @@ impl DownloadingObject {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn to_writer(self, mut writer: impl Write) -> DownloadResult<()> {
+    pub fn to_writer(self, writer: &mut dyn Write) -> DownloadResult<()> {
         let mut buf = [0u8; 1 << 15];
         let mut reader = self.into_inner_reader();
         loop {
@@ -267,7 +270,7 @@ impl DownloadingObject {
     /// ```
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub async fn to_async_writer(self, mut writer: impl AsyncWrite + Unpin) -> DownloadResult<()> {
+    pub async fn to_async_writer(self, writer: &mut (dyn AsyncWrite + Unpin)) -> DownloadResult<()> {
         let mut buf = [0u8; 1 << 15];
         let mut reader = self.into_inner_reader();
         loop {
@@ -339,7 +342,7 @@ impl DownloadingObject {
         AsyncDownloadingObjectReader::new(self.into_inner_reader())
     }
 
-    fn into_inner_reader(self) -> InnerReader {
+    fn into_inner_reader<B>(self) -> InnerReader<B> {
         InnerReader {
             http_client: self.http_client,
             urls_iter: self.urls_iter,
@@ -352,9 +355,6 @@ impl DownloadingObject {
             content_length: None,
             etag: None,
             response: None,
-
-            #[cfg(feature = "async")]
-            async_response: None,
         }
     }
 }
@@ -362,14 +362,23 @@ impl DownloadingObject {
 /// 下载对象的内容阅读器
 ///
 /// 实现了 [`Read`] 接口
+#[must_use]
 #[derive(Debug)]
-pub struct DownloadingObjectReader(InnerReader);
+pub struct DownloadingObjectReader(InnerReader<SyncResponseBody>);
 
 impl Read for DownloadingObjectReader {
     #[inline]
     fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
         let n = self.0.read(buf)?;
         Ok(n)
+    }
+}
+
+impl DownloadingObjectReader {
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: DownloadingObjectReader);
+        // assert_impl!(Sync: DownloadingObjectReader);
     }
 }
 
@@ -388,11 +397,21 @@ mod async_reader {
     /// 下载对象的内容阅读器
     ///
     /// 实现了 [`AsyncRead`] 接口
+    #[must_use]
     #[derive(Debug)]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub struct AsyncDownloadingObjectReader {
         step: AsyncDownloadingObjectReaderStep,
-        inner: Arc<Mutex<InnerReader>>,
+        inner: Arc<Mutex<InnerReader<AsyncResponseBody>>>,
+    }
+
+    impl AsyncDownloadingObjectReader {
+        #[allow(dead_code)]
+        fn assert() {
+            assert_impl!(Send: AsyncDownloadingObjectReader);
+            // assert_impl!(Sync: AsyncDownloadingObjectReader);
+            assert_impl!(Unpin: AsyncDownloadingObjectReader);
+        }
     }
 
     #[derive(SmartDefault)]
@@ -414,7 +433,7 @@ mod async_reader {
     }
 
     impl AsyncDownloadingObjectReader {
-        pub(super) fn new(inner: InnerReader) -> Self {
+        pub(super) fn new(inner: InnerReader<AsyncResponseBody>) -> Self {
             Self {
                 inner: Arc::new(Mutex::new(inner)),
                 step: Default::default(),
@@ -464,7 +483,7 @@ mod async_reader {
 pub use async_reader::*;
 
 #[derive(Debug)]
-struct InnerReader {
+struct InnerReader<B> {
     http_client: HttpClient,
     urls_iter: IntoIter<Uri>,
     headers: HeaderMap,
@@ -475,13 +494,10 @@ struct InnerReader {
     range_to: Option<NonZeroU64>,
     content_length: Option<u64>,
     etag: Option<HeaderValue>,
-    response: Option<ResponseInfo<SyncResponseBody>>,
-
-    #[cfg(feature = "async")]
-    async_response: Option<ResponseInfo<AsyncResponseBody>>,
+    response: Option<ResponseInfo<B>>,
 }
 
-impl InnerReader {
+impl InnerReader<SyncResponseBody> {
     fn read(&mut self, mut buf: &mut [u8]) -> DownloadResult<usize> {
         return if let Some(response) = &mut self.response {
             let unread = response.unread;
@@ -516,53 +532,13 @@ impl InnerReader {
         };
 
         fn make_request(
-            inner_reader: &mut InnerReader,
+            inner_reader: &mut InnerReader<SyncResponseBody>,
             buf: &mut [u8],
             original_err: Option<ResponseError>,
         ) -> DownloadResult<usize> {
             let response = inner_reader.make_request(original_err)?;
             inner_reader.response = Some(response);
             inner_reader.read(buf)
-        }
-    }
-
-    #[cfg(feature = "async")]
-    async fn async_read(&mut self, mut buf: &mut [u8]) -> DownloadResult<usize> {
-        loop {
-            if let Some(response) = &mut self.async_response {
-                let unread = response.unread;
-                if let Ok(unread) = usize::try_from(unread) {
-                    let to_read = buf.len().min(unread);
-                    buf = &mut buf[..to_read];
-                }
-                match response.body.read(buf).await {
-                    Ok(0) if response.unread == 0 => {
-                        return Ok(0);
-                    }
-                    Ok(0) => {
-                        let err = ResponseError::new(
-                            ResponseErrorKind::UnexpectedEof,
-                            format!("Transfer closed with {} bytes remaining to read", unread),
-                        );
-                        self.async_response = Some(self.make_async_request(Some(err)).await?);
-                    }
-                    Ok(have_read) => {
-                        return Self::handle_have_read(
-                            response,
-                            &buf[..have_read],
-                            &mut self.range_from,
-                            &self.callbacks,
-                        );
-                    }
-                    Err(err) => {
-                        let err =
-                            ResponseError::new(ResponseErrorKind::HttpError(HttpResponseErrorKind::ReceiveError), err);
-                        self.async_response = Some(self.make_async_request(Some(err)).await?);
-                    }
-                }
-            } else {
-                self.async_response = Some(self.make_async_request(None).await?);
-            };
         }
     }
 
@@ -610,14 +586,55 @@ impl InnerReader {
             }
         }
     }
+}
 
-    #[cfg(feature = "async")]
+#[cfg(feature = "async")]
+impl InnerReader<AsyncResponseBody> {
+    async fn async_read(&mut self, mut buf: &mut [u8]) -> DownloadResult<usize> {
+        loop {
+            if let Some(response) = &mut self.response {
+                let unread = response.unread;
+                if let Ok(unread) = usize::try_from(unread) {
+                    let to_read = buf.len().min(unread);
+                    buf = &mut buf[..to_read];
+                }
+                match response.body.read(buf).await {
+                    Ok(0) if response.unread == 0 => {
+                        return Ok(0);
+                    }
+                    Ok(0) => {
+                        let err = ResponseError::new(
+                            ResponseErrorKind::UnexpectedEof,
+                            format!("Transfer closed with {} bytes remaining to read", unread),
+                        );
+                        self.response = Some(self.make_async_request(Some(err)).await?);
+                    }
+                    Ok(have_read) => {
+                        return Self::handle_have_read(
+                            response,
+                            &buf[..have_read],
+                            &mut self.range_from,
+                            &self.callbacks,
+                        );
+                    }
+                    Err(err) => {
+                        let err =
+                            ResponseError::new(ResponseErrorKind::HttpError(HttpResponseErrorKind::ReceiveError), err);
+                        self.response = Some(self.make_async_request(Some(err)).await?);
+                    }
+                }
+            } else {
+                self.response = Some(self.make_async_request(None).await?);
+            };
+        }
+    }
+
     async fn make_async_request(
         &mut self,
         mut last_err: Option<ResponseError>,
     ) -> DownloadResult<ResponseInfo<AsyncResponseBody>> {
         loop {
-            let uri = if let Some(response) = &mut self.async_response {
+            let uri = if let Some(response) = &mut self.response {
                 response.uri.to_owned()
             } else if let Some(next_uri) = self.urls_iter.next() {
                 next_uri
@@ -659,8 +676,10 @@ impl InnerReader {
             }
         }
     }
+}
 
-    fn handle_have_read<B>(
+impl<B> InnerReader<B> {
+    fn handle_have_read(
         response: &mut ResponseInfo<B>,
         buf: &[u8],
         range_from: &mut Option<NonZeroU64>,
@@ -684,7 +703,7 @@ impl InnerReader {
         Ok(buf.len())
     }
 
-    fn handle_response<B>(&mut self, response: Response<B>, uri: Uri) -> DownloadResult<ResponseInfo<B>> {
+    fn handle_response(&mut self, response: Response<B>, uri: Uri) -> DownloadResult<ResponseInfo<B>> {
         let content_length = if let Some(content_length) = response.header(CONTENT_LENGTH) {
             content_length
                 .to_str()

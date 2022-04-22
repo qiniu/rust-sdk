@@ -292,7 +292,7 @@ let download_manager = DownloadManager::new(
 );
 download_manager
     .download(object_name)?
-    .write_to_path(path)?;
+    .to_path(path)?;
 ```
 
 #### 私有空间
@@ -313,7 +313,7 @@ let download_manager = DownloadManager::new(UrlsSigner::new(
 ));
 download_manager
     .download(object_name)?
-    .write_to_path(path)?;
+    .to_path(path)?;
 ```
 
 ### 资源管理（需要依赖 `qiniu-sdk` 启用 `objects` 功能）

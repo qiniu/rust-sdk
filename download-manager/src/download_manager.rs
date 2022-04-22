@@ -1,4 +1,5 @@
 use super::{DownloadUrlsGenerator, DownloadingObject};
+use assert_impl::assert_impl;
 use qiniu_apis::http_client::{ApiResult, HttpClient};
 use std::sync::Arc;
 
@@ -56,6 +57,12 @@ impl<G: DownloadUrlsGenerator> DownloadManager<G> {
             .async_generate(object_name.as_ref(), Default::default())
             .await?;
         Ok(DownloadingObject::new(self.http_client.to_owned(), urls))
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: DownloadManager<G>);
+        assert_impl!(Sync: DownloadManager<G>);
     }
 }
 

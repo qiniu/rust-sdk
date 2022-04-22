@@ -70,7 +70,7 @@ let download_manager = DownloadManager::new(UrlsSigner::new(
 ));
 download_manager
     .download(object_name)?
-    .write_to_path("/home/qiniu/test.png")?;
+    .to_path("/home/qiniu/test.png")?;
 ```
 
 ### 异步代码示例
@@ -95,7 +95,7 @@ let download_manager = DownloadManager::new(UrlsSigner::new(
 download_manager
     .async_download(object_name)
     .await?
-    .async_write_to_path("/home/qiniu/test.png")
+    .async_to_path("/home/qiniu/test.png")
     .await?;
 ```
 
