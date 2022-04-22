@@ -2,6 +2,7 @@ use super::{
     etag_v1::{EtagV1, DEFAULT_BLOCK_SIZE},
     sha1::{hash_sha1s, sha1},
 };
+use assert_impl::assert_impl;
 use digest::generic_array::{typenum::U28, GenericArray};
 use digest::{FixedOutput, Reset, Update};
 use qiniu_utils::base64;
@@ -25,6 +26,12 @@ impl EtagV2 {
             etag_v1: Some(Default::default()),
             encounter_non_4m_block: false,
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: EtagV2);
+        assert_impl!(Sync: EtagV2);
     }
 }
 

@@ -1,4 +1,5 @@
 use super::sha1::{hash_sha1s, sha1};
+use assert_impl::assert_impl;
 use digest::generic_array::{typenum::U28, GenericArray};
 use digest::{FixedOutput, Reset, Update};
 use qiniu_utils::base64;
@@ -18,6 +19,12 @@ impl EtagV1 {
     #[inline]
     pub fn new() -> Self {
         Default::default()
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: EtagV1);
+        assert_impl!(Sync: EtagV1);
     }
 }
 
