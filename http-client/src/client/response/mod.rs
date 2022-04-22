@@ -6,8 +6,10 @@ use qiniu_http::{
 use serde::{de::DeserializeOwned, Deserialize};
 use std::{
     io::copy as io_copy,
+    mem::take,
     ops::{Deref, DerefMut},
 };
+use tap::TapFallible;
 
 mod error;
 pub(super) use error::XHeaders;
@@ -95,15 +97,17 @@ impl Response<SyncResponseBody> {
     /// JSON 序列化响应体
     pub fn parse_json<T: DeserializeOwned>(self) -> ApiResult<Response<T>> {
         let x_headers = XHeaders::from(self.parts());
+        let mut got_body = Vec::new();
         let json_response = self
             .fulfill()?
-            .try_map_body(|body| parse_json_from_slice(&body))
+            .try_map_body(|mut body| parse_json_from_slice(&body).tap_err(|_| got_body = take(&mut body)))
             .map_err(|err| {
                 ResponseError::from_http_response_error(
                     err.into_response_error(HttpResponseErrorKind::ReceiveError),
                     x_headers,
                     Some(ResponseErrorKind::ParseResponseError),
                 )
+                .set_response_body_sample(got_body)
             })?;
         Ok(Response::new(json_response))
     }
@@ -117,7 +121,7 @@ impl Response<SyncResponseBody> {
             })
             .map_err(|err| {
                 ResponseError::from_http_response_error(
-                    err.into_response_error(HttpResponseErrorKind::LocalIoError),
+                    err.into_response_error(HttpResponseErrorKind::ReceiveError),
                     x_headers,
                     None,
                 )
@@ -130,16 +134,18 @@ impl Response<AsyncResponseBody> {
     /// 异步 JSON 序列化响应体
     pub async fn parse_json<T: DeserializeOwned>(self) -> ApiResult<Response<T>> {
         let x_headers = XHeaders::from(self.parts());
+        let mut got_body = Vec::new();
         let json_response = self
             .fulfill()
             .await?
-            .try_map_body(|body| parse_json_from_slice(&body))
+            .try_map_body(|mut body| parse_json_from_slice(&body).tap_err(|_| got_body = take(&mut body)))
             .map_err(|err| {
                 ResponseError::from_http_response_error(
                     err.into_response_error(HttpResponseErrorKind::ReceiveError),
                     x_headers,
                     Some(ResponseErrorKind::ParseResponseError),
                 )
+                .set_response_body_sample(got_body)
             })?;
         Ok(Response::new(json_response))
     }
@@ -154,7 +160,7 @@ impl Response<AsyncResponseBody> {
             .await
             .map_err(|err| {
                 ResponseError::from_http_response_error(
-                    err.into_response_error(HttpResponseErrorKind::LocalIoError),
+                    err.into_response_error(HttpResponseErrorKind::ReceiveError),
                     x_headers,
                     None,
                 )

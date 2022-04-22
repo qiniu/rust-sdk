@@ -99,6 +99,13 @@ impl Error {
         self
     }
 
+    /// 直接设置响应体样本
+    #[inline]
+    pub fn set_response_body_sample(mut self, body: Vec<u8>) -> Self {
+        self.response_body_sample = body;
+        self
+    }
+
     /// 设置响应体样本
     ///
     /// 该方法的异步版本为 [`Error::async_read_response_body_sample`]。
@@ -234,7 +241,7 @@ impl fmt::Display for Error {
         }
         write!(f, " {}", self.error)?;
         if !self.response_body_sample.is_empty() {
-            write!(f, " {}", String::from_utf8_lossy(&self.response_body_sample))?;
+            write!(f, " [{}]", String::from_utf8_lossy(&self.response_body_sample))?;
         }
         Ok(())
     }
