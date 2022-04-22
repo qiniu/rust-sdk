@@ -1,4 +1,5 @@
 use super::{callbacks::Callbacks, Bucket};
+use assert_impl::assert_impl;
 use log::warn;
 use qiniu_apis::{
     http::ResponseErrorKind as HttpResponseErrorKind,
@@ -229,6 +230,12 @@ impl<'a> ListIter<'a> {
                 marker: Marker::new(marker),
             },
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        // assert_impl!(Sync: Self);
     }
 }
 
@@ -528,6 +535,12 @@ mod async_list_stream {
                 ListVersion::V1 => v1_next(bucket, limit, prefix, marker, need_parts, callbacks),
                 ListVersion::V2 => v2_next(bucket, limit, prefix, marker, need_parts, callbacks),
             })
+        }
+
+        #[allow(dead_code)]
+        fn assert() {
+            assert_impl!(Send: Self);
+            // assert_impl!(Sync: Self);
         }
     }
 

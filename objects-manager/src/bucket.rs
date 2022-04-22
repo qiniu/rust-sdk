@@ -10,6 +10,7 @@ use super::{
     },
     ObjectsManager,
 };
+use assert_impl::assert_impl;
 use mime::Mime;
 use once_cell::sync::OnceCell;
 use qiniu_apis::{
@@ -557,6 +558,12 @@ impl Bucket {
             ))
         }
     }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 /// 列举操作构建器
@@ -700,5 +707,11 @@ impl<'a> ListBuilder<'a> {
             version: take(&mut self.version),
             callbacks: take(&mut self.callbacks),
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }

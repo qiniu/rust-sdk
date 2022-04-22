@@ -1,4 +1,5 @@
 use super::Bucket;
+use assert_impl::assert_impl;
 use qiniu_apis::{
     credential::CredentialProvider,
     http_client::{
@@ -74,6 +75,12 @@ impl ObjectsManager {
 
     fn _bucket_with_region(&self, name: BucketName, region_provider: Option<Box<dyn RegionsProvider>>) -> Bucket {
         Bucket::new(name, self.to_owned(), region_provider)
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
@@ -162,5 +169,11 @@ impl ObjectsManagerBuilder {
                 .or_else(|| queryer_builder.as_mut().map(|builder| builder.build()))
                 .unwrap_or_default(),
         }))
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }

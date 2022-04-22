@@ -1,4 +1,5 @@
 use super::Bucket;
+use assert_impl::assert_impl;
 use indexmap::IndexMap;
 use mime::Mime;
 use qiniu_apis::{
@@ -60,6 +61,12 @@ macro_rules! impl_call_methods {
                 callback(request.parts_mut());
             }
             request.call().await
+        }
+
+        #[allow(dead_code)]
+        fn assert() {
+            assert_impl!(Send: Self);
+            assert_impl!(Sync: Self);
         }
     };
 }
