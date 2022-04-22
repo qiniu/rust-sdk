@@ -2,6 +2,7 @@ use super::{
     upload_token::UploadTokenSigner, AutoUploader, AutoUploaderBuilder, FormUploader, MultiPartsUploader,
     MultiPartsV1Uploader, MultiPartsV2Uploader, ResumableRecorder, SinglePartUploader,
 };
+use assert_impl::assert_impl;
 use qiniu_apis::{
     http_client::{BucketRegionsQueryer, BucketRegionsQueryerBuilder, Endpoints, HttpClient},
     Client as QiniuApiClient,
@@ -104,6 +105,12 @@ impl UploadManager {
     ) -> AutoUploaderBuilder<CP, DPP, RR, RPP> {
         AutoUploader::<CP, DPP, RR, RPP>::builder(self.to_owned())
     }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 /// 上传管理构建器
@@ -191,5 +198,11 @@ impl UploadManagerBuilder {
                 .or_else(|| queryer_builder.as_mut().map(|builder| builder.build()))
                 .unwrap_or_default(),
         }))
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }

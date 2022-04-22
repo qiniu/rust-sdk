@@ -1,3 +1,4 @@
+use assert_impl::assert_impl;
 use mime::Mime;
 use qiniu_apis::{
     http::Extensions,
@@ -121,6 +122,12 @@ impl ObjectParams {
     pub fn uploaded_part_ttl_mut(&mut self) -> &mut Duration {
         &mut self.uploaded_part_ttl
     }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 /// 对象上传参数构建器
@@ -226,5 +233,11 @@ impl ObjectParamsBuilder {
     #[inline]
     pub fn build(&mut self) -> ObjectParams {
         take(&mut self.0)
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }

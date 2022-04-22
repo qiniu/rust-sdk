@@ -6,6 +6,7 @@ use super::{
     ResumablePolicyProvider, ResumableRecorder, SerialMultiPartsUploaderScheduler, SinglePartUploader, UploadManager,
     UploadedPart, UploaderWithCallbacks, UploadingProgressInfo,
 };
+use assert_impl::assert_impl;
 use qiniu_apis::{
     http::ResponseParts,
     http_client::{ApiResult, CallbackResult, RequestBuilderParts, ResponseError},
@@ -345,6 +346,14 @@ where
     }
 }
 
+impl<CP: Sync + Send, DPP: Sync + Send, RR: Sync + Send, RPP: Sync + Send> AutoUploader<CP, DPP, RR, RPP> {
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
+}
+
 /// 自动上传器对象参数
 #[derive(Debug, Default)]
 pub struct AutoUploaderObjectParams {
@@ -440,6 +449,12 @@ impl AutoUploaderObjectParams {
     #[inline]
     pub fn multi_parts_uploader_prefer_mut(&mut self) -> &mut MultiPartsUploaderPrefer {
         &mut self.multi_parts_uploader_prefer
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
@@ -538,6 +553,12 @@ impl AutoUploaderObjectParamsBuilder {
             multi_parts_uploader_prefer: self.multi_parts_uploader_prefer,
         }
     }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 /// 自动上传构建器
@@ -628,5 +649,13 @@ impl<CP, DPP, RR, RPP> AutoUploaderBuilder<CP, DPP, RR, RPP> {
             data_partition_provider: Arc::new(self.data_partition_provider),
             resumable_recorder: Arc::new(self.resumable_recorder),
         }
+    }
+}
+
+impl<CP: Sync + Send, DPP: Sync + Send, RR: Sync + Send, RPP: Sync + Send> AutoUploaderBuilder<CP, DPP, RR, RPP> {
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
