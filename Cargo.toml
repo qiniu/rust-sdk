@@ -12,11 +12,11 @@ members = [
     "http-client",
     "api-generator",
     "apis",
-    "api-examples",
     "objects-manager",
     "upload-manager",
     "download-manager",
     "sdk",
+    "sdk-examples",
 ]
 
 [profile.release]

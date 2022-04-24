@@ -1,5 +1,5 @@
 [package]
-name = "qiniu-api-examples"
+name = "qiniu-sdk-examples"
 version = "0.1.1"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
@@ -7,7 +7,7 @@ rust-version = "1.60.0"
 license = "MIT"
 repository = "https://github.com/qiniu/rust-sdk.git"
 homepage = "https://www.qiniu.com"
-description = "Qiniu API Examples"
+description = "Qiniu SDK Examples"
 keywords = ["qiniu", "storage"]
 
 [dev-dependencies]
