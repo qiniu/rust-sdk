@@ -118,7 +118,7 @@ impl DownloadingObject {
         self
     }
 
-    /// 设置上传进度回调函数
+    /// 设置下载进度回调函数
     #[inline]
     pub fn on_download_progress<F: Fn(&TransferProgressInfo) -> CallbackResult + Send + Sync + 'static>(
         mut self,
