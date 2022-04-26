@@ -420,6 +420,7 @@ impl<'r, B: Default + 'r> RequestBuilder<'r, B> {
 
 mod body {
     use super::super::Reset;
+    use assert_impl::assert_impl;
     use std::{
         default::Default,
         fmt::Debug,
@@ -534,6 +535,12 @@ mod body {
                 RequestBodyInner::Owned(owned) => owned.size(),
             }
         }
+
+        #[allow(dead_code)]
+        fn ignore() {
+            assert_impl!(Send: Self);
+            assert_impl!(Sync: Self);
+        }
     }
 
     impl Default for RequestBody<'_> {
@@ -575,6 +582,7 @@ mod body {
     #[cfg(feature = "async")]
     mod async_body {
         use super::super::super::{AsyncReset, BoxFuture};
+        use assert_impl::assert_impl;
         use futures_lite::{
             io::{AsyncRead, Cursor, Result as IoResult},
             pin,
@@ -714,6 +722,12 @@ mod body {
                     AsyncRequestBodyInner::BytesRef(bytes) => bytes.get_ref().len() as u64,
                     AsyncRequestBodyInner::Owned(owned) => owned.size(),
                 }
+            }
+
+            #[allow(dead_code)]
+            fn ignore() {
+                assert_impl!(Send: Self);
+                assert_impl!(Sync: Self);
             }
         }
 

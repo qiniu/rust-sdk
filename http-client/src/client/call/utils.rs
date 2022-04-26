@@ -2,7 +2,7 @@ use super::{
     super::{
         super::{DomainWithPort, Endpoint, IpAddrWithPort},
         ApiResult, Authorization, AuthorizationError, AuthorizationProvider, CallbackContextImpl,
-        ExtendedCallbackContextImpl, RequestParts, ResolveAnswers, ResolveOptions, ResolveResult, ResponseError,
+        ExtendedCallbackContextImpl, InnerRequestParts, ResolveAnswers, ResolveOptions, ResolveResult, ResponseError,
         ResponseErrorKind, RetriedStatsInfo, RetryDecision, SimplifiedCallbackContext, SyncResponse,
     },
     domain_or_ip_addr::DomainOrIpAddr,
@@ -25,7 +25,7 @@ use {
 
 pub(super) fn make_request<'r, B: Default + 'r>(
     url: Uri,
-    request: &'r RequestParts<'r>,
+    request: &'r InnerRequestParts<'r>,
     body: B,
     extensions: Extensions,
     resolved_ips: &'r [IpAddr],
@@ -60,7 +60,7 @@ pub(super) fn extract_ips_from(
 
 pub(super) fn make_url(
     domain_or_ip: &DomainOrIpAddr,
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     retried: &RetriedStatsInfo,
 ) -> Result<(Uri, Vec<IpAddr>), TryError> {
     return _make_url(domain_or_ip, request).map_err(|err| {
@@ -70,7 +70,10 @@ pub(super) fn make_url(
         )
     });
 
-    fn _make_url(domain_or_ip: &DomainOrIpAddr, request: &RequestParts<'_>) -> Result<(Uri, Vec<IpAddr>), InvalidUri> {
+    fn _make_url(
+        domain_or_ip: &DomainOrIpAddr,
+        request: &InnerRequestParts<'_>,
+    ) -> Result<(Uri, Vec<IpAddr>), InvalidUri> {
         let mut resolved_ip_addrs = Vec::new();
         let scheme = if request.use_https() {
             Scheme::HTTPS
@@ -143,7 +146,7 @@ pub(super) async fn reset_async_request_body(
 }
 
 pub(super) fn call_before_backoff_callbacks(
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
     retried: &RetriedStatsInfo,
     delay: Duration,
@@ -165,7 +168,7 @@ pub(super) fn call_before_backoff_callbacks(
 }
 
 pub(super) fn call_after_backoff_callbacks(
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
     retried: &RetriedStatsInfo,
     delay: Duration,
@@ -187,7 +190,7 @@ pub(super) fn call_after_backoff_callbacks(
 }
 
 fn call_to_resolve_domain_callbacks(
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     domain: &str,
     extensions: &mut Extensions,
     retried: &RetriedStatsInfo,
@@ -210,7 +213,7 @@ fn call_to_resolve_domain_callbacks(
 }
 
 fn call_domain_resolved_callbacks(
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     domain: &str,
     answers: &ResolveAnswers,
     extensions: &mut Extensions,
@@ -234,7 +237,7 @@ fn call_domain_resolved_callbacks(
 }
 
 fn call_to_choose_ips_callbacks(
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     ips: &[IpAddrWithPort],
     extensions: &mut Extensions,
     retried: &RetriedStatsInfo,
@@ -254,7 +257,7 @@ fn call_to_choose_ips_callbacks(
 }
 
 fn call_ips_chosen_callbacks(
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     ips: &[IpAddrWithPort],
     chosen: &[IpAddrWithPort],
     extensions: &mut Extensions,
@@ -278,7 +281,7 @@ fn call_ips_chosen_callbacks(
 }
 
 pub(super) fn call_before_request_signed_callbacks(
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
@@ -300,7 +303,7 @@ pub(super) fn call_before_request_signed_callbacks(
 }
 
 pub(super) fn call_after_request_signed_callbacks(
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
@@ -319,7 +322,7 @@ pub(super) fn call_after_request_signed_callbacks(
 }
 
 pub(super) fn call_response_callbacks(
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
     retried: &RetriedStatsInfo,
     response: &ResponseParts,
@@ -336,7 +339,7 @@ pub(super) fn call_response_callbacks(
 }
 
 pub(super) fn call_error_callbacks(
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
     retried: &RetriedStatsInfo,
     response_error: &ResponseError,
@@ -399,7 +402,7 @@ fn handle_sign_request_error(err: AuthorizationError, retried: &RetriedStatsInfo
 }
 
 pub(super) fn resolve(
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     domain_with_port: &DomainWithPort,
     extensions: &mut Extensions,
     retried: &RetriedStatsInfo,
@@ -417,7 +420,7 @@ pub(super) fn resolve(
         .collect());
 
     fn with_resolve_domain(
-        request: &RequestParts<'_>,
+        request: &InnerRequestParts<'_>,
         domain: &str,
         extensions: &mut Extensions,
         retried: &RetriedStatsInfo,
@@ -431,7 +434,7 @@ pub(super) fn resolve(
 }
 
 pub(super) fn choose(
-    request: &RequestParts<'_>,
+    request: &InnerRequestParts<'_>,
     ips: &[IpAddrWithPort],
     extensions: &mut Extensions,
     retried: &RetriedStatsInfo,
@@ -507,7 +510,7 @@ fn make_unexpected_status_code_error(parts: &ResponseParts, retried: &RetriedSta
 #[cfg(feature = "async")]
 mod async_utils {
     use super::{
-        super::super::{AsyncResponse, RequestParts},
+        super::super::{AsyncResponse, InnerRequestParts},
         *,
     };
     use qiniu_http::AsyncRequest as AsyncHttpRequest;
@@ -528,7 +531,7 @@ mod async_utils {
     }
 
     pub(in super::super) async fn async_resolve(
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         domain_with_port: &DomainWithPort,
         extensions: &mut Extensions,
         retried: &RetriedStatsInfo,
@@ -551,7 +554,7 @@ mod async_utils {
             .collect());
 
         async fn with_resolve_domain<F: FnOnce() -> Fu, Fu: Future<Output = ResolveResult>>(
-            parts: &RequestParts<'_>,
+            parts: &InnerRequestParts<'_>,
             domain: &str,
             extensions: &mut Extensions,
             retried: &RetriedStatsInfo,
@@ -567,7 +570,7 @@ mod async_utils {
     }
 
     pub(in super::super) async fn async_choose(
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         ips: &[IpAddrWithPort],
         extensions: &mut Extensions,
         retried: &RetriedStatsInfo,

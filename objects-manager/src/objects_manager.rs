@@ -1,4 +1,5 @@
 use super::Bucket;
+use assert_impl::assert_impl;
 use qiniu_apis::{
     credential::CredentialProvider,
     http_client::{
@@ -75,6 +76,12 @@ impl ObjectsManager {
     fn _bucket_with_region(&self, name: BucketName, region_provider: Option<Box<dyn RegionsProvider>>) -> Bucket {
         Bucket::new(name, self.to_owned(), region_provider)
     }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 /// 七牛对象管理构建器
@@ -120,6 +127,13 @@ impl ObjectsManagerBuilder {
         self
     }
 
+    /// 是否启用 HTTPS 协议
+    ///
+    /// 默认为 HTTPS 协议
+    pub fn use_https(&mut self, use_https: bool) -> &mut Self {
+        self.http_client(HttpClient::build_default().use_https(use_https).build())
+    }
+
     /// 设置存储空间相关区域查询器
     #[inline]
     pub fn queryer(&mut self, queryer: BucketRegionsQueryer) -> &mut Self {
@@ -155,5 +169,11 @@ impl ObjectsManagerBuilder {
                 .or_else(|| queryer_builder.as_mut().map(|builder| builder.build()))
                 .unwrap_or_default(),
         }))
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }

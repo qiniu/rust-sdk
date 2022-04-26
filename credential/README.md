@@ -20,14 +20,14 @@
 
 ```toml
 [dependencies]
-qiniu-credential = "0.1.0"
+qiniu-credential = "0.1.1"
 ```
 
 ### 启用异步接口
 
 ```toml
 [dependencies]
-qiniu-credential = { version = "0.1.0", features = ["async"] }
+qiniu-credential = { version = "0.1.1", features = ["async"] }
 ```
 
 ## 代码示例
@@ -82,11 +82,8 @@ let credential = Credential::new("abcdefghklmnopq", "1234567890");
 let url = "http://www.qiniu.com/?go=1".parse()?;
 let url = credential
     .get(Default::default())?
-    .sign_download_url(url, Duration::from_secs(1_234_567_890 + 3600));
-assert_eq!(
-    url.to_string(),
-    "http://www.qiniu.com/?go=1&e=1234571490&token=abcdefghklmnopq%3AKjQtlGAkEOhSwtFjJfYtYa2-reE%3D",
-);
+    .sign_download_url(url, Duration::from_secs(3600));
+println!("{}", url);
 ```
 
 ### 异步代码示例

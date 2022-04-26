@@ -5,6 +5,7 @@ mod never;
 use super::{Idempotent, ResponseError, RetriedStatsInfo};
 use auto_impl::auto_impl;
 use qiniu_http::RequestParts as HttpRequestParts;
+use smart_default::SmartDefault;
 use std::{
     fmt::{self, Debug},
     ops::{Deref, DerefMut},
@@ -16,14 +17,15 @@ use std::{
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait RequestRetrier: Debug + Sync + Send {
     /// 作出重试决定
-    fn retry(&self, request: &mut HttpRequestParts, opts: RequestRetrierOptions) -> RetryResult;
+    fn retry(&self, request: &mut HttpRequestParts, opts: RequestRetrierOptions<'_>) -> RetryResult;
 }
 
 /// 重试决定
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, SmartDefault)]
 #[non_exhaustive]
 pub enum RetryDecision {
     /// 不再重试
+    #[default]
     DontRetry,
 
     /// 切换到下一个服务器
@@ -37,13 +39,6 @@ pub enum RetryDecision {
 
     /// 节流
     Throttled,
-}
-
-impl Default for RetryDecision {
-    #[inline]
-    fn default() -> Self {
-        Self::DontRetry
-    }
 }
 
 /// 重试器选项

@@ -7,11 +7,12 @@ use super::{
     },
     multipart::SyncMultipart,
     request_metadata::RequestMetadata,
-    Idempotent, QueryPair, QueryPairKey, QueryPairValue, SyncRequest,
+    Idempotent, QueryPair, QueryPairKey, QueryPairValue, SyncInnerRequest,
 };
+use assert_impl::assert_impl;
 use mime::{Mime, APPLICATION_JSON, APPLICATION_OCTET_STREAM, APPLICATION_WWW_FORM_URLENCODED};
 use qiniu_http::{
-    header::{ACCEPT, CONTENT_TYPE},
+    header::{IntoHeaderName, ACCEPT, CONTENT_TYPE},
     CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, Method, Reset, ResponseParts, StatusCode,
     SyncRequestBody, TransferProgressInfo, UserAgent, Version,
 };
@@ -30,7 +31,7 @@ use {
     super::{
         super::{async_request_call, AsyncResponse},
         multipart::AsyncMultipart,
-        AsyncRequest,
+        AsyncInnerRequest,
     },
     futures::io::AsyncRead,
     qiniu_http::{AsyncRequestBody, AsyncReset},
@@ -78,15 +79,8 @@ impl<'r> RequestBuilderParts<'r> {
 
     /// 添加 HTTP 请求头
     #[inline]
-    pub fn set_header(
-        &mut self,
-        header_name: impl Into<HeaderName>,
-        header_value: impl Into<HeaderValue>,
-    ) -> &mut Self {
-        self.metadata
-            .headers
-            .to_mut()
-            .insert(header_name.into(), header_value.into());
+    pub fn set_header(&mut self, header_name: impl IntoHeaderName, header_value: impl Into<HeaderValue>) -> &mut Self {
+        self.metadata.headers.to_mut().insert(header_name, header_value.into());
         self
     }
 
@@ -308,6 +302,22 @@ impl<'r> RequestBuilderParts<'r> {
         self.callbacks.on_after_backoff(callback);
         self
     }
+
+    /// 构建为请求部分参数
+    #[inline]
+    pub fn build(self) -> RequestParts<'r> {
+        RequestParts {
+            metadata: self.metadata,
+            extensions: self.extensions,
+            appended_user_agent: self.appended_user_agent,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 /// 请求构建器
@@ -374,11 +384,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
 
     /// 添加 HTTP 请求头
     #[inline]
-    pub fn set_header(
-        &mut self,
-        header_name: impl Into<HeaderName>,
-        header_value: impl Into<HeaderValue>,
-    ) -> &mut Self {
+    pub fn set_header(&mut self, header_name: impl IntoHeaderName, header_value: impl Into<HeaderValue>) -> &mut Self {
         self.parts.set_header(header_name, header_value);
         self
     }
@@ -602,10 +608,24 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         &mut self.parts
     }
 
+    /// 转换为 HTTP 请求构建器部分参数
+    #[inline]
+    pub fn into_parts(self) -> RequestBuilderParts<'r> {
+        self.parts
+    }
+
     fn get_appended_user_agent(&self) -> UserAgent {
         let mut appended_user_agent = self.http_client.appended_user_agent().to_owned();
         appended_user_agent.push_str(self.parts.appended_user_agent.as_str());
         appended_user_agent
+    }
+}
+
+impl<'r, B: Sync + Send + 'r, E: Sync + Send + 'r> RequestBuilder<'r, B, E> {
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
@@ -702,8 +722,8 @@ impl<'r, E: EndpointsProvider + Clone + 'r> SyncRequestBuilder<'r, E> {
         request_call(self.build())
     }
 
-    pub(in super::super) fn build(&mut self) -> SyncRequest<'r, E> {
-        SyncRequest::new(
+    pub(in super::super) fn build(&mut self) -> SyncInnerRequest<'r, E> {
+        SyncInnerRequest::new(
             self.http_client,
             self.endpoints_provider.to_owned(),
             self.service_names,
@@ -817,8 +837,8 @@ impl<'r, E: EndpointsProvider + Clone + 'r> AsyncRequestBuilder<'r, E> {
         async_request_call(self.build()).await
     }
 
-    pub(in super::super) fn build(&mut self) -> AsyncRequest<'r, E> {
-        AsyncRequest::new(
+    pub(in super::super) fn build(&mut self) -> AsyncInnerRequest<'r, E> {
+        AsyncInnerRequest::new(
             self.http_client,
             self.endpoints_provider.to_owned(),
             self.service_names,
@@ -828,5 +848,87 @@ impl<'r, E: EndpointsProvider + Clone + 'r> AsyncRequestBuilder<'r, E> {
             self.get_appended_user_agent(),
             take(&mut self.parts.extensions),
         )
+    }
+}
+
+/// HTTP 请求部分参数
+///
+/// 包含 HTTP 请求内除请求体和终端地址提供者以外的参数
+#[derive(Default, Debug)]
+pub struct RequestParts<'r> {
+    metadata: RequestMetadata<'r>,
+    extensions: Extensions,
+    appended_user_agent: UserAgent,
+}
+
+impl CallbackContext for RequestParts<'_> {
+    #[inline]
+    fn extensions(&self) -> &Extensions {
+        &self.extensions
+    }
+
+    #[inline]
+    fn extensions_mut(&mut self) -> &mut Extensions {
+        &mut self.extensions
+    }
+}
+
+impl SimplifiedCallbackContext for RequestParts<'_> {
+    #[inline]
+    fn use_https(&self) -> bool {
+        self.metadata.use_https.unwrap_or(true)
+    }
+
+    #[inline]
+    fn method(&self) -> &Method {
+        &self.metadata.method
+    }
+
+    #[inline]
+    fn version(&self) -> Version {
+        self.metadata.version
+    }
+
+    #[inline]
+    fn path(&self) -> &str {
+        &self.metadata.path
+    }
+
+    #[inline]
+    fn query(&self) -> &str {
+        &self.metadata.query
+    }
+
+    #[inline]
+    fn query_pairs(&self) -> &[QueryPair] {
+        &self.metadata.query_pairs
+    }
+
+    #[inline]
+    fn headers(&self) -> &HeaderMap {
+        &self.metadata.headers
+    }
+
+    #[inline]
+    fn appended_user_agent(&self) -> &UserAgent {
+        &self.appended_user_agent
+    }
+
+    #[inline]
+    fn authorization(&self) -> Option<&Authorization> {
+        self.metadata.authorization.as_ref()
+    }
+
+    #[inline]
+    fn idempotent(&self) -> Idempotent {
+        self.metadata.idempotent
+    }
+}
+
+impl RequestParts<'_> {
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }

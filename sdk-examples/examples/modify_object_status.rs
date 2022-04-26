@@ -3,7 +3,7 @@ use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "delete-object")]
+#[structopt(name = "modify-object-status")]
 struct Opt {
     /// Qiniu Access Key
     #[structopt(long)]
@@ -17,6 +17,9 @@ struct Opt {
     /// Qiniu Object Name
     #[structopt(long)]
     object_name: String,
+    /// Disable
+    #[structopt(long)]
+    disable: usize,
 }
 
 #[async_std::main]
@@ -26,10 +29,13 @@ async fn main() -> Result<()> {
     let opt: Opt = Opt::from_args();
 
     let credential = Credential::new(&opt.access_key, &opt.secret_key);
-    let object_manager = ObjectsManager::builder(credential).build();
+    let object_manager = ObjectsManager::new(credential);
     let bucket = object_manager.bucket(opt.bucket_name);
 
-    bucket.delete_object(&opt.object_name).async_call().await?;
+    bucket
+        .modify_object_status(&opt.object_name, opt.disable > 0)
+        .async_call()
+        .await?;
 
     Ok(())
 }

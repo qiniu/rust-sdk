@@ -1,4 +1,5 @@
 use super::{Endpoint, Endpoints};
+use assert_impl::assert_impl;
 use serde::{Deserialize, Serialize};
 use std::{mem::take, sync::Arc};
 
@@ -170,6 +171,12 @@ impl Region {
 
     pub(super) fn s3(&self) -> &Endpoints {
         &self.inner.s3
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
@@ -357,5 +364,11 @@ impl RegionBuilder {
                 s3: (owned.s3_preferred, owned.s3_alternative).into(),
             }),
         }
+    }
+
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }

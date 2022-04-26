@@ -523,7 +523,7 @@ mod tests {
     use super::{super::ObjectsManager, *};
     use qiniu_apis::{
         credential::Credential,
-        http::{HeaderName, HeaderValue, HttpCaller, SyncRequest, SyncResponse, SyncResponseResult},
+        http::{HeaderValue, HttpCaller, SyncRequest, SyncResponse, SyncResponseResult},
         http_client::{DirectChooser, HttpClient, NeverRetrier, Region, SyncResponseBody, NO_BACKOFF},
     };
     use qiniu_utils::BucketName;
@@ -577,10 +577,7 @@ mod tests {
                 };
                 Ok(SyncResponse::builder()
                     .status_code(StatusCode::OK)
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("FakeReqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                     .body(body)
                     .build())
             }
@@ -648,10 +645,7 @@ mod tests {
                     };
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(body)
                         .build())
                 })

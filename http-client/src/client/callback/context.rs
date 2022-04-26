@@ -1,5 +1,5 @@
 use super::{
-    super::{Authorization, Idempotent, QueryPair, RequestParts},
+    super::{Authorization, Idempotent, InnerRequestParts, QueryPair},
     simplified::SimplifiedCallbackContext,
 };
 use auto_impl::auto_impl;
@@ -19,12 +19,12 @@ pub trait CallbackContext: SimplifiedCallbackContext {
 
 #[derive(Debug)]
 pub(in super::super) struct CallbackContextImpl<'reqref, 'req, 'ext> {
-    request: &'reqref RequestParts<'req>,
+    request: &'reqref InnerRequestParts<'req>,
     extensions: &'ext mut Extensions,
 }
 
 impl<'reqref, 'req, 'ext> CallbackContextImpl<'reqref, 'req, 'ext> {
-    pub(in super::super) fn new(request: &'reqref RequestParts<'req>, extensions: &'ext mut Extensions) -> Self {
+    pub(in super::super) fn new(request: &'reqref InnerRequestParts<'req>, extensions: &'ext mut Extensions) -> Self {
         Self { request, extensions }
     }
 }

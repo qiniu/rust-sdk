@@ -2,8 +2,9 @@ use super::{
     super::super::{EndpointParseError, RetriedStatsInfo},
     X_LOG_HEADER_NAME, X_REQ_ID_HEADER_NAME,
 };
+use assert_impl::assert_impl;
 use qiniu_http::{
-    HeaderName, HeaderValue, Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
+    HeaderValue, Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
     ResponseParts as HttpResponseParts, StatusCode as HttpStatusCode,
 };
 use serde_json::Error as JsonError;
@@ -34,6 +35,9 @@ pub enum ErrorKind {
 
     /// 解析响应体错误
     ParseResponseError,
+
+    /// 响应体提前结束
+    UnexpectedEof,
 
     /// 疑似响应被劫持
     MaliciousResponse,
@@ -92,6 +96,13 @@ impl Error {
         self.server_port = response_parts.server_port();
         self.metrics = extract_metrics_from_response_parts(response_parts);
         self.x_headers = response_parts.into();
+        self
+    }
+
+    /// 直接设置响应体样本
+    #[inline]
+    pub fn set_response_body_sample(mut self, body: Vec<u8>) -> Self {
+        self.response_body_sample = body;
         self
     }
 
@@ -177,6 +188,12 @@ impl Error {
     pub(crate) fn from_endpoint_parse_error(error: EndpointParseError, parts: &HttpResponseParts) -> Self {
         Self::new(ErrorKind::ParseResponseError, error).response_parts(parts)
     }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 #[derive(Debug, Default)]
@@ -196,11 +213,11 @@ impl From<&HttpResponseParts> for XHeaders {
 }
 
 fn extract_x_log_from_response_parts(parts: &HttpResponseParts) -> Option<HeaderValue> {
-    parts.header(HeaderName::from_static(X_LOG_HEADER_NAME)).cloned()
+    parts.header(X_LOG_HEADER_NAME).cloned()
 }
 
 fn extract_x_reqid_from_response_parts(parts: &HttpResponseParts) -> Option<HeaderValue> {
-    parts.header(HeaderName::from_static(X_REQ_ID_HEADER_NAME)).cloned()
+    parts.header(X_REQ_ID_HEADER_NAME).cloned()
 }
 
 fn extract_metrics_from_response_parts(parts: &HttpResponseParts) -> Option<Box<dyn Metrics + 'static>> {
@@ -224,7 +241,7 @@ impl fmt::Display for Error {
         }
         write!(f, " {}", self.error)?;
         if !self.response_body_sample.is_empty() {
-            write!(f, " {}", String::from_utf8_lossy(&self.response_body_sample))?;
+            write!(f, " [{}]", String::from_utf8_lossy(&self.response_body_sample))?;
         }
         Ok(())
     }

@@ -317,7 +317,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
     #[doc = "添加 HTTP 请求头"]
     pub fn set_header(
         &mut self,
-        header_name: impl Into<qiniu_http_client::http::HeaderName>,
+        header_name: impl qiniu_http_client::http::header::IntoHeaderName,
         header_value: impl Into<qiniu_http_client::http::HeaderValue>,
     ) -> &mut Self {
         self.0.set_header(header_name, header_value);

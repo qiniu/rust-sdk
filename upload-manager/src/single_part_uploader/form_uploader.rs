@@ -439,8 +439,8 @@ mod tests {
     use qiniu_apis::{
         credential::Credential,
         http::{
-            header::CONTENT_TYPE, HeaderName, HeaderValue, HttpCaller, StatusCode, SyncRequest, SyncResponse,
-            SyncResponseBody, SyncResponseResult,
+            header::CONTENT_TYPE, HeaderValue, HttpCaller, StatusCode, SyncRequest, SyncResponse, SyncResponseBody,
+            SyncResponseResult,
         },
         http_client::{DirectChooser, HttpClient, NeverRetrier, Region, NO_BACKOFF},
     };
@@ -492,10 +492,7 @@ mod tests {
 
                 Ok(SyncResponse::builder()
                     .status_code(StatusCode::OK)
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("FakeReqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                     .body(SyncResponseBody::from_bytes(
                         json_to_vec(&json!({
                             "hash": "fakehash",

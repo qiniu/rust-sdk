@@ -36,8 +36,8 @@ pub enum Idempotent {
     Never,
 }
 
-pub use builder::{RequestBuilder, RequestBuilderParts, SyncRequestBuilder};
-pub(super) use built::{Request, RequestParts};
+pub use builder::{RequestBuilder, RequestBuilderParts, RequestParts, SyncRequestBuilder};
+pub(super) use built::{InnerRequest, InnerRequestParts};
 pub use multipart::{FieldName, FileName, Multipart, Part, PartMetadata, SyncMultipart, SyncPart, SyncPartBody};
 
 #[cfg(feature = "async")]
@@ -46,10 +46,8 @@ pub use {
     multipart::{AsyncMultipart, AsyncPart, AsyncPartBody},
 };
 
-/// 阻塞 HTTP 请求
-pub(super) type SyncRequest<'r, E> = Request<'r, SyncRequestBody<'r>, E>;
+pub(super) type SyncInnerRequest<'r, E> = InnerRequest<'r, SyncRequestBody<'r>, E>;
 
-/// 异步 HTTP 请求
 #[cfg(feature = "async")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub(super) type AsyncRequest<'r, E> = Request<'r, AsyncRequestBody<'r>, E>;
+pub(super) type AsyncInnerRequest<'r, E> = InnerRequest<'r, AsyncRequestBody<'r>, E>;

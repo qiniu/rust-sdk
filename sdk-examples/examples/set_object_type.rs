@@ -1,9 +1,12 @@
 use anyhow::Result;
-use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
+use qiniu_sdk::objects::{
+    apis::{credential::Credential, upload_token::FileType},
+    ObjectsManager,
+};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "unfreeze-object")]
+#[structopt(name = "set-object-type")]
 struct Opt {
     /// Qiniu Access Key
     #[structopt(long)]
@@ -17,9 +20,9 @@ struct Opt {
     /// Qiniu Object Name
     #[structopt(long)]
     object_name: String,
-    /// Freeze after days
+    /// Qiniu Object File Type
     #[structopt(long)]
-    freeze_after_days: usize,
+    object_type: u8,
 }
 
 #[async_std::main]
@@ -29,11 +32,11 @@ async fn main() -> Result<()> {
     let opt: Opt = Opt::from_args();
 
     let credential = Credential::new(&opt.access_key, &opt.secret_key);
-    let object_manager = ObjectsManager::builder(credential).build();
+    let object_manager = ObjectsManager::new(credential);
     let bucket = object_manager.bucket(opt.bucket_name);
 
     bucket
-        .restore_archived_object(&opt.object_name, opt.freeze_after_days)
+        .set_object_type(&opt.object_name, FileType::Other(opt.object_type))
         .async_call()
         .await?;
 

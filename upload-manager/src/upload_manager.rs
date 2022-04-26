@@ -2,6 +2,7 @@ use super::{
     upload_token::UploadTokenSigner, AutoUploader, AutoUploaderBuilder, FormUploader, MultiPartsUploader,
     MultiPartsV1Uploader, MultiPartsV2Uploader, ResumableRecorder, SinglePartUploader,
 };
+use assert_impl::assert_impl;
 use qiniu_apis::{
     http_client::{BucketRegionsQueryer, BucketRegionsQueryerBuilder, Endpoints, HttpClient},
     Client as QiniuApiClient,
@@ -104,6 +105,12 @@ impl UploadManager {
     ) -> AutoUploaderBuilder<CP, DPP, RR, RPP> {
         AutoUploader::<CP, DPP, RR, RPP>::builder(self.to_owned())
     }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 /// 上传管理构建器
@@ -149,6 +156,13 @@ impl UploadManagerBuilder {
         self
     }
 
+    /// 是否启用 HTTPS 协议
+    ///
+    /// 默认为 HTTPS 协议
+    pub fn use_https(&mut self, use_https: bool) -> &mut Self {
+        self.http_client(HttpClient::build_default().use_https(use_https).build())
+    }
+
     /// 设置存储空间相关区域查询器
     #[inline]
     pub fn queryer(&mut self, queryer: BucketRegionsQueryer) -> &mut Self {
@@ -184,5 +198,11 @@ impl UploadManagerBuilder {
                 .or_else(|| queryer_builder.as_mut().map(|builder| builder.build()))
                 .unwrap_or_default(),
         }))
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }

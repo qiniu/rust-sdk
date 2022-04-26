@@ -16,20 +16,21 @@ Qiniu SDK for Rust 包含以下特性：
 
 Qiniu SDK for Rust 包含以下 Crates:
 
-| Crate 链接                                                                                                                            | 文档                                                                                                   | 描述                                                                                                                                                                                                                                                                               |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [![qiniu-etag](https://img.shields.io/crates/v/qiniu-etag.svg)](https://crates.io/crates/qiniu-etag)                                  | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-etag)            | Etag 算法库，实现七牛 Etag 算法                                                                                                                                                                                                                                                    |
-| [![qiniu-credential](https://img.shields.io/crates/v/qiniu-credential.svg)](https://crates.io/crates/qiniu-credential)                | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-credential)      | 七牛认证库，实现七牛认证接口以及签名相关算法                                                                                                                                                                                                                                       |
-| [![qiniu-upload-token](https://img.shields.io/crates/v/qiniu-upload-token.svg)](https://crates.io/crates/qiniu-upload-token)          | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-upload-token)    | 七牛上传凭证，实现七牛上传策略和上传凭证接口以及相关算法                                                                                                                                                                                                                           |
-| [![qiniu-http](https://img.shields.io/crates/v/qiniu-http.svg)](https://crates.io/crates/qiniu-http)                                  | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-http)            | 七牛客户端 HTTP 接口，为不同的 HTTP 客户端实现提供相同的基础接口                                                                                                                                                                                                                   |
-| [![qiniu-ureq](https://img.shields.io/crates/v/qiniu-ureq.svg)](https://crates.io/crates/qiniu-ureq)                                  | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-ureq)            | 基于 [Ureq](https://docs.rs/ureq) 库实现七牛客户端 HTTP 接口，对于使用 `qiniu-http-request`，`qiniu-apis`，`qiniu-objects-manager` 或 `qiniu-upload-manager` 的用户，可以直接启用 `ureq` 功能，将默认使用该 HTTP 客户端实现。需要注意的是，如果需要使用异步接口，则不能选择 `ureq` |
-| [![qiniu-isahc](https://img.shields.io/crates/v/qiniu-isahc.svg)](https://crates.io/crates/qiniu-isahc)                               | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-isahc)           | 基于 [Isahc](https://docs.rs/isahc) 库实现七牛客户端 HTTP 接口，对于使用 `qiniu-http-request`，`qiniu-apis`，`qiniu-objects-manager` 或 `qiniu-upload-manager` 的用户，可以直接启用 `isahc` 功能，将默认使用该 HTTP 客户端实现                                                     |
-| [![qiniu-reqwest](https://img.shields.io/crates/v/qiniu-reqwest.svg)](https://crates.io/crates/qiniu-reqwest)                         | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-reqwest)         | 基于 [Reqwest](https://docs.rs/reqwest) 库实现七牛客户端 HTTP 接口，对于使用 `qiniu-http-request`，`qiniu-apis`，`qiniu-objects-manager` 或 `qiniu-upload-manager` 的用户，可以直接启用 `reqwest` 功能，将默认使用该 HTTP 客户端实现                                               |
-| [![qiniu-http-client](https://img.shields.io/crates/v/qiniu-http-client.svg)](https://crates.io/crates/qiniu-http-client)             | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-http-client)     | 基于 [qiniu-http](https://docs.rs/qiniu-http) 提供具有重试功能的 HTTP 客户端                                                                                                                                                                                                       |
-| [![qiniu-apis](https://img.shields.io/crates/v/qiniu-apis.svg)](https://crates.io/crates/qiniu-apis)                                  | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-apis)            | 实现七牛 API 调用客户端接口                                                                                                                                                                                                                                                        |
-| [![qiniu-objects-manager](https://img.shields.io/crates/v/qiniu-objects-manager.svg)](https://crates.io/crates/qiniu-objects-manager) | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-objects-manager) | 实现七牛对象相关管理接口，包含对象的列举和操作                                                                                                                                                                                                                                     |
-| [![qiniu-upload-manager](https://img.shields.io/crates/v/qiniu-upload-manager.svg)](https://crates.io/crates/qiniu-upload-manager)    | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-upload-manager)  | 实现七牛对象上传功能                                                                                                                                                                                                                                                               |
-| [![qiniu-sdk](https://img.shields.io/crates/v/qiniu-sdk.svg)](https://crates.io/crates/qiniu-sdk)                                     | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-sdk)             | 七牛 SDK 入口                                                                                                                                                                                                                                                                      |
+| Crate 链接                                                                                                                               | 文档                                                                                                    | 描述                                                                                                                                                                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [![qiniu-etag](https://img.shields.io/crates/v/qiniu-etag.svg)](https://crates.io/crates/qiniu-etag)                                     | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-etag)             | Etag 算法库，实现七牛 Etag 算法                                                                                                                                                                                                                                                    |
+| [![qiniu-credential](https://img.shields.io/crates/v/qiniu-credential.svg)](https://crates.io/crates/qiniu-credential)                   | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-credential)       | 七牛认证库，实现七牛认证接口以及签名相关算法                                                                                                                                                                                                                                       |
+| [![qiniu-upload-token](https://img.shields.io/crates/v/qiniu-upload-token.svg)](https://crates.io/crates/qiniu-upload-token)             | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-upload-token)     | 七牛上传凭证，实现七牛上传策略和上传凭证接口以及相关算法                                                                                                                                                                                                                           |
+| [![qiniu-http](https://img.shields.io/crates/v/qiniu-http.svg)](https://crates.io/crates/qiniu-http)                                     | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-http)             | 七牛客户端 HTTP 接口，为不同的 HTTP 客户端实现提供相同的基础接口                                                                                                                                                                                                                   |
+| [![qiniu-ureq](https://img.shields.io/crates/v/qiniu-ureq.svg)](https://crates.io/crates/qiniu-ureq)                                     | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-ureq)             | 基于 [Ureq](https://docs.rs/ureq) 库实现七牛客户端 HTTP 接口，对于使用 `qiniu-http-request`，`qiniu-apis`，`qiniu-objects-manager` 或 `qiniu-upload-manager` 的用户，可以直接启用 `ureq` 功能，将默认使用该 HTTP 客户端实现。需要注意的是，如果需要使用异步接口，则不能选择 `ureq` |
+| [![qiniu-isahc](https://img.shields.io/crates/v/qiniu-isahc.svg)](https://crates.io/crates/qiniu-isahc)                                  | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-isahc)            | 基于 [Isahc](https://docs.rs/isahc) 库实现七牛客户端 HTTP 接口，对于使用 `qiniu-http-request`，`qiniu-apis`，`qiniu-objects-manager` 或 `qiniu-upload-manager` 的用户，可以直接启用 `isahc` 功能，将默认使用该 HTTP 客户端实现                                                     |
+| [![qiniu-reqwest](https://img.shields.io/crates/v/qiniu-reqwest.svg)](https://crates.io/crates/qiniu-reqwest)                            | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-reqwest)          | 基于 [Reqwest](https://docs.rs/reqwest) 库实现七牛客户端 HTTP 接口，对于使用 `qiniu-http-request`，`qiniu-apis`，`qiniu-objects-manager` 或 `qiniu-upload-manager` 的用户，可以直接启用 `reqwest` 功能，将默认使用该 HTTP 客户端实现                                               |
+| [![qiniu-http-client](https://img.shields.io/crates/v/qiniu-http-client.svg)](https://crates.io/crates/qiniu-http-client)                | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-http-client)      | 基于 [qiniu-http](https://docs.rs/qiniu-http) 提供具有重试功能的 HTTP 客户端                                                                                                                                                                                                       |
+| [![qiniu-apis](https://img.shields.io/crates/v/qiniu-apis.svg)](https://crates.io/crates/qiniu-apis)                                     | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-apis)             | 实现七牛 API 调用客户端接口                                                                                                                                                                                                                                                        |
+| [![qiniu-objects-manager](https://img.shields.io/crates/v/qiniu-objects-manager.svg)](https://crates.io/crates/qiniu-objects-manager)    | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-objects-manager)  | 实现七牛对象相关管理接口，包含对象的列举和操作                                                                                                                                                                                                                                     |
+| [![qiniu-upload-manager](https://img.shields.io/crates/v/qiniu-upload-manager.svg)](https://crates.io/crates/qiniu-upload-manager)       | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-upload-manager)   | 实现七牛对象上传功能                                                                                                                                                                                                                                                               |
+| [![qiniu-download-manager](https://img.shields.io/crates/v/qiniu-download-manager.svg)](https://crates.io/crates/qiniu-download-manager) | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-download-manager) | 实现七牛对象下载功能                                                                                                                                                                                                                                                               |
+| [![qiniu-sdk](https://img.shields.io/crates/v/qiniu-sdk.svg)](https://crates.io/crates/qiniu-sdk)                                        | [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/qiniu-sdk)              | 七牛 SDK 入口                                                                                                                                                                                                                                                                      |
 
 ## 代码示例
 
@@ -264,7 +265,7 @@ let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_pr
         .add_preferred_endpoint("ucpub-qos.pocdemo.qiniu.io".into()) // 私有云存储空间管理服务域名，可以添加多个
         .build(),
 )
-.http_client(HttpClient::build_default().use_https(false).build()) // 私有云普遍使用 HTTP 协议，而 SDK 则默认为 HTTPS 协议
+.use_https(false) // 私有云普遍使用 HTTP 协议，而 SDK 则默认为 HTTPS 协议
 .build();
 let mut uploader: AutoUploader = upload_manager.auto_uploader();
 
@@ -272,51 +273,47 @@ let params = AutoUploaderObjectParams::builder().object_name(object_name).file_n
 uploader.upload_path("/home/qiniu/test.png", params)?;
 ```
 
-### 下载文件
+### 下载文件（需要依赖 `qiniu-sdk` 启用 `download` 功能）
 
 文件下载分为公开空间的文件下载和私有空间的文件下载。
 
 #### 公开空间
 
-对于公开空间，其访问的链接主要是将空间绑定的域名拼接上空间里面的文件名即可访问，标准情况下需要在拼接链接之前，将文件名进行 `urlencode` 以兼容不同的字符。如果有其他访问处理需求，在文件名之后继续拼接即可。这个过程实际上不需要使用七牛 SDK 也可以完成。
-
 ```rust
-use http::Uri;
+use qiniu_sdk::download::{DownloadManager, StaticDomainsUrlsGenerator};
 
 let object_name = "公司/存储/qiniu.jpg";
 let domain = "devtools.qiniu.com";
-let mut path = "/".to_string();
-url_escape::encode_path_to_string(object_name, &mut path);
-let url = Uri::builder()
-    .scheme("http")
-    .authority(domain)
-    .path_and_query(path)
-    .build()?;
-println!("{}", url);
+let path = "/home/user/qiniu.jpg";
+let download_manager = DownloadManager::new(
+    StaticDomainsUrlsGenerator::builder(domain)
+        .use_https(false) // 设置为 HTTP 协议
+        .build(),
+);
+download_manager
+    .download(object_name)?
+    .to_path(path)?;
 ```
 
-#### 私有空间（需要依赖 `qiniu-sdk` 启用 `credential` 功能）
-
-对于私有空间，首先需要按照公开空间的文件访问方式构建对应的公开空间访问链接，然后再对这个链接进行私有授权签名。
+#### 私有空间
 
 ```rust
-use qiniu_sdk::credential::Credential;
-use http::Uri;
+use qiniu_sdk::download::{apis::credential::Credential, DownloadManager, StaticDomainsUrlsGenerator, UrlsSigner};
 
 let access_key = "access key";
 let secret_key = "secret key";
 let object_name = "公司/存储/qiniu.jpg";
 let domain = "devtools.qiniu.com";
-let mut path = "/".to_string();
-url_escape::encode_path_to_string(object_name, &mut path);
-let url = Uri::builder()
-    .scheme("http")
-    .authority(domain)
-    .path_and_query(path)
-    .build()?;
-let credential = Credential::new(access_key, secret_key);
-let url = credential.sign_download_url(url, Duration::from_secs(3600));
-println!("{}", url);
+let path = "/home/user/qiniu.jpg";
+let download_manager = DownloadManager::new(UrlsSigner::new(
+    Credential::new(access_key, secret_key),
+    StaticDomainsUrlsGenerator::builder(domain)
+        .use_https(false) // 设置为 HTTP 协议
+        .build(),
+));
+download_manager
+    .download(object_name)?
+    .to_path(path)?;
 ```
 
 ### 资源管理（需要依赖 `qiniu-sdk` 启用 `objects` 功能）
@@ -331,7 +328,7 @@ let secret_key = "secret key";
 let bucket_name = "bucket name";
 let object_name = "object name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 let response = bucket.stat_object(object_name).call()?;
@@ -352,7 +349,7 @@ let secret_key = "secret key";
 let bucket_name = "bucket name";
 let object_name = "object name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 bucket
@@ -374,7 +371,7 @@ let object_name = "object name";
 let to_bucket_name = "to bucket name";
 let to_object_name = "new object name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 bucket
@@ -396,7 +393,7 @@ let object_name = "object name";
 let to_bucket_name = "to bucket name";
 let to_object_name = "new object name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 bucket
@@ -414,7 +411,7 @@ let secret_key = "secret key";
 let bucket_name = "bucket name";
 let object_name = "object name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 bucket
@@ -434,7 +431,7 @@ let secret_key = "secret key";
 let bucket_name = "bucket name";
 let object_name = "object name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 bucket
@@ -452,7 +449,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 
 let mut iter = bucket.list().iter();
@@ -490,7 +487,7 @@ let object_manager = ObjectsManager::builder(credential)
             .add_preferred_endpoint("ucpub-qos.pocdemo.qiniu.io".into()) // 私有云存储空间管理服务域名，可以添加多个
             .build(),
     )
-    .http_client(HttpClient::build_default().use_https(false).build()) // 私有云普遍使用 HTTP 协议，而 SDK 则默认为 HTTPS 协议
+    .use_https(false) // 私有云普遍使用 HTTP 协议，而 SDK 则默认为 HTTPS 协议
     .build();
 let bucket = object_manager.bucket(bucket_name);
 
@@ -518,7 +515,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
 ops.add_operation(bucket.stat_object("qiniu.jpg"));
@@ -552,7 +549,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
 ops.add_operation(bucket.modify_object_metadata("qiniu.jpg", mime::IMAGE_JPEG));
@@ -581,7 +578,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
 ops.add_operation(bucket.delete_object("qiniu.jpg"));
@@ -610,7 +607,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
 ops.add_operation(bucket.move_object_to("qiniu.jpg", bucket_name, "qiniu.jpg.move"));
@@ -639,7 +636,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
 ops.add_operation(bucket.copy_object_to("qiniu.jpg", bucket_name, "qiniu.jpg.move"));
@@ -668,7 +665,7 @@ let access_key = "access key";
 let secret_key = "secret key";
 let bucket_name = "bucket name";
 let credential = Credential::new(access_key, secret_key);
-let object_manager = ObjectsManager::builder(credential).build();
+let object_manager = ObjectsManager::new(credential);
 let bucket = object_manager.bucket(bucket_name);
 let mut ops = bucket.batch_ops();
 ops.add_operation(bucket.restore_archived_object("qiniu.jpg", 7));

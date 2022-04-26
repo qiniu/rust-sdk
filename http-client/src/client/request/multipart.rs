@@ -1,7 +1,11 @@
+use assert_impl::assert_impl;
 use mime::Mime;
 use once_cell::sync::Lazy;
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
-use qiniu_http::{header::CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
+use qiniu_http::{
+    header::{IntoHeaderName, CONTENT_TYPE},
+    HeaderMap, HeaderValue,
+};
 use qiniu_utils::{smallstr::SmallString, wrap_smallstr};
 use rand::random;
 use regex::Regex;
@@ -136,6 +140,14 @@ impl<P> Multipart<P> {
     }
 }
 
+impl<P: Sync + Send> Multipart<P> {
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
+}
+
 /// Multipart 表单组件元信息
 #[derive(Default, Debug)]
 pub struct PartMetadata {
@@ -154,8 +166,8 @@ impl PartMetadata {
     /// 添加表单组件的 HTTP 头
     #[inline]
     #[must_use]
-    pub fn add_header(mut self, name: impl Into<HeaderName>, value: impl Into<HeaderValue>) -> Self {
-        self.headers.insert(name.into(), value.into());
+    pub fn add_header(mut self, name: impl IntoHeaderName, value: impl Into<HeaderValue>) -> Self {
+        self.headers.insert(name, value.into());
         self
     }
 
@@ -175,6 +187,14 @@ impl<B> Part<B> {
     pub fn metadata(mut self, metadata: PartMetadata) -> Self {
         self.meta = metadata;
         self
+    }
+}
+
+impl<B: Sync + Send> Part<B> {
+    #[allow(dead_code)]
+    fn ignore() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

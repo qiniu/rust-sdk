@@ -1,4 +1,5 @@
 use super::{etag_v1::DEFAULT_BLOCK_SIZE, EtagV1, EtagV2};
+use assert_impl::assert_impl;
 use digest::{
     generic_array::{typenum::U28, GenericArray},
     FixedOutput, Reset, Update,
@@ -17,6 +18,14 @@ pub enum Etag {
 
     /// Etag V2 计算器
     V2(EtagV2),
+}
+
+impl Etag {
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 /// Etag 版本

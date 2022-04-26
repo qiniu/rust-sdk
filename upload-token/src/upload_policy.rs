@@ -273,7 +273,7 @@ impl UploadPolicy {
     }
 
     #[allow(dead_code)]
-    fn ignore() {
+    fn assert() {
         assert_impl!(Send: Self);
         assert_impl!(Sync: Self);
     }
@@ -583,6 +583,12 @@ impl UploadPolicyBuilder {
                 })
                 .collect(),
         );
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

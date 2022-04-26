@@ -27,7 +27,8 @@ pub use chooser::{
 pub use http_client::{HttpClient, HttpClientBuilder};
 pub use request::{
     FieldName, FileName, Idempotent, Multipart, Part, PartMetadata, QueryPair, QueryPairKey, QueryPairValue,
-    RequestBuilder, RequestBuilderParts, SyncMultipart, SyncPart, SyncPartBody, SyncRequestBody, SyncRequestBuilder,
+    RequestBuilder, RequestBuilderParts, RequestParts, SyncMultipart, SyncPart, SyncPartBody, SyncRequestBody,
+    SyncRequestBuilder,
 };
 pub use resolver::{
     CachedResolver, ChainedResolver, ChainedResolverBuilder, ResolveAnswers, ResolveOptions, ResolveResult, Resolver,
@@ -57,4 +58,4 @@ use call::request_call;
 use call::async_request_call;
 
 use callback::{CallbackContextImpl, ExtendedCallbackContextImpl};
-use request::RequestParts;
+use request::InnerRequestParts;

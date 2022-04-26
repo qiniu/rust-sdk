@@ -3,7 +3,7 @@ use qiniu_sdk::objects::{apis::credential::Credential, ObjectsManager};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "modify-object-status")]
+#[structopt(name = "unfreeze-object")]
 struct Opt {
     /// Qiniu Access Key
     #[structopt(long)]
@@ -17,9 +17,9 @@ struct Opt {
     /// Qiniu Object Name
     #[structopt(long)]
     object_name: String,
-    /// Disable
+    /// Freeze after days
     #[structopt(long)]
-    disable: usize,
+    freeze_after_days: usize,
 }
 
 #[async_std::main]
@@ -29,11 +29,11 @@ async fn main() -> Result<()> {
     let opt: Opt = Opt::from_args();
 
     let credential = Credential::new(&opt.access_key, &opt.secret_key);
-    let object_manager = ObjectsManager::builder(credential).build();
+    let object_manager = ObjectsManager::new(credential);
     let bucket = object_manager.bucket(opt.bucket_name);
 
     bucket
-        .modify_object_status(&opt.object_name, opt.disable > 0)
+        .restore_archived_object(&opt.object_name, opt.freeze_after_days)
         .async_call()
         .await?;
 

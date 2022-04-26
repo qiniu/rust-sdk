@@ -1,8 +1,8 @@
 use super::{
     super::{
         super::{Endpoint, EndpointsGetOptions, EndpointsProvider},
-        request::SyncRequest,
-        ApiResult, RequestParts, RetriedStatsInfo, RetryDecision, SyncRequestBody, SyncResponse,
+        request::SyncInnerRequest,
+        ApiResult, InnerRequestParts, RetriedStatsInfo, RetryDecision, SyncRequestBody, SyncResponse,
     },
     error::TryErrorWithExtensions,
     ip_addrs_set::IpAddrsSet,
@@ -10,7 +10,9 @@ use super::{
 };
 use qiniu_http::Extensions;
 
-pub(in super::super) fn request_call<E: EndpointsProvider>(request: SyncRequest<'_, E>) -> ApiResult<SyncResponse> {
+pub(in super::super) fn request_call<E: EndpointsProvider>(
+    request: SyncInnerRequest<'_, E>,
+) -> ApiResult<SyncResponse> {
     let (parts, mut body, into_endpoints, service_name, extensions) = request.split();
     let options = EndpointsGetOptions::builder().service_names(service_name).build();
     let endpoints = into_endpoints.get_endpoints(options)?;
@@ -46,7 +48,7 @@ pub(in super::super) fn request_call<E: EndpointsProvider>(request: SyncRequest<
 
     fn try_preferred_endpoints(
         endpoints: &[Endpoint],
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         body: &mut SyncRequestBody<'_>,
         extensions: Extensions,
         tried_ips: &mut IpAddrsSet,
@@ -57,7 +59,7 @@ pub(in super::super) fn request_call<E: EndpointsProvider>(request: SyncRequest<
 
     fn try_alternative_endpoints(
         endpoints: &[Endpoint],
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         body: &mut SyncRequestBody<'_>,
         extensions: Extensions,
         tried_ips: &mut IpAddrsSet,
@@ -70,13 +72,13 @@ pub(in super::super) fn request_call<E: EndpointsProvider>(request: SyncRequest<
 
 #[cfg(feature = "async")]
 use super::{
-    super::{request::AsyncRequest, AsyncRequestBody, AsyncResponse},
+    super::{request::AsyncInnerRequest, AsyncRequestBody, AsyncResponse},
     try_endpoints::async_try_endpoints,
 };
 
 #[cfg(feature = "async")]
 pub(in super::super) async fn async_request_call<E: EndpointsProvider>(
-    request: AsyncRequest<'_, E>,
+    request: AsyncInnerRequest<'_, E>,
 ) -> ApiResult<AsyncResponse> {
     let (parts, mut body, into_endpoints, service_name, extensions) = request.split();
     let options = EndpointsGetOptions::builder().service_names(service_name).build();
@@ -116,7 +118,7 @@ pub(in super::super) async fn async_request_call<E: EndpointsProvider>(
 
     async fn try_preferred_endpoints(
         endpoints: &[Endpoint],
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         body: &mut AsyncRequestBody<'_>,
         extensions: Extensions,
         tried_ips: &mut IpAddrsSet,
@@ -127,7 +129,7 @@ pub(in super::super) async fn async_request_call<E: EndpointsProvider>(
 
     async fn try_alternative_endpoints(
         endpoints: &[Endpoint],
-        parts: &RequestParts<'_>,
+        parts: &InnerRequestParts<'_>,
         body: &mut AsyncRequestBody<'_>,
         extensions: Extensions,
         tried_ips: &mut IpAddrsSet,

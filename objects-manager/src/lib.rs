@@ -73,7 +73,7 @@
 //!
 //! # fn example() -> anyhow::Result<()> {
 //! let credential = Credential::new("abcdefghklmnopq", "1234567890");
-//! let object_manager = ObjectsManager::builder(credential).build();
+//! let object_manager = ObjectsManager::new(credential);
 //! let bucket = object_manager.bucket("test-bucket");
 //!
 //! let response = bucket.stat_object("test-key").call()?;
@@ -92,7 +92,7 @@
 //!
 //! # async fn example() -> anyhow::Result<()> {
 //! let credential = Credential::new("abcdefghklmnopq", "1234567890");
-//! let object_manager = ObjectsManager::builder(credential).build();
+//! let object_manager = ObjectsManager::new(credential);
 //! let bucket = object_manager.bucket("test-bucket");
 //!
 //! let response = bucket.stat_object("test-key").async_call().await?;
@@ -113,7 +113,7 @@
 //!
 //! # fn example() -> anyhow::Result<()> {
 //! let credential = Credential::new("abcdefghklmnopq", "1234567890");
-//! let object_manager = ObjectsManager::builder(credential).build();
+//! let object_manager = ObjectsManager::new(credential);
 //! let bucket = object_manager.bucket("test-bucket");
 //! let mut ops = bucket.batch_ops();
 //! ops.add_operation(bucket.stat_object("test-file-1"));
@@ -140,7 +140,7 @@
 //!
 //! # async fn example() -> anyhow::Result<()> {
 //! let credential = Credential::new("abcdefghklmnopq", "1234567890");
-//! let object_manager = ObjectsManager::builder(credential).build();
+//! let object_manager = ObjectsManager::new(credential);
 //! let bucket = object_manager.bucket("test-bucket");
 //! let mut ops = bucket.batch_ops();
 //! ops.add_operation(bucket.stat_object("test-file-1"));
@@ -167,7 +167,7 @@
 //!
 //! # async fn example() -> anyhow::Result<()> {
 //! let credential = Credential::new("abcdefghklmnopq", "1234567890");
-//! let object_manager = ObjectsManager::builder(credential).build();
+//! let object_manager = ObjectsManager::new(credential);
 //! let bucket = object_manager.bucket("test-bucket");
 //! let mut iter = bucket.list().iter();
 //! while let Some(object) = iter.next() {
@@ -188,7 +188,7 @@
 //!
 //! # async fn example() -> anyhow::Result<()> {
 //! let credential = Credential::new("abcdefghklmnopq", "1234567890");
-//! let object_manager = ObjectsManager::builder(credential).build();
+//! let object_manager = ObjectsManager::new(credential);
 //! let bucket = object_manager.bucket("test-bucket");
 //! let mut stream = bucket.list().stream();
 //! while let Some(object) = stream.try_next().await? {

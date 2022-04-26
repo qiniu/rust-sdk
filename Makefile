@@ -1,5 +1,5 @@
-.PHONY: all build build_release build_test doc doc_test test clean clippy
-SUBDIRS := utils credential etag upload-token http http-ureq http-isahc http-reqwest http-client api-generator apis api-examples objects-manager upload-manager sdk
+.PHONY: all build build_release build_test doc doc_test test clean clippy publish
+SUBDIRS := utils credential etag upload-token http http-ureq http-isahc http-reqwest http-client api-generator apis sdk-examples objects-manager upload-manager download-manager sdk
 
 all: build doc
 build:
@@ -33,3 +33,8 @@ clean:
 	cargo clean
 clippy:
 	cargo +nightly clippy --examples --tests --all-features -- -D warnings --no-deps
+publish:
+	set -e; \
+	for i in utils/ etag/ credential/ http/ upload-token/ http-isahc/ http-reqwest/ http-ureq/ http-client/ apis/ objects-manager/ upload-manager/ download-manager sdk/ ; do \
+		(cd $i && cargo publish && sleep 300) || break ; \
+	done

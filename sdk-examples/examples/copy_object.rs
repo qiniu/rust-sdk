@@ -32,15 +32,11 @@ async fn main() -> Result<()> {
     let opt: Opt = Opt::from_args();
 
     let credential = Credential::new(&opt.access_key, &opt.secret_key);
-    let object_manager = ObjectsManager::builder(credential).build();
+    let object_manager = ObjectsManager::new(credential);
     let bucket = object_manager.bucket(opt.from_bucket_name);
 
     bucket
-        .copy_object_to(
-            &opt.from_object_name,
-            &opt.to_bucket_name,
-            &opt.to_object_name,
-        )
+        .copy_object_to(&opt.from_object_name, &opt.to_bucket_name, &opt.to_object_name)
         .async_call()
         .await?;
 

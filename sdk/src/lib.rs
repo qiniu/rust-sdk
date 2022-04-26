@@ -64,6 +64,10 @@
 //!
 //! 允许通过 `qiniu_sdk::upload` 来访问 `qiniu-upload-manager`。
 //!
+//! #### `download`
+//!
+//! 允许通过 `qiniu_sdk::download` 来访问 `qiniu-download-manager`。
+//!
 //! #### `async`
 //!
 //! 启用所有七牛 SDK 插件的异步接口。
@@ -123,6 +127,9 @@ pub use qiniu_objects_manager as objects;
 #[cfg(feature = "upload")]
 pub use qiniu_upload_manager as upload;
 
+#[cfg(feature = "download")]
+pub use qiniu_download_manager as download;
+
 #[cfg(feature = "ureq")]
 pub use qiniu_ureq as ureq;
 
@@ -151,4 +158,7 @@ pub mod prelude {
 
     #[cfg(feature = "upload")]
     pub use qiniu_upload_manager::prelude::*;
+
+    #[cfg(feature = "download")]
+    pub use qiniu_download_manager::prelude::*;
 }

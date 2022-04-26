@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-upload-token"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
 rust-version = "1.60.0"
@@ -24,8 +24,8 @@ serde = { version = "1.0.130", features = ["derive"] }
 auto_impl = { package = "bachue-auto_impl", version = "0.5.1" }
 futures = { version = "0.3.16", optional = true }
 
-qiniu-credential = { version = "0.1.0", path = "../credential" }
-qiniu-utils = { version = "0.1.0", path = "../utils" }
+qiniu-credential = { version = "0.1.1", path = "../credential" }
+qiniu-utils = { version = "0.1.1", path = "../utils" }
 
 [dev-dependencies]
 anyhow = "1.0.44"

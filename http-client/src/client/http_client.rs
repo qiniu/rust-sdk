@@ -6,6 +6,7 @@ use super::{
     RequestRetrier, ResolveAnswers, Resolver, ResponseError, ShuffledChooser, ShuffledResolver, SimpleResolver,
     SimplifiedCallbackContext, SubnetChooser, SyncRequestBuilder, TimeoutResolver,
 };
+use assert_impl::assert_impl;
 use cfg_if::cfg_if;
 use qiniu_http::{
     CallbackResult, HeaderName, HeaderValue, HttpCaller, Method, ResponseParts, StatusCode, TransferProgressInfo,
@@ -83,6 +84,14 @@ use super::AsyncRequestBuilder;
 #[derive(Debug, Clone)]
 pub struct HttpClient {
     inner: Arc<HttpClientInner>,
+}
+
+impl HttpClient {
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
+    }
 }
 
 #[derive(Debug)]
@@ -600,6 +609,12 @@ impl HttpClientBuilder {
                 callbacks: self.callbacks.build(),
             }),
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 

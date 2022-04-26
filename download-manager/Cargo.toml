@@ -1,0 +1,58 @@
+[package]
+name = "qiniu-download-manager"
+version = "0.1.1"
+authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
+edition = "2021"
+rust-version = "1.60.0"
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/qiniu/rust-sdk.git"
+homepage = "https://www.qiniu.com"
+description = "Qiniu Download Manager for Rust"
+keywords = ["qiniu", "storage"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4.14"
+http = "0.2.4"
+thiserror = "1.0.25"
+assert-impl = "0.1.3"
+url-escape = "0.1.1"
+auto_impl = { package = "bachue-auto_impl", version = "0.5.1" }
+qiniu-apis = { version = "0.1.1", path = "../apis" }
+futures = { version = "0.3.5", optional = true }
+async-std = { version = "1.9.0", optional = true }
+smart-default = { version = "0.6.0", optional = true }
+
+[dev-dependencies]
+anyhow = "1.0.51"
+rand = "0.8.3"
+env_logger = "0.8.3"
+async-std = { version = "1.9.0", features = ["attributes", "unstable"] }
+sha-1 = "0.9.6"
+
+[features]
+default = ["ureq"]
+async = ["futures", "qiniu-apis/async", "async-std", "smart-default"]
+reqwest = ["qiniu-apis/reqwest"]
+isahc = ["qiniu-apis/isahc"]
+ureq = ["qiniu-apis/ureq"]
+c_ares = ["qiniu-apis/c_ares"]
+trust_dns = ["qiniu-apis/trust_dns"]
+tokio1 = ["qiniu-apis/tokio1"]
+tokio02 = ["qiniu-apis/tokio02"]
+tokio03 = ["qiniu-apis/tokio03"]
+dns-over-https = ["qiniu-apis/dns-over-https"]
+dns-over-https-rustls = ["qiniu-apis/dns-over-https-rustls"]
+dns-over-tls = ["qiniu-apis/dns-over-tls"]
+dns-over-rustls = ["qiniu-apis/dns-over-rustls"]
+dns-over-native-tls = ["qiniu-apis/dns-over-native-tls"]
+dnssec-openssl = ["qiniu-apis/dnssec-openssl"]
+dnssec-ring = ["qiniu-apis/dnssec-ring"]
+dnssec = ["qiniu-apis/dnssec"]
+docs = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "feature=\"docs\""]

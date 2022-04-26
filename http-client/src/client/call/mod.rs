@@ -25,8 +25,7 @@ mod tests {
         ResponseErrorKind, ServiceName, NO_BACKOFF,
     };
     use qiniu_http::{
-        CallbackResult, Extensions, HeaderMap, HeaderName, HeaderValue, ResponseErrorKind as HttpResponseErrorKind,
-        StatusCode,
+        CallbackResult, Extensions, HeaderMap, HeaderValue, ResponseErrorKind as HttpResponseErrorKind, StatusCode,
     };
     use std::{
         collections::{HashMap, HashSet},
@@ -322,14 +321,8 @@ mod tests {
 
         let headers = {
             let mut headers = HeaderMap::default();
-            headers.insert(
-                HeaderName::from_static(X_REQ_ID_HEADER_NAME),
-                HeaderValue::from_static("fake_req_id"),
-            );
-            headers.insert(
-                HeaderName::from_static(X_LOG_HEADER_NAME),
-                HeaderValue::from_static("fake_log"),
-            );
+            headers.insert(X_REQ_ID_HEADER_NAME, HeaderValue::from_static("fake_req_id"));
+            headers.insert(X_LOG_HEADER_NAME, HeaderValue::from_static("fake_log"));
             headers
         };
         let always_throttled_client = make_fixed_response_client_builder(
@@ -539,10 +532,7 @@ mod tests {
                 .post(&[ServiceName::Up], chaotic_up_domains_endpoint())
                 .authorization(Authorization::v2(credential.to_owned()))
                 .on_before_request_signed(|context| {
-                    assert!(context
-                        .headers()
-                        .get(&HeaderName::from_static("authorization"))
-                        .is_none());
+                    assert!(context.headers().get("authorization").is_none());
                     CallbackResult::Continue
                 })
                 .on_after_request_signed({
@@ -551,7 +541,7 @@ mod tests {
                         signed_urls.lock().unwrap().insert(context.url().to_string());
                         assert!(context
                             .headers()
-                            .get(&HeaderName::from_static("authorization"))
+                            .get("authorization")
                             .unwrap()
                             .to_str()
                             .unwrap()
@@ -570,10 +560,7 @@ mod tests {
                 .post(&[ServiceName::Up], chaotic_up_domains_endpoint())
                 .authorization(Authorization::v1(credential))
                 .on_before_request_signed(|context| {
-                    assert!(context
-                        .headers()
-                        .get(&HeaderName::from_static("authorization"))
-                        .is_none());
+                    assert!(context.headers().get("authorization").is_none());
                     CallbackResult::Continue
                 })
                 .on_after_request_signed({
@@ -581,7 +568,7 @@ mod tests {
                         signed_urls.lock().unwrap().insert(context.url().to_string());
                         assert!(context
                             .headers()
-                            .get(&HeaderName::from_static("authorization"))
+                            .get("authorization")
                             .unwrap()
                             .to_str()
                             .unwrap()
@@ -658,13 +645,10 @@ mod tests {
         let headers = {
             let mut headers = HeaderMap::new();
             headers.insert(
-                HeaderName::from_static("location"),
+                "location",
                 HeaderValue::from_static("https://another-fakedomain.withoutport.com/"),
             );
-            headers.insert(
-                HeaderName::from_static(X_REQ_ID_HEADER_NAME),
-                HeaderValue::from_static("fake_req_id"),
-            );
+            headers.insert(X_REQ_ID_HEADER_NAME, HeaderValue::from_static("fake_req_id"));
             headers
         };
         let always_redirected_client = make_fixed_response_client_builder(
@@ -765,10 +749,7 @@ mod tests {
 
         let headers = {
             let mut headers = HeaderMap::default();
-            headers.insert(
-                HeaderName::from_static(X_REQ_ID_HEADER_NAME),
-                HeaderValue::from_static("fake_req_id"),
-            );
+            headers.insert(X_REQ_ID_HEADER_NAME, HeaderValue::from_static("fake_req_id"));
             headers
         };
         let always_throttled_client = make_fixed_response_client_builder(

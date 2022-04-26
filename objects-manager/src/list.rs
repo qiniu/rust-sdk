@@ -1,4 +1,5 @@
 use super::{callbacks::Callbacks, Bucket};
+use assert_impl::assert_impl;
 use log::warn;
 use qiniu_apis::{
     http::ResponseErrorKind as HttpResponseErrorKind,
@@ -229,6 +230,12 @@ impl<'a> ListIter<'a> {
                 marker: Marker::new(marker),
             },
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        // assert_impl!(Sync: Self);
     }
 }
 
@@ -528,6 +535,12 @@ mod async_list_stream {
                 ListVersion::V1 => v1_next(bucket, limit, prefix, marker, need_parts, callbacks),
                 ListVersion::V2 => v2_next(bucket, limit, prefix, marker, need_parts, callbacks),
             })
+        }
+
+        #[allow(dead_code)]
+        fn assert() {
+            assert_impl!(Send: Self);
+            // assert_impl!(Sync: Self);
         }
     }
 
@@ -864,7 +877,7 @@ mod tests {
     use super::{super::ObjectsManager, *};
     use qiniu_apis::{
         credential::Credential,
-        http::{HeaderName, HeaderValue, HttpCaller, StatusCode, SyncRequest, SyncResponse, SyncResponseResult},
+        http::{HeaderValue, HttpCaller, StatusCode, SyncRequest, SyncResponse, SyncResponseResult},
         http_client::{
             BucketName, CallbackResult, DirectChooser, HttpClient, NeverRetrier, Region, ResponseErrorKind, NO_BACKOFF,
         },
@@ -951,10 +964,7 @@ mod tests {
                 };
                 Ok(SyncResponse::builder()
                     .status_code(StatusCode::OK)
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("FakeReqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                     .body(body)
                     .build())
             }
@@ -1043,10 +1053,7 @@ mod tests {
                 };
                 Ok(SyncResponse::builder()
                     .status_code(code)
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("FakeReqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                     .body(body)
                     .build())
             }
@@ -1170,10 +1177,7 @@ mod tests {
                 };
                 Ok(SyncResponse::builder()
                     .status_code(StatusCode::OK)
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("FakeReqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                     .body(body)
                     .build())
             }
@@ -1246,10 +1250,7 @@ mod tests {
                 };
                 Ok(SyncResponse::builder()
                     .status_code(StatusCode::OK)
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("FakeReqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                     .body(body)
                     .build())
             }
@@ -1377,10 +1378,7 @@ mod tests {
                 };
                 Ok(SyncResponse::builder()
                     .status_code(StatusCode::OK)
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("FakeReqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                     .body(body)
                     .build())
             }
@@ -1476,10 +1474,7 @@ mod tests {
                 };
                 Ok(SyncResponse::builder()
                     .status_code(code)
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("FakeReqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                     .body(body)
                     .build())
             }
@@ -1591,10 +1586,7 @@ mod tests {
                 };
                 Ok(SyncResponse::builder()
                     .status_code(StatusCode::OK)
-                    .header(
-                        HeaderName::from_static("x-reqid"),
-                        HeaderValue::from_static("FakeReqid"),
-                    )
+                    .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                     .body(body)
                     .build())
             }
@@ -1711,10 +1703,7 @@ mod tests {
                     };
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(body)
                         .build())
                 })
@@ -1802,10 +1791,7 @@ mod tests {
                     };
                     Ok(AsyncResponse::builder()
                         .status_code(code)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(body)
                         .build())
                 })
@@ -1931,10 +1917,7 @@ mod tests {
                     };
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(body)
                         .build())
                 })
@@ -2010,10 +1993,7 @@ mod tests {
                     };
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(body)
                         .build())
                 })
@@ -2149,10 +2129,7 @@ mod tests {
                     };
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(body)
                         .build())
                 })
@@ -2247,10 +2224,7 @@ mod tests {
                     };
                     Ok(AsyncResponse::builder()
                         .status_code(code)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(body)
                         .build())
                 })
@@ -2364,10 +2338,7 @@ mod tests {
                     };
                     Ok(AsyncResponse::builder()
                         .status_code(StatusCode::OK)
-                        .header(
-                            HeaderName::from_static("x-reqid"),
-                            HeaderValue::from_static("FakeReqid"),
-                        )
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
                         .body(body)
                         .build())
                 })

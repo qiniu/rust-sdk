@@ -2,7 +2,7 @@ use super::{MapError, ResponseError};
 use assert_impl::assert_impl;
 use auto_impl::auto_impl;
 use http::{
-    header::{HeaderMap, HeaderName, HeaderValue},
+    header::{AsHeaderName, HeaderMap, HeaderValue, IntoHeaderName},
     response::{Parts as HttpResponseParts, Response as HttpResponse},
     status::StatusCode,
     Extensions, Version,
@@ -134,8 +134,8 @@ impl ResponseParts {
 
     /// 获取 HTTP 响应 Header
     #[inline]
-    pub fn header(&self, header_name: HeaderName) -> Option<&HeaderValue> {
-        self.headers().get(&header_name)
+    pub fn header(&self, header_name: impl AsHeaderName) -> Option<&HeaderValue> {
+        self.headers().get(header_name)
     }
 
     pub(super) fn into_response_info(self) -> ResponseInfo {
@@ -363,8 +363,8 @@ impl<B> ResponseBuilder<B> {
 
     /// 添加 HTTP Header
     #[inline]
-    pub fn header(&mut self, header_name: HeaderName, header_value: HeaderValue) -> &mut Self {
-        self.inner.headers_mut().insert(header_name, header_value);
+    pub fn header(&mut self, header_name: impl IntoHeaderName, header_value: impl Into<HeaderValue>) -> &mut Self {
+        self.inner.headers_mut().insert(header_name, header_value.into());
         self
     }
 
@@ -392,6 +392,7 @@ impl<B: Default> ResponseBuilder<B> {
 }
 
 mod body {
+    use assert_impl::assert_impl;
     use std::{
         default::Default,
         fmt::Debug,
@@ -423,6 +424,12 @@ mod body {
         pub fn from_bytes(bytes: Vec<u8>) -> Self {
             Self(ResponseBodyInner::Bytes(Cursor::new(bytes)))
         }
+
+        #[allow(dead_code)]
+        fn ignore() {
+            assert_impl!(Send: Self);
+            // assert_impl!(Sync: Self);
+        }
     }
 
     impl Default for ResponseBody {
@@ -443,6 +450,7 @@ mod body {
 
     #[cfg(feature = "async")]
     mod async_body {
+        use assert_impl::assert_impl;
         use futures_lite::{
             io::{AsyncRead, Cursor, Result as IoResult},
             pin,
@@ -478,6 +486,12 @@ mod body {
             #[inline]
             pub fn from_bytes(bytes: Vec<u8>) -> Self {
                 Self(AsyncResponseBodyInner::Bytes(Cursor::new(bytes)))
+            }
+
+            #[allow(dead_code)]
+            fn ignore() {
+                assert_impl!(Send: Self);
+                assert_impl!(Sync: Self);
             }
         }
 

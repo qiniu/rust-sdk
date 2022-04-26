@@ -1,3 +1,4 @@
+use assert_impl::assert_impl;
 use qiniu_apis::{
     credential::{AccessKey, CredentialProvider},
     http::ResponseErrorKind as HttpResponseErrorKind,
@@ -186,6 +187,12 @@ impl UploadTokenSigner {
                 }
             }
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
