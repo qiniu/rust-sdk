@@ -394,6 +394,10 @@ fn handle_sign_request_error(err: AuthorizationError, retried: &RetriedStatsInfo
             ResponseError::new(ResponseErrorKind::HttpError(HttpResponseErrorKind::LocalIoError), err).retried(retried),
             RetryDecision::DontRetry.into(),
         ),
+        AuthorizationError::CallbackError(err) => TryError::new(
+            ResponseError::new(ResponseErrorKind::HttpError(HttpResponseErrorKind::UserCanceled), err).retried(retried),
+            RetryDecision::DontRetry.into(),
+        ),
         AuthorizationError::UrlParseError(err) => TryError::new(
             ResponseError::new(ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl), err).retried(retried),
             RetryDecision::TryNextServer.into(),

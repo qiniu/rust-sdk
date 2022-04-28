@@ -79,8 +79,8 @@ pub use upload_policy::{UploadPolicy, UploadPolicyBuilder};
 pub use upload_token::{
     BucketUploadTokenProvider, BucketUploadTokenProviderBuilder, CachedUploadTokenProvider, FromUploadPolicy,
     GetAccessKeyOptions, GetPolicyOptions, GotAccessKey, GotUploadPolicy, ObjectUploadTokenProvider,
-    ObjectUploadTokenProviderBuilder, ParseError, ParseResult, StaticUploadTokenProvider, ToStringOptions,
-    UploadTokenProvider, UploadTokenProviderExt,
+    ObjectUploadTokenProviderBuilder, ParseError, ParseResult, StaticUploadTokenProvider, ToStringError,
+    ToStringOptions, ToStringResult, UploadTokenProvider, UploadTokenProviderExt,
 };
 
 /// 将所有 Trait 全部重新导出，方便统一导入

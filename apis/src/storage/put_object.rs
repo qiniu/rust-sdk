@@ -42,7 +42,7 @@ pub mod sync_part {
             self,
             token: &'a (dyn qiniu_http_client::upload_token::UploadTokenProvider + 'a),
             opts: qiniu_http_client::upload_token::ToStringOptions,
-        ) -> std::io::Result<RequestBody<'a>> {
+        ) -> qiniu_http_client::upload_token::ToStringResult<RequestBody<'a>> {
             Ok(self.add_part("token", qiniu_http_client::SyncPart::text(token.to_token_string(opts)?)))
         }
         #[inline]
@@ -137,7 +137,7 @@ pub mod async_part {
             self,
             token: &'a (dyn qiniu_http_client::upload_token::UploadTokenProvider + 'a),
             opts: qiniu_http_client::upload_token::ToStringOptions,
-        ) -> std::io::Result<RequestBody<'a>> {
+        ) -> qiniu_http_client::upload_token::ToStringResult<RequestBody<'a>> {
             Ok(self.add_part(
                 "token",
                 qiniu_http_client::AsyncPart::text(token.async_to_token_string(opts).await?),

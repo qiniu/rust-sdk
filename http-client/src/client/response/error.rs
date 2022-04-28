@@ -7,6 +7,7 @@ use qiniu_http::{
     HeaderValue, Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
     ResponseParts as HttpResponseParts, StatusCode as HttpStatusCode,
 };
+use qiniu_upload_token::ToStringError;
 use serde_json::Error as JsonError;
 use std::{
     error, fmt,
@@ -335,5 +336,18 @@ impl From<IoError> for Error {
     #[inline]
     fn from(error: IoError) -> Self {
         Self::new(ErrorKind::HttpError(HttpResponseErrorKind::LocalIoError), error)
+    }
+}
+
+impl From<ToStringError> for Error {
+    #[inline]
+    fn from(error: ToStringError) -> Self {
+        match error {
+            ToStringError::CredentialGetError(err) => err.into(),
+            ToStringError::CallbackError(err) => {
+                Self::new(ErrorKind::HttpError(HttpResponseErrorKind::UserCanceled), err)
+            }
+            err => Self::new(ErrorKind::HttpError(HttpResponseErrorKind::UnknownError), err),
+        }
     }
 }
