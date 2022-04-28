@@ -318,6 +318,16 @@ pub struct RequestBuilder<'r, B> {
     inner: Request<'r, B>,
 }
 
+impl<'r, B: Default + 'r> RequestBuilder<'r, B> {
+    /// 创建 HTTP 请求构建器
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            inner: Default::default(),
+        }
+    }
+}
+
 impl<'r, B: 'r> RequestBuilder<'r, B> {
     /// 设置请求 URL
     #[inline]
