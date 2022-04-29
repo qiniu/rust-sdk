@@ -565,7 +565,7 @@ mod tests {
         assert_eq!(
             cache
                 .get(&cache_key, async {
-                    Err(ResponseError::new(ResponseErrorKind::NoTry, "test error"))
+                    Err(ResponseError::new_with_msg(ResponseErrorKind::NoTry, "test error"))
                 })
                 .await?,
             cache_value_1
@@ -576,7 +576,7 @@ mod tests {
         assert_eq!(
             cache
                 .get(&cache_key, async {
-                    Err(ResponseError::new(ResponseErrorKind::NoTry, "test error"))
+                    Err(ResponseError::new_with_msg(ResponseErrorKind::NoTry, "test error"))
                 })
                 .await?,
             cache_value_1

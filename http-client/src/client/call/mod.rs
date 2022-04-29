@@ -144,7 +144,7 @@ mod tests {
     fn test_call_all_frozen_endpoints_selection() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let err = ResponseError::new(HttpResponseErrorKind::ConnectError.into(), "Fake Connect Error");
+        let err = ResponseError::new_with_msg(HttpResponseErrorKind::ConnectError.into(), "Fake Connect Error");
         let chooser = IpChooser::default();
         chooser.feedback(ChooserFeedback::new(
             &[

@@ -1,4 +1,5 @@
 use super::{callbacks::Callbacks, Bucket, OperationProvider};
+use anyhow::Error as AnyError;
 use qiniu_apis::{
     http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts, StatusCode},
     http_client::{
@@ -472,13 +473,11 @@ mod async_stream {
 #[cfg(feature = "async")]
 pub use async_stream::*;
 
-fn make_user_cancelled_error(message: &str) -> ResponseError {
-    ResponseError::new(HttpResponseErrorKind::UserCanceled.into(), message)
+fn make_user_cancelled_error(message: &'static str) -> ResponseError {
+    ResponseError::new_with_msg(HttpResponseErrorKind::UserCanceled.into(), message)
 }
 
 fn from_response_to_response_data_result(response: OperationResponse) -> ApiResult<OperationResponseData> {
-    type AnyError = Box<dyn StdError + Send + Sync>;
-
     let status_code = StatusCode::from_u16(
         response
             .get_code_as_u64()
@@ -494,8 +493,7 @@ fn from_response_to_response_data_result(response: OperationResponse) -> ApiResu
             ResponseErrorKind::StatusCodeError(status_code),
             response
                 .get_data()
-                .and_then(|data| data.get_error_as_str().map(|err| err.to_owned()))
-                .map(AnyError::from)
+                .and_then(|data| data.get_error_as_str().map(|err| AnyError::msg(err.to_owned())))
                 .unwrap_or_else(|| NoErrorMessageFromOperation.into()),
         ))
     };

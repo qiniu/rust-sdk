@@ -2,6 +2,7 @@ use super::{
     super::super::{EndpointParseError, RetriedStatsInfo},
     X_LOG_HEADER_NAME, X_REQ_ID_HEADER_NAME,
 };
+use anyhow::Error as AnyError;
 use assert_impl::assert_impl;
 use qiniu_http::{
     HeaderValue, Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
@@ -10,7 +11,8 @@ use qiniu_http::{
 use qiniu_upload_token::ToStringError;
 use serde_json::Error as JsonError;
 use std::{
-    error, fmt,
+    error::Error as StdError,
+    fmt::{self, Debug, Display},
     io::{Error as IoError, Read, Result as IOResult},
     mem::take,
     net::IpAddr,
@@ -54,7 +56,7 @@ pub enum ErrorKind {
 #[derive(Debug)]
 pub struct Error {
     kind: ErrorKind,
-    error: Box<dyn error::Error + Send + Sync>,
+    error: AnyError,
     server_ip: Option<IpAddr>,
     server_port: Option<NonZeroU16>,
     metrics: Option<Box<dyn Metrics>>,
@@ -68,10 +70,25 @@ const RESPONSE_BODY_SAMPLE_LEN_LIMIT: u64 = 1024;
 impl Error {
     /// 创建 HTTP 响应错误
     #[inline]
-    pub fn new(kind: ErrorKind, err: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
+    pub fn new(kind: ErrorKind, err: impl Into<AnyError>) -> Self {
         Error {
             kind,
             error: err.into(),
+            server_ip: Default::default(),
+            server_port: Default::default(),
+            metrics: Default::default(),
+            x_headers: Default::default(),
+            response_body_sample: Default::default(),
+            retried: Default::default(),
+        }
+    }
+
+    /// 创建 HTTP 响应错误
+    #[inline]
+    pub fn new_with_msg(kind: ErrorKind, msg: impl Display + Debug + Send + Sync + 'static) -> Self {
+        Error {
+            kind,
+            error: AnyError::msg(msg),
             server_ip: Default::default(),
             server_port: Default::default(),
             metrics: Default::default(),
@@ -228,7 +245,7 @@ fn extract_metrics_from_response_parts(parts: &HttpResponseParts) -> Option<Box<
         .map(|metrics| Box::new(metrics) as Box<dyn Metrics + 'static>)
 }
 
-impl fmt::Display for Error {
+impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "[{:?}]", self.kind)?;
         if let Some(retried) = self.retried.as_ref() {
@@ -248,9 +265,9 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {
+impl StdError for Error {
     #[inline]
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         Some(self.error.as_ref())
     }
 }

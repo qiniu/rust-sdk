@@ -257,7 +257,10 @@ mod tests {
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
-            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
+            Some(&ResponseError::new_with_msg(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
         ));
         assert_eq!(
             ip_chooser
@@ -272,7 +275,10 @@ mod tests {
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
-            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
+            Some(&ResponseError::new_with_msg(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
         ));
         assert_eq!(
             ip_chooser
@@ -332,7 +338,10 @@ mod tests {
                 &RetriedStatsInfo::default(),
                 &mut Extensions::default(),
                 None,
-                Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
+                Some(&ResponseError::new_with_msg(
+                    ResponseErrorKind::ParseResponseError,
+                    "Test Error",
+                )),
             ))
             .await;
         assert_eq!(

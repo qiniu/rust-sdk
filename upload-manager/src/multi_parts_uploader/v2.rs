@@ -1088,8 +1088,8 @@ const MIN_PART_SIZE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1 << 20) };
 #[allow(unsafe_code)]
 const MAX_PART_SIZE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1 << 30) };
 
-fn make_user_cancelled_error(message: &str) -> ResponseError {
-    ResponseError::new(HttpResponseErrorKind::UserCanceled.into(), message)
+fn make_user_cancelled_error(message: &'static str) -> ResponseError {
+    ResponseError::new_with_msg(HttpResponseErrorKind::UserCanceled.into(), message)
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -368,7 +368,10 @@ mod tests {
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
-            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
+            Some(&ResponseError::new_with_msg(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
         ));
         assert_eq!(
             subnet_chooser
@@ -388,7 +391,10 @@ mod tests {
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
-            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
+            Some(&ResponseError::new_with_msg(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
         ));
         assert_eq!(
             subnet_chooser
@@ -403,7 +409,10 @@ mod tests {
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
-            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
+            Some(&ResponseError::new_with_msg(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
         ));
         subnet_chooser.feedback(ChooserFeedback::new(
             &[IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)), None)],
@@ -444,7 +453,10 @@ mod tests {
             &RetriedStatsInfo::default(),
             &mut Extensions::default(),
             None,
-            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
+            Some(&ResponseError::new_with_msg(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            )),
         ));
         assert_eq!(
             subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),

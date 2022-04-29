@@ -156,7 +156,7 @@ pub(super) fn call_before_backoff_callbacks(
         .is_cancelled()
     {
         return Err(TryError::new(
-            ResponseError::new(
+            ResponseError::new_with_msg(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "Cancelled by on_before_backoff() callback",
             )
@@ -178,7 +178,7 @@ pub(super) fn call_after_backoff_callbacks(
         .is_cancelled()
     {
         return Err(TryError::new(
-            ResponseError::new(
+            ResponseError::new_with_msg(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "Cancelled by on_after_backoff() callback",
             )
@@ -201,7 +201,7 @@ fn call_to_resolve_domain_callbacks(
         .is_cancelled()
     {
         return Err(TryError::new(
-            ResponseError::new(
+            ResponseError::new_with_msg(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "Cancelled by on_to_resolve_domain_callbacks() callback",
             )
@@ -225,7 +225,7 @@ fn call_domain_resolved_callbacks(
         .is_cancelled()
     {
         return Err(TryError::new(
-            ResponseError::new(
+            ResponseError::new_with_msg(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "Cancelled by on_domain_resolved_callbacks() callback",
             )
@@ -245,7 +245,7 @@ fn call_to_choose_ips_callbacks(
     let mut context = CallbackContextImpl::new(request, extensions);
     if request.call_to_choose_ips_callbacks(&mut context, ips).is_cancelled() {
         return Err(TryError::new(
-            ResponseError::new(
+            ResponseError::new_with_msg(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "Cancelled by on_to_choose_ips_callbacks() callback",
             )
@@ -269,7 +269,7 @@ fn call_ips_chosen_callbacks(
         .is_cancelled()
     {
         return Err(TryError::new(
-            ResponseError::new(
+            ResponseError::new_with_msg(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "Cancelled by on_ips_chosen_callbacks() callback",
             )
@@ -291,7 +291,7 @@ pub(super) fn call_before_request_signed_callbacks(
         .is_cancelled()
     {
         return Err(TryError::new(
-            ResponseError::new(
+            ResponseError::new_with_msg(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "Cancelled by on_before_request_signed() callback",
             )
@@ -310,7 +310,7 @@ pub(super) fn call_after_request_signed_callbacks(
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
     if request.call_after_request_signed_callbacks(&mut context).is_cancelled() {
         return Err(TryError::new(
-            ResponseError::new(
+            ResponseError::new_with_msg(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "Cancelled by on_after_request_signed() callback",
             )
@@ -329,7 +329,7 @@ pub(super) fn call_response_callbacks(
 ) -> Result<(), ResponseError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
     if request.call_response_callbacks(&mut context, response).is_cancelled() {
-        return Err(ResponseError::new(
+        return Err(ResponseError::new_with_msg(
             HttpResponseErrorKind::UserCanceled.into(),
             "Cancelled by on_response() callback",
         )
@@ -350,7 +350,7 @@ pub(super) fn call_error_callbacks(
         .is_cancelled()
     {
         return Err(TryError::new(
-            ResponseError::new(
+            ResponseError::new_with_msg(
                 HttpResponseErrorKind::UserCanceled.into(),
                 "Cancelled by on_error() callback",
             )
@@ -467,7 +467,7 @@ pub(super) fn judge(mut response: SyncResponse, retried: &RetriedStatsInfo) -> A
         let status_code = response.status_code();
         let (parts, body) = response.parse_json::<ErrorResponseBody>()?.into_parts_and_body();
         Err(
-            ResponseError::new(ResponseErrorKind::StatusCodeError(status_code), body.into_error())
+            ResponseError::new_with_msg(ResponseErrorKind::StatusCodeError(status_code), body.into_error())
                 .response_parts(&parts)
                 .retried(retried),
         )
@@ -494,7 +494,7 @@ async fn async_check_x_req_id(response: &mut AsyncResponse, retried: &RetriedSta
 }
 
 fn make_malicious_response(parts: &ResponseParts, retried: &RetriedStatsInfo) -> ResponseError {
-    ResponseError::new(
+    ResponseError::new_with_msg(
         ResponseErrorKind::MaliciousResponse,
         "cannot find X-ReqId header from response, might be malicious response",
     )
@@ -503,7 +503,7 @@ fn make_malicious_response(parts: &ResponseParts, retried: &RetriedStatsInfo) ->
 }
 
 fn make_unexpected_status_code_error(parts: &ResponseParts, retried: &RetriedStatsInfo) -> ResponseError {
-    ResponseError::new(
+    ResponseError::new_with_msg(
         ResponseErrorKind::UnexpectedStatusCode(parts.status_code()),
         format!("status code {} is unexpected", parts.status_code()),
     )
@@ -607,7 +607,7 @@ mod async_utils {
             let status_code = response.status_code();
             let (parts, body) = response.parse_json::<ErrorResponseBody>().await?.into_parts_and_body();
             Err(
-                ResponseError::new(ResponseErrorKind::StatusCodeError(status_code), body.into_error())
+                ResponseError::new_with_msg(ResponseErrorKind::StatusCodeError(status_code), body.into_error())
                     .response_parts(&parts)
                     .retried(retried),
             )

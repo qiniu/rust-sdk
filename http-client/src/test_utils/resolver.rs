@@ -51,7 +51,7 @@ pub(crate) fn make_error_resolver(error_kind: ResponseErrorKind, message: impl I
 
     impl Resolver for ErrorResolver {
         fn resolve(&self, _domain: &str, _opts: ResolveOptions) -> ResolveResult {
-            Err(ResponseError::new(self.error_kind, self.message.to_owned()))
+            Err(ResponseError::new_with_msg(self.error_kind, self.message.to_owned()))
         }
     }
 

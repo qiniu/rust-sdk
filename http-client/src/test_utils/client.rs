@@ -1,15 +1,13 @@
 use super::super::{HttpClient, HttpClientBuilder};
 use qiniu_http::{
-    HeaderMap, HttpCaller, ResponseError, ResponseErrorKind, StatusCode,
-    SyncRequest as SyncHttpRequest, SyncResponse, SyncResponseBody, SyncResponseResult,
+    HeaderMap, HttpCaller, ResponseError, ResponseErrorKind, StatusCode, SyncRequest as SyncHttpRequest, SyncResponse,
+    SyncResponseBody, SyncResponseResult,
 };
 
 #[cfg(feature = "async")]
 use {
     futures::future::BoxFuture,
-    qiniu_http::{
-        AsyncRequest as AsyncHttpRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult,
-    },
+    qiniu_http::{AsyncRequest as AsyncHttpRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult},
 };
 
 pub(crate) fn make_dumb_client_builder() -> HttpClientBuilder {
@@ -22,10 +20,7 @@ pub(crate) fn make_dumb_client_builder() -> HttpClientBuilder {
         }
 
         #[cfg(feature = "async")]
-        fn async_call<'a>(
-            &'a self,
-            _request: &'a mut AsyncHttpRequest<'_>,
-        ) -> BoxFuture<'a, AsyncResponseResult> {
+        fn async_call<'a>(&'a self, _request: &'a mut AsyncHttpRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
             Box::pin(async { Ok(Default::default()) })
         }
     }
@@ -57,10 +52,7 @@ pub(crate) fn make_fixed_response_client_builder(
         }
 
         #[cfg(feature = "async")]
-        fn async_call<'a>(
-            &'a self,
-            _request: &'a mut AsyncHttpRequest<'_>,
-        ) -> BoxFuture<'a, AsyncResponseResult> {
+        fn async_call<'a>(&'a self, _request: &'a mut AsyncHttpRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
             Box::pin(async move {
                 Ok(AsyncResponse::builder()
                     .status_code(self.status_code)
@@ -97,17 +89,14 @@ pub(crate) fn make_error_response_client_builder(
 
     impl HttpCaller for ErrorHttpCaller {
         fn call(&self, _request: &mut SyncHttpRequest<'_>) -> SyncResponseResult {
-            Err(ResponseError::builder(self.error_kind, self.message.to_owned()).build())
+            Err(ResponseError::builder_with_msg(self.error_kind, self.message.to_owned()).build())
         }
 
         #[cfg(feature = "async")]
-        fn async_call<'a>(
-            &'a self,
-            _request: &'a mut AsyncHttpRequest<'_>,
-        ) -> BoxFuture<'a, AsyncResponseResult> {
-            Box::pin(async move {
-                Err(ResponseError::builder(self.error_kind, self.message.to_owned()).build())
-            })
+        fn async_call<'a>(&'a self, _request: &'a mut AsyncHttpRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
+            Box::pin(
+                async move { Err(ResponseError::builder_with_msg(self.error_kind, self.message.to_owned()).build()) },
+            )
         }
 
         fn is_resolved_ip_addrs_supported(&self) -> bool {

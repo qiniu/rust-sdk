@@ -889,8 +889,8 @@ mod async_list_stream {
     }
 }
 
-fn make_user_cancelled_error(message: &str) -> ResponseError {
-    ResponseError::new(HttpResponseErrorKind::UserCanceled.into(), message)
+fn make_user_cancelled_error(message: &'static str) -> ResponseError {
+    ResponseError::new_with_msg(HttpResponseErrorKind::UserCanceled.into(), message)
 }
 
 #[cfg(feature = "async")]

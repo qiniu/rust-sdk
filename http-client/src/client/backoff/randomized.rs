@@ -105,7 +105,7 @@ mod tests {
                     &mut HttpRequestParts::default(),
                     BackoffOptions::new(
                         RetryDecision::RetryRequest,
-                        &ResponseError::new(HttpResponseErrorKind::TimeoutError.into(), "Test Error"),
+                        &ResponseError::new_with_msg(HttpResponseErrorKind::TimeoutError.into(), "Test Error"),
                         &RetriedStatsInfo::default(),
                     ),
                 )

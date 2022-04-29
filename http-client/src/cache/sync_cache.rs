@@ -530,7 +530,7 @@ mod tests {
         assert_eq!(called.load(Relaxed), 1);
         assert!(cache.exists(&cache_key));
         assert_eq!(
-            cache.get(&cache_key, || Err(ResponseError::new(
+            cache.get(&cache_key, || Err(ResponseError::new_with_msg(
                 ResponseErrorKind::NoTry,
                 "test error"
             )))?,
@@ -540,7 +540,7 @@ mod tests {
         sleep(Duration::from_secs(2));
         assert!(cache.exists(&cache_key));
         assert_eq!(
-            cache.get(&cache_key, || Err(ResponseError::new(
+            cache.get(&cache_key, || Err(ResponseError::new_with_msg(
                 ResponseErrorKind::NoTry,
                 "test error"
             )))?,

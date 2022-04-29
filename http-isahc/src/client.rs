@@ -228,7 +228,7 @@ fn call_response_callbacks<ReqBody, RespBody>(
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
         if on_receive_response_status(response.status()).is_cancelled() {
-            return Err(ResponseError::builder(
+            return Err(ResponseError::builder_with_msg(
                 ResponseErrorKind::UserCanceled,
                 "Cancelled by on_receive_response_status() callback",
             )
@@ -239,7 +239,7 @@ fn call_response_callbacks<ReqBody, RespBody>(
     if let Some(on_receive_response_header) = request.on_receive_response_header() {
         for (header_name, header_value) in response.headers().iter() {
             if on_receive_response_header(header_name, header_value).is_cancelled() {
-                return Err(ResponseError::builder(
+                return Err(ResponseError::builder_with_msg(
                     ResponseErrorKind::UserCanceled,
                     "Cancelled by on_receive_response_header() callback",
                 )
@@ -350,7 +350,7 @@ fn make_sync_isahc_request(
                         {
                             const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
                             *self.user_cancelled_error = Some(
-                                ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
+                                ResponseError::builder_with_msg(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
                                     .uri(self.request.url())
                                     .build(),
                             );
@@ -429,7 +429,7 @@ fn make_async_isahc_request(
                         {
                             const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
                             *self.user_cancelled_error = Some(
-                                ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
+                                ResponseError::builder_with_msg(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
                                     .uri(self.as_ref().request.url())
                                     .build(),
                             );
@@ -561,10 +561,10 @@ fn add_extensions_to_isahc_request_builder(
                 } else if scheme == &Scheme::HTTPS {
                     Ok(443)
                 } else {
-                    Err(ResponseError::builder(INVALID_URL, "unknown port for url").build())
+                    Err(ResponseError::builder_with_msg(INVALID_URL, "unknown port for url").build())
                 }
             } else {
-                Err(ResponseError::builder(INVALID_URL, "empty scheme for url").build())
+                Err(ResponseError::builder_with_msg(INVALID_URL, "empty scheme for url").build())
             }
         })
     }

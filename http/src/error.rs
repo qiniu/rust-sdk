@@ -1,6 +1,12 @@
 use super::response::{Metrics, ResponseInfo, ResponseParts};
+use anyhow::Error as AnyError;
 use http::uri::{Scheme, Uri};
-use std::{error::Error as StdError, fmt, net::IpAddr, num::NonZeroU16};
+use std::{
+    error::Error as StdError,
+    fmt::{self, Debug, Display},
+    net::IpAddr,
+    num::NonZeroU16,
+};
 
 /// HTTP 响应错误类型
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -65,15 +71,21 @@ pub enum ErrorKind {
 #[derive(Debug)]
 pub struct Error {
     kind: ErrorKind,
-    error: Box<dyn StdError + Send + Sync>,
+    error: AnyError,
     response_info: ResponseInfo,
 }
 
 impl Error {
     /// 创建 HTTP 响应错误构建器
     #[inline]
-    pub fn builder(kind: ErrorKind, err: impl Into<Box<dyn StdError + Send + Sync>>) -> ErrorBuilder {
+    pub fn builder(kind: ErrorKind, err: impl Into<AnyError>) -> ErrorBuilder {
         ErrorBuilder::new(kind, err)
+    }
+
+    /// 创建 HTTP 响应错误构建器
+    #[inline]
+    pub fn builder_with_msg(kind: ErrorKind, err: impl Display + Debug + Send + Sync + 'static) -> ErrorBuilder {
+        ErrorBuilder::new_with_msg(kind, err)
     }
 
     /// 获取 HTTP 响应错误类型
@@ -84,7 +96,7 @@ impl Error {
 
     /// 转换为内部存储的实际响应错误
     #[inline]
-    pub fn into_inner(self) -> Box<dyn StdError + Send + Sync> {
+    pub fn into_inner(self) -> AnyError {
         self.error
     }
 
@@ -125,9 +137,9 @@ impl Error {
     }
 }
 
-impl fmt::Display for Error {
+impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.error.fmt(f)
+        Display::fmt(&self.error, f)
     }
 }
 
@@ -147,11 +159,23 @@ pub struct ErrorBuilder {
 impl ErrorBuilder {
     /// 创建 HTTP 响应错误构建器
     #[inline]
-    fn new(kind: ErrorKind, err: impl Into<Box<dyn StdError + Send + Sync>>) -> Self {
+    fn new(kind: ErrorKind, err: impl Into<AnyError>) -> Self {
         Self {
             inner: Error {
                 kind,
                 error: err.into(),
+                response_info: Default::default(),
+            },
+        }
+    }
+
+    /// 创建 HTTP 响应错误构建器
+    #[inline]
+    fn new_with_msg(kind: ErrorKind, msg: impl Display + Debug + Send + Sync + 'static) -> Self {
+        Self {
+            inner: Error {
+                kind,
+                error: AnyError::msg(msg),
                 response_info: Default::default(),
             },
         }
@@ -227,12 +251,12 @@ impl<E> MapError<E> {
     }
 }
 
-impl<E: StdError + Sync + Send + 'static> MapError<E> {
+impl<E: Into<AnyError>> MapError<E> {
     /// 将响应映射错误转换为 HTTP 响应错误
     pub fn into_response_error(self, kind: ErrorKind) -> Error {
         Error {
             kind,
-            error: Box::new(self.error),
+            error: self.error.into(),
             response_info: self.parts.into_response_info(),
         }
     }

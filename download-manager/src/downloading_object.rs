@@ -510,7 +510,7 @@ impl InnerReader<SyncResponseBody> {
                 Ok(0) => make_request(
                     self,
                     buf,
-                    Some(ResponseError::new(
+                    Some(ResponseError::new_with_msg(
                         ResponseErrorKind::UnexpectedEof,
                         format!("Transfer closed with {} bytes remaining to read", unread),
                     )),
@@ -603,7 +603,7 @@ impl InnerReader<AsyncResponseBody> {
                         return Ok(0);
                     }
                     Ok(0) => {
-                        let err = ResponseError::new(
+                        let err = ResponseError::new_with_msg(
                             ResponseErrorKind::UnexpectedEof,
                             format!("Transfer closed with {} bytes remaining to read", unread),
                         );
@@ -711,7 +711,7 @@ impl<B> InnerReader<B> {
                 .and_then(|content_length| content_length.parse::<u64>().ok())
                 .map_or_else(
                     || {
-                        Err(DownloadError::ResponseError(ResponseError::new(
+                        Err(DownloadError::ResponseError(ResponseError::new_with_msg(
                             ResponseErrorKind::MaliciousResponse,
                             "content_length is invalid in response headers",
                         )))
@@ -719,7 +719,7 @@ impl<B> InnerReader<B> {
                     Ok,
                 )?
         } else {
-            return Err(DownloadError::ResponseError(ResponseError::new(
+            return Err(DownloadError::ResponseError(ResponseError::new_with_msg(
                 ResponseErrorKind::MaliciousResponse,
                 "content_length is missing in response headers",
             )));
@@ -742,7 +742,7 @@ impl<B> InnerReader<B> {
                 body: response.into_body(),
             })
         } else {
-            Err(DownloadError::ResponseError(ResponseError::new(
+            Err(DownloadError::ResponseError(ResponseError::new_with_msg(
                 ResponseErrorKind::MaliciousResponse,
                 "etag is missing in response headers",
             )))
@@ -822,8 +822,11 @@ impl From<DownloadError> for IoError {
     }
 }
 
-fn make_user_cancelled_error(message: &str) -> DownloadError {
-    DownloadError::ResponseError(ResponseError::new(HttpResponseErrorKind::UserCanceled.into(), message))
+fn make_user_cancelled_error(message: &'static str) -> DownloadError {
+    DownloadError::ResponseError(ResponseError::new_with_msg(
+        HttpResponseErrorKind::UserCanceled.into(),
+        message,
+    ))
 }
 
 fn set_uri_into_request<'a>(request: &mut RequestBuilderParts<'a>, uri: &'a UriParts) -> DownloadResult<()> {
@@ -833,7 +836,7 @@ fn set_uri_into_request<'a>(request: &mut RequestBuilderParts<'a>, uri: &'a UriP
     } else if scheme == &Scheme::HTTPS {
         request.use_https(true);
     } else {
-        return Err(DownloadError::ResponseError(ResponseError::new(
+        return Err(DownloadError::ResponseError(ResponseError::new_with_msg(
             ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl),
             "scheme is neither http nor https in http::Uri",
         )));
@@ -845,7 +848,7 @@ fn set_uri_into_request<'a>(request: &mut RequestBuilderParts<'a>, uri: &'a UriP
             request.query(query);
         }
     } else {
-        return Err(DownloadError::ResponseError(ResponseError::new(
+        return Err(DownloadError::ResponseError(ResponseError::new_with_msg(
             ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl),
             "path_and_query is neither http nor https in http::Uri",
         )));
@@ -898,7 +901,7 @@ fn after_response_call<B>(callbacks: &Callbacks<'_>, response: &mut ApiResult<Re
 fn make_endpoint_from_uri(uri: &mut UriParts) -> DownloadResult<Endpoint> {
     uri.authority.take().map(Endpoint::from).map_or_else(
         || {
-            Err(DownloadError::ResponseError(ResponseError::new(
+            Err(DownloadError::ResponseError(ResponseError::new_with_msg(
                 ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl),
                 "authority is missing in http::Uri",
             )))
@@ -955,16 +958,18 @@ mod tests {
                 assert!(url.contains("&token="));
                 assert_eq!(headers.get(REFERER).unwrap().to_str().unwrap(), "http://example.com");
                 if self.0.fetch_add(1, Ordering::Relaxed) > 0 {
-                    return Err(
-                        HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than once").build(),
-                    );
+                    Err(
+                        HttpResponseError::builder_with_msg(HttpResponseErrorKind::InvalidUrl, "called more than once")
+                            .build(),
+                    )
+                } else {
+                    Ok(HttpResponse::builder()
+                        .header("x-reqid", HeaderValue::from_static("fake-reqid"))
+                        .header(CONTENT_LENGTH, HeaderValue::from_static("10"))
+                        .header(ETAG, HeaderValue::from_static("fake-etag"))
+                        .body(body)
+                        .build())
                 }
-                Ok(HttpResponse::builder()
-                    .header("x-reqid", HeaderValue::from_static("fake-reqid"))
-                    .header(CONTENT_LENGTH, HeaderValue::from_static("10"))
-                    .header(ETAG, HeaderValue::from_static("fake-etag"))
-                    .body(body)
-                    .build())
             }
         }
 
@@ -1056,9 +1061,11 @@ mod tests {
                             .body(body_2)
                             .build())
                     }
-                    _ => Err(
-                        HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than twice").build(),
-                    ),
+                    _ => Err(HttpResponseError::builder_with_msg(
+                        HttpResponseErrorKind::InvalidUrl,
+                        "called more than twice",
+                    )
+                    .build()),
                 }
             }
         }
@@ -1178,7 +1185,11 @@ mod tests {
                         .body(body_2)
                         .build())
                 } else {
-                    Err(HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than twice").build())
+                    Err(HttpResponseError::builder_with_msg(
+                        HttpResponseErrorKind::InvalidUrl,
+                        "called more than twice",
+                    )
+                    .build())
                 }
             }
         }
@@ -1263,9 +1274,11 @@ mod tests {
                         .header(ETAG, HeaderValue::from_static("fake-etag"))
                         .body(body)
                         .build()),
-                    _ => Err(
-                        HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than once").build(),
-                    ),
+                    _ => Err(HttpResponseError::builder_with_msg(
+                        HttpResponseErrorKind::InvalidUrl,
+                        "called more than once",
+                    )
+                    .build()),
                 }
             }
         }
@@ -1347,7 +1360,10 @@ mod tests {
                 let called = self.0.fetch_add(1, Ordering::Relaxed);
                 if url.starts_with("http://127.0.0.1/test-key") {
                     assert_eq!(called, 0);
-                    Err(HttpResponseError::builder(HttpResponseErrorKind::ConnectError, "fake connect error").build())
+                    Err(
+                        HttpResponseError::builder_with_msg(HttpResponseErrorKind::ConnectError, "fake connect error")
+                            .build(),
+                    )
                 } else if url.starts_with("http://127.0.0.2/test-key") {
                     assert_eq!(called, 1);
                     Ok(HttpResponse::builder()
@@ -1357,7 +1373,11 @@ mod tests {
                         .body(body)
                         .build())
                 } else {
-                    Err(HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than twice").build())
+                    Err(HttpResponseError::builder_with_msg(
+                        HttpResponseErrorKind::InvalidUrl,
+                        "called more than twice",
+                    )
+                    .build())
                 }
             }
         }
@@ -1448,9 +1468,11 @@ mod tests {
                             .body(body_2)
                             .build())
                     }
-                    _ => Err(
-                        HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than twice").build(),
-                    ),
+                    _ => Err(HttpResponseError::builder_with_msg(
+                        HttpResponseErrorKind::InvalidUrl,
+                        "called more than twice",
+                    )
+                    .build()),
                 }
             }
         }

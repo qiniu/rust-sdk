@@ -130,7 +130,7 @@ fn make_async_reqwest_request(
                         {
                             const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
                             *self.user_cancelled_error = Some(
-                                ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
+                                ResponseError::builder_with_msg(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
                                     .uri(self.as_ref().request.url())
                                     .build(),
                             );

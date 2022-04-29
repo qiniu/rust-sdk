@@ -940,8 +940,8 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
 #[allow(unsafe_code)]
 const PART_SIZE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1 << 22) };
 
-fn make_user_cancelled_error(message: &str) -> ResponseError {
-    ResponseError::new(HttpResponseErrorKind::UserCanceled.into(), message)
+fn make_user_cancelled_error(message: &'static str) -> ResponseError {
+    ResponseError::new_with_msg(HttpResponseErrorKind::UserCanceled.into(), message)
 }
 
 #[derive(Debug, Clone, Serialize)]

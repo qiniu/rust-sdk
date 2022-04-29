@@ -427,8 +427,8 @@ trait AsyncReadTrait: AsyncRead + Unpin + Send + Sync {}
 #[cfg(feature = "async")]
 impl<T: AsyncRead + Unpin + Send + Sync> AsyncReadTrait for T {}
 
-fn make_user_cancelled_error(message: &str) -> ResponseError {
-    ResponseError::new(HttpResponseErrorKind::UserCanceled.into(), message)
+fn make_user_cancelled_error(message: &'static str) -> ResponseError {
+    ResponseError::new_with_msg(HttpResponseErrorKind::UserCanceled.into(), message)
 }
 
 #[cfg(test)]

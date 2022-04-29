@@ -89,7 +89,7 @@ mod tests {
             &mut parts,
             RequestRetrierOptions::new(
                 Idempotent::Default,
-                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
             ),
         );
@@ -99,7 +99,7 @@ mod tests {
             &mut parts,
             RequestRetrierOptions::new(
                 Idempotent::Never,
-                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
             ),
         );
@@ -115,7 +115,7 @@ mod tests {
             &mut parts,
             RequestRetrierOptions::new(
                 Idempotent::Default,
-                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
             ),
         );
@@ -125,7 +125,7 @@ mod tests {
             &mut parts,
             RequestRetrierOptions::new(
                 Idempotent::Always,
-                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
             ),
         );
@@ -135,7 +135,7 @@ mod tests {
             &mut parts,
             RequestRetrierOptions::new(
                 Idempotent::Always,
-                &ResponseError::new(HttpResponseErrorKind::InvalidUrl.into(), "Test Error"),
+                &ResponseError::new_with_msg(HttpResponseErrorKind::InvalidUrl.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
             ),
         );
@@ -163,7 +163,7 @@ mod tests {
             &mut parts,
             RequestRetrierOptions::new(
                 Idempotent::Default,
-                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
             ),
         );
@@ -175,7 +175,7 @@ mod tests {
             &mut parts,
             RequestRetrierOptions::new(
                 Idempotent::Default,
-                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
+                &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
             ),
         );

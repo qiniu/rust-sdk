@@ -160,7 +160,7 @@ fn call_response_callbacks(request: &RequestParts, response: &UreqResponse) -> R
 }
 
 fn build_on_receive_response_status_error(request: &RequestParts) -> ResponseError {
-    ResponseError::builder(
+    ResponseError::builder_with_msg(
         ResponseErrorKind::UserCanceled,
         "Cancelled by on_receive_response_status() callback",
     )
@@ -169,7 +169,7 @@ fn build_on_receive_response_status_error(request: &RequestParts) -> ResponseErr
 }
 
 fn build_on_receive_response_header_error(request: &RequestParts) -> ResponseError {
-    ResponseError::builder(
+    ResponseError::builder_with_msg(
         ResponseErrorKind::UserCanceled,
         "Cancelled by on_receive_response_header() callback",
     )
@@ -178,7 +178,7 @@ fn build_on_receive_response_header_error(request: &RequestParts) -> ResponseErr
 }
 
 fn build_status_code_error(request: &RequestParts, code: u16, err: impl Error) -> ResponseError {
-    ResponseError::builder(
+    ResponseError::builder_with_msg(
         ResponseErrorKind::InvalidRequestResponse,
         format!("invalid status code({}): {}", code, err),
     )
@@ -187,7 +187,7 @@ fn build_status_code_error(request: &RequestParts, code: u16, err: impl Error) -
 }
 
 fn build_header_name_error(request: &RequestParts, header_name: &str, err: impl Error) -> ResponseError {
-    ResponseError::builder(
+    ResponseError::builder_with_msg(
         ResponseErrorKind::InvalidHeader,
         format!("invalid header name({}): {}", header_name, err),
     )
@@ -196,7 +196,7 @@ fn build_header_name_error(request: &RequestParts, header_name: &str, err: impl 
 }
 
 fn build_header_value_error(request: &RequestParts, header_value: &str, err: impl Error) -> ResponseError {
-    ResponseError::builder(
+    ResponseError::builder_with_msg(
         ResponseErrorKind::InvalidHeader,
         format!("invalid header value({}): {}", header_value, err),
     )
@@ -205,7 +205,7 @@ fn build_header_value_error(request: &RequestParts, header_value: &str, err: imp
 }
 
 fn convert_header_value_error(request: &RequestParts, header_value: &HeaderValue, err: impl Error) -> ResponseError {
-    ResponseError::builder(
+    ResponseError::builder_with_msg(
         ResponseErrorKind::InvalidHeader,
         format!("invalid header value({:?}): {}", header_value, err),
     )
@@ -238,7 +238,7 @@ fn parse_http_version(version: &str, request: &RequestParts) -> Result<Version, 
         "HTTP/1.1" => Ok(Version::HTTP_11),
         "HTTP/2.0" => Ok(Version::HTTP_2),
         "HTTP/3.0" => Ok(Version::HTTP_3),
-        _ => Err(ResponseError::builder(
+        _ => Err(ResponseError::builder_with_msg(
             ResponseErrorKind::InvalidRequestResponse,
             format!("invalid http version: {}", version),
         )
@@ -306,7 +306,7 @@ impl Read for RequestBodyWithCallbacks<'_, '_> {
                     {
                         const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
                         *self.user_cancelled_error = Some(
-                            ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
+                            ResponseError::builder_with_msg(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
                                 .uri(self.request.url())
                                 .build(),
                         );

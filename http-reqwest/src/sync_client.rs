@@ -126,7 +126,7 @@ fn make_sync_reqwest_request(
                         {
                             const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
                             *self.user_cancelled_error = Some(
-                                ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
+                                ResponseError::builder_with_msg(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
                                     .uri(self.request.url())
                                     .build(),
                             );
@@ -210,7 +210,7 @@ pub(super) fn call_response_callbacks(
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
         if on_receive_response_status(status_code).is_cancelled() {
-            return Err(ResponseError::builder(
+            return Err(ResponseError::builder_with_msg(
                 ResponseErrorKind::UserCanceled,
                 "Cancelled by on_receive_response_status() callback",
             )
@@ -221,7 +221,7 @@ pub(super) fn call_response_callbacks(
     if let Some(on_receive_response_header) = request.on_receive_response_header() {
         for (header_name, header_value) in headers.iter() {
             if !on_receive_response_header(header_name, header_value).is_cancelled() {
-                return Err(ResponseError::builder(
+                return Err(ResponseError::builder_with_msg(
                     ResponseErrorKind::UserCanceled,
                     "Cancelled by on_receive_response_header() callback",
                 )
