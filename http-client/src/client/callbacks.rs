@@ -3,26 +3,26 @@ use super::{
     callback::{CallbackContext, ExtendedCallbackContext},
     ResolveAnswers, ResponseError, SimplifiedCallbackContext,
 };
-use qiniu_http::{CallbackResult, HeaderName, HeaderValue, ResponseParts, StatusCode, TransferProgressInfo};
+use anyhow::Result as AnyResult;
+use qiniu_http::{HeaderName, HeaderValue, ResponseParts, StatusCode, TransferProgressInfo};
 use std::{fmt, mem::take, time::Duration};
 
 type OnProgress<'f> =
-    Box<dyn Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> CallbackResult + Send + Sync + 'f>;
-type OnStatusCode<'f> = Box<dyn Fn(&dyn SimplifiedCallbackContext, StatusCode) -> CallbackResult + Send + Sync + 'f>;
+    Box<dyn Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> AnyResult<()> + Send + Sync + 'f>;
+type OnStatusCode<'f> = Box<dyn Fn(&dyn SimplifiedCallbackContext, StatusCode) -> AnyResult<()> + Send + Sync + 'f>;
 type OnHeader<'f> =
-    Box<dyn Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> CallbackResult + Send + Sync + 'f>;
+    Box<dyn Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> AnyResult<()> + Send + Sync + 'f>;
 
-type OnToResolveDomain<'f> = Box<dyn Fn(&mut dyn CallbackContext, &str) -> CallbackResult + Send + Sync + 'f>;
+type OnToResolveDomain<'f> = Box<dyn Fn(&mut dyn CallbackContext, &str) -> AnyResult<()> + Send + Sync + 'f>;
 type OnDomainResolved<'f> =
-    Box<dyn Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> CallbackResult + Send + Sync + 'f>;
-type OnToChooseIPs<'f> = Box<dyn Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> CallbackResult + Send + Sync + 'f>;
+    Box<dyn Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> AnyResult<()> + Send + Sync + 'f>;
+type OnToChooseIPs<'f> = Box<dyn Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> AnyResult<()> + Send + Sync + 'f>;
 type OnIPsChosen<'f> =
-    Box<dyn Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> CallbackResult + Send + Sync + 'f>;
-type OnRequest<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'f>;
-type OnRetry<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult + Send + Sync + 'f>;
-type OnResponse<'f> =
-    Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseParts) -> CallbackResult + Send + Sync + 'f>;
-type OnError<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> CallbackResult + Send + Sync + 'f>;
+    Box<dyn Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> AnyResult<()> + Send + Sync + 'f>;
+type OnRequest<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext) -> AnyResult<()> + Send + Sync + 'f>;
+type OnRetry<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext, Duration) -> AnyResult<()> + Send + Sync + 'f>;
+type OnResponse<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseParts) -> AnyResult<()> + Send + Sync + 'f>;
+type OnError<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> AnyResult<()> + Send + Sync + 'f>;
 
 #[derive(Default)]
 pub(super) struct Callbacks<'f> {
@@ -63,22 +63,20 @@ impl<'f> Callbacks<'f> {
         &self,
         context: &dyn SimplifiedCallbackContext,
         progress_info: &TransferProgressInfo,
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_uploading_progress_callbacks()
             .iter()
-            .map(|callback| callback(context, progress_info))
-            .collect()
+            .try_for_each(|callback| callback(context, progress_info))
     }
 
     pub(super) fn call_receive_response_status_callbacks(
         &self,
         context: &dyn SimplifiedCallbackContext,
         status_code: StatusCode,
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_receive_response_status_callbacks()
             .iter()
-            .map(|callback| callback(context, status_code))
-            .collect()
+            .try_for_each(|callback| callback(context, status_code))
     }
 
     pub(super) fn call_receive_response_header_callbacks(
@@ -86,22 +84,20 @@ impl<'f> Callbacks<'f> {
         context: &dyn SimplifiedCallbackContext,
         header_name: &HeaderName,
         header_value: &HeaderValue,
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_receive_response_header_callbacks()
             .iter()
-            .map(|callback| callback(context, header_name, header_value))
-            .collect()
+            .try_for_each(|callback| callback(context, header_name, header_value))
     }
 
     pub(super) fn call_to_resolve_domain_callbacks(
         &self,
         context: &mut dyn CallbackContext,
         domain: &str,
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_to_resolve_domain_callbacks()
             .iter()
-            .map(|callback| callback(context, domain))
-            .collect()
+            .try_for_each(|callback| callback(context, domain))
     }
 
     pub(super) fn call_domain_resolved_callbacks(
@@ -109,22 +105,20 @@ impl<'f> Callbacks<'f> {
         context: &mut dyn CallbackContext,
         domain: &str,
         answers: &ResolveAnswers,
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_domain_resolved_callbacks()
             .iter()
-            .map(|callback| callback(context, domain, answers))
-            .collect()
+            .try_for_each(|callback| callback(context, domain, answers))
     }
 
     pub(super) fn call_to_choose_ips_callbacks(
         &self,
         context: &mut dyn CallbackContext,
         ips: &[IpAddrWithPort],
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_to_choose_ips_callbacks()
             .iter()
-            .map(|callback| callback(context, ips))
-            .collect()
+            .try_for_each(|callback| callback(context, ips))
     }
 
     pub(super) fn call_ips_chosen_callbacks(
@@ -132,75 +126,68 @@ impl<'f> Callbacks<'f> {
         context: &mut dyn CallbackContext,
         ips: &[IpAddrWithPort],
         chosen: &[IpAddrWithPort],
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_ips_chosen_callbacks()
             .iter()
-            .map(|callback| callback(context, ips, chosen))
-            .collect()
+            .try_for_each(|callback| callback(context, ips, chosen))
     }
 
     pub(super) fn call_before_request_signed_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_before_request_signed_callbacks()
             .iter()
-            .map(|callback| callback(context))
-            .collect()
+            .try_for_each(|callback| callback(context))
     }
 
     pub(super) fn call_after_request_signed_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_after_request_signed_callbacks()
             .iter()
-            .map(|callback| callback(context))
-            .collect()
+            .try_for_each(|callback| callback(context))
     }
 
     pub(super) fn call_response_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
         response: &ResponseParts,
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_response_callbacks()
             .iter()
-            .map(|callback| callback(context, response))
-            .collect()
+            .try_for_each(|callback| callback(context, response))
     }
 
     pub(super) fn call_error_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
         error: &ResponseError,
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_error_callbacks()
             .iter()
-            .map(|callback| callback(context, error))
-            .collect()
+            .try_for_each(|callback| callback(context, error))
     }
 
     pub(super) fn call_before_backoff_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
         delay: Duration,
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_before_backoff_callbacks()
             .iter()
-            .map(|callback| callback(context, delay))
-            .collect()
+            .try_for_each(|callback| callback(context, delay))
     }
 
     pub(super) fn call_after_backoff_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
         delay: Duration,
-    ) -> CallbackResult {
+    ) -> AnyResult<()> {
         self.on_after_backoff_callbacks()
             .iter()
-            .map(|callback| callback(context, delay))
-            .collect()
+            .try_for_each(|callback| callback(context, delay))
     }
 
     #[inline]
@@ -273,7 +260,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_uploading_progress(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> CallbackResult + Send + Sync + 'f,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_uploading_progress.push(Box::new(callback));
         self
@@ -282,7 +269,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_receive_response_status(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> CallbackResult + Send + Sync + 'f,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, StatusCode) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_receive_response_status.push(Box::new(callback));
         self
@@ -291,7 +278,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_receive_response_header(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> CallbackResult + Send + Sync + 'f,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_receive_response_header.push(Box::new(callback));
         self
@@ -300,7 +287,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &str) -> CallbackResult + Send + Sync + 'f,
+        callback: impl Fn(&mut dyn CallbackContext, &str) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_to_resolve_domain.push(Box::new(callback));
         self
@@ -309,7 +296,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_domain_resolved(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> CallbackResult + Send + Sync + 'f,
+        callback: impl Fn(&mut dyn CallbackContext, &str, &ResolveAnswers) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_domain_resolved.push(Box::new(callback));
         self
@@ -318,7 +305,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_to_choose_ips(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> CallbackResult + Send + Sync + 'f,
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort]) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_to_choose_ips.push(Box::new(callback));
         self
@@ -327,7 +314,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_ips_chosen(
         &mut self,
-        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> CallbackResult
+        callback: impl Fn(&mut dyn CallbackContext, &[IpAddrWithPort], &[IpAddrWithPort]) -> AnyResult<()>
             + Send
             + Sync
             + 'f,
@@ -339,7 +326,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'f,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_before_request_signed.push(Box::new(callback));
         self
@@ -348,7 +335,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> CallbackResult + Send + Sync + 'f,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_after_request_signed.push(Box::new(callback));
         self
@@ -357,7 +344,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_response(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseParts) -> CallbackResult + Send + Sync + 'f,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseParts) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_response.push(Box::new(callback));
         self
@@ -366,7 +353,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_error(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> CallbackResult + Send + Sync + 'f,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_error.push(Box::new(callback));
         self
@@ -375,7 +362,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_before_backoff(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult + Send + Sync + 'f,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_before_backoff.push(Box::new(callback));
         self
@@ -384,7 +371,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_after_backoff(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> CallbackResult + Send + Sync + 'f,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, Duration) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_after_backoff.push(Box::new(callback));
         self

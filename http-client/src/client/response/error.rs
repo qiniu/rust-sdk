@@ -361,10 +361,8 @@ impl From<ToStringError> for Error {
     fn from(error: ToStringError) -> Self {
         match error {
             ToStringError::CredentialGetError(err) => err.into(),
-            ToStringError::CallbackError(err) => {
-                Self::new(ErrorKind::HttpError(HttpResponseErrorKind::UserCanceled), err)
-            }
-            err => Self::new(ErrorKind::HttpError(HttpResponseErrorKind::UnknownError), err),
+            ToStringError::CallbackError(err) => Self::new(HttpResponseErrorKind::CallbackError.into(), err),
+            err => Self::new(HttpResponseErrorKind::UnknownError.into(), err),
         }
     }
 }

@@ -31,7 +31,7 @@ impl RequestRetrier for ErrorRetrier {
                 HttpResponseErrorKind::ServerCertError => RetryDecision::TryAlternativeEndpoints,
                 HttpResponseErrorKind::ClientCertError => RetryDecision::DontRetry,
                 HttpResponseErrorKind::TooManyRedirect => RetryDecision::DontRetry,
-                HttpResponseErrorKind::UserCanceled => RetryDecision::DontRetry,
+                HttpResponseErrorKind::CallbackError => RetryDecision::DontRetry,
                 _ => RetryDecision::RetryRequest,
             },
             ResponseErrorKind::UnexpectedStatusCode(_) => RetryDecision::DontRetry,

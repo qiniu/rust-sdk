@@ -1,3 +1,4 @@
+use anyhow::Error as AnyError;
 use isahc::{
     config::{Configurable, Dialer},
     error::{Error as IsahcError, ErrorKind as IsahcErrorKind},
@@ -227,28 +228,20 @@ fn call_response_callbacks<ReqBody, RespBody>(
     response: &IsahcResponse<RespBody>,
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
-        if on_receive_response_status(response.status()).is_cancelled() {
-            return Err(ResponseError::builder_with_msg(
-                ResponseErrorKind::UserCanceled,
-                "Cancelled by on_receive_response_status() callback",
-            )
-            .uri(request.url())
-            .build());
-        }
+        on_receive_response_status(response.status()).map_err(|err| make_callback_error(err, request))?;
     }
     if let Some(on_receive_response_header) = request.on_receive_response_header() {
-        for (header_name, header_value) in response.headers().iter() {
-            if on_receive_response_header(header_name, header_value).is_cancelled() {
-                return Err(ResponseError::builder_with_msg(
-                    ResponseErrorKind::UserCanceled,
-                    "Cancelled by on_receive_response_header() callback",
-                )
-                .uri(request.url())
-                .build());
-            }
-        }
+        response.headers().iter().try_for_each(|(header_name, header_value)| {
+            on_receive_response_header(header_name, header_value).map_err(|err| make_callback_error(err, request))
+        })?;
     }
     Ok(())
+}
+
+fn make_callback_error(err: AnyError, request: &RequestParts) -> ResponseError {
+    ResponseError::builder(ResponseErrorKind::CallbackError, err)
+        .uri(request.url())
+        .build()
 }
 
 fn should_retry(err: &IsahcError) -> bool {
@@ -341,21 +334,15 @@ fn make_sync_isahc_request(
                     let buf = &buf[..n];
                     self.have_read += n as u64;
                     if let Some(on_uploading_progress) = self.request.on_uploading_progress() {
-                        if on_uploading_progress(&TransferProgressInfo::new(
+                        on_uploading_progress(&TransferProgressInfo::new(
                             self.have_read,
                             self.request.body().size(),
                             buf,
                         ))
-                        .is_cancelled()
-                        {
-                            const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
-                            *self.user_cancelled_error = Some(
-                                ResponseError::builder_with_msg(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
-                                    .uri(self.request.url())
-                                    .build(),
-                            );
-                            return Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE));
-                        }
+                        .map_err(|err| {
+                            *self.user_cancelled_error = Some(make_callback_error(err, self.request));
+                            IoError::new(IoErrorKind::Other, "on_uploading_progress() callback returns error")
+                        })?;
                     }
                     Ok(n)
                 }
@@ -420,20 +407,16 @@ fn make_async_isahc_request(
                     let buf = &buf[..n];
                     self.as_mut().have_read += n as u64;
                     if let Some(on_uploading_progress) = self.as_ref().request.on_uploading_progress() {
-                        if on_uploading_progress(&TransferProgressInfo::new(
+                        if let Err(err) = on_uploading_progress(&TransferProgressInfo::new(
                             self.as_ref().have_read,
                             self.as_ref().request.body().size(),
                             buf,
-                        ))
-                        .is_cancelled()
-                        {
-                            const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
-                            *self.user_cancelled_error = Some(
-                                ResponseError::builder_with_msg(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
-                                    .uri(self.as_ref().request.url())
-                                    .build(),
-                            );
-                            return Poll::Ready(Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE)));
+                        )) {
+                            *self.user_cancelled_error = Some(make_callback_error(err, self.request));
+                            return Poll::Ready(Err(IoError::new(
+                                IoErrorKind::Other,
+                                "on_uploading_progress() callback returns error",
+                            )));
                         }
                     }
                     Poll::Ready(Ok(n))

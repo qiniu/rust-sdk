@@ -2,6 +2,7 @@ use super::{
     download_callbacks::Callbacks, DownloadRetrier, DownloadRetrierOptions, ErrorRetrier, RetriedStatsInfo,
     RetryDecision,
 };
+use anyhow::{Error as AnyError, Result as AnyResult};
 use assert_impl::assert_impl;
 use http::{
     header::{IntoHeaderName, CONTENT_LENGTH, ETAG, RANGE},
@@ -14,8 +15,8 @@ use qiniu_apis::{
         TransferProgressInfo,
     },
     http_client::{
-        ApiResult, CallbackResult, Endpoint, HttpClient, RequestBuilderParts, Response, ResponseError,
-        ResponseErrorKind, SyncResponseBody,
+        ApiResult, Endpoint, HttpClient, RequestBuilderParts, Response, ResponseError, ResponseErrorKind,
+        SyncResponseBody,
     },
 };
 use std::{
@@ -112,7 +113,7 @@ impl DownloadingObject {
     #[inline]
     pub fn on_before_request<F>(mut self, callback: F) -> Self
     where
-        F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static,
+        F: Fn(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'static,
     {
         self.callbacks.insert_before_request_callback(callback);
         self
@@ -120,7 +121,7 @@ impl DownloadingObject {
 
     /// 设置下载进度回调函数
     #[inline]
-    pub fn on_download_progress<F: Fn(&TransferProgressInfo) -> CallbackResult + Send + Sync + 'static>(
+    pub fn on_download_progress<F: Fn(&TransferProgressInfo) -> AnyResult<()> + Send + Sync + 'static>(
         mut self,
         callback: F,
     ) -> Self {
@@ -130,7 +131,7 @@ impl DownloadingObject {
 
     /// 设置响应成功的回调函数
     #[inline]
-    pub fn on_response_ok<F: Fn(&mut HttpResponseParts) -> CallbackResult + Send + Sync + 'static>(
+    pub fn on_response_ok<F: Fn(&mut HttpResponseParts) -> AnyResult<()> + Send + Sync + 'static>(
         mut self,
         callback: F,
     ) -> Self {
@@ -140,7 +141,7 @@ impl DownloadingObject {
 
     /// 设置响应错误的回调函数
     #[inline]
-    pub fn on_response_error<F: Fn(&ResponseError) -> CallbackResult + Send + Sync + 'static>(
+    pub fn on_response_error<F: Fn(&ResponseError) -> AnyResult<()> + Send + Sync + 'static>(
         mut self,
         callback: F,
     ) -> Self {
@@ -688,18 +689,13 @@ impl<B> InnerReader<B> {
         let have_read = buf.len() as u64;
         *range_from = NonZeroU64::new(range_from.map(|v| v.get()).unwrap_or(0) + have_read);
         response.unread -= have_read;
-        if callbacks
+        callbacks
             .download_progress(&TransferProgressInfo::new(
                 response.content_length - response.unread,
                 response.content_length,
                 buf,
             ))
-            .is_cancelled()
-        {
-            return Err(make_user_cancelled_error(
-                "Cancelled by on_download_progress() callback",
-            ));
-        }
+            .map_err(make_callback_error)?;
         Ok(buf.len())
     }
 
@@ -822,11 +818,8 @@ impl From<DownloadError> for IoError {
     }
 }
 
-fn make_user_cancelled_error(message: &'static str) -> DownloadError {
-    DownloadError::ResponseError(ResponseError::new_with_msg(
-        HttpResponseErrorKind::UserCanceled.into(),
-        message,
-    ))
+fn make_callback_error(err: AnyError) -> DownloadError {
+    DownloadError::ResponseError(ResponseError::new(HttpResponseErrorKind::CallbackError.into(), err))
 }
 
 fn set_uri_into_request<'a>(request: &mut RequestBuilderParts<'a>, uri: &'a UriParts) -> DownloadResult<()> {
@@ -884,18 +877,11 @@ fn set_range_into_request(
 }
 
 fn before_request_call(callbacks: &Callbacks<'_>, builder_parts: &mut RequestBuilderParts) -> DownloadResult<()> {
-    if callbacks.before_request(builder_parts).is_cancelled() {
-        return Err(make_user_cancelled_error("Cancelled by on_before_request() callback"));
-    }
-    Ok(())
+    callbacks.before_request(builder_parts).map_err(make_callback_error)
 }
 
 fn after_response_call<B>(callbacks: &Callbacks<'_>, response: &mut ApiResult<Response<B>>) -> DownloadResult<()> {
-    if callbacks.after_response(response).is_cancelled() {
-        Err(make_user_cancelled_error("Cancelled by on_after_response() callback"))
-    } else {
-        Ok(())
-    }
+    callbacks.after_response(response).map_err(make_callback_error)
 }
 
 fn make_endpoint_from_uri(uri: &mut UriParts) -> DownloadResult<Endpoint> {
@@ -1104,7 +1090,7 @@ mod tests {
                         current_progress.store(transfer.transferred_bytes(), Ordering::Relaxed);
                         assert_eq!(transfer.total_bytes(), 10);
                         assert_eq!(transfer.body().len(), 5);
-                        CallbackResult::Continue
+                        Ok(())
                     }
                 })
                 .into_inner_reader();
@@ -1129,7 +1115,7 @@ mod tests {
                         current_progress.store(transfer.transferred_bytes(), Ordering::Relaxed);
                         assert_eq!(transfer.total_bytes(), 10);
                         assert_eq!(transfer.body().len(), 5);
-                        CallbackResult::Continue
+                        Ok(())
                     }
                 })
                 .into_inner_reader();

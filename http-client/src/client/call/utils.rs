@@ -8,6 +8,7 @@ use super::{
     domain_or_ip_addr::DomainOrIpAddr,
     error::{ErrorResponseBody, TryError},
 };
+use anyhow::Error as AnyError;
 use mime::APPLICATION_WWW_FORM_URLENCODED;
 use qiniu_http::{
     header::CONTENT_TYPE,
@@ -15,7 +16,8 @@ use qiniu_http::{
     Extensions, HeaderValue, Request as HttpRequest, RequestParts as HttpRequestParts, Reset,
     ResponseErrorKind as HttpResponseErrorKind, ResponseParts, SyncRequest as SyncHttpRequest, SyncRequestBody,
 };
-use std::{borrow::Cow, net::IpAddr, time::Duration};
+use std::{borrow::Cow, io::Error as IoError, net::IpAddr, time::Duration};
+use url::ParseError as UrlParseError;
 
 #[cfg(feature = "async")]
 use {
@@ -151,20 +153,9 @@ pub(super) fn call_before_backoff_callbacks(
     retried: &RetriedStatsInfo,
     delay: Duration,
 ) -> Result<(), TryError> {
-    if request
+    request
         .call_before_backoff_callbacks(&mut ExtendedCallbackContextImpl::new(request, built, retried), delay)
-        .is_cancelled()
-    {
-        return Err(TryError::new(
-            ResponseError::new_with_msg(
-                HttpResponseErrorKind::UserCanceled.into(),
-                "Cancelled by on_before_backoff() callback",
-            )
-            .retried(retried),
-            RetryDecision::DontRetry.into(),
-        ));
-    }
-    Ok(())
+        .map_err(|err| make_callback_try_error(err, retried))
 }
 
 pub(super) fn call_after_backoff_callbacks(
@@ -173,20 +164,9 @@ pub(super) fn call_after_backoff_callbacks(
     retried: &RetriedStatsInfo,
     delay: Duration,
 ) -> Result<(), TryError> {
-    if request
+    request
         .call_after_backoff_callbacks(&mut ExtendedCallbackContextImpl::new(request, built, retried), delay)
-        .is_cancelled()
-    {
-        return Err(TryError::new(
-            ResponseError::new_with_msg(
-                HttpResponseErrorKind::UserCanceled.into(),
-                "Cancelled by on_after_backoff() callback",
-            )
-            .retried(retried),
-            RetryDecision::DontRetry.into(),
-        ));
-    }
-    Ok(())
+        .map_err(|err| make_callback_try_error(err, retried))
 }
 
 fn call_to_resolve_domain_callbacks(
@@ -196,20 +176,9 @@ fn call_to_resolve_domain_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
-    if request
+    request
         .call_to_resolve_domain_callbacks(&mut context, domain)
-        .is_cancelled()
-    {
-        return Err(TryError::new(
-            ResponseError::new_with_msg(
-                HttpResponseErrorKind::UserCanceled.into(),
-                "Cancelled by on_to_resolve_domain_callbacks() callback",
-            )
-            .retried(retried),
-            RetryDecision::DontRetry.into(),
-        ));
-    }
-    Ok(())
+        .map_err(|err| make_callback_try_error(err, retried))
 }
 
 fn call_domain_resolved_callbacks(
@@ -220,20 +189,9 @@ fn call_domain_resolved_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
-    if request
+    request
         .call_domain_resolved_callbacks(&mut context, domain, answers)
-        .is_cancelled()
-    {
-        return Err(TryError::new(
-            ResponseError::new_with_msg(
-                HttpResponseErrorKind::UserCanceled.into(),
-                "Cancelled by on_domain_resolved_callbacks() callback",
-            )
-            .retried(retried),
-            RetryDecision::DontRetry.into(),
-        ));
-    }
-    Ok(())
+        .map_err(|err| make_callback_try_error(err, retried))
 }
 
 fn call_to_choose_ips_callbacks(
@@ -243,17 +201,9 @@ fn call_to_choose_ips_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
-    if request.call_to_choose_ips_callbacks(&mut context, ips).is_cancelled() {
-        return Err(TryError::new(
-            ResponseError::new_with_msg(
-                HttpResponseErrorKind::UserCanceled.into(),
-                "Cancelled by on_to_choose_ips_callbacks() callback",
-            )
-            .retried(retried),
-            RetryDecision::DontRetry.into(),
-        ));
-    }
-    Ok(())
+    request
+        .call_to_choose_ips_callbacks(&mut context, ips)
+        .map_err(|err| make_callback_try_error(err, retried))
 }
 
 fn call_ips_chosen_callbacks(
@@ -264,20 +214,9 @@ fn call_ips_chosen_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = CallbackContextImpl::new(request, extensions);
-    if request
+    request
         .call_ips_chosen_callbacks(&mut context, ips, chosen)
-        .is_cancelled()
-    {
-        return Err(TryError::new(
-            ResponseError::new_with_msg(
-                HttpResponseErrorKind::UserCanceled.into(),
-                "Cancelled by on_ips_chosen_callbacks() callback",
-            )
-            .retried(retried),
-            RetryDecision::DontRetry.into(),
-        ));
-    }
-    Ok(())
+        .map_err(|err| make_callback_try_error(err, retried))
 }
 
 pub(super) fn call_before_request_signed_callbacks(
@@ -286,20 +225,9 @@ pub(super) fn call_before_request_signed_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
-    if request
+    request
         .call_before_request_signed_callbacks(&mut context)
-        .is_cancelled()
-    {
-        return Err(TryError::new(
-            ResponseError::new_with_msg(
-                HttpResponseErrorKind::UserCanceled.into(),
-                "Cancelled by on_before_request_signed() callback",
-            )
-            .retried(retried),
-            RetryDecision::DontRetry.into(),
-        ));
-    }
-    Ok(())
+        .map_err(|err| make_callback_try_error(err, retried))
 }
 
 pub(super) fn call_after_request_signed_callbacks(
@@ -308,17 +236,9 @@ pub(super) fn call_after_request_signed_callbacks(
     retried: &RetriedStatsInfo,
 ) -> Result<(), TryError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
-    if request.call_after_request_signed_callbacks(&mut context).is_cancelled() {
-        return Err(TryError::new(
-            ResponseError::new_with_msg(
-                HttpResponseErrorKind::UserCanceled.into(),
-                "Cancelled by on_after_request_signed() callback",
-            )
-            .retried(retried),
-            RetryDecision::DontRetry.into(),
-        ));
-    }
-    Ok(())
+    request
+        .call_after_request_signed_callbacks(&mut context)
+        .map_err(|err| make_callback_try_error(err, retried))
 }
 
 pub(super) fn call_response_callbacks(
@@ -328,14 +248,9 @@ pub(super) fn call_response_callbacks(
     response: &ResponseParts,
 ) -> Result<(), ResponseError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
-    if request.call_response_callbacks(&mut context, response).is_cancelled() {
-        return Err(ResponseError::new_with_msg(
-            HttpResponseErrorKind::UserCanceled.into(),
-            "Cancelled by on_response() callback",
-        )
-        .retried(retried));
-    }
-    Ok(())
+    request
+        .call_response_callbacks(&mut context, response)
+        .map_err(|err| make_callback_response_error(err, retried))
 }
 
 pub(super) fn call_error_callbacks(
@@ -345,20 +260,9 @@ pub(super) fn call_error_callbacks(
     response_error: &ResponseError,
 ) -> Result<(), TryError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
-    if request
+    request
         .call_error_callbacks(&mut context, response_error)
-        .is_cancelled()
-    {
-        return Err(TryError::new(
-            ResponseError::new_with_msg(
-                HttpResponseErrorKind::UserCanceled.into(),
-                "Cancelled by on_error() callback",
-            )
-            .retried(retried),
-            RetryDecision::DontRetry.into(),
-        ));
-    }
-    Ok(())
+        .map_err(|err| make_callback_try_error(err, retried))
 }
 
 pub(super) fn find_domains_with_port(endpoints: &[Endpoint]) -> impl Iterator<Item = &DomainWithPort> {
@@ -390,19 +294,35 @@ pub(super) fn sign_request(
 
 fn handle_sign_request_error(err: AuthorizationError, retried: &RetriedStatsInfo) -> TryError {
     match err {
-        AuthorizationError::IoError(err) => TryError::new(
-            ResponseError::new(ResponseErrorKind::HttpError(HttpResponseErrorKind::LocalIoError), err).retried(retried),
-            RetryDecision::DontRetry.into(),
-        ),
-        AuthorizationError::CallbackError(err) => TryError::new(
-            ResponseError::new(ResponseErrorKind::HttpError(HttpResponseErrorKind::UserCanceled), err).retried(retried),
-            RetryDecision::DontRetry.into(),
-        ),
-        AuthorizationError::UrlParseError(err) => TryError::new(
-            ResponseError::new(ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl), err).retried(retried),
-            RetryDecision::TryNextServer.into(),
-        ),
+        AuthorizationError::IoError(err) => make_local_io_try_error(err, retried),
+        AuthorizationError::UrlParseError(err) => make_parse_try_error(err, retried),
+        AuthorizationError::CallbackError(err) => make_callback_try_error(err, retried),
     }
+}
+
+fn make_local_io_try_error(err: IoError, retried: &RetriedStatsInfo) -> TryError {
+    TryError::new(
+        ResponseError::new(ResponseErrorKind::HttpError(HttpResponseErrorKind::LocalIoError), err).retried(retried),
+        RetryDecision::DontRetry.into(),
+    )
+}
+
+fn make_parse_try_error(err: UrlParseError, retried: &RetriedStatsInfo) -> TryError {
+    TryError::new(
+        ResponseError::new(ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl), err).retried(retried),
+        RetryDecision::TryNextServer.into(),
+    )
+}
+
+fn make_callback_try_error(err: AnyError, retried: &RetriedStatsInfo) -> TryError {
+    TryError::new(
+        make_callback_response_error(err, retried),
+        RetryDecision::DontRetry.into(),
+    )
+}
+
+fn make_callback_response_error(err: AnyError, retried: &RetriedStatsInfo) -> ResponseError {
+    ResponseError::new(HttpResponseErrorKind::CallbackError.into(), err).retried(retried)
 }
 
 pub(super) fn resolve(

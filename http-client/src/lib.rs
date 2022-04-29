@@ -349,7 +349,7 @@ pub use client::{
     SubnetChooser, SubnetChooserBuilder, SyncMultipart, SyncPart, SyncPartBody, SyncRequestBody, SyncRequestBuilder,
     SyncResponse, TimeoutResolver, UploadTokenAuthorization, NO_BACKOFF,
 };
-pub use http::{CallbackResult, SyncResponseBody};
+pub use http::SyncResponseBody;
 pub use regions::{
     AllRegionsProvider, AllRegionsProviderBuilder, BucketDomainsProvider, BucketDomainsQueryer,
     BucketDomainsQueryerBuilder, BucketRegionsProvider, BucketRegionsQueryer, BucketRegionsQueryerBuilder,

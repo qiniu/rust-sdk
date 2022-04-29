@@ -1,6 +1,6 @@
 use anyhow::Result;
 use qiniu_sdk::upload::{
-    apis::{credential::Credential, http_client::CallbackResult, upload_token::ObjectUploadTokenProvider},
+    apis::{credential::Credential, upload_token::ObjectUploadTokenProvider},
     ObjectParams, SinglePartUploader, UploadManager, UploaderWithCallbacks,
 };
 use std::{path::PathBuf, time::Duration};
@@ -52,7 +52,7 @@ async fn main() -> Result<()> {
             } else {
                 println!("{}", transferred_bytes);
             }
-            CallbackResult::Continue
+            Ok(())
         })
         .async_upload_path(&opt.file, ObjectParams::builder().object_name(&opt.object_name).build())
         .await?;

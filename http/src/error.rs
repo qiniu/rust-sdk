@@ -63,8 +63,8 @@ pub enum ErrorKind {
     /// 未知错误
     UnknownError,
 
-    /// 用户取消
-    UserCanceled,
+    /// 回调函数返回错误
+    CallbackError,
 }
 
 /// HTTP 响应错误

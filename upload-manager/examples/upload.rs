@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_std::io::stdin;
-use qiniu_apis::{credential::Credential, http_client::CallbackResult};
+use qiniu_apis::credential::Credential;
 use qiniu_upload_manager::{
     AlwaysMultiParts, AlwaysSinglePart, AutoUploader, AutoUploaderBuilder, AutoUploaderObjectParams,
     MultiPartsUploaderPrefer, MultiPartsUploaderWithCallbacks, UploadManager, UploadTokenSigner, UploadedPart,
@@ -90,11 +90,11 @@ async fn main() -> Result<()> {
         } else {
             println!("Progress: {}", transfer.transferred_bytes());
         }
-        CallbackResult::Continue
+        Ok(())
     };
     let part_uploaded = |part: &dyn UploadedPart| {
         println!("Uploaded Part: {}, is resumed: {}", part.offset(), part.resumed());
-        CallbackResult::Continue
+        Ok(())
     };
 
     let body = match opt.upload_method {

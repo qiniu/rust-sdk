@@ -11,13 +11,14 @@ use super::{
     DataSource, InitializedParts, MultiPartsUploader, MultiPartsUploaderWithCallbacks, ObjectParams, ResumableRecorder,
     UploadManager, UploadedPart,
 };
+use anyhow::{Error as AnyError, Result as AnyResult};
 use dashmap::DashMap;
 use qiniu_apis::{
     credential::AccessKey,
     http::{Reset, ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
     http_client::{
-        ApiResult, BucketRegionsProvider, CallbackResult, Endpoint, EndpointsProvider, RegionsProviderEndpoints,
-        RequestBuilderParts, Response, ResponseError,
+        ApiResult, BucketRegionsProvider, Endpoint, EndpointsProvider, RegionsProviderEndpoints, RequestBuilderParts,
+        Response, ResponseError,
     },
     storage::{
         self,
@@ -127,7 +128,7 @@ impl UploadedPart for MultiPartsV1UploaderUploadedPart {
 
 impl<R> UploaderWithCallbacks for MultiPartsV1Uploader<R> {
     #[inline]
-    fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static>(
+    fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -136,7 +137,7 @@ impl<R> UploaderWithCallbacks for MultiPartsV1Uploader<R> {
     }
 
     #[inline]
-    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static>(
+    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -145,7 +146,7 @@ impl<R> UploaderWithCallbacks for MultiPartsV1Uploader<R> {
     }
 
     #[inline]
-    fn on_response_ok<F: Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'static>(
+    fn on_response_ok<F: Fn(&mut ResponseParts) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -154,7 +155,7 @@ impl<R> UploaderWithCallbacks for MultiPartsV1Uploader<R> {
     }
 
     #[inline]
-    fn on_response_error<F: Fn(&ResponseError) -> CallbackResult + Send + Sync + 'static>(
+    fn on_response_error<F: Fn(&ResponseError) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -165,7 +166,7 @@ impl<R> UploaderWithCallbacks for MultiPartsV1Uploader<R> {
 
 impl<R> MultiPartsUploaderWithCallbacks for MultiPartsV1Uploader<R> {
     #[inline]
-    fn on_part_uploaded<F: Fn(&dyn UploadedPart) -> CallbackResult + Send + Sync + 'static>(
+    fn on_part_uploaded<F: Fn(&dyn UploadedPart) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -705,19 +706,11 @@ impl<R> MultiPartsV1Uploader<R> {
     }
 
     fn before_request_call(&self, request: &mut RequestBuilderParts<'_>) -> ApiResult<()> {
-        if self.callbacks.before_request(request).is_cancelled() {
-            Err(make_user_cancelled_error("Cancelled by on_before_request() callback"))
-        } else {
-            Ok(())
-        }
+        self.callbacks.before_request(request).map_err(make_callback_error)
     }
 
     fn after_response_call<B>(&self, response: &mut ApiResult<Response<B>>) -> ApiResult<()> {
-        if self.callbacks.after_response(response).is_cancelled() {
-            Err(make_user_cancelled_error("Cancelled by on_after_response() callback"))
-        } else {
-            Ok(())
-        }
+        self.callbacks.after_response(response).map_err(make_callback_error)
     }
 
     fn after_part_uploaded(
@@ -728,23 +721,18 @@ impl<R> MultiPartsV1Uploader<R> {
     ) -> ApiResult<()> {
         if let Some(uploaded_part) = uploaded_part {
             progresses_key.complete_part();
-            if self.callbacks.part_uploaded(uploaded_part).is_cancelled() {
-                return Err(make_user_cancelled_error("Cancelled by on_part_uploaded() callback"));
-            };
+            self.callbacks
+                .part_uploaded(uploaded_part)
+                .map_err(make_callback_error)?;
         } else {
             progresses_key.delete_part();
         }
-        if self
-            .callbacks
+        self.callbacks
             .upload_progress(&UploadingProgressInfo::new(
                 progresses_key.current_uploaded(),
                 total_size,
             ))
-            .is_cancelled()
-        {
-            return Err(make_user_cancelled_error("Cancelled by on_upload_progress() callback"));
-        }
-        Ok(())
+            .map_err(make_callback_error)
     }
 }
 
@@ -940,8 +928,8 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
 #[allow(unsafe_code)]
 const PART_SIZE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1 << 22) };
 
-fn make_user_cancelled_error(message: &'static str) -> ResponseError {
-    ResponseError::new_with_msg(HttpResponseErrorKind::UserCanceled.into(), message)
+pub(super) fn make_callback_error(err: AnyError) -> ResponseError {
+    ResponseError::new(HttpResponseErrorKind::CallbackError.into(), err)
 }
 
 #[derive(Debug, Clone, Serialize)]

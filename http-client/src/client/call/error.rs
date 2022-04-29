@@ -30,7 +30,7 @@ impl TryError {
                 | HttpResponseErrorKind::UnknownHostError
                 | HttpResponseErrorKind::SendError
                 | HttpResponseErrorKind::ReceiveError
-                | HttpResponseErrorKind::UserCanceled => Some(self.response_error()),
+                | HttpResponseErrorKind::CallbackError => Some(self.response_error()),
                 _ => None,
             },
             ResponseErrorKind::StatusCodeError(status_code) => match status_code.as_u16() {

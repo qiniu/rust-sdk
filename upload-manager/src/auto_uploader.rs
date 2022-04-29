@@ -6,10 +6,11 @@ use super::{
     ResumablePolicyProvider, ResumableRecorder, SerialMultiPartsUploaderScheduler, SinglePartUploader, UploadManager,
     UploadedPart, UploaderWithCallbacks, UploadingProgressInfo,
 };
+use anyhow::Result as AnyResult;
 use assert_impl::assert_impl;
 use qiniu_apis::{
     http::ResponseParts,
-    http_client::{ApiResult, CallbackResult, RequestBuilderParts, ResponseError},
+    http_client::{ApiResult, RequestBuilderParts, ResponseError},
 };
 use serde_json::Value;
 use smart_default::SmartDefault;
@@ -132,7 +133,7 @@ impl<CP: Default, DPP: Default, RR: Default, RPP: Default> AutoUploader<CP, DPP,
 impl<CP: ConcurrencyProvider, DPP: DataPartitionProvider, RR: ResumableRecorder, RPP: ResumablePolicyProvider>
     UploaderWithCallbacks for AutoUploader<CP, DPP, RR, RPP>
 {
-    fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static>(
+    fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -140,7 +141,7 @@ impl<CP: ConcurrencyProvider, DPP: DataPartitionProvider, RR: ResumableRecorder,
         self
     }
 
-    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static>(
+    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -148,7 +149,7 @@ impl<CP: ConcurrencyProvider, DPP: DataPartitionProvider, RR: ResumableRecorder,
         self
     }
 
-    fn on_response_ok<F: Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'static>(
+    fn on_response_ok<F: Fn(&mut ResponseParts) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -156,7 +157,7 @@ impl<CP: ConcurrencyProvider, DPP: DataPartitionProvider, RR: ResumableRecorder,
         self
     }
 
-    fn on_response_error<F: Fn(&ResponseError) -> CallbackResult + Send + Sync + 'static>(
+    fn on_response_error<F: Fn(&ResponseError) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -168,7 +169,7 @@ impl<CP: ConcurrencyProvider, DPP: DataPartitionProvider, RR: ResumableRecorder,
 impl<CP: ConcurrencyProvider, DPP: DataPartitionProvider, RR: ResumableRecorder, RPP: ResumablePolicyProvider>
     MultiPartsUploaderWithCallbacks for AutoUploader<CP, DPP, RR, RPP>
 {
-    fn on_part_uploaded<F: Fn(&dyn UploadedPart) -> CallbackResult + Send + Sync + 'static>(
+    fn on_part_uploaded<F: Fn(&dyn UploadedPart) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {

@@ -25,9 +25,8 @@ mod tests {
         Authorization, Chooser, ChooserFeedback, ErrorRetrier, IpChooser, LimitedRetrier, ResponseError,
         ResponseErrorKind, ServiceName, NO_BACKOFF,
     };
-    use qiniu_http::{
-        CallbackResult, Extensions, HeaderMap, HeaderValue, ResponseErrorKind as HttpResponseErrorKind, StatusCode,
-    };
+    use anyhow::{Error as AnyError, Result as AnyResult};
+    use qiniu_http::{Extensions, HeaderMap, HeaderValue, ResponseErrorKind as HttpResponseErrorKind, StatusCode};
     use std::{
         collections::{HashMap, HashSet},
         error::Error,
@@ -62,14 +61,14 @@ mod tests {
                 let domain_resolved = domain_resolved.to_owned();
                 move |_, domain| {
                     domain_resolved.lock().unwrap().push(domain.to_owned());
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .on_after_request_signed({
                 let urls_visited = urls_visited.to_owned();
                 move |context| {
                     urls_visited.lock().unwrap().push(context.url().to_string());
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .call()
@@ -119,7 +118,7 @@ mod tests {
                 let urls_visited = urls_visited.to_owned();
                 move |context| {
                     urls_visited.lock().unwrap().push(context.url().to_string());
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .call()
@@ -182,14 +181,14 @@ mod tests {
                 let domain_resolved = domain_resolved.to_owned();
                 move |_, domain| {
                     domain_resolved.lock().unwrap().push(domain.to_owned());
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .on_after_request_signed({
                 let urls_visited = urls_visited.to_owned();
                 move |context| {
                     urls_visited.lock().unwrap().push(context.url().to_string());
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .call()
@@ -237,7 +236,7 @@ mod tests {
                 let domain_resolved = domain_resolved.to_owned();
                 move |_, domain| {
                     domain_resolved.lock().unwrap().push(domain.to_owned());
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .on_after_request_signed({
@@ -255,7 +254,7 @@ mod tests {
                     } else {
                         assert!(!context.retried().switched_to_alternative_endpoints());
                     }
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .call()
@@ -313,7 +312,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_endpoint(), retried);
                     assert_eq!(context.retried().retried_on_current_ips(), retried);
                     assert_eq!(context.retried().abandoned_endpoints(), 0);
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .call()
@@ -349,7 +348,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_endpoint(), retried);
                     assert_eq!(context.retried().retried_on_current_ips(), retried);
                     assert_eq!(context.retried().abandoned_endpoints(), 0);
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .call()
@@ -436,9 +435,9 @@ mod tests {
 
         return Ok(());
 
-        fn inc_extensions(extensions: &mut Extensions) -> CallbackResult {
+        fn inc_extensions(extensions: &mut Extensions) -> AnyResult<()> {
             extensions.get_mut::<ExtensionCounter>().unwrap().inc();
-            CallbackResult::Continue
+            Ok(())
         }
     }
 
@@ -476,7 +475,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_endpoint(), 1);
                     assert_eq!(context.retried().retried_on_current_ips(), 1);
                     assert_eq!(context.retried().abandoned_endpoints(), retried);
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .call()
@@ -505,7 +504,7 @@ mod tests {
             .on_after_request_signed(|context| {
                 assert_eq!(&context.url().to_string(), "https://fakedomain.withoutport.com/");
                 assert_eq!(context.retried().retried_total(), 0);
-                CallbackResult::Continue
+                Ok(())
             })
             .call()
             .unwrap_err();
@@ -534,7 +533,7 @@ mod tests {
                 .authorization(Authorization::v2(credential.to_owned()))
                 .on_before_request_signed(|context| {
                     assert!(context.headers().get("authorization").is_none());
-                    CallbackResult::Continue
+                    Ok(())
                 })
                 .on_after_request_signed({
                     let signed_urls = signed_urls.to_owned();
@@ -547,7 +546,7 @@ mod tests {
                             .to_str()
                             .unwrap()
                             .starts_with("Qiniu "));
-                        CallbackResult::Continue
+                        Ok(())
                     }
                 })
                 .call()
@@ -562,7 +561,7 @@ mod tests {
                 .authorization(Authorization::v1(credential))
                 .on_before_request_signed(|context| {
                     assert!(context.headers().get("authorization").is_none());
-                    CallbackResult::Continue
+                    Ok(())
                 })
                 .on_after_request_signed({
                     move |context| {
@@ -574,7 +573,7 @@ mod tests {
                             .to_str()
                             .unwrap()
                             .starts_with("QBox "));
-                        CallbackResult::Continue
+                        Ok(())
                     }
                 })
                 .call()
@@ -615,7 +614,7 @@ mod tests {
                             t.fetch_add(1, Relaxed);
                         })
                         .or_insert_with(|| AtomicUsize::new(1));
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .call()
@@ -691,27 +690,36 @@ mod tests {
 
         let err = client
             .post(&[ServiceName::Up], chaotic_up_domains_endpoint())
-            .on_before_request_signed(|_| CallbackResult::Cancel)
+            .on_before_request_signed(|_| Err(AnyError::msg("Fake error")))
             .on_before_backoff(|_, _| panic!("Should not retry"))
             .call()
             .unwrap_err();
-        assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::UserCanceled));
+        assert_eq!(
+            err.kind(),
+            ResponseErrorKind::from(HttpResponseErrorKind::CallbackError)
+        );
 
         let err = client
             .post(&[ServiceName::Up], chaotic_up_domains_endpoint())
-            .on_after_request_signed(|_| CallbackResult::Cancel)
+            .on_after_request_signed(|_| Err(AnyError::msg("Fake error")))
             .on_before_backoff(|_, _| panic!("Should not retry"))
             .call()
             .unwrap_err();
-        assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::UserCanceled));
+        assert_eq!(
+            err.kind(),
+            ResponseErrorKind::from(HttpResponseErrorKind::CallbackError)
+        );
 
         let err = client
             .post(&[ServiceName::Up], chaotic_up_domains_endpoint())
-            .on_before_backoff(|_, _| CallbackResult::Cancel)
+            .on_before_backoff(|_, _| Err(AnyError::msg("Fake error")))
             .on_after_backoff(|_, _| panic!("Should not retry"))
             .call()
             .unwrap_err();
-        assert_eq!(err.kind(), ResponseErrorKind::from(HttpResponseErrorKind::UserCanceled));
+        assert_eq!(
+            err.kind(),
+            ResponseErrorKind::from(HttpResponseErrorKind::CallbackError)
+        );
         Ok(())
     }
 
@@ -740,7 +748,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_endpoint(), retried);
                     assert_eq!(context.retried().retried_on_current_ips(), retried);
                     assert_eq!(context.retried().abandoned_endpoints(), 0);
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .call()
@@ -777,7 +785,7 @@ mod tests {
                     assert_eq!(context.retried().retried_on_current_endpoint(), retried);
                     assert_eq!(context.retried().retried_on_current_ips(), retried);
                     assert_eq!(context.retried().abandoned_endpoints(), 0);
-                    CallbackResult::Continue
+                    Ok(())
                 }
             })
             .call()

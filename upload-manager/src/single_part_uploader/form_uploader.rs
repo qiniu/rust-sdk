@@ -6,11 +6,12 @@ use super::{
     },
     SinglePartUploader,
 };
+use anyhow::{Error as AnyError, Result as AnyResult};
 use qiniu_apis::{
     credential::AccessKey,
     http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
     http_client::{
-        ApiResult, BucketRegionsProvider, CallbackResult, EndpointsProvider, FileName, PartMetadata, RegionsProvider,
+        ApiResult, BucketRegionsProvider, EndpointsProvider, FileName, PartMetadata, RegionsProvider,
         RegionsProviderEndpoints, RequestBuilderParts, Response, ResponseError,
     },
     storage::put_object::{self, sync_part::RequestBody as SyncRequestBody, SyncRequestBuilder},
@@ -97,7 +98,7 @@ impl FormUploader {
 
 impl UploaderWithCallbacks for FormUploader {
     #[inline]
-    fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static>(
+    fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -106,7 +107,7 @@ impl UploaderWithCallbacks for FormUploader {
     }
 
     #[inline]
-    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static>(
+    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -115,7 +116,7 @@ impl UploaderWithCallbacks for FormUploader {
     }
 
     #[inline]
-    fn on_response_ok<F: Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'static>(
+    fn on_response_ok<F: Fn(&mut ResponseParts) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -124,7 +125,7 @@ impl UploaderWithCallbacks for FormUploader {
     }
 
     #[inline]
-    fn on_response_error<F: Fn(&ResponseError) -> CallbackResult + Send + Sync + 'static>(
+    fn on_response_error<F: Fn(&ResponseError) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -405,19 +406,11 @@ impl FormUploader {
     }
 
     fn before_request_call(&self, request: &mut RequestBuilderParts<'_>) -> ApiResult<()> {
-        if self.callbacks.before_request(request).is_cancelled() {
-            Err(make_user_cancelled_error("Cancelled by on_before_request() callback"))
-        } else {
-            Ok(())
-        }
+        self.callbacks.before_request(request).map_err(make_callback_error)
     }
 
     fn after_response_call<B>(&self, response: &mut ApiResult<Response<B>>) -> ApiResult<()> {
-        if self.callbacks.after_response(response).is_cancelled() {
-            Err(make_user_cancelled_error("Cancelled by on_after_response() callback"))
-        } else {
-            Ok(())
-        }
+        self.callbacks.after_response(response).map_err(make_callback_error)
     }
 }
 
@@ -427,8 +420,8 @@ trait AsyncReadTrait: AsyncRead + Unpin + Send + Sync {}
 #[cfg(feature = "async")]
 impl<T: AsyncRead + Unpin + Send + Sync> AsyncReadTrait for T {}
 
-fn make_user_cancelled_error(message: &'static str) -> ResponseError {
-    ResponseError::new_with_msg(HttpResponseErrorKind::UserCanceled.into(), message)
+fn make_callback_error(err: AnyError) -> ResponseError {
+    ResponseError::new_with_msg(HttpResponseErrorKind::CallbackError.into(), err)
 }
 
 #[cfg(test)]
