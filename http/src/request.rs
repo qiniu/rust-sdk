@@ -589,6 +589,34 @@ mod body {
         }
     }
 
+    impl<'a> From<&'a [u8]> for RequestBody<'a> {
+        #[inline]
+        fn from(body: &'a [u8]) -> Self {
+            Self::from_referenced_bytes(body)
+        }
+    }
+
+    impl<'a> From<&'a str> for RequestBody<'a> {
+        #[inline]
+        fn from(body: &'a str) -> Self {
+            Self::from_referenced_bytes(body.as_bytes())
+        }
+    }
+
+    impl From<Vec<u8>> for RequestBody<'_> {
+        #[inline]
+        fn from(body: Vec<u8>) -> Self {
+            Self::from_bytes(body)
+        }
+    }
+
+    impl From<String> for RequestBody<'_> {
+        #[inline]
+        fn from(body: String) -> Self {
+            Self::from_bytes(body.into_bytes())
+        }
+    }
+
     #[cfg(feature = "async")]
     mod async_body {
         use super::super::super::{AsyncReset, BoxFuture};
@@ -784,6 +812,34 @@ mod body {
             #[inline]
             fn from(body: &'a mut AsyncRequestBody<'_>) -> Self {
                 Self::from_referenced_reader(body, body.size())
+            }
+        }
+
+        impl<'a> From<&'a [u8]> for AsyncRequestBody<'a> {
+            #[inline]
+            fn from(body: &'a [u8]) -> Self {
+                Self::from_referenced_bytes(body)
+            }
+        }
+
+        impl<'a> From<&'a str> for AsyncRequestBody<'a> {
+            #[inline]
+            fn from(body: &'a str) -> Self {
+                Self::from_referenced_bytes(body.as_bytes())
+            }
+        }
+
+        impl From<Vec<u8>> for AsyncRequestBody<'_> {
+            #[inline]
+            fn from(body: Vec<u8>) -> Self {
+                Self::from_bytes(body)
+            }
+        }
+
+        impl From<String> for AsyncRequestBody<'_> {
+            #[inline]
+            fn from(body: String) -> Self {
+                Self::from_bytes(body.into_bytes())
             }
         }
     }
