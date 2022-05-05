@@ -14,7 +14,6 @@ use std::{
     mem::{take, transmute},
     net::{IpAddr, SocketAddr},
     num::NonZeroU16,
-    time::Duration,
 };
 
 type IsahcSyncRequest = isahc::Request<IsahcBody>;
@@ -194,7 +193,7 @@ fn make_sync_response(mut response: IsahcSyncResponse, request: &mut SyncRequest
         }
     }
     if let Some(metrics) = response.metrics() {
-        response_builder.metrics(Box::new(IsahcBasedMetrics(metrics.to_owned())));
+        response_builder.metrics(make_metrics_from_isahc(metrics));
     }
     response_builder.body(SyncResponseBody::from_reader(response.into_body()));
     Ok(response_builder.build())
@@ -217,7 +216,7 @@ fn make_async_response(mut response: IsahcAsyncResponse, request: &mut AsyncRequ
         }
     }
     if let Some(metrics) = response.metrics() {
-        response_builder.metrics(Box::new(IsahcBasedMetrics(metrics.to_owned())));
+        response_builder.metrics(make_metrics_from_isahc(metrics));
     }
     response_builder.body(AsyncResponseBody::from_reader(response.into_body()));
     Ok(response_builder.build())
@@ -248,39 +247,15 @@ fn should_retry(err: &IsahcError) -> bool {
     err.kind() == IsahcErrorKind::ConnectionFailed
 }
 
-#[derive(Debug)]
-struct IsahcBasedMetrics(IsahcMetrics);
-
-impl Metrics for IsahcBasedMetrics {
-    #[inline]
-    fn total_duration(&self) -> Option<Duration> {
-        Some(self.0.total_time())
-    }
-
-    #[inline]
-    fn name_lookup_duration(&self) -> Option<Duration> {
-        Some(self.0.name_lookup_time())
-    }
-
-    #[inline]
-    fn connect_duration(&self) -> Option<Duration> {
-        Some(self.0.connect_time())
-    }
-
-    #[inline]
-    fn secure_connect_duration(&self) -> Option<Duration> {
-        Some(self.0.secure_connect_time())
-    }
-
-    #[inline]
-    fn redirect_duration(&self) -> Option<Duration> {
-        Some(self.0.redirect_time())
-    }
-
-    #[inline]
-    fn transfer_duration(&self) -> Option<Duration> {
-        Some(self.0.transfer_time())
-    }
+fn make_metrics_from_isahc(metrics: &IsahcMetrics) -> Metrics {
+    Metrics::builder()
+        .total_duration(metrics.total_time())
+        .name_lookup_duration(metrics.name_lookup_time())
+        .connect_duration(metrics.connect_time())
+        .secure_connect_duration(metrics.redirect_time())
+        .redirect_duration(metrics.redirect_time())
+        .transfer_duration(metrics.transfer_time())
+        .build()
 }
 
 fn make_sync_isahc_request(

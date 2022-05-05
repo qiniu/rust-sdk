@@ -114,7 +114,7 @@ impl Error {
 
     /// 获取响应指标信息
     #[inline]
-    pub fn metrics(&self) -> Option<&dyn Metrics> {
+    pub fn metrics(&self) -> Option<&Metrics> {
         self.response_info.metrics()
     }
 
@@ -132,7 +132,7 @@ impl Error {
 
     /// 获取响应指标信息的可变引用
     #[inline]
-    pub fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
+    pub fn metrics_mut(&mut self) -> &mut Option<Metrics> {
         self.response_info.metrics_mut()
     }
 }
@@ -226,8 +226,8 @@ impl ErrorBuilder {
     /// 设置 HTTP 响应指标信息
     #[inline]
     #[must_use]
-    pub fn metrics(mut self, metrics: impl Metrics + 'static) -> Self {
-        *self.inner.metrics_mut() = Some(Box::new(metrics));
+    pub fn metrics(mut self, metrics: Metrics) -> Self {
+        *self.inner.metrics_mut() = Some(metrics);
         self
     }
 }

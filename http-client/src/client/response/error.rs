@@ -17,7 +17,6 @@ use std::{
     mem::take,
     net::IpAddr,
     num::NonZeroU16,
-    time::Duration,
 };
 
 #[cfg(feature = "async")]
@@ -59,7 +58,7 @@ pub struct Error {
     error: AnyError,
     server_ip: Option<IpAddr>,
     server_port: Option<NonZeroU16>,
-    metrics: Option<Box<dyn Metrics>>,
+    metrics: Option<Metrics>,
     x_headers: XHeaders,
     response_body_sample: Vec<u8>,
     retried: Option<RetriedStatsInfo>,
@@ -170,8 +169,8 @@ impl Error {
 
     /// 获取 HTTP 响应指标信息
     #[inline]
-    pub fn metrics(&self) -> Option<&dyn Metrics> {
-        self.metrics.as_deref()
+    pub fn metrics(&self) -> Option<&Metrics> {
+        self.metrics.as_ref()
     }
 
     /// 获取 HTTP 响应的 X-Log 信息
@@ -238,11 +237,8 @@ fn extract_x_reqid_from_response_parts(parts: &HttpResponseParts) -> Option<Head
     parts.header(X_REQ_ID_HEADER_NAME).cloned()
 }
 
-fn extract_metrics_from_response_parts(parts: &HttpResponseParts) -> Option<Box<dyn Metrics + 'static>> {
-    parts
-        .metrics()
-        .map(ClonedMetrics::new)
-        .map(|metrics| Box::new(metrics) as Box<dyn Metrics + 'static>)
+fn extract_metrics_from_response_parts(parts: &HttpResponseParts) -> Option<Metrics> {
+    parts.metrics().cloned()
 }
 
 impl Display for Error {
@@ -283,62 +279,6 @@ impl From<HttpResponseErrorKind> for ErrorKind {
     #[inline]
     fn from(kind: HttpResponseErrorKind) -> Self {
         ErrorKind::HttpError(kind)
-    }
-}
-
-#[derive(Clone, Debug)]
-struct ClonedMetrics {
-    total_duration: Option<Duration>,
-    name_lookup_duration: Option<Duration>,
-    connect_duration: Option<Duration>,
-    secure_connect_duration: Option<Duration>,
-    redirect_duration: Option<Duration>,
-    transfer_duration: Option<Duration>,
-}
-
-impl ClonedMetrics {
-    #[must_use]
-    fn new(metrics: &dyn Metrics) -> Self {
-        Self {
-            total_duration: metrics.total_duration(),
-            name_lookup_duration: metrics.name_lookup_duration(),
-            connect_duration: metrics.connect_duration(),
-            secure_connect_duration: metrics.secure_connect_duration(),
-            redirect_duration: metrics.redirect_duration(),
-            transfer_duration: metrics.transfer_duration(),
-        }
-    }
-}
-
-impl Metrics for ClonedMetrics {
-    #[inline]
-    fn total_duration(&self) -> Option<Duration> {
-        self.total_duration
-    }
-
-    #[inline]
-    fn name_lookup_duration(&self) -> Option<Duration> {
-        self.name_lookup_duration
-    }
-
-    #[inline]
-    fn connect_duration(&self) -> Option<Duration> {
-        self.connect_duration
-    }
-
-    #[inline]
-    fn secure_connect_duration(&self) -> Option<Duration> {
-        self.secure_connect_duration
-    }
-
-    #[inline]
-    fn redirect_duration(&self) -> Option<Duration> {
-        self.redirect_duration
-    }
-
-    #[inline]
-    fn transfer_duration(&self) -> Option<Duration> {
-        self.transfer_duration
     }
 }
 

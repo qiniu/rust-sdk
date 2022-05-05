@@ -53,7 +53,8 @@ pub use http::{
 use once_cell::sync::OnceCell;
 pub use request::{Request, RequestBody as SyncRequestBody, RequestBuilder, RequestParts, UserAgent};
 pub use response::{
-    Metrics, Response, ResponseBody as SyncResponseBody, ResponseBuilder, ResponseParts, Result as ResponseResult,
+    Metrics, MetricsBuilder, Response, ResponseBody as SyncResponseBody, ResponseBuilder, ResponseParts,
+    Result as ResponseResult,
 };
 use std::{
     fmt::Debug,

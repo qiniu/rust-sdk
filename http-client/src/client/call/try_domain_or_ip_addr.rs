@@ -92,7 +92,7 @@ fn make_positive_feedback<'f>(
     ips: &'f [IpAddrWithPort],
     domain: Option<&'f DomainWithPort>,
     parts: &'f mut HttpRequestParts,
-    metrics: Option<&'f dyn Metrics>,
+    metrics: Option<&'f Metrics>,
     retried: &'f RetriedStatsInfo,
 ) -> ChooserFeedback<'f> {
     ChooserFeedback::new(ips, domain, retried, parts.extensions_mut(), metrics, None)

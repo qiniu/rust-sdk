@@ -13,7 +13,7 @@ pub struct ChooserFeedback<'f> {
     domain: Option<&'f DomainWithPort>,
     retried: &'f RetriedStatsInfo,
     extensions: &'f mut Extensions,
-    metrics: Option<&'f dyn Metrics>,
+    metrics: Option<&'f Metrics>,
     error: Option<&'f ResponseError>,
 }
 
@@ -23,7 +23,7 @@ impl<'f> ChooserFeedback<'f> {
         domain: Option<&'f DomainWithPort>,
         retried: &'f RetriedStatsInfo,
         extensions: &'f mut Extensions,
-        metrics: Option<&'f dyn Metrics>,
+        metrics: Option<&'f Metrics>,
         error: Option<&'f ResponseError>,
     ) -> Self {
         Self {
@@ -70,7 +70,7 @@ impl<'f> ChooserFeedback<'f> {
 
     /// 获取 HTTP 响应的指标信息
     #[inline]
-    pub fn metrics(&'f self) -> Option<&'f dyn Metrics> {
+    pub fn metrics(&'f self) -> Option<&'f Metrics> {
         self.metrics
     }
 

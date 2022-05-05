@@ -1,6 +1,5 @@
 use super::{MapError, ResponseError};
 use assert_impl::assert_impl;
-use auto_impl::auto_impl;
 use http::{
     header::{AsHeaderName, HeaderMap, HeaderValue, IntoHeaderName},
     response::{Parts as HttpResponseParts, Response as HttpResponse},
@@ -22,27 +21,155 @@ use std::{
 use futures_lite::Future;
 
 /// HTTP 响应的指标信息
-#[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait Metrics: Debug + Send + Sync {
+#[derive(Debug, Clone, Default)]
+pub struct Metrics {
+    total_duration: Option<Duration>,
+    name_lookup_duration: Option<Duration>,
+    connect_duration: Option<Duration>,
+    secure_connect_duration: Option<Duration>,
+    redirect_duration: Option<Duration>,
+    transfer_duration: Option<Duration>,
+}
+
+impl Metrics {
+    /// 创建 HTTP 响应的指标信息构建器
+    #[inline]
+    pub fn builder() -> MetricsBuilder {
+        Default::default()
+    }
+
     /// 获取总体请求耗时
-    fn total_duration(&self) -> Option<Duration>;
+    #[inline]
+    pub fn total_duration(&self) -> Option<Duration> {
+        self.total_duration
+    }
+
+    /// 获取总体请求耗时的可变引用
+    #[inline]
+    pub fn total_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.total_duration
+    }
+
     /// 获取域名查询的耗时
-    fn name_lookup_duration(&self) -> Option<Duration>;
+    #[inline]
+    pub fn name_lookup_duration(&self) -> Option<Duration> {
+        self.name_lookup_duration
+    }
+
+    /// 获取域名查询的耗时的可变引用
+    #[inline]
+    pub fn name_lookup_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.name_lookup_duration
+    }
+
     /// 获取建立连接的耗时
-    fn connect_duration(&self) -> Option<Duration>;
+    #[inline]
+    pub fn connect_duration(&self) -> Option<Duration> {
+        self.connect_duration
+    }
+
+    /// 获取建立连接的耗时的可变引用
+    #[inline]
+    pub fn connect_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.connect_duration
+    }
+
     /// 获取建立安全连接的耗时
-    fn secure_connect_duration(&self) -> Option<Duration>;
+    #[inline]
+    pub fn secure_connect_duration(&self) -> Option<Duration> {
+        self.secure_connect_duration
+    }
+
+    /// 获取建立安全连接的耗时的可变引用
+    #[inline]
+    pub fn secure_connect_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.secure_connect_duration
+    }
+
     /// 获取重定向的耗时
-    fn redirect_duration(&self) -> Option<Duration>;
+    #[inline]
+    pub fn redirect_duration(&self) -> Option<Duration> {
+        self.redirect_duration
+    }
+
+    /// 获取重定向的耗时的可变引用
+    #[inline]
+    pub fn redirect_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.redirect_duration
+    }
+
     /// 获取请求和响应数据传输的耗时
-    fn transfer_duration(&self) -> Option<Duration>;
+    #[inline]
+    pub fn transfer_duration(&self) -> Option<Duration> {
+        self.transfer_duration
+    }
+
+    /// 获取请求和响应数据传输的耗时的可变引用
+    #[inline]
+    pub fn transfer_duration_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.transfer_duration
+    }
+}
+
+/// HTTP 响应的指标信息构建器
+#[derive(Debug, Clone, Default)]
+pub struct MetricsBuilder(Metrics);
+
+impl MetricsBuilder {
+    /// 设置总体请求耗时
+    #[inline]
+    pub fn total_duration(&mut self, duration: Duration) -> &mut Self {
+        self.0.total_duration = Some(duration);
+        self
+    }
+
+    /// 设置域名查询的耗时
+    #[inline]
+    pub fn name_lookup_duration(&mut self, duration: Duration) -> &mut Self {
+        self.0.name_lookup_duration = Some(duration);
+        self
+    }
+
+    /// 设置建立连接的耗时
+    #[inline]
+    pub fn connect_duration(&mut self, duration: Duration) -> &mut Self {
+        self.0.connect_duration = Some(duration);
+        self
+    }
+
+    /// 设置建立安全连接的耗时
+    #[inline]
+    pub fn secure_connect_duration(&mut self, duration: Duration) -> &mut Self {
+        self.0.secure_connect_duration = Some(duration);
+        self
+    }
+
+    /// 设置重定向的耗时
+    #[inline]
+    pub fn redirect_duration(&mut self, duration: Duration) -> &mut Self {
+        self.0.redirect_duration = Some(duration);
+        self
+    }
+
+    /// 设置请求和响应数据传输的耗时
+    #[inline]
+    pub fn transfer_duration(&mut self, duration: Duration) -> &mut Self {
+        self.0.transfer_duration = Some(duration);
+        self
+    }
+
+    /// 构建 HTTP 响应的指标信息
+    #[inline]
+    pub fn build(&mut self) -> Metrics {
+        take(&mut self.0)
+    }
 }
 
 #[derive(Debug, Default)]
 pub(super) struct ResponseInfo {
     server_ip: Option<IpAddr>,
     server_port: Option<NonZeroU16>,
-    metrics: Option<Box<dyn Metrics>>,
+    metrics: Option<Metrics>,
 }
 
 impl ResponseInfo {
@@ -57,8 +184,8 @@ impl ResponseInfo {
     }
 
     #[inline]
-    pub(super) fn metrics(&self) -> Option<&dyn Metrics> {
-        self.metrics.as_deref()
+    pub(super) fn metrics(&self) -> Option<&Metrics> {
+        self.metrics.as_ref()
     }
 
     pub(super) fn server_ip_mut(&mut self) -> &mut Option<IpAddr> {
@@ -69,7 +196,7 @@ impl ResponseInfo {
         &mut self.server_port
     }
 
-    pub(super) fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
+    pub(super) fn metrics_mut(&mut self) -> &mut Option<Metrics> {
         &mut self.metrics
     }
 }
@@ -168,13 +295,13 @@ impl ResponseParts {
 
     /// 获取 HTTP 响应的指标信息
     #[inline]
-    pub fn metrics(&self) -> Option<&dyn Metrics> {
+    pub fn metrics(&self) -> Option<&Metrics> {
         self.info.metrics()
     }
 
     /// 获取 HTTP 响应的指标信息的可变引用
     #[inline]
-    pub fn metrics_mut(&mut self) -> &mut Option<Box<dyn Metrics>> {
+    pub fn metrics_mut(&mut self) -> &mut Option<Metrics> {
         self.info.metrics_mut()
     }
 }
@@ -377,8 +504,8 @@ impl<B> ResponseBuilder<B> {
 
     /// 设置 HTTP 响应的指标信息
     #[inline]
-    pub fn metrics(&mut self, metrics: impl Metrics + 'static) -> &mut Self {
-        *self.inner.metrics_mut() = Some(Box::new(metrics));
+    pub fn metrics(&mut self, metrics: Metrics) -> &mut Self {
+        *self.inner.metrics_mut() = Some(metrics);
         self
     }
 }
