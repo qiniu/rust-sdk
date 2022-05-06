@@ -421,7 +421,7 @@ async fn do_some_work_with_locked_data<
             let result = _execute_commands(commands, &mut writer, cache_lifetime).await;
             writer.flush().await?;
             writer.get_mut().unlock()?;
-            let _ = result?;
+            result?;
             info!("AsyncCache was persisted to file {}", path.display())
         }
         Ok(())

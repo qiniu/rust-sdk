@@ -382,7 +382,7 @@ fn do_some_work_with_locked_data<
             writer.flush()?;
             writer.get_ref().unlock()?;
             drop(writer);
-            let _ = result?;
+            result?;
             info!("Cache was persisted to file {}", path.display())
         }
         Ok(())

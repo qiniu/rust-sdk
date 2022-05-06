@@ -94,7 +94,7 @@ impl StringMap {
     }
 }
 
-impl<'a, T> From<T> for StringMap
+impl<T> From<T> for StringMap
 where
     T: IntoIterator<Item = (String, String)>,
 {
