@@ -384,7 +384,7 @@ pub mod prelude {
             Resolver, SimplifiedCallbackContext,
         },
         credential::CredentialProvider,
-        http::{HttpCaller, Metrics},
+        http::HttpCaller,
         regions::{EndpointsProvider, RegionsProvider},
         upload_token::UploadTokenProvider,
     };
