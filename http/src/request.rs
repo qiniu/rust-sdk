@@ -236,7 +236,7 @@ pub struct Request<'r, B: 'r> {
 }
 
 impl<'r, B: Default + 'r> Request<'r, B> {
-    /// 创建 HTTP 响应构建器
+    /// 创建 HTTP 请求构建器
     #[inline]
     pub fn builder() -> RequestBuilder<'r, B> {
         RequestBuilder::default()
