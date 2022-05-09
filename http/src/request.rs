@@ -1,4 +1,7 @@
-use super::callback::{OnHeader, OnProgress, OnStatusCode};
+use super::{
+    callback::{OnHeader, OnProgress, OnStatusCode},
+    LIBRARY_USER_AGENT,
+};
 use assert_impl::assert_impl;
 use http::{
     header::HeaderMap,
@@ -117,6 +120,9 @@ impl<'r> RequestParts<'r> {
     #[inline]
     pub fn user_agent(&self) -> UserAgent {
         let mut user_agent = UserAgent::from(FULL_USER_AGENT.as_ref());
+        if let Some(lib_user_agent) = LIBRARY_USER_AGENT.get() {
+            user_agent.push_str(lib_user_agent);
+        }
         user_agent.push_str(self.appended_user_agent().as_str());
         user_agent
     }
