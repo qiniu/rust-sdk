@@ -187,16 +187,14 @@ impl Region {
 ///
 /// # fn main() -> anyhow::Result<()> {
 /// let region = RegionBuilder::new("z0")
-///     .add_uc_preferred_endpoint("10.11.0.178:10221".parse()?)
+///     .add_uc_preferred_endpoint("10.11.0.178:10221".parse()?) // 添加一个终端地址
 ///     .add_uc_preferred_endpoint("10.11.0.180:10221".parse()?)
 ///     .add_up_preferred_endpoint("10.11.0.178:5010".parse()?)
 ///     .add_up_preferred_endpoint("10.11.0.180:5010".parse()?)
 ///     .add_io_preferred_endpoint("10.11.0.178:5000".parse()?)
 ///     .add_io_preferred_endpoint("10.11.0.180:5000".parse()?)
-///     .add_rs_preferred_endpoint("10.11.0.178:9433".parse()?)
-///     .add_rs_preferred_endpoint("10.11.0.180:9433".parse()?)
-///     .add_rsf_preferred_endpoint("10.11.0.178:7913".parse()?)
-///     .add_rsf_preferred_endpoint("10.11.0.180:7913".parse()?)
+///     .add_rs_preferred_endpoints(["10.11.0.178:9433".parse()?, "10.11.0.180:9433".parse()?]) // 添加多个终端地址
+///     .add_rsf_preferred_endpoints(["10.11.0.178:7913".parse()?, "10.11.0.180:7913".parse()?])
 ///     .build();
 /// # Ok(())
 /// # }
@@ -258,10 +256,24 @@ impl RegionBuilder {
         self
     }
 
+    /// 添加多个访问终端地址到上传服务主要终端地址列表
+    #[inline]
+    pub fn add_up_preferred_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.up_preferred.extend(endpoints);
+        self
+    }
+
     /// 添加访问终端地址到上传服务备选终端地址列表
     #[inline]
     pub fn add_up_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.up_alternative.push(endpoint);
+        self
+    }
+
+    /// 添加多个访问终端地址到上传服务备选终端地址列表
+    #[inline]
+    pub fn add_up_alternative_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.up_alternative.extend(endpoints);
         self
     }
 
@@ -272,10 +284,24 @@ impl RegionBuilder {
         self
     }
 
+    /// 添加多个访问终端地址到下载服务主要终端地址列表
+    #[inline]
+    pub fn add_io_preferred_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.io_preferred.extend(endpoints);
+        self
+    }
+
     /// 添加访问终端地址到下载服务备选终端地址列表
     #[inline]
     pub fn add_io_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.io_alternative.push(endpoint);
+        self
+    }
+
+    /// 添加多个访问终端地址到下载服务备选终端地址列表
+    #[inline]
+    pub fn add_io_alternative_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.io_alternative.extend(endpoints);
         self
     }
 
@@ -286,10 +312,24 @@ impl RegionBuilder {
         self
     }
 
+    /// 添加多个访问终端地址到存储空间管理服务主要终端地址列表
+    #[inline]
+    pub fn add_uc_preferred_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.uc_preferred.extend(endpoints);
+        self
+    }
+
     /// 添加访问终端地址到存储空间管理服务备选终端地址列表
     #[inline]
     pub fn add_uc_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.uc_alternative.push(endpoint);
+        self
+    }
+
+    /// 添加多个访问终端地址到存储空间管理服务备选终端地址列表
+    #[inline]
+    pub fn add_uc_alternative_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.uc_alternative.extend(endpoints);
         self
     }
 
@@ -300,10 +340,24 @@ impl RegionBuilder {
         self
     }
 
+    /// 添加多个访问终端地址到元数据管理服务主要终端地址列表
+    #[inline]
+    pub fn add_rs_preferred_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.rs_preferred.extend(endpoints);
+        self
+    }
+
     /// 添加访问终端地址到元数据管理服务备选终端地址列表
     #[inline]
     pub fn add_rs_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.rs_alternative.push(endpoint);
+        self
+    }
+
+    /// 添加多个访问终端地址到元数据管理服务备选终端地址列表
+    #[inline]
+    pub fn add_rs_alternative_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.rs_alternative.extend(endpoints);
         self
     }
 
@@ -314,10 +368,24 @@ impl RegionBuilder {
         self
     }
 
+    /// 添加多个访问终端地址到元数据列举服务主要终端地址列表
+    #[inline]
+    pub fn add_rsf_preferred_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.rsf_preferred.extend(endpoints);
+        self
+    }
+
     /// 添加访问终端地址到元数据列举服务备选终端地址列表
     #[inline]
     pub fn add_rsf_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.rsf_alternative.push(endpoint);
+        self
+    }
+
+    /// 添加多个访问终端地址到元数据列举服务备选终端地址列表
+    #[inline]
+    pub fn add_rsf_alternative_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.rsf_alternative.extend(endpoints);
         self
     }
 
@@ -328,10 +396,24 @@ impl RegionBuilder {
         self
     }
 
+    /// 添加多个访问终端地址到 API 入口服务主要终端地址列表
+    #[inline]
+    pub fn add_api_preferred_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.api_preferred.extend(endpoints);
+        self
+    }
+
     /// 添加访问终端地址到 API 入口服务备选终端地址列表
     #[inline]
     pub fn add_api_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.api_alternative.push(endpoint);
+        self
+    }
+
+    /// 添加多个访问终端地址到 API 入口服务备选终端地址列表
+    #[inline]
+    pub fn add_api_alternative_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.api_alternative.extend(endpoints);
         self
     }
 
@@ -342,12 +424,27 @@ impl RegionBuilder {
         self
     }
 
+    /// 添加多个访问终端地址到 S3 入口服务主要终端地址列表
+    #[inline]
+    pub fn add_s3_preferred_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.s3_preferred.extend(endpoints);
+        self
+    }
+
     /// 添加访问终端地址到 S3 入口服务备选终端地址列表
     #[inline]
     pub fn add_s3_alternative_endpoint(&mut self, endpoint: Endpoint) -> &mut Self {
         self.s3_alternative.push(endpoint);
         self
     }
+
+    /// 添加多个访问终端地址到 S3 入口服务备选终端地址列表
+    #[inline]
+    pub fn add_s3_alternative_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.s3_alternative.extend(endpoints);
+        self
+    }
+
     /// 构建区域
     pub fn build(&mut self) -> Region {
         let owned = take(self);
