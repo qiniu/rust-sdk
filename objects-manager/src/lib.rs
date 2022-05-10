@@ -200,6 +200,9 @@
 //! # }
 //! ```
 
+pub use qiniu_apis as apis;
+pub use qiniu_apis::http_client::mime;
+
 mod batch_operations;
 mod bucket;
 mod callbacks;
@@ -216,7 +219,6 @@ pub use operation::{
     ModifyObjectStatusBuilder, MoveObjectBuilder, OperationProvider, SetObjectTypeBuilder, StatObjectBuilder,
     UnfreezeObjectBuilder,
 };
-pub use qiniu_apis as apis;
 
 #[cfg(feature = "async")]
 pub use {batch_operations::BatchOperationsStream, list::ListStream};

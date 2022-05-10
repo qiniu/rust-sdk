@@ -1,5 +1,5 @@
+use super::mime::Mime;
 use assert_impl::assert_impl;
-use mime::Mime;
 use qiniu_apis::{
     http::Extensions,
     http_client::{FileName, RegionsProvider},

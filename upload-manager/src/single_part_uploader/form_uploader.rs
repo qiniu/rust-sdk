@@ -433,8 +433,13 @@ fn make_user_cancelled_error(message: &str) -> ResponseError {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::super::upload_token::UploadTokenSigner, *};
-    use mime::{Mime, BOUNDARY, TEXT_PLAIN};
+    use super::{
+        super::super::{
+            mime::{Mime, BOUNDARY, TEXT_PLAIN},
+            upload_token::UploadTokenSigner,
+        },
+        *,
+    };
     use multipart::server::Multipart;
     use qiniu_apis::{
         credential::Credential,

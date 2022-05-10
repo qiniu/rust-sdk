@@ -130,6 +130,7 @@ mod upload_manager;
 mod upload_token;
 
 pub use qiniu_apis as apis;
+pub use qiniu_apis::http_client::mime;
 
 pub use auto_uploader::{
     AutoUploader, AutoUploaderBuilder, AutoUploaderObjectParams, AutoUploaderObjectParamsBuilder,

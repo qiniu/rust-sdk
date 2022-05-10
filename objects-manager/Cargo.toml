@@ -16,7 +16,6 @@ keywords = ["qiniu", "storage"]
 [dependencies]
 log = "0.4.14"
 tap = "1.0.1"
-mime = "0.3.16"
 indexmap = "1.7.0"
 once_cell = "1.8.0"
 smart-default = "0.6.0"

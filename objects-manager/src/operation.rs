@@ -1,7 +1,6 @@
-use super::Bucket;
+use super::{mime::Mime, Bucket};
 use assert_impl::assert_impl;
 use indexmap::IndexMap;
-use mime::Mime;
 use qiniu_apis::{
     http_client::{ApiResult, RegionsProviderEndpoints, RequestBuilderParts, Response},
     upload_token::FileType,
@@ -975,7 +974,10 @@ impl Display for AfterDays {
 #[cfg(test)]
 #[cfg(feature = "async")]
 mod tests {
-    use super::{super::ObjectsManager, *};
+    use super::{
+        super::{mime, ObjectsManager},
+        *,
+    };
     use futures::future::BoxFuture;
     use qiniu_apis::{
         credential::Credential,
