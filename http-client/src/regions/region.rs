@@ -139,38 +139,52 @@ impl Region {
         self.s3().alternative()
     }
 
+    /// 获取上传服务终端地址列表
+    #[inline]
+    pub fn up(&self) -> &Endpoints {
+        &self.inner.up
+    }
+
+    /// 获取下载服务终端地址列表
+    #[inline]
+    pub fn io(&self) -> &Endpoints {
+        &self.inner.io
+    }
+
+    /// 获取存储空间管理服务终端地址列表
+    #[inline]
+    pub fn uc(&self) -> &Endpoints {
+        &self.inner.uc
+    }
+
+    /// 获取元数据管理服务终端地址列表
+    #[inline]
+    pub fn rs(&self) -> &Endpoints {
+        &self.inner.rs
+    }
+
+    /// 获取元数据列举服务终端地址列表
+    #[inline]
+    pub fn rsf(&self) -> &Endpoints {
+        &self.inner.rsf
+    }
+
+    /// 获取 API 入口服务终端地址列表
+    #[inline]
+    pub fn api(&self) -> &Endpoints {
+        &self.inner.api
+    }
+
+    /// 获取 S3 入口服务终端地址列表
+    #[inline]
+    pub fn s3(&self) -> &Endpoints {
+        &self.inner.s3
+    }
+
     /// 创建区域构建器
     #[inline]
     pub fn builder(region_id: impl Into<String>) -> RegionBuilder {
         RegionBuilder::new(region_id.into())
-    }
-
-    pub(super) fn up(&self) -> &Endpoints {
-        &self.inner.up
-    }
-
-    pub(super) fn io(&self) -> &Endpoints {
-        &self.inner.io
-    }
-
-    pub(super) fn uc(&self) -> &Endpoints {
-        &self.inner.uc
-    }
-
-    pub(super) fn rs(&self) -> &Endpoints {
-        &self.inner.rs
-    }
-
-    pub(super) fn rsf(&self) -> &Endpoints {
-        &self.inner.rsf
-    }
-
-    pub(super) fn api(&self) -> &Endpoints {
-        &self.inner.api
-    }
-
-    pub(super) fn s3(&self) -> &Endpoints {
-        &self.inner.s3
     }
 
     #[allow(dead_code)]
