@@ -56,84 +56,112 @@ impl Region {
     }
 
     /// 获取上传服务主要终端列表
+    ///
+    /// 与 `up().preferred()` 等效
     #[inline]
     pub fn up_preferred_endpoints(&self) -> &[Endpoint] {
         self.up().preferred()
     }
 
     /// 获取上传服务备选终端列表
+    ///
+    /// 与 `up().alternative()` 等效
     #[inline]
     pub fn up_alternative_endpoints(&self) -> &[Endpoint] {
         self.up().alternative()
     }
 
     /// 获取下载服务主要终端列表
+    ///
+    /// 与 `io().preferred()` 等效
     #[inline]
     pub fn io_preferred_endpoints(&self) -> &[Endpoint] {
         self.io().preferred()
     }
 
     /// 获取下载服务备选终端列表
+    ///
+    /// 与 `io().alternative()` 等效
     #[inline]
     pub fn io_alternative_endpoints(&self) -> &[Endpoint] {
         self.io().alternative()
     }
 
     /// 获取存储空间管理服务主要终端列表
+    ///
+    /// 与 `uc().preferred()` 等效
     #[inline]
     pub fn uc_preferred_endpoints(&self) -> &[Endpoint] {
         self.uc().preferred()
     }
 
     /// 获取存储空间管理服务备选终端列表
+    ///
+    /// 与 `uc().alternative()` 等效
     #[inline]
     pub fn uc_alternative_endpoints(&self) -> &[Endpoint] {
         self.uc().alternative()
     }
 
     /// 获取元数据管理服务主要终端列表
+    ///
+    /// 与 `rs().preferred()` 等效
     #[inline]
     pub fn rs_preferred_endpoints(&self) -> &[Endpoint] {
         self.rs().preferred()
     }
 
     /// 获取元数据管理服务备选终端列表
+    ///
+    /// 与 `rs().alternative()` 等效
     #[inline]
     pub fn rs_alternative_endpoints(&self) -> &[Endpoint] {
         self.rs().alternative()
     }
 
     /// 获取元数据列举服务主要终端列表
+    ///
+    /// 与 `rsf().preferred()` 等效
     #[inline]
     pub fn rsf_preferred_endpoints(&self) -> &[Endpoint] {
         self.rsf().preferred()
     }
 
     /// 获取元数据列举服务备选终端列表
+    ///
+    /// 与 `rsf().alternative()` 等效
     #[inline]
     pub fn rsf_alternative_endpoints(&self) -> &[Endpoint] {
         self.rsf().alternative()
     }
 
     /// 获取 API 入口服务主要终端列表
+    ///
+    /// 与 `api().preferred()` 等效
     #[inline]
     pub fn api_preferred_endpoints(&self) -> &[Endpoint] {
         self.api().preferred()
     }
 
     /// 获取 API 入口服务备选终端列表
+    ///
+    /// 与 `api().alternative()` 等效
     #[inline]
     pub fn api_alternative_endpoints(&self) -> &[Endpoint] {
         self.api().alternative()
     }
 
     /// 获取 S3 入口服务主要终端列表
+    ///
+    /// 与 `s3().preferred()` 等效
     #[inline]
     pub fn s3_preferred_endpoints(&self) -> &[Endpoint] {
         self.s3().preferred()
     }
 
     /// 获取 S3 入口服务备选终端列表
+    ///
+    /// 与 `s3().alternative()` 等效
     #[inline]
     pub fn s3_alternative_endpoints(&self) -> &[Endpoint] {
         self.s3().alternative()
