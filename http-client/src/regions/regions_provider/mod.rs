@@ -29,6 +29,10 @@ mod structs;
 use futures::future::BoxFuture;
 
 /// 区域信息获取接口
+///
+/// 可以获取一个区域也可以获取多个区域
+///
+/// 同时提供阻塞获取接口和异步获取接口，异步获取接口则需要启用 `async` 功能
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait RegionsProvider: Clone + Debug + Sync + Send {
