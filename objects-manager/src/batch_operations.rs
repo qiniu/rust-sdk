@@ -66,12 +66,12 @@ impl<'a> BatchOperations<'a> {
     #[inline]
     pub fn add_operations(
         &mut self,
-        new_iter: impl Iterator<Item = Box<dyn OperationProvider + 'a>> + 'a,
+        new_iter: impl IntoIterator<Item = Box<dyn OperationProvider + 'a>> + 'a,
     ) -> &mut Self {
         if let Some(iter) = take(&mut self.operations) {
-            self.operations = Some(Box::new(iter.chain(new_iter)));
+            self.operations = Some(Box::new(iter.chain(new_iter.into_iter())));
         } else {
-            self.operations = Some(Box::new(new_iter));
+            self.operations = Some(Box::new(new_iter.into_iter()));
         }
         self
     }

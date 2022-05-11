@@ -2,6 +2,7 @@ use super::{
     batch_operations::BatchOperations,
     callbacks::Callbacks,
     list::{ListIter, ListVersion},
+    mime::Mime,
     operation::{
         CopyObject, CopyObjectBuilder, DeleteObject, DeleteObjectBuilder, Entry, ModifyObjectLifeCycle,
         ModifyObjectLifeCycleBuilder, ModifyObjectMetadata, ModifyObjectMetadataBuilder, ModifyObjectStatus,
@@ -11,7 +12,6 @@ use super::{
     ObjectsManager,
 };
 use assert_impl::assert_impl;
-use mime::Mime;
 use once_cell::sync::OnceCell;
 use qiniu_apis::{
     http::ResponseParts,
@@ -393,8 +393,7 @@ impl Bucket {
     /// 创建对象元信息设置操作构建器
     ///
     /// ```
-    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager};
-    /// use mime::APPLICATION_JSON;
+    /// use qiniu_objects_manager::{apis::credential::Credential, ObjectsManager, mime::APPLICATION_JSON};
     ///
     /// # async fn example() -> anyhow::Result<()> {
     /// let credential = Credential::new("abcdefghklmnopq", "1234567890");

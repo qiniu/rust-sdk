@@ -303,6 +303,8 @@
 //! # }
 //! ```
 
+pub use mime;
+
 mod cache;
 mod client;
 mod regions;

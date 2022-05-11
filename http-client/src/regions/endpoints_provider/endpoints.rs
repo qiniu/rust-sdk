@@ -197,6 +197,20 @@ impl EndpointsBuilder {
         self
     }
 
+    /// 添加多个主要终端地址
+    #[inline]
+    pub fn add_preferred_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.preferred.extend(endpoints);
+        self
+    }
+
+    /// 添加多个备选终端地址
+    #[inline]
+    pub fn add_alternative_endpoints(&mut self, endpoints: impl IntoIterator<Item = Endpoint>) -> &mut Self {
+        self.alternative.extend(endpoints);
+        self
+    }
+
     /// 构建终端地址列表
     #[inline]
     pub fn build(&mut self) -> Endpoints {

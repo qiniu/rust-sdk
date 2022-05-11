@@ -120,12 +120,12 @@ impl UploadPolicy {
 
     /// 是否仅允许新增对象，不允许覆盖对象
     pub fn is_insert_only(&self) -> bool {
-        self.get(INSERT_ONLY_KEY).and_then(|v| v.as_u64()).is_some()
+        self.get(INSERT_ONLY_KEY).and_then(|v| v.as_u64()).unwrap_or_default() > 0
     }
 
     /// 是否启用 MIME 类型自动检测
     pub fn mime_detection_enabled(&self) -> bool {
-        self.get(DETECT_MIME_KEY).and_then(|v| v.as_u64()).is_some()
+        self.get(DETECT_MIME_KEY).and_then(|v| v.as_u64()).unwrap_or_default() > 0
     }
 
     /// 上传凭证过期时间
@@ -782,21 +782,40 @@ mod tests {
 
     #[test]
     fn test_build_upload_policy_with_insert_only() -> Result<()> {
-        let policy = UploadPolicyBuilder::new_policy_for_object("test_bucket", "test", Duration::from_secs(3600))
-            .insert_only()
-            .build();
-        assert!(policy.is_insert_only());
-        assert_eq!(policy.get("insertOnly"), Some(&json!(1)));
+        {
+            let policy = UploadPolicyBuilder::new_policy_for_object("test_bucket", "test", Duration::from_secs(3600))
+                .insert_only()
+                .build();
+            assert!(policy.is_insert_only());
+            assert_eq!(policy.get("insertOnly"), Some(&json!(1)));
+        }
+
+        {
+            let policy = UploadPolicyBuilder::new_policy_for_object("test_bucket", "test", Duration::from_secs(3600))
+                .set("insertOnly".to_owned(), json!(0))
+                .build();
+            assert!(!policy.is_insert_only());
+            assert_eq!(policy.get("insertOnly"), Some(&json!(0)));
+        }
         Ok(())
     }
 
     #[test]
     fn test_build_upload_policy_with_mime_detection() -> Result<()> {
-        let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-            .enable_mime_detection()
-            .build();
-        assert!(policy.mime_detection_enabled());
-        assert_eq!(policy.get("detectMime"), Some(&json!(1)));
+        {
+            let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+                .enable_mime_detection()
+                .build();
+            assert!(policy.mime_detection_enabled());
+            assert_eq!(policy.get("detectMime"), Some(&json!(1)));
+        }
+        {
+            let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
+                .set("detectMime".to_owned(), json!(0))
+                .build();
+            assert!(!policy.mime_detection_enabled());
+            assert_eq!(policy.get("detectMime"), Some(&json!(0)));
+        }
         Ok(())
     }
 

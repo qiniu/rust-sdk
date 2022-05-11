@@ -49,6 +49,7 @@ pub use http::{
     uri::{self, Uri},
     Extensions, Version,
 };
+use once_cell::sync::OnceCell;
 pub use request::{Request, RequestBody as SyncRequestBody, RequestBuilder, RequestParts, UserAgent};
 pub use response::{
     Metrics, Response, ResponseBody as SyncResponseBody, ResponseBuilder, ResponseParts, Result as ResponseResult,
@@ -110,6 +111,19 @@ use std::{future::Future, pin::Pin};
 
 #[cfg(feature = "async")]
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
+
+static LIBRARY_USER_AGENT: OnceCell<UserAgent> = OnceCell::new();
+
+/// 全局设置库 UserAgent
+///
+/// 通常提供给封装七牛 SDK 的库使用，可以将库名称及版本号写入，方便之后进行调试
+///
+/// 该方法只能调用一次，一旦调用，全局生效
+///
+/// 每个请求的 UserAgent 由七牛 SDK 固定 UserAgent + 库 UserAgent + 请求的追加 UserAgent 三部分组成
+pub fn set_library_user_agent(user_agent: UserAgent) -> Result<(), UserAgent> {
+    LIBRARY_USER_AGENT.set(user_agent)
+}
 
 /// HTTP 请求处理接口
 ///

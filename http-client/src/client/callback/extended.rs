@@ -11,7 +11,7 @@ use std::{borrow::Cow, net::IpAddr};
 
 /// 扩展的回调函数上下文
 ///
-/// 基于回调函数上下文，并在此基础上增加返回部分请求信息的可变引用，以及用户代理和经过解析的 IP 地址列表的获取和设置方法。
+/// 基于回调函数上下文，并在此基础上增加返回部分请求信息的可变引用，以及 UserAgent 和经过解析的 IP 地址列表的获取和设置方法。
 #[auto_impl(&mut, Box)]
 pub trait ExtendedCallbackContext: CallbackContext {
     /// 获取 HTTP 请求 URL
@@ -23,10 +23,10 @@ pub trait ExtendedCallbackContext: CallbackContext {
     /// 获取请求 HTTP Headers 的可变引用
     fn headers_mut(&mut self) -> &mut HeaderMap;
 
-    /// 获取用户代理
+    /// 获取 UserAgent
     fn user_agent(&self) -> UserAgent;
 
-    /// 设置追加的用户代理
+    /// 设置追加的 UserAgent
     fn set_appended_user_agent(&mut self, appended_user_agent: UserAgent);
 
     /// 获取经过解析的 IP 地址列表

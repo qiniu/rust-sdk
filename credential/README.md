@@ -20,14 +20,14 @@
 
 ```toml
 [dependencies]
-qiniu-credential = "0.1.1"
+qiniu-credential = "0.1.2"
 ```
 
 ### 启用异步接口
 
 ```toml
 [dependencies]
-qiniu-credential = { version = "0.1.1", features = ["async"] }
+qiniu-credential = { version = "0.1.2", features = ["async"] }
 ```
 
 ## 代码示例

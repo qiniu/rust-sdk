@@ -134,7 +134,7 @@ impl<'r> RequestBuilderParts<'r> {
         self
     }
 
-    /// 追加用户代理
+    /// 追加 UserAgent
     #[inline]
     pub fn appended_user_agent(&mut self, user_agent: impl Into<UserAgent>) -> &mut Self {
         self.appended_user_agent = user_agent.into();
@@ -428,7 +428,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
         self
     }
 
-    /// 追加用户代理
+    /// 追加 UserAgent
     #[inline]
     pub fn appended_user_agent(&mut self, user_agent: impl Into<UserAgent>) -> &mut Self {
         self.parts.appended_user_agent(user_agent);

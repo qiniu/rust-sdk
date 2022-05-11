@@ -24,21 +24,21 @@
 
 ```toml
 [dependencies]
-qiniu-apis = { version = "0.1.1", features = ["ureq"] }
+qiniu-apis = { version = "0.1.2", features = ["ureq"] }
 ```
 
 ### 启用 Isahc 异步接口
 
 ```toml
 [dependencies]
-qiniu-apis = { version = "0.1.1", features = ["async", "isahc"] }
+qiniu-apis = { version = "0.1.2", features = ["async", "isahc"] }
 ```
 
 ### 启用 Reqwest 异步接口
 
 ```toml
 [dependencies]
-qiniu-apis = { version = "0.1.1", features = ["async", "reqwest"] }
+qiniu-apis = { version = "0.1.2", features = ["async", "reqwest"] }
 ```
 
 ### 其他功能

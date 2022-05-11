@@ -5,7 +5,7 @@ use digest::{
 };
 use futures_lite::io::{copy, AsyncRead, AsyncReadExt, Result};
 
-async fn _etag_of_reader(mut reader: impl AsyncRead + Send + Unpin, out: &mut GenericArray<u8, U28>) -> Result<()> {
+async fn _etag_of_reader(mut reader: impl AsyncRead + Unpin, out: &mut GenericArray<u8, U28>) -> Result<()> {
     let mut etag_v1 = EtagV1::new();
     copy(&mut reader, &mut etag_v1).await?;
     etag_v1.finalize_into(out);
@@ -14,7 +14,7 @@ async fn _etag_of_reader(mut reader: impl AsyncRead + Send + Unpin, out: &mut Ge
 
 /// 异步读取 reader 中的数据并计算它的 Etag V1，生成结果
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub async fn etag_of(reader: impl AsyncRead + Send + Unpin) -> Result<String> {
+pub async fn etag_of(reader: impl AsyncRead + Unpin) -> Result<String> {
     let mut buf = GenericArray::default();
     _etag_of_reader(reader, &mut buf).await?;
     Ok(String::from_utf8(buf.to_vec()).unwrap())
@@ -22,13 +22,13 @@ pub async fn etag_of(reader: impl AsyncRead + Send + Unpin) -> Result<String> {
 
 /// 异步读取 reader 中的数据并计算它的 Etag V1，生成结果到指定的缓冲中
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub async fn etag_to_buf(reader: impl AsyncRead + Send + Unpin, array: &mut [u8; ETAG_SIZE]) -> Result<()> {
+pub async fn etag_to_buf(reader: impl AsyncRead + Unpin, array: &mut [u8; ETAG_SIZE]) -> Result<()> {
     _etag_of_reader(reader, GenericArray::from_mut_slice(array)).await?;
     Ok(())
 }
 
 async fn _etag_of_reader_with_parts(
-    mut reader: impl AsyncRead + Send + Unpin,
+    mut reader: impl AsyncRead + Unpin,
     parts: &[usize],
     out: &mut GenericArray<u8, U28>,
 ) -> Result<()> {
@@ -49,7 +49,7 @@ async fn _etag_of_reader_with_parts(
 
 /// 根据给出的数据块尺寸，异步读取 reader 中的数据并计算它的 Etag V2，生成结果
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-pub async fn etag_with_parts(reader: impl AsyncRead + Send + Unpin, parts: &[usize]) -> Result<String> {
+pub async fn etag_with_parts(reader: impl AsyncRead + Unpin, parts: &[usize]) -> Result<String> {
     let mut buf = GenericArray::default();
     _etag_of_reader_with_parts(reader, parts, &mut buf).await?;
     Ok(String::from_utf8(buf.to_vec()).unwrap())
@@ -58,7 +58,7 @@ pub async fn etag_with_parts(reader: impl AsyncRead + Send + Unpin, parts: &[usi
 /// 根据给出的数据块尺寸，异步读取 reader 中的数据并计算它的 Etag V2，生成结果到指定的数组中
 #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
 pub async fn etag_with_parts_to_buf(
-    reader: impl AsyncRead + Send + Unpin,
+    reader: impl AsyncRead + Unpin,
     parts: &[usize],
     array: &mut [u8; ETAG_SIZE],
 ) -> Result<()> {

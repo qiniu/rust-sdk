@@ -1,4 +1,7 @@
-use super::callback::{OnHeader, OnProgress, OnStatusCode};
+use super::{
+    callback::{OnHeader, OnProgress, OnStatusCode},
+    LIBRARY_USER_AGENT,
+};
 use assert_impl::assert_impl;
 use http::{
     header::HeaderMap,
@@ -22,7 +25,7 @@ use std::{
     ops::{Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo},
 };
 
-/// 用户代理信息
+/// UserAgent 信息
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UserAgent {
     inner: SmallString<[u8; 256]>,
@@ -113,21 +116,24 @@ impl<'r> RequestParts<'r> {
         &mut self.inner.extensions
     }
 
-    /// 获取用户代理
+    /// 获取 UserAgent
     #[inline]
     pub fn user_agent(&self) -> UserAgent {
         let mut user_agent = UserAgent::from(FULL_USER_AGENT.as_ref());
+        if let Some(lib_user_agent) = LIBRARY_USER_AGENT.get() {
+            user_agent.push_str(lib_user_agent);
+        }
         user_agent.push_str(self.appended_user_agent().as_str());
         user_agent
     }
 
-    /// 获取追加的用户代理
+    /// 获取追加的 UserAgent
     #[inline]
     pub fn appended_user_agent(&self) -> &UserAgent {
         &self.appended_user_agent
     }
 
-    /// 获取追加的用户代理的可变引用
+    /// 获取追加的 UserAgent 的可变引用
     #[inline]
     pub fn appended_user_agent_mut(&mut self) -> &mut UserAgent {
         &mut self.appended_user_agent
@@ -236,7 +242,7 @@ pub struct Request<'r, B: 'r> {
 }
 
 impl<'r, B: Default + 'r> Request<'r, B> {
-    /// 创建 HTTP 响应构建器
+    /// 创建 HTTP 请求构建器
     #[inline]
     pub fn builder() -> RequestBuilder<'r, B> {
         RequestBuilder::default()
@@ -318,6 +324,16 @@ pub struct RequestBuilder<'r, B> {
     inner: Request<'r, B>,
 }
 
+impl<'r, B: Default + 'r> RequestBuilder<'r, B> {
+    /// 创建 HTTP 请求构建器
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            inner: Default::default(),
+        }
+    }
+}
+
 impl<'r, B: 'r> RequestBuilder<'r, B> {
     /// 设置请求 URL
     #[inline]
@@ -368,7 +384,7 @@ impl<'r, B: 'r> RequestBuilder<'r, B> {
         self
     }
 
-    /// 设置用户代理
+    /// 设置 UserAgent
     #[inline]
     pub fn appended_user_agent(&mut self, user_agent: impl Into<UserAgent>) -> &mut Self {
         *self.inner.appended_user_agent_mut() = user_agent.into();
@@ -579,6 +595,34 @@ mod body {
         }
     }
 
+    impl<'a> From<&'a [u8]> for RequestBody<'a> {
+        #[inline]
+        fn from(body: &'a [u8]) -> Self {
+            Self::from_referenced_bytes(body)
+        }
+    }
+
+    impl<'a> From<&'a str> for RequestBody<'a> {
+        #[inline]
+        fn from(body: &'a str) -> Self {
+            Self::from_referenced_bytes(body.as_bytes())
+        }
+    }
+
+    impl From<Vec<u8>> for RequestBody<'_> {
+        #[inline]
+        fn from(body: Vec<u8>) -> Self {
+            Self::from_bytes(body)
+        }
+    }
+
+    impl From<String> for RequestBody<'_> {
+        #[inline]
+        fn from(body: String) -> Self {
+            Self::from_bytes(body.into_bytes())
+        }
+    }
+
     #[cfg(feature = "async")]
     mod async_body {
         use super::super::super::{AsyncReset, BoxFuture};
@@ -774,6 +818,34 @@ mod body {
             #[inline]
             fn from(body: &'a mut AsyncRequestBody<'_>) -> Self {
                 Self::from_referenced_reader(body, body.size())
+            }
+        }
+
+        impl<'a> From<&'a [u8]> for AsyncRequestBody<'a> {
+            #[inline]
+            fn from(body: &'a [u8]) -> Self {
+                Self::from_referenced_bytes(body)
+            }
+        }
+
+        impl<'a> From<&'a str> for AsyncRequestBody<'a> {
+            #[inline]
+            fn from(body: &'a str) -> Self {
+                Self::from_referenced_bytes(body.as_bytes())
+            }
+        }
+
+        impl From<Vec<u8>> for AsyncRequestBody<'_> {
+            #[inline]
+            fn from(body: Vec<u8>) -> Self {
+                Self::from_bytes(body)
+            }
+        }
+
+        impl From<String> for AsyncRequestBody<'_> {
+            #[inline]
+            fn from(body: String) -> Self {
+                Self::from_bytes(body.into_bytes())
             }
         }
     }

@@ -892,6 +892,13 @@ impl EnvCredentialProvider {
         env::set_var(QINIU_ACCESS_KEY_ENV_KEY, credential.access_key().as_str());
         env::set_var(QINIU_SECRET_KEY_ENV_KEY, credential.secret_key().as_str());
     }
+
+    /// 清空环境变量认证信息
+    #[inline]
+    pub fn clear() {
+        env::remove_var(QINIU_ACCESS_KEY_ENV_KEY);
+        env::remove_var(QINIU_SECRET_KEY_ENV_KEY);
+    }
 }
 
 impl CredentialProvider for EnvCredentialProvider {
