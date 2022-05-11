@@ -114,13 +114,13 @@ type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 
 static LIBRARY_USER_AGENT: OnceCell<UserAgent> = OnceCell::new();
 
-/// 全局设置库用户代理
+/// 全局设置库 UserAgent
 ///
 /// 通常提供给封装七牛 SDK 的库使用，可以将库名称及版本号写入，方便之后进行调试
 ///
 /// 该方法只能调用一次，一旦调用，全局生效
 ///
-/// 每个请求的用户代理由七牛 SDK 固定用户代理 + 库用户代理 + 请求的追加用户代理三部分组成
+/// 每个请求的 UserAgent 由七牛 SDK 固定 UserAgent + 库 UserAgent + 请求的追加 UserAgent 三部分组成
 pub fn set_library_user_agent(user_agent: UserAgent) -> Result<(), UserAgent> {
     LIBRARY_USER_AGENT.set(user_agent)
 }

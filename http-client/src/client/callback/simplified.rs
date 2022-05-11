@@ -29,7 +29,7 @@ pub trait SimplifiedCallbackContext: Sync + Send + Debug {
     /// 获取请求 HTTP Headers
     fn headers(&self) -> &HeaderMap;
 
-    /// 获取追加的用户代理
+    /// 获取追加的 UserAgent
     fn appended_user_agent(&self) -> &UserAgent;
 
     /// 获取七牛鉴权签名

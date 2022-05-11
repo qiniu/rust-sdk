@@ -25,7 +25,7 @@ use std::{
     ops::{Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo},
 };
 
-/// 用户代理信息
+/// UserAgent 信息
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UserAgent {
     inner: SmallString<[u8; 256]>,
@@ -116,7 +116,7 @@ impl<'r> RequestParts<'r> {
         &mut self.inner.extensions
     }
 
-    /// 获取用户代理
+    /// 获取 UserAgent
     #[inline]
     pub fn user_agent(&self) -> UserAgent {
         let mut user_agent = UserAgent::from(FULL_USER_AGENT.as_ref());
@@ -127,13 +127,13 @@ impl<'r> RequestParts<'r> {
         user_agent
     }
 
-    /// 获取追加的用户代理
+    /// 获取追加的 UserAgent
     #[inline]
     pub fn appended_user_agent(&self) -> &UserAgent {
         &self.appended_user_agent
     }
 
-    /// 获取追加的用户代理的可变引用
+    /// 获取追加的 UserAgent 的可变引用
     #[inline]
     pub fn appended_user_agent_mut(&mut self) -> &mut UserAgent {
         &mut self.appended_user_agent
@@ -384,7 +384,7 @@ impl<'r, B: 'r> RequestBuilder<'r, B> {
         self
     }
 
-    /// 设置用户代理
+    /// 设置 UserAgent
     #[inline]
     pub fn appended_user_agent(&mut self, user_agent: impl Into<UserAgent>) -> &mut Self {
         *self.inner.appended_user_agent_mut() = user_agent.into();

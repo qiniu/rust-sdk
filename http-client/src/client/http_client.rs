@@ -407,7 +407,7 @@ impl HttpClientBuilder {
         self
     }
 
-    /// 设置追加的用户代理
+    /// 设置追加的 UserAgent
     #[inline]
     pub fn appended_user_agent(&mut self, appended_user_agent: impl Into<UserAgent>) -> &mut Self {
         self.appended_user_agent = appended_user_agent.into();
