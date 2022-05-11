@@ -22,11 +22,11 @@ qiniu-http = { version = "0.1.2", path = "../http", optional = true }
 qiniu-ureq = { version = "0.1.2", path = "../http-ureq", optional = true }
 qiniu-isahc = { version = "0.1.2", path = "../http-isahc", optional = true }
 qiniu-reqwest = { version = "0.1.2", path = "../http-reqwest", optional = true }
-qiniu-http-client = { version = "0.1.2", path = "../http-client", optional = true }
-qiniu-apis = { version = "0.1.2", path = "../apis", optional = true }
-qiniu-objects-manager = { version = "0.1.2", path = "../objects-manager", optional = true }
-qiniu-upload-manager = { version = "0.1.2", path = "../upload-manager", optional = true }
-qiniu-download-manager = { version = "0.1.2", path = "../download-manager", optional = true }
+qiniu-http-client = { version = "0.1.2", path = "../http-client", optional = true, default-features = false }
+qiniu-apis = { version = "0.1.2", path = "../apis", optional = true, default-features = false }
+qiniu-objects-manager = { version = "0.1.2", path = "../objects-manager", optional = true, default-features = false }
+qiniu-upload-manager = { version = "0.1.2", path = "../upload-manager", optional = true, default-features = false }
+qiniu-download-manager = { version = "0.1.2", path = "../download-manager", optional = true, default-features = false }
 
 [features]
 default = ["ureq"]

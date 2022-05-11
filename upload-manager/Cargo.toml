@@ -15,9 +15,6 @@ keywords = ["qiniu", "storage"]
 
 [dependencies]
 log = "0.4.14"
-qiniu-apis = { version = "0.1.2", path = "../apis" }
-qiniu-upload-token = { version = "0.1.2", path = "../upload-token" }
-qiniu-utils = { version = "0.1.2", path = "../utils" }
 auto_impl = { package = "bachue-auto_impl", version = "0.5.1" }
 smart-default = "0.6.0"
 sha-1 = "0.10.0"
@@ -34,14 +31,17 @@ tap = "1.0.1"
 md-5 = "0.10.1"
 rayon = "1.5.1"
 serde = { version = "1.0.130", features = ["derive"] }
-
 futures = { version = "0.3.5", optional = true }
 async-once-cell = { version = "0.3.0", optional = true }
 async-std = { version = "1.10.0", optional = true }
 
+qiniu-apis = { version = "0.1.2", path = "../apis", default-features = false }
+qiniu-upload-token = { version = "0.1.2", path = "../upload-token" }
+qiniu-utils = { version = "0.1.2", path = "../utils" }
+
 [dev-dependencies]
+anyhow = "1.0.11"
 env_logger = "0.9.0"
-anyhow = "1.0.51"
 tempfile = "3.2.0"
 rand = "0.8.4"
 ipipe = "0.9.0"
