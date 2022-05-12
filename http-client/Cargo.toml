@@ -40,6 +40,7 @@ tap = "1.0.1"
 smallvec = "1.7.0"
 md-5 = "0.9.1"
 hex = "0.4.3"
+chrono = "0.4.19"
 smart-default = "0.6.0"
 dyn-clonable = "0.9.0"
 auto_impl = { package = "bachue-auto_impl", version = "0.5.1" }

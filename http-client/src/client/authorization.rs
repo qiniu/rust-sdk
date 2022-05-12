@@ -1,4 +1,5 @@
 use auto_impl::auto_impl;
+use chrono::Utc;
 use dyn_clonable::clonable;
 use qiniu_credential::{Credential, CredentialProvider, GetOptions, Uri};
 use qiniu_http::{
@@ -6,7 +7,13 @@ use qiniu_http::{
     HeaderValue, RequestParts, SyncRequest,
 };
 use qiniu_upload_token::UploadTokenProvider;
-use std::{fmt::Debug, io::Error as IoError, mem::take, result::Result, time::Duration};
+use std::{
+    env::{remove_var, set_var, var_os},
+    fmt::Debug,
+    io::Error as IoError,
+    mem::take,
+    time::Duration,
+};
 use tap::Tap;
 use thiserror::Error;
 use url::ParseError as UrlParseError;
@@ -150,15 +157,53 @@ async fn authorization_v1_for_async_request(
         .map_err(|err| err.into())
 }
 
+/// 全局禁用时间戳签名
+pub fn global_disable_timestamp_signature() {
+    set_var(DISABLE_QINIU_TIMESTAMP_SIGNATURE, "1");
+}
+
+/// 全局启用时间戳签名
+pub fn global_enable_timestamp_signature() {
+    remove_var(DISABLE_QINIU_TIMESTAMP_SIGNATURE);
+}
+
 /// 七牛签名算法 V2 鉴权签名
 #[derive(Clone, Debug)]
-pub struct CredentialAuthorizationV2<P: ?Sized>(P);
+pub struct CredentialAuthorizationV2<P: ?Sized> {
+    timestamp_signature_enabled: bool,
+    provider: P,
+}
+
+const DISABLE_QINIU_TIMESTAMP_SIGNATURE: &str = "DISABLE_QINIU_TIMESTAMP_SIGNATURE";
 
 impl<P> CredentialAuthorizationV2<P> {
     /// 创建七牛签名算法 V2 鉴权签名
+    ///
+    /// 可以通过 `DISABLE_QINIU_TIMESTAMP_SIGNATURE` 环境变量禁用时间戳签名，或是调用 [`Self::disable_timestamp_signature`] 来禁用时间戳签名
     #[inline]
     pub fn new(provider: P) -> Self {
-        Self(provider)
+        Self {
+            provider,
+            timestamp_signature_enabled: var_os(DISABLE_QINIU_TIMESTAMP_SIGNATURE).is_none(),
+        }
+    }
+
+    /// 禁用时间戳签名
+    ///
+    /// 该方法将覆盖 `DISABLE_QINIU_TIMESTAMP_SIGNATURE` 环境变量的设置
+    #[inline]
+    pub fn disable_timestamp_signature(&mut self) -> &mut Self {
+        self.timestamp_signature_enabled = false;
+        self
+    }
+
+    /// 启用时间戳签名
+    ///
+    /// 该方法将覆盖 `DISABLE_QINIU_TIMESTAMP_SIGNATURE` 环境变量的设置
+    #[inline]
+    pub fn enable_timestamp_signature(&mut self) -> &mut Self {
+        self.timestamp_signature_enabled = true;
+        self
     }
 }
 
@@ -171,14 +216,23 @@ impl<P> From<P> for CredentialAuthorizationV2<P> {
 
 impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthorizationV2<P> {
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()> {
-        _sign(&self.0, request, Default::default())?;
+        _sign(
+            &self.provider,
+            self.timestamp_signature_enabled,
+            request,
+            Default::default(),
+        )?;
         return Ok(());
 
         fn _sign(
             credential_provider: impl CredentialProvider + Clone,
+            timestamp_signature_enabled: bool,
             request: &mut SyncRequest,
             get_options: GetOptions,
         ) -> AuthorizationResult<()> {
+            if timestamp_signature_enabled {
+                request.headers_mut().insert(X_QINIU_DATE, make_x_qiniu_date_value());
+            }
             let authorization = authorization_v2_for_request(&*credential_provider.get(get_options)?, request)?;
             set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
             Ok(())
@@ -189,15 +243,25 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         return Box::pin(async move {
-            _sign(&self.0, request, Default::default()).await?;
+            _sign(
+                &self.provider,
+                self.timestamp_signature_enabled,
+                request,
+                Default::default(),
+            )
+            .await?;
             Ok(())
         });
 
         async fn _sign(
             credential_provider: impl CredentialProvider + Clone,
+            timestamp_signature_enabled: bool,
             request: &mut AsyncRequest<'_>,
             get_options: GetOptions,
         ) -> AuthorizationResult<()> {
+            if timestamp_signature_enabled {
+                request.headers_mut().insert(X_QINIU_DATE, make_x_qiniu_date_value());
+            }
             let authorization =
                 authorization_v2_for_async_request(&*credential_provider.async_get(get_options).await?, request)
                     .await?;
@@ -238,6 +302,12 @@ fn set_authorization(request: &mut RequestParts, authorization: HeaderValue) {
 
 fn uptoken_authorization(upload_token: &str) -> String {
     "UpToken ".to_owned() + upload_token
+}
+
+const X_QINIU_DATE: &str = "X-Qiniu-Date";
+
+fn make_x_qiniu_date_value() -> HeaderValue {
+    HeaderValue::from_str(&Utc::now().format("%Y%m%dT%H%M%SZ").to_string()).unwrap()
 }
 
 /// 七牛下载地址鉴权签名
@@ -345,6 +415,14 @@ impl<'a> Authorization<'a> {
         Self::from_owned(CredentialAuthorizationV2::from(provider))
     }
 
+    /// 根据认证信息获取接口创建一个使用七牛鉴权 v2 签名算法的签名，并且禁用时间戳签名
+    #[inline]
+    pub fn v2_without_timestamp_signature(provider: impl CredentialProvider + Clone + 'a) -> Self {
+        let mut auth = CredentialAuthorizationV2::from(provider);
+        auth.disable_timestamp_signature();
+        Self::from_owned(auth)
+    }
+
     /// 根据认证信息获取接口创建一个下载凭证签名算法的签名
     #[inline]
     pub fn download(provider: impl CredentialProvider + Clone + 'a) -> Self {
@@ -371,5 +449,81 @@ impl AuthorizationProvider for Authorization<'_> {
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         self.as_ref().async_sign(request)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Result as AnyResult;
+    use qiniu_credential::HeaderMap;
+    use qiniu_http::SyncRequestBody;
+
+    #[test]
+    fn test_credential_authorition_v2() -> AnyResult<()> {
+        let credential = Credential::new("ak", "sk");
+        let headers = {
+            let mut headers = HeaderMap::new();
+            headers.insert("x-qiniu-", HeaderValue::from_static("a"));
+            headers.insert("x-qiniu", HeaderValue::from_static("b"));
+            headers.insert(
+                CONTENT_TYPE,
+                HeaderValue::from_static("application/x-www-form-urlencoded"),
+            );
+            headers
+        };
+        let body = b"{\"name\": \"test\"}";
+        let mut request = SyncRequest::builder()
+            .url("http://upload.qiniup.com".parse()?)
+            .headers(headers.to_owned())
+            .body(SyncRequestBody::from_bytes(body.to_vec()))
+            .build();
+        global_enable_timestamp_signature();
+        Authorization::v2(credential.to_owned()).sign(&mut request)?;
+        assert!(request
+            .headers()
+            .get(AUTHORIZATION)
+            .unwrap()
+            .to_str()?
+            .starts_with("Qiniu ak:"));
+        assert!(request.headers().get("x-qiniu-date").is_some());
+
+        global_disable_timestamp_signature();
+        request = SyncRequest::builder()
+            .url("http://upload.qiniup.com".parse()?)
+            .headers(headers)
+            .body(SyncRequestBody::from_bytes(body.to_vec()))
+            .build();
+        Authorization::v2(credential.to_owned()).sign(&mut request)?;
+        global_enable_timestamp_signature();
+        assert!(request
+            .headers()
+            .get(AUTHORIZATION)
+            .unwrap()
+            .to_str()?
+            .starts_with("Qiniu ak:"));
+        assert!(request.headers().get("x-qiniu-date").is_none());
+
+        let headers = {
+            let mut headers = HeaderMap::new();
+            headers.insert("x-qiniu-bbb", HeaderValue::from_static("AAA"));
+            headers.insert("x-qiniu-aaa", HeaderValue::from_static("CCC"));
+            headers
+        };
+        let body = b"name=test&language=go}";
+        global_disable_timestamp_signature();
+        request = SyncRequest::builder()
+            .url("http://upload.qiniup.com/mkfile/sdf.jpg".parse()?)
+            .headers(headers)
+            .body(SyncRequestBody::from_bytes(body.to_vec()))
+            .build();
+        Authorization::v2(credential).sign(&mut request)?;
+        global_enable_timestamp_signature();
+        assert_eq!(
+            request.headers().get(AUTHORIZATION).unwrap(),
+            HeaderValue::from_static("Qiniu ak:arPKqUn6T6DrnHhygbFS40PGBgY=")
+        );
+        assert!(request.headers().get("x-qiniu-date").is_none());
+        Ok(())
     }
 }

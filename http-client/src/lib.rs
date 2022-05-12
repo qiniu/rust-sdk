@@ -334,9 +334,10 @@ pub use qiniu_upload_token as upload_token;
 pub use futures::io::AsyncRead;
 
 pub use client::{
-    ApiResult, Authorization, AuthorizationError, AuthorizationProvider, AuthorizationResult, Backoff, BackoffOptions,
-    CachedResolver, CallbackContext, ChainedResolver, ChainedResolverBuilder, ChooseOptions, ChooseOptionsBuilder,
-    Chooser, ChooserFeedback, CredentialAuthorizationV1, CredentialAuthorizationV2, DirectChooser,
+    global_disable_timestamp_signature, global_enable_timestamp_signature, ApiResult, Authorization,
+    AuthorizationError, AuthorizationProvider, AuthorizationResult, Backoff, BackoffOptions, CachedResolver,
+    CallbackContext, ChainedResolver, ChainedResolverBuilder, ChooseOptions, ChooseOptionsBuilder, Chooser,
+    ChooserFeedback, CredentialAuthorizationV1, CredentialAuthorizationV2, DirectChooser,
     DownloadUrlCredentialAuthorization, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName,
     FixedBackoff, GotBackoffDuration, HttpClient, HttpClientBuilder, Idempotent, IpChooser, IpChooserBuilder,
     LimitedBackoff, LimitedRetrier, Multipart, NeverEmptyHandedChooser, NeverRetrier, Part, PartMetadata, QueryPair,
