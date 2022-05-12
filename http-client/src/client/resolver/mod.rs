@@ -63,7 +63,7 @@ pub struct ResolveOptionsBuilder<'a>(ResolveOptions<'a>);
 impl<'a> ResolveOptionsBuilder<'a> {
     /// 设置重试统计信息
     #[inline]
-    pub fn retried(&'a mut self, retried: &'a RetriedStatsInfo) -> &mut Self {
+    pub fn retried(&mut self, retried: &'a RetriedStatsInfo) -> &mut Self {
         self.0.retried = Some(retried);
         self
     }
