@@ -468,7 +468,7 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_uploading_progress(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> AnyResult<()> + Send + Sync + 'static,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, TransferProgressInfo<'_>) -> AnyResult<()> + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_uploading_progress(callback);
         self

@@ -39,7 +39,7 @@ mod request;
 mod response;
 
 use auto_impl::auto_impl;
-pub use callback::TransferProgressInfo;
+pub use callback::{OnHeaderCallback, OnProgressCallback, OnStatusCodeCallback, TransferProgressInfo};
 pub use error::{
     Error as ResponseError, ErrorBuilder as ResponseErrorBuilder, ErrorKind as ResponseErrorKind, MapError,
 };

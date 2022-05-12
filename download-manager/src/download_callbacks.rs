@@ -6,7 +6,7 @@ use qiniu_apis::{
 use std::fmt::{self, Debug};
 
 type BeforeRequestCallback<'c> = Box<dyn Fn(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'c>;
-type DownloadProgressCallback<'c> = Box<dyn Fn(&TransferProgressInfo) -> AnyResult<()> + Send + Sync + 'c>;
+type DownloadProgressCallback<'c> = Box<dyn Fn(TransferProgressInfo<'_>) -> AnyResult<()> + Send + Sync + 'c>;
 type AfterResponseOkCallback<'c> = Box<dyn Fn(&mut HttpResponseParts) -> AnyResult<()> + Send + Sync + 'c>;
 type AfterResponseErrorCallback<'c> = Box<dyn Fn(&ResponseError) -> AnyResult<()> + Send + Sync + 'c>;
 
@@ -29,7 +29,7 @@ impl<'a> Callbacks<'a> {
 
     pub(super) fn insert_download_progress_callback(
         &mut self,
-        callback: impl Fn(&TransferProgressInfo) -> AnyResult<()> + Send + Sync + 'a,
+        callback: impl Fn(TransferProgressInfo<'_>) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.download_progress_callbacks.push(Box::new(callback));
         self
@@ -57,7 +57,7 @@ impl<'a> Callbacks<'a> {
             .try_for_each(|callback| callback(builder_parts))
     }
 
-    pub(super) fn download_progress(&self, progress_info: &TransferProgressInfo) -> AnyResult<()> {
+    pub(super) fn download_progress(&self, progress_info: TransferProgressInfo<'_>) -> AnyResult<()> {
         self.download_progress_callbacks
             .iter()
             .try_for_each(|callback| callback(progress_info))

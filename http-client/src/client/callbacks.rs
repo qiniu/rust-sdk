@@ -8,7 +8,7 @@ use qiniu_http::{HeaderName, HeaderValue, ResponseParts, StatusCode, TransferPro
 use std::{fmt, mem::take, time::Duration};
 
 type OnProgress<'f> =
-    Box<dyn Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> AnyResult<()> + Send + Sync + 'f>;
+    Box<dyn Fn(&dyn SimplifiedCallbackContext, TransferProgressInfo<'_>) -> AnyResult<()> + Send + Sync + 'f>;
 type OnStatusCode<'f> = Box<dyn Fn(&dyn SimplifiedCallbackContext, StatusCode) -> AnyResult<()> + Send + Sync + 'f>;
 type OnHeader<'f> =
     Box<dyn Fn(&dyn SimplifiedCallbackContext, &HeaderName, &HeaderValue) -> AnyResult<()> + Send + Sync + 'f>;
@@ -62,7 +62,7 @@ impl<'f> Callbacks<'f> {
     pub(super) fn call_uploading_progress_callbacks(
         &self,
         context: &dyn SimplifiedCallbackContext,
-        progress_info: &TransferProgressInfo,
+        progress_info: TransferProgressInfo<'_>,
     ) -> AnyResult<()> {
         self.on_uploading_progress_callbacks()
             .iter()
@@ -260,7 +260,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_uploading_progress(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> AnyResult<()> + Send + Sync + 'f,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, TransferProgressInfo<'_>) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_uploading_progress.push(Box::new(callback));
         self

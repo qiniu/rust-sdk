@@ -342,7 +342,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
         &mut self,
         callback: impl Fn(
                 &dyn qiniu_http_client::SimplifiedCallbackContext,
-                &qiniu_http_client::http::TransferProgressInfo,
+                qiniu_http_client::http::TransferProgressInfo,
             ) -> anyhow::Result<()>
             + Send
             + Sync

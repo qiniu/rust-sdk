@@ -52,7 +52,7 @@ mod tests {
     use bytes::Bytes;
     use futures::channel::oneshot::channel;
     use md5::{Digest, Md5};
-    use qiniu_http::{HttpCaller, Method, SyncRequest, SyncRequestBody};
+    use qiniu_http::{HttpCaller, Method, SyncRequest, SyncRequestBody, TransferProgressInfo};
     use rand::{thread_rng, RngCore};
     use reqwest::header::{CONTENT_LENGTH, USER_AGENT};
     use std::{
@@ -76,7 +76,7 @@ mod tests {
     #[cfg(feature = "async")]
     use {
         futures::io::{copy as async_io_copy, AsyncReadExt},
-        qiniu_http::{AsyncRequest, AsyncRequestBody},
+        qiniu_http::{AsyncRequest, AsyncRequestBody, OnProgressCallback},
     };
 
     macro_rules! starts_with_server {
@@ -138,19 +138,19 @@ mod tests {
                 let mut response = {
                     let last_uploaded = last_uploaded.to_owned();
                     let last_total = last_total.to_owned();
-                    SyncClient::default().call(
-                        &mut SyncRequest::builder()
-                            .method(Method::POST)
-                            .url(format!("http://{}/dir1/dir2/file", addr).parse().expect("invalid uri"))
-                            .body(SyncRequestBody::from_referenced_bytes(&request_body))
-                            .on_uploading_progress(&|info| {
-                                last_uploaded.store(info.transferred_bytes(), Relaxed);
-                                last_total.store(info.total_bytes(), Relaxed);
-                                Ok(())
-                            })
-                            .add_extension(TimeoutExtension::new(Duration::from_secs(1)))
-                            .build(),
-                    )?
+                    let callback = move |info: TransferProgressInfo| {
+                        last_uploaded.store(info.transferred_bytes(), Relaxed);
+                        last_total.store(info.total_bytes(), Relaxed);
+                        Ok(())
+                    };
+                    let mut request = SyncRequest::builder()
+                        .method(Method::POST)
+                        .url(format!("http://{}/dir1/dir2/file", addr).parse().expect("invalid uri"))
+                        .body(SyncRequestBody::from_referenced_bytes(&request_body))
+                        .on_uploading_progress(&callback)
+                        .add_extension(TimeoutExtension::new(Duration::from_secs(1)))
+                        .build();
+                    SyncClient::default().call(&mut request)?
                 };
                 assert_eq!(
                     response.header(&CONTENT_LENGTH).map(|h| h.as_bytes()),
@@ -231,21 +231,19 @@ mod tests {
             let mut response = {
                 let last_uploaded = last_uploaded.to_owned();
                 let last_total = last_total.to_owned();
-                AsyncClient::default()
-                    .async_call(
-                        &mut AsyncRequest::builder()
-                            .method(Method::POST)
-                            .url(format!("http://{}/dir1/dir2/file", addr).parse().expect("invalid uri"))
-                            .body(AsyncRequestBody::from_referenced_bytes(&request_body))
-                            .on_uploading_progress(&|info| {
-                                last_uploaded.store(info.transferred_bytes(), Relaxed);
-                                last_total.store(info.total_bytes(), Relaxed);
-                                Ok(())
-                            })
-                            .add_extension(TimeoutExtension::new(Duration::from_secs(1)))
-                            .build(),
-                    )
-                    .await?
+                let callback = move |info: TransferProgressInfo| {
+                    last_uploaded.store(info.transferred_bytes(), Relaxed);
+                    last_total.store(info.total_bytes(), Relaxed);
+                    Ok(())
+                };
+                let mut request = AsyncRequest::builder()
+                    .method(Method::POST)
+                    .url(format!("http://{}/dir1/dir2/file", addr).parse().expect("invalid uri"))
+                    .body(AsyncRequestBody::from_referenced_bytes(&request_body))
+                    .on_uploading_progress(OnProgressCallback::reference(&callback))
+                    .add_extension(TimeoutExtension::new(Duration::from_secs(1)))
+                    .build();
+                AsyncClient::default().async_call(&mut request).await?
             };
             assert_eq!(
                 response.header(&CONTENT_LENGTH).map(|h| h.as_bytes()),

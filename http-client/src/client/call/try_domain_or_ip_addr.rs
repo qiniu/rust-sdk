@@ -12,30 +12,10 @@ use super::{
     },
 };
 use qiniu_http::{
-    Extensions, HeaderName, HeaderValue, Metrics, Request as HttpRequest, RequestParts as HttpRequestParts, StatusCode,
-    SyncRequestBody, TransferProgressInfo,
+    Extensions, HeaderName, HeaderValue, Metrics, OnHeaderCallback, OnProgressCallback, OnStatusCodeCallback,
+    Request as HttpRequest, RequestParts as HttpRequestParts, StatusCode, SyncRequestBody, TransferProgressInfo,
 };
 use std::mem::take;
-
-macro_rules! setup_callbacks {
-    ($parts:ident, $http_request:ident) => {
-        let on_uploading_progress =
-            |info: &TransferProgressInfo| $parts.call_uploading_progress_callbacks($parts, info);
-        if $parts.uploading_progress_callbacks_count() > 0 {
-            *$http_request.on_uploading_progress_mut() = Some(&on_uploading_progress);
-        }
-        let on_receive_response_status =
-            |status_code: StatusCode| $parts.call_receive_response_status_callbacks($parts, status_code);
-        if $parts.receive_response_status_callbacks_count() > 0 {
-            *$http_request.on_receive_response_status_mut() = Some(&on_receive_response_status);
-        }
-        let on_receive_response_header =
-            |name: &HeaderName, value: &HeaderValue| $parts.call_receive_response_header_callbacks($parts, name, value);
-        if $parts.receive_response_header_callbacks_count() > 0 {
-            *$http_request.on_receive_response_header_mut() = Some(&on_receive_response_header);
-        }
-    };
-}
 
 pub(super) fn try_domain_or_ip_addr(
     domain_or_ip: &DomainOrIpAddr,
@@ -46,6 +26,11 @@ pub(super) fn try_domain_or_ip_addr(
 ) -> Result<SyncResponse, TryErrorWithExtensions> {
     let (url, resolved_ips) =
         make_url(domain_or_ip, parts, retried).map_err(|err| err.with_extensions(take(&mut extensions)))?;
+    let on_uploading_progress = |info: TransferProgressInfo<'_>| parts.call_uploading_progress_callbacks(parts, info);
+    let on_receive_response_status =
+        |status_code: StatusCode| parts.call_receive_response_status_callbacks(parts, status_code);
+    let on_receive_response_header =
+        |name: &HeaderName, value: &HeaderValue| parts.call_receive_response_header_callbacks(parts, name, value);
     let mut http_request: HttpRequest<SyncRequestBody> =
         make_request(url, parts, body.into(), extensions, &resolved_ips);
     reset_request_body(http_request.body_mut(), retried).map_err(|err| err.with_request(&mut http_request))?;
@@ -57,7 +42,16 @@ pub(super) fn try_domain_or_ip_addr(
         .map_err(|err| err.with_request(&mut http_request))?;
     reset_request_body(http_request.body_mut(), retried).map_err(|err| err.with_request(&mut http_request))?;
 
-    setup_callbacks!(parts, http_request);
+    if parts.uploading_progress_callbacks_count() > 0 {
+        *http_request.on_uploading_progress_mut() = Some(OnProgressCallback::reference(&on_uploading_progress));
+    }
+    if parts.receive_response_status_callbacks_count() > 0 {
+        *http_request.on_receive_response_status_mut() =
+            Some(OnStatusCodeCallback::reference(&on_receive_response_status));
+    }
+    if parts.receive_response_header_callbacks_count() > 0 {
+        *http_request.on_receive_response_header_mut() = Some(OnHeaderCallback::reference(&on_receive_response_header));
+    }
 
     let (extracted_ips, domain) = extract_ips_from(domain_or_ip);
     match send_http_request(&mut http_request, parts, retried) {
@@ -132,6 +126,11 @@ pub(super) async fn async_try_domain_or_ip_addr(
 ) -> Result<AsyncResponse, TryErrorWithExtensions> {
     let (url, resolved_ips) =
         make_url(domain_or_ip, parts, retried).map_err(|err| err.with_extensions(take(&mut extensions)))?;
+    let on_uploading_progress = |info: TransferProgressInfo<'_>| parts.call_uploading_progress_callbacks(parts, info);
+    let on_receive_response_status =
+        |status_code: StatusCode| parts.call_receive_response_status_callbacks(parts, status_code);
+    let on_receive_response_header =
+        |name: &HeaderName, value: &HeaderValue| parts.call_receive_response_header_callbacks(parts, name, value);
     let mut http_request: HttpRequest<AsyncRequestBody> =
         make_request(url, parts, body.into(), extensions, &resolved_ips);
     reset_async_request_body(http_request.body_mut(), retried)
@@ -148,7 +147,16 @@ pub(super) async fn async_try_domain_or_ip_addr(
         .await
         .map_err(|err| err.with_request(&mut http_request))?;
 
-    setup_callbacks!(parts, http_request);
+    if parts.uploading_progress_callbacks_count() > 0 {
+        *http_request.on_uploading_progress_mut() = Some(OnProgressCallback::reference(&on_uploading_progress));
+    }
+    if parts.receive_response_status_callbacks_count() > 0 {
+        *http_request.on_receive_response_status_mut() =
+            Some(OnStatusCodeCallback::reference(&on_receive_response_status));
+    }
+    if parts.receive_response_header_callbacks_count() > 0 {
+        *http_request.on_receive_response_header_mut() = Some(OnHeaderCallback::reference(&on_receive_response_header));
+    }
 
     let (extracted_ips, domain) = extract_ips_from(domain_or_ip);
     match async_send_http_request(&mut http_request, parts, retried).await {

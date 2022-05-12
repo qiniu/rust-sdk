@@ -134,7 +134,7 @@ impl InnerRequestParts<'_> {
     pub(in super::super) fn call_uploading_progress_callbacks(
         &self,
         context: &dyn SimplifiedCallbackContext,
-        progress_info: &TransferProgressInfo,
+        progress_info: TransferProgressInfo<'_>,
     ) -> AnyResult<()> {
         self.callbacks
             .call_uploading_progress_callbacks(context, progress_info)?;

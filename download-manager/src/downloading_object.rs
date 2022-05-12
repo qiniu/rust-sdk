@@ -121,7 +121,7 @@ impl DownloadingObject {
 
     /// 设置下载进度回调函数
     #[inline]
-    pub fn on_download_progress<F: Fn(&TransferProgressInfo) -> AnyResult<()> + Send + Sync + 'static>(
+    pub fn on_download_progress<F: Fn(TransferProgressInfo<'_>) -> AnyResult<()> + Send + Sync + 'static>(
         mut self,
         callback: F,
     ) -> Self {
@@ -690,7 +690,7 @@ impl<B> InnerReader<B> {
         *range_from = NonZeroU64::new(range_from.map(|v| v.get()).unwrap_or(0) + have_read);
         response.unread -= have_read;
         callbacks
-            .download_progress(&TransferProgressInfo::new(
+            .download_progress(TransferProgressInfo::new(
                 response.content_length - response.unread,
                 response.content_length,
                 buf,

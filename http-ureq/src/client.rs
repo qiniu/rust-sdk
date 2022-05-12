@@ -284,7 +284,7 @@ impl Read for RequestBodyWithCallbacks<'_, '_> {
                 self.have_read += n as u64;
                 let buf = &buf[..n];
                 if let Some(on_uploading_progress) = self.request.on_uploading_progress() {
-                    on_uploading_progress(&TransferProgressInfo::new(
+                    on_uploading_progress(TransferProgressInfo::new(
                         self.have_read,
                         self.request.body().size(),
                         buf,

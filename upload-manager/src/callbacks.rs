@@ -186,3 +186,10 @@ impl<'a> From<&'a TransferProgressInfo<'a>> for UploadingProgressInfo {
         Self::new(t.transferred_bytes(), Some(t.total_bytes()))
     }
 }
+
+impl From<TransferProgressInfo<'_>> for UploadingProgressInfo {
+    #[inline]
+    fn from(t: TransferProgressInfo<'_>) -> Self {
+        Self::new(t.transferred_bytes(), Some(t.total_bytes()))
+    }
+}

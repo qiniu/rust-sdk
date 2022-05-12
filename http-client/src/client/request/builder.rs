@@ -174,7 +174,7 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_uploading_progress(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> AnyResult<()> + Send + Sync + 'r,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, TransferProgressInfo<'_>) -> AnyResult<()> + Send + Sync + 'r,
     ) -> &mut Self {
         self.callbacks.on_uploading_progress(callback);
         self
@@ -470,7 +470,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_uploading_progress(
         &mut self,
-        callback: impl Fn(&dyn SimplifiedCallbackContext, &TransferProgressInfo) -> AnyResult<()> + Send + Sync + 'r,
+        callback: impl Fn(&dyn SimplifiedCallbackContext, TransferProgressInfo<'_>) -> AnyResult<()> + Send + Sync + 'r,
     ) -> &mut Self {
         self.parts.on_uploading_progress(callback);
         self

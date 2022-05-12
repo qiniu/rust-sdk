@@ -121,7 +121,7 @@ fn make_async_reqwest_request(
                     let buf = &buf[..n];
                     self.have_read += n as u64;
                     if let Some(on_uploading_progress) = self.request.on_uploading_progress() {
-                        if let Err(err) = on_uploading_progress(&TransferProgressInfo::new(
+                        if let Err(err) = on_uploading_progress(TransferProgressInfo::new(
                             self.have_read,
                             self.request.body().size(),
                             buf,

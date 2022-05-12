@@ -1,5 +1,5 @@
 use super::{
-    callback::{OnHeader, OnProgress, OnStatusCode},
+    callback::{OnHeader, OnHeaderCallback, OnProgress, OnProgressCallback, OnStatusCode, OnStatusCodeCallback},
     LIBRARY_USER_AGENT,
 };
 use assert_impl::assert_impl;
@@ -50,9 +50,9 @@ pub struct RequestParts<'r> {
     // 请求配置属性
     appended_user_agent: UserAgent,
     resolved_ip_addrs: Option<Cow<'r, [IpAddr]>>,
-    on_uploading_progress: Option<OnProgress<'r>>,
-    on_receive_response_status: Option<OnStatusCode<'r>>,
-    on_receive_response_header: Option<OnHeader<'r>>,
+    on_uploading_progress: Option<OnProgressCallback<'r>>,
+    on_receive_response_status: Option<OnStatusCodeCallback<'r>>,
+    on_receive_response_header: Option<OnHeaderCallback<'r>>,
 }
 
 impl<'r> RequestParts<'r> {
@@ -153,37 +153,37 @@ impl<'r> RequestParts<'r> {
 
     /// 获取上传进度回调
     #[inline]
-    pub fn on_uploading_progress(&self) -> Option<OnProgress<'r>> {
-        self.on_uploading_progress
+    pub fn on_uploading_progress(&'r self) -> Option<OnProgress<'r>> {
+        self.on_uploading_progress.as_deref()
     }
 
     /// 获取上传进度回调的可变引用
     #[inline]
-    pub fn on_uploading_progress_mut(&mut self) -> &mut Option<OnProgress<'r>> {
+    pub fn on_uploading_progress_mut(&mut self) -> &mut Option<OnProgressCallback<'r>> {
         &mut self.on_uploading_progress
     }
 
     /// 获取接受到响应状态回调
     #[inline]
-    pub fn on_receive_response_status(&self) -> Option<OnStatusCode> {
-        self.on_receive_response_status
+    pub fn on_receive_response_status(&'r self) -> Option<OnStatusCode<'r>> {
+        self.on_receive_response_status.as_deref()
     }
 
     /// 获取接受到响应状态回调的可变引用
     #[inline]
-    pub fn on_receive_response_status_mut(&mut self) -> &mut Option<OnStatusCode<'r>> {
+    pub fn on_receive_response_status_mut(&mut self) -> &mut Option<OnStatusCodeCallback<'r>> {
         &mut self.on_receive_response_status
     }
 
     /// 获取接受到响应 Header 回调
     #[inline]
-    pub fn on_receive_response_header(&self) -> Option<OnHeader> {
-        self.on_receive_response_header
+    pub fn on_receive_response_header(&'r self) -> Option<OnHeader<'r>> {
+        self.on_receive_response_header.as_deref()
     }
 
     /// 获取接受到响应 Header 回调的可变引用
     #[inline]
-    pub fn on_receive_response_header_mut(&mut self) -> &mut Option<OnHeader<'r>> {
+    pub fn on_receive_response_header_mut(&mut self) -> &mut Option<OnHeaderCallback<'r>> {
         &mut self.on_receive_response_header
     }
 }
@@ -217,6 +217,7 @@ impl Debug for RequestParts<'_> {
                     $method_name,
                     &self
                         .$method
+                        .as_ref()
                         .map_or_else(|| Cow::Borrowed("Uninstalled"), |_| Cow::Borrowed("Installed")),
                 )
             };
@@ -400,22 +401,22 @@ impl<'r, B: 'r> RequestBuilder<'r, B> {
 
     /// 设置上传进度回调
     #[inline]
-    pub fn on_uploading_progress(&mut self, f: OnProgress<'r>) -> &mut Self {
-        *self.inner.on_uploading_progress_mut() = Some(f);
+    pub fn on_uploading_progress(&mut self, f: impl Into<OnProgressCallback<'r>>) -> &mut Self {
+        *self.inner.on_uploading_progress_mut() = Some(f.into());
         self
     }
 
     /// 设置接受到响应状态回调
     #[inline]
-    pub fn on_receive_response_status(&mut self, f: OnStatusCode<'r>) -> &mut Self {
-        *self.inner.on_receive_response_status_mut() = Some(f);
+    pub fn on_receive_response_status(&mut self, f: impl Into<OnStatusCodeCallback<'r>>) -> &mut Self {
+        *self.inner.on_receive_response_status_mut() = Some(f.into());
         self
     }
 
     /// 设置接受到响应 Header 回调
     #[inline]
-    pub fn on_receive_response_header(&mut self, f: OnHeader<'r>) -> &mut Self {
-        *self.inner.on_receive_response_header_mut() = Some(f);
+    pub fn on_receive_response_header(&mut self, f: impl Into<OnHeaderCallback<'r>>) -> &mut Self {
+        *self.inner.on_receive_response_header_mut() = Some(f.into());
         self
     }
 }
