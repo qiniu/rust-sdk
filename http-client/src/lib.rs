@@ -334,18 +334,19 @@ pub use qiniu_upload_token as upload_token;
 pub use futures::io::AsyncRead;
 
 pub use client::{
-    disable_timestamp_signature, enable_timestamp_signature, ApiResult, Authorization, AuthorizationError,
-    AuthorizationProvider, AuthorizationResult, Backoff, BackoffOptions, CachedResolver, CallbackContext,
-    ChainedResolver, ChainedResolverBuilder, ChooseOptions, ChooseOptionsBuilder, Chooser, ChooserFeedback,
-    CredentialAuthorizationV1, CredentialAuthorizationV2, DirectChooser, DownloadUrlCredentialAuthorization,
-    ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName, FixedBackoff, GotBackoffDuration,
-    HttpClient, HttpClientBuilder, Idempotent, IpChooser, IpChooserBuilder, LimitedBackoff, LimitedRetrier, Multipart,
-    NeverEmptyHandedChooser, NeverRetrier, Part, PartMetadata, QueryPair, QueryPairKey, QueryPairValue,
-    RandomizedBackoff, Ratio, RequestBuilder, RequestBuilderParts, RequestParts, RequestRetrier, RequestRetrierOptions,
-    ResolveAnswers, ResolveOptions, ResolveResult, Resolver, Response, ResponseError, ResponseErrorKind,
-    RetriedStatsInfo, RetryDecision, RetryResult, ShuffledChooser, ShuffledResolver, SimpleResolver,
-    SimplifiedCallbackContext, SubnetChooser, SubnetChooserBuilder, SyncMultipart, SyncPart, SyncPartBody,
-    SyncRequestBody, SyncRequestBuilder, SyncResponse, TimeoutResolver, UploadTokenAuthorization, NO_BACKOFF,
+    global_disable_timestamp_signature, global_enable_timestamp_signature, ApiResult, Authorization,
+    AuthorizationError, AuthorizationProvider, AuthorizationResult, Backoff, BackoffOptions, CachedResolver,
+    CallbackContext, ChainedResolver, ChainedResolverBuilder, ChooseOptions, ChooseOptionsBuilder, Chooser,
+    ChooserFeedback, CredentialAuthorizationV1, CredentialAuthorizationV2, DirectChooser,
+    DownloadUrlCredentialAuthorization, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName,
+    FixedBackoff, GotBackoffDuration, HttpClient, HttpClientBuilder, Idempotent, IpChooser, IpChooserBuilder,
+    LimitedBackoff, LimitedRetrier, Multipart, NeverEmptyHandedChooser, NeverRetrier, Part, PartMetadata, QueryPair,
+    QueryPairKey, QueryPairValue, RandomizedBackoff, Ratio, RequestBuilder, RequestBuilderParts, RequestParts,
+    RequestRetrier, RequestRetrierOptions, ResolveAnswers, ResolveOptions, ResolveResult, Resolver, Response,
+    ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision, RetryResult, ShuffledChooser, ShuffledResolver,
+    SimpleResolver, SimplifiedCallbackContext, SubnetChooser, SubnetChooserBuilder, SyncMultipart, SyncPart,
+    SyncPartBody, SyncRequestBody, SyncRequestBuilder, SyncResponse, TimeoutResolver, UploadTokenAuthorization,
+    NO_BACKOFF,
 };
 pub use http::{CallbackResult, SyncResponseBody};
 pub use regions::{

@@ -12,9 +12,9 @@ mod retried;
 mod retrier;
 
 pub use authorization::{
-    disable_timestamp_signature, enable_timestamp_signature, Authorization, AuthorizationError, AuthorizationProvider,
-    AuthorizationResult, CredentialAuthorizationV1, CredentialAuthorizationV2, DownloadUrlCredentialAuthorization,
-    UploadTokenAuthorization,
+    global_disable_timestamp_signature, global_enable_timestamp_signature, Authorization, AuthorizationError,
+    AuthorizationProvider, AuthorizationResult, CredentialAuthorizationV1, CredentialAuthorizationV2,
+    DownloadUrlCredentialAuthorization, UploadTokenAuthorization,
 };
 pub use backoff::{
     Backoff, BackoffOptions, ExponentialBackoff, FixedBackoff, GotBackoffDuration, LimitedBackoff, RandomizedBackoff,

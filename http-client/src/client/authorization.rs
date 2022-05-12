@@ -158,12 +158,12 @@ async fn authorization_v1_for_async_request(
 }
 
 /// 全局禁用时间戳签名
-pub fn disable_timestamp_signature() {
+pub fn global_disable_timestamp_signature() {
     set_var(DISABLE_QINIU_TIMESTAMP_SIGNATURE, "1");
 }
 
 /// 全局启用时间戳签名
-pub fn enable_timestamp_signature() {
+pub fn global_enable_timestamp_signature() {
     remove_var(DISABLE_QINIU_TIMESTAMP_SIGNATURE);
 }
 
@@ -478,7 +478,7 @@ mod tests {
             .headers(headers.to_owned())
             .body(SyncRequestBody::from_bytes(body.to_vec()))
             .build();
-        enable_timestamp_signature();
+        global_enable_timestamp_signature();
         Authorization::v2(credential.to_owned()).sign(&mut request)?;
         assert!(request
             .headers()
@@ -488,14 +488,14 @@ mod tests {
             .starts_with("Qiniu ak:"));
         assert!(request.headers().get("x-qiniu-date").is_some());
 
-        disable_timestamp_signature();
+        global_disable_timestamp_signature();
         request = SyncRequest::builder()
             .url("http://upload.qiniup.com".parse()?)
             .headers(headers)
             .body(SyncRequestBody::from_bytes(body.to_vec()))
             .build();
         Authorization::v2(credential.to_owned()).sign(&mut request)?;
-        enable_timestamp_signature();
+        global_enable_timestamp_signature();
         assert!(request
             .headers()
             .get(AUTHORIZATION)
@@ -511,14 +511,14 @@ mod tests {
             headers
         };
         let body = b"name=test&language=go}";
-        disable_timestamp_signature();
+        global_disable_timestamp_signature();
         request = SyncRequest::builder()
             .url("http://upload.qiniup.com/mkfile/sdf.jpg".parse()?)
             .headers(headers)
             .body(SyncRequestBody::from_bytes(body.to_vec()))
             .build();
         Authorization::v2(credential).sign(&mut request)?;
-        enable_timestamp_signature();
+        global_enable_timestamp_signature();
         assert_eq!(
             request.headers().get(AUTHORIZATION).unwrap(),
             HeaderValue::from_static("Qiniu ak:arPKqUn6T6DrnHhygbFS40PGBgY=")
