@@ -60,6 +60,12 @@ impl<'a> ChooseOptions<'a> {
     pub fn domain(&'a self) -> Option<&'a DomainWithPort> {
         self.domain
     }
+
+    /// 创建选择 IP 地址列表的选项构建器
+    #[inline]
+    pub fn builder() -> ChooseOptionsBuilder<'a> {
+        ChooseOptionsBuilder::new()
+    }
 }
 
 /// 选择 IP 地址列表的选项构建器
