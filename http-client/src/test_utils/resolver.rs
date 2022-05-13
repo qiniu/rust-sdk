@@ -1,9 +1,12 @@
 use super::super::{ResolveOptions, ResolveResult, Resolver, ResponseError, ResponseErrorKind};
 use rand::{prelude::*, thread_rng};
-use std::net::{IpAddr, Ipv4Addr};
+use std::{
+    net::{IpAddr, Ipv4Addr},
+    sync::Arc,
+};
 
-pub(crate) fn make_dumb_resolver() -> impl Resolver {
-    #[derive(Debug)]
+pub(crate) fn make_dumb_resolver() -> impl Resolver + Clone {
+    #[derive(Debug, Clone)]
     struct FakeResolver;
 
     impl Resolver for FakeResolver {
@@ -15,21 +18,21 @@ pub(crate) fn make_dumb_resolver() -> impl Resolver {
     FakeResolver
 }
 
-pub(crate) fn make_static_resolver(ip_addrs: Box<[IpAddr]>) -> impl Resolver {
-    #[derive(Debug)]
-    struct StaticResolver(Box<[IpAddr]>);
+pub(crate) fn make_static_resolver(ip_addrs: Arc<[IpAddr]>) -> impl Resolver + Clone {
+    #[derive(Debug, Clone)]
+    struct StaticResolver(Arc<[IpAddr]>);
 
     impl Resolver for StaticResolver {
         fn resolve(&self, _domain: &str, _opts: ResolveOptions) -> ResolveResult {
-            Ok(self.0.to_owned().into())
+            Ok(self.0.to_vec().into())
         }
     }
 
     StaticResolver(ip_addrs)
 }
 
-pub(crate) fn make_random_resolver() -> impl Resolver {
-    #[derive(Debug)]
+pub(crate) fn make_random_resolver() -> impl Resolver + Clone {
+    #[derive(Debug, Clone, Copy)]
     struct RandomResolver;
 
     impl Resolver for RandomResolver {
@@ -42,8 +45,8 @@ pub(crate) fn make_random_resolver() -> impl Resolver {
     RandomResolver
 }
 
-pub(crate) fn make_error_resolver(error_kind: ResponseErrorKind, message: impl Into<String>) -> impl Resolver {
-    #[derive(Debug)]
+pub(crate) fn make_error_resolver(error_kind: ResponseErrorKind, message: impl Into<String>) -> impl Resolver + Clone {
+    #[derive(Debug, Clone)]
     struct ErrorResolver {
         error_kind: ResponseErrorKind,
         message: String,

@@ -1,6 +1,6 @@
 use super::{super::ResponseError, ResolveOptions, ResolveResult, Resolver};
 use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 #[cfg(feature = "async")]
 use {
@@ -17,11 +17,6 @@ const DEFAULT_RESOLVE_TIMEOUT: Duration = Duration::from_secs(5);
 /// 默认超时时间为 5 秒
 #[derive(Debug, Clone)]
 pub struct TimeoutResolver<R: ?Sized> {
-    inner: Arc<TimeoutResolverInner<R>>,
-}
-
-#[derive(Debug)]
-struct TimeoutResolverInner<R: ?Sized> {
     timeout: Duration,
     resolver: R,
 }
@@ -30,9 +25,7 @@ impl<R> TimeoutResolver<R> {
     /// 创建超时解析器
     #[inline]
     pub fn new(resolver: R, timeout: Duration) -> Self {
-        Self {
-            inner: Arc::new(TimeoutResolverInner { resolver, timeout }),
-        }
+        Self { timeout, resolver }
     }
 }
 
@@ -43,13 +36,13 @@ impl<R: Default> Default for TimeoutResolver<R> {
     }
 }
 
-impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
+impl<R: Resolver + Clone + 'static> Resolver for TimeoutResolver<R> {
     #[inline]
     fn resolve(&self, domain: &str, opts: ResolveOptions) -> ResolveResult {
         return _resolve(self, domain, opts);
 
         #[cfg(feature = "async")]
-        fn _resolve<R: Resolver + 'static>(
+        fn _resolve<R: Resolver + Clone + 'static>(
             resolver: &TimeoutResolver<R>,
             domain: &str,
             opts: ResolveOptions,
@@ -58,7 +51,7 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
         }
 
         #[cfg(not(feature = "async"))]
-        fn _resolve<R: Resolver + 'static>(
+        fn _resolve<R: Resolver + Clone + 'static>(
             resolver: &TimeoutResolver<R>,
             domain: &str,
             opts: ResolveOptions,
@@ -69,7 +62,7 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
 
             let (sender, receiver) = bounded(0);
             {
-                let inner = resolver.inner.to_owned();
+                let inner = resolver.to_owned();
                 let domain = domain.to_owned();
                 let opts = OwnedResolveOptions::from(opts);
                 if let Err(err) = spawn(
@@ -84,7 +77,7 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
             }
             let mut sel = Select::new();
             let op1 = sel.recv(&receiver);
-            let oper = sel.select_timeout(resolver.inner.timeout);
+            let oper = sel.select_timeout(resolver.timeout);
             return match oper {
                 Ok(op) => match op.index() {
                     i if i == op1 => op.recv(&receiver).unwrap(),
@@ -109,13 +102,13 @@ impl<R: Resolver + 'static> Resolver for TimeoutResolver<R> {
         use futures::{pin_mut, select};
 
         return Box::pin(async move {
-            let resolve_task = self.inner.resolver.async_resolve(domain, opts).fuse();
-            let timeout_task = AsyncDelay::new(self.inner.timeout).fuse();
+            let resolve_task = self.resolver.async_resolve(domain, opts).fuse();
+            let timeout_task = AsyncDelay::new(self.timeout).fuse();
             pin_mut!(resolve_task);
             pin_mut!(timeout_task);
             select! {
                 resolve_result = resolve_task => resolve_result,
-                _ = timeout_task => Err(make_timeout_error(self.inner.timeout, opts)),
+                _ = timeout_task => Err(make_timeout_error(self.timeout, opts)),
             }
         });
 

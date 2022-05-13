@@ -83,7 +83,7 @@ impl<R: Default> Default for LimitedRetrier<R> {
     }
 }
 
-impl<R: RequestRetrier> RequestRetrier for LimitedRetrier<R> {
+impl<R: RequestRetrier + Clone> RequestRetrier for LimitedRetrier<R> {
     fn retry(&self, request: &mut HttpRequestParts, opts: RequestRetrierOptions) -> RetryResult {
         self.target
             .retry(self.retrier.retry(request, opts).decision(), self.retries, opts)

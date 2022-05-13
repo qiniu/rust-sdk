@@ -41,7 +41,7 @@ impl<C: Default> Default for NeverEmptyHandedChooser<C> {
     }
 }
 
-impl<C: Chooser> Chooser for NeverEmptyHandedChooser<C> {
+impl<C: Chooser + Clone> Chooser for NeverEmptyHandedChooser<C> {
     fn choose(&self, ips: &[IpAddrWithPort], opts: ChooseOptions) -> ChosenResults {
         let chosen = self.inner_chooser.choose(ips, opts);
         if chosen.is_empty() {

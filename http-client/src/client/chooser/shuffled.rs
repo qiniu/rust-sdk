@@ -27,7 +27,7 @@ impl<C: Default> Default for ShuffledChooser<C> {
     }
 }
 
-impl<C: Chooser> Chooser for ShuffledChooser<C> {
+impl<C: Chooser + Clone> Chooser for ShuffledChooser<C> {
     #[inline]
     fn choose(&self, ips: &[IpAddrWithPort], opts: ChooseOptions) -> ChosenResults {
         let mut ips = self.chooser.choose(ips, opts);

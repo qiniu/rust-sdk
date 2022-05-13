@@ -5,6 +5,7 @@ mod randomized;
 
 use super::{ResponseError, RetriedStatsInfo, RetryDecision};
 use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use qiniu_http::RequestParts as HttpRequestParts;
 use std::{
     fmt::Debug,
@@ -13,8 +14,9 @@ use std::{
 };
 
 /// 退避时长获取接口
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait Backoff: Debug + Sync + Send {
+pub trait Backoff: Clone + Debug + Sync + Send {
     /// 获取退避时长
     fn time(&self, request: &mut HttpRequestParts, opts: BackoffOptions) -> GotBackoffDuration;
 }

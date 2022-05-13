@@ -4,6 +4,7 @@ mod never;
 
 use super::{Idempotent, ResponseError, RetriedStatsInfo};
 use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use qiniu_http::RequestParts as HttpRequestParts;
 use smart_default::SmartDefault;
 use std::{
@@ -14,8 +15,9 @@ use std::{
 /// 请求重试器
 ///
 /// 根据 HTTP 客户端返回的错误，决定是否重试请求，重试决定由 [`RetryDecision`] 定义。
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait RequestRetrier: Debug + Sync + Send {
+pub trait RequestRetrier: Clone + Debug + Sync + Send {
     /// 作出重试决定
     fn retry(&self, request: &mut HttpRequestParts, opts: RequestRetrierOptions<'_>) -> RetryResult;
 }

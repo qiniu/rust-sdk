@@ -7,6 +7,7 @@ mod subnet;
 
 use super::super::regions::{DomainWithPort, IpAddrWithPort};
 use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 pub use feedback::ChooserFeedback;
 use std::{
     fmt::Debug,
@@ -21,8 +22,9 @@ use futures::future::BoxFuture;
 /// 还提供了对选择结果的反馈接口，用以修正自身选择逻辑，优化选择结果
 ///
 /// 同时提供阻塞接口和异步接口，异步接口则需要启用 `async` 功能
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait Chooser: Debug + Sync + Send {
+pub trait Chooser: Clone + Debug + Sync + Send {
     /// 选择 IP 地址列表
     fn choose(&self, ips: &[IpAddrWithPort], opts: ChooseOptions) -> ChosenResults;
 
