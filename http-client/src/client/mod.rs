@@ -32,8 +32,8 @@ pub use request::{
     SyncRequestBuilder,
 };
 pub use resolver::{
-    CachedResolver, ChainedResolver, ChainedResolverBuilder, ResolveAnswers, ResolveOptions, ResolveResult, Resolver,
-    ShuffledResolver, SimpleResolver, TimeoutResolver,
+    CachedResolver, CachedResolverBuilder, ChainedResolver, ChainedResolverBuilder, ResolveAnswers, ResolveOptions,
+    ResolveResult, Resolver, ShuffledResolver, SimpleResolver, TimeoutResolver,
 };
 pub use response::{ApiResult, Response, ResponseError, ResponseErrorKind, SyncResponse};
 pub use retried::RetriedStatsInfo;

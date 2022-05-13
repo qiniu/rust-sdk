@@ -191,7 +191,7 @@ impl DerefMut for ResolveAnswers {
 /// 域名解析结果
 pub type ResolveResult = ApiResult<ResolveAnswers>;
 
-pub use cache::CachedResolver;
+pub use cache::{CachedResolver, CachedResolverBuilder};
 pub use chained::{ChainedResolver, ChainedResolverBuilder};
 pub use shuffled::ShuffledResolver;
 pub use simple::SimpleResolver;
