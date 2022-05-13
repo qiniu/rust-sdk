@@ -44,7 +44,7 @@ pub use error::{
 };
 pub use http::{
     header::{self, HeaderMap, HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue},
-    method::Method,
+    method::{InvalidMethod, Method},
     status::{InvalidStatusCode, StatusCode},
     uri::{self, Uri},
     Extensions, Version,
