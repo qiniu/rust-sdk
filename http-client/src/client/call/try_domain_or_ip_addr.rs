@@ -89,7 +89,15 @@ fn make_positive_feedback<'f>(
     metrics: Option<&'f Metrics>,
     retried: &'f RetriedStatsInfo,
 ) -> ChooserFeedback<'f> {
-    ChooserFeedback::new(ips, domain, retried, parts.extensions_mut(), metrics, None)
+    let mut builder = ChooserFeedback::builder(ips);
+    builder.retried(retried).extensions(parts.extensions_mut());
+    if let Some(domain) = domain {
+        builder.domain(domain);
+    }
+    if let Some(metrics) = metrics {
+        builder.metrics(metrics);
+    }
+    builder.build()
 }
 
 fn make_negative_feedback<'f>(
@@ -99,14 +107,18 @@ fn make_negative_feedback<'f>(
     err: &'f TryError,
     retried: &'f RetriedStatsInfo,
 ) -> ChooserFeedback<'f> {
-    ChooserFeedback::new(
-        ips,
-        domain,
-        retried,
-        parts.extensions_mut(),
-        err.response_error().metrics(),
-        err.feedback_response_error(),
-    )
+    let mut builder = ChooserFeedback::builder(ips);
+    builder.retried(retried).extensions(parts.extensions_mut());
+    if let Some(domain) = domain {
+        builder.domain(domain);
+    }
+    if let Some(metrics) = err.response_error().metrics() {
+        builder.metrics(metrics);
+    }
+    if let Some(error) = err.feedback_response_error() {
+        builder.error(error);
+    }
+    builder.build()
 }
 
 #[cfg(feature = "async")]

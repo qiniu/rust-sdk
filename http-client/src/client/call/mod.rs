@@ -16,7 +16,7 @@ pub(super) use request_call::async_request_call;
 #[cfg(test)]
 mod tests {
     use crate::{
-        client::{chooser::DirectChooser, retried::RetriedStatsInfo},
+        client::chooser::DirectChooser,
         credential::Credential,
         test_utils::{
             chaotic_up_domains_endpoint, make_dumb_resolver, make_error_response_client_builder,
@@ -145,8 +145,8 @@ mod tests {
 
         let err = ResponseError::new_with_msg(HttpResponseErrorKind::ConnectError.into(), "Fake Connect Error");
         let chooser = IpChooser::default();
-        chooser.feedback(ChooserFeedback::new(
-            &[
+        chooser.feedback(
+            ChooserFeedback::builder(&[
                 IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)).into(),
                 IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff)).into(),
                 SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 1, 2), 8080)).into(),
@@ -157,13 +157,10 @@ mod tests {
                     0,
                 ))
                 .into(),
-            ],
-            None,
-            &RetriedStatsInfo::default(),
-            &mut Extensions::default(),
-            None,
-            Some(&err),
-        ));
+            ])
+            .error(&err)
+            .build(),
+        );
 
         let client =
             make_error_response_client_builder(HttpResponseErrorKind::ConnectError, "Fake Connect Error", true)
