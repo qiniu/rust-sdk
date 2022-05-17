@@ -289,8 +289,8 @@ impl<'r, B: 'r> Request<'r, B> {
 
     /// 通过请求信息和请求体创建 HTTP 请求
     #[inline]
-    pub fn from_parts_and_body<B2>(parts: RequestParts<'r>, body: B2) -> Request<'r, B2> {
-        Request { parts, body }
+    pub fn from_parts_and_body(parts: RequestParts<'r>, body: B) -> Self {
+        Self { parts, body }
     }
 }
 
