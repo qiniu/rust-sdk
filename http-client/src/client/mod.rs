@@ -22,8 +22,8 @@ pub use backoff::{
 };
 pub use callback::{CallbackContext, ExtendedCallbackContext, SimplifiedCallbackContext};
 pub use chooser::{
-    ChooseOptions, ChooseOptionsBuilder, Chooser, ChooserFeedback, DirectChooser, IpChooser, IpChooserBuilder,
-    NeverEmptyHandedChooser, ShuffledChooser, SubnetChooser, SubnetChooserBuilder,
+    ChooseOptions, ChooseOptionsBuilder, Chooser, ChooserFeedback, ChosenResults, DirectChooser, IpChooser,
+    IpChooserBuilder, NeverEmptyHandedChooser, ShuffledChooser, SubnetChooser, SubnetChooserBuilder,
 };
 pub use http_client::{HttpClient, HttpClientBuilder};
 pub use request::{
