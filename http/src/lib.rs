@@ -51,7 +51,9 @@ pub use http::{
     Extensions, Version,
 };
 use once_cell::sync::OnceCell;
-pub use request::{Request, RequestBody as SyncRequestBody, RequestBuilder, RequestParts, UserAgent};
+pub use request::{
+    Request, RequestBody as SyncRequestBody, RequestBuilder, RequestParts, RequestPartsBuilder, UserAgent,
+};
 pub use response::{
     Metrics, MetricsBuilder, Response, ResponseBody as SyncResponseBody, ResponseBuilder, ResponseParts,
     Result as ResponseResult,
