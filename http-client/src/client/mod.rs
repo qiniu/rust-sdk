@@ -17,8 +17,8 @@ pub use authorization::{
     DownloadUrlCredentialAuthorization, UploadTokenAuthorization,
 };
 pub use backoff::{
-    Backoff, BackoffOptions, ExponentialBackoff, FixedBackoff, GotBackoffDuration, LimitedBackoff, RandomizedBackoff,
-    Ratio, NO_BACKOFF,
+    Backoff, BackoffOptions, BackoffOptionsBuilder, ExponentialBackoff, FixedBackoff, GotBackoffDuration,
+    LimitedBackoff, RandomizedBackoff, Ratio, NO_BACKOFF,
 };
 pub use callback::{CallbackContext, ExtendedCallbackContext, SimplifiedCallbackContext};
 pub use chooser::{
@@ -38,7 +38,8 @@ pub use resolver::{
 pub use response::{ApiResult, Response, ResponseError, ResponseErrorKind, SyncResponse};
 pub use retried::RetriedStatsInfo;
 pub use retrier::{
-    ErrorRetrier, LimitedRetrier, NeverRetrier, RequestRetrier, RequestRetrierOptions, RetryDecision, RetryResult,
+    ErrorRetrier, LimitedRetrier, NeverRetrier, RequestRetrier, RequestRetrierOptions, RequestRetrierOptionsBuilder,
+    RetryDecision, RetryResult,
 };
 
 #[cfg(feature = "c_ares")]

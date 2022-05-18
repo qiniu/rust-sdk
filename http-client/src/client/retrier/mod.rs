@@ -52,16 +52,13 @@ pub struct RequestRetrierOptions<'a> {
 }
 
 impl<'a> RequestRetrierOptions<'a> {
-    pub(super) fn new(
-        idempotent: Idempotent,
+    /// 创建重试器选项构建器
+    #[inline]
+    pub fn builder(
         response_error: &'a ResponseError,
         retried: &'a RetriedStatsInfo,
-    ) -> Self {
-        Self {
-            idempotent,
-            response_error,
-            retried,
-        }
+    ) -> RequestRetrierOptionsBuilder<'a> {
+        RequestRetrierOptionsBuilder::new(response_error, retried)
     }
 
     /// 是否是幂等请求
@@ -80,6 +77,35 @@ impl<'a> RequestRetrierOptions<'a> {
     #[inline]
     pub fn retried(&self) -> &RetriedStatsInfo {
         self.retried
+    }
+}
+
+/// 重试器选项构建器
+#[derive(Copy, Debug, Clone)]
+pub struct RequestRetrierOptionsBuilder<'a>(RequestRetrierOptions<'a>);
+
+impl<'a> RequestRetrierOptionsBuilder<'a> {
+    /// 创建重试器选项构建器
+    #[inline]
+    pub fn new(response_error: &'a ResponseError, retried: &'a RetriedStatsInfo) -> Self {
+        Self(RequestRetrierOptions {
+            response_error,
+            retried,
+            idempotent: Default::default(),
+        })
+    }
+
+    /// 设置幂等请求
+    #[inline]
+    pub fn idempotent(&mut self, idempotent: Idempotent) -> &mut Self {
+        self.0.idempotent = idempotent;
+        self
+    }
+
+    /// 构建重试器选项
+    #[inline]
+    pub fn build(&self) -> RequestRetrierOptions<'a> {
+        self.0
     }
 }
 

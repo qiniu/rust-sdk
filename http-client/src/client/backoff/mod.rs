@@ -30,16 +30,10 @@ pub struct BackoffOptions<'a> {
 }
 
 impl<'a> BackoffOptions<'a> {
-    pub(super) fn new(
-        retry_decision: RetryDecision,
-        response_error: &'a ResponseError,
-        retried: &'a RetriedStatsInfo,
-    ) -> Self {
-        Self {
-            retry_decision,
-            response_error,
-            retried,
-        }
+    /// 创建退避时长的选项构建器
+    #[inline]
+    pub fn builder(response_error: &'a ResponseError, retried: &'a RetriedStatsInfo) -> BackoffOptionsBuilder<'a> {
+        BackoffOptionsBuilder::new(response_error, retried)
     }
 
     /// 获取重试决定
@@ -58,6 +52,34 @@ impl<'a> BackoffOptions<'a> {
     #[inline]
     pub fn retried(&self) -> &RetriedStatsInfo {
         self.retried
+    }
+}
+
+/// 退避时长的选项构建器
+#[derive(Copy, Debug, Clone)]
+pub struct BackoffOptionsBuilder<'a>(BackoffOptions<'a>);
+
+impl<'a> BackoffOptionsBuilder<'a> {
+    /// 创建退避时长的选项构建器
+    #[inline]
+    pub fn new(response_error: &'a ResponseError, retried: &'a RetriedStatsInfo) -> Self {
+        Self(BackoffOptions {
+            response_error,
+            retried,
+            retry_decision: Default::default(),
+        })
+    }
+
+    /// 设置重试决定
+    #[inline]
+    pub fn retry_decision(&mut self, decision: RetryDecision) -> &mut Self {
+        self.0.retry_decision = decision;
+        self
+    }
+
+    /// 构建退避时长的选项
+    pub fn build(&self) -> BackoffOptions<'a> {
+        self.0
     }
 }
 

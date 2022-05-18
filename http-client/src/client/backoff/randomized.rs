@@ -103,11 +103,12 @@ mod tests {
             let delay = randomized
                 .time(
                     &mut HttpRequestParts::default(),
-                    BackoffOptions::new(
-                        RetryDecision::RetryRequest,
+                    BackoffOptions::builder(
                         &ResponseError::new_with_msg(HttpResponseErrorKind::TimeoutError.into(), "Test Error"),
                         &RetriedStatsInfo::default(),
-                    ),
+                    )
+                    .retry_decision(RetryDecision::RetryRequest)
+                    .build(),
                 )
                 .duration();
             assert!(delay >= Duration::from_millis(500));

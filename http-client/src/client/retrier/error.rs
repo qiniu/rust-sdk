@@ -87,21 +87,22 @@ mod tests {
             .into_parts_and_body();
         let result = retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Default,
+            RequestRetrierOptions::builder(
                 &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
-            ),
+            )
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::RetryRequest);
 
         let result = retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Never,
+            RequestRetrierOptions::builder(
                 &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
-            ),
+            )
+            .idempotent(Idempotent::Never)
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::DontRetry);
 
@@ -113,31 +114,33 @@ mod tests {
             .into_parts_and_body();
         let result = retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Default,
+            RequestRetrierOptions::builder(
                 &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
-            ),
+            )
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::DontRetry);
 
         let result = retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Always,
+            RequestRetrierOptions::builder(
                 &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
-            ),
+            )
+            .idempotent(Idempotent::Always)
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::RetryRequest);
 
         let result = retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Always,
+            RequestRetrierOptions::builder(
                 &ResponseError::new_with_msg(HttpResponseErrorKind::InvalidUrl.into(), "Test Error"),
                 &RetriedStatsInfo::default(),
-            ),
+            )
+            .idempotent(Idempotent::Always)
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::TryNextServer);
 
@@ -161,11 +164,11 @@ mod tests {
             .into_parts_and_body();
         let result = retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Default,
+            RequestRetrierOptions::builder(
                 &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
-            ),
+            )
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::RetryRequest);
 
@@ -173,11 +176,11 @@ mod tests {
 
         let result = retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Default,
+            RequestRetrierOptions::builder(
                 &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
-            ),
+            )
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::RetryRequest);
 

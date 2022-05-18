@@ -94,7 +94,7 @@ impl<R: RequestRetrier + Clone> RequestRetrier for LimitedRetrier<R> {
 #[cfg(test)]
 mod tests {
     use super::{
-        super::{ErrorRetrier, Idempotent, ResponseError, RetriedStatsInfo},
+        super::{ErrorRetrier, ResponseError, RetriedStatsInfo},
         *,
     };
     use qiniu_http::{
@@ -120,21 +120,21 @@ mod tests {
             .into_parts_and_body();
         let result = current_endpoint_retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Default,
+            RequestRetrierOptions::builder(
                 &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
-            ),
+            )
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::TryNextServer);
 
         let result = total_retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Default,
+            RequestRetrierOptions::builder(
                 &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
-            ),
+            )
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::DontRetry);
 
@@ -142,21 +142,21 @@ mod tests {
 
         let result = current_endpoint_retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Default,
+            RequestRetrierOptions::builder(
                 &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
-            ),
+            )
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::RetryRequest);
 
         let result = total_retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Default,
+            RequestRetrierOptions::builder(
                 &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
-            ),
+            )
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::DontRetry);
 
