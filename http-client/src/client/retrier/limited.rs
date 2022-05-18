@@ -109,8 +109,8 @@ mod tests {
         let current_endpoint_retrier = LimitedRetrier::new(ErrorRetrier, 2);
         let total_retrier = LimitedRetrier::limit_total(ErrorRetrier, 2);
         let mut retried = RetriedStatsInfo::default();
-        retried.increase();
-        retried.increase();
+        retried.increase_current_endpoint();
+        retried.increase_current_endpoint();
 
         let (mut parts, _) = HttpRequest::builder()
             .url(uri)

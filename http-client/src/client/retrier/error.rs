@@ -153,8 +153,8 @@ mod tests {
 
         let retrier = ErrorRetrier;
         let mut retried = RetriedStatsInfo::default();
-        retried.increase();
-        retried.increase();
+        retried.increase_current_endpoint();
+        retried.increase_current_endpoint();
 
         let (mut parts, _) = HttpRequest::builder()
             .url(uri)

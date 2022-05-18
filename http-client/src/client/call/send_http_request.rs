@@ -97,7 +97,7 @@ fn handle_response_error(
             .idempotent(parts.idempotent())
             .build(),
     );
-    retried.increase();
+    retried.increase_current_endpoint();
     TryError::new(response_error, retry_result)
 }
 

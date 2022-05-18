@@ -12,32 +12,42 @@ pub struct RetriedStatsInfo {
 }
 
 impl RetriedStatsInfo {
-    pub(super) fn increase(&mut self) {
+    /// 提升当前终端地址的重试次数
+    #[inline]
+    pub fn increase_current_endpoint(&mut self) {
         self.retried_total += 1;
         self.retried_on_current_endpoint += 1;
         self.retried_on_current_ips += 1;
     }
 
-    pub(super) fn increase_abandoned_endpoints(&mut self) {
+    /// 提升放弃的终端地址的数量
+    #[inline]
+    pub fn increase_abandoned_endpoints(&mut self) {
         self.abandoned_endpoints += 1;
     }
 
-    pub(super) fn increase_abandoned_ips_of_current_endpoint(&mut self) {
+    /// 提升放弃的终端的 IP 地址的数量
+    #[inline]
+    pub fn increase_abandoned_ips_of_current_endpoint(&mut self) {
         self.abandoned_ips_of_current_endpoint += 1;
     }
 
-    pub(super) fn switch_to_alternative_endpoints(&mut self) {
+    /// 切换到备选终端地址
+    #[inline]
+    pub fn switch_to_alternative_endpoints(&mut self) {
         self.switched_to_alternative_endpoints = true;
         self.switch_endpoint();
     }
 
-    pub(super) fn switch_endpoint(&mut self) {
+    /// 切换终端地址
+    pub fn switch_endpoint(&mut self) {
         self.retried_on_current_endpoint = 0;
         self.abandoned_ips_of_current_endpoint = 0;
         self.switch_ips();
     }
 
-    pub(super) fn switch_ips(&mut self) {
+    /// 切换当前 IP 地址
+    pub fn switch_ips(&mut self) {
         self.retried_on_current_ips = 0;
     }
 
