@@ -666,7 +666,7 @@ mod body {
             }
 
             #[inline]
-            pub fn size(&self) -> u64 {
+            fn size(&self) -> u64 {
                 match &self.0 {
                     OwnedAsyncRequestBodyInner::Reader { size, .. } => *size,
                     OwnedAsyncRequestBodyInner::Bytes(bytes) => bytes.get_ref().len() as u64,

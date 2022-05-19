@@ -13,6 +13,7 @@
     non_ascii_idents,
     indirect_structural_match,
     trivial_numeric_casts,
+    unreachable_pub,
     unsafe_code,
     unused_extern_crates,
     unused_import_braces,
@@ -303,7 +304,7 @@
 //! # }
 //! ```
 
-pub use mime;
+pub use {mime, typenum};
 
 mod cache;
 mod client;
@@ -366,6 +367,8 @@ pub use client::{c_ares, c_ares_resolver, CAresResolver};
 #[cfg(all(feature = "trust_dns", feature = "async"))]
 #[cfg_attr(feature = "docs", doc(cfg(all(feature = "trust_dns", feature = "async"))))]
 pub use client::{trust_dns_resolver, TrustDnsResolver};
+
+pub use ipnet::PrefixLenError;
 
 #[cfg(feature = "async")]
 pub use {

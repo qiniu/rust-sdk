@@ -18,13 +18,13 @@ pub use error::{Error as ResponseError, ErrorKind as ResponseErrorKind};
 /// API 响应结果
 pub type ApiResult<T> = Result<T, ResponseError>;
 
-pub use qiniu_http::SyncResponseBody;
+use qiniu_http::SyncResponseBody;
 
 #[cfg(feature = "async")]
 use futures::io::copy as async_io_copy;
 
 #[cfg(feature = "async")]
-pub use qiniu_http::AsyncResponseBody;
+use qiniu_http::AsyncResponseBody;
 
 const X_REQ_ID_HEADER_NAME: &str = "x-reqid";
 const X_LOG_HEADER_NAME: &str = "x-log";

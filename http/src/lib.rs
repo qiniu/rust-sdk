@@ -16,6 +16,7 @@
     trivial_casts,
     trivial_numeric_casts,
     unsafe_code,
+    unreachable_pub,
     unused_crate_dependencies,
     unused_extern_crates,
     unused_import_braces,

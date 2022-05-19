@@ -6,8 +6,7 @@ use super::{
     ChooseOptions, Chooser, ChooserFeedback, ChosenResults,
 };
 use dashmap::DashMap;
-pub use ipnet::PrefixLenError;
-use ipnet::{Ipv4Net, Ipv6Net};
+use ipnet::{Ipv4Net, Ipv6Net, PrefixLenError};
 use log::{info, warn};
 use std::{
     collections::HashMap,
@@ -16,6 +15,7 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
+use typenum::{IsLess, Le, NonZero, Unsigned, U128, U32};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct BlacklistKey {
@@ -273,18 +273,46 @@ impl SubnetChooserBuilder {
         self
     }
 
+    /// 用安全的方式设置 IPv4 地址子网掩码前缀长度
+    #[inline]
+    pub fn safe_ipv4_netmask_prefix_length<N>(&mut self) -> &mut Self
+    where
+        N: Unsigned + IsLess<U32>,
+        Le<N, U32>: NonZero,
+    {
+        self.inner.ipv4_netmask_prefix_length = N::to_u8();
+        self
+    }
+
+    /// 用安全的方式设置 IPv6 地址子网掩码前缀长度
+    #[inline]
+    pub fn safe_ipv6_netmask_prefix_length<N>(&mut self) -> &mut Self
+    where
+        N: Unsigned + IsLess<U128>,
+        Le<N, U128>: NonZero,
+    {
+        self.inner.ipv6_netmask_prefix_length = N::to_u8();
+        self
+    }
+
     /// 设置 IPv4 地址子网掩码前缀长度
     #[inline]
-    pub fn ipv4_netmask_prefix_length(&mut self, ipv4_netmask_prefix_length: u8) -> &mut Self {
+    pub fn ipv4_netmask_prefix_length(&mut self, ipv4_netmask_prefix_length: u8) -> Result<&mut Self, PrefixLenError> {
+        if ipv4_netmask_prefix_length > 32 {
+            return Err(PrefixLenError);
+        }
         self.inner.ipv4_netmask_prefix_length = ipv4_netmask_prefix_length;
-        self
+        Ok(self)
     }
 
     /// 设置 IPv6 地址子网掩码前缀长度
     #[inline]
-    pub fn ipv6_netmask_prefix_length(&mut self, ipv6_netmask_prefix_length: u8) -> &mut Self {
+    pub fn ipv6_netmask_prefix_length(&mut self, ipv6_netmask_prefix_length: u8) -> Result<&mut Self, PrefixLenError> {
+        if ipv6_netmask_prefix_length > 128 {
+            return Err(PrefixLenError);
+        }
         self.inner.ipv6_netmask_prefix_length = ipv6_netmask_prefix_length;
-        self
+        Ok(self)
     }
 
     /// 构建子网选择器

@@ -1176,7 +1176,7 @@ impl<'a> MultiPartsV2ResumableRecorderSerializableHeader<'a> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MultiPartsV2ResumableRecorderRecord {
+struct MultiPartsV2ResumableRecorderRecord {
     #[serde(rename = "off")]
     offset: u64,
     #[serde(rename = "size")]
