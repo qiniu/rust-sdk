@@ -26,7 +26,7 @@ pub(super) fn send_http_request(
             .and_then(|response| {
                 call_response_callbacks(parts, http_request, retried, response.parts()).map(|_| response)
             })
-            .map(SyncResponse::new)
+            .map(SyncResponse::from)
             .and_then(|response| judge(response, retried))
             .map_err(|err| handle_response_error(err, http_request, parts, retried));
         match response {
@@ -121,7 +121,7 @@ mod async_send {
                 .and_then(|response| {
                     call_response_callbacks(parts, http_request, retried, response.parts()).map(|_| response)
                 })
-                .map(AsyncResponse::new);
+                .map(AsyncResponse::from);
             if let Ok(resp) = response {
                 response = async_judge(resp, retried).await
             };

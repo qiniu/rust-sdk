@@ -34,10 +34,6 @@ const X_LOG_HEADER_NAME: &str = "x-log";
 pub struct Response<B>(HttpResponse<B>);
 
 impl<B> Response<B> {
-    pub(super) fn new(inner: HttpResponse<B>) -> Self {
-        Self(inner)
-    }
-
     /// 转换为 HTTP 响应体
     #[inline]
     pub fn into_body(self) -> B {
@@ -66,6 +62,20 @@ impl<B> Response<B> {
     #[inline]
     pub fn x_log(&self) -> Option<&HeaderValue> {
         self.header(X_LOG_HEADER_NAME)
+    }
+}
+
+impl<B> From<HttpResponse<B>> for Response<B> {
+    #[inline]
+    fn from(response: HttpResponse<B>) -> Self {
+        Self(response)
+    }
+}
+
+impl<B> From<Response<B>> for HttpResponse<B> {
+    #[inline]
+    fn from(response: Response<B>) -> Self {
+        response.0
     }
 }
 
@@ -109,7 +119,7 @@ impl Response<SyncResponseBody> {
                 )
                 .set_response_body_sample(got_body)
             })?;
-        Ok(Response::new(json_response))
+        Ok(Response::from(json_response))
     }
 
     pub(super) fn fulfill(self) -> ApiResult<HttpResponse<Vec<u8>>> {
@@ -147,7 +157,7 @@ impl Response<AsyncResponseBody> {
                 )
                 .set_response_body_sample(got_body)
             })?;
-        Ok(Response::new(json_response))
+        Ok(Response::from(json_response))
     }
 
     pub(super) async fn fulfill(self) -> ApiResult<HttpResponse<Vec<u8>>> {
