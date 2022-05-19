@@ -198,7 +198,7 @@ impl HttpClient {
         service_names: &'r [ServiceName],
         endpoints_provider: E,
     ) -> SyncRequestBuilder<'r, E> {
-        self.new_sync_request(Method::GET, service_names, endpoints_provider)
+        self.new_request(Method::GET, service_names, endpoints_provider)
     }
 
     /// 创建 POST 请求的请求构建器
@@ -210,7 +210,7 @@ impl HttpClient {
         service_names: &'r [ServiceName],
         endpoints_provider: E,
     ) -> SyncRequestBuilder<'r, E> {
-        self.new_sync_request(Method::POST, service_names, endpoints_provider)
+        self.new_request(Method::POST, service_names, endpoints_provider)
     }
 
     /// 创建 PUT 请求的请求构建器
@@ -222,7 +222,7 @@ impl HttpClient {
         service_names: &'r [ServiceName],
         endpoints_provider: E,
     ) -> SyncRequestBuilder<'r, E> {
-        self.new_sync_request(Method::PUT, service_names, endpoints_provider)
+        self.new_request(Method::PUT, service_names, endpoints_provider)
     }
 
     /// 创建 DELETE 请求的请求构建器
@@ -234,10 +234,14 @@ impl HttpClient {
         service_names: &'r [ServiceName],
         endpoints_provider: E,
     ) -> SyncRequestBuilder<'r, E> {
-        self.new_sync_request(Method::DELETE, service_names, endpoints_provider)
+        self.new_request(Method::DELETE, service_names, endpoints_provider)
     }
 
-    fn new_sync_request<'r, E: EndpointsProvider + 'r>(
+    /// 创建请求的请求构建器
+    ///
+    /// 该方法的异步版本为 [`HttpClient::new_async_request`]。
+    #[inline]
+    pub fn new_request<'r, E: EndpointsProvider + 'r>(
         &'r self,
         method: Method,
         service_names: &'r [ServiceName],
@@ -294,8 +298,9 @@ impl HttpClient {
         self.new_async_request(Method::DELETE, service_names, endpoints_provider)
     }
 
+    /// 创建异步请求的请求构建器
     #[cfg(feature = "async")]
-    fn new_async_request<'r, E: EndpointsProvider + 'r>(
+    pub fn new_async_request<'r, E: EndpointsProvider + 'r>(
         &'r self,
         method: Method,
         service_names: &'r [ServiceName],
