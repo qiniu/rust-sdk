@@ -104,7 +104,7 @@ impl<B: Sync + Send> Response<B> {
 }
 
 impl Response<SyncResponseBody> {
-    /// JSON 序列化响应体
+    /// 解析 JSON 响应体
     pub fn parse_json<T: DeserializeOwned>(self) -> ApiResult<Response<T>> {
         let x_headers = XHeaders::from(self.parts());
         let mut got_body = Vec::new();
@@ -141,7 +141,7 @@ impl Response<SyncResponseBody> {
 
 #[cfg(feature = "async")]
 impl Response<AsyncResponseBody> {
-    /// 异步 JSON 序列化响应体
+    /// 异步解析 JSON 响应体
     pub async fn parse_json<T: DeserializeOwned>(self) -> ApiResult<Response<T>> {
         let x_headers = XHeaders::from(self.parts());
         let mut got_body = Vec::new();
