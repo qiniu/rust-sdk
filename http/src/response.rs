@@ -165,7 +165,7 @@ impl MetricsBuilder {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(super) struct ResponseInfo {
     server_ip: Option<IpAddr>,
     server_port: Option<NonZeroU16>,
@@ -303,6 +303,19 @@ impl ResponseParts {
     #[inline]
     pub fn metrics_mut(&mut self) -> &mut Option<Metrics> {
         self.info.metrics_mut()
+    }
+
+    /// 复制 HTTP 响应信息，但不包含扩展信息
+    #[inline]
+    pub fn clone_without_extensions(&self) -> Self {
+        let (mut parts, _) = http::response::Response::new(()).into_parts();
+        parts.status = self.inner.status;
+        parts.version = self.inner.version;
+        parts.headers = self.inner.headers.to_owned();
+        Self {
+            inner: parts,
+            info: self.info.to_owned(),
+        }
     }
 }
 
