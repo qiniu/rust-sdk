@@ -1,9 +1,11 @@
 use super::{mime::Mime, Bucket};
+use anyhow::{Error as AnyError, Result as AnyResult};
 use assert_impl::assert_impl;
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use indexmap::IndexMap;
 use qiniu_apis::{
+    http::{ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind},
     http_client::{ApiResult, RegionsProviderEndpoints, RequestBuilderParts, Response},
     upload_token::FileType,
 };
@@ -38,7 +40,7 @@ macro_rules! impl_call_methods {
                 );
             if let Some(callback) = &self.before_request_callback {
                 let mut callback = callback.lock().unwrap();
-                callback(request.parts_mut());
+                callback(request.parts_mut()).map_err(make_callback_error)?;
             }
             request.call()
         }
@@ -62,7 +64,7 @@ macro_rules! impl_call_methods {
                 );
             if let Some(callback) = &self.before_request_callback {
                 let mut callback = callback.lock().unwrap();
-                callback(request.parts_mut());
+                callback(request.parts_mut()).map_err(make_callback_error)?;
             }
             request.call().await
         }
@@ -75,7 +77,8 @@ macro_rules! impl_call_methods {
     };
 }
 
-type BeforeRequestCallback<'c> = Arc<Mutex<dyn FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'c>>;
+type BeforeRequestCallback<'c> =
+    Arc<Mutex<dyn FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'c>>;
 
 #[derive(Clone, Debug)]
 pub(super) struct Entry<'a> {
@@ -167,7 +170,7 @@ impl<'a> StatObjectBuilder<'a> {
     #[inline]
     pub fn before_request_callback(
         &mut self,
-        callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
+        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
@@ -253,7 +256,7 @@ impl<'a> MoveObjectBuilder<'a> {
     #[inline]
     pub fn before_request_callback(
         &mut self,
-        callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
+        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
@@ -341,7 +344,7 @@ impl<'a> CopyObjectBuilder<'a> {
     #[inline]
     pub fn before_request_callback(
         &mut self,
-        callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
+        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
@@ -413,7 +416,7 @@ impl<'a> DeleteObjectBuilder<'a> {
     #[inline]
     pub fn before_request_callback(
         &mut self,
-        callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
+        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
@@ -484,7 +487,7 @@ impl<'a> UnfreezeObjectBuilder<'a> {
     #[inline]
     pub fn before_request_callback(
         &mut self,
-        callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
+        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
@@ -553,7 +556,7 @@ impl<'a> SetObjectTypeBuilder<'a> {
     #[inline]
     pub fn before_request_callback(
         &mut self,
-        callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
+        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
@@ -630,7 +633,7 @@ impl<'a> ModifyObjectStatusBuilder<'a> {
     #[inline]
     pub fn before_request_callback(
         &mut self,
-        callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
+        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
@@ -751,7 +754,7 @@ impl<'a> ModifyObjectMetadataBuilder<'a> {
     #[inline]
     pub fn before_request_callback(
         &mut self,
-        callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
+        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
@@ -884,7 +887,7 @@ impl<'a> ModifyObjectLifeCycleBuilder<'a> {
     #[inline]
     pub fn before_request_callback(
         &mut self,
-        callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
+        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
@@ -985,6 +988,10 @@ impl Display for AfterDays {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, f)
     }
+}
+
+fn make_callback_error(err: AnyError) -> HttpResponseError {
+    HttpResponseError::builder(HttpResponseErrorKind::CallbackError, err).build()
 }
 
 #[cfg(test)]
