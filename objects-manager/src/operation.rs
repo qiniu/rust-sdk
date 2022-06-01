@@ -1,5 +1,7 @@
 use super::{mime::Mime, Bucket};
 use assert_impl::assert_impl;
+use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use indexmap::IndexMap;
 use qiniu_apis::{
     http_client::{ApiResult, RegionsProviderEndpoints, RequestBuilderParts, Response},
@@ -9,6 +11,7 @@ use qiniu_utils::base64::urlsafe;
 use std::{
     fmt::{self, Debug, Display},
     mem::take,
+    sync::{Arc, Mutex},
 };
 
 macro_rules! impl_call_methods {
@@ -33,7 +36,8 @@ macro_rules! impl_call_methods {
                     op.to_path_params(),
                     op.$entry.bucket.objects_manager().credential(),
                 );
-            if let Some(callback) = self.before_request_callback.as_mut() {
+            if let Some(callback) = &self.before_request_callback {
+                let mut callback = callback.lock().unwrap();
                 callback(request.parts_mut());
             }
             request.call()
@@ -56,7 +60,8 @@ macro_rules! impl_call_methods {
                     op.to_path_params(),
                     op.$entry.bucket.objects_manager().credential(),
                 );
-            if let Some(callback) = self.before_request_callback.as_mut() {
+            if let Some(callback) = &self.before_request_callback {
+                let mut callback = callback.lock().unwrap();
                 callback(request.parts_mut());
             }
             request.call().await
@@ -70,7 +75,7 @@ macro_rules! impl_call_methods {
     };
 }
 
-type BeforeRequestCallback<'c> = Box<dyn FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'c>;
+type BeforeRequestCallback<'c> = Arc<Mutex<dyn FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'c>>;
 
 #[derive(Clone, Debug)]
 pub(super) struct Entry<'a> {
@@ -117,7 +122,9 @@ impl Display for SimpleEntry<'_> {
 }
 
 /// 对象操作提供者接口
-pub trait OperationProvider {
+#[clonable]
+#[auto_impl(&mut, Box)]
+pub trait OperationProvider: Clone + Debug + Sync + Send {
     /// 转换为对象操作命令
     fn to_operation(&mut self) -> String;
 }
@@ -149,6 +156,7 @@ impl Display for StatObject<'_> {
 /// 对象元信息获取操作构建器
 ///
 /// 可以通过 [`crate::Bucket::stat_object`] 方法获取该构建器。
+#[derive(Clone)]
 pub struct StatObjectBuilder<'a> {
     inner: StatObject<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
@@ -161,7 +169,7 @@ impl<'a> StatObjectBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
     ) -> &mut Self {
-        self.before_request_callback = Some(Box::new(callback));
+        self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
     }
 
@@ -227,6 +235,7 @@ impl Display for MoveObject<'_> {
 /// 对象移动操作构建器
 ///
 /// 可以通过 [`crate::Bucket::move_object_to`] 方法获取该构建器。
+#[derive(Clone)]
 pub struct MoveObjectBuilder<'a> {
     inner: MoveObject<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
@@ -246,7 +255,7 @@ impl<'a> MoveObjectBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
     ) -> &mut Self {
-        self.before_request_callback = Some(Box::new(callback));
+        self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
     }
 
@@ -314,6 +323,7 @@ impl Display for CopyObject<'_> {
 /// 对象复制操作构建器
 ///
 /// 可以通过 [`crate::Bucket::copy_object_to`] 方法获取该构建器。
+#[derive(Clone)]
 pub struct CopyObjectBuilder<'a> {
     inner: CopyObject<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
@@ -333,7 +343,7 @@ impl<'a> CopyObjectBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
     ) -> &mut Self {
-        self.before_request_callback = Some(Box::new(callback));
+        self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
     }
 
@@ -388,6 +398,7 @@ impl Display for DeleteObject<'_> {
 /// 对象删除操作构建器
 ///
 /// 可以通过 [`crate::Bucket::delete_object`] 方法获取该构建器。
+#[derive(Clone)]
 pub struct DeleteObjectBuilder<'a> {
     inner: DeleteObject<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
@@ -404,7 +415,7 @@ impl<'a> DeleteObjectBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
     ) -> &mut Self {
-        self.before_request_callback = Some(Box::new(callback));
+        self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
     }
 
@@ -462,6 +473,7 @@ impl Display for UnfreezeObject<'_> {
 }
 
 /// 对象解冻操作构建器
+#[derive(Clone)]
 pub struct UnfreezeObjectBuilder<'a> {
     inner: UnfreezeObject<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
@@ -474,7 +486,7 @@ impl<'a> UnfreezeObjectBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
     ) -> &mut Self {
-        self.before_request_callback = Some(Box::new(callback));
+        self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
     }
 
@@ -530,6 +542,7 @@ impl Display for SetObjectType<'_> {
 /// 对象类型设置操作构建器
 ///
 /// 可以通过 [`crate::Bucket::set_object_type`] 方法获取该构建器。
+#[derive(Clone)]
 pub struct SetObjectTypeBuilder<'a> {
     inner: SetObjectType<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
@@ -542,7 +555,7 @@ impl<'a> SetObjectTypeBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
     ) -> &mut Self {
-        self.before_request_callback = Some(Box::new(callback));
+        self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
     }
 
@@ -599,6 +612,7 @@ impl Display for ModifyObjectStatus<'_> {
 /// 修改对象状态构建器
 ///
 /// 可以通过 [`crate::Bucket::modify_object_status`] 方法获取该构建器。
+#[derive(Clone)]
 pub struct ModifyObjectStatusBuilder<'a> {
     inner: ModifyObjectStatus<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
@@ -618,7 +632,7 @@ impl<'a> ModifyObjectStatusBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
     ) -> &mut Self {
-        self.before_request_callback = Some(Box::new(callback));
+        self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
     }
 
@@ -712,6 +726,7 @@ impl Display for ModifyObjectMetadata<'_> {
 /// 修改对象元信息构建器
 ///
 /// 可以通过 [`crate::Bucket::modify_object_metadata`] 方法获取该构建器。
+#[derive(Clone)]
 pub struct ModifyObjectMetadataBuilder<'a> {
     inner: ModifyObjectMetadata<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
@@ -738,7 +753,7 @@ impl<'a> ModifyObjectMetadataBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
     ) -> &mut Self {
-        self.before_request_callback = Some(Box::new(callback));
+        self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
     }
 
@@ -830,6 +845,7 @@ impl Display for ModifyObjectLifeCycle<'_> {
 /// 修改对象生命周期构建器
 ///
 /// 可以通过 [`crate::Bucket::modify_object_life_cycle`] 方法获取该构建器。
+#[derive(Clone)]
 pub struct ModifyObjectLifeCycleBuilder<'a> {
     inner: ModifyObjectLifeCycle<'a>,
     before_request_callback: Option<BeforeRequestCallback<'a>>,
@@ -870,7 +886,7 @@ impl<'a> ModifyObjectLifeCycleBuilder<'a> {
         &mut self,
         callback: impl FnMut(&mut RequestBuilderParts<'_>) + Send + Sync + 'a,
     ) -> &mut Self {
-        self.before_request_callback = Some(Box::new(callback));
+        self.before_request_callback = Some(Arc::new(Mutex::new(callback)));
         self
     }
 
