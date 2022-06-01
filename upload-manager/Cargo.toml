@@ -15,7 +15,7 @@ keywords = ["qiniu", "storage"]
 
 [dependencies]
 log = "0.4.14"
-auto_impl = { package = "bachue-auto_impl", version = "0.5.1" }
+auto_impl = "1.0.0"
 smart-default = "0.6.0"
 sha-1 = "0.10.0"
 hex = "0.4.3"

@@ -15,7 +15,6 @@
     non_ascii_idents,
     indirect_structural_match,
     trivial_numeric_casts,
-    unreachable_pub,
     unsafe_code,
     unused_extern_crates,
     unused_import_braces,
