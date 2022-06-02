@@ -11,7 +11,7 @@ use md5::{
 };
 use once_cell::sync::{Lazy, OnceCell};
 use serde::{Deserialize, Serialize};
-use std::{mem::take, sync::Arc};
+use std::{borrow::Cow, mem::take, sync::Arc};
 
 type Md5Value = GenericArray<u8, <Md5 as FixedOutputDirty>::OutputSize>;
 
@@ -169,6 +169,30 @@ impl From<(Vec<Endpoint>, Vec<Endpoint>)> for Endpoints {
             preferred: endpoints.0.into(),
             alternative: endpoints.1.into(),
             md5: Default::default(),
+        }
+    }
+}
+
+impl<'p> From<&'p Endpoints> for Cow<'p, Endpoints> {
+    #[inline]
+    fn from(endpoints: &'p Endpoints) -> Self {
+        Cow::Borrowed(endpoints)
+    }
+}
+
+impl From<Endpoints> for Cow<'_, Endpoints> {
+    #[inline]
+    fn from(endpoints: Endpoints) -> Self {
+        Cow::Owned(endpoints)
+    }
+}
+
+impl<'p> From<Cow<'p, Endpoints>> for Endpoints {
+    #[inline]
+    fn from(endpoints: Cow<'p, Endpoints>) -> Self {
+        match endpoints {
+            Cow::Borrowed(endpoints) => endpoints.to_owned(),
+            Cow::Owned(endpoints) => endpoints,
         }
     }
 }
