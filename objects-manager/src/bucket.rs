@@ -20,7 +20,7 @@ use qiniu_apis::{
     },
     upload_token::FileType,
 };
-use std::{io::Result as IOResult, mem::take, sync::Arc};
+use std::{borrow::Cow, io::Result as IOResult, mem::take, sync::Arc};
 
 #[cfg(feature = "async")]
 use {super::list::ListStream, async_once_cell::OnceCell as AsyncOnceCell};
@@ -573,8 +573,8 @@ impl Bucket {
 pub struct ListBuilder<'a> {
     bucket: &'a Bucket,
     limit: Option<usize>,
-    prefix: Option<&'a str>,
-    marker: Option<&'a str>,
+    prefix: Option<Cow<'a, str>>,
+    marker: Option<Cow<'a, str>>,
     version: ListVersion,
     need_parts: bool,
     callbacks: Callbacks<'a>,
@@ -602,15 +602,15 @@ impl<'a> ListBuilder<'a> {
 
     #[inline]
     /// 设置对象名称前缀匹配字符串
-    pub fn prefix(&mut self, prefix: &'a str) -> &mut Self {
-        self.prefix = Some(prefix);
+    pub fn prefix(&mut self, prefix: impl Into<Cow<'a, str>>) -> &mut Self {
+        self.prefix = Some(prefix.into());
         self
     }
 
     #[inline]
     /// 设置上一次列举返回的位置标记
-    pub fn marker(&mut self, marker: &'a str) -> &mut Self {
-        self.marker = Some(marker);
+    pub fn marker(&mut self, marker: impl Into<Cow<'a, str>>) -> &mut Self {
+        self.marker = Some(marker.into());
         self
     }
 
