@@ -320,12 +320,12 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
             let mut response_result = request.call(body, content_length.get());
             let elapsed = begin_at.elapsed();
             uploader.after_response_call(&mut response_result)?;
-            data_partitioner_provider.feedback(DataPartitionProviderFeedback::new(
-                content_length.into(),
-                elapsed,
-                initialized.params.extensions(),
-                response_result.as_ref().err(),
-            ));
+            let mut feedback_builder =
+                DataPartitionProviderFeedback::builder(content_length.into(), elapsed, initialized.params.extensions());
+            if let Some(err) = response_result.as_ref().err() {
+                feedback_builder.error(err);
+            }
+            data_partitioner_provider.feedback(feedback_builder.build());
             let response_body = response_result?.into_body();
             let record = MultiPartsV1ResumableRecorderRecord {
                 response_body,
@@ -540,12 +540,12 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
             let mut response_result = request.call(body, content_length.get()).await;
             let elapsed = begin_at.elapsed();
             uploader.after_response_call(&mut response_result)?;
-            data_partitioner_provider.feedback(DataPartitionProviderFeedback::new(
-                content_length.into(),
-                elapsed,
-                initialized.params.extensions(),
-                response_result.as_ref().err(),
-            ));
+            let mut feedback_builder =
+                DataPartitionProviderFeedback::builder(content_length.into(), elapsed, initialized.params.extensions());
+            if let Some(err) = response_result.as_ref().err() {
+                feedback_builder.error(err);
+            }
+            data_partitioner_provider.feedback(feedback_builder.build());
             let response_body = response_result?.into_body();
             let record = MultiPartsV1ResumableRecorderRecord {
                 response_body,

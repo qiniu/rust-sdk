@@ -103,7 +103,7 @@ impl DerefMut for PartSize {
 /// 分片大小提供者反馈
 ///
 /// 反馈给提供者分片的效果，包含对象大小，花费时间，以及错误信息。
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DataPartitionProviderFeedback<'f> {
     part_size: PartSize,
     elapsed: Duration,
@@ -112,18 +112,14 @@ pub struct DataPartitionProviderFeedback<'f> {
 }
 
 impl<'f> DataPartitionProviderFeedback<'f> {
-    pub(super) fn new(
+    /// 创建分片大小提供者反馈构建器
+    #[inline]
+    pub fn builder(
         part_size: PartSize,
         elapsed: Duration,
         extensions: &'f Extensions,
-        error: Option<&'f ResponseError>,
-    ) -> Self {
-        Self {
-            part_size,
-            elapsed,
-            extensions,
-            error,
-        }
+    ) -> DataPartitionProviderFeedbackBuilder<'f> {
+        DataPartitionProviderFeedbackBuilder::new(part_size, elapsed, extensions)
     }
 
     /// 获取分片大小
@@ -148,6 +144,36 @@ impl<'f> DataPartitionProviderFeedback<'f> {
     #[inline]
     pub fn error(&self) -> Option<&'f ResponseError> {
         self.error
+    }
+}
+
+/// 分片大小提供者反馈构建器
+#[derive(Debug, Clone)]
+pub struct DataPartitionProviderFeedbackBuilder<'f>(DataPartitionProviderFeedback<'f>);
+
+impl<'f> DataPartitionProviderFeedbackBuilder<'f> {
+    /// 创建分片大小提供者反馈构建器
+    #[inline]
+    pub fn new(part_size: PartSize, elapsed: Duration, extensions: &'f Extensions) -> Self {
+        Self(DataPartitionProviderFeedback {
+            part_size,
+            elapsed,
+            extensions,
+            error: None,
+        })
+    }
+
+    /// 设置错误信息
+    #[inline]
+    pub fn error(&mut self, err: &'f ResponseError) -> &mut Self {
+        self.0.error = Some(err);
+        self
+    }
+
+    /// 构建分片大小提供者反馈
+    #[inline]
+    pub fn build(&self) -> DataPartitionProviderFeedback<'f> {
+        self.0.to_owned()
     }
 }
 

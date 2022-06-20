@@ -143,8 +143,8 @@ pub use concurrency_provider::{
     FixedConcurrencyProvider,
 };
 pub use data_partition_provider::{
-    DataPartitionProvider, DataPartitionProviderFeedback, FixedDataPartitionProvider, LimitedDataPartitionProvider,
-    MultiplyDataPartitionProvider, PartSize,
+    DataPartitionProvider, DataPartitionProviderFeedback, DataPartitionProviderFeedbackBuilder,
+    FixedDataPartitionProvider, LimitedDataPartitionProvider, MultiplyDataPartitionProvider, PartSize,
 };
 pub use data_source::{DataSource, DataSourceReader, FileDataSource, SeekableSource, SourceKey};
 pub use multi_parts_uploader::{
