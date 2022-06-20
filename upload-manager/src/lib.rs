@@ -139,7 +139,8 @@ pub use auto_uploader::{
 };
 pub use callbacks::{MultiPartsUploaderWithCallbacks, UploaderWithCallbacks, UploadingProgressInfo};
 pub use concurrency_provider::{
-    Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, FixedConcurrencyProvider,
+    Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, ConcurrencyProviderFeedbackBuilder,
+    FixedConcurrencyProvider,
 };
 pub use data_partition_provider::{
     DataPartitionProvider, DataPartitionProviderFeedback, FixedDataPartitionProvider, LimitedDataPartitionProvider,
