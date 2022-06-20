@@ -57,7 +57,7 @@ impl<P> LimitedDataPartitionProvider<P> {
     }
 }
 
-impl<P: DataPartitionProvider> DataPartitionProvider for LimitedDataPartitionProvider<P> {
+impl<P: DataPartitionProvider + Clone> DataPartitionProvider for LimitedDataPartitionProvider<P> {
     #[inline]
     fn part_size(&self) -> PartSize {
         let base_partition = self.base.part_size().as_non_zero_u64();
