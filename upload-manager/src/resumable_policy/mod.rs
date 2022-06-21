@@ -1,4 +1,5 @@
 use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use std::{
     fmt::Debug,
     io::{Read, Result as IoResult},
@@ -21,8 +22,9 @@ pub enum ResumablePolicy {
 }
 
 /// 可恢复策略获取接口
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait ResumablePolicyProvider: Debug + Sync + Send {
+pub trait ResumablePolicyProvider: Clone + Debug + Sync + Send {
     /// 通过数据源大小获取可恢复策略
     fn get_policy_from_size(&self, source_size: u64, opts: GetPolicyOptions) -> ResumablePolicy;
 

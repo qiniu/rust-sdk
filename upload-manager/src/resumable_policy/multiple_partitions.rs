@@ -41,7 +41,7 @@ impl<P> MultiplePartitionsResumablePolicyProvider<P> {
     }
 }
 
-impl<P: DataPartitionProvider> ResumablePolicyProvider for MultiplePartitionsResumablePolicyProvider<P> {
+impl<P: DataPartitionProvider + Clone> ResumablePolicyProvider for MultiplePartitionsResumablePolicyProvider<P> {
     #[inline]
     fn get_policy_from_size(&self, source_size: u64, _opts: GetPolicyOptions) -> ResumablePolicy {
         get_policy_from_size(self.threshold(), source_size)
