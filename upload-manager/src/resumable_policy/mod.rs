@@ -31,9 +31,9 @@ pub trait ResumablePolicyProvider: Debug + Sync + Send {
     /// 返回选择的可恢复策略，以及经过更新的输入流
     ///
     /// 该方法的异步版本为 [`Self::get_policy_from_async_reader`]。
-    fn get_policy_from_reader<'a, R: Read + Debug + Send + Sync + 'a>(
+    fn get_policy_from_reader<'a>(
         &self,
-        reader: R,
+        reader: Box<dyn DynRead + 'a>,
         opts: GetPolicyOptions,
     ) -> IoResult<(ResumablePolicy, Box<dyn DynRead + 'a>)>;
 
@@ -42,9 +42,9 @@ pub trait ResumablePolicyProvider: Debug + Sync + Send {
     /// 返回选择的可恢复策略，以及经过更新的异步输入流
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn get_policy_from_async_reader<'a, R: AsyncRead + Debug + Unpin + Send + Sync + 'a>(
+    fn get_policy_from_async_reader<'a>(
         &self,
-        reader: R,
+        reader: Box<dyn DynAsyncRead + 'a>,
         opts: GetPolicyOptions,
     ) -> BoxFuture<'a, IoResult<(ResumablePolicy, Box<dyn DynAsyncRead + 'a>)>>;
 }

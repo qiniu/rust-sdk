@@ -296,7 +296,7 @@ where
         let params = params.into();
         let (policy, reader) = self
             .resumable_policy_provider
-            .get_policy_from_reader(reader, Default::default())?;
+            .get_policy_from_reader(Box::new(reader), Default::default())?;
         with_uploader!(self, policy, params, sync_block, upload_reader, reader, params.into(),)
     }
 
@@ -333,7 +333,7 @@ where
         let params = params.into();
         let (policy, reader) = self
             .resumable_policy_provider
-            .get_policy_from_async_reader(reader, Default::default())
+            .get_policy_from_async_reader(Box::new(reader), Default::default())
             .await?;
         with_uploader!(
             self,
