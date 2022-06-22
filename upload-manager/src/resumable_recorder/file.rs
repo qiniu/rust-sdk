@@ -1,9 +1,12 @@
 use super::{AppendOnlyResumableRecorderMedium, ReadOnlyResumableRecorderMedium, ResumableRecorder, SourceKey};
+use digest::Digest;
 use sha1::Sha1;
 use std::{
     env::temp_dir,
+    fmt::{self, Debug},
     fs::{remove_file, DirBuilder, OpenOptions},
     io::Result as IoResult,
+    marker::PhantomData,
     path::PathBuf,
 };
 
@@ -17,25 +20,22 @@ use {
 /// 文件系统断点恢复记录器
 ///
 /// 基于文件系统提供断点恢复记录功能
-#[derive(Debug, Clone)]
-pub struct FileSystemResumableRecorder {
+#[derive(Clone)]
+pub struct FileSystemResumableRecorder<O = Sha1> {
     path: PathBuf,
+    _unused: PhantomData<O>,
 }
 
 const DEFAULT_DIRECTORY_NAME: &str = ".qiniu-rust-sdk";
 
-impl Default for FileSystemResumableRecorder {
-    #[inline]
-    fn default() -> Self {
-        Self::new(temp_dir().join(DEFAULT_DIRECTORY_NAME))
-    }
-}
-
-impl FileSystemResumableRecorder {
+impl<O: Clone + Digest + Send + Sync + Unpin> FileSystemResumableRecorder<O> {
     /// 创建文件系统断点恢复记录器，传入一个目录路径用于储存断点记录
     #[inline]
     pub fn new(path: impl Into<PathBuf>) -> Self {
-        Self { path: path.into() }
+        Self {
+            path: path.into(),
+            _unused: Default::default(),
+        }
     }
 
     fn path_of(&self, source_key: &SourceKey<<Self as ResumableRecorder>::HashAlgorithm>) -> PathBuf {
@@ -52,8 +52,8 @@ impl FileSystemResumableRecorder {
     }
 }
 
-impl ResumableRecorder for FileSystemResumableRecorder {
-    type HashAlgorithm = Sha1;
+impl<O: Clone + Digest + Send + Sync + Unpin> ResumableRecorder for FileSystemResumableRecorder<O> {
+    type HashAlgorithm = O;
 
     #[inline]
     fn open_for_read(
@@ -148,6 +148,21 @@ impl ResumableRecorder for FileSystemResumableRecorder {
     }
 }
 
+impl<O: Clone + Digest + Send + Sync + Unpin> Default for FileSystemResumableRecorder<O> {
+    #[inline]
+    fn default() -> Self {
+        Self::new(temp_dir().join(DEFAULT_DIRECTORY_NAME))
+    }
+}
+
+impl<O> Debug for FileSystemResumableRecorder<O> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileSystemResumableRecorder")
+            .field("path", &self.path)
+            .finish()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -160,7 +175,7 @@ mod tests {
     fn test_file_system_resumable_recorder() -> Result<()> {
         let dir = tempdir()?;
         let source_key = SourceKey::new([0u8; 20]);
-        let recorder = FileSystemResumableRecorder::new(dir.path());
+        let recorder = FileSystemResumableRecorder::<Sha1>::new(dir.path());
         let mut rander = thread_rng();
         let mut buf = vec![0u8; 1 << 20];
         rander.fill_bytes(&mut buf);
@@ -197,7 +212,7 @@ mod tests {
 
         let dir = tempdir()?;
         let source_key = SourceKey::new([0u8; 20]);
-        let recorder = FileSystemResumableRecorder::new(dir.path());
+        let recorder = FileSystemResumableRecorder::<Sha1>::new(dir.path());
         let mut rander = thread_rng();
         let mut buf = vec![0u8; 1 << 20];
         rander.fill_bytes(&mut buf);

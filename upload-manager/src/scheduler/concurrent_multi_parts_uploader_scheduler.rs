@@ -38,6 +38,7 @@ use {
 ///     UploadTokenSigner,
 /// };
 /// use std::time::Duration;
+/// use sha1::Sha1;
 ///
 /// # fn example() -> anyhow::Result<()> {
 /// let bucket_name = "test-bucket";
@@ -51,7 +52,7 @@ use {
 /// let params = ObjectParams::builder().object_name(object_name).file_name(object_name).build();
 /// let mut scheduler = ConcurrentMultiPartsUploaderScheduler::new(MultiPartsV2Uploader::new(
 ///     upload_manager,
-///     FileSystemResumableRecorder::default(),
+///     FileSystemResumableRecorder::<Sha1>::default(),
 /// ));
 /// scheduler.upload_path("/home/qiniu/test.png", params)?;
 /// # Ok(())
@@ -67,6 +68,7 @@ use {
 ///     UploadTokenSigner,
 /// };
 /// use std::time::Duration;
+/// use sha1::Sha1;
 ///
 /// # async fn example() -> anyhow::Result<()> {
 /// let bucket_name = "test-bucket";
@@ -80,7 +82,7 @@ use {
 /// let params = ObjectParams::builder().object_name(object_name).file_name(object_name).build();
 /// let mut scheduler = ConcurrentMultiPartsUploaderScheduler::new(MultiPartsV2Uploader::new(
 ///     upload_manager,
-///     FileSystemResumableRecorder::default(),
+///     FileSystemResumableRecorder::<Sha1>::default(),
 /// ));
 /// scheduler.async_upload_path("/home/qiniu/test.png", params).await?;
 /// # Ok(())

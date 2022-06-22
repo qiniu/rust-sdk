@@ -1412,7 +1412,7 @@ mod tests {
             {
                 let uploader = MultiPartsV1Uploader::new(
                     get_upload_manager(FakeHttpCaller::new(0)),
-                    FileSystemResumableRecorder::new(resuming_files_dir.path()),
+                    FileSystemResumableRecorder::<Sha1>::new(resuming_files_dir.path()),
                 );
                 let file_source = FileDataSource::new(file_path.as_os_str());
                 let params = ObjectParams::builder()
@@ -1426,7 +1426,7 @@ mod tests {
             {
                 let uploader = MultiPartsV1Uploader::new(
                     get_upload_manager(FakeHttpCaller::new(1)),
-                    FileSystemResumableRecorder::new(resuming_files_dir.path()),
+                    FileSystemResumableRecorder::<Sha1>::new(resuming_files_dir.path()),
                 );
                 let file_source = FileDataSource::new(file_path.as_os_str());
                 let params = ObjectParams::builder()
@@ -1512,7 +1512,7 @@ mod tests {
             {
                 let uploader = Arc::new(MultiPartsV1Uploader::new(
                     get_upload_manager(FakeHttpCaller2::new(2)),
-                    FileSystemResumableRecorder::new(resuming_files_dir.path()),
+                    FileSystemResumableRecorder::<Sha1>::new(resuming_files_dir.path()),
                 ));
                 let file_source = FileDataSource::new(file_path.as_os_str());
                 let params = ObjectParams::builder()
@@ -1606,7 +1606,7 @@ mod tests {
             {
                 let uploader = MultiPartsV1Uploader::new(
                     get_upload_manager(FakeHttpCaller::new(0)),
-                    FileSystemResumableRecorder::new(resuming_files_dir.path()),
+                    FileSystemResumableRecorder::<Sha1>::new(resuming_files_dir.path()),
                 );
                 let file_source = FileDataSource::new(file_path.as_os_str());
                 let params = ObjectParams::builder()
@@ -1621,7 +1621,7 @@ mod tests {
             {
                 let uploader = MultiPartsV1Uploader::new(
                     get_upload_manager(FakeHttpCaller::new(1)),
-                    FileSystemResumableRecorder::new(resuming_files_dir.path()),
+                    FileSystemResumableRecorder::<Sha1>::new(resuming_files_dir.path()),
                 );
                 let file_source = FileDataSource::new(file_path.as_os_str());
                 let params = ObjectParams::builder()
@@ -1709,7 +1709,7 @@ mod tests {
             {
                 let uploader = Arc::new(MultiPartsV1Uploader::new(
                     get_upload_manager(FakeHttpCaller2::new(2)),
-                    FileSystemResumableRecorder::new(resuming_files_dir.path()),
+                    FileSystemResumableRecorder::<Sha1>::new(resuming_files_dir.path()),
                 ));
                 let file_source = FileDataSource::new(file_path.as_os_str());
                 let params = ObjectParams::builder()
