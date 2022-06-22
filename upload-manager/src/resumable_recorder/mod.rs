@@ -18,30 +18,23 @@ pub trait ResumableRecorder: Clone + Debug + Sync + Send {
     /// 数据源 KEY 的哈希算法
     type HashAlgorithm: Digest;
 
-    /// 只读记录介质
-    type ReadOnlyMedium: ReadOnlyResumableRecorderMedium;
-
-    /// 追加记录介质
-    type AppendOnlyMedium: AppendOnlyResumableRecorderMedium;
-
-    /// 异步只读记录介质
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    type AsyncReadOnlyMedium: ReadOnlyAsyncResumableRecorderMedium;
-
-    /// 异步追加记录介质
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    type AsyncAppendOnlyMedium: AppendOnlyAsyncResumableRecorderMedium;
-
     /// 根据数据源 KEY 打开只读记录介质
-    fn open_for_read(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::ReadOnlyMedium>;
+    fn open_for_read(
+        &self,
+        source_key: &SourceKey<Self::HashAlgorithm>,
+    ) -> IoResult<Box<dyn ReadOnlyResumableRecorderMedium>>;
 
     /// 根据数据源 KEY 打开追加记录介质
-    fn open_for_append(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::AppendOnlyMedium>;
+    fn open_for_append(
+        &self,
+        source_key: &SourceKey<Self::HashAlgorithm>,
+    ) -> IoResult<Box<dyn AppendOnlyResumableRecorderMedium>>;
 
     /// 根据数据源 KEY 创建追加记录介质
-    fn open_for_create_new(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::AppendOnlyMedium>;
+    fn open_for_create_new(
+        &self,
+        source_key: &SourceKey<Self::HashAlgorithm>,
+    ) -> IoResult<Box<dyn AppendOnlyResumableRecorderMedium>>;
 
     /// 根据数据源 KEY 删除记录介质
     fn delete(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<()>;
@@ -52,7 +45,7 @@ pub trait ResumableRecorder: Clone + Debug + Sync + Send {
     fn open_for_async_read<'a>(
         &'a self,
         source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<Self::AsyncReadOnlyMedium>>;
+    ) -> BoxFuture<'a, IoResult<Box<dyn ReadOnlyAsyncResumableRecorderMedium>>>;
 
     /// 根据数据源 KEY 打开异步追加记录介质
     #[cfg(feature = "async")]
@@ -60,7 +53,7 @@ pub trait ResumableRecorder: Clone + Debug + Sync + Send {
     fn open_for_async_append<'a>(
         &'a self,
         source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<Self::AsyncAppendOnlyMedium>>;
+    ) -> BoxFuture<'a, IoResult<Box<dyn AppendOnlyAsyncResumableRecorderMedium>>>;
 
     /// 根据数据源 KEY 创建异步追加记录介质
     #[cfg(feature = "async")]
@@ -68,7 +61,7 @@ pub trait ResumableRecorder: Clone + Debug + Sync + Send {
     fn open_for_async_create_new<'a>(
         &'a self,
         source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<Self::AsyncAppendOnlyMedium>>;
+    ) -> BoxFuture<'a, IoResult<Box<dyn AppendOnlyAsyncResumableRecorderMedium>>>;
 
     /// 根据数据源 KEY 异步删除记录介质
     #[cfg(feature = "async")]

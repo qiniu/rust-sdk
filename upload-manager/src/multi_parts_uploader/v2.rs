@@ -3,8 +3,8 @@ use super::{
         callbacks::{Callbacks, UploadingProgressInfo},
         data_source::{Digestible, SourceKey},
         upload_token::OwnedUploadTokenProviderOrReferenced,
-        DataPartitionProvider, DataPartitionProviderFeedback, DataSourceReader, LimitedDataPartitionProvider,
-        UploaderWithCallbacks,
+        AppendOnlyAsyncResumableRecorderMedium, AppendOnlyResumableRecorderMedium, DataPartitionProvider,
+        DataPartitionProviderFeedback, DataSourceReader, LimitedDataPartitionProvider, UploaderWithCallbacks,
     },
     progress::{Progresses, ProgressesKey},
     up_endpoints::UpEndpoints,
@@ -89,7 +89,7 @@ pub struct MultiPartsV2UploaderInitializedObject<R: ResumableRecorder + ?Sized> 
     source: Arc<dyn DataSource<<R as ResumableRecorder>::HashAlgorithm>>,
     params: ObjectParams,
     progresses: Progresses,
-    recovered_records: MultiPartsV2ResumableRecorderRecords<R>,
+    recovered_records: MultiPartsV2ResumableRecorderRecords,
     initialized_at: SystemTime,
     up_endpoints: UpEndpoints,
 }
@@ -909,7 +909,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
         source: &D,
         params: &ObjectParams,
         up_endpoints: &UpEndpoints,
-    ) -> ApiResult<(Option<String>, MultiPartsV2ResumableRecorderRecords<R>)> {
+    ) -> ApiResult<(Option<String>, MultiPartsV2ResumableRecorderRecords)> {
         return source
             .source_key()?
             .map(|source_key| {
@@ -928,7 +928,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
             source_key: &SourceKey<R::HashAlgorithm>,
             params: &ObjectParams,
             up_endpoints: &UpEndpoints,
-        ) -> ApiResult<Option<(String, MultiPartsV2ResumableRecorderRecords<R>)>> {
+        ) -> ApiResult<Option<(String, MultiPartsV2ResumableRecorderRecords)>> {
             let (upload_id, mut records) = {
                 let mut medium = uploader.resumable_recorder.open_for_read(source_key)?;
                 let mut lines = BufReader::new(&mut medium).lines();
@@ -953,7 +953,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
                         let record: MultiPartsV2ResumableRecorderRecord = serde_json::from_str(&line)?;
                         Ok(record)
                     })
-                    .collect::<ApiResult<MultiPartsV2ResumableRecorderRecords<R>>>()?;
+                    .collect::<ApiResult<MultiPartsV2ResumableRecorderRecords>>()?;
                 (upload_id, records)
             };
             records.set_medium_for_append(uploader.resumable_recorder.open_for_append(source_key)?, true);
@@ -963,7 +963,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
         fn _new_records<R: ResumableRecorder>(
             resumable_recorder: &R,
             source_key: &SourceKey<R::HashAlgorithm>,
-        ) -> ApiResult<MultiPartsV2ResumableRecorderRecords<R>> {
+        ) -> ApiResult<MultiPartsV2ResumableRecorderRecords> {
             let mut records = MultiPartsV2ResumableRecorderRecords::default();
             records.set_medium_for_append(resumable_recorder.open_for_create_new(source_key)?, false);
             Ok(records)
@@ -978,7 +978,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
         source: &D,
         params: &ObjectParams,
         up_endpoints: &UpEndpoints,
-    ) -> ApiResult<(Option<String>, MultiPartsV2ResumableRecorderRecords<R>)> {
+    ) -> ApiResult<(Option<String>, MultiPartsV2ResumableRecorderRecords)> {
         return OptionFuture::from(source.async_source_key().await?.map(|source_key| async move {
             if let Some((upload_id, records)) = _try_to_recover(self, &source_key, params, up_endpoints)
                 .await
@@ -1000,7 +1000,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
             source_key: &SourceKey<R::HashAlgorithm>,
             params: &ObjectParams,
             up_endpoints: &UpEndpoints,
-        ) -> ApiResult<Option<(String, MultiPartsV2ResumableRecorderRecords<R>)>> {
+        ) -> ApiResult<Option<(String, MultiPartsV2ResumableRecorderRecords)>> {
             let (upload_id, mut records) = {
                 let mut medium = uploader.resumable_recorder.open_for_async_read(source_key).await?;
                 let mut lines = AsyncBufReader::new(&mut medium).lines();
@@ -1024,7 +1024,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
                         let record: MultiPartsV2ResumableRecorderRecord = serde_json::from_str(&line)?;
                         Ok::<_, ResponseError>(record)
                     })
-                    .try_collect::<MultiPartsV2ResumableRecorderRecords<R>>()
+                    .try_collect::<MultiPartsV2ResumableRecorderRecords>()
                     .await?;
                 (upload_id, records)
             };
@@ -1038,7 +1038,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV2Uploader<R> {
         async fn _new_records<R: ResumableRecorder>(
             resumable_recorder: &R,
             source_key: &SourceKey<R::HashAlgorithm>,
-        ) -> ApiResult<MultiPartsV2ResumableRecorderRecords<R>> {
+        ) -> ApiResult<MultiPartsV2ResumableRecorderRecords> {
             let mut records = MultiPartsV2ResumableRecorderRecords::default();
             records.set_medium_for_async_append(resumable_recorder.open_for_async_create_new(source_key).await?, false);
             Ok(records)
@@ -1175,40 +1175,29 @@ struct MultiPartsV2ResumableRecorderRecord {
 }
 
 #[derive(Debug)]
-struct AppendOnlyMediumForMultiPartsV2ResumableRecorderRecords<R: ResumableRecorder + ?Sized> {
-    medium: <R as ResumableRecorder>::AppendOnlyMedium,
+struct AppendOnlyMediumForMultiPartsV2ResumableRecorderRecords {
+    medium: Box<dyn AppendOnlyResumableRecorderMedium>,
     header_written: bool,
 }
 
 #[cfg(feature = "async")]
 #[derive(Debug)]
-struct AsyncAppendOnlyMediumForMultiPartsV2ResumableRecorderRecords<R: ResumableRecorder + ?Sized> {
-    medium: <R as ResumableRecorder>::AsyncAppendOnlyMedium,
+struct AsyncAppendOnlyMediumForMultiPartsV2ResumableRecorderRecords {
+    medium: Box<dyn AppendOnlyAsyncResumableRecorderMedium>,
     header_written: bool,
 }
 
-#[derive(Debug)]
-struct MultiPartsV2ResumableRecorderRecords<R: ResumableRecorder + ?Sized> {
+#[derive(Debug, Default)]
+struct MultiPartsV2ResumableRecorderRecords {
     map: DashMap<u64, MultiPartsV2ResumableRecorderRecord>,
-    append_only_medium: Option<Mutex<AppendOnlyMediumForMultiPartsV2ResumableRecorderRecords<R>>>,
+    append_only_medium: Option<Mutex<AppendOnlyMediumForMultiPartsV2ResumableRecorderRecords>>,
 
     #[cfg(feature = "async")]
-    async_append_only_medium: Option<AsyncMutex<AsyncAppendOnlyMediumForMultiPartsV2ResumableRecorderRecords<R>>>,
+    async_append_only_medium: Option<AsyncMutex<AsyncAppendOnlyMediumForMultiPartsV2ResumableRecorderRecords>>,
 }
 
-impl<R: ResumableRecorder + ?Sized> Default for MultiPartsV2ResumableRecorderRecords<R> {
-    fn default() -> Self {
-        Self {
-            map: Default::default(),
-            append_only_medium: None,
-            #[cfg(feature = "async")]
-            async_append_only_medium: None,
-        }
-    }
-}
-
-impl<R: ResumableRecorder + ?Sized> MultiPartsV2ResumableRecorderRecords<R> {
-    fn set_medium_for_append(&mut self, medium: <R as ResumableRecorder>::AppendOnlyMedium, header_written: bool) {
+impl MultiPartsV2ResumableRecorderRecords {
+    fn set_medium_for_append(&mut self, medium: Box<dyn AppendOnlyResumableRecorderMedium>, header_written: bool) {
         self.append_only_medium = Some(Mutex::new(AppendOnlyMediumForMultiPartsV2ResumableRecorderRecords {
             medium,
             header_written,
@@ -1218,7 +1207,7 @@ impl<R: ResumableRecorder + ?Sized> MultiPartsV2ResumableRecorderRecords<R> {
     #[cfg(feature = "async")]
     fn set_medium_for_async_append(
         &mut self,
-        medium: <R as ResumableRecorder>::AsyncAppendOnlyMedium,
+        medium: Box<dyn AppendOnlyAsyncResumableRecorderMedium>,
         header_written: bool,
     ) {
         self.async_append_only_medium = Some(AsyncMutex::new(
@@ -1300,9 +1289,7 @@ impl<R: ResumableRecorder + ?Sized> MultiPartsV2ResumableRecorderRecords<R> {
     }
 }
 
-impl<R: ResumableRecorder + ?Sized> FromIterator<MultiPartsV2ResumableRecorderRecord>
-    for MultiPartsV2ResumableRecorderRecords<R>
-{
+impl FromIterator<MultiPartsV2ResumableRecorderRecord> for MultiPartsV2ResumableRecorderRecords {
     fn from_iter<T: IntoIterator<Item = MultiPartsV2ResumableRecorderRecord>>(iter: T) -> Self {
         Self {
             map: DashMap::from_iter(iter.into_iter().map(|record| (record.offset, record))),
@@ -1314,9 +1301,7 @@ impl<R: ResumableRecorder + ?Sized> FromIterator<MultiPartsV2ResumableRecorderRe
     }
 }
 
-impl<R: ResumableRecorder + ?Sized> Extend<MultiPartsV2ResumableRecorderRecord>
-    for MultiPartsV2ResumableRecorderRecords<R>
-{
+impl Extend<MultiPartsV2ResumableRecorderRecord> for MultiPartsV2ResumableRecorderRecords {
     fn extend<T: IntoIterator<Item = MultiPartsV2ResumableRecorderRecord>>(&mut self, iter: T) {
         self.map.extend(iter.into_iter().map(|record| (record.offset, record)))
     }

@@ -1,4 +1,4 @@
-use super::{ResumableRecorder, SourceKey};
+use super::{AppendOnlyResumableRecorderMedium, ReadOnlyResumableRecorderMedium, ResumableRecorder, SourceKey};
 use digest::Digest;
 use sha1::Sha1;
 use std::{
@@ -8,7 +8,10 @@ use std::{
 };
 
 #[cfg(feature = "async")]
-use futures::future::BoxFuture;
+use {
+    super::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium},
+    futures::future::BoxFuture,
+};
 
 /// 无断点恢复记录器
 ///
@@ -37,29 +40,28 @@ impl<O> Default for DummyResumableRecorder<O> {
 
 impl<O: Clone + Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumableRecorder<O> {
     type HashAlgorithm = O;
-    type ReadOnlyMedium = DummyResumableRecorderMedium;
-    type AppendOnlyMedium = DummyResumableRecorderMedium;
-
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    type AsyncReadOnlyMedium = DummyResumableRecorderMedium;
-
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    type AsyncAppendOnlyMedium = DummyResumableRecorderMedium;
 
     #[inline]
-    fn open_for_read(&self, _source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::ReadOnlyMedium> {
+    fn open_for_read(
+        &self,
+        _source_key: &SourceKey<Self::HashAlgorithm>,
+    ) -> IoResult<Box<dyn ReadOnlyResumableRecorderMedium>> {
         Err(make_error())
     }
 
     #[inline]
-    fn open_for_append(&self, _source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::AppendOnlyMedium> {
+    fn open_for_append(
+        &self,
+        _source_key: &SourceKey<Self::HashAlgorithm>,
+    ) -> IoResult<Box<dyn AppendOnlyResumableRecorderMedium>> {
         Err(make_error())
     }
 
     #[inline]
-    fn open_for_create_new(&self, _source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::AppendOnlyMedium> {
+    fn open_for_create_new(
+        &self,
+        _source_key: &SourceKey<Self::HashAlgorithm>,
+    ) -> IoResult<Box<dyn AppendOnlyResumableRecorderMedium>> {
         Err(make_error())
     }
 
@@ -74,7 +76,7 @@ impl<O: Clone + Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumab
     fn open_for_async_read<'a>(
         &'a self,
         _source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<Self::AsyncReadOnlyMedium>> {
+    ) -> BoxFuture<'a, IoResult<Box<dyn ReadOnlyAsyncResumableRecorderMedium>>> {
         Box::pin(async move { Err(make_error()) })
     }
 
@@ -84,7 +86,7 @@ impl<O: Clone + Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumab
     fn open_for_async_append<'a>(
         &'a self,
         _source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<Self::AsyncAppendOnlyMedium>> {
+    ) -> BoxFuture<'a, IoResult<Box<dyn AppendOnlyAsyncResumableRecorderMedium>>> {
         Box::pin(async move { Err(make_error()) })
     }
 
@@ -94,7 +96,7 @@ impl<O: Clone + Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumab
     fn open_for_async_create_new<'a>(
         &'a self,
         _source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<Self::AsyncAppendOnlyMedium>> {
+    ) -> BoxFuture<'a, IoResult<Box<dyn AppendOnlyAsyncResumableRecorderMedium>>> {
         Box::pin(async move { Err(make_error()) })
     }
 

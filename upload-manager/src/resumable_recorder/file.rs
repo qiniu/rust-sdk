@@ -1,18 +1,16 @@
-use super::{ResumableRecorder, SourceKey};
+use super::{AppendOnlyResumableRecorderMedium, ReadOnlyResumableRecorderMedium, ResumableRecorder, SourceKey};
 use sha1::Sha1;
 use std::{
     env::temp_dir,
-    fs::{remove_file, DirBuilder, File, OpenOptions},
+    fs::{remove_file, DirBuilder, OpenOptions},
     io::Result as IoResult,
     path::PathBuf,
 };
 
 #[cfg(feature = "async")]
 use {
-    async_std::fs::{
-        remove_file as async_remove_file, DirBuilder as AsyncDirBuilder, File as AsyncFile,
-        OpenOptions as AsyncOpenOptions,
-    },
+    super::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium},
+    async_std::fs::{remove_file as async_remove_file, DirBuilder as AsyncDirBuilder, OpenOptions as AsyncOpenOptions},
     futures::future::BoxFuture,
 };
 
@@ -56,35 +54,37 @@ impl FileSystemResumableRecorder {
 
 impl ResumableRecorder for FileSystemResumableRecorder {
     type HashAlgorithm = Sha1;
-    type ReadOnlyMedium = File;
-    type AppendOnlyMedium = File;
-
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    type AsyncReadOnlyMedium = AsyncFile;
-
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    type AsyncAppendOnlyMedium = AsyncFile;
 
     #[inline]
-    fn open_for_read(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::ReadOnlyMedium> {
+    fn open_for_read(
+        &self,
+        source_key: &SourceKey<Self::HashAlgorithm>,
+    ) -> IoResult<Box<dyn ReadOnlyResumableRecorderMedium>> {
         self.create_directory()?;
-        OpenOptions::new().read(true).open(self.path_of(source_key))
+        let medium = OpenOptions::new().read(true).open(self.path_of(source_key))?;
+        Ok(Box::new(medium))
     }
 
-    fn open_for_append(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::AppendOnlyMedium> {
+    fn open_for_append(
+        &self,
+        source_key: &SourceKey<Self::HashAlgorithm>,
+    ) -> IoResult<Box<dyn AppendOnlyResumableRecorderMedium>> {
         self.create_directory()?;
-        OpenOptions::new().append(true).open(self.path_of(source_key))
+        let medium = OpenOptions::new().append(true).open(self.path_of(source_key))?;
+        Ok(Box::new(medium))
     }
 
-    fn open_for_create_new(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::AppendOnlyMedium> {
+    fn open_for_create_new(
+        &self,
+        source_key: &SourceKey<Self::HashAlgorithm>,
+    ) -> IoResult<Box<dyn AppendOnlyResumableRecorderMedium>> {
         self.create_directory()?;
-        OpenOptions::new()
+        let medium = OpenOptions::new()
             .create(true)
             .truncate(true)
             .write(true)
-            .open(self.path_of(source_key))
+            .open(self.path_of(source_key))?;
+        Ok(Box::new(medium))
     }
 
     fn delete(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<()> {
@@ -96,10 +96,14 @@ impl ResumableRecorder for FileSystemResumableRecorder {
     fn open_for_async_read<'a>(
         &'a self,
         source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<Self::AsyncReadOnlyMedium>> {
+    ) -> BoxFuture<'a, IoResult<Box<dyn ReadOnlyAsyncResumableRecorderMedium>>> {
         Box::pin(async move {
             self.async_create_directory().await?;
-            AsyncOpenOptions::new().read(true).open(self.path_of(source_key)).await
+            let medium = AsyncOpenOptions::new()
+                .read(true)
+                .open(self.path_of(source_key))
+                .await?;
+            Ok(Box::new(medium) as Box<dyn ReadOnlyAsyncResumableRecorderMedium>)
         })
     }
 
@@ -108,13 +112,14 @@ impl ResumableRecorder for FileSystemResumableRecorder {
     fn open_for_async_append<'a>(
         &'a self,
         source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<Self::AsyncAppendOnlyMedium>> {
+    ) -> BoxFuture<'a, IoResult<Box<dyn AppendOnlyAsyncResumableRecorderMedium>>> {
         Box::pin(async move {
             self.async_create_directory().await?;
-            AsyncOpenOptions::new()
+            let medium = AsyncOpenOptions::new()
                 .append(true)
                 .open(self.path_of(source_key))
-                .await
+                .await?;
+            Ok(Box::new(medium) as Box<dyn AppendOnlyAsyncResumableRecorderMedium>)
         })
     }
 
@@ -123,15 +128,16 @@ impl ResumableRecorder for FileSystemResumableRecorder {
     fn open_for_async_create_new<'a>(
         &'a self,
         source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<Self::AsyncAppendOnlyMedium>> {
+    ) -> BoxFuture<'a, IoResult<Box<dyn AppendOnlyAsyncResumableRecorderMedium>>> {
         Box::pin(async move {
             self.async_create_directory().await?;
-            AsyncOpenOptions::new()
+            let medium = AsyncOpenOptions::new()
                 .create(true)
                 .truncate(true)
                 .write(true)
                 .open(self.path_of(source_key))
-                .await
+                .await?;
+            Ok(Box::new(medium) as Box<dyn AppendOnlyAsyncResumableRecorderMedium>)
         })
     }
 
