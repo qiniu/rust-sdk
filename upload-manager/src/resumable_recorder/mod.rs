@@ -14,7 +14,7 @@ use futures::{
 
 /// 断点恢复记录器
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait ResumableRecorder: Debug + Sync + Send {
+pub trait ResumableRecorder: Clone + Debug + Sync + Send {
     /// 数据源 KEY 的哈希算法
     type HashAlgorithm: Digest;
 

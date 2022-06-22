@@ -19,7 +19,7 @@ use {
 /// 文件系统断点恢复记录器
 ///
 /// 基于文件系统提供断点恢复记录功能
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FileSystemResumableRecorder {
     path: PathBuf,
 }

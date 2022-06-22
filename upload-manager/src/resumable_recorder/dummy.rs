@@ -35,7 +35,7 @@ impl<O> Default for DummyResumableRecorder<O> {
     }
 }
 
-impl<O: Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumableRecorder<O> {
+impl<O: Clone + Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumableRecorder<O> {
     type HashAlgorithm = O;
     type ReadOnlyMedium = DummyResumableRecorderMedium;
     type AppendOnlyMedium = DummyResumableRecorderMedium;
