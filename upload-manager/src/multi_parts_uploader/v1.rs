@@ -3,8 +3,8 @@ use super::{
         callbacks::{Callbacks, UploadingProgressInfo},
         data_source::{Digestible, SourceKey},
         upload_token::OwnedUploadTokenProviderOrReferenced,
-        AppendOnlyAsyncResumableRecorderMedium, AppendOnlyResumableRecorderMedium, DataPartitionProvider,
-        DataPartitionProviderFeedback, DataSourceReader, MultiplyDataPartitionProvider, UploaderWithCallbacks,
+        AppendOnlyResumableRecorderMedium, DataPartitionProvider, DataPartitionProviderFeedback, DataSourceReader,
+        MultiplyDataPartitionProvider, UploaderWithCallbacks,
     },
     progress::{Progresses, ProgressesKey},
     up_endpoints::UpEndpoints,
@@ -48,7 +48,7 @@ use std::{
 
 #[cfg(feature = "async")]
 use {
-    super::super::{data_source::AsyncDigestible, AsyncDataSourceReader},
+    super::super::{data_source::AsyncDigestible, AppendOnlyAsyncResumableRecorderMedium, AsyncDataSourceReader},
     async_std::io::Cursor as AsyncCursor,
     futures::{
         future::{BoxFuture, OptionFuture},

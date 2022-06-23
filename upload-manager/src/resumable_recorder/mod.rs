@@ -1,6 +1,7 @@
 use super::SourceKey;
 use auto_impl::auto_impl;
 use digest::Digest;
+use dyn_clonable::dyn_clone::{clone_trait_object, DynClone};
 use std::{
     fmt::Debug,
     io::{Read, Result as IoResult, Write},
@@ -14,7 +15,7 @@ use futures::{
 
 /// 断点恢复记录器
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait ResumableRecorder: Clone + Debug + Sync + Send {
+pub trait ResumableRecorder: DynClone + Debug + Sync + Send {
     /// 数据源 KEY 的哈希算法
     type HashAlgorithm: Digest;
 
@@ -68,6 +69,8 @@ pub trait ResumableRecorder: Clone + Debug + Sync + Send {
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_delete<'a>(&'a self, source_key: &'a SourceKey<Self::HashAlgorithm>) -> BoxFuture<'a, IoResult<()>>;
 }
+
+clone_trait_object!(<H> ResumableRecorder<HashAlgorithm=H> where H: Digest);
 
 /// 只读介质接口
 pub trait ReadOnlyResumableRecorderMedium: Read + Debug + Sync + Send {}
