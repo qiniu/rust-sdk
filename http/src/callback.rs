@@ -71,12 +71,15 @@ impl_callback!(OnStatusCodeCallback, "OnStatusCodeCallback", Fn(StatusCode) -> A
 
 pub(super) type OnStatusCode<'r> = &'r (dyn Fn(StatusCode) -> AnyResult<()> + Send + Sync + 'r);
 
+type OnHeaderCallbackFn<'r> = Box<dyn Fn(&HeaderName, &HeaderValue) -> AnyResult<()> + Send + Sync + 'r>;
+type OnHeaderCallbackFnRef<'r> = &'r (dyn Fn(&HeaderName, &HeaderValue) -> AnyResult<()> + Send + Sync + 'r);
+
 /// 接受到响应 Header 回调
 pub enum OnHeaderCallback<'r> {
     /// 用 Box 包装的接受到响应 Header 回调
-    Boxed(Box<dyn Fn(&HeaderName, &HeaderValue) -> AnyResult<()> + Send + Sync + 'r>),
+    Boxed(OnHeaderCallbackFn<'r>),
     /// 接受到响应 Header 回调的引用
-    Referenced(&'r (dyn Fn(&HeaderName, &HeaderValue) -> AnyResult<()> + Send + Sync + 'r)),
+    Referenced(OnHeaderCallbackFnRef<'r>),
 }
 impl_callback!(OnHeaderCallback, "OnHeaderCallback", Fn(&HeaderName, &HeaderValue) -> AnyResult<()>);
 
