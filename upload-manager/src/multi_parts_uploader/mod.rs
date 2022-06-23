@@ -1,6 +1,7 @@
 use super::{
     DataPartitionProvider, DataSource, MultiPartsUploaderWithCallbacks, ObjectParams, ResumableRecorder, UploadManager,
 };
+use digest::Digest;
 use qiniu_apis::http_client::ApiResult;
 use serde_json::Value;
 use std::{fmt::Debug, num::NonZeroU64};
@@ -11,25 +12,28 @@ use futures::future::BoxFuture;
 /// 分片上传器接口
 ///
 /// 将数据源通过多个分片的方式逐一上传，适合数据量较大的数据源，可以提供断点恢复的能力。
-pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Send + Sync + Debug {
-    /// 断点恢复记录器
-    type ResumableRecorder: ResumableRecorder + 'static;
+pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + Sync + Debug {
+    /// 数据源 KEY 的哈希算法
+    type HashAlgorithm: Digest + Send + 'static;
 
     /// 初始化的分片信息
     type InitializedParts: InitializedParts + 'static;
 
     /// 已经上传的分片信息
-    type UploadedPart: UploadedPart + 'static;
+    type UploadedPart: UploadedPart;
 
     /// 创建分片上传器
-    fn new(upload_manager: UploadManager, resumable_recorder: Self::ResumableRecorder) -> Self;
+    fn new<R: ResumableRecorder<HashAlgorithm = Self::HashAlgorithm> + 'static>(
+        upload_manager: UploadManager,
+        resumable_recorder: R,
+    ) -> Self;
 
     /// 初始化分片信息
     ///
     /// 该步骤只负责初始化分片，但不实际上传数据，如果提供了有效的断点续传记录器，则可以尝试在这一步找到记录。
     ///
     /// 该方法的异步版本为 [`Self::async_initialize_parts`]。
-    fn initialize_parts<D: DataSource<<Self::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(
+    fn initialize_parts<D: DataSource<Self::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
@@ -60,7 +64,7 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Send + Sync + De
     /// 该步骤只负责初始化分片，但不实际上传数据，如果提供了有效的断点续传记录器，则可以尝试在这一步找到记录。
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_initialize_parts<D: DataSource<<Self::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(
+    fn async_initialize_parts<D: DataSource<Self::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,

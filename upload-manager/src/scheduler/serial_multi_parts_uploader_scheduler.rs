@@ -1,5 +1,5 @@
 use super::{
-    super::{ConcurrencyProvider, FixedDataPartitionProvider, ResumableRecorder},
+    super::{ConcurrencyProvider, FixedDataPartitionProvider},
     DataPartitionProvider, DataSource, MultiPartsUploader, MultiPartsUploaderScheduler, ObjectParams,
 };
 use qiniu_apis::http_client::ApiResult;
@@ -93,23 +93,26 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler for SerialMultiPartsUplo
         }
     }
 
-    fn set_concurrency_provider(&mut self, _concurrency_provider: impl ConcurrencyProvider + 'static) {}
-
-    fn set_data_partition_provider(&mut self, data_partition_provider: impl DataPartitionProvider + 'static) {
-        self.data_partition_provider = Box::new(data_partition_provider);
+    fn set_concurrency_provider(&mut self, _concurrency_provider: impl ConcurrencyProvider + 'static) -> &mut Self {
+        self
     }
 
-    fn upload<D: DataSource<<<Self::MultiPartsUploader as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(
+    fn set_data_partition_provider(
+        &mut self,
+        data_partition_provider: impl DataPartitionProvider + 'static,
+    ) -> &mut Self {
+        self.data_partition_provider = Box::new(data_partition_provider);
+        self
+    }
+
+    fn upload<D: DataSource<<Self::MultiPartsUploader as MultiPartsUploader>::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
-    ) -> ApiResult<Value>{
+    ) -> ApiResult<Value> {
         return _upload(self, source, params);
 
-        fn _upload<
-            M: MultiPartsUploader,
-            D: DataSource<<M::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static,
-        >(
+        fn _upload<M: MultiPartsUploader, D: DataSource<M::HashAlgorithm> + 'static>(
             scheduler: &SerialMultiPartsUploaderScheduler<M>,
             source: D,
             params: ObjectParams,
@@ -128,17 +131,14 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler for SerialMultiPartsUplo
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload<D: DataSource<<<Self::MultiPartsUploader as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(
+    fn async_upload<D: DataSource<M::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
-    ) -> BoxFuture<ApiResult<Value>>{
+    ) -> BoxFuture<ApiResult<Value>> {
         return Box::pin(async move { _upload(self, source, params).await });
 
-        async fn _upload<
-            M: MultiPartsUploader,
-            D: DataSource<<M::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static,
-        >(
+        async fn _upload<M: MultiPartsUploader, D: DataSource<M::HashAlgorithm> + 'static>(
             scheduler: &SerialMultiPartsUploaderScheduler<M>,
             source: D,
             params: ObjectParams,

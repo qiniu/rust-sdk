@@ -176,7 +176,7 @@ impl<D: Digest + Send> DataSource<D> for FileDataSource<D> {
 
     fn total_size(&self) -> IoResult<Option<u64>> {
         match self.get_seekable_source()? {
-            Source::Seekable(source) => DataSource::<Sha1>::total_size(source),
+            Source::Seekable(source) => DataSource::<D>::total_size(source),
             Source::Unseekable(source) => source.total_size(),
         }
     }

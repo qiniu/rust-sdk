@@ -80,7 +80,7 @@ use {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FormUploader {
     upload_manager: UploadManager,
     callbacks: Callbacks<'static>,

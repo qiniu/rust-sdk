@@ -3,6 +3,7 @@ use super::{
     MultiPartsV1Uploader, MultiPartsV2Uploader, ResumableRecorder, SinglePartUploader,
 };
 use assert_impl::assert_impl;
+use digest::Digest;
 use qiniu_apis::{
     http_client::{BucketRegionsQueryer, BucketRegionsQueryerBuilder, Endpoints, HttpClient},
     Client as QiniuApiClient,
@@ -65,45 +66,41 @@ impl UploadManager {
 
     /// 创建默认的分片上传器
     #[inline]
-    pub fn multi_parts_uploader(
+    pub fn multi_parts_uploader<H: Digest + Send + 'static, R: ResumableRecorder<HashAlgorithm = H> + 'static>(
         &self,
-        resumable_recorder: impl ResumableRecorder + 'static,
-    ) -> impl MultiPartsUploader {
+        resumable_recorder: R,
+    ) -> impl MultiPartsUploader<HashAlgorithm = H> {
         self.multi_parts_v2_uploader(resumable_recorder)
     }
 
     /// 创建分片上传器 V1
     #[inline]
-    pub fn multi_parts_v1_uploader<R: ResumableRecorder + 'static>(
+    pub fn multi_parts_v1_uploader<H: Digest + Send + 'static, R: ResumableRecorder<HashAlgorithm = H> + 'static>(
         &self,
         resumable_recorder: R,
-    ) -> MultiPartsV1Uploader<R> {
-        MultiPartsV1Uploader::new(self.to_owned(), resumable_recorder)
+    ) -> MultiPartsV1Uploader<H> {
+        MultiPartsV1Uploader::<H>::new(self.to_owned(), resumable_recorder)
     }
 
     /// 创建分片上传器 V2
     #[inline]
-    pub fn multi_parts_v2_uploader<R: ResumableRecorder + 'static>(
+    pub fn multi_parts_v2_uploader<H: Digest + Send + 'static, R: ResumableRecorder<HashAlgorithm = H> + 'static>(
         &self,
         resumable_recorder: R,
-    ) -> MultiPartsV2Uploader<R> {
-        MultiPartsV2Uploader::new(self.to_owned(), resumable_recorder)
+    ) -> MultiPartsV2Uploader<H> {
+        MultiPartsV2Uploader::<H>::new(self.to_owned(), resumable_recorder)
     }
 
     /// 创建自动上传器
     #[inline]
-    pub fn auto_uploader<CP: Default, DPP: Default, RR: Default, RPP: Default>(
-        &self,
-    ) -> AutoUploader<CP, DPP, RR, RPP> {
-        AutoUploader::<CP, DPP, RR, RPP>::new(self.to_owned())
+    pub fn auto_uploader<H: Digest + Send + 'static>(&self) -> AutoUploader<H> {
+        AutoUploader::<H>::new(self.to_owned())
     }
 
     /// 创建自动上传构建器
     #[inline]
-    pub fn auto_uploader_builder<CP: Default, DPP: Default, RR: Default, RPP: Default>(
-        &self,
-    ) -> AutoUploaderBuilder<CP, DPP, RR, RPP> {
-        AutoUploader::<CP, DPP, RR, RPP>::builder(self.to_owned())
+    pub fn auto_uploader_builder<H: Digest + Send + 'static>(&self) -> AutoUploaderBuilder<H> {
+        AutoUploader::<H>::builder(self.to_owned())
     }
 
     #[allow(dead_code)]

@@ -13,6 +13,7 @@ use super::{
 };
 use anyhow::{Error as AnyError, Result as AnyResult};
 use dashmap::DashMap;
+use digest::Digest;
 use qiniu_apis::{
     credential::AccessKey,
     http::{Reset, ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
@@ -37,7 +38,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha1::Sha1;
 use std::{
-    fmt::Debug,
+    fmt::{self, Debug},
     io::{BufRead, BufReader, Cursor, Read, Result as IoResult, Write},
     iter::FromIterator,
     mem::take,
@@ -68,27 +69,38 @@ use {
 /// 分片上传器 V1
 ///
 /// 不推荐直接使用这个上传器，而是可以借助 [`crate::MultiPartsUploaderScheduler`] 来方便地实现分片上传。
-#[derive(Debug)]
-pub struct MultiPartsV1Uploader<R: ?Sized> {
+pub struct MultiPartsV1Uploader<H: Digest = Sha1> {
     upload_manager: UploadManager,
     callbacks: Callbacks<'static>,
-    resumable_recorder: R,
+    resumable_recorder: Arc<dyn ResumableRecorder<HashAlgorithm = H>>,
 }
 
 /// 被 分片上传器 V1 初始化的分片信息
-#[derive(Debug)]
-pub struct MultiPartsV1UploaderInitializedObject<R: ResumableRecorder + ?Sized> {
-    source: Arc<dyn DataSource<<R as ResumableRecorder>::HashAlgorithm>>,
+pub struct MultiPartsV1UploaderInitializedObject<H: Digest = Sha1> {
+    source: Arc<dyn DataSource<H>>,
     params: ObjectParams,
     progresses: Progresses,
     recovered_records: MultiPartsV1ResumableRecorderRecords,
     up_endpoints: UpEndpoints,
 }
 
-impl<R: ResumableRecorder + ?Sized> InitializedParts for MultiPartsV1UploaderInitializedObject<R> {
+impl<H: Digest> InitializedParts for MultiPartsV1UploaderInitializedObject<H> {
     #[inline]
     fn params(&self) -> &ObjectParams {
         &self.params
+    }
+}
+
+impl<H: Digest> Debug for MultiPartsV1UploaderInitializedObject<H> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MultiPartsV1UploaderInitializedObject")
+            .field("source", &self.source)
+            .field("params", &self.params)
+            .field("progresses", &self.progresses)
+            .field("recovered_records", &self.recovered_records)
+            .field("up_endpoints", &self.up_endpoints)
+            .finish()
     }
 }
 
@@ -126,7 +138,7 @@ impl UploadedPart for MultiPartsV1UploaderUploadedPart {
     }
 }
 
-impl<R> UploaderWithCallbacks for MultiPartsV1Uploader<R> {
+impl<H: Digest> UploaderWithCallbacks for MultiPartsV1Uploader<H> {
     #[inline]
     fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
@@ -164,7 +176,7 @@ impl<R> UploaderWithCallbacks for MultiPartsV1Uploader<R> {
     }
 }
 
-impl<R> MultiPartsUploaderWithCallbacks for MultiPartsV1Uploader<R> {
+impl<H: Digest> MultiPartsUploaderWithCallbacks for MultiPartsV1Uploader<H> {
     #[inline]
     fn on_part_uploaded<F: Fn(&dyn UploadedPart) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
@@ -175,36 +187,39 @@ impl<R> MultiPartsUploaderWithCallbacks for MultiPartsV1Uploader<R> {
     }
 }
 
-impl<R> MultiPartsV1Uploader<R> {
+impl<H: Digest> MultiPartsV1Uploader<H> {
     #[inline]
-    pub(crate) fn new_with_callbacks(
+    pub(crate) fn new_with_callbacks<R: ResumableRecorder<HashAlgorithm = H> + 'static>(
         upload_manager: UploadManager,
         callbacks: Callbacks<'static>,
         resumable_recorder: R,
     ) -> Self {
         Self {
             upload_manager,
-            resumable_recorder,
             callbacks,
+            resumable_recorder: Arc::new(resumable_recorder),
         }
     }
 }
 
-impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader<R> {
-    type ResumableRecorder = R;
-    type InitializedParts = MultiPartsV1UploaderInitializedObject<R>;
+impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> {
+    type HashAlgorithm = H;
+    type InitializedParts = MultiPartsV1UploaderInitializedObject<H>;
     type UploadedPart = MultiPartsV1UploaderUploadedPart;
 
     #[inline]
-    fn new(upload_manager: UploadManager, resumable_recorder: Self::ResumableRecorder) -> Self {
+    fn new<R: ResumableRecorder<HashAlgorithm = Self::HashAlgorithm> + 'static>(
+        upload_manager: UploadManager,
+        resumable_recorder: R,
+    ) -> Self {
         Self {
             upload_manager,
-            resumable_recorder,
             callbacks: Default::default(),
+            resumable_recorder: Arc::new(resumable_recorder),
         }
     }
 
-    fn initialize_parts<D: DataSource<<Self::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(
+    fn initialize_parts<D: DataSource<Self::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
@@ -271,8 +286,8 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
             Ok(None)
         };
 
-        fn _could_recover<R: ResumableRecorder>(
-            initialized: &MultiPartsV1UploaderInitializedObject<R>,
+        fn _could_recover<H: Digest>(
+            initialized: &MultiPartsV1UploaderInitializedObject<H>,
             data_reader: &mut DataSourceReader,
             part_size: NonZeroU64,
             uploaded_part_ttl: Duration,
@@ -297,13 +312,13 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
         }
 
         #[allow(clippy::too_many_arguments)]
-        fn _upload_part<'a, R: ResumableRecorder + Send + Sync + 'static, E: EndpointsProvider + Clone + 'a>(
-            uploader: &'a MultiPartsV1Uploader<R>,
+        fn _upload_part<'a, H: Digest, E: EndpointsProvider + Clone + 'a>(
+            uploader: &'a MultiPartsV1Uploader<H>,
             mut request: SyncMkBlkRequestBuilder<'a, E>,
             mut body: DataSourceReader,
             content_length: NonZeroU64,
             progresses_key: &'a ProgressesKey,
-            initialized: &'a MultiPartsV1UploaderInitializedObject<R>,
+            initialized: &'a MultiPartsV1UploaderInitializedObject<H>,
             data_partitioner_provider: &'a dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV1UploaderUploadedPart> {
             let total_size = initialized.source.total_size()?;
@@ -360,17 +375,12 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
             body,
         );
 
-        fn _complete_parts<
-            'a,
-            R: ResumableRecorder + Send + Sync + 'static,
-            E: EndpointsProvider + Clone + 'a,
-            D: DataSource<<<MultiPartsV1Uploader<R> as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm>,
-        >(
-            uploader: &'a MultiPartsV1Uploader<R>,
+        fn _complete_parts<'a, H: Digest, E: EndpointsProvider + Clone + 'a, D: DataSource<H>>(
+            uploader: &'a MultiPartsV1Uploader<H>,
             mut request: SyncMkFileRequestBuilder<'a, E>,
             source: &D,
             body: String,
-        ) -> ApiResult<Value>{
+        ) -> ApiResult<Value> {
             uploader.before_request_call(request.parts_mut())?;
             let content_length = body.len() as u64;
             let mut response_result = request.call(Cursor::new(body), content_length);
@@ -383,9 +393,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_initialize_parts<
-        D: DataSource<<Self::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static,
-    >(
+    fn async_initialize_parts<D: DataSource<Self::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
@@ -489,8 +497,8 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
             }
         });
 
-        async fn _could_recover<R: ResumableRecorder>(
-            initialized: &MultiPartsV1UploaderInitializedObject<R>,
+        async fn _could_recover<H: Digest>(
+            initialized: &MultiPartsV1UploaderInitializedObject<H>,
             data_reader: &mut AsyncDataSourceReader,
             part_size: NonZeroU64,
             uploaded_part_ttl: Duration,
@@ -517,13 +525,13 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
         }
 
         #[allow(clippy::too_many_arguments)]
-        async fn _upload_part<'a, R: ResumableRecorder + Send + Sync + 'static, E: EndpointsProvider + Clone + 'a>(
-            uploader: &'a MultiPartsV1Uploader<R>,
+        async fn _upload_part<'a, H: Digest, E: EndpointsProvider + Clone + 'a>(
+            uploader: &'a MultiPartsV1Uploader<H>,
             mut request: AsyncMkBlkRequestBuilder<'a, E>,
             mut body: AsyncDataSourceReader,
             content_length: NonZeroU64,
             progresses_key: &'a ProgressesKey,
-            initialized: &'a MultiPartsV1UploaderInitializedObject<R>,
+            initialized: &'a MultiPartsV1UploaderInitializedObject<H>,
             data_partitioner_provider: &'a dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV1UploaderUploadedPart> {
             let total_size = initialized.source.async_total_size().await?;
@@ -604,17 +612,12 @@ impl<R: ResumableRecorder + 'static> MultiPartsUploader for MultiPartsV1Uploader
             }
         });
 
-        async fn _complete_parts<
-            'a,
-            R: ResumableRecorder + Send + Sync + 'static,
-            E: EndpointsProvider + Clone + 'a,
-            D: DataSource<<<MultiPartsV1Uploader<R> as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm>,
-        >(
-            uploader: &'a MultiPartsV1Uploader<R>,
+        async fn _complete_parts<'a, H: Digest, E: EndpointsProvider + Clone + 'a, D: DataSource<H>>(
+            uploader: &'a MultiPartsV1Uploader<H>,
             mut request: AsyncMkFileRequestBuilder<'a, E>,
             source: &D,
             body: String,
-        ) -> ApiResult<Value>{
+        ) -> ApiResult<Value> {
             uploader.before_request_call(request.parts_mut())?;
             let content_length = body.len() as u64;
             let mut response_result = request.call(AsyncCursor::new(body), content_length).await;
@@ -682,7 +685,7 @@ async fn sha1_of_async_reader<R: AsyncRead + AsyncReset + Unpin + Send>(reader: 
     ))
 }
 
-impl<R> MultiPartsV1Uploader<R> {
+impl<H: Digest> MultiPartsV1Uploader<H> {
     fn storage(&self) -> storage::Client {
         self.upload_manager.client().storage()
     }
@@ -736,7 +739,7 @@ impl<R> MultiPartsV1Uploader<R> {
     }
 }
 
-impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
+impl<H: Digest> MultiPartsV1Uploader<H> {
     fn up_endpoints(&self, params: &ObjectParams) -> ApiResult<UpEndpoints> {
         let up_endpoints = if let Some(region_provider) = params.region_provider() {
             UpEndpoints::from_endpoints_provider(&RegionsProviderEndpoints::new(region_provider))?
@@ -780,9 +783,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
             .make_upload_token_provider(object_name)
     }
 
-    fn try_to_recover<
-        D: DataSource<<<Self as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static,
-    >(
+    fn try_to_recover<D: DataSource<H>>(
         &self,
         source: &D,
         up_endpoints: &UpEndpoints,
@@ -798,9 +799,9 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
             })
             .unwrap_or_else(|| Ok(Default::default()));
 
-        fn _try_to_recover<R: ResumableRecorder>(
-            uploader: &MultiPartsV1Uploader<R>,
-            source_key: &SourceKey<R::HashAlgorithm>,
+        fn _try_to_recover<H: Digest>(
+            uploader: &MultiPartsV1Uploader<H>,
+            source_key: &SourceKey<H>,
             up_endpoints: &UpEndpoints,
         ) -> ApiResult<Option<MultiPartsV1ResumableRecorderRecords>> {
             let mut records = {
@@ -828,9 +829,9 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
             Ok(Some(records))
         }
 
-        fn _new_records<R: ResumableRecorder>(
-            uploader: &MultiPartsV1Uploader<R>,
-            source_key: &SourceKey<R::HashAlgorithm>,
+        fn _new_records<H: Digest>(
+            uploader: &MultiPartsV1Uploader<H>,
+            source_key: &SourceKey<H>,
         ) -> ApiResult<MultiPartsV1ResumableRecorderRecords> {
             let mut records = MultiPartsV1ResumableRecorderRecords::default();
             records.set_medium_for_append(uploader.resumable_recorder.open_for_create_new(source_key)?, false);
@@ -839,9 +840,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
     }
 
     #[cfg(feature = "async")]
-    async fn try_to_async_recover<
-        D: DataSource<<<Self as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static,
-    >(
+    async fn try_to_async_recover<D: DataSource<H>>(
         &self,
         source: &D,
         up_endpoints: &UpEndpoints,
@@ -856,9 +855,9 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
         .await
         .unwrap_or_else(|| Ok(Default::default()));
 
-        async fn _try_to_recover<R: ResumableRecorder>(
-            uploader: &MultiPartsV1Uploader<R>,
-            source_key: &SourceKey<R::HashAlgorithm>,
+        async fn _try_to_recover<H: Digest>(
+            uploader: &MultiPartsV1Uploader<H>,
+            source_key: &SourceKey<H>,
             up_endpoints: &UpEndpoints,
         ) -> ApiResult<Option<MultiPartsV1ResumableRecorderRecords>> {
             let mut records = {
@@ -889,9 +888,9 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
             Ok(Some(records))
         }
 
-        async fn _new_records<R: ResumableRecorder>(
-            resumable_recorder: &R,
-            source_key: &SourceKey<R::HashAlgorithm>,
+        async fn _new_records<D: Digest>(
+            resumable_recorder: &dyn ResumableRecorder<HashAlgorithm = D>,
+            source_key: &SourceKey<D>,
         ) -> ApiResult<MultiPartsV1ResumableRecorderRecords> {
             let mut records = MultiPartsV1ResumableRecorderRecords::default();
             records.set_medium_for_async_append(resumable_recorder.open_for_async_create_new(source_key).await?, false);
@@ -899,12 +898,7 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
         }
     }
 
-    fn try_to_delete_records<
-        D: DataSource<<<Self as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm>,
-    >(
-        &self,
-        source: &D,
-    ) -> ApiResult<()> {
+    fn try_to_delete_records<D: DataSource<H>>(&self, source: &D) -> ApiResult<()> {
         if let Some(source_key) = source.source_key()? {
             self.resumable_recorder.delete(&source_key)?;
         }
@@ -912,16 +906,33 @@ impl<R: ResumableRecorder + 'static> MultiPartsV1Uploader<R> {
     }
 
     #[cfg(feature = "async")]
-    async fn try_to_async_delete_records<
-        D: DataSource<<<Self as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm>,
-    >(
-        &self,
-        source: &D,
-    ) -> ApiResult<()> {
+    async fn try_to_async_delete_records<D: DataSource<H>>(&self, source: &D) -> ApiResult<()> {
         if let Some(source_key) = source.async_source_key().await? {
             self.resumable_recorder.async_delete(&source_key).await?;
         }
         Ok(())
+    }
+}
+
+impl<H: Digest> Debug for MultiPartsV1Uploader<H> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MultiPartsV1Uploader")
+            .field("upload_manager", &self.upload_manager)
+            .field("callbacks", &self.callbacks)
+            .field("resumable_recorder", &self.resumable_recorder)
+            .finish()
+    }
+}
+
+impl<H: Digest> Clone for MultiPartsV1Uploader<H> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            upload_manager: self.upload_manager.clone(),
+            callbacks: self.callbacks.clone(),
+            resumable_recorder: self.resumable_recorder.clone(),
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 use super::{
     super::{
         Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, FixedConcurrencyProvider,
-        FixedDataPartitionProvider, ResumableRecorder, UploadedPart,
+        FixedDataPartitionProvider, UploadedPart,
     },
     DataPartitionProvider, DataSource, MultiPartsUploader, MultiPartsUploaderScheduler, ObjectParams,
 };
@@ -127,19 +127,24 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
         }
     }
 
-    fn set_concurrency_provider(&mut self, concurrency_provider: impl ConcurrencyProvider + 'static) {
+    fn set_concurrency_provider(&mut self, concurrency_provider: impl ConcurrencyProvider + 'static) -> &mut Self {
         self.concurrency_provider = Arc::new(concurrency_provider);
+        self
     }
 
-    fn set_data_partition_provider(&mut self, data_partition_provider: impl DataPartitionProvider + 'static) {
+    fn set_data_partition_provider(
+        &mut self,
+        data_partition_provider: impl DataPartitionProvider + 'static,
+    ) -> &mut Self {
         self.data_partition_provider = Arc::new(data_partition_provider);
+        self
     }
 
-    fn upload<D: DataSource<<<Self::MultiPartsUploader as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(
+    fn upload<D: DataSource<<Self::MultiPartsUploader as MultiPartsUploader>::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
-    ) -> ApiResult<Value>{
+    ) -> ApiResult<Value> {
         let uploaded_size = AtomicU64::new(0);
         let concurrency = self.concurrency_provider.concurrency();
         let begin_at = Instant::now();
@@ -154,10 +159,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
         }
         return result;
 
-        fn _upload<
-            M: MultiPartsUploader,
-            D: DataSource<<M::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static,
-        >(
+        fn _upload<M: MultiPartsUploader, D: DataSource<M::HashAlgorithm> + 'static>(
             scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
             source: D,
             params: ObjectParams,
@@ -209,11 +211,11 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload<D: DataSource<<<Self::MultiPartsUploader as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(
+    fn async_upload<D: DataSource<<Self::MultiPartsUploader as MultiPartsUploader>::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
-    ) -> BoxFuture<ApiResult<Value>>{
+    ) -> BoxFuture<ApiResult<Value>> {
         return Box::pin(async move {
             let uploaded_size = Arc::new(AtomicU64::new(0));
             let concurrency = self.concurrency_provider.concurrency();
@@ -230,10 +232,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
             result
         });
 
-        async fn _upload<
-            M: MultiPartsUploader + 'static,
-            D: DataSource<<M::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static,
-        >(
+        async fn _upload<M: MultiPartsUploader + 'static, D: DataSource<M::HashAlgorithm> + 'static>(
             scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
             source: D,
             params: ObjectParams,

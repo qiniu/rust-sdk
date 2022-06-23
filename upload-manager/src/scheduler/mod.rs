@@ -1,6 +1,4 @@
-use super::{
-    ConcurrencyProvider, DataPartitionProvider, DataSource, MultiPartsUploader, ObjectParams, ResumableRecorder,
-};
+use super::{ConcurrencyProvider, DataPartitionProvider, DataSource, MultiPartsUploader, ObjectParams};
 use crate::{data_source::FileDataSource, data_source::UnseekableDataSource};
 use qiniu_apis::http_client::ApiResult;
 use serde_json::Value;
@@ -23,27 +21,35 @@ pub trait MultiPartsUploaderScheduler: Send + Sync + Debug {
     fn new(multi_parts_uploader: Self::MultiPartsUploader) -> Self;
 
     /// 设置并发数提供者
-    fn set_concurrency_provider(&mut self, concurrency_provider: impl ConcurrencyProvider + 'static);
+    fn set_concurrency_provider(&mut self, concurrency_provider: impl ConcurrencyProvider + 'static) -> &mut Self;
 
     /// 设置分片大小提供者
-    fn set_data_partition_provider(&mut self, data_partition_provider: impl DataPartitionProvider + 'static);
+    fn set_data_partition_provider(
+        &mut self,
+        data_partition_provider: impl DataPartitionProvider + 'static,
+    ) -> &mut Self;
 
     /// 上传数据源
     ///
     /// 该方法的异步版本为 [`Self::async_upload`]。
-    fn upload<D: DataSource<<<Self::MultiPartsUploader as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(&self, source: D, params: ObjectParams) -> ApiResult<Value>;
+    fn upload<D: DataSource<<Self::MultiPartsUploader as MultiPartsUploader>::HashAlgorithm> + 'static>(
+        &self,
+        source: D,
+        params: ObjectParams,
+    ) -> ApiResult<Value>;
 
     /// 异步上传数据源
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload<D: DataSource<<<Self::MultiPartsUploader as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm> + 'static>(&self, source: D, params: ObjectParams) -> BoxFuture<ApiResult<Value>>;
+    fn async_upload<D: DataSource<<Self::MultiPartsUploader as MultiPartsUploader>::HashAlgorithm> + 'static>(
+        &self,
+        source: D,
+        params: ObjectParams,
+    ) -> BoxFuture<ApiResult<Value>>;
 }
 
 /// 分片上传调度器扩展接口
-pub trait MultiPartsUploaderSchedulerExt: MultiPartsUploaderScheduler
-where
-    <<Self::MultiPartsUploader as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm: Send,
-{
+pub trait MultiPartsUploaderSchedulerExt: MultiPartsUploaderScheduler {
     /// 上传指定路径的文件
     fn upload_path(&self, path: impl AsRef<Path>, params: ObjectParams) -> ApiResult<Value> {
         self.upload(FileDataSource::new(path.as_ref()), params)
@@ -81,10 +87,7 @@ where
     }
 }
 
-impl<T: MultiPartsUploaderScheduler> MultiPartsUploaderSchedulerExt for T where
-    <<T::MultiPartsUploader as MultiPartsUploader>::ResumableRecorder as ResumableRecorder>::HashAlgorithm: Send
-{
-}
+impl<T: MultiPartsUploaderScheduler> MultiPartsUploaderSchedulerExt for T {}
 
 mod serial_multi_parts_uploader_scheduler;
 pub use serial_multi_parts_uploader_scheduler::SerialMultiPartsUploaderScheduler;

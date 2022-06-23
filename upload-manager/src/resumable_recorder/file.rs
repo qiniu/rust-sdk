@@ -20,7 +20,6 @@ use {
 /// 文件系统断点恢复记录器
 ///
 /// 基于文件系统提供断点恢复记录功能
-#[derive(Clone)]
 pub struct FileSystemResumableRecorder<O = Sha1> {
     path: PathBuf,
     _unused: PhantomData<O>,
@@ -28,7 +27,7 @@ pub struct FileSystemResumableRecorder<O = Sha1> {
 
 const DEFAULT_DIRECTORY_NAME: &str = ".qiniu-rust-sdk";
 
-impl<O: Clone + Digest + Send + Sync + Unpin> FileSystemResumableRecorder<O> {
+impl<O> FileSystemResumableRecorder<O> {
     /// 创建文件系统断点恢复记录器，传入一个目录路径用于储存断点记录
     #[inline]
     pub fn new(path: impl Into<PathBuf>) -> Self {
@@ -36,10 +35,6 @@ impl<O: Clone + Digest + Send + Sync + Unpin> FileSystemResumableRecorder<O> {
             path: path.into(),
             _unused: Default::default(),
         }
-    }
-
-    fn path_of(&self, source_key: &SourceKey<<Self as ResumableRecorder>::HashAlgorithm>) -> PathBuf {
-        self.path.join(&hex::encode(source_key.as_slice()))
     }
 
     fn create_directory(&self) -> IoResult<()> {
@@ -52,7 +47,7 @@ impl<O: Clone + Digest + Send + Sync + Unpin> FileSystemResumableRecorder<O> {
     }
 }
 
-impl<O: Clone + Digest + Send + Sync + Unpin> ResumableRecorder for FileSystemResumableRecorder<O> {
+impl<O: Digest> ResumableRecorder for FileSystemResumableRecorder<O> {
     type HashAlgorithm = O;
 
     #[inline]
@@ -148,7 +143,13 @@ impl<O: Clone + Digest + Send + Sync + Unpin> ResumableRecorder for FileSystemRe
     }
 }
 
-impl<O: Clone + Digest + Send + Sync + Unpin> Default for FileSystemResumableRecorder<O> {
+impl<O: Digest> FileSystemResumableRecorder<O> {
+    fn path_of(&self, source_key: &SourceKey<O>) -> PathBuf {
+        self.path.join(&hex::encode(source_key.as_slice()))
+    }
+}
+
+impl<O> Default for FileSystemResumableRecorder<O> {
     #[inline]
     fn default() -> Self {
         Self::new(temp_dir().join(DEFAULT_DIRECTORY_NAME))
@@ -162,6 +163,22 @@ impl<O> Debug for FileSystemResumableRecorder<O> {
             .finish()
     }
 }
+
+impl<O> Clone for FileSystemResumableRecorder<O> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            path: self.path.clone(),
+            _unused: self._unused,
+        }
+    }
+}
+
+#[allow(unsafe_code)]
+unsafe impl<O> Send for FileSystemResumableRecorder<O> {}
+
+#[allow(unsafe_code)]
+unsafe impl<O> Sync for FileSystemResumableRecorder<O> {}
 
 #[cfg(test)]
 mod tests {

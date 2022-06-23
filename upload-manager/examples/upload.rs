@@ -2,9 +2,9 @@ use anyhow::Result;
 use async_std::io::stdin;
 use qiniu_apis::credential::Credential;
 use qiniu_upload_manager::{
-    AlwaysMultiParts, AlwaysSinglePart, AutoUploader, AutoUploaderBuilder, AutoUploaderObjectParams,
-    MultiPartsUploaderPrefer, MultiPartsUploaderWithCallbacks, UploadManager, UploadTokenSigner, UploadedPart,
-    UploaderWithCallbacks, UploadingProgressInfo,
+    AlwaysMultiParts, AlwaysSinglePart, AutoUploader, AutoUploaderObjectParams, MultiPartsUploaderPrefer,
+    MultiPartsUploaderWithCallbacks, UploadManager, UploadTokenSigner, UploadedPart, UploaderWithCallbacks,
+    UploadingProgressInfo,
 };
 use std::{path::PathBuf, str::FromStr, time::Duration};
 use structopt::StructOpt;
@@ -111,8 +111,10 @@ async fn main() -> Result<()> {
             }
         }
         Some(UploadMethod::Form) => {
-            let builder: AutoUploaderBuilder = upload_manager.auto_uploader_builder();
-            let mut uploader = builder.resumable_policy_provider(AlwaysSinglePart).build();
+            let mut uploader: AutoUploader = upload_manager
+                .auto_uploader_builder()
+                .resumable_policy_provider(AlwaysSinglePart)
+                .build();
             let object_params = object_params_builder.build();
             uploader.on_upload_progress(upload_progress);
             if let Some(local_file) = opt.local_file.as_ref() {
@@ -122,8 +124,10 @@ async fn main() -> Result<()> {
             }
         }
         Some(UploadMethod::ResumableV1) => {
-            let builder: AutoUploaderBuilder = upload_manager.auto_uploader_builder();
-            let mut uploader = builder.resumable_policy_provider(AlwaysMultiParts).build();
+            let mut uploader: AutoUploader = upload_manager
+                .auto_uploader_builder()
+                .resumable_policy_provider(AlwaysMultiParts)
+                .build();
             uploader
                 .on_upload_progress(upload_progress)
                 .on_part_uploaded(part_uploaded);
@@ -137,8 +141,10 @@ async fn main() -> Result<()> {
             }
         }
         Some(UploadMethod::ResumableV2) => {
-            let builder: AutoUploaderBuilder = upload_manager.auto_uploader_builder();
-            let mut uploader = builder.resumable_policy_provider(AlwaysMultiParts).build();
+            let mut uploader: AutoUploader = upload_manager
+                .auto_uploader_builder()
+                .resumable_policy_provider(AlwaysMultiParts)
+                .build();
             uploader
                 .on_upload_progress(upload_progress)
                 .on_part_uploaded(part_uploaded);
