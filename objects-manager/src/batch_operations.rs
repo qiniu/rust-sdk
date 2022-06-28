@@ -1,5 +1,6 @@
 use super::{callbacks::Callbacks, list::make_callback_error, Bucket, OperationProvider};
 use anyhow::{Error as AnyError, Result as AnyResult};
+use assert_impl::assert_impl;
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use qiniu_apis::{
@@ -38,7 +39,7 @@ impl BatchSizeProvider for usize {
 /// 批量操作
 pub struct BatchOperations<'a> {
     bucket: &'a Bucket,
-    operations: Option<Box<dyn Iterator<Item = Box<dyn OperationProvider + 'a>> + 'a>>,
+    operations: Option<Box<dyn Iterator<Item = Box<dyn OperationProvider + 'a>> + Send + Sync + 'a>>,
     batch_size: Option<Box<dyn BatchSizeProvider + 'a>>,
     callbacks: Callbacks<'a>,
 }
@@ -69,10 +70,13 @@ impl<'a> BatchOperations<'a> {
 
     /// 批量添加操作提供者
     #[inline]
-    pub fn add_operations(
+    pub fn add_operations<I: IntoIterator<Item = Box<dyn OperationProvider + 'a>> + Send + Sync + 'a>(
         &mut self,
-        new_iter: impl IntoIterator<Item = Box<dyn OperationProvider + 'a>> + 'a,
-    ) -> &mut Self {
+        new_iter: I,
+    ) -> &mut Self
+    where
+        <I as IntoIterator>::IntoIter: Sync + Send,
+    {
         if let Some(iter) = take(&mut self.operations) {
             self.operations = Some(Box::new(iter.chain(new_iter.into_iter())));
         } else {
@@ -138,6 +142,12 @@ impl<'a> BatchOperations<'a> {
             batch_size: take(&mut self.batch_size),
             callbacks: take(&mut self.callbacks),
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
@@ -253,6 +263,12 @@ impl<'a> BatchOperationsIterator<'a> {
         } else {
             None
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
@@ -449,6 +465,12 @@ mod async_stream {
                     RegionsProviderEndpoints::new(region_provider),
                     self.operations.bucket.objects_manager().credential(),
                 )
+        }
+
+        #[allow(dead_code)]
+        fn assert() {
+            assert_impl!(Send: Self);
+            // assert_impl!(Sync: Self);
         }
     }
 }
