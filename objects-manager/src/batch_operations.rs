@@ -1,5 +1,7 @@
 use super::{callbacks::Callbacks, list::make_callback_error, Bucket, OperationProvider};
 use anyhow::{Error as AnyError, Result as AnyResult};
+use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use qiniu_apis::{
     http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts, StatusCode},
     http_client::{
@@ -19,7 +21,9 @@ use std::{
 };
 
 /// 最大批量操作数获取接口
-pub trait BatchSizeProvider: Debug + Send + Sync {
+#[clonable]
+#[auto_impl(&, &mut, Box, Rc, Arc)]
+pub trait BatchSizeProvider: Clone + Debug + Send + Sync {
     /// 获取最大批量操作数
     fn batch_size(&self) -> usize;
 }
