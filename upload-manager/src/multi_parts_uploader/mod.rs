@@ -7,7 +7,7 @@ use serde_json::Value;
 use std::{fmt::Debug, num::NonZeroU64};
 
 #[cfg(feature = "async")]
-use futures::future::BoxFuture;
+use {super::AsyncDataSource, futures::future::BoxFuture};
 
 /// 分片上传器接口
 ///
@@ -59,16 +59,26 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + S
     /// 该方法的异步版本为 [`Self::async_complete_parts`]。
     fn complete_parts(&self, initialized: Self::InitializedParts, parts: Vec<Self::UploadedPart>) -> ApiResult<Value>;
 
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    /// 初始化的异步分片信息
+    type AsyncInitializedParts: InitializedParts + 'static;
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    /// 已经上传的异步分片信息
+    type AsyncUploadedPart: UploadedPart;
+
     /// 异步初始化分片信息
     ///
     /// 该步骤只负责初始化分片，但不实际上传数据，如果提供了有效的断点续传记录器，则可以尝试在这一步找到记录。
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_initialize_parts<D: DataSource<Self::HashAlgorithm> + 'static>(
+    fn async_initialize_parts<D: AsyncDataSource<Self::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
-    ) -> BoxFuture<ApiResult<Self::InitializedParts>>;
+    ) -> BoxFuture<ApiResult<Self::AsyncInitializedParts>>;
 
     /// 异步上传分片
     ///
@@ -79,9 +89,9 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + S
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_upload_part<'r>(
         &'r self,
-        initialized: &'r Self::InitializedParts,
+        initialized: &'r Self::AsyncInitializedParts,
         data_partitioner_provider: &'r dyn DataPartitionProvider,
-    ) -> BoxFuture<'r, ApiResult<Option<Self::UploadedPart>>>;
+    ) -> BoxFuture<'r, ApiResult<Option<Self::AsyncUploadedPart>>>;
 
     /// 异步完成分片上传
     ///
@@ -90,8 +100,8 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + S
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_complete_parts(
         &self,
-        initialized: Self::InitializedParts,
-        parts: Vec<Self::UploadedPart>,
+        initialized: Self::AsyncInitializedParts,
+        parts: Vec<Self::AsyncUploadedPart>,
     ) -> BoxFuture<'_, ApiResult<Value>>;
 }
 

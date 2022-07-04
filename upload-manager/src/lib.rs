@@ -171,7 +171,7 @@ pub use upload_token::{UploadTokenSigner, UploadTokenSignerBuilder};
 
 #[cfg(feature = "async")]
 pub use {
-    data_source::{AsyncDataSourceReader, AsyncSeekableSource},
+    data_source::{AsyncDataSource, AsyncDataSourceReader, AsyncFileDataSource, AsyncSeekableSource},
     resumable_policy::DynAsyncRead,
     resumable_recorder::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium},
 };
@@ -187,5 +187,7 @@ pub mod prelude {
     };
 
     #[cfg(feature = "async")]
-    pub use super::{AppendOnlyAsyncResumableRecorderMedium, DynAsyncRead, ReadOnlyAsyncResumableRecorderMedium};
+    pub use super::{
+        AppendOnlyAsyncResumableRecorderMedium, AsyncDataSource, DynAsyncRead, ReadOnlyAsyncResumableRecorderMedium,
+    };
 }

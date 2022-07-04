@@ -49,7 +49,10 @@ use std::{
 
 #[cfg(feature = "async")]
 use {
-    super::super::{data_source::AsyncDigestible, AppendOnlyAsyncResumableRecorderMedium, AsyncDataSourceReader},
+    super::super::{
+        data_source::{AsyncDataSource, AsyncDigestible},
+        AppendOnlyAsyncResumableRecorderMedium, AsyncDataSourceReader,
+    },
     async_std::io::Cursor as AsyncCursor,
     futures::{
         future::{BoxFuture, OptionFuture},
@@ -76,22 +79,22 @@ pub struct MultiPartsV1Uploader<H: Digest = Sha1> {
 }
 
 /// 被 分片上传器 V1 初始化的分片信息
-pub struct MultiPartsV1UploaderInitializedObject<H: Digest = Sha1> {
-    source: Arc<dyn DataSource<H>>,
+pub struct MultiPartsV1UploaderInitializedObject<S> {
+    source: S,
     params: ObjectParams,
     progresses: Progresses,
     recovered_records: MultiPartsV1ResumableRecorderRecords,
     up_endpoints: UpEndpoints,
 }
 
-impl<H: Digest> InitializedParts for MultiPartsV1UploaderInitializedObject<H> {
+impl<S: Debug + Send + Sync> InitializedParts for MultiPartsV1UploaderInitializedObject<S> {
     #[inline]
     fn params(&self) -> &ObjectParams {
         &self.params
     }
 }
 
-impl<H: Digest> Debug for MultiPartsV1UploaderInitializedObject<H> {
+impl<S: Debug> Debug for MultiPartsV1UploaderInitializedObject<S> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MultiPartsV1UploaderInitializedObject")
@@ -204,7 +207,7 @@ impl<H: Digest> MultiPartsV1Uploader<H> {
 
 impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> {
     type HashAlgorithm = H;
-    type InitializedParts = MultiPartsV1UploaderInitializedObject<H>;
+    type InitializedParts = MultiPartsV1UploaderInitializedObject<Arc<dyn DataSource<H>>>;
     type UploadedPart = MultiPartsV1UploaderUploadedPart;
 
     #[inline]
@@ -287,7 +290,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
         };
 
         fn _could_recover<H: Digest>(
-            initialized: &MultiPartsV1UploaderInitializedObject<H>,
+            initialized: &MultiPartsV1UploaderInitializedObject<Arc<dyn DataSource<H>>>,
             data_reader: &mut DataSourceReader,
             part_size: NonZeroU64,
             uploaded_part_ttl: Duration,
@@ -318,7 +321,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
             mut body: DataSourceReader,
             content_length: NonZeroU64,
             progresses_key: &'a ProgressesKey,
-            initialized: &'a MultiPartsV1UploaderInitializedObject<H>,
+            initialized: &'a MultiPartsV1UploaderInitializedObject<Arc<dyn DataSource<H>>>,
             data_partitioner_provider: &'a dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV1UploaderUploadedPart> {
             let total_size = initialized.source.total_size()?;
@@ -393,18 +396,26 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_initialize_parts<D: DataSource<Self::HashAlgorithm> + 'static>(
+    type AsyncInitializedParts = MultiPartsV1UploaderInitializedObject<Arc<dyn AsyncDataSource<H>>>;
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    type AsyncUploadedPart = MultiPartsV1UploaderUploadedPart;
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_initialize_parts<D: AsyncDataSource<Self::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
-    ) -> BoxFuture<ApiResult<Self::InitializedParts>> {
+    ) -> BoxFuture<ApiResult<Self::AsyncInitializedParts>> {
         Box::pin(async move {
             let up_endpoints = self.async_up_endpoints(&params).await?;
             let recovered_records = self
                 .try_to_async_recover(&source, &up_endpoints)
                 .await
                 .unwrap_or_default();
-            Ok(Self::InitializedParts {
+            Ok(Self::AsyncInitializedParts {
                 source: Arc::new(source),
                 params,
                 recovered_records,
@@ -418,18 +429,14 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_upload_part<'r>(
         &'r self,
-        initialized: &'r Self::InitializedParts,
+        initialized: &'r Self::AsyncInitializedParts,
         data_partitioner_provider: &'r dyn DataPartitionProvider,
-    ) -> BoxFuture<'r, ApiResult<Option<Self::UploadedPart>>> {
+    ) -> BoxFuture<'r, ApiResult<Option<Self::AsyncUploadedPart>>> {
         return Box::pin(async move {
             let data_partitioner_provider =
                 MultiplyDataPartitionProvider::new_with_non_zero_multiply(data_partitioner_provider, PART_SIZE);
-            let total_size = initialized.source.async_total_size().await?;
-            if let Some(mut reader) = initialized
-                .source
-                .async_slice(data_partitioner_provider.part_size())
-                .await?
-            {
+            let total_size = initialized.source.total_size().await?;
+            if let Some(mut reader) = initialized.source.slice(data_partitioner_provider.part_size()).await? {
                 if let Some(part_size) = NonZeroU64::new(reader.len().await?) {
                     let progresses_key = initialized.progresses.add_new_part(part_size.into());
                     if let Some(uploaded_part) = _could_recover(
@@ -498,7 +505,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
         });
 
         async fn _could_recover<H: Digest>(
-            initialized: &MultiPartsV1UploaderInitializedObject<H>,
+            initialized: &MultiPartsV1UploaderInitializedObject<Arc<dyn AsyncDataSource<H>>>,
             data_reader: &mut AsyncDataSourceReader,
             part_size: NonZeroU64,
             uploaded_part_ttl: Duration,
@@ -531,10 +538,10 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
             mut body: AsyncDataSourceReader,
             content_length: NonZeroU64,
             progresses_key: &'a ProgressesKey,
-            initialized: &'a MultiPartsV1UploaderInitializedObject<H>,
+            initialized: &'a MultiPartsV1UploaderInitializedObject<Arc<dyn AsyncDataSource<H>>>,
             data_partitioner_provider: &'a dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV1UploaderUploadedPart> {
-            let total_size = initialized.source.async_total_size().await?;
+            let total_size = initialized.source.total_size().await?;
             request.on_uploading_progress(move |_, transfer| {
                 progresses_key.update_part(transfer.transferred_bytes());
                 uploader.callbacks.upload_progress(&UploadingProgressInfo::new(
@@ -576,8 +583,8 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_complete_parts(
         &self,
-        mut initialized: Self::InitializedParts,
-        parts: Vec<Self::UploadedPart>,
+        mut initialized: Self::AsyncInitializedParts,
+        parts: Vec<Self::AsyncUploadedPart>,
     ) -> BoxFuture<'_, ApiResult<Value>> {
         return Box::pin(async move {
             let file_size = get_file_size_from_uploaded_parts(&parts);
@@ -612,7 +619,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
             }
         });
 
-        async fn _complete_parts<'a, H: Digest, E: EndpointsProvider + Clone + 'a, D: DataSource<H>>(
+        async fn _complete_parts<'a, H: Digest, E: EndpointsProvider + Clone + 'a, D: AsyncDataSource<H>>(
             uploader: &'a MultiPartsV1Uploader<H>,
             mut request: AsyncMkFileRequestBuilder<'a, E>,
             source: &D,
@@ -840,12 +847,12 @@ impl<H: Digest> MultiPartsV1Uploader<H> {
     }
 
     #[cfg(feature = "async")]
-    async fn try_to_async_recover<D: DataSource<H>>(
+    async fn try_to_async_recover<D: AsyncDataSource<H>>(
         &self,
         source: &D,
         up_endpoints: &UpEndpoints,
     ) -> ApiResult<MultiPartsV1ResumableRecorderRecords> {
-        return OptionFuture::from(source.async_source_key().await?.map(|source_key| async move {
+        return OptionFuture::from(source.source_key().await?.map(|source_key| async move {
             if let Some(records) = _try_to_recover(self, &source_key, up_endpoints).await.ok().flatten() {
                 Ok(records)
             } else {
@@ -906,8 +913,8 @@ impl<H: Digest> MultiPartsV1Uploader<H> {
     }
 
     #[cfg(feature = "async")]
-    async fn try_to_async_delete_records<D: DataSource<H>>(&self, source: &D) -> ApiResult<()> {
-        if let Some(source_key) = source.async_source_key().await? {
+    async fn try_to_async_delete_records<D: AsyncDataSource<H>>(&self, source: &D) -> ApiResult<()> {
+        if let Some(source_key) = source.source_key().await? {
             self.resumable_recorder.async_delete(&source_key).await?;
         }
         Ok(())
@@ -1154,6 +1161,7 @@ mod tests {
 
     #[cfg(feature = "async")]
     use {
+        crate::data_source::AsyncFileDataSource,
         async_std::task::spawn as spawn_task,
         futures::{
             future::join_all,
@@ -1327,7 +1335,7 @@ mod tests {
             DummyResumableRecorder::<Sha1>::new(),
         ));
         let file_path = spawn_task(async { random_file_path(FILE_SIZE) }).await?;
-        let file_source = FileDataSource::new(file_path.as_os_str());
+        let file_source = AsyncFileDataSource::new(file_path.as_os_str());
         let params = ObjectParams::builder()
             .region_provider(single_up_domain_region())
             .build();
@@ -1619,7 +1627,7 @@ mod tests {
                     get_upload_manager(FakeHttpCaller::new(0)),
                     FileSystemResumableRecorder::<Sha1>::new(resuming_files_dir.path()),
                 );
-                let file_source = FileDataSource::new(file_path.as_os_str());
+                let file_source = AsyncFileDataSource::new(file_path.as_os_str());
                 let params = ObjectParams::builder()
                     .region_provider(single_up_domain_region())
                     .build();
@@ -1634,7 +1642,7 @@ mod tests {
                     get_upload_manager(FakeHttpCaller::new(1)),
                     FileSystemResumableRecorder::<Sha1>::new(resuming_files_dir.path()),
                 );
-                let file_source = FileDataSource::new(file_path.as_os_str());
+                let file_source = AsyncFileDataSource::new(file_path.as_os_str());
                 let params = ObjectParams::builder()
                     .region_provider(single_up_domain_region())
                     .build();
@@ -1722,7 +1730,7 @@ mod tests {
                     get_upload_manager(FakeHttpCaller2::new(2)),
                     FileSystemResumableRecorder::<Sha1>::new(resuming_files_dir.path()),
                 ));
-                let file_source = FileDataSource::new(file_path.as_os_str());
+                let file_source = AsyncFileDataSource::new(file_path.as_os_str());
                 let params = ObjectParams::builder()
                     .region_provider(single_up_domain_region())
                     .build();

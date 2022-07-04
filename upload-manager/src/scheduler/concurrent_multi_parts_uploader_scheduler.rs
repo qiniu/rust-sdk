@@ -19,6 +19,7 @@ use std::{
 
 #[cfg(feature = "async")]
 use {
+    super::AsyncDataSource,
     async_std::task::spawn,
     futures::future::{join_all, BoxFuture},
 };
@@ -211,7 +212,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload<D: DataSource<<Self::MultiPartsUploader as MultiPartsUploader>::HashAlgorithm> + 'static>(
+    fn async_upload<D: AsyncDataSource<<Self::MultiPartsUploader as MultiPartsUploader>::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
@@ -232,7 +233,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
             result
         });
 
-        async fn _upload<M: MultiPartsUploader + 'static, D: DataSource<M::HashAlgorithm> + 'static>(
+        async fn _upload<M: MultiPartsUploader + 'static, D: AsyncDataSource<M::HashAlgorithm> + 'static>(
             scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
             source: D,
             params: ObjectParams,

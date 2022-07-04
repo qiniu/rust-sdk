@@ -7,9 +7,6 @@ use std::{
     sync::Mutex,
 };
 
-#[cfg(feature = "async")]
-use {super::AsyncDataSourceReader, futures::future::BoxFuture};
-
 pub(crate) struct UnseekableDataSource<R: Read + Debug + Send + Sync + 'static + ?Sized, A: Digest = Sha1>(
     Mutex<UnseekableDataSourceInner<R, A>>,
 );
@@ -56,13 +53,6 @@ impl<R: Read + Debug + Send + Sync + 'static, A: Digest> DataSource<A> for Unsee
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_slice(&self, _size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
-        unimplemented!()
-    }
-
-    #[inline]
     fn source_key(&self) -> IoResult<Option<SourceKey<A>>> {
         Ok(self.0.lock().unwrap().source_key.to_owned())
     }
@@ -86,8 +76,15 @@ impl<R: Read + Debug + Send + Sync + 'static, A: Digest> Debug for UnseekableDat
 
 #[cfg(feature = "async")]
 mod async_unseekable {
-    use super::*;
-    use futures::{lock::Mutex, AsyncRead, AsyncReadExt};
+    use super::{
+        super::{AsyncDataSource, AsyncDataSourceReader},
+        *,
+    };
+    use futures::{
+        future::{self, BoxFuture},
+        lock::Mutex,
+        AsyncRead, AsyncReadExt,
+    };
 
     pub(crate) struct AsyncUnseekableDataSource<
         R: AsyncRead + Debug + Unpin + Send + Sync + 'static + ?Sized,
@@ -119,14 +116,10 @@ mod async_unseekable {
         }
     }
 
-    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: Digest> DataSource<A>
+    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: Digest> AsyncDataSource<A>
         for AsyncUnseekableDataSource<R, A>
     {
-        fn slice(&self, _size: PartSize) -> IoResult<Option<DataSourceReader>> {
-            unimplemented!()
-        }
-
-        fn async_slice(&self, size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
+        fn slice(&self, size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
             Box::pin(async move {
                 let mut buf = Vec::new();
                 let guard = &mut self.0.lock().await;
@@ -145,21 +138,13 @@ mod async_unseekable {
         }
 
         #[inline]
-        fn source_key(&self) -> IoResult<Option<SourceKey<A>>> {
-            unimplemented!()
-        }
-
-        #[inline]
-        fn async_source_key(&self) -> BoxFuture<IoResult<Option<SourceKey<A>>>> {
+        fn source_key(&self) -> BoxFuture<IoResult<Option<SourceKey<A>>>> {
             Box::pin(async move { Ok(self.0.lock().await.source_key.to_owned()) })
         }
 
-        fn total_size(&self) -> IoResult<Option<u64>> {
-            unimplemented!()
-        }
-
-        fn async_total_size(&self) -> BoxFuture<IoResult<Option<u64>>> {
-            Box::pin(async move { Ok(None) })
+        #[inline]
+        fn total_size(&self) -> BoxFuture<IoResult<Option<u64>>> {
+            Box::pin(future::ok(None))
         }
     }
 

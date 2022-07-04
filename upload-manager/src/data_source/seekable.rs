@@ -8,9 +8,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[cfg(feature = "async")]
-use {super::AsyncDataSourceReader, futures::future::BoxFuture};
-
 #[derive(Debug)]
 struct SourceOffset {
     offset: u64,
@@ -53,12 +50,6 @@ impl<D: Digest> DataSource<D> for SeekableDataSource {
         } else {
             Ok(None)
         }
-    }
-
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_slice(&self, _size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
-        unimplemented!()
     }
 
     fn total_size(&self) -> IoResult<Option<u64>> {
@@ -166,7 +157,11 @@ impl<T: Read + Seek + Send + Sync + Debug> SeekableSourceInner<T> {
 #[cfg(feature = "async")]
 mod async_reader {
     use super::*;
-    use futures::{future::FutureExt, lock::Mutex, ready, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, Future};
+    use futures::{
+        future::{BoxFuture, FutureExt},
+        lock::Mutex,
+        ready, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, Future,
+    };
     use qiniu_apis::http::AsyncReset;
     use smart_default::SmartDefault;
     use std::{

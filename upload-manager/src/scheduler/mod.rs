@@ -6,7 +6,7 @@ use std::{fmt::Debug, io::Read, path::Path};
 
 #[cfg(feature = "async")]
 use {
-    crate::data_source::AsyncUnseekableDataSource,
+    crate::data_source::{AsyncDataSource, AsyncFileDataSource, AsyncUnseekableDataSource},
     futures::{future::BoxFuture, AsyncRead},
 };
 
@@ -41,7 +41,7 @@ pub trait MultiPartsUploaderScheduler: Send + Sync + Debug {
     /// 异步上传数据源
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload<D: DataSource<<Self::MultiPartsUploader as MultiPartsUploader>::HashAlgorithm> + 'static>(
+    fn async_upload<D: AsyncDataSource<<Self::MultiPartsUploader as MultiPartsUploader>::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
@@ -72,7 +72,7 @@ pub trait MultiPartsUploaderSchedulerExt: MultiPartsUploaderScheduler {
         path: impl AsRef<Path> + Send + Sync + 'a,
         params: ObjectParams,
     ) -> BoxFuture<'a, ApiResult<Value>> {
-        Box::pin(async move { self.async_upload(FileDataSource::new(path.as_ref()), params).await })
+        Box::pin(async move { self.async_upload(AsyncFileDataSource::new(path.as_ref()), params).await })
     }
 
     /// 异步上传输入流的数据

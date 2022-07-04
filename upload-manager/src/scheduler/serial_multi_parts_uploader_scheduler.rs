@@ -7,7 +7,7 @@ use serde_json::Value;
 use std::num::NonZeroU64;
 
 #[cfg(feature = "async")]
-use futures::future::BoxFuture;
+use {super::AsyncDataSource, futures::future::BoxFuture};
 
 /// 串行分片上传调度器
 ///
@@ -131,14 +131,14 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler for SerialMultiPartsUplo
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload<D: DataSource<M::HashAlgorithm> + 'static>(
+    fn async_upload<D: AsyncDataSource<M::HashAlgorithm> + 'static>(
         &self,
         source: D,
         params: ObjectParams,
     ) -> BoxFuture<ApiResult<Value>> {
         return Box::pin(async move { _upload(self, source, params).await });
 
-        async fn _upload<M: MultiPartsUploader, D: DataSource<M::HashAlgorithm> + 'static>(
+        async fn _upload<M: MultiPartsUploader, D: AsyncDataSource<M::HashAlgorithm> + 'static>(
             scheduler: &SerialMultiPartsUploaderScheduler<M>,
             source: D,
             params: ObjectParams,
