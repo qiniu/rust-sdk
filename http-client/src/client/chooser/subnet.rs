@@ -208,7 +208,7 @@ fn do_some_work_async(inner: &Arc<SubnetChooserInner>, need_to_shrink: bool) {
 
     fn is_time_to_shrink(inner: &Arc<SubnetChooserInner>) -> bool {
         if let Ok(locked_data) = inner.lock.try_lock() {
-            _is_time_to_shrink(inner.shrink_interval, &*locked_data)
+            _is_time_to_shrink(inner.shrink_interval, &locked_data)
         } else {
             false
         }
@@ -216,7 +216,7 @@ fn do_some_work_async(inner: &Arc<SubnetChooserInner>, need_to_shrink: bool) {
 
     fn is_time_to_shrink_mut(inner: &Arc<SubnetChooserInner>) -> bool {
         if let Ok(mut locked_data) = inner.lock.try_lock() {
-            if _is_time_to_shrink(inner.shrink_interval, &*locked_data) {
+            if _is_time_to_shrink(inner.shrink_interval, &locked_data) {
                 locked_data.last_shrink_at = Instant::now();
                 return true;
             }

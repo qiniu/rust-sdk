@@ -104,7 +104,8 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
             request: &mut SyncRequest,
             get_options: GetOptions,
         ) -> AuthorizationResult<()> {
-            let authorization = authorization_v1_for_request(&*credential_provider.get(get_options)?, request)?;
+            let authorization =
+                authorization_v1_for_request(credential_provider.get(get_options)?.credential(), request)?;
             set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
             Ok(())
         }
@@ -123,9 +124,11 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
             request: &mut AsyncRequest<'_>,
             get_options: GetOptions,
         ) -> AuthorizationResult<()> {
-            let authorization =
-                authorization_v1_for_async_request(&*credential_provider.async_get(get_options).await?, request)
-                    .await?;
+            let authorization = authorization_v1_for_async_request(
+                credential_provider.async_get(get_options).await?.credential(),
+                request,
+            )
+            .await?;
             set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
             Ok(())
         }
@@ -233,7 +236,8 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
             if timestamp_signature_enabled {
                 request.headers_mut().insert(X_QINIU_DATE, make_x_qiniu_date_value());
             }
-            let authorization = authorization_v2_for_request(&*credential_provider.get(get_options)?, request)?;
+            let authorization =
+                authorization_v2_for_request(credential_provider.get(get_options)?.credential(), request)?;
             set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
             Ok(())
         }
@@ -262,9 +266,11 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
             if timestamp_signature_enabled {
                 request.headers_mut().insert(X_QINIU_DATE, make_x_qiniu_date_value());
             }
-            let authorization =
-                authorization_v2_for_async_request(&*credential_provider.async_get(get_options).await?, request)
-                    .await?;
+            let authorization = authorization_v2_for_async_request(
+                credential_provider.async_get(get_options).await?.credential(),
+                request,
+            )
+            .await?;
             set_authorization(request, HeaderValue::from_str(&authorization).unwrap());
             Ok(())
         }
@@ -335,7 +341,7 @@ impl<P> From<P> for DownloadUrlCredentialAuthorization<P> {
 impl<P: CredentialProvider + Clone> AuthorizationProvider for DownloadUrlCredentialAuthorization<P> {
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()> {
         let credential = self.provider.get(Default::default())?;
-        let url = sign_download_url(&*credential, self.lifetime, take(request.url_mut()));
+        let url = sign_download_url(&credential, self.lifetime, take(request.url_mut()));
         *request.url_mut() = url;
         Ok(())
     }
@@ -345,7 +351,7 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for DownloadUrlCredent
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         Box::pin(async move {
             let credential = self.provider.async_get(Default::default()).await?;
-            let url = sign_download_url(&*credential, self.lifetime, take(request.url_mut()));
+            let url = sign_download_url(&credential, self.lifetime, take(request.url_mut()));
             *request.url_mut() = url;
             Ok(())
         })

@@ -42,7 +42,7 @@ impl<R: Read + Debug + Send + Sync + 'static, A: Digest> UnseekableDataSource<R,
 impl<R: Read + Debug + Send + Sync + 'static, A: Digest> DataSource<A> for UnseekableDataSource<R, A> {
     fn slice(&self, size: PartSize) -> IoResult<Option<DataSourceReader>> {
         let mut buf = Vec::new();
-        let guard = &mut *self.0.lock().unwrap();
+        let guard = &mut self.0.lock().unwrap();
         let have_read = (&mut guard.reader).take(size.as_u64()).read_to_end(&mut buf)?;
         if have_read > 0 {
             let source_reader = DataSourceReader::unseekable(guard.current_part_number, buf, guard.current_offset);
@@ -129,7 +129,7 @@ mod async_unseekable {
         fn async_slice(&self, size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
             Box::pin(async move {
                 let mut buf = Vec::new();
-                let guard = &mut *self.0.lock().await;
+                let guard = &mut self.0.lock().await;
                 let have_read = (&mut guard.reader).take(size.as_u64()).read_to_end(&mut buf).await?;
                 if have_read > 0 {
                     let source_reader =

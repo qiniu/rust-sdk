@@ -316,7 +316,7 @@ impl<
         };
         spawn(async move {
             let mut locked_data = new_cache_inner.locked_data.lock().await;
-            do_some_work_with_locked_data(&new_cache_inner, &mut *locked_data).await;
+            do_some_work_with_locked_data(&new_cache_inner, &mut locked_data).await;
         });
     }
 }
@@ -329,7 +329,7 @@ async fn do_some_work_async<
     let mut need_to_persistent = false;
     let inner = inner.to_owned();
     let need_to_shrink = if let Some(mut locked_data) = inner.locked_data.try_lock() {
-        is_time_to_shrink(&inner, &mut *locked_data, false)
+        is_time_to_shrink(&inner, &mut locked_data, false)
     } else {
         // Looks like some work is being done, we don't want to spawn another thread
         info!("AsyncCache has hired someone to do the housework, so we don't hire another now");
@@ -344,7 +344,7 @@ async fn do_some_work_async<
         spawn(async move {
             if let Some(mut locked_data) = inner.locked_data.try_lock() {
                 info!("AsyncCache spawns thread to do some housework");
-                do_some_work_with_locked_data(&inner, &mut *locked_data).await;
+                do_some_work_with_locked_data(&inner, &mut locked_data).await;
             }
         });
     }
