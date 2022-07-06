@@ -108,7 +108,7 @@ impl<S: Debug> Debug for MultiPartsV1UploaderInitializedObject<S> {
 }
 
 /// 已经通过 分片上传器 V1 上传的分片信息
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MultiPartsV1UploaderUploadedPart {
     response_body: MkBlkResponseBody,
     uploaded_size: NonZeroU64,

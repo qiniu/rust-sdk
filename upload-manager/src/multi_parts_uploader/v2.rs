@@ -133,7 +133,7 @@ impl<S: Debug> Debug for MultiPartsV2UploaderInitializedObject<S> {
 }
 
 /// 已经通过 分片上传器 V2 上传的分片信息
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MultiPartsV2UploaderUploadedPart {
     response_body: UploadPartResponseBody,
     uploaded_size: NonZeroU64,
