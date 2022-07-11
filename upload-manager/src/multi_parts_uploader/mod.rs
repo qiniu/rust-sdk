@@ -57,7 +57,7 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + S
     /// 在这步成功返回后，对象即可被读取。
     ///
     /// 该方法的异步版本为 [`Self::async_complete_parts`]。
-    fn complete_parts(&self, initialized: Self::InitializedParts, parts: Vec<Self::UploadedPart>) -> ApiResult<Value>;
+    fn complete_parts(&self, initialized: &Self::InitializedParts, parts: &[Self::UploadedPart]) -> ApiResult<Value>;
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -98,11 +98,11 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + S
     /// 在这步成功返回后，对象即可被读取。
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_complete_parts(
-        &self,
-        initialized: Self::AsyncInitializedParts,
-        parts: Vec<Self::AsyncUploadedPart>,
-    ) -> BoxFuture<'_, ApiResult<Value>>;
+    fn async_complete_parts<'r>(
+        &'r self,
+        initialized: &'r Self::AsyncInitializedParts,
+        parts: &'r [Self::AsyncUploadedPart],
+    ) -> BoxFuture<'r, ApiResult<Value>>;
 }
 
 /// 初始化的分片信息

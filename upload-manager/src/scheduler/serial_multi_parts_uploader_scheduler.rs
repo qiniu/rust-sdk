@@ -125,7 +125,7 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler for SerialMultiPartsUplo
             {
                 parts.push(uploaded_part);
             }
-            scheduler.multi_parts_uploader.complete_parts(initialized, parts)
+            scheduler.multi_parts_uploader.complete_parts(&initialized, &parts)
         }
     }
 
@@ -157,7 +157,7 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler for SerialMultiPartsUplo
             }
             scheduler
                 .multi_parts_uploader
-                .async_complete_parts(initialized, parts)
+                .async_complete_parts(&initialized, &parts)
                 .await
         }
     }

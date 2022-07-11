@@ -41,7 +41,6 @@ use std::{
     fmt::{self, Debug},
     io::{BufRead, BufReader, Cursor, Read, Result as IoResult, Write},
     iter::FromIterator,
-    mem::take,
     num::NonZeroU64,
     sync::{Arc, Mutex},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -361,16 +360,12 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
         }
     }
 
-    fn complete_parts(
-        &self,
-        mut initialized: Self::InitializedParts,
-        parts: Vec<Self::UploadedPart>,
-    ) -> ApiResult<Value> {
-        let file_size = get_file_size_from_uploaded_parts(&parts);
+    fn complete_parts(&self, initialized: &Self::InitializedParts, parts: &[Self::UploadedPart]) -> ApiResult<Value> {
+        let file_size = get_file_size_from_uploaded_parts(parts);
         let upload_token_signer = self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
-        let params = make_mkfile_path_params_from_initialized_parts(&mut initialized.params, file_size);
+        let params = make_mkfile_path_params_from_initialized_parts(&initialized.params, file_size);
         let mkfile = self.storage().resumable_upload_v1_make_file();
-        let body = make_mkfile_request_body_from_uploaded_parts(parts);
+        let body = make_mkfile_request_body_from_uploaded_parts(parts.to_vec());
         return _complete_parts(
             self,
             mkfile.new_request(&initialized.up_endpoints, params, upload_token_signer.as_ref()),
@@ -581,17 +576,17 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_complete_parts(
-        &self,
-        mut initialized: Self::AsyncInitializedParts,
-        parts: Vec<Self::AsyncUploadedPart>,
-    ) -> BoxFuture<'_, ApiResult<Value>> {
+    fn async_complete_parts<'r>(
+        &'r self,
+        initialized: &'r Self::AsyncInitializedParts,
+        parts: &'r [Self::AsyncUploadedPart],
+    ) -> BoxFuture<'r, ApiResult<Value>> {
         return Box::pin(async move {
-            let file_size = get_file_size_from_uploaded_parts(&parts);
+            let file_size = get_file_size_from_uploaded_parts(parts);
             let upload_token_signer = self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
-            let params = make_mkfile_path_params_from_initialized_parts(&mut initialized.params, file_size);
+            let params = make_mkfile_path_params_from_initialized_parts(&initialized.params, file_size);
             let mkfile = self.storage().resumable_upload_v1_make_file();
-            let body = make_mkfile_request_body_from_uploaded_parts(parts);
+            let body = make_mkfile_request_body_from_uploaded_parts(parts.to_vec());
             if let Some(region_provider) = initialized.params.region_provider() {
                 _complete_parts(
                     self,
@@ -636,25 +631,22 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
     }
 }
 
-fn make_mkfile_path_params_from_initialized_parts(
-    object_params: &mut ObjectParams,
-    file_size: u64,
-) -> MkFilePathParams {
+fn make_mkfile_path_params_from_initialized_parts(object_params: &ObjectParams, file_size: u64) -> MkFilePathParams {
     let mut params = MkFilePathParams::default().set_size_as_u64(file_size);
-    if let Some(object_name) = take(object_params.object_name_mut()) {
+    if let Some(object_name) = object_params.object_name() {
         params = params.set_object_name_as_str(object_name.to_string());
     }
-    if let Some(file_name) = take(object_params.file_name_mut()) {
+    if let Some(file_name) = object_params.file_name() {
         params = params.set_file_name_as_str(file_name.to_string());
     }
-    if let Some(mime) = take(object_params.content_type_mut()) {
+    if let Some(mime) = object_params.content_type() {
         params = params.set_mime_type_as_str(mime.to_string());
     }
-    for (metadata_name, metadata_value) in take(object_params.metadata_mut()) {
-        params = params.append_custom_data_as_str("x-qn-meta-".to_owned() + &metadata_name, metadata_value);
+    for (metadata_name, metadata_value) in object_params.metadata() {
+        params = params.append_custom_data_as_str("x-qn-meta-".to_owned() + metadata_name, metadata_value.to_owned());
     }
-    for (var_name, var_value) in take(object_params.custom_vars_mut()) {
-        params = params.append_custom_data_as_str("x:".to_owned() + &var_name, var_value);
+    for (var_name, var_value) in object_params.custom_vars() {
+        params = params.append_custom_data_as_str("x:".to_owned() + var_name, var_value.to_owned());
     }
     params
 }
@@ -1262,7 +1254,7 @@ mod tests {
             .map(|thread| thread.join().unwrap())
             .collect::<ApiResult<Vec<_>>>()?;
         let parts = parts.into_iter().map(|part| part.unwrap()).collect::<Vec<_>>();
-        let body = uploader.complete_parts(Arc::try_unwrap(initialized_parts).unwrap(), parts)?;
+        let body = uploader.complete_parts(&initialized_parts, &parts)?;
         assert_eq!(body.get("done").unwrap().as_u64().unwrap(), 1u64);
         Ok(())
     }
@@ -1352,9 +1344,7 @@ mod tests {
         });
         let parts = join_all(tasks).await.into_iter().collect::<ApiResult<Vec<_>>>()?;
         let parts = parts.into_iter().map(|part| part.unwrap()).collect::<Vec<_>>();
-        let body = uploader
-            .async_complete_parts(Arc::try_unwrap(initialized_parts).unwrap(), parts)
-            .await?;
+        let body = uploader.async_complete_parts(&initialized_parts, &parts).await?;
         assert_eq!(body.get("done").unwrap().as_u64().unwrap(), 1u64);
         Ok(())
     }
@@ -1553,7 +1543,7 @@ mod tests {
                     .map(|thread| thread.join().unwrap())
                     .collect::<ApiResult<Vec<_>>>()?;
                 let parts = parts.into_iter().map(|part| part.unwrap()).collect::<Vec<_>>();
-                let body = uploader.complete_parts(Arc::try_unwrap(initialized_parts).unwrap(), parts)?;
+                let body = uploader.complete_parts(&initialized_parts, &parts)?;
                 assert_eq!(body.get("done").unwrap().as_u64().unwrap(), 1u64);
             }
 
@@ -1746,9 +1736,7 @@ mod tests {
                 });
                 let parts = join_all(tasks).await.into_iter().collect::<ApiResult<Vec<_>>>()?;
                 let parts = parts.into_iter().map(|part| part.unwrap()).collect::<Vec<_>>();
-                let body = uploader
-                    .async_complete_parts(Arc::try_unwrap(initialized_parts).unwrap(), parts)
-                    .await?;
+                let body = uploader.async_complete_parts(&initialized_parts, &parts).await?;
                 assert_eq!(body.get("done").unwrap().as_u64().unwrap(), 1u64);
             }
 

@@ -206,7 +206,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
                 })
             });
             let parts = parts.into_inner().unwrap().into_iter().collect::<ApiResult<Vec<_>>>()?;
-            scheduler.multi_parts_uploader.complete_parts(initialized, parts)
+            scheduler.multi_parts_uploader.complete_parts(&initialized, &parts)
         }
     }
 
@@ -288,7 +288,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
             }
             scheduler
                 .multi_parts_uploader
-                .async_complete_parts(Arc::try_unwrap(initialized).unwrap(), parts)
+                .async_complete_parts(&initialized, &parts)
                 .await
         }
     }
