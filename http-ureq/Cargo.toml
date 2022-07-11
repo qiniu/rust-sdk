@@ -14,7 +14,7 @@ keywords = ["qiniu", "storage"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ureq = { version = "2.2.0" }
+ureq = { version = "2.5.0" }
 qiniu-http = { version = "0.1.2", path = "../http" }
 
 [features]
